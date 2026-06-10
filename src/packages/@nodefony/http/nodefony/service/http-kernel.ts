@@ -22,6 +22,7 @@ import {
 } from "../src/context/trustProxy";
 import {
   compileTrustedHosts,
+  compileDomainPatterns,
   isDomainAllowed,
   type TrustedHostsConfig,
 } from "../src/context/domainMatcher";
@@ -128,6 +129,15 @@ export interface Data {
 const serviceName: string = "HttpKernel";
 import type { IHttpKernel as IHttpKernelInterface } from "../interfaces/IHttpKernel";
 
+// B4 — hôtes loopback tolérés comme `Origin` WS en development (Studio Vite
+// cross-port ; IPv4 / IPv6 / hostname). Module-level → 0 alloc par handshake.
+const WS_DEV_LOOPBACK = new Set<string>([
+  "localhost",
+  "127.0.0.1",
+  "::1",
+  "[::1]",
+]);
+
 @injectable()
 class HttpKernel extends Service implements IHttpKernelInterface {
   certificates: unknown;
@@ -171,6 +181,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // Checker de confiance reverse-proxy, compilé une seule fois (lazy) depuis
   // options.trustProxy — pas de BlockList par requête.
   private _trustProxyChecker: TrustProxyChecker | null = null;
+  // B4 — politique d'Origin WS (anti-CSWSH) compilée paresseusement par type de
+  // serveur. Object.create(null) : petite map à accès ponctuel (règle perf).
+  private _wsOriginPolicy: Record<
+    string,
+    { disabled: boolean; extra: RegExp[] }
+  > = Object.create(null);
   constructor(module: Module) {
     super(
       serviceName,
@@ -246,6 +262,104 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       );
     }
     return this._trustProxyChecker;
+  }
+
+  /**
+   * Politique d'Origin WS (B4) compilée paresseusement pour un type de serveur
+   * (`websocket` / `websocketSecure`), depuis `options.<type>.allowedOrigins` :
+   *  - `true` → contrôle désactivé (`disabled`) ;
+   *  - `false` (défaut) → same-origin seul (`extra` vide) ;
+   *  - string/liste → Origins cross-origin additionnelles (compilées en RegExp).
+   *
+   * @param cfgKey - `"websocket"` ou `"websocketSecure"`.
+   * @returns la politique mémoïsée (0 alloc après le 1er handshake).
+   */
+  private getWsOriginPolicy(cfgKey: "websocket" | "websocketSecure"): {
+    disabled: boolean;
+    extra: RegExp[];
+  } {
+    let policy = this._wsOriginPolicy[cfgKey];
+    if (!policy) {
+      const raw = (
+        this.options[cfgKey] as { allowedOrigins?: TrustedHostsConfig }
+      )?.allowedOrigins;
+      if (raw === true) {
+        policy = { disabled: true, extra: [] };
+      } else {
+        // `raw` ici ∈ { false, undefined, string, RegExp, (string|RegExp)[] }.
+        // Truthy ⇒ patterns explicites ; false/undefined ⇒ same-origin seul.
+        const patterns = raw ? raw : [];
+        policy = {
+          disabled: false,
+          extra: compileDomainPatterns(
+            patterns as Parameters<typeof compileDomainPatterns>[0],
+          ),
+        };
+      }
+      this._wsOriginPolicy[cfgKey] = policy;
+    }
+    return policy;
+  }
+
+  /**
+   * B4 — Validation d'`Origin` au handshake WebSocket (anti-CSWSH, OWASP
+   * WSTG-CLNT-10). Les navigateurs n'appliquent PAS CORS aux WebSockets : sans
+   * ce contrôle, une page tierce peut ouvrir un WS **authentifié par le cookie de
+   * session de la victime** (reprise L1). On exige donc, par défaut, que
+   * l'`Origin` du handshake corresponde au `Host` servi (same-origin), avec
+   * tolérance loopback en development (Studio Vite cross-port) et allowlist
+   * explicite pour les SPA cross-origin (`allowedOrigins`).
+   *
+   * Une requête SANS `Origin` (client non-navigateur) est acceptée : un attaquant
+   * non-navigateur n'a pas besoin de CSWSH, il se connecte directement.
+   *
+   * @param context - contexte WebSocket au handshake (avant `connect()`).
+   * @throws {HttpError} code WS 1008 (Policy Violation) si l'Origin est refusée.
+   */
+  checkWebsocketOrigin(context: WebsocketContext): void {
+    const cfgKey =
+      context.type === "websocket-secure" ? "websocketSecure" : "websocket";
+    const policy = this.getWsOriginPolicy(cfgKey);
+    if (policy.disabled) {
+      return;
+    }
+    const raw = context.origin;
+    // Pas d'Origin (client non-navigateur) → autorisé (cf doctrine ci-dessus).
+    if (!raw) {
+      return;
+    }
+    let originHost: string | null = null;
+    try {
+      originHost = new URL(raw).hostname;
+    } catch {
+      originHost = null;
+    }
+    if (originHost) {
+      // Same-origin : l'Origin doit correspondre au Host servi (port ignoré).
+      if (originHost === context.domain) {
+        return;
+      }
+      // Development : loopback toléré (page Vite 5173 → serveur 5151, IP mixtes).
+      if (
+        this.kernel?.environment === "development" &&
+        WS_DEV_LOOPBACK.has(originHost)
+      ) {
+        return;
+      }
+      // Allowlist explicite (SPA cross-origin en production).
+      if (policy.extra.length && isDomainAllowed(policy.extra, originHost)) {
+        return;
+      }
+    }
+    // Code WS 1008 « Policy Violation » directement : le renderWebsocket laisse
+    // passer 1000-4999 ; un 403 HTTP serait écrasé en 1011 au handshake.
+    const error = new HttpError(
+      `WebSocket Origin "${raw}" not allowed (CSWSH protection)`,
+      1008,
+      context,
+    );
+    (error as HttpError & { type?: string }).type = "origin";
+    throw error;
   }
 
   /**
@@ -340,15 +454,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (this.firewall && checkFirewall) {
       context.secure = this.firewall.isSecure(context);
     }
-    if (context.security) {
-      //const res = this.firewall.handleCrossDomain(context);
-      const res: number | null = null;
-      if (context.crossDomain && context.method === "OPTIONS") {
-        if (res === 204) {
-          return res;
-        }
-      }
-    }
+    // SEAM P6 — CORS / preflight. Quand `@nodefony/security` portera la politique
+    // cross-origin, le preflight `OPTIONS` cross-origin court-circuitera ici en
+    // `204 No Content` + en-têtes `Access-Control-*` (via le firewall, hook
+    // beforeResolve). Aucune politique CORS centralisée n'existe encore (B3) — ne
+    // PAS réintroduire de `handleCrossDomain` mort : le `204` remonte déjà aux
+    // appelants (`onRequestEnd` / `onConnect`) via le type de retour `number`.
     // FRONT ROUTER — P2.9 : réutilise le résolveur si déjà matché EN AMONT
     // (handleHttp hisse le match avant le parse pour décider du skip). Sinon
     // (WebSocket, ou pas de pré-match), match ici comme avant. Pas de double match.
@@ -840,25 +951,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       } finally {
         context.phaseEnd("firewall");
       }
-      // CSRF TOKEN
-      // if (context.csrf) {
-      //   const token = await this.csrfService.handle(context);
-      //   if (token) {
-      //     this.log("CSRF TOKEN OK", "DEBUG");
-      //   }
-      // }
+      // SEAM P6 — CSRF : sur une zone sécurisée, la validation du token (mutations
+      // state-changing) se branchera ici via le firewall (`@nodefony/security`).
       return context;
     }
 
     // SESSIONS
     await this.startSession(context);
-    // CSRF TOKEN
-    // if (context.csrf) {
-    //   const token = await this.csrfService.handle(context);
-    //   if (token) {
-    //     this.log("CSRF TOKEN OK", "DEBUG");
-    //   }
-    // }
+    // SEAM P6 — CSRF : la validation du token (mutations state-changing) se
+    // branchera ici via le firewall (`@nodefony/security`).
     return context;
   }
 
@@ -1033,6 +1134,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (this.domainCheck) {
         this.checkValidDomain(context);
       }
+      // B4 — anti-CSWSH : valide l'Origin du handshake (same-origin par défaut,
+      // loopback dev toléré, allowlist `allowedOrigins`). Refus → close WS 1008.
+      this.checkWebsocketOrigin(context);
       // SECURITY HOOK — beforeResolve (P1.7) — WS
       await this.fireAsync("beforeResolve", context);
       // FRONT CONTROLLER

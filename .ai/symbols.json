@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-10T17:37:48.218Z",
+  "generated": "2026-06-10T19:13:28.114Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -13935,6 +13935,7 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
@@ -15430,7 +15431,8 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "compileDomainPatterns": [
-        "src/packages/@nodefony/framework/nodefony/src/Route.ts"
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
