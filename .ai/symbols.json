@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-10T20:19:39.236Z",
+  "generated": "2026-06-10T20:26:02.677Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 838,
-    "symbols": 1729,
+    "symbols": 1732,
     "classes": 241,
-    "interfaces": 431,
+    "interfaces": 432,
     "types": 223,
     "enums": 3,
-    "functions": 345,
+    "functions": 347,
     "constants": 486
   },
   "symbols": {
@@ -4553,6 +4553,15 @@
       "extends": null,
       "description": "Contexte structurel minimal nécessaire pour résoudre les arguments injectés par les décorateurs de paramètre. Volontairement découplé de `HttpContext` (typage par forme) → la résolution est une fon…"
     },
+    "RouteActionMeta": {
+      "name": "RouteActionMeta",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Snapshot des métadonnées d'action d'une route (`@HttpCode`/`@Header`/ `@Redirect`/paramètres décorés/intent de session), résolu UNE fois par route puis figé sur `route.actionMeta` (cf {@link resolv…"
+    },
     "ParamSource": {
       "name": "ParamSource",
       "kind": "type",
@@ -4675,6 +4684,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "P2.9 — Indique si l'action d'une route attend le **flux brut** du body (un paramètre `@Body({ stream:true })`). Le résultat est **mémoïsé** sur `route.bodyStream` : lecture `Reflect` au 1er appel, …"
+    },
+    "computeActionMeta": {
+      "name": "computeActionMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "P5 — Calcule le {@link RouteActionMeta} d'un couple (controller, action) par lecture `Reflect`. Fonction PURE (pas de memo) : utilisée par {@link resolveActionMeta} (routes, mémoïsé) et par le `Res…"
+    },
+    "resolveActionMeta": {
+      "name": "resolveActionMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "P5 — Metadata d'action d'une route, **mémoïsées au 1er hit** sur `route.actionMeta` (pattern frère de {@link routeExpectsBodyStream}) : `undefined` = pas encore résolu → 1 lecture `Reflect` par rou…"
     },
     "HTTP_CODE_METADATA": {
       "name": "HTTP_CODE_METADATA",
@@ -15408,23 +15433,21 @@
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
-      "HTTP_CODE_METADATA": [
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "HEADERS_METADATA": [
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "REDIRECT_METADATA": [
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "PARAM_ARGS_METADATA": [
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
       "buildParamArgs": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "resolveSessionIntent": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "resolveActionMeta": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "computeActionMeta": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "RouteActionMeta": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts"
       ],
       "RedirectMeta": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"

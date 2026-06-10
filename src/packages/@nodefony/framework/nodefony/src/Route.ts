@@ -9,6 +9,7 @@ import {
   isDomainAllowed,
 } from "@nodefony/http";
 import type { IRoute } from "../interfaces/index.js";
+import type { RouteActionMeta } from "../decorators/routerDecorators.js";
 import { createHash } from "node:crypto";
 import { typeOf } from "nodefony";
 import Controller from "./Controller";
@@ -150,6 +151,14 @@ class Route implements IRoute {
    * ensuite). Lu en amont par `handleHttp` pour sauter le parse.
    */
   bodyStream?: boolean;
+  /**
+   * P5 — Metadata d'action figées (`@HttpCode`/`@Header`/`@Redirect`/params/
+   * session), memo au 1er hit comme {@link bodyStream} : `undefined` = pas
+   * encore résolu (via `resolveActionMeta`, 1 lecture Reflect par route, O(1)
+   * ensuite → plus aucun `Reflect.getMetadata` par requête). Objet PARTAGÉ
+   * entre requêtes — ne jamais muter. Posé après `generateId()` → hash stable.
+   */
+  actionMeta?: RouteActionMeta;
   filePath?: string;
   /**
    * Module propriétaire de la route — set par `Router.setController()` à

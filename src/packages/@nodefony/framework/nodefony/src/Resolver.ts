@@ -23,12 +23,11 @@ import Route, { ControllerConstructor } from "./Route.js";
 import BlueBird from "bluebird";
 import Controller from "./Controller";
 import {
-  HTTP_CODE_METADATA,
-  HEADERS_METADATA,
-  REDIRECT_METADATA,
-  PARAM_ARGS_METADATA,
   buildParamArgs,
   resolveSessionIntent,
+  resolveActionMeta,
+  computeActionMeta,
+  type RouteActionMeta,
   type RedirectMeta,
   type ParamMeta,
   type IParamArgContext,
@@ -92,10 +91,8 @@ class Resolver implements IResolver {
         }
         // Intent de session de la route (depuis `@UseSession` / paramètre
         // `@Session`) → pilote le point d'activation unique (HttpKernel.startSession).
-        this.context.sessionIntent = resolveSessionIntent(
-          this.controller,
-          this.actionName as string,
-        );
+        // P5 : lu depuis le memo de route (0 Reflect par requête).
+        this.context.sessionIntent = resolveActionMeta(route).sessionIntent;
       }
       return match;
     } catch (e) {
@@ -226,27 +223,22 @@ class Resolver implements IResolver {
     }
     controller.setRoute(this.route!);
     const methodKey = this.actionName as keyof typeof controller;
+    // P5 : metadata d'action figées sur la route (memo, 0 Reflect/req). Forward
+    // (`parsePathernController`, pas de route) → calcul direct (chemin froid).
+    const meta = this.route
+      ? resolveActionMeta(this.route)
+      : computeActionMeta(this.controller, this.actionName);
     let args: unknown[];
-    if (data) {
+    if (meta.paramsMeta) {
+      args = this._buildParamArgs(meta.paramsMeta);
+    } else if (data) {
       args = [...this.variables, ...data];
     } else {
       args = [...this.variables];
     }
-    const proto = Object.getPrototypeOf(controller);
-    const paramsMeta: ParamMeta[] | undefined = Reflect.getMetadata(
-      PARAM_ARGS_METADATA,
-      proto,
-      this.actionName!,
-    );
-    if (paramsMeta && paramsMeta.length > 0) {
-      args = this._buildParamArgs(paramsMeta);
-    }
-    this._applyResponseDecorators(controller, proto);
-    const redirectMeta: RedirectMeta | undefined = Reflect.getMetadata(
-      REDIRECT_METADATA,
-      proto,
-      this.actionName!,
-    );
+    this._applyResponseMeta(controller, meta);
+    const redirectMeta: RedirectMeta | undefined =
+      meta.redirectMeta ?? undefined;
     if (typeof controller[methodKey] === "function") {
       return {
         result: (controller[methodKey] as (...a: unknown[]) => unknown)(
@@ -290,28 +282,23 @@ class Resolver implements IResolver {
     });
   }
 
-  private _applyResponseDecorators(
+  /**
+   * Applique `@HttpCode` + `@Header` depuis le snapshot figé de la route
+   * (P5) — plus aucune lecture `Reflect` ni `Object.entries` par requête.
+   */
+  private _applyResponseMeta(
     controller: Controller,
-    proto: object,
+    meta: RouteActionMeta,
   ): void {
-    const httpCode: number | undefined = Reflect.getMetadata(
-      HTTP_CODE_METADATA,
-      proto,
-      this.actionName!,
-    );
-    if (httpCode !== undefined) {
-      controller.response?.setStatusCode(httpCode);
+    if (meta.httpCode !== null) {
+      controller.response?.setStatusCode(meta.httpCode);
     }
-    const headers: Record<string, string> | undefined = Reflect.getMetadata(
-      HEADERS_METADATA,
-      proto,
-      this.actionName!,
-    );
-    if (headers) {
-      for (const [key, value] of Object.entries(headers)) {
+    const entries = meta.headerEntries;
+    if (entries) {
+      for (let i = 0; i < entries.length; i++) {
         (controller.response as HttpResponse | Http2Response | null)?.setHeader(
-          key,
-          value,
+          entries[i][0],
+          entries[i][1],
         );
       }
     }

@@ -643,6 +643,90 @@ function routeExpectsBodyStream(route: {
   return route.bodyStream;
 }
 
+// ── P5 — Metadata d'action FIGÉES par route (memo, hot path 0 Reflect) ──────
+
+/**
+ * Snapshot des métadonnées d'action d'une route (`@HttpCode`/`@Header`/
+ * `@Redirect`/paramètres décorés/intent de session), résolu UNE fois par route
+ * puis figé sur `route.actionMeta` (cf {@link resolveActionMeta}). Objet
+ * **PARTAGÉ entre toutes les requêtes** de la route — ne jamais muter.
+ */
+export interface RouteActionMeta {
+  /** Paramètres décorés (`@Param`/`@Body`/`@Query`…) — `null` si aucun. */
+  paramsMeta: ParamMeta[] | null;
+  /** `@Redirect` de l'action — `null` si absent. */
+  redirectMeta: RedirectMeta | null;
+  /** `@HttpCode` de l'action — `null` si absent. */
+  httpCode: number | null;
+  /** Entrées `@Header` pré-dépliées (`Object.entries` fait 1×) — `null` si aucune. */
+  headerEntries: [string, string][] | null;
+  /** Intent `@UseSession`/`@Session` — `null` si la route n'en déclare pas. */
+  sessionIntent: SessionIntent | null;
+}
+
+const EMPTY_ACTION_META: RouteActionMeta = {
+  paramsMeta: null,
+  redirectMeta: null,
+  httpCode: null,
+  headerEntries: null,
+  sessionIntent: null,
+};
+
+/**
+ * P5 — Calcule le {@link RouteActionMeta} d'un couple (controller, action) par
+ * lecture `Reflect`. Fonction PURE (pas de memo) : utilisée par
+ * {@link resolveActionMeta} (routes, mémoïsé) et par le `Resolver` pour le
+ * chemin froid du forward (`parsePathernController`, pas de route).
+ */
+function computeActionMeta(
+  ctor?: { prototype: object } | null,
+  method?: string,
+): RouteActionMeta {
+  if (!ctor || !method) {
+    return EMPTY_ACTION_META;
+  }
+  const proto = ctor.prototype;
+  const params = Reflect.getMetadata(PARAM_ARGS_METADATA, proto, method) as
+    | ParamMeta[]
+    | undefined;
+  const redirect = Reflect.getMetadata(REDIRECT_METADATA, proto, method) as
+    | RedirectMeta
+    | undefined;
+  const httpCode = Reflect.getMetadata(HTTP_CODE_METADATA, proto, method) as
+    | number
+    | undefined;
+  const headers = Reflect.getMetadata(HEADERS_METADATA, proto, method) as
+    | Record<string, string>
+    | undefined;
+  return {
+    paramsMeta: params && params.length > 0 ? params : null,
+    redirectMeta: redirect ?? null,
+    httpCode: httpCode ?? null,
+    headerEntries: headers ? Object.entries(headers) : null,
+    sessionIntent: resolveSessionIntent(ctor as ControllerConstructor, method),
+  };
+}
+
+/**
+ * P5 — Metadata d'action d'une route, **mémoïsées au 1er hit** sur
+ * `route.actionMeta` (pattern frère de {@link routeExpectsBodyStream}) :
+ * `undefined` = pas encore résolu → 1 lecture `Reflect` par route pour la vie
+ * du process, O(1) ensuite. Sort `Reflect.getMetadata` (~6 appels/req) du hot
+ * path `match`/`executeAction`. Posé APRÈS `generateId()` (1ʳᵉ requête) → le
+ * hash de route et l'introspection Studio restent stables. Typage structurel
+ * (pas d'import `Route` → 0 cycle).
+ */
+function resolveActionMeta(route: {
+  controller?: { prototype: object } | null;
+  classMethod?: string;
+  actionMeta?: RouteActionMeta;
+}): RouteActionMeta {
+  if (route.actionMeta === undefined) {
+    route.actionMeta = computeActionMeta(route.controller, route.classMethod);
+  }
+  return route.actionMeta;
+}
+
 export {
   route,
   controller,
@@ -674,4 +758,6 @@ export {
   resolveParamArg,
   buildParamArgs,
   routeExpectsBodyStream,
+  computeActionMeta,
+  resolveActionMeta,
 };
