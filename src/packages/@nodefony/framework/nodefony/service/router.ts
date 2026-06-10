@@ -54,6 +54,16 @@ class Router extends Service {
   //static controllers = controllers;
   static routes = routes;
   routes: Route[] = Router.routes;
+  // V4.3 — instances singleton par classe controller, kernel-scoped (le cache
+  // meurt avec le Router/kernel : pas de bleed entre kernels d'un même process,
+  // tests inclus). Lazy `null` : coût zéro pour une app 100 % per-request.
+  // TS `private` (PAS `#`) : le pattern proxy des tests (`Object.create`) ne
+  // passe pas par le ctor — un champ `#` y jetterait TypeError ; le guard
+  // `== null` couvre `null` ET `undefined` (proxy sans champ).
+  private singletonControllers: Map<
+    TypeController<Controller>,
+    Promise<Controller>
+  > | null = null;
   constructor(
     module: Module,
     //@inject("HttpKernel") private httpKernel: HttpKernel
@@ -64,6 +74,32 @@ class Router extends Service {
       module.notificationsCenter as Event,
       module.options.router,
     );
+  }
+
+  /**
+   * Retourne l'instance singleton d'une classe controller `@Scope("singleton")`,
+   * en la créant au premier appel via `create`. On cache la **promesse** (pas
+   * l'instance) : N requêtes concurrentes pendant la création (`initialize()`
+   * async) attendent le MÊME travail — jamais deux instances (race de création
+   * éliminée structurellement).
+   *
+   * @param ctor - la classe controller (clé du cache).
+   * @param create - fabrique exécutée une seule fois (instantiate + initialize).
+   * @returns la promesse de l'instance partagée.
+   */
+  getSingletonController(
+    ctor: TypeController<Controller>,
+    create: () => Promise<Controller>,
+  ): Promise<Controller> {
+    if (this.singletonControllers == null) {
+      this.singletonControllers = new Map();
+    }
+    let instance = this.singletonControllers.get(ctor);
+    if (!instance) {
+      instance = create();
+      this.singletonControllers.set(ctor, instance);
+    }
+    return instance;
   }
 
   /**

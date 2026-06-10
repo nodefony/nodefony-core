@@ -176,26 +176,60 @@ class Resolver implements IResolver {
   }
 
   async newController(context?: ContextType): Promise<Controller> {
-    if (this.controller) {
-      const controller = this.injector?.instantiate<Controller>(
-        this.controller,
-        context || this.context,
-      );
-      if (controller) {
-        // Cache per-CONTEXT (pas per-Resolver) : un message WS suivant ou un
-        // forward (`reload`) retrouve l'instance via le container partagé.
-        this.context.container?.set("controller", controller);
-        if (
-          "initialize" in controller &&
-          typeof controller.initialize === "function"
-        ) {
-          await controller.initialize();
-          return controller as Controller;
-        }
-        return controller as Controller;
-      }
+    if (!this.controller) {
+      throw new Error(`Route Controller not found`);
     }
-    throw new Error(`Route Controller not found`);
+    // V4.3 — scope statique de la classe (posé par `@Scope`, hérité de
+    // Controller) : lecture directe, 0 Reflect. Singleton → instance partagée
+    // depuis le cache kernel-scoped du Router (la promesse est cachée AVANT le
+    // 1er await : les requêtes concurrentes de la création n'instancient pas).
+    if (
+      (this.controller as unknown as typeof Controller).scope === "singleton"
+    ) {
+      const router = this.context.router;
+      const controller = router
+        ? await router.getSingletonController(this.controller, () =>
+            this._createController(context),
+          )
+        : // Pas de Router (harness de test) → dégradé per-request, sans cache.
+          await this._createController(context);
+      // Pointeur posé sur le container de REQUÊTE : un message WS suivant ou
+      // un forward (`reload`) retrouve l'instance par le chemin existant.
+      this.context.container?.set("controller", controller);
+      return controller;
+    }
+    const controller = await this._createController(context);
+    // Cache per-CONTEXT (pas per-Resolver) : un message WS suivant ou un
+    // forward (`reload`) retrouve l'instance via le container partagé.
+    this.context.container?.set("controller", controller);
+    return controller;
+  }
+
+  /**
+   * Instancie la classe controller résolue (DI) + hooks de création : `module`
+   * (constante de classe, shadow d'instance posé 1× ici — plus de write par
+   * requête dans `executeAction`) puis `initialize()`. Pour un singleton,
+   * `initialize()` n'est donc appelé qu'UNE fois, à la création (sémantique
+   * boot) — le per-request y lit l'ALS s'il a besoin de la requête.
+   */
+  private async _createController(context?: ContextType): Promise<Controller> {
+    const controller = this.injector?.instantiate<Controller>(
+      this.controller as ControllerConstructor,
+      context || this.context,
+    );
+    if (!controller) {
+      throw new Error(`Route Controller not found`);
+    }
+    if (this.controller?.prototype.module) {
+      controller.module = this.controller.prototype.module;
+    }
+    if (
+      "initialize" in controller &&
+      typeof controller.initialize === "function"
+    ) {
+      await controller.initialize();
+    }
+    return controller as Controller;
   }
 
   /**
@@ -218,10 +252,16 @@ class Resolver implements IResolver {
     if (!controller || reload) {
       controller = await this.newController();
     }
-    if (this.controller?.prototype.module) {
-      controller.module = this.controller?.prototype.module;
+    // V4.3 — `module` est posé à la création (`_createController`), plus par
+    // requête. `setRoute` (write per-request sur l'instance) est SKIPPÉ pour
+    // un singleton — data race sinon ; son getter `route` dérive du Resolver
+    // de la requête courante (`context.resolver.route`, V4.1).
+    if (
+      (this.controller as unknown as typeof Controller | null)?.scope !==
+      "singleton"
+    ) {
+      controller.setRoute(this.route!);
     }
-    controller.setRoute(this.route!);
     const methodKey = this.actionName as keyof typeof controller;
     // P5 : metadata d'action figées sur la route (memo, 0 Reflect/req). Forward
     // (`parsePathernController`, pas de route) → calcul direct (chemin froid).
@@ -236,7 +276,7 @@ class Resolver implements IResolver {
     } else {
       args = [...this.variables];
     }
-    this._applyResponseMeta(controller, meta);
+    this._applyResponseMeta(meta);
     const redirectMeta: RedirectMeta | undefined =
       meta.redirectMeta ?? undefined;
     if (typeof controller[methodKey] === "function") {
@@ -285,18 +325,19 @@ class Resolver implements IResolver {
   /**
    * Applique `@HttpCode` + `@Header` depuis le snapshot figé de la route
    * (P5) — plus aucune lecture `Reflect` ni `Object.entries` par requête.
+   * V4.3 : cible la response du CONTEXT (per-request : identique à
+   * `controller.response` ; singleton : la seule source correcte — l'instance
+   * partagée ne porte aucune response).
    */
-  private _applyResponseMeta(
-    controller: Controller,
-    meta: RouteActionMeta,
-  ): void {
+  private _applyResponseMeta(meta: RouteActionMeta): void {
+    const response = this.context.response;
     if (meta.httpCode !== null) {
-      controller.response?.setStatusCode(meta.httpCode);
+      response?.setStatusCode(meta.httpCode);
     }
     const entries = meta.headerEntries;
     if (entries) {
       for (let i = 0; i < entries.length; i++) {
-        (controller.response as HttpResponse | Http2Response | null)?.setHeader(
+        (response as HttpResponse | Http2Response | null)?.setHeader(
           entries[i][0],
           entries[i][1],
         );

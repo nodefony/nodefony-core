@@ -59,8 +59,26 @@ type ReadStreamOptions = {
   highWaterMark?: number;
 };
 
+/**
+ * Scope d'instanciation d'un controller (V4.3).
+ *
+ * - `"request"` (défaut) : une instance par requête — l'état per-request peut
+ *   vivre sur `this` (legacy sûr, zéro breaking).
+ * - `"singleton"` (opt-in via `@Scope`) : UNE instance partagée par toutes les
+ *   requêtes — réservé aux controllers **stateless** (état uniquement via
+ *   arguments décorés + ALS). Un champ mutable par requête sur `this` y serait
+ *   une data race silencieuse entre requêtes concurrentes.
+ */
+export type ControllerScope = "request" | "singleton";
+
 class Controller extends Service implements IController {
   static prefix: string = "/";
+  /**
+   * Scope d'instanciation de la classe — `"request"` par défaut, `"singleton"`
+   * posé par le décorateur `@Scope` (statique hérité, lu via `new.target` au
+   * constructor et par le Resolver : 0 Reflect). Cf {@link ControllerScope}.
+   */
+  static scope: ControllerScope = "request";
   // V4.1 — état per-request en champs SHADOW privés (null par défaut, 0 alloc :
   // remplace 4 snapshots `{}`/`[]` alloués par construction). Les accessors
   // publics dérivent du `context` LIVE (`shadow ?? dérivation`) : plus de
@@ -179,13 +197,25 @@ class Controller extends Service implements IController {
     context: ContextType,
     //@inject("HttpKernel") private httpKernel?: HttpKernel
   ) {
+    // V4.3 — `new.target` lit le statique `scope` de la classe la plus dérivée
+    // (posé par `@Scope("singleton")`, hérité sinon). Singleton : bindé au
+    // container du KERNEL — celui de la requête est `clean()`é au teardown,
+    // le capturer = `this.get()` sur un container mort dès la requête suivante.
+    // Et AUCUNE capture per-request (pas de `setContext`) : l'état de la
+    // requête arrive par l'ALS (V4.1), jamais par `this`.
+    const singleton = (new.target as typeof Controller).scope === "singleton";
+    const kernel = singleton ? context.kernel : null;
     super(
       name,
-      context.container as Container,
-      context.notificationsCenter as Event,
+      ((singleton ? kernel?.container : null) ??
+        context.container) as Container,
+      ((singleton ? kernel?.notificationsCenter : null) ??
+        context.notificationsCenter) as Event,
     );
     this.template = this.get<Eta>("template");
-    this.setContext(context);
+    if (!singleton) {
+      this.setContext(context);
+    }
   }
 
   setContext(context: ContextType) {

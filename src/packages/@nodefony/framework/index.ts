@@ -35,6 +35,7 @@ import {
   Head,
   All,
   Domain,
+  Scope,
   UseSession,
   HttpCode,
   Header,
@@ -162,6 +163,7 @@ export {
   Head,
   All,
   Domain,
+  Scope,
   UseSession,
   HttpCode,
   Header,
@@ -181,6 +183,7 @@ export {
   frameworkConfigSchema,
   frameworkConfigJsonSchema,
 };
+export type { ControllerScope } from "./nodefony/src/Controller";
 export type {
   FrameworkConfig,
   FrameworkConfigInput,

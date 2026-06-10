@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-10T21:09:47.175Z",
+  "generated": "2026-06-10T21:23:00.659Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 838,
-    "symbols": 1732,
+    "symbols": 1734,
     "classes": 241,
     "interfaces": 432,
-    "types": 223,
+    "types": 224,
     "enums": 3,
-    "functions": 347,
+    "functions": 348,
     "constants": 486
   },
   "symbols": {
@@ -4637,6 +4637,14 @@
       "module": "@nodefony/framework",
       "description": "Restreint une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) à un ou plusieurs vhosts. Source de vérité du domaine de routing — le `host` posé ici alimente `Rout…"
     },
+    "@nodefony/framework:Scope": {
+      "name": "Scope",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Déclare le scope d'instanciation d'un controller (V4.3) — pose le statique `scope` de la classe (hérité de `Controller`, défaut `\"request\"`). Lu par le constructor de `Controller` (`new.target`) et…"
+    },
     "UseSession": {
       "name": "UseSession",
       "kind": "function",
@@ -4865,6 +4873,14 @@
         "IController"
       ],
       "decorators": []
+    },
+    "ControllerScope": {
+      "name": "ControllerScope",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Scope d'instanciation d'un controller (V4.3). - `\"request\"` (défaut) : une instance par requête — l'état per-request peut vivre sur `this` (legacy sûr, zéro breaking). - `\"singleton\"` (opt-in via `…"
     },
     "DocFrontmatter": {
       "name": "DocFrontmatter",
@@ -13803,6 +13819,15 @@
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts"
       ],
+      "Scope": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/nodefony/src/command/Command.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
       "UseSession": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -14306,14 +14331,6 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
-      ],
-      "Scope": [
-        "src/nodefony/src/command/Command.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "Builder": [
         "src/nodefony/src/command/Command.ts"
@@ -15265,6 +15282,9 @@
       "RouteOptions": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts"
+      ],
+      "ControllerScope": [
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"
       ],
       "ControllerConstructor": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",

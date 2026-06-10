@@ -3,6 +3,7 @@ import "reflect-metadata";
 import Router, { TypeController } from "../service/router";
 import { RouteOptions } from "../src/Route";
 import Controller from "../src/Controller";
+import type { ControllerScope } from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
 import { Module } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
@@ -368,6 +369,35 @@ function Domain(patterns: string | string[]) {
       propertyKey,
     );
     return descriptor;
+  };
+}
+
+// ── Scope decorator (classe) ────────────────────────────────────────────────
+
+/**
+ * Déclare le scope d'instanciation d'un controller (V4.3) — pose le statique
+ * `scope` de la classe (hérité de `Controller`, défaut `"request"`). Lu par le
+ * constructor de `Controller` (`new.target`) et par le `Resolver` : 0 Reflect.
+ *
+ * `@Scope("singleton")` : UNE instance partagée par toutes les requêtes
+ * (cache kernel-scoped sur le Router, `initialize()` appelé 1× à la création).
+ * **Contrat stateless strict** : l'action ne lit/n'écrit AUCUN état par requête
+ * sur `this` — tout passe par les arguments décorés (`@Param`/`@Body`…) et les
+ * helpers, qui retrouvent la requête courante via l'ALS (V4.1). Un champ muté
+ * par requête sur un singleton = data race silencieuse entre deux requêtes
+ * concurrentes. Le défaut per-request reste inchangé (0 breaking legacy).
+ *
+ * ⚠️ Homonyme : le core `nodefony` exporte aussi `Scope` (le scope DI du
+ * `Container`) — celui-ci s'importe depuis `@nodefony/framework`.
+ *
+ * @example
+ * \@Scope("singleton")
+ * \@controller("/api/books")
+ * class BookController extends ResourceController { ... }
+ */
+function Scope(scope: ControllerScope) {
+  return function <T extends { scope?: ControllerScope }>(target: T): void {
+    target.scope = scope;
   };
 }
 
@@ -740,6 +770,7 @@ export {
   Head,
   All,
   Domain,
+  Scope,
   UseSession,
   resolveSessionIntent,
   HttpCode,
