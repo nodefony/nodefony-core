@@ -3,7 +3,7 @@ title: Plan d'action — durcissement du cycle de vie requête (sécu · perf ·
 date: 2026-06-10
 branch: poc/api-souveraine
 status: plan figé — exécution par vagues committables
-progress: "V1 ✅ (0860a48) · V2 ✅ (55405ff + 4592679, A/B +2,2 %) · V3 ✅ (9b4dde4 POJO + c6010b0 P5, A/B ~+6 % — 3/3 paires) · V4/V5 à venir"
+progress: "V1 ✅ (0860a48) · V2 ✅ (55405ff + 4592679, A/B +2,2 %) · V3 ✅ (9b4dde4 POJO + c6010b0 P5, A/B ~+6 % — 3/3 paires) · V4 ✅ (6905ec3 ALS + 18b6e72 @Scope + V4.2 ResourceController — A/B singleton≈per-request dans le bruit, archi pas perf) · V5 à venir"
 depends_on: request-lifecycle-2026-06.md (findings)
 principe: "réversible et local d'abord ; structurel seulement une fois le souverain stable. Le mieux est l'ennemi du bien."
 ---
@@ -97,15 +97,37 @@ hot path. Le POC souverain `executeAction` en bénéficie immédiatement.
 > PAS au défaut « controller per-request » ; on rend le singleton _possible_ et le
 > `ResourceController` souverain en est le premier client.
 
-| Lot     | Objet                                                                                                                                                                            | Risque                                                          | Gate                                    |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------- |
-| **4.1** | Helpers controller (`render`/`session`/`response`) capables de lire le `context` via l'ALS `RequestContext` (en plus de `this.context`) — pré-requis du singleton sans data race | moyen — bien tester l'équivalence ALS vs `this`                 | integration + memory                    |
-| **4.2** | `ResourceController` souverain **stateless par construction** (état via décorateurs args + ALS, jamais `this.query=`)                                                            | —                                                               | tests POC souverain                     |
-| **4.3** | `@Scope("singleton")` **opt-in** : réutilise l'instance pour les controllers annotés stateless ; **défaut = per-request inchangé** (0 breaking legacy)                           | moyen — la data race est le piège : interdit si champs mutables | integration + memory + test concurrence |
+| Lot     | Objet                                                                                                                                                                            | Risque                                                          | Gate                                    | État             |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------- | ---------------- |
+| **4.1** | Helpers controller (`render`/`session`/`response`) capables de lire le `context` via l'ALS `RequestContext` (en plus de `this.context`) — pré-requis du singleton sans data race | moyen — bien tester l'équivalence ALS vs `this`                 | integration + memory                    | ✅ `6905ec3`     |
+| **4.2** | `ResourceController` souverain **stateless par construction** (état via décorateurs args + ALS, jamais `this.query=`)                                                            | —                                                               | tests POC souverain                     | ✅ (commit V4.2) |
+| **4.3** | `@Scope("singleton")` **opt-in** : réutilise l'instance pour les controllers annotés stateless ; **défaut = per-request inchangé** (0 breaking legacy)                           | moyen — la data race est le piège : interdit si champs mutables | integration + memory + test concurrence | ✅ `18b6e72`     |
 
 ⚠️ **Le piège nommé** : un singleton n'est sûr que sans état par requête sur `this`.
 Donc : défaut per-request CONSERVÉ, singleton réservé à l'opt-in explicite + au souverain.
 Jamais de flip global.
+
+**Livré (2026-06-10, ordre 4.1 → 4.3 → 4.2** — le ResourceController naît directement
+singleton, ses tests E2E prouvent les deux lots) :
+
+- **4.1** `6905ec3` : payload ALS gagne `context` (core + http-kernel HTTP/WS) ; champs
+  per-request du Controller → accessors `shadow ?? dérivation` (toujours frais — le
+  `once("onRequestEnd")` et 4 allocs `{}`/`[]` par construction disparaissent). Per-request :
+  0 lecture ALS (champ d'abord).
+- **4.3** `18b6e72` : `@Scope` pose le statique `Controller.scope` (hérité, `new.target` au
+  ctor, 0 Reflect) ; singleton bindé au container KERNEL (celui de la requête est clean()é) ;
+  cache de la **promesse** de création sur le Router (anti-race) ; `setRoute`/`module` writes
+  skippés ; `initialize()` 1× à la création.
+- **4.2** (commit suivant) : `ResourceController<T>` singleton PAR DÉFAUT + `IResourceService`
+  structurel (aligné AbstractCrudService, 0 dep orm-core) + helpers CRUD valeur-brute
+  (écriture absente → 501, criteria jamais implicites — deny-by-default). Dette Ph.1 corrigée :
+  garde-fou `instanceof` sur le pointeur "controller" du container (invoke WS multi-messages).
+  POC `/poc/r-books` : E2E **anti-data-race** (8 requêtes concurrentes → body.requestId ≡
+  header X-Request-Id, 8 ids uniques, 1 instance) + même action en REST et WS invoke.
+- **A/B mono prod** (3 paires alternées) : singleton ≈ per-request — **dans le bruit**
+  (-1,2 % / +5,0 %, 1 paire polluée écartée : même URL re-run +30 % d'écart interne). V4 est
+  une vague **archi/sécurité de concurrence**, pas perf ; le ROI RPS viendra du fast path
+  (backlog P2/P3b) qui s'appuiera sur ces seams.
 
 ---
 

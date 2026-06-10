@@ -164,6 +164,14 @@ Déclare le besoin de **session serveur** (chantier session étape 5, 2026-06-07
 
 **P5 (V3.2 2026-06-10) — metadata d'action FIGÉES par route** : `route.actionMeta` (`RouteActionMeta` = `{paramsMeta, redirectMeta, httpCode, headerEntries, sessionIntent}`), memo au 1er hit via `resolveActionMeta(route)` (pattern frère `routeExpectsBodyStream`) → **0 `Reflect.getMetadata`/`Object.entries` par requête** (avant : ~6/req). `computeActionMeta(ctor, method)` = calcul pur (chemin froid forward). Snapshot PARTAGÉ entre requêtes — ne JAMAIS muter. Posé après `generateId()` → hash route stable. A/B mono prod : ~+6 % RPS (cumul V3.1+V3.2).
 
+**V4 (2026-06-10) — stateless + singleton opt-in** :
+
+- **V4.1 accessors ALS** (`6905ec3`) : champs per-request Controller → accessors `shadow ?? dérivation` (`#context` posé par `setContext` ; `request/response/method/query*` dérivent du context LIVE ; `route` via `context.resolver` ; `context` retombe sur `RequestContext.getContext()` si champ absent). Per-request : 0 lecture ALS. Supprimés : `once("onRequestEnd")` + 4 allocs `{}`/`[]`/construction. Payload ALS porte `context` (posé par http-kernel, HTTP+WS).
+- **V4.3 `@Scope("singleton")`** (`18b6e72`) : statique `Controller.scope` (défaut `"request"`, hérité, lu `new.target` + Resolver — 0 Reflect). Singleton : bindé container KERNEL (jamais celui de la requête — clean()é), pas de `setContext`, cache **promesse** sur `Router.getSingletonController` (anti-race création), `initialize()` 1× création, `setRoute`/`module` writes skippés. ⚠️ data race si champ mutable par requête sur `this` → opt-in stateless SEULEMENT, défaut per-request INTOUCHÉ. ⚠️ homonyme `Scope` DI core.
+- **V4.2 `ResourceController<T>`** : `static scope = "singleton"` PAR DÉFAUT (sous-classe peut rétrograder). `IResourceService<T>` structurel (find/findById/create?/updateOne?/delete? — aligné AbstractCrudService, 0 dep orm-core). Helpers `listResource/getResource/...` = valeur BRUTE (seam multi-transport) ; écriture absente → 501 ; criteria JAMAIS implicites (deny-by-default). POC `/poc/r-books` + E2E anti-data-race (`resource-singleton.test.ts`).
+- **Garde-fou executeAction** : pointeur container `"controller"` vérifié `instanceof` (connexion WS multi-invoke : pointeur réécrit par un re-routage → mauvaise instance sinon). Court-circuité hot path HTTP.
+- **A/B** : singleton ≈ per-request (bruit ±5 %) — V4 = archi/sécu concurrence, pas perf.
+
 **`@Redirect` flow** : action retourne void → `context.redirect(url, code)` → `returnController(undefined)` → `isRedirect=true` → `context.send()`.
 
 **Metadata keys exportées** : `HTTP_CODE_METADATA`, `HEADERS_METADATA`, `REDIRECT_METADATA`, `PARAM_ARGS_METADATA`, `RedirectMeta`, `ParamMeta`, `ParamSource` + `RouteActionMeta`, `computeActionMeta`, `resolveActionMeta`.
