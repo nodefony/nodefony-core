@@ -45,7 +45,7 @@ src/packages/@nodefony/http` (implicite via les `npm run build/test`), un `git a
   vitest 7000+ lignes) vers `/tmp/x.log` remplit le **filesystem temp dédié du harness** (`/private/tmp/claude-*/.../tasks`,
   petit quota) alors que `df` du disque montre 3 To libres → les Bash suivants échouent « ENOSPC ». → rediriger vers `/dev/null`
   - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
-- `[3× — 2026-06-08]` **`cd X && cmd1 ; cmd2` → `cmd2` tourne dans X, pas dans Y** : frappé ≥4× en une session (mesures
+- `[4× — 2026-06-10]` **`cd X && cmd1 ; cmd2` → `cmd2` tourne dans X, pas dans Y** (re-frappé V3 : `cd framework && build && bash .claude/skills/…` → script introuvable — relancer les scripts skill depuis la RACINE) : frappé ≥4× en une session (mesures
   coverage/test de drizzle PUIS mongoose). Le 2ᵉ `npm test`/`npm run coverage` après un `;` ou un `printf` **reste dans le
   cwd du `cd` précédent** → on mesure 2× le même module (vu : « mongoose 47 » = en fait drizzle re-run). → **un `cd <Y> &&
 cmd` EXPLICITE par module**, jamais enchaîner `cmd2` en comptant sur un cwd implicite. Variante directe du cwd-persiste ci-dessus.
@@ -467,6 +467,15 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-10]` **A/B sans toggle env = bascule git + rebuild ciblé ; JETER la 1ʳᵉ paire si machine froide** :
+  pour un refacto NON toggleable (Resolver POJO), `git checkout <ref> -- src/…/framework` + rebuild workspace (~3 s)
+  entre les runs marche très bien avec `bench-ab-mono.sh`. MAIS paire 1 polluée (warmup machine : new1 6527 < old2 6619
+  inter-paire, run aberrant 5131) → il a fallu 3 paires. La SEULE comparaison fiable = intra-paire alternée (3/3
+  positives +4,5/+8,4/+6,1 %) ; prévoir d'office 3 paires ou sacrifier la 1ʳᵉ en warmup.
+- `[1× — 2026-06-10]` **décorateurs TS = bottom-up AUSSI pour l'ordre d'insertion des metadata accumulées** : 2×
+  `@Header` empilés → celui le plus PROCHE de la méthode s'exécute en premier → `headerEntries` dans l'ordre INVERSE
+  de la lecture visuelle. Frappé dans une assertion de test (deep.equal sur l'ordre). Comportement runtime inchangé
+  (même objet que l'ancien `Object.entries`), mais toute assertion d'ordre doit suivre le bottom-up.
 - `[1× — 2026-06-10]` **toggle de bench A/B = const MODULE-LEVEL, jamais `process.env` dans le hot path** :
   un `process.env.NF_BENCH_X` lu par event (~100-200 ns, accès C++) pénalise le run « new » censé être un
   return sec → gain sous-estimé. → `const BENCH_X = process.env.NF_BENCH_X === "1"` au chargement (coût
