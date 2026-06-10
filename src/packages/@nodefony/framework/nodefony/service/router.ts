@@ -88,8 +88,9 @@ class Router extends Service {
         if (resolver.match(routes[i], context, cleanPath)) {
           // « route trouvée » = jalon notable (NOTICE hors prod, DEBUG en prod).
           if (routeNoticePromoted === null) {
-            const env = this.kernel?.environment;
-            routeNoticePromoted = env !== "production" && env !== "prod";
+            // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
+            // le check "prod" était mort.
+            routeNoticePromoted = this.kernel?.environment !== "production";
           }
           this.log(
             `Match route : ${routes[i].name}`,

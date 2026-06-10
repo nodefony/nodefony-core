@@ -6,16 +6,19 @@ import mime from "mime-types";
 import { responseTimeoutType } from "../../../service/http-kernel";
 import Cookie from "../../cookies/cookie";
 
-const ansiRegex = function ({ onlyFirst = false } = {}) {
-  const pattern = [
+// P8 — RegExp ANSI compilée UNE fois (avant : factory recompilant à chaque
+// setStatusCode). Le flag `g` partagé est sûr : `String.replace` réinitialise
+// `lastIndex` (contrairement à `exec`/`test`).
+const ANSI_REGEX = new RegExp(
+  [
     "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
     "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))",
-  ].join("|");
-  return new RegExp(pattern, onlyFirst ? undefined : "g");
-};
+  ].join("|"),
+  "g",
+);
 
 const stripAinsi = function (val: string): string {
-  return typeof val === "string" ? val.replace(ansiRegex(), "") : val;
+  return typeof val === "string" ? val.replace(ANSI_REGEX, "") : val;
 };
 
 // Codes de redirection RFC 9110 §15.4 qui posent un `Location` pour rediriger
@@ -122,7 +125,8 @@ class HttpResponse {
         return this.addTrailers(obj);
       }
       if (!this.response.headersSent) {
-        return this.response.setHeader(name.toLocaleLowerCase(), value);
+        // P8 : toLowerCase (header ASCII) — pas de détour locale ICU.
+        return this.response.setHeader(name.toLowerCase(), value);
       }
     }
   }

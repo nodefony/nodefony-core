@@ -431,8 +431,9 @@ class Context extends Service implements IContextInterface {
    */
   private logEvent(event: KernelEventsType): void {
     if (lifecycleEventLogging === null) {
-      const env = this.kernel?.environment;
-      lifecycleEventLogging = env !== "production" && env !== "prod";
+      // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
+      // le check "prod" était mort.
+      lifecycleEventLogging = this.kernel?.environment !== "production";
     }
     if (!lifecycleEventLogging) return;
     this.log(

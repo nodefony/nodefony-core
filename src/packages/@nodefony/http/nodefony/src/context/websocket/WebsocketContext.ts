@@ -380,8 +380,9 @@ export default class WebsocketContext
     data: unknown,
   ): void {
     if (wsContentLogging === null) {
-      const env = this.kernel?.environment;
-      wsContentLogging = env !== "production" && env !== "prod";
+      // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
+      // le check "prod" était mort.
+      wsContentLogging = this.kernel?.environment !== "production";
     }
     if (!wsContentLogging) return;
     this.log(formatWsLogContent(data), "DEBUG", `WS ${dir}`);

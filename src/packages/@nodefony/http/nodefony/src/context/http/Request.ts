@@ -630,7 +630,8 @@ class HttpRequest {
         for (let i = 1; i < tab.length; i++) {
           if (typeof tab[i] === "string") {
             const ele = tab[i].split("=");
-            const key = ele[0].replace(" ", "").toLowerCase();
+            // P8 : retire TOUT le whitespace OWS (avant : seulement la 1ʳᵉ espace).
+            const key = ele[0].replace(/\s+/g, "").toLowerCase();
             this.rawContentType[key] = ele[1];
           } else {
             continue;
