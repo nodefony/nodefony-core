@@ -64,12 +64,25 @@ const EVENT_SEVERITY: Record<string, Severity> = {
   onClose: "INFO", // connexion WebSocket fermée
 };
 
-// 🚦 PERF : la promotion DEBUG→INFO des jalons n'a lieu QU'HORS production. En
-// prod, tout reste DEBUG → **0 log INFO supplémentaire par requête** (volume +
-// pression GC identiques à avant ; règle perf ABSOLUE respectée). Hors prod, les
-// jalons montent à INFO pour l'observabilité Studio. Résolu **1×** (1er event,
-// kernel présent) puis caché → coût après = simple lookup O(1).
-let lifecyclePromoted: boolean | null = null;
+// 🚦 PERF (V2.1) : gate BOOT-TIME des logs d'events lifecycle. Hors production,
+// chaque event émet 1 Pdu (jalons EVENT_SEVERITY promus INFO, le reste DEBUG) —
+// la matière du Suivi de requête Studio (pduFlow, dev-only). En PROD le gate
+// court-circuite AVANT toute allocation (template + couleur + Pdu + push ring) :
+// ~5 Pdu/req HTTP et ~3 Pdu/frame WS supprimés, le ring Syslog ne retient que
+// les logs utiles. Les EVENTS eux-mêmes (super.fire/emit) ne sont JAMAIS gatés :
+// listeners, sondes realtime et teardown fonctionnent à l'identique en prod.
+// Résolu 1× au 1er event (kernel présent) → coût après = 1 lecture de boolean.
+let lifecycleEventLogging: boolean | null = null;
+
+/**
+ * Bascule runtime du gate des logs d'events lifecycle. Réservé HORS hot path :
+ * tests et futur « Audit à chaud » (fenêtre bornée prod→verbeux, auto-revert
+ * serveur) — le canal Studio `syslog:stream` retrouve alors les events sans
+ * redémarrage. `null` → re-résolution depuis l'env au prochain event.
+ */
+export function setLifecycleEventLogging(value: boolean | null): void {
+  lifecycleEventLogging = value;
+}
 
 // Shared frozen array used when timing is disabled — zero per-request alloc.
 const EMPTY_PHASES: PhaseTiming[] = Object.freeze(
@@ -412,31 +425,29 @@ class Context extends Service implements IContextInterface {
   }
 
   /**
-   * Sévérité du log d'un event : jalon notable → INFO **hors production**,
-   * DEBUG sinon (et toujours DEBUG en prod → 0 surcoût de volume). Le drapeau
-   * d'env est résolu une seule fois (kernel présent au 1ᵉʳ event).
+   * Log d'un event du cycle de vie — gate boot-time (V2.1) : en production le
+   * Pdu n'est PAS construit (return avant toute allocation). Hors prod, jalon
+   * notable → INFO (EVENT_SEVERITY), event technique → DEBUG.
    */
-  private eventSeverity(event: KernelEventsType): Severity {
-    if (lifecyclePromoted === null) {
+  private logEvent(event: KernelEventsType): void {
+    if (lifecycleEventLogging === null) {
       const env = this.kernel?.environment;
-      lifecyclePromoted = env !== "production" && env !== "prod";
+      lifecycleEventLogging = env !== "production" && env !== "prod";
     }
-    return (lifecyclePromoted && EVENT_SEVERITY[event as string]) || "DEBUG";
+    if (!lifecycleEventLogging) return;
+    this.log(
+      `${colorLogEvent()} ${event as string}`,
+      EVENT_SEVERITY[event as string] || "DEBUG",
+    );
   }
 
   override fire(event: KernelEventsType, ...args: unknown[]): boolean {
-    this.log(
-      `${colorLogEvent()} ${event as string}`,
-      this.eventSeverity(event),
-    );
+    this.logEvent(event);
     return super.fire(event, ...args);
   }
 
   override emit(event: KernelEventsType, ...args: unknown[]): boolean {
-    this.log(
-      `${colorLogEvent()} ${event as string}`,
-      this.eventSeverity(event),
-    );
+    this.logEvent(event);
     return super.emit(event, ...args);
   }
 
@@ -444,10 +455,7 @@ class Context extends Service implements IContextInterface {
     event: KernelEventsType,
     ...args: unknown[]
   ): Promise<unknown> {
-    this.log(
-      `${colorLogEvent()} ${event as string}`,
-      this.eventSeverity(event),
-    );
+    this.logEvent(event);
     return super.emitAsync(event, ...args);
   }
 
@@ -455,10 +463,7 @@ class Context extends Service implements IContextInterface {
     event: KernelEventsType,
     ...args: unknown[]
   ): Promise<unknown> {
-    this.log(
-      `${colorLogEvent()} ${event as string}`,
-      this.eventSeverity(event),
-    );
+    this.logEvent(event);
     return super.emitAsync(event, ...args);
   }
 
