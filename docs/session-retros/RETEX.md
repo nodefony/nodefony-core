@@ -18,10 +18,9 @@
 
 ## 🐚 Shell / environnement d'exécution
 
-- `[1× — 2026-06-10]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
-  2 edits de `Response.ts` refusés « File has not been read yet » alors que je venais de `sed -n` le fichier.
-  → pour un fichier qu'on va MODIFIER : `Read` directement (même partiel) ; garder `sed`/`grep` Bash pour la
-  consultation pure. Évite un aller-retour raté par fichier.
+- `[2× — 2026-06-11]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
+  re-frappé V4 (`routerDecorators.ts` greppé puis Edit refusé). → pour un fichier qu'on va MODIFIER : `Read`
+  directement (même partiel) ; garder `sed`/`grep` Bash pour la consultation pure.
 - `[1× — 2026-06-10]` **client/preuve WS standalone = `WebSocket` GLOBAL natif (Node ≥ 22), PAS le package `ws`** :
   `import WebSocket from "ws"` depuis un `.mjs` sous `src/modules/*/nodefony/poc/` → `ERR_MODULE_NOT_FOUND` (ws
   non résolvable à cette profondeur). Le global natif marche sans dép — **API WHATWG** : `ws.addEventListener("message",
@@ -45,7 +44,7 @@ src/packages/@nodefony/http` (implicite via les `npm run build/test`), un `git a
   vitest 7000+ lignes) vers `/tmp/x.log` remplit le **filesystem temp dédié du harness** (`/private/tmp/claude-*/.../tasks`,
   petit quota) alors que `df` du disque montre 3 To libres → les Bash suivants échouent « ENOSPC ». → rediriger vers `/dev/null`
   - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
-- `[4× — 2026-06-10]` **`cd X && cmd1 ; cmd2` → `cmd2` tourne dans X, pas dans Y** (re-frappé V3 : `cd framework && build && bash .claude/skills/…` → script introuvable — relancer les scripts skill depuis la RACINE) : frappé ≥4× en une session (mesures
+- `[5× — 2026-06-11]` **`cd X && cmd1 ; cmd2` → `cmd2` tourne dans X, pas dans Y** (re-frappé V4 : `cd framework && build && git add src/packages/...` → pathspec did not match, chemin doublé ; fix = `git -C <racine>`) (re-frappé V3 : `cd framework && build && bash .claude/skills/…` → script introuvable — relancer les scripts skill depuis la RACINE) : frappé ≥4× en une session (mesures
   coverage/test de drizzle PUIS mongoose). Le 2ᵉ `npm test`/`npm run coverage` après un `;` ou un `printf` **reste dans le
   cwd du `cd` précédent** → on mesure 2× le même module (vu : « mongoose 47 » = en fait drizzle re-run). → **un `cd <Y> &&
 cmd` EXPLICITE par module**, jamais enchaîner `cmd2` en comptant sur un cwd implicite. Variante directe du cwd-persiste ci-dessus.
@@ -467,6 +466,10 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[2× — 2026-06-11]` **A/B : écarter une paire ABERRANTE et la REFAIRE (jamais conclure dessus)** : V4, paire 2
+  singleton 5317 RPS vs 6495/6887 sur la MÊME URL (+30 % d'écart interne) = pollution machine ponctuelle ; la paire 3
+  inversée (singleton d'abord) a redonné +5,0 %. Verdict honnête publié : « dans le bruit » — ne JAMAIS revendiquer un
+  gain sur des paires incohérentes entre elles. Complète la leçon warmup ci-dessous.
 - `[1× — 2026-06-10]` **A/B sans toggle env = bascule git + rebuild ciblé ; JETER la 1ʳᵉ paire si machine froide** :
   pour un refacto NON toggleable (Resolver POJO), `git checkout <ref> -- src/…/framework` + rebuild workspace (~3 s)
   entre les runs marche très bien avec `bench-ab-mono.sh`. MAIS paire 1 polluée (warmup machine : new1 6527 < old2 6619
@@ -615,6 +618,14 @@ $remote_addr`, RFC 7239 §8.1), l'append est réservé aux proxies INTERNES d'un
 
 ## 🔧 Git / commit (friction du jour)
 
+- `[1× — 2026-06-11]` **commitlint `subject-case` rejette AUSSI un nom de classe en tête** : sujet
+  `feat(...): ResourceController souverain...` refusé (PascalCase = sentence-case interdit), même si c'est un
+  identifiant de code. → reformuler avec un nom commun devant (« controller de ressource souverain... ») ;
+  l'identifiant exact va dans le BODY. Complète la règle « sujet MINUSCULE » de [[feedback_commit_fr_apostrophes]].
+- `[1× — 2026-06-11]` **pre-push typecheck attrape ce que le build rollup laisse passer** : TS4114 (`static` qui
+  redéclare un statique de la base exige `override`, noImplicitOverride) invisible au `npm run build` du package,
+  bloquant au push. → après tout ajout de statique/membre redéclaré : `npm run typecheck` AVANT de committer,
+  ou s'attendre à un fix-commit. (2 builds verts ≠ typecheck vert.)
 - `[1× — 2026-06-07]` **clé privée TLS commitée découverte (sécu)** : `git ls-files | grep -iE
 'certificates/.*\.(pem|key)'` a révélé `privkey.pem` (+ cert/fullchain/publickey) trackés dans
   `src/packages/@nodefony/http/nodefony/config/certificates/` depuis **sept. 2024**. Cause : le pattern
