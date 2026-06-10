@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-10T19:58:12.695Z",
+  "generated": "2026-06-10T20:19:39.236Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -5057,11 +5057,12 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "extends": "Service",
+      "extends": null,
       "implements": [
         "IResolver"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Résout une route vers son couple controller/action et exécute l'action — UN Resolver est alloué par requête HTTP (et par connexion WS, réutilisé par message). **POJO volontaire** (V3.1) : n'étend P…"
     },
     "ControllerWithInitialize": {
       "name": "ControllerWithInitialize",
@@ -12554,7 +12555,6 @@
         "AdminBroker",
         "Router",
         "Controller",
-        "Resolver",
         "Template",
         "FrontendService",
         "Certificate",
@@ -13093,7 +13093,6 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
@@ -13140,7 +13139,6 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
@@ -13185,7 +13183,6 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",

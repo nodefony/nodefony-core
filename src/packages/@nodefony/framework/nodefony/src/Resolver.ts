@@ -1,7 +1,4 @@
 import {
-  Container,
-  Service,
-  Event,
   typeOf,
   isPromise,
   isPlainObject,
@@ -53,7 +50,17 @@ export interface ControllerWithInitialize {
   initialize(): Promise<this>;
 }
 
-class Resolver extends Service implements IResolver {
+/**
+ * Résout une route vers son couple controller/action et exécute l'action —
+ * UN Resolver est alloué par requête HTTP (et par connexion WS, réutilisé
+ * par message). **POJO volontaire** (V3.1) : n'étend PAS `Service` — le
+ * plumbing Service (Map de listeners trackés, spread d'options, lookups
+ * kernel/syslog) coûtait par requête sans aucun consommateur (jamais écouté,
+ * jamais loggé, jamais dans le container). Le DI per-request passe par
+ * `context.container` (le cache `"controller"` y survit au Resolver : un
+ * forward ou un 2ᵉ Resolver WS sur la MÊME connexion retrouve l'instance).
+ */
+class Resolver implements IResolver {
   injector?: Injector | null;
   controller: ControllerConstructor | null = null;
   actionName?: string;
@@ -66,13 +73,8 @@ class Resolver extends Service implements IResolver {
   acceptedProtocol: string | null = null;
   bypassFirewall: boolean = false;
   constructor(context: ContextType) {
-    super(
-      "RESOLVER",
-      context.container as Container,
-      context.notificationsCenter as Event,
-    );
     this.context = context;
-    this.injector = this.get<Injector>("injector");
+    this.injector = context.container?.get<Injector>("injector") ?? null;
   }
 
   match(route: Route, context: ContextType, cleanPath?: string) {
@@ -137,12 +139,9 @@ class Resolver extends Service implements IResolver {
         `Invalid name format: expected "module:controller:action"`,
       );
     }
-    module = this.kernel?.getModule(tab[0]) as Module | undefined;
+    module = this.context.kernel?.getModule(tab[0]) as Module | undefined;
     if (!module) {
       throw new Error(`Module not found: ${tab[0]}`);
-    }
-    if (module.name !== "framework") {
-      this.set("module", module);
     }
     this.controller = module.getController(tab[1]);
     if (!this.controller) {
@@ -186,7 +185,9 @@ class Resolver extends Service implements IResolver {
         context || this.context,
       );
       if (controller) {
-        this.set("controller", controller);
+        // Cache per-CONTEXT (pas per-Resolver) : un message WS suivant ou un
+        // forward (`reload`) retrouve l'instance via le container partagé.
+        this.context.container?.set("controller", controller);
         if (
           "initialize" in controller &&
           typeof controller.initialize === "function"
@@ -216,15 +217,13 @@ class Resolver extends Service implements IResolver {
     data?: unknown[],
     reload: boolean = false,
   ): Promise<{ result: unknown; redirectMeta: RedirectMeta | undefined }> {
-    let controller = this.get("controller") as Controller;
+    let controller = this.context.container?.get("controller") as Controller;
     if (!controller || reload) {
       controller = await this.newController();
     }
     if (this.controller?.prototype.module) {
       controller.module = this.controller?.prototype.module;
     }
-    this.set("action", this.action);
-    this.set("route", this.route);
     controller.setRoute(this.route!);
     const methodKey = this.actionName as keyof typeof controller;
     let args: unknown[];
