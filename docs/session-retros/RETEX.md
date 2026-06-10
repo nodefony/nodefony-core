@@ -18,6 +18,11 @@
 
 ## 🐚 Shell / environnement d'exécution
 
+- `[1× — 2026-06-10]` **client/preuve WS standalone = `WebSocket` GLOBAL natif (Node ≥ 22), PAS le package `ws`** :
+  `import WebSocket from "ws"` depuis un `.mjs` sous `src/modules/*/nodefony/poc/` → `ERR_MODULE_NOT_FOUND` (ws
+  non résolvable à cette profondeur). Le global natif marche sans dép — **API WHATWG** : `ws.addEventListener("message",
+e => JSON.parse(e.data))` (string), `.send()`, PAS `.on()`. + `cd <module> && bash .claude/skills/.../start.sh` casse
+  le chemin RELATIF du script (cwd persiste) → `cd <racine>` AVANT tout script skill (cf [[feedback_cd_startsh_relative_path]]).
 - **Shell Bash instable sous charge** `[1× — 2026-05-31]` : quand le serveur dev + 4 Vite tournent,
   le Bash renvoie des **sorties dupliquées ×2-3, vides, ou annule les appels parallèles en cascade**.
   → **1 commande Bash à la fois** (pas de parallèle), **`Read` plutôt que `cat`/`sed`/`tr`** pour lire
@@ -124,6 +129,11 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🧭 Conception / fondation / vocabulaire (frictions du jour)
 
+- `[1× — 2026-06-10]` **un POC qui touche un pipeline RÉVÈLE des seams imprévisibles → annoncer le scope comme PROVISOIRE.**
+  Annoncé « 1 ligne framework » (`resolveByPath`) ; coder le pont WS a exposé que `callController` COUPLE exécuter+rendre
+  (`returnController` auto-`send`) → fallu extraire `executeAction` (2ᵉ brique, iso-comportement, 609 tests verts). C'est LA
+  valeur du POC (faire remonter le couplage exécution/rendu), mais l'estimation initiale était fausse. → pour un POC sur du
+  code chaud : dire « ≥1 modif, le POC tranchera », **signaler chaque seam au fil de l'eau** (fait), regater (tests+mémoire).
 - `[1× — 2026-06-08]` **convention-frère ≠ copier les défauts du frère.** Adapter User Mongoose : j'ai répliqué la structure Drizzle (`src/user/` + entité dans `src/`) alors que le module a DÉJÀ un `entity/` (sessionEntity) → incohérence `entity/` vs `src/user/`, reprise **2×** par le user. → avant de copier un frère, **vérifier qu'il est cohérent** ; trancher UNE règle (`entity/`=schéma, `src/`=repo) et l'appliquer aux DEUX modules.
 - `[2× — 2026-06-08]` **emprunt de nom d'un autre framework = réflexe à tuer** (au-delà de [[feedback_nodefony_not_symfony_clone]]) : pas que « Symfony » — proposé `IPrincipal` (Spring/.NET) → rejeté pareil. → penser le **besoin/concept** d'abord, nommer en **vocabulaire Nodefony** ; ne pas plaquer un terme étranger pour « faire sérieux ».
 - `[1× — 2026-06-08]` **fondation (user/sécu) = AUDIT avant code.** Le user a stoppé P5.8 pour exiger un audit (état de l'art NIST 800-63B/OWASP/WebAuthn/OAuth 2.1 + code réel + décisions datées). Révélé : décisions de mai périmées (full-stateless, MikroORM) + `IUserProvider` **jamais implémenté**. → sur une brique structurante, confronter **état de l'art + code + décisions** AVANT de coder.
