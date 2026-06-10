@@ -18,6 +18,10 @@
 
 ## 🐚 Shell / environnement d'exécution
 
+- `[1× — 2026-06-10]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
+  2 edits de `Response.ts` refusés « File has not been read yet » alors que je venais de `sed -n` le fichier.
+  → pour un fichier qu'on va MODIFIER : `Read` directement (même partiel) ; garder `sed`/`grep` Bash pour la
+  consultation pure. Évite un aller-retour raté par fichier.
 - `[1× — 2026-06-10]` **client/preuve WS standalone = `WebSocket` GLOBAL natif (Node ≥ 22), PAS le package `ws`** :
   `import WebSocket from "ws"` depuis un `.mjs` sous `src/modules/*/nodefony/poc/` → `ERR_MODULE_NOT_FOUND` (ws
   non résolvable à cette profondeur). Le global natif marche sans dép — **API WHATWG** : `ws.addEventListener("message",
@@ -66,11 +70,13 @@ cmd` EXPLICITE par module**, jamais enchaîner `cmd2` en comptant sur un cwd imp
   lancé en background n'avait pas régénéré tous les dist (drizzle/studio manquants) → 2 boots ratés.
   → build complet **foreground** et vérifier `ls dist/index.js` des modules clés avant start. (variante
   du pattern « created dist menteur » — à fusionner si revu.)
-- `[1× — 2026-06-09]` **build turbo répété en itération = douleur user** : `npm run build` (turbo, tout le
-  monorepo) à CHAQUE petit changement → « build long !!! ». → en itération, builder **CIBLÉ** workspace par
-  workspace (`cd src/nodefony && npm run build` + le seul workspace touché) ; réserver le turbo complet aux
-  merges/refactors croisés. Un changement de type du core qui n'impacte que le runtime des consommateurs
-  (ils importent le dist) ne nécessite PAS de les rebuilder.
+- `[2× — 2026-06-10]` **build turbo répété en itération = douleur user** : `npm run build` (turbo, tout le
+  monorepo) à CHAQUE petit changement → « build long !!! » (re-frappé 06-10 : 2 full builds quand 1 ciblé +
+  1 `npx rollup -c` racine suffisaient). → en itération, builder **CIBLÉ** workspace par workspace
+  (`cd src/packages/@nodefony/<m> && npm run build`) ; **`nodefony.config.ts`/app racine = `npx rollup -c`
+  à la racine SEUL** ; réserver le turbo complet aux merges/refactors croisés ou code+config simultanés.
+  Un changement de type du core qui n'impacte que le runtime des consommateurs (ils importent le dist)
+  ne nécessite PAS de les rebuilder. → candidat graduation `feedback_*` au prochain frappé.
 - `[1× — 2026-06-09]` **multi-restarts du DevSupervisor empilent les boots dans `/tmp/nodefony-server.log`** :
   plusieurs « ✓ Prêt » dans le log → on diagnostique un VIEUX boot et on conclut à tort que le code ne marche
   pas (vécu sur le détail ORM, qui marchait en réalité). → AVANT de diagnostiquer un boot : `grep -c "✓  Prêt"`
@@ -461,6 +467,12 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-10]` **toggle de bench A/B = const MODULE-LEVEL, jamais `process.env` dans le hot path** :
+  un `process.env.NF_BENCH_X` lu par event (~100-200 ns, accès C++) pénalise le run « new » censé être un
+  return sec → gain sous-estimé. → `const BENCH_X = process.env.NF_BENCH_X === "1"` au chargement (coût
+  identique aux 2 runs), et le run « old » simulé doit reproduire la SÉVÉRITÉ exacte d'avant (DEBUG en prod,
+  pas la promotion INFO) sinon le old est artificiellement plus cher. Bloc TEMP retiré avant commit (0 résidu
+  `NF_BENCH` dans src/ = convention vérifiée).
 - `[1× — 2026-06-10]` **code de close WS au handshake : viser le code WS DIRECTEMENT, pas un statut HTTP** :
   `error-renderer.renderWebsocket` a 2 branches selon `context.rejected` ; au handshake (`rejected===false`) il
   **clampe tout code `<1000` → 1011** → un `HttpError(403)` ne devient PAS 1008. Pour fermer en **1008** (Policy
