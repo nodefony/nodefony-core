@@ -3,6 +3,7 @@ title: Plan d'action — durcissement du cycle de vie requête (sécu · perf ·
 date: 2026-06-10
 branch: poc/api-souveraine
 status: plan figé — exécution par vagues committables
+progress: "V1 ✅ (0860a48) · V2 ✅ (55405ff + 4592679, A/B +2,2 %) · V3 ✅ (9b4dde4 POJO + c6010b0 P5, A/B ~+6 % — 3/3 paires) · V4/V5 à venir"
 depends_on: request-lifecycle-2026-06.md (findings)
 principe: "réversible et local d'abord ; structurel seulement une fois le souverain stable. Le mieux est l'ennemi du bien."
 ---

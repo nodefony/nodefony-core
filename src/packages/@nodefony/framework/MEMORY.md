@@ -16,7 +16,7 @@ Module Nodefony : routeur HTTP+WS, Controller, Resolver, décorateurs `@route`/`
 | Classe/Fichier     | Lignes | Rôle                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Controller`       | 514    | Extends Service. Props: `route`, `request`, `response`, `context`, `queryGet/Post/File`. `session` = **getter** sur `context.session` (plus de `startSession()` — supprimé 2026-06-07 ; activation = `@UseSession`/`@Session`/cookie). API: `renderJson/View/Twig/Ejs/FileDownload/MediaStream`, `redirect`, `forward`, `getSession`, `getFlashBag/setFlashBag`. **⚠ noms d'action réservés (conflit prop/méthode Controller) : `session`, `get`, `set`, `request`, `response`, `method`.** |
-| `Resolver`         | 290    | Extends Service. `match(route, ctx)` → `_applyResponseDecorators()` → `callController()` → `_handleRedirect()` → `returnController()`. `newController()` via Injector.                                                                                                                                                                                                                                                                                                                      |
+| `Resolver`         | 403    | **POJO per-request (V3.1 — n'étend PLUS Service)** : ctor = 2 affectations + lookup injector via `context.container`. Cache controller sur `context.container` clé `"controller"` (survit au Resolver : WS par message, forward `reload`). `match()` → `executeAction()` (meta P5 figées) → `_applyResponseMeta()` → `_handleRedirect()` → `returnController()`. `newController()` via Injector.                                                                                            |
 | `Route`            | 440    | `name`, `path`, `pattern` (RegExp compilé), `variables[]`, `defaults`, `requirements`. `match(ctx)` → vérifie url+requirements. `matchRequirements` vérifie `requirements.methods` (pas `route.method`).                                                                                                                                                                                                                                                                                    |
 | `Router` (service) | 131    | Tableau statique `routes: Route[]` partagé process-wide. `resolve(ctx)` → Resolver. `createRoute(name, opts)` static.                                                                                                                                                                                                                                                                                                                                                                       |
 | `routerDecorators` | 290    | `@controllers`, `@controller(prefix)`, `@route(name, opts)` + **`@Get/@Post/@Put/@Delete/@Patch/@Options/@Head`** (requirements.methods) + **`@All`** (AUCUN requirement methods → matche toutes) + **`@HttpCode/@Header/@Redirect`** + **`@Param/@Body/@Query`** (Reflect metadata).                                                                                                                                                                                                       |
@@ -162,19 +162,19 @@ Déclare le besoin de **session serveur** (chantier session étape 5, 2026-06-07
 @Redirect("/url", 302)  // Reflect metadata route:redirect — appliqué si action retourne void/null
 ```
 
-Ordre lecture dans Resolver : `_applyResponseDecorators(controller, proto)` → `Reflect.getMetadata(key, proto, actionName)`.
+**P5 (V3.2 2026-06-10) — metadata d'action FIGÉES par route** : `route.actionMeta` (`RouteActionMeta` = `{paramsMeta, redirectMeta, httpCode, headerEntries, sessionIntent}`), memo au 1er hit via `resolveActionMeta(route)` (pattern frère `routeExpectsBodyStream`) → **0 `Reflect.getMetadata`/`Object.entries` par requête** (avant : ~6/req). `computeActionMeta(ctor, method)` = calcul pur (chemin froid forward). Snapshot PARTAGÉ entre requêtes — ne JAMAIS muter. Posé après `generateId()` → hash route stable. A/B mono prod : ~+6 % RPS (cumul V3.1+V3.2).
 
 **`@Redirect` flow** : action retourne void → `context.redirect(url, code)` → `returnController(undefined)` → `isRedirect=true` → `context.send()`.
 
-**Metadata keys exportées** : `HTTP_CODE_METADATA`, `HEADERS_METADATA`, `REDIRECT_METADATA`, `PARAM_ARGS_METADATA`, `RedirectMeta`, `ParamMeta`, `ParamSource`.
+**Metadata keys exportées** : `HTTP_CODE_METADATA`, `HEADERS_METADATA`, `REDIRECT_METADATA`, `PARAM_ARGS_METADATA`, `RedirectMeta`, `ParamMeta`, `ParamSource` + `RouteActionMeta`, `computeActionMeta`, `resolveActionMeta`.
 
 ## Resolver Pipeline (détail)
 
 ```
 callController()
-  → _applyResponseDecorators(controller, proto)  // @HttpCode + @Header
-  → Reflect.getMetadata(REDIRECT_METADATA, proto, actionName)
-  → action(...args)
+  → meta = resolveActionMeta(route)              // P5 memo (forward : computeActionMeta)
+  → _applyResponseMeta(controller, meta)         // @HttpCode + @Header (0 Reflect)
+  → action(...args)                              // args via meta.paramsMeta si décorés
   → _handleRedirect(actionResult, redirectMeta)
     → si redirectMeta + void → context.redirect() → returnController(undefined)
     → sinon → returnController(actionResult)

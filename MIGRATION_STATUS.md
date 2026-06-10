@@ -19,7 +19,7 @@ Les décisions complètes sont **persistées en mémoire IA** (survivent au `/cl
 
 ### ⚡ Séquencement actuel (figé 2026-06-05)
 
-**Config ✅** → **durcissement ORM Ph.1/2/2.5/3 ✅** → **durcissement WebSocket ✅** → **ORM Ph.4 couplage C2/C5 ✅** (`58381df`/`7ac0bac`) + **couverture ORM 109→160 tests** (`953ccc2`) → **POC API souveraine Ph.1 ✅ ⏸️ en attente** (`71fcfe9`) → **🥇 durcissement cycle de vie requête : V1 sécu ✅** (`0860a48` — B1 body 413 / B2 origin / B3 CORS mort / B4 anti-CSWSH WS) **→ V2 perf (P1 gate events)** → **P6 Security**.
+**Config ✅** → **durcissement ORM Ph.1/2/2.5/3 ✅** → **durcissement WebSocket ✅** → **ORM Ph.4 couplage C2/C5 ✅** (`58381df`/`7ac0bac`) + **couverture ORM 109→160 tests** (`953ccc2`) → **POC API souveraine Ph.1 ✅ ⏸️ en attente** (`71fcfe9`) → **🥇 durcissement cycle de vie requête : V1 sécu ✅** (`0860a48` — B1 body 413 / B2 origin / B3 CORS mort / B4 anti-CSWSH WS) **→ V2 perf ✅** (`55405ff`+`4592679` — gate events +2,2 % / requirements pré-compilés / micro P8) **→ V3 archi ✅** (`9b4dde4`+`c6010b0` — Resolver POJO + metadata d'action figées P5, **A/B ~+6 % RPS**) **→ V4 souverain stateless** → **P6 Security**.
 Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6 — P6 se greffe dessus.
 
 ### 🔀 Virage ORM (décidé 2026-06-02) — ✅ audit 2026-06-08 · ✅ **Ph.1 Seq OUT** (`716fce6`) · ✅ **Ph.2 Mongoose REFAIT 2026-06-08** (`51d9ea8`)
