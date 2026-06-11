@@ -55,9 +55,10 @@
   call stack au 1er hit). Attrapé par le HEALTH check du start.sh (500). → quand on extrait une méthode puis
   qu'on `replace_all` les call sites, EXCLURE la nouvelle méthode (ordre inverse : replace_all D'ABORD, extraire
   ENSUITE — ou re-vérifier son corps après).
-- `[2× — 2026-06-11]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
-  re-frappé V4 (`routerDecorators.ts` greppé puis Edit refusé). → pour un fichier qu'on va MODIFIER : `Read`
-  directement (même partiel) ; garder `sed`/`grep` Bash pour la consultation pure.
+- `[3× — 2026-06-12]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
+  re-frappé V4 (`routerDecorators.ts`) puis 3e fois (`RedisBackplane.test.ts` lu au `sed` → Edit refusé).
+  → pour un fichier qu'on va MODIFIER : `Read` directement (même partiel) ; `sed`/`grep` Bash = consultation
+  pure UNIQUEMENT. **≥3× → à graduer en `feedback_*` au prochain CONSOLIDATE.**
 - `[1× — 2026-06-10]` **client/preuve WS standalone = `WebSocket` GLOBAL natif (Node ≥ 22), PAS le package `ws`** :
   `import WebSocket from "ws"` depuis un `.mjs` sous `src/modules/*/nodefony/poc/` → `ERR_MODULE_NOT_FOUND` (ws
   non résolvable à cette profondeur). Le global natif marche sans dép — **API WHATWG** : `ws.addEventListener("message",
