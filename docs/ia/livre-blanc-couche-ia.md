@@ -1,10 +1,10 @@
 ---
 title: "Nodefony — Une couche IA agentique souveraine, par construction"
 type: livre blanc
-version: 0.1 (brouillon)
+version: 0.2 (brouillon)
 audience: ingénieurs et chercheurs en IA, décideurs techniques
 auteur: Christophe Camensuli
-date: 2026-05-29
+date: 2026-06-12
 licence: CeCILL-B (open source)
 ---
 
@@ -25,6 +25,13 @@ propriétés natives : HTTP et WebSocket co-citoyens (transport idéal du stream
 un conteneur d'injection de dépendances (orchestration des agents comme services
 testables), et une **observabilité IA-first** où l'agent consomme les mêmes sondes que le
 tableau de bord d'administration.
+
+Une conviction supplémentaire structure ce document : **la fiabilité d'un agent est un
+problème de mesure avant d'être un problème de prompt**. L'industrie a industrialisé les
+_modèles_ (MLOps : versionnement, déploiement, monitoring) ; elle n'a pas industrialisé
+les _agents_ — des systèmes stochastiques, séquentiels et non stationnaires, qui exigent
+les disciplines des mathématiques appliquées : évaluation continue, détection de dérive,
+quantification d'incertitude, contrôle (cf. §6).
 
 Ce document décrit une **architecture cible** et les **décisions structurantes** déjà
 prises. Il est honnête sur l'état réel : **le socle (serveur, transport, injection,
@@ -51,6 +58,14 @@ production exige trois couches que les écosystèmes actuels fournissent sépar�
 Ces trois couches proviennent d'écosystèmes distincts assemblés manuellement. **Chaque
 point de jonction est une dette et un angle mort de conformité.** Nodefony les traite
 comme un seul framework.
+
+À ces trois couches s'ajoute une dimension transversale, presque toujours absente : la
+**mesure**. Un agent en production se comporte comme un système stochastique non
+stationnaire — son coût, sa latence et sa qualité dérivent avec le trafic, les corpus et
+les modèles sous-jacents. Sans évaluation continue sur données réelles, « ça marche » ne
+signifie rien de plus que « ça a marché pendant la démo ». Ce livre blanc traite la mesure
+comme une exigence de premier ordre (§2.3, §6) : le runtime fournit l'instrument, la
+couche agentique doit fournir la méthode.
 
 ### 1.1 Mission
 
@@ -219,7 +234,9 @@ entreprise » :
 - **Zones de confiance** (`public` / `restricted` / …) conditionnant les droits d'un
   agent.
 - **Disjoncteur (_circuit breaker_)** : coupe automatiquement un agent qui dérive (boucle,
-  coût qui explose, comportement anormal).
+  coût qui explose, comportement anormal). À terme, son déclenchement a vocation à être
+  **piloté par un détecteur statistique de dérive** sur les flux d'observabilité — un test
+  séquentiel, pas un seuil fixe arbitraire (cf. §6, problème 2).
 - **Workflow d'approbation** : validation humaine en boucle pour les actions à fort
   impact.
 - **Audit signé** des décisions, adossé au RBAC du module de sécurité.
@@ -306,13 +323,62 @@ mûres**. Un terrain de conception propre, pas un héritage à réparer.
 
 ---
 
-## 6. Feuille de route et vision à long terme
+## 6. Fonder la couche agentique scientifiquement — problèmes ouverts
+
+La page blanche du §5 n'appelle pas que de l'ingénierie. La plupart des piles agentiques
+actuelles reposent sur des heuristiques (seuils fixes, retries, prompts de garde) là où
+existent des disciplines éprouvées — décision séquentielle, statistique des processus,
+contrôle, design expérimental. Le pari de Nodefony : **câbler ces disciplines dans le
+runtime**, parce qu'il possède déjà l'instrument de mesure (sondes O(1), métriques et logs
+corrélés par requête, _data plane_ unique — §2.3). Six problèmes sont ouverts ; aucun ne
+se résout en « appelant un modèle plus fort ».
+
+1. **L'orchestration comme problème de décision séquentielle.** Allouer un budget
+   (_tokens_, latence, coût) entre sous-agents, arbitrer l'exploration de stratégies
+   alternatives, décider l'arrêt optimal d'une boucle : formellement, de l'allocation de
+   ressources sous incertitude (politiques, _bandits_), aujourd'hui résolue partout à
+   l'heuristique.
+2. **La dérive comme problème de détection de ruptures.** Les sondes du runtime produisent
+   des séries temporelles propres et corrélées (latence, coût par requête, taux d'échec
+   des _tools_, _backpressure_). Détecter qu'un agent dérive — corpus qui vieillit, modèle
+   sous-jacent mis à jour, boucle qui s'emballe — est un problème de **détection de
+   ruptures en ligne** (_change-point detection_) sur flux, à faible coût de calcul. Le
+   disjoncteur du §3.4 devrait être un test séquentiel, pas un seuil.
+3. **La mémoire d'agent comme inférence à états latents.** Consolidation, oubli, score de
+   pertinence temporelle : qu'est-ce qu'une politique de mémoire optimale, sous quel
+   modèle (processus à états latents, vieillissement), et comment **prouver** qu'une
+   politique domine l'autre ailleurs que sur trois exemples ?
+4. **La quantification d'incertitude comme condition de la confiance.** Calibration des
+   sorties, prédiction conforme (_conformal prediction_) sur les réponses, capacité à
+   dire « je ne sais pas » avec garantie statistique. C'est la traduction mathématique des
+   exigences de l'AI Act (§3.2) en zone sensible — santé, défense — où une réponse non
+   calibrée est une faute, pas une approximation.
+5. **Le pilotage des boucles comme problème de contrôle.** Le cœur applique déjà un
+   régulateur de type AIMD à la cadence temps réel ; étendre l'asservissement au triplet
+   coût-latence-qualité d'une boucle agentique (contrôle stochastique, files d'attente)
+   est une voie que personne n'a industrialisée.
+6. **L'évaluation comme design expérimental continu.** Le cœur du framework se développe
+   déjà à l'A/B mesuré (paires alternées, médiane, bruit borné) ; la couche agentique
+   exige la même discipline en production : harnais d'évaluation branché sur
+   l'observabilité native, métriques de fiabilité agentique, expériences reproductibles
+   sur trafic réel plutôt que _benchmarks_ figés.
+
+Ces problèmes appellent des contributions de **statistique computationnelle, processus
+stochastiques et contrôle** autant que du code. Le framework apporte le terrain
+d'expérimentation instrumenté ; la méthode reste à fonder — **c'est une invitation
+explicite aux profils recherche** : co-concevoir les décisions d'architecture (ADR) de
+cette couche, formaliser, instrumenter, publier. La licence CeCILL-B garantit que ces
+travaux restent ouverts et publiables.
+
+---
+
+## 7. Feuille de route et vision à long terme
 
 > Cette section décrit la **destination**, pas l'état présent (cf. §5). Elle guide les
 > choix de conception dès aujourd'hui : toute décision prise pendant la migration doit
 > rester découvrable, testable et pilotable, pour servir cette cible.
 
-### 6.1 Standards agentiques à supporter
+### 7.1 Standards agentiques à supporter
 
 | Standard            | Ce que cela apporte                                                  | Priorité  |
 | ------------------- | -------------------------------------------------------------------- | --------- |
@@ -331,7 +397,7 @@ mûres**. Un terrain de conception propre, pas un héritage à réparer.
 > référence (workflows vs agents, conception des outils) sont synthétisés dans
 > [`agents-anthropic-building-effective-agents.md`](agents-anthropic-building-effective-agents.md).
 
-### 6.2 Un Studio qui se documente lui-même
+### 7.2 Un Studio qui se documente lui-même
 
 L'aide contextuelle (bulles d'information ⓘ) aujourd'hui rédigée à la main sera **générée
 par IA** à partir de l'introspection vivante du framework (modèle ORM canonique, graphe
@@ -340,31 +406,32 @@ expliquerait alors automatiquement chaque écran et chaque contrôle, avec une d
 toujours à jour. Aucun framework concurrent ne combine nativement serveur, IA et
 introspection de son propre modèle.
 
-### 6.3 De l'observabilité aux _insights_
+### 7.3 De l'observabilité aux _insights_
 
 Parce que les sondes et le tableau de bord partagent le même _data plane_ (§2.3), un agent
 peut consommer l'état du système, **détecter les dérives** (débit anormal, latence qui
-monte, requêtes lentes récurrentes), **corréler** (par exemple distinguer une saturation
-de l'_event-loop_ d'un problème de base), **expliquer** en langage naturel et **suggérer**
+monte, requêtes lentes récurrentes — formellement, de la détection de ruptures en ligne
+sur les flux de sondes, cf. §6 problème 2), **corréler** (par exemple distinguer une
+saturation de l'_event-loop_ d'un problème de base), **expliquer** en langage naturel et **suggérer**
 des optimisations (création d'index, réécriture de requête) — puisqu'il dispose à la fois
 du SQL paramétré et du schéma. Restitution dans un panneau « Insights » du Studio ; les
 actions correctives restent réservées au mode développement et soumises au RBAC.
 
-### 6.4 Génération de modules assistée par IA
+### 7.4 Génération de modules assistée par IA
 
 Depuis le tableau de bord, l'agent analyse le projet existant, produit une `ModuleSpec`
 **validée par schéma (Zod)**, présente un _diff_, et n'écrit les fichiers qu'**après
 validation humaine**. Jamais d'écriture automatique sans confirmation. Cette voie remplace
 à terme le _scaffolding_ CLI déterministe par une génération contextuelle et contrôlée.
 
-### 6.5 Agent vocal temps réel (Phase 15)
+### 7.5 Agent vocal temps réel (Phase 15)
 
 Sur le transport temps réel natif, une chaîne PSTN → Asterisk → mediasoup → STT → modèle
 de langage → TTS → retour permet de bâtir un **agent IA vocal téléphonique**. Les flux
 média binaires transitent par les transports dédiés (pod-à-pod), sans surcharger le plan
 de messages.
 
-### 6.6 Auto-développement — Nodefony se code lui-même
+### 7.6 Auto-développement — Nodefony se code lui-même
 
 C'est l'aboutissement de la démarche. Un module dédié (nom de travail `@nodefony/agent-core`)
 exposerait le Kernel et ses outils d'introspection via un **serveur MCP**. L'agent
@@ -390,12 +457,17 @@ Phase 12 consiste à les exposer en MCP, non à les inventer.
 
 ---
 
-## 7. Conclusion
+## 8. Conclusion
 
 Nodefony ne cherche pas à concurrencer les producteurs de modèles ni les bibliothèques
 d'IA : il fournit le **framework runtime** qui les met au travail dans une application
 réelle — avec le streaming, l'orchestration et la **gouvernance des données** dans l'ADN,
 et un **mode souverain** atteignable de bout en bout. Le socle est mûr ; la couche IA est
-à concevoir. C'est une invitation à le faire avec rigueur, sur des bases saines.
+à concevoir. C'est une invitation à le faire avec rigueur, sur des bases saines — et une
+invitation **explicitement ouverte aux profils scientifiques** : les six problèmes du §6
+(décision séquentielle, détection de ruptures, états latents, calibration, contrôle,
+design expérimental) attendent moins du code que de la méthode. Co-concevoir cette couche
+— en formaliser les fondations, les instrumenter sur un runtime réel, publier la démarche
+— est la contribution que ce projet recherche en premier.
 
 _Projet open source sous licence CeCILL-B — [github.com/nodefony/nodefony-core](https://github.com/nodefony/nodefony-core). Contributions et échanges bienvenus : ccamensuli@gmail.com._
