@@ -213,8 +213,9 @@ class SessionsService extends Service {
         inst.readOnly = readOnly === true;
       } catch (e) {
         context.fire("onSessionStart", null, e);
-        reject(e);
-        throw e;
+        // `return` (pas `throw`) : un throw post-reject dans un executor est
+        // avalé par le constructeur Promise — il ne servait ici que de return.
+        return reject(e);
       }
       inst
         .start(context, sessionContext)

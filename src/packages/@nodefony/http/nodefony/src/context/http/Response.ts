@@ -407,68 +407,66 @@ class HttpResponse {
     return this.send(chunk, encoding, true);
   }
 
+  // P7 — la partie async (redirect/end) vit AVANT le `new Promise` ; l'executor
+  // redevient synchrone (plus de `new Promise(async …)` dont les throws étaient
+  // avalés par le constructeur Promise).
   async send(
     chunk?: unknown,
     encoding?: BufferEncoding,
-    flush: boolean = false,
+    _flush: boolean = false,
   ): Promise<HttpResponse> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        if (this.context.isRedirect) {
-          if (!this.response?.headersSent) {
-            this.writeHead();
-            await this.end();
-            return resolve(this);
-          }
-          await this.end();
-          return resolve(this);
+    if (this.context.isRedirect) {
+      if (!this.response?.headersSent) {
+        this.writeHead();
+      }
+      await this.end();
+      return this;
+    }
+    if (chunk) {
+      this.setBody(chunk);
+    }
+    if (!this.response) {
+      throw new Error(`Http Response not found`);
+    }
+    // Corps VIDE légal (action qui `return ""`, 416/204…) : `res.write(null)`
+    // jetterait ERR_STREAM_NULL_VALUES → 500 pour un cas parfaitement valide.
+    if (this.body === null) {
+      this.body = Buffer.alloc(0);
+    }
+    // P2.8 — Backpressure (Node `stream.Writable.write()` : retourne `false`
+    // quand le buffer interne dépasse `highWaterMark` → le producteur DOIT
+    // attendre l'event `'drain'` avant de réécrire). En streaming chunké
+    // (flush, RFC 9112 §7.1 — 1 écriture = 1 chunk), résoudre sur `'drain'`
+    // borne la RAM serveur si le client est lent : un controller qui `flush()`
+    // en boucle est naturellement freiné par cet `await`. Cas réponse unique
+    // (non-flush) : `ok===true` quasi toujours → resolve immédiat (0 attente).
+    // Le listener `'drain'` n'est attaché QUE sous pression (rare) et est
+    // `once` (auto-détaché au fire) + retiré explicitement en cas d'erreur.
+    const res = this.response as http.ServerResponse;
+    return new Promise((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (!settled) {
+          settled = true;
+          resolve(this);
         }
-        if (chunk) {
-          this.setBody(chunk);
-        }
-        if (!flush) {
-          //this.context.displayDebugBar();
-        }
-        if (this.response) {
-          // P2.8 — Backpressure (Node `stream.Writable.write()` : retourne `false`
-          // quand le buffer interne dépasse `highWaterMark` → le producteur DOIT
-          // attendre l'event `'drain'` avant de réécrire). En streaming chunké
-          // (flush, RFC 9112 §7.1 — 1 écriture = 1 chunk), résoudre sur `'drain'`
-          // borne la RAM serveur si le client est lent : un controller qui `flush()`
-          // en boucle est naturellement freiné par cet `await`. Cas réponse unique
-          // (non-flush) : `ok===true` quasi toujours → resolve immédiat (0 attente).
-          // Le listener `'drain'` n'est attaché QUE sous pression (rare) et est
-          // `once` (auto-détaché au fire) + retiré explicitement en cas d'erreur.
-          const res = this.response as http.ServerResponse;
-          let settled = false;
-          const done = () => {
-            if (!settled) {
-              settled = true;
-              resolve(this);
-            }
-          };
-          const onDrain = () => done();
-          const ok = res.write(
-            this.body,
-            encoding || this.encoding,
-            (error: Error | null | undefined) => {
-              if (error) {
-                this.log(error, "ERROR");
-                res.removeListener("drain", onDrain);
-                done();
-              }
-            },
-          );
-          if (ok) {
+      };
+      const onDrain = () => done();
+      const ok = res.write(
+        this.body,
+        encoding || this.encoding,
+        (error: Error | null | undefined) => {
+          if (error) {
+            this.log(error, "ERROR");
+            res.removeListener("drain", onDrain);
             done();
-          } else {
-            res.once("drain", onDrain);
           }
-          return;
-        }
-        return reject(new Error(`Http Response not found`));
-      } catch (e) {
-        return reject(e);
+        },
+      );
+      if (ok) {
+        done();
+      } else {
+        res.once("drain", onDrain);
       }
     });
   }

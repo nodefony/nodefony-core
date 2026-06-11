@@ -85,50 +85,46 @@ class Http2Response extends HttpResponse {
     }
   }
 
+  // P7 — async direct. Corrige au passage un hang du chemin fallback : l'ancien
+  // `return super.send(...)` DANS l'executor d'un `new Promise` n'appelait
+  // jamais resolve → promesse externe pendue à vie quand `this.stream` absent.
   override async send(
     chunk?: unknown,
     encoding?: BufferEncoding,
-    flush: boolean = false,
+    _flush: boolean = false,
   ): Promise<Http2Response> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        if (this.context.isRedirect) {
-          if (this.stream && !this.stream.headersSent) {
-            this.writeHead();
-            await this.end();
-            return resolve(this);
-          }
-          await this.end();
-          return resolve(this);
-        }
-        if (this.stream) {
-          // Stream fermé/non-writable (client abandonné, write-after-end) :
-          // résoudre sans écrire → évite ERR_STREAM_WRITE_AFTER_END (CRITIC).
-          if (this.stream.destroyed || !this.stream.writable) {
-            this.log("HTTP/2 stream not writable before send — skip", "DEBUG");
-            return resolve(this);
-          }
-          if (chunk) {
-            this.setBody(chunk);
-          }
-          if (!flush) {
-            //this.context.displayDebugBar();
-          }
-          return this.stream.write(
-            this.body,
-            encoding || this.encoding,
-            (error) => {
-              if (error) {
-                return reject(error);
-              }
-              return resolve(this);
-            },
-          );
-        }
-        return super.send(chunk, encoding);
-      } catch (e) {
-        return reject(e);
+    if (this.context.isRedirect) {
+      if (this.stream && !this.stream.headersSent) {
+        this.writeHead();
       }
+      await this.end();
+      return this;
+    }
+    const stream = this.stream;
+    if (!stream) {
+      return (await super.send(chunk, encoding)) as Http2Response;
+    }
+    // Stream fermé/non-writable (client abandonné, write-after-end) :
+    // résoudre sans écrire → évite ERR_STREAM_WRITE_AFTER_END (CRITIC).
+    if (stream.destroyed || !stream.writable) {
+      this.log("HTTP/2 stream not writable before send — skip", "DEBUG");
+      return this;
+    }
+    if (chunk) {
+      this.setBody(chunk);
+    }
+    // Corps VIDE légal (cf chemin HTTP/1) : `stream.write(null)` jetterait
+    // ERR_STREAM_NULL_VALUES → 500 pour un `return ""` / 416 / 204 valide.
+    if (this.body === null) {
+      this.body = Buffer.alloc(0);
+    }
+    return new Promise((resolve, reject) => {
+      stream.write(this.body, encoding || this.encoding, (error) => {
+        if (error) {
+          return reject(error);
+        }
+        return resolve(this);
+      });
     });
   }
 

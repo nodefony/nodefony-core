@@ -178,40 +178,33 @@ class HttpContext extends Context implements IHttpContextInterface {
     return this.request.url.protocol.replace(":", "") as SchemeType;
   }
 
-  handle(/*data*/): Promise<this> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        this.setTimeout();
-        if (this.isRedirect) {
-          await this.send();
-          return resolve(this);
-        }
-        // NB perf : pas de `setParameters("query.*")` ici. Les décorateurs
-        // @Query/@Param/@Body lisent `ctx.request.queryGet/queryPost/queryFile`
-        // DIRECTEMENT (cf framework routerDecorators) ; peupler le scope DI avec
-        // ces clés (4 parses + insertions/req) n'était lu par PERSONNE — héritage
-        // JS mort, retiré (~+3 % RPS sur route sans query). Cf metaData per-requête.
-        //this.locale = this.translation.handle();
-        // WARNING EVENT KERNEL
-        this.fire("onRequest", this);
-        this.kernel?.fire("onRequest", this);
-        if (!this.resolver && this.router) {
-          this.resolver = this.router.resolve(this);
-        }
-        if (this.resolver && this.resolver.resolve) {
-          this.setMetaData();
-          const ret = await this.resolver
-            .callController()
-            .catch((e: unknown) => {
-              return reject(e);
-            });
-          return resolve(ret as this);
-        }
-        return reject(new HttpError("", 404, this));
-      } catch (e) {
-        return reject(e);
-      }
-    });
+  // P7 — fonction async directe (plus de `new Promise(async executor)` : un
+  // throw de l'executor y était avalé par le constructeur Promise → rejet
+  // silencieux/pendu selon le timing).
+  async handle(/*data*/): Promise<this> {
+    this.setTimeout();
+    if (this.isRedirect) {
+      await this.send();
+      return this;
+    }
+    // NB perf : pas de `setParameters("query.*")` ici. Les décorateurs
+    // @Query/@Param/@Body lisent `ctx.request.queryGet/queryPost/queryFile`
+    // DIRECTEMENT (cf framework routerDecorators) ; peupler le scope DI avec
+    // ces clés (4 parses + insertions/req) n'était lu par PERSONNE — héritage
+    // JS mort, retiré (~+3 % RPS sur route sans query). Cf metaData per-requête.
+    //this.locale = this.translation.handle();
+    // WARNING EVENT KERNEL
+    this.fire("onRequest", this);
+    this.kernel?.fire("onRequest", this);
+    if (!this.resolver && this.router) {
+      this.resolver = this.router.resolve(this);
+    }
+    if (this.resolver && this.resolver.resolve) {
+      this.setMetaData();
+      const ret = await this.resolver.callController();
+      return ret as this;
+    }
+    throw new HttpError("", 404, this);
   }
 
   setTimeout(): void {
