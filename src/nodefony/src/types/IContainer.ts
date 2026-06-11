@@ -39,6 +39,8 @@ export interface IContainer {
   enterScope(name: string): IScope;
   leaveScope(scope: IScope): void;
   removeScope(name: string): void;
+  /** Nombre d'instances vivantes du scope nommé (introspection/sondes). */
+  scopeCount(name: string): number;
 
   // ─── Logging ───────────────────────────────────────────────────────────────
   log(

@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-11T05:20:45.124Z",
+  "generated": "2026-06-11T05:45:20.502Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 840,
     "symbols": 1739,
     "classes": 243,
-    "interfaces": 433,
-    "types": 224,
+    "interfaces": 432,
+    "types": 225,
     "enums": 3,
     "functions": 349,
     "constants": 487
@@ -82,11 +82,11 @@
     },
     "Scopes": {
       "name": "Scopes",
-      "kind": "interface",
+      "kind": "type",
       "file": "src/nodefony/src/Container.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "extends": null
+      "description": "Bookkeeping des scopes ouverts : nom de scope → instances vivantes par id. `Map` (et plus un objet `delete`-é) : l'ajout/retrait a lieu à CHAQUE requête — le churn de shape d'un objet ordinaire dég…"
     },
     "ProtoService": {
       "name": "ProtoService",

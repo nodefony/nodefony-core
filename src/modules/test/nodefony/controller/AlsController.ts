@@ -97,12 +97,14 @@ class AlsController extends Controller {
   // A clean server idles near 1 (the scope of this very request).
   @Get("/scopes")
   scopeCount() {
+    // API d'introspection dédiée (Container.scopeCount) — la structure interne
+    // (Map depuis le durcissement Container) n'est plus fouillée à la main.
     const httpKernel = this.kernel?.get("HttpKernel") as
-      | { container?: { scopes?: Record<string, Record<string, unknown>> } }
+      | { container?: { scopeCount?: (name: string) => number } }
       | undefined;
-    const reqScopes = httpKernel?.container?.scopes?.request;
+    const count = httpKernel?.container?.scopeCount?.("request");
     return this.renderJson({
-      requestScopes: reqScopes ? Object.keys(reqScopes).length : -1,
+      requestScopes: count ?? -1,
     });
   }
 
@@ -123,31 +125,42 @@ class AlsController extends Controller {
   // Handshake invokes the action with `undefined` (no frame), messages with
   // the payload — so detect the handshake with a nullish check, never
   // `.toString()` an absent message.
-  @route("als-test-ws", { path: "/ws", requirements: { methods: ["WEBSOCKET"] } })
+  @route("als-test-ws", {
+    path: "/ws",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
   async wsAls(message: string | Buffer | null | undefined) {
     return this.renderJson({
       handshake: message == null,
       alsRequestId: RequestContext.getRequestId() ?? null,
-      alsUser: (RequestContext.getUser() as { id?: string } | undefined)?.id ?? null,
+      alsUser:
+        (RequestContext.getUser() as { id?: string } | undefined)?.id ?? null,
       alsTraceparent: (RequestContext.get()?.traceparent as string) ?? null,
       contextRequestId: this.context?.requestId ?? null,
     });
   }
 
   // ── BUG-001 WS — user set in one message survives to the next ───
-  @route("als-test-ws-user", { path: "/ws/user", requirements: { methods: ["WEBSOCKET"] } })
+  @route("als-test-ws-user", {
+    path: "/ws/user",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
   async wsAlsUser(message: string | Buffer | null | undefined) {
     if (message != null && message.toString() === "login") {
       RequestContext.set("user", { id: "ws-user-42" });
     }
     return this.renderJson({
       handshake: message == null,
-      alsUser: (RequestContext.getUser() as { id?: string } | undefined)?.id ?? null,
+      alsUser:
+        (RequestContext.getUser() as { id?: string } | undefined)?.id ?? null,
     });
   }
 
   // ── BUG-002 WS — after-response hook (onFinish) reads ALS ───────
-  @route("als-test-ws-after", { path: "/ws/after", requirements: { methods: ["WEBSOCKET"] } })
+  @route("als-test-ws-after", {
+    path: "/ws/after",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
   async wsAlsAfter(message: string | Buffer | null | undefined) {
     if (message == null) {
       const handshakeId = RequestContext.getRequestId() ?? null;

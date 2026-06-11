@@ -389,6 +389,56 @@ describe("Container › Scopes", () => {
     // deuxième leave : idempotent
     assert.doesNotThrow(() => c.leaveScope(scope));
   });
+
+  // ── Garde-fous durcissement 2026-06-11 (adoption protos parents + Map) ──
+
+  it("scopeCount() suit enter/leave ; 0 pour un scope inconnu", () => {
+    expect(c.scopeCount("req")).to.equal(0);
+    c.addScope("req");
+    const s1 = c.enterScope("req");
+    const s2 = c.enterScope("req");
+    expect(c.scopeCount("req")).to.equal(2);
+    c.leaveScope(s1);
+    expect(c.scopeCount("req")).to.equal(1);
+    c.leaveScope(s2);
+    expect(c.scopeCount("req")).to.equal(0);
+    expect(c.scopeCount("unknown")).to.equal(0);
+  });
+
+  it("scope.set ne pollue JAMAIS le prototype partagé du parent (anti data race)", () => {
+    c.addScope("req");
+    const s1 = c.enterScope("req");
+    const s2 = c.enterScope("req");
+    s1.set("controller", new ServiceC("req-1"));
+    // Ni le parent ni un scope CONCURRENT ne doivent voir le service per-request.
+    expect(c.get("controller")).to.be.null;
+    expect(s2.get("controller")).to.be.null;
+    expect(c.protoService.prototype["controller"]).to.equal(undefined);
+  });
+
+  it("scope.remove : own only — un service HÉRITÉ n'est pas supprimable depuis le scope", () => {
+    c.addScope("req");
+    const scope = c.enterScope("req");
+    expect(scope.remove("svcA")).to.equal(false);
+    // Le parent et le scope voient toujours le service.
+    expect(c.get("svcA")).to.not.be.null;
+    expect(scope.get("svcA")).to.not.be.null;
+    // Un service LOCAL au scope reste supprimable.
+    scope.set("local", new ServiceC("x"));
+    expect(scope.remove("local")).to.equal(true);
+    expect(scope.get("local")).to.be.null;
+  });
+
+  it("ids de scopes uniques (compteur monotone)", () => {
+    c.addScope("req");
+    const ids = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      const s = c.enterScope("req");
+      ids.add(s.id);
+      c.leaveScope(s);
+    }
+    expect(ids.size).to.equal(50);
+  });
 });
 
 // ─── log() ────────────────────────────────────────────────────────────────────
