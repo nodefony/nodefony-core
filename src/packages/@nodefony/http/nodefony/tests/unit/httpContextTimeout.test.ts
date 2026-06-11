@@ -48,8 +48,10 @@ function makeCtx(
     fired: number;
   };
   ctx.fired = 0;
-  (ctx as unknown as { fire: (ev: string) => void }).fire = (ev: string) => {
-    if (ev === "onTimeout") ctx.fired++;
+  // T4 : les handlers appellent `_onTimeout()` en direct (plus de fire/once
+  // par requête) — le mock compte les déclenchements du chemin timeout.
+  (ctx as unknown as { _onTimeout: () => void })._onTimeout = () => {
+    ctx.fired++;
   };
   (ctx as unknown as { response: unknown }).response = {
     timeout: opts.timeout ?? 30000,

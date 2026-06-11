@@ -186,9 +186,17 @@ class HttpRequest {
     } catch (e) {
       this.log(e, "WARNING");
     }
-    this.context.once("onRequestEnd", () => {
-      this.request.body = this.query;
-    });
+  }
+
+  /**
+   * Fin de corps — émission unique d'`onRequestEnd`. T4 : l'alias
+   * `request.body = query` est posé ICI (au moment du fire, `query` est le
+   * GET seul ou l'extend(GET, POST) final) — remplace le `once("onRequestEnd")`
+   * du ctor qui allouait 1 onceWrapper + 1 closure à CHAQUE requête.
+   */
+  private fireRequestEnd(): Promise<unknown> {
+    this.request.body = this.query;
+    return this.context.fireAsync("onRequestEnd", this);
   }
 
   // Valeur de résolution non consommée (awaited pour le séquençage dans
@@ -210,7 +218,7 @@ class HttpRequest {
               // AVANT onRequestEnd → avant que le controller ne lise @Body. Sans
               // await, onRequestEnd partait sur un parse encore en cours → body vide.
               await parser.parse();
-              return this.context.fireAsync("onRequestEnd", this);
+              return this.fireRequestEnd();
             } catch (error) {
               return this.context?.httpKernel?.onError(
                 error as Error,
@@ -228,7 +236,7 @@ class HttpRequest {
                   return;
                 }
                 this.context.requestEnded = true;
-                return this.context.fireAsync("onRequestEnd", this);
+                return this.fireRequestEnd();
               } catch (error) {
                 return this.context.httpKernel?.onError(
                   error as Error,
@@ -313,7 +321,7 @@ class HttpRequest {
           const jsonParser = new ParserJson(this);
           this.parser = jsonParser;
           await jsonParser.parse();
-          await this.context.fireAsync("onRequestEnd", this);
+          await this.fireRequestEnd();
           return BODY_DONE;
         }
         // text/plain, octet-stream, inconnu, ou sans corps : bufferise le brut
@@ -375,7 +383,7 @@ class HttpRequest {
       await this.createFileUpload(pf.field, pf.file);
     }
     this.context.requestEnded = true;
-    await this.context.fireAsync("onRequestEnd", this);
+    await this.fireRequestEnd();
     return BODY_DONE;
   }
 

@@ -734,6 +734,60 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     return session;
   }
 
+  /**
+   * Teardown post-réponse — fire-and-forget depuis le `once("close")` posé par
+   * `createHttpContext` (un seul fire possible : once auto-détaché). Loggue la
+   * requête, draine les hooks afterResponse/onFinish, libère le scope DI.
+   */
+  private async teardownHttp(
+    context: HttpContext,
+    scope: Scope,
+  ): Promise<void> {
+    if (context.finished) return;
+    try {
+      // Dev-only : l'action a retourné une valeur non rendable (number/boolean/
+      // void) → `waitAsync` posé mais AUCUN envoi → la requête a pendu (timeout
+      // / disconnect). Pister tôt pour éviter le hang silencieux. Gratuit en
+      // prod (gardé par l'env + n'alloue rien sauf si le warn fire).
+      if (
+        context.waitAsync &&
+        !context.sended &&
+        this.kernel?.environment === "development"
+      ) {
+        this.log(
+          `Action "${context.resolver?.route?.name ?? context.url}" returned a non-renderable value (void/null/class instance) and never sent a response. Use 'return <object|string|number|boolean|Buffer>' (auto-JSON) or send/stream manually.`,
+          "WARNING",
+        );
+      }
+      context.logRequest();
+      // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
+      context.logPhasesVerbose();
+      // Snapshot dev-only AVANT clean() (la donnée disparaît après).
+      this.profiler?.collect(
+        context as unknown as Parameters<Profiler["collect"]>[0],
+      );
+      await context._runAfterResponse();
+      // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
+      // listener que si un controller a posé un hook → 0 microtask sinon.
+      if (context.listenerCount("onFinish"))
+        await context.fireAsync("onFinish", context);
+      context.finished = true;
+      this.container?.leaveScope(scope);
+      context.clean();
+    } catch (e) {
+      // R2 — teardown est fire-and-forget (`void this.teardownHttp(...)`) : un
+      // throw ici (hook onFinish / afterResponse) serait un unhandledRejection
+      // process-wide. On loggue, et on GARANTIT la libération du scope DI
+      // (sinon le scope `request` fuit à chaque hook qui throw).
+      this.log(e, "ERROR", "TEARDOWN");
+      if (!context.finished) {
+        context.finished = true;
+        this.container?.leaveScope(scope);
+        context.clean();
+      }
+    }
+  }
+
   createHttpContext(
     scope: Scope,
     request: httpRequest,
@@ -742,64 +796,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ): HttpContext {
     try {
       const context = new HttpContext(scope, request, response, type);
-      // Deduplicated post-response handler — fires once, whichever event wins
-      // (finish = full body sent; close = socket closed, possibly early).
-      // Explicitly remove both listeners on first fire to release refs sooner.
-      let didFinish = false;
-      const teardown = async () => {
-        response.removeListener("finish", onFinish);
-        response.removeListener("close", onClose);
-        if (!context || context.finished) return;
-        try {
-          // Dev-only : l'action a retourné une valeur non rendable (number/boolean/
-          // void) → `waitAsync` posé mais AUCUN envoi → la requête a pendu (timeout
-          // / disconnect). Pister tôt pour éviter le hang silencieux. Gratuit en
-          // prod (gardé par l'env + n'alloue rien sauf si le warn fire).
-          if (
-            context.waitAsync &&
-            !context.sended &&
-            this.kernel?.environment === "development"
-          ) {
-            this.log(
-              `Action "${context.resolver?.route?.name ?? context.url}" returned a non-renderable value (void/null/class instance) and never sent a response. Use 'return <object|string|number|boolean|Buffer>' (auto-JSON) or send/stream manually.`,
-              "WARNING",
-            );
-          }
-          context.logRequest();
-          // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
-          context.logPhasesVerbose();
-          // Snapshot dev-only AVANT clean() (la donnée disparaît après).
-          this.profiler?.collect(
-            context as unknown as Parameters<Profiler["collect"]>[0],
-          );
-          await context._runAfterResponse();
-          // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
-          // listener que si un controller a posé un hook → 0 microtask sinon.
-          if (context.listenerCount("onFinish"))
-            await context.fireAsync("onFinish", context);
-          context.finished = true;
-          this.container?.leaveScope(scope);
-          context.clean();
-        } catch (e) {
-          // R2 — teardown est fire-and-forget (`void teardown()`) : un throw ici
-          // (hook onFinish / afterResponse) serait un unhandledRejection process-
-          // wide. On loggue, et on GARANTIT la libération du scope DI (sinon le
-          // scope `request` fuit à chaque hook qui throw).
-          this.log(e, "ERROR", "TEARDOWN");
-          if (!context.finished) {
-            context.finished = true;
-            this.container?.leaveScope(scope);
-            context.clean();
-          }
-        }
-      };
-      const onFinish = () => {
-        didFinish = true;
-        void teardown();
-      };
-      const onClose = () => {
-        // Close without prior finish = client disconnected before full response.
-        if (!didFinish) {
+      // T4 — UN SEUL listener post-réponse par requête. Node garantit `close`
+      // sur TOUTE réponse (h1 + compat h2) : après `finish` quand elle aboutit
+      // (nextTick), seul quand le client part avant la fin. L'ancien pair
+      // finish/close + flag didFinish + 2 removeListener (~2 % du profil
+      // CPU/req) se replie en 1 `once` auto-détaché, 0 removeListener.
+      // `writableEnded` (posé par end(), AVANT l'émission de finish) rejoue le
+      // distinguo ex-didFinish au moment du close.
+      response.once("close", () => {
+        if (!response.writableEnded) {
+          // Close sans end() préalable = client parti avant la réponse complète.
           context._abortIfPending("Connection closed before response finished");
           // P2.3 — record an internal 499 ("client closed request", nginx-style)
           // when the client vanished before ANY response byte was produced.
@@ -811,10 +817,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             context.response.statusCode = 499;
           }
         }
-        void teardown();
-      };
-      response.once("finish", onFinish);
-      response.once("close", onClose);
+        void this.teardownHttp(context, scope);
+      });
 
       return context;
     } catch (e) {

@@ -167,22 +167,32 @@ class HttpContext extends Context implements IHttpContextInterface {
     // Nom effectif selon le transport (`__Host-` sur TLS) — même calcul à
     // l'écriture (session.setCookieSession) → reprise L1 cohérente.
     this.cookieSession = this.getCookieSession(this.getSessionCookieName());
+  }
 
-    this.once("onTimeout", () => {
-      // P2.5 — abort in-flight async work (DB queries, fetches honoring
-      // `ctx.signal`) BEFORE rendering the timeout error, so a slow/hung
-      // controller stops producing a response the client will never receive.
-      // No-op if nobody read `signal` (cold path, zero overhead otherwise).
-      this._abortIfPending("Request timeout");
-      let error = null;
-      if ((this.response as Http2Response).stream) {
-        // traff 408 reload page htpp2 loop
-        error = new HttpError("Gateway Timeout", 504, this);
-      } else {
-        error = new HttpError("Request Timeout", 408, this);
-      }
-      return this.httpKernel?.onError(error, this);
-    });
+  /**
+   * Chemin timeout direct — appelé par les handlers socket/stream de
+   * `setTimeout()`. T4 : remplace l'ancien `once("onTimeout")` posé au ctor
+   * (1 onceWrapper node + 1 closure alloués à CHAQUE requête pour un event
+   * qui ne fire presque jamais). L'event `onTimeout` reste émis pour
+   * d'éventuels listeners externes — guard 0-listener : 0 alloc sinon.
+   */
+  _onTimeout(): void {
+    if (this.listenerCount("onTimeout")) {
+      this.fire("onTimeout", this);
+    }
+    // P2.5 — abort in-flight async work (DB queries, fetches honoring
+    // `ctx.signal`) BEFORE rendering the timeout error, so a slow/hung
+    // controller stops producing a response the client will never receive.
+    // No-op if nobody read `signal` (cold path, zero overhead otherwise).
+    this._abortIfPending("Request timeout");
+    let error = null;
+    if ((this.response as Http2Response).stream) {
+      // traff 408 reload page htpp2 loop
+      error = new HttpError("Gateway Timeout", 504, this);
+    } else {
+      error = new HttpError("Request Timeout", 408, this);
+    }
+    void this.httpKernel?.onError(error, this);
   }
 
   override setScheme(): SchemeType {
@@ -229,7 +239,7 @@ class HttpContext extends Context implements IHttpContextInterface {
       // concurrentes). Comportement historique conservé.
       res.setTimeout(this.response.timeout as number, () => {
         if (!this.response?.response?.writableEnded) {
-          this.fire("onTimeout", this);
+          this._onTimeout();
         }
       });
       return;
@@ -258,7 +268,7 @@ class HttpContext extends Context implements IHttpContextInterface {
       socket.on("timeout", () => {
         const ctx = socketActiveContext.get(socket);
         if (ctx && !ctx.response?.response?.writableEnded) {
-          ctx.fire("onTimeout", ctx);
+          ctx._onTimeout();
         }
         // Socket idle SANS requête active : no-op (comportement historique du
         // 1er fire) — `keepAliveTimeout` du serveur ferme l'idle par ailleurs.
