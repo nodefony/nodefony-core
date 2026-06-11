@@ -244,11 +244,12 @@ class Router extends Service {
     // Pass 2 : if no method-match but path matches another route → RFC 9110 §15.5.6 (405 + Allow)
     // RFC 9110 §15.5.6 is an HTTP rule — does NOT apply to WebSocket. For WS, preserve the
     // original exception (typically 1002 Protocol Error from Route.matchRequirements).
-    if (
-      context.method !== "WEBSOCKET" &&
-      context.request?.url &&
-      (!resolver.exception || resolver.exception.code !== 405)
-    ) {
+    // S'exécute AUSSI quand la pass 1 finit sur une 405 : le Allow doit être
+    // l'AGRÉGAT des méthodes que le path sert sur CE vhost (§15.5.6), pas celles
+    // de la dernière route scannée. Le hostname étant vérifié AVANT les methods
+    // (Route.match), toute 405 de pass 1 vient d'une route de CE vhost → la
+    // pass 2 retrouve toujours ≥ 1 méthode : le 405 HTTP sort TOUJOURS d'ici.
+    if (context.method !== "WEBSOCKET" && context.request?.url) {
       // Réutilise le pathname déjà normalisé (cleanPath) — défini ici car le
       // garde `context.request?.url` ci-dessus implique une URL présente.
       const path = (cleanPath ?? "") || "/";

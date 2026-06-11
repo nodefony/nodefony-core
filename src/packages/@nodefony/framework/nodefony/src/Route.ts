@@ -221,15 +221,18 @@ class Route implements IRoute {
     } catch (e) {
       throw e;
     }
-    // check requierments
+    // check Hostname AVANT les requirements (RFC 9110 : la ressource cible est
+    // identifiée par l'URI HOST COMPRIS) — une route restreinte à un autre vhost
+    // jette 403 et ne peut plus polluer la résolution d'une 405 portant SES
+    // méthodes (fuite cross-vhost du header Allow, cf banc routing NR §D).
     try {
-      this.matchRequirements(context);
+      this.matchHostname(context);
     } catch (e) {
       throw e;
     }
-    // check Hostname
+    // check requierments
     try {
-      this.matchHostname(context);
+      this.matchRequirements(context);
     } catch (e) {
       throw e;
     }

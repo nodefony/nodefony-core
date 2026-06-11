@@ -126,13 +126,11 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
     expect(r.exception).to.equal(undefined);
   });
 
-  // ⚠️ ÉCART RFC DOCUMENTÉ (découvert en figeant le banc, 2026-06-11) : quand
-  // plusieurs routes d'un même path jettent 405 en pass 1, l'exception finale
-  // porte le Allow de la DERNIÈRE route scannée (ici "POST"), PAS l'agrégat
-  // "GET, POST" voulu par RFC 9110 §15.5.6 — la pass 2 (agrégation) est
-  // court-circuitée par `exception.code !== 405`. Le banc fige le comportement
-  // ACTUEL ; la mise en conformité = lot dédié (le banc sera mis à jour avec).
-  it("méthode non servie sur un path connu → 405, Allow = méthodes de la DERNIÈRE route du path (écart RFC connu)", () => {
+  // Conformité RFC 9110 §15.5.6 (lot 2026-06-11, ex-écart documenté) : le Allow
+  // d'un 405 = l'AGRÉGAT des méthodes que le path sert sur ce vhost — la pass 2
+  // s'exécute aussi quand la pass 1 finit sur une 405 (plus de court-circuit
+  // `exception.code !== 405` qui servait le Allow de la dernière route scannée).
+  it("méthode non servie sur un path connu → 405, Allow = AGRÉGAT des méthodes du path (RFC 9110 §15.5.6)", () => {
     Router.createRoute("m-get", {
       path: "/m",
       requirements: { methods: ["GET"] },
@@ -149,9 +147,32 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
       err = e as HttpError & { allow?: string };
     }
     expect(err?.code).to.equal(405);
-    expect(String(err?.allow ?? "")).to.equal("POST");
+    expect(String(err?.allow ?? "")).to.equal("GET, POST");
     // l'en-tête Allow est posé sur la response (RFC 9110 §15.5.6)
-    expect(String(ctx.response.headers["Allow"])).to.equal("POST");
+    expect(String(ctx.response.headers["Allow"])).to.equal("GET, POST");
+  });
+
+  // Décision figée (lot RFC 2026-06-11) : la pseudo-méthode interne WEBSOCKET
+  // apparaît dans l'agrégat Allow d'un path DUPLEX (REST+WS sur le même path).
+  // Légal RFC 9110 (method = token, registre extensible) et informatif : le
+  // Allow révèle la surface duplex de la ressource (data plane souverain).
+  it("path duplex (GET + WEBSOCKET) → l'agrégat Allow expose la pseudo-méthode WEBSOCKET", () => {
+    Router.createRoute("dup-get", {
+      path: "/dup",
+      requirements: { methods: ["GET"] },
+    });
+    Router.createRoute("dup-ws", {
+      path: "/dup",
+      requirements: { methods: ["WEBSOCKET"] },
+    });
+    let err: (HttpError & { allow?: string }) | undefined;
+    try {
+      makeRouter().resolve(makeCtx("/dup", "DELETE"));
+    } catch (e) {
+      err = e as HttpError & { allow?: string };
+    }
+    expect(err?.code).to.equal(405);
+    expect(String(err?.allow ?? "")).to.equal("GET, WEBSOCKET");
   });
 
   it("route SANS requirements.methods → sert toutes les méthodes", () => {
@@ -202,10 +223,10 @@ describe("Routing NR — D. restriction de domaine", () => {
     expect(r.exception).to.equal(undefined);
   });
 
-  // Outcome verrouillé : la méthode d'une route restreinte à un AUTRE vhost
-  // n'apparaît pas dans le Allow servi à ce domaine (mécanisme actuel : Allow
-  // de la dernière route scannée ; la pass 2 — agrégation + filtre servesDomain
-  // — ne s'applique qu'aux exceptions non-405, cf écart RFC documenté en B).
+  // Structurel depuis le lot RFC 2026-06-11 : hostname vérifié AVANT methods
+  // (Route.match) → une route d'un autre vhost jette 403 (jamais 405) et la
+  // pass 2 agrège host-aware (filtre servesDomain). Avant : outcome garanti
+  // par la seule chance de l'ordre d'enregistrement.
   it("le Allow d'un 405 n'expose PAS la méthode d'une route d'un autre vhost", () => {
     Router.createRoute("d-get-other", {
       path: "/dd",
@@ -225,6 +246,44 @@ describe("Routing NR — D. restriction de domaine", () => {
     const allow = String(err?.allow ?? "");
     expect(allow).to.include("POST");
     expect(allow).to.not.include("GET");
+  });
+
+  it("idem avec l'ordre d'enregistrement INVERSÉ (ouverte d'abord) — robustesse structurelle, pas chance d'ordre", () => {
+    Router.createRoute("d-post-open-first", {
+      path: "/dd2",
+      requirements: { methods: ["POST"] },
+    });
+    Router.createRoute("d-get-other-last", {
+      path: "/dd2",
+      requirements: { methods: ["GET"], domain: "other.example.com" },
+    });
+    let err: (HttpError & { allow?: string }) | undefined;
+    try {
+      makeRouter().resolve(makeCtx("/dd2", "DELETE", "localhost"));
+    } catch (e) {
+      err = e as HttpError & { allow?: string };
+    }
+    expect(err?.code).to.equal(405);
+    const allow = String(err?.allow ?? "");
+    expect(allow).to.include("POST");
+    expect(allow).to.not.include("GET");
+  });
+
+  it("path servi UNIQUEMENT par d'autres vhosts + méthode quelconque → 403 (zéro fuite de méthodes cross-vhost)", () => {
+    Router.createRoute("only-other", {
+      path: "/dx",
+      requirements: { methods: ["GET"], domain: "other.example.com" },
+    });
+    let err: (HttpError & { allow?: string }) | undefined;
+    try {
+      makeRouter().resolve(makeCtx("/dx", "DELETE", "localhost"));
+    } catch (e) {
+      err = e as HttpError & { allow?: string };
+    }
+    // hostname AVANT methods : la route d'un autre vhost jette 403, jamais une
+    // 405 qui révélerait ses méthodes via Allow.
+    expect(err?.code).to.equal(403);
+    expect(err?.allow).to.equal(undefined);
   });
 });
 

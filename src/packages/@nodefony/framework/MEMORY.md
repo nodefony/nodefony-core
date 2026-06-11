@@ -286,8 +286,14 @@ Lancer : `npm test` (unit) — `npm run test:integration` (unit + intégration, 
   `isDomainAllowed` → **403** (RFC 9110 ; ex-401). `undefined` = servie sur tous les vhosts (0 ns).
 - **Virtual hosting** (même path, vhost ≠) : `Router.resolve` boucle + `catch → continue` (fallthrough)
   → la route du bon vhost est choisie. Preuve e2e : `domain-routing.test.ts` (module test, DomainController).
-- **Router Pass 2 (405 Allow) host-aware** : une route restreinte à un autre vhost est exclue du
-  calcul du `Allow` (`isDomainAllowed(route.hostRegexp, domain)`) — sinon un 403 domaine serait
-  masqué par un 405 trompeur. Bug trouvé via l'e2e.
+- **Router Pass 2 (405 Allow) host-aware + AGRÉGÉE RFC 9110 §15.5.6 (lot 2026-06-11)** : une route
+  restreinte à un autre vhost est exclue du calcul du `Allow` (`isDomainAllowed`) — sinon un 403
+  domaine serait masqué par un 405 trompeur. La pass 2 s'exécute AUSSI quand la pass 1 finit sur
+  une 405 (ex-écart « Allow = dernière route scannée » corrigé) → **tout 405 HTTP sort de la pass 2
+  avec l'agrégat** des méthodes du path sur ce vhost. **`Route.match` vérifie hostname AVANT
+  methods** (la ressource cible = URI host compris) → une route d'un autre vhost jette 403, jamais
+  une 405 qui fuiterait SES méthodes ; path 100 % autre-vhost = 403 quelle que soit la méthode.
+  **Pseudo-méthode `WEBSOCKET` exposée dans l'agrégat d'un path duplex** (décision figée : token
+  d'extension légal RFC + révèle la surface duplex REST≡WS). Banc NR §B/§D (28 invariants).
 - `domainAlias` kernel SUPPRIMÉ → barrière sécu = `http.trustedHosts` (cf http MEMORY). `@Domain` =
   source unique des vhosts servis (plus de double déclaration / "concordance" kernel↔route).
