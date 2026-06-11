@@ -18,10 +18,14 @@
 
 ## 🏎️ Perf / bancs A/B
 
-- `[1× — 2026-06-11]` **Verdict A/B honnête = 3 issues possibles** : gain net (T1 +10,8 %, 2 paires disjointes),
-  structurel-gardé-en-le-disant (T2/T3 : médiane +1,5-5 % MAIS chevauchement → « RPS bruit » dans le commit),
+- `[2× — 2026-06-11]` **Verdict A/B honnête = 3 issues possibles** : gain net (T1 +10,8 %, 2 paires disjointes),
+  structurel-gardé-en-le-disant (T2/T3/T4 : médiane +1,5-5 % MAIS chevauchement → « RPS bruit » dans le commit),
   ou rejet. Un levier profilé ~1,7-2,6 % est INDISTINGUABLE du bruit ±5 % machine → prévoir d'emblée
-  l'argument structurel (Pdu/GC/closures) sinon paire 3 + re-profil pour rien.
+  l'argument structurel (Pdu/GC/closures) sinon paire 3 + re-profil pour rien. (T4 : +1,8 % méd.,
+  min(new)>max(old) mais < ±5 % → structurel assumé, pattern confirmé 2 sessions de suite.)
+- `[1× — 2026-06-11]` **A/B d'un diff STRUCTUREL (sans toggle env) = `git stash push -- <fichiers du diff>`** +
+  rebuild du package entre chaque flip (new→stash→old→pop→new2→stash→old2→pop). Marche bien ; le dist ne
+  suit PAS le stash → rebuild après CHAQUE flip + une dernière fois après le pop final, sinon on benche l'autre code.
 - `[1× — 2026-06-11]` **« 1× par socket » naïf = piège keep-alive** : node RÉ-ARME socket.setTimeout aux
   transitions keep-alive (server.timeout 120 s ↔ keepAliveTimeout 5 s) → tout état posé « une fois par socket »
   peut être écrasé dès la requête 2. Toujours re-vérifier la valeur par requête (check conditionnel cheap).
@@ -31,6 +35,12 @@
 
 ## 🐚 Shell / environnement d'exécution
 
+- `[1× — 2026-06-11]` **`replace_all` peut réécrire le corps de la méthode qu'on vient d'INTRODUIRE** : T4c,
+  extrait `fireRequestEnd()` contenant `return this.context.fireAsync("onRequestEnd", this)` PUIS `replace_all`
+  de ce même appel vers `this.fireRequestEnd()` → la méthode s'appelle elle-même = récursion infinie (Maximum
+  call stack au 1er hit). Attrapé par le HEALTH check du start.sh (500). → quand on extrait une méthode puis
+  qu'on `replace_all` les call sites, EXCLURE la nouvelle méthode (ordre inverse : replace_all D'ABORD, extraire
+  ENSUITE — ou re-vérifier son corps après).
 - `[2× — 2026-06-11]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
   re-frappé V4 (`routerDecorators.ts` greppé puis Edit refusé). → pour un fichier qu'on va MODIFIER : `Read`
   directement (même partiel) ; garder `sed`/`grep` Bash pour la consultation pure.
