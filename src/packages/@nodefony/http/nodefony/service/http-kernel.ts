@@ -379,11 +379,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    */
   private applyRequestLoggerFromConfig(): void {
     const kernelLog = (this.kernel?.options?.log ?? {}) as {
+      driver?: string;
       requestFormat?: "auto" | "default" | "pretty" | "json";
       requestLogger?: {
         includeStack?: boolean | null;
         maxCauseDepth?: number;
         sampleRate?: number;
+        nominal?: "auto" | "always" | "never";
       };
     };
     let format = kernelLog.requestFormat ?? "auto";
@@ -405,6 +407,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         includeStack?: boolean;
         maxCauseDepth?: number;
         sampleRate?: number;
+        nominal?: boolean;
       } = {};
       if (
         advanced.includeStack !== null &&
@@ -418,6 +421,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (typeof advanced.sampleRate === "number") {
         opts.sampleRate = advanced.sampleRate;
       }
+      // T1 — audit nominal (2xx/3xx) : "auto" (défaut) = coupé SSI le sink
+      // texte est "null" (l'entrée d'audit n'atteindrait AUCUNE destination :
+      // objet+toISOString+stringify+Pdu ring pour rien, ~5,9 % du profil CPU).
+      // "always"/"never" = forçage explicite. Erreurs/4xx/5xx : JAMAIS gâtées
+      // (côté JsonAuditLogger). Override env NF_BENCH_AUDIT_NOMINAL lu 1× au
+      // boot — banc A/B paires alternées sans rebuild, jamais en hot path.
+      const envNominal = process.env.NF_BENCH_AUDIT_NOMINAL as
+        | "auto"
+        | "always"
+        | "never"
+        | undefined;
+      const nominalMode = envNominal ?? advanced.nominal ?? "auto";
+      opts.nominal =
+        nominalMode === "always" ||
+        (nominalMode === "auto" && kernelLog.driver !== "null");
       this.requestLogger = new JsonAuditLogger(opts);
     }
     // "default" → keep DefaultRequestLogger already set as field default.

@@ -99,6 +99,17 @@ export interface JsonAuditLoggerOptions {
    * `kernel.options.log.requestLogger.sampleRate`.
    */
   sampleRate?: number;
+  /**
+   * T1 (profil delta vs Express) — audit du chemin NOMINAL (2xx/3xx).
+   * `false` → seules les requêtes en erreur et les `status >= 400` sont
+   * auditées (jamais gâtées — OWASP, faible volume, valeur forensique max).
+   * Résolu AU BOOT par `HttpKernel.applyRequestLoggerFromConfig` depuis
+   * `log.requestLogger.nominal` (`"auto"` défaut = coupé SSI
+   * `log.driver === "null"`, où l'entrée d'audit n'atteint AUCUNE destination
+   * texte — elle coûtait objet + toISOString + stringify + Pdu ring pour rien,
+   * ~5,9 % du profil CPU). Défaut `true` (comportement historique).
+   */
+  nominal?: boolean;
 }
 
 /**
@@ -115,6 +126,8 @@ class JsonAuditLogger implements IRequestLogger {
   private readonly sampleRate: number;
   /** Deterministic 0-based counter for `1/sampleRate` selection (no RNG). */
   private sampleCounter = 0;
+  /** T1 — `false` = audit nominal coupé (erreurs/4xx/5xx toujours audités). */
+  private readonly nominalEnabled: boolean;
 
   constructor(opts: JsonAuditLoggerOptions = {}) {
     this.includeStack =
@@ -123,6 +136,7 @@ class JsonAuditLogger implements IRequestLogger {
     const rate = opts.sampleRate ?? 1;
     // Guard: a rate < 1 (or NaN) would disable logging — clamp to 1 (log all).
     this.sampleRate = Number.isFinite(rate) && rate >= 1 ? Math.floor(rate) : 1;
+    this.nominalEnabled = opts.nominal ?? true;
   }
 
   /**
@@ -140,11 +154,19 @@ class JsonAuditLogger implements IRequestLogger {
    * @returns `true` to render+log the entry, `false` to skip it
    */
   shouldSample(context: IHttpContext, error?: Error | null): boolean {
-    if (this.sampleRate <= 1) return true;
     const ctx = context as unknown as {
       response: { statusCode?: number } | null;
       error?: Error | null;
     };
+    // T1 — audit nominal gaté (résolu au boot → 1 test booléen/req) : les
+    // erreurs + status >= 400 passent TOUJOURS, le 2xx/3xx est skippé AVANT
+    // renderHttp (0 objet, 0 toISOString, 0 stringify, 0 Pdu au ring).
+    if (!this.nominalEnabled) {
+      if (error ?? ctx.error) return true;
+      const status = ctx.response?.statusCode ?? null;
+      return status !== null && status >= 400;
+    }
+    if (this.sampleRate <= 1) return true;
     if (error ?? ctx.error) return true;
     const status = ctx.response?.statusCode ?? null;
     if (status !== null && status >= 400) return true;
