@@ -122,16 +122,18 @@ class Router extends Service {
     for (let i = 0; i < routes.length; i++) {
       try {
         if (resolver.match(routes[i], context, cleanPath)) {
-          // « route trouvée » = jalon notable (NOTICE hors prod, DEBUG en prod).
+          // « route trouvée » = jalon notable (NOTICE hors prod). En prod :
+          // AUCUN appel — le Pdu DEBUG était gaté par le seuil Syslog (T2) mais
+          // la template string était quand même construite par requête (L1 :
+          // ne jamais formater au-dessus du niveau actif).
           if (routeNoticePromoted === null) {
             // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
             // le check "prod" était mort.
             routeNoticePromoted = this.kernel?.environment !== "production";
           }
-          this.log(
-            `Match route : ${routes[i].name}`,
-            routeNoticePromoted ? "NOTICE" : "DEBUG",
-          );
+          if (routeNoticePromoted) {
+            this.log(`Match route : ${routes[i].name}`, "NOTICE");
+          }
           resolver.exception = undefined;
           // P2.9 — pré-calcule (memo) le flag body-stream sur la route matchée :
           // O(1) après le 1er hit. http lit ensuite `resolver.route.bodyStream`

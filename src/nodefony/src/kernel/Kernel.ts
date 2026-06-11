@@ -1486,6 +1486,17 @@ class Kernel extends Service implements IKernel {
     if (!this.cli && !this.debug && this.options.log?.debug) {
       this.debug = this.options.log.debug;
     }
+    // T2 (profil delta vs Express) — gate d'ENTRÉE par sévérité, posé ICI
+    // (composition root : env RÉEL + debug RÉSOLU — pas dans Syslog.init(),
+    // appelé tôt avec un défaut "production" pollué). En prod sans debug,
+    // l'impression filtre déjà `severity <= INFO` → un DEBUG était créé +
+    // poussé au ring puis jamais consommé (~1,7 % du profil CPU/req). Le gate
+    // le court-circuite AVANT toute allocation. Dev/test/debug : pas de gate
+    // (ring complet pour Studio + assertions). Re-résoluble à chaud
+    // (syslog.setSeverityThreshold — vision « audit à chaud »).
+    this.syslog?.setSeverityThreshold(
+      this.environment === "production" && !this.debug ? "INFO" : null,
+    );
     if (this.cli) {
       return this.cli.initSyslog(this.environment, this.debug);
     } else {

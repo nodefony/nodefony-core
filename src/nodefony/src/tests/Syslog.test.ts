@@ -1840,3 +1840,86 @@ describe("Pdu.requestId — corrélation log↔requête (ALS)", () => {
     assert.strictEqual(pdu.requestId, "req-rehydrated");
   });
 });
+
+// T2 (profil delta vs Express) — gate d'ENTRÉE par sévérité. Contrat : sous le
+// seuil → AUCUN Pdu créé ni poussé au ring ; au-dessus (plus grave) → inchangé ;
+// re-résoluble à chaud (audit à chaud). Le seuil est posé par le KERNEL au boot
+// (composition root, env réel) — PAS par init() (appelé tôt avec un défaut
+// "production" pollué) : init() ne gate jamais.
+describe("SYSLOG — severity entry gate (T2)", () => {
+  it("défaut (sans seuil) → tout passe, comportement historique", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.init("production");
+    assert.strictEqual(sl.log("dbg", "DEBUG").status, "ACCEPTED");
+    assert.strictEqual(sl.gated, 0);
+  });
+
+  it("seuil INFO → DEBUG gaté (rien au ring), INFO/ERROR passent", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    const before = sl.ringStack.length;
+    const dropped = sl.log("invisible", "DEBUG");
+    assert.strictEqual(dropped.status, "DROPPED");
+    assert.strictEqual(
+      sl.ringStack.length,
+      before,
+      "DEBUG ne pousse rien au ring",
+    );
+    assert.strictEqual(sl.gated, 1);
+    const kept = sl.log("visible", "INFO");
+    assert.strictEqual(kept.status, "ACCEPTED");
+    assert.strictEqual(sl.ringStack.length, before + 1);
+    assert.strictEqual(sl.log("boom", "ERROR").status, "ACCEPTED");
+  });
+
+  it("init() ne pose JAMAIS de gate (même env production)", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.init("production", false);
+    assert.strictEqual(sl.log("dbg", "DEBUG").status, "ACCEPTED");
+    assert.strictEqual(sl.gated, 0);
+  });
+
+  it("setSeverityThreshold à chaud — élever puis restaurer (audit à chaud)", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    assert.strictEqual(sl.log("d1", "DEBUG").status, "DROPPED");
+    sl.setSeverityThreshold("DEBUG"); // fenêtre d'audit : tout passe
+    assert.strictEqual(sl.log("d2", "DEBUG").status, "ACCEPTED");
+    sl.setSeverityThreshold("INFO"); // restauration prod
+    assert.strictEqual(sl.log("d3", "DEBUG").status, "DROPPED");
+    sl.setSeverityThreshold(null); // gate levé (historique)
+    assert.strictEqual(sl.log("d4", "DEBUG").status, "ACCEPTED");
+  });
+
+  it("severityEnabled — guide les call sites AVANT de formater (pattern L1)", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    assert.strictEqual(sl.severityEnabled("DEBUG"), false);
+    assert.strictEqual(sl.severityEnabled("INFO"), true);
+    assert.strictEqual(sl.severityEnabled("ERROR"), true);
+    sl.setSeverityThreshold(null);
+    assert.strictEqual(sl.severityEnabled("DEBUG"), true);
+  });
+
+  it("Pdu pré-construit gaté par sa propre sévérité", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    const debugPdu = new Pdu("pre-built", "DEBUG", "T2", "", "");
+    assert.strictEqual(sl.log(debugPdu).status, "DROPPED");
+    const infoPdu = new Pdu("pre-built", "INFO", "T2", "", "");
+    assert.strictEqual(sl.log(infoPdu).status, "ACCEPTED");
+  });
+
+  it("SPINNER (-1) passe toujours le gate", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    assert.strictEqual(sl.severityEnabled(-1), true);
+  });
+
+  it("sévérité par défaut (DEBUG) gâtée sous seuil INFO — log() sans sévérité", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    // defaultSeverity = "DEBUG" → un log() nu est sous le seuil
+    assert.strictEqual(sl.log("nu").status, "DROPPED");
+  });
+});
