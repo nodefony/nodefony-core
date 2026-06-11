@@ -49,6 +49,77 @@ const routes: Route[] = [];
 //const controllers: Record<string, TypeController<Controller>> = {};
 const serviceName: string = "router";
 
+// ─── Index de routes (fast path étape 4) ─────────────────────────────────────
+// Partition de la table par FORME de path — ne court-circuite JAMAIS le match :
+//  - littérale = pattern qui ne peut matcher qu'UNE string exacte (casse-insensible,
+//    flag `i` de compile()) → Map path.toLowerCase() → candidates, lookup O(1) ;
+//  - dynamique = {var}, wildcard, ou metachar regex NON neutralisé par compile()
+//    (qui n'échappe que `/` et `.`) → scan regex ordonné, comme avant.
+// resolve() fusionne les deux flux PAR POSITION D'INSERTION → même séquence de
+// candidats que le scan linéaire complet, MOINS les littérales d'autres paths
+// (pattern ancré ^…$ : elles ne pouvaient pas matcher, et Resolver.match est
+// sans effet de bord avant un path-match → les sauter est inobservable).
+// Contrat figé par le banc routing-nonregression.test.ts (invariants A→J).
+
+interface IndexedRoute {
+  route: Route;
+  pos: number;
+}
+
+interface RouteIndex {
+  statics: Map<string, IndexedRoute[]>;
+  dynamics: IndexedRoute[];
+  // Photo de la table au build — garde-fou contre les mutations DIRECTES de
+  // `routes` sans passer par l'API Router (swap splice/push, pattern
+  // d'isolation des bancs de tests) : si elle ne correspond plus, rebuild.
+  length: number;
+  first: Route | undefined;
+  last: Route | undefined;
+}
+
+// Metachars qui rendraient le pattern compilé plus large que le path lui-même.
+const REG_NON_LITERAL = /[{}*+?()[\]^$|\\]/;
+// Liste vide partagée — évite 1 alloc par resolve sans candidate littérale.
+const NO_LITERALS: IndexedRoute[] = [];
+
+// `null` = index à (re)construire — posé par toute mutation API de la table.
+let routeIndex: RouteIndex | null = null;
+
+function invalidateRouteIndex(): void {
+  routeIndex = null;
+}
+
+function buildRouteIndex(): RouteIndex {
+  const statics = new Map<string, IndexedRoute[]>();
+  const dynamics: IndexedRoute[] = [];
+  for (let i = 0; i < routes.length; i++) {
+    const route = routes[i];
+    const path = route.path;
+    if (
+      path !== undefined &&
+      route.variables.length === 0 &&
+      !REG_NON_LITERAL.test(path)
+    ) {
+      const key = path.toLowerCase();
+      let list = statics.get(key);
+      if (list === undefined) {
+        list = [];
+        statics.set(key, list);
+      }
+      list.push({ route, pos: i });
+    } else {
+      dynamics.push({ route, pos: i });
+    }
+  }
+  return (routeIndex = {
+    statics,
+    dynamics,
+    length: routes.length,
+    first: routes[0],
+    last: routes[routes.length - 1],
+  });
+}
+
 @injectable()
 class Router extends Service {
   //static controllers = controllers;
@@ -118,10 +189,33 @@ class Router extends Service {
     // que chaque Route.match du scan O(N) recalcule URL.pathname + regex + alloc.
     // `cleanPathOverride` (WS-RPC invoke) court-circuite le pathname de la connexion.
     const cleanPath = cleanPathOverride ?? Route.cleanPathname(context);
-    // Pass 1 : match path + method
-    for (let i = 0; i < routes.length; i++) {
+    let index = routeIndex;
+    if (
+      index === null ||
+      index.length !== routes.length ||
+      index.first !== routes[0] ||
+      index.last !== routes[routes.length - 1]
+    ) {
+      index = buildRouteIndex();
+    }
+    const literals =
+      cleanPath !== undefined
+        ? (index.statics.get(cleanPath.toLowerCase()) ?? NO_LITERALS)
+        : NO_LITERALS;
+    const dynamics = index.dynamics;
+    const litCount = literals.length;
+    const dynCount = dynamics.length;
+    let li = 0;
+    let di = 0;
+    // Pass 1 : match path + method — merge ordonné littérales(path) ∪ dynamiques,
+    // séquence identique au scan linéaire de la table complète.
+    while (li < litCount || di < dynCount) {
+      const route =
+        li < litCount && (di >= dynCount || literals[li].pos < dynamics[di].pos)
+          ? literals[li++].route
+          : dynamics[di++].route;
       try {
-        if (resolver.match(routes[i], context, cleanPath)) {
+        if (resolver.match(route, context, cleanPath)) {
           // « route trouvée » = jalon notable (NOTICE hors prod). En prod :
           // AUCUN appel — le Pdu DEBUG était gaté par le seuil Syslog (T2) mais
           // la template string était quand même construite par requête (L1 :
@@ -132,17 +226,17 @@ class Router extends Service {
             routeNoticePromoted = this.kernel?.environment !== "production";
           }
           if (routeNoticePromoted) {
-            this.log(`Match route : ${routes[i].name}`, "NOTICE");
+            this.log(`Match route : ${route.name}`, "NOTICE");
           }
           resolver.exception = undefined;
           // P2.9 — pré-calcule (memo) le flag body-stream sur la route matchée :
           // O(1) après le 1er hit. http lit ensuite `resolver.route.bodyStream`
           // (booléen) en amont du parse — sans importer ce helper (cycle interdit).
-          routeExpectsBodyStream(routes[i]);
+          routeExpectsBodyStream(route);
           return resolver;
         }
       } catch (e) {
-        this.log(`Match route exception : ${routes[i].name} ${e}`, "DEBUG");
+        this.log(`Match route exception : ${route.name} ${e}`, "DEBUG");
         resolver.exception = e as Error;
         continue;
       }
@@ -233,17 +327,20 @@ class Router extends Service {
       const index = routes.findIndex((route) => route.name === name);
       if (index !== -1) {
         routes.splice(index, 1);
+        invalidateRouteIndex();
       } else {
         throw new Error(`Route ${name} not found.`);
       }
     } else {
       routes.length = 0;
+      invalidateRouteIndex();
     }
   }
 
   static createRoute(name: string, obj: RouteOptions): Route {
     const routenew = new Route(name, obj);
     routes.push(routenew);
+    invalidateRouteIndex();
     return routenew;
   }
   static setController(
