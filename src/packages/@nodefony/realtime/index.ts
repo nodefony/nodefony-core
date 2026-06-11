@@ -40,10 +40,12 @@ import RealtimeHub, {
 import LoopbackBackplane from "./nodefony/src/backplane/LoopbackBackplane";
 import RedisBackplane, {
   createRedisServiceTransport,
+  resolveRedisChannel,
   REDIS_RT_CHANNEL,
   type IRedisPublisher,
   type IRedisSubscriber,
 } from "./nodefony/src/backplane/RedisBackplane";
+import { resolveBackplaneOriginId } from "./nodefony/src/backplane/originId";
 import ClusterBackplane, {
   processIpcTransport,
 } from "./nodefony/src/backplane/ClusterBackplane";
@@ -121,9 +123,15 @@ registerBackplaneDriver(RedisBackplane.driver, (ctx) => {
     );
     return null;
   }
+  // Cloison multi-app sur Redis mutualisé (le `database` Redis ne cloisonne pas
+  // le pub/sub) : canal suffixé par `backplane.namespace`, sinon dérivé du nom
+  // d'app — deux apps distinctes n'échangent jamais leurs fan-outs.
+  const namespace =
+    ctx.config.backplane.namespace ?? ctx.module.kernel?.projectName;
   return new RedisBackplane(
     createRedisServiceTransport(publisher, subscriber),
     ctx.originId,
+    resolveRedisChannel(namespace),
   );
 });
 
@@ -234,7 +242,10 @@ class Realtime extends Module {
     }
     const backplane = await factory({
       module: this,
-      originId: String(process.pid),
+      // Unique cross-pod (POD_NAME/hostname + pid) — un PID nu est namespacé
+      // par conteneur (2 pods k8s = PID 1) et ferait avaler le fan-out par
+      // l'anti-écho. Cf resolveBackplaneOriginId.
+      originId: resolveBackplaneOriginId(),
       role: this.#clusterRole,
       config,
     });
@@ -338,6 +349,8 @@ export {
   ClusterBackplane,
   RedisBackplane,
   createRedisServiceTransport,
+  resolveRedisChannel,
+  resolveBackplaneOriginId,
   REDIS_RT_CHANNEL,
   registerBackplaneDriver,
   getBackplaneDriver,

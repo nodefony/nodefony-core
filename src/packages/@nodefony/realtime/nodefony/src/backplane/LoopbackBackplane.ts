@@ -3,6 +3,7 @@ import type {
   BackplaneHandler,
   IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
+import { resolveBackplaneOriginId } from "./originId.js";
 
 /**
  * Backplane **mono-process no-op** — implémentation de RÉFÉRENCE du port
@@ -26,7 +27,7 @@ export class LoopbackBackplane implements IBackplane {
 
   readonly originId: string;
 
-  constructor(originId: string = String(process.pid)) {
+  constructor(originId: string = resolveBackplaneOriginId()) {
     this.originId = originId;
   }
 

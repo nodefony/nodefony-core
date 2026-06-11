@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-11T21:49:19.273Z",
+  "generated": "2026-06-11T22:27:56.798Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 840,
-    "symbols": 1743,
+    "files": 841,
+    "symbols": 1745,
     "classes": 243,
     "interfaces": 434,
     "types": 225,
     "enums": 3,
-    "functions": 351,
+    "functions": 353,
     "constants": 487
   },
   "symbols": {
@@ -12067,6 +12067,14 @@
       "decorators": [],
       "description": "Backplane **mono-process no-op** — implémentation de RÉFÉRENCE du port {@link IBackplane} quand il n'existe **aucun pair** (1 process = 1 pod). `publish` ne sort rien (pas de pair à qui propager), …"
     },
+    "resolveBackplaneOriginId": {
+      "name": "resolveBackplaneOriginId",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Résout l'identifiant d'origine d'un backplane — l'étiquette que l'anti-écho compare pour jeter les messages qui reviennent à leur émetteur. POURQUOI pas `String(process.pid)` (ex-défaut) : en conte…"
+    },
     "RedisBackplane": {
       "name": "RedisBackplane",
       "kind": "class",
@@ -12107,6 +12115,14 @@
       "extends": null,
       "description": "Client Redis **subscriber** dédié — surface structurelle minimale (compatible `RedisClientType` v5). Un client abonné ne peut plus émettre de commandes normales (protocole Redis) → publisher et sub…"
     },
+    "resolveRedisChannel": {
+      "name": "resolveRedisChannel",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Construit le canal pub/sub effectif : `nodefony:realtime:<namespace>`, ou la base seule si aucun namespace n'est résolu (compat mono-app). Deux déploiements de la MÊME app sur un Redis partagé (sta…"
+    },
     "createRedisServiceTransport": {
       "name": "createRedisServiceTransport",
       "kind": "function",
@@ -12121,7 +12137,7 @@
       "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "Canal Redis **dédié** transportant toutes les enveloppes realtime entre pods. Un seul canal pub/sub par défaut (les canaux logiques voyagent DANS l'enveloppe, comme le `channel` IPC du {@link Clust…"
+      "description": "BASE du canal Redis **dédié** transportant les enveloppes realtime entre pods. Un seul canal pub/sub par app (les canaux logiques voyagent DANS l'enveloppe, comme le `channel` IPC du {@link Cluster…"
     },
     "ClusterProbeClient": {
       "name": "ClusterProbeClient",
@@ -14194,6 +14210,9 @@
       "createRedisServiceTransport": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
+      "resolveRedisChannel": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
       "REDIS_RT_CHANNEL": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
@@ -14202,6 +14221,12 @@
       ],
       "IRedisSubscriber": [
         "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "resolveBackplaneOriginId": [
+        "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
       ],
       "ClusterBackplane": [
         "src/packages/@nodefony/realtime/index.ts"

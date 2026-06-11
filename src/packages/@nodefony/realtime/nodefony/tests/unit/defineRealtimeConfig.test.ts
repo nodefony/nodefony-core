@@ -43,6 +43,27 @@ describe("defineRealtimeConfig — builder + Zod", () => {
       expect(c.cluster.probe.enabled).to.equal(true);
     });
 
+    it("backplane.namespace : optionnel (absent par défaut), accepté si conforme", () => {
+      expect(defineRealtimeConfig().backplane.namespace).to.equal(undefined);
+      const c = defineRealtimeConfig({
+        backplane: { driver: "redis", namespace: "my-app.v2" },
+      });
+      expect(c.backplane.namespace).to.equal("my-app.v2");
+    });
+
+    it("backplane.namespace : rejette `:` et espaces (le `:` structure le canal)", () => {
+      expect(() =>
+        defineRealtimeConfig({
+          backplane: { namespace: "bad:ns" },
+        }),
+      ).to.throw();
+      expect(() =>
+        defineRealtimeConfig({
+          backplane: { namespace: "bad ns" },
+        }),
+      ).to.throw();
+    });
+
     it("accepte un driver arbitraire (registre OUVERT — driver custom)", () => {
       // Le driver n'est plus un enum fermé : un nom custom (`nats`, `pulsar`…)
       // est valide à la config. La résolution réelle se fait dans le registre au

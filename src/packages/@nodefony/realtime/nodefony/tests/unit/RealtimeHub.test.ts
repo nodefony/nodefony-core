@@ -4,6 +4,7 @@ import {
   SLOW_CONSUMER_BYTES,
 } from "../../src/server/RealtimeHub.js";
 import { LoopbackBackplane } from "../../src/backplane/LoopbackBackplane.js";
+import { resolveBackplaneOriginId } from "../../src/backplane/originId.js";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
 import type { IRealtimeConnProbe } from "../../interfaces/IRealtimeProbe.js";
 import type {
@@ -436,8 +437,13 @@ describe("LoopbackBackplane — no-op mono-process", () => {
     expect(fired).to.equal(0); // aucun ingress ne fire jamais
   });
 
-  it("originId par défaut = pid du process", () => {
-    expect(new LoopbackBackplane().originId).to.equal(String(process.pid));
+  it("originId par défaut = identifiant cross-pod (host:pid), plus jamais le pid nu", () => {
+    const id = new LoopbackBackplane().originId;
+    expect(id).to.equal(resolveBackplaneOriginId());
+    // un PID nu est namespacé par conteneur (2 pods k8s = PID 1) → l'anti-écho
+    // cross-pod avalerait le fan-out. Le default porte host ET pid.
+    expect(id).to.not.equal(String(process.pid));
+    expect(id.endsWith(`:${process.pid}`)).to.equal(true);
   });
 
   it("câblé au hub : se comporte comme le mono-process pur (0 propagation observable)", () => {
