@@ -251,6 +251,26 @@ Résultats engrangés avec ce banc (mono prod, route session-free) : **router-fi
 (REJETÉ — le ring buffer paie un objet plus cher qu'une string → discipline A/B = ne garder que
 le mesuré). L'audit complet reste ON par défaut ; `log.requestLogger.sampleRate` = levier opt-in.
 
+### Banc comparatif frameworks (`bench-frameworks/`) — Nodefony vs Express/Fastify/nu
+
+Sandbox **isolé** (`bench-frameworks/`, package.json propre, node_modules gitignoré — ne touche
+PAS aux workspaces) : apps minimales **à conditions égales** (186 routes, route de bench en #31,
+payload JSON identique à `als-test/state`, prod, logs off). Chiffre l'écart aux concurrents et le
+ROI d'un chantier structurel AVANT de l'engager.
+
+```bash
+cd .claude/skills/nodefony-load-test/bench-frameworks && npm install   # 1er usage
+bash bench.sh bare 5161 ; bash bench.sh express 5162 ; bash bench.sh fastify 5163
+FASTIFY_SCHEMA=1 bash bench.sh fastify 5163 FASTIFY_SCHEMA=1           # fast-json-stringify
+# Nodefony via bench-ab-mono.sh (flip policy module test, cf pré-requis ci-dessus)
+```
+
+**Mesuré 2026-06-11** (`docs/audits/bench-frameworks-2026-06.md`) : nu **23 985** · Fastify
+**20 782** (schema neutre) · Express **11 740** · **Nodefony 5 264** RPS. Décomposition :
+Nodefony→Express ×2,23 = **coût par requête** (Express scanne linéairement AUSSI → pas le
+routing) ; Express→Fastify ×1,77 = index radix. → fast path : attaquer le coût/req AVANT
+l'index de routes. ⚠️ Fenêtre : re-bencher une cible en fin de série (dérive ≤ ~2 % = propre).
+
 ## Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 
 - **Connexions** : rupture **16 372** simultanées (re-validé 2026-05-21, plage 49152–65535

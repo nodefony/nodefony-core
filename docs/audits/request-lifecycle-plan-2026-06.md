@@ -150,8 +150,11 @@ singleton, ses tests E2E prouvent les deux lots) :
   (map exacte → regex), controllers singleton généralisés. Gros gain potentiel vs
   Express/Fastify MAIS refonte du Router = risque matching → **après** stabilisation du
   souverain, chantier dédié « fast path » avec banc de non-régression routing complet.
-- **Banc comparatif Express/NestJS/Fastify** côte à côte (le chiffre manquant) — utile
-  pour chiffrer le ROI du fast path avant de l'engager.
+- ~~**Banc comparatif Express/NestJS/Fastify** côte à côte (le chiffre manquant)~~ —
+  ✅ **FAIT 2026-06-11** : `docs/audits/bench-frameworks-2026-06.md`. Verdict : Nodefony
+  5 264 vs Express 11 740 vs Fastify 20 782 RPS (×4 de plafond ROI). L'écart
+  Nodefony→Express (×2,23) n'est **PAS le routing** (Express scanne linéairement aussi)
+  → le fast path doit attaquer le **coût par requête d'abord**, l'index radix ensuite.
 
 ---
 
