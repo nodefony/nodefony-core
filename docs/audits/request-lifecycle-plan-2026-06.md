@@ -3,7 +3,7 @@ title: Plan d'action — durcissement du cycle de vie requête (sécu · perf ·
 date: 2026-06-10
 branch: poc/api-souveraine
 status: plan figé — exécution par vagues committables
-progress: "V1 ✅ (0860a48) · V2 ✅ (55405ff + 4592679, A/B +2,2 %) · V3 ✅ (9b4dde4 POJO + c6010b0 P5, A/B ~+6 % — 3/3 paires) · V4 ✅ (6905ec3 ALS + 18b6e72 @Scope + V4.2 ResourceController — A/B singleton≈per-request dans le bruit, archi pas perf) · V5 à venir"
+progress: "V1 ✅ (0860a48) · V2 ✅ (55405ff + 4592679, A/B +2,2 %) · V3 ✅ (9b4dde4 POJO + c6010b0 P5, A/B ~+6 % — 3/3 paires) · V4 ✅ (6905ec3 ALS + 18b6e72 @Scope + V4.2 ResourceController — A/B singleton≈per-request dans le bruit, archi pas perf) · V5 ✅ 2026-06-11 (023fd5e R1+R5 · fd28a82 R2+R3+R4 · 1aaa6f2 P7 · 044df1d contrat retours controller — bonus audit : hang super.send http2, fuite scope DI sur hook onFinish qui throw, hang Buffer/scalaires retournés, 500 sur corps vide)"
 depends_on: request-lifecycle-2026-06.md (findings)
 principe: "réversible et local d'abord ; structurel seulement une fois le souverain stable. Le mieux est l'ennemi du bien."
 ---
