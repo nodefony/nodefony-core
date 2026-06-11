@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-10T21:49:54.369Z",
+  "generated": "2026-06-11T05:16:43.717Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 840,
-    "symbols": 1738,
+    "symbols": 1739,
     "classes": 243,
     "interfaces": 433,
     "types": 224,
     "enums": 3,
-    "functions": 348,
+    "functions": 349,
     "constants": 487
   },
   "symbols": {
@@ -4902,6 +4902,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Scope d'instanciation d'un controller (V4.3). - `\"request\"` (défaut) : une instance par requête — l'état per-request peut vivre sur `this` (legacy sûr, zéro breaking). - `\"singleton\"` (opt-in via `…"
+    },
+    "parseByteRange": {
+      "name": "parseByteRange",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Parse un header `Range` mono-plage en octets (RFC 9110 §14.1.2)."
     },
     "DocFrontmatter": {
       "name": "DocFrontmatter",

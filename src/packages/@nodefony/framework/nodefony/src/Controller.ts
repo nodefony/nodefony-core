@@ -60,6 +60,44 @@ type ReadStreamOptions = {
 };
 
 /**
+ * Parse un header `Range` mono-plage en octets (RFC 9110 §14.1.2).
+ *
+ * @param range - valeur brute du header `Range` (ex. `bytes=0-499`, `bytes=-500`).
+ * @param length - taille de la représentation sélectionnée (octets).
+ * @returns bornes `{ start, end }` clampées à la représentation,
+ *   `"unsatisfiable"` si la plage est valide mais hors représentation (→ 416,
+ *   RFC 9110 §15.5.17), ou `null` si le header doit être ignoré — unité ≠
+ *   `bytes`, multi-range non supporté ou syntaxe invalide (RFC 9110 §14.2 :
+ *   un serveur PEUT ignorer un Range ; on répond alors 200 complet, jamais 500).
+ */
+export function parseByteRange(
+  range: string,
+  length: number,
+): { start: number; end: number } | "unsatisfiable" | null {
+  const unit = /^\s*bytes\s*=\s*(.+)$/i.exec(range);
+  if (!unit) return null;
+  const spec = (unit[1] ?? "").trim();
+  if (spec.includes(",")) return null;
+  const parts = /^(\d*)-(\d*)$/.exec(spec);
+  if (!parts) return null;
+  const first = parts[1] ?? "";
+  const last = parts[2] ?? "";
+  if (first === "" && last === "") return null;
+  if (first === "") {
+    // Suffixe `bytes=-N` : les N derniers octets (§14.1.2 suffix-range).
+    const suffix = parseInt(last, 10);
+    if (suffix === 0 || length === 0) return "unsatisfiable";
+    return { start: Math.max(0, length - suffix), end: length - 1 };
+  }
+  const start = parseInt(first, 10);
+  if (last !== "" && start > parseInt(last, 10)) return null;
+  if (start >= length) return "unsatisfiable";
+  const end =
+    last === "" ? length - 1 : Math.min(parseInt(last, 10), length - 1);
+  return { start, end };
+}
+
+/**
  * Scope d'instanciation d'un controller (V4.3).
  *
  * - `"request"` (défaut) : une instance par requête — l'état per-request peut
@@ -498,6 +536,16 @@ class Controller extends Service implements IController {
 
       return new Promise((resolve, reject) => {
         let handled = false;
+        // R5 — client parti pendant le stream : la destination morte unpipe le
+        // ReadStream qui reste alors PAUSÉ, fd ouvert (`autoClose:false`), sans
+        // émettre `end`/`close` → fd fuit + promesse pendue. `destroy()` émet
+        // `close` → `handleStreamEnd` ferme le fd et résout.
+        const onResponseClose = () => {
+          if (!handled) {
+            streamFile.destroy();
+          }
+        };
+        response.once("close", onResponseClose);
         streamFile.on("open", () => {
           try {
             (this.context as HttpContext)?.writeHead(
@@ -514,6 +562,7 @@ class Controller extends Service implements IController {
           try {
             if (handled) return; // Prevent handling multiple times
             handled = true;
+            response.removeListener("close", onResponseClose);
             if (streamFile) {
               streamFile.unpipe(response);
               if (streamFile.fd) {
@@ -560,12 +609,18 @@ class Controller extends Service implements IController {
     let value: ReadStreamOptions;
     const contextResponse = this.response as HttpResponse | Http2Response;
     const response = contextResponse.response;
-    if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const partialstart = parts[0];
-      const partialend = parts[1];
-      const start = parseInt(partialstart, 10);
-      const end = partialend ? parseInt(partialend, 10) : length - 1;
+    // RFC 9110 §14 — un Range client ne crashe JAMAIS le serveur : plage hors
+    // représentation → 416 + `Content-Range: bytes */<len>` (§15.5.17) ; syntaxe
+    // invalide / unité inconnue / multi-range → header ignoré, 200 complet (§14.2).
+    const parsed = range ? parseByteRange(range, length) : null;
+    if (parsed === "unsatisfiable") {
+      return this.renderResponse("", "utf8", 416, {
+        "Content-Range": `bytes */${length}`,
+        "Accept-Ranges": "bytes",
+      });
+    }
+    if (parsed) {
+      const { start, end } = parsed;
       const chunksize = end - start + 1;
       value = {
         ...options,
@@ -594,17 +649,13 @@ class Controller extends Service implements IController {
           "Content-Type": File.mimeType || "application/octet-stream",
           "Content-Length": length.toString(),
           "Content-Disposition": ` inline; filename="${File.name}"`,
+          "Accept-Ranges": "bytes",
         },
         ...headers,
       };
       response?.removeHeader("content-type");
     }
-    // streamFile
-    try {
-      return this.streamFile(File, head, value);
-    } catch (e) {
-      throw e;
-    }
+    return this.streamFile(File, head, value);
   }
 }
 
