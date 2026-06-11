@@ -18,6 +18,16 @@
 
 ## 🏎️ Perf / bancs A/B
 
+- `[1× — 2026-06-11]` **Un profil MONO-ROUTE ment sur le coût d'un scan linéaire (position-dépendant)** :
+  « scan routing = 0,9 % » mesurait la route #31 d'une table de 186 → la table dev réelle (222 routes,
+  route bench pos 134) payait ~4× plus. L'index « gain borné, structurel probable » a rendu **+15,3 % NET**
+  (et +24,9 % sur littérale pos 151). → pour tout poste O(N) : mesurer AUSSI un cas défavorable (fin de
+  table) avant de classer le levier ; ne pas généraliser un % profilé sur UNE position.
+- `[1× — 2026-06-11]` **Optimiser en RÉDUISANT l'ensemble scanné, sans toucher la logique de match** :
+  l'index de routes ne court-circuite jamais `resolver.match()` (merge ordonné par position, skip des
+  seules candidates qui ne POUVAIENT pas matcher) → sémantique préservée par construction, banc 25
+  invariants vert du 1ᵉʳ coup, 0 itération de débogage. Pattern : prouver « skip inobservable » (pas
+  d'effet de bord avant hit) plutôt que réécrire la sémantique dans la structure d'index.
 - `[2× — 2026-06-11]` **Verdict A/B honnête = 3 issues possibles** : gain net (T1 +10,8 %, 2 paires disjointes),
   structurel-gardé-en-le-disant (T2/T3/T4 : médiane +1,5-5 % MAIS chevauchement → « RPS bruit » dans le commit),
   ou rejet. Un levier profilé ~1,7-2,6 % est INDISTINGUABLE du bruit ±5 % machine → prévoir d'emblée
@@ -35,6 +45,10 @@
 
 ## 🐚 Shell / environnement d'exécution
 
+- `[1× — 2026-06-11]` **ENOSPC FANTÔME du harness Bash** (« temp filesystem full (0MB free) » sur la capture
+  stdout) alors que le disque a 3 To libres — intermittent, corrélé aux `grep` multi-fichiers ; `df`/`ls`
+  passaient. → contournement fiable : **rediriger l'output vers un fichier + le lire avec `Read`**
+  (`grep … > /tmp/x.txt 2>&1; echo ok`). Ne PAS relancer 3 variantes de la même commande qui échoue pareil.
 - `[1× — 2026-06-11]` **`replace_all` peut réécrire le corps de la méthode qu'on vient d'INTRODUIRE** : T4c,
   extrait `fireRequestEnd()` contenant `return this.context.fireAsync("onRequestEnd", this)` PUIS `replace_all`
   de ce même appel vers `this.fireRequestEnd()` → la méthode s'appelle elle-même = récursion infinie (Maximum
@@ -720,6 +734,11 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-11]` **Un test vert peut verrouiller l'OUTCOME par chance, pas le MÉCANISME** : le test
+  « Allow n'expose pas la méthode d'un autre vhost » passait uniquement parce que la route ouverte était
+  enregistrée EN DERNIER (405 cross-vhost émis AVANT le check hostname dans Route.match — l'ordre inversé
+  fuitait). → quand un invariant de SÉCU passe, ajouter le test de l'ordre/configuration inverse pour
+  vérifier qu'il est structurel ; corrigé en vérifiant hostname AVANT methods (`bc88444`).
 - `[1× — 2026-06-10]` **`this.timeout()` est une API MOCHA, pas Vitest** : `describe("…", function(){ this.timeout(N) … })`
   → sous Vitest `this` n'a pas `.timeout` → le fichier **ÉCHOUE AU CHARGEMENT** (« 0 test », erreur pointée sur la ligne
   `describe`), PAS un test rouge. → timeout = **3ᵉ argument de `it(name, fn, ms)`** ; `describe` en arrow `() => {}`.
