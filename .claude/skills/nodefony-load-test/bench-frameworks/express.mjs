@@ -15,3 +15,6 @@ for (const p of after)
 
 const port = Number(process.env.PORT ?? 5162);
 app.listen(port, "127.0.0.1", () => console.log(`express :${port}`));
+// Sortie PROPRE sur SIGINT — indispensable au flush du log V8 `--prof`
+// (un kill -9 ne flush pas ; le handler par défaut non plus, pas garanti).
+process.on("SIGINT", () => process.exit(0));

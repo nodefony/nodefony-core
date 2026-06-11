@@ -15,3 +15,5 @@ http
     res.end();
   })
   .listen(port, "127.0.0.1", () => console.log(`bare :${port}`));
+// Sortie propre sur SIGINT (flush du log V8 --prof).
+process.on("SIGINT", () => process.exit(0));

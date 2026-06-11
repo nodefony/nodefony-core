@@ -40,3 +40,5 @@ const port = Number(process.env.PORT ?? 5163);
 app
   .listen({ port, host: "127.0.0.1" })
   .then(() => console.log(`fastify :${port}`));
+// Sortie propre sur SIGINT (flush du log V8 --prof).
+process.on("SIGINT", () => process.exit(0));
