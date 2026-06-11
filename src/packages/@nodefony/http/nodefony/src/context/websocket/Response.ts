@@ -73,7 +73,9 @@ class WebsocketResponse {
     encoding?: BufferEncoding,
   ): Promise<WebsocketResponse> {
     const payload = data ?? this.body;
-    if (!payload) throw new Error("no data");
+    // `== null` (pas falsy) : une frame texte VIDE est légale (RFC 6455 §5.6) —
+    // un handler qui `return ""` ne doit pas throw « no data ».
+    if (payload == null) throw new Error("no data");
 
     return new Promise((resolve, reject) => {
       if (!this.connection || this.connection.readyState !== Ws.OPEN) {
@@ -108,15 +110,22 @@ class WebsocketResponse {
     });
   }
 
-  broadcast(data?: Buffer | string | null, _type?: BufferEncoding): void {
+  broadcast(data?: Buffer | string | null, type?: BufferEncoding): void {
     const payload = data ?? this.body;
     if (!payload) return;
 
     const wss = this.context?.server as WebSocketServer | null;
     if (!wss) return;
 
+    // R4 — parité avec send() : en binaire le Buffer part TEL QUEL (un
+    // `.toString()` forcé corromprait les octets non-UTF-8 et changerait
+    // l'opcode de frame RFC 6455 §5.6 binary → text).
     const sendData =
-      payload instanceof Buffer ? payload.toString(this.encoding) : payload;
+      type === "binary" && Buffer.isBuffer(payload)
+        ? payload
+        : payload instanceof Buffer
+          ? payload.toString(this.encoding)
+          : payload;
 
     // Seuil + politique lus UNE fois hors boucle (pas par client).
     const { max, policy } = readBackpressureOptions(wss);

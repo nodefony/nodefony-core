@@ -732,37 +732,48 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         response.removeListener("finish", onFinish);
         response.removeListener("close", onClose);
         if (!context || context.finished) return;
-        // Dev-only : l'action a retourné une valeur non rendable (number/boolean/
-        // void) → `waitAsync` posé mais AUCUN envoi → la requête a pendu (timeout
-        // / disconnect). Pister tôt pour éviter le hang silencieux. Gratuit en
-        // prod (gardé par l'env + n'alloue rien sauf si le warn fire).
-        if (
-          context.waitAsync &&
-          !context.sended &&
-          this.kernel?.environment === "development"
-        ) {
-          this.log(
-            `Action "${context.resolver?.route?.name ?? context.url}" returned a non-renderable value (number/boolean/void) and never sent a response. Use 'return <object|string>' (auto-JSON) or send/stream manually.`,
-            "WARNING",
+        try {
+          // Dev-only : l'action a retourné une valeur non rendable (number/boolean/
+          // void) → `waitAsync` posé mais AUCUN envoi → la requête a pendu (timeout
+          // / disconnect). Pister tôt pour éviter le hang silencieux. Gratuit en
+          // prod (gardé par l'env + n'alloue rien sauf si le warn fire).
+          if (
+            context.waitAsync &&
+            !context.sended &&
+            this.kernel?.environment === "development"
+          ) {
+            this.log(
+              `Action "${context.resolver?.route?.name ?? context.url}" returned a non-renderable value (void/null/class instance) and never sent a response. Use 'return <object|string|number|boolean|Buffer>' (auto-JSON) or send/stream manually.`,
+              "WARNING",
+            );
+          }
+          context.logRequest();
+          // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
+          context.logPhasesVerbose();
+          // Snapshot dev-only AVANT clean() (la donnée disparaît après).
+          this.profiler?.collect(
+            context as unknown as Parameters<Profiler["collect"]>[0],
           );
+          await context._runAfterResponse();
+          // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
+          // listener que si un controller a posé un hook → 0 microtask sinon.
+          if (context.listenerCount("onFinish"))
+            await context.fireAsync("onFinish", context);
+          context.finished = true;
+          this.container?.leaveScope(scope);
+          context.clean();
+        } catch (e) {
+          // R2 — teardown est fire-and-forget (`void teardown()`) : un throw ici
+          // (hook onFinish / afterResponse) serait un unhandledRejection process-
+          // wide. On loggue, et on GARANTIT la libération du scope DI (sinon le
+          // scope `request` fuit à chaque hook qui throw).
+          this.log(e, "ERROR", "TEARDOWN");
+          if (!context.finished) {
+            context.finished = true;
+            this.container?.leaveScope(scope);
+            context.clean();
+          }
         }
-        context.logRequest();
-        // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
-        context.logPhasesVerbose();
-        // Snapshot dev-only AVANT clean() (la donnée disparaît après).
-        this.profiler?.collect(
-          context as unknown as Parameters<Profiler["collect"]>[0],
-        );
-        await context._runAfterResponse();
-        // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
-        // listener que si un controller a posé un hook → 0 microtask sinon.
-        if (context.listenerCount("onFinish"))
-          await context.fireAsync("onFinish", context).catch((e) => {
-            throw e;
-          });
-        context.finished = true;
-        this.container?.leaveScope(scope);
-        context.clean();
       };
       const onFinish = () => {
         didFinish = true;
@@ -1173,8 +1184,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (context.validDomain) {
       return 200;
     }
-    const error = `DOMAIN Unauthorized : ${context.domain}`;
-    throw new HttpError(error, 401);
+    // RFC 9110 §15.5.20 — Host hors `trustedHosts` : le serveur n'est pas
+    // autoritaire pour cette cible → 421 Misdirected Request. (401 impliquerait
+    // un défi d'authentification + header `WWW-Authenticate`, hors sujet ici.)
+    const error = `DOMAIN Misdirected Request : ${context.domain}`;
+    throw new HttpError(error, 421);
   }
 
   isValidDomain(context: ContextType): boolean {

@@ -394,3 +394,54 @@ describe("WEBSOCKETS BROADCAST LIMITS", function () {
     await Promise.all(sockets.map(wsClose));
   });
 });
+
+// ─── R4 (vague 5) — BROADCAST BINAIRE ────────────────────────────────────────
+// Le Buffer broadcast doit repartir en frame BINARY (opcode 0x2, RFC 6455
+// §5.6) avec octets INTACTS. Avant : `.toString(encoding)` forcé → frame
+// text + corruption des octets non-UTF-8. Vérité opcode via le flag
+// `isBinary` de ws@8 (les frames text arrivent AUSSI en Buffer).
+
+const BCBIN_URL = `${WSS}/nodefony/test/ws/broadcast-binary`;
+
+function wsNextFrame(
+  ws: WebSocket,
+): Promise<{ data: Buffer; isBinary: boolean }> {
+  return new Promise((resolve, reject) => {
+    ws.once("error", reject);
+    ws.once("message", (data, isBinary) =>
+      resolve({ data: data as Buffer, isBinary }),
+    );
+  });
+}
+
+describe("WEBSOCKETS BROADCAST BINARY — opcode + octets préservés (R4)", function () {
+  it("broadcast d'un Buffer non-UTF-8 → frame binary intacte chez les 2 clients", async () => {
+    const payload = Buffer.from([0x00, 0xff, 0xfe, 0x80, 0x01]);
+    const a = openWs(BCBIN_URL);
+    const b = openWs(BCBIN_URL);
+    await Promise.all([wsHandshake(a), wsHandshake(b)]);
+
+    const nextA = wsNextFrame(a);
+    const nextB = wsNextFrame(b);
+    a.send(payload);
+
+    const [frameA, frameB] = await Promise.all([nextA, nextB]);
+    expect(frameA.isBinary).to.equal(true);
+    expect(frameB.isBinary).to.equal(true);
+    expect(frameA.data).to.deep.equal(payload);
+    expect(frameB.data).to.deep.equal(payload);
+
+    await Promise.all([wsClose(a), wsClose(b)]);
+  });
+
+  it("broadcast texte (route /broadcast) reste une frame TEXT", async () => {
+    const a = openWs(BC_URL);
+    await wsHandshake(a);
+    const next = wsNextFrame(a);
+    a.send("hello-text");
+    const frame = await next;
+    expect(frame.isBinary).to.equal(false);
+    expect(frame.data.toString()).to.equal("hello-text");
+    await wsClose(a);
+  });
+});
