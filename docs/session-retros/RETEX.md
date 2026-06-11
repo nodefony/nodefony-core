@@ -466,6 +466,26 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-11]` **🚨 un RPS ABSOLU ne se compare JAMAIS entre deux fenêtres temporelles — toujours rebencher la baseline DANS la fenêtre courante**
+  avant de crier à la régression : le user a vu « j'étais à 7000, là 3674 » (−45 %). C'était la **charge ambiante** (Brave
+  renderer 45 % + GPU 36 % + claude 67 % ≈ 2 cœurs mangés), PAS le code. Preuve : `git checkout <ref pré-changement>` +
+  rebuild 4 workspaces + rebench **dans la même fenêtre** → pré-V5 5385 vs branche 5368 = **0,3 % d'écart** (bruit pur). Les
+  `.med` dans `/tmp/nf-bench-*.med` gardent l'historique d'hier (6673-7078) MAIS ils datent d'une autre fenêtre → inutilisables
+  comme référence aujourd'hui. Seules les **paires alternées intra-fenêtre** comptent (méthode déjà gravée, à appliquer AUSSI
+  pour réfuter une fausse régression, pas seulement pour prouver un gain). Cf [[reference_perf_profiling_method]].
+- `[1× — 2026-06-11]` **`typeOf(Buffer)` = `"buffer"`, PAS `"object"`** (Tools.ts teste `_gBuffer.isBuffer` AVANT `isArray`/object) :
+  un `return Buffer` d'une action tombait dans le `default` du `Resolver.returnController` → AUCUN envoi → requête pendue
+  jusqu'au timeout 408. Tout `switch(typeOf(x))` qui veut traiter un Buffer a besoin d'un `case "buffer"` DÉDIÉ. Même piège
+  latent pour Date/RegExp/Error (typeOf leur donne un tag propre).
+- `[1× — 2026-06-11]` **DI Container : si un Scope ADOPTE le prototype de services du parent (perf), `Scope.set`/`remove` DOIVENT être overridés own-property-only**
+  — sinon l'écriture prototype de `Container.set` (`protoService.prototype[name]=…`) touche le proto **PARTAGÉ** du parent → un
+  service per-request (controller, context) devient visible de TOUTES les requêtes concurrentes = data race silencieuse. Gravé
+  MEMORY.md core + 4 tests garde-fous. L'optim (1 `Object.create` au lieu de 2 + seq id au lieu d'uuid + Map scopes lazy) a
+  donné +6 % RPS A/B mais ne tient QUE si l'isolation own-only est préservée.
+- `[1× — 2026-06-11]` **aplatir un `new Promise(async executor)` RÉVÈLE des bugs cachés** (pas qu'un refacto cosmétique) : le
+  `return super.send()` placé DANS l'executor d'`Http2Response.send` ne résolvait JAMAIS la promesse externe (hang à vie quand
+  `this.stream` absent) ; un `throw e` après `reject(e)` dans un executor est silencieusement avalé. Le motif `new Promise(async)`
+  avale aussi tout throw de l'executor (rejet muet/pendu selon le timing). → traquer ces sites au durcissement, pas juste cosmétique.
 - `[2× — 2026-06-11]` **A/B : écarter une paire ABERRANTE et la REFAIRE (jamais conclure dessus)** : V4, paire 2
   singleton 5317 RPS vs 6495/6887 sur la MÊME URL (+30 % d'écart interne) = pollution machine ponctuelle ; la paire 3
   inversée (singleton d'abord) a redonné +5,0 %. Verdict honnête publié : « dans le bruit » — ne JAMAIS revendiquer un
