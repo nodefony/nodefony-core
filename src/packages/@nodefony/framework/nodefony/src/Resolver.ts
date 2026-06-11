@@ -410,6 +410,29 @@ class Resolver implements IResolver {
       //return (this.context as HttpContext).send().catch((e: Error) => {
       //  throw e;
       //});
+      case type === "buffer":
+        // Buffer brut retourné par l'action → envoi direct (parité avec le
+        // `case string`). ⚠️ `typeOf(Buffer)` = "buffer" (pas "object") : sans
+        // ce case dédié il tombait dans le default → AUCUN envoi → requête
+        // pendue jusqu'au timeout 408.
+        if ((this.context as HttpContext).sended) {
+          return;
+        }
+        return (this.context as HttpContext | WebsocketContext).send(
+          result as Buffer,
+        );
+      case type === "number":
+      case type === "boolean":
+        // RFC 8259 §2 : un scalaire JSON est un document valide top-level.
+        // Parité DX avec string/object/array (NestJS/Fastify font pareil) :
+        // `return 42` / `return true` répondent "42"/"true" en
+        // application/json — avant : valeur « non rendable » → hang → 408.
+        // undefined/null restent « l'action a géré elle-même » (default).
+        if ((this.context as HttpContext).sended) {
+          return;
+        }
+        this.context.setContextJson();
+        return (this.context as HttpContext | WebsocketContext).render(result);
       case type === "array":
       case type === "object": {
         // Réponse déjà envoyée (ex: ReadStream piped par streamFile, send
@@ -422,13 +445,25 @@ class Resolver implements IResolver {
         // le `case string`, et VALABLE POUR LE REALTIME WS (un handler qui
         // `return { type: "pong" }` envoie désormais au lieu d'être droppé).
         // `render()` sérialise via `isJson` (posé par `setContextJson`).
-        // Buffer / ReadStream / instances de classe → NON sérialisés (laissés
-        // tels quels : déjà envoyés/gérés ailleurs), jamais `JSON.stringify`.
+        // ReadStream / instances de classe → NON sérialisés (un stream est déjà
+        // pipé par streamFile → `sended` ci-dessus), jamais `JSON.stringify`.
         if (isPlainObject(result) || isArray(result)) {
           this.context.setContextJson();
           return (this.context as HttpContext | WebsocketContext).render(
             result,
           );
+        }
+        // Instance de classe jamais envoyée (entité ORM Mongoose, DTO…) : valeur
+        // non rendable — même traitement que number/boolean (default) : poser
+        // `waitAsync` pour que le warning dev du teardown signale le hang au
+        // lieu d'un timeout muet. (WS : pas de teardown → no-op.)
+        switch (this.context.type) {
+          case "http":
+          case "http2":
+          case "http3":
+          case "https":
+            this.context.waitAsync = true;
+            break;
         }
         return;
       }

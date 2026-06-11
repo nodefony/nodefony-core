@@ -75,6 +75,63 @@ describe("Auto-JSON controller return — RFC 8259 / 9110 (requires server)", fu
     });
   });
 
+  describe("return scalaire (number/boolean) → auto-JSON (RFC 8259 §2)", () => {
+    it("return 42 → corps '42', application/json, 200", async () => {
+      const { status, headers, raw } = await get(
+        "/nodefony/test/rest/auto/number",
+      );
+      expect(status).to.equal(200);
+      expect(headers["content-type"]).to.equal("application/json");
+      expect(JSON.parse(raw)).to.equal(42);
+    });
+
+    it("return true → corps 'true', application/json, 200", async () => {
+      const { status, headers, raw } = await get(
+        "/nodefony/test/rest/auto/boolean",
+      );
+      expect(status).to.equal(200);
+      expect(headers["content-type"]).to.equal("application/json");
+      expect(JSON.parse(raw)).to.equal(true);
+    });
+  });
+
+  describe("return Buffer → envoi binaire direct (case 'buffer')", () => {
+    it("octets intacts, 200 (avant : aucun envoi → timeout 408)", async () => {
+      // Lecture BINAIRE (pas le helper get() qui décode utf8 → corromprait
+      // 0xFE/0xFF en U+FFFD).
+      const { status, body } = await new Promise<{
+        status: number;
+        body: Buffer;
+      }>((resolve, reject) => {
+        const r = https.request(
+          { ...BASE, path: "/nodefony/test/rest/auto/buffer", method: "GET" },
+          (res) => {
+            const chunks: Buffer[] = [];
+            res.on("data", (c: Buffer) => chunks.push(c));
+            res.on("end", () =>
+              resolve({
+                status: res.statusCode!,
+                body: Buffer.concat(chunks),
+              }),
+            );
+          },
+        );
+        r.on("error", reject);
+        r.end();
+      });
+      expect(status).to.equal(200);
+      expect(body).to.deep.equal(Buffer.from([0x00, 0x01, 0xfe, 0xff]));
+    });
+  });
+
+  describe("return '' (corps vide légal)", () => {
+    it("200 corps vide — pas de 500 ERR_STREAM_NULL_VALUES", async () => {
+      const { status, raw } = await get("/nodefony/test/rest/auto/empty");
+      expect(status).to.equal(200);
+      expect(raw).to.equal("");
+    });
+  });
+
   describe("renderJson explicite — même conformité RFC", () => {
     it("application/json sans charset", async () => {
       const { status, headers } = await get("/nodefony/test/rest");
