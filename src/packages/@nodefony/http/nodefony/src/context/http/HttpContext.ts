@@ -60,6 +60,17 @@ export interface ProxyType {
 export type HttpRequestType = Http2Request | HttpRequest;
 export type HttpRsponseType = Http2Response | HttpResponse;
 
+// T3 (profil delta vs Express) — timeout d'inactivité armé UNE fois PAR SOCKET
+// (h1 keep-alive), plus par requête : `response.setTimeout` re-payait à CHAQUE
+// requête un re-arm de timer + une closure `once` pour une valeur CONSTANTE
+// par serveur (`httpKernel.responseTimeout[type]`) — ~2,6 % du profil CPU
+// (`setStreamTimeout`). Le handler permanent (1/socket) route vers le context
+// ACTIF via WeakMap → la sémantique 408/504 + abort PAR REQUÊTE est intacte.
+// Mémoire bornée : ≤ 1 entrée par socket VIVANT (écrasée à chaque requête,
+// collectée avec le socket — WeakMap). HTTP/2 : hors de ce chemin (per-stream).
+const socketActiveContext = new WeakMap<object, HttpContext>();
+const socketTimeoutArmed = new WeakSet<object>();
+
 import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
 
 class HttpContext extends Context implements IHttpContextInterface {
@@ -208,11 +219,49 @@ class HttpContext extends Context implements IHttpContextInterface {
   }
 
   setTimeout(): void {
-    if (this.response.response) {
-      this.response.response.setTimeout(this.response.timeout as number, () => {
+    const res = this.response.response;
+    if (!res) {
+      return;
+    }
+    if ((this.response as Http2Response).stream) {
+      // HTTP/2 : 1 stream = 1 requête (multiplexé) → le timeout PER-STREAM est
+      // la bonne granularité (un timeout socket couvrirait N requêtes
+      // concurrentes). Comportement historique conservé.
+      res.setTimeout(this.response.timeout as number, () => {
         if (!this.response?.response?.writableEnded) {
           this.fire("onTimeout", this);
         }
+      });
+      return;
+    }
+    // h1 (+ h1 sur TLS) — T3 : router le context actif, handler armé 1 fois.
+    const socket = (res as http.ServerResponse).socket;
+    if (!socket) {
+      return;
+    }
+    socketActiveContext.set(socket, this);
+    // ⚠️ Re-arm CONDITIONNEL par requête (pas « 1× par socket ») : node
+    // lui-même ré-arme le socket aux transitions keep-alive (`server.timeout`
+    // 120 s à la requête, `keepAliveTimeout` 5 s à l'idle) → un arm unique
+    // serait ÉCRASÉ dès la requête 2 (timeout effectif 120 s au lieu de 30 s).
+    // Le check `socket.timeout !== ms` ne ré-arme que si node a écrasé — et
+    // devient 0 arm/req si `server.timeout` est aligné sur `responseTimeout`.
+    const ms = this.response.timeout as number;
+    if (socket.timeout !== ms) {
+      socket.setTimeout(ms);
+    }
+    if (!socketTimeoutArmed.has(socket)) {
+      socketTimeoutArmed.add(socket);
+      // `on` (PAS `once`, et UNE closure par socket — plus une par requête) :
+      // le handler survit aux fires no-op (idle keep-alive) et route toujours
+      // vers le context ACTIF du socket.
+      socket.on("timeout", () => {
+        const ctx = socketActiveContext.get(socket);
+        if (ctx && !ctx.response?.response?.writableEnded) {
+          ctx.fire("onTimeout", ctx);
+        }
+        // Socket idle SANS requête active : no-op (comportement historique du
+        // 1er fire) — `keepAliveTimeout` du serveur ferme l'idle par ailleurs.
       });
     }
   }
