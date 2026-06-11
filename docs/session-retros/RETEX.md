@@ -16,6 +16,19 @@
 
 ---
 
+## 🏎️ Perf / bancs A/B
+
+- `[1× — 2026-06-11]` **Verdict A/B honnête = 3 issues possibles** : gain net (T1 +10,8 %, 2 paires disjointes),
+  structurel-gardé-en-le-disant (T2/T3 : médiane +1,5-5 % MAIS chevauchement → « RPS bruit » dans le commit),
+  ou rejet. Un levier profilé ~1,7-2,6 % est INDISTINGUABLE du bruit ±5 % machine → prévoir d'emblée
+  l'argument structurel (Pdu/GC/closures) sinon paire 3 + re-profil pour rien.
+- `[1× — 2026-06-11]` **« 1× par socket » naïf = piège keep-alive** : node RÉ-ARME socket.setTimeout aux
+  transitions keep-alive (server.timeout 120 s ↔ keepAliveTimeout 5 s) → tout état posé « une fois par socket »
+  peut être écrasé dès la requête 2. Toujours re-vérifier la valeur par requête (check conditionnel cheap).
+- `[1× — 2026-06-11]` **Comparer à conditions égales révèle plus que profiler** : Express scanne linéairement
+  AUSSI et double Nodefony → le routing était hors de cause AVANT d'ouvrir le profil. Le banc concurrent
+  (sandbox bench-frameworks/) est réutilisable après chaque vague.
+
 ## 🐚 Shell / environnement d'exécution
 
 - `[2× — 2026-06-11]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
