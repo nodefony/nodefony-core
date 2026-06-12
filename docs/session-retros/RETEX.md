@@ -200,6 +200,21 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🔄 Cycle de session (END/RETEX) — méta
 
+- `[1× — 2026-06-12]` **la DESCRIPTION frontmatter d'un skill = la seule partie chargée en permanence par
+  le harness** → un périmé LÀ (load-test disait « suites Mocha » 7 jours après la suppression de mocha)
+  désinforme CHAQUE session, même celles qui n'ouvrent pas le skill. À l'audit d'un skill : vérifier la
+  description AVANT le corps. Corollaire : le frontmatter `version` peut rater son propre changelog
+  (studio-dev 1.22.0 avec un changelog 1.23.0) → à chaque bump, frontmatter ET changelog ensemble.
+- `[1× — 2026-06-12]` **le cache plugin (`~/.claude/plugins/cache/<plugin>/…/skills/`) peut héberger de
+  VIEILLES copies de skills projet** (2 doublons `skill-creator:nodefony-create-module`/`start-nodefony-server`
+  y traînaient avec des recettes périmées `@modules()`) → elles polluent la liste harness en doublon. Après
+  une session skill-creator : vérifier qu'aucun skill projet n'a été copié dans le cache plugin.
+- `[2× — 2026-06-12]` **une mémoire graduée n'est utile que si on l'APPLIQUE au moment d'agir** : (a) commit
+  de la consolidation rejeté pour « CONSOLIDATE » majuscule — la règle exacte ([[feedback_commit_fr_apostrophes]])
+  retirée du SAS comme « déjà graduée » 10 min avant ; (b) Edit refusé sur RETEX.md (5ᵉ occurrence
+  [[feedback_edit_requires_read_tool]]) juste APRÈS l'avoir graduée — cause : prettier reformate au commit
+  → l'état connu du fichier est périmé → re-Read obligatoire avant tout Edit post-commit. Le savoir stocké
+  ne remplace pas le réflexe au point d'action (1ʳᵉ lettre du sujet ; Read après tout commit qui hook-reformate).
 - `[1× — 2026-06-04]` **capter les exigences ajoutées en cours de route DANS le kit, au fil de l'eau** : sur
   une session de planif, le user a ajouté typage impeccable, hot/boot runtime, sémantique `use` APRÈS la vision
   initiale → chaque ajout intégré immédiatement au kit (piliers/décisions), pas en fin. Évite de perdre une
