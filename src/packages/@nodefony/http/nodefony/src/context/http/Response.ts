@@ -6,16 +6,19 @@ import mime from "mime-types";
 import { responseTimeoutType } from "../../../service/http-kernel";
 import Cookie from "../../cookies/cookie";
 
-const ansiRegex = function ({ onlyFirst = false } = {}) {
-  const pattern = [
+// P8 — RegExp ANSI compilée UNE fois (avant : factory recompilant à chaque
+// setStatusCode). Le flag `g` partagé est sûr : `String.replace` réinitialise
+// `lastIndex` (contrairement à `exec`/`test`).
+const ANSI_REGEX = new RegExp(
+  [
     "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
     "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))",
-  ].join("|");
-  return new RegExp(pattern, onlyFirst ? undefined : "g");
-};
+  ].join("|"),
+  "g",
+);
 
 const stripAinsi = function (val: string): string {
-  return typeof val === "string" ? val.replace(ansiRegex(), "") : val;
+  return typeof val === "string" ? val.replace(ANSI_REGEX, "") : val;
 };
 
 // Codes de redirection RFC 9110 §15.4 qui posent un `Location` pour rediriger
@@ -122,7 +125,8 @@ class HttpResponse {
         return this.addTrailers(obj);
       }
       if (!this.response.headersSent) {
-        return this.response.setHeader(name.toLocaleLowerCase(), value);
+        // P8 : toLowerCase (header ASCII) — pas de détour locale ICU.
+        return this.response.setHeader(name.toLowerCase(), value);
       }
     }
   }
@@ -403,68 +407,66 @@ class HttpResponse {
     return this.send(chunk, encoding, true);
   }
 
+  // P7 — la partie async (redirect/end) vit AVANT le `new Promise` ; l'executor
+  // redevient synchrone (plus de `new Promise(async …)` dont les throws étaient
+  // avalés par le constructeur Promise).
   async send(
     chunk?: unknown,
     encoding?: BufferEncoding,
-    flush: boolean = false,
+    _flush: boolean = false,
   ): Promise<HttpResponse> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        if (this.context.isRedirect) {
-          if (!this.response?.headersSent) {
-            this.writeHead();
-            await this.end();
-            return resolve(this);
-          }
-          await this.end();
-          return resolve(this);
+    if (this.context.isRedirect) {
+      if (!this.response?.headersSent) {
+        this.writeHead();
+      }
+      await this.end();
+      return this;
+    }
+    if (chunk) {
+      this.setBody(chunk);
+    }
+    if (!this.response) {
+      throw new Error(`Http Response not found`);
+    }
+    // Corps VIDE légal (action qui `return ""`, 416/204…) : `res.write(null)`
+    // jetterait ERR_STREAM_NULL_VALUES → 500 pour un cas parfaitement valide.
+    if (this.body === null) {
+      this.body = Buffer.alloc(0);
+    }
+    // P2.8 — Backpressure (Node `stream.Writable.write()` : retourne `false`
+    // quand le buffer interne dépasse `highWaterMark` → le producteur DOIT
+    // attendre l'event `'drain'` avant de réécrire). En streaming chunké
+    // (flush, RFC 9112 §7.1 — 1 écriture = 1 chunk), résoudre sur `'drain'`
+    // borne la RAM serveur si le client est lent : un controller qui `flush()`
+    // en boucle est naturellement freiné par cet `await`. Cas réponse unique
+    // (non-flush) : `ok===true` quasi toujours → resolve immédiat (0 attente).
+    // Le listener `'drain'` n'est attaché QUE sous pression (rare) et est
+    // `once` (auto-détaché au fire) + retiré explicitement en cas d'erreur.
+    const res = this.response as http.ServerResponse;
+    return new Promise((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (!settled) {
+          settled = true;
+          resolve(this);
         }
-        if (chunk) {
-          this.setBody(chunk);
-        }
-        if (!flush) {
-          //this.context.displayDebugBar();
-        }
-        if (this.response) {
-          // P2.8 — Backpressure (Node `stream.Writable.write()` : retourne `false`
-          // quand le buffer interne dépasse `highWaterMark` → le producteur DOIT
-          // attendre l'event `'drain'` avant de réécrire). En streaming chunké
-          // (flush, RFC 9112 §7.1 — 1 écriture = 1 chunk), résoudre sur `'drain'`
-          // borne la RAM serveur si le client est lent : un controller qui `flush()`
-          // en boucle est naturellement freiné par cet `await`. Cas réponse unique
-          // (non-flush) : `ok===true` quasi toujours → resolve immédiat (0 attente).
-          // Le listener `'drain'` n'est attaché QUE sous pression (rare) et est
-          // `once` (auto-détaché au fire) + retiré explicitement en cas d'erreur.
-          const res = this.response as http.ServerResponse;
-          let settled = false;
-          const done = () => {
-            if (!settled) {
-              settled = true;
-              resolve(this);
-            }
-          };
-          const onDrain = () => done();
-          const ok = res.write(
-            this.body,
-            encoding || this.encoding,
-            (error: Error | null | undefined) => {
-              if (error) {
-                this.log(error, "ERROR");
-                res.removeListener("drain", onDrain);
-                done();
-              }
-            },
-          );
-          if (ok) {
+      };
+      const onDrain = () => done();
+      const ok = res.write(
+        this.body,
+        encoding || this.encoding,
+        (error: Error | null | undefined) => {
+          if (error) {
+            this.log(error, "ERROR");
+            res.removeListener("drain", onDrain);
             done();
-          } else {
-            res.once("drain", onDrain);
           }
-          return;
-        }
-        return reject(new Error(`Http Response not found`));
-      } catch (e) {
-        return reject(e);
+        },
+      );
+      if (ok) {
+        done();
+      } else {
+        res.once("drain", onDrain);
       }
     });
   }

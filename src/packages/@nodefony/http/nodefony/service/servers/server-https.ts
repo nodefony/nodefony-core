@@ -303,20 +303,27 @@ class ServerHttps extends Service {
               this.log(myError, "CRITIC");
           }
         });
-        this.kernel?.once("onTerminate", () => {
-          return new Promise(async (resolve) => {
-            if (this.server) {
-              await this.httpTerminator?.terminate();
-              return this.server.close(() => {
+        // P7 — handler async direct (plus de `new Promise(async …)`) : un rejet
+        // de `terminate()` remontait en unhandledRejection au shutdown.
+        this.kernel?.once("onTerminate", async () => {
+          if (!this.server) {
+            return;
+          }
+          try {
+            await this.httpTerminator?.terminate();
+            await new Promise<void>((resolve) => {
+              this.server?.close(() => {
                 this.log(
                   `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
                   "INFO",
                 );
-                return resolve(true);
+                resolve();
               });
-            }
-            return resolve(true);
-          });
+            });
+          } catch (e) {
+            // Shutdown best-effort : logger, ne jamais casser la terminaison.
+            this.log(e, "ERROR", "TERMINATE");
+          }
         });
 
         this.server.on("sessionError", (error) => {

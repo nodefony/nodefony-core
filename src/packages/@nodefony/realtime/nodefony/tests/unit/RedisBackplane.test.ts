@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   RedisBackplane,
   createRedisServiceTransport,
+  resolveRedisChannel,
   REDIS_RT_CHANNEL,
   type IRedisBackplaneTransport,
 } from "../../src/backplane/RedisBackplane.js";
@@ -51,10 +52,55 @@ function bus_size(s: Set<unknown> | undefined): number {
   return s ? s.size : 0;
 }
 
+describe("resolveRedisChannel — namespace anti cross-talk (dette #1)", () => {
+  it("sans namespace → canal base (compat mono-app)", () => {
+    expect(resolveRedisChannel()).to.equal(REDIS_RT_CHANNEL);
+  });
+
+  it("avec namespace → base suffixée `nodefony:realtime:<ns>`", () => {
+    expect(resolveRedisChannel("myapp")).to.equal(`${REDIS_RT_CHANNEL}:myapp`);
+  });
+
+  it("2 apps namespacées sur le MÊME bus Redis ne s'échangent RIEN (0 cross-talk)", async () => {
+    const bus = new FakeRedisBus();
+    const appA = new RedisBackplane(
+      bus.transport(),
+      "a:1",
+      resolveRedisChannel("app-a"),
+    );
+    const appB = new RedisBackplane(
+      bus.transport(),
+      "b:1",
+      resolveRedisChannel("app-b"),
+    );
+    await appA.start();
+    await appB.start();
+    const gotB: IBackplaneMessage[] = [];
+    appB.onMessage((m) => gotB.push(m));
+    appA.publish("ch", { v: 1 });
+    expect(gotB).to.have.lengthOf(0); // cloisonné par canal — avant fix : reçu
+  });
+});
+
 describe("RedisBackplane (pub/sub cross-pod)", () => {
   it("expose l'originId fourni", () => {
     const bp = new RedisBackplane(new FakeRedisBus().transport(), "pod-A");
     expect(bp.originId).to.equal("pod-A");
+  });
+
+  it("2 pods au MÊME pid (PID 1 conteneurisé) avec origins host:pid → fan-out PAS avalé par l'anti-écho (dette #2)", async () => {
+    const bus = new FakeRedisBus();
+    // même composante pid (":1"), seule la composante host diffère — la
+    // situation k8s exacte que l'ex-default `String(process.pid)` confondait.
+    const podA = new RedisBackplane(bus.transport(), "pod-a:1");
+    const podB = new RedisBackplane(bus.transport(), "pod-b:1");
+    await podA.start();
+    await podB.start();
+    const gotB: IBackplaneMessage[] = [];
+    podB.onMessage((m) => gotB.push(m));
+    podA.publish("ch", { v: 1 });
+    expect(gotB).to.have.lengthOf(1);
+    expect(gotB[0]?.originId).to.equal("pod-a:1");
   });
 
   it("publish() émet l'enveloppe JSON {channel,payload,originId} sur le canal Redis", () => {

@@ -89,7 +89,7 @@ export type {
 } from "./syslog/transports/index";
 
 // ─── Realtime (protocole JSON-RPC 2.0 isomorphe) ───────────────────────────────
-export { default as JsonRpcPeer } from "./realtime/JsonRpcPeer";
+export { default as JsonRpcPeer, RpcError } from "./realtime/JsonRpcPeer";
 export type {
   IRealtimePeer,
   RpcActionHandler,

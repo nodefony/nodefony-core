@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.20.0
+version: 1.22.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -46,13 +46,13 @@ sûr, typé** sans ré-explorer les ~15 `CLAUDE.md`/`MEMORY.md` : signatures, ch
 Quand tu changes ici un **canal / action / endpoint / type** consommé par le front → vérifier/MAJ la section
 correspondante de `nodefony-studio-dev` (et inversement). Ouvrir le skill jumeau dès qu'une feature touche son côté.
 
-**VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
-snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.16.1**
-(session BACKEND : **durcissement framework F1+F4** — purge des `any` de dette (Controller/Resolver/Route/
-décorateurs, idiomes mixins documentés) + couverture unit Controller 22→80 % / Resolver +newController ;
-doc du **hook `initialize()`** (per-request, opt-in) ajoutée ci-dessous ; aucun contrat front touché →
-`studio-dev` suit en lockstep **back-only**).
+**VERSIONS INDÉPENDANTES + référence croisée de CONTRAT (règle révisée 2026-06-12)** : chaque skill
+suit son propre SemVer (les sessions mono-côté ne bumpent QUE leur skill — le lockstep numérique
+strict a échoué en pratique : bumps « de cohérence » vides puis divergence silencieuse 1.20⇄1.23).
+**La règle qui RESTE obligatoire** : quand une feature touche un **contrat partagé** (canal / action /
+endpoint / type isomorphe), la ligne de changelog de CHAQUE skill **cite la version jumelle**
+(« contrat ↔ studio-dev vX.Y ») et les DEUX skills sont mis à jour dans la même session. La version
+courante vit dans le frontmatter + changelog — **ne JAMAIS la dupliquer dans ce paragraphe** (dérive vécue).
 
 ## 1. Quand l'utiliser / quand passer la main
 
@@ -282,8 +282,9 @@ export class MyModule extends Module {
 }
 ```
 
-- `@modules([...])` → `onPreRegister` · `@services([...])` → `onPreBoot` (erreurs **catchées**+log,
-  boot continue → vérifier `container.has("x")`) · `@entities([...])` → `onBoot`.
+- `@services([...])` → `onPreBoot` (erreurs **catchées**+log, boot continue → vérifier
+  `container.has("x")`). ⚠️ `@modules` et `@entities` N'EXISTENT PLUS (retirés — la liste des
+  modules vit dans le manifeste `config.modules` de `nodefony.config.ts`, cf chantier defineConfig).
 - Le ctor `Module` attache **toujours** 1 listener (`onBoot` → service `rollup`) même sans hook : normal.
 - `onKernelBoot` = bon endroit pour s'enregistrer comme **producteur admin** ou **storage de session**.
 
@@ -321,13 +322,14 @@ export class RoutesListCommand extends Command {
 
 - `CliKernel extends Cli` (PAS Kernel). `this.environment` est **`undefined` au constructeur** →
   conditionner dans `onKernelStart()`, jamais dans le ctor. Ne PAS rappeler `setCommandVersion()`
-  (le ctor `Cli` ajoute déjà `-v`). Built-in : Start/Dev/Build/Prod/Staging/Install/Outdated/Pm2(deprecated)/Kill.
+  (le ctor `Cli` ajoute déjà `-v`). Built-in : Start/Dev/Build/Prod/Cluster/Install/Outdated
+  (`Staging`/`Pm2`/`Kill` RETIRÉS — staging alias mort 2026-05-25, PM2 sorti C6 2026-05-29).
 
 ### CLI — exécution & commandes (vue d'ensemble)
 
 ```bash
 npx nodefony development          # DevCommand (alias `dev`) → DevSupervisor auto-restart
-npx nodefony production --no-daemon   # foreground in-process (sans PM2 — cloud-native)
+npx nodefony production           # foreground in-process (cloud-native, 0 daemon) · multi-process = `cluster -w N`
 npx nodefony build               # rollup tous workspaces · npx nodefony --help / --version
 npx nodefony <module>:<action>   # commande de module (ex. http:routes:list) — namespace obligatoire
 ```
@@ -488,7 +490,7 @@ CHAIN BREAKING : <err>` + `Trace: Promise { <rejected> … at … }` (via `Cli.l
 - **Race de shutdown = motif récurrent** : un service infra (ORM, redis…) qui se déconnecte
   sur `onTerminate` AVANT que les serveurs http/WS aient drainé → toute requête en vol qui
   retouche l'infra jette. `fireAsync("onTerminate")` est **séquentiel en ordre d'enregistrement** ;
-  un service enregistré tôt (module avant `http` dans `@modules`, handler posé au **ctor**/onPreBoot)
+  un service enregistré tôt (module avant `http` dans le manifeste `config.modules`, handler posé au **ctor**/onPreBoot)
   tourne AVANT les serveurs. Fixes : (a) **catcher** toute promesse fire-and-forget du pipeline ;
   (b) **dégrader gracieusement** quand l'infra est `!isConnected()` au lieu de jeter. Cf RETEX §11.
 - **Prouver qu'une erreur de type/tests est PRÉ-EXISTANTE** (pas ta régression) :
@@ -825,10 +827,11 @@ sur le hub → la sonde les rend MESURABLES **avant** d'optimiser :
 > minuscule/code = vocabulaire stratifié précis (`socket`/`IRealtimeSocket`=prise, `RealtimeHub`=broker,
 > `channel`, `transport`/`peer`). Analogie « le Web » vs « un web ». [[project_realtime_nodefony_socket_vision]].
 
-- **Placement** : hub/sonde/controller vivent dans **`@nodefony/framework`** (le broker y est déjà ; `http` ne peut
-  pas importer framework = cycle) → déménageront **d'un bloc** dans `@nodefony/realtime` (P13.1, session dédiée — NE PAS
-  l'extraire au milieu d'une autre feature). Config realtime future → section `realtime` de `@nodefony/http` (transport :
-  `bufferedAmount`/maxPayload) ; cadence des canaux → Studio.
+- **Placement (P13.0 FAIT — déménagement effectué)** : hub/sonde/controller/backplanes vivent dans
+  **`@nodefony/realtime`** (`nodefony/src/server/{RealtimeHub,RealtimeController,RealtimeAdminApi}.ts`,
+  `src/backplane/*`, `src/service/RealtimeService.ts`, `src/transport/WsConnectionTransport.ts`).
+  `JsonRpcPeer` reste dans le **core** (isomorphe, subpath `nodefony/realtime`). Config = **`defineRealtimeConfig`**
+  (Zod, module realtime) — plus de section dans `@nodefony/http`. Détail : `@nodefony/realtime/MEMORY.md`.
 - **Build** : modif Core/subpath `nodefony/*` ou framework → rebuild **puis restart** (Vite ré-optimise au boot).
   Règle perf/mémoire Core s'applique. memory.test obligatoire (touche pipeline WS).
 - Réfs : `project_realtime_nodefony_socket_vision`, `project_realtime_socket_probe`, `project_client_lib_subpaths_decision`,
@@ -858,7 +861,7 @@ l'archi multi-process AVANT toute infra (c'est le mode cluster sans PM2 : cf [[p
 ## 5. ORM — Entity / Repository / Service CRUD
 
 **Archi = Repository multi-ORM (pas Active Record)** — ADR-0003. `@nodefony/orm-core` = **lib pure**
-(contrats + registres + base classes, JAMAIS un Module, jamais dans `@modules()`). Les **drivers** sont
+(contrats + registres + base classes, JAMAIS un Module, jamais dans le manifeste `config.modules`). Les **drivers** sont
 les Modules et s'auto-enregistrent dans `ormRegistry` à leur boot. **ORM par défaut = Drizzle** (SQL,
 schema-as-code) ; Mongoose = NoSQL. Un nouvel adapter → **commencer par Drizzle**.
 Contrats (core) : `IOrm` · `IEntity<S,M>` (+`IEntityRelation`) · `IRepository<T>` (+`Criteria<T>`/`FieldOperators`) · `ITransaction`.
@@ -1013,14 +1016,14 @@ Le temps réel est **le patron** de Nodefony (HTTP et WS co-citoyens, même pipe
 **JSON-RPC 2.0 maison** (pas Socket.IO : contrôle total, type-safe de bout en bout, 0 dep lourde) :
 RPC bidirectionnel typé + streaming + **fallback HTTP long-polling** auto (résilience proxy/firewall).
 
-**Architecture cible (3 couches)** :
+**Architecture (3 couches — LIVRÉE sauf TCP/UDP)** :
 
 ```
-[Serveurs physiques : WS(5151/5152) · TCP · UDP · Unix]
-        ↓ normalise tout en { event, payload, meta }
-[RealtimeService (façade centrale)]  ── crée un RequestContext (ALS) même pour TCP/UDP/Unix
-        ↓ publish/subscribe                  ── filtre les échos cluster (tag originPod)
-[IRealtimeHub driver : Local | Redis | Kafka]
+[Serveurs physiques : WS(5151/5152) ✅ · TCP · UDP · Unix ⬜ (restes P13)]
+        ↓
+[RealtimeService (façade DI, @nodefony/realtime) ✅]  ── seam auth IRealtimeAuthenticator (P6-ready)
+        ↓ publish/subscribe (fan-out local = RealtimeHub)
+[IBackplane cross-pod : Loopback ✅ | Cluster IPC ✅ | Redis ✅ | Kafka ⬜ P13.6]  ── anti-echo originId
 ```
 
 ### A. WebSocket — le socle (BUILT, `@nodefony/http`)
@@ -1040,44 +1043,35 @@ RPC bidirectionnel typé + streaming + **fallback HTTP long-polling** auto (rés
 - Stress mesuré : ~16k connexions (plafond ports éphémères loopback) / ~40k msg/s fan-out propre / ~120k =
   saturation. Lag Studio résolu par **coalescing** (ring buffer + flush). Bench → skill `nodefony-load-test`.
 
-### B. `RealtimeService` + `IRealtimeHub` (P13 — DESIGN : comment on va le faire)
+### B. `@nodefony/realtime` — module LIVRÉ (P13.0 + seams + Redis ✅, 167 tests)
 
-```typescript
-interface IRealtimeHub {
-  // driver swappable par DI
-  publish(channel: string, message: unknown): Promise<void>;
-  subscribe(channel: string, onMessage: (msg: unknown) => void): Promise<void>;
-  unsubscribe(channel: string): Promise<void>;
-}
-```
+Le module porte la couche realtime serveur (hub WS, JSON-RPC 2.0, backplane cluster). **Vérité = son
+`MEMORY.md`** (vocabulaire figé 12 mots, config defaults, pièges Zod). Livré :
 
-| Driver             | Cas d'usage                                                      | Phase |
-| ------------------ | ---------------------------------------------------------------- | ----- |
-| `LocalRealtimeHub` | dev mono-instance (loop in-memory)                               | P13.x |
-| `RedisRealtimeHub` | cluster pub/sub low-latency (chat, broadcast, sessions UI)       | P13.2 |
-| `KafkaRealtimeHub` | massif, persistant (commit log), agents IA (P12), audit immuable | P13.x |
+- **`RealtimeService`** (façade DI publique) : `publish/subscribe/unsubscribe/probe/markBroadcastChannel/
+getConfig/getHub/getBackplane` + **seam auth** `useAuthenticator(matcher, authenticator)` /
+  `getTokenForPeer(peer)`. Branche au `initialize` le backplane custom (`config.backplane.instance` OU
+  service DI `realtimeBackplane`) + guard Origin (`csrf.checkOrigin`).
+- **Seam sécurité (P6-ready)** : `IRealtimeAuthenticator`/`IRealtimeToken`/`IRealtimeHandshake`/
+  `IRealtimeAuthenticatorMatcher` (pattern Symfony `supports/authenticate/onSuccess/onFailure`,
+  **0 dep `@nodefony/security`** — structural typing). `ANONYMOUS_REALTIME_TOKEN` = fallback Zero Trust.
+- **Backplanes** (contrat `IBackplane`) : `LoopbackBackplane` (mono) · `ClusterBackplane` (IPC) ·
+  **`RedisBackplane`** (pub/sub cross-pod, anti-echo `originId`, seam `IRedisBackplaneTransport`
+  testable sans infra). **Registre de drivers** `backplaneRegistry` (`registerBackplaneDriver` — 0 `if`
+  sur noms en dur, userland peut brancher NATS/Pulsar). Env `NODEFONY_REALTIME_DRIVER` surcharge.
+- **`defineRealtimeConfig(config?, { backplane? })`** (builder Zod gelé) + `realtimeConfigJsonSchema()`.
 
-- **`RealtimeService` central** : normalise tout protocole entrant (TCP/UDP/Unix/WS) en `{event, payload, meta}` ;
-  **crée un `RequestContext`** pour TCP/UDP/Unix (un paquet UDP brut = même bulle ALS qu'un POST HTTP — cohérence
-  P1.4) ; **filtre les échos cluster** (tag `originPod` au `publish`, ignore au receive si même origine).
-- Décorateurs cible : `@RealtimeController('/media')` + `@RealtimeEvent('media:joinRoom')(payload, ctx: RequestContext)`.
-- **Multi-process** : un `publish` ne touche que les clients du **même worker** → fan-out cross-process =
-  **Redis pub/sub** (1 instance reçoit → broadcast → toutes forward à leurs WS). Sans Redis = per-instance
-  (dashboard per-pod + `instanceId`). Cf [[project_multiprocess_scaling]].
-- **Forward-compat (le cœur de la demande)** : le realtime Studio actuel (`StudioRealtimeController`) migrera en
-  **LOCAL** vers `realtimeService.publish(channel, payload)` — **mêmes providers, front inchangé** (canaux + format
-  identiques). Concevoir tout provider realtime comme déjà branchable sur le service.
+**Reste P13** : `KafkaBackplane` (P13.6) · décorateurs `@RealtimeController`/`@RealtimeEvent` (P13.8) ·
+serveurs **TCP/UDP/Unix** bas niveau (transport actuel = `WsConnectionTransport` seul ; ref JS
+`bundles/realtime-bundle/`) · banc conformité ventilation · dette #3 auth WS (**attend P6**).
+⚠️ **WS reste dans `@nodefony/http`** (serveurs physiques) — realtime = hub/protocole/backplane au-dessus.
+Cf [[project_p13_realtime_finish_plan]].
 
-### C. `@nodefony/realtime` — sockets bas niveau (P13.1, NEW, indépendant)
+### C. `@nodefony/redis` — refondu ✅ (driver backplane + sessions)
 
-Serveurs **TCP / UDP / Unix** bas niveau (IoT, IPC, protocoles binaires/texte). Ref JS `bundles/realtime-bundle/`.
-⚠️ **WS reste dans `@nodefony/http`** — `@nodefony/realtime` = le **non-WS**. Module différable (indépendant).
-
-### D. `@nodefony/redis` (refactor P13.2) — bus cluster + storage
-
-Cluster + pub/sub (`RedisRealtimeHub`) + storage (cache / **session** / lock). Débloque `RedisSessionStorage`
-(P5.12, via le registre IoC `SessionsService.registerStorage`) et le scaling multi-instance. Client à figer début
-P13.2 : `ioredis` (cluster mature) vs `node-redis@4` (officiel).
+Fournit les clients pub/sub au `RedisBackplane` (`redis.getClient("publish"/"subscribe")` →
+`createRedisServiceTransport`) + storage (cache / **session** / lock). Le scaling multi-instance
+WS broadcast passe par le backplane Redis (cf B) — plus de `RedisRealtimeHub` séparé.
 
 ### E. Pont protocolaire universel (P15 — la valeur centrale vs Socket.IO)
 
@@ -1141,11 +1135,19 @@ lire `MIGRATION_STATUS.md` (P0→P16 + chemin critique + deps) ; charger le skil
 pour les phases futures. Pour une phase au design **déjà figé** (ci-dessous) : **coder dessus, ne pas
 re-débattre l'acté**. Toujours charger les mémoires de design de la phase avant de coder.
 
-### P6 — Security (design FIGÉ, à coder ; module `@nodefony/security` à créer)
+### P6 — Security (design FIGÉ ; module `@nodefony/security` EXISTANT — fondation S1 livrée)
+
+> 🚨 **AVANT tout code P6 : lire [[project_p6_security_kit]] § REVUE 2026-06-08** (l'état réel).
+> Le module **existe** (`src/packages/@nodefony/security/` : CLAUDE.md, MEMORY.md, nodefony/, docs) —
+> **ne PAS re-scaffolder**. Reste : câblage http-kernel + hook `beforeResolve` + pipeline auth + tests
+> (memory.test OBLIGATOIRE). ⚠️ Décision sessions RÉVISÉE 2026-06-06 : **hybride** (session serveur
+> cookie opaque BFF par défaut web ; JWT réservé API ; WS stateful ALS) — plus full-stateless,
+> cf [[project_security_stateless_http_decision]].
 
 **Infra prérequise déjà en place** : ALS `RequestContext` (P1.4) · hooks kernel `beforeResolve`/`afterAuth`/
-`onAuthFailure` (P1.7) · HTTP **stateless JWT cookie** (décision) · module **`@nodefony/user`** livré
-(IUser/BaseUser/AnonymousUser/BcryptEncoder/UserService + repos Drizzle, P5.6/P5.9). → le firewall peut se brancher.
+`onAuthFailure` (P1.7) · module **`@nodefony/user`** livré (IUser/BaseUser/AnonymousUser/BcryptEncoder/
+UserService + repos Drizzle, P5.6/P5.9) · seam realtime `IRealtimeAuthenticator` (cf §6.B) ·
+seam session `regenerateId()` (anti-fixation). → le firewall peut se brancher.
 
 **À construire (le plan)** :
 
@@ -1170,18 +1172,42 @@ re-débattre l'acté**. Toujours charger les mémoires de design de la phase ava
   `project_security_authorization_pending` · `project_security_decorators_pending` ·
   `project_security_stateless_http_decision` · `project_decisions_p5_p6_orm`.
 
+### POC API souveraine (branche `poc/api-souveraine` — Ph.1+2+3 LIVRÉES, Ph.4→6 restantes)
+
+**Pattern « 1 service → N surfaces »** : un service métier unique exposé par un **`ResourceController`**
+(REST/GraphQL/RPC = adaptateurs minces), controllers **stateless** via `@Scope`. Ph.1+2 livrées ;
+doc = `docs/api/README.md`, vérité = [[project_api_souveraine_poc]]. Si une session reprend Ph.4→6 :
+lire la mémoire AVANT (ne pas re-designer l'acté), prolonger le pattern existant.
+
+**Ph.3 LIVRÉE (data plane admin duplex, full-stack 2026-06-12 — contrat ↔ studio-dev 1.24.0)** :
+
+- **Backend (`a07fdf2`)** : pont JSON-RPC **`api.request {path}`** opt-in par controller realtime
+  (`realtimeApiRequest()` — Studio l'active) → ré-invoque la MÊME action GET du Router (param `{name}` +
+  query du path via `Resolver.queryOverride`, anti-bleed entre invocations d'une même socket). Routes
+  admin déclarées `methods:["GET","WEBSOCKET"]` (AdminBroker) ; une route GET-only reste INVISIBLE au
+  pont (405, zéro bypass). Erreurs **fetch-like** : `RpcError` isomorphe (core), `error.data.status`
+  (404/405/403…) + `error.data.body` = body d'erreur REST. Snapshot REST≡WS prouvé
+  (`framework/tests/integration/api-souverain-bridge.test.ts`, 9 tests — relancer après tout
+  changement du pont). Client : `socket.request("/path?query")` (overload path de `RealtimeClient`).
+- **Front Studio** : consommé dans l'`ApiClient` (GET routés socket quand connectée, fallback fetch,
+  kill switch Hub) → détails côté `nodefony-studio-dev` (1.24.0).
+- Limitations Ph.3 assumées : mutations par socket NON conçues (non-GET = HTTP-only) ; parse query
+  plat (nested `a[b]=c` → Ph.6). Cf doc §11.2.
+
 ### Carte des phases P0→P16 (lire MIGRATION_STATUS pour % + détail réels)
 
 - **P1-P4 ✅ BUILT → recettes §4** : lifecycle/ALS/hooks (P1), Context teardown/abort/timing (P2), logs
   structurés/audit/error-renderer (P3), symbiose http↔framework (P4).
-- **P5 ✅** orm-core + `@nodefony/user` · **P6 ⬜** Security (design figé ci-dessus) · **P7 ⬜** drivers ORM
-  prod (Postgres/MySQL Drizzle) + User Mongoose (P5.8). (Sequelize/MikroORM abandonnés — virage ORM.)
+- **P5 ✅** orm-core + `@nodefony/user` · **P6 🔶** Security (S1 fondation livrée — design figé ci-dessus,
+  kit § REVUE = vérité) · **P7 ⬜** drivers ORM prod (Postgres/MySQL Drizzle) + User Mongoose (P5.8).
+  (Sequelize/MikroORM abandonnés — virage ORM.)
 - **P8 / P11** CLI + monitoring + commandes par module (cf recette CLI §4 ; bug commandes-module à traiter) ·
   **P9** polish/clôture.
 - **P10** Studio admin (frontend → `nodefony-studio-dev`) · **P12** couche IA agentic
   (llm/rag/vector/agent/memory/**agent-guard**/**mcp** — _squelettes vides_, dernière migration).
-- **P13** realtime/redis/client → **cf §6** · **P14** frontend Vite (→ `nodefony-create-frontend-module` /
-  `nodefony-studio-dev`) + Core isomorphe (cf §4) · **P16** cloud-native (reusePort `--workers N`, SecretProvider, retrait PM2).
+- **P13 🔶** realtime/redis/client (module livré, restent Kafka/décorateurs/TCP-UDP) → **cf §6** ·
+  **P14 ✅** frontend Vite (→ `nodefony-create-frontend-module` / `nodefony-studio-dev`) + Core isomorphe
+  (cf §4) · **P16** cloud-native (reusePort `--workers N`, SecretProvider ; PM2 déjà RETIRÉ — C6, reste doc users P16.F.3).
 
 ### Méthode pour une phase non-faite
 
@@ -1522,6 +1548,28 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.22.0** (2026-06-12) — **POC souverain Ph.3 = LIVRÉE full-stack (contrat ↔ studio-dev 1.24.0).**
+  Section « POC API souveraine » recalée : Ph.3 backend (`a07fdf2`, pont `api.request` + `RpcError` +
+  `queryOverride` + routes admin GET+WEBSOCKET, 9 tests intég) **+ Ph.3 front livré cette session**
+  (ApiClient Studio route les GET via la socket, fallback fetch — détail consommation côté studio-dev).
+  Restantes = Ph.4 mediasoup · Ph.5 GraphQL · Ph.6 query nested. Backend INCHANGÉ cette session
+  (front-only) — bump = description du contrat partagé désormais consommé.
+- **1.21.0** (2026-06-12) — **Audit de calibration (session nettoyage skills) — recalage sur le LIVRÉ.**
+  (1) §6.B-C réécrits : `@nodefony/realtime` = module **livré** (RealtimeService façade DI + seam auth
+  `IRealtimeAuthenticator`, backplanes Loopback/Cluster/**Redis** + registre de drivers,
+  `defineRealtimeConfig` Zod ; restes = Kafka P13.6, décorateurs P13.8, TCP/UDP) ; placement § realtime :
+  déménagement P13.0 **effectué** (hub/controller/backplanes dans realtime, plus framework). (2) §7 P6 :
+  module security **existant** (S1 fondation livrée — ne PAS re-scaffolder, kit § REVUE = vérité) +
+  décision sessions **hybride** (plus full-stateless JWT) ; carte phases P6 🔶 / P13 🔶 / P14 ✅ /
+  P16 sans « retrait PM2 » (fait C6). (3) **Règle lockstep RÉVISÉE** : versions indépendantes +
+  référence croisée de contrat (le numéro commun a échoué — divergence silencieuse 1.20⇄1.23) ;
+  paragraphe « Actuel : X » supprimé (duplication qui dérive). (4) §7 + **POC API souveraine**
+  (ResourceController, 1 service→N surfaces, Ph.1+2 livrées — pointeur [[project_api_souveraine_poc]]).
+- **1.20.1** (2026-06-12) — **Patch resync session nettoyage skills** : `@modules`/`@entities`
+  retirés de la liste des hooks (n'existent plus — seul `@services` survit, manifeste
+  `config.modules` ailleurs) ; built-in CLI recalés sur le code (`Start/Dev/Build/Prod/Cluster/
+Install/Outdated` — Staging/Pm2/Kill fantômes retirés) ; `production --no-daemon` → flag mort,
+  remplacé par `production` + `cluster -w N` ; 2 mentions `@modules` résiduelles → manifeste.
 - **1.20.0** (2026-06-05) — **Config app → `defineConfig` (chantier config Lot 5+7).** L'app dev passe au
   descripteur `nodefony.config.ts` racine + `env.ts` (`defineEnv`) ; ajout de la section « Config de
   l'APPLICATION » + MAJ « Surcharge » (clés `module-<name>` → **`use(name, config)`** dans le manifeste

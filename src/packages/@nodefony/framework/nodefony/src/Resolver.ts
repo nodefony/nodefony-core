@@ -1,7 +1,4 @@
 import {
-  Container,
-  Service,
-  Event,
   typeOf,
   isPromise,
   isPlainObject,
@@ -26,12 +23,11 @@ import Route, { ControllerConstructor } from "./Route.js";
 import BlueBird from "bluebird";
 import Controller from "./Controller";
 import {
-  HTTP_CODE_METADATA,
-  HEADERS_METADATA,
-  REDIRECT_METADATA,
-  PARAM_ARGS_METADATA,
   buildParamArgs,
   resolveSessionIntent,
+  resolveActionMeta,
+  computeActionMeta,
+  type RouteActionMeta,
   type RedirectMeta,
   type ParamMeta,
   type IParamArgContext,
@@ -53,7 +49,17 @@ export interface ControllerWithInitialize {
   initialize(): Promise<this>;
 }
 
-class Resolver extends Service implements IResolver {
+/**
+ * Résout une route vers son couple controller/action et exécute l'action —
+ * UN Resolver est alloué par requête HTTP (et par connexion WS, réutilisé
+ * par message). **POJO volontaire** (V3.1) : n'étend PAS `Service` — le
+ * plumbing Service (Map de listeners trackés, spread d'options, lookups
+ * kernel/syslog) coûtait par requête sans aucun consommateur (jamais écouté,
+ * jamais loggé, jamais dans le container). Le DI per-request passe par
+ * `context.container` (le cache `"controller"` y survit au Resolver : un
+ * forward ou un 2ᵉ Resolver WS sur la MÊME connexion retrouve l'instance).
+ */
+class Resolver implements IResolver {
   injector?: Injector | null;
   controller: ControllerConstructor | null = null;
   actionName?: string;
@@ -65,14 +71,19 @@ class Resolver extends Service implements IResolver {
   exception?: HttpError | Error | null;
   acceptedProtocol: string | null = null;
   bypassFirewall: boolean = false;
+  /**
+   * Query d'une invocation **par message** (pont WS-RPC `api.request`) — pendant
+   * de `cleanPathOverride` pour le `?…` du path invoqué. Le contexte WS étant
+   * PARTAGÉ par la connexion (sa `queryGet` = celle du handshake), la query
+   * per-invocation vit ici (le Resolver est per-invocation → zéro bleed entre
+   * requêtes concurrentes d'une même socket). `null` (hot path HTTP) = ignoré.
+   * Consommé par `@Query` (`_buildParamArgs`) et copié sur le controller
+   * per-request (`executeAction`).
+   */
+  queryOverride: Record<string, unknown> | null = null;
   constructor(context: ContextType) {
-    super(
-      "RESOLVER",
-      context.container as Container,
-      context.notificationsCenter as Event,
-    );
     this.context = context;
-    this.injector = this.get<Injector>("injector");
+    this.injector = context.container?.get<Injector>("injector") ?? null;
   }
 
   match(route: Route, context: ContextType, cleanPath?: string) {
@@ -90,10 +101,8 @@ class Resolver extends Service implements IResolver {
         }
         // Intent de session de la route (depuis `@UseSession` / paramètre
         // `@Session`) → pilote le point d'activation unique (HttpKernel.startSession).
-        this.context.sessionIntent = resolveSessionIntent(
-          this.controller,
-          this.actionName as string,
-        );
+        // P5 : lu depuis le memo de route (0 Reflect par requête).
+        this.context.sessionIntent = resolveActionMeta(route).sessionIntent;
       }
       return match;
     } catch (e) {
@@ -137,12 +146,9 @@ class Resolver extends Service implements IResolver {
         `Invalid name format: expected "module:controller:action"`,
       );
     }
-    module = this.kernel?.getModule(tab[0]) as Module | undefined;
+    module = this.context.kernel?.getModule(tab[0]) as Module | undefined;
     if (!module) {
       throw new Error(`Module not found: ${tab[0]}`);
-    }
-    if (module.name !== "framework") {
-      this.set("module", module);
     }
     this.controller = module.getController(tab[1]);
     if (!this.controller) {
@@ -180,73 +186,147 @@ class Resolver extends Service implements IResolver {
   }
 
   async newController(context?: ContextType): Promise<Controller> {
-    if (this.controller) {
-      const controller = this.injector?.instantiate<Controller>(
-        this.controller,
-        context || this.context,
-      );
-      if (controller) {
-        this.set("controller", controller);
-        if (
-          "initialize" in controller &&
-          typeof controller.initialize === "function"
-        ) {
-          await controller.initialize();
-          return controller as Controller;
-        }
-        return controller as Controller;
-      }
+    if (!this.controller) {
+      throw new Error(`Route Controller not found`);
     }
-    throw new Error(`Route Controller not found`);
+    // V4.3 — scope statique de la classe (posé par `@Scope`, hérité de
+    // Controller) : lecture directe, 0 Reflect. Singleton → instance partagée
+    // depuis le cache kernel-scoped du Router (la promesse est cachée AVANT le
+    // 1er await : les requêtes concurrentes de la création n'instancient pas).
+    if (
+      (this.controller as unknown as typeof Controller).scope === "singleton"
+    ) {
+      const router = this.context.router;
+      const controller = router
+        ? await router.getSingletonController(this.controller, () =>
+            this._createController(context),
+          )
+        : // Pas de Router (harness de test) → dégradé per-request, sans cache.
+          await this._createController(context);
+      // Pointeur posé sur le container de REQUÊTE : un message WS suivant ou
+      // un forward (`reload`) retrouve l'instance par le chemin existant.
+      this.context.container?.set("controller", controller);
+      return controller;
+    }
+    const controller = await this._createController(context);
+    // Cache per-CONTEXT (pas per-Resolver) : un message WS suivant ou un
+    // forward (`reload`) retrouve l'instance via le container partagé.
+    this.context.container?.set("controller", controller);
+    return controller;
   }
 
-  async callController(data?: unknown[], reload: boolean = false) {
-    let controller = this.get("controller") as Controller;
-    if (!controller || reload) {
-      controller = await this.newController();
+  /**
+   * Instancie la classe controller résolue (DI) + hooks de création : `module`
+   * (constante de classe, shadow d'instance posé 1× ici — plus de write par
+   * requête dans `executeAction`) puis `initialize()`. Pour un singleton,
+   * `initialize()` n'est donc appelé qu'UNE fois, à la création (sémantique
+   * boot) — le per-request y lit l'ALS s'il a besoin de la requête.
+   */
+  private async _createController(context?: ContextType): Promise<Controller> {
+    const controller = this.injector?.instantiate<Controller>(
+      this.controller as ControllerConstructor,
+      context || this.context,
+    );
+    if (!controller) {
+      throw new Error(`Route Controller not found`);
     }
     if (this.controller?.prototype.module) {
-      controller.module = this.controller?.prototype.module;
+      controller.module = this.controller.prototype.module;
     }
-    this.set("action", this.action);
-    this.set("route", this.route);
-    controller.setRoute(this.route!);
+    if (
+      "initialize" in controller &&
+      typeof controller.initialize === "function"
+    ) {
+      await controller.initialize();
+    }
+    return controller as Controller;
+  }
+
+  /**
+   * Exécute l'action résolue et retourne sa **valeur brute**, SANS la rendre sur
+   * le transport (pas de `returnController`/`send`). Découple « exécuter → valeur »
+   * de « rendre la valeur » : un appelant multi-transport (WS-RPC `invoke`, futur
+   * GraphQL) réutilise la MÊME action puis emballe le résultat à sa façon
+   * (`{ id, result }`, champ GraphQL…). Le pipeline HTTP/WS normal passe par
+   * {@link callController} (= `executeAction` + rendu).
+   *
+   * @param data - args supplémentaires (message WS brut legacy) concaténés aux variables de route.
+   * @param reload - force `newController()` (le container peut déjà porter un AUTRE controller).
+   * @returns la valeur retournée par l'action + son `RedirectMeta` éventuel.
+   */
+  async executeAction(
+    data?: unknown[],
+    reload: boolean = false,
+  ): Promise<{ result: unknown; redirectMeta: RedirectMeta | undefined }> {
+    let controller = this.context.container?.get("controller") as Controller;
+    // Le pointeur "controller" du container est PARTAGÉ par la connexion (WS)
+    // et réécrit par tout re-routage (invoke, forward). S'il porte une AUTRE
+    // classe que celle de la route courante (connexion WS dont un message a
+    // invoké une autre action), le réutiliser chercherait `actionName` sur la
+    // mauvaise instance → "Route Action not found". Court-circuité par
+    // `!controller` sur le hot path HTTP (container de requête vierge) → 0 coût.
+    if (
+      !controller ||
+      reload ||
+      (this.controller && !(controller instanceof this.controller))
+    ) {
+      controller = await this.newController();
+    }
+    // V4.3 — `module` est posé à la création (`_createController`), plus par
+    // requête. `setRoute` (write per-request sur l'instance) est SKIPPÉ pour
+    // un singleton — data race sinon ; son getter `route` dérive du Resolver
+    // de la requête courante (`context.resolver.route`, V4.1).
+    if (
+      (this.controller as unknown as typeof Controller | null)?.scope !==
+      "singleton"
+    ) {
+      controller.setRoute(this.route!);
+      // Pont WS-RPC : la query du path invoqué remplace celle du handshake
+      // pour les getters d'instance (`this.query`/`this.queryGet` — ex.
+      // `AdminApiController.buildRequest`). Per-instance → zéro bleed. Les
+      // singletons n'ont pas ce shadow (stateless : `@Query` seul, via le bag).
+      if (this.queryOverride !== null) {
+        controller.queryGet = this.queryOverride;
+        controller.query = this.queryOverride;
+      }
+    }
     const methodKey = this.actionName as keyof typeof controller;
+    // P5 : metadata d'action figées sur la route (memo, 0 Reflect/req). Forward
+    // (`parsePathernController`, pas de route) → calcul direct (chemin froid).
+    const meta = this.route
+      ? resolveActionMeta(this.route)
+      : computeActionMeta(this.controller, this.actionName);
     let args: unknown[];
-    if (data) {
+    if (meta.paramsMeta) {
+      args = this._buildParamArgs(meta.paramsMeta);
+    } else if (data) {
       args = [...this.variables, ...data];
     } else {
       args = [...this.variables];
     }
-    const proto = Object.getPrototypeOf(controller);
-    const paramsMeta: ParamMeta[] | undefined = Reflect.getMetadata(
-      PARAM_ARGS_METADATA,
-      proto,
-      this.actionName!,
-    );
-    if (paramsMeta && paramsMeta.length > 0) {
-      args = this._buildParamArgs(paramsMeta);
-    }
-    this._applyResponseDecorators(controller, proto);
-    const redirectMeta: RedirectMeta | undefined = Reflect.getMetadata(
-      REDIRECT_METADATA,
-      proto,
-      this.actionName!,
-    );
-    // Pas de try/catch re-throw (no-op) : les erreurs de l'action remontent
-    // seules jusqu'à HttpKernel.onError. Pas de `await` avant return (microtask
-    // en moins) — le rejet se propage via la promesse retournée.
+    this._applyResponseMeta(meta);
+    const redirectMeta: RedirectMeta | undefined =
+      meta.redirectMeta ?? undefined;
     if (typeof controller[methodKey] === "function") {
-      const actionResult = (
-        controller[methodKey] as (...a: unknown[]) => unknown
-      )(...args);
-      return this._handleRedirect(actionResult, redirectMeta);
+      return {
+        result: (controller[methodKey] as (...a: unknown[]) => unknown)(
+          ...args,
+        ),
+        redirectMeta,
+      };
     }
     if (this.action) {
-      const actionResult = this.action(...args);
-      return this._handleRedirect(actionResult, redirectMeta);
+      return { result: this.action(...args), redirectMeta };
     }
     throw new Error(`Route Action not found`);
+  }
+
+  async callController(data?: unknown[], reload: boolean = false) {
+    // Pas de try/catch re-throw (no-op) : les erreurs de l'action remontent
+    // seules jusqu'à HttpKernel.onError. Pas de `await` superflu — le rejet se
+    // propage via la promesse retournée. callController = exécuter PUIS rendre.
+    const { result, redirectMeta } = await this.executeAction(data, reload);
+    return this._handleRedirect(result, redirectMeta);
   }
 
   private _buildParamArgs(metas: ParamMeta[]): unknown[] {
@@ -265,33 +345,32 @@ class Resolver extends Service implements IResolver {
       request: httpCtx?.request as IParamArgContext["request"],
       response: httpCtx?.response,
       session: ctx?.session,
+      // Pont WS-RPC : query du path INVOQUÉ (jamais celle du handshake).
+      // `?? undefined` : null (hot path) → clé absente pour `resolveParamArg`.
+      queryOverride: this.queryOverride ?? undefined,
       getRequestCookies: (name?: string) =>
         ctx?.getRequestCookies ? ctx.getRequestCookies(name) : undefined,
     });
   }
 
-  private _applyResponseDecorators(
-    controller: Controller,
-    proto: object,
-  ): void {
-    const httpCode: number | undefined = Reflect.getMetadata(
-      HTTP_CODE_METADATA,
-      proto,
-      this.actionName!,
-    );
-    if (httpCode !== undefined) {
-      controller.response?.setStatusCode(httpCode);
+  /**
+   * Applique `@HttpCode` + `@Header` depuis le snapshot figé de la route
+   * (P5) — plus aucune lecture `Reflect` ni `Object.entries` par requête.
+   * V4.3 : cible la response du CONTEXT (per-request : identique à
+   * `controller.response` ; singleton : la seule source correcte — l'instance
+   * partagée ne porte aucune response).
+   */
+  private _applyResponseMeta(meta: RouteActionMeta): void {
+    const response = this.context.response;
+    if (meta.httpCode !== null) {
+      response?.setStatusCode(meta.httpCode);
     }
-    const headers: Record<string, string> | undefined = Reflect.getMetadata(
-      HEADERS_METADATA,
-      proto,
-      this.actionName!,
-    );
-    if (headers) {
-      for (const [key, value] of Object.entries(headers)) {
-        (controller.response as HttpResponse | Http2Response | null)?.setHeader(
-          key,
-          value,
+    const entries = meta.headerEntries;
+    if (entries) {
+      for (let i = 0; i < entries.length; i++) {
+        (response as HttpResponse | Http2Response | null)?.setHeader(
+          entries[i][0],
+          entries[i][1],
         );
       }
     }
@@ -352,6 +431,29 @@ class Resolver extends Service implements IResolver {
       //return (this.context as HttpContext).send().catch((e: Error) => {
       //  throw e;
       //});
+      case type === "buffer":
+        // Buffer brut retourné par l'action → envoi direct (parité avec le
+        // `case string`). ⚠️ `typeOf(Buffer)` = "buffer" (pas "object") : sans
+        // ce case dédié il tombait dans le default → AUCUN envoi → requête
+        // pendue jusqu'au timeout 408.
+        if ((this.context as HttpContext).sended) {
+          return;
+        }
+        return (this.context as HttpContext | WebsocketContext).send(
+          result as Buffer,
+        );
+      case type === "number":
+      case type === "boolean":
+        // RFC 8259 §2 : un scalaire JSON est un document valide top-level.
+        // Parité DX avec string/object/array (NestJS/Fastify font pareil) :
+        // `return 42` / `return true` répondent "42"/"true" en
+        // application/json — avant : valeur « non rendable » → hang → 408.
+        // undefined/null restent « l'action a géré elle-même » (default).
+        if ((this.context as HttpContext).sended) {
+          return;
+        }
+        this.context.setContextJson();
+        return (this.context as HttpContext | WebsocketContext).render(result);
       case type === "array":
       case type === "object": {
         // Réponse déjà envoyée (ex: ReadStream piped par streamFile, send
@@ -364,13 +466,25 @@ class Resolver extends Service implements IResolver {
         // le `case string`, et VALABLE POUR LE REALTIME WS (un handler qui
         // `return { type: "pong" }` envoie désormais au lieu d'être droppé).
         // `render()` sérialise via `isJson` (posé par `setContextJson`).
-        // Buffer / ReadStream / instances de classe → NON sérialisés (laissés
-        // tels quels : déjà envoyés/gérés ailleurs), jamais `JSON.stringify`.
+        // ReadStream / instances de classe → NON sérialisés (un stream est déjà
+        // pipé par streamFile → `sended` ci-dessus), jamais `JSON.stringify`.
         if (isPlainObject(result) || isArray(result)) {
           this.context.setContextJson();
           return (this.context as HttpContext | WebsocketContext).render(
             result,
           );
+        }
+        // Instance de classe jamais envoyée (entité ORM Mongoose, DTO…) : valeur
+        // non rendable — même traitement que number/boolean (default) : poser
+        // `waitAsync` pour que le warning dev du teardown signale le hang au
+        // lieu d'un timeout muet. (WS : pas de teardown → no-op.)
+        switch (this.context.type) {
+          case "http":
+          case "http2":
+          case "http3":
+          case "https":
+            this.context.waitAsync = true;
+            break;
         }
         return;
       }

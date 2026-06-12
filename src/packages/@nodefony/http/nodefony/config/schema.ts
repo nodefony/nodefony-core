@@ -445,6 +445,19 @@ const websocketSchema = z
         "Taille max (octets) d'un message WS entrant. Au-delà → close RFC 6455 " +
           "1009 « Message Too Big ». Défaut 1 MiB (secure-by-default anti DoS mémoire).",
       ),
+    allowedOrigins: z
+      .union([z.boolean(), z.string(), z.array(z.string())])
+      .default(false)
+      .describe(
+        "Allowlist d'`Origin` acceptées au handshake WS (anti-CSWSH, OWASP " +
+          "WSTG-CLNT-10 — les navigateurs n'appliquent PAS CORS aux WebSockets). " +
+          "`false` (DÉFAUT) = same-origin : l'`Origin` doit correspondre au `Host` " +
+          "(+ loopback toléré en development pour le dev cross-port). `true` = " +
+          "désactive le contrôle (Origin filtré en amont). string/liste = Origins " +
+          "cross-origin additionnelles : hostname exact (`app.example.com`) ou " +
+          "wildcard un-label (`*.example.com`). Une requête SANS `Origin` (client " +
+          "non-navigateur) est toujours acceptée.",
+      ),
     // ── Options natives `ws@8` (ServerOptions) — câblées dans new WebSocketServer ──
     // Défauts alignés sur ceux de `ws@8.21` (sauf maxPayload, durci ci-dessus à 1 MiB).
     perMessageDeflate: z
@@ -788,6 +801,19 @@ export const httpConfigSchema = z
     securityHeaders: securityHeadersSchema.default(() =>
       securityHeadersSchema.parse({}),
     ),
+    maxBodySize: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(1_048_576)
+      .describe(
+        "Taille max (octets) d'un corps de requête NON-multipart (JSON, " +
+          "urlencoded, XML, brut) avant rejet RFC 9110 413 « Content Too Large ». " +
+          "Vérifiée d'abord sur `Content-Length` (rejet avant lecture), puis en " +
+          "continu pendant le streaming (anti chunked/Content-Length menteur). " +
+          "Défaut 1 MiB (secure-by-default, anti DoS mémoire). 0 = illimité. Le " +
+          "multipart a ses propres limites (`upload.maxFileSize`/`maxTotalFileSize`).",
+      ),
     upload: uploadSchema.default(() => uploadSchema.parse({})),
     queryString: queryStringSchema.default(() => queryStringSchema.parse({})),
     http: httpServerSchema.default(() => httpServerSchema.parse({})),

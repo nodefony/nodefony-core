@@ -106,10 +106,10 @@ Service(name, container?, notificationsCenter?, options?)
 
 **Core**
 
-- `id: string` — uuid unique (public)
+- `id: string` — compteur monotone base36 (plus d'uuid : 0 crypto/scope, clé locale)
 - `services: DynamicService | null` — map des services (hérite de `protoService.prototype`)
 - `parameters: DynamicParam | null` — map dot-notation
-- `scopes: Scopes` — scopes nommés, chacun indexé par id
+- `scopes: Scopes | null` — `Map<name, Map<id, Scope>>` LAZY (null tant que 0 addScope ; un Scope est un Container → pas d'alloc morte/req)
 
 **Services API**
 
@@ -128,12 +128,16 @@ Service(name, container?, notificationsCenter?, options?)
 
 **Scopes**
 
-- `addScope(name)` — déclare un scope (idempotent), retourne le dict existant si déjà créé
+- `addScope(name)` — déclare un scope (idempotent), retourne le bucket `Map<id, Scope>`
 - `enterScope(name)` → `IScope` — crée une instance Scope héritant du proto du parent
-- `leaveScope(scope: IScope)` — nettoie le scope, le retire du dict
+- `leaveScope(scope: IScope)` — nettoie le scope, `bucket.delete(id)`
 - `removeScope(name)` — nettoie tous les sous-scopes d'un nom
+- `scopeCount(name)` → number — instances vivantes (sondes fuite/Studio ; NE PAS fouiller `.scopes` à la main)
 - `Scope extends Container implements IScope` — `name: string` + `getParameters(name, merge=true, deep=true)`
 - `Scope.getParameters(name, merge=true, deep=true)` — merge local + parent si les deux sont des objets
+- ⚠️ `Scope` ADOPTE les protos parents (durcissement 2026-06-11, +6 % RPS A/B) : `Scope.set`/`remove`
+  overridés **own-property only** — `Container.set` (écriture prototype) polluerait le proto PARTAGÉ
+  du parent → service per-request visible cross-requêtes (data race). Ne pas « simplifier » ces overrides.
 
 **Cycle de vie**
 

@@ -111,6 +111,10 @@ class HttpRequest {
     | undefined;
   charset: BufferEncoding = "utf8";
   uploadOption: IUploadOptions = {};
+  // B1 — plafond du corps NON-multipart (octets) ; 0 = illimité. Lu une fois au
+  // ctor depuis la config http (`maxBodySize`). Consommé par le pré-check
+  // Content-Length (enforceBodyLimit) et le compteur streaming (Parser.write).
+  maxBodySize: number = 0;
   data: Buffer = Buffer.alloc(0);
   accept: ReturnType<typeof acceptParser> = [];
   acceptHtml: boolean = false;
@@ -128,9 +132,12 @@ class HttpRequest {
   ) {
     this.request = request;
     this.context = context;
-    this.origin = this.headers.origin;
     this.request.body = null;
     this.headers = request.headers;
+    // B2 — lire l'Origin APRÈS l'affectation de `this.headers` : avant, `this.headers`
+    // valait encore `{}` (valeur de champ) → `this.origin` restait TOUJOURS
+    // `undefined`, et la détection cross-origin (originUrl, CORS futur) était aveugle.
+    this.origin = this.headers.origin;
     // Calculé AVANT getFullUrl/getRemoteAddress (qui lisent le forwarded) :
     // n'honorer ces en-têtes que si le socket vient d'un proxy de confiance.
     const checker = this.context?.httpKernel?.getTrustProxyChecker();
@@ -150,6 +157,8 @@ class HttpRequest {
     this.queryStringOptions =
       this.context?.httpKernel?.module.options.queryString || {};
     this.uploadOption = this.context?.httpKernel?.module.options.upload || {};
+    this.maxBodySize =
+      this.context?.httpKernel?.module.options.maxBodySize ?? 0;
     if (this.url.search) {
       this.url.query = QS.parse(
         this.url.search.slice(1),
@@ -177,9 +186,17 @@ class HttpRequest {
     } catch (e) {
       this.log(e, "WARNING");
     }
-    this.context.once("onRequestEnd", () => {
-      this.request.body = this.query;
-    });
+  }
+
+  /**
+   * Fin de corps — émission unique d'`onRequestEnd`. T4 : l'alias
+   * `request.body = query` est posé ICI (au moment du fire, `query` est le
+   * GET seul ou l'extend(GET, POST) final) — remplace le `once("onRequestEnd")`
+   * du ctor qui allouait 1 onceWrapper + 1 closure à CHAQUE requête.
+   */
+  private fireRequestEnd(): Promise<unknown> {
+    this.request.body = this.query;
+    return this.context.fireAsync("onRequestEnd", this);
   }
 
   // Valeur de résolution non consommée (awaited pour le séquençage dans
@@ -201,7 +218,7 @@ class HttpRequest {
               // AVANT onRequestEnd → avant que le controller ne lise @Body. Sans
               // await, onRequestEnd partait sur un parse encore en cours → body vide.
               await parser.parse();
-              return this.context.fireAsync("onRequestEnd", this);
+              return this.fireRequestEnd();
             } catch (error) {
               return this.context?.httpKernel?.onError(
                 error as Error,
@@ -219,7 +236,7 @@ class HttpRequest {
                   return;
                 }
                 this.context.requestEnded = true;
-                return this.context.fireAsync("onRequestEnd", this);
+                return this.fireRequestEnd();
               } catch (error) {
                 return this.context.httpKernel?.onError(
                   error as Error,
@@ -237,12 +254,46 @@ class HttpRequest {
       });
   }
 
+  /**
+   * B1 — Pré-contrôle de taille du corps via l'en-tête `Content-Length` :
+   * rejette en 413 (RFC 9110 §15.5.14 « Content Too Large ») AVANT toute lecture
+   * quand le client annonce une taille supérieure à `maxBodySize`. Rideau de
+   * tête (client honnête) ; le compteur streaming de {@link Parser.write} couvre
+   * le cas sans `Content-Length` (chunked) ou menteur. No-op si limite à 0.
+   *
+   * @throws {HttpError} 413 si `Content-Length` dépasse `maxBodySize`.
+   */
+  private enforceBodyLimit(): void {
+    const max = this.maxBodySize;
+    if (max <= 0) {
+      return;
+    }
+    const cl = this.headers["content-length"];
+    if (cl === undefined) {
+      return;
+    }
+    const declared = parseInt(Array.isArray(cl) ? cl[0] : cl, 10);
+    if (Number.isFinite(declared) && declared > max) {
+      throw new HttpError(
+        `Request body too large: ${declared} bytes > maxBodySize ${max}`,
+        413,
+        this.context,
+      );
+    }
+  }
+
   // Pipeline d'entrée du corps de requête. Async PUR (plus de
   // `new Promise(async …)`) : un throw du constructeur de parser remonte
   // proprement au lieu de laisser la promesse pendante.
   async parseRequest(): Promise<ParserType | null> {
     if (!(this.method in parse)) {
       return this.parser;
+    }
+    // B1 — borne le corps NON-multipart (le multipart a ses propres limites
+    // busboy). Pré-check Content-Length AVANT de lire ; le compteur de
+    // `Parser.write` prend le relais pour le chunked / Content-Length menteur.
+    if (this.contentType !== "multipart/form-data") {
+      this.enforceBodyLimit();
     }
     switch (this.contentType) {
       case "application/xml":
@@ -270,7 +321,7 @@ class HttpRequest {
           const jsonParser = new ParserJson(this);
           this.parser = jsonParser;
           await jsonParser.parse();
-          await this.context.fireAsync("onRequestEnd", this);
+          await this.fireRequestEnd();
           return BODY_DONE;
         }
         // text/plain, octet-stream, inconnu, ou sans corps : bufferise le brut
@@ -332,7 +383,7 @@ class HttpRequest {
       await this.createFileUpload(pf.field, pf.file);
     }
     this.context.requestEnded = true;
-    await this.context.fireAsync("onRequestEnd", this);
+    await this.fireRequestEnd();
     return BODY_DONE;
   }
 
@@ -587,7 +638,8 @@ class HttpRequest {
         for (let i = 1; i < tab.length; i++) {
           if (typeof tab[i] === "string") {
             const ele = tab[i].split("=");
-            const key = ele[0].replace(" ", "").toLowerCase();
+            // P8 : retire TOUT le whitespace OWS (avant : seulement la 1ʳᵉ espace).
+            const key = ele[0].replace(/\s+/g, "").toLowerCase();
             this.rawContentType[key] = ele[1];
           } else {
             continue;

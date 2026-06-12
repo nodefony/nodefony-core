@@ -1,52 +1,53 @@
 ---
 name: nodefony-roadmap
 description: >
-  Charge le contexte des phases futures Nodefony — Phase 10 (Studio admin web), 12 (couche IA
-  agentic), 13 (Realtime + Redis cluster + client navigateur), 14 (frontend builder Vite). À utiliser
-  quand un module doit prévoir une API admin, un design IA-compatible ou un endpoint Studio.
-  Déclencheurs : "Studio", "Phase 10", "Phase 12", "Phase 13", "Phase 14", "couche IA",
-  "agentic", "@nodefony/agent", "@nodefony/realtime", "@nodefony/client", "API admin", "route /nodefony", "AI Act".
+  Charge le contexte roadmap des phases Studio/IA/Realtime/Frontend de Nodefony — Phase 10 (Studio
+  admin web — LIVRÉ, conventions à respecter), 12 (couche IA agentic — SEULE vraie phase future),
+  13 (Realtime + Redis cluster + client navigateur — quasi livré, restes identifiés), 14 (frontend
+  builder Vite — LIVRÉ). À utiliser quand un module doit prévoir une API admin, un design
+  IA-compatible ou un endpoint Studio. Déclencheurs : "Studio", "Phase 10", "Phase 12", "Phase 13",
+  "Phase 14", "couche IA", "agentic", "@nodefony/agent", "@nodefony/realtime", "@nodefony/client",
+  "API admin", "route /nodefony", "AI Act".
 ---
 
 # nodefony-roadmap
 
-Contexte des phases futures (10, 12, 13, 14) — à activer quand un module impacte ces phases.
+Contexte roadmap des phases 10/12/13/14. **État resynchronisé 2026-06-12** : P10 et P14 sont
+LIVRÉES (leurs conventions restent applicables à tout nouveau module), P13 est quasi livrée,
+**P12 (IA agentic) est la seule phase réellement future**. Vérité fine = `MIGRATION_STATUS.md`.
 
-## Phase 10 — Module `@nodefony/studio`
+## Phase 10 — Module `@nodefony/studio` — ✅ LIVRÉ (conventions toujours actives)
 
-Successeur de `monitoring-bundle` Vue 2 legacy. Application web d'administration du framework et des apps.
+Successeur de `monitoring-bundle` Vue 2 legacy. Application web d'administration du framework et
+des apps. **Stack figée et livrée** : React 19 + Mantine v9 + MobX, bundlé par `@nodefony/frontend`
+(Vite). Workspace composable + Jumeau (Twin) livrés 06-06 (cf [[project_studio_workspace_kit]]).
 
-### 🔒 Convention de route RÉSERVÉE — applicable dès maintenant
+> **Développer DANS Studio** (page, panneau, dashboard) → skill **`nodefony-studio-dev`** (recettes
+> UI kit, useResource, hooks realtime). Ce skill-ci ne porte que les conventions transverses.
+
+### 🔒 Convention de route RÉSERVÉE — applicable à tout module
 
 - Le préfixe `/nodefony` est **réservé à Studio** dans toutes les apps en production.
-- Modules internes exposant des routes admin → `/nodefony/<module>/...` (ex : `/nodefony/http/api/stats`).
-- Les apps utilisateur doivent éviter `/nodefony/*`.
-- Le module `test` actuel utilise `/nodefony/test/*` — cohérent (route interne).
+- UI = `/nodefony/...` ; **data plane** = `/nodefony/<module>/api/*` (cf
+  [[project_studio_routing_decision]] + broker `IAdminApi` [[project_admin_data_plane_iadminapi]]).
+- Les apps utilisateur doivent éviter `/nodefony/*`. Le module `test` utilise `/nodefony/test/*` — cohérent (interne).
 
-### Conséquence pour chaque module migré
+### Conséquence pour chaque module (toujours en vigueur)
 
 Si le module expose une API d'introspection/admin :
 
-- `@nodefony/http` → stats serveurs
-- `@nodefony/framework` → liste routes
-- `@nodefony/security` → users connectés
-- `@nodefony/orm-*` → état connexions DB
-
-→ **Prévoir un controller `/nodefony/<module>/api/*` documenté** consommé par Studio.
-→ Concevoir les API en **GraphQL ou REST JSON** — pas de couplage à la vue.
-→ Documenter chaque endpoint admin dans le `MEMORY.md` du module.
-
-### Stack cible (à figer en début de Phase 10)
-
-- Frontend : Vue 3 + Vite + TS (ou React 19, décision Phase 10)
-- Backend : `@nodefony/framework` controllers + GraphQL queries + REST mutations
-- Auth : `@nodefony/security` factory dédiée admin (`ROLE_NODEFONY_ADMIN`)
+- **Prévoir un controller `/nodefony/<module>/api/*` documenté** consommé par Studio.
+- Concevoir les API en **GraphQL ou REST JSON** — pas de couplage à la vue.
+- Documenter chaque endpoint admin dans le `MEMORY.md` du module (section dédiée).
+- Auth admin : `ROLE_NODEFONY_ADMIN` via `@nodefony/security` — câblage effectif en **P6** (RBAC) ;
+  plusieurs visions Studio (audit à chaud, dette realtime #3) **attendent P6**.
 
 ---
 
-## Phase 12 — Couche IA agentic (DERNIÈRE phase)
+## Phase 12 — Couche IA agentic — ⬜ SEULE VRAIE PHASE FUTURE (après P6)
 
-**Destination finale Nodefony** : plateforme Node.js pour agents IA métier, avec gouvernance AI Act, mode souverain (LLM local).
+**Destination finale Nodefony** : plateforme Node.js pour agents IA métier, avec gouvernance AI Act,
+mode souverain (LLM local).
 
 ### Différenciateur
 
@@ -56,20 +57,21 @@ Si le module expose une API d'introspection/admin :
 | LangChain    | ❌      | ✅        | ❌          |
 | **Nodefony** | ✅      | ✅        | ✅          |
 
-**Pilier technique** : WS natif `@nodefony/http` = transport streaming LLM. DI Container = orchestration sous-agents. Multi-ORM = persistence audit/coûts.
+**Pilier technique** : WS natif `@nodefony/http` = transport streaming LLM. DI Container =
+orchestration sous-agents. Multi-ORM = persistence audit/coûts.
 
-### 8 modules IA
+### Modules IA — état réel (vérifié code 2026-06-12)
 
-| Module                  | Rôle                                                      | État       | Sous-phase |
-| ----------------------- | --------------------------------------------------------- | ---------- | ---------- |
-| `@nodefony/llm`         | Multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq) | 🔶         | P12.1      |
-| `@nodefony/vector`      | Adapters (pgvector, Qdrant, Chroma)                       | 🔶         | P12.1      |
-| `@nodefony/rag`         | Pipeline RAG (ingestion/chunking/embedding/recherche)     | 🔶         | P12.1      |
-| `@nodefony/memory`      | Mémoire agents (court/long/épisodique)                    | 🔶         | P12.1      |
-| `@nodefony/agent`       | Orchestrateur + sous-agents (`@Agent`, `@Tool`)           | 🔶 partiel | P12.2      |
-| `@nodefony/mcp`         | MCP server + client (Model Context Protocol Anthropic)    | ⬜         | P12.3      |
-| `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, approval, coûts  | ⬜         | P12.4      |
-| `@nodefony/studio`      | Panels IA intégrés dans `@nodefony/studio` (pas séparé)   | ⬜         | P12.5      |
+| Module                  | Rôle                                                      | État                                                                         | Sous-phase |
+| ----------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------- |
+| `@nodefony/llm`         | Multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq) | 🔶 seul câblé (rollup OK ; tests Bun)                                        | P12.1      |
+| `@nodefony/vector`      | Adapters (pgvector, Qdrant, Chroma)                       | ⬜ WIP sans rollup                                                           | P12.1      |
+| `@nodefony/rag`         | Pipeline RAG (ingestion/chunking/embedding/recherche)     | ⬜ WIP sans rollup                                                           | P12.1      |
+| `@nodefony/memory`      | Mémoire agents (court/long/épisodique)                    | ⬜ WIP sans rollup                                                           | P12.1      |
+| `@nodefony/agent`       | Orchestrateur + sous-agents (`@Agent`, `@Tool`)           | ⬜ WIP sans rollup                                                           | P12.2      |
+| `@nodefony/mcp`         | MCP server + client                                       | ❌ POC ABANDONNÉ (Skill > MCP — ne pas relancer, cf [[project_mcp_poc_kit]]) | —          |
+| `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, approval, coûts  | ⬜ WIP sans rollup                                                           | P12.4      |
+| `@nodefony/studio`      | Panels IA intégrés dans Studio (pas de module séparé)     | ⬜ (Studio lui-même est livré)                                               | P12.5      |
 
 ### Principes invariants (ne pas dévier)
 
@@ -81,12 +83,12 @@ Si le module expose une API d'introspection/admin :
 6. **Conformité AI Act** — audit signé, traçabilité RAG, contrôle humain.
 7. **WebSocket = transport LLM** — pipeline WS `@nodefony/http`.
 
-### Règle dure pendant migration framework (P0-P11)
+### Règle dure tant que P6 n'est pas finie
 
-- Si module consommé par IA (security, user, orm-core, http WS, session, syslog) → **prévoir usage IA dans le design** : interfaces extensibles, async iterators, pas de couplage rigide.
-- Modules IA existants partiellement TS : ne pas casser, mais design pas figé. Audit + refonte en P12.1.
-- `@nodefony/studio` **intègre les panels IA** (agents, costs, audit, approvals). NB : ce module a été renommé `vision` → `studio` (2026-05-18) — il n'y a plus qu'un seul module Studio.
-- **Ne pas démarrer de session sur les modules IA** pendant P0-P11 sauf demande explicite.
+- Si module consommé par IA (security, user, orm-core, http WS, session, syslog) → **prévoir
+  l'usage IA dans le design** : interfaces extensibles, async iterators, pas de couplage rigide.
+- Modules IA WIP : ne pas casser, design pas figé. Audit + refonte en P12.1.
+- **Ne pas démarrer de session sur les modules IA** avant P6 sauf demande explicite.
 
 ### Vision IA — SOURCE UNIQUE (lire en session IA, pas en session framework)
 
@@ -99,77 +101,71 @@ Si le module expose une API d'introspection/admin :
 
 ---
 
-## Phase 13 — Realtime + Redis cluster + Client navigateur
+## Phase 13 — Realtime + Redis cluster + Client navigateur — 🔶 QUASI LIVRÉ
 
-3 modules interconnectés avec d'autres phases.
+État réel (audit 2026-06-12, cf [[project_p13_realtime_finish_plan]]) :
 
-| Module               | Rôle                                                         | Bloque            | Réf JS legacy                                |
-| -------------------- | ------------------------------------------------------------ | ----------------- | -------------------------------------------- |
-| `@nodefony/redis`    | Cluster + pub/sub + storage (cache, session, lock distribué) | P5.12 + apps prod | `bundles/redis-bundle/` (166 L)              |
-| `@nodefony/client`   | Lib navigateur — HTTP/WS/auth/streaming LLM browser          | **P10.7 Studio**  | N/A — à créer                                |
-| `@nodefony/realtime` | Serveurs TCP/UDP/Unix sockets (IoT, IPC, protos binaires)    | indépendant       | `bundles/realtime-bundle/` (689 L + sockets) |
+| Brique               | Rôle                                                                                                                | État réel                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `@nodefony/realtime` | Hub realtime + serveurs TCP/UDP + backplanes cross-process                                                          | ✅ P13.0 + seams + Redis livrés (167 tests) ; backplanes Loopback/IPC/Redis                             |
+| `@nodefony/redis`    | Cluster + pub/sub + storage (cache, session, lock distribué)                                                        | ✅ refondu (driver backplane + sessions)                                                                |
+| Client lib           | **Subpaths du core `nodefony`** : `nodefony/client` (RealtimeClient), `nodefony/react` (hooks), `nodefony/debugbar` | ✅ LIVRÉE — **plus de package `@nodefony/client` séparé** (cf [[project_client_lib_subpaths_decision]]) |
 
-### Règles transverses
+**Reste à faire P13** : Kafka P13.6 (driver backplane), banc conformité ventilation, dette #3
+(auth WS — **attend P6**). Bindings vue/angular DIFFÉRÉS (pas de consommateur réel).
 
-- **WS reste dans `@nodefony/http`** — `realtime` complète avec TCP/UDP/Unix, pas WS.
-- **Sessions prod** : `RedisSessionStorage` (P5.12) dépend de refacto `@nodefony/redis` (P13.2). Cluster Nodefony multi-instance → P13.2 non-négociable.
-- **Studio frontend** consomme `@nodefony/client` → doit exposer : WS reconnect auto, fetch auth/CSRF, AsyncIterable streaming LLM, AuthClient (login/refresh).
-- **`@nodefony/client` bas niveau** — pas de Vue/React inclus, utilisable depuis n'importe quel framework UI.
-- **TypeScript shared types** : créer `@nodefony/contracts` (micro-package types-only) si nécessaire pour éviter cycles client↔server.
-- **Pub/Sub Redis** : critique pour cluster — WS broadcast scalable nécessite pub/sub.
+### Règles transverses (toujours valides)
+
+- **WS reste dans `@nodefony/http`** — `realtime` complète avec TCP/UDP/Unix + hub, pas WS.
+- **Client bas niveau** — `nodefony/client` sans framework UI ; bindings React = `nodefony/react`
+  (hooks `useNodefonyState/Channel/ChannelData/Syslog`). North star = « socket Nodefony » 1 handle
+  multiplexé (cf [[project_realtime_nodefony_socket_vision]]).
+- **Pub/Sub Redis** : critique pour cluster — WS broadcast scalable = backplane Redis (livré).
+- **Sondes/push à budget borné** : jamais d'observabilité qui peut tomber la prod
+  (cf [[feedback_observability_no_prod_impact]]).
 
 ---
 
-## Phase 14 — `@nodefony/frontend` (builder Vite multi-framework : React/Vue/Angular)
+## Phase 14 — `@nodefony/frontend` (builder Vite) — ✅ LIVRÉ
 
-**Mécanique legacy à reproduire moderne** : chaque bundle pouvait déclarer `type: "react" | "vue"` → framework transpilait son frontend (`webpackService.js` 631 L + `cli/builder/{react,vue}/` 634 L).
+Successeur de `webpackService.js` legacy. **Architecture livrée** : 1 seul process Vite
+(mono-supervisor `ViteSupervisor`) pour N bundles de modules, HMR live, multi-framework
+(React 19 / Vue 3 / Angular). Cf `src/packages/@nodefony/frontend/{CLAUDE,MEMORY}.md`.
 
-**Refonte 2026** : Vite par défaut (ESM natif, HMR ultra-rapide), Webpack uniquement sur demande legacy.
+### Conventions actuelles (modèle defineConfig — PAS l'ancien `nodefony/config/config.ts`)
 
-### Convention module avec frontend
+- Un module expose son frontend en **s'enregistrant auprès de `FrontendService`**
+  (`registerEntry`) — recette complète : skill **`nodefony-create-frontend-module`**.
+- Config app = `nodefony.config.ts` racine via `use("@nodefony/frontend", {...})` — plus de
+  dossier `nodefony/config/` par module pour l'app (chantier defineConfig Lot 5, 06-05).
+- **Dev** : HMR Vite → 0 restart serveur pour une modif front. **Prod** : assets buildés
+  servis en statique par `@nodefony/http`.
 
-```typescript
-// nodefony/config/config.ts
-export default {
-  frontend: {
-    type: "vue3", // ou "react19", "angular", "svelte5", "solid"
-    entry: "./frontend/src/main.ts",
-    outDir: "./public/dist",
-    integrate: true, // true = middleware HMR dans @nodefony/http | false = proxy Vite externe
-  },
-};
-```
+### Règle dure — ne pas confondre
 
-### Lifecycle
+| Brique               | Rôle                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `@nodefony/frontend` | **Builder** : transpile/bundle les frontends des modules (React/Vue/Angular)         |
+| `nodefony/client`    | **Lib JS bas niveau** (subpath du core) : HTTP/WS/realtime, importée DANS le code UI |
 
-- **Dev** : kernel boot → `@nodefony/frontend` lit `module.options.frontend` → ViteBuilder middleware injecté dans `@nodefony/http` → HMR live via WS natif.
-- **Prod** : `npx nodefony build` → assets hashed dans `dist/public/<module-name>/` → `@nodefony/http` static.
-
-### Règle dure
-
-`@nodefony/frontend` ≠ `@nodefony/client` — ne pas confondre :
-
-| Module               | Rôle                                                                             |
-| -------------------- | -------------------------------------------------------------------------------- |
-| `@nodefony/frontend` | **Builder** : transpile/bundle les frontends des modules (React/Vue/Angular)     |
-| `@nodefony/client`   | **Lib JS bas niveau** : HTTP/WS/auth/streaming clients, importée DANS le code UI |
-
-Studio = consommateur des deux : `@nodefony/frontend` (Vite, multi-framework) pour bundler son frontend, qui importe `@nodefony/client` pour les appels backend.
-
-P14 bloque P10.7 (Studio frontend).
+Studio = consommateur des deux : bundlé par `@nodefony/frontend`, son code importe
+`nodefony/client` + `nodefony/react` pour les appels backend.
 
 ---
 
 ## Pattern d'usage
 
-1. Si la tâche touche un module qui doit prévoir une **API admin** → lire la section Phase 10.
-2. Si on conçoit une **interface qui sera consommée par un agent IA** → lire la section Phase 12 (principes invariants).
-3. Si la tâche concerne **sessions distribuées / cluster / pub-sub / browser client / TCP-UDP** → lire la section Phase 13.
-4. Si on touche un module qui **expose un frontend** → lire la section Phase 14.
+1. Tâche touche un module qui doit prévoir une **API admin** → section Phase 10 (conventions).
+2. Conception d'une **interface consommée par un agent IA** → section Phase 12 (invariants).
+3. Tâche **sessions distribuées / cluster / pub-sub / browser client / TCP-UDP** → section Phase 13.
+4. Module qui **expose un frontend** → section Phase 14 + skill `nodefony-create-frontend-module`.
+5. **Développer un écran Studio** → skill `nodefony-studio-dev` (pas ce skill).
 
 ## Anti-patterns à éviter
 
-- Démarrer une session sur les modules IA pendant P0-P11 sans demande explicite.
+- Démarrer une session sur les modules IA avant P6 sans demande explicite.
+- Relancer le POC MCP (abandonné — Skill > MCP, cf [[project_mcp_poc_kit]]).
 - Utiliser le préfixe `/nodefony/*` pour des routes utilisateur d'une app.
 - Concevoir une API admin sans GraphQL/REST JSON (couplage vue interdit).
-- Confondre `@nodefony/frontend` (builder) et `@nodefony/client` (lib browser).
+- Confondre `@nodefony/frontend` (builder) et `nodefony/client` (lib browser subpath).
+- Créer un package `@nodefony/client` séparé (décision : subpaths du core).

@@ -109,11 +109,19 @@ class AdminBroker extends Service implements IAdminBroker {
         const role = endpoint.role ?? this.defaultRole;
         const path = this.resolvePath(api.adminNamespace, endpoint.path);
         const name = `admin.${api.adminNamespace}.${method}.${endpoint.path}`;
+        // « API souveraine » : les snapshots (GET) déclarent AUSSI le transport
+        // WEBSOCKET → invocables par le pont WS-RPC `api.request` (même action,
+        // même snapshot). Le pont n'atteint QUE ce qui déclare le transport
+        // (zéro bypass) ; les mutations (POST/PUT/DELETE) restent HTTP-only
+        // tant que la sémantique d'écriture par socket n'est pas conçue (P6).
+        const methods: HTTPMethod[] =
+          method === "GET" ? [method, "WEBSOCKET"] : [method];
         Router.createRoute(name, {
           path,
-          constructor: AdminApiController as unknown as Controller["constructor"],
+          constructor:
+            AdminApiController as unknown as Controller["constructor"],
           classMethod: "dispatch",
-          requirements: { methods: [method] },
+          requirements: { methods },
         });
         this.byRouteName.set(name, {
           name,
@@ -132,7 +140,10 @@ class AdminBroker extends Service implements IAdminBroker {
     // l'appel idempotent (multi-broker en test, re-boot) via la garde hasOwnProperty.
     if (
       this.byRouteName.size > 0 &&
-      !Object.prototype.hasOwnProperty.call(AdminApiController.prototype, "module")
+      !Object.prototype.hasOwnProperty.call(
+        AdminApiController.prototype,
+        "module",
+      )
     ) {
       Router.setController(
         AdminApiController as unknown as Parameters<
@@ -142,7 +153,10 @@ class AdminBroker extends Service implements IAdminBroker {
       );
     }
     this.mounted = true;
-    this.log(`Admin data plane mounted: ${this.byRouteName.size} route(s)`, "DEBUG");
+    this.log(
+      `Admin data plane mounted: ${this.byRouteName.size} route(s)`,
+      "DEBUG",
+    );
   }
 
   private getRouter(): Router {

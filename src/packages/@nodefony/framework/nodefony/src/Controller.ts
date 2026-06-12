@@ -3,6 +3,7 @@ import {
   Module,
   Container,
   Event,
+  RequestContext,
   //typeOf,
   //EnvironmentType,
   //DebugType,
@@ -58,20 +59,166 @@ type ReadStreamOptions = {
   highWaterMark?: number;
 };
 
+/**
+ * Parse un header `Range` mono-plage en octets (RFC 9110 §14.1.2).
+ *
+ * @param range - valeur brute du header `Range` (ex. `bytes=0-499`, `bytes=-500`).
+ * @param length - taille de la représentation sélectionnée (octets).
+ * @returns bornes `{ start, end }` clampées à la représentation,
+ *   `"unsatisfiable"` si la plage est valide mais hors représentation (→ 416,
+ *   RFC 9110 §15.5.17), ou `null` si le header doit être ignoré — unité ≠
+ *   `bytes`, multi-range non supporté ou syntaxe invalide (RFC 9110 §14.2 :
+ *   un serveur PEUT ignorer un Range ; on répond alors 200 complet, jamais 500).
+ */
+export function parseByteRange(
+  range: string,
+  length: number,
+): { start: number; end: number } | "unsatisfiable" | null {
+  const unit = /^\s*bytes\s*=\s*(.+)$/i.exec(range);
+  if (!unit) return null;
+  const spec = (unit[1] ?? "").trim();
+  if (spec.includes(",")) return null;
+  const parts = /^(\d*)-(\d*)$/.exec(spec);
+  if (!parts) return null;
+  const first = parts[1] ?? "";
+  const last = parts[2] ?? "";
+  if (first === "" && last === "") return null;
+  if (first === "") {
+    // Suffixe `bytes=-N` : les N derniers octets (§14.1.2 suffix-range).
+    const suffix = parseInt(last, 10);
+    if (suffix === 0 || length === 0) return "unsatisfiable";
+    return { start: Math.max(0, length - suffix), end: length - 1 };
+  }
+  const start = parseInt(first, 10);
+  if (last !== "" && start > parseInt(last, 10)) return null;
+  if (start >= length) return "unsatisfiable";
+  const end =
+    last === "" ? length - 1 : Math.min(parseInt(last, 10), length - 1);
+  return { start, end };
+}
+
+/**
+ * Scope d'instanciation d'un controller (V4.3).
+ *
+ * - `"request"` (défaut) : une instance par requête — l'état per-request peut
+ *   vivre sur `this` (legacy sûr, zéro breaking).
+ * - `"singleton"` (opt-in via `@Scope`) : UNE instance partagée par toutes les
+ *   requêtes — réservé aux controllers **stateless** (état uniquement via
+ *   arguments décorés + ALS). Un champ mutable par requête sur `this` y serait
+ *   une data race silencieuse entre requêtes concurrentes.
+ */
+export type ControllerScope = "request" | "singleton";
+
 class Controller extends Service implements IController {
   static prefix: string = "/";
-  route?: Route | null = null;
-  request: contextRequest = null;
-  response: HttpResponse | Http2Response | WebsocketResponse | null = null;
-  context?: ContextType;
-  method?: HTTPMethod;
-  queryGet: Record<string, unknown> = {};
-  query: Record<string, unknown> = {};
-  queryFile: unknown[] = [];
-  queryPost: Record<string, unknown> = {};
+  /**
+   * Scope d'instanciation de la classe — `"request"` par défaut, `"singleton"`
+   * posé par le décorateur `@Scope` (statique hérité, lu via `new.target` au
+   * constructor et par le Resolver : 0 Reflect). Cf {@link ControllerScope}.
+   */
+  static scope: ControllerScope = "request";
+  // V4.1 — état per-request en champs SHADOW privés (null par défaut, 0 alloc :
+  // remplace 4 snapshots `{}`/`[]` alloués par construction). Les accessors
+  // publics dérivent du `context` LIVE (`shadow ?? dérivation`) : plus de
+  // re-snapshot `once("onRequestEnd")` — la valeur est toujours fraîche, et un
+  // listener par requête disparaît. Les setters absorbent les écritures
+  // userland/tests (champ shadow prioritaire, comportement legacy intact).
+  #context: ContextType | null = null;
+  #route: Route | null = null;
+  #request: contextRequest = null;
+  #response: HttpResponse | Http2Response | WebsocketResponse | null = null;
+  #method: HTTPMethod | null = null;
+  #queryGet: Record<string, unknown> | null = null;
+  #query: Record<string, unknown> | null = null;
+  #queryFile: unknown[] | null = null;
+  #queryPost: Record<string, unknown> | null = null;
   //metaData: Data;
   module?: Module;
   template?: Eta | null;
+
+  /**
+   * Contexte transport courant. Per-request : champ posé par `setContext`
+   * (constructor) — coût d'accès inchangé. Singleton stateless (V4.3) : champ
+   * jamais posé → lecture de l'ALS `RequestContext` (le `HttpKernel` y place
+   * le contexte à l'entrée du scope, V4.1) — chaque appel de helper retrouve
+   * LA requête en cours, jamais celle d'une requête concurrente.
+   */
+  get context(): ContextType | undefined {
+    return this.#context ?? RequestContext.getContext<ContextType>();
+  }
+  set context(context: ContextType | undefined) {
+    this.#context = context ?? null;
+  }
+
+  /**
+   * Route matchée. Per-request : posée par le Resolver via `setRoute`.
+   * Sans champ (singleton) : dérive du Resolver de la requête courante
+   * (`context.resolver`), donc toujours la route de CETTE requête.
+   */
+  get route(): Route | null {
+    return this.#route ?? this.context?.resolver?.route ?? null;
+  }
+
+  get request(): contextRequest {
+    return this.#request ?? this.context?.request ?? null;
+  }
+  set request(request: contextRequest) {
+    this.#request = request;
+  }
+
+  get response(): HttpResponse | Http2Response | WebsocketResponse | null {
+    return this.#response ?? this.context?.response ?? null;
+  }
+  set response(
+    response: HttpResponse | Http2Response | WebsocketResponse | null,
+  ) {
+    this.#response = response;
+  }
+
+  get method(): HTTPMethod | undefined {
+    return (
+      this.#method ?? (this.context?.method as HTTPMethod | null) ?? undefined
+    );
+  }
+  set method(method: HTTPMethod | undefined) {
+    this.#method = method ?? null;
+  }
+
+  get queryGet(): Record<string, unknown> {
+    return (this.#queryGet ??
+      (this.context?.request as HttpRequest | Http2Request | null)
+        ?.queryGet) as Record<string, unknown>;
+  }
+  set queryGet(value: Record<string, unknown>) {
+    this.#queryGet = value;
+  }
+
+  get query(): Record<string, unknown> {
+    return (this.#query ??
+      (this.context?.request as HttpRequest | Http2Request | null)
+        ?.query) as Record<string, unknown>;
+  }
+  set query(value: Record<string, unknown>) {
+    this.#query = value;
+  }
+
+  get queryFile(): unknown[] {
+    return (this.#queryFile ??
+      (this.context?.request as HttpRequest | Http2Request | null)
+        ?.queryFile) as unknown[];
+  }
+  set queryFile(value: unknown[]) {
+    this.#queryFile = value;
+  }
+
+  get queryPost(): Record<string, unknown> {
+    return (this.#queryPost ??
+      (this.context?.request as HttpRequest | Http2Request | null)
+        ?.queryPost) as Record<string, unknown>;
+  }
+  set queryPost(value: Record<string, unknown>) {
+    this.#queryPost = value;
+  }
 
   /**
    * Session courante, ou `null`. Getter direct sur `context.session` (peuplé au
@@ -88,32 +235,32 @@ class Controller extends Service implements IController {
     context: ContextType,
     //@inject("HttpKernel") private httpKernel?: HttpKernel
   ) {
+    // V4.3 — `new.target` lit le statique `scope` de la classe la plus dérivée
+    // (posé par `@Scope("singleton")`, hérité sinon). Singleton : bindé au
+    // container du KERNEL — celui de la requête est `clean()`é au teardown,
+    // le capturer = `this.get()` sur un container mort dès la requête suivante.
+    // Et AUCUNE capture per-request (pas de `setContext`) : l'état de la
+    // requête arrive par l'ALS (V4.1), jamais par `this`.
+    const singleton = (new.target as typeof Controller).scope === "singleton";
+    const kernel = singleton ? context.kernel : null;
     super(
       name,
-      context.container as Container,
-      context.notificationsCenter as Event,
+      ((singleton ? kernel?.container : null) ??
+        context.container) as Container,
+      ((singleton ? kernel?.notificationsCenter : null) ??
+        context.notificationsCenter) as Event,
     );
     this.template = this.get<Eta>("template");
-    this.setContext(context);
+    if (!singleton) {
+      this.setContext(context);
+    }
   }
 
   setContext(context: ContextType) {
-    const request = context.request as HttpRequest | Http2Request;
-    this.context = context;
-    this.method = this.context.method as HTTPMethod;
-    this.response = this.context.response;
-    this.request = this.context.request;
-    this.queryGet = request?.queryGet;
-    this.query = request?.query;
-    this.queryFile = request?.queryFile;
-    this.queryPost = request?.queryPost;
-    // `session` est un getter sur `context.session` (plus d'event onSessionStart) :
-    // disponible dès que le point d'activation du pipeline l'a ouverte.
-    this.once("onRequestEnd", () => {
-      this.query = request?.query;
-      this.queryFile = request?.queryFile;
-      this.queryPost = request?.queryPost;
-    });
+    // V4.1 — un seul write : tout l'état per-request (request/response/method/
+    // query*) dérive du context via les accessors, toujours frais (le
+    // re-snapshot `once("onRequestEnd")` n'a plus de raison d'être).
+    this.#context = context;
   }
 
   setContextJson(encoding: BufferEncoding = "utf-8") {
@@ -214,7 +361,8 @@ class Controller extends Service implements IController {
   }
 
   setRoute(route: Route): Route {
-    return (this.route = route);
+    this.#route = route;
+    return route;
   }
 
   getSession(): Session | undefined | null {
@@ -388,6 +536,16 @@ class Controller extends Service implements IController {
 
       return new Promise((resolve, reject) => {
         let handled = false;
+        // R5 — client parti pendant le stream : la destination morte unpipe le
+        // ReadStream qui reste alors PAUSÉ, fd ouvert (`autoClose:false`), sans
+        // émettre `end`/`close` → fd fuit + promesse pendue. `destroy()` émet
+        // `close` → `handleStreamEnd` ferme le fd et résout.
+        const onResponseClose = () => {
+          if (!handled) {
+            streamFile.destroy();
+          }
+        };
+        response.once("close", onResponseClose);
         streamFile.on("open", () => {
           try {
             (this.context as HttpContext)?.writeHead(
@@ -404,6 +562,7 @@ class Controller extends Service implements IController {
           try {
             if (handled) return; // Prevent handling multiple times
             handled = true;
+            response.removeListener("close", onResponseClose);
             if (streamFile) {
               streamFile.unpipe(response);
               if (streamFile.fd) {
@@ -450,12 +609,18 @@ class Controller extends Service implements IController {
     let value: ReadStreamOptions;
     const contextResponse = this.response as HttpResponse | Http2Response;
     const response = contextResponse.response;
-    if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const partialstart = parts[0];
-      const partialend = parts[1];
-      const start = parseInt(partialstart, 10);
-      const end = partialend ? parseInt(partialend, 10) : length - 1;
+    // RFC 9110 §14 — un Range client ne crashe JAMAIS le serveur : plage hors
+    // représentation → 416 + `Content-Range: bytes */<len>` (§15.5.17) ; syntaxe
+    // invalide / unité inconnue / multi-range → header ignoré, 200 complet (§14.2).
+    const parsed = range ? parseByteRange(range, length) : null;
+    if (parsed === "unsatisfiable") {
+      return this.renderResponse("", "utf8", 416, {
+        "Content-Range": `bytes */${length}`,
+        "Accept-Ranges": "bytes",
+      });
+    }
+    if (parsed) {
+      const { start, end } = parsed;
       const chunksize = end - start + 1;
       value = {
         ...options,
@@ -484,17 +649,13 @@ class Controller extends Service implements IController {
           "Content-Type": File.mimeType || "application/octet-stream",
           "Content-Length": length.toString(),
           "Content-Disposition": ` inline; filename="${File.name}"`,
+          "Accept-Ranges": "bytes",
         },
         ...headers,
       };
       response?.removeHeader("content-type");
     }
-    // streamFile
-    try {
-      return this.streamFile(File, head, value);
-    } catch (e) {
-      throw e;
-    }
+    return this.streamFile(File, head, value);
   }
 }
 

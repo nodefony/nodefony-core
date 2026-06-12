@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import { extend, isPlainObject } from "./Tools";
 import type { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
 import Syslog from "./syslog/Syslog";
@@ -54,11 +53,18 @@ export interface DynamicParam {
   [key: string]: unknown;
 }
 
-export interface Scopes {
-  [nameScope: string]: {
-    [idContainer: string]: Container;
-  };
-}
+/**
+ * Bookkeeping des scopes ouverts : nom de scope → instances vivantes par id.
+ * `Map` (et plus un objet `delete`-é) : l'ajout/retrait a lieu à CHAQUE
+ * requête — le churn de shape d'un objet ordinaire dégrade les inline caches
+ * V8, la Map est conçue pour ce motif.
+ */
+export type Scopes = Map<string, Map<string, Scope>>;
+
+// Clé de bookkeeping des containers/scopes : compteur monotone in-process
+// (base 36). Remplace uuid v4 — un appel crypto par requête pour une simple
+// clé locale jamais exposée cross-process.
+let containerSeq = 0;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ProtoService = { (): void; [key: string]: any };
@@ -85,12 +91,14 @@ export type ProtoParameters = { (): void; [key: string]: any };
  * scope model used by the HTTP/WS request pipeline.
  */
 class Container implements IContainer {
-  public protoService: ProtoService = function () {};
+  public protoService: ProtoService;
   protected services: DynamicService | null;
-  public protoParameters: ProtoParameters = function () {};
+  public protoParameters: ProtoParameters;
   protected parameters: DynamicParam | null;
   public id: string;
-  private scopes: Scopes = {};
+  // Lazy (`null` tant qu'aucun addScope) : chaque Scope EST un Container — un
+  // bucket alloué d'office serait une alloc morte par requête.
+  private scopes: Scopes | null = null;
 
   /**
    * Create a new container. When an existing container is passed in, the
@@ -101,9 +109,20 @@ class Container implements IContainer {
    * @param input - parent container to inherit services from
    * @param deep - if `true`, parameters are deep-cloned via `structuredClone`
    * (falls back to shallow copy if `structuredClone` throws on unsupported types)
+   * @param adoptedProtoService - @internal canal {@link Scope} : adopte le
+   * proto-services du PARENT au lieu d'allouer une closure locale morte
+   * (2 closures + 2 `Object.create` jetés par requête avant ce chemin)
+   * @param adoptedProtoParameters - @internal idem pour les paramètres
    */
-  constructor(input?: Container, deep: boolean = false) {
-    this.id = uuidv4();
+  constructor(
+    input?: Container,
+    deep: boolean = false,
+    adoptedProtoService?: ProtoService,
+    adoptedProtoParameters?: ProtoParameters,
+  ) {
+    this.id = (++containerSeq).toString(36);
+    this.protoService = adoptedProtoService ?? function () {};
+    this.protoParameters = adoptedProtoParameters ?? function () {};
     if (input && input instanceof Container) {
       this.services = Object.create(input.protoService.prototype);
       this.parameters = Object.create(input.protoParameters.prototype);
@@ -212,10 +231,11 @@ class Container implements IContainer {
       if (name in this.protoService.prototype) {
         delete this.protoService.prototype[name];
       }
-      for (const scope in this.scopes) {
-        const subScopes = this.scopes[scope];
-        for (const subScope in subScopes) {
-          subScopes[subScope].remove(name);
+      if (this.scopes) {
+        for (const bucket of this.scopes.values()) {
+          for (const scope of bucket.values()) {
+            scope.remove(name);
+          }
         }
       }
       return true;
@@ -249,11 +269,16 @@ class Container implements IContainer {
    * @param name - scope identifier (e.g. `"request"`)
    * @returns the underlying scope bucket (rarely used by callers)
    */
-  public addScope(name: string): Scope | object {
-    if (!this.scopes[name]) {
-      return (this.scopes[name] = {});
+  public addScope(name: string): Map<string, Scope> {
+    if (this.scopes === null) {
+      this.scopes = new Map();
     }
-    return this.scopes[name];
+    let bucket = this.scopes.get(name);
+    if (!bucket) {
+      bucket = new Map();
+      this.scopes.set(name, bucket);
+    }
+    return bucket;
   }
 
   /**
@@ -266,13 +291,14 @@ class Container implements IContainer {
    * @throws Error when the scope has not been declared
    */
   public enterScope(name: string): Scope {
-    if (!this.scopes[name]) {
+    const bucket = this.scopes?.get(name);
+    if (!bucket) {
       throw new Error(
         `Scope "${name}" not declared. Call addScope("${name}") first.`,
       );
     }
     const sc = new Scope(name, this, this.protoService, this.protoParameters);
-    this.scopes[name][sc.id] = sc;
+    bucket.set(sc.id, sc);
     return sc;
   }
 
@@ -284,13 +310,25 @@ class Container implements IContainer {
    * @param scope - the scope instance returned by {@link enterScope}
    */
   public leaveScope(scope: IScope): void {
-    if (this.scopes[scope.name]) {
-      const sc = this.scopes[scope.name][scope.id];
+    const bucket = this.scopes?.get(scope.name);
+    if (bucket) {
+      const sc = bucket.get(scope.id);
       if (sc) {
         sc.clean();
-        delete this.scopes[scope.name][scope.id];
+        bucket.delete(scope.id);
       }
     }
+  }
+
+  /**
+   * Nombre d'instances VIVANTES du scope nommé — introspection bon marché
+   * (sondes de fuite, Studio, diagnostics) sans exposer la structure interne.
+   *
+   * @param name - scope identifier (e.g. `"request"`)
+   * @returns le nombre de scopes ouverts, `0` si le scope est inconnu
+   */
+  public scopeCount(name: string): number {
+    return this.scopes?.get(name)?.size ?? 0;
   }
 
   /**
@@ -301,20 +339,23 @@ class Container implements IContainer {
    * @param name - scope identifier
    */
   public removeScope(name: string): void {
-    const scopesForName = this.scopes[name];
-    if (scopesForName) {
-      for (const scope of Object.values(scopesForName)) {
-        this.leaveScope(scope as Scope);
+    const bucket = this.scopes?.get(name);
+    if (bucket) {
+      for (const scope of bucket.values()) {
+        this.leaveScope(scope);
       }
-      delete this.scopes[name];
+      this.scopes?.delete(name);
     }
   }
 
   private removeAllScopes(): void {
-    for (const name of Object.keys(this.scopes)) {
+    if (!this.scopes) {
+      return;
+    }
+    for (const name of this.scopes.keys()) {
       this.removeScope(name);
     }
-    this.scopes = {};
+    this.scopes = null;
   }
 
   // --- Paramètres ---
@@ -406,11 +447,44 @@ class Scope extends Container implements IScope {
     parentProtoService: ProtoService,
     parentProtoParameters: ProtoParameters,
   ) {
-    super();
+    // Adoption des protos PARENTS (canal @internal du constructeur) :
+    // `services`/`parameters` héritent directement de leur prototype — plus
+    // de double init (2 closures + 2 Object.create jetés par requête avant).
+    super(undefined, false, parentProtoService, parentProtoParameters);
     this.name = name;
     this.parent = parent;
-    this.services = Object.create(parentProtoService.prototype);
-    this.parameters = Object.create(parentProtoParameters.prototype);
+  }
+
+  /**
+   * Register a per-request service — own property ONLY (shadowing). Depuis
+   * l'adoption des protos parents, l'écriture prototype de
+   * {@link Container.set} toucherait le proto PARTAGÉ du parent : un service
+   * per-request (controller, context) deviendrait visible de TOUTES les
+   * requêtes concurrentes. (L'ancien chemin écrivait sur un proto local mort
+   * — travail perdu à chaque set.)
+   */
+  public override set<T>(name: string, object: T): void {
+    if (this.services && name) {
+      this.services[name] = object;
+    } else {
+      throw new Error("Container bad argument name");
+    }
+  }
+
+  /**
+   * Unregister a service registered ON THIS SCOPE (own property only). Les
+   * services hérités du parent ne sont jamais touchés — même raison que
+   * {@link Scope.set} : le proto est partagé depuis l'adoption.
+   */
+  public override remove(name: string): boolean {
+    if (
+      this.services &&
+      Object.prototype.hasOwnProperty.call(this.services, name)
+    ) {
+      delete this.services[name];
+      return true;
+    }
+    return false;
   }
 
   /**

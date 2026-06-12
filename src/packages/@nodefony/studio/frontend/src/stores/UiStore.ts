@@ -13,6 +13,8 @@ const DEBUGBAR_KEY = "nf.debugbar.visible";
 const ADAPTIVE_KEY = "nf.realtime.adaptive";
 /** Temps réel actif — persisté (l'utilisateur veut retrouver son choix au reload). */
 const LIVE_KEY = "nf.realtime.live";
+/** API par la socket (pont `api.request`) — kill switch du data plane duplex. */
+const API_SOCKET_KEY = "nf.api.socket";
 
 /** Handle global exposé par la debug bar Core (`window.__NODEFONY_DEBUGBAR__`). */
 interface DebugBarHandle {
@@ -56,6 +58,13 @@ export class UiStore {
    * (1 seul état). La granularité (`:ms`) reste locale à chaque page.
    */
   realtimeLive = false;
+  /**
+   * API PAR LA SOCKET — quand la Socket Nodefony est connectée, les GET du data
+   * plane passent par le pont `api.request` (même action controller, même
+   * snapshot que le REST — « API souveraine »). OFF = tout repasse en fetch HTTP.
+   * Défaut ON (Studio dogfoode le duplex). Persisté.
+   */
+  apiViaSocket = true;
 
   constructor() {
     makeAutoObservable(this);
@@ -143,6 +152,19 @@ export class UiStore {
     this.setAdaptiveCadence(!this.adaptiveCadence);
   }
 
+  setApiViaSocket(v: boolean): void {
+    this.apiViaSocket = v;
+    try {
+      localStorage.setItem(API_SOCKET_KEY, v ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  toggleApiViaSocket(): void {
+    this.setApiViaSocket(!this.apiViaSocket);
+  }
+
   private loadPrefs(): void {
     try {
       if (typeof localStorage === "undefined") return;
@@ -154,6 +176,8 @@ export class UiStore {
       this.debugBar = localStorage.getItem(DEBUGBAR_KEY) !== "0";
       this.adaptiveCadence = localStorage.getItem(ADAPTIVE_KEY) === "1";
       this.realtimeLive = localStorage.getItem(LIVE_KEY) === "1";
+      // Défaut ON : seul un "0" explicite (coupé à la main) désactive le pont.
+      this.apiViaSocket = localStorage.getItem(API_SOCKET_KEY) !== "0";
       const g = localStorage.getItem(GROUPS_KEY);
       if (g) {
         const parsed: unknown = JSON.parse(g);

@@ -4,15 +4,33 @@ import type {
   IBackplaneMessage,
   IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
+import { resolveBackplaneOriginId } from "./originId.js";
 
 /**
- * Canal Redis **dédié** transportant toutes les enveloppes realtime entre pods.
- * Un seul canal pub/sub par défaut (les canaux logiques voyagent DANS l'enveloppe,
+ * BASE du canal Redis **dédié** transportant les enveloppes realtime entre pods.
+ * Un seul canal pub/sub par app (les canaux logiques voyagent DANS l'enveloppe,
  * comme le `channel` IPC du {@link ClusterBackplane}) → 1 `SUBSCRIBE` au boot, pas
- * de (dés)abonnement Redis dynamique par canal applicatif. Surchargeable au
- * constructeur si plusieurs apps partagent le même Redis (namespacing).
+ * de (dés)abonnement Redis dynamique par canal applicatif.
+ *
+ * ⚠️ Le `database` Redis ne cloisonne PAS le pub/sub (global au serveur) → sur un
+ * Redis mutualisé, deux apps sur le même canal se parlent (cross-talk). Le canal
+ * effectif est donc suffixé par un namespace via {@link resolveRedisChannel}
+ * (config `backplane.namespace`, sinon dérivé de `kernel.projectName` au wiring).
  */
 export const REDIS_RT_CHANNEL = "nodefony:realtime";
+
+/**
+ * Construit le canal pub/sub effectif : `nodefony:realtime:<namespace>`, ou la
+ * base seule si aucun namespace n'est résolu (compat mono-app). Deux déploiements
+ * de la MÊME app sur un Redis partagé (staging + prod) ont le même nom dérivé →
+ * y poser un `backplane.namespace` EXPLICITE distinct.
+ *
+ * @param namespace - cloison logique (config `backplane.namespace` ou nom d'app).
+ * @returns le nom du canal Redis à `SUBSCRIBE`/`PUBLISH`.
+ */
+export function resolveRedisChannel(namespace?: string): string {
+  return namespace ? `${REDIS_RT_CHANNEL}:${namespace}` : REDIS_RT_CHANNEL;
+}
 
 /**
  * Transport pub/sub du backplane Redis — abstrait `PUBLISH` / `SUBSCRIBE` derrière
@@ -152,7 +170,7 @@ export class RedisBackplane implements IBackplane {
 
   constructor(
     transport: IRedisBackplaneTransport,
-    originId: string = String(process.pid),
+    originId: string = resolveBackplaneOriginId(),
     redisChannel: string = REDIS_RT_CHANNEL,
   ) {
     this.#transport = transport;

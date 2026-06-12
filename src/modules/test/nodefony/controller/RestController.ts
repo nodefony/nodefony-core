@@ -39,6 +39,42 @@ class RestController extends Controller {
     return [1, "two", { three: 3 }];
   }
 
+  // Scalaires JSON (RFC 8259 §2) — `return 42` / `return true` → auto-JSON.
+  @route("rest-auto-number", {
+    path: "/auto/number",
+    requirements: { methods: "GET" },
+  })
+  autoNumber() {
+    return 42;
+  }
+
+  @route("rest-auto-boolean", {
+    path: "/auto/boolean",
+    requirements: { methods: "GET" },
+  })
+  autoBoolean() {
+    return true;
+  }
+
+  // Buffer brut → envoi binaire direct par le Resolver (case "buffer").
+  @route("rest-auto-buffer", {
+    path: "/auto/buffer",
+    requirements: { methods: "GET" },
+  })
+  autoBuffer() {
+    return Buffer.from([0x00, 0x01, 0xfe, 0xff]);
+  }
+
+  // Corps VIDE légal — `return ""` ne doit pas produire un 500
+  // (ERR_STREAM_NULL_VALUES sur res.write(null)).
+  @route("rest-auto-empty", {
+    path: "/auto/empty",
+    requirements: { methods: "GET" },
+  })
+  autoEmpty() {
+    return "";
+  }
+
   @route("rest-session-info", {
     path: "/session",
     requirements: { methods: "GET" },

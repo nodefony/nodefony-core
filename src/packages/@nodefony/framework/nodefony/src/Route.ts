@@ -9,6 +9,7 @@ import {
   isDomainAllowed,
 } from "@nodefony/http";
 import type { IRoute } from "../interfaces/index.js";
+import type { RouteActionMeta } from "../decorators/routerDecorators.js";
 import { createHash } from "node:crypto";
 import { typeOf } from "nodefony";
 import Controller from "./Controller";
@@ -132,6 +133,16 @@ class Route implements IRoute {
    * sur tous les vhosts.
    */
   hostRegexp?: RegExp[];
+  /**
+   * P3a — requirements pré-compilés au boot (0 alloc par match) :
+   * `methodsSet` = méthodes autorisées normalisées UPPERCASE (lookup O(1)) ;
+   * `methodsAllow` = valeur du header `Allow` du 405, jointe UNE fois ;
+   * `varRegexp` = requirements de variables de route (string → RegExp).
+   * `this.requirements` reste la config BRUTE (hash de route + introspection).
+   */
+  methodsSet?: Set<string>;
+  methodsAllow?: string;
+  varRegexp?: Record<string, RegExp>;
   bypassFirewall: boolean = false;
   /**
    * P2.9 — Cache mémoïsé : l'action attend-elle le **flux brut** du body
@@ -140,6 +151,14 @@ class Route implements IRoute {
    * ensuite). Lu en amont par `handleHttp` pour sauter le parse.
    */
   bodyStream?: boolean;
+  /**
+   * P5 — Metadata d'action figées (`@HttpCode`/`@Header`/`@Redirect`/params/
+   * session), memo au 1er hit comme {@link bodyStream} : `undefined` = pas
+   * encore résolu (via `resolveActionMeta`, 1 lecture Reflect par route, O(1)
+   * ensuite → plus aucun `Reflect.getMetadata` par requête). Objet PARTAGÉ
+   * entre requêtes — ne jamais muter. Posé après `generateId()` → hash stable.
+   */
+  actionMeta?: RouteActionMeta;
   filePath?: string;
   /**
    * Module propriétaire de la route — set par `Router.setController()` à
@@ -202,15 +221,18 @@ class Route implements IRoute {
     } catch (e) {
       throw e;
     }
-    // check requierments
+    // check Hostname AVANT les requirements (RFC 9110 : la ressource cible est
+    // identifiée par l'URI HOST COMPRIS) — une route restreinte à un autre vhost
+    // jette 403 et ne peut plus polluer la résolution d'une 405 portant SES
+    // méthodes (fuite cross-vhost du header Allow, cf banc routing NR §D).
     try {
-      this.matchRequirements(context);
+      this.matchHostname(context);
     } catch (e) {
       throw e;
     }
-    // check Hostname
+    // check requierments
     try {
-      this.matchHostname(context);
+      this.matchRequirements(context);
     } catch (e) {
       throw e;
     }
@@ -227,15 +249,21 @@ class Route implements IRoute {
         const req: unknown = this.getRequirement(k as keyof RouteRequirements);
         let result = null;
         if (req) {
-          if (req instanceof RegExp) {
-            result = req.test(param ?? "");
-          } else if (typeof req === "string") {
-            result = new RegExp(req).test(param ?? "");
-          } else {
-            throw {
-              BreakException: `Requirement Routing config Exception variable : ${k} must be RegExp or string : ${typeOf(req)}`,
-            };
+          // P3a : RegExp pré-compilée au boot (varRegexp, lookup O(1)).
+          // Chemin froid (clé réservée homonyme, jamais en pratique) : legacy.
+          let compiled = this.varRegexp?.[k];
+          if (!compiled) {
+            if (req instanceof RegExp) {
+              compiled = req;
+            } else if (typeof req === "string") {
+              compiled = new RegExp(req);
+            } else {
+              throw {
+                BreakException: `Requirement Routing config Exception variable : ${k} must be RegExp or string : ${typeOf(req)}`,
+              };
+            }
           }
+          result = compiled.test(param ?? "");
           if (!result) {
             throw {
               BreakException: `Requirement Exception variable : ${k} ==> ${param} doesn't match with ${String(req)}`,
@@ -273,7 +301,53 @@ class Route implements IRoute {
     }
     this.pattern = new RegExp(`^${pattern}$`, "i");
     this.compileHost();
+    this.compileRequirements();
     return this.pattern;
+  }
+
+  /**
+   * Pré-compile les requirements (P3a) — méthodes normalisées en Set UPPERCASE
+   * + RegExp des requirements de variables. Appelé par {@link compile} et
+   * {@link addRequirement} ; {@link matchRequirements} et la boucle de
+   * variables ne font plus que des lookups (0 alloc, 0 RegExp par match).
+   * Une RegExp string invalide throw ICI (création de la route, fail-fast)
+   * au lieu du 1er match.
+   */
+  compileRequirements(): void {
+    this.methodsSet = undefined;
+    this.methodsAllow = undefined;
+    this.varRegexp = undefined;
+    const methods = this.requirements?.methods;
+    if (typeof methods === "string") {
+      const list = methods.replace(/\s/g, "").toUpperCase().split(",");
+      this.methodsSet = new Set(list);
+      this.methodsAllow = list.join(",");
+    } else if (Array.isArray(methods)) {
+      const list = methods.map((m) => String(m).toUpperCase());
+      this.methodsSet = new Set(list);
+      this.methodsAllow = list.join(",");
+    }
+    for (const k in this.requirements) {
+      if (
+        k === "methods" ||
+        k === "domain" ||
+        k === "protocol" ||
+        k === "scheme"
+      ) {
+        continue;
+      }
+      const req: unknown = (this.requirements as Record<string, unknown>)[k];
+      const compiled =
+        req instanceof RegExp
+          ? req
+          : typeof req === "string"
+            ? new RegExp(req)
+            : null;
+      if (compiled) {
+        (this.varRegexp ??= Object.create(null) as Record<string, RegExp>)[k] =
+          compiled;
+      }
+    }
   }
 
   hydrateDefaultParameters(res: RegExpMatchArray) {
@@ -422,7 +496,10 @@ class Route implements IRoute {
     value: RouteRequirements[K],
   ): RouteRequirements[K] | undefined {
     if (key && value) {
-      return (this.requirements[key] = value);
+      this.requirements[key] = value;
+      // Maintient l'invariant P3a (pré-compilés ↔ config brute).
+      this.compileRequirements();
+      return value;
     }
   }
 
@@ -443,45 +520,22 @@ class Route implements IRoute {
       for (const i in this.requirements) {
         switch (i) {
           case "methods":
-            switch (typeof this.requirements.methods) {
-              case "string":
-                const req = this.requirements.methods
-                  .replace(/\s/g, "")
-                  .toUpperCase();
-                if (
-                  req &&
-                  req.split(",").lastIndexOf(context.method as HTTPMethod) < 0
-                ) {
-                  const error = new HttpError(
-                    `Method ${context.method} Unauthorized`,
-                  );
-                  error.code = 405;
-                  error.type = "method";
-                  error.allow = req;
-                  throw error;
-                }
-                break;
-              case "object":
-                const method = context.method as HTTPMethod;
-                const methodLower = method.toLowerCase() as HTTPMethod;
-                const allowedMethods = this.requirements[i] as HTTPMethod[];
-                if (
-                  !allowedMethods.includes(method) &&
-                  !allowedMethods.includes(methodLower)
-                ) {
-                  const error = new HttpError(
-                    `Method ${context.method} Unauthorized`,
-                  );
-                  error.code = 405;
-                  error.type = "method";
-                  error.allow = allowedMethods.join(",").toUpperCase();
-                  throw error;
-                }
-                break;
-              default:
-                throw new Error(
-                  `Bad config route method : ${this.requirements[i]}`,
-                );
+            // P3a : Set UPPERCASE pré-compilé au boot — 0 alloc par match
+            // (avant : replace+toUpperCase+split par requête). `methodsSet`
+            // absent = type de config invalide → même throw qu'avant.
+            if (!this.methodsSet) {
+              throw new Error(
+                `Bad config route method : ${this.requirements[i]}`,
+              );
+            }
+            if (!this.methodsSet.has(context.method as string)) {
+              const error = new HttpError(
+                `Method ${context.method} Unauthorized`,
+              );
+              error.code = 405;
+              error.type = "method";
+              error.allow = this.methodsAllow ?? "";
+              throw error;
             }
             break;
           case "domain":

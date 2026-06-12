@@ -70,16 +70,16 @@ grep "abc12345" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
 
 ## Heuristique de diagnostic
 
-| Pattern dans le log                              | Cause probable                                | Fix                                                       |
-| ------------------------------------------------ | --------------------------------------------- | --------------------------------------------------------- |
-| `SyntaxError: does not provide an export named X` | dist d'un module périmé                       | `cd src/packages/@nodefony/<m> && npm run build` + restart |
-| `CRITIC KERNEL ... terminate : 0` au boot         | crash early : voir lignes précédentes         | Lire le stack trace                                       |
-| `404` répétés sur des routes valides              | dist du module test périmé                    | Rebuild + restart (skill `nodefony-start-server`)         |
-| `ECONNREFUSED`                                    | serveur mort                                  | Relancer via skill `nodefony-start-server`                |
-| `EADDRINUSE 5151/5152`                            | autre process sur les ports                   | `lsof -ti:5151 -ti:5152 \| xargs kill -9`                 |
+| Pattern dans le log                               | Cause probable                        | Fix                                                        |
+| ------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------- |
+| `SyntaxError: does not provide an export named X` | dist d'un module périmé               | `cd src/packages/@nodefony/<m> && npm run build` + restart |
+| `CRITIC KERNEL ... terminate : 0` au boot         | crash early : voir lignes précédentes | Lire le stack trace                                        |
+| `404` répétés sur des routes valides              | dist du module test périmé            | Rebuild + restart (skill `nodefony-start-server`)          |
+| `ECONNREFUSED`                                    | serveur mort                          | Relancer via skill `nodefony-start-server`                 |
+| `EADDRINUSE 5151/5152`                            | autre process sur les ports           | `lsof -ti:5151 -ti:5152 \| xargs kill -9`                  |
 
 ## Quand NE PAS utiliser
 
 - Pour analyser les **logs structurés JSON** d'un client → utiliser `jq`
-- Pour les **logs des tests** (mocha) → tail séparé sur l'output mocha
-- Pour les logs **prod** (foreground/Docker → stdout/stderr ; PM2 legacy déprécié, retrait Phase 16) → variantes différentes, adapter le chemin/source
+- Pour les **logs des tests** (vitest) → lire l'output du runner directement, pas le log serveur
+- Pour les logs **prod** (foreground/Docker → stdout/stderr ; PM2 RETIRÉ du framework — C6, 2026-05-29) → variantes différentes, adapter le chemin/source

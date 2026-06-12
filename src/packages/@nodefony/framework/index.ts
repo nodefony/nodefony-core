@@ -10,6 +10,7 @@ import {
 import Router from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
 import Controller from "./nodefony/src/Controller";
+import ResourceController from "./nodefony/src/ResourceController";
 import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
 import AdminApiController from "./nodefony/src/AdminApiController";
@@ -35,6 +36,7 @@ import {
   Head,
   All,
   Domain,
+  Scope,
   UseSession,
   HttpCode,
   Header,
@@ -141,6 +143,7 @@ const graphql = {
 export default Framework;
 export {
   Controller,
+  ResourceController,
   Route,
   Router,
   Resolver,
@@ -162,6 +165,7 @@ export {
   Head,
   All,
   Domain,
+  Scope,
   UseSession,
   HttpCode,
   Header,
@@ -181,6 +185,8 @@ export {
   frameworkConfigSchema,
   frameworkConfigJsonSchema,
 };
+export type { ControllerScope } from "./nodefony/src/Controller";
+export type { IResourceService } from "./nodefony/src/ResourceController";
 export type {
   FrameworkConfig,
   FrameworkConfigInput,

@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-09T20:20:21.776Z",
+  "generated": "2026-06-12T12:13:12.984Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 835,
-    "symbols": 1724,
-    "classes": 239,
-    "interfaces": 430,
-    "types": 223,
+    "files": 841,
+    "symbols": 1747,
+    "classes": 244,
+    "interfaces": 435,
+    "types": 225,
     "enums": 3,
-    "functions": 344,
-    "constants": 485
+    "functions": 353,
+    "constants": 487
   },
   "symbols": {
     "Cli": {
@@ -82,11 +82,11 @@
     },
     "Scopes": {
       "name": "Scopes",
-      "kind": "interface",
+      "kind": "type",
       "file": "src/nodefony/src/Container.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "extends": null
+      "description": "Bookkeeping des scopes ouverts : nom de scope → instances vivantes par id. `Map` (et plus un objet `delete`-é) : l'ajout/retrait a lieu à CHAQUE requête — le churn de shape d'un objet ordinaire dég…"
     },
     "ProtoService": {
       "name": "ProtoService",
@@ -1112,6 +1112,16 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "IRealtimeTransport — le SEUL maillon qui diffère client/serveur. Le protocole ({@link JsonRpcPeer}) et les « smarts » (stats, pub/sub) sont isomorphes ; seule la façon dont les **octets** entrent e…"
+    },
+    "RpcError": {
+      "name": "RpcError",
+      "kind": "class",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": []
     },
     "JsonRpcPeer": {
       "name": "JsonRpcPeer",
@@ -3921,6 +3931,70 @@
         "controller"
       ]
     },
+    "PocBookController": {
+      "name": "PocBookController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/poc/PocBookController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE. L'action `byAuthor` est écrite **UNE fois**. Elle ne voit AUCUNE information de transport : juste un `@Param` normalisé. Elle est joignable p…"
+    },
+    "PocBookResourceController": {
+      "name": "PocBookResourceController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/poc/PocBookResourceController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "ResourceController",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "POC « API souveraine » — Phase 2 (V4.2) — le premier client RÉEL du modèle stateless + singleton : - `ResourceController` → `static scope = \"singleton\"` HÉRITÉ (aucun décorateur ici — c'est le défa…"
+    },
+    "PocBook": {
+      "name": "PocBook",
+      "kind": "interface",
+      "file": "src/modules/test/nodefony/poc/pocBookService.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": null,
+      "description": "POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE. La « logique métier » écrite **une seule fois** : un service trivial en mémoire. Le but du POC n'est PAS le CRUD ici, mais de prouver qu'une …"
+    },
+    "pocBookService": {
+      "name": "pocBookService",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/poc/pocBookService.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Logique métier unique — aucune notion de transport ici."
+    },
+    "pocBookResourceService": {
+      "name": "pocBookResourceService",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/poc/pocBookService.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Forme `IResourceService<PocBook>` (V4.2) — prouve que le contrat STRUCTUREL du `ResourceController` accepte un simple objet en mémoire (pas d'ORM, pas de `Service` DI). Read-only volontaire : pas d…"
+    },
+    "PocInvokeController": {
+      "name": "PocInvokeController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/poc/PocInvokeController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE (mais valide la BRIQUE). Le **pont WS-RPC `invoke`** : une socket connectée ici reçoit des messages `{ id, path }` et le serveur RE-ROUTE le p…"
+    },
     "AngularController": {
       "name": "AngularController",
       "kind": "class",
@@ -4510,6 +4584,15 @@
       "extends": null,
       "description": "Contexte structurel minimal nécessaire pour résoudre les arguments injectés par les décorateurs de paramètre. Volontairement découplé de `HttpContext` (typage par forme) → la résolution est une fon…"
     },
+    "RouteActionMeta": {
+      "name": "RouteActionMeta",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Snapshot des métadonnées d'action d'une route (`@HttpCode`/`@Header`/ `@Redirect`/paramètres décorés/intent de session), résolu UNE fois par route puis figé sur `route.actionMeta` (cf {@link resolv…"
+    },
     "ParamSource": {
       "name": "ParamSource",
       "kind": "type",
@@ -4585,6 +4668,14 @@
       "module": "@nodefony/framework",
       "description": "Restreint une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) à un ou plusieurs vhosts. Source de vérité du domaine de routing — le `host` posé ici alimente `Rout…"
     },
+    "@nodefony/framework:Scope": {
+      "name": "Scope",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Déclare le scope d'instanciation d'un controller (V4.3) — pose le statique `scope` de la classe (hérité de `Controller`, défaut `\"request\"`). Lu par le constructor de `Controller` (`new.target`) et…"
+    },
     "UseSession": {
       "name": "UseSession",
       "kind": "function",
@@ -4632,6 +4723,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "P2.9 — Indique si l'action d'une route attend le **flux brut** du body (un paramètre `@Body({ stream:true })`). Le résultat est **mémoïsé** sur `route.bodyStream` : lecture `Reflect` au 1er appel, …"
+    },
+    "computeActionMeta": {
+      "name": "computeActionMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "P5 — Calcule le {@link RouteActionMeta} d'un couple (controller, action) par lecture `Reflect`. Fonction PURE (pas de memo) : utilisée par {@link resolveActionMeta} (routes, mémoïsé) et par le `Res…"
+    },
+    "resolveActionMeta": {
+      "name": "resolveActionMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "P5 — Metadata d'action d'une route, **mémoïsées au 1er hit** sur `route.actionMeta` (pattern frère de {@link routeExpectsBodyStream}) : `undefined` = pas encore résolu → 1 lecture `Reflect` par rou…"
     },
     "HTTP_CODE_METADATA": {
       "name": "HTTP_CODE_METADATA",
@@ -4797,6 +4904,22 @@
         "IController"
       ],
       "decorators": []
+    },
+    "ControllerScope": {
+      "name": "ControllerScope",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Scope d'instanciation d'un controller (V4.3). - `\"request\"` (défaut) : une instance par requête — l'état per-request peut vivre sur `this` (legacy sûr, zéro breaking). - `\"singleton\"` (opt-in via `…"
+    },
+    "parseByteRange": {
+      "name": "parseByteRange",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Parse un header `Range` mono-plage en octets (RFC 9110 §14.1.2)."
     },
     "DocFrontmatter": {
       "name": "DocFrontmatter",
@@ -5014,11 +5137,12 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "extends": "Service",
+      "extends": null,
       "implements": [
         "IResolver"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Résout une route vers son couple controller/action et exécute l'action — UN Resolver est alloué par requête HTTP (et par connexion WS, réutilisé par message). **POJO volontaire** (V3.1) : n'étend P…"
     },
     "ControllerWithInitialize": {
       "name": "ControllerWithInitialize",
@@ -5028,6 +5152,26 @@
       "module": "@nodefony/framework",
       "extends": null,
       "description": "Interface-marqueur du hook **per-request** d'un {@link Controller} : `initialize` est appelé par le {@link Resolver} à CHAQUE requête, avant l'action (hot path — jamais gardé/borné, contrairement a…"
+    },
+    "ResourceController": {
+      "name": "ResourceController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Controller de ressource **souverain** (V4.2 — POC API souveraine, Phase 2) : la logique métier est écrite UNE fois dans le service de ressource, les actions de la sous-classe ne sont que des portes…"
+    },
+    "IResourceService": {
+      "name": "IResourceService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Contrat structurel du service de ressource consommé par un {@link ResourceController} — aligné sur `AbstractCrudService` (`@nodefony/orm-core`) SANS en dépendre : le framework ne connaît pas l'ORM,…"
     },
     "Route": {
       "name": "Route",
@@ -11345,6 +11489,14 @@
       "exported": true,
       "module": "@nodefony/http"
     },
+    "setLifecycleEventLogging": {
+      "name": "setLifecycleEventLogging",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Bascule runtime du gate des logs d'events lifecycle. Réservé HORS hot path : tests et futur « Audit à chaud » (fenêtre bornée prod→verbeux, auto-revert serveur) — le canal Studio `syslog:stream` re…"
+    },
     "DomainPattern": {
       "name": "DomainPattern",
       "kind": "type",
@@ -11925,6 +12077,14 @@
       "decorators": [],
       "description": "Backplane **mono-process no-op** — implémentation de RÉFÉRENCE du port {@link IBackplane} quand il n'existe **aucun pair** (1 process = 1 pod). `publish` ne sort rien (pas de pair à qui propager), …"
     },
+    "resolveBackplaneOriginId": {
+      "name": "resolveBackplaneOriginId",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Résout l'identifiant d'origine d'un backplane — l'étiquette que l'anti-écho compare pour jeter les messages qui reviennent à leur émetteur. POURQUOI pas `String(process.pid)` (ex-défaut) : en conte…"
+    },
     "RedisBackplane": {
       "name": "RedisBackplane",
       "kind": "class",
@@ -11965,6 +12125,14 @@
       "extends": null,
       "description": "Client Redis **subscriber** dédié — surface structurelle minimale (compatible `RedisClientType` v5). Un client abonné ne peut plus émettre de commandes normales (protocole Redis) → publisher et sub…"
     },
+    "resolveRedisChannel": {
+      "name": "resolveRedisChannel",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Construit le canal pub/sub effectif : `nodefony:realtime:<namespace>`, ou la base seule si aucun namespace n'est résolu (compat mono-app). Deux déploiements de la MÊME app sur un Redis partagé (sta…"
+    },
     "createRedisServiceTransport": {
       "name": "createRedisServiceTransport",
       "kind": "function",
@@ -11979,7 +12147,7 @@
       "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "Canal Redis **dédié** transportant toutes les enveloppes realtime entre pods. Un seul canal pub/sub par défaut (les canaux logiques voyagent DANS l'enveloppe, comme le `channel` IPC du {@link Clust…"
+      "description": "BASE du canal Redis **dédié** transportant les enveloppes realtime entre pods. Un seul canal pub/sub par app (les canaux logiques voyagent DANS l'enveloppe, comme le `channel` IPC du {@link Cluster…"
     },
     "ClusterProbeClient": {
       "name": "ClusterProbeClient",
@@ -12503,7 +12671,6 @@
         "AdminBroker",
         "Router",
         "Controller",
-        "Resolver",
         "Template",
         "FrontendService",
         "Certificate",
@@ -12534,6 +12701,7 @@
       ],
       "Error": [
         "nodefonyError",
+        "RpcError",
         "TimeoutError",
         "AgentError",
         "LLMError",
@@ -12641,13 +12809,19 @@
         "RouteController",
         "SessionRuntimeController",
         "WebsocketController",
+        "PocBookController",
+        "PocInvokeController",
         "AngularController",
         "PocController",
         "VueController",
         "DocumentationController",
         "AdminApiController",
+        "ResourceController",
         "StudioController",
         "RealtimeController"
+      ],
+      "ResourceController": [
+        "PocBookResourceController"
       ],
       "AgentError": [
         "AgentShutdownError",
@@ -12963,6 +13137,9 @@
         "RouteController",
         "SessionRuntimeController",
         "WebsocketController",
+        "PocBookController",
+        "PocBookResourceController",
+        "PocInvokeController",
         "AngularController",
         "PocController",
         "VueController",
@@ -13038,7 +13215,6 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
@@ -13085,7 +13261,6 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
@@ -13130,7 +13305,6 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
@@ -13522,6 +13696,15 @@
       "DbController": [
         "src/modules/test/index.ts"
       ],
+      "PocBookController": [
+        "src/modules/test/index.ts"
+      ],
+      "PocInvokeController": [
+        "src/modules/test/index.ts"
+      ],
+      "PocBookResourceController": [
+        "src/modules/test/index.ts"
+      ],
       "registerDolibarrEntities": [
         "src/modules/test/index.ts"
       ],
@@ -13624,6 +13807,8 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -13633,10 +13818,15 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "ResourceController": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts"
       ],
       "Resolver": [
         "src/packages/@nodefony/framework/index.ts",
@@ -13679,6 +13869,9 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
@@ -13699,6 +13892,9 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -13713,6 +13909,15 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts"
+      ],
+      "Scope": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/nodefony/src/command/Command.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "UseSession": [
         "src/packages/@nodefony/framework/index.ts",
@@ -13847,6 +14052,9 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -13869,11 +14077,13 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
@@ -14011,6 +14221,9 @@
       "createRedisServiceTransport": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
+      "resolveRedisChannel": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
       "REDIS_RT_CHANNEL": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
@@ -14019,6 +14232,12 @@
       ],
       "IRedisSubscriber": [
         "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "resolveBackplaneOriginId": [
+        "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
       ],
       "ClusterBackplane": [
         "src/packages/@nodefony/realtime/index.ts"
@@ -14164,6 +14383,12 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
+      "RpcError": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
       "TransportState": [
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/client/realtime/BrowserWsTransport.ts",
@@ -14214,14 +14439,6 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
-      ],
-      "Scope": [
-        "src/nodefony/src/command/Command.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "Builder": [
         "src/nodefony/src/command/Command.ts"
@@ -14876,6 +15093,7 @@
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -14901,6 +15119,7 @@
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
@@ -14951,6 +15170,15 @@
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "pocBookService": [
+        "src/modules/test/nodefony/poc/PocBookController.ts"
+      ],
+      "pocBookResourceService": [
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts"
+      ],
+      "PocBook": [
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
@@ -15170,6 +15398,10 @@
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts"
       ],
+      "ControllerScope": [
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts"
+      ],
       "ControllerConstructor": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
@@ -15338,23 +15570,21 @@
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
-      "HTTP_CODE_METADATA": [
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "HEADERS_METADATA": [
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "REDIRECT_METADATA": [
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "PARAM_ARGS_METADATA": [
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
       "buildParamArgs": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "resolveSessionIntent": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "resolveActionMeta": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "computeActionMeta": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "RouteActionMeta": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts"
       ],
       "RedirectMeta": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
@@ -15366,7 +15596,8 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "compileDomainPatterns": [
-        "src/packages/@nodefony/framework/nodefony/src/Route.ts"
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",

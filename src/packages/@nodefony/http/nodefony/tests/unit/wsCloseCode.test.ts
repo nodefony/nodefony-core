@@ -33,9 +33,11 @@ describe("toWsCloseCode — coercition RFC 6455 §7.4", () => {
     }
   });
 
-  it("HTTP 401 / 403 → 1008 (Policy Violation)", () => {
+  it("HTTP 401 / 403 / 421 → 1008 (Policy Violation)", () => {
     expect(toWsCloseCode(401)).to.equal(1008);
     expect(toWsCloseCode(403)).to.equal(1008);
+    // R3 (vague 5) — Host hors trustedHosts = 421 Misdirected Request.
+    expect(toWsCloseCode(421)).to.equal(1008);
   });
 
   it("autres 4xx (404, 400, 409) → 4004 (privé), JAMAIS 4404", () => {

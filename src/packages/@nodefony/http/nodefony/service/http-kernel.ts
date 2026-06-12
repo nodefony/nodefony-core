@@ -22,6 +22,7 @@ import {
 } from "../src/context/trustProxy";
 import {
   compileTrustedHosts,
+  compileDomainPatterns,
   isDomainAllowed,
   type TrustedHostsConfig,
 } from "../src/context/domainMatcher";
@@ -128,6 +129,15 @@ export interface Data {
 const serviceName: string = "HttpKernel";
 import type { IHttpKernel as IHttpKernelInterface } from "../interfaces/IHttpKernel";
 
+// B4 — hôtes loopback tolérés comme `Origin` WS en development (Studio Vite
+// cross-port ; IPv4 / IPv6 / hostname). Module-level → 0 alloc par handshake.
+const WS_DEV_LOOPBACK = new Set<string>([
+  "localhost",
+  "127.0.0.1",
+  "::1",
+  "[::1]",
+]);
+
 @injectable()
 class HttpKernel extends Service implements IHttpKernelInterface {
   certificates: unknown;
@@ -171,6 +181,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // Checker de confiance reverse-proxy, compilé une seule fois (lazy) depuis
   // options.trustProxy — pas de BlockList par requête.
   private _trustProxyChecker: TrustProxyChecker | null = null;
+  // B4 — politique d'Origin WS (anti-CSWSH) compilée paresseusement par type de
+  // serveur. Object.create(null) : petite map à accès ponctuel (règle perf).
+  private _wsOriginPolicy: Record<
+    string,
+    { disabled: boolean; extra: RegExp[] }
+  > = Object.create(null);
   constructor(module: Module) {
     super(
       serviceName,
@@ -249,6 +265,104 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   /**
+   * Politique d'Origin WS (B4) compilée paresseusement pour un type de serveur
+   * (`websocket` / `websocketSecure`), depuis `options.<type>.allowedOrigins` :
+   *  - `true` → contrôle désactivé (`disabled`) ;
+   *  - `false` (défaut) → same-origin seul (`extra` vide) ;
+   *  - string/liste → Origins cross-origin additionnelles (compilées en RegExp).
+   *
+   * @param cfgKey - `"websocket"` ou `"websocketSecure"`.
+   * @returns la politique mémoïsée (0 alloc après le 1er handshake).
+   */
+  private getWsOriginPolicy(cfgKey: "websocket" | "websocketSecure"): {
+    disabled: boolean;
+    extra: RegExp[];
+  } {
+    let policy = this._wsOriginPolicy[cfgKey];
+    if (!policy) {
+      const raw = (
+        this.options[cfgKey] as { allowedOrigins?: TrustedHostsConfig }
+      )?.allowedOrigins;
+      if (raw === true) {
+        policy = { disabled: true, extra: [] };
+      } else {
+        // `raw` ici ∈ { false, undefined, string, RegExp, (string|RegExp)[] }.
+        // Truthy ⇒ patterns explicites ; false/undefined ⇒ same-origin seul.
+        const patterns = raw ? raw : [];
+        policy = {
+          disabled: false,
+          extra: compileDomainPatterns(
+            patterns as Parameters<typeof compileDomainPatterns>[0],
+          ),
+        };
+      }
+      this._wsOriginPolicy[cfgKey] = policy;
+    }
+    return policy;
+  }
+
+  /**
+   * B4 — Validation d'`Origin` au handshake WebSocket (anti-CSWSH, OWASP
+   * WSTG-CLNT-10). Les navigateurs n'appliquent PAS CORS aux WebSockets : sans
+   * ce contrôle, une page tierce peut ouvrir un WS **authentifié par le cookie de
+   * session de la victime** (reprise L1). On exige donc, par défaut, que
+   * l'`Origin` du handshake corresponde au `Host` servi (same-origin), avec
+   * tolérance loopback en development (Studio Vite cross-port) et allowlist
+   * explicite pour les SPA cross-origin (`allowedOrigins`).
+   *
+   * Une requête SANS `Origin` (client non-navigateur) est acceptée : un attaquant
+   * non-navigateur n'a pas besoin de CSWSH, il se connecte directement.
+   *
+   * @param context - contexte WebSocket au handshake (avant `connect()`).
+   * @throws {HttpError} code WS 1008 (Policy Violation) si l'Origin est refusée.
+   */
+  checkWebsocketOrigin(context: WebsocketContext): void {
+    const cfgKey =
+      context.type === "websocket-secure" ? "websocketSecure" : "websocket";
+    const policy = this.getWsOriginPolicy(cfgKey);
+    if (policy.disabled) {
+      return;
+    }
+    const raw = context.origin;
+    // Pas d'Origin (client non-navigateur) → autorisé (cf doctrine ci-dessus).
+    if (!raw) {
+      return;
+    }
+    let originHost: string | null = null;
+    try {
+      originHost = new URL(raw).hostname;
+    } catch {
+      originHost = null;
+    }
+    if (originHost) {
+      // Same-origin : l'Origin doit correspondre au Host servi (port ignoré).
+      if (originHost === context.domain) {
+        return;
+      }
+      // Development : loopback toléré (page Vite 5173 → serveur 5151, IP mixtes).
+      if (
+        this.kernel?.environment === "development" &&
+        WS_DEV_LOOPBACK.has(originHost)
+      ) {
+        return;
+      }
+      // Allowlist explicite (SPA cross-origin en production).
+      if (policy.extra.length && isDomainAllowed(policy.extra, originHost)) {
+        return;
+      }
+    }
+    // Code WS 1008 « Policy Violation » directement : le renderWebsocket laisse
+    // passer 1000-4999 ; un 403 HTTP serait écrasé en 1011 au handshake.
+    const error = new HttpError(
+      `WebSocket Origin "${raw}" not allowed (CSWSH protection)`,
+      1008,
+      context,
+    );
+    (error as HttpError & { type?: string }).type = "origin";
+    throw error;
+  }
+
+  /**
    * Reads the **kernel-level** syslog config (`kernel.options.log`) and swaps
    * the request logger accordingly. The decision belongs to syslog (not to
    * the http module) because EVERY request log flows through syslog, and
@@ -265,11 +379,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    */
   private applyRequestLoggerFromConfig(): void {
     const kernelLog = (this.kernel?.options?.log ?? {}) as {
+      driver?: string;
       requestFormat?: "auto" | "default" | "pretty" | "json";
       requestLogger?: {
         includeStack?: boolean | null;
         maxCauseDepth?: number;
         sampleRate?: number;
+        nominal?: "auto" | "always" | "never";
       };
     };
     let format = kernelLog.requestFormat ?? "auto";
@@ -291,6 +407,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         includeStack?: boolean;
         maxCauseDepth?: number;
         sampleRate?: number;
+        nominal?: boolean;
       } = {};
       if (
         advanced.includeStack !== null &&
@@ -304,6 +421,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (typeof advanced.sampleRate === "number") {
         opts.sampleRate = advanced.sampleRate;
       }
+      // T1 — audit nominal (2xx/3xx) : "auto" (défaut) = coupé SSI le sink
+      // texte est "null" (l'entrée d'audit n'atteindrait AUCUNE destination :
+      // objet+toISOString+stringify+Pdu ring pour rien, ~5,9 % du profil CPU).
+      // "always"/"never" = forçage explicite. Erreurs/4xx/5xx : JAMAIS gâtées
+      // (côté JsonAuditLogger). Override env NF_BENCH_AUDIT_NOMINAL lu 1× au
+      // boot — banc A/B paires alternées sans rebuild, jamais en hot path.
+      const envNominal = process.env.NF_BENCH_AUDIT_NOMINAL as
+        | "auto"
+        | "always"
+        | "never"
+        | undefined;
+      const nominalMode = envNominal ?? advanced.nominal ?? "auto";
+      opts.nominal =
+        nominalMode === "always" ||
+        (nominalMode === "auto" && kernelLog.driver !== "null");
       this.requestLogger = new JsonAuditLogger(opts);
     }
     // "default" → keep DefaultRequestLogger already set as field default.
@@ -340,15 +472,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (this.firewall && checkFirewall) {
       context.secure = this.firewall.isSecure(context);
     }
-    if (context.security) {
-      //const res = this.firewall.handleCrossDomain(context);
-      const res: number | null = null;
-      if (context.crossDomain && context.method === "OPTIONS") {
-        if (res === 204) {
-          return res;
-        }
-      }
-    }
+    // SEAM P6 — CORS / preflight. Quand `@nodefony/security` portera la politique
+    // cross-origin, le preflight `OPTIONS` cross-origin court-circuitera ici en
+    // `204 No Content` + en-têtes `Access-Control-*` (via le firewall, hook
+    // beforeResolve). Aucune politique CORS centralisée n'existe encore (B3) — ne
+    // PAS réintroduire de `handleCrossDomain` mort : le `204` remonte déjà aux
+    // appelants (`onRequestEnd` / `onConnect`) via le type de retour `number`.
     // FRONT ROUTER — P2.9 : réutilise le résolveur si déjà matché EN AMONT
     // (handleHttp hisse le match avant le parse pour décider du skip). Sinon
     // (WebSocket, ou pas de pré-match), match ici comme avant. Pas de double match.
@@ -605,6 +734,60 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     return session;
   }
 
+  /**
+   * Teardown post-réponse — fire-and-forget depuis le `once("close")` posé par
+   * `createHttpContext` (un seul fire possible : once auto-détaché). Loggue la
+   * requête, draine les hooks afterResponse/onFinish, libère le scope DI.
+   */
+  private async teardownHttp(
+    context: HttpContext,
+    scope: Scope,
+  ): Promise<void> {
+    if (context.finished) return;
+    try {
+      // Dev-only : l'action a retourné une valeur non rendable (number/boolean/
+      // void) → `waitAsync` posé mais AUCUN envoi → la requête a pendu (timeout
+      // / disconnect). Pister tôt pour éviter le hang silencieux. Gratuit en
+      // prod (gardé par l'env + n'alloue rien sauf si le warn fire).
+      if (
+        context.waitAsync &&
+        !context.sended &&
+        this.kernel?.environment === "development"
+      ) {
+        this.log(
+          `Action "${context.resolver?.route?.name ?? context.url}" returned a non-renderable value (void/null/class instance) and never sent a response. Use 'return <object|string|number|boolean|Buffer>' (auto-JSON) or send/stream manually.`,
+          "WARNING",
+        );
+      }
+      context.logRequest();
+      // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
+      context.logPhasesVerbose();
+      // Snapshot dev-only AVANT clean() (la donnée disparaît après).
+      this.profiler?.collect(
+        context as unknown as Parameters<Profiler["collect"]>[0],
+      );
+      await context._runAfterResponse();
+      // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
+      // listener que si un controller a posé un hook → 0 microtask sinon.
+      if (context.listenerCount("onFinish"))
+        await context.fireAsync("onFinish", context);
+      context.finished = true;
+      this.container?.leaveScope(scope);
+      context.clean();
+    } catch (e) {
+      // R2 — teardown est fire-and-forget (`void this.teardownHttp(...)`) : un
+      // throw ici (hook onFinish / afterResponse) serait un unhandledRejection
+      // process-wide. On loggue, et on GARANTIT la libération du scope DI
+      // (sinon le scope `request` fuit à chaque hook qui throw).
+      this.log(e, "ERROR", "TEARDOWN");
+      if (!context.finished) {
+        context.finished = true;
+        this.container?.leaveScope(scope);
+        context.clean();
+      }
+    }
+  }
+
   createHttpContext(
     scope: Scope,
     request: httpRequest,
@@ -613,53 +796,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ): HttpContext {
     try {
       const context = new HttpContext(scope, request, response, type);
-      // Deduplicated post-response handler — fires once, whichever event wins
-      // (finish = full body sent; close = socket closed, possibly early).
-      // Explicitly remove both listeners on first fire to release refs sooner.
-      let didFinish = false;
-      const teardown = async () => {
-        response.removeListener("finish", onFinish);
-        response.removeListener("close", onClose);
-        if (!context || context.finished) return;
-        // Dev-only : l'action a retourné une valeur non rendable (number/boolean/
-        // void) → `waitAsync` posé mais AUCUN envoi → la requête a pendu (timeout
-        // / disconnect). Pister tôt pour éviter le hang silencieux. Gratuit en
-        // prod (gardé par l'env + n'alloue rien sauf si le warn fire).
-        if (
-          context.waitAsync &&
-          !context.sended &&
-          this.kernel?.environment === "development"
-        ) {
-          this.log(
-            `Action "${context.resolver?.route?.name ?? context.url}" returned a non-renderable value (number/boolean/void) and never sent a response. Use 'return <object|string>' (auto-JSON) or send/stream manually.`,
-            "WARNING",
-          );
-        }
-        context.logRequest();
-        // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
-        context.logPhasesVerbose();
-        // Snapshot dev-only AVANT clean() (la donnée disparaît après).
-        this.profiler?.collect(
-          context as unknown as Parameters<Profiler["collect"]>[0],
-        );
-        await context._runAfterResponse();
-        // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
-        // listener que si un controller a posé un hook → 0 microtask sinon.
-        if (context.listenerCount("onFinish"))
-          await context.fireAsync("onFinish", context).catch((e) => {
-            throw e;
-          });
-        context.finished = true;
-        this.container?.leaveScope(scope);
-        context.clean();
-      };
-      const onFinish = () => {
-        didFinish = true;
-        void teardown();
-      };
-      const onClose = () => {
-        // Close without prior finish = client disconnected before full response.
-        if (!didFinish) {
+      // T4 — UN SEUL listener post-réponse par requête. Node garantit `close`
+      // sur TOUTE réponse (h1 + compat h2) : après `finish` quand elle aboutit
+      // (nextTick), seul quand le client part avant la fin. L'ancien pair
+      // finish/close + flag didFinish + 2 removeListener (~2 % du profil
+      // CPU/req) se replie en 1 `once` auto-détaché, 0 removeListener.
+      // `writableEnded` (posé par end(), AVANT l'émission de finish) rejoue le
+      // distinguo ex-didFinish au moment du close.
+      response.once("close", () => {
+        if (!response.writableEnded) {
+          // Close sans end() préalable = client parti avant la réponse complète.
           context._abortIfPending("Connection closed before response finished");
           // P2.3 — record an internal 499 ("client closed request", nginx-style)
           // when the client vanished before ANY response byte was produced.
@@ -671,10 +817,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             context.response.statusCode = 499;
           }
         }
-        void teardown();
-      };
-      response.once("finish", onFinish);
-      response.once("close", onClose);
+        void this.teardownHttp(context, scope);
+      });
 
       return context;
     } catch (e) {
@@ -720,6 +864,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           scheme: context.scheme,
           traceparent: context.traceparent,
           queries: profilerQueries ?? undefined,
+          // V4.1 — le contexte transport voyage dans l'ALS : les controllers
+          // singleton (stateless) le retrouvent sans le porter sur `this`.
+          context,
         },
         async (): Promise<HttpContext> => {
           // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
@@ -840,25 +987,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       } finally {
         context.phaseEnd("firewall");
       }
-      // CSRF TOKEN
-      // if (context.csrf) {
-      //   const token = await this.csrfService.handle(context);
-      //   if (token) {
-      //     this.log("CSRF TOKEN OK", "DEBUG");
-      //   }
-      // }
+      // SEAM P6 — CSRF : sur une zone sécurisée, la validation du token (mutations
+      // state-changing) se branchera ici via le firewall (`@nodefony/security`).
       return context;
     }
 
     // SESSIONS
     await this.startSession(context);
-    // CSRF TOKEN
-    // if (context.csrf) {
-    //   const token = await this.csrfService.handle(context);
-    //   if (token) {
-    //     this.log("CSRF TOKEN OK", "DEBUG");
-    //   }
-    // }
+    // SEAM P6 — CSRF : la validation du token (mutations state-changing) se
+    // branchera ici via le firewall (`@nodefony/security`).
     return context;
   }
 
@@ -949,6 +1086,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           requestId: wsRunId,
           scheme: wsScheme,
           ...(wsTrace ? { traceparent: wsTrace } : {}),
+          // V4.1 — même seam que HTTP : contexte WS accessible via l'ALS
+          // (messages inclus — AsyncResource.bind propage la bulle, BUG-001).
+          context,
         },
         async () => {
           await this.onConnect(context as WebsocketContext, error);
@@ -1033,6 +1173,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (this.domainCheck) {
         this.checkValidDomain(context);
       }
+      // B4 — anti-CSWSH : valide l'Origin du handshake (same-origin par défaut,
+      // loopback dev toléré, allowlist `allowedOrigins`). Refus → close WS 1008.
+      this.checkWebsocketOrigin(context);
       // SECURITY HOOK — beforeResolve (P1.7) — WS
       await this.fireAsync("beforeResolve", context);
       // FRONT CONTROLLER
@@ -1063,8 +1206,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (context.validDomain) {
       return 200;
     }
-    const error = `DOMAIN Unauthorized : ${context.domain}`;
-    throw new HttpError(error, 401);
+    // RFC 9110 §15.5.20 — Host hors `trustedHosts` : le serveur n'est pas
+    // autoritaire pour cette cible → 421 Misdirected Request. (401 impliquerait
+    // un défi d'authentification + header `WWW-Authenticate`, hors sujet ici.)
+    const error = `DOMAIN Misdirected Request : ${context.domain}`;
+    throw new HttpError(error, 421);
   }
 
   isValidDomain(context: ContextType): boolean {

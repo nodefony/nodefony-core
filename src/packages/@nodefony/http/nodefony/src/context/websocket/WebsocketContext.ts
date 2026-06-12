@@ -37,7 +37,7 @@ import type { IWebsocketContext as IWebsocketContextInterface } from "../../../i
  * sens existe :
  *  - code déjà valide émissible (1000-1003, 1007-1011, 3000-4999) → conservé ;
  *  - HTTP 5xx / interne / code absent → **1011** (Internal Error) ;
- *  - HTTP 401 / 403 → **1008** (Policy Violation) ;
+ *  - HTTP 401 / 403 / 421 → **1008** (Policy Violation) ;
  *  - autre `< 1000` (ex. 404, sans équivalent RFC) → **4004**, plage privée
  *    4000-4999 (§7.4.2, « undefined by this protocol » → convention applicative).
  *
@@ -61,7 +61,8 @@ export function toWsCloseCode(code: number | undefined | null): number {
     return code;
   }
   if (code >= 500 && code < 600) return 1011; // HTTP 5xx → internal error (§7.4.1)
-  if (code === 401 || code === 403) return 1008; // auth/forbidden → policy violation
+  // auth/forbidden/host non autoritaire (421 trustedHosts) → policy violation
+  if (code === 401 || code === 403 || code === 421) return 1008;
   if (code >= 400 && code < 500) return 4004; // autre 4xx (404…) → privé app unique
   return 1011; // inconnu / hors plage / invalide → internal error
 }
@@ -380,8 +381,9 @@ export default class WebsocketContext
     data: unknown,
   ): void {
     if (wsContentLogging === null) {
-      const env = this.kernel?.environment;
-      wsContentLogging = env !== "production" && env !== "prod";
+      // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
+      // le check "prod" était mort.
+      wsContentLogging = this.kernel?.environment !== "production";
     }
     if (!wsContentLogging) return;
     this.log(formatWsLogContent(data), "DEBUG", `WS ${dir}`);

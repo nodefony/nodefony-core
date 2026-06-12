@@ -1,22 +1,23 @@
 ---
 name: nodefony-debug
-version: 1.0.0
+version: 1.1.0
 description: >
   Kit debug runtime de Nodefony — orchestrateur tight (triggers étroits) qui
   référence `nodefony-framework-dev` (§4 Debug runtime + §11 RETEX) et délègue
   aux micro-skills `nodefony-tail-error-logs`, `nodefony-check-memory-health`,
-  `nodefony-load-test`, `nodefony-frontend-verify`. Codifie 5 patterns debug
+  `nodefony-load-test`, `nodefony-frontend-verify`. Codifie 6 patterns debug
   récurrents éprouvés en session : memory test flake (isolation = vérité),
   diagnostic régression (baseline stash), fail intégration framework (1ʳᵉ
-  hypothèse serveur down), mélange runners mocha/vitest, dépendance implicite
-  à `delete` (`for...in` consommateurs).
+  hypothèse serveur down), mélange runners historique, dépendance implicite
+  à `delete` (`for...in` consommateurs), ENOSPC fantôme du harness Bash.
   Déclencheurs étroits (ne charge QUE quand un truc casse) : "ça crash",
   "stack trace", "unhandledRejection", "fuite mémoire", "memory leak",
   "race condition", "reproduce", "reproduire", "ne démarre plus",
   "plante au Ctrl+C", "diagnostic régression", "baseline stash",
   "memory test flake", "test flake", "useFakeTimers plante",
   "for...in consommateurs", "delete vs undefined", "404 statics inexpliqué",
-  "59 fails framework sans serveur", "ECONNREFUSED tests".
+  "59 fails framework sans serveur", "ECONNREFUSED tests", "ENOSPC",
+  "temp filesystem full", "grep échoue bizarrement".
 ---
 
 # nodefony-debug — kit debug runtime
@@ -45,9 +46,13 @@ Je me charge quand un symptôme runtime arrive : crash boot, fuite mémoire, rac
 
 **Symptôme** : `npm run test:memory` (vitest) échoue sur un test memory (`100 sync crashes`, `100 async crashes`, `500 mixed`…) avec un delta heap > seuil (ex : 18.6 MB > 10 MB seuil). Le test **change à chaque run** (ce n'est pas localisé).
 
-**Cause** : variance GC cumulée (pas de `--expose-gc` → un serveur très chauffé inflate le delta : async-crash vu à 10.4 MB sur un serveur tournant depuis longtemps, vert sur serveur frais). PAS une fuite réelle.
+**Cause** : variance GC cumulée. Historique : async-crash vu à 10.4 MB sur un serveur chauffé sans
+`--expose-gc`, vert sur serveur frais — PAS une fuite réelle. **Résolu structurellement depuis** :
+`start.sh` injecte `--expose-gc` et la sonde `/nodefony/test/memory` force le GC avant mesure
+(cf [[project_ws_sustained_heap_finding]]). Si flake malgré ça → vérifier que le serveur a bien été
+lancé via `start.sh` (pas un boot manuel sans le flag).
 
-**Diagnostic** : **redémarrer le serveur frais** (`nodefony-start-server`) puis relancer le gate ; ou un test isolé :
+**Diagnostic** : **redémarrer le serveur frais via `start.sh`** (`nodefony-start-server`) puis relancer le gate ; ou un test isolé :
 
 ```bash
 cd src/packages/@nodefony/http && npx vitest run --config vitest.load.config.ts -t "<nom-exact-du-test>"
@@ -133,6 +138,23 @@ grep -rn "for.*in.*<obj>\|Object\.keys.*<obj>" src/ | grep -v "dist/\|node_modul
 
 Cas vécu : `Service.ts` ctor ↔ `server-static.initStaticFiles` (cf `feedback_service_options_delete` + commit `8cbf6bb`).
 
+### Recette F — ENOSPC fantôme du harness Bash (outillage, pas Nodefony)
+
+**Symptôme** : une commande Bash (souvent `grep` multi-fichiers) échoue avec
+`temp filesystem full (0MB free)` alors que le disque a des To libres ; `df`/`ls` passent.
+Intermittent — c'est la **capture stdout du harness** qui sature, PAS le filesystem.
+
+**Contournement fiable** : rediriger l'output vers un fichier puis le lire avec le tool `Read` :
+
+```bash
+grep -rn "<pattern>" <fichiers> > /tmp/out.txt 2>&1; echo ok
+# puis tool Read sur /tmp/out.txt
+```
+
+**Ne PAS** relancer 3 variantes de la même commande qui échoue pareil (vécu 2026-06-11/12).
+Bonus même famille : sous charge (serveur dev + 4 Vite), le Bash peut dupliquer/vider les sorties
+→ 1 commande à la fois, `Read` plutôt que `cat`/`sed` pour lire un fichier.
+
 ## 4. Orchestration des micro-skills (raccourcis)
 
 | Tâche                                   | Commande                                                    |
@@ -169,4 +191,7 @@ Cas vécu : `project_service_base_improvements` point 3 (6 jours) suggérait `de
 
 ## Changelog
 
+- **1.1.0** (2026-06-12) : session nettoyage skills — recette A resyncée (gate `--expose-gc` résolu
+  via start.sh, cf [[project_ws_sustained_heap_finding]]) ; + recette F « ENOSPC fantôme harness
+  Bash » (RETEX 06-11/06-12) ; triggers ENOSPC ajoutés.
 - **1.0.0** (2026-05-27) : création (action C du backlog soirée). 5 recettes RETEX codifiées (session 1381eacf). Orchestre 4 micro-skills + référence framework-dev §4/§11.

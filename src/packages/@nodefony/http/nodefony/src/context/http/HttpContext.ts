@@ -60,6 +60,17 @@ export interface ProxyType {
 export type HttpRequestType = Http2Request | HttpRequest;
 export type HttpRsponseType = Http2Response | HttpResponse;
 
+// T3 (profil delta vs Express) — timeout d'inactivité armé UNE fois PAR SOCKET
+// (h1 keep-alive), plus par requête : `response.setTimeout` re-payait à CHAQUE
+// requête un re-arm de timer + une closure `once` pour une valeur CONSTANTE
+// par serveur (`httpKernel.responseTimeout[type]`) — ~2,6 % du profil CPU
+// (`setStreamTimeout`). Le handler permanent (1/socket) route vers le context
+// ACTIF via WeakMap → la sémantique 408/504 + abort PAR REQUÊTE est intacte.
+// Mémoire bornée : ≤ 1 entrée par socket VIVANT (écrasée à chaque requête,
+// collectée avec le socket — WeakMap). HTTP/2 : hors de ce chemin (per-stream).
+const socketActiveContext = new WeakMap<object, HttpContext>();
+const socketTimeoutArmed = new WeakSet<object>();
+
 import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
 
 class HttpContext extends Context implements IHttpContextInterface {
@@ -156,70 +167,111 @@ class HttpContext extends Context implements IHttpContextInterface {
     // Nom effectif selon le transport (`__Host-` sur TLS) — même calcul à
     // l'écriture (session.setCookieSession) → reprise L1 cohérente.
     this.cookieSession = this.getCookieSession(this.getSessionCookieName());
+  }
 
-    this.once("onTimeout", () => {
-      // P2.5 — abort in-flight async work (DB queries, fetches honoring
-      // `ctx.signal`) BEFORE rendering the timeout error, so a slow/hung
-      // controller stops producing a response the client will never receive.
-      // No-op if nobody read `signal` (cold path, zero overhead otherwise).
-      this._abortIfPending("Request timeout");
-      let error = null;
-      if ((this.response as Http2Response).stream) {
-        // traff 408 reload page htpp2 loop
-        error = new HttpError("Gateway Timeout", 504, this);
-      } else {
-        error = new HttpError("Request Timeout", 408, this);
-      }
-      return this.httpKernel?.onError(error, this);
-    });
+  /**
+   * Chemin timeout direct — appelé par les handlers socket/stream de
+   * `setTimeout()`. T4 : remplace l'ancien `once("onTimeout")` posé au ctor
+   * (1 onceWrapper node + 1 closure alloués à CHAQUE requête pour un event
+   * qui ne fire presque jamais). L'event `onTimeout` reste émis pour
+   * d'éventuels listeners externes — guard 0-listener : 0 alloc sinon.
+   */
+  _onTimeout(): void {
+    if (this.listenerCount("onTimeout")) {
+      this.fire("onTimeout", this);
+    }
+    // P2.5 — abort in-flight async work (DB queries, fetches honoring
+    // `ctx.signal`) BEFORE rendering the timeout error, so a slow/hung
+    // controller stops producing a response the client will never receive.
+    // No-op if nobody read `signal` (cold path, zero overhead otherwise).
+    this._abortIfPending("Request timeout");
+    let error = null;
+    if ((this.response as Http2Response).stream) {
+      // traff 408 reload page htpp2 loop
+      error = new HttpError("Gateway Timeout", 504, this);
+    } else {
+      error = new HttpError("Request Timeout", 408, this);
+    }
+    void this.httpKernel?.onError(error, this);
   }
 
   override setScheme(): SchemeType {
     return this.request.url.protocol.replace(":", "") as SchemeType;
   }
 
-  handle(/*data*/): Promise<this> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        this.setTimeout();
-        if (this.isRedirect) {
-          await this.send();
-          return resolve(this);
-        }
-        // NB perf : pas de `setParameters("query.*")` ici. Les décorateurs
-        // @Query/@Param/@Body lisent `ctx.request.queryGet/queryPost/queryFile`
-        // DIRECTEMENT (cf framework routerDecorators) ; peupler le scope DI avec
-        // ces clés (4 parses + insertions/req) n'était lu par PERSONNE — héritage
-        // JS mort, retiré (~+3 % RPS sur route sans query). Cf metaData per-requête.
-        //this.locale = this.translation.handle();
-        // WARNING EVENT KERNEL
-        this.fire("onRequest", this);
-        this.kernel?.fire("onRequest", this);
-        if (!this.resolver && this.router) {
-          this.resolver = this.router.resolve(this);
-        }
-        if (this.resolver && this.resolver.resolve) {
-          this.setMetaData();
-          const ret = await this.resolver
-            .callController()
-            .catch((e: unknown) => {
-              return reject(e);
-            });
-          return resolve(ret as this);
-        }
-        return reject(new HttpError("", 404, this));
-      } catch (e) {
-        return reject(e);
-      }
-    });
+  // P7 — fonction async directe (plus de `new Promise(async executor)` : un
+  // throw de l'executor y était avalé par le constructeur Promise → rejet
+  // silencieux/pendu selon le timing).
+  async handle(/*data*/): Promise<this> {
+    this.setTimeout();
+    if (this.isRedirect) {
+      await this.send();
+      return this;
+    }
+    // NB perf : pas de `setParameters("query.*")` ici. Les décorateurs
+    // @Query/@Param/@Body lisent `ctx.request.queryGet/queryPost/queryFile`
+    // DIRECTEMENT (cf framework routerDecorators) ; peupler le scope DI avec
+    // ces clés (4 parses + insertions/req) n'était lu par PERSONNE — héritage
+    // JS mort, retiré (~+3 % RPS sur route sans query). Cf metaData per-requête.
+    //this.locale = this.translation.handle();
+    // WARNING EVENT KERNEL
+    this.fire("onRequest", this);
+    this.kernel?.fire("onRequest", this);
+    if (!this.resolver && this.router) {
+      this.resolver = this.router.resolve(this);
+    }
+    if (this.resolver && this.resolver.resolve) {
+      this.setMetaData();
+      const ret = await this.resolver.callController();
+      return ret as this;
+    }
+    throw new HttpError("", 404, this);
   }
 
   setTimeout(): void {
-    if (this.response.response) {
-      this.response.response.setTimeout(this.response.timeout as number, () => {
+    const res = this.response.response;
+    if (!res) {
+      return;
+    }
+    if ((this.response as Http2Response).stream) {
+      // HTTP/2 : 1 stream = 1 requête (multiplexé) → le timeout PER-STREAM est
+      // la bonne granularité (un timeout socket couvrirait N requêtes
+      // concurrentes). Comportement historique conservé.
+      res.setTimeout(this.response.timeout as number, () => {
         if (!this.response?.response?.writableEnded) {
-          this.fire("onTimeout", this);
+          this._onTimeout();
         }
+      });
+      return;
+    }
+    // h1 (+ h1 sur TLS) — T3 : router le context actif, handler armé 1 fois.
+    const socket = (res as http.ServerResponse).socket;
+    if (!socket) {
+      return;
+    }
+    socketActiveContext.set(socket, this);
+    // ⚠️ Re-arm CONDITIONNEL par requête (pas « 1× par socket ») : node
+    // lui-même ré-arme le socket aux transitions keep-alive (`server.timeout`
+    // 120 s à la requête, `keepAliveTimeout` 5 s à l'idle) → un arm unique
+    // serait ÉCRASÉ dès la requête 2 (timeout effectif 120 s au lieu de 30 s).
+    // Le check `socket.timeout !== ms` ne ré-arme que si node a écrasé — et
+    // devient 0 arm/req si `server.timeout` est aligné sur `responseTimeout`.
+    const ms = this.response.timeout as number;
+    if (socket.timeout !== ms) {
+      socket.setTimeout(ms);
+    }
+    if (!socketTimeoutArmed.has(socket)) {
+      socketTimeoutArmed.add(socket);
+      // `on` (PAS `once`, et UNE closure par socket — plus une par requête) :
+      // le handler survit aux fires no-op (idle keep-alive) et route toujours
+      // vers le context ACTIF du socket.
+      socket.on("timeout", () => {
+        const ctx = socketActiveContext.get(socket);
+        if (ctx && !ctx.response?.response?.writableEnded) {
+          ctx._onTimeout();
+        }
+        // Socket idle SANS requête active : no-op (comportement historique du
+        // 1er fire) — `keepAliveTimeout` du serveur ferme l'idle par ailleurs.
       });
     }
   }

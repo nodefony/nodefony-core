@@ -5,6 +5,7 @@ import type {
   IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
 import { CLUSTER_RT_KIND } from "nodefony";
+import { resolveBackplaneOriginId } from "./originId.js";
 
 /**
  * Enveloppe IPC d'une publication realtime = {@link IBackplaneMessage} + discriminant.
@@ -96,7 +97,7 @@ export class ClusterBackplane implements IBackplane {
 
   constructor(
     transport: IClusterBackplaneTransport = processIpcTransport,
-    originId: string = String(process.pid),
+    originId: string = resolveBackplaneOriginId(),
   ) {
     this.#transport = transport;
     this.originId = originId;

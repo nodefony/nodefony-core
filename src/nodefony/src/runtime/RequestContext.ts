@@ -48,6 +48,14 @@ export interface RequestContextPayload {
    * credential-free ; le SQL interpolé (ex. un ORM en mode `logging`) ne l'est pas.
    */
   queries?: IProfilerQuery[];
+  /**
+   * Contexte transport courant (`HttpContext` / `WebsocketContext`), posé par
+   * `HttpKernel` à l'entrée du scope (V4.1). Typé `unknown` ici : le core ne
+   * connaît pas `@nodefony/http` — les consommateurs (helpers `Controller`,
+   * décorateurs) castent. Permet aux controllers **singleton** (stateless) de
+   * retrouver le contexte de LA requête en cours sans le porter sur `this`.
+   */
+  context?: unknown;
   [key: string]: unknown;
 }
 
@@ -88,6 +96,15 @@ class RequestContext {
   /** Shortcut — returns the current authenticated user (P6) or `undefined`. */
   static getUser(): unknown | undefined {
     return this.get()?.user;
+  }
+
+  /**
+   * Shortcut — returns the current transport context (V4.1) or `undefined`.
+   * Générique car le core ne connaît pas les types de `@nodefony/http` :
+   * `RequestContext.getContext<ContextType>()` côté framework.
+   */
+  static getContext<T = unknown>(): T | undefined {
+    return this.get()?.context as T | undefined;
   }
 
   /** Shortcut — returns the current userId (P6) or `undefined`. */

@@ -223,3 +223,48 @@ des % déclarés = réels). Le problème n'est PAS l'exactitude du fond — c'es
 
 > **Pas de mensonge majeur dans les chiffres.** Le dashboard dit à peu près la vérité — il la dit MAL
 > (illisible) et avec ~6 jours + 1 virage de retard. Le fichier vérité = ce même dashboard **assaini + resync**.
+
+---
+
+# Passe 2 — resync vérité 2026-06-12 (95 commits code depuis la passe 1)
+
+> Période couverte : 2026-06-05 → 2026-06-12. Méthode identique (autorité = emoji 1ʳᵉ cellule,
+> confrontation code). Branche `poc/api-souveraine`.
+
+## Synthèse des écarts corrigés
+
+| #   | Écart                                                                                | Gravité          | Action faite                          |
+| --- | ------------------------------------------------------------------------------------ | ---------------- | ------------------------------------- |
+| F1  | § Séquencement = cellule-journal **2 767 car.** (re-obésité post-dégraissage)        | 🔴 Forme         | condensé → 640 car., détail = git log |
+| F2  | § Virage ORM = 6 bullets-journal (~4 000 car.)                                       | 🟠 Forme         | condensé en 3 bullets + liens audits  |
+| 1   | Dettes backplane #1/#2 marquées « à corriger » → RÉSOLUES (`c082560`)                | 🟠 doc périmée   | bloc P13 recalé ✅/⬜                 |
+| 2   | Durcissement realtime « 🔶 14 tests » → réel 167 tests, dettes fixées                | 🟠 périmé        | ligne → ✅                            |
+| 3   | Durcissement orm « ⬜ 🥇 PROCHAIN » alors que Ph.1-4 closes                          | 🔴 contradiction | ligne → ✅ (gap E2E noté)             |
+| 4   | P9.4 « 10 vulns 2026-05-25 » → `npm audit` 2026-06-12 = **0 vulnérabilité**          | 🟠 périmé        | → ✅                                  |
+| 5   | Bandeau périmé : P3 73→85 %, P5 76→79, P9 38→63, P10 65→68, P11 33→44, P16 26→27     | 🔴 chiffres faux | bandeau recompté (awk 1ʳᵉ cellule)    |
+| 6   | P16.B 🔶 → chantier forwarded/proxy CLOS 2026-06-07 (RFC 7239, anti-spoof, banc E2E) | 🟠 périmé        | → ✅                                  |
+| 7   | Encadré « PROCHAINE = POC API souveraine » → POC Ph.1+2 faits (V4)                   | 🔴 contradiction | → P6 Security                         |
+
+## Verdict par phase (delta vs passe 1)
+
+```
+P2   89%  8✅ 0🔶 1⬜    🟢 fidèle    (P2.8/P2.9 livrés 06-05)
+P3   85%  7✅ 3🔶 0⬜    🟡 bandeau périmé (P3.7 verbose livré)
+P5   79% 12✅ 3🔶 2⬜    🟡 bandeau inversait 🔶/⬜ (session 5.11 + P5.8 livrés)
+P6   12%  0✅ 4🔶 13⬜   🟢 fidèle    ◀ PROCHAINE
+P7   80%  3✅ 2🔶 0⬜    🟢 fidèle    (post-virage)
+P9   63%  2✅ 1🔶 1⬜    🟡 P9.4 résolu non répercuté
+P10  68%  6✅ 7🔶 1⬜    🟡 P10.12/13 (workspace+Twin) pas au bandeau
+P11  44%  3✅ 1🔶 4⬜    🔴 bandeau disait 33% 1✅ (P11.6/7/8 livrés)
+P13  77%  7✅ 3🔶 1⬜    🟢 fidèle    (dettes #1/#2 fixées c082560, 167 tests)
+P14  75% 11✅ 2🔶 3⬜    🟢 fidèle
+P16  27%  9✅ 0🔶 24⬜   🟡 16.B clos non répercuté
+GLOBAL 57%  90✅ 29🔶 63⬜  (182 tâches)   — passe 1 : 53 % / 179
+```
+
+## Verdict global passe 2
+
+**Chiffres honnêtes, bandeau en retard d'une semaine** (le rythme 06-05→06-12 = 95 commits code a
+distancé la tenue manuelle). La re-obésité du § Séquencement (2 767 car. en 7 jours) confirme la
+règle : le détail-journal DOIT aller dans git log / retros, jamais dans une cellule. Mémoires IA et
+MD modules resyncés dans la même passe (cf commit). **Prochaine étape inchangée : P6 Security.**

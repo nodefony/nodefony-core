@@ -10,7 +10,7 @@ description: >
 
 # check-memory-health
 
-Wrapper sur les tests Mocha mémoire de `@nodefony/http` avec filtrage chirurgical et grille d'interprétation des seuils.
+Wrapper sur les tests Vitest mémoire de `@nodefony/http` (`memory.test.ts`, config dédiée `vitest.load.config.ts`) avec filtrage chirurgical et grille d'interprétation des seuils.
 
 ## Quand l'utiliser
 
@@ -21,11 +21,15 @@ Wrapper sur les tests Mocha mémoire de `@nodefony/http` avec filtrage chirurgic
 
 ## Pourquoi ça économise des tokens
 
-Lancer Mocha sans filtre = des centaines de lignes d'output incluant tous les autres tests. Ce filtre isole les 8 lignes utiles (`passing`, `failing`, durations).
+Lancer le runner sans filtre = des centaines de lignes d'output. Ce filtre isole les lignes utiles (`Test Files`, `Tests`, heap deltas, FAIL).
 
 ## Prérequis
 
-- Serveur Nodefony **lancé** sur ports 5151/5152 (voir skill `nodefony-start-server`)
+- Serveur Nodefony **lancé** sur ports 5151/5152 (voir skill `nodefony-start-server`) — les tests
+  **TAPENT** ce serveur, ils ne le spinnent pas. `before all` en ECONNREFUSED = serveur down/port
+  pris, **jamais le heap** (vu 3×).
+- **NE PAS enchaîner** avec le filet CLI (`RUN_CLI_BOOT=1` spawne `production`/`cluster` sur
+  5151/5152 → conflit de ports). Séquencer : (filet CLI seul) PUIS (`start.sh` + memory test).
 - Les tests utilisent l'endpoint `/nodefony/test/memory` du module test pour mesurer le heap
 
 ## Commande à exécuter
@@ -47,9 +51,10 @@ Output attendu (9/9 verts) :
       Tests  9 passed (9)
 ```
 
-> ⚠️ Mesurer sur un serveur **fraîchement redémarré** (pas de `--expose-gc` → un serveur très
-> chauffé inflate les deltas heap = faux positifs GC-noise, ex. async-crash à 10.4 MB). Restart
-> via `nodefony-start-server` avant le gate si le serveur tourne depuis longtemps.
+> ⚠️ Le gate exige un serveur lancé via **`start.sh`** (skill `nodefony-start-server`) : il injecte
+> `--expose-gc` pour que la sonde `/nodefony/test/memory` force le GC avant chaque mesure (sinon
+> faux positifs GC-noise, ex. async-crash à 10.4 MB — cf [[project_ws_sustained_heap_finding]]).
+> Si le serveur tourne depuis longtemps ou a été lancé autrement → restart via le skill d'abord.
 
 ## Grille de seuils (règle dure Nodefony — `CLAUDE.md`)
 

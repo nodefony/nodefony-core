@@ -186,8 +186,10 @@ describe("Resolver — parsePathernController()", () => {
 
 // Fake Injector : instancie le controller comme le vrai ferait via le DI, mais
 // sans le Container complet — newController n'a besoin que d'`instantiate`.
+// V3.1 (POJO) : le cache controller vit sur `context.container`, plus sur le
+// Resolver lui-même.
 function withInjector(r: Resolver, instantiate: () => unknown): void {
-  r.container = new Container(); // requis par this.set("controller", …)
+  r.context = { container: new Container() } as unknown as ContextType;
   r.injector = { instantiate } as unknown as Resolver["injector"];
 }
 

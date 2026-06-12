@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.22.0
+version: 1.24.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -46,13 +46,14 @@ vérifiées source, gates Core).
 Quand le front commence à consommer un **canal/action/endpoint/type** nouveau → vérifier qu'il est décrit côté
 `nodefony-framework-dev` (et inversement). Ouvrir le skill jumeau dès qu'une feature touche son côté.
 
-**VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
-snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.16.1**
-(session BACKEND `nodefony-framework-dev` 1.16.1 : **durcissement framework F1+F4** — purge `any` de dette
-
-- couverture unit Controller 22→80 % / Resolver + doc hook `initialize()`.
-  **Aucun contrat front touché** → studio-dev suit en lockstep **back-only**, pas de changement de page/canal/type).
+**VERSIONS INDÉPENDANTES + référence croisée de CONTRAT (règle révisée 2026-06-12)** : chaque skill
+suit son propre SemVer (les sessions mono-côté ne bumpent QUE leur skill — le lockstep numérique
+strict a échoué en pratique : bumps « de cohérence » vides côté back puis divergence silencieuse
+1.20⇄1.23 sans que personne ne le voie). **La règle qui RESTE obligatoire** : quand une feature touche
+un **contrat partagé** (canal / action / endpoint / type isomorphe), la ligne de changelog de CHAQUE
+skill **cite la version jumelle** (« contrat ↔ framework-dev vX.Y ») et les DEUX skills sont mis à
+jour dans la même session. La version courante vit dans le frontmatter + changelog — **ne JAMAIS la
+dupliquer dans ce paragraphe** (dérive vécue : « Actuel : 1.16.1 » gelé 2 semaines dans les 2 skills).
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -1318,6 +1319,49 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   (`copy(...)` en console) → je fige le bureau en `preset.layout`. Thématiques livrés : Système/Config/Logs/Mémoire/Erreurs
   (en `items` pavé, à re-exporter en `layout` après affinage) ; Supervision en `layout` exact. `Superviseur` supprimé (fusionné).
 
+**API souveraine Ph.3 front — GET data plane via la socket (2026-06-12, full-stack — contrat ↔ framework-dev 1.22.0)**
+
+> Le pont `api.request` (backend `a07fdf2`) est consommé par Studio : quand la Socket Nodefony est
+> connectée, **tous les GET du data plane passent par `socket.request("/path?query")`** au lieu d'un
+> fetch HTTP — même action controller, même snapshot (prouvé backend). Pattern + pièges :
+
+- **Point d'injection = `ApiClient`, PAS `useResource` ni les pages** : toutes les pages passent leurs
+  fetchers par `store.api.*` → brancher le pont dans `ApiClient.send()` couvre tout Studio avec **0
+  call-site modifié** (« même URL, même shape »). `ApiClientOptions.socket` = **type structurel
+  `ApiSocketLike`** (`state` + `request(path)`) — pas d'import runtime `nodefony` dans le service →
+  0 couplage, mockable en test.
+- **Gardes du routage socket** (`canUseSocket`) : `GET` seulement (mutations = HTTP-only Ph.3) ; socket
+  `state === "connected"` ; kill switch `UiStore.apiViaSocket` (persisté `nf.api.socket`, défaut ON,
+  switch dans `RealtimeHubContent` à côté du AIMD) ; **`init.signal` ou `init.headers` fourni → fetch**
+  (la socket ne sait ni annuler ni porter des en-têtes custom).
+- **🚨 Erreurs du pont = JAMAIS propagées — la socket ne sert que les SUCCÈS** (régression vécue en
+  LIVE le 2026-06-12, fixée dans l'heure) : la v1 propageait `RpcError.data.status` en `ApiError`…
+  et a cassé Studio À LA CONNEXION — `/stats`, `/health`, `/auth/me` sont des routes **GET-only**
+  (sans transport `WEBSOCKET`) → le pont répond **405 « transport non supporté »**, qui N'EST PAS la
+  réponse REST (le GET aurait servi 200). Même classe de piège : un « 404 router » du pont peut viser
+  une URL que le REST sert AUTREMENT (static fallback) — indiscernables côté client. **Politique
+  finale** : TOUT échec socket → `learnFromSocketError` puis **fallback fetch**, qui fournit la
+  réponse de référence (mêmes `ApiError`/onError/onUnauthorized que sans pont — zéro divergence par
+  construction ; erreurs rares → double requête acceptable). Mémorisations anti-gaspillage : `-32601`
+  → `socketBridgeDown` session ; **405 → `httpOnlyRoutes` (Set, clé = path SANS query)** → plus de
+  tentative socket sur cette route. Duck-typing `name === "RpcError"` (pas d'instanceof cross-bundle).
+- **L'unwrap `{result}` doit être PARTAGÉ** entre les 2 transports (`unwrapResult` commun) : le pont
+  renvoie le body REST tel quel → appliquer le même unwrap garantit la shape identique.
+- **Tester l'ApiClient dans le harness studio = possible** (service pur sans React) :
+  `nodefony/tests/unit/apiClientSocketBridge.test.ts` (10 tests) importe
+  `frontend/src/services/ApiClient` directement. fetch mocké par `vi.stubGlobal("fetch", …)` ; ⚠️ une
+  `Response` ne se lit qu'UNE fois → `mockImplementation(() => Promise.resolve(new Response(…)))`,
+  jamais `mockResolvedValue(résponse-partagée)` (2ᵉ lecture = « Body is unusable »).
+- ⚠️ **Vérif transform Vite en multi-bundle : identifier la BONNE instance AVANT de conclure** : le
+  mono-supervisor lance N serveurs Vite (ex. 5173 = React/studio, 5177 = angular). Un curl `@fs` d'un
+  `.tsx` React sur l'instance **angular** → 500 « invalid JS syntax » (le plugin angular ne transpile
+  pas le JSX React) **alors que le code est sain** (tsc vert). Discriminer : tester un `.tsx` témoin
+  non modifié ; chercher `[angular] [vite] Internal server error` dans le log serveur ; `lsof` les
+  ports 517x. Ne pas « corriger » un faux positif.
+- **Dette signalée (préexistante)** : `KpiCard` rend sa valeur dans un `<Text>` (`<p>`) → un consommateur
+  qui passe un children riche (`<div>`/`<Text>`) déclenche `<p> cannot contain a nested <p>` (vu au log
+  client 06-12, hors diff Ph.3). Fix futur = `component="div"` sur le Text valeur ou contrainte children.
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1333,10 +1377,29 @@ mémoire IA dédiée + lien.
 `feedback_spa_fallback_literal` (deep-link) · `project_studio_page_playbook` (pointeur) ·
 module `CLAUDE.md`/`MEMORY.md`.
 
-## Changelog (SemVer — version COMMUNE avec `nodefony-framework-dev`, lockstep)
+## Changelog (SemVer — versions INDÉPENDANTES, référence croisée de contrat)
 
-> Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
+> Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
+> feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.24.0** (2026-06-12) — **API souveraine Ph.3 FRONT — GET data plane via la socket** (full-stack ;
+  **contrat ↔ framework-dev 1.22.0**, pont backend `a07fdf2`). `ApiClient` route les GET par
+  `socket.request("/path?query")` quand la Socket Nodefony est connectée — 0 call-site touché (même URL,
+  même shape via `unwrapResult` partagé). **La socket ne sert que les SUCCÈS** : tout échec du pont →
+  fallback fetch = réponse de référence (v1 qui propageait `data.status` = régression LIVE : routes
+  GET-only `/stats`/`/health`/`/auth/me` → 405 du pont ≠ réponse REST → Studio cassé à la connexion,
+  fixé dans l'heure). Gardes : GET-only, `signal`/`headers` → fetch, `-32601` → pont désactivé session,
+  **405 → `httpOnlyRoutes`** (path sans query, session). Kill switch `UiStore.apiViaSocket`
+  (`nf.api.socket`, défaut ON) + switch & `DocHint` dans `RealtimeHubContent`. **10 tests unit**
+  (`apiClientSocketBridge.test.ts`) dans le harness studio (ApiClient = service pur testable). RETEX
+  complet (section « API souveraine Ph.3 front ») : erreurs jamais propagées, piège multi-bundle Vite
+  (curl @fs sur l'instance angular = faux 500), Response mockée une-lecture, dette `KpiCard` `<p>`
+  imbriqué. [[project_api_souveraine_poc]].
+- **1.23.1** (2026-06-12) — **Audit de calibration (session nettoyage skills).** (1) Frontmatter recalé
+  **1.22.0 → 1.23.1** (il était resté en retard sur le propre changelog du skill — la 1.23.0 du 06-06
+  n'avait pas bumpé le frontmatter). (2) **Règle lockstep RÉVISÉE** : versions indépendantes + référence
+  croisée de contrat (le numéro commun a divergé silencieusement 1.20⇄1.23 sans détection) ; paragraphe
+  « Actuel : 1.16.1 » supprimé (duplication gelée depuis le 05-30). Contenu pages/canaux/types inchangé.
 - **1.23.0** (2026-06-06) — **Supervision en bureau + taxonomie de TAGS + catalogue à FACETTES** (front-only).
   3 widgets de détail (`supervision.memory` espaces V8 / `supervision.handles` ressources actives / `supervision.errors`
   erreurs/min ← `dashboard:supervision`). **`workspace/tags.ts`** : domaine hiérarchique + nature **saisis** (`IWidgetDef.tags`),

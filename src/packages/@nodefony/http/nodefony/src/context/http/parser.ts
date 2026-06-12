@@ -3,23 +3,58 @@ import Http2Request from "../http2/Request";
 import QS from "qs";
 import { extend } from "nodefony";
 import xml2js from "xml2js";
+import HttpError from "../../errors/httpError";
 
 class Parser {
   request: HttpRequest | Http2Request;
   chunks: Buffer[];
+  // Compteur de taille du corps (anti DoS RAM). `write` accumulait les chunks
+  // SANS borne → un POST JSON/urlencoded/XML/brut de N Go bufferisait N Go en
+  // RAM avant parse. On borne au `maxBodySize` (config http) : au dépassement on
+  // libère les chunks, on coupe la lecture du socket et on rejette `parse()` en
+  // 413. (Le multipart a son propre budget busboy — exclu de ce compteur.)
+  private received: number = 0;
+  private aborted: boolean = false;
+  private overflow: HttpError | null = null;
+  // Rejecter de la promesse `ended()` quand l'overflow survient PENDANT l'attente
+  // (les chunks arrivent après l'appel à `parse()`). `null` hors attente.
+  private onOverflow: ((err: HttpError) => void) | null = null;
   constructor(request: HttpRequest | Http2Request) {
     this.request = request;
     this.chunks = [];
+    // Pas de `throw` dans le handler 'data' : un throw dans un callback
+    // EventEmitter ne remonte PAS à l'appelant (→ uncaughtException). `write`
+    // signale l'overflow par un drapeau, consommé par `ended()` / `parse()`.
     this.request.request.on("data", (data) => {
-      try {
-        this.write(data);
-      } catch (e) {
-        throw e;
-      }
+      this.write(data);
     });
   }
 
-  write(buffer: Buffer) {
+  write(buffer: Buffer): Buffer {
+    if (this.aborted) {
+      // Déjà au-dessus du seuil : on jette (RAM bornée) en attendant la coupure.
+      return buffer;
+    }
+    const max = this.request.maxBodySize ?? 0;
+    this.received += buffer.length;
+    if (max > 0 && this.received > max) {
+      this.aborted = true;
+      // Libère immédiatement la RAM déjà bufferisée — c'est LA fuite qu'on tue.
+      this.chunks.length = 0;
+      this.overflow = new HttpError(
+        `Request body exceeds maxBodySize (${max} bytes)`,
+        413,
+        this.request.context,
+      );
+      // Coupe la lecture du socket (le 413 pourra encore partir ; Node fermera la
+      // connexion après la réponse puisque le corps n'est pas drainé).
+      const req = this.request.request as { pause?: () => void };
+      req.pause?.();
+      if (this.onOverflow) {
+        this.onOverflow(this.overflow);
+      }
+      return buffer;
+    }
     this.chunks.push(buffer);
     return buffer;
   }
@@ -30,8 +65,13 @@ class Parser {
    * Indispensable avant de concaténer les chunks pour un corps à décoder
    * (JSON…) : sinon on lit un buffer encore incomplet. (formidable drainait via
    * son `await form.parse()` ; ses remplaçants doivent drainer explicitement.)
+   * Rejette en 413 si le corps dépasse `maxBodySize` (avant ou pendant l'attente).
    */
   protected ended(): Promise<void> {
+    // Overflow déjà détecté avant l'attente (chunks arrivés avant `parse()`).
+    if (this.overflow) {
+      return Promise.reject(this.overflow);
+    }
     const req = this.request.request as {
       readableEnded?: boolean;
       complete?: boolean;
@@ -42,16 +82,26 @@ class Parser {
       if (req.readableEnded || req.complete) {
         return resolve();
       }
-      // Listeners JUMEAUX (end/error) : `once` n'auto-détache QUE celui qui fire ;
-      // l'autre resterait attaché au flux jusqu'au GC (1 listener fantôme/requête).
-      // → détacher explicitement le jumeau quand l'un se déclenche (règle perf).
-      const onEnd = () => {
+      // Listeners JUMEAUX (end/error) + rejecter d'overflow : `once` n'auto-
+      // détache QUE celui qui fire → on retire les autres à la main (règle perf,
+      // sinon 1 listener fantôme/requête jusqu'au GC).
+      const cleanup = () => {
+        req.removeListener("end", onEnd);
         req.removeListener("error", onError);
+        this.onOverflow = null;
+      };
+      const onEnd = () => {
+        cleanup();
         resolve();
       };
       const onError = (e: unknown) => {
-        req.removeListener("end", onEnd);
+        cleanup();
         reject(e instanceof Error ? e : new Error(String(e)));
+      };
+      // Overflow survenant PENDANT l'attente → rejette en 413.
+      this.onOverflow = (err: HttpError) => {
+        cleanup();
+        reject(err);
       };
       req.once("end", onEnd);
       req.once("error", onError);

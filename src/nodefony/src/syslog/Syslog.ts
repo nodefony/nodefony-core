@@ -665,6 +665,23 @@ class Syslog extends Event implements ISyslog {
    * cesse juste de POUSSER en live ; les logs continuent d'être générés et écrits.
    */
   private _streamEnabled: boolean = true;
+  /**
+   * T2 (profil delta vs Express) — gate d'ENTRÉE par sévérité. `null` (défaut) =
+   * pas de gate (comportement historique : tout Pdu est créé + poussé au ring,
+   * le filtrage de sévérité n'a lieu qu'au LISTENER d'impression — un DEBUG en
+   * prod coûtait createPDU + pushStack pour rien, ~1,7 % du profil CPU/req).
+   * Valeur numérique N = un log de sévérité STRICTEMENT supérieure à N (moins
+   * grave) est court-circuité AVANT toute allocation. Posé par {@link init}
+   * (production sans debug → 6 = DEBUG gaté), **re-résoluble à chaud** via
+   * {@link setSeverityThreshold} (vision « audit à chaud » : élever la
+   * verbosité prod sur une fenêtre bornée sans redémarrer). SPINNER (-1)
+   * passe toujours. Compteur {@link gated} pour l'introspection.
+   */
+  private _severityThreshold: number | null = null;
+  /** Pdu singleton retourné par un log gaté (contrat `log(): Pdu`, 1 alloc lazy). */
+  private _gatedPdu: Pdu | null = null;
+  /** Nombre de logs court-circuités par le gate de sévérité (T2). */
+  public gated: number = 0;
 
   /**
    * Construit le Syslog avec settings (merge default + override user).
@@ -786,6 +803,56 @@ class Syslog extends Event implements ISyslog {
       options || conditionOptions(environment, debug),
       (pdu: Pdu) => Syslog.normalizeLog(pdu),
     );
+    // T2 — le gate d'entrée n'est PAS posé ici : `init()` est appelé tôt avec
+    // un environment défaut "production" (Service.initSyslog sans args, ctor
+    // CliKernel) AVANT la résolution réelle de l'env → signal pollué (gâterait
+    // les DEBUG en dev). Le seuil est posé par le KERNEL (composition root,
+    // env réel résolu — même zone que le câblage du sink/driver) via
+    // {@link setSeverityThreshold}.
+  }
+
+  /**
+   * T2 — résout une sévérité (nom ou numérique) en valeur RFC 5424. Inconnue →
+   * `-1` (passe toujours le gate : fail-open, `createPDU` jettera comme avant).
+   * `sysLogSeverity` est un enum numérique TS → la reverse-map mêle string et
+   * number, d'où le narrowing explicite.
+   */
+  private static toSeverityNumber(severity: Severity | number): number {
+    if (typeof severity === "number") {
+      return severity;
+    }
+    const v = sysLogSeverity[severity];
+    return typeof v === "number" ? v : -1;
+  }
+
+  /**
+   * T2 — règle (ou lève) le gate d'entrée par sévérité À CHAUD, sans reboot.
+   * `null` = plus de gate (tout est créé/poussé, comportement historique) ;
+   * `"DEBUG"`/7 = tout passe en restant gateable ; `"INFO"`/6 = défaut prod.
+   * Levier de la fenêtre « audit à chaud » : élever temporairement la
+   * verbosité prod puis restaurer.
+   *
+   * @param threshold - sévérité max acceptée (nom ou numérique RFC 5424), ou `null`.
+   */
+  setSeverityThreshold(threshold: Severity | number | null): void {
+    this._severityThreshold =
+      threshold === null ? null : Syslog.toSeverityNumber(threshold);
+  }
+
+  /**
+   * T2 — un log de cette sévérité franchirait-il le gate d'entrée ? À utiliser
+   * aux call sites du hot path AVANT de construire un message coûteux
+   * (template string, JSON) — pattern L1 « ne jamais formater au-dessus du
+   * niveau actif ».
+   *
+   * @param severity - sévérité à tester (nom ou numérique).
+   * @returns `true` si un log de cette sévérité serait accepté.
+   */
+  severityEnabled(severity: Severity | number): boolean {
+    if (this._severityThreshold === null) {
+      return true;
+    }
+    return Syslog.toSeverityNumber(severity) <= this._severityThreshold;
   }
 
   get async(): boolean {
@@ -861,6 +928,32 @@ class Syslog extends Event implements ISyslog {
     msgid?: ModuleName,
     msg?: Message,
   ): Pdu {
+    // T2 — gate d'ENTRÉE par sévérité (résolu au boot, re-résoluble à chaud) :
+    // sous le seuil → AUCUN Pdu créé, RIEN au ring/transports/listeners.
+    // SPINNER (-1) et sévérité inconnue (-1 → createPDU jettera comme avant)
+    // passent toujours. Coût hot path : 1 test null + 1 lookup map.
+    if (this._severityThreshold !== null) {
+      const sev =
+        payload instanceof Pdu
+          ? payload.severity
+          : Syslog.toSeverityNumber(
+              severity ?? this.settings.defaultSeverity ?? "DEBUG",
+            );
+      if (sev > this._severityThreshold) {
+        this.gated++;
+        if (this._gatedPdu === null) {
+          this._gatedPdu = createPDU.call(
+            this,
+            "GATED",
+            "DEBUG",
+            this.settings.moduleName,
+            msgid || this.settings.msgid,
+          );
+          this._gatedPdu.status = "DROPPED";
+        }
+        return this._gatedPdu;
+      }
+    }
     let pdu: Pdu | undefined;
     if (this.settings.rateLimit !== false) {
       const rate = this.settings.rateLimit as number;

@@ -315,3 +315,62 @@ describe("JsonAuditLogger — audit sampling (L3)", () => {
     expect(e.msgid).to.equal("audit");
   });
 });
+
+// T1 (profil delta vs Express) — gate de l'audit NOMINAL, résolu au boot.
+// Contrat : nominal=false coupe le 2xx/3xx AVANT renderHttp, mais les erreurs
+// et les status >= 400 sont TOUJOURS audités (jamais gâtés — OWASP).
+describe("JsonAuditLogger — audit nominal gate (T1)", () => {
+  it("nominal=false skips every 2xx/3xx request", () => {
+    const l = new JsonAuditLogger({ nominal: false });
+    for (const status of [200, 201, 204, 301, 304]) {
+      expect(l.shouldSample(fakeHttpContext({ status }) as never)).to.equal(
+        false,
+      );
+    }
+  });
+
+  it("nominal=false still logs status >= 400", () => {
+    const l = new JsonAuditLogger({ nominal: false });
+    for (const status of [400, 403, 404, 500, 503]) {
+      expect(l.shouldSample(fakeHttpContext({ status }) as never)).to.equal(
+        true,
+      );
+    }
+  });
+
+  it("nominal=false still logs errored requests (arg or context error)", () => {
+    const l = new JsonAuditLogger({ nominal: false });
+    expect(
+      l.shouldSample(
+        fakeHttpContext({ status: 200 }) as never,
+        new Error("boom"),
+      ),
+    ).to.equal(true);
+    expect(
+      l.shouldSample(
+        fakeHttpContext({ status: 200, error: new Error("ctx") }) as never,
+      ),
+    ).to.equal(true);
+  });
+
+  it("nominal=true (default) keeps the historical behavior", () => {
+    const explicit = new JsonAuditLogger({ nominal: true });
+    const implicit = new JsonAuditLogger();
+    expect(
+      explicit.shouldSample(fakeHttpContext({ status: 200 }) as never),
+    ).to.equal(true);
+    expect(
+      implicit.shouldSample(fakeHttpContext({ status: 200 }) as never),
+    ).to.equal(true);
+  });
+
+  it("nominal=false wins over sampleRate (no counter consumed)", () => {
+    const l = new JsonAuditLogger({ nominal: false, sampleRate: 2 });
+    // sans gate, sampleRate=2 loguerait 1 requête sur 2 — ici : aucune
+    for (let i = 0; i < 4; i++) {
+      expect(
+        l.shouldSample(fakeHttpContext({ status: 200 }) as never),
+      ).to.equal(false);
+    }
+  });
+});

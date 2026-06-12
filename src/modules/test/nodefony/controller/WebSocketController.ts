@@ -180,6 +180,22 @@ class WebsocketController extends Controller {
     this.ws?.broadcast(message.toString());
   }
 
+  // R4 — broadcast BINAIRE : le Buffer doit repartir en frame binary (opcode
+  // 0x2) chez TOUS les clients, octets intacts (pas de toString forcé).
+  @route("route-websocket-broadcast-binary", {
+    path: "/broadcast-binary",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async broadcastBinary(message: string | Buffer | null) {
+    if (!message) {
+      return this.renderJson({ handshake: true, binary: true });
+    }
+    const buf = Buffer.isBuffer(message)
+      ? message
+      : Buffer.from(message as string);
+    this.ws?.broadcast(buf, "binary");
+  }
+
   @route("route-websocket-cookie", {
     path: "/cookie",
     requirements: { methods: ["WEBSOCKET"] },

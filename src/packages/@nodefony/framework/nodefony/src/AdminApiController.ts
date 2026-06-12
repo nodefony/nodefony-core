@@ -1,4 +1,4 @@
-import { RequestContext } from "nodefony";
+import { RequestContext, RpcError } from "nodefony";
 import type { IAdminRequest, IAdminResponse } from "nodefony";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import type { ContextType } from "@nodefony/http";
@@ -31,12 +31,52 @@ class AdminApiController extends Controller {
   }
 
   /**
-   * Action générique appelée par le Resolver pour toute route admin.
+   * Action générique appelée par le Resolver pour toute route admin — DUPLEX
+   * (« API souveraine ») : même exécution sur les deux transports, seul
+   * l'emballage diffère.
+   *
+   *  - **HTTP** : rendu historique inchangé (`renderJson` + status + header
+   *    `x-nodefony-instance`).
+   *  - **Pont WS-RPC `api.request`** : valeur **nue** (le pont l'enveloppe
+   *    `{id, result}` — snapshot ≡ GET par construction) ; statut ≥ 400 →
+   *    {@link RpcError} (`data.status` + `data.body`), symétrie d'un `fetch`
+   *    qui expose son statut. L'identité d'instance n'est pas répétée par
+   *    réponse : une socket est tenue par UN process (info de connexion).
    *
    * @param args - variables de route positionnelles (`{id}`…), zippées avec
    *   `route.variables` pour reconstruire `request.params`.
    */
   async dispatch(...args: unknown[]) {
+    const { status, headers, body } = await this.runAdmin(args);
+    if (this.context?.type?.startsWith("websocket")) {
+      if (status >= 400) {
+        const message =
+          (body as { error?: string } | null)?.error ?? "admin error";
+        throw new RpcError(message, -32000, { status, body });
+      }
+      return body;
+    }
+    // Le data plane admin est PER-INSTANCE : en multi-process (reusePort) ou
+    // multi-pod, le LB route la requête vers UN seul process. On estampille
+    // donc chaque réponse de l'identité d'instance (même convention que
+    // `dashboard:stats`) → Studio sait quel pod a répondu. Vue cluster = P13.
+    return this.renderJson(body, status, {
+      ...headers,
+      "x-nodefony-instance": AdminApiController.instanceId,
+    });
+  }
+
+  /**
+   * Exécution transport-agnostique d'un endpoint admin : lookup broker → RBAC
+   * → handler → normalisation. Toute issue (succès comme erreur) ressort en
+   * `{status, headers?, body}` — les adaptateurs de rendu (HTTP/pont) décident
+   * de la forme finale.
+   */
+  private async runAdmin(args: unknown[]): Promise<{
+    status: number;
+    headers?: IAdminResponse["headers"];
+    body: unknown;
+  }> {
     const broker = this.get<IAdminBroker>("adminBroker");
     const name = this.route?.name;
     const adminRoute: IAdminRoute | undefined =
@@ -44,10 +84,10 @@ class AdminApiController extends Controller {
 
     if (!adminRoute) {
       // Route montée mais introuvable dans le registre → incohérence interne.
-      return this.renderJson(
-        { error: "Admin endpoint not registered", route: name ?? null },
-        500,
-      );
+      return {
+        status: 500,
+        body: { error: "Admin endpoint not registered", route: name ?? null },
+      };
     }
 
     const request = this.buildRequest(args);
@@ -61,30 +101,20 @@ class AdminApiController extends Controller {
       adminRoute.role &&
       !request.roles.includes(adminRoute.role)
     ) {
-      return this.renderJson(
-        { error: "Forbidden", required: adminRoute.role },
-        403,
-      );
+      return {
+        status: 403,
+        body: { error: "Forbidden", required: adminRoute.role },
+      };
     }
 
     // ── Exécution du handler ─────────────────────────────────────────────────
     try {
       const result = await adminRoute.endpoint.handler(request);
-      const { status, headers, body } = this.normalize(result);
-      // Le data plane admin est PER-INSTANCE : en multi-process (reusePort) ou
-      // multi-pod, le LB route la requête vers UN seul process. On estampille
-      // donc chaque réponse de l'identité d'instance (même convention que
-      // `dashboard:stats`) → Studio sait quel pod a répondu. Vue cluster = P13.
-      return this.renderJson(body, status, {
-        ...headers,
-        "x-nodefony-instance": AdminApiController.instanceId,
-      });
+      const n = this.normalize(result);
+      return { status: n.status ?? 200, headers: n.headers, body: n.body };
     } catch (e) {
       this.log(e as Error, "ERROR");
-      return this.renderJson(
-        { error: "Internal admin handler error" },
-        500,
-      );
+      return { status: 500, body: { error: "Internal admin handler error" } };
     }
   }
 

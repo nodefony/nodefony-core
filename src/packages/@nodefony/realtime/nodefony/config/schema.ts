@@ -45,6 +45,20 @@ const backplaneSchema = z
           "`nodefony cluster`, actif si NODEFONY_CLUSTER=1), `redis` (multi-host " +
           "pub/sub). Driver inconnu au boot → warn fail-soft, le hub reste local.",
       ),
+    namespace: z
+      .string()
+      .min(1)
+      .regex(/^[\w.-]+$/)
+      .optional()
+      .describe(
+        "Cloison logique du transport partagé (drivers cross-pod : redis, " +
+          "futur kafka) — suffixe le canal pub/sub (`nodefony:realtime:<ns>`). " +
+          "Le `database` Redis ne cloisonnant PAS le pub/sub, deux apps sur un " +
+          "Redis mutualisé SANS namespace se parleraient (cross-talk). Défaut : " +
+          "dérivé du nom d'app (`kernel.projectName`). À poser EXPLICITEMENT " +
+          "quand deux déploiements de la même app (staging/prod) partagent un " +
+          "Redis. Caractères : alphanumériques, `_`, `.`, `-`.",
+      ),
   })
   .describe("Driver IBackplane (fan-out cluster realtime cross-process).");
 

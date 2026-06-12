@@ -3,6 +3,7 @@ import "reflect-metadata";
 import Router, { TypeController } from "../service/router";
 import { RouteOptions } from "../src/Route";
 import Controller from "../src/Controller";
+import type { ControllerScope } from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
 import { Module } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
@@ -371,6 +372,35 @@ function Domain(patterns: string | string[]) {
   };
 }
 
+// ── Scope decorator (classe) ────────────────────────────────────────────────
+
+/**
+ * Déclare le scope d'instanciation d'un controller (V4.3) — pose le statique
+ * `scope` de la classe (hérité de `Controller`, défaut `"request"`). Lu par le
+ * constructor de `Controller` (`new.target`) et par le `Resolver` : 0 Reflect.
+ *
+ * `@Scope("singleton")` : UNE instance partagée par toutes les requêtes
+ * (cache kernel-scoped sur le Router, `initialize()` appelé 1× à la création).
+ * **Contrat stateless strict** : l'action ne lit/n'écrit AUCUN état par requête
+ * sur `this` — tout passe par les arguments décorés (`@Param`/`@Body`…) et les
+ * helpers, qui retrouvent la requête courante via l'ALS (V4.1). Un champ muté
+ * par requête sur un singleton = data race silencieuse entre deux requêtes
+ * concurrentes. Le défaut per-request reste inchangé (0 breaking legacy).
+ *
+ * ⚠️ Homonyme : le core `nodefony` exporte aussi `Scope` (le scope DI du
+ * `Container`) — celui-ci s'importe depuis `@nodefony/framework`.
+ *
+ * @example
+ * \@Scope("singleton")
+ * \@controller("/api/books")
+ * class BookController extends ResourceController { ... }
+ */
+function Scope(scope: ControllerScope) {
+  return function <T extends { scope?: ControllerScope }>(target: T): void {
+    target.scope = scope;
+  };
+}
+
 // ── UseSession decorator (classe + méthode) ─────────────────────────────────
 
 /** Options déclaratives de `@UseSession` (= forme de l'intent runtime). */
@@ -533,6 +563,12 @@ const UploadedFiles = paramDecoratorFactory("files");
 export interface IParamArgContext {
   /** Variables de route extraites du path (`{name}` → valeur). */
   paramsMap: Record<string, unknown>;
+  /**
+   * Query de l'invocation courante quand elle ne vient PAS de l'URL du
+   * transport — pont WS-RPC `api.request` (`Resolver.queryOverride`). Prime
+   * sur `request.queryGet` pour `@Query` uniquement (`@Req` reste le brut).
+   */
+  queryOverride?: Record<string, unknown>;
   request?: {
     queryGet?: Record<string, unknown>;
     queryPost?: Record<string, unknown>;
@@ -562,7 +598,7 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
     case "param":
       return meta.key !== undefined ? ctx.paramsMap[meta.key] : ctx.paramsMap;
     case "query": {
-      const qg = ctx.request?.queryGet;
+      const qg = ctx.queryOverride ?? ctx.request?.queryGet;
       return meta.key !== undefined ? qg?.[meta.key] : qg;
     }
     case "body": {
@@ -643,6 +679,90 @@ function routeExpectsBodyStream(route: {
   return route.bodyStream;
 }
 
+// ── P5 — Metadata d'action FIGÉES par route (memo, hot path 0 Reflect) ──────
+
+/**
+ * Snapshot des métadonnées d'action d'une route (`@HttpCode`/`@Header`/
+ * `@Redirect`/paramètres décorés/intent de session), résolu UNE fois par route
+ * puis figé sur `route.actionMeta` (cf {@link resolveActionMeta}). Objet
+ * **PARTAGÉ entre toutes les requêtes** de la route — ne jamais muter.
+ */
+export interface RouteActionMeta {
+  /** Paramètres décorés (`@Param`/`@Body`/`@Query`…) — `null` si aucun. */
+  paramsMeta: ParamMeta[] | null;
+  /** `@Redirect` de l'action — `null` si absent. */
+  redirectMeta: RedirectMeta | null;
+  /** `@HttpCode` de l'action — `null` si absent. */
+  httpCode: number | null;
+  /** Entrées `@Header` pré-dépliées (`Object.entries` fait 1×) — `null` si aucune. */
+  headerEntries: [string, string][] | null;
+  /** Intent `@UseSession`/`@Session` — `null` si la route n'en déclare pas. */
+  sessionIntent: SessionIntent | null;
+}
+
+const EMPTY_ACTION_META: RouteActionMeta = {
+  paramsMeta: null,
+  redirectMeta: null,
+  httpCode: null,
+  headerEntries: null,
+  sessionIntent: null,
+};
+
+/**
+ * P5 — Calcule le {@link RouteActionMeta} d'un couple (controller, action) par
+ * lecture `Reflect`. Fonction PURE (pas de memo) : utilisée par
+ * {@link resolveActionMeta} (routes, mémoïsé) et par le `Resolver` pour le
+ * chemin froid du forward (`parsePathernController`, pas de route).
+ */
+function computeActionMeta(
+  ctor?: { prototype: object } | null,
+  method?: string,
+): RouteActionMeta {
+  if (!ctor || !method) {
+    return EMPTY_ACTION_META;
+  }
+  const proto = ctor.prototype;
+  const params = Reflect.getMetadata(PARAM_ARGS_METADATA, proto, method) as
+    | ParamMeta[]
+    | undefined;
+  const redirect = Reflect.getMetadata(REDIRECT_METADATA, proto, method) as
+    | RedirectMeta
+    | undefined;
+  const httpCode = Reflect.getMetadata(HTTP_CODE_METADATA, proto, method) as
+    | number
+    | undefined;
+  const headers = Reflect.getMetadata(HEADERS_METADATA, proto, method) as
+    | Record<string, string>
+    | undefined;
+  return {
+    paramsMeta: params && params.length > 0 ? params : null,
+    redirectMeta: redirect ?? null,
+    httpCode: httpCode ?? null,
+    headerEntries: headers ? Object.entries(headers) : null,
+    sessionIntent: resolveSessionIntent(ctor as ControllerConstructor, method),
+  };
+}
+
+/**
+ * P5 — Metadata d'action d'une route, **mémoïsées au 1er hit** sur
+ * `route.actionMeta` (pattern frère de {@link routeExpectsBodyStream}) :
+ * `undefined` = pas encore résolu → 1 lecture `Reflect` par route pour la vie
+ * du process, O(1) ensuite. Sort `Reflect.getMetadata` (~6 appels/req) du hot
+ * path `match`/`executeAction`. Posé APRÈS `generateId()` (1ʳᵉ requête) → le
+ * hash de route et l'introspection Studio restent stables. Typage structurel
+ * (pas d'import `Route` → 0 cycle).
+ */
+function resolveActionMeta(route: {
+  controller?: { prototype: object } | null;
+  classMethod?: string;
+  actionMeta?: RouteActionMeta;
+}): RouteActionMeta {
+  if (route.actionMeta === undefined) {
+    route.actionMeta = computeActionMeta(route.controller, route.classMethod);
+  }
+  return route.actionMeta;
+}
+
 export {
   route,
   controller,
@@ -656,6 +776,7 @@ export {
   Head,
   All,
   Domain,
+  Scope,
   UseSession,
   resolveSessionIntent,
   HttpCode,
@@ -674,4 +795,6 @@ export {
   resolveParamArg,
   buildParamArgs,
   routeExpectsBodyStream,
+  computeActionMeta,
+  resolveActionMeta,
 };
