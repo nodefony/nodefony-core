@@ -50,6 +50,16 @@ export class BcryptEncoder implements IPasswordEncoder {
   }
 
   /**
+   * Reconnaît un hash bcrypt (`$2a$`/`$2b$`/`$2y$` + coût) — parsing pur, sync.
+   *
+   * @param hash - hash stocké à inspecter.
+   * @returns `true` si le hash est au format bcrypt.
+   */
+  supports(hash: string): boolean {
+    return BCRYPT_HASH_RE.test(hash);
+  }
+
+  /**
    * Hache un mot de passe en clair (sel généré et inclus dans la sortie).
    *
    * @param plain - mot de passe en clair.

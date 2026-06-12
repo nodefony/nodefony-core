@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { Criteria, ITransaction } from "@nodefony/orm-core";
 import {
+  Argon2idEncoder,
   BaseUser,
   BcryptEncoder,
+  MigratingEncoder,
   UserService,
+  WeakPasswordError,
   type IPasswordAuthenticatedUser,
   type IUserRepository,
 } from "../../index";
@@ -302,6 +305,101 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
         repo.store.get(created.id)?.password as string,
         /^\$2[aby]\$06\$/,
       );
+    });
+
+    it("migre bcrypt → argon2id au login via MigratingEncoder (P6 J2)", async () => {
+      const repo = new MemoryUserRepo();
+      // Parc existant : compte créé à l'ère bcrypt.
+      const legacy = new UserService(repo, new BcryptEncoder(4));
+      const created = await legacy.createUser({
+        identifier: "a@x.io",
+        plainPassword: "s3cret",
+      });
+      assert.match(created.password as string, /^\$2[aby]\$/);
+
+      // L'app passe à argon2id : bcrypt reste accepté en lecture seule.
+      const migrating = new UserService(
+        repo,
+        new MigratingEncoder(
+          new Argon2idEncoder({ memoryKiB: 64, timeCost: 1, parallelism: 1 }),
+          [new BcryptEncoder(4)],
+        ),
+      );
+      const user = await migrating.authenticate("a@x.io", "s3cret");
+      assert.equal(user?.id, created.id);
+      // Le hash stocké a été modernisé au seul moment où le clair existait.
+      assert.match(
+        repo.store.get(created.id)?.password as string,
+        /^\$argon2id\$/,
+      );
+      // Le login suivant passe par le format cible, sans re-hash inutile.
+      let rehashedAgain = false;
+      migrating.on("onPasswordChanged", () => {
+        rehashedAgain = true;
+      });
+      assert.equal(
+        (await migrating.authenticate("a@x.io", "s3cret"))?.id,
+        created.id,
+      );
+      assert.equal(rehashedAgain, false);
+    });
+  });
+
+  describe("passwordBlocklist — hook NIST mots de passe compromis (P6 J2)", () => {
+    const blocklist = {
+      isBlocked: (plain: string) => Promise.resolve(plain === "password123"),
+    };
+
+    it("createUser refuse un mot de passe bloqué (WeakPasswordError)", async () => {
+      const service = new UserService(
+        new MemoryUserRepo(),
+        new BcryptEncoder(4),
+      );
+      service.passwordBlocklist = blocklist;
+      await assert.rejects(
+        service.createUser({
+          identifier: "a@x.io",
+          plainPassword: "password123",
+        }),
+        WeakPasswordError,
+      );
+      const ok = await service.createUser({
+        identifier: "a@x.io",
+        plainPassword: "s3cret-unique",
+      });
+      assert.equal(ok.identifier, "a@x.io");
+    });
+
+    it("changePassword refuse un mot de passe bloqué, accepte un sain", async () => {
+      const service = new UserService(
+        new MemoryUserRepo(),
+        new BcryptEncoder(4),
+      );
+      service.passwordBlocklist = blocklist;
+      const user = await service.createUser({
+        identifier: "a@x.io",
+        plainPassword: "s3cret-unique",
+      });
+      await assert.rejects(
+        service.changePassword(user.id, "password123"),
+        WeakPasswordError,
+      );
+      assert.notEqual(
+        await service.changePassword(user.id, "autre-s3cret"),
+        null,
+      );
+    });
+
+    it("sans blocklist branchée : aucun contrôle (hook opt-in)", async () => {
+      const service = new UserService(
+        new MemoryUserRepo(),
+        new BcryptEncoder(4),
+      );
+      const ok = await service.createUser({
+        identifier: "a@x.io",
+        plainPassword: "password123",
+      });
+      assert.equal(ok.identifier, "a@x.io");
     });
   });
 });

@@ -1,11 +1,13 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
 import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
 import type { IUser, IPasswordAuthenticatedUser } from "../contracts/IUser";
+import type { IPasswordBlocklist } from "../contracts/IPasswordBlocklist";
 import type { IPasswordEncoder } from "../contracts/IPasswordEncoder";
 import type { IPasswordVerifier } from "../contracts/IPasswordVerifier";
 import type { IUserProvider } from "../contracts/IUserProvider";
 import type { IUserRepository } from "../contracts/IUserRepository";
 import { UserNotFoundError } from "../errors/UserNotFoundError";
+import { WeakPasswordError } from "../errors/WeakPasswordError";
 
 /**
  * Données d'entrée de création d'un utilisateur — le mot de passe est fourni en
@@ -61,6 +63,14 @@ export class UserService
   #dummyHash: string | null = null;
 
   /**
+   * Liste de blocage des mots de passe compromis (NIST SP 800-63B §5.1.1.2) —
+   * hook opt-in consulté à la création/changement (jamais au login). `null`
+   * par défaut : le framework fournit le point d'extension, l'application
+   * branche sa source (top-10k, fichier, API k-anonymity).
+   */
+  passwordBlocklist: IPasswordBlocklist | null = null;
+
+  /**
    * @param repository - source de persistance des utilisateurs (credential inclus).
    * @param encoder - encodeur de mot de passe (hash/verify/needsRehash).
    * @param wiring - câblage Service ({@link ServiceWiring}) — quasi toujours omis.
@@ -84,6 +94,9 @@ export class UserService
   async createUser(
     input: ICreateUserInput,
   ): Promise<IPasswordAuthenticatedUser> {
+    if (input.plainPassword != null) {
+      await this.#assertNotBlocked(input.plainPassword);
+    }
     const password =
       input.plainPassword != null
         ? await this.encoder.hash(input.plainPassword)
@@ -121,6 +134,7 @@ export class UserService
     id: string,
     plainPassword: string,
   ): Promise<IPasswordAuthenticatedUser | null> {
+    await this.#assertNotBlocked(plainPassword);
     const password = await this.encoder.hash(plainPassword);
     const updated = await this.repository.updateOne(
       { id } as Criteria<IPasswordAuthenticatedUser>,
@@ -226,6 +240,14 @@ export class UserService
       throw new UserNotFoundError(`id "${user.id}" (compte supprimé)`);
     }
     return fresh;
+  }
+
+  // Refuse un candidat connu-compromis si une blocklist est branchée (no-op sinon).
+  async #assertNotBlocked(plain: string): Promise<void> {
+    if (this.passwordBlocklist === null) return;
+    if (await this.passwordBlocklist.isBlocked(plain)) {
+      throw new WeakPasswordError();
+    }
   }
 
   // Émet l'échec et retourne null — factorise les chemins d'erreur d'authenticate.

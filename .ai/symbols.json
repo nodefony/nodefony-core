@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-12T19:04:43.757Z",
+  "generated": "2026-06-12T19:39:24.344Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 849,
-    "symbols": 1763,
-    "classes": 250,
-    "interfaces": 439,
-    "types": 227,
+    "files": 855,
+    "symbols": 1773,
+    "classes": 255,
+    "interfaces": 443,
+    "types": 228,
     "enums": 3,
     "functions": 356,
     "constants": 488
@@ -7765,6 +7765,17 @@
       "decorators": [],
       "description": "Échec d'authentification — `code = 401`. Levée par un {@link IAuthenticator} quand le credential est absent/invalide, ou par le firewall en Zero Trust (zone protégée + visiteur anonyme + route sans…"
     },
+    "ThrottledError": {
+      "name": "ThrottledError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/errors/ThrottledError.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Tentatives de login trop rapprochées — `code = 429` (RFC 6585 §4). Levée par `UserPasswordAuthenticator` quand le backoff progressif ({@link LoginThrottler}) bloque encore l'identifiant saisi. Dist…"
+    },
     "Csrf": {
       "name": "Csrf",
       "kind": "class",
@@ -7952,6 +7963,15 @@
       "module": "@nodefony/studio",
       "description": "Canaux temps réel FIGÉS (deviendront des canaux RealtimeService en P13.4)."
     },
+    "IPasswordBlocklist": {
+      "name": "IPasswordBlocklist",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IPasswordBlocklist.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Contrat de **liste de blocage de mots de passe compromis** (NIST SP 800-63B §5.1.1.2) — consulté à la CRÉATION et au CHANGEMENT de mot de passe, jamais au login (le hash stocké ne permet plus de ju…"
+    },
     "IPasswordEncoder": {
       "name": "IPasswordEncoder",
       "kind": "interface",
@@ -8025,6 +8045,17 @@
       "implements": [],
       "decorators": [],
       "description": "Utilisateur introuvable dans la source d'identité — levée par les méthodes {@link IUserProvider} (contrat : jamais `null`, l'absence d'identité est un échec explicite). `code = 404` (sémantique int…"
+    },
+    "WeakPasswordError": {
+      "name": "WeakPasswordError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/user/nodefony/errors/WeakPasswordError.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Mot de passe refusé par la politique (connu-compromis / interdit) — `code = 400`. Levée par `UserService.createUser`/`changePassword` quand le {@link IPasswordBlocklist} branché rejette le candidat…"
     },
     "UserService": {
       "name": "UserService",
@@ -12495,6 +12526,26 @@
       "decorators": [],
       "description": "Authentification par identifiant + mot de passe — schéma **HTTP Basic** (RFC 7617) : `Authorization: Basic base64(identifiant:motdepasse)`, charset UTF-8, split au PREMIER `:` (le mot de passe peut…"
     },
+    "LoginThrottler": {
+      "name": "LoginThrottler",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/throttle/LoginThrottler.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Limiteur de tentatives de login **en mémoire, par identifiant saisi**. La clé est l'identifiant TEL QUE SAISI (existant ou non en base) : un identifiant martelé est ralenti qu'il corresponde à un c…"
+    },
+    "ILoginThrottleOptions": {
+      "name": "ILoginThrottleOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/throttle/LoginThrottler.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Politique de backoff du throttling de login (NIST SP 800-63B §5.2.2). JAMAIS de verrouillage dur : un lockout au N-ième échec offrirait à l'attaquant un déni de service gratuit sur le compte de sa …"
+    },
     "AnonymousToken": {
       "name": "AnonymousToken",
       "kind": "class",
@@ -12521,6 +12572,28 @@
       "decorators": [],
       "description": "Jeton porteur d'un utilisateur réel — produit par les authenticators à credential (`userpassword`, puis `session`/`jwt`...). Cycle en deux états, UN SEUL objet alloué par tentative (cold path login…"
     },
+    "Argon2idEncoder": {
+      "name": "Argon2idEncoder",
+      "kind": "class",
+      "file": "src/packages/@nodefony/user/nodefony/src/encoders/Argon2idEncoder.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "implements": [
+        "IPasswordEncoder"
+      ],
+      "decorators": [],
+      "description": "Encodeur de mot de passe **Argon2id** (RFC 9106) — recommandation NIST/OWASP 2026. Fonction de dérivation à MÉMOIRE DURE : chaque vérification exige `memoryKiB` de RAM en plus du CPU, ce qui ruine …"
+    },
+    "Argon2idOptions": {
+      "name": "Argon2idOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/encoders/Argon2idEncoder.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Paramètres de coût Argon2id (RFC 9106). Les défauts suivent le minimum OWASP 2026 (m=19 MiB, t=2, p=1) — déjà imposé par le schéma Zod de `@nodefony/security` (`encoders.memoryKiB.min(19456)`). L'e…"
+    },
     "BcryptEncoder": {
       "name": "BcryptEncoder",
       "kind": "class",
@@ -12533,6 +12606,19 @@
       ],
       "decorators": [],
       "description": "Encodeur de mot de passe **bcrypt** — implémentation de référence d'{@link IPasswordEncoder}. Délègue à `@node-rs/bcrypt` (binding NAPI Rust) : hachage/vérification réellement asynchrones (exécutés…"
+    },
+    "MigratingEncoder": {
+      "name": "MigratingEncoder",
+      "kind": "class",
+      "file": "src/packages/@nodefony/user/nodefony/src/encoders/MigratingEncoder.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "implements": [
+        "IPasswordEncoder"
+      ],
+      "decorators": [],
+      "description": "Encodeur composite de **migration d'algorithme** — accepte les hashs legacy à la vérification, ne produit que des hashs au format courant. Une base existante (ex. bcrypt) ne peut pas être convertie…"
     },
     "HttpContext": {
       "name": "HttpContext",
@@ -13014,7 +13100,9 @@
       "nodefonyError": [
         "AccessDeniedError",
         "AuthenticationError",
+        "ThrottledError",
         "UserNotFoundError",
+        "WeakPasswordError",
         "DocumentationError"
       ],
       "RealtimeController": [
@@ -13240,7 +13328,9 @@
         "UserToken"
       ],
       "IPasswordEncoder": [
-        "BcryptEncoder"
+        "Argon2idEncoder",
+        "BcryptEncoder",
+        "MigratingEncoder"
       ],
       "IHttpContextInterface": [
         "HttpContext"
@@ -13868,9 +13958,16 @@
         "src/modules/test/index.ts"
       ],
       "UserService": [
-        "src/modules/test/index.ts"
+        "src/modules/test/index.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts"
       ],
       "BcryptEncoder": [
+        "src/modules/test/index.ts"
+      ],
+      "Argon2idEncoder": [
+        "src/modules/test/index.ts"
+      ],
+      "MigratingEncoder": [
         "src/modules/test/index.ts"
       ],
       "registerDolibarrEntities": [
@@ -14797,7 +14894,9 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
         "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
+        "src/packages/@nodefony/security/nodefony/errors/ThrottledError.ts",
         "src/packages/@nodefony/user/nodefony/errors/UserNotFoundError.ts",
+        "src/packages/@nodefony/user/nodefony/errors/WeakPasswordError.ts",
         "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -16356,6 +16455,10 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
+      "ThrottledError": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
+      ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
@@ -16413,9 +16516,14 @@
       "AbstractCrudService": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
+      "IPasswordBlocklist": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
       "IPasswordEncoder": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts"
+        "src/packages/@nodefony/user/nodefony/src/encoders/Argon2idEncoder.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/MigratingEncoder.ts"
       ],
       "IPasswordVerifier": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
@@ -16426,6 +16534,9 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "UserNotFoundError": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "WeakPasswordError": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "IVectorSearchOptions": [
@@ -17934,6 +18045,10 @@
       ],
       "UserPasswordAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+      ],
+      "LoginThrottler": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "UserToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"

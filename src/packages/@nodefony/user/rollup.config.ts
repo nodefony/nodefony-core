@@ -8,8 +8,9 @@ const external: string[] = [
   "nodefony",
   "tslib",
   "@nodefony/orm-core",
-  // peerDep optionnelle : binaire natif NAPI, jamais bundlé (résolu par le consommateur).
+  // peerDeps optionnelles : binaires natifs NAPI, jamais bundlés (résolus par le consommateur).
   "@node-rs/bcrypt",
+  "@node-rs/argon2",
 ];
 
 const nodefonyFiles = globSync("nodefony/**/*.ts", {

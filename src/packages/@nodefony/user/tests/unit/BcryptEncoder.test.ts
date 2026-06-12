@@ -40,6 +40,16 @@ describe("BcryptEncoder (P5.6)", () => {
     });
   });
 
+  describe("supports", () => {
+    it("reconnaît un hash bcrypt, rejette le reste", async () => {
+      const enc = new BcryptEncoder(FAST);
+      assert.equal(enc.supports(await enc.hash("x")), true);
+      assert.equal(enc.supports("$argon2id$v=19$m=64,t=1,p=1$a$b"), false);
+      assert.equal(enc.supports("plaintext"), false);
+      assert.equal(enc.supports(""), false);
+    });
+  });
+
   describe("needsRehash", () => {
     it("false quand le coût stocké == coût courant", async () => {
       const enc = new BcryptEncoder(FAST);

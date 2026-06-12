@@ -10,6 +10,18 @@
  */
 export interface IPasswordEncoder {
   /**
+   * Indique si un hash stocké est au format de CET encodeur (parsing pur, sync).
+   *
+   * Permet à un composite ({@link MigratingEncoder}) de router la vérification
+   * vers le bon algorithme sans connaître les formats — chaque encodeur
+   * reconnaît son propre préfixe PHC (`$2b$…` bcrypt, `$argon2id$…` argon2).
+   *
+   * @param hash - hash stocké à inspecter.
+   * @returns `true` si ce hash a été produit par cet algorithme.
+   */
+  supports(hash: string): boolean;
+
+  /**
    * Hache un mot de passe en clair (sel inclus dans la sortie).
    *
    * @param plain - mot de passe en clair.

@@ -21,6 +21,7 @@ export type {
   IUser,
   IPasswordAuthenticatedUser,
   ISocialProvider,
+  IPasswordBlocklist,
   IPasswordEncoder,
   IPasswordVerifier,
   IUserProvider,
@@ -36,8 +37,11 @@ export {
   ROLE_ANONYMOUS,
 } from "./nodefony/src/AnonymousUser";
 
-// ─── Encoders (P5.6) ─────────────────────────────────────────────────────────
+// ─── Encoders (P5.6, P6 J2) ──────────────────────────────────────────────────
 export { BcryptEncoder } from "./nodefony/src/encoders/BcryptEncoder";
+export { Argon2idEncoder } from "./nodefony/src/encoders/Argon2idEncoder";
+export type { Argon2idOptions } from "./nodefony/src/encoders/Argon2idEncoder";
+export { MigratingEncoder } from "./nodefony/src/encoders/MigratingEncoder";
 
 // ─── Service (P5.6) ──────────────────────────────────────────────────────────
 export { UserService } from "./nodefony/service/UserService";
@@ -46,5 +50,6 @@ export type {
   AuthFailureReason,
 } from "./nodefony/service/UserService";
 
-// ─── Erreurs (P6 S0) ─────────────────────────────────────────────────────────
+// ─── Erreurs (P6 S0, J2) ─────────────────────────────────────────────────────
 export { UserNotFoundError } from "./nodefony/errors/UserNotFoundError";
+export { WeakPasswordError } from "./nodefony/errors/WeakPasswordError";
