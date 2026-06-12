@@ -64,7 +64,7 @@ const areaSchema = z.object({
     .boolean()
     .default(false)
     .describe(
-      "true = zone sans session serveur (API pure : JWT/clé API). Défaut false : session BFF (cookie opaque révocable) — reco IETF browser-based-apps.",
+      "Stratégie d'identité AU-DESSUS du protocole (HTTP reste stateless par nature). false (défaut) : la zone PEUT tenir un registre serveur — la session n'est créée qu'AU LOGIN (jamais pour un anonyme, zéro alloc), cookie opaque révocable (BFF). true : aucun registre — chaque requête porte sa preuve complète (JWT/clé API), la session est ignorée même si un cookie est présent.",
     ),
   mode: z
     .enum(["first", "all"])

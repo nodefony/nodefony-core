@@ -50,7 +50,11 @@ export default {
     // Options par zone :
     //   pattern        (requis)      RegExp d'URL.
     //   security       déf. true     zone protégée (Zero Trust). false = publique explicite.
-    //   stateless      déf. false    session BFF (cookie opaque révocable). true = API pure (JWT/clé).
+    //   stateless      déf. false    stratégie d'identité au-dessus du protocole (HTTP reste
+    //                                stateless par nature). false = registre serveur autorisé :
+    //                                session créée AU LOGIN seulement (jamais pour un anonyme),
+    //                                cookie opaque révocable (BFF). true = aucun registre :
+    //                                chaque requête porte sa preuve (JWT/clé API), session ignorée.
     //   mode           déf. "first"  "first" = le 1er authenticator qui reconnaît la requête
     //                                authentifie (cookie OU bearer) ; "all" = tous doivent
     //                                passer (ex. mtls+jwt sur une zone admin).
