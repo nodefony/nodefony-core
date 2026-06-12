@@ -66,10 +66,11 @@ e => JSON.parse(e.data))` (string), `.send()`, PAS `.on()`.
   en voyait 4) : un daemon claude détaché peut rester hung et saturer le CPU. → `ps -Ao pid,%cpu,etime,command | grep
 claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung (`kill <pid>`) — ne pas tuer un
   process claude depuis la session active. Le serveur dev (nodefony+vite) à 0 % CPU n'était PAS le coupable.
-- `[1× — 2026-06-08]` **tmpfs du harness sature (ENOSPC) ≠ disque plein** : rediriger les gros logs (build turbo ~1m24, suites
+- `[2× — 2026-06-12]` **tmpfs du harness sature (ENOSPC) ≠ disque plein** : rediriger les gros logs (build turbo ~1m24, suites
   vitest 7000+ lignes) vers `/tmp/x.log` remplit le **filesystem temp dédié du harness** (`/private/tmp/claude-*/.../tasks`,
   petit quota) alors que `df` du disque montre 3 To libres → les Bash suivants échouent « ENOSPC ». → rediriger vers `/dev/null`
   - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
+    Re-vécu J2 (builds turbo répétés) ; dépannage : `rm /private/tmp/claude-*/.../tasks/*.output` (tâches finies) débloque.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
@@ -717,6 +718,17 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
   partage la même instance entre 2 appels → 2ᵉ `res.json()` = « Body is unusable: Body has already been read ».
   → `mockImplementation(() => Promise.resolve(new Response(…)))` (instance neuve par appel), jamais une Response
   partagée.
+- `[1× — 2026-06-12]` **Serveur d'intégration VIVANT + état serveur par identifiant (throttler) = identifiants
+  UNIQUES par run** : un `ghost` fixe accumule ses échecs de login d'un run à l'autre (le compteur survit aux
+  suites) → au 4ᵉ run le test anti-énumération reçoit 429 au lieu de 401. → toute donnée de test qui nourrit un
+  compteur côté serveur = suffixe `${Date.now()}` (vécu J2 : blindage de firewall-auth.test.ts AVANT la casse).
+- `[1× — 2026-06-12]` **Un schéma Zod « posé » n'est PAS une config « câblée »** : la section `encoders` de
+  defineSecurityConfig (S0) valide/gèle… que personne ne consomme — l'encoder réel se paramètre au constructeur
+  chez l'app (banc). Question user légitime « où on paramètre ça ? ». → avant de dire « c'est configurable »,
+  vérifier QUI LIT la section (grep consommateur) ; gap encoders→fabrique assumé, repris à J3 (UserProvider).
+- `[1× — 2026-06-12]` **Compter les erreurs d'un build avec `grep -cE "error"` matche les NOMS de classes**
+  (`UserNotFoundError.ts` dans la liste rollup) → faux « 1 erreur » sur build vert. → motif précis `TS[0-9]+:`
+  pour TS, ou tester l'exit code.
 
 - `[1× — 2026-06-11]` **Un test vert peut verrouiller l'OUTCOME par chance, pas le MÉCANISME** : le test
   « Allow n'expose pas la méthode d'un autre vhost » passait uniquement parce que la route ouverte était
