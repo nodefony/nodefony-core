@@ -55,10 +55,11 @@
   call stack au 1er hit). Attrapé par le HEALTH check du start.sh (500). → quand on extrait une méthode puis
   qu'on `replace_all` les call sites, EXCLURE la nouvelle méthode (ordre inverse : replace_all D'ABORD, extraire
   ENSUITE — ou re-vérifier son corps après).
-- `[3× — 2026-06-12]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
-  re-frappé V4 (`routerDecorators.ts`) puis 3e fois (`RedisBackplane.test.ts` lu au `sed` → Edit refusé).
-  → pour un fichier qu'on va MODIFIER : `Read` directement (même partiel) ; `sed`/`grep` Bash = consultation
-  pure UNIQUEMENT. **≥3× → à graduer en `feedback_*` au prochain CONSOLIDATE.**
+- `[4× — 2026-06-12]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
+  re-frappé V4 (`routerDecorators.ts`), 3e fois (`RedisBackplane.test.ts`), 4e fois session nettoyage
+  (`project_hardening_before_p6.md` lu au `sed` → Edit refusé). → pour un fichier qu'on va MODIFIER :
+  `Read` directement (même partiel) ; `sed`/`grep` Bash = consultation pure UNIQUEMENT.
+  **≥3× → à graduer en `feedback_*` au prochain CONSOLIDATE.**
 - `[1× — 2026-06-10]` **client/preuve WS standalone = `WebSocket` GLOBAL natif (Node ≥ 22), PAS le package `ws`** :
   `import WebSocket from "ws"` depuis un `.mjs` sous `src/modules/*/nodefony/poc/` → `ERR_MODULE_NOT_FOUND` (ws
   non résolvable à cette profondeur). Le global natif marche sans dép — **API WHATWG** : `ws.addEventListener("message",
@@ -183,6 +184,17 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 - `[1× — 2026-06-08]` **« durci/complet » sans préciser le niveau = survente, challengée.** Dit ORM mongoose « durcissement complet » → 0 test E2E système (memory-server + boot hors-kernel, pas de serveur réel). → distinguer **unit / composant / E2E système** ; jamais « complet » sans le niveau atteint.
 
 ## 🧹 Refonte / consolidation (frictions du jour)
+
+- `[1× — 2026-06-12]` **le dashboard RE-ENGRAISSE en 7 jours si les sessions appendent au § Séquencement** :
+  cellule-journal 2 767 car. reconstituée entre les 2 passes vérité (06-05 → 06-12) malgré la convention en
+  tête du fichier. → au END, AJOUTER le jalon en ~1 ligne avec hash et RIEN d'autre (détail = git log/retros) ;
+  la passe vérité périodique reste le filet, pas l'excuse.
+- `[1× — 2026-06-12]` **le bandeau Avancement décroche dès qu'on marque des lignes P sans le recompter** :
+  6 phases fausses en 7 jours (P11 33 %→44 réel, P9 38→63…). → quand un END coche des lignes P, relancer
+  l'awk 1ʳᵉ cellule (skill migration-audit) OU dater le bandeau comme périmé — jamais le laisser muet.
+- `[1× — 2026-06-12]` **archiver les kits clos AU FIL DE L'EAU, pas au warning** : index MEMORY.md à 29,7 KB
+  (limite 24,4) → 33 entrées closes archivées d'un coup. → au END, si le chantier du jour CLÔT un kit,
+  déplacer sa ligne vers MEMORY_ARCHIVE.md dans la même passe (1 min) au lieu d'accumuler.
 
 - `[1× — 2026-06-06]` **changer le TYPE d'un contrat (interface) casse les `implements`, PAS les casts** : unifier
   `ISessionStorage` (retypé) a cassé `drizzle` (`class … implements ISessionStorage`, retours `Promise<unknown>` non
