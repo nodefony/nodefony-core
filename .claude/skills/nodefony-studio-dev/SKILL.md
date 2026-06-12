@@ -1334,12 +1334,17 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   `state === "connected"` ; kill switch `UiStore.apiViaSocket` (persisté `nf.api.socket`, défaut ON,
   switch dans `RealtimeHubContent` à côté du AIMD) ; **`init.signal` ou `init.headers` fourni → fetch**
   (la socket ne sait ni annuler ni porter des en-têtes custom).
-- **Mapping erreurs = la subtilité centrale** : un `RpcError` avec `data.status` numérique est une
-  **vraie réponse applicative** (404/403/405…) → la mapper en `ApiError` (même classe que le chemin
-  fetch, `onUnauthorized` si 401, `onError` notifié) et la **PROPAGER — surtout pas re-tenter en HTTP**
-  (sinon double requête). À l'inverse, `-32601` (pont non exposé) → flag `socketBridgeDown` session +
-  fallback fetch ; timeout/transport → fallback fetch SANS désactiver. Duck-typing `name === "RpcError"`
-  (pas d'instanceof cross-bundle).
+- **🚨 Erreurs du pont = JAMAIS propagées — la socket ne sert que les SUCCÈS** (régression vécue en
+  LIVE le 2026-06-12, fixée dans l'heure) : la v1 propageait `RpcError.data.status` en `ApiError`…
+  et a cassé Studio À LA CONNEXION — `/stats`, `/health`, `/auth/me` sont des routes **GET-only**
+  (sans transport `WEBSOCKET`) → le pont répond **405 « transport non supporté »**, qui N'EST PAS la
+  réponse REST (le GET aurait servi 200). Même classe de piège : un « 404 router » du pont peut viser
+  une URL que le REST sert AUTREMENT (static fallback) — indiscernables côté client. **Politique
+  finale** : TOUT échec socket → `learnFromSocketError` puis **fallback fetch**, qui fournit la
+  réponse de référence (mêmes `ApiError`/onError/onUnauthorized que sans pont — zéro divergence par
+  construction ; erreurs rares → double requête acceptable). Mémorisations anti-gaspillage : `-32601`
+  → `socketBridgeDown` session ; **405 → `httpOnlyRoutes` (Set, clé = path SANS query)** → plus de
+  tentative socket sur cette route. Duck-typing `name === "RpcError"` (pas d'instanceof cross-bundle).
 - **L'unwrap `{result}` doit être PARTAGÉ** entre les 2 transports (`unwrapResult` commun) : le pont
   renvoie le body REST tel quel → appliquer le même unwrap garantit la shape identique.
 - **Tester l'ApiClient dans le harness studio = possible** (service pur sans React) :
@@ -1380,13 +1385,16 @@ module `CLAUDE.md`/`MEMORY.md`.
 - **1.24.0** (2026-06-12) — **API souveraine Ph.3 FRONT — GET data plane via la socket** (full-stack ;
   **contrat ↔ framework-dev 1.22.0**, pont backend `a07fdf2`). `ApiClient` route les GET par
   `socket.request("/path?query")` quand la Socket Nodefony est connectée — 0 call-site touché (même URL,
-  même shape via `unwrapResult` partagé, mêmes erreurs `ApiError` ← `RpcError.data.status`). Gardes :
-  GET-only, `signal`/`headers` → fetch, `-32601` → pont désactivé session, timeout → fallback fetch.
-  Kill switch `UiStore.apiViaSocket` (`nf.api.socket`, défaut ON) + switch & `DocHint` dans
-  `RealtimeHubContent`. **10 tests unit** (`apiClientSocketBridge.test.ts`) dans le harness studio
-  (ApiClient = service pur testable). RETEX complet (section « API souveraine Ph.3 front ») : piège
-  multi-bundle Vite (curl @fs sur l'instance angular = faux 500), Response mockée une-lecture, dette
-  `KpiCard` `<p>` imbriqué. [[project_api_souveraine_poc]].
+  même shape via `unwrapResult` partagé). **La socket ne sert que les SUCCÈS** : tout échec du pont →
+  fallback fetch = réponse de référence (v1 qui propageait `data.status` = régression LIVE : routes
+  GET-only `/stats`/`/health`/`/auth/me` → 405 du pont ≠ réponse REST → Studio cassé à la connexion,
+  fixé dans l'heure). Gardes : GET-only, `signal`/`headers` → fetch, `-32601` → pont désactivé session,
+  **405 → `httpOnlyRoutes`** (path sans query, session). Kill switch `UiStore.apiViaSocket`
+  (`nf.api.socket`, défaut ON) + switch & `DocHint` dans `RealtimeHubContent`. **10 tests unit**
+  (`apiClientSocketBridge.test.ts`) dans le harness studio (ApiClient = service pur testable). RETEX
+  complet (section « API souveraine Ph.3 front ») : erreurs jamais propagées, piège multi-bundle Vite
+  (curl @fs sur l'instance angular = faux 500), Response mockée une-lecture, dette `KpiCard` `<p>`
+  imbriqué. [[project_api_souveraine_poc]].
 - **1.23.1** (2026-06-12) — **Audit de calibration (session nettoyage skills).** (1) Frontmatter recalé
   **1.22.0 → 1.23.1** (il était resté en retard sur le propre changelog du skill — la 1.23.0 du 06-06
   n'avait pas bumpé le frontmatter). (2) **Règle lockstep RÉVISÉE** : versions indépendantes + référence

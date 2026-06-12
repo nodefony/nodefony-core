@@ -8,10 +8,12 @@
  * (`socket`), les GET passent par le pont JSON-RPC `api.request {path}` — la
  * MÊME action controller, le MÊME snapshot que le REST (prouvé backend,
  * `api-souverain-bridge.test.ts`). Transparent pour les pages : même URL, même
- * shape, mêmes erreurs (`ApiError`). Fallback fetch automatique si la socket
- * est absente/déconnectée, si le pont n'est pas exposé (`-32601`) ou sur
- * erreur de transport (timeout). Les mutations (POST/PUT/DELETE) restent
- * HTTP-only (limitation Ph.3 assumée, doc `docs/api/README.md` §11.2).
+ * shape, mêmes erreurs (`ApiError`). La socket ne sert que les SUCCÈS :
+ * fallback fetch automatique si elle est absente/déconnectée, si le pont
+ * n'est pas exposé (`-32601`), si la route est GET-only (405 mémorisé) et sur
+ * TOUTE erreur du pont (la réponse d'erreur de référence vient du HTTP — cf
+ * `learnFromSocketError`). Les mutations (POST/PUT/DELETE) restent HTTP-only
+ * (limitation Ph.3 assumée, doc `docs/api/README.md` §11.2).
  *
  * Sera enrichi en P6 (Security) : refresh token, redirect sur 401, etc.
  */
@@ -90,6 +92,12 @@ interface RpcErrorLike {
 /** Code JSON-RPC « méthode inconnue » → le serveur n'expose pas le pont `api.request`. */
 const RPC_METHOD_NOT_FOUND = -32601;
 
+/** Clé de route d'un GET : le path SANS query (l'éligibilité au pont dépend de la ROUTE). */
+function routeKey(url: string): string {
+  const q = url.indexOf("?");
+  return q === -1 ? url : url.slice(0, q);
+}
+
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly getToken: () => string | null;
@@ -99,6 +107,12 @@ export class ApiClient {
   private readonly socketEnabled?: () => boolean;
   /** Pont absent côté serveur (`-32601` reçu) → ne plus tenter de la session. */
   private socketBridgeDown = false;
+  /**
+   * Routes répondues 405 par le pont = GET-only (pas de transport WEBSOCKET
+   * déclaré) → définitivement HTTP pour la session (évite un aller-retour
+   * socket perdu à chaque appel). Clé = path sans query.
+   */
+  private readonly httpOnlyRoutes = new Set<string>();
 
   constructor(opts: ApiClientOptions = {}) {
     this.baseUrl = opts.baseUrl ?? "/nodefony/studio/api";
@@ -190,35 +204,33 @@ export class ApiClient {
       this.socket.state === "connected" &&
       url.startsWith("/") &&
       !init?.signal &&
-      !init?.headers
+      !init?.headers &&
+      !this.httpOnlyRoutes.has(routeKey(url))
     );
   }
 
   /**
-   * Mappe un échec du pont. Renvoie un `ApiError` si c'est une vraie réponse
-   * applicative (`RpcError.data.status` fetch-like : 404, 403…) → à PROPAGER,
-   * surtout pas re-tenter en HTTP (la réponse EST arrivée). Renvoie `null` si
-   * l'échec est protocolaire/transport (pont absent `-32601`, timeout, socket
-   * fermée en vol) → fallback fetch transparent.
+   * Apprend d'un échec du pont, puis laisse TOUJOURS le fallback fetch jouer.
+   *
+   * Politique : la socket ne sert que les SUCCÈS ; toute erreur est rejouée en
+   * HTTP, qui fournit la réponse de référence (mêmes `ApiError`/notifications
+   * que sans pont). Pourquoi ne PAS propager les erreurs socket : un 405 du
+   * pont = « route GET-only » (le REST aurait servi le GET — vécu : /stats,
+   * /health, /auth/me cassés au 1ᵉʳ déploiement) ; un 404 « router » peut viser
+   * une URL que le REST sert autrement (static fallback) — indiscernables côté
+   * client. Les erreurs applicatives sont rares → la double requête est un
+   * coût acceptable contre ZÉRO divergence avec le REST. Mémorisations pour ne
+   * pas re-payer l'aller-retour : `-32601` → pont absent (session) ; 405 →
+   * route HTTP-only (session).
    */
-  private mapSocketError(
-    method: string,
-    url: string,
-    e: unknown,
-  ): ApiError | null {
+  private learnFromSocketError(url: string, e: unknown): void {
     const rpc = e as RpcErrorLike;
-    if (!e || typeof e !== "object" || rpc.name !== "RpcError") return null;
+    if (!e || typeof e !== "object" || rpc.name !== "RpcError") return;
     if (rpc.code === RPC_METHOD_NOT_FOUND) {
       this.socketBridgeDown = true;
-      return null;
+      return;
     }
-    const status = rpc.data?.status;
-    if (typeof status !== "number") return null; // -32603 & co → fallback HTTP
-    if (status === 401) this.onUnauthorized?.();
-    const payload = rpc.data?.body;
-    const message = extractMessage(payload, `HTTP ${status}`);
-    this.onError?.({ method, status, message, body: payload });
-    return new ApiError(status, payload, `${method} ${url} → HTTP ${status}`);
+    if (rpc.data?.status === 405) this.httpOnlyRoutes.add(routeKey(url));
   }
 
   private async send<T>(
@@ -227,7 +239,9 @@ export class ApiClient {
     body: unknown,
     init?: RequestInit,
   ): Promise<T> {
-    // ── Pont « API souveraine » : même action controller, transport socket. ──
+    // ── Pont « API souveraine » : même action controller, transport socket.
+    // Succès → servi tel quel ; TOUT échec → on apprend (-32601/405) puis on
+    // retombe sur le fetch ci-dessous (réponse de référence, cf doc-comment).
     if (this.canUseSocket(method, url, init)) {
       try {
         const payload = await this.socket!.request<unknown>(
@@ -235,9 +249,7 @@ export class ApiClient {
         );
         return unwrapResult<T>(payload);
       } catch (e) {
-        const applicative = this.mapSocketError(method, url, e);
-        if (applicative) throw applicative;
-        // Échec transport/protocole → on retombe sur fetch ci-dessous.
+        this.learnFromSocketError(url, e);
       }
     }
 

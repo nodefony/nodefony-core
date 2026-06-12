@@ -11,10 +11,11 @@
  *  - GET + socket connectée → socket, AUCUN fetch ; unwrap `{result}` identique ;
  *  - mutations (POST) → toujours fetch (HTTP-only Ph.3) ;
  *  - socket absente / déconnectée / kill switch OFF / abort signal → fetch ;
- *  - RpcError avec `data.status` = vraie réponse → ApiError propagé, PAS de
- *    re-tentative HTTP (sinon double requête) ; 401 → onUnauthorized ;
- *  - RpcError `-32601` (pont non exposé) → fallback fetch + pont désactivé
- *    pour la session ; erreur transport (timeout) → fallback fetch.
+ *  - la socket ne sert que les SUCCÈS : TOUTE erreur du pont → fallback fetch
+ *    (la réponse d'erreur de référence vient du HTTP — un 405/404 du pont
+ *    peut différer de la réponse REST, vécu /stats /health /auth/me) ;
+ *  - mémorisations : `-32601` → pont désactivé session ; 405 → route GET-only
+ *    HTTP-only session (pas de re-tentative socket sur cette route).
  */
 import { describe, it, vi, beforeEach, afterEach } from "vitest";
 import { expect } from "chai";
@@ -133,13 +134,21 @@ describe("ApiClient — pont API souveraine (socket)", () => {
     expect(socket.calls.length).to.equal(0);
   });
 
-  it("RpcError data.status=404 → ApiError(404) propagé, PAS de fallback fetch", async () => {
+  it("erreur applicative du pont (404) → fallback fetch = réponse de RÉFÉRENCE (ApiError du HTTP)", async () => {
     const socket = fakeSocket({
       reject: rpcError(-32000, {
         status: 404,
         body: { error: { message: "module zzz-nope introuvable" } },
       }),
     });
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse(
+          { error: { message: "module zzz-nope introuvable" } },
+          404,
+        ),
+      ),
+    );
     const onError = vi.fn();
     const api = new ApiClient({ socket, onError });
     try {
@@ -149,25 +158,31 @@ describe("ApiClient — pont API souveraine (socket)", () => {
       expect(e).to.be.instanceOf(ApiError);
       expect((e as ApiError).status).to.equal(404);
     }
-    expect(fetchMock.mock.calls.length).to.equal(0);
+    // L'erreur servie vient du chemin HTTP (1 fetch), pas d'un mapping socket.
+    expect(fetchMock.mock.calls.length).to.equal(1);
     expect(onError.mock.calls[0][0].status).to.equal(404);
-    expect(onError.mock.calls[0][0].message).to.equal(
-      "module zzz-nope introuvable",
-    );
   });
 
-  it("RpcError data.status=401 → onUnauthorized (même flow logout qu'en HTTP)", async () => {
+  it("405 du pont (route GET-only, ex /stats) → fallback fetch 200 + route mémorisée HTTP-only", async () => {
     const socket = fakeSocket({
-      reject: rpcError(-32000, { status: 401, body: {} }),
+      reject: rpcError(-32000, { status: 405, body: {} }),
     });
-    const onUnauthorized = vi.fn();
-    const api = new ApiClient({ socket, onUnauthorized });
-    try {
-      await api.getAbsolute("/nodefony/kernel/api/info");
-    } catch {
-      /* ApiError attendu */
-    }
-    expect(onUnauthorized.mock.calls.length).to.equal(1);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ cpu: 1 })),
+    );
+    const api = new ApiClient({ socket });
+    // 1ᵉʳ appel : socket tentée → 405 → fetch sert le snapshot (régression vécue
+    // au 1ᵉʳ déploiement : /stats, /health, /auth/me cassés en 405).
+    const out = await api.getAbsolute("/nodefony/studio/api/stats?x=1");
+    expect(out).to.deep.equal({ cpu: 1 });
+    expect(socket.calls.length).to.equal(1);
+    // 2ᵉ appel (même route, autre query) : plus AUCUNE tentative socket.
+    await api.getAbsolute("/nodefony/studio/api/stats?x=2");
+    expect(socket.calls.length).to.equal(1);
+    expect(fetchMock.mock.calls.length).to.equal(2);
+    // Une AUTRE route reste éligible au pont.
+    await api.getAbsolute("/nodefony/kernel/api/modules").catch(() => {});
+    expect(socket.calls.length).to.equal(2);
   });
 
   it("RpcError -32601 (pont absent) → fallback fetch + pont désactivé pour la session", async () => {
