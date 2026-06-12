@@ -68,7 +68,9 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
-- `[1× — 2026-06-12]` **restart serveur juste après des edits `.ts` = RACE watch-rebuild ↔ import au boot** :
+- `[2× — 2026-06-12]` **restart serveur juste après des edits `.ts` = RACE watch-rebuild ↔ import au boot** (re-vécu
+  session Ph.3 front : serveur laissé UP par la session précédente était en BOOT dégradé — 3 dist absents à l'import,
+  régénérés APRÈS coup ; détecté au RESUME par le grep filet, restart propre a suffi) :
   le watch détecte les sources modifiées et relance rollup PENDANT que le Kernel importe les dist → rollup
   VIDE `dist/` → `Cannot find module .../realtime/dist/index.js` → modules en **fail-soft** (boot dégradé)
   MAIS health 200 (module test chargé) → 9 timeouts de suite intég « inexpliqués ». Après tout
@@ -374,6 +376,18 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-12]` **Gates toutes vertes ≠ pas de régression quand le diff INTERCEPTE un chemin global** :
+  le pont ApiClient→socket (tous les GET Studio détournés) avait tests unit verts + tsc 0 + suite intég pont 9/9…
+  et a cassé Studio À LA CONNEXION (`/auth/me`/`/stats`/`/health` GET-only → 405 du pont propagé ≠ réponse REST).
+  Les tests unit mockaient la socket avec les MÊMES hypothèses fausses que le code ; la suite intég testait le pont
+  nu, pas la consommation. → pour un diff qui intercepte un chemin partagé, **dérouler les call-sites RÉELS de
+  l'app** (routes effectivement appelées au boot/login) contre le serveur réel AVANT « fait » — le user ne doit pas
+  être le test E2E. (Leçon de fond — « erreurs du pont jamais propagées » — gravée dans `nodefony-studio-dev` 1.24.0.)
+- `[1× — 2026-06-12]` **Multi-bundle Vite = N instances : curl `@fs` d'un `.tsx` React sur l'instance ANGULAR
+  (autre port 517x) → faux 500 « invalid JS syntax »** alors que tsc est vert. Discriminer : tester un `.tsx`
+  témoin non modifié, chercher `[angular] [vite] Internal server error` au log, `lsof` les ports. → si revu,
+  reporter la garde « identifier la bonne instance » dans `nodefony-frontend-verify`.
+
 - `[1× — 2026-06-07]` **prouver un parse côté serveur SANS toucher au banc = curl loopback (trusted) avec le header brut** :
   pour valider le parse `Forwarded` RFC 7239 en runtime, `curl -H "Forwarded: for=…;proto=https" localhost:5151` +
   lire le **log `req`** (`GET 200 <scheme>://<host>/… <ms> <IP>`) → le scheme/IP résolus sont visibles directement.
@@ -664,6 +678,11 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
   (boucle `kill -0` ou `gtimeout`).
 
 ## 🧪 Tests / hygiène (frictions du jour)
+
+- `[1× — 2026-06-12]` **`fetch` mocké : une `Response` ne se LIT qu'une fois** — `mockResolvedValue(jsonResponse(…))`
+  partage la même instance entre 2 appels → 2ᵉ `res.json()` = « Body is unusable: Body has already been read ».
+  → `mockImplementation(() => Promise.resolve(new Response(…)))` (instance neuve par appel), jamais une Response
+  partagée.
 
 - `[1× — 2026-06-11]` **Un test vert peut verrouiller l'OUTCOME par chance, pas le MÉCANISME** : le test
   « Allow n'expose pas la méthode d'un autre vhost » passait uniquement parce que la route ouverte était
