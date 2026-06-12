@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.21.0
+version: 1.22.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1172,12 +1172,27 @@ seam session `regenerateId()` (anti-fixation). → le firewall peut se brancher.
   `project_security_authorization_pending` · `project_security_decorators_pending` ·
   `project_security_stateless_http_decision` · `project_decisions_p5_p6_orm`.
 
-### POC API souveraine (branche `poc/api-souveraine` — Ph.1+2 LIVRÉES, Ph.3→6 restantes)
+### POC API souveraine (branche `poc/api-souveraine` — Ph.1+2+3 LIVRÉES, Ph.4→6 restantes)
 
 **Pattern « 1 service → N surfaces »** : un service métier unique exposé par un **`ResourceController`**
 (REST/GraphQL/RPC = adaptateurs minces), controllers **stateless** via `@Scope`. Ph.1+2 livrées ;
-doc = `docs/api/README.md`, vérité = [[project_api_souveraine_poc]]. Si une session reprend Ph.3→6 :
+doc = `docs/api/README.md`, vérité = [[project_api_souveraine_poc]]. Si une session reprend Ph.4→6 :
 lire la mémoire AVANT (ne pas re-designer l'acté), prolonger le pattern existant.
+
+**Ph.3 LIVRÉE (data plane admin duplex, full-stack 2026-06-12 — contrat ↔ studio-dev 1.24.0)** :
+
+- **Backend (`a07fdf2`)** : pont JSON-RPC **`api.request {path}`** opt-in par controller realtime
+  (`realtimeApiRequest()` — Studio l'active) → ré-invoque la MÊME action GET du Router (param `{name}` +
+  query du path via `Resolver.queryOverride`, anti-bleed entre invocations d'une même socket). Routes
+  admin déclarées `methods:["GET","WEBSOCKET"]` (AdminBroker) ; une route GET-only reste INVISIBLE au
+  pont (405, zéro bypass). Erreurs **fetch-like** : `RpcError` isomorphe (core), `error.data.status`
+  (404/405/403…) + `error.data.body` = body d'erreur REST. Snapshot REST≡WS prouvé
+  (`framework/tests/integration/api-souverain-bridge.test.ts`, 9 tests — relancer après tout
+  changement du pont). Client : `socket.request("/path?query")` (overload path de `RealtimeClient`).
+- **Front Studio** : consommé dans l'`ApiClient` (GET routés socket quand connectée, fallback fetch,
+  kill switch Hub) → détails côté `nodefony-studio-dev` (1.24.0).
+- Limitations Ph.3 assumées : mutations par socket NON conçues (non-GET = HTTP-only) ; parse query
+  plat (nested `a[b]=c` → Ph.6). Cf doc §11.2.
 
 ### Carte des phases P0→P16 (lire MIGRATION_STATUS pour % + détail réels)
 
@@ -1533,6 +1548,12 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.22.0** (2026-06-12) — **POC souverain Ph.3 = LIVRÉE full-stack (contrat ↔ studio-dev 1.24.0).**
+  Section « POC API souveraine » recalée : Ph.3 backend (`a07fdf2`, pont `api.request` + `RpcError` +
+  `queryOverride` + routes admin GET+WEBSOCKET, 9 tests intég) **+ Ph.3 front livré cette session**
+  (ApiClient Studio route les GET via la socket, fallback fetch — détail consommation côté studio-dev).
+  Restantes = Ph.4 mediasoup · Ph.5 GraphQL · Ph.6 query nested. Backend INCHANGÉ cette session
+  (front-only) — bump = description du contrat partagé désormais consommé.
 - **1.21.0** (2026-06-12) — **Audit de calibration (session nettoyage skills) — recalage sur le LIVRÉ.**
   (1) §6.B-C réécrits : `@nodefony/realtime` = module **livré** (RealtimeService façade DI + seam auth
   `IRealtimeAuthenticator`, backplanes Loopback/Cluster/**Redis** + registre de drivers,

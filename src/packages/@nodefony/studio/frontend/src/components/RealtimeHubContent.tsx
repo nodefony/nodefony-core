@@ -271,6 +271,37 @@ export const RealtimeHubContent = observer(
           />
         </Group>
 
+        {/* ── API par la socket — pont `api.request` (data plane duplex, Ph.3).
+            Même valeur que dans la console /nodefony/hub (UiStore partagé). ── */}
+        <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
+          <Switch
+            size="sm"
+            checked={ui.apiViaSocket}
+            onChange={(e) => ui.setApiViaSocket(e.currentTarget.checked)}
+            label="API par la socket"
+            aria-label="router les requêtes API GET via la Socket Nodefony"
+          />
+          <DocHint
+            title="API par la socket"
+            version={HUB_DOC}
+            summary="« API souveraine » : la même action serveur répond en REST et par la socket."
+            sections={[
+              {
+                label: "Principe",
+                body: "Quand la socket est connectée, les chargements de pages (GET du data plane) passent par le pont api.request au lieu d'un fetch HTTP — même URL, même réponse, mais sans nouvelle connexion ni en-têtes répétés.",
+              },
+              {
+                label: "Si OFF / déconnecté",
+                body: "Tout repasse automatiquement en fetch HTTP classique. Les écritures (POST/DELETE) restent toujours en HTTP.",
+              },
+              {
+                label: "Observer",
+                body: "Le log protocole de la console Hub montre les frames api.request et leurs réponses.",
+              },
+            ]}
+          />
+        </Group>
+
         {/* ── Carte connexion ── */}
         <Paper withBorder p="sm" radius="md">
           <Stack gap={10}>
