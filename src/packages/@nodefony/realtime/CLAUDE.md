@@ -52,7 +52,7 @@ P6 pourra se brancher sans refonte. Vue d'ensemble vulgarisée → [`docs/securi
 
 **Contrats publics du seam #2** : `IRealtimeToken` (structural-compat `IToken` security), `IRealtimeHandshake` (DTO neutre — headers/cookies/url/origin/protocols), `IRealtimeAuthenticator` (Symfony 6 `supports/authenticate/onSuccess/onFailure`), `IRealtimeAuthenticatorMatcher` (pattern URL + vhost). `ANONYMOUS_REALTIME_TOKEN` = singleton gelé fallback Zero Trust.
 
-## Structure des fichiers (cible — après rapatriement P13.0)
+## Structure des fichiers (réelle — rapatriement P13.0 fait)
 
 ```
 src/packages/@nodefony/realtime/
@@ -103,18 +103,23 @@ live graphs (FanOut/Protocole/Sondes/Backplane/Actions).
 Les 2 vues cohabitent intentionnellement (cf [[project_doc_portal_faisabilite]] + ADR-0001
 emplacement hybride). Migration éventuelle des 7 fichiers racine vers le module = P13.0.
 
-## Roadmap (P13)
+## Roadmap (P13) — resync code 2026-06-12 (autorité : `MIGRATION_STATUS.md` § P13)
 
-| Étape                                                                                       | Statut                  | Description                                                        |
-| ------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------ |
-| Scaffold + doc                                                                              | ✅ 2026-05-28           | Module créé + 6 pages doc vulgarisée (frontmatter Studio-friendly) |
-| **P13.0** Rapatriement framework→realtime                                                   | ⬜ Bloc A étape 1       | 8 fichiers `src/` + 3 tests à déplacer via git mv                  |
-| **Seams** sécurité (5 hooks)                                                                | ⬜ Bloc A étapes 2 et 6 | 1,2 ses au total                                                   |
-| **P13.8** Décorateurs `@RealtimeController` / `@RealtimeEvent`                              | ⬜ Bloc A étape 3       | 2 ses                                                              |
-| **P13.7 reste** Long-polling fallback + types `ServerToClientEvents`/`ClientToServerEvents` | ✅ 2026-05-28 (étape 4) | Types Socket.IO-style + long-polling droppé (frame retry suffit)   |
-| **P13.4 reste** Façade `RealtimeService` + `defineRealtimeConfig()` builder                 | ✅ 2026-05-28 (étape 5) | Builder Zod + service DI + JSON Schema, fix `.default(() => …)`    |
-| **P13.9** Tests cluster IPC (sans infra)                                                    | ⬜ Bloc A étape 7       | 2 ses                                                              |
-| **P13.2** Refacto `@nodefony/redis`                                                         | ⬜ Bloc B               | 8 ses                                                              |
-| **P13.5** `RedisBackplane` driver                                                           | ✅ 2026-05-28 Bloc B    | pub/sub cross-pod, seam transport découplé, 10 unit + 2 intégr.    |
-| **P13.6** `KafkaBackplane` driver                                                           | ⬜ Bloc C               | 3 ses                                                              |
-| **P13.1** TCP / UDP / Unix sockets                                                          | ⬜ Bloc D (différable)  | 7 ses                                                              |
+> **167 tests verts** (+9 skipped docker). Dettes backplane #1 (namespace canal) et #2 (originId
+> cross-pod) **fixées** (`c082560`) : `resolveBackplaneOriginId()` + `backplane.namespace` Zod →
+> canal `nodefony:realtime:<ns>`. Reste dette #3 (frontière inter-modules, attend P6).
+
+| Étape                                                   | Statut        | Description                                                       |
+| ------------------------------------------------------- | ------------- | ----------------------------------------------------------------- |
+| Scaffold + doc                                          | ✅ 2026-05-28 | Module créé + 6 pages doc vulgarisée                              |
+| **P13.0** Rapatriement framework→realtime               | ✅            | 10 src + 5 tests `git mv`, cycle cassé                            |
+| **Seams** sécurité (5 hooks)                            | ✅ 2026-05-28 | cf section « 5 seams » ci-dessus                                  |
+| **P13.8** Décorateurs realtime                          | 🔶            | 3 décorateurs livrés ; reste pattern RegExp                       |
+| **P13.7** Protocole JSON-RPC 2.0 + types partagés       | ✅            | RPC bidirectionnel ; long-polling droppé                          |
+| **P13.4** `IRealtimeHub` + `RealtimeService` + config   | ✅            | Builder Zod + service DI                                          |
+| **P13.9** Tests cluster IPC (sans infra)                | ✅            | e2e `child_process.fork`, 5 tests                                 |
+| **P13.2** Refacto `@nodefony/redis`                     | 🔶            | fondation conventions + config Zod ; 15 tests                     |
+| **P13.5** `RedisBackplane` driver                       | ✅            | pub/sub cross-pod, **prouvé cluster live -w2** ; registre drivers |
+| **P13.6** `KafkaBackplane` driver                       | ⬜            | apps massives + bus agents IA                                     |
+| **P13.1** TCP / UDP / Unix sockets                      | 🔶 différable | scaffold ; code protocoles reste (niche)                          |
+| **Banc de conformité ventilation** (scénarios × driver) | ⬜            | matrice : `docs/audits/realtime-module-isolation-2026-06-05.md`   |

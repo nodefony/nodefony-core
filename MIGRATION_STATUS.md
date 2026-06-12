@@ -1,6 +1,6 @@
 # MIGRATION_STATUS.md — Tableau de bord
 
-> **Mis à jour : 2026-06-05** (resync + assaini sur audit code — cf [`docs/migration/AUDIT-verite-2026-06.md`](docs/migration/AUDIT-verite-2026-06.md)).
+> **Mis à jour : 2026-06-12** (resync vérité + dégraissage — cf [`docs/migration/AUDIT-verite-2026-06.md`](docs/migration/AUDIT-verite-2026-06.md), passes 06-05 + 06-12).
 > Légende : ✅ Migré | 🔶 Partiel | ⬜ À faire | 🚫 Bloqué | ⏭️ Skip/Caduc
 >
 > **Règle de tenue (CONVENTION) :** statut en **TÊTE de la 1ʳᵉ cellule** (`| ✅ P5.2 | …`), **1 ligne courte**
@@ -17,23 +17,16 @@ Les décisions complètes sont **persistées en mémoire IA** (survivent au `/cl
 - `project_decisions_p5_p6_orm` — Sécurité + ORM + IUser · `project_decisions_realtime_isomorphic` — Realtime + Core isomorphe + Mediasoup
 - `project_orm_hardening_kit` — **virage ORM** (graine) · `project_orm_audit_state` — **audit ORM + plan** (boussole terrain) · `project_hardening_before_p6` — durcir avant P6 · `project_api_souveraine_poc` — API souveraine
 
-### ⚡ Séquencement actuel (figé 2026-06-05)
+### ⚡ Séquencement actuel (resync 2026-06-12)
 
-**Config ✅** → **durcissement ORM Ph.1/2/2.5/3 ✅** → **durcissement WebSocket ✅** → **ORM Ph.4 couplage C2/C5 ✅** (`58381df`/`7ac0bac`) + **couverture ORM 109→160 tests** (`953ccc2`) → **POC API souveraine Ph.1 ✅ ⏸️ en attente** (`71fcfe9`) → **🥇 durcissement cycle de vie requête : V1 sécu ✅** (`0860a48` — B1 body 413 / B2 origin / B3 CORS mort / B4 anti-CSWSH WS) **→ V2 perf ✅** (`55405ff`+`4592679` — gate events +2,2 % / requirements pré-compilés / micro P8) **→ V3 archi ✅** (`9b4dde4`+`c6010b0` — Resolver POJO + metadata d'action figées P5, **A/B ~+6 % RPS**) **→ V4 souverain stateless ✅ 2026-06-10** (`6905ec3` accessors ALS + `18b6e72` `@Scope("singleton")` opt-in + ResourceController singleton par défaut, E2E anti-data-race 8 req concurrentes — défaut per-request INCHANGÉ ; jonction durcissement ⋈ POC souverain Ph.2) **→ V5 robustesse RFC ✅ 2026-06-11** (`023fd5e` R1 416+R5 ReadStream / `fd28a82` R2 teardown+R3 421+R4 WS binaire / `1aaa6f2` P7 / `044df1d` contrat retours controller : scalaires auto-JSON RFC 8259, Buffer direct, corps vide — bonus audit : hang `super.send` http2, fuite scope DI sur hook onFinish qui throw) **→ durcissement Container ✅ 2026-06-11** (`1c9ebe1` protos adoptés + seq id + Map scopes lazy + `scopeCount()`, **A/B +6 % RPS** — gates core 1570/intégration 438/load 27) → **🏎️ CHANTIER fast path (étapes 1-3) ✅ 2026-06-11** (`2432c6f` banc comparatif frameworks : Nodefony 5,3k vs Express 11,7k vs Fastify 20,8k RPS, écart ×2,2 = coût/req PAS le routing / `8b91479` banc non-régression routing 25 invariants / `585cd27` profil delta vs Express T1-T5 / `fd7107e` **T1 audit nominal gaté +10,8 % RPS A/B** / `6ef01ae` T2 gate sévérité Syslog structurel / `e180faf` T3 timeout socket 1 closure/socket — poste résiduel = node-interne, prix de la feature 408 / `5a37a0b` **T4 churn listeners structurel** : 1 seul `once("close")` au teardown + `_onTimeout()` direct + `fireRequestEnd()` = ~4 onceWrappers + 5 closures + 2 removeListener supprimés/req — **étape 3 coût/req CLOSE**) → **🏎️ index de routes (étape 4) ✅ 2026-06-11** (`c533efa` — partition littérales/dynamiques + merge ordonné par position, **A/B +15,3 % RPS** route pos 134/222 et **+24,9 %** littérale tardive pos 151 ; coût de résolution O(dynamiques) au lieu de O(N routes), banc 25 invariants intact + 6 tests index — **CHANTIER fast path CLOS**) → **conformité Allow 405 agrégé RFC 9110 §15.5.6 ✅ 2026-06-11** (`bc88444` — pass 2 = chemin unique du 405 HTTP, hostname AVANT methods anti-fuite cross-vhost (403), pseudo-méthode WEBSOCKET exposée sur path duplex, banc 28 invariants) → **P6 Security** / POC souverain Ph.3.
-Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6 — P6 se greffe dessus.
+**Config ✅** → **durcissement ORM Ph.1-4 ✅** (Seq OUT, Mongoose refait, kernel/orm OUT, C2/C5, 160 tests) → **durcissement WS ✅** → **POC API souveraine Ph.1+Ph.2 ✅** → **durcissement cycle requête V1-V5 ✅** (sécu 413/origin/CSWSH · perf · archi POJO · souverain stateless ALS+`@Scope` · robustesse RFC 416/421/teardown + contrat retours controller) → **Container ✅** (`1c9ebe1`, +6 % RPS) → **fast path T1-T4 + index routes ✅** (`fd7107e` +10,8 % · `c533efa` +15,3 % RPS) → **Allow 405 RFC 9110 ✅** (`bc88444`) → **dettes backplane realtime ✅** (`c082560`) → **🥇 P6 Security** (◀ prochaine).
+Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6 — P6 se greffe dessus. **Fondations DURCIES — P6 débloqué.** Détail jalons : `git log` + `docs/session-retros/`.
 
-### 🔀 Virage ORM (décidé 2026-06-02) — ✅ audit 2026-06-08 · ✅ **Ph.1 Seq OUT** (`716fce6`) · ✅ **Ph.2 Mongoose REFAIT 2026-06-08** (`51d9ea8`)
+### 🔀 Virage ORM (décidé 2026-06-02) — ✅ **CLOS 2026-06-08** (Ph.1→Ph.4)
 
-- 📋 **Audit complet** : [`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md) + mémoire `project_orm_audit_state`. **Plan** : **Ph.1 Seq OUT ✅** ∥ **Ph.2 Mongoose REFAIT ✅** → **Ph.2.5 contrat CRUD durci ✅** (`updateOne`/`updateMany` atomiques + critère strict — audit `orm-solidity-2026-06`) → **Ph.3 kernel/orm OUT ✅** → **⏸️ durcissement WebSocket (PRIORITAIRE, avant la suite)** → Ph.4 couplage (C2/C5) → API souveraine → P6.
-- ✅ **Sequelize SUPPRIMÉ (Ph.1, `716fce6`)** : package + tous consommateurs + tests + ~2820 L de `package-lock` + mentions code/docs vivantes (0 résidu). Gates vertes (build 19/19, core 1559, http 436, fw 190, mémoire 9/9). Lignes P5.7/P7.1/P7.3 → **caduques**.
-- ✅ **Mongoose REFAIT (Ph.2)** : `MongooseService extends Service` (boote un `MongooseOrm`/connecteur au `onBoot`, plus `extends Orm` core) + `SessionStorage` portable (logique = Drizzle, timestamps ms, GC `$lt`) + 4 sondes Studio (`describeEntity` ✅P5.4 / **`describeConnection`** + **flow tap** `MongooseRepository`→`queryFlowMonitor` ajoutés / `ping` ✅) + `registerMongooseAdapter` (erreurs) + data plane câblé côté module (C5 atténuée). Legacy `service/orm.ts` supprimé. **17 tests verts** (banc orm-core ReplSet + session hybride `MONGO_TEST_URI`). → **P7.2/P7.5 ✅**. **Reste P5.8** (adapter Mongoose _User_, hors Ph.2).
-- ✅ **Config ORM unifiée Zod (2026-06-08)** — audit [`docs/audits/orm-config-pattern-2026-06.md`](docs/audits/orm-config-pattern-2026-06.md) : **drizzle ET mongoose** portent leur config en **Zod pur** (`schema.ts` → `defineXConfig` parse+env+freeze → validée `onKernelRegister` → `this.set("<orm>Config")`) + augmentent `NodefonyModuleConfig` (typage `use()`). Drizzle : `filename` optionnel, chemin SQLite résolu **au boot** dans `DrizzleService` (plus de deref kernel top-level). 🐞 **fix redis** : lisait `this.options?.redis` (namespace inexistant) → ignorait la config app via `use()` → corrigé en `this.options` (flat, conforme au merge Kernel). Tests : drizzle 33 / mongoose 24 / redis 13 verts.
-- ✅ **Ph.3 kernel/orm RETIRÉ (`5ba6bd1`)** : 3 fichiers (254 L) + chaîne morte `@entities`/`addEntity`/`loadEntity`/`EntityConstructor` + 3 méthodes Kernel (`getOrm`/`getORM`/`getOrmStrategy`) + exports `index.ts:226`. 0 réf pendante (grep). Build 19/19, core 1559/1559, mémoire HTTP 9/9, serveur boote. (`@nodefony/orm-core` = socle moderne GARDÉ.) `config.orm?:string` laissé pour Ph.4 (redesign gating).
-- ✅ **Ph.2.5 contrat CRUD durci (`220c00a`)** : audit [`docs/audits/orm-solidity-2026-06.md`](docs/audits/orm-solidity-2026-06.md). `IRepository.update`→`updateOne` (atomique RETURNING/`findOneAndUpdate`) + `updateMany` (number) ; **B2 critère strict** (`UnknownCriteriaField`, drizzle+mongoose) ; savepoint validé ; tx mongoose idempotente. Découplage ORM↔API (0 import API dans orm-core, testé).
-- ✅ **Ph.4 couplage core↔ORM FAIT (2026-06-08)** : **C2** (`58381df`) registre générique `IErrorAdapter` dans le core (`registerErrorAdapter(name, adapter)` + `findErrorAdapter`) → le core ne nomme plus aucun ORM (`registerMongooseAdapter`/`_sequelizeAdapter` supprimés, errorType `"OrmError"`). **C5** (`7ac0bac`) `wireOrmAdminPlane(kernel)` + `resolveOrmFlowEnabled(kernel)` dans orm-core → bloc data plane dupliqué (drizzle+mongoose) factorisé, 1 ligne/driver. **+ couverture ORM massivement renforcée** (`953ccc2`) : **109→160 tests** (socle orm-core Orm/monitors/Entity/errors +23, invariants avancés updateMany/savepoints/cardinalités/garde-fou m2m +14, transactions +4, Services +10) + garde-fou seuils v8 (orm-core 80,8 / drizzle 78,7 / mongoose 75,4 %).
-- **Dette C5 RÉSOLUE (Ph.4, `7ac0bac`)** : `wireOrmAdminPlane(kernel)` appelé par chaque driver (idempotent, global) — fin de la duplication du montage data plane.
-- **MikroORM (P7.8/P7.9) = abandonné** (0 code, traces docs/types seulement). → ⏭️.
-- ⭐ **Drizzle = référence** (`extends Service`, 100 % propre). **Migrations** (absentes) : déléguer `drizzle-kit` (versioned) + façade `IMigrator` Studio — hors chemin critique.
+- **Ph.1 Sequelize SUPPRIMÉ** (`716fce6`, 0 résidu) · **Ph.2 Mongoose REFAIT** (`51d9ea8`, `extends Service` + sondes Studio) · **Ph.2.5 contrat CRUD durci** (`220c00a`, `updateOne`/`updateMany` + critère strict) · **Ph.3 kernel/orm RETIRÉ du core** (`5ba6bd1`) · **Ph.4 couplage C2 `IErrorAdapter` + C5 `wireOrmAdminPlane`** (`58381df`/`7ac0bac`) · **config Zod unifiée** drizzle+mongoose+redis · **couverture 109→160 tests** + seuils v8 (`953ccc2`).
+- Audits : [`orm-state-and-hardening`](docs/audits/orm-state-and-hardening-2026-06.md) · [`orm-solidity`](docs/audits/orm-solidity-2026-06.md) · [`orm-config-pattern`](docs/audits/orm-config-pattern-2026-06.md). MikroORM abandonné (⏭️). ⭐ **Drizzle = référence** ; migrations DB = déléguer `drizzle-kit` (hors chemin critique).
+- ⚠️ **Gap restant** : 0 test E2E système (Kernel réel + HTTP + ORM Docker persistant) — cf note P7.
 
 ### 🔐 Sécurité (P6) — décisions **EN REVUE 2026-06-08** (les « figées 2026-05-20 » ont divergé — cf mémoire `project_p6_security_kit` §REVUE)
 
@@ -59,8 +52,8 @@ identité = **`IUser` racine + slot agent/service** (`kind`/`onBehalfOf`, PAS `I
 | `nodefony` (core)     | ✅   | Kit C1→C6 clos (PM2 retiré, modes run `IRunProfile`, park, ménage boot −378 ms). `project_hardening_core_kit`                                                                                                                                                                                                                                                                                                                                                                                         |
 | `@nodefony/http`      | ✅   | Kit H1→H6 + config Zod + domain matching + forwarded RFC 7239 COMPLET + banc proxy Docker E2E + **service certificates durci** (RFC 5280/6125, SHA-256, serial 128b, 0600, lazy node-forge, CLI `certificates`) + **banc TLS re-encrypt validé** (verify required/verifyhost/sni) + `proxy:generate` + **préfixe natif statique `/<module>/`** (`mountModulePublics`, configurable `publicMount`) + **`assets:publish`** (arbre CDN-ready provider-agnostic). `65f7e41`/`6ac8562`/`e735544`/`6918f89` |
 | `@nodefony/framework` | ✅   | F1→F7 (sauf F6 résolu via dette CLI) ; 176 tests unit ; 0 dette. `project_hardening_framework_kit`                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `@nodefony/realtime`  | 🔶   | **Déjà bien durci** : back-pressure WS, 0 dette, 14 tests, 5 seams sécu livrés. Reste S1 (mutualiser fan-out)                                                                                                                                                                                                                                                                                                                                                                                         |
-| `@nodefony/orm-*`     | ⬜   | **🥇 PROCHAIN** — virage ORM ✅ **audité 2026-06-08** ([`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md), plan 5 phases) : Seq sort, Mongoose refait, kernel/orm legacy retiré, couplage C2/C5 nettoyé + footgun `counts` sync                                                                                                                                                                                                                       |
+| `@nodefony/realtime`  | ✅   | **Durci** : back-pressure WS, 5 seams sécu, **167 tests verts** (+9 skipped docker) ; dettes backplane #1/#2 fixées (`c082560` — originId cross-pod + namespace canal). Reste dette #3 (frontière inter-modules, attend P6) + plan S1 (fan-out mutualisé, attend canal 100+ abonnés)                                                                                                                                                                                                                  |
+| `@nodefony/orm-*`     | ✅   | **Virage ORM Ph.1-4 CLOS 2026-06-08** (cf § Virage ORM) : Seq OUT, Mongoose refait, kernel/orm OUT, C2/C5, 160 tests + seuils v8. ⚠️ Reste : E2E système (cf note P7)                                                                                                                                                                                                                                                                                                                                 |
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.
@@ -71,37 +64,39 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 
 ---
 
-## 📊 Avancement (vérifié code · **2026-06-05** · ligne P7/ORM resync **2026-06-08**)
+## 📊 Avancement (vérifié code · **2026-06-12**)
 
-> Comptage **autorité = emoji en 1ʳᵉ cellule** de la roadmap (1 ligne = 1 tâche). `◀` = chemin critique MVP.
+> Comptage **autorité = emoji en 1ʳᵉ cellule** de la roadmap (1 ligne = 1 tâche, ⏭️ exclu). `◀` = chemin critique MVP.
 
 ```
-━━━━━━ NODEFONY · MIGRATION ━━━━━━━━━━━━━━━━━━━ vérifié code 2026-06-05 ━━━━━━
+━━━━━━ NODEFONY · MIGRATION ━━━━━━━━━━━━━━━━━━━ vérifié code 2026-06-12 ━━━━━━
  P0  Bugs bloquants        ██████████ 100%   6✅  0🔶  0⬜
  P1  Fondations symbiose   ██████████ 100%   8✅  0🔶  0⬜
  P2  Cycle de vie Context  █████████░  89%   8✅  0🔶  1⬜
- P3  Logs structurés       ███████░░░  73%   7✅  3🔶  1⬜
+ P3  Logs structurés       █████████░  85%   7✅  3🔶  0⬜
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
- P5  Session/User/ORM core ████████░░  76%  12✅  2🔶  3⬜   ◀ (P5.8 Mongoose User livré 2026-06-08 ; reste P5.14 bloqué P6 + batch/cron)
- P6  Security              █░░░░░░░░░  12%   0✅  4🔶 13⬜   ◀ bloqueur MVP (0 test = 0 tâche close)
+ P5  Session/User/ORM core ████████░░  79%  12✅  3🔶  2⬜   ◀ (reste P5.14 bloqué P6 + P5.0b batch/cron)
+ P6  Security              █░░░░░░░░░  12%   0✅  4🔶 13⬜   ◀ bloqueur MVP — 🥇 PROCHAINE (0 test = 0 tâche close)
  P7  ORM drivers           ████████░░  80%   3✅  2🔶  0⬜   (post-virage ; reste P7.5 E2E système + P7.7 redis)
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜
- P9  Polish + clôture      ████░░░░░░  38%   1✅  1🔶  2⬜
- P10 Studio (admin web)    ███████░░░  65%   5✅  7🔶  1⬜   (workspace + Jumeau, maj 2026-06-06)
- P11 CLI par module        ███░░░░░░░  33%   1✅  2🔶  3⬜
+ P9  Polish + clôture      ██████░░░░  63%   2✅  1🔶  1⬜   (P9.4 : 0 vulnérabilité npm 2026-06-12)
+ P10 Studio (admin web)    ███████░░░  68%   6✅  7🔶  1⬜   (workspace + Jumeau, maj 2026-06-06)
+ P11 CLI par module        ████░░░░░░  44%   3✅  1🔶  4⬜   (P11.6/7/8 livrés 06-07/06-09)
  P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (squelettes brainstorming, non audité)
- P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜
+ P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜   (dettes backplane #1/#2 fixées c082560 · 167 tests)
  P14 Frontend Vite + iso   ████████░░  75%  11✅  2🔶  3⬜
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
- P16 Cloud-Native (8 axes) ███░░░░░░░  26%   8✅  1🔶 24⬜
+ P16 Cloud-Native (8 axes) ███░░░░░░░  27%   9✅  0🔶 24⬜   (16.B forwarded/proxy clos 06-07)
 ────────────────────────────────────────────────────────────────────────
- GLOBAL                    █████░░░░░  53%  80✅ 31🔶 68⬜   (179 tâches · resync P5/P7 + P5.8 ; reste P1-P16 daté 2026-06-05)
+ GLOBAL                    ██████░░░░  57%  90✅ 29🔶 63⬜   (182 tâches · resync complet 2026-06-12)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 > Fondations **hors roadmap** (déjà migrées, Phases 0-4) : Build, Core/Kernel, DI, Syslog, Router, Controller, Types.
-> **Verdict audit 2026-06-05 : les chiffres sont honnêtes** (déclaré ≈ réel sur P0→P16). Les écarts sont de FORME
-> (ex-obésité) + 1 virage ORM à répercuter + refs mortes nettoyées.
+> Le durcissement transverse (cycle requête V1-V5, Container, fast path, forwarded/proxy, WS, certificats)
+> n'a **pas de lignes P dédiées** — cf § Durcissement fondations + `git log`.
+> **Verdict audit 2026-06-12 : chiffres honnêtes** ; écarts corrigés = bandeau périmé (P3/P5/P9/P10/P11/P16),
+> dettes backplane résolues non répercutées, re-obésité § Séquencement dégraissée.
 
 ---
 
@@ -133,7 +128,7 @@ unifié HTTP+WS, `logRequest` pluggable, hooks security (`beforeResolve`/`afterA
 | ✅ P2.8 | Backpressure doc + tests streaming     | `write()===false` → attend `'drain'` (Node stream) ; CL⊥TE RFC 9112 §6.1 ; tests unit       |
 | ✅ P2.9 | Body streaming (`@Body({stream})`)     | flux brut (`Readable`), parse sauté ; route-match avant parse (A/B 0 régression) ; HTTP/1+2 |
 
-### P3 — Logs structurés (68 %)
+### P3 — Logs structurés (85 %)
 
 | #        | Tâche                                    | État                                                                           |
 | -------- | ---------------------------------------- | ------------------------------------------------------------------------------ |
@@ -154,7 +149,7 @@ unifié HTTP+WS, `logRequest` pluggable, hooks security (`beforeResolve`/`afterA
 `forward` cross-module, decorators × pipeline, **concurrence 100 req** (unicité ALS), WS pipeline (7 fichiers),
 DI scopes (singleton/transient), lifecycle session.
 
-### P5 — Session + User + ORM Core (76 %) ◀ chemin critique
+### P5 — Session + User + ORM Core (79 %) ◀ chemin critique
 
 | #        | Tâche                                       | État                                                                                                                                                                                                                                                                                                                                                                    |
 | -------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -230,16 +225,16 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P8.3 | `DebugBar` (monitoring)      | `src/nodefony/src/client/debugbar/`                                 |
 | 🔶 P8.4 | `Metrics` runtime            | via Studio (canal `dashboard:stats`), pas service standalone        |
 
-### P9 — Polish + clôture (38 %)
+### P9 — Polish + clôture (63 %)
 
-| #       | Tâche                         | État                                                              |
-| ------- | ----------------------------- | ----------------------------------------------------------------- |
-| ✅ P9.1 | `@entities` decorator + tests | `kernelDecorator.ts`                                              |
-| ⬜ P9.2 | Barrels `index.ts`            | résiduel                                                          |
-| 🔶 P9.3 | README publics                | security ✓ ; **http + framework absents**                         |
-| ⬜ P9.4 | Vulnérabilités npm            | **10** (0 crit/3 high/6 mod/1 low, 2026-05-25 — à re-`npm audit`) |
+| #       | Tâche                         | État                                         |
+| ------- | ----------------------------- | -------------------------------------------- |
+| ✅ P9.1 | `@entities` decorator + tests | `kernelDecorator.ts`                         |
+| ⬜ P9.2 | Barrels `index.ts`            | résiduel                                     |
+| 🔶 P9.3 | README publics                | security ✓ ; **http + framework absents**    |
+| ✅ P9.4 | Vulnérabilités npm            | **0 vulnérabilité** (`npm audit` 2026-06-12) |
 
-### P10 — Studio admin web (65 %)
+### P10 — Studio admin web (68 %)
 
 | #         | Tâche                                       | État                                                                                                                                                                          |
 | --------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -258,7 +253,7 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P10.12 | Workspace composable (bureau)               | fenêtres libres + espaces nommés + Mission Control + catalogue à facettes (taxonomie tags) + widgets supervision (mémoire/handles/erreurs/health/gc) ; remplace dashboard Dev |
 | ✅ P10.13 | Jumeau vivant (Twin)                        | explorateur archi runtime + registre de blocs unifié + forages Realtime/ORM/HTTP                                                                                              |
 
-### P11 — CLI par module (33 %)
+### P11 — CLI par module (44 %)
 
 | #        | Tâche                                                                   | État                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | -------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -289,13 +284,11 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P13.10 | Granularité + cadence AIMD                       | différenciateur, client-driven                      |
 | ✅ P13.11 | Sonde « socket Nodefony »                        | `RealtimeHub.probe()` + endpoint health             |
 
-> **Dettes backplane multi-pod / multi-app** (à corriger en P13 — détail : [`docs/realtime/socket/08-distribue.md`](docs/realtime/socket/08-distribue.md)) :
+> **Dettes backplane multi-pod / multi-app** (détail : [`docs/realtime/socket/08-distribue.md`](docs/realtime/socket/08-distribue.md)) :
 >
-> - **#1 (moyenne)** Namespace de topic **non câblé** : `REDIS_RT_CHANNEL="nodefony:realtime"` en dur, factory de prod ne passe pas le 3e arg, schéma sans champ → **cross-talk multi-app** sur Redis/Kafka mutualisé. Fix : champ config OU dérivation auto `kernel.name`.
-> - **#2 (HAUTE)** `originId = String(process.pid)` **non unique en k8s** (namespace PID par conteneur → PID 1 fréquent) → anti-echo confond 2 pods → **fan-out cross-pod jeté silencieusement**. Fix : `POD_NAME` / `os.hostname()` / `randomUUID`.
-> - **#3 (moyenne)** Pas de **frontière dure inter-module** (hub = namespace de canaux plat ; `subscribe` sur canal déjà créé ne repasse par aucune factory → fuite cross-module « cas-2 »). **Design figé 2026-06-05** : décorateur classe `@RealtimeNamespace("chat:")` (+ override `realtimeChannelGuard()`, extension de P13.8) → garde `#channelAllowed` dans `RealtimeController.startChannel` AVANT le hub ; posture `null`+WARN (non-cassant) → `fail-closed` avec P6 ; refus = log WARNING + `notify("realtime:error")`, PAS de close. **Ferme le cas-2 SANS attendre P6** (voter P6 = ACL fine intra-module, complémentaire). L'inbound est déjà cloisonné (map per-controller). Détail : audit § Recommandations.
->
-> **À FAIRE — banc de conformité ventilation** (très important, prouve le drop-in `IBackplane` ET exerce les dettes #1/#2) : `RealtimeController` « chat » minimal dans `src/modules/test` (route WS) + suite de scénarios **paramétrée par driver** (loopback/cluster IPC/redis/kafka), comportement observable **identique**. Scénarios : broadcast à 1 / à N même process / à N sur K pods / DM à 1 personne / canal non-broadcast (ne traverse pas) / anti-echo (1× pas 2×) / RPC local-only / unsubscribe ref-counting / pod rejoint après / ordre par pair. Réutilise le harnais `clusterIpc.e2e` (P13.9) + `testcontainers` redis/kafka. Matrice + sous-cas anti-cross-talk / anti-echo collision : [`docs/audits/realtime-module-isolation-2026-06-05.md`](docs/audits/realtime-module-isolation-2026-06-05.md) § Banc de conformité.
+> - ✅ **#1 + #2 RÉSOLUES (`c082560`, 2026-06-12)** : `resolveBackplaneOriginId()` = `(POD_NAME ?? hostname):pid` (anti-écho fiable cross-pod k8s) + champ `backplane.namespace` (Zod) → canal `nodefony:realtime:<ns>` dérivé de `kernel.projectName` (fin du cross-talk multi-app Redis mutualisé). +9 tests.
+> - ⬜ **#3 (moyenne)** Frontière inter-module des canaux — design figé 2026-06-05 (`@RealtimeNamespace` + garde `#channelAllowed`, posture WARN → fail-closed avec P6). **Attend P6.** Détail : [`realtime-module-isolation`](docs/audits/realtime-module-isolation-2026-06-05.md).
+> - ⬜ **Banc de conformité ventilation** (prouve le drop-in `IBackplane`) : scénarios paramétrés par driver (loopback/IPC/redis/kafka), comportement identique. Matrice : audit isolation § Banc de conformité.
 
 ### P14 — Frontend Vite + Core isomorphe (75 %)
 
@@ -325,18 +318,18 @@ DI scopes (singleton/transient), lifecycle session.
 P15.1 `MediasoupService`/`RoomManager` · P15.2 mapping Routers↔Rooms · P15.3 `SignalController` · P15.4 `PlainTransport` Asterisk ·
 P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluster `PipeTransports` · P15.8 tests E2E. **Après P12+P13.**
 
-### P16 — Cloud-Native (26 %)
+### P16 — Cloud-Native (27 %)
 
-| Axe                        | État                                                                                                                  |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 16.A Kernel/Lifecycle      | ⬜ graceful shutdown per-process (cluster SIGTERM ✓ via 16.H)                                                         |
-| 16.B HTTP                  | 🔶 XFF lu (`remoteAddress`) ; reste `clientIp`/`scheme` + whitelist proxy ⚠️                                          |
-| 16.C Secrets               | ⬜ `ISecretProvider` (dépend P6)                                                                                      |
-| 16.D Docker                | ⬜ `Dockerfile.dev`/prod ; **compose infra Redis/Kafka/Loki/OpenSearch déjà là**                                      |
-| 16.E Skills/Tooling        | ⬜ `docker-debug`/`infra-up`                                                                                          |
-| 16.F Cleanup PM2           | ✅ F.1/F.2 (retrait code+dep) ; ⬜ F.3 (doc migration users)                                                          |
-| 16.G Docs DevOps           | ⬜ (docker-cloud-native.md existe partiellement)                                                                      |
-| 16.H Scaling multi-process | ✅ **livré en avance** (`workers` topologie, cluster -w N, sonde/worker, Studio cluster) — H.6 backplane cross-pod ⬜ |
+| Axe                        | État                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 16.A Kernel/Lifecycle      | ⬜ graceful shutdown per-process (cluster SIGTERM ✓ via 16.H)                                                            |
+| 16.B HTTP                  | ✅ chantier forwarded/proxy CLOS 2026-06-07 : RFC 7239 + XFF from-right anti-spoof + `trustProxy` gate + banc Docker E2E |
+| 16.C Secrets               | ⬜ `ISecretProvider` (dépend P6)                                                                                         |
+| 16.D Docker                | ⬜ `Dockerfile.dev`/prod ; **compose infra Redis/Kafka/Loki/OpenSearch déjà là**                                         |
+| 16.E Skills/Tooling        | ⬜ `docker-debug`/`infra-up`                                                                                             |
+| 16.F Cleanup PM2           | ✅ F.1/F.2 (retrait code+dep) ; ⬜ F.3 (doc migration users)                                                             |
+| 16.G Docs DevOps           | ⬜ (docker-cloud-native.md existe partiellement)                                                                         |
+| 16.H Scaling multi-process | ✅ **livré en avance** (`workers` topologie, cluster -w N, sonde/worker, Studio cluster) — H.6 backplane cross-pod ⬜    |
 
 ---
 
@@ -362,14 +355,15 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║  🥇  POC API SOUVERAINE   (project_api_souveraine_poc)            ║
+║  🥇  P6 SECURITY   (project_p6_security_kit — bloqueur MVP)       ║
 ╠══════════════════════════════════════════════════════════════════╣
-║  Durcissement ORM Ph.1-4 ✅ COMPLET : Seq OUT, Mongoose refait,   ║
-║  kernel/orm OUT, C2 IErrorAdapter, C5 wireOrmAdminPlane.          ║
-║  Couverture ORM 160 tests + garde-fou seuils v8.                  ║
-║  • 1 service → N surfaces (REST + WS + GraphQL) via ResourceCtrl  ║
-║  • contrat CRUD figé (Ph.2.5) → adaptateurs minces                ║
-║  PUIS → P6 Security (bloqueur MVP).                               ║
+║  Fondations DURCIES (orm/realtime/core/http/framework ✅) :       ║
+║  cycle requête V1-V5, Container, fast path, Allow 405, backplane. ║
+║  • démarrer par la REVUE 2026-06-08 (hybride BFF, IUser racine,   ║
+║    Argon2id, Passkeys/WebAuthn, Token Exchange RFC 8693)          ║
+║  • S1 fondation FAITE → câblage http-kernel + hook beforeResolve  ║
+║    + pipeline auth + tests (memory.test OBLIGATOIRE au câblage)   ║
+║  Débloque : seams realtime, RBAC audit-window, CSP, Studio sécu.  ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
