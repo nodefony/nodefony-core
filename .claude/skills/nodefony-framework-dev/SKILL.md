@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.20.0
+version: 1.20.1
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -282,8 +282,9 @@ export class MyModule extends Module {
 }
 ```
 
-- `@modules([...])` → `onPreRegister` · `@services([...])` → `onPreBoot` (erreurs **catchées**+log,
-  boot continue → vérifier `container.has("x")`) · `@entities([...])` → `onBoot`.
+- `@services([...])` → `onPreBoot` (erreurs **catchées**+log, boot continue → vérifier
+  `container.has("x")`). ⚠️ `@modules` et `@entities` N'EXISTENT PLUS (retirés — la liste des
+  modules vit dans le manifeste `config.modules` de `nodefony.config.ts`, cf chantier defineConfig).
 - Le ctor `Module` attache **toujours** 1 listener (`onBoot` → service `rollup`) même sans hook : normal.
 - `onKernelBoot` = bon endroit pour s'enregistrer comme **producteur admin** ou **storage de session**.
 
@@ -321,13 +322,14 @@ export class RoutesListCommand extends Command {
 
 - `CliKernel extends Cli` (PAS Kernel). `this.environment` est **`undefined` au constructeur** →
   conditionner dans `onKernelStart()`, jamais dans le ctor. Ne PAS rappeler `setCommandVersion()`
-  (le ctor `Cli` ajoute déjà `-v`). Built-in : Start/Dev/Build/Prod/Staging/Install/Outdated/Pm2(deprecated)/Kill.
+  (le ctor `Cli` ajoute déjà `-v`). Built-in : Start/Dev/Build/Prod/Cluster/Install/Outdated
+  (`Staging`/`Pm2`/`Kill` RETIRÉS — staging alias mort 2026-05-25, PM2 sorti C6 2026-05-29).
 
 ### CLI — exécution & commandes (vue d'ensemble)
 
 ```bash
 npx nodefony development          # DevCommand (alias `dev`) → DevSupervisor auto-restart
-npx nodefony production --no-daemon   # foreground in-process (sans PM2 — cloud-native)
+npx nodefony production           # foreground in-process (cloud-native, 0 daemon) · multi-process = `cluster -w N`
 npx nodefony build               # rollup tous workspaces · npx nodefony --help / --version
 npx nodefony <module>:<action>   # commande de module (ex. http:routes:list) — namespace obligatoire
 ```
@@ -488,7 +490,7 @@ CHAIN BREAKING : <err>` + `Trace: Promise { <rejected> … at … }` (via `Cli.l
 - **Race de shutdown = motif récurrent** : un service infra (ORM, redis…) qui se déconnecte
   sur `onTerminate` AVANT que les serveurs http/WS aient drainé → toute requête en vol qui
   retouche l'infra jette. `fireAsync("onTerminate")` est **séquentiel en ordre d'enregistrement** ;
-  un service enregistré tôt (module avant `http` dans `@modules`, handler posé au **ctor**/onPreBoot)
+  un service enregistré tôt (module avant `http` dans le manifeste `config.modules`, handler posé au **ctor**/onPreBoot)
   tourne AVANT les serveurs. Fixes : (a) **catcher** toute promesse fire-and-forget du pipeline ;
   (b) **dégrader gracieusement** quand l'infra est `!isConnected()` au lieu de jeter. Cf RETEX §11.
 - **Prouver qu'une erreur de type/tests est PRÉ-EXISTANTE** (pas ta régression) :
@@ -858,7 +860,7 @@ l'archi multi-process AVANT toute infra (c'est le mode cluster sans PM2 : cf [[p
 ## 5. ORM — Entity / Repository / Service CRUD
 
 **Archi = Repository multi-ORM (pas Active Record)** — ADR-0003. `@nodefony/orm-core` = **lib pure**
-(contrats + registres + base classes, JAMAIS un Module, jamais dans `@modules()`). Les **drivers** sont
+(contrats + registres + base classes, JAMAIS un Module, jamais dans le manifeste `config.modules`). Les **drivers** sont
 les Modules et s'auto-enregistrent dans `ormRegistry` à leur boot. **ORM par défaut = Drizzle** (SQL,
 schema-as-code) ; Mongoose = NoSQL. Un nouvel adapter → **commencer par Drizzle**.
 Contrats (core) : `IOrm` · `IEntity<S,M>` (+`IEntityRelation`) · `IRepository<T>` (+`Criteria<T>`/`FieldOperators`) · `ITransaction`.
@@ -1522,6 +1524,11 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.20.1** (2026-06-12) — **Patch resync session nettoyage skills** : `@modules`/`@entities`
+  retirés de la liste des hooks (n'existent plus — seul `@services` survit, manifeste
+  `config.modules` ailleurs) ; built-in CLI recalés sur le code (`Start/Dev/Build/Prod/Cluster/
+Install/Outdated` — Staging/Pm2/Kill fantômes retirés) ; `production --no-daemon` → flag mort,
+  remplacé par `production` + `cluster -w N` ; 2 mentions `@modules` résiduelles → manifeste.
 - **1.20.0** (2026-06-05) — **Config app → `defineConfig` (chantier config Lot 5+7).** L'app dev passe au
   descripteur `nodefony.config.ts` racine + `env.ts` (`defineEnv`) ; ajout de la section « Config de
   l'APPLICATION » + MAJ « Surcharge » (clés `module-<name>` → **`use(name, config)`** dans le manifeste

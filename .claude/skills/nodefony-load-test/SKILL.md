@@ -1,8 +1,8 @@
 ---
 name: nodefony-load-test
 description: >
-  Tests de charge / stress HTTP et WebSocket de Nodefony. Deux niveaux : suites Mocha versionnées
-  (non-régression de charge + sondes rupture derrière un flag) et scripts Node standalone pour
+  Tests de charge / stress HTTP et WebSocket de Nodefony. Deux niveaux : suites Vitest versionnées
+  (config dédiée vitest.load.config.ts — non-régression de charge + sondes rupture derrière un flag) et scripts Node standalone pour
   explorer les limites (plafond connexions WS, débit messages, RPS + percentiles). Prérequis : serveur dev UP.
   Déclencheurs : "test de charge", "stress", "benchmark", "combien de connexions",
   "jusqu'à la rupture", "RPS", "latence p99", "hammerer le serveur".
@@ -25,8 +25,8 @@ Le « vrai » filet de sécurité, committé dans `@nodefony/http`, lancé via l
   éphémères → disruptif, jamais en CI par défaut).
 
 ```bash
-bash .claude/skills/load-test/scripts/run.sh load             # WS load CI-stable
-bash .claude/skills/load-test/scripts/run.sh load --rupture   # + plafond/rupture
+bash .claude/skills/nodefony-load-test/scripts/run.sh load             # WS load CI-stable
+bash .claude/skills/nodefony-load-test/scripts/run.sh load --rupture   # + plafond/rupture
 # ou directement : cd src/packages/@nodefony/http && npm run test:load
 ```
 
@@ -56,7 +56,7 @@ Combien de sockets simultanées le process tient. Rampe par batches jusqu'au 1er
 palier incomplet (= plafond) ou `CAP`, mesure le coût heap/connexion, ferme tout.
 
 ```bash
-bash .claude/skills/load-test/scripts/run.sh ws-conn
+bash .claude/skills/nodefony-load-test/scripts/run.sh ws-conn
 CAP=4000 STEP=500 BATCH=80 run.sh ws-conn      # via wrapper, ENV inline
 ```
 
@@ -65,7 +65,7 @@ ENV : `WS_URL` `CAP`(8000) `STEP`(250) `BATCH`(50) `HOLD_MS`(0) `HEAP_URL`.
 ### Axe 2 — débit messages / broadcast (`ws-messages.mjs`)
 
 ```bash
-bash .claude/skills/load-test/scripts/run.sh ws-msg              # echo flood (paliers)
+bash .claude/skills/nodefony-load-test/scripts/run.sh ws-msg              # echo flood (paliers)
 MODE=broadcast CLIENTS=30 BURST=100 run.sh ws-msg               # fan-out N clients
 ```
 
@@ -76,7 +76,7 @@ ENV : `MODE`(echo|broadcast) `HOST` `WS_URL` `BURSTS`(CSV) `CLIENTS`(20) `BURST`
 RPS + latence p50/p90/p95/p99/max + distribution des codes, Agent keep-alive.
 
 ```bash
-bash .claude/skills/load-test/scripts/run.sh http
+bash .claude/skills/nodefony-load-test/scripts/run.sh http
 N=5000 C=100 URL=https://127.0.0.1:5152/nodefony/test/index run.sh http
 METHOD=POST BODY='{"x":1}' URL=https://127.0.0.1:5152/nodefony/test/... run.sh http
 ```
@@ -235,6 +235,16 @@ spawn mono `production` **detached** (`NODE_ENV=production` + `NF_LOG_DRIVER=nul
 attend le boot → 3× `wrk` → **médiane** → arrêt gracieux. Toggles A/B = env vars passées au
 serveur (`KEY=VAL`), à lire **1× au boot** côté code (jamais `process.env` dans le hot path).
 
+**Diff STRUCTUREL sans toggle env** (RETEX 06-11) : flipper par
+`git stash push -- <fichiers du diff>` / `git stash pop` — ⚠️ **le dist ne suit PAS le stash** →
+rebuild du package après CHAQUE flip (new→stash→rebuild→old→pop→rebuild→new2…), et une dernière
+fois après le pop final, sinon on benche l'autre code. **Verdict honnête = 3 issues** : gain net
+(2 paires disjointes, > bruit ±5 %), structurel-gardé-en-le-disant (médiane positive MAIS
+chevauchement → écrire « RPS bruit » dans le commit), ou rejet. Un levier profilé ~2 % est
+INDISTINGUABLE du bruit machine → prévoir d'emblée l'argument structurel (Pdu/GC/closures).
+Pour tout poste O(N) (scan routes…) : mesurer AUSSI un cas défavorable (fin de table) — un profil
+mono-route position-dépendante ment (vécu : « 0,9 % » → +15,3 % NET une fois indexé).
+
 🚨 **Pré-requis banc** (sinon mesures fausses — vécu) :
 
 - **Module test en prod** : la route de réf `/nodefony/test/als-test/state` (session-free, 0 ORM)
@@ -278,7 +288,7 @@ l'index de routes. ⚠️ Fenêtre : re-bencher une cible en fin de série (dér
   la RAM ; en réseau réel (IP clientes distinctes) ça remonte. Cleanup propre, 0 leak.
   ⚠️ **Sous-batcher l'ouverture** (`BATCH=50`) pour lire ce plafond : ouvrir des centaines de
   connects d'un coup échoue côté CLIENT (TLS loopback dual-stack) et **sous-estime** (mesuré
-  4741 sans sous-batch vs 16372 avec). Le script `ws-connections.mjs` ET la sonde mocha
+  4741 sans sous-batch vs 16372 avec). Le script `ws-connections.mjs` ET la sonde vitest
   `RUPTURE` le font ; lever `WS_RUPTURE_CAP=20000` pour que la sonde atteigne le vrai plafond.
 - **Messages** : echo 1 conn ~7 200 msg/s ; broadcast fan-out propre jusqu'à ~**40k msg/s**,
   sature vers ~**120k msg/s** (le serveur bufferise, ne crash pas).
@@ -301,9 +311,9 @@ ORM_STEP=4` (≈ 4000 WS + counts qui wedgent la boucle), mesuré **CPU 100 %, E
 - **Toujours fermer/tracker les sockets** : un bench qui throw laisse des sockets ouvertes
   qui faussent la mesure suivante (et, en test, polluent la baseline scopes serveur).
 - **Release de scope serveur lague le `close` client** → mesurer la propreté par **poll**
-  de `/nodefony/test/als-test/scopes`, pas un `sleep` fixe (cf suites mocha).
+  de `/nodefony/test/als-test/scopes`, pas un `sleep` fixe (cf suites `tests/load/`).
 - **TLS auto-signé** : `rejectUnauthorized:false` partout (déjà dans les scripts).
-- **Sondes rupture mocha** : gated `RUN_WS_RUPTURE=1` + `WS_RUPTURE_CAP` — ne PAS les
+- **Sondes rupture vitest** : gated `RUN_WS_RUPTURE=1` + `WS_RUPTURE_CAP` — ne PAS les
   activer en CI (disruptif pour la machine hôte).
 - Routes test utilisées : `/nodefony/test/ws/echo`, `/nodefony/test/ws/broadcast`,
   `/nodefony/test/memory` (heap), `/nodefony/test/als-test/scopes` (leaks). Fournies par
