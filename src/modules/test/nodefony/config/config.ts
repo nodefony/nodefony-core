@@ -19,14 +19,25 @@ export default {
   // validation Zod du firewall). Le module test étant `policy: "dev"`, la zone
   // disparaît d'elle-même en production — pas besoin de `ctx.isDev`.
   "module-security": {
+    // P6 J3 — pont config.encoders : consommé par le firewall au boot
+    // (`container.set("passwordEncoder", ...)`) puis par le UserService du banc
+    // (index.ts). 1re entrée = principal (argon2id), suivantes = legacy lecture
+    // seule (bcrypt) → les comptes du banc naissent en bcrypt et migrent au
+    // 1er login (même chaîne que J2, désormais PILOTÉE PAR LA CONFIG).
+    encoders: {
+      default: { type: "argon2id" },
+      legacy: { type: "bcrypt", rounds: 10 },
+    },
     areas: {
       // dossier = préfixe = nom de zone : capture les routes de `secure/`.
-      // Sans `Authorization: Basic` valide → 401 + WWW-Authenticate (RFC 7235).
+      // mode "first" : session BFF (cookie, J3) OU Basic (RFC 7617) — la
+      // session est tentée d'abord (cookie repris AVANT le firewall) ; sans
+      // preuve → 401 + WWW-Authenticate (RFC 7235, challenge Basic).
       "test-secure": {
         pattern: "^/nodefony/test/secure",
-        authenticators: ["userpassword"],
+        authenticators: ["session", "userpassword"],
         // défauts : security: true (Zero Trust), mode: "first",
-        // stateless: false (la session BFF n'arrive qu'au login, J3).
+        // stateless: false (session BFF).
       },
     },
   },

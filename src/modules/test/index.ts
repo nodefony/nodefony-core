@@ -30,12 +30,8 @@ import {
   InMemoryUserRepository,
   SECURE_TEST_USERS,
 } from "./nodefony/secure/InMemoryUserRepository";
-import {
-  UserService,
-  BcryptEncoder,
-  Argon2idEncoder,
-  MigratingEncoder,
-} from "@nodefony/user";
+import { UserService } from "@nodefony/user";
+import type { IPasswordEncoder } from "@nodefony/user";
 import { controllers } from "@nodefony/framework";
 // Commandes CLI de démo — bancs pour les 3 modes de boot (server/batch/daemon) et le
 // dispatch d'une commande de module (namespace `test:<action>`).
@@ -88,15 +84,20 @@ class Test extends Module {
     // l'annuaire in-memory, posé sous "users" dans le container PARTAGÉ du
     // kernel. Le UserPasswordAuthenticator (zone "test-secure") le résout au
     // premier login — pas au boot (zéro coût si aucune requête protégée).
-    // P6 J2 — MigratingEncoder : les comptes du banc naissent en bcrypt
-    // (InMemoryUserRepository), le PREMIER login réussi les migre en argon2id
-    // (re-hash transparent). In-memory → rejouable à chaque restart.
+    // P6 J3 — la chaîne d'encodeurs vient du PONT config.encoders (section
+    // `module-security` de la config du banc → firewall → container) : même
+    // migration bcrypt→argon2id qu'à J2, désormais pilotée par la config.
+    // AUCUN fallback : un boot cassé ici = pont cassé (c'est la preuve).
+    const encoder = this.container?.get<IPasswordEncoder>("passwordEncoder");
+    if (!encoder) {
+      throw new Error(
+        `banc test-secure: pont config.encoders absent — le firewall n'a pas ` +
+          `posé "passwordEncoder" au container (section encoders non consommée ?)`,
+      );
+    }
     this.container?.set(
       "users",
-      new UserService(
-        new InMemoryUserRepository(SECURE_TEST_USERS),
-        new MigratingEncoder(new Argon2idEncoder(), [new BcryptEncoder()]),
-      ),
+      new UserService(new InMemoryUserRepository(SECURE_TEST_USERS), encoder),
     );
     // Démo Log Backplane — 2ᵉ driver de relecture `console` (DEV uniquement) pour
     // exercer le SWITCH dev-only depuis la page Logs. `query:false` → non
