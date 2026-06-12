@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-12T19:40:30.986Z",
+  "generated": "2026-06-12T20:42:11.159Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 855,
-    "symbols": 1773,
+    "files": 856,
+    "symbols": 1776,
     "classes": 255,
-    "interfaces": 443,
+    "interfaces": 444,
     "types": 228,
     "enums": 3,
-    "functions": 356,
+    "functions": 358,
     "constants": 488
   },
   "symbols": {
@@ -12607,6 +12607,23 @@
       "decorators": [],
       "description": "Encodeur de mot de passe **bcrypt** — implémentation de référence d'{@link IPasswordEncoder}. Délègue à `@node-rs/bcrypt` (binding NAPI Rust) : hachage/vérification réellement asynchrones (exécutés…"
     },
+    "IEncoderSpec": {
+      "name": "IEncoderSpec",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Spécification déclarative d'UN encodeur de mot de passe — miroir structurel de la section `encoders` du schéma Zod de `@nodefony/security` (qui valide bornes et défauts), SANS en dépendre : ce modu…"
+    },
+    "encoderFromConfig": {
+      "name": "encoderFromConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Traduit une liste ORDONNÉE de specs d'encodeurs en encodeur exécutable — le pont entre la section `encoders` de la config sécurité et le {@link UserService}. Sémantique de l'ordre : la **première**…"
+    },
     "MigratingEncoder": {
       "name": "MigratingEncoder",
       "kind": "class",
@@ -13962,13 +13979,16 @@
         "src/modules/test/nodefony/secure/SecureController.ts"
       ],
       "BcryptEncoder": [
-        "src/modules/test/index.ts"
+        "src/modules/test/index.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
       ],
       "Argon2idEncoder": [
-        "src/modules/test/index.ts"
+        "src/modules/test/index.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
       ],
       "MigratingEncoder": [
-        "src/modules/test/index.ts"
+        "src/modules/test/index.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
       ],
       "registerDolibarrEntities": [
         "src/modules/test/index.ts"
@@ -16523,6 +16543,7 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/encoders/Argon2idEncoder.ts",
         "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts",
         "src/packages/@nodefony/user/nodefony/src/encoders/MigratingEncoder.ts"
       ],
       "IPasswordVerifier": [

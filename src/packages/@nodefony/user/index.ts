@@ -42,6 +42,8 @@ export { BcryptEncoder } from "./nodefony/src/encoders/BcryptEncoder";
 export { Argon2idEncoder } from "./nodefony/src/encoders/Argon2idEncoder";
 export type { Argon2idOptions } from "./nodefony/src/encoders/Argon2idEncoder";
 export { MigratingEncoder } from "./nodefony/src/encoders/MigratingEncoder";
+export { encoderFromConfig } from "./nodefony/src/encoders/encoderFromConfig";
+export type { IEncoderSpec } from "./nodefony/src/encoders/encoderFromConfig";
 
 // ─── Service (P5.6) ──────────────────────────────────────────────────────────
 export { UserService } from "./nodefony/service/UserService";
