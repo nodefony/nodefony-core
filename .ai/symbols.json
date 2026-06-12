@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-12T14:42:42.745Z",
+  "generated": "2026-06-12T15:42:34.591Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 842,
-    "symbols": 1748,
-    "classes": 245,
-    "interfaces": 435,
-    "types": 225,
+    "files": 849,
+    "symbols": 1763,
+    "classes": 250,
+    "interfaces": 439,
+    "types": 227,
     "enums": 3,
-    "functions": 353,
-    "constants": 487
+    "functions": 356,
+    "constants": 488
   },
   "symbols": {
     "Cli": {
@@ -397,7 +397,7 @@
       "decorators": [
         "services"
       ],
-      "description": "`@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6). HTTP **full stateless** (JWT cookie), pattern **`IAuthenticator`** (Symfony 6), **Zero Trust** par défaut, config type-safe…"
+      "description": "`@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6). Identité **hybride** : session serveur cookie opaque (BFF) par défaut web/Studio, JWT réservé API/M2M/agents. Pattern **`IA…"
     },
     "Studio": {
       "name": "Studio",
@@ -3994,6 +3994,40 @@
         "controller"
       ],
       "description": "POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE (mais valide la BRIQUE). Le **pont WS-RPC `invoke`** : une socket connectée ici reçoit des messages `{ id, path }` et le serveur RE-ROUTE le p…"
+    },
+    "InMemoryUserRepository": {
+      "name": "InMemoryUserRepository",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": null,
+      "implements": [
+        "IUserRepository"
+      ],
+      "decorators": [],
+      "description": "Annuaire d'utilisateurs **en mémoire** — fixture du banc sécurité. Implémente le contrat {@link IUserRepository} complet sur une `Map` (aucun ORM) : branché sous `UserService` pour fournir la sourc…"
+    },
+    "SECURE_TEST_USERS": {
+      "name": "SECURE_TEST_USERS",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Utilisateurs du banc sécurité (zone `test-secure`) — DEV UNIQUEMENT (le module test est `policy: \"dev\"`, jamais chargé en production). Mot de passe des deux comptes : `secret` (hashs bcrypt coût 12…"
+    },
+    "SecureController": {
+      "name": "SecureController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/secure/SecureController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Banc d'intégration de la ZONE PROTÉGÉE `test-secure` (P6 J1). Politique de routes EXPLICITE : tout `/nodefony/test/secure/*` est capturé par la zone firewall `test-secure` (`nodefony.config.ts`, au…"
     },
     "AngularController": {
       "name": "AngularController",
@@ -7927,6 +7961,15 @@
       "extends": null,
       "description": "Contrat d'un encodeur de mot de passe — abstraction de l'algorithme de hachage. Implémenté par `BcryptEncoder` (P5.6, rounds: 12 par défaut), interchangeable (argon2, scrypt...) sans toucher au res…"
     },
+    "IPasswordVerifier": {
+      "name": "IPasswordVerifier",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IPasswordVerifier.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Contrat de **vérification d'un credential mot de passe** — le guichet auquel `@nodefony/security` présente un couple identifiant/mot de passe et qui répond par un verdict, jamais par un hash. Compl…"
+    },
     "ISocialProvider": {
       "name": "ISocialProvider",
       "kind": "interface",
@@ -7991,7 +8034,8 @@
       "module": "@nodefony/user",
       "extends": "AbstractCrudService",
       "implements": [
-        "IUserProvider"
+        "IUserProvider",
+        "IPasswordVerifier"
       ],
       "decorators": [],
       "description": "Service applicatif **utilisateur** — CRUD haché + authentification + events de cycle de vie. Spécialisation d'{@link AbstractCrudService} sur l'entité utilisateur : hérite du CRUD générique (`find`…"
@@ -12384,6 +12428,73 @@
       "exported": true,
       "module": "@nodefony/realtime"
     },
+    "AnonymousAuthenticator": {
+      "name": "AnonymousAuthenticator",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IAuthenticator"
+      ],
+      "decorators": [],
+      "description": "Acceptation EXPLICITE de l'anonymat dans une zone — le seul authenticator autorisé à produire un token non authentifié sans déclencher le Zero Trust. Ne le lister que volontairement : une zone `aut…"
+    },
+    "IAuthenticatorFactoryContext": {
+      "name": "IAuthenticatorFactoryContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Registre de **fabriques d'authenticators** — résout les noms listés dans `areas.<zone>.authenticators` vers des instances, SANS que le firewall connaisse le moindre nom en dur. Pourquoi : `IAuthent…"
+    },
+    "AuthenticatorFactory": {
+      "name": "AuthenticatorFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un authenticator pour un nom donné."
+    },
+    "registerAuthenticatorFactory": {
+      "name": "registerAuthenticatorFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Enregistre (ou remplace) la fabrique d'un authenticator. Appelé par les builtins au chargement du module, et par les plugins pour les leurs (LDAP, SSO maison...)."
+    },
+    "getAuthenticatorFactory": {
+      "name": "getAuthenticatorFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un authenticator par nom, ou `undefined` si inconnu."
+    },
+    "listAuthenticatorFactories": {
+      "name": "listAuthenticatorFactories",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
+    },
+    "UserPasswordAuthenticator": {
+      "name": "UserPasswordAuthenticator",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IAuthenticator"
+      ],
+      "decorators": [],
+      "description": "Authentification par identifiant + mot de passe — schéma **HTTP Basic** (RFC 7617) : `Authorization: Basic base64(identifiant:motdepasse)`, charset UTF-8, split au PREMIER `:` (le mot de passe peut…"
+    },
     "AnonymousToken": {
       "name": "AnonymousToken",
       "kind": "class",
@@ -12396,6 +12507,19 @@
       ],
       "decorators": [],
       "description": "Token du visiteur non authentifié — Zero Trust : un visiteur EST un utilisateur anonyme (jamais `null`). Porte le singleton gelé `anonymousUser` → **zéro allocation d'utilisateur** par requête non …"
+    },
+    "UserToken": {
+      "name": "UserToken",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IToken"
+      ],
+      "decorators": [],
+      "description": "Jeton porteur d'un utilisateur réel — produit par les authenticators à credential (`userpassword`, puis `session`/`jwt`...). Cycle en deux états, UN SEUL objet alloué par tentative (cold path login…"
     },
     "BcryptEncoder": {
       "name": "BcryptEncoder",
@@ -12824,6 +12948,7 @@
         "WebsocketController",
         "PocBookController",
         "PocInvokeController",
+        "SecureController",
         "AngularController",
         "PocController",
         "VueController",
@@ -12991,6 +13116,7 @@
         "SyslogTransport"
       ],
       "IUserRepository": [
+        "InMemoryUserRepository",
         "DrizzleUserRepository",
         "MongooseUserRepository"
       ],
@@ -13061,6 +13187,9 @@
       "IUserProvider": [
         "UserService"
       ],
+      "IPasswordVerifier": [
+        "UserService"
+      ],
       "IUser": [
         "AnonymousUser"
       ],
@@ -13102,8 +13231,13 @@
       "IRealtimeConnProbe": [
         "WsConnectionTransport"
       ],
+      "IAuthenticator": [
+        "AnonymousAuthenticator",
+        "UserPasswordAuthenticator"
+      ],
       "IToken": [
-        "AnonymousToken"
+        "AnonymousToken",
+        "UserToken"
       ],
       "IPasswordEncoder": [
         "BcryptEncoder"
@@ -13157,6 +13291,7 @@
         "PocBookController",
         "PocBookResourceController",
         "PocInvokeController",
+        "SecureController",
         "AngularController",
         "PocController",
         "VueController",
@@ -13296,6 +13431,7 @@
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "FileClass": [
@@ -13722,6 +13858,21 @@
       "PocBookResourceController": [
         "src/modules/test/index.ts"
       ],
+      "SecureController": [
+        "src/modules/test/index.ts"
+      ],
+      "InMemoryUserRepository": [
+        "src/modules/test/index.ts"
+      ],
+      "SECURE_TEST_USERS": [
+        "src/modules/test/index.ts"
+      ],
+      "UserService": [
+        "src/modules/test/index.ts"
+      ],
+      "BcryptEncoder": [
+        "src/modules/test/index.ts"
+      ],
       "registerDolibarrEntities": [
         "src/modules/test/index.ts"
       ],
@@ -13826,6 +13977,7 @@
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test/nodefony/poc/PocBookController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -13912,6 +14064,7 @@
         "src/modules/test/nodefony/poc/PocBookController.ts",
         "src/modules/test/nodefony/poc/PocBookResourceController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -15110,6 +15263,7 @@
       "RequestContext": [
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
@@ -15130,6 +15284,7 @@
       ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
@@ -15147,7 +15302,9 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "IHttpRequest": [
         "src/modules/test/nodefony/controller/DecoratorController.ts"
@@ -15197,6 +15354,61 @@
       ],
       "PocBook": [
         "src/modules/test/nodefony/poc/PocBookResourceController.ts"
+      ],
+      "BaseUser": [
+        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
+      ],
+      "IBaseUserOptions": [
+        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts"
+      ],
+      "IPasswordAuthenticatedUser": [
+        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
+      ],
+      "IUserRepository": [
+        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "Criteria": [
+        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "ITransaction": [
+        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts"
+      ],
+      "IUser": [
+        "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IPasswordVerifier.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
@@ -15315,14 +15527,6 @@
       "IDrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
-      "Criteria": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -15337,41 +15541,12 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
-      "ITransaction": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts"
-      ],
       "RepositoryReadOptions": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
-      "BaseUser": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
-      ],
-      "IPasswordAuthenticatedUser": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
-      ],
-      "IUserRepository": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "DrizzleDb": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -16146,29 +16321,29 @@
         "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts"
       ],
       "defineSecurityConfig": [
-        "src/packages/@nodefony/security/nodefony/config/config.ts"
+        "src/packages/@nodefony/security/nodefony/config/config.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "IToken": [
         "src/packages/@nodefony/security/nodefony/contracts/IAccessVoter.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts"
+        "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
       ],
       "IAuthenticator": [
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "ISecuredArea": [
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
-      ],
-      "IUser": [
-        "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts"
       ],
       "SecuredArea": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -16177,17 +16352,24 @@
       "RoleHierarchyWalker": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
-      "AnonymousToken": [
+      "AuthenticationError": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
+      ],
+      "ISecurityConfig": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+      ],
+      "getAuthenticatorFactory": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
-      "AuthenticationError": [
+      "listAuthenticatorFactories": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "IFirewall": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "ISecurityAreaConfig": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
       ],
       "readStatsSnapshot": [
@@ -16234,6 +16416,11 @@
       "IPasswordEncoder": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts"
+      ],
+      "IPasswordVerifier": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "IUserProvider": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
@@ -17739,8 +17926,21 @@
       "OriginGuard": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
+      "AnonymousToken": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts"
+      ],
+      "AnonymousAuthenticator": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+      ],
+      "UserPasswordAuthenticator": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+      ],
+      "UserToken": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
+      ],
       "anonymousUser": [
-        "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts"
+        "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
       ],
       "sanitizeRequestId": [
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",

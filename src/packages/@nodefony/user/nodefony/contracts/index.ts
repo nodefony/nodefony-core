@@ -6,6 +6,7 @@ export type {
   ISocialProvider,
 } from "./IUser";
 export type { IPasswordEncoder } from "./IPasswordEncoder";
+export type { IPasswordVerifier } from "./IPasswordVerifier";
 export type { IUserProvider } from "./IUserProvider";
 export type { IUserRepository } from "./IUserRepository";
 

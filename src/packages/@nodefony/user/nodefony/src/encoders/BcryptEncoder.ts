@@ -1,5 +1,14 @@
-import { hash as bcryptHash, verify as bcryptVerify } from "@node-rs/bcrypt";
 import type { IPasswordEncoder } from "../../contracts/IPasswordEncoder";
+
+// Binding natif chargé PARESSEUSEMENT au premier hash/verify (import dynamique,
+// caché ensuite) : `@node-rs/bcrypt` est une peerDependency OPTIONNELLE — un
+// import statique le chargerait à l'évaluation du barrel `@nodefony/user` (donc
+// à CHAQUE boot consommant le module, ou crash si non installée). `needsRehash`
+// reste 100 % sync (parse regex, jamais besoin du natif).
+type BcryptBinding = typeof import("@node-rs/bcrypt");
+let bcrypt: BcryptBinding | null = null;
+const loadBcrypt = async (): Promise<BcryptBinding> =>
+  (bcrypt ??= await import("@node-rs/bcrypt"));
 
 /** Coût bcrypt par défaut — 2^12 itérations (recommandation OWASP courante). */
 const DEFAULT_ROUNDS = 12;
@@ -18,9 +27,10 @@ const BCRYPT_HASH_RE = /^\$2[aby]\$(\d{2})\$/;
  * la tirent ; un consommateur qui n'importe que `IUser`/`BaseUser` ne charge jamais
  * ce module ni le binaire natif.
  *
- * @remarks `verify` délègue directement la promesse (aucun `async`/`await`
- * superflu). Le coût est paramétrable au constructeur pour permettre un re-hash
- * progressif via {@link BcryptEncoder.needsRehash}.
+ * @remarks Le binding natif est importé DYNAMIQUEMENT au premier `hash`/`verify`
+ * (instancier l'encodeur ne charge rien — la peerDep optionnelle n'est requise
+ * qu'au premier usage réel). Le coût est paramétrable au constructeur pour
+ * permettre un re-hash progressif via {@link BcryptEncoder.needsRehash}.
  */
 export class BcryptEncoder implements IPasswordEncoder {
   /** Coût bcrypt utilisé pour produire les nouveaux hashs. */
@@ -45,8 +55,8 @@ export class BcryptEncoder implements IPasswordEncoder {
    * @param plain - mot de passe en clair.
    * @returns le hash bcrypt à persister.
    */
-  hash(plain: string): Promise<string> {
-    return bcryptHash(plain, this.rounds);
+  async hash(plain: string): Promise<string> {
+    return (await loadBcrypt()).hash(plain, this.rounds);
   }
 
   /**
@@ -56,8 +66,8 @@ export class BcryptEncoder implements IPasswordEncoder {
    * @param hash - hash bcrypt stocké.
    * @returns `true` si la correspondance est valide.
    */
-  verify(plain: string, hash: string): Promise<boolean> {
-    return bcryptVerify(plain, hash);
+  async verify(plain: string, hash: string): Promise<boolean> {
+    return (await loadBcrypt()).verify(plain, hash);
   }
 
   /**

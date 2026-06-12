@@ -2,6 +2,7 @@ import { AbstractCrudService } from "@nodefony/orm-core";
 import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
 import type { IUser, IPasswordAuthenticatedUser } from "../contracts/IUser";
 import type { IPasswordEncoder } from "../contracts/IPasswordEncoder";
+import type { IPasswordVerifier } from "../contracts/IPasswordVerifier";
 import type { IUserProvider } from "../contracts/IUserProvider";
 import type { IUserRepository } from "../contracts/IUserRepository";
 import { UserNotFoundError } from "../errors/UserNotFoundError";
@@ -51,7 +52,7 @@ const DUMMY_PLAINTEXT = "nodefony.dummy.timing.guard";
  */
 export class UserService
   extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>
-  implements IUserProvider
+  implements IUserProvider, IPasswordVerifier
 {
   protected readonly encoder: IPasswordEncoder;
 

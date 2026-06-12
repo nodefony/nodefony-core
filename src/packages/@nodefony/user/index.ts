@@ -22,6 +22,7 @@ export type {
   IPasswordAuthenticatedUser,
   ISocialProvider,
   IPasswordEncoder,
+  IPasswordVerifier,
   IUserProvider,
   IUserRepository,
 } from "./nodefony/contracts/index";
