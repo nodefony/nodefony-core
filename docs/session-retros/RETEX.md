@@ -18,75 +18,44 @@
 
 ## 🏎️ Perf / bancs A/B
 
-- `[1× — 2026-06-11]` **Un profil MONO-ROUTE ment sur le coût d'un scan linéaire (position-dépendant)** :
-  « scan routing = 0,9 % » mesurait la route #31 d'une table de 186 → la table dev réelle (222 routes,
-  route bench pos 134) payait ~4× plus. L'index « gain borné, structurel probable » a rendu **+15,3 % NET**
-  (et +24,9 % sur littérale pos 151). → pour tout poste O(N) : mesurer AUSSI un cas défavorable (fin de
-  table) avant de classer le levier ; ne pas généraliser un % profilé sur UNE position.
+> ♻️ CONSOLIDATE 2026-06-12 : les patterns A/B (mono-route ment / verdict 3 issues / stash+rebuild
+> par flip / banc concurrent bench-frameworks) sont **gravés dans `nodefony-load-test` SKILL.md**
+> (niveau 3) — retirés d'ici (anti-doublon). Restent les leçons non couvertes :
+
 - `[1× — 2026-06-11]` **Optimiser en RÉDUISANT l'ensemble scanné, sans toucher la logique de match** :
   l'index de routes ne court-circuite jamais `resolver.match()` (merge ordonné par position, skip des
   seules candidates qui ne POUVAIENT pas matcher) → sémantique préservée par construction, banc 25
   invariants vert du 1ᵉʳ coup, 0 itération de débogage. Pattern : prouver « skip inobservable » (pas
   d'effet de bord avant hit) plutôt que réécrire la sémantique dans la structure d'index.
-- `[2× — 2026-06-11]` **Verdict A/B honnête = 3 issues possibles** : gain net (T1 +10,8 %, 2 paires disjointes),
-  structurel-gardé-en-le-disant (T2/T3/T4 : médiane +1,5-5 % MAIS chevauchement → « RPS bruit » dans le commit),
-  ou rejet. Un levier profilé ~1,7-2,6 % est INDISTINGUABLE du bruit ±5 % machine → prévoir d'emblée
-  l'argument structurel (Pdu/GC/closures) sinon paire 3 + re-profil pour rien. (T4 : +1,8 % méd.,
-  min(new)>max(old) mais < ±5 % → structurel assumé, pattern confirmé 2 sessions de suite.)
-- `[1× — 2026-06-11]` **A/B d'un diff STRUCTUREL (sans toggle env) = `git stash push -- <fichiers du diff>`** +
-  rebuild du package entre chaque flip (new→stash→old→pop→new2→stash→old2→pop). Marche bien ; le dist ne
-  suit PAS le stash → rebuild après CHAQUE flip + une dernière fois après le pop final, sinon on benche l'autre code.
 - `[1× — 2026-06-11]` **« 1× par socket » naïf = piège keep-alive** : node RÉ-ARME socket.setTimeout aux
   transitions keep-alive (server.timeout 120 s ↔ keepAliveTimeout 5 s) → tout état posé « une fois par socket »
   peut être écrasé dès la requête 2. Toujours re-vérifier la valeur par requête (check conditionnel cheap).
-- `[1× — 2026-06-11]` **Comparer à conditions égales révèle plus que profiler** : Express scanne linéairement
-  AUSSI et double Nodefony → le routing était hors de cause AVANT d'ouvrir le profil. Le banc concurrent
-  (sandbox bench-frameworks/) est réutilisable après chaque vague.
 
 ## 🐚 Shell / environnement d'exécution
 
-- `[1× — 2026-06-11]` **ENOSPC FANTÔME du harness Bash** (« temp filesystem full (0MB free) » sur la capture
-  stdout) alors que le disque a 3 To libres — intermittent, corrélé aux `grep` multi-fichiers ; `df`/`ls`
-  passaient. → contournement fiable : **rediriger l'output vers un fichier + le lire avec `Read`**
-  (`grep … > /tmp/x.txt 2>&1; echo ok`). Ne PAS relancer 3 variantes de la même commande qui échoue pareil.
+> ♻️ CONSOLIDATE 2026-06-12 : **gradués/couverts, retirés d'ici** — `Edit` exige `Read` (4×) →
+> [[feedback_edit_requires_read_tool]] · cwd persiste / `cd X && cmd1 ; cmd2` (5×+) →
+> [[feedback_cd_startsh_relative_path]] enrichie · ENOSPC fantôme + shell instable sous charge →
+> skill `nodefony-debug` recette F.
+
 - `[1× — 2026-06-11]` **`replace_all` peut réécrire le corps de la méthode qu'on vient d'INTRODUIRE** : T4c,
   extrait `fireRequestEnd()` contenant `return this.context.fireAsync("onRequestEnd", this)` PUIS `replace_all`
   de ce même appel vers `this.fireRequestEnd()` → la méthode s'appelle elle-même = récursion infinie (Maximum
   call stack au 1er hit). Attrapé par le HEALTH check du start.sh (500). → quand on extrait une méthode puis
   qu'on `replace_all` les call sites, EXCLURE la nouvelle méthode (ordre inverse : replace_all D'ABORD, extraire
   ENSUITE — ou re-vérifier son corps après).
-- `[4× — 2026-06-12]` **`Edit` exige un `Read` (l'OUTIL) préalable — lire via `sed`/`cat` Bash ne compte PAS** :
-  re-frappé V4 (`routerDecorators.ts`), 3e fois (`RedisBackplane.test.ts`), 4e fois session nettoyage
-  (`project_hardening_before_p6.md` lu au `sed` → Edit refusé). → pour un fichier qu'on va MODIFIER :
-  `Read` directement (même partiel) ; `sed`/`grep` Bash = consultation pure UNIQUEMENT.
-  **≥3× → à graduer en `feedback_*` au prochain CONSOLIDATE.**
 - `[1× — 2026-06-10]` **client/preuve WS standalone = `WebSocket` GLOBAL natif (Node ≥ 22), PAS le package `ws`** :
   `import WebSocket from "ws"` depuis un `.mjs` sous `src/modules/*/nodefony/poc/` → `ERR_MODULE_NOT_FOUND` (ws
   non résolvable à cette profondeur). Le global natif marche sans dép — **API WHATWG** : `ws.addEventListener("message",
-e => JSON.parse(e.data))` (string), `.send()`, PAS `.on()`. + `cd <module> && bash .claude/skills/.../start.sh` casse
-  le chemin RELATIF du script (cwd persiste) → `cd <racine>` AVANT tout script skill (cf [[feedback_cd_startsh_relative_path]]).
-- **Shell Bash instable sous charge** `[1× — 2026-05-31]` : quand le serveur dev + 4 Vite tournent,
-  le Bash renvoie des **sorties dupliquées ×2-3, vides, ou annule les appels parallèles en cascade**.
-  → **1 commande Bash à la fois** (pas de parallèle), **`Read` plutôt que `cat`/`sed`/`tr`** pour lire
-  un fichier, et si ça délire : arrêter de relancer 5 variantes (toutes annulées si une échoue).
-  Suspect : machine saturée. Confirmer 1× de plus avant de graduer.
+e => JSON.parse(e.data))` (string), `.send()`, PAS `.on()`.
 - `[1× — 2026-06-06]` **daemon `claude daemon run --origin transient` zombie à ~96 % CPU pendant ~11 h** (le user
   en voyait 4) : un daemon claude détaché peut rester hung et saturer le CPU. → `ps -Ao pid,%cpu,etime,command | grep
 claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung (`kill <pid>`) — ne pas tuer un
   process claude depuis la session active. Le serveur dev (nodefony+vite) à 0 % CPU n'était PAS le coupable.
-- `[1× — 2026-06-07]` **le cwd PERSISTE entre appels Bash après un `npm run`/`cd <module>`** : après `cd
-src/packages/@nodefony/http` (implicite via les `npm run build/test`), un `git add src/packages/@nodefony/http/...`
-  depuis ce cwd cherche `…/http/src/packages/@nodefony/http/…` → `pathspec did not match`. → soit chemins
-  **relatifs au cwd courant** (`git add nodefony/src/...`), soit `git -C <racine>`. Variante de
-  [[feedback_cd_startsh_relative_path]] (ici = persistance du cwd, pas un `cd` inline).
 - `[1× — 2026-06-08]` **tmpfs du harness sature (ENOSPC) ≠ disque plein** : rediriger les gros logs (build turbo ~1m24, suites
   vitest 7000+ lignes) vers `/tmp/x.log` remplit le **filesystem temp dédié du harness** (`/private/tmp/claude-*/.../tasks`,
   petit quota) alors que `df` du disque montre 3 To libres → les Bash suivants échouent « ENOSPC ». → rediriger vers `/dev/null`
   - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
-- `[5× — 2026-06-11]` **`cd X && cmd1 ; cmd2` → `cmd2` tourne dans X, pas dans Y** (re-frappé V4 : `cd framework && build && git add src/packages/...` → pathspec did not match, chemin doublé ; fix = `git -C <racine>`) (re-frappé V3 : `cd framework && build && bash .claude/skills/…` → script introuvable — relancer les scripts skill depuis la RACINE) : frappé ≥4× en une session (mesures
-  coverage/test de drizzle PUIS mongoose). Le 2ᵉ `npm test`/`npm run coverage` après un `;` ou un `printf` **reste dans le
-  cwd du `cd` précédent** → on mesure 2× le même module (vu : « mongoose 47 » = en fait drizzle re-run). → **un `cd <Y> &&
-cmd` EXPLICITE par module**, jamais enchaîner `cmd2` en comptant sur un cwd implicite. Variante directe du cwd-persiste ci-dessus.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
@@ -128,12 +97,6 @@ cmd` EXPLICITE par module**, jamais enchaîner `cmd2` en comptant sur un cwd imp
   couvre l'API publique, mais une nouvelle méthode du Kernel non déclarée dans `IKernel` → TS2345 « not
   assignable » (latent, révélé par rebuild turbo). → (1) déclarer la nouvelle API publique dans `IKernel` ;
   (2) typer les consommateurs cross-module sur le **contrat `IKernel`**, jamais la classe concrète.
-- ✅ **CORRIGÉ 2026-06-01** — `dist/types` des packages manquants au pre-push typecheck (vu 3× : orm-core ×2,
-  user ×1) **bloquait `git push`** (TS2307). **Cause racine** : le core `nodefony` importe http/framework/
-  security/user/orm-core (cycle inversé — ces packages ne sont PAS des deps turbo du core) → `turbo run
-typecheck` lançait le typecheck du core EN PARALLÈLE du build de ces packages → RACE (types pas encore là).
-  **Fix** : hook `pre-push` = `npx turbo run build && npm run typecheck` (build TOUT avant le typecheck →
-  plus de race ; turbo caché → ~qq s). Fini le rebuild manuel `--force`. Cf [[feedback_turbo_cache_stale_logs]].
 - `[1× — 2026-06-04]` **un bare import non listé dans `external` (rollup root) n'est PAS forcément bundlé** :
   ajouté `import { z } from "zod"` dans la config app (zod absent de l'array `external` de `rollup.config.ts`).
   Présumé « zod va gonfler le dist » → FAUX : `dist/.../schema.js` faisait 3.5 KB avec `import 'zod'` conservé
@@ -237,10 +200,6 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🔄 Cycle de session (END/RETEX) — méta
 
-- `[1× — 2026-05-31]` **END trop lourd = pénible** (feedback user). Le calcul de stats (tool_use, top
-  fichiers, coût €) à CHAQUE fin de session est coûteux et rarement actionné. → **END allégé** : 3-5
-  bullets de frictions ici + `_state` + commit. Les **stats lourdes + graduation + archivage** sont
-  déplacées dans **CONSOLIDATE** (rare, tous les 10-20 retex). Implémenté dans le skill 2026-05-31.
 - `[1× — 2026-06-04]` **capter les exigences ajoutées en cours de route DANS le kit, au fil de l'eau** : sur
   une session de planif, le user a ajouté typage impeccable, hot/boot runtime, sémantique `use` APRÈS la vision
   initiale → chaque ajout intégré immédiatement au kit (piliers/décisions), pas en fin. Évite de perdre une
@@ -258,18 +217,13 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   d'alias de types legacy (« on repense », pas « on migre en douceur ») ; et bien distinguer **infra** (redis = connexions
   génériques) de **ORM** (drizzle/mongoose) — redis n'est PAS un ORM, juste une référence du _pattern_ config. Mélanger les
   familles brouille la logique (le user : « redis est à part, il n'a pas lieu d'être un ORM »).
-- `[1× — 2026-06-06]` **BUREAU ≠ GRILLE** : un « bureau » composable = fenêtres LIBRES (px/fraction,
-  chevauchement, z-order) + « Ranger » à la demande — PAS une grille à colonnes figées NI un tiling/reflow
-  (les deux rejetés par le user). Demander le PARADIGME (stacking OS vs tiling) avant de coder un « canvas ».
-- `[1× — 2026-06-06]` **« tout figé » après refonte d'un store MobX = le SINGLETON survit au HMR** → l'ancienne
-  instance n'a pas les nouvelles méthodes/modèle (tuiles à 0,0). **Hard-reload obligatoire** + bumper la clé
-  localStorage (`…v2`). Réflexe : changement de modèle de store → annoncer « hard-reload ».
-- `[1× — 2026-06-06]` **drag perf = `setPointerCapture` + transform/DOM direct + rAF, commit au `pointerup`**
-  (0 écriture store / 0 render par frame). Piège : l'ancien resize appelait `setSize`→`persist` localStorage À
-  CHAQUE frame. + `overflow-x:auto` force `overflow-y:auto` (rogne le haut → bordure pas `outline`) ; Mantine v9
-  `Collapse` = prop `expanded` (pas `in`).
-- `[2× — 2026-06-06]` **FORAGE / CONTENU EXACT, jamais improvisé** : un schéma (pipeline HTTP) inventé = FAUX
-  (commit corrigé) → lire la source de vérité du module (`MEMORY.md`/code) AVANT de poser les briques. Gravé skill studio-dev.
+
+  > ♻️ CONSOLIDATE 2026-06-12 : les ~10 frictions front du 06-06 (bureau≠grille/paradigme, singleton
+  > MobX↔HMR hard-reload, drag setPointerCapture, sticky marginTop, isolation:isolate, returnFocus Menu,
+  > forage exact, registre de blocs/aperçu lazy, tags saisis/dérivés, Collapse `expanded`) sont **gravées
+  > dans `nodefony-studio-dev` SKILL.md** (sections Bureau composable + Supervision en bureau + Twin) —
+  > retirées d'ici. Restent les non-couvertes :
+
 - `[1× — 2026-06-06]` **react-grid-layout est INCOMPATIBLE React 19** (il utilise `ReactDOM.findDOMNode`,
   **supprimé** en React 19) → pour une grille dashboard draggable/resizable NE PAS le proposer. Maison 0-dep :
   **CSS grid `auto-flow: dense`** (span colonnes × rangées = tuilage sans trou) + **resize au coin** par pointer
@@ -281,43 +235,12 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   exacte de la frame** (lire le producteur ou un consommateur existant) et **réutiliser les vraies briques** au
   lieu de deviner les champs : ici `toRecord`/`recordMessage`/`ansiToReact`/`SeverityBadge` de `routes/logs/`
   (convention-frère) → même rendu que la page Logs du 1er coup. Les champs Pdu devinés passaient le typecheck mais le rendu était faux.
-- `[1× — 2026-06-06]` **valider l'esbuild des nouveaux fichiers front AVANT de faire recharger le user** : `tsc`
-  attrape les types, pas tout ; `curl -sk https://127.0.0.1:<viteStudio>/@fs/<abs>.tsx` (port Vite Studio = 5173 ici,
-  ≠ 5177 = autre bundle) → 200 + 0 « Transform failed » si le module compile. Boucler sur les N fichiers touchés →
-  0 page blanche au hard-reload. (cf skill `nodefony-frontend-verify`.)
-- `[1× — 2026-06-06]` **sticky qui « défile quand même » = un `marginTop` négatif** sort l'élément de sa zone
-  sticky (quand le scroll-ancestor a `paddingTop:0`). Copier la recette du frère qui marche (`PageHeader sticky` :
-  `top:0` + plein-bleed `marginInline` SEUL). Deux sticky `top:0` frères se chevauchent → **un seul en-tête sticky
-  unifié** (wrapper parent). + lever l'ambiguïté de vocabulaire (« topbar » = PageHeader, pas le bandeau).
-- `[1× — 2026-06-06]` **z-index d'enfants qui « passe par-dessus » un voisin = stacking context manquant** : des
-  fenêtres `position:absolute; zIndex:N` (N croissant) remontent au-dessus d'un bandeau frère → **`isolation:isolate`**
-  sur LEUR conteneur confine les z (fix sans toucher chaque z). Réflexe pour tout canvas à z-order.
-- `[1× — 2026-06-06]` **`Menu` Mantine rend le focus à son trigger à la fermeture** → un input `autoFocus` ouvert
-  depuis un `Menu.Item` blur aussitôt → `onBlur` commit avant la frappe (« le renommage marche en double-clic, pas
-  dans le menu »). Fix = **`returnFocus={false}`** sur le Menu. + `userSelect:none` (double-clic = action, pas sélection).
-- `[1× — 2026-06-06]` **aperçu live d'un bloc dans un autre contenant = réutiliser le registre de blocs unifié**
-  (`useBlockSource`+`BlockBody`) monté dans un dropdown **lazy** (HoverCard) → 1 abonnement/fois ref-compté, 0 coût
-  hors survol. Ne PAS réécrire un mini-rendu. (catalogue Studio : aperçu au survol = le VRAI widget.)
-- `[1× — 2026-06-06]` **classer des blocs = tags SAISIS (domaine hiérarchique + nature) + capacités DÉRIVÉES** du
-  code (cluster-ready ← `clusterAware`, temps réel ← `source.kind`) — jamais saisir une capacité (= dérive garantie,
-  le piège « liste dupliquée »). **Template fidèle d'un bureau libre** = `WorkspacePreset.layout?` (positions exactes
-  exportées du `localStorage["nf.workspace.layouts.v2"]` que le user copie en console), bypass du pavage auto.
 
-- `[1× — 2026-06-01]` **Studio = Mantine v9, PAS v8** (le skill `studio-dev` dit v8 → FAUX, à
-  corriger) : `Collapse` prop = **`expanded`** (pas `in`) ; `DataGrid.filterOptions` = `string[]`
-  (pas `{value,label}[]`), `align ∈ {left,right}` (pas `center`). Gate = `npm run typecheck` les
-  attrape (le transform Vite esbuild non). Au moindre doute API Mantine → typecheck avant de livrer.
-- `[1× — 2026-06-01]` **« pas de clickodrome » = directive ergonomie forte** : ne pas tout afficher
-  d'un coup ; découper une vue dense en **tuiles d'axe** (1 détail à la fois, défaut sur l'important),
-  **onglets 1er niveau** (jamais imbriqués), **Collapse**, **pophover** (`JsonPeek`/`DocHint`) ;
-  factuel d'abord, pédago en onglet Doc ; **persister l'état** au retour (onglet+filtres). Gradué →
-  [[feedback_studio_ergonomie_progressive]] ; à centraliser dans le skill `studio-dev` (reporté).
-- `[1× — 2026-06-01]` **terme tech opaque → libellé explicite FR + tech en second** : « relu » seul
-  incompris → « **Source consultée** · relecture ». Le user bute sur le jargon nu (cf [[feedback_terminology_forage]]).
-- `[1× — 2026-06-01]` **binaire WS : `Buffer.isBuffer` ne suffit pas** — `ws.send` accepte aussi
-  ArrayBuffer/TypedArray/DataView/Buffer[]/Blob → un `Uint8Array` partait en `JSON.stringify`
-  (objet indexé géant). `binaryByteLength` couvre tout (piège **byteLength ≠ length**). Vérifié
-  contre la doc `ws` AVANT de coder (le user a flairé le bug : « le buffer c'est bon ?? »).
+> ♻️ CONSOLIDATE 2026-06-12 : retirés (couverts ailleurs) — Mantine v9/`expanded` → skill studio-dev
+> (corrigé 1.19.0) · « pas de clickodrome » → [[feedback_studio_ergonomie_progressive]] + section skill ·
+> terminologie FR → [[feedback_terminology_forage]] · binaire WS `binaryByteLength` → skill framework-dev
+> changelog 1.19.0 + `wsLogContent.ts`.
+
 - `[1× — 2026-06-01]` **routes/logs/ est gitignoré (pattern `logs`)** → NOUVEAU fichier (`wsTrace.tsx`)
   = `git add -f` ; les fichiers déjà trackés du dossier s'`add` aussi avec `-f` quand git refuse.
   Et **header de commit ≤ 100 car** (commitlint header-max-length) : un sujet riche dépasse vite.
@@ -337,10 +260,10 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   disait « PROCHAINE » alors que livré ; `pm2_deprecation` disait « Phase 16 » alors que retiré C6 (MIGRATION
   l.117 correcte). → réflexe END : MAJ la **mémoire de la feature livrée** (desc + corps), pas seulement le `_state`.
 
-- `[2× — 2026-05-31, 2026-06-05]` **commitlint refuse un sujet en Majuscule** (`docs(retro): CONSOLIDATE …`
-  ET `docs(config): Lot 7 …` rejetés, règle subject-case : le 1er mot du SUJET après `type(scope):` doit être
-  minuscule, peu importe le scope). → header de commit **en minuscule** ; corps avec apostrophes/accents OK via
-  `git ci -F` (cf [[feedback_commit_fr_apostrophes]]). **≈3× → candidat graduation.**
+> ♻️ CONSOLIDATE 2026-06-12 : toutes les frictions **commitlint** (subject-case minuscule 8×+2×,
+> PascalCase en tête, header ≤100) sont **déjà graduées** dans [[feedback_commit_fr_apostrophes]]
+> (§ « 2 règles dures ») — retirées d'ici (anti-doublon).
+
 - `[1× — 2026-05-31]` **`{{ }}` dans les `docs/*.md` d'un module sont résolus par `@nodefony/documentation`
   lui-même** (le module se scanne → effet miroir) : documenter la feature `{{ }}` mange ses propres
   exemples. → neutraliser les exemples : `{{ maVar }}` (provider inconnu = laissé littéral) ou `{{ … }}`
@@ -349,12 +272,8 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   routes ET que les shapes back↔front sont compatibles (champs optionnels en trop/absents = dégradation
   propre), la session se réduit à un **diff de shapes + curl runtime, 0 edit**. Ne pas présumer qu'il faut
   coder ni invoquer `nodefony-studio-dev`. Reste = confirmation visuelle user (hard-reload, pas de headless).
-- `[2× — 2026-05-31, 2026-06-01]` **un test ne doit JAMAIS laisser de résidu** : `upload.test.ts` ET
-  `memory.test.ts` (« 200 multipart uploads ») accumulent des `<uuid>.txt` dans le dossier d'upload / `./tmp`,
-  jamais nettoyés (1200 fichiers constatés le 06-01 — le skill `check-memory-health` relance → accumulation,
-  user agacé). Le service persiste les fichiers reçus, le test ne les supprime pas. → `before` snapshot du
-  dossier + `after` qui supprime **uniquement le diff** (fichiers créés), sans toucher au préexistant ; net-0.
-  ⚠️ `memory.test` PAS encore corrigé (TODO `project_session_2026-06-01_state`). À 3× → graduer en `feedback_*`.
+- ✅ retiré (CONSOLIDATE 2026-06-12) : « un test ne laisse jamais de résidu » — **RÉSOLU dans le code**
+  (`memory.test` nettoie ses uploads par snapshot-diff, commit `0915764` ; pattern dans `upload.test.ts`).
 - `[1× — 2026-05-31]` **couleurs ANSI bakées dans le payload de log → fichier JSON pollué** : `clc.xxx("EVENT
 KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-color/bare` colore AUSSI
   (vérifié — pas d'interrupteur global). Stripper l'ANSI **par log** dans le transport = coût hot path (refusé
@@ -378,11 +297,6 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   `/bin/sh` ni `wget`/`curl`) : un `healthcheck: CMD-SHELL` échoue à vie → conteneur « unhealthy » à tort →
   un `depends_on: condition: service_healthy` (Grafana) reste **bloqué en « Created »** (jamais démarré). →
   PAS de healthcheck sur un distroless (sonder côté HÔTE `curl :port/ready`), et `depends_on: service_started`.
-- `[1× — 2026-06-01]` **memory.test FLAKE sous charge + « requires server »** : (a) la suite « (requires server) »
-  a 3 fails au hook `before all` car j'avais STOPPÉ le serveur dev → ces suites se CONNECTENT au serveur externe
-  (1ʳᵉ hypothèse = serveur down, [[nodefony-debug]]) ; (b) sous charge machine (JVM OpenSearch + Grafana + 4 Vite),
-  un test DIFFÉRENT déborde de peu à chaque run (29.6→19.4→18.3 MB), tous les tests cœur verts = **bruit GC, pas un
-  leak**. → isolation = vérité : tester la **config par défaut** (sans transports opt-in) ⇒ 500-mixed < 20MB ⇒ pipeline propre.
 
 ## 🧭 État projet / git / terminologie (frictions du jour)
 
@@ -400,19 +314,15 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 - `[1× — 2026-06-04]` **user dit « c'est le foutoir » → ÉTAT DES LIEUX factuel AVANT toute proposition** : arbre du
   répertoire + rôle de chaque fichier + sources de confusion classées, PUIS la cible. A débloqué la session (vision
   validée juste après). Ne pas sauter directement à la solution.
-- `[1× — 2026-05-31]` **commits locaux non pushés = user perdu** : 19 commits sur `claude-ts` jamais
-  poussés (« où est la partie git, j'ai pas compris »). Je committe en local mais ne `push` que sur demande
-  → l'écart local↔remote n'est pas visible. → **annoncer proactivement l'état push en clôture** (`git status -sb`
-  = `ahead N`) et proposer le push. Le repo mémoire IA, lui, est poussé à chaque END (backup).
+- ✅ retiré (CONSOLIDATE 2026-06-12) : « commits non pushés = user perdu » — **résolu par le skill
+  END** (§4 : push du repo projet à chaque clôture).
 - `[1× — 2026-05-31]` **deux « backplanes » homonymes prêtent à confusion** : **Realtime Backplane**
   (P13.x, `IBackplane` Redis/IPC — `P13.5 RedisBackplane` ✅ FAIT) vs **Log Backplane** (P3.11, `ILogDriver` —
   `LB.5` agrégation cluster ⬜ PAS FAIT). Même « .5 », même mot « cluster » → le user a cru LB.5 fait en voyant
   P13.5. → **toujours désambiguïser explicitement** « backplane realtime » vs « backplane logs » (et le n° de
   sous-tâche) dès qu'on parle cluster/backplane. Capté dans [[project_log_backplane_vision]].
-- `[2× — 2026-05-31]` **vérifier le CODE avant d'annoncer « il reste X »** : au RESUME j'ai listé « reste LB.3c
-  (page Studio) » d'après le `_state`/ma mémoire — mais LB.3c était DÉJÀ commité (`3d6158e`/`c48858b`). Le user
-  a relancé dessus → temps perdu. → avant toute liste de « reste à faire », `git log`/grep le code (garde-fou
-  RESUME = la vérité = les commits, pas le journal). Idem « échec pré-existant » sans vérif [[feedback_spa_fallback_literal]].
+- ✅ retiré (CONSOLIDATE 2026-06-12) : « vérifier le CODE avant d'annoncer il reste X » (2×) —
+  **gravé comme garde-fou §2 du mode RESUME** (skill `nodefony-session` : la vérité = les commits).
 - `[1× — 2026-05-31]` **pre-push `npm run typecheck` global casse sur dist/types croisé périmé** : TS2307
   `@nodefony/user → @nodefony/orm-core` (modules NON touchés par mon diff) → push refusé. → avant un push qui
   déclenche le typecheck turbo, `npm run build` (régénère tous les `dist/types`) si on a buildé des modules à la
@@ -429,11 +339,6 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
-- `[1× — 2026-06-08]` **gate mémoire sans GC forcé = on mesure le GARBAGE, pas une fuite** :
-  `ws-messages-load sustained` affichait ~180 MB / 5000 frames WS → transitoire non collecté (sonde
-  `/memory` lisait `heapUsed` sans `global.gc()`, serveur sans `--expose-gc`). GC forcé → < 30 MB. Règle :
-  **toute sonde/gate mémoire force le GC avant `heapUsed`**. Et **prouver « pré-existant » par ISOLATION**
-  (test sans import ORM + repro serveur frais), jamais par citation de doc (le user s'en méfie à raison).
 - `[1× — 2026-06-07]` **prouver un parse côté serveur SANS toucher au banc = curl loopback (trusted) avec le header brut** :
   pour valider le parse `Forwarded` RFC 7239 en runtime, `curl -H "Forwarded: for=…;proto=https" localhost:5151` +
   lire le **log `req`** (`GET 200 <scheme>://<host>/… <ms> <IP>`) → le scheme/IP résolus sont visibles directement.
@@ -444,20 +349,11 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   (`docker run --rm -v fichier nginx -t`) puis **recréer le conteneur** (`up -d --force-recreate <svc>`) pour qu'il
   relise. Et `000` sur TOUS les ports du banc = souvent **le démon Docker tombé** (`docker ps` → « Cannot connect »),
   PAS un bug du code — vérifier le daemon avant de suspecter le diff.
-- `[2× — 2026-06-04]` **`memory.test` exige un serveur LANCÉ (connecte `localhost:5152`) → ECONNREFUSED
-  sinon, PAS une fuite.** Le 1ᵉʳ run de la session passait via un serveur résiduel ; sans serveur →
-  `internalConnectMultiple` (ECONNREFUSED) dans le `before all`. **Toujours `start.sh` AVANT** le memory
-  test. ET **NE PAS l'enchaîner avec le filet CLI** (`RUN_CLI_BOOT=1` spawn `production`/`cluster` sur
-  5151/5152 → conflit de ports avec le serveur du memory test). Séquencer : (filet CLI seul) PUIS (start.sh
-  - memory test). Diagnostic « before all hook » KO = serveur down/port pris, jamais le heap. **Revu
-    2026-06-04** : j'ai STOPPÉ le serveur dev « pour éviter un conflit de ports » AVANT le memory test →
-    3 fails `before all` (les tests TAPENT le serveur dev, ils ne le spinnent pas). Réflexe inverse =
-    serveur UP requis. → proche d'une graduation (3ᵉ vue = `feedback_*`).
-- `[1× — 2026-06-04]` **`memory.test` 1000-GET marginal dans la suite, vert en isolation** : 36.4 MB vs
-  seuil 35 quand lancé APRÈS les autres cas (crashes/uploads/WS) ; relancé seul → vert 2/2. Contamination
-  GC/ordre, pas une vraie fuite. Confirme le pattern `nodefony-debug` « memory flake = isolation = vérité » :
-  un seuil marginal dans la suite complète → re-run isolé AVANT de qualifier de régression (surtout si le
-  diff est boot-only, donc 0 impact per-requête).
+  > ♻️ CONSOLIDATE 2026-06-12 : les frictions **memory.test** (serveur LANCÉ requis / ECONNREFUSED ≠
+  > fuite, vu 3× — les tests TAPENT le serveur dev, ils ne le spinnent pas · flake marginal → isolation
+  > = vérité · gate GC forcé via start.sh `--expose-gc`) sont **gravées dans les skills**
+  > `nodefony-check-memory-health` (prérequis + séquencement filet CLI) et `nodefony-debug` (recettes
+  > A + C) — retirées d'ici.
 - `[1× — 2026-06-02]` **`tsx` transpile-only laisse PASSER un test qui lit un field supprimé** : après avoir
   retiré le field `type`, un test `assert.strictEqual(k.type, "CONSOLE")` lit `undefined` → devrait échouer,
   mais affichait « 0 failing » à un instant (transpile-only ignore le TS2339). → après un rename/suppression
@@ -688,14 +584,10 @@ $remote_addr`, RFC 7239 §8.1), l'append est réservé aux proxies INTERNES d'un
 
 ## 🔧 Git / commit (friction du jour)
 
-- `[1× — 2026-06-11]` **commitlint `subject-case` rejette AUSSI un nom de classe en tête** : sujet
-  `feat(...): ResourceController souverain...` refusé (PascalCase = sentence-case interdit), même si c'est un
-  identifiant de code. → reformuler avec un nom commun devant (« controller de ressource souverain... ») ;
-  l'identifiant exact va dans le BODY. Complète la règle « sujet MINUSCULE » de [[feedback_commit_fr_apostrophes]].
-- `[1× — 2026-06-11]` **pre-push typecheck attrape ce que le build rollup laisse passer** : TS4114 (`static` qui
-  redéclare un statique de la base exige `override`, noImplicitOverride) invisible au `npm run build` du package,
-  bloquant au push. → après tout ajout de statique/membre redéclaré : `npm run typecheck` AVANT de committer,
-  ou s'attendre à un fix-commit. (2 builds verts ≠ typecheck vert.)
+> ♻️ CONSOLIDATE 2026-06-12 : retirés (déjà gradués) — commitlint subject-case/PascalCase/header≤100
+> (8×+) → [[feedback_commit_fr_apostrophes]] § « 2 règles dures » · « build vert ≠ typecheck vert »
+> (TS4114, TS18036…) → skill `nodefony-framework-dev` §8 (typecheck = gate distinct, hook pre-push).
+
 - `[1× — 2026-06-07]` **clé privée TLS commitée découverte (sécu)** : `git ls-files | grep -iE
 'certificates/.*\.(pem|key)'` a révélé `privkey.pem` (+ cert/fullchain/publickey) trackés dans
   `src/packages/@nodefony/http/nodefony/config/certificates/` depuis **sept. 2024**. Cause : le pattern
@@ -703,15 +595,6 @@ $remote_addr`, RFC 7239 §8.1), l'append est réservé aux proxies INTERNES d'un
   PAS le même chemin dans un sous-module). Fix : `git rm` + motif **`**/nodefony/config/certificates/`**
   (le `**/` couvre tous les niveaux). → **Réflexe\*\* : à tout commit touchant des certs/secrets, `git
 ls-files | grep -iE '\.(pem|key|p12|pfx)$'` ; un motif gitignore avec slash n'est jamais récursif.
-- `[1× — 2026-06-06]` **commitlint `header-max-length` = 100** : un header conventional-commit FR
-  descriptif dépasse vite (vécu : 112 car. — « refactor(http): réécriture cœur session.ts — TS strict,
-  ID CSPRNG, dirty (étape 3) »). Header COURT (`type(scope): ` sujet bref), tout le détail dans le BODY
-  (lignes de body ≤100 aussi). Se combine avec subject-case (minuscule).
-- `[8× — 2026-06-06]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
-  à promouvoir dans [[feedback_commit_fr_apostrophes]] au prochain CONSOLIDATE). Un commit dont le sujet
-  commence par une majuscule/nom propre (ex. `refactor(core): KernelType …`, `feat(dev): Vite …`, `docs: MAJ P10 …`
-  - `docs: P10 Studio …` ← 2 nouveaux échecs cette session) est **rejeté** par le hook `commit-msg`. Réflexe :
-    `type(scope): ` puis **minuscule** (reformuler « met à jour P10 … » au lieu de « MAJ P10 … »).
 - `[1× — 2026-06-01]` **`routes/logs/` est gitignoré (pattern `logs`) → nouveaux fichiers invisibles + lint-staged
   « git error »** : créer `routes/logs/profileVisuals.tsx`/`ProfilingTab.tsx` → `git add` les ignore (les fichiers
   EXISTANTS du dossier restent trackés, mais les NOUVEAUX non) → besoin `git add -f`. Et le 1er `git commit` a
@@ -832,7 +715,7 @@ from "ws"` + cast `(ws as unknown as {Sender:{frame}}).Sender`. Écrire les buff
   dédiée = **WARNING 1×/conn** loggé côté serveur, grep le log. ⚠️ un flood (17 MiB) gonfle `/tmp/nodefony-server.log`
   (→ 5 MiB) + peut saturer la capture stdout (ENOSPC transitoire) → `truncate -s 0` après.
 
-## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
+## Derniers retex bruts (historique complet dans `docs/session-retros/archive/` depuis CONSOLIDATE 2026-06-12)
 
 - `2026-06-06-d97fad67` — **chantier session ÉTAPE 3** : cœur `session.ts` réécrit (TS strict, ID CSPRNG
   opaque `randomBytes(32)`, objet léger 3 sacs vs `Container` DI, dirty-tracking `save()` no-op, cookie-only,
@@ -856,11 +739,14 @@ from "ws"` + cast `(ws as unknown as {Sender:{frame}}).Sender`. Écrire les buff
 - `2026-06-01-690029d6` — fix doublon JSONL (double `initializeLog` re-monte FileTransport, `6814c05`) + fusion Profiler → Suivi de requête (onglets Timing/ORM + onglet Profiling Logs, page autonome supprimée, `1d4ed01`).
 - `2026-06-01-961eb178` — gate couleur ANSI boot-time (helper `logColor` gaté `isTTY`, core/http/security) → JSONL/pipe propres hors TTY ; allocation-neutre (1 commit `7e68b05`).
 
-> ✅ **CONSOLIDATE audité le 2026-05-31** (`CONSOLIDATION-2026-05-31.md`) : les 57 bruts (05-25→05-31)
-> ont été balayés. **Verdict : rien à graduer.** Tous les thèmes récurrents (lock/lint-staged,
-> clear/cache, dist/rebuild, restart, memory-test, HMR) sont **déjà** en `feedback_*` (60 mémoires).
-> La seule friction non graduée — « shell instable sous charge » — n'a **1 seule date** (1×) → reste
-> dans le sas. **Leçon : la graduation se fait EN CONTINU dans les sessions, pas en batch** ; l'alarme
-> « N retex jamais consolidés » était un faux positif. Ne pas re-déclencher CONSOLIDATE sur le seul
-> critère du nombre de bruts — le déclencher si une friction du sas atteint 3× ou si le dossier doit
-> être archivé pour sa taille.
+> ✅ **CONSOLIDATE 2026-06-12** (`CONSOLIDATION-2026-06-12.md`) : 48 bruts de juin balayés + **maintenance
+> du SAS** (866 → ~700 lignes). **Gradués** : `Edit` exige `Read` (4×) → [[feedback_edit_requires_read_tool]]
+> (NOUVELLE) ; cwd persiste/`cd X && …` (5×+) → [[feedback_cd_startsh_relative_path]] enrichie (3 formes).
+> **Retirés ~25 doublons** : couverts par les skills MAJ le jour même (load-test A/B, debug ENOSPC+memory-flake,
+> check-memory-health serveur/GC, studio-dev front 06-06, framework-dev typecheck) ou déjà gradués
+> (commitlint → feedback_commit_fr_apostrophes) ou résolus dans le code (résidus tests `0915764`,
+> dist/types pre-push, END allégé). **105 bruts archivés** → `archive/`. Le SAS garde les frictions
+> 1-2× réelles (capital, ne pas amincir). Prochain CONSOLIDATE : si friction à 3× ou taille.
+>
+> _(Note 2026-05-31 conservée : la graduation se fait EN CONTINU ; ne pas re-déclencher CONSOLIDATE
+> sur le seul nombre de bruts.)_
