@@ -150,27 +150,10 @@ export default defineConfig<Env>((ctx) => ({
     // Sécurité applicative (P6) — requise dès qu'on sert du trafic.
     // Zones (firewall) : chaque zone = pattern d'URL + chaîne d'authenticators
     // (validées Zod au boot — config invalide = firewall fail-closed, tout rejeté).
-    use(
-      "@nodefony/security",
-      {
-        areas: {
-          // Banc d'intégration P6 (DEV) : la zone capture les routes du dossier
-          // secure/ du module test — dossier = préfixe = nom de zone. Sans
-          // `Authorization: Basic` valide → 401 + WWW-Authenticate (RFC 7235).
-          ...(ctx.isDev
-            ? {
-                "test-secure": {
-                  pattern: "^/nodefony/test/secure",
-                  authenticators: ["userpassword"],
-                  // défauts : security: true (Zero Trust), mode: "first",
-                  // stateless: false (la session BFF n'arrive qu'au login, J3).
-                },
-              }
-            : {}),
-        },
-      },
-      { policy: "mandatory" },
-    ),
+    // Les zones se déclarent au plus près de leurs routes : un module porte sa
+    // zone via l'override `module-security` dans SA config (ex. la zone
+    // `test-secure` du banc P6 vit dans src/modules/test/nodefony/config/config.ts).
+    { name: "@nodefony/security", policy: "mandatory" },
 
     // ── Démo / tests d'intégration — hors production.
     { name: "@nodefony/test", policy: "dev" },

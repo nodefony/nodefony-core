@@ -13,4 +13,21 @@ export default {
       maxTotalFileSize: 1572864, // 1,5 MB cumulé / requête
     },
   },
+
+  // Banc d'intégration P6 : la zone sécurisée vit AVEC le module qui la consomme
+  // (override inter-modules `module-<nom>`, appliqué par le Kernel AVANT la
+  // validation Zod du firewall). Le module test étant `policy: "dev"`, la zone
+  // disparaît d'elle-même en production — pas besoin de `ctx.isDev`.
+  "module-security": {
+    areas: {
+      // dossier = préfixe = nom de zone : capture les routes de `secure/`.
+      // Sans `Authorization: Basic` valide → 401 + WWW-Authenticate (RFC 7235).
+      "test-secure": {
+        pattern: "^/nodefony/test/secure",
+        authenticators: ["userpassword"],
+        // défauts : security: true (Zero Trust), mode: "first",
+        // stateless: false (la session BFF n'arrive qu'au login, J3).
+      },
+    },
+  },
 };
