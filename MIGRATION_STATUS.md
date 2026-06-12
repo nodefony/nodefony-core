@@ -172,29 +172,29 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P5.13 | `OrmSessionStorage` générique               | Drizzle + **Mongoose livrés** (contrat `ISessionStorage` portable ; sequelize supprimé)                                                                                                                                                                                                                                                                                 |
 | ⬜ P5.14 | `session.user: IUser` + régén ID post-auth  | seam `regenerateId()` prêt ; câblage = P6 firewall                                                                                                                                                                                                                                                                                                                      |
 
-### P6 — Security (12 %) ◀ bloqueur MVP
+### P6 — Security (12 %) ◀ bloqueur MVP — CHANTIER OUVERT (branche `refactor/p6-security`, fenêtre → 22/06)
 
-> Fondations **S1 présentes** mais **0 test committé** → aucune tâche close (✅=0). Pipeline auth + tests = ~88 % devant.
+> Audit effort max + plan J0→J10 : [`docs/audits/p6-security-audit-2026-06-12.md`](docs/audits/p6-security-audit-2026-06-12.md). **J0/S0 réalignement ✅ `1634f09e`** (stateless→BFF défaut, argon2id OWASP, `mode first|all`, `IUserProvider` implémenté, sections passkeys/tokenExchange, purge Symfony, 17+6 tests unit). Hors-fenêtre assumé : OAuth2/arctic, webhooks, Studio UI sécu.
 
-| #        | Tâche                                                  | État                                                          |
-| -------- | ------------------------------------------------------ | ------------------------------------------------------------- |
-| 🔶 P6.1  | `AccessControl` (RBAC walker)                          | `RoleHierarchyWalker.ts`                                      |
-| ⬜ P6.2  | `cors.ts` service                                      | whitelist stricte                                             |
-| 🔶 P6.3  | `firewall.ts` + `SecuredArea` + `defineSecurityConfig` | services + Zod présents ; reste pipeline auth + câblage       |
-| 🔶 P6.4  | `AnonymousAuthenticator` + token                       | `AnonymousToken` livré ; authenticator à écrire               |
-| ⬜ P6.5  | `UserPasswordAuthenticator`                            | utilise `userService.authenticate()`                          |
-| ⬜ P6.6  | `JwtAuthenticator` + cookie layer (`jose`)             | rotation OWASP refresh                                        |
-| ⬜ P6.7  | `csrf.ts` (SameSite+Origin + `@CsrfProtect`)           | service `csrf.ts` présent (stub à finaliser)                  |
-| 🔶 P6.8  | `authorization.ts` (3 niveaux)                         | niveau A + contrat `IAccessVoter` ; RBAC ORM + voters à faire |
-| ⬜ P6.8b | Décorateurs sécu panoplie (`@IsGranted`…)              | `Reflect.metadata` + hook `beforeResolve`                     |
-| ⬜ P6.9  | `OAuth2Authenticator` (`arctic`)                       | 50+ providers config-driven                                   |
-| ⬜ P6.9b | `MTlsAuthenticator`                                    | zones admin                                                   |
-| ⬜ P6.10 | Logs auth + CSP stricte + headers                      | OWASP A05                                                     |
-| ⬜ P6.11 | Tests intégration security complets                    | **0 test actuel** — débloque les ✅                           |
-| ⬜ P6.12 | API Keys (PAT)                                         | entité orm-core hashée                                        |
-| ⬜ P6.13 | Webhooks (HMAC sortant)                                | —                                                             |
-| ⬜ P6.14 | Audit events + stream WS                               | base auditeur                                                 |
-| ⬜ P6.15 | Studio — section Sécurité                              | consomme data plane P6.12-14                                  |
+| #        | Tâche                                                  | État                                                                 |
+| -------- | ------------------------------------------------------ | -------------------------------------------------------------------- |
+| 🔶 P6.1  | `AccessControl` (RBAC walker)                          | `RoleHierarchyWalker.ts`                                             |
+| ⬜ P6.2  | `cors.ts` service                                      | whitelist stricte                                                    |
+| 🔶 P6.3  | `firewall.ts` + `SecuredArea` + `defineSecurityConfig` | Zod réaligné S0 `1634f09e` (BFF/argon2id/mode) ; reste pipeline auth |
+| 🔶 P6.4  | `AnonymousAuthenticator` + token                       | `AnonymousToken` livré ; authenticator à écrire                      |
+| ⬜ P6.5  | `UserPasswordAuthenticator`                            | utilise `userService.authenticate()`                                 |
+| ⬜ P6.6  | `JwtAuthenticator` + cookie layer (`jose`)             | rotation OWASP refresh                                               |
+| ⬜ P6.7  | `csrf.ts` (SameSite+Origin + `@CsrfProtect`)           | service `csrf.ts` présent (stub à finaliser)                         |
+| 🔶 P6.8  | `authorization.ts` (3 niveaux)                         | niveau A + contrat `IAccessVoter` ; RBAC ORM + voters à faire        |
+| ⬜ P6.8b | Décorateurs sécu panoplie (`@IsGranted`…)              | `Reflect.metadata` + hook `beforeResolve`                            |
+| ⬜ P6.9  | `OAuth2Authenticator` (`arctic`)                       | 50+ providers config-driven                                          |
+| ⬜ P6.9b | `MTlsAuthenticator`                                    | zones admin                                                          |
+| ⬜ P6.10 | Logs auth + CSP stricte + headers                      | OWASP A05                                                            |
+| ⬜ P6.11 | Tests intégration security complets                    | 17 unit security + 6 user (S0) ; intégration = 0                     |
+| ⬜ P6.12 | API Keys (PAT)                                         | entité orm-core hashée                                               |
+| ⬜ P6.13 | Webhooks (HMAC sortant)                                | —                                                                    |
+| ⬜ P6.14 | Audit events + stream WS                               | base auditeur                                                        |
+| ⬜ P6.15 | Studio — section Sécurité                              | consomme data plane P6.12-14                                         |
 
 ### P7 — ORM Drivers (≈80 % — virage ORM Ph.1+Ph.2 ✅)
 

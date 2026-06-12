@@ -33,6 +33,11 @@
 
 ## 🐚 Shell / environnement d'exécution
 
+- `[1× — 2026-06-12]` **un subagent background hérite des permissions de la session → sa veille web peut être
+  refusée silencieusement** : l'agent « état de l'art auth » s'est vu refuser WebSearch/WebFetch/Bash → livré
+  100 % connaissance interne (cutoff) en le signalant. → avant de déléguer une veille web, vérifier qu'une
+  requête réseau passe (1 WebFetch direct en session), sinon assumer la veille offline + marquer les statuts
+  de drafts « à re-vérifier ».
 - `[1× — 2026-06-12]` **`grep -c` qui compte 0 = exit 1 → saute silencieusement la suite d'une chaîne `&&`** :
   `npm run build | grep -c "warn" && start.sh` → build vert, 0 warning… et le start.sh n'a JAMAIS tourné
   (exit 1 du grep). Ne jamais chaîner `&&` derrière un `grep -c` dont 0 est le résultat ATTENDU (séparer
@@ -231,12 +236,15 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   VIEILLES copies de skills projet** (2 doublons `skill-creator:nodefony-create-module`/`start-nodefony-server`
   y traînaient avec des recettes périmées `@modules()`) → elles polluent la liste harness en doublon. Après
   une session skill-creator : vérifier qu'aucun skill projet n'a été copié dans le cache plugin.
-- `[2× — 2026-06-12]` **une mémoire graduée n'est utile que si on l'APPLIQUE au moment d'agir** : (a) commit
+- `[3× — 2026-06-12]` **une mémoire graduée n'est utile que si on l'APPLIQUE au moment d'agir** : (a) commit
   de la consolidation rejeté pour « CONSOLIDATE » majuscule — la règle exacte ([[feedback_commit_fr_apostrophes]])
   retirée du SAS comme « déjà graduée » 10 min avant ; (b) Edit refusé sur RETEX.md (5ᵉ occurrence
   [[feedback_edit_requires_read_tool]]) juste APRÈS l'avoir graduée — cause : prettier reformate au commit
-  → l'état connu du fichier est périmé → re-Read obligatoire avant tout Edit post-commit. Le savoir stocké
-  ne remplace pas le réflexe au point d'action (1ʳᵉ lettre du sujet ; Read après tout commit qui hook-reformate).
+  → l'état connu du fichier est périmé → re-Read obligatoire avant tout Edit post-commit ; (c) session P6 J0 :
+  récidive TRIPLE — Edit package.json refusé (cat ≠ Read), commitlint header >100 refusé, PUIS Edit RETEX.md
+  refusé pendant la rédaction même de cette entrée. Le savoir stocké ne remplace pas le réflexe au point
+  d'action. **≥3× → candidate CONSOLIDATE** : checklist « point d'action » (avant Edit : Read-tool récent ?
+  avant commit : sujet minuscule + header ≤100 ?).
 - `[1× — 2026-06-04]` **capter les exigences ajoutées en cours de route DANS le kit, au fil de l'eau** : sur
   une session de planif, le user a ajouté typage impeccable, hot/boot runtime, sémantique `use` APRÈS la vision
   initiale → chaque ajout intégré immédiatement au kit (piliers/décisions), pas en fin. Évite de perdre une
@@ -376,6 +384,13 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-12]` **auditer les `.describe()` Zod CONTRE l'implémentation qui les consomme** : un describe
+  est une promesse de contrat — la config S1 security promettait « chaîne, tous doivent passer » quand le
+  firewall faisait « premier qui supporte gagne » (ambiguïté MFA/step-up latente, détectée à l'audit P6,
+  tranchée S0 par `mode: first|all`). À l'audit d'un module : confronter chaque describe au code consommateur.
+- `[1× — 2026-06-12]` **vérifier le CONTRAT (interface) avant d'appeler une méthode dessus** : `findById`
+  vit sur `AbstractCrudService` (délègue à `repository.findOne({id})`), PAS sur `IRepository` — présumé par
+  habitude CRUD → TS2339 au build. 30 s de grep du contrat évitent un cycle build-fix.
 - `[1× — 2026-06-12]` **Gates toutes vertes ≠ pas de régression quand le diff INTERCEPTE un chemin global** :
   le pont ApiClient→socket (tous les GET Studio détournés) avait tests unit verts + tsc 0 + suite intég pont 9/9…
   et a cassé Studio À LA CONNEXION (`/auth/me`/`/stats`/`/health` GET-only → 405 du pont propagé ≠ réponse REST).
