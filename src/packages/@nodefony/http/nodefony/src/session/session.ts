@@ -313,6 +313,12 @@ class Session implements ISession {
   async destroy(cookieDelete: boolean = false): Promise<boolean> {
     this.clear();
     await this.storage.destroy(this.id, this.contextSession);
+    // Une session détruite n'a PLUS RIEN à persister : neutralise le
+    // dirty-tracking, sinon le `saveSession` de fin de requête RÉ-ÉCRIT le
+    // blob qu'on vient de supprimer (résurrection silencieuse — vu au banc
+    // logout BFF J3 : le start de reprise mute les métadonnées → mutated).
+    this.mutated = false;
+    this.status = "disabled";
     if (cookieDelete) {
       this.deleteCookieSession();
     }

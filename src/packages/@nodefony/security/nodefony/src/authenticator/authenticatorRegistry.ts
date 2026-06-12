@@ -1,10 +1,11 @@
 import type { Container } from "nodefony";
-import type { IPasswordVerifier } from "@nodefony/user";
+import type { IPasswordVerifier, IUserProvider } from "@nodefony/user";
 import type { IAuthenticator } from "../../contracts/IAuthenticator";
 import type { ISecurityConfig } from "../../config/defineSecurityConfig";
 import { AnonymousAuthenticator } from "./AnonymousAuthenticator";
+import { SessionAuthenticator } from "./SessionAuthenticator";
 import { UserPasswordAuthenticator } from "./UserPasswordAuthenticator";
-import { LoginThrottler } from "../throttle/LoginThrottler";
+import type { LoginThrottler } from "../throttle/LoginThrottler";
 
 /**
  * Registre de **fabriques d'authenticators** — résout les noms listés dans
@@ -67,18 +68,12 @@ export function listAuthenticatorFactories(): string[] {
 
 registerAuthenticatorFactory("anonymous", () => new AnonymousAuthenticator());
 
-registerAuthenticatorFactory("userpassword", ({ container, config }) => {
-  // Throttler NIST construit depuis la config validée — 1 instance par
-  // authenticator (lui-même unique par nom, partagé entre zones).
-  const rl = config.rateLimit;
-  const throttler = rl.enabled
-    ? new LoginThrottler({
-        freeAttempts: rl.freeAttempts,
-        baseDelayS: rl.baseDelayS,
-        capDelayS: rl.capDelayS,
-        maxTracked: rl.maxTracked,
-      })
-    : null;
+registerAuthenticatorFactory("userpassword", ({ container }) => {
+  // Throttler NIST PARTAGÉ (posé au container par le firewall au boot depuis
+  // config.rateLimit) : même compteur que le login JSON BFF (`AuthFlow`) — un
+  // attaquant ne contourne pas le backoff en changeant de porte. Absent =
+  // throttling désactivé en config.
+  const throttler = container.get<LoginThrottler>("loginThrottler") ?? null;
   return new UserPasswordAuthenticator(() => {
     const verifier = container.get<IPasswordVerifier>("users");
     if (!verifier) {
@@ -91,4 +86,19 @@ registerAuthenticatorFactory("userpassword", ({ container, config }) => {
     }
     return verifier;
   }, throttler);
+});
+
+registerAuthenticatorFactory("session", ({ container }) => {
+  // Session BFF (P6 J3) : la preuve des requêtes POST-login. Résolution lazy
+  // de la source d'identité — même frontière que `userpassword`.
+  return new SessionAuthenticator(() => {
+    const provider = container.get<IUserProvider>("users");
+    if (!provider) {
+      throw new Error(
+        `SessionAuthenticator: aucun service "users" (IUserProvider) dans le ` +
+          `container — enregistrer un UserService au boot de l'application.`,
+      );
+    }
+    return provider;
+  });
 });

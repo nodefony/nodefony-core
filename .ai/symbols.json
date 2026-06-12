@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-12T20:42:11.159Z",
+  "generated": "2026-06-12T21:09:34.835Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 856,
-    "symbols": 1776,
-    "classes": 255,
-    "interfaces": 444,
-    "types": 228,
+    "files": 860,
+    "symbols": 1786,
+    "classes": 258,
+    "interfaces": 447,
+    "types": 229,
     "enums": 3,
-    "functions": 358,
+    "functions": 361,
     "constants": 488
   },
   "symbols": {
@@ -5244,6 +5244,34 @@
       "module": "@nodefony/framework",
       "extends": null
     },
+    "SessionAuthController": {
+      "name": "SessionAuthController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Endpoints HTTP du flux de session BFF — adaptateurs MINCES au-dessus du service `authFlow` (`@nodefony/security`) : - `POST /nodefony/security/api/auth/login` — body JSON `{username, password}` - `…"
+    },
+    "ISessionAuthFlow": {
+      "name": "ISessionAuthFlow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue MINIMALE du flux de session BFF que consomme ce controller — le service `authFlow` est posé au container par `@nodefony/security` (P6 J3). Contrat structurel local : framework ne dépend JAMAIS …"
+    },
+    "mountSessionAuthRoutes": {
+      "name": "mountSessionAuthRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les routes du flux de session BFF — appelé par le module framework à `onKernelReady`, seulement si le service `authFlow` est présent. Routes nommées `security.auth.*` (espace data plane `/nod…"
+    },
     "SyslogAdminApiOptions": {
       "name": "SyslogAdminApiOptions",
       "kind": "interface",
@@ -7776,6 +7804,26 @@
       "decorators": [],
       "description": "Tentatives de login trop rapprochées — `code = 429` (RFC 6585 §4). Levée par `UserPasswordAuthenticator` quand le backoff progressif ({@link LoginThrottler}) bloque encore l'identifiant saisi. Dist…"
     },
+    "AuthFlow": {
+      "name": "AuthFlow",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Flux de session BFF — login/logout/me côté serveur (P6 J3). C'est le GUICHET : le credential est présenté UNE fois (`login`), vérifié par le {@link IPasswordVerifier} (hash, leurre anti-timing, re-…"
+    },
+    "ISafeUser": {
+      "name": "ISafeUser",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Projection PUBLIQUE de l'utilisateur — ce qui sort en JSON vers le client. Jamais l'entité brute : le hash (`IPasswordAuthenticatedUser.password`) ne doit traverser ni la sérialisation ni un log."
+    },
     "Csrf": {
       "name": "Csrf",
       "kind": "class",
@@ -7823,6 +7871,14 @@
       ],
       "decorators": [],
       "description": "Zone sécurisée concrète — pattern d'URL compilé + métadonnées d'authentification. Objet **léger** (pas un Service DI : zéro besoin d'event/log par zone, hot-path). Le firewall en instancie une par …"
+    },
+    "resolveSessionIdentity": {
+      "name": "resolveSessionIdentity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Résout l'identité portée par une session (l'identifiant stocké dans le blob) en utilisateur VIVANT — re-fetch systématique auprès du provider. C'est LE choix structurant de la session BFF : la sess…"
     },
     "StudioController": {
       "name": "StudioController",
@@ -12513,6 +12569,19 @@
       "module": "@nodefony/security",
       "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
     },
+    "SessionAuthenticator": {
+      "name": "SessionAuthenticator",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IAuthenticator"
+      ],
+      "decorators": [],
+      "description": "Authentification par **session serveur** (cookie opaque, modèle BFF) — la preuve des requêtes qui SUIVENT le login (`AuthFlow.login`, qui a déjà posé l'identifiant dans le blob et régénéré l'ID ant…"
+    },
     "UserPasswordAuthenticator": {
       "name": "UserPasswordAuthenticator",
       "kind": "class",
@@ -12920,6 +12989,7 @@
         "Orm",
         "RedisService",
         "Connection",
+        "AuthFlow",
         "Firewall",
         "ServerHttp",
         "ServerHttps",
@@ -13058,6 +13128,7 @@
         "DocumentationController",
         "AdminApiController",
         "ResourceController",
+        "SessionAuthController",
         "StudioController",
         "RealtimeController"
       ],
@@ -13338,6 +13409,7 @@
       ],
       "IAuthenticator": [
         "AnonymousAuthenticator",
+        "SessionAuthenticator",
         "UserPasswordAuthenticator"
       ],
       "IToken": [
@@ -13483,6 +13555,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -13529,6 +13602,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -13573,6 +13647,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -13833,6 +13908,7 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
@@ -13840,6 +13916,7 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -13978,17 +14055,13 @@
         "src/modules/test/index.ts",
         "src/modules/test/nodefony/secure/SecureController.ts"
       ],
-      "BcryptEncoder": [
+      "IPasswordEncoder": [
         "src/modules/test/index.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
-      ],
-      "Argon2idEncoder": [
-        "src/modules/test/index.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
-      ],
-      "MigratingEncoder": [
-        "src/modules/test/index.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/Argon2idEncoder.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/MigratingEncoder.ts"
       ],
       "registerDolibarrEntities": [
         "src/modules/test/index.ts"
@@ -14062,6 +14135,7 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
@@ -14106,6 +14180,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
@@ -14127,6 +14202,12 @@
       "AdminApiController": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
+      ],
+      "SessionAuthController": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "mountSessionAuthRoutes": [
+        "src/packages/@nodefony/framework/index.ts"
       ],
       "createKernelAdminApi": [
         "src/packages/@nodefony/framework/index.ts"
@@ -14314,6 +14395,7 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
@@ -14615,6 +14697,9 @@
       "Firewall": [
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "AuthFlow": [
+        "src/packages/@nodefony/security/index.ts"
       ],
       "StudioController": [
         "src/packages/@nodefony/studio/index.ts"
@@ -15387,6 +15472,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
@@ -15413,9 +15499,11 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ISecuredArea.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
@@ -15423,6 +15511,7 @@
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "IHttpRequest": [
@@ -15463,6 +15552,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
       "pocBookService": [
@@ -15522,6 +15612,8 @@
       "IUser": [
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IPasswordVerifier.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
@@ -15727,6 +15819,7 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
@@ -16448,6 +16541,7 @@
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
         "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
@@ -16457,6 +16551,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "ISecuredArea": [
@@ -16464,20 +16559,50 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
       ],
+      "IUserProvider": [
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts"
+      ],
+      "IPasswordVerifier": [
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
+      ],
+      "AuthenticationError": [
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
+      ],
+      "ThrottledError": [
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
+      ],
+      "LoginThrottler": [
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
+      ],
+      "resolveSessionIdentity": [
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts"
+      ],
+      "encoderFromConfig": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
       "SecuredArea": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "RoleHierarchyWalker": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
-      ],
-      "AuthenticationError": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
-      ],
-      "ThrottledError": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -16494,6 +16619,10 @@
       ],
       "ISecurityAreaConfig": [
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
+      ],
+      "UserNotFoundError": [
+        "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "readStatsSnapshot": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
@@ -16537,24 +16666,6 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "IPasswordBlocklist": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
-      ],
-      "IPasswordEncoder": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/Argon2idEncoder.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/MigratingEncoder.ts"
-      ],
-      "IPasswordVerifier": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
-      ],
-      "IUserProvider": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
-      ],
-      "UserNotFoundError": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "WeakPasswordError": [
@@ -18064,19 +18175,28 @@
       "AnonymousAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
       ],
+      "SessionAuthenticator": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+      ],
       "UserPasswordAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
       ],
-      "LoginThrottler": [
-        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
-      ],
       "UserToken": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "anonymousUser": [
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
         "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
+      ],
+      "Argon2idEncoder": [
+        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
+      ],
+      "BcryptEncoder": [
+        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
+      ],
+      "MigratingEncoder": [
+        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
       ],
       "sanitizeRequestId": [
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",

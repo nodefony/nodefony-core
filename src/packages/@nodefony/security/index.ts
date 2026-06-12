@@ -2,6 +2,7 @@ import { Kernel, Module, services } from "nodefony";
 import { fileURLToPath } from "node:url";
 import config from "./nodefony/config/config";
 import Firewall from "./nodefony/service/firewall";
+import AuthFlow from "./nodefony/service/authFlow";
 
 /**
  * `@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6).
@@ -13,11 +14,12 @@ import Firewall from "./nodefony/service/firewall";
  * (IUser/IUserProvider/IPasswordVerifier) — jamais l'inverse.
  *
  * Livré : firewall (zones, mode first|all, challenge RFC 7235), authenticators
- * `anonymous`/`userpassword` (Basic RFC 7617). Jwt/oauth2/mtls/apikey, CORS,
- * CSRF, autorisation par décorateurs et data plane Studio arrivent aux sessions
- * suivantes (plan J0→J10).
+ * `anonymous`/`userpassword` (Basic RFC 7617)/`session` (BFF, J3), flux
+ * login/logout/me (`AuthFlow`, anti-fixation + throttling partagé).
+ * Jwt/oauth2/mtls/apikey, CORS, CSRF, autorisation par décorateurs et data
+ * plane Studio arrivent aux sessions suivantes (plan J0→J10).
  */
-@services([Firewall])
+@services([Firewall, AuthFlow])
 class Security extends Module {
   constructor(kernel: Kernel) {
     super("security", kernel, fileURLToPath(import.meta.url), config);
@@ -28,6 +30,8 @@ export default Security;
 
 // ─── Services / classes runtime ──────────────────────────────────────────────
 export { Firewall };
+export { AuthFlow };
+export type { ISafeUser } from "./nodefony/service/authFlow";
 export { SecuredArea } from "./nodefony/src/SecuredArea";
 export { Csrf } from "./nodefony/service/csrf";
 export { RoleHierarchyWalker } from "./nodefony/src/RoleHierarchyWalker";
@@ -37,6 +41,7 @@ export { UserToken } from "./nodefony/src/token/UserToken";
 // ─── Authenticators + registre de fabriques (pluggable) ─────────────────────
 export { AnonymousAuthenticator } from "./nodefony/src/authenticator/AnonymousAuthenticator";
 export { UserPasswordAuthenticator } from "./nodefony/src/authenticator/UserPasswordAuthenticator";
+export { SessionAuthenticator } from "./nodefony/src/authenticator/SessionAuthenticator";
 export {
   registerAuthenticatorFactory,
   getAuthenticatorFactory,

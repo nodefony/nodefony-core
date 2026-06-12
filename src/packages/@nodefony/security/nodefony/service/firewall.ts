@@ -11,8 +11,10 @@ import {
   logColor,
 } from "nodefony";
 import type { ContextType } from "@nodefony/http";
+import { encoderFromConfig } from "@nodefony/user";
 
 import { SecuredArea } from "../src/SecuredArea";
+import { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
@@ -100,6 +102,7 @@ class Firewall extends Service implements IFirewall {
       return;
     }
     this.#roleHierarchy = new RoleHierarchyWalker(this.#config.roleHierarchy);
+    this.#provisionSharedServices(this.#config);
 
     const areas = this.#config.areas;
     const names = Object.keys(areas);
@@ -120,6 +123,33 @@ class Firewall extends Service implements IFirewall {
           this.#authenticators?.size ?? 0
         } authenticator(s)`,
         "DEBUG",
+      );
+    }
+  }
+
+  // P6 J3 — briques TRANSVERSES construites depuis la config validée, posées
+  // au container (partagées entre la porte Basic, le flux login BFF et le
+  // UserService de l'application) :
+  //  - `passwordEncoder` : pont config.encoders → chaîne d'encodeurs (1re
+  //    entrée = principal, suivantes = legacy lecture seule, migration au
+  //    login). L'app le consomme à la construction de son UserService.
+  //  - `loginThrottler` : backoff NIST partagé — UNE instance pour TOUTES les
+  //    portes (un attaquant ne contourne pas le compteur en changeant de porte).
+  #provisionSharedServices(config: ISecurityConfig): void {
+    const specs = Object.values(config.encoders);
+    if (specs.length > 0) {
+      this.container?.set("passwordEncoder", encoderFromConfig(specs));
+    }
+    const rl = config.rateLimit;
+    if (rl.enabled) {
+      this.container?.set(
+        "loginThrottler",
+        new LoginThrottler({
+          freeAttempts: rl.freeAttempts,
+          baseDelayS: rl.baseDelayS,
+          capDelayS: rl.capDelayS,
+          maxTracked: rl.maxTracked,
+        }),
       );
     }
   }

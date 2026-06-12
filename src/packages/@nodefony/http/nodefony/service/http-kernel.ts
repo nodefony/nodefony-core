@@ -967,6 +967,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (ret === 204) {
       return ret;
     }
+    // SESSIONS — AVANT le firewall (P6 J3) : le SessionAuthenticator lit la
+    // session REPRISE (cookie L1) pour ré-authentifier sans credential. Lazy
+    // inchangé (ni intent de route ni cookie entrant → 0 session, 0 coût) ;
+    // le point d'activation reste unique (`startSession`).
+    await this.startSession(context);
     // FIREWALL
     if (context.secure || context.isControlledAccess) {
       context.phaseStart("firewall");
@@ -991,9 +996,6 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // state-changing) se branchera ici via le firewall (`@nodefony/security`).
       return context;
     }
-
-    // SESSIONS
-    await this.startSession(context);
     // SEAM P6 — CSRF : la validation du token (mutations state-changing) se
     // branchera ici via le firewall (`@nodefony/security`).
     return context;
@@ -1188,11 +1190,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         context.logRequest(e as Error);
         throw e;
       }
-      if (context.secure || context.isControlledAccess) {
-        return await context.connect();
-      }
       // SESSIONS — même point d'activation unique que le HTTP (co-citoyenneté
       // HTTP/WS) : `startSession` décide via l'intent de route ou le cookie (L1).
+      // AVANT le firewall WS (P6 J3) — y compris en zone sécurisée : le
+      // SessionAuthenticator lit la session reprise au handshake.
       if (!context.sessionStarting) {
         await this.startSession(context);
       }

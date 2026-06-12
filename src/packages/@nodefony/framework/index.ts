@@ -14,6 +14,9 @@ import ResourceController from "./nodefony/src/ResourceController";
 import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
 import AdminApiController from "./nodefony/src/AdminApiController";
+import SessionAuthController, {
+  mountSessionAuthRoutes,
+} from "./nodefony/src/SessionAuthController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
@@ -128,6 +131,12 @@ class Framework extends Module {
       }
       broker.mountAll();
     }
+    // P6 J3 — flux de session BFF : routes montées SEULEMENT si le service
+    // `authFlow` est présent (module security chargé). Sans lui : 404, zéro
+    // surface d'attaque, framework reste indépendant de security.
+    if (this.kernel?.container?.get("authFlow")) {
+      mountSessionAuthRoutes(this);
+    }
     return this;
   }
 }
@@ -149,6 +158,8 @@ export {
   Resolver,
   AdminBroker,
   AdminApiController,
+  SessionAuthController,
+  mountSessionAuthRoutes,
   createKernelAdminApi,
   createFrameworkAdminApi,
   createSyslogAdminApi,
