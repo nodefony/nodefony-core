@@ -17,14 +17,41 @@ import { z } from "zod";
  */
 
 const encoderSchema = z.object({
-  type: z.enum(["bcrypt"]).describe("Algorithme de hash du mot de passe."),
+  type: z
+    .enum(["argon2id", "bcrypt"])
+    .default("argon2id")
+    .describe(
+      "Algorithme de hash du mot de passe. Argon2id (RFC 9106) = défaut : memory-hard, résiste au parallélisme GPU/ASIC. bcrypt = legacy supporté (limite 72 octets).",
+    ),
+  // ── Argon2id — minimums OWASP (m=19 MiB, t=2, p=1) imposés par le schéma ──
+  memoryKiB: z
+    .number()
+    .int()
+    .min(19456)
+    .default(19456)
+    .describe(
+      "Argon2id : mémoire par hash (KiB). 19456 = 19 MiB, minimum OWASP.",
+    ),
+  timeCost: z
+    .number()
+    .int()
+    .min(2)
+    .default(2)
+    .describe("Argon2id : passes d'itération. Défaut 2 (OWASP avec m=19 MiB)."),
+  parallelism: z
+    .number()
+    .int()
+    .min(1)
+    .default(1)
+    .describe("Argon2id : lanes parallèles. Défaut 1 (OWASP)."),
+  // ── bcrypt (legacy) ──
   rounds: z
     .number()
     .int()
     .min(10)
     .max(15)
     .default(12)
-    .describe("Coût bcrypt (10–15)."),
+    .describe("bcrypt : coût (10–15). Ignoré par argon2id."),
 });
 
 const areaSchema = z.object({
@@ -35,13 +62,21 @@ const areaSchema = z.object({
     .describe("Zone protégée (Zero Trust). false = publique explicite."),
   stateless: z
     .boolean()
-    .default(true)
-    .describe("HTTP stateless (JWT cookie) — défaut 2026."),
+    .default(false)
+    .describe(
+      "true = zone sans session serveur (API pure : JWT/clé API). Défaut false : session BFF (cookie opaque révocable) — reco IETF browser-based-apps.",
+    ),
+  mode: z
+    .enum(["first", "all"])
+    .default("first")
+    .describe(
+      "Chaîne d'authenticators : 'first' = le premier qui reconnaît la requête authentifie (ex. cookie OU bearer) ; 'all' = tous doivent passer (ex. mtls+jwt zone admin).",
+    ),
   authenticators: z
     .array(z.string())
     .default([])
     .describe(
-      "Authenticators à exécuter (chaîne, tous doivent passer). Validés au boot contre le registre.",
+      "Authenticators de la zone (sémantique selon `mode`). Validés au boot contre le registre.",
     ),
   entryPoint: z
     .string()
@@ -88,15 +123,25 @@ const csrfSchema = z
     enabled: z
       .boolean()
       .default(true)
-      .describe("Défense CSRF par défaut (SameSite + Origin)."),
-    sameSite: z.enum(["Strict", "Lax", "None"]).default("Strict"),
+      .describe(
+        "Défense CSRF par défaut (Fetch Metadata + SameSite + Origin).",
+      ),
+    fetchMetadata: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Défense PRIMAIRE : rejette les mutations cross-site via Sec-Fetch-Site (tamponné par le navigateur, infalsifiable — modèle Go 1.25 CrossOriginProtection).",
+      ),
+    sameSite: z.enum(["Strict", "Lax", "None"]).default("Lax"),
     checkOrigin: z
       .boolean()
       .default(true)
-      .describe("Vérifie Origin/Referer sur les méthodes mutantes."),
+      .describe(
+        "Fallback : compare Origin/Referer aux origines de l'app sur les méthodes mutantes (vieux navigateurs sans Sec-Fetch-*).",
+      ),
   })
   .describe(
-    "Cross-Site Request Forgery — OWASP 2024 (token classique abandonné).",
+    "Cross-Site Request Forgery — Fetch Metadata d'abord (OWASP 2025) ; token synchronizer = opt-in @CsrfProtect.",
   );
 
 const headersSchema = z
@@ -210,8 +255,52 @@ const jwtSchema = z
       .boolean()
       .default(true)
       .describe("Expose JWKS + `kid` (rotation de clés)."),
+    audiences: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "Audiences acceptées (claim `aud`, RFC 8707). Vide = l'audience de l'app. La validation d'audience est OBLIGATOIRE côté resource (RFC 9700).",
+      ),
   })
-  .describe("JWT stateless (cookie HttpOnly;Secure;SameSite=Strict).");
+  .describe(
+    "JWT — réservé API service↔service / agents (le web/navigateur utilise la session BFF).",
+  );
+
+const passkeysSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Active WebAuthn/passkeys (MFA phishing-resistant, NIST AAL2).",
+      ),
+    rpId: z
+      .string()
+      .optional()
+      .describe("Relying Party ID (domaine). Omis = domaine de l'app au boot."),
+    origins: z
+      .array(z.string())
+      .default([])
+      .describe("Origines autorisées aux ceremonies. Vide = origine de l'app."),
+    userVerification: z
+      .enum(["required", "preferred", "discouraged"])
+      .default("preferred")
+      .describe(
+        "Vérification utilisateur (biométrie/PIN) exigée par l'authenticator.",
+      ),
+  })
+  .describe("Passkeys (WebAuthn L3 / FIDO2) — synced par défaut.");
+
+const tokenExchangeSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Délégation RFC 8693 (agent agit on-behalf-of un user, chaîne `act` auditable). Slot P12 — non implémenté.",
+      ),
+  })
+  .describe("Token Exchange (RFC 8693) — délégation agents/services.");
 
 const apiKeysSchema = z
   .object({
@@ -313,6 +402,10 @@ const securityConfigSchema = z.object({
   headers: headersSchema.default(() => headersSchema.parse({})),
   rateLimit: rateLimitSchema.default(() => rateLimitSchema.parse({})),
   jwt: jwtSchema.default(() => jwtSchema.parse({})),
+  passkeys: passkeysSchema.default(() => passkeysSchema.parse({})),
+  tokenExchange: tokenExchangeSchema.default(() =>
+    tokenExchangeSchema.parse({}),
+  ),
   apiKeys: apiKeysSchema.default(() => apiKeysSchema.parse({})),
   webhooks: webhooksSchema.default(() => webhooksSchema.parse({})),
   audit: auditSchema.default(() => auditSchema.parse({})),

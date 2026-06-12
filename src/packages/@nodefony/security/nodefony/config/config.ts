@@ -27,10 +27,12 @@ export default {
   ...defineSecurityConfig({
     // ══════════════════ ENCODEURS (hash mot de passe) ══════════════════
     encoders: {
-      // Encodeur de l'utilisateur. bcrypt rounds 12 (~250 ms/hash) = défaut prod-safe.
-      // Reco prod sensible: 13-14 (plus lent = plus résistant au brute-force offline).
-      // Bornes: min 10, max 15.
-      user: { type: "bcrypt", rounds: 12 },
+      // Encodeur de l'utilisateur. Argon2id (RFC 9106) = défaut 2026 : memory-hard
+      // (19 MiB par hash) → le brute-force GPU massivement parallèle s'effondre.
+      // Bornes du schéma = minimums OWASP (m=19 MiB, t=2, p=1) ; monter en prod
+      // sensible (ex. memoryKiB: 47104, timeCost: 1).
+      // bcrypt reste supporté (legacy, limite 72 octets): { type: "bcrypt", rounds: 12 }.
+      user: { type: "argon2id", memoryKiB: 19456, timeCost: 2, parallelism: 1 },
     },
 
     // ══════════════════ HIÉRARCHIE DE RÔLES ══════════════════
@@ -46,12 +48,15 @@ export default {
     //   main_api: { pattern: "^/api/(?!admin)", authenticators: ["jwt"] }
     //   admin:    { pattern: "^/api/admin", authenticators: ["mtls","jwt"], host: "admin.exemple.com" }
     // Options par zone :
-    //   pattern        (requis)   RegExp d'URL.
-    //   security       déf. true  zone protégée (Zero Trust). false = publique explicite.
-    //   stateless      déf. true  HTTP stateless (JWT cookie). false = stateful.
-    //   authenticators déf. []    noms à exécuter (tous doivent passer). Validés au boot.
-    //   host           déf. -     domaine/vhost (ex. admin.exemple.com). Omis = tous domaines.
-    //   entryPoint     déf. -     route de login/redirect si non authentifié.
+    //   pattern        (requis)      RegExp d'URL.
+    //   security       déf. true     zone protégée (Zero Trust). false = publique explicite.
+    //   stateless      déf. false    session BFF (cookie opaque révocable). true = API pure (JWT/clé).
+    //   mode           déf. "first"  "first" = le 1er authenticator qui reconnaît la requête
+    //                                authentifie (cookie OU bearer) ; "all" = tous doivent
+    //                                passer (ex. mtls+jwt sur une zone admin).
+    //   authenticators déf. []       noms exécutés selon `mode`. Validés au boot.
+    //   host           déf. -        domaine/vhost (ex. admin.exemple.com). Omis = tous domaines.
+    //   entryPoint     déf. -        route de login/redirect si non authentifié.
     areas: {},
 
     // ══════════════════ CORS (Cross-Origin Resource Sharing) ══════════════════
@@ -65,11 +70,14 @@ export default {
       maxAgeS: 600, //                        cache préflight (s). Défaut: 600 (10 min).
     },
 
-    // ══════════════════ CSRF (OWASP 2024 — pas de token classique) ══════════════════
+    // ══════════════════ CSRF (Fetch Metadata d'abord — OWASP 2025) ══════════════════
+    // Le navigateur tamponne lui-même la provenance (Sec-Fetch-Site) : infalsifiable
+    // par un site attaquant. Le token synchronizer devient l'exception (@CsrfProtect).
     csrf: {
       enabled: true, //        défense CSRF par défaut. Défaut: true.
-      sameSite: "Strict", //   SameSite des cookies sensibles. Défaut: "Strict" (reco). Lax/None possibles.
-      checkOrigin: true, //    vérifie Origin/Referer sur POST/PUT/PATCH/DELETE. Défaut: true.
+      fetchMetadata: true, //  PRIMAIRE : rejette les mutations cross-site (Sec-Fetch-Site). Défaut: true.
+      sameSite: "Lax", //      Défaut: "Lax" (Strict casse les liens entrants légitimes ; banking → Strict).
+      checkOrigin: true, //    fallback Origin/Referer sur POST/PUT/PATCH/DELETE (vieux navigateurs). Défaut: true.
     },
 
     // ══════════════════ EN-TÊTES DE SÉCURITÉ (natif, sans la lib helmet) ══════════════════
@@ -99,7 +107,9 @@ export default {
       lockoutThreshold: 10, //   échecs avant verrouillage du compte. Défaut: 10.
     },
 
-    // ══════════════════ JWT (jetons stateless en cookie) ══════════════════
+    // ══════════════════ JWT (API service↔service / agents) ══════════════════
+    // Le web/navigateur utilise la SESSION BFF (cookie opaque révocable) — le JWT
+    // est réservé aux échanges machine↔machine où le stateless a un vrai sens.
     jwt: {
       enabled: true, //          active l'auth JWT. Défaut: true.
       alg: "EdDSA", //           algo de signature. Défaut: "EdDSA" (reco). RS256 possible.
@@ -107,6 +117,24 @@ export default {
       refreshTtlS: 604800, //    durée refresh token. Défaut: 604800 (7 jours).
       rotateRefresh: true, //    rotation du refresh à chaque usage (OWASP). Défaut: true.
       jwks: true, //             expose JWKS + `kid` (rotation de clés). Défaut: true.
+      audiences: [], //          claims `aud` acceptés (RFC 8707). Vide = audience de l'app. Validation OBLIGATOIRE.
+    },
+
+    // ══════════════════ PASSKEYS (WebAuthn L3 / FIDO2) ══════════════════
+    // MFA phishing-resistant (NIST AAL2, synced par défaut). Le password devient
+    // le fallback, pas l'inverse.
+    passkeys: {
+      enabled: true, //                 active WebAuthn. Défaut: true.
+      // rpId: "exemple.com",        // Relying Party ID. Omis = domaine de l'app au boot.
+      origins: [], //                   origines autorisées aux ceremonies. Vide = origine de l'app.
+      userVerification: "preferred", // biométrie/PIN: "required" | "preferred" | "discouraged".
+    },
+
+    // ══════════════════ TOKEN EXCHANGE (RFC 8693 — agents IA) ══════════════════
+    // Un agent agit "on-behalf-of" un utilisateur avec une chaîne `act` auditable
+    // (délégation explicite ≠ impersonation). Slot réservé — implémentation P12.
+    tokenExchange: {
+      enabled: false, // Défaut: false (non implémenté).
     },
 
     // ══════════════════ CLÉS API (PAT — style GitHub/Claude) ══════════════════

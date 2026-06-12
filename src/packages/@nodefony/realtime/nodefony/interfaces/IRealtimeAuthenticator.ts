@@ -3,7 +3,7 @@ import type { IRealtimeToken } from "./IRealtimeToken";
 
 /**
  * Stratégie d'authentification au handshake WebSocket — équivalent realtime du
- * pattern `IAuthenticator` (Symfony 6) côté HTTP de `@nodefony/security`.
+ * pattern `IAuthenticator` côté HTTP de `@nodefony/security`.
  *
  * Plusieurs authenticators sont enregistrés sur le hub via
  * `RealtimeService.useAuthenticator(matcher, authenticator)`. Au handshake, le

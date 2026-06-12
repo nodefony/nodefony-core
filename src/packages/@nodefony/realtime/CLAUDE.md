@@ -50,7 +50,7 @@ P6 pourra se brancher sans refonte. Vue d'ensemble vulgarisée → [`docs/securi
 | ✅ 4 | **Origin check natif** sur upgrade WS (`csrf.checkOrigin` Zod, RFC 6455 §10.2)                  | Hub       | Configurable, fail-closed                                                                               |
 | ✅ 5 | **`onFrameAudit(reason, frame, peer)`** dans `JsonRpcPeer` (3ᵉ arg `peer` slot #6 actor lookup) | Protocole | Consommé par `AuditEventEntity` (P6.14)                                                                 |
 
-**Contrats publics du seam #2** : `IRealtimeToken` (structural-compat `IToken` security), `IRealtimeHandshake` (DTO neutre — headers/cookies/url/origin/protocols), `IRealtimeAuthenticator` (Symfony 6 `supports/authenticate/onSuccess/onFailure`), `IRealtimeAuthenticatorMatcher` (pattern URL + vhost). `ANONYMOUS_REALTIME_TOKEN` = singleton gelé fallback Zero Trust.
+**Contrats publics du seam #2** : `IRealtimeToken` (structural-compat `IToken` security), `IRealtimeHandshake` (DTO neutre — headers/cookies/url/origin/protocols), `IRealtimeAuthenticator` (`supports/authenticate/onSuccess/onFailure`), `IRealtimeAuthenticatorMatcher` (pattern URL + vhost). `ANONYMOUS_REALTIME_TOKEN` = singleton gelé fallback Zero Trust.
 
 ## Structure des fichiers (réelle — rapatriement P13.0 fait)
 

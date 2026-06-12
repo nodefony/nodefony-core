@@ -13,9 +13,9 @@ import type { IPasswordAuthenticatedUser } from "./IUser";
  * @remarks Type d'entité = {@link IPasswordAuthenticatedUser} (credential inclus),
  * pas `IUser`. Le repository **est** la frontière de persistance du mot de passe :
  * seul composant qui lit/écrit le hash (consommé par `UserService` et
- * `@nodefony/security`). Le split credential (façon Symfony) protège les
- * consommateurs *en aval* (framework/authz reçoivent `IUser` via `IUserProvider`),
- * pas la couche de stockage qui, par nature, manipule le hash.
+ * `@nodefony/security`). Le split credential protège les consommateurs *en aval*
+ * (framework/authz reçoivent `IUser` via `IUserProvider`), pas la couche de
+ * stockage qui, par nature, manipule le hash.
  */
 export interface IUserRepository extends IRepository<IPasswordAuthenticatedUser> {
   /**

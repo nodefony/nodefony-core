@@ -2,8 +2,9 @@ import type { ContextType } from "@nodefony/http";
 import type { IToken } from "./IToken";
 
 /**
- * Stratégie d'authentification — pattern « authenticator » (Symfony 6), pas
- * Bridge/Factory (héritage Passport/YAML abandonné).
+ * Stratégie d'authentification — pattern « authenticator » : une classe = une
+ * façon de prouver qui on est. Pas de Bridge/Factory (héritage Passport/YAML
+ * abandonné).
  *
  * Une zone sécurisée ({@link ISecuredArea}) liste les noms d'authenticators à
  * exécuter. Le firewall, pour chaque requête de la zone, prend le premier dont

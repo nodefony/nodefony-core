@@ -64,9 +64,9 @@ export interface IUser {
 /**
  * Utilisateur **porteur d'un credential mot de passe local** — extension de {@link IUser}.
  *
- * Séparé de `IUser` (façon `PasswordAuthenticatedUserInterface` de Symfony) pour
- * garder le contrat de base pur : seuls `@nodefony/security`
- * (`UserPasswordAuthenticator`) et un {@link IPasswordEncoder} ont besoin du hash.
+ * Séparé de `IUser` pour garder le contrat de base pur : seuls `@nodefony/security`
+ * (`UserPasswordAuthenticator`) et un {@link IPasswordEncoder} ont besoin du hash —
+ * 90 % des consommateurs (affichage, autorisation) n'ont rien à faire d'un credential.
  * Un compte 100 % OAuth a `password === null`.
  */
 export interface IPasswordAuthenticatedUser extends IUser {

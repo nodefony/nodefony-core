@@ -1,11 +1,11 @@
 {
-  "generated": "2026-06-12T12:13:12.984Z",
+  "generated": "2026-06-12T14:22:19.318Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 841,
-    "symbols": 1747,
-    "classes": 244,
+    "files": 842,
+    "symbols": 1748,
+    "classes": 245,
     "interfaces": 435,
     "types": 225,
     "enums": 3,
@@ -7411,7 +7411,7 @@
       "exported": true,
       "module": "@nodefony/realtime",
       "extends": null,
-      "description": "Stratégie d'authentification au handshake WebSocket — équivalent realtime du pattern `IAuthenticator` (Symfony 6) côté HTTP de `@nodefony/security`. Plusieurs authenticators sont enregistrés sur le…"
+      "description": "Stratégie d'authentification au handshake WebSocket — équivalent realtime du pattern `IAuthenticator` côté HTTP de `@nodefony/security`. Plusieurs authenticators sont enregistrés sur le hub via `Re…"
     },
     "IRealtimeAuthenticatorMatcher": {
       "name": "IRealtimeAuthenticatorMatcher",
@@ -7680,7 +7680,7 @@
       "exported": true,
       "module": "@nodefony/security",
       "extends": null,
-      "description": "Stratégie d'authentification — pattern « authenticator » (Symfony 6), pas Bridge/Factory (héritage Passport/YAML abandonné). Une zone sécurisée ({@link ISecuredArea}) liste les noms d'authenticator…"
+      "description": "Stratégie d'authentification — pattern « authenticator » : une classe = une façon de prouver qui on est. Pas de Bridge/Factory (héritage Passport/YAML abandonné). Une zone sécurisée ({@link ISecure…"
     },
     "IFirewall": {
       "name": "IFirewall",
@@ -7952,7 +7952,7 @@
       "exported": true,
       "module": "@nodefony/user",
       "extends": "IUser",
-      "description": "Utilisateur **porteur d'un credential mot de passe local** — extension de {@link IUser}. Séparé de `IUser` (façon `PasswordAuthenticatedUserInterface` de Symfony) pour garder le contrat de base pur…"
+      "description": "Utilisateur **porteur d'un credential mot de passe local** — extension de {@link IUser}. Séparé de `IUser` pour garder le contrat de base pur : seuls `@nodefony/security` (`UserPasswordAuthenticato…"
     },
     "IUserProvider": {
       "name": "IUserProvider",
@@ -7972,6 +7972,17 @@
       "extends": "IRepository",
       "description": "Repository **spécialisé utilisateur** — `IRepository<IPasswordAuthenticatedUser>` enrichi de finders métier. Étend le contrat CRUD portable de `@nodefony/orm-core` (`find`, `create`, `withTransacti…"
     },
+    "UserNotFoundError": {
+      "name": "UserNotFoundError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/user/nodefony/errors/UserNotFoundError.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Utilisateur introuvable dans la source d'identité — levée par les méthodes {@link IUserProvider} (contrat : jamais `null`, l'absence d'identité est un échec explicite). `code = 404` (sémantique int…"
+    },
     "UserService": {
       "name": "UserService",
       "kind": "class",
@@ -7979,7 +7990,9 @@
       "exported": true,
       "module": "@nodefony/user",
       "extends": "AbstractCrudService",
-      "implements": [],
+      "implements": [
+        "IUserProvider"
+      ],
       "decorators": [],
       "description": "Service applicatif **utilisateur** — CRUD haché + authentification + events de cycle de vie. Spécialisation d'{@link AbstractCrudService} sur l'entité utilisateur : hérite du CRUD générique (`find`…"
     },
@@ -12876,6 +12889,7 @@
       "nodefonyError": [
         "AccessDeniedError",
         "AuthenticationError",
+        "UserNotFoundError",
         "DocumentationError"
       ],
       "RealtimeController": [
@@ -13043,6 +13057,9 @@
       ],
       "ISecuredArea": [
         "SecuredArea"
+      ],
+      "IUserProvider": [
+        "UserService"
       ],
       "IUser": [
         "AnonymousUser"
@@ -14627,6 +14644,7 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
         "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
+        "src/packages/@nodefony/user/nodefony/errors/UserNotFoundError.ts",
         "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -16148,6 +16166,7 @@
       "IUser": [
         "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts"
       ],
@@ -16215,6 +16234,12 @@
       "IPasswordEncoder": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts"
+      ],
+      "IUserProvider": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "UserNotFoundError": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "IVectorSearchOptions": [
         "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",

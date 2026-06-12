@@ -1,8 +1,10 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
 import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
-import type { IPasswordAuthenticatedUser } from "../contracts/IUser";
+import type { IUser, IPasswordAuthenticatedUser } from "../contracts/IUser";
 import type { IPasswordEncoder } from "../contracts/IPasswordEncoder";
+import type { IUserProvider } from "../contracts/IUserProvider";
 import type { IUserRepository } from "../contracts/IUserRepository";
+import { UserNotFoundError } from "../errors/UserNotFoundError";
 
 /**
  * Données d'entrée de création d'un utilisateur — le mot de passe est fourni en
@@ -47,10 +49,10 @@ const DUMMY_PLAINTEXT = "nodefony.dummy.timing.guard";
  * @typeParam — fixé : `T = IPasswordAuthenticatedUser` (le repository est la
  *   frontière credential), `R = IUserRepository` (conserve les finders métier).
  */
-export class UserService extends AbstractCrudService<
-  IPasswordAuthenticatedUser,
-  IUserRepository
-> {
+export class UserService
+  extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>
+  implements IUserProvider
+{
   protected readonly encoder: IPasswordEncoder;
 
   // Hash leurre calculé paresseusement au 1er échec d'authentification : zéro coût
@@ -178,6 +180,51 @@ export class UserService extends AbstractCrudService<
 
     this.fire("onAuthenticated", user);
     return user;
+  }
+
+  // ─── IUserProvider — la source d'identité vue par @nodefony/security ───────
+  // Sémantique du contrat : JAMAIS null — l'absence d'identité lève
+  // UserNotFoundError (les authenticators la convertissent en 401 générique).
+  // Retour typé IUser (split credential : l'aval ne voit pas le hash).
+
+  /**
+   * {@inheritDoc IUserProvider.loadUserByIdentifier}
+   */
+  async loadUserByIdentifier(identifier: string): Promise<IUser> {
+    const user = await this.repository.findByIdentifier(identifier);
+    if (user === null) {
+      throw new UserNotFoundError(`identifier "${identifier}"`);
+    }
+    return user;
+  }
+
+  /**
+   * {@inheritDoc IUserProvider.loadUserByOAuth}
+   *
+   * @remarks Pas de provisionnement *Shadow User* ici : la création de la ligne
+   * locale au premier login externe sera portée par l'`OAuth2Authenticator`
+   * (post-P6), qui décide selon sa config — le provider, lui, ne fait que lire.
+   */
+  async loadUserByOAuth(provider: string, providerId: string): Promise<IUser> {
+    const user = await this.repository.findBySocialProvider(
+      provider,
+      providerId,
+    );
+    if (user === null) {
+      throw new UserNotFoundError(`social ${provider}:${providerId}`);
+    }
+    return user;
+  }
+
+  /**
+   * {@inheritDoc IUserProvider.refreshUser}
+   */
+  async refreshUser(user: IUser): Promise<IUser> {
+    const fresh = await this.findById(user.id);
+    if (fresh === null) {
+      throw new UserNotFoundError(`id "${user.id}" (compte supprimé)`);
+    }
+    return fresh;
   }
 
   // Émet l'échec et retourne null — factorise les chemins d'erreur d'authenticate.

@@ -4,16 +4,16 @@
  * Module **séparé** de `@nodefony/security` : il porte le contrat `IUser` et ses
  * implémentations de base afin que tout consommateur (security, framework, orm-*,
  * agent, llm, rag, realtime, studio) puisse manipuler un utilisateur **sans tirer
- * toute la couche security** pour un simple type. Calque du découpage
- * `symfony/security-core` ↔ `symfony/security-bundle`.
+ * toute la couche security** pour un simple type — l'identité est un concept plus
+ * large que l'authentification.
  *
  * Lib pure ORM-agnostique : les contrats sont effacés à la compilation, les classes
  * de base (`BaseUser`, `AnonymousUser`, `BcryptEncoder`) et `UserService` sont
  * consommés via DI. Les entités persistées (Mongoose/Drizzle) étendent
  * `BaseUser` ou implémentent `IUser` dans chaque adapter.
  *
- * @remarks P5.5 livré (contracts + base users). Restent : P5.6 (`UserService` +
- * `BcryptEncoder`), P5.7–5.9 (adapters ORM). `IRole`/`IPermission` différés à P6.8.
+ * @remarks P5.5–5.9 livrés (contracts, base users, `UserService` + encoders,
+ * adapters Drizzle/Mongoose). `IRole`/`IPermission` différés à P6.8.
  */
 
 // ─── Contrats (P5.5) — exports type, effacés à la compilation ────────────────
@@ -44,3 +44,6 @@ export type {
   ICreateUserInput,
   AuthFailureReason,
 } from "./nodefony/service/UserService";
+
+// ─── Erreurs (P6 S0) ─────────────────────────────────────────────────────────
+export { UserNotFoundError } from "./nodefony/errors/UserNotFoundError";
