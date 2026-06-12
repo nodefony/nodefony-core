@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.22.0
+version: 1.23.1
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -46,13 +46,14 @@ vérifiées source, gates Core).
 Quand le front commence à consommer un **canal/action/endpoint/type** nouveau → vérifier qu'il est décrit côté
 `nodefony-framework-dev` (et inversement). Ouvrir le skill jumeau dès qu'une feature touche son côté.
 
-**VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
-snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.16.1**
-(session BACKEND `nodefony-framework-dev` 1.16.1 : **durcissement framework F1+F4** — purge `any` de dette
-
-- couverture unit Controller 22→80 % / Resolver + doc hook `initialize()`.
-  **Aucun contrat front touché** → studio-dev suit en lockstep **back-only**, pas de changement de page/canal/type).
+**VERSIONS INDÉPENDANTES + référence croisée de CONTRAT (règle révisée 2026-06-12)** : chaque skill
+suit son propre SemVer (les sessions mono-côté ne bumpent QUE leur skill — le lockstep numérique
+strict a échoué en pratique : bumps « de cohérence » vides côté back puis divergence silencieuse
+1.20⇄1.23 sans que personne ne le voie). **La règle qui RESTE obligatoire** : quand une feature touche
+un **contrat partagé** (canal / action / endpoint / type isomorphe), la ligne de changelog de CHAQUE
+skill **cite la version jumelle** (« contrat ↔ framework-dev vX.Y ») et les DEUX skills sont mis à
+jour dans la même session. La version courante vit dans le frontmatter + changelog — **ne JAMAIS la
+dupliquer dans ce paragraphe** (dérive vécue : « Actuel : 1.16.1 » gelé 2 semaines dans les 2 skills).
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -1333,10 +1334,16 @@ mémoire IA dédiée + lien.
 `feedback_spa_fallback_literal` (deep-link) · `project_studio_page_playbook` (pointeur) ·
 module `CLAUDE.md`/`MEMORY.md`.
 
-## Changelog (SemVer — version COMMUNE avec `nodefony-framework-dev`, lockstep)
+## Changelog (SemVer — versions INDÉPENDANTES, référence croisée de contrat)
 
-> Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
+> Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
+> feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.23.1** (2026-06-12) — **Audit de calibration (session nettoyage skills).** (1) Frontmatter recalé
+  **1.22.0 → 1.23.1** (il était resté en retard sur le propre changelog du skill — la 1.23.0 du 06-06
+  n'avait pas bumpé le frontmatter). (2) **Règle lockstep RÉVISÉE** : versions indépendantes + référence
+  croisée de contrat (le numéro commun a divergé silencieusement 1.20⇄1.23 sans détection) ; paragraphe
+  « Actuel : 1.16.1 » supprimé (duplication gelée depuis le 05-30). Contenu pages/canaux/types inchangé.
 - **1.23.0** (2026-06-06) — **Supervision en bureau + taxonomie de TAGS + catalogue à FACETTES** (front-only).
   3 widgets de détail (`supervision.memory` espaces V8 / `supervision.handles` ressources actives / `supervision.errors`
   erreurs/min ← `dashboard:supervision`). **`workspace/tags.ts`** : domaine hiérarchique + nature **saisis** (`IWidgetDef.tags`),
