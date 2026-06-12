@@ -33,6 +33,15 @@
 
 ## 🐚 Shell / environnement d'exécution
 
+- `[1× — 2026-06-12]` **`grep -c` qui compte 0 = exit 1 → saute silencieusement la suite d'une chaîne `&&`** :
+  `npm run build | grep -c "warn" && start.sh` → build vert, 0 warning… et le start.sh n'a JAMAIS tourné
+  (exit 1 du grep). Ne jamais chaîner `&&` derrière un `grep -c` dont 0 est le résultat ATTENDU (séparer
+  les commandes, ou `|| true`).
+- `[1× — 2026-06-12]` **`git stash` peut réussir l'ENTRÉE puis échouer le reset (index.lock) → stash DUPLIQUÉ,
+  arbre intact, `pop` refuse** (« local changes would be overwritten »). Vérité avant tout drop :
+  `git stash show -p | git apply --check --reverse` — passe = l'arbre contient déjà exactement le stash
+  → `git stash drop` sûr, AUCUNE perte. Ne jamais `checkout`/`reset` pour « débloquer » un pop qui refuse.
+
 > ♻️ CONSOLIDATE 2026-06-12 : **gradués/couverts, retirés d'ici** — `Edit` exige `Read` (4×) →
 > [[feedback_edit_requires_read_tool]] · cwd persiste / `cd X && cmd1 ; cmd2` (5×+) →
 > [[feedback_cd_startsh_relative_path]] enrichie · ENOSPC fantôme + shell instable sous charge →
@@ -58,6 +67,17 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
   - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
+
+- `[1× — 2026-06-12]` **restart serveur juste après des edits `.ts` = RACE watch-rebuild ↔ import au boot** :
+  le watch détecte les sources modifiées et relance rollup PENDANT que le Kernel importe les dist → rollup
+  VIDE `dist/` → `Cannot find module .../realtime/dist/index.js` → modules en **fail-soft** (boot dégradé)
+  MAIS health 200 (module test chargé) → 9 timeouts de suite intég « inexpliqués ». Après tout
+  rebuild-manuel + restart : `grep -c "BOOT dégradé\|fail-soft" /tmp/nodefony-server.log` AVANT de lancer
+  une suite (le health du start.sh ne prouve PAS l'intégrité des modules — variante du filet 06-01).
+- `[1× — 2026-06-12]` **TS4114 ⇄ TS4113 inconciliables entre les 2 programmes du core (node augmente `Error`
+  global avec `code?: any`, client non)** : un champ de classe `code` exige `override` côté node et l'interdit
+  côté client. Sortie propre = **declaration merging** (`export interface X { code: number }` + classe qui
+  assigne dans le ctor) : la prop fusionnée échappe au check `override` et type `number` partout.
 
 - `[1× — 2026-06-08]` **`npm install` ne purge pas le bloc workspace orphelin du `package-lock`** après suppression d'un package :
   l'arbre transitif est bien pruné (−2820 L, symlink `node_modules/@nodefony/X` retiré) mais l'entrée `"src/packages/@nodefony/X"`
