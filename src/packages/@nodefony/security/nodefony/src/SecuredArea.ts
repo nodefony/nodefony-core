@@ -14,6 +14,7 @@ export class SecuredArea implements ISecuredArea {
   readonly pattern: RegExp;
   readonly security: boolean;
   readonly stateless: boolean;
+  readonly mode: "first" | "all";
   readonly authenticators: readonly string[];
   readonly host?: string;
 
@@ -22,6 +23,7 @@ export class SecuredArea implements ISecuredArea {
     this.pattern = new RegExp(config.pattern, "u");
     this.security = config.security;
     this.stateless = config.stateless;
+    this.mode = config.mode;
     this.authenticators = config.authenticators;
     this.host = config.host;
   }

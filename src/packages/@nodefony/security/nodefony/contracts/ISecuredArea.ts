@@ -18,10 +18,21 @@ export interface ISecuredArea {
   /** Zone protégée (Zero Trust) ; `false` = zone publique explicite. */
   readonly security: boolean;
 
-  /** HTTP stateless (JWT cookie) ; le défaut 2026. */
+  /**
+   * Stratégie d'identité AU-DESSUS du protocole. `false` (défaut) : registre
+   * serveur autorisé — session créée AU LOGIN, cookie opaque révocable (BFF).
+   * `true` : chaque requête porte sa preuve complète (JWT/clé API), session ignorée.
+   */
   readonly stateless: boolean;
 
-  /** Noms des authenticators à exécuter (chaîne — tous doivent passer). */
+  /**
+   * Sémantique de la chaîne : `"first"` = le premier authenticator qui
+   * reconnaît la requête authentifie ; `"all"` = tous doivent passer (MFA —
+   * le DERNIER porte l'identité).
+   */
+  readonly mode: "first" | "all";
+
+  /** Noms des authenticators à exécuter (sémantique selon {@link mode}). */
   readonly authenticators: readonly string[];
 
   /** Domaine/vhost de la zone (ex. `admin.exemple.com`). Omis = tous domaines. */

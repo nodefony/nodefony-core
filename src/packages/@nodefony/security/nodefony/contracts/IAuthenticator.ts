@@ -7,9 +7,10 @@ import type { IToken } from "./IToken";
  * abandonné).
  *
  * Une zone sécurisée ({@link ISecuredArea}) liste les noms d'authenticators à
- * exécuter. Le firewall, pour chaque requête de la zone, prend le premier dont
- * `supports()` est vrai, fabrique un token non authentifié (`createToken`), puis
- * `authenticate()` valide ou `throw` (→ 401).
+ * exécuter selon son `mode` : `"first"` (le premier dont `supports()` est vrai
+ * authentifie) ou `"all"` (tous doivent passer — MFA, le dernier porte
+ * l'identité). Cycle : `createToken()` extrait le credential (token non
+ * authentifié), `authenticate()` valide et promeut ou `throw` (→ 401).
  *
  * Implémentations : `AnonymousAuthenticator`, `UserPasswordAuthenticator`,
  * `JwtAuthenticator`, `OAuth2Authenticator`, `MTlsAuthenticator`.
@@ -30,6 +31,13 @@ export interface IAuthenticator {
   /** Hook succès — pose le token (cookie JWT, log audit S1…). */
   onSuccess(context: ContextType, token: IToken): Promise<void>;
 
-  /** Hook échec — réponse 401, log audit, entryPoint éventuel. */
+  /** Hook échec — log audit, throttling (J2)… Le 401 + challenge sont posés par le firewall. */
   onFailure(context: ContextType, error: Error): Promise<void>;
+
+  /**
+   * Challenge `WWW-Authenticate` (RFC 7235 : tout 401 DOIT en porter un).
+   * Le firewall pose celui du premier authenticator de la zone qui en déclare.
+   * Ex. `'Basic realm="nodefony", charset="UTF-8"'`, `'Bearer'`.
+   */
+  challenge?(): string;
 }
