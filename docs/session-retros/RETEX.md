@@ -85,6 +85,15 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
   global avec `code?: any`, client non)** : un champ de classe `code` exige `override` côté node et l'interdit
   côté client. Sortie propre = **declaration merging** (`export interface X { code: number }` + classe qui
   assigne dans le ctor) : la prop fusionnée échappe au check `override` et type `number` partout.
+- `[1× — 2026-06-12]` **un import STATIQUE de peerDep optionnelle dans UN fichier du barrel rend TOUT le
+  barrel dépendant d'elle** (ESM runtime n'a PAS de tree-shaking : importer `{ anonymousUser }` du barrel
+  user évalue `BcryptEncoder.ts` → chargeait le binaire natif `@node-rs/bcrypt` à CHAQUE boot consommant
+  le module, crash si la peerDep optionnelle est absente — la TSDoc promettait l'inverse). Détecté par la
+  directive lazy du user (flair, J1). → dep lourde/optionnelle = **`import()` dynamique DANS l'instance au
+  premier usage** (méthodes async du contrat), caché ensuite ; les fabriques d'un registre restent SYNC
+  (lazy dans l'instance, pas la fabrique — pas de `#build` async/race boot). Fix `ecd3dab7` ; règle gravée
+  au kit P6 pour argon2 (J2) / jose (J4) / simplewebauthn (J9). À auditer : autres barrels à peerDep
+  optionnelle (candidat skill check-externals).
 
 - `[1× — 2026-06-08]` **`npm install` ne purge pas le bloc workspace orphelin du `package-lock`** après suppression d'un package :
   l'arbre transitif est bien pruné (−2820 L, symlink `node_modules/@nodefony/X` retiré) mais l'entrée `"src/packages/@nodefony/X"`
@@ -191,12 +200,15 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   conformes) mais PAS `sequelize`/`mongoose` (pas d'`implements` → le cast `as unknown as` au register absorbe). →
   après un changement de contrat, `tsc --noEmit -p <module>` par module localise les non-conformes ; un diff **type-only**
   (aliases + types) n'impacte pas le runtime → gate mémoire reportable au 1er vrai changement runtime (réécriture cœur).
-- `[2× — 2026-06-04, 2026-06-05]` **une option de config peut être un FOSSILE** : (a) consolider des « défauts »
-  depuis un config.ts existant → recopie de `watch`/`devServer`/`orm:"sequelize"`/`domainCheck` morts ; (b) Lot 5 :
-  le bloc `certificates.{path,privateKeyPath,certPath}` de l'app était **INERTE** (le service `certificates.ts`
-  hardcode ses chemins, ignore ces options). → **grep les consommateurs CHAMP PAR CHAMP** (0 conso OU option ignorée
-  par le service = mort) avant d'adopter/porter ; bonus : supprimer l'option inerte tue souvent un deref kernel
-  d'un coup. Le user a flairé 2× (« reliquats legacy »).
+- `[3× — 2026-06-04, 2026-06-05, 2026-06-12]` **une option de config peut être un FOSSILE** ⚠️ candidate
+  graduation (≥3×) : (a) consolider des « défauts » depuis un config.ts existant → recopie de
+  `watch`/`devServer`/`orm:"sequelize"`/`domainCheck` morts ; (b) Lot 5 : le bloc
+  `certificates.{path,privateKeyPath,certPath}` de l'app était **INERTE** (`certificates.ts` hardcode ses
+  chemins) ; (c) P6 J1 : le bloc `firewalls:{main:{path,helmet,cors}}` de `nodefony.config.ts` était un
+  **format MORT** (le firewall S1 lit `areas`) → l'app dev tournait SANS AUCUNE zone en se croyant
+  configurée — sur de la SÉCURITÉ, un fossile silencieux = trou réel, pas du cosmétique. → **grep les
+  consommateurs CHAMP PAR CHAMP** avant d'adopter/porter ; fix J1 : validation Zod fail-closed au boot
+  (config invalide → tout le trafic rejeté, plus de faux-sentiment).
 - `[1× — 2026-06-05]` **déplacer un fichier HORS d'un dossier surveillé casse le watcher silencieusement** : Lot 5
   a sorti la config de `nodefony/config/*` (dossier watché par DevSupervisor) vers des **fichiers racine**
   (`nodefony.config.ts`/`env.ts`) → `#paths` (liste de dossiers + `index.ts`) ne les voyait plus → éditer la config
@@ -388,9 +400,16 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   est une promesse de contrat — la config S1 security promettait « chaîne, tous doivent passer » quand le
   firewall faisait « premier qui supporte gagne » (ambiguïté MFA/step-up latente, détectée à l'audit P6,
   tranchée S0 par `mode: first|all`). À l'audit d'un module : confronter chaque describe au code consommateur.
-- `[1× — 2026-06-12]` **vérifier le CONTRAT (interface) avant d'appeler une méthode dessus** : `findById`
-  vit sur `AbstractCrudService` (délègue à `repository.findOne({id})`), PAS sur `IRepository` — présumé par
-  habitude CRUD → TS2339 au build. 30 s de grep du contrat évitent un cycle build-fix.
+- `[2× — 2026-06-12 ×2]` **vérifier le CONTRAT (et la VALEUR d'une constante) avant de coder dessus** :
+  (a) `findById` vit sur `AbstractCrudService`, PAS sur `IRepository` — présumé par habitude CRUD → TS2339 ;
+  (b) J1 : 3 assertions écrites avec `identifier === "anonymous"` présumé → la constante réelle est
+  `anon.` (`AnonymousUser.ts`) → 3 fails du 1ᵉʳ run. 30 s de grep de la source évitent un cycle test-fix.
+- `[1× — 2026-06-12]` **tester un Service hors kernel via son contrat PUBLIC (pas d'extraction de fonction
+  pure)** : la sémantique de chaîne du firewall (`mode first|all`, Zero Trust, challenge) est testée en
+  instanciant `new Firewall(fakeModule)` (Container+Event réels, `kernel` absent → `#build` jamais appelé)
+  - `registerAuthenticator(spy)` + `handleSecurity(fakeContext)` ; l'identité se vérifie DANS un
+    `RequestContext.run(...)` (teste l'ALS en prime). 13 tests sans booter un kernel ni dupliquer la logique
+    en fonction exportée-pour-test. Réf : `security/tests/unit/firewallChain.test.ts`.
 - `[1× — 2026-06-12]` **Gates toutes vertes ≠ pas de régression quand le diff INTERCEPTE un chemin global** :
   le pont ApiClient→socket (tous les GET Studio détournés) avait tests unit verts + tsc 0 + suite intég pont 9/9…
   et a cassé Studio À LA CONNEXION (`/auth/me`/`/stats`/`/health` GET-only → 405 du pont propagé ≠ réponse REST).
