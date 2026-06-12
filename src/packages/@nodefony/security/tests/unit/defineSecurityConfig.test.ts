@@ -37,11 +37,13 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
     assert.equal(config.areas.app.security, true);
   });
 
-  it("encoder : Argon2id par défaut, paramètres = minimums OWASP (19 MiB/2/1)", () => {
+  it("encoder : Argon2id par défaut (m=19 MiB OWASP, t=3 RFC 9106, p=1)", () => {
     const enc = config.encoders.user;
     assert.equal(enc.type, "argon2id");
     assert.equal(enc.memoryKiB, 19456);
-    assert.equal(enc.timeCost, 2);
+    // t=3 (> minimum OWASP t=2) : +50 % de coût attaquant sans RAM
+    // supplémentaire par hash — bench 2026-06 ~56 ms, cible 50-100 ms.
+    assert.equal(enc.timeCost, 3);
     assert.equal(enc.parallelism, 1);
   });
 

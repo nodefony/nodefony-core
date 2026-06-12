@@ -36,8 +36,10 @@ const encoderSchema = z.object({
     .number()
     .int()
     .min(2)
-    .default(2)
-    .describe("Argon2id : passes d'itération. Défaut 2 (OWASP avec m=19 MiB)."),
+    .default(3)
+    .describe(
+      "Argon2id : passes d'itération. Défaut 3 (> minimum OWASP t=2 ; RFC 9106 « uniformly safe ») — renchérit l'attaquant sans augmenter la RAM par hash (anti-DoS). Bench cible 50-100 ms/hash.",
+    ),
   parallelism: z
     .number()
     .int()
@@ -213,25 +215,49 @@ const headersSchema = z
     "En-têtes HTTP de sécurité (HSTS, CSP+nonces, frameguard, noSniff… + avancés optionnels).",
   );
 
+// Throttling de login NIST SP 800-63B : backoff PROGRESSIF par identifiant
+// saisi, JAMAIS de verrouillage dur (un lockout au N-ième échec offrirait à
+// l'attaquant un déni de service gratuit sur le compte de sa victime). Bloqué
+// → 429 + `Retry-After` (RFC 6585). Le verrouillage ADMINISTRATIF reste
+// `IUser.isLocked()` (décision humaine, pas automatique).
 const rateLimitSchema = z
   .object({
     enabled: z
       .boolean()
       .default(true)
-      .describe("Rate limiting + anti brute-force."),
-    loginPoints: z
+      .describe(
+        "Throttling de login (NIST SP 800-63B) : backoff progressif par identifiant, jamais de lockout dur.",
+      ),
+    freeAttempts: z
       .number()
       .int()
-      .default(5)
-      .describe("Tentatives login avant throttle."),
-    loginDurationS: z.number().int().default(60),
-    lockoutThreshold: z
+      .min(1)
+      .default(3)
+      .describe("Échecs consécutifs tolérés sans délai (fautes de frappe)."),
+    baseDelayS: z
       .number()
       .int()
-      .default(10)
-      .describe("Échecs avant verrouillage du compte."),
+      .min(1)
+      .default(1)
+      .describe(
+        "Délai initial (s) après freeAttempts — double à chaque échec suivant.",
+      ),
+    capDelayS: z
+      .number()
+      .int()
+      .min(1)
+      .default(900)
+      .describe("Plafond du délai (s) — 900 = 15 min."),
+    maxTracked: z
+      .number()
+      .int()
+      .min(100)
+      .default(10000)
+      .describe(
+        "Borne du nombre d'identifiants suivis en mémoire (anti-fuite, éviction des plus anciens).",
+      ),
   })
-  .describe("Limitation de débit / lockout.");
+  .describe("Throttling de login (backoff progressif NIST).");
 
 const jwtSchema = z
   .object({

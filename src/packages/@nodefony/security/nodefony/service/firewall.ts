@@ -15,6 +15,7 @@ import type { ContextType } from "@nodefony/http";
 import { SecuredArea } from "../src/SecuredArea";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { AuthenticationError } from "../errors/AuthenticationError";
+import { ThrottledError } from "../errors/ThrottledError";
 import {
   defineSecurityConfig,
   type ISecurityConfig,
@@ -197,6 +198,12 @@ class Firewall extends Service implements IFirewall {
     try {
       token = await this.#authenticate(context, area);
     } catch (error) {
+      if (error instanceof ThrottledError) {
+        // 429 (RFC 6585) : pas un défi d'authentification — `Retry-After`
+        // (le client légitime sait quoi attendre), pas de WWW-Authenticate.
+        context.response?.setHeader("Retry-After", String(error.retryAfterS));
+        throw error;
+      }
       this.#setChallenge(context, area); // la réponse 401 porte WWW-Authenticate
       throw error;
     }
@@ -268,6 +275,15 @@ class Firewall extends Service implements IFirewall {
         if (error instanceof AuthenticationError) {
           this.log(
             `authentication failed (area "${area.name}", authenticator "${name}")`,
+            "WARNING",
+          );
+          throw error;
+        }
+        if (error instanceof ThrottledError) {
+          // Backoff NIST actif : remonte tel quel (429 + Retry-After posé par
+          // handleSecurity) — surtout pas wrappé en 401 générique.
+          this.log(
+            `login throttled (area "${area.name}", authenticator "${name}", retry in ${error.retryAfterS}s)`,
             "WARNING",
           );
           throw error;

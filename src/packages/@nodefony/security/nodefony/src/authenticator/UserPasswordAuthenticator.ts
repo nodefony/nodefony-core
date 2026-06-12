@@ -3,6 +3,8 @@ import type { IPasswordVerifier } from "@nodefony/user";
 import type { IAuthenticator } from "../../contracts/IAuthenticator";
 import type { IToken } from "../../contracts/IToken";
 import { AuthenticationError } from "../../errors/AuthenticationError";
+import { ThrottledError } from "../../errors/ThrottledError";
+import type { LoginThrottler } from "../throttle/LoginThrottler";
 import { UserToken } from "../token/UserToken";
 
 // Scheme HTTP case-insensitive (RFC 7235 §2.1) suivi d'au moins un espace.
@@ -38,13 +40,22 @@ export class UserPasswordAuthenticator implements IAuthenticator {
   readonly name = "userpassword";
   #verifier: IPasswordVerifier | null = null;
   readonly #resolveVerifier: () => IPasswordVerifier;
+  // Throttling NIST SP 800-63B (backoff progressif par identifiant saisi) —
+  // null si désactivé en config. Vit DANS authenticate() : la clé (identifiant)
+  // n'existe que là, et NIST décrit le throttle comme partie de la vérification.
+  readonly #throttler: LoginThrottler | null;
 
   /**
    * @param resolveVerifier - résolution lazy de la source de vérification
    *   (typiquement `container.get("users")`) — appelée au premier login.
+   * @param throttler - limiteur de tentatives (backoff NIST), `null` = désactivé.
    */
-  constructor(resolveVerifier: () => IPasswordVerifier) {
+  constructor(
+    resolveVerifier: () => IPasswordVerifier,
+    throttler: LoginThrottler | null = null,
+  ) {
     this.#resolveVerifier = resolveVerifier;
+    this.#throttler = throttler;
   }
 
   /** La requête porte-t-elle un en-tête `Authorization: Basic ...` ? */
@@ -74,11 +85,22 @@ export class UserPasswordAuthenticator implements IAuthenticator {
   /**
    * Vérifie le credential via le verifier ou lève un 401 au message uniforme.
    * Au succès le token est promu : utilisateur posé, credential effacé.
+   *
+   * Throttling NIST (si activé) : l'identifiant SAISI est vérifié AVANT le
+   * verifier (un identifiant bloqué ne coûte aucun hash → le throttle protège
+   * aussi le serveur du DoS argon2), échec compté, succès remis à zéro.
+   *
+   * @throws ThrottledError (429 + `Retry-After`) — backoff encore actif.
+   * @throws AuthenticationError (401) — credential absent ou invalide.
    */
   async authenticate(token: IToken): Promise<IToken> {
     const credentials = token.getCredentials() as IPasswordCredentials | null;
     if (!credentials?.identifier || !credentials.password) {
       throw new AuthenticationError(INVALID_CREDENTIALS);
+    }
+    if (this.#throttler !== null) {
+      const retryAfterS = this.#throttler.check(credentials.identifier);
+      if (retryAfterS > 0) throw new ThrottledError(retryAfterS);
     }
     const verifier = (this.#verifier ??= this.#resolveVerifier());
     const user = await verifier.authenticate(
@@ -86,8 +108,10 @@ export class UserPasswordAuthenticator implements IAuthenticator {
       credentials.password,
     );
     if (user === null) {
+      this.#throttler?.recordFailure(credentials.identifier);
       throw new AuthenticationError(INVALID_CREDENTIALS);
     }
+    this.#throttler?.recordSuccess(credentials.identifier);
     return (token as UserToken).promote(user);
   }
 
@@ -96,7 +120,7 @@ export class UserPasswordAuthenticator implements IAuthenticator {
     return Promise.resolve();
   }
 
-  /** Slot J2 (throttling/lockout par identifiant). Le 401 + challenge sont posés par le firewall. */
+  /** Slot J3+ (audit events). Le throttling vit dans `authenticate` (clé = identifiant) ; le 401 + challenge sont posés par le firewall. */
   onFailure(_context: ContextType, _error: Error): Promise<void> {
     return Promise.resolve();
   }

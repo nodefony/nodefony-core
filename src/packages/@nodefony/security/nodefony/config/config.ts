@@ -103,12 +103,17 @@ export default {
       // permissionsPolicy: "camera=(), microphone=(), geolocation=()", // désactive caméra/micro/géo.
     },
 
-    // ══════════════════ RATE LIMIT / ANTI BRUTE-FORCE ══════════════════
+    // ══════════════════ THROTTLING LOGIN (NIST SP 800-63B) ══════════════════
+    // Backoff PROGRESSIF par identifiant saisi — JAMAIS de verrouillage dur
+    // automatique (un lockout offrirait à l'attaquant un déni de service gratuit
+    // sur le compte de sa victime). Bloqué → 429 + Retry-After (RFC 6585).
+    // Le verrouillage ADMINISTRATIF reste IUser.isLocked() (décision humaine).
     rateLimit: {
-      enabled: true, //          active la limitation. Défaut: true.
-      loginPoints: 5, //         tentatives login avant throttle. Défaut: 5.
-      loginDurationS: 60, //     fenêtre de comptage (s). Défaut: 60.
-      lockoutThreshold: 10, //   échecs avant verrouillage du compte. Défaut: 10.
+      enabled: true, //          active le throttling. Défaut: true.
+      freeAttempts: 3, //        échecs consécutifs sans délai (fautes de frappe). Défaut: 3.
+      baseDelayS: 1, //          délai initial (s) — double à chaque échec suivant. Défaut: 1.
+      capDelayS: 900, //         plafond du délai (s). Défaut: 900 (15 min).
+      maxTracked: 10000, //      borne mémoire (identifiants suivis, éviction FIFO). Défaut: 10000.
     },
 
     // ══════════════════ JWT (API service↔service / agents) ══════════════════

@@ -4,6 +4,7 @@ import type { IAuthenticator } from "../../contracts/IAuthenticator";
 import type { ISecurityConfig } from "../../config/defineSecurityConfig";
 import { AnonymousAuthenticator } from "./AnonymousAuthenticator";
 import { UserPasswordAuthenticator } from "./UserPasswordAuthenticator";
+import { LoginThrottler } from "../throttle/LoginThrottler";
 
 /**
  * Registre de **fabriques d'authenticators** — résout les noms listés dans
@@ -66,19 +67,28 @@ export function listAuthenticatorFactories(): string[] {
 
 registerAuthenticatorFactory("anonymous", () => new AnonymousAuthenticator());
 
-registerAuthenticatorFactory(
-  "userpassword",
-  ({ container }) =>
-    new UserPasswordAuthenticator(() => {
-      const verifier = container.get<IPasswordVerifier>("users");
-      if (!verifier) {
-        // Erreur de CÂBLAGE (pas d'authentification) : le firewall la loggue en
-        // ERROR puis répond 401 fail-closed — jamais de fuite du détail au client.
-        throw new Error(
-          `UserPasswordAuthenticator: aucun service "users" (IPasswordVerifier) ` +
-            `dans le container — enregistrer un UserService au boot de l'application.`,
-        );
-      }
-      return verifier;
-    }),
-);
+registerAuthenticatorFactory("userpassword", ({ container, config }) => {
+  // Throttler NIST construit depuis la config validée — 1 instance par
+  // authenticator (lui-même unique par nom, partagé entre zones).
+  const rl = config.rateLimit;
+  const throttler = rl.enabled
+    ? new LoginThrottler({
+        freeAttempts: rl.freeAttempts,
+        baseDelayS: rl.baseDelayS,
+        capDelayS: rl.capDelayS,
+        maxTracked: rl.maxTracked,
+      })
+    : null;
+  return new UserPasswordAuthenticator(() => {
+    const verifier = container.get<IPasswordVerifier>("users");
+    if (!verifier) {
+      // Erreur de CÂBLAGE (pas d'authentification) : le firewall la loggue en
+      // ERROR puis répond 401 fail-closed — jamais de fuite du détail au client.
+      throw new Error(
+        `UserPasswordAuthenticator: aucun service "users" (IPasswordVerifier) ` +
+          `dans le container — enregistrer un UserService au boot de l'application.`,
+      );
+    }
+    return verifier;
+  }, throttler);
+});

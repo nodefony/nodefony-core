@@ -55,8 +55,16 @@ export type {
   ISecurityAreaConfig,
 } from "./nodefony/config/defineSecurityConfig";
 
+// ─── Throttling login (NIST SP 800-63B) ──────────────────────────────────────
+export { LoginThrottler } from "./nodefony/src/throttle/LoginThrottler";
+export type { ILoginThrottleOptions } from "./nodefony/src/throttle/LoginThrottler";
+
 // ─── Erreurs typées ──────────────────────────────────────────────────────────
-export { AuthenticationError, AccessDeniedError } from "./nodefony/errors";
+export {
+  AuthenticationError,
+  AccessDeniedError,
+  ThrottledError,
+} from "./nodefony/errors";
 
 // ─── Contrats ────────────────────────────────────────────────────────────────
 export { VoterVote } from "./nodefony/contracts";
