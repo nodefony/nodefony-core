@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { JsonRpcPeer } from "../realtime/JsonRpcPeer";
+import { JsonRpcPeer, RpcError } from "../realtime/JsonRpcPeer";
 
 /**
  * JsonRpcPeer = moteur protocole isomorphe. Tests purs : `send` est capturé dans un
@@ -202,6 +202,88 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
         msg = (e as Error).message;
       }
       expect(msg).to.equal("socket closed");
+    });
+  });
+
+  describe("RpcError — erreur applicative assumée (pont api.request)", () => {
+    it("handler qui throw une RpcError → code/message/data renvoyés FIDÈLEMENT, ni onError ni audit", async () => {
+      const { peer, sent, errs } = newPeer();
+      peer.register("api.request", () => {
+        throw new RpcError("not found /x", -32000, { status: 404 });
+      });
+      peer.receive({
+        jsonrpc: "2.0",
+        id: 5,
+        method: "api.request",
+        params: { path: "/x" },
+      });
+      await flush();
+      expect(sent).to.deep.equal([
+        {
+          jsonrpc: "2.0",
+          id: 5,
+          error: {
+            code: -32000,
+            message: "not found /x",
+            data: { status: 404 },
+          },
+        },
+      ]);
+      // Erreur ASSUMÉE par le handler → pas un internal_error.
+      expect(errs).to.have.length(0);
+    });
+
+    it("RpcError sans data → l'objet error ne porte PAS la clé data", async () => {
+      const { peer, sent } = newPeer();
+      peer.register("x", () => {
+        throw new RpcError("params invalides", -32602);
+      });
+      peer.receive({ jsonrpc: "2.0", id: 6, method: "x" });
+      await flush();
+      expect(sent).to.deep.equal([
+        {
+          jsonrpc: "2.0",
+          id: 6,
+          error: { code: -32602, message: "params invalides" },
+        },
+      ]);
+    });
+
+    it("requête SORTANTE : une réponse error rejette avec une RpcError (code + data lisibles)", async () => {
+      const { peer } = newPeer();
+      const p = peer.request("api.request", { path: "/y" });
+      peer.receive({
+        jsonrpc: "2.0",
+        id: 1,
+        error: { code: -32000, message: "not found /y", data: { status: 404 } },
+      });
+      try {
+        await p;
+        expect.fail("aurait dû rejeter");
+      } catch (e) {
+        expect(e).to.be.instanceOf(RpcError);
+        const err = e as RpcError;
+        expect(err.code).to.equal(-32000);
+        expect(err.message).to.equal("not found /y");
+        expect(err.data).to.deep.equal({ status: 404 });
+      }
+    });
+
+    it("un throw NON-RpcError reste opaque (-32603) — le contrat Zero Trust ne bouge pas", async () => {
+      const { peer, sent, errs } = newPeer();
+      peer.register("boom", () => {
+        throw new Error("détail interne sensible");
+      });
+      peer.receive({ jsonrpc: "2.0", id: 7, method: "boom" });
+      await flush();
+      expect(sent).to.deep.equal([
+        {
+          jsonrpc: "2.0",
+          id: 7,
+          error: { code: -32603, message: "internal error" },
+        },
+      ]);
+      expect(errs).to.have.length(1);
     });
   });
 

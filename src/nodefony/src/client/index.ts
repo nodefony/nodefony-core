@@ -20,7 +20,7 @@ import Websocket from "./transport/websocket";
 import Storage from "./api/Storage";
 import { RealtimeClient } from "./realtime/RealtimeClient";
 import { closeCodeToNotice } from "./realtime/notice";
-import { JsonRpcPeer } from "../realtime/JsonRpcPeer";
+import { JsonRpcPeer, RpcError } from "../realtime/JsonRpcPeer";
 import { TransportState } from "../realtime/IRealtimeTransport";
 import { BrowserWsTransport } from "./realtime/BrowserWsTransport";
 import { rateChannel, parseRate, isRateChannel } from "../realtime/channelRate";
@@ -98,6 +98,7 @@ export {
   isSubclassOf,
   RealtimeClient,
   JsonRpcPeer,
+  RpcError,
   TransportState,
   BrowserWsTransport,
   closeCodeToNotice,

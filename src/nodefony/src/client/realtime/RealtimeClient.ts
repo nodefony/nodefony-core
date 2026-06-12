@@ -14,6 +14,7 @@
  * En attendant, ce client peut parler à n'importe quel serveur JSON-RPC 2.0.
  */
 import { closeCodeToNotice, type NodefonyNotice } from "./notice";
+import { RpcError } from "../../realtime/JsonRpcPeer";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -44,6 +45,9 @@ import {
 } from "./AdaptiveRate";
 export { closeCodeToNotice } from "./notice";
 export type { NodefonyNotice, NoticeLevel } from "./notice";
+// Ré-export DX : `catch (e) { if (e instanceof RpcError) e.data.status … }`
+// sans importer le subpath protocole.
+export { RpcError } from "../../realtime/JsonRpcPeer";
 
 export type RealtimeState =
   | "disconnected"
@@ -469,6 +473,22 @@ export class RealtimeClient<
     );
   }
 
+  /**
+   * Requête API par **path** — la MÊME action controller que le GET REST, via
+   * la socket (« API souveraine » : 1 action = N transports). Sucre au-dessus
+   * de la méthode RPC `api.request` (protocole caché — convention dans la lib,
+   * comme `kernel:ping`/`ping()`) :
+   * ```ts
+   * const modules = await socket.request("/nodefony/kernel/api/modules");
+   * ```
+   * Échec → rejet {@link RpcError} (`data.status` = statut HTTP équivalent :
+   * 404 path inconnu, 403 refus…). Un path commence toujours par `/`, une
+   * méthode JSON-RPC jamais → zéro collision avec la forme `request(method)`.
+   */
+  async request<T = unknown>(
+    path: `/${string}`,
+    timeoutMs?: number,
+  ): Promise<T>;
   /** Request/response JSON-RPC 2.0 — Promise resolved with `result`. */
   async request<K extends string, T = unknown>(
     method: K,
@@ -487,6 +507,14 @@ export class RealtimeClient<
     params?: unknown,
     timeoutMs = 30000,
   ): Promise<T> {
+    // Forme path (`request("/x", timeout?)`) : le 2ᵉ argument EST le timeout.
+    // Détection runtime (charCode `/`) — couvre aussi un path non-littéral
+    // (variable `string`, typée par l'overload générique mais routée ici).
+    if (method.charCodeAt(0) === 47) {
+      if (typeof params === "number") timeoutMs = params;
+      params = { path: method };
+      method = "api.request";
+    }
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -903,7 +931,11 @@ export class RealtimeClient<
         }
       } else if ("error" in m && m.error) {
         this.pending.delete(id);
-        pending.reject(new Error(m.error.message));
+        // `code`/`data` préservés (ex. `data.status` d'un `api.request`) — un
+        // 404 de path se discrimine d'un refus voter sans parser le message.
+        pending.reject(
+          new RpcError(m.error.message, m.error.code, m.error.data),
+        );
       } else if ("result" in m) {
         this.pending.delete(id);
         pending.resolve(m.result);

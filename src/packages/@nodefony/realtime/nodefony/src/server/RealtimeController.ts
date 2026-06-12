@@ -1,4 +1,4 @@
-import { JsonRpcPeer, type RpcActionHandler } from "nodefony";
+import { JsonRpcPeer, RpcError, type RpcActionHandler } from "nodefony";
 import type { WebsocketContext } from "@nodefony/http";
 import { Controller } from "@nodefony/framework";
 import {
@@ -121,6 +121,20 @@ export abstract class RealtimeController
   }
 
   /**
+   * Opt-in du **pont API** (« API souveraine », POC Ph.3) : `true` → la
+   * connexion expose la méthode RPC `api.request {path}` qui re-route le path
+   * porté par le message vers l'action controller correspondante — la MÊME
+   * action que le GET REST (`socket.request("/nodefony/kernel/api/modules")`
+   * côté client). Le pont n'atteint QUE les routes déclarant le transport
+   * `WEBSOCKET` dans leurs `methods` (zéro bypass : une action dit à quels
+   * transports elle répond). À surcharger ; défaut : `false` — aucune surface
+   * d'invocation ajoutée à un hub sans intention explicite.
+   */
+  protected realtimeApiRequest(): boolean {
+    return false;
+  }
+
+  /**
    * Point d'entrée à appeler depuis la route WS du contrôleur. `message === null`
    * = handshake (1ʳᵉ invocation) ; sinon = frame entrante.
    *
@@ -236,6 +250,13 @@ export abstract class RealtimeController
     };
     for (const [name, handler] of Object.entries(allActions)) {
       peer.register(name, handler);
+    }
+    // Pont API souverain (opt-in) — enregistré APRÈS les actions custom : la
+    // plateforme garde la main sur `api.request` quand le pont est activé.
+    if (this.realtimeApiRequest()) {
+      peer.register("api.request", (params) =>
+        this.invokeApiRequest(ctx, params),
+      );
     }
 
     // Map des canaux décorés (cold-path) — mémoïsé sur l'instance pour que les
@@ -359,6 +380,82 @@ export abstract class RealtimeController
       state.channels.set(channel, sink);
       this.log(`WS subscribe → ${channel}`, "DEBUG");
     }
+  }
+
+  /**
+   * Handler de la méthode RPC `api.request {path}` — le **pont API souverain**
+   * (POC Ph.3) : résout le path porté par le message via le Router
+   * (`cleanPathOverride` — l'URL de la connexion n'est jamais mutée) puis
+   * exécute l'action SANS la rendre (`executeAction`) : la valeur nue est
+   * enveloppée `{id, result}` par le peer — snapshot ≡ GET REST par
+   * construction.
+   *
+   * Query : le `?…` du path invoqué est parsé ici (paires plates, clés répétées
+   * → array — sémantique `qs` plate) et porté par `resolver.queryOverride`
+   * (per-invocation : zéro bleed entre requêtes concurrentes de la même
+   * socket). Limitation POC assumée : syntaxe nested `a[b]=c` non supportée
+   * par le pont (doc §11 — le parse complet du transport HTTP n'est pas
+   * mutualisé tant que Ph.6 n'a pas tranché).
+   *
+   * Erreurs → {@link RpcError} (`data.status` = statut HTTP équivalent) :
+   * `-32602` params invalides, 404 path inconnu, 408 timeout d'action…
+   * Tout autre throw de l'action reste opaque (`-32603`, Zero Trust).
+   */
+  private async invokeApiRequest(
+    ctx: WebsocketContext,
+    params: unknown,
+  ): Promise<unknown> {
+    const path = (params as { path?: unknown } | undefined)?.path;
+    if (typeof path !== "string" || path.charCodeAt(0) !== 47 /* "/" */) {
+      throw new RpcError("api.request: params.path invalide", -32602);
+    }
+    const router = ctx.router;
+    if (!router) {
+      throw new RpcError("api.request: router indisponible", -32000, {
+        status: 500,
+      });
+    }
+    // Query du path INVOQUÉ séparée avant le match (le Router matche un pathname).
+    const qIdx = path.indexOf("?");
+    const pathname = qIdx === -1 ? path : path.slice(0, qIdx);
+    let resolver: ReturnType<typeof router.resolve>;
+    try {
+      resolver = router.resolve(ctx, pathname);
+    } catch (e) {
+      // Le Router THROW un HttpError 405 agrégé (RFC 9110 §15.5.6) quand le
+      // path existe mais sans le transport WEBSOCKET — même sémantique que le
+      // REST, exposée fetch-like. Duck-typing (pas d'import runtime http ici) ;
+      // tout code non-HTTP reste opaque (re-throw → `-32603`, Zero Trust).
+      const code = (e as { code?: unknown }).code;
+      if (typeof code === "number" && code >= 400 && code <= 599) {
+        throw new RpcError(e instanceof Error ? e.message : String(e), -32000, {
+          status: code,
+        });
+      }
+      throw e;
+    }
+    if (!resolver.resolve) {
+      throw new RpcError(`api.request: not found ${pathname}`, -32000, {
+        status: 404,
+      });
+    }
+    if (qIdx !== -1 && qIdx < path.length - 1) {
+      const sp = new URLSearchParams(path.slice(qIdx + 1));
+      const query: Record<string, unknown> = {};
+      for (const [k, v] of sp) {
+        const prev = query[k];
+        if (prev === undefined) query[k] = v;
+        else if (Array.isArray(prev)) (prev as string[]).push(v);
+        else query[k] = [prev as string, v];
+      }
+      resolver.queryOverride = query;
+    }
+    // `reload = true` : le container de la connexion porte CE hub sous
+    // "controller" — sans reload, l'action serait cherchée sur la mauvaise
+    // instance (seam découvert au POC Ph.1). Singleton-safe (cache Router).
+    const { result } = await resolver.executeAction(undefined, true);
+    // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
+    return await Promise.resolve(result);
   }
 
   /** Désabonne la connexion d'un canal (le hub dispose le provider au dernier abonné). */

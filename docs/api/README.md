@@ -33,7 +33,7 @@ on commence avec un service + un controller REST, on ajoute une porte **seulemen
 > donnée est lue par un humain (REST), un navigateur (WS), un dashboard et un agent IA, à travers
 > le même plan, sous la même garde.**
 
-Positionnement (à confirmer par le POC) : aucun framework ne fait *tout* ça nativement.
+Positionnement (à confirmer par le POC) : aucun framework ne fait _tout_ ça nativement.
 Hasura/PostGraphile = DB→GraphQL ; tRPC = RPC typé ; NestJS = serveur ; LangChain = IA.
 Nodefony viserait **les 3 surfaces + observabilité + gouvernance AI Act/RGPD, depuis une déclaration unique**.
 
@@ -41,13 +41,13 @@ Nodefony viserait **les 3 surfaces + observabilité + gouvernance AI Act/RGPD, d
 
 ## 2. Les concepts (vocabulaire commun)
 
-| Terme | Analogie | Rôle |
-| ----- | -------- | ---- |
-| **Service** | la cuisine | la logique métier, écrite **une fois** (`AbstractCrudService`) |
-| **Controller** | le guichet | porte d'entrée web ; appelle le service, ne contient **aucune** logique |
-| **`ResourceController`** | guichet pré-équipé | controller livré avec le **CRUD** déjà monté sur les 3 portes |
-| **Intention** | une commande | une méthode du service (`create`, `list`…) = le point de contrôle unique |
-| **La Socket** | le standard téléphonique | le lien temps réel isomorphe client↔serveur (`subscribe`/`request`) |
+| Terme                    | Analogie                 | Rôle                                                                     |
+| ------------------------ | ------------------------ | ------------------------------------------------------------------------ |
+| **Service**              | la cuisine               | la logique métier, écrite **une fois** (`AbstractCrudService`)           |
+| **Controller**           | le guichet               | porte d'entrée web ; appelle le service, ne contient **aucune** logique  |
+| **`ResourceController`** | guichet pré-équipé       | controller livré avec le **CRUD** déjà monté sur les 3 portes            |
+| **Intention**            | une commande             | une méthode du service (`create`, `list`…) = le point de contrôle unique |
+| **La Socket**            | le standard téléphonique | le lien temps réel isomorphe client↔serveur (`subscribe`/`request`)      |
 
 Règle d'or : **la logique vit dans le service. Le controller ne fait que `parse → service → render`.**
 
@@ -60,7 +60,9 @@ Règle d'or : **la logique vit dans le service. Le controller ne fait que `parse
 
 ```ts
 // sur-mesure
-class FooController extends Controller { /* tes actions */ }
+class FooController extends Controller {
+  /* tes actions */
+}
 
 // CRUD multi-surface — 2 lignes, rien d'autre à écrire
 @controller("/api/books")
@@ -111,19 +113,24 @@ GraphQL  query { booksByAuthor(authorId:42)}─┘ routage par NOM DE CHAMP (end
 ## 5. Les 3 portes en détail
 
 ### 5.1 REST (le plus mûr — existe)
+
 `@Get/@Post/@route` + `@Param/@Body/@Query`. Retour brut → auto-JSON. `initialize()` = hook per-request
 (session, plus tard auth). **C'est du REST standard, curl-able, testable sans client.**
 
 ### 5.2 Temps réel / la Socket
+
 Une **mutation** (create/update/delete) publie sur un **canal** (`book:created`…). Les clients abonnés
 reçoivent en direct. La même action peut aussi répondre à un `request` WS (req/resp corrélé via `JsonRpcPeer`).
 
 ### 5.3 GraphQL — deux écoles (à trancher au POC)
-| | Point d'entrée | Conséquence |
-|---|---|---|
-| **A** décorateur sur l'action (`@GqlQuery`) | dans le controller | « 1 action = 3 transports » ; resolvers custom |
-| **B** dérivé du service (`buildCrudResolvers(service)`) | **pas** dans le controller | CRUD gratuit, 0 SDL |
+
+|                                                         | Point d'entrée             | Conséquence                                    |
+| ------------------------------------------------------- | -------------------------- | ---------------------------------------------- |
+| **A** décorateur sur l'action (`@GqlQuery`)             | dans le controller         | « 1 action = 3 transports » ; resolvers custom |
+| **B** dérivé du service (`buildCrudResolvers(service)`) | **pas** dans le controller | CRUD gratuit, 0 SDL                            |
+
 **Penchant : A + B** — B génère le CRUD, A ajoute le custom. (Design figé actuel = B seul.)
+
 > ⚠️ Collision : `@Query` existe déjà comme **param** (querystring) → le GraphQL doit s'appeler
 > `@GqlQuery/@GqlMutation/@GqlSubscription`.
 
@@ -135,26 +142,31 @@ Deux façons d'interagir :
 
 ```js
 // A) REQUÊTE — je demande, on répond UNE fois (REST standard, familier)
-const books = await fetch("/api/books").then(r => r.json());
-await fetch("/api/books", { method: "POST", body: JSON.stringify({ title: "Dune" }) });
+const books = await fetch("/api/books").then((r) => r.json());
+await fetch("/api/books", {
+  method: "POST",
+  body: JSON.stringify({ title: "Dune" }),
+});
 
 // B) ABONNEMENT — on me prévient à CHAQUE changement (la Socket)
 import { RealtimeClient } from "nodefony/realtime";
 const socket = new RealtimeClient("wss://monsite/realtime");
 socket.subscribe("book:created", (book) => ajouter(book));
-socket.subscribe("book:*",       (evt)  => onChange(evt));   // tous les changements des livres
+socket.subscribe("book:*", (evt) => onChange(evt)); // tous les changements des livres
 ```
 
 **Le lien** : un client fait un `POST` REST normal → le service publie → **tous** les autres clients
 abonnés voient le résultat en temps réel. Rien à coder côté serveur pour ça (le `ResourceController` publie).
 
 ### 6.1 Le handshake (« s'abonner à un schéma »)
+
 ```
 1. connexion socket
 2. HANDSHAKE : "qui es-tu ?" (JWT)  →  "voici tes droits + le schéma autorisé"
 3. abonné aux tables autorisées (changements en direct)
 4. le front fait les appels qu'il veut — le SERVEUR garde la porte à chaque appel
 ```
+
 Le handshake **authentifie** (qui) + **déclare les droits** (quoi). Ensuite, appels libres côté front,
 **toujours bornés serveur**.
 
@@ -175,12 +187,12 @@ Le handshake **authentifie** (qui) + **déclare les droits** (quoi). Ensuite, ap
 Le RBAC (« peux-tu faire l'action ? ») **ne suffit jamais** pour les métiers régulés (défense, santé,
 banque/assurance, gestion de patrimoine). **4 questions distinctes** :
 
-| Question | Modèle | Exemple |
-|----------|--------|---------|
-| Peux-tu faire l'**action** ? | RBAC (rôles) | seul un `médecin` crée un dossier |
-| Quelles **lignes** voir ? | row-level / **ABAC** (appartenance) | le conseiller voit **ses** clients ; le médecin **ses** patients |
-| Jusqu'à quel **niveau** ? | **MAC / classification** (MLS, Bell-LaPadula) | habilitation C2 → C1/C2 oui, **C3/C4 non** ; + compartiments need-to-know |
-| Quels **champs** ? | field-level (PII) | n° de sécu visible que par le médecin traitant |
+| Question                     | Modèle                                        | Exemple                                                                   |
+| ---------------------------- | --------------------------------------------- | ------------------------------------------------------------------------- |
+| Peux-tu faire l'**action** ? | RBAC (rôles)                                  | seul un `médecin` crée un dossier                                         |
+| Quelles **lignes** voir ?    | row-level / **ABAC** (appartenance)           | le conseiller voit **ses** clients ; le médecin **ses** patients          |
+| Jusqu'à quel **niveau** ?    | **MAC / classification** (MLS, Bell-LaPadula) | habilitation C2 → C1/C2 oui, **C3/C4 non** ; + compartiments need-to-know |
+| Quels **champs** ?           | field-level (PII)                             | n° de sécu visible que par le médecin traitant                            |
 
 **LE principe à ne pas rater** : la sécu des données vit au niveau **SERVICE / donnée**, **jamais** au niveau
 porte/transport. Sinon une porte (WS, GraphQL, tool IA) **contourne** le filtre REST → fuite. La seule couche
@@ -195,7 +207,7 @@ find(criteria)  →  find( criteria ET scopeSécurité(user ALS) )
 - **Projection** : champs au-dessus de l'habilitation retirés **avant** la réponse (field-level).
 - **Audit** non-répudiable : qui a vu quoi, corrélé `requestId` (exigence défense/santé).
 - **Souveraineté** (livre blanc §3.1) : santé/défense → air-gap, **pas de LLM externe** ; la classification décide
-  aussi *ce qui a le droit de sortir* (le filtre PII bloque le transit vers un modèle).
+  aussi _ce qui a le droit de sortir_ (le filtre PII bloque le transit vers un modèle).
 
 **Existe** : `@IsGranted` (RBAC), Voters `IAccessVoter` (ABAC, différé P6.8), zones de confiance (§3.4 livre blanc),
 PII (§3.3), ALS, `Criteria<T>` (point d'injection du scope), audit syslog `requestId`.
@@ -212,6 +224,7 @@ Généraliser le **Log Backplane** (livré 2026-05-31) à **toutes** les sondes 
 même contrat **write / query / bus**, driver pluggable. Le **même data plane** est consommé par le
 **dashboard ET l'agent IA**. SQL **paramétré/expurgé** à la source (RGPD by design). Couture universelle =
 le `requestId` (ALS) → trace **front → HTTP → ORM → LLM**.
+
 > Hors POC v1 (sauf la sonde ORM-flow déjà prévue). Documenté ici pour cohérence.
 
 ---
@@ -238,15 +251,16 @@ par transport, le data plane Studio marche en AJAX **et** WS (même snapshot), G
 
 Trois niveaux, du facile au dur :
 
-| Niveau | Difficulté | Note |
-|--------|-----------|------|
-| Voir les données changer en direct, à plusieurs | ✅ facile | = `subscribe`, gratuit avec l'archi |
-| Lire hors ligne + resync à la reconnexion | 🟡 moyen | cache local + « cursor de reprise » (rejoue les changements ratés) |
-| **Éditer** à plusieurs / hors ligne **sans conflit** | 🔴 dur | = **CRDT** (ou OT) — le vrai morceau Google, des années de R&D |
+| Niveau                                               | Difficulté | Note                                                               |
+| ---------------------------------------------------- | ---------- | ------------------------------------------------------------------ |
+| Voir les données changer en direct, à plusieurs      | ✅ facile  | = `subscribe`, gratuit avec l'archi                                |
+| Lire hors ligne + resync à la reconnexion            | 🟡 moyen   | cache local + « cursor de reprise » (rejoue les changements ratés) |
+| **Éditer** à plusieurs / hors ligne **sans conflit** | 🔴 dur     | = **CRDT** (ou OT) — le vrai morceau Google, des années de R&D     |
 
 → Un **« Dolibarr temps réel »** (tout le monde voit tout, appels sécurisés) = **atteignable**.
 Le **« Google Sheets complet »** (édition concurrente + offline sans conflit) = **chantier à part (CRDT)**,
 **hors POC v1**, à explorer **seulement si** le métier l'exige.
+
 > **Doute majeur** : CRDT vs OT, stockage local (IndexedDB ?), réconciliation, taille mémoire. Non tranché.
 
 ---
@@ -255,8 +269,12 @@ Le **« Google Sheets complet »** (édition concurrente + offline sans conflit)
 
 1. `ResourceController` : comment le **registre de routes remonte la chaîne de prototype** pour collecter
    les routes CRUD décorées sur la base ? (parcours `Object.getPrototypeOf` à l'enregistrement).
-2. **Enveloppe WS** : forme exacte d'un appel WS-RPC qui mappe une route HTTP — `{path, query, body}` vs
-   `{channel, params}` ? Comment `@Body` (pas de corps en WS) se mappe au payload ?
+2. ✅ **Enveloppe WS — TRANCHÉ (Ph.3, 2026-06-12)** : méthode JSON-RPC 2.0 `api.request {path}` sur le hub
+   realtime (opt-in `realtimeApiRequest()`), cachée côté client par `socket.request("/path")` (overload
+   `RealtimeClient`). Query du path invoqué → `Resolver.queryOverride` (per-invocation, zéro bleed) ;
+   erreurs fetch-like via `RpcError` (`data.status` 404/405…). Restes : `@Body`/mutations par socket NON
+   conçus (routes non-GET = HTTP-only) ; parse query = paires plates `URLSearchParams` (nested `a[b]=c`
+   non supporté par le pont — mutualisation du parse `qs` du transport HTTP à trancher en Ph.6).
 3. **GraphQL** : école A, B, ou A+B ? Fédération multi-modules (`mergeResolvers`) — qui monte `/graphql` ?
 4. **Subscription GraphQL = canal Socket** : pont propre ou couplage caché ?
 5. **Handshake** : négociation de capacités (cadence, projection, policy backpressure) — protocole exact ?
@@ -272,18 +290,18 @@ Le **« Google Sheets complet »** (édition concurrente + offline sans conflit)
 
 ## 12. Existe ✅ vs à construire 🎯
 
-| Brique | État |
-| ------ | ---- |
-| `Controller` HTTP+WS co-citoyen, `@route/@Get/@Post`, `@Param/@Body/@Query`, `initialize()` | ✅ |
-| `AbstractCrudService` (find/create/update/delete + events `onCreated…`) | ✅ |
-| `@entity`/`@repository`, `Criteria<T>` opérateurs riches | ✅ |
-| La Socket client (`RealtimeClient`, `subscribe`/`request`), `JsonRpcPeer` req/resp | ✅ |
-| Data plane REST (`IAdminApi`/`AdminBroker`), Log Backplane (write/query/bus) | ✅ |
-| `ResourceController` (CRUD multi-surface) | 🎯 |
-| Routage **invoke WS** vers une action + enveloppe normalisée `@Param/@Query/@Body` | 🎯 |
-| `buildCrudResolvers` (GraphQL dérivé) + `@GqlQuery/@GqlMutation/@GqlSubscription` | 🎯 |
-| Data plane Studio **en WS** (snapshot + deltas) | 🎯 |
-| Observability Backplane généralisé / offline-CRDT | 🎯 exploratoire |
+| Brique                                                                                                  | État                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Controller` HTTP+WS co-citoyen, `@route/@Get/@Post`, `@Param/@Body/@Query`, `initialize()`             | ✅                                                                                                                                                   |
+| `AbstractCrudService` (find/create/update/delete + events `onCreated…`)                                 | ✅                                                                                                                                                   |
+| `@entity`/`@repository`, `Criteria<T>` opérateurs riches                                                | ✅                                                                                                                                                   |
+| La Socket client (`RealtimeClient`, `subscribe`/`request`), `JsonRpcPeer` req/resp                      | ✅                                                                                                                                                   |
+| Data plane REST (`IAdminApi`/`AdminBroker`), Log Backplane (write/query/bus)                            | ✅                                                                                                                                                   |
+| `ResourceController` (CRUD multi-surface)                                                               | ✅ Ph.2 (V4.2 stateless+singleton)                                                                                                                   |
+| Routage **invoke WS** vers une action + enveloppe normalisée (`api.request` JSON-RPC + `@Param/@Query`) | ✅ Ph.3 (pont opt-in `RealtimeController` + `socket.request("/path")` + `RpcError`)                                                                  |
+| `buildCrudResolvers` (GraphQL dérivé) + `@GqlQuery/@GqlMutation/@GqlSubscription`                       | 🎯                                                                                                                                                   |
+| Data plane Studio **en WS** (snapshot + deltas)                                                         | 🔶 backend livré Ph.3 (data plane admin duplex GET+WEBSOCKET, snapshot ≡ prouvé 9 tests intég) ; reste front `useResource` → socket (session dédiée) |
+| Observability Backplane généralisé / offline-CRDT                                                       | 🎯 exploratoire                                                                                                                                      |
 
 ---
 

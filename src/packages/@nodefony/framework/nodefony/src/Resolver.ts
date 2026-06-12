@@ -71,6 +71,16 @@ class Resolver implements IResolver {
   exception?: HttpError | Error | null;
   acceptedProtocol: string | null = null;
   bypassFirewall: boolean = false;
+  /**
+   * Query d'une invocation **par message** (pont WS-RPC `api.request`) — pendant
+   * de `cleanPathOverride` pour le `?…` du path invoqué. Le contexte WS étant
+   * PARTAGÉ par la connexion (sa `queryGet` = celle du handshake), la query
+   * per-invocation vit ici (le Resolver est per-invocation → zéro bleed entre
+   * requêtes concurrentes d'une même socket). `null` (hot path HTTP) = ignoré.
+   * Consommé par `@Query` (`_buildParamArgs`) et copié sur le controller
+   * per-request (`executeAction`).
+   */
+  queryOverride: Record<string, unknown> | null = null;
   constructor(context: ContextType) {
     this.context = context;
     this.injector = context.container?.get<Injector>("injector") ?? null;
@@ -271,6 +281,14 @@ class Resolver implements IResolver {
       "singleton"
     ) {
       controller.setRoute(this.route!);
+      // Pont WS-RPC : la query du path invoqué remplace celle du handshake
+      // pour les getters d'instance (`this.query`/`this.queryGet` — ex.
+      // `AdminApiController.buildRequest`). Per-instance → zéro bleed. Les
+      // singletons n'ont pas ce shadow (stateless : `@Query` seul, via le bag).
+      if (this.queryOverride !== null) {
+        controller.queryGet = this.queryOverride;
+        controller.query = this.queryOverride;
+      }
     }
     const methodKey = this.actionName as keyof typeof controller;
     // P5 : metadata d'action figées sur la route (memo, 0 Reflect/req). Forward
@@ -327,6 +345,9 @@ class Resolver implements IResolver {
       request: httpCtx?.request as IParamArgContext["request"],
       response: httpCtx?.response,
       session: ctx?.session,
+      // Pont WS-RPC : query du path INVOQUÉ (jamais celle du handshake).
+      // `?? undefined` : null (hot path) → clé absente pour `resolveParamArg`.
+      queryOverride: this.queryOverride ?? undefined,
       getRequestCookies: (name?: string) =>
         ctx?.getRequestCookies ? ctx.getRequestCookies(name) : undefined,
     });

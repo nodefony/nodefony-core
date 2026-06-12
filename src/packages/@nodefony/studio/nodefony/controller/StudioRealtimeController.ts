@@ -99,6 +99,16 @@ class StudioRealtimeController extends RealtimeController {
   }
 
   /**
+   * Pont API souverain ACTIVÉ (POC Ph.3) : la socket Studio sert
+   * `api.request {path}` → `socket.request("/nodefony/<module>/api/…")` côté
+   * front (snapshot ≡ GET REST, même action). Studio mange sa propre cuisine —
+   * 1ᵉʳ consommateur réel du pont.
+   */
+  protected override realtimeApiRequest(): boolean {
+    return true;
+  }
+
+  /**
    * Crée le provider d'un canal au `subscribe`. Le suffixe `:<ms>` (borné) pilote la
    * granularité. Renvoie le `dispose` (la base l'appelle au `unsubscribe` ET au close)
    * ou `null` si le canal est inconnu.

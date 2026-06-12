@@ -40,6 +40,8 @@ Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat p
 
 **Flux** : producteur `register(api)` en `onKernelBoot` → `Framework.onKernelReady` enregistre le kernel + `broker.mountAll()` → `Router.createRoute` 1 route/endpoint vers `AdminApiController.dispatch` + `setController` once → dispatch `resolve(route.name)` O(1) → `Context→IAdminRequest` → RBAC → `handler` → `renderJson`.
 
+**DUPLEX Ph.3 (2026-06-12, POC souverain)** : `mountAll` déclare `methods: ["GET","WEBSOCKET"]` sur les endpoints GET → invocables par le pont `api.request` (hub realtime, opt-in). `dispatch` = `runAdmin()` transport-agnostique (`{status,headers?,body}`) + 2 rendus : HTTP inchangé (`renderJson`+`x-nodefony-instance`) ; contexte `websocket*` → **body NU** (snapshot ≡ GET par construction), status ≥ 400 → `throw RpcError(-32000, {status, body})`. Mutations (POST/…) restent HTTP-only. `Resolver.queryOverride` (per-invocation) : consommé par `@Query` (clé `queryOverride` du bag `IParamArgContext`, prime sur `request.queryGet` ; `@Req` intact) + copié sur le controller per-request (`queryGet`/`query` shadows) — jamais le contexte WS partagé (bleed). Tests : `tests/integration/api-souverain-bridge.test.ts` (9).
+
 **Producteur externe (http/security…)** : importe SEULEMENT `IAdminApi`/`IAdminRegistry` depuis `"nodefony"` (jamais framework — dép. circulaire). `container.get("adminBroker") as IAdminRegistry` → `.register(api)`.
 
 **Gotchas** :

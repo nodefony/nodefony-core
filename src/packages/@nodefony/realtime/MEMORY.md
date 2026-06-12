@@ -75,6 +75,7 @@ Alice/Bob ne savent PAS qu'ils sont sur des pods différents. Seul `IBackplane` 
 
 ## Behaviors
 
+- **Pont API souverain (Ph.3, 2026-06-12)** : opt-in `realtimeApiRequest(): boolean` (défaut false ; Studio = true) → méthode RPC `api.request {path}` au handshake. `invokeApiRequest` : split `?` → `router.resolve(ctx, pathname)` (cleanPathOverride) + `resolver.queryOverride` (query per-invocation, parse plat `URLSearchParams`, clés répétées→array ; nested qs NON supporté) → `executeAction(undefined, true)` → valeur nue (peer enveloppe `{id,result}`). N'atteint QUE les routes déclarant `WEBSOCKET` ; path connu sans transport → Router THROW 405 agrégé, catché duck-typing `e.code` 400-599 → `RpcError(-32000, {status})` ; autres throw = `-32603` opaque (Zero Trust). Client : `socket.request("/path")` (overload `RealtimeClient`). 9 tests intég `framework/.../api-souverain-bridge.test.ts` (snapshot ≡ REST, query no-bleed, 404/405, -32602).
 - **Canaux PARTAGÉS** : 1 provider par canal par pod (ref-counté). Re-subscribe à `onopen`.
 - **Fan-out local** : appel synchrone à tous les peers locaux abonnés.
 - **Filtre anti-écho** : chaque message porte un `originPodId` ; le backplane ne renvoie pas à l'expéditeur.

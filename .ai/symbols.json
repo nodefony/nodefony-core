@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-11T22:27:56.798Z",
+  "generated": "2026-06-12T12:13:12.984Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 841,
-    "symbols": 1745,
-    "classes": 243,
-    "interfaces": 434,
+    "symbols": 1747,
+    "classes": 244,
+    "interfaces": 435,
     "types": 225,
     "enums": 3,
     "functions": 353,
@@ -1112,6 +1112,16 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "IRealtimeTransport — le SEUL maillon qui diffère client/serveur. Le protocole ({@link JsonRpcPeer}) et les « smarts » (stats, pub/sub) sont isomorphes ; seule la façon dont les **octets** entrent e…"
+    },
+    "RpcError": {
+      "name": "RpcError",
+      "kind": "class",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": []
     },
     "JsonRpcPeer": {
       "name": "JsonRpcPeer",
@@ -12691,6 +12701,7 @@
       ],
       "Error": [
         "nodefonyError",
+        "RpcError",
         "TimeoutError",
         "AgentError",
         "LLMError",
@@ -14371,6 +14382,12 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
+      "RpcError": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "TransportState": [
         "src/nodefony/src/client/index.ts",

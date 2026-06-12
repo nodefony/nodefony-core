@@ -45,6 +45,39 @@ export interface JsonRpcErrorObject {
   data?: unknown;
 }
 
+/**
+ * Erreur RPC **applicative** — l'exception VOLONTAIRE au principe « throw →
+ * `-32603` générique » : un handler qui rejette avec une `RpcError` choisit
+ * explicitement d'exposer `code`/`message`/`data` au pair (404 d'un path
+ * invoqué, 403 d'un voter…). Tout autre throw reste opaque (Zero Trust).
+ *
+ * Isomorphe : côté serveur le handler la lève ; côté client `request()` rejette
+ * avec — `code` et `data` (ex. `{ status: 404 }`) sont lisibles par l'appelant,
+ * symétrie d'un `fetch` qui expose son statut HTTP.
+ *
+ * Plage de codes : `-32000` à `-32099` (« Server error », réservée applicatif
+ * par JSON-RPC 2.0 §5.1). Défaut `-32000`.
+ */
+// `code` déclaré par FUSION interface+classe (pas un champ de classe) : le
+// build node augmente l'interface globale `Error` (`code?: any`, cf Error.ts)
+// → un champ déclaré exigerait `override` ; le build client (tsconfigClient,
+// sans cette augmentation) refuserait ce même `override` (TS4113/TS4114
+// inconciliables). La prop fusionnée échappe au check et type `number` partout.
+export interface RpcError {
+  /** Code JSON-RPC 2.0 (`-32000`…`-32099` applicatif, ou codes protocole). */
+  code: number;
+}
+export class RpcError extends Error {
+  override readonly name = "RpcError";
+  readonly data?: unknown;
+
+  constructor(message: string, code = -32000, data?: unknown) {
+    super(message);
+    this.code = code;
+    if (data !== undefined) this.data = data;
+  }
+}
+
 /** Handler d'une action (requête→réponse). Sync ou async ; throw → `-32603`. */
 export type RpcActionHandler = (params: unknown) => unknown | Promise<unknown>;
 
@@ -404,6 +437,18 @@ export class JsonRpcPeer<
       .then(
         (result) => this.opts.send({ jsonrpc: "2.0", id, result }),
         (err: unknown) => {
+          // Erreur APPLICATIVE assumée (RpcError) → renvoyée fidèlement au pair
+          // (pas un internal_error : ni onError ni audit — le handler a choisi
+          // d'exposer ce refus, il peut l'auditer lui-même s'il est notable).
+          if (err instanceof RpcError) {
+            const error: JsonRpcErrorObject = {
+              code: err.code,
+              message: err.message,
+            };
+            if (err.data !== undefined) error.data = err.data;
+            this.opts.send({ jsonrpc: "2.0", id, error });
+            return;
+          }
           this.opts.onError?.(`rpc ${method}`, err);
           this.opts.onFrameAudit?.("internal_error", rawFrame, this);
           this.opts.send({
@@ -432,7 +477,11 @@ export class JsonRpcPeer<
     }
     if (msg.error) {
       this.pending.delete(msg.id);
-      pending.reject(new Error(msg.error.message));
+      // `code`/`data` préservés (ex. `data.status` HTTP d'un `api.request`) —
+      // l'appelant discrimine un 404 d'un refus voter sans parser le message.
+      pending.reject(
+        new RpcError(msg.error.message, msg.error.code, msg.error.data),
+      );
       return;
     }
     if ("result" in msg) {

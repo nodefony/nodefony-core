@@ -563,6 +563,12 @@ const UploadedFiles = paramDecoratorFactory("files");
 export interface IParamArgContext {
   /** Variables de route extraites du path (`{name}` → valeur). */
   paramsMap: Record<string, unknown>;
+  /**
+   * Query de l'invocation courante quand elle ne vient PAS de l'URL du
+   * transport — pont WS-RPC `api.request` (`Resolver.queryOverride`). Prime
+   * sur `request.queryGet` pour `@Query` uniquement (`@Req` reste le brut).
+   */
+  queryOverride?: Record<string, unknown>;
   request?: {
     queryGet?: Record<string, unknown>;
     queryPost?: Record<string, unknown>;
@@ -592,7 +598,7 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
     case "param":
       return meta.key !== undefined ? ctx.paramsMap[meta.key] : ctx.paramsMap;
     case "query": {
-      const qg = ctx.request?.queryGet;
+      const qg = ctx.queryOverride ?? ctx.request?.queryGet;
       return meta.key !== undefined ? qg?.[meta.key] : qg;
     }
     case "body": {
