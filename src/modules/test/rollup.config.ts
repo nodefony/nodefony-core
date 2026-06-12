@@ -32,6 +32,10 @@ const external: string[] = [
   "drizzle-orm",
   "@nodefony/security",
   "@nodefony/framework",
+  // Banc sécurité P6 (secure/) : UserService/BcryptEncoder/BaseUser doivent rester
+  // la copie partagée process-wide (bundlés ici = classes dupliquées + le binaire
+  // natif @node-rs/bcrypt tiré dans le bundle du module de test).
+  "@nodefony/user",
   "tslib",
 ];
 

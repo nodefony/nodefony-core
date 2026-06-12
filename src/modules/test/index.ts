@@ -24,6 +24,13 @@ import PocBookController from "./nodefony/poc/PocBookController";
 import PocInvokeController from "./nodefony/poc/PocInvokeController";
 // POC Phase 2 (V4.2) — ResourceController souverain stateless + singleton.
 import PocBookResourceController from "./nodefony/poc/PocBookResourceController";
+// P6 J1 — banc ZONE PROTÉGÉE (dossier secure/ = préfixe /secure = zone "test-secure").
+import SecureController from "./nodefony/secure/SecureController";
+import {
+  InMemoryUserRepository,
+  SECURE_TEST_USERS,
+} from "./nodefony/secure/InMemoryUserRepository";
+import { UserService, BcryptEncoder } from "@nodefony/user";
 import { controllers } from "@nodefony/framework";
 // Commandes CLI de démo — bancs pour les 3 modes de boot (server/batch/daemon) et le
 // dispatch d'une commande de module (namespace `test:<action>`).
@@ -52,6 +59,8 @@ registerDolibarrEntities("default");
   DomainController,
   DomainClassController,
   DbController,
+  // P6 — banc zone protégée (firewall, routes /nodefony/test/secure/*)
+  SecureController,
   // POC API souveraine (JETABLE)
   PocBookController,
   PocInvokeController,
@@ -70,6 +79,17 @@ class Test extends Module {
   }
   // P1.7 — register security hooks listeners for integration tests.
   override async onKernelReady(): Promise<this> {
+    // P6 J1 — source d'identité du banc sécurité : UserService réel (bcrypt lazy)
+    // sur l'annuaire in-memory, posé sous "users" dans le container PARTAGÉ du
+    // kernel. Le UserPasswordAuthenticator (zone "test-secure") le résout au
+    // premier login — pas au boot (zéro coût si aucune requête protégée).
+    this.container?.set(
+      "users",
+      new UserService(
+        new InMemoryUserRepository(SECURE_TEST_USERS),
+        new BcryptEncoder(),
+      ),
+    );
     // Démo Log Backplane — 2ᵉ driver de relecture `console` (DEV uniquement) pour
     // exercer le SWITCH dev-only depuis la page Logs. `query:false` → non
     // interrogeable : basculer dessus prouve (a) que le switch marche, (b) que

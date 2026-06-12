@@ -24,7 +24,8 @@
   "peerDependencies": {
     "nodefony": "*",
     "@nodefony/http": "*",
-    "@nodefony/framework": "*"
+    "@nodefony/framework": "*",
+    "@nodefony/user": "*"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "29.0.3",
