@@ -7,8 +7,6 @@ import type {
 } from "../services/AuthService";
 import { DASHBOARDS, type DashboardDef } from "../auth/dashboards";
 
-const TOKEN_KEY = "nodefony.studio.token";
-
 export type AuthStatus =
   | "idle"
   | "loading"
@@ -16,15 +14,22 @@ export type AuthStatus =
   | "unauthenticated"
   | "error";
 
+/**
+ * Identité de l'utilisateur Studio — session BFF (P6 J3).
+ *
+ * Plus AUCUN token côté client : l'identité vit dans un cookie de session
+ * opaque `HttpOnly` que le navigateur joint seul à chaque requête. Le store ne
+ * garde que la PROJECTION (`user`) renvoyée par `/auth/me|login` — source de
+ * vérité = le serveur, re-résolue au mount (`checkSession`). Un compte
+ * verrouillé/désactivé ou une session expirée → 401 → `unauthenticated`.
+ */
 export class AuthStore {
   user: AuthUser | null = null;
-  token: string | null = null;
   status: AuthStatus = "idle";
   error: string | null = null;
 
   constructor(private readonly auth: AuthService) {
     makeAutoObservable(this);
-    this.token = this.loadToken();
   }
 
   get isAuthenticated(): boolean {
@@ -35,7 +40,7 @@ export class AuthStore {
     return this.user?.username ?? "guest";
   }
 
-  /** Rôles de l'utilisateur courant (claim `roles`), sinon tableau vide. */
+  /** Rôles de l'utilisateur courant (projection serveur), sinon tableau vide. */
   get roles(): string[] {
     return this.user?.roles ?? [];
   }
@@ -54,12 +59,11 @@ export class AuthStore {
     return this.dashboards[0]?.path ?? "/nodefony/workspace";
   }
 
-  /** Au mount de l'app : si token, tenter `/me`. */
+  /**
+   * Au mount de l'app : interroge TOUJOURS `/auth/me` — c'est le cookie
+   * (invisible au JS) qui décide, pas un état local. 401 → non connecté.
+   */
   async checkSession(): Promise<void> {
-    if (!this.token) {
-      runInAction(() => (this.status = "unauthenticated"));
-      return;
-    }
     this.status = "loading";
     try {
       const user = await this.auth.me();
@@ -68,13 +72,11 @@ export class AuthStore {
         this.status = "authenticated";
         this.error = null;
       });
-    } catch (e) {
+    } catch {
       runInAction(() => {
-        this.token = null;
-        this.persistToken(null);
         this.user = null;
         this.status = "unauthenticated";
-        this.error = e instanceof Error ? e.message : String(e);
+        this.error = null; // pas connecté = état normal, pas une erreur UI
       });
     }
   }
@@ -83,12 +85,10 @@ export class AuthStore {
     this.status = "loading";
     this.error = null;
     try {
-      const { token, user } = await this.auth.login(credentials);
+      const user = await this.auth.login(credentials);
       runInAction(() => {
-        this.token = token;
         this.user = user;
         this.status = "authenticated";
-        this.persistToken(token);
       });
     } catch (e) {
       runInAction(() => {
@@ -107,33 +107,7 @@ export class AuthStore {
     }
     runInAction(() => {
       this.user = null;
-      this.token = null;
       this.status = "unauthenticated";
-      this.persistToken(null);
     });
-  }
-
-  getToken(): string | null {
-    return this.token;
-  }
-
-  private loadToken(): string | null {
-    try {
-      return typeof localStorage !== "undefined"
-        ? localStorage.getItem(TOKEN_KEY)
-        : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private persistToken(token: string | null): void {
-    try {
-      if (typeof localStorage === "undefined") return;
-      if (token) localStorage.setItem(TOKEN_KEY, token);
-      else localStorage.removeItem(TOKEN_KEY);
-    } catch {
-      /* storage disabled — ignore */
-    }
   }
 }

@@ -64,7 +64,8 @@ export class RootStore {
     this.notifications = new NotificationStore(this.realtime);
 
     this.api = new ApiClient({
-      getToken: () => this.auth?.getToken() ?? null,
+      // Session BFF (P6 J3) : plus de Bearer — le cookie HttpOnly part seul
+      // (`credentials: "same-origin"` posé par ApiClient).
       // API souveraine (Ph.3) : GET data plane via le pont `api.request` quand
       // la socket est connectée — même action, même snapshot que le REST.
       // Kill switch global : UiStore.apiViaSocket (Hub, persisté).

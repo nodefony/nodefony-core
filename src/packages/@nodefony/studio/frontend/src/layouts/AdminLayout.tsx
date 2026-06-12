@@ -126,10 +126,11 @@ export const AdminLayout = observer(() => {
   const [params] = useSearchParams();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
 
-  // WS permanent : ouvert dès le montage du shell (couvre reload avec token).
+  // WS permanent : ouvert dès le montage du shell (couvre le reload — le
+  // cookie de session BFF part seul au handshake, plus de token JS).
   useEffect(() => {
-    void conn.connect(auth.getToken());
-  }, [conn, auth]);
+    void conn.connect();
+  }, [conn]);
 
   // Catalogue data plane → groupe « Data plane » auto-généré dans la nav.
   useEffect(() => {

@@ -19,7 +19,10 @@ export const SECURE_TEST_USERS: IBaseUserOptions[] = [
   {
     id: "00000000-0000-4000-8000-00000000ad01",
     identifier: "admin",
-    roles: ["ROLE_ADMIN"],
+    // Rôles PLATS : c'est la projection de /auth/me qui pilote le front Studio
+    // (dashboards par rôle) — la hiérarchie serveur (roleHierarchy) n'aplatit
+    // pas la projection avant P6.8. ROLE_ADMIN reste premier (asserts du banc).
+    roles: ["ROLE_ADMIN", "ROLE_NODEFONY_ADMIN", "ROLE_DEV", "ROLE_SUPERVISOR"],
     password: "$2y$12$LClrbAwB2rWklN.9mNaLSe8M3VT6g2HcuCSBkpdJAg/bgw8N66ktG",
   },
   {

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-12T21:10:11.834Z",
+  "generated": "2026-06-12T21:19:20.089Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 860,
-    "symbols": 1786,
+    "symbols": 1785,
     "classes": 258,
     "interfaces": 447,
     "types": 229,
     "enums": 3,
-    "functions": 361,
+    "functions": 360,
     "constants": 488
   },
   "symbols": {
@@ -14317,8 +14317,7 @@
       "Body": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
-        "src/modules/test/nodefony/controller/FrameworkController.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+        "src/modules/test/nodefony/controller/FrameworkController.ts"
       ],
       "Cookie": [
         "src/packages/@nodefony/framework/index.ts",

@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Controller, Get, Post, Body, controller } from "@nodefony/framework";
+import { Controller, Get, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
 import {
@@ -7,36 +7,6 @@ import {
   readGitBranch,
   type AppMeta,
 } from "../realtime/providers";
-
-/**
- * Rôles applicatifs Studio (MOCK). ⚠️ Doivent rester alignés avec
- * `frontend/src/auth/dashboards.ts` — la source de vérité passera à
- * @nodefony/security (P6, firewall + voters).
- */
-const ROLE_NODEFONY_ADMIN = "ROLE_NODEFONY_ADMIN";
-const ROLE_DEV = "ROLE_DEV";
-const ROLE_SUPERVISOR = "ROLE_SUPERVISOR";
-
-/** Préfixe du token mock : porte le username (relu par /auth/me au reload). */
-const MOCK_TOKEN_PREFIX = "mock-jwt.";
-
-/**
- * Mappe un username mock → ses rôles, pour exercer le routage par rôle SANS le
- * firewall P6 : `dev` → dashboard dev, `supervisor` → supervision, tout autre
- * compte (dont `admin`) → les deux. Rôles dérivés **côté serveur** (le token ne
- * porte que le username) — aucune confiance au client, même en mock.
- */
-function mockRolesFor(username: string): string[] {
-  switch (username.trim().toLowerCase()) {
-    case "dev":
-      return [ROLE_NODEFONY_ADMIN, ROLE_DEV];
-    case "sup":
-    case "supervisor":
-      return [ROLE_NODEFONY_ADMIN, ROLE_SUPERVISOR];
-    default:
-      return [ROLE_NODEFONY_ADMIN, ROLE_DEV, ROLE_SUPERVISOR];
-  }
-}
 
 /**
  * Controller Studio admin.
@@ -56,10 +26,10 @@ function mockRolesFor(username: string): string[] {
  * ils appartiennent à d'autres modules et migreront vers leur `/nodefony/<module>/api/*` :
  *  - GET  /nodefony/studio/api/health        → ping (cible : kernel)
  *  - GET  /nodefony/studio/api/info          → infos runtime (cible : kernel)
- *  - POST /nodefony/studio/api/auth/login    → mock login (cible : @nodefony/security P6)
- *  - GET  /nodefony/studio/api/auth/me       → mock user (cible : @nodefony/security P6)
- *  - POST /nodefony/studio/api/auth/logout   → mock logout (cible : @nodefony/security P6)
  *  - GET  /nodefony/studio/api/realtime/info → URL WS @nodefony/client (cible : P13)
+ *
+ * Auth : MIGRÉE (P6 J3) — `/nodefony/security/api/auth/{login,me,logout}`
+ * (session BFF, SessionAuthController + AuthFlow). Plus aucun mock ici.
  *
  * Le streaming des logs passe désormais par le canal WS `syslog:stream`
  * (`StudioRealtimeController`, JSON-RPC 2.0). L'ancien endpoint SSE
@@ -192,59 +162,9 @@ class StudioController extends Controller {
     return this.renderJson(await readStatsSnapshot(meta));
   }
 
-  /**
-   * Mock login — accepte n'importe quoi pour le POC.
-   * Sera remplacé par P6 (@nodefony/security firewall + AuthBridge).
-   */
-  @Post("/studio/api/auth/login")
-  apiLogin(@Body() body: { username?: string }) {
-    const username = (body?.username ?? "admin").trim() || "admin";
-    return this.renderJson({
-      token: `${MOCK_TOKEN_PREFIX}${encodeURIComponent(username)}`,
-      user: {
-        id: 1,
-        username,
-        roles: mockRolesFor(username),
-        email: `${username}@nodefony.local`,
-      },
-    });
-  }
-
-  @Get("/studio/api/auth/me")
-  apiMe() {
-    const username = this.mockUsername();
-    return this.renderJson({
-      id: 1,
-      username,
-      roles: mockRolesFor(username),
-      email: `${username}@nodefony.local`,
-    });
-  }
-
-  /** Username déduit du token mock (en-tête Authorization), repli `admin`. */
-  private mockUsername(): string {
-    const raw = (
-      this.context as {
-        request?: { headers?: Record<string, string | string[] | undefined> };
-      }
-    )?.request?.headers?.authorization;
-    const header = Array.isArray(raw) ? raw[0] : raw;
-    if (typeof header !== "string") return "admin";
-    const token = header.replace(/^Bearer\s+/i, "");
-    if (!token.startsWith(MOCK_TOKEN_PREFIX)) return "admin";
-    try {
-      return (
-        decodeURIComponent(token.slice(MOCK_TOKEN_PREFIX.length)) || "admin"
-      );
-    } catch {
-      return "admin";
-    }
-  }
-
-  @Post("/studio/api/auth/logout")
-  apiLogout() {
-    return this.renderJson({ ok: true });
-  }
+  // P6 J3 — les mocks /studio/api/auth/{login,me,logout} sont SUPPRIMÉS :
+  // l'auth réelle vit sur /nodefony/security/api/auth/* (session BFF,
+  // SessionAuthController + AuthFlow). Le front (AuthService) y pointe.
 
   /**
    * Stub `@nodefony/client` realtime endpoint info.

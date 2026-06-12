@@ -1,12 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useState } from "react";
-import {
-  Alert,
-  Button,
-  PasswordInput,
-  Stack,
-  TextInput,
-} from "@mantine/core";
+import { Alert, Button, PasswordInput, Stack, TextInput } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { IconAlertCircle, IconLogin } from "@tabler/icons-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -40,7 +34,10 @@ export const Login = observer(() => {
   const [busy, setBusy] = useState(false);
 
   const form = useForm({
-    initialValues: { username: "admin", password: "admin" },
+    // Auth RÉELLE (session BFF P6 J3) : plus de mock « accepte tout » — en dev,
+    // les comptes viennent du banc du module test (admin/secret, user/secret).
+    // Jamais de password pré-rempli en dur dans le code.
+    initialValues: { username: "admin", password: "" },
     validate: {
       username: (v) => (v.trim().length === 0 ? "Username requis" : null),
       password: (v) => (v.length === 0 ? "Password requis" : null),
@@ -74,7 +71,7 @@ export const Login = observer(() => {
       // 4. Realtime
       setStep("realtime");
       setStatus("active");
-      await conn.connect(auth.getToken());
+      await conn.connect();
       setCompleted((c) => [...c, "realtime"]);
 
       setStep("done");
@@ -98,14 +95,28 @@ export const Login = observer(() => {
     <AuthLayout>
       {busy || status === "error" ? (
         <Stack gap="md">
-          <ConnectionStepper active={step} status={status} completed={completed} />
+          <ConnectionStepper
+            active={step}
+            status={status}
+            completed={completed}
+          />
           {error && (
-            <Alert color="red" icon={<IconAlertCircle size={16} />} title="Connexion échouée">
+            <Alert
+              color="red"
+              icon={<IconAlertCircle size={16} />}
+              title="Connexion échouée"
+            >
               {error}
             </Alert>
           )}
           {status === "error" && (
-            <Button variant="default" onClick={() => { setStatus("idle"); setError(null); }}>
+            <Button
+              variant="default"
+              onClick={() => {
+                setStatus("idle");
+                setError(null);
+              }}
+            >
               Réessayer
             </Button>
           )}
