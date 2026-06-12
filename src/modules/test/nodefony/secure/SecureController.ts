@@ -1,5 +1,5 @@
 import { RequestContext } from "nodefony";
-import type { IUser } from "@nodefony/user";
+import type { IUser, UserService } from "@nodefony/user";
 import { Controller, controller, Get } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 
@@ -33,6 +33,28 @@ class SecureController extends Controller {
       identifier: user?.identifier ?? null,
       roles: user?.roles ?? [],
     });
+  }
+
+  /**
+   * Preuve P6 J2 (migration bcrypt → argon2id) : FORMAT du hash stocké de
+   * l'utilisateur COURANT — jamais le hash lui-même, et seulement à son
+   * titulaire authentifié (zone protégée + banc dev-only). Après le premier
+   * login réussi, `MigratingEncoder` doit avoir modernisé bcrypt → argon2id.
+   */
+  @Get("/encoder")
+  async encoder() {
+    const user = RequestContext.getUser() as IUser | undefined;
+    const users = this.get<UserService>("users");
+    const stored = user?.identifier
+      ? await users?.findByIdentifier(user.identifier)
+      : null;
+    const hash = stored?.password ?? "";
+    const format = hash.startsWith("$argon2id$")
+      ? "argon2id"
+      : /^\$2[aby]\$/.test(hash)
+        ? "bcrypt"
+        : "unknown";
+    return this.renderJson({ format });
   }
 }
 

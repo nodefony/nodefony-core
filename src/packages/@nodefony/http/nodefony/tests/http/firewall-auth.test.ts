@@ -68,9 +68,12 @@ describe("Firewall — zone protégée test-secure (requires server)", () => {
   });
 
   it("anti-énumération : identifiant inconnu et mauvais mot de passe = même réponse", async () => {
+    // Identifiant inconnu UNIQUE par run : le throttler (J2) compte par
+    // identifiant saisi et le serveur survit aux runs — un "ghost" fixe
+    // accumulerait ses échecs d'un run à l'autre jusqu'au 429.
     const unknownUser = await get(
       "/nodefony/test/secure/ping",
-      basic("ghost", "whatever"),
+      basic(`ghost-${Date.now()}`, "whatever"),
     );
     const badPassword = await get(
       "/nodefony/test/secure/ping",
@@ -136,6 +139,53 @@ describe("Firewall — zone protégée test-secure (requires server)", () => {
     const { status } = await get("/nodefony/test/secure/ping", {
       authorization: header,
     });
+    expect(status).to.equal(200);
+  });
+});
+
+describe("P6 J2 — Argon2id + throttling NIST (requires server)", () => {
+  it("migration transparente : après login, le hash stocké est au format argon2id", async () => {
+    // Les comptes du banc naissent en bcrypt (in-memory) ; le login réussi
+    // ci-dessus ou celui-ci déclenche le re-hash MigratingEncoder → argon2id.
+    await get("/nodefony/test/secure/ping", basic("user", "secret"));
+    const { status, body } = await get(
+      "/nodefony/test/secure/encoder",
+      basic("user", "secret"),
+    );
+    expect(status).to.equal(200);
+    expect((body as { format: string }).format).to.equal("argon2id");
+  });
+
+  it("backoff NIST : échecs répétés → 429 + Retry-After (sans WWW-Authenticate)", async () => {
+    // Identifiant unique par run (compteur côté serveur) — inconnu en base :
+    // le throttle s'applique à l'identifiant SAISI (zéro oracle d'énumération).
+    const target = `bruteforce-${Date.now()}`;
+    // freeAttempts=3 (défaut) : 3 échecs libres + le 4e arme le délai (1 s).
+    for (let i = 0; i < 4; i++) {
+      const { status } = await get(
+        "/nodefony/test/secure/ping",
+        basic(target, "bad"),
+      );
+      expect(status).to.equal(401);
+    }
+    const blocked = await get(
+      "/nodefony/test/secure/ping",
+      basic(target, "bad"),
+    );
+    expect(blocked.status).to.equal(429);
+    expect(Number(blocked.headers["retry-after"])).to.be.greaterThan(0);
+    expect(blocked.headers["www-authenticate"]).to.equal(undefined);
+    // Le délai EXPIRE (jamais de lockout dur) : on retombe sur 401 classique.
+    await new Promise((r) => setTimeout(r, 1200));
+    const after = await get("/nodefony/test/secure/ping", basic(target, "bad"));
+    expect(after.status).to.equal(401);
+  });
+
+  it("le throttle d'un identifiant martelé ne bloque pas les autres comptes", async () => {
+    const { status } = await get(
+      "/nodefony/test/secure/whoami",
+      basic("admin", "secret"),
+    );
     expect(status).to.equal(200);
   });
 });

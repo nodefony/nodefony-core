@@ -30,7 +30,12 @@ import {
   InMemoryUserRepository,
   SECURE_TEST_USERS,
 } from "./nodefony/secure/InMemoryUserRepository";
-import { UserService, BcryptEncoder } from "@nodefony/user";
+import {
+  UserService,
+  BcryptEncoder,
+  Argon2idEncoder,
+  MigratingEncoder,
+} from "@nodefony/user";
 import { controllers } from "@nodefony/framework";
 // Commandes CLI de démo — bancs pour les 3 modes de boot (server/batch/daemon) et le
 // dispatch d'une commande de module (namespace `test:<action>`).
@@ -79,15 +84,18 @@ class Test extends Module {
   }
   // P1.7 — register security hooks listeners for integration tests.
   override async onKernelReady(): Promise<this> {
-    // P6 J1 — source d'identité du banc sécurité : UserService réel (bcrypt lazy)
-    // sur l'annuaire in-memory, posé sous "users" dans le container PARTAGÉ du
+    // P6 J1 — source d'identité du banc sécurité : UserService réel sur
+    // l'annuaire in-memory, posé sous "users" dans le container PARTAGÉ du
     // kernel. Le UserPasswordAuthenticator (zone "test-secure") le résout au
     // premier login — pas au boot (zéro coût si aucune requête protégée).
+    // P6 J2 — MigratingEncoder : les comptes du banc naissent en bcrypt
+    // (InMemoryUserRepository), le PREMIER login réussi les migre en argon2id
+    // (re-hash transparent). In-memory → rejouable à chaque restart.
     this.container?.set(
       "users",
       new UserService(
         new InMemoryUserRepository(SECURE_TEST_USERS),
-        new BcryptEncoder(),
+        new MigratingEncoder(new Argon2idEncoder(), [new BcryptEncoder()]),
       ),
     );
     // Démo Log Backplane — 2ᵉ driver de relecture `console` (DEV uniquement) pour
