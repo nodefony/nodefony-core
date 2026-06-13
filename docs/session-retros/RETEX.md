@@ -177,10 +177,20 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🧭 Conception / fondation / vocabulaire (frictions du jour)
 
-- `[1× — 2026-06-13]` **le kit/mémoire peut être PÉRIMÉ sur l'état du code → vérifier les contrats DANS le
-  code au cadrage d'un lot** : le kit P6 disait « IUserProvider implémenté nulle part » alors que
-  `UserService.loadUserByIdentifier` était livré (J1/J2) → 2 min de Read ont réduit le lot 1 de moitié.
+- `[2× — 2026-06-13]` **le kit/mémoire peut être PÉRIMÉ sur l'état du code → vérifier les contrats DANS le
+  code au cadrage d'un lot** : (a) le kit P6 disait « IUserProvider implémenté nulle part » alors que
+  `UserService.loadUserByIdentifier` était livré (J1/J2) → 2 min de Read ont réduit le lot 1 de moitié ;
+  (b) re-vécu le soir : le kit P6 disait encore « PROCHAINE = J3 » alors que J3 était livré le matin même.
   Même famille que le garde-fou « \_state périmé vs commits » du RESUME, appliqué aux kits.
+- `[1× — 2026-06-13]` **ne jamais dire « sûr de toute la chaîne » sans avoir lu les call-sites/deps RÉELS**
+  (le user a exigé 3 passes de contrôle avant de trancher) : présumé « handleSecurity tourne après le
+  resolve » et « security câble realtime » sans vérifier → les 2 étaient à confirmer (l'un favorable
+  `http-kernel:966→980`, l'autre = couplage par nom `"realtimeService"` car 0 dep). Distinguer EXPLICITEMENT
+  vérifié (fichier:ligne) vs présumé ; un seam « ✅ livré » peut être une prise vide non câblée (le
+  RealtimeController ne passait pas `beforeDispatch` au peer). Cf [[feedback_security_audit_surface_matrix]].
+- `[1× — 2026-06-13]` **un regex de sécurité se valide contre l'inventaire RÉEL des routes** : le pattern de
+  zone `^/nodefony/[^/]+/api/` (slash final) rate `/nodefony/profiler/api` (sans slash) → `…/api(/|$)`.
+  Grepper les paths réellement enregistrés avant de figer un pattern de firewall (un trou de regex = trou de sécu).
 - `[1× — 2026-06-13]` **mesurer le rayon d'impact AVANT de trancher un design qui touche les suites** :
   la zone pérenne `/nodefony/*/api` semblait casser « des dizaines » de tests data plane → 1 grep = 2
   fichiers seulement. La peur n'est pas une mesure ; le grep si (2 min, décision éclairée).
