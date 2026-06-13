@@ -119,7 +119,12 @@ class StudioController extends Controller {
     return this.renderStudio();
   }
 
-  @Get("/studio/api/health")
+  // PUBLIC (bypassFirewall) : endpoint de LIVENESS — convention universelle
+  // (sonde k8s/monitoring NON authentifiée) + pingé par le flux de login AVANT
+  // l'authentification (étape « ping » du ConnectionStepper). Sans bypass, l'aire
+  // data plane `nodefony-admin` le verrouillait → 401 → login impossible (le ping
+  // mourait avant d'envoyer le credential). Ne révèle que status/uptime/pid.
+  @Get("/studio/api/health", { bypassFirewall: true })
   apiHealth() {
     return this.renderJson({
       status: "ok",
@@ -128,7 +133,10 @@ class StudioController extends Controller {
     });
   }
 
-  @Get("/studio/api/info")
+  // PUBLIC (bypassFirewall) : infos runtime de base, affichables sur l'écran de
+  // connexion (pré-auth). Les données SENSIBLES (stats process, modules, config,
+  // sessions, ORM) restent gatées par l'aire.
+  @Get("/studio/api/info", { bypassFirewall: true })
   apiInfo() {
     return this.renderJson({
       name: "Nodefony Studio",

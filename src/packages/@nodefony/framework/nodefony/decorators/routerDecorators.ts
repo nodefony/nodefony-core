@@ -176,6 +176,9 @@ function route(name: string, options: RouteOptions) {
       host: options.host,
       defaults: options.defaults,
       requirements: options.requirements,
+      // P6 : une route déclarée publique (liveness, login…) court-circuite le
+      // firewall. Défaut `false` côté `Route` → omis = comportement inchangé.
+      bypassFirewall: options.bypassFirewall,
     };
     Reflect.defineMetadata(metadataKey, metadata, target.constructor); // Enregistrer les métadonnées mises à jour
     return descriptor;

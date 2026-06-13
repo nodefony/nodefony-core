@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-13T16:26:48.972Z",
+  "generated": "2026-06-13T17:00:29.402Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -16295,6 +16295,9 @@
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
       ],
       "IErrorWebsocketResult": [
+        "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
+      ],
+      "toWsCloseCode": [
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
       ],
       "buildTrustProxy": [

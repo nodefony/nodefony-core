@@ -182,22 +182,31 @@ function hubConnect(cookie: string | null): Promise<{
   });
 }
 
-/** Observe un handshake attendu REFUSÉ : `true` si fermé sans welcome. */
-function expectRefused(cookie: string | null): Promise<boolean> {
+/**
+ * Observe un handshake attendu REFUSÉ : `refused=true` si fermé sans welcome, +
+ * le `code` de fermeture WS (doit être 1008 Policy Violation → le RealtimeClient
+ * n'essaie PAS de reconnecter ; 1011 relancerait une boucle de reco).
+ */
+function expectRefused(
+  cookie: string | null,
+): Promise<{ refused: boolean; code: number }> {
   return new Promise((resolve) => {
     const ws = new WebSocket(HUB_URL, {
       rejectUnauthorized: false,
       headers: cookie ? { cookie } : {},
     });
     let welcomed = false;
-    const done = (refused: boolean) => {
+    let settled = false;
+    const done = (refused: boolean, code = 0) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       try {
         ws.close();
       } catch {
         /* déjà fermé */
       }
-      resolve(refused);
+      resolve({ refused, code });
     };
     const timer = setTimeout(() => done(false), TIMEOUT); // pas de close → pas refusé
     ws.on("message", (data: Buffer) => {
@@ -207,7 +216,7 @@ function expectRefused(cookie: string | null): Promise<boolean> {
         done(false); // welcome reçu = PAS refusé
       }
     });
-    ws.on("close", () => done(!welcomed));
+    ws.on("close", (code: number) => done(!welcomed, code));
     ws.on("error", () => {
       /* le refus peut surgir en error avant close — on attend le close */
     });
@@ -215,13 +224,28 @@ function expectRefused(cookie: string | null): Promise<boolean> {
 }
 
 describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
-  it("handshake ANONYME (sans cookie) → REFUSÉ (jamais de welcome)", async () => {
-    expect(await expectRefused(null)).to.equal(true);
+  it("handshake ANONYME (sans cookie) → REFUSÉ en close 1008 (Policy, pas de reco)", async () => {
+    const { refused, code } = await expectRefused(null);
+    expect(refused, "anonyme ne reçoit jamais le welcome").to.equal(true);
+    // 1008 (≠ 1011) : un refus d'auth est une violation de POLITIQUE → le
+    // RealtimeClient abandonne au lieu de reconnecter en boucle (régression J3b
+    // qui bloquait la Studio au chargement anonyme).
+    expect(code).to.equal(1008);
   });
 
   it("HTTP data plane gaté : GET /nodefony/kernel/api/modules sans cookie → 401", async () => {
     const res = await get("/nodefony/kernel/api/modules");
     expect(res.status).to.equal(401);
+  });
+
+  it("LIVENESS public : GET /nodefony/studio/api/{health,info} sans cookie → 200 (bypassFirewall)", async () => {
+    // Régression : le flux de login pingue `/health` AVANT l'auth → DOIT être
+    // public (sinon 401 → login impossible). Convention liveness (k8s/monitoring).
+    // Les VRAIES données data plane (modules ci-dessus) restent gatées (401).
+    const health = await get("/nodefony/studio/api/health");
+    expect(health.status, "/health doit être public").to.equal(200);
+    const info = await get("/nodefony/studio/api/info");
+    expect(info.status, "/info doit être public").to.equal(200);
   });
 
   it("handshake AUTHENTIFIÉ (cookie) → welcome + api.request annoncé", async () => {

@@ -94,6 +94,37 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
       expect(r.code).to.equal(1008);
     });
 
+    // Régression J3b : un refus d'AUTH au handshake (401/403) DOIT fermer en
+    // 1008 (Policy Violation) → le RealtimeClient n'essaie PAS de reconnecter.
+    // Le clamp brut `< 1000 → 1011` (corrigé) écrasait 401 en 1011 (Internal
+    // Error) → reconnexion en boucle → Studio bloquée au chargement anonyme.
+    it("auth refusal 401 in connected phase → 1008 (Policy Violation, no reconnect)", () => {
+      const ctx = fakeWsContext({ rejected: false });
+      const r = renderer.renderWebsocket(
+        new HttpError("Authentication required", 401),
+        ctx as never,
+      );
+      expect(r.code).to.equal(1008);
+    });
+
+    it("forbidden 403 in connected phase → 1008", () => {
+      const ctx = fakeWsContext({ rejected: false });
+      const r = renderer.renderWebsocket(
+        new HttpError("forbidden", 403),
+        ctx as never,
+      );
+      expect(r.code).to.equal(1008);
+    });
+
+    it("not found 404 in connected phase → 4004 (privé app, pas 1011)", () => {
+      const ctx = fakeWsContext({ rejected: false });
+      const r = renderer.renderWebsocket(
+        new HttpError("not found", 404),
+        ctx as never,
+      );
+      expect(r.code).to.equal(4004);
+    });
+
     it("clamps code > 599 to 500 in reject phase", () => {
       const ctx = fakeWsContext({ rejected: true });
       const r = renderer.renderWebsocket(
