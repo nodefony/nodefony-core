@@ -418,6 +418,23 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-13]` **un kit/plan « béton » n'est PAS le terrain — contrôler chaque ancrage `fichier:ligne`
+  AVANT d'éditer** : J3b, 3 ancrages du kit périmés, dont le pire — `bypassFirewall` était consommé en AVAL
+  (`handleSecurity` le lit) MAIS le constructeur `Route` ne lisait pas l'option → `createRoute({bypassFirewall:true})`
+  restait `false` → les routes de login seraient tombées dans l'aire = **deadlock**. « La prise existe, le courant
+  ne passe pas » : vérifier la CHAÎNE complète options→…→consommateur, pas juste les 2 bouts. Devise gravée en
+  tête du CLAUDE.md racine (« la confiance n'exclut pas le contrôle »).
+- `[1× — 2026-06-13]` **suspecter SON diff avant de blâmer l'existant + prouver le bug par 1 test ciblé** : le
+  401 sur `/test/secure` venait de MON `sessionContext` (cookie rangé casier « nodefony », la zone cherche
+  « default »), pas d'une régression. Lancé `session-bff` → 1 test rouge ciblé → cause confirmée AVANT de corriger.
+- `[1× — 2026-06-13]` **mesurer l'effet de bord AVANT de committer** : fermer le data plane HTTP a aussi fermé le
+  **handshake WS** (le firewall tourne sur le handshake) → mesuré (`api-souverain-bridge` 9 fails) → décidé
+  skip + Étape 3, au lieu de découvrir le rouge post-commit.
+- `[1× — 2026-06-13]` **« au cas où » bien intentionné = sur-ingénierie : faire LE POINT des consommateurs avant
+  d'ajouter** : `sessionContext` ajouté sur l'aire pour « isoler l'admin » → cassait le login partagé, et la
+  brique qui l'aurait sauvé (traversée de contexte legacy `checkChangeContext`) a **0 consommateur** → non portée.
+  Retiré. Avant d'ajouter un champ/mécanisme : grep ses consommateurs réels + valider contre l'état de l'art
+  (ici OWASP/RFC 6265 : isolation admin = RBAC, jamais un casier de session).
 - `[1× — 2026-06-12]` **auditer les `.describe()` Zod CONTRE l'implémentation qui les consomme** : un describe
   est une promesse de contrat — la config S1 security promettait « chaîne, tous doivent passer » quand le
   firewall faisait « premier qui supporte gagne » (ambiguïté MFA/step-up latente, détectée à l'audit P6,
