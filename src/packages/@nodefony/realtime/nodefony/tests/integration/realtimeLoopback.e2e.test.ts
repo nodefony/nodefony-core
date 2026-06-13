@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import "reflect-metadata";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
+import { serverSocket } from "../../src/server/ServerRealtimeSocket.js";
 // `RpcError` côté SERVEUR = celle du dist `nodefony` (le peer serveur, importé via
 // RealtimeController → "nodefony", est buildé). Un handler serveur DOIT throw CETTE
 // classe pour que `err instanceof RpcError` du peer la reconnaisse comme erreur
@@ -555,5 +556,55 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     await flush();
     expect(client.state).to.equal("error"); // 1008 fatal → pas de reco
     expect(notices).to.include(1008);
+  });
+
+  // ── L4 — façade serveur IRealtimeSocket (un service back tient UN handle) ──
+
+  it("⭐ L4 façade serveur : un service back publish → fan-out RÉEL au client abonné", async () => {
+    const { client } = await connectPair();
+    const got: unknown[] = [];
+    client.on("server:feed", (p) => got.push(p));
+    client.subscribe("server:feed");
+    await flush(); // le client s'abonne → provider démarré côté controller
+    const back = serverSocket();
+    back.publish("server:feed", { tick: 1 }); // service back publie comme une page front
+    await flush(); // fan-out hub → client
+    expect(got).to.deep.equal([{ tick: 1 }]);
+  });
+
+  it("L4 façade serveur : on() reçoit un publish d'un autre émetteur (écoute côté back)", async () => {
+    await connectPair();
+    const back = serverSocket();
+    const got: unknown[] = [];
+    back.on("back:listen", (p) => got.push(p));
+    back.subscribe("back:listen");
+    serverSocket().publish("back:listen", { v: 9 }); // un autre service publie
+    await flush();
+    expect(got).to.deep.equal([{ v: 9 }]);
+    back.unsubscribe("back:listen");
+  });
+
+  it("L4 façade serveur : request() rejette (pas de pair unique côté hub → renvoie vers L1)", async () => {
+    const back = serverSocket();
+    let msg = "";
+    try {
+      await back.request("anything");
+    } catch (e) {
+      msg = (e as Error).message;
+    }
+    expect(msg).to.contain("requestClient");
+  });
+
+  it("L4 façade serveur : subscribedChannels + ref-count (stop au dernier unsubscribe)", () => {
+    const back = serverSocket();
+    back.subscribe("a");
+    back.subscribe("a"); // ref 2 sur 'a'
+    back.subscribe("b");
+    expect(back.subscribedChannels.sort()).to.deep.equal(["a", "b"]);
+    back.unsubscribe("a"); // ref 2→1 : conservé
+    expect(back.subscribedChannels.sort()).to.deep.equal(["a", "b"]);
+    back.unsubscribe("a"); // ref 1→0 : retiré
+    expect(back.subscribedChannels).to.deep.equal(["b"]);
+    back.unsubscribe("b");
   });
 });

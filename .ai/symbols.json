@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-13T21:28:28.004Z",
+  "generated": "2026-06-13T21:35:06.965Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 864,
-    "symbols": 1803,
-    "classes": 260,
+    "files": 865,
+    "symbols": 1805,
+    "classes": 261,
     "interfaces": 450,
     "types": 231,
     "enums": 3,
-    "functions": 369,
+    "functions": 370,
     "constants": 490
   },
   "symbols": {
@@ -12531,6 +12531,27 @@
       "module": "@nodefony/realtime",
       "description": "Seuil d'alerte slow-consumer (octets de `bufferedAmount`). Au-delà, la connexion est comptée comme « lente » par la sonde (PAS encore de drop/close — la sonde MESURE avant qu'on optimise : stringif…"
     },
+    "ServerRealtimeSocket": {
+      "name": "ServerRealtimeSocket",
+      "kind": "class",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "implements": [
+        "IRealtimeSocket"
+      ],
+      "decorators": [],
+      "description": "**L4 — façade serveur « la socket Nodefony ».** Un handle SERVEUR qui implémente le contrat ISOMORPHE {@link IRealtimeSocket} au-dessus du {@link RealtimeHub} : un service back code **comme une pag…"
+    },
+    "serverSocket": {
+      "name": "serverSocket",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Crée un handle serveur ({@link ServerRealtimeSocket}) sur le hub courant."
+    },
     "RealtimeService": {
       "name": "RealtimeService",
       "kind": "class",
@@ -13441,7 +13462,8 @@
         "WsConnectionTransport"
       ],
       "IRealtimeSocket": [
-        "RealtimeClient"
+        "RealtimeClient",
+        "ServerRealtimeSocket"
       ],
       "ILogSink": [
         "FileSink"
@@ -14738,6 +14760,12 @@
         "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
+      "ServerRealtimeSocket": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "serverSocket": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
       "RealtimeHub": [
         "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
@@ -14746,6 +14774,7 @@
         "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "SLOW_CONSUMER_BYTES": [
@@ -15223,55 +15252,64 @@
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "ActionParams": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "ActionResult": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "ActionsMap": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "DefaultActionsMap": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "DefaultEventsMap": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "EventNames": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "EventPayload": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "EventsMap": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "TypedRpcActionHandler": [
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
@@ -15379,11 +15417,13 @@
       ],
       "IRealtimeSocket": [
         "src/nodefony/src/client/realtime/AdaptiveRate.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "RealtimeHandler": [
         "src/nodefony/src/client/realtime/AdaptiveRate.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "IRealtimeTransport": [
         "src/nodefony/src/client/realtime/BrowserWsTransport.ts",
@@ -15403,10 +15443,12 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "IRealtimeChannel": [
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "IChannelStats": [
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "IRealtimeWelcome": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
@@ -18349,6 +18391,7 @@
       ],
       "ChannelSink": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "ANONYMOUS_REALTIME_TOKEN": [

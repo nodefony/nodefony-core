@@ -33,6 +33,9 @@ import RealtimeService from "./nodefony/src/service/RealtimeService";
 
 // Symboles serveur exportés (les surfaces consommateurs userland).
 import RealtimeController from "./nodefony/src/server/RealtimeController";
+import ServerRealtimeSocket, {
+  serverSocket,
+} from "./nodefony/src/server/ServerRealtimeSocket";
 import RealtimeHub, {
   getRealtimeHub,
   SLOW_CONSUMER_BYTES,
@@ -342,6 +345,8 @@ export { Realtime };
 // Surface publique du module serveur (consommateurs userland).
 export {
   RealtimeController,
+  ServerRealtimeSocket,
+  serverSocket,
   RealtimeHub,
   getRealtimeHub,
   SLOW_CONSUMER_BYTES,
