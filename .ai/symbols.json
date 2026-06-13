@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-13T14:03:49.636Z",
+  "generated": "2026-06-13T16:26:48.972Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 860,
-    "symbols": 1785,
-    "classes": 258,
-    "interfaces": 447,
-    "types": 229,
+    "files": 864,
+    "symbols": 1801,
+    "classes": 260,
+    "interfaces": 453,
+    "types": 231,
     "enums": 3,
-    "functions": 360,
+    "functions": 366,
     "constants": 488
   },
   "symbols": {
@@ -12434,6 +12434,14 @@
       "module": "@nodefony/realtime",
       "description": "Fonction de filtrage Origin — `true` = upgrade autorisée. Posée par `RealtimeService.init()` depuis `defineRealtimeConfig().csrf.checkOrigin`. `null` = aucune politique (rétrocompat : tout passe — …"
     },
+    "FrameAuthorizer": {
+      "name": "FrameAuthorizer",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "**Verrou de frame (seam #1 → P6)** — décide si une frame entrante (`api.request`, `subscribe`…) est AUTORISÉE, à partir du {@link IRealtimeToken} déjà résolu au handshake (cold path) et caché sur l…"
+    },
     "ChannelSink": {
       "name": "ChannelSink",
       "kind": "type",
@@ -12582,6 +12590,19 @@
       "decorators": [],
       "description": "Authentification par **session serveur** (cookie opaque, modèle BFF) — la preuve des requêtes qui SUIVENT le login (`AuthFlow.login`, qui a déjà posé l'identifiant dans le blob et régénéré l'ID ant…"
     },
+    "SessionRealtimeAuthenticator": {
+      "name": "SessionRealtimeAuthenticator",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IRealtimeAuthenticator"
+      ],
+      "decorators": [],
+      "description": "Authenticator realtime de la **session BFF** — équivalent WS du {@link SessionAuthenticator} HTTP. ── Pourquoi il NE re-lit PAS la base ────────────────────────────────────── Un handshake WebSocket…"
+    },
     "UserPasswordAuthenticator": {
       "name": "UserPasswordAuthenticator",
       "kind": "class",
@@ -12594,6 +12615,89 @@
       ],
       "decorators": [],
       "description": "Authentification par identifiant + mot de passe — schéma **HTTP Basic** (RFC 7617) : `Authorization: Basic base64(identifiant:motdepasse)`, charset UTF-8, split au PREMIER `:` (le mot de passe peut…"
+    },
+    "IZoneMatcher": {
+      "name": "IZoneMatcher",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Surface MINIMALE du firewall consommée par le verrou de frame : matcher une zone par pathname. `Firewall.matchPath` la satisfait structurellement (`SecuredArea` porte `security`) — typage local pou…"
+    },
+    "buildFrameAuthorizer": {
+      "name": "buildFrameAuthorizer",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Construit le verrou de frame WS branché sur le hub realtime par le firewall au boot (`RealtimeService.setFrameAuthorizer`). SYNC, 0 lecture base : lit le token déjà résolu au handshake et matche la…"
+    },
+    "@nodefony/security:IRealtimeToken": {
+      "name": "IRealtimeToken",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Miroirs STRUCTURELS des contrats `@nodefony/realtime` — **zéro import** du module realtime (ni runtime ni type-only). POURQUOI : `@nodefony/security` et `@nodefony/realtime` **ne se dépendent pas**…"
+    },
+    "@nodefony/security:IRealtimeHandshake": {
+      "name": "IRealtimeHandshake",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Données de handshake WS (miroir de `IRealtimeHandshake`) — DTO neutre passé à un authenticator. Cookies déjà parsés en `Map<name, value>`."
+    },
+    "@nodefony/security:IRealtimeAuthenticator": {
+      "name": "IRealtimeAuthenticator",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Stratégie d'auth au handshake WS (miroir de `IRealtimeAuthenticator`, pattern Symfony `supports/authenticate`)."
+    },
+    "@nodefony/security:IRealtimeAuthenticatorMatcher": {
+      "name": "IRealtimeAuthenticatorMatcher",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Sélecteur de zone WS (miroir de `IRealtimeAuthenticatorMatcher`) — pattern d'URL (string|RegExp) + vhost optionnel. Parité avec `ISecuredArea.host`."
+    },
+    "IRealtimeService": {
+      "name": "IRealtimeService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Surface consommée du `realtimeService` (miroir partiel de `RealtimeService`) — seulement les 2 seams que security câble au boot. Résolu par nom via le container (`container.get<IRealtimeService>(\"r…"
+    },
+    "@nodefony/security:FrameAuthorizer": {
+      "name": "FrameAuthorizer",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Verrou de frame (miroir de `FrameAuthorizer`) — SYNC : `true` = frame autorisée. Lit le token déjà résolu au handshake (0 lecture base par frame)."
+    },
+    "UserRealtimeToken": {
+      "name": "UserRealtimeToken",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/UserRealtimeToken.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IRealtimeToken"
+      ],
+      "decorators": [],
+      "description": "Adaptateur `IUser` → `IRealtimeToken` (jeton realtime). Construit UNIQUEMENT pour un utilisateur **authentifié** (le {@link SessionRealtimeAuthenticator} ne l'instancie qu'après avoir vérifié l'ide…"
     },
     "LoginThrottler": {
       "name": "LoginThrottler",
@@ -13411,6 +13515,12 @@
         "AnonymousAuthenticator",
         "SessionAuthenticator",
         "UserPasswordAuthenticator"
+      ],
+      "IRealtimeAuthenticator": [
+        "SessionRealtimeAuthenticator"
+      ],
+      "IRealtimeToken": [
+        "UserRealtimeToken"
       ],
       "IToken": [
         "AnonymousToken",
@@ -15475,7 +15585,8 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
       ],
       "ormRegistry": [
         "src/modules/test/nodefony/controller/DbController.ts",
@@ -15617,6 +15728,8 @@
         "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/UserRealtimeToken.ts",
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
         "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
       ],
@@ -16492,14 +16605,18 @@
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticator.ts",
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticatorMatcher.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
       ],
       "IRealtimeToken": [
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticator.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/AnonymousRealtimeToken.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/UserRealtimeToken.ts"
       ],
       "IProcessHealth": [
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts"
@@ -16576,6 +16693,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "ThrottledError": [
@@ -16612,6 +16730,20 @@
       ],
       "listAuthenticatorFactories": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "SessionRealtimeAuthenticator": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "buildFrameAuthorizer": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "IRealtimeService": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "IRealtimeAuthenticatorMatcher": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "IFirewall": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
@@ -18117,6 +18249,9 @@
       "readOrmHealth": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
       ],
+      "JsonRpcPeerOptions": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
       "RawWsConnection": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
@@ -18153,20 +18288,21 @@
       ],
       "IRealtimeAuthenticator": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
       ],
       "ICompiledRealtimeMatcher": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
-      ],
-      "IRealtimeAuthenticatorMatcher": [
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "ChannelFactory": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "OriginGuard": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
+      "FrameAuthorizer": [
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
       ],
       "AnonymousToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts"
@@ -18185,8 +18321,12 @@
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
       ],
       "anonymousUser": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
         "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
+      ],
+      "UserRealtimeToken": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
       ],
       "Argon2idEncoder": [
         "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"

@@ -376,4 +376,142 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       expect(sent[0]!.method).to.equal("realtime:welcome");
     });
   });
+
+  // ─── handshake.url = pathname (matcher de zone, fix J3b) ────────────────────
+  // `WebsocketContext.url` est ABSOLUE (`wss://host:port/path`) ; le contrat
+  // IRealtimeHandshake.url = path → buildHandshakeFromContext doit extraire le
+  // pathname, sinon un matcher de zone `^/nodefony/…` ne matche jamais.
+  describe("handshake.url — normalisation pathname pour les matchers de zone", () => {
+    it("ctx.url ABSOLUE → matcher RegExp de PATH résout l'authenticator (pathname extrait)", async () => {
+      let authenticated = false;
+      const auth: IRealtimeAuthenticator = {
+        name: "zone",
+        supports: () => true,
+        authenticate: async () => {
+          authenticated = true;
+          return ANONYMOUS_REALTIME_TOKEN;
+        },
+      };
+      // Matcher de ZONE (comme `firewall` passe `area.pattern`), pas l'URL absolue.
+      getRealtimeHub().useAuthenticator(
+        { pattern: /^\/nodefony\/[^/]+\/api(\/|$)/ },
+        auth,
+      );
+      const { ctx } = makeCtx({
+        url: "wss://127.0.0.1:5152/nodefony/studio/api/realtime",
+      });
+      new TestRt(ctx).feed(null);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(authenticated).to.equal(true); // a matché le PATH, pas le scheme
+    });
+
+    it("ctx.url absolue avec query → pathname (query ignorée par le matcher)", async () => {
+      let hit = false;
+      const auth: IRealtimeAuthenticator = {
+        name: "zone",
+        supports: () => true,
+        authenticate: async () => {
+          hit = true;
+          return ANONYMOUS_REALTIME_TOKEN;
+        },
+      };
+      getRealtimeHub().useAuthenticator(
+        { pattern: /^\/nodefony\/[^/]+\/api(\/|$)/ },
+        auth,
+      );
+      const { ctx } = makeCtx({
+        url: "wss://h:5152/nodefony/orm/api/realtime?token=abc",
+      });
+      new TestRt(ctx).feed(null);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(hit).to.equal(true);
+    });
+
+    it("ctx.url relative (clients/legacy) → conservée telle quelle (rétrocompat)", async () => {
+      let hit = false;
+      const auth: IRealtimeAuthenticator = {
+        name: "zone",
+        supports: () => true,
+        authenticate: async () => {
+          hit = true;
+          return ANONYMOUS_REALTIME_TOKEN;
+        },
+      };
+      getRealtimeHub().useAuthenticator({ pattern: "/admin/" }, auth);
+      const { ctx } = makeCtx({ url: "/admin/realtime" });
+      new TestRt(ctx).feed(null);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(hit).to.equal(true);
+    });
+  });
+
+  // ─── Seam #1 — Verrou de frame (P6 J3b Étape 3) ─────────────────────────────
+  // Le controller branche `beforeDispatch` sur le peer SEULEMENT si le hub porte
+  // un verrou (`hasFrameAuthorizer`) → bypass 0-coût sinon. Une frame refusée :
+  // requête → -32001 ; notification → drop AVANT le dispatch métier.
+  describe("Seam #1 — Verrou de frame (beforeDispatch)", () => {
+    it("pas de verrou posé → frames passent (bypass, beforeDispatch non branché)", () => {
+      // beforeEach a clear() le hub → aucun frame authorizer.
+      const { ctx } = makeCtx({ url: "/realtime" });
+      const rt = new TestRt(ctx);
+      rt.feed(null);
+      rt.feed(frame({ method: "subscribe", params: { channel: "tick" } }));
+      expect(rt.channelCalls).to.deep.equal(["tick"]); // traité, jamais bloqué
+    });
+
+    it("verrou posé : REQUÊTE refusée → -32001 unauthorized (avant le dispatch)", async () => {
+      // Refuse l'action `boom` ; l'autorisation est décidée AVANT handleRequest.
+      getRealtimeHub().setFrameAuthorizer(
+        (f) => (f as { method?: string }).method !== "boom",
+      );
+      const { ctx, sent } = makeCtx({ url: "/realtime" });
+      const rt = new TestRt(ctx);
+      rt.feed(null);
+      rt.feed(frame({ id: 9, method: "boom" }));
+      await flush();
+      const resp = sent.find((f) => f.id === 9);
+      expect(resp!.error).to.deep.equal({
+        code: -32001,
+        message: "unauthorized",
+      });
+    });
+
+    it("verrou posé : NOTIFICATION refusée → drop (provider JAMAIS démarré)", () => {
+      getRealtimeHub().setFrameAuthorizer(
+        (f) => (f as { method?: string }).method !== "subscribe",
+      );
+      const { ctx } = makeCtx({ url: "/realtime" });
+      const rt = new TestRt(ctx);
+      rt.feed(null);
+      rt.feed(frame({ method: "subscribe", params: { channel: "tick" } }));
+      expect(rt.channelCalls).to.have.length(0); // bloqué avant startChannel
+    });
+
+    it("verrou posé : frame AUTORISÉE → traitée normalement (result apparié)", async () => {
+      getRealtimeHub().setFrameAuthorizer(() => true);
+      const { ctx, sent } = makeCtx({ url: "/realtime" });
+      const rt = new TestRt(ctx);
+      rt.feed(null);
+      rt.feed(frame({ id: 10, method: "kernel:ping" }));
+      await flush();
+      const resp = sent.find((f) => f.id === 10);
+      expect(resp!.result).to.deep.equal({ pong: true });
+    });
+
+    it("verrou reçoit le token caché du peer (anonyme par défaut → décision Zero Trust)", async () => {
+      let seenAuthenticated: boolean | null = null;
+      getRealtimeHub().setFrameAuthorizer((_f, token) => {
+        seenAuthenticated = token.isAuthenticated();
+        return token.isAuthenticated(); // anonyme → refus
+      });
+      const { ctx, sent } = makeCtx({ url: "/realtime" });
+      const rt = new TestRt(ctx);
+      rt.feed(null); // aucun authenticator → token ANONYMOUS posé sur le peer
+      rt.feed(frame({ id: 11, method: "kernel:ping" }));
+      await flush();
+      expect(seenAuthenticated).to.equal(false);
+      const resp = sent.find((f) => f.id === 11);
+      expect((resp!.error as { code: number }).code).to.equal(-32001);
+    });
+  });
 });

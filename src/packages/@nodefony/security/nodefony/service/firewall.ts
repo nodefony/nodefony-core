@@ -26,6 +26,12 @@ import {
   getAuthenticatorFactory,
   listAuthenticatorFactories,
 } from "../src/authenticator/authenticatorRegistry";
+import { SessionRealtimeAuthenticator } from "../src/authenticator/SessionRealtimeAuthenticator";
+import { buildFrameAuthorizer } from "../src/realtime/frameAuthorizer";
+import type {
+  IRealtimeService,
+  IRealtimeAuthenticatorMatcher,
+} from "../src/realtime/realtimeContracts";
 import type { IFirewall } from "../contracts/IFirewall";
 import type { IAuthenticator } from "../contracts/IAuthenticator";
 import type { IToken } from "../contracts/IToken";
@@ -118,10 +124,42 @@ class Firewall extends Service implements IFirewall {
     }
 
     if (!this.#configError) {
+      this.#wireRealtime();
       this.log(
         `Firewall ready — ${this.#areas?.length ?? 0} area(s), ${
           this.#authenticators?.size ?? 0
         } authenticator(s)`,
+        "DEBUG",
+      );
+    }
+  }
+
+  // Branche le verrou WS sur le hub realtime (par NOM de service, 0 import
+  // realtime — security ⊥ realtime). Pour chaque zone `realtime: true` protégée :
+  // un authenticator de session (transfère l'identité déjà résolue au handshake)
+  // + le verrou de frame global (api.request ≤ GET, canaux d'observabilité gatés).
+  // No-op si le module realtime n'est pas chargé (`realtimeService` absent).
+  #wireRealtime(): void {
+    const realtime = this.container?.get<IRealtimeService>("realtimeService");
+    if (!realtime || !this.#areas) return;
+    let wired = false;
+    for (const area of this.#areas) {
+      if (!area.realtime || !area.security) continue;
+      // Une instance d'authenticator PAR zone : le hub dédoublonne `useAuthenticator`
+      // par instance → une instance partagée n'enregistrerait que le 1ᵉʳ matcher.
+      // Stateless (lit l'ALS) → 0 coût. En pratique une seule zone (nodefony-admin).
+      const matcher: IRealtimeAuthenticatorMatcher = area.host
+        ? { pattern: area.pattern, host: area.host }
+        : { pattern: area.pattern };
+      realtime.useAuthenticator(matcher, new SessionRealtimeAuthenticator());
+      wired = true;
+    }
+    if (wired) {
+      // Verrou de frame GLOBAL (1 hub) — partage `matchPath` (source unique de
+      // zone HTTP ⇔ WS). Posé seulement si au moins une zone realtime existe.
+      realtime.setFrameAuthorizer(buildFrameAuthorizer(this));
+      this.log(
+        "Realtime data plane locked — WS handshake + frame authorizer wired",
         "DEBUG",
       );
     }

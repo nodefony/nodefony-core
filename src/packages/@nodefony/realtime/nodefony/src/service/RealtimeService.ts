@@ -6,6 +6,7 @@ import {
   type ChannelFactory,
   type ChannelSink,
   type OriginGuard,
+  type FrameAuthorizer,
 } from "../server/RealtimeHub";
 import type { IBackplane } from "../../interfaces/IBackplane";
 import type { IRealtimeProbe } from "../../interfaces/IRealtimeProbe";
@@ -178,6 +179,25 @@ class RealtimeService extends Service {
     authenticator: IRealtimeAuthenticator,
   ): void {
     this.getHub().useAuthenticator(matcher, authenticator);
+  }
+
+  /**
+   * **Seam #1 (P13 → P6)** — pose le verrou de frame (hot-path `beforeDispatch`).
+   * `null` retire la politique. À brancher 1× au boot par `@nodefony/security`
+   * depuis les zones `realtime: true`. L'authorizer lit le token déjà résolu au
+   * handshake (0 lecture base par frame). Délégué à `RealtimeHub.setFrameAuthorizer`.
+   *
+   * @example
+   * ```ts
+   * // @nodefony/security au boot :
+   * realtimeService.setFrameAuthorizer((frame, token) => {
+   *   // api.request {path} ≤ GET {path} : zone protégée → exige authentifié
+   *   return isFrameAllowed(frame, token);
+   * });
+   * ```
+   */
+  setFrameAuthorizer(authorizer: FrameAuthorizer | null): void {
+    this.getHub().setFrameAuthorizer(authorizer);
   }
 
   /**

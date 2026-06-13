@@ -165,6 +165,19 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       svc.publish("svc-bcast:event", { x: 1 });
       expect(bp.publishedChannels).to.deep.equal(["svc-bcast:event"]);
     });
+
+    it("setFrameAuthorizer (Seam #1) délégué au hub + null le retire", async () => {
+      const { module, container } = buildModuleMock();
+      container.set("realtimeConfig", defineRealtimeConfig());
+      const svc = new RealtimeService(module);
+      await svc.init(module);
+
+      expect(svc.getHub().hasFrameAuthorizer()).to.equal(false);
+      svc.setFrameAuthorizer((f) => (f as { method?: string }).method === "ok");
+      expect(svc.getHub().hasFrameAuthorizer()).to.equal(true);
+      svc.setFrameAuthorizer(null);
+      expect(svc.getHub().hasFrameAuthorizer()).to.equal(false);
+    });
   });
 
   // ─── Seams sécurité P13 Bloc A étape 6 ──────────────────────────────────

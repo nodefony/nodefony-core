@@ -23,6 +23,23 @@ import { ANONYMOUS_REALTIME_TOKEN } from "./AnonymousRealtimeToken";
  */
 export type OriginGuard = (origin: string | undefined) => boolean;
 
+/**
+ * **Verrou de frame (seam #1 → P6)** — décide si une frame entrante (`api.request`,
+ * `subscribe`…) est AUTORISÉE, à partir du {@link IRealtimeToken} déjà résolu au
+ * handshake (cold path) et caché sur le peer. `true` = autorisée.
+ *
+ * Lecture O(1) du token en cache — **JAMAIS de re-authentification ni de lecture
+ * base par frame** : l'identité (coûteuse) est figée 1× au handshake, le verrou ne
+ * fait que matcher la cible de la frame (path/canal) contre la zone. Posé par
+ * `@nodefony/security` au boot via {@link RealtimeService.setFrameAuthorizer}.
+ * Doctrine SYNC stricte (cf `JsonRpcPeerOptions.beforeDispatch`) : un `await` par
+ * frame coûterait une microtask et sérialiserait le pipeline RPC du peer.
+ */
+export type FrameAuthorizer = (
+  frame: unknown,
+  token: IRealtimeToken,
+) => boolean;
+
 interface RegisteredAuthenticator {
   readonly matcher: ICompiledRealtimeMatcher;
   readonly authenticator: IRealtimeAuthenticator;
@@ -130,6 +147,12 @@ export class RealtimeHub {
   // WeakMap : 0 fuite mémoire quand le peer est GC à la fermeture connexion.
   // Lazy : `null` tant qu'aucun token posé (cas mono-process non sécurisé).
   #peerTokens: WeakMap<JsonRpcPeer, IRealtimeToken> | null = null;
+
+  // Verrou de frame (seam #1 → P6). `null` = pas de politique → bypass TOTAL
+  // (le RealtimeController ne branche même pas `beforeDispatch` sur le peer →
+  // 0 coût hot-path quand security est absent). Posé 1× au boot par
+  // `@nodefony/security`. Cf #frameAuthorizer / runAuthorizer / hasFrameAuthorizer.
+  #frameAuthorizer: FrameAuthorizer | null = null;
 
   // Garde Origin RFC 6455 §10.2 (CSRF defense). `null` = pas de politique
   // (rétrocompat). Posée par `RealtimeService.init()` depuis
@@ -489,6 +512,39 @@ export class RealtimeHub {
     return this.#peerTokens?.get(peer) ?? ANONYMOUS_REALTIME_TOKEN;
   }
 
+  /**
+   * **Seam #1 (P13 → P6)** — pose le verrou de frame (cf {@link FrameAuthorizer}).
+   * `null` retire la politique (bypass total). Posé 1× au boot par
+   * `@nodefony/security` depuis les zones `realtime: true`. Cold path.
+   */
+  setFrameAuthorizer(authorizer: FrameAuthorizer | null): void {
+    this.#frameAuthorizer = authorizer;
+  }
+
+  /**
+   * Un verrou de frame est-il posé ? Lu par `RealtimeController.onHandshake`
+   * pour ne brancher `beforeDispatch` (et son coût par frame) QUE si une
+   * politique existe — sinon le hub non sécurisé garde un hot-path 0-coût.
+   */
+  hasFrameAuthorizer(): boolean {
+    return this.#frameAuthorizer !== null;
+  }
+
+  /**
+   * Pont hot-path entre `JsonRpcPeer.beforeDispatch` et le verrou métier : lit
+   * le token déjà caché du peer (O(1), 0 lecture base) puis délègue à
+   * l'authorizer. `true` (autorisée) si aucun verrou posé (bypass 0-coût) —
+   * mais en pratique `beforeDispatch` n'est branché que si `hasFrameAuthorizer()`.
+   *
+   * @param frame - frame JSON-RPC entrante (brute) à autoriser.
+   * @param peer  - peer émetteur (clé du mapping `peer → token`).
+   * @returns `true` si la frame peut être dispatchée, `false` si refusée.
+   */
+  runAuthorizer(frame: unknown, peer: JsonRpcPeer): boolean {
+    if (this.#frameAuthorizer === null) return true;
+    return this.#frameAuthorizer(frame, this.getTokenForPeer(peer));
+  }
+
   /** Authenticators enregistrés (debug / tests). Lecture seule. */
   get registeredAuthenticators(): ReadonlyArray<IRealtimeAuthenticator> {
     if (this.#authenticators === null) return EMPTY_AUTH_LIST;
@@ -513,6 +569,7 @@ export class RealtimeHub {
     this.#broadcastPrefixes = null;
     this.#authenticators = null;
     this.#peerTokens = null;
+    this.#frameAuthorizer = null;
     this.#originGuard = null;
     // Détache le backplane (reset). On ne `stop()` PAS ici : le hub n'en est pas
     // l'owner (créé/détruit par le module qui l'a branché) — il le libère lui-même.

@@ -1,4 +1,9 @@
-import { JsonRpcPeer, RpcError, type RpcActionHandler } from "nodefony";
+import {
+  JsonRpcPeer,
+  RpcError,
+  type RpcActionHandler,
+  type JsonRpcPeerOptions,
+} from "nodefony";
 import type { WebsocketContext } from "@nodefony/http";
 import { Controller } from "@nodefony/framework";
 import {
@@ -219,7 +224,7 @@ export abstract class RealtimeController
     }
 
     const transport = new WsConnectionTransport(conn);
-    const peer = new JsonRpcPeer({
+    const peerOptions: JsonRpcPeerOptions = {
       send: (frame) => transport.send(JSON.stringify(frame)),
       onNotification: (method, params) =>
         this.onRealtimeNotification(ctx, method, params),
@@ -228,7 +233,25 @@ export abstract class RealtimeController
           `${context}: ${err instanceof Error ? err.message : String(err)}`,
           "ERROR",
         ),
-    });
+    };
+    // Seam #1 — VERROU DE FRAME (P6). Branché SEULEMENT si une politique est
+    // posée sur le hub (`hasFrameAuthorizer`, cold-path check 1× au handshake) :
+    // un hub non sécurisé garde `beforeDispatch === undefined` → bypass 0-coût
+    // du peer sur CHAQUE frame (cf doctrine perf). `peer` est capturé par closure
+    // (clé du mapping `peer → token`) — référence DIFFÉRÉE, jamais évaluée
+    // pendant la construction, donc pas de TDZ à l'exécution.
+    if (hub.hasFrameAuthorizer()) {
+      peerOptions.beforeDispatch = (frame) => hub.runAuthorizer(frame, peer);
+      peerOptions.onFrameAudit = (reason) => {
+        // Zero Trust : une frame REFUSÉE est tracée (audit P6.14, cold path). Les
+        // autres motifs (invalid/method_not_found/internal_error) sont déjà gérés
+        // par le peer (réponse d'erreur normalisée) → pas de double log.
+        if (reason === "denied") {
+          this.log("WS realtime frame refused by authorizer", "WARNING");
+        }
+      };
+    }
+    const peer = new JsonRpcPeer(peerOptions);
     // Pose `peer → token` AVANT le welcome → voters/audit lookup garanti dès
     // la 1ʳᵉ frame entrante (hot-path O(1) via WeakMap).
     hub.setTokenForPeer(peer, token);
@@ -517,11 +540,32 @@ function buildHandshakeFromContext(ctx: WebsocketContext): IRealtimeHandshake {
   return {
     headers,
     cookies,
-    url: ctx.url ?? req?.url ?? "/",
+    // CONTRAT IRealtimeHandshake.url = **pathname + query** (ce que matchent les
+    // matchers d'authenticator, comme `firewall.matchPath` côté HTTP). Or
+    // `WebsocketContext.url` est l'URL ABSOLUE (`wss://host:port/path?q`) → on
+    // extrait le path, sinon un matcher `^/nodefony/…` ne matcherait jamais une
+    // URL préfixée du scheme (bug J3b : authenticator de zone jamais résolu).
+    url: handshakePath(ctx),
     remoteAddress: ctx.remoteAddress ?? "",
     origin: ctx.origin && ctx.origin.length > 0 ? ctx.origin : undefined,
     protocols,
   };
+}
+
+/**
+ * Extrait le **path** (pathname + query) de l'URL du handshake. `WebsocketContext.url`
+ * est absolue (`url.format(wsUrl)`) ; un path relatif (tests/clients legacy) est
+ * conservé tel quel. Jamais throw (cold path, 1× par upgrade).
+ */
+function handshakePath(ctx: WebsocketContext): string {
+  const raw = (ctx as { url?: unknown }).url;
+  if (typeof raw !== "string" || raw.length === 0) return "/";
+  try {
+    const u = new URL(raw); // URL absolue → pathname + search
+    return u.pathname + u.search;
+  } catch {
+    return raw.charCodeAt(0) === 47 /* "/" */ ? raw : "/";
+  }
 }
 
 export default RealtimeController;

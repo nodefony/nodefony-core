@@ -238,6 +238,76 @@ describe("RealtimeHub — Mapping peer → token (slot #6 audit lookup)", () => 
   });
 });
 
+describe("RealtimeHub — Seam #1 Verrou de frame (P6)", () => {
+  const authToken: IRealtimeToken = {
+    type: "session",
+    getUserIdentifier: () => "user-7",
+    isAuthenticated: () => true,
+    getRoles: () => ["ROLE_USER"],
+    getScopes: () => [],
+    getAttribute: () => undefined,
+  };
+
+  it("hub neuf : pas de verrou → hasFrameAuthorizer false, runAuthorizer autorise", () => {
+    const hub = new RealtimeHub();
+    const peer = new JsonRpcPeer({ send: () => {} });
+    expect(hub.hasFrameAuthorizer()).to.equal(false);
+    // Bypass 0-coût : aucune politique → toute frame passe.
+    expect(hub.runAuthorizer({ method: "api.request" }, peer)).to.equal(true);
+  });
+
+  it("runAuthorizer délègue à l'authorizer AVEC le token déjà caché du peer", () => {
+    const hub = new RealtimeHub();
+    const peer = new JsonRpcPeer({ send: () => {} });
+    hub.setTokenForPeer(peer, authToken);
+    let seen: IRealtimeToken | null = null;
+    let seenFrame: unknown = null;
+    hub.setFrameAuthorizer((frame, token) => {
+      seen = token;
+      seenFrame = frame;
+      return token.isAuthenticated();
+    });
+    expect(hub.hasFrameAuthorizer()).to.equal(true);
+    const frame = { method: "subscribe", params: { channel: "x" } };
+    expect(hub.runAuthorizer(frame, peer)).to.equal(true);
+    expect(seen).to.equal(authToken); // le verrou lit le cache, jamais la base
+    expect(seenFrame).to.equal(frame);
+  });
+
+  it("runAuthorizer : peer sans token → ANONYMOUS passé à l'authorizer (Zero Trust)", () => {
+    const hub = new RealtimeHub();
+    const peer = new JsonRpcPeer({ send: () => {} });
+    let authenticated = true;
+    hub.setFrameAuthorizer((_frame, token) => {
+      authenticated = token.isAuthenticated();
+      return authenticated;
+    });
+    // Aucun setTokenForPeer → getTokenForPeer renvoie ANONYMOUS → refus.
+    expect(hub.runAuthorizer({ method: "api.request" }, peer)).to.equal(false);
+    expect(authenticated).to.equal(false);
+  });
+
+  it("setFrameAuthorizer(null) retire le verrou (retour au bypass)", () => {
+    const hub = new RealtimeHub();
+    const peer = new JsonRpcPeer({ send: () => {} });
+    hub.setFrameAuthorizer(() => false);
+    expect(hub.hasFrameAuthorizer()).to.equal(true);
+    expect(hub.runAuthorizer({}, peer)).to.equal(false);
+    hub.setFrameAuthorizer(null);
+    expect(hub.hasFrameAuthorizer()).to.equal(false);
+    expect(hub.runAuthorizer({}, peer)).to.equal(true);
+  });
+
+  it("clear() retire le verrou de frame", () => {
+    const hub = new RealtimeHub();
+    hub.setFrameAuthorizer(() => false);
+    hub.clear();
+    expect(hub.hasFrameAuthorizer()).to.equal(false);
+    const peer = new JsonRpcPeer({ send: () => {} });
+    expect(hub.runAuthorizer({}, peer)).to.equal(true);
+  });
+});
+
 describe("RealtimeHub — Lazy alloc & bypass 0-coût", () => {
   it("hub neuf : aucune alloc seam (authenticators/peerTokens/originGuard = null)", () => {
     const hub = new RealtimeHub();
