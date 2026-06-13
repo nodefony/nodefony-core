@@ -162,25 +162,20 @@ class LoopbackRt extends RealtimeController {
   }
 
   /**
-   * Pont test DUPLEX serveur→client : récupère le `JsonRpcPeer` de CETTE
-   * connexion (posé sur le contexte au handshake) et émet une requête vers le
-   * client. C'est le chemin que L0 débloque (avant : le client répond -32601).
+   * Ponts test PUBLICS vers les API L1 `requestClient`/`notifyClient` (protected)
+   * de la base : ce sont DÉSORMAIS les vraies méthodes serveur du duplex qui sont
+   * exercées, plus un accès direct au peer. C'est le chemin débloqué par L0.
    */
-  requestClient<T = unknown>(
+  callClient<T = unknown>(
     method: string,
     params?: unknown,
     timeoutMs?: number,
   ): Promise<T> {
-    const holder = this.context as unknown as {
-      __nfRealtime?: {
-        peer: {
-          request: (m: string, p?: unknown, t?: number) => Promise<unknown>;
-        };
-      };
-    };
-    const peer = holder.__nfRealtime?.peer;
-    if (!peer) throw new Error("peer absent — handshake non terminé");
-    return peer.request(method, params, timeoutMs) as Promise<T>;
+    return this.requestClient<T>(method, params, timeoutMs);
+  }
+
+  callNotify(method: string, params?: unknown): void {
+    this.notifyClient(method, params);
   }
 }
 
@@ -324,7 +319,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     const { rt } = await connectPair();
     let code: number | null = null;
     try {
-      await rt.requestClient("client:noop", { x: 1 }, 1000);
+      await rt.callClient("client:noop", { x: 1 }, 1000);
     } catch (e) {
       code = (e as RpcError).code;
     }
@@ -354,7 +349,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     });
     let code: number | null = null;
     try {
-      await rt.requestClient("client:boom", undefined, 2000);
+      await rt.callClient("client:boom", undefined, 2000);
     } catch (e) {
       code = (e as RpcError).code;
     }
@@ -368,7 +363,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     });
     let err: RpcError | null = null;
     try {
-      await rt.requestClient("client:denied", undefined, 2000);
+      await rt.callClient("client:denied", undefined, 2000);
     } catch (e) {
       err = e as RpcError;
     }
@@ -396,11 +391,20 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     client.unregister("client:tmp");
     let code: number | null = null;
     try {
-      await rt.requestClient("client:tmp", undefined, 1000);
+      await rt.callClient("client:tmp", undefined, 1000);
     } catch (e) {
       code = (e as RpcError).code;
     }
     expect(code).to.equal(-32601);
+  });
+
+  it("L1 notifyClient → notification CIBLÉE serveur→client (hors canal) reçue par on()", async () => {
+    const { client, rt } = await connectPair();
+    const got: unknown[] = [];
+    client.on("server:notice", (p) => got.push(p));
+    rt.callNotify("server:notice", { msg: "hello" });
+    await flush();
+    expect(got).to.deep.equal([{ msg: "hello" }]);
   });
 
   // ── request client→serveur : chemin d'erreur restant ──

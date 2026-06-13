@@ -166,6 +166,52 @@ export abstract class RealtimeController
   }
 
   /**
+   * **L1 — duplex serveur→client.** Émet une REQUÊTE vers le client de CETTE
+   * connexion (sur une action qu'il a exposée via `client.register(...)`) et attend
+   * sa réponse. Possible depuis L0 : le client compose le même `JsonRpcPeer`, il
+   * est donc un *callee* (avant L0 : `-32601` systématique).
+   *
+   * Usages : confirmation d'action (le serveur demande au client de valider),
+   * invalidation de cache poussée AVEC accusé, health applicatif serveur→client.
+   * Pour une notification sans réponse → {@link notifyClient} (ou un canal pub/sub).
+   *
+   * @returns le `result` du handler client ; rejette sur erreur applicative
+   *   ({@link RpcError} `code`/`data` préservés), méthode inconnue (`-32601`),
+   *   timeout, ou connexion fermée (`dispose`).
+   * @throws (rejet) si le handshake n'est pas terminé (aucun peer encore).
+   */
+  protected requestClient<T = unknown>(
+    method: string,
+    params?: unknown,
+    timeoutMs?: number,
+  ): Promise<T> {
+    const state = (this.context as unknown as RealtimeHolder).__nfRealtime;
+    if (!state) {
+      return Promise.reject(
+        new Error(
+          "requestClient: connexion realtime non établie (welcome non émis)",
+        ),
+      );
+    }
+    return state.peer.request(
+      method as never,
+      params as never,
+      timeoutMs,
+    ) as Promise<T>;
+  }
+
+  /**
+   * Notification CIBLÉE serveur→client (sans réponse) vers CETTE connexion, hors
+   * canal pub/sub — pendant *fire-and-forget* de {@link requestClient}. Pour un
+   * fan-out à N abonnés, préférer un canal (`publish` via le hub). No-op si le
+   * handshake n'est pas terminé.
+   */
+  protected notifyClient(method: string, params?: unknown): void {
+    const state = (this.context as unknown as RealtimeHolder).__nfRealtime;
+    state?.peer.notify(method as never, params as never);
+  }
+
+  /**
    * Handshake : seams sécurité #4 (Origin RFC 6455 §10.2) + #2 (authenticator
    * réseau) PUIS crée peer+transport, enregistre les actions, welcome + cleanup.
    *
