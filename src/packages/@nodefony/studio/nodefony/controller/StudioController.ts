@@ -1,5 +1,10 @@
 /// <reference types="node" />
-import { Controller, Get, controller } from "@nodefony/framework";
+import {
+  Controller,
+  Get,
+  controller,
+  BypassFirewall,
+} from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
 import {
@@ -124,7 +129,8 @@ class StudioController extends Controller {
   // l'authentification (étape « ping » du ConnectionStepper). Sans bypass, l'aire
   // data plane `nodefony-admin` le verrouillait → 401 → login impossible (le ping
   // mourait avant d'envoyer le credential). Ne révèle que status/uptime/pid.
-  @Get("/studio/api/health", { bypassFirewall: true })
+  @BypassFirewall
+  @Get("/studio/api/health")
   apiHealth() {
     return this.renderJson({
       status: "ok",
@@ -136,7 +142,8 @@ class StudioController extends Controller {
   // PUBLIC (bypassFirewall) : infos runtime de base, affichables sur l'écran de
   // connexion (pré-auth). Les données SENSIBLES (stats process, modules, config,
   // sessions, ORM) restent gatées par l'aire.
-  @Get("/studio/api/info", { bypassFirewall: true })
+  @BypassFirewall
+  @Get("/studio/api/info")
   apiInfo() {
     return this.renderJson({
       name: "Nodefony Studio",

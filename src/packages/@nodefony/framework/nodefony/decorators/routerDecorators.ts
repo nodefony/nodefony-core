@@ -101,6 +101,24 @@ function controller(prefix: string) {
             options.host = domain;
           }
         }
+        // @BypassFirewall : précédence méthode > classe (comme @Domain). L'option
+        // `@Get(…, { bypassFirewall:true })` est déjà dans `options` et l'emporte.
+        // Lecture au montage → ordre des décorateurs indifférent (fail-closed : un
+        // oubli laisse la route gatée).
+        if (options.bypassFirewall !== true) {
+          const methodBypass = Reflect.getMetadata(
+            BYPASS_FIREWALL_METHOD_METADATA,
+            mycontroller,
+            options.classMethod,
+          );
+          const classBypass = Reflect.getMetadata(
+            BYPASS_FIREWALL_CLASS_METADATA,
+            mycontroller,
+          );
+          if (methodBypass === true || classBypass === true) {
+            options.bypassFirewall = true;
+          }
+        }
         if (options.path == "*") {
           hasMagic = { options, name };
           continue;
@@ -204,6 +222,8 @@ export const REDIRECT_METADATA = "route:redirect";
 export const PARAM_ARGS_METADATA = "route:paramArgs";
 export const DOMAIN_CLASS_METADATA = "route:domainClass";
 export const DOMAIN_METHOD_METADATA = "route:domainMethod";
+export const BYPASS_FIREWALL_CLASS_METADATA = "route:bypassFirewallClass";
+export const BYPASS_FIREWALL_METHOD_METADATA = "route:bypassFirewallMethod";
 export const USE_SESSION_CLASS_METADATA = "session:useClass";
 export const USE_SESSION_METHOD_METADATA = "session:useMethod";
 
@@ -373,6 +393,60 @@ function Domain(patterns: string | string[]) {
     );
     return descriptor;
   };
+}
+
+// ── BypassFirewall decorator (classe + méthode) ─────────────────────────────
+
+/**
+ * Déclare une route (décorateur de **méthode**) ou tout un contrôleur
+ * (décorateur de **classe**) comme **PUBLIQUE** : le firewall ne s'exécute pas
+ * (`Route.bypassFirewall`). Pour la **liveness** (`/health`, `/info` — sondes
+ * k8s/monitoring NON authentifiées, ping pré-login), les **webhooks signés**, ou
+ * un endpoint d'auth (login). Sucre déclaratif sur l'option
+ * `RouteOptions.bypassFirewall` (les deux coexistent ; l'option l'emporte).
+ *
+ * Précédence : `@Get({ bypassFirewall })` > `@BypassFirewall` méthode > classe.
+ * Lu au montage `@controller` (ordre des décorateurs indifférent). **Fail-closed** :
+ * un oubli laisse la route GATÉE (401), jamais ouverte par erreur.
+ *
+ * ⚠️ En décorateur de **classe**, placer `@BypassFirewall` SOUS `@controller`
+ * (décorateurs de classe appliqués de bas en haut). Préfigure `@Public`/
+ * `@Anonymous` (P6.8b) — sémantique « pas d'auth », qui s'appuiera sur ce primitif.
+ *
+ * Décorateur SANS argument → **simple, SANS parenthèses** (`@BypassFirewall`,
+ * pas `@BypassFirewall()`) : c'est un DRAPEAU, pas une option paramétrée. Une
+ * factory (`()`) ne se justifie que pour passer des arguments (cf `@Get("/x")`,
+ * `@Domain("host")`).
+ *
+ * @example
+ * \@controller("/nodefony")
+ * class StudioController extends Controller {
+ *   \@BypassFirewall
+ *   \@Get("/studio/api/health") health() {} // public (liveness)
+ *   \@Get("/studio/api/stats") stats() {}    // gaté par l'aire data plane
+ * }
+ */
+// Décorateur DUAL classe+méthode, SANS argument (pas une factory). `target` =
+// constructeur (classe) ou prototype (méthode). `any` = idiome TS sanctionné
+// pour un décorateur polymorphe (cf @Domain).
+function BypassFirewall(
+  target: any,
+  propertyKey?: string,
+  descriptor?: PropertyDescriptor,
+): any {
+  if (propertyKey === undefined) {
+    // Classe → toutes les routes du contrôleur publiques.
+    Reflect.defineMetadata(BYPASS_FIREWALL_CLASS_METADATA, true, target);
+    return target;
+  }
+  // Méthode → clé (constructeur, propertyKey), lue au montage `@controller`.
+  Reflect.defineMetadata(
+    BYPASS_FIREWALL_METHOD_METADATA,
+    true,
+    target.constructor,
+    propertyKey,
+  );
+  return descriptor;
 }
 
 // ── Scope decorator (classe) ────────────────────────────────────────────────
@@ -779,6 +853,7 @@ export {
   Head,
   All,
   Domain,
+  BypassFirewall,
   Scope,
   UseSession,
   resolveSessionIntent,

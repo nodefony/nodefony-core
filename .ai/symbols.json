@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-13T17:00:29.402Z",
+  "generated": "2026-06-13T17:14:53.053Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 864,
-    "symbols": 1801,
+    "symbols": 1804,
     "classes": 260,
     "interfaces": 453,
     "types": 231,
     "enums": 3,
-    "functions": 366,
-    "constants": 488
+    "functions": 367,
+    "constants": 490
   },
   "symbols": {
     "Cli": {
@@ -4702,6 +4702,14 @@
       "module": "@nodefony/framework",
       "description": "Restreint une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) à un ou plusieurs vhosts. Source de vérité du domaine de routing — le `host` posé ici alimente `Rout…"
     },
+    "BypassFirewall": {
+      "name": "BypassFirewall",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Déclare une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) comme **PUBLIQUE** : le firewall ne s'exécute pas (`Route.bypassFirewall`). Pour la **liveness** (`/he…"
+    },
     "@nodefony/framework:Scope": {
       "name": "Scope",
       "kind": "function",
@@ -4811,6 +4819,20 @@
     },
     "DOMAIN_METHOD_METADATA": {
       "name": "DOMAIN_METHOD_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "BYPASS_FIREWALL_CLASS_METADATA": {
+      "name": "BYPASS_FIREWALL_CLASS_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "BYPASS_FIREWALL_METHOD_METADATA": {
+      "name": "BYPASS_FIREWALL_METHOD_METADATA",
       "kind": "const",
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
@@ -14387,6 +14409,10 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts"
+      ],
+      "BypassFirewall": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
       "Scope": [
         "src/packages/@nodefony/framework/index.ts",
