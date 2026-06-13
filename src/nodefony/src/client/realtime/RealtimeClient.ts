@@ -18,7 +18,11 @@ import {
   isReconnectableCloseCode,
   type NodefonyNotice,
 } from "./notice";
-import { RpcError } from "../../realtime/JsonRpcPeer";
+import {
+  JsonRpcPeer,
+  type IRealtimePeer,
+  type JsonRpcFrameKind,
+} from "../../realtime/JsonRpcPeer";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -42,6 +46,7 @@ import type {
   EventsMap,
   IRealtimeWelcome,
   RealtimeIdentity,
+  TypedRpcActionHandler,
 } from "../../realtime/RealtimeEventMap";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import {
@@ -82,32 +87,6 @@ export interface RealtimeOptions {
 }
 
 type EventHandler = (...args: unknown[]) => void;
-
-interface JsonRpcRequest {
-  jsonrpc: "2.0";
-  id: number;
-  method: string;
-  params?: unknown;
-}
-
-interface JsonRpcResponse {
-  jsonrpc: "2.0";
-  id: number;
-  result?: unknown;
-  error?: { code: number; message: string; data?: unknown };
-}
-
-interface JsonRpcStreamChunk {
-  jsonrpc: "2.0";
-  id: number;
-  stream: { chunk: unknown; done: boolean };
-}
-
-interface JsonRpcNotification {
-  jsonrpc: "2.0";
-  method: string;
-  params?: unknown;
-}
 
 /**
  * Stats d'un canal — alias historique de {@link IChannelStats} (le contrat isomorphe
@@ -152,14 +131,6 @@ function redactFrame(value: unknown, depth = 0): unknown {
   return out;
 }
 
-interface PendingRequest {
-  resolve: (value: unknown) => void;
-  reject: (reason: unknown) => void;
-  /** Si défini, on est en mode streaming. */
-  onChunk?: (chunk: unknown) => void;
-  chunks?: unknown[];
-}
-
 /**
  * Réponse de la méthode RPC standard `kernel:ping` — CONVENTION Nodefony : tout
  * endpoint realtime (Studio aujourd'hui, `RealtimeService` en P13.4) y répond.
@@ -178,14 +149,32 @@ export class RealtimeClient<
   Emit extends EventsMap = DefaultEventsMap,
   Listen extends EventsMap = DefaultEventsMap,
   Actions extends ActionsMap = DefaultActionsMap,
-> implements IRealtimeSocket<Emit, Listen, Actions> {
+>
+  implements
+    IRealtimeSocket<Emit, Listen, Actions>,
+    IRealtimePeer<Emit, Actions>
+{
   // Transport courant ({@link IRealtimeTransport}) — recréé à chaque (re)connexion.
   // L'orchestration (reconnect/heartbeat/state) vit ici ; le transport reste « bête ».
   private transport: IRealtimeTransport | null = null;
   private readonly transportFactory: RealtimeTransportFactory;
   private _state: RealtimeState = "disconnected";
-  private nextId = 1;
-  private readonly pending = new Map<number, PendingRequest>();
+  // Moteur protocole JSON-RPC 2.0 ISOMORPHE — le MÊME que la connexion serveur
+  // compose (cf RealtimeController). Le client DÉLÈGUE tout le plan de contrôle
+  // (request/notify/stream/receive/register/erreurs/corrélation d'id) ; il ne
+  // garde que le « client » (transport, reconnect, heartbeat, stats, frameLog,
+  // ref-count subscribe, identité). `pending`/`actions` du peer sont LAZY (0 alloc
+  // tant qu'aucune requête sortante / action exposée). `send` est déréférencé à
+  // chaque frame (pas `.bind`) → un test qui remplace `client.send` reste intercepté.
+  private readonly peer: JsonRpcPeer<Emit, Listen, Actions> = new JsonRpcPeer<
+    Emit,
+    Listen,
+    Actions
+  >({
+    send: (frame) => this.send(frame),
+    onNotification: (method, params) =>
+      this.dispatchNotification(method as string, params),
+  });
   private readonly handlers = new Map<string, Set<EventHandler>>();
   // Abonnements pub/sub ref-comptés (canal → nb de consommateurs). Le subscribe/
   // unsubscribe RÉSEAU n'est émis qu'aux transitions 0↔1 → N consommateurs (hooks
@@ -317,6 +306,9 @@ export class RealtimeClient<
     this.intentionalClose = true;
     this.clearTimers();
     this.transport?.close(1000, "client disconnect");
+    // Logout = on annule les requêtes sortantes en vol (rejet immédiat plutôt que
+    // timeout). Le peer reste réutilisable (un `connect()` ultérieur repart propre).
+    this.peer.dispose("client disconnect");
     // Déconnexion VOLONTAIRE (ex. logout) → l'identité n'est plus valable. Une
     // perte RÉSEAU (onClose non intentionnel) garde la dernière identité jusqu'au
     // prochain welcome → évite un flash login pendant une micro-reconnexion.
@@ -380,8 +372,9 @@ export class RealtimeClient<
    * utilisateur. Bypasse les types conditionnels de {@link emit}.
    */
   private _emitRaw(method: string, params?: unknown): void {
-    const msg: JsonRpcNotification = { jsonrpc: "2.0", method, params };
-    this.send(msg);
+    // `method`/`params` système (subscribe/unsubscribe/ping) hors map `Emit` →
+    // cast vers la signature stricte du peer (équivalent à l'API pré-types).
+    this.peer.notify(method as never, params as never);
   }
 
   /**
@@ -574,25 +567,14 @@ export class RealtimeClient<
       params = { path: method };
       method = "api.request";
     }
-    const id = this.nextId++;
-    return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`RPC timeout: ${method}`));
-      }, timeoutMs);
-      this.pending.set(id, {
-        resolve: (v) => {
-          clearTimeout(timer);
-          resolve(v as T);
-        },
-        reject: (e) => {
-          clearTimeout(timer);
-          reject(e);
-        },
-      });
-      const msg: JsonRpcRequest = { jsonrpc: "2.0", id, method, params };
-      this.send(msg);
-    });
+    // Plan de contrôle (id, corrélation, timeout, RpcError) délégué au moteur
+    // isomorphe. `method`/`params` sont routés par l'overload générique permissif
+    // → cast vers la signature stricte du peer (équivalent pré-types).
+    return this.peer.request(
+      method as never,
+      params as never,
+      timeoutMs,
+    ) as Promise<T>;
   }
 
   /**
@@ -629,31 +611,80 @@ export class RealtimeClient<
     onChunk: (chunk: TChunk) => void,
     timeoutMs = 120000,
   ): Promise<TChunk[]> {
-    const id = this.nextId++;
-    return new Promise<TChunk[]>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`Stream timeout: ${method}`));
-      }, timeoutMs);
-      const chunks: TChunk[] = [];
-      this.pending.set(id, {
-        resolve: (_v) => {
-          clearTimeout(timer);
-          resolve(chunks);
-        },
-        reject: (e) => {
-          clearTimeout(timer);
-          reject(e);
-        },
-        onChunk: (c) => {
-          chunks.push(c as TChunk);
-          onChunk(c as TChunk);
-        },
-        chunks,
-      });
-      const msg: JsonRpcRequest = { jsonrpc: "2.0", id, method, params };
-      this.send(msg);
-    });
+    // Délègue au streaming du moteur (accumule les chunks + pousse `onChunk` en
+    // live, résout au `done`). Alias DX de {@link requestStream} (contrat peer).
+    return this.peer.requestStream(
+      method as never,
+      params as never,
+      onChunk as (chunk: unknown) => void,
+      timeoutMs,
+    ) as Promise<TChunk[]>;
+  }
+
+  // ── Contrat IRealtimePeer (plan de contrôle, délégué au moteur) ─────────
+  // Le client EXPOSE la surface bidirectionnelle isomorphe en composant le MÊME
+  // `JsonRpcPeer` que la connexion serveur. `register` rend le client CALLEE : un
+  // serveur peut désormais le `request` (duplex serveur→client réel, débloqué par L0).
+
+  /** Notification SORTANTE typée (pas de réponse). Pendant de {@link emit}/{@link publish}. */
+  notify<K extends EventNames<Emit>>(
+    method: K,
+    params?: EventPayload<Emit, K>,
+  ): void {
+    this.peer.notify(method, params);
+  }
+
+  /**
+   * Requête SORTANTE en streaming (chunks → `onChunk`, `Promise` résolue au `done`).
+   * Contrat {@link IRealtimePeer} ; {@link stream} en est l'alias DX permissif.
+   */
+  requestStream<K extends ActionNames<Actions>>(
+    method: K,
+    params: ActionParams<Actions, K>,
+    onChunk: (chunk: unknown) => void,
+    timeoutMs = 60000,
+  ): Promise<ActionResult<Actions, K>[]> {
+    return this.peer.requestStream(method, params, onChunk, timeoutMs);
+  }
+
+  /**
+   * Expose une action appelable PAR LE PAIR (requête entrante serveur→client).
+   * Cœur du duplex débloqué par L0 : sans handler, une requête entrante reçoit
+   * `-32601` ; avec, le `result` repart au serveur (confirmation d'action,
+   * invalidation de cache poussée, health applicatif serveur→client).
+   */
+  register<K extends ActionNames<Actions>>(
+    method: K,
+    handler: TypedRpcActionHandler<Actions, K>,
+  ): void {
+    this.peer.register(method, handler);
+  }
+
+  /** Retire une action exposée. */
+  unregister<K extends ActionNames<Actions>>(method: K): void {
+    this.peer.unregister(method);
+  }
+
+  /** Actions exposées par CE client (découverte). ≠ {@link serverMethods} (côté serveur). */
+  get methods(): string[] {
+    return this.peer.methods;
+  }
+
+  /**
+   * Ingestion d'une frame ENTRANTE déjà parsée → log + classification/route par le
+   * moteur. Renvoie sa nature. Une frame `invalid` peut porter une erreur GLOBALE
+   * serveur (`{jsonrpc, error}` hors spec JSON-RPC) → notice (cf {@link handleServerError}).
+   */
+  receive(frame: unknown): JsonRpcFrameKind {
+    this.recordFrame("in", frame); // log protocole (lazy)
+    const kind = this.peer.receive(frame);
+    if (kind === "invalid") this.handleServerError(frame);
+    return kind;
+  }
+
+  /** Annule les requêtes sortantes en attente (fermeture transport / logout). */
+  dispose(reason?: string): void {
+    this.peer.dispose(reason);
   }
 
   // ── Stats (génériques, réutilisables) ──────────────────────────────────
@@ -713,6 +744,50 @@ export class RealtimeClient<
     this._serverChannels = Array.isArray(w.channels) ? w.channels : null;
     this._serverMethods = Array.isArray(w.methods) ? w.methods : null;
     this.fireLocal("__identity__", this._identity);
+  }
+
+  /**
+   * Dispatch d'une NOTIFICATION entrante — appelé par le moteur via `onNotification`.
+   * Ordre figé : ingestion welcome (1ʳᵉ frame) → stats → handlers locaux + wildcard
+   * (un handler `on("realtime:welcome")` voit donc l'identité déjà ingérée).
+   */
+  private dispatchNotification(method: string, params: unknown): void {
+    if (method === "realtime:welcome") this.ingestWelcome(params);
+    this.trackFrame(method); // stats génériques avant dispatch
+    this.handlers.get(method)?.forEach((h) => {
+      try {
+        h(params);
+      } catch {
+        /* ignore handler errors */
+      }
+    });
+    // wildcard
+    this.handlers.get("*")?.forEach((h) => {
+      try {
+        h(method, params);
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+
+  /**
+   * Frame `invalid` (JSON-RPC strict) portant un `error` sans `id`/`method` = erreur
+   * GLOBALE serveur (extension Nodefony hors spec, ex. refus tardif) → notice pour le
+   * centre de notifications. Frame réellement malformée (sans `.error`) → no-op.
+   */
+  private handleServerError(frame: unknown): void {
+    const err = (frame as { error?: { code?: number; message?: string } })
+      .error;
+    if (!err || typeof err !== "object") return;
+    this.fireNotice({
+      level: "error",
+      title: "Temps réel",
+      message: err.message || "Erreur serveur temps réel",
+      source: "server",
+      code: err.code,
+      ts: Date.now(),
+    });
   }
 
   /** Échantillonne le débit (msg/s) + série par canal, 1×/s, puis émet
@@ -944,103 +1019,10 @@ export class RealtimeClient<
     } catch {
       return;
     }
-    if (
-      !msg ||
-      typeof msg !== "object" ||
-      (msg as { jsonrpc?: string }).jsonrpc !== "2.0"
-    )
-      return;
-
-    this.recordFrame("in", msg); // log protocole (lazy)
-
-    // Le RÔLE d'une frame se lit sur `method`, PAS sur `id` (sinon une réponse
-    // serait prise pour une requête, et une requête serveur→client pour une
-    // réponse). `id` autorisé string OU number (JSON-RPC 2.0 §id).
-    const id = (msg as { id?: unknown }).id;
-    const hasId = typeof id === "number" || typeof id === "string";
-    const method =
-      typeof (msg as { method?: unknown }).method === "string"
-        ? (msg as { method: string }).method
-        : undefined;
-
-    // Frame AVEC `method` = appel ENTRANT (le serveur nous appelle).
-    if (method !== undefined) {
-      if (hasId) {
-        // Requête serveur→client : pas (encore) de registre d'actions exposées
-        // côté client → réponse standard « méthode inconnue » (le serveur voit son
-        // `request()` rejeter au lieu d'attendre le timeout). Brancher ici un
-        // registre le jour du bidirectionnel complet (client = callee).
-        this.send({
-          jsonrpc: "2.0",
-          id,
-          error: { code: -32601, message: `method not found: ${method}` },
-        });
-        return;
-      }
-      // Notification (pas d'`id`) — événement pub/sub.
-      const params = (msg as JsonRpcNotification).params;
-      // `realtime:welcome` (1ʳᵉ frame serveur) porte l'identité résolue + les
-      // capabilities → ingérée AVANT le dispatch (les handlers `on(...)` la
-      // reçoivent quand même ensuite, rétro-compat).
-      if (method === "realtime:welcome") this.ingestWelcome(params);
-      this.trackFrame(method); // stats génériques avant dispatch
-      this.handlers.get(method)?.forEach((h) => {
-        try {
-          h(params);
-        } catch {
-          /* ignore handler errors */
-        }
-      });
-      // wildcard
-      this.handlers.get("*")?.forEach((h) => {
-        try {
-          h(method, params);
-        } catch {
-          /* ignore */
-        }
-      });
-      return;
-    }
-
-    // Frame SANS `method` mais AVEC `id` = RÉPONSE à une de NOS requêtes (flux
-    // sortant). Nos `id` sont numériques (cf `nextId`) → on ne matche que ceux-là.
-    if (typeof id === "number") {
-      const m = msg as JsonRpcResponse | JsonRpcStreamChunk;
-      const pending = this.pending.get(id);
-      if (!pending) return;
-      if ("stream" in m) {
-        pending.onChunk?.(m.stream.chunk);
-        if (m.stream.done) {
-          this.pending.delete(id);
-          pending.resolve(pending.chunks);
-        }
-      } else if ("error" in m && m.error) {
-        this.pending.delete(id);
-        // `code`/`data` préservés (ex. `data.status` d'un `api.request`) — un
-        // 404 de path se discrimine d'un refus voter sans parser le message.
-        pending.reject(
-          new RpcError(m.error.message, m.error.code, m.error.data),
-        );
-      } else if ("result" in m) {
-        this.pending.delete(id);
-        pending.resolve(m.result);
-      }
-      return;
-    }
-
-    // Frame SANS `method` ni `id` mais AVEC `error` = erreur globale serveur (pas
-    // une réponse à une requête) → notice normalisée pour le centre de notifications.
-    if ((msg as JsonRpcResponse).error) {
-      const err = (msg as JsonRpcResponse).error!;
-      this.fireNotice({
-        level: "error",
-        title: "Temps réel",
-        message: err.message || "Erreur serveur temps réel",
-        source: "server",
-        code: err.code,
-        ts: Date.now(),
-      });
-    }
+    // Discrimination (request/notification/response), routage et corrélation d'id
+    // délégués au moteur isomorphe via `receive` (log + welcome + stats + handlers
+    // y sont rebranchés). Plus aucune classification dupliquée côté client.
+    this.receive(msg);
   }
 
   private setState(s: RealtimeState): void {

@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-13T20:11:13.898Z",
+  "generated": "2026-06-13T21:14:29.615Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 864,
-    "symbols": 1808,
+    "symbols": 1803,
     "classes": 260,
-    "interfaces": 455,
+    "interfaces": 450,
     "types": 231,
     "enums": 3,
     "functions": 369,
@@ -2403,7 +2403,8 @@
       "module": "@nodefony/core",
       "extends": null,
       "implements": [
-        "IRealtimeSocket"
+        "IRealtimeSocket",
+        "IRealtimePeer"
       ],
       "decorators": []
     },
@@ -13429,7 +13430,8 @@
         "Module"
       ],
       "IRealtimePeer": [
-        "JsonRpcPeer"
+        "JsonRpcPeer",
+        "RealtimeClient"
       ],
       "ISyslog": [
         "Syslog"
@@ -14920,13 +14922,13 @@
       ],
       "JsonRpcPeer": [
         "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "RpcError": [
         "src/nodefony/src/client/index.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
@@ -15263,7 +15265,8 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "TypedRpcActionHandler": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "ModuleName": [
         "src/nodefony/src/syslog/Syslog.ts"
@@ -15379,6 +15382,12 @@
         "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts"
       ],
       "isReconnectableCloseCode": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "IRealtimePeer": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "JsonRpcFrameKind": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "RealtimeTransportFactory": [
