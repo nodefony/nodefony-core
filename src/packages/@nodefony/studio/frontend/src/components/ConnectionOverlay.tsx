@@ -1,6 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useRef, useState } from "react";
 import { Box, Button, Group, Stack, Text } from "@mantine/core";
+import { useReducedMotion } from "@mantine/hooks";
 import {
   IconPlugConnectedX,
   IconReload,
@@ -10,7 +11,8 @@ import {
 import { useConnection } from "../stores";
 import { NodefonyLogo } from "./NodefonyLogo";
 
-// @keyframes injectés une fois (Mantine v8 n'exporte pas `keyframes`).
+// @keyframes injectés une fois (Mantine v9 n'exporte pas `keyframes`). Toutes
+// compositor-only (transform + opacity) → 0 layout/paint quand elles tournent.
 const KF = `
 @keyframes nfConnPing {
   0% { transform: scale(0.55); opacity: 0.65; }
@@ -35,7 +37,57 @@ function ensureKeyframes(): void {
   document.head.appendChild(el);
 }
 
-/** Un anneau radar absolu (réutilisé 3× avec un délai décalé). */
+/**
+ * Visibilité de l'onglet (Page Visibility API). Quand l'onglet passe en
+ * arrière-plan (l'utilisateur change de fenêtre), on COUPE tout ce qui coûte :
+ * le tick du compte à rebours ET les animations CSS. Sinon l'overlay continue
+ * de s'animer + re-render dans un onglet que personne ne regarde → la machine
+ * rame (vécu sur Brave/Chromium, surtout multi-fenêtre).
+ */
+function useDocumentVisible(): boolean {
+  const [visible, setVisible] = useState(
+    () => typeof document === "undefined" || !document.hidden,
+  );
+  useEffect(() => {
+    const onChange = (): void => setVisible(!document.hidden);
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, []);
+  return visible;
+}
+
+// Styles STATIQUES hissés (jamais recréés par render — l'overlay re-render au
+// tick du compte à rebours). Volontairement SANS `backdrop-filter` : un blur
+// plein écran est recomposé à chaque frame (paint GPU permanent) = la 1ʳᵉ cause
+// du ralentissement machine. Fond simplement opaque à la place.
+const OVERLAY_STYLE: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 1000,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "color-mix(in srgb, var(--mantine-color-body) 90%, transparent)",
+};
+const CARD_STYLE: React.CSSProperties = {
+  position: "relative",
+  width: 380,
+  maxWidth: "90vw",
+  padding: "34px 30px 26px",
+  borderRadius: 16,
+  background: "var(--mantine-color-body)",
+  border: "1px solid var(--mantine-color-default-border)",
+  boxShadow: "var(--mantine-shadow-lg)",
+  overflow: "hidden",
+  textAlign: "center",
+};
+const RADAR_BOX_STYLE: React.CSSProperties = {
+  position: "relative",
+  width: 120,
+  height: 120,
+};
+
+/** Un anneau radar absolu (réutilisé 3× avec un délai décalé). Compositor-only. */
 function Ring({ color, delay }: { color: string; delay: string }) {
   return (
     <Box
@@ -53,28 +105,36 @@ function Ring({ color, delay }: { color: string; delay: string }) {
 
 /**
  * Overlay plein écran affiché quand la connexion temps réel au serveur est
- * rompue (serveur coupé) — UX digne d'un framework realtime : backdrop flouté,
- * radar pulsé (battement serveur perdu), **compte à rebours live** synchronisé
- * au backoff réel du `RealtimeClient`, reconnexion auto + bouton « réessayer »,
- * et **flash vert** à la reprise. Ne s'affiche qu'après une 1ʳᵉ connexion
- * réussie (pas pendant le boot initial). Source de vérité = `ConnectionStore`.
+ * rompue (serveur coupé) — radar pulsé, compte à rebours live synchronisé au
+ * backoff réel du `RealtimeClient`, reconnexion auto + bouton « réessayer », et
+ * flash vert à la reprise. Ne s'affiche qu'après une 1ʳᵉ connexion réussie.
+ *
+ * Perf : **0 `backdrop-filter`** (blur plein écran = paint GPU permanent), et
+ * tout (tick + animations) est **mis en pause dès que l'onglet est caché** ou
+ * si l'utilisateur a demandé `prefers-reduced-motion`. Source = `ConnectionStore`.
  */
 export const ConnectionOverlay = observer(() => {
   const conn = useConnection();
   const down = conn.isDown;
+  const visible = useDocumentVisible();
+  const reducedMotion = useReducedMotion();
+  // On n'anime QUE si l'overlay est utile (down), l'onglet visible, et que
+  // l'utilisateur n'a pas demandé à réduire les animations.
+  const animate = down && visible && !reducedMotion;
   const [now, setNow] = useState(() => Date.now());
   const [recovered, setRecovered] = useState(false);
   const prevDown = useRef(false);
 
   ensureKeyframes();
 
-  // Tick 4×/s pour le compte à rebours, uniquement quand l'overlay est visible.
+  // Tick 4×/s pour le compte à rebours — UNIQUEMENT overlay visible ET onglet au
+  // premier plan. Onglet caché → aucun re-render (la machine respire).
   useEffect(() => {
-    if (!down) return;
+    if (!down || !visible) return;
     setNow(Date.now());
     const id = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(id);
-  }, [down]);
+  }, [down, visible]);
 
   // Flash de reprise quand on repasse down → connecté.
   useEffect(() => {
@@ -120,42 +180,29 @@ export const ConnectionOverlay = observer(() => {
       : "Tentative de rétablissement…";
 
   return (
-    <Box
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background:
-          "color-mix(in srgb, var(--mantine-color-body) 78%, transparent)",
-        backdropFilter: "blur(2px) saturate(0.9)",
-        WebkitBackdropFilter: "blur(2px) saturate(0.9)",
-      }}
-    >
-      <Box
-        style={{
-          position: "relative",
-          width: 380,
-          maxWidth: "90vw",
-          padding: "34px 30px 26px",
-          borderRadius: 16,
-          background: "var(--mantine-color-body)",
-          border: "1px solid var(--mantine-color-default-border)",
-          boxShadow: `0 18px 50px -28px ${accent}, var(--mantine-shadow-lg)`,
-          overflow: "hidden",
-          textAlign: "center",
-        }}
-      >
-        {/* Balayage lumineux en haut de la carte */}
-        <Box style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, overflow: "hidden" }}>
+    <Box style={OVERLAY_STYLE}>
+      <Box style={CARD_STYLE}>
+        {/* Balayage lumineux en haut de la carte — animé seulement si `animate`,
+            sinon un trait statique de la couleur d'accent (0 paint en boucle). */}
+        <Box
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            overflow: "hidden",
+          }}
+        >
           <Box
             style={{
               width: "100%",
               height: "100%",
-              background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-              animation: "nfConnSweep 1.8s linear infinite",
+              background: animate
+                ? `linear-gradient(90deg, transparent, ${accent}, transparent)`
+                : accent,
+              opacity: animate ? 1 : 0.5,
+              animation: animate ? "nfConnSweep 1.8s linear infinite" : "none",
             }}
           />
         </Box>
@@ -168,15 +215,19 @@ export const ConnectionOverlay = observer(() => {
               fw={800}
               size="28px"
               c="dimmed"
-              style={{ letterSpacing: 3, textTransform: "uppercase", lineHeight: 1 }}
+              style={{
+                letterSpacing: 3,
+                textTransform: "uppercase",
+                lineHeight: 1,
+              }}
             >
               Studio
             </Text>
           </Group>
 
-          {/* Radar / heartbeat */}
-          <Box style={{ position: "relative", width: 120, height: 120 }}>
-            {!recovered && (
+          {/* Radar / heartbeat — anneaux montés UNIQUEMENT quand on anime. */}
+          <Box style={RADAR_BOX_STYLE}>
+            {animate && !recovered && (
               <>
                 <Ring color={accent} delay="0s" />
                 <Ring color={accent} delay="0.8s" />
@@ -193,10 +244,17 @@ export const ConnectionOverlay = observer(() => {
                 justifyContent: "center",
                 background: `color-mix(in srgb, ${accent} 18%, transparent)`,
                 color: accent,
-                animation: recovered ? undefined : "nfConnBreathe 1.6s ease-in-out infinite",
+                animation:
+                  animate && !recovered
+                    ? "nfConnBreathe 1.6s ease-in-out infinite"
+                    : "none",
               }}
             >
-              {recovered ? <IconCheck size={34} /> : <IconPlugConnectedX size={34} />}
+              {recovered ? (
+                <IconCheck size={34} />
+              ) : (
+                <IconPlugConnectedX size={34} />
+              )}
             </Box>
           </Box>
 
