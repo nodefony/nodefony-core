@@ -104,6 +104,12 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
   réimplémente son propre JSON-RPC partiel (pas de `register`/callee, pas de seams `beforeDispatch`/audit). Cause =
   chronologie (prouvée `git log --diff-filter=A`) : client **antérieur de 5 j** (18/05) au moteur isomorphe (23/05),
   refactor jamais fait. Dette **L0** = brancher le `JsonRpcPeer` interne au client → `register` + seams isomorphes.
+- `[1× — 2026-06-13]` **Série socket isomorphe L0→L4 LIVRÉE** (`d0934fa0`/`9a51438f`/`40684721`/`f428d2cd`) : L0 client
+  compose le peer (dette ci-dessus close) ; L1 `RealtimeController.requestClient`/`notifyClient` (duplex S→C par
+  connexion) ; L3 `RealtimeController<Emit, Actions>` **générique à défauts permissifs** (0 casse des sous-classes ;
+  ⚠️ TS6133 sur un type param inutilisé → ne garder QUE les params réellement référencés, j'ai retiré `Listen`) ;
+  L4 façade serveur `ServerRealtimeSocket implements IRealtimeSocket` au-dessus du hub. `request` côté hub = **pas de
+  pair unique** (multi-clients) → non supporté, renvoie vers `requestClient`. L5 (mutations via `api.request`) = post-P6.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
@@ -794,6 +800,16 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-13]` **Refacto INTERNE → les unit ne prouvent RIEN ; il faut un banc d'INTÉGRATION** (martelé par
+  le user « les unit sont les mêmes !!! ») : après L0 (le client compose le peer), le CONTRAT de surface ne bouge
+  pas → les unit qui pilotent le client via `handleMessage`/`send` STUBÉS restent verts sans prouver la plomberie ni
+  le duplex. Réponse = banc loopback E2E `realtimeLoopback.e2e.test.ts` (VRAI client ↔ VRAI serveur, frames string
+  sérialisées + async microtask) ; le test « duplex S→C avec `register` » **échoue avant L0, passe après** = preuve
+  que la suite capte le gain. Règle : une refacto à iso-contrat se VALIDE par un test de la JONCTION, pas de la surface.
+- `[1× — 2026-06-13]` **Test isomorphe = double identité source/dist d'une classe** : le banc importe le client en
+  SOURCE (teste la refacto sans rebuild) mais le serveur tire `JsonRpcPeer`/`RpcError` du DIST `nodefony` → 2 classes
+  `RpcError` distinctes → `err instanceof RpcError` du peer serveur rate → -32603 au lieu de -32000. Fix : le handler
+  serveur throw le `RpcError` du DIST, les assertions client gardent celui du SOURCE (commenté dans le test).
 - `[1× — 2026-06-12]` **`fetch` mocké : une `Response` ne se LIT qu'une fois** — `mockResolvedValue(jsonResponse(…))`
   partage la même instance entre 2 appels → 2ᵉ `res.json()` = « Body is unusable: Body has already been read ».
   → `mockImplementation(() => Promise.resolve(new Response(…)))` (instance neuve par appel), jamais une Response
