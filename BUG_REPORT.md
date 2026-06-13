@@ -503,3 +503,25 @@ spec/loader tsx dans `.mocharc.cjs` (pattern des autres modules, cross-platform)
 - ✅ test-unit Node 24 macos + ubuntu (fix perf-skip `05ce331`).
 - ✅ test-unit Node 22 + Windows → **BUG-CI-002 résolu**.
 - ✅ test-integration → **BUG-CI-001 résolu**.
+
+---
+
+## 🔴 BUG-ORM-001 — `wireOrmAdminPlane` throw sans adminBroker (OUVERT, découvert 2026-06-14)
+
+**Test rouge** : `src/packages/@nodefony/orm-core/tests/unit/ormWiring.test.ts` >
+`ormWiring — wireOrmAdminPlane (C5) > kernel sans adminBroker dans le container → ne throw pas`.
+
+```
+AssertionError: Got unwanted exception.
+  64| assert.doesNotThrow(() => wireOrmAdminPlane(kernel));
+```
+
+- **Déterministe** (reproduit isolé `cd src/packages/@nodefony/orm-core && npm test` → 1 failed | 74 passed).
+- **Pré-existant** — découvert pendant une session de bench perf (aucun code modifié, `git diff` vide).
+  Cause probable : refactor `b140855c` (2026-06-09, « type ormWiring sur IKernel au lieu de la classe
+  Kernel ») → `wireOrmAdminPlane(kernel)` throw désormais quand le container n'a pas d'`adminBroker`,
+  alors que le test attend un no-op tolérant.
+- **Masqué en CI/turbo** : cache turbo + cascade `^test` skippent les dépendants → le rouge n'apparaît
+  qu'avec `turbo run test --continue` ou en run isolé.
+- **Fix attendu** : soit `wireOrmAdminPlane` redevient tolérant (guard `adminBroker` absent → return),
+  soit le test est ajusté si le throw est voulu. À trancher selon l'intention du refactor C5.

@@ -30,6 +30,14 @@
 - `[1× — 2026-06-11]` **« 1× par socket » naïf = piège keep-alive** : node RÉ-ARME socket.setTimeout aux
   transitions keep-alive (server.timeout 120 s ↔ keepAliveTimeout 5 s) → tout état posé « une fois par socket »
   peut être écrasé dès la requête 2. Toujours re-vérifier la valeur par requête (check conditionnel cheap).
+- `[1× — 2026-06-14]` **Sync/async = débit vs concurrence (test discriminant)** : un store/op SYNCHRONE
+  qui bloque l'event-loop donne un débit PLAT quand la concurrence monte (mesuré : reprise session
+  better-sqlite3 ~400 RPS de c=5 à c=50) ; de l'I/O async MONTE avec la concurrence (redis ~1900, ×4,7).
+  Pour qualifier « est-ce sync-bloquant ou CPU pur ? » → bencher c=5/10/25/50, pas un seul point.
+- `[1× — 2026-06-14]` **Bench « coût de la sécu » = isoler firewall vs store** : le coût d'une requête
+  authentifiée était à ~98 % la **reprise de session** (SELECT store), pas le firewall (~gratuit, −6 % sur
+  rejet 401). Toujours décomposer (route hors-zone vs en-zone vs session-hors-zone) avant d'accuser la sécu.
+  Réflexe AVANT d'hypothéser le store : `grep "SESSION STORAGE active"` (perdu 2 hypothèses faute de l'avoir fait).
 
 ## 🐚 Shell / environnement d'exécution
 
@@ -806,6 +814,11 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
   le duplex. Réponse = banc loopback E2E `realtimeLoopback.e2e.test.ts` (VRAI client ↔ VRAI serveur, frames string
   sérialisées + async microtask) ; le test « duplex S→C avec `register` » **échoue avant L0, passe après** = preuve
   que la suite capte le gain. Règle : une refacto à iso-contrat se VALIDE par un test de la JONCTION, pas de la surface.
+- `[1× — 2026-06-14]` **`turbo run test` MASQUE un rouge pré-existant** : la dépendance `^test` + le cache turbo
+  font qu'un échec d'une dep (ex. orm-core) **skippe ses dépendants** → ils apparaissent en « command failed »
+  sans détail, et un run câblé peut afficher « 22 successful » en cachant le vrai bilan. Pour l'état RÉEL de
+  TOUS les workspaces : `turbo run test --continue` (exécute malgré les échecs) + extraire chaque « Tests X passed ».
+  (Vécu : 1 rouge orm-core `ormWiring(C5)` masqué ; les ~3030 verts ailleurs invisibles au 1er run filtré.)
 - `[1× — 2026-06-13]` **Test isomorphe = double identité source/dist d'une classe** : le banc importe le client en
   SOURCE (teste la refacto sans rebuild) mais le serveur tire `JsonRpcPeer`/`RpcError` du DIST `nodefony` → 2 classes
   `RpcError` distinctes → `err instanceof RpcError` du peer serveur rate → -32603 au lieu de -32000. Fix : le handler
