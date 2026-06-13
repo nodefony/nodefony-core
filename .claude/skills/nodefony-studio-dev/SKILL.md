@@ -1362,6 +1362,41 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   qui passe un children riche (`<div>`/`<Text>`) déclenche `<p> cannot contain a nested <p>` (vu au log
   client 06-12, hors diff Ph.3). Fix futur = `component="div"` sur le Text valeur ou contrainte children.
 
+**Login Studio = VITRINE : erreurs ZÉRO-SAUT + perf overlay (2026-06-13, full-stack ↔ framework-dev L2)**
+
+> Refonte `routes/Login.tsx` + `layouts/AuthLayout.tsx` + fix `components/ConnectionOverlay.tsx`. Le login est
+> « le 1ᵉʳ truc qu'on voit » → exigence parfaite. **~12 itérations UI** (le user a tout senti) → leçon #0 : pour
+> un écran VITRINE, **mini-cahier des charges VISUEL validé AVANT** (structure + erreurs + responsive + ce qui
+> doit/ne doit PAS bouger), pas improviser le rendu.
+
+- **🚫 Layout shift d'erreur = anti-pattern ergo MAJEUR** (senti 3× par le user, jusqu'à « c'est pas la souris,
+  c'est mon ŒIL qui bouge ») : une erreur ne doit JAMAIS déplacer les champs. Recette zéro-saut : (a) **TOUTES**
+  les erreurs (auth ET validation de champ) dans **UNE zone à hauteur RÉSERVÉE** (`<Box mih={N}>`) ; **JAMAIS**
+  d'erreur inline Mantine — `error=` sur l'input ET le `validate` du `useForm` **poussent** le form → **retirer
+  `validate`**, valider à la main dans `onSubmit`, router le message vers la zone réservée ; (b) zone **EN HAUT**
+  (près du regard), pas en bas (l'œil descend), pas au-dessus d'un form flottant (recentrage) ; (c) le centrage
+  vertical (`justify-content: safe center`) reste **sans saut** car la réserve garde la hauteur CONSTANTE (un
+  `Center` qui recentre quand la hauteur change = saut « symétrisé »).
+- **Note d'erreur épurée ≠ `<Alert>` Mantine** (jugé « pas beau, boxy ») : `<Group role="alert">` + accent gauche
+  (`borderInlineStart: 3px`) + fond `var(--mantine-color-${kind}-light)` + icône + message (pas de titre).
+- **Erreurs CLASSÉES** : `classifyError(e, step)` → **credentials** (message générique = anti-énumération) /
+  **réseau** (aucun `status` HTTP) / **serveur** (5xx) / **throttle 429 NON réessayable** (countdown + bouton
+  désactivé ; `Retry-After` du body sinon 30s). `role="alert"` (WCAG 3.3.1) + **s'efface à la frappe**
+  (`clearError` dans les `onChange`). Auth OK mais socket pas prête **ne bloque pas** (`conn.connect()` avale).
+- **Identifier-first SÛR** : étape 1 = **0 appel serveur** (anti-énumération OWASP) + « rebonjour » (mémorise
+  `localStorage["nf.studio.lastUser"]` → démarre à l'étape mdp). Méthodes alternatives (SSO Keycloak / Passkey
+  WebAuthn, « bientôt ») = **bloc partagé `AltLoginMethods` rendu aux 2 étapes** (sinon invisibles en rebonjour).
+- **🐌 `ConnectionOverlay` faisait RAMER la machine** (Brave, au **switch de fenêtre**) : `backdrop-filter: blur`
+  plein écran (paint GPU **permanent**, recomposé même onglet caché) + `setInterval` 4×/s sans pause. Fix : **0
+  `backdrop-filter`** + **Page Visibility** (`useDocumentVisible()` → couper tick ET animations quand
+  `document.hidden`) + `useReducedMotion` (@mantine/hooks) + styles hissés. **RÈGLE réutilisable** : tout overlay/
+  widget animé se **met en pause quand l'onglet est caché** ; jamais de blur plein écran animé.
+- **L2 (lib `nodefony` ↔ framework-dev)** consommée ici : `useNodefonyIdentity()` (le `realtime:welcome` porte
+  l'identité résolue) + le client **respecte les close codes** (1008 = pas de reco). Modèle A (zone admin) :
+  handshake anonyme **refusé** (close 1008, pas de welcome) → déclencheur anonyme→login = **401 HTTP + close
+  1008**, PAS `socket.identity` (toujours authentifié une fois la socket ouverte). Gates : typecheck 0 ;
+  transform Vite 200 ; `ws-data-plane-auth` 6/6. **NON commité** (user gère).
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +

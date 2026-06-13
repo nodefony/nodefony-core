@@ -76,6 +76,35 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
   - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
     Re-vécu J2 (builds turbo répétés) ; dépannage : `rm /private/tmp/claude-*/.../tasks/*.output` (tâches finies) débloque.
 
+## 🎨 Front / Studio / UX
+
+- `[1× — 2026-06-13]` **Écran VITRINE (login) = N itérations UI si on improvise le rendu** (~12 allers-retours
+  user sur le seul login cette session). Pour un écran « vu en premier », faire un **mini-cahier des charges
+  VISUEL validé AVANT** (structure + comportement des erreurs + responsive + ce qui doit/ne doit PAS bouger),
+  pas improviser. Renforce [[feedback_session_hygiene]] (mini-cahier amont) — cas spécifique « vitrine ».
+- `[1× — 2026-06-13]` **Layout shift d'erreur = anti-pattern ergo MAJEUR** (senti 3× par le user, jusqu'à
+  « c'est pas la souris, c'est mon ŒIL qui bouge »). Recette zéro-saut : (a) **TOUTES** les erreurs (auth ET
+  validation de champ) dans **UNE zone à hauteur RÉSERVÉE** (`mih` fixe) ; **JAMAIS** d'erreur inline Mantine
+  sous le champ (`error=`/`validate` poussent le form), ni au-dessus (recentrage), ni en bas (l'œil descend) ;
+  (b) zone **EN HAUT** près du regard ; (c) centrage vertical conservé car hauteur constante (réserve) →
+  `justify-content: safe center` ne saute plus. Détail gravé → skill `nodefony-studio-dev`.
+- `[1× — 2026-06-13]` **Overlay plein écran qui RAME la machine (Brave) au switch de fenêtre** = `backdrop-filter:
+blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setInterval` re-render sans pause. Fix :
+  **0 `backdrop-filter`** + **Page Visibility** (couper tick + animations quand `document.hidden`) +
+  `prefers-reduced-motion`. Règle : tout widget/overlay animé se **met en pause quand l'onglet est caché**.
+- `[1× — 2026-06-13]` **Login moderne sûr** : identifier-first **sans appel serveur à l'étape 1** (anti-énumération
+  OWASP) ; **429 throttle = NON réessayable** (countdown + bouton désactivé) ; erreurs **classées** (credentials
+  générique / réseau / serveur / throttle) `role="alert"`, s'efface à la frappe ; méthodes alternatives (SSO
+  Keycloak / Passkey WebAuthn) visibles **aux 2 étapes** (sinon invisibles en « rebonjour » qui démarre au mdp).
+
+## 🧩 Archi / isomorphisme
+
+- `[1× — 2026-06-13]` **Un doc-comment qui AFFIRME un câblage ≠ le câblage réel** (devise « confiance n'exclut pas
+  contrôle ») : `IRealtimePeer` dit « `RealtimeClient` compose le même `JsonRpcPeer` » → **FAUX**, le client
+  réimplémente son propre JSON-RPC partiel (pas de `register`/callee, pas de seams `beforeDispatch`/audit). Cause =
+  chronologie (prouvée `git log --diff-filter=A`) : client **antérieur de 5 j** (18/05) au moteur isomorphe (23/05),
+  refactor jamais fait. Dette **L0** = brancher le `JsonRpcPeer` interne au client → `register` + seams isomorphes.
+
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
 - `[2× — 2026-06-12]` **restart serveur juste après des edits `.ts` = RACE watch-rebuild ↔ import au boot** (re-vécu
