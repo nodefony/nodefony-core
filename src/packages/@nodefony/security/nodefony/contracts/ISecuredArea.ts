@@ -45,12 +45,6 @@ export interface ISecuredArea {
    */
   readonly realtime: boolean;
 
-  /**
-   * Nom du contexte de session ouvert AU LOGIN dans cette zone (repli de l'intent ;
-   * ex. `"nodefony"` pour l'admin). Omis = contexte `"default"` du store de sessions.
-   */
-  readonly sessionContext?: string;
-
   /** La requête tombe-t-elle dans cette zone ? (pattern + host éventuel). */
   match(context: ContextType): boolean;
 }

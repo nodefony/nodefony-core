@@ -28,12 +28,55 @@ interface LogRow {
   requestId?: string;
 }
 
-/** GET JSON sur le data plane (cert auto-signé toléré comme les autres intég). */
+/** Cookie de session admin (login BFF) — le data plane syslog est protégé (P6 J3b). */
+let cookie = "";
+
+/** Login BFF (route en bypass firewall) → cookie pour lire le data plane. */
+function login(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const data = Buffer.from(
+      JSON.stringify({ username: "admin", password: "secret" }),
+    );
+    const req = https.request(
+      {
+        hostname: "127.0.0.1",
+        port: 5152,
+        path: "/nodefony/security/api/auth/login",
+        method: "POST",
+        rejectUnauthorized: false,
+        headers: {
+          "content-type": "application/json",
+          "content-length": String(data.length),
+        },
+      },
+      (res) => {
+        const sc = res.headers["set-cookie"];
+        const first = Array.isArray(sc) ? sc[0] : sc;
+        cookie = typeof first === "string" ? (first.split(";")[0] ?? "") : "";
+        res.on("data", () => {});
+        res.on("end", () =>
+          cookie ? resolve() : reject(new Error("login admin/secret échoué")),
+        );
+      },
+    );
+    req.on("error", reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+/** GET JSON sur le data plane (cert auto-signé toléré ; cookie de session requis). */
 function getJson(path: string): Promise<{ rows?: LogRow[] }> {
   return new Promise((resolve, reject) => {
     https
       .get(
-        { hostname: "127.0.0.1", port: 5152, path, rejectUnauthorized: false },
+        {
+          hostname: "127.0.0.1",
+          port: 5152,
+          path,
+          rejectUnauthorized: false,
+          headers: cookie ? { cookie } : {},
+        },
         (res) => {
           let body = "";
           res.on("data", (c) => (body += c));
@@ -93,6 +136,12 @@ function sendFrames(
 }
 
 describe("WS trace logging — frames loggées & corrélées (seam Suivi de requête)", function () {
+  // P6 J3b — le data plane syslog (/nodefony/syslog/api/*) est protégé : se loguer
+  // pour pouvoir lire les logs (le handshake WS /nodefony/test/ws/echo reste public).
+  beforeAll(async () => {
+    await login();
+  });
+
   it("RECEIVE/SEND corrélés par requestId : JSON capturé, oversized tronqué, binaire résumé", async () => {
     const rid = `trace-itest-${Math.random().toString(36).slice(2, 10)}`;
     await sendFrames(

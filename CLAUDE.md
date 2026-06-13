@@ -1,3 +1,8 @@
+> ⚖️ **DEVISE — À LIRE EN PREMIER : « La confiance n'exclut pas le contrôle. »**
+> Avant d'éditer : vérifier le terrain (ancrages `fichier:ligne`) — un kit/plan/mémoire n'est PAS le code (vécu J3b : 3 ancrages du kit périmés, dont `bypassFirewall` non câblé qui aurait deadlocké le login). Suspecter son propre diff. Prouver par un test que chaque trou est fermé.
+
+---
+
 # CLAUDE.md — nodefony-core
 
 ---

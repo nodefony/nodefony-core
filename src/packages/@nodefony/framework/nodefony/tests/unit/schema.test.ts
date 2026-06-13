@@ -13,9 +13,22 @@ describe("frameworkConfigSchema (config Zod)", () => {
       expect(c).to.not.have.property("adminBroker");
     });
 
-    it("config.ts dérive du schéma (mêmes défauts)", async () => {
-      const config = (await import("../../config/config.js")).default;
-      expect(config).to.deep.equal(frameworkConfigSchema.parse({}));
+    it("config.ts dérive du schéma (mêmes défauts) + porte l'aire data plane (P6 J3b)", async () => {
+      const config = (await import("../../config/config.js")).default as Record<
+        string,
+        unknown
+      >;
+      // L'override inter-module « module-security » (aire data plane portée par le
+      // framework, cf config.ts) n'est PAS un défaut de schema : on l'isole avant
+      // de comparer le reste aux défauts dérivés.
+      const { "module-security": moduleSecurity, ...defaults } = config;
+      expect(defaults).to.deep.equal(frameworkConfigSchema.parse({}));
+      const ms = moduleSecurity as {
+        areas?: Record<string, { pattern?: string }>;
+      };
+      expect(ms.areas?.["nodefony-admin"]?.pattern).to.equal(
+        "^/nodefony/[^/]+/api(/|$)",
+      );
     });
   });
 

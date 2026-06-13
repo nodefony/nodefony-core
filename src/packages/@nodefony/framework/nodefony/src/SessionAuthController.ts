@@ -142,6 +142,11 @@ export function mountSessionAuthRoutes(frameworkModule: Module): void {
         SessionAuthController as unknown as Controller["constructor"],
       classMethod,
       requirements: { methods: [method] },
+      // Ces routes SONT le mécanisme d'auth : l'aire data plane
+      // (/nodefony/security/api/* la matche) ne peut pas les garder, sinon le
+      // login exigerait d'être déjà loggé (deadlock). Le controller applique sa
+      // propre sémantique (401 sans challenge — dérogation RFC 7235 §3.1, supra).
+      bypassFirewall: true,
     });
   }
   if (

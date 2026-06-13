@@ -41,22 +41,13 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
     assert.equal(config.areas.app.realtime, false);
   });
 
-  it("zone : sessionContext absent par défaut (contexte 'default' du store)", () => {
-    assert.equal(config.areas.app.sessionContext, undefined);
-  });
-
-  it("zone : realtime=true + sessionContext acceptés (aire data plane admin)", () => {
+  it("zone : realtime=true accepté (aire data plane, verrou WS Étape 3)", () => {
     const c = defineSecurityConfig({
       areas: {
-        nodefonyAdmin: {
-          pattern: "^/nodefony/[^/]+/api(/|$)",
-          realtime: true,
-          sessionContext: "nodefony",
-        },
+        nodefonyAdmin: { pattern: "^/nodefony/[^/]+/api(/|$)", realtime: true },
       },
     });
     assert.equal(c.areas.nodefonyAdmin.realtime, true);
-    assert.equal(c.areas.nodefonyAdmin.sessionContext, "nodefony");
   });
 
   it("encoder : Argon2id par défaut (m=19 MiB OWASP, t=3 RFC 9106, p=1)", () => {

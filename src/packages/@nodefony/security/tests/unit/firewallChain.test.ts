@@ -308,3 +308,30 @@ describe("Firewall — challenge RFC 7235 + zones publiques", () => {
     await firewall.handleSecurity(context); // ne throw pas
   });
 });
+
+describe("Firewall — bypassFirewall (route = mécanisme d'auth)", () => {
+  // Une route en bypass (login/logout/me du flux BFF) court-circuite TOUTE la
+  // chaîne, MÊME en zone protégée : sinon le login dans l'aire data plane
+  // exigerait d'être déjà loggé (deadlock). Le contrôle négatif (2ᵉ test, même
+  // zone SANS bypass → 401) prouve que c'est BIEN le bypass qui change le verdict.
+  it("zone protégée + resolver.bypassFirewall : aucun authenticator sollicité, pas de 401", async () => {
+    const spy = new SpyAuthenticator("spy", { supports: true, ok: false });
+    const firewall = makeFirewall(spy);
+    const { context } = makeContext(area({ authenticators: ["spy"] }));
+    (context as { resolver?: { bypassFirewall?: boolean } }).resolver = {
+      bypassFirewall: true,
+    };
+    await firewall.handleSecurity(context); // ne throw pas malgré spy.ok=false
+    assert.equal(spy.created, 0); // chaîne jamais exécutée
+  });
+
+  it("contrôle négatif : même zone SANS bypass → 401 (preuve invalide)", async () => {
+    const spy = new SpyAuthenticator("spy", { supports: true, ok: false });
+    const firewall = makeFirewall(spy);
+    const { context } = makeContext(area({ authenticators: ["spy"] }));
+    await assert.rejects(
+      () => firewall.handleSecurity(context),
+      AuthenticationError,
+    );
+  });
+});

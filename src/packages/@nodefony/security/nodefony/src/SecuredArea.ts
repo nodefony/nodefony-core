@@ -18,7 +18,6 @@ export class SecuredArea implements ISecuredArea {
   readonly authenticators: readonly string[];
   readonly host?: string;
   readonly realtime: boolean;
-  readonly sessionContext?: string;
 
   constructor(name: string, config: ISecurityAreaConfig) {
     this.name = name;
@@ -29,20 +28,26 @@ export class SecuredArea implements ISecuredArea {
     this.authenticators = config.authenticators;
     this.host = config.host;
     this.realtime = config.realtime;
-    this.sessionContext = config.sessionContext;
+  }
+
+  /**
+   * Cœur du match — pathname (+ host éventuel) déjà extraits, SANS `context`.
+   * Réutilisable par le verrou WebSocket (une frame n'a qu'un path) : source
+   * UNIQUE de la décision de zone (invariant `api.request {path}` ≤ `GET {path}`).
+   */
+  matchPath(pathname: string, host?: string): boolean {
+    // Filtre domaine d'abord (vhost) : host = Host header de la requête/connexion.
+    if (this.host && this.host !== host) return false;
+    return this.pattern.test(pathname);
   }
 
   /** La requête tombe-t-elle dans cette zone ? (host éventuel + pathname). */
   match(context: ContextType): boolean {
-    // Filtre domaine d'abord (vhost) : context.domain = Host header.
-    if (this.host && (context as { domain?: string }).domain !== this.host) {
-      return false;
-    }
     const req = context.request;
     if (!req || !req.url) return false;
     const pathname =
       req.url instanceof URL ? req.url.pathname : String(req.url);
-    return this.pattern.test(pathname);
+    return this.matchPath(pathname, (context as { domain?: string }).domain);
   }
 }
 

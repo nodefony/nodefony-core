@@ -26,24 +26,18 @@ function area(cfg: Parameters<typeof defineSecurityConfig>[0]): SecuredArea {
 }
 
 describe("SecuredArea — propagation des champs (J3b Étape 1)", () => {
-  it("propage realtime + sessionContext depuis la config validée", () => {
+  it("propage realtime depuis la config validée", () => {
     const z = area({
       areas: {
-        admin: {
-          pattern: "^/nodefony/[^/]+/api(/|$)",
-          realtime: true,
-          sessionContext: "nodefony",
-        },
+        admin: { pattern: "^/nodefony/[^/]+/api(/|$)", realtime: true },
       },
     });
     assert.equal(z.realtime, true);
-    assert.equal(z.sessionContext, "nodefony");
   });
 
-  it("défauts : realtime=false (HTTP seul), sessionContext=undefined", () => {
+  it("défaut : realtime=false (HTTP seul)", () => {
     const z = area({ areas: { app: { pattern: "^/app" } } });
     assert.equal(z.realtime, false);
-    assert.equal(z.sessionContext, undefined);
   });
 });
 
@@ -103,5 +97,35 @@ describe("SecuredArea — filtre vhost", () => {
       z.match(ctx("http://other.example.com/x", "other.example.com")),
       false,
     );
+  });
+});
+
+describe("SecuredArea — matchPath sans contexte (verrou WebSocket)", () => {
+  // Le verrou WS n'a qu'un path (frame api.request) : matchPath doit décider
+  // SANS ContextType — source UNIQUE partagée avec isSecure (HTTP), garante de
+  // l'invariant `api.request {path}` ≤ `GET {path}`.
+  it("décide sur un path nu, sans ContextType", () => {
+    const z = area({
+      areas: {
+        admin: { pattern: "^/nodefony/[^/]+/api(/|$)", realtime: true },
+      },
+    });
+    assert.equal(z.matchPath("/nodefony/kernel/api/config"), true);
+    assert.equal(z.matchPath("/nodefony/kernel"), false);
+  });
+
+  it("filtre vhost sur le host fourni (2ᵉ arg)", () => {
+    const z = area({
+      areas: { vh: { pattern: "^/x", host: "admin.example.com" } },
+    });
+    assert.equal(z.matchPath("/x", "admin.example.com"), true);
+    assert.equal(z.matchPath("/x", "autre.com"), false);
+    assert.equal(z.matchPath("/x"), false); // host requis mais absent
+  });
+
+  it("sans host configuré : matche quel que soit le host (ou absent)", () => {
+    const z = area({ areas: { a: { pattern: "^/nodefony/[^/]+/api(/|$)" } } });
+    assert.equal(z.matchPath("/nodefony/http/api/stats"), true);
+    assert.equal(z.matchPath("/nodefony/http/api/stats", "whatever"), true);
   });
 });

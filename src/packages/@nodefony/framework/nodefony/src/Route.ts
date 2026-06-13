@@ -103,6 +103,13 @@ export interface RouteOptions {
   defaults?: Record<string, unknown>;
   requirements?: RouteRequirements;
   filePath?: string;
+  /**
+   * Court-circuite le firewall pour cette route — `handleSecurity` retourne sans
+   * exécuter la chaîne d'authenticators. Réservé aux routes qui SONT le mécanisme
+   * d'auth (login/logout/me du flux BFF) : elles ne peuvent pas être gardées par
+   * le mécanisme qu'elles servent. Défaut `false` (Zero Trust).
+   */
+  bypassFirewall?: boolean;
 }
 
 export interface RouteRequirements {
@@ -178,6 +185,7 @@ class Route implements IRoute {
       this.setHostname(obj.host);
       this.setDefaults(obj.defaults);
       this.requirements = obj.requirements || {};
+      this.bypassFirewall = obj.bypassFirewall ?? false;
       this.compile();
     }
     this.generateId();

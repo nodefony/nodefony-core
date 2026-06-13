@@ -96,12 +96,6 @@ const areaSchema = z.object({
     .describe(
       "Zone valable AUSSI pour les frames WebSocket (api.request + subscribe), pas seulement les requêtes HTTP. Le verrou WS consulte la MÊME zone que HTTP — invariant : `api.request {path}` n'accorde jamais plus que `GET {path}`.",
     ),
-  sessionContext: z
-    .string()
-    .optional()
-    .describe(
-      "Nom du contexte de session ouvert AU LOGIN dans cette zone (repli de l'intent ; ex. 'nodefony' pour l'admin). Omis = contexte 'default' du store de sessions.",
-    ),
 });
 
 const corsSchema = z

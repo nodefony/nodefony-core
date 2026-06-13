@@ -63,7 +63,6 @@ export default {
     //   entryPoint     déf. -        route de login/redirect si non authentifié.
     //   realtime       déf. false    zone valable AUSSI en WebSocket (api.request + subscribe),
     //                                pas seulement HTTP. Le verrou WS lit la même zone que HTTP.
-    //   sessionContext déf. -        nom du contexte de session ouvert au login (ex. "nodefony").
     areas: {},
 
     // ══════════════════ CORS (Cross-Origin Resource Sharing) ══════════════════

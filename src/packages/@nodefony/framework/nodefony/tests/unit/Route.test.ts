@@ -343,3 +343,25 @@ describe("Route — host matching (regexp, 403)", () => {
     expect(r.hostRegexp).to.be.undefined;
   });
 });
+
+// ─── bypassFirewall — plumbing options → Route (P6 J3b) ───────────────────────
+describe("Route — bypassFirewall (plumbing options)", () => {
+  // VERROU du trou trouvé en J3b : le constructeur lisait les options champ par
+  // champ SANS lire `bypassFirewall` → `createRoute({ bypassFirewall:true })`
+  // restait false → les routes de login tombaient dans l'aire data plane =
+  // deadlock (le login aurait exigé d'être déjà loggé). handleSecurity lit bien
+  // `context.resolver.bypassFirewall` (câblé) — encore faut-il que la Route le porte.
+  it("défaut false (Zero Trust)", () => {
+    expect(new Route("r", { path: "/x" }).bypassFirewall).to.equal(false);
+  });
+  it("option true propagée jusqu'à la route", () => {
+    expect(
+      new Route("r", { path: "/x", bypassFirewall: true }).bypassFirewall,
+    ).to.equal(true);
+  });
+  it("option false explicite reste false", () => {
+    expect(
+      new Route("r", { path: "/x", bypassFirewall: false }).bypassFirewall,
+    ).to.equal(false);
+  });
+});

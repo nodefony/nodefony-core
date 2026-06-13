@@ -196,15 +196,35 @@ class Firewall extends Service implements IFirewall {
     return this.#areas?.find((a) => a.name === name);
   }
 
+  /**
+   * Match de zone par pathname (+ host) SANS contexte — source UNIQUE consultée
+   * par `isSecure` (HTTP) ET le verrou WebSocket (la frame `api.request` n'a
+   * qu'un path). Hot-path : patterns pré-compilés + pathname fourni → 0 alloc.
+   */
+  matchPath(pathname: string, host?: string): SecuredArea | null {
+    if (!this.#areas) return null;
+    for (const area of this.#areas) {
+      if (area.matchPath(pathname, host)) return area;
+    }
+    return null;
+  }
+
   /** Match rapide de zone — pose `context.security`. `true` si zone capturée. */
   isSecure(context: ContextType): boolean {
     if (this.#configError) return true; // fail-closed : tout capturer
     if (!this.#areas) return false; // aucune zone → court-circuit hot-path
-    for (const area of this.#areas) {
-      if (area.match(context)) {
-        context.security = area;
-        return true;
-      }
+    // Pathname extrait UNE fois (vs N fois si chaque area.match le recalculait).
+    const req = context.request;
+    if (!req || !req.url) return false;
+    const pathname =
+      req.url instanceof URL ? req.url.pathname : String(req.url);
+    const area = this.matchPath(
+      pathname,
+      (context as { domain?: string }).domain,
+    );
+    if (area) {
+      context.security = area;
+      return true;
     }
     return false;
   }
