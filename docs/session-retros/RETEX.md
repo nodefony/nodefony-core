@@ -418,6 +418,19 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[2× — 2026-06-13]` **l'intégration > l'unit pour un PONT inter-briques** (point du user, répété) : sur le
+  verrou WS J3b, l'unit était 100 % vert mais l'intégration + le navigateur ont révélé **3 bugs invisibles à
+  l'unit** : `handshake.url` ABSOLUE (`wss://host/path` → un matcher de zone `^/nodefony/…` ne résout jamais
+  l'authenticator), close WS **1011 au lieu de 1008** (le client reconnecte en boucle au lieu d'abandonner),
+  **liveness `/health` gatée** (pingée pré-login → 401 → login Studio impossible). Pour un pont, écrire le
+  banc d'intégration AVANT de croire l'unit. Cf [[feedback_security_audit_surface_matrix]].
+- `[1× — 2026-06-13]` **CO-ÉVOLUTION : changer un contrat backend casse les consommateurs SILENCIEUSEMENT**
+  (build/tests verts) — verrouiller `/nodefony/*/api` (data plane) a cassé le login Studio (ping `/health`
+  pré-login + socket au boot anonyme tapaient le gaté). Quand on gate/change un contrat, **auditer les
+  CONSOMMATEURS** (front Studio, CLI, debug bar) dans la même passe. Sous-leçons gravées en code : (a)
+  **liveness = PUBLIC** (Zero Trust protège les DONNÉES, pas `/health`/`/info` — sondes k8s + ping pré-login) ;
+  (b) **refus d'auth WS = close 1008 (Policy), jamais 1011 (Internal)** sinon boucle de reco client ; (c)
+  **décorateur sans argument = SANS parenthèses** (`@BypassFirewall`, drapeau ≠ factory).
 - `[1× — 2026-06-13]` **un kit/plan « béton » n'est PAS le terrain — contrôler chaque ancrage `fichier:ligne`
   AVANT d'éditer** : J3b, 3 ancrages du kit périmés, dont le pire — `bypassFirewall` était consommé en AVAL
   (`handleSecurity` le lit) MAIS le constructeur `Route` ne lisait pas l'option → `createRoute({bypassFirewall:true})`
