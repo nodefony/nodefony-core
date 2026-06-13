@@ -118,9 +118,23 @@ type JsonRpcReply = {
   error?: { code: number; message: string; data?: unknown };
 };
 
+/** Identité annoncée dans le `realtime:welcome` (L2 — vue « sur soi »). */
+type WelcomeIdentity = {
+  type: string;
+  authenticated: boolean;
+  userIdentifier: string;
+  roles: string[];
+  scopes: string[];
+};
+type Welcome = {
+  channels: string[];
+  methods: string[];
+  identity: WelcomeIdentity;
+};
+
 /** Connecte au hub (cookie optionnel) → bufferise welcome + appaire par id. */
 function hubConnect(cookie: string | null): Promise<{
-  welcome: { channels: string[]; methods: string[] };
+  welcome: Welcome;
   request: (path: string) => Promise<JsonRpcReply>;
   close: () => void;
 }> {
@@ -149,7 +163,7 @@ function hubConnect(cookie: string | null): Promise<{
         clearTimeout(timer);
         ws.removeAllListeners("close");
         resolve({
-          welcome: frame.params as { channels: string[]; methods: string[] },
+          welcome: frame.params as Welcome,
           request: (path: string) =>
             new Promise<JsonRpcReply>((res, rej) => {
               const id = nextId++;
@@ -248,10 +262,22 @@ describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
     expect(info.status, "/info doit être public").to.equal(200);
   });
 
-  it("handshake AUTHENTIFIÉ (cookie) → welcome + api.request annoncé", async () => {
+  it("handshake AUTHENTIFIÉ (cookie) → welcome + api.request annoncé + identité résolue (L2)", async () => {
     const cookie = await loginCookie("admin", "secret");
     const hub = await hubConnect(cookie);
     expect(hub.welcome.methods).to.include("api.request");
+    // L2 — le welcome porte l'identité RÉSOLUE par le firewall
+    // (SessionRealtimeAuthenticator → UserRealtimeToken) : preuve END-TO-END que
+    // security → serveur → client transmet l'identité (pas de route /auth/me).
+    // type "session" = UserRealtimeToken (BFF cookie opaque).
+    const id = hub.welcome.identity;
+    expect(id.authenticated, "WS authentifié → identité authentifiée").to.equal(
+      true,
+    );
+    expect(id.type).to.equal("session");
+    expect(id.userIdentifier, "userIdentifier non vide").to.be.a("string").and
+      .not.empty;
+    expect(id.roles, "roles non vide").to.be.an("array").that.is.not.empty;
     hub.close();
   });
 

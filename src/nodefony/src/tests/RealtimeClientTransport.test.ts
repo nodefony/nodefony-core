@@ -120,6 +120,37 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
     client.disconnect();
   });
 
+  it("fermeture FATALE (1008 policy = 401/403) → PAS de reco + state error", async () => {
+    const { client, transports } = setup({
+      reconnectDelay: 1,
+      reconnectDelayMax: 4,
+    });
+    const p = client.connect();
+    transports[0].fireOpen();
+    await p;
+    transports[0].fireClose(1008); // policy → définitif (anonyme ne martèle pas)
+    expect(client.state).to.equal("error");
+    await delay(20);
+    expect(transports.length).to.equal(1); // aucun transport recréé
+    client.disconnect();
+  });
+
+  it("après un close fatal, connect() rétablit explicitement (ex. post-login)", async () => {
+    const { client, transports } = setup({ reconnectDelay: 1 });
+    const p = client.connect();
+    transports[0].fireOpen();
+    await p;
+    transports[0].fireClose(1008);
+    expect(client.state).to.equal("error");
+    // l'app a corrigé la cause (login) → reconnexion MANUELLE
+    const p2 = client.connect();
+    expect(transports.length).to.equal(2);
+    transports[1].fireOpen();
+    await p2;
+    expect(client.state).to.equal("connected");
+    client.disconnect();
+  });
+
   it("disconnect() ferme proprement (1000) sans reconnexion", async () => {
     const { client, transports } = setup({ reconnectDelay: 1 });
     const p = client.connect();

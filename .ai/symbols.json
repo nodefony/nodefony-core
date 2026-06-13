@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-13T17:14:53.053Z",
+  "generated": "2026-06-13T20:11:13.898Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 864,
-    "symbols": 1804,
+    "symbols": 1808,
     "classes": 260,
-    "interfaces": 453,
+    "interfaces": 455,
     "types": 231,
     "enums": 3,
-    "functions": 367,
+    "functions": 369,
     "constants": 490
   },
   "symbols": {
@@ -1211,6 +1211,24 @@
       "extends": null,
       "description": "Défaut **permissif** pour `ActionsMap` (rétro-compat)."
     },
+    "RealtimeIdentity": {
+      "name": "RealtimeIdentity",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Identité d'une connexion temps réel, telle que **résolue par le serveur au handshake** (token neutre `IRealtimeToken` côté back) et **annoncée au client** dans la notification système `realtime:wel…"
+    },
+    "IRealtimeWelcome": {
+      "name": "IRealtimeWelcome",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Payload de la notification système `realtime:welcome` — **1ʳᵉ frame** poussée par le serveur juste après le handshake. Annonce le protocole, les canaux/actions **découvrables** de l'endpoint et l'{…"
+    },
     "EventsMap": {
       "name": "EventsMap",
       "kind": "type",
@@ -2188,6 +2206,14 @@
       "module": "@nodefony/core",
       "description": "`useNodefonyState()` — état de la connexion (`\"connected\" | \"reconnecting\" | …`). `useSyncExternalStore` : re-render UNIQUEMENT au changement d'état (snapshot primitif, sans tearing en mode concurr…"
     },
+    "useNodefonyIdentity": {
+      "name": "useNodefonyIdentity",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyIdentity()` — l'**identité résolue** de la connexion, annoncée par le serveur au `realtime:welcome` (`authenticated`, `roles`, `userIdentifier`, `scopes`). `null` tant qu'aucun welcome …"
+    },
     "useNodefonyChannel": {
       "name": "useNodefonyChannel",
       "kind": "function",
@@ -2360,6 +2386,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Traduit un **code de fermeture WebSocket** (RFC 6455 §7.4) en {@link NodefonyNotice} — pendant CLIENT du `toWsCloseCode` serveur (`@nodefony/http`). Pur, sans état, donc trivialement testable et ré…"
+    },
+    "isReconnectableCloseCode": {
+      "name": "isReconnectableCloseCode",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/notice.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Faut-il tenter une reconnexion après ce close code WebSocket ? Pendant CLIENT de la sémantique RFC 6455 §7.4 émise par le serveur (`toWsCloseCode`). `false` pour les fermetures DÉFINITIVES (cf {@li…"
     },
     "RealtimeClient": {
       "name": "RealtimeClient",
@@ -15323,6 +15357,10 @@
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
+      "RealtimeIdentity": [
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
       "BindAdaptiveOptions": [
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
@@ -15340,6 +15378,9 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts"
       ],
+      "isReconnectableCloseCode": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
       "RealtimeTransportFactory": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
@@ -15348,6 +15389,10 @@
       ],
       "IChannelStats": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "IRealtimeWelcome": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "AdaptiveChannelBinding": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"

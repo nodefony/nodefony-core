@@ -102,3 +102,32 @@ export function closeCodeToNotice(
     ts: Date.now(),
   };
 }
+
+/**
+ * Close codes (RFC 6455 §7.4 + privés Nodefony 4xxx) après lesquels une
+ * reconnexion automatique est INUTILE ou NUISIBLE — la cause ne disparaît pas en
+ * réessayant : fin propre (1000), erreurs de protocole/négociation
+ * (1002/1003/1007/1010), violation de politique = 401/403 mappés (1008), et
+ * ressource introuvable (4004, privé Nodefony). Une boucle de reco sur ces codes
+ * martèle le serveur pour rien (vécu : un anonyme sur un endpoint protégé).
+ */
+const FATAL_CLOSE_CODES: ReadonlySet<number> = new Set([
+  1000, 1002, 1003, 1007, 1008, 1010, 4004,
+]);
+
+/**
+ * Faut-il tenter une reconnexion après ce close code WebSocket ? Pendant CLIENT
+ * de la sémantique RFC 6455 §7.4 émise par le serveur (`toWsCloseCode`).
+ *
+ * `false` pour les fermetures DÉFINITIVES (cf {@link FATAL_CLOSE_CODES}) : l'app
+ * doit agir (ex. login après un 1008) puis rétablir explicitement (`connect()` /
+ * `retryNow()`). `true` pour les transitoires (1001 restart, 1006 perte réseau,
+ * 1011 erreur serveur, code absent/inconnu) où la reconnexion a une chance.
+ *
+ * @param code - close code reçu (`CloseEvent.code`), ou `undefined` (anormal).
+ * @returns `true` si une reconnexion auto est pertinente.
+ */
+export function isReconnectableCloseCode(code: number | undefined): boolean {
+  if (code === undefined) return true; // pas de code = anormal → on retente
+  return !FATAL_CLOSE_CODES.has(code);
+}

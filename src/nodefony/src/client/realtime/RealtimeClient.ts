@@ -13,7 +13,11 @@
  * Le backend WS de référence (RealtimeService) sera implémenté en P13.4.
  * En attendant, ce client peut parler à n'importe quel serveur JSON-RPC 2.0.
  */
-import { closeCodeToNotice, type NodefonyNotice } from "./notice";
+import {
+  closeCodeToNotice,
+  isReconnectableCloseCode,
+  type NodefonyNotice,
+} from "./notice";
 import { RpcError } from "../../realtime/JsonRpcPeer";
 import {
   TransportState,
@@ -36,6 +40,8 @@ import type {
   EventNames,
   EventPayload,
   EventsMap,
+  IRealtimeWelcome,
+  RealtimeIdentity,
 } from "../../realtime/RealtimeEventMap";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import {
@@ -43,11 +49,17 @@ import {
   type BindAdaptiveOptions,
   type AdaptiveChannelBinding,
 } from "./AdaptiveRate";
-export { closeCodeToNotice } from "./notice";
+export { closeCodeToNotice, isReconnectableCloseCode } from "./notice";
 export type { NodefonyNotice, NoticeLevel } from "./notice";
 // Ré-export DX : `catch (e) { if (e instanceof RpcError) e.data.status … }`
 // sans importer le subpath protocole.
 export { RpcError } from "../../realtime/JsonRpcPeer";
+// Ré-export DX : le consommateur (Studio) type `socket.identity` depuis le même
+// subpath que le client, sans connaître `RealtimeEventMap`.
+export type {
+  RealtimeIdentity,
+  IRealtimeWelcome,
+} from "../../realtime/RealtimeEventMap";
 
 export type RealtimeState =
   | "disconnected"
@@ -199,6 +211,12 @@ export class RealtimeClient<
   // alimenté → la console « retrace l'instant » dès l'ouverture (pas de vide).
   private _rawFrames: { ts: number; dir: "in" | "out"; msg: unknown }[] | null =
     null;
+  // Identité résolue + capabilities annoncées par le serveur au `realtime:welcome`
+  // (cold path, 1×/connexion). `null` tant que pas reçu → lazy, 0 alloc « au cas
+  // où ». Réfs brutes vers les objets du welcome (pas de copie).
+  private _identity: RealtimeIdentity | null = null;
+  private _serverChannels: string[] | null = null;
+  private _serverMethods: string[] | null = null;
 
   constructor(
     private readonly opts: RealtimeOptions = {},
@@ -299,6 +317,13 @@ export class RealtimeClient<
     this.intentionalClose = true;
     this.clearTimers();
     this.transport?.close(1000, "client disconnect");
+    // Déconnexion VOLONTAIRE (ex. logout) → l'identité n'est plus valable. Une
+    // perte RÉSEAU (onClose non intentionnel) garde la dernière identité jusqu'au
+    // prochain welcome → évite un flash login pendant une micro-reconnexion.
+    this._identity = null;
+    this._serverChannels = null;
+    this._serverMethods = null;
+    this.fireLocal("__identity__", null);
     this.setState("disconnected");
   }
 
@@ -406,6 +431,40 @@ export class RealtimeClient<
   /** Canaux actuellement abonnés (≥ 1 consommateur). Lecture seule. */
   get subscribedChannels(): string[] {
     return Array.from(this._subscriptions.keys());
+  }
+
+  /**
+   * Identité de la connexion, **annoncée par le serveur** au `realtime:welcome`
+   * ({@link RealtimeIdentity}). `null` tant qu'aucun welcome n'a été reçu ; une
+   * fois reçu, un visiteur anonyme a `authenticated: false` (jamais `null`). Un
+   * consommateur (Studio) sait ainsi s'il doit afficher le login **sans taper de
+   * route**. Rafraîchie à chaque (re)connexion ; remise à `null` au
+   * {@link disconnect} volontaire (logout).
+   */
+  get identity(): RealtimeIdentity | null {
+    return this._identity;
+  }
+
+  /** Canaux pub/sub annoncés par le serveur au welcome (découverte). `null` si pas (encore) reçu. */
+  get serverChannels(): readonly string[] | null {
+    return this._serverChannels;
+  }
+
+  /** Actions RPC annoncées par le serveur au welcome (découverte). `null` si pas (encore) reçu. */
+  get serverMethods(): readonly string[] | null {
+    return this._serverMethods;
+  }
+
+  /**
+   * S'abonne à l'identité résolue (event LOCAL `__identity__`, jamais réseau) :
+   * le handler est rappelé à chaque (re)welcome et au `disconnect()`. Permet à
+   * l'UI de basculer anonyme↔authentifié sans polling ni route `/auth/me`.
+   *
+   * @param handler - reçoit la {@link RealtimeIdentity} courante (ou `null`).
+   * @returns dispose (désabonnement).
+   */
+  onIdentity(handler: (identity: RealtimeIdentity | null) => void): () => void {
+    return this.on("__identity__", handler as never);
   }
 
   /**
@@ -642,6 +701,20 @@ export class RealtimeClient<
     st.lastMessage = now;
   }
 
+  /**
+   * Ingère le `realtime:welcome` : mémorise l'identité résolue + les capabilities
+   * annoncées (canaux/actions découvrables) et émet `__identity__`. Tolérant à un
+   * welcome partiel/legacy (champs absents → `null`). Cold path (1×/connexion).
+   */
+  private ingestWelcome(params: unknown): void {
+    const w = params as Partial<IRealtimeWelcome> | null;
+    if (!w || typeof w !== "object") return;
+    this._identity = w.identity ?? null;
+    this._serverChannels = Array.isArray(w.channels) ? w.channels : null;
+    this._serverMethods = Array.isArray(w.methods) ? w.methods : null;
+    this.fireLocal("__identity__", this._identity);
+  }
+
   /** Échantillonne le débit (msg/s) + série par canal, 1×/s, puis émet
    *  `__stats__` (event local) pour notifier les consommateurs réactifs. */
   private startStatsSampler(): void {
@@ -744,10 +817,18 @@ export class RealtimeClient<
         // pendant client du `toWsCloseCode` serveur (@nodefony/http).
         const notice = closeCodeToNotice(code, reason);
         if (notice) this.fireNotice(notice);
-        if (this.opts.autoReconnect !== false) {
+        // Respect de la SÉMANTIQUE du close code : un code DÉFINITIF (policy 1008
+        // = 401/403, protocole, introuvable) ne RELANCE PAS la boucle de reco —
+        // sinon un anonyme martèle un endpoint protégé. L'app rétablit après
+        // l'action corrective (login → `connect()`/`retryNow()`). Reco réservée
+        // aux codes transitoires (perte réseau, restart, erreur serveur).
+        const reconnectable = isReconnectableCloseCode(code);
+        if (reconnectable && this.opts.autoReconnect !== false) {
           this.scheduleReconnect();
         } else {
-          this.setState("disconnected");
+          // Fatal → "error" (échec définitif, action requise) ; transitoire mais
+          // autoReconnect désactivé → "disconnected".
+          this.setState(reconnectable ? "disconnected" : "error");
         }
       });
       transport.connect();
@@ -898,6 +979,10 @@ export class RealtimeClient<
       }
       // Notification (pas d'`id`) — événement pub/sub.
       const params = (msg as JsonRpcNotification).params;
+      // `realtime:welcome` (1ʳᵉ frame serveur) porte l'identité résolue + les
+      // capabilities → ingérée AVANT le dispatch (les handlers `on(...)` la
+      // reçoivent quand même ensuite, rétro-compat).
+      if (method === "realtime:welcome") this.ingestWelcome(params);
       this.trackFrame(method); // stats génériques avant dispatch
       this.handlers.get(method)?.forEach((h) => {
         try {

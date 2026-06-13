@@ -129,6 +129,19 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       expect(params.methods).to.deep.equal(["kernel:ping", "boom"]);
     });
 
+    it("welcome porte l'identité ANONYME (Zero Trust fallback, aucun authenticator)", () => {
+      const { ctx, sent } = makeCtx();
+      new TestRt(ctx).feed(null);
+      const params = sent[0].params as Record<string, unknown>;
+      expect(params.identity).to.deep.equal({
+        type: "anonymous",
+        authenticated: false,
+        userIdentifier: "anonymous",
+        roles: ["ROLE_ANONYMOUS"],
+        scopes: [],
+      });
+    });
+
     it("handshake idempotent (2e null = pas de double welcome)", () => {
       const { ctx, sent } = makeCtx();
       const rt = new TestRt(ctx);
@@ -336,6 +349,34 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       expect(closes).to.have.length(0);
       expect(calledSuccess).to.equal(true);
       expect(sent[0]!.method).to.equal("realtime:welcome");
+    });
+
+    it("welcome porte l'identité AUTHENTIFIÉE (type/roles/userIdentifier/scopes du token résolu)", async () => {
+      const customToken: IRealtimeToken = {
+        type: "jwt",
+        getUserIdentifier: () => "user-42",
+        isAuthenticated: () => true,
+        getRoles: () => ["ROLE_USER", "ROLE_ADMIN"],
+        getScopes: () => ["chat:write"],
+        getAttribute: () => undefined,
+      };
+      const auth: IRealtimeAuthenticator = {
+        name: "fake_jwt",
+        supports: () => true,
+        authenticate: async () => customToken,
+      };
+      getRealtimeHub().useAuthenticator({ pattern: "/realtime" }, auth);
+      const { ctx, sent } = makeCtx({ url: "/realtime" });
+      new TestRt(ctx).feed(null);
+      await new Promise((r) => setTimeout(r, 0));
+      const params = sent[0]!.params as Record<string, unknown>;
+      expect(params.identity).to.deep.equal({
+        type: "jwt",
+        authenticated: true,
+        userIdentifier: "user-42",
+        roles: ["ROLE_USER", "ROLE_ADMIN"],
+        scopes: ["chat:write"],
+      });
     });
 
     it("authenticate() throw → close 4001 + onFailure appelé + pas de welcome", async () => {

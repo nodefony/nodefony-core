@@ -125,6 +125,8 @@ export type {
   ActionParams,
   ActionResult,
   TypedRpcActionHandler,
+  RealtimeIdentity,
+  IRealtimeWelcome,
 } from "./realtime/RealtimeEventMap";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────

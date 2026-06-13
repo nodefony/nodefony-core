@@ -1,5 +1,8 @@
 import { expect } from "chai";
-import { closeCodeToNotice } from "../client/realtime/notice";
+import {
+  closeCodeToNotice,
+  isReconnectableCloseCode,
+} from "../client/realtime/notice";
 
 describe("RealtimeClient — closeCodeToNotice (pendant client de toWsCloseCode)", () => {
   it("fermetures propres/attendues → null (pas de bruit)", () => {
@@ -66,5 +69,25 @@ describe("RealtimeClient — closeCodeToNotice (pendant client de toWsCloseCode)
   it("reason blanche est ignorée (pas de séparateur vide)", () => {
     const n = closeCodeToNotice(1011, "   ");
     expect(n!.message).to.equal("Erreur serveur temps réel");
+  });
+});
+
+describe("RealtimeClient — isReconnectableCloseCode (respect sémantique RFC 6455)", () => {
+  it("codes DÉFINITIFS → false (pas de reco : la cause ne disparaît pas)", () => {
+    // 1008 = policy (401/403) : le cas central — un anonyme ne doit pas marteler.
+    for (const code of [1000, 1002, 1003, 1007, 1008, 1010, 4004]) {
+      expect(isReconnectableCloseCode(code), `code ${code}`).to.equal(false);
+    }
+  });
+
+  it("codes TRANSITOIRES → true (perte réseau, restart, erreur serveur)", () => {
+    for (const code of [1001, 1006, 1009, 1011, 1012, 1013]) {
+      expect(isReconnectableCloseCode(code), `code ${code}`).to.equal(true);
+    }
+  });
+
+  it("code absent ou inconnu → true (anormal → on retente)", () => {
+    expect(isReconnectableCloseCode(undefined)).to.equal(true);
+    expect(isReconnectableCloseCode(3001)).to.equal(true);
   });
 });

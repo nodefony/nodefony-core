@@ -112,3 +112,46 @@ export type TypedRpcActionHandler<
 export function expectType<T>(_value: T): void {
   /* no-op — assertion à la compile uniquement */
 }
+
+/**
+ * Identité d'une connexion temps réel, telle que **résolue par le serveur au
+ * handshake** (token neutre `IRealtimeToken` côté back) et **annoncée au client**
+ * dans la notification système `realtime:welcome`.
+ *
+ * Le client la lit pour savoir QUI il est **sans taper une route** : anonyme →
+ * écran de login (au lieu de deviner via un 401), authentifié → app. Rafraîchie à
+ * chaque (re)connexion (un nouveau welcome ⇒ une nouvelle identité). C'est une vue
+ * « sur soi » (équivalent `/auth/me`) — **aucun secret** : seulement l'état d'auth
+ * et les rôles/scopes du porteur, qu'il connaît déjà.
+ */
+export interface RealtimeIdentity {
+  /** Type de token résolu (`"anonymous"`, `"session"`, `"jwt"`, …) — discriminator. */
+  type: string;
+  /** `false` pour un visiteur anonyme (Zero Trust : toujours présent, jamais `null`). */
+  authenticated: boolean;
+  /** Identifiant logique du porteur (`"anonymous"`, `"user-42"`, …). */
+  userIdentifier: string;
+  /** Rôles **plats** (RBAC, sans hiérarchie résolue) — `["ROLE_ANONYMOUS"]` si anonyme. */
+  roles: string[];
+  /** Scopes accordés (clés API / OAuth) — `[]` en session BFF web. */
+  scopes: string[];
+}
+
+/**
+ * Payload de la notification système `realtime:welcome` — **1ʳᵉ frame** poussée par
+ * le serveur juste après le handshake. Annonce le protocole, les canaux/actions
+ * **découvrables** de l'endpoint et l'{@link RealtimeIdentity} résolue de la
+ * connexion. Cold path (1×/connexion).
+ */
+export interface IRealtimeWelcome {
+  /** Timestamp serveur (ms epoch). */
+  ts: number;
+  /** Étiquette de protocole (`"jsonrpc-2.0"`). */
+  protocol: string;
+  /** Canaux pub/sub annoncés par l'endpoint (découverte). */
+  channels: string[];
+  /** Actions RPC exposées par l'endpoint (découverte). */
+  methods: string[];
+  /** Identité résolue de CETTE connexion (cf {@link RealtimeIdentity}). */
+  identity: RealtimeIdentity;
+}

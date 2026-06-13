@@ -22,6 +22,7 @@ import type {
   RealtimeClient,
   RealtimeState,
   NodefonyNotice,
+  RealtimeIdentity,
 } from "../realtime/RealtimeClient";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 
@@ -89,6 +90,23 @@ export function useNodefonyState(): RealtimeState {
     (cb) => client.on("__state__", cb),
     () => client.state,
     () => client.state,
+  );
+}
+
+/**
+ * `useNodefonyIdentity()` — l'**identité résolue** de la connexion, annoncée par
+ * le serveur au `realtime:welcome` (`authenticated`, `roles`, `userIdentifier`,
+ * `scopes`). `null` tant qu'aucun welcome n'a été reçu ; une fois reçu, un
+ * visiteur anonyme a `authenticated: false`. `useSyncExternalStore` → re-render
+ * uniquement quand l'identité change ((re)welcome ou logout). Brique du gating
+ * front : `authenticated:false` → écran login, **sans** route `/auth/me`.
+ */
+export function useNodefonyIdentity(): RealtimeIdentity | null {
+  const client = useNodefony();
+  return React.useSyncExternalStore(
+    (cb) => client.onIdentity(() => cb()),
+    () => client.identity,
+    () => client.identity,
   );
 }
 

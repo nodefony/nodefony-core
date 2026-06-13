@@ -3,6 +3,7 @@ import {
   RpcError,
   type RpcActionHandler,
   type JsonRpcPeerOptions,
+  type IRealtimeWelcome,
 } from "nodefony";
 import type { WebsocketContext } from "@nodefony/http";
 import { Controller } from "@nodefony/framework";
@@ -338,12 +339,24 @@ export abstract class RealtimeController
       ...(this._decoratedChannels ? Object.keys(this._decoratedChannels) : []),
       ...this.realtimeChannels(),
     ];
-    peer.notify("realtime:welcome", {
+    // L'identité est lue sur le `token` NEUTRE (`IRealtimeToken`) déjà résolu au
+    // handshake (authenticator P6 ou `ANONYMOUS_REALTIME_TOKEN`) — 0 dépendance
+    // security, 0 re-lecture base. Le client la consomme pour savoir QUI il est
+    // sans taper de route (anonyme → login). Vue « sur soi » : aucun secret.
+    const welcome: IRealtimeWelcome = {
       ts: Date.now(),
       protocol: "jsonrpc-2.0",
       channels: announcedChannels,
       methods: peer.methods,
-    });
+      identity: {
+        type: token.type,
+        authenticated: token.isAuthenticated(),
+        userIdentifier: token.getUserIdentifier(),
+        roles: token.getRoles(),
+        scopes: token.getScopes(),
+      },
+    };
+    peer.notify("realtime:welcome", welcome);
     this.log("WS realtime client connected", "INFO");
   }
 
