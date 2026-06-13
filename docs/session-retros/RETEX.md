@@ -33,6 +33,10 @@
 
 ## 🐚 Shell / environnement d'exécution
 
+- `[1× — 2026-06-13]` **variable shell multiligne NON quotée passée à grep = erreur trompeuse « No such file
+  or directory »** : `NEW=$(git status … | awk …)` puis `grep motif $NEW` → les chemins multilignes sont
+  re-splittés n'importe comment (ugrep concatène 2 chemins en 1). → soit `xargs grep` soit lister les
+  fichiers EXPLICITEMENT dans la commande (fait) ; jamais `$VAR` nue multiligne en argument.
 - `[1× — 2026-06-12]` **un subagent background hérite des permissions de la session → sa veille web peut être
   refusée silencieusement** : l'agent « état de l'art auth » s'est vu refuser WebSearch/WebFetch/Bash → livré
   100 % connaissance interne (cutoff) en le signalant. → avant de déléguer une veille web, vérifier qu'une
@@ -173,6 +177,13 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🧭 Conception / fondation / vocabulaire (frictions du jour)
 
+- `[1× — 2026-06-13]` **le kit/mémoire peut être PÉRIMÉ sur l'état du code → vérifier les contrats DANS le
+  code au cadrage d'un lot** : le kit P6 disait « IUserProvider implémenté nulle part » alors que
+  `UserService.loadUserByIdentifier` était livré (J1/J2) → 2 min de Read ont réduit le lot 1 de moitié.
+  Même famille que le garde-fou « \_state périmé vs commits » du RESUME, appliqué aux kits.
+- `[1× — 2026-06-13]` **mesurer le rayon d'impact AVANT de trancher un design qui touche les suites** :
+  la zone pérenne `/nodefony/*/api` semblait casser « des dizaines » de tests data plane → 1 grep = 2
+  fichiers seulement. La peur n'est pas une mesure ; le grep si (2 min, décision éclairée).
 - `[1× — 2026-06-10]` **un POC qui touche un pipeline RÉVÈLE des seams imprévisibles → annoncer le scope comme PROVISOIRE.**
   Annoncé « 1 ligne framework » (`resolveByPath`) ; coder le pont WS a exposé que `callController` COUPLE exécuter+rendre
   (`returnController` auto-`send`) → fallu extraire `executeAction` (2ᵉ brique, iso-comportement, 609 tests verts). C'est LA
