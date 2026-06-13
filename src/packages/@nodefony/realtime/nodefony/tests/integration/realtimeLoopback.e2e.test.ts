@@ -171,11 +171,15 @@ class LoopbackRt extends RealtimeController {
     params?: unknown,
     timeoutMs?: number,
   ): Promise<T> {
-    return this.requestClient<T>(method, params, timeoutMs);
+    return this.requestClient(
+      method as never,
+      params as never,
+      timeoutMs,
+    ) as Promise<T>;
   }
 
   callNotify(method: string, params?: unknown): void {
-    this.notifyClient(method, params);
+    this.notifyClient(method as never, params as never);
   }
 }
 

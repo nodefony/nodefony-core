@@ -4,6 +4,15 @@ import {
   type RpcActionHandler,
   type JsonRpcPeerOptions,
   type IRealtimeWelcome,
+  type EventsMap,
+  type ActionsMap,
+  type DefaultEventsMap,
+  type DefaultActionsMap,
+  type EventNames,
+  type EventPayload,
+  type ActionNames,
+  type ActionParams,
+  type ActionResult,
 } from "nodefony";
 import type { WebsocketContext } from "@nodefony/http";
 import { Controller } from "@nodefony/framework";
@@ -64,7 +73,10 @@ interface RealtimeHolder {
  * créé au 1ᵉʳ abonné, `dispose()` au dernier (`unsubscribe` ou `onFinish`). Le dispatch
  * d'action n'est payé que sur une requête `id`. C'est aussi le seam du backplane Redis.
  */
-export abstract class RealtimeController
+export abstract class RealtimeController<
+  Emit extends EventsMap = DefaultEventsMap,
+  Actions extends ActionsMap = DefaultActionsMap,
+>
   extends Controller
   implements IRealtimeController
 {
@@ -180,11 +192,11 @@ export abstract class RealtimeController
    *   timeout, ou connexion fermée (`dispose`).
    * @throws (rejet) si le handshake n'est pas terminé (aucun peer encore).
    */
-  protected requestClient<T = unknown>(
-    method: string,
-    params?: unknown,
+  protected requestClient<K extends ActionNames<Actions>>(
+    method: K,
+    params?: ActionParams<Actions, K>,
     timeoutMs?: number,
-  ): Promise<T> {
+  ): Promise<ActionResult<Actions, K>> {
     const state = (this.context as unknown as RealtimeHolder).__nfRealtime;
     if (!state) {
       return Promise.reject(
@@ -197,7 +209,7 @@ export abstract class RealtimeController
       method as never,
       params as never,
       timeoutMs,
-    ) as Promise<T>;
+    ) as Promise<ActionResult<Actions, K>>;
   }
 
   /**
@@ -206,7 +218,10 @@ export abstract class RealtimeController
    * fan-out à N abonnés, préférer un canal (`publish` via le hub). No-op si le
    * handshake n'est pas terminé.
    */
-  protected notifyClient(method: string, params?: unknown): void {
+  protected notifyClient<K extends EventNames<Emit>>(
+    method: K,
+    params?: EventPayload<Emit, K>,
+  ): void {
     const state = (this.context as unknown as RealtimeHolder).__nfRealtime;
     state?.peer.notify(method as never, params as never);
   }
