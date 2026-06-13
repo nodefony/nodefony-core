@@ -90,6 +90,18 @@ const areaSchema = z.object({
     .describe(
       "Domaine/vhost de la zone (ex. admin.exemple.com). Omis = tous domaines.",
     ),
+  realtime: z
+    .boolean()
+    .default(false)
+    .describe(
+      "Zone valable AUSSI pour les frames WebSocket (api.request + subscribe), pas seulement les requêtes HTTP. Le verrou WS consulte la MÊME zone que HTTP — invariant : `api.request {path}` n'accorde jamais plus que `GET {path}`.",
+    ),
+  sessionContext: z
+    .string()
+    .optional()
+    .describe(
+      "Nom du contexte de session ouvert AU LOGIN dans cette zone (repli de l'intent ; ex. 'nodefony' pour l'admin). Omis = contexte 'default' du store de sessions.",
+    ),
 });
 
 const corsSchema = z
@@ -397,12 +409,10 @@ const studioSchema = z
       .describe("Whitelist CIDR (deny par défaut si exposure=public)."),
     requireMfa: z
       .boolean()
-      .default(true)
-      .describe("MFA obligatoire pour l'accès admin."),
-    authenticators: z
-      .array(z.string())
-      .default(["jwt"])
-      .describe("Auth de la zone admin (mtls+jwt recommandé si public)."),
+      .default(false)
+      .describe(
+        "MFA obligatoire pour l'accès admin. Défaut false : l'enforcement MFA n'est PAS encore câblé (à venir, P6) — un défaut true mentirait (Studio l'afficherait « requis » sans aucun effet). La déclaration des authenticators de la zone admin vit dans l'aire data plane (portée par le framework), pas ici : studioSchema ne durcit que l'EXPOSITION réseau.",
+      ),
     auditAllActions: z
       .boolean()
       .default(true)

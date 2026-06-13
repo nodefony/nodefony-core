@@ -17,6 +17,8 @@ export class SecuredArea implements ISecuredArea {
   readonly mode: "first" | "all";
   readonly authenticators: readonly string[];
   readonly host?: string;
+  readonly realtime: boolean;
+  readonly sessionContext?: string;
 
   constructor(name: string, config: ISecurityAreaConfig) {
     this.name = name;
@@ -26,6 +28,8 @@ export class SecuredArea implements ISecuredArea {
     this.mode = config.mode;
     this.authenticators = config.authenticators;
     this.host = config.host;
+    this.realtime = config.realtime;
+    this.sessionContext = config.sessionContext;
   }
 
   /** La requête tombe-t-elle dans cette zone ? (host éventuel + pathname). */

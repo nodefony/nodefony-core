@@ -37,6 +37,28 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
     assert.equal(config.areas.app.security, true);
   });
 
+  it("zone : realtime=false par défaut (zone HTTP seule, pas WebSocket)", () => {
+    assert.equal(config.areas.app.realtime, false);
+  });
+
+  it("zone : sessionContext absent par défaut (contexte 'default' du store)", () => {
+    assert.equal(config.areas.app.sessionContext, undefined);
+  });
+
+  it("zone : realtime=true + sessionContext acceptés (aire data plane admin)", () => {
+    const c = defineSecurityConfig({
+      areas: {
+        nodefonyAdmin: {
+          pattern: "^/nodefony/[^/]+/api(/|$)",
+          realtime: true,
+          sessionContext: "nodefony",
+        },
+      },
+    });
+    assert.equal(c.areas.nodefonyAdmin.realtime, true);
+    assert.equal(c.areas.nodefonyAdmin.sessionContext, "nodefony");
+  });
+
   it("encoder : Argon2id par défaut (m=19 MiB OWASP, t=3 RFC 9106, p=1)", () => {
     const enc = config.encoders.user;
     assert.equal(enc.type, "argon2id");
@@ -87,9 +109,18 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
     assert.equal(config.cors.credentials, false);
   });
 
-  it("studio : console OFF par défaut, MFA exigée", () => {
+  it("studio : console OFF par défaut ; requireMfa=false honnête (enforcement MFA pas câblé)", () => {
     assert.equal(config.studio.enabled, false);
-    assert.equal(config.studio.requireMfa, true);
+    // requireMfa=true mentirait : aucun authenticator MFA n'est codé (anti ✅-menteur,
+    // audit 2026-06-13). Le vrai MFA = aire mode:"all" + authenticator WebAuthn (J ultérieur).
+    assert.equal(config.studio.requireMfa, false);
+  });
+
+  it("studio : plus de clé 'authenticators' (la déclaration d'auth vit dans l'aire, pas ici)", () => {
+    assert.equal(
+      (config.studio as Record<string, unknown>).authenticators,
+      undefined,
+    );
   });
 });
 

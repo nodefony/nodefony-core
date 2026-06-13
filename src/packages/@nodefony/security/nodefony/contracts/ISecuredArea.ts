@@ -38,6 +38,19 @@ export interface ISecuredArea {
   /** Domaine/vhost de la zone (ex. `admin.exemple.com`). Omis = tous domaines. */
   readonly host?: string;
 
+  /**
+   * Zone valable AUSSI pour le WebSocket (frames `api.request` + `subscribe`),
+   * pas seulement HTTP. `false` (défaut) : la zone ne s'applique qu'au HTTP. Le
+   * verrou WS consulte la même zone que HTTP (invariant `api.request` ≤ `GET`).
+   */
+  readonly realtime: boolean;
+
+  /**
+   * Nom du contexte de session ouvert AU LOGIN dans cette zone (repli de l'intent ;
+   * ex. `"nodefony"` pour l'admin). Omis = contexte `"default"` du store de sessions.
+   */
+  readonly sessionContext?: string;
+
   /** La requête tombe-t-elle dans cette zone ? (pattern + host éventuel). */
   match(context: ContextType): boolean;
 }

@@ -61,6 +61,9 @@ export default {
     //   authenticators déf. []       noms exécutés selon `mode`. Validés au boot.
     //   host           déf. -        domaine/vhost (ex. admin.exemple.com). Omis = tous domaines.
     //   entryPoint     déf. -        route de login/redirect si non authentifié.
+    //   realtime       déf. false    zone valable AUSSI en WebSocket (api.request + subscribe),
+    //                                pas seulement HTTP. Le verrou WS lit la même zone que HTTP.
+    //   sessionContext déf. -        nom du contexte de session ouvert au login (ex. "nodefony").
     areas: {},
 
     // ══════════════════ CORS (Cross-Origin Resource Sharing) ══════════════════
@@ -176,8 +179,7 @@ export default {
       enabled: false, //              console admin. Défaut: false (OFF, surtout en prod).
       exposure: "localhost", //       portée réseau. Défaut: "localhost". "private" | "public".
       allowedIps: [], //              whitelist CIDR. Deny par défaut si exposure="public". Défaut: [].
-      requireMfa: true, //            MFA obligatoire pour l'admin. Défaut: true.
-      authenticators: ["jwt"], //     auth de la zone admin. Reco si public: ["mtls","jwt"]. Défaut: ["jwt"].
+      requireMfa: false, //           MFA admin. Défaut: false (enforcement pas encore câblé — true mentirait).
       auditAllActions: true, //       audit de CHAQUE action mutante. Défaut: true.
     },
   }),

@@ -33,17 +33,19 @@ audience: dev
 
 ## Authentification
 
-| Sigle         | Développé                         | En clair                                                                                                                                                                   |
-| ------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MFA**       | Multi-Factor Authentication       | Plusieurs preuves d'identité (ce que je sais + ce que je possède + ce que je suis).                                                                                        |
-| **TOTP**      | Time-based One-Time Password      | Le code à 6 chiffres qui change toutes les 30 s (Google Authenticator). Legacy : phishable (un faux site peut te le demander).                                             |
-| **OTP**       | One-Time Password                 | Mot de passe à usage unique (par mail, SMS…). SMS = déconseillé (NIST).                                                                                                    |
-| **KBA**       | Knowledge-Based Authentication    | Les « questions secrètes » (nom du chien…). **INTERDIT** par NIST : trouvable sur les réseaux sociaux.                                                                     |
-| **WebAuthn**  | Web Authentication (standard W3C) | L'API navigateur des passkeys : le site demande, l'appareil signe avec une clé privée qui ne sort JAMAIS (Touch ID, Windows Hello, clé USB).                               |
-| **FIDO2**     | Fast IDentity Online v2           | L'alliance industrielle + protocoles derrière WebAuthn.                                                                                                                    |
-| **Passkey**   | —                                 | Identifiant WebAuthn synchronisé (trousseau Apple/Google) : rien à retenir, rien à voler côté serveur (clé publique seulement), **non-phishable** (liée au domaine exact). |
-| **RP / rpId** | Relying Party (ID)                | « La partie qui fait confiance » = ton site, identifié par son domaine — une passkey créée pour `exemple.fr` refuse de signer ailleurs (c'est ça l'anti-phishing).         |
-| **AAL2/AAL3** | Authenticator Assurance Level     | Niveaux de confiance NIST d'une authentification : AAL2 = MFA solide (passkeys synced OK), AAL3 = matériel dédié (clé physique).                                           |
+| Sigle         | Développé                         | En clair                                                                                                                                                                                                      |
+| ------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MFA**       | Multi-Factor Authentication       | Plusieurs preuves d'identité de catégories **différentes** (ce que je sais + ce que je possède + ce que je suis). Terme **générique** : 2 facteurs ou plus → englobe le 2FA.                                  |
+| **2FA**       | Two-Factor Authentication         | Cas **particulier** du MFA à **exactement 2** facteurs (ex. mot de passe + TOTP). Deux preuves de la MÊME catégorie (2 mots de passe) ≠ 2FA. « MFA » a remplacé « 2FA » car plus général, pas par rebranding. |
+| **Facteur**   | Authentication factor             | Une preuve d'identité d'**une** des 3 catégories : savoir (mot de passe), possession (passkey, TOTP), inhérence (biométrie). Combiner ≥2 catégories = MFA.                                                    |
+| **TOTP**      | Time-based One-Time Password      | Le code à 6 chiffres qui change toutes les 30 s (Google Authenticator). Legacy : phishable (un faux site peut te le demander).                                                                                |
+| **OTP**       | One-Time Password                 | Mot de passe à usage unique (par mail, SMS…). SMS = déconseillé (NIST).                                                                                                                                       |
+| **KBA**       | Knowledge-Based Authentication    | Les « questions secrètes » (nom du chien…). **INTERDIT** par NIST : trouvable sur les réseaux sociaux.                                                                                                        |
+| **WebAuthn**  | Web Authentication (standard W3C) | L'API navigateur des passkeys : le site demande, l'appareil signe avec une clé privée qui ne sort JAMAIS (Touch ID, Windows Hello, clé USB).                                                                  |
+| **FIDO2**     | Fast IDentity Online v2           | L'alliance industrielle + protocoles derrière WebAuthn.                                                                                                                                                       |
+| **Passkey**   | —                                 | Identifiant WebAuthn synchronisé (trousseau Apple/Google) : rien à retenir, rien à voler côté serveur (clé publique seulement), **non-phishable** (liée au domaine exact).                                    |
+| **RP / rpId** | Relying Party (ID)                | « La partie qui fait confiance » = ton site, identifié par son domaine — une passkey créée pour `exemple.fr` refuse de signer ailleurs (c'est ça l'anti-phishing).                                            |
+| **AAL2/AAL3** | Authenticator Assurance Level     | Niveaux de confiance NIST d'une authentification : AAL2 = MFA solide (passkeys synced OK), AAL3 = matériel dédié (clé physique).                                                                              |
 
 ## OAuth & délégation
 
