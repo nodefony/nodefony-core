@@ -1,6 +1,12 @@
 import { RequestContext } from "nodefony";
 import type { IUser, UserService } from "@nodefony/user";
-import { Controller, controller, Get } from "@nodefony/framework";
+import {
+  Controller,
+  controller,
+  Get,
+  IsGranted,
+  CurrentUser,
+} from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 
 /**
@@ -23,6 +29,20 @@ class SecureController extends Controller {
   @Get("/ping")
   ping() {
     return this.renderJson({ pong: true, secure: true });
+  }
+
+  /**
+   * Preuve P6 J7 — AUTORISATION déclarative `@IsGranted` (distincte de l'authn).
+   * La zone authentifie (Basic) ; `@IsGranted("ROLE_ADMIN")` décide ENSUITE :
+   *  - `admin` (ROLE_ADMIN) → 200,
+   *  - `user` (ROLE_USER, authentifié mais sans le rôle) → **403** (pas 401),
+   *  - sans Authorization → 401 (firewall, avant la garde).
+   * `@CurrentUser()` injecte l'utilisateur de l'ALS (jamais le credential).
+   */
+  @Get("/admin-only")
+  @IsGranted("ROLE_ADMIN")
+  adminOnly(@CurrentUser() user: IUser) {
+    return this.renderJson({ granted: true, identifier: user.identifier });
   }
 
   /** Identité propagée par le firewall dans l'ALS (`RequestContext`). */
