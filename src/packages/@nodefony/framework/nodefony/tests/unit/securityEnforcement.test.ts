@@ -5,9 +5,10 @@ import Resolver from "../../src/Resolver.js";
 import type Route from "../../src/Route.js";
 import type { ControllerConstructor } from "../../src/Route.js";
 import type { ContextType } from "@nodefony/http";
-import type {
-  RouteActionMeta,
-  SecurityRequirement,
+import {
+  IsGranted,
+  type RouteActionMeta,
+  type SecurityRequirement,
 } from "../../decorators/routerDecorators.js";
 
 // P6 J7 — enforcement de l'autorisation dans le Resolver (AVANT newController).
@@ -171,5 +172,38 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
       r.executeAction(),
     );
     expect(seen).to.equal("42");
+  });
+
+  // PONT forward : Controller.forward → callController(reload) → route=null →
+  // la garde s'évalue via computeActionMeta (chemin froid, PAS le memo de route).
+  // Défense en profondeur : un forward vers une action gardée re-vérifie l'autz.
+  it("pont forward (route=null) : la garde s'évalue via computeActionMeta", async () => {
+    class ForwardCtrl {
+      setRoute(): this {
+        return this;
+      }
+      @IsGranted("ROLE_ADMIN")
+      ping(): string {
+        return "pong";
+      }
+    }
+    const r = Object.create(Resolver.prototype) as Resolver;
+    const container = new Container();
+    container.set("authorization", { decide: async () => false }); // refuse
+    r.context = {
+      container,
+      response: undefined,
+    } as unknown as ContextType;
+    r.route = null; // forward : pas de route mémoïsée → computeActionMeta
+    r.variables = [];
+    (r as unknown as { queryOverride: unknown }).queryOverride = null;
+    r.controller = ForwardCtrl as unknown as ControllerConstructor;
+    r.actionName = "ping";
+    r.newController = (async () =>
+      new ForwardCtrl()) as Resolver["newController"];
+    const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
+      caught(r.executeAction()),
+    );
+    expect(err?.code).to.equal(403); // garde appliquée même sans route mémoïsée
   });
 });
