@@ -76,7 +76,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P3  Logs structurés       █████████░  85%   7✅  3🔶  0⬜
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
  P5  Session/User/ORM core ████████▌░  85%  13✅  3🔶  1⬜   ◀ (P5.14 ✅ J3 ; reste P5.0b batch/cron)
- P6  Security              ███░░░░░░░  34%   5✅  3🔶 11⬜   ◀ bloqueur MVP — EN COURS (J1 authenticators · J2 argon2id+throttling · J3 ✅ session BFF · J4a 🔶 store jetons pluggable Memory+File, 140 unit + 19 intég ; reste Drizzle/Mongoose/Redis + JwtAuthenticator)
+ P6  Security              ███░░░░░░░  36%   6✅  2🔶 11⬜   ◀ bloqueur MVP — EN COURS (J1 authenticators · J2 argon2id+throttling · J3 ✅ session BFF · J4a ✅ store jetons pluggable 5 drivers Memory+File+Drizzle+Mongoose+Redis [d25575e6/785233e7/3a631ae6], 140 unit + 58 intég ; reste JwtAuthenticator+keystore+TokenService gc+endpoints)
  P7  ORM drivers           ████████░░  80%   3✅  2🔶  0⬜   (post-virage ; reste P7.5 E2E système + P7.7 redis)
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜
  P9  Polish + clôture      ██████░░░░  63%   2✅  1🔶  1⬜   (P9.4 : 0 vulnérabilité npm 2026-06-12)

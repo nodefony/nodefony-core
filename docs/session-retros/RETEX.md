@@ -118,6 +118,25 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
   ⚠️ TS6133 sur un type param inutilisé → ne garder QUE les params réellement référencés, j'ai retiré `Listen`) ;
   L4 façade serveur `ServerRealtimeSocket implements IRealtimeSocket` au-dessus du hub. `request` côté hub = **pas de
   pair unique** (multi-clients) → non supporté, renvoie vers `requestClient`. L5 (mutations via `api.request`) = post-P6.
+- `[1× — 2026-06-14]` **un contrat « portable » cache des pièges de moteur — les lire AVANT de transposer** (3 stores
+  `ITokenStore` Drizzle/Mongoose/Redis) : (a) `IS NULL` **inexprimable** via le critère portable — `eq(col, null)` est
+  toujours faux en SQL ; heureusement Mongo applique le **type bracketing** (`$lte:number` n'inclut pas les `null`) →
+  les DEUX convergent, donc un `gc` portable (`delete {expiresAt:{$lte}}` + `find {revokedAt:{$lte}}` puis filtre JS
+  `expiresAt===null` + `delete {id:{$in}}`) marche sur les 2 SQL/NoSQL sans descendre au natif ; idempotence de `revoke`
+  (ne pas écraser la 1ʳᵉ date) = **read-then-write** (pas de critère `revokedAt:null`). (b) Le contrat orm-core
+  **hijacke `id`→`_id`** (`MongooseRepository#resolveField`) : pour un id **fourni par l'appelant** (jti ≠ ObjectId auto),
+  il FAUT poser `_id` explicitement à l'écriture (`create({_id:id,...})`) et **normaliser `id`←`_id`** en lecture (ne pas
+  dépendre du virtuel). Lu dans le code du repo AVANT de coder → 0 itération.
+- `[1× — 2026-06-14]` **Redis : HASH > blob JSON pour un record dont 1 champ est écrit à chaque usage** (user a challengé
+  « tu enregistres le json ? ») : `markUsed` (lastUsedAt/ip/ua à chaque requête authentifiée) en `HSET` partiel **préserve
+  le TTL de la clé** et ne réécrit pas le record (vs read-parse-rewrite d'un blob `SET KEEPTTL`). TTL natif (`EX`/`EXPIRE`)
+  → `gc()` est un **no-op** (refresh par leur exp, PAT révoqué reçoit `EXPIRE=rétention` au revoke, denylist par EX) — la
+  maintenance se délègue au moteur, contrairement à Drizzle/Mongoose qui balaient.
+- `[1× — 2026-06-14]` **tester un TTL sans serveur = double à horloge injectée** : `FakeRedis implements RedisClientLike`
+  (sous-ensemble structural des commandes v6) modélise `EX`/`EXPIRE` contre un `now()` contrôlé → expiration **déterministe**
+  (avancer `CLOCK`, le double purge à la lecture), + un smoke `describe.skipIf(!REDIS_TEST_URL)` contre un vrai Redis pour
+  prouver les **noms de commandes** node-redis v6 (le double seul ne le prouve pas — cf leçon « stubs ne prouvent pas »).
+  Piège mesuré : un `gc`/compteur sur store **partagé entre `describe`** dérape (résidu d'un test précédent expiré) → **pré-purger** avant de mesurer un delta exact.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
