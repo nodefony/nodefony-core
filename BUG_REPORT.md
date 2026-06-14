@@ -506,7 +506,20 @@ spec/loader tsx dans `.mocharc.cjs` (pattern des autres modules, cross-platform)
 
 ---
 
-## 🔴 BUG-ORM-001 — `wireOrmAdminPlane` throw sans adminBroker (OUVERT, découvert 2026-06-14)
+## ✅ BUG-ORM-001 — `wireOrmAdminPlane` throw sans adminBroker (RÉSOLU 2026-06-14)
+
+**Cause réelle** (≠ diagnostic initial « adminBroker ») : ligne `kernel?.once("onServersReady", …)`.
+Le kernel partiel du test (`{ container: { get } }`) n'a **pas** de méthode `once` ; `kernel` n'étant
+pas nullish, l'optional chaining ne court-circuite pas → `.once` vaut `undefined` → appel → `TypeError`.
+Le `if (broker)` guardait déjà l'`adminBroker` ; le throw venait de l'`EventEmitter`, pas du broker.
+
+**Fix** : appel optionnel `kernel?.once?.("onServersReady", …)` — cohérent avec le `kernel?.container?.get`
+de la même fonction (tolérance kernel partiel, intention C5 « idempotent + appelé par N drivers »).
+`orm-core` 75/75 ✅ (était 74/1).
+
+---
+
+### (historique) 🔴 BUG-ORM-001 — diagnostic initial (OUVERT, découvert 2026-06-14)
 
 **Test rouge** : `src/packages/@nodefony/orm-core/tests/unit/ormWiring.test.ts` >
 `ormWiring — wireOrmAdminPlane (C5) > kernel sans adminBroker dans le container → ne throw pas`.

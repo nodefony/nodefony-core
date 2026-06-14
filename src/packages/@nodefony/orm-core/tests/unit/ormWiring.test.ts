@@ -57,6 +57,11 @@ describe("ormWiring — wireOrmAdminPlane (C5)", () => {
     assert.doesNotThrow(() => wireOrmAdminPlane(undefined));
   });
 
+  // Mock VOLONTAIREMENT partiel (`as unknown as Kernel`) : un vrai Kernel a
+  // toujours `once` (délégué à notificationsCenter via IService) — on ne fournit
+  // ici que `container.get` pour prouver que wireOrmAdminPlane tolère un kernel
+  // incomplet sans planter (cf bug-orm-001 : appel défensif `kernel?.once?.(…)`,
+  // cohérent avec le `kernel?.container?.get` de la même fonction).
   it("kernel sans adminBroker dans le container → ne throw pas", () => {
     const kernel = {
       container: { get: () => undefined },
