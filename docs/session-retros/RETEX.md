@@ -818,7 +818,14 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
   font qu'un échec d'une dep (ex. orm-core) **skippe ses dépendants** → ils apparaissent en « command failed »
   sans détail, et un run câblé peut afficher « 22 successful » en cachant le vrai bilan. Pour l'état RÉEL de
   TOUS les workspaces : `turbo run test --continue` (exécute malgré les échecs) + extraire chaque « Tests X passed ».
-  (Vécu : 1 rouge orm-core `ormWiring(C5)` masqué ; les ~3030 verts ailleurs invisibles au 1er run filtré.)
+- `[1× — 2026-06-14]` **Les seams TEMPORELS/PROBABILISTES exigent un test qui FORCE le déclenchement** : un sweep
+  amorti (« tous les 256 ajouts ») et un flush sur timer debounce ne sont JAMAIS exécutés par les tests « normaux »
+  (qui appellent `flushNow` ou font < 256 ops) → 100% lignes peut MENTIR (le chemin de prod n'est pas exercé).
+  Couvrir explicitement : boucle de 256 pour armer le sweep ; laisser le `setTimeout` firer (await délai) ≠ flush manuel.
+- `[1× — 2026-06-14]` **`vitest run X --coverage --coverage.include='**/fichier.ts'`** pour mesurer UN fichier précis —
+sinon les voisins du même dossier (ex. `AnonymousToken`/`UserToken`dans`token/`) tirent le « All files » vers le bas
+et masquent le vrai % du fichier visé.
+(Vécu : 1 rouge orm-core `ormWiring(C5)` masqué ; les ~3030 verts ailleurs invisibles au 1er run filtré.)
 - `[1× — 2026-06-13]` **Test isomorphe = double identité source/dist d'une classe** : le banc importe le client en
   SOURCE (teste la refacto sans rebuild) mais le serveur tire `JsonRpcPeer`/`RpcError` du DIST `nodefony` → 2 classes
   `RpcError` distinctes → `err instanceof RpcError` du peer serveur rate → -32603 au lieu de -32000. Fix : le handler
