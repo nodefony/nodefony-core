@@ -257,6 +257,12 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🧭 Conception / fondation / vocabulaire (frictions du jour)
 
+- `[1× — 2026-06-14]` **le kit/plan disait « décorateurs au hook `beforeResolve` » — FAUX (vérifié dans le code)** :
+  `beforeResolve` fire AVANT la résolution de route (test : « fires before route resolution even for 404 ») → à ce
+  hook on ne connaît NI le controller NI la méthode → impossible de lire `@IsGranted`. Le bon seam = `Resolver.executeAction`
+  (post-résolution, pré-`newController`) — qui en bonus est partagé HTTP+WS `api.request` (« 1 garde = N transports »).
+  DEVISE confirmée : un ancrage de kit ne remplace pas le terrain. (cf [[feedback_security_audit_surface_matrix]])
+
 - `[2× — 2026-06-13]` **le kit/mémoire peut être PÉRIMÉ sur l'état du code → vérifier les contrats DANS le
   code au cadrage d'un lot** : (a) le kit P6 disait « IUserProvider implémenté nulle part » alors que
   `UserService.loadUserByIdentifier` était livré (J1/J2) → 2 min de Read ont réduit le lot 1 de moitié ;
@@ -632,6 +638,12 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-14]` **`#privateMethod` casse le proxy de test `Object.create(prototype)`** (brand check JS →
+  `TypeError: Receiver must be an instance of class X` quand une méthode publique appelle `this.#priv`). Le Resolver
+  se teste via `Object.create(Resolver.prototype)` + champs injectés (ctor lourd contourné) → utiliser la convention
+  du fichier : **`private _xxx` (TS, effacé au runtime = méthode normale)**, PAS `#xxx`. Vécu : `#enforceSecurity`/`#resolveSubject`
+  → 7 fails, convertis en `private _`. Matcher la convention de privacy du fichier (Resolver = `private _`).
+
 - `[1× — 2026-06-11]` **🚨 un RPS ABSOLU ne se compare JAMAIS entre deux fenêtres temporelles — toujours rebencher la baseline DANS la fenêtre courante**
   avant de crier à la régression : le user a vu « j'étais à 7000, là 3674 » (−45 %). C'était la **charge ambiante** (Brave
   renderer 45 % + GPU 36 % + claude 67 % ≈ 2 cœurs mangés), PAS le code. Preuve : `git checkout <ref pré-changement>` +
@@ -850,6 +862,15 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-14]` **modif du Resolver/pipeline → le gate = la suite INTÉGRATION, PAS `memory.test`** : J6/J7
+  touchait `executeAction` (sur CHAQUE requête) ; j'avais lancé memory (9 tests, = fuites) + unit, et annoncé « fait »
+  AVANT de lancer `npm run test:integration` (http **463**). Le user l'a relevé (« ça touche le Resolver »). memory ≠
+  régression fonctionnelle. Règle : tout changement pipeline → http+framework `test:integration` AVANT de dire « fait ».
+- `[1× — 2026-06-14]` **toucher un chokepoint (point de passage unique) → énumérer TOUS ses appelants (matrice de ponts) et tester chacun** :
+  `executeAction` est traversé par HTTP, WS `api.request` ET **forward (`route=null` → `computeActionMeta`)** ; le pont
+  forward a été oublié jusqu'à une passe rigueur (révélée par le user). La matrice actif×chemin ([[feedback_security_audit_surface_matrix]])
+  vaut AUSSI pour un chokepoint de pipeline, pas que pour la sécu. Preuve définitive d'une garde = E2E live (route réelle + 200/403/401), pas que des unit à stubs.
+
 - `[1× — 2026-06-13]` **Refacto INTERNE → les unit ne prouvent RIEN ; il faut un banc d'INTÉGRATION** (martelé par
   le user « les unit sont les mêmes !!! ») : après L0 (le client compose le peer), le CONTRAT de surface ne bouge
   pas → les unit qui pilotent le client via `handleMessage`/`send` STUBÉS restent verts sans prouver la plomberie ni
@@ -949,10 +970,13 @@ et masquent le vrai % du fichier visé.
 type 'mocha'`). Au retrait mocha d'un workspace : remplacer par `vitest/globals` dans CHAQUE `tsconfig*.json` qui le
   liste (sinon pre-push rouge). Pas attrapé par le run vitest (esbuild ignore tsc).
 
-- `[1× — 2026-06-05]` **ajouter un champ à un objet metadata PARTAGÉ casse les `deep.equal` existants** : étendre
+- `[2× — 2026-06-05, 2026-06-14]` **ajouter un champ à un objet metadata PARTAGÉ casse les `deep.equal` existants** : étendre
   `ParamMeta` avec `stream` posé TOUJOURS (même `false`) a cassé 2 tests `@Body` (forme `{source,key,index}` attendue
   à l'identique). Fix = ne poser le champ optionnel **QUE s'il est truthy** (préserve la forme historique → rétro-compat).
   Les 2 fails étaient MON diff (pas pré-existant) — suspecter son diff d'abord (la suite framework complète l'a prouvé).
+  **Re-vécu J7** : ajout de `security: null` à `RouteActionMeta` → a cassé le `deep.equal` du snapshot « bare »
+  d'`actionMeta.test` (qui listait les champs en dur). Ici impossible de « poser que si truthy » (le champ est
+  structurel) → fix = MAJ le test consommateur. Réflexe : `grep deep.equal` des consommateurs AVANT d'étendre un meta partagé. (→ proche de 3× : candidat graduation `feedback_refactor_grep_consumers`.)
 - `[1× — 2026-06-07]` **tester les MÉTHODES finales, pas que les fonctions pures** (demande explicite user). J'avais
   couvert `parseForwarded`/`forwardedNodeIp`/`resolveForwarded` (helpers purs) mais pas `getFullUrl`/`getRemoteAddress`
   (HTTP/HTTP2/WS) qui les CONSOMMENT — c'est là que vit le câblage réel. Recette pour isoler une méthode d'instance
