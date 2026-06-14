@@ -53,6 +53,7 @@ describe("routerDecorators — computeActionMeta()", () => {
       httpCode: null,
       headerEntries: null,
       sessionIntent: null,
+      security: null,
     } satisfies RouteActionMeta);
   });
 

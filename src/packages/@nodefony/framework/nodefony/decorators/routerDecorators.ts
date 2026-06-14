@@ -5,7 +5,7 @@ import { RouteOptions } from "../src/Route";
 import Controller from "../src/Controller";
 import type { ControllerScope } from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
-import { Module } from "nodefony";
+import { Module, RequestContext } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
 import type { HTTPMethod, SessionIntent } from "@nodefony/http";
 
@@ -224,6 +224,11 @@ export const DOMAIN_CLASS_METADATA = "route:domainClass";
 export const DOMAIN_METHOD_METADATA = "route:domainMethod";
 export const BYPASS_FIREWALL_CLASS_METADATA = "route:bypassFirewallClass";
 export const BYPASS_FIREWALL_METHOD_METADATA = "route:bypassFirewallMethod";
+// Autorisation déclarative (P6 J7) — clauses @IsGranted (classe sur le ctor,
+// méthode sur le prototype keyé par nom de méthode, comme PARAM_ARGS_METADATA) ;
+// marqueur @Anonymous (skip authz, en plus du bypass firewall pour l'authn).
+const SECURITY_CLAUSES_METADATA = "nodefony:security:clauses";
+const SECURITY_ANONYMOUS_METADATA = "nodefony:security:anonymous";
 export const USE_SESSION_CLASS_METADATA = "session:useClass";
 export const USE_SESSION_METHOD_METADATA = "session:useMethod";
 
@@ -237,7 +242,10 @@ export type ParamSource =
   | "req"
   | "res"
   | "file"
-  | "files";
+  | "files"
+  // @CurrentUser() — l'utilisateur résolu par le firewall (ALS). Jamais le
+  // credential ; lecture O(1) de RequestContext. `undefined` hors zone authentifiée.
+  | "user";
 export interface ParamMeta {
   source: ParamSource;
   key?: string;
@@ -255,6 +263,37 @@ export interface ParamMeta {
 export interface RedirectMeta {
   url: string;
   statusCode: number;
+}
+
+// ── Sécurité — autorisation déclarative (@IsGranted / @Anonymous, P6 J7) ──────
+
+/**
+ * Une clause `@IsGranted` : un OU plusieurs attributs (OR interne), sujet
+ * optionnel. `@IsGranted("ROLE_ADMIN")` → `{ anyOf: ["ROLE_ADMIN"] }` ;
+ * `@IsGranted(["A","B"])` → `{ anyOf: ["A","B"] }` (un seul suffit) ;
+ * `@IsGranted("doc.edit", { subject: "id" })` → le param de route `id` est passé
+ * au voter.
+ */
+export interface SecurityClause {
+  /** Attributs en OR — un seul accordé suffit pour valider la clause. */
+  readonly anyOf: readonly string[];
+  /** Nom du paramètre de route passé comme `subject` au voter (optionnel). */
+  readonly subjectParam?: string;
+}
+
+/**
+ * Exigence d'autorisation **figée** d'une action — calculée UNE fois par route
+ * (fusion classe + méthode) puis gelée sur `RouteActionMeta.security`. Objet
+ * PARTAGÉ entre toutes les requêtes : ne jamais muter. `null` (hors de ce type)
+ * = aucune garde → coût nul sur le hot path.
+ *
+ * Plusieurs `@IsGranted` empilés = `clauses` multiples en **AND** (toutes doivent
+ * passer). `@Anonymous()` ne produit jamais de `SecurityRequirement` (l'action
+ * devient `security: null` = publique).
+ */
+export interface SecurityRequirement {
+  /** Clauses en AND — toutes doivent être accordées (chacune est un OR interne). */
+  readonly clauses: readonly SecurityClause[];
 }
 
 // ── HTTP method decorator factory ───────────────────────────────────────────
@@ -567,6 +606,100 @@ function resolveSessionIntent(
   return null;
 }
 
+// ── Security decorators (autorisation déclarative, P6 J7) ───────────────────
+
+/**
+ * Exige une autorisation pour l'action (décorateur de **méthode**) ou tout le
+ * contrôleur (décorateur de **classe**).
+ *
+ * - `@IsGranted("ROLE_ADMIN")` — un attribut (rôle `ROLE_*`, permission, ou
+ *   attribut métier résolu par un voter).
+ * - `@IsGranted(["ROLE_ADMIN", "ROLE_AUDITOR"])` — **OR** : un seul suffit.
+ * - empiler plusieurs `@IsGranted` — **AND** : toutes les clauses doivent passer.
+ * - `@IsGranted("doc.edit", { subject: "id" })` — le paramètre de route `id` est
+ *   passé comme `subject` au voter (ownership, multi-tenant).
+ *
+ * Classe + méthode fusionnent en AND. L'évaluation a lieu dans le `Resolver`
+ * AVANT l'instanciation du controller (403 court-circuite — Zero Trust). N'écrit
+ * QUE des métadonnées (zéro logique sécu ici → 0 import `@nodefony/security`,
+ * 0 cycle ; le moteur `authorization` est appelé par nom au runtime).
+ */
+function IsGranted(
+  attribute: string | readonly string[],
+  options?: { subject?: string },
+) {
+  const clause: SecurityClause = {
+    anyOf: Array.isArray(attribute)
+      ? [...(attribute as readonly string[])]
+      : [attribute as string],
+    ...(options?.subject !== undefined
+      ? { subjectParam: options.subject }
+      : {}),
+  };
+  // Dual classe+méthode (idiome `any` du module, cf @Domain/@BypassFirewall).
+  return function (
+    target: any,
+    propertyKey?: string,
+    descriptor?: PropertyDescriptor,
+  ): any {
+    if (propertyKey === undefined) {
+      // Classe → clauses sur le constructeur (défaut de toutes les actions).
+      const existing: SecurityClause[] =
+        Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target) || [];
+      existing.push(clause);
+      Reflect.defineMetadata(SECURITY_CLAUSES_METADATA, existing, target);
+      return target;
+    }
+    // Méthode → clauses sur le prototype, keyées par nom (comme PARAM_ARGS).
+    const existing: SecurityClause[] =
+      Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target, propertyKey) || [];
+    existing.push(clause);
+    Reflect.defineMetadata(
+      SECURITY_CLAUSES_METADATA,
+      existing,
+      target,
+      propertyKey,
+    );
+    return descriptor;
+  };
+}
+
+/**
+ * Déclare une action (méthode) ou un contrôleur (classe) **publique** : skip
+ * l'autorisation (override un `@IsGranted` de classe sur cette méthode) ET skip
+ * l'authentification (réutilise le mécanisme `@BypassFirewall` → pas de 401 en
+ * zone protégée). L'alias lisible de « permitAll » (mental model Spring). Pour un
+ * login, une sonde de liveness, une page publique d'un contrôleur par ailleurs
+ * protégé.
+ */
+function Anonymous() {
+  // Dual classe+méthode (idiome `any` du module).
+  return function (
+    target: any,
+    propertyKey?: string,
+    descriptor?: PropertyDescriptor,
+  ): any {
+    if (propertyKey === undefined) {
+      Reflect.defineMetadata(SECURITY_ANONYMOUS_METADATA, true, target);
+      Reflect.defineMetadata(BYPASS_FIREWALL_CLASS_METADATA, true, target);
+      return target;
+    }
+    Reflect.defineMetadata(
+      SECURITY_ANONYMOUS_METADATA,
+      true,
+      target.constructor,
+      propertyKey,
+    );
+    Reflect.defineMetadata(
+      BYPASS_FIREWALL_METHOD_METADATA,
+      true,
+      target.constructor,
+      propertyKey,
+    );
+    return descriptor;
+  };
+}
+
 // ── Parameter decorators ────────────────────────────────────────────────────
 function paramDecoratorFactory(source: ParamSource) {
   return function (key?: string) {
@@ -624,6 +757,8 @@ function Body(keyOrOptions?: string | { stream?: boolean }) {
 const Headers = paramDecoratorFactory("headers");
 const Cookie = paramDecoratorFactory("cookie");
 const Session = paramDecoratorFactory("session");
+/** `@CurrentUser() user: IUser` — injecte l'utilisateur de l'ALS (jamais le credential). */
+const CurrentUser = paramDecoratorFactory("user");
 const Req = paramDecoratorFactory("req");
 const Res = paramDecoratorFactory("res");
 const UploadedFile = paramDecoratorFactory("file");
@@ -705,6 +840,10 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
       return ctx.request?.queryFile?.[0];
     case "files":
       return ctx.request?.queryFile;
+    case "user":
+      // @CurrentUser — utilisateur posé par le firewall dans l'ALS (jamais le
+      // credential). O(1), 0 alloc. `undefined` si aucune zone n'a authentifié.
+      return RequestContext.getUser();
     default:
       return undefined;
   }
@@ -775,6 +914,12 @@ export interface RouteActionMeta {
   headerEntries: [string, string][] | null;
   /** Intent `@UseSession`/`@Session` — `null` si la route n'en déclare pas. */
   sessionIntent: SessionIntent | null;
+  /**
+   * Exigence d'autorisation (`@IsGranted`, fusion classe+méthode) — `null` si
+   * l'action n'est pas gardée (ou `@Anonymous`). `null` = **0 coût** sur le hot
+   * path (ni résolution de service, ni `decide`, ni await). Frozen, partagé.
+   */
+  security: SecurityRequirement | null;
 }
 
 const EMPTY_ACTION_META: RouteActionMeta = {
@@ -783,6 +928,7 @@ const EMPTY_ACTION_META: RouteActionMeta = {
   httpCode: null,
   headerEntries: null,
   sessionIntent: null,
+  security: null,
 };
 
 /**
@@ -791,6 +937,45 @@ const EMPTY_ACTION_META: RouteActionMeta = {
  * {@link resolveActionMeta} (routes, mémoïsé) et par le `Resolver` pour le
  * chemin froid du forward (`parsePathernController`, pas de route).
  */
+/**
+ * P6 J7 — Fusionne les clauses `@IsGranted` (classe + méthode) en une exigence
+ * d'autorisation **figée**, ou `null` si l'action n'est pas gardée. `@Anonymous`
+ * (méthode) rend l'action publique (override le `@IsGranted` de classe → `null`).
+ * Lecture `Reflect` faite UNE fois (via {@link resolveActionMeta} mémoïsé).
+ */
+function computeSecurityRequirement(
+  ctor: { prototype: object },
+  method: string,
+): SecurityRequirement | null {
+  // @Anonymous sur la méthode → action publique, même sous un @IsGranted de classe.
+  if (Reflect.getMetadata(SECURITY_ANONYMOUS_METADATA, ctor, method) === true) {
+    return null;
+  }
+  const proto = ctor.prototype;
+  const methodClauses =
+    (Reflect.getMetadata(SECURITY_CLAUSES_METADATA, proto, method) as
+      | SecurityClause[]
+      | undefined) ?? [];
+  // @Anonymous sur la classe → pas de clauses héritées ; sinon AND avec la classe.
+  const classAnon =
+    Reflect.getMetadata(SECURITY_ANONYMOUS_METADATA, ctor) === true;
+  const classClauses = classAnon
+    ? []
+    : ((Reflect.getMetadata(SECURITY_CLAUSES_METADATA, ctor) as
+        | SecurityClause[]
+        | undefined) ?? []);
+  if (classClauses.length === 0 && methodClauses.length === 0) {
+    return null; // aucune garde → 0 coût hot path
+  }
+  // Figé (objet PARTAGÉ entre requêtes — jamais muté).
+  return Object.freeze({
+    clauses: Object.freeze([
+      ...classClauses,
+      ...methodClauses,
+    ]) as readonly SecurityClause[],
+  });
+}
+
 function computeActionMeta(
   ctor?: { prototype: object } | null,
   method?: string,
@@ -817,6 +1002,7 @@ function computeActionMeta(
     httpCode: httpCode ?? null,
     headerEntries: headers ? Object.entries(headers) : null,
     sessionIntent: resolveSessionIntent(ctor as ControllerConstructor, method),
+    security: computeSecurityRequirement(ctor, method),
   };
 }
 
@@ -854,6 +1040,9 @@ export {
   All,
   Domain,
   BypassFirewall,
+  IsGranted,
+  Anonymous,
+  CurrentUser,
   Scope,
   UseSession,
   resolveSessionIntent,

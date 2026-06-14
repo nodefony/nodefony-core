@@ -43,6 +43,9 @@ import {
   All,
   Domain,
   BypassFirewall,
+  IsGranted,
+  Anonymous,
+  CurrentUser,
   Scope,
   UseSession,
   HttpCode,
@@ -188,6 +191,9 @@ export {
   All,
   Domain,
   BypassFirewall,
+  IsGranted,
+  Anonymous,
+  CurrentUser,
   Scope,
   UseSession,
   HttpCode,
@@ -208,6 +214,10 @@ export {
   frameworkConfigSchema,
   frameworkConfigJsonSchema,
 };
+export type {
+  SecurityClause,
+  SecurityRequirement,
+} from "./nodefony/decorators/routerDecorators";
 export type { ControllerScope } from "./nodefony/src/Controller";
 export type { IResourceService } from "./nodefony/src/ResourceController";
 export type {

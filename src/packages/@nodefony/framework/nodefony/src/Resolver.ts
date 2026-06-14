@@ -5,6 +5,8 @@ import {
   isArray,
   Injector,
   Module,
+  RequestContext,
+  nodefonyError,
   //inject,
 } from "nodefony";
 import type { IResolver } from "../interfaces/index.js";
@@ -31,7 +33,22 @@ import {
   type RedirectMeta,
   type ParamMeta,
   type IParamArgContext,
+  type SecurityRequirement,
 } from "../decorators/routerDecorators.js";
+
+/**
+ * Surface MINIMALE du service `authorization` (@nodefony/security) consommée par
+ * le Resolver — résolu **par nom** via le container, jamais importé (security
+ * dépend de framework, pas l'inverse → 0 cycle). Duck-typing : le service réel
+ * implémente `IAuthorizationService`.
+ */
+interface IAuthorizer {
+  decide(
+    token: unknown,
+    attribute: string,
+    subject?: unknown,
+  ): Promise<boolean>;
+}
 
 //import { ServiceWithInit } from "nodefony";
 //import { ServiceConstructor } from "nodefony";
@@ -258,6 +275,17 @@ class Resolver implements IResolver {
     data?: unknown[],
     reload: boolean = false,
   ): Promise<{ result: unknown; redirectMeta: RedirectMeta | undefined }> {
+    // P5 : metadata d'action figées (memo, 0 Reflect/req) — hoisté en tête car
+    // la GARDE d'autorisation (P6 J7) s'évalue AVANT toute instanciation.
+    const meta = this.route
+      ? resolveActionMeta(this.route)
+      : computeActionMeta(this.controller, this.actionName);
+    // SECURITY — @IsGranted AVANT newController : un 403 court-circuite
+    // l'instanciation DI + initialize() (Zero Trust). `security === null`
+    // (route non gardée, 99 %) → 0 lookup, 0 await, 0 alloc.
+    if (meta.security !== null) {
+      await this._enforceSecurity(meta.security);
+    }
     let controller = this.context.container?.get("controller") as Controller;
     // Le pointeur "controller" du container est PARTAGÉ par la connexion (WS)
     // et réécrit par tout re-routage (invoke, forward). S'il porte une AUTRE
@@ -291,11 +319,7 @@ class Resolver implements IResolver {
       }
     }
     const methodKey = this.actionName as keyof typeof controller;
-    // P5 : metadata d'action figées sur la route (memo, 0 Reflect/req). Forward
-    // (`parsePathernController`, pas de route) → calcul direct (chemin froid).
-    const meta = this.route
-      ? resolveActionMeta(this.route)
-      : computeActionMeta(this.controller, this.actionName);
+    // `meta` résolu en tête de méthode (hoisté pour la garde @IsGranted) — réutilisé.
     let args: unknown[];
     if (meta.paramsMeta) {
       args = this._buildParamArgs(meta.paramsMeta);
@@ -327,6 +351,58 @@ class Resolver implements IResolver {
     // propage via la promesse retournée. callController = exécuter PUIS rendre.
     const { result, redirectMeta } = await this.executeAction(data, reload);
     return this._handleRedirect(result, redirectMeta);
+  }
+
+  /**
+   * Évalue l'exigence d'autorisation (`@IsGranted`) d'une action via le service
+   * `authorization` (par nom, 0 import security). Clauses en **AND**, attributs
+   * d'une clause en **OR**. Refus (ou moteur/identité absents) → 403 (Zero Trust,
+   * fail-closed). Cold path : n'est appelé que sur une route gardée.
+   *
+   * @throws nodefonyError 403 si l'accès est refusé.
+   */
+  private async _enforceSecurity(req: SecurityRequirement): Promise<void> {
+    const authz = this.context.container?.get("authorization") as
+      | IAuthorizer
+      | undefined;
+    const token = RequestContext.get()?.token;
+    // Fail-closed : route gardée mais moteur d'autz absent (module security non
+    // chargé) ou aucune identité résolue (pas de zone firewall) → refus.
+    if (!authz || token === undefined) {
+      throw new nodefonyError("Access denied", 403);
+    }
+    const clauses = req.clauses;
+    for (let i = 0; i < clauses.length; i++) {
+      const clause = clauses[i]!;
+      const subject =
+        clause.subjectParam !== undefined
+          ? this._resolveSubject(clause.subjectParam)
+          : undefined;
+      // OR interne : un seul attribut accordé valide la clause.
+      let ok = false;
+      const anyOf = clause.anyOf;
+      for (let j = 0; j < anyOf.length; j++) {
+        if (await authz.decide(token, anyOf[j]!, subject)) {
+          ok = true;
+          break;
+        }
+      }
+      // AND : une clause non satisfaite → refus immédiat.
+      if (!ok) {
+        throw new nodefonyError("Access denied", 403);
+      }
+    }
+  }
+
+  /**
+   * Résout un paramètre de route NOMMÉ (`@IsGranted(..., { subject: "id" })`) vers
+   * sa valeur, depuis `route.variables` (noms) + `this.variables` (valeurs déjà
+   * parsées). 0 alloc (indexOf + accès tableau).
+   */
+  private _resolveSubject(name: string): unknown {
+    const names = this.route?.variables ?? [];
+    const idx = names.indexOf(name);
+    return idx === -1 ? undefined : this.variables[idx];
   }
 
   private _buildParamArgs(metas: ParamMeta[]): unknown[] {

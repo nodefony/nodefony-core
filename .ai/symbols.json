@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-14T14:28:21.661Z",
+  "generated": "2026-06-14T14:58:30.410Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 885,
-    "symbols": 1866,
+    "symbols": 1872,
     "classes": 273,
-    "interfaces": 472,
+    "interfaces": 475,
     "types": 237,
     "enums": 3,
-    "functions": 383,
+    "functions": 386,
     "constants": 498
   },
   "symbols": {
@@ -4736,6 +4736,24 @@
       "module": "@nodefony/framework",
       "extends": null
     },
+    "SecurityClause": {
+      "name": "SecurityClause",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Une clause `@IsGranted` : un OU plusieurs attributs (OR interne), sujet optionnel. `@IsGranted(\"ROLE_ADMIN\")` → `{ anyOf: [\"ROLE_ADMIN\"] }` ; `@IsGranted([\"A\",\"B\"])` → `{ anyOf: [\"A\",\"B\"] }` (un se…"
+    },
+    "SecurityRequirement": {
+      "name": "SecurityRequirement",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Exigence d'autorisation **figée** d'une action — calculée UNE fois par route (fusion classe + méthode) puis gelée sur `RouteActionMeta.security`. Objet PARTAGÉ entre toutes les requêtes : ne jamais…"
+    },
     "IParamArgContext": {
       "name": "IParamArgContext",
       "kind": "interface",
@@ -4861,6 +4879,22 @@
       "module": "@nodefony/framework",
       "description": "Résout l'intent de session effectif d'une action — lu par le `Resolver` au match, posé sur `context.sessionIntent`, consommé au point d'activation unique (`HttpKernel.startSession`). Combine `@UseS…"
     },
+    "IsGranted": {
+      "name": "IsGranted",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Exige une autorisation pour l'action (décorateur de **méthode**) ou tout le contrôleur (décorateur de **classe**). - `@IsGranted(\"ROLE_ADMIN\")` — un attribut (rôle `ROLE_*`, permission, ou attribut…"
+    },
+    "Anonymous": {
+      "name": "Anonymous",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Déclare une action (méthode) ou un contrôleur (classe) **publique** : skip l'autorisation (override un `@IsGranted` de classe sur cette méthode) ET skip l'authentification (réutilise le mécanisme `…"
+    },
     "Body": {
       "name": "Body",
       "kind": "function",
@@ -4898,8 +4932,7 @@
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
-      "module": "@nodefony/framework",
-      "description": "P5 — Calcule le {@link RouteActionMeta} d'un couple (controller, action) par lecture `Reflect`. Fonction PURE (pas de memo) : utilisée par {@link resolveActionMeta} (routes, mémoïsé) et par le `Res…"
+      "module": "@nodefony/framework"
     },
     "resolveActionMeta": {
       "name": "resolveActionMeta",
@@ -15016,6 +15049,12 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
+      "IsGranted": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "Anonymous": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
       "Scope": [
         "src/packages/@nodefony/framework/index.ts",
         "src/nodefony/src/command/Command.ts",
@@ -15747,6 +15786,7 @@
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
@@ -16265,8 +16305,10 @@
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
@@ -16854,6 +16896,9 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "IParamArgContext": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "SecurityRequirement": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "compileDomainPatterns": [
