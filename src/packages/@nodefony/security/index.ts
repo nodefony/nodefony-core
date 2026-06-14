@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import config from "./nodefony/config/config";
 import Firewall from "./nodefony/service/firewall";
 import AuthFlow from "./nodefony/service/authFlow";
+import TokenService from "./nodefony/service/tokenService";
 
 /**
  * `@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6).
@@ -19,7 +20,7 @@ import AuthFlow from "./nodefony/service/authFlow";
  * Jwt/oauth2/mtls/apikey, CORS, CSRF, autorisation par décorateurs et data
  * plane Studio arrivent aux sessions suivantes (plan J0→J10).
  */
-@services([Firewall, AuthFlow])
+@services([Firewall, AuthFlow, TokenService])
 class Security extends Module {
   constructor(kernel: Kernel) {
     super("security", kernel, fileURLToPath(import.meta.url), config);
@@ -31,7 +32,9 @@ export default Security;
 // ─── Services / classes runtime ──────────────────────────────────────────────
 export { Firewall };
 export { AuthFlow };
+export { TokenService };
 export type { ISafeUser } from "./nodefony/service/authFlow";
+export type { ITokenResponse } from "./nodefony/service/tokenService";
 export { SecuredArea } from "./nodefony/src/SecuredArea";
 export { Csrf } from "./nodefony/service/csrf";
 export { RoleHierarchyWalker } from "./nodefony/src/RoleHierarchyWalker";
@@ -42,6 +45,7 @@ export { UserToken } from "./nodefony/src/token/UserToken";
 export { AnonymousAuthenticator } from "./nodefony/src/authenticator/AnonymousAuthenticator";
 export { UserPasswordAuthenticator } from "./nodefony/src/authenticator/UserPasswordAuthenticator";
 export { SessionAuthenticator } from "./nodefony/src/authenticator/SessionAuthenticator";
+export { JwtAuthenticator } from "./nodefony/src/authenticator/JwtAuthenticator";
 export {
   registerAuthenticatorFactory,
   getAuthenticatorFactory,
@@ -56,6 +60,9 @@ export type {
 export { MemoryTokenStore } from "./nodefony/src/token/MemoryTokenStore";
 export type { TokenStoreSnapshot } from "./nodefony/src/token/MemoryTokenStore";
 export { FileTokenStore } from "./nodefony/src/token/FileTokenStore";
+export { JwtKeystore } from "./nodefony/src/token/JwtKeystore";
+export { resolveJwtRuntime } from "./nodefony/src/token/jwtRuntime";
+export type { IJwtRuntime } from "./nodefony/src/token/jwtRuntime";
 export {
   registerTokenStore,
   getTokenStoreFactory,
@@ -98,4 +105,6 @@ export type {
   ITokenUsage,
   IResourcePermission,
   TokenRevokeReason,
+  IJwtKeystore,
+  IJwtSigningKey,
 } from "./nodefony/contracts";

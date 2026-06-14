@@ -21,6 +21,21 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   reprise par le pipeline AVANT firewall) ; pas de `challenge()` (401 nu, pas de popup).
 - Endpoints HTTP : `SessionAuthController` (@nodefony/framework) `/nodefony/security/api/auth/
 {login,logout,me}` — montés à onKernelReady SI "authFlow" présent ; duck-typing code 401/429.
+- **JWT (J4)** — `JwtAuthenticator` ("jwt") : Bearer (RFC 6750), jose **lazy import**, `jwtVerify`
+  allowlist `["EdDSA"]`+issuer+audience+`typ:"at+jwt"` (RFC 8725 §3.1/3.8/3.9/3.11), denylist `jti` +
+  `invalidBefore` (révocation), `loadUserByIdentifier(sub)` (sub revalidé §3.10), `challenge()="Bearer"`.
+  Résout `jwtKeystore`/`tokenStore`/`users` LAZY du container. **UserToken réutilisé** (pas de JwtToken).
+- `JwtKeystore` (Ed25519) : source PRIORISÉE env (`keystore.keySetJson`) → fichier (`keystore.dir/
+keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère). `kid`=thumbprint RFC 7638.
+  JWKS public via `createLocalJWKSet` (jamais `jku`/`jwk` header — §3.5) — JAMAIS `d`. Lazy async mémoïsé.
+  ⚠️ jose v6 : `generateKeyPair("Ed25519",{extractable:true})` (pas `"EdDSA"`) ; header/verify = `"EdDSA"`.
+- `TokenService` (service "tokenService", J4) : `issueForCredentials`(password grant → access JWT +
+  refresh opaque **haché sha256** stocké), `refresh`(rotation + **reuse detection** RFC 9700 §4.14 →
+  `revokeFamily`), downscoping (scopes ne montent jamais). **Orchestrateur du seam `ITokenStore.gc()`** :
+  `runGc()` PUBLIC + timer `setInterval(base).unref()` à **phase jittérée** (`onBoot`/`onTerminate`) ;
+  `gcIntervalS:0` délègue à un ordonnanceur externe (cron P5.0b). Pose `tokenStore`+`jwtKeystore` container.
+- Endpoints JWT : `TokenAuthController` (@nodefony/framework) `/nodefony/security/api/token{,/refresh}`
+  (`bypassFirewall`, montés si "tokenService"). Réponse RFC 6749 §5.1 (Bearer JSON, JAMAIS cookie/URL).
 - Contrats : `IToken` (getUser/isAuthenticated/getRoles/getCredentials/**getScopes**/get-setAttribute),
   `IAuthenticator` (supports/createToken/authenticate/onSuccess/onFailure), `ISecuredArea`, `IFirewall`,
   `IAccessVoter` + `VoterVote` (GRANT/DENY/ABSTAIN).
@@ -32,6 +47,8 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   areas, cors, csrf, headers, rateLimit, jwt, apiKeys, webhooks, audit, studio. Tout `enabled` (désactivable).
 - `securityConfigJsonSchema()` = `z.toJSONSchema(schema)` → **Studio génère son formulaire**.
 - `config.ts` = défauts SÛRS ENTIÈREMENT commentés (réf humaine). Zones : champ `host?` (vhost).
+- `tokenStore` (J4) : `{driver:"memory", gcIntervalS:600, gcJitter:true, retentionRevokedDays:30}` —
+  store de jetons pluggable. `jwt.{issuer?, keystore:{keySetJson?,dir?}}` (issuer omis → `"nodefony"`).
 - Défauts : Zero Trust, CORS strict (jamais `*`+credentials), headers natifs (avancés COOP/COEP/CORP optionnels),
   Studio `enabled:false`/`exposure:localhost`.
 
@@ -39,7 +56,7 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
 
 - `areas: {}` (défaut) → firewall = no-op (perf max). Zone protégée + anonyme → 401.
 - `authenticators` = schéma OUVERT (`z.string()`) → plugins (apikey/ldap) sans éditer le core ; validés au runtime.
-- En-têtes = **natif** (pas helmet). JWT = jose (S3), OAuth = arctic (S6), bcrypt = `@nodefony/user`.
+- En-têtes = **natif** (pas helmet). JWT = jose **(J4 ✅, EdDSA)**, OAuth = arctic (S6), bcrypt = `@nodefony/user`.
 
 ## Gotchas
 

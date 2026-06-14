@@ -128,7 +128,25 @@ export default {
       refreshTtlS: 604800, //    durée refresh token. Défaut: 604800 (7 jours).
       rotateRefresh: true, //    rotation du refresh à chaque usage (OWASP). Défaut: true.
       jwks: true, //             expose JWKS + `kid` (rotation de clés). Défaut: true.
-      audiences: [], //          claims `aud` acceptés (RFC 8707). Vide = audience de l'app. Validation OBLIGATOIRE.
+      audiences: [], //          claims `aud` acceptés (RFC 8707). Vide = audience de l'app (= issuer). Validation OBLIGATOIRE.
+      // issuer: "https://api.exemple.com", // claim `iss`. Omis = dérivé du domaine de l'app au boot.
+      keystore: {
+        // Source du matériel de signature (priorité) : env → fichier → mémoire+warn.
+        // keySetJson: env.NF_JWT_KEYSET, // JWK Set injecté depuis l'env (prod). SECRET.
+        // dir: "var/security",           // persistance keyset.json (chmod 600), opt-in dev/VPS.
+        // (rien) → clé éphémère en mémoire + warning : refresh non durables au restart.
+      },
+    },
+
+    // ══════════════════ STORE DE JETONS (refresh / PAT / denylist) ══════════════════
+    // État serveur des jetons longue durée : un access JWT (15 min) est auto-porté et
+    // non révocable avant son exp ; la révocation "révocable" (logout, ban, rotation)
+    // exige cet état. Pluggable comme les stores de session.
+    tokenStore: {
+      driver: "memory", //         memory|file|drizzle|mongoose|redis. Défaut: "memory" (dev/tests, volatile).
+      gcIntervalS: 600, //         purge des jetons expirés (s). 0 = off. Chaque process purge son store.
+      gcJitter: true, //           délai aléatoire anti-balayage-simultané (cluster). Défaut: true.
+      retentionRevokedDays: 30, // rétention d'un PAT révoqué sans exp (audit). Défaut: 30.
     },
 
     // ══════════════════ PASSKEYS (WebAuthn L3 / FIDO2) ══════════════════

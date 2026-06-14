@@ -13,3 +13,4 @@ export type {
   IResourcePermission,
   TokenRevokeReason,
 } from "./ITokenStore";
+export type { IJwtKeystore, IJwtSigningKey } from "./IJwtKeystore";

@@ -291,11 +291,71 @@ const jwtSchema = z
       .array(z.string())
       .default([])
       .describe(
-        "Audiences acceptées (claim `aud`, RFC 8707). Vide = l'audience de l'app. La validation d'audience est OBLIGATOIRE côté resource (RFC 9700).",
+        "Audiences acceptées (claim `aud`, RFC 8707). Vide = l'audience de l'app (= `issuer`). La validation d'audience est OBLIGATOIRE côté resource (RFC 9700).",
+      ),
+    issuer: z
+      .string()
+      .optional()
+      .describe(
+        "Émetteur (claim `iss`, RFC 7519). Omis = dérivé du domaine de l'app au boot. STABLE (ne pas changer après émission de refresh).",
+      ),
+    keystore: z
+      .object({
+        keySetJson: z
+          .string()
+          .optional()
+          .describe(
+            "JWK Set (clé(s) privée(s) Ed25519) injecté par l'app depuis son env — SECRET, jamais loggé. Présent = source `env` (prod cloud).",
+          ),
+        dir: z
+          .string()
+          .optional()
+          .describe(
+            "Dossier de persistance `keyset.json` (chmod 600), généré si absent — opt-in dev/VPS. Sans `keySetJson` ni `dir` = clé ÉPHÉMÈRE en mémoire + warning (refresh non durables).",
+          ),
+      })
+      .default(() => ({}))
+      .describe(
+        "Source du matériel de signature JWT (priorité) : env (`keySetJson`) → fichier (`dir`) → mémoire+warn. SecretProvider (Vault/KMS) = P16.",
       ),
   })
   .describe(
     "JWT — réservé API service↔service / agents (le web/navigateur utilise la session BFF).",
+  );
+
+const tokenStoreSchema = z
+  .object({
+    driver: z
+      .string()
+      .default("memory")
+      .describe(
+        "Store de jetons (refresh/PAT/denylist) : memory|file|drizzle|mongoose|redis. Pluggable (`registerTokenStore`). Memory = dev/tests (volatile, non partagé).",
+      ),
+    gcIntervalS: z
+      .number()
+      .int()
+      .min(0)
+      .default(600)
+      .describe(
+        "Intervalle de purge des jetons expirés (s). 0 = désactivé. CHAQUE process purge son store (un store local DOIT être purgé par process).",
+      ),
+    gcJitter: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Étale le gc d'un délai aléatoire (0..interval) par process — évite les balayages simultanés sur un store partagé en cluster.",
+      ),
+    retentionRevokedDays: z
+      .number()
+      .int()
+      .min(0)
+      .default(30)
+      .describe(
+        "Rétention (jours) d'un PAT révoqué SANS expiration (fenêtre d'audit) avant purge.",
+      ),
+  })
+  .describe(
+    "Store de jetons serveur (refresh, PAT, denylist `jti`, seuil de révocation par porteur) + maintenance gc.",
   );
 
 const passkeysSchema = z
@@ -432,6 +492,7 @@ const securityConfigSchema = z.object({
   headers: headersSchema.default(() => headersSchema.parse({})),
   rateLimit: rateLimitSchema.default(() => rateLimitSchema.parse({})),
   jwt: jwtSchema.default(() => jwtSchema.parse({})),
+  tokenStore: tokenStoreSchema.default(() => tokenStoreSchema.parse({})),
   passkeys: passkeysSchema.default(() => passkeysSchema.parse({})),
   tokenExchange: tokenExchangeSchema.default(() =>
     tokenExchangeSchema.parse({}),

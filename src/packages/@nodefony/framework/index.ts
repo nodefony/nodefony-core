@@ -17,6 +17,9 @@ import AdminApiController from "./nodefony/src/AdminApiController";
 import SessionAuthController, {
   mountSessionAuthRoutes,
 } from "./nodefony/src/SessionAuthController";
+import TokenAuthController, {
+  mountTokenAuthRoutes,
+} from "./nodefony/src/TokenAuthController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
@@ -138,6 +141,11 @@ class Framework extends Module {
     if (this.kernel?.container?.get("authFlow")) {
       mountSessionAuthRoutes(this);
     }
+    // P6 J4 — émission/rotation JWT : routes montées seulement si le service
+    // `tokenService` est présent (security chargé + JWT activé). 404 sinon.
+    if (this.kernel?.container?.get("tokenService")) {
+      mountTokenAuthRoutes(this);
+    }
     return this;
   }
 }
@@ -161,6 +169,8 @@ export {
   AdminApiController,
   SessionAuthController,
   mountSessionAuthRoutes,
+  TokenAuthController,
+  mountTokenAuthRoutes,
   createKernelAdminApi,
   createFrameworkAdminApi,
   createSyslogAdminApi,

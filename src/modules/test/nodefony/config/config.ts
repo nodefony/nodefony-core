@@ -39,6 +39,14 @@ export default {
         // défauts : security: true (Zero Trust), mode: "first",
         // stateless: false (session BFF).
       },
+      // P6 J4 — zone API M2M : JWT Bearer (RFC 6750) UNIQUEMENT, pas de session.
+      // Un access token s'obtient via POST /nodefony/security/api/token (grant
+      // credential), puis `Authorization: Bearer <token>` sur /nodefony/test/m2m/*.
+      "test-api": {
+        pattern: "^/nodefony/test/m2m",
+        authenticators: ["jwt"],
+        stateless: true, // stateless : pas de session, identité 100 % portée par le JWT.
+      },
     },
   },
 };

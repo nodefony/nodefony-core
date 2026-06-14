@@ -23,6 +23,7 @@ const external: string[] = [
   "@nodefony/framework",
   "@nodefony/user",
   "zod",
+  "jose",
   "tslib",
 ];
 

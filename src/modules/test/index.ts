@@ -26,6 +26,8 @@ import PocInvokeController from "./nodefony/poc/PocInvokeController";
 import PocBookResourceController from "./nodefony/poc/PocBookResourceController";
 // P6 J1 — banc ZONE PROTÉGÉE (dossier secure/ = préfixe /secure = zone "test-secure").
 import SecureController from "./nodefony/secure/SecureController";
+// P6 J4 — banc ZONE API M2M (JWT Bearer, zone "test-api", /nodefony/test/m2m).
+import ApiM2mController from "./nodefony/secure/ApiM2mController";
 import {
   InMemoryUserRepository,
   SECURE_TEST_USERS,
@@ -62,6 +64,8 @@ registerDolibarrEntities("default");
   DbController,
   // P6 — banc zone protégée (firewall, routes /nodefony/test/secure/*)
   SecureController,
+  // P6 J4 — banc zone API M2M (JWT Bearer, /nodefony/test/m2m/*)
+  ApiM2mController,
   // POC API souveraine (JETABLE)
   PocBookController,
   PocInvokeController,

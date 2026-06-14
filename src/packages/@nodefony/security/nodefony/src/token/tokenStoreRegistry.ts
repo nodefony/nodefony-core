@@ -58,4 +58,11 @@ export function listTokenStores(): string[] {
 }
 
 // ─── Builtin sans dépendance — enregistré à l'import du module ────────────────
-registerTokenStore("memory", () => new MemoryTokenStore());
+// Défensif : la rétention vient de la config si fournie, sinon le défaut du store
+// (30 j) — le builtin ne doit jamais crasher s'il est fabriqué sans config.
+registerTokenStore("memory", (ctx) => {
+  const days = ctx?.config?.tokenStore?.retentionRevokedDays;
+  return typeof days === "number"
+    ? new MemoryTokenStore(Date.now, days * 86_400_000)
+    : new MemoryTokenStore();
+});

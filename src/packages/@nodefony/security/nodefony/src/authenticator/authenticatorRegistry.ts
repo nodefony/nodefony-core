@@ -5,6 +5,8 @@ import type { ISecurityConfig } from "../../config/defineSecurityConfig";
 import { AnonymousAuthenticator } from "./AnonymousAuthenticator";
 import { SessionAuthenticator } from "./SessionAuthenticator";
 import { UserPasswordAuthenticator } from "./UserPasswordAuthenticator";
+import { JwtAuthenticator } from "./JwtAuthenticator";
+import { resolveJwtRuntime } from "../token/jwtRuntime";
 import type { LoginThrottler } from "../throttle/LoginThrottler";
 
 /**
@@ -101,4 +103,12 @@ registerAuthenticatorFactory("session", ({ container }) => {
     }
     return provider;
   });
+});
+
+registerAuthenticatorFactory("jwt", ({ container, config }) => {
+  // JWT Bearer (P6 J4) : API service↔service / agents. Le keystore + le store
+  // de jetons sont posés au container par le TokenService au boot ; résolution
+  // lazy dans l'instance (cold path). Les paramètres iss/aud/ttl sont dérivés de
+  // la config (mêmes valeurs que l'émetteur via `resolveJwtRuntime`).
+  return new JwtAuthenticator(container, resolveJwtRuntime(config.jwt));
 });
