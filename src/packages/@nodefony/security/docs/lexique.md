@@ -101,13 +101,41 @@ audience: dev
 | **allowlist/denylist**  | liste blanche / noire    | Allowlist = « seulement ceux-ci » (algos acceptés) ; denylist = « tous sauf » (`jti` révoqués). En sécu, préférer l'allowlist.                                            |
 | **`__Host-`**           | préfixe de nom de cookie | Le navigateur refuse `__Host-x` sans `Secure` + `Path=/` + sans `Domain` → cookie cloué à l'hôte exact (anti sous-domaine pirate). Nodefony : la **session**, pas le JWT. |
 
-## Autorisation
+## Autorisation (qui a le droit de faire quoi)
 
-| Sigle     | Développé                      | En clair                                                                                                       |
-| --------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **RBAC**  | Role-Based Access Control      | Droits par RÔLES (`ROLE_ADMIN` peut X). Simple, couvre 80 % des besoins.                                       |
-| **ABAC**  | Attribute-Based Access Control | Droits par ATTRIBUTS contextuels (le propriétaire du document peut le modifier) → les voters.                  |
-| **Voter** | —                              | Petit juge spécialisé : pour une décision donnée, il vote GRANT / DENY / ABSTAIN. Un seul DENY = refus (veto). |
+> **authn ≠ authz.** L'**authentification** (authn) répond « QUI es-tu ? » (le firewall, le login).
+> L'**autorisation** (authz) répond « as-tu le DROIT de faire ça ? » (les voters, `@IsGranted`).
+> On peut être authentifié ET refusé (un `user` connecté sur une route `ROLE_ADMIN` → **403**, pas 401).
+
+| Sigle / terme                       | Développé                      | En clair                                                                                                                                                                                                    |
+| ----------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RBAC**                            | Role-Based Access Control      | Droits par RÔLES (`ROLE_ADMIN` peut X). Simple, couvre 80 % des besoins. Niveau **A** chez Nodefony (`RoleVoter`).                                                                                          |
+| **ABAC**                            | Attribute-Based Access Control | Droits par ATTRIBUTS contextuels (le **propriétaire** du document peut le modifier) → les voters reçoivent le `subject`. Niveau **C**.                                                                      |
+| **Voter**                           | « votant / juré »              | Petit juge spécialisé : pour une décision donnée il rend **un** verdict parmi 3 (GRANT / DENY / ABSTAIN). On en empile autant qu'on veut (rôles, propriété, horaires…), chacun sur son domaine.             |
+| **GRANT / DENY / ABSTAIN**          | accorde / refuse / s'abstient  | Les 3 verdicts d'un voter. **ABSTAIN** = « pas mon rayon » (ne compte pas). C'est la combinaison des votes qui tranche, pas un seul.                                                                        |
+| **`AuthorizationService.decide()`** | —                              | Le **juge en chef** (`authorization.ts`, J6) : interroge tous les voters et applique la stratégie de vote → un seul booléen GRANT/DENY.                                                                     |
+| **Stratégie affirmative**           | —                              | « **un seul GRANT suffit** » (tant qu'aucun DENY) — la stratégie de `decide()`. Permissive sur l'accord, stricte sur le refus.                                                                              |
+| **Veto (DENY)**                     | —                              | « **un seul DENY refuse tout** », même si d'autres votent GRANT. Le refus l'emporte toujours (sécurité d'abord).                                                                                            |
+| **Default DENY**                    | refus par défaut               | Tous ABSTAIN, ou **zéro** voter, ou aucun GRANT → **refusé** (Zero Trust). Il faut un OUI explicite, le silence ne suffit pas.                                                                              |
+| **Fail-closed (voter)**             | « échoue fermé »               | Si un voter **plante** (throw) → compté comme DENY + log ERROR, jamais une 500 qui laisserait passer. L'erreur ne doit jamais ouvrir la porte (cf lexique global `fail-closed`).                            |
+| **`voterRegistry`**                 | registre de voters             | Fabrique pluggable (convention-frère de `authenticatorRegistry`) : on **ajoute** un voter sans toucher `decide()`. Le futur `PermissionVoter` (RBAC ORM, niveau B/J6b) s'y branchera.                       |
+| **`RoleVoter`**                     | —                              | Le voter niveau **A** : GRANT si le token porte le rôle demandé (via `RoleHierarchyWalker`), ABSTAIN sinon — **jamais de veto** (il ne bloque pas les attributs qu'il ne connaît pas).                      |
+| **Attribute**                       | attribut (de décision)         | La chose demandée passée à `decide()` : un rôle (`ROLE_ADMIN`), une permission (`post:edit`)… Ne PAS confondre avec l'ABAC « attribut contextuel » (le `subject`).                                          |
+| **Subject**                         | sujet / ressource ciblée       | L'objet **sur lequel** porte l'action (le document à éditer), passé au voter pour les règles ABAC (« est-il le propriétaire ? »). Optionnel — souvent un param de route via `@IsGranted(..., { subject })`. |
+
+## Décorateurs sécurité (panoplie J7)
+
+> Annotations posées sur un **controller** ou une **méthode d'action** (cf lexique global `décorateur`).
+> Ils vivent dans `@nodefony/framework` mais expriment des règles de sécurité ; le moteur d'autorisation
+> est appelé **par son nom** (0 cycle de dépendance). La **garde** s'exécute dans `Resolver.executeAction`,
+> AVANT d'instancier le controller → un refus court-circuite tout (403 sans rien allouer).
+
+| Décorateur         | Rôle                                                                                                                                                                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`@IsGranted`**   | « exige ce(s) droit(s) ». `@IsGranted("ROLE_ADMIN")`. **Empilés = ET** (toutes les conditions). **Tableau = OU** (`@IsGranted(["ROLE_A", "ROLE_B"])` → l'un OU l'autre). Absorbe `@HasAnyRole`/`@HasAllRoles`.                                                                              |
+| **`@Anonymous`**   | « route **publique** » : bypasse le firewall, et **annule** un `@IsGranted` posé au niveau de la classe. À déclarer explicitement (Zero Trust : sinon tout est fermé).                                                                                                                      |
+| **`@CurrentUser`** | Injecte l'utilisateur authentifié (lu dans l'ALS) **en paramètre** de l'action — pas besoin d'aller le chercher dans le contexte à la main.                                                                                                                                                 |
+| **Garde (guard)**  | La vérification elle-même : le code du Resolver qui lit les métadonnées `@IsGranted`, appelle `decide()`, et laisse passer (GRANT) ou lève **403** (DENY). **Une seule garde couvre tous les transports** (HTTP, WS `api.request`, forward) — c'est l'invariant « 1 garde = N transports ». |
 
 ## Organismes & textes
 
