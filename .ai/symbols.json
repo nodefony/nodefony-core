@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-14T07:32:25.905Z",
+  "generated": "2026-06-14T08:02:40.304Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 869,
-    "symbols": 1818,
-    "classes": 263,
-    "interfaces": 456,
+    "files": 871,
+    "symbols": 1827,
+    "classes": 264,
+    "interfaces": 458,
     "types": 233,
     "enums": 3,
-    "functions": 373,
-    "constants": 490
+    "functions": 375,
+    "constants": 494
   },
   "symbols": {
     "Cli": {
@@ -4505,6 +4505,72 @@
       "module": "@nodefony/drizzle",
       "description": "Table Drizzle de stockage des sessions (schema-as-code). Équivalent portable de l'entité session legacy : mêmes champs logiques (`session_id` PK, `context`, sacs `Attributes`/`flashBag`/`metaBag` e…"
     },
+    "DeniedJtiRow": {
+      "name": "DeniedJtiRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Forme plate d'une ligne de la denylist `jti`."
+    },
+    "SubjectRevocationRow": {
+      "name": "SubjectRevocationRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Forme plate d'une ligne de révocation par porteur."
+    },
+    "createTokenEntities": {
+      "name": "createTokenEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit les descripteurs d'entités du store de jetons pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : les tables sont statiques mais leur liaison à un…"
+    },
+    "registerTokenEntities": {
+      "name": "registerTokenEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Enregistre les entités du store de jetons dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée les tables au connect)."
+    },
+    "accessTokenTable": {
+      "name": "accessTokenTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Tables Drizzle du **store de jetons** `@nodefony/security` (schema-as-code) — implémentation SQL d'`ITokenStore` (PAT, refresh, denylist `jti`, seuil de révocation en masse). Driver `better-sqlite3…"
+    },
+    "deniedJtiTable": {
+      "name": "deniedJtiTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Denylist des access tokens (`jti`) révoqués avant leur `exp` — révocation immédiate ciblée. Purgée par `gc` une fois `expiresAt` (epoch ms) dépassé."
+    },
+    "subjectRevocationTable": {
+      "name": "subjectRevocationTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Seuil de révocation **en masse** par porteur : tout access auto-porté émis avant `invalidBefore` (epoch ms) est rejeté (logout global / ban)."
+    },
+    "TOKEN_ENTITY_NAMES": {
+      "name": "TOKEN_ENTITY_NAMES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Noms logiques des entités du store (clés de lookup `getRepository`)."
+    },
     "UserRow": {
       "name": "UserRow",
       "kind": "interface",
@@ -4572,6 +4638,19 @@
       "implements": [],
       "decorators": [],
       "description": "Service bootable du module `@nodefony/drizzle`. Au boot du kernel (`onBoot`), instancie un {@link DrizzleOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le connecte ; chaque OR…"
+    },
+    "DrizzleTokenStore": {
+      "name": "DrizzleTokenStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "ITokenStore"
+      ],
+      "decorators": [],
+      "description": "Store de jetons **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link ITokenStore} au-dessus de trois repositories `@nodefony/orm-core` (`access_token`, `denied_jti`, `subject_revocat…"
     },
     "DrizzleUserRepository": {
       "name": "DrizzleUserRepository",
@@ -13601,6 +13680,10 @@
         "DrizzleUserRepository",
         "MongooseUserRepository"
       ],
+      "ITokenStore": [
+        "DrizzleTokenStore",
+        "MemoryTokenStore"
+      ],
       "ISessionStorage": [
         "SessionStorage",
         "SessionStorage",
@@ -13726,9 +13809,6 @@
       "IToken": [
         "AnonymousToken",
         "UserToken"
-      ],
-      "ITokenStore": [
-        "MemoryTokenStore"
       ],
       "IPasswordEncoder": [
         "Argon2idEncoder",
@@ -14273,6 +14353,7 @@
       "DrizzleOrm": [
         "src/modules/mediasoup/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"
       ],
       "MediasoupController": [
@@ -15806,6 +15887,7 @@
       ],
       "entityRegistry": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
@@ -15817,6 +15899,7 @@
       ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
@@ -16086,6 +16169,15 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts"
       ],
+      "IResourcePermission": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts"
+      ],
+      "TokenRevokeReason": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
       "ISocialProvider": [
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
@@ -16107,6 +16199,7 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "IRepository": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
@@ -16119,6 +16212,30 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "IAccessTokenRecord": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "ITokenStore": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
+      ],
+      "ITokenUsage": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "TOKEN_ENTITY_NAMES": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts"
+      ],
+      "DeniedJtiRow": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts"
+      ],
+      "SubjectRevocationRow": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts"
       ],
       "RepositoryReadOptions": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -18595,22 +18712,6 @@
       ],
       "TokenStoreSnapshot": [
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts"
-      ],
-      "IAccessTokenRecord": [
-        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
-      ],
-      "ITokenUsage": [
-        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
-      ],
-      "TokenRevokeReason": [
-        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
-      ],
-      "ITokenStore": [
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
       ],
       "Argon2idEncoder": [
         "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"

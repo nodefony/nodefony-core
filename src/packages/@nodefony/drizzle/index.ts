@@ -115,3 +115,21 @@ export {
 } from "./nodefony/entity/userTable";
 export type { UserRow } from "./nodefony/entity/userTable";
 export { DrizzleUserRepository } from "./nodefony/src/DrizzleUserRepository";
+
+// ─── Store de jetons Drizzle (contrat ITokenStore de @nodefony/security, J4b) ─
+// Approche B : `@nodefony/security` n'est consommé qu'en `import type` (0 dép
+// runtime). PAS d'auto-register — l'application câble `registerTokenStore` +
+// `registerTokenEntities(orm)` (l'ORM choisi par l'app héberge les tables).
+export {
+  accessTokenTable,
+  deniedJtiTable,
+  subjectRevocationTable,
+  createTokenEntities,
+  registerTokenEntities,
+  TOKEN_ENTITY_NAMES,
+} from "./nodefony/entity/tokenEntity";
+export type {
+  DeniedJtiRow,
+  SubjectRevocationRow,
+} from "./nodefony/entity/tokenEntity";
+export { DrizzleTokenStore } from "./nodefony/src/DrizzleTokenStore";
