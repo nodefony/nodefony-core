@@ -6,6 +6,18 @@ import type {
 } from "../../contracts/ITokenStore";
 
 /**
+ * Instantané sérialisable de l'état d'un store en mémoire — base de la
+ * persistance fichier ({@link MemoryTokenStore.snapshot}/`restore`) et de
+ * l'inspection. Les index dérivés (par hash/famille/sujet) ne sont PAS
+ * sérialisés : ils sont reconstruits depuis `records` au `restore`.
+ */
+export interface TokenStoreSnapshot {
+  records: IAccessTokenRecord[];
+  deniedJti: Array<[string, number]>;
+  invalidBefore: Array<[string, number]>;
+}
+
+/**
  * Store de jetons **en mémoire** — implémentation de référence d'{@link ITokenStore}.
  *
  * 0 dépendance, idéale pour le développement mono-process et les **tests**. NON
@@ -179,6 +191,41 @@ export class MemoryTokenStore implements ITokenStore {
       record.expiresAt === null &&
       record.revokedAt + this.#retentionRevokedMs <= now
     );
+  }
+
+  // ── Persistance (snapshot / restore) ─────────────────────────────────────────
+
+  /** Instantané sérialisable de l'état courant (records + denylist + seuils). */
+  snapshot(): TokenStoreSnapshot {
+    return {
+      records: [...this.#byId.values()],
+      deniedJti: [...this.#deniedJti.entries()],
+      invalidBefore: [...this.#invalidBefore.entries()],
+    };
+  }
+
+  /** Remplace l'état par celui d'un instantané (reconstruit les index dérivés). */
+  restore(snapshot: TokenStoreSnapshot): void {
+    this.#byId.clear();
+    this.#idByHash.clear();
+    this.#idsByFamily.clear();
+    this.#idsBySubject.clear();
+    this.#deniedJti.clear();
+    this.#invalidBefore.clear();
+    for (const record of snapshot.records) {
+      this.#byId.set(record.id, record);
+      this.#idByHash.set(record.secretHash, record.id);
+      this.#addToIndex(this.#idsBySubject, record.subjectId, record.id);
+      if (record.family) {
+        this.#addToIndex(this.#idsByFamily, record.family, record.id);
+      }
+    }
+    for (const [jti, expiresAt] of snapshot.deniedJti) {
+      this.#deniedJti.set(jti, expiresAt);
+    }
+    for (const [subjectId, ts] of snapshot.invalidBefore) {
+      this.#invalidBefore.set(subjectId, ts);
+    }
   }
 
   // ── Internes ─────────────────────────────────────────────────────────────────

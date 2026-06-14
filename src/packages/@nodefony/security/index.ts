@@ -54,6 +54,8 @@ export type {
 
 // ─── Store de jetons (PAT / refresh / denylist) + registre pluggable ─────────
 export { MemoryTokenStore } from "./nodefony/src/token/MemoryTokenStore";
+export type { TokenStoreSnapshot } from "./nodefony/src/token/MemoryTokenStore";
+export { FileTokenStore } from "./nodefony/src/token/FileTokenStore";
 export {
   registerTokenStore,
   getTokenStoreFactory,

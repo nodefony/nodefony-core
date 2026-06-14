@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-14T07:24:27.071Z",
+  "generated": "2026-06-14T07:32:25.905Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 868,
-    "symbols": 1816,
-    "classes": 262,
-    "interfaces": 455,
+    "files": 869,
+    "symbols": 1818,
+    "classes": 263,
+    "interfaces": 456,
     "types": 233,
     "enums": 3,
     "functions": 373,
@@ -12854,6 +12854,17 @@
       "decorators": [],
       "description": "Token du visiteur non authentifié — Zero Trust : un visiteur EST un utilisateur anonyme (jamais `null`). Porte le singleton gelé `anonymousUser` → **zéro allocation d'utilisateur** par requête non …"
     },
+    "FileTokenStore": {
+      "name": "FileTokenStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "MemoryTokenStore",
+      "implements": [],
+      "decorators": [],
+      "description": "Store de jetons **sur fichier** (JSON) — `MemoryTokenStore` + persistance. Étend la référence mémoire : toute la logique (records, denylist, révocation en masse, gc, reuse detection) est héritée ; …"
+    },
     "MemoryTokenStore": {
       "name": "MemoryTokenStore",
       "kind": "class",
@@ -12866,6 +12877,15 @@
       ],
       "decorators": [],
       "description": "Store de jetons **en mémoire** — implémentation de référence d'{@link ITokenStore}. 0 dépendance, idéale pour le développement mono-process et les **tests**. NON partagée entre process (pas de clus…"
+    },
+    "TokenStoreSnapshot": {
+      "name": "TokenStoreSnapshot",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Instantané sérialisable de l'état d'un store en mémoire — base de la persistance fichier ({@link MemoryTokenStore.snapshot}/`restore`) et de l'inspection. Les index dérivés (par hash/famille/sujet)…"
     },
     "ITokenStoreFactoryContext": {
       "name": "ITokenStoreFactoryContext",
@@ -13512,6 +13532,9 @@
       ],
       "IBackplaneMessage": [
         "ClusterBackplaneEnvelope"
+      ],
+      "MemoryTokenStore": [
+        "FileTokenStore"
       ],
       "Context": [
         "HttpContext",
@@ -18566,20 +18589,27 @@
       "UserRealtimeToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
       ],
+      "MemoryTokenStore": [
+        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
+      ],
+      "TokenStoreSnapshot": [
+        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts"
+      ],
       "IAccessTokenRecord": [
+        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "ITokenUsage": [
+        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "TokenRevokeReason": [
+        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "ITokenStore": [
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
-      ],
-      "ITokenUsage": [
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
-      ],
-      "TokenRevokeReason": [
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
-      ],
-      "MemoryTokenStore": [
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
       ],
       "Argon2idEncoder": [
