@@ -509,6 +509,16 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[3× — 2026-06-14]` **bancs E2E réels = seul moyen de voir les trous d'ASSEMBLAGE** (J8 socket — réaction
+  user « il manque plein de tests E2E !! »). 4 trous sécu trouvés en 1 session, **tous avec unit VERT** :
+  token WS sans `getUser()`, `realtime` opt-in fail-open, 403 garde → `-32603` opaque, JWT stateless
+  `getUser()=anonyme`. Un stub ne reproduit ni le token réel, ni l'ALS, ni le handshake. → **matrice E2E
+  `[transport(HTTP/WS) × mode d'auth(anon/session/jwt) × décision(grant/deny)]` comme GATE rempli AU FIL DE
+  L'EAU**, pas en clôture J10. ⚠️ **SEUIL 3× ATTEINT → à GRADUER en `feedback_*` au prochain CONSOLIDATE.**
+  Renforce [[feedback_security_audit_surface_matrix]].
+- `[1× — 2026-06-14]` **piège `tail -N` sur les logs serveur** : quand 2 bancs tapent le même serveur, `tail`
+  NOIE le banc B sous le banc A → m'a fait conclure 2× à tort « le firewall n'est pas appelé ». Utiliser un
+  **grep ciblé** (`grep -A1`, filtre par path/zone), jamais `tail` aveugle pour un diagnostic comparatif.
 - `[2× — 2026-06-13]` **l'intégration > l'unit pour un PONT inter-briques** (point du user, répété) : sur le
   verrou WS J3b, l'unit était 100 % vert mais l'intégration + le navigateur ont révélé **3 bugs invisibles à
   l'unit** : `handshake.url` ABSOLUE (`wss://host/path` → un matcher de zone `^/nodefony/…` ne résout jamais
