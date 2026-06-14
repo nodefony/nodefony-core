@@ -4,6 +4,7 @@ export type { IAuthenticator } from "./IAuthenticator";
 export type { ISecuredArea } from "./ISecuredArea";
 export type { IFirewall } from "./IFirewall";
 export type { IAccessVoter } from "./IAccessVoter";
+export type { IAuthorizationService } from "./IAuthorizationService";
 // VoterVote = enum (valeur runtime).
 export { VoterVote } from "./IAccessVoter";
 export type {

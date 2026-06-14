@@ -4,6 +4,7 @@ import config from "./nodefony/config/config";
 import Firewall from "./nodefony/service/firewall";
 import AuthFlow from "./nodefony/service/authFlow";
 import TokenService from "./nodefony/service/tokenService";
+import Authorization from "./nodefony/service/authorization";
 
 /**
  * `@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6).
@@ -20,7 +21,7 @@ import TokenService from "./nodefony/service/tokenService";
  * Jwt/oauth2/mtls/apikey, CORS, CSRF, autorisation par décorateurs et data
  * plane Studio arrivent aux sessions suivantes (plan J0→J10).
  */
-@services([Firewall, AuthFlow, TokenService])
+@services([Firewall, AuthFlow, TokenService, Authorization])
 class Security extends Module {
   constructor(kernel: Kernel) {
     super("security", kernel, fileURLToPath(import.meta.url), config);
@@ -33,6 +34,7 @@ export default Security;
 export { Firewall };
 export { AuthFlow };
 export { TokenService };
+export { Authorization };
 export type { ISafeUser } from "./nodefony/service/authFlow";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
 export { SecuredArea } from "./nodefony/src/SecuredArea";
@@ -40,6 +42,17 @@ export { Csrf } from "./nodefony/service/csrf";
 export { RoleHierarchyWalker } from "./nodefony/src/RoleHierarchyWalker";
 export { AnonymousToken } from "./nodefony/src/token/AnonymousToken";
 export { UserToken } from "./nodefony/src/token/UserToken";
+
+// ─── Autorisation (niveau C : voters + service) — registre pluggable ─────────
+export { RoleVoter } from "./nodefony/src/voter/RoleVoter";
+export {
+  registerVoterFactory,
+  listVoterFactories,
+} from "./nodefony/src/voter/voterRegistry";
+export type {
+  VoterFactory,
+  IVoterFactoryContext,
+} from "./nodefony/src/voter/voterRegistry";
 
 // ─── Authenticators + registre de fabriques (pluggable) ─────────────────────
 export { AnonymousAuthenticator } from "./nodefony/src/authenticator/AnonymousAuthenticator";
@@ -100,6 +113,7 @@ export type {
   ISecuredArea,
   IFirewall,
   IAccessVoter,
+  IAuthorizationService,
   IAccessTokenRecord,
   ITokenStore,
   ITokenUsage,

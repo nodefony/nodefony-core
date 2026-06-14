@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-14T13:22:04.239Z",
+  "generated": "2026-06-14T14:28:21.661Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 881,
-    "symbols": 1858,
-    "classes": 271,
-    "interfaces": 470,
-    "types": 236,
+    "files": 885,
+    "symbols": 1866,
+    "classes": 273,
+    "interfaces": 472,
+    "types": 237,
     "enums": 3,
-    "functions": 380,
+    "functions": 383,
     "constants": 498
   },
   "symbols": {
@@ -8022,6 +8022,15 @@
       "extends": null,
       "description": "Stratégie d'authentification — pattern « authenticator » : une classe = une façon de prouver qui on est. Pas de Bridge/Factory (héritage Passport/YAML abandonné). Une zone sécurisée ({@link ISecure…"
     },
+    "IAuthorizationService": {
+      "name": "IAuthorizationService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuthorizationService.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Service d'autorisation (niveau C de la sécurité, P6) — décide si un token a le droit d'effectuer une action (`attribute`) sur un sujet (`subject`). Distinct de l'authentification (firewall = *QUI e…"
+    },
     "IFirewall": {
       "name": "IFirewall",
       "kind": "interface",
@@ -8163,6 +8172,19 @@
       "module": "@nodefony/security",
       "extends": null,
       "description": "Projection PUBLIQUE de l'utilisateur — ce qui sort en JSON vers le client. Jamais l'entité brute : le hash (`IPasswordAuthenticatedUser.password`) ne doit traverser ni la sérialisation ni un log."
+    },
+    "Authorization": {
+      "name": "Authorization",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [
+        "IAuthorizationService"
+      ],
+      "decorators": [],
+      "description": "Service d'autorisation Nodefony (niveau C, P6 J6) — décide d'un accès via un jury de {@link IAccessVoter}. Stratégie **affirmative + DENY veto** : un seul `DENY` bloque (veto) ; sinon un `GRANT` su…"
     },
     "Csrf": {
       "name": "Csrf",
@@ -13243,6 +13265,52 @@
       "decorators": [],
       "description": "Jeton porteur d'un utilisateur réel — produit par les authenticators à credential (`userpassword`, puis `session`/`jwt`...). Cycle en deux états, UN SEUL objet alloué par tentative (cold path login…"
     },
+    "RoleVoter": {
+      "name": "RoleVoter",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IAccessVoter"
+      ],
+      "decorators": [],
+      "description": "Voter built-in **niveau A** — résout les attributs `ROLE_*` via la hiérarchie de rôles ({@link RoleHierarchyWalker}). Vote `GRANT` si l'utilisateur possède le rôle (hiérarchie résolue : `ROLE_ADMIN…"
+    },
+    "IVoterFactoryContext": {
+      "name": "IVoterFactoryContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Registre de **fabriques de voters** — alimente l'`AuthorizationService` au boot SANS qu'il connaisse le moindre voter en dur. Pourquoi un registre (et pas un scan DI « tous les `@injectable` implém…"
+    },
+    "VoterFactory": {
+      "name": "VoterFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un voter pour un nom donné."
+    },
+    "registerVoterFactory": {
+      "name": "registerVoterFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Enregistre (ou remplace) la fabrique d'un voter. Appelé par les builtins au chargement du module, et par les apps/plugins pour les leurs (`ProjectVoter`, `TenantVoter`…)."
+    },
+    "listVoterFactories": {
+      "name": "listVoterFactories",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Toutes les fabriques enregistrées (consommées par l'`AuthorizationService`)."
+    },
     "Argon2idEncoder": {
       "name": "Argon2idEncoder",
       "kind": "class",
@@ -13592,6 +13660,7 @@
         "RedisService",
         "Connection",
         "AuthFlow",
+        "Authorization",
         "Firewall",
         "TokenService",
         "ServerHttp",
@@ -13970,6 +14039,9 @@
       "IRagService": [
         "RagService"
       ],
+      "IAuthorizationService": [
+        "Authorization"
+      ],
       "IFirewall": [
         "Firewall"
       ],
@@ -14041,6 +14113,9 @@
       ],
       "IJwtKeystore": [
         "JwtKeystore"
+      ],
+      "IAccessVoter": [
+        "RoleVoter"
       ],
       "IPasswordEncoder": [
         "Argon2idEncoder",
@@ -14183,6 +14258,7 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -14231,6 +14307,7 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -14244,6 +14321,8 @@
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "FileClass": [
@@ -14279,6 +14358,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -14346,6 +14426,7 @@
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
@@ -14366,6 +14447,7 @@
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
@@ -14411,6 +14493,7 @@
         "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
@@ -14495,6 +14578,7 @@
         "src/nodefony/src/syslog/transports/LokiTransport.ts",
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
@@ -14551,6 +14635,7 @@
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -15364,6 +15449,9 @@
       "TokenService": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "Authorization": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "StudioController": [
         "src/packages/@nodefony/studio/index.ts"
       ],
@@ -15535,6 +15623,7 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
@@ -17315,13 +17404,16 @@
       "IToken": [
         "src/packages/@nodefony/security/nodefony/contracts/IAccessVoter.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IAuthorizationService.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
+        "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
       ],
       "IAuthenticator": [
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
@@ -17380,6 +17472,21 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts"
       ],
+      "VoterVote": [
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
+      ],
+      "IAccessVoter": [
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts"
+      ],
+      "IAuthorizationService": [
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts"
+      ],
+      "listVoterFactories": [
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts"
+      ],
       "encoderFromConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
@@ -17388,7 +17495,8 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "RoleHierarchyWalker": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
       ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -19036,6 +19144,9 @@
       ],
       "IJwtSigningKey": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "RoleVoter": [
+        "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts"
       ],
       "Argon2idEncoder": [
         "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"

@@ -335,3 +335,27 @@ describe("Firewall — bypassFirewall (route = mécanisme d'auth)", () => {
     );
   });
 });
+
+describe("Firewall — propagation ALS (seam autorisation J7)", () => {
+  // Le firewall pose le TOKEN complet dans l'ALS (pas seulement `user`) : les
+  // décorateurs @IsGranted (J7) et le verrou de frame WS y lisent rôles/scopes/
+  // attributs. Sans cette pose, l'autorisation n'a pas de quoi décider.
+  it("token authentifié résolu → présent dans l'ALS (rôles/scopes lisibles)", async () => {
+    const b = new SpyAuthenticator("b", {
+      supports: true,
+      ok: true,
+      user: fakeUser("carol"),
+    });
+    const firewall = makeFirewall(b);
+    const { context } = makeContext(area({ authenticators: ["b"] }));
+    await RequestContext.run({ requestId: "t-als-token" }, async () => {
+      await firewall.handleSecurity(context);
+      const token = RequestContext.get()?.token as IToken | undefined;
+      assert.ok(token, "token posé dans l'ALS");
+      assert.equal(token!.isAuthenticated(), true);
+      assert.equal(token!.getUser().identifier, "carol");
+      // `user` reste posé aussi (raccourci legacy).
+      assert.equal((RequestContext.getUser() as IUser).identifier, "carol");
+    });
+  });
+});

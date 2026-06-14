@@ -108,6 +108,9 @@ class Firewall extends Service implements IFirewall {
       return;
     }
     this.#roleHierarchy = new RoleHierarchyWalker(this.#config.roleHierarchy);
+    // Niveau A de l'autorisation partagé au container : le RoleVoter
+    // (AuthorizationService) le lit pour résoudre `ROLE_*`. Source unique.
+    this.container?.set("roleHierarchy", this.#roleHierarchy);
     this.#provisionSharedServices(this.#config);
 
     const areas = this.#config.areas;
@@ -305,6 +308,10 @@ class Firewall extends Service implements IFirewall {
     }
 
     RequestContext.set("user", token.getUser());
+    // Token complet dans l'ALS : l'autorisation (décorateurs @IsGranted, J7) et
+    // le verrou de frame WS y lisent rôles/scopes/attributs — `user` seul ne
+    // suffit pas (axe scopes ≠ rôles). Propagé sur tout le pipeline de la zone.
+    RequestContext.set("token", token);
 
     // Défense en profondeur : seul l'anonymat EXPLICITE (authenticator
     // `anonymous` listé dans la zone) autorise un token non authentifié.
