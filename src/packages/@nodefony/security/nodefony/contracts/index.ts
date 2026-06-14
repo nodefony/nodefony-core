@@ -6,3 +6,10 @@ export type { IFirewall } from "./IFirewall";
 export type { IAccessVoter } from "./IAccessVoter";
 // VoterVote = enum (valeur runtime).
 export { VoterVote } from "./IAccessVoter";
+export type {
+  IAccessTokenRecord,
+  ITokenStore,
+  ITokenUsage,
+  IResourcePermission,
+  TokenRevokeReason,
+} from "./ITokenStore";

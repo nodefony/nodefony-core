@@ -31,6 +31,23 @@ audience: dev
 | **DPoP**  | Demonstrating Proof of Possession | Jeton « menotté » au client : le porteur prouve qu'il détient une clé privée à chaque usage → un jeton volé seul ne sert à rien. (RFC 9449)                                                                               |
 | **PAT**   | Personal Access Token             | Clé API personnelle (style GitHub : `nf_xxx_secret`) — stockée hachée, affichée une seule fois.                                                                                                                           |
 
+## JWT — claims, signature & portée
+
+| Sigle               | Développé             | En clair                                                                                                                                                                                 |
+| ------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **JWS**             | JSON Web Signature    | La signature qui rend un JWT infalsifiable : la 3ᵉ partie (`en-tête.charge.SIGNATURE`).                                                                                                  |
+| **JWK**             | JSON Web Key          | Une clé cryptographique au format JSON. Une JWK **publique** ne contient jamais le paramètre privé `d`.                                                                                  |
+| **claim**           | revendication         | Une affirmation portée par le JWT. Standards (RFC 7519) : `iss` (émetteur), `sub` (sujet), `aud` (destinataire), `exp` (expire le), `nbf` (pas avant), `iat` (émis à), `jti` (n° série). |
+| **Bearer**          | « au porteur »        | Mode d'envoi `Authorization: Bearer <jwt>`. Quiconque le détient s'en sert (billet au porteur) → HTTPS + `exp` court obligatoires. Chez Nodefony le JWT voyage ainsi, jamais en cookie.  |
+| **EdDSA / Ed25519** | Edwards-curve DSA     | Algo de signature moderne (rapide, déterministe, clés de 32 o). **Défaut JWT** de Nodefony. Ed25519 = la courbe utilisée.                                                                |
+| **OKP**             | Octet Key Pair        | La famille de clé (`kty`) des courbes Edwards (Ed25519) au format JWK.                                                                                                                   |
+| **Refresh token**   | jeton de rafraîchiss. | Jeton long qui obtient un nouvel _access_ court sans re-login. Stocké serveur → **révocable** (≠ access auto-porté).                                                                     |
+| **Rotation**        | —                     | À chaque rafraîchissement : ancien refresh invalidé, nouveau émis (OWASP RFC 9700).                                                                                                      |
+| **Reuse detection** | détection de rejeu    | Un refresh déjà tourné qui resurgit = preuve de fuite → on révoque toute la **famille** de jetons.                                                                                       |
+| **Scope**           | portée                | Capacités accordées à UN jeton (`orders:read`), axe **distinct** des rôles → `@RequireScope`. Un PAT peut en avoir moins que son porteur.                                                |
+| **Downscoping**     | réduction de portée   | Un jeton n'accorde jamais plus que son porteur : création scopes ⊆ droits du user, usage scopes ∩ droits actuels.                                                                        |
+| **Least privilege** | moindre privilège     | N'accorder que le strict nécessaire : un PAT « lecture seule » d'un admin ne peut pas écrire.                                                                                            |
+
 ## Authentification
 
 | Sigle         | Développé                         | En clair                                                                                                                                                                                                      |
@@ -71,6 +88,15 @@ audience: dev
 | **CSP**            | Content-Security-Policy                | Liste blanche de ce que la page a le droit de charger/exécuter — l'anti-XSS structurel. Le « nonce » = jeton unique par requête qui signe les scripts légitimes.                   |
 | **HMAC**           | Hash-based Message Authentication Code | Signature symétrique d'un message avec un secret partagé — prouve l'origine ET l'intégrité (webhooks signés).                                                                      |
 | **CSPRNG**         | Cryptographically Secure PRNG          | Générateur d'aléa imprévisible (≠ `Math.random()`). Obligatoire pour les ID de session.                                                                                            |
+
+## Attaques JWT & durcissement cookie
+
+| Sigle                   | Développé                | En clair                                                                                                                                                                  |
+| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`alg=none`**          | —                        | Attaque JWT : un jeton déclare « aucune signature » ; une lib naïve l'accepte → usurpation totale. Défense : **allowlist** d'algos serveur, jamais l'`alg` reçu.          |
+| **Algorithm confusion** | substitution d'algo      | Attaque JWT : faire vérifier un RS256 comme un HS256 avec la clé **publique** en secret HMAC. Défense : 1 clé = 1 algo, fixé serveur.                                     |
+| **allowlist/denylist**  | liste blanche / noire    | Allowlist = « seulement ceux-ci » (algos acceptés) ; denylist = « tous sauf » (`jti` révoqués). En sécu, préférer l'allowlist.                                            |
+| **`__Host-`**           | préfixe de nom de cookie | Le navigateur refuse `__Host-x` sans `Secure` + `Path=/` + sans `Domain` → cookie cloué à l'hôte exact (anti sous-domaine pirate). Nodefony : la **session**, pas le JWT. |
 
 ## Autorisation
 

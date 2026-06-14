@@ -52,6 +52,18 @@ export type {
   IAuthenticatorFactoryContext,
 } from "./nodefony/src/authenticator/authenticatorRegistry";
 
+// ─── Store de jetons (PAT / refresh / denylist) + registre pluggable ─────────
+export { MemoryTokenStore } from "./nodefony/src/token/MemoryTokenStore";
+export {
+  registerTokenStore,
+  getTokenStoreFactory,
+  listTokenStores,
+} from "./nodefony/src/token/tokenStoreRegistry";
+export type {
+  TokenStoreFactory,
+  ITokenStoreFactoryContext,
+} from "./nodefony/src/token/tokenStoreRegistry";
+
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
 export { defineSecurityConfig } from "./nodefony/config/defineSecurityConfig";
 export type {
@@ -79,4 +91,9 @@ export type {
   ISecuredArea,
   IFirewall,
   IAccessVoter,
+  IAccessTokenRecord,
+  ITokenStore,
+  ITokenUsage,
+  IResourcePermission,
+  TokenRevokeReason,
 } from "./nodefony/contracts";

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-14T06:02:42.993Z",
+  "generated": "2026-06-14T07:24:27.071Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 865,
-    "symbols": 1805,
-    "classes": 261,
-    "interfaces": 450,
-    "types": 231,
+    "files": 868,
+    "symbols": 1816,
+    "classes": 262,
+    "interfaces": 455,
+    "types": 233,
     "enums": 3,
-    "functions": 370,
+    "functions": 373,
     "constants": 490
   },
   "symbols": {
@@ -7828,6 +7828,50 @@
       "extends": null,
       "description": "Jeton de sécurité — porte l'identité (authentifiée ou non) d'une requête. Produit par un {@link IAuthenticator}, propagé via ALS (`RequestContext`) pour tout le pipeline. Ne contient JAMAIS de cred…"
     },
+    "IResourcePermission": {
+      "name": "IResourcePermission",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Permission **fine-grained** sur une ressource (modèle GitHub fine-grained PAT). **Slot** : non exploité tant que les scopes simples suffisent ; la colonne existe dès maintenant pour éviter une migr…"
+    },
+    "@nodefony/security:ITokenUsage": {
+      "name": "ITokenUsage",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Contexte d'un usage de jeton (audit « last used »)."
+    },
+    "IAccessTokenRecord": {
+      "name": "IAccessTokenRecord",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Enregistrement d'un jeton persistant — un PAT (clé API style GitHub) ou un refresh token. Le secret n'est JAMAIS stocké en clair : seul `secretHash` vit ici (le secret high-entropy est affiché une …"
+    },
+    "ITokenStore": {
+      "name": "ITokenStore",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Contrat du store de jetons — implémentations enregistrées via `registerTokenStore`, sélectionnées par config. Toutes les opérations sont **asynchrones** (un backend ORM/Redis fait des I/O ; la réfé…"
+    },
+    "TokenRevokeReason": {
+      "name": "TokenRevokeReason",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "État serveur des jetons longue durée (PAT, refresh tokens), denylist des access tokens révoqués (`jti`) et seuil de révocation **en masse** par porteur. Pourquoi un store : un access token signé (J…"
+    },
     "AccessDeniedError": {
       "name": "AccessDeniedError",
       "kind": "class",
@@ -12810,6 +12854,60 @@
       "decorators": [],
       "description": "Token du visiteur non authentifié — Zero Trust : un visiteur EST un utilisateur anonyme (jamais `null`). Porte le singleton gelé `anonymousUser` → **zéro allocation d'utilisateur** par requête non …"
     },
+    "MemoryTokenStore": {
+      "name": "MemoryTokenStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "ITokenStore"
+      ],
+      "decorators": [],
+      "description": "Store de jetons **en mémoire** — implémentation de référence d'{@link ITokenStore}. 0 dépendance, idéale pour le développement mono-process et les **tests**. NON partagée entre process (pas de clus…"
+    },
+    "ITokenStoreFactoryContext": {
+      "name": "ITokenStoreFactoryContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Registre de **fabriques de stores de jetons** — résout le nom configuré (`security.tokenStore`) vers une instance d'{@link ITokenStore}, SANS coupler le cœur à un backend en dur. Pourquoi : le stor…"
+    },
+    "TokenStoreFactory": {
+      "name": "TokenStoreFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store de jetons pour un nom donné."
+    },
+    "registerTokenStore": {
+      "name": "registerTokenStore",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Enregistre (ou remplace) la fabrique d'un store de jetons. Appelée par le builtin `memory` au chargement, et par les adapters (drizzle/mongoose/redis) pour les leurs."
+    },
+    "getTokenStoreFactory": {
+      "name": "getTokenStoreFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store par nom, ou `undefined` si inconnu."
+    },
+    "listTokenStores": {
+      "name": "listTokenStores",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
+    },
     "UserToken": {
       "name": "UserToken",
       "kind": "class",
@@ -13606,6 +13704,9 @@
         "AnonymousToken",
         "UserToken"
       ],
+      "ITokenStore": [
+        "MemoryTokenStore"
+      ],
       "IPasswordEncoder": [
         "Argon2idEncoder",
         "BcryptEncoder",
@@ -13803,6 +13904,7 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "FileClass": [
@@ -16857,7 +16959,8 @@
       ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
       ],
       "getAuthenticatorFactory": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
@@ -18462,6 +18565,22 @@
       ],
       "UserRealtimeToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
+      ],
+      "IAccessTokenRecord": [
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "ITokenStore": [
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
+      ],
+      "ITokenUsage": [
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "TokenRevokeReason": [
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "MemoryTokenStore": [
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
       ],
       "Argon2idEncoder": [
         "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
