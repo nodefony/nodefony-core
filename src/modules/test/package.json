@@ -25,6 +25,7 @@
     "nodefony": "*",
     "@nodefony/http": "*",
     "@nodefony/framework": "*",
+    "@nodefony/realtime": "*",
     "@nodefony/user": "*"
   },
   "devDependencies": {

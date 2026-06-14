@@ -17,6 +17,15 @@ export interface IToken {
   /** Utilisateur porté — jamais `null` (AnonymousUser si non authentifié). */
   getUser(): IUser;
 
+  /**
+   * Identifiant logique de l'utilisateur (`"anonymous"`, `"admin"`…) — partagé
+   * avec `IRealtimeToken` (le token WS, sous-ensemble transport-neutre, n'a PAS
+   * `getUser()`). Le service `authorization` ne lit QUE ce commun → la garde
+   * `@IsGranted` fonctionne à l'identique sur HTTP et WebSocket (« 1 garde = N
+   * transports »).
+   */
+  getUserIdentifier(): string;
+
   /** `true` si l'authentification a réussi (≠ anonyme). */
   isAuthenticated(): boolean;
 

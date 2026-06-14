@@ -35,8 +35,13 @@ describe("SecuredArea — propagation des champs (J3b Étape 1)", () => {
     assert.equal(z.realtime, true);
   });
 
-  it("défaut : realtime=false (HTTP seul)", () => {
+  it("défaut : realtime=true (Zero Trust — la zone protégée ferme AUSSI le WS)", () => {
     const z = area({ areas: { app: { pattern: "^/app" } } });
+    assert.equal(z.realtime, true);
+  });
+
+  it("opt-out explicite : realtime=false (zone strictement HTTP)", () => {
+    const z = area({ areas: { app: { pattern: "^/app", realtime: false } } });
     assert.equal(z.realtime, false);
   });
 });

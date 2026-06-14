@@ -115,7 +115,10 @@ class Authorization extends Service implements IAuthorizationService {
     subject: unknown,
     reason: "veto" | "abstain" | "no-voter" | "error",
   ): void {
-    const who = token.getUser().identifier;
+    // `getUserIdentifier()` (PAS `getUser()`) : commun à IToken (HTTP) ET au
+    // token WS (`IRealtimeToken`, sans `getUser`). L'audit ne veut qu'un libellé
+    // → le service authz reste transport-agnostique (« 1 garde = N transports »).
+    const who = token.getUserIdentifier();
     const on = subject === undefined ? "" : ` on ${describeSubject(subject)}`;
     this.log(
       `access denied: "${who}" → "${attribute}"${on} (${reason})`,

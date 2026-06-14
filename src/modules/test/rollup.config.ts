@@ -32,6 +32,12 @@ const external: string[] = [
   "drizzle-orm",
   "@nodefony/security",
   "@nodefony/framework",
+  // Obligatoire (même raison que orm-core) : `RealtimeHub` est un singleton
+  // process-wide. Bundlé ici, TestM2mRealtimeController aurait sa PROPRE instance
+  // de hub → l'authenticator WS câblé par le firewall (sur le hub canonique) ne
+  // serait pas vu → handshake jwt anonyme → garde @IsGranted 403 (dual-package
+  // hazard, vécu J8 : banc ws-isgranted-jwt en échec malgré code correct).
+  "@nodefony/realtime",
   // Banc sécurité P6 (secure/) : UserService/BcryptEncoder/BaseUser doivent rester
   // la copie partagée process-wide (bundlés ici = classes dupliquées + le binaire
   // natif @node-rs/bcrypt tiré dans le bundle du module de test).

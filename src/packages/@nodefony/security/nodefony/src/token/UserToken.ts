@@ -47,6 +47,10 @@ export class UserToken implements IToken {
     return this.#user ?? anonymousUser;
   }
 
+  getUserIdentifier(): string {
+    return (this.#user ?? anonymousUser).identifier;
+  }
+
   isAuthenticated(): boolean {
     return this.#user !== null;
   }

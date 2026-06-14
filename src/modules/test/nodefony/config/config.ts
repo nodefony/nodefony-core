@@ -46,6 +46,8 @@ export default {
         pattern: "^/nodefony/test/m2m",
         authenticators: ["jwt"],
         stateless: true, // stateless : pas de session, identité 100 % portée par le JWT.
+        // realtime: armé par DÉFAUT (zone protégée → WS fermé, Zero Trust) → le
+        // handshake WS JWT sous /m2m est authentifié sans flag (P6 J8 volet b).
       },
     },
   },

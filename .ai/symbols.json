@@ -1,11 +1,11 @@
 {
-  "generated": "2026-06-14T15:08:02.115Z",
+  "generated": "2026-06-14T20:50:55.914Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 885,
-    "symbols": 1872,
-    "classes": 273,
+    "files": 887,
+    "symbols": 1874,
+    "classes": 275,
     "interfaces": 475,
     "types": 237,
     "enums": 3,
@@ -4076,6 +4076,32 @@
         "controller"
       ],
       "description": "Banc d'intégration de la ZONE PROTÉGÉE `test-secure` (P6 J1). Politique de routes EXPLICITE : tout `/nodefony/test/secure/*` est capturé par la zone firewall `test-secure` (`nodefony.config.ts`, au…"
+    },
+    "SecureWsController": {
+      "name": "SecureWsController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/secure/SecureWsController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Banc P6 J8 — preuve que la garde `@IsGranted` s'applique AUSSI côté WebSocket via le pont `api.request` (« 1 garde = N transports »). Route WS-invocable (`methods: [\"WEBSOCKET\"]`) placée SOUS `/nod…"
+    },
+    "TestM2mRealtimeController": {
+      "name": "TestM2mRealtimeController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "RealtimeController",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Banc P6 J8 (volet b) — endpoint realtime authentifié par **JWT Bearer** (zone `test-api`, pattern `^/nodefony/test/m2m`, `stateless`). PROUVE que la garde `@IsGranted` via `api.request` fonctionne …"
     },
     "AngularController": {
       "name": "AngularController",
@@ -13828,6 +13854,7 @@
         "PocInvokeController",
         "ApiM2mController",
         "SecureController",
+        "SecureWsController",
         "AngularController",
         "PocController",
         "VueController",
@@ -13841,6 +13868,10 @@
       ],
       "ResourceController": [
         "PocBookResourceController"
+      ],
+      "RealtimeController": [
+        "TestM2mRealtimeController",
+        "StudioRealtimeController"
       ],
       "AgentError": [
         "AgentShutdownError",
@@ -13899,9 +13930,6 @@
         "UserNotFoundError",
         "WeakPasswordError",
         "DocumentationError"
-      ],
-      "RealtimeController": [
-        "StudioRealtimeController"
       ],
       "IUser": [
         "IPasswordAuthenticatedUser"
@@ -14206,6 +14234,8 @@
         "PocInvokeController",
         "ApiM2mController",
         "SecureController",
+        "SecureWsController",
+        "TestM2mRealtimeController",
         "AngularController",
         "PocController",
         "VueController",
@@ -14799,6 +14829,12 @@
       "SecureController": [
         "src/modules/test/index.ts"
       ],
+      "SecureWsController": [
+        "src/modules/test/index.ts"
+      ],
+      "TestM2mRealtimeController": [
+        "src/modules/test/index.ts"
+      ],
       "ApiM2mController": [
         "src/modules/test/index.ts"
       ],
@@ -14928,6 +14964,7 @@
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -15005,6 +15042,8 @@
         "src/modules/test/nodefony/poc/PocBookController.ts",
         "src/modules/test/nodefony/poc/PocBookResourceController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
+        "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
@@ -15030,6 +15069,8 @@
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -15051,7 +15092,8 @@
       ],
       "IsGranted": [
         "src/packages/@nodefony/framework/index.ts",
-        "src/modules/test/nodefony/secure/SecureController.ts"
+        "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SecureWsController.ts"
       ],
       "Anonymous": [
         "src/packages/@nodefony/framework/index.ts"
@@ -15201,6 +15243,7 @@
         "src/modules/test/nodefony/poc/PocBookController.ts",
         "src/modules/test/nodefony/poc/PocBookResourceController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
+        "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -15342,6 +15385,7 @@
       ],
       "RealtimeController": [
         "src/packages/@nodefony/realtime/index.ts",
+        "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "ServerRealtimeSocket": [
@@ -16317,6 +16361,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
       ],
       "ormRegistry": [
@@ -16332,6 +16377,7 @@
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
@@ -16411,6 +16457,7 @@
       "IUser": [
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",

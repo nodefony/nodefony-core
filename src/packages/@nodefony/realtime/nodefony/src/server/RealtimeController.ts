@@ -1,6 +1,7 @@
 import {
   JsonRpcPeer,
   RpcError,
+  RequestContext,
   type RpcActionHandler,
   type JsonRpcPeerOptions,
   type IRealtimeWelcome,
@@ -340,7 +341,7 @@ export abstract class RealtimeController<
     // plateforme garde la main sur `api.request` quand le pont est activé.
     if (this.realtimeApiRequest()) {
       peer.register("api.request", (params) =>
-        this.invokeApiRequest(ctx, params),
+        this.invokeApiRequest(ctx, params, peer),
       );
     }
 
@@ -501,6 +502,7 @@ export abstract class RealtimeController<
   private async invokeApiRequest(
     ctx: WebsocketContext,
     params: unknown,
+    peer: JsonRpcPeer,
   ): Promise<unknown> {
     const path = (params as { path?: unknown } | undefined)?.path;
     if (typeof path !== "string" || path.charCodeAt(0) !== 47 /* "/" */) {
@@ -547,12 +549,55 @@ export abstract class RealtimeController<
       }
       resolver.queryOverride = query;
     }
-    // `reload = true` : le container de la connexion porte CE hub sous
-    // "controller" — sans reload, l'action serait cherchée sur la mauvaise
-    // instance (seam découvert au POC Ph.1). Singleton-safe (cache Router).
-    const { result } = await resolver.executeAction(undefined, true);
-    // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
-    return await Promise.resolve(result);
+    // J8 — établir le contexte de requête (ALS) AVANT d'exécuter l'action. Le
+    // pont api.request est l'équivalent WS du pipeline HTTP : le peer reçoit ses
+    // frames via le transport (HORS de la bulle ALS du handshake), donc SANS ce
+    // `run` la garde @IsGranted (Resolver) lirait `token = undefined` → 403, même
+    // pour un client légitime. On pose le token DU PEER (résolu au handshake,
+    // figé O(1) via WeakMap, lié à CETTE connexion → zéro confusion d'identité)
+    // + l'IUser (seam neutre `getAttribute("user")`) pour @CurrentUser. Coût : 1
+    // `run` (~50-100 ns) + 1 objet littéral, UNIQUEMENT sur api.request (jamais
+    // sur publish/subscribe/notify → le hot-path temps réel reste intact).
+    const token = getRealtimeHub().getTokenForPeer(peer);
+    return RequestContext.run(
+      {
+        requestId: ctx.requestId,
+        scheme: ctx.scheme,
+        token,
+        user: token.getAttribute("user"),
+        userId: token.getUserIdentifier(),
+        // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
+        context: ctx,
+      },
+      async () => {
+        try {
+          // `reload = true` : le container de la connexion porte CE hub sous
+          // "controller" — sans reload, l'action serait cherchée sur la mauvaise
+          // instance (seam découvert au POC Ph.1). Singleton-safe (cache Router).
+          const { result } = await resolver.executeAction(undefined, true);
+          // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
+          return await Promise.resolve(result);
+        } catch (e) {
+          // La garde @IsGranted (et toute action) peut throw un `nodefonyError`
+          // HTTP-like (403 Access denied, 404…). Symétrie d'un `fetch` : on EXPOSE
+          // le statut via `RpcError(data.status)` — comme le resolve (405 plus
+          // haut) et `AdminApiController.dispatch`. SANS ce mapping, un refus
+          // d'autorisation remonterait en `-32603 "internal error"` OPAQUE + un
+          // log ERROR parasite (`JsonRpcPeer.handleRequest`) : un 403 n'est PAS
+          // une erreur serveur. Le message reste générique (Zero Trust :
+          // « Access denied » ne révèle pas la règle d'autorisation).
+          const code = (e as { code?: unknown }).code;
+          if (typeof code === "number" && code >= 400 && code <= 599) {
+            throw new RpcError(
+              e instanceof Error ? e.message : String(e),
+              -32000,
+              { status: code },
+            );
+          }
+          throw e;
+        }
+      },
+    );
   }
 
   /** Désabonne la connexion d'un canal (le hub dispose le provider au dernier abonné). */

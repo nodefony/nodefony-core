@@ -330,9 +330,24 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
     assert.equal(allowed, true);
   });
 
-  it("zone HTTP-seule (realtime non déclaré) → AUCUN câblage WS", () => {
+  it("zone protégée realtime NON déclaré → câblé (défaut SÛR true, opt-out explicite)", () => {
+    // Zero Trust : une zone qui ferme le HTTP ferme aussi le WS par défaut. Un
+    // flag opt-IN serait fail-open (oubli = WS anonyme). `realtime` défaut `true`.
     const c = bootFirewall({
       "http-only": { pattern: "^/admin", authenticators: ["session"] },
+    });
+    assert.equal(c.useAuth.length, 1);
+    assert.equal(c.useAuth[0]!.auth.name, "session-realtime");
+    assert.ok(typeof c.frameAuthorizer === "function");
+  });
+
+  it("zone realtime: false (opt-out EXPLICITE) → AUCUN câblage WS", () => {
+    const c = bootFirewall({
+      "http-only": {
+        pattern: "^/admin",
+        authenticators: ["session"],
+        realtime: false,
+      },
     });
     assert.equal(c.useAuth.length, 0);
     assert.equal(c.frameAuthorizer, null);

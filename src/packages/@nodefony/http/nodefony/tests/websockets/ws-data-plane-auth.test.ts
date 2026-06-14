@@ -305,3 +305,50 @@ describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
     expect(ws.result).to.deep.equal(rest.body);
   });
 });
+
+/**
+ * P6 J8 — la garde `@IsGranted` (Resolver) s'applique AUSSI côté WebSocket via
+ * `api.request` : « 1 garde = N transports ». Symétrique de la preuve HTTP J7
+ * (`securityGuard.integration.test.ts` : admin 200 / user 403 / anon 401).
+ *
+ * Route gardée : `/nodefony/test/api/admin-guarded` (`@IsGranted("ROLE_ADMIN")`
+ * + `@CurrentUser`, WS-invocable). Le token du peer (UserRealtimeToken résolu au
+ * handshake) est posé dans l'ALS du message par J8 → la garde le lit. L'anonyme
+ * est déjà refusé AU HANDSHAKE (1008, cf le 1ᵉʳ test ci-dessus) = défense en
+ * profondeur (verrou de zone J3b PUIS garde RBAC J7).
+ */
+describe("P6 J8 — garde @IsGranted via api.request (requires server)", () => {
+  const GUARDED = "/nodefony/test/api/admin-guarded";
+
+  it("admin (ROLE_ADMIN) → GRANT : { granted:true, identifier } + @CurrentUser WS", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const hub = await hubConnect(cookie);
+    const reply = await hub.request(GUARDED);
+    hub.close();
+    expect(reply.error, "admin ne doit pas être refusé").to.equal(undefined);
+    // @CurrentUser injecte l'IUser de l'ALS WS (posé par J8 via getAttribute).
+    expect(reply.result).to.deep.equal({
+      granted: true,
+      identifier: "admin",
+    });
+  });
+
+  it("user (ROLE_USER : authentifié mais SANS le rôle) → 403 exposé (pas un -32603 opaque)", async () => {
+    const cookie = await loginCookie("user", "secret");
+    const hub = await hubConnect(cookie);
+    const reply = await hub.request(GUARDED);
+    hub.close();
+    expect(reply.result, "user ne doit obtenir aucun résultat").to.equal(
+      undefined,
+    );
+    expect(
+      reply.error,
+      "user authentifié mais non autorisé → refus",
+    ).to.not.equal(undefined);
+    // La garde mappe le 403 en RpcError(data.status) — symétrie d'un fetch qui
+    // expose son statut. PROUVE que J8 distingue 403 (autz) d'un -32603 internal
+    // error opaque (le 403 n'est pas une erreur serveur : autz ≠ authn).
+    const data = reply.error?.data as { status?: number } | undefined;
+    expect(data?.status, "statut d'autorisation exposé").to.equal(403);
+  });
+});

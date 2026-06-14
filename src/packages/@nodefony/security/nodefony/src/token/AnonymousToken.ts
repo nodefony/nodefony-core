@@ -18,6 +18,10 @@ export class AnonymousToken implements IToken {
     return anonymousUser;
   }
 
+  getUserIdentifier(): string {
+    return anonymousUser.identifier;
+  }
+
   isAuthenticated(): boolean {
     return false;
   }

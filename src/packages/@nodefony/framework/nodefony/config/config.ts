@@ -27,8 +27,9 @@ export default {
         // Casier de session unique ("default", partagé app+admin) : le login BFF est
         // partagé → pas d'isolation par casier (sans traversée de contexte, non portée —
         // cf mémoire). Isolation admin/app = RBAC par rôle (P6.8), comme OWASP/Symfony.
-        realtime: true, // l'aire vaut AUSSI pour le WS (api.request + subscribe) — Étape 3.
-        // défauts : security true (Zero Trust), mode "first", stateless false.
+        // défauts : security true (Zero Trust), mode "first", stateless false,
+        // realtime true (la zone ferme AUSSI le WS — api.request + subscribe ;
+        // opt-out explicite `realtime: false` pour une zone strictement HTTP).
       },
     },
   },

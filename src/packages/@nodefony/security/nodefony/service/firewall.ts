@@ -138,16 +138,21 @@ class Firewall extends Service implements IFirewall {
   }
 
   // Branche le verrou WS sur le hub realtime (par NOM de service, 0 import
-  // realtime — security ⊥ realtime). Pour chaque zone `realtime: true` protégée :
-  // un authenticator de session (transfère l'identité déjà résolue au handshake)
-  // + le verrou de frame global (api.request ≤ GET, canaux d'observabilité gatés).
-  // No-op si le module realtime n'est pas chargé (`realtimeService` absent).
+  // realtime — security ⊥ realtime). Pour TOUTE zone protégée (Zero Trust : une
+  // zone qui ferme le HTTP ferme aussi le WS — `realtime` défaut `true`, opt-out
+  // explicite `false`) : un authenticator de session (transfère l'identité déjà
+  // résolue au handshake) + le verrou de frame global (api.request ≤ GET, canaux
+  // d'observabilité gatés). No-op si le module realtime n'est pas chargé.
   #wireRealtime(): void {
     const realtime = this.container?.get<IRealtimeService>("realtimeService");
     if (!realtime || !this.#areas) return;
     let wired = false;
     for (const area of this.#areas) {
-      if (!area.realtime || !area.security) continue;
+      // Opt-out explicite SEULEMENT (`realtime: false`) : un flag opt-IN serait
+      // fail-open — une zone qui oublie le flag laisserait le WS anonyme (trou
+      // silencieux). Armer une zone sans handshake WS = matcher jamais déclenché
+      // (0 coût) → sûr de l'armer partout.
+      if (!area.security || !area.realtime) continue;
       // Une instance d'authenticator PAR zone : le hub dédoublonne `useAuthenticator`
       // par instance → une instance partagée n'enregistrerait que le 1ᵉʳ matcher.
       // Stateless (lit l'ALS) → 0 coût. En pratique une seule zone (nodefony-admin).
@@ -159,7 +164,7 @@ class Firewall extends Service implements IFirewall {
     }
     if (wired) {
       // Verrou de frame GLOBAL (1 hub) — partage `matchPath` (source unique de
-      // zone HTTP ⇔ WS). Posé seulement si au moins une zone realtime existe.
+      // zone HTTP ⇔ WS). Posé dès qu'au moins une zone protégée existe.
       realtime.setFrameAuthorizer(buildFrameAuthorizer(this));
       this.log(
         "Realtime data plane locked — WS handshake + frame authorizer wired",

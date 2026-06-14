@@ -26,6 +26,11 @@ import PocInvokeController from "./nodefony/poc/PocInvokeController";
 import PocBookResourceController from "./nodefony/poc/PocBookResourceController";
 // P6 J1 — banc ZONE PROTÉGÉE (dossier secure/ = préfixe /secure = zone "test-secure").
 import SecureController from "./nodefony/secure/SecureController";
+// P6 J8 — banc preuve garde @IsGranted côté WS via api.request (/nodefony/test/api/*).
+import SecureWsController from "./nodefony/secure/SecureWsController";
+// P6 J8 (volet b) — endpoint realtime JWT Bearer (zone test-api) pour prouver la
+// garde @IsGranted via api.request sur le mode agent/M2M (pas seulement cookie).
+import TestM2mRealtimeController from "./nodefony/secure/TestM2mRealtimeController";
 // P6 J4 — banc ZONE API M2M (JWT Bearer, zone "test-api", /nodefony/test/m2m).
 import ApiM2mController from "./nodefony/secure/ApiM2mController";
 import {
@@ -64,6 +69,10 @@ registerDolibarrEntities("default");
   DbController,
   // P6 — banc zone protégée (firewall, routes /nodefony/test/secure/*)
   SecureController,
+  // P6 J8 — banc garde @IsGranted côté WS (api.request, /nodefony/test/api/*)
+  SecureWsController,
+  // P6 J8 (volet b) — endpoint realtime JWT Bearer (zone test-api M2M)
+  TestM2mRealtimeController,
   // P6 J4 — banc zone API M2M (JWT Bearer, /nodefony/test/m2m/*)
   ApiM2mController,
   // POC API souveraine (JETABLE)

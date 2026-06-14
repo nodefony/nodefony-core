@@ -40,7 +40,8 @@ export interface ISecuredArea {
 
   /**
    * Zone valable AUSSI pour le WebSocket (frames `api.request` + `subscribe`),
-   * pas seulement HTTP. `false` (défaut) : la zone ne s'applique qu'au HTTP. Le
+   * pas seulement HTTP. Défaut `true` (Zero Trust : une zone protégée ferme TOUS
+   * ses transports) ; `false` = opt-out explicite (zone strictement HTTP). Le
    * verrou WS consulte la même zone que HTTP (invariant `api.request` ≤ `GET`).
    */
   readonly realtime: boolean;

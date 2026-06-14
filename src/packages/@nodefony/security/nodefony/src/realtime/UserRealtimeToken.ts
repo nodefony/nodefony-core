@@ -38,8 +38,11 @@ export class UserRealtimeToken implements IRealtimeToken {
     return [];
   }
 
-  getAttribute<T = unknown>(_key: string): T | undefined {
-    return undefined;
+  getAttribute<T = unknown>(key: string): T | undefined {
+    // Seam neutre (`IRealtimeToken`) : expose l'`IUser` réel sous la clé `"user"`
+    // — lu par le pont api.request (J8) qui le pose dans l'ALS pour `@CurrentUser`
+    // côté WS. Le contrat realtime reste neutre (aucun `IUser` dans la signature).
+    return key === "user" ? (this.#user as T) : undefined;
   }
 }
 

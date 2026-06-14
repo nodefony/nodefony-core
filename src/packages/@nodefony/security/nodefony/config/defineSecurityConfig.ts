@@ -92,9 +92,9 @@ const areaSchema = z.object({
     ),
   realtime: z
     .boolean()
-    .default(false)
+    .default(true)
     .describe(
-      "Zone valable AUSSI pour les frames WebSocket (api.request + subscribe), pas seulement les requêtes HTTP. Le verrou WS consulte la MÊME zone que HTTP — invariant : `api.request {path}` n'accorde jamais plus que `GET {path}`.",
+      "Zone valable AUSSI pour les frames WebSocket (api.request + subscribe), pas seulement HTTP. Défaut `true` (Zero Trust : une zone protégée ferme TOUS ses transports — un opt-IN laisserait le WS anonyme par omission = fail-open). `false` = opt-out explicite pour une zone strictement HTTP. Le verrou WS consulte la MÊME zone que HTTP — invariant : `api.request {path}` n'accorde jamais plus que `GET {path}`.",
     ),
 });
 

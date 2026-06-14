@@ -37,8 +37,8 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
     assert.equal(config.areas.app.security, true);
   });
 
-  it("zone : realtime=false par défaut (zone HTTP seule, pas WebSocket)", () => {
-    assert.equal(config.areas.app.realtime, false);
+  it("zone : realtime=true par défaut (Zero Trust — la zone ferme AUSSI le WS)", () => {
+    assert.equal(config.areas.app.realtime, true);
   });
 
   it("zone : realtime=true accepté (aire data plane, verrou WS Étape 3)", () => {
