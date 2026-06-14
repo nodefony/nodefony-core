@@ -29,6 +29,7 @@ audience: dev
 | **`jti`** | JWT ID                            | Numéro de série unique d'un JWT → permet de le révoquer individuellement (liste noire).                                                                                                                                   |
 | **`aud`** | Audience                          | Le claim « pour qui est ce jeton » : un jeton volé pour le service A ne marche pas sur le service B. Validation obligatoire (RFC 8707/9700).                                                                              |
 | **DPoP**  | Demonstrating Proof of Possession | Jeton « menotté » au client : le porteur prouve qu'il détient une clé privée à chaque usage → un jeton volé seul ne sert à rien. (RFC 9449)                                                                               |
+| **`cnf`** | confirmation (key binding)        | Empreinte de la clé à laquelle un jeton est **menotté** (_sender-constrained_) : `jkt` (DPoP, RFC 9449) ou `x5t#S256` (mTLS, RFC 8705). Un jeton volé sans la clé privée = inutilisable. Slot réservé du store Nodefony.  |
 | **PAT**   | Personal Access Token             | Clé API personnelle (style GitHub : `nf_xxx_secret`) — stockée hachée, affichée une seule fois.                                                                                                                           |
 
 ## JWT — claims, signature & portée
@@ -66,14 +67,16 @@ audience: dev
 
 ## OAuth & délégation
 
-| Sigle         | Développé                                         | En clair                                                                                                                                              |
-| ------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **OAuth 2.x** | Open Authorization                                | Le protocole « je laisse l'app X agir sur mon compte Y sans lui donner mon mot de passe » (login Google/GitHub…).                                     |
-| **OIDC**      | OpenID Connect                                    | OAuth + une carte d'identité standardisée (ID Token) : pas juste « accède », aussi « voici qui je suis ».                                             |
-| **PKCE**      | Proof Key for Code Exchange (« pixie »)           | Cadenas anti-interception du code OAuth : l'app prouve que c'est bien elle qui a démarré le flow. Obligatoire partout (OAuth 2.1).                    |
-| **ROPC**      | Resource Owner Password Credentials               | L'app demande directement ton mot de passe — **banni** par OAuth 2.1 (c'est exactement ce qu'OAuth devait éviter).                                    |
-| **CIBA**      | Client-Initiated Backchannel Authentication       | « Approbation à distance » : l'action attend qu'un humain valide sur SON appareil (notification). Pattern clé pour les actions sensibles d'agents IA. |
-| **SPIFFE**    | Secure Production Identity Framework For Everyone | Standard d'identité des **machines/workloads** (pas des humains) : chaque process reçoit une identité vérifiable. Pertinent P12 (agents).             |
+| Sigle              | Développé                                         | En clair                                                                                                                                                                                                                                  |
+| ------------------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **OAuth 2.x**      | Open Authorization                                | Le protocole « je laisse l'app X agir sur mon compte Y sans lui donner mon mot de passe » (login Google/GitHub…).                                                                                                                         |
+| **OIDC**           | OpenID Connect                                    | OAuth + une carte d'identité standardisée (ID Token) : pas juste « accède », aussi « voici qui je suis ».                                                                                                                                 |
+| **PKCE**           | Proof Key for Code Exchange (« pixie »)           | Cadenas anti-interception du code OAuth : l'app prouve que c'est bien elle qui a démarré le flow. Obligatoire partout (OAuth 2.1).                                                                                                        |
+| **ROPC**           | Resource Owner Password Credentials               | L'app demande directement ton mot de passe — **banni** par OAuth 2.1 (c'est exactement ce qu'OAuth devait éviter).                                                                                                                        |
+| **CIBA**           | Client-Initiated Backchannel Authentication       | « Approbation à distance » : l'action attend qu'un humain valide sur SON appareil (notification). Pattern clé pour les actions sensibles d'agents IA.                                                                                     |
+| **SPIFFE**         | Secure Production Identity Framework For Everyone | Standard d'identité des **machines/workloads** (pas des humains) : chaque process reçoit une identité vérifiable. Pertinent P12 (agents).                                                                                                 |
+| **Token Exchange** | RFC 8693                                          | « Troc de jeton » : un service/agent échange son jeton contre un autre pour agir **au nom de** quelqu'un (on-behalf-of), avec une portée réduite. Base de la délégation microservices ET agents IA. Slot Nodefony (`tokenExchange`, P12). |
+| **`act`**          | actor (acteur)                                    | Le claim « qui agit au nom de qui » d'un Token Exchange : chaîne d'acteurs **auditable** (l'agent A agit pour l'utilisateur U) → délégation EXPLICITE, jamais une usurpation muette (≠ impersonation).                                    |
 
 ## Attaques & défenses web
 

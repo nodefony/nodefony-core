@@ -41,10 +41,12 @@
 
 ## 🐚 Shell / environnement d'exécution
 
-- `[1× — 2026-06-13]` **variable shell multiligne NON quotée passée à grep = erreur trompeuse « No such file
+- `[2× — 2026-06-13, 2026-06-14]` **variable shell multiligne NON quotée passée à grep = erreur trompeuse « No such file
   or directory »** : `NEW=$(git status … | awk …)` puis `grep motif $NEW` → les chemins multilignes sont
   re-splittés n'importe comment (ugrep concatène 2 chemins en 1). → soit `xargs grep` soit lister les
-  fichiers EXPLICITEMENT dans la commande (fait) ; jamais `$VAR` nue multiligne en argument.
+  fichiers EXPLICITEMENT dans la commande (fait) ; jamais `$VAR` nue multiligne en argument. Re-vécu J4 (7 fichiers
+  neufs en `$NEW` multiligne). **Bonus ugrep** : pas de lookahead `(?!...)` (« invalid syntax ») → filtrer en 2 temps
+  (`grep | grep -v`), pas un négatif inline.
 - `[1× — 2026-06-12]` **un subagent background hérite des permissions de la session → sa veille web peut être
   refusée silencieusement** : l'agent « état de l'art auth » s'est vu refuser WebSearch/WebFetch/Bash → livré
   100 % connaissance interne (cutoff) en le signalant. → avant de déléguer une veille web, vérifier qu'une
@@ -137,6 +139,22 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
   (avancer `CLOCK`, le double purge à la lecture), + un smoke `describe.skipIf(!REDIS_TEST_URL)` contre un vrai Redis pour
   prouver les **noms de commandes** node-redis v6 (le double seul ne le prouve pas — cf leçon « stubs ne prouvent pas »).
   Piège mesuré : un `gc`/compteur sur store **partagé entre `describe`** dérape (résidu d'un test précédent expiré) → **pré-purger** avant de mesurer un delta exact.
+
+- `[1× — 2026-06-14]` **vérifier le CODE de la lib, pas le plan/cheat-sheet** (devise) : jose v6 exige
+  `generateKeyPair("Ed25519", {extractable:true})` (pas `"EdDSA"` que disait le kit ; `extractable` requis pour
+  `exportPKCS8`) ; header JWT + allowlist verify restent `"EdDSA"` (JWA RFC 8037). Un script end-to-end
+  (génère→exportPKCS8→importPKCS8→sign→verify + reject aud/alg) lancé AVANT de coder a tranché 3 ambiguïtés et
+  donné 0 itération. Lire les `.d.ts` + 1 run > présumer depuis le kit.
+- `[1× — 2026-06-14]` **jitter d'un timer périodique = décaler la PHASE, pas l'intervalle** : `setInterval` est
+  fixe ; pour étaler N timers en cluster, `setTimeout(initial + random)` PUIS `setInterval(base)` → phase décalée
+  CONSTANTE (l'intervalle variable dérive/bat). `+ .unref()` = n'empêche pas l'arrêt. Corollaire cloud-native : un
+  gc périodique a un **point d'entrée public** (`runGc()`) pour déléguer à un ordonnanceur externe (cron P5.0b) —
+  store LOCAL (memory/file) = timer par-process OBLIGATOIRE (mémoires disjointes), store PARTAGÉ (ORM) = un seul
+  balayeur (cron worker / élection). Le user a fait remonter ce dernier point (« on a un cron à faire »).
+- `[1× — 2026-06-14]` **tester un Service Nodefony hors serveur** : le `Service` fait `this.kernel = container.get("kernel")`
+  → fournir un VRAI `Container` + un faux kernel `{container, once(ev,cb){…}}` qui CAPTURE `onBoot`, puis déclencher le
+  handler = exécuter `#build` à la demande (store/keystore RÉELS posés au container, pas de stub) ; `notificationsCenter:false`
+  coupe les events. Banc d'intégration déterministe (émission/rotation/reuse/gc prouvés) sans démarrer de serveur.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
@@ -322,6 +340,11 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   audits — réécrire un document daté falsifie l'historique (l'audit ORM cite Sequelize justement pour documenter sa suppression).
 
 ## 🔄 Cycle de session (END/RETEX) — méta
+
+- `[1× — 2026-06-14]` **`git diff HEAD` (et la security-review qui grep dessus) IGNORE les fichiers NEUFS non trackés**
+  → sur une feature majoritairement composée de fichiers neufs (JWT = 7 `.ts` neufs), le scan sécu rate le gros du
+  code. → grepper les fichiers neufs EXPLICITEMENT (`git status --short | grep '^??'`) EN PLUS du diff, avant de
+  conclure « 0 secret / 0 any ».
 
 - `[1× — 2026-06-12]` **la DESCRIPTION frontmatter d'un skill = la seule partie chargée en permanence par
   le harness** → un périmé LÀ (load-test disait « suites Mocha » 7 jours après la suppression de mocha)
