@@ -9,6 +9,7 @@ const external: string[] = [
   "@nodefony/http",
   "@nodefony/orm-core",
   "@nodefony/user",
+  "@nodefony/security",
   "mongodb",
   "mongoose",
   "zod",

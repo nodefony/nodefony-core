@@ -130,3 +130,20 @@ export {
 } from "./nodefony/entity/userEntity";
 export type { UserRow } from "./nodefony/entity/userEntity";
 export { MongooseUserRepository } from "./nodefony/src/MongooseUserRepository";
+
+// ─── Store de jetons Mongoose (contrat ITokenStore de @nodefony/security, J4b) ─
+// Approche B : `@nodefony/security` en `import type` (0 dép runtime). PAS d'auto-
+// register — l'app câble `registerTokenStore` + `registerTokenEntities(orm)`.
+export {
+  accessTokenSchema,
+  deniedJtiSchema,
+  subjectRevocationSchema,
+  createTokenEntities,
+  registerTokenEntities,
+  TOKEN_ENTITY_NAMES,
+} from "./nodefony/entity/tokenEntity";
+export type {
+  DeniedJtiRow,
+  SubjectRevocationRow,
+} from "./nodefony/entity/tokenEntity";
+export { MongooseTokenStore } from "./nodefony/src/MongooseTokenStore";

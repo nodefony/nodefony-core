@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-14T08:02:40.304Z",
+  "generated": "2026-06-14T08:11:23.072Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 871,
-    "symbols": 1827,
-    "classes": 264,
-    "interfaces": 458,
+    "files": 873,
+    "symbols": 1836,
+    "classes": 265,
+    "interfaces": 460,
     "types": 233,
     "enums": 3,
-    "functions": 375,
-    "constants": 494
+    "functions": 377,
+    "constants": 498
   },
   "symbols": {
     "Cli": {
@@ -6789,6 +6789,72 @@
       "module": "@nodefony/mongoose",
       "description": "ORM cible du stockage de session (connecteur par défaut du module)."
     },
+    "@nodefony/mongoose:DeniedJtiRow": {
+      "name": "DeniedJtiRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Forme plate d'une ligne de denylist (`id` = virtuel = jti)."
+    },
+    "@nodefony/mongoose:SubjectRevocationRow": {
+      "name": "SubjectRevocationRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Forme plate d'une ligne de révocation par porteur (`id` = virtuel = subjectId)."
+    },
+    "@nodefony/mongoose:createTokenEntities": {
+      "name": "createTokenEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Construit les descripteurs d'entités du store de jetons pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : les schémas sont statiques mais leur liaison à …"
+    },
+    "@nodefony/mongoose:registerTokenEntities": {
+      "name": "registerTokenEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Enregistre les entités du store de jetons dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (le modèle est compilé au connect)."
+    },
+    "accessTokenSchema": {
+      "name": "accessTokenSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Schémas Mongoose du **store de jetons** `@nodefony/security` (pendant documentaire des tables Drizzle) — implémentation NoSQL d'`ITokenStore` (PAT, refresh, denylist `jti`, seuil de révocation en m…"
+    },
+    "deniedJtiSchema": {
+      "name": "deniedJtiSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Denylist des access tokens (`jti` = `_id`) révoqués avant leur `exp`."
+    },
+    "subjectRevocationSchema": {
+      "name": "subjectRevocationSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Seuil de révocation en masse par porteur (`subjectId` = `_id`)."
+    },
+    "@nodefony/mongoose:TOKEN_ENTITY_NAMES": {
+      "name": "TOKEN_ENTITY_NAMES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Noms logiques des entités du store (clés de lookup `getRepository`)."
+    },
     "@nodefony/mongoose:UserRow": {
       "name": "UserRow",
       "kind": "interface",
@@ -6856,6 +6922,19 @@
       "implements": [],
       "decorators": [],
       "description": "Service bootable du module `@nodefony/mongoose` (driver NoSQL). Au boot du kernel (`onBoot`), instancie un {@link MongooseOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le con…"
+    },
+    "MongooseTokenStore": {
+      "name": "MongooseTokenStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "implements": [
+        "ITokenStore"
+      ],
+      "decorators": [],
+      "description": "Store de jetons **Mongoose** (NoSQL) — implémentation d'{@link ITokenStore} au dessus de trois repositories `@nodefony/orm-core` (`access_token`, `denied_jti`, `subject_revocation`). Pendant docume…"
     },
     "MongooseUserRepository": {
       "name": "MongooseUserRepository",
@@ -13682,6 +13761,7 @@
       ],
       "ITokenStore": [
         "DrizzleTokenStore",
+        "MongooseTokenStore",
         "MemoryTokenStore"
       ],
       "ISessionStorage": [
@@ -15889,6 +15969,7 @@
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
@@ -15901,6 +15982,7 @@
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
@@ -16175,6 +16257,7 @@
       "TokenRevokeReason": [
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
@@ -16202,6 +16285,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
@@ -16215,27 +16299,33 @@
       ],
       "IAccessTokenRecord": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "ITokenStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
       ],
       "ITokenUsage": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "TOKEN_ENTITY_NAMES": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
       ],
       "DeniedJtiRow": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
       ],
       "SubjectRevocationRow": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
       ],
       "RepositoryReadOptions": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -16796,6 +16886,7 @@
       ],
       "MongooseOrm": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
       ],
       "IMongooseConnectorConfig": [
