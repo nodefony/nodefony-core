@@ -78,3 +78,10 @@ export type {
   IRedisConfigInput,
   IRedisConnectionConfig,
 } from "./nodefony/interfaces/IRedisConfig";
+
+// ─── Store de jetons Redis (contrat ITokenStore de @nodefony/security, J4b) ───
+// Approche B : `@nodefony/security` en `import type` (0 dép runtime). PAS d'auto-
+// register — l'app câble `registerTokenStore("redis", ({container}) =>
+// RedisTokenStore.from(container.get("redis")))`. TTL natif → gc() no-op.
+export { RedisTokenStore } from "./nodefony/src/RedisTokenStore";
+export type { RedisClientLike } from "./nodefony/src/RedisTokenStore";

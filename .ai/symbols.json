@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-14T08:11:23.072Z",
+  "generated": "2026-06-14T08:21:09.462Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 873,
-    "symbols": 1836,
-    "classes": 265,
-    "interfaces": 460,
+    "files": 874,
+    "symbols": 1838,
+    "classes": 266,
+    "interfaces": 461,
     "types": 233,
     "enums": 3,
     "functions": 377,
@@ -7880,6 +7880,28 @@
       "decorators": [],
       "description": "Une connexion Redis nommée — enveloppe un client `redis` v6 et gère son cycle de vie (création, écoute des événements, fermeture propre). Perf/mémoire : les handlers d'événements sont conservés en …"
     },
+    "RedisTokenStore": {
+      "name": "RedisTokenStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "implements": [
+        "ITokenStore"
+      ],
+      "decorators": [],
+      "description": "Store de jetons **Redis** (node-redis v6) — implémentation d'{@link ITokenStore} pour le cluster (source unique cross-pod, denylist hot). **Approche B** : `@nodefony/security` n'est connu qu'en `im…"
+    },
+    "RedisClientLike": {
+      "name": "RedisClientLike",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "description": "Sous-ensemble structural du client `redis` v6 utilisé par le store — permet de tester contre un double déterministe sans serveur (le vrai `RedisClientType` satisfait cette forme par ses méthodes ca…"
+    },
     "RedisSessionStorage": {
       "name": "RedisSessionStorage",
       "kind": "class",
@@ -13762,6 +13784,7 @@
       "ITokenStore": [
         "DrizzleTokenStore",
         "MongooseTokenStore",
+        "RedisTokenStore",
         "MemoryTokenStore"
       ],
       "ISessionStorage": [
@@ -15161,6 +15184,7 @@
       "RedisService": [
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
       "defineRedisConfig": [
@@ -16258,6 +16282,7 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
@@ -16300,18 +16325,21 @@
       "IAccessTokenRecord": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "ITokenStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
       ],
       "ITokenUsage": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
