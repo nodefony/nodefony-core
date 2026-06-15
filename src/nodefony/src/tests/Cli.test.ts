@@ -426,7 +426,11 @@ describe("Cli — commandes standalone — exécution", () => {
   it("commande qui lève une erreur dans generate() → error capturée dans done", async () => {
     const cli = makeCli("err-exec");
     const cmd = cli.addCommand(ErrorCommand) as ErrorCommand;
-    cli.parse(["node", "test", "err-cmd"]);
+    // `parseAsync` (pas `parse`) : on AWAIT l'exécution de l'action et on absorbe
+    // le rejet de `generate()`. Avec `parse` (sync), la promesse d'action rejetée
+    // flottait en « unhandled rejection » asynchrone → faux positif vitest capté
+    // bien plus tard par un AUTRE test (le banc des signaux).
+    await cli.parseAsync(["node", "test", "err-cmd"]).catch(() => {});
     await cmd.done; // résout (pas rejecte) — on capture l'erreur dans done
     assert.ok(cmd.thrownError instanceof Error);
     assert.strictEqual(cmd.thrownError.message, "generate failed");

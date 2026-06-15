@@ -119,9 +119,12 @@ class Command extends Service {
         this.kernel.command = this;
         this.kernel.commandArgs = args;
         this.setEvents(...args);
-      } else {
-        this.action(...args);
+        return undefined;
       }
+      // RETOURNER la promesse de l'action : sans ça, un `generate()` qui rejette
+      // produit une « unhandled rejection » flottante (commander ne peut pas
+      // l'attendre via `parseAsync`). La propager rend l'erreur capturable.
+      return this.action(...args);
     });
   }
   setEvents(...args: any[]): void {
