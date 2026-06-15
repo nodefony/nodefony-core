@@ -222,6 +222,15 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-16]` **`npm run build` lancé EN BACKGROUND pendant que le serveur dev tourne = 404 fantômes**
+  (J5 headers). Le `run_in_background:true` masque le piège (on ne « voit » pas le build mouliner) : il réécrit
+  TOUS les `dist/`, le DevSupervisor redémarre sur des dist à DEMI-écrits → routes perdues (`/nodefony/test/*`,
+  `/nodefony/security/api/*` en 404, Studio root 200 mais API mortes). En plus la non-régression qui tape ce
+  serveur cassé devient ROUGE = faux négatif. Le user voyait « que des 404 sur Studio ». **Règle (déjà CLAUDE.md,
+  re-violée) : JAMAIS de build — surtout background — concurrent d'un serveur live.** Soit `stop.sh` AVANT le
+  build, soit build d'abord PUIS `start.sh` (restart propre). Diagnostic : `lsof -ti:5151` (PID changé = a
+  redémarré) + curl la route de santé (404 = routes perdues). Cf [[feedback_watch_rollup_pitfall]] +
+  [[feedback_root_dist_stale_modules]].
 - `[1× — 2026-06-15]` **dual-package hazard sur un SINGLETON process-wide via un module non externalisé** (J8).
   Un module (`src/modules/test`) qui `extends RealtimeController` mais ne déclare PAS `@nodefony/realtime` en
   `peerDependencies` + `external` rollup → rollup **bundle une COPIE** du module dans son `dist/` →
@@ -995,6 +1004,21 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧭 Conception / fondation — sécu/firewall (frictions du jour)
 
+- `[1× — 2026-06-16]` **un court-circuit doit être placé selon le PIPELINE RÉEL, pas selon le seam « logique »**
+  (J5 CORS). Le preflight CORS (`OPTIONS` → 204) avait été câblé dans `handleFrontController` (seam balisé) → mais
+  un `OPTIONS` n'a AUCUNE route → le router lève **405 au pré-match dans `handleHttp`, AVANT `handleFrontController`**
+  → handleCors jamais atteint, le banc live sortait 405 au lieu de 204. **Fix : déplacer le court-circuit EN TÊTE
+  de `handleHttp`, avant le routing** (bonus : le WS n'y passe plus). **Méthode qui a tranché = log temporaire**
+  (`this.log("CORS DEBUG …")`) : présent sur GET, ABSENT sur OPTIONS → preuve que la fonction n'était pas appelée.
+  Ne pas raisonner sur « où le seam devrait être » — prouver où le flux passe vraiment.
+- `[1× — 2026-06-16]` **avant d'« unifier en source unique », vérifier POURQUOI le doublon existe** (J5 headers).
+  J'allais retirer les security headers de `@nodefony/http` (« security = source unique »). Le user a freiné
+  (« il y avait une raison »). Vérif terrain : http les pose à `onHttpRequest` (entrée BRUTE, avant le pipeline)
+  → ils couvrent AUSSI statics + erreurs + serveur sans security (secure-by-default) ; le firewall ne tourne que
+  dans le pipeline controller → seul, il LAISSERAIT les statics/erreurs nus. → **séparation transport (http,
+  nosniff/frame/HSTS) / applicatif (security, CSP/Referrer/COOP…)**, 1 source PAR en-tête, pas « source unique ».
+  Devise CLAUDE.md confirmée : avant de supprimer/déplacer un choix existant, comprendre son pourquoi (souvent un
+  cas-limite non visible : ici les réponses HORS pipeline).
 - `[1× — 2026-06-15]` **gradation par rôle ≠ `@BypassFirewall`** : `@BypassFirewall` skip TOUT le firewall → **0
   identité résolue** (impossible de graduer la réponse selon le rôle). Pour une route PUBLIQUE graduée (Spring
   Actuator `show-details: when-authorized`) : une **zone `["session","anonymous"]`** (le firewall tourne, résout
