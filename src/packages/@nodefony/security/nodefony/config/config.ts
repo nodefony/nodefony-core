@@ -155,8 +155,16 @@ export default {
     passkeys: {
       enabled: true, //                 active WebAuthn. Défaut: true.
       // rpId: "exemple.com",        // Relying Party ID. Omis = domaine de l'app au boot.
+      // rpName: "Mon app",          // nom lisible affiché dans l'invite OS. Omis = nom de l'app.
       origins: [], //                   origines autorisées aux ceremonies. Vide = origine de l'app.
       userVerification: "preferred", // biométrie/PIN: "required" | "preferred" | "discouraged".
+      residentKey: "preferred", //      passkey découvrable (login usernameless). Défaut: "preferred".
+      authenticatorAttachment: "platform", // "platform" = empreinte intégrée (Touch ID/Hello, PAS de QR) | "cross-platform" = clé/tél (YubiKey, QR) | "any" = les deux.
+      attestation: "none", //           "none" = passkeys grand public (pas de vérif certs fabricant). Défaut: "none".
+      timeoutMs: 60000, //              délai utilisateur par ceremony (ms). Défaut: 60000.
+      challengeTtlS: 300, //            TTL du challenge serveur (anti-replay, s). Défaut: 300.
+      store: "memory", //               "memory" (volatile) | "file" (persiste sur disque, mono-process). Cluster/prod → ORM/Redis (à venir).
+      // storePath: "var/webauthn-credentials.json", // chemin du fichier (driver "file"). Défaut: <cwd>/var/webauthn-credentials.json.
     },
 
     // ══════════════════ TOKEN EXCHANGE (RFC 8693 — agents IA) ══════════════════

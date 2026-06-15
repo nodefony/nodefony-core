@@ -24,6 +24,7 @@ const external: string[] = [
   "@nodefony/user",
   "zod",
   "jose",
+  "@simplewebauthn/server",
   "tslib",
 ];
 

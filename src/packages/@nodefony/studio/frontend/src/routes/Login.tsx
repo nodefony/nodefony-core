@@ -122,11 +122,18 @@ function classifyError(e: unknown, phaseStep: ConnectionStep): ClassifiedError {
 /**
  * Méthodes de connexion alternatives (P6) — rendues aux DEUX étapes (identifiant
  * ET mot de passe) pour rester visibles même en « rebonjour » (où l'on démarre
- * directement à l'étape mot de passe). SSO Keycloak = OIDC via `arctic` ; Passkey
- * = WebAuthn (conditional UI, sans énumération). Désactivées (« bientôt ») tant
- * que le backend P6 n'est pas câblé — l'emplacement est posé dès maintenant.
+ * directement à l'étape mot de passe). Passkey = **WebAuthn (J9, ACTIF)** :
+ * biométrie/clé sans énumération. SSO Keycloak = OIDC via `arctic` (« bientôt »).
  */
-function AltLoginMethods() {
+function AltLoginMethods({
+  onPasskey,
+  busy,
+  disabled,
+}: {
+  onPasskey: () => void;
+  busy: boolean;
+  disabled: boolean;
+}) {
   return (
     <>
       <Divider label="ou" labelPosition="center" my={4} />
@@ -148,19 +155,16 @@ function AltLoginMethods() {
         size="md"
         fullWidth
         variant="default"
-        disabled
+        onClick={onPasskey}
+        loading={busy}
+        disabled={disabled}
         leftSection={<IconFingerprint size={18} />}
-        rightSection={
-          <Badge size="xs" variant="light" color="gray">
-            bientôt
-          </Badge>
-        }
       >
         Passkey / empreinte digitale
       </Button>
       <Text size="xs" c="dimmed" ta="center">
-        SSO (OIDC) et connexion sans mot de passe (WebAuthn) — disponibles avec
-        P6.
+        Connexion sans mot de passe (WebAuthn / FIDO2) — biométrie ou clé de
+        sécurité. SSO (OIDC) bientôt.
       </Text>
     </>
   );
@@ -321,6 +325,45 @@ export const Login = observer(() => {
     }
   };
 
+  // Connexion par passkey/empreinte (WebAuthn J9). L'annulation de l'invite
+  // biométrique (NotAllowedError/AbortError) est SILENCIEUSE — pas une erreur.
+  const runPasskeyFlow = async (): Promise<void> => {
+    if (busy || throttled) return;
+    setBusy(true);
+    clearError();
+    try {
+      setStep("auth");
+      await auth.loginWithPasskey(identifier.trim() || undefined);
+      setStep("realtime");
+      await conn.connect();
+      setStep("done");
+      const from = (loc.state as { from?: string } | null)?.from;
+      const deepLink =
+        from && from !== "/nodefony" && from !== "/nodefony/login";
+      navigate(deepLink ? from : auth.homePath, { replace: true });
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        (e.name === "NotAllowedError" || e.name === "AbortError")
+      ) {
+        return; // l'utilisateur a fermé/annulé l'invite — état inchangé
+      }
+      const c = classifyError(e, "auth");
+      if (c.kind === "throttle") {
+        setCooldownUntil(
+          Date.now() + (c.retryAfter ?? DEFAULT_THROTTLE_S) * 1000,
+        );
+        setErrKind("throttle");
+        setError(null);
+      } else {
+        setErrKind(c.kind);
+        setError(c.message);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const dotColor =
     serverUp === null
       ? "var(--mantine-color-gray-5)"
@@ -448,7 +491,11 @@ export const Login = observer(() => {
                   Continuer
                 </Button>
 
-                <AltLoginMethods />
+                <AltLoginMethods
+                  onPasskey={runPasskeyFlow}
+                  busy={busy}
+                  disabled={throttled}
+                />
               </Stack>
             </form>
           ) : (
@@ -525,7 +572,11 @@ export const Login = observer(() => {
                       ? `Réessayez dans ${cooldownLeft}s`
                       : "Se connecter"}
                 </Button>
-                <AltLoginMethods />
+                <AltLoginMethods
+                  onPasskey={runPasskeyFlow}
+                  busy={busy}
+                  disabled={throttled}
+                />
               </Stack>
             </form>
           )}

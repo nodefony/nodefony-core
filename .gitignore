@@ -10,6 +10,8 @@ dist/
 node_modules/
 tmp/
 logs/
+# Données runtime persistées (store fichier WebAuthn, etc.) — JAMAIS commitées.
+var/
 # Certificats TLS générés — JAMAIS commités (contiennent la clé privée). Motif
 # **/ pour couvrir aussi les sous-modules : le service écrit dans
 # <cwd>/nodefony/config/certificates → dossier du module si tests/CLI lancés là.

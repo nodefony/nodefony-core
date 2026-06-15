@@ -370,6 +370,12 @@ const passkeysSchema = z
       .string()
       .optional()
       .describe("Relying Party ID (domaine). Omis = domaine de l'app au boot."),
+    rpName: z
+      .string()
+      .optional()
+      .describe(
+        "Nom lisible de la Relying Party affiché dans l'invite OS/navigateur. Omis = nom de l'app.",
+      ),
     origins: z
       .array(z.string())
       .default([])
@@ -378,7 +384,53 @@ const passkeysSchema = z
       .enum(["required", "preferred", "discouraged"])
       .default("preferred")
       .describe(
-        "Vérification utilisateur (biométrie/PIN) exigée par l'authenticator.",
+        "Vérification utilisateur (biométrie/PIN) exigée par l'authenticator. Défaut: preferred.",
+      ),
+    residentKey: z
+      .enum(["required", "preferred", "discouraged"])
+      .default("preferred")
+      .describe(
+        "Credential découvrable (passkey usernameless : login sans saisir l'identifiant). Défaut: preferred.",
+      ),
+    authenticatorAttachment: z
+      .enum(["platform", "cross-platform", "any"])
+      .default("platform")
+      .describe(
+        "Type d'authentificateur à l'enregistrement. 'platform' = biométrie intégrée (Touch ID/Windows Hello, PAS de QR) [défaut] ; 'cross-platform' = clé externe/téléphone (YubiKey, QR) ; 'any' = les deux (le navigateur propose, QR possible).",
+      ),
+    attestation: z
+      .enum(["none", "direct", "enterprise"])
+      .default("none")
+      .describe(
+        "Conveyance d'attestation. Défaut 'none' (passkeys grand public, pas de vérif chaîne de certs fabricant — vie privée). 'direct'/'enterprise' = AAL3 régulé (vérif AAGUID/MDS requise).",
+      ),
+    timeoutMs: z
+      .number()
+      .int()
+      .positive()
+      .default(60_000)
+      .describe(
+        "Délai (ms) laissé à l'utilisateur pour compléter une ceremony (navigator.credentials.*). Défaut: 60000.",
+      ),
+    challengeTtlS: z
+      .number()
+      .int()
+      .positive()
+      .default(300)
+      .describe(
+        "Durée de vie (s) du challenge serveur (anti-replay, lié à la session). Défaut: 300 (5 min).",
+      ),
+    store: z
+      .enum(["memory", "file"])
+      .default("memory")
+      .describe(
+        "Backend de stockage des credentials. 'memory' = volatile, perdu au redémarrage [défaut] ; 'file' = persiste sur disque (mono-process : dev / petit déploiement). Cluster/prod → adapter ORM ou Redis (à venir).",
+      ),
+    storePath: z
+      .string()
+      .optional()
+      .describe(
+        "Chemin du fichier JSON (driver 'file'). Omis = <cwd>/var/webauthn-credentials.json.",
       ),
   })
   .describe("Passkeys (WebAuthn L3 / FIDO2) — synced par défaut.");

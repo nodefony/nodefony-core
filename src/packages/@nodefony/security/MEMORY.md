@@ -36,6 +36,27 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
   `gcIntervalS:0` délègue à un ordonnanceur externe (cron P5.0b). Pose `tokenStore`+`jwtKeystore` container.
 - Endpoints JWT : `TokenAuthController` (@nodefony/framework) `/nodefony/security/api/token{,/refresh}`
   (`bypassFirewall`, montés si "tokenService"). Réponse RFC 6749 §5.1 (Bearer JSON, JAMAIS cookie/URL).
+- **WebAuthn / Passkeys (J9)** — `WebAuthnService` (service "webauthn") : cérémonies FIDO2 (WebAuthn L3
+  §7.1 registration / §7.2 authentication) déléguées à **`@simplewebauthn/server`** (lazy `import()`,
+  externalisé rollup, vendorless côté `/browser`). `generateRegistrationOptions`/`verifyRegistration`
+  (stocke le credential) + `generateAuthenticationOptions`/`verifyAuthentication` (vérifie sig + counter
+  anti-clone, MAJ état). RP résolu au boot : `rpId` = config ?? kernel.domain, **IP→`localhost`** auto
+  (le navigateur refuse une IP). `#expectedOrigin` = liste blanche config, sinon **origine requête SI
+  hostname===rpId** (dev localhost:port sûr). `authenticatorAttachment:"platform"` (défaut) = Touch ID/
+  Hello **sans QR** ; `"cross-platform"`=clé/tél, `"any"`=les deux. Lazy import = règle gravée.
+- `IWebAuthnCredential` (id b64url, **publicKey COSE** b64url, signCount, transports, BE/BS, userId,
+  lastUsedAt) + `IWebAuthnCredentialStore` (findById/findByUser/save/update/delete). Store **pluggable**
+  (`webAuthnCredentialStoreRegistry`, convention-frère tokenStore) : `memory` (volatile) + **`file`**
+  (`FileWebAuthnCredentialStore` = Memory + persistance JSON **atomique** tmp+rename, flush coalescé +
+  **`flushNow` à `onTerminate`** = 0 perte au restart). Driver = `config.passkeys.store` ; ORM/Redis = TODO.
+- Endpoints WebAuthn : `WebAuthnController` (@nodefony/framework) `/nodefony/security/api/webauthn/
+{register,login}/{options,verify}` (`bypassFirewall`, montés si "webauthn"). **register exige session**
+  (me() → 401, Zero Trust) ; **login démarre une session ANONYME** (`AuthFlow.ensureSession`) pour porter
+  le **challenge anti-replay** (`session.set`+**`save()` explicite** = persistance storage, sinon « No
+  challenge » au verify déconnecté — bug clé) ; challenge à **usage unique** (lu→`set(null)`+save).
+  login/verify OK → `AuthFlow.establishSessionFor` (session BFF, **anti-fixation regenerateId**, revalide
+  actif/locked). Front Studio : bouton « Passkey/empreinte » au login + « Enregistrer une empreinte »
+  (menu user), `@simplewebauthn/browser` `startAuthentication`/`startRegistration`.
 - Contrats : `IToken` (getUser/isAuthenticated/getRoles/getCredentials/**getScopes**/get-setAttribute),
   `IAuthenticator` (supports/createToken/authenticate/onSuccess/onFailure), `ISecuredArea`, `IFirewall`,
   `IAccessVoter` + `VoterVote` (GRANT/DENY/ABSTAIN).

@@ -5,6 +5,7 @@ import Firewall from "./nodefony/service/firewall";
 import AuthFlow from "./nodefony/service/authFlow";
 import TokenService from "./nodefony/service/tokenService";
 import Authorization from "./nodefony/service/authorization";
+import WebAuthnService from "./nodefony/service/webAuthn";
 
 /**
  * `@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6).
@@ -21,7 +22,7 @@ import Authorization from "./nodefony/service/authorization";
  * Jwt/oauth2/mtls/apikey, CORS, CSRF, autorisation par décorateurs et data
  * plane Studio arrivent aux sessions suivantes (plan J0→J10).
  */
-@services([Firewall, AuthFlow, TokenService, Authorization])
+@services([Firewall, AuthFlow, TokenService, Authorization, WebAuthnService])
 class Security extends Module {
   constructor(kernel: Kernel) {
     super("security", kernel, fileURLToPath(import.meta.url), config);
@@ -35,6 +36,7 @@ export { Firewall };
 export { AuthFlow };
 export { TokenService };
 export { Authorization };
+export { WebAuthnService };
 export type { ISafeUser } from "./nodefony/service/authFlow";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
 export { SecuredArea } from "./nodefony/src/SecuredArea";
@@ -85,6 +87,29 @@ export type {
   TokenStoreFactory,
   ITokenStoreFactoryContext,
 } from "./nodefony/src/token/tokenStoreRegistry";
+
+// ─── WebAuthn / Passkeys (P6 J9) — credentials + store pluggable ─────────────
+export { MemoryWebAuthnCredentialStore } from "./nodefony/src/webauthn/MemoryWebAuthnCredentialStore";
+export type { WebAuthnStoreSnapshot } from "./nodefony/src/webauthn/MemoryWebAuthnCredentialStore";
+export { FileWebAuthnCredentialStore } from "./nodefony/src/webauthn/FileWebAuthnCredentialStore";
+export {
+  registerWebAuthnStore,
+  getWebAuthnStoreFactory,
+  listWebAuthnStores,
+} from "./nodefony/src/webauthn/webAuthnCredentialStoreRegistry";
+export type {
+  WebAuthnStoreFactory,
+  IWebAuthnStoreFactoryContext,
+} from "./nodefony/src/webauthn/webAuthnCredentialStoreRegistry";
+export type {
+  IWebAuthnUser,
+  IWebAuthnAssertionResult,
+} from "./nodefony/service/webAuthn";
+export type { IWebAuthnCredential } from "./nodefony/contracts/IWebAuthnCredential";
+export type {
+  IWebAuthnCredentialStore,
+  WebAuthnAuthUpdate,
+} from "./nodefony/contracts/IWebAuthnCredentialStore";
 
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
 export { defineSecurityConfig } from "./nodefony/config/defineSecurityConfig";

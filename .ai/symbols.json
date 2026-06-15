@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-15T11:32:06.353Z",
+  "generated": "2026-06-15T13:59:35.905Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 888,
-    "symbols": 1886,
-    "classes": 275,
-    "interfaces": 480,
-    "types": 237,
+    "files": 895,
+    "symbols": 1909,
+    "classes": 279,
+    "interfaces": 491,
+    "types": 240,
     "enums": 3,
-    "functions": 390,
+    "functions": 395,
     "constants": 501
   },
   "symbols": {
@@ -5552,6 +5552,52 @@
       "module": "@nodefony/framework",
       "description": "Monte les routes d'émission/rotation JWT — appelé par le module framework à `onKernelReady`, seulement si le service `tokenService` est présent. Routes nommées `security.token.*` (espace data plane…"
     },
+    "WebAuthnController": {
+      "name": "WebAuthnController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Endpoints HTTP des cérémonies **WebAuthn / passkeys** (P6 J9) — adaptateurs MINCES au-dessus du service `webauthn` (`@nodefony/security`) : - `POST /nodefony/security/api/webauthn/register/options`…"
+    },
+    "IWebAuthnService": {
+      "name": "IWebAuthnService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue MINIMALE du service `webauthn` (`@nodefony/security`) — couplage par NOM (framework ne dépend jamais de security ni de `@simplewebauthn`). Contrat structurel imposé par cast (`this.get<…>`), au…"
+    },
+    "IWebAuthnSession": {
+      "name": "IWebAuthnSession",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue minimale d'une session — porte le challenge de cérémonie (anti-replay)."
+    },
+    "IWebAuthnBffFlow": {
+      "name": "IWebAuthnBffFlow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue minimale du flux de session BFF (`authFlow`) consommée ici."
+    },
+    "mountWebAuthnRoutes": {
+      "name": "mountWebAuthnRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les routes des cérémonies WebAuthn — appelé par le module framework à `onKernelReady`, seulement si le service `webauthn` est présent."
+    },
     "FrontendBuild": {
       "name": "FrontendBuild",
       "kind": "class",
@@ -8213,6 +8259,33 @@
       "module": "@nodefony/security",
       "description": "État serveur des jetons longue durée (PAT, refresh tokens), denylist des access tokens révoqués (`jti`) et seuil de révocation **en masse** par porteur. Pourquoi un store : un access token signé (J…"
     },
+    "IWebAuthnCredential": {
+      "name": "IWebAuthnCredential",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredential.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Enregistrement d'un **credential WebAuthn / passkey** côté serveur — le `credentialRecord` de WebAuthn L3 §7.1 (produit par la cérémonie d'enregistrement, relu et mis à jour à chaque authentificati…"
+    },
+    "WebAuthnAuthUpdate": {
+      "name": "WebAuthnAuthUpdate",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "État mis à jour après une authentification réussie (WebAuthn §7.2)."
+    },
+    "IWebAuthnCredentialStore": {
+      "name": "IWebAuthnCredentialStore",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Store **pluggable** des credentials WebAuthn — découple le cœur du backend de persistance (mémoire / ORM / Redis). Convention-frère d'`ITokenStore` : le builtin `memory` est sans dépendance, les ad…"
+    },
     "AccessDeniedError": {
       "name": "AccessDeniedError",
       "kind": "class",
@@ -8322,6 +8395,35 @@
       "module": "@nodefony/security",
       "extends": null,
       "description": "Réponse d'émission de jetons — nommage RFC 6749 §5.1 (snake_case, JSON). Le JWT part en `Authorization: Bearer`, JAMAIS en cookie ni en URL."
+    },
+    "WebAuthnService": {
+      "name": "WebAuthnService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "**WebAuthn / passkeys** (P6 J9) — orchestrateur des deux cérémonies FIDO2 (WebAuthn L3 §7.1 enregistrement, §7.2 authentification). MFA **phishing-resistant** : la clé privée ne quitte jamais l'aut…"
+    },
+    "IWebAuthnUser": {
+      "name": "IWebAuthnUser",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Sujet d'une cérémonie d'enregistrement — l'utilisateur qui crée un passkey."
+    },
+    "IWebAuthnAssertionResult": {
+      "name": "IWebAuthnAssertionResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Résultat d'une authentification WebAuthn vérifiée."
     },
     "RoleHierarchyWalker": {
       "name": "RoleHierarchyWalker",
@@ -13455,6 +13557,79 @@
       "module": "@nodefony/security",
       "description": "Toutes les fabriques enregistrées (consommées par l'`AuthorizationService`)."
     },
+    "FileWebAuthnCredentialStore": {
+      "name": "FileWebAuthnCredentialStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "MemoryWebAuthnCredentialStore",
+      "implements": [],
+      "decorators": [],
+      "description": "Store de credentials WebAuthn **sur fichier** (JSON) — {@link MemoryWebAuthnCredentialStore} + persistance. Toute la logique d'index est héritée ; on n'ajoute QUE l'écriture/lecture disque. L'état …"
+    },
+    "MemoryWebAuthnCredentialStore": {
+      "name": "MemoryWebAuthnCredentialStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IWebAuthnCredentialStore"
+      ],
+      "decorators": []
+    },
+    "WebAuthnStoreSnapshot": {
+      "name": "WebAuthnStoreSnapshot",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Store de credentials WebAuthn **en mémoire** — implémentation de référence d'{@link IWebAuthnCredentialStore}. 0 dépendance, idéale pour le développement mono-process et les **tests**. NON partagée…"
+    },
+    "IWebAuthnStoreFactoryContext": {
+      "name": "IWebAuthnStoreFactoryContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Registre de **fabriques de stores de credentials WebAuthn** — résout un nom (`memory`, `drizzle`, `mongoose`, `redis`…) vers une instance, SANS coupler le cœur à un backend en dur. Convention-frère…"
+    },
+    "WebAuthnStoreFactory": {
+      "name": "WebAuthnStoreFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store de credentials pour un nom donné."
+    },
+    "registerWebAuthnStore": {
+      "name": "registerWebAuthnStore",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Enregistre (ou remplace) la fabrique d'un store de credentials WebAuthn."
+    },
+    "getWebAuthnStoreFactory": {
+      "name": "getWebAuthnStoreFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store par nom, ou `undefined` si inconnu."
+    },
+    "listWebAuthnStores": {
+      "name": "listWebAuthnStores",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
+    },
     "Argon2idEncoder": {
       "name": "Argon2idEncoder",
       "kind": "class",
@@ -13807,6 +13982,7 @@
         "Authorization",
         "Firewall",
         "TokenService",
+        "WebAuthnService",
         "ServerHttp",
         "ServerHttps",
         "Statics",
@@ -13948,6 +14124,7 @@
         "ResourceController",
         "SessionAuthController",
         "TokenAuthController",
+        "WebAuthnController",
         "StudioController",
         "RealtimeController"
       ],
@@ -14055,6 +14232,9 @@
       ],
       "MemoryTokenStore": [
         "FileTokenStore"
+      ],
+      "MemoryWebAuthnCredentialStore": [
+        "FileWebAuthnCredentialStore"
       ],
       "Context": [
         "HttpContext",
@@ -14263,6 +14443,9 @@
       "IAccessVoter": [
         "RoleVoter"
       ],
+      "IWebAuthnCredentialStore": [
+        "MemoryWebAuthnCredentialStore"
+      ],
       "IPasswordEncoder": [
         "Argon2idEncoder",
         "BcryptEncoder",
@@ -14409,6 +14592,7 @@
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -14458,6 +14642,7 @@
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -14471,6 +14656,7 @@
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "FileClass": [
@@ -14509,6 +14695,7 @@
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -14776,6 +14963,7 @@
         "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
         "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -14786,6 +14974,7 @@
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -15015,6 +15204,7 @@
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
@@ -15063,6 +15253,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
@@ -15095,6 +15286,12 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "mountTokenAuthRoutes": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "WebAuthnController": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "mountWebAuthnRoutes": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "createKernelAdminApi": [
@@ -15619,6 +15816,9 @@
         "src/packages/@nodefony/security/index.ts"
       ],
       "Authorization": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "WebAuthnService": [
         "src/packages/@nodefony/security/index.ts"
       ],
       "StudioController": [
@@ -16482,6 +16682,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ISecuredArea.ts",
@@ -16859,6 +17060,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
@@ -17592,7 +17794,8 @@
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/config/config.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
       "IToken": [
         "src/packages/@nodefony/security/nodefony/contracts/IAccessVoter.ts",
@@ -17622,6 +17825,12 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
       ],
+      "IWebAuthnCredential": [
+        "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
+      ],
       "IUserProvider": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
@@ -17642,6 +17851,7 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
@@ -17694,9 +17904,11 @@
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
       ],
       "getAuthenticatorFactory": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
@@ -17728,7 +17940,8 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "ISecurityConfigInput": [
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
       "getTokenStoreFactory": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
@@ -17748,6 +17961,14 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "IWebAuthnCredentialStore": [
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "getWebAuthnStoreFactory": [
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
       "ISecurityAreaConfig": [
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
@@ -19349,6 +19570,20 @@
       ],
       "RoleVoter": [
         "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts"
+      ],
+      "MemoryWebAuthnCredentialStore": [
+        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "WebAuthnStoreSnapshot": [
+        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts"
+      ],
+      "WebAuthnAuthUpdate": [
+        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
+      ],
+      "FileWebAuthnCredentialStore": [
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
       ],
       "Argon2idEncoder": [
         "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"

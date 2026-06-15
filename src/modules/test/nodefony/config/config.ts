@@ -50,5 +50,11 @@ export default {
         // handshake WS JWT sous /m2m est authentifié sans flag (P6 J8 volet b).
       },
     },
+    // P6 J9 — passkeys WebAuthn : store FICHIER en dev (les credentials
+    // persistent au redémarrage, contrairement à "memory" vidé à chaque restart).
+    // Fichier dans var/ (gitignoré). Cluster/prod → driver ORM/Redis (à venir).
+    passkeys: {
+      store: "file",
+    },
   },
 };

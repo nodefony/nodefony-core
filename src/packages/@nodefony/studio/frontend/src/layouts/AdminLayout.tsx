@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { Suspense, useEffect } from "react";
+import { Suspense, useCallback, useEffect } from "react";
 import {
   AppShell,
   Box,
@@ -40,6 +40,7 @@ import {
   IconSun,
   IconMoonStars,
   IconLogout,
+  IconFingerprint,
   IconPlugConnected,
   IconPlugX,
   IconSearch,
@@ -56,6 +57,7 @@ import {
   useAdmin,
   useAuth,
   useConnection,
+  useNotifications,
   useUi,
   useWorkspace,
 } from "../stores";
@@ -117,6 +119,29 @@ function NavEntry({
 export const AdminLayout = observer(() => {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure(false);
   const auth = useAuth();
+  const notifications = useNotifications();
+  // Enregistre un passkey pour l'utilisateur connecté (lie une empreinte/clé à
+  // son compte). L'annulation de l'invite OS (NotAllowedError) est silencieuse.
+  const handleRegisterPasskey = useCallback(async () => {
+    try {
+      await auth.registerPasskey();
+      notifications.notify(
+        "success",
+        "Vous pouvez désormais vous connecter par empreinte.",
+        { title: "Passkey enregistré" },
+      );
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        (e.name === "NotAllowedError" || e.name === "AbortError")
+      ) {
+        return;
+      }
+      notifications.notify("error", "Échec de l'enregistrement du passkey.", {
+        title: "Erreur",
+      });
+    }
+  }, [auth, notifications]);
   const conn = useConnection();
   const ui = useUi();
   const workspace = useWorkspace();
@@ -331,6 +356,12 @@ export const AdminLayout = observer(() => {
                   to="/nodefony/settings"
                 >
                   Settings
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconFingerprint size={14} />}
+                  onClick={handleRegisterPasskey}
+                >
+                  Enregistrer une empreinte
                 </Menu.Item>
                 <Menu.Item
                   leftSection={<IconLogout size={14} />}

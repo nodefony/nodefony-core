@@ -20,6 +20,9 @@ import SessionAuthController, {
 import TokenAuthController, {
   mountTokenAuthRoutes,
 } from "./nodefony/src/TokenAuthController";
+import WebAuthnController, {
+  mountWebAuthnRoutes,
+} from "./nodefony/src/WebAuthnController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
@@ -149,6 +152,11 @@ class Framework extends Module {
     if (this.kernel?.container?.get("tokenService")) {
       mountTokenAuthRoutes(this);
     }
+    // P6 J9 — cérémonies WebAuthn/passkeys : routes montées seulement si le
+    // service `webauthn` est présent (security chargé + passkeys activés).
+    if (this.kernel?.container?.get("webauthn")) {
+      mountWebAuthnRoutes(this);
+    }
     return this;
   }
 }
@@ -174,6 +182,8 @@ export {
   mountSessionAuthRoutes,
   TokenAuthController,
   mountTokenAuthRoutes,
+  WebAuthnController,
+  mountWebAuthnRoutes,
   createKernelAdminApi,
   createFrameworkAdminApi,
   createSyslogAdminApi,

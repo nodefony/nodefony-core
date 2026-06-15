@@ -111,6 +111,54 @@ class AuthFlow extends Service {
   }
 
   /**
+   * Ouvre la session BFF pour un utilisateur **déjà authentifié par un autre
+   * facteur** (passkey/WebAuthn, OAuth, magic link…) — aucun mot de passe à
+   * vérifier ici, la preuve a été apportée en amont par l'appelant.
+   *
+   * Même anti-fixation que {@link login} (ID régénéré, ancienne entrée
+   * détruite). L'identité est re-résolue + revalidée (compte actif/non
+   * verrouillé) via la source unique `resolveSessionIdentity` — un compte banni
+   * entre la preuve et l'ouverture de session est rejeté.
+   *
+   * @param identifier - identifiant de l'utilisateur prouvé (ex. `sub` du credential).
+   * @throws AuthenticationError (401, message uniforme) — identifiant absent, ou
+   *   compte disparu/inactif/verrouillé.
+   */
+  async establishSessionFor(
+    context: ContextType,
+    identifier: unknown,
+  ): Promise<ISafeUser> {
+    if (typeof identifier !== "string" || identifier.length === 0) {
+      throw new AuthenticationError(INVALID_CREDENTIALS);
+    }
+    const user = await resolveSessionIdentity(this.#resolveUsers(), identifier);
+    await this.#openSession(context, user.identifier);
+    context.user = user.identifier;
+    RequestContext.set("user", user);
+    return toSafeUser(user);
+  }
+
+  /**
+   * Garantit une session pour la requête courante — la démarre (+ cookie) si
+   * elle n'existe pas encore. Sert aux cérémonies **pré-authentification**
+   * (login WebAuthn) : elles doivent porter un challenge côté serveur AVANT que
+   * l'utilisateur soit connecté. La session anonyme ainsi créée devient la
+   * session authentifiée au login — {@link establishSessionFor} régénère l'ID
+   * (anti-fixation préservée), donc un challenge déposé ici n'ouvre aucune brèche.
+   *
+   * @returns la session (existante ou neuve), ou `null` si le service de session
+   *   est indisponible.
+   */
+  async ensureSession(context: ContextType): Promise<ISession | null> {
+    if (context.session) {
+      return context.session;
+    }
+    // L'appelant persiste (cookie + challenge) via `session.save()` APRÈS y
+    // avoir écrit son challenge — un seul aller-retour storage.
+    return this.#resolveSessions().start(context);
+  }
+
+  /**
    * Détruit la session courante (storage + cookie). Idempotent : sans session
    * active, ne fait rien.
    *
