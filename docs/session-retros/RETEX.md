@@ -88,6 +88,12 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
 
 ## 🎨 Front / Studio / UX
 
+- `[1× — 2026-06-15]` **feature à TEST VISUEL ITÉRATIF (auth/sessions) → persistance dès le DÉBUT en dev, pas
+  un store volatile** (J9). Le store credentials en MÉMOIRE était vidé à CHAQUE restart serveur ; comme je
+  redémarrais pour chaque fix, le passkey enregistré par le user était perdu à la passe suivante → « rien ne
+  marche / verification failed » (3-4 cycles perdus, frustration). → dès qu'une feature se teste par
+  ré-enregistrement + ré-login MANUEL (le user clique), prévoir le **driver persistant (fichier)** d'emblée
+  (atomique tmp+rename + flush `onTerminate`), pas après N pertes. Bonus : ça force un store propre + testable.
 - `[1× — 2026-06-13]` **Écran VITRINE (login) = N itérations UI si on improvise le rendu** (~12 allers-retours
   user sur le seul login cette session). Pour un écran « vu en premier », faire un **mini-cahier des charges
   VISUEL validé AVANT** (structure + comportement des erreurs + responsive + ce qui doit/ne doit PAS bouger),
@@ -517,6 +523,24 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 - `[1× — 2026-06-08]` **gros chantier de refonte → AUDIT exhaustif AVANT (pas juste relire le kit)** : avant le virage ORM, balayer code+mémoires+docs+**Studio**+**sondes realtime**+**externe** a débusqué des pièges invisibles depuis le kit : **2 `Orm` homonymes** (legacy core ≠ `@nodefony/orm-core` à garder → risque de supprimer la mauvaise cible) + **dette C5** (montage data plane ORM déclenché par Drizzle → app Mongoose-only muette). Le user a élargi le scope 2× (« tu as regardé Studio ? les sondes realtime aussi »). → pour une refonte, cartographier la **surface COMPLÈTE** (front + observabilité incluses) dès le départ ; le doc d'audit devient la boussole d'exécution.
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
+
+- `[1× — 2026-06-15]` **feature de CÂBLAGE multi-requêtes → banc d'intégration AVANT de dire « fait » ; les
+  smoke curl manuels ne suffisent pas** (J9 WebAuthn). J'avais build/typecheck/memory/security-review verts +
+  1 test unit (store) + des curl manuels → j'ai annoncé « prêt ». Le user a trouvé **3 bugs EN LIVE** que je
+  n'avais pas : (1) QR au lieu de Touch ID (`authenticatorAttachment` manquant), (2) « No challenge » au login
+  (session anonyme jamais démarrée → challenge nulle part), (3) « verification failed » (store mémoire vidé à
+  chaque restart). Aucun n'apparaît dans un curl rapide options→verify ENCHAÎNÉ ; tous sont du **câblage
+  cross-requête** (session, persistance, état navigateur). → pour TOUT flux multi-requêtes (auth, sessions,
+  cérémonies), écrire le **banc d'intégration serveur réel** (login → options → verify, anonyme inclus) AVANT
+  de qualifier « fait ». Le user l'a explicitement réclamé ; j'aurais dû le faire d'office (la devise CLAUDE.md).
+- `[1× — 2026-06-15]` **bug front↔back sans navigateur = LOGS serveur (status/req) + curl REPRO** (J9). Les 3
+  bugs ont été localisés par `grep "POST 4xx … webauthn" /tmp/nodefony-server.log` (register 200 / login.verify
+  400 → câblage session) puis reproduits en curl (options anonyme → 0 cookie → verify 400). Le « 400 » du toast
+  navigateur ne dit pas OÙ ; le log serveur par requête + le curl repro tranchent sans headless (règle projet).
+- `[1× — 2026-06-15]` **`session.set(k,v)` ne survit PAS à la requête sans `save()` EXPLICITE** : une session
+  démarrée puis mutée dans la MÊME requête (`start()` + `set(challenge)`) n'est pas relue à la requête suivante
+  — le `saveSession` de fin de requête ne suffit pas (cookie posé mais blob sans le champ). Fix prouvé : `await
+session.save()` juste après le `set`. Symptôme = la valeur « disparaît » entre 2 requêtes (challenge perdu).
 
 - `[1× — 2026-06-15]` **la CAUSE RACINE d'un kit/mémoire peut être 100 % FAUSSE — la prouver au terrain, pas la
   croire** (J8 volet b). Le kit affirmait « JWT stateless → `getUser()`=anonyme → réécrire l'authenticator ».
