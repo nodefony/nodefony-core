@@ -1,7 +1,7 @@
 import type { Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
-import Controller from "./Controller";
+import Controller from "../src/Controller";
 
 /**
  * Vue MINIMALE du flux de session BFF que consomme ce controller — le service

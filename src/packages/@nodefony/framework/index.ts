@@ -13,19 +13,19 @@ import Controller from "./nodefony/src/Controller";
 import ResourceController from "./nodefony/src/ResourceController";
 import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
-import AdminApiController from "./nodefony/src/AdminApiController";
+import AdminApiController from "./nodefony/controller/AdminApiController";
 import SessionAuthController, {
   mountSessionAuthRoutes,
-} from "./nodefony/src/SessionAuthController";
+} from "./nodefony/controller/SessionAuthController";
 import TokenAuthController, {
   mountTokenAuthRoutes,
-} from "./nodefony/src/TokenAuthController";
+} from "./nodefony/controller/TokenAuthController";
 import WebAuthnController, {
   mountWebAuthnRoutes,
-} from "./nodefony/src/WebAuthnController";
+} from "./nodefony/controller/WebAuthnController";
 import OAuth2Controller, {
   mountOAuth2Routes,
-} from "./nodefony/src/OAuth2Controller";
+} from "./nodefony/controller/OAuth2Controller";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";

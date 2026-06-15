@@ -2,7 +2,7 @@ import { RequestContext, RpcError } from "nodefony";
 import type { IAdminRequest, IAdminResponse } from "nodefony";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import type { ContextType } from "@nodefony/http";
-import Controller from "./Controller";
+import Controller from "../src/Controller";
 
 /**
  * Controller pont unique du data plane admin (Studio).

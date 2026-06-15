@@ -1,7 +1,7 @@
 import type { Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
-import Controller from "./Controller";
+import Controller from "../src/Controller";
 
 /**
  * Options de cérémonie renvoyées au navigateur (forme JSON WebAuthn) — seul le

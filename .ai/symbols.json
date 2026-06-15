@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-15T17:08:26.580Z",
+  "generated": "2026-06-15T17:19:28.399Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -4817,6 +4817,165 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
+    "AdminApiController": {
+      "name": "AdminApiController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Controller pont unique du data plane admin (Studio). Toutes les routes `/nodefony/<namespace>/api/*` montées par le broker pointent vers `AdminApiController.dispatch`. À l'exécution, le controller …"
+    },
+    "OAuth2Controller": {
+      "name": "OAuth2Controller",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Endpoints HTTP du **social login OAuth 2.0** (P6 J9) — adaptateurs MINCES au-dessus du service `oauth2` (`@nodefony/security`) : - `GET /nodefony/security/api/oauth2/{provider}/authorize` — démarre…"
+    },
+    "IOAuth2Service": {
+      "name": "IOAuth2Service",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue MINIMALE du service `oauth2` (`@nodefony/security`) — couplage par NOM (framework ne dépend ni de security ni d'arctic). Contrat structurel imposé par cast (`this.get<…>`), aucune liaison de bu…"
+    },
+    "IOAuth2Session": {
+      "name": "IOAuth2Session",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue minimale d'une session — porte l'état du flux OAuth (anti-CSRF/anti-replay)."
+    },
+    "IOAuth2BffFlow": {
+      "name": "IOAuth2BffFlow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue minimale du flux de session BFF (`authFlow`) consommée ici."
+    },
+    "mountOAuth2Routes": {
+      "name": "mountOAuth2Routes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les routes du social login OAuth — appelé par le module framework à `onKernelReady`, seulement si le service `oauth2` est présent."
+    },
+    "SessionAuthController": {
+      "name": "SessionAuthController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Endpoints HTTP du flux de session BFF — adaptateurs MINCES au-dessus du service `authFlow` (`@nodefony/security`) : - `POST /nodefony/security/api/auth/login` — body JSON `{username, password}` - `…"
+    },
+    "ISessionAuthFlow": {
+      "name": "ISessionAuthFlow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue MINIMALE du flux de session BFF que consomme ce controller — le service `authFlow` est posé au container par `@nodefony/security` (P6 J3). Contrat structurel local : framework ne dépend JAMAIS …"
+    },
+    "mountSessionAuthRoutes": {
+      "name": "mountSessionAuthRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les routes du flux de session BFF — appelé par le module framework à `onKernelReady`, seulement si le service `authFlow` est présent. Routes nommées `security.auth.*` (espace data plane `/nod…"
+    },
+    "TokenAuthController": {
+      "name": "TokenAuthController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Endpoints HTTP d'émission/rotation de **JWT** — adaptateurs MINCES au-dessus du service `tokenService` (`@nodefony/security`) : - `POST /nodefony/security/api/token` — body `{username, password, sc…"
+    },
+    "ITokenIssuer": {
+      "name": "ITokenIssuer",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue MINIMALE du service d'émission de jetons (`tokenService`, posé au container par `@nodefony/security` P6 J4). Contrat structurel local : framework ne dépend JAMAIS de security — couplage par nom…"
+    },
+    "mountTokenAuthRoutes": {
+      "name": "mountTokenAuthRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les routes d'émission/rotation JWT — appelé par le module framework à `onKernelReady`, seulement si le service `tokenService` est présent. Routes nommées `security.token.*` (espace data plane…"
+    },
+    "WebAuthnController": {
+      "name": "WebAuthnController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Endpoints HTTP des cérémonies **WebAuthn / passkeys** (P6 J9) — adaptateurs MINCES au-dessus du service `webauthn` (`@nodefony/security`) : - `POST /nodefony/security/api/webauthn/register/options`…"
+    },
+    "IWebAuthnService": {
+      "name": "IWebAuthnService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue MINIMALE du service `webauthn` (`@nodefony/security`) — couplage par NOM (framework ne dépend jamais de security ni de `@simplewebauthn`). Contrat structurel imposé par cast (`this.get<…>`), au…"
+    },
+    "IWebAuthnSession": {
+      "name": "IWebAuthnSession",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue minimale d'une session — porte le challenge de cérémonie (anti-replay)."
+    },
+    "IWebAuthnBffFlow": {
+      "name": "IWebAuthnBffFlow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue minimale du flux de session BFF (`authFlow`) consommée ici."
+    },
+    "mountWebAuthnRoutes": {
+      "name": "mountWebAuthnRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les routes des cérémonies WebAuthn — appelé par le module framework à `onKernelReady`, seulement si le service `webauthn` est présent."
+    },
     "ParamMeta": {
       "name": "ParamMeta",
       "kind": "interface",
@@ -5195,17 +5354,6 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
-    "AdminApiController": {
-      "name": "AdminApiController",
-      "kind": "class",
-      "file": "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": "Controller",
-      "implements": [],
-      "decorators": [],
-      "description": "Controller pont unique du data plane admin (Studio). Toutes les routes `/nodefony/<namespace>/api/*` montées par le broker pointent vers `AdminApiController.dispatch`. À l'exécution, le controller …"
-    },
     "Controller": {
       "name": "Controller",
       "kind": "class",
@@ -5444,52 +5592,6 @@
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
     },
-    "OAuth2Controller": {
-      "name": "OAuth2Controller",
-      "kind": "class",
-      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": "Controller",
-      "implements": [],
-      "decorators": [],
-      "description": "Endpoints HTTP du **social login OAuth 2.0** (P6 J9) — adaptateurs MINCES au-dessus du service `oauth2` (`@nodefony/security`) : - `GET /nodefony/security/api/oauth2/{provider}/authorize` — démarre…"
-    },
-    "IOAuth2Service": {
-      "name": "IOAuth2Service",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Vue MINIMALE du service `oauth2` (`@nodefony/security`) — couplage par NOM (framework ne dépend ni de security ni d'arctic). Contrat structurel imposé par cast (`this.get<…>`), aucune liaison de bu…"
-    },
-    "IOAuth2Session": {
-      "name": "IOAuth2Session",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Vue minimale d'une session — porte l'état du flux OAuth (anti-CSRF/anti-replay)."
-    },
-    "IOAuth2BffFlow": {
-      "name": "IOAuth2BffFlow",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Vue minimale du flux de session BFF (`authFlow`) consommée ici."
-    },
-    "mountOAuth2Routes": {
-      "name": "mountOAuth2Routes",
-      "kind": "function",
-      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Monte les routes du social login OAuth — appelé par le module framework à `onKernelReady`, seulement si le service `oauth2` est présent."
-    },
     "Resolver": {
       "name": "Resolver",
       "kind": "class",
@@ -5569,34 +5671,6 @@
       "module": "@nodefony/framework",
       "extends": null
     },
-    "SessionAuthController": {
-      "name": "SessionAuthController",
-      "kind": "class",
-      "file": "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": "Controller",
-      "implements": [],
-      "decorators": [],
-      "description": "Endpoints HTTP du flux de session BFF — adaptateurs MINCES au-dessus du service `authFlow` (`@nodefony/security`) : - `POST /nodefony/security/api/auth/login` — body JSON `{username, password}` - `…"
-    },
-    "ISessionAuthFlow": {
-      "name": "ISessionAuthFlow",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Vue MINIMALE du flux de session BFF que consomme ce controller — le service `authFlow` est posé au container par `@nodefony/security` (P6 J3). Contrat structurel local : framework ne dépend JAMAIS …"
-    },
-    "mountSessionAuthRoutes": {
-      "name": "mountSessionAuthRoutes",
-      "kind": "function",
-      "file": "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Monte les routes du flux de session BFF — appelé par le module framework à `onKernelReady`, seulement si le service `authFlow` est présent. Routes nommées `security.auth.*` (espace data plane `/nod…"
-    },
     "SyslogAdminApiOptions": {
       "name": "SyslogAdminApiOptions",
       "kind": "interface",
@@ -5623,80 +5697,6 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
-    },
-    "TokenAuthController": {
-      "name": "TokenAuthController",
-      "kind": "class",
-      "file": "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": "Controller",
-      "implements": [],
-      "decorators": [],
-      "description": "Endpoints HTTP d'émission/rotation de **JWT** — adaptateurs MINCES au-dessus du service `tokenService` (`@nodefony/security`) : - `POST /nodefony/security/api/token` — body `{username, password, sc…"
-    },
-    "ITokenIssuer": {
-      "name": "ITokenIssuer",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Vue MINIMALE du service d'émission de jetons (`tokenService`, posé au container par `@nodefony/security` P6 J4). Contrat structurel local : framework ne dépend JAMAIS de security — couplage par nom…"
-    },
-    "mountTokenAuthRoutes": {
-      "name": "mountTokenAuthRoutes",
-      "kind": "function",
-      "file": "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Monte les routes d'émission/rotation JWT — appelé par le module framework à `onKernelReady`, seulement si le service `tokenService` est présent. Routes nommées `security.token.*` (espace data plane…"
-    },
-    "WebAuthnController": {
-      "name": "WebAuthnController",
-      "kind": "class",
-      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": "Controller",
-      "implements": [],
-      "decorators": [],
-      "description": "Endpoints HTTP des cérémonies **WebAuthn / passkeys** (P6 J9) — adaptateurs MINCES au-dessus du service `webauthn` (`@nodefony/security`) : - `POST /nodefony/security/api/webauthn/register/options`…"
-    },
-    "IWebAuthnService": {
-      "name": "IWebAuthnService",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Vue MINIMALE du service `webauthn` (`@nodefony/security`) — couplage par NOM (framework ne dépend jamais de security ni de `@simplewebauthn`). Contrat structurel imposé par cast (`this.get<…>`), au…"
-    },
-    "IWebAuthnSession": {
-      "name": "IWebAuthnSession",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Vue minimale d'une session — porte le challenge de cérémonie (anti-replay)."
-    },
-    "IWebAuthnBffFlow": {
-      "name": "IWebAuthnBffFlow",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Vue minimale du flux de session BFF (`authFlow`) consommée ici."
-    },
-    "mountWebAuthnRoutes": {
-      "name": "mountWebAuthnRoutes",
-      "kind": "function",
-      "file": "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Monte les routes des cérémonies WebAuthn — appelé par le module framework à `onKernelReady`, seulement si le service `webauthn` est présent."
     },
     "FrontendBuild": {
       "name": "FrontendBuild",
@@ -14431,10 +14431,10 @@
         "DocumentationController",
         "AdminApiController",
         "OAuth2Controller",
-        "ResourceController",
         "SessionAuthController",
         "TokenAuthController",
         "WebAuthnController",
+        "ResourceController",
         "StudioController",
         "RealtimeController"
       ],
@@ -15272,18 +15272,18 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
-        "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -15503,8 +15503,8 @@
       "IAdminBroker": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
@@ -15520,14 +15520,14 @@
       ],
       "Router": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
@@ -15567,17 +15567,17 @@
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
@@ -16212,7 +16212,7 @@
       ],
       "RpcError": [
         "src/nodefony/src/client/index.ts",
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "TransportState": [
@@ -16981,8 +16981,8 @@
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
@@ -17009,19 +17009,19 @@
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ISecuredArea.ts",
@@ -17428,6 +17428,40 @@
         "src/packages/@nodefony/framework/nodefony/config/schema.ts",
         "src/packages/@nodefony/http/nodefony/config/schema.ts"
       ],
+      "IAdminRequest": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "IAdminResponse": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
+      "IAdminRoute": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
+      ],
+      "HTTPMethod": [
+        "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
       "TypeController": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"
       ],
@@ -17444,24 +17478,6 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "HTTPMethod": [
-        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
-        "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
-        "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "SessionIntent": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
@@ -17532,10 +17548,6 @@
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
       ],
-      "IAdminRoute": [
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
-      ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
       ],
@@ -17543,18 +17555,6 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
-      ],
-      "IAdminRequest": [
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
-      ],
-      "IAdminResponse": [
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",

@@ -3,7 +3,7 @@ import type { IAdminApi } from "nodefony";
 import type { HTTPMethod } from "@nodefony/http";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import Router from "./router";
-import AdminApiController from "../src/AdminApiController";
+import AdminApiController from "../controller/AdminApiController";
 import type Controller from "../src/Controller";
 
 const serviceName = "adminBroker";
