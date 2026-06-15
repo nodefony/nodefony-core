@@ -1,7 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Badge,
   Box,
   Button,
   Divider,
@@ -19,9 +18,10 @@ import {
   IconAlertCircle,
   IconAlertTriangle,
   IconArrowRight,
+  IconBrandGithub,
+  IconBrandGoogle,
   IconClockHour4,
   IconFingerprint,
-  IconKey,
   IconLock,
   IconLogin,
   IconUser,
@@ -31,10 +31,14 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { type ConnectionStep } from "../components/ConnectionStepper";
 import { useAuth, useConnection, useStore } from "../stores";
+import {
+  LAST_METHOD_KEY,
+  LAST_USER_KEY,
+  PENDING_METHOD_KEY,
+} from "../stores/AuthStore";
 
-/** Dernier identifiant utilisé (UX « rebonjour ») — username SEUL, jamais de
- *  secret. Sûr à persister (équivalent d'un « remember username »). */
-const LAST_USER_KEY = "nf.studio.lastUser";
+// `LAST_USER_KEY` est défini dans AuthStore (source de vérité du dernier compte
+// connecté — mis à jour aussi après login social/passkey, pas seulement mot de passe).
 /** Cooldown par défaut (s) si le serveur n'indique pas de `Retry-After` sur un 429. */
 const DEFAULT_THROTTLE_S = 30;
 
@@ -47,12 +51,64 @@ const STEP_LABEL: Record<ConnectionStep, string> = {
   done: "Prêt",
 };
 
+/**
+ * Métadonnées d'affichage des fournisseurs sociaux connus (libellé + icône de
+ * marque). Un fournisseur découvert hors de cette table (ex. `keycloak`) reste
+ * affiché via un bouton générique — l'UI ne masque jamais un provider activé.
+ */
+const SOCIAL_META: Record<
+  string,
+  { label: string; Icon: typeof IconBrandGoogle }
+> = {
+  google: { label: "Google", Icon: IconBrandGoogle },
+  github: { label: "GitHub", Icon: IconBrandGithub },
+};
+
+/**
+ * Démarre un flux social : navigation PLEINE PAGE vers `/authorize` (302 → le
+ * fournisseur). JAMAIS un `fetch` — le navigateur doit suivre les redirections
+ * cross-origin et laisser le serveur poser le cookie de session au callback.
+ */
+function startSocialLogin(provider: string): void {
+  // Mémorise le mode AVANT la redirection pleine page (le composant Login ne
+  // repasse pas) → consommé au retour authentifié pour l'icône/action « rebonjour ».
+  try {
+    localStorage.setItem(PENDING_METHOD_KEY, provider);
+  } catch {
+    /* localStorage indisponible (mode privé) — non bloquant */
+  }
+  window.location.assign(`/nodefony/security/api/oauth2/${provider}/authorize`);
+}
+
 function readLastUser(): string {
   try {
     return localStorage.getItem(LAST_USER_KEY) ?? "";
   } catch {
     return "";
   }
+}
+
+function readLastMethod(): string {
+  try {
+    return localStorage.getItem(LAST_METHOD_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Icône + libellé du « rebonjour » selon le MODE du dernier login. Garde l'UI
+ * COHÉRENTE avec la dernière méthode : un compte social/passkey ne se voit JAMAIS
+ * proposer un champ mot de passe.
+ */
+function loginMethodChip(method: string): {
+  Icon: typeof IconUser;
+  label: string;
+} {
+  const social = SOCIAL_META[method];
+  if (social) return { Icon: social.Icon, label: `via ${social.label}` };
+  if (method === "passkey") return { Icon: IconFingerprint, label: "Passkey" };
+  return { Icon: IconUser, label: "Compte" };
 }
 
 /** Lit un délai de ré-essai (s) depuis le corps d'erreur d'un 429, si présent. */
@@ -122,49 +178,71 @@ function classifyError(e: unknown, phaseStep: ConnectionStep): ClassifiedError {
 /**
  * Méthodes de connexion alternatives (P6) — rendues aux DEUX étapes (identifiant
  * ET mot de passe) pour rester visibles même en « rebonjour » (où l'on démarre
- * directement à l'étape mot de passe). Passkey = **WebAuthn (J9, ACTIF)** :
- * biométrie/clé sans énumération. SSO Keycloak = OIDC via `arctic` (« bientôt »).
+ * directement à l'étape mot de passe).
+ *
+ *  - **Social login OAuth 2.0** (`social`) : un bouton par fournisseur ACTIVÉ
+ *    côté serveur (Google, GitHub…) — flux *Authorization Code* BFF (redirect).
+ *  - **Passkey** = **WebAuthn (J9, ACTIF)** : biométrie/clé, sans énumération.
  */
 function AltLoginMethods({
+  social,
+  onSocial,
   onPasskey,
   busy,
   disabled,
+  exclude,
 }: {
+  social: string[];
+  onSocial: (provider: string) => void;
   onPasskey: () => void;
   busy: boolean;
   disabled: boolean;
+  /** Mode déjà proposé en action primaire (« rebonjour ») → masqué ici (0 doublon). */
+  exclude?: string;
 }) {
+  // N'affiche QUE les fournisseurs « curés » (brandés dans SOCIAL_META) → exclut
+  // les fixtures de dev (ex. `test-oidc` du module test, qui pointe vers un IdP
+  // fictif `test-idp.local`) et tout provider non reconnu : 0 bouton mort.
+  // `exclude` retire le mode déjà mis en avant (action primaire du rebonjour).
+  const visible = social.filter((id) => SOCIAL_META[id] && id !== exclude);
   return (
     <>
       <Divider label="ou" labelPosition="center" my={4} />
-      <Button
-        size="md"
-        fullWidth
-        variant="default"
-        disabled
-        leftSection={<IconKey size={18} />}
-        rightSection={
-          <Badge size="xs" variant="light" color="gray">
-            bientôt
-          </Badge>
-        }
-      >
-        Continuer avec Keycloak (SSO)
-      </Button>
-      <Button
-        size="md"
-        fullWidth
-        variant="default"
-        onClick={onPasskey}
-        loading={busy}
-        disabled={disabled}
-        leftSection={<IconFingerprint size={18} />}
-      >
-        Passkey / empreinte digitale
-      </Button>
+      {visible.map((id) => {
+        const meta = SOCIAL_META[id];
+        if (!meta) return null; // garde TS — filtré au-dessus
+        const { label, Icon } = meta;
+        return (
+          <Button
+            key={id}
+            size="md"
+            fullWidth
+            variant="default"
+            onClick={() => onSocial(id)}
+            disabled={disabled || busy}
+            leftSection={<Icon size={18} />}
+          >
+            Continuer avec {label}
+          </Button>
+        );
+      })}
+      {exclude !== "passkey" && (
+        <Button
+          size="md"
+          fullWidth
+          variant="default"
+          onClick={onPasskey}
+          loading={busy}
+          disabled={disabled}
+          leftSection={<IconFingerprint size={18} />}
+        >
+          Passkey / empreinte digitale
+        </Button>
+      )}
       <Text size="xs" c="dimmed" ta="center">
-        Connexion sans mot de passe (WebAuthn / FIDO2) — biométrie ou clé de
-        sécurité. SSO (OIDC) bientôt.
+        {visible.length > 0
+          ? "Connexion via un fournisseur externe (OAuth 2.0) ou sans mot de passe (WebAuthn / FIDO2)."
+          : "Connexion sans mot de passe (WebAuthn / FIDO2) — biométrie ou clé de sécurité."}
       </Text>
     </>
   );
@@ -193,12 +271,20 @@ export const Login = observer(() => {
   const store = useStore();
 
   const lastUser = useMemo(readLastUser, []);
+  const lastMethod = useMemo(readLastMethod, []);
   const initialUser = lastUser || (import.meta.env.DEV ? "admin" : "");
 
   const [phase, setPhase] = useState<"identifier" | "password">(
     lastUser ? "password" : "identifier",
   );
   const [identifier, setIdentifier] = useState(initialUser);
+  // Dès que « Changer » est cliqué (on quitte le compte mémorisé), le « rebonjour »
+  // method-aware laisse place au login mot de passe classique — sinon un login mdp
+  // resterait piégé derrière le bouton social/passkey du dernier mode.
+  const [forcePassword, setForcePassword] = useState(false);
+  // Compte passkey : révèle le champ mot de passe À LA DEMANDE (« autre choix
+  // login/mot de passe »), sans quitter le compte mémorisé ni perdre le bouton passkey.
+  const [showPassword, setShowPassword] = useState(false);
 
   const [step, setStep] = useState<ConnectionStep>("ping");
   const [busy, setBusy] = useState(false);
@@ -235,6 +321,37 @@ export const Login = observer(() => {
       alive = false;
     };
   }, [store]);
+
+  // Fournisseurs sociaux activés (OAuth 2.0), découverts côté serveur : l'UI
+  // n'affiche QUE des boutons opérationnels (0 bouton mort). Échec/absence du
+  // service = liste vide (non bloquant — login classique + Passkey restent).
+  const [social, setSocial] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void store.api
+      .getAbsolute<{ providers?: string[] }>(
+        "/nodefony/security/api/oauth2/providers",
+      )
+      .then(
+        (r) =>
+          alive && setSocial(Array.isArray(r?.providers) ? r.providers : []),
+      )
+      .catch(() => {
+        /* social login indisponible → pas de boutons (non bloquant) */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [store]);
+
+  // Retour d'un échec social (failureRedirect `?error=oauth`) → message dans la
+  // zone d'erreur RÉSERVÉE (aucun saut de mise en page).
+  useEffect(() => {
+    if (new URLSearchParams(loc.search).get("error") === "oauth") {
+      setErrKind("credentials");
+      setError("La connexion via le fournisseur externe a échoué. Réessayez.");
+    }
+  }, [loc.search]);
 
   const idRef = useRef<HTMLInputElement>(null);
   const pwRef = useRef<HTMLInputElement>(null);
@@ -277,6 +394,7 @@ export const Login = observer(() => {
   const backToIdentifier = (): void => {
     clearError();
     passwordForm.reset();
+    setForcePassword(true); // on quitte le compte mémorisé → login mot de passe classique
     setPhase("identifier");
   };
 
@@ -348,6 +466,16 @@ export const Login = observer(() => {
       ) {
         return; // l'utilisateur a fermé/annulé l'invite — état inchangé
       }
+      // WebAuthn refuse une IP comme rpId (ex. 127.0.0.1) → SecurityError. Ce
+      // n'est PAS une panne réseau : message dédié (sinon classifyError l'étiquette
+      // « réseau », trompeur).
+      if (e instanceof Error && e.name === "SecurityError") {
+        setErrKind("unknown");
+        setError(
+          "Passkey indisponible sur cette adresse. Ouvre Studio via https://localhost:5152 — les passkeys n'acceptent pas une IP comme 127.0.0.1.",
+        );
+        return;
+      }
       const c = classifyError(e, "auth");
       if (c.kind === "throttle") {
         setCooldownUntil(
@@ -412,6 +540,23 @@ export const Login = observer(() => {
       : null;
 
   const pwProps = passwordForm.getInputProps("password");
+
+  // « Rebonjour » : un compte SOCIAL (sans mot de passe) → bouton du fournisseur,
+  // PAS de champ mot de passe. Un compte mot de passe OU passkey GARDE le champ mot
+  // de passe (le passkey est une commodité EN PLUS, pas un remplacement) → le passkey
+  // reste proposé dans les alternatives. Après « Changer », on repasse au mot de passe.
+  const returningMethod = forcePassword ? "password" : lastMethod;
+  const returnSocial = SOCIAL_META[returningMethod];
+  const isPasskeyReturn = returningMethod === "passkey";
+  const returnChip = loginMethodChip(returningMethod);
+  const ReturnIcon = returnChip.Icon;
+  // Champ mot de passe : par défaut (compte mot de passe) ; À LA DEMANDE pour un
+  // compte passkey (qui possède aussi un mot de passe) ; JAMAIS pour un compte
+  // social (il n'en a pas → bouton du fournisseur seulement).
+  const showPasswordField = !returnSocial && (!isPasskeyReturn || showPassword);
+  const socialLabel = returnSocial
+    ? `Continuer avec ${returnSocial.label}`
+    : "";
 
   return (
     <AuthLayout>
@@ -492,6 +637,8 @@ export const Login = observer(() => {
                 </Button>
 
                 <AltLoginMethods
+                  social={social}
+                  onSocial={startSocialLogin}
                   onPasskey={runPasskeyFlow}
                   busy={busy}
                   disabled={throttled}
@@ -499,86 +646,135 @@ export const Login = observer(() => {
               </Stack>
             </form>
           ) : (
-            /* ── Étape 2 : mot de passe (identifiant connu, changeable) ── */
-            <form
-              onSubmit={passwordForm.onSubmit((v) => {
-                if (busy || throttled) return;
-                if (!v.password) {
-                  setErrKind("unknown");
-                  setError("Mot de passe requis.");
-                  pwRef.current?.focus();
-                  return;
-                }
-                void runFlow(v.password);
-              })}
-            >
-              <Stack gap="md">
-                <Paper withBorder radius="md" p="xs">
-                  <Group justify="space-between" wrap="nowrap">
-                    <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                      <ThemeIcon
-                        size={34}
-                        radius="xl"
-                        variant="light"
-                        color="brand"
-                      >
-                        <IconUser size={18} />
-                      </ThemeIcon>
-                      <div style={{ minWidth: 0 }}>
-                        <Text size="sm" fw={600} truncate>
-                          {identifier}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Compte
-                        </Text>
-                      </div>
-                    </Group>
-                    <Button
-                      variant="subtle"
-                      size="xs"
-                      onClick={backToIdentifier}
-                      disabled={busy}
+            /* ── Rebonjour : compte connu — action primaire = DERNIER mode ── */
+            <Stack gap="md">
+              <Paper withBorder radius="md" p="xs">
+                <Group justify="space-between" wrap="nowrap">
+                  <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                    <ThemeIcon
+                      size={34}
+                      radius="xl"
+                      variant="light"
+                      color="brand"
                     >
-                      Changer
-                    </Button>
+                      <ReturnIcon size={18} />
+                    </ThemeIcon>
+                    <div style={{ minWidth: 0 }}>
+                      <Text size="sm" fw={600} truncate>
+                        {identifier}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {returnChip.label}
+                      </Text>
+                    </div>
                   </Group>
-                </Paper>
-                <PasswordInput
-                  {...pwProps}
-                  ref={pwRef}
-                  size="md"
-                  label="Mot de passe"
-                  placeholder="••••••••"
-                  leftSection={<IconLock size={16} />}
-                  autoComplete="current-password"
-                  disabled={busy}
-                  onChange={(ev) => {
-                    pwProps.onChange(ev);
-                    clearError();
-                  }}
-                />
+                  <Button
+                    variant="subtle"
+                    size="xs"
+                    onClick={backToIdentifier}
+                    disabled={busy}
+                  >
+                    Changer
+                  </Button>
+                </Group>
+              </Paper>
+
+              {showPasswordField ? (
+                /* Compte mot de passe (ou passkey ayant choisi « mot de passe »)
+                   → champ + « Se connecter ». */
+                <form
+                  onSubmit={passwordForm.onSubmit((v) => {
+                    if (busy || throttled) return;
+                    if (!v.password) {
+                      setErrKind("unknown");
+                      setError("Mot de passe requis.");
+                      pwRef.current?.focus();
+                      return;
+                    }
+                    void runFlow(v.password);
+                  })}
+                >
+                  <Stack gap="md">
+                    <PasswordInput
+                      {...pwProps}
+                      ref={pwRef}
+                      size="md"
+                      label="Mot de passe"
+                      placeholder="••••••••"
+                      leftSection={<IconLock size={16} />}
+                      autoComplete="current-password"
+                      disabled={busy}
+                      onChange={(ev) => {
+                        pwProps.onChange(ev);
+                        clearError();
+                      }}
+                    />
+                    <Button
+                      type="submit"
+                      size="md"
+                      fullWidth
+                      color="brand"
+                      loading={busy}
+                      disabled={throttled}
+                      leftSection={busy ? undefined : <IconLogin size={18} />}
+                    >
+                      {busy
+                        ? STEP_LABEL[step]
+                        : throttled
+                          ? `Réessayez dans ${cooldownLeft}s`
+                          : "Se connecter"}
+                    </Button>
+                  </Stack>
+                </form>
+              ) : isPasskeyReturn ? (
+                /* Compte passkey : passkey en action PRIMAIRE (dernier mode) + un
+                   CHOIX explicite « mot de passe » (le compte en possède un). */
+                <Stack gap="xs">
+                  <Button
+                    size="md"
+                    fullWidth
+                    color="brand"
+                    loading={busy}
+                    disabled={throttled}
+                    leftSection={<IconFingerprint size={18} />}
+                    onClick={runPasskeyFlow}
+                  >
+                    Continuer avec une passkey
+                  </Button>
+                  <Button
+                    variant="subtle"
+                    size="sm"
+                    fullWidth
+                    leftSection={<IconLock size={16} />}
+                    onClick={() => setShowPassword(true)}
+                  >
+                    Se connecter avec un mot de passe
+                  </Button>
+                </Stack>
+              ) : (
+                /* Compte SOCIAL (sans mot de passe) → bouton du fournisseur. */
                 <Button
-                  type="submit"
                   size="md"
                   fullWidth
                   color="brand"
                   loading={busy}
                   disabled={throttled}
-                  leftSection={busy ? undefined : <IconLogin size={18} />}
+                  leftSection={<ReturnIcon size={18} />}
+                  onClick={() => startSocialLogin(returningMethod)}
                 >
-                  {busy
-                    ? STEP_LABEL[step]
-                    : throttled
-                      ? `Réessayez dans ${cooldownLeft}s`
-                      : "Se connecter"}
+                  {socialLabel}
                 </Button>
-                <AltLoginMethods
-                  onPasskey={runPasskeyFlow}
-                  busy={busy}
-                  disabled={throttled}
-                />
-              </Stack>
-            </form>
+              )}
+
+              <AltLoginMethods
+                social={social}
+                onSocial={startSocialLogin}
+                onPasskey={runPasskeyFlow}
+                busy={busy}
+                disabled={throttled}
+                exclude={showPasswordField ? undefined : returningMethod}
+              />
+            </Stack>
           )}
         </Stack>
 
