@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { mongoTestUri } from "../helpers/mongoTestUri";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import { MongooseOrm } from "../../nodefony/src/orm-core/index";
 import {
@@ -9,24 +9,23 @@ import {
 import { MongooseUserRepository } from "../../nodefony/src/MongooseUserRepository";
 
 const ORM = "mongo_user_test";
+// Serveur Mongo PARTAGÉ (globalSetup) scopé sur la base `mongo_user_test`.
+// `null` → infra absente → suite skippée.
+const URI = mongoTestUri(ORM);
 
-describe("@nodefony/user ↔ Mongoose adapter (P5.8)", () => {
-  let replset: MongoMemoryReplSet;
+describe.skipIf(!URI)("@nodefony/user ↔ Mongoose adapter (P5.8)", () => {
   let orm: MongooseOrm;
   let users: MongooseUserRepository;
 
   beforeAll(async () => {
     registerUserEntity(ORM); // AVANT connect (le modèle est compilé au connect)
-    // Replica set en mémoire : indispensable pour les transactions MongoDB.
-    replset = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-    orm = new MongooseOrm(ORM, replset.getUri());
+    orm = new MongooseOrm(ORM, URI!);
     await orm.connect();
     users = MongooseUserRepository.from(orm);
   });
 
   afterAll(async () => {
     await orm.disconnect();
-    await replset.stop();
     // Scoper à NOTRE orm : le bucket "User" du registry est process-wide.
     entityRegistry.unregister("User", ORM);
     ormRegistry.unregister(ORM);

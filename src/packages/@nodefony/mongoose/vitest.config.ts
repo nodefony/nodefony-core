@@ -15,6 +15,14 @@ export default defineConfig({
   test: {
     globals: true,
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
+    // UN SEUL mongod partagé pour TOUS les bancs d'intégration (provisionné 1×)
+    // → supprime la contention du multi-spawn (4-6 mongod concurrents sous
+    // `npm run test` racine/turbo = cause des échecs flaky). Skip propre si
+    // l'infra manque (provide `mongoUri = null`).
+    globalSetup: ["./tests/globalSetup.ts"],
+    // Séquentiel : les fichiers tapent le MÊME serveur partagé → la
+    // parallélisation entremêlerait collections + registres process-wide.
+    fileParallelism: false,
     testTimeout: 120000,
     hookTimeout: 120000,
     coverage: {

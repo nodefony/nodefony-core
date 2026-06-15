@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { mongoTestUri } from "../helpers/mongoTestUri";
 import { ormRegistry } from "@nodefony/orm-core";
 import type { Module } from "nodefony";
 import MongooseService from "../../nodefony/service/MongooseService";
@@ -40,44 +40,44 @@ describe("MongooseService — buildUri (assemblage pur)", () => {
   });
 });
 
-describe("MongooseService — orchestration boot (hors kernel)", () => {
-  let replset: MongoMemoryReplSet;
-  beforeAll(async () => {
-    replset = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  }, 60_000);
-  afterAll(async () => {
-    await replset.stop();
-  });
-  afterEach(() => {
-    ormRegistry.unregister("svc_mongo");
-  });
+// Serveur Mongo PARTAGÉ (globalSetup) scopé sur la base `svc_mongo`. `null` →
+// infra absente → describe skippé (le bloc `buildUri` pur reste, lui).
+const URI = mongoTestUri("svc_mongo");
 
-  it("connectAll : connecte un ORM par connecteur (enregistré dans ormRegistry)", async () => {
-    const service = new MongooseService(
-      makeModule({ connectors: { svc_mongo: { uri: replset.getUri() } } }),
-    );
-    await service.connectAll();
+describe.skipIf(!URI)(
+  "MongooseService — orchestration boot (hors kernel)",
+  () => {
+    afterEach(() => {
+      ormRegistry.unregister("svc_mongo");
+    });
 
-    const orm = service.getOrm("svc_mongo");
-    assert.ok(orm, "ORM du connecteur absent");
-    assert.equal(orm.isConnected(), true);
-    assert.equal(ormRegistry.has("svc_mongo"), true);
+    it("connectAll : connecte un ORM par connecteur (enregistré dans ormRegistry)", async () => {
+      const service = new MongooseService(
+        makeModule({ connectors: { svc_mongo: { uri: URI! } } }),
+      );
+      await service.connectAll();
 
-    await service.disconnectAll();
-  });
+      const orm = service.getOrm("svc_mongo");
+      assert.ok(orm, "ORM du connecteur absent");
+      assert.equal(orm.isConnected(), true);
+      assert.equal(ormRegistry.has("svc_mongo"), true);
 
-  it("disconnectAll : ferme tout et vide le registre interne", async () => {
-    const service = new MongooseService(
-      makeModule({ connectors: { svc_mongo: { uri: replset.getUri() } } }),
-    );
-    await service.connectAll();
-    await service.disconnectAll();
-    assert.equal(service.getOrm("svc_mongo"), undefined);
-  });
+      await service.disconnectAll();
+    });
 
-  it("config absente / sans connecteurs → connectAll ne fait rien (pas de crash)", async () => {
-    const service = new MongooseService(makeModule(undefined));
-    await service.connectAll();
-    assert.equal(service.getOrm("svc_mongo"), undefined);
-  });
-});
+    it("disconnectAll : ferme tout et vide le registre interne", async () => {
+      const service = new MongooseService(
+        makeModule({ connectors: { svc_mongo: { uri: URI! } } }),
+      );
+      await service.connectAll();
+      await service.disconnectAll();
+      assert.equal(service.getOrm("svc_mongo"), undefined);
+    });
+
+    it("config absente / sans connecteurs → connectAll ne fait rien (pas de crash)", async () => {
+      const service = new MongooseService(makeModule(undefined));
+      await service.connectAll();
+      assert.equal(service.getOrm("svc_mongo"), undefined);
+    });
+  },
+);
