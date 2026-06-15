@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-15T15:08:45.367Z",
+  "generated": "2026-06-15T16:21:27.479Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 900,
-    "symbols": 1923,
+    "files": 901,
+    "symbols": 1926,
     "classes": 282,
-    "interfaces": 494,
+    "interfaces": 497,
     "types": 240,
     "enums": 3,
     "functions": 399,
@@ -8726,6 +8726,33 @@
       "module": "@nodefony/studio",
       "description": "Canaux temps réel FIGÉS (deviendront des canaux RealtimeService en P13.4)."
     },
+    "IOAuthProfile": {
+      "name": "IOAuthProfile",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IOAuthUserProvisioner.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Profil d'identité **normalisé** extrait d'un fournisseur OAuth/OIDC. Forme pivot, indépendante du fournisseur : `@nodefony/security` traduit la réponse propre à chaque provider (ID token OIDC de Go…"
+    },
+    "IOAuthProvisionPolicy": {
+      "name": "IOAuthProvisionPolicy",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IOAuthUserProvisioner.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Politique de provisioning décidée par l'appelant (config `oauth2` de `@nodefony/security`) et transmise au provisioner — celui-ci ne lit aucune config, il applique ce qu'on lui passe (un provisione…"
+    },
+    "IOAuthUserProvisioner": {
+      "name": "IOAuthUserProvisioner",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IOAuthUserProvisioner.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Capability de **provisioning d'un utilisateur OAuth** — pattern *Shadow User* Just-In-Time. Distincte d'{@link IUserProvider} (qui ne fait que **lire** : `loadUserByOAuth` lève si le lien est incon…"
+    },
     "IPasswordBlocklist": {
       "name": "IPasswordBlocklist",
       "kind": "interface",
@@ -8829,7 +8856,8 @@
       "extends": "AbstractCrudService",
       "implements": [
         "IUserProvider",
-        "IPasswordVerifier"
+        "IPasswordVerifier",
+        "IOAuthUserProvisioner"
       ],
       "decorators": [],
       "description": "Service applicatif **utilisateur** — CRUD haché + authentification + events de cycle de vie. Spécialisation d'{@link AbstractCrudService} sur l'entité utilisateur : hérite du CRUD générique (`find`…"
@@ -14516,6 +14544,9 @@
       "IPasswordVerifier": [
         "UserService"
       ],
+      "IOAuthUserProvisioner": [
+        "UserService"
+      ],
       "IUser": [
         "AnonymousUser"
       ],
@@ -16895,6 +16926,7 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IOAuthUserProvisioner.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IPasswordVerifier.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
@@ -17061,6 +17093,7 @@
       "ISocialProvider": [
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
       ],
       "queryFlowMonitor": [
@@ -18182,6 +18215,15 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "IPasswordBlocklist": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "IOAuthProfile": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "IOAuthProvisionPolicy": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "IOAuthUserProvisioner": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "WeakPasswordError": [

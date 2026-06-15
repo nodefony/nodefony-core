@@ -1,11 +1,20 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
 import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
-import type { IUser, IPasswordAuthenticatedUser } from "../contracts/IUser";
+import type {
+  IUser,
+  IPasswordAuthenticatedUser,
+  ISocialProvider,
+} from "../contracts/IUser";
 import type { IPasswordBlocklist } from "../contracts/IPasswordBlocklist";
 import type { IPasswordEncoder } from "../contracts/IPasswordEncoder";
 import type { IPasswordVerifier } from "../contracts/IPasswordVerifier";
 import type { IUserProvider } from "../contracts/IUserProvider";
 import type { IUserRepository } from "../contracts/IUserRepository";
+import type {
+  IOAuthProfile,
+  IOAuthProvisionPolicy,
+  IOAuthUserProvisioner,
+} from "../contracts/IOAuthUserProvisioner";
 import { UserNotFoundError } from "../errors/UserNotFoundError";
 import { WeakPasswordError } from "../errors/WeakPasswordError";
 
@@ -54,7 +63,7 @@ const DUMMY_PLAINTEXT = "nodefony.dummy.timing.guard";
  */
 export class UserService
   extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>
-  implements IUserProvider, IPasswordVerifier
+  implements IUserProvider, IPasswordVerifier, IOAuthUserProvisioner
 {
   protected readonly encoder: IPasswordEncoder;
 
@@ -240,6 +249,59 @@ export class UserService
       throw new UserNotFoundError(`id "${user.id}" (compte supprimé)`);
     }
     return fresh;
+  }
+
+  // ─── IOAuthUserProvisioner — provisioning Shadow User OAuth (JIT) ──────────
+
+  /**
+   * {@inheritDoc IOAuthUserProvisioner.provisionOAuthUser}
+   *
+   * @remarks Implémentation **par défaut** (find-or-create) : lit le lien
+   * existant, sinon — si `allowSignup` — crée une ligne locale 100 % OAuth
+   * (`password: null`, rôles = `policy.defaultRoles`) liée au compte externe.
+   * **Aucune liaison automatique** à un compte local existant par email (un email
+   * non vérifié serait un vecteur d'usurpation, OWASP) : un compte externe non lié
+   * donne TOUJOURS un nouvel utilisateur. Le rattachement à un compte existant se
+   * fait explicitement, utilisateur connecté (hors P6).
+   */
+  async provisionOAuthUser(
+    profile: IOAuthProfile,
+    policy: IOAuthProvisionPolicy,
+  ): Promise<IUser> {
+    const existing = await this.repository.findBySocialProvider(
+      profile.provider,
+      profile.providerId,
+    );
+    if (existing !== null) {
+      return existing;
+    }
+    if (!policy.allowSignup) {
+      // Fail-closed : sans création autorisée, un compte préexistant lié est requis.
+      throw new UserNotFoundError(
+        `social ${profile.provider}:${profile.providerId} (signup disabled)`,
+      );
+    }
+    // Identifiant fonctionnel = email du fournisseur si présent, sinon une clé
+    // stable préfixée par le fournisseur (jamais de collision entre fournisseurs).
+    const identifier =
+      profile.email ?? `${profile.provider}:${profile.providerId}`;
+    const link: ISocialProvider = {
+      provider: profile.provider,
+      providerId: profile.providerId,
+      createdAt: new Date(),
+    };
+    // `socialProviders` est un champ d'ENTITÉ (BaseUser / ligne ORM), hors du
+    // contrat credential `IPasswordAuthenticatedUser` : l'intersection le rend
+    // connu ici SANS cast ; le repository le persiste (colonne JSON).
+    const data: Partial<IPasswordAuthenticatedUser> & {
+      socialProviders: ISocialProvider[];
+    } = {
+      identifier,
+      roles: [...policy.defaultRoles],
+      password: null,
+      socialProviders: [link],
+    };
+    return this.create(data);
   }
 
   // Refuse un candidat connu-compromis si une blocklist est branchée (no-op sinon).

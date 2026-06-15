@@ -10,6 +10,11 @@ export type { IPasswordEncoder } from "./IPasswordEncoder";
 export type { IPasswordVerifier } from "./IPasswordVerifier";
 export type { IUserProvider } from "./IUserProvider";
 export type { IUserRepository } from "./IUserRepository";
+export type {
+  IOAuthProfile,
+  IOAuthProvisionPolicy,
+  IOAuthUserProvisioner,
+} from "./IOAuthUserProvisioner";
 
 // ─── DIFFÉRÉ → P6.8 (RBAC niveau B) ──────────────────────────────────────────
 // `IRole` et `IPermission` (modèle RBAC dynamique en base, consommé par

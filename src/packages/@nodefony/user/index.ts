@@ -26,6 +26,9 @@ export type {
   IPasswordVerifier,
   IUserProvider,
   IUserRepository,
+  IOAuthProfile,
+  IOAuthProvisionPolicy,
+  IOAuthUserProvisioner,
 } from "./nodefony/contracts/index";
 
 // ─── Implémentations de base (P5.5) ──────────────────────────────────────────
