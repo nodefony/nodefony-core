@@ -28,6 +28,12 @@ export interface IFirewall {
    */
   handleCors(context: ContextType): number | undefined;
 
+  /**
+   * Pose les en-têtes de sécurité applicatifs (CSP, Referrer-Policy, COOP/COEP/
+   * CORP, Permissions-Policy) sur la réponse. No-op si désactivés / hors HTTP.
+   */
+  applySecurityHeaders(context: ContextType): void;
+
   /** Enregistre un authenticator (appelé par chaque `*Authenticator` au boot). */
   registerAuthenticator(authenticator: IAuthenticator): void;
 

@@ -103,6 +103,17 @@ api/oauth2/{provider}/{authorize,callback}` (`bypassFirewall`, montés si servic
   preflight n'a pas de route → le router lèverait 405 au pré-match → handleCors jamais atteint ; PROUVÉ par log).
   Donc PAS dans `handleFrontController` (bonus : le WS n'a pas de CORS). Court-circuit 204 = `writeHead(204)+end()`,
   ni parse ni firewall (preflight jamais authentifié, Fetch). **`*`+credentials INTERDIT au boot** (refine Zod fail-fast).
+- **En-têtes de sécurité (J5, étape A)** — **SÉPARATION transport/applicatif** : le **socle transport**
+  (nosniff/X-Frame-Options/HSTS) reste dans `@nodefony/http` (`onHttpRequest`, AVANT le pipeline → couvre statics
+  - erreurs + serveur nu = secure-by-default) ; security ne le ré-émet PAS (1 source/en-tête, raison vérifiée par
+    log). `SecurityHeaders` (`service/securityHeaders.ts`, pure) émet l'**applicatif** : CSP (statique ; nonce =
+    étape B), Referrer-Policy, COOP/COEP/CORP, Origin-Agent-Cluster (`?1` RFC 8941), Permissions-Policy — table figée
+    pré-calculée au boot. **`Firewall.applySecurityHeaders(ctx)`** câblé `handleHttp` après handleCors (avant routing
+    → couvre 404/405/static). `headers.{hsts,frameguard,noSniff}` = délégués transport (describe). `hidePoweredBy` =
+    no-op (Nodefony n'émet pas X-Powered-By). `referrerPolicy` = **enum W3C** (complétion+validation).
+- **DX config (J5)** — security **augmente `NodefonyModuleConfig`** (`declare module "nodefony"`, recette frère
+  drizzle/mongoose) → `use("@nodefony/security", {…})` complète CLÉS + VALEURS enum + valide les types (sinon
+  `Record<string,unknown>`). Enums complétés : coop/coep/corp/frameguard/referrerPolicy/sameSite/jwt.alg.
 
 ## Config
 

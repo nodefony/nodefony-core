@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-15T21:41:21.840Z",
+  "generated": "2026-06-15T22:39:29.794Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 910,
-    "symbols": 1955,
-    "classes": 286,
-    "interfaces": 509,
+    "files": 911,
+    "symbols": 1957,
+    "classes": 287,
+    "interfaces": 510,
     "types": 244,
     "enums": 3,
     "functions": 408,
@@ -8638,6 +8638,26 @@
       "extends": null,
       "description": "Données à porter en session entre `authorize` et `callback` (anti-replay)."
     },
+    "SecurityHeaders": {
+      "name": "SecurityHeaders",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/securityHeaders.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "En-têtes de sécurité **applicatifs** de Nodefony (couche `@nodefony/security`, complémentaire du socle transport de `@nodefony/http`). Pré-calcule une fois au boot la table d'en-têtes CONSTANTS (CS…"
+    },
+    "ISecurityHeadersOptions": {
+      "name": "ISecurityHeadersOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/securityHeaders.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Sous-ensemble APPLICATIF de la config `headers` (cf defineSecurityConfig). `hsts` / `frameguard` / `noSniff` n'y figurent PAS volontairement : ces trois en-têtes « transport » sont posés par `@node…"
+    },
     "TokenService": {
       "name": "TokenService",
       "kind": "class",
@@ -16213,6 +16233,12 @@
       "OAuth2Service": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "ISecurityConfigInput": [
+        "src/packages/@nodefony/security/index.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
+      ],
       "StudioController": [
         "src/packages/@nodefony/studio/index.ts"
       ],
@@ -18362,6 +18388,9 @@
       "Cors": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
+      "SecurityHeaders": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
@@ -18404,11 +18433,6 @@
       "IOAuthUserProvisioner": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
-      ],
-      "ISecurityConfigInput": [
-        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
       "getOAuthProviderFactory": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"

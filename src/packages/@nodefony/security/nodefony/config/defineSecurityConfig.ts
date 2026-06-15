@@ -177,12 +177,16 @@ const headersSchema = z
     hsts: z
       .boolean()
       .default(true)
-      .describe("Strict-Transport-Security (force HTTPS)."),
+      .describe(
+        "Strict-Transport-Security (force HTTPS). ⚙️ TRANSPORT : posé par @nodefony/http à l'entrée brute (couvre statics + erreurs + serveur nu) — security ne le ré-émet pas (1 source/en-tête).",
+      ),
     hstsMaxAgeS: z
       .number()
       .int()
       .default(31536000)
-      .describe("Durée HSTS (s). Défaut: 1 an, includeSubDomains."),
+      .describe(
+        "Durée HSTS (s). Défaut: 1 an, includeSubDomains. ⚙️ TRANSPORT (http).",
+      ),
     csp: z
       .string()
       .default("default-src 'self'")
@@ -194,19 +198,36 @@ const headersSchema = z
     frameguard: z
       .enum(["deny", "sameorigin"])
       .default("deny")
-      .describe("X-Frame-Options (anti-clickjacking)."),
+      .describe(
+        "X-Frame-Options (anti-clickjacking). ⚙️ TRANSPORT : posé par @nodefony/http (couvre statics + erreurs) — security ne le ré-émet pas.",
+      ),
     noSniff: z
       .boolean()
       .default(true)
-      .describe("X-Content-Type-Options: nosniff."),
+      .describe(
+        "X-Content-Type-Options: nosniff. ⚙️ TRANSPORT : posé par @nodefony/http (couvre statics + erreurs) — security ne le ré-émet pas.",
+      ),
     referrerPolicy: z
-      .string()
+      .enum([
+        "no-referrer",
+        "no-referrer-when-downgrade",
+        "same-origin",
+        "origin",
+        "strict-origin",
+        "origin-when-cross-origin",
+        "strict-origin-when-cross-origin",
+        "unsafe-url",
+      ])
       .default("no-referrer")
-      .describe("Referrer-Policy."),
+      .describe(
+        "Referrer-Policy (W3C, ensemble fini → complété + validé). Posé par security (applicatif).",
+      ),
     hidePoweredBy: z
       .boolean()
       .default(true)
-      .describe("Retire X-Powered-By (anti-fingerprinting)."),
+      .describe(
+        "Retire X-Powered-By (anti-fingerprinting). No-op sous Nodefony : aucun X-Powered-By n'est émis (≠ Express) ; le `Server` est géré par @nodefony/http.",
+      ),
     // ── Avancés : optionnels (non posés par défaut ; commentés dans config.ts) ──
     coop: z
       .enum(["same-origin", "same-origin-allow-popups", "unsafe-none"])

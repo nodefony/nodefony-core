@@ -874,6 +874,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             context!.response.end();
             return context!;
           }
+          // En-têtes de sécurité APPLICATIFS (P6 J5 — CSP/Referrer/COOP…), posés
+          // AVANT le routing → présents sur toute réponse du pipeline (succès,
+          // 404/405, static fallback). Complète le socle transport (nosniff/frame/
+          // HSTS) déjà posé à `onHttpRequest`. No-op si security absent/désactivé.
+          this.firewall?.applySecurityHeaders(context! as ContextType);
           // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
           // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand
           // l'action attend le flux brut (`@Body({ stream:true })` → le controller

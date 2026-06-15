@@ -18,6 +18,7 @@ import { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { Csrf } from "./csrf";
 import { Cors } from "./cors";
+import { SecurityHeaders } from "./securityHeaders";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import {
@@ -96,6 +97,9 @@ class Firewall extends Service implements IFirewall {
   #csrf: Csrf | null = null;
   // Politique CORS — null tant que la config CORS est désactivée.
   #cors: Cors | null = null;
+  // En-têtes de sécurité applicatifs (CSP, Referrer-Policy, COOP/COEP/CORP…) —
+  // null si désactivés. Le socle transport (nosniff/frame/HSTS) reste dans http.
+  #securityHeaders: SecurityHeaders | null = null;
   // Config validée + gelée (consommée par les fabriques d'authenticators).
   #config: ISecurityConfig | null = null;
   // Fail-closed : posée si la config sécurité est invalide au boot → le
@@ -149,6 +153,12 @@ class Firewall extends Service implements IFirewall {
     // rejetée au boot (refine Zod) → ici `#cors` est toujours sûr.
     if (this.#config.cors.enabled) {
       this.#cors = new Cors(this.#config.cors);
+    }
+    // En-têtes de sécurité APPLICATIFS (CSP/Referrer/COOP…). Le socle transport
+    // (nosniff/frame/HSTS) est posé par @nodefony/http à l'entrée brute (couvre
+    // statics + erreurs) → security n'émet QUE le complément (1 source par en-tête).
+    if (this.#config.headers.enabled) {
+      this.#securityHeaders = new SecurityHeaders(this.#config.headers);
     }
 
     const areas = this.#config.areas;
@@ -464,6 +474,25 @@ class Firewall extends Service implements IFirewall {
       }
     }
     return isPreflight ? 204 : undefined;
+  }
+
+  /**
+   * En-têtes de sécurité APPLICATIFS (P6 J5) — CSP, Referrer-Policy, isolation
+   * cross-origin (COOP/COEP/CORP), Origin-Agent-Cluster, Permissions-Policy.
+   * Posés sur toute réponse du pipeline (branché dans `handleHttp`). Complète le
+   * socle transport de `@nodefony/http` (nosniff/frame/HSTS, posé à l'entrée brute)
+   * SANS le ré-émettre. No-op si désactivé ou réponse non-HTTP (WS). Table figée
+   * pré-calculée au boot → 0 alloc/concat par requête.
+   */
+  applySecurityHeaders(context: ContextType): void {
+    if (!this.#securityHeaders) return;
+    const response = (context as { response?: IHeaderCapableResponse | null })
+      .response;
+    if (typeof response?.setHeader !== "function") return;
+    const headers = this.#securityHeaders.headers;
+    for (const name in headers) {
+      response.setHeader(name, headers[name]);
+    }
   }
 
   /**

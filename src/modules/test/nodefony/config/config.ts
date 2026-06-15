@@ -56,6 +56,14 @@ export default {
     cors: {
       origins: ["https://trusted.example"],
     },
+    // P6 J5 — en-têtes de sécurité APPLICATIFS : avancés opt-in activés pour le
+    // banc `http/security-headers.test.ts` (COOP/CORP/Permissions — PAS COEP
+    // `require-corp` qui casserait les assets tiers du front en dev).
+    headers: {
+      coop: "same-origin",
+      corp: "same-origin",
+      permissionsPolicy: "camera=(), microphone=(), geolocation=()",
+    },
     // P6 J9 — passkeys WebAuthn : store FICHIER en dev (les credentials
     // persistent au redémarrage, contrairement à "memory" vidé à chaque restart).
     // Fichier dans var/ (gitignoré). Cluster/prod → driver ORM/Redis (à venir).

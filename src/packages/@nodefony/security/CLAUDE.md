@@ -40,7 +40,8 @@ nodefony/
 └── service/
     ├── firewall.ts            isSecure (hot-path) + handleSecurity (auth→ALS→Zero Trust) + enforceCsrf + handleCors
     ├── csrf.ts                Csrf — Fetch Metadata + repli Origin (logique pure, J5)
-    └── cors.ts                Cors — preflight/actual headers, reflet origine + Vary (logique pure, J5)
+    ├── cors.ts                Cors — preflight/actual headers, reflet origine + Vary (logique pure, J5)
+    └── securityHeaders.ts     SecurityHeaders — CSP/Referrer/COOP/COEP/CORP (applicatif ; transport=http, J5)
 ```
 
 ## État (S1→J9 livrés ; J5 CSRF étape 1 livrée)
@@ -56,7 +57,13 @@ nodefony/
 INTERDIT au boot). `Firewall.handleCors()` câblé **EN TÊTE de `handleHttp` avant le routing** (le preflight n'a
 pas de route → 405 sinon). Gates : security 293, banc live `http/cors.test.ts` 6/6, mémoire 9/9.
 
-⬜ Reste J5 : **securityHeaders** natif (CSP+nonces/HSTS/COOP/COEP/CORP) = DERNIER du cœur P6. Étape 2 CSRF :
+✅ **En-têtes (J5, étape A)** : **séparation transport/applicatif** (raison vérifiée : http pose nosniff/frame/HSTS
+à `onHttpRequest` → couvre statics+erreurs ; security ne ré-émet PAS). `SecurityHeaders` émet CSP statique +
+Referrer-Policy + COOP/COEP/CORP/OAC/Permissions ; `Firewall.applySecurityHeaders()` câblé `handleHttp`. **DX** :
+`referrerPolicy` → enum W3C, et `declare module NodefonyModuleConfig` → `use()` complète clés+valeurs. Gates :
+security 303, banc live `http/security-headers.test.ts` 7/7, mémoire 9/9.
+
+⬜ Reste J5 : **CSP nonce par requête** (étape B — pont template/Vite, cf `csp_vite`). Étape 2 CSRF :
 décorateurs `@CsrfProtect` (token synchronizer HMAC) + `@CsrfExempt` (+ per-controller `trustedOrigins`/`@Domain`).
 
 ## Interdits

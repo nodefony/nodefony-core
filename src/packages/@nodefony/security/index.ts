@@ -7,6 +7,17 @@ import TokenService from "./nodefony/service/tokenService";
 import Authorization from "./nodefony/service/authorization";
 import WebAuthnService from "./nodefony/service/webAuthn";
 import OAuth2Service from "./nodefony/service/oauth2";
+import type { ISecurityConfigInput } from "./nodefony/config/defineSecurityConfig";
+
+// Augmente le registre du core (declaration merging) → `use("@nodefony/security", …)`
+// propose les CLÉS (cors/csrf/headers/areas…) ET les VALEURS enum (coop, frameguard,
+// referrerPolicy…) en complétion + validation de type. Sans ça : `Record<string, unknown>`
+// (aucune complétion). Recette convention-frère @nodefony/drizzle / @nodefony/mongoose.
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/security": ISecurityConfigInput;
+  }
+}
 
 /**
  * `@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6).
@@ -51,6 +62,7 @@ export type { ITokenResponse } from "./nodefony/service/tokenService";
 export { SecuredArea } from "./nodefony/src/SecuredArea";
 export { Csrf } from "./nodefony/service/csrf";
 export { Cors } from "./nodefony/service/cors";
+export { SecurityHeaders } from "./nodefony/service/securityHeaders";
 export { RoleHierarchyWalker } from "./nodefony/src/RoleHierarchyWalker";
 export { AnonymousToken } from "./nodefony/src/token/AnonymousToken";
 export { UserToken } from "./nodefony/src/token/UserToken";
