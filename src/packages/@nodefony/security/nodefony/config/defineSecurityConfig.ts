@@ -528,6 +528,84 @@ const studioSchema = z
     "Sécurité de la console Studio — durcissement exposition publique.",
   );
 
+// Configuration d'UN fournisseur OAuth/OIDC (Google, GitHub, Microsoft...). Les
+// secrets (clientId/clientSecret) sont fournis par l'app depuis son `env.ts` —
+// JAMAIS loggés (le service ne journalise que les NOMS de fournisseurs).
+const oauthProviderSchema = z
+  .object({
+    clientId: z
+      .string()
+      .min(1)
+      .describe("Identifiant client OAuth délivré par le fournisseur."),
+    clientSecret: z
+      .string()
+      .min(1)
+      .describe("Secret client OAuth — SECRET, fourni par env, jamais loggé."),
+    redirectUri: z
+      .string()
+      .min(1)
+      .describe(
+        "URL de callback EXACTE (RFC 9700 : exact string matching) enregistrée chez le fournisseur — doit pointer sur .../oauth2/<provider>/callback.",
+      ),
+    issuer: z
+      .string()
+      .optional()
+      .describe(
+        "Émetteur OIDC self-hosted (Keycloak : URL du realm, ex. https://kc.example/realms/app). REQUIS pour keycloak ; ignoré par les fournisseurs à endpoints fixes (Google/GitHub).",
+      ),
+    scopes: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "Scopes demandés. Vide = défauts du fournisseur (Google: openid/profile/email ; GitHub: read:user/user:email).",
+      ),
+  })
+  .describe("Fournisseur OAuth/OIDC (secrets via env).");
+
+// Social login OAuth 2.0 (arctic). Authorization Code + PKCE (S256, RFC 7636,
+// quand le fournisseur le supporte) + state anti-CSRF + iss anti-mix-up (RFC 9207).
+// Le login social produit une SESSION BFF (pas de token exposé au navigateur).
+const oauth2Schema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Active le social login (les routes ne montent que si ≥1 provider).",
+      ),
+    defaultRoles: z
+      .array(z.string())
+      .default(["ROLE_USER"])
+      .describe(
+        "Rôles du Shadow User à la CRÉATION uniquement (OAuth = authentification, pas autorisation : les rôles ne sont jamais réécrits ensuite, la base fait foi).",
+      ),
+    allowSignup: z
+      .boolean()
+      .default(true)
+      .describe(
+        "true = crée une ligne locale au 1er login (JIT, Shadow User). false = un compte préexistant lié est requis (fail-closed).",
+      ),
+    successRedirect: z
+      .string()
+      .default("/")
+      .describe("Redirection après login réussi."),
+    failureRedirect: z
+      .string()
+      .default("/login")
+      .describe(
+        "Redirection après échec (state invalide, refus utilisateur...).",
+      ),
+    providers: z
+      .record(z.string(), oauthProviderSchema)
+      .default({})
+      .describe(
+        "Fournisseurs activés par nom (doit correspondre au registre : builtins google/keycloak/github ; +50 via arctic en enregistrant une fabrique).",
+      ),
+  })
+  .describe(
+    "Social login OAuth 2.0 (arctic) — Authorization Code + PKCE, session BFF.",
+  );
+
 /**
  * Règle d'autorisation d'un **namespace de canaux WebSocket** (subscribe/inbound)
  * par préfixe. Contraintes cumulatives ; un champ absent = pas de contrainte sur
@@ -584,6 +662,7 @@ const securityConfigSchema = z.object({
   tokenExchange: tokenExchangeSchema.default(() =>
     tokenExchangeSchema.parse({}),
   ),
+  oauth2: oauth2Schema.default(() => oauth2Schema.parse({})),
   apiKeys: apiKeysSchema.default(() => apiKeysSchema.parse({})),
   webhooks: webhooksSchema.default(() => webhooksSchema.parse({})),
   audit: auditSchema.default(() => auditSchema.parse({})),

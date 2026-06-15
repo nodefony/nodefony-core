@@ -25,6 +25,7 @@ const external: string[] = [
   "zod",
   "jose",
   "@simplewebauthn/server",
+  "arctic",
   "tslib",
 ];
 

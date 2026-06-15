@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-15T16:21:27.479Z",
+  "generated": "2026-06-15T16:41:36.255Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 901,
-    "symbols": 1926,
-    "classes": 282,
-    "interfaces": 497,
-    "types": 240,
+    "files": 906,
+    "symbols": 1942,
+    "classes": 283,
+    "interfaces": 503,
+    "types": 242,
     "enums": 3,
-    "functions": 399,
+    "functions": 406,
     "constants": 505
   },
   "symbols": {
@@ -8327,6 +8327,15 @@
       "extends": null,
       "description": "Source du matériel cryptographique de signature des JWT. Découple la SIGNATURE de toute persistance concrète : la clé peut venir de l'environnement (prod cloud), d'un fichier (dev/VPS) ou être éphé…"
     },
+    "IOAuthProvider": {
+      "name": "IOAuthProvider",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Adaptateur d'**un fournisseur OAuth/OIDC**, façade UNIFORME au-dessus d'une classe `arctic` — masque les divergences entre fournisseurs derrière un contrat stable consommé par `OAuth2Service` : - *…"
+    },
     "ISecuredArea": {
       "name": "ISecuredArea",
       "kind": "interface",
@@ -8505,6 +8514,26 @@
       ],
       "decorators": [],
       "description": "Orchestrateur de sécurité Nodefony — refonte 2026 (P6). `isSecure()` (hot-path, court-circuit si aucune zone) ne fait QUE matcher la zone et poser `context.security`. `handleSecurity()` (lazy, seul…"
+    },
+    "OAuth2Service": {
+      "name": "OAuth2Service",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "**Social login OAuth 2.0** (P6 J9) — orchestrateur du flux *Authorization Code* au-dessus d'`arctic`. Posture OAuth 2.1 (RFC 9700) : Authorization Code uniquement (jamais implicit / ROPC), **PKCE S…"
+    },
+    "IOAuthAuthorization": {
+      "name": "IOAuthAuthorization",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Données à porter en session entre `authorize` et `callback` (anti-replay)."
     },
     "TokenService": {
       "name": "TokenService",
@@ -13385,6 +13414,47 @@
       "decorators": [],
       "description": "Authentification par identifiant + mot de passe — schéma **HTTP Basic** (RFC 7617) : `Authorization: Basic base64(identifiant:motdepasse)`, charset UTF-8, split au PREMIER `:` (le mot de passe peut…"
     },
+    "IOAuthProviderContext": {
+      "name": "IOAuthProviderContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Registre de **fabriques de fournisseurs OAuth** — résout un nom configuré (`oauth2.providers.<name>`) vers un {@link IOAuthProvider}, SANS coupler le cœur à un fournisseur en dur. Convention-frère …"
+    },
+    "OAuthProviderFactory": {
+      "name": "OAuthProviderFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un fournisseur OAuth pour un nom donné."
+    },
+    "registerOAuthProvider": {
+      "name": "registerOAuthProvider",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Enregistre (ou remplace) la fabrique d'un fournisseur OAuth. Appelée par les builtins au chargement, et par une application pour ses fournisseurs."
+    },
+    "getOAuthProviderFactory": {
+      "name": "getOAuthProviderFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un fournisseur par nom, ou `undefined` si inconnu."
+    },
+    "listOAuthProviders": {
+      "name": "listOAuthProviders",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
+    },
     "IFrameAuthorizerFirewall": {
       "name": "IFrameAuthorizerFirewall",
       "kind": "interface",
@@ -14107,6 +14177,40 @@
         "ISessionStorage"
       ],
       "decorators": []
+    },
+    "createGithubProvider": {
+      "name": "createGithubProvider",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fournisseur **GitHub** (OAuth 2.0 simple, NON-OIDC). Pas de PKCE, pas d'ID token : le profil est lu via l'API REST (`/user`), et l'email — souvent privé — via `/user/emails` (scope `user:email`). G…"
+    },
+    "IOidcPkceClient": {
+      "name": "IOidcPkceClient",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Client `arctic` minimal d'un fournisseur **OIDC avec PKCE** — surface structurelle commune à `Google`, `MicrosoftEntraId`, `Auth0`, `Okta`, `KeyCloak`... (une instance arctic de ces classes est ass…"
+    },
+    "IOidcProviderOptions": {
+      "name": "IOidcProviderOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Paramètres d'un fournisseur OIDC générique."
+    },
+    "createOidcProvider": {
+      "name": "createOidcProvider",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique un {@link IOAuthProvider} **générique OIDC** — couvre TOUT fournisseur OpenID Connect sans code spécifique : le profil se lit toujours pareil (claims standard `sub`/`email`/`email_verified…"
     }
   },
   "relations": {
@@ -14139,6 +14243,7 @@
         "AuthFlow",
         "Authorization",
         "Firewall",
+        "OAuth2Service",
         "TokenService",
         "WebAuthnService",
         "ServerHttp",
@@ -14755,6 +14860,7 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -14805,6 +14911,7 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -14858,6 +14965,7 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -15137,6 +15245,7 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -15985,6 +16094,9 @@
         "src/packages/@nodefony/security/index.ts"
       ],
       "WebAuthnService": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "OAuth2Service": [
         "src/packages/@nodefony/security/index.ts"
       ],
       "StudioController": [
@@ -16924,6 +17036,7 @@
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IOAuthUserProvisioner.ts",
@@ -18001,6 +18114,7 @@
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/config/config.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
@@ -18032,6 +18146,12 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
       ],
+      "IOAuthProfile": [
+        "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
       "IUserProvider": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
@@ -18051,6 +18171,7 @@
       "AuthenticationError": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
@@ -18104,6 +18225,7 @@
       ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
@@ -18140,9 +18262,26 @@
       "IFirewall": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
+      "IOAuthUserProvisioner": [
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
       "ISecurityConfigInput": [
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
+      ],
+      "IOAuthProvider": [
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
+      "getOAuthProviderFactory": [
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
+      ],
+      "listOAuthProviders": [
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
       "getTokenStoreFactory": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
@@ -18217,13 +18356,7 @@
       "IPasswordBlocklist": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
-      "IOAuthProfile": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
-      ],
       "IOAuthProvisionPolicy": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
-      ],
-      "IOAuthUserProvisioner": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "WeakPasswordError": [
@@ -19763,6 +19896,12 @@
       "UserRealtimeToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
       ],
+      "createOidcProvider": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts"
+      ],
+      "createGithubProvider": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts"
+      ],
       "MemoryTokenStore": [
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
@@ -19855,6 +19994,9 @@
       ],
       "Finder": [
         "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+      ],
+      "IOAuthProviderContext": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts"
       ]
     }
   }

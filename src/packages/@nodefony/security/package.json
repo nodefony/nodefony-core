@@ -30,6 +30,7 @@
   "repository": {},
   "dependencies": {
     "@simplewebauthn/server": "13.3.1",
+    "arctic": "^3.7.0",
     "jose": "6.2.3",
     "zod": "^4.1.0"
   },

@@ -6,6 +6,7 @@ import AuthFlow from "./nodefony/service/authFlow";
 import TokenService from "./nodefony/service/tokenService";
 import Authorization from "./nodefony/service/authorization";
 import WebAuthnService from "./nodefony/service/webAuthn";
+import OAuth2Service from "./nodefony/service/oauth2";
 
 /**
  * `@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6).
@@ -22,7 +23,14 @@ import WebAuthnService from "./nodefony/service/webAuthn";
  * Jwt/oauth2/mtls/apikey, CORS, CSRF, autorisation par décorateurs et data
  * plane Studio arrivent aux sessions suivantes (plan J0→J10).
  */
-@services([Firewall, AuthFlow, TokenService, Authorization, WebAuthnService])
+@services([
+  Firewall,
+  AuthFlow,
+  TokenService,
+  Authorization,
+  WebAuthnService,
+  OAuth2Service,
+])
 class Security extends Module {
   constructor(kernel: Kernel) {
     super("security", kernel, fileURLToPath(import.meta.url), config);
@@ -37,6 +45,7 @@ export { AuthFlow };
 export { TokenService };
 export { Authorization };
 export { WebAuthnService };
+export { OAuth2Service };
 export type { ISafeUser } from "./nodefony/service/authFlow";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
 export { SecuredArea } from "./nodefony/src/SecuredArea";
@@ -110,6 +119,19 @@ export type {
   IWebAuthnCredentialStore,
   WebAuthnAuthUpdate,
 } from "./nodefony/contracts/IWebAuthnCredentialStore";
+
+// ─── OAuth2 social login (P6 J9) — fournisseurs + registre pluggable ─────────
+export type { IOAuthAuthorization } from "./nodefony/service/oauth2";
+export type { IOAuthProvider } from "./nodefony/contracts/IOAuthProvider";
+export {
+  registerOAuthProvider,
+  getOAuthProviderFactory,
+  listOAuthProviders,
+} from "./nodefony/src/oauth/oauthProviderRegistry";
+export type {
+  OAuthProviderFactory,
+  IOAuthProviderContext,
+} from "./nodefony/src/oauth/oauthProviderRegistry";
 
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
 export { defineSecurityConfig } from "./nodefony/config/defineSecurityConfig";
