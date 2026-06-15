@@ -18,6 +18,20 @@ export default {
   // security est absent, l'override est simplement ignoré (0 cycle).
   "module-security": {
     areas: {
+      // Carve-out PUBLIC de la liveness/readiness, HORS `nodefony-admin`. Pattern
+      // EXACT (`$`) → ne couvre QUE /nodefony/kernel/api/livez (jamais /info ni
+      // /modules, qui restent fermés). Plus LONG que le pattern admin → le
+      // firewall trie les zones par longueur de source décroissante
+      // (firewall.ts) → cette zone gagne le match pour /livez. `anonymous` en
+      // SECOND (mode "first") : une session BFF présente identifie l'admin (le
+      // handler renvoie les détails) ; sans session, l'anonyme passe (minimum
+      // vital) → les sondes k8s/Docker NON authentifiées vérifient que le pod est
+      // UP. `realtime: false` : route HTTP pure (pas de handshake WS à fermer).
+      "nodefony-liveness": {
+        pattern: "^/nodefony/kernel/api/livez$",
+        authenticators: ["session", "anonymous"],
+        realtime: false,
+      },
       "nodefony-admin": {
         // Tous les espaces data plane : /nodefony/<ns>/api(/...). Le (/|$) capture
         // aussi /nodefony/profiler/api (sans slash final). Pattern verrouillé par

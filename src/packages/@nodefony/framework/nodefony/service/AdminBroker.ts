@@ -106,7 +106,10 @@ class AdminBroker extends Service implements IAdminBroker {
     for (const api of this.producers.values()) {
       for (const endpoint of api.adminEndpoints()) {
         const method = (endpoint.method ?? "GET") as HTTPMethod;
-        const role = endpoint.role ?? this.defaultRole;
+        // `public` → aucun rôle imposé ("" falsy : le RBAC du broker est
+        // court-circuité). La route reste protégée en amont par le firewall
+        // SAUF si sa zone autorise l'anonyme (cf endpoint liveness `livez`).
+        const role = endpoint.public ? "" : (endpoint.role ?? this.defaultRole);
         const path = this.resolvePath(api.adminNamespace, endpoint.path);
         const name = `admin.${api.adminNamespace}.${method}.${endpoint.path}`;
         // « API souveraine » : les snapshots (GET) déclarent AUSSI le transport

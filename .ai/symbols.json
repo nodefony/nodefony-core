@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-15T10:15:07.087Z",
+  "generated": "2026-06-15T11:32:06.353Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -16949,6 +16949,7 @@
       ],
       "IAdminRequest": [
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"

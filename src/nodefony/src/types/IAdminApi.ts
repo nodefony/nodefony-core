@@ -96,6 +96,15 @@ export interface IAdminEndpoint<T = unknown> {
    * `request.roles` ne le contient pas.
    */
   role?: string;
+  /**
+   * Endpoint PUBLIC : le broker n'impose AUCUN rôle (pas de défaut
+   * `ROLE_NODEFONY_ADMIN`), la route est atteignable sans authentification.
+   * À RÉSERVER aux sondes (liveness/readiness cloud-native) ; toute gradation
+   * d'information par rôle se fait alors DANS le handler (`request.roles`). La
+   * route doit aussi être placée hors d'une aire fermée (zone firewall dédiée
+   * avec `anonymous`), sinon le firewall la verrouille en amont (401).
+   */
+  public?: boolean;
   /** Résumé court pour l'auto-doc Studio et l'introspection. */
   summary?: string;
   /** Implémentation. */

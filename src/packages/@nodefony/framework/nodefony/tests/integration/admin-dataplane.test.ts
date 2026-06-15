@@ -187,6 +187,55 @@ describe("Admin data plane — kernel", () => {
   });
 });
 
+// ── liveness/readiness PUBLIQUE graduée (zone nodefony-liveness) ──────────────
+// /livez est le SEUL endpoint /nodefony/kernel/api/* atteignable SANS session :
+// une zone dédiée plus spécifique (`["session","anonymous"]`) prime sur
+// `nodefony-admin`. Anonyme (sonde k8s/Docker NON authentifiée) → minimum vital ;
+// authentifié (cookie BFF) → détails runtime (pattern Actuator when-authorized).
+
+describe("Admin data plane — liveness PUBLIQUE graduée (/livez)", () => {
+  it("GET /livez SANS session → 200 (PAS 401) — sonde cloud-native", async () => {
+    const r = await req("GET", "/nodefony/kernel/api/livez");
+    expect(r.status).to.equal(200);
+  });
+
+  it("anonyme → minimum vital, SANS aucun détail runtime", async () => {
+    const r = await req("GET", "/nodefony/kernel/api/livez");
+    const b = r.body as Record<string, unknown>;
+    expect(b.status).to.be.a("string");
+    expect(b.booted).to.equal(true);
+    expect(b.ready).to.equal(true);
+    expect(b.uptime).to.be.a("number");
+    expect(b.environment).to.be.a("string");
+    // Fail-closed : aucune info détaillée ne fuite à l'anonyme.
+    for (const leak of ["version", "node", "memory", "git", "modules", "pid"]) {
+      expect(b, `anonyme ne doit PAS voir "${leak}"`).to.not.have.property(
+        leak,
+      );
+    }
+  });
+
+  it("authentifié (session) → minimum vital + détails runtime", async () => {
+    const r = await req("GET", "/nodefony/kernel/api/livez", auth());
+    expect(r.status).to.equal(200);
+    const b = r.body as Record<string, unknown>;
+    expect(b.environment).to.be.a("string");
+    expect(b.booted).to.equal(true);
+    expect(b.version).to.be.a("string");
+    expect(b.node).to.be.a("string");
+    expect(b.modules).to.be.a("number");
+    expect(b.memory).to.be.an("object");
+    expect(b.git).to.be.an("object");
+  });
+
+  it("/livez seule est ouverte — /info reste 401 sans session", async () => {
+    const open = await req("GET", "/nodefony/kernel/api/livez");
+    const closed = await req("GET", "/nodefony/kernel/api/info");
+    expect(open.status).to.equal(200);
+    expect(closed.status).to.equal(401);
+  });
+});
+
 // ── http ─────────────────────────────────────────────────────────────────────
 
 describe("Admin data plane — http", () => {

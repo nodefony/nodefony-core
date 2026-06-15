@@ -5,6 +5,7 @@ import type {
   IAdminApi,
   IAdminEndpoint,
   IAdminDescriptor,
+  IAdminRequest,
 } from "nodefony";
 import type { TestRunResult } from "./docsReader";
 import {
@@ -133,6 +134,57 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         uptime: process.uptime(),
         pid: process.pid,
       }),
+    },
+    {
+      // PUBLIC + GRADUÉ. La zone `nodefony-liveness` (framework config,
+      // `module-security`) place CETTE route hors `nodefony-admin` avec
+      // `["session","anonymous"]` : un appelant ANONYME (sonde k8s/Docker/
+      // monitoring, NON authentifiée) reçoit le minimum vital (liveness +
+      // readiness) ; un appelant AUTHENTIFIÉ (cookie session BFF) reçoit les
+      // détails runtime (≡ `info`). Pattern Spring Actuator
+      // `show-details: when-authorized`. `environment` est public par dessein
+      // (trivialement déductible côté client → pas une fuite). Readiness : 503
+      // tant que le boot n'est pas fini → k8s retire le pod du load-balancer.
+      // PAS de `role` : la route est atteignable par tous ; la gradation se fait
+      // dans le handler selon `request.roles` (fail-closed = minimum vital).
+      path: "livez",
+      public: true,
+      summary:
+        "Liveness/readiness probe (PUBLIC) — détails runtime gradués par authentification",
+      handler: (request: IAdminRequest) => {
+        const minimal = {
+          status: kernel.booted ? "ok" : "booting",
+          booted: kernel.booted,
+          ready: kernel.booted,
+          uptime: process.uptime(),
+          environment: kernel.environment,
+        };
+        const httpStatus = kernel.booted ? 200 : 503;
+        // Anonyme = aucun rôle ou uniquement ROLE_ANONYMOUS → minimum vital.
+        const privileged = request.roles.some((r) => r !== "ROLE_ANONYMOUS");
+        if (!privileged) return { status: httpStatus, body: minimal };
+        return {
+          status: httpStatus,
+          body: {
+            ...minimal,
+            version: kernel.version,
+            debug: kernel.debug,
+            pid: process.pid,
+            node: process.version,
+            platform: process.platform,
+            memory: process.memoryUsage(),
+            modules: Object.keys(kernel.getModules()).length,
+            cluster: { isCluster: process.env.NODEFONY_CLUSTER === "1" },
+            backplanes: {
+              log: {
+                driver: getActiveLogDriver()?.name ?? null,
+                sink: Syslog.logSinkName,
+              },
+            },
+            git: GitService.read(),
+          },
+        };
+      },
     },
     {
       path: "info",
