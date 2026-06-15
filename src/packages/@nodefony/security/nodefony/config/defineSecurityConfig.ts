@@ -421,10 +421,10 @@ const passkeysSchema = z
         "Durée de vie (s) du challenge serveur (anti-replay, lié à la session). Défaut: 300 (5 min).",
       ),
     store: z
-      .enum(["memory", "file"])
+      .string()
       .default("memory")
       .describe(
-        "Backend de stockage des credentials. 'memory' = volatile, perdu au redémarrage [défaut] ; 'file' = persiste sur disque (mono-process : dev / petit déploiement). Cluster/prod → adapter ORM ou Redis (à venir).",
+        "Backend de stockage des credentials : memory|file|drizzle|mongoose|redis. Pluggable (`registerWebAuthnStore`). 'memory' = volatile, perdu au redémarrage [défaut] ; 'file' = persiste sur disque (mono-process : dev / petit déploiement) ; drizzle/mongoose/redis = cluster/prod (l'app câble l'adapter de son module backend).",
       ),
     storePath: z
       .string()

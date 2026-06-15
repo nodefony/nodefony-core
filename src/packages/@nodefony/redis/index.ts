@@ -85,3 +85,9 @@ export type {
 // RedisTokenStore.from(container.get("redis")))`. TTL natif → gc() no-op.
 export { RedisTokenStore } from "./nodefony/src/RedisTokenStore";
 export type { RedisClientLike } from "./nodefony/src/RedisTokenStore";
+
+// ─── Store de credentials WebAuthn Redis (IWebAuthnCredentialStore, J9) ───────
+// Approche B : `@nodefony/security` en `import type` (0 dép runtime). PAS d'auto-
+// register — l'app câble `registerWebAuthnStore("redis", ({container}) =>
+// RedisWebAuthnCredentialStore.from(container.get("redis")))`. Pas de TTL → pas de gc.
+export { RedisWebAuthnCredentialStore } from "./nodefony/src/RedisWebAuthnCredentialStore";

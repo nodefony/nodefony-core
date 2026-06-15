@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-15T13:59:35.905Z",
+  "generated": "2026-06-15T14:59:54.211Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 895,
-    "symbols": 1909,
-    "classes": 279,
-    "interfaces": 491,
+    "files": 896,
+    "symbols": 1911,
+    "classes": 280,
+    "interfaces": 492,
     "types": 240,
     "enums": 3,
     "functions": 395,
@@ -8082,6 +8082,28 @@
       "extends": null,
       "description": "Sous-ensemble structural du client `redis` v6 utilisé par le store — permet de tester contre un double déterministe sans serveur (le vrai `RedisClientType` satisfait cette forme par ses méthodes ca…"
     },
+    "RedisWebAuthnCredentialStore": {
+      "name": "RedisWebAuthnCredentialStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "implements": [
+        "IWebAuthnCredentialStore"
+      ],
+      "decorators": [],
+      "description": "Store de credentials WebAuthn **Redis** (node-redis v6) — implémentation d'{@link IWebAuthnCredentialStore} pour le cluster (source unique cross-pod, les passkeys survivent au redémarrage et sont p…"
+    },
+    "@nodefony/redis:RedisClientLike": {
+      "name": "RedisClientLike",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "description": "Sous-ensemble structural du client `redis` v6 utilisé par le store de credentials — permet de tester contre un double déterministe sans serveur (le vrai `RedisClientType` satisfait cette forme par …"
+    },
     "RedisSessionStorage": {
       "name": "RedisSessionStorage",
       "kind": "class",
@@ -14365,6 +14387,10 @@
       "IRagService": [
         "RagService"
       ],
+      "IWebAuthnCredentialStore": [
+        "RedisWebAuthnCredentialStore",
+        "MemoryWebAuthnCredentialStore"
+      ],
       "IAuthorizationService": [
         "Authorization"
       ],
@@ -14442,9 +14468,6 @@
       ],
       "IAccessVoter": [
         "RoleVoter"
-      ],
-      "IWebAuthnCredentialStore": [
-        "MemoryWebAuthnCredentialStore"
       ],
       "IPasswordEncoder": [
         "Argon2idEncoder",
@@ -15786,6 +15809,7 @@
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
       "defineRedisConfig": [
@@ -17791,6 +17815,24 @@
       "IRedisConnectionConfig": [
         "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts"
       ],
+      "IWebAuthnCredential": [
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
+      ],
+      "IWebAuthnCredentialStore": [
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "WebAuthnAuthUpdate": [
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
+      ],
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/config/config.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -17824,12 +17866,6 @@
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
-      ],
-      "IWebAuthnCredential": [
-        "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
       ],
       "IUserProvider": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
@@ -17961,11 +17997,6 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
-      ],
-      "IWebAuthnCredentialStore": [
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
       ],
       "getWebAuthnStoreFactory": [
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
@@ -19577,10 +19608,6 @@
       ],
       "WebAuthnStoreSnapshot": [
         "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts"
-      ],
-      "WebAuthnAuthUpdate": [
-        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
       ],
       "FileWebAuthnCredentialStore": [
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
