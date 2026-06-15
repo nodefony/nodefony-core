@@ -158,6 +158,15 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-15]` **dual-package hazard sur un SINGLETON process-wide via un module non externalisé** (J8).
+  Un module (`src/modules/test`) qui `extends RealtimeController` mais ne déclare PAS `@nodefony/realtime` en
+  `peerDependencies` + `external` rollup → rollup **bundle une COPIE** du module dans son `dist/` →
+  `getRealtimeHub()` rend un **2ᵉ `RealtimeHub`** distinct du canonique → tout ce que le firewall câble sur le
+  hub canonique (authenticator WS) est invisible côté copie. Même classe que `orm-core`/`drizzle`/`entityRegistry`
+  (déjà commentée dans le `external`). **Règle : tout module qui consomme un service/registre/hub singleton d'un
+  autre `@nodefony/*` DOIT l'externaliser** (peerDep + liste `external`). Candidat `nodefony-check-externals`
+  (il audite déjà la dérive external↔peerDeps — l'étendre aux singletons). Symptôme trompeur : le runtime
+  « marche » (welcome OK) mais le comportement attaché au singleton manque silencieusement.
 - `[2× — 2026-06-12]` **restart serveur juste après des edits `.ts` = RACE watch-rebuild ↔ import au boot** (re-vécu
   session Ph.3 front : serveur laissé UP par la session précédente était en BOOT dégradé — 3 dist absents à l'import,
   régénérés APRÈS coup ; détecté au RESUME par le grep filet, restart propre a suffi) :
@@ -509,6 +518,19 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-15]` **la CAUSE RACINE d'un kit/mémoire peut être 100 % FAUSSE — la prouver au terrain, pas la
+  croire** (J8 volet b). Le kit affirmait « JWT stateless → `getUser()`=anonyme → réécrire l'authenticator ».
+  Le code disait l'INVERSE (`JwtAuthenticator` recharge déjà le vrai user au verify). La VRAIE cause = un
+  **dual-package hazard** : le module `test` ne déclarait pas `@nodefony/realtime` (peerDep + `external` rollup)
+  → rollup bundlait une 2ᵉ copie → **`RealtimeHub` dupliqué** → l'authenticator câblé par le firewall (hub
+  canonique) invisible → token anonyme → garde 403. **Le code sécu était CORRECT** (banc cookie le prouvait) ;
+  c'est le FIXTURE qui était mal packagé. Fix = 3 lignes (external + peerDep), 0 changement de sécu. Devise
+  « la confiance n'exclut pas le contrôle » : un diagnostic non câblé au terrain envoie sur une fausse piste.
+- `[1× — 2026-06-15]` **un log DIAG qui NE FIRE PAS = le code instrumenté n'est pas celui qui s'exécute**
+  (heuristique de debug). `onHandshake` loggait pour Studio mais JAMAIS pour le banc m2m, alors que « client
+  connected » (DANS `onHandshake`) apparaissait → preuve qu'une 2ᵉ copie (non instrumentée) du module était
+  chargée. Quand l'instrumentation est muette là où elle devrait parler : suspecter un **module dupliqué/dist
+  périmé**, pas sa propre logique. (Bruit utile écarté en taguant chaque DIAG par l'URL de handshake.)
 - `[3× — 2026-06-14]` **bancs E2E réels = seul moyen de voir les trous d'ASSEMBLAGE** (J8 socket — réaction
   user « il manque plein de tests E2E !! »). 4 trous sécu trouvés en 1 session, **tous avec unit VERT** :
   token WS sans `getUser()`, `realtime` opt-in fail-open, 403 garde → `-32603` opaque, JWT stateless
@@ -872,6 +894,21 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-15]` **un échec n'apparaît QUE sous `npm run test` racine (turbo) = contention de parallélisme,
+  pas un vrai bug** : 4-6 bancs `mongodb-memory-server` spawnaient chacun leur `mongod` EN PARALLÈLE → saturation
+  → timeouts flaky. En isolation (`npx vitest run` du module) tout passait. **Reproduire l'échec dans le bon
+  contexte (full turbo) avant de conclure.** Fix de fond = **1 serveur partagé** (`globalSetup` + `inject` + 1
+  base par fichier) + `fileParallelism:false`, JAMAIS N spawns. Test d'INFRA qui exige une ressource absente →
+  `describe.skipIf(!uri)` (provide `null` au lieu de throw) → **skip, exit 0**, ne casse pas la suite. Prouver
+  le skip (binaire forcé invalide → `N skipped`, exit 0), pas juste le happy-path.
+- `[1× — 2026-06-15]` **isoler une régression suspecte par `git stash` du diff, run AVANT/APRÈS** : 2 tests
+  `CliIntegration` échouaient après mon edit core — stash de `Command.ts`+`Cli.test.ts` → **identique (4 fails
+  des 2 côtés)** → PRÉ-EXISTANT (timeout boot CLI), pas ma régression. Ne jamais attribuer un fail à son propre
+  diff sans la mesure A/B (et signaler le pré-existant au lieu de le « réparer » dans le scope courant).
+- `[1× — 2026-06-15]` **action async de commande NON retournée → unhandled rejection flottante** : le handler
+  commander de `Command.ts` ne `return`ait pas `this.action(...)` → un `generate()` qui rejette fuyait en
+  unhandled rejection captée par un AUTRE test (faux positif). Toute closure async passée à un framework
+  (commander, EventEmitter) doit RETOURNER sa promesse pour être attendable (`parseAsync`).
 - `[1× — 2026-06-14]` **modif du Resolver/pipeline → le gate = la suite INTÉGRATION, PAS `memory.test`** : J6/J7
   touchait `executeAction` (sur CHAQUE requête) ; j'avais lancé memory (9 tests, = fuites) + unit, et annoncé « fait »
   AVANT de lancer `npm run test:integration` (http **463**). Le user l'a relevé (« ça touche le Resolver »). memory ≠
