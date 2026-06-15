@@ -147,3 +147,15 @@ export type {
   SubjectRevocationRow,
 } from "./nodefony/entity/tokenEntity";
 export { MongooseTokenStore } from "./nodefony/src/MongooseTokenStore";
+
+// ─── Store de credentials WebAuthn Mongoose (IWebAuthnCredentialStore, J9) ────
+// Approche B (idem token) : `import type` seul, PAS d'auto-register. L'app câble
+// `registerWebAuthnStore("mongoose", …)` + `registerWebAuthnCredentialEntity(orm)`.
+export {
+  webAuthnCredentialSchema,
+  createWebAuthnCredentialEntity,
+  registerWebAuthnCredentialEntity,
+  WEBAUTHN_CREDENTIAL_ENTITY,
+} from "./nodefony/entity/webAuthnCredentialEntity";
+export type { WebAuthnCredentialRow } from "./nodefony/entity/webAuthnCredentialEntity";
+export { MongooseWebAuthnCredentialStore } from "./nodefony/src/MongooseWebAuthnCredentialStore";
