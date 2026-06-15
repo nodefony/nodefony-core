@@ -77,8 +77,10 @@ class DecoratorController extends Controller {
         body.once("error", reject);
       });
     }
-    const req = this.context.request as { queryPost?: Record<string, unknown> };
-    const parsedKeys = Object.keys(req.queryPost ?? {}).length;
+    const req = this.context?.request as
+      | { queryPost?: Record<string, unknown> }
+      | undefined;
+    const parsedKeys = Object.keys(req?.queryPost ?? {}).length;
     return this.renderJson({ isReadable, bytes, parsedKeys });
   }
 
