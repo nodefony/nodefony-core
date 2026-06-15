@@ -124,7 +124,11 @@ const corsSchema = z
       .default(600)
       .describe("Cache préflight (secondes)."),
   })
-  .describe("Cross-Origin Resource Sharing.");
+  .describe("Cross-Origin Resource Sharing.")
+  .refine((c) => !(c.credentials && c.origins.includes("*")), {
+    message:
+      "CORS: credentials=true est INCOMPATIBLE avec origins:['*'] (le navigateur le refuse, OWASP). Lister les origines explicitement.",
+  });
 
 const csrfSchema = z
   .object({

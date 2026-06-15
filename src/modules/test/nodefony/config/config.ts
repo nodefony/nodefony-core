@@ -50,6 +50,12 @@ export default {
         // handshake WS JWT sous /m2m est authentifié sans flag (P6 J8 volet b).
       },
     },
+    // P6 J5 — CORS : une origine de confiance déterministe pour le banc
+    // d'intégration `http/cors.test.ts` (preflight reflété + requête réelle).
+    // `credentials:false` → reste compatible avec `origins` non-wildcard.
+    cors: {
+      origins: ["https://trusted.example"],
+    },
     // P6 J9 — passkeys WebAuthn : store FICHIER en dev (les credentials
     // persistent au redémarrage, contrairement à "memory" vidé à chaque restart).
     // Fichier dans var/ (gitignoré). Cluster/prod → driver ORM/Redis (à venir).

@@ -472,12 +472,6 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (this.firewall && checkFirewall) {
       context.secure = this.firewall.isSecure(context);
     }
-    // SEAM P6 — CORS / preflight. Quand `@nodefony/security` portera la politique
-    // cross-origin, le preflight `OPTIONS` cross-origin court-circuitera ici en
-    // `204 No Content` + en-têtes `Access-Control-*` (via le firewall, hook
-    // beforeResolve). Aucune politique CORS centralisée n'existe encore (B3) — ne
-    // PAS réintroduire de `handleCrossDomain` mort : le `204` remonte déjà aux
-    // appelants (`onRequestEnd` / `onConnect`) via le type de retour `number`.
     // FRONT ROUTER — P2.9 : réutilise le résolveur si déjà matché EN AMONT
     // (handleHttp hisse le match avant le parse pour décider du skip). Sinon
     // (WebSocket, ou pas de pré-match), match ici comme avant. Pas de double match.
@@ -869,6 +863,17 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           context,
         },
         async (): Promise<HttpContext> => {
+          // CORS (P6 J5) — AVANT le routing : un preflight `OPTIONS` n'a pas de
+          // route déclarée → le router lèverait un 405. `handleCors` pose les
+          // en-têtes `Access-Control-*` (requête réelle, puis on poursuit) ou
+          // renvoie 204 (preflight) → court-circuit total : ni routing, ni parse,
+          // ni firewall (le preflight ne s'authentifie pas — Fetch Standard).
+          // HTTP only : le WebSocket n'a pas de CORS (origine vérifiée au handshake).
+          if (this.firewall?.handleCors(context! as ContextType) === 204) {
+            context!.response.writeHead(204);
+            context!.response.end();
+            return context!;
+          }
           // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
           // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand
           // l'action attend le flux brut (`@Body({ stream:true })` → le controller

@@ -91,6 +91,18 @@ csrf: {
 
 Le token synchronizer renforcé (`@CsrfProtect` / `@CsrfExempt`) arrive à l'étape suivante.
 
+### CORS — l'inverse du CSRF
+
+CORS **assouplit** la Same-Origin Policy : il autorise un site tiers à _lire_ la réponse de l'app en
+JavaScript (le CSRF, lui, _empêche_ un tiers de déclencher une mutation). La politique est globale :
+
+- **Preflight** `OPTIONS` (Fetch Standard) court-circuité **avant le routing** → `204` + en-têtes
+  `Access-Control-Allow-*`. Il ne s'authentifie jamais (il ne porte pas de credentials).
+- **Origine autorisée** → l'origine est **reflétée** (`Access-Control-Allow-Origin: <origine>` + `Vary: Origin`).
+  `*` n'est émis que sans `credentials`. Origine non autorisée → aucun en-tête (le navigateur bloque).
+- **`origins:["*"]` + `credentials:true` est refusé au démarrage** (refine Zod) : le navigateur l'interdit,
+  et c'est une faille classique. Pour les credentials, lister les origines explicitement.
+
 ### Introspection (Studio)
 
 ```ts

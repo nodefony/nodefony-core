@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-15T21:08:03.566Z",
+  "generated": "2026-06-15T21:41:21.840Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 909,
-    "symbols": 1952,
-    "classes": 285,
-    "interfaces": 508,
-    "types": 243,
+    "files": 910,
+    "symbols": 1955,
+    "classes": 286,
+    "interfaces": 509,
+    "types": 244,
     "enums": 3,
     "functions": 408,
     "constants": 505
@@ -8547,6 +8547,34 @@
       ],
       "decorators": [],
       "description": "Service d'autorisation Nodefony (niveau C, P6 J6) — décide d'un accès via un jury de {@link IAccessVoter}. Stratégie **affirmative + DENY veto** : un seul `DENY` bloque (veto) ; sinon un `GRANT` su…"
+    },
+    "Cors": {
+      "name": "Cors",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Politique CORS de Nodefony — Same-Origin Policy assouplie côté serveur (Fetch Standard / W3C CORS protocol). Logique PURE et synchrone : décide les en-têtes `Access-Control-*` à poser pour une orig…"
+    },
+    "ICorsOptions": {
+      "name": "ICorsOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Sous-ensemble de la config `cors` consommé par la politique (cf defineSecurityConfig)."
+    },
+    "CorsHeaders": {
+      "name": "CorsHeaders",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "En-têtes de réponse CORS à poser (nom canonique → valeur)."
     },
     "Csrf": {
       "name": "Csrf",
@@ -18330,6 +18358,9 @@
       "Csrf": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
+      ],
+      "Cors": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",

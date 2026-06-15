@@ -22,6 +22,12 @@ export interface IFirewall {
    */
   enforceCsrf(context: ContextType): void;
 
+  /**
+   * Politique CORS : pose les en-têtes `Access-Control-*`. Retourne `204` pour un
+   * preflight `OPTIONS` (à court-circuiter), sinon `undefined`. No-op hors CORS.
+   */
+  handleCors(context: ContextType): number | undefined;
+
   /** Enregistre un authenticator (appelé par chaque `*Authenticator` au boot). */
   registerAuthenticator(authenticator: IAuthenticator): void;
 

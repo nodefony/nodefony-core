@@ -17,6 +17,7 @@ import { SecuredArea } from "../src/SecuredArea";
 import { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { Csrf } from "./csrf";
+import { Cors } from "./cors";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import {
@@ -93,6 +94,8 @@ class Firewall extends Service implements IFirewall {
   #roleHierarchy: RoleHierarchyWalker | null = null;
   // Défense CSRF par défaut — null tant que la config CSRF est désactivée.
   #csrf: Csrf | null = null;
+  // Politique CORS — null tant que la config CORS est désactivée.
+  #cors: Cors | null = null;
   // Config validée + gelée (consommée par les fabriques d'authenticators).
   #config: ISecurityConfig | null = null;
   // Fail-closed : posée si la config sécurité est invalide au boot → le
@@ -141,6 +144,11 @@ class Firewall extends Service implements IFirewall {
         ...this.#config.csrf.trustedOrigins,
         ...this.#config.cors.origins,
       ]);
+    }
+    // Politique CORS (globale, hors zones). La config `*`+credentials est déjà
+    // rejetée au boot (refine Zod) → ici `#cors` est toujours sûr.
+    if (this.#config.cors.enabled) {
+      this.#cors = new Cors(this.#config.cors);
     }
 
     const areas = this.#config.areas;
@@ -418,6 +426,44 @@ class Firewall extends Service implements IFirewall {
         headerValue(headers, ":authority") ??
         (context as { domain?: string }).domain,
     });
+  }
+
+  /**
+   * Politique CORS (P6 J5) — branchée dans `handleFrontController` AVANT le
+   * routing/firewall. Pose les en-têtes `Access-Control-*` et **court-circuite le
+   * preflight** `OPTIONS` en `204` (le preflight ne porte jamais de credentials,
+   * Fetch Standard → il ne doit ni router ni s'authentifier). No-op hors requête
+   * cross-origin (pas d'`Origin`), CORS désactivé, ou réponse non-HTTP (WS).
+   *
+   * @returns `204` si la requête est un preflight (l'appelant court-circuite la
+   *   réponse), sinon `undefined` (la requête réelle suit le pipeline normal).
+   */
+  handleCors(context: ContextType): number | undefined {
+    if (!this.#cors) return undefined;
+    const headers = (
+      context.request as { headers?: RequestHeaders } | undefined
+    )?.headers;
+    const origin = headerValue(headers, "origin");
+    if (!origin) return undefined; // requête same-origin / non-navigateur
+    const response = (context as { response?: IHeaderCapableResponse | null })
+      .response;
+    if (typeof response?.setHeader !== "function") return undefined; // WS : pas d'en-têtes HTTP
+
+    const isPreflight =
+      context.method?.toUpperCase() === "OPTIONS" &&
+      headerValue(headers, "access-control-request-method") !== undefined;
+
+    const corsHeaders = isPreflight
+      ? this.#cors.preflightHeaders(origin)
+      : this.#cors.actualHeaders(origin);
+    // Origine non autorisée → corsHeaders null : aucun en-tête posé (réponse non
+    // partageable, le navigateur bloque — 0 fuite). Le preflight reste court-circuité.
+    if (corsHeaders) {
+      for (const name in corsHeaders) {
+        response.setHeader(name, corsHeaders[name]);
+      }
+    }
+    return isPreflight ? 204 : undefined;
   }
 
   /**

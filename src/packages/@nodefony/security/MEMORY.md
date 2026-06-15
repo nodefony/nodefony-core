@@ -95,6 +95,14 @@ api/oauth2/{provider}/{authorize,callback}` (`bypassFirewall`, montés si servic
   GET AVANT toute lecture d'en-tête, exempte `resolver.bypassFirewall` (calque OAuth), Host **brut avec port**
   (`headers.host`/`:authority`, PAS `ctx.domain` sans port). Câblé http-kernel **1 point** (après resolver,
   avant session/auth = rejet précoce). `CsrfError(403)` (RFC 9110 §15.5.4). Différé : `@CsrfProtect`/`@CsrfExempt`.
+- **CORS (J5)** — `Cors` (`service/cors.ts`, pure, Fetch Standard) : `preflightHeaders(origin)` (Allow-Methods/
+  Headers/Max-Age) / `actualHeaders(origin)` (Expose-Headers) → `null` si origine non whitelistée (0 en-tête =
+  réponse non partageable). `*` SEULEMENT si `!credentials` ; sinon **reflète l'origine** + `Vary: Origin`
+  (`reflectsOrigin()`). **`Firewall.handleCors(ctx): number|undefined`** : pose les en-têtes, **204** si preflight
+  (`OPTIONS` + `Access-Control-Request-Method`). **⚠️ Câblé EN TÊTE de `handleHttp`, AVANT le routing** (un
+  preflight n'a pas de route → le router lèverait 405 au pré-match → handleCors jamais atteint ; PROUVÉ par log).
+  Donc PAS dans `handleFrontController` (bonus : le WS n'a pas de CORS). Court-circuit 204 = `writeHead(204)+end()`,
+  ni parse ni firewall (preflight jamais authentifié, Fetch). **`*`+credentials INTERDIT au boot** (refine Zod fail-fast).
 
 ## Config
 

@@ -38,8 +38,9 @@ nodefony/
 │   ├── RoleHierarchyWalker.ts précompute DFS au boot + détection cycles
 │   └── token/AnonymousToken.ts
 └── service/
-    ├── firewall.ts            isSecure (hot-path) + handleSecurity (auth→ALS→Zero Trust) + enforceCsrf
-    └── csrf.ts                Csrf — Fetch Metadata + repli Origin (logique pure, J5)
+    ├── firewall.ts            isSecure (hot-path) + handleSecurity (auth→ALS→Zero Trust) + enforceCsrf + handleCors
+    ├── csrf.ts                Csrf — Fetch Metadata + repli Origin (logique pure, J5)
+    └── cors.ts                Cors — preflight/actual headers, reflet origine + Vary (logique pure, J5)
 ```
 
 ## État (S1→J9 livrés ; J5 CSRF étape 1 livrée)
@@ -51,8 +52,12 @@ nodefony/
 `strictSameSite`, liste `trustedOrigins` (alias multi-domaine). Câblé `Firewall.enforceCsrf()` → http-kernel
 (global, rejet précoce). Gates : security 281, banc intégration live `http/csrf.test.ts` 11/11, mémoire 9/9.
 
-⬜ Reste J5 : **CORS** (service, P6.2), **securityHeaders** natif (CSP+nonces/HSTS/COOP/COEP/CORP). Étape 2
-CSRF : décorateurs `@CsrfProtect` (token synchronizer HMAC) + `@CsrfExempt`.
+✅ **CORS (J5, P6.2)** : `Cors` (Fetch Standard — preflight/actual, reflet origine + `Vary`, `*`+credentials
+INTERDIT au boot). `Firewall.handleCors()` câblé **EN TÊTE de `handleHttp` avant le routing** (le preflight n'a
+pas de route → 405 sinon). Gates : security 293, banc live `http/cors.test.ts` 6/6, mémoire 9/9.
+
+⬜ Reste J5 : **securityHeaders** natif (CSP+nonces/HSTS/COOP/COEP/CORP) = DERNIER du cœur P6. Étape 2 CSRF :
+décorateurs `@CsrfProtect` (token synchronizer HMAC) + `@CsrfExempt` (+ per-controller `trustedOrigins`/`@Domain`).
 
 ## Interdits
 
