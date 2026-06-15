@@ -894,6 +894,27 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-15]` **method-name shadowing par une propriété d'instance** : une méthode de canal nommée
+  `syslog` (`@RealtimeChannel("syslog:stream") syslog(){}`) est SHADOWÉE par `this.syslog` (le logger posé par
+  `Service`) → `instance["syslog"]` renvoie l'objet logger, `typeof fn === "function"` faux → le canal disparaît
+  SILENCIEUSEMENT du registre décoré. Diag = logger les clés de `getRealtimeChannels`. **Ne jamais nommer une
+  méthode comme une propriété de la classe de base** (`log`, `syslog`, `context`, `kernel`…). 2 h perdues à
+  croire à un bug du décorateur/timing ALS — c'était le NOM.
+- `[1× — 2026-06-15]` **le 100 % bute sur des branches MORTES/DÉFENSIVES — ne pas les chasser via tests d'états
+  impossibles** : (a) garde Zod (`x ?? []` quand le schéma garantit `[]`), (b) code **browser-only** sous Node
+  (`typeof window !== undefined`, `BrowserWsTransport`) — non exécutable en vitest. Viser **100 % lignes+fonctions**
+  (atteignable, propre) ; accepter ~95 % branches quand le reste = gardes contre l'impossible. Couvrir l'impossible
+  = caster pour forcer un état que l'API interdit (anti-pattern).
+- `[1× — 2026-06-15]` **provider de canal PARTAGÉ (hub singleton) : le 2ᵉ abonné ne reçoit PAS le tick immédiat**
+  du factory (créé au 1ᵉʳ abonné global). En E2E, prouver l'autorisation du 2ᵉ via `denied` vide / `subscriberCount`,
+  PAS via le tick. Ordonner les sous-cas (l'abonné qui doit voir le tick en 1ᵉʳ).
+- `[1× — 2026-06-15]` **traque des lignes non couvertes au cordeau via `coverage-final.json`** (reporter `text`
+  tronque la colonne `Uncovered`) : `--coverage.reporter=json` puis `node`/`jq` sur `.s`/`.b`/`.f` → lignes/branches/
+  fonctions exactes à 0. Boucle mesure→cible→batch→re-mesure ; gain rapide (controller 72→99.5 % en 2 passes).
+- `[1× — 2026-06-15]` **E2E « câblage réel » = 0 mock de décision** : pour prouver Firewall→hub→client, monter le
+  VRAI `Firewall` sur un **container partagé** avec le vrai `RealtimeService` (hub = singleton), `onBoot()` →
+  `#wireRealtime`, puis déclencher le handshake DANS `RequestContext.run({ user })` (l'ALS que pose `HttpKernel`
+  en prod, lu par `SessionRealtimeAuthenticator`). Bien plus probant qu'un `setFrameAuthorizer` posé à la main.
 - `[1× — 2026-06-15]` **un échec n'apparaît QUE sous `npm run test` racine (turbo) = contention de parallélisme,
   pas un vrai bug** : 4-6 bancs `mongodb-memory-server` spawnaient chacun leur `mongod` EN PARALLÈLE → saturation
   → timeouts flaky. En isolation (`npx vitest run` du module) tout passait. **Reproduire l'échec dans le bon
