@@ -79,4 +79,43 @@ export const env = defineEnv({
     default: false,
     description: "DEV : bind 0.0.0.0 + trustProxy (banc reverse-proxy Docker).",
   }),
+
+  // ── Social login OAuth 2.0 (P6 J9) ─────────────────────────────────────────
+  // Secrets délivrés par les fournisseurs (Google Cloud Console / GitHub
+  // Developer Settings › OAuth Apps). OPTIONNELS : un fournisseur n'est monté
+  // QUE si SES deux secrets sont présents (sinon le bouton n'apparaît pas, 0
+  // route morte). JAMAIS commités — `.env` local ou secret-manager.
+  GOOGLE_CLIENT_ID: envString({
+    optional: true,
+    description: "OAuth Google — Client ID (Google Cloud Console).",
+  }),
+  GOOGLE_CLIENT_SECRET: envString({
+    optional: true,
+    description: "OAuth Google — Client Secret (SECRET, jamais loggé).",
+  }),
+  GITHUB_CLIENT_ID: envString({
+    optional: true,
+    description: "OAuth GitHub — Client ID (Developer Settings › OAuth Apps).",
+  }),
+  GITHUB_CLIENT_SECRET: envString({
+    optional: true,
+    description: "OAuth GitHub — Client Secret (SECRET, jamais loggé).",
+  }),
+
+  /**
+   * Base d'URL des callbacks OAuth (RFC 9700 : exact match avec l'URL
+   * enregistrée chez le fournisseur). Callback complet = `<base>/nodefony/
+   * security/api/oauth2/<provider>/callback`.
+   *
+   * Défaut = `https://localhost:5152` — PAS `127.0.0.1` : les passkeys/WebAuthn
+   * REFUSENT une IP comme domaine (rpId), seul `localhost` (ou un vrai domaine)
+   * marche en dev. On standardise donc TOUT le dev sur `localhost` (OAuth +
+   * passkey + session) → un seul host, zéro incohérence cookie/rpId.
+   * ⚠️ Enregistrer le callback chez le fournisseur en `https://localhost:5152/...`.
+   * Google : si `https://localhost` est refusé, utiliser `http://localhost:5151`.
+   */
+  OAUTH_REDIRECT_BASE: envString({
+    default: "https://localhost:5152",
+    description: "Base d'URL des callbacks OAuth (exact match fournisseur).",
+  }),
 });

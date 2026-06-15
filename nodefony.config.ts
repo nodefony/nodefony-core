@@ -22,6 +22,7 @@
  */
 import { defineConfig, use } from "nodefony";
 import type { env } from "./env";
+import { oauth2Config } from "./config/oauth";
 
 /** Type du catalogue d'env → `ctx.env` typé + auto-complété dans la fonction de config. */
 type Env = typeof env;
@@ -153,7 +154,13 @@ export default defineConfig<Env>((ctx) => ({
     // Les zones se déclarent au plus près de leurs routes : un module porte sa
     // zone via l'override `module-security` dans SA config (ex. la zone
     // `test-secure` du banc P6 vit dans src/modules/test/nodefony/config/config.ts).
-    { name: "@nodefony/security", policy: "mandatory" },
+    // Social login OAuth 2.0 : config extraite dans `./config/oauth.ts`
+    // (providers + secrets via env). La racine reste lisible.
+    use(
+      "@nodefony/security",
+      { oauth2: oauth2Config(ctx) },
+      { policy: "mandatory" },
+    ),
 
     // ── Démo / tests d'intégration — hors production.
     { name: "@nodefony/test", policy: "dev" },
