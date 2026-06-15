@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-15T14:59:54.211Z",
+  "generated": "2026-06-15T15:04:33.075Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 896,
-    "symbols": 1911,
-    "classes": 280,
-    "interfaces": 492,
+    "files": 898,
+    "symbols": 1917,
+    "classes": 281,
+    "interfaces": 493,
     "types": 240,
     "enums": 3,
-    "functions": 395,
-    "constants": 501
+    "functions": 397,
+    "constants": 503
   },
   "symbols": {
     "Cli": {
@@ -4660,6 +4660,47 @@
       "module": "@nodefony/drizzle",
       "description": "Table Drizzle de l'utilisateur Nodefony (schema-as-code) — implémentation SQL **par défaut** du contrat `@nodefony/user` (P5.9, ORM recommandé #1). Colonnes calquées sur `BaseUser` : identité (`id`…"
     },
+    "WebAuthnCredentialRow": {
+      "name": "WebAuthnCredentialRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Forme **plate** d'une ligne de credentials renvoyée par le repository ORM — `nickname: string | null` (≠ `nickname?: string` du contrat) et `transports` mutable. `DrizzleWebAuthnCredentialStore` ma…"
+    },
+    "createWebAuthnCredentialEntity": {
+      "name": "createWebAuthnCredentialEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit le descripteur d'entité du store de credentials pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM…"
+    },
+    "registerWebAuthnCredentialEntity": {
+      "name": "registerWebAuthnCredentialEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Enregistre l'entité du store de credentials dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
+    },
+    "webAuthnCredentialTable": {
+      "name": "webAuthnCredentialTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Table Drizzle du **store de credentials WebAuthn** `@nodefony/security` (schema-as-code) — implémentation SQL d'`IWebAuthnCredentialStore` (passkeys). Driver `better-sqlite3` ; Postgres/MySQL par s…"
+    },
+    "WEBAUTHN_CREDENTIAL_ENTITY": {
+      "name": "WEBAUTHN_CREDENTIAL_ENTITY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
+    },
     "IDrizzleConfig": {
       "name": "IDrizzleConfig",
       "kind": "type",
@@ -4720,6 +4761,19 @@
       ],
       "decorators": [],
       "description": "Adapter Drizzle du contrat {@link IUserRepository} — implémentation SQL **par défaut** de la persistance utilisateur (P5.9). Décore le repository portable générique (`IRepository<UserRow>` de {@lin…"
+    },
+    "DrizzleWebAuthnCredentialStore": {
+      "name": "DrizzleWebAuthnCredentialStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "IWebAuthnCredentialStore"
+      ],
+      "decorators": [],
+      "description": "Store de credentials WebAuthn **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link IWebAuthnCredentialStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webauthn_credenti…"
     },
     "SessionStorage": {
       "name": "SessionStorage",
@@ -14329,6 +14383,11 @@
         "RedisTokenStore",
         "MemoryTokenStore"
       ],
+      "IWebAuthnCredentialStore": [
+        "DrizzleWebAuthnCredentialStore",
+        "RedisWebAuthnCredentialStore",
+        "MemoryWebAuthnCredentialStore"
+      ],
       "ISessionStorage": [
         "SessionStorage",
         "SessionStorage",
@@ -14386,10 +14445,6 @@
       ],
       "IRagService": [
         "RagService"
-      ],
-      "IWebAuthnCredentialStore": [
-        "RedisWebAuthnCredentialStore",
-        "MemoryWebAuthnCredentialStore"
       ],
       "IAuthorizationService": [
         "Authorization"
@@ -15039,7 +15094,8 @@
         "src/modules/mediasoup/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts"
       ],
       "MediasoupController": [
         "src/modules/mediasoup/index.ts"
@@ -16637,6 +16693,7 @@
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
@@ -16650,6 +16707,7 @@
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
@@ -16966,6 +17024,7 @@
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
@@ -17030,6 +17089,33 @@
       "UserRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
+      ],
+      "IWebAuthnCredential": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
+      ],
+      "IWebAuthnCredentialStore": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "WebAuthnAuthUpdate": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
+      ],
+      "WEBAUTHN_CREDENTIAL_ENTITY": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts"
+      ],
+      "WebAuthnCredentialRow": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts"
       ],
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -17814,24 +17900,6 @@
       ],
       "IRedisConnectionConfig": [
         "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts"
-      ],
-      "IWebAuthnCredential": [
-        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
-      ],
-      "IWebAuthnCredentialStore": [
-        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
-      ],
-      "WebAuthnAuthUpdate": [
-        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
       ],
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/config/config.ts",
