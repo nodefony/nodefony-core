@@ -9,7 +9,9 @@ import { SessionRealtimeAuthenticator } from "../../nodefony/src/authenticator/S
 import { UserRealtimeToken } from "../../nodefony/src/realtime/UserRealtimeToken";
 import {
   buildFrameAuthorizer,
-  type IZoneMatcher,
+  DEFAULT_SYSTEM_RULES,
+  type IFrameAuthorizerFirewall,
+  type IChannelPolicyResolver,
 } from "../../nodefony/src/realtime/frameAuthorizer";
 import type {
   IRealtimeToken,
@@ -59,6 +61,24 @@ const ANON_TOKEN: IRealtimeToken = {
   isAuthenticated: () => false,
   getRoles: () => ["ROLE_ANONYMOUS"],
   getScopes: () => [],
+  getAttribute: () => undefined,
+};
+// Admin (session BFF : rôles, pas de scopes).
+const ADMIN_TOKEN: IRealtimeToken = {
+  type: "session",
+  getUserIdentifier: () => "boss",
+  isAuthenticated: () => true,
+  getRoles: () => ["ROLE_ADMIN"],
+  getScopes: () => [],
+  getAttribute: () => undefined,
+};
+// Token API (JWT/clé) : porte un scope, rôle applicatif standard.
+const SCOPE_TOKEN: IRealtimeToken = {
+  type: "jwt",
+  getUserIdentifier: () => "svc",
+  isAuthenticated: () => true,
+  getRoles: () => ["ROLE_USER"],
+  getScopes: () => ["metrics:read"],
   getAttribute: () => undefined,
 };
 
@@ -125,18 +145,45 @@ describe("SessionRealtimeAuthenticator — lit l'ALS, 0 re-lecture", () => {
   });
 });
 
-describe("buildFrameAuthorizer — invariant api.request ≤ GET + canaux protégés", () => {
-  // Zone matcher factice : data plane protégé, /open public (security:false),
-  // tout le reste hors zone (null).
-  const zones: IZoneMatcher = {
+describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => {
+  // Firewall factice : zone (matchPath) + hiérarchie de rôles (hasRole) simulant
+  // ROLE_ADMIN ⊇ ROLE_USER (le RoleHierarchyWalker réel fait ça au boot).
+  const firewall: IFrameAuthorizerFirewall = {
     matchPath: (p) => {
       if (p.startsWith("/nodefony/") && p.includes("/api"))
         return { security: true };
       if (p.startsWith("/open")) return { security: false };
       return null;
     },
+    hasRole: (roles, required) =>
+      roles.includes(required) ||
+      (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")),
   };
-  const authorize = buildFrameAuthorizer(zones);
+  // Politiques MÉTIER déclarées (`@RealtimeChannel`), exposées par le hub realtime.
+  // `syslog:custom` : volontairement faible (authenticated) pour prouver que le
+  // PLANCHER système (ROLE_ADMIN) gagne — un décorateur n'affaiblit pas un namespace réservé.
+  const channelResolver: IChannelPolicyResolver = {
+    resolveChannelPolicy: (channel) => {
+      switch (channel) {
+        case "app:authed":
+          return { authenticated: true };
+        case "app:useronly":
+          return { roles: ["ROLE_USER"] };
+        case "app:adminonly":
+          return { roles: ["ROLE_ADMIN"] };
+        case "app:scoped":
+          return { scopes: ["metrics:read"] };
+        case "syslog:custom":
+          return { authenticated: true };
+        default:
+          return null;
+      }
+    },
+  };
+  const authorize = buildFrameAuthorizer(firewall, {
+    channelResolver,
+    systemRules: DEFAULT_SYSTEM_RULES,
+  });
   const apiReq = (path: unknown) => ({
     method: "api.request",
     params: { path },
@@ -146,6 +193,7 @@ describe("buildFrameAuthorizer — invariant api.request ≤ GET + canaux proté
     params: { channel },
   });
 
+  // ── api.request (inchangé J3b) ───────────────────────────────────────────
   it("api.request zone protégée + anonyme → REFUS", () => {
     assert.equal(
       authorize(apiReq("/nodefony/kernel/api/modules"), ANON_TOKEN),
@@ -167,20 +215,18 @@ describe("buildFrameAuthorizer — invariant api.request ≤ GET + canaux proté
     );
   });
 
-  it("api.request hors zone (path public) + anonyme → AUTORISÉ", () => {
+  it("api.request hors zone / zone publique + anonyme → AUTORISÉ", () => {
     assert.equal(authorize(apiReq("/public/thing"), ANON_TOKEN), true);
-  });
-
-  it("api.request zone publique (security:false) + anonyme → AUTORISÉ", () => {
     assert.equal(authorize(apiReq("/open/data"), ANON_TOKEN), true);
   });
 
-  it("api.request params invalides (path absent/non-string) → AUTORISÉ (handler renverra -32602)", () => {
+  it("api.request params invalides → AUTORISÉ (handler renverra -32602)", () => {
     assert.equal(authorize(apiReq(undefined), ANON_TOKEN), true);
     assert.equal(authorize(apiReq(42), ANON_TOKEN), true);
   });
 
-  it("subscribe canal d'observabilité + anonyme → REFUS (syslog/orm/dashboard/realtime/node)", () => {
+  // ── subscribe : canaux SYSTÈME (durcissement Zero Trust → ROLE_ADMIN) ─────
+  it("subscribe canal d'observabilité + anonyme → REFUS", () => {
     for (const ch of [
       "syslog:stream",
       "orm:flow",
@@ -189,21 +235,58 @@ describe("buildFrameAuthorizer — invariant api.request ≤ GET + canaux proté
       "realtime:health",
       "node:stream",
       "debugbar:stats",
+      "cluster:peers",
     ]) {
       assert.equal(authorize(sub(ch), ANON_TOKEN), false, ch);
     }
   });
 
-  it("subscribe convention <module>:health / :stats + anonyme → REFUS", () => {
-    assert.equal(authorize(sub("mymod:health"), ANON_TOKEN), false);
-    assert.equal(authorize(sub("mymod:stats"), ANON_TOKEN), false);
+  it("subscribe canal d'observabilité + user SIMPLE → REFUS (durci : exige ROLE_ADMIN)", () => {
+    assert.equal(authorize(sub("syslog:stream"), AUTH_TOKEN), false);
+    assert.equal(authorize(sub("orm:health"), AUTH_TOKEN), false);
   });
 
-  it("subscribe canal d'observabilité + authentifié → AUTORISÉ", () => {
-    assert.equal(authorize(sub("syslog:stream"), AUTH_TOKEN), true);
+  it("subscribe canal d'observabilité + ADMIN → AUTORISÉ", () => {
+    assert.equal(authorize(sub("syslog:stream"), ADMIN_TOKEN), true);
+    assert.equal(authorize(sub("dashboard:supervision"), ADMIN_TOKEN), true);
   });
 
-  it("subscribe canal applicatif public + anonyme → AUTORISÉ", () => {
+  it("subscribe convention <module>:health / :stats → ADMIN only", () => {
+    assert.equal(authorize(sub("mymod:health"), AUTH_TOKEN), false);
+    assert.equal(authorize(sub("mymod:stats"), ADMIN_TOKEN), true);
+  });
+
+  it("PLANCHER système non contournable : décorateur faible sur syslog: → ADMIN quand même", () => {
+    // channelResolver dit `{authenticated:true}` pour syslog:custom, mais le
+    // namespace système (ROLE_ADMIN) prime → un user simple reste REFUSÉ.
+    assert.equal(authorize(sub("syslog:custom"), AUTH_TOKEN), false);
+    assert.equal(authorize(sub("syslog:custom"), ADMIN_TOKEN), true);
+  });
+
+  // ── subscribe : canaux MÉTIER (@RealtimeChannel) ─────────────────────────
+  it("canal métier { authenticated } : anonyme REFUS, authentifié OK", () => {
+    assert.equal(authorize(sub("app:authed"), ANON_TOKEN), false);
+    assert.equal(authorize(sub("app:authed"), AUTH_TOKEN), true);
+  });
+
+  it("canal métier { roles:[ROLE_USER] } : anonyme REFUS, user OK, admin OK (hiérarchie)", () => {
+    assert.equal(authorize(sub("app:useronly"), ANON_TOKEN), false);
+    assert.equal(authorize(sub("app:useronly"), AUTH_TOKEN), true);
+    assert.equal(authorize(sub("app:useronly"), ADMIN_TOKEN), true);
+  });
+
+  it("canal métier { roles:[ROLE_ADMIN] } : user REFUS, admin OK", () => {
+    assert.equal(authorize(sub("app:adminonly"), AUTH_TOKEN), false);
+    assert.equal(authorize(sub("app:adminonly"), ADMIN_TOKEN), true);
+  });
+
+  it("canal métier { scopes:[metrics:read] } : session sans scope REFUS, token API avec scope OK", () => {
+    assert.equal(authorize(sub("app:scoped"), AUTH_TOKEN), false); // session BFF = 0 scope
+    assert.equal(authorize(sub("app:scoped"), ADMIN_TOKEN), false);
+    assert.equal(authorize(sub("app:scoped"), SCOPE_TOKEN), true);
+  });
+
+  it("subscribe canal applicatif LIBRE (non déclaré) + anonyme → AUTORISÉ", () => {
     assert.equal(authorize(sub("chat:room1"), ANON_TOKEN), true);
     assert.equal(authorize(sub("presence:lobby"), ANON_TOKEN), true);
   });
@@ -212,7 +295,20 @@ describe("buildFrameAuthorizer — invariant api.request ≤ GET + canaux proté
     assert.equal(authorize(sub(undefined), ANON_TOKEN), true);
   });
 
-  it("autres méthodes (ping/unsubscribe/inconnu) → AUTORISÉ (hors périmètre du verrou)", () => {
+  // ── inbound full-duplex : même politique que subscribe ───────────────────
+  it("inbound (method = canal déclaré) : gated par la même policy", () => {
+    // `app:adminonly` poussé en NOTIFICATION (sans id) : user REFUS, admin OK.
+    assert.equal(
+      authorize({ method: "app:adminonly", params: { x: 1 } }, AUTH_TOKEN),
+      false,
+    );
+    assert.equal(
+      authorize({ method: "app:adminonly", params: { x: 1 } }, ADMIN_TOKEN),
+      true,
+    );
+  });
+
+  it("autres méthodes (ping/unsubscribe/action libre) → AUTORISÉ", () => {
     assert.equal(authorize({ method: "ping" }, ANON_TOKEN), true);
     assert.equal(
       authorize(
@@ -223,6 +319,45 @@ describe("buildFrameAuthorizer — invariant api.request ≤ GET + canaux proté
     );
     assert.equal(authorize({ method: "kernel:ping" }, ANON_TOKEN), true);
     assert.equal(authorize({}, ANON_TOKEN), true);
+  });
+});
+
+describe("buildFrameAuthorizer — override config (realtimeChannels)", () => {
+  const firewall: IFrameAuthorizerFirewall = {
+    matchPath: () => null,
+    hasRole: (roles, required) =>
+      roles.includes(required) ||
+      (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")),
+  };
+  const sub = (channel: string) => ({
+    method: "subscribe",
+    params: { channel },
+  });
+
+  it("config AVANT défauts : assouplit syslog: à `authenticated` (user OK)", () => {
+    // L'admin de l'app décide d'ouvrir syslog: aux authentifiés (responsabilité
+    // assumée). La règle config est placée AVANT les défauts → elle gagne.
+    const authorize = buildFrameAuthorizer(firewall, {
+      systemRules: [
+        { prefix: "syslog:", policy: { authenticated: true } },
+        ...DEFAULT_SYSTEM_RULES,
+      ],
+    });
+    assert.equal(authorize(sub("syslog:stream"), AUTH_TOKEN), true);
+    assert.equal(authorize(sub("syslog:stream"), ANON_TOKEN), false);
+    // orm: (non surchargé) garde le défaut ROLE_ADMIN → user refusé.
+    assert.equal(authorize(sub("orm:health"), AUTH_TOKEN), false);
+  });
+
+  it("config peut DURCIR un namespace custom (ex: billing: → ROLE_ADMIN)", () => {
+    const authorize = buildFrameAuthorizer(firewall, {
+      systemRules: [
+        { prefix: "billing:", policy: { roles: ["ROLE_ADMIN"] } },
+        ...DEFAULT_SYSTEM_RULES,
+      ],
+    });
+    assert.equal(authorize(sub("billing:invoices"), AUTH_TOKEN), false);
+    assert.equal(authorize(sub("billing:invoices"), ADMIN_TOKEN), true);
   });
 });
 
@@ -237,14 +372,21 @@ interface CapturedRealtime {
     auth: IRealtimeAuthenticator;
   }>;
   frameAuthorizer: FrameAuthorizer | null;
+  firewall: Firewall;
+  container: Container;
 }
 
 function bootFirewall(
   areas: Record<string, unknown>,
   withRealtimeService = true,
+  extraConfig: Record<string, unknown> = {},
 ): CapturedRealtime {
   const container = new Container();
-  const captured: CapturedRealtime = { useAuth: [], frameAuthorizer: null };
+  let firewall!: Firewall;
+  const captured = { useAuth: [], frameAuthorizer: null } as Pick<
+    CapturedRealtime,
+    "useAuth" | "frameAuthorizer"
+  >;
   if (withRealtimeService) {
     container.set("realtimeService", {
       useAuthenticator: (
@@ -265,13 +407,21 @@ function bootFirewall(
       if (event === "onBoot") onBoot = cb;
     },
   });
-  new Firewall({
+  firewall = new Firewall({
     container,
     notificationsCenter: new Event(),
-    options: { areas },
+    options: { areas, ...extraConfig },
   } as unknown as Module);
   onBoot?.(); // déclenche #build → #wireRealtime
-  return captured;
+  return { ...captured, firewall, container };
+}
+
+/** Contexte HTTP minimal pour `isSecure` (url + domaine optionnel). */
+function makeHttpCtx(url: string, domain?: string): ContextType {
+  return {
+    request: { url: new URL(url) },
+    domain,
+  } as unknown as ContextType;
 }
 
 const ADMIN_PATTERN = "^/nodefony/[^/]+/api(/|$)";
@@ -330,6 +480,21 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
     assert.equal(allowed, true);
   });
 
+  it("le frame authorizer câblé applique le RBAC système (syslog: → ROLE_ADMIN)", () => {
+    const c = bootFirewall({
+      "nodefony-admin": {
+        pattern: ADMIN_PATTERN,
+        authenticators: ["session"],
+        realtime: true,
+      },
+    });
+    const sub = { method: "subscribe", params: { channel: "syslog:stream" } };
+    // Hiérarchie vide (pas de roleHierarchy en config) → ROLE_ADMIN exact requis.
+    assert.equal(c.frameAuthorizer!(sub, ANON_TOKEN), false);
+    assert.equal(c.frameAuthorizer!(sub, AUTH_TOKEN), false); // user simple refusé
+    assert.equal(c.frameAuthorizer!(sub, ADMIN_TOKEN), true);
+  });
+
   it("zone protégée realtime NON déclaré → câblé (défaut SÛR true, opt-out explicite)", () => {
     // Zero Trust : une zone qui ferme le HTTP ferme aussi le WS par défaut. Un
     // flag opt-IN serait fail-open (oubli = WS anonyme). `realtime` défaut `true`.
@@ -365,6 +530,155 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
         },
         false, // pas de realtimeService dans le container
       ),
+    );
+  });
+
+  it("config `realtimeChannels` → règle appliquée AVANT les défauts (durcit billing:)", () => {
+    const c = bootFirewall(
+      {
+        "nodefony-admin": {
+          pattern: ADMIN_PATTERN,
+          authenticators: ["session"],
+          realtime: true,
+        },
+      },
+      true,
+      { realtimeChannels: [{ pattern: "billing:", roles: ["ROLE_ADMIN"] }] },
+    );
+    const sub = (channel: string) => ({
+      method: "subscribe",
+      params: { channel },
+    });
+    // billing: gaté ROLE_ADMIN par la config (user simple refusé, admin OK).
+    assert.equal(c.frameAuthorizer!(sub("billing:x"), AUTH_TOKEN), false);
+    assert.equal(c.frameAuthorizer!(sub("billing:x"), ADMIN_TOKEN), true);
+  });
+});
+
+describe("firewall.#build / isSecure / provisionShared (boot)", () => {
+  const ZONE = {
+    "data-plane": {
+      pattern: ADMIN_PATTERN,
+      authenticators: ["session"],
+      realtime: true,
+    },
+  };
+
+  it("isSecure : pathname dans une zone → true + context.security posé", () => {
+    const { firewall } = bootFirewall(ZONE);
+    const ctx = makeHttpCtx("https://localhost/nodefony/studio/api/x");
+    assert.equal(firewall.isSecure(ctx), true);
+    assert.ok((ctx as { security?: unknown }).security);
+  });
+
+  it("isSecure : pathname hors zone → false", () => {
+    const { firewall } = bootFirewall(ZONE);
+    assert.equal(
+      firewall.isSecure(makeHttpCtx("https://localhost/public")),
+      false,
+    );
+  });
+
+  it("isSecure : aucune zone configurée → false (court-circuit hot-path)", () => {
+    const { firewall } = bootFirewall({});
+    assert.equal(firewall.isSecure(makeHttpCtx("https://localhost/x")), false);
+  });
+
+  it("getArea : nom connu → zone, nom inconnu → undefined", () => {
+    const { firewall } = bootFirewall(ZONE);
+    assert.ok(firewall.getArea("data-plane"));
+    assert.equal(firewall.getArea("ghost"), undefined);
+  });
+
+  it("config Zod INVALIDE → fail-closed (configError) : isSecure capture TOUT", () => {
+    // roleHierarchy attend un record → une string est rejetée par Zod au boot.
+    const { firewall } = bootFirewall(ZONE, true, {
+      roleHierarchy: "not-a-record",
+    });
+    assert.equal(
+      firewall.isSecure(makeHttpCtx("https://localhost/anything")),
+      true,
+    );
+  });
+
+  it("authenticator inconnu dans une zone → fail-closed (configError) : isSecure capture TOUT", () => {
+    const { firewall } = bootFirewall({
+      bad: { pattern: "^/x", authenticators: ["ghost-authenticator"] },
+    });
+    assert.equal(
+      firewall.isSecure(makeHttpCtx("https://localhost/anything")),
+      true,
+    );
+  });
+
+  it("provisionSharedServices : encoders en config → passwordEncoder au container", () => {
+    const { container } = bootFirewall(ZONE, true, {
+      encoders: { default: { type: "bcrypt" } },
+    });
+    assert.ok(container.get("passwordEncoder"));
+  });
+
+  it("provisionSharedServices : rateLimit.enabled → loginThrottler au container", () => {
+    const { container } = bootFirewall(ZONE, true, {
+      rateLimit: { enabled: true },
+    });
+    assert.ok(container.get("loginThrottler"));
+  });
+
+  it("2 zones partageant un authenticator : tri par spécificité + dédup instanciation", () => {
+    // 2 zones → le comparateur de tri est invoqué ; même authenticator `session`
+    // sur les deux → la 2ᵉ passe par le `continue` (déjà enregistré).
+    const { firewall } = bootFirewall({
+      "z-short": { pattern: "^/a", authenticators: ["session"] },
+      "z-longer-pattern": {
+        pattern: "^/admin/long",
+        authenticators: ["session"],
+      },
+    });
+    assert.ok(firewall.getArea("z-short"));
+    assert.ok(firewall.getArea("z-longer-pattern"));
+  });
+
+  it("zone realtime AVEC host → le matcher WS porte le vhost", () => {
+    const c = bootFirewall({
+      vhost: {
+        pattern: ADMIN_PATTERN,
+        authenticators: ["session"],
+        realtime: true,
+        host: "admin.example.com",
+      },
+    });
+    assert.equal(c.useAuth[0]!.matcher.host, "admin.example.com");
+  });
+
+  it("matchPath sans aucune zone → null (court-circuit)", () => {
+    const { firewall } = bootFirewall({});
+    assert.equal(firewall.matchPath("/anything"), null);
+  });
+
+  it("isSecure : request.url en STRING (pas URL) → résout le pathname", () => {
+    const { firewall } = bootFirewall(ZONE);
+    const ctx = {
+      request: { url: "/nodefony/studio/api/x" },
+    } as unknown as ContextType;
+    assert.equal(firewall.isSecure(ctx), true);
+  });
+
+  it("isSecure : request sans url → false", () => {
+    const { firewall } = bootFirewall(ZONE);
+    assert.equal(
+      firewall.isSecure({ request: {} } as unknown as ContextType),
+      false,
+    );
+  });
+
+  it("handleSecurity avec configError → throw AuthenticationError (fail-closed)", async () => {
+    const { firewall } = bootFirewall(ZONE, true, {
+      roleHierarchy: "not-a-record",
+    });
+    await assert.rejects(
+      () => firewall.handleSecurity(makeHttpCtx("https://localhost/x")),
+      /Security configuration invalid/,
     );
   });
 });

@@ -5,6 +5,7 @@ import {
   type RpcActionHandler,
   type JsonRpcPeerOptions,
   type IRealtimeWelcome,
+  type IRealtimeDenied,
   type EventsMap,
   type ActionsMap,
   type DefaultEventsMap,
@@ -34,6 +35,7 @@ import {
   getRealtimeActions,
   getRealtimeChannels,
   getRealtimeInbound,
+  getRealtimeChannelPolicies,
   type RealtimeChannelFactory,
 } from "../../decorators/realtimeDecorators";
 
@@ -305,12 +307,36 @@ export abstract class RealtimeController<
     // pendant la construction, donc pas de TDZ à l'exécution.
     if (hub.hasFrameAuthorizer()) {
       peerOptions.beforeDispatch = (frame) => hub.runAuthorizer(frame, peer);
-      peerOptions.onFrameAudit = (reason) => {
+      peerOptions.onFrameAudit = (reason, frame, auditedPeer) => {
         // Zero Trust : une frame REFUSÉE est tracée (audit P6.14, cold path). Les
         // autres motifs (invalid/method_not_found/internal_error) sont déjà gérés
         // par le peer (réponse d'erreur normalisée) → pas de double log.
-        if (reason === "denied") {
-          this.log("WS realtime frame refused by authorizer", "WARNING");
+        if (reason !== "denied") return;
+        this.log("WS realtime frame refused by authorizer", "WARNING");
+        // Refus OBSERVABLE : une requête (avec `id`) reçoit déjà `-32001` du peer ;
+        // une NOTIFICATION (subscribe/inbound, sans `id`) serait droppée en silence
+        // → le client resterait aveugle (croit être abonné). On lui pousse
+        // `realtime:denied` avec un motif GÉNÉRIQUE (jamais le détail de la policy
+        // — pas d'oracle « il te manque ROLE_ADMIN »). Cold path (refus rare).
+        const f = frame as {
+          id?: unknown;
+          method?: unknown;
+          params?: { channel?: unknown };
+        };
+        if (f.id !== undefined) return; // requête → déjà notifiée par le peer
+        const channel =
+          f.method === "subscribe"
+            ? typeof f.params?.channel === "string"
+              ? f.params.channel
+              : undefined
+            : typeof f.method === "string"
+              ? f.method
+              : undefined;
+        if (channel !== undefined) {
+          // Type de PROTOCOLE isomorphe (core) : un seul contrat, garanti par le
+          // compilateur des deux bouts (serveur émet ⇄ client `ingestDenied`).
+          const denied: IRealtimeDenied = { channel, reason: "forbidden" };
+          auditedPeer.notify("realtime:denied", denied);
         }
       };
     }
@@ -349,6 +375,17 @@ export abstract class RealtimeController<
     // `subscribe` ultérieurs (chaque frame entrante) lookup en O(1) sans toucher
     // au reflect-metadata.
     this._decoratedChannels = getRealtimeChannels(this);
+
+    // Politiques d'autorisation décorées (`@RealtimeChannel`/`@RealtimeInbound`
+    // avec opts) → registre du hub (cold path, idempotent). `@nodefony/security`
+    // les lit au `subscribe`/inbound via `resolveChannelPolicy`. `null` si aucun
+    // canal décoré n'est protégé → 0 enregistrement.
+    const channelPolicies = getRealtimeChannelPolicies(this);
+    if (channelPolicies) {
+      for (const name in channelPolicies) {
+        hub.registerChannelPolicy(name, channelPolicies[name]!);
+      }
+    }
 
     // Sonde socket : la connexion (= ce transport) entre au registre du hub. La
     // backpressure (`bufferedAmount`) vit sur la connexion brute → seul le transport

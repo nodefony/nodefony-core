@@ -8,6 +8,7 @@ import { SecuredArea } from "../../nodefony/src/SecuredArea";
 import { AnonymousAuthenticator } from "../../nodefony/src/authenticator/AnonymousAuthenticator";
 import { UserToken } from "../../nodefony/src/token/UserToken";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
+import { ThrottledError } from "../../nodefony/errors/ThrottledError";
 import type { IAuthenticator } from "../../nodefony/contracts/IAuthenticator";
 import type { IToken } from "../../nodefony/contracts/IToken";
 import type { ISecurityAreaConfig } from "../../nodefony/config/defineSecurityConfig";
@@ -329,6 +330,49 @@ describe("Firewall — bypassFirewall (route = mécanisme d'auth)", () => {
     const spy = new SpyAuthenticator("spy", { supports: true, ok: false });
     const firewall = makeFirewall(spy);
     const { context } = makeContext(area({ authenticators: ["spy"] }));
+    await assert.rejects(
+      () => firewall.handleSecurity(context),
+      AuthenticationError,
+    );
+  });
+});
+
+describe("Firewall — throttle (429 RFC 6585) + challenge edge", () => {
+  it("ThrottledError remonte 429 + pose Retry-After (PAS de WWW-Authenticate)", async () => {
+    const throttled: IAuthenticator = {
+      name: "throttled",
+      supports: () => true,
+      createToken: () => Promise.resolve(new UserToken("throttled", null)),
+      authenticate: () => Promise.reject(new ThrottledError(42)),
+      onSuccess: () => Promise.resolve(),
+      onFailure: () => Promise.resolve(),
+    };
+    const firewall = makeFirewall(throttled);
+    const { context, headers } = makeContext(
+      area({ authenticators: ["throttled"] }),
+    );
+    await assert.rejects(
+      () => firewall.handleSecurity(context),
+      (e: unknown) => e instanceof ThrottledError,
+    );
+    assert.equal(headers["Retry-After"], "42");
+    assert.equal(headers["WWW-Authenticate"], undefined); // 429 ≠ défi d'auth
+  });
+
+  it("setChallenge : réponse SANS setHeader (transport WS) → no-op (pas de crash)", async () => {
+    const a = new SpyAuthenticator("a", {
+      supports: false,
+      ok: true,
+      challengeValue: 'Basic realm="x"',
+    });
+    const firewall = makeFirewall(a);
+    // Contexte type WS : pas de `response.setHeader` (close code suffit côté WS).
+    const context = {
+      request: { headers: {}, url: new URL("https://localhost/secure/x") },
+      security: area({ authenticators: ["a"] }),
+      response: null,
+    } as unknown as ContextType;
+    // Zero Trust : 401 quand même (aucune preuve), mais setChallenge n'écrit rien.
     await assert.rejects(
       () => firewall.handleSecurity(context),
       AuthenticationError,

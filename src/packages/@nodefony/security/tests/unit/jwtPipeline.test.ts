@@ -9,7 +9,10 @@ import { SecuredArea } from "../../nodefony/src/SecuredArea";
 import { JwtAuthenticator } from "../../nodefony/src/authenticator/JwtAuthenticator";
 import { JwtKeystore } from "../../nodefony/src/token/JwtKeystore";
 import { MemoryTokenStore } from "../../nodefony/src/token/MemoryTokenStore";
-import { buildFrameAuthorizer } from "../../nodefony/src/realtime/frameAuthorizer";
+import {
+  buildFrameAuthorizer,
+  type IFrameAuthorizerFirewall,
+} from "../../nodefony/src/realtime/frameAuthorizer";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 import type { ISecurityAreaConfig } from "../../nodefony/config/defineSecurityConfig";
 import type { IRealtimeToken } from "../../nodefony/src/realtime/realtimeContracts";
@@ -185,15 +188,28 @@ describe("Pont HTTP — Firewall.handleSecurity sur zone JWT", () => {
 });
 
 describe("Pont WS — frameAuthorizer (data plane / observabilité)", () => {
-  // Matcher qui reproduit la zone test-api (la source réelle = firewall.matchPath
-  // une fois #build fait au boot ; ici on isole la LOGIQUE du pont).
-  const zones = {
+  // Firewall factice : zone test-m2m (matchPath) + hiérarchie (hasRole). La source
+  // réelle = firewall.matchPath/hasRole une fois #build fait au boot ; ici on isole
+  // la LOGIQUE du pont.
+  const firewall: IFrameAuthorizerFirewall = {
     matchPath: (p: string) =>
       p.startsWith("/nodefony/test/m2m") ? { security: true } : null,
+    hasRole: (roles, required) =>
+      roles.includes(required) ||
+      (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")),
   };
-  const authorize = buildFrameAuthorizer(zones);
-  const anon = { isAuthenticated: () => false } as IRealtimeToken;
-  const authed = { isAuthenticated: () => true } as IRealtimeToken;
+  const authorize = buildFrameAuthorizer(firewall);
+  const mk = (auth: boolean, roles: string[]): IRealtimeToken => ({
+    type: auth ? "jwt" : "anonymous",
+    getUserIdentifier: () => "x",
+    isAuthenticated: () => auth,
+    getRoles: () => roles,
+    getScopes: () => [],
+    getAttribute: () => undefined,
+  });
+  const anon = mk(false, ["ROLE_ANONYMOUS"]);
+  const user = mk(true, ["ROLE_USER"]);
+  const admin = mk(true, ["ROLE_ADMIN"]);
 
   it("api.request vers la zone JWT : anonyme REFUSÉ, authentifié AUTORISÉ", () => {
     const frame = {
@@ -201,7 +217,7 @@ describe("Pont WS — frameAuthorizer (data plane / observabilité)", () => {
       params: { path: "/nodefony/test/m2m/whoami" },
     };
     assert.equal(authorize(frame, anon), false);
-    assert.equal(authorize(frame, authed), true);
+    assert.equal(authorize(frame, user), true); // authentifié suffit (zone)
   });
 
   it("api.request hors zone : autorisé (pas de zone capturée)", () => {
@@ -209,9 +225,10 @@ describe("Pont WS — frameAuthorizer (data plane / observabilité)", () => {
     assert.equal(authorize(frame, anon), true);
   });
 
-  it("subscribe à un canal d'observabilité : anonyme REFUSÉ", () => {
+  it("subscribe canal d'observabilité (syslog:) : durci → ADMIN requis", () => {
     const frame = { method: "subscribe", params: { channel: "syslog:stream" } };
     assert.equal(authorize(frame, anon), false);
-    assert.equal(authorize(frame, authed), true);
+    assert.equal(authorize(frame, user), false); // durci P6 : user simple refusé
+    assert.equal(authorize(frame, admin), true);
   });
 });

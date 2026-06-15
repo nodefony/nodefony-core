@@ -73,9 +73,30 @@ export type FrameAuthorizer = (
 ) => boolean;
 
 /**
+ * Politique d'autorisation d'un **canal** (miroir de `ChannelPolicy` realtime) —
+ * exigences à satisfaire pour `subscribe`/inbound. Toutes les contraintes posées
+ * sont cumulatives (ET) ; un champ absent = pas de contrainte sur cet axe. Une
+ * politique entièrement vide = canal libre (équivaut à `null`).
+ *
+ * Résolue 1× au `subscribe` (cold path : un client s'abonne rarement), comparée
+ * au token déjà chargé au handshake → 0 lecture base. Deux origines : déclaration
+ * **métier** (`@RealtimeChannel(name, opts)`, portée par le hub realtime) et
+ * **plateforme** (`defineSecurityConfig().realtimeChannels` + namespaces système
+ * réservés, portée par security — cf {@link buildFrameAuthorizer}).
+ */
+export interface IChannelPolicy {
+  /** Exige une connexion authentifiée (token non anonyme). */
+  readonly authenticated?: boolean;
+  /** Un de ces rôles suffit (évalué AVEC la hiérarchie de rôles du firewall). */
+  readonly roles?: readonly string[];
+  /** Un de ces scopes suffit (axe API : JWT/clé API ; session BFF n'en porte pas). */
+  readonly scopes?: readonly string[];
+}
+
+/**
  * Surface consommée du `realtimeService` (miroir partiel de `RealtimeService`) —
- * seulement les 2 seams que security câble au boot. Résolu par nom via le
- * container (`container.get<IRealtimeService>("realtimeService")`).
+ * seulement les seams que security câble/lit au boot et au dispatch. Résolu par
+ * nom via le container (`container.get<IRealtimeService>("realtimeService")`).
  */
 export interface IRealtimeService {
   /** Seam #2/#3 — enregistre un authenticator pour les handshakes WS matchés. */
@@ -85,4 +106,11 @@ export interface IRealtimeService {
   ): void;
   /** Seam #1 — pose le verrou de frame (hot-path `beforeDispatch`). */
   setFrameAuthorizer(authorizer: FrameAuthorizer | null): void;
+  /**
+   * Seam #1b — politique de canal **déclarée côté métier** (`@RealtimeChannel`),
+   * agrégée par le hub. `null`/absent = aucune politique métier pour ce canal
+   * (security retombe alors sur sa politique plateforme/système). Optionnel : un
+   * hub d'une version antérieure ne l'expose pas → traité comme `undefined`.
+   */
+  resolveChannelPolicy?(channel: string): IChannelPolicy | null;
 }

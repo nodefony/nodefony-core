@@ -14,6 +14,7 @@ import type { IRealtimeConfig } from "../../config/defineRealtimeConfig";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator";
 import type { IRealtimeAuthenticatorMatcher } from "../../interfaces/IRealtimeAuthenticatorMatcher";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
+import type { IChannelPolicy } from "../../interfaces/IChannelPolicy";
 
 const serviceName = "realtimeService";
 
@@ -198,6 +199,20 @@ class RealtimeService extends Service {
    */
   setFrameAuthorizer(authorizer: FrameAuthorizer | null): void {
     this.getHub().setFrameAuthorizer(authorizer);
+  }
+
+  /**
+   * **Seam #1b** — politique d'autorisation déclarée pour un canal/méthode
+   * (`@RealtimeChannel`/`@RealtimeInbound` avec opts), agrégée par le hub au
+   * handshake. Lu par `@nodefony/security` au moment de la frame `subscribe`/
+   * inbound pour appliquer rôles/scopes. `null` = aucune politique métier (le
+   * canal est alors soumis à la seule politique plateforme de security).
+   *
+   * @param channel - nom EXACT du canal ou de la méthode inbound.
+   * @returns la politique déclarée, ou `null`.
+   */
+  resolveChannelPolicy(channel: string): IChannelPolicy | null {
+    return this.getHub().resolveChannelPolicy(channel);
   }
 
   /**

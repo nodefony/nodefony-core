@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-15T07:14:09.596Z",
+  "generated": "2026-06-15T09:43:59.761Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 887,
-    "symbols": 1874,
+    "files": 888,
+    "symbols": 1886,
     "classes": 275,
-    "interfaces": 475,
+    "interfaces": 480,
     "types": 237,
     "enums": 3,
-    "functions": 386,
-    "constants": 498
+    "functions": 390,
+    "constants": 501
   },
   "symbols": {
     "Cli": {
@@ -1229,6 +1229,15 @@
       "extends": null,
       "description": "Payload de la notification système `realtime:welcome` — **1ʳᵉ frame** poussée par le serveur juste après le handshake. Annonce le protocole, les canaux/actions **découvrables** de l'endpoint et l'{…"
     },
+    "IRealtimeDenied": {
+      "name": "IRealtimeDenied",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Payload de la notification système `realtime:denied` — poussée par le serveur quand une frame `subscribe`/inbound est REFUSÉE par le verrou d'autorisation (P6). Rend le refus OBSERVABLE côté client…"
+    },
     "EventsMap": {
       "name": "EventsMap",
       "kind": "type",
@@ -2377,7 +2386,15 @@
       "file": "src/nodefony/src/client/realtime/notice.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Notice temps réel normalisée — Core isomorphe Nodefony. Format **unique** d'un retour à porter à l'attention de l'utilisateur, quelle que soit sa source (transport temps réel, appel data plane, pus…"
+      "description": "Sévérité d'affichage — alignée sur les niveaux snackbar usuels."
+    },
+    "deniedToNotice": {
+      "name": "deniedToNotice",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/notice.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traduit un refus de canal (`realtime:denied`, {@link IRealtimeDenied}) en {@link NodefonyNotice}. Pendant FRAME du {@link closeCodeToNotice} (qui traite la fermeture de la CONNEXION) : ici la conne…"
     },
     "closeCodeToNotice": {
       "name": "closeCodeToNotice",
@@ -7746,6 +7763,14 @@
       "module": "@nodefony/realtime",
       "description": "Lecture (lazy, au handshake) du registre des canaux inbound décorés."
     },
+    "getRealtimeChannelPolicies": {
+      "name": "getRealtimeChannelPolicies",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Lecture (lazy, au handshake) des politiques d'autorisation déclarées (`@RealtimeChannel`/`@RealtimeInbound` avec opts). `null` si aucune → le controller n'enregistre rien au hub (0 alloc). Donnée p…"
+    },
     "IBackplaneMessage": {
       "name": "IBackplaneMessage",
       "kind": "interface",
@@ -7780,6 +7805,15 @@
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Handler d'ingress : reçoit un message publié par un **autre** pair. L'echo du pair courant a déjà été filtré par l'implémentation → le handler peut réinjecter sans condition (mais en fan-out **loca…"
+    },
+    "IChannelPolicy": {
+      "name": "IChannelPolicy",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/interfaces/IChannelPolicy.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Politique d'autorisation d'un **canal** WebSocket — exigences à satisfaire pour s'y abonner (`subscribe`) ou y pousser (canal inbound full-duplex). Déclarée côté métier via {@link RealtimeChannel}/…"
     },
     "IRealtimeAuthenticator": {
       "name": "IRealtimeAuthenticator",
@@ -13091,14 +13125,32 @@
       "decorators": [],
       "description": "Authentification par identifiant + mot de passe — schéma **HTTP Basic** (RFC 7617) : `Authorization: Basic base64(identifiant:motdepasse)`, charset UTF-8, split au PREMIER `:` (le mot de passe peut…"
     },
-    "IZoneMatcher": {
-      "name": "IZoneMatcher",
+    "IFrameAuthorizerFirewall": {
+      "name": "IFrameAuthorizerFirewall",
       "kind": "interface",
       "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
       "exported": true,
       "module": "@nodefony/security",
       "extends": null,
-      "description": "Surface MINIMALE du firewall consommée par le verrou de frame : matcher une zone par pathname. `Firewall.matchPath` la satisfait structurellement (`SecuredArea` porte `security`) — typage local pou…"
+      "description": "Surface MINIMALE du firewall consommée par le verrou de frame : matcher une zone par pathname ET vérifier un rôle (hiérarchie comprise). `Firewall` la satisfait structurellement (`matchPath` + `has…"
+    },
+    "IChannelPolicyResolver": {
+      "name": "IChannelPolicyResolver",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Source des politiques de canal DÉCLARÉES côté métier (`@RealtimeChannel`) — miroir partiel du `realtimeService`. `resolveChannelPolicy` est optionnel : un hub d'une version antérieure ne l'expose p…"
+    },
+    "ISystemChannelRule": {
+      "name": "ISystemChannelRule",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Règle de canal **système** (plateforme) — un préfixe de namespace réservé et la politique qui s'y applique. Plancher NON contournable par une déclaration métier (un controller user ne doit pas expo…"
     },
     "buildFrameAuthorizer": {
       "name": "buildFrameAuthorizer",
@@ -13107,6 +13159,30 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Construit le verrou de frame WS branché sur le hub realtime par le firewall au boot (`RealtimeService.setFrameAuthorizer`). SYNC, 0 lecture base : lit le token déjà résolu au handshake et matche la…"
+    },
+    "SYSTEM_CHANNEL_POLICY": {
+      "name": "SYSTEM_CHANNEL_POLICY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Politique système par défaut des canaux d'**introspection serveur** : réservés aux administrateurs. DURCISSEMENT Zero Trust (P6) : avant, « authentifié suffisait » (tout `ROLE_USER` lisait `syslog:…"
+    },
+    "DEFAULT_SYSTEM_PREFIXES": {
+      "name": "DEFAULT_SYSTEM_PREFIXES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Namespaces d'introspection serveur (observabilité) — s'y abonner expose l'état interne du pod (logs, requêtes, métriques, supervision). Liste extensible via la config. Convention transverse Nodefon…"
+    },
+    "DEFAULT_SYSTEM_RULES": {
+      "name": "DEFAULT_SYSTEM_RULES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Règles système par défaut : chaque namespace réservé → {@link SYSTEM_CHANNEL_POLICY}. Le firewall y préfixe les règles issues de la config (qui gagnent par ordre)."
     },
     "@nodefony/security:IRealtimeToken": {
       "name": "IRealtimeToken",
@@ -13144,6 +13220,15 @@
       "extends": null,
       "description": "Sélecteur de zone WS (miroir de `IRealtimeAuthenticatorMatcher`) — pattern d'URL (string|RegExp) + vhost optionnel. Parité avec `ISecuredArea.host`."
     },
+    "@nodefony/security:IChannelPolicy": {
+      "name": "IChannelPolicy",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Politique d'autorisation d'un **canal** (miroir de `ChannelPolicy` realtime) — exigences à satisfaire pour `subscribe`/inbound. Toutes les contraintes posées sont cumulatives (ET) ; un champ absent…"
+    },
     "IRealtimeService": {
       "name": "IRealtimeService",
       "kind": "interface",
@@ -13151,7 +13236,7 @@
       "exported": true,
       "module": "@nodefony/security",
       "extends": null,
-      "description": "Surface consommée du `realtimeService` (miroir partiel de `RealtimeService`) — seulement les 2 seams que security câble au boot. Résolu par nom via le container (`container.get<IRealtimeService>(\"r…"
+      "description": "Surface consommée du `realtimeService` (miroir partiel de `RealtimeService`) — seulement les seams que security câble/lit au boot et au dispatch. Résolu par nom via le container (`container.get<IRe…"
     },
     "@nodefony/security:FrameAuthorizer": {
       "name": "FrameAuthorizer",
@@ -16067,6 +16152,14 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts"
       ],
+      "IRealtimeDenied": [
+        "src/nodefony/src/client/realtime/notice.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "deniedToNotice": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
       "isReconnectableCloseCode": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
@@ -17442,6 +17535,12 @@
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
+      "IChannelPolicy": [
+        "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
+      ],
       "IRealtimeHandshake": [
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticator.ts",
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticatorMatcher.ts",
@@ -17608,6 +17707,12 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "buildFrameAuthorizer": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "DEFAULT_SYSTEM_RULES": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "ISystemChannelRule": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "IRealtimeService": [
@@ -19169,6 +19274,9 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "getRealtimeInbound": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "getRealtimeChannelPolicies": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "RealtimeChannelFactory": [

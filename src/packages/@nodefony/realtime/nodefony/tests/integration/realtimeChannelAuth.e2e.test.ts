@@ -1,0 +1,398 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import "reflect-metadata";
+import { RealtimeController } from "../../src/server/RealtimeController.js";
+import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
+import {
+  RealtimeChannel,
+  RealtimeInbound,
+} from "../../decorators/realtimeDecorators.js";
+import type { ContextType } from "@nodefony/http";
+import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
+import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator.js";
+import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
+// Le VRAI verrou d'autorisation de @nodefony/security, importé EN SOURCE (comme le
+// banc loopback importe le client core en source). security ⊥ realtime au RUNTIME
+// (aucun import dans le code du package) ; un TEST, lui, a le droit de relier les
+// deux pour prouver la jonction réelle — c'est tout l'intérêt d'un E2E.
+import {
+  buildFrameAuthorizer,
+  DEFAULT_SYSTEM_RULES,
+  type IFrameAuthorizerFirewall,
+} from "../../../../security/nodefony/src/realtime/frameAuthorizer.js";
+// VRAI client navigateur (core isomorphe), en source.
+import { RealtimeClient } from "../../../../../../nodefony/src/client/realtime/RealtimeClient.js";
+import {
+  TransportState,
+  type IRealtimeTransport,
+} from "../../../../../../nodefony/src/realtime/IRealtimeTransport.js";
+
+/**
+ * MATRICE E2E « protection des canaux » — VRAI {@link RealtimeClient} ↔ VRAI
+ * {@link RealtimeController} reliés par un câble loopback in-process, avec le VRAI
+ * verrou de frame de `@nodefony/security` ({@link buildFrameAuthorizer}) posé sur
+ * le hub. On exerce la décision RBAC sur CHAQUE combinaison identité × canal :
+ *
+ *   - identités : anonyme, user (ROLE_USER), admin (ROLE_ADMIN), service (scope).
+ *   - canaux    : libre, authentifié, ROLE_USER, ROLE_ADMIN, scope, système (syslog).
+ *
+ * Pour chaque cellule on vérifie le COMPORTEMENT OBSERVABLE, pas un booléen interne :
+ *   - autorisé → le provider démarre, le client reçoit le 1ᵉʳ tick, AUCUN refus.
+ *   - refusé   → aucun tick (canal jamais abonné), le client reçoit `realtime:denied`.
+ *
+ * Les unit (`realtimeFrameLock`) prouvent la LOGIQUE du verrou ; ce banc prouve la
+ * JONCTION : hub → `beforeDispatch` → décision → (drop + denied | dispatch).
+ */
+
+const OPEN = 1;
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+class LoopbackWire {
+  feedServer: ((raw: string | null) => void) | null = null;
+  pumpClient: ((raw: string) => void) | null = null;
+  closeClient: ((code: number, reason: string) => void) | null = null;
+  serverConnOpen = true;
+  deliverToClient(raw: string): void {
+    queueMicrotask(() => this.pumpClient?.(raw));
+  }
+  deliverToServer(raw: string): void {
+    queueMicrotask(() => this.feedServer?.(raw));
+  }
+}
+
+class LoopbackClientTransport implements IRealtimeTransport {
+  readyState: number = TransportState.CONNECTING;
+  private _onOpen: (() => void) | null = null;
+  private _onClose: ((code: number, reason: string) => void) | null = null;
+  constructor(private readonly wire: LoopbackWire) {}
+  connect(): void {
+    this.readyState = TransportState.OPEN;
+    queueMicrotask(() => {
+      this._onOpen?.();
+      this.wire.feedServer?.(null); // handshake serveur
+    });
+  }
+  send(raw: string): void {
+    if (this.readyState !== TransportState.OPEN) return;
+    this.wire.deliverToServer(raw);
+  }
+  close(code = 1000, reason = ""): void {
+    this.readyState = TransportState.CLOSED;
+    this._onClose?.(code, reason);
+  }
+  onOpen(cb: () => void): void {
+    this._onOpen = cb;
+  }
+  onMessage(cb: (raw: string) => void): void {
+    this.wire.pumpClient = cb;
+  }
+  onClose(cb: (code: number, reason: string) => void): void {
+    this._onClose = cb;
+    this.wire.closeClient = cb;
+  }
+  onError(): void {
+    /* erreurs surfacées par close */
+  }
+}
+
+/**
+ * Controller de test : un canal par classe de protection, chacun déclaré via
+ * `@RealtimeChannel` (la policy métier voyage jusqu'au verrou). Chaque provider
+ * pousse un tick immédiat à l'abonnement → preuve OBSERVABLE de l'abonnement.
+ * `syslog:stream` n'a PAS de policy métier : c'est le PLANCHER système (ROLE_ADMIN)
+ * du verrou qui le garde — on prouve qu'un canal réservé est protégé sans rien déclarer.
+ */
+class AuthRt extends RealtimeController {
+  constructor(ctx: ContextType) {
+    super("auth-rt", ctx);
+  }
+
+  @RealtimeChannel("chat:public")
+  chatPublic(channel: string, publish: RealtimePublish): () => void {
+    publish(channel, { ok: true, channel });
+    return () => {};
+  }
+
+  @RealtimeChannel("members:area", { authenticated: true })
+  membersArea(channel: string, publish: RealtimePublish): () => void {
+    publish(channel, { ok: true, channel });
+    return () => {};
+  }
+
+  @RealtimeChannel("team:feed", { roles: ["ROLE_USER"] })
+  teamFeed(channel: string, publish: RealtimePublish): () => void {
+    publish(channel, { ok: true, channel });
+    return () => {};
+  }
+
+  @RealtimeChannel("admin:metrics", { roles: ["ROLE_ADMIN"] })
+  adminMetrics(channel: string, publish: RealtimePublish): () => void {
+    publish(channel, { ok: true, channel });
+    return () => {};
+  }
+
+  @RealtimeChannel("api:flux", { scopes: ["metrics:read"] })
+  apiFlux(channel: string, publish: RealtimePublish): () => void {
+    publish(channel, { ok: true, channel });
+    return () => {};
+  }
+
+  @RealtimeChannel("syslog:stream")
+  syslogStream(channel: string, publish: RealtimePublish): () => void {
+    publish(channel, { ok: true, channel });
+    return () => {};
+  }
+
+  // Canal inbound protégé (push client→serveur) : même gating que subscribe.
+  @RealtimeInbound("ops:command", { roles: ["ROLE_ADMIN"] })
+  opsCommand(params: unknown, reply: (payload: unknown) => void): void {
+    reply({ executed: true, params });
+  }
+
+  feed(raw: string | null): void {
+    this.handleRealtime(raw);
+  }
+}
+
+function makeServer(wire: LoopbackWire): AuthRt {
+  const conn = {
+    get readyState() {
+      return wire.serverConnOpen ? OPEN : TransportState.CLOSED;
+    },
+    send: (raw: string, cb?: (err?: Error) => void) => {
+      wire.deliverToClient(raw);
+      cb?.();
+    },
+    close: (code?: number, reason?: string) => {
+      wire.serverConnOpen = false;
+      queueMicrotask(() => wire.closeClient?.(code ?? 1000, reason ?? ""));
+    },
+  };
+  const ctx = {
+    connection: conn,
+    once: () => {},
+    request: { headers: {}, url: "/realtime" },
+    cookies: {},
+    url: "/realtime",
+    remoteAddress: "127.0.0.1",
+    origin: "",
+  };
+  const rt = new AuthRt(ctx as unknown as ContextType);
+  wire.feedServer = (raw) => rt.feed(raw);
+  return rt;
+}
+
+// ── Identités de test ──────────────────────────────────────────────────────
+const mkToken = (
+  type: string,
+  authenticated: boolean,
+  roles: string[],
+  scopes: string[],
+): IRealtimeToken => ({
+  type,
+  getUserIdentifier: () => type,
+  isAuthenticated: () => authenticated,
+  getRoles: () => roles,
+  getScopes: () => scopes,
+  getAttribute: () => undefined,
+});
+
+const TOKENS = {
+  anon: mkToken("anonymous", false, ["ROLE_ANONYMOUS"], []),
+  user: mkToken("session", true, ["ROLE_USER"], []),
+  admin: mkToken("session", true, ["ROLE_ADMIN"], []),
+  service: mkToken("jwt", true, ["ROLE_USER"], ["metrics:read"]),
+} as const;
+
+// Firewall factice : pas de zone HTTP (api.request non testé ici), hiérarchie
+// ROLE_ADMIN ⊇ ROLE_USER (le RoleHierarchyWalker réel fait ça au boot).
+const hasRole = (roles: readonly string[], required: string): boolean =>
+  roles.includes(required) ||
+  (required === "ROLE_USER" && roles.includes("ROLE_ADMIN"));
+const firewall: IFrameAuthorizerFirewall = {
+  matchPath: () => null,
+  hasRole,
+};
+
+// Authenticator de test : renvoie le token courant du scénario (configuré avant
+// le handshake). Le controller le pose sur le peer → le verrou le lit en O(1).
+let currentToken: IRealtimeToken = TOKENS.anon;
+const testAuth: IRealtimeAuthenticator = {
+  name: "matrix-auth",
+  supports: () => true,
+  authenticate: async () => currentToken,
+};
+
+/** Configure le hub (token + verrou) AVANT le handshake, puis connecte un pair. */
+async function connectAs(
+  token: IRealtimeToken,
+): Promise<{ client: RealtimeClient }> {
+  const hub = getRealtimeHub();
+  hub.clear();
+  currentToken = token;
+  hub.useAuthenticator({ pattern: /.*/ }, testAuth);
+  hub.setFrameAuthorizer(
+    buildFrameAuthorizer(firewall, {
+      channelResolver: hub,
+      systemRules: DEFAULT_SYSTEM_RULES,
+    }),
+  );
+  const wire = new LoopbackWire();
+  makeServer(wire);
+  const transport = new LoopbackClientTransport(wire);
+  const client = new RealtimeClient(
+    { url: "ws://loopback/realtime", autoReconnect: false },
+    () => transport,
+  );
+  await client.connect();
+  await flush();
+  await flush();
+  return { client };
+}
+
+// ── La matrice : canal × prédicat d'autorisation attendu ──────────────────
+interface ChannelCase {
+  readonly channel: string;
+  readonly kind: string;
+  readonly allow: (t: IRealtimeToken) => boolean;
+}
+const CHANNELS: readonly ChannelCase[] = [
+  { channel: "chat:public", kind: "libre", allow: () => true },
+  {
+    channel: "members:area",
+    kind: "authentifié",
+    allow: (t) => t.isAuthenticated(),
+  },
+  {
+    channel: "team:feed",
+    kind: "ROLE_USER",
+    allow: (t) => hasRole(t.getRoles(), "ROLE_USER"),
+  },
+  {
+    channel: "admin:metrics",
+    kind: "ROLE_ADMIN",
+    allow: (t) => hasRole(t.getRoles(), "ROLE_ADMIN"),
+  },
+  {
+    channel: "api:flux",
+    kind: "scope",
+    allow: (t) => t.getScopes().includes("metrics:read"),
+  },
+  {
+    channel: "syslog:stream",
+    kind: "système(ROLE_ADMIN)",
+    allow: (t) => hasRole(t.getRoles(), "ROLE_ADMIN"),
+  },
+];
+
+describe("MATRICE E2E — protection des canaux (subscribe × identité)", () => {
+  beforeEach(() => getRealtimeHub().clear());
+
+  for (const [tokenName, token] of Object.entries(TOKENS)) {
+    for (const c of CHANNELS) {
+      const expected = c.allow(token);
+      const verdict = expected ? "ABONNÉ" : "REFUSÉ";
+      it(`${tokenName} × ${c.channel} (${c.kind}) → ${verdict}`, async () => {
+        const { client } = await connectAs(token);
+        const ticks: unknown[] = [];
+        const denials: Array<{ channel: string; reason: string }> = [];
+        client.on(c.channel, (p) => ticks.push(p));
+        client.onDenied((d) => denials.push(d));
+        client.subscribe(c.channel);
+        await flush();
+        await flush();
+        if (expected) {
+          expect(ticks, "tick attendu (abonné)").to.deep.equal([
+            { ok: true, channel: c.channel },
+          ]);
+          expect(denials, "aucun refus attendu").to.have.length(0);
+        } else {
+          expect(ticks, "aucun tick (non abonné)").to.have.length(0);
+          expect(denials, "refus observable attendu").to.deep.equal([
+            { channel: c.channel, reason: "forbidden" },
+          ]);
+        }
+        client.disconnect();
+      });
+    }
+  }
+});
+
+describe("MATRICE E2E — canal inbound protégé (push client→serveur)", () => {
+  beforeEach(() => getRealtimeHub().clear());
+
+  it("user pousse sur ops:command (ROLE_ADMIN) → REFUSÉ (denied, pas de reply)", async () => {
+    const { client } = await connectAs(TOKENS.user);
+    const replies: unknown[] = [];
+    const denials: Array<{ channel: string; reason: string }> = [];
+    client.on("ops:command", (p) => replies.push(p));
+    client.onDenied((d) => denials.push(d));
+    client.emit("ops:command", { do: "x" });
+    await flush();
+    await flush();
+    expect(replies, "pas de reply (frame droppée)").to.have.length(0);
+    expect(denials).to.deep.equal([
+      { channel: "ops:command", reason: "forbidden" },
+    ]);
+    client.disconnect();
+  });
+
+  it("admin pousse sur ops:command → AUTORISÉ (reply reçu, aucun refus)", async () => {
+    const { client } = await connectAs(TOKENS.admin);
+    const replies: unknown[] = [];
+    const denials: unknown[] = [];
+    client.on("ops:command", (p) => replies.push(p));
+    client.onDenied((d) => denials.push(d));
+    client.emit("ops:command", { do: "x" });
+    await flush();
+    await flush();
+    expect(replies).to.deep.equal([{ executed: true, params: { do: "x" } }]);
+    expect(denials).to.have.length(0);
+    client.disconnect();
+  });
+});
+
+describe("MATRICE E2E — refus observable (contrat client)", () => {
+  beforeEach(() => getRealtimeHub().clear());
+
+  it("un refus émet AUSSI une notice (onNotice) en plus du seam ciblé (onDenied)", async () => {
+    const { client } = await connectAs(TOKENS.user);
+    const notices: Array<{ level: string; message: string }> = [];
+    client.onNotice((n) => notices.push(n));
+    client.subscribe("admin:metrics");
+    await flush();
+    await flush();
+    expect(notices).to.have.length(1);
+    expect(notices[0]!.level).to.equal("error");
+    // Zero Trust : le message ne révèle jamais le rôle/scope manquant.
+    expect(notices[0]!.message).to.not.match(/ROLE_|scope/i);
+    client.disconnect();
+  });
+
+  it("un canal AUTORISÉ ne produit AUCUN refus ni notice", async () => {
+    const { client } = await connectAs(TOKENS.user);
+    const denials: unknown[] = [];
+    const notices: unknown[] = [];
+    client.onDenied((d) => denials.push(d));
+    client.onNotice((n) => notices.push(n));
+    client.subscribe("team:feed"); // ROLE_USER → OK
+    await flush();
+    await flush();
+    expect(denials).to.have.length(0);
+    expect(notices).to.have.length(0);
+    client.disconnect();
+  });
+
+  it("canal LIBRE non déclaré (ni décorateur ni override) → autorisé mais 0 provider (base null)", async () => {
+    const { client } = await connectAs(TOKENS.user);
+    const ticks: unknown[] = [];
+    const denials: unknown[] = [];
+    client.on("random:unknown", (p) => ticks.push(p));
+    client.onDenied((d) => denials.push(d));
+    client.subscribe("random:unknown"); // libre → autorisé, mais createRealtimeChannel base → null
+    await flush();
+    await flush();
+    expect(denials).to.have.length(0); // pas refusé (canal applicatif libre)
+    expect(ticks).to.have.length(0); // aucun provider démarré
+    client.disconnect();
+  });
+});

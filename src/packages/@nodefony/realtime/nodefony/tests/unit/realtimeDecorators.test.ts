@@ -7,6 +7,7 @@ import {
   getRealtimeActions,
   getRealtimeChannels,
   getRealtimeInbound,
+  getRealtimeChannelPolicies,
   type RealtimeChannelFactory,
 } from "../../decorators/realtimeDecorators";
 import type {
@@ -152,6 +153,58 @@ describe("@RealtimeInbound — registre des canaux full-duplex entrants", () => 
   });
 });
 
+describe("policies d'autorisation (@RealtimeChannel/@RealtimeInbound opts)", () => {
+  it("sans opts → aucune policy (canal libre, 0 alloc)", () => {
+    class Ctrl {
+      @RealtimeChannel("chat:public")
+      pub(_c: string, _p: RealtimePublish): () => void {
+        return () => {};
+      }
+    }
+    expect(getRealtimeChannelPolicies(new Ctrl())).to.equal(null);
+  });
+
+  it("opts vide ({}) → ignoré (pas de contrainte = pas de policy)", () => {
+    class Ctrl {
+      @RealtimeChannel("chat:x", {})
+      x(_c: string, _p: RealtimePublish): () => void {
+        return () => {};
+      }
+    }
+    expect(getRealtimeChannelPolicies(new Ctrl())).to.equal(null);
+  });
+
+  it("@RealtimeChannel avec roles/scopes/authenticated → policy indexée par canal", () => {
+    class Ctrl {
+      @RealtimeChannel("admin:metrics", { roles: ["ROLE_ADMIN"] })
+      a(_c: string, _p: RealtimePublish): () => void {
+        return () => {};
+      }
+      @RealtimeChannel("api:flux", { scopes: ["metrics:read"] })
+      b(_c: string, _p: RealtimePublish): () => void {
+        return () => {};
+      }
+      @RealtimeChannel("members:area", { authenticated: true })
+      c(_c: string, _p: RealtimePublish): () => void {
+        return () => {};
+      }
+    }
+    const pol = getRealtimeChannelPolicies(new Ctrl())!;
+    expect(pol["admin:metrics"]).to.deep.equal({ roles: ["ROLE_ADMIN"] });
+    expect(pol["api:flux"]).to.deep.equal({ scopes: ["metrics:read"] });
+    expect(pol["members:area"]).to.deep.equal({ authenticated: true });
+  });
+
+  it("@RealtimeInbound partage le MÊME registre (gating du push)", () => {
+    class Ctrl {
+      @RealtimeInbound("ops:command", { roles: ["ROLE_ADMIN"] })
+      cmd(_p: unknown, _r: (x: unknown) => void): void {}
+    }
+    const pol = getRealtimeChannelPolicies(new Ctrl())!;
+    expect(pol["ops:command"]).to.deep.equal({ roles: ["ROLE_ADMIN"] });
+  });
+});
+
 describe("héritage — la subclass voit les décorateurs de la parent ET les siens", () => {
   it("getRealtimeActions remonte la chaîne prototype (Reflect.getMetadata)", () => {
     class Base {
@@ -192,5 +245,23 @@ describe("multiples instances de la même classe — registre PAR CLASSE, bind P
     // appel d'helper crée un nouveau map avec des fonctions bind à l'instance —
     // c'est exactement ce qu'on veut au handshake.
     expect(Object.keys(a)).to.deep.equal(Object.keys(b));
+  });
+});
+
+describe("getters — robustesse défensive (entrée non-fonction ignorée)", () => {
+  it("une entrée de registre pointant une propriété NON-fonction est filtrée", () => {
+    // Cas dégradé (registre corrompu / propriété écrasée) : le nom existe dans le
+    // map mais l'instance ne porte pas une fonction sous cette clé → l'entrée est
+    // ignorée (jamais bind d'une non-fonction au handshake).
+    class Weird {
+      notAFn = 42;
+    }
+    Reflect.defineMetadata("realtime:actions", { "x:act": "notAFn" }, Weird);
+    Reflect.defineMetadata("realtime:channels", { "x:chan": "notAFn" }, Weird);
+    Reflect.defineMetadata("realtime:inbound", { "x:in": "notAFn" }, Weird);
+    const inst = new Weird();
+    expect(getRealtimeActions(inst)).to.deep.equal({});
+    expect(getRealtimeChannels(inst)).to.deep.equal({});
+    expect(getRealtimeInbound(inst)).to.deep.equal({});
   });
 });

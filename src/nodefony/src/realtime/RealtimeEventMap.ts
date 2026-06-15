@@ -155,3 +155,21 @@ export interface IRealtimeWelcome {
   /** Identité résolue de CETTE connexion (cf {@link RealtimeIdentity}). */
   identity: RealtimeIdentity;
 }
+
+/**
+ * Payload de la notification système `realtime:denied` — poussée par le serveur
+ * quand une frame `subscribe`/inbound est REFUSÉE par le verrou d'autorisation
+ * (P6). Rend le refus OBSERVABLE côté client (une notification, contrairement à
+ * une requête, serait sinon droppée en silence → le client resterait aveugle).
+ *
+ * Contrat de PROTOCOLE **isomorphe** : un seul type, le serveur l'émet
+ * (`@nodefony/realtime`), le client le parse (core → notice + event `onDenied`).
+ * Zero Trust : `reason` est GÉNÉRIQUE (jamais le rôle/scope manquant — pas
+ * d'oracle d'autorisation). Cold path (un refus est rare).
+ */
+export interface IRealtimeDenied {
+  /** Canal (ou méthode inbound) refusé(e). */
+  channel: string;
+  /** Motif générique (`"forbidden"`) — jamais le détail de la policy. */
+  reason: string;
+}

@@ -156,6 +156,19 @@ describe("RealtimeHub — Seam #2/#3 Authenticators et matchers", () => {
         }),
       ),
     ).to.equal(null);
+    // En-tête Host ABSENT (matcher host défini) → `(got ?? "")` → pas de match
+    expect(
+      hub.resolveAuthenticator(makeHandshake({ url: "/admin/x", headers: {} })),
+    ).to.equal(null);
+    // En-tête Host en ARRAY (multi-valeurs) → 1ʳᵉ valeur prise (RFC 7230)
+    expect(
+      hub.resolveAuthenticator(
+        makeHandshake({
+          url: "/admin/x",
+          headers: { host: ["admin.example.com", "spoof.com"] },
+        }),
+      ),
+    ).to.equal(auth);
   });
 
   it("query string ignorée pour le match du pattern", () => {
@@ -305,6 +318,42 @@ describe("RealtimeHub — Seam #1 Verrou de frame (P6)", () => {
     expect(hub.hasFrameAuthorizer()).to.equal(false);
     const peer = new JsonRpcPeer({ send: () => {} });
     expect(hub.runAuthorizer({}, peer)).to.equal(true);
+  });
+});
+
+describe("RealtimeHub — Seam #1b Registre de politiques de canal (P6)", () => {
+  it("hub neuf : resolveChannelPolicy → null (lazy, 0 alloc)", () => {
+    const hub = new RealtimeHub();
+    expect(hub.resolveChannelPolicy("admin:metrics")).to.equal(null);
+  });
+
+  it("registerChannelPolicy → resolveChannelPolicy renvoie la policy par nom", () => {
+    const hub = new RealtimeHub();
+    hub.registerChannelPolicy("admin:metrics", { roles: ["ROLE_ADMIN"] });
+    hub.registerChannelPolicy("api:flux", { scopes: ["metrics:read"] });
+    expect(hub.resolveChannelPolicy("admin:metrics")).to.deep.equal({
+      roles: ["ROLE_ADMIN"],
+    });
+    expect(hub.resolveChannelPolicy("api:flux")).to.deep.equal({
+      scopes: ["metrics:read"],
+    });
+    expect(hub.resolveChannelPolicy("unknown:chan")).to.equal(null);
+  });
+
+  it("idempotent : même nom = écrase (controllers d'un endpoint = même policy)", () => {
+    const hub = new RealtimeHub();
+    hub.registerChannelPolicy("x", { authenticated: true });
+    hub.registerChannelPolicy("x", { roles: ["ROLE_ADMIN"] });
+    expect(hub.resolveChannelPolicy("x")).to.deep.equal({
+      roles: ["ROLE_ADMIN"],
+    });
+  });
+
+  it("clear() vide le registre des politiques", () => {
+    const hub = new RealtimeHub();
+    hub.registerChannelPolicy("x", { roles: ["ROLE_ADMIN"] });
+    hub.clear();
+    expect(hub.resolveChannelPolicy("x")).to.equal(null);
   });
 });
 

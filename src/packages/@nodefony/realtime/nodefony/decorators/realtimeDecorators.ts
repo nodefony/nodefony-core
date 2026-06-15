@@ -24,11 +24,41 @@ import type {
   RealtimePublish,
   RealtimeInboundHandler,
 } from "../interfaces/IRealtimeController";
+import type { IChannelPolicy } from "../interfaces/IChannelPolicy";
 
 /** Clés de métadonnées posées sur le constructor de la classe controller. */
 const ACTIONS_KEY = "realtime:actions";
 const CHANNELS_KEY = "realtime:channels";
 const INBOUND_KEY = "realtime:inbound";
+// Registre UNIQUE des politiques d'autorisation (canaux `@RealtimeChannel` ET
+// méthodes inbound `@RealtimeInbound`), indexé par NOM de canal/méthode. Séparé
+// des maps nom→méthode ci-dessus : la policy est attachée au NOM (ce que le
+// firewall security résout), pas à la méthode TS qui l'implémente.
+const POLICIES_KEY = "realtime:policies";
+
+/** Enregistre (idempotent) une politique non vide sous son nom de canal/méthode. */
+function definePolicy(
+  ctor: object,
+  name: string,
+  policy?: IChannelPolicy,
+): void {
+  // Pas de politique, ou objet vide (aucune contrainte) → ne rien stocker : le
+  // canal reste libre, `resolveChannelPolicy` renverra `undefined` (0 alloc).
+  if (
+    !policy ||
+    (policy.authenticated === undefined &&
+      policy.roles === undefined &&
+      policy.scopes === undefined)
+  ) {
+    return;
+  }
+  const map =
+    (Reflect.getMetadata(POLICIES_KEY, ctor) as
+      | Record<string, IChannelPolicy>
+      | undefined) ?? {};
+  map[name] = policy;
+  Reflect.defineMetadata(POLICIES_KEY, map, ctor);
+}
 
 /**
  * Factory d'un provider de canal — appelée par la base au 1ᵉʳ `subscribe`.
@@ -109,7 +139,10 @@ export function RealtimeAction(method: string): MethodDecorator {
  *     }
  *   }
  */
-export function RealtimeChannel(channel: string): MethodDecorator {
+export function RealtimeChannel(
+  channel: string,
+  policy?: IChannelPolicy,
+): MethodDecorator {
   return function (target, propertyKey) {
     const ctor = (target as { constructor: object }).constructor;
     const map =
@@ -118,6 +151,9 @@ export function RealtimeChannel(channel: string): MethodDecorator {
         | undefined) ?? {};
     map[channel] = propertyKey;
     Reflect.defineMetadata(CHANNELS_KEY, map, ctor);
+    // Politique d'autorisation (opt-in) — lue par `@nodefony/security` au
+    // `subscribe`. Absente = canal libre. Cf {@link IChannelPolicy}.
+    definePolicy(ctor, channel, policy);
   };
 }
 
@@ -143,7 +179,10 @@ export function RealtimeChannel(channel: string): MethodDecorator {
  *     }
  *   }
  */
-export function RealtimeInbound(method: string): MethodDecorator {
+export function RealtimeInbound(
+  method: string,
+  policy?: IChannelPolicy,
+): MethodDecorator {
   return function (target, propertyKey) {
     const ctor = (target as { constructor: object }).constructor;
     const map =
@@ -152,6 +191,9 @@ export function RealtimeInbound(method: string): MethodDecorator {
         | undefined) ?? {};
     map[method] = propertyKey;
     Reflect.defineMetadata(INBOUND_KEY, map, ctor);
+    // Même politique que les canaux : un client ne peut pousser sur un canal
+    // inbound protégé sans satisfaire la policy (vérif côté security).
+    definePolicy(ctor, method, policy);
   };
 }
 
@@ -207,4 +249,20 @@ export function getRealtimeInbound(
     }
   }
   return out;
+}
+
+/**
+ * Lecture (lazy, au handshake) des politiques d'autorisation déclarées
+ * (`@RealtimeChannel`/`@RealtimeInbound` avec opts). `null` si aucune → le
+ * controller n'enregistre rien au hub (0 alloc). Donnée pure (pas de `bind` :
+ * une policy n'est pas une méthode), renvoyée telle quelle pour publication au
+ * hub realtime, qui l'expose à `@nodefony/security`.
+ */
+export function getRealtimeChannelPolicies(
+  instance: object,
+): Record<string, IChannelPolicy> | null {
+  const map = Reflect.getMetadata(POLICIES_KEY, instance.constructor) as
+    | Record<string, IChannelPolicy>
+    | undefined;
+  return map ?? null;
 }

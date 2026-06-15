@@ -1,31 +1,68 @@
-import type { FrameAuthorizer, IRealtimeToken } from "./realtimeContracts";
+import type {
+  FrameAuthorizer,
+  IChannelPolicy,
+  IRealtimeToken,
+} from "./realtimeContracts";
 
 /**
  * Surface MINIMALE du firewall consommée par le verrou de frame : matcher une
- * zone par pathname. `Firewall.matchPath` la satisfait structurellement
- * (`SecuredArea` porte `security`) — typage local pour éviter un cycle d'import
+ * zone par pathname ET vérifier un rôle (hiérarchie comprise). `Firewall` la
+ * satisfait structurellement (`matchPath` + `hasRole` délégué au
+ * `RoleHierarchyWalker`) — typage local pour éviter un cycle d'import
  * `firewall.ts` ↔ `frameAuthorizer.ts`.
  */
-export interface IZoneMatcher {
+export interface IFrameAuthorizerFirewall {
   matchPath(
     pathname: string,
     host?: string,
   ): { readonly security: boolean } | null;
+  /** `true` si l'un des rôles de l'utilisateur couvre `required` (via hiérarchie). */
+  hasRole(userRoles: readonly string[], required: string): boolean;
 }
 
 /**
- * Préfixes de canaux d'**introspection serveur** (observabilité) — s'y abonner
- * expose l'état interne du pod (logs, requêtes, métriques, supervision). Zero
- * Trust : exige un token authentifié. Les canaux APPLICATIFS (chat, présence…)
- * restent libres par défaut — une app publique garde ses canaux publics.
+ * Source des politiques de canal DÉCLARÉES côté métier (`@RealtimeChannel`) —
+ * miroir partiel du `realtimeService`. `resolveChannelPolicy` est optionnel : un
+ * hub d'une version antérieure ne l'expose pas (traité comme « pas de politique
+ * métier »).
+ */
+export interface IChannelPolicyResolver {
+  resolveChannelPolicy?(channel: string): IChannelPolicy | null;
+}
+
+/**
+ * Règle de canal **système** (plateforme) — un préfixe de namespace réservé et
+ * la politique qui s'y applique. Plancher NON contournable par une déclaration
+ * métier (un controller user ne doit pas exposer `syslog:`). Surchargeable par
+ * la config (`defineSecurityConfig().realtimeChannels`).
+ */
+export interface ISystemChannelRule {
+  readonly prefix: string;
+  readonly policy: IChannelPolicy;
+}
+
+/**
+ * Politique système par défaut des canaux d'**introspection serveur** : réservés
+ * aux administrateurs. DURCISSEMENT Zero Trust (P6) : avant, « authentifié
+ * suffisait » (tout `ROLE_USER` lisait `syslog:stream`) ; désormais `ROLE_ADMIN`.
+ * Surchargeable finement par `realtimeChannels` (ex. `ROLE_SECURITY_AUDITOR`).
+ */
+export const SYSTEM_CHANNEL_POLICY: IChannelPolicy = {
+  roles: ["ROLE_ADMIN"],
+};
+
+/**
+ * Namespaces d'introspection serveur (observabilité) — s'y abonner expose l'état
+ * interne du pod (logs, requêtes, métriques, supervision). Liste extensible via
+ * la config. Convention transverse Nodefony : `<module>:health` / `<module>:stats`
+ * (gérée à part dans {@link matchSystemPolicy}).
  *
  * ⚠️ Couplage ASSUMÉ : security connaît les namespaces système de la plateforme
- * (c'est son rôle de définir la politique). Liste extensible (config) si besoin.
- * Convention transverse Nodefony : `<module>:health` / `<module>:stats`.
+ * (c'est son rôle de définir la politique).
  */
-const PROTECTED_CHANNEL_PREFIXES = [
+export const DEFAULT_SYSTEM_PREFIXES = [
   "syslog:", // logs serveur (syslog:stream) — fuite directe d'infos sensibles
-  "orm:", // santé / flux / requêtes ORM (orm:health, orm:flow, orm:vacuum, orm:rich@pid)
+  "orm:", // santé / flux / requêtes ORM (orm:health, orm:flow, orm:vacuum)
   "node:", // métriques process (node:stream)
   "dashboard:", // supervision cluster (dashboard:stats, dashboard:supervision@pid)
   "debugbar:", // debug bar (debugbar:stats)
@@ -33,18 +70,77 @@ const PROTECTED_CHANNEL_PREFIXES = [
   "cluster:", // sonde cluster
 ] as const;
 
-/** Le canal expose-t-il de l'observabilité serveur (→ auth requise) ? */
-function isProtectedChannel(channel: string): boolean {
-  for (let i = 0; i < PROTECTED_CHANNEL_PREFIXES.length; i++) {
-    if (channel.startsWith(PROTECTED_CHANNEL_PREFIXES[i]!)) return true;
+/**
+ * Règles système par défaut : chaque namespace réservé → {@link SYSTEM_CHANNEL_POLICY}.
+ * Le firewall y préfixe les règles issues de la config (qui gagnent par ordre).
+ */
+export const DEFAULT_SYSTEM_RULES: readonly ISystemChannelRule[] =
+  DEFAULT_SYSTEM_PREFIXES.map((prefix) => ({
+    prefix,
+    policy: SYSTEM_CHANNEL_POLICY,
+  }));
+
+/**
+ * Politique système applicable à un canal, ou `null` si le canal n'est pas
+ * réservé. Premier préfixe qui matche gagne (la config est placée AVANT les
+ * défauts par le firewall → elle peut surcharger). Les conventions transverses
+ * `:health`/`:stats` retombent sur la politique système par défaut.
+ */
+function matchSystemPolicy(
+  channel: string,
+  rules: readonly ISystemChannelRule[],
+): IChannelPolicy | null {
+  for (let i = 0; i < rules.length; i++) {
+    if (channel.startsWith(rules[i]!.prefix)) return rules[i]!.policy;
   }
-  // Convention <module>:health / <module>:stats (namespaces hors liste ci-dessus).
-  return channel.includes(":health") || channel.includes(":stats");
+  if (channel.includes(":health") || channel.includes(":stats")) {
+    return SYSTEM_CHANNEL_POLICY;
+  }
+  return null;
+}
+
+/**
+ * Le token satisfait-il la politique ? Contraintes cumulatives (ET) ; un champ
+ * absent = pas de contrainte sur cet axe. SYNC, 0 lecture base (lit le token déjà
+ * résolu au handshake).
+ *  - `authenticated` : token non anonyme.
+ *  - `roles` : l'un des rôles requis, hiérarchie comprise (un anonyme `[]` échoue).
+ *  - `scopes` : l'un des scopes requis (session BFF n'en porte pas → refus).
+ */
+function satisfies(
+  policy: IChannelPolicy,
+  token: IRealtimeToken,
+  firewall: IFrameAuthorizerFirewall,
+): boolean {
+  if (policy.authenticated && !token.isAuthenticated()) return false;
+  if (policy.roles && policy.roles.length > 0) {
+    const userRoles = token.getRoles();
+    let granted = false;
+    for (let i = 0; i < policy.roles.length; i++) {
+      if (firewall.hasRole(userRoles, policy.roles[i]!)) {
+        granted = true;
+        break;
+      }
+    }
+    if (!granted) return false;
+  }
+  if (policy.scopes && policy.scopes.length > 0) {
+    const userScopes = token.getScopes();
+    let granted = false;
+    for (let i = 0; i < policy.scopes.length; i++) {
+      if (userScopes.includes(policy.scopes[i]!)) {
+        granted = true;
+        break;
+      }
+    }
+    if (!granted) return false;
+  }
+  return true;
 }
 
 /** Verrou `api.request {path}` — invariant : ne donne jamais plus que `GET {path}`. */
 function authorizeApiRequest(
-  zones: IZoneMatcher,
+  firewall: IFrameAuthorizerFirewall,
   params: unknown,
   token: IRealtimeToken,
 ): boolean {
@@ -57,50 +153,81 @@ function authorizeApiRequest(
   // Source UNIQUE de zone, partagée avec `isSecure` HTTP (matchPath). Le host
   // n'est pas porté par la frame → match host-agnostique (la seule zone realtime
   // data plane n'a pas de vhost ; réserve J3b pour une zone realtime host-scopée).
-  const area = zones.matchPath(pathname);
+  const area = firewall.matchPath(pathname);
   if (area && area.security && !token.isAuthenticated()) return false;
   return true;
 }
 
-/** Verrou `subscribe {channel}` — canaux d'observabilité → authentifié requis. */
-function authorizeSubscribe(params: unknown, token: IRealtimeToken): boolean {
-  const channel = (params as { channel?: unknown } | undefined)?.channel;
-  // params invalides → laisser passer : `startChannel` ignore un canal absent.
-  if (typeof channel !== "string") return true;
-  if (isProtectedChannel(channel) && !token.isAuthenticated()) return false;
-  return true;
+/**
+ * Verrou `subscribe {channel}` (et canaux inbound full-duplex) — applique la
+ * politique du canal. PLANCHER système prioritaire (namespace réservé) ; sinon
+ * politique métier déclarée (`@RealtimeChannel`) ; sinon canal libre.
+ */
+function authorizeChannel(
+  channel: string,
+  token: IRealtimeToken,
+  firewall: IFrameAuthorizerFirewall,
+  resolver: IChannelPolicyResolver | null,
+  systemRules: readonly ISystemChannelRule[],
+): boolean {
+  // 1. Système = plancher non contournable (le métier ne peut pas l'affaiblir).
+  const sys = matchSystemPolicy(channel, systemRules);
+  // 2. Métier (décorateur) seulement hors namespace système.
+  const policy = sys ?? resolver?.resolveChannelPolicy?.(channel) ?? null;
+  if (policy === null) return true; // canal applicatif libre (public)
+  return satisfies(policy, token, firewall);
 }
 
 /**
  * Construit le verrou de frame WS branché sur le hub realtime par le firewall au
  * boot (`RealtimeService.setFrameAuthorizer`). SYNC, 0 lecture base : lit le
- * token déjà résolu au handshake et matche la cible de la frame contre la zone.
+ * token déjà résolu au handshake et matche la cible de la frame contre la zone
+ * (api.request) ou la politique du canal (subscribe/inbound).
  *
- * Deux trous fermés (audit socket J3b) :
- *  - `api.request {path}` (pont API souverain) ne contourne plus le firewall :
- *    re-match de zone HTTP via `matchPath` → zone protégée + anonyme = refus.
- *  - `subscribe {channel}` aux canaux d'introspection (`syslog:stream`…) exige
- *    une connexion authentifiée.
+ * Trois surfaces gardées :
+ *  - `api.request {path}` (pont API souverain) : re-match de zone HTTP → zone
+ *    protégée + anonyme = refus (invariant `api.request ≤ GET`).
+ *  - `subscribe {channel}` : politique de canal (système plancher + déclaration
+ *    métier `@RealtimeChannel` → rôles/scopes).
+ *  - inbound (`method` = canal full-duplex déclaré avec policy) : même politique
+ *    que `subscribe` — un client ne pousse pas sur un canal protégé sans droit.
  *
- * Toute autre frame (`ping`, `unsubscribe`, canaux full-duplex déjà gatés par
- * déclaration explicite côté controller) passe — le verrou cible les 2 surfaces
- * qui peuvent atteindre le data plane / l'observabilité.
+ * Toute autre frame (`ping`, `unsubscribe`, action RPC libre) passe — le verrou
+ * cible les surfaces qui atteignent le data plane / l'observabilité / un canal
+ * protégé.
  *
- * @param zones - matcher de zone (le `Firewall`).
+ * @param firewall    - matcher de zone + checker de rôle (le `Firewall`).
+ * @param options     - `channelResolver` (politiques métier déclarées, via le
+ *                      service realtime) + `systemRules` (défauts + config).
  * @returns un {@link FrameAuthorizer} sync (`true` = frame autorisée).
  */
-export function buildFrameAuthorizer(zones: IZoneMatcher): FrameAuthorizer {
+export function buildFrameAuthorizer(
+  firewall: IFrameAuthorizerFirewall,
+  options?: {
+    readonly channelResolver?: IChannelPolicyResolver | null;
+    readonly systemRules?: readonly ISystemChannelRule[];
+  },
+): FrameAuthorizer {
+  const resolver = options?.channelResolver ?? null;
+  const systemRules = options?.systemRules ?? DEFAULT_SYSTEM_RULES;
   return (frame: unknown, token: IRealtimeToken): boolean => {
-    const method = (frame as { method?: unknown } | undefined)?.method;
+    const f = frame as { method?: unknown; params?: unknown } | undefined;
+    const method = f?.method;
     if (method === "api.request") {
-      return authorizeApiRequest(
-        zones,
-        (frame as { params?: unknown }).params,
-        token,
-      );
+      return authorizeApiRequest(firewall, f!.params, token);
     }
     if (method === "subscribe") {
-      return authorizeSubscribe((frame as { params?: unknown }).params, token);
+      const channel = (f!.params as { channel?: unknown } | undefined)?.channel;
+      // params invalides → laisser passer : `startChannel` ignore un canal absent.
+      if (typeof channel !== "string") return true;
+      return authorizeChannel(channel, token, firewall, resolver, systemRules);
+    }
+    // Inbound full-duplex : `method` = nom du canal entrant. Gardé UNIQUEMENT si
+    // une politique le couvre (système OU déclarée) — sinon (ping/unsubscribe/
+    // action libre) bypass. Pas de coût pour les méthodes non policées : un
+    // `resolveChannelPolicy` sur un registre vide est O(1) `null`.
+    if (typeof method === "string") {
+      return authorizeChannel(method, token, firewall, resolver, systemRules);
     }
     return true;
   };

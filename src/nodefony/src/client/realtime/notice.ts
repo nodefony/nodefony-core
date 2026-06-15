@@ -7,6 +7,12 @@
  * sans connaître l'origine → réutilisable par TOUTE app (`import … from "nodefony"`).
  */
 
+import type { IRealtimeDenied } from "../../realtime/RealtimeEventMap";
+
+// Contrat de protocole isomorphe (le serveur émet `realtime:denied` avec CE type).
+// Re-exporté ici pour la DX client (consommé par `deniedToNotice` + `onDenied`).
+export type { IRealtimeDenied };
+
 /** Sévérité d'affichage — alignée sur les niveaux snackbar usuels. */
 export type NoticeLevel = "success" | "info" | "warning" | "error";
 
@@ -24,6 +30,26 @@ export interface NodefonyNotice {
   code?: number;
   /** Timestamp (ms epoch) de production. */
   ts: number;
+}
+
+/**
+ * Traduit un refus de canal (`realtime:denied`, {@link IRealtimeDenied}) en
+ * {@link NodefonyNotice}. Pendant FRAME du {@link closeCodeToNotice} (qui traite
+ * la fermeture de la CONNEXION) : ici la connexion vit, seul l'abonnement à CE
+ * canal est refusé. Le message reste générique (le serveur ne révèle jamais quel
+ * rôle/scope manque).
+ *
+ * @param denied - `{ channel, reason }` reçu du serveur.
+ * @returns une notice prête à afficher (toujours, contrairement au close-code).
+ */
+export function deniedToNotice(denied: IRealtimeDenied): NodefonyNotice {
+  return {
+    level: "error",
+    title: "Temps réel",
+    message: `Accès au canal « ${denied.channel} » refusé`,
+    source: "realtime",
+    ts: Date.now(),
+  };
 }
 
 /**

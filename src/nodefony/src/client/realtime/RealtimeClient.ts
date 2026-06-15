@@ -15,8 +15,10 @@
  */
 import {
   closeCodeToNotice,
+  deniedToNotice,
   isReconnectableCloseCode,
   type NodefonyNotice,
+  type IRealtimeDenied,
 } from "./notice";
 import {
   JsonRpcPeer,
@@ -54,8 +56,12 @@ import {
   type BindAdaptiveOptions,
   type AdaptiveChannelBinding,
 } from "./AdaptiveRate";
-export { closeCodeToNotice, isReconnectableCloseCode } from "./notice";
-export type { NodefonyNotice, NoticeLevel } from "./notice";
+export {
+  closeCodeToNotice,
+  deniedToNotice,
+  isReconnectableCloseCode,
+} from "./notice";
+export type { NodefonyNotice, NoticeLevel, IRealtimeDenied } from "./notice";
 // Ré-export DX : `catch (e) { if (e instanceof RpcError) e.data.status … }`
 // sans importer le subpath protocole.
 export { RpcError } from "../../realtime/JsonRpcPeer";
@@ -356,6 +362,22 @@ export class RealtimeClient<
     // → cast pour bypasser. Aucun impact runtime, sécurité préservée par le type
     // du paramètre `handler` ci-dessus.
     return this.on("__notice__", handler as never);
+  }
+
+  /**
+   * S'abonne aux **refus de canal** poussés par le serveur (`realtime:denied`) :
+   * un `subscribe`/push vers un canal protégé sans droit suffisant. Permet une
+   * réaction CIBLÉE par canal (griser un contrôle, demander une élévation),
+   * complémentaire de {@link onNotice} (UX générique). Event LOCAL `__denied__`.
+   *
+   * Polymorphisme CLIENT : la réaction est pluggable ici ; l'AUTORITÉ reste
+   * serveur (le firewall a déjà décidé, le motif est générique — pas d'oracle).
+   *
+   * @param handler - reçoit `{ channel, reason }`.
+   * @returns dispose (désabonnement).
+   */
+  onDenied(handler: (denied: IRealtimeDenied) => void): () => void {
+    return this.on("__denied__", handler as never);
   }
 
   /** Notification one-way client → server (pas de réponse attendue). */
@@ -747,12 +769,28 @@ export class RealtimeClient<
   }
 
   /**
+   * Ingère un `realtime:denied` (refus d'abonnement/push poussé par le serveur) :
+   * émet une notice normalisée ({@link onNotice}) ET un event ciblé `__denied__`
+   * ({@link onDenied}) pour une réaction polymorphe de l'app. Tolérant à un
+   * payload partiel (motif par défaut `forbidden`). Cold path (refus rare).
+   */
+  private ingestDenied(params: unknown): void {
+    const p = params as { channel?: unknown; reason?: unknown } | null;
+    const channel = typeof p?.channel === "string" ? p.channel : "";
+    const reason = typeof p?.reason === "string" ? p.reason : "forbidden";
+    const denied: IRealtimeDenied = { channel, reason };
+    this.fireNotice(deniedToNotice(denied));
+    this.fireLocal("__denied__", denied);
+  }
+
+  /**
    * Dispatch d'une NOTIFICATION entrante — appelé par le moteur via `onNotification`.
    * Ordre figé : ingestion welcome (1ʳᵉ frame) → stats → handlers locaux + wildcard
    * (un handler `on("realtime:welcome")` voit donc l'identité déjà ingérée).
    */
   private dispatchNotification(method: string, params: unknown): void {
     if (method === "realtime:welcome") this.ingestWelcome(params);
+    else if (method === "realtime:denied") this.ingestDenied(params);
     this.trackFrame(method); // stats génériques avant dispatch
     this.handlers.get(method)?.forEach((h) => {
       try {

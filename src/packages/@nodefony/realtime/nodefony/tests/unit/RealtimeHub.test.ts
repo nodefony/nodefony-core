@@ -67,6 +67,16 @@ function fakeConn(over: Partial<IRealtimeConnProbe> = {}): IRealtimeConnProbe {
  * fan-out aux abonnés, dispose au dernier désabonné. Tests purs (pas de WS).
  */
 describe("RealtimeHub — broker canaux partagés (fan-out + ref-count)", () => {
+  it("unsubscribe d'un canal jamais abonné = no-op (pas de crash)", () => {
+    const hub = new RealtimeHub();
+    expect(() => hub.unsubscribe("ghost", () => {})).to.not.throw();
+  });
+
+  it("publishLocal sur un canal sans abonné = no-op silencieux", () => {
+    const hub = new RealtimeHub();
+    expect(() => hub.publishLocal("ghost", { v: 1 })).to.not.throw();
+  });
+
   it("provider créé UNE fois pour N abonnés ; publish fan-out à tous", () => {
     const hub = new RealtimeHub();
     let factoryCalls = 0;
@@ -375,6 +385,18 @@ describe("RealtimeHub — politique de forward par canal (opt-in broadcast)", ()
     ]);
   });
 
+  it("politique broadcast active mais canal HORS préfixe → reste instance-local", () => {
+    // Une politique existe (`chat:`) mais `lobby:x` ne matche aucun préfixe →
+    // `#isBroadcast` renvoie false (pas de fuite cross-process par défaut).
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.markBroadcastChannel("chat:");
+    hub.subscribe("lobby:x", () => {}, factory);
+    hub.publish("lobby:x", { msg: "local" });
+    expect(bp.published).to.deep.equal([]); // jamais forwardé
+  });
+
   it("ordre indifférent : markBroadcastChannel APRÈS subscribe réévalue le canal actif", () => {
     const hub = new RealtimeHub();
     const bp = new FakeBackplane();
@@ -406,6 +428,29 @@ describe("RealtimeHub — politique de forward par canal (opt-in broadcast)", ()
     hub.publish("chat:room1", { v: 1 });
     expect(got).to.deep.equal([{ v: 1 }]); // fan-out local intact
     expect(hub.backplane).to.equal(null);
+  });
+
+  it("markBroadcastChannel idempotent : déclarer 2× le même préfixe = no-op", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.markBroadcastChannel("chat:");
+    hub.markBroadcastChannel("chat:"); // 2ᵉ fois → déjà présent → return early
+    hub.subscribe("chat:r", () => {}, factory);
+    hub.publish("chat:r", { v: 1 });
+    expect(bp.published).to.deep.equal([
+      { channel: "chat:r", payload: { v: 1 } },
+    ]);
+  });
+
+  it("markBroadcastChannel APRÈS subscribe : un canal HORS préfixe n'est PAS réévalué", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.subscribe("lobby:x", () => {}, factory); // abonné AVANT
+    hub.markBroadcastChannel("chat:"); // ne matche pas lobby:x → reste local
+    hub.publish("lobby:x", { v: 1 });
+    expect(bp.published).to.deep.equal([]); // jamais forwardé
   });
 
   it("clear() réinitialise la politique de forward", () => {

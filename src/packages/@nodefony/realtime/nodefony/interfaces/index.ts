@@ -21,6 +21,8 @@ export type {
   RealtimeInboundHandler,
 } from "./IRealtimeController";
 
+export type { IChannelPolicy } from "./IChannelPolicy";
+
 export type {
   IRealtimeProbe,
   IRealtimeHealth,

@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import {
   closeCodeToNotice,
+  deniedToNotice,
   isReconnectableCloseCode,
 } from "../client/realtime/notice";
 
@@ -48,6 +49,24 @@ describe("RealtimeClient — closeCodeToNotice (pendant client de toWsCloseCode)
     expect(closeCodeToNotice(1002)!.level).to.equal("error");
   });
 
+  it("1003 (type non supporté) → error", () => {
+    const n = closeCodeToNotice(1003);
+    expect(n!.level).to.equal("error");
+    expect(n!.message).to.equal("Données temps réel non supportées");
+  });
+
+  it("1007 (trame invalide) → error", () => {
+    const n = closeCodeToNotice(1007);
+    expect(n!.level).to.equal("error");
+    expect(n!.message).to.equal("Trame temps réel invalide");
+  });
+
+  it("1010 (extension manquante) → error", () => {
+    const n = closeCodeToNotice(1010);
+    expect(n!.level).to.equal("error");
+    expect(n!.message).to.equal("Extension temps réel requise manquante");
+  });
+
   it("code inconnu (3001) → warning générique avec le code", () => {
     const n = closeCodeToNotice(3001);
     expect(n!.level).to.equal("warning");
@@ -69,6 +88,21 @@ describe("RealtimeClient — closeCodeToNotice (pendant client de toWsCloseCode)
   it("reason blanche est ignorée (pas de séparateur vide)", () => {
     const n = closeCodeToNotice(1011, "   ");
     expect(n!.message).to.equal("Erreur serveur temps réel");
+  });
+});
+
+describe("RealtimeClient — deniedToNotice (refus de canal, pendant FRAME)", () => {
+  it("produit TOUJOURS une notice error (≠ close-code qui peut être null)", () => {
+    const n = deniedToNotice({ channel: "admin:metrics", reason: "forbidden" });
+    expect(n.level).to.equal("error");
+    expect(n.source).to.equal("realtime");
+    expect(n.message).to.contain("admin:metrics");
+    expect(n.ts).to.be.a("number");
+  });
+
+  it("message générique : ne révèle JAMAIS le rôle/scope manquant (Zero Trust)", () => {
+    const n = deniedToNotice({ channel: "syslog:stream", reason: "forbidden" });
+    expect(n.message).to.not.match(/ROLE_|scope/i);
   });
 });
 

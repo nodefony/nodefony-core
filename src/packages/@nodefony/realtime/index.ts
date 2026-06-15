@@ -405,6 +405,7 @@ export type {
   RealtimePublish,
   RealtimeInboundHandler,
 } from "./nodefony/interfaces/IRealtimeController";
+export type { IChannelPolicy } from "./nodefony/interfaces/IChannelPolicy";
 export type {
   ChannelSink,
   ChannelFactory,

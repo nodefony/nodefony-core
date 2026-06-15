@@ -476,6 +476,35 @@ const studioSchema = z
     "Sécurité de la console Studio — durcissement exposition publique.",
   );
 
+/**
+ * Règle d'autorisation d'un **namespace de canaux WebSocket** (subscribe/inbound)
+ * par préfixe. Contraintes cumulatives ; un champ absent = pas de contrainte sur
+ * cet axe. Étend OU surcharge les défauts système (placée AVANT eux à l'évaluation).
+ */
+const realtimeChannelRuleSchema = z
+  .object({
+    pattern: z
+      .string()
+      .describe(
+        "Préfixe de canal (match `startsWith`) : ex. 'orm:' couvre orm:health/orm:flow. Placé AVANT les défauts système → permet de surcharger (assouplir/durcir) un namespace réservé.",
+      ),
+    authenticated: z
+      .boolean()
+      .optional()
+      .describe("Exige une connexion authentifiée (token non anonyme)."),
+    roles: z
+      .array(z.string())
+      .optional()
+      .describe("Un de ces rôles suffit (évalué AVEC la hiérarchie de rôles)."),
+    scopes: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Un de ces scopes suffit (axe API : JWT/clé API ; une session BFF n'en porte pas).",
+      ),
+  })
+  .describe("Politique d'autorisation d'un namespace de canaux WS.");
+
 const securityConfigSchema = z.object({
   encoders: z.record(z.string(), encoderSchema).default({}),
   roleHierarchy: z
@@ -486,6 +515,12 @@ const securityConfigSchema = z.object({
     .record(z.string(), areaSchema)
     .default({})
     .describe("Zones sécurisées (firewall) par nom."),
+  realtimeChannels: z
+    .array(realtimeChannelRuleSchema)
+    .default([])
+    .describe(
+      "Politiques d'autorisation des canaux WS (subscribe/inbound) par préfixe. Étend/surcharge les défauts système (syslog:/orm:/node:/dashboard:/debugbar:/realtime:/cluster: + :health/:stats = ROLE_ADMIN). Les canaux applicatifs non listés restent libres, sauf gating @RealtimeChannel côté controller.",
+    ),
   // Section omise → défauts internes appliqués (parse d'un objet vide).
   cors: corsSchema.default(() => corsSchema.parse({})),
   csrf: csrfSchema.default(() => csrfSchema.parse({})),

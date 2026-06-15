@@ -127,6 +127,7 @@ export type {
   TypedRpcActionHandler,
   RealtimeIdentity,
   IRealtimeWelcome,
+  IRealtimeDenied,
 } from "./realtime/RealtimeEventMap";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────

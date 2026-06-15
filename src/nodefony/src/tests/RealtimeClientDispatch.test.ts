@@ -112,3 +112,36 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
     client.disconnect();
   });
 });
+
+describe("RealtimeClient — realtime:denied (refus de canal observable)", () => {
+  it("notification realtime:denied → onDenied {channel, reason} + onNotice", () => {
+    const { client, internal } = newClient();
+    const denials: Array<{ channel: string; reason: string }> = [];
+    const notices: unknown[] = [];
+    client.onDenied((d) => denials.push(d));
+    client.onNotice((n) => notices.push(n));
+    internal.handleMessage(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        method: "realtime:denied",
+        params: { channel: "admin:metrics", reason: "forbidden" },
+      }),
+    );
+    expect(denials).to.deep.equal([
+      { channel: "admin:metrics", reason: "forbidden" },
+    ]);
+    expect(notices).to.have.length(1); // UX générique en plus du seam ciblé
+    client.disconnect();
+  });
+
+  it("payload partiel → motif par défaut forbidden, channel vide toléré", () => {
+    const { client, internal } = newClient();
+    const denials: Array<{ channel: string; reason: string }> = [];
+    client.onDenied((d) => denials.push(d));
+    internal.handleMessage(
+      JSON.stringify({ jsonrpc: "2.0", method: "realtime:denied", params: {} }),
+    );
+    expect(denials).to.deep.equal([{ channel: "", reason: "forbidden" }]);
+    client.disconnect();
+  });
+});

@@ -1,5 +1,6 @@
 import { JsonRpcPeer } from "nodefony";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController";
+import type { IChannelPolicy } from "../../interfaces/IChannelPolicy";
 import type {
   IRealtimeConnProbe,
   IRealtimeProbe,
@@ -153,6 +154,14 @@ export class RealtimeHub {
   // 0 coût hot-path quand security est absent). Posé 1× au boot par
   // `@nodefony/security`. Cf #frameAuthorizer / runAuthorizer / hasFrameAuthorizer.
   #frameAuthorizer: FrameAuthorizer | null = null;
+
+  // Seam #1b — registre des politiques de canal DÉCLARÉES (`@RealtimeChannel`/
+  // `@RealtimeInbound` avec opts), indexé par nom de canal/méthode. Le hub ne
+  // DÉCIDE rien (il ignore la hiérarchie de rôles et l'identité réelle) : il
+  // collecte la déclaration et l'expose à `@nodefony/security`, seul décideur.
+  // Lazy : `null` tant qu'aucun controller décoré ne publie de policy → 0 alloc
+  // sur un hub aux canaux libres. Alimenté (idempotent) au handshake.
+  #channelPolicies: Map<string, IChannelPolicy> | null = null;
 
   // Garde Origin RFC 6455 §10.2 (CSRF defense). `null` = pas de politique
   // (rétrocompat). Posée par `RealtimeService.init()` depuis
@@ -531,6 +540,31 @@ export class RealtimeHub {
   }
 
   /**
+   * **Seam #1b** — déclare la politique d'autorisation d'un canal/méthode
+   * (`@RealtimeChannel`/`@RealtimeInbound` avec opts). Appelé au handshake par
+   * le controller pour CHAQUE canal décoré (idempotent : même nom = écrase, les
+   * controllers d'un même endpoint déclarent la même policy). Cold path.
+   *
+   * @param name   - nom EXACT du canal (subscribe) ou de la méthode inbound.
+   * @param policy - exigences ({@link IChannelPolicy}) lues par security.
+   */
+  registerChannelPolicy(name: string, policy: IChannelPolicy): void {
+    (this.#channelPolicies ??= new Map<string, IChannelPolicy>()).set(
+      name,
+      policy,
+    );
+  }
+
+  /**
+   * Politique déclarée pour ce canal/méthode, ou `null` si aucune. Lu par
+   * `@nodefony/security` (`resolveChannelPolicy` de la surface DI) au moment de
+   * la frame `subscribe`/inbound. O(1), 0 alloc quand le registre est vide.
+   */
+  resolveChannelPolicy(name: string): IChannelPolicy | null {
+    return this.#channelPolicies?.get(name) ?? null;
+  }
+
+  /**
    * Pont hot-path entre `JsonRpcPeer.beforeDispatch` et le verrou métier : lit
    * le token déjà caché du peer (O(1), 0 lecture base) puis délègue à
    * l'authorizer. `true` (autorisée) si aucun verrou posé (bypass 0-coût) —
@@ -570,6 +604,8 @@ export class RealtimeHub {
     this.#authenticators = null;
     this.#peerTokens = null;
     this.#frameAuthorizer = null;
+    this.#channelPolicies?.clear();
+    this.#channelPolicies = null;
     this.#originGuard = null;
     // Détache le backplane (reset). On ne `stop()` PAS ici : le hub n'en est pas
     // l'owner (créé/détruit par le module qui l'a branché) — il le libère lui-même.

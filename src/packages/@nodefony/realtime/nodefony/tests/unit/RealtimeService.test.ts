@@ -178,6 +178,21 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       svc.setFrameAuthorizer(null);
       expect(svc.getHub().hasFrameAuthorizer()).to.equal(false);
     });
+
+    it("resolveChannelPolicy (Seam #1b) délégué au hub", async () => {
+      const { module, container } = buildModuleMock();
+      container.set("realtimeConfig", defineRealtimeConfig());
+      const svc = new RealtimeService(module);
+      await svc.init(module);
+
+      expect(svc.resolveChannelPolicy("admin:metrics")).to.equal(null);
+      svc.getHub().registerChannelPolicy("admin:metrics", {
+        roles: ["ROLE_ADMIN"],
+      });
+      expect(svc.resolveChannelPolicy("admin:metrics")).to.deep.equal({
+        roles: ["ROLE_ADMIN"],
+      });
+    });
   });
 
   // ─── Seams sécurité P13 Bloc A étape 6 ──────────────────────────────────
@@ -273,6 +288,17 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       expect(svc.getHub().checkOrigin("https://anywhere.com")).to.equal(false);
       expect(svc.getHub().checkOrigin(undefined)).to.equal(false);
     });
+
+    it("enabled=true SANS allowList déclarée → liste vide (branche `?? []`)", async () => {
+      const { module, container } = buildModuleMock();
+      container.set(
+        "realtimeConfig",
+        defineRealtimeConfig({ csrf: { checkOrigin: { enabled: true } } }),
+      );
+      const svc = new RealtimeService(module);
+      await svc.init(module);
+      expect(svc.getHub().checkOrigin("https://x.com")).to.equal(false);
+    });
   });
 
   describe("Seam #2/#3 — useAuthenticator + getTokenForPeer", () => {
@@ -301,6 +327,30 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       await svc.init(module);
       const peer = new JsonRpcPeer({ send: () => {} });
       expect(svc.getTokenForPeer(peer)).to.equal(ANONYMOUS_REALTIME_TOKEN);
+    });
+  });
+
+  describe("introspection (getConfig / probe)", () => {
+    it("getConfig AVANT init → throw 'not initialized'", () => {
+      const { module } = buildModuleMock();
+      const svc = new RealtimeService(module);
+      expect(() => svc.getConfig()).to.throw(/not initialized/);
+    });
+
+    it("getConfig APRÈS init → renvoie la config gelée", async () => {
+      const { module, container } = buildModuleMock();
+      container.set("realtimeConfig", defineRealtimeConfig());
+      const svc = new RealtimeService(module);
+      await svc.init(module);
+      expect(svc.getConfig()).to.be.an("object");
+    });
+
+    it("probe délègue au hub (snapshot d'observabilité)", async () => {
+      const { module, container } = buildModuleMock();
+      container.set("realtimeConfig", defineRealtimeConfig());
+      const svc = new RealtimeService(module);
+      await svc.init(module);
+      expect(svc.probe()).to.be.an("object");
     });
   });
 });

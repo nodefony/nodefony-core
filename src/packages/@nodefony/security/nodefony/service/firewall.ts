@@ -27,7 +27,11 @@ import {
   listAuthenticatorFactories,
 } from "../src/authenticator/authenticatorRegistry";
 import { SessionRealtimeAuthenticator } from "../src/authenticator/SessionRealtimeAuthenticator";
-import { buildFrameAuthorizer } from "../src/realtime/frameAuthorizer";
+import {
+  buildFrameAuthorizer,
+  DEFAULT_SYSTEM_RULES,
+  type ISystemChannelRule,
+} from "../src/realtime/frameAuthorizer";
 import type {
   IRealtimeService,
   IRealtimeAuthenticatorMatcher,
@@ -164,10 +168,29 @@ class Firewall extends Service implements IFirewall {
     }
     if (wired) {
       // Verrou de frame GLOBAL (1 hub) — partage `matchPath` (source unique de
-      // zone HTTP ⇔ WS). Posé dès qu'au moins une zone protégée existe.
-      realtime.setFrameAuthorizer(buildFrameAuthorizer(this));
+      // zone HTTP ⇔ WS) + RBAC par canal. Politiques système = défauts plateforme
+      // (namespaces réservés → ROLE_ADMIN) SURCHARGEABLES par la config (placée
+      // AVANT → elle gagne). `channelResolver` = realtime (politiques métier
+      // déclarées via `@RealtimeChannel`). Posé dès qu'une zone protégée existe.
+      const configRules: ISystemChannelRule[] = (
+        this.#config?.realtimeChannels ?? []
+      ).map((r) => ({
+        prefix: r.pattern,
+        policy: {
+          authenticated: r.authenticated,
+          roles: r.roles,
+          scopes: r.scopes,
+        },
+      }));
+      const systemRules =
+        configRules.length > 0
+          ? [...configRules, ...DEFAULT_SYSTEM_RULES]
+          : DEFAULT_SYSTEM_RULES;
+      realtime.setFrameAuthorizer(
+        buildFrameAuthorizer(this, { channelResolver: realtime, systemRules }),
+      );
       this.log(
-        "Realtime data plane locked — WS handshake + frame authorizer wired",
+        "Realtime data plane locked — WS handshake + frame authorizer (RBAC) wired",
         "DEBUG",
       );
     }
@@ -232,6 +255,15 @@ class Firewall extends Service implements IFirewall {
   /** Hiérarchie de rôles résolue (niveau A de l'autorisation, P6.8). */
   get roleHierarchy(): RoleHierarchyWalker {
     return (this.#roleHierarchy ??= new RoleHierarchyWalker());
+  }
+
+  /**
+   * `true` si l'un des rôles de l'utilisateur couvre `required` (hiérarchie
+   * comprise). Surface lue par le verrou de frame WS ({@link buildFrameAuthorizer})
+   * pour le RBAC par canal — délègue au {@link RoleHierarchyWalker}.
+   */
+  hasRole(userRoles: readonly string[], required: string): boolean {
+    return this.roleHierarchy.hasRole(userRoles, required);
   }
 
   registerAuthenticator(authenticator: IAuthenticator): void {
