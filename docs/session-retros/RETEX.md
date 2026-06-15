@@ -88,6 +88,14 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
 
 ## 🎨 Front / Studio / UX
 
+- `[1× — 2026-06-15]` **UX login multi-credentials = modéliser « ce compte A-T-IL un mot de passe ? », PAS
+  « quel était le dernier mode »** (rebonjour social/passkey/mdp — 3 allers-retours, user « on a perdu la
+  logique !! »). Erreur intermédiaire : masquer le champ mdp pour un compte passkey → BLOQUÉ (un passkey est
+  une commodité EN PLUS, le compte garde son mdp). Bonne règle : **social** = sans mdp → bouton fournisseur
+  seul ; **passkey** = passkey primaire + **choix EXPLICITE « se connecter avec un mot de passe »** (révélé à
+  la demande) ; **mdp** = champ. « Changer » repasse au mdp. Mémoriser le mode (social promu sur SUCCÈS via
+  marqueur transient, pas au clic → une annulation ne fausse pas l'affichage). UI honnête = n'afficher que les
+  providers découverts ET brandés (`SOCIAL_META`) → exclut la fixture dev `test-oidc`.
 - `[1× — 2026-06-15]` **feature à TEST VISUEL ITÉRATIF (auth/sessions) → persistance dès le DÉBUT en dev, pas
   un store volatile** (J9). Le store credentials en MÉMOIRE était vidé à CHAQUE restart serveur ; comme je
   redémarrais pour chaque fix, le passkey enregistré par le user était perdu à la passe suivante → « rien ne
@@ -115,6 +123,22 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## 🔌 Conception — dépendances tierces & arbitrage de design
 
+- `[1× — 2026-06-15]` **Dev = UN SEUL host (`localhost`), jamais `127.0.0.1`** : WebAuthn/passkeys REFUSENT une
+  IP comme `rpId` (seul `localhost` ou un vrai domaine). Avoir mis le callback OAuth par défaut en `127.0.0.1` a
+  CASSÉ le passkey (rpId=localhost ≠ page 127.0.0.1 → `SecurityError`, mal classé « réseau » par classifyError —
+  un `SecurityError` WebAuthn n'a pas de `status` HTTP). Règle : callback OAuth + rpId WebAuthn + cookie de
+  session partagent le MÊME host → défaut dev `https://localhost:5152`.
+- `[1× — 2026-06-15]` **GitHub : OAuth App (`client_id` `Ov…`) ≠ GitHub App (`Iv…`)** — pour un social login c'est
+  une **OAuth App** ; une GitHub App ignore les scopes + règle son callback ailleurs → « redirect_uri is not
+  associated ». Diagnostiquer un OAuth tiers = LIRE le `client_id` / l'URL d'autorisation, pas deviner.
+- `[1× — 2026-06-15]` **Config d'un provider social = niveau APP, pas le package générique** (user « config dans
+  studio, pas la racine » → mais `@nodefony/studio` est un package réutilisable). Secrets + CHOIX des fournisseurs =
+  décision de DÉPLOIEMENT. Une config de MODULE est un objet statique (ne lit pas `ctx.env`) → lire `process.env`
+  dans un package = mauvais (viole sa propre règle « seul env.ts lit process.env »). Solution : **extraire** dans
+  `config/oauth.ts` app-level (recette #6) — racine propre, env propre, package générique. + **surcharges PAR
+  FOURNISSEUR** (redirect/rôles) pour qu'un provider réel coexiste avec la fixture E2E `test-oidc` SANS toucher le
+  banc (le deep-merge `extend(true,{})` ferait gagner l'override de module sur les scalaires globaux → le
+  per-provider contourne le conflit ; vérifié : oauth2-flow 6/6 intact).
 - `[1× — 2026-06-15]` **Lib tierce = cerner son PÉRIMÈTRE exact** (arctic, OAuth2 J9 ; user a challengé « si arctic
   donne 50 providers il faut en coder 50 ?! »). arctic gère le **protocole** (URL d'autorisation + échange de tokens)
   mais **PAS le profil utilisateur** (Google = decode idToken OIDC ; GitHub = fetch `/user`+`/user/emails`). → un
