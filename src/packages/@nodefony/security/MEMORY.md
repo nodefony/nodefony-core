@@ -66,12 +66,33 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
 - Contrats : `IToken` (getUser/isAuthenticated/getRoles/getCredentials/**getScopes**/get-setAttribute),
   `IAuthenticator` (supports/createToken/authenticate/onSuccess/onFailure), `ISecuredArea`, `IFirewall`,
   `IAccessVoter` + `VoterVote` (GRANT/DENY/ABSTAIN).
-- Erreurs : `AuthenticationError`=401, `AccessDeniedError`=403 (extends `nodefonyError(msg, code)`).
+- **OAuth2 social login (J9)** — `OAuth2Service` (service "oauth2") : flux Authorization Code **BFF**
+  au-dessus d'**arctic v3.7.0** (`import()` LAZY au 1er login, cold path). `createAuthorization` (génère
+  state + code_verifier PKCE, URL) / `exchangeAndProvision` (valide **iss** RFC 9207 → `validateAuthorizationCode`
+  → `fetchProfile` → provisionne). `IOAuthProvider` = façade par fournisseur masquant la divergence arctic
+  (Google PKCE 3-args / GitHub 2-args) + **normalise le profil qu'arctic ne lit JAMAIS**. Registry pluggable
+  `registerOAuthProvider` — builtins **google/keycloak/github** : google+keycloak via **helper OIDC générique**
+  `createOidcProvider` (decode idToken ; Keycloak self-hosted = `issuer`=URL realm en config) ; github = mapping
+  custom non-OIDC (`/user`+`/user/emails`). Provisioning délégué au service `users` SI capability
+  `IOAuthUserProvisioner` (duck-type, **fail-closed** sinon). Le social login produit une **session BFF**, PAS
+  d'authenticator firewall (calque WebAuthn login). Décision identité : [[project_oauth2_social_identity]].
+- Endpoints OAuth2 : `OAuth2Controller` (@nodefony/framework, dans `nodefony/controller/`) `/nodefony/security/
+api/oauth2/{provider}/{authorize,callback}` (`bypassFirewall`, montés si service "oauth2") : authorize pose
+  state+verifier en **session anonyme** → 302 fournisseur ; callback **compare state** (anti-CSRF, usage unique)
+  → `exchangeAndProvision` → `AuthFlow.establishSessionFor` (anti-fixation) → 302 successRedirect (échec →
+  failureRedirect). Banc E2E réel `oauth2-flow` 6/6 (@nodefony/http).
+- **`IOAuthUserProvisioner` / `IOAuthProfile`** (@nodefony/user) : capability de provisioning **Shadow User JIT**
+  (find-or-create). `UserService.provisionOAuthUser(profile, {defaultRoles, allowSignup})` = défaut : crée
+  `password:null` + rôles `policy.defaultRoles` (ROLE_USER) + `addSocialProvider` ; **zéro liaison-email auto**
+  (anti account-takeover). OAuth = authn pas authz (rôles à la création, base=vérité). user n'importe RIEN de security.
 
 ## Config
 
 - `defineSecurityConfig(input={})` → Zod parse → `Object.freeze`. 12 sections : encoders, roleHierarchy,
-  areas, cors, csrf, headers, rateLimit, jwt, apiKeys, webhooks, audit, studio. Tout `enabled` (désactivable).
+  areas, cors, csrf, headers, rateLimit, jwt, **oauth2** (J9), apiKeys, webhooks, audit, studio (+ tokenStore/
+  passkeys/tokenExchange/realtimeChannels). Tout `enabled` (désactivable). `oauth2` : `{enabled, defaultRoles:
+["ROLE_USER"], allowSignup, successRedirect, failureRedirect, providers:{<name>:{clientId, clientSecret,
+redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
 - `securityConfigJsonSchema()` = `z.toJSONSchema(schema)` → **Studio génère son formulaire**.
 - `config.ts` = défauts SÛRS ENTIÈREMENT commentés (réf humaine). Zones : champ `host?` (vhost).
 - `tokenStore` (J4) : `{driver:"memory", gcIntervalS:600, gcJitter:true, retentionRevokedDays:30}` —

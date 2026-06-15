@@ -113,6 +113,28 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
   générique / réseau / serveur / throttle) `role="alert"`, s'efface à la frappe ; méthodes alternatives (SSO
   Keycloak / Passkey WebAuthn) visibles **aux 2 étapes** (sinon invisibles en « rebonjour » qui démarre au mdp).
 
+## 🔌 Conception — dépendances tierces & arbitrage de design
+
+- `[1× — 2026-06-15]` **Lib tierce = cerner son PÉRIMÈTRE exact** (arctic, OAuth2 J9 ; user a challengé « si arctic
+  donne 50 providers il faut en coder 50 ?! »). arctic gère le **protocole** (URL d'autorisation + échange de tokens)
+  mais **PAS le profil utilisateur** (Google = decode idToken OIDC ; GitHub = fetch `/user`+`/user/emails`). → un
+  **helper générique** (OIDC mutualisé) + un **registry pluggable** : on ne code QUE les fournisseurs offerts clé-en-main
+  (Google/Keycloak/GitHub), pas les 50 ; le mapping profil = la SEULE valeur ajoutée. Toujours répondre « ce que la lib
+  fait » vs « ce qui reste » AVANT de coder.
+- `[1× — 2026-06-15]` **Avant d'« arbitrer » un design, chercher la CONTRAINTE déjà gravée** (Shadow User persisté vs
+  virtuel) : pas un choix esthétique — **forcé** par une décision antérieure (re-fetch BFF J3 : la session stocke
+  l'identifiant et re-résout l'user à chaque requête → un user non persisté = 401). La « bonne » réponse était déjà
+  écrite dans le code. Réflexe : grep décisions/code amont AVANT de présenter un choix au user.
+- `[1× — 2026-06-15]` **Extensibilité ≠ tâche planifiée** (auto-correction LDAP, user « tu es sûr ? ») : présenter
+  « l'archi le permet en plugin » comme « c'est prévu » = faux. Distinguer **capacité d'extension** (gratuite, propriété
+  de `IUserProvider`/`IAuthenticator`) vs **travail au programme** (« pas de consommateur → on ne construit pas »). LDAP :
+  vraie réponse 2026 = via Keycloak/OIDC (fédère LDAP) ; client LDAP direct = jamais sauf besoin réel rare.
+- `[1× — 2026-06-15]` **Test rouge → curl/prouver l'ÉTAT RÉEL avant d'accuser le code** (banc oauth2-flow `/me` undefined) :
+  curl du flux → le code marchait (session BFF + Shadow User OK), c'était mon **assertion** qui était fausse (`/me` rend
+  `{user:{…}}`, pas `{username}`). Sur un banc NEUF rouge, suspecter d'abord le test (forme présumée), pas le code. Le même
+  banc a aussi exposé un VRAI bug (InMemoryUserRepository.create ignorait `socialProviders` → find-or-create cassé, invisible
+  en unit) → re-confirme « banc réel > unit à stubs ».
+
 ## 🧩 Archi / isomorphisme
 
 - `[1× — 2026-06-13]` **Un doc-comment qui AFFIRME un câblage ≠ le câblage réel** (devise « confiance n'exclut pas
