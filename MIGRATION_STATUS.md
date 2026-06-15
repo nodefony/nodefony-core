@@ -86,7 +86,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜   (dettes backplane #1/#2 fixées c082560 · 167 tests)
  P14 Frontend Vite + iso   ████████░░  75%  11✅  2🔶  3⬜
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
- P16 Cloud-Native (8 axes) ███░░░░░░░  27%   9✅  0🔶 24⬜   (16.B forwarded/proxy clos 06-07)
+ P16 Cloud-Native (10 axes)███░░░░░░░  29%  10✅  0🔶 25⬜   (16.I livez ✅ · 16.J /metrics repoussé 06-15)
 ────────────────────────────────────────────────────────────────────────
  GLOBAL                    ██████░░░░  57%  90✅ 29🔶 63⬜   (182 tâches · resync complet 2026-06-12)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -320,18 +320,20 @@ DI scopes (singleton/transient), lifecycle session.
 P15.1 `MediasoupService`/`RoomManager` · P15.2 mapping Routers↔Rooms · P15.3 `SignalController` · P15.4 `PlainTransport` Asterisk ·
 P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluster `PipeTransports` · P15.8 tests E2E. **Après P12+P13.**
 
-### P16 — Cloud-Native (27 %)
+### P16 — Cloud-Native (29 %)
 
-| Axe                        | État                                                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 16.A Kernel/Lifecycle      | ⬜ graceful shutdown per-process (cluster SIGTERM ✓ via 16.H)                                                            |
-| 16.B HTTP                  | ✅ chantier forwarded/proxy CLOS 2026-06-07 : RFC 7239 + XFF from-right anti-spoof + `trustProxy` gate + banc Docker E2E |
-| 16.C Secrets               | ⬜ `ISecretProvider` (dépend P6)                                                                                         |
-| 16.D Docker                | ⬜ `Dockerfile.dev`/prod ; **compose infra Redis/Kafka/Loki/OpenSearch déjà là**                                         |
-| 16.E Skills/Tooling        | ⬜ `docker-debug`/`infra-up`                                                                                             |
-| 16.F Cleanup PM2           | ✅ F.1/F.2 (retrait code+dep) ; ⬜ F.3 (doc migration users)                                                             |
-| 16.G Docs DevOps           | ⬜ (docker-cloud-native.md existe partiellement)                                                                         |
-| 16.H Scaling multi-process | ✅ **livré en avance** (`workers` topologie, cluster -w N, sonde/worker, Studio cluster) — H.6 backplane cross-pod ⬜    |
+| Axe                        | État                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 16.A Kernel/Lifecycle      | ⬜ graceful shutdown per-process (cluster SIGTERM ✓ via 16.H)                                                                                                                                                                                                                                                                                                           |
+| 16.B HTTP                  | ✅ chantier forwarded/proxy CLOS 2026-06-07 : RFC 7239 + XFF from-right anti-spoof + `trustProxy` gate + banc Docker E2E                                                                                                                                                                                                                                                |
+| 16.C Secrets               | ⬜ `ISecretProvider` (dépend P6)                                                                                                                                                                                                                                                                                                                                        |
+| 16.D Docker                | ⬜ `Dockerfile.dev`/prod ; **compose infra Redis/Kafka/Loki/OpenSearch déjà là**                                                                                                                                                                                                                                                                                        |
+| 16.E Skills/Tooling        | ⬜ `docker-debug`/`infra-up`                                                                                                                                                                                                                                                                                                                                            |
+| 16.F Cleanup PM2           | ✅ F.1/F.2 (retrait code+dep) ; ⬜ F.3 (doc migration users)                                                                                                                                                                                                                                                                                                            |
+| 16.G Docs DevOps           | ⬜ (docker-cloud-native.md existe partiellement)                                                                                                                                                                                                                                                                                                                        |
+| 16.H Scaling multi-process | ✅ **livré en avance** (`workers` topologie, cluster -w N, sonde/worker, Studio cluster) — H.6 backplane cross-pod ⬜                                                                                                                                                                                                                                                   |
+| 16.I Liveness/Readiness    | ✅ `95bb221f` (06-15) : route PUBLIQUE graduée `GET /nodefony/kernel/api/livez` (sonde k8s/Docker non-auth → minimum vital + **503** si `!booted` = readiness ; authentifié → détails runtime, pattern Actuator `when-authorized`). Zone firewall `nodefony-liveness` (`["session","anonymous"]`, triée avant `nodefony-admin`) + flag `IAdminEndpoint.public` (broker) |
+| 16.J Métriques (scaling)   | ⬜ **REPOUSSÉ (décidé 06-15)** : endpoint `/metrics` format Prometheus/OpenMetrics (RPS, latence, event-loop lag, connexions WS) → scrape Prometheus → HPA/KEDA pour l'autoscaling. Distinct de la liveness (16.I). Données déjà dispo (`dashboard:stats`), reste l'exposition Prometheus                                                                               |
 
 ---
 

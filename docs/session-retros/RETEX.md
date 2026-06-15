@@ -894,6 +894,38 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-15]` **« tests en échec » signalé = souvent un BUILD cassé, pas un test** : user dit « tests
+  en échec sur cli » → en fait `turbo run test` reportait `Failed @nodefony/security#test` par **cascade** d'un
+  build TS cassé ailleurs (`@nodefony/test` TS2532 `this.context` possibly undefined). La suite isolée
+  (`vitest run` dans security) était verte. Réflexe : un `Failed X#test` turbo peut venir d'un build amont — lancer
+  la suite seule + `npm run build:force` pour voir la vraie erreur AVANT de chercher dans les tests.
+- `[1× — 2026-06-15]` **suites `requires server` = serveur EXTERNE, pas de globalSetup serveur** : `test:load`/
+  `test:memory`/`test:integration` (http) supposent un serveur dev UP sur 5152 (elles ne le lancent PAS). Arrêter le
+  serveur → `ECONNREFUSED ::1:5152` sur toute la suite. + le module `test` est `policy:"dev"` → **absent en prod** :
+  pour lancer la charge en prod-pod il faut basculer `policy:"mandatory"` temporairement (revert + rebuild root après).
+- `[1× — 2026-06-15]` **`test:integration` teste des features d'OBSERVABILITÉ dev** (profiler de phases, trace WS,
+  log interne du 499), désactivées en prod (perf) → **7 faux échecs** quand on lance la batterie contre un serveur
+  prod. Fix : `describe.skipIf(IS_PROD_TARGET)` + le mode transite par `NODEFONY_TEST_ENV`, posé soit par le lanceur,
+  soit par un globalSetup qui **sonde une route publique** (`/livez`). `describe.skipIf` est SYNCHRONE → pas de fetch
+  dedans, d'où le globalSetup→env var. Leçon : séparer tests fonctionnels universels vs tests dev-only.
+- `[1× — 2026-06-15]` **flake heap WS sustained = artefact du mode DEV** (HMR/profiler retiennent le heap) : franc et
+  stable en PROD (3/3). Le gate heap doit tourner en prod-pod, pas en dev. Gradué → [[project_ws_sustained_heap_finding]].
+
+## 🧭 Conception / fondation — sécu/firewall (frictions du jour)
+
+- `[1× — 2026-06-15]` **gradation par rôle ≠ `@BypassFirewall`** : `@BypassFirewall` skip TOUT le firewall → **0
+  identité résolue** (impossible de graduer la réponse selon le rôle). Pour une route PUBLIQUE graduée (Spring
+  Actuator `show-details: when-authorized`) : une **zone `["session","anonymous"]`** (le firewall tourne, résout
+  l'admin si cookie, laisse passer l'anonyme). Les zones sont triées **par longueur de pattern décroissante**
+  (`firewall.ts`) → une zone exacte `^/.../livez$` prime sur le pattern admin large. ⚠️ le broker AdminApi impose
+  `ROLE_NODEFONY_ADMIN` PAR DÉFAUT → un endpoint vraiment public a besoin d'un flag explicite (`IAdminEndpoint.public`).
+- `[1× — 2026-06-15]` **turbo ne build pas le package RACINE** (`private` + workspace root, jamais membre de ses
+  propres `workspaces`) → d'où `&& rollup -c`. Fix « root task » `//#build:app` impossible simplement : `dependsOn:
+["build"]` vise `//#build` (root inexistant), `^build` ne build rien car le root ne déclare AUCUN workspace en deps.
+  Garder `&& rollup -c` (gain du cache root négligeable vs fragilité de lister 20 deps).
+
+## 🧪 Tests / hygiène (suite)
+
 - `[1× — 2026-06-15]` **method-name shadowing par une propriété d'instance** : une méthode de canal nommée
   `syslog` (`@RealtimeChannel("syslog:stream") syslog(){}`) est SHADOWÉE par `this.syslog` (le logger posé par
   `Service`) → `instance["syslog"]` renvoie l'objet logger, `typeof fn === "function"` faux → le canal disparaît
