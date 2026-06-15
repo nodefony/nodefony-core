@@ -16,6 +16,12 @@ export interface IFirewall {
   /** Pipeline complet d'authentification de la zone. Rejette (401/403) ou résout. */
   handleSecurity(context: ContextType): Promise<ContextType>;
 
+  /**
+   * Défense CSRF (Fetch Metadata + repli Origin) sur les méthodes state-changing.
+   * No-op sur les méthodes sûres et hors navigateur. Lève `CsrfError` (403) sinon.
+   */
+  enforceCsrf(context: ContextType): void;
+
   /** Enregistre un authenticator (appelé par chaque `*Authenticator` au boot). */
   registerAuthenticator(authenticator: IAuthenticator): void;
 

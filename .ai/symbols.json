@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-15T20:18:30.262Z",
+  "generated": "2026-06-15T21:08:03.566Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 908,
-    "symbols": 1947,
-    "classes": 284,
-    "interfaces": 506,
-    "types": 242,
+    "files": 909,
+    "symbols": 1952,
+    "classes": 285,
+    "interfaces": 508,
+    "types": 243,
     "enums": 3,
-    "functions": 407,
+    "functions": 408,
     "constants": 505
   },
   "symbols": {
@@ -8493,6 +8493,17 @@
       "decorators": [],
       "description": "Échec d'authentification — `code = 401`. Levée par un {@link IAuthenticator} quand le credential est absent/invalide, ou par le firewall en Zero Trust (zone protégée + visiteur anonyme + route sans…"
     },
+    "CsrfError": {
+      "name": "CsrfError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/errors/CsrfError.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Mutation cross-site bloquée — `code = 403` (RFC 9110 §15.5.4 : le serveur a compris la requête mais refuse de l'honorer). Levée par {@link Csrf} sur une méthode state-changing (POST/PUT/PATCH/DELET…"
+    },
     "ThrottledError": {
       "name": "ThrottledError",
       "kind": "class",
@@ -8546,7 +8557,25 @@
       "extends": null,
       "implements": [],
       "decorators": [],
-      "description": "Placeholder CSRF — réécriture complète en S4 (P6.7) : défense par défaut **SameSite + Origin check** (OWASP CSRF Cheat Sheet 2024) + décorateur `@CsrfProtect({ttl})` HMAC double-submit opt-in pour …"
+      "description": "Défense CSRF par défaut de Nodefony — **Fetch Metadata d'abord** (modèle Go 1.25 `CrossOriginProtection` / OWASP 2025), repli `Origin`/`Referer` pour les vieux navigateurs. Logique PURE et synchron…"
+    },
+    "ICsrfOptions": {
+      "name": "ICsrfOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Sous-ensemble de la config `csrf` consommé par la défense (cf defineSecurityConfig)."
+    },
+    "ICsrfRequest": {
+      "name": "ICsrfRequest",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "En-têtes bruts d'une requête, extraits par le firewall (clés HTTP en lowercase)."
     },
     "Firewall": {
       "name": "Firewall",
@@ -14498,6 +14527,7 @@
       "nodefonyError": [
         "AccessDeniedError",
         "AuthenticationError",
+        "CsrfError",
         "ThrottledError",
         "UserNotFoundError",
         "WeakPasswordError",
@@ -16455,6 +16485,7 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
         "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
+        "src/packages/@nodefony/security/nodefony/errors/CsrfError.ts",
         "src/packages/@nodefony/security/nodefony/errors/ThrottledError.ts",
         "src/packages/@nodefony/user/nodefony/errors/UserNotFoundError.ts",
         "src/packages/@nodefony/user/nodefony/errors/WeakPasswordError.ts",
@@ -18282,6 +18313,9 @@
       "listVoterFactories": [
         "src/packages/@nodefony/security/nodefony/service/authorization.ts"
       ],
+      "CsrfError": [
+        "src/packages/@nodefony/security/nodefony/service/csrf.ts"
+      ],
       "encoderFromConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
@@ -18292,6 +18326,10 @@
       "RoleHierarchyWalker": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
+      ],
+      "Csrf": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -20001,9 +20039,6 @@
       "sanitizeRequestId": [
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "Csrf": [
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "Cookies": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"

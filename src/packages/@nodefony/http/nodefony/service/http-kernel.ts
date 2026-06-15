@@ -967,6 +967,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (ret === 204) {
       return ret;
     }
+    // CSRF (P6 J5) — défense globale : toute mutation cross-site (POST/PUT/PATCH/
+    // DELETE) est rejetée (403), zone ou non, AVANT de charger session/auth (rejet
+    // précoce). No-op sur les méthodes sûres. Le resolver est posé par
+    // handleFrontController → l'exemption `bypassFirewall` (OAuth) est lisible ici.
+    this.firewall?.enforceCsrf(context);
     // SESSIONS — AVANT le firewall (P6 J3) : le SessionAuthenticator lit la
     // session REPRISE (cookie L1) pour ré-authentifier sans credential. Lazy
     // inchangé (ni intent de route ni cookie entrant → 0 session, 0 coût) ;
@@ -992,12 +997,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       } finally {
         context.phaseEnd("firewall");
       }
-      // SEAM P6 — CSRF : sur une zone sécurisée, la validation du token (mutations
-      // state-changing) se branchera ici via le firewall (`@nodefony/security`).
       return context;
     }
-    // SEAM P6 — CSRF : la validation du token (mutations state-changing) se
-    // branchera ici via le firewall (`@nodefony/security`).
     return context;
   }
 

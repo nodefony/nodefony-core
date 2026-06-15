@@ -51,20 +51,45 @@ documentée (explication + défaut + reco).
 
 ### Sections
 
-| Section         | Rôle                                             | Défaut                                       |
-| --------------- | ------------------------------------------------ | -------------------------------------------- |
-| `encoders`      | hash mot de passe                                | bcrypt rounds 12                             |
-| `roleHierarchy` | héritage de rôles                                | `{}` (plats)                                 |
-| `areas`         | zones firewall (pattern + host + authenticators) | `{}` (aucune route protégée)                 |
-| `cors`          | Cross-Origin                                     | strict (jamais `*`+credentials)              |
-| `csrf`          | SameSite + Origin (OWASP 2024)                   | activé, `Strict`                             |
-| `headers`       | HSTS/CSP+nonces/frameguard/noSniff… (natif)      | activé ; avancés (COOP/COEP/CORP…) en option |
-| `rateLimit`     | anti brute-force + lockout                       | activé                                       |
-| `jwt`           | jetons stateless en cookie                       | EdDSA, access 15 min / refresh 7 j, rotation |
-| `apiKeys`       | clés API (PAT) hashées                           | préfixe `nf`, expiry 90 j                    |
-| `webhooks`      | sortants signés HMAC                             | anti-replay + anti-SSRF                      |
-| `audit`         | journal sécurité (append-only)                   | activé, stream Studio                        |
-| `studio`        | durcissement console admin                       | **OFF**, `localhost`, MFA requise            |
+| Section         | Rôle                                                          | Défaut                                               |
+| --------------- | ------------------------------------------------------------- | ---------------------------------------------------- |
+| `encoders`      | hash mot de passe                                             | bcrypt rounds 12                                     |
+| `roleHierarchy` | héritage de rôles                                             | `{}` (plats)                                         |
+| `areas`         | zones firewall (pattern + host + authenticators)              | `{}` (aucune route protégée)                         |
+| `cors`          | Cross-Origin                                                  | strict (jamais `*`+credentials)                      |
+| `csrf`          | Fetch Metadata (`Sec-Fetch-Site`) + repli Origin (OWASP 2025) | activé ; `strictSameSite:false`, `trustedOrigins:[]` |
+| `headers`       | HSTS/CSP+nonces/frameguard/noSniff… (natif)                   | activé ; avancés (COOP/COEP/CORP…) en option         |
+| `rateLimit`     | anti brute-force + lockout                                    | activé                                               |
+| `jwt`           | jetons stateless en cookie                                    | EdDSA, access 15 min / refresh 7 j, rotation         |
+| `apiKeys`       | clés API (PAT) hashées                                        | préfixe `nf`, expiry 90 j                            |
+| `webhooks`      | sortants signés HMAC                                          | anti-replay + anti-SSRF                              |
+| `audit`         | journal sécurité (append-only)                                | activé, stream Studio                                |
+| `studio`        | durcissement console admin                                    | **OFF**, `localhost`, MFA requise                    |
+
+### CSRF — Fetch Metadata d'abord
+
+La défense CSRF est **globale** (toute requête qui modifie l'état : `POST`/`PUT`/`PATCH`/`DELETE` ;
+les méthodes sûres `GET`/`HEAD`/`OPTIONS` ne sont jamais bloquées). Trois couches, dans l'ordre :
+
+1. **`Sec-Fetch-Site`** (défense primaire) — le navigateur tamponne lui-même la provenance de la
+   requête, un script attaquant ne peut pas la falsifier. `same-origin` et `none` (navigation directe
+   ou client non-navigateur) passent ; `cross-site` est **rejeté en 403**.
+2. **Repli `Origin`/`Referer`** — pour les vieux navigateurs sans `Sec-Fetch-*` : l'origine doit
+   correspondre à l'hôte de l'app. Ni l'un ni l'autre (client non-navigateur) → autorisé (hors vecteur).
+3. **Cookie `SameSite=Lax`** — défense en profondeur sur le cookie de session.
+
+```ts
+csrf: {
+  strictSameSite: false,            // true → bloque aussi les sous-domaines (same-site) : multi-tenant
+  trustedOrigins: ["https://app.example.org"], // alias multi-domaine légitimes (autorisés même cross-site)
+}
+```
+
+> `trustedOrigins` est **distinct** de `cors.origins` : déclarer un simple alias de domaine ne doit pas
+> ouvrir la lecture CORS des réponses au JavaScript tiers. Une origine listée dans `cors.origins` est
+> toutefois aussi acceptée (ce que CORS autorise explicitement n'est pas du CSRF).
+
+Le token synchronizer renforcé (`@CsrfProtect` / `@CsrfExempt`) arrive à l'étape suivante.
 
 ### Introspection (Studio)
 

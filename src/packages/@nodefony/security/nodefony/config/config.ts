@@ -80,10 +80,12 @@ export default {
     // Le navigateur tamponne lui-même la provenance (Sec-Fetch-Site) : infalsifiable
     // par un site attaquant. Le token synchronizer devient l'exception (@CsrfProtect).
     csrf: {
-      enabled: true, //        défense CSRF par défaut. Défaut: true.
-      fetchMetadata: true, //  PRIMAIRE : rejette les mutations cross-site (Sec-Fetch-Site). Défaut: true.
-      sameSite: "Lax", //      Défaut: "Lax" (Strict casse les liens entrants légitimes ; banking → Strict).
-      checkOrigin: true, //    fallback Origin/Referer sur POST/PUT/PATCH/DELETE (vieux navigateurs). Défaut: true.
+      enabled: true, //          défense CSRF par défaut. Défaut: true.
+      fetchMetadata: true, //    PRIMAIRE : rejette les mutations cross-site (Sec-Fetch-Site). Défaut: true.
+      sameSite: "Lax", //        attribut COOKIE de session. Défaut: "Lax" (Strict casse les liens entrants ; banking → Strict).
+      checkOrigin: true, //      fallback Origin/Referer sur POST/PUT/PATCH/DELETE (vieux navigateurs). Défaut: true.
+      strictSameSite: false, //  Sec-Fetch-Site: same-site (sous-domaine) → false=toléré / true=403 (multi-tenant). Défaut: false. ≠ cookie `sameSite`.
+      trustedOrigins: [], //     alias multi-domaine légitimes (ex. ["https://app.example.org"]) autorisés même cross-site. Défaut: []. ≠ cors.origins (pas de lecture CORS).
     },
 
     // ══════════════════ EN-TÊTES DE SÉCURITÉ (natif, sans la lib helmet) ══════════════════

@@ -16,6 +16,7 @@ import { encoderFromConfig } from "@nodefony/user";
 import { SecuredArea } from "../src/SecuredArea";
 import { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
+import { Csrf } from "./csrf";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import {
@@ -49,6 +50,18 @@ interface IHeaderCapableResponse {
   setHeader?: (name: string, value: string | readonly string[]) => unknown;
 }
 
+// En-têtes d'une requête indexés par nom lowercase (IncomingHttpHeaders) — un
+// en-tête répété est exposé en tableau ; pour les en-têtes mono-valeur CSRF
+// (Sec-Fetch-Site/Origin/Referer/Host) on retient la 1ʳᵉ occurrence.
+type RequestHeaders = Record<string, string | string[] | undefined>;
+function headerValue(
+  headers: RequestHeaders | undefined,
+  name: string,
+): string | undefined {
+  const v = headers?.[name];
+  return Array.isArray(v) ? v[0] : v;
+}
+
 /**
  * Orchestrateur de sécurité Nodefony — refonte 2026 (P6).
  *
@@ -78,6 +91,8 @@ class Firewall extends Service implements IFirewall {
   // Authenticators par nom — null tant qu'aucun n'est enregistré/instancié.
   #authenticators: Map<string, IAuthenticator> | null = null;
   #roleHierarchy: RoleHierarchyWalker | null = null;
+  // Défense CSRF par défaut — null tant que la config CSRF est désactivée.
+  #csrf: Csrf | null = null;
   // Config validée + gelée (consommée par les fabriques d'authenticators).
   #config: ISecurityConfig | null = null;
   // Fail-closed : posée si la config sécurité est invalide au boot → le
@@ -116,6 +131,17 @@ class Firewall extends Service implements IFirewall {
     // (AuthorizationService) le lit pour résoudre `ROLE_*`. Source unique.
     this.container?.set("roleHierarchy", this.#roleHierarchy);
     this.#provisionSharedServices(this.#config);
+
+    // Défense CSRF : globale (pas liée aux zones — toute mutation cross-site est
+    // bloquée), instanciée une fois si activée. Origines de confiance = alias
+    // multi-domaine (`csrf.trustedOrigins`) ∪ whitelist CORS (ce que CORS autorise
+    // explicitement n'est pas du CSRF) — toutes deux traversent la défense.
+    if (this.#config.csrf.enabled) {
+      this.#csrf = new Csrf(this.#config.csrf, [
+        ...this.#config.csrf.trustedOrigins,
+        ...this.#config.cors.origins,
+      ]);
+    }
 
     const areas = this.#config.areas;
     const names = Object.keys(areas);
@@ -359,6 +385,39 @@ class Firewall extends Service implements IFirewall {
       );
     }
     return context;
+  }
+
+  /**
+   * Défense CSRF (P6 J5) — branchée dans le pipeline HTTP de `@nodefony/http`
+   * pour TOUTE requête (zone ou non) : une mutation cross-site est rejetée même
+   * sur une route publique. Synchrone et fail-fast sur le hot-path (méthode sûre
+   * → retour immédiat, aucun en-tête lu). No-op si CSRF désactivé ou route
+   * exemptée du firewall (`bypassFirewall` — calque des callbacks OAuth).
+   *
+   * @throws CsrfError (403) — provenance tierce sur une méthode state-changing.
+   */
+  enforceCsrf(context: ContextType): void {
+    if (!this.#csrf) return; // désactivé, ou config invalide (handleSecurity gère le fail-closed)
+    // Hot-path : court-circuit AVANT de lire le moindre en-tête sur un GET.
+    if (!Csrf.isStateChanging(context.method)) return;
+    const bypass = (context as { resolver?: { bypassFirewall?: boolean } })
+      .resolver?.bypassFirewall;
+    if (bypass) return;
+    const headers = (
+      context.request as { headers?: RequestHeaders } | undefined
+    )?.headers;
+    this.#csrf.enforce({
+      method: context.method,
+      secFetchSite: headerValue(headers, "sec-fetch-site"),
+      origin: headerValue(headers, "origin"),
+      referer: headerValue(headers, "referer"),
+      // Host BRUT avec port (`URL.host` du fallback inclut le port) — `:authority`
+      // en HTTP/2, `context.domain` n'est qu'un fallback (hostname sans port).
+      host:
+        headerValue(headers, "host") ??
+        headerValue(headers, ":authority") ??
+        (context as { domain?: string }).domain,
+    });
   }
 
   /**

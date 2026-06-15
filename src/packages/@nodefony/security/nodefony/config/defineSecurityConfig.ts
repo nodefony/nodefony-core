@@ -147,6 +147,18 @@ const csrfSchema = z
       .describe(
         "Fallback : compare Origin/Referer aux origines de l'app sur les méthodes mutantes (vieux navigateurs sans Sec-Fetch-*).",
       ),
+    strictSameSite: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Politique sur Sec-Fetch-Site: same-site (un SOUS-DOMAINE de la même famille déclenche la mutation). false (défaut) = tolérant (sous-domaines de confiance) ; true = ne tolérer QUE same-origin + none (déploiement multi-tenant / sous-domaine non maîtrisé). ⚠️ distinct de l'attribut cookie `sameSite` ci-dessus.",
+      ),
+    trustedOrigins: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "Origines ALIAS légitimes de l'app (façades multi-domaine, ex. ['https://app.example.org']) — autorisées MÊME en cross-site, sur Fetch Metadata ET fallback. Distinct de `cors.origins` (qui, lui, ouvre AUSSI la lecture CORS des réponses) : un simple alias de domaine ne doit pas exposer les réponses au JS tiers. Match exact d'origine (scheme://host[:port]).",
+      ),
   })
   .describe(
     "Cross-Site Request Forgery — Fetch Metadata d'abord (OWASP 2025) ; token synchronizer = opt-in @CsrfProtect.",

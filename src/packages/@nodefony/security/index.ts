@@ -150,6 +150,7 @@ export {
   AuthenticationError,
   AccessDeniedError,
   ThrottledError,
+  CsrfError,
 } from "./nodefony/errors";
 
 // ─── Contrats ────────────────────────────────────────────────────────────────

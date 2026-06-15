@@ -82,6 +82,11 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
     assert.equal(config.csrf.checkOrigin, true);
   });
 
+  it("csrf : same-site toléré par défaut (strictSameSite=false) + 0 alias", () => {
+    assert.equal(config.csrf.strictSameSite, false);
+    assert.deepEqual(config.csrf.trustedOrigins, []);
+  });
+
   it("jwt : audiences RFC 8707 présent (défaut = audience de l'app)", () => {
     assert.deepEqual(config.jwt.audiences, []);
   });

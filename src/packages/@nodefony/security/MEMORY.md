@@ -85,6 +85,16 @@ api/oauth2/{provider}/{authorize,callback}` (`bypassFirewall`, montés si servic
   (find-or-create). `UserService.provisionOAuthUser(profile, {defaultRoles, allowSignup})` = défaut : crée
   `password:null` + rôles `policy.defaultRoles` (ROLE_USER) + `addSocialProvider` ; **zéro liaison-email auto**
   (anti account-takeover). OAuth = authn pas authz (rôles à la création, base=vérité). user n'importe RIEN de security.
+- **CSRF (J5)** — `Csrf` (`service/csrf.ts`, logique PURE sync, testable sans serveur) : défense **Fetch
+  Metadata d'abord** (modèle Go 1.25 / OWASP 2025) + repli `Origin`/`Referer`. `enforce(req)` sur méthode
+  state-changing (RFC 9110 §9.2.1 ; GET/HEAD/OPTIONS/TRACE = no-op) ; chaîne : (1) origine de confiance
+  (`trustedOrigins` ∪ `cors.origins`) → OK même cross-site ; (2) `Sec-Fetch-Site` same-origin/none → OK,
+  same-site → OK sauf `strictSameSite`, **cross-site → `CsrfError` 403**, inconnu → repli (W3C "SHOULD
+  ignore") ; (3) repli : ni Origin ni Referer → OK (non-navigateur), sinon same-host requis. `Csrf.isStateChanging()`
+  static = court-circuit hot-path. **`Firewall.enforceCsrf(ctx)`** : `#csrf` lazy (null si désactivé), court-circuit
+  GET AVANT toute lecture d'en-tête, exempte `resolver.bypassFirewall` (calque OAuth), Host **brut avec port**
+  (`headers.host`/`:authority`, PAS `ctx.domain` sans port). Câblé http-kernel **1 point** (après resolver,
+  avant session/auth = rejet précoce). `CsrfError(403)` (RFC 9110 §15.5.4). Différé : `@CsrfProtect`/`@CsrfExempt`.
 
 ## Config
 
@@ -105,6 +115,10 @@ redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
 - `areas: {}` (défaut) → firewall = no-op (perf max). Zone protégée + anonyme → 401.
 - `authenticators` = schéma OUVERT (`z.string()`) → plugins (apikey/ldap) sans éditer le core ; validés au runtime.
 - En-têtes = **natif** (pas helmet). JWT = jose **(J4 ✅, EdDSA)**, OAuth = arctic (S6), bcrypt = `@nodefony/user`.
+- **CSRF GLOBAL** (J5) : appliqué à TOUTE requête mutante (zone ou non) — défense gratuite sur GET (court-circuit
+  méthode). `csrf.{enabled, fetchMetadata, sameSite(cookie), checkOrigin, strictSameSite:false, trustedOrigins:[]}`.
+  `strictSameSite` (≠ attribut cookie `sameSite`) : same-site → 403 si true (multi-tenant). `trustedOrigins` (≠
+  `cors.origins`) = alias multi-domaine, n'ouvre PAS la lecture CORS des réponses.
 
 ## Gotchas
 

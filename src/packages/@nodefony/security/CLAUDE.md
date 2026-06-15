@@ -38,18 +38,21 @@ nodefony/
 │   ├── RoleHierarchyWalker.ts précompute DFS au boot + détection cycles
 │   └── token/AnonymousToken.ts
 └── service/
-    ├── firewall.ts            isSecure (hot-path) + handleSecurity (auth→ALS→Zero Trust)
-    └── csrf.ts                placeholder (type Csrf pour http) — réécrit S4
+    ├── firewall.ts            isSecure (hot-path) + handleSecurity (auth→ALS→Zero Trust) + enforceCsrf
+    └── csrf.ts                Csrf — Fetch Metadata + repli Origin (logique pure, J5)
 ```
 
-## État (S1 livré 2026-05-23)
+## État (S1→J9 livrés ; J5 CSRF étape 1 livrée)
 
-✅ Fondation : contrats, erreurs, firewall skeleton (Zero Trust), RoleHierarchyWalker, SecuredArea,
-AnonymousToken, config best-in-class (Zod + config.ts documenté + JSON Schema introspection).
-Build vert (security + http). Legacy Factory/Provider/stubs supprimés.
+✅ Fondation S1 + authenticators (Anonymous/Password/Session/JWT) + Argon2id + throttle NIST + session BFF
+(J3) + JWT jose (J4) + WebAuthn/passkeys (J9) + OAuth2 social (J9) + **CSRF J5 étape 1**.
 
-⬜ Reste S1 : **câblage http-kernel** (`firewall.handleSecurity()` + hook `beforeResolve`) → memory.test ;
-tests (Zod/RoleHierarchy/Zero Trust) ; authenticators (S2+).
+✅ **CSRF (J5)** : `Csrf` (Fetch Metadata `Sec-Fetch-Site` PRIMAIRE + repli `Origin`/`Referer`), flag
+`strictSameSite`, liste `trustedOrigins` (alias multi-domaine). Câblé `Firewall.enforceCsrf()` → http-kernel
+(global, rejet précoce). Gates : security 281, banc intégration live `http/csrf.test.ts` 11/11, mémoire 9/9.
+
+⬜ Reste J5 : **CORS** (service, P6.2), **securityHeaders** natif (CSP+nonces/HSTS/COOP/COEP/CORP). Étape 2
+CSRF : décorateurs `@CsrfProtect` (token synchronizer HMAC) + `@CsrfExempt`.
 
 ## Interdits
 
