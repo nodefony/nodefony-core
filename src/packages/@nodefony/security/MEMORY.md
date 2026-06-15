@@ -48,7 +48,13 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
   lastUsedAt) + `IWebAuthnCredentialStore` (findById/findByUser/save/update/delete). Store **pluggable**
   (`webAuthnCredentialStoreRegistry`, convention-frère tokenStore) : `memory` (volatile) + **`file`**
   (`FileWebAuthnCredentialStore` = Memory + persistance JSON **atomique** tmp+rename, flush coalescé +
-  **`flushNow` à `onTerminate`** = 0 perte au restart). Driver = `config.passkeys.store` ; ORM/Redis = TODO.
+  **`flushNow` à `onTerminate`** = 0 perte au restart). Driver = `config.passkeys.store` (`z.string()`
+  pluggable, J9). **Adapters cluster ✅ J9** (approche B, `import type` seul → 0 dép runtime, l'app câble) :
+  `RedisWebAuthnCredentialStore` (HASH+SET, pas de TTL), `DrizzleWebAuthnCredentialStore` +
+  `MongooseWebAuthnCredentialStore` (au-dessus de `IRepository`, mapping `Row↔contrat` car `nickname?`+
+  readonly ; entité `webauthn_credential` `module:"security"`). Câblage app (idem tokenStore) :
+  `registerWebAuthnStore("redis", ({container})=>RedisWebAuthnCredentialStore.from(container.get("redis")))` ;
+  ORM = `registerWebAuthnCredentialEntity(orm)` **avant** `orm.connect()` + `registerWebAuthnStore("drizzle", …from(orm))`.
 - Endpoints WebAuthn : `WebAuthnController` (@nodefony/framework) `/nodefony/security/api/webauthn/
 {register,login}/{options,verify}` (`bypassFirewall`, montés si "webauthn"). **register exige session**
   (me() → 401, Zero Trust) ; **login démarre une session ANONYME** (`AuthFlow.ensureSession`) pour porter
