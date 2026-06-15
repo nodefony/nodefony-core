@@ -24,6 +24,16 @@
       "cache": false,
       "outputs": []
     },
+    "test:load": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "outputs": []
+    },
+    "test:memory": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "outputs": []
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,

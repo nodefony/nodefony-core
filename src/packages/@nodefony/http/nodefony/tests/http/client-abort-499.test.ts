@@ -2,6 +2,7 @@
 import { expect } from "chai";
 import https from "node:https";
 import fs from "node:fs";
+import { IS_PROD_TARGET } from "../helpers/targetEnv";
 
 // P2.3 — internal 499 ("client closed request").
 //
@@ -53,42 +54,47 @@ function countInLog(pattern: RegExp, since: number): number {
   }
 }
 
-describe("Client abort → internal 499 — P2.3 (requires server)", () => {
-  let logBaseline = 0;
+// Dev-only : l'assertion lit la LIGNE DE LOG du 499 (request-logger verbeux en
+// dev). En prod le logging diffère → skip (sonde /livez), tourne en dev.
+describe.skipIf(IS_PROD_TARGET)(
+  "Client abort → internal 499 — P2.3 (requires server)",
+  () => {
+    let logBaseline = 0;
 
-  beforeAll(() => {
-    try {
-      logBaseline = fs.readFileSync(LOG_PATH, "utf8").split("\n").length;
-    } catch {
-      logBaseline = -1;
-    }
-  });
-
-  it("aborting before any response is logged as 499, not 200", async () => {
-    const N = 8;
-    await Promise.all(
-      Array.from({ length: N }, () =>
-        abortedGet("/nodefony/test/abort/wait", 100),
-      ),
-    );
-    // Let the close → teardown → logRequest handlers settle.
-    await new Promise((r) => setTimeout(r, 500));
-
-    if (logBaseline >= 0) {
-      // Request log line for an aborted GET: "GET  499 https://.../abort/wait ...".
-      const found499 = countInLog(
-        /GET\s+499\s+https?:\/\/\S*\/abort\/wait/,
-        logBaseline,
-      );
-      if (found499 >= 0) {
-        expect(
-          found499,
-          "expected at least one '499' request log line",
-        ).to.be.at.least(1);
+    beforeAll(() => {
+      try {
+        logBaseline = fs.readFileSync(LOG_PATH, "utf8").split("\n").length;
+      } catch {
+        logBaseline = -1;
       }
-    }
-    // Server stays healthy.
-    const health = await getJson("/nodefony/test/index");
-    expect(health.status).to.equal(200);
-  });
-});
+    });
+
+    it("aborting before any response is logged as 499, not 200", async () => {
+      const N = 8;
+      await Promise.all(
+        Array.from({ length: N }, () =>
+          abortedGet("/nodefony/test/abort/wait", 100),
+        ),
+      );
+      // Let the close → teardown → logRequest handlers settle.
+      await new Promise((r) => setTimeout(r, 500));
+
+      if (logBaseline >= 0) {
+        // Request log line for an aborted GET: "GET  499 https://.../abort/wait ...".
+        const found499 = countInLog(
+          /GET\s+499\s+https?:\/\/\S*\/abort\/wait/,
+          logBaseline,
+        );
+        if (found499 >= 0) {
+          expect(
+            found499,
+            "expected at least one '499' request log line",
+          ).to.be.at.least(1);
+        }
+      }
+      // Server stays healthy.
+      const health = await getJson("/nodefony/test/index");
+      expect(health.status).to.equal(200);
+    });
+  },
+);
