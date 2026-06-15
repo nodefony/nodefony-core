@@ -161,6 +161,18 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
   → fournir un VRAI `Container` + un faux kernel `{container, once(ev,cb){…}}` qui CAPTURE `onBoot`, puis déclencher le
   handler = exécuter `#build` à la demande (store/keystore RÉELS posés au container, pas de stub) ; `notificationsCenter:false`
   coupe les events. Banc d'intégration déterministe (émission/rotation/reuse/gc prouvés) sans démarrer de serveur.
+- `[1× — 2026-06-15]` **transposer le frère VIVANT > croire le commentaire d'un registry** (drivers WebAuthn store
+  Redis/Drizzle/Mongoose, J9) : le doc du `webAuthnCredentialStoreRegistry` disait « les adapters s'enregistrent depuis
+  LEUR module » → laissait croire à un couplage runtime backend→security. FAUX. Le frère vivant `RedisTokenStore` (J4b)
+  révèle l'**approche B** : l'adapter vit dans le module backend en `import type` SEUL (effacé → 0 dép runtime, **0 modif
+  package.json**, le workspace résout le type), exporte la classe, et c'est **l'app** qui `registerXStore(...)`. Lire le
+  frère le plus récent (pas le commentaire générique d'un registry) a tranché l'archi en 1 passe — 3 adapters + entités +
+  34 tests, build/non-rég verts du 1er coup. (Variante de la leçon `[06-13]` « doc-comment ≠ câblage réel ».)
+- `[1× — 2026-06-15]` **copier le frère SANS le copier aveuglément — diverger quand le CONTRAT l'exige** : `DrizzleTokenStore`
+  renvoie la row du repo DIRECTEMENT (`IAccessTokenRecord` = AccessTokenRow, tout `| null`, 0 readonly) → 0 mapping. Mais
+  `IWebAuthnCredential` a `nickname?` (optionnel, ≠ `| null`) + champs `readonly` → une row `{nickname:null}` ne satisfait
+  PAS `nickname?: string` et casse `deepEqual` en test. Solution : `WebAuthnCredentialRow` plate (`nickname: string|null`) +
+  mapping `#toCredential`/`#toRow` (null→omis). Comprendre POURQUOI le frère ne mappe pas AVANT de décider de (ne pas) mapper.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
