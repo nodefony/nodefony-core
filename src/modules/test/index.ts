@@ -39,6 +39,9 @@ import {
 } from "./nodefony/secure/InMemoryUserRepository";
 import { UserService } from "@nodefony/user";
 import type { IPasswordEncoder } from "@nodefony/user";
+// P6 J9 — enregistre le provider OAuth de TEST (side-effect), AVANT le onBoot du
+// service oauth2 qui confronte les providers configurés au registre. DEV only.
+import "./nodefony/secure/oauthTestProvider";
 import { controllers } from "@nodefony/framework";
 // Commandes CLI de démo — bancs pour les 3 modes de boot (server/batch/daemon) et le
 // dispatch d'une commande de module (namespace `test:<action>`).

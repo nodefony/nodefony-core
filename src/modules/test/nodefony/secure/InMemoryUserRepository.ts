@@ -3,6 +3,7 @@ import { BaseUser } from "@nodefony/user";
 import type {
   IBaseUserOptions,
   IPasswordAuthenticatedUser,
+  ISocialProvider,
   IUserRepository,
 } from "@nodefony/user";
 import type { Criteria, ITransaction } from "@nodefony/orm-core";
@@ -81,11 +82,18 @@ export class InMemoryUserRepository implements IUserRepository {
   create(
     data: Partial<IPasswordAuthenticatedUser>,
   ): Promise<IPasswordAuthenticatedUser> {
+    // `socialProviders` est un champ d'entité hors du contrat credential — le
+    // provisioning OAuth (Shadow User) le passe ; sans lui, le 2ᵉ login ne
+    // retrouverait pas le compte (findBySocialProvider) → doublons.
+    const d = data as Partial<IPasswordAuthenticatedUser> & {
+      socialProviders?: ISocialProvider[];
+    };
     const user = new BaseUser({
       id: randomUUID(),
-      identifier: data.identifier as string,
-      roles: data.roles ? [...data.roles] : [],
-      password: data.password ?? null,
+      identifier: d.identifier as string,
+      roles: d.roles ? [...d.roles] : [],
+      password: d.password ?? null,
+      socialProviders: d.socialProviders,
     });
     this.#store.set(user.id, user);
     return Promise.resolve(user);

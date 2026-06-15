@@ -56,5 +56,20 @@ export default {
     passkeys: {
       store: "file",
     },
+    // P6 J9 — banc social login OAuth2 : un provider de TEST déterministe (zéro
+    // réseau, enregistré dans secure/oauthTestProvider.ts) prouve le flux complet
+    // authorize→callback→session BFF + provisioning Shadow User. DEV uniquement.
+    oauth2: {
+      successRedirect: "/oauth-success",
+      failureRedirect: "/oauth-failure",
+      providers: {
+        "test-oidc": {
+          clientId: "test-client",
+          clientSecret: "test-secret",
+          redirectUri:
+            "https://127.0.0.1:5152/nodefony/security/api/oauth2/test-oidc/callback",
+        },
+      },
+    },
   },
 };
