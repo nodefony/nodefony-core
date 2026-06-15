@@ -11,7 +11,7 @@ import Controller from "../src/Controller";
 export interface IOAuth2Service {
   isEnabled(): boolean;
   listProviders(): string[];
-  getRedirects(): { success: string; failure: string };
+  getRedirects(provider?: string): { success: string; failure: string };
   createAuthorization(provider: string): Promise<{
     url: string;
     state: string;
@@ -77,6 +77,16 @@ class OAuth2Controller extends Controller {
     super("OAuth2Controller", context);
   }
 
+  /**
+   * Liste PUBLIQUE des fournisseurs activés (configurés ET connus du registre).
+   * Consommé par l'UI de login pour n'afficher QUE les boutons opérationnels —
+   * jamais de bouton mort. Aucun secret n'est exposé (uniquement les noms).
+   */
+  providers() {
+    const svc = this.#service();
+    return this.renderJson({ providers: svc ? svc.listProviders() : [] });
+  }
+
   /** Démarre le flux : URL d'autorisation + état anti-replay en session, 302. */
   async authorize(provider: string) {
     const svc = this.#service();
@@ -106,7 +116,7 @@ class OAuth2Controller extends Controller {
     if (!svc || !flow) {
       return this.renderJson({ error: "OAuth unavailable" }, 503);
     }
-    const { success, failure } = svc.getRedirects();
+    const { success, failure } = svc.getRedirects(provider);
 
     // Lit l'état déposé à `authorize`, PUIS l'invalide (usage unique, anti-replay).
     const session = (this.context as ContextType).session;
@@ -176,6 +186,9 @@ export function mountOAuth2Routes(frameworkModule: Module): void {
   if (mounted) return;
   const base = "/nodefony/security/api/oauth2";
   const routes: Array<[string, string, HTTPMethod, string]> = [
+    // Découverte publique (segment littéral `providers` → pas de collision avec
+    // `{provider}/...` : profondeurs de chemin distinctes).
+    ["security.oauth2.providers", `${base}/providers`, "GET", "providers"],
     [
       "security.oauth2.authorize",
       `${base}/{provider}/authorize`,
