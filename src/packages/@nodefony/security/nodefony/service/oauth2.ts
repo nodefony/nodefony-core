@@ -117,12 +117,16 @@ class OAuth2Service extends Service {
     );
   }
 
-  /** Redirections post-login (succès / échec) — lues par le controller. */
-  getRedirects(): { success: string; failure: string } {
+  /**
+   * Redirections post-login (succès / échec) — lues par le controller.
+   * Surcharge PAR FOURNISSEUR si fournie, sinon valeur globale, sinon défaut.
+   */
+  getRedirects(provider?: string): { success: string; failure: string } {
     const o = this.#config?.oauth2;
+    const p = provider ? o?.providers[provider] : undefined;
     return {
-      success: o?.successRedirect ?? "/",
-      failure: o?.failureRedirect ?? "/login",
+      success: p?.successRedirect ?? o?.successRedirect ?? "/",
+      failure: p?.failureRedirect ?? o?.failureRedirect ?? "/login",
     };
   }
 
@@ -171,9 +175,13 @@ class OAuth2Service extends Service {
     const tokens = await p.validateAuthorizationCode(code, codeVerifier);
     const profile = await p.fetchProfile(tokens);
     const cfg = this.#config!.oauth2;
+    // Rôles par défaut : surcharge PAR FOURNISSEUR sinon valeur globale (posés à
+    // la CRÉATION seulement — OAuth = authentification, pas autorisation).
+    const defaultRoles =
+      cfg.providers[provider]?.defaultRoles ?? cfg.defaultRoles;
     const user: IUser = await this.#resolveProvisioner().provisionOAuthUser(
       profile,
-      { defaultRoles: [...cfg.defaultRoles], allowSignup: cfg.allowSignup },
+      { defaultRoles: [...defaultRoles], allowSignup: cfg.allowSignup },
     );
     return { identifier: user.identifier };
   }

@@ -559,6 +559,25 @@ const oauthProviderSchema = z
       .describe(
         "Scopes demandés. Vide = défauts du fournisseur (Google: openid/profile/email ; GitHub: read:user/user:email).",
       ),
+    // Surcharges PAR FOURNISSEUR (absent = valeur globale oauth2.*). Permet à
+    // plusieurs fournisseurs de coexister sans se marcher dessus : un provider de
+    // TEST garde son redirect/roles, un provider réel pointe vers la console admin.
+    successRedirect: z
+      .string()
+      .optional()
+      .describe(
+        "Redirection succès — surcharge le global pour CE fournisseur.",
+      ),
+    failureRedirect: z
+      .string()
+      .optional()
+      .describe("Redirection échec — surcharge le global pour CE fournisseur."),
+    defaultRoles: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Rôles du Shadow User à la création — surcharge le global pour CE fournisseur.",
+      ),
   })
   .describe("Fournisseur OAuth/OIDC (secrets via env).");
 
