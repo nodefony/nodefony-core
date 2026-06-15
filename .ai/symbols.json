@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-15T16:41:36.255Z",
+  "generated": "2026-06-15T17:07:23.433Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 906,
-    "symbols": 1942,
-    "classes": 283,
-    "interfaces": 503,
+    "files": 908,
+    "symbols": 1947,
+    "classes": 284,
+    "interfaces": 506,
     "types": 242,
     "enums": 3,
-    "functions": 406,
+    "functions": 407,
     "constants": 505
   },
   "symbols": {
@@ -5443,6 +5443,52 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
+    },
+    "OAuth2Controller": {
+      "name": "OAuth2Controller",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Endpoints HTTP du **social login OAuth 2.0** (P6 J9) — adaptateurs MINCES au-dessus du service `oauth2` (`@nodefony/security`) : - `GET /nodefony/security/api/oauth2/{provider}/authorize` — démarre…"
+    },
+    "IOAuth2Service": {
+      "name": "IOAuth2Service",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue MINIMALE du service `oauth2` (`@nodefony/security`) — couplage par NOM (framework ne dépend ni de security ni d'arctic). Contrat structurel imposé par cast (`this.get<…>`), aucune liaison de bu…"
+    },
+    "IOAuth2Session": {
+      "name": "IOAuth2Session",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue minimale d'une session — porte l'état du flux OAuth (anti-CSRF/anti-replay)."
+    },
+    "IOAuth2BffFlow": {
+      "name": "IOAuth2BffFlow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue minimale du flux de session BFF (`authFlow`) consommée ici."
+    },
+    "mountOAuth2Routes": {
+      "name": "mountOAuth2Routes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les routes du social login OAuth — appelé par le module framework à `onKernelReady`, seulement si le service `oauth2` est présent."
     },
     "Resolver": {
       "name": "Resolver",
@@ -14384,6 +14430,7 @@
         "VueController",
         "DocumentationController",
         "AdminApiController",
+        "OAuth2Controller",
         "ResourceController",
         "SessionAuthController",
         "TokenAuthController",
@@ -15231,6 +15278,7 @@
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
@@ -15476,6 +15524,7 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/WebAuthnController.ts",
@@ -15522,6 +15571,7 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
@@ -15566,6 +15616,12 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "mountWebAuthnRoutes": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "OAuth2Controller": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "mountOAuth2Routes": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "createKernelAdminApi": [
@@ -16959,6 +17015,7 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
@@ -17066,6 +17123,13 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
       ],
+      "ISocialProvider": [
+        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
+      ],
       "IUserRepository": [
         "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -17094,6 +17158,23 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts"
+      ],
+      "registerOAuthProvider": [
+        "src/modules/test/nodefony/secure/oauthTestProvider.ts"
+      ],
+      "IOAuthProvider": [
+        "src/modules/test/nodefony/secure/oauthTestProvider.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
+      "IOAuthProfile": [
+        "src/modules/test/nodefony/secure/oauthTestProvider.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
@@ -17202,12 +17283,6 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
-      ],
-      "ISocialProvider": [
-        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
       ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
@@ -17376,6 +17451,7 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/framework/nodefony/src/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/src/TokenAuthController.ts",
@@ -18146,12 +18222,6 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
       ],
-      "IOAuthProfile": [
-        "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
-        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
-      ],
       "IUserProvider": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
@@ -18270,12 +18340,6 @@
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
-      ],
-      "IOAuthProvider": [
-        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
-        "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
-        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
       ],
       "getOAuthProviderFactory": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"

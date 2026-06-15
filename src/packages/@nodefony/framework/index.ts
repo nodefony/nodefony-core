@@ -23,6 +23,9 @@ import TokenAuthController, {
 import WebAuthnController, {
   mountWebAuthnRoutes,
 } from "./nodefony/src/WebAuthnController";
+import OAuth2Controller, {
+  mountOAuth2Routes,
+} from "./nodefony/src/OAuth2Controller";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
@@ -157,6 +160,11 @@ class Framework extends Module {
     if (this.kernel?.container?.get("webauthn")) {
       mountWebAuthnRoutes(this);
     }
+    // P6 J9 — social login OAuth2 : routes montées seulement si le service
+    // `oauth2` est présent (security chargé + ≥1 provider configuré). 404 sinon.
+    if (this.kernel?.container?.get("oauth2")) {
+      mountOAuth2Routes(this);
+    }
     return this;
   }
 }
@@ -184,6 +192,8 @@ export {
   mountTokenAuthRoutes,
   WebAuthnController,
   mountWebAuthnRoutes,
+  OAuth2Controller,
+  mountOAuth2Routes,
   createKernelAdminApi,
   createFrameworkAdminApi,
   createSyslogAdminApi,
