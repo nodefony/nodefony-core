@@ -73,6 +73,10 @@ export function KpiCard({
             ? `var(--mantine-color-${accent}-filled)`
             : undefined,
           transition: "border-color 120ms ease",
+          // Isole layout+paint à la carte : un tick live ne repeint QUE la carte
+          // qui change, pas toute la page (règle CSS perf du skill). Les popovers
+          // DocHint sont en portal → non clippés par `paint`.
+          contain: "content",
         }}
       >
         <Group justify="space-between" wrap="nowrap" mb={8} align="flex-start">

@@ -767,7 +767,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
         <LoadingOverlay
           visible={loading}
           zIndex={3}
-          overlayProps={{ blur: 0.6, backgroundOpacity: 0.35 }}
+          overlayProps={{ backgroundOpacity: 0.35 }}
           loaderProps={{
             children: (
               <Stack align="center" gap={6}>
