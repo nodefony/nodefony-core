@@ -591,6 +591,22 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-17]` **un changement CSP se prouve au BANC LIVE, surtout en PROD — les unit ne voient PAS
+  les directives manquantes.** Étape B nonce : security unit 317 + http intég 502 + memory 9/9 VERTS, mais le
+  banc live (le user dans son navigateur) a révélé EN CASCADE 4 oublis invisibles aux tests : scripts inline
+  (preamble/HMR/debugbar) sans nonce ; `'self'` absent de connect/style/img/font (n'héritent PAS de
+  `default-src` → fetch/styles/images same-origin bloqués) ; `style-src 'unsafe-inline'` manquant (le nonce ne
+  couvre PAS `style=""` du CSS-in-JS) ; `img-src data:` manquant. **Leçon : CSP = défaut RÉALISTE COMPLET
+  d'emblée (pas directive-par-directive) + banc live dev ET prod (CSP prod strict ≠ dev permissif Vite).**
+- `[1× — 2026-06-17]` **sous un banc prod, séparer « mon diff » de « config app incomplète ».** Le user a
+  enchaîné des échecs prod (login 500, passkey 401) que j'ai dû prouver NON-CSP : logs `AuthFlow aucun service
+users`, webauthn/options 200, un 401/500 **serveur** ≠ blocage CSP (« Refused to connect »), rpId=localhost
+  refuse IP/vhost. Cause = UserService absent en prod (modules policy dev). **Diagnostiquer vite évite de
+  débugger la config du user en croyant à sa propre régression.**
+- `[1× — 2026-06-17]` **défaut d'un module = parfois 2 sources (`config/config.ts` humain + `.default()` Zod)
+  → config.ts PRIME (valeur présente ⇒ Zod default ignoré).** Changé le défaut CSP côté Zod seul → runtime
+  inchangé. **Re-mordu 2× la même session** (sur style-src). Aligner les DEUX + commenter le lien. (Variante de
+  [[feedback_convention_frere]].)
 - `[1× — 2026-06-15]` **feature de CÂBLAGE multi-requêtes → banc d'intégration AVANT de dire « fait » ; les
   smoke curl manuels ne suffisent pas** (J9 WebAuthn). J'avais build/typecheck/memory/security-review verts +
   1 test unit (store) + des curl manuels → j'ai annoncé « prêt ». Le user a trouvé **3 bugs EN LIVE** que je
