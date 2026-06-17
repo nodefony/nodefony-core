@@ -16,6 +16,7 @@ import { encoderFromConfig } from "@nodefony/user";
 import { SecuredArea } from "../src/SecuredArea";
 import { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
+import { mergeCspFragments, type CspFragment } from "../src/csp";
 import { Csrf } from "./csrf";
 import { Cors } from "./cors";
 import { SecurityHeaders } from "./securityHeaders";
@@ -100,6 +101,9 @@ class Firewall extends Service implements IFirewall {
   // En-têtes de sécurité applicatifs (CSP, Referrer-Policy, COOP/COEP/CORP…) —
   // null si désactivés. Le socle transport (nosniff/frame/HSTS) reste dans http.
   #securityHeaders: SecurityHeaders | null = null;
+  // Fragments CSP déclarés par module (origines Vite dev…) — null tant qu'aucun
+  // module n'en enregistre. Mergés dans le CSP de base au (dé)enregistrement.
+  #cspFragments: Map<string, CspFragment> | null = null;
   // Config validée + gelée (consommée par les fabriques d'authenticators).
   #config: ISecurityConfig | null = null;
   // Fail-closed : posée si la config sécurité est invalide au boot → le
@@ -481,18 +485,65 @@ class Firewall extends Service implements IFirewall {
    * cross-origin (COOP/COEP/CORP), Origin-Agent-Cluster, Permissions-Policy.
    * Posés sur toute réponse du pipeline (branché dans `handleHttp`). Complète le
    * socle transport de `@nodefony/http` (nosniff/frame/HSTS, posé à l'entrée brute)
-   * SANS le ré-émettre. No-op si désactivé ou réponse non-HTTP (WS). Table figée
-   * pré-calculée au boot → 0 alloc/concat par requête.
+   * SANS le ré-émettre. No-op si désactivé ou réponse non-HTTP (WS).
+   *
+   * En-têtes constants = table figée pré-calculée au boot (0 alloc/concat). Le CSP
+   * nonce/req (étape B) ajoute 1 `join` + 1 `setHeader` UNIQUEMENT si activé.
    */
   applySecurityHeaders(context: ContextType): void {
-    if (!this.#securityHeaders) return;
+    const sh = this.#securityHeaders;
+    if (!sh) return;
     const response = (context as { response?: IHeaderCapableResponse | null })
       .response;
     if (typeof response?.setHeader !== "function") return;
-    const headers = this.#securityHeaders.headers;
+    // En-têtes constants (Referrer/COOP/… + CSP statique si pas de nonce) — figés.
+    const headers = sh.headers;
     for (const name in headers) {
       response.setHeader(name, headers[name]);
     }
+    // CSP nonce/req (étape B) : LIRE `context.cspNonce` génère le nonce PARESSEUSEMENT
+    // et le mémoïse → le `<script nonce="X">` rendu ensuite par le controller lit la
+    // MÊME valeur. Posé seulement si le CSP porte `{{nonce}}` (sinon `hasNonce`=false
+    // → 0 génération crypto). Antérieur au `writeHead` (cf handleHttp 881 < 935).
+    if (sh.hasNonce) {
+      response.setHeader(
+        "Content-Security-Policy",
+        sh.cspFor((context as { cspNonce: string }).cspNonce),
+      );
+    }
+  }
+
+  /**
+   * Déclare des directives CSP additionnelles pour `moduleName` (cf `IFirewall`).
+   * No-op si les en-têtes applicatifs sont désactivés (pas de CSP à étendre).
+   * Recompose `#securityHeaders` (merge + re-split nonce) — hors hot-path.
+   */
+  registerCspOrigins(moduleName: string, fragment: CspFragment): void {
+    if (!this.#securityHeaders || !this.#config) return;
+    (this.#cspFragments ??= new Map()).set(moduleName, fragment);
+    this.#rebuildSecurityHeaders();
+  }
+
+  /** Retire les directives CSP de `moduleName` et recompose si nécessaire. */
+  unregisterCspOrigins(moduleName: string): void {
+    if (!this.#cspFragments?.delete(moduleName)) return;
+    this.#rebuildSecurityHeaders();
+  }
+
+  /**
+   * Reconstruit `SecurityHeaders` depuis le CSP de base mergé avec les fragments
+   * enregistrés. Appelé UNIQUEMENT au (dé)enregistrement d'un module (jamais par
+   * requête) → parse/merge/serialize amortis hors hot-path. Repart toujours de
+   * `headers.csp` (base) → idempotent (pas de merge sur du déjà-mergé).
+   */
+  #rebuildSecurityHeaders(): void {
+    const headers = this.#config?.headers;
+    if (!headers) return;
+    const csp =
+      this.#cspFragments && this.#cspFragments.size > 0
+        ? mergeCspFragments(headers.csp, this.#cspFragments.values())
+        : headers.csp;
+    this.#securityHeaders = new SecurityHeaders({ ...headers, csp });
   }
 
   /**

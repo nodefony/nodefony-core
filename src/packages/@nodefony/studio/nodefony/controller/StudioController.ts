@@ -54,18 +54,14 @@ class StudioController extends Controller {
     const svc = this.context?.container?.get("frontend") as
       | FrontendService
       | undefined;
-    // CSP override pour Vite cross-origin (POC). TODO P14.14 : @nodefony/security.
-    if (svc) {
-      this.context?.response?.setHeader(
-        "Content-Security-Policy",
-        svc.getCspDirectives(),
-      );
-    }
+    // CSP émis par le firewall (@nodefony/security, P6 J5 étape B) : on propage le
+    // nonce de la requête au document (origines Vite déclarées via registerCspOrigins).
+    // Plus de hack setHeader ici (le TODO P14.14 est livré).
     // Coquille = `frontend/index.html` du module (le head/meta/externals y vivent),
     // tags injectés par @nodefony/frontend (dev = Vite, prod = manifest). Plus de
     // shell codé en dur ici → un dev personnalise son index.html sans toucher au core.
     const html =
-      svc?.renderDocument("studio") ??
+      svc?.renderDocument("studio", this.context?.cspNonce) ??
       "<!DOCTYPE html><!-- @nodefony/studio: frontend service unavailable -->";
     return this.render(html);
   }

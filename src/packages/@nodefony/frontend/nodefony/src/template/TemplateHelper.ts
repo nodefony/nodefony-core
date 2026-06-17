@@ -60,12 +60,14 @@ export class TemplateHelper {
   /**
    * Tags à injecter dans `<head>` (ou avant `</body>`) pour une entrée donnée.
    * @param entryName nom logique de l'entrée (matche `entryName` dans IResolvedFrontendEntry)
+   * @param nonce nonce CSP de la requête (`Context.cspNonce`) — posé sur les `<script>`
+   *   pour satisfaire `script-src 'nonce-…'` (preamble inline dev + entrée prod).
    */
-  renderTags(entryName: string): string {
+  renderTags(entryName: string, nonce?: string): string {
     if (this.mode === "development") {
-      return this.renderDevTags(entryName);
+      return this.renderDevTags(entryName, nonce);
     }
-    return this.renderProdTags(entryName);
+    return this.renderProdTags(entryName, nonce);
   }
 
   /**
@@ -77,8 +79,8 @@ export class TemplateHelper {
    *
    * @param entryName nom logique de l'entrée
    */
-  renderDocument(entryName: string): string {
-    const tags = this.renderTags(entryName);
+  renderDocument(entryName: string, nonce?: string): string {
+    const tags = this.renderTags(entryName, nonce);
     const entry =
       this.entries.find((e) => e.entryName === entryName) ??
       this.supervisor?.status().entries.find((e) => e.entryName === entryName);
@@ -148,7 +150,7 @@ ${tags}
     return html;
   }
 
-  private renderDevTags(entryName: string): string {
+  private renderDevTags(entryName: string, nonce?: string): string {
     if (!this.supervisor) {
       return `<!-- @nodefony/frontend: no vite supervisor (dev) -->`;
     }
@@ -177,6 +179,10 @@ ${tags}
       : `/@fs/${absEntryPath}`;
     const entryUrl = `${baseUrl}${fsPath}`;
     const tags: string[] = [];
+    // Nonce CSP (étape B) : posé sur le preamble INLINE (obligatoire — `script-src
+    // 'nonce-…'` sans `'unsafe-inline'`) ET sur les `<script src>` Vite (cohérence +
+    // ouvre `strict-dynamic`). Vide si nonce absent (security off) → inoffensif.
+    const n = nonce ? ` nonce="${nonce}"` : "";
     // Preamble React Fast Refresh — requis par @vitejs/plugin-react. Sans ça,
     // l'app crash au boot avec : "@vitejs/plugin-react can't detect preamble".
     // Normalement injecté par Vite via `transformIndexHtml` — mais ici c'est
@@ -184,7 +190,7 @@ ${tags}
     // le `@vite/client` et l'entry.
     if (entry.type === "react19") {
       tags.push(
-        `<script type="module">
+        `<script type="module"${n}>
 import RefreshRuntime from "${baseUrl}/@react-refresh";
 RefreshRuntime.injectIntoGlobalHook(window);
 window.$RefreshReg$ = () => {};
@@ -193,17 +199,19 @@ window.__vite_plugin_react_preamble_installed__ = true;
 </script>`,
       );
     }
-    tags.push(`<script type="module" src="${baseUrl}/@vite/client"></script>`);
-    tags.push(`<script type="module" src="${entryUrl}"></script>`);
+    tags.push(
+      `<script type="module"${n} src="${baseUrl}/@vite/client"></script>`,
+    );
+    tags.push(`<script type="module"${n} src="${entryUrl}"></script>`);
     // Pont HMR : relaie les hot-updates Vite vers un CustomEvent `window` que la
     // debug bar observe. Branché sur `createHotContext` (réutilise le client
     // `@vite/client` DÉJÀ chargé) → AUCUNE connexion WebSocket supplémentaire
     // (≠ ancienne sonde qui ouvrait un 2ᵉ client `vite-hmr` en boucle).
-    tags.push(this.hmrBridgeTag(baseUrl));
+    tags.push(this.hmrBridgeTag(baseUrl, n));
     // Debug bar Nodefony (dev only, auto) — vitrine realtime + HMR fusionnés au
     // runtime. Le script est servi depuis le build navigateur du Core via Vite
     // (`/@fs/<abs>`) ; on lui injecte le framework + l'origine.
-    const dbg = this.debugBarTag(baseUrl, entry.type, entryName);
+    const dbg = this.debugBarTag(baseUrl, entry.type, entryName, n);
     if (dbg) tags.push(dbg);
     return tags.join("\n");
   }
@@ -215,8 +223,8 @@ window.__vite_plugin_react_preamble_installed__ = true;
    * ouvert par `@vite/client` — zéro connexion ajoutée. Tolérant aux versions
    * (try/catch) : si l'export change, le compteur HMR reste à 0 sans casser la page.
    */
-  private hmrBridgeTag(baseUrl: string): string {
-    return `<script type="module">
+  private hmrBridgeTag(baseUrl: string, nonceAttr: string): string {
+    return `<script type="module"${nonceAttr}>
 try {
   const { createHotContext } = await import("${baseUrl}/@vite/client");
   const h = createHotContext("/@nodefony-debugbar-hmr");
@@ -245,6 +253,7 @@ try {
     baseUrl: string,
     framework: string,
     entryName: string,
+    nonceAttr: string,
   ): string {
     if (debugbarFile === undefined) {
       try {
@@ -262,7 +271,7 @@ try {
     const opts = JSON.stringify({
       frontend: { framework, name: entryName, viteOrigin: baseUrl },
     });
-    return `<script type="module">
+    return `<script type="module"${nonceAttr}>
 import { mountDebugBar } from ${JSON.stringify(fsUrl)};
 mountDebugBar(${opts});
 </script>`;
@@ -273,7 +282,7 @@ mountDebugBar(${opts});
    * les assets fingerprintés du chunk d'entrée — JS + CSS + preload des imports
    * partagés — préfixés par le `publicPath` de l'entrée (servi par `Statics`).
    */
-  private renderProdTags(entryName: string): string {
+  private renderProdTags(entryName: string, nonce?: string): string {
     const entry = this.entries.find((e) => e.entryName === entryName);
     if (!entry) {
       return `<!-- @nodefony/frontend: unknown entry "${entryName}" -->`;
@@ -307,7 +316,7 @@ mountDebugBar(${opts});
         tags.push(`<link rel="modulepreload" href="${base}${dep.file}">`);
     }
     tags.push(
-      `<script type="module" crossorigin src="${base}${chunk.file}"></script>`,
+      `<script type="module"${nonce ? ` nonce="${nonce}"` : ""} crossorigin src="${base}${chunk.file}"></script>`,
     );
     return tags.join("\n");
   }

@@ -29,16 +29,11 @@ class PocController extends Controller {
     const svc = this.context?.container?.get("frontend") as
       | FrontendService
       | undefined;
-    // Override la CSP par défaut helmet (`script-src 'self'`) sinon les
-    // scripts Vite (5173) sont bloqués cross-origin → page blanche.
-    if (svc) {
-      this.context?.response?.setHeader(
-        "Content-Security-Policy",
-        svc.getCspDirectives(),
-      );
-    }
+    // CSP : le firewall (@nodefony/security) émet désormais le CSP (nonce + origines
+    // Vite déclarées via registerCspOrigins). On ne fait que propager le nonce de la
+    // requête aux <script> rendus → satisfait `script-src 'nonce-…'`.
     const viteTags =
-      svc?.renderTags("test-frontend-react") ??
+      svc?.renderTags("test-frontend-react", this.context?.cspNonce) ??
       "<!-- @nodefony/frontend: service unavailable -->";
     const html = `<!DOCTYPE html>
 <html lang="en">

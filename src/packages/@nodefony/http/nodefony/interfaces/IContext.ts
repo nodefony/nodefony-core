@@ -45,6 +45,9 @@ export type AfterResponseHandler = (ctx: IContext) => void | Promise<void>;
 export interface IContext {
   // Identity
   requestId: string;
+  // Nonce CSP par-requête (P6 J5 étape B) — lazy ; lu par le firewall (header CSP)
+  // et le template Vite (`<script nonce>`). Lecture seule : jamais piloté par le client.
+  readonly cspNonce: string;
   type: ServerType;
   scheme: SchemeType;
   method: HTTPMethodType | null;

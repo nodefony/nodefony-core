@@ -26,16 +26,11 @@ class AngularController extends Controller {
     const svc = this.context?.container?.get("frontend") as
       | FrontendService
       | undefined;
-    // Override la CSP par défaut (`script-src 'self'`) sinon les scripts Vite
-    // (5173) sont bloqués cross-origin → page blanche.
-    if (svc) {
-      this.context?.response?.setHeader(
-        "Content-Security-Policy",
-        svc.getCspDirectives(),
-      );
-    }
-    const viteTags = svc?.renderTags("test-frontend-angular")
-      ?? "<!-- @nodefony/frontend: service unavailable -->";
+    // CSP émis par le firewall (@nodefony/security) : on propage le nonce de la
+    // requête aux <script> (origines Vite déclarées via registerCspOrigins).
+    const viteTags =
+      svc?.renderTags("test-frontend-angular", this.context?.cspNonce) ??
+      "<!-- @nodefony/frontend: service unavailable -->";
     const html = `<!DOCTYPE html>
 <html lang="en">
   <head>

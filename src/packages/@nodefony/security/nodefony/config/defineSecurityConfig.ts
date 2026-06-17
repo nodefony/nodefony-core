@@ -189,8 +189,14 @@ const headersSchema = z
       ),
     csp: z
       .string()
-      .default("default-src 'self'")
-      .describe("Content-Security-Policy."),
+      .default(
+        // ⚠️ DOIT rester identique au défaut de `config/config.ts` (réf humaine) —
+        // divergence = CSP runtime ≠ Zod (vécu : un seul des deux mis à jour).
+        "default-src 'self'; script-src 'self' 'nonce-{{nonce}}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'",
+      )
+      .describe(
+        "Content-Security-Policy « secure-but-usable ». Seul `script-src` est strict (self + `{{nonce}}` substitué par requête si `cspNonces`) = défense XSS ; le reste couvre les besoins réels (CSS-in-JS, img/font inline, blobs, fetch/WS same-origin, workers) + durcissements (object 'none', base-uri/form-action 'self').",
+      ),
     cspNonces: z
       .boolean()
       .default(true)

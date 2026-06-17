@@ -1,6 +1,7 @@
 import type { ContextType } from "@nodefony/http";
 import type { IAuthenticator } from "./IAuthenticator";
 import type { ISecuredArea } from "./ISecuredArea";
+import type { CspFragment } from "../src/csp";
 
 /**
  * Orchestrateur de sécurité — branché dans le pipeline HTTP/WS de `@nodefony/http`.
@@ -33,6 +34,16 @@ export interface IFirewall {
    * CORP, Permissions-Policy) sur la réponse. No-op si désactivés / hors HTTP.
    */
   applySecurityHeaders(context: ContextType): void;
+
+  /**
+   * Déclare des directives CSP additionnelles pour un module (ex. `@nodefony/frontend`
+   * en dev : origines Vite + `'unsafe-eval'`). Fusionnées dans le CSP de base et
+   * recomposées (re-split nonce) au (dé)enregistrement — jamais par requête.
+   */
+  registerCspOrigins(moduleName: string, fragment: CspFragment): void;
+
+  /** Retire les directives CSP d'un module (ex. `stopDev` du frontend). */
+  unregisterCspOrigins(moduleName: string): void;
 
   /** Enregistre un authenticator (appelé par chaque `*Authenticator` au boot). */
   registerAuthenticator(authenticator: IAuthenticator): void;

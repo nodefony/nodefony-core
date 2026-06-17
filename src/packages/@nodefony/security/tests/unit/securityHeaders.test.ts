@@ -82,3 +82,38 @@ describe("SecurityHeaders — bords", () => {
     });
   });
 });
+
+describe("SecurityHeaders — nonce CSP par requête (étape B)", () => {
+  const NONCE_CSP = "default-src 'self'; script-src 'self' 'nonce-{{nonce}}'";
+
+  it("nonce activé + placeholder → CSP dynamique (hors table figée)", () => {
+    const sh = make({ csp: NONCE_CSP, cspNonces: true });
+    assert.equal(sh.hasNonce, true);
+    // Recomposé par requête → PAS dans la table figée (sinon nonce gelé au boot).
+    assert.equal(sh.headers["Content-Security-Policy"], undefined);
+  });
+  it("cspFor injecte le nonce de la requête au placeholder", () => {
+    const sh = make({ csp: NONCE_CSP, cspNonces: true });
+    assert.equal(
+      sh.cspFor("AbC123=="),
+      "default-src 'self'; script-src 'self' 'nonce-AbC123=='",
+    );
+  });
+  it("nonces différents → CSP différents (unicité par requête)", () => {
+    const sh = make({ csp: NONCE_CSP, cspNonces: true });
+    assert.notEqual(sh.cspFor("aaa"), sh.cspFor("bbb"));
+  });
+  it("nonce désactivé + placeholder → token purgé, CSP statique propre", () => {
+    const sh = make({ csp: NONCE_CSP, cspNonces: false });
+    assert.equal(sh.hasNonce, false);
+    assert.equal(
+      sh.headers["Content-Security-Policy"],
+      "default-src 'self'; script-src 'self'",
+    );
+  });
+  it("nonce activé MAIS pas de placeholder → CSP statique (pas de nonce mensonger)", () => {
+    const sh = make({ csp: "default-src 'self'", cspNonces: true });
+    assert.equal(sh.hasNonce, false);
+    assert.equal(sh.headers["Content-Security-Policy"], "default-src 'self'");
+  });
+});

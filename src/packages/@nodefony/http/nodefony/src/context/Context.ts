@@ -21,7 +21,7 @@ import { WebSocketServer } from "ws";
 import http2 from "node:http2";
 import http from "node:http";
 import https from "node:https";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { AsyncResource } from "node:async_hooks";
 import HttpKernel, {
@@ -175,6 +175,16 @@ class Context extends Service implements IContextInterface {
    */
   sessionIntent: SessionIntent | null = null;
   requestId: string = randomUUID();
+  // Nonce CSP par-requête (P6 J5 étape B) — généré PARESSEUSEMENT à la 1ʳᵉ lecture
+  // (`randomBytes(16)` = 128 bits CSPRNG, base64). Mémoïsé : le header CSP
+  // (`'nonce-X'`, posé par le firewall via `applySecurityHeaders`) et le
+  // `<script nonce="X">` (template Vite) lisent la MÊME valeur. Jamais lu (réponse
+  // sans inline à signer) → 0 coût crypto. Aucun setter : un nonce serveur-only doit
+  // rester imprévisible (jamais piloté par le client, contrairement à `requestId`).
+  #cspNonce: string | null = null;
+  get cspNonce(): string {
+    return (this.#cspNonce ??= randomBytes(16).toString("base64"));
+  }
   // P2.7 — W3C Trace Context. Set by HttpKernel at request entry to the
   // resolved traceparent (honored incoming header or freshly generated).
   // Null until resolution runs — should never be read before the kernel

@@ -93,7 +93,21 @@ export default {
       enabled: true, //                  applique les en-têtes. Défaut: true.
       hsts: true, //                     Strict-Transport-Security (HTTPS forcé). Défaut: true.
       hstsMaxAgeS: 31536000, //          durée HSTS (s). Défaut: 1 an (includeSubDomains).
-      csp: "default-src 'self'", //      Content-Security-Policy. Défaut: self only.
+      // CSP « secure-but-usable » : seul `script-src` est strict (self + nonce/requête =
+      // la vraie défense XSS) ; le reste couvre les besoins réels des apps web modernes
+      // (CSS-in-JS, images/fonts inline, blobs, fetch/WS same-origin, workers). `{{nonce}}`
+      // substitué par requête si cspNonces. Durcissements : object 'none', base-uri/form-action 'self'.
+      csp:
+        "default-src 'self'; " +
+        "script-src 'self' 'nonce-{{nonce}}'; " +
+        "style-src 'self' 'unsafe-inline'; " + // CSS-in-JS : attributs `style=""` non couvrables par nonce
+        "img-src 'self' data: blob:; " + //       icônes/logos base64 + canvas/charts
+        "font-src 'self' data:; " + //            polices inline
+        "connect-src 'self'; " + //               fetch + WebSocket same-origin (API + realtime)
+        "worker-src 'self' blob:; " + //          web workers (mermaid/cytoscape…)
+        "object-src 'none'; " + //                bloque Flash/plugins (anti-XSS legacy)
+        "base-uri 'self'; " + //                  empêche l'injection d'une <base> pirate
+        "form-action 'self'", //                  POST uniquement vers l'origine
       cspNonces: true, //                nonce CSP par requête (bloque l'inline non signé). Défaut: true.
       frameguard: "deny", //             X-Frame-Options. Défaut: "deny" (anti-clickjacking).
       noSniff: true, //                  X-Content-Type-Options: nosniff. Défaut: true.

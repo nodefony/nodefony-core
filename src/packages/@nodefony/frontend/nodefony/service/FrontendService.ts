@@ -332,6 +332,9 @@ class FrontendService extends Service implements IFrontendService {
       this.fire("frontend:error", err);
       throw err;
     }
+    // CSP (P6 J5 étape B) : déclarer les origines Vite au firewall (UN seul CSP émis
+    // par security ensuite). Après ready → ports Vite résolus (viteOrigins à jour).
+    this.#registerCsp();
     this.fire("frontend:ready", this.status());
   }
 
@@ -473,6 +476,12 @@ class FrontendService extends Service implements IFrontendService {
     this.supervisors.clear();
     this.templateHelpers.clear();
     this.entryFamily.clear();
+    // CSP : retirer les origines Vite du firewall (le CSP repasse au strict de base).
+    (
+      this.container?.get?.("firewall") as
+        | { unregisterCspOrigins?: (m: string) => void }
+        | undefined
+    )?.unregisterCspOrigins?.("frontend");
     this.fire("frontend:stopped");
   }
 
@@ -577,69 +586,95 @@ class FrontendService extends Service implements IFrontendService {
   /**
    * Document HTML complet pour une entrée — lit l'`index.html` du module
    * (le dev y met meta/polices/scripts externes) + injecte les tags Nodefony.
-   * Le controller peut renvoyer directement : `this.render(svc.renderDocument("x"))`.
+   * Le controller renvoie : `this.render(svc.renderDocument("x", this.context.cspNonce))`.
+   * @param nonce nonce CSP de la requête (`Context.cspNonce`) — propagé aux `<script>`.
    */
-  renderDocument(entryName: string): string {
+  renderDocument(entryName: string, nonce?: string): string {
     if (this.prodHelper) {
-      return this.prodHelper.renderDocument(entryName);
+      return this.prodHelper.renderDocument(entryName, nonce);
     }
     const family = this.entryFamily.get(entryName);
     const helper = family ? this.templateHelpers.get(family) : undefined;
     if (!helper) {
       return `<!-- @nodefony/frontend: helper not initialized for "${entryName}" -->`;
     }
-    return helper.renderDocument(entryName);
+    return helper.renderDocument(entryName, nonce);
   }
 
-  renderTags(entryName: string): string {
+  renderTags(entryName: string, nonce?: string): string {
     // Prod : helper unique qui lit les manifests (Vite ne tourne pas).
     if (this.prodHelper) {
-      return this.prodHelper.renderTags(entryName);
+      return this.prodHelper.renderTags(entryName, nonce);
     }
     const family = this.entryFamily.get(entryName);
     const helper = family ? this.templateHelpers.get(family) : undefined;
     if (!helper) {
       return `<!-- @nodefony/frontend: helper not initialized for "${entryName}" -->`;
     }
-    return helper.renderTags(entryName);
+    return helper.renderTags(entryName, nonce);
   }
 
   /**
-   * Retourne la valeur du header `Content-Security-Policy` à poser sur les
-   * pages qui chargent du JS depuis le dev server Vite (cross-origin).
-   * Sans ça, helmet pose `script-src 'self'` par défaut et le browser bloque
-   * `http://127.0.0.1:5173/@vite/client` → page blanche.
-   *
-   * À appeler dans le controller AVANT `render()` :
-   *   this.context.response.setHeader("Content-Security-Policy", svc.getCspDirectives())
-   *
-   * Inclut `ws://host:port` dans `connect-src` pour le canal HMR.
+   * Déclare les origines Vite dev au firewall `@nodefony/security` (résolution PAR
+   * NOM = anti-cycle, comme `setupProd`/`server-static`). Le firewall émet alors UN
+   * seul CSP (nonce + origines mergées) → remplace le hack `setHeader` des controllers.
+   * No-op si security absent (app sans firewall).
    */
-  getCspDirectives(): string {
+  #registerCsp(): void {
+    const firewall = this.container?.get?.("firewall") as
+      | {
+          registerCspOrigins?: (m: string, f: Record<string, string[]>) => void;
+        }
+      | undefined;
+    firewall?.registerCspOrigins?.("frontend", this.#viteCspFragment());
+  }
+
+  /**
+   * Fragment CSP des besoins Vite DEV. Deux exigences :
+   *  1. **`'self'` dans CHAQUE directive** : `connect-src`/`style-src`/`img-src`/
+   *     `font-src` n'héritent PAS de `default-src` → sans `'self'`, tout le
+   *     same-origin (fetch API, styles, images, fonts) serait bloqué.
+   *  2. **Origines Vite sur tous les hosts de dev** : loopback + `kernel.domain`
+   *     + la liste `trustedHosts` du module http (vhosts comme `nodefony.com`) ×
+   *     ports Vite. Sans ça, accéder via un vhost bloque les ressources Vite.
+   * Tokens : `'unsafe-eval'` (React Fast Refresh — le nonce ne couvre PAS l'eval)
+   * et `'unsafe-inline'` style (styles injectés par Vite). PAS de `'unsafe-inline'`
+   * script : le preamble inline est NONCÉ. Mergé par le firewall (jamais en prod :
+   * `startDev` ne tourne pas en production → CSP strict same-origin).
+   */
+  #viteCspFragment(): Record<string, string[]> {
     const scheme = this.cfg.https ? "https" : "http";
     const wsScheme = this.cfg.https ? "wss" : "ws";
-    // Multi-instance : autorise TOUTES les origines Vite actives (une par
-    // famille, ports distincts). Sans ça, la page d'une famille servie depuis
-    // un autre port que 5173 (ex. Angular sur 5177) serait bloquée par la CSP.
-    const origins = this.viteOrigins();
-    const httpSrc = origins.map((o) => `${scheme}://${o}`).join(" ");
-    const wsSrc = origins.map((o) => `${wsScheme}://${o}`).join(" ");
-    return [
-      "default-src 'self'",
-      // 'unsafe-inline' requis pour le preamble React Fast Refresh inliné par
-      // TemplateHelper (HMR @vitejs/plugin-react). À retirer en prod — le bundle
-      // production n'a pas besoin de scripts inline.
-      `script-src 'self' 'unsafe-inline' ${httpSrc}`,
-      // worker-src : certains modules (Vite, libs) créent un Worker depuis un
-      // `blob:` → sans directive dédiée, le browser retombe sur script-src qui
-      // n'autorise pas `blob:` → worker bloqué. Dev only.
-      "worker-src 'self' blob:",
-      `style-src 'self' 'unsafe-inline' ${httpSrc}`,
-      `img-src 'self' data: blob: ${httpSrc}`,
-      `font-src 'self' data: ${httpSrc}`,
-      `connect-src 'self' blob: data: ${httpSrc} ${wsSrc}`,
-      "object-src 'none'",
-    ].join("; ");
+    // Ports Vite réels (un par famille) — réutilise `viteOrigins` (host:port).
+    const ports = new Set(
+      this.viteOrigins().map((o) => o.slice(o.lastIndexOf(":") + 1)),
+    );
+    // Hosts par lesquels le dev accède LÉGITIMEMENT : loopback + domaine canonique
+    // + `trustedHosts` du http (résolu PAR NOM, anti-cycle — comme firewall/static).
+    const hosts = new Set<string>(["127.0.0.1", "localhost"]);
+    if (this.kernel?.domain) hosts.add(this.kernel.domain);
+    const th = (
+      this.container?.get?.("HttpKernel") as
+        | { trustedHosts?: boolean | string | string[] }
+        | undefined
+    )?.trustedHosts;
+    if (typeof th === "string") hosts.add(th);
+    else if (Array.isArray(th)) for (const h of th) hosts.add(h);
+    const httpSrc: string[] = [];
+    const wsSrc: string[] = [];
+    for (const h of hosts)
+      for (const p of ports) {
+        httpSrc.push(`${scheme}://${h}:${p}`);
+        wsSrc.push(`${wsScheme}://${h}:${p}`);
+      }
+    return {
+      "script-src": ["'self'", "'unsafe-eval'", ...httpSrc],
+      "style-src": ["'self'", "'unsafe-inline'", ...httpSrc],
+      "worker-src": ["'self'", "blob:"],
+      "img-src": ["'self'", "data:", "blob:", ...httpSrc],
+      "font-src": ["'self'", "data:", ...httpSrc],
+      "connect-src": ["'self'", "blob:", "data:", ...httpSrc, ...wsSrc],
+    };
   }
 
   /**

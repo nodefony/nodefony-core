@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-15T22:39:29.794Z",
+  "generated": "2026-06-17T00:16:01.544Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 911,
-    "symbols": 1957,
+    "files": 912,
+    "symbols": 1961,
     "classes": 287,
     "interfaces": 510,
-    "types": 244,
+    "types": 245,
     "enums": 3,
-    "functions": 408,
+    "functions": 411,
     "constants": 505
   },
   "symbols": {
@@ -8706,6 +8706,38 @@
       "module": "@nodefony/security",
       "extends": null,
       "description": "Résultat d'une authentification WebAuthn vérifiée."
+    },
+    "CspFragment": {
+      "name": "CspFragment",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/csp.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fusion de directives Content-Security-Policy — logique PURE (aucune dépendance à Vite, au frontend ni au transport). Permet à un module de DÉCLARER ses besoins CSP (ex. `@nodefony/frontend` en dev …"
+    },
+    "parseCsp": {
+      "name": "parseCsp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/csp.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Parse une chaîne CSP en directives ordonnées `[nom, sources[]]`. L'ordre des directives et des sources est préservé (déterminisme : header stable, tests fiables). Les séparateurs multiples / espace…"
+    },
+    "serializeCsp": {
+      "name": "serializeCsp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/csp.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Sérialise des directives ordonnées en chaîne CSP (`a b; c d`)."
+    },
+    "mergeCspFragments": {
+      "name": "mergeCspFragments",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/csp.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fusionne un CSP de base avec des fragments additifs par module. - directive déjà dans la base → ses sources sont COMPLÉTÉES (dédupliquées, ordre base d'abord puis ajouts) ; - directive absente → AJ…"
     },
     "RoleHierarchyWalker": {
       "name": "RoleHierarchyWalker",
@@ -18307,6 +18339,10 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
       ],
+      "CspFragment": [
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
       "IUserProvider": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
@@ -18380,6 +18416,9 @@
       "RoleHierarchyWalker": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
+      ],
+      "mergeCspFragments": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "Csrf": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
