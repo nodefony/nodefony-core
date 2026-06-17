@@ -268,3 +268,71 @@ GLOBAL 57%  90✅ 29🔶 63⬜  (182 tâches)   — passe 1 : 53 % / 179
 distancé la tenue manuelle). La re-obésité du § Séquencement (2 767 car. en 7 jours) confirme la
 règle : le détail-journal DOIT aller dans git log / retros, jamais dans une cellule. Mémoires IA et
 MD modules resyncés dans la même passe (cf commit). **Prochaine étape inchangée : P6 Security.**
+
+---
+
+# Passe 3 — resync vérité 2026-06-17 (111 commits code depuis la passe 2)
+
+> Période : 2026-06-12 → 2026-06-17. Branche `refactor/p6-security`. Méthode identique (autorité =
+> emoji 1ʳᵉ cellule, confrontation code + croisement retex + commits + dev applicatif).
+> **Le delta est massif et localisé : P6 (187 fichiers `security` touchés) + stores ORM P7.** Les
+> autres phases n'ont pas bougé → l'audit des passes 1/2 tient (re-confirmé par sonde de surface).
+
+## Synthèse des écarts
+
+| #   | Écart                                                                                                      | Gravité          | Action                                    |
+| --- | ---------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------- |
+| F1  | l.177 = pavé-journal P6 de **13 027 car.** (pire cellule jamais vue, re-obésité)                           | 🔴 Forme         | condenser → 1 ligne + git/audit           |
+| F2  | cellules tableau P6.x ~800 car. (journal inline)                                                           | 🟠 Forme         | raccourcir : 1 phrase + hash              |
+| F3  | encadré « Prochaine étape » décrit P6 **non commencé** (« S1 + câblage + beforeResolve »)                  | 🔴 contradiction | réécrire : cœur P6 bouclé → @Csp/API Keys |
+| 1   | **P6.9** ⬜ OAuth2 → social login BFF **livré** (J9, `oauth2-flow` 6/6)                                    | 🔴 chiffre faux  | ⬜→🔶 (reste OAuth2 resource-server opt.) |
+| 2   | **P6.11** ⬜ « intégration = 0 » → **22 fichiers test security + 7 bancs E2E**                             | 🔴 chiffre faux  | ⬜→🔶                                     |
+| 3   | **P6.12** ⬜ API Keys → modèle PAT **déjà persisté** (`IAccessTokenRecord` kind:pat) + 3 stores ORM testés | 🟠 sous-compté   | ⬜→🔶                                     |
+| 4   | bandeau P6 = **13✅4🔶3⬜** alors que le tableau détail = ~9-10✅                                          | 🔴 chiffre faux  | recompter (awk 1ʳᵉ cellule)               |
+| 5   | refs mortes : `mikroorm`×3 / `pm2`×8 / `sequelize`×5 (**modules absents du code**)                         | 🟠 doc périmée   | purger / marquer abandonné                |
+| 6   | module `@nodefony/documentation` (**14 src + dist**) = **0 occurrence** au dashboard                       | ➕ non tracké    | ajouter ligne (P10/P14)                   |
+| 7   | P7 : stores **token + webauthn** Drizzle/Mongoose/Redis **livrés + testés** (J4b/J9)                       | 🟢 recaler       | noter (drivers servent la sécu)           |
+
+## Verdict par phase (delta vs passe 2)
+
+```
+P0–P4              inchangés       🟢 fidèle    (delta git = 0 ; audit passes 1/2 tient)
+P5  Session/User    79%  12✅3🔶2⬜ 🟢 fidèle    (user mûri : provisioning OAuth Shadow User + 9 tests)
+P6  Security       ~68%  ~10✅5🔶4⬜ 🔴 ventilation FAUSSE (bandeau 13✅) + 3 ⬜ périmés (6.9/6.11/6.12)
+                                                 RÉEL : J4 JWT ✅ · J6 autz ✅ · J7 décorateurs ✅
+                                                 · J8 garde WS ✅ · J9 WebAuthn+OAuth2 ✅ · CSRF/CORS/
+                                                 headers/CSP-nonce ✅ — 22 tests + 7 bancs E2E
+P7  ORM drivers    ~80%             🟡 recaler   stores token+webauthn 3 backends testés (delta J4b/J9)
+P8–P9              inchangés       🟢 fidèle
+P10 Studio          68%             🟢 fidèle    (50 src ; +login social = amorce P6.15)
+P11 CLI module      44%             🟢 fidèle
+P13 Realtime        77%+            🟢 fidèle    (32 src/20 tests ; +RBAC canal WS + socket L0→L4)
+P14 Frontend        75%             🟢 fidèle
+P15 Mediasoup        0%             🟢 fidèle    (module = banc ORM, confirmé par sa description)
+P16 Cloud-Native    29%             🟢 fidèle    (P16.I liveness ✅ ; cluster P16.H livré)
++   documentation   ——             ➕ NON TRACKÉ (14 src + dist, complet) → à ajouter à la roadmap
+```
+
+> Drapeau = fidélité COMPTAGE↔code : `🟢 fidèle` · `🟡 forme/vision périmée` · `🔴 chiffre faux`.
+
+## Croisement retex + commits + dev applicatif (exigence « zéro erreur »)
+
+- **Commits** (111 depuis 06-12) : confirment chaque ✅ P6 (1 commit `feat(security)` par jalon J4→J9 +
+  CSRF/CORS/headers/CSP) et les stores ORM (`feat(drizzle/mongoose/redis): store … J4b/J9`).
+- **Retex** (`docs/session-retros/`, 16 sessions) : cohérents avec le code (J4 jose EdDSA, J8 cause dual-package,
+  stores HASH/TTL, login UX multi-credentials, OAuth périmètre arctic). Aucun écart code↔retex.
+- **Dev applicatif** (« le truc dev en plus ») : app de dev racine = `nodefony.config.ts` + `env.ts` +
+  **`config/oauth.ts`** (social login Google/GitHub niveau APP, `feat(app)` 811c8994) — hors roadmap par
+  nature (config de déploiement), à mentionner mais pas une tâche P6.
+- **Forme annexe** : `RETEX.md` (le SAS « ~1 écran ») a enflé à **1257 lignes** → CONSOLIDATE dû (hors scope
+  dashboard, noté).
+
+## Verdict global passe 3
+
+**Les chiffres sont honnêtes SUR LE FOND, mais P6 a 3 erreurs nettes** (≠ passes 1/2 où tout était fidèle) :
+le bandeau P6 sur-compte (13✅ vs ~10 réel) et **3 tâches livrées/partielles sont encore ⬜** (6.9 OAuth2,
+6.11 tests, 6.12 API Keys) — le rythme 111 commits/5 j a distancé la tenue manuelle, comme prévu. La FORME
+reste le gros défaut : **le pavé l.177 (13 KB) est la pire cellule-journal de l'historique** + l'encadré
+« Prochaine étape » ment (P6 décrit non commencé). **Action = recaler P6 (statuts + ventilation), dégraisser
+l.177 + tableau P6, réécrire l'encadré, purger 3 refs mortes, tracker `documentation`.**
+**Prochaine étape réelle : @Csp per-route → API Keys (P6.12) → Studio sécu.**
