@@ -88,6 +88,9 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
 
 ## 🎨 Front / Studio / UX
 
+- `[1× — 2026-06-17]` **GPU à fond (ventilation) sur un dashboard live = chercher l'animation PERMANENTE de `box-shadow`/`filter`/`backdrop-filter`, pas le re-render.** Coupables sur `/nodefony/supervision` (90 %→63 %) : (a) `.nf-live-card` animait un `box-shadow` **glow en boucle infinie** = **copie DIVERGENTE** de styles live (`utils/ormFormat.ensureLivePulseStyle` ≠ `components/ui/FlashValue.ensureLiveStyles`, déjà passée opacity + anneau statique) → 2 définitions du même `.nf-live-card`, la dernière injectée dans `<head>` gagne (non-déterministe) ; (b) `LoadingOverlay overlayProps={{blur}}` = **backdrop-filter caché** ; (c) page **3315 lignes sans `contain`** → un tick repeint toute la page (+ LCP render delay ~4 s en dev). Fix : styles live compositor-only + `prefers-reduced-motion`, retrait `blur`, `contain:content` sur la brique partagée `KpiCard`. **Dette** : fusionner les 2 sources de styles live en une.
+- `[1× — 2026-06-17]` **un `<style>` injecté-une-fois (flag de garde) n'est PAS retiré par le HMR Vite** → après un fix CSS, l'ANCIENNE règle (animation) reste dans `<head>` et tourne toujours → le fix « ne se voit pas » tant qu'on n'a pas **hard-reload** (Cmd+Shift+R). Exiger le hard-reload avant de juger un fix de style insuffisant. Diag perf navigateur = **user-driven** (gestionnaire GPU / Paint Flashing / LCP — pas de headless, règle projet) ; test discriminant le plus rapide = **couper « Temps réel »** (GPU retombe ⇒ rendu live ; reste haut ⇒ coupable statique).
+
 - `[1× — 2026-06-15]` **UX login multi-credentials = modéliser « ce compte A-T-IL un mot de passe ? », PAS
   « quel était le dernier mode »** (rebonjour social/passkey/mdp — 3 allers-retours, user « on a perdu la
   logique !! »). Erreur intermédiaire : masquer le champ mdp pour un compte passkey → BLOQUÉ (un passkey est
@@ -373,6 +376,8 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 - `[1× — 2026-06-08]` **« durci/complet » sans préciser le niveau = survente, challengée.** Dit ORM mongoose « durcissement complet » → 0 test E2E système (memory-server + boot hors-kernel, pas de serveur réel). → distinguer **unit / composant / E2E système** ; jamais « complet » sans le niveau atteint.
 
 ## 🧹 Refonte / consolidation (frictions du jour)
+
+- `[1× — 2026-06-17]` **audit MIGRATION_STATUS (passe 3) — 3 pièges.** (a) La ligne **GLOBAL ne sommait PAS ses propres lignes** (57 % affiché vs **62 % réel**) → recompter en sommant les lignes du bandeau (`grep '^ P[0-9]' | perl`), jamais se fier au total écrit à la main. (b) Les **refs « mortes »** (mikroorm/pm2/sequelize) étaient **déjà correctement marquées `⏭️ caduc`/abandonné** → vérifier AVANT de « purger » (j'allais retirer des marqueurs LÉGITIMES — la confiance n'exclut pas le contrôle ; « purger le vivant, préserver l'historique »). (c) Un **livrable peut être tracké sous un AUTRE nom** : le « data plane sécu persisté » (P6.12 API Keys) existait déjà via `ITokenStore`/`IAccessTokenRecord` kind:`pat` + stores ORM (révélé par le user) → l'audit doit chercher le BESOIN, pas le mot-clé. Module `@nodefony/documentation` (14 src) **non tracké** → ajouté P10.14. Outil : `perl -CSD` ne matche PAS un emoji littéral du script (input décodé ≠ script en octets) → **sans `-CSD`** ; l'`awk` macOS compte `⏭️` (1ʳᵉ cellule) comme `⬜`.
 
 - `[1× — 2026-06-12]` **le dashboard RE-ENGRAISSE en 7 jours si les sessions appendent au § Séquencement** :
   cellule-journal 2 767 car. reconstituée entre les 2 passes vérité (06-05 → 06-12) malgré la convention en
