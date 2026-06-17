@@ -93,6 +93,7 @@ export function KpiCard({
           </ThemeIcon>
         </Group>
         <Text
+          component="div"
           fw={700}
           style={{
             fontSize: 30,

@@ -175,13 +175,20 @@ export function ensureLivePulseStyle(): void {
   livePulseInjected = true;
   const el = document.createElement("style");
   el.setAttribute("data-nf-orm-live", "");
+  // ⚡ Temps réel CALME (cf skill nodefony-studio-dev) : 0 animation de `box-shadow`/`filter`
+  // (= paint GPU répété en boucle = ventilation). On RÉPLIQUE la version calme de
+  // `FlashValue.ensureLiveStyles` : point « live » = respiration d'OPACITÉ (compositor, 0 paint),
+  // carte « live » = anneau STATIQUE (plus de glow qui bat), + coupe sous prefers-reduced-motion.
   el.textContent = `
-@keyframes nf-live-pulse{0%{box-shadow:0 0 0 0 rgba(18,184,134,.5)}70%{box-shadow:0 0 0 5px rgba(18,184,134,0)}100%{box-shadow:0 0 0 0 rgba(18,184,134,0)}}
-.nf-live-dot{width:8px;height:8px;border-radius:50%;background:var(--mantine-color-teal-6);animation:nf-live-pulse 1.6s ease-out infinite;flex:0 0 auto}
-@keyframes nf-live-glow{0%,100%{box-shadow:0 0 0 0 rgba(18,184,134,0)}50%{box-shadow:0 0 0 3px rgba(18,184,134,.16)}}
-.nf-live-card{animation:nf-live-glow 2.4s ease-in-out infinite}
+@keyframes nf-live-breathe{0%,100%{opacity:.5}50%{opacity:1}}
+.nf-live-dot{width:8px;height:8px;border-radius:50%;background:var(--mantine-color-teal-6);animation:nf-live-breathe 2.4s ease-in-out infinite;flex:0 0 auto}
+.nf-live-card{box-shadow:inset 0 0 0 1px rgba(18,184,134,.22)}
 @keyframes nf-flash{0%{background:rgba(18,184,134,.32)}100%{background:transparent}}
 .nf-flash{animation:nf-flash .9s ease-out;border-radius:4px}
+@media (prefers-reduced-motion: reduce){
+.nf-live-dot{animation:none;opacity:.85}
+.nf-flash{animation:none;background:transparent}
+}
 `;
   document.head.appendChild(el);
 }
