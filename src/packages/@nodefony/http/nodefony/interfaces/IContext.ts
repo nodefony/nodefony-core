@@ -51,6 +51,11 @@ export interface IContext {
   // Directives CSP additionnelles de la route (`@Csp`, P6) — posées par le Resolver
   // au match, lues par le firewall APRÈS le resolve. `null` si la route n'en déclare pas.
   cspDirectives: Record<string, readonly string[]> | null;
+  // CSRF per-route (`@CsrfProtect`/`@CsrfExempt`, P6) — posés par le Resolver au match.
+  // `csrfToken` = synchronizer token émis par le firewall (à surfacer côté vue/SPA).
+  csrfProtect: boolean;
+  csrfExempt: boolean;
+  csrfToken: string | null;
   type: ServerType;
   scheme: SchemeType;
   method: HTTPMethodType | null;

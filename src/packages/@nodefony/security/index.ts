@@ -61,6 +61,7 @@ export type { ISafeUser } from "./nodefony/service/authFlow";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
 export { SecuredArea } from "./nodefony/src/SecuredArea";
 export { Csrf } from "./nodefony/service/csrf";
+export { CsrfTokenManager } from "./nodefony/src/csrfToken";
 export { Cors } from "./nodefony/service/cors";
 export { SecurityHeaders } from "./nodefony/service/securityHeaders";
 export { RoleHierarchyWalker } from "./nodefony/src/RoleHierarchyWalker";

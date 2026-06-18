@@ -13,6 +13,8 @@ import {
   Param,
   Body,
   Query,
+  CsrfProtect,
+  CsrfExempt,
 } from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
 
@@ -128,6 +130,34 @@ class FrameworkController extends Controller {
   @Patch("/patch-only")
   patchOnly() {
     return this.renderJson({ method: "PATCH" });
+  }
+
+  // ── CSRF étape 2 (@CsrfProtect synchronizer token / @CsrfExempt) ─────────────
+  // GET protégé : le firewall mint le token sur cette requête sûre → cookie lisible
+  // `csrf-token` + `context.csrfToken`. @UseSession force AUSSI un cookie de session
+  // → la réponse porte 2 Set-Cookie (preuve e2e du flush multi-cookie).
+  @CsrfProtect()
+  @UseSession()
+  @Get("/csrf/token")
+  csrfToken() {
+    return this.renderJson({
+      token: (this.context as { csrfToken?: string | null }).csrfToken ?? null,
+    });
+  }
+
+  // POST protégé : exige `x-csrf-token` ≡ cookie `csrf-token` + HMAC valide (sinon 403).
+  @CsrfProtect()
+  @Post("/csrf/submit")
+  csrfSubmit() {
+    return this.renderJson({ ok: true });
+  }
+
+  // POST exempté : hors défense CSRF (webhook authentifié autrement) → un POST
+  // cross-site n'est PAS bloqué ici (contraste avec /post-only qui, lui, l'est).
+  @CsrfExempt()
+  @Post("/csrf/webhook")
+  csrfWebhook() {
+    return this.renderJson({ received: true });
   }
 
   // ── context info ─────────────────────────────────────────────────────────────

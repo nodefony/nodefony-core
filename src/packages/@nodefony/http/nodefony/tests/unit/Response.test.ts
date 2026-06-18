@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import http from "node:http";
 import HttpResponse from "../../src/context/http/Response.js";
+import Cookie from "../../src/cookies/cookie.js";
 import type HttpContext from "../../src/context/http/HttpContext.js";
 
 // Mock minimal : un store de headers en mémoire (insensible à la casse, comme
@@ -220,6 +221,40 @@ describe("HttpResponse — unit tests", () => {
       r.setTimeout(5000);
       expect(r.encoding).to.equal("latin1");
       expect(r.timeout).to.equal(5000);
+    });
+  });
+
+  // Régression CRITIQUE : `setHeader('Set-Cookie', str)` REMPLACE chez Node — une
+  // boucle de setHeader perdait tous les cookies sauf le dernier (ex. session +
+  // csrf-token). `setCookies()` doit émettre un TABLEAU = N lignes Set-Cookie.
+  describe("setCookies() — cookies multiples (régression clobber)", () => {
+    it("1 cookie → une string Set-Cookie", () => {
+      const r = makeResponse();
+      r.addCookie(new Cookie("sid", "abc", { path: "/" }));
+      r.setCookies();
+      const sc = (r as any).response.getHeader("set-cookie");
+      expect(sc).to.be.a("string");
+      expect(sc).to.contain("sid=abc");
+    });
+
+    it("2 cookies (session + csrf-token) → tableau de 2, AUCUN écrasé", () => {
+      const r = makeResponse();
+      r.addCookie(new Cookie("nodefony-session", "S1", { path: "/" }));
+      r.addCookie(
+        new Cookie("csrf-token", "T2", { path: "/", sameSite: "Strict" }),
+      );
+      r.setCookies();
+      const sc = (r as any).response.getHeader("set-cookie") as string[];
+      expect(sc).to.be.an("array").with.lengthOf(2);
+      const joined = sc.join("\n");
+      expect(joined).to.contain("nodefony-session=S1");
+      expect(joined).to.contain("csrf-token=T2");
+    });
+
+    it("0 cookie → aucun Set-Cookie posé", () => {
+      const r = makeResponse();
+      r.setCookies();
+      expect((r as any).response.getHeader("set-cookie")).to.equal(undefined);
     });
   });
 });

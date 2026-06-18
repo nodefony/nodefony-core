@@ -127,6 +127,10 @@ class Resolver implements IResolver {
         if (actionMeta.cspDirectives !== null) {
           this.context.cspDirectives = actionMeta.cspDirectives;
         }
+        // CSRF per-route (`@CsrfProtect`/`@CsrfExempt`) → lus par `Firewall.enforceCsrf`
+        // (post-resolve, dans `onRequestEnd`). `false` par défaut → on n'écrit que si posé.
+        if (actionMeta.csrfProtect) this.context.csrfProtect = true;
+        if (actionMeta.csrfExempt) this.context.csrfExempt = true;
       }
       return match;
     } catch (e) {

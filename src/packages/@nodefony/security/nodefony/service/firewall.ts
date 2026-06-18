@@ -16,12 +16,15 @@ import { encoderFromConfig } from "@nodefony/user";
 import { SecuredArea } from "../src/SecuredArea";
 import { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
+import { randomBytes } from "node:crypto";
 import { mergeCspFragments, type CspFragment } from "../src/csp";
+import { CsrfTokenManager } from "../src/csrfToken";
 import { Csrf } from "./csrf";
 import { Cors } from "./cors";
 import { SecurityHeaders } from "./securityHeaders";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
+import { CsrfError } from "../errors/CsrfError";
 import {
   defineSecurityConfig,
   type ISecurityConfig,
@@ -66,6 +69,26 @@ function headerValue(
 }
 
 /**
+ * Extrait la valeur d'un cookie de l'en-tête `Cookie` brut (lecture directe, sans
+ * dépendre du parse du Context — robuste quel que soit l'ordre du pipeline).
+ * Retient la 1ʳᵉ occurrence du nom. Utilisé par la défense synchronizer CSRF.
+ */
+function cookieValue(
+  cookieHeader: string | undefined,
+  name: string,
+): string | undefined {
+  if (!cookieHeader) return undefined;
+  for (const part of cookieHeader.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() === name) {
+      return decodeURIComponent(part.slice(eq + 1).trim());
+    }
+  }
+  return undefined;
+}
+
+/**
  * Orchestrateur de sécurité Nodefony — refonte 2026 (P6).
  *
  * `isSecure()` (hot-path, court-circuit si aucune zone) ne fait QUE matcher la
@@ -96,6 +119,9 @@ class Firewall extends Service implements IFirewall {
   #roleHierarchy: RoleHierarchyWalker | null = null;
   // Défense CSRF par défaut — null tant que la config CSRF est désactivée.
   #csrf: Csrf | null = null;
+  // Synchronizer token CSRF (`@CsrfProtect`, défense en profondeur opt-in) — null
+  // si CSRF désactivé. Construit avec le secret config ou un secret éphémère (dev).
+  #csrfTokens: CsrfTokenManager | null = null;
   // Politique CORS — null tant que la config CORS est désactivée.
   #cors: Cors | null = null;
   // En-têtes de sécurité applicatifs (CSP, Referrer-Policy, COOP/COEP/CORP…) —
@@ -152,6 +178,19 @@ class Firewall extends Service implements IFirewall {
         ...this.#config.csrf.trustedOrigins,
         ...this.#config.cors.origins,
       ]);
+      // Synchronizer token (`@CsrfProtect`) : secret config en prod (PARTAGÉ entre
+      // process), sinon secret éphémère + avertissement (dev — re-généré au restart,
+      // invalide les tokens en cours ; non sûr en cluster). Construit dès que CSRF
+      // est actif → les routes décorées fonctionnent sans config supplémentaire.
+      let secret = this.#config.csrf.secret;
+      if (!secret) {
+        secret = randomBytes(32).toString("base64url");
+        this.log(
+          "csrf.secret absent → secret synchronizer ÉPHÉMÈRE généré (dev). En PROD/cluster, fixer csrf.secret (≥16 car., partagé entre process).",
+          "WARNING",
+        );
+      }
+      this.#csrfTokens = new CsrfTokenManager(secret);
     }
     // Politique CORS (globale, hors zones). La config `*`+credentials est déjà
     // rejetée au boot (refine Zod) → ici `#cors` est toujours sûr.
@@ -410,24 +449,45 @@ class Firewall extends Service implements IFirewall {
   }
 
   /**
-   * Défense CSRF (P6 J5) — branchée dans le pipeline HTTP de `@nodefony/http`
-   * pour TOUTE requête (zone ou non) : une mutation cross-site est rejetée même
-   * sur une route publique. Synchrone et fail-fast sur le hot-path (méthode sûre
-   * → retour immédiat, aucun en-tête lu). No-op si CSRF désactivé ou route
-   * exemptée du firewall (`bypassFirewall` — calque des callbacks OAuth).
+   * Défense CSRF (P6 J5/étape 2) — branchée dans le pipeline HTTP de `@nodefony/http`
+   * pour TOUTE requête (zone ou non), APRÈS le resolve (les marqueurs `@CsrfProtect`/
+   * `@CsrfExempt` de la route sont disponibles). Trois rôles :
    *
-   * @throws CsrfError (403) — provenance tierce sur une méthode state-changing.
+   *  - **Émission** : sur une requête SÛRE vers une route `@CsrfProtect`, minte le
+   *    synchronizer token (`context.csrfToken`) — HttpContext pose ensuite le cookie
+   *    lisible `csrf-token`. Sinon, hot-path GET = retour immédiat (aucun en-tête lu).
+   *  - **Étape 1 (globale)** : sur une mutation, défense Fetch Metadata / Origin
+   *    (rejet cross-site même sur route publique). Skippée si `@CsrfExempt` (webhook,
+   *    auth par signature/clé) ou `bypassFirewall` (callbacks OAuth).
+   *  - **Étape 2 (opt-in)** : sur une mutation `@CsrfProtect`, exige EN PLUS le
+   *    synchronizer token (en-tête `x-csrf-token` ≡ cookie + HMAC valide).
+   *
+   * @throws CsrfError (403) — provenance tierce, ou synchronizer token absent/invalide.
    */
   enforceCsrf(context: ContextType): void {
     if (!this.#csrf) return; // désactivé, ou config invalide (handleSecurity gère le fail-closed)
-    // Hot-path : court-circuit AVANT de lire le moindre en-tête sur un GET.
-    if (!Csrf.isStateChanging(context.method)) return;
     const bypass = (context as { resolver?: { bypassFirewall?: boolean } })
       .resolver?.bypassFirewall;
     if (bypass) return;
+    const ctx = context as {
+      csrfProtect?: boolean;
+      csrfExempt?: boolean;
+      csrfToken?: string | null;
+    };
+    // Méthode sûre (GET/HEAD…) : pas de vérif CSRF (RFC 9110). On en profite pour
+    // ÉMETTRE le synchronizer token si la route est `@CsrfProtect` (1× — déjà posé → skip).
+    if (!Csrf.isStateChanging(context.method)) {
+      if (ctx.csrfProtect && this.#csrfTokens && ctx.csrfToken == null) {
+        ctx.csrfToken = this.#csrfTokens.issue();
+      }
+      return;
+    }
+    // Mutation explicitement exemptée (@CsrfExempt) → hors défense CSRF (auth conservée).
+    if (ctx.csrfExempt) return;
     const headers = (
       context.request as { headers?: RequestHeaders } | undefined
     )?.headers;
+    // Étape 1 — défense globale (Fetch Metadata d'abord, repli Origin/Referer).
     this.#csrf.enforce({
       method: context.method,
       secFetchSite: headerValue(headers, "sec-fetch-site"),
@@ -440,6 +500,14 @@ class Firewall extends Service implements IFirewall {
         headerValue(headers, ":authority") ??
         (context as { domain?: string }).domain,
     });
+    // Étape 2 — synchronizer token EN PLUS sur les routes `@CsrfProtect`.
+    if (ctx.csrfProtect && this.#csrfTokens) {
+      const ok = this.#csrfTokens.verify(
+        headerValue(headers, "x-csrf-token"),
+        cookieValue(headerValue(headers, "cookie"), "csrf-token"),
+      );
+      if (!ok) throw new CsrfError("Missing or invalid CSRF token");
+    }
   }
 
   /**

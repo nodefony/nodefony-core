@@ -105,9 +105,22 @@ class HttpResponse {
   }
 
   setCookies() {
-    for (const cook in this.cookies) {
-      this.setCookie(this.cookies[cook]);
+    const names = Object.keys(this.cookies);
+    if (names.length === 0) return;
+    // 1 cookie (cas dominant) → chemin direct, comportement inchangé.
+    if (names.length === 1) {
+      return this.setCookie(this.cookies[names[0]]);
     }
+    // ≥2 cookies (ex. session BFF + `csrf-token`) → UN SEUL setHeader avec un
+    // TABLEAU : Node émet N lignes `Set-Cookie`. Une boucle de `setHeader` les
+    // écraserait (`setHeader('Set-Cookie', str)` REMPLACE → seul le dernier survit).
+    const serialized: string[] = [];
+    for (const name of names) {
+      const s = this.cookies[name].serialize();
+      this.log(`ADD COOKIE ==> ${s}`, "DEBUG");
+      serialized.push(s);
+    }
+    return this.setHeader("Set-Cookie", serialized);
   }
 
   setCookie(cookie: Cookie) {

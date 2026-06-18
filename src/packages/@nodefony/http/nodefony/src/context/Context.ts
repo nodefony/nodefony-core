@@ -181,6 +181,16 @@ class Context extends Service implements IContextInterface {
    * APRÈS le resolve. Forme `directive → sources` (compatible `CspFragment`).
    */
   cspDirectives: Record<string, readonly string[]> | null = null;
+  /**
+   * CSRF per-route (`@CsrfProtect`/`@CsrfExempt`), posés par le Resolver au match,
+   * lus par `Firewall.enforceCsrf` (post-resolve). `csrfProtect` exige le
+   * synchronizer token sur la mutation ; `csrfExempt` sort la route de la défense
+   * CSRF (auth conservée). `csrfToken` = token émis par le firewall (cookie lisible
+   * + ce champ) sur une requête sûre vers une route protégée, à surfacer côté vue.
+   */
+  csrfProtect: boolean = false;
+  csrfExempt: boolean = false;
+  csrfToken: string | null = null;
   requestId: string = randomUUID();
   // Nonce CSP par-requête (P6 J5 étape B) — généré PARESSEUSEMENT à la 1ʳᵉ lecture
   // (`randomBytes(16)` = 128 bits CSPRNG, base64). Mémoïsé : le header CSP

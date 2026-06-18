@@ -163,6 +163,13 @@ const csrfSchema = z
       .describe(
         "Origines ALIAS légitimes de l'app (façades multi-domaine, ex. ['https://app.example.org']) — autorisées MÊME en cross-site, sur Fetch Metadata ET fallback. Distinct de `cors.origins` (qui, lui, ouvre AUSSI la lecture CORS des réponses) : un simple alias de domaine ne doit pas exposer les réponses au JS tiers. Match exact d'origine (scheme://host[:port]).",
       ),
+    secret: z
+      .string()
+      .min(16)
+      .optional()
+      .describe(
+        "Secret HMAC du token synchronizer (`@CsrfProtect`, défense en profondeur opt-in). PROD : fixer via env (≥16 car.) — DOIT être PARTAGÉ entre process (cluster) sinon les tokens d'un pod sont rejetés par un autre. DEV : si absent, un secret éphémère est généré au boot (re-généré à chaque restart → invalide les tokens en cours). Sans valeur, `@CsrfProtect` fonctionne en dev mais N'EST PAS sûr en cluster.",
+      ),
   })
   .describe(
     "Cross-Site Request Forgery — Fetch Metadata d'abord (OWASP 2025) ; token synchronizer = opt-in @CsrfProtect.",

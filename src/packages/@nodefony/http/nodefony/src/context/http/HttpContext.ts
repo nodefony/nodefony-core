@@ -32,6 +32,7 @@ import http2 from "node:http2";
 import http from "node:http";
 import url, { URL } from "node:url";
 import Session from "../../../src/session/session";
+import Cookie from "../../cookies/cookie";
 
 //import { Resolver } from "@nodefony/framework";
 import uploadService from "../../../service/upload/upload-service";
@@ -396,6 +397,21 @@ class HttpContext extends Context implements IHttpContextInterface {
   ) {
     // cookies
     if (this.response) {
+      // Synchronizer CSRF (`@CsrfProtect`) : le firewall a posé `csrfToken` sur une
+      // requête sûre vers une route protégée → on pose le cookie LISIBLE `csrf-token`
+      // (SameSite=Strict, non HttpOnly : le SPA le lit + le rejoue dans `x-csrf-token`).
+      // Secure sur HTTPS. La pose vit ici (http possède `Cookie`) ; security ne fait
+      // que minter le token. Flush groupé avec le cookie de session (setCookies array).
+      if (this.csrfToken) {
+        this.setCookie(
+          new Cookie("csrf-token", this.csrfToken, {
+            httpOnly: false,
+            sameSite: "Strict",
+            secure: this.scheme === "https",
+            path: "/",
+          }),
+        );
+      }
       this.response.setCookies();
       this.response.writeHead(statusCode, headers);
     }

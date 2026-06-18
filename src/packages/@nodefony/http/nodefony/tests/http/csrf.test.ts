@@ -99,3 +99,138 @@ describe("CSRF — défense Fetch Metadata + repli Origin (intégration live)", 
     ).to.not.equal(403);
   });
 });
+
+// ── CSRF étape 2 — synchronizer token (@CsrfProtect) + @CsrfExempt ──────────────
+
+interface FullResponse {
+  status: number;
+  setCookie: string[];
+  body: string;
+}
+function full(
+  method: string,
+  path: string,
+  headers: Record<string, string> = {},
+): Promise<FullResponse> {
+  return new Promise((resolve, reject) => {
+    const r = http.request({ ...BASE, method, path, headers }, (res) => {
+      let body = "";
+      res.on("data", (c) => (body += c));
+      res.on("end", () => {
+        const raw = res.headers["set-cookie"];
+        resolve({
+          status: res.statusCode!,
+          setCookie: Array.isArray(raw) ? raw : raw ? [raw] : [],
+          body,
+        });
+      });
+    });
+    r.on("error", reject);
+    r.end();
+  });
+}
+const TOKEN_PATH = "/nodefony/test/fw/csrf/token";
+const SUBMIT_PATH = "/nodefony/test/fw/csrf/submit";
+const cookieVal = (setCookie: string[], name: string): string | undefined => {
+  const line = setCookie.find((c) => c.startsWith(`${name}=`));
+  return line ? line.slice(name.length + 1).split(";")[0] : undefined;
+};
+
+describe("CSRF synchronizer token (@CsrfProtect) — flow double-submit live", () => {
+  it("GET protégé émet le cookie csrf-token + le token dans le corps", async () => {
+    const res = await full("GET", TOKEN_PATH);
+    expect(res.status).to.equal(200);
+    const cookie = cookieVal(res.setCookie, "csrf-token");
+    expect(cookie, "cookie csrf-token posé").to.be.a("string");
+    const token = JSON.parse(res.body).token as string;
+    expect(token).to.be.a("string");
+    expect(token).to.equal(cookie); // double-submit : corps ≡ cookie
+  });
+
+  it("DOUBLE COOKIE : la réponse porte session + csrf-token (flush multi-cookie)", async () => {
+    const res = await full("GET", TOKEN_PATH);
+    expect(res.setCookie.length, JSON.stringify(res.setCookie)).to.be.at.least(
+      2,
+    );
+    expect(cookieVal(res.setCookie, "csrf-token")).to.be.a("string");
+    // un 2ᵉ cookie (session) coexiste — aucun écrasé par l'autre.
+    expect(res.setCookie.some((c) => !c.startsWith("csrf-token="))).to.equal(
+      true,
+    );
+  });
+
+  it("POST protégé SANS token → 403", async () => {
+    expect((await full("POST", SUBMIT_PATH)).status).to.equal(403);
+  });
+
+  it("POST protégé header ≡ cookie + HMAC valide → 200", async () => {
+    const token = cookieVal(
+      (await full("GET", TOKEN_PATH)).setCookie,
+      "csrf-token",
+    )!;
+    const res = await full("POST", SUBMIT_PATH, {
+      "x-csrf-token": token,
+      cookie: `csrf-token=${token}`,
+    });
+    expect(res.status).to.equal(200);
+  });
+
+  it("POST protégé header SANS cookie (double-submit cassé) → 403", async () => {
+    const token = cookieVal(
+      (await full("GET", TOKEN_PATH)).setCookie,
+      "csrf-token",
+    )!;
+    expect(
+      (await full("POST", SUBMIT_PATH, { "x-csrf-token": token })).status,
+    ).to.equal(403);
+  });
+
+  it("POST protégé header ≠ cookie → 403", async () => {
+    const token = cookieVal(
+      (await full("GET", TOKEN_PATH)).setCookie,
+      "csrf-token",
+    )!;
+    expect(
+      (
+        await full("POST", SUBMIT_PATH, {
+          "x-csrf-token": token,
+          cookie: "csrf-token=AAAA.BBBB",
+        })
+      ).status,
+    ).to.equal(403);
+  });
+
+  it("POST protégé token à signature falsifiée → 403", async () => {
+    const token = cookieVal(
+      (await full("GET", TOKEN_PATH)).setCookie,
+      "csrf-token",
+    )!;
+    const forged = `${token.split(".")[0]}.ZZZZZZZZZZZZZZZZZZZZZZZZZZZ`;
+    expect(
+      (
+        await full("POST", SUBMIT_PATH, {
+          "x-csrf-token": forged,
+          cookie: `csrf-token=${forged}`,
+        })
+      ).status,
+    ).to.equal(403);
+  });
+});
+
+describe("CSRF @CsrfExempt — opt-out ciblé (auth conservée)", () => {
+  it("POST cross-site sur route EXEMPTÉE → PAS 403 (webhook légitime)", async () => {
+    expect(
+      await status("POST", "/nodefony/test/fw/csrf/webhook", {
+        "Sec-Fetch-Site": "cross-site",
+      }),
+    ).to.not.equal(403);
+  });
+
+  it("CONTRASTE : POST cross-site sur route NON exemptée → 403", async () => {
+    expect(
+      await status("POST", "/nodefony/test/fw/post-only", {
+        "Sec-Fetch-Site": "cross-site",
+      }),
+    ).to.equal(403);
+  });
+});

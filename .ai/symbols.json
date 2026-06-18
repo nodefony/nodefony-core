@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-18T21:14:50.005Z",
+  "generated": "2026-06-18T21:42:59.835Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 912,
-    "symbols": 1965,
-    "classes": 287,
+    "files": 913,
+    "symbols": 1968,
+    "classes": 288,
     "interfaces": 510,
     "types": 246,
     "enums": 3,
-    "functions": 414,
+    "functions": 416,
     "constants": 505
   },
   "symbols": {
@@ -8755,6 +8755,17 @@
       "module": "@nodefony/security",
       "description": "Fusionne un CSP de base avec des fragments additifs par module. - directive déjà dans la base → ses sources sont COMPLÉTÉES (dédupliquées, ordre base d'abord puis ajouts) ; - directive absente → AJ…"
     },
+    "CsrfTokenManager": {
+      "name": "CsrfTokenManager",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/csrfToken.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Jeton synchronizer CSRF — modèle **double-submit signé** (OWASP CSRF Prevention Cheat Sheet, « Signed Double-Submit Cookie »). Le token est `nonce.HMAC-SHA256(secret, nonce)` (base64url), posé dans…"
+    },
     "RoleHierarchyWalker": {
       "name": "RoleHierarchyWalker",
       "kind": "class",
@@ -15888,6 +15899,7 @@
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
       ],
@@ -18425,7 +18437,8 @@
         "src/packages/@nodefony/security/nodefony/service/authorization.ts"
       ],
       "CsrfError": [
-        "src/packages/@nodefony/security/nodefony/service/csrf.ts"
+        "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "encoderFromConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
@@ -18441,6 +18454,9 @@
       "mergeCspFragments": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/securityHeaders.ts"
+      ],
+      "CsrfTokenManager": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "Csrf": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",

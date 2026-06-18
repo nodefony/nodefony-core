@@ -10,6 +10,8 @@ import {
   Param,
   UseSession,
   Csp,
+  CsrfProtect,
+  CsrfExempt,
   type RouteActionMeta,
 } from "../../decorators/routerDecorators.js";
 
@@ -31,6 +33,18 @@ class DecoratedCtrl {
 
   @Csp({ "frame-src": ["https://youtube.com"], "img-src": ["https://cdn.x"] })
   embed() {}
+
+  @CsrfProtect()
+  protectedMutation() {}
+
+  @CsrfExempt()
+  exemptWebhook() {}
+}
+
+// @CsrfProtect de CLASSE → toutes les actions protégées (même non décorées).
+@CsrfProtect()
+class CsrfClassCtrl {
+  anyAction() {}
 }
 
 // Contrôleur avec @Csp de CLASSE — fusionné additivement avec celui de méthode.
@@ -71,6 +85,8 @@ describe("routerDecorators — computeActionMeta()", () => {
       sessionIntent: null,
       security: null,
       cspDirectives: null,
+      csrfProtect: false,
+      csrfExempt: false,
     } satisfies RouteActionMeta);
   });
 
@@ -106,6 +122,25 @@ describe("routerDecorators — computeActionMeta()", () => {
     expect(meta.cspDirectives).to.deep.equal({
       "frame-src": ["https://base.example"],
     });
+  });
+
+  it("captures @CsrfProtect / @CsrfExempt method markers", () => {
+    expect(
+      computeActionMeta(DecoratedCtrl, "protectedMutation").csrfProtect,
+    ).to.equal(true);
+    expect(
+      computeActionMeta(DecoratedCtrl, "exemptWebhook").csrfExempt,
+    ).to.equal(true);
+    // mutuellement indépendants + faux par défaut
+    const bare = computeActionMeta(DecoratedCtrl, "bare");
+    expect(bare.csrfProtect).to.equal(false);
+    expect(bare.csrfExempt).to.equal(false);
+  });
+
+  it("inherits class-level @CsrfProtect on a bare action", () => {
+    expect(computeActionMeta(CsrfClassCtrl, "anyAction").csrfProtect).to.equal(
+      true,
+    );
   });
 
   it("returns the empty snapshot when ctor or method is missing", () => {

@@ -232,6 +232,10 @@ const SECURITY_ANONYMOUS_METADATA = "nodefony:security:anonymous";
 // Directives CSP additionnelles par action (@Csp). Posées sur le ctor (classe) ou
 // le prototype keyé par nom (méthode), comme les clauses @IsGranted.
 const CSP_DIRECTIVES_METADATA = "nodefony:csp:directives";
+// CSRF par action : @CsrfProtect (opt-in synchronizer token) / @CsrfExempt (opt-out
+// de la défense CSRF en gardant l'auth). Marqueurs booléens classe + méthode.
+const CSRF_PROTECT_METADATA = "nodefony:csrf:protect";
+const CSRF_EXEMPT_METADATA = "nodefony:csrf:exempt";
 export const USE_SESSION_CLASS_METADATA = "session:useClass";
 export const USE_SESSION_METHOD_METADATA = "session:useMethod";
 
@@ -776,6 +780,46 @@ function Csp(directives: CspDirectives) {
   };
 }
 
+/**
+ * Fabrique d'un marqueur booléen dual classe+méthode (idiome `any` du module).
+ * Pose `true` sur le ctor (classe) ou le prototype keyé par nom (méthode).
+ */
+function booleanMarkerDecorator(metadataKey: string) {
+  return function () {
+    return function (
+      target: any,
+      propertyKey?: string,
+      descriptor?: PropertyDescriptor,
+    ): any {
+      if (propertyKey === undefined) {
+        Reflect.defineMetadata(metadataKey, true, target);
+        return target;
+      }
+      Reflect.defineMetadata(metadataKey, true, target, propertyKey);
+      return descriptor;
+    };
+  };
+}
+
+/**
+ * `@CsrfProtect()` — opt-IN à la défense CSRF **synchronizer token** (double-submit
+ * signé HMAC) EN PLUS de la défense globale Fetch Metadata/Origin (étape 1, toujours
+ * active). Pour les mutations à haute valeur (changement de mot de passe, virement) :
+ * une requête sûre vers la route SÈME le cookie lisible `csrf-token` ; la mutation
+ * DOIT rejouer ce token dans l'en-tête `x-csrf-token` (sinon 403). Classe = toutes
+ * les actions. N'écrit qu'un marqueur (0 import `@nodefony/security`, 0 cycle).
+ */
+const CsrfProtect = booleanMarkerDecorator(CSRF_PROTECT_METADATA);
+
+/**
+ * `@CsrfExempt()` — opt-OUT de la défense CSRF pour une route, **en conservant
+ * l'authentification et l'autorisation** (≠ `@Anonymous`/`@BypassFirewall` qui
+ * coupent l'auth). Pour un webhook ou une API recevant un POST cross-origin
+ * légitime, dont la requête est authentifiée autrement (signature HMAC du provider,
+ * clé API). Classe = toutes les actions. Marqueur seul (0 logique sécu ici).
+ */
+const CsrfExempt = booleanMarkerDecorator(CSRF_EXEMPT_METADATA);
+
 // ── Parameter decorators ────────────────────────────────────────────────────
 function paramDecoratorFactory(source: ParamSource) {
   return function (key?: string) {
@@ -1001,6 +1045,10 @@ export interface RouteActionMeta {
    * l'action n'en déclare pas (cas courant → 0 composition CSP). Frozen, partagé.
    */
   cspDirectives: CspDirectives | null;
+  /** `@CsrfProtect` (classe ou méthode) → exige le synchronizer token sur la mutation. */
+  csrfProtect: boolean;
+  /** `@CsrfExempt` (classe ou méthode) → la route est hors défense CSRF (auth conservée). */
+  csrfExempt: boolean;
 }
 
 const EMPTY_ACTION_META: RouteActionMeta = {
@@ -1011,6 +1059,8 @@ const EMPTY_ACTION_META: RouteActionMeta = {
   sessionIntent: null,
   security: null,
   cspDirectives: null,
+  csrfProtect: false,
+  csrfExempt: false,
 };
 
 /**
@@ -1109,6 +1159,13 @@ function computeActionMeta(
     sessionIntent: resolveSessionIntent(ctor as ControllerConstructor, method),
     security: computeSecurityRequirement(ctor, method),
     cspDirectives: computeCspDirectives(ctor, method),
+    // CSRF : marqueur méthode OU classe (true dès qu'un des deux le pose).
+    csrfProtect:
+      Reflect.getMetadata(CSRF_PROTECT_METADATA, proto, method) === true ||
+      Reflect.getMetadata(CSRF_PROTECT_METADATA, ctor) === true,
+    csrfExempt:
+      Reflect.getMetadata(CSRF_EXEMPT_METADATA, proto, method) === true ||
+      Reflect.getMetadata(CSRF_EXEMPT_METADATA, ctor) === true,
   };
 }
 
@@ -1149,6 +1206,8 @@ export {
   IsGranted,
   Anonymous,
   Csp,
+  CsrfProtect,
+  CsrfExempt,
   CurrentUser,
   Scope,
   UseSession,
