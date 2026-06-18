@@ -64,3 +64,39 @@ describe("Security headers — socle transport (http) + applicatif (security)", 
     expect(h["cross-origin-embedder-policy"]).to.equal(undefined);
   });
 });
+
+describe("CSP per-route (@Csp) — directives additionnelles fusionnées", () => {
+  it("@Csp ajoute frame-src ET complète img-src de la route décorée", async () => {
+    const h = await head("/nodefony/test/csp-embed");
+    const csp = h["content-security-policy"] as string;
+    // frame-src ABSENTE de la base → ajoutée par @Csp.
+    expect(csp).to.contain("frame-src https://www.youtube.com");
+    // img-src existe dans la base ('self' data: blob: + origines Vite en dev) → la
+    // source de la route est AJOUTÉE à CETTE directive (pas une 2ᵉ img-src dupliquée).
+    expect(csp).to.match(/img-src[^;]*\bhttps:\/\/cdn\.example\.test\b/);
+    expect(csp.match(/(?:^|;)\s*img-src\b/g)).to.have.lengthOf(1);
+    // Base préservée + nonce/req toujours substitué (régime étape B inchangé).
+    expect(csp).to.contain("default-src 'self'");
+    expect(csp).to.match(/script-src 'self' 'nonce-[^']+'/);
+  });
+
+  it("ISOLATION : une route SANS @Csp ne porte PAS les directives de la route décorée", async () => {
+    const csp = (await head("/nodefony/test/index"))[
+      "content-security-policy"
+    ] as string;
+    expect(csp).to.not.contain("https://www.youtube.com");
+    expect(csp).to.not.contain("https://cdn.example.test");
+  });
+
+  it("nonce per-requête conservé : 2 requêtes @Csp → 2 nonces différents", async () => {
+    const grab = async () => {
+      const csp = (await head("/nodefony/test/csp-embed"))[
+        "content-security-policy"
+      ] as string;
+      return /'nonce-([^']+)'/.exec(csp)?.[1];
+    };
+    const [a, b] = await Promise.all([grab(), grab()]);
+    expect(a).to.be.a("string");
+    expect(a).to.not.equal(b);
+  });
+});

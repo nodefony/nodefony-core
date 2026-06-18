@@ -119,7 +119,14 @@ class Resolver implements IResolver {
         // Intent de session de la route (depuis `@UseSession` / paramètre
         // `@Session`) → pilote le point d'activation unique (HttpKernel.startSession).
         // P5 : lu depuis le memo de route (0 Reflect par requête).
-        this.context.sessionIntent = resolveActionMeta(route).sessionIntent;
+        const actionMeta = resolveActionMeta(route);
+        this.context.sessionIntent = actionMeta.sessionIntent;
+        // CSP per-route (`@Csp`) → directives additionnelles posées sur le
+        // contexte, lues par `Firewall.applySecurityHeaders` APRÈS le resolve.
+        // `null` en l'absence de `@Csp` (99 %) → on n'écrit pas (champ déjà null).
+        if (actionMeta.cspDirectives !== null) {
+          this.context.cspDirectives = actionMeta.cspDirectives;
+        }
       }
       return match;
     } catch (e) {

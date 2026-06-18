@@ -9,6 +9,7 @@ import {
   Redirect,
   Param,
   UseSession,
+  Csp,
   type RouteActionMeta,
 } from "../../decorators/routerDecorators.js";
 
@@ -27,6 +28,21 @@ class DecoratedCtrl {
 
   @UseSession({ readOnly: true })
   withSession() {}
+
+  @Csp({ "frame-src": ["https://youtube.com"], "img-src": ["https://cdn.x"] })
+  embed() {}
+}
+
+// Contrôleur avec @Csp de CLASSE — fusionné additivement avec celui de méthode.
+@Csp({ "frame-src": ["https://base.example"] })
+class CspClassCtrl {
+  @Csp({
+    "frame-src": ["https://method.example"],
+    "media-src": ["https://m.x"],
+  })
+  withMethod() {}
+
+  inherited() {}
 }
 
 describe("routerDecorators — computeActionMeta()", () => {
@@ -54,12 +70,42 @@ describe("routerDecorators — computeActionMeta()", () => {
       headerEntries: null,
       sessionIntent: null,
       security: null,
+      cspDirectives: null,
     } satisfies RouteActionMeta);
   });
 
   it("captures the @UseSession intent", () => {
     const meta = computeActionMeta(DecoratedCtrl, "withSession");
     expect(meta.sessionIntent).to.deep.equal({ readOnly: true });
+  });
+
+  it("captures @Csp directives on a method", () => {
+    const meta = computeActionMeta(DecoratedCtrl, "embed");
+    expect(meta.cspDirectives).to.deep.equal({
+      "frame-src": ["https://youtube.com"],
+      "img-src": ["https://cdn.x"],
+    });
+  });
+
+  it("returns null cspDirectives for an undecorated action", () => {
+    expect(computeActionMeta(DecoratedCtrl, "bare").cspDirectives).to.equal(
+      null,
+    );
+  });
+
+  it("merges class + method @Csp additively (sources concatenated)", () => {
+    const meta = computeActionMeta(CspClassCtrl, "withMethod");
+    expect(meta.cspDirectives).to.deep.equal({
+      "frame-src": ["https://base.example", "https://method.example"],
+      "media-src": ["https://m.x"],
+    });
+  });
+
+  it("inherits the class @Csp on an otherwise bare action", () => {
+    const meta = computeActionMeta(CspClassCtrl, "inherited");
+    expect(meta.cspDirectives).to.deep.equal({
+      "frame-src": ["https://base.example"],
+    });
   });
 
   it("returns the empty snapshot when ctor or method is missing", () => {

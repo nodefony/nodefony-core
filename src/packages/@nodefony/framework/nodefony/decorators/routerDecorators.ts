@@ -229,6 +229,9 @@ export const BYPASS_FIREWALL_METHOD_METADATA = "route:bypassFirewallMethod";
 // marqueur @Anonymous (skip authz, en plus du bypass firewall pour l'authn).
 const SECURITY_CLAUSES_METADATA = "nodefony:security:clauses";
 const SECURITY_ANONYMOUS_METADATA = "nodefony:security:anonymous";
+// Directives CSP additionnelles par action (@Csp). Posées sur le ctor (classe) ou
+// le prototype keyé par nom (méthode), comme les clauses @IsGranted.
+const CSP_DIRECTIVES_METADATA = "nodefony:csp:directives";
 export const USE_SESSION_CLASS_METADATA = "session:useClass";
 export const USE_SESSION_METHOD_METADATA = "session:useMethod";
 
@@ -295,6 +298,15 @@ export interface SecurityRequirement {
   /** Clauses en AND — toutes doivent être accordées (chacune est un OR interne). */
   readonly clauses: readonly SecurityClause[];
 }
+
+/**
+ * Directives CSP additionnelles déclarées par une action (`@Csp`) :
+ * `directive → sources` (ex. `{ "frame-src": ["https://youtube.com"] }`).
+ * Structurellement compatible avec `CspFragment` (@nodefony/security) — aucun
+ * import cross-module (0 cycle). Mergé additivement dans le CSP de la réponse
+ * par le firewall, UNIQUEMENT sur les routes qui en déclarent (cold path).
+ */
+export type CspDirectives = Record<string, readonly string[]>;
 
 // ── HTTP method decorator factory ───────────────────────────────────────────
 type MethodDecoratorOptions = Omit<RouteOptions, "path" | "method">;
@@ -700,6 +712,70 @@ function Anonymous() {
   };
 }
 
+/**
+ * Fusion ADDITIVE de deux jeux de directives CSP : les sources d'une même
+ * directive sont concaténées (dédupliquées, ordre `a` puis `b`). Pure, sans
+ * mutation des entrées. Sert au stacking de `@Csp` et à la fusion classe+méthode.
+ */
+function mergeCspDirectives(
+  a?: CspDirectives,
+  b?: CspDirectives,
+): CspDirectives {
+  const out: Record<string, string[]> = {};
+  for (const src of [a, b]) {
+    if (!src) continue;
+    for (const name in src) {
+      const list = (out[name] ??= []);
+      for (const v of src[name]) if (!list.includes(v)) list.push(v);
+    }
+  }
+  return out;
+}
+
+/**
+ * `@Csp({ "frame-src": [...] })` — déclare des directives CSP **additionnelles**
+ * pour l'action (méthode) ou tout le contrôleur (classe). Distinct de
+ * `registerCspOrigins` (besoins PERMANENTS d'un module, ex. Vite) : ici c'est le
+ * besoin ponctuel d'UNE réponse (embarquer une iframe YouTube, autoriser une CDN).
+ *
+ * Classe + méthode fusionnent additivement (sources concaténées par directive).
+ * Empiler plusieurs `@Csp` fusionne aussi. N'écrit QUE des métadonnées : le merge
+ * dans le CSP de la réponse est fait par le firewall, hors hot-path, UNIQUEMENT
+ * sur les routes décorées. Calque `@IsGranted` (0 import `@nodefony/security`).
+ */
+function Csp(directives: CspDirectives) {
+  // Dual classe+méthode (idiome `any` du module, cf @IsGranted/@Domain).
+  return function (
+    target: any,
+    propertyKey?: string,
+    descriptor?: PropertyDescriptor,
+  ): any {
+    if (propertyKey === undefined) {
+      const existing = Reflect.getMetadata(CSP_DIRECTIVES_METADATA, target) as
+        | CspDirectives
+        | undefined;
+      Reflect.defineMetadata(
+        CSP_DIRECTIVES_METADATA,
+        mergeCspDirectives(existing, directives),
+        target,
+      );
+      return target;
+    }
+    const existing = Reflect.getMetadata(
+      CSP_DIRECTIVES_METADATA,
+      target,
+      propertyKey,
+    ) as CspDirectives | undefined;
+    Reflect.defineMetadata(
+      CSP_DIRECTIVES_METADATA,
+      mergeCspDirectives(existing, directives),
+      target,
+      propertyKey,
+    );
+    return descriptor;
+  };
+}
+
 // ── Parameter decorators ────────────────────────────────────────────────────
 function paramDecoratorFactory(source: ParamSource) {
   return function (key?: string) {
@@ -920,6 +996,11 @@ export interface RouteActionMeta {
    * path (ni résolution de service, ni `decide`, ni await). Frozen, partagé.
    */
   security: SecurityRequirement | null;
+  /**
+   * Directives CSP additionnelles (`@Csp`, fusion classe+méthode) — `null` si
+   * l'action n'en déclare pas (cas courant → 0 composition CSP). Frozen, partagé.
+   */
+  cspDirectives: CspDirectives | null;
 }
 
 const EMPTY_ACTION_META: RouteActionMeta = {
@@ -929,6 +1010,7 @@ const EMPTY_ACTION_META: RouteActionMeta = {
   headerEntries: null,
   sessionIntent: null,
   security: null,
+  cspDirectives: null,
 };
 
 /**
@@ -976,6 +1058,29 @@ function computeSecurityRequirement(
   });
 }
 
+/**
+ * P6 — Fusionne les directives `@Csp` (classe + méthode) en un jeu figé, ou
+ * `null` si l'action n'en déclare aucune (cas courant → 0 alloc/composition).
+ * Lecture `Reflect` faite UNE fois (via {@link resolveActionMeta} mémoïsé).
+ */
+function computeCspDirectives(
+  ctor: { prototype: object },
+  method: string,
+): CspDirectives | null {
+  const methodDirectives = Reflect.getMetadata(
+    CSP_DIRECTIVES_METADATA,
+    ctor.prototype,
+    method,
+  ) as CspDirectives | undefined;
+  const classDirectives = Reflect.getMetadata(CSP_DIRECTIVES_METADATA, ctor) as
+    | CspDirectives
+    | undefined;
+  if (!classDirectives && !methodDirectives) {
+    return null; // aucune @Csp → 0 coût
+  }
+  return Object.freeze(mergeCspDirectives(classDirectives, methodDirectives));
+}
+
 function computeActionMeta(
   ctor?: { prototype: object } | null,
   method?: string,
@@ -1003,6 +1108,7 @@ function computeActionMeta(
     headerEntries: headers ? Object.entries(headers) : null,
     sessionIntent: resolveSessionIntent(ctor as ControllerConstructor, method),
     security: computeSecurityRequirement(ctor, method),
+    cspDirectives: computeCspDirectives(ctor, method),
   };
 }
 
@@ -1042,6 +1148,7 @@ export {
   BypassFirewall,
   IsGranted,
   Anonymous,
+  Csp,
   CurrentUser,
   Scope,
   UseSession,

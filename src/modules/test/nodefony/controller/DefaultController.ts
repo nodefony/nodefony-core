@@ -1,6 +1,12 @@
 import { createRequire } from "node:module";
 import fs from "node:fs";
-import { Controller, route, controller, UseSession } from "@nodefony/framework";
+import {
+  Controller,
+  route,
+  controller,
+  UseSession,
+  Csp,
+} from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
 import {
   inject,
@@ -74,6 +80,21 @@ class DefaultController extends Controller {
   })
   index() {
     return this.renderJson({});
+  }
+
+  // P6 — `@Csp` per-route : directives CSP additionnelles fusionnées dans le CSP
+  // de la réponse (ex. embarquer une iframe, autoriser une CDN). Banc live
+  // `security-headers.test.ts` (la directive `frame-src` n'existe que sur CETTE route).
+  @route("csp-embed", {
+    path: "/csp-embed",
+    requirements: { methods: ["GET", "HEAD"] },
+  })
+  @Csp({
+    "frame-src": ["https://www.youtube.com"],
+    "img-src": ["https://cdn.example.test"],
+  })
+  cspEmbed() {
+    return this.renderJson({ embed: true });
   }
 
   @route("forward", { path: "/forward" })

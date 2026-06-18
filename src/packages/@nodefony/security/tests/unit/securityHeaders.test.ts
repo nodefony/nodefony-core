@@ -117,3 +117,44 @@ describe("SecurityHeaders — nonce CSP par requête (étape B)", () => {
     assert.equal(sh.headers["Content-Security-Policy"], "default-src 'self'");
   });
 });
+
+describe("SecurityHeaders — cspForExtra (@Csp per-route)", () => {
+  const NONCE_CSP =
+    "default-src 'self'; script-src 'self' 'nonce-{{nonce}}'; frame-src 'none'";
+
+  it("fusionne une directive existante (sources complétées, pas dupliquée)", () => {
+    const sh = make({ csp: NONCE_CSP, cspNonces: true });
+    assert.equal(
+      sh.cspForExtra("N0nce==", { "frame-src": ["https://youtube.com"] }),
+      "default-src 'self'; script-src 'self' 'nonce-N0nce=='; frame-src 'none' https://youtube.com",
+    );
+  });
+  it("ajoute une directive absente en fin", () => {
+    const sh = make({ csp: NONCE_CSP, cspNonces: true });
+    assert.equal(
+      sh.cspForExtra("N0nce==", { "img-src": ["https://cdn.x"] }),
+      "default-src 'self'; script-src 'self' 'nonce-N0nce=='; frame-src 'none'; img-src https://cdn.x",
+    );
+  });
+  it("substitue le nonce de la requête dans le fragment mergé", () => {
+    const sh = make({ csp: NONCE_CSP, cspNonces: true });
+    assert.match(
+      sh.cspForExtra("UNIQUE==", { "img-src": ["https://cdn.x"] }),
+      /'nonce-UNIQUE=='/,
+    );
+  });
+  it("CSP statique (sans nonce) → extra mergé + résiduel nonce purgé", () => {
+    const sh = make({ csp: NONCE_CSP, cspNonces: false });
+    assert.equal(
+      sh.cspForExtra("", { "frame-src": ["https://youtube.com"] }),
+      "default-src 'self'; script-src 'self'; frame-src 'none' https://youtube.com",
+    );
+  });
+  it("base CSP vide + extra → CSP issu du seul fragment de route", () => {
+    const sh = make({ csp: "", cspNonces: true });
+    assert.equal(
+      sh.cspForExtra("", { "frame-src": ["https://youtube.com"] }),
+      "frame-src https://youtube.com",
+    );
+  });
+});

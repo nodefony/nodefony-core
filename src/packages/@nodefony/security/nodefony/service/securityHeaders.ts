@@ -1,3 +1,5 @@
+import { mergeCspFragments, type CspFragment } from "../src/csp";
+
 /**
  * Sous-ensemble APPLICATIF de la config `headers` (cf defineSecurityConfig).
  *
@@ -42,6 +44,9 @@ export class SecurityHeaders {
   // CSP dynamique (nonce/req) : segments pré-split autour de `{{nonce}}`, joints par
   // requête avec le nonce réel. `null` = CSP statique (dans `#headers`) → 0 alloc/req.
   readonly #cspParts: readonly string[] | null;
+  // CSP de base BRUT (avec `{{nonce}}` éventuel, non purgé) — conservé pour
+  // `cspForExtra` (merge des directives `@Csp` d'une route). Vide si aucun CSP.
+  readonly #cspRaw: string;
 
   constructor(o: ISecurityHeadersOptions) {
     const h: Record<string, string> = {};
@@ -71,6 +76,7 @@ export class SecurityHeaders {
     if (o.permissionsPolicy) h["Permissions-Policy"] = o.permissionsPolicy;
     this.#headers = Object.freeze(h);
     this.#cspParts = cspParts ? Object.freeze(cspParts) : null;
+    this.#cspRaw = o.csp ?? "";
   }
 
   /** Table d'en-têtes applicatifs CONSTANTS (figée), posée telle quelle par le firewall. */
@@ -93,6 +99,26 @@ export class SecurityHeaders {
    */
   cspFor(nonce: string): string {
     return (this.#cspParts as readonly string[]).join(nonce);
+  }
+
+  /**
+   * Recompose le CSP en fusionnant ADDITIVEMENT les directives `extra` d'une
+   * route (`@Csp`) dans le CSP de base, PUIS en substituant le `nonce`. Le merge
+   * (parse/serialize) n'est payé QUE sur les routes décorées `@Csp` (rares) — le
+   * cas courant reste {@link cspFor} (1 `join`). Une directive déjà présente voit
+   * ses sources complétées (jamais dupliquée — W3C CSP3 §3).
+   *
+   * @param nonce - nonce base64 de la requête (ignoré si le CSP n'a pas de nonce).
+   * @param extra - directives additionnelles de la route (`directive → sources`).
+   * @returns la valeur `Content-Security-Policy` à poser sur la réponse.
+   */
+  cspForExtra(nonce: string, extra: CspFragment): string {
+    const merged = mergeCspFragments(this.#cspRaw, [extra]);
+    // Nonce actif (`#cspParts` non null) → substitue `{{nonce}}` ; sinon purge un
+    // résiduel `'nonce-{{nonce}}'` (placeholder non substitué = CSP cassé).
+    return this.#cspParts !== null
+      ? merged.split(NONCE_PLACEHOLDER).join(nonce)
+      : merged.replace(/\s*'nonce-\{\{nonce\}\}'/g, "");
   }
 }
 

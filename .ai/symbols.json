@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-17T00:16:01.544Z",
+  "generated": "2026-06-18T21:14:50.005Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 912,
-    "symbols": 1961,
+    "symbols": 1965,
     "classes": 287,
     "interfaces": 510,
-    "types": 245,
+    "types": 246,
     "enums": 3,
-    "functions": 411,
+    "functions": 414,
     "constants": 505
   },
   "symbols": {
@@ -5035,6 +5035,14 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
+    "CspDirectives": {
+      "name": "CspDirectives",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Directives CSP additionnelles déclarées par une action (`@Csp`) : `directive → sources` (ex. `{ \"frame-src\": [\"https://youtube.com\"] }`). Structurellement compatible avec `CspFragment` (@nodefony/s…"
+    },
     "UseSessionOptions": {
       "name": "UseSessionOptions",
       "kind": "type",
@@ -5150,6 +5158,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Déclare une action (méthode) ou un contrôleur (classe) **publique** : skip l'autorisation (override un `@IsGranted` de classe sur cette méthode) ET skip l'authentification (réutilise le mécanisme `…"
+    },
+    "Csp": {
+      "name": "Csp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`@Csp({ \"frame-src\": [...] })` — déclare des directives CSP **additionnelles** pour l'action (méthode) ou tout le contrôleur (classe). Distinct de `registerCspOrigins` (besoins PERMANENTS d'un modu…"
     },
     "Body": {
       "name": "Body",
@@ -15820,6 +15836,10 @@
       "Anonymous": [
         "src/packages/@nodefony/framework/index.ts"
       ],
+      "Csp": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DefaultController.ts"
+      ],
       "Scope": [
         "src/packages/@nodefony/framework/index.ts",
         "src/nodefony/src/command/Command.ts",
@@ -18341,7 +18361,8 @@
       ],
       "CspFragment": [
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/securityHeaders.ts"
       ],
       "IUserProvider": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
@@ -18418,7 +18439,8 @@
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
       ],
       "mergeCspFragments": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/securityHeaders.ts"
       ],
       "Csrf": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",

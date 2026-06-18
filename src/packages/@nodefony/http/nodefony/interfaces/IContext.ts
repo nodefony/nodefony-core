@@ -48,6 +48,9 @@ export interface IContext {
   // Nonce CSP par-requête (P6 J5 étape B) — lazy ; lu par le firewall (header CSP)
   // et le template Vite (`<script nonce>`). Lecture seule : jamais piloté par le client.
   readonly cspNonce: string;
+  // Directives CSP additionnelles de la route (`@Csp`, P6) — posées par le Resolver
+  // au match, lues par le firewall APRÈS le resolve. `null` si la route n'en déclare pas.
+  cspDirectives: Record<string, readonly string[]> | null;
   type: ServerType;
   scheme: SchemeType;
   method: HTTPMethodType | null;

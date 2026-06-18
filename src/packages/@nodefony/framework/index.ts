@@ -51,6 +51,7 @@ import {
   BypassFirewall,
   IsGranted,
   Anonymous,
+  Csp,
   CurrentUser,
   Scope,
   UseSession,
@@ -213,6 +214,7 @@ export {
   BypassFirewall,
   IsGranted,
   Anonymous,
+  Csp,
   CurrentUser,
   Scope,
   UseSession,
@@ -237,6 +239,7 @@ export {
 export type {
   SecurityClause,
   SecurityRequirement,
+  CspDirectives,
 } from "./nodefony/decorators/routerDecorators";
 export type { ControllerScope } from "./nodefony/src/Controller";
 export type { IResourceService } from "./nodefony/src/ResourceController";

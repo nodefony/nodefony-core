@@ -501,15 +501,25 @@ class Firewall extends Service implements IFirewall {
     for (const name in headers) {
       response.setHeader(name, headers[name]);
     }
+    // CSP per-route (`@Csp`, P6) : directives additionnelles posées par le Resolver
+    // sur le contexte au match (`null` = cas courant → 0 composition). Lu APRÈS le
+    // resolve (cf déplacement dans handleHttp). Le merge n'est payé QUE sur ces routes.
+    const extra = (context as { cspDirectives?: CspFragment | null })
+      .cspDirectives;
     // CSP nonce/req (étape B) : LIRE `context.cspNonce` génère le nonce PARESSEUSEMENT
     // et le mémoïse → le `<script nonce="X">` rendu ensuite par le controller lit la
     // MÊME valeur. Posé seulement si le CSP porte `{{nonce}}` (sinon `hasNonce`=false
-    // → 0 génération crypto). Antérieur au `writeHead` (cf handleHttp 881 < 935).
+    // → 0 génération crypto). Antérieur au `writeHead`.
     if (sh.hasNonce) {
+      const nonce = (context as { cspNonce: string }).cspNonce;
       response.setHeader(
         "Content-Security-Policy",
-        sh.cspFor((context as { cspNonce: string }).cspNonce),
+        extra ? sh.cspForExtra(nonce, extra) : sh.cspFor(nonce),
       );
+    } else if (extra) {
+      // CSP statique + extra de route → recompose (écrase l'en-tête statique posé
+      // dans la boucle `headers`). Pas de nonce ici (param ignoré par cspForExtra).
+      response.setHeader("Content-Security-Policy", sh.cspForExtra("", extra));
     }
   }
 

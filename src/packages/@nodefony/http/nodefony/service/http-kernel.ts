@@ -874,11 +874,6 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             context!.response.end();
             return context!;
           }
-          // En-têtes de sécurité APPLICATIFS (P6 J5 — CSP/Referrer/COOP…), posés
-          // AVANT le routing → présents sur toute réponse du pipeline (succès,
-          // 404/405, static fallback). Complète le socle transport (nosniff/frame/
-          // HSTS) déjà posé à `onHttpRequest`. No-op si security absent/désactivé.
-          this.firewall?.applySecurityHeaders(context! as ContextType);
           // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
           // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand
           // l'action attend le flux brut (`@Body({ stream:true })` → le controller
@@ -892,6 +887,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             ? this.router.resolve(context! as ContextType)
             : null;
           context!.phaseEnd("resolve");
+          // En-têtes de sécurité APPLICATIFS (P6 J5 — CSP/Referrer/COOP…), posés
+          // APRÈS le resolve (P6 @Csp) → le Resolver a posé `ctx.cspDirectives`
+          // depuis `@Csp` de la route, que `applySecurityHeaders` fusionne dans le
+          // CSP. Toujours AVANT le fallback static + le `writeHead` → présents sur
+          // toute réponse (succès, 404/405, fichier statique). Le preflight CORS a
+          // court-circuité plus haut (204). Complète le socle transport (nosniff/
+          // frame/HSTS) posé à `onHttpRequest`. No-op si security absent/désactivé.
+          this.firewall?.applySecurityHeaders(context! as ContextType);
           // ROUTER-FIRST (façon Express) : aucune route matchée → FALLBACK static.
           // `serverStatic.handle` reste PENDING si un fichier est servi (court-circuit
           // total — response.end → `onFinish` → teardown déjà wired par

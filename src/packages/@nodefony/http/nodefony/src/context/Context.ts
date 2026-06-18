@@ -174,6 +174,13 @@ class Context extends Service implements IContextInterface {
    * (HTTP + WS). `null` = aucune session sauf cookie existant (reprise L1).
    */
   sessionIntent: SessionIntent | null = null;
+  /**
+   * Directives CSP additionnelles de la route courante (`@Csp`), posées par le
+   * Resolver au match. `null` = la route n'en déclare pas (cas courant) → le
+   * firewall compose le CSP standard (0 surcoût). Lu par `applySecurityHeaders`
+   * APRÈS le resolve. Forme `directive → sources` (compatible `CspFragment`).
+   */
+  cspDirectives: Record<string, readonly string[]> | null = null;
   requestId: string = randomUUID();
   // Nonce CSP par-requête (P6 J5 étape B) — généré PARESSEUSEMENT à la 1ʳᵉ lecture
   // (`randomBytes(16)` = 128 bits CSPRNG, base64). Mémoïsé : le header CSP
