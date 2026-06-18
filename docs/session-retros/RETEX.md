@@ -126,6 +126,7 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## 🔌 Conception — dépendances tierces & arbitrage de design
 
+- `[1× — 2026-06-18]` **Quand un design bute sur une limite d'INFRA, corriger l'infra — ne PAS dégrader le design pour la contourner.** CSRF étape 2 : `Response.setCookies()` n'émettait qu'UN `Set-Cookie` (boucle de `setHeader('Set-Cookie', str)` → Node REMPLACE, seul le dernier survit ; **prouvé** par un node one-liner ; AUCUN test ne le couvrait). J'allais router AUTOUR (token CSRF header-only, sans cookie) → le user a tranché « il n'y a pas de test double cookies !!! ». Le VRAI problème était le bug du flush. Fix : `setCookies()` batch en TABLEAU → N lignes `Set-Cookie` (session + csrf coexistent) + test 0/1/2 cookies + preuve e2e double cookie. **Leçon : signaler explicitement au user le bug d'infra découvert plutôt que livrer un design appauvri qui l'évite en silence.** Le user flaire le trou de test.
 - `[1× — 2026-06-15]` **Dev = UN SEUL host (`localhost`), jamais `127.0.0.1`** : WebAuthn/passkeys REFUSENT une
   IP comme `rpId` (seul `localhost` ou un vrai domaine). Avoir mis le callback OAuth par défaut en `127.0.0.1` a
   CASSÉ le passkey (rpId=localhost ≠ page 127.0.0.1 → `SecurityError`, mal classé « réseau » par classifyError —
@@ -164,6 +165,8 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## 🧩 Archi / isomorphisme
 
+- `[1× — 2026-06-18]` **`Resolver.match` (qui pose déjà `sessionIntent` au resolve) = le seam CANONIQUE de tout décorateur "policy lue par le firewall/pipeline".** Recette gravée (réutilisée 2× en 1 session pour `@Csp` ET `@CsrfProtect`/`@CsrfExempt`) : (1) décorateur écrit une métadonnée Reflect (classe+méthode, dual) ; (2) `computeActionMeta` la mémoïse sur `route.actionMeta` (1 lecture Reflect/route, 0 par requête) ; (3) `Resolver.match` pose `context.<flag>` au match (écrit SEULEMENT si vrai → champ `false`/`null` par défaut, 0 alloc hot-path) ; (4) le consommateur (firewall) lit `context.<flag>` POST-resolve. Chaque nouveau décorateur de ce type = ~1 passe, 0 surcoût. Tout décorateur de policy futur (`@RateLimit`, `@AuditLog`…) suit ce moule.
+- `[1× — 2026-06-18]` **Pose d'un effet cross-module quand un seul module possède le type** : `@nodefony/security` ne peut pas `new Cookie()` (import RUNTIME de http interdit, cycle). Solution = **le module qui MINTE la donnée la pose sur le `context` ; le module qui POSSÈDE le type fait l'objet**. CSRF : le firewall (security) mint le token → `context.csrfToken` ; `HttpContext.writeHead` (http) crée le `Cookie` lisible depuis ce champ. Généralise au-delà des cookies (tout artefact dont la classe vit dans un module amont).
 - `[1× — 2026-06-13]` **Un doc-comment qui AFFIRME un câblage ≠ le câblage réel** (devise « confiance n'exclut pas
   contrôle ») : `IRealtimePeer` dit « `RealtimeClient` compose le même `JsonRpcPeer` » → **FAUX**, le client
   réimplémente son propre JSON-RPC partiel (pas de `register`/callee, pas de seams `beforeDispatch`/audit). Cause =
@@ -1006,6 +1009,7 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-18]` **Le reporter TEXTE de coverage v8 peut MASQUER un fichier couvert à 100 %** : `csrfToken.ts` (100/100/100) était totalement absent du tableau texte alors que `csp.ts` (même dossier) s'affichait. Le reporter **`json-summary`** le montrait correctement. → pour répondre à une question de couverture PRÉCISE d'un fichier, lire `--coverage.reporter=json-summary` (`.coverage/coverage-summary.json`), jamais se fier au tableau texte seul (faux « 0 ligne » trompeur). Rappel complémentaire (déjà gradué [[feedback_coverage_modules]]) : l'**e2e tourne en process serveur séparé → NON instrumenté** → le `%` du firewall/câblage SOUS-ESTIME (faux négatif), le câblage CSRF est prouvé par les 30 tests e2e hors `%`.
 - `[1× — 2026-06-15]` **« tests en échec » signalé = souvent un BUILD cassé, pas un test** : user dit « tests
   en échec sur cli » → en fait `turbo run test` reportait `Failed @nodefony/security#test` par **cascade** d'un
   build TS cassé ailleurs (`@nodefony/test` TS2532 `this.context` possibly undefined). La suite isolée
