@@ -11,12 +11,10 @@ export type MetaBagType = Record<string, unknown>;
  * d'activation **unique** du pipeline (HTTP comme WS) : c'est lui — et non plus un
  * `sessionAutoStart` global « démarre partout » — qui décide d'ouvrir une session.
  *
- * - `context` : aire de session (firewall/route) ; défaut `"default"`.
  * - `readOnly` : la session est lue/reprise mais **jamais persistée** (0 write storage).
  * - `eager` : active tôt (seam P6 — régénération d'ID post-authentification).
  */
 export interface SessionIntent {
-  context?: string;
   readOnly?: boolean;
   eager?: boolean;
 }
@@ -41,17 +39,13 @@ export interface ISerializedSession {
  * qu'un alias transitionnel. Enregistré dans le registre IoC `SessionsService.registerStorage`.
  */
 export interface ISessionStorage {
-  read(id: string, contextSession?: string): Promise<ISerializedSession>;
-  write(
-    id: string,
-    data: ISerializedSession,
-    contextSession: string,
-  ): Promise<ISerializedSession>;
-  start(id: string, contextSession: string): Promise<ISerializedSession>;
-  open(contextSession: string): Promise<number>;
+  read(id: string): Promise<ISerializedSession>;
+  write(id: string, data: ISerializedSession): Promise<ISerializedSession>;
+  start(id: string): Promise<ISerializedSession>;
+  open(): Promise<number>;
   close(): boolean;
-  destroy(id: string, contextSession: string): Promise<boolean>;
-  gc(maxlifetime: number, contextSession: string): Promise<void>;
+  destroy(id: string): Promise<boolean>;
+  gc(maxlifetime?: number): Promise<void>;
 }
 
 export interface ISession {
@@ -64,7 +58,6 @@ export interface ISession {
   /** Lecture seule : la session est reprise mais jamais persistée (0 write storage). */
   readOnly: boolean;
   migrated: boolean;
-  contextSession: string;
   cookieSession: ICookie | null | undefined;
   flashBag: FlashBagType;
   strategy: SessionStrategyType;
@@ -75,8 +68,8 @@ export interface ISession {
   storage: ISessionStorage;
 
   // Lifecycle
-  start(context: unknown, contextSession: string): Promise<ISession>;
-  save(user?: string, contextSession?: string): Promise<ISession>;
+  start(context: unknown): Promise<ISession>;
+  save(user?: string): Promise<ISession>;
   invalidate(
     lifetime?: number,
     id?: string,

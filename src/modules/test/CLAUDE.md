@@ -119,7 +119,7 @@ Le `public/` du module est **auto-monté sous `/test/`** par `server-static`
 ## Conventions
 
 - Chaque nouveau test d'intégration qui a besoin d'une route → l'ajouter ici dans le controller approprié
-- **Activation de session = `@UseSession()`** (classe/méthode) — plus de `this.startSession()` (refonte 2026-06-07). DefaultController = `@UseSession({ context: "test" })` ; `SessionRuntimeController` = controller DÉDIÉ au cycle de vie (lazy/intent/readOnly/L1/regen/destroy + WS).
+- **Activation de session = `@UseSession()`** (classe/méthode) — plus de `this.startSession()` (refonte 2026-06-07). DefaultController = `@UseSession()` ; `SessionRuntimeController` = controller DÉDIÉ au cycle de vie (lazy/intent/readOnly/L1/regen/destroy + WS). Plus d'« aire » de session (`context`) — concept legacy retiré 2026-06-20.
 - `RestController`/`SessionRuntimeController` utilisent `@Session()` param + `this.session` (getter)
 
 ---

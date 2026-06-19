@@ -5,7 +5,7 @@ import { defineSecurityConfig } from "../../nodefony/config/defineSecurityConfig
 
 /**
  * Contrat de zone (J3b Étape 1) — VERROUILLE :
- * - la propagation des champs `realtime` / `sessionContext` config → instance,
+ * - la propagation du champ `realtime` config → instance,
  * - le pattern du data plane `^/nodefony/[^/]+/api(/|$)` contre l'inventaire RÉEL
  *   des namespaces (kernel/http/framework/orm/frontend/profiler/documentation/studio).
  *

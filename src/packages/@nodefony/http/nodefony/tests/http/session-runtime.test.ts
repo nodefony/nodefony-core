@@ -100,13 +100,6 @@ describe("Session runtime — plug (HTTP) [requires server]", () => {
     });
   });
 
-  describe("aire de session (@UseSession({ context }))", () => {
-    it("expose l'aire déclarée", async () => {
-      const { body } = await request("/nodefony/test/session-rt/aire");
-      expect(body.area).to.equal("custom-area");
-    });
-  });
-
   describe("readOnly", () => {
     it("session readOnly : flag posé, mutation marquée dirty (mais non persistée)", async () => {
       const { body } = await request("/nodefony/test/session-rt/readonly");
@@ -148,12 +141,11 @@ describe("Session runtime — plug (HTTP) [requires server]", () => {
       });
       expect(get.body.value).to.equal("bar");
       expect(get.body.id).to.equal(id1);
-      // 4) /info confirme l'aire + le même id
+      // 4) /info confirme le même id repris
       const info = await request("/nodefony/test/session-rt/info", "GET", {
         cookie,
       });
       expect(info.body.id).to.equal(id1);
-      expect(info.body.area).to.equal("default");
       expect(info.body.cookieName).to.equal("__Host-nodefony");
     });
   });

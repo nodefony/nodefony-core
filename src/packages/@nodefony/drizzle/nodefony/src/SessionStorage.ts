@@ -17,7 +17,6 @@ import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
 class SessionStorage implements ISessionStorage {
   manager: SessionsService;
   gc_maxlifetime: number;
-  contextSessions: string[] = [];
 
   constructor(manager: SessionsService) {
     this.manager = manager;
@@ -45,11 +44,8 @@ class SessionStorage implements ISessionStorage {
     return orm.getRepository<SessionRow>("session");
   }
 
-  async read(id: string, contextSession?: string): Promise<ISerializedSession> {
+  async read(id: string): Promise<ISerializedSession> {
     const criteria: Partial<SessionRow> = { session_id: id };
-    if (contextSession) {
-      criteria.context = contextSession;
-    }
     const repo = this.#repo();
     if (!repo) {
       return {} as ISerializedSession;
@@ -68,14 +64,13 @@ class SessionStorage implements ISessionStorage {
     };
   }
 
-  async start(id: string, contextSession: string): Promise<ISerializedSession> {
-    return this.read(id, contextSession);
+  async start(id: string): Promise<ISerializedSession> {
+    return this.read(id);
   }
 
   async write(
     id: string,
     data: ISerializedSession,
-    contextSession: string,
   ): Promise<ISerializedSession> {
     const serialize = data;
     const now = Date.now();
@@ -89,7 +84,6 @@ class SessionStorage implements ISessionStorage {
       };
     }
     const fields = {
-      context: contextSession || "default",
       Attributes: serialize.Attributes,
       flashBag: serialize.flashBag,
       metaBag: serialize.metaBag,
@@ -113,17 +107,15 @@ class SessionStorage implements ISessionStorage {
     };
   }
 
-  async open(contextSession: string): Promise<number> {
-    await this.gc(this.gc_maxlifetime, contextSession);
+  async open(): Promise<number> {
+    await this.gc(this.gc_maxlifetime);
     const repo = this.#repo();
     if (!repo) {
       return 0;
     }
-    const count = await repo.count(
-      contextSession ? { context: contextSession } : undefined,
-    );
+    const count = await repo.count();
     this.manager.log(
-      `CONTEXT ${contextSession || "default"} DRIZZLE SESSIONS STORAGE ==> COUNT SESSIONS : ${count}`,
+      `DRIZZLE SESSIONS STORAGE ==> COUNT SESSIONS : ${count}`,
       "INFO",
     );
     return count;
@@ -134,39 +126,27 @@ class SessionStorage implements ISessionStorage {
     return true;
   }
 
-  async destroy(id: string, contextSession: string): Promise<boolean> {
+  async destroy(id: string): Promise<boolean> {
     const criteria: Partial<SessionRow> = { session_id: id };
-    if (contextSession) {
-      criteria.context = contextSession;
-    }
     const repo = this.#repo();
     if (!repo) {
       return true;
     }
     await repo.delete(criteria);
-    this.manager.log(
-      `DRIZZLE DESTROY SESSION context : ${contextSession} ID : ${id}`,
-      "DEBUG",
-    );
+    this.manager.log(`DRIZZLE DESTROY SESSION ID : ${id}`, "DEBUG");
     return true;
   }
 
-  async gc(maxlifetime: number, contextSession?: string): Promise<void> {
+  async gc(maxlifetime?: number): Promise<void> {
     const cutoff = Date.now() - (maxlifetime || this.gc_maxlifetime) * 1000;
     const criteria: Record<string, unknown> = { updatedAt: { $lt: cutoff } };
-    if (contextSession) {
-      criteria.context = contextSession;
-    }
     const repo = this.#repo();
     if (!repo) {
       return;
     }
     const deleted = await repo.delete(criteria as Partial<SessionRow>);
     if (deleted > 0) {
-      this.manager.log(
-        `DRIZZLE SESSIONS GC context : ${contextSession || "default"} ==> ${deleted} DELETED`,
-        "DEBUG",
-      );
+      this.manager.log(`DRIZZLE SESSIONS GC ==> ${deleted} DELETED`, "DEBUG");
     }
   }
 }

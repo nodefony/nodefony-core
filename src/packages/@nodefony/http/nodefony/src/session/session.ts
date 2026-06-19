@@ -77,7 +77,6 @@ class Session implements ISession {
    * aucune écriture storage.
    */
   readOnly: boolean = false;
-  contextSession: string = "default";
   context?: ContextType;
   created?: Date;
   updated?: Date;
@@ -131,56 +130,46 @@ class Session implements ISession {
   // ── Cycle de vie ──────────────────────────────────────────────────
 
   /**
-   * Démarre (ou reprend) la session pour une aire (`contextSession`). Cookie
-   * présent → reprise depuis le storage ; sinon → nouvelle session.
+   * Démarre (ou reprend) la session. Cookie présent → reprise depuis le storage ;
+   * sinon → nouvelle session.
    *
    * @param context - contexte HTTP/HTTP2/WS courant.
-   * @param contextSession - aire de session (firewall/route) ; défaut courante.
    */
-  async start(context: ContextType, contextSession: string): Promise<this> {
+  async start(context: ContextType): Promise<this> {
     this.context = context;
-    if (!contextSession) {
-      contextSession = this.contextSession;
-    }
     const ret = this.checkStatus();
     if (ret === false) {
       return this; // déjà active
     }
     if (ret === "restart") {
-      return this.start(context, contextSession); // storage ré-initialisé
+      return this.start(context); // storage ré-initialisé
     }
-    return this.getSession(contextSession);
+    return this.getSession();
   }
 
   /**
    * Lit l'identifiant opaque du cookie puis reprend la session, ou en crée une
    * neuve si aucun cookie. Cookie-only : aucun identifiant lu depuis l'URL.
    */
-  private async getSession(contextSession: string): Promise<this> {
+  private async getSession(): Promise<this> {
     if (this.context?.cookieSession) {
       // L'identifiant est la valeur BRUTE du cookie (opaque) — aucun déchiffrement.
       this.id = this.context.cookieSession.value as string;
       this.cookieSession = this.context.cookieSession;
     }
     if (this.id) {
-      return this.resume(contextSession);
+      return this.resume();
     }
     this.clear();
-    if (contextSession) {
-      this.contextSession = contextSession;
-    }
     return this.create(this.lifetime ?? 0);
   }
 
   /**
-   * Reprend la session `(id, contextSession)` depuis le storage. Invalide
-   * (→ session neuve) si introuvable en strict mode, ou expirée/illégitime.
+   * Reprend la session `id` depuis le storage. Invalide (→ session neuve) si
+   * introuvable en strict mode, ou expirée/illégitime.
    */
-  private async resume(contextSession: string): Promise<this> {
-    if (contextSession) {
-      this.contextSession = contextSession;
-    }
-    const data = await this.storage.start(this.id, this.contextSession);
+  private async resume(): Promise<this> {
+    const data = await this.storage.start(this.id);
     if (data && Object.keys(data).length) {
       this.deSerialize(data);
       if (!this.isValidSession(data, this.context as ContextType)) {
@@ -255,12 +244,8 @@ class Session implements ISession {
    * `onSaveSession`.
    *
    * @param user - principal authentifié (string) lié au blob ; défaut courant.
-   * @param contextSession - aire de session ; défaut courante.
    */
-  async save(
-    user?: string,
-    contextSession: string = this.contextSession,
-  ): Promise<this> {
+  async save(user?: string): Promise<this> {
     if (this.readOnly) {
       // Lecture seule : jamais de write storage. Une mutation tentée sur une
       // session readOnly est une erreur d'usage → on la signale sans persister.
@@ -275,11 +260,7 @@ class Session implements ISession {
     if (!this.mutated) {
       return this; // rien muté → aucune écriture storage (dirty-tracking)
     }
-    const stored = await this.storage.write(
-      this.id,
-      this.serialize(user),
-      contextSession,
-    );
+    const stored = await this.storage.write(this.id, this.serialize(user));
     this.created = stored.createdAt ?? this.created;
     this.updated = stored.updatedAt ?? this.updated;
     this.mutated = false;
@@ -302,7 +283,7 @@ class Session implements ISession {
     this.log(`INVALIDATE SESSION ==> ${this.name} : ${this.id}`, "DEBUG");
     const oldId = this.id;
     this.clear();
-    await this.storage.destroy(oldId, this.contextSession);
+    await this.storage.destroy(oldId);
     return this.create(lifetime, id, settingsCookie);
   }
 
@@ -312,7 +293,7 @@ class Session implements ISession {
    */
   async destroy(cookieDelete: boolean = false): Promise<boolean> {
     this.clear();
-    await this.storage.destroy(this.id, this.contextSession);
+    await this.storage.destroy(this.id);
     // Une session détruite n'a PLUS RIEN à persister : neutralise le
     // dirty-tracking, sinon le `saveSession` de fin de requête RÉ-ÉCRIT le
     // blob qu'on vient de supprimer (résurrection silencieuse — vu au banc
@@ -436,7 +417,6 @@ class Session implements ISession {
       "lifetime",
       cookieSetting.maxAge ?? this.options.cookie?.maxAge,
     );
-    this.setMetaBag("context", this.contextSession || null);
     const ctx = this.context as HttpContext | WebsocketContext | undefined;
     this.setMetaBag("request", ctx?.type);
     try {

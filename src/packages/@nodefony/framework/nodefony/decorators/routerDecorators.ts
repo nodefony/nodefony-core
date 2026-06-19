@@ -548,7 +548,6 @@ export type UseSessionOptions = SessionIntent;
  * Précédence : `@UseSession` méthode > `@UseSession` classe. La simple présence
  * d'un paramètre `@Session` sur l'action suffit aussi (intent implicite).
  *
- * - `{ context }` : aire de session (firewall/route) ; défaut `"default"`.
  * - `{ readOnly }` : session lue/reprise mais **jamais persistée** (0 write storage).
  * - `{ eager }` : active tôt (seam P6 — régénération d'ID post-authentification).
  *
@@ -556,7 +555,7 @@ export type UseSessionOptions = SessionIntent;
  *
  * @example
  * \@controller("/account")
- * \@UseSession({ context: "account" })
+ * \@UseSession()
  * class AccountController extends Controller {
  *   \@Get("/me") @UseSession({ readOnly: true }) me() {} // lecture seule → 0 write
  * }

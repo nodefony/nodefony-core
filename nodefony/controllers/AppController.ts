@@ -22,7 +22,7 @@ function loadDebugbarBundle(): string | false {
 }
 
 @controller("/app")
-@UseSession({ context: "app" })
+@UseSession()
 class AppController extends Controller {
   constructor(context: ContextType) {
     super("app", context);

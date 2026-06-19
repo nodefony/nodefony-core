@@ -42,30 +42,29 @@ class RedisSessionStorage implements ISessionStorage {
     return this.#service?.getClient("main") ?? null;
   }
 
-  #key(id: string, contextSession?: string): string {
-    return `${KEY_PREFIX}:${contextSession || "default"}:${id}`;
+  #key(id: string): string {
+    return `${KEY_PREFIX}:${id}`;
   }
 
-  async read(id: string, contextSession?: string): Promise<ISerializedSession> {
+  async read(id: string): Promise<ISerializedSession> {
     const client = this.#client();
     if (!client) {
       return {} as ISerializedSession;
     }
-    const raw = await client.get(this.#key(id, contextSession));
+    const raw = await client.get(this.#key(id));
     if (!raw) {
       return {} as ISerializedSession;
     }
     return JSON.parse(raw) as ISerializedSession;
   }
 
-  async start(id: string, contextSession: string): Promise<ISerializedSession> {
-    return this.read(id, contextSession);
+  async start(id: string): Promise<ISerializedSession> {
+    return this.read(id);
   }
 
   async write(
     id: string,
     data: ISerializedSession,
-    contextSession: string,
   ): Promise<ISerializedSession> {
     const now = new Date();
     const payload: ISerializedSession = {
@@ -77,18 +76,18 @@ class RedisSessionStorage implements ISessionStorage {
     if (client) {
       // SET … EX : TTL natif. Session glissante — le TTL est rafraîchi à chaque
       // write (toute requête qui touche la session repousse son expiration).
-      await client.set(this.#key(id, contextSession), JSON.stringify(payload), {
+      await client.set(this.#key(id), JSON.stringify(payload), {
         EX: this.gc_maxlifetime,
       });
     }
     return payload;
   }
 
-  async open(contextSession: string): Promise<number> {
+  async open(): Promise<number> {
     // Redis expire les sessions seul (TTL) → pas de GC, pas de comptage (SCAN
     // serait O(keyspace)). On signale juste le backend actif au boot.
     this.manager.log(
-      `CONTEXT ${contextSession || "default"} REDIS SESSIONS STORAGE ==> TTL natif (${this.gc_maxlifetime}s)`,
+      `REDIS SESSIONS STORAGE ==> TTL natif (${this.gc_maxlifetime}s)`,
       "INFO",
     );
     return 0;
@@ -100,10 +99,10 @@ class RedisSessionStorage implements ISessionStorage {
     return true;
   }
 
-  async destroy(id: string, contextSession: string): Promise<boolean> {
+  async destroy(id: string): Promise<boolean> {
     const client = this.#client();
     if (client) {
-      await client.del(this.#key(id, contextSession));
+      await client.del(this.#key(id));
     }
     return true;
   }

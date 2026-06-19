@@ -2,7 +2,7 @@ import { route, controller, Controller, UseSession } from "@nodefony/framework";
 import { ContextType } from "@nodefony/http";
 
 @controller("")
-@UseSession({ context: "app" })
+@UseSession()
 class IndexController extends Controller {
   constructor(context: ContextType) {
     super("index", context);

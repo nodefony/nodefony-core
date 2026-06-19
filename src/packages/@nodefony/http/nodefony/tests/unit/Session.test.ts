@@ -343,7 +343,7 @@ describe("Session — unit tests", () => {
       const ok = await s.destroy();
       expect(ok).to.equal(true);
       // l'entrée a disparu du storage → start renvoie un blob vide
-      const after = await storage.start(s.id, "default");
+      const after = await storage.start(s.id);
       expect(Object.keys(after)).to.have.length(0);
     });
   });

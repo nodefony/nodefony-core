@@ -717,11 +717,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (!intent && !context.hasSession()) {
       return null;
     }
-    const session = await this.sessionService.start(
-      context,
-      intent?.context,
-      intent?.readOnly,
-    );
+    const session = await this.sessionService.start(context, intent?.readOnly);
     // SEAM P6 — lien identité↔session : la régénération d'ID post-authentification
     // (anti session-fixation, OWASP) se branchera ici via
     // `firewall.getSessionToken(context, session)` / `session.regenerateId()`.

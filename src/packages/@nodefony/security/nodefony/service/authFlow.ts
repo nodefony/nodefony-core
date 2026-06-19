@@ -217,7 +217,7 @@ class AuthFlow extends Service {
     const oldId = session.id;
     session.regenerateId();
     try {
-      await session.storage.destroy(oldId, session.contextSession);
+      await session.storage.destroy(oldId);
     } catch {
       /* best-effort : session neuve jamais persistée */
     }

@@ -8,13 +8,12 @@ export const SESSION_ORM = "default";
  * Table Drizzle de stockage des sessions (schema-as-code).
  *
  * Équivalent portable de l'entité session legacy : mêmes champs
- * logiques (`session_id` PK, `context`, sacs `Attributes`/`flashBag`/`metaBag`
+ * logiques (`session_id` PK, sacs `Attributes`/`flashBag`/`metaBag`
  * en JSON, `user`, horodatages). Les colonnes JSON utilisent le mode `json` de
  * Drizzle (sérialisation/désérialisation automatique).
  */
 export const sessionTable = sqliteTable("session", {
   session_id: text("session_id").primaryKey(),
-  context: text("context").notNull(),
   Attributes: text("Attributes", { mode: "json" }),
   flashBag: text("flashBag", { mode: "json" }),
   metaBag: text("metaBag", { mode: "json" }),
@@ -26,7 +25,6 @@ export const sessionTable = sqliteTable("session", {
 /** Forme plate d'une ligne de session telle que renvoyée par le repository. */
 export interface SessionRow {
   session_id: string;
-  context: string;
   Attributes: unknown;
   flashBag: unknown;
   metaBag: unknown;

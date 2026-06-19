@@ -60,20 +60,13 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
   // ── CRUD du storage backé par le repository orm-core Drizzle ───────────────
   describe("CRUD", () => {
     it("write puis read restitue Attributes/metaBag/flashBag/user", async () => {
-      await storage.write(
-        "sid1",
-        {
-          Attributes: { a: 1 },
-          metaBag: { m: 2 },
-          flashBag: { f: 3 },
-          user: "bob",
-        },
-        "default",
-      );
-      const r = (await storage.read("sid1", "default")) as Record<
-        string,
-        unknown
-      >;
+      await storage.write("sid1", {
+        Attributes: { a: 1 },
+        metaBag: { m: 2 },
+        flashBag: { f: 3 },
+        user: "bob",
+      });
+      const r = (await storage.read("sid1")) as Record<string, unknown>;
       assert.deepEqual(r.Attributes, { a: 1 });
       assert.deepEqual(r.metaBag, { m: 2 });
       assert.deepEqual(r.flashBag, { f: 3 });
@@ -82,28 +75,23 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
     });
 
     it("write sur le même id met à jour sans doublon (upsert)", async () => {
-      await storage.write(
-        "sid1",
-        { Attributes: { a: 9 }, metaBag: {}, flashBag: {}, user: "bob2" },
-        "default",
-      );
-      assert.equal(await storage.open("default"), 1); // toujours 1 ligne
-      const r = (await storage.read("sid1", "default")) as Record<
-        string,
-        unknown
-      >;
+      await storage.write("sid1", {
+        Attributes: { a: 9 },
+        metaBag: {},
+        flashBag: {},
+        user: "bob2",
+      });
+      assert.equal(await storage.open(), 1); // toujours 1 ligne
+      const r = (await storage.read("sid1")) as Record<string, unknown>;
       assert.deepEqual(r.Attributes, { a: 9 });
       assert.equal(r.user, "bob2");
     });
 
     it("destroy supprime ; read renvoie un objet vide", async () => {
-      assert.equal(await storage.destroy("sid1", "default"), true);
-      const r = (await storage.read("sid1", "default")) as Record<
-        string,
-        unknown
-      >;
+      assert.equal(await storage.destroy("sid1"), true);
+      const r = (await storage.read("sid1")) as Record<string, unknown>;
       assert.deepEqual(r, {});
-      assert.equal(await storage.open("default"), 0);
+      assert.equal(await storage.open(), 0);
     });
   });
 
@@ -114,7 +102,6 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
       const now = Date.now();
       await repo.create({
         session_id: "old",
-        context: "default",
         Attributes: {},
         flashBag: {},
         metaBag: {},
@@ -124,7 +111,6 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
       } as Partial<SessionRow>);
       await repo.create({
         session_id: "fresh",
-        context: "default",
         Attributes: {},
         flashBag: {},
         metaBag: {},
@@ -133,9 +119,9 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
         updatedAt: now,
       } as Partial<SessionRow>);
 
-      await storage.gc(1, "default"); // cutoff = now - 1s → "old" (now-10s) supprimé
+      await storage.gc(1); // cutoff = now - 1s → "old" (now-10s) supprimé
 
-      const rows = await repo.find({ context: "default" });
+      const rows = await repo.find();
       assert.equal(rows.length, 1);
       assert.equal(rows[0].session_id, "fresh");
     });

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-19T21:49:07.294Z",
+  "generated": "2026-06-19T23:23:34.784Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -4538,7 +4538,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Table Drizzle de stockage des sessions (schema-as-code). Équivalent portable de l'entité session legacy : mêmes champs logiques (`session_id` PK, `context`, sacs `Attributes`/`flashBag`/`metaBag` e…"
+      "description": "Table Drizzle de stockage des sessions (schema-as-code). Équivalent portable de l'entité session legacy : mêmes champs logiques (`session_id` PK, sacs `Attributes`/`flashBag`/`metaBag` en JSON, `us…"
     },
     "DeniedJtiRow": {
       "name": "DeniedJtiRow",

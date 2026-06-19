@@ -49,13 +49,6 @@ class SessionRuntimeController extends Controller {
     });
   }
 
-  /** Aire de session nommée via l'intent. */
-  @Get("/aire")
-  @UseSession({ context: "custom-area" })
-  aire() {
-    return this.renderJson({ area: this.session?.contextSession ?? null });
-  }
-
   /**
    * Lecture seule : une mutation est tentée mais NE DOIT PAS être persistée
    * (`save` no-op). On expose le flag + l'état dirty pour l'assertion.
@@ -164,7 +157,7 @@ class SessionRuntimeController extends Controller {
     return this.renderJson({ destroyed: id });
   }
 
-  // ── Inspection (id / aire / cookie) ─────────────────────────────────────────
+  // ── Inspection (id / cookie) ────────────────────────────────────────────────
 
   @Get("/info")
   @UseSession()
@@ -175,7 +168,6 @@ class SessionRuntimeController extends Controller {
       id: session.id,
       name: session.name,
       status: session.status,
-      area: session.contextSession,
       cookieName: session.cookieSession?.name ?? null,
       sameSite: session.cookieSession?.sameSite ?? null,
       httpOnly: session.cookieSession?.httpOnly ?? null,

@@ -143,7 +143,7 @@ class SessionsService extends Service {
       this.storage,
     );
     this.kernel?.on("onReady", async () => {
-      await this.storage.open("default");
+      await this.storage.open();
     });
     return this.storage;
   }
@@ -164,7 +164,6 @@ class SessionsService extends Service {
 
   async start(
     context: ContextType,
-    sessionContext?: string,
     readOnly?: boolean,
   ): Promise<Session | null> {
     return new Promise((resolve, reject) => {
@@ -193,9 +192,6 @@ class SessionsService extends Service {
       let inst = null;
       try {
         context.sessionStarting = true;
-        // Aire de session par défaut si l'intent n'en nomme pas (plus de
-        // `setAutoStart` : l'activation est pilotée par l'intent, pas un global).
-        sessionContext = sessionContext || "default";
         if (this.probaGarbage()) {
           // GC opportuniste (probabiliste) en arrière-plan : fire-and-forget
           // VOLONTAIRE — on ne bloque pas le démarrage de session pour ça. Mais
@@ -204,7 +200,7 @@ class SessionsService extends Service {
           // vol) remonte en `unhandledRejection` et casse le process. L'échec
           // d'un GC opportuniste se loggue, il ne crashe jamais.
           void this.storage
-            .gc(this.options.gc_maxlifetime, sessionContext)
+            .gc(this.options.gc_maxlifetime)
             .catch((e: Error) => this.log(e, "WARNING", "SESSION-GC"));
         }
         inst = this.createSession(this.defaultSessionName);
@@ -218,7 +214,7 @@ class SessionsService extends Service {
         return reject(e);
       }
       inst
-        .start(context, sessionContext)
+        .start(context)
         .then((session) => {
           try {
             context.session = session;
@@ -260,7 +256,6 @@ class SessionsService extends Service {
           // `save()` attend un identifiant string. serialize() fait `user || ""`
           // → null/undefined équivalents. Cast transitoire (câblage user→session = P6).
           context.user ? (context.user as string) : undefined,
-          context.session.contextSession,
         );
       }
     }

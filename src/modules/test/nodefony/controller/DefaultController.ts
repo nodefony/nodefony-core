@@ -65,7 +65,7 @@ export const securityHooksState = {
 };
 
 @controller("/nodefony/test")
-@UseSession({ context: "test" })
+@UseSession()
 class DefaultController extends Controller {
   constructor(
     context: Context,
