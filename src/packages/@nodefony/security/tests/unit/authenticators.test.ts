@@ -3,6 +3,7 @@ import type { IUser } from "@nodefony/user";
 import type { ContextType } from "@nodefony/http";
 import { AnonymousAuthenticator } from "../../nodefony/src/authenticator/AnonymousAuthenticator";
 import { UserPasswordAuthenticator } from "../../nodefony/src/authenticator/UserPasswordAuthenticator";
+import { LoginThrottler } from "../../nodefony/src/throttle/LoginThrottler";
 import { UserToken } from "../../nodefony/src/token/UserToken";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 
@@ -185,5 +186,63 @@ describe("UserPasswordAuthenticator — HTTP Basic (RFC 7617)", () => {
     await lazy.authenticate(await lazy.createToken(ctx));
     await lazy.authenticate(await lazy.createToken(ctx));
     assert.equal(resolved, 1); // résolu UNE fois puis caché
+  });
+});
+
+/**
+ * RED-TEAM — credential INCOMPLET (mot de passe ou identifiant vide).
+ *
+ * Un credential vide doit être rejeté AVANT toute opération coûteuse ou portant
+ * un effet de bord :
+ * - jamais de hash (le verifier n'est pas appelé) → 0 surface DoS argon2 ;
+ * - jamais de compteur de throttle armé → un attaquant ne peut pas verrouiller
+ *   le login d'une victime en spammant `victime:` (mot de passe vide). Le
+ *   throttle légitime reste réservé aux vraies tentatives (mot de passe fourni).
+ */
+describe("RED-TEAM Password — credential incomplet (court-circuit avant verifier/throttle)", () => {
+  const countingVerifier = () => ({
+    calls: 0,
+    authenticate(): Promise<IUser | null> {
+      this.calls += 1;
+      return Promise.resolve(null);
+    },
+  });
+
+  for (const [label, header] of [
+    ["mot de passe vide (`admin:`)", basic("admin", "")],
+    ["identifiant vide (`:secret`)", basic("", "secret")],
+    ["identifiant ET mot de passe vides (`:`)", basic("", "")],
+  ] as const) {
+    it(`${label} → 401 sans appeler le verifier`, async () => {
+      const verifier = countingVerifier();
+      const auth = new UserPasswordAuthenticator(() => verifier);
+      await assert.rejects(
+        async () =>
+          auth.authenticate(await auth.createToken(httpContext(header))),
+        (e: unknown) => e instanceof AuthenticationError && e.code === 401,
+      );
+      assert.equal(verifier.calls, 0);
+    });
+  }
+
+  it("mot de passe vide n'arme PAS le throttle de la victime (anti-DoS ciblé)", async () => {
+    const verifier = countingVerifier();
+    const throttler = new LoginThrottler({ freeAttempts: 1, baseDelayS: 60 });
+    const auth = new UserPasswordAuthenticator(() => verifier, throttler);
+
+    // 50 tentatives à mot de passe vide sur l'identifiant de la victime.
+    for (let i = 0; i < 50; i++) {
+      await assert.rejects(
+        async () =>
+          auth.authenticate(
+            await auth.createToken(httpContext(basic("victime", ""))),
+          ),
+        AuthenticationError,
+      );
+    }
+    // Le throttler n'a JAMAIS vu "victime" → aucune dette, login légitime intact.
+    assert.equal(throttler.check("victime"), 0);
+    assert.equal(throttler.trackedCount, 0);
+    assert.equal(verifier.calls, 0); // et toujours zéro hash consommé
   });
 });

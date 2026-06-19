@@ -158,9 +158,11 @@ export class UserService
    *
    * Vérifie l'existence, l'état du compte (actif, non verrouillé), la présence d'un
    * credential local, puis le mot de passe. Au succès, re-hache de façon transparente
-   * si le coût stocké est obsolète ({@link IPasswordEncoder.needsRehash}). Les chemins
-   * d'échec (identifiant inconnu, compte sans password) consomment un hash leurre pour
-   * niveler le temps de réponse (anti énumération par timing).
+   * si le coût stocké est obsolète ({@link IPasswordEncoder.needsRehash}). **Tous** les
+   * chemins d'échec (identifiant inconnu, compte verrouillé/désactivé, compte sans
+   * password, mauvais mot de passe) consomment exactement une opération de hachage
+   * (vérification réelle ou hash leurre) pour niveler le temps de réponse : le message
+   * 401 est uniforme, le timing doit l'être aussi (anti énumération de comptes, OWASP).
    *
    * @param identifier - identifiant fonctionnel saisi.
    * @param plain - mot de passe en clair saisi.
@@ -176,8 +178,19 @@ export class UserService
       await this.consumeDummy(plain);
       return this.fail(identifier, "unknown_identifier");
     }
-    if (user.isLocked()) return this.fail(identifier, "locked");
-    if (!user.isActive()) return this.fail(identifier, "disabled");
+    // Verrouillé / désactivé : consommer le hash leurre AVANT de refuser. Sinon
+    // ces chemins répondent sans payer de hachage → plus rapides qu'un mauvais
+    // mot de passe (verify réel) ou qu'un identifiant inconnu (leurre) → oracle
+    // de timing qui révèle l'existence d'un compte (même verrouillé). Le temps
+    // de réponse doit être indistinguable de tous les autres échecs.
+    if (user.isLocked()) {
+      await this.consumeDummy(plain);
+      return this.fail(identifier, "locked");
+    }
+    if (!user.isActive()) {
+      await this.consumeDummy(plain);
+      return this.fail(identifier, "disabled");
+    }
 
     const hash = user.password;
     if (hash === null) {

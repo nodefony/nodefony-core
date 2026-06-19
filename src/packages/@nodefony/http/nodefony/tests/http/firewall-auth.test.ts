@@ -98,6 +98,22 @@ describe("Firewall — zone protégée test-secure (requires server)", () => {
     expect(status).to.equal(401);
   });
 
+  it("credential incomplet (mot de passe vide / identifiant vide) → 401 (jamais 200/500)", async () => {
+    // `admin:` (mot de passe vide) : un compte ne s'authentifie JAMAIS sur un
+    // credential incomplet, même si l'identifiant existe — rejet avant le hash.
+    const emptyPassword = await get(
+      "/nodefony/test/secure/ping",
+      basic("admin", ""),
+    );
+    expect(emptyPassword.status).to.equal(401);
+    // `:secret` (identifiant vide) → 401 uniforme également.
+    const emptyIdentifier = await get(
+      "/nodefony/test/secure/ping",
+      basic("", "secret"),
+    );
+    expect(emptyIdentifier.status).to.equal(401);
+  });
+
   it("credential valide → 200 (zone franchie)", async () => {
     const { status, body } = await get(
       "/nodefony/test/secure/ping",
