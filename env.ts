@@ -118,4 +118,41 @@ export const env = defineEnv({
     default: "https://localhost:5152",
     description: "Base d'URL des callbacks OAuth (exact match fournisseur).",
   }),
+
+  // ── Source d'identité de l'application (provisioning du service "users") ────
+  /**
+   * Implémentation du dépôt utilisateur posé par l'app au boot (`App.onKernelReady`
+   * → `provisionUsers`). `drizzle` (défaut) = persistance SQL réelle, dev ≡ prod ;
+   * `memory` = annuaire volatil (zéro I/O SQLite) pour les **tests de charge**
+   * (la mesure n'est pas polluée par le sync better-sqlite3), les scripts et les
+   * tests manuels. Surcharge ponctuelle : `NF_USER_STORE=memory` dans `.env.local`.
+   */
+  NF_USER_STORE: envEnum(["drizzle", "memory"] as const, {
+    default: "drizzle",
+    description:
+      "Dépôt du service users : drizzle (persistant) | memory (volatil).",
+  }),
+
+  /**
+   * Mot de passe de l'administrateur seedé au boot. En **dev**, défaut `secret`
+   * (comptes de fixture connus, bancs out-of-the-box) ; surcharge possible via
+   * `.env.local`. En **prod**, AUCUN défaut : sans cette variable, aucun compte
+   * n'est seedé (un mot de passe par défaut serait un trou de sécurité — le hash
+   * de `secret` est public dans le code). Le fournir via `.env.local` / secret-manager.
+   */
+  NF_ADMIN_PASSWORD: envString({
+    optional: true,
+    description:
+      "Mot de passe de l'admin seedé (dev défaut 'secret' ; prod requis).",
+  }),
+
+  /**
+   * Mot de passe du compte `user` de fixture (DEV uniquement, défaut `secret`).
+   * Jamais utilisé en production (seul l'admin y est seedé, et via NF_ADMIN_PASSWORD).
+   */
+  NF_USER_PASSWORD: envString({
+    optional: true,
+    description:
+      "Mot de passe du compte de fixture 'user' (dev, défaut 'secret').",
+  }),
 });

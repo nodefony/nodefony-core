@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-18T21:42:59.835Z",
+  "generated": "2026-06-19T14:55:58.916Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 913,
-    "symbols": 1968,
+    "symbols": 1967,
     "classes": 288,
     "interfaces": 510,
     "types": 246,
     "enums": 3,
     "functions": 416,
-    "constants": 505
+    "constants": 504
   },
   "symbols": {
     "Cli": {
@@ -4059,27 +4059,6 @@
         "controller"
       ],
       "description": "Banc d'intégration de la ZONE API M2M `test-api` (P6 J4) — JWT Bearer only. Tout `/nodefony/test/m2m/*` est capturé par la zone firewall `test-api` (authenticator `jwt`, `stateless`). Sans `Authori…"
-    },
-    "InMemoryUserRepository": {
-      "name": "InMemoryUserRepository",
-      "kind": "class",
-      "file": "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
-      "exported": true,
-      "module": "modules/test",
-      "extends": null,
-      "implements": [
-        "IUserRepository"
-      ],
-      "decorators": [],
-      "description": "Annuaire d'utilisateurs **en mémoire** — fixture du banc sécurité. Implémente le contrat {@link IUserRepository} complet sur une `Map` (aucun ORM) : branché sous `UserService` pour fournir la sourc…"
-    },
-    "SECURE_TEST_USERS": {
-      "name": "SECURE_TEST_USERS",
-      "kind": "const",
-      "file": "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
-      "exported": true,
-      "module": "modules/test",
-      "description": "Utilisateurs du banc sécurité (zone `test-secure`) — DEV UNIQUEMENT (le module test est `policy: \"dev\"`, jamais chargé en production). Mot de passe des deux comptes : `secret` (hashs bcrypt coût 12…"
     },
     "SecureController": {
       "name": "SecureController",
@@ -9140,6 +9119,19 @@
       "module": "@nodefony/user",
       "extends": null,
       "description": "Options de construction d'un {@link BaseUser} — signature en objet (lisibilité + extensibilité)."
+    },
+    "InMemoryUserRepository": {
+      "name": "InMemoryUserRepository",
+      "kind": "class",
+      "file": "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "implements": [
+        "IUserRepository"
+      ],
+      "decorators": [],
+      "description": "Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat {@link IUserRepository} sur une `Map` (aucun ORM). Trois usages : - **tests de charge** : zéro I/O (pas de sync SQLit…"
     },
     "MemoryVectorStore": {
       "name": "MemoryVectorStore",
@@ -14743,16 +14735,16 @@
         "HttpTransport",
         "SyslogTransport"
       ],
-      "IUserRepository": [
-        "InMemoryUserRepository",
-        "DrizzleUserRepository",
-        "MongooseUserRepository"
-      ],
       "ITokenStore": [
         "DrizzleTokenStore",
         "MongooseTokenStore",
         "RedisTokenStore",
         "MemoryTokenStore"
+      ],
+      "IUserRepository": [
+        "DrizzleUserRepository",
+        "MongooseUserRepository",
+        "InMemoryUserRepository"
       ],
       "IWebAuthnCredentialStore": [
         "DrizzleWebAuthnCredentialStore",
@@ -15570,24 +15562,6 @@
       ],
       "ApiM2mController": [
         "src/modules/test/index.ts"
-      ],
-      "InMemoryUserRepository": [
-        "src/modules/test/index.ts"
-      ],
-      "SECURE_TEST_USERS": [
-        "src/modules/test/index.ts"
-      ],
-      "UserService": [
-        "src/modules/test/index.ts",
-        "src/modules/test/nodefony/secure/SecureController.ts"
-      ],
-      "IPasswordEncoder": [
-        "src/modules/test/index.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/Argon2idEncoder.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts",
-        "src/packages/@nodefony/user/nodefony/src/encoders/MigratingEncoder.ts"
       ],
       "registerDolibarrEntities": [
         "src/modules/test/index.ts"
@@ -17256,58 +17230,6 @@
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
         "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
       ],
-      "BaseUser": [
-        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
-      ],
-      "IBaseUserOptions": [
-        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts"
-      ],
-      "IPasswordAuthenticatedUser": [
-        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
-      ],
-      "ISocialProvider": [
-        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
-      ],
-      "IUserRepository": [
-        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
-      ],
-      "Criteria": [
-        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
-      "ITransaction": [
-        "src/modules/test/nodefony/secure/InMemoryUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts"
-      ],
       "registerOAuthProvider": [
         "src/modules/test/nodefony/secure/oauthTestProvider.ts"
       ],
@@ -17324,6 +17246,9 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
+      "UserService": [
+        "src/modules/test/nodefony/secure/SecureController.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
@@ -17433,6 +17358,13 @@
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
+      "ISocialProvider": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
@@ -17502,12 +17434,54 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
       ],
+      "Criteria": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "ITransaction": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts"
+      ],
       "RepositoryReadOptions": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "BaseUser": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "IPasswordAuthenticatedUser": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "IUserRepository": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
       "DrizzleDb": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -18590,11 +18564,21 @@
       "IPasswordBlocklist": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
+      "IPasswordEncoder": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/Argon2idEncoder.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts",
+        "src/packages/@nodefony/user/nodefony/src/encoders/MigratingEncoder.ts"
+      ],
       "IOAuthProvisionPolicy": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "WeakPasswordError": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "IBaseUserOptions": [
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
       "IVectorSearchOptions": [
         "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",

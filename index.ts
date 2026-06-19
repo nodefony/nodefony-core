@@ -3,9 +3,11 @@ import { controllers } from "@nodefony/framework";
 import config from "./nodefony.config";
 import AppController from "./nodefony/controllers/AppController";
 import indexController from "./nodefony/controllers/indexController";
-// Entités de démo (User 1-N Post) sur l'ORM Drizzle par défaut : enregistrées au
-// top-level → présentes dans le entityRegistry avant le boot (ERD + profiler).
+// Entité User (table `@nodefony/drizzle`) sur l'ORM Drizzle par défaut : enregistrée
+// au top-level → présente dans le entityRegistry avant le boot (table créée, ERD, profiler).
 import "./nodefony/entity/user";
+// Source d'identité de l'app : pose le service "users" au boot (cf. fichier).
+import { provisionUsers } from "./nodefony/security/provisionUsers";
 
 /**
  * Point d'entrée de l'application Nodefony.
@@ -31,6 +33,17 @@ class App extends Module {
    */
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);
+  }
+
+  /**
+   * Une fois le kernel prêt (ORM connecté, firewall câblé), l'app pose sa source
+   * d'identité : le service `"users"`. Délégué à `provisionUsers` (dépôt Drizzle
+   * persistant par défaut, ou in-memory via `NF_USER_STORE`) — voir
+   * `nodefony/security/provisionUsers.ts`.
+   */
+  override async onKernelReady(): Promise<this> {
+    await provisionUsers(this);
+    return this;
   }
 }
 

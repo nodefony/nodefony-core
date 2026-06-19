@@ -48,6 +48,9 @@ export { MigratingEncoder } from "./nodefony/src/encoders/MigratingEncoder";
 export { encoderFromConfig } from "./nodefony/src/encoders/encoderFromConfig";
 export type { IEncoderSpec } from "./nodefony/src/encoders/encoderFromConfig";
 
+// ─── Repository de référence in-memory (charge / scripts / fixtures) ─────────
+export { InMemoryUserRepository } from "./nodefony/src/InMemoryUserRepository";
+
 // ─── Service (P5.6) ──────────────────────────────────────────────────────────
 export { UserService } from "./nodefony/service/UserService";
 export type {

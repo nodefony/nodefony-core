@@ -33,12 +33,6 @@ import SecureWsController from "./nodefony/secure/SecureWsController";
 import TestM2mRealtimeController from "./nodefony/secure/TestM2mRealtimeController";
 // P6 J4 — banc ZONE API M2M (JWT Bearer, zone "test-api", /nodefony/test/m2m).
 import ApiM2mController from "./nodefony/secure/ApiM2mController";
-import {
-  InMemoryUserRepository,
-  SECURE_TEST_USERS,
-} from "./nodefony/secure/InMemoryUserRepository";
-import { UserService } from "@nodefony/user";
-import type { IPasswordEncoder } from "@nodefony/user";
 // P6 J9 — enregistre le provider OAuth de TEST (side-effect), AVANT le onBoot du
 // service oauth2 qui confronte les providers configurés au registre. DEV only.
 import "./nodefony/secure/oauthTestProvider";
@@ -96,25 +90,13 @@ class Test extends Module {
   }
   // P1.7 — register security hooks listeners for integration tests.
   override async onKernelReady(): Promise<this> {
-    // P6 J1 — source d'identité du banc sécurité : UserService réel sur
-    // l'annuaire in-memory, posé sous "users" dans le container PARTAGÉ du
-    // kernel. Le UserPasswordAuthenticator (zone "test-secure") le résout au
-    // premier login — pas au boot (zéro coût si aucune requête protégée).
-    // P6 J3 — la chaîne d'encodeurs vient du PONT config.encoders (section
-    // `module-security` de la config du banc → firewall → container) : même
-    // migration bcrypt→argon2id qu'à J2, désormais pilotée par la config.
-    // AUCUN fallback : un boot cassé ici = pont cassé (c'est la preuve).
-    const encoder = this.container?.get<IPasswordEncoder>("passwordEncoder");
-    if (!encoder) {
-      throw new Error(
-        `banc test-secure: pont config.encoders absent — le firewall n'a pas ` +
-          `posé "passwordEncoder" au container (section encoders non consommée ?)`,
-      );
-    }
-    this.container?.set(
-      "users",
-      new UserService(new InMemoryUserRepository(SECURE_TEST_USERS), encoder),
-    );
+    // NOTE — le service "users" (source d'identité du firewall : comptes admin/user
+    // de la zone test-secure) n'est PLUS posé ici. C'est désormais l'APP racine qui
+    // le provisionne au boot, en dev ET en prod, via `nodefony/security/provisionUsers.ts`
+    // (dépôt Drizzle par défaut, in-memory via NF_USER_STORE). Ce module ne fournit
+    // que les ROUTES protégées — pas l'identité. (Fix : l'auth était morte hors dev,
+    // car seul ce module dev-only posait "users".)
+
     // Démo Log Backplane — 2ᵉ driver de relecture `console` (DEV uniquement) pour
     // exercer le SWITCH dev-only depuis la page Logs. `query:false` → non
     // interrogeable : basculer dessus prouve (a) que le switch marche, (b) que

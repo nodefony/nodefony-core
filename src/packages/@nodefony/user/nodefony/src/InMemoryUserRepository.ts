@@ -1,50 +1,34 @@
 import { randomUUID } from "node:crypto";
-import { BaseUser } from "@nodefony/user";
+import type { Criteria, ITransaction } from "@nodefony/orm-core";
+import { BaseUser } from "./BaseUser";
+import type { IBaseUserOptions } from "./BaseUser";
 import type {
-  IBaseUserOptions,
   IPasswordAuthenticatedUser,
   ISocialProvider,
   IUserRepository,
-} from "@nodefony/user";
-import type { Criteria, ITransaction } from "@nodefony/orm-core";
+} from "../contracts/index";
 
 /**
- * Utilisateurs du banc sécurité (zone `test-secure`) — DEV UNIQUEMENT (le module
- * test est `policy: "dev"`, jamais chargé en production).
+ * Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat
+ * {@link IUserRepository} sur une `Map` (aucun ORM).
  *
- * Mot de passe des deux comptes : `secret` (hashs bcrypt coût 12 pré-calculés —
- * zéro hash au boot, et `needsRehash` reste faux : aucun re-hash parasite
- * pendant les suites d'intégration).
- */
-export const SECURE_TEST_USERS: IBaseUserOptions[] = [
-  {
-    id: "00000000-0000-4000-8000-00000000ad01",
-    identifier: "admin",
-    // Rôles PLATS : c'est la projection de /auth/me qui pilote le front Studio
-    // (dashboards par rôle) — la hiérarchie serveur (roleHierarchy) n'aplatit
-    // pas la projection avant P6.8. ROLE_ADMIN reste premier (asserts du banc).
-    roles: ["ROLE_ADMIN", "ROLE_NODEFONY_ADMIN", "ROLE_DEV", "ROLE_SUPERVISOR"],
-    password: "$2y$12$LClrbAwB2rWklN.9mNaLSe8M3VT6g2HcuCSBkpdJAg/bgw8N66ktG",
-  },
-  {
-    id: "00000000-0000-4000-8000-0000000005e1",
-    identifier: "user",
-    roles: ["ROLE_USER"],
-    password: "$2y$12$SUihCkfVHcpC5EdUgTE/fOk0btOqY3RaUJutRyTkKepvUlxLVqO1u",
-  },
-];
-
-/**
- * Annuaire d'utilisateurs **en mémoire** — fixture du banc sécurité.
+ * Trois usages :
+ * - **tests de charge** : zéro I/O (pas de sync SQLite) → la mesure n'est pas
+ *   polluée par la persistance ;
+ * - **scripts / tests manuels** : démarrer sans base de données ;
+ * - **fixture de banc** déterministe (l'état est reconstruit à chaque boot).
  *
- * Implémente le contrat {@link IUserRepository} complet sur une `Map` (aucun
- * ORM) : branché sous `UserService` pour fournir la source d'identité du
- * firewall pendant les tests d'intégration. La persistance réelle (Drizzle/
- * Mongoose) prend ce rôle en application — même contrat, zéro changement aval.
+ * La persistance réelle (`@nodefony/drizzle` / `@nodefony/mongoose`) prend ce rôle
+ * en application — **même contrat, zéro changement en aval** (`UserService`,
+ * authenticators). Branché sous `UserService` comme n'importe quel repository.
  */
 export class InMemoryUserRepository implements IUserRepository {
   readonly #store = new Map<string, BaseUser>();
 
+  /**
+   * @param seed - comptes initiaux (identité + rôles + hash de mot de passe
+   *   éventuel). Hacher en amont (hash pré-calculé) évite tout coût CPU au boot.
+   */
   constructor(seed: IBaseUserOptions[] = []) {
     for (const options of seed) {
       const user = new BaseUser(options);
