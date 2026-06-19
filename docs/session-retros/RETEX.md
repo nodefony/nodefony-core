@@ -228,6 +228,13 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-19]` **DB dev au schéma périmé : `CREATE TABLE IF NOT EXISTS` ne migre JAMAIS** : la table
+  `User` du `.db` dev avait été créée avant l'ajout de `createdAt`/`updatedAt` à `userTable` → `SqliteError:
+no such column "createdAt"` au LOGIN (runtime), pas au boot (la table n'était pas lue au boot). Symptôme
+  « no such column X » à l'usage = schéma d'entité changé après création de la table. Fix dev : `DROP TABLE X`
+  (better-sqlite3) → DrizzleService la recrée au schéma courant au reboot (prod = drizzle-kit). Vérifier le
+  contenu avant drop (`PRAGMA table_info` + count) — ici 0 ligne, drop sûr.
+
 - `[1× — 2026-06-16]` **`npm run build` lancé EN BACKGROUND pendant que le serveur dev tourne = 404 fantômes**
   (J5 headers). Le `run_in_background:true` masque le piège (on ne « voit » pas le build mouliner) : il réécrit
   TOUS les `dist/`, le DevSupervisor redémarre sur des dist à DEMI-écrits → routes perdues (`/nodefony/test/*`,
@@ -601,6 +608,14 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 - `[1× — 2026-06-08]` **gros chantier de refonte → AUDIT exhaustif AVANT (pas juste relire le kit)** : avant le virage ORM, balayer code+mémoires+docs+**Studio**+**sondes realtime**+**externe** a débusqué des pièges invisibles depuis le kit : **2 `Orm` homonymes** (legacy core ≠ `@nodefony/orm-core` à garder → risque de supprimer la mauvaise cible) + **dette C5** (montage data plane ORM déclenché par Drizzle → app Mongoose-only muette). Le user a élargi le scope 2× (« tu as regardé Studio ? les sondes realtime aussi »). → pour une refonte, cartographier la **surface COMPLÈTE** (front + observabilité incluses) dès le départ ; le doc d'audit devient la boussole d'exécution.
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
+
+- `[1× — 2026-06-19]` **« Qui dépend de X ? » : un grep des imports `*.test.ts` ne voit PAS les bancs
+  d'intégration** : conclu à tort « aucun test ne dépend du `users` du module test » en regardant les tests
+  UNIT (fixtures locales). FAUX — ~10 bancs d'INTÉGRATION (`firewall-auth`, `securityGuard`…) bootent le
+  serveur dev complet (`describe("… requires server")`, port 5152) et tapent `/nodefony/test/secure/*` → ils
+  dépendent du `users` posé par le module test SANS l'importer. Pour l'impact d'une suppression : distinguer
+  unit (import direct) vs intégration (vrai serveur + routes du module chargé), et PROUVER par un run des
+  bancs « requires server », pas par un grep d'imports. (Devise « le kit/grep n'est pas le terrain ».)
 
 - `[1× — 2026-06-17]` **un changement CSP se prouve au BANC LIVE, surtout en PROD — les unit ne voient PAS
   les directives manquantes.** Étape B nonce : security unit 317 + http intég 502 + memory 9/9 VERTS, mais le
