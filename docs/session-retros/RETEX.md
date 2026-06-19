@@ -234,12 +234,14 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
   (un PAT valide → 401 inexplicable). Le build conditionnel par mtime peut rater l'effet d'un `config.ts` modifié.
   Réflexe : `start.sh --force-build` dès qu'on a touché `src/modules/test/**` ET qu'un banc en dépend. Vécu P6.12
   (1ʳᵉ tentative SKIP → forcé au 2ᵉ essai).
-- `[1× — 2026-06-19]` **DB dev au schéma périmé : `CREATE TABLE IF NOT EXISTS` ne migre JAMAIS** : la table
-  `User` du `.db` dev avait été créée avant l'ajout de `createdAt`/`updatedAt` à `userTable` → `SqliteError:
-no such column "createdAt"` au LOGIN (runtime), pas au boot (la table n'était pas lue au boot). Symptôme
-  « no such column X » à l'usage = schéma d'entité changé après création de la table. Fix dev : `DROP TABLE X`
-  (better-sqlite3) → DrizzleService la recrée au schéma courant au reboot (prod = drizzle-kit). Vérifier le
-  contenu avant drop (`PRAGMA table_info` + count) — ici 0 ligne, drop sûr.
+- `[2× — 2026-06-20]` **DB dev au schéma périmé : `CREATE TABLE IF NOT EXISTS` ne migre JAMAIS** : (1) table
+  `User` créée avant l'ajout de `createdAt`/`updatedAt` → `no such column "createdAt"` au LOGIN ; (2) table
+  `session` créée avec `context NOT NULL` puis colonne RETIRÉE du code → `SqliteError: NOT NULL constraint failed:
+session.context` à chaque WRITE de session → **serveur pendu 499/timeout 5s** sur toute route à session (banc
+  intég muet/hung — cf section Vérification). Symptôme « no such column X » OU « NOT NULL constraint X » à l'usage
+  (pas au boot) = schéma d'entité changé après création de la table. Fix dev : `DROP TABLE X` (better-sqlite3) →
+  l'ORM la recrée au schéma courant au reboot (prod = drizzle-kit). **Réflexe à graduer (`feedback_*`) : TOUTE
+  modif de colonne d'une entité ORM ⇒ DROP la table dev avant de tester runtime.**
 
 - `[1× — 2026-06-16]` **`npm run build` lancé EN BACKGROUND pendant que le serveur dev tourne = 404 fantômes**
   (J5 headers). Le `run_in_background:true` masque le piège (on ne « voit » pas le build mouliner) : il réécrit
@@ -635,6 +637,15 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 users`, webauthn/options 200, un 401/500 **serveur** ≠ blocage CSP (« Refused to connect »), rpId=localhost
   refuse IP/vhost. Cause = UserService absent en prod (modules policy dev). **Diagnostiquer vite évite de
   débugger la config du user en croyant à sa propre régression.**
+- `[1× — 2026-06-20]` **un test d'intégration en arrière-plan qui ne produit AUCUNE sortie (1 ligne) = HUNG,
+  pas lent.** Le user a flairé « c'est trop long » avant moi. Diagnostic = log serveur + `curl --max-time` (révélé
+  `SqliteError NOT NULL constraint failed` → 499/timeout 5s sur chaque route à session), PAS attendre. Réflexe :
+  dès qu'un banc « requires server » traîne, `curl` une route + `grep ERROR/CRITIC` le log AVANT de re-runner.
+- `[1× — 2026-06-20]` **ne pas conclure « terrain sain » sans preuve, surtout quand une mémoire de décision
+  existe.** Sur `contextSession` j'ai affirmé « `destroy(oldId)` vise le bon namespace, terrain OK » en lisant
+  le code — le user a dû corriger 2× (« c'est pas fini contextSession » / « on avait tranché de le supprimer »).
+  La mémoire `project_session_context_strategy_gap` portait la décision. Réflexe : un concept transverse douteux
+  → chercher SA mémoire de décision AVANT de trancher « sain », et la confronter au code (devise « confiance ≠ contrôle »).
 - `[1× — 2026-06-17]` **défaut d'un module = parfois 2 sources (`config/config.ts` humain + `.default()` Zod)
   → config.ts PRIME (valeur présente ⇒ Zod default ignoré).** Changé le défaut CSP côté Zod seul → runtime
   inchangé. **Re-mordu 2× la même session** (sur style-src). Aligner les DEUX + commenter le lien. (Variante de
