@@ -90,6 +90,9 @@ function sessionCookieOf(res: Res): string | null {
   return first.split(";")[0] ?? null;
 }
 
+/** Nom du cookie (avant le `=`) — robuste au préfixe `__Host-` du transport. */
+const cookieName = (nameValue: string): string => nameValue.split("=")[0] ?? "";
+
 async function login(identifier: string, password: string): Promise<Res> {
   return post(`${AUTH}/login`, { username: identifier, password });
 }
@@ -150,6 +153,42 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
       "string",
     );
     expect(regenerated).to.not.equal(fixated);
+  });
+
+  it("RED-TEAM fixation fermée : l'ancien cookie pré-login est MORT après login (anti session-riding)", async () => {
+    // L'attaquant fixe un cookie de session anonyme chez la victime.
+    const preLogin = await get("/nodefony/test/rest/session");
+    const attackerCookie = sessionCookieOf(preLogin);
+    expect(attackerCookie).to.be.a("string");
+    // La victime se connecte EN PORTANT ce cookie : l'ID est régénéré et l'ancien
+    // détruit du storage (destroy(oldId)). L'attaquant conserve la valeur pré-login.
+    const logged = await post(
+      `${AUTH}/login`,
+      { username: "admin", password: "secret" },
+      { cookie: attackerCookie! },
+    );
+    expect(logged.status).to.equal(200);
+    expect(sessionCookieOf(logged)).to.not.equal(attackerCookie);
+    // Rejeu de l'ANCIEN cookie : ni /me ni la zone — la session authentifiée de la
+    // victime vit sous le NOUVEL id, l'ancien ne porte plus aucune identité.
+    const me = await get(`${AUTH}/me`, { cookie: attackerCookie! });
+    expect(me.status, "ancien cookie ne doit pas ouvrir /me").to.equal(401);
+    const zone = await get("/nodefony/test/secure/ping", {
+      cookie: attackerCookie!,
+    });
+    expect(zone.status, "ancien cookie ne doit pas franchir la zone").to.equal(
+      401,
+    );
+  });
+
+  it("RED-TEAM session id forgé (jamais émis par le serveur) → 401, aucune session ne se matérialise", async () => {
+    // Découvre le NOM réel du cookie de session (préfixe __Host- sur TLS).
+    const real = sessionCookieOf(await login("admin", "secret"))!;
+    const forged = `${cookieName(real)}=forged-${Date.now()}`;
+    const zone = await get("/nodefony/test/secure/ping", { cookie: forged });
+    expect(zone.status).to.equal(401);
+    const me = await get(`${AUTH}/me`, { cookie: forged });
+    expect(me.status).to.equal(401);
   });
 
   it("le cookie de session SEUL franchit la zone protégée (SessionAuthenticator)", async () => {
