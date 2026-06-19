@@ -44,10 +44,12 @@ nodefony/
     └── securityHeaders.ts     SecurityHeaders — CSP/Referrer/COOP/COEP/CORP (applicatif ; transport=http, J5)
 ```
 
-## État (S1→J9 livrés ; J5 CSRF étape 1 livrée)
+## État (S1→J9 livrés ; J5 CSRF étape 1 livrée ; P6.12 API Keys livré)
 
-✅ Fondation S1 + authenticators (Anonymous/Password/Session/JWT) + Argon2id + throttle NIST + session BFF
-(J3) + JWT jose (J4) + WebAuthn/passkeys (J9) + OAuth2 social (J9) + **CSRF J5 étape 1**.
+✅ Fondation S1 + authenticators (Anonymous/Password/Session/JWT/**apikey**) + Argon2id + throttle NIST +
+session BFF (J3) + JWT jose (J4) + WebAuthn/passkeys (J9) + OAuth2 social (J9) + **CSRF J5 étape 1** +
+**API Keys/PAT (P6.12)** : `ApiKeyAuthenticator` + `ApiKeyService` (bearer opaque `nf_…`+CRC, `sha256` au
+repos, store partagé JWT, endpoints session-protégés, anti-énum/anti-DoS). Détail : `MEMORY.md` + kit P6.
 
 ✅ **CSRF (J5)** : `Csrf` (Fetch Metadata `Sec-Fetch-Site` PRIMAIRE + repli `Origin`/`Referer`), flag
 `strictSameSite`, liste `trustedOrigins` (alias multi-domaine). Câblé `Firewall.enforceCsrf()` → http-kernel

@@ -7,6 +7,7 @@ import TokenService from "./nodefony/service/tokenService";
 import Authorization from "./nodefony/service/authorization";
 import WebAuthnService from "./nodefony/service/webAuthn";
 import OAuth2Service from "./nodefony/service/oauth2";
+import ApiKeyService from "./nodefony/service/apiKeys";
 import type { ISecurityConfigInput } from "./nodefony/config/defineSecurityConfig";
 
 // Augmente le registre du core (declaration merging) → `use("@nodefony/security", …)`
@@ -38,6 +39,7 @@ declare module "nodefony" {
   Firewall,
   AuthFlow,
   TokenService,
+  ApiKeyService,
   Authorization,
   WebAuthnService,
   OAuth2Service,
@@ -54,11 +56,18 @@ export default Security;
 export { Firewall };
 export { AuthFlow };
 export { TokenService };
+export { ApiKeyService };
 export { Authorization };
 export { WebAuthnService };
 export { OAuth2Service };
 export type { ISafeUser } from "./nodefony/service/authFlow";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
+export type {
+  IApiKeyView,
+  IApiKeyCreated,
+  ICreateApiKeyOptions,
+} from "./nodefony/contracts/IApiKey";
+export { ApiKeyError } from "./nodefony/errors/ApiKeyError";
 export { SecuredArea } from "./nodefony/src/SecuredArea";
 export { Csrf } from "./nodefony/service/csrf";
 export { CsrfTokenManager } from "./nodefony/src/csrfToken";
@@ -84,6 +93,18 @@ export { AnonymousAuthenticator } from "./nodefony/src/authenticator/AnonymousAu
 export { UserPasswordAuthenticator } from "./nodefony/src/authenticator/UserPasswordAuthenticator";
 export { SessionAuthenticator } from "./nodefony/src/authenticator/SessionAuthenticator";
 export { JwtAuthenticator } from "./nodefony/src/authenticator/JwtAuthenticator";
+export { ApiKeyAuthenticator } from "./nodefony/src/authenticator/ApiKeyAuthenticator";
+export type { IApiKeyAuthenticatorRuntime } from "./nodefony/src/authenticator/ApiKeyAuthenticator";
+export {
+  generateApiKey,
+  parseApiKey,
+  hashApiKey,
+  looksLikeApiKey,
+} from "./nodefony/src/apikey/apiKeyFormat";
+export type {
+  IGeneratedApiKey,
+  IParsedApiKey,
+} from "./nodefony/src/apikey/apiKeyFormat";
 export {
   registerAuthenticatorFactory,
   getAuthenticatorFactory,

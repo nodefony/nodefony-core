@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-19T14:55:58.916Z",
+  "generated": "2026-06-19T21:06:37.914Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 913,
-    "symbols": 1967,
-    "classes": 288,
-    "interfaces": 510,
+    "files": 919,
+    "symbols": 1987,
+    "classes": 292,
+    "interfaces": 519,
     "types": 246,
     "enums": 3,
-    "functions": 416,
+    "functions": 423,
     "constants": 504
   },
   "symbols": {
@@ -4807,6 +4807,25 @@
       "decorators": [],
       "description": "Controller pont unique du data plane admin (Studio). Toutes les routes `/nodefony/<namespace>/api/*` montées par le broker pointent vers `AdminApiController.dispatch`. À l'exécution, le controller …"
     },
+    "ApiKeyController": {
+      "name": "ApiKeyController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Endpoints HTTP de **gestion des clés API personnelles (PAT, P6.12)** — console « mes clés » façon GitHub, adaptateurs MINCES au-dessus du service `apiKeys` (`@nodefony/security`) : - `POST /nodefon…"
+    },
+    "mountApiKeyRoutes": {
+      "name": "mountApiKeyRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les routes de gestion des clés API — appelé par le module framework à `onKernelReady`, seulement si le service `apiKeys` est présent. Routes nommées `security.apikeys.*` (espace data plane `/…"
+    },
     "OAuth2Controller": {
       "name": "OAuth2Controller",
       "kind": "class",
@@ -8323,6 +8342,33 @@
       "module": "@nodefony/security",
       "description": "Vote d'un {@link IAccessVoter}. Stratégie firewall = affirmative + DENY veto : un seul DENY bloque ; sinon un GRANT suffit ; tous ABSTAIN → DENY (Zero Trust)."
     },
+    "IApiKeyView": {
+      "name": "IApiKeyView",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IApiKey.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Vue **publique** d'une clé API (PAT) — projection de `IAccessTokenRecord` **sans le secret ni son hash** (jamais exposés après création). C'est la forme renvoyée par la console (« mes clés ») et le…"
+    },
+    "IApiKeyCreated": {
+      "name": "IApiKeyCreated",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IApiKey.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "IApiKeyView",
+      "description": "Résultat d'une **création** de clé — la vue publique **+ le token en clair**. Le `token` n'est disponible qu'ICI, une seule fois : il n'est jamais stocké (seul son `sha256` l'est) ni re-dérivable. …"
+    },
+    "ICreateApiKeyOptions": {
+      "name": "ICreateApiKeyOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IApiKey.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Options de création d'une clé API."
+    },
     "IAuthenticator": {
       "name": "IAuthenticator",
       "kind": "interface",
@@ -8477,6 +8523,17 @@
       "decorators": [],
       "description": "Accès refusé — `code = 403`. Levée par l'autorisation (un `@IsGranted` non satisfait, un voter DENY) : l'utilisateur EST authentifié mais n'a pas le droit. À distinguer d'{@link AuthenticationError…"
     },
+    "ApiKeyError": {
+      "name": "ApiKeyError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/errors/ApiKeyError.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur de **gestion** d'une clé API (création/révocation) — porte un `code` HTTP que l'adaptateur framework mappe par duck-typing (il n'importe jamais les classes de `@nodefony/security`). - `400` …"
+    },
     "AuthenticationError": {
       "name": "AuthenticationError",
       "kind": "class",
@@ -8509,6 +8566,17 @@
       "implements": [],
       "decorators": [],
       "description": "Tentatives de login trop rapprochées — `code = 429` (RFC 6585 §4). Levée par `UserPasswordAuthenticator` quand le backoff progressif ({@link LoginThrottler}) bloque encore l'identifiant saisi. Dist…"
+    },
+    "ApiKeyService": {
+      "name": "ApiKeyService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Gestion des **clés API personnelles (PAT, P6.12)** — émission, listing et révocation, au-dessus du `ITokenStore` **partagé** (posé au container par le `TokenService`, qui en possède aussi le `gc`).…"
     },
     "AuthFlow": {
       "name": "AuthFlow",
@@ -13482,6 +13550,56 @@
       "exported": true,
       "module": "@nodefony/realtime"
     },
+    "IGeneratedApiKey": {
+      "name": "IGeneratedApiKey",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/apikey/apiKeyFormat.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Résultat d'une génération de clé — le `token` n'est disponible qu'ICI (1×)."
+    },
+    "IParsedApiKey": {
+      "name": "IParsedApiKey",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/apikey/apiKeyFormat.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Décomposition validée d'une clé présentée."
+    },
+    "hashApiKey": {
+      "name": "hashApiKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/apikey/apiKeyFormat.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Hash au repos d'une clé présentée (token entier) — `sha256` hex."
+    },
+    "generateApiKey": {
+      "name": "generateApiKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/apikey/apiKeyFormat.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Génère une nouvelle clé API cryptographiquement aléatoire."
+    },
+    "looksLikeApiKey": {
+      "name": "looksLikeApiKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/apikey/apiKeyFormat.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Test **bon marché** (préfixe seul) — discrimine un PAT d'un JWT à l'`supports()` de l'authenticator, sans calculer le checksum."
+    },
+    "parseApiKey": {
+      "name": "parseApiKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/apikey/apiKeyFormat.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Valide la **forme** d'une clé présentée et en dérive le hash de lookup — **sans aucun accès au store**. Rejette (→ `null`) un préfixe absent, une longueur incorrecte, un charset non base64url ou un…"
+    },
     "AnonymousAuthenticator": {
       "name": "AnonymousAuthenticator",
       "kind": "class",
@@ -13494,6 +13612,28 @@
       ],
       "decorators": [],
       "description": "Acceptation EXPLICITE de l'anonymat dans une zone — le seul authenticator autorisé à produire un token non authentifié sans déclencher le Zero Trust. Ne le lister que volontairement : une zone `aut…"
+    },
+    "ApiKeyAuthenticator": {
+      "name": "ApiKeyAuthenticator",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IAuthenticator"
+      ],
+      "decorators": [],
+      "description": "Authentification par **clé API personnelle (PAT, P6.12)** présentée en `Authorization: Bearer <prefix>_…` (RFC 6750). Réservée API/CI/scripts — le web utilise la session BFF. Un PAT est un **bearer…"
+    },
+    "IApiKeyAuthenticatorRuntime": {
+      "name": "IApiKeyAuthenticatorRuntime",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Paramètres effectifs d'un {@link ApiKeyAuthenticator} (dérivés de la config)."
     },
     "IAuthenticatorFactoryContext": {
       "name": "IAuthenticatorFactoryContext",
@@ -14414,6 +14554,7 @@
         "Orm",
         "RedisService",
         "Connection",
+        "ApiKeyService",
         "AuthFlow",
         "Authorization",
         "Firewall",
@@ -14558,6 +14699,7 @@
         "VueController",
         "DocumentationController",
         "AdminApiController",
+        "ApiKeyController",
         "OAuth2Controller",
         "SessionAuthController",
         "TokenAuthController",
@@ -14623,8 +14765,12 @@
       "IRealtimeProbe": [
         "IRealtimeHealth"
       ],
+      "IApiKeyView": [
+        "IApiKeyCreated"
+      ],
       "nodefonyError": [
         "AccessDeniedError",
+        "ApiKeyError",
         "AuthenticationError",
         "CsrfError",
         "ThrottledError",
@@ -14871,6 +15017,7 @@
       ],
       "IAuthenticator": [
         "AnonymousAuthenticator",
+        "ApiKeyAuthenticator",
         "JwtAuthenticator",
         "SessionAuthenticator",
         "UserPasswordAuthenticator"
@@ -15033,6 +15180,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -15084,6 +15232,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -15098,6 +15247,7 @@
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
@@ -15138,6 +15288,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -15401,6 +15552,7 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -15419,6 +15571,7 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -15631,6 +15784,7 @@
       ],
       "Router": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -15679,6 +15833,7 @@
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -15733,6 +15888,12 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "mountOAuth2Routes": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "ApiKeyController": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "mountApiKeyRoutes": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "createKernelAdminApi": [
@@ -16271,8 +16432,12 @@
       "OAuth2Service": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "ApiKeyService": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "ISecurityConfigInput": [
         "src/packages/@nodefony/security/index.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
@@ -16576,6 +16741,7 @@
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
+        "src/packages/@nodefony/security/nodefony/errors/ApiKeyError.ts",
         "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
         "src/packages/@nodefony/security/nodefony/errors/CsrfError.ts",
         "src/packages/@nodefony/security/nodefony/errors/ThrottledError.ts",
@@ -17133,6 +17299,7 @@
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -17156,6 +17323,7 @@
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
@@ -17224,6 +17392,7 @@
         "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/realtime/UserRealtimeToken.ts",
@@ -17402,6 +17571,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
@@ -17410,7 +17580,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
@@ -17568,6 +17740,7 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
       ],
       "HTTPMethod": [
+        "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -18312,6 +18485,7 @@
       ],
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/config/config.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
@@ -18324,6 +18498,7 @@
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts",
@@ -18335,6 +18510,7 @@
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
@@ -18350,11 +18526,38 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/securityHeaders.ts"
       ],
+      "ISecurityConfig": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "IApiKeyView": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+      ],
+      "IApiKeyCreated": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+      ],
+      "ICreateApiKeyOptions": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+      ],
+      "ApiKeyError": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+      ],
+      "generateApiKey": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+      ],
       "IUserProvider": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts"
@@ -18373,6 +18576,7 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",
@@ -18441,16 +18645,6 @@
       ],
       "SecurityHeaders": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
-      ],
-      "ISecurityConfig": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
       ],
       "getAuthenticatorFactory": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
@@ -20089,6 +20283,18 @@
       "AnonymousToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts"
       ],
+      "UserToken": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
+      ],
+      "looksLikeApiKey": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts"
+      ],
+      "parseApiKey": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts"
+      ],
       "AnonymousAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
       ],
@@ -20101,10 +20307,8 @@
       "JwtAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
       ],
-      "UserToken": [
-        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
+      "ApiKeyAuthenticator": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
       ],
       "anonymousUser": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",

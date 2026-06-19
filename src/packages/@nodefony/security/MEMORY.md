@@ -85,6 +85,23 @@ api/oauth2/{provider}/{authorize,callback}` (`bypassFirewall`, montés si servic
   (find-or-create). `UserService.provisionOAuthUser(profile, {defaultRoles, allowSignup})` = défaut : crée
   `password:null` + rôles `policy.defaultRoles` (ROLE_USER) + `addSocialProvider` ; **zéro liaison-email auto**
   (anti account-takeover). OAuth = authn pas authz (rôles à la création, base=vérité). user n'importe RIEN de security.
+- **API Keys / PAT (P6.12)** — clé = bearer **opaque** `nf_<pubid(8)><secret(43)><crc(6)>` (base64url
+  positionnel, 1 seul `_`). `apiKeyFormat.ts` (PUR) : `generateApiKey`/`parseApiKey`/`hashApiKey`/
+  `looksLikeApiKey` + **CRC32 local** (checksum PUBLIC : rejet O(1) sans store = anti-DoS + secret-scanning).
+  Repos = `sha256(token entier)` (secret 256 bits → pas de pepper/argon2, raison : non brute-forçable).
+  `ApiKeyAuthenticator` (`apikey`) : `supports`=Bearer+préfixe `nf_` ; `authenticate`=`parseApiKey` (forme+CRC
+  AVANT store) → `findByHash` → checks `kind:"pat"`/révoqué/expiré/**ban `invalidBefore`** → `loadUserByIdentifier`
+  (rôles frais) → `markUsed` **throttlé** (`lastUsedThrottleS`, 0 write hot path) → promote + `scopes`/`apiKeyId`
+  en attribut ; 401 **uniforme** (anti-énum). **Discrimination JWT/PAT par FORME** : `JwtAuthenticator.supports()`
+  resserré à `a.b.c` (JWS compact, 3ᵉ `*` → `alg=none` reste routé jose) → les deux cohabitent dans une zone.
+  `ApiKeyService` (`apiKeys`) : `createForSubject`/`listForSubject`/`revokeForSubject` sur le **même `ITokenStore`**
+  que JWT (record `kind:"pat"`, secret affiché **1×**) ; cap `maxPerSubject`→409, scopes ⊆ `allowedScopes`→400,
+  expiry `defaultExpiryDays`, IDOR→`false`. **TokenService possède le store+gc** : boot étendu `jwt.enabled ‖
+apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (keystore). Endpoints =
+  `ApiKeyController` (@nodefony/framework, couplé par nom `apiKeys`+`authFlow`) `/nodefony/security/api/keys`
+  POST/GET/DELETE — **PAS `bypassFirewall`** (zone data plane session BFF ; porteur = `authFlow.me`, jamais autrui ;
+  DELETE clé d'autrui→**404** anti-énum). Builtin `registerAuthenticatorFactory("apikey", …)`. Banc : 44 unit + e2e
+  `http/apikey-flow.test.ts` (8, matrice d'attaques + IDOR + coexistence JWT/PAT). RFC 6750/7009/6749.
 - **CSRF (J5)** — `Csrf` (`service/csrf.ts`, logique PURE sync, testable sans serveur) : défense **Fetch
   Metadata d'abord** (modèle Go 1.25 / OWASP 2025) + repli `Origin`/`Referer`. `enforce(req)` sur méthode
   state-changing (RFC 9110 §9.2.1 ; GET/HEAD/OPTIONS/TRACE = no-op) ; chaîne : (1) origine de confiance

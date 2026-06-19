@@ -191,10 +191,15 @@ export default {
     },
 
     // ══════════════════ CLÉS API (PAT — style GitHub/Claude) ══════════════════
+    // Format émis : <prefix>_<pubid>_<secret><crc> (ex. nf_a1b2c3d4_… ). Secret
+    // = 256 bits aléatoires → HASHÉ (sha256) au repos, affiché UNE seule fois.
     apiKeys: {
-      enabled: true, //          active les clés API. Défaut: true.
-      prefix: "nf", //           préfixe : nf_<prefix>_<secret>. Défaut: "nf". Clé HASHÉE au repos, affichée 1×.
-      defaultExpiryDays: 90, //  expiration par défaut (jours). null = jamais. Défaut: 90.
+      enabled: true, //           active les clés API. Défaut: true.
+      prefix: "nf", //            marque (minuscules/chiffres). Défaut: "nf".
+      defaultExpiryDays: 90, //   expiration par défaut (jours). null = jamais. Défaut: 90.
+      lastUsedThrottleS: 60, //   coalescence d'écriture "last used" (s, perf). 0 = à chaque usage. Défaut: 60.
+      maxPerSubject: 100, //      plafond de clés actives par porteur (anti-abus). Défaut: 100.
+      allowedScopes: null, //     catalogue de scopes autorisés à la création. null = libre. Défaut: null.
     },
 
     // ══════════════════ WEBHOOKS (sortants, signés) ══════════════════

@@ -13,6 +13,12 @@ import type { IJwtRuntime } from "../token/jwtRuntime";
 // Scheme Bearer (RFC 6750 §2.1), case-insensitive, capture le token.
 const BEARER_SCHEME = /^bearer\s+(.+)$/i;
 
+// Structure JWS compacte (RFC 7515 §3.1 / RFC 7519 §3) : 3 segments base64url
+// séparés par des points (3ᵉ vide toléré → `alg=none` reste routé vers jose qui
+// le rejette). Discrimine un JWT d'un bearer opaque (clé API `<prefix>_…`, sans
+// point) → JwtAuthenticator et ApiKeyAuthenticator cohabitent dans une zone.
+const COMPACT_JWS = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/;
+
 // Message UNIFORME — la cause fine (expiré, aud, signature, sujet banni) part
 // dans les logs d'audit, jamais au client (anti-énumération / anti-oracle).
 const INVALID_TOKEN = "Invalid token";
@@ -58,10 +64,12 @@ export class JwtAuthenticator implements IAuthenticator {
     this.#runtime = runtime;
   }
 
-  /** La requête porte-t-elle un en-tête `Authorization: Bearer ...` ? */
+  /** La requête porte-t-elle un `Authorization: Bearer <jws>` (structure JWT) ? */
   supports(context: ContextType): boolean {
     const auth = context.request?.headers?.authorization;
-    return typeof auth === "string" && BEARER_SCHEME.test(auth);
+    if (typeof auth !== "string") return false;
+    const match = auth.match(BEARER_SCHEME);
+    return match !== null && COMPACT_JWS.test(match[1]!.trim());
   }
 
   /** Extrait le token brut (non vérifié) → porté par un `UserToken` type `"jwt"`. */

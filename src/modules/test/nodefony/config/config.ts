@@ -39,13 +39,16 @@ export default {
         // défauts : security: true (Zero Trust), mode: "first",
         // stateless: false (session BFF).
       },
-      // P6 J4 — zone API M2M : JWT Bearer (RFC 6750) UNIQUEMENT, pas de session.
-      // Un access token s'obtient via POST /nodefony/security/api/token (grant
-      // credential), puis `Authorization: Bearer <token>` sur /nodefony/test/m2m/*.
+      // P6 J4/P6.12 — zone API M2M : JWT Bearer (RFC 6750) ET clé API (PAT)
+      // cohabitent. Un access token s'obtient via POST /nodefony/security/api/token
+      // (grant credential) ; une clé API via POST /nodefony/security/api/keys (depuis
+      // une session). Les deux se présentent en `Authorization: Bearer <…>` — la
+      // discrimination se fait par FORME (JWT = `a.b.c`, PAT = `nf_…`), donc les deux
+      // authenticators coexistent SANS ambiguïté (supports() mutuellement exclusifs).
       "test-api": {
         pattern: "^/nodefony/test/m2m",
-        authenticators: ["jwt"],
-        stateless: true, // stateless : pas de session, identité 100 % portée par le JWT.
+        authenticators: ["jwt", "apikey"],
+        stateless: true, // stateless : pas de session, identité 100 % portée par le bearer.
         // realtime: armé par DÉFAUT (zone protégée → WS fermé, Zero Trust) → le
         // handshake WS JWT sous /m2m est authentifié sans flag (P6 J8 volet b).
       },

@@ -26,6 +26,9 @@ import WebAuthnController, {
 import OAuth2Controller, {
   mountOAuth2Routes,
 } from "./nodefony/controller/OAuth2Controller";
+import ApiKeyController, {
+  mountApiKeyRoutes,
+} from "./nodefony/controller/ApiKeyController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
@@ -168,6 +171,12 @@ class Framework extends Module {
     if (this.kernel?.container?.get("oauth2")) {
       mountOAuth2Routes(this);
     }
+    // P6.12 — gestion des clés API (PAT) : routes montées seulement si le service
+    // `apiKeys` est présent (security chargé + clés activées). 404 sinon. Ces
+    // routes sont PROTÉGÉES par la zone data plane (session), pas bypassées.
+    if (this.kernel?.container?.get("apiKeys")) {
+      mountApiKeyRoutes(this);
+    }
     return this;
   }
 }
@@ -197,6 +206,8 @@ export {
   mountWebAuthnRoutes,
   OAuth2Controller,
   mountOAuth2Routes,
+  ApiKeyController,
+  mountApiKeyRoutes,
   createKernelAdminApi,
   createFrameworkAdminApi,
   createSyslogAdminApi,

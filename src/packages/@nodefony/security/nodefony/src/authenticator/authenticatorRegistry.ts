@@ -6,6 +6,7 @@ import { AnonymousAuthenticator } from "./AnonymousAuthenticator";
 import { SessionAuthenticator } from "./SessionAuthenticator";
 import { UserPasswordAuthenticator } from "./UserPasswordAuthenticator";
 import { JwtAuthenticator } from "./JwtAuthenticator";
+import { ApiKeyAuthenticator } from "./ApiKeyAuthenticator";
 import { resolveJwtRuntime } from "../token/jwtRuntime";
 import type { LoginThrottler } from "../throttle/LoginThrottler";
 
@@ -111,4 +112,14 @@ registerAuthenticatorFactory("jwt", ({ container, config }) => {
   // lazy dans l'instance (cold path). Les paramètres iss/aud/ttl sont dérivés de
   // la config (mêmes valeurs que l'émetteur via `resolveJwtRuntime`).
   return new JwtAuthenticator(container, resolveJwtRuntime(config.jwt));
+});
+
+registerAuthenticatorFactory("apikey", ({ container, config }) => {
+  // Clé API personnelle (PAT, P6.12) : bearer opaque révocable. Le store de
+  // jetons est posé au container par le TokenService ; résolution lazy dans
+  // l'instance. Préfixe (discrimine du JWT) + throttle "last used" = config.apiKeys.
+  return new ApiKeyAuthenticator(container, {
+    prefix: config.apiKeys.prefix,
+    lastUsedThrottleS: config.apiKeys.lastUsedThrottleS,
+  });
 });

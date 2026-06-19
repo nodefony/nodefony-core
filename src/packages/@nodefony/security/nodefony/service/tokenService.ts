@@ -84,33 +84,42 @@ class TokenService extends Service {
       // (le JWT restera indisponible → 503 à l'émission, 401 à la vérification).
       return;
     }
-    if (!config.jwt.enabled) {
-      this.log("token service idle — JWT désactivé en config", "DEBUG");
+    // Le store de jetons héberge les refresh tokens (JWT) ET les clés API (PAT,
+    // P6.12). On le provisionne dès que l'une OU l'autre capacité est activée —
+    // ce service en est le propriétaire (avec son gc) ; `ApiKeyService` et le
+    // `JwtAuthenticator` le résolvent du container par nom.
+    const jwtEnabled = config.jwt.enabled;
+    const apiKeysEnabled = config.apiKeys.enabled;
+    if (!jwtEnabled && !apiKeysEnabled) {
+      this.log("token service idle — JWT et clés API désactivés", "DEBUG");
       return;
     }
-    this.#runtime = resolveJwtRuntime(config.jwt);
-
     const factory = getTokenStoreFactory(config.tokenStore.driver);
     if (!factory) {
       this.log(
-        `token store "${config.tokenStore.driver}" inconnu — JWT indisponible`,
+        `token store "${config.tokenStore.driver}" inconnu — JWT/clés API indisponibles`,
         "CRITIC",
       );
       return;
     }
     this.#store = factory({ container: this.container as Container, config });
-    this.#keystore = new JwtKeystore(config.jwt.keystore, (m, s) =>
-      this.log(m, s as Severity),
-    );
-
-    // Partage par NOM (le JwtAuthenticator et les endpoints framework les
-    // résolvent du container — convention-frère `passwordEncoder`/`loginThrottler`).
+    // Partage par NOM (`ApiKeyService`, `JwtAuthenticator`, endpoints framework —
+    // convention-frère `passwordEncoder`/`loginThrottler`).
     this.container?.set("tokenStore", this.#store);
-    this.container?.set("jwtKeystore", this.#keystore);
+
+    // Capacité JWT (signature + refresh) : runtime + keystore Ed25519 — seulement
+    // si activée. Sans elle, le store existe quand même (clés API seules).
+    if (jwtEnabled) {
+      this.#runtime = resolveJwtRuntime(config.jwt);
+      this.#keystore = new JwtKeystore(config.jwt.keystore, (m, s) =>
+        this.log(m, s as Severity),
+      );
+      this.container?.set("jwtKeystore", this.#keystore);
+    }
 
     this.#scheduleGc(config.tokenStore.gcIntervalS, config.tokenStore.gcJitter);
     this.log(
-      `token service ready — store "${config.tokenStore.driver}", gc ${config.tokenStore.gcIntervalS}s`,
+      `token service ready — store "${config.tokenStore.driver}", jwt=${jwtEnabled}, apiKeys=${apiKeysEnabled}, gc ${config.tokenStore.gcIntervalS}s`,
       "DEBUG",
     );
   }
@@ -126,9 +135,9 @@ class TokenService extends Service {
     }
   }
 
-  /** `true` si l'émission/vérification JWT est opérationnelle (boot réussi). */
+  /** `true` si l'émission JWT (signature + refresh) est opérationnelle. */
   isEnabled(): boolean {
-    return this.#store !== null;
+    return this.#keystore !== null && this.#runtime !== null;
   }
 
   // ── gc (orchestration du seam ITokenStore.gc) ───────────────────────────────

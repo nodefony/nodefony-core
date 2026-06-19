@@ -501,14 +501,46 @@ const apiKeysSchema = z
     enabled: z.boolean().default(true),
     prefix: z
       .string()
+      .min(1)
+      .max(12)
+      .regex(/^[a-z0-9]+$/, "préfixe = minuscules/chiffres (charset base64url)")
       .default("nf")
-      .describe("Préfixe des clés : nf_<prefix>_<secret>."),
+      .describe(
+        "Marque des clés : <prefix>_<pubid>_<secret><crc>. Ex. « nf ».",
+      ),
     defaultExpiryDays: z
       .number()
       .int()
+      .positive()
       .nullable()
       .default(90)
       .describe("Expiration par défaut (null = jamais)."),
+    lastUsedThrottleS: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(60)
+      .describe(
+        "Coalescence d'écriture de `lastUsedAt` (s) — n'écrit pas le store à " +
+          "chaque requête (règle perf). 0 = écrit à chaque usage.",
+      ),
+    maxPerSubject: z
+      .number()
+      .int()
+      .positive()
+      .default(100)
+      .describe(
+        "Plafond de clés actives par porteur (anti-abus du store). Création " +
+          "au-delà → 409.",
+      ),
+    allowedScopes: z
+      .array(z.string().min(1))
+      .nullable()
+      .default(null)
+      .describe(
+        "Catalogue de scopes autorisés à la création (null = libre). " +
+          "L'autorisation réelle reste les rôles frais ∩ scopes à l'usage.",
+      ),
   })
   .describe(
     "Clés API (PAT style GitHub/Claude) — hashées au repos, affichées 1×.",
