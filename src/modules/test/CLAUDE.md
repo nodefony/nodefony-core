@@ -12,6 +12,13 @@
 Module exemple de Nodefony — sert de **terrain de jeu pour les tests d'intégration** du framework.
 Il expose des routes HTTP/WS couvrant tous les cas : sessions, contextes, crashes, uploads, streams.
 
+> **Identité / `users` (depuis 2026-06-19)** : ce module ne pose **PLUS** le service `"users"`
+> (source d'identité du firewall, comptes `admin`/`user` de la zone `test-secure`). C'est désormais
+> l'**APP racine** qui le provisionne au boot, en dev ET en prod (`nodefony/security/provisionUsers.ts`,
+> dépôt `NF_USER_STORE` = drizzle par défaut | memory pour la charge). Ce module ne fournit que les
+> **routes protégées** (`SecureController`). Raison : avant, seul ce module dev-only posait `"users"`
+> → l'auth était morte en production.
+
 ---
 
 ## Structure

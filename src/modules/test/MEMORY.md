@@ -61,6 +61,10 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 DefaultController + RestController : `initialize()` → `this.startSession("test")`.
 RestController injecte `@inject("session")`.
 
+## Sécurité (banc P6)
+
+Zone `test-secure` (`SecureController`, routes `/nodefony/test/secure/*`) — bancs firewall/garde `@IsGranted`. ⚠️ Le service `"users"` (identité admin/user) n'est **PAS** posé ici depuis 2026-06-19 : c'est l'**APP racine** (`provisionUsers`, `NF_USER_STORE` drizzle|memory) qui le fournit, dev ET prod. Ce module ne porte que les routes protégées. Fixtures `admin/user:secret` = `nodefony/security/devUsers.ts` (app).
+
 ## Dépendances
 
 `@nodefony/framework`, `@nodefony/http`, `nodefony` — pas de deps externes.

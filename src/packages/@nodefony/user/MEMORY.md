@@ -8,7 +8,7 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 ## Core Components
 
 - `nodefony/contracts/` ✅ : `IUser` (strict), `IPasswordAuthenticatedUser` (+`password`), `ISocialProvider`, `IPasswordEncoder`, `IUserProvider`, `IUserRepository extends IRepository<IPasswordAuthenticatedUser>` (+ barrel). `IRole`/`IPermission` = **commentés, différés P6.8**.
-- `nodefony/src/` ✅ : `BaseUser` (POJO impl `IPasswordAuthenticatedUser` + mutateurs chaînables), `AnonymousUser` + singleton `anonymousUser` + `ROLE_ANONYMOUS`, `encoders/BcryptEncoder` ✅ (P5.6).
+- `nodefony/src/` ✅ : `BaseUser` (POJO impl `IPasswordAuthenticatedUser` + mutateurs chaînables), `AnonymousUser` + singleton `anonymousUser` + `ROLE_ANONYMOUS`, `InMemoryUserRepository` (impl `IUserRepository` sur `Map`, 0 ORM — dépôt de référence : tests de charge sans I/O, scripts, fixtures), `encoders/BcryptEncoder` ✅ (P5.6).
 - `nodefony/service/` ✅ : `UserService extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>` (CRUD hérité + `authenticate()` + events credential) — P5.6.
 
 ## Config
