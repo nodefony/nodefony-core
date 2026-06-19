@@ -41,12 +41,13 @@
 
 ## 🐚 Shell / environnement d'exécution
 
-- `[2× — 2026-06-13, 2026-06-14]` **variable shell multiligne NON quotée passée à grep = erreur trompeuse « No such file
-  or directory »** : `NEW=$(git status … | awk …)` puis `grep motif $NEW` → les chemins multilignes sont
-  re-splittés n'importe comment (ugrep concatène 2 chemins en 1). → soit `xargs grep` soit lister les
-  fichiers EXPLICITEMENT dans la commande (fait) ; jamais `$VAR` nue multiligne en argument. Re-vécu J4 (7 fichiers
-  neufs en `$NEW` multiligne). **Bonus ugrep** : pas de lookahead `(?!...)` (« invalid syntax ») → filtrer en 2 temps
-  (`grep | grep -v`), pas un négatif inline.
+- `[3× — 2026-06-13, 2026-06-14, 2026-06-19]` **variable shell multiligne/espacée NON quotée passée à grep = erreur
+  trompeuse « No such file or directory »** : `NEW="a.ts b.ts"` puis `grep motif $NEW` → en **zsh** `$VAR` ne
+  word-split PAS (chaîne entière = 1 nom) ; en bash multiligne = re-split n'importe comment (ugrep concatène 2
+  chemins). + le `|| echo "0…"` de garde donne un **faux négatif rassurant**. → lister les fichiers EXPLICITEMENT
+  en arguments (fait), ou `xargs grep` ; jamais `$VAR` nue en argument multi-chemins. Re-vécu J4 (7 fichiers neufs)
+  puis **P6.12** (scan revue sécu zsh). **Bonus ugrep** : pas de lookahead `(?!...)` → filtrer en 2 temps
+  (`grep | grep -v`). **→ 3× : candidat graduation `feedback_shell_no_unquoted_multipath`.**
 - `[1× — 2026-06-12]` **un subagent background hérite des permissions de la session → sa veille web peut être
   refusée silencieusement** : l'agent « état de l'art auth » s'est vu refuser WebSearch/WebFetch/Bash → livré
   100 % connaissance interne (cutoff) en le signalant. → avant de déléguer une veille web, vérifier qu'une
@@ -228,6 +229,11 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-19]` **`start.sh` « SKIP build » alors qu'on a changé la CONFIG d'un module test** → le
+  serveur boote avec l'ANCIENNE config (zone `test-api` sans `apikey`) → le banc e2e taperait une zone périmée
+  (un PAT valide → 401 inexplicable). Le build conditionnel par mtime peut rater l'effet d'un `config.ts` modifié.
+  Réflexe : `start.sh --force-build` dès qu'on a touché `src/modules/test/**` ET qu'un banc en dépend. Vécu P6.12
+  (1ʳᵉ tentative SKIP → forcé au 2ᵉ essai).
 - `[1× — 2026-06-19]` **DB dev au schéma périmé : `CREATE TABLE IF NOT EXISTS` ne migre JAMAIS** : la table
   `User` du `.db` dev avait été créée avant l'ajout de `createdAt`/`updatedAt` à `userTable` → `SqliteError:
 no such column "createdAt"` au LOGIN (runtime), pas au boot (la table n'était pas lue au boot). Symptôme
@@ -1047,6 +1053,17 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧭 Conception / fondation — sécu/firewall (frictions du jour)
 
+- `[1× — 2026-06-19]` **revue sécu par grep : `git diff HEAD` IGNORE les fichiers untracked (`??`)** → les
+  NOUVEAUX fichiers (le gros du diff d'une feature : service, authenticator, controller) passent **sous le radar**
+  de la checklist sécu. Vécu P6.12 : 1ʳᵉ passe `git diff HEAD | grep …` n'a scanné QUE les fichiers modifiés
+  → `apiKeys.ts`/`ApiKeyAuthenticator.ts` (untracked) non vus. Réflexe : croiser avec `git status --short | grep '??'`
+  et **scanner les nouveaux fichiers explicitement** (any/secret-log/token-URL), pas seulement le diff. (À intégrer
+  au skill `nodefony-security-review` : « inclure les untracked ».)
+- `[1× — 2026-06-19]` **discriminer 2 authenticators sur le MÊME transport (Bearer) = par FORME, pas par config croisée**
+  (P6.12). JWT et clé API (PAT) arrivent tous deux en `Authorization: Bearer …`. Au lieu de coupler (jwt lit le préfixe
+  PAT), resserrer `jwt.supports()` à la structure JWS `a.b.c` (RFC 7515, 3ᵉ segment `*` → `alg=none` reste routé jose)
+  et `apikey.supports()` au préfixe `nf_` → **mutuellement exclusifs, 0 couplage**, coexistence prouvée e2e. Patron
+  réutilisable pour tout futur authenticator bearer.
 - `[1× — 2026-06-16]` **un court-circuit doit être placé selon le PIPELINE RÉEL, pas selon le seam « logique »**
   (J5 CORS). Le preflight CORS (`OPTIONS` → 204) avait été câblé dans `handleFrontController` (seam balisé) → mais
   un `OPTIONS` n'a AUCUNE route → le router lève **405 au pré-match dans `handleHttp`, AVANT `handleFrontController`**
