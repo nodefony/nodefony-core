@@ -102,6 +102,21 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   POST/GET/DELETE — **PAS `bypassFirewall`** (zone data plane session BFF ; porteur = `authFlow.me`, jamais autrui ;
   DELETE clé d'autrui→**404** anti-énum). Builtin `registerAuthenticatorFactory("apikey", …)`. Banc : 44 unit + e2e
   `http/apikey-flow.test.ts` (8, matrice d'attaques + IDOR + coexistence JWT/PAT). RFC 6750/7009/6749.
+- **Journal d'audit (P6.14)** — événements de sécurité = **transitions d'état** (≠ trafic `JsonAuditLogger`
+  P3.1). `AuditService` (`auditService`, `IAuditSink`) : `record` **no-op coût NUL si off** (`audit.enabled`,
+  ON défaut OWASP A09), stamp `id`+`ts` centralisé, fan-out live **lazy** (`subscribe`, lot 4), `gc` rétention
+  `unref` ; pose `auditStore` (`MemoryAuditStore` FIFO borné, query curseur récent→ancien). **Secret jamais
+  dans l'event** → presence-only `flags`. **Émission EXPLICITE par point** (pas EventEmitter firewall : Token/
+  ApiKey/OAuth émettent hors chaîne). Helpers `recordAudit(container, draft)` (résout `auditService`, no-op si
+  absent) + `readAuditContext(ctx)` (ip/ua/requestId+flags). **Lot 2** (cold) : `AuthFlow` login.success/
+  failure/throttled/logout ; `Authorization` access.denied (`#auditDeny`). **Lot 2b** (HOT-PATH, succès MUET) :
+  `Firewall.handleSecurity` auth.failure/throttled/denied (helper `#recordAuth`, 4 sorties d'échec seulement) ;
+  verrou WS `frame.denied` (`buildFrameAuthorizer({onDeny})` tiré sur refus only → 0 alloc hot-path ; câblé
+  `#wireRealtime`) ; `TokenService` token.issued/reuse_detected + login.failure/throttled (grant) ;
+  `ApiKeyService` apikey.created/revoked. **Data plane lot 3** : `SecurityAdminApi` (`IAdminApi` ns "security")
+  `GET /nodefony/security/api/audit/events` RBAC `ROLE_NODEFONY_ADMIN`, 503 si off. Table actions = README
+  §Audit. Bancs : `auditService`/`auditEmission`/`auditEmissionHotPath` (17, dont 0-émission-succès + câblage
+  WS bout-en-bout + store borné). memory 9/9. ➡️ Reste : lot 4 stream WS live `security:audit`, Studio P6.15.
 - **CSRF (J5)** — `Csrf` (`service/csrf.ts`, logique PURE sync, testable sans serveur) : défense **Fetch
   Metadata d'abord** (modèle Go 1.25 / OWASP 2025) + repli `Origin`/`Referer`. `enforce(req)` sur méthode
   state-changing (RFC 9110 §9.2.1 ; GET/HEAD/OPTIONS/TRACE = no-op) ; chaîne : (1) origine de confiance

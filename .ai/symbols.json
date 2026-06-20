@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-20T16:35:52.866Z",
+  "generated": "2026-06-20T17:15:22.207Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 931,
-    "symbols": 2046,
+    "symbols": 2047,
     "classes": 296,
     "interfaces": 532,
-    "types": 250,
+    "types": 251,
     "enums": 3,
     "functions": 458,
     "constants": 507
@@ -14191,6 +14191,14 @@
       "extends": null,
       "description": "Règle de canal **système** (plateforme) — un préfixe de namespace réservé et la politique qui s'y applique. Plancher NON contournable par une déclaration métier (un controller user ne doit pas expo…"
     },
+    "FrameDenyReporter": {
+      "name": "FrameDenyReporter",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Rapporteur de refus de frame (journal d'audit P6.14) — invoqué UNIQUEMENT quand le verrou refuse une frame (cold-path : frames refusées rares). Le chemin autorisé (`return true`) ne l'appelle JAMAI…"
+    },
     "buildFrameAuthorizer": {
       "name": "buildFrameAuthorizer",
       "kind": "function",
@@ -19065,6 +19073,13 @@
       "generateApiKey": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
       ],
+      "recordAudit": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
+      ],
       "MemoryAuditStore": [
         "src/packages/@nodefony/security/nodefony/service/auditService.ts"
       ],
@@ -19133,12 +19148,9 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts"
       ],
-      "recordAudit": [
-        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts"
-      ],
       "readAuditContext": [
-        "src/packages/@nodefony/security/nodefony/service/authFlow.ts"
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "VoterVote": [
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",

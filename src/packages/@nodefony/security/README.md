@@ -110,6 +110,32 @@ import { securityConfigJsonSchema } from "@nodefony/security";
 const schema = securityConfigJsonSchema(); // JSON Schema → formulaire d'édition Studio
 ```
 
+## Journal d'audit (événements de sécurité)
+
+Le journal trace les **transitions d'état** de sécurité (login, refus, jeton émis/révoqué, verrou
+WS) — distinct du log de trafic (1 PDU/requête). Émission **explicite** par point sensible ; le
+**chemin de succès reste muet** (le volume n'est pas un signal), seul l'échec/refus émet (cold-path)
+→ aucun coût ajouté au hot-path nominal. Activé par défaut (`audit.enabled`, OWASP A09), coût nul si
+désactivé. Lecture : `GET /nodefony/security/api/audit/events` (RBAC `ROLE_NODEFONY_ADMIN`).
+
+Un **secret n'entre jamais** dans un événement — seule sa _présence_ est tracée (`flags`).
+
+| `action`               | `category` | `outcome` | Émis par                         |
+| ---------------------- | ---------- | --------- | -------------------------------- |
+| `login.success`        | `auth`     | success   | `AuthFlow` (BFF) / fédéré        |
+| `login.failure`        | `auth`     | failure   | `AuthFlow`, `TokenService` grant |
+| `login.throttled`      | `auth`     | failure   | `AuthFlow`, `TokenService` grant |
+| `logout`               | `session`  | success   | `AuthFlow`                       |
+| `auth.failure`         | `auth`     | failure   | `Firewall` (credential invalide) |
+| `auth.throttled`       | `auth`     | failure   | `Firewall` (backoff NIST)        |
+| `auth.denied`          | `auth`     | denied    | `Firewall` (Zero Trust)          |
+| `access.denied`        | `authz`    | denied    | `Authorization` (voters/RBAC)    |
+| `frame.denied`         | `ws`       | denied    | verrou de frame WS               |
+| `token.issued`         | `token`    | success   | `TokenService`                   |
+| `token.reuse_detected` | `token`    | denied    | `TokenService` (RFC 9700)        |
+| `apikey.created`       | `token`    | success   | `ApiKeyService`                  |
+| `apikey.revoked`       | `token`    | success   | `ApiKeyService`                  |
+
 ## Erreurs
 
 - `AuthenticationError` → `401` (non authentifié).

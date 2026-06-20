@@ -42,6 +42,26 @@ export interface ISystemChannelRule {
 }
 
 /**
+ * Rapporteur de refus de frame (journal d'audit P6.14) — invoqué UNIQUEMENT
+ * quand le verrou refuse une frame (cold-path : frames refusées rares). Le
+ * chemin autorisé (`return true`) ne l'appelle JAMAIS → 0 allocation sur le
+ * hot-path WS. Le firewall fournit l'implémentation (closure sur son container) ;
+ * absent par défaut (verrou pur, testable sans audit).
+ *
+ * @param surface - cible refusée : pont API souverain (`api.request`) ou canal
+ *   (subscribe/inbound).
+ * @param target  - pathname (api.request) ou nom de canal refusé.
+ * @param reason  - raison machine stable (`zone_protected` | `channel_policy`).
+ * @param token   - jeton WS de l'acteur (lu pour `getUserIdentifier()`).
+ */
+export type FrameDenyReporter = (
+  surface: "api.request" | "channel",
+  target: string,
+  reason: string,
+  token: IRealtimeToken,
+) => void;
+
+/**
  * Politique système par défaut des canaux d'**introspection serveur** : réservés
  * aux administrateurs. DURCISSEMENT Zero Trust (P6) : avant, « authentifié
  * suffisait » (tout `ROLE_USER` lisait `syslog:stream`) ; désormais `ROLE_ADMIN`.
@@ -189,6 +209,7 @@ function authorizeApiRequest(
   firewall: IFrameAuthorizerFirewall,
   params: unknown,
   token: IRealtimeToken,
+  onDeny?: FrameDenyReporter,
 ): boolean {
   const path = (params as { path?: unknown } | undefined)?.path;
   // params invalides → laisser passer : le handler `api.request` renverra -32602
@@ -200,7 +221,11 @@ function authorizeApiRequest(
   // n'est pas porté par la frame → match host-agnostique (la seule zone realtime
   // data plane n'a pas de vhost ; réserve J3b pour une zone realtime host-scopée).
   const area = firewall.matchPath(pathname);
-  if (area && area.security && !token.isAuthenticated()) return false;
+  if (area && area.security && !token.isAuthenticated()) {
+    // Refus audité (cold-path) : `pathname` déjà calculé → 0 surcoût.
+    onDeny?.("api.request", pathname, "zone_protected", token);
+    return false;
+  }
   return true;
 }
 
@@ -215,13 +240,16 @@ function authorizeChannel(
   firewall: IFrameAuthorizerFirewall,
   resolver: IChannelPolicyResolver | null,
   systemRules: readonly ISystemChannelRule[],
+  onDeny?: FrameDenyReporter,
 ): boolean {
   // 1. Système = plancher non contournable (le métier ne peut pas l'affaiblir).
   const sys = matchSystemPolicy(channel, systemRules);
   // 2. Métier (décorateur) seulement hors namespace système.
   const policy = sys ?? resolver?.resolveChannelPolicy?.(channel) ?? null;
   if (policy === null) return true; // canal applicatif libre (public)
-  return satisfies(policy, token, firewall);
+  if (satisfies(policy, token, firewall)) return true;
+  onDeny?.("channel", channel, "channel_policy", token); // refus audité (cold)
+  return false;
 }
 
 /**
@@ -244,7 +272,8 @@ function authorizeChannel(
  *
  * @param firewall    - matcher de zone + checker de rôle (le `Firewall`).
  * @param options     - `channelResolver` (politiques métier déclarées, via le
- *                      service realtime) + `systemRules` (défauts + config).
+ *                      service realtime) + `systemRules` (défauts + config) +
+ *                      `onDeny` (rapporteur d'audit, invoqué sur refus seulement).
  * @returns un {@link FrameAuthorizer} sync (`true` = frame autorisée).
  */
 export function buildFrameAuthorizer(
@@ -252,28 +281,44 @@ export function buildFrameAuthorizer(
   options?: {
     readonly channelResolver?: IChannelPolicyResolver | null;
     readonly systemRules?: readonly ISystemChannelRule[];
+    readonly onDeny?: FrameDenyReporter;
   },
 ): FrameAuthorizer {
   const resolver = options?.channelResolver ?? null;
   const systemRules = options?.systemRules ?? DEFAULT_SYSTEM_RULES;
+  const onDeny = options?.onDeny;
   return (frame: unknown, token: IRealtimeToken): boolean => {
     const f = frame as { method?: unknown; params?: unknown } | undefined;
     const method = f?.method;
     if (method === "api.request") {
-      return authorizeApiRequest(firewall, f!.params, token);
+      return authorizeApiRequest(firewall, f!.params, token, onDeny);
     }
     if (method === "subscribe") {
       const channel = (f!.params as { channel?: unknown } | undefined)?.channel;
       // params invalides → laisser passer : `startChannel` ignore un canal absent.
       if (typeof channel !== "string") return true;
-      return authorizeChannel(channel, token, firewall, resolver, systemRules);
+      return authorizeChannel(
+        channel,
+        token,
+        firewall,
+        resolver,
+        systemRules,
+        onDeny,
+      );
     }
     // Inbound full-duplex : `method` = nom du canal entrant. Gardé UNIQUEMENT si
     // une politique le couvre (système OU déclarée) — sinon (ping/unsubscribe/
     // action libre) bypass. Pas de coût pour les méthodes non policées : un
     // `resolveChannelPolicy` sur un registre vide est O(1) `null`.
     if (typeof method === "string") {
-      return authorizeChannel(method, token, firewall, resolver, systemRules);
+      return authorizeChannel(
+        method,
+        token,
+        firewall,
+        resolver,
+        systemRules,
+        onDeny,
+      );
     }
     return true;
   };

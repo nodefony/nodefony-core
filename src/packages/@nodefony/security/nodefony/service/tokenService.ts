@@ -11,6 +11,7 @@ import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import type { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { getTokenStoreFactory } from "../src/token/tokenStoreRegistry";
+import { recordAudit } from "../src/audit/recordAudit";
 import { JwtKeystore } from "../src/token/JwtKeystore";
 import { resolveJwtRuntime, type IJwtRuntime } from "../src/token/jwtRuntime";
 import type { ITokenStore, IAccessTokenRecord } from "../contracts/ITokenStore";
@@ -221,20 +222,51 @@ class TokenService extends Service {
       typeof password !== "string" ||
       password.length === 0
     ) {
+      // Échec d'authentification du grant API (≠ login BFF) — audité comme une
+      // tentative (OWASP A09). Pas de `context` ici → ni IP ni requestId. Un
+      // identifiant vide/non-string → acteur `null` (rien d'identifiable).
+      this.#auditGrant(
+        "login.failure",
+        typeof identifier === "string" && identifier.length > 0
+          ? identifier
+          : null,
+        "invalid_credentials",
+      );
       throw new AuthenticationError("Invalid credentials");
     }
     const throttler = this.#resolveThrottler();
     if (throttler !== null) {
       const retryAfterS = throttler.check(identifier);
-      if (retryAfterS > 0) throw new ThrottledError(retryAfterS);
+      if (retryAfterS > 0) {
+        this.#auditGrant("login.throttled", identifier, "throttled");
+        throw new ThrottledError(retryAfterS);
+      }
     }
     const user = await this.#resolveUsers().authenticate(identifier, password);
     if (user === null) {
       throttler?.recordFailure(identifier);
+      this.#auditGrant("login.failure", identifier, "invalid_credentials");
       throw new AuthenticationError("Invalid credentials");
     }
     throttler?.recordSuccess(identifier);
     return this.issueTokens(user, requestedScopes);
+  }
+
+  // Journalise une tentative de grant par mot de passe (cold-path : endpoint
+  // dédié). `category:"auth"` (échec d'authentification), distinct de
+  // `token.issued` (succès, `category:"token"`). no-op si audit absent/désactivé.
+  #auditGrant(
+    action: "login.failure" | "login.throttled",
+    actor: string | null,
+    reason: string,
+  ): void {
+    recordAudit(this.container as Container, {
+      category: "auth",
+      action,
+      outcome: "failure",
+      actor,
+      reason,
+    });
   }
 
   /** Émet un couple access/refresh pour un utilisateur déjà authentifié. */
@@ -252,6 +284,15 @@ class TokenService extends Service {
       this.#randomId(),
     );
     await this.#store!.put(record);
+    // Audit (P6.14 lot 2b) : un jeton longue durée vient d'être émis (surface
+    // d'attaque créée). `tokenId` corrèle une future révocation/rejeu.
+    recordAudit(this.container as Container, {
+      category: "token",
+      action: "token.issued",
+      outcome: "success",
+      actor: user.identifier,
+      metadata: { tokenId: record.id, scopes },
+    });
     return {
       access_token: access,
       refresh_token: raw,
@@ -284,6 +325,16 @@ class TokenService extends Service {
       if (record.family) {
         await store.revokeFamily(record.family, "reuse_detected");
       }
+      // Audit (P6.14 lot 2b) : signal d'attaque FORT (jeton volé re-présenté) —
+      // refus par politique anti-rejeu (RFC 9700 §4.14), famille coupée.
+      recordAudit(this.container as Container, {
+        category: "token",
+        action: "token.reuse_detected",
+        outcome: "denied",
+        actor: record.subjectId,
+        reason: "reuse_detected",
+        metadata: { tokenId: record.id, family: record.family },
+      });
       throw new AuthenticationError("Invalid token");
     }
     const now = Date.now();

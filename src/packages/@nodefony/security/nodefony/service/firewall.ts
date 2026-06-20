@@ -39,6 +39,8 @@ import {
   DEFAULT_SYSTEM_RULES,
   type ISystemChannelRule,
 } from "../src/realtime/frameAuthorizer";
+import { recordAudit } from "../src/audit/recordAudit";
+import { readAuditContext } from "../src/audit/readAuditContext";
 import type {
   IRealtimeService,
   IRealtimeAuthenticatorMatcher,
@@ -273,8 +275,25 @@ class Firewall extends Service implements IFirewall {
         configRules.length > 0
           ? [...configRules, ...DEFAULT_SYSTEM_RULES]
           : DEFAULT_SYSTEM_RULES;
+      // Journal d'audit (P6.14 lot 2b) : tout refus de frame WS est une
+      // transition de sécurité (api.request sur zone gardée, canal interdit). La
+      // closure n'est tirée QUE sur refus (cold) → 0 coût sur le hot-path WS. La
+      // frame ne porte ni IP ni requestId (≠ HttpContext) : acteur + cible suffisent.
+      const container = this.container as Container;
       realtime.setFrameAuthorizer(
-        buildFrameAuthorizer(this, { channelResolver: realtime, systemRules }),
+        buildFrameAuthorizer(this, {
+          channelResolver: realtime,
+          systemRules,
+          onDeny: (_surface, target, reason, token) =>
+            recordAudit(container, {
+              category: "ws",
+              action: "frame.denied",
+              outcome: "denied",
+              actor: token.getUserIdentifier(),
+              resource: target,
+              reason,
+            }),
+        }),
       );
       this.log(
         "Realtime data plane locked — WS handshake + frame authorizer (RBAC) wired",
@@ -417,15 +436,41 @@ class Firewall extends Service implements IFirewall {
         // 429 (RFC 6585) : pas un défi d'authentification — `Retry-After`
         // (le client légitime sait quoi attendre), pas de WWW-Authenticate.
         context.response?.setHeader("Retry-After", String(error.retryAfterS));
+        this.#recordAuth(
+          context,
+          area,
+          "auth.throttled",
+          "failure",
+          "throttled",
+          null,
+        );
         throw error;
       }
       this.#setChallenge(context, area); // la réponse 401 porte WWW-Authenticate
+      // Credential PRÉSENTÉ mais invalide (l'acteur a échoué une preuve).
+      this.#recordAuth(
+        context,
+        area,
+        "auth.failure",
+        "failure",
+        "invalid_credentials",
+        null,
+      );
       throw error;
     }
 
-    // Zero Trust : aucune preuve présentée dans une zone protégée → 401.
+    // Zero Trust : aucune preuve présentée dans une zone protégée → 401. Refus
+    // par POLITIQUE (zone fermée), pas un échec de preuve → outcome `denied`.
     if (token === null) {
       this.#setChallenge(context, area);
+      this.#recordAuth(
+        context,
+        area,
+        "auth.denied",
+        "denied",
+        "no_credentials",
+        null,
+      );
       throw new AuthenticationError(
         `Authentication required for area "${area.name}"`,
       );
@@ -441,11 +486,44 @@ class Firewall extends Service implements IFirewall {
     // `anonymous` listé dans la zone) autorise un token non authentifié.
     if (!token.isAuthenticated() && token.type !== "anonymous") {
       this.#setChallenge(context, area);
+      this.#recordAuth(
+        context,
+        area,
+        "auth.denied",
+        "denied",
+        "unauthenticated",
+        token.getUserIdentifier(),
+      );
       throw new AuthenticationError(
         `Authentication required for area "${area.name}"`,
       );
     }
+    // Succès (authentifié OU anonyme explicite) : AUCUNE émission — le hot-path
+    // nominal reste muet (le volume n'est pas un signal d'audit).
     return context;
+  }
+
+  // Journalise un refus d'authentification de zone (cold-path : 401/429 only) —
+  // helper DRY des 4 sorties d'échec de `handleSecurity`. Jamais appelé sur le
+  // chemin de succès → 0 allocation sur le hot-path nominal. `recordAudit` est
+  // no-op si l'audit est absent/désactivé (coût quasi nul même sous attaque).
+  #recordAuth(
+    context: ContextType,
+    area: ISecuredArea,
+    action: string,
+    outcome: "failure" | "denied",
+    reason: string,
+    actor: string | null,
+  ): void {
+    recordAudit(this.container as Container, {
+      category: "auth",
+      action,
+      outcome,
+      actor,
+      resource: area.name,
+      reason,
+      ...readAuditContext(context),
+    });
   }
 
   /**

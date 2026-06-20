@@ -13,6 +13,7 @@ import type {
 } from "../contracts/IApiKey";
 import { ApiKeyError } from "../errors/ApiKeyError";
 import { generateApiKey } from "../src/apikey/apiKeyFormat";
+import { recordAudit } from "../src/audit/recordAudit";
 
 const serviceName = "apiKeys";
 const MAX_NAME_LEN = 100;
@@ -139,11 +140,19 @@ class ApiKeyService extends Service {
       metadata: {},
     };
     await store.put(record);
-    // Audit (slot stream P6.14) — JAMAIS le secret, seulement l'id public.
+    // Audit (P6.14 lot 2b) — JAMAIS le secret, seulement l'id public.
     this.log(
       `api key created — id=${record.id} subject=${subjectId} scopes=[${scopes.join(",")}]`,
       "INFO",
     );
+    recordAudit(this.container as Container, {
+      category: "token",
+      action: "apikey.created",
+      outcome: "success",
+      actor: subjectId,
+      resource: record.id,
+      metadata: { scopes, subjectType },
+    });
     return { ...this.#toView(record), token: generated.token };
   }
 
@@ -171,6 +180,14 @@ class ApiKeyService extends Service {
     }
     await store.revoke(id, "manual");
     this.log(`api key revoked — id=${id} subject=${subjectId}`, "INFO");
+    recordAudit(this.container as Container, {
+      category: "token",
+      action: "apikey.revoked",
+      outcome: "success",
+      actor: subjectId,
+      resource: id,
+      reason: "manual",
+    });
     return true;
   }
 
