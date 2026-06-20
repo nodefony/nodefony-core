@@ -631,12 +631,27 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
-- `[1× — 2026-06-20]` **Un sous-agent Explore peut se tromper sur l'ABSENCE d'une garde — vérifier (grep/lecture)
-  AVANT de bâtir l'attaque sur sa prémisse.** Red-team WS : l'agent a rapporté « Origin check ABSENT » ; or
-  `HttpKernel.checkWebsocketOrigin` existait bel et bien (anti-CSWSH, refus 1008, allowlist `allowedOrigins`). Sans le
-  grep de contrôle (`verifyClient|checkOrigin|allowedOrigins`), j'écrivais 5 tests sur une fausse faille — et je
-  manquais l'angle réel (attaquer la défense par spoofing d'origine). Un rapport d'agent = piste, PAS vérité terrain
-  (devise : la confiance n'exclut pas le contrôle). Bonus : le finding réel (casse) est venu de la passe 2 (lecture du code), pas du rapport.
+- `[1× — 2026-06-20]` **Une preuve e2e « gardée » peut être AMBIGUË — distinguer ce qu'elle prouve vraiment.**
+  Data plane audit (P6.14 lot 3) : `curl /nodefony/security/api/audit/events` sans session → **401**. Tentant de
+  conclure « route montée + gardée ». FAUX raccourci : la **zone firewall data plane** `^/nodefony/[^/]+/api/`
+  match par URL AVANT le routing → 401 sur TOUTE URL du préfixe, route montée OU PAS. Le 401 prouve seulement
+  « sous zone protégée », pas « ma route existe ». Preuve déplacée là où elle est nette : **test unit du `register`
+  idempotent** (mon maillon) + le montage = broker générique éprouvé (5 producteurs). Leçon : nommer ce qu'une
+  preuve établit RÉELLEMENT ; un code de retour partagé par plusieurs causes ne tranche pas.
+
+- `[1× — 2026-06-20]` **Le bon « calque » n'est pas le 1er candidat trouvé — lire 2-3 frères avant de figer.**
+  Pour le data plane audit, le 1er réflexe = calquer `ApiKeyController` (déjà sous `/nodefony/security/api/`). Or
+  il utilise des **routes classiques** (zone BFF, RBAC user-scopé) — mauvais modèle pour un endpoint **admin RBAC**.
+  Le bon calque = `SyslogAdminApi` (**`IAdminApi`**, `role` par endpoint, broker applique le 403). Un sous-agent
+  avait même affirmé « ApiKeyController = IAdminApi » (faux). Lire plusieurs producteurs (kernel/syslog/orm/frontend)
+  a révélé le vrai pattern + que `adminNamespace:"security"` était libre. Convention-frère = comparer, pas copier le premier vu.
+
+- `[2× — 2026-06-20]` **Un sous-agent Explore peut se tromper sur l'ABSENCE d'une garde / la NATURE d'un composant —
+  vérifier (grep/lecture) AVANT de bâtir dessus.** (1) Red-team WS : l'agent a rapporté « Origin check ABSENT » ; or
+  `HttpKernel.checkWebsocketOrigin` existait (anti-CSWSH, 1008). (2) P6.14 : un agent a classé `ApiKeyController`
+  comme producteur `IAdminApi` — faux (routes classiques). Sans le grep/la lecture de contrôle, j'écrivais des tests
+  sur une fausse prémisse OU je calquais le mauvais pattern. Un rapport d'agent = piste, PAS vérité terrain
+  (devise : la confiance n'exclut pas le contrôle). Le détail juste vient toujours de la lecture du code ciblée.
 
 - `[1× — 2026-06-20]` **Tester un nettoyage = lancer SANS le filet qui le masque.** Pour prouver que le
   superviseur nettoie les orphelins au démarrage (volet C), `start.sh` était inutilisable : son `pkill`
