@@ -11,6 +11,7 @@ import {
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
+import readline from "node:readline";
 import { watch, type FSWatcher } from "chokidar";
 import { SysExit } from "../../cli/sysexits";
 import {
@@ -49,6 +50,9 @@ const ANSI = {
   yellow: "\x1b[33m",
   reset: "\x1b[0m",
 };
+
+/** Frames braille du spinner de build (mêmes que le BootReporter enfant). */
+const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
 /** Au-delà de cette durée de vie, un crash n'est plus considéré « rapide ». */
 const FAST_CRASH_MS = 3000;
@@ -118,6 +122,11 @@ export class DevSupervisor {
   #timer: ReturnType<typeof setTimeout> | null = null;
   #building = false;
   #pending = false;
+  // Spinner de la phase de build initial (`#ensureBuilt`) — anime une ligne
+  // unique sur stdout en TTY (sinon logs statiques). `null` = inactif.
+  #spinTimer: ReturnType<typeof setInterval> | null = null;
+  #spinFrame = 0;
+  #spinLabel = "";
   #stopping = false;
   /** Fichiers modifiés depuis le dernier build (pour cibler le rebuild). */
   readonly #dirty = new Set<string>();
@@ -153,6 +162,75 @@ export class DevSupervisor {
     process.stdout.write(
       `${ANSI.dim}[dev]${ANSI.reset} ${ANSI[color]}${msg}${ANSI.reset}\n`,
     );
+  }
+
+  // ── Spinner de build (TTY) ─────────────────────────────────────────────────
+
+  /** Démarre le spinner `[dev] ⠋ <label>…` (TTY) ou une ligne statique (non-TTY). */
+  #startSpin(label: string): void {
+    this.#spinLabel = label;
+    if (!process.stdout.isTTY) {
+      this.#log(`⚙ ${label}…`, "yellow");
+      return;
+    }
+    this.#renderSpin();
+    this.#spinTimer = setInterval(() => this.#renderSpin(), 80);
+    this.#spinTimer.unref?.();
+  }
+
+  /** Réécrit la ligne du spinner avec la frame suivante (TTY animé). */
+  #renderSpin(): void {
+    this.#spinFrame = (this.#spinFrame + 1) % SPIN.length;
+    readline.clearLine(process.stdout, 0);
+    readline.cursorTo(process.stdout, 0);
+    process.stdout.write(
+      `${ANSI.dim}[dev]${ANSI.reset} ${ANSI.cyan}${SPIN[this.#spinFrame]}${ANSI.reset} ` +
+        `${this.#spinLabel}${ANSI.dim}…${ANSI.reset}`,
+    );
+  }
+
+  /** Fige le spinner sur `[dev] <mark> <msg>` (verdict de la phase de build). */
+  #stopSpin(mark: string, msg: string, color: keyof typeof ANSI): void {
+    if (this.#spinTimer) {
+      clearInterval(this.#spinTimer);
+      this.#spinTimer = null;
+    }
+    if (process.stdout.isTTY) {
+      readline.clearLine(process.stdout, 0);
+      readline.cursorTo(process.stdout, 0);
+    }
+    process.stdout.write(
+      `${ANSI.dim}[dev]${ANSI.reset} ${mark} ${ANSI[color]}${msg}${ANSI.reset}\n`,
+    );
+  }
+
+  /**
+   * Variante de {@link #run} qui CAPTURE la sortie au lieu de l'hériter — le
+   * spinner remplace le mur de logs turbo/rollup. La sortie n'est révélée que sur
+   * ÉCHEC (le dev doit voir l'erreur de build : fail-loud).
+   */
+  #runCaptured(
+    cmd: string,
+    args: readonly string[],
+  ): Promise<{ ok: boolean; output: string }> {
+    return new Promise((resolve) => {
+      let output = "";
+      const p = spawn(cmd, args as string[], {
+        cwd: this.#cwd,
+        stdio: ["ignore", "pipe", "pipe"],
+        shell: process.platform === "win32",
+      });
+      p.stdout?.on("data", (d: Buffer) => (output += d.toString()));
+      p.stderr?.on("data", (d: Buffer) => (output += d.toString()));
+      p.once("exit", (code) => resolve({ ok: code === 0, output }));
+      p.once("error", () => resolve({ ok: false, output }));
+    });
+  }
+
+  /** Déverse la sortie d'un build qui a échoué (après avoir figé le spinner). */
+  #dumpBuild(output: string): void {
+    const txt = output.trim();
+    if (txt) process.stdout.write(`${txt}\n`);
   }
 
   /**
@@ -197,14 +275,27 @@ export class DevSupervisor {
    * signalé bruyamment.
    */
   async #ensureBuilt(): Promise<void> {
-    this.#log("⚙ vérification de la fraîcheur du dist (turbo)…", "yellow");
     const t0 = Date.now();
-    const wsOk = await this.#run("npx", ["turbo", "run", "build"]);
+    const errors: string[] = [];
+    // Info que le dev veut voir : ce qui MANQUE avant le build (le label le dit).
+    const missingBefore = missingWorkspaceDists(this.#cwd);
+    this.#startSpin(
+      missingBefore.length
+        ? `Build du framework — ${missingBefore.length} dist manquant(s) : ${missingBefore.join(", ")}`
+        : "Vérification du framework (turbo)",
+    );
+
+    const ws = await this.#runCaptured("npx", ["turbo", "run", "build"]);
+    if (!ws.ok) errors.push(ws.output);
+
     let rootOk = true;
     if (this.#rootDistStale()) {
-      this.#log("⚙ dist racine périmé — rebuild (rollup -c)…", "yellow");
-      rootOk = await this.#run("npx", ["rollup", "-c"]);
+      this.#spinLabel = "Build de l'app (rollup)";
+      const root = await this.#runCaptured("npx", ["rollup", "-c"]);
+      rootOk = root.ok;
+      if (!root.ok) errors.push(root.output);
     }
+
     // POST-CONDITION (la confiance n'exclut pas le contrôle) : `turbo run build` peut
     // renvoyer 0 en « cache hit » SANS restaurer un dist supprimé (gitignored, clean
     // partiel, checkout de branche). On vérifie sur le DISQUE que chaque workspace à
@@ -212,31 +303,48 @@ export class DevSupervisor {
     // silence (« vert mais cassé », vécu : security absent → test → 404 OAuth).
     let missing = missingWorkspaceDists(this.#cwd);
     if (missing.length > 0) {
-      this.#log(
-        `⚠ dist absent malgré le build (cache turbo trompeur) : ${missing.join(", ")} — rebuild forcé…`,
-        "red",
-      );
+      this.#spinLabel = `Rebuild forcé : ${missing.join(", ")}`;
       const filters = missing.flatMap((n) => ["--filter", n]);
-      await this.#run("npx", ["turbo", "run", "build", "--force", ...filters]);
+      const forced = await this.#runCaptured("npx", [
+        "turbo",
+        "run",
+        "build",
+        "--force",
+        ...filters,
+      ]);
+      if (!forced.ok) errors.push(forced.output);
       missing = missingWorkspaceDists(this.#cwd);
     }
+
+    const ms = Date.now() - t0;
     if (missing.length > 0) {
       // fail-LOUD : ces modules NE se chargeront PAS → app DÉGRADÉE. On le CRIE
       // (jamais « vert mais cassé » en silence) ; le boot continue (fail-soft dispo).
-      this.#log(
-        `⚠ dist TOUJOURS absent après rebuild forcé : ${missing.join(", ")} — ` +
-          "ces modules ne se chargeront pas (app DÉGRADÉE). Corrige puis `npm run build`.",
+      this.#stopSpin(
+        `${ANSI.red}✗${ANSI.reset}`,
+        `dist TOUJOURS absent : ${missing.join(", ")} — ces modules ne se ` +
+          "chargeront pas (app DÉGRADÉE). Corrige puis `npm run build`.",
         "red",
       );
-    } else if (wsOk && rootOk) {
-      this.#log(`✓ dist à jour (${Date.now() - t0}ms)`, "green");
+    } else if (ws.ok && rootOk) {
+      const built = missingBefore.length
+        ? ` — (re)construits : ${missingBefore.join(", ")}`
+        : "";
+      this.#stopSpin(
+        `${ANSI.green}✓${ANSI.reset}`,
+        `Framework prêt${built} (${ms}ms)`,
+        "green",
+      );
     } else {
-      this.#log(
-        "⚠ build de vérification INCOMPLET — démarrage sur le dist EXISTANT, " +
-          "possiblement périmé (corrige les erreurs ci-dessus puis sauvegarde)",
+      this.#stopSpin(
+        `${ANSI.yellow}⚠${ANSI.reset}`,
+        "build INCOMPLET — démarrage sur le dist EXISTANT (possiblement périmé)",
         "red",
       );
     }
+    // Sur ÉCHEC seulement : déverser la sortie capturée APRÈS le verdict (spinner
+    // figé) → le dev voit l'erreur de build sans le mur de logs en cas de succès.
+    for (const e of errors) this.#dumpBuild(e);
   }
 
   /**

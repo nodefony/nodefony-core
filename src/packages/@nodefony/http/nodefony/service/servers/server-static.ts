@@ -101,6 +101,9 @@ class Statics extends Service {
       this.mountModulePublics();
     });
     this.kernel?.on("onPostReady", () => {
+      // Bannière sautée sous l'écran de boot animé (dev TTY) — cohérent avec les
+      // serveurs réseau (`Kernel.suppressBootBanners`). Affichée sinon (prod/CI/--debug).
+      if (this.kernel?.suppressBootBanners) return;
       for (const ele in this.servers) {
         this.log(`Server Listen on ${ele}`, "INFO");
       }

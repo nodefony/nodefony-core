@@ -67,6 +67,8 @@ export interface IKernel extends IService {
   readonly booted: boolean;
   readonly ready: boolean;
   readonly postReady: boolean;
+  /** Supprime les bannières serveurs sous l'écran de boot animé (dev). */
+  readonly suppressBootBanners: boolean;
 
   // ─── Events kernel ─────────────────────────────────────────────────────────
   readonly Events: Readonly<EventsType>;

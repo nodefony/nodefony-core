@@ -151,9 +151,25 @@ class FrontendService extends Service implements IFrontendService {
         } catch (e) {
           this.log(e, "ERROR");
         } finally {
-          const ready = [...this.supervisors.values()].filter(
-            (s) => s.status().state === "ready",
-          ).length;
+          // Récap boot (core `BootReporter`) : une ligne par entrée servie =
+          // « nom  URL HMR  framework » (l'URL que le dev ouvre). Poussé AVANT le
+          // fire (le reporter lit ces lignes au « ✓ Prêt »). Dev-only ; le mur de
+          // logs Vite reste au buffer/backplane (visible en `--debug`).
+          let ready = 0;
+          for (const [, sup] of this.supervisors) {
+            const st = sup.status();
+            if (st.state !== "ready") continue;
+            ready++;
+            const scheme = st.https ? "https" : "http";
+            const url = `${scheme}://${st.host}:${st.port}/`;
+            for (const e of st.entries) {
+              const fw = e.type.replace(/[0-9]+$/, ""); // react19 → react
+              this.kernel?.reportBootLine(
+                "Frontend (Vite)",
+                `${e.entryName.padEnd(24)}${url}${fw ? `   ${fw}` : ""}`,
+              );
+            }
+          }
           this.kernel?.fire("onFrontendReady", {
             bundles: names.length,
             names,
@@ -301,15 +317,25 @@ class FrontendService extends Service implements IFrontendService {
 
     this.fire("frontend:starting", { backendOrigin, entries: this.entries });
 
+    // Progression pour la barre de boot (core `BootReporter`). La jauge compte les
+    // BUNDLES (entries, = `onFrontendStart.bundles`), PAS les familles : une famille
+    // multi-entry (1 serveur Vite, N bundles) en sert N d'un coup → on incrémente de
+    // `famSize` à sa résolution (ready OU échec), `onFrontendProgress` met `done/total`.
+    const total = this.entries.length;
+    let done = 0;
     const results = await Promise.allSettled(
-      families.map((family) =>
-        this.startFamily(family, groups.get(family)!, portPlan.get(family)!, {
-          backendOrigin,
-          https,
-          nodeEnv,
-          extraEnv,
-        }),
-      ),
+      families.map((family) => {
+        const famSize = groups.get(family)!.length;
+        return this.startFamily(
+          family,
+          groups.get(family)!,
+          portPlan.get(family)!,
+          { backendOrigin, https, nodeEnv, extraEnv },
+        ).finally(() => {
+          done += famSize;
+          this.kernel?.fire("onFrontendProgress", { ready: done, total });
+        });
+      }),
     );
 
     results.forEach((res, i) => {

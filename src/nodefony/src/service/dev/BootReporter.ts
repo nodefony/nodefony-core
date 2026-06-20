@@ -80,6 +80,12 @@ class BootReporter {
   #frontendLabel: string | null = null;
   /** `onPostReady` est arrivé pendant la compilation Vite → « ✓ Prêt » en attente. */
   #finishDeferred = false;
+  /** Total de bundles Vite (jauge de progression) — posé à `onFrontendStart`. */
+  #frontendTotal = 0;
+  /** Bundles Vite résolus (ready/échec) — incrémenté à `onFrontendProgress`. */
+  #frontendDone = 0;
+  /** Handler `onFrontendProgress` (détaché à la fin de la phase Vite). */
+  #onFrontendProgress: ((p?: unknown) => void) | null = null;
 
   constructor(kernel: Kernel, opts: { debug: boolean; tty: boolean }) {
     this.#kernel = kernel;
@@ -97,6 +103,9 @@ class BootReporter {
     if (this.#animated) {
       // Mute écran (backplane + ring buffer intacts). Le spinner a stdout pour lui seul.
       Syslog.setSinkEnabled(false);
+      // Le bloc « ✓ Prêt » liste les URLs → on supprime les bannières serveurs
+      // redondantes (« Server Listen on… ») émises à onPostReady. Animé seulement.
+      this.#kernel.suppressBootBanners = true;
       this.#render();
       this.#timer = setInterval(() => this.#render(), 80);
       this.#timer.unref?.();
@@ -112,7 +121,23 @@ class BootReporter {
     // (spawn async qui finit après `onPostReady`). `FrontendService` émet ces
     // deux events pour insérer la ligne Vite dans la checklist. Sans frontend,
     // ils ne fire jamais → comportement strictement inchangé. cf idée (a).
-    this.#kernel.once("onFrontendStart", () => this.#frontendBegin());
+    this.#kernel.once("onFrontendStart", (payload?: unknown) =>
+      this.#frontendBegin(payload as { bundles?: number }),
+    );
+    // Progression bundle-par-bundle (jauge de la phase Vite). `.on` (N bundles) →
+    // détaché à `#frontendEnd` (pas de listener qui traîne).
+    this.#onFrontendProgress = (payload?: unknown) => {
+      const p = payload as { ready?: number; total?: number } | undefined;
+      if (typeof p?.ready === "number") this.#frontendDone = p.ready;
+      if (typeof p?.total === "number") this.#frontendTotal = p.total; // aligne la jauge
+      // Non-animé (CI/--debug) : 1 ligne par palier (le timer ne rend pas la jauge).
+      if (!this.#animated && this.#frontendTotal > 0) {
+        process.stdout.write(
+          `  ${CYAN}·${RESET} Frontend (Vite) ${this.#frontendDone}/${this.#frontendTotal}\n`,
+        );
+      }
+    };
+    this.#kernel.on("onFrontendProgress", this.#onFrontendProgress);
     this.#kernel.once("onFrontendReady", (payload?: unknown) =>
       this.#frontendEnd(payload as IFrontendReadyPayload),
     );
@@ -124,13 +149,35 @@ class BootReporter {
     return PHASES[this.#phaseIndex]?.label ?? "Finalisation";
   }
 
-  /** Réécrit la ligne courante avec la frame de spinner suivante (TTY animé). */
+  /** Réécrit la ligne courante : jauge Vite (X of Y) en phase frontend, sinon spinner. */
   #render(): void {
     this.#frame = (this.#frame + 1) % FRAMES.length;
     readline.clearLine(process.stdout, 0);
     readline.cursorTo(process.stdout, 0);
+    // Phase Vite = N bundles en PARALLÈLE → barre de progression (le bon pattern :
+    // total connu + process simultanés). Le spinner braille reste en tête (montre
+    // que ça vit ; la barre montre où ça en est).
+    if (this.#frontendPending && this.#frontendTotal > 0) {
+      process.stdout.write(
+        `  ${CYAN}${FRAMES[this.#frame]}${RESET} Frontend (Vite)  ` +
+          `${this.#bar(this.#frontendDone, this.#frontendTotal)}  ` +
+          `${DIM}${this.#frontendDone}/${this.#frontendTotal} bundles${RESET}`,
+      );
+      return;
+    }
     process.stdout.write(
       `  ${CYAN}${FRAMES[this.#frame]}${RESET} ${this.#label()}${DIM}…${RESET}`,
+    );
+  }
+
+  /** Barre `▰▰▰▱▱` proportionnelle (vert rempli / dim vide), largeur fixe 14. */
+  #bar(done: number, total: number): string {
+    const width = 14;
+    const filled =
+      total > 0 ? Math.min(width, Math.round((done / total) * width)) : 0;
+    return (
+      `${GREEN}${"▰".repeat(filled)}${RESET}` +
+      `${DIM}${"▱".repeat(width - filled)}${RESET}`
     );
   }
 
@@ -193,24 +240,16 @@ class BootReporter {
   /**
    * Boot complet (`onPostReady`). Si Vite compile encore (`#frontendPending`), on
    * DIFFÈRE le récap final jusqu'à `onFrontendReady` : sinon « ✓ Prêt » s'afficherait
-   * avant la ligne Vite. On rend tout de même la main au Syslog (et on fige le
-   * spinner) pour que les bannières serveurs (`Server Listen…`) défilent normalement.
+   * avant la ligne Vite. On GARDE le spinner animé sur « Frontend (Vite)… » et le
+   * sink RESTE muté → le dev voit la progression, pas le mur de logs de build (Vite
+   * + `Server Listen…`) qui partent au buffer/backplane (visibles en `--debug`).
    */
   #finish(): void {
     if (this.#done) return;
     if (this.#frontendPending) {
+      // Le spinner continue de tourner (timer actif, sink muté → 0 conflit `\r`).
+      // `onFrontendReady` figera la ligne Vite puis déclenchera le « ✓ Prêt ».
       this.#finishDeferred = true;
-      if (this.#animated) {
-        // Le spinner ne peut pas cohabiter avec les logs (mêmes `\r`) : on le fige
-        // en marqueur statique, on referme sa ligne (`\n`) puis on réactive le sink.
-        this.#stopTimer();
-        readline.clearLine(process.stdout, 0);
-        readline.cursorTo(process.stdout, 0);
-        process.stdout.write(
-          `  ${CYAN}⠿${RESET} Frontend (Vite)${DIM} — compilation…${RESET}\n`,
-        );
-        Syslog.setSinkEnabled(true);
-      }
       return;
     }
     this.#doFinish();
@@ -251,13 +290,14 @@ class BootReporter {
     process.stdout.write(
       `\n  ${GREEN}${BOLD}✓  Prêt${RESET} ${DIM}en ${dt}s${RESET}\n\n`,
     );
-    // Ordre figé + libellés parlants (https ⇒ HTTP/2, wss ⇒ WSS).
+    // Serveurs — ordre figé + libellés parlants (https ⇒ HTTP/2, wss ⇒ WSS).
     const rows: ReadonlyArray<readonly [string, string]> = [
       ["http", "HTTP"],
       ["https", "HTTP/2"],
       ["ws", "WS"],
       ["wss", "WSS"],
     ];
+    process.stdout.write(`     ${DIM}Serveurs${RESET}\n`);
     for (const [scheme, label] of rows) {
       const url = report.serversListening.find((s) => s.scheme === scheme)?.url;
       if (!url) continue;
@@ -266,17 +306,39 @@ class BootReporter {
           `${CYAN}${url}${RESET}\n`,
       );
     }
+    // Frontend (Vite, dev) — un bundle = une URL HMR cliquable (ce que le dev
+    // ouvre en premier). Alimenté par `FrontendService` (reportBootLine).
+    this.#renderSection("Frontend (Vite)", "Frontend (Vite)");
+    // Studio (admin web) — si le module est chargé : son URL directe (souvent
+    // oubliée), dérivée de l'URL HTTPS (repli HTTP) du serveur.
+    if (this.#kernel.modules["studio"]) {
+      const adminUrl =
+        report.serversListening.find((s) => s.scheme === "https")?.url ??
+        report.serversListening.find((s) => s.scheme === "http")?.url;
+      if (adminUrl) {
+        process.stdout.write(`\n     ${DIM}Studio${RESET}\n`);
+        process.stdout.write(
+          `     ${GREEN}➜${RESET}  ${BOLD}${"Admin".padEnd(7)}${RESET}` +
+            `${CYAN}${adminUrl}/nodefony${RESET}\n`,
+        );
+      }
+    }
     // Données (ORM) — détail différé, posé à `onServersReady` (registre peuplé) :
     // les ORM se connectent aux hooks `onReady` des services, trop tard pour un
     // affichage inline sous la phase « Services & ORM ».
-    const orm = this.#kernel.getBootLines("Services & ORM");
-    if (orm.length) {
-      process.stdout.write(`\n     ${DIM}Données${RESET}\n`);
-      for (const line of orm) {
-        process.stdout.write(
-          `     ${GREEN}➜${RESET}  ${CYAN}${line}${RESET}\n`,
-        );
-      }
+    this.#renderSection("Données", "Services & ORM");
+  }
+
+  /**
+   * Section « titre » + lignes `➜ valeur` (cyan, cliquable) lues du canal neutre
+   * de boot (`Kernel.getBootLines`). No-op si la phase n'a poussé aucune ligne.
+   */
+  #renderSection(title: string, phase: string): void {
+    const lines = this.#kernel.getBootLines(phase);
+    if (!lines.length) return;
+    process.stdout.write(`\n     ${DIM}${title}${RESET}\n`);
+    for (const line of lines) {
+      process.stdout.write(`     ${GREEN}➜${RESET}  ${CYAN}${line}${RESET}\n`);
     }
   }
 
@@ -315,12 +377,14 @@ class BootReporter {
   }
 
   /** Vite a commencé à compiler (`onFrontendStart`) — ouvre la phase Vite dynamique. */
-  #frontendBegin(): void {
+  #frontendBegin(payload?: { bundles?: number }): void {
     if (this.#done) return;
     this.#frontendPending = true;
     this.#frontendStart = performance.now();
     // En animé, le spinner courant (« Finalisation… ») bascule sur ce libellé.
     this.#frontendLabel = "Frontend (Vite)";
+    this.#frontendTotal = payload?.bundles ?? 0; // total connu → jauge possible
+    this.#frontendDone = 0;
   }
 
   /**
@@ -331,6 +395,15 @@ class BootReporter {
     if (this.#done || !this.#frontendPending) return;
     this.#frontendPending = false;
     this.#frontendLabel = null; // libère le spinner s'il anime encore
+    // Détache le listener de progression (plus de bundle à compter) — pas de
+    // listener qui traîne (règle perf-mémoire du projet).
+    if (this.#onFrontendProgress) {
+      this.#kernel.removeListener(
+        "onFrontendProgress",
+        this.#onFrontendProgress,
+      );
+      this.#onFrontendProgress = null;
+    }
     const ms = performance.now() - this.#frontendStart;
     const n = payload?.bundles ?? 0;
     if ((payload?.ready ?? 0) > 0) {

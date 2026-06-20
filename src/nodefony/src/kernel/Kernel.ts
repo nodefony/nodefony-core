@@ -316,6 +316,13 @@ class Kernel extends Service implements IKernel {
   booted: boolean = false;
   ready: boolean = false;
   postReady: boolean = false;
+  /**
+   * Supprime les bannières serveurs « Server Listen on… » (`showBanner`) — posé
+   * par le `BootReporter` animé (dev TTY non-debug) : le bloc « ✓ Prêt » liste
+   * déjà les URLs, ces logs feraient doublon. Reste `false` en prod/CI/`--debug`
+   * → bannières affichées (aucun changement hors écran de boot animé).
+   */
+  suppressBootBanners: boolean = false;
   trunk: trunkType = null;
   core: boolean = false;
   command: Command | null = null;
@@ -741,9 +748,14 @@ class Kernel extends Service implements IKernel {
           return this.fireLifecycle("onPostReady", this)
             .then(() => {
               this.postReady = true;
-              servers.map((server) => {
-                server.showBanner();
-              });
+              // Bannières « Server Listen on… » : sautées sous l'écran de boot
+              // animé (le bloc « ✓ Prêt » liste déjà les URLs). Affichées sinon
+              // (prod / CI / --debug).
+              if (!this.suppressBootBanners) {
+                servers.map((server) => {
+                  server.showBanner();
+                });
+              }
               // GARDE-FOU 0-serveur : profil serveur attendu mais rien n'écoute →
               // boot raté. On NE laisse PAS le process s'éteindre en exit 0
               // trompeur : `terminate(EX_UNAVAILABLE)` porte un code SÉMANTIQUE,
