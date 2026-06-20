@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-20T20:33:43.204Z",
+  "generated": "2026-06-20T21:17:55.466Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 932,
-    "symbols": 2053,
+    "files": 933,
+    "symbols": 2059,
     "classes": 296,
-    "interfaces": 535,
+    "interfaces": 541,
     "types": 251,
     "enums": 3,
     "functions": 459,
@@ -8707,6 +8707,60 @@
       "extends": null,
       "description": "Orchestrateur de sécurité — branché dans le pipeline HTTP/WS de `@nodefony/http`. `isSecure()` (rapide, hot-path) ne fait QUE matcher la zone et poser `context.security`. `handleSecurity()` (lazy, …"
     },
+    "IFirewallZoneDescription": {
+      "name": "IFirewallZoneDescription",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IFirewallDescription.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Surface d'INTROSPECTION du firewall (data plane Studio P6.15) — projection LECTURE SEULE de l'état RUNTIME réel du {@link IFirewall} (zones montées, authenticators instanciés, défenses résolues), *…"
+    },
+    "IFirewallAuthenticatorDescription": {
+      "name": "IFirewallAuthenticatorDescription",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IFirewallDescription.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Un authenticator : disponible (registre de fabriques) et/ou monté (≥1 zone)."
+    },
+    "IFirewallDefensesDescription": {
+      "name": "IFirewallDefensesDescription",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IFirewallDescription.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Défenses transverses résolues (CSRF/CORS/headers/throttle) — sans secret."
+    },
+    "IFirewallDescription": {
+      "name": "IFirewallDescription",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IFirewallDescription.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Photo complète de l'état du firewall."
+    },
+    "IRoleDescription": {
+      "name": "IRoleDescription",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IFirewallDescription.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Un rôle déclaré + ses rôles hérités (résolution transitive du walker)."
+    },
+    "IRoleHierarchyDescription": {
+      "name": "IRoleHierarchyDescription",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IFirewallDescription.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Hiérarchie de rôles : déclaration brute + résolution aplatie."
+    },
     "IJwtSigningKey": {
       "name": "IJwtSigningKey",
       "kind": "interface",
@@ -13888,7 +13942,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Producteur admin (`IAdminApi`) du module sécurité — expose le **data plane du journal d'audit** (P6.14 Lot 3) consommé par Studio (P6.15) : - `GET /nodefony/security/api/audit/events` — page filtré…"
+      "description": "Producteur admin (`IAdminApi`) du module sécurité — data plane consommé par Studio (section Sécurité, P6.15) : - `GET /nodefony/security/api/audit/events` — page filtrée du journal d'audit (P6.14 L…"
     },
     "registerSecurityAdminApi": {
       "name": "registerSecurityAdminApi",
@@ -19098,6 +19152,16 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/securityHeaders.ts"
       ],
+      "IFirewallDescription": [
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
+      "IRoleHierarchyDescription": [
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
@@ -19287,6 +19351,16 @@
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "IFirewall": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
+      "IFirewallDefensesDescription": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "IFirewallZoneDescription": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "IFirewallAuthenticatorDescription": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "IOAuthUserProvisioner": [

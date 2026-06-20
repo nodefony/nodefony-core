@@ -124,7 +124,14 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   `Firewall.#wireRealtime` (couplé au verrou : jamais de canal d'audit non gardé). Seam multi-tenant : event
   portera `tenantId` (futur). Bancs : `auditService`/`auditEmission`/`auditEmissionHotPath`/`auditBridge` (25,
   dont 0-émission-succès + câblage WS bout-en-bout + bridge lazy/coalescing + garde super-admin). memory 9/9.
-  ➡️ Reste : Studio P6.15 (console auditeur consomme data plane + `security:audit`).
+  ➡️ Console auditeur Studio P6.15 LIVRÉE.
+- **Introspection firewall (data plane P6.15)** — `Firewall.describe()` + `describeRoleHierarchy()` (contrat
+  `IFirewall`, DTO `contracts/IFirewallDescription.ts`) projettent l'état **RUNTIME** (zones montées /
+  authenticators registre∪montés / défenses CSRF-CORS-headers-throttle résolues / hiérarchie transitive),
+  PAS un re-parse de config. **Secret CSRF jamais exposé** (présence `synchronizerToken`, pas la valeur — règle
+  audit). `SecurityAdminApi` ajoute `GET /nodefony/security/api/{firewall,roleHierarchy}` RBAC
+  `ROLE_NODEFONY_ADMIN`, 503 sans service. ⚠️ 401 via curl = gate broker AVANT le handler → test
+  `firewallIntrospection.test.ts` (10) prouve le handler lui-même + redaction secret. Conso = Studio page Firewall.
 - **CSRF (J5)** — `Csrf` (`service/csrf.ts`, logique PURE sync, testable sans serveur) : défense **Fetch
   Metadata d'abord** (modèle Go 1.25 / OWASP 2025) + repli `Origin`/`Referer`. `enforce(req)` sur méthode
   state-changing (RFC 9110 §9.2.1 ; GET/HEAD/OPTIONS/TRACE = no-op) ; chaîne : (1) origine de confiance

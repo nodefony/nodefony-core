@@ -54,6 +54,13 @@ import type { IFirewall } from "../contracts/IFirewall";
 import type { IAuthenticator } from "../contracts/IAuthenticator";
 import type { IToken } from "../contracts/IToken";
 import type { ISecuredArea } from "../contracts/ISecuredArea";
+import type {
+  IFirewallDescription,
+  IFirewallDefensesDescription,
+  IFirewallZoneDescription,
+  IFirewallAuthenticatorDescription,
+  IRoleHierarchyDescription,
+} from "../contracts/IFirewallDescription";
 
 const serviceName = "firewall";
 
@@ -397,6 +404,119 @@ class Firewall extends Service implements IFirewall {
 
   getArea(name: string): ISecuredArea | undefined {
     return this.#areas?.find((a) => a.name === name);
+  }
+
+  /**
+   * Projection LECTURE SEULE de l'état RUNTIME (data plane Studio P6.15) — décrit
+   * ce qui TOURNE (zones montées, authenticators instanciés, défenses résolues),
+   * pas la config brute. **Secrets exclus par construction** (le synchronizer CSRF
+   * et la clé JWT ne sont JAMAIS exposés — on remonte leur PRÉSENCE, pas leur
+   * valeur, comme le journal d'audit). Cold-path admin (lecture rare) → 0
+   * contrainte hot-path.
+   */
+  describe(): IFirewallDescription {
+    const config = this.#config;
+    const mounted = this.#authenticators;
+
+    const zones: IFirewallZoneDescription[] = (this.#areas ?? []).map((a) => ({
+      name: a.name,
+      pattern: a.pattern.source,
+      security: a.security,
+      stateless: a.stateless,
+      mode: a.mode,
+      authenticators: [...a.authenticators],
+      allowsAnonymous: a.authenticators.includes("anonymous"),
+      host: a.host ?? null,
+      realtime: a.realtime,
+    }));
+
+    // Union registre (disponibles en config) ∪ montés (référencés par ≥1 zone) :
+    // la console montre à la fois ce qui est utilisable et ce qui est actif.
+    const available = new Set(listAuthenticatorFactories());
+    const names = new Set<string>(available);
+    if (mounted) for (const n of mounted.keys()) names.add(n);
+    const authenticators: IFirewallAuthenticatorDescription[] = [...names]
+      .sort()
+      .map((name) => ({
+        name,
+        mounted: mounted?.has(name) ?? false,
+        available: available.has(name),
+        challenge: typeof mounted?.get(name)?.challenge === "function",
+      }));
+
+    return {
+      configValid: !this.#configError,
+      // Message seul (jamais la stack) — l'endpoint est déjà ROLE_NODEFONY_ADMIN.
+      configError: this.#configError ? this.#configError.message : null,
+      zones,
+      authenticators,
+      defenses: config ? this.#describeDefenses(config) : null,
+    };
+  }
+
+  // Défenses transverses résolues — projection SANS secret (csrf.secret /
+  // jwt.keystore / oauth clientSecret jamais lus ici).
+  #describeDefenses(config: ISecurityConfig): IFirewallDefensesDescription {
+    return {
+      csrf: {
+        enabled: config.csrf.enabled,
+        fetchMetadata: config.csrf.fetchMetadata,
+        checkOrigin: config.csrf.checkOrigin,
+        strictSameSite: config.csrf.strictSameSite,
+        sameSite: config.csrf.sameSite,
+        trustedOrigins: [...config.csrf.trustedOrigins],
+        // PRÉSENCE du synchronizer (secret armé), jamais la valeur du secret.
+        synchronizerToken: this.#csrfTokens !== null,
+      },
+      cors: {
+        enabled: config.cors.enabled,
+        origins: [...config.cors.origins],
+        credentials: config.cors.credentials,
+        methods: [...config.cors.methods],
+        allowedHeaders: [...config.cors.allowedHeaders],
+        exposedHeaders: [...config.cors.exposedHeaders],
+        maxAgeS: config.cors.maxAgeS,
+      },
+      headers: {
+        enabled: config.headers.enabled,
+        hsts: config.headers.hsts,
+        hstsMaxAgeS: config.headers.hstsMaxAgeS,
+        csp: config.headers.csp,
+        cspNonces: config.headers.cspNonces,
+        frameguard: config.headers.frameguard,
+        noSniff: config.headers.noSniff,
+        referrerPolicy: config.headers.referrerPolicy,
+        coop: config.headers.coop,
+        coep: config.headers.coep,
+        corp: config.headers.corp,
+        originAgentCluster: config.headers.originAgentCluster,
+        permissionsPolicy: config.headers.permissionsPolicy,
+      },
+      rateLimit: {
+        enabled: config.rateLimit.enabled,
+        freeAttempts: config.rateLimit.freeAttempts,
+        baseDelayS: config.rateLimit.baseDelayS,
+        capDelayS: config.rateLimit.capDelayS,
+      },
+    };
+  }
+
+  /**
+   * Hiérarchie de rôles déclarée + résolution transitive (data plane Studio).
+   * Brut = ce que l'app a écrit ; `inherits` = aplati précalculé par le walker.
+   */
+  describeRoleHierarchy(): IRoleHierarchyDescription {
+    const raw = this.#config?.roleHierarchy ?? {};
+    const hierarchy: Record<string, string[]> = {};
+    for (const role of Object.keys(raw)) hierarchy[role] = [...raw[role]];
+    const walker = this.roleHierarchy;
+    const roles = Object.keys(hierarchy).map((role) => ({
+      role,
+      inherits: [...walker.reachableRoles([role])]
+        .filter((r) => r !== role)
+        .sort(),
+    }));
+    return { hierarchy, roles };
   }
 
   /**

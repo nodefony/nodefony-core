@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.22.0
+version: 1.23.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1331,6 +1331,17 @@ npm outdated                     # versions en retard (ou commande `npx nodefony
 
 > Format : symptôme → cause → fix. Compléter à CHAQUE fin de session touchant le cœur.
 
+- _(2026-06-20)_ **Introspection d'un service pour Studio = projeter l'état RUNTIME, PAS re-parser la config**
+  (page Firewall P6.15). Le réflexe naïf de l'endpoint `firewall` aurait été `defineSecurityConfig(this.options)`
+  re-parsé dans le handler → faux (re-validerait, jetterait si fail-closed, et surtout montrerait la config
+  THÉORIQUE pas ce qui TOURNE : un authenticator en typo n'est pas « monté »). Fix : méthode `describe()` SUR le
+  service, qui lit ses structures déjà construites (`#areas`/`#authenticators`/`#config`) → vérité runtime. **Leçons** :
+  (1) une surface d'introspection se branche sur l'état vivant du service (la devise du repo : le code ≠ le plan) ;
+  (2) **redaction par construction** = le DTO n'a PAS de champ secret (présence `synchronizerToken`, jamais la valeur) ;
+  un test asserte que `JSON.stringify(describe())` ne contient pas le secret sentinelle. (3) **un 401 via curl ne
+  prouve PAS le handler** : le gate RBAC du broker répond AVANT le handler → pour prouver la valeur renvoyée, test
+  unitaire qui construit le service buildé (kernel factice + `onBoot`) et appelle `describe()` + l'endpoint
+  (`container.set("firewall", …)` → handler). Le curl ne prouve que « route existe + protégée ».
 - _(2026-05-31)_ **Trace full-stack du Log Backplane** (commit `c48858b` back). 4 leçons : (a) un log de
   **FIN** de cycle émis APRÈS le teardown ALS (hors bulle `AsyncLocalStorage`) perd son `requestId` → ne
   JAMAIS compter sur l'ALS pour la corrélation en SORTIE de pipeline : attacher le `requestId` **depuis le
@@ -1548,6 +1559,14 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.23.0** (2026-06-20) — **Introspection Firewall (data plane Studio P6.15, contrat ↔ studio-dev 1.26.0).**
+  `Firewall.describe()` + `describeRoleHierarchy()` (contrat `IFirewall`, DTO `contracts/IFirewallDescription.ts`)
+  projettent l'état **RUNTIME** (zones montées / authenticators registre∪montés / défenses résolues / hiérarchie
+  transitive) → `SecurityAdminApi` `GET /nodefony/security/api/{firewall,roleHierarchy}` (RBAC `ROLE_NODEFONY_ADMIN`,
+  503 sans service). **Secret CSRF jamais exposé** (présence `synchronizerToken`, pas la valeur). Test
+  `firewallIntrospection.test.ts` (10) ; non-rég security 509/509. RETEX §11 (introspection = état runtime PAS
+  re-parse de config ; 401 broker ≠ preuve du handler → tester le handler). Back-only ici (le front consomme =
+  studio-dev 1.26.0).
 - **1.22.0** (2026-06-12) — **POC souverain Ph.3 = LIVRÉE full-stack (contrat ↔ studio-dev 1.24.0).**
   Section « POC API souveraine » recalée : Ph.3 backend (`a07fdf2`, pont `api.request` + `RpcError` +
   `queryOverride` + routes admin GET+WEBSOCKET, 9 tests intég) **+ Ph.3 front livré cette session**

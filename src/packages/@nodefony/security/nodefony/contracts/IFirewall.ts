@@ -2,6 +2,10 @@ import type { ContextType } from "@nodefony/http";
 import type { IAuthenticator } from "./IAuthenticator";
 import type { ISecuredArea } from "./ISecuredArea";
 import type { CspFragment } from "../src/csp";
+import type {
+  IFirewallDescription,
+  IRoleHierarchyDescription,
+} from "./IFirewallDescription";
 
 /**
  * Orchestrateur de sécurité — branché dans le pipeline HTTP/WS de `@nodefony/http`.
@@ -50,4 +54,14 @@ export interface IFirewall {
 
   /** Zone par nom, ou `undefined`. */
   getArea(name: string): ISecuredArea | undefined;
+
+  /**
+   * Projection LECTURE SEULE de l'état RUNTIME (zones/authenticators/défenses)
+   * pour le data plane Studio — **secrets exclus** (présence, jamais valeur).
+   * Décrit ce qui TOURNE (pas la config brute). Source de vérité d'introspection.
+   */
+  describe(): IFirewallDescription;
+
+  /** Hiérarchie de rôles déclarée + résolution transitive (data plane Studio). */
+  describeRoleHierarchy(): IRoleHierarchyDescription;
 }

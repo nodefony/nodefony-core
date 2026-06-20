@@ -12,6 +12,11 @@ import type {
   IAuditQuery,
   IAuditQueryResult,
 } from "../../contracts/IAuditStore";
+import type { IFirewall } from "../../contracts/IFirewall";
+import type {
+  IFirewallDescription,
+  IRoleHierarchyDescription,
+} from "../../contracts/IFirewallDescription";
 
 /**
  * Vue MINIMALE du service `auditService` consommée par le data plane — seule la
@@ -100,20 +105,23 @@ export function parseAuditQuery(
 }
 
 /**
- * Producteur admin (`IAdminApi`) du module sécurité — expose le **data plane du
- * journal d'audit** (P6.14 Lot 3) consommé par Studio (P6.15) :
+ * Producteur admin (`IAdminApi`) du module sécurité — data plane consommé par
+ * Studio (section Sécurité, P6.15) :
  *
- *  - `GET /nodefony/security/api/audit/events` — page filtrée du journal
- *    (`?category&outcome&actor&action&since&until&limit&before`), du plus récent
- *    au plus ancien, pagination par curseur (`before` / `nextBefore`).
+ *  - `GET /nodefony/security/api/audit/events` — page filtrée du journal d'audit
+ *    (P6.14 Lot 3 ; `?category&outcome&actor&action&requestId&since&until&limit&before`),
+ *    du plus récent au plus ancien, pagination par curseur (`before` / `nextBefore`).
+ *  - `GET /nodefony/security/api/firewall` — introspection du firewall (zones,
+ *    authenticators montés, défenses) — état RUNTIME, secrets exclus.
+ *  - `GET /nodefony/security/api/roleHierarchy` — hiérarchie de rôles + résolution.
  *
- * **RBAC `ROLE_NODEFONY_ADMIN`** (appliqué par le broker, 403 sinon) — le journal
- * de sécurité ne se consulte qu'en administrateur. Handler **lazy** : il résout
- * `auditService` à la requête (le service peut être désactivé → 503), jamais au
+ * **RBAC `ROLE_NODEFONY_ADMIN`** (appliqué par le broker, 403 sinon) — la console
+ * sécurité ne se consulte qu'en administrateur. Handlers **lazy** : ils résolvent
+ * `auditService`/`firewall` à la requête (service désactivable → 503), jamais au
  * montage. Le namespace `"security"` est distinct des routes classiques
  * `/nodefony/security/api/keys` (P6.12) — paths disjoints, zéro collision.
  *
- * @param container - container du kernel (résolution lazy de `auditService`).
+ * @param container - container du kernel (résolution lazy des services).
  */
 export function createSecurityAdminApi(container: Container): IAdminApi {
   const endpoints: IAdminEndpoint[] = [
@@ -132,6 +140,39 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           return { status: 503, body: { error: "audit journal unavailable" } };
         }
         return audit.query(parseAuditQuery(request.query));
+      },
+    },
+    {
+      path: "firewall",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Introspection du firewall : zones (URL/host/authenticators), " +
+        "authenticators montés, défenses (CSRF/CORS/en-têtes/throttle). " +
+        "Secrets exclus (présence, jamais valeur).",
+      handler: (): IFirewallDescription | IAdminResponse<{ error: string }> => {
+        const firewall = container.get("firewall") as IFirewall | undefined;
+        if (!firewall) {
+          return { status: 503, body: { error: "firewall unavailable" } };
+        }
+        return firewall.describe();
+      },
+    },
+    {
+      path: "roleHierarchy",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Hiérarchie de rôles déclarée + résolution transitive " +
+        "(RoleHierarchyWalker, niveau A de l'autorisation).",
+      handler: ():
+        | IRoleHierarchyDescription
+        | IAdminResponse<{ error: string }> => {
+        const firewall = container.get("firewall") as IFirewall | undefined;
+        if (!firewall) {
+          return { status: 503, body: { error: "firewall unavailable" } };
+        }
+        return firewall.describeRoleHierarchy();
       },
     },
   ];

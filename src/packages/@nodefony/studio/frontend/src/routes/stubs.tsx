@@ -18,15 +18,6 @@ export const Users = () => (
   />
 );
 
-export const Firewall = () => (
-  <StubPage
-    title="Firewall"
-    description="SecuredAreas + authenticators + statistiques auth (success/failure/locked)."
-    phase="P6.3 + P6.15"
-    legacyRef="monitoring-bundle/views/firewall/"
-  />
-);
-
 export const Roles = () => (
   <StubPage
     title="Roles"

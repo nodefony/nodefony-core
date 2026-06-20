@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.25.0
+version: 1.26.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1423,6 +1423,27 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   503 (audit off) / 404 (module absent) — vitrine honnête. Tout data plane Studio est derrière le firewall (zone
   `nodefony-admin`, 401 sans token) → la console s'authentifie comme les autres pages.
 
+**Page Firewall P6.15 (2026-06-20, full-stack ↔ framework-dev 1.23.0)**
+
+> 2ᵉ page de la section Sécurité. Introspection runtime du firewall (`GET .../api/{firewall,roleHierarchy}`).
+> Même patron éclaté que la console audit. La plus pédagogique : « quelles URL protégées, comment ? ».
+
+- **`useResource` ne renvoie que `e.message`** (pas l'objet erreur) → pour un message FR honnête (401/403/503/404),
+  **mapper DANS le fetcher** : `try { return await store.api.getAbsolute(...) } catch (e) { throw new Error(describeFirewallError(e)) }`.
+  La console audit mappait via un fetch MANUEL (state à la main) ; avec `useResource`, c'est le fetcher qui porte le mapping.
+- **`KeyValue` rend `v` dans un `<Text>` (=`<p>`)** → une valeur RICHE (Badge, `<div>`, liste de chips) déclenche
+  « `<div>` cannot appear as a descendant of `<p>` » (warning hydratation). Pour une ligne label→valeur-riche, un
+  **`Field` local** (`Group` label + `Box` valeur) ; réserver `KeyValue` au texte/mono. (Même piège que `StatCard`/`KpiCard`.)
+- **Introspection = consommer l'état RUNTIME du back** (pas la config brute) : la page affiche les zones MONTÉES,
+  les authenticators registre∪montés, les défenses RÉSOLUES (le back fait la projection via `Firewall.describe()`,
+  secrets redactés serveur — cf framework-dev 1.23.0). Le front n'a que des **types miroir** (0 import `@nodefony/security`).
+- **Page mono-segment** `/nodefony/firewall` → SPA fallback existant, **0 ajout backend** côté Studio (le data plane
+  vit dans `@nodefony/security`). Remplacer un stub = lazy dans `App.tsx` + retirer du bloc import `stubs` + retirer
+  `wip` de `navConfig` + supprimer l'export stub mort.
+- **5 onglets via `<Tabs>` 1er niveau** (divulgation progressive) + onglets lourds montés à l'ouverture
+  (`{tab === "roles" && <FirewallRoles/>}`) = fetch à la demande, pas au 1ᵉʳ rendu. Le 401 data plane sans token =
+  firewall RÉEL (Studio s'authentifie comme les autres pages ; auth Studio mock branchée sur le vrai firewall = P6.15).
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1443,6 +1464,17 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.26.0** (2026-06-20) — **Page Firewall Studio P6.15** (full-stack ; **contrat ↔ framework-dev 1.23.0** —
+  introspection runtime `GET /nodefony/security/api/{firewall,roleHierarchy}`). `routes/Firewall.tsx` +
+  `routes/firewall/{firewallModel.ts (types miroir + meta authenticators), firewallFormat.tsx (badges a11y),
+FirewallZones (DataGrid + Modal détail), FirewallDefenses (CSRF/CORS/headers/throttle), FirewallRoles
+(hiérarchie transitive), FirewallAuthStats (3 counts audit = boucle)}`. KPIs + **5 onglets** ; câblage `App.tsx`
+  (lazy, retiré du bloc stubs), `navConfig` (`wip` retiré), stub `Firewall` supprimé de `stubs.tsx`. Types miroir
+  locaux (0 import `@nodefony/security`). Gates : typecheck Studio 0 · transform Vite 200 (8 fichiers, **port
+  studio 5173** pas 5177 angular) · serveur UP. RETEX (section « Page Firewall P6.15 ») : `KeyValue` v dans `<p>`
+  → `Field` local pour valeur riche ; `useResource` ne donne que `e.message` → mapper l'erreur DANS le fetcher
+  (`throw new Error(describeErr(e))`) ; le 401 data plane = firewall réel (auth Studio mock branchée P6.15).
+  (framework-dev 1.23.0 = back consommé.)
 - **1.25.0** (2026-06-20) — **Console auditeur Studio P6.15 + boucle audit↔trace** (full-stack ; **contrat ↔
   data plane audit P6.14** + filtre `requestId` ajouté à `SecurityAdminApi`/`MemoryAuditStore`/`IAuditQuery`).
   Page `/nodefony/audit` (menu Security → « Journal d'audit ») : module éclaté `routes/audit/*` (types miroir +

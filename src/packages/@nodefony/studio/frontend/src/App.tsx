@@ -84,12 +84,14 @@ const Twin = lazy(() =>
 const Audit = lazy(() =>
   import("./routes/Audit").then((m) => ({ default: m.Audit })),
 );
+const Firewall = lazy(() =>
+  import("./routes/Firewall").then((m) => ({ default: m.Firewall })),
+);
 
 import {
   Sessions,
   Users,
   Roles,
-  Firewall,
   ApiKeys,
   Webhooks,
   Services,

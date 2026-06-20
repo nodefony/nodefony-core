@@ -92,6 +92,7 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
 
 - `[1× — 2026-06-20]` **Le user veut VOIR l'écran AVANT que je code — pas me regarder grepper.** Friction « là je sais pas ce que tu fais, des menus quoi !!! » après plusieurs cycles d'exploration silencieuse (Read/grep des contrats back). Pour un écran : présenter un **mockup ASCII + les sections + le POURQUOI** AVANT de coder, même quand je dois d'abord cartographier le back → annoncer « je cartographie le contrat, PUIS je te montre l'écran ». Le manque ici = la **vision de l'écran**, pas un micro-update. Renforce [[feedback_session_hygiene]] (mini-cahier amont) + [[feedback_user_visibility]].
 - `[1× — 2026-06-20]` **« préparer ≠ retirer » une capacité que le user critique.** Il a jugé le temps réel « un peu gadget » sur de l'audit → j'ai voulu le SUPPRIMER → « prépare le temps réel on l'aura pourquoi tu change !!! ». Une critique d'ergonomie (« ça ne doit pas défiler en permanence ») ≠ « enlève-le ». Réponse juste = le rendre **optionnel/OFF par défaut** (switch + composant live monté conditionnel, archi prête). Confirmer avant de retirer une capacité.
+- `[1× — 2026-06-20]` **`useResource` ne donne que `e.message` → mapper l'erreur DANS le fetcher.** Pour un message FR honnête (401/403/503/404) sur un data plane, `try { return await api.getAbsolute(...) } catch (e) { throw new Error(describeErr(e)) }` : `useResource` catch et n'expose qu'une string (pas l'objet `{status}`). La console audit mappait via un fetch MANUEL (state à la main) ; avec `useResource`, c'est le fetcher qui porte le mapping. **+ `KeyValue` rend `v` dans un `<Text>`(=`<p>`)** → une valeur RICHE (Badge/`<div>`/chips) = warning hydratation « `<div>` in `<p>` » → `Field` local (`Group` label + `Box`), `KeyValue` réservé au texte/mono (même piège `StatCard`/`KpiCard`). Vu sur la page Firewall P6.15.
 - `[1× — 2026-06-20]` **Ajouter une page Studio = grep `navConfig` + chercher le stub AVANT (doublon).** Ajouté l'entrée « Journal d'audit » sans voir que la route `/nodefony/audit` existait déjà (stub `Audit` wip + entrée « Audit Log ») → 2 entrées même path. Réflexe : `grep "<path>" navConfig.ts` + chercher le stub dans `App.tsx`/`stubs.tsx` avant de câbler une « nouvelle » page — beaucoup sont déjà stubbées `wip` (remplacer le stub, pas dupliquer).
 - `[1× — 2026-06-17]` **GPU à fond (ventilation) sur un dashboard live = chercher l'animation PERMANENTE de `box-shadow`/`filter`/`backdrop-filter`, pas le re-render.** Coupables sur `/nodefony/supervision` (90 %→63 %) : (a) `.nf-live-card` animait un `box-shadow` **glow en boucle infinie** = **copie DIVERGENTE** de styles live (`utils/ormFormat.ensureLivePulseStyle` ≠ `components/ui/FlashValue.ensureLiveStyles`, déjà passée opacity + anneau statique) → 2 définitions du même `.nf-live-card`, la dernière injectée dans `<head>` gagne (non-déterministe) ; (b) `LoadingOverlay overlayProps={{blur}}` = **backdrop-filter caché** ; (c) page **3315 lignes sans `contain`** → un tick repeint toute la page (+ LCP render delay ~4 s en dev). Fix : styles live compositor-only + `prefers-reduced-motion`, retrait `blur`, `contain:content` sur la brique partagée `KpiCard`. **Dette** : fusionner les 2 sources de styles live en une.
 - `[1× — 2026-06-17]` **un `<style>` injecté-une-fois (flag de garde) n'est PAS retiré par le HMR Vite** → après un fix CSS, l'ANCIENNE règle (animation) reste dans `<head>` et tourne toujours → le fix « ne se voit pas » tant qu'on n'a pas **hard-reload** (Cmd+Shift+R). Exiger le hard-reload avant de juger un fix de style insuffisant. Diag perf navigateur = **user-driven** (gestionnaire GPU / Paint Flashing / LCP — pas de headless, règle projet) ; test discriminant le plus rapide = **couper « Temps réel »** (GPU retombe ⇒ rendu live ; reste haut ⇒ coupable statique).
@@ -636,13 +637,17 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
-- `[1× — 2026-06-20]` **Une preuve e2e « gardée » peut être AMBIGUË — distinguer ce qu'elle prouve vraiment.**
+- `[2× — 2026-06-20]` **Une preuve e2e « gardée » peut être AMBIGUË — distinguer ce qu'elle prouve vraiment.**
   Data plane audit (P6.14 lot 3) : `curl /nodefony/security/api/audit/events` sans session → **401**. Tentant de
   conclure « route montée + gardée ». FAUX raccourci : la **zone firewall data plane** `^/nodefony/[^/]+/api/`
   match par URL AVANT le routing → 401 sur TOUTE URL du préfixe, route montée OU PAS. Le 401 prouve seulement
   « sous zone protégée », pas « ma route existe ». Preuve déplacée là où elle est nette : **test unit du `register`
   idempotent** (mon maillon) + le montage = broker générique éprouvé (5 producteurs). Leçon : nommer ce qu'une
   preuve établit RÉELLEMENT ; un code de retour partagé par plusieurs causes ne tranche pas.
+  **Reconfirmé (2ᵉ, endpoints firewall/roleHierarchy P6.15)** : le 401 vient du **gate RBAC du broker AVANT le
+  handler** → il ne prouve PAS que `describe()` renvoie la bonne valeur. Preuve nette = **test unitaire du handler**
+  (service buildé via kernel factice + `onBoot`, `container.set("firewall", …)`, appel direct de l'endpoint) +
+  assertion que `JSON.stringify(describe())` ne contient pas le secret sentinelle (redaction prouvée).
 
 - `[1× — 2026-06-20]` **Le bon « calque » n'est pas le 1er candidat trouvé — lire 2-3 frères avant de figer.**
   Pour le data plane audit, le 1er réflexe = calquer `ApiKeyController` (déjà sous `/nodefony/security/api/`). Or
@@ -1130,6 +1135,12 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧭 Conception / fondation — sécu/firewall (frictions du jour)
 
+- `[1× — 2026-06-20]` **Introspection d'un service pour Studio = projeter l'état RUNTIME, pas re-parser la config.**
+  Endpoint `firewall` P6.15 : tentation = `defineSecurityConfig(options)` dans le handler → faux (re-valide, jette
+  si fail-closed, montre la config THÉORIQUE pas ce qui TOURNE — un authenticator en typo n'est pas « monté »). Fix =
+  `Firewall.describe()` qui lit `#areas`/`#authenticators`/`#config` déjà construits (devise : le code ≠ le plan).
+  **Redaction par construction** : le DTO n'a AUCUN champ secret (présence `synchronizerToken`, jamais la valeur ;
+  un test asserte que `JSON.stringify(describe())` ne contient pas le secret sentinelle).
 - `[1× — 2026-06-20]` **Audit du hot-path = émettre sur l'ÉCHEC, jamais sur le SUCCÈS.** P6.14 lot 2b (firewall/WS) :
   le chemin nominal authentifié/autorisé reste MUET (le volume n'est pas un signal d'audit) → 0 allocation sur le
   hot-path → gate mémoire non régressé. Seuls les refus/échecs (cold-path, rares) émettent. Prouvé par un test dédié
