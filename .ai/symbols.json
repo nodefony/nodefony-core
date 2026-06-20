@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-20T12:41:31.656Z",
+  "generated": "2026-06-20T12:52:58.006Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 922,
-    "symbols": 2013,
-    "classes": 293,
+    "files": 924,
+    "symbols": 2020,
+    "classes": 294,
     "interfaces": 521,
     "types": 247,
     "enums": 3,
-    "functions": 442,
+    "functions": 448,
     "constants": 507
   },
   "symbols": {
@@ -2658,6 +2658,17 @@
       "decorators": [],
       "description": "Commande `nodefony status` — photo instantanée des process de développement (superviseur / serveur / Vite + PID, parent, uptime, RSS, %CPU, ports). **Exécutée en « standalone » (zéro boot, hors tru…"
     },
+    "Stop": {
+      "name": "Stop",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/StopCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony stop` — arrêt PROPRE et COMPLET des process de dev (superviseur + serveur + Vite). Remplace le `pkill -9` manuel ; idempotent. **Exécutée en « standalone » (zéro boot, hors trunk…"
+    },
     "services": {
       "name": "services",
       "kind": "function",
@@ -3209,6 +3220,22 @@
       "module": "@nodefony/core",
       "description": "`true` si le process `pid` est vivant (signal 0 — ne le tue pas)."
     },
+    "signalProcessGroup": {
+      "name": "signalProcessGroup",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Envoie `signal` au GROUPE de process de `pid` (POSIX : `-pid` → atteint les descendants, ex. l'enfant serveur + ses Vite quand `pid` est le superviseur leader de groupe) PUIS au `pid` lui-même en f…"
+    },
+    "clearSupervisorPidFile": {
+      "name": "clearSupervisorPidFile",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Supprime le pidfile du superviseur (best-effort, idempotent)."
+    },
     "isPortListening": {
       "name": "isPortListening",
       "kind": "function",
@@ -3304,6 +3331,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Collecte (ps + ports + pidfile) puis écrit le rapport status sur stdout."
+    },
+    "runStopReport": {
+      "name": "runStopReport",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStop.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Découvre, tue (SIGTERM→SIGKILL) et nettoie ; écrit un rapport sur stdout."
     },
     "DevSupervisor": {
       "name": "DevSupervisor",
@@ -14816,6 +14851,7 @@
         "Prod",
         "Start",
         "Status",
+        "Stop",
         "BatchTest",
         "DaemonTest",
         "FrontendBuild",
@@ -15311,6 +15347,7 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
+        "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -16629,6 +16666,7 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
+        "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -16827,6 +16865,9 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Status": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Stop": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "isStandaloneDevCommand": [
@@ -17201,6 +17242,7 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
+        "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -17241,6 +17283,10 @@
       "runStatusReport": [
         "src/nodefony/src/kernel/commands/StatusCommand.ts"
       ],
+      "runStopReport": [
+        "src/nodefony/src/kernel/commands/StopCommand.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
       "DIScope": [
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
       ],
@@ -17279,6 +17325,7 @@
       ],
       "defaultDevPorts": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "devSupervisorPidFile": [
@@ -17286,22 +17333,33 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "discoverDevProcesses": [
-        "src/nodefony/src/service/dev/devStatusReport.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "isPidAlive": [
-        "src/nodefony/src/service/dev/devStatusReport.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "probePorts": [
-        "src/nodefony/src/service/dev/devStatusReport.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "readSupervisorPid": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "DevProcessInfo": [
-        "src/nodefony/src/service/dev/devStatusReport.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "PortState": [
-        "src/nodefony/src/service/dev/devStatusReport.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "clearSupervisorPidFile": [
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "signalProcessGroup": [
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"

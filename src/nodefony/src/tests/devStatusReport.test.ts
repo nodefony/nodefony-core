@@ -8,8 +8,9 @@ import assert from "node:assert";
 import { isStandaloneDevCommand } from "../service/dev/devStatusReport";
 
 describe("devStatusReport — commandes système standalone", () => {
-  it("status est standalone (zéro boot) ; les commandes serveur ne le sont PAS", () => {
+  it("status/stop sont standalone (zéro boot) ; les commandes serveur ne le sont PAS", () => {
     assert.strictEqual(isStandaloneDevCommand("status"), true);
+    assert.strictEqual(isStandaloneDevCommand("stop"), true);
     assert.strictEqual(isStandaloneDevCommand("development"), false);
     assert.strictEqual(isStandaloneDevCommand("cluster"), false);
     assert.strictEqual(isStandaloneDevCommand("build"), false);

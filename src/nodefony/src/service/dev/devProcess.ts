@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
@@ -97,6 +97,37 @@ export function isPidAlive(pid: number): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Envoie `signal` au GROUPE de process de `pid` (POSIX : `-pid` → atteint les
+ * descendants, ex. l'enfant serveur + ses Vite quand `pid` est le superviseur leader
+ * de groupe) PUIS au `pid` lui-même en fallback. No-op silencieux si le process /
+ * groupe n'existe plus. Windows : pas de groupe POSIX → kill direct du pid.
+ */
+export function signalProcessGroup(pid: number, signal: NodeJS.Signals): void {
+  if (process.platform !== "win32") {
+    try {
+      process.kill(-pid, signal);
+    } catch {
+      /* pas leader de groupe / groupe déjà parti */
+    }
+  }
+  try {
+    process.kill(pid, signal);
+  } catch {
+    /* déjà mort */
+  }
+}
+
+/** Supprime le pidfile du superviseur (best-effort, idempotent). */
+export function clearSupervisorPidFile(cwd: string): void {
+  try {
+    const f = devSupervisorPidFile(cwd);
+    if (existsSync(f)) rmSync(f, { force: true });
+  } catch {
+    /* best-effort */
   }
 }
 

@@ -12,6 +12,7 @@ import {
   type DevProcessInfo,
   type PortState,
 } from "./devProcess";
+import { runStopReport } from "./devStop";
 
 /**
  * Rapport `nodefony status` — composition + exécution DÉCOUPLÉES de la classe Command.
@@ -32,7 +33,7 @@ const ANSI = {
 };
 
 /** Commandes « système » exécutables SANS boot kernel ni trunk (outillage process). */
-const STANDALONE_DEV_COMMANDS = new Set<string>(["status"]);
+const STANDALONE_DEV_COMMANDS = new Set<string>(["status", "stop"]);
 
 /** `true` si `name` est une commande système standalone (status/stop). */
 export function isStandaloneDevCommand(name: string): boolean {
@@ -46,6 +47,7 @@ export function isStandaloneDevCommand(name: string): boolean {
 export async function runStandaloneDevCommand(name: string): Promise<void> {
   const cwd = process.cwd();
   if (name === "status") return runStatusReport(cwd);
+  if (name === "stop") return runStopReport(cwd);
 }
 
 /** Collecte (ps + ports + pidfile) puis écrit le rapport status sur stdout. */
@@ -165,7 +167,7 @@ function renderStatus(
     );
   if (nSup === 0 && (nSrv > 0 || nVite > 0))
     warns.push(
-      "process dev orphelins (serveur/Vite sans superviseur) — `nodefony stop` (à venir) les nettoiera",
+      "process dev orphelins (serveur/Vite sans superviseur) — `nodefony stop` les nettoiera",
     );
   if (nSup > 1)
     warns.push(`${nSup} superviseurs simultanés — empilement anormal`);

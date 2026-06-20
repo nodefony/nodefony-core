@@ -19,6 +19,7 @@ import Cluster from "./commands/ClusterCommand";
 import Install from "./commands/InstallCommand";
 import Outated from "./commands/OutdatedCommand";
 import Status from "./commands/StatusCommand";
+import Stop from "./commands/StopCommand";
 import {
   isStandaloneDevCommand,
   runStandaloneDevCommand,
@@ -155,6 +156,17 @@ class CliKernel extends Cli {
    * @throws Si Commander absent OR si kernel.start() crash.
    */
   override async start(options?: TypeKernelOptions): Promise<Kernel> {
+    // ─── Commandes SYSTÈME « standalone » (status/stop) : ZÉRO boot ─────────────
+    // Pur outillage de process (ps + sonde ports + pidfile). Exécutées AVANT toute
+    // construction de Kernel → aucun effet de bord (pas de `Nodefony.setKernel`, pas
+    // de log de boot/terminate parasite) et lançables DEPUIS N'IMPORTE OÙ (hors d'un
+    // projet Nodefony inclus). Même esprit que `--version` (résolu sans boot complet).
+    const requested = this.getRequestedCommandName();
+    if (requested !== null && isStandaloneDevCommand(requested)) {
+      await runStandaloneDevCommand(requested);
+      return process.exit(0);
+    }
+
     this.kernel = new Kernel(this.environment, this, options);
     try {
       if (this.commander) {
@@ -168,6 +180,7 @@ class CliKernel extends Cli {
         this.addCommand(Outated);
         this.addCommand(Start);
         this.addCommand(Status);
+        this.addCommand(Stop);
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);
@@ -192,18 +205,6 @@ class CliKernel extends Cli {
         // PAS concerné (résolu par commander sans boot, cf le `.catch` plus bas).
         if (this.isGlobalHelpRequested()) {
           return this.dispatchGlobalHelp();
-        }
-
-        const requested = this.getRequestedCommandName();
-
-        // ─── Commandes SYSTÈME « standalone » (status/stop) : ZÉRO boot ───────
-        // Pur outillage de process (ps + sonde ports + pidfile) : aucun besoin de
-        // trunk ni de kernel booté → exécutées ICI, AVANT tout boot. Donc lançables
-        // DEPUIS N'IMPORTE OÙ (hors d'un projet Nodefony inclus) et insensibles à
-        // l'état du dist. Même esprit que `--version`/`--help` (résolus sans boot).
-        if (requested !== null && isStandaloneDevCommand(requested)) {
-          await runStandaloneDevCommand(requested);
-          return this.kernel?.terminate(0) as Promise<Kernel>;
         }
 
         // ─── Commandes de MODULE : dispatch DIFFÉRÉ ──────────────────────────
