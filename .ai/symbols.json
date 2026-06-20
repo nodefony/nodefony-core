@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-20T16:23:55.043Z",
+  "generated": "2026-06-20T16:35:52.866Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 930,
-    "symbols": 2040,
+    "files": 931,
+    "symbols": 2046,
     "classes": 296,
-    "interfaces": 531,
+    "interfaces": 532,
     "types": 250,
     "enums": 3,
-    "functions": 453,
+    "functions": 458,
     "constants": 507
   },
   "symbols": {
@@ -13874,6 +13874,30 @@
       "exported": true,
       "module": "@nodefony/realtime"
     },
+    "parseAuditQuery": {
+      "name": "parseAuditQuery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Traduit la query string admin en {@link IAuditQuery} typée. Un filtre `category`/`outcome` **inconnu est ignoré** (permissif — l'endpoint est déjà gardé `ROLE_NODEFONY_ADMIN`, renvoyer plus large à…"
+    },
+    "createSecurityAdminApi": {
+      "name": "createSecurityAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Producteur admin (`IAdminApi`) du module sécurité — expose le **data plane du journal d'audit** (P6.14 Lot 3) consommé par Studio (P6.15) : - `GET /nodefony/security/api/audit/events` — page filtré…"
+    },
+    "registerSecurityAdminApi": {
+      "name": "registerSecurityAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Enregistre le producteur admin sécurité sur le broker — **idempotent** (no-op si déjà monté). À appeler au `onKernelBoot` du module (avant le montage des routes par framework à `onKernelReady`). Ca…"
+    },
     "IGeneratedApiKey": {
       "name": "IGeneratedApiKey",
       "kind": "interface",
@@ -15593,6 +15617,7 @@
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/Tools.ts",
+        "src/packages/@nodefony/security/index.ts",
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/command/Command.ts",
@@ -15631,6 +15656,7 @@
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
@@ -16450,9 +16476,11 @@
       "IAdminRegistry": [
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "createFrontendAdminApi": [
         "src/packages/@nodefony/frontend/index.ts"
@@ -16823,6 +16851,9 @@
         "src/packages/@nodefony/security/index.ts"
       ],
       "AuditService": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "registerSecurityAdminApi": [
         "src/packages/@nodefony/security/index.ts"
       ],
       "ISecurityConfigInput": [
@@ -18185,12 +18216,14 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "IAdminResponse": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "IAdminRoute": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
@@ -18245,7 +18278,8 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "contextRequest": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -18299,7 +18333,8 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
@@ -18317,7 +18352,8 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "getActiveLogDriver": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
@@ -18965,10 +19001,12 @@
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
       ],
       "AuditCategory": [
-        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts"
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "AuditOutcome": [
-        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts"
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "IAuditEvent": [
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
@@ -19032,10 +19070,12 @@
       ],
       "IAuditQuery": [
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
       "IAuditQueryResult": [
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
       "IAuditSink": [

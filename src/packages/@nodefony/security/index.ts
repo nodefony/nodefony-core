@@ -1,4 +1,5 @@
 import { Kernel, Module, services } from "nodefony";
+import type { Container, IAdminRegistry } from "nodefony";
 import { fileURLToPath } from "node:url";
 import config from "./nodefony/config/config";
 import Firewall from "./nodefony/service/firewall";
@@ -9,6 +10,7 @@ import WebAuthnService from "./nodefony/service/webAuthn";
 import OAuth2Service from "./nodefony/service/oauth2";
 import ApiKeyService from "./nodefony/service/apiKeys";
 import AuditService from "./nodefony/service/auditService";
+import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import type { ISecurityConfigInput } from "./nodefony/config/defineSecurityConfig";
 
 // Augmente le registre du core (declaration merging) → `use("@nodefony/security", …)`
@@ -49,6 +51,22 @@ declare module "nodefony" {
 class Security extends Module {
   constructor(kernel: Kernel) {
     super("security", kernel, fileURLToPath(import.meta.url), config);
+  }
+
+  /**
+   * Enregistre le data plane admin sécurité (`/nodefony/security/api/audit/*`,
+   * P6.14) auprès du broker AVANT que framework ne monte les routes (`onReady`).
+   * No-op si le broker est absent (Studio non chargé) ou déjà enregistré.
+   */
+  override async onKernelBoot(): Promise<this> {
+    const container = this.kernel?.container;
+    const registry = container?.get("adminBroker") as
+      | IAdminRegistry
+      | undefined;
+    if (registry && container) {
+      registerSecurityAdminApi(registry, container as Container);
+    }
+    return this;
   }
 }
 
@@ -190,6 +208,11 @@ export type {
 export { recordAudit } from "./nodefony/src/audit/recordAudit";
 export { readAuditContext } from "./nodefony/src/audit/readAuditContext";
 export type { AuditContextInfo } from "./nodefony/src/audit/readAuditContext";
+export {
+  createSecurityAdminApi,
+  registerSecurityAdminApi,
+  parseAuditQuery,
+} from "./nodefony/src/admin/SecurityAdminApi";
 
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
 export { defineSecurityConfig } from "./nodefony/config/defineSecurityConfig";
