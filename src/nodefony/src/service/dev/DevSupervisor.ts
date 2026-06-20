@@ -12,7 +12,11 @@ import net from "node:net";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
 import { SysExit } from "../../cli/sysexits";
-import { defaultDevPorts, devSupervisorPidFile } from "./devProcess";
+import {
+  defaultDevPorts,
+  devSupervisorPidFile,
+  missingWorkspaceDists,
+} from "./devProcess";
 
 /** Options du superviseur de dev. */
 export interface DevSupervisorOptions {
@@ -189,7 +193,30 @@ export class DevSupervisor {
       this.#log("⚙ dist racine périmé — rebuild (rollup -c)…", "yellow");
       rootOk = await this.#run("npx", ["rollup", "-c"]);
     }
-    if (wsOk && rootOk) {
+    // POST-CONDITION (la confiance n'exclut pas le contrôle) : `turbo run build` peut
+    // renvoyer 0 en « cache hit » SANS restaurer un dist supprimé (gitignored, clean
+    // partiel, checkout de branche). On vérifie sur le DISQUE que chaque workspace à
+    // rollup a bien son dist — sinon il tombe en fail-soft au boot et cascade en
+    // silence (« vert mais cassé », vécu : security absent → test → 404 OAuth).
+    let missing = missingWorkspaceDists(this.#cwd);
+    if (missing.length > 0) {
+      this.#log(
+        `⚠ dist absent malgré le build (cache turbo trompeur) : ${missing.join(", ")} — rebuild forcé…`,
+        "red",
+      );
+      const filters = missing.flatMap((n) => ["--filter", n]);
+      await this.#run("npx", ["turbo", "run", "build", "--force", ...filters]);
+      missing = missingWorkspaceDists(this.#cwd);
+    }
+    if (missing.length > 0) {
+      // fail-LOUD : ces modules NE se chargeront PAS → app DÉGRADÉE. On le CRIE
+      // (jamais « vert mais cassé » en silence) ; le boot continue (fail-soft dispo).
+      this.#log(
+        `⚠ dist TOUJOURS absent après rebuild forcé : ${missing.join(", ")} — ` +
+          "ces modules ne se chargeront pas (app DÉGRADÉE). Corrige puis `npm run build`.",
+        "red",
+      );
+    } else if (wsOk && rootOk) {
       this.#log(`✓ dist à jour (${Date.now() - t0}ms)`, "green");
     } else {
       this.#log(

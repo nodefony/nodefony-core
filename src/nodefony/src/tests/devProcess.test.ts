@@ -7,10 +7,13 @@
 
 import assert from "node:assert";
 import path from "node:path";
+import os from "node:os";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import {
   defaultDevPorts,
   devSupervisorPidFile,
   formatUptime,
+  missingWorkspaceDists,
   parsePsRow,
 } from "../service/dev/devProcess";
 
@@ -115,6 +118,52 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
     } finally {
       if (save === undefined) delete process.env.NODEFONY_DEV_PORTS;
       else process.env.NODEFONY_DEV_PORTS = save;
+    }
+  });
+});
+
+describe("devProcess — missingWorkspaceDists (post-condition build)", () => {
+  it("détecte un workspace à rollup SANS dist ; ignore dist présent et workspace sans rollup", () => {
+    const root = path.join(os.tmpdir(), `nf-devbuild-${process.pid}`);
+    try {
+      mkdirSync(path.join(root, "pkgs", "a", "dist"), { recursive: true });
+      mkdirSync(path.join(root, "pkgs", "b"), { recursive: true });
+      mkdirSync(path.join(root, "pkgs", "c"), { recursive: true });
+      writeFileSync(
+        path.join(root, "package.json"),
+        JSON.stringify({ workspaces: ["pkgs/*"] }),
+      );
+      // a : rollup + dist présent → OK (absent de la liste)
+      writeFileSync(path.join(root, "pkgs", "a", "rollup.config.ts"), "");
+      writeFileSync(
+        path.join(root, "pkgs", "a", "package.json"),
+        JSON.stringify({ name: "@x/a", main: "dist/index.js" }),
+      );
+      writeFileSync(path.join(root, "pkgs", "a", "dist", "index.js"), "");
+      // b : rollup mais PAS de dist → MANQUANT
+      writeFileSync(path.join(root, "pkgs", "b", "rollup.config.ts"), "");
+      writeFileSync(
+        path.join(root, "pkgs", "b", "package.json"),
+        JSON.stringify({ name: "@x/b", main: "dist/index.js" }),
+      );
+      // c : PAS de rollup (WIP non câblé) → ignoré même sans dist
+      writeFileSync(
+        path.join(root, "pkgs", "c", "package.json"),
+        JSON.stringify({ name: "@x/c" }),
+      );
+      assert.deepStrictEqual(missingWorkspaceDists(root), ["@x/b"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("pas de package.json racine → liste vide (ne throw pas)", () => {
+    const root = path.join(os.tmpdir(), `nf-devbuild-empty-${process.pid}`);
+    try {
+      mkdirSync(root, { recursive: true });
+      assert.deepStrictEqual(missingWorkspaceDists(root), []);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
@@ -258,4 +258,75 @@ export function discoverDevProcesses(): DevProcessInfo[] {
   };
   procs.sort((a, b) => order[a.role] - order[b.role] || a.pid - b.pid);
   return procs;
+}
+
+/** Résout les globs `workspaces` (`a/b`, `a/*`) en chemins de dossiers absolus. */
+function resolveWorkspaceDirs(cwd: string, globs: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const g of globs) {
+    if (g.endsWith("/*")) {
+      const base = path.join(cwd, g.slice(0, -2));
+      try {
+        for (const e of readdirSync(base, { withFileTypes: true }))
+          if (e.isDirectory()) out.push(path.join(base, e.name));
+      } catch {
+        /* base de glob absente → rien */
+      }
+    } else {
+      out.push(path.join(cwd, g));
+    }
+  }
+  return out;
+}
+
+/**
+ * Liste les workspaces qui DEVRAIENT produire un dist (présence d'un `rollup.config.ts`)
+ * mais dont le dossier `dist/` est absent ou vide — renvoie leurs **noms de package**
+ * (pour `turbo --filter`). On cible l'ABSENCE de build, pas l'entrée exacte (le core
+ * sort `dist/node/…`, d'autres `dist/index.js`) → vérifier « dist non vide » est le
+ * critère robuste et uniforme.
+ *
+ * POST-CONDITION du build du superviseur : `turbo run build` peut renvoyer 0 en « cache
+ * hit » SANS restaurer un dist supprimé (gitignored, `clean` partiel, checkout de
+ * branche) → le module manquant tombe en fail-soft au boot et cascade en silence
+ * (« vert mais cassé »). On vérifie le terrain (la confiance n'exclut pas le contrôle).
+ * Pur filesystem, aucun boot. Un workspace sans `rollup.config.ts` (WIP non câblé) est
+ * ignoré : aucun dist n'est attendu de lui.
+ */
+export function missingWorkspaceDists(cwd: string): string[] {
+  let globs: readonly string[];
+  try {
+    const root = JSON.parse(
+      readFileSync(path.join(cwd, "package.json"), "utf8"),
+    ) as { workspaces?: string[] };
+    globs = root.workspaces ?? [];
+  } catch {
+    return []; // pas de package.json racine lisible → rien à vérifier
+  }
+  const missing: string[] = [];
+  for (const dir of resolveWorkspaceDirs(cwd, globs)) {
+    if (!existsSync(path.join(dir, "rollup.config.ts"))) continue; // pas de build attendu
+    if (distIsBuilt(dir)) continue;
+    // dist absent/vide → résout le NOM de package (pour `turbo --filter`).
+    let name = path.basename(dir);
+    try {
+      const pj = JSON.parse(
+        readFileSync(path.join(dir, "package.json"), "utf8"),
+      ) as { name?: string };
+      if (pj.name) name = pj.name;
+    } catch {
+      /* package.json illisible → garde le basename du dossier */
+    }
+    missing.push(name);
+  }
+  return missing;
+}
+
+/** `true` si le dossier `dist/` du workspace existe et contient au moins un fichier. */
+function distIsBuilt(dir: string): boolean {
+  try {
+    return readdirSync(path.join(dir, "dist")).length > 0;
+  } catch {
+    return false; // dist/ absent → pas buildé
+  }
 }

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-20T12:09:43.485Z",
+  "generated": "2026-06-20T12:17:29.220Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 921,
-    "symbols": 2006,
+    "symbols": 2009,
     "classes": 293,
     "interfaces": 521,
     "types": 247,
     "enums": 3,
-    "functions": 435,
+    "functions": 438,
     "constants": 507
   },
   "symbols": {
@@ -3248,6 +3248,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Découvre les process dev Nodefony vivants par OBSERVATION EXTERNE (`ps`) — zéro IPC. Ne retient que les process dont la commande porte un titre dev connu (superviseur / serveur / Vite) et en extrai…"
+    },
+    "missingWorkspaceDists": {
+      "name": "missingWorkspaceDists",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Liste les workspaces qui DEVRAIENT produire un dist (présence d'un `rollup.config.ts`) mais dont le dossier `dist/` est absent ou vide — renvoie leurs **noms de package** (pour `turbo --filter`). O…"
     },
     "DEV_SUPERVISOR_TITLE": {
       "name": "DEV_SUPERVISOR_TITLE",
@@ -17263,6 +17271,9 @@
         "src/nodefony/src/service/cluster/topology.ts"
       ],
       "Stats": [
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "missingWorkspaceDists": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "FileTransport": [
