@@ -1125,6 +1125,26 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧭 Conception / fondation — sécu/firewall (frictions du jour)
 
+- `[1× — 2026-06-20]` **Audit du hot-path = émettre sur l'ÉCHEC, jamais sur le SUCCÈS.** P6.14 lot 2b (firewall/WS) :
+  le chemin nominal authentifié/autorisé reste MUET (le volume n'est pas un signal d'audit) → 0 allocation sur le
+  hot-path → gate mémoire non régressé. Seuls les refus/échecs (cold-path, rares) émettent. Prouvé par un test dédié
+  « SUCCÈS → 0 émission » + `recordAudit` no-op si audit off. Patron réutilisable pour toute instrumentation d'un
+  chemin chaud : instrumenter la BRANCHE rare, pas le passage commun.
+- `[1× — 2026-06-20]` **Découpler une feature transverse sans toucher les consommateurs = registre + fallback dans le seam existant.**
+  Lot 4 (canal `security:audit`) : le canal devait être servable « PAS dans Studio » alors que le SEUL endpoint WS monté
+  EST Studio. Solution sans modifier aucun controller : un `registerSystemChannel(channel, factory)` sur le hub, consulté
+  par `RealtimeHub.subscribe` en DERNIER RECOURS (quand la factory du controller renvoie `null`). Tout endpoint sert alors
+  le canal, 0 couplage. Réflexe : pour découpler, ajouter un fallback au point de jointure DÉJÀ traversé, plutôt qu'un
+  hook dans chaque consommateur.
+- `[1× — 2026-06-20]` **Lot transverse (realtime↔security) : identifier QUI monte l'endpoint AVANT de coder.** Coût tokens
+  réel : longue exploration hub générique vs `StudioRealtimeController` avant de réaliser qu'un seul endpoint WS est monté
+  (Studio) et que `realtime:health` y transite aussi. Pour un lot qui touche 2 modules via un service partagé, cartographier
+  d'abord « quel controller concret est monté, qui appelle `subscribe`/`publish` » — la doc du module (`_state`/kit) idéalise
+  parfois (« framework, PAS studio ») un endpoint générique qui n'existe pas encore.
+- `[1× — 2026-06-20]` **Une question archi du user EN COURS de dev = input de design, pas interruption.** La question
+  « 1 hub/process → canaux partagés, dangereux en multi-tenant ? » a fait DURCIR le plancher du canal d'audit de `ROLE_ADMIN`
+  à `ROLE_NODEFONY_ADMIN` + acter le seam `tenantId`. S'arrêter, répondre par la matrice actif×chemin, puis intégrer la
+  conclusion au design (et au commit) — plutôt que défendre le design en cours.
 - `[1× — 2026-06-20]` **Un plancher de sécurité par préfixe en CASSE EXACTE est contournable en altérant la casse.**
   Red-team P6 (frameAuthorizer) : `matchSystemPolicy` classait un canal système via `channel.startsWith("syslog:")` →
   `SYSLOG:stream` échappait au préfixe réservé → traité comme canal libre → **abonnement anonyme autorisé** (viole
