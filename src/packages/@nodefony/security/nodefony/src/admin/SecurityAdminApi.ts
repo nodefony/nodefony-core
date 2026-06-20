@@ -86,6 +86,8 @@ export function parseAuditQuery(
   if (actor !== undefined) filter.actor = actor;
   const action = one(query, "action");
   if (action !== undefined) filter.action = action;
+  const requestId = one(query, "requestId");
+  if (requestId !== undefined) filter.requestId = requestId;
   const since = intParam(query, "since");
   if (since !== undefined) filter.since = since;
   const until = intParam(query, "until");

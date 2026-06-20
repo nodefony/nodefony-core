@@ -203,6 +203,11 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: IconShieldLock,
     items: [
       {
+        to: "/nodefony/audit",
+        label: "Journal d'audit",
+        icon: IconHistory,
+      },
+      {
         to: "/nodefony/firewall",
         label: "Firewall",
         icon: IconShieldLock,
@@ -226,12 +231,6 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/webhooks",
         label: "Webhooks",
         icon: IconWebhook,
-        wip: true,
-      },
-      {
-        to: "/nodefony/audit",
-        label: "Audit Log",
-        icon: IconHistory,
         wip: true,
       },
     ],

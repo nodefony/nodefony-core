@@ -81,6 +81,9 @@ const Workspace = lazy(() =>
 const Twin = lazy(() =>
   import("./routes/Twin").then((m) => ({ default: m.Twin })),
 );
+const Audit = lazy(() =>
+  import("./routes/Audit").then((m) => ({ default: m.Audit })),
+);
 
 import {
   Sessions,
@@ -89,7 +92,6 @@ import {
   Firewall,
   ApiKeys,
   Webhooks,
-  Audit,
   Services,
   Npm,
   Migrate,

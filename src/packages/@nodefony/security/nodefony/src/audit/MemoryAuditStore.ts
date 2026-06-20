@@ -108,6 +108,12 @@ export class MemoryAuditStore implements IAuditStore {
     if (filter.action !== undefined && event.action !== filter.action) {
       return false;
     }
+    if (
+      filter.requestId !== undefined &&
+      event.requestId !== filter.requestId
+    ) {
+      return false;
+    }
     if (filter.since !== undefined && event.ts < filter.since) {
       return false;
     }

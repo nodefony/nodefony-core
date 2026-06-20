@@ -76,8 +76,17 @@ import {
   fmtMs,
 } from "./logs/profileVisuals";
 import type { ProfileEntry } from "../stores/ProfilerStore";
+import { CategoryBadge, OutcomeBadge } from "./audit/auditFormat";
+import type { AuditQueryResult } from "./audit/auditModel";
 
 const TRACE_DOC = "v1.0";
+
+/** Accent (bordure gauche) d'un événement d'audit selon son issue. */
+const OUTCOME_ACCENT: Record<string, string> = {
+  success: "teal",
+  failure: "orange",
+  denied: "red",
+};
 
 /** Infos extraites de la ligne-bilan `req` (`METHOD  STATUS URL DURÉE IP [id]`). */
 interface ReqInfo {
@@ -238,6 +247,25 @@ export const TraceView = observer(() => {
   );
   const { data: profile, reload: reloadProfile } = useResource(profileFetcher);
   const queries = useMemo(() => profile?.queries ?? [], [profile]);
+
+  // Événements d'audit de sécurité corrélés à CETTE requête (par requestId) —
+  // best-effort : 401/403 si Studio non habilité, ou journal indisponible → on
+  // dégrade silencieusement sur les logs heuristiques (comme le profil ORM).
+  const auditFetcher = useCallback(
+    () =>
+      store.api.getAbsolute<AuditQueryResult>(
+        `/nodefony/security/api/audit/events?requestId=${encodeURIComponent(
+          requestId,
+        )}&limit=100`,
+      ),
+    [store, requestId],
+  );
+  const { data: auditData } = useResource(auditFetcher);
+  // Ordre chronologique (asc) pour coller à la timeline de la trace.
+  const auditEvents = useMemo(
+    () => [...(auditData?.events ?? [])].sort((a, b) => a.ts - b.ts),
+    [auditData],
+  );
 
   // ── Synthèse dérivée de la trace ──
   const summary = useMemo(() => {
@@ -600,6 +628,85 @@ export const TraceView = observer(() => {
       visionTab("orm", ormLogs)
     );
 
+  // ── Onglet Sécurité : VRAIS événements d'audit (corrélés par requestId) si
+  // disponibles, sinon repli sur les logs heuristiques (vision préparée). ──
+  const securityPanel =
+    auditEvents.length > 0 ? (
+      <Stack gap="sm">
+        <Group gap="xs">
+          <Text size="sm" fw={600}>
+            Décisions de sécurité (journal d'audit)
+          </Text>
+          <DocHint
+            title="Événements d'audit de cette requête"
+            version={TRACE_DOC}
+            summary="Les vrais événements du journal d'audit de sécurité (@nodefony/security) corrélés à cette requête par requestId — décisions autoritatives du firewall et des authenticators, pas une heuristique sur les logs."
+            sections={[
+              {
+                label: "Lecture",
+                body: "« Refus » = une politique a refusé un acteur valide (Zero Trust, RBAC, CSRF). « Échec » = preuve ratée (mot de passe, signature). « Succès » = action de sécurité aboutie.",
+              },
+              {
+                label: "Si vide",
+                body: "Aucun événement de sécurité n'a été émis pour cette requête (le chemin de succès reste muet), ou le journal est inaccessible.",
+              },
+            ]}
+          />
+        </Group>
+        <Stack gap={6}>
+          {auditEvents.map((ev) => {
+            const accent = OUTCOME_ACCENT[ev.outcome] ?? "gray";
+            return (
+              <Box
+                key={ev.id}
+                p="xs"
+                style={{
+                  borderInlineStart: `3px solid var(--mantine-color-${accent}-6)`,
+                  borderRadius: "var(--mantine-radius-sm)",
+                  background: "var(--mantine-color-default-hover)",
+                }}
+              >
+                <Group justify="space-between" wrap="nowrap" align="flex-start">
+                  <Group gap="xs" wrap="wrap">
+                    <OutcomeBadge outcome={ev.outcome} />
+                    <Code>{ev.action}</Code>
+                    <CategoryBadge category={ev.category} />
+                    {ev.reason && <Code>{ev.reason}</Code>}
+                  </Group>
+                  {summary && (
+                    <Text
+                      size="xs"
+                      c="dimmed"
+                      ff="monospace"
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      +{ev.ts - summary.baseTs}ms
+                    </Text>
+                  )}
+                </Group>
+                {(ev.actor || ev.resource) && (
+                  <Text size="xs" c="dimmed" mt={4}>
+                    {ev.actor ? `acteur : ${ev.actor}` : "anonyme"}
+                    {ev.resource ? ` · ${ev.resource}` : ""}
+                  </Text>
+                )}
+              </Box>
+            );
+          })}
+        </Stack>
+        {securityLogs.length > 0 && summary && (
+          <Stack gap={4}>
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+              Logs corrélés (contexte)
+            </Text>
+            <LogList rows={securityLogs} baseTs={summary.baseTs} />
+          </Stack>
+        )}
+      </Stack>
+    ) : (
+      visionTab("security", securityLogs)
+    );
+
   const tabs = [
     {
       value: "accueil",
@@ -665,12 +772,27 @@ export const TraceView = observer(() => {
       value: "security",
       label: "Sécurité",
       icon: <IconShieldLock size={15} />,
-      badge: securityLogs.length ? (
-        <Badge size="xs" variant="light" color="grape">
+      // Priorité aux VRAIS événements d'audit ; rouge si un refus est présent.
+      badge: auditEvents.length ? (
+        <Badge
+          size="xs"
+          variant="light"
+          color={
+            auditEvents.some((e) => e.outcome === "denied")
+              ? "red"
+              : auditEvents.some((e) => e.outcome === "failure")
+                ? "orange"
+                : "teal"
+          }
+        >
+          {auditEvents.length}
+        </Badge>
+      ) : securityLogs.length ? (
+        <Badge size="xs" variant="light" color="gray">
           {securityLogs.length}
         </Badge>
       ) : undefined,
-      panel: visionTab("security", securityLogs),
+      panel: securityPanel,
     },
     {
       value: "raw",

@@ -19,6 +19,8 @@ export interface IAuditQuery {
   actor?: string;
   /** Restreint à une action conventionnée (`"login.success"`…). */
   action?: string;
+  /** Restreint aux événements d'une **requête** (corrélation trace ↔ audit, P6.15). */
+  requestId?: string;
   /** Borne basse d'horodatage (epoch ms, inclus). */
   since?: number;
   /** Borne haute d'horodatage (epoch ms, inclus). */
