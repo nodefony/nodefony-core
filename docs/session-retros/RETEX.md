@@ -229,6 +229,16 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-20]` **404 e2e inexpliqué = dist module PÉRIMÉ au boot, PAS le code.** Le DevSupervisor
+  spawnait l'enfant sur le `dist/` existant **sans le vérifier** → provider OAuth `test-oidc` absent du dist
+  module test → 404 sur TOUT le flux OAuth (banc nominal inclus) alors que la SOURCE était bonne. WebAuthn
+  passait (indépendant). Réflexe : banc e2e en 404 → `start.sh --force-build` AVANT d'accuser le code.
+  **Corrigé `aefb8281`** : `DevSupervisor.#ensureBuilt()` (turbo) au boot + annonce (fail-loud). Le watcher
+  excluant `tests/`, créer un fichier de test ne redémarre rien → ce n'était PAS un restart.
+- `[1× — 2026-06-20]` **Modifier le CORE en boucle = turbo cache FROID → boot lent (140s) à chaque `nodefony dev`**
+  (changer `core` invalide le hash de tous ses dépendants → `#ensureBuilt` rebuild la chaîne). À cache CHAUD,
+  turbo = **~80ms (FULL TURBO)**. Réflexe en session « dev du framework » : grouper TOUTES les modifs core avant
+  UN rebuild, et pré-chauffer (`npm run build` racine) avant un test runtime — sinon chaque boot remoud.
 - `[1× — 2026-06-19]` **`start.sh` « SKIP build » alors qu'on a changé la CONFIG d'un module test** → le
   serveur boote avec l'ANCIENNE config (zone `test-api` sans `apikey`) → le banc e2e taperait une zone périmée
   (un PAT valide → 401 inexplicable). Le build conditionnel par mtime peut rater l'effet d'un `config.ts` modifié.
@@ -1041,6 +1051,16 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
   (`test:daemon`) OU **mesure d'import isolée** (`node --input-type=module -e`, process frais, **cwd =
   racine** sinon les bare specifiers `@nodefony/*` ne résolvent pas). `timeout` absent sur macOS
   (boucle `kill -0` ou `gtimeout`).
+
+- `[1× — 2026-06-20]` **`process.title` du serveur enfant dev écrasé par `Kernel.preRegister`** : `Kernel.ts:608`
+  pose `setProcessTitle(projectName)` à **onPreRegister** → un title posé à `onKernelStart` est écrasé (l'enfant
+  restait `nodefony-core`). Fix : poser le nom à **`onReady`** (listener), après onPreRegister. Le superviseur
+  PARENT park avant onPreRegister → son nom (`nodefony-dev-supervisor`, posé dans `start()`) tient. Noms dev
+  normalisés `nodefony-dev-supervisor`/`nodefony-dev-server` (vite déjà `nodefony-vite[...]`) → `pgrep nodefony-dev`.
+- `[1× — 2026-06-20]` **Empilement d'instances dev (le « il faut pas que ça arrive »)** : `stop/start` répétés +
+  `kill -9` brutaux laissent un pidfile périmé + des orphelins → plusieurs serveurs coexistent, le dev est perdu.
+  Le `npm exec nodefony` (wrapper npx) reste aussi en parent parasite (3 process au lieu de 2+vite). Chantier
+  ouvert [[project_dev_supervisor_dx_kit]] : `nodefony status`/`stop` + single-instance robuste + topologie propre.
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
