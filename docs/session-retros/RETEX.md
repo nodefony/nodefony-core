@@ -631,6 +631,13 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-20]` **Tester un nettoyage = lancer SANS le filet qui le masque.** Pour prouver que le
+  superviseur nettoie les orphelins au démarrage (volet C), `start.sh` était inutilisable : son `pkill`
+  préalable aurait tué les orphelins AVANT que le code testé s'exécute → test toujours « vert » même si le
+  code était cassé. J'ai lancé le binaire EN DIRECT (`node $BIN development` détaché) sur un état d'orphelins
+  fabriqué (`kill -9` du superviseur seul). La preuve runtime a aussi RÉVÉLÉ un bug caché (faux `livez.degraded`)
+  que ni le build ni les 1654 tests unit ne montraient. (Devise : prouver au terrain, suspecter son diff.)
+
 - `[1× — 2026-06-19]` **« Qui dépend de X ? » : un grep des imports `*.test.ts` ne voit PAS les bancs
   d'intégration** : conclu à tort « aucun test ne dépend du `users` du module test » en regardant les tests
   UNIT (fixtures locales). FAUX — ~10 bancs d'INTÉGRATION (`firewall-auth`, `securityGuard`…) bootent le
@@ -1061,10 +1068,18 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
   restait `nodefony-core`). Fix : poser le nom à **`onReady`** (listener), après onPreRegister. Le superviseur
   PARENT park avant onPreRegister → son nom (`nodefony-dev-supervisor`, posé dans `start()`) tient. Noms dev
   normalisés `nodefony-dev-supervisor`/`nodefony-dev-server` (vite déjà `nodefony-vite[...]`) → `pgrep nodefony-dev`.
-- `[1× — 2026-06-20]` **Empilement d'instances dev (le « il faut pas que ça arrive »)** : `stop/start` répétés +
-  `kill -9` brutaux laissent un pidfile périmé + des orphelins → plusieurs serveurs coexistent, le dev est perdu.
-  Le `npm exec nodefony` (wrapper npx) reste aussi en parent parasite (3 process au lieu de 2+vite). Chantier
-  ouvert [[project_dev_supervisor_dx_kit]] : `nodefony status`/`stop` + single-instance robuste + topologie propre.
+- `[2× — 2026-06-20]` **Empilement d'instances dev (le « il faut pas que ça arrive ») — RÉSOLU** : `stop/start`
+  répétés + `kill -9` brutaux laissaient un pidfile périmé + orphelins → plusieurs serveurs coexistaient. **Fix
+  livré** (`f0dc0083`) : `#claimSingleInstance` balaie `ps` (`discoverDevProcesses`) et tue TOUT résiduel au
+  démarrage (superviseur empilé ET orphelins server/vite) — fallback pidfile pour Windows ; le wrapper `npm exec`
+  parasite supprimé en lançant le binaire EN DIRECT (`node $BIN`). Chantier [[project_dev_supervisor_dx_kit]] bouclé.
+- `[1× — 2026-06-20]` **`booted=true` ≠ serveurs prêts** : `Kernel` pose `booted` à `onBoot`, AVANT
+  `captureBootServers` (onReady). `getBootReport().healthy` confondait `bootServers===null` (pas encore mesuré)
+  avec `[]` (mesuré, 0 serveur = vrai échec) → `livez.degraded` criait « dégradé » pendant toute la montée des
+  serveurs (faux positif persistant le temps de la fenêtre). **Leçon** : une sonde de readiness/santé ne lit le
+  verdict qu'une fois le boot RÉELLEMENT terminé, et doit distinguer « non mesuré » de « mesuré vide ». Fix flag
+  `measured` dans `getBootReport` + sonde `#probeDegraded` ne lit que sur `booted:true`. Une fausse alarme érode
+  la confiance dans le signal (anti-pattern « au loup »).
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
