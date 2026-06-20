@@ -41,6 +41,11 @@ import {
 } from "../src/realtime/frameAuthorizer";
 import { recordAudit } from "../src/audit/recordAudit";
 import { readAuditContext } from "../src/audit/readAuditContext";
+import {
+  createAuditBridge,
+  SECURITY_AUDIT_CHANNEL,
+  type IAuditEventSource,
+} from "../src/audit/auditBridge";
 import type {
   IRealtimeService,
   IRealtimeAuthenticatorMatcher,
@@ -295,8 +300,22 @@ class Firewall extends Service implements IFirewall {
             }),
         }),
       );
+      // Canal live du journal d'audit (P6.14 lot 4) — enregistré comme canal
+      // SYSTÈME sur le hub : servable par TOUT endpoint (pas seulement Studio),
+      // gardé ROLE_NODEFONY_ADMIN par le plancher `security:` du verrou ci-dessus.
+      // Lazy de bout en bout : le pont ne s'abonne à l'AuditService qu'au 1ᵉʳ
+      // auditeur connecté (factory du hub) et s'en détache au dernier (0 listener
+      // au repos). Couplé au verrou (même condition `wired`) → jamais de canal
+      // d'audit non gardé.
+      const auditSource =
+        this.container?.get<IAuditEventSource>("auditService");
+      if (auditSource && realtime.registerSystemChannel) {
+        realtime.registerSystemChannel(SECURITY_AUDIT_CHANNEL, (ch, publish) =>
+          createAuditBridge(auditSource, publish, ch),
+        );
+      }
       this.log(
-        "Realtime data plane locked — WS handshake + frame authorizer (RBAC) wired",
+        "Realtime data plane locked — WS handshake + frame authorizer (RBAC) + audit channel wired",
         "DEBUG",
       );
     }

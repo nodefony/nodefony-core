@@ -115,8 +115,16 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   `#wireRealtime`) ; `TokenService` token.issued/reuse_detected + login.failure/throttled (grant) ;
   `ApiKeyService` apikey.created/revoked. **Data plane lot 3** : `SecurityAdminApi` (`IAdminApi` ns "security")
   `GET /nodefony/security/api/audit/events` RBAC `ROLE_NODEFONY_ADMIN`, 503 si off. Table actions = README
-  §Audit. Bancs : `auditService`/`auditEmission`/`auditEmissionHotPath` (17, dont 0-émission-succès + câblage
-  WS bout-en-bout + store borné). memory 9/9. ➡️ Reste : lot 4 stream WS live `security:audit`, Studio P6.15.
+  §Audit. **Stream live lot 4** : canal WS `security:audit` (`createAuditBridge` calque `createSyslogBridge`,
+  coalescé `{events,dropped}` ring borné, **lazy** : s'abonne à `AuditService.subscribe` au 1ᵉʳ auditeur,
+  détache au dernier). Gardé **ROLE_NODEFONY_ADMIN** (plancher `security:` ajouté à `frameAuthorizer`,
+  `SECURITY_CHANNEL_POLICY`, 1 cran au-dessus de `SYSTEM_CHANNEL_POLICY`). Enregistré comme **canal système**
+  sur le hub (`RealtimeHub.registerSystemChannel` + `RealtimeService.registerSystemChannel` — fallback dans
+  `subscribe` quand la factory du controller → null → servable par TOUT endpoint, ZÉRO couplage Studio). Câblé
+  `Firewall.#wireRealtime` (couplé au verrou : jamais de canal d'audit non gardé). Seam multi-tenant : event
+  portera `tenantId` (futur). Bancs : `auditService`/`auditEmission`/`auditEmissionHotPath`/`auditBridge` (25,
+  dont 0-émission-succès + câblage WS bout-en-bout + bridge lazy/coalescing + garde super-admin). memory 9/9.
+  ➡️ Reste : Studio P6.15 (console auditeur consomme data plane + `security:audit`).
 - **CSRF (J5)** — `Csrf` (`service/csrf.ts`, logique PURE sync, testable sans serveur) : défense **Fetch
   Metadata d'abord** (modèle Go 1.25 / OWASP 2025) + repli `Origin`/`Referer`. `enforce(req)` sur méthode
   state-changing (RFC 9110 §9.2.1 ; GET/HEAD/OPTIONS/TRACE = no-op) ; chaîne : (1) origine de confiance

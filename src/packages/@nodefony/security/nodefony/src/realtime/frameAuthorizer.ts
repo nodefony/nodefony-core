@@ -91,14 +91,33 @@ export const DEFAULT_SYSTEM_PREFIXES = [
 ] as const;
 
 /**
- * Règles système par défaut : chaque namespace réservé → {@link SYSTEM_CHANNEL_POLICY}.
- * Le firewall y préfixe les règles issues de la config (qui gagnent par ordre).
+ * Plancher des canaux de **sécurité** (`security:audit`, P6.14 lot 4) : réservé au
+ * super-admin Nodefony (`ROLE_NODEFONY_ADMIN`) — un cran AU-DESSUS du plancher
+ * d'observabilité générique (`ROLE_ADMIN`). Le journal d'audit du pod ne se lit
+ * pas avec un simple rôle admin applicatif. Cohérent avec le data plane HTTP de
+ * l'audit (`SecurityAdminApi`, lot 3, même rôle).
+ *
+ * Multi-tenant (futur) : `security:audit` reste un canal **plateforme** (pod),
+ * jamais exposé à un user tenant ; l'événement portera le `tenantId` (via l'ALS)
+ * pour permettre un filtrage par tenant quand le chantier multi-tenant arrivera.
  */
-export const DEFAULT_SYSTEM_RULES: readonly ISystemChannelRule[] =
-  DEFAULT_SYSTEM_PREFIXES.map((prefix) => ({
+export const SECURITY_CHANNEL_POLICY: IChannelPolicy = {
+  roles: ["ROLE_NODEFONY_ADMIN"],
+};
+
+/**
+ * Règles système par défaut. `security:` est placé EN TÊTE (1ᵉʳ match gagne) avec
+ * son plancher super-admin propre ; les autres namespaces réservés héritent de
+ * {@link SYSTEM_CHANNEL_POLICY}. Le firewall y préfixe les règles issues de la
+ * config (qui gagnent par ordre).
+ */
+export const DEFAULT_SYSTEM_RULES: readonly ISystemChannelRule[] = [
+  { prefix: "security:", policy: SECURITY_CHANNEL_POLICY },
+  ...DEFAULT_SYSTEM_PREFIXES.map((prefix) => ({
     prefix,
     policy: SYSTEM_CHANNEL_POLICY,
-  }));
+  })),
+];
 
 /**
  * `s` commence-t-il par `prefix`, comparaison INSENSIBLE À LA CASSE (ASCII) et

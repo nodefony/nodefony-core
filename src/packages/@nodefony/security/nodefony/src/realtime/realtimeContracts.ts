@@ -113,4 +113,17 @@ export interface IRealtimeService {
    * hub d'une version antérieure ne l'expose pas → traité comme `undefined`.
    */
   resolveChannelPolicy?(channel: string): IChannelPolicy | null;
+  /**
+   * Seam canal SYSTÈME (P6.14 lot 4) — enregistre la factory d'un canal plateforme
+   * (`security:audit`) sur le hub, sans qu'aucun controller ne le connaisse. Lazy :
+   * le provider est créé au 1ᵉʳ abonné, `dispose` au dernier. Optionnel : un hub
+   * d'une version antérieure ne l'expose pas → security s'abstient (canal absent).
+   */
+  registerSystemChannel?(
+    channel: string,
+    factory: (
+      channel: string,
+      publish: (channel: string, payload: unknown) => void,
+    ) => (() => void) | null,
+  ): void;
 }
