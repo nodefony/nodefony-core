@@ -3,10 +3,8 @@ import {
   clearSupervisorPidFile,
   defaultDevPorts,
   discoverDevProcesses,
-  isPidAlive,
   probePorts,
-  signalProcessGroup,
-  type DevProcessInfo,
+  terminateDevProcesses,
   type PortState,
 } from "./devProcess";
 
@@ -37,26 +35,6 @@ const PORTS_WAIT_MS = 4000;
 
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
-
-/** Racines = process dont le parent n'est PAS dans la liste (tuer leur groupe suffit). */
-function rootProcesses(procs: readonly DevProcessInfo[]): DevProcessInfo[] {
-  const pids = new Set(procs.map((p) => p.pid));
-  return procs.filter((p) => !pids.has(p.ppid));
-}
-
-/** Attend que tous les `pids` soient morts (poll), renvoie ceux encore vivants à l'échéance. */
-async function waitAllDead(
-  pids: readonly number[],
-  timeoutMs: number,
-): Promise<number[]> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const alive = pids.filter((pid) => isPidAlive(pid));
-    if (alive.length === 0) return [];
-    if (Date.now() >= deadline) return alive;
-    await delay(120);
-  }
-}
 
 /** Attend que tous les `ports` soient libres (poll), renvoie le dernier état sondé. */
 async function waitPortsFree(
@@ -115,25 +93,11 @@ export async function runStopReport(cwd: string): Promise<void> {
       ` (${nSup} superviseur · ${nSrv} serveur · ${nVite} Vite)…\n`,
   );
 
-  const roots = rootProcesses(before);
-  for (const r of roots) signalProcessGroup(r.pid, "SIGTERM");
-  let alive = await waitAllDead(
-    before.map((p) => p.pid),
-    TERM_WAIT_MS,
-  );
-
-  // Récalcitrants → SIGKILL (groupes racines puis pids restants individuellement).
-  if (alive.length > 0) {
-    for (const r of roots) signalProcessGroup(r.pid, "SIGKILL");
-    for (const pid of alive) {
-      try {
-        process.kill(pid, "SIGKILL");
-      } catch {
-        /* déjà mort entre-temps */
-      }
-    }
-    alive = await waitAllDead(alive, 1500);
-  }
+  // Group-kill SIGTERM→SIGKILL (logique partagée avec le verrou single-instance).
+  const alive = await terminateDevProcesses(before, {
+    termWaitMs: TERM_WAIT_MS,
+    killWaitMs: 1500,
+  });
 
   clearSupervisorPidFile(cwd);
   const ports = await waitPortsFree(defaultDevPorts(), PORTS_WAIT_MS);

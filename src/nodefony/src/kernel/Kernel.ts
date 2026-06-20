@@ -1836,6 +1836,12 @@ class Kernel extends Service implements IKernel {
    * @returns le {@link IBootReport}.
    */
   getBootReport(): IBootReport {
+    // `bootServers === null` = serveurs PAS ENCORE capturés (boot en cours, `captureBootServers`
+    // n'a pas tourné) — à NE PAS confondre avec `[]` = capturés, AUCUN serveur (vrai échec
+    // 0-serveur). `booted` passe true dès `onBoot`, AVANT `initServers`/`captureBootServers`
+    // (onReady) → sans cette distinction, `healthy` valait false pendant toute la montée des
+    // serveurs et `livez.degraded` criait « dégradé » à tort (race vécue sonde DevSupervisor).
+    const measured = this.bootServers !== null;
     const serversListening = this.bootServers ?? [];
     const serversExpected = Boolean(this.runProfile?.servers);
     const modulesSkipped = this.bootFailures ?? [];
@@ -1845,7 +1851,10 @@ class Kernel extends Service implements IKernel {
       modulesSkipped,
       serversExpected,
       serversListening,
-      healthy: !(serversExpected && serversListening.length === 0),
+      // Échec 0-serveur jugé UNIQUEMENT une fois la mesure faite (`measured`) : avant, on
+      // n'a pas constaté d'absence → pas encore « unhealthy » (le garde-fou de `onReady`
+      // lit le report APRÈS `captureBootServers`, donc `measured` y est vrai → inchangé).
+      healthy: !(serversExpected && measured && serversListening.length === 0),
       remediation: this.bootRemediationHint(modulesSkipped) ?? undefined,
     };
   }

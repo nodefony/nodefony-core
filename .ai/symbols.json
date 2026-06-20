@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-20T12:52:58.006Z",
+  "generated": "2026-06-20T13:52:56.221Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 924,
-    "symbols": 2020,
+    "symbols": 2022,
     "classes": 294,
-    "interfaces": 521,
+    "interfaces": 522,
     "types": 247,
     "enums": 3,
-    "functions": 448,
+    "functions": 449,
     "constants": 507
   },
   "symbols": {
@@ -3180,6 +3180,15 @@
       "extends": null,
       "description": "État de sonde d'un port serveur."
     },
+    "TerminateOptions": {
+      "name": "TerminateOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de {@link terminateDevProcesses}."
+    },
     "DevProcessRole": {
       "name": "DevProcessRole",
       "kind": "type",
@@ -3235,6 +3244,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Supprime le pidfile du superviseur (best-effort, idempotent)."
+    },
+    "rootProcesses": {
+      "name": "rootProcesses",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racines d'un ensemble de process : ceux dont le parent n'est PAS lui-même dans l'ensemble. Tuer le GROUPE d'une racine suffit à emporter ses descendants présents (le superviseur emporte enfant serv…"
+    },
+    "waitAllDead": {
+      "name": "waitAllDead",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Attend que tous les `pids` soient morts (poll), renvoie ceux encore vivants à l'échéance."
+    },
+    "terminateDevProcesses": {
+      "name": "terminateDevProcesses",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Arrête un ensemble de process dev par GROUPE — SIGTERM (arrêt gracieux) sur les racines puis SIGKILL des récalcitrants (groupes racines + PID restants un à un). Renvoie les PID encore vivants à la …"
     },
     "isPortListening": {
       "name": "isPortListening",
@@ -17334,11 +17367,11 @@
       ],
       "discoverDevProcesses": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "isPidAlive": [
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "probePorts": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -17348,8 +17381,7 @@
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "DevProcessInfo": [
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "PortState": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -17358,8 +17390,9 @@
       "clearSupervisorPidFile": [
         "src/nodefony/src/service/dev/devStop.ts"
       ],
-      "signalProcessGroup": [
-        "src/nodefony/src/service/dev/devStop.ts"
+      "terminateDevProcesses": [
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"

@@ -131,6 +131,81 @@ export function clearSupervisorPidFile(cwd: string): void {
   }
 }
 
+/** Petite pause (poll/backoff des boucles d'attente). */
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Racines d'un ensemble de process : ceux dont le parent n'est PAS lui-même dans
+ * l'ensemble. Tuer le GROUPE d'une racine suffit à emporter ses descendants présents
+ * (le superviseur emporte enfant serveur + Vite ; un orphelin est sa propre racine).
+ */
+export function rootProcesses(
+  procs: readonly DevProcessInfo[],
+): DevProcessInfo[] {
+  const pids = new Set(procs.map((p) => p.pid));
+  return procs.filter((p) => !pids.has(p.ppid));
+}
+
+/** Attend que tous les `pids` soient morts (poll), renvoie ceux encore vivants à l'échéance. */
+export async function waitAllDead(
+  pids: readonly number[],
+  timeoutMs: number,
+): Promise<number[]> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const alive = pids.filter((pid) => isPidAlive(pid));
+    if (alive.length === 0) return [];
+    if (Date.now() >= deadline) return alive;
+    await delay(120);
+  }
+}
+
+/** Options de {@link terminateDevProcesses}. */
+export interface TerminateOptions {
+  /** Délai d'arrêt gracieux (SIGTERM) avant d'escalader en SIGKILL. Défaut 4000 ms. */
+  readonly termWaitMs?: number;
+  /** Délai d'attente de la mort après SIGKILL. Défaut 1500 ms. */
+  readonly killWaitMs?: number;
+}
+
+/**
+ * Arrête un ensemble de process dev par GROUPE — SIGTERM (arrêt gracieux) sur les
+ * racines puis SIGKILL des récalcitrants (groupes racines + PID restants un à un).
+ * Renvoie les PID encore vivants à la fin (vide = arrêt complet).
+ *
+ * OBSERVATION EXTERNE pure (signaux POSIX, aucun IPC). Logique PARTAGÉE entre
+ * `nodefony stop` (rapport user, cf {@link DevProcessInfo}) et le verrou single-instance
+ * du superviseur (nettoyage des résiduels au démarrage) → une seule définition de « tuer
+ * proprement un arbre de process dev » (divergence = bug).
+ */
+export async function terminateDevProcesses(
+  procs: readonly DevProcessInfo[],
+  opts: TerminateOptions = {},
+): Promise<number[]> {
+  if (procs.length === 0) return [];
+  const termWaitMs = opts.termWaitMs ?? 4000;
+  const killWaitMs = opts.killWaitMs ?? 1500;
+  const roots = rootProcesses(procs);
+  for (const r of roots) signalProcessGroup(r.pid, "SIGTERM");
+  let alive = await waitAllDead(
+    procs.map((p) => p.pid),
+    termWaitMs,
+  );
+  if (alive.length > 0) {
+    for (const r of roots) signalProcessGroup(r.pid, "SIGKILL");
+    for (const pid of alive) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        /* déjà mort entre-temps */
+      }
+    }
+    alive = await waitAllDead(alive, killWaitMs);
+  }
+  return alive;
+}
+
 /**
  * `true` si un service écoute sur `port` en loopback (connexion acceptée). Inverse de
  * la sonde « port libre » du superviseur : ici on confirme qu'un serveur RÉPOND.

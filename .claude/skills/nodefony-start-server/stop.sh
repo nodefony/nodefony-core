@@ -8,14 +8,21 @@
 
 set -uo pipefail
 
+# Racine repo dérivée de BASH_SOURCE (pas $(pwd) : le cwd Bash peut avoir dérivé).
+# .claude/skills/nodefony-start-server/stop.sh → racine = 3 niveaux au-dessus.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+BIN="$ROOT/node_modules/nodefony/bin/nodefony"
+
 echo ">>> KILL nodefony server (watch+rollup d'abord)"
 # Arrêt PROPRE du mode dev EN PREMIER : `nodefony stop` (standalone, n'échoue pas hors
 # trunk) fait un group-kill du superviseur → emporte l'enfant serveur ET toutes les
 # instances Vite, dont les titres `nodefony-vite[...]` qu'AUCUN pkill ci-dessous ne
-# matche (trou couvert). La rafale pkill qui suit reste le FILET pour les modes NON
-# couverts par `nodefony stop` : cluster (master/worker), server/production, et la
-# fenêtre pré-titre (`npm exec nodefony …` avant que le process.title soit posé).
-npx nodefony stop >/dev/null 2>&1 || true
+# matche (trou couvert). Lancé via le BINAIRE EN DIRECT (cwd=ROOT pour résoudre le
+# pidfile) — pas `npx` (qui ajoutait un wrapper + ~1,3s d'overhead). La rafale pkill qui
+# suit reste le FILET pour les modes NON couverts par `nodefony stop` : cluster
+# (master/worker) et server/production.
+( cd "$ROOT" && node "$BIN" stop >/dev/null 2>&1 ) || true
 # ⚠️ process.title COUPLÉ : master/workers/mono se renomment `nodefony master|worker|server`
 # (cf clusterMaster.ts + runtimeLauncher.ts → lisibles dans Activity Monitor / ps). Donc
 # `pkill -f "nodefony cluster"` ne les matche PLUS → il FAUT aussi ces 3 patterns, sinon

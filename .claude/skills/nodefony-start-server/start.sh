@@ -107,11 +107,18 @@ if [ "$MODE" = "cluster" ]; then
   # ZÉRO dépendance Redis. Redis (fan-out CROSS-pod) = opt-in : décommenter
   # `@nodefony/redis` dans index.ts + `driver:"redis"` (config) + REDIS_PASSWORD.
   echo ">>> SPAWN nodefony ${DEBUG_FLAG:+-d }cluster --workers $WORKERS (detached, front prod compilé, backplane IPC)"
-  ARGS="['nodefony'${DEBUG_FLAG:+, '-d'}, 'cluster', '--workers', '$WORKERS']"
+  ARGS="[${DEBUG_FLAG:+'-d', }'cluster', '--workers', '$WORKERS']"
 else
-  echo ">>> SPAWN nodefony ${DEBUG_FLAG:+-d }development (detached, 1 process)"
-  ARGS="['nodefony'${DEBUG_FLAG:+, '-d'}, 'development']"
+  echo ">>> SPAWN nodefony ${DEBUG_FLAG:+-d }development (detached, 1 process, binaire direct)"
+  ARGS="[${DEBUG_FLAG:+'-d', }'development']"
 fi
+# Binaire résolu lancé EN DIRECT (`node $BIN …`) au lieu de `npx nodefony …` : npx laisse
+# un process wrapper `npm exec nodefony` PARASITE en parent du superviseur (« pourquoi
+# 3 process ? », user 06-20). En direct : pas d'intermédiaire → $PIDFILE pointe le VRAI
+# superviseur (et non le wrapper npm), et `ps`/`nodefony status` ne montrent que les 2
+# process réels (superviseur + serveur enfant). Le respawn de l'enfant par le superviseur
+# était DÉJÀ direct (process.execPath + argv) — seul le lancement initial passait par npx.
+BIN="$ROOT/node_modules/nodefony/bin/nodefony"
 rm -f "$LOG" "$PIDFILE"
 # --expose-gc : le serveur de test DOIT pouvoir forcer le GC pour que le gate
 # mémoire (sonde /nodefony/test/memory → global.gc()) mesure le heap RETENU et non
@@ -123,7 +130,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const out = fs.openSync('$LOG', 'w');
 const env = Object.assign({}, process.env, { NODE_OPTIONS: ((process.env.NODE_OPTIONS || '') + ' --expose-gc').trim() });
-const child = spawn('npx', $ARGS, { cwd: '$ROOT', stdio: ['ignore', out, out], detached: true, env });
+const child = spawn(process.execPath, ['$BIN'].concat($ARGS), { cwd: '$ROOT', stdio: ['ignore', out, out], detached: true, env });
 child.unref();
 fs.writeFileSync('$PIDFILE', String(child.pid));
 console.log('SERVER PID=' + child.pid);

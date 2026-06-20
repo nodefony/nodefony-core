@@ -29,6 +29,11 @@ started → preRegistered → registered → booted → ready → postReady
 - `ready` : set après `onReady` (dans `onReady()`)
 - `postReady` : set après `onPostReady` (dans `onReady()`)
 
+> ⚠️ `booted=true` **précède** `captureBootServers()` (qui tourne dans `onReady`→`initServers`). Donc
+> `booted:true` ≠ « serveurs prêts ». `getBootReport()` distingue `bootServers===null` (pas mesuré,
+> boot en cours) de `[]` (mesuré, 0 serveur = vrai échec) via le flag `measured` → sinon `healthy`
+> valait false pendant toute la montée des serveurs et `livez.degraded` criait « dégradé » à tort.
+
 **Events bitmask** (`Events`, frozen, exporté):
 
 ```

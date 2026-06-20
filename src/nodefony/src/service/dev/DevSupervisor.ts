@@ -16,7 +16,9 @@ import { SysExit } from "../../cli/sysexits";
 import {
   defaultDevPorts,
   devSupervisorPidFile,
+  discoverDevProcesses,
   missingWorkspaceDists,
+  terminateDevProcesses,
 } from "./devProcess";
 
 /** Options du superviseur de dev. */
@@ -64,6 +66,15 @@ const PORTS_FREE_TIMEOUT_MS = 5000;
 const READY_TIMEOUT_MS = 30000;
 /** Cadence de sonde « le serveur écoute-t-il ? » après un (re)spawn. */
 const READY_POLL_MS = 200;
+/**
+ * Fenêtre de stabilisation du verdict de santé après que les ports écoutent. Les ports
+ * TCP acceptent (bind OS) AVANT que le Kernel finalise `bootServers` / la fin du boot →
+ * `livez.degraded` est transitoirement vrai (`healthy=false` tant qu'aucun serveur n'est
+ * encore enregistré). On re-sonde jusqu'au verdict STABLE (`booted:true`) au plus ce
+ * délai avant de conclure : crier « dégradé » à tort érode la confiance dans le signal
+ * (anti-pattern « au loup », l'inverse du but de la sonde).
+ */
+const DEGRADED_SETTLE_MS = 5000;
 
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -261,11 +272,43 @@ export class DevSupervisor {
    * `nodefony development` ajoutait un superviseur orphelin de plus, et **tous**
    * rebuildaient (turbo + rollup) au moindre changement → machine saturée.
    *
-   * On lit le PID du superviseur précédent ; s'il est encore vivant **et** que
-   * c'est bien un process Nodefony, on le tue (avec son groupe) avant de prendre
-   * la main et d'écrire notre propre PID.
+   * Deux gardes complémentaires :
+   *
+   * 1. **Balayage `ps` (vérité terrain)** : single-instance ⇒ au démarrage AUCUN autre
+   *    process dev ne doit subsister (notre enfant n'est pas encore spawné). On découvre
+   *    et on tue tout résiduel — superviseur empilé MAIS aussi **orphelins** (serveur/Vite
+   *    sans superviseur parent, laissés par un `kill -9` brutal que le pidfile périmé ne
+   *    référence plus → cause de l'empilement). `discoverDevProcesses` s'auto-exclut, on
+   *    ne se tue donc pas (notre `process.title` est déjà posé).
+   * 2. **Fallback pidfile** : si `ps` est indisponible (Windows, sandbox) le balayage rend
+   *    une liste vide → on retombe sur la garde historique par PID lu dans le pidfile.
+   *
+   * Puis on écrit notre propre PID.
    */
   async #claimSingleInstance(): Promise<void> {
+    // 1. Vérité terrain : tuer tout process dev résiduel (empilé OU orphelin).
+    try {
+      const stale = discoverDevProcesses(); // s'auto-exclut (notre pid)
+      if (stale.length > 0) {
+        this.#log(
+          `${stale.length} process dev résiduel(s) détecté(s) — nettoyage avant démarrage`,
+          "yellow",
+        );
+        const survivors = await terminateDevProcesses(stale, {
+          termWaitMs: 1500,
+        });
+        if (survivors.length > 0)
+          this.#log(
+            `⚠ ${survivors.length} process résiduel(s) survivent (pid ${survivors.join(", ")}) — ` +
+              "lance `nodefony stop` si le démarrage échoue",
+            "red",
+          );
+      }
+    } catch {
+      /* best-effort : le fallback pidfile + l'attente des ports prennent le relais */
+    }
+
+    // 2. Fallback pidfile (ps indisponible → liste vide ci-dessus).
     try {
       if (existsSync(this.#pidFile)) {
         const prev = Number.parseInt(
@@ -391,8 +434,18 @@ export class DevSupervisor {
       if (await this.#allPortsListening()) {
         // Ports à l'écoute ≠ boot SAIN : un module peut être tombé en fail-soft
         // (cascade silencieuse « vert mais cassé »). On interroge `livez` (HTTP
-        // loopback, observation externe) pour le dire HAUT (fail-loud DX).
-        const degraded = await this.#probeDegraded();
+        // loopback, observation externe) pour le dire HAUT (fail-loud DX). MAIS les
+        // ports TCP acceptent avant la fin du boot → on attend le verdict STABLE
+        // (`booted:true`, `#probeDegraded` renvoie null tant qu'il est en cours) par
+        // re-sonde brève, pour ne pas crier « dégradé » sur la race port-up/boot.
+        let degraded: boolean | null = null;
+        const settleDeadline = Date.now() + DEGRADED_SETTLE_MS;
+        for (;;) {
+          if (this.#child !== child || this.#stopping) return;
+          degraded = await this.#probeDegraded();
+          if (degraded !== null || Date.now() >= settleDeadline) break;
+          await delay(READY_POLL_MS);
+        }
         if (degraded === true) {
           this.#log(
             `✓ ports à l'écoute en ${Date.now() - t0}ms — ⚠ MAIS boot DÉGRADÉ ` +
@@ -433,9 +486,11 @@ export class DevSupervisor {
   /**
    * Interroge `/nodefony/kernel/api/livez` (HTTP loopback, OBSERVATION EXTERNE — pas
    * d'IPC) pour savoir si le boot est DÉGRADÉ (champ `degraded` : modules ignorés en
-   * fail-soft ou serveur attendu absent). Best-effort : tout échec (timeout, port en
-   * HTTPS seul, JSON inattendu) → `null` (on n'affirme rien, le « prêt » normal
-   * s'affiche). C'est ce qui rend le « vert mais cassé » VISIBLE au boot dev.
+   * fail-soft ou serveur attendu absent). Renvoie `null` = INCONCLUSIF dans deux cas :
+   * (a) boot pas encore terminé (`booted:false` — `degraded` y est transitoire, race
+   * port-up/boot) ; (b) tout échec best-effort (timeout, port HTTPS seul, JSON
+   * inattendu). Sur `null`, l'appelant re-sonde puis affiche le « prêt » normal. C'est
+   * ce qui rend le « vert mais cassé » VISIBLE au boot dev SANS fausse alarme.
    */
   #probeDegraded(): Promise<boolean | null> {
     const port = this.#ports[0];
@@ -454,9 +509,13 @@ export class DevSupervisor {
           res.on("data", (c) => (data += c));
           res.on("end", () => {
             try {
-              resolve(
-                Boolean((JSON.parse(data) as { degraded?: boolean }).degraded),
-              );
+              const j = JSON.parse(data) as {
+                booted?: boolean;
+                degraded?: boolean;
+              };
+              // Verdict INCONCLUSIF tant que le boot n'est pas terminé (`booted:false`) :
+              // `degraded` est alors transitoire (race port-up/boot). null → re-sonde.
+              resolve(j.booted ? Boolean(j.degraded) : null);
             } catch {
               resolve(null);
             }
