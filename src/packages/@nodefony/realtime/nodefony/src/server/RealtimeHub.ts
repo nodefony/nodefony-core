@@ -163,6 +163,14 @@ export class RealtimeHub {
   // sur un hub aux canaux libres. Alimenté (idempotent) au handshake.
   #channelPolicies: Map<string, IChannelPolicy> | null = null;
 
+  // Registre des canaux SYSTÈME (plateforme) — factory par nom EXACT, fournie par
+  // un module bas niveau (`@nodefony/security` → `security:audit`) au boot, SANS
+  // qu'aucun RealtimeController ne la connaisse. Consulté par `subscribe` en
+  // dernier recours (la factory du controller a renvoyé `null` = canal inconnu de
+  // lui) → tout endpoint sert le canal système, ZÉRO couplage à Studio. Lazy :
+  // `null` tant qu'aucun module n'en enregistre. Cf {@link registerSystemChannel}.
+  #systemChannelFactories: Map<string, ChannelFactory> | null = null;
+
   // Garde Origin RFC 6455 §10.2 (CSRF defense). `null` = pas de politique
   // (rétrocompat). Posée par `RealtimeService.init()` depuis
   // `defineRealtimeConfig().csrf.checkOrigin`. Cold path (1× par upgrade).
@@ -208,9 +216,15 @@ export class RealtimeHub {
       forward: this.#isBroadcast(channel),
     };
     channels.set(channel, st);
-    const dispose = factory(channel, (ch, payload) =>
-      this.publish(ch, payload),
-    );
+    const publishFn = (ch: string, payload: unknown): void =>
+      this.publish(ch, payload);
+    let dispose = factory(channel, publishFn);
+    if (dispose === null) {
+      // Inconnu du controller → dernier recours : factory de canal SYSTÈME
+      // (plateforme) enregistrée par un module bas niveau (security:audit…).
+      const sys = this.#systemChannelFactories?.get(channel);
+      if (sys) dispose = sys(channel, publishFn);
+    }
     if (dispose === null) {
       channels.delete(channel); // canal inconnu → rien créé, on nettoie
       return false;
@@ -562,6 +576,25 @@ export class RealtimeHub {
    */
   resolveChannelPolicy(name: string): IChannelPolicy | null {
     return this.#channelPolicies?.get(name) ?? null;
+  }
+
+  /**
+   * Enregistre la **factory d'un canal système** (plateforme) — un module bas
+   * niveau (ex. `@nodefony/security` : `security:audit`) déclare au boot comment
+   * produire le provider d'un canal, SANS qu'aucun `RealtimeController` ne le
+   * connaisse. `subscribe` consulte ce registre quand la factory du controller
+   * renvoie `null` → le canal devient servable par TOUT endpoint (présent/futur),
+   * zéro couplage à Studio. La factory garde la sémantique lazy du hub (créée au
+   * 1ᵉʳ abonné, `dispose` au dernier).
+   *
+   * @param channel - nom EXACT du canal système (match exact, pas un préfixe).
+   * @param factory - {@link ChannelFactory} qui crée le provider partagé.
+   */
+  registerSystemChannel(channel: string, factory: ChannelFactory): void {
+    (this.#systemChannelFactories ??= new Map<string, ChannelFactory>()).set(
+      channel,
+      factory,
+    );
   }
 
   /**

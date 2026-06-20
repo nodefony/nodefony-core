@@ -146,6 +146,17 @@ class RealtimeService extends Service {
     this.getHub().unsubscribe(channel, sink);
   }
 
+  /**
+   * Enregistre la factory d'un **canal système** (plateforme) — délégué à
+   * {@link RealtimeHub.registerSystemChannel}. Un module bas niveau
+   * (`@nodefony/security` → `security:audit`) déclare au boot comment produire le
+   * provider, sans qu'aucun `RealtimeController` ne le connaisse ; tout endpoint
+   * le sert alors (lazy : créé au 1ᵉʳ abonné, disposé au dernier).
+   */
+  registerSystemChannel(channel: string, factory: ChannelFactory): void {
+    this.getHub().registerSystemChannel(channel, factory);
+  }
+
   /** Snapshot d'observabilité du hub local (consommé par `/nodefony/realtime/api/health`). */
   probe(): IRealtimeProbe {
     return this.getHub().probe();

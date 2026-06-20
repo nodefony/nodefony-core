@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-20T17:15:22.207Z",
+  "generated": "2026-06-20T17:47:19.856Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 931,
-    "symbols": 2047,
+    "files": 932,
+    "symbols": 2053,
     "classes": 296,
-    "interfaces": 532,
+    "interfaces": 535,
     "types": 251,
     "enums": 3,
-    "functions": 458,
-    "constants": 507
+    "functions": 459,
+    "constants": 509
   },
   "symbols": {
     "Cli": {
@@ -13948,6 +13948,49 @@
       "module": "@nodefony/security",
       "description": "Valide la **forme** d'une clé présentée et en dérive le hash de lookup — **sans aucun accès au store**. Rejette (→ `null`) un préfixe absent, une longueur incorrecte, un charset non base64url ou un…"
     },
+    "IAuditEventSource": {
+      "name": "IAuditEventSource",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Source d'événements live — sous-ensemble de `IAuditSink` (slot `subscribe`)."
+    },
+    "IAuditBatch": {
+      "name": "IAuditBatch",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Charge poussée sur le canal `security:audit` — batch coalescé + omis."
+    },
+    "AuditBridgeOptions": {
+      "name": "AuditBridgeOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Options de coalescing du pont d'audit."
+    },
+    "createAuditBridge": {
+      "name": "createAuditBridge",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Pont journal d'audit → canal `security:audit`, **coalescé** (P6.14 lot 4). Calque {@link createSyslogBridge} (studio) : au lieu de 1 frame WS par événement (un pic d'`auth.failure` sous brute-force…"
+    },
+    "SECURITY_AUDIT_CHANNEL": {
+      "name": "SECURITY_AUDIT_CHANNEL",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Canal WS du flux live d'audit (P6.14 lot 4). Le préfixe `security:` le place sous le plancher `SECURITY_CHANNEL_POLICY` (ROLE_NODEFONY_ADMIN) du verrou de frame — un user lambda ne peut pas s'y abo…"
+    },
     "MemoryAuditStore": {
       "name": "MemoryAuditStore",
       "kind": "class",
@@ -14223,13 +14266,21 @@
       "module": "@nodefony/security",
       "description": "Namespaces d'introspection serveur (observabilité) — s'y abonner expose l'état interne du pod (logs, requêtes, métriques, supervision). Liste extensible via la config. Convention transverse Nodefon…"
     },
+    "SECURITY_CHANNEL_POLICY": {
+      "name": "SECURITY_CHANNEL_POLICY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Plancher des canaux de **sécurité** (`security:audit`, P6.14 lot 4) : réservé au super-admin Nodefony (`ROLE_NODEFONY_ADMIN`) — un cran AU-DESSUS du plancher d'observabilité générique (`ROLE_ADMIN`…"
+    },
     "DEFAULT_SYSTEM_RULES": {
       "name": "DEFAULT_SYSTEM_RULES",
       "kind": "const",
       "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Règles système par défaut : chaque namespace réservé → {@link SYSTEM_CHANNEL_POLICY}. Le firewall y préfixe les règles issues de la config (qui gagnent par ordre)."
+      "description": "Règles système par défaut. `security:` est placé EN TÊTE (1ᵉʳ match gagne) avec son plancher super-admin propre ; les autres namespaces réservés héritent de {@link SYSTEM_CHANNEL_POLICY}. Le firewa…"
     },
     "@nodefony/security:IRealtimeToken": {
       "name": "IRealtimeToken",
@@ -19019,6 +19070,7 @@
       "IAuditEvent": [
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
       "IAuditEventDraft": [
@@ -19215,6 +19267,15 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "ISystemChannelRule": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "createAuditBridge": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "SECURITY_AUDIT_CHANNEL": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "IAuditEventSource": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "IRealtimeService": [

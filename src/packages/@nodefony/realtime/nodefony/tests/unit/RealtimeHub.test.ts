@@ -504,3 +504,62 @@ describe("LoopbackBackplane — no-op mono-process", () => {
     expect(got).to.deep.equal([{ v: 1 }]); // fan-out local intact, rien ne sort
   });
 });
+
+describe("RealtimeHub — registre de canal système (registerSystemChannel)", () => {
+  it("sert un canal système quand la factory du controller renvoie null", () => {
+    const hub = new RealtimeHub();
+    hub.registerSystemChannel("security:audit", (ch, publish) => {
+      publish(ch, { hello: true }); // push immédiat → capté par le 1ᵉʳ sink
+      return () => {};
+    });
+    const got: unknown[] = [];
+    // Factory du controller = canal inconnu de lui (`null`) → fallback registre.
+    const ok = hub.subscribe(
+      "security:audit",
+      (p) => got.push(p),
+      () => null,
+    );
+    expect(ok).to.equal(true);
+    expect(got).to.deep.equal([{ hello: true }]);
+  });
+
+  it("dispose le provider système au dernier désabonné (lazy)", () => {
+    const hub = new RealtimeHub();
+    let disposed = false;
+    hub.registerSystemChannel("security:audit", () => () => {
+      disposed = true;
+    });
+    const sink = (): void => {};
+    hub.subscribe("security:audit", sink, () => null);
+    expect(disposed).to.equal(false);
+    hub.unsubscribe("security:audit", sink);
+    expect(disposed).to.equal(true);
+  });
+
+  it("canal NI connu du controller NI enregistré → false (inchangé)", () => {
+    const hub = new RealtimeHub();
+    const ok = hub.subscribe(
+      "ghost:x",
+      () => {},
+      () => null,
+    );
+    expect(ok).to.equal(false);
+  });
+
+  it("la factory du controller a priorité (registre = dernier recours)", () => {
+    const hub = new RealtimeHub();
+    let sysCalled = false;
+    hub.registerSystemChannel("ch", () => {
+      sysCalled = true;
+      return () => {};
+    });
+    // Le controller SERT le canal (factory non-null) → registre jamais consulté.
+    const ok = hub.subscribe(
+      "ch",
+      () => {},
+      () => () => {},
+    );
+    expect(ok).to.equal(true);
+    expect(sysCalled).to.equal(false);
+  });
+});
