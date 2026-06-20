@@ -19,6 +19,10 @@ import Cluster from "./commands/ClusterCommand";
 import Install from "./commands/InstallCommand";
 import Outated from "./commands/OutdatedCommand";
 import Status from "./commands/StatusCommand";
+import {
+  isStandaloneDevCommand,
+  runStandaloneDevCommand,
+} from "../service/dev/devStatusReport";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -190,6 +194,18 @@ class CliKernel extends Cli {
           return this.dispatchGlobalHelp();
         }
 
+        const requested = this.getRequestedCommandName();
+
+        // ─── Commandes SYSTÈME « standalone » (status/stop) : ZÉRO boot ───────
+        // Pur outillage de process (ps + sonde ports + pidfile) : aucun besoin de
+        // trunk ni de kernel booté → exécutées ICI, AVANT tout boot. Donc lançables
+        // DEPUIS N'IMPORTE OÙ (hors d'un projet Nodefony inclus) et insensibles à
+        // l'état du dist. Même esprit que `--version`/`--help` (résolus sans boot).
+        if (requested !== null && isStandaloneDevCommand(requested)) {
+          await runStandaloneDevCommand(requested);
+          return this.kernel?.terminate(0) as Promise<Kernel>;
+        }
+
         // ─── Commandes de MODULE : dispatch DIFFÉRÉ ──────────────────────────
         // Les built-ins ci-dessus sont les seules commandes connues de commander
         // à ce stade. Les commandes de module (`frontend:build`, `network`, …) ne
@@ -198,7 +214,6 @@ class CliKernel extends Cli {
         // MAINTENANT échouerait (`unknown command`) → fallback qui boote un serveur.
         // On diffère donc son dispatch jusqu'à ce que les modules l'aient
         // enregistrée. Cf project_cli_commands_broken_claude_ts.
-        const requested = this.getRequestedCommandName();
         if (
           requested !== null &&
           !this.getBuiltinCommandNames().has(requested)

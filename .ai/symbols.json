@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-20T12:17:29.220Z",
+  "generated": "2026-06-20T12:35:48.230Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 921,
-    "symbols": 2009,
+    "files": 922,
+    "symbols": 2013,
     "classes": 293,
     "interfaces": 521,
     "types": 247,
     "enums": 3,
-    "functions": 438,
+    "functions": 442,
     "constants": 507
   },
   "symbols": {
@@ -2656,7 +2656,7 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "Commande `nodefony status` — photo instantanée des process de développement. Répond au besoin « ne plus être perdu » : d'un coup d'œil, quels process dev tournent (superviseur / serveur / Vite), av…"
+      "description": "Commande `nodefony status` — photo instantanée des process de développement (superviseur / serveur / Vite + PID, parent, uptime, RSS, %CPU, ports). **Exécutée en « standalone » (zéro boot, hors tru…"
     },
     "services": {
       "name": "services",
@@ -3280,6 +3280,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Préfixe de titre des process Vite (`ViteProcessSupervisor`, via `argv0`)."
+    },
+    "isStandaloneDevCommand": {
+      "name": "isStandaloneDevCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStatusReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si `name` est une commande système standalone (status/stop)."
+    },
+    "runStandaloneDevCommand": {
+      "name": "runStandaloneDevCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStatusReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Exécute une commande système standalone par son nom — point d'entrée du fast-path `CliKernel.start` (avant tout boot). N'écrit jamais via le syslog (kernel non booté)."
+    },
+    "runStatusReport": {
+      "name": "runStatusReport",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStatusReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Collecte (ps + ports + pidfile) puis écrit le rapport status sur stdout."
     },
     "DevSupervisor": {
       "name": "DevSupervisor",
@@ -16695,7 +16719,7 @@
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/commands/StatusCommand.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
       ],
       "Builder": [
@@ -16803,6 +16827,12 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Status": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "isStandaloneDevCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runStandaloneDevCommand": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "setLogColor": [
@@ -17055,7 +17085,7 @@
       ],
       "formatUptime": [
         "src/nodefony/src/client/debugbar/DebugBar.ts",
-        "src/nodefony/src/kernel/commands/StatusCommand.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "gauge": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
@@ -17208,30 +17238,7 @@
       "Topology": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
       ],
-      "defaultDevPorts": [
-        "src/nodefony/src/kernel/commands/StatusCommand.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "devSupervisorPidFile": [
-        "src/nodefony/src/kernel/commands/StatusCommand.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "discoverDevProcesses": [
-        "src/nodefony/src/kernel/commands/StatusCommand.ts"
-      ],
-      "isPidAlive": [
-        "src/nodefony/src/kernel/commands/StatusCommand.ts"
-      ],
-      "probePorts": [
-        "src/nodefony/src/kernel/commands/StatusCommand.ts"
-      ],
-      "readSupervisorPid": [
-        "src/nodefony/src/kernel/commands/StatusCommand.ts"
-      ],
-      "DevProcessInfo": [
-        "src/nodefony/src/kernel/commands/StatusCommand.ts"
-      ],
-      "PortState": [
+      "runStatusReport": [
         "src/nodefony/src/kernel/commands/StatusCommand.ts"
       ],
       "DIScope": [
@@ -17269,6 +17276,32 @@
       ],
       "resolveWorkerCount": [
         "src/nodefony/src/service/cluster/topology.ts"
+      ],
+      "defaultDevPorts": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "devSupervisorPidFile": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "discoverDevProcesses": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "isPidAlive": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "probePorts": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "readSupervisorPid": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "DevProcessInfo": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "PortState": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
