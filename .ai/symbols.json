@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-20T14:42:23.101Z",
+  "generated": "2026-06-20T15:54:08.250Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 924,
-    "symbols": 2024,
-    "classes": 294,
-    "interfaces": 522,
-    "types": 247,
+    "files": 928,
+    "symbols": 2036,
+    "classes": 296,
+    "interfaces": 529,
+    "types": 250,
     "enums": 3,
     "functions": 451,
     "constants": 507
@@ -8602,6 +8602,84 @@
       "extends": null,
       "description": "Options de création d'une clé API."
     },
+    "IAuditEventFlags": {
+      "name": "IAuditEventFlags",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditEvent.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Drapeaux de **présence** de matériel sensible (jamais la valeur)."
+    },
+    "IAuditEvent": {
+      "name": "IAuditEvent",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditEvent.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Un événement de sécurité journalisé. `id`/`ts` sont posés par l'`AuditService` (l'émetteur ne fournit qu'un {@link IAuditEventDraft}) → un seul appel système d'horodatage, centralisé hors des point…"
+    },
+    "AuditCategory": {
+      "name": "AuditCategory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditEvent.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Modèle d'un **événement de sécurité** auditable (P6.14) — login, refus d'accès, émission/révocation de jeton, défense CSRF/CORS, verrou de frame WS. Vocabulaire MÉTIER de sécurité, distinct du log …"
+    },
+    "AuditOutcome": {
+      "name": "AuditOutcome",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditEvent.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Issue d'une action de sécurité. La distinction `failure`/`denied` est utile à l'auditeur : `failure` = l'acteur a échoué une preuve (brute-force, signature invalide) ; `denied` = une **politique** …"
+    },
+    "IAuditEventDraft": {
+      "name": "IAuditEventDraft",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditEvent.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Champs fournis par l'**émetteur** d'un événement — l'`AuditService` y ajoute `id` + `ts`. Garde les points d'émission concis et sans appel système d'horloge."
+    },
+    "IAuditQuery": {
+      "name": "IAuditQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Filtre de lecture du journal d'audit (console Studio P6.15, data plane P6.14 Lot 3). Tous les critères sont **AND** ; absents = non filtrant. Pagination par **curseur** (`before` = id), du plus réc…"
+    },
+    "IAuditQueryResult": {
+      "name": "IAuditQueryResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Page de résultats d'audit, du plus récent au plus ancien."
+    },
+    "IAuditStore": {
+      "name": "IAuditStore",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Journal d'audit **append-only** (tamper-evident) — état serveur des événements de sécurité. **Pluggable** par backend (mémoire/fichier/ORM/Loki) comme `ITokenStore`. La référence mémoire borne le v…"
+    },
+    "IAuditSink": {
+      "name": "IAuditSink",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Face **émission** du journal, vue par les points sensibles (firewall, authenticators, controllers OAuth/WebAuthn). `record` est **synchrone et fire-and-forget** : l'audit ne doit JAMAIS bloquer ni …"
+    },
     "IAuthenticator": {
       "name": "IAuthenticator",
       "kind": "interface",
@@ -8810,6 +8888,19 @@
       "implements": [],
       "decorators": [],
       "description": "Gestion des **clés API personnelles (PAT, P6.12)** — émission, listing et révocation, au-dessus du `ITokenStore` **partagé** (posé au container par le `TokenService`, qui en possède aussi le `gc`).…"
+    },
+    "AuditService": {
+      "name": "AuditService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [
+        "IAuditSink"
+      ],
+      "decorators": [],
+      "description": "Journal d'audit de sécurité (P6.14) — collecte les **événements** de sécurité (login, refus d'accès, jeton émis/révoqué, défense CSRF/CORS, verrou WS) émis EXPLICITEMENT par le firewall, les authen…"
     },
     "AuthFlow": {
       "name": "AuthFlow",
@@ -13833,6 +13924,28 @@
       "module": "@nodefony/security",
       "description": "Valide la **forme** d'une clé présentée et en dérive le hash de lookup — **sans aucun accès au store**. Rejette (→ `null`) un préfixe absent, une longueur incorrecte, un charset non base64url ou un…"
     },
+    "MemoryAuditStore": {
+      "name": "MemoryAuditStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IAuditStore"
+      ],
+      "decorators": [],
+      "description": "Journal d'audit **en mémoire** — implémentation de référence d'{@link IAuditStore}. 0 dépendance, idéal pour le dev mono-process et les **tests**. **Volatile** (perdu au redémarrage) et **non parta…"
+    },
+    "AuditStoreSnapshot": {
+      "name": "AuditStoreSnapshot",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Instantané sérialisable du journal mémoire (persistance fichier + tests)."
+    },
     "AnonymousAuthenticator": {
       "name": "AnonymousAuthenticator",
       "kind": "class",
@@ -14788,6 +14901,7 @@
         "RedisService",
         "Connection",
         "ApiKeyService",
+        "AuditService",
         "AuthFlow",
         "Authorization",
         "Firewall",
@@ -15191,6 +15305,9 @@
       "IRagService": [
         "RagService"
       ],
+      "IAuditSink": [
+        "AuditService"
+      ],
       "IAuthorizationService": [
         "Authorization"
       ],
@@ -15249,6 +15366,9 @@
       ],
       "IRealtimeConnProbe": [
         "WsConnectionTransport"
+      ],
+      "IAuditStore": [
+        "MemoryAuditStore"
       ],
       "IAuthenticator": [
         "AnonymousAuthenticator",
@@ -15418,6 +15538,7 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -15470,6 +15591,7 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -15526,6 +15648,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -15809,6 +15932,7 @@
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -16672,9 +16796,13 @@
       "ApiKeyService": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "AuditService": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "ISecurityConfigInput": [
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
@@ -18789,6 +18917,7 @@
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/config/config.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
@@ -18808,6 +18937,21 @@
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
         "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
+      ],
+      "AuditCategory": [
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts"
+      ],
+      "AuditOutcome": [
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts"
+      ],
+      "IAuditEvent": [
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
+      ],
+      "IAuditEventDraft": [
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts"
       ],
       "IAuthenticator": [
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
@@ -18831,6 +18975,7 @@
       ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
@@ -18854,6 +18999,24 @@
       ],
       "generateApiKey": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+      ],
+      "MemoryAuditStore": [
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts"
+      ],
+      "IAuditQuery": [
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
+      ],
+      "IAuditQueryResult": [
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
+      ],
+      "IAuditSink": [
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts"
+      ],
+      "IAuditStore": [
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
       "IUserProvider": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",

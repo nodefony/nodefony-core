@@ -8,6 +8,7 @@ import Authorization from "./nodefony/service/authorization";
 import WebAuthnService from "./nodefony/service/webAuthn";
 import OAuth2Service from "./nodefony/service/oauth2";
 import ApiKeyService from "./nodefony/service/apiKeys";
+import AuditService from "./nodefony/service/auditService";
 import type { ISecurityConfigInput } from "./nodefony/config/defineSecurityConfig";
 
 // Augmente le registre du core (declaration merging) → `use("@nodefony/security", …)`
@@ -43,6 +44,7 @@ declare module "nodefony" {
   Authorization,
   WebAuthnService,
   OAuth2Service,
+  AuditService,
 ])
 class Security extends Module {
   constructor(kernel: Kernel) {
@@ -60,6 +62,7 @@ export { ApiKeyService };
 export { Authorization };
 export { WebAuthnService };
 export { OAuth2Service };
+export { AuditService };
 export type { ISafeUser } from "./nodefony/service/authFlow";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
 export type {
@@ -167,6 +170,23 @@ export type {
   OAuthProviderFactory,
   IOAuthProviderContext,
 } from "./nodefony/src/oauth/oauthProviderRegistry";
+
+// ─── Audit de sécurité (P6.14) — journal append-only + sink ──────────────────
+export { MemoryAuditStore } from "./nodefony/src/audit/MemoryAuditStore";
+export type { AuditStoreSnapshot } from "./nodefony/src/audit/MemoryAuditStore";
+export type {
+  IAuditEvent,
+  IAuditEventDraft,
+  IAuditEventFlags,
+  AuditCategory,
+  AuditOutcome,
+} from "./nodefony/contracts/IAuditEvent";
+export type {
+  IAuditStore,
+  IAuditSink,
+  IAuditQuery,
+  IAuditQueryResult,
+} from "./nodefony/contracts/IAuditStore";
 
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
 export { defineSecurityConfig } from "./nodefony/config/defineSecurityConfig";
