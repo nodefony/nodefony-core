@@ -64,6 +64,13 @@ class Dev extends Command {
 
     // Enfant supervisé → boot serveur normal (HTTP/WS).
     if (process.env[CHILD_ENV] === "1") {
+      // Nom de process repérable, distinct du superviseur parent
+      // (`nodefony-dev-supervisor`). Posé à `onReady` car `Kernel.preRegister`
+      // (onPreRegister) écrase le title avec le `projectName` (Kernel.ts:608) —
+      // notre nom doit gagner APRÈS. Cf convention cluster master/worker.
+      (this.kernel as Kernel | null)?.once("onReady", () => {
+        process.title = "nodefony-dev-server";
+      });
       (this.cli as CliKernel).setRunProfile({
         servers: true,
         lifetime: "longrunning",

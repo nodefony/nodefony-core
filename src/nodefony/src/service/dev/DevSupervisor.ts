@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
   type Stats,
 } from "node:fs";
@@ -49,6 +50,14 @@ const MAX_SPAWN_RETRIES = 3;
 const RETRY_DELAY_MS = 1200;
 /** Délai max d'attente de libération des ports avant un restart. */
 const PORTS_FREE_TIMEOUT_MS = 5000;
+/**
+ * Délai max d'attente de l'écoute des ports après un (re)spawn avant de signaler
+ * un boot qui ne vient pas. Le boot dev peut être lent (Vite + modules) → marge
+ * large : on ne crie au loup que si le serveur est vraiment muet.
+ */
+const READY_TIMEOUT_MS = 30000;
+/** Cadence de sonde « le serveur écoute-t-il ? » après un (re)spawn. */
+const READY_POLL_MS = 200;
 
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -151,16 +160,83 @@ export class DevSupervisor {
    * ports libres puis lance l'enfant et la surveillance.
    */
   async start(): Promise<void> {
+    // Nom de process repérable (`ps`/`top`/`pgrep nodefony-dev`) — même convention
+    // que le master cluster (`nodefony master [cluster Nw]`). L'enfant serveur prend
+    // `nodefony-dev-server` (DevCommand). Pose APRÈS le boot CLI (qui set un title
+    // générique) → ce nom gagne.
+    process.title = "nodefony-dev-supervisor";
     await this.#claimSingleInstance();
     this.#installSignals();
+    // Garantit un dist FRAIS avant le premier spawn (anti « vert mais cassé » :
+    // booter sur un dist périmé = routes manquantes en 404 silencieux).
+    await this.#ensureBuilt();
     // Un ancien enfant peut encore tenir les ports le temps de mourir.
     await this.#waitPortsFree();
     this.#spawnChild();
     this.#startWatch();
     this.#log(
-      `superviseur actif (pid ${process.pid}) — surveille ${this.#paths.join(", ")} (frontend exclu → HMR Vite intact)`,
+      `superviseur actif (pid ${process.pid}) — recharge le backend à chaque ` +
+        `modif de ${this.#paths.join(", ")} (frontend exclu → HMR Vite)`,
       "green",
     );
+  }
+
+  /**
+   * Garantit un `dist/` à jour AVANT le premier `spawn` — `turbo` (cache par
+   * hash de contenu) décide ce qui doit réellement être reconstruit, l'app racine
+   * (`rollup`, sans cache) n'est rebuildée que si ses sources sont plus récentes
+   * que son `dist`.
+   *
+   * Pourquoi : `start()` spawnait l'enfant sur le `dist/` existant **sans le
+   * vérifier**. Si une source avait changé hors d'une session du superviseur
+   * (`git pull`, `npm run clean` partiel, build oublié), le serveur bootait sur
+   * du vieux code → routes/providers manquants en **404 silencieux** (« vert mais
+   * cassé »). On corrige + on **annonce** (fail-loud sur la dégradation) ; un échec
+   * d'outillage ne BLOQUE pas le boot (fail-soft sur la disponibilité) mais est
+   * signalé bruyamment.
+   */
+  async #ensureBuilt(): Promise<void> {
+    this.#log("⚙ vérification de la fraîcheur du dist (turbo)…", "yellow");
+    const t0 = Date.now();
+    const wsOk = await this.#run("npx", ["turbo", "run", "build"]);
+    let rootOk = true;
+    if (this.#rootDistStale()) {
+      this.#log("⚙ dist racine périmé — rebuild (rollup -c)…", "yellow");
+      rootOk = await this.#run("npx", ["rollup", "-c"]);
+    }
+    if (wsOk && rootOk) {
+      this.#log(`✓ dist à jour (${Date.now() - t0}ms)`, "green");
+    } else {
+      this.#log(
+        "⚠ build de vérification INCOMPLET — démarrage sur le dist EXISTANT, " +
+          "possiblement périmé (corrige les erreurs ci-dessus puis sauvegarde)",
+        "red",
+      );
+    }
+  }
+
+  /**
+   * `true` si le `dist/index.js` racine est absent ou plus ancien qu'une de ses
+   * sources (`index.ts`/`nodefony.config.ts`/`env.ts`) — détection légère (3 stats)
+   * réservée à l'app racine, que `turbo` ne couvre pas (build `rollup` hors cache).
+   */
+  #rootDistStale(): boolean {
+    const dist = path.join(this.#cwd, "dist", "index.js");
+    if (!existsSync(dist)) return true;
+    let distMtime: number;
+    try {
+      distMtime = statSync(dist).mtimeMs;
+    } catch {
+      return true;
+    }
+    return ["index.ts", "nodefony.config.ts", "env.ts"].some((src) => {
+      const p = path.join(this.#cwd, src);
+      try {
+        return existsSync(p) && statSync(p).mtimeMs > distMtime;
+      } catch {
+        return false;
+      }
+    });
   }
 
   /**
@@ -279,6 +355,54 @@ export class DevSupervisor {
       if (this.#stopping) return;
       this.#onChildCrash(code, signal);
     });
+    // Confirme « framework ready » par OBSERVATION EXTERNE (sonde de ports), JAMAIS
+    // par IPC (choix acté : le superviseur n'a aucun canal vers l'enfant — il
+    // l'observe via le code de sortie + l'écoute des ports). Non bloquant.
+    void this.#reportReady(child);
+  }
+
+  /**
+   * Signale « serveur prêt » dès que les ports écoutent — et, surtout, détecte un
+   * boot qui **ne vient jamais** (enfant vivant mais muet : import qui pend, hook
+   * lifecycle bloqué) en émettant un avertissement après {@link READY_TIMEOUT_MS}.
+   *
+   * 100 % OBSERVATION EXTERNE (sonde TCP loopback, cf {@link #isPortFree}) — aucun
+   * IPC avec l'enfant (choix d'architecture). La sonde s'efface dès qu'un restart
+   * remplace l'enfant ({@link #child} change) ou que le superviseur s'arrête.
+   */
+  async #reportReady(child: ChildProcess): Promise<void> {
+    const t0 = Date.now();
+    const deadline = t0 + READY_TIMEOUT_MS;
+    for (;;) {
+      if (this.#child !== child || this.#stopping) return; // restart/stop → abandon
+      if (await this.#allPortsListening()) {
+        this.#log(
+          `✓ serveur prêt en ${Date.now() - t0}ms — framework ready`,
+          "green",
+        );
+        return;
+      }
+      if (Date.now() >= deadline) {
+        if (this.#child === child && !this.#stopping) {
+          this.#log(
+            `⚠ serveur toujours pas à l'écoute après ${Math.round(READY_TIMEOUT_MS / 1000)}s ` +
+              `(ports ${this.#ports.join(", ")}) — boot bloqué ? voir les logs ci-dessus`,
+            "yellow",
+          );
+        }
+        return;
+      }
+      await delay(READY_POLL_MS);
+    }
+  }
+
+  /** `true` si TOUS les ports surveillés acceptent une connexion (serveur à l'écoute). */
+  async #allPortsListening(): Promise<boolean> {
+    if (this.#ports.length === 0) return true;
+    const states = await Promise.all(
+      this.#ports.map((p) => this.#isPortFree(p)),
+    );
+    return states.every((free) => !free);
   }
 
   /**
@@ -374,7 +498,7 @@ export class DevSupervisor {
   /** Anti-rebond : regroupe plusieurs sauvegardes rapprochées en un restart. */
   #scheduleRestart(file: string): void {
     this.#log(
-      `changement : ${path.relative(this.#cwd, path.resolve(this.#cwd, file))}`,
+      `↻ changement : ${path.relative(this.#cwd, path.resolve(this.#cwd, file))}`,
     );
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = setTimeout(() => void this.#restart(), this.#debounceMs);
@@ -400,7 +524,10 @@ export class DevSupervisor {
       );
       return;
     }
-    this.#log(`build OK (${Date.now() - t0}ms) — restart`, "green");
+    this.#log(
+      `✓ build OK (${Date.now() - t0}ms) — rechargement backend…`,
+      "green",
+    );
     await this.#killChild();
     await this.#waitPortsFree();
     this.#spawnRetries = 0;
@@ -429,7 +556,7 @@ export class DevSupervisor {
     // 1. Workspaces (turbo, avec dépendants). Cache turbo → no-op si inchangé.
     if (pkgs.size > 0) {
       const filters = [...pkgs].flatMap((p) => ["--filter", `${p}...`]);
-      this.#log(`rebuild ${[...pkgs].join(", ")}…`, "yellow");
+      this.#log(`⚙ rebuild ${[...pkgs].join(", ")}…`, "yellow");
       if (!(await this.#run("npx", ["turbo", "run", "build", ...filters])))
         return false;
     }
