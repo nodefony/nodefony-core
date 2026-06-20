@@ -1103,6 +1103,17 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (suite)
 
+- `[1× — 2026-06-20]` **red-team : la grande leçon « 2 passes » est GRADUÉE** → `feedback_redteam_threat_first`
+  (passe 1 threat-first AVANT de lire le code = anti-biais ; passe 2 code-first = couvrir le reste des
+  branches). Opérationnalisée dans le skill `nodefony-security-review` (mode RED/BLUE-TEAM + conception
+  d'attaques framework + référentiels ANSSI/CWE/CAPEC/OSV/0-day). **À ÉPROUVER prochaine session (WebAuthn).**
+- `[1× — 2026-06-20]` **vérifier que l'artefact EXISTE avant de le tester (ancrage > kit)** : le kit red-team
+  nommait `@RequireScope` — **jamais codé** (`IToken.getScopes()` existe, pas le décorateur) ; et `scope.test.ts`
+  (framework) teste le scope DI `@Scope('singleton')`, **PAS** un scope de permission (faux-ami de nommage).
+  Lire `fichier:ligne`, pas le kit (DEVISE « la confiance n'exclut pas le contrôle »).
+- `[1× — 2026-06-20]` **couverture ciblée = preuve de la passe 2** : `vitest run --coverage <fichiers d'un même
+sujet>` (tous les tests qui touchent la source) → la branche non couverte révèle ce que la menace générique
+  rate (vécu : `csrf.ts:125` catch Referer illisible → asymétrie Origin/Referer documentée). csrf/cors → 100 %.
 - `[1× — 2026-06-15]` **method-name shadowing par une propriété d'instance** : une méthode de canal nommée
   `syslog` (`@RealtimeChannel("syslog:stream") syslog(){}`) est SHADOWÉE par `this.syslog` (le logger posé par
   `Service`) → `instance["syslog"]` renvoie l'objet logger, `typeof fn === "function"` faux → le canal disparaît
