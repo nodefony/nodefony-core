@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.24.0
+version: 1.25.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1397,6 +1397,32 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   1008**, PAS `socket.identity` (toujours authentifié une fois la socket ouverte). Gates : typecheck 0 ;
   transform Vite 200 ; `ws-data-plane-auth` 6/6. **NON commité** (user gère).
 
+**Console auditeur P6.15 + boucle audit↔trace (2026-06-20, full-stack ↔ data plane audit P6.14)**
+
+> Première page de la section Sécurité (`/nodefony/audit`). Patron réutilisable pour les prochaines pages Security.
+
+- **Module de page ÉCLATÉ `routes/audit/*`** (recette ORM) : `auditModel.ts` (types miroir du contrat back
+  - constantes/meta, **0 JSX**) · `auditFormat.tsx` (badges a11y icône+couleur+texte, **JSX** → `.tsx`) ·
+    `AuditFilters.tsx` · `AuditDetail.tsx` (**Modal centré**, jamais drawer) · `AuditLive.tsx` (abonnement live
+    monté conditionnel). Orchestrateur `Audit.tsx`. Front = **types miroir** (jamais d'import runtime `@nodefony/security`).
+- **Consommer un data plane PAGINÉ PAR CURSEUR** (≠ offset DataGrid) : `DataGrid mode="client"` sur une fenêtre
+  chargée + bouton « charger plus anciens » (append `before=nextBefore`) + **jeton de course** (`reqId` ref) qui
+  invalide les fetchs en vol au re-filtrage. KPIs dérivés de la fenêtre (`DocHint` honnête sur le périmètre) ;
+  `total` serveur = exact pour le filtre courant.
+- **`KeyValue` rend `v` dans un `<Text>` (=`<p>`)** → un Badge/`<div>` dedans = `<div> in <p>` (warning hydratation).
+  Pour une valeur RICHE (badge), faire un `Field` local (`Group` label + `Box`), pas `KeyValue` (réservé au texte/mono).
+- **Temps réel d'audit = PRÉPARÉ mais OFF par défaut** (un journal se CONSULTE — directive user) : switch +
+  `{live && <AuditLive/>}` (0 abonnement OFF) + merge en tête dédupliqué (filtré client par le filtre courant).
+  ⚠️ le canal `security:audit` **n'atteint pas encore la socket Studio** (`StudioRealtimeController.createRealtimeChannel`
+  retourne `null` sur canal inconnu, l.272 ; + pas de garde admin) → muet jusqu'au branchement backend.
+- **Boucle audit↔trace** : `TraceView` onglet Sécurité branché sur les VRAIS events d'audit (calque exact du
+  pattern ORM `queries.length ? table : heuristique`) via un **filtre back `requestId`** ajouté au data plane
+  (`IAuditQuery`+`MemoryAuditStore`+`SecurityAdminApi` — seam minimal). Badge onglet **rouge** si refus. Réutilise
+  les badges `routes/audit/auditFormat` (DRY cross-page).
+- **Erreurs data plane = messages FR explicites** (`describeAuditError`) : 401 (firewall, auth Studio mock) / 403 /
+  503 (audit off) / 404 (module absent) — vitrine honnête. Tout data plane Studio est derrière le firewall (zone
+  `nodefony-admin`, 401 sans token) → la console s'authentifie comme les autres pages.
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1417,6 +1443,16 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.25.0** (2026-06-20) — **Console auditeur Studio P6.15 + boucle audit↔trace** (full-stack ; **contrat ↔
+  data plane audit P6.14** + filtre `requestId` ajouté à `SecurityAdminApi`/`MemoryAuditStore`/`IAuditQuery`).
+  Page `/nodefony/audit` (menu Security → « Journal d'audit ») : module éclaté `routes/audit/*` (types miroir +
+  badges a11y + filtres + Modal détail + live conditionnel), `DataGrid` client sur fenêtre **paginée par curseur**
+  (« charger plus anciens »), KPIs dérivés (DocHint périmètre), `describeAuditError` 401/403/503/404. **Temps réel
+  PRÉPARÉ mais OFF** (le canal `security:audit` n'est pas servi par `StudioRealtimeController` → null sur canal
+  inconnu, l.272). **Boucle audit↔trace** : `TraceView` onglet Sécurité sur les vrais events (calque pattern ORM
+  `queries.length ? table : heuristique`). Doublon nav « Audit Log » retiré. Gates : typecheck 0 · build security
+  OK · Vite 200 · non-rég turbo **35 ✓**. RETEX complet (section « Console auditeur P6.15 »). Suite = page **Firewall**
+  [[project_p6_firewall_studio_kit]]. (framework-dev : filtre `requestId` à refléter à la session Firewall full-stack.)
 - **1.24.0** (2026-06-12) — **API souveraine Ph.3 FRONT — GET data plane via la socket** (full-stack ;
   **contrat ↔ framework-dev 1.22.0**, pont backend `a07fdf2`). `ApiClient` route les GET par
   `socket.request("/path?query")` quand la Socket Nodefony est connectée — 0 call-site touché (même URL,
