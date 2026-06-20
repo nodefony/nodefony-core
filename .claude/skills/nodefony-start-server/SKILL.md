@@ -35,6 +35,25 @@ Arrêter :
 bash .claude/skills/nodefony-start-server/stop.sh   # tue dev ET cluster (master + workers) + ports
 ```
 
+### `nodefony status` / `nodefony stop` — outils natifs (standalone, de partout)
+
+Depuis 2026-06-20, deux commandes CLI **standalone** — exécutées par le fast-path de
+`CliKernel.start` **sans booter le kernel**, donc utilisables **hors d'un projet
+Nodefony** (pratique pour des zombies, ou quand le dist est cassé) :
+
+```bash
+nodefony status   # arbre des process dev (superviseur/serveur/Vite) + PID/uptime/RSS/%CPU + ports
+nodefony stop     # arrêt PROPRE du mode dev (group-kill : superviseur → enfant + Vite)
+```
+
+- `status` = diagnostic « ne plus être perdu » : **vérité = `ps`** (pas le pidfile). Signale
+  les états incohérents (pidfile périmé, process orphelins, empilement).
+- `stop.sh` **délègue désormais à `nodefony stop`** pour le mode dev (group-kill propre —
+  couvre les Vite `nodefony-vite[...]` qu'aucun `pkill` ne matchait), PUIS garde sa rafale
+  `pkill` comme **filet** pour les modes non couverts par `nodefony stop` : cluster
+  (master/worker), server/production, fenêtre pré-titre.
+- ⚠️ `nodefony stop` cible le **mode dev** uniquement → pour tuer un **cluster**, utiliser `stop.sh`.
+
 > **Modèle « 2 molettes » (2026-05-24)** : front (dev/prod) × topologie (`workers`).
 >
 > - **défaut = `development`** → TOUJOURS 1 process (Vite/HMR exige 1 maître).

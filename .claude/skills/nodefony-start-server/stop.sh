@@ -9,6 +9,13 @@
 set -uo pipefail
 
 echo ">>> KILL nodefony server (watch+rollup d'abord)"
+# Arrêt PROPRE du mode dev EN PREMIER : `nodefony stop` (standalone, n'échoue pas hors
+# trunk) fait un group-kill du superviseur → emporte l'enfant serveur ET toutes les
+# instances Vite, dont les titres `nodefony-vite[...]` qu'AUCUN pkill ci-dessous ne
+# matche (trou couvert). La rafale pkill qui suit reste le FILET pour les modes NON
+# couverts par `nodefony stop` : cluster (master/worker), server/production, et la
+# fenêtre pré-titre (`npm exec nodefony …` avant que le process.title soit posé).
+npx nodefony stop >/dev/null 2>&1 || true
 # ⚠️ process.title COUPLÉ : master/workers/mono se renomment `nodefony master|worker|server`
 # (cf clusterMaster.ts + runtimeLauncher.ts → lisibles dans Activity Monitor / ps). Donc
 # `pkill -f "nodefony cluster"` ne les matche PLUS → il FAUT aussi ces 3 patterns, sinon
