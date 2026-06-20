@@ -631,6 +631,13 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-20]` **Un sous-agent Explore peut se tromper sur l'ABSENCE d'une garde — vérifier (grep/lecture)
+  AVANT de bâtir l'attaque sur sa prémisse.** Red-team WS : l'agent a rapporté « Origin check ABSENT » ; or
+  `HttpKernel.checkWebsocketOrigin` existait bel et bien (anti-CSWSH, refus 1008, allowlist `allowedOrigins`). Sans le
+  grep de contrôle (`verifyClient|checkOrigin|allowedOrigins`), j'écrivais 5 tests sur une fausse faille — et je
+  manquais l'angle réel (attaquer la défense par spoofing d'origine). Un rapport d'agent = piste, PAS vérité terrain
+  (devise : la confiance n'exclut pas le contrôle). Bonus : le finding réel (casse) est venu de la passe 2 (lecture du code), pas du rapport.
+
 - `[1× — 2026-06-20]` **Tester un nettoyage = lancer SANS le filet qui le masque.** Pour prouver que le
   superviseur nettoie les orphelins au démarrage (volet C), `start.sh` était inutilisable : son `pkill`
   préalable aurait tué les orphelins AVANT que le code testé s'exécute → test toujours « vert » même si le
@@ -1103,6 +1110,13 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧭 Conception / fondation — sécu/firewall (frictions du jour)
 
+- `[1× — 2026-06-20]` **Un plancher de sécurité par préfixe en CASSE EXACTE est contournable en altérant la casse.**
+  Red-team P6 (frameAuthorizer) : `matchSystemPolicy` classait un canal système via `channel.startsWith("syslog:")` →
+  `SYSLOG:stream` échappait au préfixe réservé → traité comme canal libre → **abonnement anonyme autorisé** (viole
+  l'invariant déclaré « plancher non contournable »). Règle réplicable : tout match de namespace RÉSERVÉ (canal système,
+  zone, scope) doit être INSENSIBLE À LA CASSE. Fix **0-alloc** obligatoire en hot-path subscribe/inbound : `startsWithCI`
+  (`charCodeAt` + minuscule ASCII inline), JAMAIS `toLowerCase()` (alloue par frame). Non exploitable e2e ici (hub route
+  par nom exact) mais un futur provider/normalisation ouvrirait la fuite → fermer la garde, pas parier sur l'aval.
 - `[1× — 2026-06-19]` **revue sécu par grep : `git diff HEAD` IGNORE les fichiers untracked (`??`)** → les
   NOUVEAUX fichiers (le gros du diff d'une feature : service, authenticator, controller) passent **sous le radar**
   de la checklist sécu. Vécu P6.12 : 1ʳᵉ passe `git diff HEAD | grep …` n'a scanné QUE les fichiers modifiés
