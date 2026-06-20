@@ -41,6 +41,7 @@
 
 ## 🐚 Shell / environnement d'exécution
 
+- `[1× — 2026-06-20]` **Parsing de sortie d'outil système → forcer `LC_ALL=C`.** `ps -o pcpu` formate `%CPU` avec une VIRGULE décimale en locale FR (`0,0`) → regex `[\d.]` ne matchait pas → 0 process détecté (faux « aucune instance », bug silencieux). Fix : `env: {LC_ALL:"C", LANG:"C"}` au spawn + parse tolérant `,`. Vaut pour TOUT `ps`/`df`/`date`/`numfmt` parsé.
 - `[3× — 2026-06-13, 2026-06-14, 2026-06-19]` **variable shell multiligne/espacée NON quotée passée à grep = erreur
   trompeuse « No such file or directory »** : `NEW="a.ts b.ts"` puis `grep motif $NEW` → en **zsh** `$VAR` ne
   word-split PAS (chaîne entière = 1 nom) ; en bash multiligne = re-split n'importe comment (ugrep concatène 2
@@ -229,6 +230,9 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-20]` **« Vert mais cassé » EN CASCADE : 1 `dist` absent → fail-soft silencieux en chaîne.** `@nodefony/security/dist` absent → fail-soft de security → `@nodefony/test` (l'importe) tombe → `test:batch` invisible → un test CLI rouge. Visible SEULEMENT en `-d` (WARNING fail-soft noyé). Leçon : `turbo build` exit 0 ≠ outputs présents (cache-hit peut ne pas restaurer un dist supprimé) → vérifier le TERRAIN (parade `missingWorkspaceDists` dans `#ensureBuilt`). Démo : `mv security/dist` → turbo a fait `cache miss` + rebuild de TOUTE la chaîne security→… (165 s) ; la post-vérif reste le filet pour le cas cache-hit trompeur.
+- `[1× — 2026-06-20]` **Outillage de PROCESS ≠ booter le kernel.** `nodefony status`/`stop` bootaient le CliKernel → exigeaient une trunk (hors projet → menu interactif « Create Project »). Fix : fast-path standalone dans `CliKernel.start` AVANT `new Kernel` → pur `ps`/sonde ports, marche de PARTOUT, zéro effet de bord (supprime aussi un log `terminate` parasite). Règle : une commande de diagnostic/contrôle système ne doit PAS dépendre du boot applicatif.
+- `[1× — 2026-06-20]` **Suspecter son diff PUIS prouver (devise) : 3 fails « de mon commit » = 2 transitoires + 1 état repo.** Après commit `status`, 3 tests CLI `--help` rouges. Vérif : 2 TRANSITOIRES (le watch du DevSupervisor rebuildait le dist PENDANT mes tests → fichiers en cours d'écriture), 1 dû au `dist` security/test absent (état repo, `git status` du module = vide → hors mon diff). Relancer après stabilisation + croiser `git status` = la preuve. Ne jamais qualifier « mon diff » NI « pré-existant » sans le prouver.
 - `[1× — 2026-06-20]` **404 e2e inexpliqué = dist module PÉRIMÉ au boot, PAS le code.** Le DevSupervisor
   spawnait l'enfant sur le `dist/` existant **sans le vérifier** → provider OAuth `test-oidc` absent du dist
   module test → 404 sur TOUT le flux OAuth (banc nominal inclus) alors que la SOURCE était bonne. WebAuthn
