@@ -8,6 +8,7 @@ import {
   writeFileSync,
   type Stats,
 } from "node:fs";
+import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
@@ -388,10 +389,22 @@ export class DevSupervisor {
     for (;;) {
       if (this.#child !== child || this.#stopping) return; // restart/stop → abandon
       if (await this.#allPortsListening()) {
-        this.#log(
-          `✓ serveur prêt en ${Date.now() - t0}ms — framework ready`,
-          "green",
-        );
+        // Ports à l'écoute ≠ boot SAIN : un module peut être tombé en fail-soft
+        // (cascade silencieuse « vert mais cassé »). On interroge `livez` (HTTP
+        // loopback, observation externe) pour le dire HAUT (fail-loud DX).
+        const degraded = await this.#probeDegraded();
+        if (degraded === true) {
+          this.#log(
+            `✓ ports à l'écoute en ${Date.now() - t0}ms — ⚠ MAIS boot DÉGRADÉ ` +
+              "(modules ignorés) : lance `nodefony status` / vois les logs ci-dessus",
+            "yellow",
+          );
+        } else {
+          this.#log(
+            `✓ serveur prêt en ${Date.now() - t0}ms — framework ready`,
+            "green",
+          );
+        }
         return;
       }
       if (Date.now() >= deadline) {
@@ -415,6 +428,47 @@ export class DevSupervisor {
       this.#ports.map((p) => this.#isPortFree(p)),
     );
     return states.every((free) => !free);
+  }
+
+  /**
+   * Interroge `/nodefony/kernel/api/livez` (HTTP loopback, OBSERVATION EXTERNE — pas
+   * d'IPC) pour savoir si le boot est DÉGRADÉ (champ `degraded` : modules ignorés en
+   * fail-soft ou serveur attendu absent). Best-effort : tout échec (timeout, port en
+   * HTTPS seul, JSON inattendu) → `null` (on n'affirme rien, le « prêt » normal
+   * s'affiche). C'est ce qui rend le « vert mais cassé » VISIBLE au boot dev.
+   */
+  #probeDegraded(): Promise<boolean | null> {
+    const port = this.#ports[0];
+    if (!port) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const req = http.get(
+        {
+          host: "127.0.0.1",
+          port,
+          path: "/nodefony/kernel/api/livez",
+          timeout: 1500,
+        },
+        (res) => {
+          let data = "";
+          res.setEncoding("utf8");
+          res.on("data", (c) => (data += c));
+          res.on("end", () => {
+            try {
+              resolve(
+                Boolean((JSON.parse(data) as { degraded?: boolean }).degraded),
+              );
+            } catch {
+              resolve(null);
+            }
+          });
+        },
+      );
+      req.once("error", () => resolve(null));
+      req.once("timeout", () => {
+        req.destroy();
+        resolve(null);
+      });
+    });
   }
 
   /**

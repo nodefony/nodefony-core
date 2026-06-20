@@ -152,10 +152,16 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       summary:
         "Liveness/readiness probe (PUBLIC) — détails runtime gradués par authentification",
       handler: (request: IAdminRequest) => {
+        const report = kernel.getBootReport();
         const minimal = {
           status: kernel.booted ? "ok" : "booting",
           booted: kernel.booted,
           ready: kernel.booted,
+          // Boot DÉGRADÉ = des modules ont été ignorés (fail-soft) OU aucun serveur
+          // n'écoute alors qu'attendu. Booléen volontairement EXPOSÉ à l'anonyme
+          // (sonde monitoring / superviseur dev) : signal de santé, AUCUNE fuite (pas
+          // de noms). Les détails (`modulesSkipped`) restent réservés au privilégié.
+          degraded: report.modulesSkipped.length > 0 || !report.healthy,
           uptime: process.uptime(),
           environment: kernel.environment,
         };
@@ -174,6 +180,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             platform: process.platform,
             memory: process.memoryUsage(),
             modules: Object.keys(kernel.getModules()).length,
+            // Détail du « dégradé » réservé au privilégié : quels modules ignorés +
+            // comment remédier (cf IBootReport / BootReport « vert mais cassé »).
+            modulesSkipped: report.modulesSkipped,
+            remediation: report.remediation,
             cluster: { isCluster: process.env.NODEFONY_CLUSTER === "1" },
             backplanes: {
               log: {
