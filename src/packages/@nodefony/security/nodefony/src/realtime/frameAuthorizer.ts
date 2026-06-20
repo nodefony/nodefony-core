@@ -81,19 +81,65 @@ export const DEFAULT_SYSTEM_RULES: readonly ISystemChannelRule[] =
   }));
 
 /**
+ * `s` commence-t-il par `prefix`, comparaison INSENSIBLE À LA CASSE (ASCII) et
+ * SANS allocation ? Un plancher de namespace réservé ne doit JAMAIS être
+ * contournable en changeant la casse (`SYSLOG:stream` vs `syslog:stream`) :
+ * sinon un client échappe à la politique ROLE_ADMIN par un simple `toUpperCase`
+ * (defense-in-depth Zero Trust). 0 `toLowerCase()` : appelé sur le chemin
+ * subscribe/inbound → on respecte la règle perf (pas d'alloc hot-path).
+ */
+function startsWithCI(s: string, prefix: string): boolean {
+  if (s.length < prefix.length) return false;
+  for (let i = 0; i < prefix.length; i++) {
+    let a = s.charCodeAt(i);
+    if (a >= 65 && a <= 90) a += 32; // A-Z → a-z
+    let b = prefix.charCodeAt(i);
+    if (b >= 65 && b <= 90) b += 32;
+    if (a !== b) return false;
+  }
+  return true;
+}
+
+/**
+ * `s` contient-il `needle`, insensible à la casse et sans allocation ? Pour les
+ * conventions transverses `:health`/`:stats` (après le namespace de module —
+ * `mymod:health` — éventuellement suffixées d'une cadence `orm:health:5000`).
+ */
+function containsCI(s: string, needle: string): boolean {
+  const last = s.length - needle.length;
+  for (let i = 0; i <= last; i++) {
+    let ok = true;
+    for (let j = 0; j < needle.length; j++) {
+      let a = s.charCodeAt(i + j);
+      if (a >= 65 && a <= 90) a += 32;
+      let b = needle.charCodeAt(j);
+      if (b >= 65 && b <= 90) b += 32;
+      if (a !== b) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return true;
+  }
+  return false;
+}
+
+/**
  * Politique système applicable à un canal, ou `null` si le canal n'est pas
  * réservé. Premier préfixe qui matche gagne (la config est placée AVANT les
  * défauts par le firewall → elle peut surcharger). Les conventions transverses
- * `:health`/`:stats` retombent sur la politique système par défaut.
+ * `:health`/`:stats` retombent sur la politique système par défaut. Le match est
+ * INSENSIBLE À LA CASSE (cf {@link startsWithCI}) : le plancher ne se contourne
+ * pas en altérant la casse du namespace.
  */
 function matchSystemPolicy(
   channel: string,
   rules: readonly ISystemChannelRule[],
 ): IChannelPolicy | null {
   for (let i = 0; i < rules.length; i++) {
-    if (channel.startsWith(rules[i]!.prefix)) return rules[i]!.policy;
+    if (startsWithCI(channel, rules[i]!.prefix)) return rules[i]!.policy;
   }
-  if (channel.includes(":health") || channel.includes(":stats")) {
+  if (containsCI(channel, ":health") || containsCI(channel, ":stats")) {
     return SYSTEM_CHANNEL_POLICY;
   }
   return null;
