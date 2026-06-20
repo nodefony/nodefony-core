@@ -15,6 +15,7 @@ import type { IAccessVoter } from "../contracts/IAccessVoter";
 import type { IAuthorizationService } from "../contracts/IAuthorizationService";
 import type { IToken } from "../contracts/IToken";
 import { listVoterFactories } from "../src/voter/voterRegistry";
+import { recordAudit } from "../src/audit/recordAudit";
 
 const serviceName = "authorization";
 
@@ -124,6 +125,20 @@ class Authorization extends Service implements IAuthorizationService {
       `access denied: "${who}" → "${attribute}"${on} (${reason})`,
       "WARNING",
     );
+    // Journal d'audit (P6.14) : tout refus est une transition de sécurité
+    // intéressante (le chemin GRANT reste muet — volume, pas un signal).
+    recordAudit(this.container as Container, {
+      category: "authz",
+      action: "access.denied",
+      outcome: "denied",
+      actor: who,
+      resource: attribute,
+      reason,
+      metadata:
+        subject === undefined
+          ? undefined
+          : { subject: describeSubject(subject) },
+    });
   }
 
   override log(

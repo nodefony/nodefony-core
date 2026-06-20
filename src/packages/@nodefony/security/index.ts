@@ -187,6 +187,9 @@ export type {
   IAuditQuery,
   IAuditQueryResult,
 } from "./nodefony/contracts/IAuditStore";
+export { recordAudit } from "./nodefony/src/audit/recordAudit";
+export { readAuditContext } from "./nodefony/src/audit/readAuditContext";
+export type { AuditContextInfo } from "./nodefony/src/audit/readAuditContext";
 
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
 export { defineSecurityConfig } from "./nodefony/config/defineSecurityConfig";

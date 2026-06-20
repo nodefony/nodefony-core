@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-20T15:54:08.250Z",
+  "generated": "2026-06-20T16:23:55.043Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 928,
-    "symbols": 2036,
+    "files": 930,
+    "symbols": 2040,
     "classes": 296,
-    "interfaces": 529,
+    "interfaces": 531,
     "types": 250,
     "enums": 3,
-    "functions": 451,
+    "functions": 453,
     "constants": 507
   },
   "symbols": {
@@ -13946,6 +13946,31 @@
       "extends": null,
       "description": "Instantané sérialisable du journal mémoire (persistance fichier + tests)."
     },
+    "AuditContextInfo": {
+      "name": "AuditContextInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/readAuditContext.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Métadonnées de provenance extraites d'un contexte, prêtes à enrichir un événement."
+    },
+    "readAuditContext": {
+      "name": "readAuditContext",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/readAuditContext.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Extrait IP / User-Agent / requestId + drapeaux de présence (jamais la valeur) d'un contexte de requête — pour enrichir un événement d'audit avec la provenance (« d'où vient cette tentative »). Calq…"
+    },
+    "recordAudit": {
+      "name": "recordAudit",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Émet un événement d'audit **si** le service est présent — no-op sinon. La résolution se fait par le container (`auditService`) sur le **cold-path** (login, refus, révocation) : le coût d'un `Map.ge…"
+    },
     "AnonymousAuthenticator": {
       "name": "AnonymousAuthenticator",
       "kind": "class",
@@ -15606,6 +15631,7 @@
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
@@ -18951,7 +18977,8 @@
       ],
       "IAuditEventDraft": [
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts"
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts"
       ],
       "IAuthenticator": [
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
@@ -19012,7 +19039,8 @@
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
       "IAuditSink": [
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts"
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts"
       ],
       "IAuditStore": [
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
@@ -19064,6 +19092,13 @@
       "resolveSessionIdentity": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts"
+      ],
+      "recordAudit": [
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts"
+      ],
+      "readAuditContext": [
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts"
       ],
       "VoterVote": [
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
@@ -20745,6 +20780,9 @@
       "FrameAuthorizer": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
         "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
+      ],
+      "IAuditEventFlags": [
+        "src/packages/@nodefony/security/nodefony/src/audit/readAuditContext.ts"
       ],
       "AnonymousToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts"

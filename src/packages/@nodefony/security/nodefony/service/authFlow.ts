@@ -5,6 +5,8 @@ import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import type { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { resolveSessionIdentity } from "../src/sessionIdentity";
+import { recordAudit } from "../src/audit/recordAudit";
+import { readAuditContext } from "../src/audit/readAuditContext";
 
 const serviceName = "authFlow";
 
@@ -82,22 +84,50 @@ class AuthFlow extends Service {
     identifier: unknown,
     password: unknown,
   ): Promise<ISafeUser> {
+    const info = readAuditContext(context);
+    const who = typeof identifier === "string" ? identifier : null;
     if (
       typeof identifier !== "string" ||
       identifier.length === 0 ||
       typeof password !== "string" ||
       password.length === 0
     ) {
+      recordAudit(this.container as Container, {
+        category: "auth",
+        action: "login.failure",
+        outcome: "failure",
+        actor: who,
+        reason: "invalid_credentials",
+        ...info,
+      });
       throw new AuthenticationError(INVALID_CREDENTIALS);
     }
     const throttler = this.#resolveThrottler();
     if (throttler !== null) {
       const retryAfterS = throttler.check(identifier);
-      if (retryAfterS > 0) throw new ThrottledError(retryAfterS);
+      if (retryAfterS > 0) {
+        recordAudit(this.container as Container, {
+          category: "auth",
+          action: "login.throttled",
+          outcome: "failure",
+          actor: identifier,
+          reason: "throttled",
+          ...info,
+        });
+        throw new ThrottledError(retryAfterS);
+      }
     }
     const user = await this.#resolveUsers().authenticate(identifier, password);
     if (user === null) {
       throttler?.recordFailure(identifier);
+      recordAudit(this.container as Container, {
+        category: "auth",
+        action: "login.failure",
+        outcome: "failure",
+        actor: identifier,
+        reason: "invalid_credentials",
+        ...info,
+      });
       throw new AuthenticationError(INVALID_CREDENTIALS);
     }
     throttler?.recordSuccess(identifier);
@@ -107,6 +137,13 @@ class AuthFlow extends Service {
     // par `saveSession`), objet riche dans l'ALS (logs/audit).
     context.user = user.identifier;
     RequestContext.set("user", user);
+    recordAudit(this.container as Container, {
+      category: "auth",
+      action: "login.success",
+      outcome: "success",
+      actor: user.identifier,
+      ...info,
+    });
     return toSafeUser(user);
   }
 
@@ -135,6 +172,16 @@ class AuthFlow extends Service {
     await this.#openSession(context, user.identifier);
     context.user = user.identifier;
     RequestContext.set("user", user);
+    // Ouverture de session sur preuve EXTERNE (passkey/OAuth/magic link) — le
+    // controller appelant précisera le facteur (webauthn/oauth) en P6.14 lot 2b.
+    recordAudit(this.container as Container, {
+      category: "auth",
+      action: "login.success",
+      outcome: "success",
+      actor: user.identifier,
+      reason: "federated",
+      ...readAuditContext(context),
+    });
     return toSafeUser(user);
   }
 
@@ -169,11 +216,20 @@ class AuthFlow extends Service {
     if (!session || session.status !== "active") {
       return false;
     }
+    // Acteur capturé AVANT destroy (la session porte encore l'identifiant).
+    const actor = typeof session.user === "string" ? session.user : null;
     await session.destroy(true);
     // L'état du contexte reflète la réalité : plus de session → le
     // `saveSession` de fin de requête est un no-op (pas de résurrection).
     context.session = null;
     context.user = null;
+    recordAudit(this.container as Container, {
+      category: "session",
+      action: "logout",
+      outcome: "success",
+      actor,
+      ...readAuditContext(context),
+    });
     return true;
   }
 
