@@ -1,0 +1,120 @@
+/*
+ *   Tests UNITAIRES du helper d'introspection des process dev (devProcess.ts) —
+ *   parsing `ps`, formatage, valeurs partagées. Fonctions PURES → déterministes,
+ *   sans spawn `ps` ni dépendance machine. Couvre en particulier le parsing `%CPU`
+ *   avec virgule décimale (bug locale FR qui avait fait passer la détection à zéro).
+ */
+
+import assert from "node:assert";
+import path from "node:path";
+import {
+  defaultDevPorts,
+  devSupervisorPidFile,
+  formatUptime,
+  parsePsRow,
+} from "../service/dev/devProcess";
+
+describe("devProcess — parsePsRow (parsing ps)", () => {
+  it("superviseur, %CPU à VIRGULE décimale (locale FR) → cpu numérique correct", () => {
+    const r = parsePsRow(
+      "15326 15293 108564   0,0   47:27 nodefony-dev-supervisor",
+    );
+    assert.ok(r);
+    assert.strictEqual(r.role, "supervisor");
+    assert.strictEqual(r.label, "supervisor");
+    assert.strictEqual(r.pid, 15326);
+    assert.strictEqual(r.ppid, 15293);
+    assert.strictEqual(r.rssKb, 108564);
+    assert.strictEqual(r.cpu, 0); // "0,0" ne doit PAS casser le parse
+    assert.strictEqual(r.uptimeSec, 47 * 60 + 27); // 47:27 = MM:SS
+  });
+
+  it("serveur, %CPU à POINT décimal → cpu numérique correct", () => {
+    const r = parsePsRow(
+      "40482 15326 305444   12.7   01:08 nodefony-dev-server",
+    );
+    assert.ok(r);
+    assert.strictEqual(r.role, "server");
+    assert.strictEqual(r.cpu, 12.7);
+    assert.strictEqual(r.uptimeSec, 68); // 01:08 = MM:SS
+  });
+
+  it("Vite mono-entry → label court `vite` + detail = bundle", () => {
+    const r = parsePsRow(
+      "40514 40482 436508 0,0 01:03 nodefony-vite[studio] /path/vite.js --port 5173",
+    );
+    assert.ok(r);
+    assert.strictEqual(r.role, "vite");
+    assert.strictEqual(r.label, "vite"); // colonne courte → alignement stable
+    assert.strictEqual(r.detail, "studio");
+  });
+
+  it("Vite multi-entry → detail = bundles joints", () => {
+    const r = parsePsRow(
+      "40515 40482 132076 0,0 01:03 nodefony-vite[react+vue+studio] /path/vite.js",
+    );
+    assert.ok(r);
+    assert.strictEqual(r.label, "vite");
+    assert.strictEqual(r.detail, "react+vue+studio");
+  });
+
+  it("uptime HH:MM:SS et DD-HH:MM:SS → secondes", () => {
+    const h = parsePsRow("100 1 1000 0,0 01:02:03 nodefony-dev-server");
+    assert.strictEqual(h?.uptimeSec, 1 * 3600 + 2 * 60 + 3);
+    const d = parsePsRow("100 1 1000 0,0 2-03:04:05 nodefony-dev-server");
+    assert.strictEqual(d?.uptimeSec, 2 * 86400 + 3 * 3600 + 4 * 60 + 5);
+  });
+
+  it("process NON-dev → null (hors périmètre)", () => {
+    assert.strictEqual(
+      parsePsRow("500 1 20000 0.0 10:00 /usr/libexec/some-daemon"),
+      null,
+    );
+  });
+
+  it("ligne vide / header → null", () => {
+    assert.strictEqual(parsePsRow(""), null);
+    assert.strictEqual(parsePsRow("  PID PPID RSS %CPU ELAPSED COMMAND"), null);
+  });
+});
+
+describe("devProcess — formatUptime", () => {
+  it("formate par paliers lisibles", () => {
+    assert.strictEqual(formatUptime(0), "0s");
+    assert.strictEqual(formatUptime(45), "45s");
+    assert.strictEqual(formatUptime(134), "2m14s");
+    assert.strictEqual(formatUptime(3600), "1h00m");
+    assert.strictEqual(formatUptime(90061), "1d 01h");
+  });
+});
+
+describe("devProcess — valeurs partagées (anti-divergence)", () => {
+  it("devSupervisorPidFile pointe node_modules/.cache/nodefony", () => {
+    const f = devSupervisorPidFile("/app");
+    assert.strictEqual(
+      f,
+      path.join(
+        "/app",
+        "node_modules",
+        ".cache",
+        "nodefony",
+        "dev-supervisor.pid",
+      ),
+    );
+  });
+
+  it("defaultDevPorts : défaut, override CSV, valeur invalide", () => {
+    const save = process.env.NODEFONY_DEV_PORTS;
+    try {
+      delete process.env.NODEFONY_DEV_PORTS;
+      assert.deepStrictEqual(defaultDevPorts(), [5151, 5152]);
+      process.env.NODEFONY_DEV_PORTS = "3000, 3001 ";
+      assert.deepStrictEqual(defaultDevPorts(), [3000, 3001]);
+      process.env.NODEFONY_DEV_PORTS = "nope";
+      assert.deepStrictEqual(defaultDevPorts(), [5151, 5152]); // fallback
+    } finally {
+      if (save === undefined) delete process.env.NODEFONY_DEV_PORTS;
+      else process.env.NODEFONY_DEV_PORTS = save;
+    }
+  });
+});

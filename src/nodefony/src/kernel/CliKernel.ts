@@ -18,6 +18,7 @@ import Prod from "./commands/ProdCommand";
 import Cluster from "./commands/ClusterCommand";
 import Install from "./commands/InstallCommand";
 import Outated from "./commands/OutdatedCommand";
+import Status from "./commands/StatusCommand";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -162,6 +163,7 @@ class CliKernel extends Cli {
         this.addCommand(Install);
         this.addCommand(Outated);
         this.addCommand(Start);
+        this.addCommand(Status);
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);

@@ -176,7 +176,9 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 **terminate(code?)**: avec kernel → `kernel.terminate(code)`. Sans → `super.terminate(code, quiet)`.
 
-**start(options?)**: crée `Kernel`, ajoute 7 commandes (Start/Dev/Build/Prod/**Cluster**/Install/Outdated), configure Commander, `parseAsync()` + `kernel.start()`. (Pm2/Kill retirées 2026-05-29 — C6 retrait PM2 ; staging retirée 2026-05-25.)
+**start(options?)**: crée `Kernel`, ajoute 8 commandes (Start/Dev/Build/Prod/**Cluster**/Install/Outdated/**Status**), configure Commander, `parseAsync()` + `kernel.start()`. (Pm2/Kill retirées 2026-05-29 — C6 retrait PM2 ; staging retirée 2026-05-25.)
+
+**`Status` (`nodefony status`, `StatusCommand.ts`)**: introspection des process dev (« ne plus être perdu »). `kernelEvent:"onStart"` + `terminate(0)` dans `generate()` → s'exécute AVANT le chargement des modules app → fiable même app cassée ; quietBoot + `servers:false` à `onKernelPreStart`. 100 % observation externe via `service/dev/devProcess.ts` (helper PARTAGÉ avec DevSupervisor) : `discoverDevProcesses()` (=`ps -A` sous `LC_ALL=C` → `parsePsRow` pur, classe par titre `nodefony-dev-supervisor`/`-server`/`-vite[…]`, s'auto-exclut) + `probePorts` (sonde TCP loopback). Tableau ANSI colonne RÔLE dynamique (détail bundles Vite en 2ᵉ ligne) + synthèse + warnings fail-loud (pidfile périmé/orphelins/empilement). **Source de vérité = `ps`, pas le pidfile** (PID recyclé). `devSupervisorPidFile()`/`defaultDevPorts()` = valeurs partagées anti-divergence (DevSupervisor les consomme). ⚠️ piège vécu : `%CPU` à virgule décimale (locale FR) → `LC_ALL=C` + parse tolérant `,`.
 
 ## Cluster (mode multi-process sans PM2 — Phases 2+3)
 

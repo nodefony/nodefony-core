@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-20T11:00:02.920Z",
+  "generated": "2026-06-20T12:09:43.485Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 919,
-    "symbols": 1987,
-    "classes": 292,
-    "interfaces": 519,
-    "types": 246,
+    "files": 921,
+    "symbols": 2006,
+    "classes": 293,
+    "interfaces": 521,
+    "types": 247,
     "enums": 3,
-    "functions": 423,
-    "constants": 504
+    "functions": 435,
+    "constants": 507
   },
   "symbols": {
     "Cli": {
@@ -2647,6 +2647,17 @@
       "implements": [],
       "decorators": []
     },
+    "@nodefony/core:Status": {
+      "name": "Status",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/StatusCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony status` — photo instantanée des process de développement. Répond au besoin « ne plus être perdu » : d'un coup d'œil, quels process dev tournent (superviseur / serveur / Vite), av…"
+    },
     "services": {
       "name": "services",
       "kind": "function",
@@ -3139,6 +3150,128 @@
       "implements": [],
       "decorators": [],
       "description": "Affichage « boot de rêve » du serveur en développement : une checklist animée (spinner + `✓`/`✗` par phase de boot) à la place du mur de logs `INFO`/`MODULE ADD`. **Dev-only** : instancié uniquemen…"
+    },
+    "DevProcessInfo": {
+      "name": "DevProcessInfo",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Process dev vivant observé via `ps` (sans IPC)."
+    },
+    "PortState": {
+      "name": "PortState",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "État de sonde d'un port serveur."
+    },
+    "DevProcessRole": {
+      "name": "DevProcessRole",
+      "kind": "type",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rôle d'un process dans la topologie de développement."
+    },
+    "devSupervisorPidFile": {
+      "name": "devSupervisorPidFile",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Chemin du pidfile single-instance du superviseur dev — **source UNIQUE** lue par `status`/`stop` et écrite par le superviseur (divergence = bug : le lecteur ne verrait jamais l'instance). Sous `nod…"
+    },
+    "defaultDevPorts": {
+      "name": "defaultDevPorts",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ports serveur dev par défaut : `NODEFONY_DEV_PORTS` (CSV) sinon HTTP/HTTPS Nodefony (`[5151, 5152]`). Partagé : `status` sonde EXACTEMENT les ports que le superviseur attend libres au restart."
+    },
+    "readSupervisorPid": {
+      "name": "readSupervisorPid",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le PID du superviseur depuis le pidfile, ou `null` si absent / illisible."
+    },
+    "isPidAlive": {
+      "name": "isPidAlive",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si le process `pid` est vivant (signal 0 — ne le tue pas)."
+    },
+    "isPortListening": {
+      "name": "isPortListening",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si un service écoute sur `port` en loopback (connexion acceptée). Inverse de la sonde « port libre » du superviseur : ici on confirme qu'un serveur RÉPOND."
+    },
+    "probePorts": {
+      "name": "probePorts",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sonde TCP de plusieurs ports en parallèle."
+    },
+    "@nodefony/core:formatUptime": {
+      "name": "formatUptime",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Formate une durée (s) en libellé court (`45s`, `2m14s`, `1h03m`, `2d 05h`)."
+    },
+    "parsePsRow": {
+      "name": "parsePsRow",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse UNE ligne `ps` (pid ppid rss pcpu etime command) en {@link DevProcessInfo}, ou `null` si la ligne ne matche pas ou n'est pas un process dev connu. `%CPU` toléré avec point OU virgule décimale…"
+    },
+    "discoverDevProcesses": {
+      "name": "discoverDevProcesses",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Découvre les process dev Nodefony vivants par OBSERVATION EXTERNE (`ps`) — zéro IPC. Ne retient que les process dont la commande porte un titre dev connu (superviseur / serveur / Vite) et en extrai…"
+    },
+    "DEV_SUPERVISOR_TITLE": {
+      "name": "DEV_SUPERVISOR_TITLE",
+      "kind": "const",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Helpers d'INTROSPECTION des process de développement Nodefony — source de vérité PARTAGÉE entre le superviseur (`DevSupervisor`, écrivain du pidfile) et les commandes de diagnostic (`nodefony statu…"
+    },
+    "DEV_SERVER_TITLE": {
+      "name": "DEV_SERVER_TITLE",
+      "kind": "const",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Titre de process du serveur enfant supervisé (posé par `DevCommand` à `onReady`)."
+    },
+    "DEV_VITE_PREFIX": {
+      "name": "DEV_VITE_PREFIX",
+      "kind": "const",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Préfixe de titre des process Vite (`ViteProcessSupervisor`, via `argv0`)."
     },
     "DevSupervisor": {
       "name": "DevSupervisor",
@@ -14650,6 +14783,7 @@
         "Outdated",
         "Prod",
         "Start",
+        "Status",
         "BatchTest",
         "DaemonTest",
         "FrontendBuild",
@@ -15144,6 +15278,7 @@
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
+        "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -16461,6 +16596,7 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
+        "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -16551,6 +16687,7 @@
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
       ],
       "Builder": [
@@ -16655,6 +16792,9 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Install": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Status": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "setLogColor": [
@@ -16906,7 +17046,8 @@
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
       "formatUptime": [
-        "src/nodefony/src/client/debugbar/DebugBar.ts"
+        "src/nodefony/src/client/debugbar/DebugBar.ts",
+        "src/nodefony/src/kernel/commands/StatusCommand.ts"
       ],
       "gauge": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
@@ -17021,6 +17162,7 @@
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
+        "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -17057,6 +17199,32 @@
       ],
       "Topology": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
+      ],
+      "defaultDevPorts": [
+        "src/nodefony/src/kernel/commands/StatusCommand.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "devSupervisorPidFile": [
+        "src/nodefony/src/kernel/commands/StatusCommand.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "discoverDevProcesses": [
+        "src/nodefony/src/kernel/commands/StatusCommand.ts"
+      ],
+      "isPidAlive": [
+        "src/nodefony/src/kernel/commands/StatusCommand.ts"
+      ],
+      "probePorts": [
+        "src/nodefony/src/kernel/commands/StatusCommand.ts"
+      ],
+      "readSupervisorPid": [
+        "src/nodefony/src/kernel/commands/StatusCommand.ts"
+      ],
+      "DevProcessInfo": [
+        "src/nodefony/src/kernel/commands/StatusCommand.ts"
+      ],
+      "PortState": [
+        "src/nodefony/src/kernel/commands/StatusCommand.ts"
       ],
       "DIScope": [
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"

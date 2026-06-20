@@ -21,7 +21,8 @@ src/nodefony/src/kernel/
 │   ├── ProdCommand.ts       ← foreground cloud-native (topologie via --workers)
 │   ├── ClusterCommand.ts    ← cluster multi-worker (remplace l'ancien staging)
 │   ├── InstallCommand.ts
-│   └── OutdatedCommand.ts
+│   ├── OutdatedCommand.ts
+│   └── StatusCommand.ts     ← introspection process dev (ps + sonde ports, no-IPC)
 ├── injector/                ← DI decorators (@injectable, @inject, ...)
 └── MEMORY.md / README.md / CLAUDE.md
 ```
@@ -171,15 +172,16 @@ class MyCommand extends Command {
 
 ## Commandes built-in
 
-| Command    | Alias  | Status                                                |
-| ---------- | ------ | ----------------------------------------------------- |
-| `Start`    | —      | ✅                                                    |
-| `Dev`      | `dev`  | ✅                                                    |
-| `Build`    | —      | ✅                                                    |
-| `Prod`     | `prod` | ✅ foreground cloud-native (topologie `--workers`)    |
-| `Cluster`  | —      | ✅ cgroup-aware + respawn backoff + graceful shutdown |
-| `Install`  | —      | ✅                                                    |
-| `Outdated` | —      | ✅                                                    |
+| Command    | Alias  | Status                                                          |
+| ---------- | ------ | --------------------------------------------------------------- |
+| `Start`    | —      | ✅                                                              |
+| `Dev`      | `dev`  | ✅                                                              |
+| `Build`    | —      | ✅                                                              |
+| `Prod`     | `prod` | ✅ foreground cloud-native (topologie `--workers`)              |
+| `Cluster`  | —      | ✅ cgroup-aware + respawn backoff + graceful shutdown           |
+| `Install`  | —      | ✅                                                              |
+| `Outdated` | —      | ✅                                                              |
+| `Status`   | —      | ✅ introspection process dev (superviseur/serveur/Vite + ports) |
 
 ⚠️ **Tests CLI** : Phase 11 non finalisée. Les commands ne sont pas couvertes par des tests d'intégration. État réel à vérifier au cas par cas.
 

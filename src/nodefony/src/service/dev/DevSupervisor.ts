@@ -12,6 +12,7 @@ import net from "node:net";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
 import { SysExit } from "../../cli/sysexits";
+import { defaultDevPorts, devSupervisorPidFile } from "./devProcess";
 
 /** Options du superviseur de dev. */
 export interface DevSupervisorOptions {
@@ -124,27 +125,11 @@ export class DevSupervisor {
       "env.ts",
     ];
     this.#paths = wanted.filter((p) => existsSync(path.resolve(this.#cwd, p)));
-    this.#ports = options.ports ?? this.#defaultPorts();
-    // Verrou par projet, sous node_modules/.cache (déjà gitignoré, pas de
-    // pollution du repo). Un seul superviseur par cwd à la fois.
-    this.#pidFile = path.join(
-      this.#cwd,
-      "node_modules",
-      ".cache",
-      "nodefony",
-      "dev-supervisor.pid",
-    );
-  }
-
-  /** Ports par défaut : `NODEFONY_DEV_PORTS` (CSV) sinon HTTP/HTTPS Nodefony. */
-  #defaultPorts(): readonly number[] {
-    const env = process.env.NODEFONY_DEV_PORTS;
-    if (!env) return [5151, 5152];
-    const parsed = env
-      .split(",")
-      .map((s) => Number.parseInt(s.trim(), 10))
-      .filter((n) => Number.isInteger(n) && n > 0);
-    return parsed.length > 0 ? parsed : [5151, 5152];
+    // Ports + pidfile = source de vérité PARTAGÉE avec les commandes d'introspection
+    // (`nodefony status`/`stop`, cf devProcess.ts) : une divergence écrivain/lecteur
+    // serait un bug (status ne verrait jamais l'instance). Définis une seule fois là-bas.
+    this.#ports = options.ports ?? defaultDevPorts();
+    this.#pidFile = devSupervisorPidFile(this.#cwd);
   }
 
   /** Écrit une ligne préfixée sur stdout (pas de `console.log` — code core). */
