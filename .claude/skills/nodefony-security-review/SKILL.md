@@ -191,6 +191,25 @@ VERDICT : ✅ commit OK | ⛔ corriger d'abord : <liste>
 **Toujours** : ≥1 **contrôle positif** (sinon « tout bloquer » est trivialement vert) + honnêteté sur
 les **limites documentées** (ex. repli CSRF host-only OWASP : http même-hôte passe — couvert ailleurs).
 
+**Briques à crypto DÉLÉGUÉE à une lib auditée** (réplicable — vécu WebAuthn `705b3111`) : quand
+déclencher un vecteur exige un secret matériel impossible à forger en test (signature FIDO2 d'un
+authenticator, attestation matérielle) — bref un **input crypto-valide** que le black-box ne peut
+fabriquer sans simulateur lourd —, NE PAS reconstruire l'authenticator (= tester la lib auditée, pas
+Nodefony). Posture :
+
+1. **Prouver le CÂBLAGE** que Nodefony alimente AUTOUR de la lib, sans crypto valide : challenge à
+   **usage unique** (rejoue un input bidon 2× → le 1ᵉʳ consomme, le 2ᵉ est rejeté), origine/host
+   transmise, **prevCounter** stocké passé à la lib, userId résolu hors body, message uniforme à
+   l'échec. (ex. WebAuthn : un `verify` bidon échoue 401 puis rejoue → 400 « challenge consommé ».)
+2. **Lire la délégation** (passe 2) : la lib fait-elle VRAIMENT la garde ? (vérifié : `@simplewebauthn`
+   rejette `counter <= prev`.) Confirmer que Nodefony lui passe les bons paramètres (allowlist
+   d'origines en prod, pas le header ; rpID figé ; prevCounter du store).
+3. **Documenter la limite assumée** dans le rapport (§4.7 « Limites documentées ») : « assertions
+   crypto-valides non forgées — vérif signature déléguée à <lib auditée>, prouvée par lecture +
+   câblage ». Une brique reste « SAINE » si câblage prouvé + délégation lue, même sans rouge-test
+   de la signature elle-même. NB : le **compteur anti-DoS** du gabarit §4.3 ne s'applique qu'aux
+   briques à **lookup coûteux** (hash mdp/clé) — un store mémoire (WebAuthn) n'en a pas.
+
 ### 4.2 Le cycle RED → BLUE
 
 - **RED** trouve (test rouge) → **BLUE** corrige le code → **re-prouve** : le test rouge devient vert
