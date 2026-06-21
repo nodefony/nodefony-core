@@ -42,6 +42,8 @@
 ## 🐚 Shell / environnement d'exécution
 
 - `[1× — 2026-06-20]` **Parsing de sortie d'outil système → forcer `LC_ALL=C`.** `ps -o pcpu` formate `%CPU` avec une VIRGULE décimale en locale FR (`0,0`) → regex `[\d.]` ne matchait pas → 0 process détecté (faux « aucune instance », bug silencieux). Fix : `env: {LC_ALL:"C", LANG:"C"}` au spawn + parse tolérant `,`. Vaut pour TOUT `ps`/`df`/`date`/`numfmt` parsé.
+- `[1× — 2026-06-21]` **`lsof -ti:PORT` liste le serveur ET les clients connectés** (ESTABLISHED, dont le NAVIGATEUR sur Studio) → un `kill -9 $(lsof -ti:PORT)` **tue le navigateur du user** (vécu : helper réseau Brave tué). Pour ne viser que le serveur : **`lsof -ti:PORT -sTCP:LISTEN`** (réf saine déjà dans `ViteProcessSupervisor`). Fix appliqué à `start.sh`/`stop.sh` (le code PRODUIT `nodefony stop`/`DevSupervisor` était déjà sain : découverte par `ps`+titre, kill par PID/groupe, jamais par port).
+- `[1× — 2026-06-21]` **Identifier un PID AVANT de crier « fantôme ».** Un PID « en trop » sur un port via `lsof -ti` (sans `-sTCP:LISTEN`) m'a fait diagnostiquer un process serveur fantôme + un « trou DevSupervisor » — c'était le **navigateur Brave** (client). Coût : kills agressifs inutiles + fausse alarme produit. Réflexe : `ps -p <pid> -o command=` (= « c'est quoi ce PID ») avant toute conclusion. Suspecter son outil (lsof mal filtré) avant d'accuser le code produit.
 - `[3× — 2026-06-13, 2026-06-14, 2026-06-19]` **variable shell multiligne/espacée NON quotée passée à grep = erreur
   trompeuse « No such file or directory »** : `NEW="a.ts b.ts"` puis `grep motif $NEW` → en **zsh** `$VAR` ne
   word-split PAS (chaîne entière = 1 nom) ; en bash multiligne = re-split n'importe comment (ugrep concatène 2

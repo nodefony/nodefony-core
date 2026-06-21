@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.27.0
+version: 1.28.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1488,6 +1488,18 @@ sticky/>...</Stack>` par `<PageLayout>...</PageLayout>` + `<Tabs.List>`→`<Stic
   (2 returns conditionnels). L'homogénéité visuelle est déjà là (même PageHeader sticky) ; la migration DRY ne vaut pas
   un risque de régression non vérifiable à l'aveugle.
 
+**Page API Keys P6.15 — 3 modes + data plane admin (2026-06-21, full-stack ↔ framework-dev 1.24.0)**
+
+> 3ᵉ page Security. Gestion des PAT, **self-service + administration** dans une page. Patron éclaté `routes/apikeys/*`.
+
+- **Module éclaté** (recette ORM/firewall) : `apiKeysModel.ts` (types miroir + endpoints + **statut DÉRIVÉ** `keyStatus` revoked>expired>active + `describeApiKeysError` + format dates) · `apiKeysFormat.tsx` (badges a11y) · `ApiKeysTable.tsx` (`DataGrid`+Modal **réutilisé user/admin** via prop `showSubject` = colonne Porteur conditionnelle) · `CreateApiKeyModal.tsx` (formulaire→secret) · `ApiKeysHelp.tsx` · orchestrateur `ApiKeys.tsx`.
+- **3 modes via `SegmentedControl`** (Utilisateur / Administration / Tenant **grisé** `disabled`) **gaté `hasRole(auth.roles, "ROLE_NODEFONY_ADMIN")`** (`nodefony/roles` isomorphe, déjà importé par `AuthStore`). Le mode pilote : l'endpoint (`/keys` self-service vs data plane admin), la colonne Porteur, le bouton « Nouvelle clé » (mode user SEUL — **l'admin ne crée jamais pour autrui** = usurpation).
+- **Secret affiché 1×** : Modal 2 phases (formulaire → token en `<Code>` + `<CopyButton>` + avertissement `role="alert"`), jamais re-fetchable, état purgé à la fermeture. `closeOnClickOutside={false}` en phase secret.
+- **Scopes auto-adaptatif** : `capabilities.allowedScopes` non vide → **`MultiSelect`** (catalogue) ; `null` → **`TagsInput`** libre. (Multi-API = trou de mécanique pas de modèle : `scopes/audience/resources` prêts → P6.8 figé [[project_p6_8_scopes_per_api_kit]].)
+- **🚨 LE bug de la session — path du broker SANS sous-préfixe `admin`** : un `IAdminApi` (`SecurityAdminApi`, namespace `security`) monte sous `/nodefony/security/api/<path>` → endpoint `path:"apikeys"` = **`/nodefony/security/api/apikeys`**, PAS `/admin/apikeys`. J'avais écrit `/admin/` côté front → **404**. **Discriminant à graver** : le **route-match est hissé AVANT le firewall** → une route ABSENTE = **404** (`handleFrontController`), une route présente derrière le firewall = **401**. **Lire 404≠401 comme « route absente » d'emblée** (j'ai perdu du temps à suspecter un dist périmé / un fantôme).
+- **Mutations = POST/DELETE HTTP** : révocation user `store.api.deleteAbsolute("/keys/{id}")`, admin `postAbsolute("/apikeys/{id}/revoke")`. `ApiClient` route les mutations en **fetch** (le pont socket `api.request` est GET-only — CSRF) → rien à faire côté socket, ça marche. Toasts via `useNotifications().notify(level,msg,{source:"api"})`.
+- Prouvé **E2E** : clé créée dans Studio → `curl /nodefony/test/m2m/whoami -H "Authorization: Bearer nf_…"` → **200** (porteur+rôles frais). Gates : typecheck Studio 0 · serveur UP · 3 routes data plane 401 (montées). (back = framework-dev **1.24.0**.)
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1508,6 +1520,16 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.28.0** (2026-06-21) — **Page API Keys P6.15 — 3 modes + data plane admin** (full-stack ; **contrat ↔
+  framework-dev 1.24.0** : `ITokenStore.listAll()` 4 stores + `ApiKeyService.{listAllPat,revokeAnyPat,describeCapabilities}`
+  - endpoints `SecurityAdminApi` `GET /apikeys`+`POST /apikeys/{id}/revoke` + `GET /keys/capabilities`). Page
+    `/nodefony/api-keys` : module éclaté `routes/apikeys/*` (6 fichiers), **3 modes** `SegmentedControl` (Utilisateur
+    self-service / Administration cross-porteur RBAC / Tenant P17 grisé) gaté `hasRole`, table `DataGrid`+Modal réutilisée
+    user/admin (`showSubject`), création **secret-1×** (`CopyButton`+`role=alert`), scopes `MultiSelect|TagsInput` selon
+    catalogue, révocation confirmée (mutations **HTTP** — socket GET-only). Câblage App/navConfig(wip retiré)/stubs.
+    Prouvé E2E (clé Studio → auth M2M 200). RETEX complet (section « Page API Keys P6.15 ») : **bug path broker** sans
+    sous-préfixe `admin` (`/security/api/apikeys` pas `/admin/apikeys`) + discriminant **404=route absente vs 401=gardée**
+    (route-match hissé avant firewall). [[project_session_2026-06-21_state]] · [[project_p6_8_scopes_per_api_kit]].
 - **1.27.0** (2026-06-21) — **Page Roles P6.15 + FIX sticky STRUCTUREL + layout commun `PageLayout`/`StickyTabsList`**
   (front-only). Page `/nodefony/roles` (onglets Hiérarchie + Graphe `FlowGraph` ; module éclaté `routes/roles/*` ;
   types miroir réutilisés de `firewall/firewallModel`). **Fix racine du sticky** : `minHeight: 0` sur `AppShell.Main`

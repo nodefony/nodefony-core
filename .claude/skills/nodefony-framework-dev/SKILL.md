@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.23.0
+version: 1.24.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1559,6 +1559,20 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.24.0** (2026-06-21) — **Data plane admin API Keys + `ITokenStore.listAll()` (P6.15, contrat ↔ studio-dev 1.28.0).**
+  (1) **`ITokenStore.listAll()`** ajouté au contrat → impl dans les **4 stores** : `MemoryTokenStore` (`[...byId]`,
+  `FileTokenStore` hérite), `DrizzleTokenStore`/`MongooseTokenStore` (`find({})`), **`RedisTokenStore` via SCAN**
+  (`scan` ajouté à `RedisClientLike` + double de test `FakeRedis`). Leçon : **ajouter une méthode à une interface de
+  store partagée = toucher TOUS les implémenteurs** (Redis n'énumère pas nativement → SCAN curseur, op admin cold-path).
+  (2) **`ApiKeyService`** : `listAllPat()` (cross-porteur, redacté, RBAC en amont) · `revokeAnyPat(id, actorId)`
+  (révoque n'importe quelle clé + **audit acteur admin + porteur cible**, ≠ `revokeForSubject`) · `describeCapabilities()`
+  (`IApiKeyCapabilities` : enabled/prefix/maxPerSubject/defaultExpiryDays/allowedScopes — pour le formulaire). (3)
+  **`SecurityAdminApi`** : `GET apikeys` + **`POST apikeys/{id}/revoke`** (1ʳᵉ MUTATION du broker admin — `IAdminEndpoint.method`
+  - `IAdminRequest.{params,user}` déjà prêts ; helper `adminActor(user)` duck-type l'identité pour l'audit). (4)
+    **`ApiKeyController`** (framework) : `GET /keys/capabilities` (route littérale AVANT `/{id}`, GET ≠ DELETE = 0 collision).
+    Build turbo 19/19 ; data plane 401 sans token (3 routes montées) ; E2E clé Studio → `/test/m2m/whoami` 200. **Décisions** :
+    l'admin ne CRÉE jamais pour autrui (usurpation — révocation/lecture seulement) ; **mutations restent HTTP** (CSRF ;
+    la Socket est GET-only — chantier mutations-socket figé [[project_socket_mutations_idempotency_kit]]). Front = studio-dev 1.28.0.
 - **1.23.0** (2026-06-20) — **Introspection Firewall (data plane Studio P6.15, contrat ↔ studio-dev 1.26.0).**
   `Firewall.describe()` + `describeRoleHierarchy()` (contrat `IFirewall`, DTO `contracts/IFirewallDescription.ts`)
   projettent l'état **RUNTIME** (zones montées / authenticators registre∪montés / défenses résolues / hiérarchie
