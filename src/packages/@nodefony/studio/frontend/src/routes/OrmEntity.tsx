@@ -14,7 +14,7 @@ import {
 import { IconArrowLeft, IconDatabase, IconKey } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
-import { PageHeader, DataState, DocHint } from "../components/ui";
+import { PageLayout, DataState, DocHint } from "../components/ui";
 
 /** Version de la doc des fiches d'aide (`DocHint`) du détail d'entité ORM. */
 const ORM_DOC = "v1.0";
@@ -77,26 +77,24 @@ export const OrmEntity = observer(() => {
   );
 
   return (
-    <Stack gap="md">
-      <PageHeader
-        title={name || "Entité"}
-        subtitle={
-          data
-            ? `domaine : ${data.domain || "—"} · module : ${data.module || "—"} · ORM : ${data.orm}`
-            : orm
-        }
-        icon={<IconDatabase size={22} />}
-        actions={
-          <Button
-            variant="light"
-            leftSection={<IconArrowLeft size={16} />}
-            onClick={() => navigate("/nodefony/databases")}
-          >
-            Retour à l'ERD
-          </Button>
-        }
-      />
-
+    <PageLayout
+      title={name || "Entité"}
+      subtitle={
+        data
+          ? `domaine : ${data.domain || "—"} · module : ${data.module || "—"} · ORM : ${data.orm}`
+          : orm
+      }
+      icon={<IconDatabase size={22} />}
+      actions={
+        <Button
+          variant="light"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={() => navigate("/nodefony/databases")}
+        >
+          Retour à l'ERD
+        </Button>
+      }
+    >
       <DataState
         loading={loading}
         error={error}
@@ -253,6 +251,6 @@ export const OrmEntity = observer(() => {
           </Stack>
         )}
       </DataState>
-    </Stack>
+    </PageLayout>
   );
 });

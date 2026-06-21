@@ -37,7 +37,7 @@ import {
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
 import {
-  PageHeader,
+  PageLayout,
   DataState,
   KeyValue,
   DefinitionList,
@@ -317,27 +317,25 @@ export const Runtime = observer(() => {
   const mode = info.data ? deriveMode(info.data, health.data) : null;
 
   return (
-    <Stack gap="xl">
-      <PageHeader
-        sticky
-        title="Runtime & Lancement"
-        subtitle="Comment ce serveur tourne, et comment le lancer dans chaque mode."
-        actions={
-          <Button
-            variant="light"
-            leftSection={<IconRefresh size={16} />}
-            loading={info.loading}
-            onClick={() => {
-              info.reload();
-              health.reload();
-              vite.reload();
-            }}
-          >
-            Recharger
-          </Button>
-        }
-      />
-
+    <PageLayout
+      gap="xl"
+      title="Runtime & Lancement"
+      subtitle="Comment ce serveur tourne, et comment le lancer dans chaque mode."
+      actions={
+        <Button
+          variant="light"
+          leftSection={<IconRefresh size={16} />}
+          loading={info.loading}
+          onClick={() => {
+            info.reload();
+            health.reload();
+            vite.reload();
+          }}
+        >
+          Recharger
+        </Button>
+      }
+    >
       {/* ───────── 1. État courant (dérivé du runtime) ───────── */}
       <DataState
         loading={info.loading && !info.data}
@@ -920,7 +918,7 @@ export const Runtime = observer(() => {
           </Button>
         </Group>
       </div>
-    </Stack>
+    </PageLayout>
   );
 });
 

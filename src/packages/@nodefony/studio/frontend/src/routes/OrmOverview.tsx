@@ -43,6 +43,7 @@ import { useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
 import {
   PageHeader,
+  StickyTabsList,
   DataState,
   DocHint,
   MiniChart,
@@ -1053,7 +1054,7 @@ export const OrmOverview = observer(
             }
             keepMounted={false}
           >
-            <Tabs.List mb="md">
+            <StickyTabsList mb="md">
               <Tabs.Tab
                 value="connecteurs"
                 leftSection={<IconDatabase size={16} />}
@@ -1066,7 +1067,7 @@ export const OrmOverview = observer(
               >
                 Modèle de données
               </Tabs.Tab>
-            </Tabs.List>
+            </StickyTabsList>
 
             <Tabs.Panel value="connecteurs">
               <Stack gap="md">

@@ -158,7 +158,21 @@ export default defineConfig<Env>((ctx) => ({
     // (providers + secrets via env). La racine reste lisible.
     use(
       "@nodefony/security",
-      { oauth2: oauth2Config(ctx) },
+      {
+        oauth2: oauth2Config(ctx),
+        // Hiérarchie de rôles (RBAC, niveau A de l'autorisation) — ROLE_X hérite
+        // des rôles listés (résolu au boot en DFS ; cycle → throw). Additif :
+        // un rôle gagne les droits des rôles couverts, jamais l'inverse.
+        // Surfacé dans Studio → /nodefony/roles (Hiérarchie + Graphe). Défaut
+        // framework = {} (rôles plats). Exemple sur les rôles RÉELS du framework :
+        // ROLE_NODEFONY_ADMIN (data plane admin / Studio) au sommet → couvre
+        // ROLE_ADMIN, ROLE_SECURITY_AUDITOR et, par transitivité, ROLE_USER.
+        roleHierarchy: {
+          ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN", "ROLE_SECURITY_AUDITOR"],
+          ROLE_ADMIN: ["ROLE_USER"],
+          ROLE_SECURITY_AUDITOR: ["ROLE_USER"],
+        },
+      },
       { policy: "mandatory" },
     ),
 

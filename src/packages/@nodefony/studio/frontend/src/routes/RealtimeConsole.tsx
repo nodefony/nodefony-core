@@ -49,7 +49,7 @@ import type { ReactNode } from "react";
 import { useConnection, useNotifications, useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
 import {
-  PageHeader,
+  PageLayout,
   KpiCard,
   ChartCard,
   MiniChart,
@@ -636,111 +636,109 @@ export const RealtimeConsole = observer(() => {
         };
 
   return (
-    <Stack gap="lg">
-      <PageHeader
-        sticky
-        title="Realtime Hub"
-        subtitle="Supervision de la Socket Nodefony — congestion, canaux, protocole"
-        actions={
-          <>
-            <Group gap={4} wrap="nowrap">
-              <Switch
-                size="sm"
-                checked={ui.adaptiveCadence}
-                onChange={(e) => ui.setAdaptiveCadence(e.currentTarget.checked)}
-                label="Cadence auto (AIMD)"
-                aria-label="cadence adaptative automatique globale de la socket Nodefony"
-              />
-              <DocHint
-                title="Cadence auto (AIMD)"
-                version={HUB_DOC}
-                summary="Politique GLOBALE de cadence adaptative de la Socket, façon « ABR » des vidéos en streaming."
-                sections={[
-                  {
-                    label: "Principe",
-                    body: "La Socket surveille le rythme RÉEL d'arrivée sur chaque canal d'état ; si le serveur prend du retard (surcharge), elle RALENTIT seule la cadence (comme une vidéo qui baisse sa qualité), puis RÉACCÉLÈRE quand c'est fluide.",
-                  },
-                  {
-                    label: "Algorithme",
-                    body: "AIMD (Additive Increase / Multiplicative Decrease), client-driven — le même principe que le contrôle de congestion TCP.",
-                  },
-                  {
-                    label: "Voir",
-                    body: "Onglet Activité → graphe « Cadence (AIMD) » : la courbe monte sous charge puis redescend.",
-                  },
-                ]}
-              />
-            </Group>
-            <Group gap={4} wrap="nowrap">
-              <Switch
-                size="sm"
-                checked={live}
-                onChange={(e) => setLive(e.currentTarget.checked)}
-                label="Sonde temps réel"
-                aria-label="activer la sonde temps réel du Hub"
-              />
-              <DocHint
-                title="Sonde temps réel"
-                version={HUB_DOC}
-                summary="Active le flux live de la sonde du Hub (canal realtime:health) → les courbes deviennent vivantes."
-                sections={[
-                  {
-                    label: "ON",
-                    body: "Abonnement live ref-compté : congestion, débit, diffusion et cadence se tracent dans le temps.",
-                  },
-                  {
-                    label: "OFF",
-                    body: "Un instantané HTTP (bouton Actualiser), coût ZÉRO côté serveur (aucun ticker).",
-                  },
-                ]}
-              />
-            </Group>
-            {!live && (
-              <Button
-                size="xs"
-                variant="light"
-                color="gray"
-                leftSection={<IconReload size={14} />}
-                loading={probe.loading}
-                onClick={probe.reload}
-              >
-                Actualiser
-              </Button>
-            )}
-            <Badge variant="outline" color="gray" size="lg" tt="none">
-              {conn.endpointUrl || "—"}
-            </Badge>
-            {cluster && (
-              <Badge
-                size="lg"
-                variant="light"
-                color="indigo"
-                leftSection={<IconServer2 size={14} />}
-                title="Vue agrégée du pod (plusieurs workers)"
-              >
-                Pod • {cluster.instanceCount} worker
-                {cluster.instanceCount > 1 ? "s" : ""}
-              </Badge>
-            )}
+    <PageLayout
+      gap="lg"
+      title="Realtime Hub"
+      subtitle="Supervision de la Socket Nodefony — congestion, canaux, protocole"
+      actions={
+        <>
+          <Group gap={4} wrap="nowrap">
+            <Switch
+              size="sm"
+              checked={ui.adaptiveCadence}
+              onChange={(e) => ui.setAdaptiveCadence(e.currentTarget.checked)}
+              label="Cadence auto (AIMD)"
+              aria-label="cadence adaptative automatique globale de la socket Nodefony"
+            />
+            <DocHint
+              title="Cadence auto (AIMD)"
+              version={HUB_DOC}
+              summary="Politique GLOBALE de cadence adaptative de la Socket, façon « ABR » des vidéos en streaming."
+              sections={[
+                {
+                  label: "Principe",
+                  body: "La Socket surveille le rythme RÉEL d'arrivée sur chaque canal d'état ; si le serveur prend du retard (surcharge), elle RALENTIT seule la cadence (comme une vidéo qui baisse sa qualité), puis RÉACCÉLÈRE quand c'est fluide.",
+                },
+                {
+                  label: "Algorithme",
+                  body: "AIMD (Additive Increase / Multiplicative Decrease), client-driven — le même principe que le contrôle de congestion TCP.",
+                },
+                {
+                  label: "Voir",
+                  body: "Onglet Activité → graphe « Cadence (AIMD) » : la courbe monte sous charge puis redescend.",
+                },
+              ]}
+            />
+          </Group>
+          <Group gap={4} wrap="nowrap">
+            <Switch
+              size="sm"
+              checked={live}
+              onChange={(e) => setLive(e.currentTarget.checked)}
+              label="Sonde temps réel"
+              aria-label="activer la sonde temps réel du Hub"
+            />
+            <DocHint
+              title="Sonde temps réel"
+              version={HUB_DOC}
+              summary="Active le flux live de la sonde du Hub (canal realtime:health) → les courbes deviennent vivantes."
+              sections={[
+                {
+                  label: "ON",
+                  body: "Abonnement live ref-compté : congestion, débit, diffusion et cadence se tracent dans le temps.",
+                },
+                {
+                  label: "OFF",
+                  body: "Un instantané HTTP (bouton Actualiser), coût ZÉRO côté serveur (aucun ticker).",
+                },
+              ]}
+            />
+          </Group>
+          {!live && (
+            <Button
+              size="xs"
+              variant="light"
+              color="gray"
+              leftSection={<IconReload size={14} />}
+              loading={probe.loading}
+              onClick={probe.reload}
+            >
+              Actualiser
+            </Button>
+          )}
+          <Badge variant="outline" color="gray" size="lg" tt="none">
+            {conn.endpointUrl || "—"}
+          </Badge>
+          {cluster && (
             <Badge
               size="lg"
               variant="light"
-              color={
-                online
-                  ? "teal"
-                  : state === "reconnecting" || state === "connecting"
-                    ? "yellow"
-                    : state === "error"
-                      ? "red"
-                      : "gray"
-              }
+              color="indigo"
+              leftSection={<IconServer2 size={14} />}
+              title="Vue agrégée du pod (plusieurs workers)"
             >
-              {online ? "connecté" : state}
+              Pod • {cluster.instanceCount} worker
+              {cluster.instanceCount > 1 ? "s" : ""}
             </Badge>
-          </>
-        }
-      />
-
+          )}
+          <Badge
+            size="lg"
+            variant="light"
+            color={
+              online
+                ? "teal"
+                : state === "reconnecting" || state === "connecting"
+                  ? "yellow"
+                  : state === "error"
+                    ? "red"
+                    : "gray"
+            }
+          >
+            {online ? "connecté" : state}
+          </Badge>
+        </>
+      }
+    >
       {/* Intro brandée : ce qu'EST « la Socket Nodefony » (le différenciateur). */}
       <Group gap={8} align="center" wrap="nowrap">
         <IconBroadcast
@@ -1775,7 +1773,7 @@ export const RealtimeConsole = observer(() => {
       </Stack>
 
       {probe.liveNode}
-    </Stack>
+    </PageLayout>
   );
 });
 

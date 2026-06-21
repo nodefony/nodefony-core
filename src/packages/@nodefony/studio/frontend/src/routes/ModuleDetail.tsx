@@ -57,6 +57,8 @@ import {
 import { useStore } from "../stores";
 import {
   ConfigLayout,
+  PageLayout,
+  StickyTabsList,
   ConfigSummaryCard,
   ConfigView,
   DocLayout,
@@ -295,425 +297,390 @@ export const ModuleDetail = observer(() => {
     !!cfg || (!!data.config && Object.keys(data.config).length > 0);
 
   return (
-    <Stack gap="md">
-      <Button
-        variant="subtle"
-        leftSection={<IconArrowLeft size={16} />}
-        onClick={() => navigate("/nodefony/modules")}
-        w="fit-content"
-        px={0}
-      >
-        Modules
-      </Button>
-
-      {/* ── En-tête ── */}
-      <Group gap="md" wrap="nowrap">
+    <PageLayout
+      icon={
         <ThemeIcon
           variant="light"
           color={name === "core" ? "grape" : data.isApp ? "brand" : "gray"}
-          size={54}
+          size={36}
           radius="md"
         >
           {name === "core" ? (
-            <IconStack2 size={30} />
+            <IconStack2 size={22} />
           ) : data.isApp ? (
-            <IconAppWindow size={30} />
+            <IconAppWindow size={22} />
           ) : (
-            <IconPuzzle size={30} />
+            <IconPuzzle size={22} />
           )}
         </ThemeIcon>
-        <Stack gap={4}>
-          <Group gap="sm">
-            <Title order={2}>
-              {name === "core" ? "Nodefony Core" : data.name}
-            </Title>
-            {data.version && <Badge variant="default">v{data.version}</Badge>}
-            <Badge
-              variant="light"
-              color={name === "core" ? "grape" : data.isApp ? "brand" : "gray"}
-            >
-              {name === "core"
-                ? "socle du framework"
-                : data.isApp
-                  ? "application"
-                  : "package"}
-            </Badge>
-          </Group>
+      }
+      title={name === "core" ? "Nodefony Core" : data.name}
+      subtitle={
+        <Group gap="sm" align="center">
+          {data.version && <Badge variant="default">v{data.version}</Badge>}
+          <Badge
+            variant="light"
+            color={name === "core" ? "grape" : data.isApp ? "brand" : "gray"}
+          >
+            {name === "core"
+              ? "socle du framework"
+              : data.isApp
+                ? "application"
+                : "package"}
+          </Badge>
           <Text c="dimmed" size="sm" ff="monospace">
             {name === "core" ? "@nodefony/core · " : ""}
             {data.path ?? "—"}
           </Text>
-        </Stack>
-      </Group>
-
-      {/* ── Card à onglets (seuls les onglets avec contenu sont affichés) ── */}
-      <Card
-        withBorder
-        radius="md"
-        p={0}
-        mih={PAGE_CONTENT_HEIGHT}
-        // overflow visible : sinon le `overflow:hidden` par défaut de Card
-        // CLIPPE le Tabs.List sticky (haut du contenu coupé + sticky cassé).
-        style={{ overflow: "visible" }}
-      >
-        <Tabs value={tab ?? "overview"} onChange={setTab}>
-          <Tabs.List
-            style={{
-              position: "sticky",
-              top: "var(--app-shell-header-height, 56px)",
-              background: "var(--mantine-color-body)",
-              zIndex: 3,
-              // arrondi haut de la card conservé visuellement
-              borderTopLeftRadius: "var(--mantine-radius-md)",
-              borderTopRightRadius: "var(--mantine-radius-md)",
-            }}
-          >
+        </Group>
+      }
+      actions={
+        <Button
+          variant="subtle"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={() => navigate("/nodefony/modules")}
+        >
+          Modules
+        </Button>
+      }
+    >
+      <Tabs value={tab ?? "overview"} onChange={setTab}>
+        <StickyTabsList>
+          <Tabs.Tab value="overview" leftSection={<IconInfoCircle size={16} />}>
+            Vue d'ensemble
+          </Tabs.Tab>
+          {hasDocs && (
             <Tabs.Tab
-              value="overview"
-              leftSection={<IconInfoCircle size={16} />}
+              value="docs"
+              leftSection={<IconBook size={16} />}
+              rightSection={<CountBadge n={docs.length} />}
             >
-              Vue d'ensemble
+              Docs
             </Tabs.Tab>
-            {hasDocs && (
-              <Tabs.Tab
-                value="docs"
-                leftSection={<IconBook size={16} />}
-                rightSection={<CountBadge n={docs.length} />}
-              >
-                Docs
-              </Tabs.Tab>
-            )}
-            {hasApi && (
-              <Tabs.Tab
-                value="api"
-                leftSection={<IconCode size={16} />}
-                rightSection={<CountBadge n={symbols.length} />}
-              >
-                API
-              </Tabs.Tab>
-            )}
-            {hasApi && (
-              <Tabs.Tab value="graph" leftSection={<IconSitemap size={16} />}>
-                Graphe
-              </Tabs.Tab>
-            )}
-            {hasCoverage && (
-              <Tabs.Tab
-                value="coverage"
-                leftSection={<IconShieldCheck size={16} />}
-                rightSection={
-                  <Badge
-                    size="xs"
-                    variant="light"
-                    color={covColor(coverage.total?.lines ?? 0)}
-                  >
-                    {Math.round(coverage.total?.lines ?? 0)}%
-                  </Badge>
-                }
-              >
-                Coverage
-              </Tabs.Tab>
-            )}
-            {hasTests && (
-              <Tabs.Tab
-                value="tests"
-                leftSection={<IconFlask size={16} />}
-                rightSection={<CountBadge n={tests.files.length} />}
-              >
-                Tests
-              </Tabs.Tab>
-            )}
-            {hasDeps && (
-              <Tabs.Tab
-                value="deps"
-                leftSection={<IconPackages size={16} />}
-                rightSection={<CountBadge n={data.dependencies.length} />}
-              >
-                Dépendances
-              </Tabs.Tab>
-            )}
-            {hasRoutes && (
-              <Tabs.Tab
-                value="routes"
-                leftSection={<IconRoute size={16} />}
-                rightSection={<CountBadge n={routes.length} />}
-              >
-                Routes
-              </Tabs.Tab>
-            )}
-            {hasServices && (
-              <Tabs.Tab
-                value="services"
-                leftSection={<IconAffiliate size={16} />}
-                rightSection={<CountBadge n={data.services.length} />}
-              >
-                Services
-              </Tabs.Tab>
-            )}
-            {hasConfig && (
-              <Tabs.Tab value="config" leftSection={<IconSettings size={16} />}>
-                Config
-              </Tabs.Tab>
-            )}
-          </Tabs.List>
+          )}
+          {hasApi && (
+            <Tabs.Tab
+              value="api"
+              leftSection={<IconCode size={16} />}
+              rightSection={<CountBadge n={symbols.length} />}
+            >
+              API
+            </Tabs.Tab>
+          )}
+          {hasApi && (
+            <Tabs.Tab value="graph" leftSection={<IconSitemap size={16} />}>
+              Graphe
+            </Tabs.Tab>
+          )}
+          {hasCoverage && (
+            <Tabs.Tab
+              value="coverage"
+              leftSection={<IconShieldCheck size={16} />}
+              rightSection={
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={covColor(coverage.total?.lines ?? 0)}
+                >
+                  {Math.round(coverage.total?.lines ?? 0)}%
+                </Badge>
+              }
+            >
+              Coverage
+            </Tabs.Tab>
+          )}
+          {hasTests && (
+            <Tabs.Tab
+              value="tests"
+              leftSection={<IconFlask size={16} />}
+              rightSection={<CountBadge n={tests.files.length} />}
+            >
+              Tests
+            </Tabs.Tab>
+          )}
+          {hasDeps && (
+            <Tabs.Tab
+              value="deps"
+              leftSection={<IconPackages size={16} />}
+              rightSection={<CountBadge n={data.dependencies.length} />}
+            >
+              Dépendances
+            </Tabs.Tab>
+          )}
+          {hasRoutes && (
+            <Tabs.Tab
+              value="routes"
+              leftSection={<IconRoute size={16} />}
+              rightSection={<CountBadge n={routes.length} />}
+            >
+              Routes
+            </Tabs.Tab>
+          )}
+          {hasServices && (
+            <Tabs.Tab
+              value="services"
+              leftSection={<IconAffiliate size={16} />}
+              rightSection={<CountBadge n={data.services.length} />}
+            >
+              Services
+            </Tabs.Tab>
+          )}
+          {hasConfig && (
+            <Tabs.Tab value="config" leftSection={<IconSettings size={16} />}>
+              Config
+            </Tabs.Tab>
+          )}
+        </StickyTabsList>
 
-          <Box p="lg">
-            <Tabs.Panel value="overview">
-              <Stack gap="lg">
-                <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="md">
-                  {hasDocs && (
-                    <OverviewStat
-                      label="Docs"
-                      value={docs.length}
-                      color="cyan"
-                      icon={<IconBook size={22} />}
-                      onClick={() => setTab("docs")}
-                    />
-                  )}
-                  {hasApi && (
-                    <OverviewStat
-                      label="API"
-                      value={symbols.length}
-                      color="grape"
-                      icon={<IconCode size={22} />}
-                      onClick={() => setTab("api")}
-                    />
-                  )}
-                  {hasCoverage && (
-                    <OverviewStat
-                      label="Coverage"
-                      value={`${Math.round(coverage.total?.lines ?? 0)}%`}
-                      color={covColor(coverage.total?.lines ?? 0)}
-                      icon={<IconShieldCheck size={22} />}
-                      onClick={() => setTab("coverage")}
-                    />
-                  )}
-                  {hasDeps && (
-                    <OverviewStat
-                      label="Dépendances"
-                      value={data.dependencies.length}
-                      color="orange"
-                      icon={<IconPackages size={22} />}
-                      onClick={() => setTab("deps")}
-                    />
-                  )}
-                  {hasRoutes && (
-                    <OverviewStat
-                      label="Routes"
-                      value={routes.length}
-                      color="teal"
-                      icon={<IconRoute size={22} />}
-                      onClick={() => setTab("routes")}
-                    />
-                  )}
-                  {hasServices && (
-                    <OverviewStat
-                      label="Services"
-                      value={data.services.length}
-                      color="blue"
-                      icon={<IconAffiliate size={22} />}
-                      onClick={() => setTab("services")}
-                    />
-                  )}
-                </SimpleGrid>
-                <Grid>
-                  <Grid.Col span={{ base: 12, md: hasConfig ? 6 : 12 }}>
-                    <Card withBorder radius="md" p="lg" h="100%">
-                      <Group gap={6} mb="sm">
-                        <IconInfoCircle size={18} />
-                        <Title order={5}>Identité</Title>
-                      </Group>
-                      <Stack gap="xs">
-                        <KeyValue k="Clé" v={data.key} mono />
-                        <KeyValue k="Package" v={data.name} />
-                        <KeyValue k="Version" v={data.version ?? "—"} />
-                        <KeyValue
-                          k="Type"
-                          v={data.isApp ? "application" : "package"}
-                        />
-                        <KeyValue
-                          k="Services"
-                          v={String(data.services.length)}
-                        />
-                        <KeyValue k="Routes" v={String(routes.length)} />
-                        <KeyValue k="Chemin" v={data.path ?? "—"} mono />
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                  {hasConfig && (
-                    <Grid.Col span={{ base: 12, md: 6 }}>
-                      {cfg ? (
-                        <ConfigSummaryCard
-                          module={cfg.module}
-                          schema={cfg.schema}
-                          sections={cfg.sections}
-                          onOpen={() => setTab("config")}
-                        />
-                      ) : (
-                        <Card withBorder radius="md" p="lg" h="100%">
-                          <Group justify="space-between" mb="sm">
-                            <Group gap={6}>
-                              <IconSettings size={18} />
-                              <Title order={5}>Configuration</Title>
-                            </Group>
-                            <Button
-                              variant="light"
-                              size="xs"
-                              onClick={() => setTab("config")}
-                            >
-                              Tout voir
-                            </Button>
-                          </Group>
-                          <ScrollArea h={260} type="auto" offsetScrollbars>
-                            <ConfigView value={data.config} />
-                          </ScrollArea>
-                        </Card>
-                      )}
-                    </Grid.Col>
-                  )}
-                </Grid>
-              </Stack>
-            </Tabs.Panel>
-
-            {hasDocs && (
-              <Tabs.Panel value="docs">
-                <DocsPanel
-                  moduleKey={name}
-                  version={data.version}
-                  docs={docs}
-                />
-              </Tabs.Panel>
-            )}
-
-            {hasApi && (
-              <Tabs.Panel value="api">
-                <ApiPanel symbols={symbols} />
-              </Tabs.Panel>
-            )}
-
-            {hasApi && (
-              <Tabs.Panel value="graph">
-                <ModuleSymbolGraph symbols={symbols} />
-              </Tabs.Panel>
-            )}
-
-            {hasCoverage && (
-              <Tabs.Panel value="coverage">
-                <CoveragePanel report={coverage} />
-              </Tabs.Panel>
-            )}
-
-            {hasTests && (
-              <Tabs.Panel value="tests">
-                <TestsPanel moduleKey={name} tests={tests} />
-              </Tabs.Panel>
-            )}
-
-            {hasDeps && (
-              <Tabs.Panel value="deps">
-                <DepsPanel
-                  moduleKey={name}
-                  onNavigate={(short) => navigate(`/nodefony/modules/${short}`)}
-                />
-              </Tabs.Panel>
-            )}
-
-            {hasRoutes && (
-              <Tabs.Panel value="routes">
-                <Table.ScrollContainer minWidth={560}>
-                  <Table striped highlightOnHover withRowBorders={false}>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Méthodes</Table.Th>
-                        <Table.Th>Chemin</Table.Th>
-                        <Table.Th>Controller</Table.Th>
-                        <Table.Th>Action</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {routes.map((r) => (
-                        <Table.Tr key={r.name}>
-                          <Table.Td>
-                            <Group gap={4}>
-                              {r.methods.map((m) => (
-                                <Badge
-                                  key={m}
-                                  size="xs"
-                                  color={METHOD_COLORS[m] ?? "gray"}
-                                  variant="light"
-                                >
-                                  {m}
-                                </Badge>
-                              ))}
-                            </Group>
-                          </Table.Td>
-                          <Table.Td>
-                            <Code>{r.path}</Code>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs">{r.controller ?? "—"}</Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs" c="dimmed">
-                              {r.action ?? "—"}
-                            </Text>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </Table.ScrollContainer>
-              </Tabs.Panel>
-            )}
-
-            {hasServices && (
-              <Tabs.Panel value="services">
-                <Table.ScrollContainer minWidth={420}>
-                  <Table striped highlightOnHover withRowBorders={false}>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Nom (DI)</Table.Th>
-                        <Table.Th>Classe</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {data.services.map((s) => (
-                        <Table.Tr key={s.name}>
-                          <Table.Td>
-                            <Code>{s.name}</Code>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs" c="dimmed">
-                              {s.class ?? "—"}
-                            </Text>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </Table.ScrollContainer>
-              </Tabs.Panel>
-            )}
-
-            {hasConfig && (
-              <Tabs.Panel value="config">
-                {cfg ? (
-                  <ConfigLayout
-                    module={cfg.module}
-                    schema={cfg.schema}
-                    sections={cfg.sections}
+        <Box p="lg">
+          <Tabs.Panel value="overview">
+            <Stack gap="lg">
+              <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="md">
+                {hasDocs && (
+                  <OverviewStat
+                    label="Docs"
+                    value={docs.length}
+                    color="cyan"
+                    icon={<IconBook size={22} />}
+                    onClick={() => setTab("docs")}
                   />
-                ) : (
-                  <ScrollArea h={520} type="auto" offsetScrollbars>
-                    <ConfigView value={data.config} />
-                  </ScrollArea>
                 )}
-              </Tabs.Panel>
-            )}
-          </Box>
-        </Tabs>
-      </Card>
-    </Stack>
+                {hasApi && (
+                  <OverviewStat
+                    label="API"
+                    value={symbols.length}
+                    color="grape"
+                    icon={<IconCode size={22} />}
+                    onClick={() => setTab("api")}
+                  />
+                )}
+                {hasCoverage && (
+                  <OverviewStat
+                    label="Coverage"
+                    value={`${Math.round(coverage.total?.lines ?? 0)}%`}
+                    color={covColor(coverage.total?.lines ?? 0)}
+                    icon={<IconShieldCheck size={22} />}
+                    onClick={() => setTab("coverage")}
+                  />
+                )}
+                {hasDeps && (
+                  <OverviewStat
+                    label="Dépendances"
+                    value={data.dependencies.length}
+                    color="orange"
+                    icon={<IconPackages size={22} />}
+                    onClick={() => setTab("deps")}
+                  />
+                )}
+                {hasRoutes && (
+                  <OverviewStat
+                    label="Routes"
+                    value={routes.length}
+                    color="teal"
+                    icon={<IconRoute size={22} />}
+                    onClick={() => setTab("routes")}
+                  />
+                )}
+                {hasServices && (
+                  <OverviewStat
+                    label="Services"
+                    value={data.services.length}
+                    color="blue"
+                    icon={<IconAffiliate size={22} />}
+                    onClick={() => setTab("services")}
+                  />
+                )}
+              </SimpleGrid>
+              <Grid>
+                <Grid.Col span={{ base: 12, md: hasConfig ? 6 : 12 }}>
+                  <Card withBorder radius="md" p="lg" h="100%">
+                    <Group gap={6} mb="sm">
+                      <IconInfoCircle size={18} />
+                      <Title order={5}>Identité</Title>
+                    </Group>
+                    <Stack gap="xs">
+                      <KeyValue k="Clé" v={data.key} mono />
+                      <KeyValue k="Package" v={data.name} />
+                      <KeyValue k="Version" v={data.version ?? "—"} />
+                      <KeyValue
+                        k="Type"
+                        v={data.isApp ? "application" : "package"}
+                      />
+                      <KeyValue k="Services" v={String(data.services.length)} />
+                      <KeyValue k="Routes" v={String(routes.length)} />
+                      <KeyValue k="Chemin" v={data.path ?? "—"} mono />
+                    </Stack>
+                  </Card>
+                </Grid.Col>
+                {hasConfig && (
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    {cfg ? (
+                      <ConfigSummaryCard
+                        module={cfg.module}
+                        schema={cfg.schema}
+                        sections={cfg.sections}
+                        onOpen={() => setTab("config")}
+                      />
+                    ) : (
+                      <Card withBorder radius="md" p="lg" h="100%">
+                        <Group justify="space-between" mb="sm">
+                          <Group gap={6}>
+                            <IconSettings size={18} />
+                            <Title order={5}>Configuration</Title>
+                          </Group>
+                          <Button
+                            variant="light"
+                            size="xs"
+                            onClick={() => setTab("config")}
+                          >
+                            Tout voir
+                          </Button>
+                        </Group>
+                        <ScrollArea h={260} type="auto" offsetScrollbars>
+                          <ConfigView value={data.config} />
+                        </ScrollArea>
+                      </Card>
+                    )}
+                  </Grid.Col>
+                )}
+              </Grid>
+            </Stack>
+          </Tabs.Panel>
+
+          {hasDocs && (
+            <Tabs.Panel value="docs">
+              <DocsPanel moduleKey={name} version={data.version} docs={docs} />
+            </Tabs.Panel>
+          )}
+
+          {hasApi && (
+            <Tabs.Panel value="api">
+              <ApiPanel symbols={symbols} />
+            </Tabs.Panel>
+          )}
+
+          {hasApi && (
+            <Tabs.Panel value="graph">
+              <ModuleSymbolGraph symbols={symbols} height={TABS_PANEL_HEIGHT} />
+            </Tabs.Panel>
+          )}
+
+          {hasCoverage && (
+            <Tabs.Panel value="coverage">
+              <CoveragePanel report={coverage} />
+            </Tabs.Panel>
+          )}
+
+          {hasTests && (
+            <Tabs.Panel value="tests">
+              <TestsPanel moduleKey={name} tests={tests} />
+            </Tabs.Panel>
+          )}
+
+          {hasDeps && (
+            <Tabs.Panel value="deps">
+              <DepsPanel
+                moduleKey={name}
+                onNavigate={(short) => navigate(`/nodefony/modules/${short}`)}
+              />
+            </Tabs.Panel>
+          )}
+
+          {hasRoutes && (
+            <Tabs.Panel value="routes">
+              <Table.ScrollContainer minWidth={560}>
+                <Table striped highlightOnHover withRowBorders={false}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Méthodes</Table.Th>
+                      <Table.Th>Chemin</Table.Th>
+                      <Table.Th>Controller</Table.Th>
+                      <Table.Th>Action</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {routes.map((r) => (
+                      <Table.Tr key={r.name}>
+                        <Table.Td>
+                          <Group gap={4}>
+                            {r.methods.map((m) => (
+                              <Badge
+                                key={m}
+                                size="xs"
+                                color={METHOD_COLORS[m] ?? "gray"}
+                                variant="light"
+                              >
+                                {m}
+                              </Badge>
+                            ))}
+                          </Group>
+                        </Table.Td>
+                        <Table.Td>
+                          <Code>{r.path}</Code>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="xs">{r.controller ?? "—"}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="xs" c="dimmed">
+                            {r.action ?? "—"}
+                          </Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Table.ScrollContainer>
+            </Tabs.Panel>
+          )}
+
+          {hasServices && (
+            <Tabs.Panel value="services">
+              <Table.ScrollContainer minWidth={420}>
+                <Table striped highlightOnHover withRowBorders={false}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Nom (DI)</Table.Th>
+                      <Table.Th>Classe</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {data.services.map((s) => (
+                      <Table.Tr key={s.name}>
+                        <Table.Td>
+                          <Code>{s.name}</Code>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="xs" c="dimmed">
+                            {s.class ?? "—"}
+                          </Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Table.ScrollContainer>
+            </Tabs.Panel>
+          )}
+
+          {hasConfig && (
+            <Tabs.Panel value="config">
+              {cfg ? (
+                <ConfigLayout
+                  module={cfg.module}
+                  schema={cfg.schema}
+                  sections={cfg.sections}
+                />
+              ) : (
+                <ScrollArea h={520} type="auto" offsetScrollbars>
+                  <ConfigView value={data.config} />
+                </ScrollArea>
+              )}
+            </Tabs.Panel>
+          )}
+        </Box>
+      </Tabs>
+    </PageLayout>
   );
 });
 

@@ -1,7 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Stack,
   Group,
   Card,
   Text,
@@ -26,7 +25,7 @@ import {
 } from "@tabler/icons-react";
 import { useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
-import { PageHeader, DataState, DocHint, MiniChart } from "../components/ui";
+import { PageLayout, DataState, DocHint, MiniChart } from "../components/ui";
 import { buildHealth, type HealthResult } from "../utils/health";
 import { normalize, type HealthPayload } from "../utils/realtimeHealth";
 import {
@@ -182,38 +181,36 @@ export const OrmWorker = observer(() => {
   const loadingCore = orms.loading && !list.length;
 
   return (
-    <Stack gap="lg">
-      <PageHeader
-        sticky
-        title={`Connecteur ORM — worker pid ${pid}`}
-        subtitle={
-          isClusterMode
-            ? "Drill d'un worker du cluster — santé lean exacte + diagnostic riche par connecteur"
-            : "Détail du process — santé ORM + diagnostic riche par connecteur"
-        }
-        actions={
-          <Group gap="xs">
-            <OrmRealtimeControls
-              live={live}
-              onToggle={(v) => ui.setRealtimeLive(v)}
-              liveMs={liveMs}
-              setLiveMs={setLiveMs}
-              auto={auto}
-              effectiveMs={effectiveMs}
-              ariaLabel={`abonnement temps réel (socket Nodefony) du worker pid ${pid}`}
-            />
-            <Button
-              component={Link}
-              to="/nodefony/orm"
-              variant="default"
-              leftSection={<IconArrowLeft size={16} />}
-            >
-              Vue d'ensemble
-            </Button>
-          </Group>
-        }
-      />
-
+    <PageLayout
+      gap="lg"
+      title={`Connecteur ORM — worker pid ${pid}`}
+      subtitle={
+        isClusterMode
+          ? "Drill d'un worker du cluster — santé lean exacte + diagnostic riche par connecteur"
+          : "Détail du process — santé ORM + diagnostic riche par connecteur"
+      }
+      actions={
+        <Group gap="xs">
+          <OrmRealtimeControls
+            live={live}
+            onToggle={(v) => ui.setRealtimeLive(v)}
+            liveMs={liveMs}
+            setLiveMs={setLiveMs}
+            auto={auto}
+            effectiveMs={effectiveMs}
+            ariaLabel={`abonnement temps réel (socket Nodefony) du worker pid ${pid}`}
+          />
+          <Button
+            component={Link}
+            to="/nodefony/orm"
+            variant="default"
+            leftSection={<IconArrowLeft size={16} />}
+          >
+            Vue d'ensemble
+          </Button>
+        </Group>
+      }
+    >
       {/* Drill ORM riche du worker EXACT (relais ciblé @pid) : un seul canal combiné
           `orm:rich@<pid>` → santé connecteurs + flux SQL du pid demandé (≠ round-robin). */}
       {live && (
@@ -447,7 +444,7 @@ export const OrmWorker = observer(() => {
           ))}
         </SimpleGrid>
       </DataState>
-    </Stack>
+    </PageLayout>
   );
 });
 

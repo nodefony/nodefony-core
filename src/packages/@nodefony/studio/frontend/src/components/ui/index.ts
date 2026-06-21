@@ -3,6 +3,7 @@
  * Importer depuis ce barrel : `import { PageHeader, DataState } from "../components/ui"`.
  */
 export { PageHeader, type PageHeaderProps } from "./PageHeader";
+export { PageLayout, StickyTabsList, type PageLayoutProps } from "./PageLayout";
 export { DataState, type DataStateProps } from "./DataState";
 export { StatCard, InfoHint, type StatCardProps } from "./StatCard";
 export {

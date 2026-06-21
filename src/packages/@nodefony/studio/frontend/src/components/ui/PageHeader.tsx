@@ -71,7 +71,9 @@ export function PageHeader({
       justify="space-between"
       align="flex-end"
       wrap="nowrap"
-      mb="md"
+      // Pas de `mb` ici : l'espacement sous le header vient du `gap` du conteneur
+      // parent (Stack/PageLayout). Un `mb` interne le DOUBLERAIT (32 px) → décalage
+      // header/contenu + un trou entre le header sticky et une Tabs.List sticky.
       // Sticky : se fige sous la barre AppShell (hauteur 56 → var Mantine). Les
       // marges négatives + padding réalignés couvrent toute la largeur malgré le
       // padding de AppShell.Main, sinon le contenu déborderait sur les côtés.

@@ -44,6 +44,7 @@ export const Chat = observer(() => {
   return (
     <Stack gap="md" h={PAGE_CONTENT_HEIGHT}>
       <PageHeader
+        sticky
         title="Chat IA"
         subtitle="Pipeline cible : @nodefony/agent + LLM provider + streaming via le Core isomorphe `nodefony` (RealtimeClient, P12)."
         icon={<IconRobot size={22} />}

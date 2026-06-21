@@ -26,7 +26,7 @@ import {
 } from "@tabler/icons-react";
 import { useAdmin } from "../stores";
 import type { AdminEndpointMeta } from "../stores/AdminStore";
-import { PageHeader, DataState, JsonViewer } from "../components/ui";
+import { PageLayout, DataState, JsonViewer } from "../components/ui";
 
 /** Mappe le nom d'icône du descriptor (backend) vers une icône Tabler. */
 const ICONS: Record<string, typeof IconServer> = {
@@ -67,28 +67,25 @@ export const System = observer(() => {
   }, [focus]);
 
   return (
-    <Stack gap="md">
-      <PageHeader
-        title="System — Admin API"
-        subtitle={
-          <>
-            Data plane découvert via{" "}
-            <Code>/nodefony/framework/api/admin</Code> — {admin.producers.length}{" "}
-            module(s), {admin.endpointCount} endpoint(s)
-          </>
-        }
-        actions={
-          <Button
-            variant="light"
-            leftSection={<IconRefresh size={16} />}
-            loading={admin.loading}
-            onClick={() => void admin.loadCatalog()}
-          >
-            Recharger
-          </Button>
-        }
-      />
-
+    <PageLayout
+      title="System — Admin API"
+      subtitle={
+        <>
+          Data plane découvert via <Code>/nodefony/framework/api/admin</Code> —{" "}
+          {admin.producers.length} module(s), {admin.endpointCount} endpoint(s)
+        </>
+      }
+      actions={
+        <Button
+          variant="light"
+          leftSection={<IconRefresh size={16} />}
+          loading={admin.loading}
+          onClick={() => void admin.loadCatalog()}
+        >
+          Recharger
+        </Button>
+      }
+    >
       <DataState
         loading={admin.loading && admin.producers.length === 0}
         error={admin.error}
@@ -97,40 +94,40 @@ export const System = observer(() => {
         onRetry={() => void admin.loadCatalog()}
       >
         <Accordion variant="separated" multiple value={open} onChange={setOpen}>
-        {admin.producers.map((p) => {
-          const Icon = (p.icon && ICONS[p.icon]) || IconApi;
-          return (
-            <Accordion.Item key={p.namespace} value={p.namespace}>
-              <Accordion.Control
-                icon={
-                  <ThemeIcon variant="light" color="brand" size="md">
-                    <Icon size={18} />
-                  </ThemeIcon>
-                }
-              >
-                <Group gap="sm">
-                  <Text fw={600}>{p.label}</Text>
-                  <Badge variant="default" size="sm">
-                    {p.namespace}
-                  </Badge>
-                  <Badge variant="light" size="sm" color="gray">
-                    {p.endpoints.length} ep
-                  </Badge>
-                </Group>
-              </Accordion.Control>
-              <Accordion.Panel>
-                <Stack gap="xs">
-                  {p.endpoints.map((ep) => (
-                    <EndpointRow key={`${ep.method} ${ep.path}`} ep={ep} />
-                  ))}
-                </Stack>
-              </Accordion.Panel>
-            </Accordion.Item>
-          );
-        })}
+          {admin.producers.map((p) => {
+            const Icon = (p.icon && ICONS[p.icon]) || IconApi;
+            return (
+              <Accordion.Item key={p.namespace} value={p.namespace}>
+                <Accordion.Control
+                  icon={
+                    <ThemeIcon variant="light" color="brand" size="md">
+                      <Icon size={18} />
+                    </ThemeIcon>
+                  }
+                >
+                  <Group gap="sm">
+                    <Text fw={600}>{p.label}</Text>
+                    <Badge variant="default" size="sm">
+                      {p.namespace}
+                    </Badge>
+                    <Badge variant="light" size="sm" color="gray">
+                      {p.endpoints.length} ep
+                    </Badge>
+                  </Group>
+                </Accordion.Control>
+                <Accordion.Panel>
+                  <Stack gap="xs">
+                    {p.endpoints.map((ep) => (
+                      <EndpointRow key={`${ep.method} ${ep.path}`} ep={ep} />
+                    ))}
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
+            );
+          })}
         </Accordion>
       </DataState>
-    </Stack>
+    </PageLayout>
   );
 });
 
@@ -169,7 +166,11 @@ const EndpointRow = observer(({ ep }: { ep: AdminEndpointMeta }) => {
     >
       <Group justify="space-between" wrap="nowrap">
         <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-          <Badge color={METHOD_COLORS[ep.method] ?? "gray"} variant="filled" size="sm">
+          <Badge
+            color={METHOD_COLORS[ep.method] ?? "gray"}
+            variant="filled"
+            size="sm"
+          >
             {ep.method}
           </Badge>
           <Code>{ep.path}</Code>

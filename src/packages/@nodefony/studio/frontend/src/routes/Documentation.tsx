@@ -27,7 +27,7 @@ import {
   DocLayout,
   DocPageHeader,
   MarkdownDoc,
-  PageHeader,
+  PageLayout,
 } from "../components/ui";
 import { LiveGraphSection } from "../realtime/socket/LiveGraphSection";
 import { findSocketLiveGraph } from "../realtime/socket/pages";
@@ -192,21 +192,18 @@ export const Documentation = observer(() => {
     setCollapsed(Object.fromEntries(sections.map((s) => [s.id, true])));
 
   return (
-    <Stack gap="md">
-      <PageHeader
-        title="Documentation"
-        subtitle="Portail unifié — sections, audiences, doc dynamique"
-        icon={<IconFileText size={22} />}
-        sticky
-        actions={
-          <RoleSwitch
-            value={persona}
-            onChange={(v) => setPersona(v as Persona)}
-            size="sm"
-          />
-        }
-      />
-
+    <PageLayout
+      title="Documentation"
+      subtitle="Portail unifié — sections, audiences, doc dynamique"
+      icon={<IconFileText size={22} />}
+      actions={
+        <RoleSwitch
+          value={persona}
+          onChange={(v) => setPersona(v as Persona)}
+          size="sm"
+        />
+      }
+    >
       <DocLayout
         navTitle="Documentation"
         navActions={
@@ -369,7 +366,7 @@ export const Documentation = observer(() => {
           )}
         </DataState>
       </DocLayout>
-    </Stack>
+    </PageLayout>
   );
 });
 

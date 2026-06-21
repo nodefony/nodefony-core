@@ -37,7 +37,7 @@ import {
 
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
-import { PageHeader, StatCard, DataState, DocHint } from "../components/ui";
+import { PageLayout, StatCard, DataState, DocHint } from "../components/ui";
 import {
   FIREWALL_ENDPOINT,
   FIREWALL_DOC,
@@ -148,43 +148,40 @@ export const Firewall = observer(() => {
     : "Introspection du firewall";
 
   return (
-    <Stack gap="md">
-      <PageHeader
-        title="Firewall"
-        subtitle={subtitle}
-        icon={<IconShieldLock size={26} />}
-        sticky
-        actions={
-          <Group gap="sm" wrap="nowrap">
-            {data && (
-              <Badge
-                size="lg"
-                variant="light"
-                color={configValid ? "teal" : "red"}
-                leftSection={
-                  configValid ? (
-                    <IconShieldCheck size={14} />
-                  ) : (
-                    <IconShieldOff size={14} />
-                  )
-                }
-                style={{ textTransform: "none" }}
-              >
-                {configValid ? "Config valide" : "Fail-closed"}
-              </Badge>
-            )}
-            <Button
+    <PageLayout
+      title="Firewall"
+      subtitle={subtitle}
+      icon={<IconShieldLock size={26} />}
+      actions={
+        <Group gap="sm" wrap="nowrap">
+          {data && (
+            <Badge
+              size="lg"
               variant="light"
-              leftSection={<IconRefresh size={16} />}
-              loading={loading}
-              onClick={reload}
+              color={configValid ? "teal" : "red"}
+              leftSection={
+                configValid ? (
+                  <IconShieldCheck size={14} />
+                ) : (
+                  <IconShieldOff size={14} />
+                )
+              }
+              style={{ textTransform: "none" }}
             >
-              Recharger
-            </Button>
-          </Group>
-        }
-      />
-
+              {configValid ? "Config valide" : "Fail-closed"}
+            </Badge>
+          )}
+          <Button
+            variant="light"
+            leftSection={<IconRefresh size={16} />}
+            loading={loading}
+            onClick={reload}
+          >
+            Recharger
+          </Button>
+        </Group>
+      }
+    >
       <DataState loading={loading && !data} error={error} onRetry={reload}>
         {data && (
           <>
@@ -327,7 +324,7 @@ export const Firewall = observer(() => {
           </>
         )}
       </DataState>
-    </Stack>
+    </PageLayout>
   );
 });
 

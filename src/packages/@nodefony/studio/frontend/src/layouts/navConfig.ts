@@ -217,7 +217,6 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/roles",
         label: "Roles",
         icon: IconUsersGroup,
-        wip: true,
       },
       {
         to: "/nodefony/sessions",

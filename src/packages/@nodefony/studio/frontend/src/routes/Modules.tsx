@@ -17,6 +17,7 @@ import {
   Tooltip,
   Title,
 } from "@mantine/core";
+import { PageLayout } from "../components/ui";
 import {
   IconRefresh,
   IconAlertTriangle,
@@ -38,13 +39,21 @@ import { useStore } from "../stores";
 
 /** Catégorie d'un module — pour distinguer core / framework / app / module. */
 type CatId = "app" | "core" | "framework" | "module";
-const CATS: Record<CatId, { label: string; color: string; Icon: Icon; order: number }> = {
+const CATS: Record<
+  CatId,
+  { label: string; color: string; Icon: Icon; order: number }
+> = {
   app: { label: "Application", color: "brand", Icon: IconAppWindow, order: 0 },
   core: { label: "Core", color: "grape", Icon: IconStack2, order: 1 },
   framework: { label: "Framework", color: "blue", Icon: IconBox, order: 2 },
   module: { label: "Module", color: "teal", Icon: IconPuzzle, order: 3 },
 };
-function categoryOf(m: { key: string; isApp: boolean; name: string; path: string | null }): CatId {
+function categoryOf(m: {
+  key: string;
+  isApp: boolean;
+  name: string;
+  path: string | null;
+}): CatId {
   if (m.key === "core") return "core";
   if (m.isApp) return "app";
   // Path RELATIF (sécu) → pas de slash initial. Tester `src/modules/` AVANT
@@ -95,9 +104,13 @@ function MiniStat({
     <Group justify="space-between" wrap="nowrap" gap="sm">
       <Group gap={8} wrap="nowrap">
         <span style={{ opacity: 0.65, display: "flex" }}>{icon}</span>
-        <Text size="sm" c="dimmed">{label}</Text>
+        <Text size="sm" c="dimmed">
+          {label}
+        </Text>
       </Group>
-      <Text size="sm" fw={700} c={color}>{value ?? "…"}</Text>
+      <Text size="sm" fw={700} c={color}>
+        {value ?? "…"}
+      </Text>
     </Group>
   );
 }
@@ -128,7 +141,9 @@ export const Modules = observer(() => {
       setRows(Array.isArray(list) ? list : []);
       // Compteurs de routes par module (1 seul fetch, groupé par route.module).
       store.api
-        .getAbsolute<{ module: string | null }[]>("/nodefony/framework/api/routes")
+        .getAbsolute<{ module: string | null }[]>(
+          "/nodefony/framework/api/routes",
+        )
         .then((routes) => {
           const rc: Record<string, number> = {};
           (routes ?? []).forEach((r) => {
@@ -150,7 +165,13 @@ export const Modules = observer(() => {
           }
         }),
       );
-      setDetails(Object.fromEntries(entries.filter((e): e is readonly [string, ModuleDetail] => e !== null)));
+      setDetails(
+        Object.fromEntries(
+          entries.filter(
+            (e): e is readonly [string, ModuleDetail] => e !== null,
+          ),
+        ),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -166,25 +187,29 @@ export const Modules = observer(() => {
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     return q
-      ? rows.filter((r) => r.key.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
+      ? rows.filter(
+          (r) =>
+            r.key.toLowerCase().includes(q) || r.name.toLowerCase().includes(q),
+        )
       : rows;
   }, [rows, filter]);
 
   const counts = useMemo(() => {
-    const c: Record<CatId, number> = { app: 0, core: 0, framework: 0, module: 0 };
+    const c: Record<CatId, number> = {
+      app: 0,
+      core: 0,
+      framework: 0,
+      module: 0,
+    };
     rows.forEach((r) => (c[categoryOf(r)] += 1));
     return c;
   }, [rows]);
 
   return (
-    <Stack gap="md">
-      <Group justify="space-between" align="flex-end">
-        <Stack gap={2}>
-          <Title order={2}>Modules</Title>
-          <Text c="dimmed" size="sm">
-            {rows.length} chargé(s) · {counts.framework} framework · {counts.module} module(s) · {counts.app} app · {counts.core} core
-          </Text>
-        </Stack>
+    <PageLayout
+      title="Modules"
+      subtitle={`${rows.length} chargé(s) · ${counts.framework} framework · ${counts.module} module(s) · ${counts.app} app · ${counts.core} core`}
+      actions={
         <Group gap="sm">
           <TextInput
             placeholder="Filtrer…"
@@ -193,14 +218,23 @@ export const Modules = observer(() => {
             onChange={(e) => setFilter(e.currentTarget.value)}
             w={220}
           />
-          <Button variant="light" leftSection={<IconRefresh size={16} />} loading={loading} onClick={() => void load()}>
+          <Button
+            variant="light"
+            leftSection={<IconRefresh size={16} />}
+            loading={loading}
+            onClick={() => void load()}
+          >
             Recharger
           </Button>
         </Group>
-      </Group>
-
+      }
+    >
       {error && (
-        <Alert color="red" icon={<IconAlertTriangle size={16} />} title="Erreur">
+        <Alert
+          color="red"
+          icon={<IconAlertTriangle size={16} />}
+          title="Erreur"
+        >
           {error}
         </Alert>
       )}
@@ -231,7 +265,11 @@ export const Modules = observer(() => {
                         cat={cat}
                         detail={details[m.key]}
                         routeCount={routeCounts[m.key] ?? 0}
-                        onOpen={() => navigate(`/nodefony/modules/${encodeURIComponent(m.key)}`)}
+                        onOpen={() =>
+                          navigate(
+                            `/nodefony/modules/${encodeURIComponent(m.key)}`,
+                          )
+                        }
                       />
                     ))}
                   </Stack>
@@ -255,7 +293,11 @@ export const Modules = observer(() => {
                         cat={cat}
                         detail={details[m.key]}
                         routeCount={routeCounts[m.key] ?? 0}
-                        onOpen={() => navigate(`/nodefony/modules/${encodeURIComponent(m.key)}`)}
+                        onOpen={() =>
+                          navigate(
+                            `/nodefony/modules/${encodeURIComponent(m.key)}`,
+                          )
+                        }
                       />
                     </Grid.Col>
                   ))}
@@ -271,7 +313,7 @@ export const Modules = observer(() => {
           Aucun module ne correspond à « {filter} ».
         </Text>
       )}
-    </Stack>
+    </PageLayout>
   );
 });
 
@@ -288,8 +330,12 @@ function SectionHeader({ cat, count }: { cat: CatId; count: number }) {
       <ThemeIcon variant="light" color={CATS[cat].color} size="sm" radius="sm">
         <CatIcon cat={cat} size={14} />
       </ThemeIcon>
-      <Text size="sm" fw={700}>{CATS[cat].label}</Text>
-      <Badge size="sm" variant="light" color={CATS[cat].color}>{count}</Badge>
+      <Text size="sm" fw={700}>
+        {CATS[cat].label}
+      </Text>
+      <Badge size="sm" variant="light" color={CATS[cat].color}>
+        {count}
+      </Badge>
     </Group>
   );
 }
@@ -329,7 +375,8 @@ function ModuleCard({
         flexDirection: "column",
         cursor: "pointer",
         borderLeft: `4px solid var(--mantine-color-${color}-6)`,
-        transition: "border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease",
+        transition:
+          "border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = `var(--mantine-color-${color}-5)`;
@@ -381,16 +428,46 @@ function ModuleCard({
         </Group>
 
         <Stack gap={7} mt="auto" pt="xs">
-          <MiniStat icon={<IconRoute size={15} />} value={routeCount} label="Routes" />
-          <MiniStat icon={<IconAffiliate size={15} />} value={detail ? (detail.services?.length ?? 0) : undefined} label="Services" />
-          <MiniStat icon={<IconPackages size={15} />} value={detail ? detail.dependencies.length : undefined} label="Dépendances" />
-          <MiniStat icon={<IconBook size={15} />} value={detail ? (detail.docsCount ?? 0) : undefined} label="Docs" />
-          <MiniStat icon={<IconCode size={15} />} value={detail ? (detail.symbolsCount ?? 0) : undefined} label="API" />
+          <MiniStat
+            icon={<IconRoute size={15} />}
+            value={routeCount}
+            label="Routes"
+          />
+          <MiniStat
+            icon={<IconAffiliate size={15} />}
+            value={detail ? (detail.services?.length ?? 0) : undefined}
+            label="Services"
+          />
+          <MiniStat
+            icon={<IconPackages size={15} />}
+            value={detail ? detail.dependencies.length : undefined}
+            label="Dépendances"
+          />
+          <MiniStat
+            icon={<IconBook size={15} />}
+            value={detail ? (detail.docsCount ?? 0) : undefined}
+            label="Docs"
+          />
+          <MiniStat
+            icon={<IconCode size={15} />}
+            value={detail ? (detail.symbolsCount ?? 0) : undefined}
+            label="API"
+          />
           <MiniStat
             icon={<IconShieldCheck size={15} />}
-            value={detail ? (detail.coverageLines != null ? `${Math.round(detail.coverageLines)}%` : "—") : undefined}
+            value={
+              detail
+                ? detail.coverageLines != null
+                  ? `${Math.round(detail.coverageLines)}%`
+                  : "—"
+                : undefined
+            }
             label="Couverture"
-            color={detail && detail.coverageLines != null ? covColor(detail.coverageLines) : undefined}
+            color={
+              detail && detail.coverageLines != null
+                ? covColor(detail.coverageLines)
+                : undefined
+            }
           />
         </Stack>
       </Stack>

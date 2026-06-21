@@ -49,6 +49,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../stores";
 import {
+  PageLayout,
   DocHint,
   DataGrid,
   PAGE_CONTENT_HEIGHT_WITH_BAND,
@@ -706,17 +707,17 @@ export const Database = observer(() => {
   );
 
   return (
-    <Stack gap="md" style={{ height: "100%" }}>
-      <Group justify="space-between">
-        <Group gap="xs">
-          <IconDatabase size={20} />
-          <Title order={2}>ORM — Modèle de données</Title>
+    <PageLayout
+      icon={<IconDatabase size={24} />}
+      title="ORM — Modèle de données"
+      subtitle={
+        <Group gap="xs" align="center">
+          <Text span size="sm" c="dimmed">
+            {entityCount} entités · {edges.length} relations
+          </Text>
           <Badge variant="light" color="brand">
             ERD
           </Badge>
-          <Text size="sm" c="dimmed">
-            {entityCount} entités · {edges.length} relations
-          </Text>
           {focus && (
             <Badge
               variant="filled"
@@ -738,6 +739,8 @@ export const Database = observer(() => {
             </Badge>
           )}
         </Group>
+      }
+      actions={
         <Group gap="xs">
           <Group gap={4} wrap="nowrap">
             <SegmentedControl
@@ -918,8 +921,8 @@ export const Database = observer(() => {
             </ActionIcon>
           </Tooltip>
         </Group>
-      </Group>
-
+      }
+    >
       {error && (
         <Alert color="red" variant="light" title="Erreur">
           {error}
@@ -1065,6 +1068,6 @@ export const Database = observer(() => {
           </ReactFlow>
         )}
       </Paper>
-    </Stack>
+    </PageLayout>
   );
 });

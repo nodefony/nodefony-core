@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.26.0
+version: 1.27.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1444,6 +1444,50 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   (`{tab === "roles" && <FirewallRoles/>}`) = fetch à la demande, pas au 1ᵉʳ rendu. Le 401 data plane sans token =
   firewall RÉEL (Studio s'authentifie comme les autres pages ; auth Studio mock branchée sur le vrai firewall = P6.15).
 
+**🔑 Sticky STRUCTUREL + layout commun `PageLayout` + ReactFlow hauteur concrète + navigateur Docker (2026-06-21, front-only)**
+
+> Session « page Roles + homogénéisation des topbars ». Une **leçon majeure** (le sticky cassé n'était PAS par page).
+
+- **🚨 LE bug du sticky était STRUCTUREL, pas par page** : Mantine pose un **`min-height` ≈ pleine hauteur** sur
+  `AppShell.Main` qui **écrase** le `height: calc(100dvh - header)` posé par `AdminLayout` → Main **grandit avec le
+  contenu** au lieu d'être plafonné → **ne scrolle jamais** (c'est le `body` qui scrolle) → tout `position: sticky`
+  enfant est piégé dans un conteneur non scrollé = **jamais figé**. **Fix = `minHeight: 0`** sur `AppShell.Main`
+  (`AdminLayout.tsx`) → `height` plafonne → **scroll INTERNE à Main** → les `PageHeader`/`Tabs.List` sticky marchent
+  **sur TOUTES les pages d'un coup**. **Diagnostic** (snippet console que le user a collé, débloquant tout après
+  ~10 itérations à l'aveugle) : `const m=document.querySelector('main'); getComputedStyle(m).overflowY` = `auto` MAIS
+  `m.scrollHeight > m.clientHeight` = **false** → Main ne scrolle pas → body scrolle → sticky inopérant. Symptôme user :
+  « certaines pages marchent, d'autres non » = en fait il marchait NULLE PART, mais seules les pages **assez longues
+  pour scroller** le rendaient visible.
+- **Nouvelles briques `PageLayout` + `StickyTabsList`** (`components/ui/PageLayout.tsx`) = le **layout commun**.
+  `PageLayout` rend `<Stack gap="md"><PageHeader sticky {...}/>{children}</Stack>` (props identiques à PageHeader :
+  title/subtitle/icon/actions/gap). `StickyTabsList` = un `Tabs.List` figé **sous** le header (`top:
+var(--nf-pageheader-height)` publié par le PageHeader sticky). **Migrer une page** = remplacer `<Stack><PageHeader
+sticky/>...</Stack>` par `<PageLayout>...</PageLayout>` + `<Tabs.List>`→`<StickyTabsList>`. 15 pages migrées.
+- **`PageHeader` : `mb="md"` RETIRÉ** — il **doublait** l'espacement (mb 16 + gap 16 du Stack parent = 32 px → décalage
+  header/contenu + un trou entre header sticky et Tabs.List sticky). L'espacement vient désormais du `gap` du parent seul.
+- **🔌 ReactFlow exige une hauteur CONCRÈTE, jamais une chaîne `height:100%`** : `Box(token)` > `FlowGraph height="100%"`
+  > `ReactFlow height:100%` → **erreur #004 « The parent container needs a width and a height »** (résolu à 0 au mount,
+  > surtout dans un onglet + StrictMode). **Passer le token calc DIRECTEMENT** à `FlowGraph` (`height={PAGE_CONTENT_HEIGHT_WITH_BAND}`)
+  > = le pattern prouvé de `Database.tsx`. (Pareil : `ModuleSymbolGraph` height paramétrable, 520 fixe → token.)
+- **Sticky hand-rollé à `top: var(--app-shell-header-height, 56px)` cassé par le passage main-scroll** : avant
+  (body-scroll), `56px` = pile sous la barre AppShell ; après (`minHeight:0`, main-scroll), `56px` est compté DANS Main
+  → l'élément se fige **56 px trop bas**. Fix = `top: var(--nf-pageheader-height)` (sous le PageHeader) ou `top: 0`.
+- **🚫 Le navigateur Docker (MCP `browser_*`) ne peut PAS voir le serveur de dev** : la page Studio charge ses assets en
+  **cross-origin absolu** `https://127.0.0.1:5173/@vite/client` + `/main.tsx` → dans le conteneur, `127.0.0.1:5173` = le
+  conteneur, pas l'hôte → le bundle React **ne charge jamais** (+ cert auto-signé 5152 refusé + `trustedHosts` → **421**
+  sur `host.docker.internal`). → **debug layout à l'aveugle inévitable** : s'appuyer sur les **yeux du user** (capture,
+  snippet console) **TÔT**, pas après N changements ratés. C'est exactement la règle projet « curl + validation visuelle
+  user, pas de headless ». **Leçon de coût** : ~10 itérations CSS à l'aveugle avant de demander la console = très cher ;
+  demander 1 fait observable (console/capture) au 2ᵉ aller-retour.
+- **Quiproquo « page module » liste vs détail** : `Modules.tsx` (`/nodefony/modules`, grille) ≠ `ModuleDetail.tsx`
+  (`/nodefony/modules/:name`, onglets). J'ai migré le DÉTAIL pendant que le user parlait de la LISTE → temps perdu.
+  **Toujours faire confirmer l'URL/route exacte** quand un nom de page est ambigu.
+- **4 pages gardées CUSTOM (tranché : risque > bénéfice)** : `PageLayout` est un wrapper rigide ; ne pas y forcer une
+  page qui a un vrai besoin (elles ont déjà `PageHeader sticky` qui marche). Gardées : **Chat** (Stack hauteur fixe),
+  **OrmOverview** (PageHeader conditionnel `embedded`), **Workspace** (bandeau sticky unifié), **DashboardSupervision**
+  (2 returns conditionnels). L'homogénéité visuelle est déjà là (même PageHeader sticky) ; la migration DRY ne vaut pas
+  un risque de régression non vérifiable à l'aveugle.
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1464,6 +1508,18 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.27.0** (2026-06-21) — **Page Roles P6.15 + FIX sticky STRUCTUREL + layout commun `PageLayout`/`StickyTabsList`**
+  (front-only). Page `/nodefony/roles` (onglets Hiérarchie + Graphe `FlowGraph` ; module éclaté `routes/roles/*` ;
+  types miroir réutilisés de `firewall/firewallModel`). **Fix racine du sticky** : `minHeight: 0` sur `AppShell.Main`
+  (`AdminLayout.tsx`) — Mantine pose un `min-height` qui écrasait le `height` → Main ne scrollait JAMAIS (body
+  scrollait) → tout `position: sticky` cassé partout ; le `minHeight:0` plafonne Main → scroll interne → sticky OK sur
+  **toutes** les pages. Nouvelles briques `components/ui/PageLayout.tsx` (`PageLayout` header sticky garanti +
+  `StickyTabsList` onglets figés sous le header). **15 pages migrées** en `PageLayout` ; 4 gardées custom (Chat hauteur
+  fixe / OrmOverview `embedded` / Workspace bandeau unifié / DashboardSupervision conditionnel). `PageHeader` `mb`
+  retiré (doublait l'espacement). ReactFlow = hauteur CONCRÈTE (jamais `height:100%` → erreur #004). Navigateur Docker
+  MCP ne joint pas le serveur dev (Vite cross-origin). RETEX complet (section « 🔑 Sticky STRUCTUREL + layout commun »).
+  framework-dev inchangé (**1.23.0**, front-only — `roleHierarchy` data plane déjà livré à la session Firewall).
+  [[project_session_2026-06-21_state]].
 - **1.26.0** (2026-06-20) — **Page Firewall Studio P6.15** (full-stack ; **contrat ↔ framework-dev 1.23.0** —
   introspection runtime `GET /nodefony/security/api/{firewall,roleHierarchy}`). `routes/Firewall.tsx` +
   `routes/firewall/{firewallModel.ts (types miroir + meta authenticators), firewallFormat.tsx (badges a11y),

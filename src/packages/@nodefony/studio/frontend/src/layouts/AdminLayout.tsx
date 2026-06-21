@@ -555,6 +555,13 @@ export const AdminLayout = observer(() => {
           paddingTop: 0,
           marginTop: "var(--app-shell-header-height, 56px)",
           height: "calc(100dvh - var(--app-shell-header-height, 56px))",
+          // 🔑 Mantine pose un `min-height` ≈ pleine hauteur sur Main qui ÉCRASE
+          // le `height` ci-dessus → Main grandit avec le contenu → il ne scrolle
+          // jamais (c'est le body qui scrolle) → tout `position: sticky` enfant
+          // est piégé dans un conteneur non scrollé = jamais figé. `minHeight: 0`
+          // laisse `height` plafonner Main → scroll INTERNE → les PageHeader/
+          // Tabs.List sticky fonctionnent enfin (sur TOUTES les pages).
+          minHeight: 0,
           overflowY: "auto",
           paddingBottom:
             "calc(var(--mantine-spacing-md) + var(--nodefony-debugbar-height, 0px))",

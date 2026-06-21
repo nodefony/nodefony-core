@@ -13,7 +13,7 @@ import {
   IconCpu,
   IconTopologyStar3,
 } from "@tabler/icons-react";
-import { PageHeader, DataState, DocHint } from "../components/ui";
+import { PageLayout, DataState, DocHint } from "../components/ui";
 import {
   PAGE_CONTENT_HEIGHT,
   PAGE_CONTENT_HEIGHT_WITH_BAND,
@@ -61,53 +61,50 @@ export const Twin = observer(() => {
   };
 
   return (
-    <Stack gap="md">
-      <PageHeader
-        sticky
-        icon={<IconTopologyStar3 size={22} />}
-        title="Jumeau Vivant"
-        subtitle="L'architecture qui tourne — entrée HTTP/WS, kernel, ORM, Socket, fonds de panier. Cliquez pour creuser, ⓘ pour comprendre."
-        actions={
-          <Group gap="xs">
-            {cluster ? (
-              <Badge
-                variant="light"
-                color="grape"
-                leftSection={<IconCpu size={12} />}
-              >
-                Cluster · {workers} workers
-              </Badge>
-            ) : null}
-            <DocHint
-              title="Jumeau Vivant"
-              version={TWIN_DOC}
-              summary="L'architecture runtime du serveur, vivante et explorable."
-              sections={[
-                {
-                  label: "Deux gestes",
-                  body: "Clic sur une brique = creuser (on entre dans son schéma détaillé). Icône ⓘ = explications (liens + docs). Le fil d'Ariane permet de remonter.",
-                },
-                {
-                  label: "Frontières",
-                  body: "Les pointillés marquent la frontière du process : clients au-dessus, bases et backends d'infra (Redis, Kafka, Loki, OpenSearch) en dessous — reliés par config.",
-                },
-                {
-                  label: "Temps réel",
-                  body: "Activé par défaut : les arêtes portent le flux, les briques affichent leur activité (connecteurs, requêtes, canaux). Coupez le switch pour figer.",
-                },
-              ]}
-            />
-            <Switch
-              size="sm"
-              checked={live}
-              onChange={(e) => setLive(e.currentTarget.checked)}
-              label="Temps réel"
-              aria-label="Activer le temps réel sur le Jumeau"
-            />
-          </Group>
-        }
-      />
-
+    <PageLayout
+      icon={<IconTopologyStar3 size={22} />}
+      title="Jumeau Vivant"
+      subtitle="L'architecture qui tourne — entrée HTTP/WS, kernel, ORM, Socket, fonds de panier. Cliquez pour creuser, ⓘ pour comprendre."
+      actions={
+        <Group gap="xs">
+          {cluster ? (
+            <Badge
+              variant="light"
+              color="grape"
+              leftSection={<IconCpu size={12} />}
+            >
+              Cluster · {workers} workers
+            </Badge>
+          ) : null}
+          <DocHint
+            title="Jumeau Vivant"
+            version={TWIN_DOC}
+            summary="L'architecture runtime du serveur, vivante et explorable."
+            sections={[
+              {
+                label: "Deux gestes",
+                body: "Clic sur une brique = creuser (on entre dans son schéma détaillé). Icône ⓘ = explications (liens + docs). Le fil d'Ariane permet de remonter.",
+              },
+              {
+                label: "Frontières",
+                body: "Les pointillés marquent la frontière du process : clients au-dessus, bases et backends d'infra (Redis, Kafka, Loki, OpenSearch) en dessous — reliés par config.",
+              },
+              {
+                label: "Temps réel",
+                body: "Activé par défaut : les arêtes portent le flux, les briques affichent leur activité (connecteurs, requêtes, canaux). Coupez le switch pour figer.",
+              },
+            ]}
+          />
+          <Switch
+            size="sm"
+            checked={live}
+            onChange={(e) => setLive(e.currentTarget.checked)}
+            label="Temps réel"
+            aria-label="Activer le temps réel sur le Jumeau"
+          />
+        </Group>
+      }
+    >
       {deep ? (
         <Breadcrumbs separator={<IconChevronRight size={14} />}>
           {stack.map((id, i) => (
@@ -153,7 +150,7 @@ export const Twin = observer(() => {
         connectors={connectors}
         onClose={() => setSelected(null)}
       />
-    </Stack>
+    </PageLayout>
   );
 });
 

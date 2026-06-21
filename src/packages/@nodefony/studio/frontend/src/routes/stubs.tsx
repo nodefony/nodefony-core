@@ -18,14 +18,6 @@ export const Users = () => (
   />
 );
 
-export const Roles = () => (
-  <StubPage
-    title="Roles"
-    description="Hiérarchie des rôles (RoleHierarchyWalker), voters, héritage. Lecture via /nodefony/security/api/roleHierarchy."
-    phase="P6.5 + P6.15"
-  />
-);
-
 export const ApiKeys = () => (
   <StubPage
     title="API Keys"

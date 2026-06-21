@@ -14,7 +14,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import {
-  Stack,
   Grid,
   Group,
   Switch,
@@ -36,7 +35,7 @@ import {
 
 import { useStore } from "../stores";
 import {
-  PageHeader,
+  PageLayout,
   StatCard,
   DataGrid,
   InfoHint,
@@ -319,39 +318,37 @@ export const Audit = observer(() => {
   }`;
 
   return (
-    <Stack gap="md">
-      <PageHeader
-        title="Journal d'audit"
-        subtitle={subtitle}
-        icon={<IconShieldCheck size={26} />}
-        actions={
-          <Group gap="sm" wrap="nowrap">
-            <Group gap={6} wrap="nowrap">
-              <Switch
-                size="sm"
-                checked={live}
-                onChange={(e) => toggleLive(e.currentTarget.checked)}
-                label="Temps réel"
-              />
-              <InfoHint text="Affiche les nouveaux événements en tête, en direct (canal security:audit). Réservé aux pics d'activité — un journal d'audit se consulte, il ne se regarde pas défiler. Nécessite le branchement du canal côté serveur (P6.15)." />
-              {live && newLiveCount > 0 && (
-                <Badge color="teal" variant="light">
-                  {newLiveCount} nouveau(x)
-                </Badge>
-              )}
-            </Group>
-            <Button
-              variant="light"
-              leftSection={<IconRefresh size={16} />}
-              loading={loading}
-              onClick={() => void reload()}
-            >
-              Recharger
-            </Button>
+    <PageLayout
+      title="Journal d'audit"
+      subtitle={subtitle}
+      icon={<IconShieldCheck size={26} />}
+      actions={
+        <Group gap="sm" wrap="nowrap">
+          <Group gap={6} wrap="nowrap">
+            <Switch
+              size="sm"
+              checked={live}
+              onChange={(e) => toggleLive(e.currentTarget.checked)}
+              label="Temps réel"
+            />
+            <InfoHint text="Affiche les nouveaux événements en tête, en direct (canal security:audit). Réservé aux pics d'activité — un journal d'audit se consulte, il ne se regarde pas défiler. Nécessite le branchement du canal côté serveur (P6.15)." />
+            {live && newLiveCount > 0 && (
+              <Badge color="teal" variant="light">
+                {newLiveCount} nouveau(x)
+              </Badge>
+            )}
           </Group>
-        }
-      />
-
+          <Button
+            variant="light"
+            leftSection={<IconRefresh size={16} />}
+            loading={loading}
+            onClick={() => void reload()}
+          >
+            Recharger
+          </Button>
+        </Group>
+      }
+    >
       {/* Abonnement live monté SEULEMENT quand le switch est ON (0 ticker sinon). */}
       {live && <AuditLive onBatch={onBatch} />}
 
@@ -455,6 +452,6 @@ export const Audit = observer(() => {
       )}
 
       <AuditDetail event={selected} onClose={() => setSelected(null)} />
-    </Stack>
+    </PageLayout>
   );
 });

@@ -57,7 +57,14 @@ function kindIcon(kind: string) {
   }
 }
 
-export function ModuleSymbolGraph({ symbols }: { symbols: ModuleSymbol[] }) {
+export function ModuleSymbolGraph({
+  symbols,
+  height = 520,
+}: {
+  symbols: ModuleSymbol[];
+  /** Hauteur du canevas (px ou token layout). Défaut 520 ; plein viewport via un token. */
+  height?: number | string;
+}) {
   const { nodes, edges, total, truncated } = useMemo(() => {
     const byName = new Map(symbols.map((s) => [s.name, s]));
     const rawEdges: FlowGraphEdge[] = [];
@@ -147,7 +154,7 @@ export function ModuleSymbolGraph({ symbols }: { symbols: ModuleSymbol[] }) {
         nodes={nodes}
         edges={edges}
         dir="LR"
-        height={520}
+        height={height}
         ariaLabel="Graphe de classes du module (extends / implements)"
       />
     </Stack>

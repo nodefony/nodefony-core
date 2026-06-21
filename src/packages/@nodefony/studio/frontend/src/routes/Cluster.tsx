@@ -11,7 +11,6 @@ import {
   HoverCard,
   SegmentedControl,
   SimpleGrid,
-  Stack,
   Switch,
   Text,
   ThemeIcon,
@@ -36,7 +35,7 @@ import { useNodefonyAdaptiveChannelData } from "nodefony/react";
 import { useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
 import {
-  PageHeader,
+  PageLayout,
   DataState,
   KpiCard,
   FlashValue,
@@ -603,88 +602,82 @@ export const Cluster = observer(() => {
   const totals = norm?.totals;
 
   return (
-    <Stack gap="lg">
-      <PageHeader
-        sticky
-        title="Cluster"
-        subtitle={
-          norm
-            ? norm.cluster
-              ? `${workers.length} worker(s) — vue pod agrégée`
-              : "Mono-process — 1 worker"
-            : "Salle des machines du pod"
-        }
-        actions={
-          <Group gap="sm">
-            {auto && live ? (
-              <Badge
-                variant="light"
-                color="grape"
-                leftSection={<IconBolt size={12} />}
-              >
-                AIMD ~{Math.round(effectiveMs / 1000)}s
-              </Badge>
-            ) : null}
-            <HoverCard
-              width={300}
-              shadow="md"
-              position="bottom-end"
-              openDelay={120}
-              closeDelay={120}
-            >
-              <HoverCard.Target>
-                <div>
-                  <Switch
-                    size="sm"
-                    checked={live}
-                    onChange={(e) =>
-                      ui.setRealtimeLive(e.currentTarget.checked)
-                    }
-                    label="Temps réel"
-                    aria-label="abonnement temps réel (socket Nodefony) de la vue cluster"
-                  />
-                </div>
-              </HoverCard.Target>
-              <HoverCard.Dropdown>
-                <Group gap={6} mb={6}>
-                  <IconBolt size={14} />
-                  <Text size="xs" fw={600}>
-                    {auto
-                      ? "Cadence désirée (plancher)"
-                      : "Granularité du canal"}
-                  </Text>
-                </Group>
-                <SegmentedControl
-                  fullWidth
-                  size="xs"
-                  value={String(liveMs)}
-                  onChange={(v) => setLiveMs(Number(v))}
-                  data={[
-                    { label: "2 s", value: "2000" },
-                    { label: "5 s", value: "5000" },
-                    { label: "10 s", value: "10000" },
-                    { label: "30 s", value: "30000" },
-                  ]}
-                />
-                <Text size="xs" c="dimmed" mt={6}>
-                  {auto
-                    ? "Cadence auto (AIMD) ACTIVE — réglée globalement dans le Hub. Cette valeur sert de plancher."
-                    : "Cadence des pushes de la socket (santé cluster). Cadence auto réglable dans le Hub."}
-                </Text>
-              </HoverCard.Dropdown>
-            </HoverCard>
-            <Button
+    <PageLayout
+      gap="lg"
+      title="Cluster"
+      subtitle={
+        norm
+          ? norm.cluster
+            ? `${workers.length} worker(s) — vue pod agrégée`
+            : "Mono-process — 1 worker"
+          : "Salle des machines du pod"
+      }
+      actions={
+        <Group gap="sm">
+          {auto && live ? (
+            <Badge
               variant="light"
-              leftSection={<IconRefresh size={16} />}
-              loading={loading}
-              onClick={reload}
+              color="grape"
+              leftSection={<IconBolt size={12} />}
             >
-              Recharger
-            </Button>
-          </Group>
-        }
-      />
-
+              AIMD ~{Math.round(effectiveMs / 1000)}s
+            </Badge>
+          ) : null}
+          <HoverCard
+            width={300}
+            shadow="md"
+            position="bottom-end"
+            openDelay={120}
+            closeDelay={120}
+          >
+            <HoverCard.Target>
+              <div>
+                <Switch
+                  size="sm"
+                  checked={live}
+                  onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
+                  label="Temps réel"
+                  aria-label="abonnement temps réel (socket Nodefony) de la vue cluster"
+                />
+              </div>
+            </HoverCard.Target>
+            <HoverCard.Dropdown>
+              <Group gap={6} mb={6}>
+                <IconBolt size={14} />
+                <Text size="xs" fw={600}>
+                  {auto ? "Cadence désirée (plancher)" : "Granularité du canal"}
+                </Text>
+              </Group>
+              <SegmentedControl
+                fullWidth
+                size="xs"
+                value={String(liveMs)}
+                onChange={(v) => setLiveMs(Number(v))}
+                data={[
+                  { label: "2 s", value: "2000" },
+                  { label: "5 s", value: "5000" },
+                  { label: "10 s", value: "10000" },
+                  { label: "30 s", value: "30000" },
+                ]}
+              />
+              <Text size="xs" c="dimmed" mt={6}>
+                {auto
+                  ? "Cadence auto (AIMD) ACTIVE — réglée globalement dans le Hub. Cette valeur sert de plancher."
+                  : "Cadence des pushes de la socket (santé cluster). Cadence auto réglable dans le Hub."}
+              </Text>
+            </HoverCard.Dropdown>
+          </HoverCard>
+          <Button
+            variant="light"
+            leftSection={<IconRefresh size={16} />}
+            loading={loading}
+            onClick={reload}
+          >
+            Recharger
+          </Button>
+        </Group>
+      }
+    >
       {/* Abonné live monté conditionnellement (ref-compté → 0 ticker serveur OFF). */}
       {live ? (
         <ClusterHealthLive
@@ -876,7 +869,7 @@ export const Cluster = observer(() => {
           ))}
         </SimpleGrid>
       </DataState>
-    </Stack>
+    </PageLayout>
   );
 });
 

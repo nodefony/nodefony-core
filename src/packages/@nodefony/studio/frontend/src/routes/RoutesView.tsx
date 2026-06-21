@@ -1,11 +1,11 @@
 import { observer } from "mobx-react-lite";
 import { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Code, Group, Stack, Text, Tooltip } from "@mantine/core";
+import { Badge, Code, Group, Text, Tooltip } from "@mantine/core";
 import { IconRoute, IconShieldOff } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import {
-  PageHeader,
+  PageLayout,
   DataGrid,
   PAGE_CONTENT_HEIGHT_WITH_BAND,
   type DataGridColumn,
@@ -181,17 +181,16 @@ export const RoutesView = observer(() => {
   );
 
   return (
-    <Stack gap="md" style={{ height: "100%" }}>
-      <PageHeader
-        icon={<IconRoute size={24} />}
-        title="Routes"
-        subtitle={
-          <>
-            Pagination SERVEUR via{" "}
-            <Code>/nodefony/framework/api/routes/page</Code>
-          </>
-        }
-      />
+    <PageLayout
+      icon={<IconRoute size={24} />}
+      title="Routes"
+      subtitle={
+        <>
+          Pagination SERVEUR via{" "}
+          <Code>/nodefony/framework/api/routes/page</Code>
+        </>
+      }
+    >
       <DataGrid
         mode="server"
         loader={loader}
@@ -204,7 +203,7 @@ export const RoutesView = observer(() => {
         emptyMessage="Aucune route ne correspond."
         persist={{ key: "studio.routes", storage: "session" }}
       />
-    </Stack>
+    </PageLayout>
   );
 });
 

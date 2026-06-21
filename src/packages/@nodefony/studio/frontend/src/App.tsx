@@ -87,11 +87,13 @@ const Audit = lazy(() =>
 const Firewall = lazy(() =>
   import("./routes/Firewall").then((m) => ({ default: m.Firewall })),
 );
+const Roles = lazy(() =>
+  import("./routes/Roles").then((m) => ({ default: m.Roles })),
+);
 
 import {
   Sessions,
   Users,
-  Roles,
   ApiKeys,
   Webhooks,
   Services,
