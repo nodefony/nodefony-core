@@ -1,6 +1,15 @@
-import { Card, Grid, Group, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import {
+  Card,
+  Grid,
+  Group,
+  Stack,
+  Text,
+  ThemeIcon,
+  Tooltip,
+} from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { DocHint } from "./DocHint";
 
 /**
  * InfoHint — bulle d'aide ⓘ accessible : ouvre au survol, au focus clavier ET
@@ -34,8 +43,14 @@ export function InfoHint({ text }: { text: string }) {
 export interface StatCardProps {
   label: string;
   icon?: ReactNode;
-  /** Texte d'aide (bulle ⓘ accessible à droite du label). */
+  /**
+   * Texte d'aide court. **Routé via une fiche `DocHint`** (norme Studio : l'aide
+   * d'une carte est une fiche typée, pas un tooltip brut `InfoHint`). Le `title`
+   * de la fiche = le `label` de la carte.
+   */
   hint?: string;
+  /** Fiche d'aide riche (ex. `<DocHint sections=… />`) — rendue À LA PLACE de `hint`. */
+  info?: ReactNode;
   /** Span Grid responsive. Le composant rend sa propre `Grid.Col`. Défaut 1/4 large. */
   span?: Record<string, number>;
   children: ReactNode;
@@ -51,6 +66,7 @@ export function StatCard({
   label,
   icon,
   hint,
+  info,
   span = { base: 12, sm: 6, lg: 3 },
   children,
 }: StatCardProps) {
@@ -63,7 +79,10 @@ export function StatCard({
               <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
                 {label}
               </Text>
-              {hint && <InfoHint text={hint} />}
+              {/* Norme Studio : l'aide d'une carte est une FICHE typée (DocHint,
+                  HoverCard ouverte au survol/focus), jamais un tooltip brut. Un
+                  simple `hint` est routé via DocHint (title = label). */}
+              {info ?? (hint ? <DocHint title={label} summary={hint} /> : null)}
             </Group>
             {children}
           </Stack>

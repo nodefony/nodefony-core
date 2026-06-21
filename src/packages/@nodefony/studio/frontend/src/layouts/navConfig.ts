@@ -222,7 +222,6 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/sessions",
         label: "Sessions",
         icon: IconList,
-        wip: true,
       },
       { to: "/nodefony/api-keys", label: "API Keys", icon: IconKey },
       {

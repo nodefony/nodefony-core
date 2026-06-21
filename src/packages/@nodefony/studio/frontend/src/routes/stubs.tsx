@@ -1,14 +1,5 @@
 import { StubPage } from "../components/StubPage";
 
-export const Sessions = () => (
-  <StubPage
-    title="Sessions"
-    description="Liste + invalidation des sessions actives. Lecture via IAdminApi de @nodefony/http."
-    phase="P10.3 + P5.11"
-    legacyRef="monitoring-bundle/views/sessions/"
-  />
-);
-
 export const Users = () => (
   <StubPage
     title="Users"

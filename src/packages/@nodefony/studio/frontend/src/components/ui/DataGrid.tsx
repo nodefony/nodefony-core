@@ -7,6 +7,7 @@ import {
   LoadingOverlay,
   Menu,
   Pagination,
+  Paper,
   ScrollArea,
   Select,
   Stack,
@@ -41,6 +42,7 @@ import {
   type FilterFn,
   type PaginationState,
   type RowData,
+  type RowSelectionState,
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
@@ -148,6 +150,18 @@ interface BaseProps<T> {
    * (ex. une string dérivée des filtres).
    */
   resetPageSignal?: unknown;
+  /**
+   * Active la **sélection multiple** : colonne de cases à cocher en 1ʳᵉ position +
+   * case « select-all » dans l'en-tête (état indéterminé si sélection partielle).
+   * Sans cette prop, le rendu est INCHANGÉ (opt-in, 100 % rétro-compatible).
+   */
+  selectable?: boolean;
+  /**
+   * Barre d'actions groupées rendue AU-DESSUS du tableau (sous la toolbar),
+   * visible uniquement si `selectable` ET au moins une ligne cochée. Reçoit les
+   * lignes sélectionnées (`T[]`) + `clearSelection()` pour tout désélectionner.
+   */
+  bulkActions?: (selectedRows: T[], clearSelection: () => void) => ReactNode;
 }
 
 /** Mode CLIENT : `data` complet → TanStack trie/filtre/pagine en mémoire. */
@@ -448,6 +462,10 @@ export function DataGrid<T>(props: DataGridProps<T>) {
   const [showFilters, setShowFilters] = useState(
     () => (persisted?.columnFilters?.length ?? 0) > 0,
   );
+  // Sélection multiple (opt-in) — indexée par `getRowId` → stable au tri/filtre.
+  // Volontairement NON persistée (transitoire, comme une sélection d'écran).
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const clearSelection = () => setRowSelection({});
 
   // Injecte le style de la poignée de resize une seule fois (CSS hover/drag).
   useEffect(ensureResizerStyle, []);
@@ -596,6 +614,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
       pagination,
       columnVisibility,
       columnSizing,
+      rowSelection,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -603,6 +622,8 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     onPaginationChange: setPagination,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnSizingChange: setColumnSizing,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: props.selectable ?? false,
     enableColumnResizing: true,
     columnResizeMode: "onChange",
     getRowId: (row) => getRowId(row),
@@ -660,6 +681,14 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     setPagination({ pageIndex: 0, pageSize: props.pageSize ?? 25 });
     setShowFilters(false);
   };
+
+  // Sélection multiple — lignes cochées (page courante en mode serveur).
+  const selectable = props.selectable ?? false;
+  const selectedRows = selectable
+    ? table.getSelectedRowModel().rows.map((r) => r.original)
+    : [];
+  const showBulkBar =
+    selectable && !!props.bulkActions && selectedRows.length > 0;
 
   const sortIcon = (s: false | "asc" | "desc") =>
     s === false ? (
@@ -756,6 +785,29 @@ export function DataGrid<T>(props: DataGridProps<T>) {
           </Menu.Dropdown>
         </Menu>
       </Group>
+      {showBulkBar && (
+        <Paper withBorder p="xs" role="region" aria-label="Actions groupées">
+          <Group justify="space-between" wrap="nowrap" gap="xs">
+            <Group gap="sm" wrap="nowrap">
+              <Text size="sm" fw={600}>
+                {selectedRows.length} sélectionné
+                {selectedRows.length > 1 ? "s" : ""}
+              </Text>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="gray"
+                onClick={clearSelection}
+              >
+                Tout désélectionner
+              </Button>
+            </Group>
+            <Group gap="xs" wrap="nowrap">
+              {props.bulkActions?.(selectedRows, clearSelection)}
+            </Group>
+          </Group>
+        </Paper>
+      )}
       <div
         style={{
           position: "relative",
@@ -798,6 +850,20 @@ export function DataGrid<T>(props: DataGridProps<T>) {
               <Table.Thead>
                 {table.getHeaderGroups().map((hg) => (
                   <Table.Tr key={hg.id}>
+                    {selectable && (
+                      <Table.Th
+                        style={{ width: 36, textAlign: "center" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          size="xs"
+                          aria-label="Tout sélectionner"
+                          checked={table.getIsAllPageRowsSelected()}
+                          indeterminate={table.getIsSomePageRowsSelected()}
+                          onChange={table.getToggleAllPageRowsSelectedHandler()}
+                        />
+                      </Table.Th>
+                    )}
                     {hg.headers.map((h) => {
                       const align = h.column.columnDef.meta?.align ?? "left";
                       const hint = h.column.columnDef.meta?.hint;
@@ -868,6 +934,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
                 ))}
                 {showFilters && (
                   <Table.Tr>
+                    {selectable && <Table.Th style={{ width: 36 }} />}
                     {table.getHeaderGroups()[0]?.headers.map((h) => (
                       <Table.Th
                         key={`f-${h.id}`}
@@ -889,7 +956,10 @@ export function DataGrid<T>(props: DataGridProps<T>) {
                 {rows.length === 0 && !loading && (
                   <Table.Tr>
                     <Table.Td
-                      colSpan={table.getVisibleLeafColumns().length}
+                      colSpan={
+                        table.getVisibleLeafColumns().length +
+                        (selectable ? 1 : 0)
+                      }
                       style={{ textAlign: "center", padding: 24 }}
                     >
                       <Text size="sm" c="dimmed">
@@ -917,6 +987,19 @@ export function DataGrid<T>(props: DataGridProps<T>) {
                     tabIndex={onRowClick ? 0 : undefined}
                     style={onRowClick ? { cursor: "pointer" } : undefined}
                   >
+                    {selectable && (
+                      <Table.Td
+                        style={{ width: 36, textAlign: "center" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          size="xs"
+                          aria-label="Sélectionner la ligne"
+                          checked={row.getIsSelected()}
+                          onChange={row.getToggleSelectedHandler()}
+                        />
+                      </Table.Td>
+                    )}
                     {row.getVisibleCells().map((cell) => (
                       <Table.Td
                         key={cell.id}
