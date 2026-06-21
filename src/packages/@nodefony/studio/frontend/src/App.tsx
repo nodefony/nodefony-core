@@ -96,9 +96,11 @@ const ApiKeys = lazy(() =>
 const Sessions = lazy(() =>
   import("./routes/Sessions").then((m) => ({ default: m.Sessions })),
 );
+const Users = lazy(() =>
+  import("./routes/Users").then((m) => ({ default: m.Users })),
+);
 
 import {
-  Users,
   Webhooks,
   Services,
   Npm,

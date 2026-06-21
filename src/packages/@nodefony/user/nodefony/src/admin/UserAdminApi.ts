@@ -225,6 +225,40 @@ function countActiveAdmins(all: IUser[]): number {
 }
 
 /**
+ * Statut du sous-système utilisateur — miroir consommé par la console Studio
+ * (« où on écrit »). `store` = classe du repository réel ; `driver` = backend
+ * **déduit** du nom de classe (`memory`/`drizzle`/`mongoose`), `null` si
+ * indéterminable. Aucun secret/hash : seulement la topologie de persistance.
+ */
+export interface IUsersStatus {
+  enabled: boolean;
+  /** Nom de classe du repository (ex. `DrizzleUserRepository`), `"none"` si absent. */
+  store: string;
+  /** Backend déduit du nom de classe (`memory`/`drizzle`/`mongoose`), ou `null`. */
+  driver: "memory" | "drizzle" | "mongoose" | null;
+  /** Nombre d'utilisateurs si dénombrable (lecture défensive), sinon `null`. */
+  count: number | null;
+  /** Réserve multi-tenant (toujours `null` en mono-tenant — slot coût-0). */
+  tenantId: string | null;
+}
+
+/**
+ * Déduit le backend de persistance du nom de classe du repository — convention
+ * de nommage des adapters (`InMemoryUserRepository`/`DrizzleUserRepository`/
+ * `MongooseUserRepository`). `null` si le nom ne matche aucun adapter connu
+ * (jamais throw — un repo custom reste affichable via `store`).
+ */
+function deduceUserDriver(
+  storeName: string,
+): "memory" | "drizzle" | "mongoose" | null {
+  const n = storeName.toLowerCase();
+  if (n.includes("inmemory") || n.includes("memory")) return "memory";
+  if (n.includes("drizzle")) return "drizzle";
+  if (n.includes("mongoose") || n.includes("mongo")) return "mongoose";
+  return null;
+}
+
+/**
  * Producteur `IAdminApi` du domaine **utilisateur** — exposé sous
  * `/nodefony/user/api/users`. Défini DANS `@nodefony/user` (propriétaire du
  * `UserService`/`IUser`) mais **enregistré par un module bootable**
@@ -288,6 +322,43 @@ export function createUserAdminApi(container: Container): IAdminApi {
           limit,
           offset,
         };
+      },
+    },
+    {
+      // Statut « où on écrit » : driver de persistance du service `users`.
+      // Déclaré AVANT `users/{id}` (segment littéral `status` ≠ param `{id}`),
+      // lecture 100 % défensive (jamais throw, jamais de hash).
+      path: "users/status",
+      method: "GET",
+      summary:
+        "Statut du sous-système utilisateur (store/driver/count) — jamais de hash.",
+      handler: async (): Promise<IUsersStatus> => {
+        const users = resolveUsers();
+        if (!users) {
+          return {
+            enabled: false,
+            store: "none",
+            driver: null,
+            count: null,
+            tenantId: null,
+          };
+        }
+        // `repository` est protégé : lecture défensive du nom de classe (le
+        // service expose son CRUD, pas son dépôt → duck-typing prudent).
+        const repo = (users as unknown as { repository?: unknown }).repository;
+        const store =
+          (repo as { constructor?: { name?: string } } | undefined)?.constructor
+            ?.name ?? "none";
+        const driver = deduceUserDriver(store);
+        // `count()` peut throw selon le backend (réseau, schéma) → on n'expose
+        // jamais d'erreur : un compte indénombrable reste `null`.
+        let count: number | null = null;
+        try {
+          count = await users.count();
+        } catch {
+          count = null;
+        }
+        return { enabled: true, store, driver, count, tenantId: null };
       },
     },
     {

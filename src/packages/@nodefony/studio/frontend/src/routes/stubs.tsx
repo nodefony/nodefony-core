@@ -1,14 +1,5 @@
 import { StubPage } from "../components/StubPage";
 
-export const Users = () => (
-  <StubPage
-    title="Users"
-    description="CRUD utilisateurs, rôles, MFA. Lecture via IUserProvider (@nodefony/user)."
-    phase="P10.4 + P5.5"
-    legacyRef="monitoring-bundle/views/users/"
-  />
-);
-
 export const Webhooks = () => (
   <StubPage
     title="Webhooks"

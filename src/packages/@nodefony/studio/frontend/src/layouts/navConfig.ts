@@ -212,7 +212,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Firewall",
         icon: IconShieldLock,
       },
-      { to: "/nodefony/users", label: "Users", icon: IconUsers, wip: true },
+      { to: "/nodefony/users", label: "Users", icon: IconUsers },
       {
         to: "/nodefony/roles",
         label: "Roles",
