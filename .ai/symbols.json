@@ -1,11 +1,11 @@
 {
-  "generated": "2026-06-21T15:26:35.057Z",
+  "generated": "2026-06-21T22:52:32.001Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 935,
-    "symbols": 2094,
-    "classes": 296,
+    "files": 936,
+    "symbols": 2095,
+    "classes": 297,
     "interfaces": 555,
     "types": 251,
     "enums": 3,
@@ -15118,6 +15118,19 @@
       ],
       "decorators": []
     },
+    "RevocationGuardStorage": {
+      "name": "RevocationGuardStorage",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [
+        "ISessionStorage"
+      ],
+      "decorators": [],
+      "description": "Garde-fou de révocation **décoré au-dessus** de n'importe quel {@link ISessionStorage} (file, drizzle, redis, mongo…). Pose une « pierre tombale » sur tout id détruit et REFUSE un `write` ultérieur…"
+    },
     "createGithubProvider": {
       "name": "createGithubProvider",
       "kind": "function",
@@ -15531,7 +15544,8 @@
         "SessionStorage",
         "SessionStorage",
         "RedisSessionStorage",
-        "FileSessionStorage"
+        "FileSessionStorage",
+        "RevocationGuardStorage"
       ],
       "IAdminBroker": [
         "AdminBroker"
@@ -18434,28 +18448,32 @@
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "ISerializedSession": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "ISessionRecord": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "ISessionListFilter": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "SESSION_ORM": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -20934,6 +20952,9 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "FileSessionStorage": [
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "RevocationGuardStorage": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "IParsedUploadFile": [

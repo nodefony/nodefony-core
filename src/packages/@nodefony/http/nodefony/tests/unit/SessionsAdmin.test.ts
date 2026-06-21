@@ -8,6 +8,7 @@ import SessionsService, {
   toSessionSummary,
 } from "../../service/sessions/sessions-service.js";
 import FileSessionStorage from "../../src/session/storage/FileSessionStorage.js";
+import RevocationGuardStorage from "../../src/session/storage/RevocationGuardStorage.js";
 import type {
   ISerializedSession,
   ISessionRecord,
@@ -274,5 +275,130 @@ describe("Sessions admin — orchestration (unit, storage mock)", () => {
     expect(events[0].action).to.equal("session.revoked");
     expect(events[0].actor).to.equal("bob-admin");
     expect(events[0].resource).to.equal(refA);
+  });
+});
+
+// ── Garde-fou de révocation GÉNÉRIQUE — anti-résurrection (cycle de vie) ──────
+// Bug live 2026-06-21 : révoquer une session ne déconnecte pas. La révocation
+// (admin OU self) détruit l'entrée storage, mais l'AUTOSAVE de fin de requête
+// (`HttpContext.send/end` → `session.save()` → `storage.write(id)`) la RÉ-ÉCRIT —
+// la requête portait encore la session `dirty` en mémoire. Le store réel en dev
+// était `drizzle` (PAS `files`), donc le fix vit AU-DESSUS du store :
+// `RevocationGuardStorage` décore N'IMPORTE quel backend, pose une pierre tombale
+// sur `destroy(id)` et refuse tout `write(id)` ultérieur. On le prouve sur un vrai
+// FileSessionStorage ET sur un store mock (→ drizzle/redis/mongo couverts par
+// construction, sans modifier aucun store).
+describe("RevocationGuardStorage — révocation effective (anti-résurrection)", () => {
+  const blob = (user: string): ISerializedSession => ({
+    Attributes: {},
+    metaBag: {},
+    flashBag: {},
+    user,
+  });
+
+  describe("décorant un vrai FileSessionStorage (tmpdir)", () => {
+    let dir: string;
+    let storage: RevocationGuardStorage;
+
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-sess-revoke-"));
+      const manager = {
+        options: { save_path: dir, gc_maxlifetime: 3600 },
+        log: () => {},
+      };
+      storage = new RevocationGuardStorage(
+        new FileSessionStorage(
+          manager as unknown as ConstructorParameters<
+            typeof FileSessionStorage
+          >[0],
+        ),
+      );
+    });
+
+    afterEach(() => {
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("un write APRÈS destroy ne ressuscite PAS la session (autosave de fin de requête)", async () => {
+      await storage.write("sid-X", blob("alice"));
+      expect((await storage.start("sid-X")).user, "session persistée").to.equal(
+        "alice",
+      );
+      await storage.destroy("sid-X"); // révocation
+      await storage.write("sid-X", blob("alice")); // autosave tardif (refusé)
+      expect(
+        Object.keys(await storage.start("sid-X")),
+        "session NE doit PAS renaître",
+      ).to.have.length(0);
+    });
+
+    it("la révocation n'affecte QUE la session ciblée (les autres s'autosauvent)", async () => {
+      await storage.write("sid-A", blob("alice"));
+      await storage.write("sid-B", blob("bob"));
+      await storage.destroy("sid-A");
+      await storage.write("sid-A", blob("alice")); // résurrection refusée
+      await storage.write("sid-B", blob("bob")); // autosave légitime d'un autre client
+      expect(Object.keys(await storage.start("sid-A"))).to.have.length(0);
+      expect((await storage.start("sid-B")).user).to.equal("bob");
+    });
+
+    it("un NOUVEL id (login régénère l'ID) s'écrit après destroy de l'ancien", async () => {
+      await storage.write("old-id", blob("alice"));
+      await storage.destroy("old-id");
+      await storage.write("new-id", blob("alice"));
+      expect((await storage.start("new-id")).user).to.equal("alice");
+    });
+
+    it("réexpose listAll quand le backend le supporte (énumération admin)", async () => {
+      expect(typeof storage.listAll).to.equal("function");
+      await storage.write("s1", blob("alice"));
+      const all = await storage.listAll!();
+      expect(all.map((r) => r.id)).to.deep.equal(["s1"]);
+    });
+  });
+
+  describe("agnostique du backend (store mock → drizzle/redis/mongo par construction)", () => {
+    // Store minimal en mémoire : prouve que la garantie ne dépend PAS de File.
+    function makeStore(): {
+      store: ISessionStorage;
+      has: (id: string) => boolean;
+    } {
+      const map = new Map<string, ISerializedSession>();
+      return {
+        store: {
+          read: async (id) => map.get(id) ?? ({} as ISerializedSession),
+          write: async (id, d) => {
+            map.set(id, d);
+            return d;
+          },
+          start: async (id) => map.get(id) ?? ({} as ISerializedSession),
+          open: async () => map.size,
+          close: () => true,
+          destroy: async (id) => map.delete(id),
+          gc: async () => {},
+        },
+        has: (id) => map.has(id),
+      };
+    }
+
+    it("destroy puis write : le backend ne contient JAMAIS l'entrée ressuscitée", async () => {
+      const { store, has } = makeStore();
+      const guard = new RevocationGuardStorage(store);
+      await guard.write("x", blob("alice"));
+      expect(has("x")).to.equal(true);
+      await guard.destroy("x");
+      await guard.write("x", blob("alice")); // refusé par le garde-fou
+      expect(has("x"), "backend ne ressuscite pas").to.equal(false);
+    });
+
+    it("n'expose PAS listAll si le backend ne le supporte pas (501 honnête en aval)", () => {
+      const { store } = makeStore(); // pas de listAll
+      expect(new RevocationGuardStorage(store).listAll).to.equal(undefined);
+    });
+
+    it("inner expose le store réel décoré (introspection du driver)", () => {
+      const { store } = makeStore();
+      expect(new RevocationGuardStorage(store).inner).to.equal(store);
+    });
   });
 });

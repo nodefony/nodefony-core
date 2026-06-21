@@ -30,6 +30,7 @@ import HttpRequest from "../../src/context/http/Request";
 import Certificate from "../../service/certificates";
 import { createHash, createHmac } from "node:crypto";
 import FileSessionStorage from "../../src/session/storage/FileSessionStorage";
+import RevocationGuardStorage from "../../src/session/storage/RevocationGuardStorage";
 
 export type sessionStrategyType = "none" | "migrate" | "invalidate";
 export type sessionStorageType = any; //  "orm" | "memcached" | "redis" | "fileSystem" | "memory";
@@ -206,7 +207,11 @@ class SessionsService extends Service {
       );
       return null;
     }
-    this.storage = new Storage(this);
+    // Décoration générique : le garde-fou de révocation s'applique à TOUT
+    // backend (file/drizzle/redis/mongo) sans le modifier — la résurrection est
+    // un défaut du cycle de vie, pas d'un store. `storage.inner` reste le store
+    // réel (introspection admin : quel driver persiste les sessions).
+    this.storage = new RevocationGuardStorage(new Storage(this));
     this.log(`SESSION STORAGE active : ${this.options.handler}`, "INFO");
     // Événement (kernel + service) : quel backend de session est actif.
     this.fire("onSessionStorageReady", this.options.handler, this.storage);
