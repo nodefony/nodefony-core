@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-21T23:28:36.047Z",
+  "generated": "2026-06-21T23:57:33.055Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 936,
-    "symbols": 2095,
+    "symbols": 2100,
     "classes": 297,
-    "interfaces": 555,
+    "interfaces": 558,
     "types": 251,
     "enums": 3,
-    "functions": 479,
+    "functions": 481,
     "constants": 510
   },
   "symbols": {
@@ -14765,6 +14765,15 @@
       "module": "@nodefony/user",
       "extends": null,
       "description": "Charge utile de {@link USER_REVOKED_EVENT}. `identifier` = clé de jointure des artefacts (session `user`, PAT `subjectId`). `tenantId` = slot multi-tenant (toujours `null` en mono-tenant — réserve …"
+    },
+    "IUsersStatus": {
+      "name": "IUsersStatus",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Statut du sous-système utilisateur — miroir consommé par la console Studio (« où on écrit »). `store` = classe du repository réel ; `driver` = backend **déduit** du nom de classe (`memory`/`drizzle…"
     },
     "toUserSummary": {
       "name": "toUserSummary",

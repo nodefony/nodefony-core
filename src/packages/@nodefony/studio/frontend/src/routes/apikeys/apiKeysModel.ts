@@ -37,6 +37,21 @@ export interface ApiKeyCreated extends ApiKey {
   token: string;
 }
 
+/**
+ * Statut « où on écrit » du sous-système clés API — miroir du handler
+ * `apikeys/status` (`SecurityAdminApi`). Le `store` est la classe RÉELLE du
+ * `ITokenStore` (la table qui porte les clés) ; le `driver` est sa famille
+ * logique (mémoire/SGBD/cache). Aucun secret, jamais d'id de clé.
+ */
+export interface ApiKeysStatus {
+  /** Clés API activées en config (`apiKeys.enabled`). */
+  enabled: boolean;
+  /** Classe réelle du store de jetons (ex. `MemoryTokenStore`), `none` si absent. */
+  store: string;
+  /** Driver déduit (`memory`/`orm`/`redis`), `null` si indéterminable. */
+  driver: "memory" | "orm" | "redis" | null;
+}
+
 /** Capacités/contraintes d'émission — miroir de `IApiKeyCapabilities`. */
 export interface ApiKeyCapabilities {
   enabled: boolean;
@@ -61,6 +76,12 @@ export const KEYS_CAPABILITIES_ENDPOINT =
  * du data plane self-service framework P6.12).
  */
 export const ADMIN_KEYS_ENDPOINT = "/nodefony/security/api/apikeys";
+
+/**
+ * GET — statut du sous-système clés API (« où on écrit » : backend du token
+ * store). Monté par `SecurityAdminApi`, RBAC `ROLE_NODEFONY_ADMIN`.
+ */
+export const API_KEYS_STATUS_ENDPOINT = "/nodefony/security/api/apikeys/status";
 
 /** DELETE — révocation d'UNE clé du porteur courant (mode utilisateur). */
 export function userRevokeEndpoint(id: string): string {

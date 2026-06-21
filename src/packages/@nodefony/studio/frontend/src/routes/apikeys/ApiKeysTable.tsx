@@ -17,7 +17,12 @@ import {
 } from "@mantine/core";
 import { IconKey, IconBan, IconInfoCircle } from "@tabler/icons-react";
 
-import { DataGrid, DocHint, type DataGridColumn } from "../../components/ui";
+import {
+  DataGrid,
+  DocHint,
+  TABS_PANEL_HEIGHT,
+  type DataGridColumn,
+} from "../../components/ui";
 import {
   API_KEYS_DOC,
   fmtDate,
@@ -44,6 +49,7 @@ export function ApiKeysTable({
   keys,
   showSubject,
   onRevoke,
+  onBulkRevoke,
   revokingId,
 }: {
   keys: ApiKey[];
@@ -51,6 +57,12 @@ export function ApiKeysTable({
   showSubject: boolean;
   /** Demande la révocation d'une clé (le parent confirme + appelle le bon endpoint). */
   onRevoke: (key: ApiKey) => void;
+  /**
+   * Révoque en MASSE les clés cochées (le parent confirme + boucle + vide la
+   * sélection). **Optionnel** : non fourni = sélection multiple désactivée (mode
+   * lecture seule / pas de droit de révoquer) — garde-fou RBAC porté par le parent.
+   */
+  onBulkRevoke?: (keys: ApiKey[], clearSelection: () => void) => void;
   /** Id de la clé en cours de révocation (spinner sur le bouton). */
   revokingId: string | null;
 }) {
@@ -195,12 +207,36 @@ export function ApiKeysTable({
         searchable
         searchPlaceholder="Rechercher (nom, préfixe, porteur, scope…)"
         pageSize={25}
-        height={460}
+        height={TABS_PANEL_HEIGHT}
         persist={{
           key: showSubject ? "studio.apikeys.admin" : "studio.apikeys.mine",
           storage: "session",
         }}
         emptyMessage="Aucune clé."
+        selectable={onBulkRevoke !== undefined}
+        bulkActions={
+          onBulkRevoke
+            ? (rows, clear) => {
+                // Ne révoque que les clés ENCORE actives (une clé déjà révoquée
+                // ou expirée est un no-op côté back ; on n'affiche pas un compteur
+                // trompeur). Sélection sans clé active → bouton désactivé.
+                const revocable = rows.filter((r) => keyStatus(r) === "active");
+                return (
+                  <Button
+                    color="red"
+                    size="xs"
+                    variant="light"
+                    leftSection={<IconBan size={14} />}
+                    disabled={revocable.length === 0}
+                    onClick={() => onBulkRevoke(revocable, clear)}
+                  >
+                    Révoquer {revocable.length} clé
+                    {revocable.length > 1 ? "s" : ""}
+                  </Button>
+                );
+              }
+            : undefined
+        }
       />
 
       <Modal
@@ -293,7 +329,13 @@ export function ApiKeysTable({
                   variant="light"
                   leftSection={<IconBan size={16} />}
                   loading={revokingId === selected.id}
-                  onClick={() => onRevoke(selected)}
+                  // Fermer le détail AVANT d'ouvrir la confirmation : 2 modals
+                  // empilées masqueraient la validation (bug vécu).
+                  onClick={() => {
+                    const k = selected;
+                    setSelected(null);
+                    onRevoke(k);
+                  }}
                 >
                   Révoquer cette clé
                 </Button>

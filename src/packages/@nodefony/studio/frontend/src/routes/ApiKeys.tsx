@@ -50,6 +50,7 @@ import {
   KEYS_ENDPOINT,
   KEYS_CAPABILITIES_ENDPOINT,
   ADMIN_KEYS_ENDPOINT,
+  API_KEYS_STATUS_ENDPOINT,
   ADMIN_ROLE,
   API_KEYS_DOC,
   adminRevokeEndpoint,
@@ -58,10 +59,12 @@ import {
   describeApiKeysError,
   type ApiKey,
   type ApiKeyCapabilities,
+  type ApiKeysStatus,
 } from "./apikeys/apiKeysModel";
 import { ApiKeysTable } from "./apikeys/ApiKeysTable";
 import { CreateApiKeyModal } from "./apikeys/CreateApiKeyModal";
 import { ApiKeysHelp } from "./apikeys/ApiKeysHelp";
+import { StorageBadge } from "./apikeys/apiKeysFormat";
 
 type Mode = "user" | "admin";
 
@@ -76,6 +79,12 @@ export const ApiKeys = observer(() => {
   const [createOpen, setCreateOpen] = useState(false);
   const [confirmRevoke, setConfirmRevoke] = useState<ApiKey | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  // Révocation en masse : les clés cochées + le `clearSelection` du DataGrid.
+  const [confirmBulk, setConfirmBulk] = useState<{
+    keys: ApiKey[];
+    clear: () => void;
+  } | null>(null);
+  const [bulkRevoking, setBulkRevoking] = useState(false);
 
   const endpoint = mode === "admin" ? ADMIN_KEYS_ENDPOINT : KEYS_ENDPOINT;
 
@@ -101,6 +110,14 @@ export const ApiKeys = observer(() => {
     }
   }, [store]);
   const { data: caps } = useResource(capFetcher);
+
+  // Statut « où on écrit » : backend du token store (classe + driver). Endpoint
+  // RBAC admin → un non-admin reçoit 403 (badge simplement masqué, pas d'erreur).
+  const statusFetcher = useCallback(
+    () => store.api.getAbsolute<ApiKeysStatus>(API_KEYS_STATUS_ENDPOINT),
+    [store],
+  );
+  const { data: status } = useResource(statusFetcher);
 
   const counts = useMemo(() => countByStatus(keys), [keys]);
 
@@ -132,6 +149,39 @@ export const ApiKeys = observer(() => {
       notifications.notify("error", describeApiKeysError(e), { source: "api" });
     } finally {
       setRevokingId(null);
+    }
+  }
+
+  // Révoque en masse : boucle sur l'endpoint UNITAIRE du mode courant (idempotent,
+  // ordre libre) — 0 endpoint batch côté back, feedback agrégé réussis/échecs.
+  async function doBulkRevoke(): Promise<void> {
+    if (!confirmBulk) return;
+    const { keys: targets, clear } = confirmBulk;
+    setBulkRevoking(true);
+    try {
+      const results = await Promise.allSettled(
+        targets.map((k) =>
+          mode === "admin"
+            ? store.api.postAbsolute(adminRevokeEndpoint(k.id))
+            : store.api.deleteAbsolute(userRevokeEndpoint(k.id)),
+        ),
+      );
+      const ok = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - ok;
+      notifications.notify(
+        failed === 0 ? "success" : "warning",
+        failed === 0
+          ? `${ok} clé(s) révoquée(s).`
+          : `${ok} révoquée(s), ${failed} échec(s).`,
+        { source: "api" },
+      );
+      clear();
+      setConfirmBulk(null);
+      reload();
+    } catch (e) {
+      notifications.notify("error", describeApiKeysError(e), { source: "api" });
+    } finally {
+      setBulkRevoking(false);
     }
   }
 
@@ -198,6 +248,9 @@ export const ApiKeys = observer(() => {
             <Text size="xs" c="dimmed">
               Vue gouvernance — révocation en réponse à incident, audité.
             </Text>
+          )}
+          {status && status.store !== "none" && (
+            <StorageBadge status={status} />
           )}
         </Group>
       )}
@@ -274,6 +327,7 @@ export const ApiKeys = observer(() => {
               keys={keys}
               showSubject={mode === "admin"}
               onRevoke={(k) => setConfirmRevoke(k)}
+              onBulkRevoke={(k, clear) => setConfirmBulk({ keys: k, clear })}
               revokingId={revokingId}
             />
           </DataState>
@@ -348,6 +402,56 @@ export const ApiKeys = observer(() => {
                 onClick={doRevoke}
               >
                 Révoquer
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
+
+      {/* Confirmation — révocation EN MASSE des clés cochées. */}
+      <Modal
+        opened={confirmBulk !== null}
+        onClose={() => (bulkRevoking ? undefined : setConfirmBulk(null))}
+        title={
+          <Group gap="xs">
+            <IconBan size={18} color="var(--mantine-color-red-6)" />
+            <Text fw={700}>Révoquer les clés sélectionnées ?</Text>
+          </Group>
+        }
+        centered
+      >
+        {confirmBulk && (
+          <Stack gap="md">
+            <Alert
+              variant="light"
+              color="red"
+              icon={<IconAlertTriangle size={16} />}
+            >
+              <Text size="sm">
+                <strong>{confirmBulk.keys.length}</strong> clé(s) seront{" "}
+                <strong>immédiatement et définitivement</strong> désactivées —
+                tout script qui les utilise sera rejeté (401). Action
+                irréversible.
+                {mode === "admin"
+                  ? " Ces clés appartiennent à leurs porteurs respectifs (action de gouvernance, auditée)."
+                  : ""}
+              </Text>
+            </Alert>
+            <Group justify="flex-end">
+              <Button
+                variant="default"
+                disabled={bulkRevoking}
+                onClick={() => setConfirmBulk(null)}
+              >
+                Annuler
+              </Button>
+              <Button
+                color="red"
+                leftSection={<IconBan size={16} />}
+                loading={bulkRevoking}
+                onClick={doBulkRevoke}
+              >
+                Révoquer {confirmBulk.keys.length}
               </Button>
             </Group>
           </Stack>

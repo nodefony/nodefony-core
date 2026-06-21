@@ -30,6 +30,59 @@ interface IAuditReader {
 }
 
 /**
+ * Statut « où on écrit » du sous-système clés API (PAT) — miroir front
+ * `apiKeysModel.ts`. Expose le **backend du token store** (la table qui porte les
+ * clés) : nom de classe réel + driver déduit. Aucun secret, jamais d'id de clé.
+ */
+interface IApiKeysStatus {
+  /** Clés API activées en config (`apiKeys.enabled`). */
+  enabled: boolean;
+  /** Classe réelle du `ITokenStore` posé au container (ex. `MemoryTokenStore`). */
+  store: string;
+  /** Driver déduit du store (`memory`/`orm`/`redis`), ou `null` si indéterminable. */
+  driver: "memory" | "orm" | "redis" | null;
+}
+
+/**
+ * Forme minimale d'un `ITokenStore` lue défensivement pour l'introspection — on
+ * ne veut QUE le nom de classe réel (jamais les méthodes/données). Couplage
+ * structurel : `SecurityAdminApi` ne charge aucune classe concrète de store.
+ */
+interface TokenStoreLike {
+  constructor?: { name?: string };
+}
+
+/**
+ * Déduit le **driver** logique d'un store à partir de son nom de classe — le
+ * `tokenService` connaît le driver config (`tokenStore.driver`) mais ne l'expose
+ * pas au container ; on le re-dérive du store réel posé (miroir du pattern
+ * `HttpAdminApi.sessions` qui lit `storage.constructor.name`). Mapping fermé sur
+ * les implémentations connues ({@link ITokenStore}) ; `null` pour un store tiers
+ * inconnu (honnête — on n'invente pas un driver).
+ *
+ * @param className - `store.constructor.name` (ex. `DrizzleTokenStore`).
+ * @returns driver logique, ou `null` si la classe n'est pas reconnue.
+ */
+function tokenStoreDriver(
+  className: string | undefined,
+): IApiKeysStatus["driver"] {
+  switch (className) {
+    case "MemoryTokenStore":
+      return "memory";
+    case "FileTokenStore":
+      // Store fichier (builtin) — persistance locale, hors SGBD/cache.
+      return "memory";
+    case "DrizzleTokenStore":
+    case "MongooseTokenStore":
+      return "orm";
+    case "RedisTokenStore":
+      return "redis";
+    default:
+      return null;
+  }
+}
+
+/**
  * Vue MINIMALE du service `apiKeys` consommée par l'ADMIN — lecture cross-porteur
  * + révocation par id (gouvernance). Couplage structurel (par nom de service).
  */
@@ -139,6 +192,9 @@ export function parseAuditQuery(
  *  - `GET /nodefony/security/api/firewall` — introspection du firewall (zones,
  *    authenticators montés, défenses) — état RUNTIME, secrets exclus.
  *  - `GET /nodefony/security/api/roleHierarchy` — hiérarchie de rôles + résolution.
+ *  - `GET /nodefony/security/api/apikeys` — toutes les clés API (gouvernance),
+ *    `GET …/apikeys/status` — backend du token store (« où on écrit »),
+ *    `POST …/apikeys/{id}/revoke` — révocation par id (réponse à incident).
  *
  * **RBAC `ROLE_NODEFONY_ADMIN`** (appliqué par le broker, 403 sinon) — la console
  * sécurité ne se consulte qu'en administrateur. Handlers **lazy** : ils résolvent
@@ -215,6 +271,30 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           return { status: 503, body: { error: "api keys unavailable" } };
         }
         return { keys: await svc.listAllPat() };
+      },
+    },
+    {
+      path: "apikeys/status",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Statut du sous-système clés API : « où on écrit » = backend du token " +
+        "store (classe réelle + driver memory/orm/redis). Sans secret.",
+      handler: (): IApiKeysStatus => {
+        // Lecture DÉFENSIVE : jamais de throw (la console doit toujours afficher
+        // un badge honnête). Service absent / désactivé → enabled:false.
+        const svc = container.get("apiKeys") as IApiKeyAdmin | undefined;
+        const enabled = svc?.isEnabled() ?? false;
+        // « Où on écrit » : le store RÉEL posé au container par le TokenService
+        // (`tokenStore`). On lit SON nom de classe (jamais ses données) et on
+        // re-dérive le driver — le driver config n'est pas exposé au container.
+        const store = container.get("tokenStore") as TokenStoreLike | undefined;
+        const className = store?.constructor?.name;
+        return {
+          enabled,
+          store: className ?? "none",
+          driver: className ? tokenStoreDriver(className) : null,
+        };
       },
     },
     {
