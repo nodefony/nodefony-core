@@ -116,6 +116,11 @@ export class DrizzleTokenStore implements ITokenStore {
     return this.#records.find({ subjectId });
   }
 
+  /** Tous les jetons (PAT + refresh) — vue d'administration cross-porteur. */
+  listAll(): Promise<IAccessTokenRecord[]> {
+    return this.#records.find({});
+  }
+
   async markUsed(id: string, usage: ITokenUsage): Promise<void> {
     await this.#records.updateOne(
       { id },

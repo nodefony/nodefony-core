@@ -86,6 +86,7 @@ export type { ITokenResponse } from "./nodefony/service/tokenService";
 export type {
   IApiKeyView,
   IApiKeyCreated,
+  IApiKeyCapabilities,
   ICreateApiKeyOptions,
 } from "./nodefony/contracts/IApiKey";
 export { ApiKeyError } from "./nodefony/errors/ApiKeyError";

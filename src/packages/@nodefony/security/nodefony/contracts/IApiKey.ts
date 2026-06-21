@@ -38,6 +38,25 @@ export interface IApiKeyCreated extends IApiKeyView {
   token: string;
 }
 
+/**
+ * Capacités/contraintes d'émission des clés API — exposées à la console (« Mes
+ * clés ») pour un formulaire de création **honnête** : plafond par porteur,
+ * catalogue de scopes, préfixe public, durée par défaut. **Aucune valeur
+ * sensible** (config publique : le préfixe figure déjà dans chaque clé).
+ */
+export interface IApiKeyCapabilities {
+  /** Émission de clés activée en config (`apiKeys.enabled`). */
+  enabled: boolean;
+  /** Marqueur public des clés (`<prefix>_…`, ex. `nf`). */
+  prefix: string;
+  /** Expiration par défaut en jours (`null` = sans expiration). */
+  defaultExpiryDays: number | null;
+  /** Plafond de clés ACTIVES par porteur (création au-delà → 409). */
+  maxPerSubject: number;
+  /** Catalogue de scopes autorisés (`null` = libre : tout scope non vide accepté). */
+  allowedScopes: string[] | null;
+}
+
 /** Options de création d'une clé API. */
 export interface ICreateApiKeyOptions {
   /** Libellé humain (obligatoire, non vide). */

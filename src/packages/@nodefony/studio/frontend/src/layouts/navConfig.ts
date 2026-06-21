@@ -224,7 +224,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: IconList,
         wip: true,
       },
-      { to: "/nodefony/api-keys", label: "API Keys", icon: IconKey, wip: true },
+      { to: "/nodefony/api-keys", label: "API Keys", icon: IconKey },
       {
         to: "/nodefony/webhooks",
         label: "Webhooks",

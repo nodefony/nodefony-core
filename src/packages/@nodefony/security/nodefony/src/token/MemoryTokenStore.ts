@@ -95,6 +95,10 @@ export class MemoryTokenStore implements ITokenStore {
     return Promise.resolve(out);
   }
 
+  listAll(): Promise<IAccessTokenRecord[]> {
+    return Promise.resolve([...this.#byId.values()]);
+  }
+
   markUsed(id: string, usage: ITokenUsage): Promise<void> {
     const record = this.#byId.get(id);
     if (record) {

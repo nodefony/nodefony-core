@@ -30,6 +30,7 @@ interface IApiKeyManager {
   ): Promise<unknown>;
   listForSubject(subjectId: string): Promise<unknown>;
   revokeForSubject(subjectId: string, id: string): Promise<boolean>;
+  describeCapabilities(): unknown;
 }
 
 // Montage one-shot par process (même sémantique que `mountSessionAuthRoutes`).
@@ -84,6 +85,19 @@ class ApiKeyController extends Controller {
     } catch (e) {
       return this.#renderApiKeyError(e);
     }
+  }
+
+  /**
+   * Capacités/contraintes d'émission (plafond, scopes, préfixe, durée par défaut)
+   * — alimente le formulaire de création. Lecture pure, aucune valeur sensible ;
+   * accessible à tout porteur authentifié (zone data plane, session BFF).
+   */
+  async capabilities() {
+    const svc = this.#manager();
+    if (!svc || !svc.isEnabled()) {
+      return this.renderJson({ error: "API keys unavailable" }, 503);
+    }
+    return this.renderJson(svc.describeCapabilities());
   }
 
   /** Liste les clés du porteur courant (vue publique, sans secret). */
@@ -171,6 +185,14 @@ export function mountApiKeyRoutes(frameworkModule: Module): void {
   const routes: Array<[string, string, HTTPMethod, string]> = [
     ["security.apikeys.create", base, "POST", "create"],
     ["security.apikeys.list", base, "GET", "list"],
+    // AVANT `/{id}` (DELETE) : path littéral distinct, GET — zéro collision
+    // (le `{id}` est DELETE-only), mais on le déclare en amont par lisibilité.
+    [
+      "security.apikeys.capabilities",
+      `${base}/capabilities`,
+      "GET",
+      "capabilities",
+    ],
     ["security.apikeys.revoke", `${base}/{id}`, "DELETE", "revoke"],
   ];
   for (const [name, path, method, classMethod] of routes) {

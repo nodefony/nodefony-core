@@ -90,11 +90,13 @@ const Firewall = lazy(() =>
 const Roles = lazy(() =>
   import("./routes/Roles").then((m) => ({ default: m.Roles })),
 );
+const ApiKeys = lazy(() =>
+  import("./routes/ApiKeys").then((m) => ({ default: m.ApiKeys })),
+);
 
 import {
   Sessions,
   Users,
-  ApiKeys,
   Webhooks,
   Services,
   Npm,

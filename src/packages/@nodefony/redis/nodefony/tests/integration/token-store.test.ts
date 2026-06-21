@@ -139,6 +139,32 @@ class FakeRedis implements RedisClientLike {
     const s = this.#sets.get(key);
     return Promise.resolve(s ? [...s] : []);
   }
+
+  scan(
+    _cursor: number,
+    options?: { MATCH?: string; COUNT?: number },
+  ): Promise<{ cursor: number; keys: string[] }> {
+    // Double déterministe : une seule passe (curseur 0). MATCH glob simple (`*`)
+    // sur les HASH vivants (les records sont stockés en `rec:<id>`).
+    const pattern = options?.MATCH;
+    const re = pattern
+      ? new RegExp(
+          "^" +
+            pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") +
+            "$",
+        )
+      : null;
+    const keys: string[] = [];
+    for (const key of [...this.#hashes.keys()]) {
+      if (this.#expired(key)) {
+        continue;
+      }
+      if (!re || re.test(key)) {
+        keys.push(key);
+      }
+    }
+    return Promise.resolve({ cursor: 0, keys });
+  }
 }
 
 let CLOCK = 1_000_000;

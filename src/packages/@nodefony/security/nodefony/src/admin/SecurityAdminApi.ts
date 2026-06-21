@@ -17,6 +17,7 @@ import type {
   IFirewallDescription,
   IRoleHierarchyDescription,
 } from "../../contracts/IFirewallDescription";
+import type { IApiKeyView } from "../../contracts/IApiKey";
 
 /**
  * Vue MINIMALE du service `auditService` consommée par le data plane — seule la
@@ -26,6 +27,30 @@ import type {
 interface IAuditReader {
   isEnabled(): boolean;
   query(filter?: IAuditQuery): Promise<IAuditQueryResult>;
+}
+
+/**
+ * Vue MINIMALE du service `apiKeys` consommée par l'ADMIN — lecture cross-porteur
+ * + révocation par id (gouvernance). Couplage structurel (par nom de service).
+ */
+interface IApiKeyAdmin {
+  isEnabled(): boolean;
+  listAllPat(): Promise<IApiKeyView[]>;
+  revokeAnyPat(id: string, actorId: string): Promise<IApiKeyView | null>;
+}
+
+/**
+ * Identité de l'admin appelant (pour l'audit de la révocation) — duck-typing
+ * prudent sur l'`IUser` projeté dans `IAdminRequest.user` (ALS du firewall).
+ * Repli `"admin"` (label d'audit, jamais une décision d'autorisation).
+ */
+function adminActor(user: unknown): string {
+  if (user && typeof user === "object") {
+    const u = user as { username?: unknown; identifier?: unknown };
+    if (typeof u.username === "string" && u.username) return u.username;
+    if (typeof u.identifier === "string" && u.identifier) return u.identifier;
+  }
+  return "admin";
 }
 
 const CATEGORIES: ReadonlySet<string> = new Set<AuditCategory>([
@@ -173,6 +198,50 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           return { status: 503, body: { error: "firewall unavailable" } };
         }
         return firewall.describeRoleHierarchy();
+      },
+    },
+    {
+      path: "apikeys",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Toutes les clés API (PAT) du système — gouvernance cross-porteur " +
+        "(vue publique, sans secret : id/préfixe/porteur/scopes/dates).",
+      handler: async (): Promise<
+        { keys: IApiKeyView[] } | IAdminResponse<{ error: string }>
+      > => {
+        const svc = container.get("apiKeys") as IApiKeyAdmin | undefined;
+        if (!svc || !svc.isEnabled()) {
+          return { status: 503, body: { error: "api keys unavailable" } };
+        }
+        return { keys: await svc.listAllPat() };
+      },
+    },
+    {
+      path: "apikeys/{id}/revoke",
+      method: "POST",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Révoque une clé API par id (réponse à incident : clé compromise) — " +
+        "audité (acteur admin + porteur cible). 404 si introuvable.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<
+        { ok: true; key: IApiKeyView } | IAdminResponse<{ error: string }>
+      > => {
+        const svc = container.get("apiKeys") as IApiKeyAdmin | undefined;
+        if (!svc || !svc.isEnabled()) {
+          return { status: 503, body: { error: "api keys unavailable" } };
+        }
+        const id = request.params.id;
+        if (typeof id !== "string" || id.length === 0) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        const key = await svc.revokeAnyPat(id, adminActor(request.user));
+        if (!key) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        return { ok: true, key };
       },
     },
   ];

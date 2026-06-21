@@ -130,6 +130,15 @@ export class MongooseTokenStore implements ITokenStore {
     return rows;
   }
 
+  /** Tous les jetons (PAT + refresh) — vue d'administration cross-porteur. */
+  async listAll(): Promise<IAccessTokenRecord[]> {
+    const rows = await this.#records.find({});
+    for (const row of rows) {
+      row.id = this.#idOf(row);
+    }
+    return rows;
+  }
+
   async markUsed(id: string, usage: ITokenUsage): Promise<void> {
     await this.#records.updateOne(
       { id },

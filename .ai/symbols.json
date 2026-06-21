@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-20T21:17:55.466Z",
+  "generated": "2026-06-21T08:43:00.668Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 933,
-    "symbols": 2059,
+    "symbols": 2062,
     "classes": 296,
-    "interfaces": 541,
+    "interfaces": 543,
     "types": 251,
     "enums": 3,
-    "functions": 459,
+    "functions": 460,
     "constants": 509
   },
   "symbols": {
@@ -8592,6 +8592,15 @@
       "module": "@nodefony/security",
       "extends": "IApiKeyView",
       "description": "Résultat d'une **création** de clé — la vue publique **+ le token en clair**. Le `token` n'est disponible qu'ICI, une seule fois : il n'est jamais stocké (seul son `sha256` l'est) ni re-dérivable. …"
+    },
+    "IApiKeyCapabilities": {
+      "name": "IApiKeyCapabilities",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IApiKey.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Capacités/contraintes d'émission des clés API — exposées à la console (« Mes clés ») pour un formulaire de création **honnête** : plafond par porteur, catalogue de scopes, préfixe public, durée par…"
     },
     "ICreateApiKeyOptions": {
       "name": "ICreateApiKeyOptions",
@@ -19175,9 +19184,13 @@
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
       ],
       "IApiKeyView": [
-        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "IApiKeyCreated": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+      ],
+      "IApiKeyCapabilities": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
       ],
       "ICreateApiKeyOptions": [

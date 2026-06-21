@@ -9,6 +9,7 @@ import type { ITokenStore, IAccessTokenRecord } from "../contracts/ITokenStore";
 import type {
   IApiKeyView,
   IApiKeyCreated,
+  IApiKeyCapabilities,
   ICreateApiKeyOptions,
 } from "../contracts/IApiKey";
 import { ApiKeyError } from "../errors/ApiKeyError";
@@ -163,6 +164,68 @@ class ApiKeyService extends Service {
       .filter((r) => r.kind === "pat")
       .map((r) => this.#toView(r))
       .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  /**
+   * Liste **toutes** les clés (PAT) du système, tous porteurs confondus — vue
+   * d'ADMINISTRATION (gouvernance / réponse à incident), publique et sans secret,
+   * récentes d'abord. Réservé au data plane admin (RBAC `ROLE_NODEFONY_ADMIN`) :
+   * l'identité du porteur (`subjectId`) est exposée pour la supervision.
+   */
+  async listAllPat(): Promise<IApiKeyView[]> {
+    const store = this.#resolveStore();
+    return (await store.listAll())
+      .filter((r) => r.kind === "pat")
+      .map((r) => this.#toView(r))
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  /**
+   * Révoque **n'importe quelle** clé (PAT) — action d'ADMINISTRATION (réponse à
+   * incident : clé compromise), SANS contrainte de porteur (≠ `revokeForSubject`).
+   * Audité avec l'acteur admin ET le porteur cible. Idempotent.
+   *
+   * @param id - identifiant public de la clé.
+   * @param actorId - identité de l'admin qui révoque (tracée pour l'audit).
+   * @returns la vue publique mise à jour, ou `null` si introuvable / pas un PAT.
+   */
+  async revokeAnyPat(id: string, actorId: string): Promise<IApiKeyView | null> {
+    const store = this.#resolveStore();
+    const record = await store.findById(id);
+    if (!record || record.kind !== "pat") {
+      return null;
+    }
+    await store.revoke(id, "manual");
+    this.log(
+      `api key revoked by admin — id=${id} actor=${actorId} subject=${record.subjectId}`,
+      "INFO",
+    );
+    recordAudit(this.container as Container, {
+      category: "token",
+      action: "apikey.revoked",
+      outcome: "success",
+      actor: actorId,
+      resource: id,
+      reason: "manual",
+      metadata: { subject: record.subjectId, viaAdmin: true },
+    });
+    const updated = await store.findById(id);
+    return updated ? this.#toView(updated) : null;
+  }
+
+  /**
+   * Capacités/contraintes d'émission (plafond, scopes, préfixe, durée par défaut)
+   * — pour un formulaire de création honnête côté console. Aucune valeur sensible.
+   */
+  describeCapabilities(): IApiKeyCapabilities {
+    return {
+      enabled: this.#enabled,
+      prefix: this.#prefix,
+      defaultExpiryDays: this.#defaultExpiryDays,
+      maxPerSubject: this.#maxPerSubject,
+      allowedScopes:
+        this.#allowedScopes === null ? null : [...this.#allowedScopes],
+    };
   }
 
   /**

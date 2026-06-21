@@ -163,6 +163,17 @@ export interface ITokenStore {
   findByHash(secretHash: string): Promise<IAccessTokenRecord | null>;
   /** Tous les jetons d'un porteur (console « mes jetons », révocation ciblée). */
   findBySubject(subjectId: string): Promise<IAccessTokenRecord[]>;
+  /**
+   * **Tous** les jetons du store, tous porteurs confondus — vue
+   * d'ADMINISTRATION cross-porteur (gouvernance / réponse à incident).
+   *
+   * ⚠️ Énumération COMPLÈTE : opération de cold-path réservée à la console admin
+   * (RBAC `ROLE_NODEFONY_ADMIN`), jamais sur le hot-path d'authentification. Un
+   * backend distribué (Redis) l'implémente par SCAN ; à grande échelle, paginer
+   * en amont. Renvoie les records BRUTS (la projection « sans secret » est du
+   * ressort de l'appelant — `ApiKeyService.listAllPat`).
+   */
+  listAll(): Promise<IAccessTokenRecord[]>;
   /** Met à jour `lastUsedAt`/IP/UA (no-op si l'id est inconnu). */
   markUsed(id: string, usage: ITokenUsage): Promise<void>;
   /** Révoque un jeton (pose `revokedAt`+`revokedReason`) — idempotent. */

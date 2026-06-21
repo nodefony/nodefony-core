@@ -32,6 +32,10 @@ export interface RedisClientLike {
   sAdd(key: string, member: string): Promise<number>;
   sRem(key: string, member: string): Promise<number>;
   sMembers(key: string): Promise<string[]>;
+  scan(
+    cursor: number,
+    options?: { MATCH?: string; COUNT?: number },
+  ): Promise<{ cursor: number; keys: string[] }>;
 }
 
 /**
@@ -272,6 +276,33 @@ export class RedisTokenStore implements ITokenStore {
         await client.sRem(subjKey, id); // membre orphelin (record expiré)
       }
     }
+    return out;
+  }
+
+  /**
+   * Tous les jetons (PAT + refresh) — vue d'administration cross-porteur.
+   * Énumère les records par **SCAN** (curseur non-bloquant, `MATCH nf:tok:rec:*`).
+   * Opération admin RARE (cold-path, jamais sur le hot-path d'auth) ; à très
+   * grande échelle, préférer le système de référence SQL pour la gouvernance.
+   */
+  async listAll(): Promise<IAccessTokenRecord[]> {
+    const client = this.#client();
+    if (!client) {
+      return [];
+    }
+    const match = `${KEY_PREFIX}:rec:*`;
+    const out: IAccessTokenRecord[] = [];
+    let cursor = 0;
+    do {
+      const res = await client.scan(cursor, { MATCH: match, COUNT: 200 });
+      cursor = res.cursor;
+      for (const key of res.keys) {
+        const h = await client.hGetAll(key);
+        if (Object.keys(h).length > 0) {
+          out.push(this.#decode(h));
+        }
+      }
+    } while (cursor !== 0);
     return out;
   }
 

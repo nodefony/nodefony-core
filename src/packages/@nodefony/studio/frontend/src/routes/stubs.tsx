@@ -18,14 +18,6 @@ export const Users = () => (
   />
 );
 
-export const ApiKeys = () => (
-  <StubPage
-    title="API Keys"
-    description="Jetons d'accès personnels (PAT) style GitHub/Claude : clé hashée, scopes, expiry, last-used, revoke. ApiKeyAuthenticator."
-    phase="P6.12 + P6.15"
-  />
-);
-
 export const Webhooks = () => (
   <StubPage
     title="Webhooks"
