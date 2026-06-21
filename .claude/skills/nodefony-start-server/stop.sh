@@ -37,9 +37,12 @@ pkill -9 -f "nodefony staging" 2>/dev/null
 pkill -9 -f "nodefony preprod" 2>/dev/null
 pkill -9 -f "nodefony production" 2>/dev/null
 pkill -9 -f "rollup" 2>/dev/null
-PIDS=$(lsof -ti:5151 -ti:5152 2>/dev/null)
+# ⚠️ `-sTCP:LISTEN` OBLIGATOIRE : `lsof -ti:PORT` SEUL vise aussi les CLIENTS
+# connectés (le NAVIGATEUR sur Studio) → `kill -9` tuerait le navigateur du user.
+# On ne tue QUE les sockets en écoute = le(s) serveur(s). (cf start.sh, même fix.)
+PIDS=$( { lsof -ti:5151 -sTCP:LISTEN; lsof -ti:5152 -sTCP:LISTEN; } 2>/dev/null | sort -u )
 [ -n "$PIDS" ] && kill -9 $PIDS 2>/dev/null
 sleep 1
-REMAIN=$(lsof -ti:5151 -ti:5152 2>/dev/null | wc -l | tr -d ' ')
+REMAIN=$( { lsof -ti:5151 -sTCP:LISTEN; lsof -ti:5152 -sTCP:LISTEN; } 2>/dev/null | sort -u | wc -l | tr -d ' ')
 echo ">>> ports libres ($REMAIN process restants)"
 rm -f /tmp/srv.pid
