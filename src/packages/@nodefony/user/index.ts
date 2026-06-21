@@ -61,3 +61,19 @@ export type {
 // ─── Erreurs (P6 S0, J2) ─────────────────────────────────────────────────────
 export { UserNotFoundError } from "./nodefony/errors/UserNotFoundError";
 export { WeakPasswordError } from "./nodefony/errors/WeakPasswordError";
+
+// ─── Data plane admin (P6.15) ────────────────────────────────────────────────
+// Défini ICI (propriétaire du domaine `UserService`/`IUser`) mais ENREGISTRÉ par
+// un module bootable (`@nodefony/security`), `@nodefony/user` étant une lib pure
+// non-bootable — cas explicitement prévu par le core (`IAdminApi` produable par
+// un module qui ne dépend que de `nodefony`).
+export {
+  createUserAdminApi,
+  registerUserAdminApi,
+  toUserSummary,
+  USER_REVOKED_EVENT,
+} from "./nodefony/src/admin/UserAdminApi";
+export type {
+  IUserSummary,
+  IUserRevokedEvent,
+} from "./nodefony/src/admin/UserAdminApi";

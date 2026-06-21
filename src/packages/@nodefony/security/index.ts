@@ -11,6 +11,8 @@ import OAuth2Service from "./nodefony/service/oauth2";
 import ApiKeyService from "./nodefony/service/apiKeys";
 import AuditService from "./nodefony/service/auditService";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
+import { registerUserAdminApi } from "@nodefony/user";
+import { registerUserRevocationCascade } from "./nodefony/src/admin/userRevocationCascade";
 import type { ISecurityConfigInput } from "./nodefony/config/defineSecurityConfig";
 
 // Augmente le registre du core (declaration merging) → `use("@nodefony/security", …)`
@@ -54,8 +56,11 @@ class Security extends Module {
   }
 
   /**
-   * Enregistre le data plane admin sécurité (`/nodefony/security/api/audit/*`,
-   * P6.14) auprès du broker AVANT que framework ne monte les routes (`onReady`).
+   * Enregistre les data planes admin **sécurité** (`/nodefony/security/api/*`,
+   * P6.14) ET **utilisateur** (`/nodefony/user/api/*`, P6.15) auprès du broker
+   * AVANT que framework ne monte les routes (`onReady`). Le data plane user est
+   * DÉFINI dans `@nodefony/user` (propriétaire du domaine) mais monté ici, car
+   * `@nodefony/user` est une lib pure non-bootable et `security` en dépend déjà.
    * No-op si le broker est absent (Studio non chargé) ou déjà enregistré.
    */
   override async onKernelBoot(): Promise<this> {
@@ -65,6 +70,12 @@ class Security extends Module {
       | undefined;
     if (registry && container) {
       registerSecurityAdminApi(registry, container as Container);
+      registerUserAdminApi(registry, container as Container);
+    }
+    // Cascade de révocation user → sessions + tokens. Indépendante du broker
+    // (utile sans Studio : tout émetteur de USER_REVOKED_EVENT la déclenche).
+    if (this.kernel && container) {
+      registerUserRevocationCascade(this.kernel, container as Container);
     }
     return this;
   }

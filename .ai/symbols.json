@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-21T14:41:53.317Z",
+  "generated": "2026-06-21T15:26:35.057Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 933,
-    "symbols": 2074,
+    "files": 935,
+    "symbols": 2094,
     "classes": 296,
-    "interfaces": 549,
+    "interfaces": 555,
     "types": 251,
     "enums": 3,
-    "functions": 466,
-    "constants": 509
+    "functions": 479,
+    "constants": 510
   },
   "symbols": {
     "Cli": {
@@ -14004,6 +14004,22 @@
       "module": "@nodefony/security",
       "description": "Enregistre le producteur admin sécurité sur le broker — **idempotent** (no-op si déjà monté). À appeler au `onKernelBoot` du module (avant le montage des routes par framework à `onKernelReady`). Ca…"
     },
+    "cascadeUserRevocation": {
+      "name": "cascadeUserRevocation",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Cascade de révocation déclenchée par {@link USER_REVOKED_EVENT} : éjecte **immédiatement** les artefacts d'accès du porteur — ses **sessions** (http, `destroyByUser`) et ses **jetons/PAT** (`tokenS…"
+    },
+    "registerUserRevocationCascade": {
+      "name": "registerUserRevocationCascade",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Abonne la cascade au bus kernel. À appeler au `onKernelBoot` d'un module bootable (ici `@nodefony/security`). **Extensible** : tout autre module (webhooks…) peut s'abonner au MÊME `USER_REVOKED_EVE…"
+    },
     "IGeneratedApiKey": {
       "name": "IGeneratedApiKey",
       "kind": "interface",
@@ -14731,6 +14747,56 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
+    },
+    "IUserSummary": {
+      "name": "IUserSummary",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Projection **publique** d'un utilisateur pour l'ADMINISTRATION (Studio, P6.15). Redaction PAR CONSTRUCTION (allowlist) — ne porte **jamais** `password`, jamais `metadata` (peut contenir du sensible…"
+    },
+    "IUserRevokedEvent": {
+      "name": "IUserRevokedEvent",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Charge utile de {@link USER_REVOKED_EVENT}. `identifier` = clé de jointure des artefacts (session `user`, PAT `subjectId`). `tenantId` = slot multi-tenant (toujours `null` en mono-tenant — réserve …"
+    },
+    "toUserSummary": {
+      "name": "toUserSummary",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Projette un {@link IUser} en {@link IUserSummary} redacté. Fonction **pure** (cœur de la garantie anti-fuite, testée isolément) : `currentRole`/ `socialProviders`/timestamps sont lus **défensivemen…"
+    },
+    "createUserAdminApi": {
+      "name": "createUserAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Producteur `IAdminApi` du domaine **utilisateur** — exposé sous `/nodefony/user/api/users`. Défini DANS `@nodefony/user` (propriétaire du `UserService`/`IUser`) mais **enregistré par un module boot…"
+    },
+    "registerUserAdminApi": {
+      "name": "registerUserAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Enregistre le producteur admin utilisateur sur le broker — **idempotent**. À appeler au `onKernelBoot` d'un module **bootable** qui dépend de `@nodefony/user` (typiquement `@nodefony/security`), `@…"
+    },
+    "USER_REVOKED_EVENT": {
+      "name": "USER_REVOKED_EVENT",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Nom de l'événement kernel émis quand l'accès d'un utilisateur doit être révoqué partout (suppression / désactivation / verrouillage). **Point d'extension** : un module qui possède des artefacts lié…"
     },
     "Argon2idEncoder": {
       "name": "Argon2idEncoder",
@@ -15822,6 +15888,7 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
@@ -15830,6 +15897,7 @@
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "FileClass": [
@@ -16645,7 +16713,8 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "createFrontendAdminApi": [
         "src/packages/@nodefony/frontend/index.ts"
@@ -17019,6 +17088,12 @@
         "src/packages/@nodefony/security/index.ts"
       ],
       "registerSecurityAdminApi": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "registerUserAdminApi": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "registerUserRevocationCascade": [
         "src/packages/@nodefony/security/index.ts"
       ],
       "ISecurityConfigInput": [
@@ -18050,7 +18125,8 @@
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/realtime/UserRealtimeToken.ts",
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts"
+        "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "registerOAuthProvider": [
         "src/modules/test/nodefony/secure/oauthTestProvider.ts"
@@ -18070,7 +18146,8 @@
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
       ],
       "UserService": [
-        "src/modules/test/nodefony/secure/SecureController.ts"
+        "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
@@ -18185,7 +18262,8 @@
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
-        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
@@ -18235,6 +18313,7 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
@@ -18397,14 +18476,16 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "IAdminResponse": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "IAdminRoute": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
@@ -18460,7 +18541,8 @@
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "contextRequest": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -18515,7 +18597,8 @@
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
@@ -18534,7 +18617,8 @@
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "getActiveLogDriver": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
@@ -21043,6 +21127,12 @@
       "FrameAuthorizer": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
         "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
+      ],
+      "USER_REVOKED_EVENT": [
+        "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"
+      ],
+      "IUserRevokedEvent": [
+        "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"
       ],
       "IAuditEventFlags": [
         "src/packages/@nodefony/security/nodefony/src/audit/readAuditContext.ts"
