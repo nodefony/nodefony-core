@@ -14,8 +14,13 @@ import type { ISessionSummary } from "../interfaces/ISession";
 interface SessionsLike {
   sessionStrategy?: string;
   defaultSessionName?: string;
-  options?: { save_path?: string; gc_maxlifetime?: number };
-  storage?: { constructor?: { name?: string } } | null;
+  options?: { save_path?: string; gc_maxlifetime?: number; handler?: string };
+  // Le storage actif est décoré par `RevocationGuardStorage` (garde-fou de
+  // révocation) → `.inner` porte le store RÉEL (drizzle/files/redis/mongo).
+  storage?: {
+    constructor?: { name?: string };
+    inner?: { constructor?: { name?: string } } | null;
+  } | null;
 }
 
 /**
@@ -181,12 +186,30 @@ export function createHttpAdminApi(module: Module): IAdminApi {
       handler: async () => {
         const svc = module.get("sessions") as SessionsLike | undefined;
         if (!svc) return { enabled: false, active: 0 };
-        const storage = svc.storage?.constructor?.name ?? "none";
-        const save = svc.options?.save_path;
-        // Compte les fichiers de session si un save_path est configuré (storage
-        // fichier = défaut). 0 si le dossier n'existe pas encore (aucune session).
+        // « Où on écrit » : le store RÉEL est sous le garde-fou de révocation
+        // (`storage.inner`). Le `handler` config (drizzle/files/redis/mongo) est
+        // le nom propre du driver ; on garde `storage` = classe du store réel.
+        const inner = svc.storage?.inner ?? null;
+        const storage =
+          inner?.constructor?.name ?? svc.storage?.constructor?.name ?? "none";
+        const driver = svc.options?.handler ?? null;
+        // Révocation effective garantie ssi le store est bien décoré (anti-
+        // résurrection — bug 2026-06-21 ; couvre TOUT backend). Honnête : false
+        // si un jour le garde-fou n'était pas posé.
+        const revocationHardened = inner !== null;
+        // savePath/active n'ont de sens que pour un store FICHIER : le `driver`
+        // config est la source fiable (drizzle/redis/mongo n'écrivent PAS de
+        // fichiers, même si un `save_path` traîne dans la config par défaut → on
+        // ne l'exposerait pas, sinon le badge mentirait « drizzle · tmp/… »).
+        const isFileStore = driver === "files";
+        const save = isFileStore ? svc.options?.save_path : undefined;
+        // Nb de fichiers de session (store fichier). 0 si dossier absent.
         const active = save
           ? await countSessionFiles(path.resolve(process.cwd(), save))
+          : null;
+        // Chemin RELATIF au cwd (jamais l'absolu — info-leak FS).
+        const savePath = save
+          ? path.relative(process.cwd(), path.resolve(process.cwd(), save))
           : null;
         return {
           enabled: true,
@@ -195,9 +218,11 @@ export function createHttpAdminApi(module: Module): IAdminApi {
           // démarrage global) — l'aire est déclarée par route, pas globalement.
           activation: "intent",
           name: svc.defaultSessionName ?? null,
+          driver,
           storage,
+          revocationHardened,
           gcMaxlifetime: svc.options?.gc_maxlifetime ?? null,
-          savePath: save ?? null,
+          savePath,
           active,
         };
       },
