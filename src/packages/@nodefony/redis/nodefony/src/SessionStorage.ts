@@ -1,9 +1,21 @@
 import { SessionsService } from "@nodefony/http";
-import type { ISessionStorage, ISerializedSession } from "@nodefony/http";
+import type {
+  ISessionStorage,
+  ISerializedSession,
+  ISessionRecord,
+  ISessionListFilter,
+} from "@nodefony/http";
 import type RedisService from "../service/redis";
 
 /** Préfixe namespacé des clés de session dans Redis. */
 const KEY_PREFIX = "nf:sess";
+
+/**
+ * Plafond de sécurité du SCAN admin : au-delà, on s'arrête et on LOGGE (listing
+ * partiel signalé, jamais tronqué en silence). `SCAN` est O(keyspace) — un index
+ * secondaire (`SET` d'ids) serait l'optimisation v2 pour un très grand parc.
+ */
+const MAX_SCAN = 10_000;
 
 /**
  * Stockage de session **Redis** — branché sur la connexion `main` du
@@ -109,6 +121,53 @@ class RedisSessionStorage implements ISessionStorage {
 
   async gc(): Promise<void> {
     // No-op volontaire : l'expiration est gérée par le TTL Redis (SET … EX).
+  }
+
+  /**
+   * Énumération admin (capacité optionnelle d'`ISessionStorage`) par **SCAN**
+   * non-bloquant (`MATCH nf:sess:*`, curseur), filtrable par `user`. Cold-path
+   * RARE (console admin, jamais le hot-path). `SCAN` est O(keyspace) → plafonné
+   * à {@link MAX_SCAN} (au-delà : listing partiel **journalisé**, pas silencieux).
+   * Connexion fermée → `[]`.
+   */
+  async listAll(filter?: ISessionListFilter): Promise<ISessionRecord[]> {
+    const client = this.#client();
+    if (!client) {
+      return [];
+    }
+    const match = `${KEY_PREFIX}:*`;
+    const prefixLen = KEY_PREFIX.length + 1; // "nf:sess:"
+    const out: ISessionRecord[] = [];
+    // node-redis v6 : le curseur SCAN est une string opaque (`RedisArgument`),
+    // pas un entier — démarre à "0", boucle jusqu'au retour à "0".
+    let cursor = "0";
+    let scanned = 0;
+    do {
+      const res = await client.scan(cursor, { MATCH: match, COUNT: 200 });
+      cursor = res.cursor;
+      for (const key of res.keys) {
+        scanned++;
+        const raw = await client.get(key);
+        if (!raw) continue;
+        let data: ISerializedSession;
+        try {
+          data = JSON.parse(raw) as ISerializedSession;
+        } catch {
+          continue; // valeur corrompue → ignorée
+        }
+        if (filter?.user !== undefined && data.user !== filter.user) continue;
+        out.push({ id: key.slice(prefixLen), data });
+      }
+      if (scanned >= MAX_SCAN) {
+        this.manager.log(
+          `REDIS SESSIONS listAll: scan plafonné à ${MAX_SCAN} clés ` +
+            `(listing admin partiel — envisager un index secondaire)`,
+          "WARNING",
+        );
+        break;
+      }
+    } while (cursor !== "0");
+    return out;
   }
 }
 

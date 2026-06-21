@@ -1,5 +1,10 @@
 import { SessionsService } from "@nodefony/http";
-import type { ISessionStorage, ISerializedSession } from "@nodefony/http";
+import type {
+  ISessionStorage,
+  ISerializedSession,
+  ISessionRecord,
+  ISessionListFilter,
+} from "@nodefony/http";
 import { ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
@@ -148,6 +153,34 @@ class SessionStorage implements ISessionStorage {
     if (deleted > 0) {
       this.manager.log(`DRIZZLE SESSIONS GC ==> ${deleted} DELETED`, "DEBUG");
     }
+  }
+
+  /**
+   * Énumération admin (capacité optionnelle d'`ISessionStorage`) : un `SELECT`
+   * filtrable par `user` (WHERE indexable côté SQL). **Redaction par construction**
+   * — seuls `user`/`metaBag`/timestamps sortent de la base ; `Attributes`/`flashBag`
+   * (potentiellement sensibles) restent en base. ORM déconnecté → `[]`.
+   */
+  async listAll(filter?: ISessionListFilter): Promise<ISessionRecord[]> {
+    const repo = this.#repo();
+    if (!repo) {
+      return [];
+    }
+    const rows =
+      filter?.user !== undefined
+        ? await repo.find({ user: filter.user } as Partial<SessionRow>)
+        : await repo.find();
+    return rows.map((row) => ({
+      id: row.session_id,
+      data: {
+        Attributes: {},
+        flashBag: {},
+        metaBag: (row.metaBag ?? {}) as Record<string, unknown>,
+        user: row.user ?? "",
+        createdAt: new Date(row.createdAt),
+        updatedAt: new Date(row.updatedAt),
+      },
+    }));
   }
 }
 

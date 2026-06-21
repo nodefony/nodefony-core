@@ -126,4 +126,44 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
       assert.equal(rows[0].session_id, "fresh");
     });
   });
+
+  // ── Énumération admin : listAll + filtre WHERE SQL + redaction à la source ──
+  describe("listAll (énumération admin)", () => {
+    beforeAll(async () => {
+      await storage.write("ls-1", {
+        Attributes: { secret: "TOP" }, // doit rester en base
+        metaBag: { ip: "1.1.1.1" },
+        flashBag: {},
+        user: "u-alice",
+      });
+      await storage.write("ls-2", {
+        Attributes: {},
+        metaBag: {},
+        flashBag: {},
+        user: "u-bob",
+      });
+      await storage.write("ls-3", {
+        Attributes: {},
+        metaBag: {},
+        flashBag: {},
+        user: "u-alice",
+      });
+    });
+
+    it("énumère en { id, data } et NE sort PAS Attributes de la base", async () => {
+      const mine = (await storage.listAll()).filter((r) =>
+        r.id.startsWith("ls-"),
+      );
+      assert.equal(mine.length, 3);
+      const a1 = mine.find((r) => r.id === "ls-1");
+      assert.equal(a1?.data.user, "u-alice");
+      assert.deepEqual(a1?.data.Attributes, {}); // secret jamais énuméré
+      assert.deepEqual(a1?.data.metaBag, { ip: "1.1.1.1" });
+    });
+
+    it("filtre par user via WHERE SQL réel", async () => {
+      const alice = await storage.listAll({ user: "u-alice" });
+      assert.deepEqual(alice.map((r) => r.id).sort(), ["ls-1", "ls-3"]);
+    });
+  });
 });

@@ -4,6 +4,8 @@ import type sessionService from "../../../service/sessions/sessions-service";
 import type {
   ISessionStorage,
   ISerializedSession,
+  ISessionRecord,
+  ISessionListFilter,
 } from "../../../interfaces/ISession";
 
 const finderGC = function (
@@ -156,6 +158,33 @@ class FileSessionStorage implements ISessionStorage {
         return reject(e);
       }
     });
+  }
+
+  /**
+   * Énumération admin : un fichier = une session (stockées à plat sous
+   * `this.path`, le nom de fichier EST l'id). Lecture best-effort — un fichier
+   * illisible/partiel/non-JSON (ou un sous-dossier : `EISDIR`) est ignoré, jamais
+   * fatal. Le filtre `user` est appliqué en mémoire.
+   */
+  async listAll(filter?: ISessionListFilter): Promise<ISessionRecord[]> {
+    const records: ISessionRecord[] = [];
+    let names: string[];
+    try {
+      names = await fs.promises.readdir(this.path);
+    } catch {
+      return records; // dossier absent = aucune session
+    }
+    for (const id of names) {
+      try {
+        const raw = await fs.promises.readFile(`${this.path}/${id}`, "utf8");
+        const data = JSON.parse(raw) as ISerializedSession;
+        if (filter?.user !== undefined && data.user !== filter.user) continue;
+        records.push({ id, data });
+      } catch {
+        // fichier illisible / sous-dossier / JSON corrompu → on saute
+      }
+    }
+    return records;
   }
 }
 

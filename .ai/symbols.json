@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-21T08:43:00.668Z",
+  "generated": "2026-06-21T14:41:53.317Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 933,
-    "symbols": 2062,
+    "symbols": 2074,
     "classes": 296,
-    "interfaces": 543,
+    "interfaces": 549,
     "types": 251,
     "enums": 3,
-    "functions": 460,
+    "functions": 466,
     "constants": 509
   },
   "symbols": {
@@ -6570,6 +6570,33 @@
       "extends": null,
       "description": "Données de session **sérialisées** échangées avec un {@link ISessionStorage} (blob opaque persisté/restauré). La forme métier riche (ProtoService/bags) est l'affaire de `Session` ; le storage ne ma…"
     },
+    "ISessionSummary": {
+      "name": "ISessionSummary",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Projection **redactée** d'une session pour l'ADMINISTRATION (data plane Studio, `/nodefony/http/api/sessions`). Construite par allowlist — **jamais** par `delete` après coup — donc ne porte par con…"
+    },
+    "ISessionRecord": {
+      "name": "ISessionRecord",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Entrée **brute** d'énumération renvoyée par {@link ISessionStorage.listAll} : l'id opaque RÉEL + le blob sérialisé. Usage strictement **interne au process** (le service en a besoin pour calculer le…"
+    },
+    "ISessionListFilter": {
+      "name": "ISessionListFilter",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Filtre d'énumération admin de {@link ISessionStorage.listAll}. Tous les champs sont optionnels. Un store SQL peut honorer `user` (WHERE indexable) ; les autres peuvent l'ignorer — `SessionsService.…"
+    },
     "ISessionStorage": {
       "name": "ISessionStorage",
       "kind": "interface",
@@ -12933,6 +12960,22 @@
       "module": "@nodefony/http",
       "description": "Constructeur d'un storage de session (enregistré dans le registre)."
     },
+    "computeSessionRef": {
+      "name": "computeSessionRef",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Dérive le pseudonyme public d'une session — `HMAC-SHA256(secret, id)` tronqué, préfixé `sess_`. **Non réversible** : exposer ce `ref` ne révèle pas l'id de session (= le jeton du cookie). Fonction …"
+    },
+    "toSessionSummary": {
+      "name": "toSessionSummary",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Projette une entrée brute {@link ISessionRecord} en {@link ISessionSummary} **redacté par construction** (allowlist) : jamais `Attributes`, jamais `flashBag`, jamais l'id brut — seulement le `ref` …"
+    },
     "upload": {
       "name": "upload",
       "kind": "class",
@@ -18321,6 +18364,20 @@
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
       ],
+      "ISessionRecord": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+      ],
+      "ISessionListFilter": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+      ],
       "SESSION_ORM": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
@@ -18337,6 +18394,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
@@ -18344,6 +18402,7 @@
       "IAdminResponse": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
@@ -18766,6 +18825,10 @@
       ],
       "IHttpKernel": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "ISessionSummary": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "severityFromStatus": [
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts"

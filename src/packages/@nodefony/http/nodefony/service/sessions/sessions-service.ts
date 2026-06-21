@@ -11,7 +11,12 @@ import {
   inject,
   injectable,
 } from "nodefony";
-import type { ISessionStorage } from "../../interfaces/ISession";
+import type {
+  ISessionStorage,
+  ISessionSummary,
+  ISessionRecord,
+  ISessionListFilter,
+} from "../../interfaces/ISession";
 import HttpKernel, {
   //ProtocolType,
   //ServerType,
@@ -23,7 +28,7 @@ import Session, { OptionsSessionType } from "../../src/session/session";
 import Http2Request from "../../src/context/http2/Request";
 import HttpRequest from "../../src/context/http/Request";
 import Certificate from "../../service/certificates";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import FileSessionStorage from "../../src/session/storage/FileSessionStorage";
 
 export type sessionStrategyType = "none" | "migrate" | "invalidate";
@@ -39,6 +44,74 @@ export type MetaBagSessionType = Record<string, unknown>;
 export type SessionStorageCtor = new (
   manager: SessionsService,
 ) => ISessionStorage;
+
+/**
+ * Convertit un timestamp de session (`Date` en mémoire, **string ISO** après
+ * `JSON.parse` côté File/Redis, ou `number`) en epoch ms — `null` si absent ou
+ * invalide. JSON-safe pour le DTO admin.
+ */
+function toEpoch(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  const t = new Date(value as string | number | Date).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+/**
+ * Dérive le pseudonyme public d'une session — `HMAC-SHA256(secret, id)` tronqué,
+ * préfixé `sess_`. **Non réversible** : exposer ce `ref` ne révèle pas l'id de
+ * session (= le jeton du cookie). Fonction **pure** (testable sans instancier le
+ * service ni démarrer de serveur).
+ */
+export function computeSessionRef(secret: Buffer, id: string): string {
+  const mac = createHmac("sha256", secret).update(id).digest("hex");
+  return `sess_${mac.slice(0, 24)}`;
+}
+
+/**
+ * Projette une entrée brute {@link ISessionRecord} en {@link ISessionSummary}
+ * **redacté par construction** (allowlist) : jamais `Attributes`, jamais
+ * `flashBag`, jamais l'id brut — seulement le `ref` + des champs sûrs
+ * (`user`/`ip`/`ua`/dates). Fonction **pure** (cœur de la garantie anti-fuite,
+ * testée isolément).
+ */
+export function toSessionSummary(
+  rec: ISessionRecord,
+  ref: string,
+): ISessionSummary {
+  const data = rec.data;
+  const user = typeof data.user === "string" ? data.user : "";
+  const meta = (data.metaBag ?? {}) as Record<string, unknown>;
+  return {
+    ref,
+    user,
+    authenticated: user.length > 0,
+    ip: typeof meta.ip === "string" ? meta.ip : null,
+    ua: typeof meta.ua === "string" ? meta.ua : null,
+    createdAt: toEpoch(data.createdAt),
+    updatedAt: toEpoch(data.updatedAt),
+    tenantId: typeof meta.tenantId === "string" ? meta.tenantId : null,
+  };
+}
+
+/**
+ * Brouillon d'événement d'audit de session. Forme partagée avec le journal de
+ * `@nodefony/security` (`IAuditEventDraft`), **dupliquée** ici car `@nodefony/http`
+ * ne dépend pas de security (couplage structurel par nom de service, toléré).
+ */
+interface ISessionAuditDraft {
+  category: "session";
+  action: string;
+  outcome: "success" | "failure" | "denied";
+  actor: string | null;
+  resource?: string | null;
+  reason?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** Vue minimale du service `auditService` (security) — résolu par nom au runtime. */
+interface IAuditSinkLike {
+  record(event: ISessionAuditDraft): void;
+}
 
 @injectable()
 class SessionsService extends Service {
@@ -291,6 +364,151 @@ class SessionsService extends Service {
       return true;
     }
     return false;
+  }
+
+  // ── Administration (data plane Studio /nodefony/http/api/sessions) ───────────
+  // Surface de gouvernance des sessions : énumération + révocation. RÉSERVÉE au
+  // broker admin (RBAC ROLE_NODEFONY_ADMIN appliqué côté HttpAdminApi). Hors
+  // hot-path — aucune alloc ni HMAC tant qu'un admin ne consulte pas la console.
+
+  /**
+   * `true` si le backend de session courant sait s'énumérer (`listAll`). Un store
+   * KV/edge sans scan retourne `false` → l'endpoint admin répond **501** (refus
+   * honnête, jamais une liste vide trompeuse).
+   */
+  supportsEnumeration(): boolean {
+    const storage = this.storage as ISessionStorage | null;
+    return !!storage && typeof storage.listAll === "function";
+  }
+
+  /**
+   * Dérive le pseudonyme public d'une session — `HMAC-SHA256(secret, id)` tronqué,
+   * préfixé `sess_`. **Non réversible** : exposer ce `ref` ne révèle pas l'id de
+   * session (= le jeton du cookie). Le secret HMAC = celui de la couche session
+   * (`this.secret`, dérivé de la clé du certificat au boot), jamais sérialisé.
+   *
+   * @throws Error si le secret n'est pas initialisé (service pas démarré) — capté
+   *   en 503 côté endpoint plutôt que d'émettre un `ref` faible.
+   */
+  sessionRef(id: string): string {
+    if (!this.secret) {
+      throw new Error(
+        "sessions: HMAC secret unavailable (service not initialized)",
+      );
+    }
+    return computeSessionRef(this.secret, id);
+  }
+
+  /**
+   * Énumère les sessions persistées en {@link ISessionSummary} **redactés** (jamais
+   * d'id brut ni d'`Attributes`), des plus récentes aux plus anciennes. Le filtre
+   * `user` est poussé au store (WHERE SQL) PUIS ré-appliqué ici (défense si un
+   * store l'ignore). Pré-condition : {@link supportsEnumeration} (sinon throw).
+   */
+  async listAllSessions(
+    filter?: ISessionListFilter,
+  ): Promise<ISessionSummary[]> {
+    const storage = this.storage as ISessionStorage | null;
+    if (!storage || typeof storage.listAll !== "function") {
+      throw new Error("sessions: enumeration not supported by current storage");
+    }
+    const records = await storage.listAll(filter);
+    const wantUser = filter?.user;
+    const out: ISessionSummary[] = [];
+    for (const rec of records) {
+      const user = typeof rec.data.user === "string" ? rec.data.user : "";
+      if (wantUser !== undefined && user !== wantUser) continue;
+      out.push(toSessionSummary(rec, this.sessionRef(rec.id)));
+    }
+    out.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    return out;
+  }
+
+  /**
+   * Révoque une session par son `ref` public : re-scanne, recalcule le HMAC de
+   * chaque id pour retrouver l'id réel (l'id brut ne quitte jamais le process),
+   * puis `destroy()`. `ref` étant public (pas un secret), la comparaison directe
+   * est sûre. Idempotent — `false` si aucun `ref` ne correspond.
+   */
+  async destroyByRef(ref: string, actor?: string | null): Promise<boolean> {
+    const storage = this.storage as ISessionStorage | null;
+    if (!storage || typeof storage.listAll !== "function") {
+      throw new Error("sessions: enumeration not supported by current storage");
+    }
+    const records = await storage.listAll();
+    for (const rec of records) {
+      if (this.sessionRef(rec.id) === ref) {
+        const subject =
+          typeof rec.data.user === "string" ? rec.data.user : null;
+        const ok = await storage.destroy(rec.id);
+        if (ok) {
+          this.log(
+            `session revoked by admin — ref=${ref} actor=${actor ?? "admin"}`,
+            "INFO",
+          );
+          this.emitAudit({
+            category: "session",
+            action: "session.revoked",
+            outcome: "success",
+            actor: actor ?? null,
+            resource: ref,
+            metadata: { subject, viaAdmin: true },
+          });
+        }
+        return ok;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * « Déconnexion partout » : détruit TOUTES les sessions d'un utilisateur (scan
+   * O(N) — pas d'index inverse, acceptable en admin). Renvoie le nombre détruit.
+   */
+  async destroyByUser(
+    identifier: string,
+    actor?: string | null,
+  ): Promise<number> {
+    const storage = this.storage as ISessionStorage | null;
+    if (!storage || typeof storage.listAll !== "function") {
+      throw new Error("sessions: enumeration not supported by current storage");
+    }
+    const records = await storage.listAll({ user: identifier });
+    let destroyed = 0;
+    for (const rec of records) {
+      if (rec.data.user === identifier) {
+        if (await storage.destroy(rec.id)) destroyed++;
+      }
+    }
+    if (destroyed > 0) {
+      this.log(
+        `sessions revoked by admin (logout-all) — user=${identifier} ` +
+          `count=${destroyed} actor=${actor ?? "admin"}`,
+        "INFO",
+      );
+      this.emitAudit({
+        category: "session",
+        action: "session.revoked",
+        outcome: "success",
+        actor: actor ?? null,
+        resource: identifier,
+        reason: "logout_all",
+        metadata: { count: destroyed, viaAdmin: true },
+      });
+    }
+    return destroyed;
+  }
+
+  /**
+   * Émet un événement dans le journal d'audit de `@nodefony/security` s'il est
+   * monté (résolu par nom au runtime) — **no-op** si security est absent/désactivé.
+   * L'action de révocation reste tracée par `this.log()` dans tous les cas.
+   */
+  // `private` (soft TS) et non `#audit` : pont d'audit interne sans enjeu
+  // d'encapsulation forte — reste sur le prototype, donc testable en isolation
+  // (orchestration unit via `Object.create`, sans démarrer de serveur).
+  private emitAudit(event: ISessionAuditDraft): void {
+    this.get<IAuditSinkLike>("auditService")?.record(event);
   }
 }
 
