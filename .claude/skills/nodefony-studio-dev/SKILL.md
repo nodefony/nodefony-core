@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.28.0
+version: 1.29.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1500,6 +1500,48 @@ sticky/>...</Stack>` par `<PageLayout>...</PageLayout>` + `<Tabs.List>`→`<Stic
 - **Mutations = POST/DELETE HTTP** : révocation user `store.api.deleteAbsolute("/keys/{id}")`, admin `postAbsolute("/apikeys/{id}/revoke")`. `ApiClient` route les mutations en **fetch** (le pont socket `api.request` est GET-only — CSRF) → rien à faire côté socket, ça marche. Toasts via `useNotifications().notify(level,msg,{source:"api"})`.
 - Prouvé **E2E** : clé créée dans Studio → `curl /nodefony/test/m2m/whoami -H "Authorization: Bearer nf_…"` → **200** (porteur+rôles frais). Gates : typecheck Studio 0 · serveur UP · 3 routes data plane 401 (montées). (back = framework-dev **1.24.0**.)
 
+**Mode USER dual-audience + régression socket-au-boot (2026-06-22, front-only — bump 1.29.0)**
+
+> Studio devient dual-audience (admin + simple `ROLE_USER`). Commit `1ff7d2bf`.
+
+- **« Admin voit tout » = 1 helper** `isVisibleForRoles(required, userRoles)` (`auth/roles.ts`,
+  PUR : court-circuit `ROLE_NODEFONY_ADMIN` → true) + bundles **`VIEW_ROLES`** (`devops`/`dev`/`ops`/
+  `admin`) = **source unique** partagée nav ⟷ routes (`RoleGuard`) ⟷ catalogue. Ne JAMAIS répéter
+  `ROLE_NODEFONY_ADMIN` sur chaque item/route/bloc — les bundles ne portent QUE les rôles non-admin.
+- **Couper un appel admin = NE PAS MONTER le composant** (pas gater chaque fetch). `RoleGuardOutlet`
+  (nouvelle variante layout-route de `RoleGuard` : rend `<Outlet/>` ou `<Forbidden/>`) garde des
+  **groupes de routes** par rôle → une page admin **ne se monte pas** en deep-link → **0 fetch, 0 403
+  console**. + `RuntimeModeChip` (sondes kernel/realtime) et `loadCatalog` (`framework/api/admin`)
+  gatés `useIsAdmin`/rôle. Filtre `navConfig` (groupe `g.roles` + item `i.roles`) via le helper.
+- **Catalogue par catégorie** : `CATEGORY_ROLES` dans `registry.listWidgets` (`def.roles ??
+CATEGORY_ROLES[def.category]`). Nouvelle **catégorie `account`** (visible tous) + blocs self
+  **`account.profile`** (source snapshot `/auth/me`) / **`account.apikeys`** (`/keys`, session BFF).
+  Un bloc sécurité admin = catégorie `security` (→ admin). Un widget render lit la donnée via sa
+  `source` (pattern) — pas besoin de hook auth.
+- **Bureaux par rôle** : `WorkspacePreset.roles` + helpers `presetRolesFor`/`isWorkspaceVisible(id,
+roles)`. Filtrer **le sélecteur** (`WorkspaceSwitcher` `layoutList`) **ET les templates du « + »**
+  (`ws.templates`) ; **bascule auto** dans `Workspace.tsx` (effet : si bureau actif non visible →
+  `setActive(1er visible)`). Template **« Mon compte »** = défaut user. ⚠️ Le seed est **autoritaire**
+  (un preset déjà persisté ne se re-sème pas) → **bumper la clé localStorage** (`v2→v3`) pour qu'un
+  nouveau preset/modèle apparaisse (sinon invisible chez un user existant). Bump = re-seed destructif.
+- ⚠️ **Self-service ≠ uniforme selon le back** : ApiKeys a un endpoint self `/nodefony/security/api/
+keys` (session BFF) → marche en user ; **Sessions n'a QUE `/sessions/list` (RBAC admin)** → son mode
+  « mine » tape quand même l'admin = **403**. Un vrai self exige un **endpoint back dédié**
+  (`sessions/mine`, anti-IDOR) → tant qu'il n'existe pas, page **admin-only** (ne pas laisser un mode
+  self qui 403). Vérifier l'endpoint AVANT de présumer qu'un « mode mine » est self-service.
+- 🔥 **RÉGRESSION socket-au-boot (trouvée en LIVE, débloquée par l'image Network du user)** : la
+  réaction d'identité `RootStore` faisait `disconnect()`+`connect()` la socket **même au boot**
+  (`null→id`) → coupait les requêtes data-plane **EN VOL** passant par le pont **`api.request`** → la
+  page restait en **spinner jusqu'au timeout** du pont avant fallback fetch. Symptôme « tourne en
+  boucle » **trompeur** : le Network montrait **« 8 / 164 »** = 8 fetch (×2 StrictMode/reconnect),
+  PAS un emballement de milliers. **Fix** = `disconnect()` réservé au **vrai changement de compte**
+  (`prevId !== null && prevId !== id`) ; au boot la socket se connecte fraîche sans rien couper.
+  **Règle réutilisable** : ne JAMAIS cycler la socket partagée au boot — seulement quand l'identité
+  gravée au handshake change réellement.
+- **Diag « boucle de requêtes »** : `me`/`info`/`health`/`admin` qui se répètent = **REMONTAGE du
+  shell** (AuthGuard `key={user.id}`), PAS un retry (`useResource` ne retry pas sur erreur → relire).
+  Lire « X / Y requests » du Network : Y = total des assets (modules Vite en dev), X = filtré Fetch/XHR.
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1520,6 +1562,17 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.29.0** (2026-06-22) — **Studio MODE USER dual-audience (visibilité par rôle de bout en bout)**
+  (front-only ; commit `1ff7d2bf`). Helper `isVisibleForRoles` (admin nodefony voit tout) + bundles
+  `VIEW_ROLES` source unique nav/routes/catalogue ; `RoleGuardOutlet` (layout-route) coupe les pages
+  admin en deep-link ; chip + loadCatalog gatés ; catalogue par catégorie (`CATEGORY_ROLES`) + bloc
+  `security.audit` ; catégorie `account` + blocs self `account.profile`/`account.apikeys` ; bureaux
+  par rôle (`WorkspacePreset.roles`) + template « Mon compte » + « + » filtré (bump localStorage
+  v2→v3) ; Sessions admin-only (pas d'endpoint self) ; docs persona=rôle réel ; purge user-scoped au
+  vrai changement de compte. **Fix régression** : plus de `disconnect()` socket au boot (coupait les
+  requêtes data-plane en vol via le pont → spinner timeout). RETEX complet (section « Mode USER
+  dual-audience + régression socket-au-boot »). framework-dev inchangé (front-only ; le back
+  `sessions/mine` reste à faire). [[project_studio_mode_user_kit]] · [[project_studio_preferences_backend_kit]].
 - **1.28.0** (2026-06-21) — **Page API Keys P6.15 — 3 modes + data plane admin** (full-stack ; **contrat ↔
   framework-dev 1.24.0** : `ITokenStore.listAll()` 4 stores + `ApiKeyService.{listAllPat,revokeAnyPat,describeCapabilities}`
   - endpoints `SecurityAdminApi` `GET /apikeys`+`POST /apikeys/{id}/revoke` + `GET /keys/capabilities`). Page
