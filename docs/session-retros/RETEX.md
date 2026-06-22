@@ -245,6 +245,12 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-22]` **turbo `cache hit, replaying logs` REJOUE de VIEUX warnings → on croit son fix cassé.**
+  Après correction d'une erreur TS dans `security`, `npm run build` réaffichait l'erreur `getRemoteAddress`…
+  mais venant de paquets DÉPENDANTS en `cache hit` (logs d'AVANT le fix rejoués). Le seul bloc fiable = le build
+  **FRAIS** du module corrigé (pas `cache hit`) + le `dist` sur disque (`grep` le symbole attendu). Ne jamais
+  juger un fix sur un log rejoué — vérifier le terrain (dist), pas la console turbo.
+
 - `[1× — 2026-06-20]` **« Vert mais cassé » EN CASCADE : 1 `dist` absent → fail-soft silencieux en chaîne.** `@nodefony/security/dist` absent → fail-soft de security → `@nodefony/test` (l'importe) tombe → `test:batch` invisible → un test CLI rouge. Visible SEULEMENT en `-d` (WARNING fail-soft noyé). Leçon : `turbo build` exit 0 ≠ outputs présents (cache-hit peut ne pas restaurer un dist supprimé) → vérifier le TERRAIN (parade `missingWorkspaceDists` dans `#ensureBuilt`). Démo : `mv security/dist` → turbo a fait `cache miss` + rebuild de TOUTE la chaîne security→… (165 s) ; la post-vérif reste le filet pour le cas cache-hit trompeur.
 - `[1× — 2026-06-20]` **Outillage de PROCESS ≠ booter le kernel.** `nodefony status`/`stop` bootaient le CliKernel → exigeaient une trunk (hors projet → menu interactif « Create Project »). Fix : fast-path standalone dans `CliKernel.start` AVANT `new Kernel` → pur `ps`/sonde ports, marche de PARTOUT, zéro effet de bord (supprime aussi un log `terminate` parasite). Règle : une commande de diagnostic/contrôle système ne doit PAS dépendre du boot applicatif.
 - `[1× — 2026-06-20]` **Suspecter son diff PUIS prouver (devise) : 3 fails « de mon commit » = 2 transitoires + 1 état repo.** Après commit `status`, 3 tests CLI `--help` rouges. Vérif : 2 TRANSITOIRES (le watch du DevSupervisor rebuildait le dist PENDANT mes tests → fichiers en cours d'écriture), 1 dû au `dist` security/test absent (état repo, `git status` du module = vide → hors mon diff). Relancer après stabilisation + croiser `git status` = la preuve. Ne jamais qualifier « mon diff » NI « pré-existant » sans le prouver.
@@ -1221,6 +1227,18 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
   Garder `&& rollup -c` (gain du cache root négligeable vs fragilité de lister 20 deps).
 
 ## 🧪 Tests / hygiène (suite)
+
+- `[1× — 2026-06-22]` **garde de sécurité testée seulement aux EXTRÊMES = le cas « milieu » pourrit.** Le data
+  plane admin n'avait QUE anonyme→401 (firewall) et admin→200 ; JAMAIS « authentifié mais PAS le rôle →403 ».
+  Un fail-open (`request.roles.length>0 &&`, vestige mock pré-P6) laissait donc un compte SANS rôle (`roles=[]`,
+  créable via `POST users`) franchir TOUT le data plane admin — survécu à toute la phase P6. **Toute garde RBAC
+  doit tester les 3 strates : anonyme / autorisé / authentifié-mais-pas-le-rôle.** Le « milieu » est celui qui
+  rote silencieusement. Fix `62be7b0d`.
+- `[1× — 2026-06-22]` **rot d'assertion CROSS-MODULE = test rouge dormant.** Un test `@nodefony/framework`
+  (admin-dataplane) assertait la forme d'un endpoint `@nodefony/http` (`deprecated:true`) ; un commit http de la
+  veille (`91403f01`) a changé l'endpoint (retrait `deprecated` → `driver`/`storage`) **sans relancer la suite
+  framework** → rouge invisible jusqu'à ce que je relance framework. Règle : changer un endpoint = relancer les
+  suites des **modules qui l'assertent**, pas seulement celle du module touché.
 
 - `[1× — 2026-06-20]` **red-team : la grande leçon « 2 passes » est GRADUÉE** → `feedback_redteam_threat_first`
   (passe 1 threat-first AVANT de lire le code = anti-biais ; passe 2 code-first = couvrir le reste des
