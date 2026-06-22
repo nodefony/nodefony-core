@@ -65,3 +65,43 @@ export function useHasAnyRole(roles: string[]): boolean {
   const auth = useAuth();
   return hasAnyRole(auth.roles, roles);
 }
+
+/**
+ * Filtre de visibilité unifié (nav, route `RoleGuard`, widget du catalogue) :
+ *  1. un **administrateur Nodefony voit TOUT** (court-circuit) — c'est la règle
+ *     « admin nodefony voit tout », posée ICI une seule fois plutôt que répétée
+ *     sur chaque item / route / bloc ;
+ *  2. sinon `required` absent ou vide ⇒ visible par tous (self-service) ;
+ *  3. sinon intersection (au moins un rôle requis).
+ *
+ * PUR (aucun hook) → réutilisable hors React : `registry.ts` (catalogue),
+ * helpers, tests. Les composants React passent par `isVisibleForRoles(req,
+ * auth.roles)` en restant `observer`.
+ */
+export function isVisibleForRoles(
+  required: readonly string[] | undefined,
+  userRoles: string[],
+): boolean {
+  if (hasRole(userRoles, ROLE_NODEFONY_ADMIN)) return true;
+  if (!required || required.length === 0) return true;
+  return hasAnyRole(userRoles, required as string[]);
+}
+
+/**
+ * Bundles de rôles RÉUTILISÉS par la navigation (`navConfig`), les routes
+ * (`RoleGuard` dans `App.tsx`) et la politique du catalogue (`registry.ts`) —
+ * **source unique** pour éviter la dérive entre « ce que cache le menu » et « ce
+ * que garde la route ». `ROLE_NODEFONY_ADMIN` n'y figure jamais : il voit tout
+ * via {@link isVisibleForRoles}. Lecture : à quel persona une surface s'adresse.
+ */
+export const VIEW_ROLES: Record<"devops" | "dev" | "ops" | "admin", string[]> =
+  {
+    /** Introspection + exploitation : développeur et superviseur. */
+    devops: [ROLE_DEV, ROLE_SUPERVISOR],
+    /** Outils de développement / introspection pure (data, system, archi). */
+    dev: [ROLE_DEV],
+    /** Exploitation / santé runtime (supervision, cluster). */
+    ops: [ROLE_SUPERVISOR],
+    /** Gouvernance — administrateur Nodefony uniquement. */
+    admin: [ROLE_NODEFONY_ADMIN],
+  };

@@ -2,13 +2,29 @@
  * Presets de bureaux par métier — remplacent les dashboards codés en dur. Un preset =
  * un layout de DÉPART ({ span = colonnes, h = rangées }) ; l'utilisateur personnalise
  * ensuite (changements persistés). `widgetId` absent du registry = ignoré au rendu.
+ *
+ * `roles` filtre la VISIBILITÉ du bureau dans le sélecteur (un admin voit tout) :
+ * un simple utilisateur ne doit pas tomber sur un bureau rempli de widgets admin.
+ * Bureaux sans `roles` (« Mon compte », « Vierge ») = visibles par tous.
  */
 import type { WorkspacePreset } from "./types";
+import { VIEW_ROLES, isVisibleForRoles } from "../auth/roles";
 
 export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
   {
+    // Template SELF-SERVICE — bureau par défaut d'un simple utilisateur.
+    // Profil + mes clés (mes sessions à venir avec l'endpoint back). Visible tous.
+    id: "account",
+    label: "Mon compte",
+    items: [
+      { widgetId: "account.profile", span: 6, h: 4 },
+      { widgetId: "account.apikeys", span: 6, h: 3 },
+    ],
+  },
+  {
     id: "dev",
     label: "Développeur",
+    roles: VIEW_ROLES.dev,
     items: [
       { widgetId: "runtime.mode", span: 6, h: 4 },
       { widgetId: "system.info", span: 6, h: 4 },
@@ -24,6 +40,7 @@ export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
   {
     id: "admin",
     label: "Admin",
+    roles: VIEW_ROLES.admin,
     items: [
       { widgetId: "runtime.mode", span: 6, h: 4 },
       { widgetId: "runtime.modes", span: 6, h: 4 },
@@ -39,6 +56,7 @@ export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
     // La page reste accessible (`/nodefony/supervision`) ; ceci est le MODÈLE du « + ».
     id: "supervision",
     label: "Supervision",
+    roles: VIEW_ROLES.ops,
     items: [],
     layout: [
       // Santé du framework — pleine largeur, en haut.
@@ -66,6 +84,7 @@ export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
     // affiner puis re-exporter en `layout` exact comme Supervision).
     id: "systeme",
     label: "Système",
+    roles: VIEW_ROLES.devops,
     items: [
       { widgetId: "supervision.health", span: 12, h: 6 },
       { widgetId: "system.cpu", span: 4, h: 4 },
@@ -81,6 +100,7 @@ export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
     // Thème CONFIGURATION & LANCEMENT — statique (snapshot).
     id: "config",
     label: "Configuration",
+    roles: VIEW_ROLES.dev,
     items: [
       { widgetId: "runtime.mode", span: 6, h: 4 },
       { widgetId: "runtime.modes", span: 6, h: 4 },
@@ -94,6 +114,7 @@ export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
     // Thème LOGS — flux live + fond de panier + canaux + alertes.
     id: "logs",
     label: "Logs",
+    roles: VIEW_ROLES.devops,
     items: [
       { widgetId: "logs.live", span: 12, h: 7 },
       { widgetId: "logs.backplane", span: 12, h: 5 },
@@ -105,6 +126,7 @@ export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
     // Thème MÉMOIRE — heap V8 (espaces), ressources actives, GC, corrélation.
     id: "memoire",
     label: "Mémoire",
+    roles: VIEW_ROLES.devops,
     items: [
       { widgetId: "supervision.memory", span: 8, h: 6 },
       { widgetId: "supervision.handles", span: 4, h: 6 },
@@ -117,6 +139,7 @@ export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
     // Thème ERREURS — taux d'erreurs + alertes + flux de logs (messages).
     id: "erreurs",
     label: "Erreurs",
+    roles: VIEW_ROLES.devops,
     items: [
       { widgetId: "supervision.errors", span: 6, h: 5 },
       { widgetId: "supervision.alerts", span: 6, h: 5 },
@@ -126,4 +149,15 @@ export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
   { id: "blank", label: "Vierge", items: [] },
 ];
 
-export const DEFAULT_WORKSPACE_ID = "dev";
+/** Rôles requis pour voir un bureau preset (un bureau custom/user inconnu = tous). */
+export function presetRolesFor(id: string): string[] | undefined {
+  return WORKSPACE_PRESETS.find((p) => p.id === id)?.roles;
+}
+
+/** Un bureau (preset ou custom) est-il visible pour ces rôles ? (admin voit tout). */
+export function isWorkspaceVisible(id: string, roles: string[]): boolean {
+  return isVisibleForRoles(presetRolesFor(id), roles);
+}
+
+/** Bureau par défaut générique (dev) — un user retombe sur « account » via le filtre. */
+export const DEFAULT_WORKSPACE_ID = "account";

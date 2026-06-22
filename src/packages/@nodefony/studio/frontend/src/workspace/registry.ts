@@ -2,9 +2,28 @@
  * Catalogue global des widgets — le « magasin d'apps ». Peuplé par side-effect au
  * premier `import "./widgets"`. Lookup O(1) par id ; liste filtrée par rôle.
  */
-import type { IWidgetDef } from "./types";
+import type { IWidgetDef, WidgetCategory } from "./types";
+import { isVisibleForRoles, VIEW_ROLES } from "../auth/roles";
 
 const REGISTRY = new Map<string, IWidgetDef>();
+
+/**
+ * Politique de visibilité PAR CATÉGORIE — défaut appliqué quand un bloc ne fixe
+ * pas son propre `roles`. Évite de tagger les 24 blocs un par un (1 endroit =
+ * 0 dérive avec la nav). Un bloc surcharge via `def.roles` (ex. un futur bloc
+ * sécurité self-service met `roles: []` pour rester visible par tous). L'admin
+ * Nodefony voit tout (via `isVisibleForRoles`).
+ */
+const CATEGORY_ROLES: Partial<Record<WidgetCategory, readonly string[]>> = {
+  runtime: VIEW_ROLES.devops,
+  system: VIEW_ROLES.devops,
+  realtime: VIEW_ROLES.devops,
+  logs: VIEW_ROLES.devops,
+  cluster: VIEW_ROLES.ops,
+  orm: VIEW_ROLES.dev,
+  ai: VIEW_ROLES.dev,
+  security: VIEW_ROLES.admin,
+};
 
 /**
  * Enregistre un widget. Le générique `T` reste typé côté composant ; on l'efface à
@@ -23,17 +42,16 @@ export function hasWidget(id: string): boolean {
   return REGISTRY.has(id);
 }
 
-/** Tous les widgets visibles pour ces rôles (un widget sans `roles` = visible). */
+/**
+ * Tous les widgets visibles pour ces rôles. Visibilité = `def.roles` explicite,
+ * sinon défaut de catégorie (`CATEGORY_ROLES`), sinon visible par tous ; l'admin
+ * Nodefony voit tout. Source UNIQUE de la règle d'affichage du catalogue.
+ */
 export function listWidgets(roles: string[] = []): IWidgetDef[] {
   const out: IWidgetDef[] = [];
   for (const def of REGISTRY.values()) {
-    if (
-      !def.roles ||
-      def.roles.length === 0 ||
-      def.roles.some((r) => roles.includes(r))
-    ) {
-      out.push(def);
-    }
+    const required = def.roles ?? CATEGORY_ROLES[def.category];
+    if (isVisibleForRoles(required, roles)) out.push(def);
   }
   return out.sort((a, b) => a.title.localeCompare(b.title));
 }

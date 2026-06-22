@@ -19,7 +19,9 @@ import {
   IconFileText,
   IconSearch,
 } from "@tabler/icons-react";
-import { useStore } from "../stores";
+import { hasRole } from "nodefony/roles";
+import { useAuth, useStore } from "../stores";
+import { ROLE_NODEFONY_ADMIN, ROLE_SUPERVISOR } from "../auth/roles";
 import { useResource } from "../hooks";
 import { RoleSwitch } from "../components/RoleSwitch";
 import {
@@ -92,17 +94,47 @@ function resolveVars(
   );
 }
 
+/**
+ * Persona de lecture par défaut, dérivé du RÔLE réel de l'utilisateur (admin →
+ * tout, superviseur → exploitation, sinon développeur). Avant : figé sur
+ * « developer » sans aucun lien avec l'identité (la doc s'affichait pareil pour
+ * tout le monde). Le `RoleSwitch` permet ensuite d'explorer la doc des autres
+ * personas — le défaut reflète juste qui on est.
+ */
+function personaForRoles(roles: string[]): Persona {
+  if (hasRole(roles, ROLE_NODEFONY_ADMIN)) return "admin";
+  if (hasRole(roles, ROLE_SUPERVISOR)) return "supervisor";
+  return "developer";
+}
+
 /* ════════════════════════════════════════════════════════════════════════
  * PAGE
  * ════════════════════════════════════════════════════════════════════════ */
 export const Documentation = observer(() => {
   const store = useStore();
-  const [persona, setPersona] = useState<Persona>("developer");
+  const auth = useAuth();
+  // Défaut = le persona correspondant au rôle de l'utilisateur (réactif MobX :
+  // le composant est `observer`). Modifiable ensuite via le RoleSwitch.
+  const [persona, setPersona] = useState<Persona>(() =>
+    personaForRoles(auth.roles),
+  );
+
+  const treeFetcher = useCallback(
+    () => store.api.getAbsolute<DocTree>("/nodefony/documentation/api/tree"),
+    [store],
+  );
+  const tree = useResource(treeFetcher);
+
   // Routing — `?doc=<slug>` (deep-link + F5 + bouton retour navigateur OK).
-  // Fallback = page d'accueil de la doc Socket (1re sous-page « Vue d'ensemble »).
+  // Fallback ROBUSTE = 1re page réelle de l'arbre (scan FS backend) plutôt qu'un
+  // slug codé en dur qui casse si le fichier est renommé/déplacé. Tant que
+  // l'arbre n'est pas chargé, on retombe sur la 1re page Socket connue (évite la
+  // page blanche au tout premier paint).
   const [params, setParams] = useSearchParams();
+  const firstSlug = tree.data?.sections.find((s) => s.pages.length > 0)
+    ?.pages[0]?.slug;
   const activeSlug =
-    params.get("doc") ?? "root~realtime~socket~01-vue-ensemble";
+    params.get("doc") ?? firstSlug ?? "root~realtime~socket~01-vue-ensemble";
   const setActiveSlug = useCallback(
     (slug: string) => setParams({ doc: slug }, { replace: false }),
     [setParams],
@@ -129,12 +161,6 @@ export const Documentation = observer(() => {
   );
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [navQuery, setNavQuery] = useState("");
-
-  const treeFetcher = useCallback(
-    () => store.api.getAbsolute<DocTree>("/nodefony/documentation/api/tree"),
-    [store],
-  );
-  const tree = useResource(treeFetcher);
 
   const pageFetcher = useCallback(
     () =>

@@ -48,6 +48,7 @@ export type WidgetCategory =
   | "realtime"
   | "cluster"
   | "security"
+  | "account"
   | "ai";
 
 /** Libellés FR des catégories (catalogue, menus). */
@@ -59,6 +60,7 @@ export const WIDGET_CATEGORY_LABEL: Record<WidgetCategory, string> = {
   realtime: "Temps réel",
   cluster: "Cluster",
   security: "Sécurité",
+  account: "Mon compte",
   ai: "IA",
 };
 
@@ -182,6 +184,13 @@ export interface WidgetSeed {
 export interface WorkspacePreset {
   id: string;
   label: string;
+  /**
+   * Rôles requis pour VOIR ce bureau dans le sélecteur (un admin voit tout).
+   * Absent/vide = visible par tous (ex. « Mon compte », « Vierge »). Évite qu'un
+   * simple utilisateur tombe sur un bureau rempli de widgets admin (qui
+   * échoueraient en 403). Filtré à l'affichage via `isVisibleForRoles`.
+   */
+  roles?: string[];
   items: WidgetSeed[];
   /**
    * Layout EXACT optionnel — fenêtres positionnées (px/fraction + z) exportées d'un

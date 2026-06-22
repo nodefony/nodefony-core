@@ -22,7 +22,8 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
-import { useWorkspace } from "../stores";
+import { useAuth, useWorkspace } from "../stores";
+import { isWorkspaceVisible } from "./presets";
 import type { WorkspaceLayout } from "./types";
 
 /* Dimensions de la vignette (mini-fenêtre fantôme). */
@@ -106,11 +107,16 @@ function Thumb({
  */
 export const WorkspaceSwitcher = observer(() => {
   const ws = useWorkspace();
+  const auth = useAuth();
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
 
-  const tabs = ws.layoutList;
+  // Filtre par rôle : un utilisateur ne voit QUE les bureaux qui lui sont
+  // accessibles (un admin voit tout) → plus de bureau admin cliquable par erreur.
+  const tabs = ws.layoutList.filter((l) =>
+    isWorkspaceVisible(l.id, auth.roles),
+  );
   const active = ws.active;
   const canDelete = tabs.length > 1;
 
@@ -143,7 +149,9 @@ export const WorkspaceSwitcher = observer(() => {
         <Menu.Divider />
         <Menu.Label>Depuis un modèle</Menu.Label>
         {ws.templates
-          .filter((t) => t.id !== "blank")
+          .filter(
+            (t) => t.id !== "blank" && isWorkspaceVisible(t.id, auth.roles),
+          )
           .map((t) => (
             <Menu.Item key={t.id} onClick={() => ws.createWorkspace(t.id)}>
               {t.label}
@@ -349,7 +357,10 @@ export const WorkspaceSwitcher = observer(() => {
                 <Menu.Divider />
                 <Menu.Label>Depuis un modèle</Menu.Label>
                 {ws.templates
-                  .filter((t) => t.id !== "blank")
+                  .filter(
+                    (t) =>
+                      t.id !== "blank" && isWorkspaceVisible(t.id, auth.roles),
+                  )
                   .map((t) => (
                     <Menu.Item
                       key={t.id}

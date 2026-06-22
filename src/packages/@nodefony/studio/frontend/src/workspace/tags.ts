@@ -35,6 +35,7 @@ export const WIDGET_TAGS: readonly WidgetTag[] = [
   { id: "cluster", label: "Cluster", group: "domaine" },
   { id: "erreurs", label: "Erreurs", group: "domaine" },
   { id: "securite", label: "Sécurité", group: "domaine" },
+  { id: "compte", label: "Mon compte", group: "domaine" },
   { id: "ia", label: "IA", group: "domaine" },
   // ── DOMAINE — sous-thèmes « système » ──
   { id: "cpu", label: "CPU", group: "domaine", parent: "systeme" },

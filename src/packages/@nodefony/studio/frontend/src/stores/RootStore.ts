@@ -104,20 +104,48 @@ export class RootStore {
     // de durée de vie applicative → pas de disposal nécessaire.
     reaction(
       () => this.auth.user?.id ?? null,
-      (id) => {
+      (id, prevId) => {
         this.admin.reset();
-        // 🔒 SÉCURITÉ (élévation de privilège) — re-négocier la SOCKET au
-        // changement d'identité. Une WebSocket grave l'identité au handshake ;
-        // le pont « API souveraine » (`api.request`) rejoue les GET du data plane
-        // avec CE token, jamais re-validé par frame. La socket est un SINGLETON
-        // partagé par origine → après une déconnexion admin puis la connexion
-        // d'un AUTRE compte sur le même navigateur, elle continuerait de porter
-        // l'identité admin → fuite de données admin (vu en prod). `disconnect()`
-        // + `connect()` force un nouveau handshake = relecture du cookie courant
-        // → token frais (le « F5 » fait à la main). Ainsi l'identité figée de la
-        // socket EST toujours l'identité courante → le pont redevient sûr. Les
-        // pages live se ré-abonnent automatiquement au reconnect (ref-compté).
-        this.realtime.disconnect();
+        // Purge l'état user-scoped en `localStorage` (bureaux personnels +
+        // filtres/onglets des consoles) UNIQUEMENT lors d'un VRAI changement de
+        // compte (un compte → un autre, ou déconnexion) — PAS au 1er chargement
+        // (null→id au boot/F5 = la MÊME identité se recharge → ne pas effacer ses
+        // bureaux). Cet état est device-local, non lié à l'identité → sur un poste
+        // partagé il fuiterait d'une identité à la suivante (même classe de fuite
+        // que la socket figée, re-négociée juste après). Les préférences device
+        // pures (apparence, rebonjour de login, debug bar) sont préservées.
+        if (prevId !== null && prevId !== id) {
+          this.workspace.resetForIdentity();
+          try {
+            if (typeof localStorage !== "undefined") {
+              const kill: string[] = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (
+                  k &&
+                  (k.startsWith("studio.") || k.startsWith("nf.datagrid:"))
+                )
+                  kill.push(k);
+              }
+              for (const k of kill) localStorage.removeItem(k);
+            }
+          } catch {
+            /* storage indisponible — non bloquant */
+          }
+          // 🔒 SÉCURITÉ (élévation de privilège) — re-négocier la SOCKET sur un
+          // VRAI changement de compte (logout→login d'un AUTRE compte sur le même
+          // navigateur). La WebSocket a gravé l'ancienne identité au handshake ;
+          // le pont « API souveraine » (`api.request`) rejouerait des GET avec ce
+          // token → fuite de données (vu en prod). `disconnect()` force un nouveau
+          // handshake = relecture du cookie courant. Les pages live se ré-abonnent
+          // au reconnect (ref-compté).
+          this.realtime.disconnect();
+        }
+        // ⚠️ `connect()` HORS du garde : au BOOT (`prevId === null`), la socket se
+        // connecte fraîche avec le cookie courant — il ne faut SURTOUT PAS de
+        // `disconnect()` ici, il couperait les requêtes data-plane EN VOL qui
+        // passent par le pont → la page resterait en spinner jusqu'au timeout du
+        // pont avant de retomber en fetch (régression « tourne en boucle »).
         if (id !== null) void this.realtime.connect();
       },
     );

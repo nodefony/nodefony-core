@@ -1,6 +1,6 @@
 import "../workspace/widgets"; // side-effect : peuple le registry de widgets
 import { observer } from "mobx-react-lite";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge, Box, Button, Group, Stack, Switch, Text } from "@mantine/core";
 import {
   IconApps,
@@ -8,11 +8,12 @@ import {
   IconCpu,
   IconRefresh,
 } from "@tabler/icons-react";
-import { useUi, useWorkspace } from "../stores";
+import { useAuth, useUi, useWorkspace } from "../stores";
 import { PageHeader } from "../components/ui";
 import { WidgetGrid } from "../workspace/WidgetGrid";
 import { WidgetCatalogDrawer } from "../workspace/WidgetCatalogDrawer";
 import { WorkspaceSwitcher } from "../workspace/WorkspaceSwitcher";
+import { isWorkspaceVisible } from "../workspace/presets";
 import { useWidgetRuntime } from "../workspace/useWidgetRuntime";
 
 /**
@@ -25,9 +26,25 @@ import { useWidgetRuntime } from "../workspace/useWidgetRuntime";
 export const Workspace = observer(() => {
   const workspace = useWorkspace();
   const ui = useUi();
+  const auth = useAuth();
   const [catalog, setCatalog] = useState(false);
   const { ctx, reload } = useWidgetRuntime();
   const active = workspace.active;
+
+  // Si le bureau actif (persisté) n'est pas accessible au rôle courant — ex. un
+  // bureau « dev » resté sélectionné après une bascule en simple utilisateur —
+  // bascule automatiquement sur le 1er bureau visible (« Mon compte »).
+  const firstVisibleId = workspace.layoutList.find((l) =>
+    isWorkspaceVisible(l.id, auth.roles),
+  )?.id;
+  useEffect(() => {
+    if (
+      firstVisibleId &&
+      !isWorkspaceVisible(workspace.active.id, auth.roles)
+    ) {
+      workspace.setActive(firstVisibleId);
+    }
+  }, [workspace, auth.roles, firstVisibleId]);
 
   return (
     <Stack gap="md">

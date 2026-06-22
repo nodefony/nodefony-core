@@ -41,7 +41,7 @@ import {
   IconBulb,
   type Icon,
 } from "@tabler/icons-react";
-import { ROLE_NODEFONY_ADMIN, ROLE_SUPERVISOR } from "../auth/roles";
+import { VIEW_ROLES } from "../auth/roles";
 
 /** Une entrée de navigation (lien vers une page Studio). */
 export interface NavItem {
@@ -65,6 +65,12 @@ export interface NavGroup {
   id: string;
   label: string;
   icon: Icon;
+  /**
+   * Si défini, groupe entier visible seulement si l'utilisateur a AU MOINS UN de
+   * ces rôles (raccourci quand TOUS les items partagent le même rôle — évite de
+   * le répéter par item). Cumulé avec le `roles` de chaque item. ADMIN voit tout.
+   */
+  roles?: string[];
   items: NavItem[];
 }
 
@@ -87,11 +93,15 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     icon: IconDashboard,
     items: [
+      // Carte d'architecture runtime — pour ceux qui inspectent/exploitent.
       {
         to: "/nodefony/twin",
         label: "Jumeau Vivant",
         icon: IconTopologyStar3,
+        roles: VIEW_ROLES.devops,
       },
+      // Bureau personnel — self-service, accessible à TOUS (ses blocs sont eux
+      // filtrés par rôle dans le catalogue).
       {
         to: "/nodefony/workspace",
         label: "Mon bureau",
@@ -101,16 +111,17 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/supervision",
         label: "Supervision",
         icon: IconActivityHeartbeat,
-        roles: [ROLE_SUPERVISOR],
+        roles: VIEW_ROLES.ops,
       },
     ],
   },
   {
-    // Portail de documentation unifié (DÉMO/POC) — doc par persona, graphes,
-    // doc dynamique. Futur module @nodefony/documentation.
+    // Portail de documentation TECHNIQUE du framework (RFC, archi, realtime…) →
+    // pour développeurs / exploitants / admin, pas un utilisateur final.
     id: "documentation",
     label: "Documentation",
     icon: IconBooks,
+    roles: VIEW_ROLES.devops,
     items: [
       {
         to: "/nodefony/documentation",
@@ -126,18 +137,41 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Observability",
     icon: IconChartBar,
     items: [
-      { to: "/nodefony/hub", label: "Realtime Hub", icon: IconBroadcast },
-      { to: "/nodefony/runtime", label: "Runtime", icon: IconRocket },
-      { to: "/nodefony/cluster", label: "Cluster", icon: IconCpu },
-      { to: "/nodefony/logs", label: "Logs", icon: IconFileText },
+      {
+        to: "/nodefony/hub",
+        label: "Realtime Hub",
+        icon: IconBroadcast,
+        roles: VIEW_ROLES.devops,
+      },
+      {
+        to: "/nodefony/runtime",
+        label: "Runtime",
+        icon: IconRocket,
+        roles: VIEW_ROLES.devops,
+      },
+      // Cluster = exploitation (santé multi-worker).
+      {
+        to: "/nodefony/cluster",
+        label: "Cluster",
+        icon: IconCpu,
+        roles: VIEW_ROLES.ops,
+      },
+      {
+        to: "/nodefony/logs",
+        label: "Logs",
+        icon: IconFileText,
+        roles: VIEW_ROLES.devops,
+      },
     ],
   },
   {
     // Phase 12 — construire & utiliser des agents IA métier (8 modules IA).
-    // Chat = playground/console (livré) ; le reste = roadmap agentic.
+    // Chat = playground/console (livré) ; le reste = roadmap agentic. Réservé
+    // aux développeurs (et admin) — surface de construction.
     id: "ai-studio",
     label: "AI Studio",
     icon: IconSparkles,
+    roles: VIEW_ROLES.dev,
     items: [
       { to: "/nodefony/chat", label: "Chat", icon: IconMessageChatbot },
       { to: "/nodefony/agents", label: "Agents", icon: IconRobot, wip: true },
@@ -164,10 +198,12 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // Le différenciateur AI Act : gouvernance, contrôle humain, traçabilité signée.
+    // Le différenciateur AI Act : gouvernance, contrôle humain, traçabilité
+    // signée → administrateur Nodefony uniquement.
     id: "ai-governance",
     label: "AI Governance",
     icon: IconShieldCheck,
+    roles: VIEW_ROLES.admin,
     items: [
       {
         to: "/nodefony/agent-guard",
@@ -198,6 +234,8 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     // Vision P6 — console sécurité complète (« l'interface dont rêve un auditeur »).
+    // Gouvernance (audit/firewall/users/roles) = ADMIN ; self-service (mes
+    // sessions / mes clés) = TOUS.
     id: "security",
     label: "Security",
     icon: IconShieldLock,
@@ -206,38 +244,53 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/audit",
         label: "Journal d'audit",
         icon: IconHistory,
-        roles: [ROLE_NODEFONY_ADMIN],
+        roles: VIEW_ROLES.admin,
       },
       {
         to: "/nodefony/firewall",
         label: "Firewall",
         icon: IconShieldLock,
-        roles: [ROLE_NODEFONY_ADMIN],
+        roles: VIEW_ROLES.admin,
       },
-      { to: "/nodefony/users", label: "Users", icon: IconUsers },
+      {
+        to: "/nodefony/users",
+        label: "Users",
+        icon: IconUsers,
+        roles: VIEW_ROLES.admin,
+      },
       {
         to: "/nodefony/roles",
         label: "Roles",
         icon: IconUsersGroup,
+        roles: VIEW_ROLES.admin,
       },
+      // Sessions = ADMIN pour l'instant : le mode « mes sessions » tape encore
+      // l'endpoint admin `/sessions/list` (RBAC) → 403 pour un user. Le vrai
+      // self-service exige un endpoint back `sessions/mine` (anti-IDOR) à créer →
+      // tant qu'il n'existe pas, admin-only évite l'erreur. Cf chantier mode user.
       {
         to: "/nodefony/sessions",
         label: "Sessions",
         icon: IconList,
+        roles: VIEW_ROLES.admin,
       },
+      // API Keys = self-service fonctionnel (`/keys`, session BFF) → visible tous.
       { to: "/nodefony/api-keys", label: "API Keys", icon: IconKey },
       {
         to: "/nodefony/webhooks",
         label: "Webhooks",
         icon: IconWebhook,
+        roles: VIEW_ROLES.admin,
         wip: true,
       },
     ],
   },
   {
+    // Introspection des données (ORM / schéma / migrations) → développeur.
     id: "data",
     label: "Data",
     icon: IconDatabase,
+    roles: VIEW_ROLES.dev,
     items: [
       { to: "/nodefony/orm", label: "ORM", icon: IconDatabase },
       { to: "/nodefony/databases", label: "Schéma ERD", icon: IconSchema },
@@ -250,23 +303,48 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Introspection du framework (modules/services/routes) = développeur ;
+    // l'explorateur du data plane Admin API = administrateur.
     id: "system",
     label: "System",
     icon: IconApi,
     items: [
-      { to: "/nodefony/modules", label: "Modules", icon: IconBox },
+      {
+        to: "/nodefony/modules",
+        label: "Modules",
+        icon: IconBox,
+        roles: VIEW_ROLES.dev,
+      },
       {
         to: "/nodefony/services",
         label: "Services",
         icon: IconAffiliate,
+        roles: VIEW_ROLES.dev,
         wip: true,
       },
-      { to: "/nodefony/routes", label: "Routes", icon: IconRoute },
-      { to: "/nodefony/system", label: "Admin API", icon: IconApi },
-      { to: "/nodefony/npm", label: "NPM", icon: IconBrandNpm, wip: true },
+      {
+        to: "/nodefony/routes",
+        label: "Routes",
+        icon: IconRoute,
+        roles: VIEW_ROLES.dev,
+      },
+      {
+        to: "/nodefony/system",
+        label: "Admin API",
+        icon: IconApi,
+        roles: VIEW_ROLES.admin,
+      },
+      {
+        to: "/nodefony/npm",
+        label: "NPM",
+        icon: IconBrandNpm,
+        roles: VIEW_ROLES.dev,
+        wip: true,
+      },
     ],
   },
   {
+    // Compte personnel — accessible à tous (réglages de l'utilisateur courant).
     id: "account",
     label: "Account",
     icon: IconSettings,

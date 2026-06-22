@@ -14,8 +14,8 @@ import { StoreProvider, RootStore, useAuth } from "./stores";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { buildStudioTheme } from "./theme";
 import { AuthGuard } from "./components/AuthGuard";
-import { RoleGuard } from "./components/RoleGuard";
-import { ROLE_SUPERVISOR } from "./auth/roles";
+import { RoleGuardOutlet } from "./components/RoleGuard";
+import { VIEW_ROLES } from "./auth/roles";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Login } from "./routes/Login";
@@ -149,57 +149,81 @@ const router = createBrowserRouter([
         element: <AdminLayout />,
         children: [
           { index: true, element: <HomeRedirect /> },
-          { path: "hub", element: <RealtimeConsole /> },
-          { path: "cluster", element: <Cluster /> },
-          { path: "runtime", element: <Runtime /> },
+
+          // —— Accessibles à TOUS (self-service / personnel) ——
           { path: "workspace", element: <Workspace /> },
-          { path: "twin", element: <Twin /> },
+          { path: "api-keys", element: <ApiKeys /> },
+          { path: "settings", element: <Settings /> },
           {
             path: "dev",
             element: <Navigate to="/nodefony/workspace" replace />,
           },
+
+          // —— Développeur + Superviseur (introspection & observabilité) ——
           {
-            path: "supervision",
-            element: (
-              <RoleGuard roles={[ROLE_SUPERVISOR]}>
-                <DashboardSupervision />
-              </RoleGuard>
-            ),
+            element: <RoleGuardOutlet roles={VIEW_ROLES.devops} />,
+            children: [
+              { path: "twin", element: <Twin /> },
+              { path: "hub", element: <RealtimeConsole /> },
+              { path: "runtime", element: <Runtime /> },
+              { path: "logs", element: <Logs /> },
+              { path: "logs/trace/:requestId", element: <TraceView /> },
+              { path: "documentation", element: <Documentation /> },
+            ],
           },
-          { path: "chat", element: <Chat /> },
-          { path: "agents", element: <Agents /> },
-          { path: "knowledge", element: <Knowledge /> },
-          { path: "llm", element: <LlmProviders /> },
-          { path: "vector", element: <VectorStores /> },
-          { path: "memory", element: <AgentMemory /> },
-          { path: "mcp", element: <Mcp /> },
-          { path: "agent-guard", element: <AgentGuard /> },
-          { path: "approvals", element: <Approvals /> },
-          { path: "ai-audit", element: <AiAudit /> },
-          { path: "ai-costs", element: <AiCosts /> },
-          { path: "insights", element: <Insights /> },
-          { path: "sessions", element: <Sessions /> },
-          { path: "users", element: <Users /> },
-          { path: "roles", element: <Roles /> },
-          { path: "api-keys", element: <ApiKeys /> },
-          { path: "webhooks", element: <Webhooks /> },
-          { path: "audit", element: <Audit /> },
-          { path: "routes", element: <RoutesView /> },
-          { path: "logs", element: <Logs /> },
-          { path: "logs/trace/:requestId", element: <TraceView /> },
-          { path: "system", element: <System /> },
-          { path: "firewall", element: <Firewall /> },
-          { path: "orm", element: <OrmOverview /> },
-          { path: "orm/:pid", element: <OrmWorker /> },
-          { path: "databases", element: <Database /> },
-          { path: "orm-entity", element: <OrmEntity /> },
-          { path: "migrate", element: <Migrate /> },
-          { path: "services", element: <Services /> },
-          { path: "modules", element: <Modules /> },
-          { path: "modules/:name", element: <ModuleDetail /> },
-          { path: "documentation", element: <Documentation /> },
-          { path: "npm", element: <Npm /> },
-          { path: "settings", element: <Settings /> },
+
+          // —— Superviseur (exploitation / santé runtime) ——
+          {
+            element: <RoleGuardOutlet roles={VIEW_ROLES.ops} />,
+            children: [
+              { path: "supervision", element: <DashboardSupervision /> },
+              { path: "cluster", element: <Cluster /> },
+            ],
+          },
+
+          // —— Développeur (données, système, playground IA) ——
+          {
+            element: <RoleGuardOutlet roles={VIEW_ROLES.dev} />,
+            children: [
+              { path: "chat", element: <Chat /> },
+              { path: "agents", element: <Agents /> },
+              { path: "knowledge", element: <Knowledge /> },
+              { path: "llm", element: <LlmProviders /> },
+              { path: "vector", element: <VectorStores /> },
+              { path: "memory", element: <AgentMemory /> },
+              { path: "mcp", element: <Mcp /> },
+              { path: "orm", element: <OrmOverview /> },
+              { path: "orm/:pid", element: <OrmWorker /> },
+              { path: "databases", element: <Database /> },
+              { path: "orm-entity", element: <OrmEntity /> },
+              { path: "migrate", element: <Migrate /> },
+              { path: "services", element: <Services /> },
+              { path: "modules", element: <Modules /> },
+              { path: "modules/:name", element: <ModuleDetail /> },
+              { path: "routes", element: <RoutesView /> },
+              { path: "npm", element: <Npm /> },
+            ],
+          },
+
+          // —— Administrateur Nodefony (gouvernance) ——
+          {
+            element: <RoleGuardOutlet roles={VIEW_ROLES.admin} />,
+            children: [
+              { path: "agent-guard", element: <AgentGuard /> },
+              { path: "approvals", element: <Approvals /> },
+              { path: "ai-audit", element: <AiAudit /> },
+              { path: "ai-costs", element: <AiCosts /> },
+              { path: "insights", element: <Insights /> },
+              { path: "users", element: <Users /> },
+              { path: "roles", element: <Roles /> },
+              { path: "sessions", element: <Sessions /> },
+              { path: "webhooks", element: <Webhooks /> },
+              { path: "audit", element: <Audit /> },
+              { path: "system", element: <System /> },
+              { path: "firewall", element: <Firewall /> },
+            ],
+          },
+
           { path: "*", element: <NotFound /> },
         ],
       },

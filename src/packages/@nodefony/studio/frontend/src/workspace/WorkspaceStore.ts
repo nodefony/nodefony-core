@@ -5,10 +5,11 @@ import { DEFAULT_WORKSPACE_ID, WORKSPACE_PRESETS } from "./presets";
 import { getWidget } from "./registry";
 import { autoTile, clamp, snap, type TileInput } from "./grid";
 
-// v2 : modèle BUREAU LIBRE (fenêtres px/fraction + z-order). L'ancienne clé v1
-// (grille en cellules) est volontairement ignorée → repart des presets migrés.
-const LAYOUTS_KEY = "nf.workspace.layouts.v2";
-const ACTIVE_KEY = "nf.workspace.active";
+// v3 : ajout du template self-service « Mon compte » + visibilité des bureaux par
+// rôle (`WorkspacePreset.roles`) + défaut « account ». Bump v2→v3 = re-seed propre
+// du nouveau modèle (les bureaux de test v2 sont réinitialisés aux presets).
+const LAYOUTS_KEY = "nf.workspace.layouts.v3";
+const ACTIVE_KEY = "nf.workspace.active.v3";
 
 /** Largeur de widget (fraction) bornée. */
 function clampW(w: number): number {
@@ -279,6 +280,29 @@ export class WorkspaceStore {
     };
     this.activeId = nid;
     this.persist();
+  }
+
+  /**
+   * Purge les bureaux PERSONNELS lors d'un vrai changement de compte (login d'un
+   * autre utilisateur / logout sur le même navigateur). Les bureaux vivent en
+   * `localStorage` device-local, **non lié à l'identité** → sans ce reset, ceux
+   * de l'admin resteraient visibles pour l'utilisateur suivant (même classe de
+   * fuite que la socket figée, fermée séparément dans `RootStore`). On efface
+   * puis on re-sème les presets par défaut. Quand la persistance par-utilisateur
+   * côté serveur existera (cf kit `studio-preferences-backend`), ce point
+   * rechargera les bureaux DU compte au lieu de repartir des presets.
+   */
+  resetForIdentity(): void {
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem(LAYOUTS_KEY);
+        localStorage.removeItem(ACTIVE_KEY);
+      }
+    } catch {
+      /* storage indisponible — l'état mémoire est réinitialisé ci-dessous */
+    }
+    this.activeId = DEFAULT_WORKSPACE_ID;
+    this.load();
   }
 
   private load(): void {

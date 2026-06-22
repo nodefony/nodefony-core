@@ -13,3 +13,5 @@ import "./ClusterWidget";
 import "./MoreWidgets";
 import "./SupervisionWidgets";
 import "./SupervisionDetailWidgets";
+import "./SecurityWidgets";
+import "./AccountWidgets";

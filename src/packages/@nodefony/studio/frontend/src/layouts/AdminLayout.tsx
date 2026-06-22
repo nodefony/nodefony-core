@@ -52,7 +52,7 @@ import {
   IconLayoutBottombar,
   type Icon,
 } from "@tabler/icons-react";
-import { hasAnyRole } from "nodefony/roles";
+import { isVisibleForRoles, useIsAdmin, VIEW_ROLES } from "../auth/roles";
 import {
   useAdmin,
   useAuth,
@@ -146,6 +146,7 @@ export const AdminLayout = observer(() => {
   const ui = useUi();
   const workspace = useWorkspace();
   const admin = useAdmin();
+  const isAdmin = useIsAdmin();
   const navigate = useNavigate();
   const loc = useLocation();
   const [params] = useSearchParams();
@@ -158,9 +159,12 @@ export const AdminLayout = observer(() => {
   }, [conn]);
 
   // Catalogue data plane → groupe « Data plane » auto-généré dans la nav.
+  // ⚠️ Endpoint ADMIN (`/nodefony/framework/api/admin`) : ne le charger QUE pour
+  // un administrateur. Sinon un simple utilisateur déclenche un 403 inutile à
+  // chaque montage du shell (console polluée) — cf chantier « mode user ».
   useEffect(() => {
-    void admin.loadCatalog();
-  }, [admin]);
+    if (isAdmin) void admin.loadCatalog();
+  }, [admin, isAdmin]);
 
   // Sync debug bar → Studio : un clic sur une requête dans la barre (event
   // window dispatché par le widget Core `nodefony/debugbar`) ouvre le **Suivi de
@@ -241,8 +245,13 @@ export const AdminLayout = observer(() => {
                 </Text>
               </Group>
             </RouterNavLink>
-            {/* Mode runtime (env + mono/cluster) + popover infos — à côté du titre. */}
-            <RuntimeModeChip />
+            {/* Mode runtime (env + mono/cluster) + popover infos — à côté du
+                titre. Réservé dev/superviseur/admin : ses endpoints (kernel/
+                realtime) sont de l'exploitation → un simple user ne les sonde pas
+                (0 fetch, 0 403 console). */}
+            {isVisibleForRoles(VIEW_ROLES.devops, auth.roles) ? (
+              <RuntimeModeChip />
+            ) : null}
             {/* Nom du bureau actif (change au switch d'espace, route workspace). */}
             {loc.pathname.startsWith("/nodefony/workspace") ? (
               <Badge variant="light" color="gray" radius="sm" visibleFrom="sm">
@@ -406,10 +415,12 @@ export const AdminLayout = observer(() => {
 
         <ScrollArea style={{ flex: 1 }} type="scroll">
           {NAV_GROUPS.map((g) => {
-            // Gating par rôle : un item `roles` n'apparaît que si l'utilisateur
-            // a au moins un de ces rôles (les dashboards dev/supervision).
-            const visible = g.items.filter(
-              (i) => !i.roles || hasAnyRole(auth.roles, i.roles),
+            // Gating par rôle (ADMIN voit tout via `isVisibleForRoles`) : le
+            // groupe entier peut être réservé (`g.roles`), et chaque item l'est
+            // finement (`i.roles`). Un groupe sans item visible disparaît.
+            if (g.roles && !isVisibleForRoles(g.roles, auth.roles)) return null;
+            const visible = g.items.filter((i) =>
+              isVisibleForRoles(i.roles, auth.roles),
             );
             const items = filtering
               ? visible.filter((i) => i.label.toLowerCase().includes(q))
