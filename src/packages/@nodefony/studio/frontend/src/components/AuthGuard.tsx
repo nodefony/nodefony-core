@@ -23,7 +23,15 @@ export const AuthGuard = observer(() => {
     );
   }
   if (!auth.isAuthenticated) {
-    return <Navigate to="/nodefony/login" replace state={{ from: loc.pathname }} />;
+    return (
+      <Navigate to="/nodefony/login" replace state={{ from: loc.pathname }} />
+    );
   }
-  return <Outlet />;
+  // Remontage COMPLET du sous-arbre authentifié à CHAQUE changement d'identité.
+  // Un login par-dessus une session ouverte (logout→login, ou bascule sous un
+  // onglet resté ouvert) repart d'un état vierge : toute donnée chargée pour
+  // l'identité précédente est démontée → re-fetch ⇒ le 403 du data plane (désormais
+  // fail-closed côté serveur) est honoré, plus aucune vue admin « stale » à l'écran.
+  // Défense en profondeur : le garant reste le RBAC serveur, pas cette clé.
+  return <Outlet key={String(auth.user?.id ?? "anon")} />;
 });

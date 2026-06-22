@@ -1,3 +1,4 @@
+import { reaction } from "mobx";
 import { ApiClient } from "../services/ApiClient";
 import { AuthService } from "../services/AuthService";
 import { RealtimeClient } from "nodefony";
@@ -94,6 +95,17 @@ export class RootStore {
     this.chat = new ChatStore(this.realtime);
     this.admin = new AdminStore(this.api);
     this.profiler = new ProfilerStore(this.api);
+
+    // Au CHANGEMENT D'IDENTITÉ (login / logout / bascule sous un onglet ouvert),
+    // purge les caches de données scopés à l'utilisateur (réponses d'endpoints
+    // admin mémorisées) : aucune donnée d'une identité précédente ne survit dans
+    // un store singleton. Le remontage React (clé `AuthGuard`) vide les états
+    // locaux des pages ; ceci couvre les stores hors arbre. RootStore = singleton
+    // de durée de vie applicative → pas de disposal nécessaire.
+    reaction(
+      () => this.auth.user?.id ?? null,
+      () => this.admin.reset(),
+    );
 
     // Aide au DEV uniquement : déclencher un toast depuis la console
     // (`nodefonyNotify("success","coucou")`) pour vérifier le centre de

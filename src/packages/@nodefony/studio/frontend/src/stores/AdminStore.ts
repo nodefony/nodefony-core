@@ -89,6 +89,20 @@ export class AdminStore {
     }
   }
 
+  /**
+   * Purge les données admin mémorisées (catalogue + réponses d'endpoints invoqués).
+   * Appelé au CHANGEMENT D'IDENTITÉ (réaction RootStore) : aucune réponse d'admin
+   * d'une identité précédente ne survit dans ce store singleton (hors arbre React),
+   * en complément du remontage par clé d'AuthGuard. Défense en profondeur — le
+   * garant reste le RBAC serveur (403), pas ce nettoyage.
+   */
+  reset(): void {
+    this.producers = [];
+    this.invocations.clear();
+    this.error = null;
+    this.loading = false;
+  }
+
   /** Total d'endpoints exposés (tous producteurs confondus). */
   get endpointCount(): number {
     return this.producers.reduce((n, p) => n + p.endpoints.length, 0);
