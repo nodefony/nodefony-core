@@ -57,9 +57,13 @@ const CHARSET_ALIASES: Record<string, BufferEncoding> = {
 // `replace()` ignore/réinitialise lastIndex → partage sûr d'une regex /g.
 const QUOTE_TRIM = /^["']|["']$/gu;
 
+// Méthodes dont le corps est parsé (→ `queryPost`, lu par `@Body`). PATCH (RFC
+// 5789) porte un corps comme POST/PUT → il DOIT y figurer ; son absence laissait
+// `request.body` vide sur tout PATCH (data plane admin → UPDATE vide = 500).
 const parse = {
   POST: true,
   PUT: true,
+  PATCH: true,
   DELETE: true,
 };
 
