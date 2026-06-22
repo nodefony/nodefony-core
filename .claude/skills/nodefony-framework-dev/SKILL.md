@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.25.0
+version: 1.26.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1492,6 +1492,33 @@ typeof Module).critical`, AVANT les initializers de sous-classe → `critical=fa
   back-compat = 0 (défaut 301 = bug, pas contrat ; les 301 EXPLICITES restent dans la whitelist → intég 59 fw +
   720 http verts). #1 collision noms d'action (`session`/`request`/…) = TOUJOURS présent mais **doc juste** → pas
   de garde au boot (sur-ingénierie hors scope F5). Tests `Response.test.ts` +7. memory 8/8 (native-crash vert isolé).
+- _(2026-06-23)_ **🔴 `PATCH` (et toute méthode à corps) doit figurer dans la table `parse` de `Request.ts`,
+  sinon le body n'est JAMAIS parsé.** `@nodefony/http` `Request.ts` gate le parsing du corps sur la méthode :
+  `const parse = { POST, PUT, DELETE }` puis `parseRequest()` : `if (!(this.method in parse)) return` →
+  **`PATCH` était absent** → `request.body`/`queryPost` vides sur TOUT PATCH → côté data plane admin, le handler
+  `PATCH users/{id}` recevait `{}` → `updateOne({})` → drizzle `.set({})` jette **« No values to set » = 500**
+  (vu en LIVE quand le user retirait un rôle). **Fix** : ajouter `PATCH: true` (RFC 5789 — PATCH porte un corps
+  comme POST/PUT). **Leçons** : (1) une **allow-list de méthodes** silencieuse est un piège — un oubli ne casse
+  pas au build, seulement au runtime sur la méthode oubliée (DELETE-with-body y était, PATCH non) ; (2) **défense
+  en profondeur** : un handler de mutation doit refuser un patch vide (**400**, jamais laisser partir un UPDATE
+  vide = 500 qui fuit) ; (3) **gate mémoire OBLIGATOIRE** (modif pipeline) — 9/9, unit http 494/494, e2e PATCH
+  (corps appliqué → 200 / corps vide → 400). Test wire dans `admin-dataplane.test.ts`.
+- _(2026-06-23)_ **Un mapping ORM `row → entité` qui OUBLIE des colonnes = champ `null` silencieux dans les DTO.**
+  `@nodefony/drizzle` `DrizzleUserRepository.#toUser` construisait un `BaseUser` SANS `createdAt`/`updatedAt`
+  (colonnes pourtant présentes dans `userTable`) → `toUserSummary` les lit défensivement (`ext.createdAt`) → `null`
+  → la page Profil affichait « Créé le — ». **Fix** : `Object.assign(user, { createdAt: row.createdAt, updatedAt:
+row.updatedAt })` (timestamps d'ENTITÉ, hors contrat strict `IUser`, exactement la lecture défensive prévue par
+  les DTO admin). **Leçon** : quand un DTO expose un champ optionnel (`IUserSummary.createdAt`), vérifier que le
+  **mapping du repo le PORTE** — un contrat qui prévoit le champ + un mapping qui l'oublie = `null` partout sans erreur.
+- _(2026-06-23)_ **Self-service mot de passe = re-auth via `UserService.authenticate`, pas un nouvel endpoint
+  fragile.** `me/password` (`public:true` sous zone firewall → anonyme 401) : cible = identité ALS serveur
+  (`request.user.identifier`), `id` interne récupéré **du retour** de `authenticate(principal, current)` (jamais un
+  param client) = anti-IDOR par construction. `authenticate` ne déclenche **aucun lockout** (Nodefony = backoff NIST
+  côté authenticator de login, pas sur `UserService` ; 0 abonné aux events échec) → un re-auth raté n'enferme pas le
+  propriétaire. `hasPassword` (présence du hash, jamais la valeur) au DTO → le front propose « changer » vs « compte
+  OAuth-only ». **App** : `config/oauth.ts` social = `ROLE_USER` seul (dev ET prod) — OAuth = authn JAMAIS authz ;
+  l'accès admin passe par le compte seedé (`provisionUsers` `admin`/`secret` dev, `NF_ADMIN_PASSWORD` prod). Contrat
+  ↔ studio-dev 1.31.0 (page Profil).
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1559,6 +1586,16 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.26.0** (2026-06-23) — **Self-service profil/mot de passe + 🔴 fix PATCH body (core) + dates user + OAuth=USER**
+  (full-stack ; **contrat ↔ studio-dev 1.31.0** — page Profil). (a) `@nodefony/user` `UserAdminApi` : **`GET me`**
+  (profil redacté) + **`POST me/password`** (`public:true`, re-auth via `UserService.authenticate`, **anti-IDOR**
+  cible = identité ALS, audit succès+échec) + **garde patch-vide** sur `PATCH users/{id}` (400, jamais UPDATE vide)
+  - **`hasPassword`** au DTO `IUserSummary` (présence du hash, jamais la valeur). (b) **🔴 FIX CORE pipeline** :
+    `PATCH` absent de la table `parse` de `@nodefony/http` `Request.ts` → body PATCH jamais parsé → UPDATE vide = 500 ;
+    ajouté (RFC 5789). **gate mémoire 9/9**, unit http **494/494**, e2e PATCH (200/400). (c) `@nodefony/drizzle`
+    `#toUser` remontait pas `createdAt`/`updatedAt` (DTO les prévoyait) → `Object.assign`. (d) app `config/oauth.ts` :
+    social = `ROLE_USER` seul (dev+prod). Tests : user unit **115/115** (+10 me/me-password/hasPassword), e2e
+    `admin-dataplane` (me/me-password/PATCH) verts. RETEX §11 (PATCH parse / mapping ORM oublié / re-auth self).
 - **1.25.0** (2026-06-22) — **Sessions self-service back `sessions/mine` (P6.15, contrat ↔ studio-dev 1.30.0).**
   `@nodefony/http` : `SessionsService.{listOwnSessions, destroyOwnByRef}` + endpoints `HttpAdminApi`
   `GET sessions/mine` + `POST sessions/mine/{ref}/revoke` en **`public:true`** (le broker n'impose AUCUN

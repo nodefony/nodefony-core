@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.30.0
+version: 1.31.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -91,7 +91,7 @@ useResource<T>(fetcher: () => Promise<T>): { data: T|null; loading: boolean; err
   // OU mode="server" loader={(q)=>Promise<{rows,total}>}  // SERVEUR : q={page,pageSize,sort,search,columnFilters} ; loader DOIT être useCallback
   columns={DataGridColumn<T>[]}                      // {key,header,align?:"left"|"right",sortable?,filterable?,filterType?:"text"|"number"|"select",filterOptions?:string[],hint?,render?(row),value?(row)}
   getRowId={(r)=>string} onRowClick?={(r)=>void}
-  initialSort?={{key,dir}} pageSize?={25} height?="100%"
+  initialSort?={{key,dir}} pageSize?={25} height?="auto"   // ⚠️ DÉFAUT "auto" — cf règle 🚨 ci-dessous
   searchable?={true} searchPlaceholder?
   persist?={{ key:"studio.<vue>", storage:"session"|"local" }}  // sauve tri+filtres+colonnes+pagination (clé indexée nf.datagrid:<key>)
 />
@@ -100,6 +100,21 @@ useResource<T>(fetcher: () => Promise<T>): { data: T|null; loading: boolean; err
 // En mode serveur, l'état persisté est restauré AVANT la 1ʳᵉ requête (pas de double-fetch).
 // Réf client : routes/Database.tsx (vue Liste). Réf serveur : routes/RoutesView.tsx + back FrameworkAdminApi `routes/page`.
 ```
+
+> 🚨 **MANDATORY — hauteur des grilles (figé 2026-06-23, directive user).** Le défaut `height="auto"`
+> EST le bon comportement pour **toute grille pleine page** : la **PAGE** scrolle (un SEUL scroll, jamais
+> de « scroll trap » de tableau imbriqué — anti-pattern UX confirmé NN/g + le « il faut sortir la souris
+> de la grille » vécu), la **barre de pagination reste collée en bas** (`position: sticky; bottom`,
+> tirée de `-spacing-md` pour manger le `paddingBottom` de `AppShell.Main` et coller au bord sans masquer
+> la debug bar), et l'**en-tête de colonnes** est figé. **→ NE PAS passer de `height` sur une grille
+> principale** : laisser le défaut. **Seules exceptions** (passer un `height` fixe = `PAGE_CONTENT_HEIGHT*`
+> token ou px) : (1) **grille SECONDAIRE** dans un panneau/onglet, peu de lignes (ex. `FirewallAuthStats`,
+> 10 lignes) — sinon sa pagination sticky-bottom flotterait loin en bas du viewport ; (2) **conteneur à
+> hauteur fixe partagé** (ex. `Database` : le DataGrid de la vue Liste vit dans le même `<Paper>` borné que
+> l'ERD React Flow). En mode `height` fixe, le header + la pagination restent dans le **ScrollArea interne**
+> (scroll interne assumé), pas en sticky page. Échelle z des sticky : PageHeader 2 > StickyTabsList 1 =
+> pagination 1 > contenu ; le `stickyHeader` de table est **désactivé en mode auto** (sinon il colle au même
+> `top:0` que le PageHeader avec un z Mantine plus haut → passe devant le titre).
 
 ## API exacte — hooks temps réel (`import { … } from "nodefony/react"`)
 
@@ -1542,6 +1557,42 @@ keys` (session BFF) → marche en user ; **Sessions n'a QUE `/sessions/list` (RB
   shell** (AuthGuard `key={user.id}`), PAS un retry (`useResource` ne retry pas sur erreur → relire).
   Lire « X / Y requests » du Network : Y = total des assets (modules Vite en dev), X = filtré Fetch/XHR.
 
+**DataGrid mode FLUX global + pagination sticky + page Profil (2026-06-23, full-stack ↔ framework-dev 1.26.0)**
+
+- **🚨 Hauteur de grille = règle MANDATORY** (section API DataGrid). Le bug vécu : `height={TABS_PANEL_HEIGHT}`
+  sur les pages **avec StatCards au-dessus** (Sessions/ApiKeys/Audit/Users) → le token ne soustrait QUE
+  HEADER+PAGE_HEADER+BAND, **pas** la hauteur des StatCards/controls → grille trop haute → **déborde** →
+  pagination sous le pli **+ double scroll** (ScrollArea interne qui **capte la molette** = le « il faut sortir
+  la souris de la grille » du user). **Fix centralisé** : défaut `height="auto"` (la PAGE scrolle, 1 seul
+  scroll) + **pagination `position: sticky; bottom`** (collée, toujours visible) + header sticky en mode fixe
+  seulement.
+- **Trancher AVEC la doc, pas à l'instinct** (directive user « regarde la doc ergo pour trancher ») : NN/g
+  _data-tables_ = « **Freeze header rows** if larger than screen » → header figé OK ; le **double scroll
+  (nested scrollbar)** est un anti-pattern (« scroll trap »). → une pagination « sticky » via un 2ᵉ conteneur
+  scrollable **recrée** le trap → la bonne voie = **1 scroll (page) + sticky CSS** (header top + pagination
+  bottom), jamais 2 zones scrollables.
+- **Pagination collée au bord** : `AppShell.Main` a `paddingBottom: spacing-md + debugbar` → un `bottom:0`
+  laisse une marge. Tirer de **`bottom: calc(-1 * var(--mantine-spacing-md))`** (mange la marge, **préserve la
+  part debugbar** → jamais masquée). Fond opaque (`--mantine-color-body`) + `borderTop` pour ne pas voir les
+  lignes défiler dessous.
+- **z-index des sticky (échelle figée)** : PageHeader **2** (`top:0`) > StickyTabsList **1** = pagination **1**
+  > contenu. Le **`stickyHeader` de table Mantine (z~3)** passait DEVANT le PageHeader → en mode `auto` on le
+  > **désactive** (`stickyHeader={height !== "auto"}`) ; il ne reste sticky qu'en mode hauteur fixe (dans le
+  > ScrollArea interne, sans contact avec la page).
+- **Largeur 100% (piège flex)** : le wrapper de la zone table est un flex **ROW** → mettre `flex:"0 0 auto"`
+  sur le `ScrollArea` lui a coupé la **largeur** (largeur du contenu au lieu de 100%). Le `flex` y pilote la
+  LARGEUR → garder **`flex:1` + `width:100%`** TOUJOURS sur le ScrollArea ; piloter la hauteur via le `flex` du
+  **div parent** (axe column du Stack racine) + le `type` du ScrollArea (`never` en auto).
+- **2 EXCEPTIONS au défaut auto** (passer un `height` fixe) : (1) **grille SECONDAIRE** dans un panneau, peu de
+  lignes (`FirewallAuthStats`, 10 lignes) — sinon la pagination sticky-bottom flotte loin en bas ; (2)
+  **conteneur à hauteur fixe partagé** (`Database` : DataGrid de la vue Liste dans le même `<Paper>` borné que
+  l'ERD React Flow). Ne PAS migrer ces deux-là.
+- **Page Profil self** (`/nodefony/profile`) : calque la page Sessions (PageLayout + cartes + zone danger). Les
+  champs **inconnus se masquent** (rôle actif/dates `null` → pas de « — » trompeur) ; **statut** (Actif/Verrouillé)
+  affiché depuis `enabled/locked`. La **valeur RICHE** (badge statut) NE passe PAS par `KeyValue` (`<p>` → `<div>`
+  imbriqué) → `Group` manuel. `hasPassword=false` → pas de formulaire (compte OAuth-only). Source = `GET /me`
+  (fallback auth context au 1er paint).
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1562,6 +1613,18 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.31.0** (2026-06-23) — **Page Profil self + DataGrid mode FLUX global (pagination sticky)** (full-stack ;
+  **contrat ↔ framework-dev 1.26.0** : `GET /me`, `POST /me/password`, `hasPassword` au DTO). (a) **Page
+  `/nodefony/profile`** (self-service, route HORS `RoleGuardOutlet` + navConfig visible tous) : identité +
+  statut + rôles **lecture seule** + connexions OAuth (sans jeton) + **zone danger** changer mon mdp (re-auth)
+  **OU** info « compte externe » si `hasPassword=false`. `routes/Profile.tsx` + `routes/profile/profileModel.ts`
+  (types miroir `/me`, validation client, mapping erreur). (b) **DataGrid : défaut `height="auto"` GLOBAL**
+  (cf règle 🚨 MANDATORY section API) — la PAGE scrolle, **pagination sticky-bottom collée**, header sticky en
+  mode fixe seulement, échelle z (PageHeader 2 > Tabs 1 = pagination 1). Grilles pleine page migrées
+  (Sessions/ApiKeys/Audit/Users/RoutesView/LogExplorer) ; **Database** (conteneur ERD partagé) + **FirewallAuthStats**
+  (grille secondaire) gardent un height fixe. **Tranché AVEC la doc** : NN/g « freeze header » + double-scroll =
+  anti-pattern (« scroll trap » = le « sortir la souris de la grille » vécu). typecheck studio 0 · Vite 200.
+  RETEX section « DataGrid mode flux + page Profil ».
 - **1.30.0** (2026-06-22) — **Sessions self-service — page dual-audience + bloc `account.sessions`**
   (full-stack ; **contrat ↔ framework-dev 1.25.0** : back `GET sessions/mine` + `POST
   sessions/mine/{ref}/revoke`, anti-IDOR). La page `/nodefony/sessions` devient dual-audience : un
