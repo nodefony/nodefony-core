@@ -2,19 +2,19 @@
  * Console **Sessions** (P6.15). Trois portées (modes) dans une page, comme la
  * console API Keys :
  *
- *  - **Mes sessions** : les sessions de l'utilisateur courant (ses appareils /
- *    onglets connectés) — révoquer une session, se déconnecter partout.
+ *  - **Mes sessions** (tout authentifié) : les sessions de l'utilisateur courant
+ *    (ses appareils / onglets connectés) — révoquer une de ses sessions. Tape
+ *    l'endpoint self-service `sessions/mine`, scopé CÔTÉ SERVEUR à l'identité de
+ *    l'appelant (anti-IDOR) → un non-admin ne voit/révoque QUE les siennes.
  *  - **Administration** (`ROLE_NODEFONY_ADMIN`) : toutes les sessions du serveur
  *    (gouvernance) — révoquer n'importe laquelle, logout everywhere d'un compte.
  *  - **Tenant** (P17) : même vue scopée à une organisation — grisé (le DTO porte
  *    déjà `tenantId`).
  *
- * ⚠️ Le data plane back `@nodefony/http` n'expose AUJOURD'HUI qu'une surface
- * admin (`/nodefony/http/api/sessions*`, RBAC ADMIN). « Mes sessions » est donc
- * rendu **front-only** = la vue admin filtrée sur l'utilisateur courant
- * (`?user=`) — légitime tant que Studio est admin-only. Un vrai endpoint
- * self-service (`sessions/mine` + révocation anti-IDOR, accessible à un
- * non-admin) viendra avec la sécurisation de Studio (P6.15 back).
+ * Le data plane back `@nodefony/http` expose les DEUX surfaces : self-service
+ * (`sessions/mine`, tout authentifié) et admin (`sessions/list`+`revoke-user`,
+ * RBAC ADMIN). Le mode pilote l'endpoint et masque les contrôles admin pour un
+ * non-admin (sélecteur de portée, filtre serveur, statut du sous-système).
  *
  * Les mutations passent en **POST HTTP** (pipeline CSRF — la Socket reste GET-only).
  */
@@ -55,7 +55,9 @@ import {
   SESSIONS_DOC,
   SESSIONS_LIST_WINDOW,
   sessionsListEndpoint,
+  sessionsMineEndpoint,
   revokeSessionEndpoint,
+  revokeSessionMineEndpoint,
   revokeUserSessionsEndpoint,
   countByAuth,
   describeSessionsError,
@@ -103,29 +105,40 @@ export const Sessions = observer(() => {
     return () => clearTimeout(t);
   }, [userInput]);
 
-  // En mode « Mes sessions » : filtre forcé sur l'utilisateur courant. En mode
-  // Administration : filtre libre saisi (ou rien = toutes).
-  const effectiveUser =
-    mode === "mine" ? (currentUser ?? undefined) : userFilter || undefined;
+  // Mode « Mes sessions » : endpoint self-service `sessions/mine` (scopé serveur,
+  // PAS de ?user= — anti-IDOR). Mode Administration : énumération globale filtrée
+  // par l'utilisateur saisi (ou rien = toutes).
+  const adminUserFilter = userFilter || undefined;
 
   const fetcher = useCallback(async (): Promise<SessionListResponse> => {
     try {
-      return await store.api.getAbsolute<SessionListResponse>(
-        sessionsListEndpoint({
-          user: effectiveUser,
-          limit: SESSIONS_LIST_WINDOW,
-        }),
-      );
+      const url =
+        mode === "mine"
+          ? sessionsMineEndpoint({ limit: SESSIONS_LIST_WINDOW })
+          : sessionsListEndpoint({
+              user: adminUserFilter,
+              limit: SESSIONS_LIST_WINDOW,
+            });
+      return await store.api.getAbsolute<SessionListResponse>(url);
     } catch (e) {
       throw new Error(describeSessionsError(e));
     }
-  }, [store, effectiveUser]);
+  }, [store, mode, adminUserFilter]);
   const { data, loading, error, reload } = useResource(fetcher);
 
-  // Statut « où on écrit » : driver de persistance + durcissement révocation.
+  // Révocation : endpoint scopé self (anti-IDOR) en mode « mine », endpoint admin
+  // en mode « all » — le mode pilote la cible des mutations.
+  const revokeOneEndpoint =
+    mode === "mine" ? revokeSessionMineEndpoint : revokeSessionEndpoint;
+
+  // Statut « où on écrit » (driver + durcissement) = endpoint ADMIN → on ne le
+  // sollicite QUE pour un admin (sinon 403 inutile dans la console d'un user).
   const statusFetcher = useCallback(
-    () => store.api.getAbsolute<SessionsStatus>(SESSIONS_STATUS_ENDPOINT),
-    [store],
+    (): Promise<SessionsStatus | null> =>
+      isAdmin
+        ? store.api.getAbsolute<SessionsStatus>(SESSIONS_STATUS_ENDPOINT)
+        : Promise.resolve(null),
+    [store, isAdmin],
   );
   const { data: status } = useResource(statusFetcher);
 
@@ -148,7 +161,7 @@ export const Sessions = observer(() => {
     const session = confirmRevoke;
     setRevokingRef(session.ref);
     try {
-      await store.api.postAbsolute(revokeSessionEndpoint(session.ref));
+      await store.api.postAbsolute(revokeOneEndpoint(session.ref));
       notifications.notify("success", `Session ${session.ref} révoquée.`, {
         source: "api",
       });
@@ -195,9 +208,7 @@ export const Sessions = observer(() => {
     setBulkRevoking(true);
     try {
       const results = await Promise.allSettled(
-        targets.map((s) =>
-          store.api.postAbsolute(revokeSessionEndpoint(s.ref)),
-        ),
+        targets.map((s) => store.api.postAbsolute(revokeOneEndpoint(s.ref))),
       );
       const ok = results.filter((r) => r.status === "fulfilled").length;
       const failed = results.length - ok;
@@ -252,23 +263,26 @@ export const Sessions = observer(() => {
       {/* Portée — Mes sessions / Administration / Tenant (réserve multi-tenant P17). */}
       <Group gap="md" align="center" wrap="wrap">
         <Group gap="xs" align="center">
-          <SegmentedControl
-            value={mode}
-            onChange={(v) => {
-              if (v === "tenant") return;
-              setMode(v as Mode);
-            }}
-            data={modeData}
-            color={mode === "all" ? "orange" : "brand"}
-          />
+          {/* Sélecteur de portée = admin seulement (un non-admin n'a que « mine »). */}
+          {isAdmin && (
+            <SegmentedControl
+              value={mode}
+              onChange={(v) => {
+                if (v === "tenant") return;
+                setMode(v as Mode);
+              }}
+              data={modeData}
+              color={mode === "all" ? "orange" : "brand"}
+            />
+          )}
           <DocHint
             title="Portée des sessions"
             version={SESSIONS_DOC}
             summary="« Mes sessions » = vos appareils/onglets connectés. « Administration » = toutes les sessions du serveur (gouvernance)."
             sections={[
               {
-                label: "Self-service back (à venir)",
-                body: "« Mes sessions » est aujourd'hui la vue admin filtrée sur vous (Studio est admin-only). Un vrai endpoint self-service accessible aux non-admins arrivera avec la sécurisation de Studio (P6.15).",
+                label: "Mes sessions (self-service)",
+                body: "« Mes sessions » interroge l'endpoint dédié sessions/mine, scopé à votre identité CÔTÉ SERVEUR : vous ne voyez et ne révoquez QUE vos propres sessions (anti-IDOR). Accessible à tout utilisateur authentifié, pas seulement aux admins.",
               },
               {
                 label: "Tenant (P17)",

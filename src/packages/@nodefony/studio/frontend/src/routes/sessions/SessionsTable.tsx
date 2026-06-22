@@ -329,7 +329,10 @@ export function SessionsTable({
             {/* Fermer le détail AVANT d'ouvrir la confirmation : 2 modals
                 empilées masqueraient la validation (bug vécu sur API Keys). */}
             <Group justify="space-between" mt="xs">
-              {selected.authenticated && selected.user ? (
+              {/* « Logout everywhere » = action de GOUVERNANCE (endpoint admin
+                  revoke-user) → réservée au mode Administration. En self-service
+                  (« Mes sessions »), un user ne révoque QUE session par session. */}
+              {showUser && selected.authenticated && selected.user ? (
                 <Button
                   color="red"
                   variant="subtle"

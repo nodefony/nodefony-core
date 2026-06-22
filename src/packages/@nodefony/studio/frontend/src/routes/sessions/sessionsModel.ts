@@ -118,8 +118,32 @@ export function revokeUserSessionsEndpoint(identifier: string): string {
   return `/nodefony/http/api/sessions/revoke-user/${encodeURIComponent(identifier)}`;
 }
 
+// ─── Self-service (« MES sessions ») — tout utilisateur AUTHENTIFIÉ, pas admin ─
+// Le périmètre est fermé CÔTÉ SERVEUR par l'identité ALS (anti-IDOR) : aucun
+// `?user=` n'est transmis (il serait ignoré). Le back ne liste/révoque QUE les
+// sessions de l'appelant → un non-admin ne peut jamais toucher celles d'autrui.
+
+/** GET — self-service paginé : MES sessions (scopées serveur à l'appelant). */
+export const SESSIONS_MINE_ENDPOINT = "/nodefony/http/api/sessions/mine";
+
+/** Construit l'URL self-service paginée (`?limit&offset`). Pas de `?user=` (anti-IDOR). */
+export function sessionsMineEndpoint(
+  opts: { limit?: number; offset?: number } = {},
+): string {
+  const p = new URLSearchParams();
+  if (opts.limit !== undefined) p.set("limit", String(opts.limit));
+  if (opts.offset !== undefined) p.set("offset", String(opts.offset));
+  const qs = p.toString();
+  return qs ? `${SESSIONS_MINE_ENDPOINT}?${qs}` : SESSIONS_MINE_ENDPOINT;
+}
+
+/** POST — self-service : révoque UNE de MES sessions (404 si elle n'est pas à moi). */
+export function revokeSessionMineEndpoint(ref: string): string {
+  return `/nodefony/http/api/sessions/mine/${encodeURIComponent(ref)}/revoke`;
+}
+
 /** Version de la doc de cette surface (badge des fiches `DocHint`). */
-export const SESSIONS_DOC = "v1.0";
+export const SESSIONS_DOC = "v1.1";
 
 /** Rôle requis pour l'administration des sessions — source unique `auth/roles`. */
 export { ROLE_NODEFONY_ADMIN as ADMIN_ROLE } from "../../auth/roles";

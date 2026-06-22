@@ -264,16 +264,10 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: IconUsersGroup,
         roles: VIEW_ROLES.admin,
       },
-      // Sessions = ADMIN pour l'instant : le mode « mes sessions » tape encore
-      // l'endpoint admin `/sessions/list` (RBAC) → 403 pour un user. Le vrai
-      // self-service exige un endpoint back `sessions/mine` (anti-IDOR) à créer →
-      // tant qu'il n'existe pas, admin-only évite l'erreur. Cf chantier mode user.
-      {
-        to: "/nodefony/sessions",
-        label: "Sessions",
-        icon: IconList,
-        roles: VIEW_ROLES.admin,
-      },
+      // Sessions = self-service fonctionnel : le mode « Mes sessions » tape
+      // l'endpoint `sessions/mine` (scopé serveur, anti-IDOR, tout authentifié) ;
+      // le mode Administration (RBAC) n'apparaît que pour un admin. → visible tous.
+      { to: "/nodefony/sessions", label: "Sessions", icon: IconList },
       // API Keys = self-service fonctionnel (`/keys`, session BFF) → visible tous.
       { to: "/nodefony/api-keys", label: "API Keys", icon: IconKey },
       {

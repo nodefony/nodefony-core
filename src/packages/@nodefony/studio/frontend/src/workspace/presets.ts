@@ -13,12 +13,13 @@ import { VIEW_ROLES, isVisibleForRoles } from "../auth/roles";
 export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
   {
     // Template SELF-SERVICE — bureau par défaut d'un simple utilisateur.
-    // Profil + mes clés (mes sessions à venir avec l'endpoint back). Visible tous.
+    // Profil + mes clés + mes sessions (tous self-service). Visible tous.
     id: "account",
     label: "Mon compte",
     items: [
       { widgetId: "account.profile", span: 6, h: 4 },
       { widgetId: "account.apikeys", span: 6, h: 3 },
+      { widgetId: "account.sessions", span: 6, h: 3 },
     ],
   },
   {

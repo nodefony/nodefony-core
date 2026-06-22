@@ -5,14 +5,15 @@
  *
  * Sources self-service (session BFF, pas de RBAC admin) :
  *  - identité : `GET /nodefony/security/api/auth/me` (rôles frais) ;
- *  - clés     : `GET /nodefony/security/api/keys` (MES clés).
- * « Mes sessions » suivra quand l'endpoint back `sessions/mine` existera.
+ *  - clés     : `GET /nodefony/security/api/keys` (MES clés) ;
+ *  - sessions : `GET /nodefony/http/api/sessions/mine` (MES sessions, anti-IDOR).
  */
 import { Badge, Group, Stack, Text, ThemeIcon } from "@mantine/core";
-import { IconKey, IconUserCircle } from "@tabler/icons-react";
+import { IconKey, IconUserCircle, IconDevices } from "@tabler/icons-react";
 import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
 import { keyStatus, type ApiKey } from "../../routes/apikeys/apiKeysModel";
+import type { SessionListResponse } from "../../routes/sessions/sessionsModel";
 import { BigMetric } from "./_kit";
 
 /** Projection légère de l'identité (miroir de la réponse `/auth/me`). */
@@ -79,6 +80,25 @@ function MyApiKeysBody({ source }: WidgetRenderProps<{ keys: ApiKey[] }>) {
   );
 }
 
+// ───────────────────────────── account.sessions ────────────────────────
+function MySessionsBody({ source }: WidgetRenderProps<SessionListResponse>) {
+  const items = source.data?.items ?? [];
+  const total = source.data?.total ?? items.length;
+  return (
+    <Group gap="xl" wrap="nowrap" align="flex-start">
+      <BigMetric label="Sessions actives" value={items.length} color="teal" />
+      <BigMetric
+        label="Total"
+        value={total}
+        color="gray"
+        sub={
+          total > items.length ? "fenêtre tronquée" : "mes appareils / onglets"
+        }
+      />
+    </Group>
+  );
+}
+
 // ─────────────────────────────── registrations ─────────────────────────
 registerWidget<MeResponse>({
   id: "account.profile",
@@ -104,4 +124,17 @@ registerWidget<{ keys: ApiKey[] }>({
   defaultSpan: 4,
   minSpan: 3,
   render: MyApiKeysBody,
+});
+
+registerWidget<SessionListResponse>({
+  id: "account.sessions",
+  title: "Mes sessions",
+  description: "Mes sessions actives (appareils / onglets connectés).",
+  category: "account",
+  icon: IconDevices,
+  tags: ["compte", "kpi"],
+  source: { kind: "snapshot", endpoint: "/nodefony/http/api/sessions/mine" },
+  defaultSpan: 4,
+  minSpan: 3,
+  render: MySessionsBody,
 });
