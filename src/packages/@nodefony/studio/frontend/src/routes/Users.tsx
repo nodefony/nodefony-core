@@ -26,6 +26,7 @@ import {
 } from "@mantine/core";
 import {
   IconUsers,
+  IconUserPlus,
   IconRefresh,
   IconUserCheck,
   IconShieldCheck,
@@ -35,10 +36,11 @@ import {
   IconTrash,
   IconAlertTriangle,
 } from "@tabler/icons-react";
-import { hasRole } from "nodefony/roles";
 
 import { useStore, useAuth, useNotifications } from "../stores";
 import { useResource } from "../hooks";
+import { useIsAdmin, STUDIO_ROLES } from "../auth/roles";
+import { RoleGate } from "../auth/RoleGate";
 import { PageLayout, StatCard, DataState, DocHint } from "../components/ui";
 import {
   ADMIN_ROLE,
@@ -55,6 +57,8 @@ import {
 } from "./users/usersModel";
 import { UsersTable } from "./users/UsersTable";
 import { UsersHelp } from "./users/UsersHelp";
+import { CreateUserModal } from "./users/CreateUserModal";
+import { EditUserModal } from "./users/EditUserModal";
 import { StorageBadge } from "./users/usersFormat";
 
 export const Users = observer(() => {
@@ -62,9 +66,11 @@ export const Users = observer(() => {
   const auth = useAuth();
   const notifications = useNotifications();
   const currentUser = auth.user?.username ?? null;
-  const isAdmin = hasRole(auth.roles, ADMIN_ROLE);
+  const isAdmin = useIsAdmin();
 
   const [tab, setTab] = useState<string>("list");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<UserSummary | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<UserSummary | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Suppression en masse : les comptes cochés + le `clearSelection` du DataGrid.
@@ -96,6 +102,14 @@ export const Users = observer(() => {
   const total = data?.total ?? users.length;
   const truncated = total > users.length;
   const counts = useMemo(() => countUsers(users), [users]);
+
+  // Suggestions de rôles : rôles connus de Studio ∪ ceux déjà portés par les
+  // comptes chargés (autocomplétion honnête ; la saisie reste libre).
+  const roleSuggestions = useMemo(() => {
+    const set = new Set<string>(STUDIO_ROLES);
+    for (const u of users) for (const r of u.roles) set.add(r);
+    return [...set].sort();
+  }, [users]);
 
   async function doDelete(): Promise<void> {
     if (!confirmDelete) return;
@@ -162,14 +176,24 @@ export const Users = observer(() => {
       subtitle={subtitle}
       icon={<IconUsers size={26} />}
       actions={
-        <Button
-          variant="light"
-          leftSection={<IconRefresh size={16} />}
-          loading={loading}
-          onClick={reload}
-        >
-          Recharger
-        </Button>
+        <Group gap="sm" wrap="nowrap">
+          <RoleGate admin>
+            <Button
+              leftSection={<IconUserPlus size={16} />}
+              onClick={() => setCreateOpen(true)}
+            >
+              Nouvel utilisateur
+            </Button>
+          </RoleGate>
+          <Button
+            variant="light"
+            leftSection={<IconRefresh size={16} />}
+            loading={loading}
+            onClick={reload}
+          >
+            Recharger
+          </Button>
+        </Group>
       }
     >
       {/* Portée — gouvernance admin (réserve multi-tenant via la colonne Tenant). */}
@@ -307,6 +331,7 @@ export const Users = observer(() => {
             <UsersTable
               users={users}
               currentUser={currentUser}
+              onEdit={(u) => setEditing(u)}
               onDelete={(u) => setConfirmDelete(u)}
               onBulkDelete={(u, clear) => setConfirmBulk({ users: u, clear })}
               deletingId={deletingId}
@@ -317,6 +342,21 @@ export const Users = observer(() => {
           {tab === "help" && <UsersHelp />}
         </Tabs.Panel>
       </Tabs>
+
+      {/* Création / édition (gouvernance admin). */}
+      <CreateUserModal
+        opened={createOpen}
+        onClose={() => setCreateOpen(false)}
+        roleSuggestions={roleSuggestions}
+        onCreated={reload}
+      />
+      <EditUserModal
+        user={editing}
+        currentUser={currentUser}
+        roleSuggestions={roleSuggestions}
+        onClose={() => setEditing(null)}
+        onSaved={reload}
+      />
 
       {/* Confirmation — suppression d'un compte. */}
       <Modal

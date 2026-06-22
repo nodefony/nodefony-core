@@ -49,7 +49,7 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { useStore, useAuth, useUi } from "../stores";
 import { hasRole } from "nodefony/roles";
-import { ROLE_DEV } from "../auth/dashboards";
+import { ROLE_DEV } from "../auth/roles";
 import { ProcessGraphGrid } from "../components/ProcessGraphGrid";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";

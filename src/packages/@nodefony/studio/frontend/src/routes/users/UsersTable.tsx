@@ -19,6 +19,7 @@ import {
 import {
   IconUsers,
   IconTrash,
+  IconEdit,
   IconInfoCircle,
   IconShieldCheck,
 } from "@tabler/icons-react";
@@ -58,6 +59,7 @@ function Field({ k, children }: { k: string; children: React.ReactNode }) {
 export function UsersTable({
   users,
   currentUser,
+  onEdit,
   onDelete,
   onBulkDelete,
   deletingId,
@@ -65,6 +67,8 @@ export function UsersTable({
   users: UserSummary[];
   /** Identifiant de l'admin courant (garde-fou « c'est vous » sur suppression). */
   currentUser: string | null;
+  /** Demande l'édition d'UN utilisateur (le parent ouvre la modal d'édition). */
+  onEdit: (user: UserSummary) => void;
   /** Demande la suppression d'UN utilisateur (le parent confirme + appelle l'endpoint). */
   onDelete: (user: UserSummary) => void;
   /** Supprime en MASSE les comptes cochés (le parent confirme + boucle + vide la sélection). */
@@ -308,6 +312,17 @@ export function UsersTable({
             {/* Fermer le détail AVANT d'ouvrir la confirmation : 2 modals
                 empilées masqueraient la validation (bug vécu sur API Keys). */}
             <Group justify="flex-end" mt="xs">
+              <Button
+                variant="light"
+                leftSection={<IconEdit size={16} />}
+                onClick={() => {
+                  const u = selected;
+                  setSelected(null);
+                  onEdit(u);
+                }}
+              >
+                Modifier
+              </Button>
               <Button
                 color="red"
                 variant="light"

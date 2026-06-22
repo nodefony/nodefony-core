@@ -15,7 +15,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { buildStudioTheme } from "./theme";
 import { AuthGuard } from "./components/AuthGuard";
 import { RoleGuard } from "./components/RoleGuard";
-import { ROLE_SUPERVISOR } from "./auth/dashboards";
+import { ROLE_SUPERVISOR } from "./auth/roles";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Login } from "./routes/Login";

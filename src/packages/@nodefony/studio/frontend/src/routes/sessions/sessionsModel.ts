@@ -121,8 +121,8 @@ export function revokeUserSessionsEndpoint(identifier: string): string {
 /** Version de la doc de cette surface (badge des fiches `DocHint`). */
 export const SESSIONS_DOC = "v1.0";
 
-/** Rôle requis pour l'administration des sessions (gating front = affichage seul). */
-export const ADMIN_ROLE = "ROLE_NODEFONY_ADMIN";
+/** Rôle requis pour l'administration des sessions — source unique `auth/roles`. */
+export { ROLE_NODEFONY_ADMIN as ADMIN_ROLE } from "../../auth/roles";
 
 // ─── Compteurs (KPIs, dérivés de la fenêtre chargée) ─────────────────────────
 

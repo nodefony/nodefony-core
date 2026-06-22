@@ -1,15 +1,5 @@
 import { IconActivityHeartbeat, type Icon } from "@tabler/icons-react";
-
-/**
- * Rôles applicatifs Studio. Convention `ROLE_*` (Symfony).
- *
- * ⚠️ Alignés avec le mock backend `nodefony/controller/StudioController.ts`
- * (`mockRolesFor`). La source de vérité passera à @nodefony/security en P6
- * (firewall + voters) — ces constantes resteront le contrat côté client.
- */
-export const ROLE_DEV = "ROLE_DEV";
-export const ROLE_SUPERVISOR = "ROLE_SUPERVISOR";
-export const ROLE_NODEFONY_ADMIN = "ROLE_NODEFONY_ADMIN";
+import { ROLE_SUPERVISOR } from "./roles";
 
 /** Définition d'un dashboard conditionné par un rôle. */
 export interface DashboardDef {

@@ -168,6 +168,15 @@ export class ApiClient {
     return this.send<T>("POST", absolutePath, body, init);
   }
 
+  /** PATCH sur un chemin ABSOLU (data plane), hors `baseUrl` (cf getAbsolute). */
+  async patchAbsolute<T = unknown>(
+    absolutePath: string,
+    body?: unknown,
+    init?: RequestInit,
+  ): Promise<T> {
+    return this.send<T>("PATCH", absolutePath, body, init);
+  }
+
   /** DELETE sur un chemin ABSOLU (data plane), hors `baseUrl` (cf getAbsolute). */
   async deleteAbsolute<T = unknown>(
     absolutePath: string,

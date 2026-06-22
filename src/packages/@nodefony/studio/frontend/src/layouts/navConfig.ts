@@ -41,7 +41,7 @@ import {
   IconBulb,
   type Icon,
 } from "@tabler/icons-react";
-import { ROLE_SUPERVISOR } from "../auth/dashboards";
+import { ROLE_NODEFONY_ADMIN, ROLE_SUPERVISOR } from "../auth/roles";
 
 /** Une entrée de navigation (lien vers une page Studio). */
 export interface NavItem {
@@ -206,11 +206,13 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/audit",
         label: "Journal d'audit",
         icon: IconHistory,
+        roles: [ROLE_NODEFONY_ADMIN],
       },
       {
         to: "/nodefony/firewall",
         label: "Firewall",
         icon: IconShieldLock,
+        roles: [ROLE_NODEFONY_ADMIN],
       },
       { to: "/nodefony/users", label: "Users", icon: IconUsers },
       {

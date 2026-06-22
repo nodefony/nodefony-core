@@ -12,6 +12,7 @@
  * Source de vérité serveur : `user/nodefony/src/admin/UserAdminApi.ts`
  * (`IUserSummary`, `IUsersStatus`).
  */
+import { ROLE_NODEFONY_ADMIN } from "../../auth/roles";
 
 /**
  * Lien social redacté porté par un utilisateur — miroir de la projection back.
@@ -130,11 +131,41 @@ export function deleteUserEndpoint(id: string): string {
   return `${USERS_LIST_ENDPOINT}/${encodeURIComponent(id)}`;
 }
 
+/**
+ * POST — change le mot de passe d'un compte (`{ plainPassword }`). Audité (sans
+ * la valeur). Le hash n'est jamais renvoyé.
+ */
+export function userPasswordEndpoint(id: string): string {
+  return `${USERS_LIST_ENDPOINT}/${encodeURIComponent(id)}/password`;
+}
+
+/**
+ * Corps de création d'un compte (POST sur {@link USERS_LIST_ENDPOINT}).
+ * `plainPassword` absent = compte sans mot de passe (connexion sociale / passkey
+ * ou à définir plus tard) ; `roles` absent = aucun rôle (compte de base).
+ */
+export interface CreateUserInput {
+  identifier: string;
+  plainPassword?: string;
+  roles?: string[];
+}
+
+/**
+ * Corps de mise à jour d'un compte (PATCH sur {@link userEndpoint}). Champs
+ * optionnels — n'envoyer que ce qui change. Les garde-fous anti-lockout sont
+ * appliqués côté serveur (409 si auto-déchéance / dernier admin actif).
+ */
+export interface UpdateUserInput {
+  roles?: string[];
+  enabled?: boolean;
+  locked?: boolean;
+}
+
 /** Version de la doc de cette surface (badge des fiches `DocHint`). */
 export const USERS_DOC = "v1.0";
 
-/** Rôle requis pour l'administration des utilisateurs (gating front = affichage seul). */
-export const ADMIN_ROLE = "ROLE_NODEFONY_ADMIN";
+/** Rôle requis pour l'administration des utilisateurs — source unique `auth/roles`. */
+export const ADMIN_ROLE = ROLE_NODEFONY_ADMIN;
 
 // ─── Compteurs (KPIs, dérivés de la fenêtre chargée) ─────────────────────────
 
@@ -201,12 +232,37 @@ export function fmtSince(ms: number | null, now: number = Date.now()): string {
 // ─── Mapping d'erreur (vitrine honnête) ──────────────────────────────────────
 
 /**
+ * Extrait le message PRÉCIS renvoyé par le back dans le corps d'erreur (les
+ * handlers admin renvoient `{ error: "…" }`) — `ApiError.message` ne porte que
+ * la ligne générique « VERB url → HTTP n ». Tolère aussi `{ message }` et
+ * `{ error: { message } }`. `undefined` si rien d'exploitable.
+ */
+function errBodyMessage(e: unknown): string | undefined {
+  const body = (e as { body?: unknown } | null)?.body;
+  if (!body || typeof body !== "object") return undefined;
+  const rec = body as Record<string, unknown>;
+  if (typeof rec.error === "string") return rec.error;
+  if (typeof rec.message === "string") return rec.message;
+  const err = rec.error;
+  if (
+    err &&
+    typeof err === "object" &&
+    typeof (err as Record<string, unknown>).message === "string"
+  ) {
+    return (err as Record<string, string>).message;
+  }
+  return undefined;
+}
+
+/**
  * Traduit une erreur HTTP du data plane des utilisateurs en message FR explicite —
  * même classe que les autres consoles Sécurité. Le **409** est propre aux
- * utilisateurs : un garde-fou anti-lockout a refusé la mutation.
+ * utilisateurs : soit un garde-fou anti-lockout, soit un identifiant déjà pris —
+ * le back précise lequel dans le corps (surfacé tel quel).
  */
 export function describeUsersError(e: unknown): string {
   const status = (e as { status?: number } | null)?.status;
+  const detail = errBodyMessage(e);
   if (status === 401) {
     return (
       "Non authentifié — le firewall ne reconnaît pas la session Studio. " +
@@ -221,10 +277,8 @@ export function describeUsersError(e: unknown): string {
     );
   }
   if (status === 409) {
-    // Le back renvoie un message précis (anti-lockout) dans le corps.
-    const msg = (e as { message?: string } | null)?.message;
-    return msg
-      ? `Action refusée (garde-fou) : ${msg}`
+    return detail
+      ? `Action refusée : ${detail}`
       : "Action refusée par un garde-fou anti-verrouillage (dernier administrateur / votre propre compte).";
   }
   if (status === 404) {
@@ -233,7 +287,7 @@ export function describeUsersError(e: unknown): string {
   if (status === 503) {
     return "Service utilisateur indisponible — le sous-système n'est pas provisionné.";
   }
-  const msg = (e as { message?: string } | null)?.message;
+  const msg = detail ?? (e as { message?: string } | null)?.message;
   return msg
     ? `Erreur de chargement des utilisateurs : ${msg}`
     : "Erreur de chargement des utilisateurs.";

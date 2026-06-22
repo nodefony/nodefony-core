@@ -95,8 +95,8 @@ export function adminRevokeEndpoint(id: string): string {
 /** Version de la doc de cette surface (badge des fiches `DocHint`). */
 export const API_KEYS_DOC = "v1.0";
 
-/** Rôle requis pour la portée Administration (gating front = affichage seul). */
-export const ADMIN_ROLE = "ROLE_NODEFONY_ADMIN";
+/** Rôle requis pour la portée Administration — source unique `auth/roles`. */
+export { ROLE_NODEFONY_ADMIN as ADMIN_ROLE } from "../../auth/roles";
 
 // ─── Statut dérivé (le DTO ne le porte pas — calque exact de `#isActive`) ─────
 
