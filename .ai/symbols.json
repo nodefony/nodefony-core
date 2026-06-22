@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-21T23:57:54.592Z",
+  "generated": "2026-06-22T07:57:43.832Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 936,
-    "symbols": 2100,
+    "files": 937,
+    "symbols": 2101,
     "classes": 297,
     "interfaces": 558,
     "types": 251,
     "enums": 3,
-    "functions": 481,
+    "functions": 482,
     "constants": 510
   },
   "symbols": {
@@ -5600,6 +5600,14 @@
       "file": "src/packages/@nodefony/framework/nodefony/service/router.ts",
       "exported": true,
       "module": "@nodefony/framework"
+    },
+    "isAdminGranted": {
+      "name": "isAdminGranted",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/adminRbac.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Décision d'autorisation du data plane admin (Studio) — fonction **PURE**, cœur de la garantie RBAC, testée isolément (zéro dépendance runtime/DI). **Fail-closed.** Un endpoint qui exige un rôle (`r…"
     },
     "Controller": {
       "name": "Controller",
@@ -18517,6 +18525,9 @@
       "IAdminRoute": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
+      ],
+      "isAdminGranted": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
       ],
       "HTTPMethod": [
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",

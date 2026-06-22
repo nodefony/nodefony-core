@@ -3,6 +3,7 @@ import type { IAdminRequest, IAdminResponse } from "nodefony";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import type { ContextType } from "@nodefony/http";
 import Controller from "../src/Controller";
+import { isAdminGranted } from "../src/adminRbac";
 
 /**
  * Controller pont unique du data plane admin (Studio).
@@ -92,15 +93,13 @@ class AdminApiController extends Controller {
 
     const request = this.buildRequest(args);
 
-    // ── RBAC ───────────────────────────────────────────────────────────────
-    // Tant que l'auth (P6) n'injecte pas de rôles, `request.roles` est vide →
-    // on n'applique PAS le filtre (mode mock, cohérent avec StudioController).
-    // Dès que le firewall peuple les rôles, le 403 devient effectif.
-    if (
-      request.roles.length > 0 &&
-      adminRoute.role &&
-      !request.roles.includes(adminRoute.role)
-    ) {
+    // ── RBAC (fail-closed) ───────────────────────────────────────────────────
+    // Le firewall (zone `nodefony-admin`) garantit l'AUTHENTIFICATION en amont ;
+    // ici on tranche le RÔLE. Un authentifié SANS le rôle requis — y compris
+    // `roles=[]` (compte non doté) — est REJETÉ (403). `adminRoute.role === ""`
+    // = endpoint public déclaré (`endpoint.public`, ex. `livez`) → accordé.
+    // Détail + ex-fail-open documentés dans `isAdminGranted`.
+    if (!isAdminGranted(request.roles, adminRoute.role)) {
       return {
         status: 403,
         body: { error: "Forbidden", required: adminRoute.role },

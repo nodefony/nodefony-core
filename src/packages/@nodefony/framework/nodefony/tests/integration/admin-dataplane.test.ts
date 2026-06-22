@@ -122,6 +122,94 @@ describe("Admin data plane — FERMÉ à l'anonyme (P6 J3b)", () => {
   });
 });
 
+// ── RBAC : un AUTHENTIFIÉ NON-ADMIN est REJETÉ (403) ──────────────────────────
+// La zone firewall `nodefony-admin` n'exige que l'AUTHENTIFICATION (`["session"]`)
+// → tout compte connecté ATTEINT le controller, qui doit trancher le RÔLE. Cette
+// surface n'avait AUCUN test : le 403 était court-circuité pour un compte SANS
+// rôle (`roles.length > 0 &&`, ex-fail-open). Logique pure verrouillée par
+// `nodefony/tests/unit/adminRbac.test.ts` ; ici la preuve sur le WIRE réel.
+
+/** Login BFF d'un compte arbitraire → cookie de session (vide si échec). */
+async function loginCookie(
+  username: string,
+  password: string,
+): Promise<string> {
+  const res = await req(
+    "POST",
+    "/nodefony/security/api/auth/login",
+    {},
+    { username, password },
+  );
+  const setCookie = res.headers["set-cookie"];
+  const first = Array.isArray(setCookie) ? setCookie[0] : setCookie;
+  return typeof first === "string" ? (first.split(";")[0] ?? "") : "";
+}
+
+describe("Admin data plane — RBAC : authentifié NON-admin REJETÉ (403)", () => {
+  // Un endpoint par producteur (rôle effectif = défaut broker ROLE_NODEFONY_ADMIN).
+  const PROTECTED = [
+    "/nodefony/kernel/api/info",
+    "/nodefony/user/api/users",
+    "/nodefony/http/api/sessions",
+  ];
+
+  it("compte `user` (ROLE_USER) franchit le firewall mais est refusé au RBAC", async () => {
+    const userCookie = await loginCookie("user", "secret");
+    expect(
+      userCookie,
+      "login user/secret doit réussir (fixture dev)",
+    ).to.not.equal("");
+    for (const path of PROTECTED) {
+      const r = await req("GET", path, { cookie: userCookie });
+      expect(r.status, `GET ${path} en ROLE_USER doit être 403`).to.equal(403);
+      expect((r.body as Record<string, unknown>).required).to.equal(
+        "ROLE_NODEFONY_ADMIN",
+      );
+    }
+  });
+
+  it("compte SANS rôle (roles=[]) REFUSÉ — preuve wire de l'ex-fail-open comblé", async () => {
+    const probe = "norole-rbac-probe";
+    // Création via l'API admin (roles non fourni → []). Idempotent (409 → relit l'id).
+    let id: string | null = null;
+    const created = await req("POST", "/nodefony/user/api/users", auth(), {
+      identifier: probe,
+      plainPassword: "secret-probe",
+    });
+    if (created.status === 201) {
+      id = (created.body as { id: string }).id;
+    } else if (created.status === 409) {
+      const list = await req(
+        "GET",
+        `/nodefony/user/api/users?q=${probe}`,
+        auth(),
+      );
+      const items =
+        (list.body as { items?: Array<{ id: string; identifier: string }> })
+          .items ?? [];
+      id = items.find((u) => u.identifier === probe)?.id ?? null;
+    }
+    expect(id, "le compte sonde doit exister").to.be.a("string");
+    try {
+      const probeCookie = await loginCookie(probe, "secret-probe");
+      expect(
+        probeCookie,
+        "login du compte sonde doit réussir (credentials valides, rôle indifférent)",
+      ).to.not.equal("");
+      // AVANT le fix : 200 (le fail-open laissait passer roles=[]). APRÈS : 403.
+      const r = await req("GET", "/nodefony/user/api/users", {
+        cookie: probeCookie,
+      });
+      expect(
+        r.status,
+        "un authentifié SANS rôle ne doit JAMAIS atteindre le data plane admin",
+      ).to.equal(403);
+    } finally {
+      if (id) await req("DELETE", `/nodefony/user/api/users/${id}`, auth());
+    }
+  });
+});
+
 // ── kernel (authentifié) ─────────────────────────────────────────────────────
 
 describe("Admin data plane — kernel", () => {
@@ -253,11 +341,24 @@ describe("Admin data plane — http", () => {
     expect((r.body as Record<string, unknown>).serversReady).to.be.a("number");
   });
 
-  it("GET /nodefony/http/api/sessions → état + flag deprecated", async () => {
+  it("GET /nodefony/http/api/sessions → état du sous-système (driver + storage + révocation)", async () => {
     const r = await req("GET", "/nodefony/http/api/sessions", auth());
     expect(r.status).to.equal(200);
     const b = r.body as Record<string, unknown>;
-    expect(b.deprecated).to.equal(true);
+    // Contrat aligné sur `HttpAdminApi` (refonte 91403f01 : `deprecated` retiré,
+    // remplacé par driver/storage/revocationHardened — « où on écrit »).
+    expect(b.enabled).to.equal(true);
+    expect(b.storage, "classe du store réel").to.be.a("string");
+    expect(
+      b.driver === null || typeof b.driver === "string",
+      "driver = backend config (drizzle/files/redis/mongo) ou null",
+    ).to.be.true;
+    // Garde-fou anti-résurrection (révocation effective, fix 2026-06-21) : le store
+    // actif DOIT être décoré → la révocation déconnecte vraiment.
+    expect(
+      b.revocationHardened,
+      "store décoré (révocation effective)",
+    ).to.equal(true);
     expect(b.active === null || typeof b.active === "number").to.be.true;
   });
 });
