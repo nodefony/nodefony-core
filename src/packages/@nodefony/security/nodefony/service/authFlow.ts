@@ -277,6 +277,25 @@ class AuthFlow extends Service {
     } catch {
       /* best-effort : session neuve jamais persistée */
     }
+    // Provenance de l'OUVERTURE (login) — surfacée dans la console Sessions
+    // (Studio lit `metaBag.ip`/`metaBag.ua`). On capture via les ACCESSEURS
+    // proxy-aware des contextes concrets (`getRemoteAddress()` dépouille
+    // X-Forwarded-For selon trustProxy ; `getUserAgent()` lit l'en-tête) — absents
+    // du type de base `ContextType`, lus en duck-typing optionnel (même approche
+    // que `readAuditContext`). Figé au moment de l'AUTHENTIFICATION → « ouverte
+    // depuis » stable, distinct des métadonnées techniques posées par start().
+    const provenance = context as {
+      getRemoteAddress?: () => string | null | undefined;
+      getUserAgent?: () => string | undefined;
+    };
+    try {
+      const ip = provenance.getRemoteAddress?.();
+      if (ip) session.setMetaBag("ip", ip);
+      const ua = provenance.getUserAgent?.();
+      if (ua) session.setMetaBag("ua", ua);
+    } catch {
+      /* best-effort : provenance non bloquante pour l'établissement de session */
+    }
     await session.save(identifier);
   }
 

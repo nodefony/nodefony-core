@@ -173,3 +173,49 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
     expect(await meStatus(admin), "l'admin reste connecté").to.equal(200);
   });
 });
+
+// ── PROVENANCE : ip + ua capturés à l'OUVERTURE de session (login) ────────────
+// La console Sessions (Studio) affiche « ouverte depuis » : `authFlow.#openSession`
+// pose `metaBag.ip`/`metaBag.ua` (proxy-aware) avant `session.save`, surfacés par
+// `toSessionSummary` (déjà unit-testé). Ici la preuve WIRE : un login avec un
+// User-Agent connu le retrouve dans `sessions/list`, + une ip non nulle (loopback).
+
+describe("Provenance de session — ip/ua capturés au login (console Sessions)", () => {
+  it("login avec un User-Agent connu → surfacé dans sessions/list (+ ip)", async () => {
+    const admin = await loginAs("admin", "secret");
+    const before = new Set(await refsOf(admin, "user"));
+    const UA = "nodefony-provenance-probe/1.0";
+    // node:https n'émet PAS de User-Agent par défaut → on l'impose explicitement
+    // pour prouver la capture (sinon `ua` serait légitimement null).
+    const res = await post(
+      LOGIN,
+      { "user-agent": UA },
+      { username: "user", password: "secret" },
+    );
+    expect(res.status, "login user").to.equal(200);
+    const cookie = sessionCookieOf(res);
+    try {
+      const list = await get(`${LIST}?user=user`, { cookie: admin });
+      expect(list.status, "list sessions (admin)").to.equal(200);
+      const items =
+        (
+          list.body as {
+            items?: Array<{
+              ref: string;
+              ip: string | null;
+              ua: string | null;
+            }>;
+          }
+        ).items ?? [];
+      const fresh = items.filter((i) => !before.has(i.ref));
+      expect(fresh.length, "1 session fraîche isolée").to.equal(1);
+      const s = fresh[0]!;
+      expect(s.ip, "ip capturée au login (loopback, non null)").to.be.a(
+        "string",
+      );
+      expect(s.ua, "ua = User-Agent envoyé au login").to.equal(UA);
+    } finally {
+      if (cookie) await post(LOGOUT, { cookie });
+    }
+  });
+});
