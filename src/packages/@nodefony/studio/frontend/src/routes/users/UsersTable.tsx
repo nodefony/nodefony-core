@@ -24,12 +24,7 @@ import {
   IconShieldCheck,
 } from "@tabler/icons-react";
 
-import {
-  DataGrid,
-  DocHint,
-  TABS_PANEL_HEIGHT,
-  type DataGridColumn,
-} from "../../components/ui";
+import { DataGrid, DocHint, type DataGridColumn } from "../../components/ui";
 import {
   ADMIN_ROLE,
   USERS_DOC,
@@ -208,7 +203,6 @@ export function UsersTable({
         searchable
         searchPlaceholder="Rechercher (identifiant, rôle, connexion…)"
         pageSize={25}
-        height={TABS_PANEL_HEIGHT}
         persist={{ key: "studio.users", storage: "session" }}
         emptyMessage="Aucun utilisateur."
         selectable

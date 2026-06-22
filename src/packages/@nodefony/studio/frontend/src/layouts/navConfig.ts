@@ -2,6 +2,7 @@ import {
   IconDashboard,
   IconLayoutDashboard,
   IconTopologyStar3,
+  IconUser,
   IconUsers,
   IconUsersGroup,
   IconRoute,
@@ -264,6 +265,9 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: IconUsersGroup,
         roles: VIEW_ROLES.admin,
       },
+      // Profil = self-service personnel (mon compte, mes rôles en lecture, mon
+      // mot de passe en zone danger) → visible de tous les authentifiés.
+      { to: "/nodefony/profile", label: "Profil", icon: IconUser },
       // Sessions = self-service fonctionnel : le mode « Mes sessions » tape
       // l'endpoint `sessions/mine` (scopé serveur, anti-IDOR, tout authentifié) ;
       // le mode Administration (RBAC) n'apparaît que pour un admin. → visible tous.

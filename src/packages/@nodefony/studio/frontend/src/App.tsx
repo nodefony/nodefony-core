@@ -99,6 +99,9 @@ const Sessions = lazy(() =>
 const Users = lazy(() =>
   import("./routes/Users").then((m) => ({ default: m.Users })),
 );
+const Profile = lazy(() =>
+  import("./routes/Profile").then((m) => ({ default: m.Profile })),
+);
 
 import {
   Webhooks,
@@ -151,6 +154,7 @@ const router = createBrowserRouter([
           { index: true, element: <HomeRedirect /> },
 
           // —— Accessibles à TOUS (self-service / personnel) ——
+          { path: "profile", element: <Profile /> },
           { path: "workspace", element: <Workspace /> },
           { path: "api-keys", element: <ApiKeys /> },
           // Sessions = dual-audience : self-service pour tous (sessions/mine),

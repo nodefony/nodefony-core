@@ -427,7 +427,11 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     onRowClick,
     pageSizeOptions = [10, 25, 50, 100],
     emptyMessage = "Aucune donnée.",
-    height = "100%",
+    // Défaut GLOBAL = mode flux : la page scrolle (1 seul scroll, pas de « scroll
+    // trap » de tableau imbriqué) + pagination collée en bas (sticky) + en-tête
+    // figé. Une grille pleine page sans contenu au-dessus peut passer un token de
+    // hauteur fixe explicite. Règle : cf skill nodefony-studio-dev (mandatory).
+    height = "auto",
     initialSort,
   } = props;
   const isServer = props.mode === "server";
@@ -702,7 +706,14 @@ export function DataGrid<T>(props: DataGridProps<T>) {
   return (
     <Stack
       gap="xs"
-      style={{ height, display: "flex", flexDirection: "column" }}
+      style={{
+        // `height="auto"` = grille en FLUX (hauteur de son contenu) → la PAGE
+        // scrolle (pas de scroll interne qui capte la molette), pagination
+        // toujours atteignable. Sinon hauteur fixe → scroll interne classique.
+        height: height === "auto" ? undefined : height,
+        display: "flex",
+        flexDirection: "column",
+      }}
     >
       <Group gap="xs" wrap="nowrap">
         {searchable && (
@@ -811,7 +822,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
       <div
         style={{
           position: "relative",
-          flex: 1,
+          flex: height === "auto" ? "0 0 auto" : 1,
           minHeight: 0,
           display: "flex",
         }}
@@ -832,13 +843,22 @@ export function DataGrid<T>(props: DataGridProps<T>) {
           }}
         />
         <ScrollArea
-          style={{ flex: 1, minHeight: 0 }}
-          type="auto"
+          // `flex:1` TOUJOURS : le parent est un flex ROW → flex pilote la
+          // LARGEUR (la grille doit remplir toute la largeur dispo). Le mode flux
+          // ne change que le scroll vertical : `type="never"` = pas de scrollbar
+          // interne (la page scrolle), `minHeight:0` neutre en hauteur auto.
+          style={{ flex: 1, minHeight: 0, width: "100%" }}
+          type={height === "auto" ? "never" : "auto"}
           offsetScrollbars="y"
         >
           <DataState loading={false} error={error}>
+            {/* Mode flux (page-scroll) : header NON sticky — sinon il colle au même
+                `top:0` que le PageHeader (sa propre topbar) avec un z-index Mantine
+                plus haut → il passe DEVANT le titre de page (conflit z signalé). En
+                hauteur fixe, il colle DANS le ScrollArea interne (aucun contact avec
+                la page) → sticky OK. */}
             <Table
-              stickyHeader
+              stickyHeader={height !== "auto"}
               striped
               highlightOnHover
               style={{
@@ -1025,7 +1045,33 @@ export function DataGrid<T>(props: DataGridProps<T>) {
         </ScrollArea>
       </div>
 
-      <Group justify="space-between" wrap="nowrap" gap="xs">
+      <Group
+        justify="space-between"
+        wrap="nowrap"
+        gap="xs"
+        style={
+          // Mode flux (`height="auto"`) : la PAGE scrolle (1 seul scroll, pas de
+          // « scroll trap » de tableau imbriqué — anti-pattern UX) et la barre de
+          // pagination reste COLLÉE en bas du viewport (toujours accessible). Fond
+          // opaque + bordure pour ne pas laisser voir les lignes défiler dessous.
+          height === "auto"
+            ? {
+                position: "sticky",
+                // `AppShell.Main` a `paddingBottom: spacing-md + debugbar` → un
+                // `bottom:0` laisserait cette marge sous la barre. On tire de
+                // `-spacing-md` pour COLLER la barre au bas (la part `debugbar` du
+                // padding est préservée → jamais masquée par la debug bar).
+                bottom: "calc(-1 * var(--mantine-spacing-md))",
+                // Sous le PageHeader (z:2) et la StickyTabsList (z:1), au-dessus
+                // des lignes qui défilent dessous (échelle z des sticky).
+                zIndex: 1,
+                background: "var(--mantine-color-body)",
+                borderTop: "1px solid var(--mantine-color-default-border)",
+                paddingBlock: "var(--mantine-spacing-xs)",
+              }
+            : undefined
+        }
+      >
         <Text size="xs" c="dimmed">
           {start}–{end} sur {total}
         </Text>

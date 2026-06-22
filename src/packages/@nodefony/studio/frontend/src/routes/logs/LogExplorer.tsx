@@ -699,7 +699,6 @@ export const LogExplorer = observer(
           getRowId={(r) => `${r.uid}-${r.timeStamp}`}
           onRowClick={onSelect}
           pageSize={50}
-          height={540}
           resetPageSignal={filterSignal}
           searchPlaceholder="Recherche : URL/route (ex. GET /api/x), payload, module, msgid…"
           emptyMessage="Aucun log ne correspond aux critères."

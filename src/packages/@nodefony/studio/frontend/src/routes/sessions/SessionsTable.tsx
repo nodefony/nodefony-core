@@ -23,12 +23,7 @@ import {
   IconInfoCircle,
 } from "@tabler/icons-react";
 
-import {
-  DataGrid,
-  DocHint,
-  TABS_PANEL_HEIGHT,
-  type DataGridColumn,
-} from "../../components/ui";
+import { DataGrid, DocHint, type DataGridColumn } from "../../components/ui";
 import {
   SESSIONS_DOC,
   fmtDate,
@@ -228,7 +223,6 @@ export function SessionsTable({
         searchable
         searchPlaceholder="Rechercher (utilisateur, référence, IP, client…)"
         pageSize={25}
-        height={TABS_PANEL_HEIGHT}
         persist={{ key: "studio.sessions", storage: "session" }}
         emptyMessage="Aucune session."
         selectable

@@ -433,7 +433,6 @@ export const Audit = observer(() => {
         searchable
         searchPlaceholder="Rechercher (acteur, action, IP, raison…)"
         pageSize={25}
-        height={540}
         persist={{ key: "studio.audit", storage: "session" }}
         emptyMessage="Aucun événement de sécurité pour ce filtre."
       />

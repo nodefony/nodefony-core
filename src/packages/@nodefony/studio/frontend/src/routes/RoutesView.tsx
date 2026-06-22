@@ -7,7 +7,6 @@ import { useStore } from "../stores";
 import {
   PageLayout,
   DataGrid,
-  PAGE_CONTENT_HEIGHT_WITH_BAND,
   type DataGridColumn,
   type DataGridServerQuery,
   type DataGridServerResult,
@@ -198,7 +197,6 @@ export const RoutesView = observer(() => {
         getRowId={(r) => r.name || `${r.methods.join()}:${r.path}`}
         initialSort={{ key: "path", dir: "asc" }}
         pageSize={25}
-        height={PAGE_CONTENT_HEIGHT_WITH_BAND}
         searchPlaceholder="Rechercher (path, méthode, controller, module…)"
         emptyMessage="Aucune route ne correspond."
         persist={{ key: "studio.routes", storage: "session" }}

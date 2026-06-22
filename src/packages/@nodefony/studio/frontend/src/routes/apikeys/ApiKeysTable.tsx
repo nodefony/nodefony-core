@@ -17,12 +17,7 @@ import {
 } from "@mantine/core";
 import { IconKey, IconBan, IconInfoCircle } from "@tabler/icons-react";
 
-import {
-  DataGrid,
-  DocHint,
-  TABS_PANEL_HEIGHT,
-  type DataGridColumn,
-} from "../../components/ui";
+import { DataGrid, DocHint, type DataGridColumn } from "../../components/ui";
 import {
   API_KEYS_DOC,
   fmtDate,
@@ -207,7 +202,6 @@ export function ApiKeysTable({
         searchable
         searchPlaceholder="Rechercher (nom, préfixe, porteur, scope…)"
         pageSize={25}
-        height={TABS_PANEL_HEIGHT}
         persist={{
           key: showSubject ? "studio.apikeys.admin" : "studio.apikeys.mine",
           storage: "session",
