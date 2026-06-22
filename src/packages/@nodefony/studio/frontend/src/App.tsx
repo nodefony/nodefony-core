@@ -153,6 +153,9 @@ const router = createBrowserRouter([
           // —— Accessibles à TOUS (self-service / personnel) ——
           { path: "workspace", element: <Workspace /> },
           { path: "api-keys", element: <ApiKeys /> },
+          // Sessions = dual-audience : self-service pour tous (sessions/mine),
+          // le mode Administration est gaté DANS le composant (isAdmin).
+          { path: "sessions", element: <Sessions /> },
           { path: "settings", element: <Settings /> },
           {
             path: "dev",
@@ -216,7 +219,6 @@ const router = createBrowserRouter([
               { path: "insights", element: <Insights /> },
               { path: "users", element: <Users /> },
               { path: "roles", element: <Roles /> },
-              { path: "sessions", element: <Sessions /> },
               { path: "webhooks", element: <Webhooks /> },
               { path: "audit", element: <Audit /> },
               { path: "system", element: <System /> },
