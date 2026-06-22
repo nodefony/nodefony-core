@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.24.0
+version: 1.25.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1559,6 +1559,20 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.25.0** (2026-06-22) — **Sessions self-service back `sessions/mine` (P6.15, contrat ↔ studio-dev 1.30.0).**
+  `@nodefony/http` : `SessionsService.{listOwnSessions, destroyOwnByRef}` + endpoints `HttpAdminApi`
+  `GET sessions/mine` + `POST sessions/mine/{ref}/revoke` en **`public:true`** (le broker n'impose AUCUN
+  rôle ; l'AUTHENTIFICATION vient de la zone firewall `nodefony-admin` `^/nodefony/[^/]+/api(/|$)`
+  authenticators `["session"]` SANS `anonymous` → anonyme 401 avant le handler). **Anti-IDOR par
+  construction** : périmètre = identité ALS serveur (`request.user.identifier` === `session.user`, posé
+  au login par `authFlow.establishSessionFor`), JAMAIS un param client ; `destroyOwnByRef` scanne
+  UNIQUEMENT `listAll({user: id})` + re-check appartenance → un `ref` d'autrui = **404** (jamais le
+  `destroyByRef` admin à scan GLOBAL). Tests : http unit **494/494** (+7 : cross-user→false, scope, id
+  vide→[], audit self), e2e `admin-dataplane` **38/38** (+5 wire : anon 401 / ROLE_USER 200 mine + 403
+  admin list / IDOR ref admin→404 + session admin survit), **gate mémoire 9/9** (hors hot-path). Commit
+  `f9826168`. **RETEX** : `public:true` = « pas de RÔLE » ≠ « sans auth » (la zone firewall authentifie) ;
+  prouver `champ_scope === champ_store` AVANT de coder (sinon liste vide ou fuite cross-user) ; le terrain
+  ≠ le kit (le back admin Sessions était DÉJÀ livré → il ne restait que le self). [[project_studio_sessions_users_kit]].
 - **1.24.0** (2026-06-21) — **Data plane admin API Keys + `ITokenStore.listAll()` (P6.15, contrat ↔ studio-dev 1.28.0).**
   (1) **`ITokenStore.listAll()`** ajouté au contrat → impl dans les **4 stores** : `MemoryTokenStore` (`[...byId]`,
   `FileTokenStore` hérite), `DrizzleTokenStore`/`MongooseTokenStore` (`find({})`), **`RedisTokenStore` via SCAN**

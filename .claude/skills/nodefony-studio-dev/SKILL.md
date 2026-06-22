@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.29.0
+version: 1.30.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1562,6 +1562,22 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.30.0** (2026-06-22) — **Sessions self-service — page dual-audience + bloc `account.sessions`**
+  (full-stack ; **contrat ↔ framework-dev 1.25.0** : back `GET sessions/mine` + `POST
+  sessions/mine/{ref}/revoke`, anti-IDOR). La page `/nodefony/sessions` devient dual-audience : un
+  `ROLE_USER` voit « Mes sessions » (`sessions/mine`, scopé identité serveur) ; le mode Administration
+  reste admin. `sessionsModel` endpoints mine ; `Sessions.tsx` fetch+revoke **pivotent sur le mode**,
+  sélecteur portée + statut sous-système gardés `isAdmin` (0 appel admin / 0 403) ; `SessionsTable`
+  « Déconnecter tout » gardé `showUser` ; navConfig ouvert ; bloc catalogue `account.sessions` +
+  template « Mon compte » (pas de bump localStorage = re-seed à la purge de changement de compte).
+  Commits `f9826168`(back) / `a0860615`(front) / `22a226c8`(fix route). **RETEX (2 leçons MAJEURES,
+  détail RETEX.md sécu+Studio)** : (1) **page dual-audience = DEUX gardes** — menu (`navConfig.roles`)
+  ET route (`RoleGuardOutlet` dans `App.tsx`) ; j'ai raté la route → **403 LIVE** (le 403 vient du
+  garde de ROUTE, pas du menu) → déplacer la route dans le bloc « accessibles à tous », mode admin
+  gaté DANS le composant. (2) **couper les appels admin = gater le FETCH** (`isAdmin ? store.api.get :
+Promise.resolve(null)`), pas l'affichage ; une action admin gardée sur le **mode** (`showUser`), pas
+  sur « session authentifiée ». Gates : typecheck Studio 0 · transform Vite 200 (port 5173) ·
+  endpoints prouvés live (user 200 mine / 403 list). [[project_studio_mode_user_kit]].
 - **1.29.0** (2026-06-22) — **Studio MODE USER dual-audience (visibilité par rôle de bout en bout)**
   (front-only ; commit `1ff7d2bf`). Helper `isVisibleForRoles` (admin nodefony voit tout) + bundles
   `VIEW_ROLES` source unique nav/routes/catalogue ; `RoleGuardOutlet` (layout-route) coupe les pages
