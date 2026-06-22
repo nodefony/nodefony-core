@@ -363,6 +363,105 @@ describe("Admin data plane — http", () => {
   });
 });
 
+// ── http : self-service « MES sessions » (public:true sous firewall + anti-IDOR) ─
+// `sessions/mine` est `public: true` (broker sans contrainte de RÔLE) MAIS sous la
+// zone `nodefony-admin` (auth `["session"]`) → anonyme 401, tout AUTHENTIFIÉ (même
+// ROLE_USER) 200. Le périmètre = l'identité ALS serveur : un user ne voit/révoque
+// QUE ses sessions. Preuve WIRE du modèle (la logique pure est dans
+// http/tests/unit/SessionsAdmin.test.ts).
+
+describe("Admin data plane — http self-service /sessions/mine", () => {
+  it("anonyme → 401 (la zone firewall couvre AUSSI la route self-service)", async () => {
+    const r = await req("GET", "/nodefony/http/api/sessions/mine");
+    expect(r.status).to.equal(401);
+  });
+
+  it("ROLE_USER → 200 sur /sessions/mine MAIS 403 sur l'admin /sessions/list", async () => {
+    const userCookie = await loginCookie("user", "secret");
+    expect(userCookie, "login user/secret (fixture dev)").to.not.equal("");
+    const mine = await req("GET", "/nodefony/http/api/sessions/mine", {
+      cookie: userCookie,
+    });
+    expect(mine.status, "self-service ouvert à tout authentifié").to.equal(200);
+    const list = await req("GET", "/nodefony/http/api/sessions/list", {
+      cookie: userCookie,
+    });
+    expect(list.status, "énumération GLOBALE = admin only").to.equal(403);
+  });
+
+  it("ne renvoie QUE mes sessions + DTO redacté (jamais id/Attributes)", async () => {
+    const userCookie = await loginCookie("user", "secret");
+    const r = await req("GET", "/nodefony/http/api/sessions/mine", {
+      cookie: userCookie,
+    });
+    expect(r.status).to.equal(200);
+    const items = (r.body as { items: Array<Record<string, unknown>> }).items;
+    expect(items.length, "au moins la session courante").to.be.greaterThan(0);
+    items.forEach((s) => {
+      expect(s.user, "scope identité — jamais la session d'autrui").to.equal(
+        "user",
+      );
+      expect(s, "pas d'id de session brut").to.not.have.property("id");
+      expect(s, "pas d'Attributes (secrets)").to.not.have.property(
+        "Attributes",
+      );
+      expect(s.ref as string, "ref HMAC public").to.match(/^sess_/);
+    });
+  });
+
+  it("ANTI-IDOR : un ROLE_USER ne peut PAS révoquer la session d'AUTRUI via son ref", async () => {
+    // ref RÉEL d'une session admin (énumération admin).
+    const adminSessions = await req(
+      "GET",
+      "/nodefony/http/api/sessions/list?user=admin",
+      auth(),
+    );
+    expect(adminSessions.status).to.equal(200);
+    const adminItems = (adminSessions.body as { items: Array<{ ref: string }> })
+      .items;
+    expect(adminItems.length, "admin a ≥ 1 session").to.be.greaterThan(0);
+    const adminRef = adminItems[0]!.ref;
+    // user présente le ref d'admin (qui EXISTE) → hors de SON périmètre → 404
+    // (pas 403 : la ressource est simplement introuvable dans son scope).
+    const userCookie = await loginCookie("user", "secret");
+    const attempt = await req(
+      "POST",
+      `/nodefony/http/api/sessions/mine/${adminRef}/revoke`,
+      { cookie: userCookie },
+    );
+    expect(
+      attempt.status,
+      "ref d'autrui = introuvable dans mon scope",
+    ).to.equal(404);
+    // La session d'admin a SURVÉCU (l'IDOR est bien fermé).
+    const after = await req(
+      "GET",
+      "/nodefony/http/api/sessions/list?user=admin",
+      auth(),
+    );
+    const survived = (
+      after.body as { items: Array<{ ref: string }> }
+    ).items.some((s) => s.ref === adminRef);
+    expect(survived, "la session d'admin n'a PAS été révoquée").to.equal(true);
+  });
+
+  it("je peux révoquer UNE de MES sessions par son ref (déconnexion d'appareil)", async () => {
+    const userCookie = await loginCookie("user", "secret");
+    const list = await req("GET", "/nodefony/http/api/sessions/mine", {
+      cookie: userCookie,
+    });
+    const items = (list.body as { items: Array<{ ref: string }> }).items;
+    expect(items.length).to.be.greaterThan(0);
+    const myRef = items[0]!.ref;
+    const revoke = await req(
+      "POST",
+      `/nodefony/http/api/sessions/mine/${myRef}/revoke`,
+      { cookie: userCookie },
+    );
+    expect(revoke.status, "je révoque ma propre session").to.equal(200);
+  });
+});
+
 // ── framework ──────────────────────────────────────────────────────────────
 
 describe("Admin data plane — framework", () => {

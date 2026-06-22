@@ -33,6 +33,13 @@ interface SessionsAdmin {
   listAllSessions(filter?: { user?: string }): Promise<ISessionSummary[]>;
   destroyByRef(ref: string, actor?: string | null): Promise<boolean>;
   destroyByUser(identifier: string, actor?: string | null): Promise<number>;
+  // Self-service (scopé à l'appelant — anti-IDOR).
+  listOwnSessions(identifier: string): Promise<ISessionSummary[]>;
+  destroyOwnByRef(
+    identifier: string,
+    ref: string,
+    actor?: string | null,
+  ): Promise<boolean>;
 }
 
 const DEFAULT_LIMIT = 50;
@@ -73,6 +80,22 @@ function adminActor(user: unknown): string {
     if (typeof u.identifier === "string" && u.identifier) return u.identifier;
   }
   return "admin";
+}
+
+/**
+ * Identifiant de l'appelant authentifié pour le SCOPE self-service — lu sur l'IUser
+ * projeté dans `IAdminRequest.user` (= `session.user`, posé au login). `null` si
+ * absent/vide → le handler répond 401 (jamais de scope vide qui listerait les
+ * sessions anonymes). **Jamais** dérivé d'un paramètre client (anti-IDOR).
+ */
+function currentIdentifier(user: unknown): string | null {
+  if (user && typeof user === "object") {
+    const u = user as { identifier?: unknown };
+    if (typeof u.identifier === "string" && u.identifier.length > 0) {
+      return u.identifier;
+    }
+  }
+  return null;
 }
 
 /** Compte récursivement les fichiers de session sous `dir` (0 si absent). */
@@ -344,6 +367,101 @@ export function createHttpAdminApi(module: Module): IAdminApi {
           adminActor(request.user),
         );
         return { ok: true, count };
+      },
+    },
+    {
+      // ── Self-service : « MES sessions » — tout utilisateur AUTHENTIFIÉ, pas
+      // seulement un admin. `public: true` = le broker n'impose AUCUN rôle ;
+      // l'AUTHENTIFICATION reste garantie EN AMONT par la zone firewall
+      // `nodefony-admin` (`^/nodefony/[^/]+/api(/|$)`, authenticators `["session"]`
+      // SANS `anonymous`) → un anonyme est rejeté 401 avant ce handler. Ce n'est
+      // donc PAS une sonde publique : le périmètre est fermé par l'identité ALS
+      // (`currentIdentifier`), jamais par un paramètre client (anti-IDOR).
+      path: "sessions/mine",
+      method: "GET",
+      public: true,
+      summary:
+        "MES sessions (self-service) — ref/ip/ua/dates, scopées à l'appelant. " +
+        "Paginé : ?limit&offset.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<
+        | {
+            items: ISessionSummary[];
+            total: number;
+            limit: number;
+            offset: number;
+          }
+        | IAdminResponse<{ error: string }>
+      > => {
+        const svc = module.get("sessions") as SessionsAdmin | undefined;
+        if (!svc) {
+          return {
+            status: 503,
+            body: { error: "session service unavailable" },
+          };
+        }
+        if (!svc.supportsEnumeration()) {
+          return {
+            status: 501,
+            body: { error: "session enumeration not supported by storage" },
+          };
+        }
+        const identifier = currentIdentifier(request.user);
+        if (!identifier) {
+          return { status: 401, body: { error: "unauthenticated" } };
+        }
+        const all = await svc.listOwnSessions(identifier);
+        const { limit, offset } = pageParams(request.query);
+        return {
+          items: all.slice(offset, offset + limit),
+          total: all.length,
+          limit,
+          offset,
+        };
+      },
+    },
+    {
+      // ── Self-service : révoquer UNE de MES sessions (déconnexion d'un appareil).
+      // Même garde firewall que `sessions/mine`. Le scope self ferme l'IDOR : le
+      // service ne scanne QUE les sessions de l'appelant → un `ref` d'autrui est
+      // introuvable (404). Mutation POST (CSRF par le pipeline ; socket GET-only).
+      path: "sessions/mine/{ref}/revoke",
+      method: "POST",
+      public: true,
+      summary:
+        "Révoque UNE de MES sessions par sa référence (sess_…). 404 si la " +
+        "référence n'est pas une de mes sessions. Audité.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<{ ok: true } | IAdminResponse<{ error: string }>> => {
+        const svc = module.get("sessions") as SessionsAdmin | undefined;
+        if (!svc) {
+          return {
+            status: 503,
+            body: { error: "session service unavailable" },
+          };
+        }
+        if (!svc.supportsEnumeration()) {
+          return {
+            status: 501,
+            body: { error: "session enumeration not supported by storage" },
+          };
+        }
+        const identifier = currentIdentifier(request.user);
+        if (!identifier) {
+          return { status: 401, body: { error: "unauthenticated" } };
+        }
+        const ref = request.params.ref;
+        if (typeof ref !== "string" || ref.length === 0) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        // Acteur = le propriétaire lui-même (audit self).
+        const ok = await svc.destroyOwnByRef(identifier, ref, identifier);
+        if (!ok) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        return { ok: true };
       },
     },
   ];

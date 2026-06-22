@@ -504,6 +504,71 @@ class SessionsService extends Service {
     return destroyed;
   }
 
+  // ── Self-service (data plane /nodefony/http/api/sessions/mine) ────────────────
+  // Surface « MES sessions » d'un utilisateur AUTHENTIFIÉ quelconque (pas admin).
+  // ANTI-IDOR par CONSTRUCTION : l'`identifier` n'est JAMAIS fourni par le client
+  // — il vient de l'identité ALS côté serveur (`request.user.identifier`, ===
+  // `session.user`, posé au login par `establishSessionFor`). Le périmètre est
+  // donc fermé : un utilisateur ne peut ni lister ni révoquer la session d'un
+  // autre. Hors hot-path (aucun coût tant qu'un user ne consulte pas ses sessions).
+
+  /**
+   * Énumère les sessions APPARTENANT à `identifier` ({@link ISessionSummary}
+   * redactés), des plus récentes aux plus anciennes. Délègue à
+   * {@link listAllSessions} avec le filtre `user` (poussé au store PUIS ré-appliqué
+   * — défense en profondeur). Un `identifier` vide renvoie `[]` (jamais les
+   * sessions anonymes `user===""`).
+   */
+  async listOwnSessions(identifier: string): Promise<ISessionSummary[]> {
+    if (!identifier) return [];
+    return this.listAllSessions({ user: identifier });
+  }
+
+  /**
+   * Révoque UNE session **possédée par `identifier`**, désignée par son `ref`
+   * public. Contrairement à {@link destroyByRef} (admin, scan GLOBAL), le scan est
+   * RESTREINT aux sessions de `identifier` (+ re-check d'appartenance) : un `ref`
+   * qui ne lui appartient pas est introuvable → `false`, ce qui ferme l'IDOR.
+   * Idempotent. Audité (`self: true`, acteur = le propriétaire).
+   */
+  async destroyOwnByRef(
+    identifier: string,
+    ref: string,
+    actor?: string | null,
+  ): Promise<boolean> {
+    if (!identifier) return false;
+    const storage = this.storage as ISessionStorage | null;
+    if (!storage || typeof storage.listAll !== "function") {
+      throw new Error("sessions: enumeration not supported by current storage");
+    }
+    // Périmètre fermé : on ne scanne QUE les sessions de l'appelant.
+    const records = await storage.listAll({ user: identifier });
+    for (const rec of records) {
+      // Re-check d'appartenance AVANT le match de ref (défense si un store
+      // ignorait le filtre) → un ref d'autrui n'est jamais atteignable ici.
+      if (rec.data.user !== identifier) continue;
+      if (this.sessionRef(rec.id) === ref) {
+        const ok = await storage.destroy(rec.id);
+        if (ok) {
+          this.log(
+            `session revoked by owner — ref=${ref} user=${identifier}`,
+            "INFO",
+          );
+          this.emitAudit({
+            category: "session",
+            action: "session.revoked",
+            outcome: "success",
+            actor: actor ?? identifier,
+            resource: ref,
+            metadata: { subject: identifier, self: true },
+          });
+        }
+        return ok;
+      }
+    }
+    return false;
+  }
+
   /**
    * Émet un événement dans le journal d'audit de `@nodefony/security` s'il est
    * monté (résolu par nom au runtime) — **no-op** si security est absent/désactivé.

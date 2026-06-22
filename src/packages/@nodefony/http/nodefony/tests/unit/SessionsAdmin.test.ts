@@ -276,6 +276,86 @@ describe("Sessions admin — orchestration (unit, storage mock)", () => {
     expect(events[0].actor).to.equal("bob-admin");
     expect(events[0].resource).to.equal(refA);
   });
+
+  // ── Self-service : « MES sessions » (anti-IDOR). L'identifiant vient TOUJOURS
+  // de l'identité serveur (jamais du client) → un user ne voit/révoque que les
+  // siennes. Ces tests prouvent l'invariant sans serveur (orchestration pure).
+
+  it("listOwnSessions ne renvoie QUE les sessions de l'appelant", async () => {
+    const svc = makeAdminService(
+      makeStorage({ a: sess("alice"), b: sess("bob"), c: sess("alice") }),
+    );
+    const mine = await svc.listOwnSessions("alice");
+    expect(mine.map((s) => s.user)).to.deep.equal(["alice", "alice"]);
+  });
+
+  it("listOwnSessions('') → [] (jamais les sessions anonymes user==='')", async () => {
+    const svc = makeAdminService(
+      makeStorage({ a: sess(""), b: sess("bob"), c: sess("") }),
+    );
+    expect(await svc.listOwnSessions("")).to.deep.equal([]);
+  });
+
+  it("destroyOwnByRef révoque MA session (et seulement elle)", async () => {
+    const storage = makeStorage({
+      a: sess("alice"),
+      b: sess("bob"),
+      c: sess("alice"),
+    });
+    const svc = makeAdminService(storage);
+    expect(
+      await svc.destroyOwnByRef("alice", svc.sessionRef("a"), "alice"),
+    ).to.equal(true);
+    expect(storage.dump().sort()).to.deep.equal(["b", "c"]);
+  });
+
+  it("ANTI-IDOR : impossible de révoquer la session d'AUTRUI via son ref", async () => {
+    const storage = makeStorage({ a: sess("alice"), b: sess("bob") });
+    const svc = makeAdminService(storage);
+    const refBob = svc.sessionRef("b"); // ref RÉEL de la session de bob
+    // alice présente le ref de bob → introuvable dans SON périmètre → false.
+    expect(await svc.destroyOwnByRef("alice", refBob, "alice")).to.equal(false);
+    expect(storage.dump().sort()).to.deep.equal(["a", "b"]); // rien détruit
+  });
+
+  it("destroyOwnByRef('') → false (pas de scope vide, rien détruit)", async () => {
+    const storage = makeStorage({ a: sess("alice") });
+    const svc = makeAdminService(storage);
+    expect(await svc.destroyOwnByRef("", svc.sessionRef("a"), "")).to.equal(
+      false,
+    );
+    expect(storage.dump()).to.deep.equal(["a"]);
+  });
+
+  it("destroyOwnByRef → false pour une ref inconnue (idempotent)", async () => {
+    const storage = makeStorage({ a: sess("alice") });
+    const svc = makeAdminService(storage);
+    expect(
+      await svc.destroyOwnByRef(
+        "alice",
+        "sess_deadbeefdeadbeefdeadbeef",
+        "alice",
+      ),
+    ).to.equal(false);
+    expect(storage.dump()).to.deep.equal(["a"]);
+  });
+
+  it("révocation self auditée (actor = propriétaire, metadata.self)", async () => {
+    const events: {
+      action: string;
+      actor: string | null;
+      metadata?: Record<string, unknown>;
+    }[] = [];
+    const storage = makeStorage({ a: sess("alice") });
+    const svc = makeAdminService(storage, {
+      record: (e) => events.push(e as (typeof events)[number]),
+    });
+    await svc.destroyOwnByRef("alice", svc.sessionRef("a"), "alice");
+    expect(events).to.have.length(1);
+    expect(events[0].action).to.equal("session.revoked");
+    expect(events[0].actor).to.equal("alice");
+    expect(events[0].metadata?.self).to.equal(true);
+  });
 });
 
 // ── Garde-fou de révocation GÉNÉRIQUE — anti-résurrection (cycle de vie) ──────
