@@ -462,6 +462,171 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
   });
 });
 
+// ── user : self-service « MON profil » (public:true, lecture redactée) ────────
+
+describe("Admin data plane — user self-service /me (profil)", () => {
+  it("anonyme → 401 (la zone firewall couvre la route self)", async () => {
+    const r = await req("GET", "/nodefony/user/api/me");
+    expect(r.status).to.equal(401);
+  });
+
+  it("ROLE_USER → 200, MON profil redacté (identifier = moi, jamais de hash)", async () => {
+    const c = await loginCookie("user", "secret");
+    expect(c, "login user/secret (fixture dev)").to.not.equal("");
+    const r = await req("GET", "/nodefony/user/api/me", { cookie: c });
+    expect(r.status).to.equal(200);
+    const me = r.body as { identifier: string; roles: string[] };
+    expect(me.identifier, "scope sur l'identité serveur").to.equal("user");
+    expect(me.roles).to.be.an("array");
+    // DTO redacté : ni champ password, ni hash bcrypt sérialisé
+    expect(me).to.not.have.property("password");
+    expect(JSON.stringify(me)).to.not.match(/\$2[aby]\$/);
+  });
+});
+
+// ── user : self-service « changer MON mot de passe » (public:true + re-auth) ──
+// `me/password` est `public: true` (broker sans contrainte de RÔLE) MAIS sous la
+// zone `nodefony-admin` (auth `["session"]`) → anonyme 401, tout AUTHENTIFIÉ peut
+// changer SON mot de passe. Re-auth du mot de passe ACTUEL obligatoire (403 sinon).
+// Anti-IDOR : la cible est l'identité ALS serveur, jamais un param client. On opère
+// sur un compte SONDE (jamais la fixture `user/secret`, partagée par les autres bancs).
+
+describe("Admin data plane — user self-service /me/password", () => {
+  const probe = "selfpw-probe";
+  const pw0 = "probe-secret-0";
+  let id: string | null = null;
+
+  beforeAll(async () => {
+    const created = await req("POST", "/nodefony/user/api/users", auth(), {
+      identifier: probe,
+      plainPassword: pw0,
+      roles: ["ROLE_USER"],
+    });
+    if (created.status === 201) {
+      id = (created.body as { id: string }).id;
+    } else {
+      const list = await req(
+        "GET",
+        `/nodefony/user/api/users?q=${probe}`,
+        auth(),
+      );
+      const items =
+        (list.body as { items?: Array<{ id: string; identifier: string }> })
+          .items ?? [];
+      id = items.find((u) => u.identifier === probe)?.id ?? null;
+    }
+    // État initial DÉTERMINISTE : le compte peut survivre à un run précédent
+    // interrompu (mdp déjà tourné) → on le force à `pw0` via l'endpoint admin.
+    if (id) {
+      await req("POST", `/nodefony/user/api/users/${id}/password`, auth(), {
+        plainPassword: pw0,
+      });
+    }
+  });
+
+  afterAll(async () => {
+    if (id) await req("DELETE", `/nodefony/user/api/users/${id}`, auth());
+  });
+
+  it("anonyme → 401 (la zone firewall couvre AUSSI la route self-service)", async () => {
+    const r = await req(
+      "POST",
+      "/nodefony/user/api/me/password",
+      {},
+      { currentPassword: pw0, newPassword: "whatever-123" },
+    );
+    expect(r.status).to.equal(401);
+  });
+
+  it("mauvais mot de passe actuel → 403 (re-auth), mdp inchangé", async () => {
+    const c = await loginCookie(probe, pw0);
+    expect(c, "login du compte sonde").to.not.equal("");
+    const r = await req(
+      "POST",
+      "/nodefony/user/api/me/password",
+      { cookie: c },
+      { currentPassword: "WRONG-current", newPassword: "brand-new-456" },
+    );
+    expect(r.status).to.equal(403);
+    // le mdp n'a PAS changé : pw0 authentifie toujours
+    expect(await loginCookie(probe, pw0), "mdp préservé").to.not.equal("");
+  });
+
+  it("bon mot de passe actuel → 200 ; le nouveau mdp marche, l'ancien non", async () => {
+    const c = await loginCookie(probe, pw0);
+    const pw1 = "rotated-secret-1";
+    const r = await req(
+      "POST",
+      "/nodefony/user/api/me/password",
+      { cookie: c },
+      { currentPassword: pw0, newPassword: pw1 },
+    );
+    expect(r.status, "changement self-service accepté").to.equal(200);
+    // le NOUVEAU mot de passe authentifie ; l'ANCIEN ne marche plus
+    expect(await loginCookie(probe, pw1), "nouveau mdp valide").to.not.equal(
+      "",
+    );
+    expect(await loginCookie(probe, pw0), "ancien mdp révoqué").to.equal("");
+  });
+});
+
+// ── user admin : PATCH parse bien le CORPS (régression — PATCH était absent de
+// la table `parse` du Request → body vide → patch {} → UPDATE vide = 500). Preuve
+// wire que `request.body` est parsé sur PATCH (pas seulement POST/PUT).
+
+describe("Admin data plane — user PATCH (corps parsé)", () => {
+  const probe = "patch-body-probe";
+  let id: string | null = null;
+
+  beforeAll(async () => {
+    const created = await req("POST", "/nodefony/user/api/users", auth(), {
+      identifier: probe,
+      plainPassword: "secret-probe",
+      roles: ["ROLE_USER", "ROLE_NODEFONY_ADMIN"],
+    });
+    if (created.status === 201) {
+      id = (created.body as { id: string }).id;
+    } else {
+      const list = await req(
+        "GET",
+        `/nodefony/user/api/users?q=${probe}`,
+        auth(),
+      );
+      id =
+        (
+          (list.body as { items?: Array<{ id: string; identifier: string }> })
+            .items ?? []
+        ).find((u) => u.identifier === probe)?.id ?? null;
+    }
+  });
+
+  afterAll(async () => {
+    if (id) await req("DELETE", `/nodefony/user/api/users/${id}`, auth());
+  });
+
+  it("PATCH {roles} applique les rôles (corps parsé, ≠ 500/400)", async () => {
+    expect(id, "compte sonde créé").to.be.a("string");
+    // retire ADMIN → un autre admin existe (admin/secret) → pas le dernier → 200
+    const patch = await req("PATCH", `/nodefony/user/api/users/${id}`, auth(), {
+      roles: ["ROLE_USER"],
+    });
+    expect(patch.status, "PATCH accepté (corps bien parsé)").to.equal(200);
+    expect((patch.body as { roles: string[] }).roles).to.deep.equal([
+      "ROLE_USER",
+    ]);
+    // re-lecture : la mutation a persisté
+    const after = await req("GET", `/nodefony/user/api/users/${id}`, auth());
+    expect((after.body as { roles: string[] }).roles).to.deep.equal([
+      "ROLE_USER",
+    ]);
+  });
+
+  it("PATCH {} (corps vide) → 400, jamais 500 (garde anti-UPDATE-vide)", async () => {
+    const r = await req("PATCH", `/nodefony/user/api/users/${id}`, auth(), {});
+    expect(r.status).to.equal(400);
+  });
+});
+
 // ── framework ──────────────────────────────────────────────────────────────
 
 describe("Admin data plane — framework", () => {

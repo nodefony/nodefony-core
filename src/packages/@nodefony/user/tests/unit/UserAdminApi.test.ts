@@ -6,6 +6,7 @@ import {
   type IUserRevokedEvent,
 } from "../../nodefony/src/admin/UserAdminApi";
 import { BaseUser } from "../../nodefony/src/BaseUser";
+import { WeakPasswordError } from "../../nodefony/errors/WeakPasswordError";
 import type { IAdminApi, IAdminRequest } from "nodefony";
 
 // ── fabriques d'utilisateurs ─────────────────────────────────────────────────
@@ -23,6 +24,15 @@ function member(
   roles: string[] = [],
 ): BaseUser {
   return new BaseUser({ id, identifier, roles });
+}
+/** Membre avec un mot de passe connu (hash mocké `hash:<plain>`, cf `makeUsers`). */
+function withPassword(
+  id: string,
+  identifier: string,
+  plain: string,
+  roles: string[] = ["ROLE_USER"],
+): BaseUser {
+  return new BaseUser({ id, identifier, roles, password: `hash:${plain}` });
 }
 
 // ── faux service "users" (Map de BaseUser) — on teste les HANDLERS, pas UserService ──
@@ -67,6 +77,13 @@ function makeUsers(seed: BaseUser[]) {
       u.setPassword(`hash:${plain}`);
       return u;
     },
+    // Calque le vrai `UserService.authenticate` : retrouve par identifier, refuse
+    // si verrouillé/désactivé ou si le hash ne matche pas (`hash:<plain>`).
+    authenticate: async (identifier: string, plain: string) => {
+      const u = [...map.values()].find((x) => x.identifier === identifier);
+      if (!u || !u.isActive() || u.isLocked()) return null;
+      return u.password === `hash:${plain}` ? u : null;
+    },
     delete: async (criteria: { id: string }) =>
       map.delete(criteria.id) ? 1 : 0,
   };
@@ -76,6 +93,8 @@ type AuditEvent = {
   action: string;
   actor: string | null;
   resource?: string | null;
+  outcome?: "success" | "failure" | "denied";
+  reason?: string;
 };
 
 type FiredEvent = { name: string; payload: unknown };
@@ -169,6 +188,7 @@ describe("UserAdminApi — toUserSummary (redaction)", () => {
     assert.deepEqual(s.roles, ["ROLE_USER", "ROLE_ADMIN"]);
     assert.equal(s.enabled, true);
     assert.equal(s.locked, false);
+    assert.equal(s.hasPassword, true); // présence du hash, JAMAIS la valeur
     assert.equal(s.currentRole, "ROLE_USER");
     assert.deepEqual(s.socialProviders, [
       {
@@ -405,5 +425,162 @@ describe("UserAdminApi — émission onUserRevoked", () => {
       body: { roles: ["ROLE_USER", "ROLE_EDITOR"] },
     });
     assert.equal(fired.length, 0);
+  });
+});
+
+// ── Self-service : changer MON mot de passe (me/password) ─────────────────────
+describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
+  it("401 si non authentifié (pas d'identité ALS)", async () => {
+    const api = createUserAdminApi(
+      container(makeUsers([withPassword("u1", "alice@x", "oldsecret")])),
+    );
+    const { status } = await call(api, "POST", "me/password", {
+      user: null,
+      body: { currentPassword: "oldsecret", newPassword: "newsecret1" },
+    });
+    assert.equal(status, 401);
+  });
+
+  it("400 si currentPassword absent", async () => {
+    const api = createUserAdminApi(
+      container(makeUsers([withPassword("u1", "alice@x", "oldsecret")])),
+    );
+    const { status } = await call(api, "POST", "me/password", {
+      user: { id: "u1", identifier: "alice@x" } as unknown,
+      body: { newPassword: "newsecret1" },
+    });
+    assert.equal(status, 400);
+  });
+
+  it("400 si newPassword trop court (< 8)", async () => {
+    const api = createUserAdminApi(
+      container(makeUsers([withPassword("u1", "alice@x", "oldsecret")])),
+    );
+    const { status } = await call(api, "POST", "me/password", {
+      user: { id: "u1", identifier: "alice@x" } as unknown,
+      body: { currentPassword: "oldsecret", newPassword: "short" },
+    });
+    assert.equal(status, 400);
+  });
+
+  it("400 si newPassword === currentPassword (no-op refusé)", async () => {
+    const api = createUserAdminApi(
+      container(makeUsers([withPassword("u1", "alice@x", "samesecret")])),
+    );
+    const { status } = await call(api, "POST", "me/password", {
+      user: { id: "u1", identifier: "alice@x" } as unknown,
+      body: { currentPassword: "samesecret", newPassword: "samesecret" },
+    });
+    assert.equal(status, 400);
+  });
+
+  it("403 si le mot de passe actuel est faux + audit failure + AUCUN changement", async () => {
+    const events: AuditEvent[] = [];
+    const users = makeUsers([withPassword("u1", "alice@x", "oldsecret")]);
+    const api = createUserAdminApi(
+      container(users, { record: (e) => events.push(e) }),
+    );
+    const { status } = await call(api, "POST", "me/password", {
+      user: { id: "u1", identifier: "alice@x" } as unknown,
+      body: { currentPassword: "WRONG", newPassword: "newsecret1" },
+    });
+    assert.equal(status, 403);
+    // mot de passe inchangé (changePassword jamais atteint après re-auth KO)
+    assert.equal((await users.findById("u1"))?.password, "hash:oldsecret");
+    // l'échec EST audité (signal de sécurité) — outcome failure
+    assert.equal(events.length, 1);
+    assert.equal(events[0].action, "user.password_change_self");
+    assert.equal(events[0].outcome, "failure");
+  });
+
+  it("200 + change le mot de passe + audit success", async () => {
+    const events: AuditEvent[] = [];
+    const users = makeUsers([withPassword("u1", "alice@x", "oldsecret")]);
+    const api = createUserAdminApi(
+      container(users, { record: (e) => events.push(e) }),
+    );
+    const { status, body } = await call(api, "POST", "me/password", {
+      user: { id: "u1", identifier: "alice@x" } as unknown,
+      body: { currentPassword: "oldsecret", newPassword: "newsecret1" },
+    });
+    assert.equal(status, 200);
+    assert.deepEqual(body, { ok: true });
+    assert.equal((await users.findById("u1"))?.password, "hash:newsecret1");
+    assert.equal(events[0].outcome, "success");
+  });
+
+  it("ANTI-IDOR : un id/identifier d'autrui dans le body/params est IGNORÉ (cible = l'appelant)", async () => {
+    const users = makeUsers([
+      withPassword("alice", "alice@x", "alicesecret"),
+      withPassword("bob", "bob@x", "bobsecret"),
+    ]);
+    const api = createUserAdminApi(container(users));
+    const { status } = await call(api, "POST", "me/password", {
+      // identité SERVEUR = alice ; le client tente de cibler bob → doit être ignoré
+      user: { id: "alice", identifier: "alice@x" } as unknown,
+      params: { id: "bob" },
+      body: {
+        id: "bob",
+        identifier: "bob@x",
+        currentPassword: "alicesecret",
+        newPassword: "newsecret1",
+      },
+    });
+    assert.equal(status, 200);
+    // SEUL alice a changé ; bob est intact
+    assert.equal((await users.findById("alice"))?.password, "hash:newsecret1");
+    assert.equal((await users.findById("bob"))?.password, "hash:bobsecret");
+  });
+
+  it("400 si le nouveau mot de passe est rejeté (WeakPasswordError → pas 500)", async () => {
+    const users = makeUsers([withPassword("u1", "alice@x", "oldsecret")]);
+    // re-auth OK, mais changePassword refuse le mot de passe compromis (blocklist)
+    users.changePassword = async () => {
+      throw new WeakPasswordError();
+    };
+    const api = createUserAdminApi(container(users));
+    const { status } = await call(api, "POST", "me/password", {
+      user: { id: "u1", identifier: "alice@x" } as unknown,
+      body: { currentPassword: "oldsecret", newPassword: "password" },
+    });
+    assert.equal(status, 400);
+  });
+});
+
+// ── Self-service : MON profil (GET me) ───────────────────────────────────────
+describe("UserAdminApi — me (self profile)", () => {
+  it("401 si non authentifié", async () => {
+    const api = createUserAdminApi(
+      container(makeUsers([member("u1", "alice@x")])),
+    );
+    const { status } = await call(api, "GET", "me", { user: null });
+    assert.equal(status, 401);
+  });
+
+  it("200 + DTO redacté de MON compte (jamais le hash) + scope sur l'identité serveur", async () => {
+    const alice = new BaseUser({
+      id: "alice",
+      identifier: "alice@x",
+      roles: ["ROLE_USER"],
+      password: "HASH_SECRET",
+      socialProviders: [
+        { provider: "google", providerId: "g-1", createdAt: new Date() },
+      ],
+    });
+    const api = createUserAdminApi(
+      container(makeUsers([alice, member("bob", "bob@x")])),
+    );
+    // le client tente de se faire passer pour bob via le body → ignoré (scope ALS)
+    const { status, body } = await call(api, "GET", "me", {
+      user: { id: "alice", identifier: "alice@x" } as unknown,
+      body: { identifier: "bob@x" },
+    });
+    assert.equal(status, 200);
+    const me = body as IUserSummary;
+    assert.equal(me.identifier, "alice@x");
+    assert.deepEqual(me.roles, ["ROLE_USER"]);
+    assert.equal(me.socialProviders[0]?.provider, "google");
+    assert.ok(!("password" in (me as object)));
+    assert.ok(!JSON.stringify(me).includes("HASH_SECRET"));
   });
 });

@@ -9,6 +9,7 @@ import type {
 } from "nodefony";
 import type { IUser, ISocialProvider } from "../../contracts/IUser";
 import type { UserService } from "../../service/UserService";
+import { WeakPasswordError } from "../../errors/WeakPasswordError";
 
 /**
  * Rôle critique : porteur de l'accès au data plane d'administration (Studio).
@@ -17,6 +18,8 @@ import type { UserService } from "../../service/UserService";
 const ADMIN_ROLE = "ROLE_NODEFONY_ADMIN";
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
+/** Longueur minimale d'un mot de passe self-service (OWASP ASVS V2.1.1 — plancher). */
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * Projection **publique** d'un utilisateur pour l'ADMINISTRATION (Studio, P6.15).
@@ -32,6 +35,12 @@ export interface IUserSummary {
   enabled: boolean;
   /** Compte verrouillé (`isLocked()`), pilotable via PATCH `locked`. */
   locked: boolean;
+  /**
+   * `true` si le compte a un mot de passe LOCAL (par opposition à OAuth-only).
+   * Présence seulement — **jamais** le hash. Permet au self-service de proposer
+   * « changer » (re-auth possible) vs « pas de mot de passe » (compte externe).
+   */
+  hasPassword: boolean;
   /** Profil de rôle actif en session (P5.11), ou `null`. */
   currentRole: string | null;
   /** Comptes externes liés — jamais de jeton, seulement la référence. */
@@ -63,6 +72,7 @@ function toEpoch(value: unknown): number | null {
  */
 export function toUserSummary(user: IUser): IUserSummary {
   const ext = user as IUser & {
+    password?: unknown;
     currentRole?: unknown;
     socialProviders?: unknown;
     createdAt?: unknown;
@@ -77,6 +87,7 @@ export function toUserSummary(user: IUser): IUserSummary {
     roles: [...user.roles],
     enabled: user.isActive(),
     locked: user.isLocked(),
+    hasPassword: typeof ext.password === "string" && ext.password.length > 0,
     currentRole: typeof ext.currentRole === "string" ? ext.currentRole : null,
     socialProviders: social.map((p) => ({
       provider: p.provider,
@@ -159,6 +170,48 @@ function audit(
     actor,
     resource,
     metadata: { ...metadata, viaAdmin: true },
+  });
+}
+
+/**
+ * Identité fonctionnelle (identifier) de l'appelant, lue depuis l'objet user de
+ * l'ALS serveur (posé au login par le firewall) — **JAMAIS** un paramètre client.
+ * C'est le socle anti-IDOR du self-service : le périmètre d'une action « moi » est
+ * fermé par cette valeur, pas par un id reçu dans l'URL ou le corps. `null` si non
+ * authentifié (ne devrait pas arriver sous une zone firewall fermée → 401 défensif).
+ */
+function currentIdentifier(user: unknown): string | null {
+  if (user && typeof user === "object") {
+    const u = user as { identifier?: unknown };
+    if (typeof u.identifier === "string" && u.identifier.length > 0) {
+      return u.identifier;
+    }
+  }
+  return null;
+}
+
+/**
+ * Émet un événement d'audit d'AUTHENTIFICATION self-service (le propriétaire agit
+ * sur son propre compte) — `viaAdmin: false` (distinct des mutations admin), avec
+ * un `outcome` paramétrable car **succès ET échec** sont audités (un échec de
+ * re-auth est un signal de sécurité). No-op si `@nodefony/security` n'est pas monté.
+ */
+function auditSelf(
+  container: Container,
+  action: string,
+  outcome: "success" | "failure",
+  actor: string | null,
+  resource: string,
+  reason?: string,
+): void {
+  (container.get("auditService") as IAuditSinkLike | undefined)?.record({
+    category: "authn",
+    action,
+    outcome,
+    actor,
+    resource,
+    reason,
+    metadata: { viaAdmin: false },
   });
 }
 
@@ -494,6 +547,14 @@ export function createUserAdminApi(container: Container): IAdminApi {
           patch.locked = body.locked;
         }
 
+        // Aucun champ exploitable (corps vide / mal typé) → 400, JAMAIS un
+        // UPDATE vide (drizzle `.set({})` jette « No values to set » = 500).
+        if (Object.keys(patch).length === 0) {
+          return {
+            status: 400,
+            body: { error: "no modifiable fields (roles/enabled/locked)" },
+          };
+        }
         const updated = (await users.updateOne(
           { id: target.id } as never,
           patch as never,
@@ -541,6 +602,134 @@ export function createUserAdminApi(container: Container): IAdminApi {
           "user.password_changed",
           adminActor(request.user).label,
           request.params.id,
+        );
+        return { ok: true };
+      },
+    },
+    {
+      // ── Self-service : MON profil (identité + rôles + comptes externes liés).
+      // Même garde que `me/password` : `public: true` sous la zone firewall
+      // `nodefony-admin` → anonyme 401. Périmètre = identité ALS serveur
+      // (`currentIdentifier`), jamais un param client (anti-IDOR). DTO redacté
+      // (`toUserSummary` : jamais le hash, jamais `metadata`, social SANS jeton).
+      path: "me",
+      method: "GET",
+      public: true,
+      summary:
+        "MON profil (self-service) — identifiant, rôles, rôle actif, comptes " +
+        "externes liés. DTO redacté (jamais le hash ni de jeton).",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<IUserSummary | IAdminResponse<{ error: string }>> => {
+        const users = resolveUsers();
+        if (!users) {
+          return { status: 503, body: { error: "user service unavailable" } };
+        }
+        const principal = currentIdentifier(request.user);
+        if (!principal) {
+          return { status: 401, body: { error: "unauthenticated" } };
+        }
+        const me = (await users.findByIdentifier(principal)) as IUser | null;
+        if (!me) return { status: 404, body: { error: "not found" } };
+        return toUserSummary(me);
+      },
+    },
+    {
+      // ── Self-service : changer MON mot de passe — tout utilisateur AUTHENTIFIÉ
+      // (pas seulement un admin). `public: true` = le broker n'impose AUCUN rôle ;
+      // l'AUTHENTIFICATION reste garantie EN AMONT par la zone firewall
+      // `nodefony-admin` (`^/nodefony/[^/]+/api(/|$)`, authenticators `["session"]`
+      // SANS `anonymous`) → un anonyme est rejeté 401 avant ce handler.
+      //
+      // Anti-IDOR PAR CONSTRUCTION : la cible n'est JAMAIS un paramètre client.
+      // L'identité vient de l'ALS serveur (`currentIdentifier`) et l'`id` interne
+      // modifié est celui RENVOYÉ par le re-auth — impossible de viser autrui.
+      //
+      // Re-auth OBLIGATOIRE (OWASP Authentication Cheat Sheet) : exige le mot de
+      // passe ACTUEL → défense contre une session volée (un attaquant qui détient
+      // la session ne peut pas verrouiller le compte sans connaître le mot de passe).
+      // `authenticate()` ne déclenche aucun lockout (Nodefony = backoff NIST côté
+      // authenticator de login, jamais de verrouillage dur) → un échec de re-auth
+      // ne peut pas enfermer dehors le propriétaire légitime.
+      path: "me/password",
+      method: "POST",
+      public: true,
+      summary:
+        "Change MON mot de passe (self-service). Body { currentPassword, " +
+        "newPassword }. Re-auth du mot de passe actuel (403 sinon). Audité.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<{ ok: true } | IAdminResponse<{ error: string }>> => {
+        const users = resolveUsers();
+        if (!users) {
+          return { status: 503, body: { error: "user service unavailable" } };
+        }
+        const principal = currentIdentifier(request.user);
+        if (!principal) {
+          return { status: 401, body: { error: "unauthenticated" } };
+        }
+        const body = (request.body ?? {}) as Record<string, unknown>;
+        const currentPassword =
+          typeof body.currentPassword === "string" ? body.currentPassword : "";
+        const newPassword =
+          typeof body.newPassword === "string" ? body.newPassword : "";
+        if (currentPassword.length === 0) {
+          return { status: 400, body: { error: "currentPassword required" } };
+        }
+        if (newPassword.length < MIN_PASSWORD_LENGTH) {
+          return {
+            status: 400,
+            body: {
+              error: `newPassword must be at least ${MIN_PASSWORD_LENGTH} characters`,
+            },
+          };
+        }
+        if (newPassword === currentPassword) {
+          return {
+            status: 400,
+            body: {
+              error: "newPassword must differ from the current password",
+            },
+          };
+        }
+        // Re-auth : valide le mot de passe ACTUEL ET récupère l'utilisateur frais
+        // (son `id` interne) en UN seul appel. Échec = mauvais mdp (ou compte
+        // verrouillé/désactivé entre-temps). Pas de fuite d'info : c'est SON
+        // compte, aucune énumération possible.
+        const authed = await users.authenticate(principal, currentPassword);
+        if (!authed) {
+          auditSelf(
+            container,
+            "user.password_change_self",
+            "failure",
+            principal,
+            principal,
+            "bad_current_password",
+          );
+          return {
+            status: 403,
+            body: { error: "current password is incorrect" },
+          };
+        }
+        // Cible = l'`id` issu du re-auth (jamais un param client) → anti-IDOR.
+        try {
+          await users.changePassword(authed.id, newPassword);
+        } catch (err) {
+          // Blocklist NIST opt-in (mot de passe connu-compromis) → 400, pas 500.
+          if (err instanceof WeakPasswordError) {
+            return {
+              status: 400,
+              body: { error: "password rejected (too weak)" },
+            };
+          }
+          throw err;
+        }
+        auditSelf(
+          container,
+          "user.password_change_self",
+          "success",
+          principal,
+          authed.id,
         );
         return { ok: true };
       },
