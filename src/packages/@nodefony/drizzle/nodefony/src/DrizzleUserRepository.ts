@@ -62,7 +62,7 @@ export class DrizzleUserRepository implements IUserRepository {
 
   /** Mappe une ligne plate en {@link BaseUser} (comportement + champs anti-migration). */
   #toUser(row: UserRow): IPasswordAuthenticatedUser {
-    return new BaseUser({
+    const user = new BaseUser({
       id: row.id,
       identifier: row.identifier,
       roles: row.roles,
@@ -72,6 +72,14 @@ export class DrizzleUserRepository implements IUserRepository {
       currentRole: row.currentRole,
       socialProviders: row.socialProviders,
       metadata: row.metadata,
+    });
+    // Timestamps d'ENTITÉ (colonnes `userTable`, hors contrat strict `IUser`) :
+    // attachés sur l'objet retourné pour que les DTO admin les exposent — c'est
+    // exactement la lecture défensive prévue par `toUserSummary` (« présents sur
+    // l'entité ORM, absents du contrat »). Sans ça, createdAt/updatedAt = null.
+    return Object.assign(user, {
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     });
   }
 
