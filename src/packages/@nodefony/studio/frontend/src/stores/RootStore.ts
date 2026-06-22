@@ -104,7 +104,22 @@ export class RootStore {
     // de durée de vie applicative → pas de disposal nécessaire.
     reaction(
       () => this.auth.user?.id ?? null,
-      () => this.admin.reset(),
+      (id) => {
+        this.admin.reset();
+        // 🔒 SÉCURITÉ (élévation de privilège) — re-négocier la SOCKET au
+        // changement d'identité. Une WebSocket grave l'identité au handshake ;
+        // le pont « API souveraine » (`api.request`) rejoue les GET du data plane
+        // avec CE token, jamais re-validé par frame. La socket est un SINGLETON
+        // partagé par origine → après une déconnexion admin puis la connexion
+        // d'un AUTRE compte sur le même navigateur, elle continuerait de porter
+        // l'identité admin → fuite de données admin (vu en prod). `disconnect()`
+        // + `connect()` force un nouveau handshake = relecture du cookie courant
+        // → token frais (le « F5 » fait à la main). Ainsi l'identité figée de la
+        // socket EST toujours l'identité courante → le pont redevient sûr. Les
+        // pages live se ré-abonnent automatiquement au reconnect (ref-compté).
+        this.realtime.disconnect();
+        if (id !== null) void this.realtime.connect();
+      },
     );
 
     // Aide au DEV uniquement : déclencher un toast depuis la console

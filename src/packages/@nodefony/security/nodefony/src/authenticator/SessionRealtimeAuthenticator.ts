@@ -56,8 +56,59 @@ export class SessionRealtimeAuthenticator implements IRealtimeAuthenticator {
       // `Promise<IRealtimeToken>` et le `await … catch` du hub au handshake.
       throw new AuthenticationError("Invalid realtime session");
     }
-    return new UserRealtimeToken(user);
+    // Câble la re-validation Zero Trust : le pont `api.request` re-lira la session
+    // du handshake AVANT chaque action data plane. La socket survit à sa session
+    // (logout / changement de compte sur navigateur partagé) → l'identité figée
+    // au handshake ne doit pas servir si la session est morte/changée.
+    return new UserRealtimeToken(
+      user,
+      buildSessionRevalidator(user.identifier),
+    );
   }
+}
+
+/**
+ * Forme MINIMALE de la session BFF lue au handshake (typage structurel, **0
+ * import `@nodefony/http`**) : son `id` + son `storage` re-lisible.
+ */
+interface SessionLike {
+  id?: unknown;
+  storage?: {
+    read(id: string): Promise<{ user?: unknown } | null | undefined>;
+  };
+}
+
+/**
+ * Construit la closure de re-validation du token realtime : re-lit la session BFF
+ * (par son id, capturé au handshake) et vérifie qu'elle est TOUJOURS vivante et
+ * TOUJOURS celle de `identifier`. `null` si la session n'est pas accessible
+ * (best-effort — pas de faux refus). Fail-closed : une lecture qui throw (store
+ * down, session détruite) → invalide.
+ */
+function buildSessionRevalidator(
+  identifier: string,
+): (() => Promise<boolean>) | null {
+  const ctx = RequestContext.getContext<
+    { session?: SessionLike } | undefined
+  >();
+  const session = ctx?.session;
+  const id = session?.id;
+  const storage = session?.storage;
+  if (
+    typeof id !== "string" ||
+    !storage ||
+    typeof storage.read !== "function"
+  ) {
+    return null;
+  }
+  return async (): Promise<boolean> => {
+    try {
+      const serialized = await storage.read(id);
+      return !!serialized && serialized.user === identifier;
+    } catch {
+      return false;
+    }
+  };
 }
 
 /**

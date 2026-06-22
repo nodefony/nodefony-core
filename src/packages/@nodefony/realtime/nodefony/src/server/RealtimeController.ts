@@ -596,6 +596,29 @@ export abstract class RealtimeController<
     // `run` (~50-100 ns) + 1 objet littéral, UNIQUEMENT sur api.request (jamais
     // sur publish/subscribe/notify → le hot-path temps réel reste intact).
     const token = getRealtimeHub().getTokenForPeer(peer);
+    // 🔒 ZERO TRUST — re-valider l'identité figée au handshake AVANT l'action
+    // data plane. Une WebSocket est un SINGLETON partagé qui SURVIT à sa session :
+    // après une déconnexion admin puis la connexion d'un autre compte sur le même
+    // navigateur, le token resterait « admin » → un GET data plane rejouerait avec
+    // l'identité périmée (élévation de privilège). `isValid()` re-lit la source
+    // (session BFF) ; périmée/changée → 401. Le client (ApiClient) bascule alors
+    // en fetch HTTP (cookie courant) = réponse de référence. Optionnel (anonyme/
+    // JWT n'en ont pas) ; payé SEULEMENT ici, jamais sur publish/subscribe.
+    if (token.isValid) {
+      let valid: boolean;
+      try {
+        valid = await token.isValid();
+      } catch {
+        valid = false; // fail-closed : une re-validation qui throw = refus
+      }
+      if (!valid) {
+        throw new RpcError(
+          "api.request: identité de session expirée ou invalide",
+          -32000,
+          { status: 401 },
+        );
+      }
+    }
     return RequestContext.run(
       {
         requestId: ctx.requestId,

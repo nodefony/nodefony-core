@@ -27,6 +27,12 @@ export interface IRealtimeToken {
   getRoles(): string[];
   getScopes(): string[];
   getAttribute<T = unknown>(key: string): T | undefined;
+  /**
+   * Re-validation Zero Trust à l'usage (miroir de `IRealtimeToken` realtime) —
+   * `false` = identité périmée (session morte / compte changé). Optionnel
+   * (absent = valide). Appelé par le pont `api.request` avant l'action data plane.
+   */
+  isValid?(): boolean | Promise<boolean>;
 }
 
 /**

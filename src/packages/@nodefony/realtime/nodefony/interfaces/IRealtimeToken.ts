@@ -36,4 +36,19 @@ export interface IRealtimeToken {
 
   /** Lecture d'un attribut arbitraire (claims JWT, `tenantId`, providerId…). */
   getAttribute<T = unknown>(key: string): T | undefined;
+
+  /**
+   * Re-valide l'identité À L'USAGE (Zero Trust) : `true` si le token est encore
+   * légitime, `false` s'il est PÉRIMÉ (session détruite, ou un AUTRE compte s'est
+   * connecté depuis sur la même socket partagée). Optionnel — un token qui porte
+   * sa propre validité (Anonyme, JWT à `exp`) n'en a pas besoin (**absent =
+   * considéré valide**).
+   *
+   * Appelé par le pont `api.request` AVANT toute action data plane : une
+   * WebSocket survit à sa session (le token est figé au handshake), donc une
+   * identité périmée ne doit JAMAIS servir une requête data plane sensible.
+   * Async (peut relire un store de session) ; gardé HORS du hot-path temps réel
+   * (publish/subscribe), payé seulement sur `api.request`.
+   */
+  isValid?(): boolean | Promise<boolean>;
 }

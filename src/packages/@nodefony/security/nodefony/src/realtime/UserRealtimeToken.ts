@@ -17,9 +17,28 @@ import type { IRealtimeToken } from "./realtimeContracts";
 export class UserRealtimeToken implements IRealtimeToken {
   readonly type = "session";
   readonly #user: IUser;
+  /**
+   * Fonction de re-validation Zero Trust (re-lit la session BFF du handshake),
+   * fournie par le {@link SessionRealtimeAuthenticator} qui seul connaît la
+   * session/le store — le token reste découplé (juste une closure). `null` si la
+   * session n'était pas accessible au handshake → pas de re-validation (best-effort).
+   */
+  readonly #revalidate: (() => Promise<boolean>) | null;
 
-  constructor(user: IUser) {
+  constructor(user: IUser, revalidate: (() => Promise<boolean>) | null = null) {
     this.#user = user;
+    this.#revalidate = revalidate;
+  }
+
+  /**
+   * Zero Trust : la session BFF qui a ouvert cette socket est-elle TOUJOURS
+   * vivante et toujours CELLE de cet utilisateur ? Détecte la déconnexion et le
+   * changement de compte sur navigateur partagé (socket figée au handshake).
+   * `true` si aucune re-validation n'a pu être câblée (best-effort, jamais un
+   * faux refus).
+   */
+  isValid(): Promise<boolean> {
+    return this.#revalidate ? this.#revalidate() : Promise.resolve(true);
   }
 
   getUserIdentifier(): string {

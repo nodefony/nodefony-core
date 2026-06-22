@@ -682,3 +682,86 @@ describe("firewall.#build / isSecure / provisionShared (boot)", () => {
     );
   });
 });
+
+/**
+ * Re-validation Zero Trust du jeton realtime (`isValid`) — ferme l'ÉLÉVATION DE
+ * PRIVILÈGE par socket figée : une WebSocket grave l'identité au handshake et
+ * SURVIT à sa session (singleton partagé par navigateur). Après une déconnexion
+ * admin puis la connexion d'un autre compte, le pont `api.request` rejouait un
+ * GET data plane avec l'identité admin. `UserRealtimeToken.isValid()` re-lit la
+ * session BFF du handshake AVANT l'action → refuse si elle est morte ou a changé
+ * de propriétaire. (Le pont — `RealtimeController.invokeApiRequest` — répond 401
+ * sur `false`, et le client bascule en fetch HTTP avec le cookie courant.)
+ */
+describe("SessionRealtimeAuthenticator — re-validation Zero Trust du token (isValid)", () => {
+  // Faux store de session (id → blob). `read()` reflète l'état COURANT → on
+  // simule un logout (delete) ou un changement de compte (set un autre user).
+  function fakeStore(initial: Record<string, { user: string }>) {
+    const map = new Map<string, { user: string }>(Object.entries(initial));
+    return {
+      map,
+      storage: {
+        read(id: string): Promise<{ user?: unknown } | null> {
+          return Promise.resolve(map.get(id) ?? null);
+        },
+      },
+    };
+  }
+
+  const adminUser = {
+    identifier: "admin",
+    roles: ["ROLE_NODEFONY_ADMIN"],
+  } as unknown as IUser;
+
+  // Promeut l'identité (ALS) en token realtime via l'authenticator réel, avec une
+  // session de handshake injectée dans le contexte ALS (comme le pipeline http).
+  function tokenFor(
+    sessionId: string | undefined,
+    storage: unknown,
+  ): Promise<IRealtimeToken> {
+    const auth = new SessionRealtimeAuthenticator();
+    return RequestContext.run(
+      {
+        requestId: "test",
+        user: adminUser,
+        context: sessionId ? { session: { id: sessionId, storage } } : {},
+      },
+      () => auth.authenticate({} as IRealtimeHandshake),
+    );
+  }
+
+  it("valide tant que la session du handshake reste celle de l'utilisateur", async () => {
+    const store = fakeStore({ "sess-1": { user: "admin" } });
+    const token = await tokenFor("sess-1", store.storage);
+    assert.equal(await token.isValid!(), true);
+  });
+
+  it("REFUSE après destruction de la session (logout admin)", async () => {
+    const store = fakeStore({ "sess-1": { user: "admin" } });
+    const token = await tokenFor("sess-1", store.storage);
+    store.map.delete("sess-1"); // logout → session détruite côté store
+    assert.equal(await token.isValid!(), false);
+  });
+
+  it("REFUSE si un AUTRE compte occupe désormais la session (bascule d'identité)", async () => {
+    const store = fakeStore({ "sess-1": { user: "admin" } });
+    const token = await tokenFor("sess-1", store.storage);
+    store.map.set("sess-1", { user: "bob" }); // la socket figée « admin » ne suit plus
+    assert.equal(await token.isValid!(), false);
+  });
+
+  it("best-effort : valide si la session n'est pas accessible au handshake", async () => {
+    const token = await tokenFor(undefined, undefined);
+    assert.equal(await token.isValid!(), true);
+  });
+
+  it("fail-closed : une re-lecture du store qui throw → refus", async () => {
+    const storage = {
+      read(): Promise<{ user?: unknown } | null> {
+        return Promise.reject(new Error("store down"));
+      },
+    };
+    const token = await tokenFor("sess-1", storage);
+    assert.equal(await token.isValid!(), false);
+  });
+});
