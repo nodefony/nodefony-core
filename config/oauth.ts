@@ -21,13 +21,12 @@ type Ctx = { env: typeof env; isDev: boolean };
 
 export function oauth2Config(ctx: Ctx) {
   const base = ctx.env.OAUTH_REDIRECT_BASE;
-  // OAuth = AUTHENTIFICATION, pas autorisation. En DEV, le compte social
-  // provisionné (JIT « Shadow User ») reçoit le rôle admin → il atterrit dans
-  // Studio pour TESTER le flux. En PROD : `ROLE_USER` seul (se connecter via
-  // Google/GitHub ne rend JAMAIS admin ; l'élévation passe par un mécanisme dédié).
-  const roles = ctx.isDev
-    ? ["ROLE_USER", "ROLE_NODEFONY_ADMIN"]
-    : ["ROLE_USER"];
+  // OAuth = AUTHENTIFICATION, JAMAIS autorisation : se connecter via Google/GitHub
+  // ne rend JAMAIS administrateur — ni en dev, ni en prod. Le compte social
+  // provisionné (JIT « Shadow User ») reçoit `ROLE_USER` seul. L'accès admin passe
+  // par un compte seedé (`provisionUsers`) ou une élévation explicite côté base —
+  // jamais par le simple fait de se connecter avec un compte externe.
+  const roles = ["ROLE_USER"];
   // Après login → console Studio ; après échec → login avec un marqueur lu par la
   // page (zone d'erreur réservée, sans saut de mise en page).
   const perProvider = {
