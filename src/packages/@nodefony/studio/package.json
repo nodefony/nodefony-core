@@ -1,9 +1,15 @@
 {
   "name": "@nodefony/studio",
   "version": "10.0.0-poc.1",
-  "description": "Studio — admin web Nodefony (successeur monitoring-bundle). Frontend React 19 + Mantine v8 + MobX via @nodefony/frontend.",
+  "description": "Studio — admin web Nodefony (successeur monitoring-bundle). Frontend React 19 + Mantine v9 + MobX via @nodefony/frontend.",
   "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "build": "rimraf dist && npm run rollup",
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",

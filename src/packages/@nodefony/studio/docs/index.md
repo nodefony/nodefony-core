@@ -9,7 +9,7 @@ order: 0
 
 # @nodefony/studio
 
-> Admin web de Nodefony — successeur du legacy `monitoring-bundle`. Backend = controller Nodefony exposant l'UI + des API ; frontend = SPA **React 19** (Mantine v8 + MobX 6) servie via `@nodefony/frontend` (Vite). C'est le **1er consommateur prod** de `@nodefony/frontend` et du **data plane admin** (`IAdminApi`).
+> Admin web de Nodefony — successeur du legacy `monitoring-bundle`. Backend = controller Nodefony exposant l'UI + des API ; frontend = SPA **React 19** (Mantine v9 + MobX 6) servie via `@nodefony/frontend` (Vite). C'est le **1er consommateur prod** de `@nodefony/frontend` et du **data plane admin** (`IAdminApi`).
 
 ## Vue d'ensemble
 
@@ -26,7 +26,7 @@ Règle figée : **jamais** de route admin mono-segment `/nodefony/<module>` (col
 
 ## Frontend
 
-- React 19 + Mantine v8 + MobX 6 (classes, `makeAutoObservable`) + React Router 7 + TanStack Table 8.
+- React 19 + Mantine v9 + MobX 6 (classes, `makeAutoObservable`) + React Router 7 + TanStack Table 8.
 - Theme dark par défaut, primary orange, toggle persisté `localStorage`.
 - Pages réelles : Dashboard, Logs (snapshot REST + stream WS, `ansiToReact`), Modules (cartes), ModuleDetail (onglets Vue d'ensemble · **Docs** · **API** · Dépendances · Routes · Services · Config), System (explorer du catalogue admin).
 - Stores MobX : Auth, Connection, Ui, Chat, Admin, Root.

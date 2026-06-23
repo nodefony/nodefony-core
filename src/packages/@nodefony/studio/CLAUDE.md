@@ -109,7 +109,7 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 
 ## Décisions figées
 
-- Stack frontend : **React 19** (P10.1 acté) + **Mantine v8** + **MobX 6** (classes, `makeAutoObservable` — pas Zustand/Redux) + React Router 7 + TanStack Table 8 (headless).
+- Stack frontend : **React 19** (P10.1 acté) + **Mantine v9** + **MobX 6** (classes, `makeAutoObservable` — pas Zustand/Redux) + React Router 7 + TanStack Table 8 (headless).
 - Theme : dark par défaut + toggle scheme persisté `localStorage`. **Palette de marque togglable** (couleur `brand` = alias dynamique `nodefonyBlue #0067ba` ↔ `nodefonyOrange`, `primaryColor:"brand"`, toggle 🎨 persisté `ui.palette`, **défaut nodefony**, dark-safe `primaryShade.dark=4`). Accents en dur écrits `color="brand"` ; warnings/DEBUG/palettes décoratives restent `color="orange"` (sémantique). Couleurs marque extraites du logo officiel (`theme.ts` `buildStudioTheme`).
 - Routing (✅ tranché 2026-05-20) : UI `/nodefony` + `/nodefony/{page}` ; data plane `/nodefony/<module>/api/*` (Studio = `/nodefony/studio/api/*`). `/studio` rejeté (collision app user).
 - Deps frontend dans le `package.json` du module (pas de `frontend/package.json` séparé).
@@ -121,7 +121,7 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 
 ## TODO connus
 
-- **Types/exports** : `package.json` a `main` mais **pas** `types` ni `exports` (module `private:true` → types publics non critiques, mais écart au template racine).
+- **Types** : pas de `types` exposé — **INTENTIONNEL** (module `private:true` + rollup `declaration:false` → aucun `.d.ts` généré, jamais consommé comme lib typée ; cf exception studio dans le CLAUDE.md racine). `exports` (import-only + `./package.json`) **ajouté** 2026-06-23.
 - ✅ ~~Remplacer les mocks `/api/auth/*` par le firewall P6~~ → **FAIT** (auth réelle session BFF, mocks supprimés).
 - Stubs restants = pages des **phases futures** : Webhooks (P6.13), couche IA P12 (Agents/Knowledge/LLM/MCP/Agent Guard/Approvals/AI Audit), Services/NPM/Migrations (P10.10/P11.4). Les pages **Sécurité** (Sessions/Users/Firewall/Audit/API Keys/Profil) et **System** (Modules/Routes/Database) sont LIVRÉES.
 
