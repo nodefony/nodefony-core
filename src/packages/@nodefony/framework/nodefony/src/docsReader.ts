@@ -164,11 +164,7 @@ async function summarize(
     // calculé à l'ouverture par `readModuleDoc`). Cf perf endpoint module detail.
     gitUpdated: withGit ? await gitLastUpdated(full) : null,
     order:
-      typeof data.order === "number"
-        ? data.order
-        : slug === "index"
-          ? 0
-          : 100,
+      typeof data.order === "number" ? data.order : slug === "index" ? 0 : 100,
   };
 }
 
@@ -327,21 +323,35 @@ export interface OutdatedInfo {
  * `node_modules/<dep>/package.json`, local puis hoisté à la racine).
  */
 export async function readDependencies(modulePath: string): Promise<DepInfo[]> {
-  let pkg: { dependencies?: Record<string, string>; peerDependencies?: Record<string, string> } = {};
+  let pkg: {
+    dependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+  } = {};
   try {
     pkg = JSON.parse(await readFile(join(modulePath, "package.json"), "utf8"));
   } catch {
     /* pas de package.json */
   }
-  const ranges: Record<string, string> = { ...(pkg.dependencies ?? {}), ...(pkg.peerDependencies ?? {}) };
+  const ranges: Record<string, string> = {
+    ...(pkg.dependencies ?? {}),
+    ...(pkg.peerDependencies ?? {}),
+  };
   const root = process.cwd();
   const out: DepInfo[] = [];
   for (const name of Object.keys(ranges).sort()) {
-    const kind: DepInfo["kind"] = name === "nodefony" || name.startsWith("@nodefony/") ? "nodefony" : "external";
+    const kind: DepInfo["kind"] =
+      name === "nodefony" || name.startsWith("@nodefony/")
+        ? "nodefony"
+        : "external";
     let installed: string | null = null;
     for (const base of [modulePath, root]) {
       try {
-        const dp = JSON.parse(await readFile(join(base, "node_modules", name, "package.json"), "utf8"));
+        const dp = JSON.parse(
+          await readFile(
+            join(base, "node_modules", name, "package.json"),
+            "utf8",
+          ),
+        );
         if (typeof dp.version === "string") {
           installed = dp.version;
           break;
@@ -357,7 +367,11 @@ export async function readDependencies(modulePath: string): Promise<DepInfo[]> {
 
 /** Compare deux versions semver (a > b ?) — major.minor.patch numérique. */
 function semverGt(a: string, b: string): boolean {
-  const p = (s: string) => s.replace(/^[^\d]*/, "").split(".").map((n) => parseInt(n, 10) || 0);
+  const p = (s: string) =>
+    s
+      .replace(/^[^\d]*/, "")
+      .split(".")
+      .map((n) => parseInt(n, 10) || 0);
   const pa = p(a);
   const pb = p(b);
   for (let i = 0; i < 3; i++) {
@@ -390,7 +404,9 @@ export async function checkOutdated(deps: DepInfo[]): Promise<OutdatedInfo[]> {
         name: d.name,
         installed: d.installed,
         latest,
-        outdated: Boolean(latest && d.installed && semverGt(latest, d.installed)),
+        outdated: Boolean(
+          latest && d.installed && semverGt(latest, d.installed),
+        ),
       };
     }),
   );
@@ -422,17 +438,25 @@ export async function listTestFiles(modulePath: string): Promise<string[]> {
       return;
     }
     for (const e of entries) {
-      if (e.name === "node_modules" || e.name === "dist" || e.name === ".coverage") continue;
+      if (
+        e.name === "node_modules" ||
+        e.name === "dist" ||
+        e.name === ".coverage"
+      )
+        continue;
       const full = join(dir, e.name);
       if (e.isDirectory()) await walk(full, depth + 1);
-      else if (e.isFile() && e.name.endsWith(".test.ts")) out.push(rel(full, modulePath));
+      else if (e.isFile() && e.name.endsWith(".test.ts"))
+        out.push(rel(full, modulePath));
     }
   };
   await walk(modulePath, 0);
   out.sort();
   // Si une suite unit existe, ne lister QUE les tests unit (lançables par vitest
   // run-one) ; l'intégration tape un serveur (runner ts-node mocha à part).
-  const unit = out.filter((f) => f.includes("/tests/unit/") || f.includes("/unit/"));
+  const unit = out.filter(
+    (f) => f.includes("/tests/unit/") || f.includes("/unit/"),
+  );
   return unit.length ? unit : out;
 }
 
@@ -447,14 +471,20 @@ export async function listTestFiles(modulePath: string): Promise<string[]> {
  * l'endpoint (cf KernelAdminApi). spawn sans shell + args en tableau (pas
  * d'injection shell). `file` validé en amont (suffixe .test.ts, pas de `..`).
  */
-export function runModuleTests(modulePath: string, file?: string): Promise<TestRunResult> {
+export function runModuleTests(
+  modulePath: string,
+  file?: string,
+): Promise<TestRunResult> {
   const hasVitest = existsSync(join(modulePath, "vitest.config.ts"));
   let cmd: string;
   let args: string[];
   let mode: string;
   if (file && hasVitest) {
     cmd = "npx";
-    args = ["vitest", "run", file];
+    // `--` : tout ce qui suit est un chemin positionnel, JAMAIS interprété comme
+    // un flag vitest (defense-in-depth anti injection d'argument — l'appelant
+    // valide déjà `file`, cf KernelAdminApi : pas de `..`, pas de `-`, `.test.ts`).
+    args = ["vitest", "run", "--", file];
     mode = `vitest run ${file}`;
   } else {
     cmd = "npm";
@@ -472,23 +502,43 @@ export function runModuleTests(modulePath: string, file?: string): Promise<TestR
     try {
       child = spawn(cmd, args, { cwd: modulePath, env: process.env });
     } catch (e) {
-      return resolve({ ok: false, code: null, passed: 0, failed: 0, durationMs: 0, output: String(e), mode });
+      return resolve({
+        ok: false,
+        code: null,
+        passed: 0,
+        failed: 0,
+        durationMs: 0,
+        output: String(e),
+        mode,
+      });
     }
     child.stdout?.on("data", cap);
     child.stderr?.on("data", cap);
     const timer = setTimeout(() => child.kill("SIGKILL"), 180_000);
     child.on("error", (e) => {
       clearTimeout(timer);
-      resolve({ ok: false, code: null, passed: 0, failed: 0, durationMs: Date.now() - start, output: String(e), mode });
+      resolve({
+        ok: false,
+        code: null,
+        passed: 0,
+        failed: 0,
+        durationMs: Date.now() - start,
+        output: String(e),
+        mode,
+      });
     });
     child.on("close", (code) => {
       clearTimeout(timer);
       const clean = out.replace(/\x1b\[[0-9;]*m/g, "");
       const passed = Number(
-        clean.match(/Tests\s+(\d+)\s+passed/)?.[1] ?? clean.match(/(\d+)\s+passing/)?.[1] ?? 0,
+        clean.match(/Tests\s+(\d+)\s+passed/)?.[1] ??
+          clean.match(/(\d+)\s+passing/)?.[1] ??
+          0,
       );
       const failed = Number(
-        clean.match(/(\d+)\s+failed/)?.[1] ?? clean.match(/(\d+)\s+failing/)?.[1] ?? 0,
+        clean.match(/(\d+)\s+failed/)?.[1] ??
+          clean.match(/(\d+)\s+failing/)?.[1] ??
+          0,
       );
       resolve({
         ok: code === 0,
@@ -541,12 +591,19 @@ export interface CoverageFile {
 export interface CoverageReport {
   available: boolean;
   generated?: string | null;
-  total?: { lines: number; statements: number; functions: number; branches: number };
+  total?: {
+    lines: number;
+    statements: number;
+    functions: number;
+    branches: number;
+  };
   files?: CoverageFile[];
 }
 
 const rel = (abs: string, modulePath: string) =>
-  abs.startsWith(modulePath) ? abs.slice(modulePath.length).replace(/^\/+/, "") : abs;
+  abs.startsWith(modulePath)
+    ? abs.slice(modulePath.length).replace(/^\/+/, "")
+    : abs;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Parse un `coverage-summary.json` (istanbul/vitest : total + par fichier). */
@@ -586,11 +643,28 @@ function parseSummary(
 function parseLcov(text: string, modulePath: string): CoverageReport | null {
   const files: CoverageFile[] = [];
   const tot = { lf: 0, lh: 0, fnf: 0, fnh: 0, brf: 0, brh: 0 };
-  let cur: { p: string; lf: number; lh: number; fnf: number; fnh: number; brf: number; brh: number } | null = null;
+  let cur: {
+    p: string;
+    lf: number;
+    lh: number;
+    fnf: number;
+    fnh: number;
+    brf: number;
+    brh: number;
+  } | null = null;
   const num = (s: string, i: number) => Number(s.slice(i)) || 0;
   const pctOf = (h: number, f: number) => (f > 0 ? round2((h / f) * 100) : 100);
   for (const line of text.split("\n")) {
-    if (line.startsWith("SF:")) cur = { p: line.slice(3).trim(), lf: 0, lh: 0, fnf: 0, fnh: 0, brf: 0, brh: 0 };
+    if (line.startsWith("SF:"))
+      cur = {
+        p: line.slice(3).trim(),
+        lf: 0,
+        lh: 0,
+        fnf: 0,
+        fnh: 0,
+        brf: 0,
+        brh: 0,
+      };
     else if (!cur) continue;
     else if (line.startsWith("LF:")) cur.lf = num(line, 3);
     else if (line.startsWith("LH:")) cur.lh = num(line, 3);
@@ -600,8 +674,19 @@ function parseLcov(text: string, modulePath: string): CoverageReport | null {
     else if (line.startsWith("BRH:")) cur.brh = num(line, 4);
     else if (line.startsWith("end_of_record")) {
       const ln = pctOf(cur.lh, cur.lf);
-      files.push({ file: rel(cur.p, modulePath), lines: ln, statements: ln, functions: pctOf(cur.fnh, cur.fnf), branches: pctOf(cur.brh, cur.brf) });
-      tot.lf += cur.lf; tot.lh += cur.lh; tot.fnf += cur.fnf; tot.fnh += cur.fnh; tot.brf += cur.brf; tot.brh += cur.brh;
+      files.push({
+        file: rel(cur.p, modulePath),
+        lines: ln,
+        statements: ln,
+        functions: pctOf(cur.fnh, cur.fnf),
+        branches: pctOf(cur.brh, cur.brf),
+      });
+      tot.lf += cur.lf;
+      tot.lh += cur.lh;
+      tot.fnf += cur.fnf;
+      tot.fnh += cur.fnh;
+      tot.brf += cur.brf;
+      tot.brh += cur.brh;
       cur = null;
     }
   }
@@ -609,7 +694,12 @@ function parseLcov(text: string, modulePath: string): CoverageReport | null {
   const ln = pctOf(tot.lh, tot.lf);
   return {
     available: true,
-    total: { lines: ln, statements: ln, functions: pctOf(tot.fnh, tot.fnf), branches: pctOf(tot.brh, tot.brf) },
+    total: {
+      lines: ln,
+      statements: ln,
+      functions: pctOf(tot.fnh, tot.fnf),
+      branches: pctOf(tot.brh, tot.brf),
+    },
     files,
   };
 }
@@ -620,13 +710,18 @@ function parseLcov(text: string, modulePath: string): CoverageReport | null {
  * `lcov.info` (produit par monocart côté core ET par vitest). Studio AFFICHE ce
  * rapport — il ne lance pas les tests. `available:false` si rien de généré.
  */
-export async function readCoverage(modulePath: string): Promise<CoverageReport> {
+export async function readCoverage(
+  modulePath: string,
+): Promise<CoverageReport> {
   const dir = join(modulePath, ".coverage");
   let report: CoverageReport | null = null;
   let usedFile: string | null = null;
   const summaryPath = join(dir, "coverage-summary.json");
   try {
-    report = parseSummary(JSON.parse(await readFile(summaryPath, "utf8")), modulePath);
+    report = parseSummary(
+      JSON.parse(await readFile(summaryPath, "utf8")),
+      modulePath,
+    );
     if (report) usedFile = summaryPath;
   } catch {
     /* pas de summary → tenter lcov */
@@ -643,7 +738,9 @@ export async function readCoverage(modulePath: string): Promise<CoverageReport> 
   if (!report) return { available: false };
   report.files!.sort((a, b) => a.file.localeCompare(b.file));
   try {
-    report.generated = usedFile ? (await stat(usedFile)).mtime.toISOString() : null;
+    report.generated = usedFile
+      ? (await stat(usedFile)).mtime.toISOString()
+      : null;
   } catch {
     report.generated = null;
   }

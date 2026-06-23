@@ -459,7 +459,14 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const body = (request.body ?? {}) as { file?: unknown };
         let file: string | undefined;
         if (typeof body.file === "string" && body.file) {
-          if (body.file.includes("..") || !body.file.endsWith(".test.ts")) {
+          // Allowlist stricte : pas de traversée (`..`), pas de flag CLI injecté
+          // (préfixe `-` → traité comme option par vitest même avec `--`), suffixe
+          // `.test.ts` obligatoire. L'exécution ajoute aussi `--` (cf runModuleTests).
+          if (
+            body.file.includes("..") ||
+            body.file.startsWith("-") ||
+            !body.file.endsWith(".test.ts")
+          ) {
             return {
               status: 400,
               body: { error: "Invalid test file", file: body.file },

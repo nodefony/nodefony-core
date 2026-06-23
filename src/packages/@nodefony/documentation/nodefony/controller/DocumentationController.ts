@@ -1,4 +1,10 @@
-import { Controller, Get, Param, controller } from "@nodefony/framework";
+import {
+  Controller,
+  Get,
+  Param,
+  IsGranted,
+  controller,
+} from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import {
   DocNotFoundError,
@@ -34,7 +40,12 @@ class DocumentationController extends Controller {
     return svc;
   }
 
+  // Doc TECHNIQUE du framework (RFC, archi, internals) → public développeurs /
+  // exploitants / admin, PAS un utilisateur final. RBAC aligné sur la page Studio
+  // « Documentation » (bundle devops) ; ROLE_NODEFONY_ADMIN couvre par hiérarchie.
+  // (Était lisible par tout authentifié — endpoint monté hors broker, pré-P6.)
   /** Index transverse : sections → pages, taguées par audience. */
+  @IsGranted(["ROLE_DEV", "ROLE_SUPERVISOR"])
   @Get("/documentation/api/tree")
   async tree() {
     try {
@@ -49,6 +60,7 @@ class DocumentationController extends Controller {
   }
 
   /** Contenu d'une page + variables `{{ }}` résolues côté serveur. */
+  @IsGranted(["ROLE_DEV", "ROLE_SUPERVISOR"])
   @Get("/documentation/api/page/{slug}")
   async page(@Param("slug") slug: string) {
     try {

@@ -163,14 +163,34 @@ export default defineConfig<Env>((ctx) => ({
         // Hiérarchie de rôles (RBAC, niveau A de l'autorisation) — ROLE_X hérite
         // des rôles listés (résolu au boot en DFS ; cycle → throw). Additif :
         // un rôle gagne les droits des rôles couverts, jamais l'inverse.
-        // Surfacé dans Studio → /nodefony/roles (Hiérarchie + Graphe). Défaut
-        // framework = {} (rôles plats). Exemple sur les rôles RÉELS du framework :
-        // ROLE_NODEFONY_ADMIN (data plane admin / Studio) au sommet → couvre
-        // ROLE_ADMIN, ROLE_SECURITY_AUDITOR et, par transitivité, ROLE_USER.
+        // Surfacé dans Studio → /nodefony/roles (Hiérarchie + Graphe).
+        //
+        // DEUX ÉCHELLES — frontière = convention de NOM (multi-tenant-ready) :
+        //  • PLATEFORME `ROLE_NODEFONY_*` — l'OPÉRATEUR de l'instance (hébergeur
+        //    SaaS, le « landlord »). GLOBAL, cross-tenant, JAMAIS scopé ni
+        //    assigné à un client. Le SEUL à transcender l'isolation tenant
+        //    (opt-out du scope auto). NE confondez JAMAIS avec un « admin de
+        //    tenant » (= ROLE_ADMIN, scopé à son organisation).
+        //  • TENANT `ROLE_*` — exercés DANS le tenant de l'acteur. Mono-tenant
+        //    aujourd'hui = rôles plats (`user.roles`). En multi-tenant (P17), ils
+        //    viendront du membership user×tenant, PAS de `user.roles` global
+        //    (modif INTERNE de UserToken.getRoles, additive — cf
+        //    project_multitenant_chantier_kit §2bis). La hiérarchie ci-dessous
+        //    reste valable : seule la SOURCE des rôles tenant changera.
         roleHierarchy: {
-          ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN", "ROLE_SECURITY_AUDITOR"],
-          ROLE_ADMIN: ["ROLE_USER"],
-          ROLE_SECURITY_AUDITOR: ["ROLE_USER"],
+          // PLATEFORME — couvre tous les rôles métier (et, transitivement, USER)
+          // → un seul rôle pour « voit/fait tout » sur l'instance entière.
+          ROLE_NODEFONY_ADMIN: [
+            "ROLE_ADMIN",
+            "ROLE_SECURITY_AUDITOR",
+            "ROLE_DEV",
+            "ROLE_SUPERVISOR",
+          ],
+          // TENANT (scopables) — chacun couvre l'utilisateur de base.
+          ROLE_ADMIN: ["ROLE_USER"], // admin applicatif (gestion des utilisateurs)
+          ROLE_SECURITY_AUDITOR: ["ROLE_USER"], // audit sécurité (journal, firewall lecture)
+          ROLE_DEV: ["ROLE_USER"], // développeur (ORM, modules, routes, doc technique)
+          ROLE_SUPERVISOR: ["ROLE_USER"], // exploitant / SRE (supervision, cluster, logs)
         },
       },
       { policy: "mandatory" },

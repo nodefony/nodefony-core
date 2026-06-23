@@ -4,6 +4,7 @@ import {
   Get,
   controller,
   BypassFirewall,
+  IsGranted,
 } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
@@ -141,15 +142,14 @@ class StudioController extends Controller {
   @BypassFirewall
   @Get("/studio/api/info")
   apiInfo() {
+    // PUBLIC (pré-auth, écran de login) → surface MINIMALE. On ne donne PAS à un
+    // anonyme une empreinte exploitable : version Node EXACTE (corrélation CVE),
+    // mémoire/pid live du pod, flag debug. Les infos runtime riches vivent sur
+    // /studio/api/stats (gardé ROLE_SUPERVISOR).
     return this.renderJson({
       name: "Nodefony Studio",
       version: "10.0.0-poc.1",
       env: this.kernel?.environment,
-      debug: Boolean(this.kernel?.debug),
-      pid: process.pid,
-      node: process.version,
-      platform: process.platform,
-      memory: process.memoryUsage(),
     });
   }
 
@@ -160,6 +160,12 @@ class StudioController extends Controller {
    * sans ouvrir de flux WS. CPU% + event-loop échantillonnés sur une courte
    * fenêtre (~150 ms) ; `gc` null (nécessite un observer dans la durée).
    */
+  // Supervision process (CPU/mémoire/event-loop/branche git) = observabilité
+  // réservée à l'exploitant. RBAC ROLE_SUPERVISOR (cohérent avec la page Studio
+  // « Supervision », bundle ops) ; ROLE_NODEFONY_ADMIN l'a par hiérarchie. Un
+  // ROLE_USER simple n'a PAS accès (était lisible par tout authentifié — oubli
+  // pré-P6 : monté hors broker, donc sans le RBAC du data plane).
+  @IsGranted("ROLE_SUPERVISOR")
   @Get("/studio/api/stats")
   async apiStats() {
     const k = this.kernel;

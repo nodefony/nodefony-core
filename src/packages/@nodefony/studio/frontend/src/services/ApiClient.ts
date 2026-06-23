@@ -50,7 +50,6 @@ export interface ApiErrorInfo {
 
 export interface ApiClientOptions {
   baseUrl?: string;
-  getToken?: () => string | null;
   onUnauthorized?: () => void;
   /** Notifié sur toute réponse non-2xx → branché au centre de notifications. */
   onError?: (info: ApiErrorInfo) => void;
@@ -100,7 +99,6 @@ function routeKey(url: string): string {
 
 export class ApiClient {
   private readonly baseUrl: string;
-  private readonly getToken: () => string | null;
   private readonly onUnauthorized?: () => void;
   private readonly onError?: (info: ApiErrorInfo) => void;
   private readonly socket?: ApiSocketLike;
@@ -116,7 +114,6 @@ export class ApiClient {
 
   constructor(opts: ApiClientOptions = {}) {
     this.baseUrl = opts.baseUrl ?? "/nodefony/studio/api";
-    this.getToken = opts.getToken ?? (() => null);
     this.onUnauthorized = opts.onUnauthorized;
     this.onError = opts.onError;
     this.socket = opts.socket;
@@ -265,8 +262,8 @@ export class ApiClient {
     const headers = new Headers(init?.headers);
     headers.set("Accept", "application/json");
     if (body !== undefined) headers.set("Content-Type", "application/json");
-    const token = this.getToken();
-    if (token) headers.set("Authorization", `Bearer ${token}`);
+    // Auth = cookie de session BFF HttpOnly (envoyé via `credentials:same-origin`),
+    // PAS de Bearer JS-exposé (P6 : plus de JWT en localStorage → anti-XSS).
 
     const res = await fetch(url, {
       ...init,

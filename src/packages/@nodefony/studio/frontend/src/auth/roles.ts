@@ -21,13 +21,30 @@
 import { hasAnyRole, hasRole } from "nodefony/roles";
 import { useAuth } from "../stores";
 
+// ── Échelle TENANT (ROLE_* — scopables au tenant de l'acteur en multi-tenant) ─
+// Mono-tenant aujourd'hui = rôles plats (`user.roles`). Multi-tenant (P17) =
+// résolus depuis le membership user×tenant (cf nodefony.config.ts roleHierarchy
+// + project_multitenant_chantier_kit). La hiérarchie serveur fait hériter chacun
+// de ROLE_USER, et ROLE_NODEFONY_ADMIN couvre tous ces rôles métier.
+
 /** Utilisateur authentifié de base (toute session valide). Self-service. */
 export const ROLE_USER = "ROLE_USER";
-/** Accès au dashboard de supervision (santé / charge runtime). */
-export const ROLE_SUPERVISOR = "ROLE_SUPERVISOR";
-/** Voir les infos dev (branche git, debug) — divulgation interne. */
+/** Développeur : introspection (ORM, modules, routes, doc technique, infos dev). */
 export const ROLE_DEV = "ROLE_DEV";
-/** Administration complète de Studio (consoles sécurité, gouvernance). */
+/** Exploitant / SRE : santé et charge runtime (supervision, cluster, logs). */
+export const ROLE_SUPERVISOR = "ROLE_SUPERVISOR";
+/** Auditeur sécurité : journal d'audit, firewall en lecture. */
+export const ROLE_SECURITY_AUDITOR = "ROLE_SECURITY_AUDITOR";
+/** Admin applicatif : gestion des utilisateurs de l'application. */
+export const ROLE_ADMIN = "ROLE_ADMIN";
+
+// ── Échelle PLATEFORME (ROLE_NODEFONY_* — l'OPÉRATEUR de l'instance) ──────────
+// Convention : tout rôle `ROLE_NODEFONY_*` est GLOBAL / cross-tenant (l'hébergeur,
+// le « landlord » SaaS) — JAMAIS scopé à un tenant ni assigné à un client. Le
+// seul à transcender l'isolation tenant. NE PAS confondre avec un « admin de
+// tenant » (= ROLE_ADMIN, scopé à son organisation). Cf nodefony.config.ts.
+
+/** Super-admin de l'instance Nodefony : gouvernance complète (voit/fait tout). */
 export const ROLE_NODEFONY_ADMIN = "ROLE_NODEFONY_ADMIN";
 
 /**
@@ -35,12 +52,15 @@ export const ROLE_NODEFONY_ADMIN = "ROLE_NODEFONY_ADMIN";
  * sélecteurs de rôles (création / édition d'utilisateur). PAS une contrainte :
  * un rôle est une simple chaîne, l'admin peut en assigner d'autres (saisie
  * libre) et c'est le RBAC serveur qui tranche. Ordre = du moins au plus
- * privilégié (lecture humaine).
+ * privilégié (lecture humaine). `ROLE_NODEFONY_ADMIN` en dernier = sommet
+ * plateforme (à n'attribuer qu'à un opérateur de l'instance, pas à un client).
  */
 export const STUDIO_ROLES: readonly string[] = [
   ROLE_USER,
   ROLE_DEV,
   ROLE_SUPERVISOR,
+  ROLE_SECURITY_AUDITOR,
+  ROLE_ADMIN,
   ROLE_NODEFONY_ADMIN,
 ];
 

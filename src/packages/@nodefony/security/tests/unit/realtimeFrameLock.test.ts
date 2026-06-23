@@ -317,8 +317,21 @@ describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => 
       ),
       true,
     );
-    assert.equal(authorize({ method: "kernel:ping" }, ANON_TOKEN), true);
     assert.equal(authorize({}, ANON_TOKEN), true);
+  });
+
+  it("action kernel: (gc/ping) = namespace plateforme → anonyme ET user simple REFUS, ADMIN OK", () => {
+    // kernel:gc force un GC V8 (effet réel = DoS stop-the-world), kernel:ping
+    // sonde la liveness du pod : namespace de contrôle/observabilité plateforme →
+    // plancher ROLE_ADMIN (comme node:/cluster:/realtime:). Un authentifié
+    // non-admin ne doit pas pouvoir déclencher un GC sur le pod (oubli pré-P6 :
+    // `kernel:` n'était pas dans les préfixes système → action laissée libre).
+    assert.equal(authorize({ method: "kernel:gc" }, ANON_TOKEN), false);
+    assert.equal(authorize({ method: "kernel:gc" }, AUTH_TOKEN), false);
+    assert.equal(authorize({ method: "kernel:gc" }, ADMIN_TOKEN), true);
+    assert.equal(authorize({ method: "kernel:ping" }, ANON_TOKEN), false);
+    assert.equal(authorize({ method: "kernel:ping" }, AUTH_TOKEN), false);
+    assert.equal(authorize({ method: "kernel:ping" }, ADMIN_TOKEN), true);
   });
 });
 

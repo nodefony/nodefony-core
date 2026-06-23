@@ -88,6 +88,7 @@ export const DEFAULT_SYSTEM_PREFIXES = [
   "debugbar:", // debug bar (debugbar:stats)
   "realtime:", // sonde socket (realtime:health)
   "cluster:", // sonde cluster
+  "kernel:", // contrôle/sonde du pod (kernel:gc force un GC stop-the-world, kernel:ping liveness+RTT) — réservé admin
 ] as const;
 
 /**

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-22T22:40:40.428Z",
+  "generated": "2026-06-23T20:26:20.068Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -16654,7 +16654,9 @@
       "IsGranted": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
-        "src/modules/test/nodefony/secure/SecureWsController.ts"
+        "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
       "Anonymous": [
         "src/packages/@nodefony/framework/index.ts"
