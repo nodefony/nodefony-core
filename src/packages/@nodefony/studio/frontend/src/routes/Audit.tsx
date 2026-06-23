@@ -91,16 +91,14 @@ function describeAuditError(e: unknown): string {
   const status = (e as { status?: number } | null)?.status;
   if (status === 401) {
     return (
-      "Non authentifié — le firewall de sécurité ne reconnaît pas la session " +
-      "Studio. L'authentification de Studio est encore en mock : elle sera " +
-      "branchée sur le vrai firewall lors de la sécurisation de Studio (P6.15)."
+      "Non authentifié — votre session Studio a expiré ou n'est plus reconnue " +
+      "par le firewall. Reconnectez-vous."
     );
   }
   if (status === 403) {
     return (
       "Accès refusé — le journal d'audit est réservé aux administrateurs " +
-      "(ROLE_NODEFONY_ADMIN). L'authentification de Studio est encore en mock " +
-      "(sécurisation réelle = P6)."
+      "(ROLE_NODEFONY_ADMIN)."
     );
   }
   if (status === 503) {

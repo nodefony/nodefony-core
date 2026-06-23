@@ -8,14 +8,6 @@ export const Webhooks = () => (
   />
 );
 
-export const Audit = () => (
-  <StubPage
-    title="Audit Log"
-    description="Journal append-only des événements sécurité (login, access denied, key/webhook). Rôle ROLE_SECURITY_AUDITOR lecture seule."
-    phase="P6.14 + P6.15"
-  />
-);
-
 export const Services = () => (
   <StubPage
     title="Services"

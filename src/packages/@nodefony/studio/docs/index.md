@@ -17,10 +17,10 @@ Studio introspecte le framework — il ne contient **aucune logique métier**. T
 
 ## Partition du namespace `/nodefony` (tranché 2026-05-20)
 
-| Espace | Forme | Porté par |
-| --- | --- | --- |
-| UI SPA (humain) | `/nodefony` + `/nodefony/{page}` (mono-segment) | Studio (disparaît si absent) |
-| Data plane admin (machine) | `/nodefony/<module>/api/*` (≥ 3 segments) | chaque module |
+| Espace                     | Forme                                           | Porté par                    |
+| -------------------------- | ----------------------------------------------- | ---------------------------- |
+| UI SPA (humain)            | `/nodefony` + `/nodefony/{page}` (mono-segment) | Studio (disparaît si absent) |
+| Data plane admin (machine) | `/nodefony/<module>/api/*` (≥ 3 segments)       | chaque module                |
 
 Règle figée : **jamais** de route admin mono-segment `/nodefony/<module>` (collision avec une page SPA).
 
@@ -44,7 +44,7 @@ WebSocket permanent `WS /nodefony/studio/api/realtime` (JSON-RPC 2.0, pub/sub pa
 
 ## État
 
-POC / partiel (P10.5 + P10.7). Auth = **mock** (`ROLE_NODEFONY_ADMIN`, vraie auth = P6). CSP overridée en dur (hack POC → migration `@nodefony/security`, P14.14).
+**P6 branché** (auth réelle livrée). Auth = firewall `@nodefony/security` (session BFF cookie, RBAC `ROLE_NODEFONY_ADMIN`) — mocks `/auth/*` supprimés. CSP posée par `@nodefony/security` (nonce par requête ; hack POC retiré). Pages Sécurité livrées : Sessions / Users / API Keys / Firewall / Audit / Profil.
 
 ## Voir aussi
 

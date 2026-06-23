@@ -24,7 +24,7 @@ problèmes rencontrés + leur fix). Source de vérité unique → ne PAS réinve
 
 **Admin web de Nodefony** — successeur du legacy `monitoring-bundle`. Backend = controller Nodefony exposant l'UI + des API. Frontend = SPA **React 19** servie via `@nodefony/frontend` (Vite). C'est le **1er consommateur prod** de `@nodefony/frontend`.
 
-**État : POC / partiel** (P10.5 + P10.7 = 🔶). Les API auth sont **mock** (vraie auth = P6). Le contrat `IAdminApi` (P10.2) n'est **pas encore créé** — aujourd'hui les endpoints sont en dur dans le controller.
+**État : P6 BRANCHÉ** (auth réelle livrée 2026-06). L'authentification passe par le **firewall `@nodefony/security`** (session BFF cookie opaque, RBAC data plane `ROLE_NODEFONY_ADMIN`) — les mocks `/auth/*` sont **SUPPRIMÉS**. Le contrat **`IAdminApi`/`AdminBroker` (P10.2) est livré** : chaque module expose son data plane via le broker (kernel/http/framework/security/syslog/orm/profiler/documentation). Pages Sécurité livrées : Sessions, Users, API Keys, Firewall, Audit, Profil self. Reste : Webhooks (P6.13), live `security:audit`.
 
 ---
 
@@ -71,14 +71,14 @@ src/packages/@nodefony/studio/
 | `/nodefony/{page}`         | GET     | SPA fallback 1 segment → même page React                                                                                                                                                                 |
 | `/nodefony/modules/{name}` | GET     | SPA fallback 2 segments **littéral** (deep-link/F5 sur `modules/:name`) → même page React. ⚠️ littéral `modules`, PAS `/{section}/{page}` (sinon masque `/nodefony/test/*` & co — régression 2026-05-20) |
 
-- **Data plane admin (machine)** — `/nodefony/studio/api/*`, ≥3 segments. Mocks "cat.3" hébergés ici faute de mieux, migreront vers leur module propriétaire (`/nodefony/<module>/api/*`) :
+- **Data plane admin (machine)** — `/nodefony/studio/api/*`, ≥3 segments. Endpoints utilitaires hébergés ici (le gros du data plane vit dans chaque module propriétaire via le broker) :
 
-| Route                                                                         | Méthode | Rôle                                                                                                                                                                                                                 | Cible migration       |
-| ----------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| `/nodefony/studio/api/health` · `/info`                                       | GET     | Ping / infos runtime (`/info` inclut `debug`)                                                                                                                                                                        | kernel                |
-| `/nodefony/studio/api/auth/login` (POST) · `/auth/me` · `/auth/logout` (POST) | —       | **MOCK** (accepte tout, JWT bidon, `ROLE_NODEFONY_ADMIN`)                                                                                                                                                            | @nodefony/security P6 |
-| `/nodefony/studio/api/realtime/info`                                          | GET     | Infos endpoint WS (available:**true**)                                                                                                                                                                               | P13.4/P13.7           |
-| `/nodefony/studio/api/realtime`                                               | **WS**  | **WebSocket permanent JSON-RPC 2.0** (`StudioRealtimeController`) — pub/sub par canal (`subscribe`/`unsubscribe` : `syslog:stream`, `dashboard:stats`, …) **+ actions requête→réponse** (`kernel:ping`, `kernel:gc`) | RealtimeService P13.4 |
+| Route                                                                  | Méthode | Rôle                                                                                                                                                                                                                 | Cible migration       |
+| ---------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `/studio/api/health` · `/info` (bypass) · `/stats` (`ROLE_SUPERVISOR`) | GET     | Ping public / infos minimales pré-login (`/info` réduit name/version/env — plus de version Node/mémoire/debug) / snapshot sondes process (gardé RBAC)                                                                | kernel                |
+| ~~`/nodefony/studio/api/auth/*`~~                                      | —       | **SUPPRIMÉ** → auth réelle sur `/nodefony/security/api/auth/*` (session BFF, `SessionAuthController` + `AuthFlow`)                                                                                                   | ✅ fait               |
+| `/nodefony/studio/api/realtime/info`                                   | GET     | Infos endpoint WS (available:**true**)                                                                                                                                                                               | P13.4/P13.7           |
+| `/nodefony/studio/api/realtime`                                        | **WS**  | **WebSocket permanent JSON-RPC 2.0** (`StudioRealtimeController`) — pub/sub par canal (`subscribe`/`unsubscribe` : `syslog:stream`, `dashboard:stats`, …) **+ actions requête→réponse** (`kernel:ping`, `kernel:gc`) | RealtimeService P13.4 |
 
 > **Pourquoi pas `/studio` pour l'UI** : `/nodefony` est réservé au framework, aucune app user n'y monte ses routes ; `/studio` entrerait en collision avec une route applicative. **Le framework boote sans Studio** — l'UI (cat.1) disparaît, le data plane par module (cat.2) reste porté par chaque module.
 > **Règle figée** : interdit aux modules une route admin mono-segment `/nodefony/<module>` — toujours `/nodefony/<module>/api/*`.
@@ -121,9 +121,9 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 
 ## TODO connus
 
-- **Types/exports** : `package.json` a `main` mais **pas** `types` ni `exports` → ajouter `dist/types/index.d.ts` + `exports` (cf table standard types, CLAUDE.md racine).
-- Remplacer les mocks `/api/auth/*` par le firewall P6.
-- Implémenter les 13 pages stub au fil des phases (Sessions P10.8, Users P10.8, Firewall/Logs P10.9, etc.).
+- **Types/exports** : `package.json` a `main` mais **pas** `types` ni `exports` (module `private:true` → types publics non critiques, mais écart au template racine).
+- ✅ ~~Remplacer les mocks `/api/auth/*` par le firewall P6~~ → **FAIT** (auth réelle session BFF, mocks supprimés).
+- Stubs restants = pages des **phases futures** : Webhooks (P6.13), couche IA P12 (Agents/Knowledge/LLM/MCP/Agent Guard/Approvals/AI Audit), Services/NPM/Migrations (P10.10/P11.4). Les pages **Sécurité** (Sessions/Users/Firewall/Audit/API Keys/Profil) et **System** (Modules/Routes/Database) sont LIVRÉES.
 
 ### Backlog UX page Logs (`frontend/src/routes/Logs.tsx`) — idées 2026-05-20
 
@@ -146,7 +146,7 @@ Combo recommandé 1ʳᵉ passe : **1 + 2 + 3 + 6**.
 ```bash
 bash .claude/skills/start-nodefony-server/start.sh   # depuis la RACINE du repo
 # → https://127.0.0.1:5152/nodefony  (accepter le cert sur 5152 ET le port Vite)
-# login mock : admin/admin
+# login RÉEL (firewall) : compte seedé admin / $NF_ADMIN_PASSWORD (dev : voir provisionUsers)
 ```
 
 ### Tests unit (vitest — scaffold 2026-05-21)

@@ -111,9 +111,8 @@ export function describeProfileError(e: unknown): string {
   const status = (e as { status?: number } | null)?.status;
   if (status === 401) {
     return (
-      "Non authentifié — le firewall ne reconnaît pas votre session Studio. " +
-      "L'authentification de Studio est encore en mock (branchement sur le vrai " +
-      "firewall = P6.15)."
+      "Non authentifié — votre session Studio a expiré ou n'est plus reconnue " +
+      "par le firewall. Reconnectez-vous."
     );
   }
   if (status === 403) {

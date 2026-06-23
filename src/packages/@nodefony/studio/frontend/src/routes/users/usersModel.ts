@@ -265,9 +265,8 @@ export function describeUsersError(e: unknown): string {
   const detail = errBodyMessage(e);
   if (status === 401) {
     return (
-      "Non authentifié — le firewall ne reconnaît pas la session Studio. " +
-      "L'authentification de Studio est encore en mock : elle sera branchée " +
-      "sur le vrai firewall lors de la sécurisation de Studio (P6.15)."
+      "Non authentifié — votre session Studio a expiré ou n'est plus reconnue " +
+      "par le firewall. Reconnectez-vous."
     );
   }
   if (status === 403) {
