@@ -40,8 +40,14 @@ export const frameworkConfigSchema = z
     watch: meta(z.boolean().default(true), {
       reserved: true,
       description:
-        "RÉSERVÉ — futur serveur HMR du framework (hot-reload dev). Non lu en " +
-        "runtime actuellement. NE PAS retirer (réservé feature, cf session 2026-05-30).",
+        "RÉSERVÉ (no-op) — le hot-reload dev (watch → rebuild ciblé → restart de " +
+        "process) est déjà assuré GLOBALEMENT par le DevSupervisor sur tout " +
+        "`src/` (liste de chemins fixe), PAS par ce flag. Un vrai HMR backend " +
+        "in-process est impossible en ESM (Node ne décharge pas un module déjà " +
+        "importé → le restart est le seul rechargement fiable ; le frontend garde " +
+        "le HMR Vite). Ce flag per-module n'est lu nulle part aujourd'hui ; " +
+        "réservé à un futur opt-out per-module du watch. NE PAS retirer (réservé, " +
+        "cf sessions 2026-05-30 / 2026-06-24).",
     }),
     router: serviceOptionsSchema
       .optional()
