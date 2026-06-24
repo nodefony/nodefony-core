@@ -1,4 +1,4 @@
-import { Kernel, Module } from "nodefony";
+import { Kernel, Module, appConfigJsonSchema } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import config from "./nodefony.config";
 import AppController from "./nodefony/controllers/AppController";
@@ -33,6 +33,15 @@ class App extends Module {
    */
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);
+  }
+
+  /**
+   * JSON Schema de la config d'APPLICATION → data plane admin (carte de l'app dans
+   * le panneau de config Studio). Schéma porté par le core (`appConfigSchema`,
+   * documenté), commun à toutes les apps Nodefony.
+   */
+  override configSchema(): unknown {
+    return appConfigJsonSchema();
   }
 
   /**

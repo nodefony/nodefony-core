@@ -262,7 +262,11 @@ export {
   envEnum,
 } from "./config/defineEnv";
 export { defaultAppConfig } from "./config/defaults";
-export { appConfigSchema, validateAppConfig } from "./config/schema";
+export {
+  appConfigSchema,
+  appConfigJsonSchema,
+  validateAppConfig,
+} from "./config/schema";
 export type { AppConfig } from "./config/schema";
 export { configReactivity, getConfigReactivity } from "./config/reactivity";
 export type { Reactivity } from "./config/reactivity";

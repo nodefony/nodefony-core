@@ -26,6 +26,7 @@ import { Kernel, Module, services, withTimeout } from "nodefony";
 import defaultConfig from "./nodefony/config/config";
 import {
   defineRealtimeConfig,
+  realtimeConfigJsonSchema,
   type IRealtimeConfig,
   type IRealtimeConfigInput,
 } from "./nodefony/config/defineRealtimeConfig";
@@ -157,6 +158,11 @@ class Realtime extends Module {
       this.#clusterRole = role;
       this.#wireClusterProbe(role);
     });
+  }
+
+  /** JSON Schema de la config realtime → data plane admin (config riche Studio). */
+  override configSchema(): unknown {
+    return realtimeConfigJsonSchema();
   }
 
   /**

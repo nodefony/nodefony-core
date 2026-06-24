@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-24T18:16:59.199Z",
+  "generated": "2026-06-24T19:39:08.294Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 937,
-    "symbols": 2107,
+    "files": 939,
+    "symbols": 2113,
     "classes": 297,
     "interfaces": 559,
-    "types": 251,
+    "types": 252,
     "enums": 3,
-    "functions": 487,
-    "constants": 510
+    "functions": 491,
+    "constants": 511
   },
   "symbols": {
     "Cli": {
@@ -588,6 +588,14 @@
       "module": "@nodefony/core",
       "description": "Type inféré de la config app (source unique TS ↔ runtime)."
     },
+    "appConfigJsonSchema": {
+      "name": "appConfigJsonSchema",
+      "kind": "function",
+      "file": "src/nodefony/src/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "JSON Schema introspectable de la config d'application — destiné au panneau de config Studio (`/nodefony/config`, carte de l'app). Documenté via les `.describe()` du schéma (rôle + défaut de chaque …"
+    },
     "validateAppConfig": {
       "name": "validateAppConfig",
       "kind": "function",
@@ -602,7 +610,7 @@
       "file": "src/nodefony/src/config/schema.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Schéma de la config app résolue. Exposé pour l'introspection (Studio : `z.toJSONSchema(appConfigSchema)` → formulaire de config éditable)."
+      "description": "Schéma de la config app résolue. Exposé pour l'introspection (Studio : `z.toJSONSchema(appConfigSchema)` → panneau de config + formulaire éditable). Chaque champ porte un `.describe()` FR (rôle + d…"
     },
     "ModuleEntryInput": {
       "name": "ModuleEntryInput",
@@ -4506,6 +4514,14 @@
       "module": "@nodefony/documentation",
       "description": "Valide une config partielle (défauts du schéma) PUIS applique la surcharge par variables d'environnement (précédence max)."
     },
+    "documentationConfigJsonSchema": {
+      "name": "documentationConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/config/defineDocumentationConfig.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "JSON Schema introspectable de la config documentation — destiné au panneau de config Studio (`/nodefony/config`). N'inclut PAS la surcharge ENV (appliquée hors schéma, dans le builder)."
+    },
     "DocumentationConfig": {
       "name": "DocumentationConfig",
       "kind": "type",
@@ -5986,10 +6002,41 @@
       "decorators": [],
       "description": "`nodefony frontend:status` — lit l'état du superviseur Vite. Utilisé par Vision (Phase 10) pour afficher l'état du builder dans son tableau de bord admin."
     },
+    "IFrontendConfigInput": {
+      "name": "IFrontendConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Entrée du builder (champs avec défaut optionnels)."
+    },
+    "defineFrontendConfig": {
+      "name": "defineFrontendConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Builder type-safe de la configuration de `@nodefony/frontend`. Principes (alignés sur `defineRealtimeConfig` / famille ORM) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE + GÈLE, ne…"
+    },
+    "frontendConfigJsonSchema": {
+      "name": "frontendConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "JSON Schema introspectable de la config frontend — destiné au panneau de config Studio (`/nodefony/config`)."
+    },
     "FrontendConfig": {
       "name": "FrontendConfig",
       "kind": "type",
-      "file": "src/packages/@nodefony/frontend/nodefony/config/config.ts",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/frontend"
+    },
+    "frontendConfigSchema": {
+      "name": "frontendConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/schema.ts",
       "exported": true,
       "module": "@nodefony/frontend"
     },
@@ -16421,6 +16468,9 @@
       "defineDocumentationConfig": [
         "src/packages/@nodefony/documentation/index.ts"
       ],
+      "documentationConfigJsonSchema": [
+        "src/packages/@nodefony/documentation/index.ts"
+      ],
       "DocumentationService": [
         "src/packages/@nodefony/documentation/index.ts"
       ],
@@ -16757,6 +16807,15 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
+      "defineFrontendConfig": [
+        "src/packages/@nodefony/frontend/index.ts"
+      ],
+      "frontendConfigJsonSchema": [
+        "src/packages/@nodefony/frontend/index.ts"
+      ],
+      "IFrontendConfigInput": [
+        "src/packages/@nodefony/frontend/index.ts"
+      ],
       "createFrontendAdminApi": [
         "src/packages/@nodefony/frontend/index.ts"
       ],
@@ -16952,6 +17011,9 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "defineRealtimeConfig": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "realtimeConfigJsonSchema": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
       "IRealtimeConfig": [
@@ -18763,6 +18825,15 @@
       "listLogDrivers": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
+      "frontendConfigSchema": [
+        "src/packages/@nodefony/frontend/nodefony/config/config.ts",
+        "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts"
+      ],
+      "FrontendConfig": [
+        "src/packages/@nodefony/frontend/nodefony/config/config.ts",
+        "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
       "IFrontPreset": [
         "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontBuilder.ts",
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts",
@@ -18823,9 +18894,6 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "PRIMARY_FAMILY": [
-        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
-      ],
-      "FrontendConfig": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "FrontendPresetUnknownError": [

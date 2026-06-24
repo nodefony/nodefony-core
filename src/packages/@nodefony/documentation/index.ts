@@ -18,7 +18,10 @@
 import { GitService, Kernel, Module, services } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import config from "./nodefony/config/config";
-import { defineDocumentationConfig } from "./nodefony/config/defineDocumentationConfig";
+import {
+  defineDocumentationConfig,
+  documentationConfigJsonSchema,
+} from "./nodefony/config/defineDocumentationConfig";
 import DocumentationService from "./nodefony/service/DocumentationService";
 import DocumentationController from "./nodefony/controller/DocumentationController";
 
@@ -30,6 +33,11 @@ class Documentation extends Module {
 
   constructor(kernel: Kernel) {
     super("documentation", kernel, import.meta.url, config);
+  }
+
+  /** JSON Schema de la config documentation → data plane admin (config riche Studio). */
+  override configSchema(): unknown {
+    return documentationConfigJsonSchema();
   }
 
   /**
@@ -73,7 +81,10 @@ export default Documentation;
 export { DocumentationService, DocumentationController };
 
 // Config — schéma Zod (source de vérité) + builder
-export { defineDocumentationConfig } from "./nodefony/config/defineDocumentationConfig";
+export {
+  defineDocumentationConfig,
+  documentationConfigJsonSchema,
+} from "./nodefony/config/defineDocumentationConfig";
 export {
   documentationConfigSchema,
   type DocumentationConfig,

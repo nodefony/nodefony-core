@@ -12,11 +12,23 @@
 import type { IAdminRegistry } from "nodefony";
 import { Kernel, Module, services } from "nodefony";
 import config from "./nodefony/config/config";
+import {
+  defineFrontendConfig,
+  frontendConfigJsonSchema,
+  type IFrontendConfigInput,
+} from "./nodefony/config/defineFrontendConfig";
 import FrontendService from "./nodefony/service/FrontendService";
 import { createFrontendAdminApi } from "./nodefony/src/FrontendAdminApi";
 import FrontendBuild from "./nodefony/command/frontend-build";
 import FrontendDev from "./nodefony/command/frontend-dev";
 import FrontendStatus from "./nodefony/command/frontend-status";
+
+// Augmente le registre du core (declaration merging) → `use("@nodefony/frontend", …)` typé.
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/frontend": IFrontendConfigInput;
+  }
+}
 
 @services([FrontendService])
 class Frontend extends Module {
@@ -25,6 +37,33 @@ class Frontend extends Module {
     this.addCommand(FrontendBuild);
     this.addCommand(FrontendDev);
     this.addCommand(FrontendStatus);
+  }
+
+  /** JSON Schema de la config frontend → data plane admin (config riche Studio). */
+  override configSchema(): unknown {
+    return frontendConfigJsonSchema();
+  }
+
+  /**
+   * Phase `onRegister` : valide la config (défauts + override `module-frontend`)
+   * via `defineFrontendConfig`, puis la ré-assigne à `this.options` AVANT
+   * l'instanciation du `@services` (`FrontendService` lit `module.options` à sa
+   * construction). Plante propre avec messages clairs si la config est invalide
+   * (convention Zod figée 2026-05-28).
+   */
+  override async onKernelRegister(): Promise<this> {
+    try {
+      this.options = defineFrontendConfig(this.options as IFrontendConfigInput);
+    } catch (e) {
+      const issues =
+        e instanceof Error && "issues" in e && Array.isArray(e.issues)
+          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
+              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+              .join(" · ")
+          : (e as Error).message;
+      throw new Error(`[@nodefony/frontend] Invalid config: ${issues}`);
+    }
+    return this;
   }
 
   /**
@@ -101,4 +140,14 @@ export type {
   ViteSupervisorState,
 } from "./nodefony/interfaces/IViteSupervisor";
 export type { IFrontendService } from "./nodefony/interfaces/IFrontendService";
-export type { FrontendConfig } from "./nodefony/config/config";
+
+// Config — schéma Zod (source de vérité) + builder + JSON Schema (config Studio).
+export {
+  defineFrontendConfig,
+  frontendConfigJsonSchema,
+  type IFrontendConfigInput,
+} from "./nodefony/config/defineFrontendConfig";
+export {
+  frontendConfigSchema,
+  type FrontendConfig,
+} from "./nodefony/config/schema";

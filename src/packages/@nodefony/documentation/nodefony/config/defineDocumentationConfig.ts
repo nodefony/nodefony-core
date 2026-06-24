@@ -7,6 +7,7 @@
  *
  * @see ./schema.ts — source de vérité (types dérivés via z.infer)
  */
+import { z } from "zod";
 import { documentationConfigSchema, type DocumentationConfig } from "./schema";
 
 /** Lit une variable d'env non vide, ou `undefined` si absente/vide. */
@@ -37,6 +38,15 @@ export function defineDocumentationConfig(
   if (branchEnv) parsed.repo.branch = branchEnv;
 
   return parsed;
+}
+
+/**
+ * JSON Schema introspectable de la config documentation — destiné au panneau de
+ * config Studio (`/nodefony/config`). N'inclut PAS la surcharge ENV (appliquée
+ * hors schéma, dans le builder).
+ */
+export function documentationConfigJsonSchema(): unknown {
+  return z.toJSONSchema(documentationConfigSchema);
 }
 
 export { documentationConfigSchema } from "./schema";
