@@ -35,6 +35,14 @@ function stripAbs(s: string): string {
 }
 
 /**
+ * Clés dont la VALEUR est un secret (JWT, CSRF, OAuth client secret, clé privée).
+ * Redactées dans la config exposée au data plane — Zero Trust : un secret n'est
+ * JAMAIS renvoyé en clair, même à un admin (cf page Firewall qui redacte déjà).
+ */
+const SECRET_KEY =
+  /secret|password|passwd|passphrase|privatekey|keysetjson|clientsecret|credential/i;
+
+/**
  * Sérialisation défensive de config : borne la profondeur, neutralise les
  * fonctions, casse les cycles, et **relativise les chemins absolus** (sécu :
  * ne jamais exposer l'arborescence serveur). Les `options` d'un module peuvent
@@ -60,12 +68,21 @@ function safeConfig(
   }
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(value as Record<string, unknown>).slice(0, 200)) {
+    const raw = (value as Record<string, unknown>)[k];
+    // Redaction des secrets AVANT sérialisation : la valeur ne quitte jamais le
+    // serveur en clair. On ne redacte que les valeurs réellement posées (une clé
+    // secrète vide en dev = pas un secret → laissée telle quelle).
+    if (
+      SECRET_KEY.test(k) &&
+      raw != null &&
+      raw !== "" &&
+      typeof raw !== "boolean"
+    ) {
+      out[k] = "[redacted]";
+      continue;
+    }
     try {
-      out[k] = safeConfig(
-        (value as Record<string, unknown>)[k],
-        depth + 1,
-        seen,
-      );
+      out[k] = safeConfig(raw, depth + 1, seen);
     } catch {
       out[k] = "[unreadable]";
     }
@@ -279,6 +296,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             dependencies: core.dependencies,
             services: [],
             config: {},
+            configSchema: null,
             docsCount: await countModuleDocs(core.path),
             symbolsCount: (await listModuleSymbols(CORE_PACKAGE)).length,
             coverageLines: (await readCoverage(core.path)).total?.lines ?? null,
@@ -311,6 +329,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           dependencies: mod.getDependencies?.() ?? [],
           services,
           config: safeConfig(mod.options ?? {}),
+          // JSON Schema de la config (réglages documentés + flags meta) si le
+          // module est migré Zod — sinon null (Studio retombe sur le dump brut).
+          configSchema: mod.configSchema(),
           docsCount: await countModuleDocs(mod.path),
           symbolsCount: (await listModuleSymbols(pkg)).length,
           coverageLines: (await readCoverage(mod.path)).total?.lines ?? null,

@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { resolveModuleConfig } from "./config/moduleConfigPanels";
+import { jsonSchemaToSections } from "./config/jsonSchemaToSections";
 import dayjs from "dayjs";
 import {
   ActionIcon,
@@ -79,6 +79,8 @@ interface ModuleDetailData {
   dependencies: string[];
   services: { name: string; class: string | null }[];
   config: Record<string, unknown>;
+  /** JSON Schema de la config (réglages documentés) si le module est migré Zod. */
+  configSchema?: unknown;
 }
 interface RouteRow {
   name: string;
@@ -290,11 +292,18 @@ export const ModuleDetail = observer(() => {
   const hasDeps = data.dependencies.length > 0;
   const hasRoutes = routes.length > 0;
   const hasServices = data.services.length > 0;
-  // Config RICHE (ConfigLayout + card synthèse) si le module est enregistré ;
-  // sinon fallback dump ConfigView. http (migré Zod) = 1er cas riche.
-  const cfg = resolveModuleConfig(name, data.key, data.name);
+  // Config RICHE (ConfigLayout + card synthèse) : la config EFFECTIVE est la
+  // colonne vertébrale (montre TOUT ce qui tourne, connecteurs compris) ; le JSON
+  // Schema (si le module est migré Zod) AJOUTE la doc (type/défaut/flags). Tout
+  // module ayant une config en bénéficie ; ConfigView ne sert que de filet ultime.
+  const cfgSections = jsonSchemaToSections(
+    data.configSchema ?? null,
+    data.config,
+  );
+  const richCfg = cfgSections.length ? cfgSections : null;
+  const schemaStatus: "zod" | "none" = data.configSchema ? "zod" : "none";
   const hasConfig =
-    !!cfg || (!!data.config && Object.keys(data.config).length > 0);
+    !!richCfg || (!!data.config && Object.keys(data.config).length > 0);
 
   return (
     <PageLayout
@@ -514,11 +523,11 @@ export const ModuleDetail = observer(() => {
                 </Grid.Col>
                 {hasConfig && (
                   <Grid.Col span={{ base: 12, md: 6 }}>
-                    {cfg ? (
+                    {richCfg ? (
                       <ConfigSummaryCard
-                        module={cfg.module}
-                        schema={cfg.schema}
-                        sections={cfg.sections}
+                        module={data.name}
+                        schema={schemaStatus}
+                        sections={richCfg}
                         onOpen={() => setTab("config")}
                       />
                     ) : (
@@ -665,11 +674,11 @@ export const ModuleDetail = observer(() => {
 
           {hasConfig && (
             <Tabs.Panel value="config">
-              {cfg ? (
+              {richCfg ? (
                 <ConfigLayout
-                  module={cfg.module}
-                  schema={cfg.schema}
-                  sections={cfg.sections}
+                  module={data.name}
+                  schema={schemaStatus}
+                  sections={richCfg}
                 />
               ) : (
                 <ScrollArea h={520} type="auto" offsetScrollbars>

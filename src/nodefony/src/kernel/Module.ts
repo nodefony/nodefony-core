@@ -112,6 +112,27 @@ class Module extends Service implements IModule {
   }
 
   /**
+   * Schéma JSON (`z.toJSONSchema`) de la configuration du module, ou `null` si le
+   * module n'est pas (encore) migré vers une validation Zod.
+   *
+   * Lu par le data plane admin ({@link KernelAdminApi} endpoint `module/{name}`) :
+   * Studio affiche alors la config en mode « réglages documentés » (clé, type,
+   * défaut, valeurs possibles, état, et valeur effective issue de `options`) au
+   * lieu d'un dump brut clé→valeur. Les flags Nodefony (`reserved`,
+   * `runtimeMutable`, `kernelDerived`, `secret`) attachés via `meta()` sont
+   * recopiés dans le JSON Schema par `z.toJSONSchema()` et exploités par l'UI.
+   *
+   * Défaut `null` (aucun schéma). Un module migré **override** pour renvoyer son
+   * `xConfigJsonSchema()`. Le core n'importe PAS zod : la sérialisation vit dans
+   * chaque module qui possède son schéma (0 dépendance ajoutée au cœur).
+   *
+   * @returns le JSON Schema de la config du module, ou `null`.
+   */
+  configSchema(): unknown | null {
+    return null;
+  }
+
+  /**
    * Résout le chemin source du module (`module.path`) — normalise URL `file://`,
    * remonte au-dessus de `dist/` si nécessaire.
    *

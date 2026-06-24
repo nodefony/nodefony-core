@@ -33,6 +33,11 @@ class Drizzle extends Module {
     super("drizzle", kernel, import.meta.url, config);
   }
 
+  /** JSON Schema de la config drizzle → data plane admin (config riche Studio). */
+  override configSchema(): unknown {
+    return drizzleConfigJsonSchema();
+  }
+
   /**
    * Valide la config (défauts + `module.options` + surcharge env) au boot via
    * `defineDrizzleConfig`, et l'expose au container sous `drizzleConfig` pour que

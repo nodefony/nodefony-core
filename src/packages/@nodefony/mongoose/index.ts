@@ -46,6 +46,11 @@ class Mongoose extends Module {
     super("mongoose", kernel, import.meta.url, config);
   }
 
+  /** JSON Schema de la config mongoose → data plane admin (config riche Studio). */
+  override configSchema(): unknown {
+    return mongooseConfigJsonSchema();
+  }
+
   /**
    * Valide la config (défauts + `module.options` + surcharge env) au boot via
    * `defineMongooseConfig`, et l'expose au container sous `mongooseConfig` pour

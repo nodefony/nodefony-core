@@ -2,6 +2,7 @@ import { Kernel, Module, services } from "nodefony";
 import type { IAdminRegistry } from "nodefony";
 import config from "./nodefony/config/config";
 import { defineHttpConfig } from "./nodefony/config/defineHttpConfig";
+import { httpConfigJsonSchema } from "./nodefony/config/schema";
 import type { IHttpConfigInput } from "./nodefony/interfaces/IHttpConfig";
 import { createHttpAdminApi } from "./nodefony/service/HttpAdminApi";
 import { createProfilerAdminApi } from "./nodefony/service/ProfilerAdminApi";
@@ -54,6 +55,16 @@ class Http extends Module {
     this.addCommand(certificatesCommand);
     this.addCommand(proxyGenerateCommand);
     this.addCommand(assetsPublishCommand);
+  }
+
+  /**
+   * Expose le JSON Schema de la config http (dérivé du schéma Zod, flags `meta()`
+   * inclus) au data plane admin → Studio rend la config en réglages documentés
+   * (type, défaut, état, valeur effective) au lieu d'un dump brut. Override du
+   * seam {@link Module.configSchema}.
+   */
+  override configSchema(): unknown {
+    return httpConfigJsonSchema();
   }
 
   /**

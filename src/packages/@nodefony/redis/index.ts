@@ -38,6 +38,11 @@ class Redis extends Module {
     super("redis", kernel, import.meta.url, defaultConfig);
   }
 
+  /** JSON Schema de la config redis → data plane admin (config riche Studio). */
+  override configSchema(): unknown {
+    return redisConfigJsonSchema();
+  }
+
   /**
    * Valide la config (défauts + `module.options` + surcharge env) au boot via
    * `defineRedisConfig`, et l'expose au container sous `redisConfig` pour que le

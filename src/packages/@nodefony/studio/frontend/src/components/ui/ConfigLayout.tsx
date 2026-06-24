@@ -19,7 +19,7 @@
  * `z.toJSONSchema()`) vers `sections`. La structure ne change pas quand on passe
  * du mode schéma au mode effectif.
  */
-import type { ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Badge,
   Box,
@@ -29,9 +29,9 @@ import {
   Stack,
   Table,
   Text,
+  TextInput,
   ThemeIcon,
   Title,
-  Tooltip,
 } from "@mantine/core";
 import {
   IconSettings,
@@ -40,8 +40,9 @@ import {
   IconWand,
   IconEyeOff,
   IconArrowRight,
+  IconSearch,
 } from "@tabler/icons-react";
-import { DocHint } from "./DocHint";
+import { DocHint, TipHint, WarnHint } from "./DocHint";
 
 /** D'où vient la valeur effective gagnante dans la cascade de surcharge. */
 export type ConfigSource = "default" | "module" | "app" | "env" | "runtime";
@@ -157,11 +158,18 @@ const SCHEMA_META: Record<
 function SourceBadge({ source }: { source: ConfigSource }) {
   const m = SOURCE_META[source];
   return (
-    <Tooltip label={m.help} multiline w={260} withArrow>
-      <Badge size="xs" variant="light" color={m.color} tt="none">
+    <DocHint title="Provenance de la valeur" summary={m.help} width={260}>
+      <Badge
+        size="xs"
+        variant="light"
+        color={m.color}
+        tt="none"
+        tabIndex={0}
+        style={{ cursor: "help" }}
+      >
         {m.label}
       </Badge>
-    </Tooltip>
+    </DocHint>
   );
 }
 
@@ -174,11 +182,10 @@ function StateBadges({ f }: { f: ConfigField }) {
   return (
     <Group gap={4} wrap="wrap">
       {f.reserved ? (
-        <Tooltip
-          label="Réservé à une feature future — pas lu en runtime aujourd'hui."
-          multiline
-          w={240}
-          withArrow
+        <WarnHint
+          title="Réservé"
+          summary="Réservé à une feature future — pas lu en runtime aujourd'hui."
+          width={240}
         >
           <Badge
             size="sm"
@@ -186,16 +193,17 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="gray"
             leftSection={<IconLock size={11} />}
             tt="none"
+            tabIndex={0}
+            style={{ cursor: "help" }}
           >
             réservé
           </Badge>
-        </Tooltip>
+        </WarnHint>
       ) : f.mutability === "live" ? (
-        <Tooltip
-          label="Modifiable à chaud (relu à chaque requête) — en développement. Figé en production."
-          multiline
-          w={260}
-          withArrow
+        <TipHint
+          title="Modifiable à chaud"
+          summary="Relu à chaque requête — modifiable en développement sans redémarrage. Figé en production."
+          width={260}
         >
           <Badge
             size="sm"
@@ -203,26 +211,17 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="teal"
             leftSection={<IconBolt size={11} />}
             tt="none"
+            tabIndex={0}
+            style={{ cursor: "help" }}
           >
             à chaud (dev)
           </Badge>
-        </Tooltip>
+        </TipHint>
       ) : f.mutability === "readonly" ? (
-        <Badge
-          size="sm"
-          variant="light"
-          color="gray"
-          leftSection={<IconLock size={11} />}
-          tt="none"
-        >
-          lecture seule
-        </Badge>
-      ) : (
-        <Tooltip
-          label="Pris en compte au démarrage (12-factor) — éditer la config / l'env puis redémarrer."
-          multiline
-          w={260}
-          withArrow
+        <DocHint
+          title="Lecture seule"
+          summary="Réglage non modifiable au runtime."
+          width={220}
         >
           <Badge
             size="sm"
@@ -230,17 +229,36 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="gray"
             leftSection={<IconLock size={11} />}
             tt="none"
+            tabIndex={0}
+            style={{ cursor: "help" }}
+          >
+            lecture seule
+          </Badge>
+        </DocHint>
+      ) : (
+        <DocHint
+          title="Au redémarrage"
+          summary="Pris en compte au démarrage (12-factor) — éditer la config / l'env puis redémarrer le serveur."
+          width={260}
+        >
+          <Badge
+            size="sm"
+            variant="light"
+            color="gray"
+            leftSection={<IconLock size={11} />}
+            tt="none"
+            tabIndex={0}
+            style={{ cursor: "help" }}
           >
             au redémarrage
           </Badge>
-        </Tooltip>
+        </DocHint>
       )}
       {f.kernelDerived && (
-        <Tooltip
-          label="Valeur par défaut calculée à partir du kernel (tmpDir, domain…) → affichée « auto »."
-          multiline
-          w={260}
-          withArrow
+        <DocHint
+          title="Auto (kernel)"
+          summary="Valeur par défaut calculée à partir du kernel (tmpDir, domain…) → affichée « auto » ; la valeur effective est la valeur résolue au boot."
+          width={260}
         >
           <Badge
             size="sm"
@@ -248,17 +266,18 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="cyan"
             leftSection={<IconWand size={11} />}
             tt="none"
+            tabIndex={0}
+            style={{ cursor: "help" }}
           >
             auto (kernel)
           </Badge>
-        </Tooltip>
+        </DocHint>
       )}
       {f.secret && (
-        <Tooltip
-          label="Donnée sensible : masquée dans Studio, rédigée dans les logs."
-          multiline
-          w={240}
-          withArrow
+        <WarnHint
+          title="Secret"
+          summary="Donnée sensible : masquée dans Studio, rédigée dans les logs."
+          width={240}
         >
           <Badge
             size="sm"
@@ -266,10 +285,12 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="orange"
             leftSection={<IconEyeOff size={11} />}
             tt="none"
+            tabIndex={0}
+            style={{ cursor: "help" }}
           >
             secret
           </Badge>
-        </Tooltip>
+        </WarnHint>
       )}
     </Group>
   );
@@ -307,9 +328,26 @@ function CascadeHint() {
   );
 }
 
+/** Normalise pour une recherche tolérante (sans accents, minuscules). */
+function normalizeText(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+/** Concatène le texte recherchable d'un réglage (champs string uniquement). */
+function fieldSearchText(f: ConfigField): string {
+  const parts = [f.key];
+  if (typeof f.type === "string") parts.push(f.type);
+  if (typeof f.description === "string") parts.push(f.description);
+  if (typeof f.constraint === "string") parts.push(f.constraint);
+  return parts.join(" ");
+}
+
 /**
- * Visualise la configuration d'un module : en-tête + statut schéma, puis une
- * table par section. Mode schéma ou effectif selon les données.
+ * Visualise la configuration d'un module : en-tête + statut schéma, recherche,
+ * puis une table par section. Mode schéma ou effectif selon les données.
  */
 export function ConfigLayout({
   module,
@@ -318,9 +356,36 @@ export function ConfigLayout({
   notice,
 }: ConfigLayoutProps) {
   const sm = SCHEMA_META[schema];
+  const [query, setQuery] = useState("");
+
+  // Filtre tolérant (accents-insensible, multi-termes : tous les mots présents)
+  // sur clé + titre de section + type + description + contrainte. Les sections
+  // sans champ retenu sont masquées.
+  const totalFields = sections.reduce((n, s) => n + s.fields.length, 0);
+  const visibleSections = useMemo(() => {
+    const terms = normalizeText(query.trim()).split(/\s+/).filter(Boolean);
+    if (!terms.length) return sections;
+    return sections
+      .map((s) => ({
+        ...s,
+        fields: s.fields.filter((f) => {
+          const hay = normalizeText(`${fieldSearchText(f)} ${s.title}`);
+          return terms.every((t) => hay.includes(t));
+        }),
+      }))
+      .filter((s) => s.fields.length > 0);
+  }, [sections, query]);
+  const shownFields = visibleSections.reduce((n, s) => n + s.fields.length, 0);
   // Mode effectif dès qu'un champ porte une valeur effective (sinon mode schéma).
   const hasEffective = sections.some((s) =>
     s.fields.some((f) => f.effective !== undefined),
+  );
+  // La cascade de PROVENANCE (défaut→module→app→env) ne s'affiche QUE si au moins
+  // un champ porte une `source` : on ne montre l'aide « d'où vient la valeur » que
+  // quand on sait répondre. Sinon (valeur effective sans provenance), on affiche la
+  // valeur sans prétendre connaître son origine.
+  const hasSource = sections.some((s) =>
+    s.fields.some((f) => f.source !== undefined),
   );
 
   return (
@@ -342,11 +407,17 @@ export function ConfigLayout({
           </Text>
           <Group gap={6} wrap="nowrap">
             <Title order={4}>{module}</Title>
-            <Tooltip label={sm.help} multiline w={300} withArrow>
-              <Badge variant="light" color={sm.color} tt="none">
+            <DocHint title="Statut du schéma" summary={sm.help} width={300}>
+              <Badge
+                variant="light"
+                color={sm.color}
+                tt="none"
+                tabIndex={0}
+                style={{ cursor: "help" }}
+              >
                 {sm.label}
               </Badge>
-            </Tooltip>
+            </DocHint>
             <DocHint
               title="Validation de la configuration (Zod)"
               summary="Nodefony valide la configuration au démarrage avec Zod : un réglage invalide fait échouer le boot tôt, plutôt qu'un bug obscur en cours d'exécution."
@@ -361,14 +432,41 @@ export function ConfigLayout({
                 },
               ]}
             />
-            {hasEffective && <CascadeHint />}
+            {hasSource && <CascadeHint />}
           </Group>
         </div>
       </Group>
 
       {notice}
 
-      {sections.map((section) => (
+      <Group justify="space-between" align="center" gap="sm" wrap="wrap">
+        <TextInput
+          value={query}
+          onChange={(e) => setQuery(e.currentTarget.value)}
+          placeholder="Rechercher un réglage…"
+          aria-label="Rechercher un réglage de configuration"
+          leftSection={<IconSearch size={15} />}
+          size="sm"
+          w={320}
+        />
+        <Text
+          size="xs"
+          c="dimmed"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {query.trim()
+            ? `${shownFields} / ${totalFields} réglages`
+            : `${totalFields} réglages`}
+        </Text>
+      </Group>
+
+      {visibleSections.length === 0 && (
+        <Text c="dimmed" size="sm">
+          Aucun réglage ne correspond à «&nbsp;{query.trim()}&nbsp;».
+        </Text>
+      )}
+
+      {visibleSections.map((section) => (
         <Stack key={section.title} gap="xs">
           <Title order={5}>{section.title}</Title>
           {section.description && (
@@ -403,9 +501,18 @@ export function ConfigLayout({
                         <Group gap={4} wrap="wrap">
                           <Code style={{ fontSize: 12 }}>{f.key}</Code>
                           {f.env && (
-                            <Tooltip label="Variable d'environnement (12-factor)">
-                              <Code style={{ fontSize: 10 }}>{f.env}</Code>
-                            </Tooltip>
+                            <DocHint
+                              title="Variable d'environnement"
+                              summary="Surcharge 12-factor : définir cette variable d'environnement surcharge le réglage au déploiement (priorité max dans la cascade)."
+                              width={260}
+                            >
+                              <Code
+                                style={{ fontSize: 10, cursor: "help" }}
+                                tabIndex={0}
+                              >
+                                {f.env}
+                              </Code>
+                            </DocHint>
                           )}
                         </Group>
                         {f.description && (

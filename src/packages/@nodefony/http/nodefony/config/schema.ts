@@ -843,3 +843,18 @@ export const httpConfigSchema = z
 
 export type HttpConfig = z.infer<typeof httpConfigSchema>;
 export type HttpConfigInput = z.input<typeof httpConfigSchema>;
+
+/**
+ * Schéma JSON (draft 2020-12) de la config http, dérivé du schéma Zod ci-dessus.
+ *
+ * `z.toJSONSchema()` recopie les `description`, `default`, types/contraintes ET
+ * les flags Nodefony attachés via {@link meta} (`reserved`, `runtimeMutable`,
+ * `kernelDerived`, `secret`) → source de vérité UNIQUE pour l'introspection
+ * Studio (page détail module, onglet Config) : plus de table de réglages recopiée
+ * à la main côté front. Exposé via {@link import("../../index").Http.configSchema}.
+ *
+ * @returns le JSON Schema de la configuration de `@nodefony/http`.
+ */
+export function httpConfigJsonSchema(): unknown {
+  return z.toJSONSchema(httpConfigSchema);
+}

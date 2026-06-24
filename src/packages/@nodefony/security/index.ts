@@ -14,6 +14,7 @@ import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi"
 import { registerUserAdminApi } from "@nodefony/user";
 import { registerUserRevocationCascade } from "./nodefony/src/admin/userRevocationCascade";
 import type { ISecurityConfigInput } from "./nodefony/config/defineSecurityConfig";
+import { securityConfigJsonSchema } from "./nodefony/config/defineSecurityConfig";
 
 // Augmente le registre du core (declaration merging) → `use("@nodefony/security", …)`
 // propose les CLÉS (cors/csrf/headers/areas…) ET les VALEURS enum (coop, frameguard,
@@ -53,6 +54,15 @@ declare module "nodefony" {
 class Security extends Module {
   constructor(kernel: Kernel) {
     super("security", kernel, fileURLToPath(import.meta.url), config);
+  }
+
+  /**
+   * JSON Schema de la config security → data plane admin (config riche Studio).
+   * ⚠️ Les VALEURS effectives des secrets (csrf/jwt/oauth) sont redactées côté
+   * serveur (`safeConfig`) AVANT envoi — le schéma ne décrit que la structure.
+   */
+  override configSchema(): unknown {
+    return securityConfigJsonSchema();
   }
 
   /**

@@ -1,22 +1,26 @@
 /**
- * **ConfigSummaryCard** — carte de **synthèse** de la configuration d'un module,
- * pour un accueil / une vue d'ensemble. Réutilisable PARTOUT (le pendant compact
- * de `ConfigLayout`).
+ * **ConfigSummaryCard** — carte de **synthèse + aperçu** de la configuration d'un
+ * module (vue d'ensemble). Le pendant compact de `ConfigLayout`, mais
+ * **intelligent** : chiffres clés (total / par état), **recherche**, et un aperçu
+ * **scrollable** des réglages (clé → valeur effective ; les valeurs tableau/objet
+ * s'ouvrent en carte JSON au survol, héritées du `field.effective`).
  *
- * Dérive ses chiffres des **mêmes `ConfigSection[]`** que la fiche détaillée (DRY,
- * 0 divergence) : total de réglages, répartition par état (à chaud / au
- * redémarrage / réservé / dérivé kernel / secret), statut du schéma Zod. Un bouton
- * « Tout voir » mène à la fiche complète.
+ * Dérive tout des **mêmes `ConfigSection[]`** que la fiche détaillée (DRY, 0
+ * divergence). Un bouton « Tout voir » mène à la fiche complète.
  */
+import { useMemo, useState } from "react";
 import {
   Badge,
+  Box,
   Button,
   Card,
+  Code,
   Group,
+  ScrollArea,
   Stack,
   Text,
+  TextInput,
   ThemeIcon,
-  Title,
 } from "@mantine/core";
 import {
   IconSettings,
@@ -24,8 +28,13 @@ import {
   IconLock,
   IconWand,
   IconEyeOff,
+  IconSearch,
 } from "@tabler/icons-react";
-import type { ConfigSchemaStatus, ConfigSection } from "./ConfigLayout";
+import type {
+  ConfigField,
+  ConfigSchemaStatus,
+  ConfigSection,
+} from "./ConfigLayout";
 import { DocHint } from "./DocHint";
 
 export interface ConfigSummaryCardProps {
@@ -47,6 +56,23 @@ const SCHEMA: Record<ConfigSchemaStatus, { label: string; color: string }> = {
   none: { label: "non migré (Zod)", color: "gray" },
 };
 
+/** Normalise pour une recherche tolérante (sans accents, minuscules). */
+function norm(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+/** Texte recherchable d'un réglage (champs string uniquement). */
+function searchText(f: ConfigField): string {
+  const parts = [f.key];
+  if (typeof f.type === "string") parts.push(f.type);
+  if (typeof f.description === "string") parts.push(f.description);
+  if (typeof f.constraint === "string") parts.push(f.constraint);
+  return parts.join(" ");
+}
+
 /** Grand chiffre + libellé (mini-stat). */
 function Stat({ value, label }: { value: number; label: string }) {
   return (
@@ -66,6 +92,34 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
+/** Une ligne d'aperçu : clé (tronquée) → valeur effective. */
+function PreviewRow({ field }: { field: ConfigField }) {
+  return (
+    <Group justify="space-between" wrap="nowrap" gap="md" align="flex-start">
+      <Code
+        fz={11}
+        title={field.key}
+        style={{
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          minWidth: 0,
+          flex: "1 1 auto",
+        }}
+      >
+        {field.key}
+      </Code>
+      <Box style={{ flex: "0 0 auto", maxWidth: "55%", textAlign: "right" }}>
+        {field.effective ?? (
+          <Text span size="xs" c="dimmed">
+            —
+          </Text>
+        )}
+      </Box>
+    </Group>
+  );
+}
+
 export function ConfigSummaryCard({
   module,
   schema = "none",
@@ -73,7 +127,8 @@ export function ConfigSummaryCard({
   onOpen,
   height = "100%",
 }: ConfigSummaryCardProps) {
-  const fields = sections.flatMap((s) => s.fields);
+  const [query, setQuery] = useState("");
+  const fields = useMemo(() => sections.flatMap((s) => s.fields), [sections]);
   const total = fields.length;
   const reserved = fields.filter((f) => f.reserved).length;
   const live = fields.filter(
@@ -85,30 +140,43 @@ export function ConfigSummaryCard({
   const atBoot = total - live - reserved;
   const sm = SCHEMA[schema];
 
+  const shown = useMemo(() => {
+    const terms = norm(query.trim()).split(/\s+/).filter(Boolean);
+    if (!terms.length) return fields;
+    return fields.filter((f) => {
+      const hay = norm(searchText(f));
+      return terms.every((t) => hay.includes(t));
+    });
+  }, [fields, query]);
+
   return (
     <Card
       withBorder
       radius="md"
       p="lg"
       h={height}
-      style={{ contain: "content" }}
+      style={{ contain: "content", display: "flex", flexDirection: "column" }}
     >
       <Group justify="space-between" mb="sm" wrap="nowrap">
         <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
           <ThemeIcon variant="light" color="brand" size="md" radius="md">
             <IconSettings size={16} />
           </ThemeIcon>
-          <Title order={5}>Configuration</Title>
+          <Text fw={600}>Configuration</Text>
           <Badge variant="light" color={sm.color} tt="none">
             {sm.label}
           </Badge>
           <DocHint
             title="Synthèse de la configuration"
-            summary="Aperçu de ce qui est configurable sur ce module : combien de réglages, et lesquels peuvent changer sans redémarrer."
+            summary="Aperçu de ce qui est configurable sur ce module : combien de réglages, lesquels changent sans redémarrer, et la valeur effective de chacun (recherche + détail au survol)."
             sections={[
               {
                 label: "À chaud vs au redémarrage",
                 body: "« À chaud » = relu à chaque requête (modifiable en dev sans reboot). Le reste est figé au démarrage (12-factor).",
+              },
+              {
+                label: "Valeurs complexes",
+                body: "Une valeur tableau / objet s'affiche en aperçu compact ; survole-la pour la carte JSON complète.",
               },
             ]}
           />
@@ -120,12 +188,12 @@ export function ConfigSummaryCard({
         )}
       </Group>
 
-      <Group gap="xl" mb="md">
+      <Group gap="xl" mb="sm">
         <Stat value={total} label="réglages" />
         <Stat value={sections.length} label="sections" />
       </Group>
 
-      <Group gap={6} wrap="wrap">
+      <Group gap={6} wrap="wrap" mb="sm">
         <Badge
           variant="light"
           color="teal"
@@ -173,6 +241,30 @@ export function ConfigSummaryCard({
           </Badge>
         )}
       </Group>
+
+      <TextInput
+        value={query}
+        onChange={(e) => setQuery(e.currentTarget.value)}
+        placeholder="Rechercher un réglage…"
+        aria-label="Rechercher un réglage de configuration"
+        leftSection={<IconSearch size={15} />}
+        size="xs"
+        mb="xs"
+      />
+
+      <ScrollArea style={{ flex: 1 }} mih={80} type="auto" offsetScrollbars>
+        {shown.length === 0 ? (
+          <Text c="dimmed" size="xs" py="sm">
+            Aucun réglage ne correspond.
+          </Text>
+        ) : (
+          <Stack gap={6} pr="xs">
+            {shown.map((f) => (
+              <PreviewRow key={f.key} field={f} />
+            ))}
+          </Stack>
+        )}
+      </ScrollArea>
     </Card>
   );
 }

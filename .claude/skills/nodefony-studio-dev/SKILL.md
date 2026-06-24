@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.31.0
+version: 1.32.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1613,6 +1613,21 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.32.0** (2026-06-24) — **Config module DATA-DRIVEN (JSON Schema + valeurs effectives) + Carte du serveur + menu FR**
+  (full-stack ; **contrat ↔ framework-dev 1.27.0** : `Module.configSchema()` → `module/{name}.configSchema`). (a) **Fin du
+  panneau de config recopié à la main** : nouveau mappeur **générique** `routes/config/jsonSchemaToSections.tsx` = walk
+  **union(JSON Schema × config effective)** → `ConfigSection[]` pour `ConfigLayout` (mode effectif). **HttpConfigPanel +
+  moduleConfigPanels SUPPRIMÉS.** Module migré Zod (http/framework/drizzle/mongoose/redis/security) = riche via un
+  `override configSchema()` back ; les autres s'affichent quand même (mappeur piloté par l'effectif, sans la doc). (b)
+  Valeurs **tableau/objet/map → `JsonPeek`** (carte JSON au survol, lazy) au lieu d'un `JSON.stringify` tronqué — réutilise
+  `components/ui/json`. (c) **Recherche** dans `ConfigLayout` ET `ConfigSummaryCard` (refaite « intelligente » : chiffres +
+  recherche + liste scrollable searchable, DRY sur les mêmes sections). (d) **Tooltips Mantine bruts → cards typées**
+  (`DocHint`/`TipHint`/`WarnHint` via déclencheur CUSTOM `children` + `tabIndex`/`cursor:help`). (e) Twin → **« Carte du
+  serveur »** ; **`navConfig` reformaté** (tout FR, « du proche au lointain »). Gates : typecheck Studio 0 · transform Vite 200
+  · expansion drizzle prouvée (`connectors.default.filename`). **RETEX** (RETEX.md Front/Studio) : piloter par l'EFFECTIF +
+  enrichir par le schéma (un `z.record`/objet effectif VIDE = walk union à chaque niveau, sinon « rien ») ; « card propre » =
+  `Hint` `children` custom ; JsonPeek pour les complexes ; « plus intelligente » = recherche + aperçu, pas un compteur.
+  NON commité (working tree). [[project_studio_config_datadriven_kit]].
 - **1.31.0** (2026-06-23) — **Page Profil self + DataGrid mode FLUX global (pagination sticky)** (full-stack ;
   **contrat ↔ framework-dev 1.26.0** : `GET /me`, `POST /me/password`, `hasPassword` au DTO). (a) **Page
   `/nodefony/profile`** (self-service, route HORS `RoleGuardOutlet` + navConfig visible tous) : identité +

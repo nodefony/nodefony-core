@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.26.0
+version: 1.27.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1586,6 +1586,24 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.27.0** (2026-06-24) — **Seam `Module.configSchema()` (config riche Studio data-driven) + redaction secrets `safeConfig`**
+  (full-stack ; **contrat ↔ studio-dev 1.32.0** : `module/{name}.configSchema`). (a) **Core** : méthode prototype
+  `Module.configSchema(): unknown | null` (défaut `null`, 0 alloc) + ajoutée à `IModule` ; un module migré Zod l'**override**
+  pour renvoyer son `xConfigJsonSchema()` (= `z.toJSONSchema(schema)`). **Prouvé empiriquement** : `z.toJSONSchema()` recopie
+  les flags Nodefony attachés par `meta()` (`reserved`/`runtimeMutable`/`kernelDerived`/`secret`) + `description`/`default`/type.
+  (b) **6 modules câblés** : http (`httpConfigJsonSchema()` ajouté — la JSDoc le promettait), framework/drizzle/mongoose/redis
+  (leur `xConfigJsonSchema()` existait déjà), security (`securityConfigJsonSchema`, 17 sections). `realtime` a un schéma mais
+  pas câblé (1 ligne, laissé). (c) **`KernelAdminApi.module/{name}`** : ajoute `configSchema: mod.configSchema()`. (d) **🔒
+  Redaction secrets côté serveur** : `safeConfig` (data plane) redacte par regex `SECRET_KEY` sur le nom de clé →
+  `[redacted]` (csrf.secret/jwt.keySetJson/oauth clientSecret) AVANT envoi — Zero Trust (même un admin ne voit pas un secret en
+  clair ; calque la page Firewall). **Prouvé live** : `clientSecret="[redacted]"`, `clientId` public visible. Gates : build
+  core+http+framework+4 ORM+security 0 TS · **gate mémoire 9/9** · data plane intégration **96/96**. **RETEX §11** : (1)
+  `mod` est typé `IModule` (pas la classe) → ajouter la méthode à l'INTERFACE aussi (TS2339 sinon) ; (2) un module qui range sa
+  config validée dans le CONTAINER (drizzle→`drizzleConfig`) sans réassigner `this.options` → `mod.options` reste la config
+  brute (connecteur `default` vide ; filename résolu au boot hors config) — le data plane montre `mod.options`, honnête mais
+  sparse ; (3) **redaction = côté serveur AVANT envoi**, jamais « masquer à l'UI » (le payload porterait le secret) ; (4)
+  vérité d'un data plane gardé = **curl authentifié** (login admin/secret + cookie jar). NON commité (working tree).
+  studio-dev jumeau = **1.32.0**. [[project_studio_config_datadriven_kit]].
 - **1.26.0** (2026-06-23) — **Self-service profil/mot de passe + 🔴 fix PATCH body (core) + dates user + OAuth=USER**
   (full-stack ; **contrat ↔ studio-dev 1.31.0** — page Profil). (a) `@nodefony/user` `UserAdminApi` : **`GET me`**
   (profil redacté) + **`POST me/password`** (`public:true`, re-auth via `UserService.authenticate`, **anti-IDOR**

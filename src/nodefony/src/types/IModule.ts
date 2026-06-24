@@ -71,6 +71,11 @@ export interface IModule extends IService {
   // ─── Services enregistrés par ce module (introspection admin) ────────────
   getServiceNames(): string[];
 
+  // ─── Config — JSON Schema (introspection admin / Studio) ─────────────────
+  // JSON Schema (`z.toJSONSchema`) de la config du module, ou null si non migré
+  // Zod. Override par le module ; défaut null sur la classe de base.
+  configSchema(): unknown | null;
+
   // ─── Metadata ──────────────────────────────────────────────────────────────
   getPackageJson(cwd?: string): Promise<PackageJson>;
   getModuleName(): string | undefined;

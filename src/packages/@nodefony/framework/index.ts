@@ -82,6 +82,11 @@ class Framework extends Module {
     super("framework", kernel, import.meta.url, config);
   }
 
+  /** JSON Schema de la config framework → data plane admin (config riche Studio). */
+  override configSchema(): unknown {
+    return frameworkConfigJsonSchema();
+  }
+
   /**
    * Phase `onRegister` : valide la config du module contre le schéma Zod
    * ({@link frameworkConfigSchema}) AVANT que les `@services` (Router,
