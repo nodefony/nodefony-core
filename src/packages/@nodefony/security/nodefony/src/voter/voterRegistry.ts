@@ -1,6 +1,7 @@
 import type { Container } from "nodefony";
 import type { IAccessVoter } from "../../contracts/IAccessVoter";
 import { RoleVoter } from "./RoleVoter";
+import { ScopeVoter } from "./ScopeVoter";
 
 /**
  * Registre de **fabriques de voters** — alimente l'`AuthorizationService` au boot
@@ -52,3 +53,7 @@ export function listVoterFactories(): ReadonlyMap<string, VoterFactory> {
 // Niveau A : résout `ROLE_*` via la hiérarchie de rôles (RoleHierarchyWalker)
 // posée au container par le firewall au boot.
 registerVoterFactory("role", ({ container }) => new RoleVoter(container));
+
+// Axe SCOPE (P6.8) : applique les scopes `api:action` de `@RequireScope`. Pur
+// (aucune dépendance container) — il ne lit que le jeton de la requête.
+registerVoterFactory("scope", () => new ScopeVoter());

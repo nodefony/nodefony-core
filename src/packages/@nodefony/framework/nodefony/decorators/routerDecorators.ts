@@ -229,6 +229,11 @@ export const BYPASS_FIREWALL_METHOD_METADATA = "route:bypassFirewallMethod";
 // marqueur @Anonymous (skip authz, en plus du bypass firewall pour l'authn).
 const SECURITY_CLAUSES_METADATA = "nodefony:security:clauses";
 const SECURITY_ANONYMOUS_METADATA = "nodefony:security:anonymous";
+// Autorisation par scope (P6.8) — clauses @RequireScope (axe `api:action`, clé API
+// / JWT). Metadata DÉDIÉE (≠ SECURITY_CLAUSES) pour que la découverte au boot
+// puisse agréger les scopes par API sans les confondre avec les rôles. Fusionnée
+// au même `SecurityRequirement` que @IsGranted pour réutiliser l'enforcement.
+const SECURITY_SCOPES_METADATA = "nodefony:security:scopes";
 // Directives CSP additionnelles par action (@Csp). Posées sur le ctor (classe) ou
 // le prototype keyé par nom (méthode), comme les clauses @IsGranted.
 const CSP_DIRECTIVES_METADATA = "nodefony:csp:directives";
@@ -716,6 +721,61 @@ function Anonymous() {
 }
 
 /**
+ * Exige un **scope** (`api:action`) pour l'action (décorateur de **méthode**) ou
+ * tout le contrôleur (décorateur de **classe**). Axe d'autorisation **distinct des
+ * rôles** (`@IsGranted`) : un scope **downscope** un jeton MACHINE délégué (clé
+ * API, JWT d'agent, OAuth) — il est un **no-op** pour une session humaine, dont
+ * les droits sont portés par ses rôles (cf {@link ScopeVoter}).
+ *
+ * - `@RequireScope("orders:read")` — le jeton doit porter ce scope.
+ * - `@RequireScope(["orders:read", "orders:admin"])` — **OR** : un seul suffit.
+ * - empiler plusieurs `@RequireScope` — **AND** : tous les scopes requis.
+ *
+ * Convention d'espace **plat** `api:action` (modèle GitHub PAT classic) : le
+ * préfixe avant `:` EST l'API → la découverte au boot regroupe les scopes par API
+ * sans catalogue séparé. Classe + méthode fusionnent en AND, et fusionnent AUSSI
+ * avec les clauses `@IsGranted` dans le même `SecurityRequirement` (rôle ET scope).
+ *
+ * N'écrit QUE des métadonnées (zéro logique sécu ici → 0 import `@nodefony/security`,
+ * 0 cycle) : la décision est rendue par le `ScopeVoter` au runtime (par nom). La
+ * metadata est **dédiée** (≠ `@IsGranted`) pour que la découverte au boot puisse
+ * lister les scopes déclarés par route sans les confondre avec les rôles.
+ */
+function RequireScope(scope: string | readonly string[]) {
+  const clause: SecurityClause = {
+    anyOf: Array.isArray(scope)
+      ? [...(scope as readonly string[])]
+      : [scope as string],
+  };
+  // Dual classe+méthode (idiome `any` du module, cf @IsGranted/@Domain).
+  return function (
+    target: any,
+    propertyKey?: string,
+    descriptor?: PropertyDescriptor,
+  ): any {
+    if (propertyKey === undefined) {
+      // Classe → scopes sur le constructeur (s'appliquent à toutes les actions).
+      const existing: SecurityClause[] =
+        Reflect.getMetadata(SECURITY_SCOPES_METADATA, target) || [];
+      existing.push(clause);
+      Reflect.defineMetadata(SECURITY_SCOPES_METADATA, existing, target);
+      return target;
+    }
+    // Méthode → scopes sur le prototype, keyés par nom (comme SECURITY_CLAUSES).
+    const existing: SecurityClause[] =
+      Reflect.getMetadata(SECURITY_SCOPES_METADATA, target, propertyKey) || [];
+    existing.push(clause);
+    Reflect.defineMetadata(
+      SECURITY_SCOPES_METADATA,
+      existing,
+      target,
+      propertyKey,
+    );
+    return descriptor;
+  };
+}
+
+/**
  * Fusion ADDITIVE de deux jeux de directives CSP : les sources d'une même
  * directive sont concaténées (dédupliquées, ordre `a` puis `b`). Pure, sans
  * mutation des entrées. Sert au stacking de `@Csp` et à la fusion classe+méthode.
@@ -1068,42 +1128,68 @@ const EMPTY_ACTION_META: RouteActionMeta = {
  * {@link resolveActionMeta} (routes, mémoïsé) et par le `Resolver` pour le
  * chemin froid du forward (`parsePathernController`, pas de route).
  */
+/** Lit un tableau de clauses (`@IsGranted`/`@RequireScope`) posé sur une cible Reflect — `[]` si absent. */
+function readClauses(target: object, propertyKey?: string): SecurityClause[] {
+  const meta = (
+    propertyKey === undefined
+      ? Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target)
+      : Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target, propertyKey)
+  ) as SecurityClause[] | undefined;
+  return meta ?? [];
+}
+
+/** Idem pour les clauses de scope (`@RequireScope`, metadata dédiée) — `[]` si absent. */
+function readScopeClauses(
+  target: object,
+  propertyKey?: string,
+): SecurityClause[] {
+  const meta = (
+    propertyKey === undefined
+      ? Reflect.getMetadata(SECURITY_SCOPES_METADATA, target)
+      : Reflect.getMetadata(SECURITY_SCOPES_METADATA, target, propertyKey)
+  ) as SecurityClause[] | undefined;
+  return meta ?? [];
+}
+
 /**
- * P6 J7 — Fusionne les clauses `@IsGranted` (classe + méthode) en une exigence
- * d'autorisation **figée**, ou `null` si l'action n'est pas gardée. `@Anonymous`
- * (méthode) rend l'action publique (override le `@IsGranted` de classe → `null`).
- * Lecture `Reflect` faite UNE fois (via {@link resolveActionMeta} mémoïsé).
+ * P6 J7 / P6.8 — Fusionne les clauses `@IsGranted` (rôles) ET `@RequireScope`
+ * (scopes) — classe + méthode — en une exigence d'autorisation **figée**, ou
+ * `null` si l'action n'est pas gardée. Les deux axes cohabitent dans le même
+ * `SecurityRequirement` (clauses en **AND**) → un seul chemin d'enforcement dans
+ * le `Resolver`, le bon voter (`RoleVoter`/`ScopeVoter`) répond par attribut.
+ * `@Anonymous` (méthode) rend l'action publique (override `@IsGranted`/
+ * `@RequireScope` de classe → `null`). Lecture `Reflect` faite UNE fois (via
+ * {@link resolveActionMeta} mémoïsé).
  */
 function computeSecurityRequirement(
   ctor: { prototype: object },
   method: string,
 ): SecurityRequirement | null {
-  // @Anonymous sur la méthode → action publique, même sous un @IsGranted de classe.
+  // @Anonymous méthode → action publique, même sous un @IsGranted/@RequireScope de classe.
   if (Reflect.getMetadata(SECURITY_ANONYMOUS_METADATA, ctor, method) === true) {
     return null;
   }
   const proto = ctor.prototype;
-  const methodClauses =
-    (Reflect.getMetadata(SECURITY_CLAUSES_METADATA, proto, method) as
-      | SecurityClause[]
-      | undefined) ?? [];
-  // @Anonymous sur la classe → pas de clauses héritées ; sinon AND avec la classe.
+  const methodClauses = readClauses(proto, method);
+  const methodScopes = readScopeClauses(proto, method);
+  // @Anonymous sur la classe → pas de garde héritée ; sinon AND avec la classe.
   const classAnon =
     Reflect.getMetadata(SECURITY_ANONYMOUS_METADATA, ctor) === true;
-  const classClauses = classAnon
-    ? []
-    : ((Reflect.getMetadata(SECURITY_CLAUSES_METADATA, ctor) as
-        | SecurityClause[]
-        | undefined) ?? []);
-  if (classClauses.length === 0 && methodClauses.length === 0) {
+  const classClauses = classAnon ? [] : readClauses(ctor);
+  const classScopes = classAnon ? [] : readScopeClauses(ctor);
+  // Rôles puis scopes (l'ordre est indifférent — toutes les clauses sont en AND).
+  const all = [
+    ...classClauses,
+    ...methodClauses,
+    ...classScopes,
+    ...methodScopes,
+  ];
+  if (all.length === 0) {
     return null; // aucune garde → 0 coût hot path
   }
   // Figé (objet PARTAGÉ entre requêtes — jamais muté).
   return Object.freeze({
-    clauses: Object.freeze([
-      ...classClauses,
-      ...methodClauses,
-    ]) as readonly SecurityClause[],
+    clauses: Object.freeze(all) as readonly SecurityClause[],
   });
 }
 
@@ -1203,6 +1289,7 @@ export {
   Domain,
   BypassFirewall,
   IsGranted,
+  RequireScope,
   Anonymous,
   Csp,
   CsrfProtect,

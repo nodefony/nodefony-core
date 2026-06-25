@@ -5,6 +5,7 @@ import { RequestContext } from "nodefony";
 import {
   computeActionMeta,
   IsGranted,
+  RequireScope,
   Anonymous,
   CurrentUser,
   resolveParamArg,
@@ -100,6 +101,73 @@ describe("@IsGranted / @Anonymous — fusion classe + méthode", () => {
     expect(computeActionMeta(GuardedCtrl, "publicAction").security).to.equal(
       null,
     );
+  });
+});
+
+describe("@RequireScope — descripteur figé (axe scope, P6.8)", () => {
+  class Ctrl {
+    @RequireScope("orders:read")
+    read() {}
+
+    @RequireScope(["orders:read", "orders:admin"])
+    orArray() {}
+
+    @RequireScope("orders:read")
+    @RequireScope("orders:write")
+    stacked() {}
+
+    plain() {}
+  }
+
+  it("scope unique → 1 clause, anyOf=[scope]", () => {
+    const sec = computeActionMeta(Ctrl, "read").security!;
+    expect(sec.clauses).to.have.lengthOf(1);
+    expect(sec.clauses[0]!.anyOf).to.deep.equal(["orders:read"]);
+  });
+
+  it("tableau → OR (1 clause, plusieurs scopes)", () => {
+    const sec = computeActionMeta(Ctrl, "orArray").security!;
+    expect(sec.clauses).to.have.lengthOf(1);
+    expect(sec.clauses[0]!.anyOf).to.deep.equal([
+      "orders:read",
+      "orders:admin",
+    ]);
+  });
+
+  it("empilés → AND (2 clauses)", () => {
+    const sec = computeActionMeta(Ctrl, "stacked").security!;
+    expect(sec.clauses).to.have.lengthOf(2);
+    const attrs = sec.clauses.map((c) => c.anyOf[0]);
+    expect(attrs).to.include.members(["orders:read", "orders:write"]);
+  });
+
+  it("action non décorée → security null (0 coût hot path)", () => {
+    expect(computeActionMeta(Ctrl, "plain").security).to.equal(null);
+  });
+});
+
+describe("@IsGranted + @RequireScope — rôle ET scope dans un seul requirement", () => {
+  @IsGranted("ROLE_USER")
+  @RequireScope("orders")
+  class OrdersCtrl {
+    @RequireScope("orders:read")
+    list() {}
+
+    @Anonymous()
+    @RequireScope("orders:read")
+    publicList() {}
+  }
+
+  it("fusionne les clauses rôle + scope (classe & méthode) en AND", () => {
+    const sec = computeActionMeta(OrdersCtrl, "list").security!;
+    // ROLE_USER (classe) + orders (scope classe) + orders:read (scope méthode).
+    expect(sec.clauses).to.have.lengthOf(3);
+    const attrs = sec.clauses.map((c) => c.anyOf[0]);
+    expect(attrs).to.include.members(["ROLE_USER", "orders", "orders:read"]);
+  });
+
+  it("@Anonymous (méthode) override AUSSI le scope → security null", () => {
+    expect(computeActionMeta(OrdersCtrl, "publicList").security).to.equal(null);
   });
 });
 

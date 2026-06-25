@@ -122,6 +122,7 @@ export { UserToken } from "./nodefony/src/token/UserToken";
 
 // ─── Autorisation (niveau C : voters + service) — registre pluggable ─────────
 export { RoleVoter } from "./nodefony/src/voter/RoleVoter";
+export { ScopeVoter } from "./nodefony/src/voter/ScopeVoter";
 export {
   registerVoterFactory,
   listVoterFactories,

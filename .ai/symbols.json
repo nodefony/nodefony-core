@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-25T11:27:49.966Z",
+  "generated": "2026-06-25T13:55:24.828Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 939,
-    "symbols": 2129,
-    "classes": 297,
+    "files": 940,
+    "symbols": 2133,
+    "classes": 298,
     "interfaces": 561,
     "types": 253,
     "enums": 3,
-    "functions": 501,
+    "functions": 504,
     "constants": 514
   },
   "symbols": {
@@ -5495,6 +5495,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Déclare une action (méthode) ou un contrôleur (classe) **publique** : skip l'autorisation (override un `@IsGranted` de classe sur cette méthode) ET skip l'authentification (réutilise le mécanisme `…"
+    },
+    "RequireScope": {
+      "name": "RequireScope",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Exige un **scope** (`api:action`) pour l'action (décorateur de **méthode**) ou tout le contrôleur (décorateur de **classe**). Axe d'autorisation **distinct des rôles** (`@IsGranted`) : un scope **d…"
     },
     "Csp": {
       "name": "Csp",
@@ -14795,6 +14803,19 @@
       "decorators": [],
       "description": "Voter built-in **niveau A** — résout les attributs `ROLE_*` via la hiérarchie de rôles ({@link RoleHierarchyWalker}). Vote `GRANT` si l'utilisateur possède le rôle (hiérarchie résolue : `ROLE_ADMIN…"
     },
+    "ScopeVoter": {
+      "name": "ScopeVoter",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/voter/ScopeVoter.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IAccessVoter"
+      ],
+      "decorators": [],
+      "description": "Voter built-in **axe SCOPE** (P6.8) — applique les scopes `api:action` déclarés par `@RequireScope`. Frère du {@link RoleVoter} sur l'autre axe : les rôles disent QUI tu es, les scopes disent ce qu…"
+    },
     "IVoterFactoryContext": {
       "name": "IVoterFactoryContext",
       "kind": "interface",
@@ -15847,7 +15868,8 @@
         "JwtKeystore"
       ],
       "IAccessVoter": [
-        "RoleVoter"
+        "RoleVoter",
+        "ScopeVoter"
       ],
       "IPasswordEncoder": [
         "Argon2idEncoder",
@@ -16805,6 +16827,9 @@
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+      ],
+      "RequireScope": [
+        "src/packages/@nodefony/framework/index.ts"
       ],
       "Anonymous": [
         "src/packages/@nodefony/framework/index.ts"
@@ -19503,7 +19528,8 @@
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
         "src/packages/@nodefony/security/nodefony/src/token/UserToken.ts",
-        "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
+        "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/ScopeVoter.ts"
       ],
       "AuditCategory": [
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
@@ -19666,11 +19692,13 @@
       ],
       "VoterVote": [
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts"
+        "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/ScopeVoter.ts"
       ],
       "IAccessVoter": [
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
+        "src/packages/@nodefony/security/nodefony/src/voter/ScopeVoter.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts"
       ],
       "IAuthorizationService": [
@@ -21432,6 +21460,9 @@
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
       "RoleVoter": [
+        "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts"
+      ],
+      "ScopeVoter": [
         "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts"
       ],
       "MemoryWebAuthnCredentialStore": [
