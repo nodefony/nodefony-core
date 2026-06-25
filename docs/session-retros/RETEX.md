@@ -306,11 +306,12 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
   crash.** Le DevSupervisor `#ensureBuilt` lance `turbo run build` (vérifie tous les workspaces) → ~32s observé, log figé sur
   `[dev] ⚙ Vérification du framework (turbo)…`. Le superviseur **continue en fond** → poller le log jusqu'à `Server Listen` (4×) /
   `framework ready` avant de conclure. Réflexe : TIMEOUT start.sh + 0 ligne CRITIC = build long, attendre ; ≠ FATAL (qui montre un stack).
-- `[1× — 2026-06-22]` **turbo `cache hit, replaying logs` REJOUE de VIEUX warnings → on croit son fix cassé.**
-  Après correction d'une erreur TS dans `security`, `npm run build` réaffichait l'erreur `getRemoteAddress`…
-  mais venant de paquets DÉPENDANTS en `cache hit` (logs d'AVANT le fix rejoués). Le seul bloc fiable = le build
-  **FRAIS** du module corrigé (pas `cache hit`) + le `dist` sur disque (`grep` le symbole attendu). Ne jamais
-  juger un fix sur un log rejoué — vérifier le terrain (dist), pas la console turbo.
+- `[2× — 2026-06-25]` **turbo `cache hit` TROMPEUR → vérifier le `dist` sur disque, jamais la console.** (a) Après un fix TS,
+  `npm run build` rejoue de VIEUX warnings de paquets dépendants en `cache hit` (logs d'AVANT le fix) → on croit son fix cassé.
+  (b) **Après un EDIT qui SUIT un premier build** (vécu : optimisation perf de `Resolver.ts` post-build), `npm run build` peut
+  refaire `cache hit` sur le module ALORS que le source a changé → `dist` PÉRIMÉ silencieux (le runtime/banc live tournerait sur
+  l'ancien code). Parade unique : **build FRAIS du module direct** (`cd <module> && npm run build`, hors cache turbo) **+ `grep`
+  un symbole attendu dans le `dist`** (ex. `grep -c metaArg dist/.../Resolver.js`). La vérité = le terrain (dist), pas turbo.
 
 - `[1× — 2026-06-20]` **« Vert mais cassé » EN CASCADE : 1 `dist` absent → fail-soft silencieux en chaîne.** `@nodefony/security/dist` absent → fail-soft de security → `@nodefony/test` (l'importe) tombe → `test:batch` invisible → un test CLI rouge. Visible SEULEMENT en `-d` (WARNING fail-soft noyé). Leçon : `turbo build` exit 0 ≠ outputs présents (cache-hit peut ne pas restaurer un dist supprimé) → vérifier le TERRAIN (parade `missingWorkspaceDists` dans `#ensureBuilt`). Démo : `mv security/dist` → turbo a fait `cache miss` + rebuild de TOUTE la chaîne security→… (165 s) ; la post-vérif reste le filet pour le cas cache-hit trompeur.
 - `[1× — 2026-06-20]` **Outillage de PROCESS ≠ booter le kernel.** `nodefony status`/`stop` bootaient le CliKernel → exigeaient une trunk (hors projet → menu interactif « Create Project »). Fix : fast-path standalone dans `CliKernel.start` AVANT `new Kernel` → pur `ps`/sonde ports, marche de PARTOUT, zéro effet de bord (supprime aussi un log `terminate` parasite). Règle : une commande de diagnostic/contrôle système ne doit PAS dépendre du boot applicatif.
@@ -1162,10 +1163,12 @@ ls-files | grep -iE '\.(pem|key|p12|pfx)$'` ; un motif gitignore avec slash n'es
   échoué « lint-staged failed due to a git error » (stash/lock transitoire) sans rien perdre → **retry après
   `pkill -f lint-staged` + `rm -f .git/index.lock`** a réussi. Combine [[feedback_git_index_lock]] : sur ce repo,
   toujours `pkill lint-staged/generate-symbols` + `rm index.lock` AVANT un retry de commit raté.
-- `[2× — 2026-06-05]` **`git push` en background ne FINALISE pas (hook pre-push lourd)** : le commit se fait, mais la
-  branche reste « ahead 1 » sans erreur ni process actif → relancer en **foreground** (peut être rejeté « cannot lock
-  ref … is at X but expected Y » = race, le background avait fini par pousser). La vérité = `git log origin/<branche>`,
-  pas le « ahead » local. Vu 2× (frontend, framework). → push avec hook lourd = **foreground d'emblée**.
+- `[3× — 2026-06-25]` **`git push` + hook pre-push LOURD (`turbo build && typecheck`, ~2-4 min) → arbitrer foreground/background.**
+  Le hook dépasse le **timeout 2 min du Bash harness** → un `git push` en FOREGROUND est TUÉ (SIGTERM, exit 143) avant la fin
+  (vécu 2026-06-25). Le **background (`run_in_background:true`)** n'a pas ce timeout → il finit et pousse (foreground 143 puis
+  background exit 0, branche synchro). MAIS un background interrompu peut rester « ahead » sans erreur (vécu 2026-06-05). →
+  **Règle : hook lourd = push en background + attendre la notif ; vérité terrain = `git status -sb` SANS "ahead" (ou `git log @{u}`),
+  JAMAIS le seul exit code.**
 - `[1× — 2026-06-08]` **nouveau chantier ≠ branche de reprise → BRANCHER d'abord** : repris sur `refactor/orm-hardening`
   (ORM) puis committé + **poussé** tout le durcissement **WebSocket** (3 commits) dessus → signalé par le user (« les
   commits WS n'ont rien à faire dans cette branche !! »). Le **START de session doit vérifier que le chantier correspond
