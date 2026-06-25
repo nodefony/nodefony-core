@@ -52,14 +52,29 @@ export interface ApiKeysStatus {
   driver: "memory" | "orm" | "redis" | null;
 }
 
-/** Capacités/contraintes d'émission — miroir de `IApiKeyCapabilities`. */
+/** Un groupe de scopes d'une API — miroir de `IApiScopeGroup` (back framework). */
+export interface ApiScopeGroup {
+  /** Préfixe d'API (segment avant le `:`). */
+  api: string;
+  /** Scopes `api:action` déclarés pour cette API (triés). */
+  scopes: string[];
+}
+
+/** Capacités/contraintes d'émission — miroir de `IApiKeyCapabilities` + catalogue découvert. */
 export interface ApiKeyCapabilities {
   enabled: boolean;
   prefix: string;
   defaultExpiryDays: number | null;
   maxPerSubject: number;
-  /** Catalogue de scopes (`null` = libre : tout scope non vide accepté). */
+  /** Catalogue de scopes de config (`null` = libre : tout scope non vide accepté). */
   allowedScopes: string[] | null;
+  /**
+   * Catalogue de scopes **découvert des routes** (`@RequireScope`, P6.8), groupé
+   * par API — enrichi côté serveur par `ApiKeyController.capabilities`. La source
+   * de vérité du formulaire : les scopes proposés DÉRIVENT du code, pas d'une liste
+   * de config. Absent (vieux serveur) = on retombe sur `allowedScopes`.
+   */
+  declaredScopes?: ApiScopeGroup[];
 }
 
 // ─── Endpoints du data plane ─────────────────────────────────────────────────

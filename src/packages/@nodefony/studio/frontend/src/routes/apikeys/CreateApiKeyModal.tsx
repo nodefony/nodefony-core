@@ -17,7 +17,7 @@ import {
   Text,
   TextInput,
   Select,
-  MultiSelect,
+  Checkbox,
   TagsInput,
   Button,
   Alert,
@@ -79,13 +79,36 @@ export function CreateApiKeyModal({
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<ApiKeyCreated | null>(null);
 
-  const catalogue = capabilities.allowedScopes;
-  const hasCatalogue = catalogue !== null && catalogue.length > 0;
+  // Catalogue groupé par API : scopes DÉCOUVERTS des routes (`declaredScopes`,
+  // @RequireScope) ∪ `allowedScopes` (config). Le préfixe avant `:` est l'API.
+  const grouped = useMemo<{ api: string; scopes: string[] }[]>(() => {
+    const byApi = new Map<string, Set<string>>();
+    const add = (scope: string) => {
+      const i = scope.indexOf(":");
+      const api = i === -1 ? scope : scope.slice(0, i);
+      let set = byApi.get(api);
+      if (set === undefined) {
+        set = new Set();
+        byApi.set(api, set);
+      }
+      set.add(scope);
+    };
+    for (const g of capabilities.declaredScopes ?? [])
+      for (const s of g.scopes) add(s);
+    for (const s of capabilities.allowedScopes ?? []) add(s);
+    return [...byApi.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([api, set]) => ({ api, scopes: [...set].sort() }));
+  }, [capabilities.declaredScopes, capabilities.allowedScopes]);
 
-  const scopeOptions = useMemo(
-    () => (hasCatalogue ? (catalogue as string[]) : []),
-    [hasCatalogue, catalogue],
+  const catalogueScopes = useMemo(
+    () => grouped.flatMap((g) => g.scopes),
+    [grouped],
   );
+  const hasCatalogue = catalogueScopes.length > 0;
+  // `allowedScopes === null` = config en mode libre → on autorise EN PLUS des
+  // scopes hors catalogue (le catalogue découvert n'est alors qu'une suggestion).
+  const allowsFreeScopes = capabilities.allowedScopes === null;
 
   function reset(): void {
     setName("");
@@ -182,16 +205,49 @@ export function CreateApiKeyModal({
           />
 
           {hasCatalogue ? (
-            <MultiSelect
-              label="Scopes"
-              description="Capacités accordées (sous-ensemble des droits du porteur)."
-              placeholder="Choisir des scopes"
-              data={scopeOptions}
-              value={scopes}
-              onChange={setScopes}
-              searchable
-              clearable
-            />
+            <Stack gap="sm">
+              <Checkbox.Group
+                label="Scopes"
+                description="Capacités accordées (sous-ensemble des droits du porteur), découvertes depuis les routes du serveur."
+                value={scopes.filter((s) => catalogueScopes.includes(s))}
+                onChange={(checked) =>
+                  setScopes([
+                    ...checked,
+                    ...scopes.filter((s) => !catalogueScopes.includes(s)),
+                  ])
+                }
+              >
+                <Stack gap="sm" mt="xs">
+                  {grouped.map((g) => (
+                    <Box key={g.api}>
+                      <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                        {g.api}
+                      </Text>
+                      <Group gap="md" mt={4}>
+                        {g.scopes.map((s) => (
+                          <Checkbox key={s} value={s} label={s} />
+                        ))}
+                      </Group>
+                    </Box>
+                  ))}
+                </Stack>
+              </Checkbox.Group>
+              {allowsFreeScopes && (
+                <TagsInput
+                  label="Scopes personnalisés (optionnel)"
+                  description="Mode libre : ajoutez un scope hors catalogue (toute valeur est acceptée)."
+                  placeholder="custom:scope…"
+                  value={scopes.filter((s) => !catalogueScopes.includes(s))}
+                  onChange={(free) =>
+                    setScopes([
+                      ...scopes.filter((s) => catalogueScopes.includes(s)),
+                      ...free,
+                    ])
+                  }
+                  clearable
+                />
+              )}
+            </Stack>
           ) : (
             <TagsInput
               label="Scopes (optionnel)"

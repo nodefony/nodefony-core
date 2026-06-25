@@ -1152,6 +1152,28 @@ function readScopeClauses(
 }
 
 /**
+ * P6.8 — Liste PLATE des scopes `api:action` déclarés par une action
+ * (`@RequireScope`, classe + méthode), **dédupliqués**. Source de la **découverte
+ * au boot** : le catalogue de scopes du formulaire de clés API se construit en
+ * scannant les routes (cf `collectDeclaredApiScopes`), au lieu d'une config plate
+ * qui dérive du code. Lecture `Reflect` directe — **cold path** (introspection à la
+ * demande, jamais sur le hot path requête). `[]` si l'action ne déclare aucun scope.
+ */
+function extractActionScopes(
+  ctor: { prototype: object },
+  method: string,
+): string[] {
+  const out = new Set<string>();
+  for (const clause of readScopeClauses(ctor.prototype, method)) {
+    for (const s of clause.anyOf) out.add(s);
+  }
+  for (const clause of readScopeClauses(ctor)) {
+    for (const s of clause.anyOf) out.add(s);
+  }
+  return [...out];
+}
+
+/**
  * P6 J7 / P6.8 — Fusionne les clauses `@IsGranted` (rôles) ET `@RequireScope`
  * (scopes) — classe + méthode — en une exigence d'autorisation **figée**, ou
  * `null` si l'action n'est pas gardée. Les deux axes cohabitent dans le même
@@ -1316,4 +1338,5 @@ export {
   routeExpectsBodyStream,
   computeActionMeta,
   resolveActionMeta,
+  extractActionScopes,
 };

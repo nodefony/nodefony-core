@@ -2,6 +2,7 @@ import type { Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
 import Controller from "../src/Controller";
+import { collectDeclaredApiScopes } from "../src/scopeCatalog";
 
 /**
  * Vue MINIMALE de l'utilisateur courant exposée par `authFlow.me` (P6 J3) — on ne
@@ -97,7 +98,15 @@ class ApiKeyController extends Controller {
     if (!svc || !svc.isEnabled()) {
       return this.renderJson({ error: "API keys unavailable" }, 503);
     }
-    return this.renderJson(svc.describeCapabilities());
+    // P6.8 — enrichit le formulaire avec le catalogue de scopes DÉCOUVERT des
+    // routes (`@RequireScope`), groupé par API. Le framework voit le `Router`
+    // (security non) → l'agrégation se fait ICI, pas dans `describeCapabilities`.
+    // `allowedScopes` (config security) reste un complément (scopes hors-routes).
+    const caps = svc.describeCapabilities() as Record<string, unknown>;
+    return this.renderJson({
+      ...caps,
+      declaredScopes: collectDeclaredApiScopes(),
+    });
   }
 
   /** Liste les clés du porteur courant (vue publique, sans secret). */

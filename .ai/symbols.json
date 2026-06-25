@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-25T13:55:24.828Z",
+  "generated": "2026-06-25T16:51:44.014Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 940,
-    "symbols": 2133,
+    "files": 941,
+    "symbols": 2136,
     "classes": 298,
-    "interfaces": 561,
+    "interfaces": 562,
     "types": 253,
     "enums": 3,
-    "functions": 504,
+    "functions": 506,
     "constants": 514
   },
   "symbols": {
@@ -5544,6 +5544,14 @@
       "module": "@nodefony/framework",
       "description": "P2.9 — Indique si l'action d'une route attend le **flux brut** du body (un paramètre `@Body({ stream:true })`). Le résultat est **mémoïsé** sur `route.bodyStream` : lecture `Reflect` au 1er appel, …"
     },
+    "extractActionScopes": {
+      "name": "extractActionScopes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "P6.8 — Liste PLATE des scopes `api:action` déclarés par une action (`@RequireScope`, classe + méthode), **dédupliqués**. Source de la **découverte au boot** : le catalogue de scopes du formulaire d…"
+    },
     "computeActionMeta": {
       "name": "computeActionMeta",
       "kind": "function",
@@ -6039,6 +6047,23 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": null
+    },
+    "IApiScopeGroup": {
+      "name": "IApiScopeGroup",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/scopeCatalog.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Un groupe de scopes d'**une API** — le préfixe avant `:` (`orders`) et la liste (triée) de ses scopes déclarés (`orders:read`, `orders:write`). Un scope sans `:` (ex. `@RequireScope(\"orders\")` = to…"
+    },
+    "collectDeclaredApiScopes": {
+      "name": "collectDeclaredApiScopes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/scopeCatalog.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "P6.8 — **Découverte au boot** : scanne TOUTES les routes montées (`Router.routes`) et agrège les scopes déclarés par `@RequireScope`, **regroupés par API** (préfixe avant `:`). C'est la source du f…"
     },
     "SyslogAdminApiOptions": {
       "name": "SyslogAdminApiOptions",
@@ -16640,6 +16665,7 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/scopeCatalog.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
@@ -16829,7 +16855,8 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
       "RequireScope": [
-        "src/packages/@nodefony/framework/index.ts"
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/secure/ApiM2mController.ts"
       ],
       "Anonymous": [
         "src/packages/@nodefony/framework/index.ts"
@@ -18762,6 +18789,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
+      "collectDeclaredApiScopes": [
+        "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts"
+      ],
       "TypeController": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"
       ],
@@ -18952,6 +18982,9 @@
       "compileDomainPatterns": [
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "extractActionScopes": [
+        "src/packages/@nodefony/framework/nodefony/src/scopeCatalog.ts"
       ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
