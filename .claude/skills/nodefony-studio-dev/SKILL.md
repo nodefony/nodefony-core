@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.32.0
+version: 1.33.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1613,6 +1613,17 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.33.0** (2026-06-25) — **Formulaire clés API : scopes DÉCOUVERTS groupés par API (P6.8 b4)** (full-stack ;
+  **contrat ↔ framework-dev 1.28.0** : `ApiKeyController.capabilities` → `+declaredScopes`). `CreateApiKeyModal`
+  rend le champ Scopes en **cases à cocher groupées par API** (`Checkbox.Group` ; `declaredScopes` ∪ `allowedScopes`,
+  fusion + groupement par préfixe `:`) au lieu d'un `MultiSelect` plat ; **champ libre `TagsInput` conservé en mode
+  libre** (`allowedScopes === null` → scopes hors catalogue autorisés). `ApiKeyCapabilities` += `declaredScopes?:
+{api,scopes[]}[]` (type miroir). Les scopes proposés **DÉRIVENT du code** (les `@RequireScope` sur les routes,
+  scannées par `collectDeclaredApiScopes` côté back), plus d'une liste config qui se périme. Gates : typecheck Studio
+  0 · transform Vite 200. **Prouvé live** : `/keys/capabilities` (login admin/secret) → `declaredScopes`
+  {m2m:[read,write],reports:[export]} ; le `state` `scopes` unique fusionne cochés (catalogue) + libres (filtre
+  `catalogueScopes.includes`). framework-dev jumeau = **1.28.0** (décorateur `@RequireScope` + `ScopeVoter` +
+  découverte côté back). [[project_p6_8_scopes_per_api_kit]].
 - **1.32.0** (2026-06-24) — **Config module DATA-DRIVEN (JSON Schema + valeurs effectives) + Carte du serveur + menu FR**
   (full-stack ; **contrat ↔ framework-dev 1.27.0** : `Module.configSchema()` → `module/{name}.configSchema`). (a) **Fin du
   panneau de config recopié à la main** : nouveau mappeur **générique** `routes/config/jsonSchemaToSections.tsx` = walk

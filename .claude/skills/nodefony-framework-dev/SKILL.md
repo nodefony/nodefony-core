@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.27.0
+version: 1.28.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -413,6 +413,44 @@ export class ThingsController extends Controller {
 - **Points d'extension HttpKernel** (pluggables, singleton stateless 0-alloc) : `setRequestLogger(IRequestLogger)`
   (`DefaultRequestLogger`/`PrettyRequestLogger`/`JsonAuditLogger`) · `setErrorRenderer(IErrorRenderer)`
   (`DefaultErrorRenderer` → override pour RFC 7807, hide-stack prod, auth-challenge headers).
+
+### Autorisation par scope `@RequireScope` (P6.8 ✅ — axe distinct des rôles)
+
+Les **scopes** (`api:action`, modèle GitHub PAT classic) bornent un **token machine** (clé API / JWT /
+OAuth), orthogonaux aux rôles. `@RequireScope` = **frère de `@IsGranted`** : MÊME seam (metadata →
+`route.actionMeta.security` figé → `Resolver._enforceSecurity` → `authz.decide`), **0 touche au Resolver**
+(les clauses de scope sont fusionnées dans le même `SecurityRequirement`). Décorateur dans `@nodefony/framework`
+(0 import security), voter dans `@nodefony/security`.
+
+```typescript
+@controller("/api/orders")
+@IsGranted("ROLE_USER") // axe RÔLE (qui tu es)
+@RequireScope("orders") // axe SCOPE classe → s'applique à toutes les actions
+class OrdersController extends Controller {
+  @Get("/") @RequireScope("orders:read") list() {} // empilé = AND
+  @Post("/") @RequireScope(["orders:write", "orders:admin"]) create() {} // tableau = OR
+}
+```
+
+- **Enforcement** = `ScopeVoter` (built-in `voterRegistry`, à côté de `RoleVoter`) : `supports` = l'attribut
+  contient `:` et ≠ `ROLE_*` ; `vote` = GRANT si `token.getScopes().includes(attr)`, sinon **ABSTAIN** (le
+  default-DENY de l'`AuthorizationService` ferme ; jamais DENY = pas de veto sur les autres attributs OR).
+- **No-op humain / fail-closed machine** : le voter dérive « scopable » du **`token.type`** —
+  `session`/`userpassword`/`anonymous` = humain → GRANT (le scope ne bride QUE les tokens délégués) ; tout
+  autre (`apikey`/`jwt`/`oauth2`/futur) = bridé. **Décision : PAS de `isScopable()` sur `IToken`** (écart au
+  kit, assumé) — l'ajouter toucherait 4 impls + le module realtime (le pont WS `api.request` passe un
+  `IRealtimeToken` à `decide`, ligne ~622 `RealtimeController`) + risquerait de désaligner le miroir
+  `IRealtimeToken`. `type` est porté à l'identique par les DEUX contrats → le voter reste transport-agnostique.
+- **Découverte au boot** (catalogue du formulaire de clés) : `extractActionScopes(ctor, method)` lit la
+  metadata d'une action (dédupliquée) ; `collectDeclaredApiScopes()` (`framework/nodefony/src/scopeCatalog.ts`)
+  scanne `Router.routes` → `[{api, scopes[]}]` groupé par préfixe. **Exposé via `ApiKeyController.capabilities`**
+  (`+declaredScopes`), PAS un nouvel endpoint : ce controller vit dans `@nodefony/framework` (il VOIT le
+  `Router`), est déjà fetché par le formulaire et déjà self-service — `@nodefony/security` ne voit pas les routes.
+- **Banc** : `src/modules/test/nodefony/secure/ApiM2mController.ts` routes `/m2m/scoped/{read,write,export}`
+  (NE PAS décorer `/whoami` = testé e2e P6.12). Prouvé live : clé `[m2m:read]` → read 200 / write 403 /
+  export 403 / whoami 200 (downscoping : une clé d'admin bridée à `m2m:read` ne fait pas le reste).
+- **Reste P6.8 (optionnel)** : niveau B RBAC ORM (`PermissionVoter` `PERM_*`), audience RFC 8707 (restreindre
+  une clé à une API), fine-grained par ressource (slot `resources[]`).
 
 ### Contrat de réponse RFC du cycle (HTTP **et** WS — crucial realtime)
 
@@ -1586,6 +1624,22 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.28.0** (2026-06-25) — **P6.8 — Autorisation par scope `@RequireScope` + `ScopeVoter` + découverte**
+  (full-stack ; **contrat ↔ studio-dev 1.33.0** : `ApiKeyController.capabilities` → `+declaredScopes`). Rend
+  les scopes (`api:action`) RÉELS (étaient décoratifs, aucune route ne les vérifiait). (a) **`@RequireScope`**
+  (framework, frère `@IsGranted` — metadata DÉDIÉE fusionnée au MÊME `SecurityRequirement` → 0 touche Resolver)
+  - **`ScopeVoter`** built-in (`voterRegistry`) : dérive « scopable » du **`token.type`** (session/userpassword/
+    anonymous = no-op humain ; apikey/jwt/oauth2/futur = bridé **fail-closed**, ABSTAIN→default-DENY). **Décision :
+    PAS de `isScopable()` sur `IToken`** (toucherait 4 impls + realtime + risque de désaligner le miroir
+    `IRealtimeToken` ; le pont WS `api.request` passe un `IRealtimeToken` à `decide`). (b) **Découverte** :
+    `extractActionScopes`/`collectDeclaredApiScopes` (`scopeCatalog.ts`, scan `Router.routes`) → catalogue
+    `{api→scopes[]}` ; **`ApiKeyController.capabilities` enrichi `declaredScopes`** (le catalogue dérive des routes =
+    donnée framework → exposé là où on VOIT le Router, PAS un pont vers security). (c) **Banc** `ApiM2mController`
+    routes `/m2m/scoped/*`. Gates : `scopeVoter` 13 + `@RequireScope` 6 + `scopeCatalog` 7 + 0 régression
+    (security 40, framework 305+6) · **gate mémoire 9/9** · build framework OK. **Prouvé LIVE** : login admin →
+    `/keys/capabilities` `declaredScopes` {m2m:[read,write],reports:[export]} ; clé `[m2m:read]` → read 200 /
+    write+export 403 / whoami 200. Commits `723da293` (cœur) + `e7c04962` (découverte+Studio+banc). studio-dev
+    jumeau = **1.33.0**. [[project_p6_8_scopes_per_api_kit]].
 - **1.27.0** (2026-06-24) — **Seam `Module.configSchema()` (config riche Studio data-driven) + redaction secrets `safeConfig`**
   (full-stack ; **contrat ↔ studio-dev 1.32.0** : `module/{name}.configSchema`). (a) **Core** : méthode prototype
   `Module.configSchema(): unknown | null` (défaut `null`, 0 alloc) + ajoutée à `IModule` ; un module migré Zod l'**override**
