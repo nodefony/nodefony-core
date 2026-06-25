@@ -34,12 +34,32 @@
   qui bloque l'event-loop donne un débit PLAT quand la concurrence monte (mesuré : reprise session
   better-sqlite3 ~400 RPS de c=5 à c=50) ; de l'I/O async MONTE avec la concurrence (redis ~1900, ×4,7).
   Pour qualifier « est-ce sync-bloquant ou CPU pur ? » → bencher c=5/10/25/50, pas un seul point.
-- `[1× — 2026-06-14]` **Bench « coût de la sécu » = isoler firewall vs store** : le coût d'une requête
-  authentifiée était à ~98 % la **reprise de session** (SELECT store), pas le firewall (~gratuit, −6 % sur
-  rejet 401). Toujours décomposer (route hors-zone vs en-zone vs session-hors-zone) avant d'accuser la sécu.
-  Réflexe AVANT d'hypothéser le store : `grep "SESSION STORAGE active"` (perdu 2 hypothèses faute de l'avoir fait).
+- `[2× — 2026-06-14, 2026-06-25]` **Bench « coût de la sécu » = isoler firewall vs store** : le coût d'une requête
+  authentifiée est ~98 % la **reprise de session** (SELECT store) + l'**autosave** (UPDATE), pas le firewall ni le TLS.
+  RE-MESURÉ live 06-25 (pod prod mono, wrk) : `livez` anonyme HTTP **6683** / HTTPS **6181** (TLS = −7.5 %, négligeable) /
+  `/auth/me` session HTTPS **519 RPS** = **÷12** (−92 %) ← TOUT le coût est le **store SQLite SYNCHRONE** (bloque
+  l'event-loop, débit plat). → store **Redis** (async) pour prod authentifiée ; piste Nodefony : **dirty-tracking** de
+  l'autosave (skip l'UPDATE sur un GET en lecture pure → ~×2). Réflexe : `grep "SESSION STORAGE active"` avant d'hypothéser.
+  **→ candidat graduation `feedback_bench_isolate_session_store`.**
+- `[1× — 2026-06-25]` **Débit cluster : optimum = nombre de cœurs PHYSIQUES, sur-fork = contre-productif** (courbe live wrk,
+  livez, machine 6 phys/12 logiques) : mono **6683** → 3w **17114** → **6w 19076 (pic = cœurs phys)** → 10w **15562 (−18 % vs 6w,
+  p99 ×2.5)**. Au-delà des cœurs, les workers se battent → context-switch/cache-thrash → débit ↓ + p99 explose. L'HT (12 log)
+  ne repousse PAS le plafond. → `--workers auto` (cgroup-aware ≈ cœurs) = le bon défaut. **Le vrai gain cluster = la LATENCE p99**
+  (mono p99 **285ms** sur 100 conns → cluster **18-47ms**, ÷6-15), pas tant le débit.
+- `[1× — 2026-06-25]` **Client de charge CO-LOCALISÉ bride le scaling mesuré** : wrk sur la MÊME machine que les workers leur
+  vole des cœurs → 6w = ×2.85 du mono (pas ×6 attendu). Un client DISTANT révélerait le vrai plafond (≈×6). Toujours dire
+  « débit bridé par le co-location » quand client+serveur partagent la machine — ne pas conclure « ça ne scale pas ». Idem
+  node-client (http-load.mjs) ÷ wrk : node lui-même CPU-bound bride (mesuré : node+TLS 9583 vs wrk H1 17114 = +78 % juste en changeant de client/transport).
 
 ## 🐚 Shell / environnement d'exécution
+
+- `[1× — 2026-06-25]` **Cookie `__Host-`/`Secure` REJETÉ en HTTP cleartext** (401) : un bench d'une route à session DOIT taper
+  **HTTPS** (le cookie Secure n'est pas honoré en clair → 401, bench invalide = 100 % non-2xx). + **le jar curl `-c` exclut les
+  cookies HttpOnly** (préfixe ligne `#HttpOnly_…`) → un `awk '$1!~/^#/'` les rate → **extraire via `Set-Cookie`** (`curl -D headers`,
+  `sed 's/^set-cookie://; s/;.*//'`), pas le jar Netscape. (Le cookie de session BFF Nodefony = `__Host-nodefony`, HttpOnly+Secure.)
+- `[1× — 2026-06-25]` **Boucle `for … curl` en zsh → « command not found: curl » (`(eval):N`)** : une boucle for inline dans le
+  Bash tool a glité (curl introuvable dans l'eval) alors que le curl direct marchait → **commandes séparées** (1 curl/ligne) plutôt
+  qu'une boucle quand le shell est instable. (Cf règle existante « 1 cmd à la fois ».)
 
 - `[1× — 2026-06-20]` **Parsing de sortie d'outil système → forcer `LC_ALL=C`.** `ps -o pcpu` formate `%CPU` avec une VIRGULE décimale en locale FR (`0,0`) → regex `[\d.]` ne matchait pas → 0 process détecté (faux « aucune instance », bug silencieux). Fix : `env: {LC_ALL:"C", LANG:"C"}` au spawn + parse tolérant `,`. Vaut pour TOUT `ps`/`df`/`date`/`numfmt` parsé.
 - `[1× — 2026-06-21]` **`lsof -ti:PORT` liste le serveur ET les clients connectés** (ESTABLISHED, dont le NAVIGATEUR sur Studio) → un `kill -9 $(lsof -ti:PORT)` **tue le navigateur du user** (vécu : helper réseau Brave tué). Pour ne viser que le serveur : **`lsof -ti:PORT -sTCP:LISTEN`** (réf saine déjà dans `ViteProcessSupervisor`). Fix appliqué à `start.sh`/`stop.sh` (le code PRODUIT `nodefony stop`/`DevSupervisor` était déjà sain : découverte par `ps`+titre, kill par PID/groupe, jamais par port).
@@ -91,6 +111,17 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
     Re-vécu J2 (builds turbo répétés) ; dépannage : `rm /private/tmp/claude-*/.../tasks/*.output` (tâches finies) débloque.
 
 ## 🎨 Front / Studio / UX
+
+- `[2× — 2026-05-25, 2026-06-25]` **Page Studio VIDE / cassée après `build:front` + restart = bundle PÉRIMÉ navigateur, PAS un bug code** :
+  rebuild front → chunks Vite re-hashés ; le navigateur garde l'ancien `index.html` (cache) → l'import lazy de la page pointe un
+  chunk supprimé → **404 = page vide**. Re-vécu live 06-25 (page Sessions « vide » alors que le data plane curl renvoyait 5-6 sessions).
+  **Fix = hard-reload cache OFF** (Cmd+Shift+R / DevTools « Disable cache »). Réflexe : page vide en prod après un rebuild front →
+  suspecter le bundle périmé AVANT le code ; vérifier le back au curl pour trancher. (Piège #1 prod déjà gravé dans `nodefony-studio-dev`.)
+- `[1× — 2026-06-25]` **Source de vérité PARTAGÉE CLI ↔ Studio pour exposer une commande en web** : pour porter `nodefony status` dans
+  Studio, extraire un **rapport JSON PUR** (`buildDevStatus`) consommé À LA FOIS par le rendu ANSI CLI (`renderStatus`) ET le data plane
+  (`collectDevStatus` → endpoint) → CLI et web affichent EXACTEMENT le même état, 0 divergence par construction. Gotcha : un data plane
+  d'introspection process qui tourne **DANS** le process observé s'**auto-exclut** (`pid===process.pid`) → option `includeSelf` pour qu'il
+  se compte (sinon le rôle « server » manque). Pattern réplicable pour toute commande CLI à surfacer dans Studio.
 
 - `[1× — 2026-06-23]` **Hauteur de grille : un token viewport `calc(100dvh - …)` qui ignore le contenu AU-DESSUS (StatCards/controls) = grille trop haute → déborde → double scroll qui capte la molette.** Vécu sur Sessions/ApiKeys/Audit/Users (`TABS_PANEL_HEIGHT` ne soustrayait pas les StatCards). Fix DURABLE = **défaut `DataGrid height="auto"` global** (1 seul scroll = la page) + **pagination `position:sticky;bottom`** (collée, tirée de `-spacing-md` pour manger le `paddingBottom` de `AppShell.Main` sans masquer la debug bar) + header sticky en mode fixe seulement. **Exceptions** = grille secondaire (peu de lignes, panneau) OU conteneur fixe partagé (ERD React Flow). Détail + règle MANDATORY → skill `nodefony-studio-dev` 1.31.0.
 - `[1× — 2026-06-23]` **Trancher un choix ergo AVEC la doc quand le user le demande (« regarde la doc ergo pour trancher »), pas à l'instinct ni en appliquant sa préférence telle quelle.** Le user voulait « pagination sticky » ; NN/g (data-tables) = « freeze header » OK mais le **double scroll (nested scrollbar) = anti-pattern** (« scroll trap » = son « il faut sortir la souris »). → la bonne voie n'est PAS un 2ᵉ conteneur scrollable (recrée le trap) mais **1 scroll page + sticky CSS**. La doc valide l'intention ET corrige la mise en œuvre.
