@@ -18,6 +18,7 @@ import {
   defaultDevPorts,
   devSupervisorPidFile,
   discoverDevProcesses,
+  findRuntimeConflict,
   missingWorkspaceDists,
   terminateDevProcesses,
 } from "./devProcess";
@@ -394,9 +395,30 @@ export class DevSupervisor {
    * Puis on écrit notre propre PID.
    */
   async #claimSingleInstance(): Promise<void> {
-    // 1. Vérité terrain : tuer tout process dev résiduel (empilé OU orphelin).
+    // 1. Vérité terrain (`ps`) : séparer les RÉSIDUELS DEV (jetables → kill auto) d'un
+    //    runtime d'un AUTRE mode (prod/cluster) occupant les mêmes ports.
     try {
-      const stale = discoverDevProcesses(); // s'auto-exclut (notre pid)
+      const all = discoverDevProcesses(); // s'auto-exclut (notre pid)
+
+      // 1a. Conflit cross-mode → REFUS fail-loud. On ne tue JAMAIS un prod/cluster
+      //     automatiquement (il est intentionnel — bench, démo). Le dev ne peut pas
+      //     démarrer par-dessus : collision de ports garantie. Le user tranche.
+      const conflict = findRuntimeConflict(all, "dev");
+      if (conflict.length > 0) {
+        const otherMode =
+          conflict[0].mode === "cluster" ? "cluster" : "production";
+        const pids = conflict.map((p) => p.pid).join(", ");
+        this.#log(
+          `⛔ un runtime Nodefony ${otherMode} tourne déjà (pid ${pids}) sur les ports ` +
+            `${this.#ports.join("/")} — le mode dev ne peut pas démarrer par-dessus`,
+          "red",
+        );
+        this.#log("arrête-le d'abord : `nodefony stop`", "red");
+        process.exit(SysExit.UNAVAILABLE);
+      }
+
+      // 1b. Résiduels DEV (empilés OU orphelins) → nettoyage automatique (jetables).
+      const stale = all.filter((p) => p.mode === "dev");
       if (stale.length > 0) {
         this.#log(
           `${stale.length} process dev résiduel(s) détecté(s) — nettoyage avant démarrage`,

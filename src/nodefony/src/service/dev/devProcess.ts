@@ -19,15 +19,52 @@ export const DEV_SUPERVISOR_TITLE = "nodefony-dev-supervisor";
 export const DEV_SERVER_TITLE = "nodefony-dev-server";
 /** Préfixe de titre des process Vite (`ViteProcessSupervisor`, via `argv0`). */
 export const DEV_VITE_PREFIX = "nodefony-vite";
+/**
+ * Titre du serveur prod **mono-process** (`production` ou `cluster` avec `workers:1`,
+ * posé par `Prod`/`ClusterCommand.generate`). Espace (≠ tiret de `nodefony-dev-server`)
+ * → aucune collision de `String.includes` entre les deux.
+ */
+export const PROD_SERVER_TITLE = "nodefony server";
+/** Préfixe du titre du master cluster (posé par `startClusterMaster`, ex. `nodefony master [cluster 6w]`). */
+export const CLUSTER_MASTER_PREFIX = "nodefony master";
+/** Préfixe du titre d'un worker cluster (posé par `Prod`/`ClusterCommand.generate`, ex. `nodefony worker 3 [cluster]`). */
+export const CLUSTER_WORKER_PREFIX = "nodefony worker";
 
-/** Rôle d'un process dans la topologie de développement. */
-export type DevProcessRole = "supervisor" | "server" | "vite";
+/**
+ * Mode de runtime d'un process Nodefony — la « molette front » (cf modèle 2 molettes).
+ * `dev` = superviseur + serveur + Vite (HMR) ; `prod` = serveur mono-process foreground
+ * (1 pod) ; `cluster` = master superviseur + N workers. Distingue un `nodefony server`
+ * (prod) d'un `nodefony-dev-server` (dev) là où le seul `role` ne suffit pas.
+ */
+export type RuntimeMode = "dev" | "prod" | "cluster";
 
-/** Process dev vivant observé via `ps` (sans IPC). */
+/**
+ * Rôle d'un process dans la topologie runtime Nodefony (dev OU prod OU cluster).
+ * `supervisor`/`master` = superviseurs (0 HTTP) ; `server`/`worker` = servent le HTTP ;
+ * `vite` = enfant dev (bundler).
+ */
+export type DevProcessRole =
+  | "supervisor"
+  | "server"
+  | "vite"
+  | "master"
+  | "worker";
+
+/** Rôles « principaux » (tiennent les ports ou supervisent) — Vite exclu (enfant jetable). */
+const PRIMARY_ROLES: ReadonlySet<DevProcessRole> = new Set<DevProcessRole>([
+  "supervisor",
+  "server",
+  "master",
+  "worker",
+]);
+
+/** Process runtime Nodefony vivant observé via `ps` (sans IPC) — dev, prod ou cluster. */
 export interface DevProcessInfo {
   readonly pid: number;
-  /** PID du parent (relie l'enfant au superviseur, Vite à l'enfant). */
+  /** PID du parent (relie l'enfant au superviseur/master, Vite à l'enfant). */
   readonly ppid: number;
+  /** Mode runtime du process (dev/prod/cluster) — distingue prod-server de dev-server. */
+  readonly mode: RuntimeMode;
   readonly role: DevProcessRole;
   /** Étiquette courte de colonne (`supervisor`, `server`, `vite`). */
   readonly label: string;
@@ -294,6 +331,7 @@ export function parsePsRow(line: string): DevProcessInfo | null {
   return {
     pid: Number.parseInt(m[1], 10),
     ppid: Number.parseInt(m[2], 10),
+    mode: c.mode,
     role: c.role,
     label: c.label,
     detail: c.detail,
@@ -303,22 +341,50 @@ export function parsePsRow(line: string): DevProcessInfo | null {
   };
 }
 
-/** Classe une ligne de commande `ps` en rôle dev, ou `null` si hors périmètre. */
+/**
+ * Classe une ligne de commande `ps` en (mode, rôle) runtime Nodefony, ou `null` si hors
+ * périmètre. Ordre du matching : titres dev (les plus spécifiques) d'abord, puis cluster
+ * (master/worker), puis le serveur prod mono générique en dernier — `nodefony-dev-server`
+ * (tiret) ne contient jamais `nodefony server` (espace), donc aucune ambiguïté.
+ */
 function classify(command: string): {
+  mode: RuntimeMode;
   role: DevProcessRole;
   label: string;
   detail?: string;
 } | null {
   if (command.includes(DEV_SUPERVISOR_TITLE))
-    return { role: "supervisor", label: "supervisor" };
+    return { mode: "dev", role: "supervisor", label: "supervisor" };
   if (command.includes(DEV_SERVER_TITLE))
-    return { role: "server", label: "server" };
+    return { mode: "dev", role: "server", label: "server" };
   if (command.includes(DEV_VITE_PREFIX)) {
     // Rôle court en colonne (`vite`) ; les bundles vont en `detail` (hors colonne)
     // pour ne pas faire déborder l'alignement quand ils sont nombreux/longs.
     const e = viteEntries(command);
-    return { role: "vite", label: "vite", detail: e || undefined };
+    return { mode: "dev", role: "vite", label: "vite", detail: e || undefined };
   }
+  if (command.includes(CLUSTER_MASTER_PREFIX)) {
+    // Détail = nombre de workers déclaré dans le titre (`[cluster 6w]`).
+    const w = command.match(/\[cluster\s+(\d+)w\]/);
+    return {
+      mode: "cluster",
+      role: "master",
+      label: "master",
+      detail: w ? `${w[1]} workers` : undefined,
+    };
+  }
+  if (command.includes(CLUSTER_WORKER_PREFIX)) {
+    // Détail = id du worker (`nodefony worker 3 [cluster]`).
+    const id = command.match(/nodefony worker (\d+)/);
+    return {
+      mode: "cluster",
+      role: "worker",
+      label: "worker",
+      detail: id ? `#${id[1]}` : undefined,
+    };
+  }
+  if (command.includes(PROD_SERVER_TITLE))
+    return { mode: "prod", role: "server", label: "server" };
   return null;
 }
 
@@ -374,13 +440,58 @@ export function discoverDevProcesses(
     if (!opts.includeSelf && info.pid === process.pid) continue; // ignore soi-même (défaut CLI)
     procs.push(info);
   }
+  // Superviseurs (dev) / masters (cluster) en tête, puis ceux qui servent
+  // (server/worker), puis les Vite ; départage par pid.
   const order: Record<DevProcessRole, number> = {
     supervisor: 0,
+    master: 0,
     server: 1,
+    worker: 1,
     vite: 2,
   };
   procs.sort((a, b) => order[a.role] - order[b.role] || a.pid - b.pid);
   return procs;
+}
+
+/**
+ * Modes runtime présents parmi les process PRINCIPAUX (Vite exclu — un Vite ne « tient »
+ * pas les ports serveur). Set vide = aucun runtime principal vivant. Fonction PURE.
+ */
+export function runtimeModes(
+  procs: readonly DevProcessInfo[],
+): Set<RuntimeMode> {
+  const modes = new Set<RuntimeMode>();
+  for (const p of procs) if (PRIMARY_ROLES.has(p.role)) modes.add(p.mode);
+  return modes;
+}
+
+/**
+ * Mode runtime dominant observé, ou `null` si aucun process principal. Priorité
+ * dev > cluster > prod en cas de cohabitation anormale (le conflit est signalé par
+ * ailleurs en warning / refus). Fonction PURE.
+ */
+export function detectRuntimeMode(
+  procs: readonly DevProcessInfo[],
+): RuntimeMode | null {
+  const modes = runtimeModes(procs);
+  if (modes.has("dev")) return "dev";
+  if (modes.has("cluster")) return "cluster";
+  if (modes.has("prod")) return "prod";
+  return null;
+}
+
+/**
+ * Process PRINCIPAUX appartenant à un runtime d'un mode DIFFÉRENT de `intended` — un
+ * conflit de cohabitation (ex. un `prod`/`cluster` occupe les ports quand on veut
+ * démarrer en `dev`, ou l'inverse). Vite exclu (enfant). Sert aux gardes anti-collision :
+ * fail-loud (refus + message), JAMAIS de kill cross-mode automatique (un prod est
+ * intentionnel). Fonction PURE.
+ */
+export function findRuntimeConflict(
+  procs: readonly DevProcessInfo[],
+  intended: RuntimeMode,
+): DevProcessInfo[] {
+  return procs.filter((p) => PRIMARY_ROLES.has(p.role) && p.mode !== intended);
 }
 
 /** Résout les globs `workspaces` (`a/b`, `a/*`) en chemins de dossiers absolus. */

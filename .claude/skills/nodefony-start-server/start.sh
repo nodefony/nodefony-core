@@ -43,19 +43,17 @@ LOG="/tmp/nodefony-server.log"
 PIDFILE="/tmp/srv.pid"
 TEST_MODULE="$ROOT/src/modules/test"
 
-# ── 1. KILL : watch/rollup AVANT lsof (sinon respawn immédiat) ──────────────
-# Un cluster résiduel tiendrait les ports. ⚠️ process.title COUPLÉ : master/workers/mono
-# se renomment `nodefony master|worker|server` (lisibles dans Activity Monitor) → il FAUT
-# ces patterns EN PLUS de l'argv (cf stop.sh) ; un master parké est immortel.
-echo ">>> KILL watch+rollup+ports 5151/5152"
-pkill -9 -f "nodefony master" 2>/dev/null
-pkill -9 -f "nodefony worker" 2>/dev/null
-pkill -9 -f "nodefony server" 2>/dev/null
-pkill -9 -f "nodefony development" 2>/dev/null
-pkill -9 -f "nodefony cluster" 2>/dev/null
-pkill -9 -f "nodefony staging" 2>/dev/null
-pkill -9 -f "nodefony preprod" 2>/dev/null
-pkill -9 -f "nodefony production" 2>/dev/null
+# ── 1. KILL : arrêt PROPRE via `nodefony stop` (source de vérité) PUIS filet ──
+# `nodefony stop` group-kill par `ps` TOUS les modes (dev/prod/cluster) : il découvre les
+# process par leur titre réel et tue les arbres (superviseur→serveur→Vite, master→workers).
+# C'est CORRECT là où l'ancienne rafale `pkill -f "nodefony development"` RATAIT le
+# superviseur dev — dont le titre est `nodefony-dev-supervisor`, pas `nodefony development`
+# (le `pkill` ne matchait pas → superviseur survivant, et le garde anti-collision du
+# framework refusait alors le démarrage suivant). Filet ENSUITE : rollup résiduel +
+# sockets en ÉCOUTE sur les ports (process non-nodefony, ou secours si `ps` indispo).
+echo ">>> KILL (nodefony stop + filet rollup/ports 5151/5152)"
+BIN="$ROOT/node_modules/nodefony/bin/nodefony"
+(cd "$ROOT" && node "$BIN" stop >/dev/null 2>&1)
 pkill -9 -f "rollup" 2>/dev/null
 # ⚠️ `-sTCP:LISTEN` OBLIGATOIRE : `lsof -ti:PORT` SEUL renvoie TOUS les détenteurs
 # d'une socket sur le port — le serveur (LISTEN) MAIS AUSSI les CLIENTS connectés
@@ -123,7 +121,7 @@ fi
 # superviseur (et non le wrapper npm), et `ps`/`nodefony status` ne montrent que les 2
 # process réels (superviseur + serveur enfant). Le respawn de l'enfant par le superviseur
 # était DÉJÀ direct (process.execPath + argv) — seul le lancement initial passait par npx.
-BIN="$ROOT/node_modules/nodefony/bin/nodefony"
+# ($BIN défini plus haut, section KILL.)
 rm -f "$LOG" "$PIDFILE"
 # --expose-gc : le serveur de test DOIT pouvoir forcer le GC pour que le gate
 # mémoire (sonde /nodefony/test/memory → global.gc()) mesure le heap RETENU et non

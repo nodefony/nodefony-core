@@ -11,10 +11,14 @@ import os from "node:os";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import {
   defaultDevPorts,
+  detectRuntimeMode,
   devSupervisorPidFile,
+  findRuntimeConflict,
   formatUptime,
   missingWorkspaceDists,
   parsePsRow,
+  runtimeModes,
+  type DevProcessInfo,
 } from "../service/dev/devProcess";
 
 describe("devProcess — parsePsRow (parsing ps)", () => {
@@ -73,6 +77,102 @@ describe("devProcess — parsePsRow (parsing ps)", () => {
       parsePsRow("500 1 20000 0.0 10:00 /usr/libexec/some-daemon"),
       null,
     );
+  });
+
+  it("serveur PROD mono (`nodefony server`) → mode prod, role server", () => {
+    const r = parsePsRow("200 1 30000 0.0 05:00 nodefony server");
+    assert.ok(r);
+    assert.strictEqual(r.mode, "prod");
+    assert.strictEqual(r.role, "server");
+  });
+
+  it("master cluster → mode cluster, role master, detail = nb workers", () => {
+    const r = parsePsRow("300 1 18000 0.0 05:00 nodefony master [cluster 6w]");
+    assert.ok(r);
+    assert.strictEqual(r.mode, "cluster");
+    assert.strictEqual(r.role, "master");
+    assert.strictEqual(r.detail, "6 workers");
+  });
+
+  it("worker cluster → mode cluster, role worker, detail = #id", () => {
+    const r = parsePsRow("301 300 32000 0.0 05:00 nodefony worker 3 [cluster]");
+    assert.ok(r);
+    assert.strictEqual(r.mode, "cluster");
+    assert.strictEqual(r.role, "worker");
+    assert.strictEqual(r.detail, "#3");
+  });
+
+  it("dev-server (tiret) ≠ prod-server (espace) → mode dev, pas prod", () => {
+    const r = parsePsRow("100 1 30000 0.0 05:00 nodefony-dev-server");
+    assert.ok(r);
+    assert.strictEqual(r.mode, "dev");
+    assert.strictEqual(r.role, "server");
+  });
+});
+
+describe("devProcess — détection de mode & conflit (gardes anti-collision)", () => {
+  const mk = (
+    pid: number,
+    mode: DevProcessInfo["mode"],
+    role: DevProcessInfo["role"],
+    ppid = 1,
+  ): DevProcessInfo => ({
+    pid,
+    ppid,
+    mode,
+    role,
+    label: role,
+    rssKb: 1000,
+    cpu: 0,
+    uptimeSec: 1,
+  });
+
+  it("detectRuntimeMode : priorité dev > cluster > prod ; null si vide", () => {
+    assert.strictEqual(detectRuntimeMode([]), null);
+    assert.strictEqual(detectRuntimeMode([mk(1, "prod", "server")]), "prod");
+    assert.strictEqual(
+      detectRuntimeMode([
+        mk(1, "cluster", "master"),
+        mk(2, "cluster", "worker"),
+      ]),
+      "cluster",
+    );
+    // Cohabitation anormale dev+prod → dev domine (le superviseur a la priorité).
+    assert.strictEqual(
+      detectRuntimeMode([mk(1, "prod", "server"), mk(2, "dev", "supervisor")]),
+      "dev",
+    );
+  });
+
+  it("runtimeModes ignore Vite (enfant, ne tient pas les ports)", () => {
+    const modes = runtimeModes([
+      mk(1, "dev", "supervisor"),
+      mk(2, "dev", "server"),
+      mk(3, "dev", "vite"),
+    ]);
+    assert.deepStrictEqual([...modes], ["dev"]);
+  });
+
+  it("findRuntimeConflict(dev) : un prod/cluster est un conflit, un résiduel dev non", () => {
+    const procs = [
+      mk(1, "dev", "supervisor"),
+      mk(2, "dev", "server"),
+      mk(3, "prod", "server"),
+    ];
+    const conflict = findRuntimeConflict(procs, "dev");
+    assert.strictEqual(conflict.length, 1);
+    assert.strictEqual(conflict[0].pid, 3);
+    assert.strictEqual(conflict[0].mode, "prod");
+  });
+
+  it("findRuntimeConflict(prod) : un dev qui tourne bloque le démarrage prod", () => {
+    const conflict = findRuntimeConflict(
+      [mk(1, "dev", "supervisor"), mk(2, "dev", "vite")],
+      "prod",
+    );
+    // Le superviseur dev est un conflit ; le Vite (enfant) est exclu.
+    assert.strictEqual(conflict.length, 1);
+    assert.strictEqual(conflict[0].role, "supervisor");
   });
 
   it("ligne vide / header → null", () => {

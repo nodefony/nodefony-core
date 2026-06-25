@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-25T08:38:32.599Z",
+  "generated": "2026-06-25T11:27:49.966Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 939,
-    "symbols": 2117,
+    "symbols": 2129,
     "classes": 297,
     "interfaces": 561,
-    "types": 252,
+    "types": 253,
     "enums": 3,
-    "functions": 493,
-    "constants": 511
+    "functions": 501,
+    "constants": 514
   },
   "symbols": {
     "Cli": {
@@ -3177,7 +3177,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Process dev vivant observé via `ps` (sans IPC)."
+      "description": "Process runtime Nodefony vivant observé via `ps` (sans IPC) — dev, prod ou cluster."
     },
     "PortState": {
       "name": "PortState",
@@ -3206,13 +3206,21 @@
       "extends": null,
       "description": "Options de {@link discoverDevProcesses}."
     },
+    "RuntimeMode": {
+      "name": "RuntimeMode",
+      "kind": "type",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Mode de runtime d'un process Nodefony — la « molette front » (cf modèle 2 molettes). `dev` = superviseur + serveur + Vite (HMR) ; `prod` = serveur mono-process foreground (1 pod) ; `cluster` = mast…"
+    },
     "DevProcessRole": {
       "name": "DevProcessRole",
       "kind": "type",
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Rôle d'un process dans la topologie de développement."
+      "description": "Rôle d'un process dans la topologie runtime Nodefony (dev OU prod OU cluster). `supervisor`/`master` = superviseurs (0 HTTP) ; `server`/`worker` = servent le HTTP ; `vite` = enfant dev (bundler)."
     },
     "devSupervisorPidFile": {
       "name": "devSupervisorPidFile",
@@ -3326,6 +3334,30 @@
       "module": "@nodefony/core",
       "description": "Découvre les process dev Nodefony vivants par OBSERVATION EXTERNE (`ps`) — zéro IPC. Ne retient que les process dont la commande porte un titre dev connu (superviseur / serveur / Vite) et en extrai…"
     },
+    "runtimeModes": {
+      "name": "runtimeModes",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Modes runtime présents parmi les process PRINCIPAUX (Vite exclu — un Vite ne « tient » pas les ports serveur). Set vide = aucun runtime principal vivant. Fonction PURE."
+    },
+    "detectRuntimeMode": {
+      "name": "detectRuntimeMode",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Mode runtime dominant observé, ou `null` si aucun process principal. Priorité dev > cluster > prod en cas de cohabitation anormale (le conflit est signalé par ailleurs en warning / refus). Fonction…"
+    },
+    "findRuntimeConflict": {
+      "name": "findRuntimeConflict",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Process PRINCIPAUX appartenant à un runtime d'un mode DIFFÉRENT de `intended` — un conflit de cohabitation (ex. un `prod`/`cluster` occupe les ports quand on veut démarrer en `dev`, ou l'inverse). …"
+    },
     "missingWorkspaceDists": {
       "name": "missingWorkspaceDists",
       "kind": "function",
@@ -3357,6 +3389,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Préfixe de titre des process Vite (`ViteProcessSupervisor`, via `argv0`)."
+    },
+    "PROD_SERVER_TITLE": {
+      "name": "PROD_SERVER_TITLE",
+      "kind": "const",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Titre du serveur prod **mono-process** (`production` ou `cluster` avec `workers:1`, posé par `Prod`/`ClusterCommand.generate`). Espace (≠ tiret de `nodefony-dev-server`) → aucune collision de `Stri…"
+    },
+    "CLUSTER_MASTER_PREFIX": {
+      "name": "CLUSTER_MASTER_PREFIX",
+      "kind": "const",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Préfixe du titre du master cluster (posé par `startClusterMaster`, ex. `nodefony master [cluster 6w]`)."
+    },
+    "CLUSTER_WORKER_PREFIX": {
+      "name": "CLUSTER_WORKER_PREFIX",
+      "kind": "const",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Préfixe du titre d'un worker cluster (posé par `Prod`/`ClusterCommand.generate`, ex. `nodefony worker 3 [cluster]`)."
     },
     "DevStatusReport": {
       "name": "DevStatusReport",
@@ -17429,6 +17485,7 @@
       "SysExit": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "CliDefaultOptions": [
@@ -17881,6 +17938,21 @@
       "Topology": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
       ],
+      "discoverDevProcesses": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "findRuntimeConflict": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "RuntimeMode": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
       "runStatusReport": [
         "src/nodefony/src/kernel/commands/StatusCommand.ts"
       ],
@@ -17929,13 +18001,12 @@
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "detectRuntimeMode": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
       "devSupervisorPidFile": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "discoverDevProcesses": [
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "isPidAlive": [
@@ -17946,6 +18017,9 @@
         "src/nodefony/src/service/dev/devStop.ts"
       ],
       "readSupervisorPid": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "runtimeModes": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "DevProcessInfo": [

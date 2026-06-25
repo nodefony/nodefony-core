@@ -22,8 +22,8 @@ src/nodefony/src/kernel/
 │   ├── ClusterCommand.ts    ← cluster multi-worker (remplace l'ancien staging)
 │   ├── InstallCommand.ts
 │   ├── OutdatedCommand.ts
-│   ├── StatusCommand.ts     ← introspection process dev (ps + sonde ports, standalone)
-│   └── StopCommand.ts       ← arrêt propre des process dev (group-kill, standalone)
+│   ├── StatusCommand.ts     ← introspection runtime dev/prod/cluster (ps + sonde ports, standalone)
+│   └── StopCommand.ts       ← arrêt propre de tout runtime Nodefony (group-kill, standalone)
 ├── injector/                ← DI decorators (@injectable, @inject, ...)
 └── MEMORY.md / README.md / CLAUDE.md
 ```
@@ -173,17 +173,17 @@ class MyCommand extends Command {
 
 ## Commandes built-in
 
-| Command    | Alias  | Status                                                                                         |
-| ---------- | ------ | ---------------------------------------------------------------------------------------------- |
-| `Start`    | —      | ✅                                                                                             |
-| `Dev`      | `dev`  | ✅                                                                                             |
-| `Build`    | —      | ✅                                                                                             |
-| `Prod`     | `prod` | ✅ foreground cloud-native (topologie `--workers`)                                             |
-| `Cluster`  | —      | ✅ cgroup-aware + respawn backoff + graceful shutdown                                          |
-| `Install`  | —      | ✅                                                                                             |
-| `Outdated` | —      | ✅                                                                                             |
-| `Status`   | —      | ✅ introspection process dev (superviseur/serveur/Vite + ports) — **standalone, hors trunk**   |
-| `Stop`     | —      | ✅ arrêt propre des process dev (group-kill, remplace `pkill -9`) — **standalone, hors trunk** |
+| Command    | Alias  | Status                                                                                                                                                |
+| ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Start`    | —      | ✅                                                                                                                                                    |
+| `Dev`      | `dev`  | ✅                                                                                                                                                    |
+| `Build`    | —      | ✅                                                                                                                                                    |
+| `Prod`     | `prod` | ✅ foreground cloud-native (topologie `--workers`)                                                                                                    |
+| `Cluster`  | —      | ✅ cgroup-aware + respawn backoff + graceful shutdown                                                                                                 |
+| `Install`  | —      | ✅                                                                                                                                                    |
+| `Outdated` | —      | ✅                                                                                                                                                    |
+| `Status`   | —      | ✅ introspection **multi-mode** (dev superviseur/serveur/Vite · prod `nodefony server` · cluster master/workers) + ports — **standalone, hors trunk** |
+| `Stop`     | —      | ✅ arrêt propre de **tout** runtime Nodefony (dev/prod/cluster, group-kill, remplace `pkill -9`) — **standalone, hors trunk**                         |
 
 ⚠️ **Tests CLI** : Phase 11 non finalisée. Les commands ne sont pas couvertes par des tests d'intégration. État réel à vérifier au cas par cas.
 

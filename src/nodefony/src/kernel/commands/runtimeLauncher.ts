@@ -6,6 +6,43 @@ import {
   ClusterLog,
 } from "../../service/cluster/clusterMaster";
 import { Topology } from "../../service/cluster/topology";
+import {
+  discoverDevProcesses,
+  findRuntimeConflict,
+  type RuntimeMode,
+} from "../../service/dev/devProcess";
+import { SysExit } from "../../cli/sysexits";
+
+/** Libellé FR d'un mode runtime, pour les messages d'erreur. */
+function modeLabelFr(mode: RuntimeMode): string {
+  if (mode === "dev") return "développement";
+  if (mode === "cluster") return "cluster";
+  return "production";
+}
+
+/**
+ * Garde anti-collision (symétrique du superviseur dev) : un runtime prod/cluster ne
+ * démarre PAS par-dessus un AUTRE runtime Nodefony (dev/prod/cluster d'un mode différent)
+ * qui tiendrait déjà les ports. Fail-loud + exit — jamais de kill auto cross-mode (le
+ * runtime préexistant est intentionnel). Primaire seulement (les workers forkés héritent
+ * d'un primaire déjà validé). `ps` indisponible → liste vide → on retombe sur
+ * l'`EADDRINUSE` natif (best-effort, ex. conteneur minimaliste sans `ps`).
+ */
+function assertNoConflictingRuntime(
+  intended: RuntimeMode,
+  log: ClusterLog,
+): void {
+  const conflict = findRuntimeConflict(discoverDevProcesses(), intended);
+  if (conflict.length === 0) return;
+  const pids = conflict.map((p) => p.pid).join(", ");
+  log(
+    `⛔ un runtime Nodefony ${modeLabelFr(conflict[0].mode)} tourne déjà (pid ${pids}) — ` +
+      `démarrage ${modeLabelFr(intended)} refusé (collision de ports). ` +
+      "Arrête-le d'abord : nodefony stop",
+    "CRITIC",
+  );
+  process.exit(SysExit.UNAVAILABLE);
+}
 
 /** Arguments de {@link launchTopology}. */
 export interface LaunchTopologyOptions {
@@ -39,6 +76,14 @@ export async function launchTopology(
   opts: LaunchTopologyOptions,
 ): Promise<void> {
   const { cli, topo, log } = opts;
+
+  // Avant tout fork/serveur : refuser de démarrer par-dessus un autre runtime Nodefony
+  // (le cas inverse du « dev démarré sur prod »). Primaire uniquement — au fork, ce
+  // process n'a pas encore posé son titre et `discoverDevProcesses` s'auto-exclut.
+  if (cluster.isPrimary) {
+    const intended: RuntimeMode = topo.workers >= 2 ? "cluster" : "prod";
+    assertNoConflictingRuntime(intended, log);
+  }
 
   if (cluster.isPrimary && topo.workers >= 2) {
     log(

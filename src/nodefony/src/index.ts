@@ -353,9 +353,15 @@ export {
   buildDevStatus,
 } from "./service/dev/devStatusReport";
 export type { DevStatusReport } from "./service/dev/devStatusReport";
+export {
+  detectRuntimeMode,
+  runtimeModes,
+  findRuntimeConflict,
+} from "./service/dev/devProcess";
 export type {
   DevProcessInfo,
   DevProcessRole,
+  RuntimeMode,
   PortState,
 } from "./service/dev/devProcess";
 

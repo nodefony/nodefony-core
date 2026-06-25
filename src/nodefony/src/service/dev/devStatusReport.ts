@@ -3,15 +3,18 @@ import path from "node:path";
 import Cli from "../../Cli";
 import {
   defaultDevPorts,
+  detectRuntimeMode,
   devSupervisorPidFile,
   discoverDevProcesses,
   formatUptime,
   isPidAlive,
   probePorts,
   readSupervisorPid,
+  runtimeModes,
   type DevProcessInfo,
   type DiscoverOptions,
   type PortState,
+  type RuntimeMode,
 } from "./devProcess";
 import { runStopReport } from "./devStop";
 
@@ -59,9 +62,14 @@ export async function runStandaloneDevCommand(name: string): Promise<void> {
 export interface DevStatusReport {
   /** `false` si l'introspection `ps` est indisponible (Windows). */
   readonly supported: boolean;
-  /** `true` si au moins un process dev (superviseur/serveur/Vite) tourne. */
+  /** `true` si au moins un process runtime Nodefony tourne. */
   readonly running: boolean;
-  /** Process dev observés (triés superviseur → serveur → Vite). */
+  /**
+   * Mode runtime dominant détecté (`dev`/`prod`/`cluster`), ou `null` si aucun process
+   * principal vivant. Pilote le libellé du rapport (dev vs production vs cluster).
+   */
+  readonly mode: RuntimeMode | null;
+  /** Process runtime observés (triés superviseur/master → serveur/worker → Vite). */
   readonly processes: readonly DevProcessInfo[];
   /** État des ports serveur sondés. */
   readonly ports: readonly PortState[];
@@ -70,6 +78,10 @@ export interface DevStatusReport {
     readonly supervisors: number;
     readonly servers: number;
     readonly vites: number;
+    /** Masters cluster (superviseurs prod, 0 HTTP). */
+    readonly masters: number;
+    /** Workers cluster (servent le HTTP). */
+    readonly workers: number;
     readonly portsUp: number;
     readonly portsTotal: number;
   };
@@ -99,37 +111,64 @@ export function buildDevStatus(
   const nSup = procs.filter((p) => p.role === "supervisor").length;
   const nSrv = procs.filter((p) => p.role === "server").length;
   const nVite = procs.filter((p) => p.role === "vite").length;
+  const nMaster = procs.filter((p) => p.role === "master").length;
+  const nWorker = procs.filter((p) => p.role === "worker").length;
   const portsUp = ports.filter((p) => p.listening).length;
+  const mode = detectRuntimeMode(procs);
 
   // États incohérents → fail-loud (principe « pas de dégradation silencieuse »).
   const warnings: string[] = [];
+
+  // Cohabitation anormale de plusieurs runtimes (ex. un dev ET un prod tiennent les mêmes
+  // ports) — la 1ʳᵉ cause du bug « dev démarré par-dessus prod ». À signaler en priorité.
+  const modes = runtimeModes(procs);
+  if (modes.size > 1)
+    warnings.push(
+      `${modes.size} runtimes Nodefony cohabitent (${[...modes].join(" + ")}) — ` +
+        "anormal : `nodefony stop` pour tout arrêter",
+    );
+
   const supPids = procs
     .filter((p) => p.role === "supervisor")
     .map((p) => p.pid);
+  // Le pidfile single-instance ne concerne QUE le superviseur dev — pas de warning en
+  // mode prod/cluster (où il est légitimement absent).
   if (pid !== null && !supPids.includes(pid))
     warnings.push(
       pidAlive
         ? `pidfile pointe pid ${pid} (vivant) qui n'est pas le superviseur réel — pidfile incohérent`
         : `pidfile pointe pid ${pid} mort — pidfile périmé`,
     );
-  if (nSup === 0 && (nSrv > 0 || nVite > 0))
+  // Orphelins = serveur/Vite DEV sans superviseur dev (un kill -9 brutal). N'a de sens
+  // qu'en dev : en prod mono / cluster, l'absence de superviseur dev est NORMALE.
+  const devSrv = procs.filter(
+    (p) => p.mode === "dev" && p.role === "server",
+  ).length;
+  if (nSup === 0 && (devSrv > 0 || nVite > 0))
     warnings.push(
       "process dev orphelins (serveur/Vite sans superviseur) — `nodefony stop` les nettoiera",
     );
   if (nSup > 1)
     warnings.push(`${nSup} superviseurs simultanés — empilement anormal`);
+  if (nMaster > 1)
+    warnings.push(`${nMaster} masters cluster simultanés — empilement anormal`);
+  // Plusieurs `server` (rôle prod/dev mono) = empilement ; les workers cluster (rôle
+  // distinct) sont, eux, attendus en nombre → exclus de ce contrôle.
   if (nSrv > 1)
     warnings.push(`${nSrv} serveurs simultanés — empilement anormal`);
 
   return {
     supported: true,
     running: procs.length > 0,
+    mode,
     processes: procs,
     ports,
     summary: {
       supervisors: nSup,
       servers: nSrv,
       vites: nVite,
+      masters: nMaster,
+      workers: nWorker,
       portsUp,
       portsTotal: ports.length,
     },
@@ -157,12 +196,15 @@ export async function collectDevStatus(
     return {
       supported: false,
       running: false,
+      mode: null,
       processes: [],
       ports: [],
       summary: {
         supervisors: 0,
         servers: 0,
         vites: 0,
+        masters: 0,
+        workers: 0,
         portsUp: 0,
         portsTotal: 0,
       },
@@ -233,16 +275,16 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
   const roleW = Math.max(4, ...procs.map((p) => p.label.length));
   lines.push(
     "",
-    `${tag} ${ANSI.bold}Nodefony dev — ${procs.length} process${ANSI.reset}`,
+    `${tag} ${ANSI.bold}Nodefony ${runtimeLabel(report.mode)} — ${procs.length} process${ANSI.reset}`,
     "",
     `${ANSI.dim}  ${"RÔLE".padEnd(roleW)}  ${"PID".padEnd(7)}  ${"PPID".padEnd(7)}  ${"UPTIME".padEnd(9)}  ${"RSS".padEnd(9)}  %CPU${ANSI.reset}`,
     `${ANSI.dim}  ${"─".repeat(roleW + 46)}${ANSI.reset}`,
   );
   for (const p of procs) {
     const color =
-      p.role === "supervisor"
+      p.role === "supervisor" || p.role === "master"
         ? ANSI.cyan
-        : p.role === "server"
+        : p.role === "server" || p.role === "worker"
           ? ANSI.green
           : ANSI.dim;
     lines.push(
@@ -269,9 +311,30 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
           }`,
       )
       .join("   ")}`,
-    `  ${ANSI.dim}synthèse${ANSI.reset}      : ${report.summary.supervisors} superviseur · ${report.summary.servers} serveur · ${report.summary.vites} Vite · ${report.summary.portsUp}/${report.summary.portsTotal} ports UP`,
+    `  ${ANSI.dim}synthèse${ANSI.reset}      : ${summaryLine(report)}`,
   );
   for (const w of report.warnings)
     lines.push(`  ${ANSI.yellow}⚠ ${w}${ANSI.reset}`);
   lines.push("");
+}
+
+/** Libellé du mode runtime pour le titre du rapport (`dev`/`production`/`cluster`). */
+function runtimeLabel(mode: RuntimeMode | null): string {
+  if (mode === "prod") return "production";
+  if (mode === "cluster") return "cluster";
+  if (mode === "dev") return "dev";
+  return "runtime"; // que des Vite orphelins ou mode indéterminé
+}
+
+/** Ligne de synthèse : segments non-nuls seulement (s'adapte à dev / prod / cluster). */
+function summaryLine(report: DevStatusReport): string {
+  const s = report.summary;
+  const seg: string[] = [];
+  if (s.supervisors) seg.push(`${s.supervisors} superviseur`);
+  if (s.masters) seg.push(`${s.masters} master`);
+  if (s.workers) seg.push(`${s.workers} worker`);
+  if (s.servers) seg.push(`${s.servers} serveur`);
+  if (s.vites) seg.push(`${s.vites} Vite`);
+  seg.push(`${s.portsUp}/${s.portsTotal} ports UP`);
+  return seg.join(" · ");
 }

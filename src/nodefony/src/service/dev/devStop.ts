@@ -2,22 +2,34 @@ import { writeSync } from "node:fs";
 import {
   clearSupervisorPidFile,
   defaultDevPorts,
+  detectRuntimeMode,
   discoverDevProcesses,
   probePorts,
   terminateDevProcesses,
   type PortState,
+  type RuntimeMode,
 } from "./devProcess";
 
 /**
- * Commande `nodefony stop` — arrêt PROPRE et COMPLET des process de dev (remplace le
- * `pkill -9` manuel). Standalone : aucun boot kernel, aucune trunk requise → lançable
- * de n'importe où (cf le fast-path de `CliKernel.start`).
+ * Commande `nodefony stop` — arrêt PROPRE et COMPLET de TOUT runtime Nodefony (dev,
+ * production mono, cluster) ; remplace le `pkill -9` manuel. Standalone : aucun boot
+ * kernel, aucune trunk requise → lançable de n'importe où (cf le fast-path de
+ * `CliKernel.start`).
  *
  * Stratégie : vérité = `ps` (pas le seul pidfile). On tue les GROUPES « racines » (un
- * process dont le parent n'est pas dans la liste) — group-kill du superviseur emporte
- * déjà son enfant serveur + ses Vite ; un serveur/Vite orphelin (pidfile périmé) est
- * sa propre racine et tombe aussi. SIGTERM (arrêt gracieux) puis SIGKILL des récalcitrants.
+ * process dont le parent n'est pas dans la liste) — group-kill du superviseur/master
+ * emporte déjà ses enfants (serveur + Vite, ou workers) ; un orphelin (pidfile périmé)
+ * est sa propre racine et tombe aussi. SIGTERM (arrêt gracieux — déclenche le graceful
+ * shutdown du ClusterManager pour un master) puis SIGKILL des récalcitrants un à un.
  */
+
+/** Libellé du mode runtime pour les messages (`dev`/`production`/`cluster`). */
+function runtimeLabel(mode: RuntimeMode | null): string {
+  if (mode === "prod") return "production";
+  if (mode === "cluster") return "cluster";
+  if (mode === "dev") return "dev";
+  return "runtime";
+}
 
 const ANSI = {
   dim: "\x1b[90m",
@@ -75,7 +87,7 @@ export async function runStopReport(cwd: string): Promise<void> {
       1,
       [
         "",
-        `${tag} ${ANSI.bold}Nodefony dev — aucune instance en cours (déjà arrêté)${ANSI.reset}`,
+        `${tag} ${ANSI.bold}Nodefony — aucune instance en cours (déjà arrêté)${ANSI.reset}`,
         `  ${ANSI.dim}ports${ANSI.reset} : ${portsLine(ports, "libre")}`,
         "",
       ].join("\n") + "\n",
@@ -83,14 +95,26 @@ export async function runStopReport(cwd: string): Promise<void> {
     return;
   }
 
-  const nSup = before.filter((p) => p.role === "supervisor").length;
-  const nSrv = before.filter((p) => p.role === "server").length;
-  const nVite = before.filter((p) => p.role === "vite").length;
+  // Décompte par rôle (segments non-nuls) → message adapté à dev / prod / cluster.
+  const mode = runtimeLabel(detectRuntimeMode(before));
+  const count = (role: string): number =>
+    before.filter((p) => p.role === role).length;
+  const seg: string[] = [];
+  for (const [role, word] of [
+    ["supervisor", "superviseur"],
+    ["master", "master"],
+    ["worker", "worker"],
+    ["server", "serveur"],
+    ["vite", "Vite"],
+  ] as const) {
+    const n = count(role);
+    if (n) seg.push(`${n} ${word}`);
+  }
   // Annonce l'intention AVANT de tuer (l'arrêt peut prendre quelques secondes).
   writeSync(
     1,
-    `\n${tag} ${ANSI.bold}arrêt de ${before.length} process dev${ANSI.reset}` +
-      ` (${nSup} superviseur · ${nSrv} serveur · ${nVite} Vite)…\n`,
+    `\n${tag} ${ANSI.bold}arrêt de ${before.length} process ${mode}${ANSI.reset}` +
+      ` (${seg.join(" · ")})…\n`,
   );
 
   // Group-kill SIGTERM→SIGKILL (logique partagée avec le verrou single-instance).
