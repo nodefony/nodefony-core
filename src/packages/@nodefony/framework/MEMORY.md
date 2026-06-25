@@ -156,6 +156,22 @@ Déclare le besoin de **session serveur** (chantier session étape 5, 2026-06-07
 
 **Gotcha `@Param`** : `route.match()` retourne `map = res.slice(1)` (captures SANS le full-match). Donc `this.variables[0]` = 1ère capture. Index `i`, pas `i+1`.
 
+### `@Idempotent` (classe + méthode, dual — anti double-effet des mutations, P6.8)
+
+```typescript
+@Post("/") @Idempotent() create() {}            // STRICT : clé absente → 400
+@Patch("/{id}") @Idempotent({ required:false }) update() {} // souple en HTTP
+```
+
+Protège une **mutation** (POST/PUT/PATCH/DELETE ; no-op GET/HEAD/WEBSOCKET) contre le rejeu (double-clic, reconnexion socket, retry) via `Idempotency-Key` cliente (`draft-ietf-httpapi-idempotency-key-header`). `computeIdempotent(ctor, m)` → `RouteActionMeta.idempotent: {required}|null` (méthode > classe, comme `@UseSession`). Coût hot path nul si `null`.
+
+- **Seam = `Resolver.callController` → `_callWithIdempotency`** (PAS `executeAction`, réutilisé par le pont WS-RPC invoke sans rendu). `meta` résolu **1× dans `callController`** puis passé à `executeAction(data, reload, meta)` → **0 double résolution** (perf hot path).
+- **Logique normative PARTAGÉE** : `src/idempotency.ts` (`evaluateIdempotency` → verdict neutre `execute|guarded|replay|reject` + `resolveIdempotencyKey`/`resolveIdentity`/`computeFingerprint`/`isMutationMethod`). MÊME helper que `AdminApiController` (qui ne fait plus que TRADUIRE le verdict). `required` effectif = `required || isWs` (WS toujours strict).
+- **Réponse mémorisée = valeur RETOURNÉE** par l'action (`return data`) + statut. Une action qui pilote la response (`this.render`/stream) n'est pas rejouée fidèlement (double-effet évité, corps rejoué vide) — limite assumée.
+- Clé de cache **scopée identité** `[identity, clientKey]` (anti-IDOR) ; payload comparé par fingerprint SHA-256 → 422 si clé réutilisée avec un autre corps.
+- **Contrat `IIdempotencyStore` déplacé framework → CORE** (`nodefony` `src/types/`) : permet à `@nodefony/redis`/`@nodefony/drizzle` (hors framework) d'implémenter un store distribué. `interfaces/IIdempotencyStore.ts` = re-export façade. Service `idempotencyStore` (`@services`) inchangé.
+- Tests : `unit/idempotency.test.ts` (verdict, 13) + `unit/resolverIdempotency.test.ts` (seam, 8 — replay sans ré-exécution, scope identité) + banc live `http/.../ws-data-plane-auth` (admin).
+
 ### Response decorators
 
 ```typescript

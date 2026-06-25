@@ -31,6 +31,7 @@ function metaWith(security: SecurityRequirement | null): RouteActionMeta {
     cspDirectives: null,
     csrfProtect: false,
     csrfExempt: false,
+    idempotent: null,
   };
 }
 

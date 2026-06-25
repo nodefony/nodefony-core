@@ -311,6 +311,11 @@ export type {
   AdminHandler,
   AdminHttpMethod,
 } from "./types/IAdminApi";
+export type {
+  IIdempotencyStore,
+  IdempotencyOutcome,
+  IdempotentResponse,
+} from "./types/IIdempotencyStore";
 export type { ISyslog } from "./types/ISyslog";
 export type { ITransport } from "./types/ITransport";
 export type { EnvironmentType, DebugType } from "./types/globals";

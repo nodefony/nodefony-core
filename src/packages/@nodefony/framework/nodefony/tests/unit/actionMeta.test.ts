@@ -12,6 +12,8 @@ import {
   Csp,
   CsrfProtect,
   CsrfExempt,
+  Idempotent,
+  Post,
   type RouteActionMeta,
 } from "../../decorators/routerDecorators.js";
 
@@ -59,6 +61,29 @@ class CspClassCtrl {
   inherited() {}
 }
 
+// @Idempotent — méthode (strict par défaut / souple) + GET non muté.
+class IdempotentCtrl {
+  @Post("/")
+  @Idempotent()
+  strictCreate() {}
+
+  @Post("/")
+  @Idempotent({ required: false })
+  softCreate() {}
+
+  bare() {}
+}
+
+// @Idempotent de CLASSE → s'applique à toutes les actions ; une méthode peut
+// surcharger le mode (souple) — la précédence méthode > classe.
+@Idempotent()
+class IdempotentClassCtrl {
+  inherited() {}
+
+  @Idempotent({ required: false })
+  overridden() {}
+}
+
 describe("routerDecorators — computeActionMeta()", () => {
   it("snapshots @HttpCode/@Header/@Redirect/params of a decorated action", () => {
     const meta = computeActionMeta(DecoratedCtrl, "full");
@@ -87,6 +112,7 @@ describe("routerDecorators — computeActionMeta()", () => {
       cspDirectives: null,
       csrfProtect: false,
       csrfExempt: false,
+      idempotent: null,
     } satisfies RouteActionMeta);
   });
 
@@ -141,6 +167,34 @@ describe("routerDecorators — computeActionMeta()", () => {
     expect(computeActionMeta(CsrfClassCtrl, "anyAction").csrfProtect).to.equal(
       true,
     );
+  });
+
+  it("captures @Idempotent — strict by default", () => {
+    expect(
+      computeActionMeta(IdempotentCtrl, "strictCreate").idempotent,
+    ).to.deep.equal({ required: true });
+  });
+
+  it("captures @Idempotent({ required: false }) — soft mode", () => {
+    expect(
+      computeActionMeta(IdempotentCtrl, "softCreate").idempotent,
+    ).to.deep.equal({ required: false });
+  });
+
+  it("returns null idempotent for an undecorated action", () => {
+    expect(computeActionMeta(IdempotentCtrl, "bare").idempotent).to.equal(null);
+  });
+
+  it("inherits class-level @Idempotent on a bare action", () => {
+    expect(
+      computeActionMeta(IdempotentClassCtrl, "inherited").idempotent,
+    ).to.deep.equal({ required: true });
+  });
+
+  it("method @Idempotent overrides the class mode (method > class)", () => {
+    expect(
+      computeActionMeta(IdempotentClassCtrl, "overridden").idempotent,
+    ).to.deep.equal({ required: false });
   });
 
   it("returns the empty snapshot when ctor or method is missing", () => {

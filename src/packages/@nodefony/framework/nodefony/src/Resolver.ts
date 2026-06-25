@@ -9,6 +9,7 @@ import {
   nodefonyError,
   //inject,
 } from "nodefony";
+import type { IIdempotencyStore } from "nodefony";
 import type { IResolver } from "../interfaces/index.js";
 //import Router from "../service/router";
 import {
@@ -35,6 +36,13 @@ import {
   type IParamArgContext,
   type SecurityRequirement,
 } from "../decorators/routerDecorators.js";
+import {
+  evaluateIdempotency,
+  resolveIdempotencyKey,
+  resolveIdentity,
+  computeFingerprint,
+  isMutationMethod,
+} from "./idempotency.js";
 
 /**
  * Surface MINIMALE du service `authorization` (@nodefony/security) consommée par
@@ -298,12 +306,17 @@ class Resolver implements IResolver {
   async executeAction(
     data?: unknown[],
     reload: boolean = false,
+    metaArg?: RouteActionMeta,
   ): Promise<{ result: unknown; redirectMeta: RedirectMeta | undefined }> {
     // P5 : metadata d'action figées (memo, 0 Reflect/req) — hoisté en tête car
     // la GARDE d'autorisation (P6 J7) s'évalue AVANT toute instanciation.
-    const meta = this.route
-      ? resolveActionMeta(this.route)
-      : computeActionMeta(this.controller, this.actionName);
+    // `metaArg` : si `callController` l'a DÉJÀ résolu (hot path), on le réutilise
+    // → zéro double résolution (un `resolveActionMeta` redondant par requête).
+    const meta =
+      metaArg ??
+      (this.route
+        ? resolveActionMeta(this.route)
+        : computeActionMeta(this.controller, this.actionName));
     // SECURITY — @IsGranted AVANT newController : un 403 court-circuite
     // l'instanciation DI + initialize() (Zero Trust). `security === null`
     // (route non gardée, 99 %) → 0 lookup, 0 await, 0 alloc.
@@ -370,11 +383,136 @@ class Resolver implements IResolver {
   }
 
   async callController(data?: unknown[], reload: boolean = false) {
+    // P5/P6.8 — meta d'action résolu UNE seule fois ici (memo O(1) : lecture du
+    // champ figé `route.actionMeta`) puis PASSÉ à `executeAction` → zéro double
+    // résolution sur le hot path. `idempotent === null` sur la quasi-totalité des
+    // routes → 1 comparaison, flux normal (0 lookup store, 0 alloc). Seules les
+    // actions `@Idempotent` dévient vers la porte d'idempotence.
+    const meta = this.route
+      ? resolveActionMeta(this.route)
+      : computeActionMeta(this.controller, this.actionName);
+    if (meta.idempotent !== null) {
+      return this._callWithIdempotency(meta, data, reload);
+    }
     // Pas de try/catch re-throw (no-op) : les erreurs de l'action remontent
-    // seules jusqu'à HttpKernel.onError. Pas de `await` superflu — le rejet se
-    // propage via la promesse retournée. callController = exécuter PUIS rendre.
-    const { result, redirectMeta } = await this.executeAction(data, reload);
+    // seules jusqu'à HttpKernel.onError. callController = exécuter PUIS rendre.
+    const { result, redirectMeta } = await this.executeAction(
+      data,
+      reload,
+      meta,
+    );
     return this._handleRedirect(result, redirectMeta);
+  }
+
+  /**
+   * Applique la porte d'idempotence d'une action `@Idempotent` (mutations), via le
+   * helper partagé `idempotency.ts` (la MÊME sémantique que le data plane admin) et
+   * le service `idempotencyStore`. Conforme `draft-ietf-httpapi-idempotency-key-header`.
+   *
+   * Cycle (anti double-effet) : `evaluateIdempotency` rend un verdict neutre →
+   *  - `reject` → `nodefonyError` (400 clé requise / 409 concurrent / 422 mismatch) ;
+   *  - `replay` → réponse mémorisée rejouée SANS ré-exécuter l'action ;
+   *  - `execute` → exécution directe (mode souple sans clé / store absent) ;
+   *  - `guarded` → exécuter, puis `complete()` (succès, réponse rejouable) ou
+   *    `abort()` (échec/403 — la clé reste réessayable, un échec ne se mémorise pas).
+   *
+   * No-op sur les méthodes sûres (GET…) et en WS (pas de méthode logique userland
+   * sur ce chemin — le pont admin a son propre dispositif). La réponse mémorisée est
+   * le **résultat retourné** par l'action (`return data`) + son statut : une action
+   * qui pilote la response manuellement (`this.render`/stream) n'est pas rejouée
+   * fidèlement (le double-effet reste évité, mais le corps rejoué est vide).
+   */
+  private async _callWithIdempotency(
+    meta: RouteActionMeta,
+    data?: unknown[],
+    reload: boolean = false,
+  ): Promise<unknown> {
+    const context = this.context;
+    // No-op sur méthode sûre / WS → flux normal (l'action décorée peut être un GET
+    // si `@Idempotent` est posé sur la classe : seules les mutations sont gatées).
+    // `meta` est repassé à `executeAction` (pas de re-résolution).
+    if (!isMutationMethod(context.method)) {
+      const { result, redirectMeta } = await this.executeAction(
+        data,
+        reload,
+        meta,
+      );
+      return this._handleRedirect(result, redirectMeta);
+    }
+    const als = RequestContext.get();
+    const paramCtx = context as unknown as IParamArgContext;
+    const httpReq = paramCtx.request;
+    // Params de route (noms → valeurs) pour le fingerprint du payload.
+    const names = (this.route?.variables ?? []) as string[];
+    const params: Record<string, unknown> = {};
+    for (let i = 0; i < names.length; i++) {
+      params[names[i]] = this.variables[i];
+    }
+    // Corps : posé dans l'ALS par le pont WS, sinon body HTTP parsé (queryPost).
+    const body =
+      als?.body !== undefined ? als.body : (httpReq?.queryPost ?? null);
+    const store = context.container?.get("idempotencyStore") as
+      | IIdempotencyStore
+      | undefined;
+    const verdict = evaluateIdempotency({
+      store,
+      identity: resolveIdentity(als?.user),
+      clientKey: resolveIdempotencyKey(
+        als?.idempotencyKey,
+        httpReq?.headers?.["idempotency-key"],
+      ),
+      fingerprint: computeFingerprint([
+        this.route?.name ?? this.actionName,
+        params,
+        body,
+      ]),
+      isWs: Boolean(
+        (context.type as string | undefined)?.startsWith("websocket"),
+      ),
+      required: meta.idempotent?.required ?? true,
+    });
+    if (verdict.kind === "reject") {
+      throw new nodefonyError(verdict.message, verdict.status);
+    }
+    if (verdict.kind === "replay") {
+      const { status, headers, body: memo } = verdict.response;
+      const response = context.response;
+      response?.setStatusCode(status);
+      if (headers) {
+        for (const k in headers) {
+          (response as HttpResponse | Http2Response | null)?.setHeader(
+            k,
+            headers[k] as string,
+          );
+        }
+      }
+      return this.returnController(memo);
+    }
+    if (verdict.kind === "execute") {
+      const { result, redirectMeta } = await this.executeAction(
+        data,
+        reload,
+        meta,
+      );
+      return this._handleRedirect(result, redirectMeta);
+    }
+    // guarded : exécuter puis mémoriser le succès (rejouable) / libérer l'échec.
+    try {
+      const { result, redirectMeta } = await this.executeAction(
+        data,
+        reload,
+        meta,
+      );
+      const resolved = await result; // unwrap promesse éventuelle de l'action
+      const status =
+        (context.response as HttpResponse | Http2Response | null)?.statusCode ??
+        200;
+      store?.complete(verdict.key, { status, body: resolved });
+      return this._handleRedirect(resolved, redirectMeta);
+    } catch (e) {
+      store?.abort(verdict.key);
+      throw e;
+    }
   }
 
   /**

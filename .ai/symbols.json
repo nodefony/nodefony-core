@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-25T19:20:54.322Z",
+  "generated": "2026-06-25T21:34:08.111Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 944,
-    "symbols": 2143,
+    "files": 946,
+    "symbols": 2153,
     "classes": 299,
-    "interfaces": 564,
-    "types": 255,
+    "interfaces": 565,
+    "types": 256,
     "enums": 3,
-    "functions": 508,
-    "constants": 514
+    "functions": 515,
+    "constants": 515
   },
   "symbols": {
     "Cli": {
@@ -1739,6 +1739,32 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Contrat public du DI Container nodefony. Container et Scope l'implémentent."
+    },
+    "IdempotentResponse": {
+      "name": "IdempotentResponse",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réponse mémorisée d'une mutation idempotente — la forme `{status, headers?, body}` produite par un endpoint (data plane admin `AdminApiController.runAdmin`, ou action userland `@Idempotent`), pour …"
+    },
+    "IIdempotencyStore": {
+      "name": "IIdempotencyStore",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Cache d'idempotence borné (modèle Stripe `Idempotency-Key`) — dédoublonne les **mutations** rejouées (reconnexion socket, double-clic) du data plane admin comme des controllers userland décorés `@I…"
+    },
+    "IdempotencyOutcome": {
+      "name": "IdempotencyOutcome",
+      "kind": "type",
+      "file": "src/nodefony/src/types/IIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Verdict de {@link IIdempotencyStore.begin} pour une clé d'idempotence donnée. Aligné sur `draft-ietf-httpapi-idempotency-key-header-06` §2.6/§2.7. - `fresh` : clé jamais vue (ou bail expiré) → rése…"
     },
     "KernelNetworkResult": {
       "name": "KernelNetworkResult",
@@ -5355,6 +5381,15 @@
       "extends": null,
       "description": "Exigence d'autorisation **figée** d'une action — calculée UNE fois par route (fusion classe + méthode) puis gelée sur `RouteActionMeta.security`. Objet PARTAGÉ entre toutes les requêtes : ne jamais…"
     },
+    "IdempotentMeta": {
+      "name": "IdempotentMeta",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Configuration d'idempotence figée d'une action (`@Idempotent`) — calculée une fois par route (fusion classe + méthode) puis gelée sur `RouteActionMeta.idempotent`. `null` (hors de ce type) = action…"
+    },
     "IParamArgContext": {
       "name": "IParamArgContext",
       "kind": "interface",
@@ -5520,6 +5555,14 @@
       "module": "@nodefony/framework",
       "description": "`@Csp({ \"frame-src\": [...] })` — déclare des directives CSP **additionnelles** pour l'action (méthode) ou tout le contrôleur (classe). Distinct de `registerCspOrigins` (besoins PERMANENTS d'un modu…"
     },
+    "Idempotent": {
+      "name": "Idempotent",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`@Idempotent()` — protège une **mutation** (POST/PUT/PATCH/DELETE) d'un controller userland contre le double-effet d'un rejeu (double-clic, reconnexion socket, retry réseau), via une `Idempotency-K…"
+    },
     "Body": {
       "name": "Body",
       "kind": "function",
@@ -5670,32 +5713,6 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": null
-    },
-    "IdempotentResponse": {
-      "name": "IdempotentResponse",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IIdempotencyStore.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Réponse mémorisée d'une mutation idempotente — exactement la forme produite par `AdminApiController.runAdmin` (`{status, headers?, body}`), pour la rejouer telle quelle à un rejeu (même statut, mêm…"
-    },
-    "IIdempotencyStore": {
-      "name": "IIdempotencyStore",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IIdempotencyStore.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Cache d'idempotence borné (modèle Stripe `Idempotency-Key`) — dédoublonne les **mutations** du data plane admin rejouées (reconnexion socket, double-clic). Contrat de l'appelant (anti double-effet)…"
-    },
-    "IdempotencyOutcome": {
-      "name": "IdempotencyOutcome",
-      "kind": "type",
-      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IIdempotencyStore.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Verdict de {@link IIdempotencyStore.begin} pour une clé d'idempotence donnée. Aligné sur `draft-ietf-httpapi-idempotency-key-header-06` §2.6/§2.7. - `fresh` : clé jamais vue (ou bail expiré) → rése…"
     },
     "IResolver": {
       "name": "IResolver",
@@ -6009,6 +6026,62 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du module **framework** — exposé sous `/nodefony/framework/api/*`. 3ᵉ producteur du data plane admin (kernel, http, puis framework). Introspecte le **Router** : c'est l'équiv…"
+    },
+    "IdempotencyVerdict": {
+      "name": "IdempotencyVerdict",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Verdict **neutre** rendu par {@link evaluateIdempotency} — décrit QUOI faire sans rien savoir du transport : - `execute` : pas de clé en mode souple, ou store/identité absents → exécuter SANS mémor…"
+    },
+    "isMutationMethod": {
+      "name": "isMutationMethod",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`true` si la méthode est une mutation éligible à l'idempotence."
+    },
+    "resolveIdempotencyKey": {
+      "name": "resolveIdempotencyKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Résout la clé d'idempotence d'une requête : posée dans l'ALS par le pont WS (`als.idempotencyKey`) ou lue de l'en-tête HTTP `Idempotency-Key` (clé minuscule côté Node, éventuellement répétée → prem…"
+    },
+    "resolveIdentity": {
+      "name": "resolveIdentity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Identité stable pour **scoper** le cache d'idempotence (anti-IDOR : un utilisateur ne doit jamais rejouer la clé d'un autre). Dérivée de l'utilisateur (`username` / `identifier` / `id`, sans couple…"
+    },
+    "computeFingerprint": {
+      "name": "computeFingerprint",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Empreinte SHA-256 du **payload** d'une requête (parties sérialisables : nom de route + params + corps). Comparée par le store à l'empreinte mémorisée pour une clé : si elle diffère, la clé est réut…"
+    },
+    "evaluateIdempotency": {
+      "name": "evaluateIdempotency",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Cœur normatif : à partir de la clé client, de l'identité, du fingerprint et du transport, rend le {@link IdempotencyVerdict} à appliquer. Mono-thread JS → `store.begin` ne s'entrelace pas (réservat…"
+    },
+    "IDEMPOTENCY_KEY_MAX": {
+      "name": "IDEMPOTENCY_KEY_MAX",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Borne d'une clé d'idempotence (convention Stripe). Une clé est un identifiant court (UUID) ; au-delà, elle est traitée comme ABSENTE (anti-DoS du cache borné)."
     },
     "createKernelAdminApi": {
       "name": "createKernelAdminApi",
@@ -16940,6 +17013,9 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts"
       ],
+      "Idempotent": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
       "Scope": [
         "src/packages/@nodefony/framework/index.ts",
         "src/nodefony/src/command/Command.ts",
@@ -18363,6 +18439,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -18849,14 +18926,33 @@
       ],
       "IIdempotencyStore": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts"
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "IdempotentResponse": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts"
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts"
       ],
       "isAdminGranted": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
+      ],
+      "evaluateIdempotency": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "resolveIdempotencyKey": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "resolveIdentity": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "computeFingerprint": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "HTTPMethod": [
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
@@ -19056,6 +19152,9 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "SecurityRequirement": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "isMutationMethod": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "compileDomainPatterns": [

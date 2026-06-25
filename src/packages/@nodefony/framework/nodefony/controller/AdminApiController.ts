@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { RequestContext, RpcError } from "nodefony";
 import type { IAdminRequest, IAdminResponse } from "nodefony";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
@@ -9,6 +8,12 @@ import type {
 import type { ContextType } from "@nodefony/http";
 import Controller from "../src/Controller";
 import { isAdminGranted } from "../src/adminRbac";
+import {
+  evaluateIdempotency,
+  resolveIdempotencyKey,
+  resolveIdentity,
+  computeFingerprint,
+} from "../src/idempotency";
 
 /**
  * Controller pont unique du data plane admin (Studio).
@@ -139,25 +144,16 @@ class AdminApiController extends Controller {
   }
 
   /**
-   * Porte d'idempotence d'une **mutation** admin. Conforme à
-   * `draft-ietf-httpapi-idempotency-key-header-06` (§2.6/§2.7). Renvoie soit un
-   * `shortCircuit` (réponse immédiate), soit des callbacks `onSuccess`/`onFailure`
-   * à jouer autour de l'exécution (mémoriser / libérer la clé).
+   * Porte d'idempotence d'une **mutation** admin. La sémantique normative
+   * (`draft-ietf-httpapi-idempotency-key-header` : 400 clé requise WS / 409
+   * concurrent / 422 mismatch / rejeu mémorisé, clé scopée identité anti-IDOR,
+   * fingerprint du payload) vit dans le **helper partagé** `idempotency.ts` — le
+   * MÊME que le seam `Resolver` des controllers userland `@Idempotent`. Ici on ne
+   * fait que TRADUIRE le verdict neutre en forme admin (`shortCircuit` immédiat,
+   * ou callbacks `onSuccess`/`onFailure` autour de l'exécution).
    *
-   * Politique (codes de statut normatifs) :
-   *  - GET → no-op (lecture, jamais idempotentée).
-   *  - mutation par **socket** SANS clé → **400** (§2.7 ; une socket rejoue : muter
-   *    sans garde-fou exposerait au double-effet que ce dispositif élimine).
-   *  - mutation **HTTP** sans clé → exécution directe (rétro-compat ; HTTP ne
-   *    rejoue pas tout seul). Clé fournie = honorée.
-   *  - rejeu **après complétion** (même payload) → réponse mémorisée (§2.6 Retry).
-   *  - rejeu **concurrent** (en cours) → **409** (§2.6/§2.7).
-   *  - même clé, **payload différent** → **422** (§2.2/§2.7 — réutilisation interdite).
-   *
-   * 🔒 La clé de cache est **scopée à l'identité** (`request.user`) + clé client :
-   * un utilisateur ne peut jamais rejouer la clé d'un autre (anti-IDOR). Le payload
-   * (route + params + corps) est comparé via un **fingerprint** (anti-réutilisation
-   * de clé cross-requête).
+   * `required: false` → l'admin n'exige la clé qu'en WS (porté par `isWs` dans le
+   * helper) ; en HTTP, une mutation sans clé s'exécute directement (historique).
    */
   private idempotencyGate(
     adminRoute: IAdminRoute,
@@ -172,97 +168,42 @@ class AdminApiController extends Controller {
     onFailure?: () => void;
   } {
     if (adminRoute.method === "GET") return {};
-    const isWs = Boolean(
-      (this.context?.type as string | undefined)?.startsWith("websocket"),
-    );
-    const key = request.idempotencyKey;
-    if (isWs && !key) {
-      return {
-        shortCircuit: {
-          status: 400,
-          body: { error: "Idempotency-Key required for socket mutations" },
-        },
-      };
-    }
-    // Mutation HTTP sans clé : comportement historique (pas de dédup).
-    if (!key) return {};
-    // Identité stable = scope du cache (anti-IDOR). Dérivée de `request.user`,
-    // posé UNIFORMÉMENT dans l'ALS par les DEUX transports (pont WS et firewall
-    // HTTP) → une mutation tentée en WS puis rejouée en fetch dédoublonne bien.
-    // `getUserId()` ne suffit pas (le firewall HTTP ne le pose pas toujours).
-    // Sans identité fiable, on n'utilise PAS le cache (jamais de partage cross-id).
-    const identity = this.idempotencyIdentity(request);
-    if (!identity) return {};
     const store = this.get<IIdempotencyStore>("idempotencyStore");
-    if (!store) return {}; // service absent → dégrade en exécution directe
-    // Clé du cache = [identité, clé client] encodé JSON (frontières non
-    // ambiguës, sans séparateur magique). Le draft : une Idempotency-Key
-    // identifie l'INTENTION d'un appelant → scope (identité, clé).
-    const scoped = JSON.stringify([identity, key]);
-    // Empreinte du PAYLOAD (route + params + corps) : une même clé rejouée avec
-    // un payload DIFFÉRENT = réutilisation interdite (draft §2.2) → 422. Hash →
-    // empreinte courte (anti-DoS mémoire) + comparaison O(1) dans le store.
-    const fingerprint = createHash("sha256")
-      .update(
-        JSON.stringify([adminRoute.name, request.params, request.body ?? null]),
-      )
-      .digest("hex");
-    const outcome = store.begin(scoped, fingerprint);
-    if (outcome.state === "mismatch") {
-      // draft §2.7 : clé réutilisée avec un autre payload → 422 Unprocessable
-      // Content (RFC 9110 §15.5.21). Le client doit corriger (nouvelle clé).
-      return {
-        shortCircuit: {
-          status: 422,
-          body: {
-            error: "Idempotency-Key is already used",
-            detail:
-              "This Idempotency-Key was used with a different payload; a key must not be reused across different requests.",
+    const verdict = evaluateIdempotency({
+      store,
+      identity: resolveIdentity(request.user),
+      clientKey: request.idempotencyKey,
+      fingerprint: computeFingerprint([
+        adminRoute.name,
+        request.params,
+        request.body ?? null,
+      ]),
+      isWs: Boolean(
+        (this.context?.type as string | undefined)?.startsWith("websocket"),
+      ),
+      required: false,
+    });
+    switch (verdict.kind) {
+      case "reject":
+        return {
+          shortCircuit: {
+            status: verdict.status,
+            body: verdict.detail
+              ? { error: verdict.message, detail: verdict.detail }
+              : { error: verdict.message },
           },
-        },
-      };
+        };
+      case "replay":
+        return { shortCircuit: verdict.response };
+      case "guarded":
+        return {
+          onSuccess: (resp) => store?.complete(verdict.key, resp),
+          onFailure: () => store?.abort(verdict.key),
+        };
+      case "execute":
+      default:
+        return {};
     }
-    if (outcome.state === "in-flight") {
-      return {
-        shortCircuit: {
-          status: 409,
-          body: {
-            error: "Conflict: an identical request is already in progress",
-          },
-        },
-      };
-    }
-    if (outcome.state === "replayed") {
-      return { shortCircuit: outcome.response };
-    }
-    return {
-      onSuccess: (resp) => store.complete(scoped, resp),
-      onFailure: () => store.abort(scoped),
-    };
-  }
-
-  /**
-   * Identité stable pour scoper le cache d'idempotence. Dérivée de l'IUser
-   * (`request.user`, posé dans l'ALS par les DEUX transports) — `username` /
-   * `identifier` / `id` — sans coupler le framework au contrat `IUser`. Fallback
-   * sur `userId` de l'ALS, puis `null` (→ pas de cache, jamais de partage
-   * cross-identité). Doit être IDENTIQUE des deux transports pour le même compte
-   * (sinon une mutation WS rejouée en fetch ne dédoublonnerait pas).
-   */
-  private idempotencyIdentity(request: IAdminRequest): string | null {
-    const u = request.user;
-    if (u && typeof u === "object") {
-      const o = u as {
-        username?: unknown;
-        identifier?: unknown;
-        id?: unknown;
-      };
-      for (const v of [o.username, o.identifier, o.id]) {
-        if (typeof v === "string" && v) return v;
-      }
-    }
-    const uid = RequestContext.getUserId();
-    return typeof uid === "string" && uid ? uid : null;
   }
 
   /** Projette le Context courant en requête admin normalisée. */
@@ -291,31 +232,12 @@ class AdminApiController extends Controller {
       user,
       roles: this.extractRoles(user),
       requestId: als?.requestId,
-      idempotencyKey: this.resolveIdempotencyKey(als),
+      // Clé résolue par le helper partagé (ALS du pont WS > en-tête HTTP, bornée).
+      idempotencyKey: resolveIdempotencyKey(
+        als?.idempotencyKey,
+        this.context?.request?.headers?.["idempotency-key"],
+      ),
     };
-  }
-
-  /**
-   * Résout la clé d'idempotence d'une mutation : posée dans l'ALS par le pont WS
-   * (`params.idempotencyKey`) ou lue de l'en-tête HTTP `Idempotency-Key` (clé
-   * minuscule côté Node). `undefined` si absente (GET, mutation HTTP legacy).
-   */
-  private resolveIdempotencyKey(
-    als: ReturnType<typeof RequestContext.get>,
-  ): string | undefined {
-    let raw: string | undefined;
-    if (typeof als?.idempotencyKey === "string" && als.idempotencyKey) {
-      raw = als.idempotencyKey;
-    } else {
-      const h = this.context?.request?.headers?.["idempotency-key"];
-      if (typeof h === "string" && h) raw = h;
-      else if (Array.isArray(h) && typeof h[0] === "string" && h[0]) raw = h[0];
-    }
-    // Anti-DoS : une clé d'idempotence est un identifiant court (UUID). Bornée à
-    // 255 (convention Stripe) → une clé abusive ne peut pas gonfler le cache
-    // borné. Trop longue = traitée comme ABSENTE (→ 400 « clé requise » en WS,
-    // pas de dédup en HTTP) plutôt que stockée.
-    return raw && raw.length <= 255 ? raw : undefined;
   }
 
   /** Extrait les rôles de l'utilisateur ALS sans coupler le core à `IUser`. */

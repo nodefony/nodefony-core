@@ -241,6 +241,9 @@ const CSP_DIRECTIVES_METADATA = "nodefony:csp:directives";
 // de la défense CSRF en gardant l'auth). Marqueurs booléens classe + méthode.
 const CSRF_PROTECT_METADATA = "nodefony:csrf:protect";
 const CSRF_EXEMPT_METADATA = "nodefony:csrf:exempt";
+// Idempotence par action (@Idempotent, P6.8) — pose `{ required }` sur le ctor
+// (classe) ou le prototype keyé par nom (méthode), comme @IsGranted/@Csp.
+const IDEMPOTENT_METADATA = "nodefony:idempotent";
 export const USE_SESSION_CLASS_METADATA = "session:useClass";
 export const USE_SESSION_METHOD_METADATA = "session:useMethod";
 
@@ -316,6 +319,20 @@ export interface SecurityRequirement {
  * par le firewall, UNIQUEMENT sur les routes qui en déclarent (cold path).
  */
 export type CspDirectives = Record<string, readonly string[]>;
+
+/**
+ * Configuration d'idempotence figée d'une action (`@Idempotent`) — calculée une
+ * fois par route (fusion classe + méthode) puis gelée sur `RouteActionMeta.idempotent`.
+ * `null` (hors de ce type) = action non idempotentée → 0 coût hot path.
+ */
+export interface IdempotentMeta {
+  /**
+   * Mode STRICT : une mutation sans `Idempotency-Key` est rejetée (400). Défaut
+   * `true` (`@Idempotent()`). `@Idempotent({ required: false })` = mode souple
+   * (honore la clé si présente, exécute sinon) — sauf en WS, toujours strict.
+   */
+  readonly required: boolean;
+}
 
 // ── HTTP method decorator factory ───────────────────────────────────────────
 type MethodDecoratorOptions = Omit<RouteOptions, "path" | "method">;
@@ -879,6 +896,52 @@ const CsrfProtect = booleanMarkerDecorator(CSRF_PROTECT_METADATA);
  */
 const CsrfExempt = booleanMarkerDecorator(CSRF_EXEMPT_METADATA);
 
+// ── Idempotence decorator (classe + méthode, P6.8) ──────────────────────────
+
+/**
+ * `@Idempotent()` — protège une **mutation** (POST/PUT/PATCH/DELETE) d'un
+ * controller userland contre le double-effet d'un rejeu (double-clic, reconnexion
+ * socket, retry réseau), via une `Idempotency-Key` cliente (modèle Stripe, conforme
+ * `draft-ietf-httpapi-idempotency-key-header`). No-op sur les méthodes sûres (GET…).
+ *
+ * - **STRICT par défaut** : une mutation SANS clé est rejetée **400** (draft §2.7).
+ * - `@Idempotent({ required: false })` : mode **souple** — honore la clé si fournie,
+ *   exécute sinon. (Une mutation par **socket** reste toujours strict : le WS rejoue.)
+ * - clé fournie → dédup complète : rejeu complété → réponse **mémorisée** ; rejeu
+ *   concurrent → **409** ; même clé + payload différent → **422**.
+ *
+ * Décorateur de **méthode** (une action) ou de **classe** (toutes les mutations du
+ * controller). Précédence : méthode > classe (comme `@UseSession`). N'écrit QUE des
+ * métadonnées (0 import `@nodefony/security`, 0 cycle) ; la porte est appliquée par
+ * le `Resolver` (helper partagé `idempotency.ts`, le MÊME que le data plane admin),
+ * sur le `idempotencyStore` DI. Coût nul sur une route non décorée (`security: null`).
+ *
+ * @example
+ * \@controller("/api/orders")
+ * class OrderController extends Controller {
+ *   \@Post("/") @Idempotent() create(@Body() dto: CreateOrder) { ... } // clé obligatoire
+ *   \@Patch("/{id}") @Idempotent({ required: false }) update() { ... } // clé optionnelle (HTTP)
+ * }
+ */
+function Idempotent(options?: { required?: boolean }) {
+  const meta: IdempotentMeta = { required: options?.required ?? true };
+  // Dual classe+méthode (idiome `any` du module, cf @IsGranted/@Domain).
+  return function (
+    target: any,
+    propertyKey?: string,
+    descriptor?: PropertyDescriptor,
+  ): any {
+    if (propertyKey === undefined) {
+      // Classe → s'applique à toutes les actions (les non-mutations restent no-op).
+      Reflect.defineMetadata(IDEMPOTENT_METADATA, meta, target);
+      return target;
+    }
+    // Méthode → posé sur le prototype keyé par nom (comme @IsGranted/@Csp).
+    Reflect.defineMetadata(IDEMPOTENT_METADATA, meta, target, propertyKey);
+    return descriptor;
+  };
+}
+
 // ── Parameter decorators ────────────────────────────────────────────────────
 function paramDecoratorFactory(source: ParamSource) {
   return function (key?: string) {
@@ -1108,6 +1171,12 @@ export interface RouteActionMeta {
   csrfProtect: boolean;
   /** `@CsrfExempt` (classe ou méthode) → la route est hors défense CSRF (auth conservée). */
   csrfExempt: boolean;
+  /**
+   * Idempotence (`@Idempotent`, fusion classe + méthode) — `null` si l'action
+   * n'est pas décorée (cas courant → **0 coût** sur le hot path : ni résolution de
+   * store, ni `begin`). Frozen, partagé entre requêtes.
+   */
+  idempotent: IdempotentMeta | null;
 }
 
 const EMPTY_ACTION_META: RouteActionMeta = {
@@ -1120,6 +1189,7 @@ const EMPTY_ACTION_META: RouteActionMeta = {
   cspDirectives: null,
   csrfProtect: false,
   csrfExempt: false,
+  idempotent: null,
 };
 
 /**
@@ -1238,6 +1308,33 @@ function computeCspDirectives(
   return Object.freeze(mergeCspDirectives(classDirectives, methodDirectives));
 }
 
+/**
+ * P6.8 — Résout la config `@Idempotent` figée d'une action (méthode prime sur
+ * classe, comme `@UseSession`), ou `null` si non décorée. `@Idempotent()` pose
+ * `{ required: true }` explicite → la précédence méthode > classe est non ambiguë
+ * (une méthode `@Idempotent()` force le mode strict même sous une classe souple).
+ * Lecture `Reflect` faite UNE fois (via {@link resolveActionMeta} mémoïsé).
+ */
+function computeIdempotent(
+  ctor: { prototype: object },
+  method: string,
+): IdempotentMeta | null {
+  const methodMeta = Reflect.getMetadata(
+    IDEMPOTENT_METADATA,
+    ctor.prototype,
+    method,
+  ) as IdempotentMeta | undefined;
+  const classMeta = Reflect.getMetadata(IDEMPOTENT_METADATA, ctor) as
+    | IdempotentMeta
+    | undefined;
+  if (methodMeta === undefined && classMeta === undefined) {
+    return null; // action non idempotentée → 0 coût
+  }
+  return Object.freeze({
+    required: methodMeta?.required ?? classMeta?.required ?? true,
+  });
+}
+
 function computeActionMeta(
   ctor?: { prototype: object } | null,
   method?: string,
@@ -1273,6 +1370,7 @@ function computeActionMeta(
     csrfExempt:
       Reflect.getMetadata(CSRF_EXEMPT_METADATA, proto, method) === true ||
       Reflect.getMetadata(CSRF_EXEMPT_METADATA, ctor) === true,
+    idempotent: computeIdempotent(ctor, method),
   };
 }
 
@@ -1316,6 +1414,7 @@ export {
   Csp,
   CsrfProtect,
   CsrfExempt,
+  Idempotent,
   CurrentUser,
   Scope,
   UseSession,
