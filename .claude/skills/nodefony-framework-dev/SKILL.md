@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.28.0
+version: 1.29.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1369,6 +1369,31 @@ npm outdated                     # versions en retard (ou commande `npx nodefony
 
 > Format : symptôme → cause → fix. Compléter à CHAQUE fin de session touchant le cœur.
 
+- _(2026-06-25)_ **Mutations par la socket idempotentes (P6.8) — décider les STATUTS depuis la SPEC, pas de mémoire.**
+  Ouverture du pont `api.request` aux POST/PUT/PATCH/DELETE (idempotency-key). 5 leçons :
+  (1) **Réflexe RFC d'abord** — j'avais figé 400/409 « façon Stripe » de mémoire ; le user a repris (« t'as vu
+  les RFC ? »). Le draft **`draft-ietf-httpapi-idempotency-key-header-06`** §2.6/§2.7 dicte : clé absente
+  → **400**, rejeu concurrent → **409**, rejeu après complétion → réponse mémorisée, **même clé + payload
+  DIFFÉRENT → 422** (RFC 9110 §15.5.21, via un **fingerprint** du payload). Le 422 me manquait → ajouté. Toujours
+  consulter `nodefony-rfc` AVANT de figer des codes, jamais « raisonnable de mémoire ».
+  (2) **Match WS method-aware** : en WS `context.method` vaut TOUJOURS "WEBSOCKET" → impossible de distinguer
+  GET-via-WS de POST-via-WS sur un même chemin. Seam = **`methodOverride`** threadé `Router.resolve → Resolver.match
+→ Route.match → matchRequirements` (param optionnel, rétro-compat) : une mutation WS exige `methodsSet.has("WEBSOCKET")`
+  **ET** `has(method)` → désambiguïse SANS lâcher le transport (zéro bypass : route sans WEBSOCKET → 405). Tout
+  changement de signature du routing → **passer le banc `routing-nonregression.test.ts` à l'identique** (invariants
+  A→K, l'extraction de variables incluse) + ajouter un invariant (K = methodOverride).
+  (3) **Scope du cache d'idempotence = IDENTITÉ** (anti-IDOR : sinon user A rejoue la clé de B et lit sa réponse).
+  Dériver l'identité de **`request.user`** (posé dans l'ALS par les DEUX transports), PAS `RequestContext.getUserId()`
+  (le firewall HTTP ne le pose pas toujours → vécu : rejeu HTTP ne dédoublonnait pas, compteur 10≠9). Clé du cache =
+  `JSON.stringify([identity, clientKey])` ; payload (route+params+corps) → fingerprint SHA-256 séparé.
+  (4) **Anti double-effet CROSS-TRANSPORT** : le client (ApiClient) génère la clé UNE fois et la rejoue sur le
+  fallback fetch (en-tête `Idempotency-Key`) → si la tentative socket avait abouti côté serveur avant la coupure,
+  le fetch reçoit la réponse mémorisée (pas de double exécution). La dédup serveur est la même clé en HTTP et WS.
+  (5) **Séparateur de clé composite : JAMAIS un null byte LITTÉRAL dans le source** (invisible, fragile au
+  prettier, m'a fait rater 2 Edits) → `JSON.stringify([a, b])` (frontières non ambiguës) ou ` ` échappé visible.
+  Durcissements : clé bornée **255** (Stripe, anti-DoS du store), store borné cap+TTL+bail in-flight, RBAC AVANT la
+  dédup (un 403 ne consomme pas le cache). **Contrat ↔ studio-dev 1.34.0** (ApiClient `mutate`). Commit `febd06fa`.
+  [[project_socket_mutations_idempotency_kit]].
 - _(2026-06-20)_ **Introspection d'un service pour Studio = projeter l'état RUNTIME, PAS re-parser la config**
   (page Firewall P6.15). Le réflexe naïf de l'endpoint `firewall` aurait été `defineSecurityConfig(this.options)`
   re-parsé dans le handler → faux (re-validerait, jetterait si fail-closed, et surtout montrerait la config
@@ -1624,6 +1649,19 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.29.0** (2026-06-25) — **Mutations par la socket idempotentes (P6.8)** — pont `api.request` ouvert aux
+  POST/PUT/PATCH/DELETE (**contrat ↔ studio-dev 1.34.0** : `ApiClient.mutate`). Conforme
+  `draft-ietf-httpapi-idempotency-key-header-06` (400 clé absente / 409 in-flight / 422 payload différent /
+  rejeu = réponse mémorisée). Briques : `IdempotencyStore` (service DI mémoire borné cap+TTL+in-flight, clé
+  scopée IDENTITÉ anti-IDOR, fingerprint SHA-256 du payload, clé bornée 255) ; **`methodOverride`** threadé
+  `Router.resolve → Resolver.match → Route.matchRequirements` (désambiguïse la méthode logique sur le transport
+  WEBSOCKET unique ; zéro bypass = route sans WEBSOCKET → 405) ; `AdminBroker.mountAll` monte WEBSOCKET sur les
+  mutations ; `AdminApiController` porte la dédup APRÈS le RBAC ; pont realtime `invokeApiRequest` (method/body/
+  clé via l'ALS per-invocation) ; `RealtimeClient.mutate` (core) + `ApiClient` (clé rejouée sur le fallback fetch
+  = anti double-effet cross-transport). Gates : store 15 · routing NR invariant **K** (8) + Route methodOverride
+  (4) · framework 342 · core 1662 · realtime 294 · http intég 559/560 · **mémoire 9/9** · banc LIVE 20/20. RETEX
+  §11 (décider les statuts depuis la SPEC pas de mémoire ; scope identité via `request.user` ; null byte source
+  fragile → `JSON.stringify`). Commit `febd06fa`. [[project_socket_mutations_idempotency_kit]].
 - **1.28.0** (2026-06-25) — **P6.8 — Autorisation par scope `@RequireScope` + `ScopeVoter` + découverte**
   (full-stack ; **contrat ↔ studio-dev 1.33.0** : `ApiKeyController.capabilities` → `+declaredScopes`). Rend
   les scopes (`api:action`) RÉELS (étaient décoratifs, aucune route ne les vérifiait). (a) **`@RequireScope`**

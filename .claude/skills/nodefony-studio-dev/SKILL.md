@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.33.0
+version: 1.34.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1613,6 +1613,16 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.34.0** (2026-06-25) — **`ApiClient` : mutations par la socket idempotentes (P6.8)** (full-stack ;
+  **contrat ↔ framework-dev 1.29.0** : pont `api.request` ouvert aux POST/PUT/PATCH/DELETE). `ApiClient.send`
+  route désormais les mutations par `socket.mutate` (en plus des GET par `socket.request`) avec une
+  **clé d'idempotence** générée ici (`crypto.randomUUID`, fallback dev hors secure-context). La MÊME clé est
+  rejouée sur le **fallback fetch** (en-tête `Idempotency-Key`) → un repli après échec socket ne double jamais
+  l'effet (le serveur dédoublonne). `httpOnlyRoutes` re-scopé **par méthode** (`GET /x` reste pontable même si
+  `POST /x` a répondu 405). `ApiSocketLike` gagne `mutate(path, {method, body, idempotencyKey})` (`RealtimeClient`
+  s'y conforme). Tests `apiClientSocketBridge` **14** (mutation socket+clé, repli même clé, GET sans clé, scope
+  méthode 405). RETEX : générer la clé UNE fois par `send` et la partager socket→fetch = la garantie anti
+  double-effet cross-transport. Commit `febd06fa`. [[project_socket_mutations_idempotency_kit]].
 - **1.33.0** (2026-06-25) — **Formulaire clés API : scopes DÉCOUVERTS groupés par API (P6.8 b4)** (full-stack ;
   **contrat ↔ framework-dev 1.28.0** : `ApiKeyController.capabilities` → `+declaredScopes`). `CreateApiKeyModal`
   rend le champ Scopes en **cases à cocher groupées par API** (`Checkbox.Group` ; `declaredScopes` ∪ `allowedScopes`,
