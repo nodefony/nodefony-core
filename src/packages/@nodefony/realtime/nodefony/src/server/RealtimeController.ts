@@ -541,9 +541,37 @@ export abstract class RealtimeController<
     params: unknown,
     peer: JsonRpcPeer,
   ): Promise<unknown> {
-    const path = (params as { path?: unknown } | undefined)?.path;
+    const p = params as
+      | {
+          path?: unknown;
+          method?: unknown;
+          body?: unknown;
+          idempotencyKey?: unknown;
+        }
+      | undefined;
+    const path = p?.path;
     if (typeof path !== "string" || path.charCodeAt(0) !== 47 /* "/" */) {
       throw new RpcError("api.request: params.path invalide", -32602);
+    }
+    // Méthode HTTP LOGIQUE de l'invocation. Défaut "GET" = lecture (forme
+    // historique du pont, snapshot ≡ GET REST). Une MUTATION déclare sa méthode
+    // → exigée EN PLUS du transport WEBSOCKET au resolve (`methodOverride`), pour
+    // lever l'ambiguïté GET-via-WS / POST-via-WS sur un même chemin. La sécurité
+    // d'écriture (clé d'idempotence requise, dédup) est portée par le data plane
+    // admin (`AdminApiController`) — le pont ne fait que router + transporter.
+    const method =
+      typeof p?.method === "string" ? p.method.toUpperCase() : "GET";
+    if (
+      method !== "GET" &&
+      method !== "POST" &&
+      method !== "PUT" &&
+      method !== "PATCH" &&
+      method !== "DELETE"
+    ) {
+      throw new RpcError(
+        `api.request: méthode ${method} non supportée`,
+        -32602,
+      );
     }
     const router = ctx.router;
     if (!router) {
@@ -556,7 +584,13 @@ export abstract class RealtimeController<
     const pathname = qIdx === -1 ? path : path.slice(0, qIdx);
     let resolver: ReturnType<typeof router.resolve>;
     try {
-      resolver = router.resolve(ctx, pathname);
+      // GET → resolve historique (le transport WEBSOCKET matche `context.method`).
+      // Mutation → `methodOverride` (méthode logique) exigé en plus du transport.
+      resolver = router.resolve(
+        ctx,
+        pathname,
+        method === "GET" ? undefined : method,
+      );
     } catch (e) {
       // Le Router THROW un HttpError 405 agrégé (RFC 9110 §15.5.6) quand le
       // path existe mais sans le transport WEBSOCKET — même sémantique que le
@@ -628,6 +662,12 @@ export abstract class RealtimeController<
         userId: token.getUserIdentifier(),
         // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
         context: ctx,
+        // Mutation : corps + clé d'idempotence portés par l'ALS (pas de corps
+        // HTTP parsé en WS) → lus par `AdminApiController.buildRequest`. Absents
+        // pour un GET (`p?.body === undefined` → fallback queryPost vide).
+        body: p?.body,
+        idempotencyKey:
+          typeof p?.idempotencyKey === "string" ? p.idempotencyKey : undefined,
       },
       async () => {
         try {

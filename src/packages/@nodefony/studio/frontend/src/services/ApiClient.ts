@@ -10,10 +10,14 @@
  * `api-souverain-bridge.test.ts`). Transparent pour les pages : même URL, même
  * shape, mêmes erreurs (`ApiError`). La socket ne sert que les SUCCÈS :
  * fallback fetch automatique si elle est absente/déconnectée, si le pont
- * n'est pas exposé (`-32601`), si la route est GET-only (405 mémorisé) et sur
- * TOUTE erreur du pont (la réponse d'erreur de référence vient du HTTP — cf
- * `learnFromSocketError`). Les mutations (POST/PUT/DELETE) restent HTTP-only
- * (limitation Ph.3 assumée, doc `docs/api/README.md` §11.2).
+ * n'est pas exposé (`-32601`), si la route est sans transport WS pour cette
+ * méthode (405 mémorisé, scopé à la méthode) et sur TOUTE erreur du pont (la
+ * réponse d'erreur de référence vient du HTTP — cf `learnFromSocketError`).
+ *
+ * **Mutations par la socket (P6.8)** : les POST/PUT/PATCH/DELETE passent aussi
+ * par le pont (`socket.mutate`), chacune avec une **clé d'idempotence** générée
+ * ici. La MÊME clé est rejouée sur le fallback fetch (en-tête `Idempotency-Key`)
+ * → un repli après échec socket ne double JAMAIS l'effet (le serveur dédoublonne).
  *
  * Sera enrichi en P6 (Security) : refresh token, redirect sur 401, etc.
  */
@@ -25,8 +29,18 @@
 export interface ApiSocketLike {
   /** "connected" quand la socket est opérationnelle. */
   readonly state: string;
-  /** Forme path de `RealtimeClient.request` — méthode RPC `api.request` cachée. */
+  /** Forme path de `RealtimeClient.request` — lecture GET via `api.request`. */
   request<T = unknown>(path: `/${string}`, timeoutMs?: number): Promise<T>;
+  /** Forme mutation de `RealtimeClient.mutate` — POST/PUT/PATCH/DELETE + clé d'idempotence. */
+  mutate<T = unknown>(
+    path: `/${string}`,
+    init: {
+      method: "POST" | "PUT" | "PATCH" | "DELETE";
+      body?: unknown;
+      idempotencyKey: string;
+      timeoutMs?: number;
+    },
+  ): Promise<T>;
 }
 
 export class ApiError extends Error {
@@ -91,10 +105,27 @@ interface RpcErrorLike {
 /** Code JSON-RPC « méthode inconnue » → le serveur n'expose pas le pont `api.request`. */
 const RPC_METHOD_NOT_FOUND = -32601;
 
-/** Clé de route d'un GET : le path SANS query (l'éligibilité au pont dépend de la ROUTE). */
+/** Clé de route : le path SANS query (l'éligibilité au pont dépend de la ROUTE). */
 function routeKey(url: string): string {
   const q = url.indexOf("?");
   return q === -1 ? url : url.slice(0, q);
+}
+
+/**
+ * Clé « HTTP-only » scopée à la MÉTHODE : `GET /x` et `POST /x` peuvent déclarer
+ * des transports différents (l'un pontable WS, l'autre non) → un 405 sur l'un ne
+ * doit pas basculer l'autre en HTTP. Sans le scope par méthode, le GET hériterait
+ * du verdict du POST (régression).
+ */
+function httpOnlyKey(method: string, url: string): string {
+  return `${method} ${routeKey(url)}`;
+}
+
+/** Clé d'idempotence unique par mutation (UUID v4 ; fallback hors secure-context dev). */
+function makeIdempotencyKey(): string {
+  const c = (globalThis as { crypto?: Crypto }).crypto;
+  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  return `idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 export class ApiClient {
@@ -106,9 +137,9 @@ export class ApiClient {
   /** Pont absent côté serveur (`-32601` reçu) → ne plus tenter de la session. */
   private socketBridgeDown = false;
   /**
-   * Routes répondues 405 par le pont = GET-only (pas de transport WEBSOCKET
-   * déclaré) → définitivement HTTP pour la session (évite un aller-retour
-   * socket perdu à chaque appel). Clé = path sans query.
+   * Couples `méthode + route` répondus 405 par le pont = pas de transport WS
+   * déclaré pour CETTE méthode → définitivement HTTP pour la session (évite un
+   * aller-retour socket perdu à chaque appel). Clé = `httpOnlyKey(method, path)`.
    */
   private readonly httpOnlyRoutes = new Set<string>();
 
@@ -193,17 +224,24 @@ export class ApiClient {
   }
 
   /**
-   * Le pont socket est-il utilisable pour CE call ? GET seulement (mutations =
-   * HTTP-only en Ph.3), socket connectée, pont non désactivé, et aucun besoin
-   * fetch-spécifique (abort/headers custom → on respecte le chemin HTTP).
+   * Le pont socket est-il utilisable pour CE call ? GET (lecture) ET mutations
+   * (POST/PUT/PATCH/DELETE, sécurisées par la clé d'idempotence côté serveur),
+   * socket connectée, pont non désactivé, et aucun besoin fetch-spécifique
+   * (abort/headers custom → on respecte le chemin HTTP).
    */
   private canUseSocket(
     method: string,
     url: string,
     init?: RequestInit,
   ): boolean {
+    const supported =
+      method === "GET" ||
+      method === "POST" ||
+      method === "PUT" ||
+      method === "PATCH" ||
+      method === "DELETE";
     return (
-      method === "GET" &&
+      supported &&
       this.socket !== undefined &&
       !this.socketBridgeDown &&
       (this.socketEnabled?.() ?? true) &&
@@ -211,7 +249,7 @@ export class ApiClient {
       url.startsWith("/") &&
       !init?.signal &&
       !init?.headers &&
-      !this.httpOnlyRoutes.has(routeKey(url))
+      !this.httpOnlyRoutes.has(httpOnlyKey(method, url))
     );
   }
 
@@ -229,14 +267,17 @@ export class ApiClient {
    * pas re-payer l'aller-retour : `-32601` → pont absent (session) ; 405 →
    * route HTTP-only (session).
    */
-  private learnFromSocketError(url: string, e: unknown): void {
+  private learnFromSocketError(method: string, url: string, e: unknown): void {
     const rpc = e as RpcErrorLike;
     if (!e || typeof e !== "object" || rpc.name !== "RpcError") return;
     if (rpc.code === RPC_METHOD_NOT_FOUND) {
       this.socketBridgeDown = true;
       return;
     }
-    if (rpc.data?.status === 405) this.httpOnlyRoutes.add(routeKey(url));
+    // 405 = pas de transport WS pour CETTE méthode → mémorisé scopé à la méthode.
+    if (rpc.data?.status === 405) {
+      this.httpOnlyRoutes.add(httpOnlyKey(method, url));
+    }
   }
 
   private async send<T>(
@@ -245,23 +286,41 @@ export class ApiClient {
     body: unknown,
     init?: RequestInit,
   ): Promise<T> {
+    // Clé d'idempotence générée UNE fois par mutation (réutilisée socket → fetch) :
+    // un fallback fetch après un échec socket ne DOIT pas doubler l'effet si la
+    // tentative socket avait abouti côté serveur → la MÊME clé fait dédoublonner
+    // (le serveur rejoue la réponse mémorisée au lieu de ré-exécuter).
+    const isMutation = method !== "GET" && method !== "HEAD";
+    const idemKey = isMutation ? makeIdempotencyKey() : undefined;
+
     // ── Pont « API souveraine » : même action controller, transport socket.
-    // Succès → servi tel quel ; TOUT échec → on apprend (-32601/405) puis on
-    // retombe sur le fetch ci-dessous (réponse de référence, cf doc-comment).
+    // GET = lecture ; mutation = `mutate` + clé. Succès → servi tel quel ; TOUT
+    // échec → on apprend (-32601/405) puis on retombe sur le fetch ci-dessous
+    // (réponse de référence ; la clé garantit l'absence de double-effet).
     if (this.canUseSocket(method, url, init)) {
       try {
-        const payload = await this.socket!.request<unknown>(
-          url as `/${string}`,
-        );
+        const payload =
+          method === "GET"
+            ? await this.socket!.request<unknown>(url as `/${string}`)
+            : await this.socket!.mutate<unknown>(url as `/${string}`, {
+                method: method as "POST" | "PUT" | "PATCH" | "DELETE",
+                body,
+                idempotencyKey: idemKey!,
+              });
         return unwrapResult<T>(payload);
       } catch (e) {
-        this.learnFromSocketError(url, e);
+        this.learnFromSocketError(method, url, e);
       }
     }
 
     const headers = new Headers(init?.headers);
     headers.set("Accept", "application/json");
     if (body !== undefined) headers.set("Content-Type", "application/json");
+    // Idempotency-Key aussi en HTTP : (a) le repli d'une mutation tentée par la
+    // socket réutilise la MÊME clé (dédup cross-transport) ; (b) une mutation
+    // HTTP directe devient idempotente (anti double-soumission). Optionnelle
+    // côté serveur en HTTP → honorée si présente.
+    if (idemKey) headers.set("Idempotency-Key", idemKey);
     // Auth = cookie de session BFF HttpOnly (envoyé via `credentials:same-origin`),
     // PAS de Bearer JS-exposé (P6 : plus de JWT en localStorage → anti-XSS).
 

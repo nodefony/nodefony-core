@@ -13,6 +13,7 @@ import Controller from "./nodefony/src/Controller";
 import ResourceController from "./nodefony/src/ResourceController";
 import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
+import MemoryIdempotencyStore from "./nodefony/service/IdempotencyStore";
 import AdminApiController from "./nodefony/controller/AdminApiController";
 import SessionAuthController, {
   mountSessionAuthRoutes,
@@ -77,7 +78,7 @@ import {
   routeExpectsBodyStream,
 } from "./nodefony/decorators/routerDecorators";
 
-@services([Router, Eta, AdminBroker])
+@services([Router, Eta, AdminBroker, MemoryIdempotencyStore])
 class Framework extends Module {
   constructor(kernel: Kernel) {
     super("framework", kernel, import.meta.url, config);
@@ -203,6 +204,7 @@ export {
   Router,
   Resolver,
   AdminBroker,
+  MemoryIdempotencyStore,
   AdminApiController,
   SessionAuthController,
   mountSessionAuthRoutes,
@@ -275,4 +277,7 @@ export type {
   IResolver,
   IAdminBroker,
   IAdminRoute,
+  IIdempotencyStore,
+  IdempotencyOutcome,
+  IdempotentResponse,
 } from "./nodefony/interfaces/index.js";

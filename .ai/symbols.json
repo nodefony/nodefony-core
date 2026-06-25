@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-25T16:51:44.014Z",
+  "generated": "2026-06-25T19:20:54.322Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 941,
-    "symbols": 2136,
-    "classes": 298,
-    "interfaces": 562,
-    "types": 253,
+    "files": 944,
+    "symbols": 2143,
+    "classes": 299,
+    "interfaces": 564,
+    "types": 255,
     "enums": 3,
-    "functions": 506,
+    "functions": 508,
     "constants": 514
   },
   "symbols": {
@@ -4084,6 +4084,14 @@
       "module": "modules/mediasoup",
       "description": "Jonction `Event`↔`Tag` (2ᵉ relation N-N explicite du modèle)."
     },
+    "createTestAdminApi": {
+      "name": "createTestAdminApi",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/admin/TestAdminApi.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Banc d'idempotence (P6.8 — mutations par la socket) : un `IAdminApi` de TEST exposant une mutation à **effet observable**. `POST /nodefony/test/api/idem-probe` incrémente un compteur process-wide e…"
+    },
     "BatchTest": {
       "name": "BatchTest",
       "kind": "class",
@@ -5663,6 +5671,32 @@
       "module": "@nodefony/framework",
       "extends": null
     },
+    "IdempotentResponse": {
+      "name": "IdempotentResponse",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Réponse mémorisée d'une mutation idempotente — exactement la forme produite par `AdminApiController.runAdmin` (`{status, headers?, body}`), pour la rejouer telle quelle à un rejeu (même statut, mêm…"
+    },
+    "IIdempotencyStore": {
+      "name": "IIdempotencyStore",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Cache d'idempotence borné (modèle Stripe `Idempotency-Key`) — dédoublonne les **mutations** du data plane admin rejouées (reconnexion socket, double-clic). Contrat de l'appelant (anti double-effet)…"
+    },
+    "IdempotencyOutcome": {
+      "name": "IdempotencyOutcome",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Verdict de {@link IIdempotencyStore.begin} pour une clé d'idempotence donnée. Aligné sur `draft-ietf-httpapi-idempotency-key-header-06` §2.6/§2.7. - `fresh` : clé jamais vue (ou bail expiré) → rése…"
+    },
     "IResolver": {
       "name": "IResolver",
       "kind": "interface",
@@ -5703,6 +5737,21 @@
       "extends": "Template",
       "implements": [],
       "decorators": []
+    },
+    "MemoryIdempotencyStore": {
+      "name": "MemoryIdempotencyStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Service",
+      "implements": [
+        "IIdempotencyStore"
+      ],
+      "decorators": [
+        "injectable"
+      ],
+      "description": "Implémentation **mémoire** (per-pod) de {@link IIdempotencyStore} — cache borné de dédup des mutations admin rejouées. Vit dans `@nodefony/framework` (niveau qui possède le data plane admin) et s'e…"
     },
     "Router": {
       "name": "Router",
@@ -15390,6 +15439,7 @@
         "DocumentationService",
         "DrizzleService",
         "AdminBroker",
+        "MemoryIdempotencyStore",
         "Router",
         "Controller",
         "Template",
@@ -15758,6 +15808,9 @@
       "IAdminBroker": [
         "AdminBroker"
       ],
+      "IIdempotencyStore": [
+        "MemoryIdempotencyStore"
+      ],
       "IController": [
         "Controller"
       ],
@@ -15978,6 +16031,7 @@
       ],
       "injectable": [
         "AdminBroker",
+        "MemoryIdempotencyStore",
         "Router",
         "FrontendService",
         "HttpKernel",
@@ -16029,6 +16083,7 @@
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
@@ -16083,6 +16138,7 @@
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
@@ -16145,6 +16201,7 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
@@ -16429,6 +16486,7 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -16513,6 +16571,17 @@
         "src/modules/test/index.ts",
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "IAdminRegistry": [
+        "src/modules/test/index.ts",
+        "src/packages/@nodefony/frontend/index.ts",
+        "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/security/index.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "HttpKernel": [
         "src/modules/test/index.ts",
         "src/packages/@nodefony/http/index.ts",
@@ -16524,6 +16593,9 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+      ],
+      "createTestAdminApi": [
+        "src/modules/test/index.ts"
       ],
       "DefaultController": [
         "src/modules/test/index.ts"
@@ -16735,6 +16807,9 @@
       "AdminBroker": [
         "src/packages/@nodefony/framework/index.ts"
       ],
+      "MemoryIdempotencyStore": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
       "AdminApiController": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
@@ -16938,16 +17013,6 @@
       "routeExpectsBodyStream": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts"
-      ],
-      "IAdminRegistry": [
-        "src/packages/@nodefony/frontend/index.ts",
-        "src/packages/@nodefony/http/index.ts",
-        "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "defineFrontendConfig": [
         "src/packages/@nodefony/frontend/index.ts"
@@ -18265,6 +18330,31 @@
       "userTable": [
         "src/modules/mediasoup/nodefony/entity/schema.ts"
       ],
+      "IAdminApi": [
+        "src/modules/test/nodefony/admin/TestAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IAdminRequest": [
+        "src/modules/test/nodefony/admin/TestAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "RequestContext": [
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -18745,16 +18835,6 @@
         "src/packages/@nodefony/framework/nodefony/config/schema.ts",
         "src/packages/@nodefony/http/nodefony/config/schema.ts"
       ],
-      "IAdminRequest": [
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
-      ],
       "IAdminResponse": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
@@ -18766,6 +18846,14 @@
       "IAdminRoute": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
+      ],
+      "IIdempotencyStore": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts"
+      ],
+      "IdempotentResponse": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts"
       ],
       "isAdminGranted": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
@@ -18864,26 +18952,17 @@
       "injectable": [
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
-      "IAdminApi": [
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
-      ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
+      ],
+      "IdempotencyOutcome": [
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts"
       ],
       "isDomainAllowed": [
         "src/packages/@nodefony/framework/nodefony/service/router.ts",

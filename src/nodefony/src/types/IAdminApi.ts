@@ -47,6 +47,14 @@ export interface IAdminRequest {
   roles: readonly string[];
   /** Corrélation de logs (ALS `RequestContext.getRequestId()`). */
   requestId?: string;
+  /**
+   * Clé d'idempotence d'une **mutation** (modèle Stripe), si fournie par le
+   * client (en-tête HTTP `Idempotency-Key` ou `params.idempotencyKey` du pont
+   * WS). Le broker l'utilise pour dédoublonner un rejeu AVANT d'appeler le
+   * handler ; exposée au handler pour traçabilité/audit (il peut l'ignorer).
+   * `undefined` pour un GET ou une mutation HTTP legacy sans clé.
+   */
+  idempotencyKey?: string;
 }
 
 /**

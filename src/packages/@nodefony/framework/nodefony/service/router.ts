@@ -181,10 +181,19 @@ class Router extends Service {
    *   lieu de `context.request.url` — permet de router un path **porté par un message**
    *   (WS-RPC `invoke`) vers une action, sans muter l'URL de la connexion (état partagé).
    *   `undefined` (cas hot path normal) → comportement inchangé.
+   * @param methodOverride - méthode HTTP **logique** à exiger en plus du transport
+   *   WEBSOCKET (pont WS-RPC `api.request` d'une MUTATION) : lève l'ambiguïté
+   *   GET-via-WS / POST-via-WS sur un même chemin (`context.method` = "WEBSOCKET").
+   *   `undefined` (GET/HTTP) → match historique sur `context.method`.
    * @returns un `Resolver` (`.resolve === true` si une route a matché).
    */
-  resolve(context: ContextType, cleanPathOverride?: string): Resolver {
+  resolve(
+    context: ContextType,
+    cleanPathOverride?: string,
+    methodOverride?: string,
+  ): Resolver {
     const resolver = new Resolver(context);
+    resolver.methodOverride = methodOverride ?? null;
     // L5a perf : pathname normalisé UNE fois (constant pour la requête) — évite
     // que chaque Route.match du scan O(N) recalcule URL.pathname + regex + alloc.
     // `cleanPathOverride` (WS-RPC invoke) court-circuite le pathname de la connexion.

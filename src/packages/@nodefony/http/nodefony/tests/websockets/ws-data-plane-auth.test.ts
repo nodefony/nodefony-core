@@ -23,6 +23,7 @@
  */
 import { expect } from "chai";
 import https from "node:https";
+import { randomUUID } from "node:crypto";
 import WebSocket from "ws";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
@@ -136,6 +137,10 @@ type Welcome = {
 function hubConnect(cookie: string | null): Promise<{
   welcome: Welcome;
   request: (path: string) => Promise<JsonRpcReply>;
+  mutate: (
+    path: string,
+    init: { method: string; body?: unknown; idempotencyKey?: string },
+  ) => Promise<JsonRpcReply>;
   close: () => void;
 }> {
   return new Promise((resolve, reject) => {
@@ -162,27 +167,35 @@ function hubConnect(cookie: string | null): Promise<{
       if (frame.method === "realtime:welcome") {
         clearTimeout(timer);
         ws.removeAllListeners("close");
+        const invoke = (params: Record<string, unknown>) =>
+          new Promise<JsonRpcReply>((res, rej) => {
+            const id = nextId++;
+            const t = setTimeout(
+              () => rej(new Error(`rpc timeout ${JSON.stringify(params)}`)),
+              TIMEOUT,
+            );
+            pending.set(id, (reply) => {
+              clearTimeout(t);
+              res(reply);
+            });
+            ws.send(
+              JSON.stringify({
+                jsonrpc: "2.0",
+                id,
+                method: "api.request",
+                params,
+              }),
+            );
+          });
         resolve({
           welcome: frame.params as Welcome,
-          request: (path: string) =>
-            new Promise<JsonRpcReply>((res, rej) => {
-              const id = nextId++;
-              const t = setTimeout(
-                () => rej(new Error(`rpc timeout ${path}`)),
-                TIMEOUT,
-              );
-              pending.set(id, (reply) => {
-                clearTimeout(t);
-                res(reply);
-              });
-              ws.send(
-                JSON.stringify({
-                  jsonrpc: "2.0",
-                  id,
-                  method: "api.request",
-                  params: { path },
-                }),
-              );
+          request: (path: string) => invoke({ path }),
+          mutate: (path, init) =>
+            invoke({
+              path,
+              method: init.method,
+              body: init.body,
+              idempotencyKey: init.idempotencyKey,
             }),
           close: () => ws.close(),
         });
@@ -350,5 +363,237 @@ describe("P6 J8 — garde @IsGranted via api.request (requires server)", () => {
     // error opaque (le 403 n'est pas une erreur serveur : autz ≠ authn).
     const data = reply.error?.data as { status?: number } | undefined;
     expect(data?.status, "statut d'autorisation exposé").to.equal(403);
+  });
+});
+
+/**
+ * P6.8 — MUTATIONS par la socket (idempotentes). Preuve END-TO-END sur le
+ * serveur réel : `POST /nodefony/test/api/idem-probe` (mutation admin à compteur
+ * OBSERVABLE) via le pont `api.request`, avec `Idempotency-Key`. Couvre dédup
+ * (rejeu = réponse mémorisée), verrou in-flight (409), scope par identité
+ * (anti-IDOR du cache), clé obligatoire en WS (400), désambiguïsation de méthode
+ * (405), et l'équivalence WS ≡ HTTP.
+ *
+ * `idem-probe` est `public:true` (pas de rôle requis) → testable par `admin` ET
+ * `user`, tous deux authentifiés par le firewall.
+ */
+const PROBE = "/nodefony/test/api/idem-probe";
+
+/** Compteur de la réponse (déballe `{result}` du wrap HttpKernel si présent). */
+function countOf(payload: unknown): number {
+  let p = payload;
+  if (p && typeof p === "object" && "result" in p) {
+    p = (p as { result: unknown }).result;
+  }
+  return (p as { count?: number } | null)?.count ?? -1;
+}
+
+/** Statut effectif d'une réponse de pont (200 si succès, sinon `error.data.status`). */
+function statusOf(reply: JsonRpcReply): number {
+  if (!reply.error) return 200;
+  return (reply.error.data as { status?: number } | undefined)?.status ?? -1;
+}
+
+describe("P6.8 — mutations socket idempotentes (requires server)", () => {
+  it("mutation WS (POST + clé) → exécute + identité résolue + corps transporté", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const hub = await hubConnect(cookie);
+    const reply = await hub.mutate(PROBE, {
+      method: "POST",
+      body: { a: 1 },
+      idempotencyKey: randomUUID(),
+    });
+    hub.close();
+    expect(reply.error, "mutation autorisée ne doit pas être refusée").to.equal(
+      undefined,
+    );
+    const r = reply.result as {
+      count: number;
+      echo: unknown;
+      identity: string;
+    };
+    expect(r.count, "compteur incrémenté").to.be.a("number");
+    expect(r.echo, "corps de la frame transporté par l'ALS").to.deep.equal({
+      a: 1,
+    });
+    expect(r.identity, "identité du token résolue").to.equal("admin");
+  });
+
+  it("REJEU même clé → réponse MÉMORISÉE (compteur stable = anti double-effet)", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const hub = await hubConnect(cookie);
+    const key = randomUUID();
+    const first = await hub.mutate(PROBE, {
+      method: "POST",
+      idempotencyKey: key,
+    });
+    const replay = await hub.mutate(PROBE, {
+      method: "POST",
+      idempotencyKey: key,
+    });
+    hub.close();
+    expect(countOf(first.result)).to.be.greaterThan(0);
+    // Le rejeu renvoie EXACTEMENT la réponse mémorisée → le compteur n'avance pas.
+    expect(countOf(replay.result), "rejeu = même compteur").to.equal(
+      countOf(first.result),
+    );
+  });
+
+  it("clé DIFFÉRENTE → ré-exécute (nouvelle intention → le compteur avance)", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const hub = await hubConnect(cookie);
+    const a = await hub.mutate(PROBE, {
+      method: "POST",
+      idempotencyKey: randomUUID(),
+    });
+    const b = await hub.mutate(PROBE, {
+      method: "POST",
+      idempotencyKey: randomUUID(),
+    });
+    hub.close();
+    expect(countOf(b.result)).to.equal(countOf(a.result) + 1);
+  });
+
+  it("même clé, PAYLOAD DIFFÉRENT → 422 (draft §2.7 : réutilisation interdite)", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const hub = await hubConnect(cookie);
+    const key = randomUUID();
+    const first = await hub.mutate(PROBE, {
+      method: "POST",
+      body: { a: 1 },
+      idempotencyKey: key,
+    });
+    // MÊME clé, corps DIFFÉRENT → le fingerprint diffère → réutilisation refusée.
+    const reuse = await hub.mutate(PROBE, {
+      method: "POST",
+      body: { a: 2 },
+      idempotencyKey: key,
+    });
+    hub.close();
+    expect(first.error, "1ʳᵉ requête doit réussir").to.equal(undefined);
+    expect(reuse.result).to.equal(undefined);
+    expect(statusOf(reuse)).to.equal(422);
+  });
+
+  it("clé ABSENTE sur une mutation WS → 400 (la socket rejoue : garde-fou requis)", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const hub = await hubConnect(cookie);
+    const reply = await hub.mutate(PROBE, { method: "POST" }); // pas de clé
+    hub.close();
+    expect(reply.result).to.equal(undefined);
+    expect(statusOf(reply)).to.equal(400);
+  });
+
+  it("clé ABUSIVE (>255 car) → 400 (anti-DoS : ne gonfle pas le cache borné)", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const hub = await hubConnect(cookie);
+    const reply = await hub.mutate(PROBE, {
+      method: "POST",
+      idempotencyKey: "x".repeat(300),
+    });
+    hub.close();
+    expect(reply.result).to.equal(undefined);
+    expect(statusOf(reply)).to.equal(400); // clé trop longue = traitée comme absente
+  });
+
+  it("IN-FLIGHT : deux mutations concurrentes même clé → un 200, un 409", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const hub = await hubConnect(cookie);
+    const key = randomUUID();
+    // `delayMs` ouvre la fenêtre : la 2ᵉ frame arrive pendant que la 1ʳᵉ est
+    // in-flight → le store renvoie 409 (anti double-exécution concurrente).
+    const [r1, r2] = await Promise.all([
+      hub.mutate(PROBE, {
+        method: "POST",
+        body: { delayMs: 500 },
+        idempotencyKey: key,
+      }),
+      hub.mutate(PROBE, {
+        method: "POST",
+        body: { delayMs: 500 },
+        idempotencyKey: key,
+      }),
+    ]);
+    hub.close();
+    expect([statusOf(r1), statusOf(r2)]).to.have.members([200, 409]);
+  });
+
+  it("SCOPE par identité : `user` rejouant la clé d'`admin` ne lit PAS sa réponse", async () => {
+    const adminCookie = await loginCookie("admin", "secret");
+    const userCookie = await loginCookie("user", "secret");
+    const key = randomUUID();
+    const adminHub = await hubConnect(adminCookie);
+    const adminReply = await adminHub.mutate(PROBE, {
+      method: "POST",
+      idempotencyKey: key,
+    });
+    adminHub.close();
+    const userHub = await hubConnect(userCookie);
+    const userReply = await userHub.mutate(PROBE, {
+      method: "POST",
+      idempotencyKey: key,
+    });
+    userHub.close();
+    // Même clé client, identités distinctes → DEUX exécutions distinctes : chacune
+    // voit SON identité, jamais la réponse mémorisée de l'autre (anti-IDOR cache).
+    expect((adminReply.result as { identity: string }).identity).to.equal(
+      "admin",
+    );
+    expect((userReply.result as { identity: string }).identity).to.equal(
+      "user",
+    );
+    expect(countOf(userReply.result)).to.be.greaterThan(
+      countOf(adminReply.result),
+    );
+  });
+
+  it("désambiguïsation de méthode : DELETE sur une route POST-only → 405", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const hub = await hubConnect(cookie);
+    const reply = await hub.mutate(PROBE, {
+      method: "DELETE",
+      idempotencyKey: randomUUID(),
+    });
+    hub.close();
+    expect(reply.result).to.equal(undefined);
+    expect(statusOf(reply)).to.equal(405);
+  });
+
+  it("mutation HTTP (en-tête Idempotency-Key honoré) ≡ même action", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const res = await request(
+      PROBE,
+      "POST",
+      { cookie, "idempotency-key": randomUUID() },
+      { a: 2 },
+    );
+    expect(res.status).to.equal(200);
+    expect(countOf(res.body)).to.be.greaterThan(0);
+  });
+
+  it("REJEU HTTP même Idempotency-Key → réponse mémorisée (compteur stable)", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const key = randomUUID();
+    const first = await request(
+      PROBE,
+      "POST",
+      { cookie, "idempotency-key": key },
+      { a: 3 },
+    );
+    const replay = await request(
+      PROBE,
+      "POST",
+      { cookie, "idempotency-key": key },
+      { a: 3 },
+    );
+    expect(countOf(first.body)).to.be.greaterThan(0);
+    expect(countOf(replay.body)).to.equal(countOf(first.body));
+  });
+
+  it("mutation HTTP SANS clé → exécute (rétro-compat : HTTP ne rejoue pas seul)", async () => {
+    const cookie = await loginCookie("admin", "secret");
+    const res = await request(PROBE, "POST", { cookie }, { a: 4 });
+    expect(res.status).to.equal(200);
+    expect(countOf(res.body)).to.be.greaterThan(0);
   });
 });

@@ -2,20 +2,24 @@
 /**
  * Unit — pont « API souveraine » de l'ApiClient Studio (Ph.3 front).
  *
- * L'ApiClient route les GET via la Socket Nodefony (`socket.request("/path")`,
- * méthode RPC `api.request`) quand elle est connectée, fallback fetch sinon —
- * même URL, même shape, mêmes erreurs (`ApiError`). Logique pure (pas de React,
- * pas de serveur) → socket + fetch mockés.
+ * L'ApiClient route les GET via la Socket Nodefony (`socket.request("/path")`)
+ * ET les mutations (`socket.mutate`, P6.8) quand elle est connectée, fallback
+ * fetch sinon — même URL, même shape, mêmes erreurs (`ApiError`). Logique pure
+ * (pas de React, pas de serveur) → socket + fetch mockés.
  *
  * Invariants verrouillés :
  *  - GET + socket connectée → socket, AUCUN fetch ; unwrap `{result}` identique ;
- *  - mutations (POST) → toujours fetch (HTTP-only Ph.3) ;
+ *  - mutation (POST) + socket connectée → `socket.mutate` AVEC idempotency-key ;
+ *  - mutation : échec socket → fallback fetch portant la MÊME idempotency-key
+ *    (dédup cross-transport, anti double-effet) ;
+ *  - GET = jamais d'idempotency-key ; mutation HTTP directe = clé posée ;
  *  - socket absente / déconnectée / kill switch OFF / abort signal → fetch ;
  *  - la socket ne sert que les SUCCÈS : TOUTE erreur du pont → fallback fetch
  *    (la réponse d'erreur de référence vient du HTTP — un 405/404 du pont
  *    peut différer de la réponse REST, vécu /stats /health /auth/me) ;
- *  - mémorisations : `-32601` → pont désactivé session ; 405 → route GET-only
- *    HTTP-only session (pas de re-tentative socket sur cette route).
+ *  - mémorisations : `-32601` → pont désactivé session ; 405 → couple
+ *    méthode+route HTTP-only session (le GET d'une route reste pontable même si
+ *    son POST a répondu 405 — scope par méthode).
  */
 import { describe, it, vi, beforeEach, afterEach } from "vitest";
 import { expect } from "chai";
@@ -48,22 +52,56 @@ function rpcError(
   return e;
 }
 
+interface MutateCall {
+  path: string;
+  method: string;
+  body?: unknown;
+  idempotencyKey: string;
+}
+
 function fakeSocket(opts: {
   state?: string;
   result?: unknown;
   reject?: unknown;
-}): ApiSocketLike & { calls: string[] } {
+}): ApiSocketLike & { calls: string[]; mutateCalls: MutateCall[] } {
   const calls: string[] = [];
+  const mutateCalls: MutateCall[] = [];
   return {
     state: opts.state ?? "connected",
     calls,
+    mutateCalls,
     request<T>(path: `/${string}`): Promise<T> {
       calls.push(path);
       if (opts.reject !== undefined)
         return Promise.reject(opts.reject as Error);
       return Promise.resolve(opts.result as T);
     },
+    mutate<T>(
+      path: `/${string}`,
+      init: {
+        method: "POST" | "PUT" | "PATCH" | "DELETE";
+        body?: unknown;
+        idempotencyKey: string;
+        timeoutMs?: number;
+      },
+    ): Promise<T> {
+      mutateCalls.push({
+        path,
+        method: init.method,
+        body: init.body,
+        idempotencyKey: init.idempotencyKey,
+      });
+      if (opts.reject !== undefined)
+        return Promise.reject(opts.reject as Error);
+      return Promise.resolve(opts.result as T);
+    },
   };
+}
+
+/** En-tête `Idempotency-Key` d'un appel fetch mocké (ou null si absent). */
+function idemHeaderOf(call: [unknown, unknown] | undefined): string | null {
+  const init = call?.[1] as RequestInit | undefined;
+  return new Headers(init?.headers).get("Idempotency-Key");
 }
 
 describe("ApiClient — pont API souveraine (socket)", () => {
@@ -94,14 +132,68 @@ describe("ApiClient — pont API souveraine (socket)", () => {
     expect(out).to.deep.equal({ ok: true });
   });
 
-  it("mutation (POST) → toujours fetch, jamais la socket", async () => {
-    const socket = fakeSocket({ result: { nope: true } });
+  it("mutation (POST) + socket connectée → socket.mutate avec idempotency-key, zéro fetch", async () => {
+    const socket = fakeSocket({ result: { saved: true } });
+    const api = new ApiClient({ socket });
+    const out = await api.postAbsolute("/nodefony/x/api/save", { a: 1 });
+    expect(out).to.deep.equal({ saved: true });
+    expect(socket.mutateCalls.length).to.equal(1);
+    expect(socket.mutateCalls[0].method).to.equal("POST");
+    expect(socket.mutateCalls[0].body).to.deep.equal({ a: 1 });
+    expect(socket.mutateCalls[0].idempotencyKey).to.be.a("string").and.not
+      .empty;
+    expect(fetchMock.mock.calls.length).to.equal(0);
+  });
+
+  it("mutation : échec socket → fallback fetch AVEC la MÊME Idempotency-Key (anti double-effet)", async () => {
+    const socket = fakeSocket({
+      reject: new Error("RPC timeout: api.request"),
+    });
     fetchMock.mockResolvedValue(jsonResponse({ saved: true }));
     const api = new ApiClient({ socket });
     const out = await api.postAbsolute("/nodefony/x/api/save", { a: 1 });
     expect(out).to.deep.equal({ saved: true });
-    expect(socket.calls.length).to.equal(0);
+    expect(socket.mutateCalls.length).to.equal(1);
     expect(fetchMock.mock.calls.length).to.equal(1);
+    // Le repli HTTP porte EXACTEMENT la clé de la tentative socket → le serveur
+    // dédoublonne si la mutation avait abouti côté serveur avant la coupure.
+    expect(idemHeaderOf(fetchMock.mock.calls[0])).to.equal(
+      socket.mutateCalls[0].idempotencyKey,
+    );
+  });
+
+  it("mutation HTTP directe (socket absente) → fetch avec une Idempotency-Key", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ saved: true }));
+    const api = new ApiClient({}); // pas de socket
+    await api.postAbsolute("/nodefony/x/api/save", { a: 1 });
+    expect(idemHeaderOf(fetchMock.mock.calls[0])).to.be.a("string").and.not
+      .empty;
+  });
+
+  it("GET (fetch direct) → AUCUNE Idempotency-Key (lecture, pas une mutation)", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ok: 1 }));
+    const api = new ApiClient({}); // pas de socket → GET en fetch
+    await api.getAbsolute("/nodefony/kernel/api/modules");
+    expect(idemHeaderOf(fetchMock.mock.calls[0])).to.equal(null);
+  });
+
+  it("405 sur un POST → couple POST+route mémorisé HTTP-only, le GET de la route reste pontable", async () => {
+    const socket = fakeSocket({
+      reject: rpcError(-32000, { status: 405, body: {} }),
+    });
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ ok: 1 })),
+    );
+    const api = new ApiClient({ socket });
+    // POST → 405 → fallback fetch ; le couple POST+route devient HTTP-only.
+    await api.postAbsolute("/nodefony/x/api/thing", { a: 1 });
+    expect(socket.mutateCalls.length).to.equal(1);
+    // 2ᵉ POST même route → plus AUCUNE tentative socket.
+    await api.postAbsolute("/nodefony/x/api/thing", { a: 2 });
+    expect(socket.mutateCalls.length).to.equal(1);
+    // MAIS un GET sur la MÊME route reste éligible au pont (scope par méthode).
+    await api.getAbsolute("/nodefony/x/api/thing").catch(() => {});
+    expect(socket.calls.length).to.equal(1);
   });
 
   it("socket déconnectée → fetch", async () => {

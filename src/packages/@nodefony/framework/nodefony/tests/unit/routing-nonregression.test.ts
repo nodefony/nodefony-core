@@ -20,7 +20,10 @@ import type { ContextType } from "@nodefony/http";
  *   G. normalisation : trailing slash, casse, query string ;
  *   H. extraction + décodage des variables au niveau resolve ;
  *   I. table VIVANTE : create/removeRoutes visibles au resolve suivant (un index
- *      devra s'invalider — invariant `dirty`).
+ *      devra s'invalider — invariant `dirty`) ;
+ *   J. contrat du resolver retourné (route/resolve/variables/bypassFirewall cohérents) ;
+ *   K. methodOverride (pont WS-RPC mutation) : désambiguïse la méthode LOGIQUE sur le
+ *      transport WEBSOCKET unique ; une route sans WEBSOCKET reste invisible (zéro bypass).
  *
  * Réf : docs/audits/bench-frameworks-2026-06.md (verdict) + mémoire IA
  * project_fastpath_chantier_kit.
@@ -434,5 +437,124 @@ describe("Routing NR — J. contrat resolver", () => {
     expect(r.route).to.be.instanceof(Route);
     expect(r.exception).to.equal(undefined);
     expect(r.variables).to.have.lengthOf(1);
+  });
+});
+
+// ─── K. methodOverride — pont WS-RPC mutations ───────────────────────────────
+//
+// En WebSocket, `context.method` vaut TOUJOURS "WEBSOCKET" (le transport). Le
+// pont `api.request` d'une mutation passe la méthode HTTP LOGIQUE en
+// `methodOverride` → `Router.resolve(ctx, cleanPath, "POST")`. Le banc fige ce
+// contrat : désambiguïsation par méthode logique, zéro bypass, variables OK.
+
+describe("Routing NR — K. methodOverride (mutation WS)", () => {
+  const WS = (p: string) => makeCtx(p, "WEBSOCKET");
+
+  it("2 routes même chemin (GET+WS, POST+WS) : override POST choisit la POST", () => {
+    Router.createRoute("m-get", {
+      path: "/m",
+      requirements: { methods: ["GET", "WEBSOCKET"] },
+    });
+    Router.createRoute("m-post", {
+      path: "/m",
+      requirements: { methods: ["POST", "WEBSOCKET"] },
+    });
+    expect(makeRouter().resolve(WS("/m"), "/m", "POST").route?.name).to.equal(
+      "m-post",
+    );
+  });
+
+  it("MÊME chemin, SANS override → 1er match WS (GET) inchangé (historique)", () => {
+    Router.createRoute("m-get", {
+      path: "/m",
+      requirements: { methods: ["GET", "WEBSOCKET"] },
+    });
+    Router.createRoute("m-post", {
+      path: "/m",
+      requirements: { methods: ["POST", "WEBSOCKET"] },
+    });
+    // Pas d'override (forme GET du pont) → les deux ont WEBSOCKET → 1er gagne.
+    expect(makeRouter().resolve(WS("/m"), "/m").route?.name).to.equal("m-get");
+  });
+
+  it("désambiguïsation INDÉPENDANTE de l'ordre (POST déclarée d'abord)", () => {
+    Router.createRoute("n-post", {
+      path: "/n",
+      requirements: { methods: ["POST", "WEBSOCKET"] },
+    });
+    Router.createRoute("n-get", {
+      path: "/n",
+      requirements: { methods: ["GET", "WEBSOCKET"] },
+    });
+    expect(makeRouter().resolve(WS("/n"), "/n", "POST").route?.name).to.equal(
+      "n-post",
+    );
+    expect(makeRouter().resolve(WS("/n"), "/n", "GET").route?.name).to.equal(
+      "n-get",
+    );
+  });
+
+  it("variables extraites sur une mutation WS (/things/{id}, DELETE+WS)", () => {
+    Router.createRoute("things-get", {
+      path: "/things/{id}",
+      requirements: { methods: ["GET", "WEBSOCKET"] },
+    });
+    Router.createRoute("things-del", {
+      path: "/things/{id}",
+      requirements: { methods: ["DELETE", "WEBSOCKET"] },
+    });
+    const r = makeRouter().resolve(WS("/things/42"), "/things/42", "DELETE");
+    expect(r.route?.name).to.equal("things-del");
+    expect(r.variables[0]).to.equal("42");
+  });
+
+  it("ZÉRO BYPASS : route POST-only SANS WEBSOCKET → 405 (invisible au pont)", () => {
+    Router.createRoute("http-only", {
+      path: "/http-only",
+      requirements: { methods: ["POST"] },
+    });
+    let err: HttpError | undefined;
+    try {
+      makeRouter().resolve(WS("/http-only"), "/http-only", "POST");
+    } catch (e) {
+      err = e as HttpError;
+    }
+    expect(err, "doit jeter").to.exist;
+    expect((err as HttpError).code).to.equal(405);
+  });
+
+  it("mauvaise méthode logique (route GET+WS, override POST) → 405", () => {
+    Router.createRoute("getonly-ws", {
+      path: "/getonly",
+      requirements: { methods: ["GET", "WEBSOCKET"] },
+    });
+    let err: HttpError | undefined;
+    try {
+      makeRouter().resolve(WS("/getonly"), "/getonly", "POST");
+    } catch (e) {
+      err = e as HttpError;
+    }
+    expect(err, "doit jeter").to.exist;
+    expect((err as HttpError).code).to.equal(405);
+  });
+
+  it("chemin inexistant + override → resolve=false (404, pas de throw)", () => {
+    Router.createRoute("exists", {
+      path: "/exists",
+      requirements: { methods: ["POST", "WEBSOCKET"] },
+    });
+    expect(makeRouter().resolve(WS("/nope"), "/nope", "POST").resolve).to.equal(
+      false,
+    );
+  });
+
+  it("override sur une route mono-méthode WS (POST+WS) → matche", () => {
+    Router.createRoute("solo-post", {
+      path: "/solo",
+      requirements: { methods: ["POST", "WEBSOCKET"] },
+    });
+    const r = makeRouter().resolve(WS("/solo"), "/solo", "POST");
+    expect(r.resolve).to.equal(true);
+    expect(r.route?.name).to.equal("solo-post");
   });
 });

@@ -600,6 +600,41 @@ export class RealtimeClient<
   }
 
   /**
+   * **Mutation** API par le pont `api.request` (POST/PUT/PATCH/DELETE) — pendant
+   * d'écriture de {@link request} (qui ne fait que des lectures GET). Transporte
+   * la méthode HTTP **logique**, le corps, et une **clé d'idempotence**
+   * (OBLIGATOIRE côté serveur : une socket reconnecte et peut rejouer une frame
+   * en vol → la clé dédoublonne le rejeu, anti double-effet) :
+   * ```ts
+   * await socket.mutate("/nodefony/security/api/apikeys/42/revoke", {
+   *   method: "POST", idempotencyKey: crypto.randomUUID(),
+   * });
+   * ```
+   * Échec → rejet {@link RpcError} (`data.status` = statut HTTP équivalent :
+   * 400 clé absente, 409 rejeu concurrent, 403 refus, 404 path inconnu…).
+   */
+  async mutate<T = unknown>(
+    path: `/${string}`,
+    init: {
+      method: "POST" | "PUT" | "PATCH" | "DELETE";
+      body?: unknown;
+      idempotencyKey: string;
+      timeoutMs?: number;
+    },
+  ): Promise<T> {
+    return this.peer.request(
+      "api.request" as never,
+      {
+        path,
+        method: init.method,
+        body: init.body,
+        idempotencyKey: init.idempotencyKey,
+      } as never,
+      init.timeoutMs ?? 30000,
+    ) as Promise<T>;
+  }
+
+  /**
    * Mesure le round-trip WS via la méthode RPC standard `kernel:ping` — helper
    * RÉUTILISABLE par tout consommateur (topbar Studio, debug bar, app user) :
    * la mesure du RTT et la convention `kernel:ping` vivent dans la lib cliente,

@@ -209,7 +209,7 @@ class Route implements IRoute {
     return (reqUrl as URL).pathname.replace(REG_REPLACE_END_SLASH, "");
   }
 
-  match(context: ContextType, cleanPath?: string) {
+  match(context: ContextType, cleanPath?: string, methodOverride?: string) {
     let res;
     if (context.request && context.request.url && this.pattern) {
       // L5a perf : réutilise le pathname normalisé UNE fois par requête
@@ -240,7 +240,7 @@ class Route implements IRoute {
     }
     // check requierments
     try {
-      this.matchRequirements(context);
+      this.matchRequirements(context, methodOverride);
     } catch (e) {
       throw e;
     }
@@ -523,7 +523,7 @@ class Route implements IRoute {
   hasRequirements(): number {
     return Object.keys(this.requirements).length;
   }
-  matchRequirements(context: ContextType): boolean {
+  matchRequirements(context: ContextType, methodOverride?: string): boolean {
     if (this.hasRequirements()) {
       for (const i in this.requirements) {
         switch (i) {
@@ -535,6 +535,28 @@ class Route implements IRoute {
               throw new Error(
                 `Bad config route method : ${this.requirements[i]}`,
               );
+            }
+            // Pont WS-RPC `api.request` d'une MUTATION : `context.method` vaut
+            // toujours "WEBSOCKET" (le transport) → insuffisant pour distinguer
+            // GET-via-WS de POST-via-WS sur un MÊME chemin. `methodOverride` (la
+            // méthode HTTP LOGIQUE demandée par le pont) lève l'ambiguïté : la
+            // route doit déclarer À LA FOIS le transport WEBSOCKET (pontable,
+            // zéro bypass) ET la méthode logique voulue. Le chemin HTTP/GET
+            // normal (override absent) garde le comportement historique.
+            if (methodOverride !== undefined) {
+              if (
+                !this.methodsSet.has("WEBSOCKET") ||
+                !this.methodsSet.has(methodOverride)
+              ) {
+                const error = new HttpError(
+                  `Method ${methodOverride} Unauthorized`,
+                );
+                error.code = 405;
+                error.type = "method";
+                error.allow = this.methodsAllow ?? "";
+                throw error;
+              }
+              break;
             }
             if (!this.methodsSet.has(context.method as string)) {
               const error = new HttpError(

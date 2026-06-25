@@ -98,6 +98,15 @@ class Resolver implements IResolver {
    * per-request (`executeAction`).
    */
   queryOverride: Record<string, unknown> | null = null;
+  /**
+   * Méthode HTTP **logique** d'une invocation par le pont WS-RPC `api.request`
+   * quand c'est une MUTATION (POST/PUT/PATCH/DELETE). Posée par
+   * `Router.resolve(ctx, cleanPath, methodOverride)` → consommée par `match()`
+   * pour désambiguïser, sur le transport WEBSOCKET unique, la route logique
+   * visée (cf `Route.matchRequirements`). `null` (GET/HTTP) = match historique
+   * sur `context.method`.
+   */
+  methodOverride: string | null = null;
   constructor(context: ContextType) {
     this.context = context;
     this.injector = context.container?.get<Injector>("injector") ?? null;
@@ -105,7 +114,11 @@ class Resolver implements IResolver {
 
   match(route: Route, context: ContextType, cleanPath?: string) {
     try {
-      const match = route.match(context, cleanPath);
+      const match = route.match(
+        context,
+        cleanPath,
+        this.methodOverride ?? undefined,
+      );
       if (match) {
         this.variables = match;
         this.route = route;

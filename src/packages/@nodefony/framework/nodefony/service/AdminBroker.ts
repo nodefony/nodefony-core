@@ -112,13 +112,15 @@ class AdminBroker extends Service implements IAdminBroker {
         const role = endpoint.public ? "" : (endpoint.role ?? this.defaultRole);
         const path = this.resolvePath(api.adminNamespace, endpoint.path);
         const name = `admin.${api.adminNamespace}.${method}.${endpoint.path}`;
-        // « API souveraine » : les snapshots (GET) déclarent AUSSI le transport
-        // WEBSOCKET → invocables par le pont WS-RPC `api.request` (même action,
-        // même snapshot). Le pont n'atteint QUE ce qui déclare le transport
-        // (zéro bypass) ; les mutations (POST/PUT/DELETE) restent HTTP-only
-        // tant que la sémantique d'écriture par socket n'est pas conçue (P6).
-        const methods: HTTPMethod[] =
-          method === "GET" ? [method, "WEBSOCKET"] : [method];
+        // « API souveraine » : TOUTE action admin déclare AUSSI le transport
+        // WEBSOCKET → invocable par le pont WS-RPC `api.request` (même action,
+        // même réponse). Le pont n'atteint QUE ce qui déclare le transport
+        // (zéro bypass). Les **mutations** (POST/PUT/PATCH/DELETE) sont désormais
+        // pontables : la sécurité d'écriture par socket repose sur l'idempotence
+        // (clé `Idempotency-Key` obligatoire en WS, dédup bornée scopée à
+        // l'identité — `AdminApiController` + `IdempotencyStore`). La méthode
+        // LOGIQUE est désambiguïsée du transport via `methodOverride` au resolve.
+        const methods: HTTPMethod[] = [method, "WEBSOCKET"];
         Router.createRoute(name, {
           path,
           constructor:

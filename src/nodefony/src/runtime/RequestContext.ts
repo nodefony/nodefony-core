@@ -56,6 +56,22 @@ export interface RequestContextPayload {
    * retrouver le contexte de LA requête en cours sans le porter sur `this`.
    */
   context?: unknown;
+  /**
+   * Corps de la requête posé par le **pont WS-RPC `api.request`** (mutations) :
+   * en WebSocket il n'existe aucun corps HTTP parsé, donc le pont transporte la
+   * charge utile de la frame ici (per-invocation via `RequestContext.run` → zéro
+   * bleed entre frames concurrentes de la même socket). Lu par
+   * `AdminApiController.buildRequest` en priorité sur `queryPost` (vide en WS).
+   * Absent en HTTP (le corps vient du pipeline → `queryPost`).
+   */
+  body?: unknown;
+  /**
+   * Clé d'idempotence (modèle Stripe) portée par une **mutation** du data plane
+   * admin : posée par le pont WS (`params.idempotencyKey`) ou lue de l'en-tête
+   * HTTP `Idempotency-Key`. Sert à dédoublonner un rejeu (socket qui reconnecte)
+   * → cache borné scopé à l'identité. Absente = pas de dédup (GET, HTTP legacy).
+   */
+  idempotencyKey?: string;
   [key: string]: unknown;
 }
 

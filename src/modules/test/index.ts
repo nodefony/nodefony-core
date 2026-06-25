@@ -1,5 +1,8 @@
 import { Kernel, Module, services, registerLogDriver } from "nodefony";
+import type { IAdminRegistry } from "nodefony";
 import type { HttpKernel } from "@nodefony/http";
+// P6.8 — banc d'idempotence des mutations socket (mutation admin à compteur).
+import { createTestAdminApi } from "./nodefony/admin/TestAdminApi";
 import config from "./nodefony/config/config";
 import DefaultController, {
   securityHooksState,
@@ -88,6 +91,19 @@ class Test extends Module {
       this.addCommand(DaemonTestCommand);
     }
   }
+  // P6.8 — enregistre le producteur admin de TEST (banc idempotence) AVANT le
+  // `mountAll()` du framework (à onKernelReady) → la mutation
+  // `POST /nodefony/test/api/idem-probe` est montée (+ transport WEBSOCKET).
+  override async onKernelBoot(): Promise<this> {
+    const broker = this.kernel?.container?.get("adminBroker") as
+      | IAdminRegistry
+      | undefined;
+    if (broker && !broker.has("test")) {
+      broker.register(createTestAdminApi());
+    }
+    return this;
+  }
+
   // P1.7 — register security hooks listeners for integration tests.
   override async onKernelReady(): Promise<this> {
     // NOTE — le service "users" (source d'identité du firewall : comptes admin/user

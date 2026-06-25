@@ -182,6 +182,63 @@ describe("Route — matchRequirements() — methods", () => {
   });
 });
 
+// ─── matchRequirements — methodOverride (pont WS-RPC api.request, mutations) ──
+
+describe("Route — matchRequirements() — methodOverride (mutation WS)", () => {
+  // En WS, context.method vaut toujours "WEBSOCKET" → le pont passe la méthode
+  // LOGIQUE en methodOverride. La route doit déclarer le transport WEBSOCKET ET
+  // la méthode logique.
+  it("route POST+WEBSOCKET + methodOverride POST → no throw", () => {
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: ["POST", "WEBSOCKET"] },
+    });
+    expect(() =>
+      r.match(makeCtx("/api", "WEBSOCKET"), undefined, "POST"),
+    ).to.not.throw();
+  });
+
+  it("route GET+WEBSOCKET + methodOverride POST → 405 (mauvaise méthode logique)", () => {
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: ["GET", "WEBSOCKET"] },
+    });
+    let err: HttpError | undefined;
+    try {
+      r.match(makeCtx("/api", "WEBSOCKET"), undefined, "POST");
+    } catch (e) {
+      err = e as HttpError;
+    }
+    expect(err, "doit rejeter").to.exist;
+    expect((err as HttpError).code).to.equal(405);
+  });
+
+  it("route POST-only SANS WEBSOCKET + methodOverride POST → 405 (zéro bypass)", () => {
+    // Une mutation HTTP qui ne déclare pas le transport WEBSOCKET reste
+    // INVISIBLE au pont (sécurité : on n'atteint que ce qui s'expose).
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: ["POST"] },
+    });
+    let err: HttpError | undefined;
+    try {
+      r.match(makeCtx("/api", "WEBSOCKET"), undefined, "POST");
+    } catch (e) {
+      err = e as HttpError;
+    }
+    expect(err, "doit rejeter").to.exist;
+    expect((err as HttpError).code).to.equal(405);
+  });
+
+  it("sans methodOverride : route GET+WEBSOCKET + frame WS → no throw (historique)", () => {
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: ["GET", "WEBSOCKET"] },
+    });
+    expect(() => r.match(makeCtx("/api", "WEBSOCKET"))).to.not.throw();
+  });
+});
+
 // ─── matchRequirements — domain ───────────────────────────────────────────────
 
 describe("Route — matchRequirements() — domain", () => {
