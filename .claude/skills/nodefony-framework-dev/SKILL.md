@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.29.0
+version: 1.30.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -15,7 +15,7 @@ description: >
   injectable", "module hooks", "command CLI", "controller nodefony", "décorateur route", "créer une
   entité", "repository", "adapter ORM", "endpoint data plane", "certificats TLS", "Core isomorphe",
   "RealtimeClient", "realtime", "TCP UDP", "RealtimeService", "P6 security", "firewall", "@IsGranted",
-  "roadmap", "que reste-t-il à faire".
+  "@Idempotent", "idempotence", "Idempotency-Key", "anti double-effet", "roadmap", "que reste-t-il à faire".
 ---
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
@@ -1369,6 +1369,25 @@ npm outdated                     # versions en retard (ou commande `npx nodefony
 
 > Format : symptôme → cause → fix. Compléter à CHAQUE fin de session touchant le cœur.
 
+- _(2026-06-25, S5)_ **`@Idempotent` userland — un helper de VERDICT NEUTRE partage la logique entre 2 transports + GARE à la double résolution de `meta` sur le hot path.**
+  Étendre l'idempotence (S4 admin) aux controllers userland. 4 leçons :
+  (1) **Helper de verdict neutre** pour partager une logique entre call-sites de FORMAT différent : extraire la
+  DÉCISION (`evaluateIdempotency` → `execute|guarded|replay|reject`, dans `framework/src/idempotency.ts`) du
+  RENDU. `AdminApiController` traduit le verdict en `{status,headers,body}` ; `Resolver._callWithIdempotency`
+  le traduit en throw `nodefonyError` / `setStatusCode`+`returnController`. **Une seule source normative**, deux
+  emballages. Même esprit que `_enforceSecurity` vs `decide()`. (2) **Perf seam Resolver — NE JAMAIS double-résoudre
+  `meta`** : `callController` résolvait `resolveActionMeta` PUIS `executeAction` le re-résolvait (le user l'a flaggé).
+  Fix = `executeAction(data, reload, meta?)` ; `callController` résout 1× et passe `meta`. Règle : tout ajout sur
+  `callController`/`executeAction` (HOT PATH, chaque requête) → passer les valeurs déjà calculées, jamais re-résoudre ;
+  gater le cold path par un champ `meta` nul (`idempotent === null` comme `security === null`) = 0 alloc/lookup.
+  (3) **Contrat partagé → le CORE** quand des modules HORS framework doivent l'implémenter : `IIdempotencyStore`
+  déplacé `framework` → `nodefony` (`src/types/`) pour que `@nodefony/redis`/`@nodefony/drizzle` (graphe sous
+  orm-core/core) branchent un store distribué sans cycle. Façade re-export côté framework = imports internes intacts.
+  Même motif que `IAdminApi`/`ITokenStore`. (4) **`required` effectif = `required || isWs`** unifie : admin
+  (`required:false` → strict en WS seulement) ET `@Idempotent()` (strict par défaut, même HTTP) ET WS toujours strict.
+  Limite assumée : la réponse mémorisée = la valeur RETOURNÉE par l'action ; un `this.render()` manuel n'est pas
+  rejoué (double-effet évité, corps vide). Tests : verdict 13 + seam userland 8 (replay sans ré-exécution, scope
+  identité) + actionMeta 5 ; mémoire **9/9** ; banc admin live 31/31. Commit `e2e6c1dd`. [[project_socket_mutations_idempotency_kit]].
 - _(2026-06-25)_ **Mutations par la socket idempotentes (P6.8) — décider les STATUTS depuis la SPEC, pas de mémoire.**
   Ouverture du pont `api.request` aux POST/PUT/PATCH/DELETE (idempotency-key). 5 leçons :
   (1) **Réflexe RFC d'abord** — j'avais figé 400/409 « façon Stripe » de mémoire ; le user a repris (« t'as vu
@@ -1649,6 +1668,21 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.30.0** (2026-06-25, S5) — **`@Idempotent` userland + contrat idempotence au CORE (P6.8)** — étend l'anti
+  double-effet (S4 admin) aux controllers métier. **Axe 1** : `IIdempotencyStore`/`IdempotencyOutcome`/
+  `IdempotentResponse` déplacés `@nodefony/framework` → `nodefony` (`src/types/`) ; `interfaces/IIdempotencyStore.ts`
+  = re-export façade → `@nodefony/redis`/`@nodefony/drizzle` (hors framework) pourront implémenter un store distribué
+  sans cycle. **Axe 2** : helper PARTAGÉ `framework/src/idempotency.ts` (`evaluateIdempotency` → verdict neutre
+  `execute|guarded|replay|reject` + `resolveIdempotencyKey`/`resolveIdentity`/`computeFingerprint`/`isMutationMethod`,
+  `required||isWs`) ; décorateur **`@Idempotent({required?})`** classe+méthode (méthode > classe) →
+  `RouteActionMeta.idempotent`, **strict 400 par défaut** / souple `{required:false}` / WS toujours strict ; seam
+  `Resolver.callController` → `_callWithIdempotency` (mutations only, no-op GET/WS, replay sans ré-exécuter, clé scopée
+  identité anti-IDOR, fingerprint → 422) ; `AdminApiController.idempotencyGate` **refactoré** pour CONSOMMER le helper
+  (= traduit le verdict). **Perf** : `meta` résolu 1× dans `callController` puis passé à `executeAction(data,reload,meta)`
+  = 0 double résolution (flaggé par le user), 0 alloc/lookup si `idempotent===null`. Gates : framework unit **378**
+  (idempotency 13 + seam 8 + actionMeta 5) + intég 96 · **mémoire 9/9** · banc admin live 31/31 · typecheck 0.
+  RETEX §11 (helper de verdict neutre · ne pas double-résoudre `meta` sur le hot path · contrat partagé → core).
+  Commit `e2e6c1dd`. [[project_socket_mutations_idempotency_kit]].
 - **1.29.0** (2026-06-25) — **Mutations par la socket idempotentes (P6.8)** — pont `api.request` ouvert aux
   POST/PUT/PATCH/DELETE (**contrat ↔ studio-dev 1.34.0** : `ApiClient.mutate`). Conforme
   `draft-ietf-httpapi-idempotency-key-header-06` (400 clé absente / 409 in-flight / 422 payload différent /
