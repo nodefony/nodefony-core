@@ -53,6 +53,13 @@
 
 ## 🐚 Shell / environnement d'exécution
 
+- `[1× — 2026-06-25]` **`timeout` n'existe PAS sur macOS** (`command not found: timeout`, exit 127 → le node attendu n'a jamais tourné) :
+  c'est `gtimeout` (coreutils) ou rien. Pour borner une commande potentiellement bloquante, **utiliser le `timeout` du Bash tool**
+  (param `timeout` ms) plutôt qu'un `timeout N cmd` shell. (Ici un garde testé devait exit vite → lancé sans `timeout`, c'était correct.)
+- `[2× — 2026-06-25]` **cwd PERSISTE entre les appels Bash → `cd src/X && cmd` puis re-`cd src/X` échoue** (`no such file or directory:
+src/X` car on est DÉJÀ dans X). Réflexe : **chemins absolus** (`cd /Users/.../src/X`) ou pas de `cd` relatif répété. (Re-vécu : build core puis tests.)
+- `[1× — 2026-06-25]` **`${PIPESTATUS[0]}` après un pipe complexe = peu fiable** (a rendu 0 = exit de grep, pas de node) → pour le vrai
+  exit code d'une commande, **rediriger vers un fichier puis `echo $?`** (`cmd > /tmp/x.log 2>&1; echo "EXIT=$?"`), pas un pipe inline.
 - `[1× — 2026-06-25]` **Cookie `__Host-`/`Secure` REJETÉ en HTTP cleartext** (401) : un bench d'une route à session DOIT taper
   **HTTPS** (le cookie Secure n'est pas honoré en clair → 401, bench invalide = 100 % non-2xx). + **le jar curl `-c` exclut les
   cookies HttpOnly** (préfixe ligne `#HttpOnly_…`) → un `awk '$1!~/^#/'` les rate → **extraire via `Set-Cookie`** (`curl -D headers`,
@@ -293,6 +300,10 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-25]` **Après des edits core MASSIFS, le 1er boot via `start.sh` dépasse son plafond 25s → `>>> TIMEOUT` n'est PAS un
+  crash.** Le DevSupervisor `#ensureBuilt` lance `turbo run build` (vérifie tous les workspaces) → ~32s observé, log figé sur
+  `[dev] ⚙ Vérification du framework (turbo)…`. Le superviseur **continue en fond** → poller le log jusqu'à `Server Listen` (4×) /
+  `framework ready` avant de conclure. Réflexe : TIMEOUT start.sh + 0 ligne CRITIC = build long, attendre ; ≠ FATAL (qui montre un stack).
 - `[1× — 2026-06-22]` **turbo `cache hit, replaying logs` REJOUE de VIEUX warnings → on croit son fix cassé.**
   Après correction d'une erreur TS dans `security`, `npm run build` réaffichait l'erreur `getRemoteAddress`…
   mais venant de paquets DÉPENDANTS en `cache hit` (logs d'AVANT le fix rejoués). Le seul bloc fiable = le build
@@ -704,6 +715,15 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-25]` **`pkill -f "<argv>"` rate un process renommé par `process.title`** : `start.sh` faisait `pkill -f "nodefony
+development"` mais le superviseur dev porte le titre `nodefony-dev-supervisor` (≠ l'argv de lancement) → il SURVIVAIT au kill. Révélé
+  « par accident à l'envers » : mon nouveau garde cluster a refusé de démarrer en voyant ce superviseur fantôme — preuve fortuite que le
+  garde marche, ET du bug du script. Leçon : pour tuer par IDENTITÉ de process, passer par `ps`+titre (= `nodefony stop`, group-kill par
+  PID), jamais `pkill -f` sur l'argv d'origine. Corrigé : `start.sh` délègue désormais à `nodefony stop`.
+- `[1× — 2026-06-25]` **Prouver un garde de sécurité/cohérence dans LES DEUX SENS, en live, exit code inclus.** Garde anti-collision
+  dev↔prod/cluster : testé `status` chaque mode (dev/cluster), `nodefony development` direct sur cluster → **exit 69 + message PID**,
+  `stop` sur cluster, + tests purs `findRuntimeConflict` les deux sens. Un garde n'est « fermé » que prouvé sur ses 2 faces (A-sur-B ET
+  B-sur-A) — pas seulement le cas vécu par le user.
 - `[1× — 2026-06-24]` **Ne JAMAIS déclarer une option config « morte/fossile » sans grep TOUS les schémas + consommateurs du repo — et attention aux SCOPES homonymes.** Migration config data-driven : j'ai qualifié `watch: true` (module test) de « fossile » sur la foi de `defaults.ts:23` (« pas de watch — retiré »). FAUX : ce commentaire parlait du `watch` **app-level Rollup** retiré ; or `watch` existe TOUJOURS comme option **réservée per-module** (`http/config/schema.ts` + `framework/config/schema.ts`, `meta({reserved:true})`, « NE PAS retirer »). Le user a flairé le trou (« watch n'est réservé pour chaque module ? »). Deux `watch` de scopes différents → un commentaire « X retiré » ne vaut que pour SON scope. Contrôle : `grep -r "watch:" **/config/schema.ts` + grep des consommateurs runtime AVANT tout verdict. Devise pleine : la confiance n'exclut pas le contrôle.
 - `[1× — 2026-06-24]` **Un « quick win » annoncé par un kit/mémoire se RE-PROUVE par le code avant d'être qualifié tel.** Kit : « realtime = 1 ligne d'override ». Vrai au final, mais seulement APRÈS contrôle : `config.ts = schema.parse({})` (source unique) + grep de TOUS les accès service (`backplane/cluster/slowConsumer/csrf/enabled` couverts ; AIMD/heartbeat hardcodés, pas config). Le user l'a exigé (« pas sûr que c'est un quick win, contrôle si toutes les options sont présentes, la devise »). Sans le contrôle, le JSON Schema aurait pu être incomplet en silence. Prouver, puis qualifier.
 - `[1× — 2026-06-24]` **Config viewer data-driven : ne pas FORCER un schéma là où le module n'a pas de config propre.** `studio`/`test` n'ont QUE des surcharges cross-module (`module-<x>`) → le mappeur piloté par l'effectif les rend déjà ; leur écrire un schéma Zod serait du bruit. Schéma = quand le module a une surface de config À LUI.
