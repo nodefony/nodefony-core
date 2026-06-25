@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { GitService, getActiveLogDriver, Syslog } from "nodefony";
+import {
+  GitService,
+  getActiveLogDriver,
+  Syslog,
+  collectDevStatus,
+} from "nodefony";
 import type {
   IKernel,
   IAdminApi,
@@ -245,6 +250,39 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // Identité git (branche + commit court) — lecture `.git`, sans spawn.
         git: GitService.read(),
       }),
+    },
+    {
+      path: "processes",
+      summary:
+        "Dev process topology (supervisor → server → Vite) + server ports — `nodefony status` over the data plane",
+      handler: async () => {
+        // La topologie supervisor → serveur → Vite n'existe qu'en DÉVELOPPEMENT
+        // (portée par le DevSupervisor). Hors dev (prod/cluster cloud-native = 1
+        // process par pod), on n'engage PAS de scan `ps` (coût + sur une machine
+        // partagée il observerait des process étrangers) → rapport vide explicite.
+        // RBAC ADMIN (défaut du broker). cf devProcess / collectDevStatus (core).
+        if (!devGuard())
+          return {
+            devMode: false,
+            supported: true,
+            running: false,
+            processes: [],
+            ports: [],
+            summary: {
+              supervisors: 0,
+              servers: 0,
+              vites: 0,
+              portsUp: 0,
+              portsTotal: 0,
+            },
+            warnings: [],
+            pidfile: { path: "", pid: null, alive: false },
+          };
+        // includeSelf : ce handler tourne DANS le serveur enfant (`nodefony-dev-server`)
+        // → il doit SE compter, sinon le rôle « server » manquerait à la topologie.
+        const report = await collectDevStatus(REPO_ROOT, { includeSelf: true });
+        return { devMode: true, ...report };
+      },
     },
     {
       path: "modules",

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-24T19:39:36.572Z",
+  "generated": "2026-06-25T08:38:32.599Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 939,
-    "symbols": 2113,
+    "symbols": 2117,
     "classes": 297,
-    "interfaces": 559,
+    "interfaces": 561,
     "types": 252,
     "enums": 3,
-    "functions": 491,
+    "functions": 493,
     "constants": 511
   },
   "symbols": {
@@ -3197,6 +3197,15 @@
       "extends": null,
       "description": "Options de {@link terminateDevProcesses}."
     },
+    "DiscoverOptions": {
+      "name": "DiscoverOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de {@link discoverDevProcesses}."
+    },
     "DevProcessRole": {
       "name": "DevProcessRole",
       "kind": "type",
@@ -3349,6 +3358,15 @@
       "module": "@nodefony/core",
       "description": "Préfixe de titre des process Vite (`ViteProcessSupervisor`, via `argv0`)."
     },
+    "DevStatusReport": {
+      "name": "DevStatusReport",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devStatusReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Rapport d'introspection des process dev — forme JSON, SOURCE DE VÉRITÉ unique partagée par le rendu ANSI CLI (`nodefony status`) et le data plane Studio (`GET /nodefony/kernel/api/processes`). CLI …"
+    },
     "isStandaloneDevCommand": {
       "name": "isStandaloneDevCommand",
       "kind": "function",
@@ -3364,6 +3382,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Exécute une commande système standalone par son nom — point d'entrée du fast-path `CliKernel.start` (avant tout boot). N'écrit jamais via le syslog (kernel non booté)."
+    },
+    "buildDevStatus": {
+      "name": "buildDevStatus",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStatusReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le {@link DevStatusReport} (décompte + incohérences) — fonction PURE : `pidAlive` est fourni par l'appelant (aucun syscall ici → testable sans `ps`/process). Centralise la synthèse + les wa…"
+    },
+    "collectDevStatus": {
+      "name": "collectDevStatus",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStatusReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Collecte l'état dev (ps + sonde ports + pidfile) → {@link DevStatusReport} JSON. Best-effort : Windows (pas de `ps` POSIX) → `supported:false`. `opts.includeSelf` (data plane = le serveur DOIT se c…"
     },
     "runStatusReport": {
       "name": "runStatusReport",
@@ -17917,6 +17951,9 @@
       "DevProcessInfo": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
+      "DiscoverOptions": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
       "PortState": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
@@ -18739,6 +18776,9 @@
       "getActiveLogDriver": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
+      "collectDevStatus": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "TestRunResult": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"

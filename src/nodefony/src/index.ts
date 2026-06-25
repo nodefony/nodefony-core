@@ -344,6 +344,21 @@ export type {
 
 export type { OptionsCommandInterface } from "./command/Command";
 
+// ─── Introspection des process de DÉVELOPPEMENT (ps + sonde ports + pidfile) ──
+// Node-only (spawn `ps`, sonde TCP) — absent du bundle browser (src/client). Source
+// de vérité PARTAGÉE entre la CLI (`nodefony status`) et le data plane Studio
+// (`GET /nodefony/kernel/api/processes`) → même topologie affichée des deux côtés.
+export {
+  collectDevStatus,
+  buildDevStatus,
+} from "./service/dev/devStatusReport";
+export type { DevStatusReport } from "./service/dev/devStatusReport";
+export type {
+  DevProcessInfo,
+  DevProcessRole,
+  PortState,
+} from "./service/dev/devProcess";
+
 // ─── Branchement Node-only : ALS → Pdu.requestId (corrélation log↔requête) ────
 // Le bundle browser/client (src/client/index.ts) NE RÉ-EXPORTE PAS ce fichier
 // et n'importe donc PAS `node:async_hooks`. Le provider reste `null` côté

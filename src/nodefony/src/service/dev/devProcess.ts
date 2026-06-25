@@ -322,15 +322,31 @@ function classify(command: string): {
   return null;
 }
 
+/** Options de {@link discoverDevProcesses}. */
+export interface DiscoverOptions {
+  /**
+   * Inclure le process APPELANT s'il porte lui-même un titre dev connu. Défaut
+   * `false` (comportement CLI : `nodefony status`/`stop` tournent dans un process
+   * standalone qui n'est PAS un process dev → l'exclusion est neutre). Le data
+   * plane (`GET /kernel/api/processes`) tourne DANS le serveur enfant
+   * (`nodefony-dev-server`) → il doit `includeSelf:true` pour SE compter, sinon
+   * le rôle « server » manquerait à la topologie rapportée.
+   */
+  readonly includeSelf?: boolean;
+}
+
 /**
  * Découvre les process dev Nodefony vivants par OBSERVATION EXTERNE (`ps`) — zéro IPC.
  *
  * Ne retient que les process dont la commande porte un titre dev connu (superviseur /
- * serveur / Vite) et en extrait PID/PPID/RSS/CPU/uptime. S'auto-exclut (le process
- * appelant). Tri : superviseur, puis serveur, puis Vite. Best-effort : Windows (pas
- * de `ps` POSIX fiable) ou `ps` en échec → liste vide (le lecteur le signale).
+ * serveur / Vite) et en extrait PID/PPID/RSS/CPU/uptime. S'auto-exclut par défaut (le
+ * process appelant) sauf `opts.includeSelf`. Tri : superviseur, puis serveur, puis Vite.
+ * Best-effort : Windows (pas de `ps` POSIX fiable) ou `ps` en échec → liste vide (le
+ * lecteur le signale).
  */
-export function discoverDevProcesses(): DevProcessInfo[] {
+export function discoverDevProcesses(
+  opts: DiscoverOptions = {},
+): DevProcessInfo[] {
   if (process.platform === "win32") return [];
   let out: string;
   try {
@@ -354,7 +370,8 @@ export function discoverDevProcesses(): DevProcessInfo[] {
   const procs: DevProcessInfo[] = [];
   for (const raw of out.split("\n")) {
     const info = parsePsRow(raw);
-    if (!info || info.pid === process.pid) continue; // ignore soi-même
+    if (!info) continue;
+    if (!opts.includeSelf && info.pid === process.pid) continue; // ignore soi-même (défaut CLI)
     procs.push(info);
   }
   const order: Record<DevProcessRole, number> = {
