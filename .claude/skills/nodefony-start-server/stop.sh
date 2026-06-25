@@ -14,28 +14,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 BIN="$ROOT/node_modules/nodefony/bin/nodefony"
 
-echo ">>> KILL nodefony server (watch+rollup d'abord)"
-# Arrêt PROPRE du mode dev EN PREMIER : `nodefony stop` (standalone, n'échoue pas hors
-# trunk) fait un group-kill du superviseur → emporte l'enfant serveur ET toutes les
-# instances Vite, dont les titres `nodefony-vite[...]` qu'AUCUN pkill ci-dessous ne
-# matche (trou couvert). Lancé via le BINAIRE EN DIRECT (cwd=ROOT pour résoudre le
-# pidfile) — pas `npx` (qui ajoutait un wrapper + ~1,3s d'overhead). La rafale pkill qui
-# suit reste le FILET pour les modes NON couverts par `nodefony stop` : cluster
-# (master/worker) et server/production.
+echo ">>> KILL nodefony (nodefony stop multi-mode + filet)"
+# Voie PRINCIPALE : `nodefony stop` (standalone, n'échoue pas hors trunk) group-kill par
+# `ps` TOUS les modes — dev (superviseur → enfant + Vite `nodefony-vite[...]`), prod mono
+# (`nodefony server`) ET cluster (master parké → workers). Depuis l'introspection
+# multi-mode (1bd57a7d) il n'y a PLUS besoin d'une rafale pkill par mode : `stop` les couvre
+# tous, master parké sans port inclus (prouvé live). Lancé via le BINAIRE EN DIRECT
+# (cwd=ROOT pour résoudre le pidfile) — pas `npx` (wrapper + ~1,3s d'overhead).
 ( cd "$ROOT" && node "$BIN" stop >/dev/null 2>&1 ) || true
-# ⚠️ process.title COUPLÉ : master/workers/mono se renomment `nodefony master|worker|server`
-# (cf clusterMaster.ts + runtimeLauncher.ts → lisibles dans Activity Monitor / ps). Donc
-# `pkill -f "nodefony cluster"` ne les matche PLUS → il FAUT aussi ces 3 patterns, sinon
-# un master immortel (parké) laisse des workers qui tiennent les ports (EADDRINUSE).
-# Les patterns argv (cluster/production/...) couvrent la fenêtre AVANT que le titre soit posé.
-pkill -9 -f "nodefony master" 2>/dev/null      # superviseur cluster (parké, immortel)
-pkill -9 -f "nodefony worker" 2>/dev/null      # workers forkés (détiennent/partagent les ports)
-pkill -9 -f "nodefony server" 2>/dev/null      # runtime mono-process
-pkill -9 -f "nodefony development" 2>/dev/null
-pkill -9 -f "nodefony cluster" 2>/dev/null     # fenêtre pré-titre (npm exec nodefony cluster)
-pkill -9 -f "nodefony staging" 2>/dev/null
-pkill -9 -f "nodefony preprod" 2>/dev/null
-pkill -9 -f "nodefony production" 2>/dev/null
+# FILET de secours, RÉDUIT. ⚠️ `process.title` ÉCRASE l'argv dans `ps` : un `pkill -f
+# "nodefony development|master|worker|server"` est soit MORT (titre déjà posé → l'argv
+# n'existe plus) soit REDONDANT (titre posé → `nodefony stop` le voit par ps). Ne restent
+# utiles que les argv de la fenêtre de boot PRÉ-TITRE (avant que startClusterMaster /
+# generate posent le titre), que `stop` ne voit pas encore — plus `rollup`.
+pkill -9 -f "nodefony cluster" 2>/dev/null     # fenêtre pré-titre du master cluster
+pkill -9 -f "nodefony production" 2>/dev/null   # fenêtre pré-titre du prod mono
 pkill -9 -f "rollup" 2>/dev/null
 # ⚠️ `-sTCP:LISTEN` OBLIGATOIRE : `lsof -ti:PORT` SEUL vise aussi les CLIENTS
 # connectés (le NAVIGATEUR sur Studio) → `kill -9` tuerait le navigateur du user.
