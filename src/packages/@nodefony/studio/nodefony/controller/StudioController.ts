@@ -121,6 +121,16 @@ class StudioController extends Controller {
     return this.renderStudio();
   }
 
+  /**
+   * SPA fallback profondeur 2 — deep-link / refresh sur le profil admin d'un
+   * utilisateur : `users/:id` (ex `/nodefony/users/<uuid>`). Préfixe littéral
+   * `users` (PAS de générique) — même règle que `modules/:name`.
+   */
+  @Get("/users/{id}")
+  renderSpaFallbackUser(): unknown {
+    return this.renderStudio();
+  }
+
   // PUBLIC (bypassFirewall) : endpoint de LIVENESS — convention universelle
   // (sonde k8s/monitoring NON authentifiée) + pingé par le flux de login AVANT
   // l'authentification (étape « ping » du ConnectionStepper). Sans bypass, l'aire

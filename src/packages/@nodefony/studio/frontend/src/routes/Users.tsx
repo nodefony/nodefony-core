@@ -14,6 +14,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
+import { useNavigate } from "react-router-dom";
 import {
   Stack,
   Grid,
@@ -58,7 +59,6 @@ import {
 import { UsersTable } from "./users/UsersTable";
 import { UsersHelp } from "./users/UsersHelp";
 import { CreateUserModal } from "./users/CreateUserModal";
-import { EditUserModal } from "./users/EditUserModal";
 import { StorageBadge } from "./users/usersFormat";
 
 export const Users = observer(() => {
@@ -67,10 +67,10 @@ export const Users = observer(() => {
   const notifications = useNotifications();
   const currentUser = auth.user?.username ?? null;
   const isAdmin = useIsAdmin();
+  const navigate = useNavigate();
 
   const [tab, setTab] = useState<string>("list");
   const [createOpen, setCreateOpen] = useState(false);
-  const [editing, setEditing] = useState<UserSummary | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<UserSummary | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Suppression en masse : les comptes cochés + le `clearSelection` du DataGrid.
@@ -331,7 +331,7 @@ export const Users = observer(() => {
             <UsersTable
               users={users}
               currentUser={currentUser}
-              onEdit={(u) => setEditing(u)}
+              onEdit={(u) => navigate(`/nodefony/users/${u.id}`)}
               onDelete={(u) => setConfirmDelete(u)}
               onBulkDelete={(u, clear) => setConfirmBulk({ users: u, clear })}
               deletingId={deletingId}
@@ -349,13 +349,6 @@ export const Users = observer(() => {
         onClose={() => setCreateOpen(false)}
         roleSuggestions={roleSuggestions}
         onCreated={reload}
-      />
-      <EditUserModal
-        user={editing}
-        currentUser={currentUser}
-        roleSuggestions={roleSuggestions}
-        onClose={() => setEditing(null)}
-        onSaved={reload}
       />
 
       {/* Confirmation — suppression d'un compte. */}

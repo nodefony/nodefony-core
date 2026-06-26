@@ -102,6 +102,11 @@ const Users = lazy(() =>
 const Profile = lazy(() =>
   import("./routes/Profile").then((m) => ({ default: m.Profile })),
 );
+const UserProfile = lazy(() =>
+  import("./routes/users/UserProfile").then((m) => ({
+    default: m.UserProfile,
+  })),
+);
 
 import {
   Webhooks,
@@ -222,6 +227,7 @@ const router = createBrowserRouter([
               { path: "ai-costs", element: <AiCosts /> },
               { path: "insights", element: <Insights /> },
               { path: "users", element: <Users /> },
+              { path: "users/:id", element: <UserProfile /> },
               { path: "roles", element: <Roles /> },
               { path: "webhooks", element: <Webhooks /> },
               { path: "audit", element: <Audit /> },

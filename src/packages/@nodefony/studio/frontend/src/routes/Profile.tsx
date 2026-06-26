@@ -43,6 +43,7 @@ import { PageLayout, DataState, KeyValue, DocHint } from "../components/ui";
 import {
   PROFILE_ME_ENDPOINT,
   PROFILE_PASSWORD_ENDPOINT,
+  PROFILE_UPDATE_ENDPOINT,
   PROFILE_DOC,
   MIN_PASSWORD_LENGTH,
   validatePasswordChange,
@@ -53,6 +54,8 @@ import {
 } from "./profile/profileModel";
 import { TwoFactorCard } from "./profile/TwoFactorCard";
 import { PasskeyCard } from "./profile/PasskeyCard";
+import { ProfileFields } from "./users/ProfileFields";
+import type { UserProfileData } from "./users/userAdminModel";
 
 export const Profile = observer(() => {
   const store = useStore();
@@ -66,6 +69,23 @@ export const Profile = observer(() => {
     [store],
   );
   const { data, loading, error, reload } = useResource(fetcher);
+
+  const [savingProfile, setSavingProfile] = useState(false);
+  const saveSelfProfile = async (profile: UserProfileData): Promise<void> => {
+    setSavingProfile(true);
+    try {
+      await store.api.postAbsolute<ProfileSummary>(
+        PROFILE_UPDATE_ENDPOINT,
+        profile,
+      );
+      notifications.notify("success", "Profil enregistré.", { source: "api" });
+      reload();
+    } catch (e) {
+      notifications.notify("error", describeProfileError(e), { source: "api" });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const identifier = data?.identifier ?? auth.user?.username ?? "—";
   const roles = data?.roles ?? auth.roles;
@@ -142,7 +162,15 @@ export const Profile = observer(() => {
       }
     >
       <DataState loading={loading && !data} error={error} onRetry={reload}>
-        <Grid>
+        {data && (
+          <ProfileFields
+            profile={data.profile}
+            identifier={identifier}
+            onSubmit={saveSelfProfile}
+            saving={savingProfile}
+          />
+        )}
+        <Grid mt={data ? "md" : undefined}>
           {/* Identité */}
           <Grid.Col span={{ base: 12, md: 6 }}>
             <Card withBorder padding="lg" radius="md" h="100%">

@@ -16,6 +16,7 @@
  * Source de vérité serveur : `user/nodefony/src/admin/UserAdminApi.ts`
  * (`IUserSummary`, handlers `me` / `me/password`).
  */
+import type { UserProfileData } from "../users/userAdminModel";
 
 /** Lien vers un compte externe (OAuth) — miroir, JAMAIS de jeton. */
 export interface ProfileSocialProvider {
@@ -26,7 +27,8 @@ export interface ProfileSocialProvider {
 
 /**
  * Vue publique de MON compte — miroir de `IUserSummary` (redaction par
- * construction côté serveur : jamais le hash, jamais `metadata`).
+ * construction côté serveur : jamais le hash ; `metadata` exposé par ALLOWLIST
+ * via `profile`).
  */
 export interface ProfileSummary {
   id: string;
@@ -39,6 +41,8 @@ export interface ProfileSummary {
   /** Profil de rôle actif en session, ou `null`. */
   currentRole: string | null;
   socialProviders: ProfileSocialProvider[];
+  /** Profil d'affichage (claims OIDC : nom/prénom/email/locale/avatar). */
+  profile: UserProfileData;
   createdAt: number | null;
   updatedAt: number | null;
   /** Réserve multi-tenant (`null` = mono-tenant — slot coût-0). */
@@ -52,6 +56,9 @@ export const PROFILE_ME_ENDPOINT = "/nodefony/user/api/me";
 
 /** POST — changer MON mot de passe (re-auth du mot de passe actuel). */
 export const PROFILE_PASSWORD_ENDPOINT = "/nodefony/user/api/me/password";
+
+/** POST — modifier MON profil (nom/prénom/avatar…), scopé serveur à l'appelant. */
+export const PROFILE_UPDATE_ENDPOINT = "/nodefony/user/api/me/profile";
 
 /** Corps du changement de mot de passe — miroir du handler `me/password`. */
 export interface ChangePasswordInput {
