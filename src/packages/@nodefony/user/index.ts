@@ -77,3 +77,9 @@ export type {
   IUserSummary,
   IUserRevokedEvent,
 } from "./nodefony/src/admin/UserAdminApi";
+export type { IUserProfile } from "./nodefony/contracts/IUserProfile";
+export {
+  validateProfilePatch,
+  projectProfile,
+  mergeProfileIntoMetadata,
+} from "./nodefony/src/userProfile";

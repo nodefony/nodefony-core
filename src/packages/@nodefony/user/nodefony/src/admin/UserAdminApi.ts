@@ -8,8 +8,14 @@ import type {
   IAdminResponse,
 } from "nodefony";
 import type { IUser, ISocialProvider } from "../../contracts/IUser";
+import type { IUserProfile } from "../../contracts/IUserProfile";
 import type { UserService } from "../../service/UserService";
 import { WeakPasswordError } from "../../errors/WeakPasswordError";
+import {
+  validateProfilePatch,
+  projectProfile,
+  mergeProfileIntoMetadata,
+} from "../userProfile";
 
 /**
  * Rôle critique : porteur de l'accès au data plane d'administration (Studio).
@@ -49,6 +55,11 @@ export interface IUserSummary {
     providerId: string;
     createdAt: number | null;
   }[];
+  /**
+   * Profil d'affichage (claims OIDC : prénom/nom/email/locale/avatar), lu par
+   * allowlist depuis `metadata.profile` — jamais les autres clés de `metadata`.
+   */
+  profile: IUserProfile;
   /** Création (epoch ms) si l'entité la porte (ORM), sinon `null`. */
   createdAt: number | null;
   /** Dernière mise à jour (epoch ms) si connue, sinon `null`. */
@@ -75,6 +86,7 @@ export function toUserSummary(user: IUser): IUserSummary {
     password?: unknown;
     currentRole?: unknown;
     socialProviders?: unknown;
+    metadata?: unknown;
     createdAt?: unknown;
     updatedAt?: unknown;
   };
@@ -94,6 +106,7 @@ export function toUserSummary(user: IUser): IUserSummary {
       providerId: p.providerId,
       createdAt: toEpoch(p.createdAt),
     })),
+    profile: projectProfile(ext.metadata),
     createdAt: toEpoch(ext.createdAt),
     updatedAt: toEpoch(ext.updatedAt),
     tenantId: null,
@@ -475,7 +488,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
       path: "users/{id}",
       method: "PATCH",
       summary:
-        "Modifie roles/enabled/locked. Audité. Garde-fous anti-lockout " +
+        "Modifie roles/enabled/locked/profile. Audité. Garde-fous anti-lockout " +
         "(pas d'auto-déchéance ADMIN, pas de déchéance du dernier admin).",
       handler: async (
         request: IAdminRequest,
@@ -492,8 +505,12 @@ export function createUserAdminApi(container: Container): IAdminApi {
         const actor = adminActor(request.user);
         const isSelf = actor.id !== null && actor.id === target.id;
         const body = (request.body ?? {}) as Record<string, unknown>;
-        const patch: { roles?: string[]; enabled?: boolean; locked?: boolean } =
-          {};
+        const patch: {
+          roles?: string[];
+          enabled?: boolean;
+          locked?: boolean;
+          metadata?: Record<string, unknown>;
+        } = {};
 
         const roles = readRoles(body.roles);
         if (roles !== undefined) {
@@ -547,12 +564,30 @@ export function createUserAdminApi(container: Container): IAdminApi {
           patch.locked = body.locked;
         }
 
+        // Profil d'affichage (claims OIDC) → fusionné dans `metadata.profile` en
+        // préservant les autres clés. Pas de garde-fou anti-lockout (un champ
+        // d'affichage ne neutralise aucun accès) ; audité via les `fields`.
+        if (body.profile !== undefined) {
+          const parsed = validateProfilePatch(body.profile);
+          if (!parsed.ok) {
+            return { status: 400, body: { error: parsed.error } };
+          }
+          if (Object.keys(parsed.value).length > 0) {
+            patch.metadata = mergeProfileIntoMetadata(
+              (target as { metadata?: unknown }).metadata,
+              parsed.value,
+            );
+          }
+        }
+
         // Aucun champ exploitable (corps vide / mal typé) → 400, JAMAIS un
         // UPDATE vide (drizzle `.set({})` jette « No values to set » = 500).
         if (Object.keys(patch).length === 0) {
           return {
             status: 400,
-            body: { error: "no modifiable fields (roles/enabled/locked)" },
+            body: {
+              error: "no modifiable fields (roles/enabled/locked/profile)",
+            },
           };
         }
         const updated = (await users.updateOne(
@@ -732,6 +767,48 @@ export function createUserAdminApi(container: Container): IAdminApi {
           authed.id,
         );
         return { ok: true };
+      },
+    },
+    {
+      // ── Self-service : modifier MON profil (nom/prénom/avatar…). `public: true`
+      // → la zone firewall garantit l'authentification (anonyme 401). Anti-IDOR
+      // PAR CONSTRUCTION : la cible = l'identité ALS (`currentIdentifier`), jamais
+      // un param client → impossible d'éditer le profil d'autrui. Self ne touche
+      // QUE son profil (jamais rôles/enabled/locked, réservés à l'admin). Donnée
+      // d'affichage bénigne (pas un secret/credential) → non auditée.
+      path: "me/profile",
+      method: "POST",
+      public: true,
+      summary:
+        "Modifie MON profil (givenName/familyName/displayName/email/locale/" +
+        "picture). Self-service (identité ALS, anti-IDOR). DTO redacté en retour.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<IUserSummary | IAdminResponse<{ error: string }>> => {
+        const users = resolveUsers();
+        if (!users) {
+          return { status: 503, body: { error: "user service unavailable" } };
+        }
+        const principal = currentIdentifier(request.user);
+        if (!principal) {
+          return { status: 401, body: { error: "unauthenticated" } };
+        }
+        const me = (await users.findByIdentifier(principal)) as IUser | null;
+        if (!me) return { status: 404, body: { error: "not found" } };
+        const parsed = validateProfilePatch(request.body ?? {});
+        if (!parsed.ok) {
+          return { status: 400, body: { error: parsed.error } };
+        }
+        const metadata = mergeProfileIntoMetadata(
+          (me as { metadata?: unknown }).metadata,
+          parsed.value,
+        );
+        const updated = (await users.updateOne(
+          { id: me.id } as never,
+          { metadata } as never,
+        )) as IUser | null;
+        if (!updated) return { status: 404, body: { error: "not found" } };
+        return toUserSummary(updated);
       },
     },
     {

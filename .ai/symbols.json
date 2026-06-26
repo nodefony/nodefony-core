@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-26T22:43:58.204Z",
+  "generated": "2026-06-26T23:02:30.337Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 963,
-    "symbols": 2240,
+    "files": 965,
+    "symbols": 2247,
     "classes": 307,
-    "interfaces": 594,
-    "types": 264,
+    "interfaces": 595,
+    "types": 265,
     "enums": 3,
-    "functions": 553,
-    "constants": 519
+    "functions": 557,
+    "constants": 520
   },
   "symbols": {
     "Cli": {
@@ -10041,6 +10041,15 @@
       "extends": "IUser",
       "description": "Utilisateur **porteur d'un credential mot de passe local** — extension de {@link IUser}. Séparé de `IUser` pour garder le contrat de base pur : seuls `@nodefony/security` (`UserPasswordAuthenticato…"
     },
+    "IUserProfile": {
+      "name": "IUserProfile",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IUserProfile.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Profil **public** d'un utilisateur — sous-ensemble des *standard claims* OpenID Connect (OIDC §5.1) en camelCase (convention Nodefony). Stocké dans `BaseUser.metadata.profile`, PAS dans des colonne…"
+    },
     "IUserProvider": {
       "name": "IUserProvider",
       "kind": "interface",
@@ -10176,6 +10185,45 @@
       ],
       "decorators": [],
       "description": "Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat {@link IUserRepository} sur une `Map` (aucun ORM). Trois usages : - **tests de charge** : zéro I/O (pas de sync SQLit…"
+    },
+    "ProfileField": {
+      "name": "ProfileField",
+      "kind": "type",
+      "file": "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
+      "exported": true,
+      "module": "@nodefony/user"
+    },
+    "validateProfilePatch": {
+      "name": "validateProfilePatch",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Valide + normalise un patch de profil reçu d'un client. Allowlist stricte : seules les clés {@link PROFILE_FIELDS} sont lues (anti-injection d'une clé `metadata` arbitraire). Chaque valeur est `tri…"
+    },
+    "projectProfile": {
+      "name": "projectProfile",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Projette la `metadata` brute d'une entité vers un {@link IUserProfile} — lecture par **allowlist** (seules les clés connues, typées string non vide). Garantit qu'aucune autre clé de `metadata` (app…"
+    },
+    "mergeProfileIntoMetadata": {
+      "name": "mergeProfileIntoMetadata",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Fusionne un patch validé dans la `metadata` existante en **préservant les autres clés**. Les champs de profil vidés (`\"\"`) sont RETIRÉS (pas de clé fantôme). Rend la nouvelle `metadata` complète, p…"
+    },
+    "PROFILE_FIELDS": {
+      "name": "PROFILE_FIELDS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Logique PURE du profil utilisateur (claims OIDC stockés dans `metadata.profile`) — validation d'un patch client, projection en DTO par allowlist, fusion dans la `metadata` existante. Aucun I/O, auc…"
     },
     "MemoryVectorStore": {
       "name": "MemoryVectorStore",
@@ -20830,6 +20878,10 @@
       "IBaseUserOptions": [
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
+      "IUserProfile": [
+        "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "IVectorSearchOptions": [
         "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
@@ -22458,6 +22510,15 @@
       ],
       "FileWebAuthnCredentialStore": [
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "validateProfilePatch": [
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "projectProfile": [
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "mergeProfileIntoMetadata": [
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "Argon2idEncoder": [
         "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"

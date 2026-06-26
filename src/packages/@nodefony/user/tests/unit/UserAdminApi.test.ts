@@ -60,7 +60,12 @@ function makeUsers(seed: BaseUser[]) {
     },
     updateOne: async (
       criteria: { id: string },
-      patch: { roles?: string[]; enabled?: boolean; locked?: boolean },
+      patch: {
+        roles?: string[];
+        enabled?: boolean;
+        locked?: boolean;
+        metadata?: Record<string, unknown>;
+      },
     ) => {
       const u = map.get(criteria.id);
       if (!u) return null;
@@ -69,6 +74,7 @@ function makeUsers(seed: BaseUser[]) {
         patch.enabled ? u.enable() : u.disable();
       if (typeof patch.locked === "boolean")
         patch.locked ? u.lock() : u.unlock();
+      if (patch.metadata) u.metadata = patch.metadata;
       return u;
     },
     changePassword: async (id: string, plain: string) => {
@@ -198,6 +204,111 @@ describe("UserAdminApi — toUserSummary (redaction)", () => {
       },
     ]);
     assert.equal(s.tenantId, null);
+  });
+
+  it("expose le profil par allowlist (jamais les autres clés metadata)", () => {
+    const u2 = new BaseUser({
+      id: "u2",
+      identifier: "chris@x",
+      roles: ["ROLE_USER"],
+      metadata: {
+        profile: { givenName: "Chris", familyName: "Camensuli", secret: "x" },
+        internalNote: "SECRET_META",
+      },
+    });
+    const s2 = toUserSummary(u2);
+    assert.deepEqual(s2.profile, {
+      givenName: "Chris",
+      familyName: "Camensuli",
+    });
+    assert.ok(!JSON.stringify(s2).includes("SECRET_META"));
+    assert.ok(!JSON.stringify(s2).includes('"secret"'));
+  });
+});
+
+// ── Profil (metadata.profile — claims OIDC : nom/prénom/email/locale/avatar) ──
+describe("UserAdminApi — profil", () => {
+  it("PATCH users/{id} : merge le profil, préserve les autres clés metadata", async () => {
+    const target = new BaseUser({
+      id: "p1",
+      identifier: "chris@x",
+      roles: ["ROLE_USER"],
+      metadata: { theme: "dark", profile: { givenName: "Chris" } },
+    });
+    const api = createUserAdminApi(
+      container(makeUsers([admin("a1", "admin@x"), target])),
+    );
+    const { status, body } = await call(api, "PATCH", "users/{id}", {
+      params: { id: "p1" },
+      user: { id: "a1", identifier: "admin@x" } as unknown,
+      body: { profile: { familyName: "Camensuli" } },
+    });
+    assert.equal(status, 200);
+    assert.deepEqual((body as IUserSummary).profile, {
+      givenName: "Chris",
+      familyName: "Camensuli",
+    });
+    assert.equal((target.metadata as Record<string, unknown>).theme, "dark");
+  });
+
+  it("PATCH : un profil invalide (email mal formé) → 400", async () => {
+    const target = member("p1", "chris@x", ["ROLE_USER"]);
+    const api = createUserAdminApi(
+      container(makeUsers([admin("a1", "admin@x"), target])),
+    );
+    const { status } = await call(api, "PATCH", "users/{id}", {
+      params: { id: "p1" },
+      user: { id: "a1", identifier: "admin@x" } as unknown,
+      body: { profile: { email: "not-an-email" } },
+    });
+    assert.equal(status, 400);
+  });
+
+  it("PATCH avec SEULEMENT un profil (sans roles/enabled/locked) → 200", async () => {
+    const target = member("p1", "chris@x", ["ROLE_USER"]);
+    const api = createUserAdminApi(
+      container(makeUsers([admin("a1", "admin@x"), target])),
+    );
+    const { status } = await call(api, "PATCH", "users/{id}", {
+      params: { id: "p1" },
+      user: { id: "a1", identifier: "admin@x" } as unknown,
+      body: { profile: { givenName: "Chris" } },
+    });
+    assert.equal(status, 200);
+  });
+
+  it("POST me/profile : édite MON profil (cible = ALS, l'id du body est ignoré)", async () => {
+    const meUser = new BaseUser({
+      id: "me1",
+      identifier: "me@x",
+      roles: ["ROLE_USER"],
+    });
+    const other = new BaseUser({
+      id: "other",
+      identifier: "other@x",
+      roles: ["ROLE_USER"],
+    });
+    const api = createUserAdminApi(container(makeUsers([meUser, other])));
+    const { status, body } = await call(api, "POST", "me/profile", {
+      user: { id: "me1", identifier: "me@x" } as unknown,
+      // tentative d'injection d'une cible "other" → IGNORÉE (anti-IDOR)
+      body: { id: "other", givenName: "Chris" },
+    });
+    assert.equal(status, 200);
+    assert.equal((body as IUserSummary).identifier, "me@x");
+    assert.deepEqual((body as IUserSummary).profile, { givenName: "Chris" });
+    assert.deepEqual(toUserSummary(other).profile, {}, "autrui intact");
+  });
+
+  it("POST me/profile : anonyme → 401", async () => {
+    const api = createUserAdminApi(
+      container(makeUsers([member("p1", "chris@x")])),
+    );
+    const { status } = await call(api, "POST", "me/profile", {
+      user: null,
+      body: { givenName: "X" },
+    });
+    assert.equal(status, 401);
   });
 });
 
