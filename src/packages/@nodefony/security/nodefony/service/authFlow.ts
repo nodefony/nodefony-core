@@ -13,6 +13,10 @@ const serviceName = "authFlow";
 // Message UNIFORME (anti-énumération) — identique à la porte Basic.
 const INVALID_CREDENTIALS = "Invalid credentials";
 
+// Clé de session portant le défi 2FA en attente (1ᵉʳ facteur validé, 2ᵉ requis).
+// L'identité N'EST PAS posée tant que le code n'est pas validé → Zero Trust.
+const PENDING_MFA_KEY = "mfa:pending";
+
 /**
  * Projection PUBLIQUE de l'utilisateur — ce qui sort en JSON vers le client.
  * Jamais l'entité brute : le hash (`IPasswordAuthenticatedUser.password`) ne
@@ -22,6 +26,28 @@ export interface ISafeUser {
   id: string;
   username: string;
   roles: string[];
+}
+
+/**
+ * Issue d'un `login` : soit l'identité est établie (session ouverte), soit un
+ * **second facteur** est requis (2FA) — le mot de passe seul n'a PAS authentifié.
+ */
+export type ILoginOutcome =
+  | { status: "authenticated"; user: ISafeUser }
+  | { status: "mfa_required"; methods: ["totp"] };
+
+/**
+ * Vue MINIMALE du service `totp` (`@nodefony/security`) — couplage par NOM dans
+ * le container (comme `users`/`sessions`), jamais un import dur : 2FA désactivé
+ * ⇒ service absent ou `isEnabled()` false ⇒ le login nominal ne paie aucun accès.
+ */
+interface ITotpLoginVerifier {
+  isEnabled(): boolean;
+  isEnabledFor(userId: string): Promise<boolean>;
+  verifyLogin(
+    userId: string,
+    code: string,
+  ): Promise<{ ok: boolean; method?: string }>;
 }
 
 // Source d'identité résolue du container — UserService implémente les deux faces.
@@ -54,6 +80,10 @@ class AuthFlow extends Service {
   // l'instance au boot, avant toute requête).
   #throttler: LoginThrottler | null = null;
   #throttlerResolved = false;
+  // Service 2FA résolu UNE fois (lazy + caché). null = 2FA absent/désactivé →
+  // le chemin login nominal (sans 2FA) ne paie aucun accès store.
+  #totp: ITotpLoginVerifier | null = null;
+  #totpResolved = false;
 
   constructor(public module: Module) {
     super(
@@ -74,7 +104,7 @@ class AuthFlow extends Service {
    * @param context - contexte HTTP courant (porte la session/le cookie).
    * @param identifier - identifiant saisi (body JSON, non typé à la frontière).
    * @param password - mot de passe saisi.
-   * @returns la projection publique de l'utilisateur authentifié.
+   * @returns `authenticated` (identité établie) ou `mfa_required` (2ᵉ facteur requis).
    * @throws ThrottledError (429 + `Retry-After`) — backoff actif.
    * @throws AuthenticationError (401, message uniforme) — credential absent ou
    *   invalide.
@@ -83,7 +113,7 @@ class AuthFlow extends Service {
     context: ContextType,
     identifier: unknown,
     password: unknown,
-  ): Promise<ISafeUser> {
+  ): Promise<ILoginOutcome> {
     const info = readAuditContext(context);
     const who = typeof identifier === "string" ? identifier : null;
     if (
@@ -132,6 +162,27 @@ class AuthFlow extends Service {
     }
     throttler?.recordSuccess(identifier);
 
+    // Step-up 2FA : si l'utilisateur a un second facteur, le mot de passe NE
+    // suffit PAS. On dépose un défi en session (PENDING) SANS poser l'identité —
+    // `me()` renvoie null, Zero Trust 401 protège tout tant que le code n'est pas
+    // validé par `completeMfaLogin`. Coût nul quand le 2FA est désactivé
+    // (`#resolveTotp` court-circuite : 0 accès store sur le login nominal).
+    const totp = this.#resolveTotp();
+    if (totp && (await totp.isEnabledFor(user.identifier))) {
+      const session = await this.ensureSession(context);
+      session?.set(PENDING_MFA_KEY, user.identifier);
+      await session?.save();
+      recordAudit(this.container as Container, {
+        category: "auth",
+        action: "login.mfa_required",
+        outcome: "success",
+        actor: user.identifier,
+        reason: "totp",
+        ...info,
+      });
+      return { status: "mfa_required", methods: ["totp"] };
+    }
+
     await this.#openSession(context, user.identifier);
     // Principal de la requête courante : string sur le contexte (lié au blob
     // par `saveSession`), objet riche dans l'ALS (logs/audit).
@@ -144,7 +195,7 @@ class AuthFlow extends Service {
       actor: user.identifier,
       ...info,
     });
-    return toSafeUser(user);
+    return { status: "authenticated", user: toSafeUser(user) };
   }
 
   /**
@@ -164,6 +215,7 @@ class AuthFlow extends Service {
   async establishSessionFor(
     context: ContextType,
     identifier: unknown,
+    reason = "federated",
   ): Promise<ISafeUser> {
     if (typeof identifier !== "string" || identifier.length === 0) {
       throw new AuthenticationError(INVALID_CREDENTIALS);
@@ -172,17 +224,79 @@ class AuthFlow extends Service {
     await this.#openSession(context, user.identifier);
     context.user = user.identifier;
     RequestContext.set("user", user);
-    // Ouverture de session sur preuve EXTERNE (passkey/OAuth/magic link) — le
-    // controller appelant précisera le facteur (webauthn/oauth) en P6.14 lot 2b.
+    // Ouverture de session sur preuve EXTERNE (passkey/OAuth/2FA/magic link) —
+    // l'appelant précise le facteur (`webauthn`/`oauth`/`totp`/`recovery`…).
     recordAudit(this.container as Container, {
       category: "auth",
       action: "login.success",
       outcome: "success",
       actor: user.identifier,
-      reason: "federated",
+      reason,
       ...readAuditContext(context),
     });
     return toSafeUser(user);
+  }
+
+  /**
+   * Valide le **second facteur** (code TOTP ou code de récupération) après un
+   * `login` ayant renvoyé `mfa_required`, puis OUVRE la session BFF. Le défi
+   * PENDING déposé en session par `login` est lu, vérifié, puis invalidé (usage
+   * unique) ; l'identité n'est établie qu'ICI. **Throttlé** sur l'identité en
+   * attente (anti brute-force du code à 6 chiffres).
+   *
+   * @param context - contexte HTTP (porte la session PENDING).
+   * @param code - code présenté (TOTP ou code de récupération).
+   * @returns la projection publique de l'utilisateur authentifié.
+   * @throws ThrottledError (429) — trop de tentatives.
+   * @throws AuthenticationError (401, uniforme) — aucun défi en cours, code absent
+   *   ou invalide (la session N'est PAS ouverte ; le défi reste pour un retry).
+   */
+  async completeMfaLogin(
+    context: ContextType,
+    code: unknown,
+  ): Promise<ISafeUser> {
+    const info = readAuditContext(context);
+    const pending = context.session?.get(PENDING_MFA_KEY);
+    if (typeof pending !== "string" || pending.length === 0) {
+      // Aucun 1ᵉʳ facteur validé en amont → on ne révèle rien (message uniforme).
+      throw new AuthenticationError(INVALID_CREDENTIALS);
+    }
+    const throttler = this.#resolveThrottler();
+    if (throttler !== null) {
+      const retryAfterS = throttler.check(pending);
+      if (retryAfterS > 0) {
+        recordAudit(this.container as Container, {
+          category: "auth",
+          action: "login.throttled",
+          outcome: "failure",
+          actor: pending,
+          reason: "throttled",
+          ...info,
+        });
+        throw new ThrottledError(retryAfterS);
+      }
+    }
+    const totp = this.#resolveTotp();
+    const result =
+      typeof code === "string" && code.length > 0 && totp
+        ? await totp.verifyLogin(pending, code)
+        : { ok: false, method: undefined };
+    if (!result.ok) {
+      throttler?.recordFailure(pending);
+      recordAudit(this.container as Container, {
+        category: "auth",
+        action: "login.failure",
+        outcome: "failure",
+        actor: pending,
+        reason: "mfa_invalid",
+        ...info,
+      });
+      throw new AuthenticationError(INVALID_CREDENTIALS);
+    }
+    throttler?.recordSuccess(pending);
+    // Défi consommé (usage unique) AVANT d'établir la session.
+    context.session?.set(PENDING_MFA_KEY, null);
+    return this.establishSessionFor(context, pending, result.method ?? "totp");
   }
 
   /**
@@ -333,6 +447,18 @@ class AuthFlow extends Service {
       this.#throttlerResolved = true;
     }
     return this.#throttler;
+  }
+
+  // Résout le service 2FA UNE fois (lazy + caché). null si le module 2FA est
+  // absent OU désactivé (`isEnabled()` false) → le login nominal sans 2FA ne
+  // paie aucun accès store ni microtask supplémentaire.
+  #resolveTotp(): ITotpLoginVerifier | null {
+    if (!this.#totpResolved) {
+      const svc = this.get<ITotpLoginVerifier>("totp") ?? null;
+      this.#totp = svc && svc.isEnabled() ? svc : null;
+      this.#totpResolved = true;
+    }
+    return this.#totp;
   }
 }
 

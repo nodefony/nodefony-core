@@ -41,6 +41,9 @@ import OAuth2Controller, {
 import ApiKeyController, {
   mountApiKeyRoutes,
 } from "./nodefony/controller/ApiKeyController";
+import TotpController, {
+  mountTotpRoutes,
+} from "./nodefony/controller/TotpController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
@@ -299,6 +302,12 @@ class Framework extends Module {
     if (this.kernel?.container?.get("apiKeys")) {
       mountApiKeyRoutes(this);
     }
+    // P6.17 — self-service 2FA TOTP : routes montées seulement si le service
+    // `totp` est présent (security chargé + 2FA activé). 404 sinon. Protégées par
+    // la zone data plane (session BFF), pas bypassées.
+    if (this.kernel?.container?.get("totp")) {
+      mountTotpRoutes(this);
+    }
     return this;
   }
 }
@@ -331,6 +340,8 @@ export {
   mountOAuth2Routes,
   ApiKeyController,
   mountApiKeyRoutes,
+  TotpController,
+  mountTotpRoutes,
   createKernelAdminApi,
   createFrameworkAdminApi,
   createSyslogAdminApi,

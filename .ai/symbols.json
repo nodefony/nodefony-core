@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-26T20:45:06.246Z",
+  "generated": "2026-06-26T21:01:28.798Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 962,
-    "symbols": 2225,
-    "classes": 306,
-    "interfaces": 585,
-    "types": 262,
+    "files": 963,
+    "symbols": 2233,
+    "classes": 307,
+    "interfaces": 589,
+    "types": 264,
     "enums": 3,
-    "functions": 550,
+    "functions": 551,
     "constants": 519
   },
   "symbols": {
@@ -5372,8 +5372,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "extends": null,
-      "description": "Vue MINIMALE du flux de session BFF que consomme ce controller — le service `authFlow` est posé au container par `@nodefony/security` (P6 J3). Contrat structurel local : framework ne dépend JAMAIS …"
+      "extends": null
     },
     "mountSessionAuthRoutes": {
       "name": "mountSessionAuthRoutes",
@@ -5410,6 +5409,25 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Monte les routes d'émission/rotation JWT — appelé par le module framework à `onKernelReady`, seulement si le service `tokenService` est présent. Routes nommées `security.token.*` (espace data plane…"
+    },
+    "TotpController": {
+      "name": "TotpController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Endpoints HTTP **self-service 2FA TOTP (P6.17)** — console « ma sécurité », adaptateurs MINCES au-dessus du service `totp` (`@nodefony/security`) : - `POST /nodefony/security/api/totp/enroll` → `{s…"
+    },
+    "mountTotpRoutes": {
+      "name": "mountTotpRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les routes self-service 2FA — appelé par le module framework à `onKernelReady`, seulement si le service `totp` est présent. Routes nommées `security.totp.*` (espace data plane `/nodefony/secu…"
     },
     "WebAuthnController": {
       "name": "WebAuthnController",
@@ -9536,6 +9554,14 @@
       "module": "@nodefony/security",
       "extends": null,
       "description": "Projection PUBLIQUE de l'utilisateur — ce qui sort en JSON vers le client. Jamais l'entité brute : le hash (`IPasswordAuthenticatedUser.password`) ne doit traverser ni la sérialisation ni un log."
+    },
+    "ILoginOutcome": {
+      "name": "ILoginOutcome",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Issue d'un `login` : soit l'identité est établie (session ouverte), soit un **second facteur** est requis (2FA) — le mot de passe seul n'a PAS authentifié."
     },
     "Authorization": {
       "name": "Authorization",
@@ -16228,6 +16254,7 @@
         "OAuth2Controller",
         "SessionAuthController",
         "TokenAuthController",
+        "TotpController",
         "WebAuthnController",
         "ResourceController",
         "StudioController",
@@ -17119,6 +17146,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -17405,6 +17433,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -17456,6 +17485,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -17516,6 +17546,12 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "mountApiKeyRoutes": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "TotpController": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "mountTotpRoutes": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "createKernelAdminApi": [
@@ -19081,6 +19117,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
@@ -19596,6 +19633,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",

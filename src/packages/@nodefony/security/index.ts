@@ -105,7 +105,7 @@ export { WebAuthnService };
 export { OAuth2Service };
 export { AuditService };
 export { TotpService };
-export type { ISafeUser } from "./nodefony/service/authFlow";
+export type { ISafeUser, ILoginOutcome } from "./nodefony/service/authFlow";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
 export type {
   IApiKeyView,

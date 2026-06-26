@@ -10,12 +10,18 @@ import Controller from "../src/Controller";
  * framework, que security décore) ; le couplage se fait par nom de service,
  * comme `adminBroker`.
  */
+/** Issue d'un login BFF — identité établie, ou second facteur (2FA) requis. */
+type ILoginOutcome =
+  | { status: "authenticated"; user: unknown }
+  | { status: "mfa_required"; methods: string[] };
+
 export interface ISessionAuthFlow {
   login(
     context: ContextType,
     identifier: unknown,
     password: unknown,
-  ): Promise<unknown>;
+  ): Promise<ILoginOutcome>;
+  completeMfaLogin(context: ContextType, code: unknown): Promise<unknown>;
   logout(context: ContextType): Promise<boolean>;
   me(context: ContextType): Promise<unknown | null>;
 }
@@ -64,10 +70,40 @@ class SessionAuthController extends Controller {
       password?: unknown;
     };
     try {
-      const user = await flow.login(
+      const outcome = await flow.login(
         this.context as ContextType,
         body.username,
         body.password,
+      );
+      if (outcome.status === "mfa_required") {
+        // 1ᵉʳ facteur OK, 2ᵉ requis : 202 Accepted — PAS encore authentifié (la
+        // session ne porte qu'un défi PENDING). Le client enchaîne sur login/totp.
+        return this.renderJson(
+          { mfaRequired: true, methods: outcome.methods },
+          202,
+        );
+      }
+      return this.renderJson({ user: outcome.user });
+    } catch (e) {
+      return this.#renderAuthError(e);
+    }
+  }
+
+  /**
+   * Second facteur (TOTP ou code de récupération) après un `login` ayant répondu
+   * `202 mfaRequired`. Body JSON `{ code }`. Succès → 200 + identité ; code
+   * absent/invalide → 401 (uniforme) ; trop de tentatives → 429 (Retry-After).
+   */
+  async loginTotp() {
+    const flow = this.#flow();
+    if (!flow) {
+      return this.renderJson({ error: "Authentication unavailable" }, 503);
+    }
+    const body = (this.queryPost ?? {}) as { code?: unknown };
+    try {
+      const user = await flow.completeMfaLogin(
+        this.context as ContextType,
+        body.code,
       );
       return this.renderJson({ user });
     } catch (e) {
@@ -132,6 +168,7 @@ export function mountSessionAuthRoutes(frameworkModule: Module): void {
   const base = "/nodefony/security/api/auth";
   const routes: Array<[string, string, HTTPMethod, string]> = [
     ["security.auth.login", `${base}/login`, "POST", "login"],
+    ["security.auth.login.totp", `${base}/login/totp`, "POST", "loginTotp"],
     ["security.auth.logout", `${base}/logout`, "POST", "logout"],
     ["security.auth.me", `${base}/me`, "GET", "me"],
   ];
