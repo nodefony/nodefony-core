@@ -221,14 +221,14 @@ export default defineConfig<Env>((ctx) => ({
     // Studio admin — console d'administration du framework.
     { name: "@nodefony/studio", policy: "mandatory" },
 
-    // ── Accès Redis générique — requis UNIQUEMENT pour le backplane realtime `redis`
-    //    (fan-out cross-pod). Avec le défaut IPC (intra-pod) il est inutile.
-    //    Décommenter + REDIS_PASSWORD pour le fan-out cross-pod (Phase 16) :
-    // use("@nodefony/redis", undefined, {
-    //   when: (c) => (c.modules ?? []).some(
-    //     (m) => typeof m === "object" && m.name === "@nodefony/realtime",
-    //   ),
-    // }),
+    // ── Accès Redis générique — chargé À LA DEMANDE. Deux consommateurs cross-pod :
+    //    le backplane realtime `redis` (fan-out, Phase 16) ET le store d'idempotence
+    //    distribué (`NF_IDEMPOTENCY_STORE=redis`, P6.8). Connexion par défaut
+    //    localhost:6379 + `REDIS_PASSWORD` (env layering). Avec les défauts (IPC
+    //    intra-pod + idempotence `memory`) il reste inutile → non chargé.
+    use("@nodefony/redis", undefined, {
+      when: () => ctx.env.NF_IDEMPOTENCY_STORE === "redis",
+    }),
 
     // ── Exemple : module NoSQL Mongoose (non chargé par défaut). Décommenter ICI
     //    pour l'activer, avec sa config colocalisée :

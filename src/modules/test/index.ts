@@ -36,6 +36,8 @@ import SecureWsController from "./nodefony/secure/SecureWsController";
 import TestM2mRealtimeController from "./nodefony/secure/TestM2mRealtimeController";
 // P6 J4 — banc ZONE API M2M (JWT Bearer, zone "test-api", /nodefony/test/m2m).
 import ApiM2mController from "./nodefony/secure/ApiM2mController";
+// P6.8 — banc DÉMO idempotence userland (@Idempotent, /nodefony/test/secure/idempotent).
+import IdempotentDemoController from "./nodefony/secure/IdempotentDemoController";
 // P6 J9 — enregistre le provider OAuth de TEST (side-effect), AVANT le onBoot du
 // service oauth2 qui confronte les providers configurés au registre. DEV only.
 import "./nodefony/secure/oauthTestProvider";
@@ -75,6 +77,8 @@ registerDolibarrEntities("default");
   TestM2mRealtimeController,
   // P6 J4 — banc zone API M2M (JWT Bearer, /nodefony/test/m2m/*)
   ApiM2mController,
+  // P6.8 — banc démo idempotence userland (@Idempotent, /nodefony/test/secure/idempotent/*)
+  IdempotentDemoController,
   // POC API souveraine (JETABLE)
   PocBookController,
   PocInvokeController,
