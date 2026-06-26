@@ -303,6 +303,15 @@ blur` plein écran (paint GPU permanent, recomposé même onglet caché) + `setI
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-26]` **Race DevSupervisor ↔ build turbo manuel** : un `npm run build` lancé pendant que
+  le DevSupervisor rebuild en parallèle a affiché des **erreurs TS PÉRIMÉES** (vieux dist) = fausse alerte
+  (un re-build propre était vert). Quand on touche PLUSIEURS modules → `stop.sh` AVANT le build/typecheck.
+- `[1× — 2026-06-26]` **Piège Zod 4 `.default({littéral})`** : ajouter des champs à un sous-schéma porté
+  par un `.default` plat → TS exige l'objet COMPLET (type post-défauts) → extraire le sous-schéma en const
+  - `.default(() => schema.parse({}))` (même piège que les `.default({})` imbriqués déjà documenté).
+- `[1× — 2026-06-26]` **dist du core = `dist/node/`** (isomorphe : `node`/`client`/`types`), PAS `dist/` —
+  un `ls dist/runtime/X.js` cherche au mauvais endroit (→ `dist/node/runtime/X.js`).
+
 - `[1× — 2026-06-25]` **Après des edits core MASSIFS, le 1er boot via `start.sh` dépasse son plafond 25s → `>>> TIMEOUT` n'est PAS un
   crash.** Le DevSupervisor `#ensureBuilt` lance `turbo run build` (vérifie tous les workspaces) → ~32s observé, log figé sur
   `[dev] ⚙ Vérification du framework (turbo)…`. Le superviseur **continue en fond** → poller le log jusqu'à `Server Listen` (4×) /
