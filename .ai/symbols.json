@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-26T19:44:20.363Z",
+  "generated": "2026-06-26T20:27:26.857Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 953,
-    "symbols": 2177,
-    "classes": 303,
-    "interfaces": 571,
-    "types": 260,
+    "files": 959,
+    "symbols": 2208,
+    "classes": 305,
+    "interfaces": 579,
+    "types": 262,
     "enums": 3,
-    "functions": 522,
-    "constants": 518
+    "functions": 540,
+    "constants": 519
   },
   "symbols": {
     "Cli": {
@@ -9384,6 +9384,33 @@
       "module": "@nodefony/security",
       "description": "État serveur des jetons longue durée (PAT, refresh tokens), denylist des access tokens révoqués (`jti`) et seuil de révocation **en masse** par porteur. Pourquoi un store : un access token signé (J…"
     },
+    "ITotpSecret": {
+      "name": "ITotpSecret",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Secret TOTP d'un utilisateur (2FA) — **un seul par utilisateur** (clé = `userId`). Le secret partagé `K` est **chiffré au repos** ({@link ITotpSecret.secretEnc}) : le serveur doit pouvoir le **reli…"
+    },
+    "TotpSecretUpdate": {
+      "name": "TotpSecretUpdate",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Champs mutables d'un secret TOTP (patch partiel)."
+    },
+    "ITotpSecretStore": {
+      "name": "ITotpSecretStore",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Store **pluggable** du secret TOTP par utilisateur — découple le cœur du backend de persistance (mémoire / fichier / ORM / Redis). Convention-frère d'`IWebAuthnCredentialStore` / `ITokenStore` : le…"
+    },
     "IWebAuthnCredential": {
       "name": "IWebAuthnCredential",
       "kind": "interface",
@@ -15127,6 +15154,211 @@
       "decorators": [],
       "description": "Jeton porteur d'un utilisateur réel — produit par les authenticators à credential (`userpassword`, puis `session`/`jwt`...). Cycle en deux états, UN SEUL objet alloué par tentative (cold path login…"
     },
+    "FileTotpSecretStore": {
+      "name": "FileTotpSecretStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "MemoryTotpSecretStore",
+      "implements": [],
+      "decorators": [],
+      "description": "Store de secrets TOTP **sur fichier** (JSON) — {@link MemoryTotpSecretStore} + persistance. Toute la logique est héritée ; on n'ajoute QUE l'écriture/lecture disque, via un flush **différé/coalescé…"
+    },
+    "MemoryTotpSecretStore": {
+      "name": "MemoryTotpSecretStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "ITotpSecretStore"
+      ],
+      "decorators": [],
+      "description": "Store de secrets TOTP **en mémoire** — implémentation de référence d'{@link ITotpSecretStore}. Clé = `userId` (un secret par utilisateur). 0 dépendance, idéale pour le développement mono-process et…"
+    },
+    "TotpStoreSnapshot": {
+      "name": "TotpStoreSnapshot",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Instantané sérialisable de l'état — base de la persistance fichier."
+    },
+    "ITotpOptions": {
+      "name": "ITotpOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Options de calcul/vérification d'un code TOTP."
+    },
+    "ITotpVerifyResult": {
+      "name": "ITotpVerifyResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Résultat d'une vérification TOTP — `step` matché = ancre anti-rejeu."
+    },
+    "IOtpauthParams": {
+      "name": "IOtpauthParams",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Champs d'un URI `otpauth://totp/...` (Key Uri Format de facto)."
+    },
+    "TotpAlgorithm": {
+      "name": "TotpAlgorithm",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Cœur **pur** du 2FA TOTP — RFC 6238 (Time-based OTP) au-dessus de RFC 4226 (HOTP). Aucun I/O, aucun container, aucune persistance → testable sans serveur et partagé par l'émetteur (enrôlement) et l…"
+    },
+    "base32Encode": {
+      "name": "base32Encode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Encode des octets en base32 RFC 4648 **sans padding** (`=`) — forme attendue par les applications d'authentification dans l'URI `otpauth://`."
+    },
+    "base32Decode": {
+      "name": "base32Decode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Décode une chaîne base32 RFC 4648 → octets. Tolérant : ignore espaces, tirets et padding `=`, insensible à la casse (un secret peut être saisi à la main par l'utilisateur). Lève si un caractère hor…"
+    },
+    "generateTotpSecret": {
+      "name": "generateTotpSecret",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Génère un secret TOTP cryptographiquement aléatoire (défaut 160 bits)."
+    },
+    "hotp": {
+      "name": "hotp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "HOTP (RFC 4226 §5.3) — `Truncate(HMAC(K, counter))` → code à `digits` chiffres, complété à gauche par des zéros."
+    },
+    "totpCounter": {
+      "name": "totpCounter",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Numéro de tranche temporelle `T` (RFC 6238 §4.2) pour un instant donné."
+    },
+    "totpCode": {
+      "name": "totpCode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Calcule le code TOTP courant (RFC 6238 §4) pour un secret donné."
+    },
+    "verifyTotp": {
+      "name": "verifyTotp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Vérifie un code TOTP présenté contre une fenêtre de tolérance `±window` pas (RFC 6238 §5.2). Comparaison en **temps constant** (anti-timing). Retourne la tranche `T` validée pour permettre à l'appe…"
+    },
+    "buildOtpauthUri": {
+      "name": "buildOtpauthUri",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Construit l'URI `otpauth://totp/{issuer}:{account}?...` encodé dans le QR code d'enrôlement. Le label `issuer:account` et le paramètre `issuer` sont tous deux renseignés (recommandation Key Uri For…"
+    },
+    "generateRecoveryCodes": {
+      "name": "generateRecoveryCodes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Génère `count` codes de récupération à usage unique, lisibles (`XXXXX-XXXXX`, ~50 bits chacun). À présenter **une seule fois** à l'utilisateur ; seul leur condensat est persisté ({@link hashRecover…"
+    },
+    "hashRecoveryCode": {
+      "name": "hashRecoveryCode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Condensat au repos d'un code de récupération (`sha256` hex). `sha256` suffit (≈ 50 bits aléatoires non brute-forçables, comme une clé API — pas un mot de passe humain) ; la normalisation rend la vé…"
+    },
+    "matchRecoveryCode": {
+      "name": "matchRecoveryCode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Cherche un code de récupération présenté parmi des condensats stockés, en **temps constant par entrée**. Retourne l'index consommé (à retirer du stock), ou `-1` si aucun ne correspond."
+    },
+    "TOTP_DEFAULTS": {
+      "name": "TOTP_DEFAULTS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Paramètres TOTP — défauts interopérables (Google Authenticator)."
+    },
+    "ITotpStoreFactoryContext": {
+      "name": "ITotpStoreFactoryContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Registre de **fabriques de stores de secrets TOTP** — résout un nom (`memory`, `file`, `drizzle`, `mongoose`, `redis`…) vers une instance, SANS coupler le cœur à un backend en dur. Convention-frère…"
+    },
+    "TotpStoreFactory": {
+      "name": "TotpStoreFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store de secrets TOTP pour un nom donné."
+    },
+    "registerTotpStore": {
+      "name": "registerTotpStore",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Enregistre (ou remplace) la fabrique d'un store de secrets TOTP."
+    },
+    "getTotpStoreFactory": {
+      "name": "getTotpStoreFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store par nom, ou `undefined` si inconnu."
+    },
+    "listTotpStores": {
+      "name": "listTotpStores",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
+    },
     "RoleVoter": {
       "name": "RoleVoter",
       "kind": "class",
@@ -15982,6 +16214,9 @@
       "MemoryTokenStore": [
         "FileTokenStore"
       ],
+      "MemoryTotpSecretStore": [
+        "FileTotpSecretStore"
+      ],
       "MemoryWebAuthnCredentialStore": [
         "FileWebAuthnCredentialStore"
       ],
@@ -16210,6 +16445,9 @@
       ],
       "IJwtKeystore": [
         "JwtKeystore"
+      ],
+      "ITotpSecretStore": [
+        "MemoryTotpSecretStore"
       ],
       "IAccessVoter": [
         "RoleVoter",
@@ -16440,6 +16678,7 @@
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
@@ -20049,6 +20288,14 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
+      "TotpAlgorithm": [
+        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts"
+      ],
+      "ITotpSecret": [
+        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
+      ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
@@ -20059,6 +20306,7 @@
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
       ],
       "IApiKeyView": [
@@ -21927,6 +22175,24 @@
       ],
       "IJwtSigningKey": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "MemoryTotpSecretStore": [
+        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
+      ],
+      "TotpStoreSnapshot": [
+        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts"
+      ],
+      "TotpSecretUpdate": [
+        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
+      ],
+      "ITotpSecretStore": [
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
+      ],
+      "FileTotpSecretStore": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
       ],
       "RoleVoter": [
         "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts"

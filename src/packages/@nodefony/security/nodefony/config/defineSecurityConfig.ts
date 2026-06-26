@@ -485,6 +485,80 @@ const passkeysSchema = z
   })
   .describe("Passkeys (WebAuthn L3 / FIDO2) — synced par défaut.");
 
+const totpSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Active le 2FA TOTP (RFC 6238, codes à usage unique d'une app d'authentification : Google Authenticator, Authy…).",
+      ),
+    issuer: z
+      .string()
+      .optional()
+      .describe(
+        "Émetteur affiché dans l'app d'authentification (label du QR). Omis = nom de l'app.",
+      ),
+    algorithm: z
+      .enum(["SHA1", "SHA256", "SHA512"])
+      .default("SHA1")
+      .describe(
+        "Fonction HMAC du code. SHA1 = compat maximale (Google Authenticator) [défaut].",
+      ),
+    digits: z
+      .number()
+      .int()
+      .min(6)
+      .max(8)
+      .default(6)
+      .describe("Nombre de chiffres du code (RFC 4226 §5.3 : 6 minimum)."),
+    period: z
+      .number()
+      .int()
+      .positive()
+      .default(30)
+      .describe(
+        "Période d'un code en secondes (RFC 6238 §5.2 : 30 recommandé).",
+      ),
+    window: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(1)
+      .describe(
+        "Tolérance de dérive d'horloge (± N pas). RFC 6238 §5.2 : « at most one time step » → 1 [défaut]. Plus = surface d'attaque accrue.",
+      ),
+    recoveryCodes: z
+      .number()
+      .int()
+      .positive()
+      .default(10)
+      .describe(
+        "Nombre de codes de récupération générés à l'activation (NIST SP 800-63B « look-up secrets », usage unique, affichés 1×).",
+      ),
+    encryptionKey: z
+      .string()
+      .optional()
+      .describe(
+        "Clé de chiffrement AES-256-GCM du secret TOTP au repos (fournie par l'app depuis env, ≥ 32 octets après décodage). Omise = clé éphémère dérivée + WARNING (dev mono-process) ; en prod multi-pod, REQUISE (un secret 2FA déchiffrable doit l'être par tous les pods, et jamais en clair).",
+      ),
+    store: z
+      .string()
+      .default("memory")
+      .describe(
+        "Backend de stockage du secret : memory|file|drizzle|mongoose|redis. Pluggable (`registerTotpStore`). 'memory' = volatile [défaut] ; 'file' = mono-process persistant ; drizzle/mongoose/redis = cluster/prod (l'app câble l'adapter de son module backend).",
+      ),
+    storePath: z
+      .string()
+      .optional()
+      .describe(
+        "Chemin du fichier JSON (driver 'file'). Omis = <cwd>/var/totp-secrets.json.",
+      ),
+  })
+  .describe(
+    "2FA TOTP (RFC 6238) — second facteur step-up au login. Secret chiffré au repos, codes de récupération hachés.",
+  );
+
 const tokenExchangeSchema = z
   .object({
     enabled: z
@@ -760,6 +834,7 @@ const securityConfigSchema = z.object({
   jwt: jwtSchema.default(() => jwtSchema.parse({})),
   tokenStore: tokenStoreSchema.default(() => tokenStoreSchema.parse({})),
   passkeys: passkeysSchema.default(() => passkeysSchema.parse({})),
+  totp: totpSchema.default(() => totpSchema.parse({})),
   tokenExchange: tokenExchangeSchema.default(() =>
     tokenExchangeSchema.parse({}),
   ),
