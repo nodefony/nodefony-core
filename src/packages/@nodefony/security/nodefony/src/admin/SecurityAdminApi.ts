@@ -7,7 +7,11 @@ import type {
   IAdminRequest,
   IAdminResponse,
 } from "nodefony";
-import type { AuditCategory, AuditOutcome } from "../../contracts/IAuditEvent";
+import type {
+  AuditCategory,
+  AuditOutcome,
+  IAuditEventDraft,
+} from "../../contracts/IAuditEvent";
 import type {
   IAuditQuery,
   IAuditQueryResult,
@@ -18,6 +22,7 @@ import type {
   IRoleHierarchyDescription,
 } from "../../contracts/IFirewallDescription";
 import type { IApiKeyView } from "../../contracts/IApiKey";
+import type { IWebAuthnCredential } from "../../contracts/IWebAuthnCredential";
 
 /**
  * Vue MINIMALE du service `auditService` consommée par le data plane — seule la
@@ -183,6 +188,97 @@ export function parseAuditQuery(
 }
 
 /**
+ * Vue MINIMALE du service `webauthn` consommée par l'ADMIN — lecture des passkeys
+ * d'un utilisateur + révocation **owner-scopée** (reset d'un facteur fort).
+ * Couplage structurel (par nom de service) ; `removeUserCredential` renvoie
+ * `false` si la passkey est inconnue OU n'appartient pas à l'utilisateur visé
+ * (anti-IDOR interne — 404 indiscernable côté endpoint).
+ */
+interface IWebAuthnAdmin {
+  listUserCredentials(userId: string): Promise<IWebAuthnCredential[]>;
+  removeUserCredential(userId: string, credentialId: string): Promise<boolean>;
+}
+
+/**
+ * État du 2FA TOTP d'un utilisateur — miroir structurel de `ITotpStatus` (sans
+ * coupler `SecurityAdminApi` au sous-dossier `src/totp`).
+ */
+interface ITotpStatusView {
+  /** Le 2ᵉ facteur est armé et exigé au login. */
+  enabled: boolean;
+  /** Enrôlement commencé mais pas confirmé (secret généré, jamais validé). */
+  pending: boolean;
+  /** Codes de récupération à usage unique encore disponibles. */
+  recoveryCodesRemaining: number;
+}
+
+/**
+ * Vue MINIMALE du service `totp` consommée par l'ADMIN — lecture d'état +
+ * **désactivation** (reset d'un facteur fort : appareil perdu). PAS d'enrôlement
+ * cross-user : impossible par construction (le secret se scanne sur l'appareil
+ * de l'utilisateur), et illégitime (un admin n'arme pas le 2FA d'autrui).
+ */
+interface ITotpAdmin {
+  status(userId: string): Promise<ITotpStatusView>;
+  disable(userId: string): Promise<void>;
+}
+
+/**
+ * Résolution d'un utilisateur par id — sert UNIQUEMENT à distinguer « utilisateur
+ * inconnu » (404) de « utilisateur sans passkey / sans 2FA » (liste vide / état
+ * désactivé). Vue minimale (présence de l'id), jamais l'entité complète.
+ */
+interface IUserLookup {
+  findById(id: string): Promise<{ id: string } | null>;
+}
+
+/**
+ * Vue admin d'une passkey — **redaction par construction** : la clé publique
+ * COSE et le `userId` (déjà dans le path) sont OMIS. Aucun secret n'existe côté
+ * serveur (la clé privée ne quitte jamais l'authenticator), on n'expose que
+ * l'utile à la console.
+ */
+interface IAdminCredentialView {
+  id: string;
+  nickname: string | null;
+  transports: readonly string[];
+  backupEligible: boolean;
+  backupState: boolean;
+  uvInitialized: boolean;
+  createdAt: number;
+  lastUsedAt: number | null;
+}
+
+/** Projette un credential serveur vers sa vue admin (sans `publicKey`/`userId`). */
+function toCredentialView(c: IWebAuthnCredential): IAdminCredentialView {
+  return {
+    id: c.id,
+    nickname: c.nickname ?? null,
+    transports: c.transports,
+    backupEligible: c.backupEligible,
+    backupState: c.backupState,
+    uvInitialized: c.uvInitialized,
+    createdAt: c.createdAt,
+    lastUsedAt: c.lastUsedAt,
+  };
+}
+
+/**
+ * Émet un événement d'audit pour une mutation admin (best-effort, fire-and-forget)
+ * — l'audit ne doit jamais bloquer ni faire échouer le reset. No-op si le service
+ * `auditService` est absent. Couplage structurel : `record` lu défensivement.
+ *
+ * @param container - container du kernel.
+ * @param draft - événement (sans `id`/`ts`, posés par le service).
+ */
+function auditAdmin(container: Container, draft: IAuditEventDraft): void {
+  const sink = container.get("auditService") as
+    | { record?: (event: IAuditEventDraft) => void }
+    | undefined;
+  sink?.record?.(draft);
+}
+
+/**
  * Producteur admin (`IAdminApi`) du module sécurité — data plane consommé par
  * Studio (section Sécurité, P6.15) :
  *
@@ -195,6 +291,12 @@ export function parseAuditQuery(
  *  - `GET /nodefony/security/api/apikeys` — toutes les clés API (gouvernance),
  *    `GET …/apikeys/status` — backend du token store (« où on écrit »),
  *    `POST …/apikeys/{id}/revoke` — révocation par id (réponse à incident).
+ *  - `GET …/users/{id}/passkeys` + `DELETE …/users/{id}/passkeys/{credentialId}`
+ *    — passkeys d'un utilisateur (vue admin sans clé publique) + révocation
+ *    owner-scopée (reset facteur fort, audité).
+ *  - `GET …/users/{id}/totp` + `POST …/users/{id}/totp/disable` — état du 2FA
+ *    TOTP + désactivation (reset facteur fort, audité). Pas d'enrôlement
+ *    cross-user (le secret se scanne sur l'appareil de l'utilisateur).
  *
  * **RBAC `ROLE_NODEFONY_ADMIN`** (appliqué par le broker, 403 sinon) — la console
  * sécurité ne se consulte qu'en administrateur. Handlers **lazy** : ils résolvent
@@ -322,6 +424,138 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           return { status: 404, body: { error: "not found" } };
         }
         return { ok: true, key };
+      },
+    },
+    {
+      path: "users/{id}/passkeys",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Passkeys (WebAuthn) d'un utilisateur — vue admin SANS clé publique " +
+        "(id/surnom/transports/sauvegarde/UV/dates). 404 si utilisateur inconnu.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<
+        | { credentials: IAdminCredentialView[] }
+        | IAdminResponse<{ error: string }>
+      > => {
+        const svc = container.get("webauthn") as IWebAuthnAdmin | undefined;
+        if (!svc) {
+          return { status: 503, body: { error: "webauthn unavailable" } };
+        }
+        const id = request.params.id;
+        if (typeof id !== "string" || id.length === 0) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        // Distingue « utilisateur inconnu » (404) de « pas de passkey » (liste
+        // vide). Lookup best-effort : si le service `users` est absent, on rend
+        // quand même la liste (le firewall a déjà authentifié l'admin).
+        const users = container.get("users") as IUserLookup | undefined;
+        if (users && !(await users.findById(id))) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        const creds = await svc.listUserCredentials(id);
+        return { credentials: creds.map(toCredentialView) };
+      },
+    },
+    {
+      path: "users/{id}/passkeys/{credentialId}",
+      method: "DELETE",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Révoque une passkey d'un utilisateur (reset admin) — audité. 404 si la " +
+        "passkey n'existe pas ou n'appartient pas à l'utilisateur (anti-IDOR).",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<{ ok: true } | IAdminResponse<{ error: string }>> => {
+        const svc = container.get("webauthn") as IWebAuthnAdmin | undefined;
+        if (!svc) {
+          return { status: 503, body: { error: "webauthn unavailable" } };
+        }
+        const id = request.params.id;
+        const credentialId = request.params.credentialId;
+        if (
+          typeof id !== "string" ||
+          id.length === 0 ||
+          typeof credentialId !== "string" ||
+          credentialId.length === 0
+        ) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        // `removeUserCredential` est owner-scopé : `false` = passkey inconnue OU
+        // pas le propriétaire → 404 indiscernable (anti-énumération, même admin).
+        const removed = await svc.removeUserCredential(id, credentialId);
+        if (!removed) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        auditAdmin(container, {
+          category: "webauthn",
+          action: "user.passkey_revoked",
+          outcome: "success",
+          actor: adminActor(request.user),
+          resource: id,
+          metadata: { credentialId, viaAdmin: true },
+        });
+        return { ok: true };
+      },
+    },
+    {
+      path: "users/{id}/totp",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "État du 2FA TOTP d'un utilisateur (activé / en attente / codes de " +
+        "récupération restants). 404 si utilisateur inconnu.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<ITotpStatusView | IAdminResponse<{ error: string }>> => {
+        const svc = container.get("totp") as ITotpAdmin | undefined;
+        if (!svc) {
+          return { status: 503, body: { error: "totp unavailable" } };
+        }
+        const id = request.params.id;
+        if (typeof id !== "string" || id.length === 0) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        const users = container.get("users") as IUserLookup | undefined;
+        if (users && !(await users.findById(id))) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        return svc.status(id);
+      },
+    },
+    {
+      path: "users/{id}/totp/disable",
+      method: "POST",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Désactive le 2FA TOTP d'un utilisateur (reset admin : appareil perdu) " +
+        "— audité. Idempotent (no-op si déjà désactivé).",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<{ ok: true } | IAdminResponse<{ error: string }>> => {
+        const svc = container.get("totp") as ITotpAdmin | undefined;
+        if (!svc) {
+          return { status: 503, body: { error: "totp unavailable" } };
+        }
+        const id = request.params.id;
+        if (typeof id !== "string" || id.length === 0) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        const users = container.get("users") as IUserLookup | undefined;
+        if (users && !(await users.findById(id))) {
+          return { status: 404, body: { error: "not found" } };
+        }
+        await svc.disable(id);
+        auditAdmin(container, {
+          category: "auth",
+          action: "user.totp_disabled",
+          outcome: "success",
+          actor: adminActor(request.user),
+          resource: id,
+          metadata: { viaAdmin: true },
+        });
+        return { ok: true };
       },
     },
   ];

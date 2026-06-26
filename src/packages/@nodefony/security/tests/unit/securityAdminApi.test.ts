@@ -13,6 +13,8 @@ import {
   parseAuditQuery,
 } from "../../nodefony/src/admin/SecurityAdminApi";
 import type { IAuditQueryResult } from "../../nodefony/contracts/IAuditStore";
+import type { IAuditEventDraft } from "../../nodefony/contracts/IAuditEvent";
+import type { IWebAuthnCredential } from "../../nodefony/contracts/IWebAuthnCredential";
 
 /**
  * Data plane admin du journal d'audit (P6.14 — Lot 3) : producteur `IAdminApi`
@@ -181,5 +183,247 @@ describe("parseAuditQuery", () => {
     assert.deepEqual(parseAuditQuery({ actor: ["a", "b"], since: "abc" }), {
       actor: "a",
     });
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Reset des FACTEURS FORTS d'un utilisateur (page profil admin) — passkeys +
+// 2FA TOTP. Le RBAC effectif (403) est appliqué par le broker (`isAdminGranted`,
+// testé côté framework + banc e2e attack) : ici on couvre la DÉCLARATION du rôle
+// et le comportement des handlers (404/503/succès, redaction, audit).
+// ════════════════════════════════════════════════════════════════════════════
+
+function fakeCredential(id: string, userId: string): IWebAuthnCredential {
+  return {
+    id,
+    userId,
+    publicKey: "COSE_PUBLIC_KEY_BASE64URL", // doit DISPARAÎTRE de la vue admin
+    signCount: 0,
+    transports: ["internal"],
+    backupEligible: true,
+    backupState: true,
+    uvInitialized: true,
+    nickname: "MacBook de Chris",
+    createdAt: 1000,
+    lastUsedAt: 2000,
+  };
+}
+
+/** Container outillé : webauthn/totp/users + spy d'audit, chacun optionnel. */
+function bootFactors(opts: {
+  credentials?: IWebAuthnCredential[];
+  removeResult?: boolean;
+  totpStatus?: {
+    enabled: boolean;
+    pending: boolean;
+    recoveryCodesRemaining: number;
+  };
+  userExists?: boolean;
+  withWebauthn?: boolean;
+  withTotp?: boolean;
+}) {
+  const container = new Container();
+  const recorded: IAuditEventDraft[] = [];
+  const disabledFor: string[] = [];
+  const removedArgs: Array<[string, string]> = [];
+  if (opts.withWebauthn !== false) {
+    container.set("webauthn", {
+      listUserCredentials: async (_userId: string) => opts.credentials ?? [],
+      removeUserCredential: async (userId: string, credentialId: string) => {
+        removedArgs.push([userId, credentialId]);
+        return opts.removeResult ?? true;
+      },
+    });
+  }
+  if (opts.withTotp !== false) {
+    container.set("totp", {
+      status: async (_userId: string) =>
+        opts.totpStatus ?? {
+          enabled: true,
+          pending: false,
+          recoveryCodesRemaining: 8,
+        },
+      disable: async (userId: string) => {
+        disabledFor.push(userId);
+      },
+    });
+  }
+  container.set("users", {
+    findById: async (id: string) => ((opts.userExists ?? true) ? { id } : null),
+  });
+  container.set("auditService", {
+    record: (e: IAuditEventDraft) => recorded.push(e),
+  });
+  return { container, recorded, disabledFor, removedArgs };
+}
+
+function endpoint(container: Container, path: string) {
+  const ep = createSecurityAdminApi(container)
+    .adminEndpoints()
+    .find((e) => e.path === path);
+  assert.ok(ep, `endpoint ${path} présent`);
+  return ep!;
+}
+
+function reqP(
+  params: Record<string, string>,
+  body: unknown = null,
+): IAdminRequest {
+  return {
+    params,
+    query: {},
+    body,
+    user: { username: "admin1" },
+    roles: ["ROLE_NODEFONY_ADMIN"],
+  };
+}
+
+describe("SecurityAdminApi — facteurs forts (déclaration)", () => {
+  it("les 4 endpoints déclarent ROLE_NODEFONY_ADMIN + la bonne méthode", () => {
+    const eps = createSecurityAdminApi(new Container()).adminEndpoints();
+    const expected: Array<[string, string]> = [
+      ["users/{id}/passkeys", "GET"],
+      ["users/{id}/passkeys/{credentialId}", "DELETE"],
+      ["users/{id}/totp", "GET"],
+      ["users/{id}/totp/disable", "POST"],
+    ];
+    for (const [path, method] of expected) {
+      const ep = eps.find((e) => e.path === path);
+      assert.ok(ep, `endpoint ${path} présent`);
+      assert.equal(ep!.method, method, `${path} méthode`);
+      assert.equal(ep!.role, "ROLE_NODEFONY_ADMIN", `${path} RBAC`);
+    }
+  });
+});
+
+describe("SecurityAdminApi — GET users/{id}/passkeys", () => {
+  it("liste redactée : clé publique COSE et userId ABSENTS de la vue", async () => {
+    const { container } = bootFactors({
+      credentials: [fakeCredential("c1", "u1")],
+    });
+    const ep = endpoint(container, "users/{id}/passkeys");
+    const res = (await ep.handler(reqP({ id: "u1" }))) as {
+      credentials: Record<string, unknown>[];
+    };
+    assert.equal(res.credentials.length, 1);
+    const view = res.credentials[0]!;
+    assert.equal(view.id, "c1");
+    assert.equal(view.nickname, "MacBook de Chris");
+    assert.deepEqual(view.transports, ["internal"]);
+    assert.ok(!("publicKey" in view), "publicKey ne doit JAMAIS fuiter");
+    assert.ok(!("userId" in view), "userId redondant (path) — omis");
+  });
+
+  it("404 si l'utilisateur est inconnu", async () => {
+    const { container } = bootFactors({ userExists: false });
+    const ep = endpoint(container, "users/{id}/passkeys");
+    const res = (await ep.handler(reqP({ id: "ghost" }))) as { status: number };
+    assert.equal(res.status, 404);
+  });
+
+  it("503 si le service webauthn est absent", async () => {
+    const { container } = bootFactors({ withWebauthn: false });
+    const ep = endpoint(container, "users/{id}/passkeys");
+    const res = (await ep.handler(reqP({ id: "u1" }))) as { status: number };
+    assert.equal(res.status, 503);
+  });
+});
+
+describe("SecurityAdminApi — DELETE users/{id}/passkeys/{credentialId}", () => {
+  it("révoque (owner-scopé) + audite l'acteur/cible", async () => {
+    const { container, recorded, removedArgs } = bootFactors({
+      removeResult: true,
+    });
+    const ep = endpoint(container, "users/{id}/passkeys/{credentialId}");
+    const res = (await ep.handler(reqP({ id: "u1", credentialId: "c1" }))) as {
+      ok: boolean;
+    };
+    assert.deepEqual(res, { ok: true });
+    assert.deepEqual(removedArgs, [["u1", "c1"]]);
+    assert.equal(recorded.length, 1);
+    assert.equal(recorded[0]!.category, "webauthn");
+    assert.equal(recorded[0]!.action, "user.passkey_revoked");
+    assert.equal(recorded[0]!.actor, "admin1");
+    assert.equal(recorded[0]!.resource, "u1");
+    assert.equal(recorded[0]!.metadata?.credentialId, "c1");
+    assert.equal(recorded[0]!.metadata?.viaAdmin, true);
+  });
+
+  it("404 si la passkey est inconnue/pas le propriétaire — SANS audit", async () => {
+    const { container, recorded } = bootFactors({ removeResult: false });
+    const ep = endpoint(container, "users/{id}/passkeys/{credentialId}");
+    const res = (await ep.handler(
+      reqP({ id: "u1", credentialId: "ghost" }),
+    )) as { status: number };
+    assert.equal(res.status, 404);
+    assert.equal(recorded.length, 0, "pas d'audit pour un no-op");
+  });
+
+  it("503 si le service webauthn est absent", async () => {
+    const { container } = bootFactors({ withWebauthn: false });
+    const ep = endpoint(container, "users/{id}/passkeys/{credentialId}");
+    const res = (await ep.handler(reqP({ id: "u1", credentialId: "c1" }))) as {
+      status: number;
+    };
+    assert.equal(res.status, 503);
+  });
+});
+
+describe("SecurityAdminApi — GET users/{id}/totp", () => {
+  it("renvoie l'état 2FA d'un utilisateur connu", async () => {
+    const { container } = bootFactors({
+      totpStatus: { enabled: true, pending: false, recoveryCodesRemaining: 3 },
+    });
+    const ep = endpoint(container, "users/{id}/totp");
+    const res = (await ep.handler(reqP({ id: "u1" }))) as {
+      enabled: boolean;
+      recoveryCodesRemaining: number;
+    };
+    assert.equal(res.enabled, true);
+    assert.equal(res.recoveryCodesRemaining, 3);
+  });
+
+  it("404 si l'utilisateur est inconnu", async () => {
+    const { container } = bootFactors({ userExists: false });
+    const ep = endpoint(container, "users/{id}/totp");
+    const res = (await ep.handler(reqP({ id: "ghost" }))) as { status: number };
+    assert.equal(res.status, 404);
+  });
+
+  it("503 si le service totp est absent", async () => {
+    const { container } = bootFactors({ withTotp: false });
+    const ep = endpoint(container, "users/{id}/totp");
+    const res = (await ep.handler(reqP({ id: "u1" }))) as { status: number };
+    assert.equal(res.status, 503);
+  });
+});
+
+describe("SecurityAdminApi — POST users/{id}/totp/disable", () => {
+  it("désactive le 2FA de l'utilisateur ciblé + audite", async () => {
+    const { container, recorded, disabledFor } = bootFactors({});
+    const ep = endpoint(container, "users/{id}/totp/disable");
+    const res = (await ep.handler(reqP({ id: "u1" }))) as { ok: boolean };
+    assert.deepEqual(res, { ok: true });
+    assert.deepEqual(disabledFor, ["u1"]);
+    assert.equal(recorded.length, 1);
+    assert.equal(recorded[0]!.category, "auth");
+    assert.equal(recorded[0]!.action, "user.totp_disabled");
+    assert.equal(recorded[0]!.actor, "admin1");
+    assert.equal(recorded[0]!.resource, "u1");
+  });
+
+  it("404 si l'utilisateur est inconnu (pas de disable)", async () => {
+    const { container, disabledFor } = bootFactors({ userExists: false });
+    const ep = endpoint(container, "users/{id}/totp/disable");
+    const res = (await ep.handler(reqP({ id: "ghost" }))) as { status: number };
+    assert.equal(res.status, 404);
+    assert.equal(disabledFor.length, 0);
+  });
+
+  it("503 si le service totp est absent", async () => {
+    const { container } = bootFactors({ withTotp: false });
+    const ep = endpoint(container, "users/{id}/totp/disable");
+    const res = (await ep.handler(reqP({ id: "u1" }))) as { status: number };
+    assert.equal(res.status, 503);
   });
 });

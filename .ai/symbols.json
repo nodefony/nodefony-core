@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-26T22:05:54.995Z",
+  "generated": "2026-06-26T22:43:58.204Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 963,
-    "symbols": 2233,
+    "symbols": 2240,
     "classes": 307,
-    "interfaces": 589,
+    "interfaces": 594,
     "types": 264,
     "enums": 3,
-    "functions": 551,
+    "functions": 553,
     "constants": 519
   },
   "symbols": {
@@ -19526,6 +19526,7 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
       ],
@@ -20432,6 +20433,7 @@
       "IAuditEventDraft": [
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts"
       ],
       "IAuthenticator": [
