@@ -108,9 +108,9 @@ describe("idempotency — evaluateIdempotency (verdict)", () => {
     required: false,
   };
 
-  it("no key + strict (required) → reject 400 (HTTP message)", () => {
+  it("no key + strict (required) → reject 400 (HTTP message)", async () => {
     expect(
-      evaluateIdempotency({
+      await evaluateIdempotency({
         ...base,
         store: undefined,
         clientKey: undefined,
@@ -123,8 +123,8 @@ describe("idempotency — evaluateIdempotency (verdict)", () => {
     });
   });
 
-  it("no key + WS → reject 400 (socket message), even in soft mode", () => {
-    const v = evaluateIdempotency({
+  it("no key + WS → reject 400 (socket message), even in soft mode", async () => {
+    const v = await evaluateIdempotency({
       ...base,
       store: undefined,
       clientKey: undefined,
@@ -138,36 +138,46 @@ describe("idempotency — evaluateIdempotency (verdict)", () => {
     }
   });
 
-  it("no key + soft HTTP → execute", () => {
+  it("no key + soft HTTP → execute", async () => {
     expect(
-      evaluateIdempotency({ ...base, store: undefined, clientKey: undefined })
-        .kind,
+      (
+        await evaluateIdempotency({
+          ...base,
+          store: undefined,
+          clientKey: undefined,
+        })
+      ).kind,
     ).to.equal("execute");
   });
 
-  it("key but no store → execute (degrade, no cache)", () => {
-    expect(evaluateIdempotency({ ...base, store: undefined }).kind).to.equal(
-      "execute",
-    );
+  it("key but no store → execute (degrade, no cache)", async () => {
+    expect(
+      (await evaluateIdempotency({ ...base, store: undefined })).kind,
+    ).to.equal("execute");
   });
 
-  it("key but no identity → execute (never share cross-identity)", () => {
+  it("key but no identity → execute (never share cross-identity)", async () => {
     expect(
-      evaluateIdempotency({
+      (
+        await evaluateIdempotency({
+          ...base,
+          store: fakeStore({ state: "fresh" }),
+          identity: null,
+        })
+      ).kind,
+    ).to.equal("execute");
+  });
+
+  it("fresh → guarded with scoped key [identity, clientKey]", async () => {
+    expect(
+      await evaluateIdempotency({
         ...base,
         store: fakeStore({ state: "fresh" }),
-        identity: null,
-      }).kind,
-    ).to.equal("execute");
-  });
-
-  it("fresh → guarded with scoped key [identity, clientKey]", () => {
-    expect(
-      evaluateIdempotency({ ...base, store: fakeStore({ state: "fresh" }) }),
+      }),
     ).to.deep.equal({ kind: "guarded", key: JSON.stringify(["alice", "k1"]) });
   });
 
-  it("passes the scoped key + fingerprint to store.begin", () => {
+  it("passes the scoped key + fingerprint to store.begin", async () => {
     const seen: [string, string][] = [];
     const store: IIdempotencyStore = {
       begin: (k, f) => {
@@ -178,30 +188,30 @@ describe("idempotency — evaluateIdempotency (verdict)", () => {
       abort() {},
       size: 0,
     };
-    evaluateIdempotency({ ...base, store });
+    await evaluateIdempotency({ ...base, store });
     expect(seen).to.deep.equal([[JSON.stringify(["alice", "k1"]), "fp"]]);
   });
 
-  it("in-flight → reject 409", () => {
-    const v = evaluateIdempotency({
+  it("in-flight → reject 409", async () => {
+    const v = await evaluateIdempotency({
       ...base,
       store: fakeStore({ state: "in-flight" }),
     });
     expect(v).to.include({ kind: "reject", status: 409 });
   });
 
-  it("replayed → replay with the memorized response", () => {
+  it("replayed → replay with the memorized response", async () => {
     const response: IdempotentResponse = { status: 201, body: { id: 7 } };
     expect(
-      evaluateIdempotency({
+      await evaluateIdempotency({
         ...base,
         store: fakeStore({ state: "replayed", response }),
       }),
     ).to.deep.equal({ kind: "replay", response });
   });
 
-  it("mismatch → reject 422 with a detail (RFC 9110 §15.5.21)", () => {
-    const v = evaluateIdempotency({
+  it("mismatch → reject 422 with a detail (RFC 9110 §15.5.21)", async () => {
+    const v = await evaluateIdempotency({
       ...base,
       store: fakeStore({ state: "mismatch" }),
     });

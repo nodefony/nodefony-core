@@ -141,7 +141,16 @@ export default defineConfig<Env>((ctx) => ({
       },
       { policy: "mandatory" },
     ),
-    { name: "@nodefony/framework", policy: "mandatory" },
+    // Idempotence des mutations : `memory` (per-pod, défaut) OU `redis`
+    // (distribué cross-pod, opt-in `NF_IDEMPOTENCY_STORE=redis` + module redis
+    // chargé). La fabrique `redis` est câblée dans `index.ts`
+    // (`registerIdempotencyStore`) ; le framework la résout au boot (fail-loud si
+    // le nom est configuré mais non câblé). Cf `@Idempotent` (P6.8).
+    use(
+      "@nodefony/framework",
+      { idempotency: { store: ctx.env.NF_IDEMPOTENCY_STORE } },
+      { policy: "mandatory" },
+    ),
 
     // Realtime APRÈS framework. Backplane `cluster` (IPC intra-pod, master relay) par
     // DÉFAUT : 0 dépendance externe. Mono-process → hub local ; cluster (`--workers N`)

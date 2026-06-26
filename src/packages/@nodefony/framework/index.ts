@@ -6,7 +6,17 @@ import {
   frameworkConfigSchema,
   frameworkConfigJsonSchema,
   type FrameworkConfigInput,
+  type FrameworkConfig,
 } from "./nodefony/config/schema";
+import {
+  getIdempotencyStoreFactory,
+  registerIdempotencyStore,
+  listIdempotencyStores,
+} from "./nodefony/src/idempotencyStoreRegistry";
+import {
+  RedisIdempotencyStore,
+  type RedisIdempotencyClientLike,
+} from "./nodefony/src/RedisIdempotencyStore";
 import Router from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
 import Controller from "./nodefony/src/Controller";
@@ -79,6 +89,33 @@ import {
   routeExpectsBodyStream,
 } from "./nodefony/decorators/routerDecorators";
 
+// ── Driver d'idempotence DISTRIBUÉ `redis` (builtin) ─────────────────────────
+// Enregistré AU CHARGEMENT du module framework (toujours présent), calqué sur la
+// registration des drivers backplane dans `@nodefony/realtime/index.ts`. Le
+// framework POSSÈDE l'adaptateur Redis (le store vit ici) et résout le service
+// `redis` par NOM dans le container — couplage STRUCTUREL, AUCUNE dépendance
+// directe à `@nodefony/redis` (0 cycle), exactement comme `RedisBackplane` consomme
+// `getClient("publish"/"subscribe")`. La SÉLECTION se fait par config
+// (`idempotency.store: "redis"`) ; la CONNEXION vit dans `@nodefony/redis`.
+// Appelé SEULEMENT si `idempotency.store === "redis"` (cf onKernelBoot) →
+// **fail-loud** si redis demandé mais absent (jamais de dédup silencieuse en
+// cluster = double-effet ; ≠ realtime fail-soft, car le risque diffère).
+registerIdempotencyStore("redis", (ctx) => {
+  const redis = ctx.module.kernel?.container?.get("redis") as
+    | { getClient(name: string): unknown }
+    | undefined;
+  if (!redis) {
+    throw new Error(
+      `the @nodefony/redis module is not loaded ` +
+        `(add use("@nodefony/redis") in nodefony.config.ts)`,
+    );
+  }
+  return new RedisIdempotencyStore(
+    () =>
+      (redis.getClient("main") ?? null) as RedisIdempotencyClientLike | null,
+  );
+});
+
 @services([Router, Eta, AdminBroker, MemoryIdempotencyStore])
 class Framework extends Module {
   constructor(kernel: Kernel) {
@@ -112,6 +149,64 @@ class Framework extends Module {
               .join(" · ")
           : (e as Error).message;
       throw new Error(`[@nodefony/framework] Invalid config: ${issues}`);
+    }
+    return this;
+  }
+
+  /**
+   * Phase `onBoot` (après les `@services` à `onPreBoot` → le défaut mémoire
+   * `idempotencyStore` est déjà enregistré, ET après l'`onPreBoot` des autres
+   * modules → le service `redis` est résoluble) : si la config sélectionne un
+   * store d'idempotence **distribué** (`idempotency.store` ≠ `memory`), le résout
+   * via le registre et **override** le service `idempotencyStore` → toutes les
+   * mutations (`@Idempotent` + data plane admin) dédupliquent cross-pod.
+   *
+   * **Politique en cas d'échec de résolution** (nom inconnu, ou store distribué
+   * qui ne peut pas s'initialiser — ex. `idempotency.store="redis"` sans module
+   * `@nodefony/redis`) :
+   *  - **prod** → **fatal** (rethrow → le module framework est `critical` → boot
+   *    avorté) : en cluster multi-pod, dégrader en silence vers le cache per-pod
+   *    serait du double-effet non dédupliqué (cf « pas de dégradation silencieuse »).
+   *  - **dev/test** (mono-pod) → **WARNING fort + fallback sur le cache mémoire**
+   *    déjà en place : la dédup per-pod suffit hors cluster, et on ne casse PAS le
+   *    framework (= le routeur) pour une option d'infra absente en local. Jamais
+   *    silencieux (le WARNING annonce la dégradation).
+   */
+  override async onKernelBoot(): Promise<this> {
+    const name =
+      (this.options as FrameworkConfig)?.idempotency?.store ?? "memory";
+    if (name === "memory") {
+      return this; // défaut per-pod déjà posé par @services (MemoryIdempotencyStore)
+    }
+    try {
+      const factory = getIdempotencyStoreFactory(name);
+      if (!factory) {
+        throw new Error(
+          `not registered (known distributed stores: [${listIdempotencyStores().join(", ") || "none"}])`,
+        );
+      }
+      const store = factory({
+        module: this,
+        config: this.options as FrameworkConfig,
+      });
+      this.set("idempotencyStore", store); // override du défaut mémoire (cross-pod)
+      this.log(`Idempotency store → "${name}" (distributed)`, "INFO");
+    } catch (e) {
+      const msg =
+        `[@nodefony/framework] idempotency.store="${name}" failed to initialize: ` +
+        `${(e as Error).message}.`;
+      if (this.kernel?.environment === "production") {
+        // Cluster prod : pas de dédup cross-pod = double-effet → boot avorté.
+        throw new Error(
+          `${msg} A distributed store is mandatory in production.`,
+        );
+      }
+      // Dev/test mono-pod : on garde le cache mémoire (dédup per-pod), LOUDEMENT.
+      this.log(
+        `${msg} Falling back to the per-pod "memory" store (dev/test only; ` +
+          `a distributed store is required for a multi-pod cluster).`,
+        "WARNING",
+      );
     }
     return this;
   }
@@ -261,7 +356,14 @@ export {
   graphql,
   frameworkConfigSchema,
   frameworkConfigJsonSchema,
+  registerIdempotencyStore,
+  getIdempotencyStoreFactory,
+  listIdempotencyStores,
 };
+export type {
+  IdempotencyStoreFactory,
+  IIdempotencyStoreFactoryContext,
+} from "./nodefony/src/idempotencyStoreRegistry";
 export type {
   SecurityClause,
   SecurityRequirement,

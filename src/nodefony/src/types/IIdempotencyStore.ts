@@ -60,25 +60,42 @@ export type IdempotencyOutcome =
  * contrat vit au CORE (pas `@nodefony/framework`) pour que `@nodefony/redis` /
  * `@nodefony/drizzle` (graphe sous orm-core/core, hors framework) puissent
  * l'implémenter sans dépendre de framework.
+ *
+ * **Sync OU async** : `begin`/`complete`/`abort` renvoient `T | Promise<T>`.
+ * L'impl mémoire reste **synchrone** (mono-thread JS, 0 microtask sur le store
+ * lui-même) ; une impl **distribuée** (Redis/Drizzle) est forcément async (round
+ * trip réseau) → elle renvoie des `Promise`. L'appelant `await` le résultat : le
+ * surcoût d'un `await` sur une valeur sync (1 microtask) ne touche QUE le chemin
+ * **mutation idempotente** (déjà async, froid) ; le hot path GET/non-décoré ne
+ * passe jamais ici (court-circuit `idempotent === null` en amont).
  */
 export interface IIdempotencyStore {
   /**
-   * Réserve **atomiquement** la clé (JS mono-thread → `begin` ne s'entrelace
-   * pas) et renvoie le verdict à suivre. Une entrée *in-flight* dont le bail a
-   * expiré (handler figé sans `complete`/`abort`) est traitée comme `fresh`.
+   * Réserve **atomiquement** la clé et renvoie le verdict à suivre. L'atomicité
+   * vient du **mono-thread JS** (impl mémoire) ou d'un `SET … NX` côté serveur
+   * (impl Redis) : deux `begin` concurrents → un seul réserve (`fresh`), l'autre
+   * voit l'entrée (`in-flight`). Une entrée *in-flight* dont le bail a expiré
+   * (handler figé sans `complete`/`abort`) est traitée comme `fresh`.
    *
    * @param fingerprint - empreinte du **payload** de la requête (méthode + chemin
    *   + corps), comparée à celle mémorisée pour la clé : si elle diffère, la clé
    *   est réutilisée pour une AUTRE requête → `mismatch` (422). Cf draft §2.4.
    */
-  begin(key: string, fingerprint: string): IdempotencyOutcome;
+  begin(
+    key: string,
+    fingerprint: string,
+  ): IdempotencyOutcome | Promise<IdempotencyOutcome>;
   /** Mémorise la réponse d'une clé *in-flight* (TTL) → rejeux futurs = `replayed`. */
-  complete(key: string, response: IdempotentResponse): void;
+  complete(key: string, response: IdempotentResponse): void | Promise<void>;
   /**
    * Libère une clé *in-flight* dont l'exécution a échoué : rien n'est mémorisé
    * (un échec doit pouvoir être réessayé). No-op si la clé n'est plus *in-flight*.
    */
-  abort(key: string): void;
-  /** Nombre d'entrées vivantes (observabilité / tests). */
+  abort(key: string): void | Promise<void>;
+  /**
+   * Nombre d'entrées vivantes (observabilité / tests). **Sync best-effort** : la
+   * vérité per-pod pour l'impl mémoire ; pour une impl distribuée (Redis), une
+   * approximation locale (compteur du pod, pas un `SCAN`/`DBSIZE` cluster cher).
+   */
   readonly size: number;
 }

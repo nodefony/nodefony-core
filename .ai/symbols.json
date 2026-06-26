@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-25T21:34:08.111Z",
+  "generated": "2026-06-26T08:08:31.053Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 946,
-    "symbols": 2153,
-    "classes": 299,
-    "interfaces": 565,
-    "types": 256,
+    "files": 948,
+    "symbols": 2161,
+    "classes": 300,
+    "interfaces": 567,
+    "types": 258,
     "enums": 3,
-    "functions": 515,
+    "functions": 518,
     "constants": 515
   },
   "symbols": {
@@ -6073,7 +6073,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Cœur normatif : à partir de la clé client, de l'identité, du fingerprint et du transport, rend le {@link IdempotencyVerdict} à appliquer. Mono-thread JS → `store.begin` ne s'entrelace pas (réservat…"
+      "description": "Cœur normatif : à partir de la clé client, de l'identité, du fingerprint et du transport, rend le {@link IdempotencyVerdict} à appliquer. La réservation (`store.begin`) est **atomique** (mono-threa…"
     },
     "IDEMPOTENCY_KEY_MAX": {
       "name": "IDEMPOTENCY_KEY_MAX",
@@ -6083,6 +6083,47 @@
       "module": "@nodefony/framework",
       "description": "Borne d'une clé d'idempotence (convention Stripe). Une clé est un identifiant court (UUID) ; au-delà, elle est traitée comme ABSENTE (anti-DoS du cache borné)."
     },
+    "IIdempotencyStoreFactoryContext": {
+      "name": "IIdempotencyStoreFactoryContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Registre de **fabriques de stores d'idempotence DISTRIBUÉS** — résout le nom configuré (`framework.idempotency.store`) vers une instance d' {@link IIdempotencyStore}, SANS coupler le framework à un…"
+    },
+    "IdempotencyStoreFactory": {
+      "name": "IdempotencyStoreFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Fabrique d'un store d'idempotence pour un nom donné."
+    },
+    "registerIdempotencyStore": {
+      "name": "registerIdempotencyStore",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Enregistre (ou remplace) la fabrique d'un store d'idempotence distribué. Appelée par l'application pour les adapters (`redis`/`drizzle`)."
+    },
+    "getIdempotencyStoreFactory": {
+      "name": "getIdempotencyStoreFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Fabrique d'un store par nom, ou `undefined` si inconnu."
+    },
+    "listIdempotencyStores": {
+      "name": "listIdempotencyStores",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Noms de stores distribués enregistrés (validation boot, introspection Studio, tests). N'inclut PAS `\"memory\"` (défaut implicite via `@services`, hors registre)."
+    },
     "createKernelAdminApi": {
       "name": "createKernelAdminApi",
       "kind": "function",
@@ -6090,6 +6131,28 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
+    },
+    "RedisIdempotencyStore": {
+      "name": "RedisIdempotencyStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "implements": [
+        "IIdempotencyStore"
+      ],
+      "decorators": [],
+      "description": "Store d'idempotence **Redis** (node-redis v6) — implémentation distribuée d'{@link IIdempotencyStore} pour le cluster (dédup des mutations rejouées PARTAGÉE cross-pod, là où l'impl mémoire par défa…"
+    },
+    "RedisIdempotencyClientLike": {
+      "name": "RedisIdempotencyClientLike",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Sous-ensemble structural du client `redis` v6 utilisé par le store — permet de tester contre un double déterministe sans serveur (le vrai `RedisClientType` satisfait cette forme par ses méthodes ca…"
     },
     "Resolver": {
       "name": "Resolver",
@@ -15882,7 +15945,8 @@
         "AdminBroker"
       ],
       "IIdempotencyStore": [
-        "MemoryIdempotencyStore"
+        "MemoryIdempotencyStore",
+        "RedisIdempotencyStore"
       ],
       "IController": [
         "Controller"
@@ -16562,6 +16626,7 @@
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
@@ -16797,6 +16862,25 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "FrameworkConfigInput": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "FrameworkConfig": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts"
+      ],
+      "getIdempotencyStoreFactory": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "registerIdempotencyStore": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "listIdempotencyStores": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "RedisIdempotencyStore": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "RedisIdempotencyClientLike": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "Router": [
@@ -18928,12 +19012,15 @@
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "IdempotentResponse": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts"
+        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
       ],
       "isAdminGranted": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
@@ -19058,7 +19145,8 @@
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
       ],
       "IdempotencyOutcome": [
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts"
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
       ],
       "isDomainAllowed": [
         "src/packages/@nodefony/framework/nodefony/service/router.ts",

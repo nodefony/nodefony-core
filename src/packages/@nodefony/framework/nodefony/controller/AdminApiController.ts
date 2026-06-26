@@ -122,7 +122,7 @@ class AdminApiController extends Controller {
     // par socket (qui reconnecte/rejoue), OPTIONNELLE en HTTP. La porte
     // court-circuite (400 clé requise WS / 409 in-flight / réponse mémorisée
     // d'un rejeu) ou laisse passer en mémorisant le résultat à la sortie.
-    const gate = this.idempotencyGate(adminRoute, request);
+    const gate = await this.idempotencyGate(adminRoute, request);
     if (gate.shortCircuit) return gate.shortCircuit;
 
     // ── Exécution du handler ─────────────────────────────────────────────────
@@ -134,10 +134,10 @@ class AdminApiController extends Controller {
         headers: n.headers,
         body: n.body,
       };
-      gate.onSuccess?.(resp); // mémorise pour les rejeux (fresh uniquement)
+      await gate.onSuccess?.(resp); // mémorise pour les rejeux (fresh uniquement)
       return resp;
     } catch (e) {
-      gate.onFailure?.(); // libère la clé in-flight → un échec reste réessayable
+      await gate.onFailure?.(); // libère la clé in-flight → un échec reste réessayable
       this.log(e as Error, "ERROR");
       return { status: 500, body: { error: "Internal admin handler error" } };
     }
@@ -155,21 +155,21 @@ class AdminApiController extends Controller {
    * `required: false` → l'admin n'exige la clé qu'en WS (porté par `isWs` dans le
    * helper) ; en HTTP, une mutation sans clé s'exécute directement (historique).
    */
-  private idempotencyGate(
+  private async idempotencyGate(
     adminRoute: IAdminRoute,
     request: IAdminRequest,
-  ): {
+  ): Promise<{
     shortCircuit?: {
       status: number;
       headers?: IAdminResponse["headers"];
       body: unknown;
     };
-    onSuccess?: (resp: IdempotentResponse) => void;
-    onFailure?: () => void;
-  } {
+    onSuccess?: (resp: IdempotentResponse) => void | Promise<void>;
+    onFailure?: () => void | Promise<void>;
+  }> {
     if (adminRoute.method === "GET") return {};
     const store = this.get<IIdempotencyStore>("idempotencyStore");
-    const verdict = evaluateIdempotency({
+    const verdict = await evaluateIdempotency({
       store,
       identity: resolveIdentity(request.user),
       clientKey: request.idempotencyKey,

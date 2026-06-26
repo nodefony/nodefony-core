@@ -454,7 +454,7 @@ class Resolver implements IResolver {
     const store = context.container?.get("idempotencyStore") as
       | IIdempotencyStore
       | undefined;
-    const verdict = evaluateIdempotency({
+    const verdict = await evaluateIdempotency({
       store,
       identity: resolveIdentity(als?.user),
       clientKey: resolveIdempotencyKey(
@@ -507,10 +507,10 @@ class Resolver implements IResolver {
       const status =
         (context.response as HttpResponse | Http2Response | null)?.statusCode ??
         200;
-      store?.complete(verdict.key, { status, body: resolved });
+      await store?.complete(verdict.key, { status, body: resolved });
       return this._handleRedirect(resolved, redirectMeta);
     } catch (e) {
-      store?.abort(verdict.key);
+      await store?.abort(verdict.key);
       throw e;
     }
   }

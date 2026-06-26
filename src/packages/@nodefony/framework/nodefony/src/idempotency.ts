@@ -126,8 +126,10 @@ export function computeFingerprint(parts: unknown): string {
 
 /**
  * Cœur normatif : à partir de la clé client, de l'identité, du fingerprint et du
- * transport, rend le {@link IdempotencyVerdict} à appliquer. Mono-thread JS →
- * `store.begin` ne s'entrelace pas (réservation atomique).
+ * transport, rend le {@link IdempotencyVerdict} à appliquer. La réservation
+ * (`store.begin`) est **atomique** (mono-thread JS côté mémoire, `SET … NX` côté
+ * Redis) ; le store peut être sync (mémoire) ou async (distribué) → `begin` est
+ * `await`é, d'où le retour `Promise<IdempotencyVerdict>`.
  *
  * Le `required` **effectif** = `required || isWs` : une mutation par socket exige
  * TOUJOURS une clé (le WS reconnecte/rejoue → muter sans garde-fou exposerait au
@@ -137,7 +139,7 @@ export function computeFingerprint(parts: unknown): string {
  *  - `@Idempotent()` : `required=true` (strict) → exige la clé même en HTTP ;
  *  - `@Idempotent({required:false})` : souple en HTTP, mais toujours strict en WS.
  */
-export function evaluateIdempotency(opts: {
+export async function evaluateIdempotency(opts: {
   /**
    * Store résolu, ou `null`/`undefined` (service absent → dégrade en exécution
    * directe). Accepte les deux : `Controller.get()` renvoie `null`, un
@@ -154,7 +156,7 @@ export function evaluateIdempotency(opts: {
   isWs: boolean;
   /** Exigence déclarée d'une clé (mode strict). */
   required: boolean;
-}): IdempotencyVerdict {
+}): Promise<IdempotencyVerdict> {
   const requiredEffective = opts.required || opts.isWs;
   if (!opts.clientKey) {
     if (requiredEffective) {
@@ -178,7 +180,7 @@ export function evaluateIdempotency(opts: {
   // sans séparateur magique). Une Idempotency-Key identifie l'INTENTION d'un
   // appelant → scope (identité, clé).
   const key = JSON.stringify([opts.identity, opts.clientKey]);
-  const outcome = opts.store.begin(key, opts.fingerprint);
+  const outcome = await opts.store.begin(key, opts.fingerprint);
   switch (outcome.state) {
     case "mismatch":
       // draft §2.7 : clé réutilisée avec un autre payload → 422 (RFC 9110 §15.5.21).
