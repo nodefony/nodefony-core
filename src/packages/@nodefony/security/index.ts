@@ -10,6 +10,7 @@ import WebAuthnService from "./nodefony/service/webAuthn";
 import OAuth2Service from "./nodefony/service/oauth2";
 import ApiKeyService from "./nodefony/service/apiKeys";
 import AuditService from "./nodefony/service/auditService";
+import TotpService from "./nodefony/service/totp";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import { registerUserAdminApi } from "@nodefony/user";
 import { registerUserRevocationCascade } from "./nodefony/src/admin/userRevocationCascade";
@@ -50,6 +51,7 @@ declare module "nodefony" {
   WebAuthnService,
   OAuth2Service,
   AuditService,
+  TotpService,
 ])
 class Security extends Module {
   constructor(kernel: Kernel) {
@@ -102,6 +104,7 @@ export { Authorization };
 export { WebAuthnService };
 export { OAuth2Service };
 export { AuditService };
+export { TotpService };
 export type { ISafeUser } from "./nodefony/service/authFlow";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
 export type {
@@ -236,6 +239,31 @@ export {
   registerSecurityAdminApi,
   parseAuditQuery,
 } from "./nodefony/src/admin/SecurityAdminApi";
+
+// ─── 2FA TOTP (P6.17, RFC 6238) — secret chiffré + store pluggable ───────────
+export { MemoryTotpSecretStore } from "./nodefony/src/totp/MemoryTotpSecretStore";
+export type { TotpStoreSnapshot } from "./nodefony/src/totp/MemoryTotpSecretStore";
+export { FileTotpSecretStore } from "./nodefony/src/totp/FileTotpSecretStore";
+export {
+  registerTotpStore,
+  getTotpStoreFactory,
+  listTotpStores,
+} from "./nodefony/src/totp/totpSecretStoreRegistry";
+export type {
+  TotpStoreFactory,
+  ITotpStoreFactoryContext,
+} from "./nodefony/src/totp/totpSecretStoreRegistry";
+export type { ITotpSecret } from "./nodefony/contracts/ITotpSecret";
+export type {
+  ITotpSecretStore,
+  TotpSecretUpdate,
+} from "./nodefony/contracts/ITotpSecretStore";
+export type {
+  ITotpEnrollment,
+  ITotpActivation,
+  ITotpStatus,
+  ITotpLoginResult,
+} from "./nodefony/src/totp/totpOperations";
 
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
 export { defineSecurityConfig } from "./nodefony/config/defineSecurityConfig";

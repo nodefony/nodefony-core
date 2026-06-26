@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-26T20:27:26.857Z",
+  "generated": "2026-06-26T20:45:06.246Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 959,
-    "symbols": 2208,
-    "classes": 305,
-    "interfaces": 579,
+    "files": 962,
+    "symbols": 2225,
+    "classes": 306,
+    "interfaces": 585,
     "types": 262,
     "enums": 3,
-    "functions": 540,
+    "functions": 550,
     "constants": 519
   },
   "symbols": {
@@ -9680,6 +9680,17 @@
       "extends": null,
       "description": "Réponse d'émission de jetons — nommage RFC 6749 §5.1 (snake_case, JSON). Le JWT part en `Authorization: Bearer`, JAMAIS en cookie ni en URL."
     },
+    "TotpService": {
+      "name": "TotpService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/totp.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "**2FA TOTP** (P6.17, RFC 6238) — service d'orchestration du second facteur. Coquille fine : au boot (si `totp.enabled`) il résout le **store** de secrets pluggable + la **clé de chiffrement** AES-2…"
+    },
     "WebAuthnService": {
       "name": "WebAuthnService",
       "kind": "class",
@@ -15187,6 +15198,38 @@
       "extends": null,
       "description": "Instantané sérialisable de l'état — base de la persistance fichier."
     },
+    "deriveTotpKey": {
+      "name": "deriveTotpKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Dérive une clé AES-256 (32 octets) d'un matériel de clé applicatif via HKDF-SHA256 (RFC 5869). Accepte toute longueur/forme (passphrase, hex, base64) sans jamais l'utiliser brute comme clé AES. **D…"
+    },
+    "generateEphemeralKey": {
+      "name": "generateEphemeralKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Génère une clé éphémère 32 octets (dev sans clé configurée — non persistée)."
+    },
+    "encryptSecret": {
+      "name": "encryptSecret",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Chiffre un secret en clair → blob opaque versionné (IV aléatoire à chaque appel)."
+    },
+    "decryptSecret": {
+      "name": "decryptSecret",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Déchiffre un blob produit par {@link encryptSecret}. Lève si le format/version est invalide, le blob tronqué, ou le tag GCM non valide (altération OU mauvaise clé — GCM ne distingue pas les deux, p…"
+    },
     "ITotpOptions": {
       "name": "ITotpOptions",
       "kind": "interface",
@@ -15317,6 +15360,91 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Paramètres TOTP — défauts interopérables (Google Authenticator)."
+    },
+    "ITotpDeps": {
+      "name": "ITotpDeps",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Dépendances résolues d'une opération TOTP — **injectées** (store, clé de chiffrement, horloge) pour rendre toute la logique métier testable sans kernel ni serveur. `TotpService` les résout au boot …"
+    },
+    "ITotpEnrollment": {
+      "name": "ITotpEnrollment",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Données d'enrôlement présentées **une seule fois** (QR + saisie manuelle)."
+    },
+    "ITotpActivation": {
+      "name": "ITotpActivation",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Résultat de l'activation — codes de récupération **clairs**, affichés 1×."
+    },
+    "ITotpStatus": {
+      "name": "ITotpStatus",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "État 2FA d'un utilisateur (UI self-service / Studio)."
+    },
+    "ITotpLoginResult": {
+      "name": "ITotpLoginResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Résultat d'une vérification de second facteur au login."
+    },
+    "beginTotpEnrollment": {
+      "name": "beginTotpEnrollment",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Démarre l'enrôlement : génère un secret aléatoire, le **chiffre** au repos et l'enregistre en attente de confirmation (`confirmedAt: null`). Retourne le secret en clair (base32 + URI) — **seul mome…"
+    },
+    "confirmTotpEnrollment": {
+      "name": "confirmTotpEnrollment",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Confirme l'enrôlement : vérifie un 1ᵉʳ code généré par l'app, **active** le 2FA et génère les codes de récupération (retournés clairs 1×, hachés au repos). Le step de confirmation est marqué consom…"
+    },
+    "verifyTotpLogin": {
+      "name": "verifyTotpLogin",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Vérifie un second facteur au login : d'abord un code TOTP (fenêtre ±window, **anti-rejeu** via `lastUsedStep`), à défaut un code de récupération (consommé, usage unique). Retourne `ok: false` si le…"
+    },
+    "disableTotp": {
+      "name": "disableTotp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Désactive le 2FA (retire le secret et les codes de récupération)."
+    },
+    "totpStatus": {
+      "name": "totpStatus",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "État 2FA d'un utilisateur (absent / pending / activé + codes restants)."
     },
     "ITotpStoreFactoryContext": {
       "name": "ITotpStoreFactoryContext",
@@ -15953,6 +16081,7 @@
         "Firewall",
         "OAuth2Service",
         "TokenService",
+        "TotpService",
         "WebAuthnService",
         "ServerHttp",
         "ServerHttps",
@@ -16607,6 +16736,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -16662,6 +16792,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -16725,6 +16856,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -17011,6 +17143,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -17947,6 +18080,9 @@
       "AuditService": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "TotpService": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "registerSecurityAdminApi": [
         "src/packages/@nodefony/security/index.ts"
       ],
@@ -17962,6 +18098,7 @@
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
       "securityConfigJsonSchema": [
@@ -20221,6 +20358,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
       "IToken": [
@@ -20289,12 +20427,14 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "TotpAlgorithm": [
-        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts"
+        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
       "ITotpSecret": [
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
@@ -20302,6 +20442,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
@@ -20532,6 +20673,51 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "ITotpSecretStore": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
+      ],
+      "getTotpStoreFactory": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "deriveTotpKey": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "generateEphemeralKey": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "ITotpDeps": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "ITotpEnrollment": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "ITotpActivation": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "ITotpStatus": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "ITotpLoginResult": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "beginTotpEnrollment": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "confirmTotpEnrollment": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "verifyTotpLogin": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "disableTotp": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "totpStatus": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
       ],
       "getWebAuthnStoreFactory": [
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
@@ -22187,9 +22373,32 @@
         "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
       ],
-      "ITotpSecretStore": [
-        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
+      "base32Encode": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "buildOtpauthUri": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "generateRecoveryCodes": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "generateTotpSecret": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "hashRecoveryCode": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "matchRecoveryCode": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "verifyTotp": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "decryptSecret": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "encryptSecret": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
       "FileTotpSecretStore": [
         "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
