@@ -207,21 +207,26 @@ export function TwoFactorModal({
               if (!submitting) void confirm(code);
             }}
           >
-            <Stack gap="sm" align="center">
-              <PinInput
-                length={6}
-                type="number"
-                inputType="tel"
-                inputMode="numeric"
-                oneTimeCode
-                autoFocus
-                value={code}
-                disabled={submitting}
-                onChange={setCode}
-                onComplete={(v) => {
-                  if (!submitting) void confirm(v);
-                }}
-              />
+            <Stack gap="sm">
+              <Group justify="center" w="100%">
+                <PinInput
+                  length={6}
+                  type="number"
+                  inputType="tel"
+                  inputMode="numeric"
+                  oneTimeCode
+                  autoFocus
+                  size="lg"
+                  gap="md"
+                  styles={{ input: { textAlign: "center" } }}
+                  value={code}
+                  disabled={submitting}
+                  onChange={setCode}
+                  onComplete={(v) => {
+                    if (!submitting) void confirm(v);
+                  }}
+                />
+              </Group>
               <Box mih={22} aria-live="polite">
                 {error && (
                   <Group gap={6} c="red">

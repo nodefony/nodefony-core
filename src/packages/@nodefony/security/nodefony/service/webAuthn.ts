@@ -356,6 +356,25 @@ class WebAuthnService extends Service {
     return this.#store!.delete(credentialId);
   }
 
+  /**
+   * Supprime un credential **du propriétaire** (self-service, anti-IDOR) : la
+   * suppression n'aboutit que si le credential appartient bien à `userId`, sinon
+   * `false` — 404 indiscernable côté client (on ne révèle pas l'existence d'un
+   * credential d'autrui).
+   */
+  async removeUserCredential(
+    userId: string,
+    credentialId: string,
+  ): Promise<boolean> {
+    this.#ensureReady();
+    const cred = await this.#store!.findById(credentialId);
+    if (!cred || cred.userId !== userId) {
+      return false;
+    }
+    await this.#store!.delete(credentialId);
+    return true;
+  }
+
   // ── Internes ─────────────────────────────────────────────────────────────────
 
   /**

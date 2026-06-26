@@ -34,6 +34,16 @@ export interface IWebAuthnService {
     expectedChallenge: string,
     requestOrigin?: string,
   ): Promise<{ userId: string }>;
+  listUserCredentials(userId: string): Promise<
+    Array<{
+      id: string;
+      transports: string[];
+      backupState: boolean;
+      createdAt: number;
+      lastUsedAt: number | null;
+    }>
+  >;
+  removeUserCredential(userId: string, credentialId: string): Promise<boolean>;
 }
 
 /** Vue minimale d'une session — porte le challenge de cérémonie (anti-replay). */
@@ -172,6 +182,46 @@ class WebAuthnController extends Controller {
     }
   }
 
+  /** Liste les passkeys de l'utilisateur courant (console « mes appareils »). */
+  async listCredentials() {
+    const svc = this.#service();
+    const flow = this.#flow();
+    if (!svc || !flow) {
+      return this.renderJson({ error: "WebAuthn unavailable" }, 503);
+    }
+    const me = await flow.me(this.context as ContextType);
+    if (!me) return this.renderJson({ error: "Unauthorized" }, 401);
+    const creds = await svc.listUserCredentials(me.username);
+    return this.renderJson({
+      credentials: creds.map((c) => ({
+        id: c.id,
+        transports: c.transports,
+        backupState: c.backupState,
+        createdAt: c.createdAt,
+        lastUsedAt: c.lastUsedAt,
+      })),
+    });
+  }
+
+  /** Supprime une passkey DU porteur courant (sinon 404 — anti-IDOR/anti-énumération). */
+  async removeCredential(id: unknown) {
+    const svc = this.#service();
+    const flow = this.#flow();
+    if (!svc || !flow) {
+      return this.renderJson({ error: "WebAuthn unavailable" }, 503);
+    }
+    const me = await flow.me(this.context as ContextType);
+    if (!me) return this.renderJson({ error: "Unauthorized" }, 401);
+    if (typeof id !== "string" || id.length === 0) {
+      return this.renderJson({ error: "Not found" }, 404);
+    }
+    const ok = await svc.removeUserCredential(me.username, id);
+    if (!ok) {
+      return this.renderJson({ error: "Not found" }, 404);
+    }
+    return this.renderJson({ ok: true });
+  }
+
   // ── Internes ─────────────────────────────────────────────────────────────────
 
   #service(): IWebAuthnService | null {
@@ -219,42 +269,61 @@ class WebAuthnController extends Controller {
 export function mountWebAuthnRoutes(frameworkModule: Module): void {
   if (mounted) return;
   const base = "/nodefony/security/api/webauthn";
-  const routes: Array<[string, string, HTTPMethod, string]> = [
+  const routes: Array<[string, string, HTTPMethod, string, boolean]> = [
+    // Cérémonies : SONT (ou précèdent) le mécanisme d'auth → bypassFirewall (login
+    // = pas encore loggé ; register vérifie la session lui-même). Cf mountSessionAuthRoutes.
     [
       "security.webauthn.register.options",
       `${base}/register/options`,
       "POST",
       "registerOptions",
+      true,
     ],
     [
       "security.webauthn.register.verify",
       `${base}/register/verify`,
       "POST",
       "registerVerify",
+      true,
     ],
     [
       "security.webauthn.login.options",
       `${base}/login/options`,
       "POST",
       "loginOptions",
+      true,
     ],
     [
       "security.webauthn.login.verify",
       `${base}/login/verify`,
       "POST",
       "loginVerify",
+      true,
+    ],
+    // Self-service « mes passkeys » : session BFF REQUISE (≠ login) → PAS de bypass,
+    // l'aire data plane garde ces routes (lister / supprimer SES propres clés).
+    [
+      "security.webauthn.credentials.list",
+      `${base}/credentials`,
+      "GET",
+      "listCredentials",
+      false,
+    ],
+    [
+      "security.webauthn.credentials.remove",
+      `${base}/credentials/{id}`,
+      "DELETE",
+      "removeCredential",
+      false,
     ],
   ];
-  for (const [name, path, method, classMethod] of routes) {
+  for (const [name, path, method, classMethod, bypass] of routes) {
     Router.createRoute(name, {
       path,
       constructor: WebAuthnController as unknown as Controller["constructor"],
       classMethod,
       requirements: { methods: [method] },
-      // Ces routes SONT (ou précèdent) le mécanisme d'auth : l'aire data plane
-      // ne peut pas les garder (login = pas encore loggé ; register vérifie la
-      // session lui-même). Cf `mountSessionAuthRoutes`.
-      bypassFirewall: true,
+      bypassFirewall: bypass,
     });
   }
   if (

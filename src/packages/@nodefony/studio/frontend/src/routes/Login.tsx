@@ -717,23 +717,27 @@ export const Login = observer(() => {
                   </Stack>
                 </form>
               ) : (
-                <Stack gap="md" align="center">
-                  <PinInput
-                    length={6}
-                    type="number"
-                    inputType="tel"
-                    inputMode="numeric"
-                    oneTimeCode
-                    autoFocus
-                    size="md"
-                    aria-label="Code à 6 chiffres"
-                    value={code}
-                    disabled={busy}
-                    onChange={setCode}
-                    onComplete={(v) => {
-                      if (!busy && !throttled) void runMfaFlow(v);
-                    }}
-                  />
+                <Stack gap="md">
+                  <Group justify="center" w="100%">
+                    <PinInput
+                      length={6}
+                      type="number"
+                      inputType="tel"
+                      inputMode="numeric"
+                      oneTimeCode
+                      autoFocus
+                      size="lg"
+                      gap="md"
+                      styles={{ input: { textAlign: "center" } }}
+                      aria-label="Code à 6 chiffres"
+                      value={code}
+                      disabled={busy}
+                      onChange={setCode}
+                      onComplete={(v) => {
+                        if (!busy && !throttled) void runMfaFlow(v);
+                      }}
+                    />
+                  </Group>
                   <Button
                     fullWidth
                     size="md"

@@ -52,6 +52,7 @@ import {
   type ChangePasswordInput,
 } from "./profile/profileModel";
 import { TwoFactorCard } from "./profile/TwoFactorCard";
+import { PasskeyCard } from "./profile/PasskeyCard";
 
 export const Profile = observer(() => {
   const store = useStore();
@@ -256,6 +257,9 @@ export const Profile = observer(() => {
       {/* 2FA TOTP — sécurité forte recommandée (compte à mot de passe uniquement :
           c'est le 2ᵉ facteur du login mot de passe). */}
       {hasPassword && <TwoFactorCard />}
+
+      {/* Passkeys / empreintes — login sans mot de passe (tout compte, y c. OAuth). */}
+      <PasskeyCard />
 
       {/* Mot de passe : ZONE DANGER (changer) si compte local ; sinon info OAuth. */}
       {hasPassword ? (
