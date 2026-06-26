@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.30.0
+version: 1.31.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1668,6 +1668,31 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.31.0** (2026-06-26) — **`RedisIdempotencyStore` — store d'idempotence DISTRIBUÉ cross-pod (P6.8, axe 3)**
+  (commits `b90cccc2` + `7578978d` POUSSÉS). **Contrat `IIdempotencyStore` rendu ASYNC** : `begin/complete/abort`
+  → `T | Promise<T>` (union) ; `MemoryIdempotencyStore` reste **SYNC** (0 microtask, 0 régression hot path) ;
+  `evaluateIdempotency` devient `async`, les 2 seams (`Resolver._callWithIdempotency` + `AdminApiController.idempotencyGate`)
+  `await` verdict + complete/abort. **`RedisIdempotencyStore` vit dans `@nodefony/framework`** (PAS `@nodefony/redis` —
+  correction user) : **calqué sur `RedisBackplane` de `@nodefony/realtime`**, résout le service `redis` **par nom,
+  structurellement** (`container.get("redis").getClient("main")`, client générique `set/get/del` NX/PX) → **0 import
+  `@nodefony/redis`, 0 cycle** ; `SET NX PX` = réservation atomique cross-pod + TTL natif → `gc()` superflu ; `complete`
+  relit l'in-flight pour PRÉSERVER le fingerprint (mismatch 422 conservé post-complétion, draft §2.7) ; dégradation
+  gracieuse si client absent. **Câblage = split SÉLECTION/CONNEXION** : registre `idempotencyStoreRegistry` (framework,
+  façon `tokenStoreRegistry`/`backplaneRegistry`) + driver `redis` builtin enregistré dans `framework/index.ts` (comme
+  realtime register loopback/cluster/redis) + knob `idempotency.store` (`NF_IDEMPOTENCY_STORE`, schema Zod framework) ;
+  la CONNEXION vit dans `@nodefony/redis` (chargé à la demande `when NF_IDEMPOTENCY_STORE==="redis"`) — l'adaptateur ne
+  porte JAMAIS de config de connexion ; `registerIdempotencyStore` N'est PAS dans l'app. **Politique d'échec onKernelBoot**
+  (RETEX §11) : prod = **fatal** (rethrow → module `critical` → boot avorté, anti double-effet cluster) / dev/test mono-pod
+  = **WARNING fort + fallback mémoire** (ne casse pas le routeur) — ⚠️ un `throw` NU en onKernelBoot est avalé en **fail-soft**
+  par le guard Ph.3 (« framework dégradé/ignoré »), d'où le `try/catch` explicite. Banc démo `IdempotentDemoController`
+  (`/nodefony/test/secure/idempotent/bump`, Basic) + 2 e2e `.claude/skills/nodefony-load-test/scripts/idempotency-{userland,cluster}-e2e.mjs`.
+  Gates : framework unit **396** (store FakeRedis 13 + registre 5) + intég 96 · redis 50 · **mémoire 9/9** · typecheck 0.
+  **Preuves VRAI Redis 7** : store **6/6** (SET NX concurrent + cross-pod 2 instances/1 Redis) · e2e userland single-pod
+  **5/5** · **cross-worker cluster `-w 2` 4/4** (2 pids servent MAIS 1 clé déduplique vers 1 seul exécuteur = dédup
+  cross-worker `SET NX` ; `memory` per-pod en montrerait 2). RETEX §11 (adaptateur d'infra chez le consommateur via
+  résolution structurelle ; FakeRedis prouve la logique pas la valeur de l'infra → vrai Redis + différentiel ; throw
+  onKernelBoot = fail-soft ; contrat async sans régression = union + cold-path court-circuité). RESTE axe 3 :
+  `DrizzleIdempotencyStore` (multi-pod sans Redis, GC mutualisé). [[project_socket_mutations_idempotency_kit]].
 - **1.30.0** (2026-06-25, S5) — **`@Idempotent` userland + contrat idempotence au CORE (P6.8)** — étend l'anti
   double-effet (S4 admin) aux controllers métier. **Axe 1** : `IIdempotencyStore`/`IdempotencyOutcome`/
   `IdempotentResponse` déplacés `@nodefony/framework` → `nodefony` (`src/types/`) ; `interfaces/IIdempotencyStore.ts`
