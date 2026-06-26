@@ -28,21 +28,21 @@ export type OptionsSessionType = {
   name?: string;
   cookie?: CookieOptionsType;
   /** Strict mode : un identifiant inconnu du storage → nouvelle session (anti-fixation). */
-  use_strict_mode?: boolean;
+  strictMode?: boolean;
   /** Lie la session à l'hôte (méta `host`) — rejette un changement d'origine. */
-  referer_check?: boolean;
+  refererCheck?: boolean;
   /**
    * Absolute timeout (OWASP, secondes) : durée de vie MAX depuis la création,
    * indépendante de l'activité. Borne la fenêtre d'exploitation d'un identifiant
    * volé même sur session active. `0`/absent = désactivé (seul l'idle s'applique).
    */
-  absolute_timeout?: number;
+  absoluteTimeoutS?: number;
 };
 
 const defaultSessionOptions: OptionsSessionType = {
   name: "nodefony",
-  use_strict_mode: true,
-  referer_check: false,
+  strictMode: true,
+  refererCheck: false,
 };
 
 /** Taille de l'identifiant opaque (octets CSPRNG → base64url, 43 chars). */
@@ -180,7 +180,7 @@ class Session implements ISession {
       this.status = "active";
       return this;
     }
-    if (this.options.use_strict_mode) {
+    if (this.options.strictMode) {
       // Identifiant présent mais inconnu du storage → nouvelle session (anti-fixation).
       this.log(`SESSION strict_mode unknown id ==> ${this.name}`, "DEBUG");
       await this.invalidate();
@@ -357,7 +357,7 @@ class Session implements ISession {
   // ── Validation ────────────────────────────────────────────────────
 
   isValidSession(_data: ISerializedSession, context: ContextType): boolean {
-    if (this.options.referer_check) {
+    if (this.options.refererCheck) {
       try {
         return this.checkSecureReferer(context);
       } catch {
@@ -372,9 +372,9 @@ class Session implements ISession {
     // Absolute timeout (OWASP) : âge max depuis la CRÉATION, indépendant de
     // l'activité — un identifiant volé ne reste pas exploitable indéfiniment même
     // si la session est maintenue active artificiellement.
-    if (this.options.absolute_timeout && this.created) {
+    if (this.options.absoluteTimeoutS && this.created) {
       const age = now - new Date(this.created).getTime();
-      if (age > this.options.absolute_timeout * 1000) {
+      if (age > this.options.absoluteTimeoutS * 1000) {
         this.log(
           `SESSION EXPIRED (absolute) ==> ${this.name} : ${this.id}`,
           "WARNING",

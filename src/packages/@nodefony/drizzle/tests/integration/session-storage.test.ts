@@ -9,9 +9,9 @@ import {
   type SessionRow,
 } from "../../nodefony/entity/sessionEntity";
 
-/** Manager minimal (le storage n'utilise que `options.gc_maxlifetime` + `log`). */
+/** Manager minimal (le storage n'utilise que `options.maxLifetimeS` + `log`). */
 const fakeManager = {
-  options: { gc_maxlifetime: 3600, handler: "drizzle" },
+  options: { maxLifetimeS: 3600, handler: "drizzle" },
   log: () => {},
 } as unknown as SessionsService;
 

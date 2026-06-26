@@ -21,11 +21,11 @@ import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
  */
 class SessionStorage implements ISessionStorage {
   manager: SessionsService;
-  gc_maxlifetime: number;
+  maxLifetimeS: number;
 
   constructor(manager: SessionsService) {
     this.manager = manager;
-    this.gc_maxlifetime = manager.options.gc_maxlifetime;
+    this.maxLifetimeS = manager.options.maxLifetimeS;
   }
 
   /**
@@ -113,7 +113,7 @@ class SessionStorage implements ISessionStorage {
   }
 
   async open(): Promise<number> {
-    await this.gc(this.gc_maxlifetime);
+    await this.gc(this.maxLifetimeS);
     const repo = this.#repo();
     if (!repo) {
       return 0;
@@ -127,7 +127,7 @@ class SessionStorage implements ISessionStorage {
   }
 
   close(): boolean {
-    void this.gc(this.gc_maxlifetime);
+    void this.gc(this.maxLifetimeS);
     return true;
   }
 
@@ -143,7 +143,7 @@ class SessionStorage implements ISessionStorage {
   }
 
   async gc(maxlifetime?: number): Promise<void> {
-    const cutoff = Date.now() - (maxlifetime || this.gc_maxlifetime) * 1000;
+    const cutoff = Date.now() - (maxlifetime || this.maxLifetimeS) * 1000;
     const criteria: Record<string, unknown> = { updatedAt: { $lt: cutoff } };
     const repo = this.#repo();
     if (!repo) {

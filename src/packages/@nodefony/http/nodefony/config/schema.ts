@@ -670,7 +670,7 @@ const sessionSchema = z
       .describe(
         "Utilise les transactions pour le storage (handler `drizzle`).",
       ),
-    use_strict_mode: z
+    strictMode: z
       .boolean()
       .default(true)
       .describe(
@@ -689,7 +689,7 @@ const sessionSchema = z
         "Storage de session : nom d'un service DI ou handler enregistré " +
           "(`files` | `drizzle` | `mongoose`).",
       ),
-    save_path: z
+    savePath: z
       .string()
       .default("./tmp/sessions")
       .describe(
@@ -713,13 +713,13 @@ const sessionSchema = z
         "Étale le départ du gc d'un délai aléatoire (≤ 60 s) par process — évite " +
           "les balayages simultanés sur un store partagé en cluster (thundering herd).",
       ),
-    gc_maxlifetime: z
+    maxLifetimeS: z
       .number()
       .int()
       .positive()
       .default(1440)
       .describe("Durée de vie max d'une session inactive (s). 1440 = 24 min."),
-    absolute_timeout: z
+    absoluteTimeoutS: z
       .number()
       .int()
       .nonnegative()
@@ -728,7 +728,7 @@ const sessionSchema = z
         "Absolute timeout (OWASP, s) : âge MAX d'une session depuis sa création, " +
           "indépendant de l'activité. 0 = désactivé (seul l'idle s'applique).",
       ),
-    referer_check: z
+    refererCheck: z
       .boolean()
       .default(false)
       .describe("Vérifie que le Referer correspond au domaine courant."),

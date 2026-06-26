@@ -36,11 +36,11 @@ const finderGC = function (
 class FileSessionStorage implements ISessionStorage {
   manager: sessionService;
   path: string;
-  gc_maxlifetime: number;
+  maxLifetimeS: number;
   constructor(manager: sessionService) {
     this.manager = manager;
-    this.path = manager.options.save_path;
-    this.gc_maxlifetime = manager.options.gc_maxlifetime;
+    this.path = manager.options.savePath;
+    this.maxLifetimeS = manager.options.maxLifetimeS;
     // Racine de stockage garantie (un seul niveau, plus d'aire) — idempotent.
     try {
       fs.mkdirSync(this.path, { recursive: true });
@@ -73,7 +73,7 @@ class FileSessionStorage implements ISessionStorage {
         }
         return resolve(0);
       }
-      this.gc(this.gc_maxlifetime);
+      this.gc(this.maxLifetimeS);
       return new Finder().in(Path, {
         recurse: false,
         onFinish: (result: Result) => {
@@ -91,7 +91,7 @@ class FileSessionStorage implements ISessionStorage {
   }
 
   close(): boolean {
-    this.gc(this.gc_maxlifetime);
+    this.gc(this.maxLifetimeS);
     return true;
   }
 
@@ -118,7 +118,7 @@ class FileSessionStorage implements ISessionStorage {
   }
 
   async gc(maxlifetime?: number): Promise<void> {
-    const msMaxlifetime = (maxlifetime || this.gc_maxlifetime) * 1000;
+    const msMaxlifetime = (maxlifetime || this.maxLifetimeS) * 1000;
     if (fs.existsSync(this.path)) {
       finderGC.call(this, this.path, msMaxlifetime);
     }

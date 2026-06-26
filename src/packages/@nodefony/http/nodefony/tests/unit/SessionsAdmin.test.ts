@@ -108,7 +108,7 @@ describe("FileSessionStorage.listAll (unit, tmpdir)", () => {
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-sess-"));
     const manager = {
-      options: { save_path: dir, gc_maxlifetime: 3600 },
+      options: { savePath: dir, maxLifetimeS: 3600 },
       log: () => {},
     };
     storage = new FileSessionStorage(
@@ -383,7 +383,7 @@ describe("RevocationGuardStorage — révocation effective (anti-résurrection)"
     beforeEach(() => {
       dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-sess-revoke-"));
       const manager = {
-        options: { save_path: dir, gc_maxlifetime: 3600 },
+        options: { savePath: dir, maxLifetimeS: 3600 },
         log: () => {},
       };
       storage = new RevocationGuardStorage(
@@ -488,7 +488,7 @@ describe("Sessions — GC déterministe (runGc / scheduleGc / shutdownGc)", () =
   // serveur ni de DI). Le storage est un double qui observe les appels à gc().
   type GcTestable = {
     storage: unknown;
-    options: { gc_maxlifetime: number };
+    options: { maxLifetimeS: number };
     log: (...a: unknown[]) => void;
     gcRunning: boolean;
     gcStart: NodeJS.Timeout | null;
@@ -500,7 +500,7 @@ describe("Sessions — GC déterministe (runGc / scheduleGc / shutdownGc)", () =
   function makeService(storage: unknown): GcTestable {
     const svc = Object.create(SessionsService.prototype) as GcTestable;
     svc.storage = storage;
-    svc.options = { gc_maxlifetime: 1440 };
+    svc.options = { maxLifetimeS: 1440 };
     svc.log = () => {};
     svc.gcRunning = false;
     svc.gcStart = null;
@@ -508,7 +508,7 @@ describe("Sessions — GC déterministe (runGc / scheduleGc / shutdownGc)", () =
     return svc;
   }
 
-  it("runGc délègue au store avec gc_maxlifetime", async () => {
+  it("runGc délègue au store avec maxLifetimeS", async () => {
     const calls: (number | undefined)[] = [];
     const svc = makeService({
       gc: async (m?: number) => {

@@ -33,13 +33,13 @@ const MAX_SCAN = 10_000;
 class RedisSessionStorage implements ISessionStorage {
   manager: SessionsService;
   /** Durée de vie d'une session en secondes (= TTL Redis). */
-  gc_maxlifetime: number;
+  maxLifetimeS: number;
   /** Service Redis résolu en lazy (au 1ᵉʳ accès) depuis le container. */
   #service: RedisService | null = null;
 
   constructor(manager: SessionsService) {
     this.manager = manager;
-    this.gc_maxlifetime = manager.options.gc_maxlifetime;
+    this.maxLifetimeS = manager.options.maxLifetimeS;
   }
 
   /**
@@ -89,7 +89,7 @@ class RedisSessionStorage implements ISessionStorage {
       // SET … EX : TTL natif. Session glissante — le TTL est rafraîchi à chaque
       // write (toute requête qui touche la session repousse son expiration).
       await client.set(this.#key(id), JSON.stringify(payload), {
-        EX: this.gc_maxlifetime,
+        EX: this.maxLifetimeS,
       });
     }
     return payload;
@@ -99,7 +99,7 @@ class RedisSessionStorage implements ISessionStorage {
     // Redis expire les sessions seul (TTL) → pas de GC, pas de comptage (SCAN
     // serait O(keyspace)). On signale juste le backend actif au boot.
     this.manager.log(
-      `REDIS SESSIONS STORAGE ==> TTL natif (${this.gc_maxlifetime}s)`,
+      `REDIS SESSIONS STORAGE ==> TTL natif (${this.maxLifetimeS}s)`,
       "INFO",
     );
     return 0;

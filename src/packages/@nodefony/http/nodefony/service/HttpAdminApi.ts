@@ -14,7 +14,7 @@ import type { ISessionSummary } from "../interfaces/ISession";
 interface SessionsLike {
   sessionStrategy?: string;
   defaultSessionName?: string;
-  options?: { save_path?: string; gc_maxlifetime?: number; handler?: string };
+  options?: { savePath?: string; maxLifetimeS?: number; handler?: string };
   // Le storage actif est décoré par `RevocationGuardStorage` (garde-fou de
   // révocation) → `.inner` porte le store RÉEL (drizzle/files/redis/mongo).
   storage?: {
@@ -222,10 +222,10 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         const revocationHardened = inner !== null;
         // savePath/active n'ont de sens que pour un store FICHIER : le `driver`
         // config est la source fiable (drizzle/redis/mongo n'écrivent PAS de
-        // fichiers, même si un `save_path` traîne dans la config par défaut → on
+        // fichiers, même si un `savePath` traîne dans la config par défaut → on
         // ne l'exposerait pas, sinon le badge mentirait « drizzle · tmp/… »).
         const isFileStore = driver === "files";
-        const save = isFileStore ? svc.options?.save_path : undefined;
+        const save = isFileStore ? svc.options?.savePath : undefined;
         // Nb de fichiers de session (store fichier). 0 si dossier absent.
         const active = save
           ? await countSessionFiles(path.resolve(process.cwd(), save))
@@ -244,7 +244,7 @@ export function createHttpAdminApi(module: Module): IAdminApi {
           driver,
           storage,
           revocationHardened,
-          gcMaxlifetime: svc.options?.gc_maxlifetime ?? null,
+          gcMaxlifetime: svc.options?.maxLifetimeS ?? null,
           savePath,
           active,
         };

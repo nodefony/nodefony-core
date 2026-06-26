@@ -44,8 +44,8 @@ describe("@nodefony/http — httpConfigSchema (défauts)", () => {
     expect(c.session.gcIntervalS).to.equal(600);
     expect(c.session.gcJitter).to.equal(true);
     // `start` retiré (plus de démarrage global) : activation pilotée par
-    // l'intent @UseSession / cookie. `absolute_timeout` désactivé par défaut.
-    expect(c.session.absolute_timeout).to.equal(0);
+    // l'intent @UseSession / cookie. `absoluteTimeoutS` désactivé par défaut.
+    expect(c.session.absoluteTimeoutS).to.equal(0);
   });
 });
 

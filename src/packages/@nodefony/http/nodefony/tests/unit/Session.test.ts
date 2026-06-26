@@ -39,8 +39,8 @@ function makeManager(strategy = "migrate", storage?: ISessionStorage) {
 }
 
 const defaultOpts: OptionsSessionType = {
-  use_strict_mode: true,
-  referer_check: false,
+  strictMode: true,
+  refererCheck: false,
 };
 
 function makeSession(
@@ -373,7 +373,7 @@ describe("Session — unit tests", () => {
   });
 
   describe("isValidSession", () => {
-    it("true par défaut (referer_check off, pas d'expiration)", () => {
+    it("true par défaut (refererCheck off, pas d'expiration)", () => {
       expect(
         makeSession().isValidSession(
           {} as unknown as ISerializedSession,
@@ -400,8 +400,8 @@ describe("Session — unit tests", () => {
       ).to.equal(false);
     });
 
-    it("referer_check on : host == meta → true", () => {
-      const s = makeSession({ referer_check: true });
+    it("refererCheck on : host == meta → true", () => {
+      const s = makeSession({ refererCheck: true });
       s.setMetaBag("host", "good.example");
       const ctx = { getHost: () => "good.example" } as never;
       expect(
@@ -409,8 +409,8 @@ describe("Session — unit tests", () => {
       ).to.equal(true);
     });
 
-    it("referer_check on : host != meta → false (exception attrapée)", () => {
-      const s = makeSession({ referer_check: true });
+    it("refererCheck on : host != meta → false (exception attrapée)", () => {
+      const s = makeSession({ refererCheck: true });
       s.setMetaBag("host", "good.example");
       const ctx = { getHost: () => "evil.example" } as never;
       expect(
@@ -418,8 +418,8 @@ describe("Session — unit tests", () => {
       ).to.equal(false);
     });
 
-    it("absolute_timeout : false si l'âge depuis création dépasse (même sans idle)", () => {
-      const s = makeSession({ absolute_timeout: 1 }); // 1 s
+    it("absoluteTimeoutS : false si l'âge depuis création dépasse (même sans idle)", () => {
+      const s = makeSession({ absoluteTimeoutS: 1 }); // 1 s
       s.lifetime = 0; // idle désactivé → seul l'absolu joue
       s.created = new Date(Date.now() - 10_000); // créée il y a 10 s
       expect(
@@ -427,8 +427,8 @@ describe("Session — unit tests", () => {
       ).to.equal(false);
     });
 
-    it("absolute_timeout : true tant que l'âge reste sous le plafond", () => {
-      const s = makeSession({ absolute_timeout: 3600 });
+    it("absoluteTimeoutS : true tant que l'âge reste sous le plafond", () => {
+      const s = makeSession({ absoluteTimeoutS: 3600 });
       s.lifetime = 0;
       s.created = new Date(Date.now() - 10_000);
       expect(
@@ -436,8 +436,8 @@ describe("Session — unit tests", () => {
       ).to.equal(true);
     });
 
-    it("absolute_timeout = 0 (off) : une vieille session reste valide", () => {
-      const s = makeSession({ absolute_timeout: 0 });
+    it("absoluteTimeoutS = 0 (off) : une vieille session reste valide", () => {
+      const s = makeSession({ absoluteTimeoutS: 0 });
       s.lifetime = 0;
       s.created = new Date(0); // 1970 → ignoré car désactivé
       expect(

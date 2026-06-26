@@ -391,7 +391,7 @@ class SessionsService extends Service {
   }
 
   /**
-   * Exécute une passe de purge du store (`storage.gc(gc_maxlifetime)`) — point
+   * Exécute une passe de purge du store (`storage.gc(maxLifetimeS)`) — point
    * d'entrée public d'un ordonnanceur : le timer in-process l'appelle, mais un
    * futur worker cron (`session:gc` / k8s CronJob) peut l'appeler à sa place
    * (poser alors `gcIntervalS:0`). Anti-empilement (une seule passe concurrente) ;
@@ -402,7 +402,7 @@ class SessionsService extends Service {
     if (this.gcRunning || !this.storage) return; // pas d'empilement
     this.gcRunning = true;
     try {
-      await this.storage.gc(this.options.gc_maxlifetime);
+      await this.storage.gc(this.options.maxLifetimeS);
     } catch (e) {
       this.log(e as Error, "WARNING", "SESSION-GC");
     } finally {
