@@ -137,15 +137,21 @@ export const env = defineEnv({
   /**
    * Store d'idempotence (anti double-effet `@Idempotent` + data plane admin).
    * `memory` (défaut) = cache per-pod (la socket reste affine à son pod ; suffit
-   * en mono-pod). `redis` = store DISTRIBUÉ cross-pod (`SET NX` atomique + TTL
-   * natif → le 409 in-flight marche VRAIMENT en cluster multi-pod, façon Stripe) ;
-   * EXIGE que `@nodefony/redis` soit chargé (sinon le boot ÉCHOUE = fail-loud,
-   * jamais de dédup silencieuse). Reco prod multi-pod : `redis`.
+   * en mono-pod). Deux stores DISTRIBUÉS cross-pod (le 409 in-flight marche
+   * VRAIMENT en cluster multi-pod, façon Stripe) :
+   * - `redis` = `SET NX PX` atomique + TTL natif → EXIGE `@nodefony/redis` chargé ;
+   * - `drizzle` = réservation SQL atomique (`INSERT … ON CONFLICT DO UPDATE`) sur
+   *   la base applicative → pour un cluster qui a déjà du SQL mais pas de Redis
+   *   (GC applicatif, pas de TTL natif). Multi-pod réel = connecteur drizzle en
+   *   Postgres (en SQLite mono-fichier, `memory` suffit ; câblage actif en sqlite
+   *   pour l'app dev, fail-loud si l'ORM n'est pas en sqlite — cf chantier multi-dialecte).
+   * Un store distribué demandé mais non câblé → le boot ÉCHOUE (fail-loud, jamais
+   * de dédup silencieuse). Reco prod multi-pod : `redis` (ou `drizzle` si pas de Redis).
    */
-  NF_IDEMPOTENCY_STORE: envEnum(["memory", "redis"] as const, {
+  NF_IDEMPOTENCY_STORE: envEnum(["memory", "redis", "drizzle"] as const, {
     default: "memory",
     description:
-      "Cache d'idempotence : memory (per-pod) | redis (distribué cross-pod).",
+      "Cache d'idempotence : memory (per-pod) | redis | drizzle (distribués cross-pod).",
   }),
 
   /**

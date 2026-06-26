@@ -6,6 +6,9 @@ import indexController from "./nodefony/controllers/indexController";
 // Entité User (table `@nodefony/drizzle`) sur l'ORM Drizzle par défaut : enregistrée
 // au top-level → présente dans le entityRegistry avant le boot (table créée, ERD, profiler).
 import "./nodefony/entity/user";
+// Idempotence sur Drizzle (store distribué cross-pod, opt-in `NF_IDEMPOTENCY_STORE=drizzle`) :
+// enregistre l'entité (avant connect) + la fabrique (registre framework) au top-level.
+import "./nodefony/security/idempotencyStore";
 // Source d'identité de l'app : pose le service "users" au boot (cf. fichier).
 import { provisionUsers } from "./nodefony/security/provisionUsers";
 
