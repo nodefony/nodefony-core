@@ -17,6 +17,16 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 - ⚠️ **Défauts via `$defaultFn` (JS), PAS `.default()` SQL** : le DDL dérivé n'émet pas les DEFAULT → NOT NULL casserait.
 - ⚠️ Test cleanup : `entityRegistry.unregister("User", ORM)` **scopé** (sans orm = efface le bucket entier = contamine le banc P7.4).
 
+## Store idempotence Drizzle (axe 3, P6.8 — 2026-06-26)
+
+- `nodefony/entity/idempotencyEntity.ts` : `idempotencyKeyTable` (`key` PK, `fingerprint`, `state` `if|done`, `response` json nullable, `expiresAt` int NOT NULL + index) + `createIdempotencyEntities(orm)`/`registerIdempotencyEntities(orm)` (binding dynamique, **avant** connect) + `IdempotencyKeyRow` + `IDEMPOTENCY_ENTITY_NAME="idempotency_key"`. `module:"framework"` (ERD).
+- `nodefony/src/DrizzleIdempotencyStore.ts implements IIdempotencyStore` (contrat CORE `nodefony`, `import type` → 0 cycle). `.from(orm, now?, lease?, ttl?)`.
+- **begin = réservation ATOMIQUE = `SET NX PX` SQL** : `insert(...).onConflictDoUpdate({ target:key, set:{…if…}, setWhere: lt(expiresAt, now) }).returning({key})`. `returning.length>0` ⇒ **fresh** (INSERT clé neuve OU **vol** d'une entrée morte via le DO UPDATE WHERE expiré) ; `===0` ⇒ contention (clé vivante) → SELECT → in-flight/replayed/mismatch. **JAMAIS fresh hors réservation** = anti double-effet (l'invariant). Cf le `RETURNING` SQLite/PG ne rend une ligne QUE si insert/update a eu lieu.
+- complete = UPDATE `set done,response,expiresAt=now+ttl` WHERE `key AND state='if'` (**fingerprint NON touché** = préservé → mismatch 422 post-complétion). abort = DELETE WHERE `key AND state='if'`. gc(now) = DELETE `expiresAt<=now` → count (**pas de TTL natif SQL** → GC applicatif, à mutualiser GC session). size = `#pending` local best-effort (≠ cross-pod).
+- **Résolution LAZY** (calqué `RedisIdempotencyStore`) : ctor prend `() => DrizzleDb|null` ; `.from` = `() => orm.isConnected() ? orm.getNativeConnection<DrizzleDb>() : null`. Résout l'**ordre de boot** (framework résout le store à onKernelBoot, orm connecte à onBoot) + **shutdown** (gotcha SessionStorage). null → begin=fresh (sans dédup), complete/abort/gc=no-op.
+- **Approche B** (PAS d'auto-register) : l'app câble `registerIdempotencyStore("drizzle", ({module})=>DrizzleIdempotencyStore.from(module.kernel.container.get("drizzle").getOrm("default")))` (registre @nodefony/framework) + `registerIdempotencyEntities("default")` avant connect + knob `NF_IDEMPOTENCY_STORE=drizzle`. Framework `onKernelBoot` résout → override service `idempotencyStore` (prod fatal / dev fallback mémoire).
+- ⚠️ **SQLite = banc sémantique** (mono-fichier ≠ multi-pod). Cible réelle = **Postgres/MySQL**. Preuve cross-pod réelle = e2e Postgres (à faire). Test intégration **12** (verdicts, mismatch post-complétion, vol d'expiré in-flight+done, gc count, size, fail-soft handle null).
+
 ## Core Components
 
 - `DrizzleOrm extends Orm` : onConnect → `new BetterSqlite3(filename)` + `drizzle(client)`. Schema-as-code (entity.schema = table). DDL via `getTableConfig()`. tx manuelle. **`describeEntity(name)` (2026-05-22)** : colonnes normalisées via `getTableConfig().columns` (`name/getSQLType()/primary/!notNull/isUnique`) → alimente le data plane ORM/ERD/IA (orm-core). Le **module Drizzle** (`index.ts onKernelBoot`) appelle `registerOrmAdminApi(broker)` (idempotent) → monte `/nodefony/orm/api/*` (orm-core étant lib pure).
@@ -44,6 +54,6 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 ## Config
 
 - peerDeps: nodefony, @nodefony/http, @nodefony/orm-core, @nodefony/user. deps: drizzle-orm, better-sqlite3, **zod** (^4.4.3, ajouté à `external` rollup 2026-06-08).
-- Tests (vitest) : `npm test` = `tests/unit/config` (Zod, 6) + intégration banc orm-core (8) + jointure complexe (2) + SessionStorage IoC/CRUD (8) + **User P5.9 (8)** = **33**. Banc ADR-0002 User↔Room + age.
+- Tests (vitest) : `npm test` = **84** (10 fichiers) — config Zod, banc orm-core, jointure complexe, SessionStorage IoC/CRUD, User P5.9, token store, webauthn store, **idempotency store (12, 2026-06-26)**. Banc ADR-0002 User↔Room + age.
 - Load: `npm run test:load` (.mocharc.load.json, expose-gc) = 8 (charge/limites/mémoire). Insert 20k ~15k ops/s, scan ~1M/s, 30k cycles heapΔ 0.3MB, 300 conn heapΔ 0.1MB (0 fuite).
 - Charge SESSION runtime (skill load-test, route `/nodefony/test/rest/session/set/k/v`, HTTP/2) : 3000/80 = 409 RPS p99 282ms ; 5000/150 = 408 RPS p99 562ms ; 100% 200, delta sessions EXACT (0 perte/doublon), 0 erreur. **Plafond ~408 RPS = better-sqlite3 SYNCHRONE mono-connexion** (writes sérialisés) — pas un bug, Postgres/MySQL paralléliserait. Concurrence ↑ = latence ↑, pas débit.

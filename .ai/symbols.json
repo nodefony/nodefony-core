@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-26T09:54:15.916Z",
+  "generated": "2026-06-26T11:40:31.905Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 949,
-    "symbols": 2162,
-    "classes": 301,
-    "interfaces": 567,
+    "files": 951,
+    "symbols": 2168,
+    "classes": 302,
+    "interfaces": 568,
     "types": 258,
     "enums": 3,
-    "functions": 518,
-    "constants": 515
+    "functions": 520,
+    "constants": 517
   },
   "symbols": {
     "Cli": {
@@ -4887,6 +4887,47 @@
       "exported": true,
       "module": "@nodefony/drizzle"
     },
+    "IdempotencyKeyRow": {
+      "name": "IdempotencyKeyRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Forme plate d'une ligne du store d'idempotence (telle que renvoyée par le repository / `SELECT`). Identique aux colonnes de {@link idempotencyKeyTable} → zéro mapping store ↔ entité."
+    },
+    "createIdempotencyEntities": {
+      "name": "createIdempotencyEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit le descripteur d'entité du store d'idempotence pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM …"
+    },
+    "registerIdempotencyEntities": {
+      "name": "registerIdempotencyEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Enregistre l'entité du store d'idempotence dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
+    },
+    "idempotencyKeyTable": {
+      "name": "idempotencyKeyTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Table Drizzle du **store d'idempotence** distribué (schema-as-code) — implémentation SQL d'`IIdempotencyStore` (contrat au CORE) pour dédoublonner les **mutations** rejouées (reconnexion socket, do…"
+    },
+    "IDEMPOTENCY_ENTITY_NAME": {
+      "name": "IDEMPOTENCY_ENTITY_NAME",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Nom logique de l'entité (clé de lookup `getRepository` / `entityRegistry`)."
+    },
     "SessionEntity": {
       "name": "SessionEntity",
       "kind": "class",
@@ -5099,6 +5140,19 @@
       "implements": [],
       "decorators": [],
       "description": "Service bootable du module `@nodefony/drizzle`. Au boot du kernel (`onBoot`), instancie un {@link DrizzleOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le connecte ; chaque OR…"
+    },
+    "DrizzleIdempotencyStore": {
+      "name": "DrizzleIdempotencyStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "IIdempotencyStore"
+      ],
+      "decorators": [],
+      "description": "Store d'idempotence **Drizzle** (driver `better-sqlite3` en test, Postgres/MySQL en prod) — implémentation SQL d'{@link IIdempotencyStore} (contrat au CORE) pour dédoublonner les mutations rejouées…"
     },
     "DrizzleTokenStore": {
       "name": "DrizzleTokenStore",
@@ -15930,6 +15984,11 @@
         "HttpTransport",
         "SyslogTransport"
       ],
+      "IIdempotencyStore": [
+        "DrizzleIdempotencyStore",
+        "MemoryIdempotencyStore",
+        "RedisIdempotencyStore"
+      ],
       "ITokenStore": [
         "DrizzleTokenStore",
         "MongooseTokenStore",
@@ -15956,10 +16015,6 @@
       ],
       "IAdminBroker": [
         "AdminBroker"
-      ],
-      "IIdempotencyStore": [
-        "MemoryIdempotencyStore",
-        "RedisIdempotencyStore"
       ],
       "IController": [
         "Controller"
@@ -16697,6 +16752,7 @@
       "DrizzleOrm": [
         "src/modules/mediasoup/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts"
@@ -18480,6 +18536,7 @@
       ],
       "entityRegistry": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
@@ -18495,6 +18552,7 @@
       ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
@@ -18787,6 +18845,14 @@
       "DrizzleConfig": [
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts"
       ],
+      "IdempotentResponse": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
+      ],
       "entity": [
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts"
@@ -18824,6 +18890,32 @@
       ],
       "IDrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "IIdempotencyStore": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "IdempotencyOutcome": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
+      ],
+      "DrizzleDb": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
+      ],
+      "idempotencyKeyTable": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
+      ],
+      "IdempotencyKeyRow": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
       ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
@@ -18932,11 +19024,6 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
-      "DrizzleDb": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
-      ],
       "UserRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
@@ -19029,20 +19116,6 @@
       "IAdminRoute": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
-      ],
-      "IIdempotencyStore": [
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
-        "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "IdempotentResponse": [
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
       ],
       "isAdminGranted": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
@@ -19165,10 +19238,6 @@
       ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
-      ],
-      "IdempotencyOutcome": [
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
       ],
       "isDomainAllowed": [
         "src/packages/@nodefony/framework/nodefony/service/router.ts",

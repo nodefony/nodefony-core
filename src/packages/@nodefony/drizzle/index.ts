@@ -150,3 +150,17 @@ export {
 } from "./nodefony/entity/webAuthnCredentialEntity";
 export type { WebAuthnCredentialRow } from "./nodefony/entity/webAuthnCredentialEntity";
 export { DrizzleWebAuthnCredentialStore } from "./nodefony/src/DrizzleWebAuthnCredentialStore";
+
+// ─── Store d'idempotence Drizzle (IIdempotencyStore au CORE — multi-pod sans Redis) ─
+// Approche B (idem token/webauthn) : `import type` du contrat core, PAS d'auto-register.
+// L'app câble `registerIdempotencyStore("drizzle", …)` (registre @nodefony/framework) +
+// `registerIdempotencyEntities(orm)`. Réservation atomique = INSERT … ON CONFLICT DO
+// UPDATE … WHERE expiré (le `SET NX PX` SQL). GC applicatif (pas de TTL natif).
+export {
+  idempotencyKeyTable,
+  createIdempotencyEntities,
+  registerIdempotencyEntities,
+  IDEMPOTENCY_ENTITY_NAME,
+} from "./nodefony/entity/idempotencyEntity";
+export type { IdempotencyKeyRow } from "./nodefony/entity/idempotencyEntity";
+export { DrizzleIdempotencyStore } from "./nodefony/src/DrizzleIdempotencyStore";

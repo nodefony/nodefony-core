@@ -104,8 +104,55 @@ Convention structure (figée 2026-06-08) : **`nodefony/entity/` = schéma, `node
 - Sécurité : requêtes **paramétrées** (drizzle `sql\`…${x}\``, jamais de concat). Le credential
   (hash) transite par le repo = frontière de persistance assumée.
 
+## Store d'idempotence Drizzle (axe 3 P6.8 ✅ — 2026-06-26)
+
+Implémente `IIdempotencyStore` (contrat au **CORE** `nodefony`, `import type` → 0 cycle) :
+dédup des **mutations** rejouées PARTAGÉE cross-pod, sans Redis (pour un cluster qui a déjà
+une base). Convention-frère = `DrizzleTokenStore` (approche B) + `RedisIdempotencyStore` (logique idempotence).
+
+- **`nodefony/entity/idempotencyEntity.ts`** : `idempotencyKeyTable` (`key` PK, `fingerprint`,
+  `state` `if|done`, `response` json nullable, `expiresAt` int NOT NULL + index) + `createIdempotencyEntities(orm)`/
+  `registerIdempotencyEntities(orm)` (binding **dynamique**, **avant** connect) + `IdempotencyKeyRow`.
+- **`nodefony/src/DrizzleIdempotencyStore.ts`** : `begin` = **réservation atomique** =
+  `insert(...).onConflictDoUpdate({ target:key, set:{…if…}, setWhere: lt(expiresAt, now) }).returning({key})`.
+  Le `RETURNING` ne rend une ligne QUE si l'INSERT (clé neuve) ou le DO UPDATE (vol d'une entrée
+  **morte**) a eu lieu → `length>0` ⇒ `fresh` ; `===0` ⇒ contention (clé vivante) → SELECT →
+  `in-flight`/`replayed`/`mismatch`. **Jamais `fresh` hors réservation atomique = anti double-effet**
+  (= le `SET NX PX` Redis, en une instruction). `complete`/`abort` = UPDATE/DELETE conditionnels
+  `WHERE state='if'` (atomiques, `fingerprint` préservé). `gc(now)` = DELETE des expirées (pas de TTL
+  natif SQL → GC applicatif). **Résolveur LAZY** (`() => DrizzleDb|null`, garde `isConnected()`) →
+  ordre de boot + shutdown gérés ; `null` → fail-soft (begin=fresh sans dédup, reste no-op).
+
+**Câblage (approche B — l'app, comme le token store) — NON câblé par défaut** : activation =
+décision de déploiement (cluster multi-pod). Recette :
+
+```typescript
+// 1) sélection : NF_IDEMPOTENCY_STORE=drizzle (knob framework `idempotency.store`)
+// 2) entité (avant orm.connect()) :
+import {
+  registerIdempotencyEntities,
+  DrizzleIdempotencyStore,
+} from "@nodefony/drizzle";
+import { registerIdempotencyStore } from "@nodefony/framework";
+registerIdempotencyEntities("default");
+// 3) fabrique (registre framework) — résout l'ORM par NOM, lazy via .from :
+registerIdempotencyStore("drizzle", ({ module }) => {
+  const drizzle = module.kernel?.container?.get("drizzle"); // DrizzleService
+  const orm = drizzle?.getOrm("default");
+  if (!orm) throw new Error("@nodefony/drizzle not loaded");
+  return DrizzleIdempotencyStore.from(orm); // résolveur lazy → tolère l'ordre de boot
+});
+```
+
+> ⚠️ **SQLite = banc sémantique uniquement** (fichier mono-machine ≠ multi-pod). La cible RÉELLE est
+> **Postgres/MySQL** (changement de driver) ; `onConflictDoUpdate` couvre SQLite + Postgres (MySQL =
+> `onDuplicateKeyUpdate`, hors scope). La preuve cross-pod réelle = **e2e Postgres** (à faire) ; le
+> test SQLite (`tests/integration/idempotency-store.test.ts`, 12) prouve la **sémantique séquentielle**
+> (verdicts, mismatch post-complétion, vol d'expiré, gc, size, fail-soft).
+
 ## Roadmap
 
 - ✅ P7.4 adapter orm-core + ADR-0003 risque #3 résolu.
 - ✅ **P5.9 entité `User` Drizzle** (8 tests : CRUD + finders + tx + défauts). ORM par défaut → fait EN PREMIER (avant Mongoose P5.8).
-- ⬜ Postgres/MySQL drivers (changer le client + le dialecte de table).
+- ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests. e2e Postgres cross-pod = reste.
+- ⬜ Postgres/MySQL drivers (changer le client + le dialecte de table) → débloque l'idempotence cross-pod réelle.
