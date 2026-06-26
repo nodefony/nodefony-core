@@ -695,21 +695,23 @@ const sessionSchema = z
       .describe(
         "Chemin de stockage du handler `files` (relatif à la racine projet).",
       ),
-    gc_probability: z
+    gcIntervalS: z
       .number()
       .int()
-      .nonnegative()
-      .default(5)
+      .min(0)
+      .default(600)
       .describe(
-        "Numérateur de la probabilité de GC (gc_probability / gc_divisor).",
+        "Intervalle de purge des sessions expirées (s), exécutée HORS hot-path " +
+          "par un timer déterministe. 0 = timer désarmé (purge déléguée à un " +
+          "worker / k8s CronJob, ou TTL natif du store Redis). Remplace le tirage " +
+          "probabiliste PHP gc_probability/gc_divisor (famine à bas trafic + p99).",
       ),
-    gc_divisor: z
-      .number()
-      .int()
-      .positive()
-      .default(100)
+    gcJitter: z
+      .boolean()
+      .default(true)
       .describe(
-        "Dénominateur de la probabilité de GC. 5/100 = 5 % par requête.",
+        "Étale le départ du gc d'un délai aléatoire (≤ 60 s) par process — évite " +
+          "les balayages simultanés sur un store partagé en cluster (thundering herd).",
       ),
     gc_maxlifetime: z
       .number()
@@ -725,29 +727,6 @@ const sessionSchema = z
       .describe(
         "Absolute timeout (OWASP, s) : âge MAX d'une session depuis sa création, " +
           "indépendant de l'activité. 0 = désactivé (seul l'idle s'applique).",
-      ),
-    hash_function: z
-      .enum(["md5", "sha1"])
-      .default("sha1")
-      .describe(
-        "Algorithme de hachage des IDs de session. `sha1` (défaut, plus " +
-          "résistant aux collisions) | `md5`.",
-      ),
-    use_cookies: z
-      .boolean()
-      .default(true)
-      .describe("Transmet l'ID de session via les cookies (recommandé)."),
-    use_only_cookies: z
-      .boolean()
-      .default(true)
-      .describe(
-        "N'accepte l'ID QUE via cookies (anti session-fixation par URL).",
-      ),
-    use_trans_sid: z
-      .boolean()
-      .default(true)
-      .describe(
-        "Autorise l'ID en query string (clé = `name`) si `use_only_cookies` est false.",
       ),
     referer_check: z
       .boolean()

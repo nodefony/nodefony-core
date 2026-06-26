@@ -157,13 +157,18 @@ class SessionsService extends Service {
 
   sessionStrategy: sessionStrategyType = "migrate";
   storage: any = null;
-  gc_probability: number = 1;
-  gc_divisor: number = 100;
   module: Module;
   defaultSessionName: string = "nodefony";
   secret?: Buffer;
   iv?: Buffer;
   certificates: Certificate | null;
+  // GC déterministe (remplace le tirage probabiliste PHP gc_probability/divisor) —
+  // modèle unifié avec TokenService : la maintenance vit HORS du hot-path, est
+  // jittérée (désynchronise les pods d'un cluster sur un store partagé) et
+  // désarmable (`gcIntervalS:0` → délégation à un worker / k8s CronJob).
+  private gcStart: NodeJS.Timeout | null = null;
+  private gcTimer: NodeJS.Timeout | null = null;
+  private gcRunning = false;
   constructor(
     module: Module,
     @inject("HttpKernel") public httpKernel: HttpKernel,
@@ -176,13 +181,9 @@ class SessionsService extends Service {
     );
     this.module = module;
     this.certificates = this.get<Certificate>("certificates");
-    this.gc_probability =
-      this.options.gc_probability === "string"
-        ? parseInt(this.options.gc_probability, 10)
-        : this.options.gc_probability;
-    this.gc_divisor = this.options.gc_divisor;
     this.defaultSessionName = this.options.name;
     this.once("onTerminate", () => {
+      this.shutdownGc();
       if (this.storage) {
         this.storage.close();
       }
@@ -222,6 +223,12 @@ class SessionsService extends Service {
     );
     this.kernel?.on("onReady", async () => {
       await this.storage.open();
+      // Maintenance déterministe HORS hot-path : armée une fois le store ouvert,
+      // désarmée au onTerminate. Le scan ne tourne plus PENDANT une requête.
+      this.scheduleGc(
+        Number(this.options.gcIntervalS ?? 600),
+        this.options.gcJitter !== false,
+      );
     });
     return this.storage;
   }
@@ -270,17 +277,9 @@ class SessionsService extends Service {
       let inst = null;
       try {
         context.sessionStarting = true;
-        if (this.probaGarbage()) {
-          // GC opportuniste (probabiliste) en arrière-plan : fire-and-forget
-          // VOLONTAIRE — on ne bloque pas le démarrage de session pour ça. Mais
-          // sa promesse DOIT capturer ses rejets : sinon une erreur du storage
-          // (ex. ORM déconnecté pendant le shutdown du kernel, requête encore en
-          // vol) remonte en `unhandledRejection` et casse le process. L'échec
-          // d'un GC opportuniste se loggue, il ne crashe jamais.
-          void this.storage
-            .gc(this.options.gc_maxlifetime)
-            .catch((e: Error) => this.log(e, "WARNING", "SESSION-GC"));
-        }
+        // GC retiré du hot-path (était un tirage probabiliste PHP + scan
+        // fire-and-forget PENDANT la requête) → désormais un timer déterministe
+        // hors requête (voir scheduleGc/runGc). Un appel système de moins par start.
         inst = this.createSession(this.defaultSessionName);
         // Lecture seule (intent `@UseSession({ readOnly })`) : la session sera
         // reprise/lue mais jamais persistée (cf Session.save).
@@ -361,14 +360,66 @@ class SessionsService extends Service {
     this.sessionStrategy = strategy;
   }
 
-  probaGarbage(): boolean {
-    // Génère un nombre aléatoire entre 0 et 100
-    const random = Math.floor(Math.random() * 100) + 1;
-    // Si le nombre aléatoire est inférieur ou égal à gc_probability
-    if (random <= this.gc_probability) {
-      return true;
+  // ── GC déterministe (maintenance hors hot-path) ─────────────────────────────
+  // Modèle unifié avec TokenService : la purge ne vit JAMAIS dans le chemin d'une
+  // requête et n'est JAMAIS probabiliste (le reliquat PHP gc_probability/divisor
+  // affamait les serveurs à bas trafic et payait le scan p99 du 1/100 malchanceux).
+  // Hiérarchie de purge : TTL natif du store (Redis → gc() no-op) ; sinon timer
+  // jittéré in-process ; sinon délégation cron (`gcIntervalS:0` désarme le timer).
+
+  /**
+   * Arme le balayage périodique des sessions expirées. Délai de départ ≥ 30 s +
+   * jitter borné (≤ 60 s) — laisse passer le boot et décale les balayages entre
+   * process d'un cluster sur un store partagé (ORM/Mongo), sans coordination. Les
+   * timers sont `unref` (n'empêchent pas l'arrêt). `intervalS <= 0` → désarmé
+   * (purge déléguée à un worker externe / k8s CronJob, ou TTL natif du store).
+   */
+  private scheduleGc(intervalS: number, jitter: boolean): void {
+    if (intervalS <= 0 || !this.storage) return;
+    const base = intervalS * 1000;
+    const phase = jitter
+      ? Math.floor(Math.random() * Math.min(base, 60_000))
+      : 0;
+    this.gcStart = setTimeout(() => {
+      this.gcStart = null;
+      void this.runGc(); // rattrape l'accumulation du downtime au démarrage
+      const timer = setInterval(() => void this.runGc(), base);
+      timer.unref();
+      this.gcTimer = timer;
+    }, 30_000 + phase);
+    this.gcStart.unref();
+  }
+
+  /**
+   * Exécute une passe de purge du store (`storage.gc(gc_maxlifetime)`) — point
+   * d'entrée public d'un ordonnanceur : le timer in-process l'appelle, mais un
+   * futur worker cron (`session:gc` / k8s CronJob) peut l'appeler à sa place
+   * (poser alors `gcIntervalS:0`). Anti-empilement (une seule passe concurrente) ;
+   * **ne lève jamais** (store I/O down → WARNING loggé) pour ne pas tuer le
+   * déclencheur — un GC raté est retenté au tick suivant.
+   */
+  async runGc(): Promise<void> {
+    if (this.gcRunning || !this.storage) return; // pas d'empilement
+    this.gcRunning = true;
+    try {
+      await this.storage.gc(this.options.gc_maxlifetime);
+    } catch (e) {
+      this.log(e as Error, "WARNING", "SESSION-GC");
+    } finally {
+      this.gcRunning = false;
     }
-    return false;
+  }
+
+  /** Désarme les timers de gc (idempotent) — appelé au onTerminate. */
+  private shutdownGc(): void {
+    if (this.gcStart) {
+      clearTimeout(this.gcStart);
+      this.gcStart = null;
+    }
+    if (this.gcTimer) {
+      clearInterval(this.gcTimer);
+      this.gcTimer = null;
+    }
   }
 
   // ── Administration (data plane Studio /nodefony/http/api/sessions) ───────────

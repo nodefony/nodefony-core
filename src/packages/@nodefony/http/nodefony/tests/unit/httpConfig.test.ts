@@ -38,9 +38,11 @@ describe("@nodefony/http — httpConfigSchema (défauts)", () => {
     expect(c.websocketSecure.maxPayload).to.equal(1024 * 1024);
   });
 
-  it("session : handler files + hash_function sha1 (harmonisé)", () => {
+  it("session : handler files + GC déterministe (timer, plus de proba PHP)", () => {
     expect(c.session.handler).to.equal("files");
-    expect(c.session.hash_function).to.equal("sha1");
+    // GC moderne : timer déterministe hors hot-path (remplace gc_probability/divisor).
+    expect(c.session.gcIntervalS).to.equal(600);
+    expect(c.session.gcJitter).to.equal(true);
     // `start` retiré (plus de démarrage global) : activation pilotée par
     // l'intent @UseSession / cookie. `absolute_timeout` désactivé par défaut.
     expect(c.session.absolute_timeout).to.equal(0);
@@ -143,16 +145,15 @@ describe("@nodefony/http — validation (plante propre)", () => {
     expect(() => httpConfigSchema.parse({ session: { name: "" } })).to.throw();
   });
 
-  it("rejette un gc_divisor nul (doit être positif)", () => {
+  it("rejette un gcIntervalS négatif (0 = désarmé, < 0 invalide)", () => {
     expect(() =>
-      httpConfigSchema.parse({ session: { gc_divisor: 0 } }),
+      httpConfigSchema.parse({ session: { gcIntervalS: -1 } }),
     ).to.throw();
-  });
-
-  it("rejette un hash_function hors enum", () => {
-    expect(() =>
-      httpConfigSchema.parse({ session: { hash_function: "sha512" } }),
-    ).to.throw();
+    // 0 est valide = timer désarmé (délégation cron / TTL natif Redis).
+    expect(
+      httpConfigSchema.parse({ session: { gcIntervalS: 0 } }).session
+        .gcIntervalS,
+    ).to.equal(0);
   });
 });
 

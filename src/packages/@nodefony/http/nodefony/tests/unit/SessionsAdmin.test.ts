@@ -482,3 +482,83 @@ describe("RevocationGuardStorage — révocation effective (anti-résurrection)"
     });
   });
 });
+
+describe("Sessions — GC déterministe (runGc / scheduleGc / shutdownGc)", () => {
+  // Harness léger : on greffe les méthodes du prototype sur un objet nu (pas de
+  // serveur ni de DI). Le storage est un double qui observe les appels à gc().
+  type GcTestable = {
+    storage: unknown;
+    options: { gc_maxlifetime: number };
+    log: (...a: unknown[]) => void;
+    gcRunning: boolean;
+    gcStart: NodeJS.Timeout | null;
+    gcTimer: NodeJS.Timeout | null;
+    runGc(): Promise<void>;
+    scheduleGc(i: number, j: boolean): void;
+    shutdownGc(): void;
+  };
+  function makeService(storage: unknown): GcTestable {
+    const svc = Object.create(SessionsService.prototype) as GcTestable;
+    svc.storage = storage;
+    svc.options = { gc_maxlifetime: 1440 };
+    svc.log = () => {};
+    svc.gcRunning = false;
+    svc.gcStart = null;
+    svc.gcTimer = null;
+    return svc;
+  }
+
+  it("runGc délègue au store avec gc_maxlifetime", async () => {
+    const calls: (number | undefined)[] = [];
+    const svc = makeService({
+      gc: async (m?: number) => {
+        calls.push(m);
+      },
+    });
+    await svc.runGc();
+    expect(calls).to.deep.equal([1440]);
+  });
+
+  it("runGc anti-empilement — une seule passe concurrente", async () => {
+    let active = 0;
+    let maxConcurrent = 0;
+    const svc = makeService({
+      gc: async () => {
+        active++;
+        maxConcurrent = Math.max(maxConcurrent, active);
+        await new Promise((r) => setTimeout(r, 5));
+        active--;
+      },
+    });
+    await Promise.all([svc.runGc(), svc.runGc()]); // la 2e doit être ignorée
+    expect(maxConcurrent).to.equal(1);
+  });
+
+  it("runGc ne lève jamais si le store échoue (WARNING loggé, finally rend la main)", async () => {
+    const svc = makeService({
+      gc: async () => {
+        throw new Error("store down");
+      },
+    });
+    await svc.runGc(); // ne doit pas rejeter — un GC raté ne tue pas le déclencheur
+    expect(svc.gcRunning).to.equal(false);
+  });
+
+  it("scheduleGc(0) ne pose aucun timer (désarmé = délégation cron / TTL natif)", () => {
+    const svc = makeService({ gc: async () => {} });
+    svc.scheduleGc(0, true);
+    expect(svc.gcStart).to.equal(null);
+    expect(svc.gcTimer).to.equal(null);
+  });
+
+  it("scheduleGc arme puis shutdownGc désarme (idempotent)", () => {
+    const svc = makeService({ gc: async () => {} });
+    svc.scheduleGc(600, false);
+    expect(svc.gcStart).to.not.equal(null); // setTimeout initial (≥ 30 s) armé
+    svc.shutdownGc();
+    expect(svc.gcStart).to.equal(null);
+    expect(svc.gcTimer).to.equal(null);
+    svc.shutdownGc(); // 2e appel = no-op
+    expect(svc.gcStart).to.equal(null);
+  });
+});
