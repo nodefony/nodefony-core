@@ -1613,6 +1613,24 @@ module `CLAUDE.md`/`MEMORY.md`.
 > Règle révisée 2026-06-12 (cf « Paire POLYMORPHE » en tête) : chaque skill suit son SemVer ; une
 > feature qui touche un contrat partagé cite la version jumelle dans sa ligne de changelog.
 
+- **1.35.0** (2026-06-27) — **2FA TOTP self-service + passkeys CRUD (P6.17)** (full-stack ; **contrat ↔
+  framework-dev** : `AuthFlow.login`→202 `mfaRequired` + `completeMfaLogin` · `TotpController`
+  `totp/{enroll,confirm,disable,status}` · `WebAuthnController` `GET/DELETE webauthn/credentials(/{id})`).
+  **Login** : `AuthService.login`→union `{authenticated|mfaRequired}` (202) ; `AuthStore.mfaPending`/
+  `completeMfa`/`cancelMfa` ; phase « totp » (`PinInput` auto-submit + repli code de récupération `TextInput`
+  - annuler ; erreurs en zone réservée anti-shift). **Profil** : `TwoFactorCard` (statut + activer→modal /
+    désactiver) ; `TwoFactorModal` two-phase (QR `qrcode.react` ^4 + clé base32 copiable → codes de
+    récupération 1×, calque `CreateApiKeyModal`) ; `PasskeyCard` (liste/ajout/**suppression** passkeys,
+    anti-IDOR serveur). `routes/profile/totpModel.ts` (types miroir + validation + erreurs FR). **RETEX** :
+    (1) **PinInput non centré DANS la case** → `styles={{ input:{ textAlign:"center" } }}` (centrer le BLOC via
+    `Group justify="center"` NE suffit pas — le chiffre restait collé à gauche, vécu LIVE) ; (2) **2FA =
+    step-up du login MOT DE PASSE uniquement** — passkey/OAuth le court-circuitent = LÉGITIME (NIST SP 800-63B
+    AAL : passkey UV ≥ mdp+TOTP ; ce n'est PAS la RFC 6238, qui ne couvre que l'algo) ; (3) carte 2FA
+    conditionnée `hasPassword` (un compte OAuth-only ne passe pas par le login mdp) ; (4) `deleteAbsolute`
+    existe sur `ApiClient` ; (5) dep `qrcode.react` ajoutée (QR scannable, validée user via AskUserQuestion —
+    jamais toucher `package.json` sans accord). Gates : typecheck Studio 0 · Vite 200 (7 fichiers) · serveur UP.
+    ➡️ NEXT = page profil **admin** d'un user `/nodefony/users/{id}` (réutiliser PasskeyCard/TwoFactorCard en
+    mode `targetUserId`). [[project_session_2026-06-27_state]].
 - **1.34.0** (2026-06-25) — **`ApiClient` : mutations par la socket idempotentes (P6.8)** (full-stack ;
   **contrat ↔ framework-dev 1.29.0** : pont `api.request` ouvert aux POST/PUT/PATCH/DELETE). `ApiClient.send`
   route désormais les mutations par `socket.mutate` (en plus des GET par `socket.request`) avec une
