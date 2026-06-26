@@ -35,6 +35,41 @@ import { meta } from "@nodefony/http";
 // aucune clé strippée (options Service génériques, pas une config figée).
 const serviceOptionsSchema = z.looseObject({});
 
+// Sous-schéma extrait (piège Zod 4 : un `.default({…})` plat ne ré-applique pas
+// les sous-défauts gcIntervalS/gcJitter → `.default(() => schema.parse({}))`).
+const idempotencySchema = z.object({
+  store: z
+    .string()
+    .default("memory")
+    .describe(
+      "Backing du cache d'idempotence des mutations (`@Idempotent` + data " +
+        "plane admin). `memory` (défaut) = cache per-pod (la socket reste " +
+        "affine à son pod). Un nom DISTRIBUÉ (`redis`, `drizzle`) doit être " +
+        "câblé par l'application via `registerIdempotencyStore(name, …)` ET " +
+        "résolu au boot → override du défaut mémoire. Un nom non câblé fait " +
+        "ÉCHOUER le boot (fail-loud : pas de dédup silencieuse en cluster). " +
+        "Reco prod multi-pod : `redis` (SET NX + TTL natif, 409 in-flight réel).",
+    ),
+  gcIntervalS: z
+    .number()
+    .int()
+    .min(0)
+    .default(600)
+    .describe(
+      "Intervalle de purge des clés d'idempotence expirées (s), HORS " +
+        "hot-path. N'a d'effet QUE pour un store SANS expiration native " +
+        "(`drizzle` → `DELETE WHERE expiresAt<=now`) ; `redis` (TTL `PX`) et " +
+        "`memory` (purge passive) l'ignorent. 0 = timer désarmé (cron/k8s).",
+    ),
+  gcJitter: z
+    .boolean()
+    .default(true)
+    .describe(
+      "Étale le départ du gc d'idempotence par process — anti thundering-herd " +
+        "sur le store SQL partagé en cluster.",
+    ),
+});
+
 export const frameworkConfigSchema = z
   .object({
     watch: meta(z.boolean().default(true), {
@@ -61,22 +96,8 @@ export const frameworkConfigSchema = z
         "Options transmises au Service `AdminBroker` (data plane admin " +
           "`/nodefony/<ns>/api/*`). Loose : non strippées. Absent (défaut) = aucune.",
       ),
-    idempotency: z
-      .object({
-        store: z
-          .string()
-          .default("memory")
-          .describe(
-            "Backing du cache d'idempotence des mutations (`@Idempotent` + data " +
-              "plane admin). `memory` (défaut) = cache per-pod (la socket reste " +
-              "affine à son pod). Un nom DISTRIBUÉ (`redis`, `drizzle`) doit être " +
-              "câblé par l'application via `registerIdempotencyStore(name, …)` ET " +
-              "résolu au boot → override du défaut mémoire. Un nom non câblé fait " +
-              "ÉCHOUER le boot (fail-loud : pas de dédup silencieuse en cluster). " +
-              "Reco prod multi-pod : `redis` (SET NX + TTL natif, 409 in-flight réel).",
-          ),
-      })
-      .default({ store: "memory" })
+    idempotency: idempotencySchema
+      .default(() => idempotencySchema.parse({}))
       .describe(
         "Idempotence des mutations (anti double-effet). Cf " +
           "draft-ietf-httpapi-idempotency-key-header.",

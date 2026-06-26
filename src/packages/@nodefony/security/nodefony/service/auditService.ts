@@ -1,4 +1,4 @@
-import { Service, Module, Container, Event } from "nodefony";
+import { Service, Module, Container, Event, GcScheduler } from "nodefony";
 import { randomBytes } from "node:crypto";
 import {
   defineSecurityConfig,
@@ -41,7 +41,7 @@ class AuditService extends Service implements IAuditSink {
   /** Préfixe d'id unique au process (1 seul `randomBytes` au boot) + compteur. */
   #idPrefix = "";
   #seq = 0;
-  #gcTimer: NodeJS.Timeout | null = null;
+  #gc: GcScheduler | null = null;
 
   constructor(public module: Module) {
     super(
@@ -78,14 +78,21 @@ class AuditService extends Service implements IAuditSink {
     // Partage par NOM (data plane P6.15, bridge WS Lot 4) — convention-frère
     // `tokenStore`/`passwordEncoder`.
     this.container?.set("auditStore", this.#store);
-    this.#gcTimer = setInterval(() => {
-      void this.#store?.gc().then((purged) => {
-        if (purged > 0) {
+    // GcScheduler unifié du core — gagne le jitter (anti thundering-herd cluster),
+    // l'anti-empilement et la capture d'erreur (l'ancien `.then()` nu laissait un
+    // rejet de gc() filer en unhandledRejection).
+    this.#gc = new GcScheduler({
+      intervalS: GC_INTERVAL_MS / 1000,
+      jitter: true,
+      run: async () => {
+        const purged = await this.#store?.gc();
+        if (purged && purged > 0) {
           this.log(`audit gc — ${purged} événement(s) purgé(s)`, "DEBUG");
         }
-      });
-    }, GC_INTERVAL_MS);
-    this.#gcTimer.unref?.();
+      },
+      onError: (e) => this.log(e as Error, "WARNING"),
+    });
+    this.#gc.start();
     this.log(
       `audit service ready — store "memory", rétention ${config.audit.retentionDays}j`,
       "DEBUG",
@@ -93,10 +100,8 @@ class AuditService extends Service implements IAuditSink {
   }
 
   #shutdown(): void {
-    if (this.#gcTimer) {
-      clearInterval(this.#gcTimer);
-      this.#gcTimer = null;
-    }
+    this.#gc?.stop();
+    this.#gc = null;
     this.#listeners = null;
     this.#store = null;
     this.#enabled = false;

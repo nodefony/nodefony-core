@@ -1,4 +1,11 @@
-import { Service, Module, Container, Event, type Severity } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  GcScheduler,
+  type Severity,
+} from "nodefony";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type * as Jose from "jose";
 import type { IUser, IUserProvider, IPasswordVerifier } from "@nodefony/user";
@@ -59,9 +66,9 @@ class TokenService extends Service {
   #users: UserSource | null = null;
   #throttler: LoginThrottler | null = null;
   #throttlerResolved = false;
-  #gcStart: NodeJS.Timeout | null = null;
-  #gcTimer: NodeJS.Timeout | null = null;
-  #gcRunning = false;
+  // Maintenance des jetons expirés (refresh/PAT/denylist) — timer/jitter/
+  // anti-empilement/désarmement mutualisés dans le GcScheduler du core.
+  #gc: GcScheduler | null = null;
 
   constructor(public module: Module) {
     super(
@@ -118,7 +125,13 @@ class TokenService extends Service {
       this.container?.set("jwtKeystore", this.#keystore);
     }
 
-    this.#scheduleGc(config.tokenStore.gcIntervalS, config.tokenStore.gcJitter);
+    this.#gc = new GcScheduler({
+      intervalS: config.tokenStore.gcIntervalS,
+      jitter: config.tokenStore.gcJitter,
+      run: () => this.runGc(),
+      onError: (e) => this.log(e as Error, "ERROR"),
+    });
+    this.#gc.start();
     this.log(
       `token service ready — store "${config.tokenStore.driver}", jwt=${jwtEnabled}, apiKeys=${apiKeysEnabled}, gc ${config.tokenStore.gcIntervalS}s`,
       "DEBUG",
@@ -126,14 +139,8 @@ class TokenService extends Service {
   }
 
   #shutdown(): void {
-    if (this.#gcStart) {
-      clearTimeout(this.#gcStart);
-      this.#gcStart = null;
-    }
-    if (this.#gcTimer) {
-      clearInterval(this.#gcTimer);
-      this.#gcTimer = null;
-    }
+    this.#gc?.stop();
+    this.#gc = null;
   }
 
   /** `true` si l'émission JWT (signature + refresh) est opérationnelle. */
@@ -143,63 +150,32 @@ class TokenService extends Service {
 
   // ── gc (orchestration du seam ITokenStore.gc) ───────────────────────────────
 
-  // Phase de départ jittérée (≤ 60 s) PUIS intervalle régulier : décale les
-  // balayages entre process sans coordination (un store ORM partagé n'est pas
-  // balayé par N workers au même instant). `unref` → n'empêche pas l'arrêt.
-  #scheduleGc(intervalS: number, jitter: boolean): void {
-    if (intervalS <= 0 || !this.#store) return;
-    const base = intervalS * 1000;
-    const phase = jitter
-      ? Math.floor(Math.random() * Math.min(base, 60_000))
-      : 0;
-    this.#gcStart = setTimeout(() => {
-      this.#gcStart = null;
-      void this.runGc(); // purge l'accumulation du downtime
-      const timer = setInterval(() => void this.runGc(), base);
-      timer.unref();
-      this.#gcTimer = timer;
-    }, 30_000 + phase);
-    this.#gcStart.unref();
-  }
-
   /**
-   * Exécute une passe de gc du store — **point d'entrée public d'un
-   * ordonnanceur**. Le timer in-process l'appelle ; le futur worker cron (P5.0b)
-   * ou une commande batch (`security:token-gc` / k8s CronJob) peut l'appeler à sa
-   * place — poser alors `tokenStore.gcIntervalS: 0` désarme le timer in-process.
+   * Une passe de purge du store (`ITokenStore.gc()`) — point d'entrée public d'un
+   * ordonnanceur : le {@link GcScheduler} l'appelle, mais le futur worker cron
+   * (`security:token-gc` / k8s CronJob) peut l'appeler à sa place (poser alors
+   * `tokenStore.gcIntervalS: 0`). L'anti-empilement et la capture d'erreur vivent
+   * dans le GcScheduler (via `onError`) — ici, la passe métier nue.
    *
-   * ⚠️ Un store **local** (`memory`/`file`) est par-process serveur (mémoires
-   * disjointes) : seul SON process peut le purger → le timer in-process reste
-   * indispensable. Un store **partagé** (ORM) peut être délégué au worker cron
-   * (un seul balayage, élection native) au lieu du jitter in-process.
-   *
-   * Anti-empilement (un seul gc concurrent) ; ne lève jamais (store I/O down →
-   * ERROR loggé, retour `0`) pour ne pas tuer le déclencheur.
+   * ⚠️ Un store **local** (`memory`/`file`) est par-process (mémoires disjointes) :
+   * seul SON process peut le purger → le timer in-process reste indispensable. Un
+   * store **partagé** (ORM) peut être délégué au worker cron (un seul balayage).
    *
    * @returns nombre d'entrées purgées.
    */
   async runGc(): Promise<number> {
-    if (this.#gcRunning || !this.#store) return 0; // pas d'empilement
-    this.#gcRunning = true;
-    try {
-      const t0 = performance.now();
-      const purged = await this.#store.gc();
-      if (purged > 0) {
-        this.log(
-          `token gc: ${purged} jeton(s) purgé(s) en ${(
-            performance.now() - t0
-          ).toFixed(1)}ms`,
-          "DEBUG",
-        );
-      }
-      return purged;
-    } catch (e) {
-      // Store I/O down : signal ops, pas de crash — retry au prochain tick.
-      this.log(e as Error, "ERROR");
-      return 0;
-    } finally {
-      this.#gcRunning = false;
+    if (!this.#store) return 0;
+    const t0 = performance.now();
+    const purged = await this.#store.gc();
+    if (purged > 0) {
+      this.log(
+        `token gc: ${purged} jeton(s) purgé(s) en ${(
+          performance.now() - t0
+        ).toFixed(1)}ms`,
+        "DEBUG",
+      );
     }
+    return purged;
   }
 
   // ── Émission ─────────────────────────────────────────────────────────────────

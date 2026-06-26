@@ -10,6 +10,7 @@ import {
   //DynamicService,
   inject,
   injectable,
+  GcScheduler,
 } from "nodefony";
 import type {
   ISessionStorage,
@@ -162,13 +163,10 @@ class SessionsService extends Service {
   secret?: Buffer;
   iv?: Buffer;
   certificates: Certificate | null;
-  // GC déterministe (remplace le tirage probabiliste PHP gc_probability/divisor) —
-  // modèle unifié avec TokenService : la maintenance vit HORS du hot-path, est
-  // jittérée (désynchronise les pods d'un cluster sur un store partagé) et
-  // désarmable (`gcIntervalS:0` → délégation à un worker / k8s CronJob).
-  private gcStart: NodeJS.Timeout | null = null;
-  private gcTimer: NodeJS.Timeout | null = null;
-  private gcRunning = false;
+  // Maintenance déterministe HORS hot-path (remplace le tirage probabiliste PHP
+  // gc_probability/divisor) — timer/jitter/anti-empilement/désarmement mutualisés
+  // dans le GcScheduler du core. Créé au onReady (store ouvert), stoppé au onTerminate.
+  private gcScheduler: GcScheduler | null = null;
   constructor(
     module: Module,
     @inject("HttpKernel") public httpKernel: HttpKernel,
@@ -183,7 +181,7 @@ class SessionsService extends Service {
     this.certificates = this.get<Certificate>("certificates");
     this.defaultSessionName = this.options.name;
     this.once("onTerminate", () => {
-      this.shutdownGc();
+      this.gcScheduler?.stop();
       if (this.storage) {
         this.storage.close();
       }
@@ -223,12 +221,16 @@ class SessionsService extends Service {
     );
     this.kernel?.on("onReady", async () => {
       await this.storage.open();
-      // Maintenance déterministe HORS hot-path : armée une fois le store ouvert,
-      // désarmée au onTerminate. Le scan ne tourne plus PENDANT une requête.
-      this.scheduleGc(
-        Number(this.options.gcIntervalS ?? 600),
-        this.options.gcJitter !== false,
-      );
+      // Maintenance déterministe HORS hot-path (GcScheduler unifié du core) :
+      // armée une fois le store ouvert, désarmée au onTerminate. Le scan ne
+      // tourne plus PENDANT une requête.
+      this.gcScheduler = new GcScheduler({
+        intervalS: Number(this.options.gcIntervalS ?? 600),
+        jitter: this.options.gcJitter !== false,
+        run: () => this.runGc(),
+        onError: (e) => this.log(e as Error, "WARNING", "SESSION-GC"),
+      });
+      this.gcScheduler.start();
     });
     return this.storage;
   }
@@ -360,66 +362,21 @@ class SessionsService extends Service {
     this.sessionStrategy = strategy;
   }
 
-  // ── GC déterministe (maintenance hors hot-path) ─────────────────────────────
-  // Modèle unifié avec TokenService : la purge ne vit JAMAIS dans le chemin d'une
-  // requête et n'est JAMAIS probabiliste (le reliquat PHP gc_probability/divisor
-  // affamait les serveurs à bas trafic et payait le scan p99 du 1/100 malchanceux).
-  // Hiérarchie de purge : TTL natif du store (Redis → gc() no-op) ; sinon timer
-  // jittéré in-process ; sinon délégation cron (`gcIntervalS:0` désarme le timer).
+  // ── Maintenance hors hot-path (purge des sessions expirées) ──────────────────
+  // Timer/jitter/anti-empilement/désarmement mutualisés dans le GcScheduler du
+  // core (créé au onReady, stoppé au onTerminate) — remplace le reliquat PHP
+  // gc_probability/divisor (probabiliste, dans le hot-path).
 
   /**
-   * Arme le balayage périodique des sessions expirées. Délai de départ ≥ 30 s +
-   * jitter borné (≤ 60 s) — laisse passer le boot et décale les balayages entre
-   * process d'un cluster sur un store partagé (ORM/Mongo), sans coordination. Les
-   * timers sont `unref` (n'empêchent pas l'arrêt). `intervalS <= 0` → désarmé
-   * (purge déléguée à un worker externe / k8s CronJob, ou TTL natif du store).
-   */
-  private scheduleGc(intervalS: number, jitter: boolean): void {
-    if (intervalS <= 0 || !this.storage) return;
-    const base = intervalS * 1000;
-    const phase = jitter
-      ? Math.floor(Math.random() * Math.min(base, 60_000))
-      : 0;
-    this.gcStart = setTimeout(() => {
-      this.gcStart = null;
-      void this.runGc(); // rattrape l'accumulation du downtime au démarrage
-      const timer = setInterval(() => void this.runGc(), base);
-      timer.unref();
-      this.gcTimer = timer;
-    }, 30_000 + phase);
-    this.gcStart.unref();
-  }
-
-  /**
-   * Exécute une passe de purge du store (`storage.gc(maxLifetimeS)`) — point
-   * d'entrée public d'un ordonnanceur : le timer in-process l'appelle, mais un
-   * futur worker cron (`session:gc` / k8s CronJob) peut l'appeler à sa place
-   * (poser alors `gcIntervalS:0`). Anti-empilement (une seule passe concurrente) ;
-   * **ne lève jamais** (store I/O down → WARNING loggé) pour ne pas tuer le
-   * déclencheur — un GC raté est retenté au tick suivant.
+   * Une passe de purge du store (`storage.gc(maxLifetimeS)`) — point d'entrée
+   * public d'un ordonnanceur : le {@link GcScheduler} l'appelle, mais un futur
+   * worker cron (`session:gc` / k8s CronJob) peut l'appeler à sa place (poser
+   * alors `gcIntervalS:0`). L'anti-empilement et la capture d'erreur vivent dans
+   * le GcScheduler (via `onError`) — ici, la passe métier nue.
    */
   async runGc(): Promise<void> {
-    if (this.gcRunning || !this.storage) return; // pas d'empilement
-    this.gcRunning = true;
-    try {
-      await this.storage.gc(this.options.maxLifetimeS);
-    } catch (e) {
-      this.log(e as Error, "WARNING", "SESSION-GC");
-    } finally {
-      this.gcRunning = false;
-    }
-  }
-
-  /** Désarme les timers de gc (idempotent) — appelé au onTerminate. */
-  private shutdownGc(): void {
-    if (this.gcStart) {
-      clearTimeout(this.gcStart);
-      this.gcStart = null;
-    }
-    if (this.gcTimer) {
-      clearInterval(this.gcTimer);
-      this.gcTimer = null;
-    }
+    if (!this.storage) return;
+    await this.storage.gc(this.options.maxLifetimeS);
   }
 
   // ── Administration (data plane Studio /nodefony/http/api/sessions) ───────────

@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-26T18:00:09.308Z",
+  "generated": "2026-06-26T19:30:41.884Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 951,
-    "symbols": 2173,
-    "classes": 302,
-    "interfaces": 569,
+    "files": 952,
+    "symbols": 2175,
+    "classes": 303,
+    "interfaces": 570,
     "types": 260,
     "enums": 3,
     "functions": 521,
@@ -1317,6 +1317,26 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Assertion type **compile-time** : `expectType<T>(value)` échoue à la compilation si `value` n'est pas assignable à `T`. **0 coût runtime** (fonction vide)."
+    },
+    "GcScheduler": {
+      "name": "GcScheduler",
+      "kind": "class",
+      "file": "src/nodefony/src/runtime/GcScheduler.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Timer de maintenance déterministe, jittéré et désarmable. Voir la doc du module pour le rationnel complet."
+    },
+    "IGcSchedulerOptions": {
+      "name": "IGcSchedulerOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/GcScheduler.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ordonnanceur de **maintenance périodique** (« garbage collection ») exécutée HORS du chemin d'une requête — pattern unifié du framework pour purger des entrées expirées d'un store (sessions, jetons…"
     },
     "ILoadEnvOptions": {
       "name": "ILoadEnvOptions",
@@ -16942,6 +16962,12 @@
       "IDrizzleConfigInput": [
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts"
+      ],
+      "GcScheduler": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "IAdminBroker": [
         "src/packages/@nodefony/framework/index.ts",

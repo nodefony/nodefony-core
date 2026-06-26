@@ -93,6 +93,17 @@ export interface IIdempotencyStore {
    */
   abort(key: string): void | Promise<void>;
   /**
+   * Purge les entrées expirées — présente UNIQUEMENT sur les impls SANS expiration
+   * native (`drizzle` → `DELETE WHERE expiresAt <= now`). **Absente** quand le store
+   * expire seul (Redis `PX` natif) ou purge passivement (mémoire, au cap FIFO).
+   * Quand cette méthode existe, le framework arme un `GcScheduler` au boot
+   * (intervalle `idempotency.gcIntervalS`) — hors hot-path.
+   *
+   * @param now - horloge de purge (epoch ms ; défaut = horloge interne du store).
+   * @returns nombre d'entrées purgées.
+   */
+  gc?(now?: number): Promise<number> | number;
+  /**
    * Nombre d'entrées vivantes (observabilité / tests). **Sync best-effort** : la
    * vérité per-pod pour l'impl mémoire ; pour une impl distribuée (Redis), une
    * approximation locale (compteur du pod, pas un `SCAN`/`DBSIZE` cluster cher).
