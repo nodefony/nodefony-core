@@ -17,6 +17,7 @@ import {
   RedisIdempotencyStore,
   type RedisIdempotencyClientLike,
 } from "./nodefony/src/RedisIdempotencyStore";
+import { scheduleIdempotencyGc } from "./nodefony/src/idempotencyGc";
 import Router from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
 import Controller from "./nodefony/src/Controller";
@@ -197,18 +198,16 @@ class Framework extends Module {
       // Store SANS expiration native (drizzle expose `gc` ; redis=TTL PX et
       // memory=purge passive ne l'exposent pas) → arme un balayage périodique HORS
       // hot-path. Corrige le « gc orphelin » : sans ça, les clés SQL expirées
-      // s'accumulaient indéfiniment (le contrat appelait à le mutualiser). Le
-      // timer/jitter/anti-empilement vivent dans le GcScheduler du core.
-      if (typeof store.gc === "function") {
-        const idem = (this.options as FrameworkConfig).idempotency;
-        const runGc = store.gc.bind(store);
-        this.#idempotencyGc = new GcScheduler({
-          intervalS: idem?.gcIntervalS ?? 600,
-          jitter: idem?.gcJitter !== false,
-          run: () => runGc(),
-          onError: (e) => this.log(e as Error, "WARNING"),
-        });
-        this.#idempotencyGc.start();
+      // s'accumulaient indéfiniment. Logique isolée dans `scheduleIdempotencyGc`
+      // (testable sans booter un kernel).
+      const idem = (this.options as FrameworkConfig).idempotency;
+      this.#idempotencyGc = scheduleIdempotencyGc(store, {
+        intervalS: idem?.gcIntervalS ?? 600,
+        jitter: idem?.gcJitter !== false,
+        onError: (e) => this.log(e as Error, "WARNING"),
+        log: (m) => this.log(m, "INFO"),
+      });
+      if (this.#idempotencyGc) {
         this.kernel?.once("onTerminate", () => this.#idempotencyGc?.stop());
       }
     } catch (e) {

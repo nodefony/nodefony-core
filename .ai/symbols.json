@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-26T19:30:41.884Z",
+  "generated": "2026-06-26T19:44:20.363Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 952,
-    "symbols": 2175,
+    "files": 953,
+    "symbols": 2177,
     "classes": 303,
-    "interfaces": 570,
+    "interfaces": 571,
     "types": 260,
     "enums": 3,
-    "functions": 521,
+    "functions": 522,
     "constants": 518
   },
   "symbols": {
@@ -6192,6 +6192,23 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Borne d'une clé d'idempotence (convention Stripe). Une clé est un identifiant court (UUID) ; au-delà, elle est traitée comme ABSENTE (anti-DoS du cache borné)."
+    },
+    "IIdempotencyGcOptions": {
+      "name": "IIdempotencyGcOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotencyGc.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Options d'armement du balayage périodique d'un store d'idempotence."
+    },
+    "scheduleIdempotencyGc": {
+      "name": "scheduleIdempotencyGc",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotencyGc.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Arme un {@link GcScheduler} qui purge périodiquement les entrées expirées d'un store d'idempotence — **UNIQUEMENT si le store expose `gc()`**. Pourquoi ce gating : un store à **expiration native** …"
     },
     "IIdempotencyStoreFactoryContext": {
       "name": "IIdempotencyStoreFactoryContext",
@@ -16965,6 +16982,7 @@
       ],
       "GcScheduler": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotencyGc.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
@@ -17004,6 +17022,9 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "RedisIdempotencyClientLike": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "scheduleIdempotencyGc": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "Router": [
@@ -18950,6 +18971,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotencyGc.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
