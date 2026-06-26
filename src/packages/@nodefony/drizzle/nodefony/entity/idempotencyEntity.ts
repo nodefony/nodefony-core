@@ -1,6 +1,21 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  index as sqliteIndex,
+  integer,
+  sqliteTable,
+  text as sqliteText,
+} from "drizzle-orm/sqlite-core";
+import {
+  bigint as pgBigint,
+  index as pgIndex,
+  jsonb,
+  pgTable,
+  text as pgText,
+} from "drizzle-orm/pg-core";
+import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
+import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 // `import type` UNIQUEMENT → effacé à la compilation (approche B : 0 dépendance
 // runtime de `@nodefony/drizzle` vers `@nodefony/framework`). Le contrat
 // d'idempotence vit au CORE (`nodefony`), donc l'import de son DTO ne crée AUCUN
@@ -48,23 +63,25 @@ export const idempotencyKeyTable = sqliteTable(
      * → anti-IDOR garanti en amont ; le store reste agnostique au scope. PK →
      * la réservation atomique repose sur sa contrainte d'unicité (`ON CONFLICT`).
      */
-    key: text("key").primaryKey(),
+    key: sqliteText("key").primaryKey(),
     /**
      * Empreinte du **payload** (méthode + chemin + corps). Comparée à chaque
      * `begin` : un fingerprint distinct pour la même clé vivante = réutilisation
      * de clé pour une AUTRE requête → `mismatch` (422, draft §2.2/§2.7).
      */
-    fingerprint: text("fingerprint").notNull(),
+    fingerprint: sqliteText("fingerprint").notNull(),
     /**
      * `if` = réservation *in-flight* (handler en cours) ; `done` = réponse
      * mémorisée (rejouée en `replayed`). Court (2 lettres) — colonne chaude.
      */
-    state: text("state").$type<"if" | "done">().notNull(),
+    state: sqliteText("state").$type<"if" | "done">().notNull(),
     /**
      * Réponse mémorisée (`{status, headers?, body}`), `null` tant qu'*in-flight*.
      * Posée à `complete`, relue en `replayed`. JSON (`mode:"json"`).
      */
-    response: text("response", { mode: "json" }).$type<IdempotentResponse>(),
+    response: sqliteText("response", {
+      mode: "json",
+    }).$type<IdempotentResponse>(),
     /**
      * Échéance (epoch ms) : bail *in-flight* (`now + lease`) puis rétention de la
      * réponse (`now + ttl`). Au-delà = entrée morte → réservable (`begin` la vole
@@ -73,9 +90,59 @@ export const idempotencyKeyTable = sqliteTable(
     expiresAt: integer("expiresAt").notNull(),
   },
   (t) => ({
-    expiresAtIdx: index("idempotency_key_expiresAt_idx").on(t.expiresAt),
+    expiresAtIdx: sqliteIndex("idempotency_key_expiresAt_idx").on(t.expiresAt),
   }),
 );
+
+/**
+ * Variante **PostgreSQL** de la table d'idempotence (driver `pg`). Mêmes NOMS de
+ * colonnes que la variante SQLite → le store ({@link DrizzleIdempotencyStore})
+ * reste dialect-agnostique (il référence `table.key`/`table.expiresAt`… via
+ * `eq`/`lt`, agnostiques). Divergences de TYPE assumées (= la raison d'être de la
+ * factory) :
+ *  - `expiresAt` = `bigint` (epoch ms ≈ 1.7e12 **dépasse** `integer` PG 32-bit ;
+ *    `mode:"number"` reste sûr sous 2^53) — là où SQLite `integer` est 64-bit ;
+ *  - `response` = `jsonb` (type JSON natif PG) — là où SQLite stocke un `text` JSON.
+ */
+const idempotencyKeyPgTable = pgTable(
+  "idempotency_key",
+  {
+    key: pgText("key").primaryKey(),
+    fingerprint: pgText("fingerprint").notNull(),
+    state: pgText("state").$type<"if" | "done">().notNull(),
+    response: jsonb("response").$type<IdempotentResponse>(),
+    expiresAt: pgBigint("expiresAt", { mode: "number" }).notNull(),
+  },
+  (t) => ({
+    expiresAtIdx: pgIndex("idempotency_key_expiresAt_idx").on(t.expiresAt),
+  }),
+);
+
+/**
+ * Factory de la table d'idempotence pour un dialecte donné — **premier maillon du
+ * chantier portabilité multi-dialecte** (un schéma logique → la table Drizzle du
+ * bon dialecte). `sqlite` (défaut) et `postgres` sont câblés ; `mysql` suivra
+ * (driver `mysql2`). Le `DrizzleOrm` appelle cette factory selon `connector.dialect`.
+ *
+ * @param dialect - dialecte SQL cible.
+ * @returns la table Drizzle (`SQLiteTable` | `PgTable`) du dialecte.
+ * @throws si le dialecte n'est pas encore supporté (`mysql`).
+ */
+export function createIdempotencyTable(
+  dialect: SqlDialect = "sqlite",
+): SQLiteTable | PgTable {
+  switch (dialect) {
+    case "sqlite":
+      return idempotencyKeyTable;
+    case "postgres":
+      return idempotencyKeyPgTable;
+    default:
+      throw new Error(
+        `[@nodefony/drizzle] idempotency: dialect "${dialect}" not yet ` +
+          `supported (sqlite, postgres available; mysql on the roadmap).`,
+      );
+  }
+}
 
 /**
  * Forme plate d'une ligne du store d'idempotence (telle que renvoyée par le
@@ -102,9 +169,13 @@ export const IDEMPOTENCY_ENTITY_NAME = "idempotency_key" as const;
  * `orm.connect()` (cf {@link registerIdempotencyEntities}).
  *
  * @param orm - clé de l'ORM cible dans le `ormRegistry`.
+ * @param dialect - dialecte SQL du connecteur (sélectionne la variante de table).
  * @returns le descripteur {@link IEntity} de la table d'idempotence.
  */
-export function createIdempotencyEntities(orm: string): IEntity[] {
+export function createIdempotencyEntities(
+  orm: string,
+  dialect: SqlDialect = "sqlite",
+): IEntity[] {
   return [
     {
       orm,
@@ -113,7 +184,7 @@ export function createIdempotencyEntities(orm: string): IEntity[] {
       // dans l'ERD Studio (l'idempotence est une feature framework — data plane
       // admin + `@Idempotent` — simplement hébergée par l'ORM).
       module: "framework",
-      schema: idempotencyKeyTable,
+      schema: createIdempotencyTable(dialect),
     },
   ];
 }
@@ -123,9 +194,13 @@ export function createIdempotencyEntities(orm: string): IEntity[] {
  * donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect).
  *
  * @param orm - clé de l'ORM cible.
+ * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
-export function registerIdempotencyEntities(orm: string): void {
-  for (const entity of createIdempotencyEntities(orm)) {
+export function registerIdempotencyEntities(
+  orm: string,
+  dialect: SqlDialect = "sqlite",
+): void {
+  for (const entity of createIdempotencyEntities(orm, dialect)) {
     entityRegistry.register(entity);
   }
 }

@@ -158,9 +158,11 @@ export { DrizzleWebAuthnCredentialStore } from "./nodefony/src/DrizzleWebAuthnCr
 // UPDATE … WHERE expiré (le `SET NX PX` SQL). GC applicatif (pas de TTL natif).
 export {
   idempotencyKeyTable,
+  createIdempotencyTable,
   createIdempotencyEntities,
   registerIdempotencyEntities,
   IDEMPOTENCY_ENTITY_NAME,
 } from "./nodefony/entity/idempotencyEntity";
 export type { IdempotencyKeyRow } from "./nodefony/entity/idempotencyEntity";
 export { DrizzleIdempotencyStore } from "./nodefony/src/DrizzleIdempotencyStore";
+export type { SqlDialect } from "./nodefony/config/schema";

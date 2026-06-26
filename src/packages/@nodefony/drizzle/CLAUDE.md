@@ -128,14 +128,17 @@ décision de déploiement (cluster multi-pod). Recette :
 
 ```typescript
 // 1) sélection : NF_IDEMPOTENCY_STORE=drizzle (knob framework `idempotency.store`)
-// 2) entité (avant orm.connect()) :
+//    + connecteur multi-pod : use("@nodefony/drizzle", { connectors: { default:
+//      { dialect: "postgres", url: ctx.env.PG_URL } } })
+// 2) entité (avant orm.connect()) — le dialecte doit matcher celui du connecteur :
 import {
   registerIdempotencyEntities,
   DrizzleIdempotencyStore,
 } from "@nodefony/drizzle";
 import { registerIdempotencyStore } from "@nodefony/framework";
-registerIdempotencyEntities("default");
-// 3) fabrique (registre framework) — résout l'ORM par NOM, lazy via .from :
+registerIdempotencyEntities("default", "postgres");
+// 3) fabrique (registre framework) — résout l'ORM par NOM, lazy via .from
+//    (`from` lit `orm.dialect` → injecte la variante de table du dialecte) :
 registerIdempotencyStore("drizzle", ({ module }) => {
   const drizzle = module.kernel?.container?.get("drizzle"); // DrizzleService
   const orm = drizzle?.getOrm("default");
@@ -144,15 +147,57 @@ registerIdempotencyStore("drizzle", ({ module }) => {
 });
 ```
 
-> ⚠️ **SQLite = banc sémantique uniquement** (fichier mono-machine ≠ multi-pod). La cible RÉELLE est
-> **Postgres/MySQL** (changement de driver) ; `onConflictDoUpdate` couvre SQLite + Postgres (MySQL =
-> `onDuplicateKeyUpdate`, hors scope). La preuve cross-pod réelle = **e2e Postgres** (à faire) ; le
-> test SQLite (`tests/integration/idempotency-store.test.ts`, 12) prouve la **sémantique séquentielle**
-> (verdicts, mismatch post-complétion, vol d'expiré, gc, size, fail-soft).
+> **Multi-dialecte (2026-06-26)** : `createIdempotencyTable(dialect)` produit la variante `sqlite`
+> OU `postgres` ; `registerIdempotencyEntities(orm, dialect)` et `DrizzleIdempotencyStore.from(orm)`
+> (qui lit `orm.dialect`) la sélectionnent. Le store est **dialect-agnostique** (référence
+> `table.key`/`.expiresAt` via `eq`/`lt`). **Deux niveaux de preuve** :
+>
+> - **SQLite** (`tests/integration/idempotency-store.test.ts`, 12) = **sémantique séquentielle**
+>   (verdicts, mismatch post-complétion, vol d'expiré, gc, size, fail-soft). Mono-fichier → ne prouve
+>   PAS la concurrence multi-pod.
+> - **Postgres** (`.claude/skills/nodefony-load-test/scripts/idempotency-postgres-e2e.mjs`, **7/7**) =
+>   **atomicité cross-pod RÉELLE** : 2 pods (2 pools PG) × 20 rounds × 10 `begin` concurrents → exactement
+>   **1 fresh + 9 in-flight**/round (0 race) + replay/mismatch/in-flight cross-pod. C'est la preuve que
+>   SQLite ne peut pas donner. Prérequis : `docker compose --profile postgres up -d postgres`.
+
+## Portabilité multi-dialecte (chantier — Slice 0 ✅ 2026-06-26)
+
+> **Pourquoi** : un framework doit porter ses entités sur les bases majeures (sqlite dev/test,
+> postgres + mysql prod). Drizzle est **schema-as-code dialect-spécifique** (`sqliteTable` ≠ `pgTable`,
+> colonnes typées par dialecte) → contrairement à Sequelize, on **ne peut pas « juste changer le
+> dialect »**. On reconstruit cette abstraction au niveau Nodefony : une **factory par entité**
+> (`createXTable(dialect)`) = l'équivalent du `dialect` Sequelize, porté par le framework. L'utilisateur
+> final écrit `dialect: "postgres"` dans la config et ça marche ; le coût (vs Sequelize natif) = une
+> factory par entité, en échange de la **type-safety** Drizzle (choix figé P7.4/ADR-0003).
+
+**Mécanisme (le patron à dérouler)** :
+
+- **`connector.dialect`** (`"sqlite" | "postgres" | "mysql"`, défaut `sqlite`) dans `schema.ts`
+  (+ `url` pour pg/mysql). Type `SqlDialect` exporté.
+- **`DrizzleOrm` dialect-aware** : `onConnect` route `#connectSqlite` (better-sqlite3, sync) /
+  `#connectPostgres` (driver `pg` **lazy** `await import`, `optionalDependency`, externalisé rollup).
+  DDL dérivé partagé `#buildCreateTable` (le bon `getTableConfig` selon dialecte ; `col.getSQLType()`
+  rend `text`/`integer` SQLite, `text`/`bigint`/`jsonb` PG). `disconnect`/`ping`/`describeConnection`/
+  `describeEntity` routés. `getNativeConnection<DrizzleDb>()` inchangé.
+- **Factory d'entité** `createXTable(dialect)` : switch → table du dialecte. Divergences typiques :
+  `expiresAt` `integer` (SQLite 64-bit) → `bigint mode:number` (PG ; `integer` PG 32-bit déborde sur
+  epoch ms), `text mode:json` → `jsonb`. **Mêmes NOMS de colonnes** → le store/repo reste agnostique.
+- **Drivers** : `pg` `optionalDependencies` (+ `@types/pg` dev) ; `mysql2` suivra. `better-sqlite3`
+  reste `dependencies` (défaut bootable).
+
+**Dette assumée du Slice 0** (typage cross-dialecte Drizzle = pénible) : `#tables`/`#db` typés SQLite ;
+en postgres les `PgTable`/`NodePgDatabase` y sont stockés via cast (runtime correct, API commune). Le
+typage `getRepository` postgres viendra avec le **portage du `DrizzleRepository`** (le store d'idempotence
+consomme `getNativeConnection`, pas le repository → non bloquant pour le Slice 0).
+
+**Reste (slices suivants, 1 entité = 1 session)** : `userTable` (⚠️ `findBySocialProvider` =
+`json_each` SQLite → `jsonb` PG), `tokenEntity`, `sessionEntity`, `webAuthnCredentialEntity` ; puis
+**mysql** (`mysql2`) + DDL prod drizzle-kit. Décider à ce moment d'un **kit de colonnes partagé**
+(`colKit(dialect)`) si la duplication des factory devient sensible (prototype d'abord, mesurer).
 
 ## Roadmap
 
 - ✅ P7.4 adapter orm-core + ADR-0003 risque #3 résolu.
 - ✅ **P5.9 entité `User` Drizzle** (8 tests : CRUD + finders + tx + défauts). ORM par défaut → fait EN PREMIER (avant Mongoose P5.8).
-- ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests. e2e Postgres cross-pod = reste.
-- ⬜ Postgres/MySQL drivers (changer le client + le dialecte de table) → débloque l'idempotence cross-pod réelle.
+- ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests SQLite + **e2e Postgres cross-pod 7/7** (atomicité réelle prouvée).
+- 🚧 **Portabilité multi-dialecte (chantier, Slice 0 ✅ 2026-06-26)** — `connector.dialect` + `DrizzleOrm` lazy pg + factory d'entité ; **idempotency porté + prouvé sur PG**. Reste : `user`/`token`/`session`/`webauthn` (1 entité/session) puis **mysql** + DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».

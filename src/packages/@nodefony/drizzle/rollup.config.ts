@@ -12,6 +12,10 @@ const external: string[] = [
   "@nodefony/security",
   "drizzle-orm",
   "better-sqlite3",
+  // Driver Postgres LAZY (`await import("pg")`) — optionalDependency, externalisé
+  // pour que rollup garde le `import("pg")` tel quel (jamais bundlé). `drizzle-orm/
+  // node-postgres` est déjà couvert par l'entrée `drizzle-orm`. `mysql2` suivra.
+  "pg",
   "zod",
   "tslib",
 ];

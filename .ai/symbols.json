@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-26T11:40:31.905Z",
+  "generated": "2026-06-26T13:41:31.541Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 951,
-    "symbols": 2168,
+    "symbols": 2173,
     "classes": 302,
-    "interfaces": 568,
-    "types": 258,
+    "interfaces": 569,
+    "types": 260,
     "enums": 3,
-    "functions": 520,
-    "constants": 517
+    "functions": 521,
+    "constants": 518
   },
   "symbols": {
     "Cli": {
@@ -4872,6 +4872,14 @@
       "module": "@nodefony/drizzle",
       "description": "JSON Schema introspectable de la config Drizzle — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
     },
+    "SqlDialect": {
+      "name": "SqlDialect",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Dialecte SQL d'un connecteur Drizzle."
+    },
     "DrizzleConfig": {
       "name": "DrizzleConfig",
       "kind": "type",
@@ -4879,6 +4887,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "SQL_DIALECTS": {
+      "name": "SQL_DIALECTS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Schéma Zod de la configuration de `@nodefony/drizzle`. **Source de vérité du module** : le type TS est dérivé via `z.infer<>` ({@link IDrizzleConfig}), et la config est validée au boot du Module cl…"
     },
     "drizzleConfigSchema": {
       "name": "drizzleConfigSchema",
@@ -4895,6 +4911,14 @@
       "module": "@nodefony/drizzle",
       "extends": null,
       "description": "Forme plate d'une ligne du store d'idempotence (telle que renvoyée par le repository / `SELECT`). Identique aux colonnes de {@link idempotencyKeyTable} → zéro mapping store ↔ entité."
+    },
+    "createIdempotencyTable": {
+      "name": "createIdempotencyTable",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la table d'idempotence pour un dialecte donné — **premier maillon du chantier portabilité multi-dialecte** (un schéma logique → la table Drizzle du bon dialecte). `sqlite` (défaut) et `p…"
     },
     "createIdempotencyEntities": {
       "name": "createIdempotencyEntities",
@@ -13142,7 +13166,7 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "extends": null,
-      "description": "Options de connexion de l'adapter Drizzle + `better-sqlite3`."
+      "description": "Options de connexion de l'adapter Drizzle (driver selon `dialect`)."
     },
     "DrizzleRepository": {
       "name": "DrizzleRepository",
@@ -18845,6 +18869,10 @@
       "DrizzleConfig": [
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts"
       ],
+      "SqlDialect": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
       "IdempotentResponse": [
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
@@ -18910,6 +18938,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
+      ],
+      "createIdempotencyTable": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
       ],
       "idempotencyKeyTable": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"

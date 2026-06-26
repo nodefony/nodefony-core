@@ -34,6 +34,9 @@
     "drizzle-orm": "0.45.2",
     "zod": "^4.4.3"
   },
+  "optionalDependencies": {
+    "pg": "^8.13.0"
+  },
   "devDependencies": {
     "@nodefony/security": "*",
     "@rollup/plugin-commonjs": "29.0.3",
@@ -44,6 +47,7 @@
     "@rollup/plugin-typescript": "12.3.0",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.9.1",
+    "@types/pg": "^8.11.10",
     "@typescript-eslint/eslint-plugin": "8.60.1",
     "@typescript-eslint/parser": "8.60.1",
     "rimraf": "6.1.3",

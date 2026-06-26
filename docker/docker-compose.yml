@@ -66,6 +66,37 @@ services:
       retries: 5
       start_period: 5s
 
+  # --- PostgreSQL (profile postgres — portabilité multi-dialecte de l'adapter Drizzle) ---
+  # Cible des bancs e2e cross-pod du DrizzleIdempotencyStore : l'atomicité de
+  # `INSERT … ON CONFLICT DO UPDATE … WHERE` entre connexions CONCURRENTES (vrai
+  # serveur multi-clients), que SQLite (fichier mono-machine) ne peut pas prouver.
+  # Démarrage : `docker compose -f docker/docker-compose.yml --profile postgres up -d postgres`
+  postgres:
+    image: postgres:16-alpine
+    container_name: nodefony-postgres
+    restart: unless-stopped
+    profiles: ["postgres"]
+    networks: [nodefony]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nodefony}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nodefony-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-nodefony}
+    ports:
+      # Loopback uniquement (surface réseau minimale en dev).
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-nodefony} -d ${POSTGRES_DB:-nodefony}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   # --- RedisInsight (profile tools — UI de debug, jamais en prod) ---
   redisinsight:
     image: redis/redisinsight:latest
@@ -273,6 +304,7 @@ networks:
 
 volumes:
   redis-data:
+  postgres-data:
   kafka-data:
   loki-data:
   grafana-data:
