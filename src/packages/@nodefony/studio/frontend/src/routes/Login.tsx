@@ -1,12 +1,14 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Anchor,
   Box,
   Button,
   Divider,
   Group,
   Paper,
   PasswordInput,
+  PinInput,
   Stack,
   Text,
   TextInput,
@@ -24,6 +26,7 @@ import {
   IconFingerprint,
   IconLock,
   IconLogin,
+  IconShieldLock,
   IconUser,
   IconWifiOff,
 } from "@tabler/icons-react";
@@ -31,6 +34,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { type ConnectionStep } from "../components/ConnectionStepper";
 import { useAuth, useConnection, useStore } from "../stores";
+import { validateTotpCode } from "./profile/totpModel";
 import {
   LAST_METHOD_KEY,
   LAST_USER_KEY,
@@ -274,7 +278,7 @@ export const Login = observer(() => {
   const lastMethod = useMemo(readLastMethod, []);
   const initialUser = lastUser || (import.meta.env.DEV ? "admin" : "");
 
-  const [phase, setPhase] = useState<"identifier" | "password">(
+  const [phase, setPhase] = useState<"identifier" | "password" | "totp">(
     lastUser ? "password" : "identifier",
   );
   const [identifier, setIdentifier] = useState(initialUser);
@@ -285,6 +289,10 @@ export const Login = observer(() => {
   // Compte passkey : révèle le champ mot de passe À LA DEMANDE (« autre choix
   // login/mot de passe »), sans quitter le compte mémorisé ni perdre le bouton passkey.
   const [showPassword, setShowPassword] = useState(false);
+  // 2ᵉ facteur (2FA TOTP) : code saisi + bascule vers le code de récupération
+  // (TextInput libre) si l'application d'authentification est indisponible.
+  const [code, setCode] = useState("");
+  const [useRecovery, setUseRecovery] = useState(false);
 
   const [step, setStep] = useState<ConnectionStep>("ping");
   const [busy, setBusy] = useState(false);
@@ -398,6 +406,36 @@ export const Login = observer(() => {
     setPhase("identifier");
   };
 
+  // Fin de connexion COMMUNE (après auth réussie, mot de passe OU 2ᵉ facteur) :
+  // profil → realtime (best-effort) → redirection.
+  const completeAndRedirect = async (): Promise<void> => {
+    setStep("user");
+    await new Promise((r) => setTimeout(r, 150));
+    // Realtime : best-effort. `conn.connect()` avale son timeout (la socket se
+    // rétablit en fond) → l'auth réussie ne doit JAMAIS être bloquée par le WS.
+    setStep("realtime");
+    await conn.connect();
+    setStep("done");
+    const from = (loc.state as { from?: string } | null)?.from;
+    const deepLink = from && from !== "/nodefony" && from !== "/nodefony/login";
+    navigate(deepLink ? from : auth.homePath, { replace: true });
+  };
+
+  // Route une erreur classée vers la zone réservée (throttle → countdown).
+  const applyError = (e: unknown, phaseStep: ConnectionStep): void => {
+    const c = classifyError(e, phaseStep);
+    if (c.kind === "throttle") {
+      setCooldownUntil(
+        Date.now() + (c.retryAfter ?? DEFAULT_THROTTLE_S) * 1000,
+      );
+      setErrKind("throttle");
+      setError(null);
+    } else {
+      setErrKind(c.kind);
+      setError(c.message);
+    }
+  };
+
   const runFlow = async (password: string): Promise<void> => {
     setBusy(true);
     clearError();
@@ -409,34 +447,46 @@ export const Login = observer(() => {
 
       phaseStep = "auth";
       setStep("auth");
-      await auth.login({ username: identifier.trim(), password });
+      const outcome = await auth.login({
+        username: identifier.trim(),
+        password,
+      });
+      // 2FA : mot de passe validé mais session NON ouverte → on bascule sur la
+      // saisie du code (le `finally` repasse `busy` à false).
+      if (outcome === "mfa_required") {
+        setCode("");
+        setUseRecovery(false);
+        setPhase("totp");
+        return;
+      }
 
       phaseStep = "user";
-      setStep("user");
-      await new Promise((r) => setTimeout(r, 150));
-
-      // Realtime : best-effort. `conn.connect()` avale son timeout (la socket se
-      // rétablit en fond) → l'auth réussie ne doit JAMAIS être bloquée par le WS.
-      phaseStep = "realtime";
-      setStep("realtime");
-      await conn.connect();
-
-      setStep("done");
-      const from = (loc.state as { from?: string } | null)?.from;
-      const deepLink =
-        from && from !== "/nodefony" && from !== "/nodefony/login";
-      navigate(deepLink ? from : auth.homePath, { replace: true });
+      await completeAndRedirect();
     } catch (e) {
-      const c = classifyError(e, phaseStep);
-      if (c.kind === "throttle") {
-        setCooldownUntil(
-          Date.now() + (c.retryAfter ?? DEFAULT_THROTTLE_S) * 1000,
-        );
-        setErrKind("throttle");
-        setError(null);
+      applyError(e, phaseStep);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Vérifie le 2ᵉ facteur (code TOTP ou code de récupération) puis enchaîne la
+  // fin de connexion. Sur échec, on reste en phase `totp` (ressaisie possible) —
+  // le défi serveur n'est consommé qu'au succès.
+  const runMfaFlow = async (value: string): Promise<void> => {
+    if (busy || throttled) return;
+    setBusy(true);
+    clearError();
+    try {
+      setStep("auth");
+      await auth.completeMfa(value);
+      await completeAndRedirect();
+    } catch (e) {
+      if ((e as { status?: number })?.status === 429) {
+        applyError(e, "auth");
       } else {
-        setErrKind(c.kind);
-        setError(c.message);
+        setErrKind("credentials");
+        setError("Code incorrect ou expiré. Réessayez avec le code courant.");
+        setCode("");
       }
     } finally {
       setBusy(false);
@@ -604,7 +654,139 @@ export const Login = observer(() => {
               </Group>
             )}
           </Box>
-          {phase === "identifier" ? (
+          {phase === "totp" ? (
+            /* ── 2ᵉ facteur : code TOTP (ou code de récupération) ── */
+            <Stack gap="md">
+              <Group gap="sm" wrap="nowrap">
+                <ThemeIcon size={34} radius="xl" variant="light" color="brand">
+                  <IconShieldLock size={18} />
+                </ThemeIcon>
+                <div style={{ minWidth: 0 }}>
+                  <Text size="sm" fw={600}>
+                    Vérification en deux étapes
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {useRecovery
+                      ? "Saisissez un de vos codes de récupération."
+                      : "Saisissez le code de votre application d'authentification."}
+                  </Text>
+                </div>
+              </Group>
+              {useRecovery ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const v = code.trim();
+                    const err = validateTotpCode(v);
+                    if (err) {
+                      setErrKind("unknown");
+                      setError(err);
+                      return;
+                    }
+                    void runMfaFlow(v);
+                  }}
+                >
+                  <Stack gap="md">
+                    <TextInput
+                      size="md"
+                      label="Code de récupération"
+                      placeholder="XXXXX-XXXXX"
+                      autoComplete="one-time-code"
+                      value={code}
+                      disabled={busy}
+                      onChange={(e) => {
+                        setCode(e.currentTarget.value);
+                        clearError();
+                      }}
+                    />
+                    <Button
+                      type="submit"
+                      size="md"
+                      fullWidth
+                      color="brand"
+                      loading={busy}
+                      disabled={throttled}
+                      leftSection={busy ? undefined : <IconLogin size={18} />}
+                    >
+                      {busy
+                        ? STEP_LABEL[step]
+                        : throttled
+                          ? `Réessayez dans ${cooldownLeft}s`
+                          : "Vérifier"}
+                    </Button>
+                  </Stack>
+                </form>
+              ) : (
+                <Stack gap="md" align="center">
+                  <PinInput
+                    length={6}
+                    type="number"
+                    inputType="tel"
+                    inputMode="numeric"
+                    oneTimeCode
+                    autoFocus
+                    size="md"
+                    aria-label="Code à 6 chiffres"
+                    value={code}
+                    disabled={busy}
+                    onChange={setCode}
+                    onComplete={(v) => {
+                      if (!busy && !throttled) void runMfaFlow(v);
+                    }}
+                  />
+                  <Button
+                    fullWidth
+                    size="md"
+                    color="brand"
+                    loading={busy}
+                    disabled={throttled || code.length !== 6}
+                    leftSection={busy ? undefined : <IconLogin size={18} />}
+                    onClick={() => {
+                      if (!busy && !throttled) void runMfaFlow(code);
+                    }}
+                  >
+                    {busy
+                      ? STEP_LABEL[step]
+                      : throttled
+                        ? `Réessayez dans ${cooldownLeft}s`
+                        : "Vérifier"}
+                  </Button>
+                </Stack>
+              )}
+              <Group justify="space-between">
+                <Anchor
+                  component="button"
+                  type="button"
+                  size="xs"
+                  c="dimmed"
+                  onClick={() => {
+                    setUseRecovery((v) => !v);
+                    setCode("");
+                    clearError();
+                  }}
+                >
+                  {useRecovery
+                    ? "Utiliser le code de l'application"
+                    : "Utiliser un code de récupération"}
+                </Anchor>
+                <Anchor
+                  component="button"
+                  type="button"
+                  size="xs"
+                  c="dimmed"
+                  onClick={() => {
+                    auth.cancelMfa();
+                    setCode("");
+                    setUseRecovery(false);
+                    clearError();
+                    setPhase(lastUser ? "password" : "identifier");
+                  }}
+                >
+                  Annuler
+                </Anchor>
+              </Group>
+            </Stack>
+          ) : phase === "identifier" ? (
             /* ── Étape 1 : identifiant (0 appel serveur) ── */
             <form
               onSubmit={(e) => {

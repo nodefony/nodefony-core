@@ -68,6 +68,12 @@ export class AuthStore {
   user: AuthUser | null = null;
   status: AuthStatus = "idle";
   error: string | null = null;
+  /**
+   * Login en attente d'un **second facteur** (2FA TOTP) : le mot de passe est
+   * validé mais l'identité N'EST PAS établie (Zero Trust). Le composant Login bascule
+   * sur la saisie du code ; {@link completeMfa} ouvre réellement la session.
+   */
+  mfaPending = false;
 
   constructor(private readonly auth: AuthService) {
     makeAutoObservable(this);
@@ -131,17 +137,33 @@ export class AuthStore {
     }
   }
 
-  async login(credentials: LoginCredentials): Promise<void> {
+  /**
+   * Login mot de passe. Renvoie `"mfa_required"` si le serveur réclame un 2ᵉ
+   * facteur (202) — l'identité n'est alors PAS établie, le composant Login bascule
+   * sur la saisie du code (`mfaPending`). Sinon `"authenticated"` (session ouverte).
+   */
+  async login(
+    credentials: LoginCredentials,
+  ): Promise<"authenticated" | "mfa_required"> {
     this.status = "loading";
     this.error = null;
+    this.mfaPending = false;
     try {
-      const user = await this.auth.login(credentials);
+      const result = await this.auth.login(credentials);
+      if (result.kind === "mfaRequired") {
+        runInAction(() => {
+          this.mfaPending = true;
+          this.status = "idle"; // ni connecté, ni en erreur : en attente du 2ᵉ facteur
+        });
+        return "mfa_required";
+      }
       runInAction(() => {
-        this.user = user;
+        this.user = result.user;
         this.status = "authenticated";
       });
-      rememberUser(user.username);
+      rememberUser(result.user.username);
       rememberMethod("password");
+      return "authenticated";
     } catch (e) {
       runInAction(() => {
         this.status = "error";
@@ -149,6 +171,41 @@ export class AuthStore {
       });
       throw e;
     }
+  }
+
+  /**
+   * Valide le second facteur (code TOTP ou code de récupération) après un login
+   * `mfa_required` et OUVRE la session. Sur échec, reste en attente (l'utilisateur
+   * peut ressaisir un code) — le défi serveur n'est consommé qu'au succès.
+   */
+  async completeMfa(code: string): Promise<void> {
+    this.status = "loading";
+    this.error = null;
+    try {
+      const user = await this.auth.verifyTotpLogin(code);
+      runInAction(() => {
+        this.user = user;
+        this.status = "authenticated";
+        this.mfaPending = false;
+      });
+      rememberUser(user.username);
+      rememberMethod("password");
+    } catch (e) {
+      runInAction(() => {
+        this.status = "idle"; // toujours en attente du 2ᵉ facteur, PAS « error » global
+        this.error = e instanceof Error ? e.message : String(e);
+      });
+      throw e;
+    }
+  }
+
+  /** Abandonne un login 2FA en attente (retour au formulaire d'identifiant). */
+  cancelMfa(): void {
+    runInAction(() => {
+      this.mfaPending = false;
+      this.status = "unauthenticated";
+      this.error = null;
+    });
   }
 
   /**

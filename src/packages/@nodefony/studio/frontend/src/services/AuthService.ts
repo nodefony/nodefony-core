@@ -31,6 +31,15 @@ export interface LoginCredentials {
   password: string;
 }
 
+/**
+ * Issue d'un login : soit l'identité est établie (`authenticated`), soit le
+ * serveur réclame un **second facteur** (`mfaRequired`, 2FA TOTP — réponse 202).
+ * Tant que le 2ᵉ facteur n'est pas validé, AUCUNE session n'est ouverte.
+ */
+export type LoginResult =
+  | { kind: "authenticated"; user: AuthUser }
+  | { kind: "mfaRequired"; methods: string[] };
+
 const AUTH_BASE = "/nodefony/security/api/auth";
 const WEBAUTHN_BASE = "/nodefony/security/api/webauthn";
 
@@ -38,14 +47,33 @@ export class AuthService {
   constructor(private readonly api: ApiClient) {}
 
   /**
-   * POST /auth/login — le credential est présenté UNE fois ; le serveur pose
-   * le cookie de session (ID régénéré, anti-fixation) et renvoie `{user}`.
+   * POST /auth/login — le credential est présenté UNE fois. Si l'utilisateur a un
+   * 2FA, le serveur répond 202 `{mfaRequired}` SANS ouvrir de session (il garde un
+   * défi en attente) → on enchaîne sur {@link verifyTotpLogin}. Sinon il pose le
+   * cookie de session (ID régénéré, anti-fixation) et renvoie `{user}`.
    * @throws ApiError 401 (message uniforme) ou 429 (`Retry-After`, backoff NIST).
    */
-  async login(credentials: LoginCredentials): Promise<AuthUser> {
+  async login(credentials: LoginCredentials): Promise<LoginResult> {
+    const res = await this.api.postAbsolute<{
+      user?: AuthUser;
+      mfaRequired?: boolean;
+      methods?: string[];
+    }>(`${AUTH_BASE}/login`, credentials);
+    if (res.mfaRequired) {
+      return { kind: "mfaRequired", methods: res.methods ?? ["totp"] };
+    }
+    return { kind: "authenticated", user: res.user as AuthUser };
+  }
+
+  /**
+   * POST /auth/login/totp — valide le **second facteur** (code TOTP ou code de
+   * récupération) après un login `mfaRequired`, puis OUVRE la session BFF.
+   * @throws ApiError 401 (code absent/invalide) ou 429 (trop de tentatives).
+   */
+  async verifyTotpLogin(code: string): Promise<AuthUser> {
     const { user } = await this.api.postAbsolute<{ user: AuthUser }>(
-      `${AUTH_BASE}/login`,
-      credentials,
+      `${AUTH_BASE}/login/totp`,
+      { code },
     );
     return user;
   }
