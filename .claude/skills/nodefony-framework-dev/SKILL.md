@@ -27,16 +27,16 @@ description: >
 > Le **détail** (recettes longues, API, RFC) vit dans `reference/*.md` (progressive disclosure) — garder
 > ce fichier **< 500 lignes**. Avancement/phases/roadmap = `MIGRATION_STATUS.md` **uniquement**, jamais ici.
 
-> **Périmètre** : frontend Studio (React) → **`nodefony-studio-dev`** (skill jumeau). Scaffolder un module
+> **Périmètre** : front (full-stack côté client) → **`nodefony-frontend-dev`** (skill JUMEAU) ; app admin Studio spécifique (UI kit/Mantine) → `nodefony-studio-dev` (dérive de frontend-dev). Scaffolder un module
 > neuf → **`nodefony-create-module`** (ici = comment CODER dedans). RFC/normes → `reference/rfc/` (bundlé
 > offline) + skill `nodefony-rfc` (full-text rare). Types TS → `nodefony-ts-docs`. Sécurité review/attaque
 > → `nodefony-security-review`.
 
 ## 🔗 Paire POLYMORPHE back ⇄ front (co-évolution OBLIGATOIRE)
 
-`nodefony-framework-dev` (back) et `nodefony-studio-dev` (front) sont les **deux faces d'UN kit full-stack**
+`nodefony-framework-dev` (back) et `nodefony-frontend-dev` (front) sont les **deux faces d'UN kit full-stack**
 (isomorphisme Nodefony : back/front partagent `nodefony`). **Ce skill PRODUIT le CONTRAT** ; le jumeau le
-**CONSOMME**. Le SEAM partagé :
+**CONSOMME** (l'app Studio dérive de frontend-dev). Le SEAM partagé :
 
 - **Data-plane** `/nodefony/<mod>/api/*` (back l'expose via `IAdminApi` → front via `useResource`/`ApiClient`). Recette → `reference/framework.md`.
 - **Realtime** : la **socket** (`IRealtimeSocket`) = la prise métier (multiplexe des canaux) ; le **hub** (`RealtimeHub`) = broker serveur (canaux partagés + fan-out). Recette → `reference/realtime.md`.
@@ -44,7 +44,7 @@ description: >
 
 **RÈGLE** : une feature qui traverse back+front → mettre à jour **LES DEUX skills dans la MÊME session**.
 Quand tu changes ici un **canal / action / endpoint / type** consommé par le front → vérifier/MAJ la
-section correspondante de `nodefony-studio-dev` (et inversement).
+section correspondante de `nodefony-frontend-dev` (et inversement).
 
 ## 1. Quand l'utiliser / quand passer la main
 
