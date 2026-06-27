@@ -5,6 +5,7 @@ import {
   classifyDelivery,
   backoffMs,
   type IWebhookDispatcherDeps,
+  type IWebhookDeliveryRecord,
 } from "../../nodefony/src/webhook/WebhookDispatcher";
 import type { IWebhookEndpoint } from "../../nodefony/contracts/IWebhookEndpoint";
 import type { IAuditEvent } from "../../nodefony/contracts/IAuditEvent";
@@ -54,6 +55,7 @@ interface Harness {
   deps: IWebhookDispatcherDeps;
   deliverCalls: Array<{ headers: Record<string, string>; body: string }>;
   marks: IDeliveryResult[];
+  records: IWebhookDeliveryRecord[];
   scheduled: number;
   cancels: number;
   gates: Array<(r: IDeliveryResult) => void>;
@@ -70,6 +72,7 @@ function harness(
   const h: Harness = {
     deliverCalls: [],
     marks: [],
+    records: [],
     scheduled: 0,
     cancels: 0,
     gates: [],
@@ -104,6 +107,9 @@ function harness(
     },
     markDelivery: (_id, r) => {
       h.marks.push(r);
+    },
+    recordDelivery: (_id, rec) => {
+      h.records.push(rec);
     },
     now: () => 1_700_000_000_000,
     newMessageId: () => "msg_test",
@@ -258,6 +264,57 @@ describe("dispatcher — SSRF au point de livraison (rebinding)", () => {
     assert.equal(h.marks.length, 1);
     assert.equal(h.marks[0]!.ok, false);
     assert.match(h.marks[0]!.error ?? "", /ssrf/);
+  });
+});
+
+describe("dispatcher — historique des livraisons (recordDelivery)", () => {
+  it("succès → 1 trace (ok, type, payload signé, durée)", async () => {
+    const h = harness([endpoint()], {
+      ok: true,
+      status: 200,
+      error: null,
+      responseBody: '{"ack":true}',
+    });
+    new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
+    await flush();
+    assert.equal(h.records.length, 1);
+    const rec = h.records[0]!;
+    assert.equal(rec.ok, true);
+    assert.equal(rec.status, 200);
+    assert.equal(rec.type, "login.success");
+    assert.equal(rec.attempt, 0);
+    assert.equal(rec.responseBody, '{"ack":true}');
+    // Le corps tracé = l'enveloppe envoyée {id,timestamp,type,data}.
+    assert.match(rec.requestBody, /"type":"login\.success"/);
+    assert.ok(typeof rec.durationMs === "number");
+  });
+
+  it("retry puis succès → 1 SEULE trace (issue finale), pas les intermédiaires", async () => {
+    const h = harness([endpoint()], [retryable, ok]);
+    new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
+    await flush();
+    assert.equal(h.records.length, 1);
+    assert.equal(h.records[0]!.ok, true);
+  });
+
+  it("rejet SSRF → 1 trace en échec (status null, responseBody null)", async () => {
+    const h = harness(
+      [endpoint()],
+      ok,
+      {},
+      {
+        resolveTarget: async () => {
+          throw new Error("cible non publique");
+        },
+      },
+    );
+    new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
+    await flush();
+    assert.equal(h.records.length, 1);
+    assert.equal(h.records[0]!.ok, false);
+    assert.equal(h.records[0]!.status, null);
+    assert.equal(h.records[0]!.responseBody, null);
+    assert.match(h.records[0]!.error ?? "", /ssrf/);
   });
 });
 

@@ -216,6 +216,11 @@ export default defineConfig<Env>((ctx) => ({
           // Backend du registre : memory (défaut) | drizzle (durable). Le câblage
           // de la fabrique + l'entité vit dans `nodefony/security/webhookStore.ts`.
           store: ctx.env.NF_WEBHOOK_STORE,
+          // DEV : autorise les cibles localhost + http:// pour le récepteur de
+          // test local (module test → /test/webhooks/sink). PROD : SSRF strict
+          // (défauts) — un webhook prod ne doit JAMAIS viser une IP privée/du http.
+          denyPrivateIps: ctx.isProd,
+          allowHttp: !ctx.isProd,
         },
       },
       { policy: "mandatory" },

@@ -12,7 +12,8 @@ import {
   Text,
   ActionIcon,
   Avatar,
-  Menu,
+  Button,
+  Stack,
   Badge,
   Collapse,
   Divider,
@@ -36,6 +37,9 @@ import {
 } from "react-router-dom";
 import {
   IconApi,
+  IconUser,
+  IconKey,
+  IconDeviceLaptop,
   IconSettings,
   IconSun,
   IconMoonStars,
@@ -121,6 +125,12 @@ function NavEntry({
       mb={2}
     />
   );
+}
+
+/** Nom de rôle lisible pour la card compte (`ROLE_NODEFONY_DEV` → « Dev »). */
+function prettyRole(role: string): string {
+  const base = role.replace(/^ROLE_(NODEFONY_)?/, "").replace(/_/g, " ");
+  return base.charAt(0) + base.slice(1).toLowerCase();
 }
 
 export const AdminLayout = observer(() => {
@@ -364,9 +374,21 @@ export const AdminLayout = observer(() => {
                 <IconMoonStars size={18} />
               )}
             </ActionIcon>
-            <Menu position="bottom-end" withArrow shadow="md">
-              <Menu.Target>
-                <ActionIcon variant="subtle" aria-label="User menu">
+            <HoverCard
+              position="bottom-end"
+              withArrow
+              shadow="lg"
+              radius="md"
+              width={290}
+              openDelay={80}
+              closeDelay={120}
+            >
+              <HoverCard.Target>
+                <ActionIcon
+                  variant="subtle"
+                  radius="xl"
+                  aria-label="Mon compte"
+                >
                   <UserAvatar
                     profile={
                       meProfile?.profile ?? {
@@ -377,32 +399,108 @@ export const AdminLayout = observer(() => {
                     size={28}
                   />
                 </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>{auth.user?.email ?? auth.displayName}</Menu.Label>
-                <Menu.Divider />
-                <Menu.Item
-                  leftSection={<IconSettings size={14} />}
-                  component={RouterNavLink}
-                  to="/nodefony/settings"
-                >
-                  Settings
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconFingerprint size={14} />}
-                  onClick={handleRegisterPasskey}
-                >
-                  Enregistrer une empreinte
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconLogout size={14} />}
-                  color="red"
-                  onClick={() => auth.logout()}
-                >
-                  Logout
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+              </HoverCard.Target>
+              <HoverCard.Dropdown p={0} style={{ overflow: "hidden" }}>
+                {/* En-tête identité : avatar + nom + email + rôle */}
+                <Group p="md" gap="sm" wrap="nowrap" align="flex-start">
+                  <UserAvatar
+                    profile={
+                      meProfile?.profile ?? {
+                        email: auth.user?.email ?? undefined,
+                      }
+                    }
+                    identifier={auth.displayName}
+                    size={44}
+                  />
+                  <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+                    <Text fw={700} size="sm" truncate>
+                      {auth.displayName}
+                    </Text>
+                    {auth.user?.email && (
+                      <Text size="xs" c="dimmed" truncate>
+                        {auth.user.email}
+                      </Text>
+                    )}
+                    <Group gap={4} mt={4}>
+                      {isAdmin ? (
+                        <Badge size="xs" variant="light" color="orange">
+                          Administrateur
+                        </Badge>
+                      ) : auth.roles.length > 0 ? (
+                        auth.roles.slice(0, 3).map((r) => (
+                          <Badge
+                            key={r}
+                            size="xs"
+                            variant="light"
+                            color="brand"
+                            style={{ textTransform: "none" }}
+                          >
+                            {prettyRole(r)}
+                          </Badge>
+                        ))
+                      ) : (
+                        <Badge size="xs" variant="light" color="gray">
+                          Utilisateur
+                        </Badge>
+                      )}
+                    </Group>
+                  </Stack>
+                </Group>
+
+                <Divider />
+
+                {/* Compte (self-service, accessible à tous) */}
+                <Stack gap={0} py={4}>
+                  <NavLink
+                    label="Mon profil"
+                    leftSection={<IconUser size={16} />}
+                    component={RouterNavLink}
+                    to="/nodefony/profile"
+                  />
+                  <NavLink
+                    label="Mes clés API"
+                    leftSection={<IconKey size={16} />}
+                    component={RouterNavLink}
+                    to="/nodefony/api-keys"
+                  />
+                  <NavLink
+                    label="Mes sessions"
+                    leftSection={<IconDeviceLaptop size={16} />}
+                    component={RouterNavLink}
+                    to="/nodefony/sessions"
+                  />
+                  <NavLink
+                    label="Ajouter une passkey"
+                    leftSection={<IconFingerprint size={16} />}
+                    onClick={handleRegisterPasskey}
+                  />
+                  {isAdmin && (
+                    <NavLink
+                      label="Réglages"
+                      leftSection={<IconSettings size={16} />}
+                      component={RouterNavLink}
+                      to="/nodefony/settings"
+                    />
+                  )}
+                </Stack>
+
+                <Divider />
+
+                {/* Déconnexion (action de fin, mise en avant) */}
+                <Box p="xs">
+                  <Button
+                    fullWidth
+                    size="xs"
+                    variant="light"
+                    color="red"
+                    leftSection={<IconLogout size={14} />}
+                    onClick={() => auth.logout()}
+                  >
+                    Déconnexion
+                  </Button>
+                </Box>
+              </HoverCard.Dropdown>
+            </HoverCard>
           </Group>
         </Group>
       </AppShell.Header>

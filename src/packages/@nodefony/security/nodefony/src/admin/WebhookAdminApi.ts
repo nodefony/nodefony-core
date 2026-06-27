@@ -4,7 +4,10 @@ import type {
   IAdminRequest,
   IAdminResponse,
 } from "nodefony";
-import type { WebhookEndpointSummary } from "../../contracts/IWebhookEndpoint";
+import type {
+  WebhookEndpointSummary,
+  IWebhookDelivery,
+} from "../../contracts/IWebhookEndpoint";
 import { adminActor, auditAdmin } from "./adminAudit";
 
 /**
@@ -72,6 +75,7 @@ interface IWebhookAdmin {
   rotateSecret(id: string): Promise<IWebhookSecretRevealView | null>;
   revealSecret(id: string): Promise<string | null>;
   delete(id: string): Promise<boolean>;
+  listDeliveries(id: string): IWebhookDelivery[];
 }
 
 /**
@@ -269,6 +273,28 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
         if (!id) return NOT_FOUND;
         const ep = await s.getEndpoint(id);
         return ep ?? NOT_FOUND;
+      },
+    },
+    {
+      path: "webhooks/{id}/deliveries",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Historique des dernières livraisons d'un endpoint (ce qui a été ENVOYÉ " +
+        "+ la réponse) — RAM, borné, par pod. Aucun secret. 404 si endpoint absent.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<
+        { deliveries: IWebhookDelivery[] } | IAdminResponse<{ error: string }>
+      > => {
+        const s = svc();
+        if (!ready(s)) return UNAVAILABLE;
+        const id = pathId(request);
+        if (!id) return NOT_FOUND;
+        // 404 si l'endpoint n'existe pas (≠ existe mais 0 livraison → []).
+        const ep = await s.getEndpoint(id);
+        if (!ep) return NOT_FOUND;
+        return { deliveries: s.listDeliveries(id) };
       },
     },
     {

@@ -198,6 +198,7 @@ export function ApiKeysTable({
         columns={columns}
         getRowId={(r) => r.id}
         onRowClick={(r) => setSelected(r)}
+        dimRow={(r) => keyStatus(r) !== "active"}
         initialSort={{ key: "name", dir: "asc" }}
         searchable
         searchPlaceholder="Rechercher (nom, préfixe, porteur, scope…)"

@@ -237,12 +237,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/nodefony/firewall", label: "Firewall", icon: IconShieldLock },
       { to: "/nodefony/users", label: "Utilisateurs", icon: IconUsers },
       { to: "/nodefony/roles", label: "Rôles", icon: IconUsersGroup },
-      {
-        to: "/nodefony/webhooks",
-        label: "Webhooks",
-        icon: IconWebhook,
-        wip: true,
-      },
+      { to: "/nodefony/webhooks", label: "Webhooks", icon: IconWebhook },
     ],
   },
   {

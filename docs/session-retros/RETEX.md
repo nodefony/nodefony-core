@@ -119,6 +119,20 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
 
 ## 🎨 Front / Studio / UX
 
+- **[1× — 06-27] Gros chantier back EN FOND pendant des petits asks UI = user perdu (« je comprends
+  plus rien »).** Le user enchaînait des micro-ajustements d'écran (colonne, couleur, placeholder)
+  pendant que je déroulais une feature full-stack lourde (Livraisons récentes) en arrière-plan, sans
+  checkpoint visible. **Leçon** : dans une boucle de feedback rapide sur un écran, traiter les **petits
+  asks D'ABORD** (HMR, gratifiant), n'attaquer un gros multi-fichiers back qu'avec un **point d'étape
+  annoncé** (« je pars sur X, ~N fichiers, tu verras Y après restart »). User perdu → **STOP, récap
+  court en 3 blocs (fait / en-cours / reste), 0 jargon**, puis reprendre.
+- **[1× — 06-27] Une feature « générique » doit avoir une UI CONSTANTE même à 1 seul cas.** Le sélecteur
+  de catégories de tests était gardé `groups.length > 1` → invisible sur les modules mono-catégorie
+  (security/user = unit seul) → le user croit « pas appliqué ailleurs / pas générique ». **Leçon** :
+  même structure partout (sélecteur même à 1 option) ; l'absence de chrome est lue comme un bug.
+- **[1× — 06-27] « onglets pas scroll » (re-confirmation divulgation progressive).** Empiler les sections
+  (unit + autres suites) = scroll → rejeté. Un **SegmentedControl** (1 vue à la fois) > scroll **et** >
+  Tabs imbriqués (règle Studio). Réflexe : facettes d'un même sujet = sélecteur, pas empilement vertical.
 - **[1× — 06-27] Cache navigateur : `localhost` ≠ `127.0.0.1` = DEUX origines (caches séparés).**
   Le user voyait l'ANCIEN bundle sur `localhost` alors que le serveur servait le neuf (prouvé : un
   `fetch` vers `127.0.0.1:5173/@fs/…Users.tsx` depuis sa console → `NEW`). ~10 allers-retours à
@@ -1353,6 +1367,24 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
   Garder `&& rollup -c` (gain du cache root négligeable vs fragilité de lister 20 deps).
 
 ## 🧪 Tests / hygiène (suite)
+
+- **[1× — 06-27] Ajouter une méthode REQUISE à une interface de deps casse les mocks de tests — et le
+  `build` (rollup) ne le voit pas.** `recordDelivery` ajouté à `IWebhookDispatcherDeps` → `npm run build`
+  security = **vert** (rollup compile la SOURCE, pas `tests/`) mais le harness `webhookDispatcher.test`
+  et le mock `webhookAdminApi.test` (interface `IWebhookAdmin` + compteur d'endpoints) auraient explosé
+  au run. **Leçon** : étendre une interface = MAJ les mocks/harness **dans la même passe** + lancer
+  **vitest** (pas seulement build) pour le prouver. Gate = `npx vitest run`, jamais le build seul.
+- **[1× — 06-27] Tests d'intégration d'une lib câblée au pipeline vivent dans le CONSOMMATEUR.** Un
+  listing « tests par module » (`listTestGroups(module.path)`) ne voit que les fichiers PHYSIQUES du
+  module → `security` n'affiche que des unit ; ses intégration/e2e sont dans `@nodefony/http`
+  (`oauth2-flow`, `apikey-flow`, `security-hooks`, csrf/cors/headers) + bancs `.mjs` (`.claude/skills`).
+  **Ce n'est pas un trou de couverture, c'est l'emplacement** (security ne boote pas un serveur seul).
+  Décision user = laisser tel quel (pas d'attribution cross-module heuristique, non fiable).
+- **[1× — 06-27] Webhook delivery rejette le cert auto-signé (5152) → « tout en échec » trompeur.**
+  `webhookDelivery` (node:https, `rejectUnauthorized` défaut) refuse le cert dev auto-signé du port
+  https 5152 → 0 livraison réelle (cause TLS, **pas** le code). Pour tester en local : viser le port
+  **http 5151** (récepteur sink) + config dev `webhooks.denyPrivateIps:false`+`allowHttp:true` (prod
+  reste strict). Réflexe : « toutes les livraisons échouent » → suspecter TLS/port AVANT le code.
 
 - `[1× — 2026-06-22]` **garde de sécurité testée seulement aux EXTRÊMES = le cas « milieu » pourrit.** Le data
   plane admin n'avait QUE anonyme→401 (firewall) et admin→200 ; JAMAIS « authentifié mais PAS le rôle →403 ».

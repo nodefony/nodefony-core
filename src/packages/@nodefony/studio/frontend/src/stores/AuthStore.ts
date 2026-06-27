@@ -99,11 +99,12 @@ export class AuthStore {
   }
 
   /**
-   * Page d'accueil = 1er dashboard autorisé. Sans rôle de dashboard, repli sur
-   * l'Admin API (toujours visible).
+   * Page d'accueil = le BUREAU composable (`/nodefony/workspace`) : personnalisable
+   * et role-aware (bureau « Mon compte » pour un simple user, bureaux par rôle).
+   * PAS un dashboard spécialisé comme la Supervision (vue ops → via le menu).
    */
   get homePath(): string {
-    return this.dashboards[0]?.path ?? "/nodefony/workspace";
+    return "/nodefony/workspace";
   }
 
   /**

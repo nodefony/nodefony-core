@@ -31,7 +31,9 @@ export default defineConfig({
       all: true,
       include: ["index.ts", "nodefony/**/*.ts"],
       exclude: ["nodefony/interfaces/**", "**/*.d.ts", "**/dist/**"],
-      reporter: ["text", "text-summary"],
+      // json-summary + lcov = fichiers lus par Studio (onglet Coverage) ; sans eux
+      // `npm run coverage` n'écrit rien dans .coverage/ → onglet absent.
+      reporter: ["text-summary", "json-summary", "lcov"],
       reportsDirectory: ".coverage",
       // Plancher CI (≈ mesuré − 3 pts). À relever au fil des tests.
       thresholds: { lines: 72, statements: 72, functions: 66, branches: 58 },

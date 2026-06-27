@@ -423,11 +423,8 @@ export interface TestRunResult {
   mode: string;
 }
 
-/**
- * Liste les fichiers de test d'un module (`*.test.ts`, hors node_modules/dist).
- * Chemins relatifs au module — pour l'onglet Tests de Studio.
- */
-export async function listTestFiles(modulePath: string): Promise<string[]> {
+/** Walk `*.test.ts` (hors node_modules/dist/.coverage) → chemins relatifs triés. */
+async function collectTestFiles(modulePath: string): Promise<string[]> {
   const out: string[] = [];
   const walk = async (dir: string, depth: number): Promise<void> => {
     if (depth > 8) return;
@@ -452,12 +449,85 @@ export async function listTestFiles(modulePath: string): Promise<string[]> {
   };
   await walk(modulePath, 0);
   out.sort();
-  // Si une suite unit existe, ne lister QUE les tests unit (lançables par vitest
-  // run-one) ; l'intégration tape un serveur (runner ts-node mocha à part).
-  const unit = out.filter(
-    (f) => f.includes("/tests/unit/") || f.includes("/unit/"),
-  );
-  return unit.length ? unit : out;
+  return out;
+}
+
+/** Est-ce un test unit ? (seul lançable par `vitest run <file>` sans serveur). */
+function isUnitTest(relPath: string): boolean {
+  return relPath.includes("/unit/") || relPath.includes("tests/unit/");
+}
+
+/** Catégorie d'un fichier de test, dérivée de son chemin/nom (dossier de suite). */
+function testCategory(relPath: string): string {
+  if (isUnitTest(relPath)) return "unit";
+  if (relPath.includes("/integration/")) return "integration";
+  if (relPath.includes("/e2e/") || relPath.endsWith(".e2e.test.ts"))
+    return "e2e";
+  if (relPath.includes("/load/")) return "load";
+  if (relPath.includes("/websockets/")) return "websockets";
+  if (relPath.includes("/routing/")) return "routing";
+  if (relPath.endsWith("memory.test.ts")) return "memory";
+  return "autre";
+}
+
+/**
+ * Liste les fichiers de test **unit** d'un module (lançables par `vitest run`).
+ * Si aucune suite unit, repli sur tous les fichiers. Chemins relatifs au module.
+ */
+export async function listTestFiles(modulePath: string): Promise<string[]> {
+  const all = await collectTestFiles(modulePath);
+  const unit = all.filter(isUnitTest);
+  return unit.length ? unit : all;
+}
+
+/** Un groupe de suites de tests (pour l'onglet Tests de Studio). */
+export interface TestGroup {
+  /** Catégorie (`unit`/`integration`/`e2e`/`load`/`websockets`/`routing`/`memory`/`autre`). */
+  category: string;
+  files: string[];
+  /** Lançable depuis Studio ? (unit seulement — les autres tapent un serveur/DB). */
+  runnable: boolean;
+}
+
+const TEST_CATEGORY_ORDER = [
+  "unit",
+  "integration",
+  "e2e",
+  "websockets",
+  "routing",
+  "load",
+  "memory",
+  "autre",
+];
+
+/**
+ * Groupe TOUS les fichiers de test d'un module par catégorie (lecture seule pour
+ * l'onglet Tests — les non-unit ne sont pas lançables depuis Studio : ils exigent
+ * un serveur live / une base, donc `runnable:false`). Donne une vue complète des
+ * suites (intégration/e2e/charge/mémoire) qui étaient invisibles auparavant.
+ */
+export async function listTestGroups(modulePath: string): Promise<TestGroup[]> {
+  const all = await collectTestFiles(modulePath);
+  const byCat = new Map<string, string[]>();
+  for (const f of all) {
+    const c = testCategory(f);
+    let arr = byCat.get(c);
+    if (arr === undefined) {
+      arr = [];
+      byCat.set(c, arr);
+    }
+    arr.push(f);
+  }
+  return [...byCat.entries()]
+    .sort(
+      ([a], [b]) =>
+        TEST_CATEGORY_ORDER.indexOf(a) - TEST_CATEGORY_ORDER.indexOf(b),
+    )
+    .map(([category, files]) => ({
+      category,
+      files,
+      runnable: category === "unit",
+    }));
 }
 
 /**
@@ -486,7 +556,24 @@ export function runModuleTests(
     // valide déjà `file`, cf KernelAdminApi : pas de `..`, pas de `-`, `.test.ts`).
     args = ["vitest", "run", "--", file];
     mode = `vitest run ${file}`;
+  } else if (hasVitest) {
+    // Run-all d'un module vitest : on FORCE les reporters fichiers + le répertoire
+    // .coverage en CLI → l'onglet Coverage de Studio apparaît quelle que soit la
+    // config coverage du module (anti-dérive : la liste `reporter` était dupliquée
+    // par module et divergeait en silence, certains n'émettant que du `text`).
+    cmd = "npx";
+    args = [
+      "vitest",
+      "run",
+      "--coverage",
+      "--coverage.reporter=text-summary",
+      "--coverage.reporter=json-summary",
+      "--coverage.reporter=lcov",
+      "--coverage.reportsDirectory=.coverage",
+    ];
+    mode = "vitest run --coverage (reporters forcés)";
   } else {
+    // Core (monocart, pas de vitest.config.ts) : son script `coverage` émet lcov.
     cmd = "npm";
     args = ["run", "coverage"];
     mode = "npm run coverage (suite complète)";

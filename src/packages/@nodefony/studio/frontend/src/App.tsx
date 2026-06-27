@@ -107,9 +107,11 @@ const UserProfile = lazy(() =>
     default: m.UserProfile,
   })),
 );
+const Webhooks = lazy(() =>
+  import("./routes/Webhooks").then((m) => ({ default: m.Webhooks })),
+);
 
 import {
-  Webhooks,
   Services,
   Npm,
   Migrate,

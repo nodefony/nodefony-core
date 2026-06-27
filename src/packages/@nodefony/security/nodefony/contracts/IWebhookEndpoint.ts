@@ -69,3 +69,32 @@ export type WebhookEndpointUpdate = Partial<
  * chiffré. Le secret en clair n'est renvoyé qu'une fois, à la création/rotation.
  */
 export type WebhookEndpointSummary = Omit<IWebhookEndpoint, "secretEnc">;
+
+/**
+ * Trace d'une livraison (historique « récentes », façon GitHub/Stripe) — ce que
+ * Nodefony a **envoyé** à l'endpoint + la **réponse** observée. Stocké en RAM,
+ * borné, **par pod** (observabilité éphémère, non persistée). Aucun secret (le
+ * `webhook-signature` n'en révèle rien ; le corps signé est l'événement public).
+ */
+export interface IWebhookDelivery {
+  /** Horodatage de la tentative (epoch ms). */
+  readonly ts: number;
+  /** `webhook-id` du message livré. */
+  readonly messageId: string;
+  /** Type d'événement (= action d'audit, ex. `login.failure`). */
+  readonly type: string;
+  /** Numéro de tentative (0 = 1ʳᵉ ; > 0 = retry). */
+  readonly attempt: number;
+  /** Livraison acceptée (2xx) ? */
+  readonly ok: boolean;
+  /** Code HTTP, ou `null` (réseau/timeout/SSRF). */
+  readonly status: number | null;
+  /** Message d'erreur, ou `null` si OK. */
+  readonly error: string | null;
+  /** Durée de la tentative (ms). */
+  readonly durationMs: number;
+  /** Corps JSON envoyé (enveloppe `{id,timestamp,type,data}`), tronqué. */
+  readonly requestBody: string;
+  /** Début du corps de réponse du destinataire (tronqué), ou `null`. */
+  readonly responseBody: string | null;
+}

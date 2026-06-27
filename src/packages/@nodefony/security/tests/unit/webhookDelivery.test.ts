@@ -117,3 +117,26 @@ describe("webhookDelivery — politique de protocole", () => {
     assert.match(r.error ?? "", /protocole/);
   });
 });
+
+describe("webhookDelivery — capture du corps de réponse (historique)", () => {
+  it("2xx → responseBody = corps du destinataire", async () => {
+    const r = await deliverWebhook(
+      `http://h.invalid:${port}/ok`,
+      "{}",
+      {},
+      opts(),
+    );
+    assert.equal(r.ok, true);
+    assert.equal(r.responseBody, "ok");
+  });
+  it("5xx → responseBody capturé (corps d'erreur)", async () => {
+    const r = await deliverWebhook(
+      `http://h.invalid:${port}/500`,
+      "{}",
+      {},
+      opts(),
+    );
+    assert.equal(r.ok, false);
+    assert.equal(r.responseBody, "boom");
+  });
+});

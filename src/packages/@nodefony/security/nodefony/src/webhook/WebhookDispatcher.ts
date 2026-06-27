@@ -56,6 +56,19 @@ export function backoffMs(attempt: number): number {
   return Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** attempt);
 }
 
+/** Trace d'une livraison terminée, poussée à `recordDelivery` (historique). */
+export interface IWebhookDeliveryRecord {
+  readonly messageId: string;
+  readonly type: string;
+  readonly attempt: number;
+  readonly ok: boolean;
+  readonly status: number | null;
+  readonly error: string | null;
+  readonly durationMs: number;
+  readonly requestBody: string;
+  readonly responseBody: string | null;
+}
+
 /** Dépendances injectées du dispatcher (E/S + temps + politique). */
 export interface IWebhookDispatcherDeps {
   /** Nombre d'endpoints (0-alloc) — court-circuit hot-path. */
@@ -77,6 +90,8 @@ export interface IWebhookDispatcherDeps {
   ): Promise<IDeliveryResult>;
   /** Met à jour l'endpoint (lastDelivery, failureCount, auto-disable). */
   markDelivery(id: string, result: IDeliveryResult): void | Promise<void>;
+  /** Enregistre une trace de livraison (historique « récentes », par endpoint). */
+  recordDelivery(id: string, rec: IWebhookDeliveryRecord): void;
   /** Horloge injectable. */
   now(): number;
   /** Génère un `webhook-id` de message. */
@@ -194,10 +209,22 @@ export class WebhookDispatcher {
         addresses = await this.#deps.resolveTarget(ep.url); // re-SSRF + pin
       } catch (e) {
         // URL devenue interne (rebinding) ou injoignable → abandon, pas de retry.
+        const error = `ssrf: ${(e as Error).message}`;
         await this.#deps.markDelivery(ep.id, {
           ok: false,
           status: null,
-          error: `ssrf: ${(e as Error).message}`,
+          error,
+        });
+        this.#deps.recordDelivery(ep.id, {
+          messageId: id,
+          type: event.action,
+          attempt,
+          ok: false,
+          status: null,
+          error,
+          durationMs: this.#deps.now() - nowMs,
+          requestBody: body,
+          responseBody: null,
         });
         return;
       }
@@ -216,6 +243,18 @@ export class WebhookDispatcher {
         return;
       }
       await this.#deps.markDelivery(ep.id, result); // succès OU échec définitif
+      // Trace l'issue FINALE (pas les retries intermédiaires) → historique récent.
+      this.#deps.recordDelivery(ep.id, {
+        messageId: id,
+        type: event.action,
+        attempt,
+        ok: result.ok,
+        status: result.status,
+        error: result.error,
+        durationMs: this.#deps.now() - nowMs,
+        requestBody: body,
+        responseBody: result.responseBody ?? null,
+      });
     } catch (e) {
       this.#deps.log(`webhook dispatch ${ep.id}: ${(e as Error).message}`);
     }

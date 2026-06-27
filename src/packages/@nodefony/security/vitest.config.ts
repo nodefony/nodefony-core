@@ -15,7 +15,10 @@ export default defineConfig({
       include: ["index.ts", "nodefony/**/*.ts"],
       // contracts/ = type-only → hors métrique runtime.
       exclude: ["nodefony/contracts/**", "**/*.d.ts", "**/dist/**"],
-      reporter: ["text", "text-summary"],
+      // json-summary + lcov = fichiers lus par Studio (readCoverage : .coverage/
+      // coverage-summary.json puis lcov.info) ; text-summary = console. Sans les
+      // reporters fichiers, `npm run coverage` n'écrit rien → onglet Coverage vide.
+      reporter: ["text-summary", "json-summary", "lcov"],
       reportsDirectory: ".coverage",
     },
   },

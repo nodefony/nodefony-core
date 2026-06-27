@@ -22,6 +22,7 @@ import {
   readDependencies,
   checkOutdated,
   listTestFiles,
+  listTestGroups,
   runModuleTests,
   resolveCorePath,
   readCoreInfo,
@@ -494,6 +495,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           devMode:
             kernel.environment === "development" || Boolean(kernel.debug),
           files: await listTestFiles(target.path),
+          // Toutes les suites groupées par catégorie (intégration/e2e/charge/
+          // mémoire…) — lecture seule (seul `unit` est lançable depuis Studio).
+          groups: await listTestGroups(target.path),
         };
       },
     },

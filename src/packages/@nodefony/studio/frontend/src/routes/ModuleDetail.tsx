@@ -19,6 +19,7 @@ import {
   rem,
   RingProgress,
   ScrollArea,
+  SegmentedControl,
   SimpleGrid,
   Skeleton,
   Stack,
@@ -145,9 +146,17 @@ interface OutdatedInfo {
   latest: string | null;
   outdated: boolean;
 }
+/** Un groupe de suites de tests (miroir de `TestGroup` back). */
+interface TestGroup {
+  category: string;
+  files: string[];
+  runnable: boolean;
+}
 interface TestsInfo {
   files: string[];
   devMode: boolean;
+  /** Toutes les suites groupées (intégration/e2e/charge/mémoire…) — lecture seule. */
+  groups?: TestGroup[];
 }
 interface TestRunResult {
   ok: boolean;
@@ -1235,6 +1244,16 @@ function TestsPanel({
   const [results, setResults] = useState<
     Record<string, TestRunResult | "running">
   >({});
+  // Catégories de suites (depuis groups ; repli sur les unit lançables). Une seule
+  // catégorie visible à la fois (sélecteur) → pas de scroll, pas de Tabs imbriqués.
+  const groups: TestGroup[] =
+    tests.groups && tests.groups.length > 0
+      ? tests.groups
+      : tests.files.length > 0
+        ? [{ category: "unit", files: tests.files, runnable: true }]
+        : [];
+  const [cat, setCat] = useState<string>("unit");
+  const current = groups.find((g) => g.category === cat) ?? groups[0];
 
   const fail = (k: string, msg: string) =>
     setResults((r) => ({
@@ -1299,76 +1318,125 @@ function TestsPanel({
 
   return (
     <Stack gap="md">
-      <Group>
-        <Button
-          leftSection={<IconPlayerPlay size={16} />}
-          loading={allRes === "running"}
-          onClick={() => run()}
-        >
-          Lancer tous (+ coverage)
-        </Button>
-        {allRes && allRes !== "running" && <ResultBadge res={allRes} />}
-        <Text size="xs" c="dimmed">
-          « Lancer tous » régénère aussi le coverage (recharge la page pour le
-          voir à jour).
-        </Text>
-      </Group>
+      {/* Sélecteur affiché dès qu'il y a des suites (même une seule catégorie) →
+          structure identique sur TOUS les modules. La plupart n'ont que `unit` ;
+          http/drizzle/mongoose ont aussi intégration/e2e/charge. */}
+      {groups.length > 0 && (
+        <SegmentedControl
+          value={current?.category ?? cat}
+          onChange={setCat}
+          data={groups.map((g) => ({
+            value: g.category,
+            label: `${TEST_GROUP_LABELS[g.category] ?? g.category} (${g.files.length})`,
+          }))}
+        />
+      )}
 
-      <Table.ScrollContainer minWidth={560}>
-        <Table striped highlightOnHover withRowBorders={false}>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Fichier de test</Table.Th>
-              <Table.Th w={90}>Action</Table.Th>
-              <Table.Th>Résultat</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {tests.files.map((f) => {
-              const res = results[f];
-              return (
-                <Table.Tr key={f}>
-                  <Table.Td>
-                    <Code>{f}</Code>
-                  </Table.Td>
-                  <Table.Td>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      leftSection={<IconPlayerPlay size={14} />}
-                      loading={res === "running"}
-                      onClick={() => run(f)}
-                    >
-                      Run
-                    </Button>
-                  </Table.Td>
-                  <Table.Td>
-                    {res && res !== "running" ? (
-                      <ResultBadge res={res} />
-                    ) : null}
-                  </Table.Td>
+      {current?.runnable ? (
+        <Stack gap="md">
+          <Group>
+            <Button
+              leftSection={<IconPlayerPlay size={16} />}
+              loading={allRes === "running"}
+              onClick={() => run()}
+            >
+              Lancer tous (+ coverage)
+            </Button>
+            {allRes && allRes !== "running" && <ResultBadge res={allRes} />}
+            <Text size="xs" c="dimmed">
+              « Lancer tous » régénère aussi le coverage (recharge la page pour
+              le voir à jour).
+            </Text>
+          </Group>
+
+          <Table.ScrollContainer minWidth={560}>
+            <Table striped highlightOnHover withRowBorders={false}>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Fichier de test</Table.Th>
+                  <Table.Th w={90}>Action</Table.Th>
+                  <Table.Th>Résultat</Table.Th>
                 </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+              </Table.Thead>
+              <Table.Tbody>
+                {current.files.map((f) => {
+                  const res = results[f];
+                  return (
+                    <Table.Tr key={f}>
+                      <Table.Td>
+                        <Code>{f}</Code>
+                      </Table.Td>
+                      <Table.Td>
+                        <Button
+                          size="xs"
+                          variant="light"
+                          leftSection={<IconPlayerPlay size={14} />}
+                          loading={res === "running"}
+                          onClick={() => run(f)}
+                        >
+                          Run
+                        </Button>
+                      </Table.Td>
+                      <Table.Td>
+                        {res && res !== "running" ? (
+                          <ResultBadge res={res} />
+                        ) : null}
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
 
-      {failures.map(([k, r]) => (
-        <Alert
-          key={k}
-          color="red"
-          icon={<IconAlertTriangle size={16} />}
-          title={`Échec : ${k === ALL ? "suite complète" : k}`}
-        >
-          <ScrollArea.Autosize mah={240}>
-            <Code block>{r.output || "(pas de sortie)"}</Code>
-          </ScrollArea.Autosize>
-        </Alert>
-      ))}
+          {failures.map(([k, r]) => (
+            <Alert
+              key={k}
+              color="red"
+              icon={<IconAlertTriangle size={16} />}
+              title={`Échec : ${k === ALL ? "suite complète" : k}`}
+            >
+              <ScrollArea.Autosize mah={240}>
+                <Code block>{r.output || "(pas de sortie)"}</Code>
+              </ScrollArea.Autosize>
+            </Alert>
+          ))}
+        </Stack>
+      ) : current ? (
+        <Stack gap="xs">
+          <Text size="xs" c="dimmed">
+            Suite « {TEST_GROUP_LABELS[current.category] ?? current.category} »
+            — lecture seule. Lancée en CLI (serveur live / base / config dédiée
+            requis), pas depuis Studio.
+          </Text>
+          <Stack gap={2}>
+            {current.files.map((f) => (
+              <Code key={f} style={{ fontSize: 11 }}>
+                {f}
+              </Code>
+            ))}
+          </Stack>
+        </Stack>
+      ) : (
+        <Text size="sm" c="dimmed">
+          Aucune suite de tests.
+        </Text>
+      )}
     </Stack>
   );
 }
+
+/** Libellé FR d'une catégorie de suite de tests. */
+const TEST_GROUP_LABELS: Record<string, string> = {
+  unit: "Unit",
+  integration: "Intégration",
+  e2e: "E2E",
+  websockets: "WebSockets",
+  routing: "Routing",
+  load: "Charge",
+  memory: "Mémoire",
+  autre: "Autre",
+};
 
 /** Seuil couleur couverture : ≥80 teal, ≥50 jaune, sinon rouge. */
 function covColor(pct: number): string {

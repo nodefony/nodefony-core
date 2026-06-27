@@ -9,6 +9,7 @@ import {
 import type { IWebhookStore } from "../contracts/IWebhookStore";
 import type {
   IWebhookEndpoint,
+  IWebhookDelivery,
   WebhookEndpointSummary,
   WebhookEndpointUpdate,
 } from "../contracts/IWebhookEndpoint";
@@ -20,7 +21,10 @@ import {
   generateEphemeralKey,
 } from "../src/webhook/webhookCipher";
 import { assertPublicUrl } from "../src/net/ssrfGuard";
-import { WebhookDispatcher } from "../src/webhook/WebhookDispatcher";
+import {
+  WebhookDispatcher,
+  type IWebhookDeliveryRecord,
+} from "../src/webhook/WebhookDispatcher";
 import {
   deliverWebhook,
   type IDeliveryResult,
@@ -28,6 +32,11 @@ import {
 import type { IAuditEvent, IAuditEventDraft } from "../contracts/IAuditEvent";
 
 const serviceName = "webhooks";
+
+/** Historique de livraisons gardé PAR endpoint (ring borné, RAM, par pod). */
+const MAX_DELIVERIES_PER_ENDPOINT = 20;
+/** Corps de requête tronqué dans l'historique (anti-mémoire). */
+const MAX_RECORDED_BODY = 8192;
 
 /** Entrée de création d'un endpoint (les champs système sont dérivés). */
 export interface IWebhookRegisterInput {
@@ -110,6 +119,8 @@ class WebhookService extends Service {
   #unsubscribe: (() => void) | null = null;
   /** Sink d'audit — trace l'auto-désactivation (signal borné, pas chaque échec). */
   #audit: { record(draft: IAuditEventDraft): void } | null = null;
+  /** Historique de livraisons par endpoint (lazy, ring borné, RAM par pod). */
+  #deliveries: Map<string, IWebhookDelivery[]> | null = null;
 
   constructor(public module: Module) {
     super(
@@ -173,6 +184,7 @@ class WebhookService extends Service {
       deliver: (url, body, headers, opts) =>
         deliverWebhook(url, body, headers, opts),
       markDelivery: (id, r) => this.markDelivery(id, r),
+      recordDelivery: (id, rec) => this.#recordDelivery(id, rec),
       now: () => Date.now(),
       newMessageId: () => `msg_${randomBytes(12).toString("base64url")}`,
       schedule: (fn, ms) => {
@@ -377,7 +389,51 @@ class WebhookService extends Service {
     if (!current) return false;
     await this.#store!.delete(id);
     this.#endpoints?.delete(id);
+    this.#deliveries?.delete(id); // purge l'historique en RAM de l'endpoint
     return true;
+  }
+
+  /**
+   * Historique des dernières livraisons d'un endpoint (plus récentes d'abord) —
+   * ce que Nodefony a ENVOYÉ + la réponse observée. RAM, borné, par pod
+   * (observabilité éphémère, non persistée). `[]` si aucune livraison.
+   */
+  listDeliveries(id: string): IWebhookDelivery[] {
+    const ring = this.#deliveries?.get(id);
+    return ring ? [...ring] : [];
+  }
+
+  /**
+   * Pousse une trace de livraison dans le ring de l'endpoint (lazy alloc, ring
+   * borné `MAX_DELIVERIES_PER_ENDPOINT`, corps tronqué). Appelé par le dispatcher
+   * sur l'issue FINALE d'une livraison.
+   */
+  #recordDelivery(id: string, rec: IWebhookDeliveryRecord): void {
+    if (this.#deliveries === null) this.#deliveries = new Map();
+    let ring = this.#deliveries.get(id);
+    if (ring === undefined) {
+      ring = [];
+      this.#deliveries.set(id, ring);
+    }
+    const entry: IWebhookDelivery = {
+      ts: Date.now(),
+      messageId: rec.messageId,
+      type: rec.type,
+      attempt: rec.attempt,
+      ok: rec.ok,
+      status: rec.status,
+      error: rec.error,
+      durationMs: rec.durationMs,
+      requestBody:
+        rec.requestBody.length > MAX_RECORDED_BODY
+          ? rec.requestBody.slice(0, MAX_RECORDED_BODY)
+          : rec.requestBody,
+      responseBody: rec.responseBody,
+    };
+    ring.unshift(entry); // plus récent en tête
+    if (ring.length > MAX_DELIVERIES_PER_ENDPOINT) {
+      ring.length = MAX_DELIVERIES_PER_ENDPOINT;
+    }
   }
 
   // ── Accessors dispatcher (Slice B) ───────────────────────────────────────────

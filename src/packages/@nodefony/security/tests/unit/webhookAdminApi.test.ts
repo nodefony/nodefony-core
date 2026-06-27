@@ -139,6 +139,23 @@ function bootWebhooks(
       return cur ? `whsec_${id}` : null;
     },
     delete: async (id: string) => store.delete(id),
+    listDeliveries: (id: string) =>
+      store.has(id)
+        ? [
+            {
+              ts: 10,
+              messageId: "msg_x",
+              type: "login.success",
+              attempt: 0,
+              ok: true,
+              status: 200,
+              error: null,
+              durationMs: 5,
+              requestBody: '{"type":"login.success"}',
+              responseBody: '{"ack":true}',
+            },
+          ]
+        : [],
   };
   if (opts.withService !== false) container.set("webhooks", svc);
   if (opts.withStore !== false) {
@@ -186,7 +203,7 @@ async function seed(container: Container, url = "https://hook.example.com") {
 
 // ════════════════════════════════════════════════════════════════════════════
 describe("WebhookAdminApi — déclaration & composition", () => {
-  it("expose 7 endpoints, tous ROLE_NODEFONY_ADMIN, bonnes méthodes", () => {
+  it("expose 8 endpoints, tous ROLE_NODEFONY_ADMIN, bonnes méthodes", () => {
     const eps = webhookAdminEndpoints(new Container());
     const expected: Array<[string, string]> = [
       ["webhooks", "GET"],
@@ -196,6 +213,7 @@ describe("WebhookAdminApi — déclaration & composition", () => {
       ["webhooks/{id}", "DELETE"],
       ["webhooks/{id}/rotate", "POST"],
       ["webhooks/{id}/reveal", "POST"],
+      ["webhooks/{id}/deliveries", "GET"],
     ];
     assert.equal(eps.length, expected.length);
     for (const [path, method] of expected) {
@@ -322,6 +340,25 @@ describe("GET webhooks/{id}", () => {
     const ok = (await get.handler(req({ id }))) as Record<string, unknown>;
     assert.equal(ok.id, id);
     assert.ok(!("secretEnc" in ok));
+    const miss = (await get.handler(req({ id: "wh_nope" }))) as {
+      status: number;
+    };
+    assert.equal(miss.status, 404);
+  });
+});
+
+describe("GET webhooks/{id}/deliveries", () => {
+  it("renvoie l'historique de l'endpoint, 404 si endpoint absent", async () => {
+    const { container } = bootWebhooks();
+    const id = await seed(container);
+    const get = endpoint(container, "webhooks/{id}/deliveries", "GET");
+    const ok = (await get.handler(req({ id }))) as {
+      deliveries: Array<{ type: string; ok: boolean; responseBody: string }>;
+    };
+    assert.equal(ok.deliveries.length, 1);
+    assert.equal(ok.deliveries[0]!.type, "login.success");
+    assert.equal(ok.deliveries[0]!.ok, true);
+    // Endpoint inexistant → 404 (≠ existe mais 0 livraison → []).
     const miss = (await get.handler(req({ id: "wh_nope" }))) as {
       status: number;
     };

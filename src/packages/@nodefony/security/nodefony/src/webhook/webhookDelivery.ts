@@ -17,6 +17,9 @@ import { Buffer } from "node:buffer";
  * 3. **Timeout dur** : la requête est détruite au-delà du délai.
  */
 
+/** Taille max du corps de réponse capturé (observabilité, anti-mémoire). */
+const RESPONSE_BODY_CAP = 2048;
+
 /** Résultat d'une tentative de livraison. */
 export interface IDeliveryResult {
   /** Livraison acceptée (2xx) ? */
@@ -25,6 +28,11 @@ export interface IDeliveryResult {
   readonly status: number | null;
   /** Message d'erreur (réseau/timeout/HTTP non-2xx), ou `null` si OK. */
   readonly error: string | null;
+  /**
+   * Début du corps de réponse du destinataire (tronqué à {@link RESPONSE_BODY_CAP}),
+   * ou `null` si vide/réseau. Capturé pour l'historique de livraison (debug).
+   */
+  readonly responseBody?: string | null;
 }
 
 /** Options de transport d'une livraison. */
@@ -96,11 +104,33 @@ export function deliverWebhook(
       (res) => {
         const status = res.statusCode ?? 0;
         const ok = status >= 200 && status < 300;
-        res.resume(); // drain (jamais de suivi de 3xx : node ne suit pas)
+        // Capture bornée du corps (debug) — le 'data' listener draine aussi le
+        // flux (pas de res.resume() : on ne suit jamais les 3xx, node non plus).
+        let resBody = "";
+        res.on("data", (c: Buffer) => {
+          if (resBody.length < RESPONSE_BODY_CAP) {
+            resBody += c.toString("utf8");
+            if (resBody.length > RESPONSE_BODY_CAP) {
+              resBody = resBody.slice(0, RESPONSE_BODY_CAP);
+            }
+          }
+        });
         res.on("end", () =>
-          done({ ok, status, error: ok ? null : `HTTP ${status}` }),
+          done({
+            ok,
+            status,
+            error: ok ? null : `HTTP ${status}`,
+            responseBody: resBody.length > 0 ? resBody : null,
+          }),
         );
-        res.on("error", (e) => done({ ok: false, status, error: e.message }));
+        res.on("error", (e) =>
+          done({
+            ok: false,
+            status,
+            error: e.message,
+            responseBody: resBody.length > 0 ? resBody : null,
+          }),
+        );
       },
     );
     req.setTimeout(opts.timeoutMs, () => req.destroy(new Error("timeout")));

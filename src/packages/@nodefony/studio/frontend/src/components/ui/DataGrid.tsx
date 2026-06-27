@@ -131,6 +131,12 @@ interface BaseProps<T> {
   columns: DataGridColumn<T>[];
   getRowId: (row: T) => string;
   onRowClick?: (row: T) => void;
+  /**
+   * Atténue (opacité réduite) une ligne « inactive » pour la repérer d'un coup
+   * d'œil — ex. webhook désactivé, clé révoquée, utilisateur verrouillé. Le badge
+   * de statut porte la couleur ; le dim distingue le bloc inactif du reste.
+   */
+  dimRow?: (row: T) => boolean;
   pageSize?: number;
   pageSizeOptions?: number[];
   emptyMessage?: string;
@@ -425,6 +431,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     columns,
     getRowId,
     onRowClick,
+    dimRow,
     pageSizeOptions = [10, 25, 50, 100],
     emptyMessage = "Aucune donnée.",
     // Défaut GLOBAL = mode flux : la page scrolle (1 seul scroll, pas de « scroll
@@ -1005,7 +1012,11 @@ export function DataGrid<T>(props: DataGridProps<T>) {
                         : undefined
                     }
                     tabIndex={onRowClick ? 0 : undefined}
-                    style={onRowClick ? { cursor: "pointer" } : undefined}
+                    style={{
+                      ...(onRowClick ? { cursor: "pointer" } : null),
+                      // Ligne inactive (désactivée/révoquée/verrouillée) → atténuée.
+                      ...(dimRow?.(row.original) ? { opacity: 0.5 } : null),
+                    }}
                   >
                     {selectable && (
                       <Table.Td

@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-27T12:39:01.551Z",
+  "generated": "2026-06-27T15:59:46.682Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 983,
-    "symbols": 2312,
-    "classes": 313,
-    "interfaces": 615,
+    "files": 984,
+    "symbols": 2324,
+    "classes": 314,
+    "interfaces": 619,
     "types": 270,
     "enums": 3,
-    "functions": 587,
-    "constants": 524
+    "functions": 593,
+    "constants": 525
   },
   "symbols": {
     "Cli": {
@@ -4356,6 +4356,35 @@
       ],
       "description": "Controller DÉDIÉ au cycle de vie de session (le « plug runtime » — chantier session étape 5). Volontairement **sans** `@UseSession` au niveau classe : chaque route exerce une facette précise de l'a…"
     },
+    "WebhookSinkController": {
+      "name": "WebhookSinkController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    "SinkEntry": {
+      "name": "SinkEntry",
+      "kind": "interface",
+      "file": "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": null,
+      "description": "Récepteur webhook **local** pour tester les livraisons sortantes (P6.13) — le remplaçant non-jetable de webhook.site, à demeure dans le module test. Pointer un endpoint webhook (console Studio) sur…"
+    },
+    "webhookSinkState": {
+      "name": "webhookSinkState",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Journal des livraisons reçues — **lazy** (`null` tant qu'aucune livraison) puis ring borné. Module-scope (persiste entre requêtes), comme `alsTestState`."
+    },
     "WebsocketController": {
       "name": "WebsocketController",
       "kind": "class",
@@ -6070,6 +6099,15 @@
       "extends": null,
       "description": "Résultat d'un lancement de tests (un fichier ou toute la suite)."
     },
+    "TestGroup": {
+      "name": "TestGroup",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Un groupe de suites de tests (pour l'onglet Tests de Studio)."
+    },
     "CoverageFile": {
       "name": "CoverageFile",
       "kind": "interface",
@@ -6159,7 +6197,15 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Liste les fichiers de test d'un module (`*.test.ts`, hors node_modules/dist). Chemins relatifs au module — pour l'onglet Tests de Studio."
+      "description": "Liste les fichiers de test **unit** d'un module (lançables par `vitest run`). Si aucune suite unit, repli sur tous les fichiers. Chemins relatifs au module."
+    },
+    "listTestGroups": {
+      "name": "listTestGroups",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Groupe TOUS les fichiers de test d'un module par catégorie (lecture seule pour l'onglet Tests — les non-unit ne sont pas lançables depuis Studio : ils exigent un serveur live / une base, donc `runn…"
     },
     "runModuleTests": {
       "name": "runModuleTests",
@@ -9572,6 +9618,15 @@
       "module": "@nodefony/security",
       "extends": null,
       "description": "Endpoint webhook sortant — une **destination** que Nodefony notifie quand un événement souscrit survient (modèle façon GitHub/Stripe). Le `secret` de signature est **chiffré au repos** (réversible,…"
+    },
+    "IWebhookDelivery": {
+      "name": "IWebhookDelivery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebhookEndpoint.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Trace d'une livraison (historique « récentes », façon GitHub/Stripe) — ce que Nodefony a **envoyé** à l'endpoint + la **réponse** observée. Stocké en RAM, borné, **par pod** (observabilité éphémère…"
     },
     "WebhookEndpointUpdate": {
       "name": "WebhookEndpointUpdate",
@@ -16003,7 +16058,7 @@
       "exported": true,
       "module": "@nodefony/security",
       "extends": null,
-      "description": "Émetteur HTTP d'une livraison webhook — `node:http(s)` natif (0 dép). Trois propriétés de sécurité par rapport à `fetch` : 1. **Pas de suivi de redirection** : `node:http(s)` ne suit JAMAIS les 3xx…"
+      "description": "Résultat d'une tentative de livraison."
     },
     "IDeliveryOptions": {
       "name": "IDeliveryOptions",
@@ -16031,6 +16086,15 @@
       "extends": null,
       "implements": [],
       "decorators": []
+    },
+    "IWebhookDeliveryRecord": {
+      "name": "IWebhookDeliveryRecord",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Trace d'une livraison terminée, poussée à `recordDelivery` (historique)."
     },
     "IWebhookDispatcherDeps": {
       "name": "IWebhookDispatcherDeps",
@@ -16732,6 +16796,7 @@
         "RestController",
         "RouteController",
         "SessionRuntimeController",
+        "WebhookSinkController",
         "WebsocketController",
         "PocBookController",
         "PocInvokeController",
@@ -17159,6 +17224,7 @@
         "RestController",
         "RouteController",
         "SessionRuntimeController",
+        "WebhookSinkController",
         "WebsocketController",
         "PocBookController",
         "PocBookResourceController",
@@ -17813,6 +17879,9 @@
       "DbController": [
         "src/modules/test/index.ts"
       ],
+      "WebhookSinkController": [
+        "src/modules/test/index.ts"
+      ],
       "PocBookController": [
         "src/modules/test/index.ts"
       ],
@@ -17977,6 +18046,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test/nodefony/poc/PocBookController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
@@ -18113,6 +18183,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test/nodefony/poc/PocBookController.ts",
         "src/modules/test/nodefony/poc/PocBookResourceController.ts",
@@ -18203,6 +18274,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts"
       ],
       "Cookie": [
@@ -18311,6 +18383,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test/nodefony/poc/PocBookController.ts",
         "src/modules/test/nodefony/poc/PocBookResourceController.ts",
@@ -20336,6 +20409,9 @@
       "listTestFiles": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
+      "listTestGroups": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
       "runModuleTests": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
@@ -21324,6 +21400,10 @@
       "getWebAuthnStoreFactory": [
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
+      "IWebhookDelivery": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
+      ],
       "WebhookEndpointSummary": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
@@ -21350,6 +21430,9 @@
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "WebhookDispatcher": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "IWebhookDeliveryRecord": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "deliverWebhook": [

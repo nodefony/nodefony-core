@@ -21,6 +21,8 @@ import LifecycleController from "./nodefony/controller/LifecycleController";
 import DomainController from "./nodefony/controller/DomainController";
 import DomainClassController from "./nodefony/controller/DomainClassController";
 import DbController from "./nodefony/controller/DbController";
+// P6.13 — récepteur webhook LOCAL (test des livraisons sortantes, /nodefony/test/webhooks/*)
+import WebhookSinkController from "./nodefony/controller/WebhookSinkController";
 // POC « API souveraine » — Phase 1 (JETABLE — supprimer le dossier nodefony/poc/
 // + ces 2 imports + les 2 entrées @controllers après la revue Phase 6).
 import PocBookController from "./nodefony/poc/PocBookController";
@@ -69,6 +71,8 @@ registerDolibarrEntities("default");
   DomainController,
   DomainClassController,
   DbController,
+  // P6.13 — récepteur webhook local (réception + vérif signature + simulation d'erreurs)
+  WebhookSinkController,
   // P6 — banc zone protégée (firewall, routes /nodefony/test/secure/*)
   SecureController,
   // P6 J8 — banc garde @IsGranted côté WS (api.request, /nodefony/test/api/*)

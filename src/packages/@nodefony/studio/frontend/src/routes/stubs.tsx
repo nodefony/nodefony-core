@@ -1,13 +1,5 @@
 import { StubPage } from "../components/StubPage";
 
-export const Webhooks = () => (
-  <StubPage
-    title="Webhooks"
-    description="Registre sortant + signature HMAC-SHA256, delivery, retry, log (façon GitHub). SSRF-safe."
-    phase="P6.13 + P6.15"
-  />
-);
-
 export const Services = () => (
   <StubPage
     title="Services"

@@ -150,6 +150,7 @@ export function UsersTable({
         columns={columns}
         getRowId={(r) => r.id}
         onRowClick={(r) => onEdit(r)}
+        dimRow={(r) => !r.enabled || r.locked}
         initialSort={{ key: "identifier", dir: "asc" }}
         searchable
         searchPlaceholder="Rechercher (identifiant, rôle, connexion…)"
