@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-27T10:45:26.571Z",
+  "generated": "2026-06-27T11:15:49.999Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 974,
-    "symbols": 2276,
-    "classes": 310,
-    "interfaces": 604,
+    "files": 977,
+    "symbols": 2289,
+    "classes": 311,
+    "interfaces": 608,
     "types": 269,
     "enums": 3,
-    "functions": 570,
+    "functions": 578,
     "constants": 520
   },
   "symbols": {
@@ -15864,6 +15864,107 @@
       "module": "@nodefony/security",
       "description": "Dérive la clé AES-256 du domaine webhook via HKDF-SHA256 (RFC 5869). Déterministe (clé lisible cross-pod)."
     },
+    "IDeliveryResult": {
+      "name": "IDeliveryResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookDelivery.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Émetteur HTTP d'une livraison webhook — `node:http(s)` natif (0 dép). Trois propriétés de sécurité par rapport à `fetch` : 1. **Pas de suivi de redirection** : `node:http(s)` ne suit JAMAIS les 3xx…"
+    },
+    "IDeliveryOptions": {
+      "name": "IDeliveryOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookDelivery.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Options de transport d'une livraison."
+    },
+    "deliverWebhook": {
+      "name": "deliverWebhook",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookDelivery.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "POST le corps signé vers l'URL, en pinnant l'IP validée et sans suivre les redirections. Ne lève jamais : tout échec est encodé dans {@link IDeliveryResult}."
+    },
+    "WebhookDispatcher": {
+      "name": "WebhookDispatcher",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    "IWebhookDispatcherDeps": {
+      "name": "IWebhookDispatcherDeps",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Dépendances injectées du dispatcher (E/S + temps + politique)."
+    },
+    "matchesSubscription": {
+      "name": "matchesSubscription",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Une souscription matche-t-elle une action d'audit ? `*` = toutes, `x.*` = préfixe."
+    },
+    "classifyDelivery": {
+      "name": "classifyDelivery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Classe le résultat d'une livraison : 2xx = succès ; réseau/timeout/429/408/5xx = réessayable ; 3xx/4xx (config cliente erronée) = échec définitif (pas de retry)."
+    },
+    "backoffMs": {
+      "name": "backoffMs",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Backoff exponentiel déterministe (jitter cross-pod = slice Redis cluster)."
+    },
+    "parseWebhookSecret": {
+      "name": "parseWebhookSecret",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSignature.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Décode un secret `whsec_<base64>` en octets de clé HMAC. Tolère un secret déjà sans préfixe (base64 brut)."
+    },
+    "buildSignatureBase": {
+      "name": "buildSignatureBase",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSignature.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Construit la base à signer : `{id}.{timestamp}.{body}` (Standard Webhooks)."
+    },
+    "signStandardWebhook": {
+      "name": "signStandardWebhook",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSignature.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Signe un message webhook (Standard Webhooks `v1`). Retourne la valeur du header `webhook-signature` : `v1,<base64(HMAC-SHA256(secret, base))>`."
+    },
+    "webhookSignatureHeaders": {
+      "name": "webhookSignatureHeaders",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSignature.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "En-têtes de signature Standard Webhooks à poser sur la requête sortante."
+    },
     "IWebhookStoreFactoryContext": {
       "name": "IWebhookStoreFactoryContext",
       "kind": "interface",
@@ -20703,8 +20804,10 @@
       "IAuditEvent": [
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
-        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
       ],
       "IAuditEventDraft": [
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
@@ -20755,7 +20858,8 @@
       "IWebhookEndpoint": [
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
       ],
       "WebhookEndpointUpdate": [
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
@@ -21081,6 +21185,16 @@
       ],
       "assertPublicUrl": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "WebhookDispatcher": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "deliverWebhook": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "IDeliveryResult": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
       ],
       "ISecurityAreaConfig": [
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
@@ -22786,6 +22900,12 @@
       ],
       "FileWebAuthnCredentialStore": [
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "IWebhookDeliveryPolicy": [
+        "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
+      ],
+      "webhookSignatureHeaders": [
+        "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
       ],
       "MemoryWebhookStore": [
         "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"

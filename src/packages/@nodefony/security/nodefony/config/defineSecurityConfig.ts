@@ -661,6 +661,22 @@ const webhooksSchema = z
       .positive()
       .default(10000)
       .describe("Délai max d'une tentative de livraison (ms)."),
+    maxConcurrent: z
+      .number()
+      .int()
+      .positive()
+      .default(8)
+      .describe(
+        "Livraisons simultanées max (pool) — borne la charge sortante : un endpoint lent/mort ne peut pas saturer sockets/FD.",
+      ),
+    maxQueue: z
+      .number()
+      .int()
+      .positive()
+      .default(1000)
+      .describe(
+        "File d'attente max des livraisons. Au-delà : DROP + log (webhook = best-effort, jamais de croissance mémoire illimitée).",
+      ),
     allowHttp: z
       .boolean()
       .default(false)

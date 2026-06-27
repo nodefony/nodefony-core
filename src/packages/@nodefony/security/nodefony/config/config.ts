@@ -214,6 +214,8 @@ export default {
       maxRetries: 5, //              tentatives de livraison. Défaut: 5.
       autoDisableThreshold: 20, //   échecs consécutifs avant désactivation auto (façon GitHub). 0 = jamais. Défaut: 20.
       deliveryTimeoutMs: 10000, //   délai max d'une tentative (ms). Défaut: 10000.
+      maxConcurrent: 8, //           livraisons simultanées max (pool anti-saturation). Défaut: 8.
+      maxQueue: 1000, //             file max ; au-delà = DROP+log (best-effort). Défaut: 1000.
       allowHttp: false, //           autorise http:// (dev). Prod: https:// obligatoire. Défaut: false.
       store: "memory", //            backend endpoints: memory|drizzle|mongoose. Défaut: "memory".
       // encryptionKey via env (NF_WEBHOOK_KEY) — secret, jamais en dur. Prod OBLIGATOIRE ; dev: éphémère+warn.

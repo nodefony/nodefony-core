@@ -20,6 +20,12 @@ import {
   generateEphemeralKey,
 } from "../src/webhook/webhookCipher";
 import { assertPublicUrl } from "../src/net/ssrfGuard";
+import { WebhookDispatcher } from "../src/webhook/WebhookDispatcher";
+import {
+  deliverWebhook,
+  type IDeliveryResult,
+} from "../src/webhook/webhookDelivery";
+import type { IAuditEvent } from "../contracts/IAuditEvent";
 
 const serviceName = "webhooks";
 
@@ -55,6 +61,8 @@ export interface IWebhookDeliveryPolicy {
   readonly maxRetries: number;
   readonly autoDisableThreshold: number;
   readonly deliveryTimeoutMs: number;
+  readonly maxConcurrent: number;
+  readonly maxQueue: number;
   readonly allowHttp: boolean;
   readonly denyPrivateIps: boolean;
 }
@@ -96,6 +104,10 @@ class WebhookService extends Service {
   #ready = false;
   /** Cache mémoire des endpoints (snapshot sync pour le dispatcher). */
   #endpoints: Map<string, IWebhookEndpoint> | null = null;
+  /** Dispatcher de livraison (abonné à l'audit) — créé au boot si l'audit existe. */
+  #dispatcher: WebhookDispatcher | null = null;
+  /** Désabonnement de l'audit (appelé à l'arrêt). */
+  #unsubscribe: (() => void) | null = null;
 
   constructor(public module: Module) {
     super(
@@ -105,6 +117,7 @@ class WebhookService extends Service {
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
+    this.kernel?.once("onTerminate", () => this.#shutdown());
   }
 
   // ── Cycle de vie ─────────────────────────────────────────────────────────────
@@ -130,7 +143,55 @@ class WebhookService extends Service {
     this.#key = key;
     this.#ready = true;
     void this.#reloadSnapshot();
+    this.#attachDispatcher();
     this.log(`webhooks ready — store "${config.webhooks.store}"`, "DEBUG");
+  }
+
+  /**
+   * Branche le dispatcher de livraison sur le journal d'audit (abonné). No-op si
+   * l'audit est absent (CRUD seul). Le listener ne fait que filtrer + différer
+   * (jamais de travail bloquant dans le hot-path de `record()`).
+   */
+  #attachDispatcher(): void {
+    const audit = this.get<{
+      subscribe(l: (e: IAuditEvent) => void): () => void;
+    }>("auditService");
+    if (!audit || typeof audit.subscribe !== "function") {
+      this.log("webhooks: auditService absent — dispatcher inactif", "WARNING");
+      return;
+    }
+    this.#dispatcher = new WebhookDispatcher({
+      endpointCount: () => this.endpointCount(),
+      getSnapshot: () => this.getSnapshot(),
+      secretOf: (ep) => this.decryptEndpointSecret(ep).toString("utf8"),
+      policy: this.getDeliveryPolicy(),
+      resolveTarget: (url) => this.#resolveTarget(url),
+      deliver: (url, body, headers, opts) =>
+        deliverWebhook(url, body, headers, opts),
+      markDelivery: (id, r) => this.markDelivery(id, r),
+      now: () => Date.now(),
+      newMessageId: () => `msg_${randomBytes(12).toString("base64url")}`,
+      schedule: (fn, ms) => {
+        const t = setTimeout(fn, ms);
+        (t as { unref?: () => void }).unref?.();
+        return () => clearTimeout(t);
+      },
+      log: (m) => this.log(m, "ERROR"),
+    });
+    this.#unsubscribe = audit.subscribe((e) =>
+      this.#dispatcher!.onAuditEvent(e),
+    );
+    this.log("webhooks dispatcher abonné à l'audit", "DEBUG");
+  }
+
+  /** Arrêt propre : désabonnement audit + annulation des retries en vol. */
+  #shutdown(): void {
+    if (this.#unsubscribe) {
+      this.#unsubscribe();
+      this.#unsubscribe = null;
+    }
+    this.#dispatcher?.shutdown();
+    this.#dispatcher = null;
   }
 
   /** Adapter posé au container (ORM) prioritaire, sinon driver configuré (registre). */
@@ -317,9 +378,14 @@ class WebhookService extends Service {
 
   // ── Accessors dispatcher (Slice B) ───────────────────────────────────────────
 
-  /** Snapshot mémoire (sync) des endpoints — lecture hot-path du dispatcher. */
+  /** Snapshot mémoire (sync) des endpoints — itération du dispatcher (si >0). */
   getSnapshot(): IWebhookEndpoint[] {
     return this.#endpoints ? [...this.#endpoints.values()] : [];
+  }
+
+  /** Nombre d'endpoints (0-alloc) — court-circuit hot-path du dispatcher. */
+  endpointCount(): number {
+    return this.#endpoints ? this.#endpoints.size : 0;
   }
 
   /** Déchiffre le secret de signature d'un endpoint (pour signer une livraison). */
@@ -337,9 +403,42 @@ class WebhookService extends Service {
       maxRetries: w.maxRetries,
       autoDisableThreshold: w.autoDisableThreshold,
       deliveryTimeoutMs: w.deliveryTimeoutMs,
+      maxConcurrent: w.maxConcurrent,
+      maxQueue: w.maxQueue,
       allowHttp: w.allowHttp,
       denyPrivateIps: w.denyPrivateIps,
     };
+  }
+
+  /**
+   * Enregistre le résultat d'une livraison (appelé par le dispatcher) :
+   * lastDelivery*, compteur d'échecs consécutifs, et **auto-désactivation** de
+   * l'endpoint au-delà du seuil (façon GitHub). Le succès remet le compteur à 0.
+   */
+  async markDelivery(id: string, result: IDeliveryResult): Promise<void> {
+    if (!this.#ready || !this.#store) return;
+    const current = await this.#store.findById(id);
+    if (!current) return;
+    const failureCount = result.ok ? 0 : current.failureCount + 1;
+    const now = Date.now();
+    const threshold = this.#config!.webhooks.autoDisableThreshold;
+    const disable = !result.ok && threshold > 0 && failureCount >= threshold;
+    const patch: WebhookEndpointUpdate = {
+      lastDeliveryAt: now,
+      lastDeliveryStatus: result.status,
+      lastDeliveryError: result.error,
+      failureCount,
+      updatedAt: now,
+      ...(disable ? { enabled: false } : {}),
+    };
+    if (disable) {
+      this.log(
+        `webhook ${id} auto-désactivé après ${failureCount} échecs consécutifs`,
+        "WARNING",
+      );
+    }
+    await this.#store.update(id, patch);
+    this.#endpoints?.set(id, { ...current, ...patch });
   }
 
   // ── Interne ──────────────────────────────────────────────────────────────────
@@ -356,6 +455,16 @@ class WebhookService extends Service {
       allowPrivate: !w.denyPrivateIps,
       allowHttp: w.allowHttp,
     });
+  }
+
+  /** Re-contrôle SSRF avant livraison → IP validées à pinner (anti-rebinding). */
+  async #resolveTarget(url: string): Promise<string[]> {
+    const w = this.#config!.webhooks;
+    const { addresses } = await assertPublicUrl(url, {
+      allowPrivate: !w.denyPrivateIps,
+      allowHttp: w.allowHttp,
+    });
+    return addresses;
   }
 }
 
