@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-26T23:25:57.972Z",
+  "generated": "2026-06-27T00:16:27.626Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 965,
-    "symbols": 2247,
+    "symbols": 2248,
     "classes": 307,
     "interfaces": 595,
     "types": 265,
     "enums": 3,
-    "functions": 557,
+    "functions": 558,
     "constants": 520
   },
   "symbols": {
@@ -10216,6 +10216,14 @@
       "exported": true,
       "module": "@nodefony/user",
       "description": "Fusionne un patch validé dans la `metadata` existante en **préservant les autres clés**. Les champs de profil vidés (`\"\"`) sont RETIRÉS (pas de clé fantôme). Rend la nouvelle `metadata` complète, p…"
+    },
+    "profileFromClaims": {
+      "name": "profileFromClaims",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Pré-remplit un profil depuis des **claims OIDC/OAuth** (provisioning JIT d'un Shadow User social). Mappe les claims standard (`given_name`/`family_name`/ `name`/`email`/`picture`/`locale`, + `avata…"
     },
     "PROFILE_FIELDS": {
       "name": "PROFILE_FIELDS",
@@ -20874,6 +20882,9 @@
       "WeakPasswordError": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "profileFromClaims": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "IBaseUserOptions": [
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"

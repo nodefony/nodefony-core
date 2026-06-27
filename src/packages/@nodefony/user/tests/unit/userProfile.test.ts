@@ -3,6 +3,7 @@ import {
   validateProfilePatch,
   projectProfile,
   mergeProfileIntoMetadata,
+  profileFromClaims,
 } from "../../nodefony/src/userProfile";
 
 /**
@@ -175,5 +176,49 @@ describe("mergeProfileIntoMetadata", () => {
   it("part d'une metadata absente sans planter", () => {
     const meta = mergeProfileIntoMetadata(undefined, { givenName: "Jean" });
     assert.deepEqual(meta, { profile: { givenName: "Jean" } });
+  });
+});
+
+describe("profileFromClaims (pré-remplissage OAuth)", () => {
+  it("mappe les claims OIDC standard (Google-like)", () => {
+    const p = profileFromClaims({
+      given_name: "Chris",
+      family_name: "Camensuli",
+      name: "Chris Camensuli",
+      email: "chris@example.com",
+      picture: "https://lh3.googleusercontent.com/a/x",
+      locale: "fr",
+    });
+    assert.deepEqual(p, {
+      givenName: "Chris",
+      familyName: "Camensuli",
+      displayName: "Chris Camensuli",
+      email: "chris@example.com",
+      picture: "https://lh3.googleusercontent.com/a/x",
+      locale: "fr",
+    });
+  });
+
+  it("mappe avatar_url (GitHub) vers picture, name vers displayName", () => {
+    const p = profileFromClaims({
+      name: "Octocat",
+      avatar_url: "https://avatars.githubusercontent.com/u/1",
+    });
+    assert.equal(p.picture, "https://avatars.githubusercontent.com/u/1");
+    assert.equal(p.displayName, "Octocat");
+  });
+
+  it("ignore un claim invalide SANS jeter les autres (best-effort)", () => {
+    const p = profileFromClaims({
+      given_name: "Chris",
+      picture: "javascript:alert(1)", // invalide → ignoré
+    });
+    assert.equal(p.givenName, "Chris");
+    assert.ok(!("picture" in p));
+  });
+
+  it("claims vides / non-string → profil vide", () => {
+    assert.deepEqual(profileFromClaims({}), {});
+    assert.deepEqual(profileFromClaims({ given_name: 42, email: null }), {});
   });
 });

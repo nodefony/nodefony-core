@@ -178,3 +178,52 @@ export function mergeProfileIntoMetadata(
   base.profile = merged;
   return base;
 }
+
+/**
+ * Pré-remplit un profil depuis des **claims OIDC/OAuth** (provisioning JIT d'un
+ * Shadow User social). Mappe les claims standard (`given_name`/`family_name`/
+ * `name`/`email`/`picture`/`locale`, + `avatar_url` GitHub) vers
+ * {@link IUserProfile}, **best-effort par champ** : chaque valeur est validée
+ * isolément (bornes/format) et un claim invalide est ignoré sans bloquer les
+ * autres ni le login. Les claims viennent d'un tiers → lecture défensive.
+ *
+ * @param claims - claims/payload du fournisseur (ex. `{...raw, name, email}`).
+ */
+export function profileFromClaims(
+  claims: Record<string, unknown>,
+): Partial<Record<ProfileField, string>> {
+  const pick = (...keys: string[]): string | undefined => {
+    for (const k of keys) {
+      const v = claims[k];
+      if (typeof v === "string" && v.trim().length > 0) return v;
+    }
+    return undefined;
+  };
+  const candidate: Partial<Record<ProfileField, string>> = {};
+  const givenName = pick("given_name", "givenName", "first_name");
+  const familyName = pick("family_name", "familyName", "last_name");
+  const displayName = pick("name", "displayName");
+  const email = pick("email");
+  const picture = pick("picture", "avatar_url");
+  const locale = pick("locale");
+  if (givenName) candidate.givenName = givenName;
+  if (familyName) candidate.familyName = familyName;
+  if (displayName) candidate.displayName = displayName;
+  if (email) candidate.email = email;
+  if (picture) candidate.picture = picture;
+  if (locale) candidate.locale = locale;
+
+  // Validation INDÉPENDANTE par champ : un claim invalide (ex. picture non-http)
+  // est ignoré sans jeter les autres — le pré-remplissage ne doit jamais
+  // empêcher la connexion sociale.
+  const result: Partial<Record<ProfileField, string>> = {};
+  for (const field of PROFILE_FIELDS) {
+    const value = candidate[field];
+    if (value === undefined) continue;
+    const parsed = validateProfilePatch({ [field]: value });
+    if (parsed.ok && parsed.value[field]) {
+      result[field] = parsed.value[field] as string;
+    }
+  }
+  return result;
+}

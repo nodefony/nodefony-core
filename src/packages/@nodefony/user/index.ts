@@ -82,4 +82,5 @@ export {
   validateProfilePatch,
   projectProfile,
   mergeProfileIntoMetadata,
+  profileFromClaims,
 } from "./nodefony/src/userProfile";

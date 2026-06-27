@@ -17,6 +17,7 @@ import type {
 } from "../contracts/IOAuthUserProvisioner";
 import { UserNotFoundError } from "../errors/UserNotFoundError";
 import { WeakPasswordError } from "../errors/WeakPasswordError";
+import { profileFromClaims } from "../src/userProfile";
 
 /**
  * Données d'entrée de création d'un utilisateur — le mot de passe est fourni en
@@ -306,14 +307,26 @@ export class UserService
     // `socialProviders` est un champ d'ENTITÉ (BaseUser / ligne ORM), hors du
     // contrat credential `IPasswordAuthenticatedUser` : l'intersection le rend
     // connu ici SANS cast ; le repository le persiste (colonne JSON).
+    // Pré-remplit le profil d'affichage depuis les claims du fournisseur
+    // (nom/prénom/avatar/email/locale) — UNIQUEMENT à la CRÉATION : un login
+    // ultérieur ne doit pas écraser ce que l'utilisateur a édité depuis.
+    // Best-effort (un claim manquant/invalide est simplement absent du profil).
+    const claims: Record<string, unknown> = { ...profile.raw };
+    if (profile.name) claims.name = profile.name;
+    if (profile.email) claims.email = profile.email;
+    const oauthProfile = profileFromClaims(claims);
     const data: Partial<IPasswordAuthenticatedUser> & {
       socialProviders: ISocialProvider[];
+      metadata?: Record<string, unknown>;
     } = {
       identifier,
       roles: [...policy.defaultRoles],
       password: null,
       socialProviders: [link],
     };
+    if (Object.keys(oauthProfile).length > 0) {
+      data.metadata = { profile: oauthProfile };
+    }
     return this.create(data);
   }
 
