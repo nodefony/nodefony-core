@@ -121,11 +121,11 @@ Chaque contexte (HTTP + WS) reçoit un `requestId` UUID v4 à la construction (`
 
 ---
 
-## Tests — état complet (vitest 100% — mocha SUPPRIMÉ 2026-06-05)
+## Tests (vitest — mocha retiré)
 
 **Runner unique = Vitest 4** (mocha retiré : suppression totale, gate audit). 3 suites = 3 configs :
 
-| Commande                   | Config                         | Spec                                             | Compte (2026-06-05)   | Serveur requis  |
+| Commande                   | Config                         | Spec                                             | Compte (indicatif)    | Serveur requis  |
 | -------------------------- | ------------------------------ | ------------------------------------------------ | --------------------- | --------------- |
 | `npm test`                 | `vitest.config.ts`             | `tests/unit/**`                                  | **337** (20 fichiers) | non             |
 | `npm run test:integration` | `vitest.integration.config.ts` | `tests/{http,integration,routing,websockets}/**` | **400 + 1 skipped**   | oui (5151/5152) |
@@ -139,7 +139,7 @@ Chaque contexte (HTTP + WS) reçoit un `requestId` UUID v4 à la construction (`
 > ⚠️ Le serveur dev (DevSupervisor) **redémarre sur édition de fichier** — ne pas éditer pendant un run
 > intégration/load (ECONNREFUSED transitoire). Run propre = serveur stable, pas d'édition concurrente.
 
-Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs au 2026-05-16** — la colonne sujet reste valide, le total a évolué) :
+Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs** : la colonne sujet fait foi, les totaux dérivent — compte réel = les commandes ci-dessus) :
 
 | Fichier                                         | Sujet                                           | Tests | État |
 | ----------------------------------------------- | ----------------------------------------------- | ----- | ---- |
@@ -190,7 +190,7 @@ Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs au 202
 - **Non-régression rapide** : `npm run test:integration` (`vitest.integration.config.ts`). Exclut `tests/load/**` + `tests/http/memory.test.ts`. C'est la suite à lancer systématiquement.
 - **Charge / mémoire / leak / scopes DI** : `npm run test:load` (`vitest.load.config.ts` = `tests/load/**` + `memory.test.ts`). À lancer AVANT tout commit touchant Kernel / pipeline request / cycle de vie / mémoire — pas à chaque non-régression (sinon trop lent).
 - Gate perf seul : `npm run test:memory` (= `vitest.load.config.ts` filtré sur `memory.test.ts`).
-- ✅ **`tests/load/ws-messages-load.test.ts > sustained heap < 30 MB` — RÉSOLU 2026-06-08** : le faux positif chronique (delta ~160–185 MB) venait de la **sonde `/nodefony/test/memory` qui lisait `heapUsed` sans forcer le GC**, sur un serveur **sans `--expose-gc`** → on mesurait le **garbage transitoire** des 5000 frames, pas du retenu. **Jamais une fuite ni une régression** (rouge depuis l'ajout du test `62dd415`, identique sous mocha). Le vrai bug de rétention WS-sous-charge (session SQLite par connexion) avait déjà été corrigé à part (`WebSocketController` sans `startSession` global). **Fix** : la sonde force `global.gc?.()` (heap retenu) + `start.sh` lance le serveur avec `--expose-gc`. **Preuve** : avec GC forcé, delta < 30 MB, suite load 26/28 verte. ⚠️ Le gate mémoire **exige** un serveur lancé via `start.sh` (qui pose `--expose-gc`) — sinon le faux positif revient. Cf mémoire `project_ws_sustained_heap_finding`.
+- ✅ **`tests/load/ws-messages-load.test.ts > sustained heap < 30 MB`** : le faux positif (delta ~160–185 MB) venait de la **sonde `/nodefony/test/memory` qui lisait `heapUsed` sans forcer le GC**, sur un serveur **sans `--expose-gc`** → on mesurait le **garbage transitoire** des 5000 frames, pas du retenu. **Jamais une fuite ni une régression** (identique sous mocha). Le vrai bug de rétention WS-sous-charge (session SQLite par connexion) avait déjà été corrigé à part (`WebSocketController` sans `startSession` global). **Fix** : la sonde force `global.gc?.()` (heap retenu) + `start.sh` lance le serveur avec `--expose-gc`. **Preuve** : avec GC forcé, delta < 30 MB, suite load 26/28 verte. ⚠️ Le gate mémoire **exige** un serveur lancé via `start.sh` (qui pose `--expose-gc`) — sinon le faux positif revient. Cf mémoire `project_ws_sustained_heap_finding`.
 - Tests ALS/lifecycle : `tests/integration/{request-context-ws,after-response-als,lifecycle-als}.test.ts` (rapides, assertions delta) + `tests/load/als-load.test.ts` (lourds). Route diagnostic scopes : `/nodefony/test/als-test/scopes`.
 - **Stress WS** (2 axes distincts) : `tests/load/ws-connections-load.test.ts` (axe 1 — nombre de sockets simultanées) + `tests/load/ws-messages-load.test.ts` (axe 2 — débit frames + broadcast). Cas CI-stables = lossless + plancher de débit + scopes drainés (poll `drainTo`, pas de `wait` fixe). Sondes plafond/rupture gated derrière `RUN_WS_RUPTURE=1` (cap `WS_RUPTURE_CAP`, défaut 8000) car elles épuisent les ports éphémères loopback. Mesures observées : ~750+ conn / 33–38k msg/s soutenu jusqu'à 200k frames sans perte.
   - Gotcha harness : ouvrir N centaines de WS en **un seul** `Promise.all` → `AggregateError` (connect TLS loopback dual-stack `internalConnectMultiple`) → ouvrir par **batches** (`openFleet`, 50/batch). Tracker chaque socket (`Set` + `afterEach` terminate) sinon un test qui throw laisse des sockets ouvertes qui **polluent la baseline scopes** du test suivant.
@@ -198,7 +198,7 @@ Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs au 202
 
 ---
 
-## Bugs corrigés (historique)
+## Bugs corrigés (cas limites connus)
 
 | Bug                                                  | Fichier                   | Fix                                                                                                               |
 | ---------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -222,53 +222,19 @@ Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs au 202
 
 ---
 
-## Lancer le serveur pour les tests d'intégration (procédure IA)
+## Lancer le serveur (tests d'intégration)
 
-### Prérequis : rebuilder le module test avant le serveur
+→ Skill **`nodefony-start-server`** (`bash .claude/skills/nodefony-start-server/start.sh`) : rebuild
+conditionnel de `src/modules/test`, kill ports 5151/5152, **spawn `detached`** (évite le SIGHUP qui tue
+`npx nodefony development &`), attente boot + health check. Commandes standalone `nodefony status` /
+`nodefony stop` (de partout). Diagnostic crash → skill **`nodefony-tail-error-logs`**.
 
-En mode `development`, Nodefony charge d'abord le `dist/` existant (routes enregistrées à ce moment), puis recompile avec Rollup ~12 s plus tard et écrase le dist. Toute route ajoutée au source APRÈS le dernier build manuel sera absente du routeur jusqu'au prochain redémarrage avec dist à jour.
-
-**Règle** : toujours rebuilder `src/modules/test` avant de démarrer le serveur si le source a changé :
-
-```bash
-cd /Users/cci/repository/nodefony-core/src/modules/test && npm run build
-```
-
-### Démarrage du serveur (technique fiable)
-
-Le simple `npx nodefony development > log 2>&1 &` meurt immédiatement (SIGHUP du subshell). Utiliser `spawn` Node.js avec `detached: true` :
-
-```bash
-node -e "
-const { spawn } = require('child_process');
-const child = spawn('npx', ['nodefony', 'development'], {
-  cwd: '/Users/cci/repository/nodefony-core',
-  stdio: ['ignore', 'pipe', 'pipe'],
-  detached: true
-});
-child.stdout.pipe(process.stdout);
-child.stderr.pipe(process.stderr);
-child.unref();
-require('fs').writeFileSync('/tmp/srv.pid', String(child.pid));
-" > /tmp/nodefony-server.log 2>&1 &
-```
-
-Attendre 20 s, puis vérifier :
-
-```bash
-grep "Server Listen" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
-```
-
-Signes OK : 5 lignes `Server Listen on http://... / https://... / ws://... / wss://...`
-
-### Lecture des logs serveur et corrélation avec les bugs
-
-- **Logs de requêtes** : `grep -E "http|https|ws" /tmp/nodefony-server.log | grep -E "404|500|ERROR"`
-- **ID requête** : `grep "ID :" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'`
-- **Routes non trouvées (404)** → cause probable : dist périmé (voir prérequis ci-dessus)
-- **Routes trouvées mais 500** → erreur dans le controller, lire le stack trace dans le log
-- **Tuer le serveur** : `lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null`
-- **PID du serveur** : `cat /tmp/srv.pid` (si sauvegardé) ou `lsof -ti:5151`
+> ⚠️ **Gotcha dist — cause #1 des 404 en test.** En `development`, Nodefony charge le `dist/` existant au
+> boot PUIS recompile (Rollup) ~12 s plus tard et l'écrase : une route ajoutée au source APRÈS le dernier
+> build est **absente** jusqu'au prochain restart avec dist à jour. → **rebuilder `src/modules/test`
+> (`npm run build`) avant de démarrer si le source a changé.** Diagnostic : **404** sur une route définie =
+> dist périmé ; route trouvée mais **500** = erreur controller (stack dans les logs). ⚠️ Le DevSupervisor
+> **redémarre sur édition de fichier** → ne pas éditer pendant un run intégration/load (ECONNREFUSED transitoire).
 
 ---
 
