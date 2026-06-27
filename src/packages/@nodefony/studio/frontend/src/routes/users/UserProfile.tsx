@@ -16,6 +16,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   Tabs,
   Card,
+  Grid,
   Stack,
   Group,
   Title,
@@ -38,12 +39,14 @@ import {
   IconLock,
   IconTrash,
   IconDeviceFloppy,
+  IconPlugConnected,
 } from "@tabler/icons-react";
 
 import { useStore, useAuth, useNotifications } from "../../stores";
 import { useResource } from "../../hooks";
-import { PageLayout, DataState } from "../../components/ui";
+import { PageLayout, DataState, KeyValue } from "../../components/ui";
 import { StickyTabsList } from "../../components/ui/PageLayout";
+import { fmtDate } from "./usersModel";
 import { UserAvatar } from "./AvatarUpload";
 import { ProfileFields } from "./ProfileFields";
 import { AdminTwoFactorCard } from "./AdminTwoFactorCard";
@@ -66,6 +69,89 @@ const KNOWN_ROLES = [
   "ROLE_NODEFONY_ADMIN",
 ];
 const MIN_PASSWORD_LENGTH = 8;
+
+// ── Carte IDENTITÉ (onglet Profil) ───────────────────────────────────────────
+function IdentityCard({ detail }: { detail: AdminUserDetail }) {
+  const statusLabel = detail.locked
+    ? "Verrouillé"
+    : !detail.enabled
+      ? "Désactivé"
+      : "Actif";
+  const statusColor = detail.locked ? "red" : !detail.enabled ? "gray" : "teal";
+  return (
+    <Card withBorder padding="lg" radius="md" h="100%">
+      <Group gap="xs" mb="md">
+        <ThemeIcon variant="light" size="md">
+          <IconUser size={18} />
+        </ThemeIcon>
+        <Title order={4}>Identité</Title>
+      </Group>
+      <Stack gap="xs">
+        <KeyValue k="Identifiant" v={detail.identifier} mono />
+        <KeyValue k="Identifiant technique" v={detail.id} mono />
+        <Group justify="space-between" wrap="nowrap">
+          <Text size="sm" c="dimmed">
+            Statut
+          </Text>
+          <Badge color={statusColor} variant="light">
+            {statusLabel}
+          </Badge>
+        </Group>
+        {detail.currentRole && (
+          <KeyValue k="Rôle actif" v={detail.currentRole} />
+        )}
+        {detail.createdAt != null && (
+          <KeyValue k="Créé le" v={fmtDate(detail.createdAt)} />
+        )}
+        {detail.updatedAt != null && (
+          <KeyValue k="Modifié le" v={fmtDate(detail.updatedAt)} />
+        )}
+      </Stack>
+    </Card>
+  );
+}
+
+// ── Carte CONNEXIONS EXTERNES (onglet Profil) ────────────────────────────────
+function ExternalConnectionsCard({
+  providers,
+}: {
+  providers: AdminUserDetail["socialProviders"];
+}) {
+  return (
+    <Card withBorder padding="lg" radius="md">
+      <Group gap="xs" mb="md">
+        <ThemeIcon variant="light" size="md">
+          <IconPlugConnected size={18} />
+        </ThemeIcon>
+        <Title order={4}>Connexions externes</Title>
+      </Group>
+      {providers.length === 0 ? (
+        <Text c="dimmed" size="sm">
+          Aucun compte externe lié — connexion par mot de passe.
+        </Text>
+      ) : (
+        <Stack gap="xs">
+          {providers.map((p) => (
+            <Group
+              key={`${p.provider}:${p.providerId}`}
+              justify="space-between"
+            >
+              <Group gap="xs">
+                <Badge variant="light">{p.provider}</Badge>
+                <Text size="sm" c="dimmed" ff="monospace">
+                  {p.providerId}
+                </Text>
+              </Group>
+              <Text size="xs" c="dimmed">
+                {p.createdAt != null ? fmtDate(p.createdAt) : "—"}
+              </Text>
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </Card>
+  );
+}
 
 // ── Carte ROLES (onglet Profil) ──────────────────────────────────────────────
 function RolesCard({
@@ -427,12 +513,20 @@ export const UserProfile = observer(() => {
                   onSubmit={saveProfile}
                   saving={savingProfile}
                 />
-                <RolesCard
-                  initial={data.roles}
-                  isSelf={isSelf}
-                  saving={savingRoles}
-                  onSave={saveRoles}
-                />
+                <Grid>
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    <IdentityCard detail={data} />
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    <RolesCard
+                      initial={data.roles}
+                      isSelf={isSelf}
+                      saving={savingRoles}
+                      onSave={saveRoles}
+                    />
+                  </Grid.Col>
+                </Grid>
+                <ExternalConnectionsCard providers={data.socialProviders} />
               </Stack>
             </Tabs.Panel>
 
