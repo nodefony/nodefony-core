@@ -21,6 +21,14 @@ Playbook **déterministe** : produis un écran Studio (page / dashboard / pannea
 nécessaires sont ici. Studio = `src/packages/@nodefony/studio/frontend` (React 19 + Mantine **v9** +
 MobX + React Router 7). Racine module : `src/packages/@nodefony/studio`.
 
+> **DÉRIVE de `nodefony-frontend-dev`** (face front GÉNÉRALE du kit full-stack, shippée). Les **mécanismes**
+> du framework — isomorphisme, socket `RealtimeClient` + hooks `nodefony/react`, HMR/Vite (`@nodefony/frontend`),
+> data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/temps-réel-calme/a11y/perf
+> (+ best practices bundlées offline) — vivent dans **`nodefony-frontend-dev`** → **l'y consulter**, ne pas
+> les redocumenter ici. CE skill = la part **SPÉCIFIQUE Studio** : le **UI kit** (PageHeader/DataGrid/StatCard…),
+> la stack **Mantine v9 / MobX / React Router / TanStack**, les **pages**/navConfig/**Twin**/**debug bar**.
+> Studio = app admin **interne au core** (1ʳᵉ implémentation de référence de `frontend-dev`).
+
 > Page de RÉFÉRENCE (pattern complet) : `frontend/src/routes/RoutesView.tsx`.
 > Page DÉTAIL (onglets) : `frontend/src/routes/ModuleDetail.tsx`. Live : `frontend/src/routes/Dashboard.tsx`.
 > Ne PAS relire les sources du kit : tout est ci-dessous.
