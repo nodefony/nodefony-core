@@ -18,7 +18,7 @@ metadata:
 
 Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Différenciateur : HTTP et WS dans le même pipeline Controller.
 
-## Config Zod — schema.ts source de vérité (2026-05-30)
+## Config Zod — schema.ts source de vérité
 
 `nodefony/config/{schema.ts, defineHttpConfig.ts, configMeta.ts, config.ts}` + interface `interfaces/IHttpConfig.ts`. Convention [[feedback_config_validation_zod]].
 
@@ -45,7 +45,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 | `WebsocketResponse` | `src/context/websocket/Response.ts`         | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)`                                                          |
 | `HttpError`         | `src/errors/httpError.ts`                   | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`)  |
 
-## Certificates TLS — service + CLI (durci 2026-06-07)
+## Certificates TLS — service + CLI
 
 `service/certificates.ts` = fourniture du cert HTTPS/WSS. **Génération = DEV** (mkcert>auto-signé) ;
 **prod = `explicit`** (cert fourni, sinon WARNING fort — Nodefony ≠ CA de prod). `node-forge` chargé
@@ -102,7 +102,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 | server-websocket-secure | 5152 | wss sur https               |
 | server-static           | —    | serve-static                |
 
-**Arrêt gracieux WS (2026-06-05)** : `terminate()` envoie le message applicatif `{nodefony:{state:shutDown}}` PUIS `client.close(1001,"Server shutting down")` (frame Close RFC 6455 §7.4.1 "Going Away") AVANT `server.close()`. Sans le `client.close(1001)`, couper la socket TCP fait voir **1006** au client (Abnormal Closure, réservé, jamais émis sur le fil) → indistinguable d'une coupure réseau. 1001 = reconnexion normale côté client (cf realtime close codes). Idem `server-websocket-secure`.
+**Arrêt gracieux WS** : `terminate()` envoie le message applicatif `{nodefony:{state:shutDown}}` PUIS `client.close(1001,"Server shutting down")` (frame Close RFC 6455 §7.4.1 "Going Away") AVANT `server.close()`. Sans le `client.close(1001)`, couper la socket TCP fait voir **1006** au client (Abnormal Closure, réservé, jamais émis sur le fil) → indistinguable d'une coupure réseau. 1001 = reconnexion normale côté client (cf realtime close codes). Idem `server-websocket-secure`.
 
 ## Multi-process / scaling (post-PM2)
 
@@ -113,7 +113,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
   - **Test local** : N instances/N ports + round-robin client (zéro code).
 - **Viable** car HTTP full stateless JWT ([[project_security_stateless_http_decision]]) → pas de session RAM à partager, pas de sticky.
 - ⚠️ **Cross-process** : `broadcast()` (`wss.clients.forEach`) et le pub/sub realtime ne touchent que les clients du MÊME worker → fan-out cross-process = **Redis pub/sub (Phase 13** [[project_phase13_realtime_redis_client]]). Idem stats Studio (per-instance). Détails : [[project_multiprocess_scaling]].
-- Mesure stress 2026-05-20 : Node mono-thread sature ~1 cœur ≈ 400 req/s sur loopback, dégradation gracieuse (1600 conns concurrentes, 0,04 % err, 0 crash).
+- Mesure stress : Node mono-thread sature ~1 cœur ≈ 400 req/s sur loopback, dégradation gracieuse (1600 conns concurrentes, 0,04 % err, 0 crash).
 
 ## Request Tracing — requestId
 
@@ -124,30 +124,30 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 - `Context.logRequest()` : affiche `ID : <uuid>` dans chaque log de fin de requête
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
-- **wsId = `requestId` du `WebsocketContext`** (P3.9, 2026-05-29) : pas de champ distinct (alloc 0). Stable sur toute la socket (ctor → ALS → handshake/messages/close) → corrèle les events d'une même connexion WS. Présent dans les **3 logs de cycle de vie WS** : handshake (`renderWebsocket` → `ID : <uuid>`), `onClose`, `onConnectionError`. **Per-message NON loggé** (bruit + hot path 33-38k msg/s) — extensible via logger custom opt-in si besoin debug.
-- ⚠️ **HTTP/2 GOTCHA (fix 2026-05-21)** : `http2/Response.writeHead` chemin `stream.respond()` **bypasse** `super.writeHead` → pose `x-request-id` + `traceparent` ICI aussi. Sinon réponses HTTP/2 (port 5152, dont Studio) **sans header** → corrélation profiler/debug bar impossible (symptôme : clic requête = « no requestId »).
+- **wsId = `requestId` du `WebsocketContext`** : pas de champ distinct (alloc 0). Stable sur toute la socket (ctor → ALS → handshake/messages/close) → corrèle les events d'une même connexion WS. Présent dans les **3 logs de cycle de vie WS** : handshake (`renderWebsocket` → `ID : <uuid>`), `onClose`, `onConnectionError`. **Per-message NON loggé** (bruit + hot path 33-38k msg/s) — extensible via logger custom opt-in si besoin debug.
+- ⚠️ **HTTP/2 GOTCHA** : `http2/Response.writeHead` chemin `stream.respond()` **bypasse** `super.writeHead` → pose `x-request-id` + `traceparent` ICI aussi. Sinon réponses HTTP/2 (port 5152, dont Studio) **sans header** → corrélation profiler/debug bar impossible (symptôme : clic requête = « no requestId »).
 
-## Streaming backpressure (P2.8) + trace verbose (P3.7) — 2026-06-05
+## Streaming backpressure + trace verbose
 
 - **Backpressure** `Response.send` : `ServerResponse.write()===false` (buffer > highWaterMark) → resolve sur `once("drain")`, pas avant (contrat Node `stream.Writable`). `flush()` chunké (RFC 9112 §7.1) → producteur freiné, RAM bornée si client lent ; `ok===true` → resolve immédiat. Listener `drain` attaché QUE sous pression (`once` + `removeListener` si erreur d'écriture). Content-Length ⊥ Transfer-Encoding (RFC 9112 §6.1) déjà géré par `setLength` (skip si chunked).
 - **Trace verbose** `Context.logPhasesVerbose()` (teardown, après `logRequest`) : log DEBUG `TRACE phases [Σ Xms] parse=… · action=…`. Opt-in `kernel.options.timing.verbose` → triple gate (`_timingVerbose` résolu 1× au ctor → `_timingEnabled` → `phases.length>0`) ; **0 stringify/alloc hors verbose** (perf-first, gratuit prod). Tests unit : `Backpressure.test.ts`, `PhasesVerbose.test.ts`.
 - **`@Body({ stream })` (P2.9)** : `route-match` HISSÉ avant le parse dans `handleHttp` (pur — method+URL). Si l'action déclare `@Body({stream:true})` (flag `route.bodyStream` memoïsé côté framework par `routeExpectsBodyStream`, lu par http via simple booléen — **pas** d'import framework, cycle interdit), le parse busboy/JSON est **sauté** → le param reçoit le `Readable` brut (`request.request`). `handleFrontController` réutilise `context.resolver` (0 double match). A/B même-machine : **0 régression RPS** (plages chevauchées) ; gain mémoire O(chunk) vs O(taille). Isolé HTTP (WS ne parse aucun body). Ordre hooks P6 inchangé. Tests : `BodyStream.test.ts` (framework) + `integration/bodyStream.test.ts` (HTTP/1+2, 1 Mo, vide, non-régression `@Body()`).
 
-## Router-first — static en fallback (façon Express) — 2026-06-05
+## Router-first — static en fallback (façon Express)
 
 - **Avant** : `onHttpRequest` tentait `serverStatic.handle()` AVANT le routing (static-first) → chaque requête API payait le `fs.stat`/`path.normalize` de serve-static pour rien (≈836 ticks profilés). **Après** : static tenté en **FALLBACK** dans `handleHttp`, APRÈS un route-match raté (`resolver?.resolve !== true && !resolver?.exception`) → une requête qui matche une route ne touche plus le disque. **+28 % RPS** (mono prod 4805→6167, ≈ bypass total → le fallback ne coûte rien aux routes).
 - `serverStatic.handle()` reste **PENDING** si un fichier est servi (court-circuit ; `response.end`→`onFinish`→teardown déjà wiré par `createHttpContext`) ; **RESOLVE** si aucun fichier → pipeline → 404. Teardown (logRequest/leaveScope) via l'event `finish` → OK même quand le static court-circuite.
 - ⚠️ Avant `serverStatic.handle` en fallback : `response.removeHeader("Content-Type")` — le Context a posé le défaut `application/octet-stream` (`Response.ts:37`) que serve-static (`send`) **n'écrase pas** s'il existe → sinon favicon/webm en octet-stream. Validé : `static.test`, intégration 405, memory 9/9.
 - Hooks pipeline (`onServerRequest`/`onCreateContext`/`beforeResolve`/`afterAuth`/`onFinish`) guardés `if (listenerCount(e))` — `fireAsync` est async → `await` crée 1 Promise+microtask même à 0 listener ; 0 hook sans @nodefony/security. Gain RPS non mesurable (microtasks trop légères) mais cohérent perf-first.
 
-## Profiler — dev-only (2026-05-21)
+## Profiler — dev-only
 
 - `src/profiler/Profiler.ts` : ring buffer `Map<requestId, ProfileEntry>` (cap 500, éviction insertion-order), `collect(ctx)` = snapshot fin de requête (phases/route/controller/user/traceparent/status + **queries ORM**), `get`/`recent`/`clear`. **Borné** (pas de fuite, validé).
-- **Seam ORM `queries` BRANCHÉ (2026-05-21)** : `handleHttp` alloue `context.profilerQueries = this.profiler ? [] : null` (**dev-only, 0 alloc prod**) et passe la **même réf** dans la payload ALS (clé `queries`). Les adapters ORM y poussent via `RequestContext.pushQuery()` ; `collect` lit `ctx.profilerQueries` au teardown (teardown est **hors bulle ALS** → on lit la réf sur le context, jamais `RequestContext.get()`). `queries` reste `undefined` si vide (contrat preserved). WS : pas encore collecté (teardown HTTP only). Tests Profiler +2.
-- Hook : `http-kernel` teardown (`this.profiler?.collect(ctx)` avant `clean()`), résolu container `"profiler"` à onReady, **null en prod** (module l'instancie dev-only dans `index.ts` onKernelBoot → `environment !== "production"`). ⚠️ **Bug corrigé 2026-06-05** : comparait `"prod"` — valeur INEXISTANTE (`setEnv` normalise en `"development"`/`"production"`/`"test"`) → `"production" !== "prod"` toujours vrai → Profiler (+ timing `Context.ts`, pretty-logger) tournait **EN PROD** : perf (JS pipeline 24.5→18.5 %) **+ sécu** (`/nodefony/profiler/api/*` exposé = fuite d'info). **Règle : comparer `"production"`, jamais `"prod"`** (cf `request-logger.ts`, `Context._timingEnabled`).
+- **Seam ORM `queries` BRANCHÉ** : `handleHttp` alloue `context.profilerQueries = this.profiler ? [] : null` (**dev-only, 0 alloc prod**) et passe la **même réf** dans la payload ALS (clé `queries`). Les adapters ORM y poussent via `RequestContext.pushQuery()` ; `collect` lit `ctx.profilerQueries` au teardown (teardown est **hors bulle ALS** → on lit la réf sur le context, jamais `RequestContext.get()`). `queries` reste `undefined` si vide (contrat preserved). WS : pas encore collecté (teardown HTTP only). Tests Profiler +2.
+- Hook : `http-kernel` teardown (`this.profiler?.collect(ctx)` avant `clean()`), résolu container `"profiler"` à onReady, **null en prod** (module l'instancie dev-only dans `index.ts` onKernelBoot → `environment !== "production"`). ⚠️ **Bug `"prod"` vs `"production"`** : comparait `"prod"` — valeur INEXISTANTE (`setEnv` normalise en `"development"`/`"production"`/`"test"`) → `"production" !== "prod"` toujours vrai → Profiler (+ timing `Context.ts`, pretty-logger) tournait **EN PROD** : perf (JS pipeline 24.5→18.5 %) **+ sécu** (`/nodefony/profiler/api/*` exposé = fuite d'info). **Règle : comparer `"production"`, jamais `"prod"`** (cf `request-logger.ts`, `Context._timingEnabled`).
 - Data-plane : `createProfilerAdminApi(profiler)` → namespace `profiler` → `GET /nodefony/profiler/api/recent` (+`?limit`) / `GET /{id}` (404 si absent) / `DELETE recent`. Tests `tests/unit/Profiler.test.ts` (11).
 
-## PrettyRequestLogger — P3.2 (2026-05-16)
+## PrettyRequestLogger
 
 - `PrettyRequestLogger implements IRequestLogger` (`service/pretty-request-logger.ts`)
 - Format 1 ligne human-friendly (dev) : `GET 200 /api/test 12.3ms 127.0.0.1 [a1b2c3d4]` (ANSI couleurs)
@@ -159,7 +159,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 - Severity status-based (consomme `severityFromStatus` de P3.3)
 - Tests unit : `PrettyRequestLogger.test.ts` (11 tests)
 
-## JsonAuditLogger error enrichi — P3.5 (2026-05-16)
+## JsonAuditLogger error enrichi
 
 Extension de l'`AuditErrorEntry` :
 
@@ -171,7 +171,7 @@ Extension de l'`AuditErrorEntry` :
 - Cycles safe : `cause` cyclique = stop net à depth max, pas de crash
 - Tests : 6 nouveaux dans `AuditLogger.test.ts` (stack/no-stack, cause chain, depth cap, errorType, circular safe)
 
-## JsonAuditLogger — P3.1 + P3.3 + P3.4 (2026-05-16)
+## JsonAuditLogger
 
 - `JsonAuditLogger implements IRequestLogger` (`service/audit-logger.ts`)
 - Activation : `httpKernel.setRequestLogger(new JsonAuditLogger())` (singleton stateless)
@@ -185,7 +185,7 @@ Extension de l'`AuditErrorEntry` :
 - Tests unit : `nodefony/tests/unit/AuditLogger.test.ts` (18 tests : shape JSON, redaction, severity, phases, error)
 - **Débloque** : P3.2 pretty formatter, P3.5 erreur enrichie, P10.9 Studio logs streaming SSE/WS
 
-### Audit sampling — L3 perf (2026-05-30)
+### Audit sampling — L3 perf
 
 - Opt-in `log.requestLogger.sampleRate` (défaut `1` = tout loguer). `N>1` = 1 req 2xx/3xx sur N, **toujours** ≥400 + erreurs.
 - Gate = `JsonAuditLogger.shouldSample(ctx, err)` (méthode optionnelle de `IRequestLogger`), appelée par `Context.logRequest()` **AVANT** `renderHttp` → skip = 0 objet/0 `JSON.stringify`.
@@ -193,7 +193,7 @@ Extension de l'`AuditErrorEntry` :
 - Câblé via `applyRequestLoggerFromConfig` (passe `sampleRate` à `JsonAuditLoggerOptions`). Pretty/Default loggers = pas de `shouldSample` ⇒ toujours loguer.
 - Micro-bench dist : `renderHttp` ~1365 ns/req vs `shouldSample` ~10 ns ; sampleRate=20 → poste audit 1365→78 ns/req (-94%). Défaut **iso-perf**. +7 tests sampling.
 
-## RequestContext (ALS) — P1.4 (2026-05-16)
+## RequestContext (ALS)
 
 - `RequestContext` exporté depuis `nodefony` core (`src/runtime/RequestContext.ts`)
 - API : `RequestContext.run(payload, fn)`, `.get()`, `.getRequestId()`, `.getUser()`, `.getUserId()`, `.set(key, value)`
@@ -206,7 +206,7 @@ Extension de l'`AuditErrorEntry` :
 - Tests intégration : `nodefony/tests/integration/request-context.test.ts` (6 tests : match contextId, X-Request-Id override, scheme, propagation cross-await, isolation 10 concurrent)
 - **Débloque** : P3.1 audit log (requestId dans chaque log même hors context), P6.8b décorateurs `@IsGranted` (récup `user` global type-safe), P13.4 RealtimeService (RequestContext pour TCP/UDP/Unix sockets)
 
-## RequestLogger pluggable (P1.6, 2026-05-16)
+## RequestLogger pluggable
 
 - `IRequestLogger` interface : `renderHttp(ctx, error?)` + `renderWebsocket(ctx, error?, protocol?)` → `{text, severity, msgid}`
 - `DefaultRequestLogger` (`service/request-logger.ts`) — singleton, stateless, **zéro alloc per-request**
@@ -218,7 +218,7 @@ Extension de l'`AuditErrorEntry` :
 - Exporté dans `index.ts` : `DefaultRequestLogger`, `IRequestLogger`, `IRequestLogEntry`
 - Préalable : P3.1 audit log canonique JSON, P3.2 pretty formatter, P3.10 NCSA/Combined transport
 
-## Security hooks (P1.7, 2026-05-16) — préalable Phase 6
+## Security hooks
 
 3 hooks `fireAsync` au niveau `HttpKernel` (cohérent avec `onServerRequest`/`onCreateContext`) :
 
@@ -236,7 +236,7 @@ Extension de l'`AuditErrorEntry` :
 - Tests : `nodefony/tests/integration/security-hooks.test.ts` (6 tests)
 - **Débloque Phase 6 Security** — firewall.ts peut se brancher proprement sans coupler `@nodefony/http`
 
-## ErrorRenderer unifié HTTP+WS (P1.5, 2026-05-16)
+## ErrorRenderer unifié HTTP+WS
 
 - `IErrorRenderer` interface : `renderHttp(err, ctx) → {status, message, body, headers?}` + `renderWebsocket(err, ctx) → {code, reason}`
 - `DefaultErrorRenderer` (`service/error-renderer.ts`) — singleton, stateless, **zéro alloc per-request**
@@ -248,7 +248,7 @@ Extension de l'`AuditErrorEntry` :
 - Exporté dans `index.ts` : `DefaultErrorRenderer`, types `IErrorRenderer`, `IErrorHttpResult`, `IErrorWebsocketResult`
 - Préalable : P1.7 hooks security (AuthFailureHandler), P3.5 erreur enrichie audit
 
-## Abort signal — Context.signal (P1.3, 2026-05-16)
+## Abort signal — Context.signal
 
 - `Context.signal: AbortSignal` (getter lazy) — alloue `AbortController` + branche listener AU PREMIER ACCÈS
 - **Zéro overhead par défaut** : si jamais lu, aucune allocation
@@ -261,24 +261,24 @@ Extension de l'`AuditErrorEntry` :
 - Routes test : `/nodefony/test/abort/{wait,state,reset}` — counters singleton
 - Tests : `nodefony/tests/integration/abort-signal.test.ts` (5 tests)
 
-## Aborted requests + 499 interne — P2.3 (2026-05-29)
+## Aborted requests + 499 interne
 
 - Client part avant TOUT envoi → `http-kernel.onClose` (`!didFinish`) : `_abortIfPending` + si `!sended` → `response.statusCode = 499` (nginx-style "client closed request").
 - **499 = observabilité PURE** : reflété dans request-log + profiler, **JAMAIS écrit sur le socket** (déjà mort). Le logger préfère `error.code` → 499 ne surface que sur un abort sans erreur ni envoi.
 - Test : `nodefony/tests/http/client-abort-499.test.ts` (assert via log `GET  499 …/abort/wait`).
 
-## Request timeout — 2 couches distinctes — P2.5 (2026-05-29)
+## Request timeout — 2 couches distinctes
 
 - **Couche réseau** : `requestTimeout` natif Node (config `http/https`, défaut 30s) = délai de réception headers+body → anti-slowloris. Node renvoie un 408 brut + ferme. **Hors pipeline volontairement** (aucun Context/controller à ce stade).
 - **Couche pipeline** : `responseTimeout` (Nodefony) armé via `HttpContext.setTimeout()` → socket idle → `onTimeout` event → **`_abortIfPending("Request timeout")` (annule `ctx.signal`)** PUIS `httpKernel.onError(408 | 504 si HTTP/2 stream)` → errorRenderer.
 - Sondes test : `/nodefony/test/timeout/{probe,state,reset}` (la sonde re-arme un socket timeout court via `ctx.response.response.setTimeout(ms, cb)` + `fire("onTimeout")`). Test : `nodefony/tests/http/timeout-abort.test.ts`.
 
-## Controller initialize() error boundary — P2.4 (2026-05-29)
+## Controller initialize() error boundary
 
 - `Resolver.newController` → `await controller.initialize()` ; un throw remonte `HttpContext.handle()` reject → `handleHttp` catch → `onError` → 500 JSON cohérent, serveur sain (pas de hang).
 - Verrou : `LifecycleController` (module test) dont `initialize()` throw toujours, route `/nodefony/test/lifecycle/init-crash`. Test : `nodefony/tests/http/lifecycle-init-crash.test.ts`.
 
-## Post-response hook — Context.onAfterResponse (P1.2, 2026-05-16)
+## Post-response hook — Context.onAfterResponse
 
 - `Context.onAfterResponse(fn: (ctx) => void | Promise<void>): void`
 - Fire-once per context, dédup HTTP `response.on("finish")` vs `response.on("close")` via `_afterResponseFired` flag
@@ -290,7 +290,7 @@ Extension de l'`AuditErrorEntry` :
 - Tests : `nodefony/tests/integration/after-response.test.ts` (6 tests)
 - Préalable : P3.1 audit log canonique, P2.2 tear-down déterministe, P2.3 aborted requests (signal)
 
-## Lifecycle Timing — Context.phases (P1.1, 2026-05-16)
+## Lifecycle Timing — Context.phases
 
 - `Context.phases: PhaseTiming[]` — instrumentation pipeline, rempli par HttpKernel
 - API : `context.phaseStart(name)` / `context.phaseEnd(name)` — `performance.now()` (perf_hooks)
@@ -309,7 +309,7 @@ Extension de l'`AuditErrorEntry` :
 - Préalable : P2.1 (audit log timing), P3.7 (mode trace verbose)
 - WS hérite via classe de base — phases dispos sur `WebsocketContext`
 
-## Body parsing — drain OBLIGATOIRE avant lecture (fix 2026-05-29)
+## Body parsing — drain OBLIGATOIRE avant lecture
 
 - `@Body`/`@Query`(POST) lisent `request.queryPost`, rempli par les parsers (`ParserJson`/`ParserQs`/`ParserXml`).
 - **Le corps DOIT être entièrement reçu avant de parser** : `Parser.parse()` (base) fait `await this.ended()` (attend `end`) PUIS `Buffer.concat(chunks)`. `initialize()` fait `await parser.parse()` AVANT de fire `onRequestEnd` → le controller lit un `queryPost` complet.
@@ -329,7 +329,7 @@ Extension de l'`AuditErrorEntry` :
 7. `Controller.execute(null)` → handshake handler
 8. `ws "message"` → `Controller.execute(message)`
 
-## Durcissement WS — heartbeat (G2) + backpressure (G1) + fragmentation/latence (G3) — 2026-06-08
+## Durcissement WS — heartbeat (G2) + backpressure (G1) + fragmentation/latence (G3)
 
 `ws@8` n'a **0 keep-alive natif** (≠ ancienne lib `websocket` theturtle32 qui pingait/droppait seule via **1-2 timers PAR connexion** = anti-pattern). Les knobs `keepaliveInterval`/`keepaliveGracePeriod` (Zod) étaient déclarés mais **non câblés** (config menteuse) → recâblés.
 
@@ -340,7 +340,7 @@ Extension de l'`AuditErrorEntry` :
 - **Backpressure SORTANTE (G1, LIVRÉ)** : `Response.send()`/`broadcast()` gatent via `decideSend(ws,max,policy)` (`src/context/websocket/wsBackpressure.ts`) **AVANT** `client.send()`. Lit `ws.bufferedAmount` (O(1)), **0 alloc sous le seuil** (nominal inchangé). Config Zod `maxBackpressure` (déf **4 MiB**, `0`=off) + `backpressurePolicy` `drop`(déf)|`close`. `drop` = saute la frame (client reste connecté, dégradable, idéal broadcast/télémétrie) ; `close` = `close(1013)` « Try Again Later ». Compteur `_nfDrops` lazy/socket (sonde) + **WARNING 1×/conn** au 1er drop. Seuil/politique relus depuis `wss.options` (ws conserve nos clés via le spread). `coalesce` = couche **canal realtime**, PAS transport. Démo live : flood 17.6 MiB à un lecteur `paused` → drop à 4 MiB, socket reste OPEN, 0 OOM.
 - **Fragmentation + latence + deflate (G3, LIVRÉ — 0 code prod, `ws` gère déjà)** : (b) **fragmentation RFC §5.4** testée (`tests/websockets/websocket-fragmentation.test.ts`) — `ws` réassemble ; message fragmenté → echo complet, **ping interjeté entre fragments** → pong (autoPong) **sans corrompre** le réassemblage (croise G2). Frames fabriquées via `ws.Sender.frame` (import namespace — pas dans `@types/ws` ni sur le default ESM). (a) **latence** : banc RTT p50/p95/p99 (`tests/load/ws-latency-load.test.ts`, 500 micro-frames séquentielles, lossless + p99 < 100 ms). (c) **audit `perMessageDeflate`** : `ws` borne la **décompression** par `maxPayload` (`RangeError 'Max payload size exceeded'` → close) → **zip-bomb mitigé** (notre 1 MiB) ; défaut `false` = 0 décompression ; `maxFragments` (ws, déf 128k) borne le **nombre** de fragments (anti-DoS). **Chantier WS = 3/3 trous fermés.**
 
-## Durcissement cycle requête V1/V2/V5 + fast path T1/T3/T4 — 2026-06-10/11
+## Durcissement cycle requête V1/V2/V5 + fast path T1/T3/T4
 
 - **V1 sécu (`0860a48`)** : body cap → **413** (`maxBodySize` Zod) ; origin check HTTP ; **anti-CSWSH** WS (origin sur upgrade).
 - **V2.1 (`55405ff`)** : logs d'events lifecycle **gatés boot-time** (0 closure/format si sink inactif).
@@ -360,7 +360,7 @@ Extension de l'`AuditErrorEntry` :
 
 **Protocol WS** : `requirements.protocol: "echo-protocol"` → exact string match. Array `['a','b']` → header `"a, b"` → ne matche pas `"a"` → 1002. `requirements.protocol: ""` → accepte tout.
 
-**Pipeline = async plates, JAMAIS `new Promise(async executor)`** (L4, 2026-05-30) : `handle`/`handleFrontController`/`handleHttp`/`onRequestEnd` sont des `async function` plates (`throw`/`return` directs, `try/catch`). NE PAS réintroduire `return new Promise(async (resolve,reject)=>…)` : une fn async retourne déjà une Promise → wrapper = 2ᵉ Promise + microtasks + closures/req, et les `throw` hors `resolve/reject` sont **avalés** (la Promise externe reste pending à jamais). `RequestContext.run<T>(payload, fn)` **propage** le retour de `fn` → `return await RequestContext.run(...)`. Seul `.catch` volontaire conservé = `onAuthFailure` (log + avale pour ne pas masquer `authError`).
+**Pipeline = async plates, JAMAIS `new Promise(async executor)`** : `handle`/`handleFrontController`/`handleHttp`/`onRequestEnd` sont des `async function` plates (`throw`/`return` directs, `try/catch`). NE PAS réintroduire `return new Promise(async (resolve,reject)=>…)` : une fn async retourne déjà une Promise → wrapper = 2ᵉ Promise + microtasks + closures/req, et les `throw` hors `resolve/reject` sont **avalés** (la Promise externe reste pending à jamais). `RequestContext.run<T>(payload, fn)` **propage** le retour de `fn` → `return await RequestContext.run(...)`. Seul `.catch` volontaire conservé = `onAuthFailure` (log + avale pour ne pas masquer `authError`).
 
 **Binary WS** : `context?.send(buf, "binary")` server-side ; `ws.send(Buffer)` client-side. Envois séquentiels : utiliser `wsCollectBinary(ws, n)` côté test (collect all then assert) — pattern `await` frame par frame timeout.
 
@@ -370,7 +370,7 @@ Extension de l'`AuditErrorEntry` :
 
 **onConnection** dans http-kernel : `catch` silencieux — erreurs WS avalées, vérifier logs DEBUG.
 
-**Activation session (refonte 2026-06-07, plug runtime)** : plus de `startSession()`. Une session s'ouvre via l'**intent** déclaré `@UseSession({context?,readOnly?,eager?})` (framework, classe/méthode) **OU** un paramètre `@Session` **OU** un cookie de session existant (reprise L1). Point d'activation UNIQUE `HttpKernel.startSession(context)` (HTTP **et** WS, symétrique), lit `context.sessionIntent` (posé par le Resolver). Lazy : 0 session/0 write sinon (fin du `sessionAutoStart` global = le ×23). `Session.readOnly` → `save()` no-op. `cookie.hostPrefix` (`auto`|`true`|`false`) → préfixe `__Host-` sur scheme **effectif** (TLS, honore X-Forwarded-Proto si trustProxy). Cookie nommé via `Context.getSessionCookieName()` (lecture=écriture). `regenerateId()` = seam P6 (anti-fixation). `absolute_timeout` (OWASP) en + de l'idle.
+**Activation session (plug runtime)** : plus de `startSession()`. Une session s'ouvre via l'**intent** déclaré `@UseSession({context?,readOnly?,eager?})` (framework, classe/méthode) **OU** un paramètre `@Session` **OU** un cookie de session existant (reprise L1). Point d'activation UNIQUE `HttpKernel.startSession(context)` (HTTP **et** WS, symétrique), lit `context.sessionIntent` (posé par le Resolver). Lazy : 0 session/0 write sinon (fin du `sessionAutoStart` global = le ×23). `Session.readOnly` → `save()` no-op. `cookie.hostPrefix` (`auto`|`true`|`false`) → préfixe `__Host-` sur scheme **effectif** (TLS, honore X-Forwarded-Proto si trustProxy). Cookie nommé via `Context.getSessionCookieName()` (lecture=écriture). `regenerateId()` = seam P6 (anti-fixation). `absolute_timeout` (OWASP) en + de l'idle.
 
 **Session storage = IoC** : `SessionsService` tient un **registre statique** (`registerStorage/getStorage/storageHandlers`) ; http n'importe AUCUN ORM. Chaque backend s'auto-enregistre au chargement (`files` par http ; `drizzle`/`mongoose` par leur module). Sélection via config `session.handler` (casse-insensible). Events kernel `onRegisterSessionStorage` / `onSessionStorageReady`. Défaut reco = `drizzle`. Guide : [[guide session-storage]] (`docs/guides/session-storage.md`). ⚠️ appeler `registerStorage` rend l'import http VALEUR → externaliser `@nodefony/http` dans le rollup du module fournisseur.
 
@@ -378,7 +378,7 @@ Extension de l'`AuditErrorEntry` :
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — vitest 100% (mocha SUPPRIMÉ 2026-06-05) — 346 unit / 402 intég / 9 gate
+## Tests — vitest (mocha retiré) — unit / intégration / charge
 
 Runner unique = **Vitest 4**, 3 suites = 3 configs (séquentielles pour intég+load) :
 
@@ -397,13 +397,13 @@ load/ + http/memory.test.ts  → npm run test:load (séquentiel)
 
 Configs vitest : `vitest.config.ts` (unit) / `vitest.integration.config.ts` / `vitest.load.config.ts` ; setup `vitest.setup.ts` (reflect + before/after). `fileParallelism:false` (serveur partagé). `import "mocha"` strippé partout, shim+fix-reflect+`.mocharc.*` supprimés.
 
-## Admin data plane — `IAdminApi` (P10.3, 2026-05-20)
+## Admin data plane — `IAdminApi`
 
 http = **2ᵉ producteur** du data plane admin Studio (1er = kernel). `createHttpAdminApi(module)` (`nodefony/service/HttpAdminApi.ts`) → enregistré dans `onKernelBoot` via `IAdminRegistry` du container (`this.kernel.container.get("adminBroker")`).
 
 - **Import : SEULEMENT `IAdminApi`/`IAdminRegistry` depuis `"nodefony"`** — jamais `@nodefony/framework` (cycle). C'est tout l'intérêt du split `IAdminRegistry` (core) / `IAdminBroker` (framework).
-- Endpoints (validés runtime) : `GET /nodefony/http/api/servers` (5 services serveur : type/scheme/protocol/address/port/family/ready) · `GET /nodefony/http/api/info` (serveurs prêts, ports, schemes, protocols) · `GET /nodefony/http/api/sessions` (état sous-système + `active` = count ; flag `deprecated` **retiré** 2026-06-21 — session = base auth web BFF).
-- **Sessions admin (P6.15, 2026-06-21)** : `GET sessions/list` (paginé `?user&limit&offset`, défaut 50/cap 200) · `POST sessions/{ref}/revoke` · `POST sessions/revoke-user/{identifier}` (logout-everywhere). RBAC `ROLE_NODEFONY_ADMIN` (défaut broker). **DTO redacté `ISessionSummary`** (jamais `Attributes`/`flashBag`/id brut) — id remplacé par **`ref = HMAC(secret, id)`** (`computeSessionRef`/`toSessionSummary`, fonctions pures testées ; secret = `this.secret` session). Énumération = `ISessionStorage.listAll?(filter?)` **optionnelle** (4 stores : File/Drizzle/Redis-SCAN/Mongoose ; absente → **501** honnête). Révocation = scan O(N) + recompute HMAC (pas d'index inverse). Mutations auditées via pont optionnel `auditService` (catégorie `session`, no-op si security absent). Tests : `tests/unit/SessionsAdmin.test.ts` (ref/redaction/orchestration) + drizzle `session-storage` (SQL réel). **Reste** : capture `ip/ua` au login (slots DTO null aujourd'hui) ; front Studio `/nodefony/sessions`.
+- Endpoints (validés runtime) : `GET /nodefony/http/api/servers` (5 services serveur : type/scheme/protocol/address/port/family/ready) · `GET /nodefony/http/api/info` (serveurs prêts, ports, schemes, protocols) · `GET /nodefony/http/api/sessions` (état sous-système + `active` = count ; flag `deprecated` **retiré** — session = base auth web BFF).
+- **Sessions admin** : `GET sessions/list` (paginé `?user&limit&offset`, défaut 50/cap 200) · `POST sessions/{ref}/revoke` · `POST sessions/revoke-user/{identifier}` (logout-everywhere). RBAC `ROLE_NODEFONY_ADMIN` (défaut broker). **DTO redacté `ISessionSummary`** (jamais `Attributes`/`flashBag`/id brut) — id remplacé par **`ref = HMAC(secret, id)`** (`computeSessionRef`/`toSessionSummary`, fonctions pures testées ; secret = `this.secret` session). Énumération = `ISessionStorage.listAll?(filter?)` **optionnelle** (4 stores : File/Drizzle/Redis-SCAN/Mongoose ; absente → **501** honnête). Révocation = scan O(N) + recompute HMAC (pas d'index inverse). Mutations auditées via pont optionnel `auditService` (catégorie `session`, no-op si security absent). Tests : `tests/unit/SessionsAdmin.test.ts` (ref/redaction/orchestration) + drizzle `session-storage` (SQL réel).
 - Lecture défensive des services `server-{http,https,websocket,websocket-secure,static}` via `module.get(name)`.
 - **Per-instance** : answers du process qui reçoit (LB route vers 1 pod). Header `x-nodefony-instance` posé par `AdminApiController` (convention `NODEFONY_INSTANCE_ID ?? pid`). Vue cluster = Redis P13. Cf [[project_multiprocess_scaling]].
 - Stateless : aucun `startSession()`, lit l'user via ALS (futur JWT). Cf [[project_security_stateless_http_decision]].
