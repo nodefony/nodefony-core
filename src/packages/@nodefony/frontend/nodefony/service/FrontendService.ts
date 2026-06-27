@@ -697,7 +697,18 @@ class FrontendService extends Service implements IFrontendService {
       "script-src": ["'self'", "'unsafe-eval'", ...httpSrc],
       "style-src": ["'self'", "'unsafe-inline'", ...httpSrc],
       "worker-src": ["'self'", "blob:"],
-      "img-src": ["'self'", "data:", "blob:", ...httpSrc],
+      // + avatars externes (Gravatar / Google / GitHub) — aligné sur le défaut
+      // CSP de @nodefony/security (en dev, le studio override le CSP via ce
+      // helper pour autoriser les hosts Vite cross-origin).
+      "img-src": [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://www.gravatar.com",
+        "https://*.googleusercontent.com",
+        "https://avatars.githubusercontent.com",
+        ...httpSrc,
+      ],
       "font-src": ["'self'", "data:", ...httpSrc],
       "connect-src": ["'self'", "blob:", "data:", ...httpSrc, ...wsSrc],
     };

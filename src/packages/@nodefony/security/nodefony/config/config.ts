@@ -101,7 +101,10 @@ export default {
         "default-src 'self'; " +
         "script-src 'self' 'nonce-{{nonce}}'; " +
         "style-src 'self' 'unsafe-inline'; " + // CSS-in-JS : attributs `style=""` non couvrables par nonce
-        "img-src 'self' data: blob:; " + //       icônes/logos base64 + canvas/charts
+        // icônes/logos base64 + canvas/charts + avatars externes (Gravatar /
+        // Google / GitHub) — allowlist stricte (les autres providers OIDC =
+        // ajouter le domaine de leur `picture` ici).
+        "img-src 'self' data: blob: https://www.gravatar.com https://*.googleusercontent.com https://avatars.githubusercontent.com; " +
         "font-src 'self' data:; " + //            polices inline
         "connect-src 'self'; " + //               fetch + WebSocket same-origin (API + realtime)
         "worker-src 'self' blob:; " + //          web workers (mermaid/cytoscape…)

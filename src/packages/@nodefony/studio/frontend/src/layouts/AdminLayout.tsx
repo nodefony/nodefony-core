@@ -58,11 +58,18 @@ import {
   useAuth,
   useConnection,
   useNotifications,
+  useStore,
   useUi,
   useWorkspace,
 } from "../stores";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { NAV_GROUPS, PRODUCER_ICONS } from "./navConfig";
+import { useResource } from "../hooks";
+import {
+  PROFILE_ME_ENDPOINT,
+  type ProfileSummary,
+} from "../routes/profile/profileModel";
+import { UserAvatar } from "../routes/users/AvatarUpload";
 
 const RAIL_WIDTH = 68;
 const FULL_WIDTH = 264;
@@ -120,6 +127,15 @@ export const AdminLayout = observer(() => {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure(false);
   const auth = useAuth();
   const notifications = useNotifications();
+  const store = useStore();
+  // Profil self → avatar de la top bar (photo uploadée / Gravatar / initiales).
+  // Chargé une fois au montage du shell ; un changement d'avatar dans « Mon
+  // compte » apparaît au prochain chargement de la page.
+  const profileFetcher = useCallback(
+    () => store.api.getAbsolute<ProfileSummary>(PROFILE_ME_ENDPOINT),
+    [store],
+  );
+  const { data: meProfile } = useResource(profileFetcher);
   // Enregistre un passkey pour l'utilisateur connecté (lie une empreinte/clé à
   // son compte). L'annulation de l'invite OS (NotAllowedError) est silencieuse.
   const handleRegisterPasskey = useCallback(async () => {
@@ -351,9 +367,15 @@ export const AdminLayout = observer(() => {
             <Menu position="bottom-end" withArrow shadow="md">
               <Menu.Target>
                 <ActionIcon variant="subtle" aria-label="User menu">
-                  <Avatar size={28} radius="xl" color="brand">
-                    {auth.displayName.slice(0, 2).toUpperCase()}
-                  </Avatar>
+                  <UserAvatar
+                    profile={
+                      meProfile?.profile ?? {
+                        email: auth.user?.email ?? undefined,
+                      }
+                    }
+                    identifier={auth.displayName}
+                    size={28}
+                  />
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
