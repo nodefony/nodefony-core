@@ -119,6 +119,25 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
 
 ## 🎨 Front / Studio / UX
 
+- **[1× — 06-27] Cache navigateur : `localhost` ≠ `127.0.0.1` = DEUX origines (caches séparés).**
+  Le user voyait l'ANCIEN bundle sur `localhost` alors que le serveur servait le neuf (prouvé : un
+  `fetch` vers `127.0.0.1:5173/@fs/…Users.tsx` depuis sa console → `NEW`). ~10 allers-retours à
+  l'aveugle (cache/SW/incognito) avant de lui demander l'**URL exacte de la barre d'adresse** = le
+  déclic. **Leçon** : sur « le HMR/F5 ne montre pas mes changements », demander AU 2ᵉ aller-retour
+  **un fait observable** (URL exacte, snippet `fetch` console, onglet Network) au lieu d'enchaîner des
+  hypothèses cache. Serveur prouvé bon (transform Vite 200 + `fetch` NEW) ⇒ c'est l'origine/onglet du
+  navigateur ; **basculer d'origine (`127.0.0.1`) = test décisif gratuit**. (Navigateur Docker MCP ne
+  joint pas le dev → s'appuyer sur les yeux du user, cf règle projet.)
+- **[1× — 06-27] « ça ouvre encore un dialogue » = suspecter le COMPOSANT CONSOMMÉ, pas que son diff.**
+  J'avais changé `Users.tsx` (`onEdit→navigate`) mais le clic ligne ouvrait toujours un Modal = le
+  **Modal détail de `UsersTable`** (jamais lu, `onRowClick={setSelected}`). **Leçon** : avant de
+  conclure « cache », lire le composant qui CONSOMME la prop modifiée ; un comportement résiduel vit
+  souvent dans un enfant non inspecté.
+- **[1× — 06-27] CSP `img-src` = 3 sources à synchroniser** (security `config.ts` + `defineSecurityConfig.ts`
+  Zod + `frontend` `getCspDirectives` dev). MAJ une seule = CSP runtime ≠ Zod ≠ dev. Toute évolution
+  (ex. autoriser un domaine d'avatars Gravatar/Google/GitHub) touche les **3** ; vérifier le header
+  effectif (`curl -D -`) après restart. Avatar externe bloqué = `img-src` manquant (pas un bug front).
+
 - `[2× — 2026-05-25, 2026-06-25]` **Page Studio VIDE / cassée après `build:front` + restart = bundle PÉRIMÉ navigateur, PAS un bug code** :
   rebuild front → chunks Vite re-hashés ; le navigateur garde l'ancien `index.html` (cache) → l'import lazy de la page pointe un
   chunk supprimé → **404 = page vide**. Re-vécu live 06-25 (page Sessions « vide » alors que le data plane curl renvoyait 5-6 sessions).
