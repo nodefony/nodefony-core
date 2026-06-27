@@ -71,8 +71,6 @@ export const Users = observer(() => {
 
   const [tab, setTab] = useState<string>("list");
   const [createOpen, setCreateOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<UserSummary | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   // Suppression en masse : les comptes cochés + le `clearSelection` du DataGrid.
   const [confirmBulk, setConfirmBulk] = useState<{
     users: UserSummary[];
@@ -111,26 +109,6 @@ export const Users = observer(() => {
     return [...set].sort();
   }, [users]);
 
-  async function doDelete(): Promise<void> {
-    if (!confirmDelete) return;
-    const user = confirmDelete;
-    setDeletingId(user.id);
-    try {
-      await store.api.deleteAbsolute(deleteUserEndpoint(user.id));
-      notifications.notify(
-        "success",
-        `Utilisateur « ${user.identifier} » supprimé.`,
-        { source: "api" },
-      );
-      setConfirmDelete(null);
-      reload();
-    } catch (e) {
-      notifications.notify("error", describeUsersError(e), { source: "api" });
-    } finally {
-      setDeletingId(null);
-    }
-  }
-
   // Supprime en masse : boucle sur l'endpoint unitaire (idempotent, ordre libre)
   // — 0 endpoint batch côté back, feedback agrégé réussis/échecs. Les garde-fous
   // anti-lockout du serveur peuvent refuser certains items (409) → comptés.
@@ -161,8 +139,6 @@ export const Users = observer(() => {
     }
   }
 
-  const deleteIsSelf =
-    confirmDelete !== null && confirmDelete.identifier === currentUser;
   const bulkHasSelf =
     confirmBulk?.users.some((u) => u.identifier === currentUser) ?? false;
   const bulkAdmins =
@@ -330,11 +306,8 @@ export const Users = observer(() => {
           <DataState loading={loading && !data} error={error} onRetry={reload}>
             <UsersTable
               users={users}
-              currentUser={currentUser}
               onEdit={(u) => navigate(`/nodefony/users/${u.id}`)}
-              onDelete={(u) => setConfirmDelete(u)}
               onBulkDelete={(u, clear) => setConfirmBulk({ users: u, clear })}
-              deletingId={deletingId}
             />
           </DataState>
         </Tabs.Panel>
@@ -350,57 +323,6 @@ export const Users = observer(() => {
         roleSuggestions={roleSuggestions}
         onCreated={reload}
       />
-
-      {/* Confirmation — suppression d'un compte. */}
-      <Modal
-        opened={confirmDelete !== null}
-        onClose={() => (deletingId ? undefined : setConfirmDelete(null))}
-        title={
-          <Group gap="xs">
-            <IconTrash size={18} color="var(--mantine-color-red-6)" />
-            <Text fw={700}>Supprimer le compte ?</Text>
-          </Group>
-        }
-        centered
-      >
-        {confirmDelete && (
-          <Stack gap="md">
-            <Alert
-              variant="light"
-              color="red"
-              icon={<IconAlertTriangle size={16} />}
-            >
-              <Text size="sm">
-                Le compte <strong>{confirmDelete.identifier}</strong> sera{" "}
-                <strong>immédiatement</strong> supprimé — ses sessions et jetons
-                seront révoqués en cascade. Action irréversible.
-                {deleteIsSelf
-                  ? " ⚠ C'est VOTRE compte : le serveur refusera (garde-fou anti-verrouillage)."
-                  : confirmDelete.roles.includes(ADMIN_ROLE)
-                    ? " Ce compte est administrateur : le serveur refusera s'il s'agit du dernier admin actif."
-                    : ""}
-              </Text>
-            </Alert>
-            <Group justify="flex-end">
-              <Button
-                variant="default"
-                disabled={deletingId !== null}
-                onClick={() => setConfirmDelete(null)}
-              >
-                Annuler
-              </Button>
-              <Button
-                color="red"
-                leftSection={<IconTrash size={16} />}
-                loading={deletingId === confirmDelete.id}
-                onClick={doDelete}
-              >
-                Supprimer
-              </Button>
-            </Group>
-          </Stack>
-        )}
-      </Modal>
 
       {/* Confirmation — suppression EN MASSE des comptes cochés. */}
       <Modal
