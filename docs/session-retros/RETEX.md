@@ -34,13 +34,17 @@
   qui bloque l'event-loop donne un débit PLAT quand la concurrence monte (mesuré : reprise session
   better-sqlite3 ~400 RPS de c=5 à c=50) ; de l'I/O async MONTE avec la concurrence (redis ~1900, ×4,7).
   Pour qualifier « est-ce sync-bloquant ou CPU pur ? » → bencher c=5/10/25/50, pas un seul point.
-- `[2× — 2026-06-14, 2026-06-25]` **Bench « coût de la sécu » = isoler firewall vs store** : le coût d'une requête
+- `[3× — 2026-06-14, 2026-06-25, 2026-06-28]` **Bench « coût de la sécu » = isoler firewall vs store** : le coût d'une requête
   authentifiée est ~98 % la **reprise de session** (SELECT store) + l'**autosave** (UPDATE), pas le firewall ni le TLS.
   RE-MESURÉ live 06-25 (pod prod mono, wrk) : `livez` anonyme HTTP **6683** / HTTPS **6181** (TLS = −7.5 %, négligeable) /
   `/auth/me` session HTTPS **519 RPS** = **÷12** (−92 %) ← TOUT le coût est le **store SQLite SYNCHRONE** (bloque
-  l'event-loop, débit plat). → store **Redis** (async) pour prod authentifiée ; piste Nodefony : **dirty-tracking** de
-  l'autosave (skip l'UPDATE sur un GET en lecture pure → ~×2). Réflexe : `grep "SESSION STORAGE active"` avant d'hypothéser.
-  **→ candidat graduation `feedback_bench_isolate_session_store`.**
+  l'event-loop, débit plat). → store **Redis** (async) pour prod authentifiée. Réflexe : `grep "SESSION STORAGE active"` avant d'hypothéser.
+  **RE-CONFIRMÉ 06-28 par PROFILING** (`node --prof`, prod mono, faux symbole macOS `snapshot_deserialize` ignoré) :
+  firewall (`handleSecurity`/`#authenticate`/`matchPath`/CORS/CSRF/`applySecurityHeaders`) **tous 0,0 %** ; hot = **drizzle
+  query-building** (`sql.js`/`dialect.js` ~2 %) + better-sqlite3 natif. La piste **dirty-tracking de l'autosave est LIVRÉE**
+  (touch throttlé NIST/OWASP, `e27de035`) : le chemin readOnly/clean **évite l'UPDATE** → touch ~2500 vs write ~570 RPS (**×4,4**).
+  Reste = **2 lookups DB/req** (session + `findByIdentifier` user) sur l'authentifié → cacher le user sur la session / Redis async.
+  **≥3× → GRADUER en `feedback_bench_isolate_session_store` au prochain CONSOLIDATE.**
 - `[1× — 2026-06-25]` **Débit cluster : optimum = nombre de cœurs PHYSIQUES, sur-fork = contre-productif** (courbe live wrk,
   livez, machine 6 phys/12 logiques) : mono **6683** → 3w **17114** → **6w 19076 (pic = cœurs phys)** → 10w **15562 (−18 % vs 6w,
   p99 ×2.5)**. Au-delà des cœurs, les workers se battent → context-switch/cache-thrash → débit ↓ + p99 explose. L'HT (12 log)
@@ -608,6 +612,10 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   audits — réécrire un document daté falsifie l'historique (l'audit ORM cite Sequelize justement pour documenter sa suppression).
 
 ## 🔄 Cycle de session (END/RETEX) — méta
+
+- `[1× — 2026-06-28]` **OFFLINE-FIRST : les skills de dev BUNDLENT les normes (RFC/OWASP/NIST/Node) — les consulter AVANT le réseau.**
+  Parti `curl` les RFC/OWASP sur le réseau (proxy `r.jina.ai`) pour valider le modèle de session → user : « tu n'as pas cherché les RFC dans le skill de dev, c'est pas normal ». **`nodefony-framework-dev/reference/rfc/`** contient **38 RFC IETF full-text** (`ietf/rfc<N>.txt`, `grep`/`awk` sans réseau) + **`specs/owasp-*.md`** (session-management, csrf, jwt…) + NIST/cloud — c'est l'aboutissement de l'overhaul des skills (06-27). Réflexe : `ls .claude/skills/nodefony-framework-dev/reference/rfc/{ietf,specs}` AVANT tout `curl`/WebFetch ; le réseau = seulement pour ce qui N'EST PAS bundlé (W3C HTML-only, NIST 800-63B full-text → `nodefony-rfc` proxy). Variante de la devise : la source canonique est DÉJÀ dans le repo.
+- `[1× — 2026-06-28]` **Ne pas grouper build + spawn détaché + boucle d'attente dans UNE commande Bash** → timeout 2 min (le poll `for` + le build cumulés dépassent), commande tuée SIGTERM (143) alors que chaque étape isolée passe en ~5 s. Découper : build seul, puis spawn seul, puis health seul. (Aussi : `timeout` absent macOS = `gtimeout` ; s'appuyer sur le timeout du tool Bash.)
 
 - `[1× — 2026-06-14]` **`git diff HEAD` (et la security-review qui grep dessus) IGNORE les fichiers NEUFS non trackés**
   → sur une feature majoritairement composée de fichiers neufs (JWT = 7 `.ts` neufs), le scan sécu rate le gros du

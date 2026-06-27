@@ -82,7 +82,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P3  Logs structurés       █████████░  85%   7✅  3🔶  0⬜
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
  P5  Session/User/ORM core ████████▌░  85%  13✅  3🔶  1⬜   ◀ (P5.14 ✅ J3 ; reste P5.0b batch/cron)
- P6  Security              ███████▊░░  78%  16✅  4🔶  3⬜   ✅ cœur MVP LIVRÉ (P6.1-6.8b) — bloqueur MVP LEVÉ ; reste HORS MVP = durcissement (modèle session NIST · P6.18 audit persistant) + niches (mTLS/rpId) + refinements (authz niveau B · OAuth resource-server · logs auth · live audit)
+ P6  Security              ████████░░  80%  17✅  3🔶  3⬜   ✅ cœur MVP LIVRÉ (P6.1-6.8b) — bloqueur MVP LEVÉ ; ✅ modèle session NIST/OWASP (idle+absolute+touch, red-team 11/11, `e27de035`) ; reste HORS MVP = durcissement (P6.18 audit persistant) + niches (mTLS/rpId) + refinements (authz niveau B · OAuth resource-server · logs auth · live audit)
  P7  ORM drivers           ███████▌░░  75%   3✅  3🔶  0⬜   ◀ **BLOQUEUR RELEASE** — multi-dialecte sqlite/pg/mysql (P7.10) TRÈS important + confiance ORM à regagner (comparatif froid) ; reste P7.5 E2E + P7.7 redis
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜
  P9  Polish + clôture      ██████░░░░  63%   2✅  1🔶  1⬜   (P9.4 : 0 vulnérabilité npm 2026-06-12)
