@@ -6,7 +6,7 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 
 - `Frontend` (Module class) — declared services: [FrontendService]. Commands: frontend:{build,dev,status}.
 - `FrontendService` — @injectable, name="frontend". Container.get("frontend").
-- `ViteProcessSupervisor` (cette branche POC) — spawn `npx vite --config <generated.mjs>`. Parse stdout "Local:" → state=ready.
+- `ViteProcessSupervisor` — spawn `npx vite --config <generated.mjs>`. Parse stdout "Local:" → state=ready.
 - `ViteConfigGenerator` — produit `${moduleRoot}/vite.config.generated.mjs`. Hardcode imports plugins selon preset types.
 - `ViteBuilder` — config Vite in-proc pour mode build (vite.build() programmatique).
 - `TemplateHelper` — `renderTags(entryName)` → `<script type="module" src="http://host:port/...">`.
@@ -90,9 +90,8 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - `module.path` (Module class) requis pour résoudre les chemins absolus du consumer.
 - Si `state !== "ready"` quand renderTags est appelé → commentaire HTML `<!-- vite supervisor state=... -->`.
 - Container.get("frontend") = name passé au constructor Service (pas le className).
-- CSP : `script-src 'self'` par défaut bloque les scripts Vite cross-origin. Hack POC : `controller.context.response.setHeader("Content-Security-Policy", svc.getCspDirectives())`. TODO → migrer dans @nodefony/security.
-- CSP (2026-05-21) : `getCspDirectives()` inclut **`worker-src 'self' blob:`** (un Worker depuis `blob:` retombe sinon sur `script-src` qui n'autorise pas blob: → bloqué) + `blob:`/`data:` sur `connect-src`/`img-src`. Dev only.
-- Proxy Vite (2026-05-21) : en dev, `ViteConfigGenerator` ajoute **TOUJOURS** la regex `^/nodefony/[^/]+/api` au `server.proxy` (en plus des `apiProxyPaths` déclarés) → le data-plane admin/profiler (`/nodefony/<module>/api/*`) est toujours proxifié vers le backend, sinon la debug bar auto-injectée fetch `/nodefony/profiler/api` tombe sur le fallback SPA Vite (HTML) → clic « mort ».
+- CSP (dev) : `FrontendService.#registerCsp()` déclare les origines Vite au firewall `@nodefony/security` via `registerCspOrigins("frontend", #viteCspFragment())` (résolu PAR NOM = anti-cycle) → le firewall émet **UN seul** CSP (origines mergées + **nonce par requête**, propagé par `renderDocument(entry, nonce)`). Plus de hack `setHeader`/`getCspDirectives` (supprimés). Fragment Vite (`#viteCspFragment`) : `'self'` dans CHAQUE directive (connect/style/img/font/worker n'héritent pas de `default-src`), `'unsafe-eval'` (React Fast Refresh, non couvert par le nonce), `worker-src 'self' blob:`, `blob:`/`data:` sur connect/img. Jamais émis en prod.
+- Proxy Vite : en dev, `ViteConfigGenerator` ajoute **TOUJOURS** la regex `^/nodefony/[^/]+/api` au `server.proxy` (en plus des `apiProxyPaths` déclarés) → le data-plane admin/profiler (`/nodefony/<module>/api/*`) est toujours proxifié vers le backend, sinon la debug bar auto-injectée fetch `/nodefony/profiler/api` tombe sur le fallback SPA Vite (HTML) → clic « mort ».
 - `process.kill(child.pid)` tue `npx` (parent), pas Vite. Pour tuer Vite réel dans tests : `lsof -ti:port -sTCP:LISTEN`.
 - Test crash auto-restart : `pidListeningOn(port)` puis SIGKILL ; attendre `state==="ready"` + `pid !== nodefonyPidBefore` + `restartCount === 1`.
 
@@ -122,35 +121,32 @@ Aucun listener (boot direct via `start.sh`, prod) → `fire` no-op, 0 coût. Ne 
 
 - `npm run coverage` = `vitest run --coverage` (v8). Config `vitest.config.ts` (mirror framework, sans alias ORM — test importe la source pure). Setup `nodefony/tests/vitest.setup.ts` + shim `vitest-mocha-shim.mjs`. Sortie `.coverage/` (lcov + json-summary) → onglet Coverage Studio (`readCoverage`).
 - **ViteConfigGenerator.ts = 100% lines (53/53)** ; module-wide ~12% (autres fichiers non testés inclus dans `include`, idem framework/http — le % unit ne mesure pas le runtime).
-- **Split assumé (décision A, 2026-05-20)** : l'intégration (`ViteProcessSupervisor`, spawn Vite) tourne en process séparé → JAMAIS instrumentée. cf [[feedback_coverage_modules]].
+- **Split assumé** : l'intégration (`ViteProcessSupervisor`, spawn Vite) tourne en process séparé → JAMAIS instrumentée. cf [[feedback_coverage_modules]].
 
-## API Studio (route /nodefony/frontend/\* — Phase 10)
+## API Studio (route /nodefony/frontend/\*)
 
 - GET /nodefony/frontend/api/status → JSON status (idem `frontend:status -j`)
 - GET /nodefony/frontend/api/entries → list entries résolues
 - POST /nodefony/frontend/api/restart → stop + startDev
-- (TODO Phase 14.2 quand Studio MVP ✅)
 
-## Prod build + renderProdTags (P14.5 ✅ 2026-05-24 — page blanche résolue)
+## Prod build + renderProdTags
 
 - **`publicPath`** (IResolvedFrontendEntry, requis) : défaut `/_assets/<entryName>/` (normalisé leading+trailing `/`). = `base` Vite (prod) ⇄ mount `Statics` ⇄ préfixe URLs manifest. Surcharge via `frontend.publicPath`.
 - **`TemplateHelper(supervisor|null, mode, entries?)`** : prod → `renderProdTags` lit `outDir/.vite/manifest.json` (caché `Map` par outDir, fallback `manifest.json` legacy). Clé = `entryFile` POSIX sinon chunk `isEntry`. Émet CSS (récursif via imports) + `modulepreload` (imports) + `<script type=module crossorigin>`, préfixés `publicPath`. Manifest absent → commentaire (0 crash).
 - **`FrontendService.build({force?})`** : `vite.build` **par entry** (boucle, pas 1 config partagée — multi-module + Angular isolé). **Skip** si `manifest.mtime >= newestSourceMtime(root)` (scan borné, ignore node_modules/.vite/outDir). Retourne `{built, skipped, failures}`. `ViteBuilder` ajoute `base = assetBaseUrl + publicPath` SEULEMENT en `production`.
-- **`assetBaseUrl`** (config `frontend.assetBaseUrl`, défaut `""`) : base CDN/object-storage des assets PROD. Préfixe (sans toucher au mount `Statics` qui reste relatif à l'origine) : `base` Vite build · URLs `renderProdTags` (`this.assetBaseUrl + publicPath`) · helper `asset('/x')`. `FrontendService.assetUrl(p)` = base normalisée (sans slash final) + p ; identité si vide ou URL absolue. Helper template `asset` injecté par `Controller.withFrontendLocals` (Twig + EJS). Test : `ViteBuilder.test.ts`. Carte → CDN via `assets:publish` (à venir).
+- **`assetBaseUrl`** (config `frontend.assetBaseUrl`, défaut `""`) : base CDN/object-storage des assets PROD. Préfixe (sans toucher au mount `Statics` qui reste relatif à l'origine) : `base` Vite build · URLs `renderProdTags` (`this.assetBaseUrl + publicPath`) · helper `asset('/x')`. `FrontendService.assetUrl(p)` = base normalisée (sans slash final) + p ; identité si vide ou URL absolue. Helper de vue `asset` injecté par `Controller.withFrontendLocals` (locals Eta). Test : `ViteBuilder.test.ts`. Carte → CDN via `assets:publish` (à venir).
 - **`setupProd()`** (hook `onServersReady`, `env !== development`) : `container.get("server-static").addMount(publicPath, outDir)` par entry + `prodHelper`. `renderTags` route vers `prodHelper` si présent. **Anti-cycle** : jamais d'import `@nodefony/http`, résolution par nom DI.
 - **`Statics` (http)** : `addMount(prefix,dir)` (normalise, idempotent, `serve-static` cache 96h) + `hasMounts()`. `handle()` : guard `url.startsWith(prefix)` (O(1), 0 stat disque sinon) → strip → `serve-static` (pose Content-Type ; fichier servi = Promise pending = routing court-circuité). `http-kernel.onHttpRequest` déclenche le static si `options.statics` OU `hasMounts()`.
 - **Page blanche** = route back `GET /nodefony` (StudioController) : injectait `renderTags("studio")` = stub en prod → 0 `<script>` → React jamais chargé. Même route dev/prod, seul le contenu injecté diffère.
 - **Pipeline** : `npm run build` (backend) PUIS `npm run build:front`/`build:all`. ⚠️ CLI `frontend:build` = `unknown command` (bug pré-existant `project_cli_commands_broken_claude_ts`).
 - **Preuve runtime** : cluster `-w 2` → `GET /nodefony` = balises `/_assets/studio/...` fingerprintées, assets HTTP 200 via Statics. Tests : `tests/integration/frontend-build.test.ts` (8, vrai vite.build + renderDocument).
 
-## Coquille templatable — `renderDocument` + helpers Twig/EJS (2026-05-24)
+## Coquille templatable — `renderDocument` + helpers de vue (Eta)
 
-- **Plus de shell codé en dur** dans le controller. `TemplateHelper.renderDocument(entry)` lit l'`index.html` DU MODULE (`entry.root`, le dev y met meta/polices/scripts externes), **retire** le `<script type=module src=…entry…>` source (Vite-native, non résolvable quand Nodefony sert la page), injecte les tags au marqueur **`<!--nodefony:frontend-->`** sinon avant `</head>`. Pas d'`index.html` → coquille minimale générée. `index.html` caché par root en **prod** (dev re-lit pour refléter les éditions).
-- `FrontendService.renderDocument(entry)` route comme `renderTags` (prodHelper / family helper). `StudioController.renderStudio` = `this.render(svc.renderDocument("studio"))`.
-- **Helpers template (façon Symfony `encore_entry_script_tags`)**, source unique = `renderTags`/`renderDocument` :
-  - **Twig** : `FrontendService.registerTemplateHelpers()` (à `onServersReady`) → `twig.extendFunction("frontend_tags"|"frontend_document", …)`. Usage `{{ frontend_tags('studio')|raw }}` (Twig échappe → `|raw`).
-  - **EJS** (pas de registre global) : injecté dans les locals par `Controller.withFrontendLocals(param)` (résout `frontend` par nom, anti-cycle) → `<%- frontendTags('studio') %>` / `<%- frontendDocument('studio') %>` (`<%-` = brut).
-- 3 portes d'entrée, 1 source : `index.html` statique (injection marqueur) · Twig (`frontend_tags`) · EJS (`frontendTags`). Toutes finissent par `renderProdTags` (prod) / dev tags.
+- **Plus de shell codé en dur** dans le controller. `TemplateHelper.renderDocument(entry, nonce?)` lit l'`index.html` DU MODULE (`entry.root`, le dev y met meta/polices/scripts externes), **retire** le `<script type=module src=…entry…>` source (Vite-native, non résolvable quand Nodefony sert la page), injecte les tags (avec le `nonce` CSP) au marqueur **`<!--nodefony:frontend-->`** sinon avant `</head>`. Pas d'`index.html` → coquille minimale générée. `index.html` caché par root en **prod** (dev re-lit pour refléter les éditions).
+- `FrontendService.renderDocument(entry, nonce?)` route comme `renderTags` (prodHelper / family helper). `StudioController.renderStudio` = `this.render(svc.renderDocument("studio", ctx.cspNonce))`.
+- **Helpers de vue** (façon Symfony `encore_entry_script_tags`), source unique = `renderTags`/`renderDocument` : injectés dans les **locals Eta** par `Controller.withFrontendLocals(param)` (résout `frontend` par nom, anti-cycle) → `frontendTags(entry)` / `frontendDocument(entry)` / `asset(path)`. Plus de Twig/EJS (moteur de vues unique = **Eta**).
+- 2 portes d'entrée, 1 source : `index.html` statique (injection marqueur) · vue Eta (`frontendTags`/`frontendDocument`). Toutes finissent par `renderProdTags` (prod) / dev tags.
 
 ## Debug bar — auto-injection dev (`TemplateHelper`)
 
@@ -159,4 +155,4 @@ Aucun listener (boot direct via `start.sh`, prod) → `fire` no-op, 0 coût. Ne 
 - résout le fichier 1× via `createRequire(import.meta.url).resolve("nodefony/debugbar")` (caché module-level), sert via le `/@fs/<abs>` de Vite (couvert par `server.fs.allow` = cwd).
 - `mountDebugBar({ frontend: { framework, name, viteOrigin, hmrUrl } })` → carte Frontend + sonde HMR (`wss://host:port/`). `framework` = `entry.type` (react19/vue3/angular).
 - irrésoluble → commentaire HTML, n'altère jamais la page. Apparaît sur toutes les pages front en dev (Studio inclus).
-- Pages **hors Vite** (EJS/Twig) : pas concernées par renderTags → utiliser le bundle standalone `nodefony/debugbar.js` (cf core MEMORY, ex. route test `/nodefony/test/debugbar.js`).
+- Pages **hors Vite** (rendu serveur Eta) : pas concernées par renderTags → utiliser le bundle standalone `nodefony/debugbar.js` (cf core MEMORY, ex. route test `/nodefony/test/debugbar.js`).

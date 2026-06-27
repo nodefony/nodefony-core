@@ -10,7 +10,7 @@
 
 ## Rôle
 
-Routeur HTTP+WS + Controller de base + décorateurs `@route`/`@controller`/`@controllers` + templates Twig/EJS.
+Routeur HTTP+WS + Controller de base + décorateurs `@route`/`@controller`/`@controllers` + moteur de vues **Eta** (unique — remplace Twig/EJS, retirés).
 
 ---
 
@@ -22,8 +22,9 @@ nodefony/
 ├── decorators/routerDecorators.ts   ← @route, @controller, @controllers
 ├── service/
 │   ├── router.ts                    ← Router extends Service (routes[] statique)
-│   ├── Twig.ts
-│   └── Ejs.ts
+│   ├── AdminBroker.ts               ← IAdminApi → routes admin (data plane Studio)
+│   ├── IdempotencyStore.ts          ← store idempotence (registre + driver)
+│   └── Eta.ts                       ← moteur de vues unique (remplace Twig/EJS)
 └── src/
     ├── Controller.ts                ← classe de base controllers userland
     ├── Resolver.ts                  ← instancie + appelle le controller
@@ -59,12 +60,12 @@ Router.resolve(ctx)
 
 ## Décisions figées
 
-| Sujet            | Décision                                                                |
-| ---------------- | ----------------------------------------------------------------------- |
-| Routes storage   | `const routes: Route[]` module-level statique — une seule liste globale |
-| Template engines | Twig (twig@1) + EJS (ejs@3) — jamais remplacer sans accord              |
-| DI               | `Injector.instantiate()` — jamais `new Controller()` direct             |
-| Decorators       | `reflect-metadata` — `experimentalDecorators: true` requis              |
+| Sujet          | Décision                                                                |
+| -------------- | ----------------------------------------------------------------------- |
+| Routes storage | `const routes: Route[]` module-level statique — une seule liste globale |
+| Moteur de vues | **Eta** (unique — remplace Twig/EJS, retirés)                           |
+| DI             | `Injector.instantiate()` — jamais `new Controller()` direct             |
+| Decorators     | `reflect-metadata` — `experimentalDecorators: true` requis              |
 
 ---
 

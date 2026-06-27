@@ -98,7 +98,7 @@ Kernel onTerminate
 | Multi-bundles              | **Une seule instance Vite multi-entry** (Rollup-style `input` map)     |
 | Peer deps                  | `vite`, `@vitejs/plugin-react` (optional) — pas embarquées par défaut  |
 
-## Mode prod (P14.5 ✅ 2026-05-24 — page blanche résolue)
+## Mode prod (build + renderProdTags)
 
 - **Build** : `build()` appelle `vite.build()` **par entry** (chaque bundle = son `root`/`outDir`/`base`/`manifest` → multi-module + isolation Angular). In-proc, one-shot, pas de superviseur.
   - **Idempotent** : une entrée dont `outDir/.vite/manifest.json` est plus récent que ses sources est **ignorée** (`skipped`) → relance prod console rapide. `--force` rebuild tout.
@@ -108,12 +108,10 @@ Kernel onTerminate
 - **Rendu** : `TemplateHelper.renderProdTags()` lit `outDir/.vite/manifest.json` (caché par outDir, 0 relecture disque/req) → `<link rel="stylesheet">` (CSS récursif) + `<link rel="modulepreload">` (imports) + `<script type="module" crossorigin>`, **préfixés par `publicPath`**. Manifest absent → commentaire HTML (pas de crash).
 - **Service statique** : en prod (`env !== "development"`), `FrontendService.setupProd()` (hook `onServersReady`) monte chaque `outDir` sur son `publicPath` via `container.get("server-static").addMount(prefix, dir)` — **résolu par nom** (anti-cycle, pas d'import `@nodefony/http`). Cloud-native (nginx/haproxy/CDN frontal) = Phase 16, bascule via `publicPath` sans toucher `renderProdTags`.
 
-### Coquille templatable (2026-05-24) — plus de shell hardcodé
+### Coquille templatable — plus de shell hardcodé
 
-- `renderDocument(entry)` : lit l'`index.html` **du module** (le dev y met meta/polices/externals) + injecte les tags (marqueur `<!--nodefony:frontend-->` ou avant `</head>`) + retire le `<script>` d'entrée source. `StudioController.renderStudio` = `this.render(svc.renderDocument("studio"))`.
-- Helpers template (style Symfony `encore_entry_script_tags`), même source `renderTags`/`renderDocument` :
-  - **Twig** `{{ frontend_tags('studio')|raw }}` / `{{ frontend_document('studio')|raw }}` (via `twig.extendFunction`, échappe → `|raw`).
-  - **EJS** `<%- frontendTags('studio') %>` / `<%- frontendDocument('studio') %>` (injecté dans les locals par `Controller.withFrontendLocals`, `<%-` = brut).
+- `renderDocument(entry, nonce?)` : lit l'`index.html` **du module** (le dev y met meta/polices/externals) + injecte les tags (marqueur `<!--nodefony:frontend-->` ou avant `</head>`, avec le `nonce` CSP) + retire le `<script>` d'entrée source. `StudioController.renderStudio` = `this.render(svc.renderDocument("studio", ctx.cspNonce))`.
+- Helpers de vue (style Symfony `encore_entry_script_tags`), même source `renderTags`/`renderDocument`, injectés dans les **locals Eta** par `Controller.withFrontendLocals` (résout `frontend` par nom, anti-cycle) : `frontendTags(entry)` / `frontendDocument(entry)` / `asset(path)`. Plus de Twig/EJS (moteur de vues unique = **Eta**).
 
 ### `publicPath` — concept pivot (aligne 3 pièces)
 
