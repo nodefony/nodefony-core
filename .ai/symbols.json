@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-27T12:19:30.560Z",
+  "generated": "2026-06-27T12:33:33.793Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 979,
-    "symbols": 2300,
-    "classes": 311,
-    "interfaces": 613,
+    "files": 981,
+    "symbols": 2306,
+    "classes": 312,
+    "interfaces": 614,
     "types": 270,
     "enums": 3,
-    "functions": 583,
-    "constants": 520
+    "functions": 585,
+    "constants": 522
   },
   "symbols": {
     "Cli": {
@@ -5150,6 +5150,47 @@
       "module": "@nodefony/drizzle",
       "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
     },
+    "WebhookEndpointRow": {
+      "name": "WebhookEndpointRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Forme **plate** d'une ligne d'endpoint renvoyée par le repository ORM — `events` mutable (le contrat porte `readonly string[]`). Tous les autres champs sont identiques à `IWebhookEndpoint` (déjà « …"
+    },
+    "createWebhookEndpointEntity": {
+      "name": "createWebhookEndpointEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit le descripteur d'entité du store webhook pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM dépend…"
+    },
+    "registerWebhookEndpointEntity": {
+      "name": "registerWebhookEndpointEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Enregistre l'entité du store webhook dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
+    },
+    "webhookEndpointTable": {
+      "name": "webhookEndpointTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Table Drizzle du **store d'endpoints webhook** `@nodefony/security` (P6.13, schema-as-code) — implémentation SQL d'`IWebhookStore` (registre durable des destinations notifiées). Driver `better-sqli…"
+    },
+    "WEBHOOK_ENDPOINT_ENTITY": {
+      "name": "WEBHOOK_ENDPOINT_ENTITY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
+    },
     "IDrizzleConfig": {
       "name": "IDrizzleConfig",
       "kind": "type",
@@ -5236,6 +5277,19 @@
       ],
       "decorators": [],
       "description": "Store de credentials WebAuthn **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link IWebAuthnCredentialStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webauthn_credenti…"
+    },
+    "DrizzleWebhookStore": {
+      "name": "DrizzleWebhookStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "IWebhookStore"
+      ],
+      "decorators": [],
+      "description": "Store d'endpoints webhook **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link IWebhookStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webhook_endpoint`). Persistance …"
     },
     "SessionStorage": {
       "name": "SessionStorage",
@@ -16845,6 +16899,10 @@
         "RedisWebAuthnCredentialStore",
         "MemoryWebAuthnCredentialStore"
       ],
+      "IWebhookStore": [
+        "DrizzleWebhookStore",
+        "MemoryWebhookStore"
+      ],
       "ISessionStorage": [
         "SessionStorage",
         "SessionStorage",
@@ -16995,9 +17053,6 @@
       "IAccessVoter": [
         "RoleVoter",
         "ScopeVoter"
-      ],
-      "IWebhookStore": [
-        "MemoryWebhookStore"
       ],
       "IPasswordEncoder": [
         "Argon2idEncoder",
@@ -17613,7 +17668,8 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts"
       ],
       "MediasoupController": [
         "src/modules/mediasoup/index.ts"
@@ -19425,6 +19481,7 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
@@ -19441,6 +19498,7 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
@@ -19816,6 +19874,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
@@ -19955,6 +20014,31 @@
       "WebAuthnCredentialRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts"
+      ],
+      "IWebhookEndpoint": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
+      ],
+      "IWebhookStore": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
+      ],
+      "WebhookEndpointUpdate": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+      ],
+      "WEBHOOK_ENDPOINT_ENTITY": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts"
+      ],
+      "WebhookEndpointRow": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts"
       ],
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -20885,17 +20969,6 @@
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
-      "IWebhookEndpoint": [
-        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
-      ],
-      "WebhookEndpointUpdate": [
-        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
-      ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
@@ -21186,11 +21259,6 @@
       ],
       "getWebAuthnStoreFactory": [
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
-      ],
-      "IWebhookStore": [
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
       ],
       "WebhookEndpointSummary": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",

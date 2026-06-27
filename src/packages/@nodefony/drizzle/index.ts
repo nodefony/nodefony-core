@@ -166,3 +166,16 @@ export {
 export type { IdempotencyKeyRow } from "./nodefony/entity/idempotencyEntity";
 export { DrizzleIdempotencyStore } from "./nodefony/src/DrizzleIdempotencyStore";
 export type { SqlDialect } from "./nodefony/config/schema";
+
+// ─── Store d'endpoints webhook Drizzle (IWebhookStore de @nodefony/security, P6.13) ─
+// Approche B (idem token/webauthn) : `import type` du contrat, PAS d'auto-register.
+// L'app câble `registerWebhookStore("drizzle", …)` + `registerWebhookEndpointEntity(orm)`.
+// Registre DURABLE des endpoints (survit au redémarrage, ≠ MemoryWebhookStore).
+export {
+  webhookEndpointTable,
+  createWebhookEndpointEntity,
+  registerWebhookEndpointEntity,
+  WEBHOOK_ENDPOINT_ENTITY,
+} from "./nodefony/entity/webhookEndpointEntity";
+export type { WebhookEndpointRow } from "./nodefony/entity/webhookEndpointEntity";
+export { DrizzleWebhookStore } from "./nodefony/src/DrizzleWebhookStore";
