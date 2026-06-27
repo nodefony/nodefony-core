@@ -1547,6 +1547,20 @@ from "ws"` + cast `(ws as unknown as {Sender:{frame}}).Sender`. Écrire les buff
 
 ## Derniers retex bruts (historique complet dans `docs/session-retros/archive/` depuis CONSOLIDATE 2026-06-12)
 
+- `2026-06-27-892bebaf` — **Webhooks P6.13 backend** (slice A+B+audit, `4d9006c5`→`32ef5069`) + fix session.
+  Leçons : (1) **le red-team révèle la VRAIE protection** — mon helper regex IPv4-mapped « anti-bypass »
+  était REDONDANT _et_ INCOMPLET (ratait la forme longue `0:0:0:0:0:ffff:127.0.0.1`) ; `node:net.BlockList`
+  rabat nativement toutes les notations → **ne pas réinventer ce qu'une lib auditée fait mieux** (thème
+  dépendances tierces). (2) **Perf webhook = anti-DoS du framework** : auto-disable+retry ne suffisent
+  PAS, il faut BORNER concurrence + file (drop best-effort) — un endpoint mort ne doit jamais saturer
+  sockets/mémoire ; le user a dû me le rappeler → réflexe « burst d'envois ratés = DoS du framework ».
+  (3) **`maxLifetimeS` = reliquat PHP** ; la norme (NIST 800-63B-4 / OWASP) = **idle + absolute** (2
+  timeouts distincts) + enforcement serveur + régénération d'ID — pas un seul timeout. Ancrer les durées
+  de session dans NIST, jamais PHP. (4) **`.git/index.lock` orphelin** laissé par lint-staged/husky après
+  un commit interrompu → `rm -f .git/index.lock` avant le commit suivant (vu 3× cette session).
+  (5) **digest d'un sous-agent ≠ terrain** : re-lu le vrai cipher/service/registry avant de cloner (devise).
+  Commits `4d9006c5` `02726434` `32ef5069` + `35d38d6e` (fix session).
+
 - `2026-06-06-d97fad67` — **chantier session ÉTAPE 3** : cœur `session.ts` réécrit (TS strict, ID CSPRNG
   opaque `randomBytes(32)`, objet léger 3 sacs vs `Container` DI, dirty-tracking `save()` no-op, cookie-only,
   contrat unifié alias supprimés, `get`/meta/flash → null cohérent). Bug `Object.create(null)`↔drizzle fixé.
