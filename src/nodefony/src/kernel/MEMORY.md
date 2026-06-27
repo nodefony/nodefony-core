@@ -102,7 +102,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 - `setPath(path)` → résout vers répertoire
 - `setEvents()` → wire hooks lifecycle
 - `kernel.once("onBoot", ...)` → récupère le service `rollup` (build one-shot) — **toujours ajouté** (même sans hooks)
-- ⚠️ watch runtime write-only RETIRÉ (2026-05-22) : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart, `src/service/dev/DevSupervisor.ts`) : parent spawn enfant `NODEFONY_DEV_CHILD=1` en **leader de groupe** (`detached`), watch backend (frontend exclu → HMR Vite intact), rebuild ciblé turbo+rollup, **group-kill** au restart (tue Vite, 0 orphelin) + attente ports libres (anti-EADDRINUSE) + retry crash borné. Activé par `DevCommand`
+- ⚠️ watch runtime write-only RETIRÉ : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart, `src/service/dev/DevSupervisor.ts`) : parent spawn enfant `NODEFONY_DEV_CHILD=1` en **leader de groupe** (`detached`), watch backend (frontend exclu → HMR Vite intact), rebuild ciblé turbo+rollup, **group-kill** au restart (tue Vite, 0 orphelin) + attente ports libres (anti-EADDRINUSE) + retry crash borné. Activé par `DevCommand`
 - `setParameters("modules.${name}", options)`
 
 **setPath(p)**:
@@ -164,11 +164,11 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 **setPackageManager(mgr?)**: `"yarn"` → yarn, `"pnpm"` → pnpm, `undefined`/autre → npm.
 
-**setRunProfile(profile)**: pose `IRunProfile {servers,lifetime,interactive}` (ex `setType`, refondu 2026-06-02) ; recopié dans `kernel.runProfile` à `onStart`. `isConsole()`=`!servers`. Ne pilote PAS le montage serveur (= `kernelEvent`+`HttpKernel`) ni le park. Cf `project_kernel_runmodes_introspection`.
+**setRunProfile(profile)**: pose `IRunProfile {servers,lifetime,interactive}` (ex `setType`) ; recopié dans `kernel.runProfile` à `onStart`. `isConsole()`=`!servers`. Ne pilote PAS le montage serveur (= `kernelEvent`+`HttpKernel`) ni le park. Cf `project_kernel_runmodes_introspection`.
 
 **addCommand(Ctor)**: instancie, stocke `commands[name]`, enregistre dans commander.
 
-- Type exporté: `CommandConstructor = new (cli: CliKernel) => Command` (2026-05-14).
+- Type exporté: `CommandConstructor = new (cli: CliKernel) => Command`.
 
 **parseCommand(argv?)** / **parseCommandAsync(argv?)**: délèguent à `commander.parse/parseAsync`.
 
@@ -181,9 +181,9 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 **terminate(code?)**: avec kernel → `kernel.terminate(code)`. Sans → `super.terminate(code, quiet)`.
 
-**start(options?)**: crée `Kernel`, ajoute 9 commandes (Start/Dev/Build/Prod/**Cluster**/Install/Outdated/**Status**/**Stop**), configure Commander, `parseAsync()` + `kernel.start()`. (Pm2/Kill retirées 2026-05-29 — C6 retrait PM2 ; staging retirée 2026-05-25.)
+**start(options?)**: crée `Kernel`, ajoute 9 commandes (Start/Dev/Build/Prod/**Cluster**/Install/Outdated/**Status**/**Stop**), configure Commander, `parseAsync()` + `kernel.start()`. (Pm2/Kill retirées — C6 retrait PM2 ; staging retirée.)
 
-**`Status`/`Stop` = commandes SYSTÈME « standalone »** (`nodefony status`/`stop`): outillage de process PUR, **interceptées par le fast-path de `CliKernel.start`** (`isStandaloneDevCommand`/`runStandaloneDevCommand`, `service/dev/devStatusReport.ts`) AVANT tout boot kernel → **marchent HORS trunk** (de n'importe où), insensibles au dist, sans effet de bord (pas de singleton pollué, pas de fallback « create project »). `StatusCommand`/`StopCommand` ne servent qu'au help (leur `generate()` = filet). Helpers `service/dev/devProcess.ts` (PARTAGÉ avec DevSupervisor : `devSupervisorPidFile`/`defaultDevPorts` anti-divergence). **Vérité = `ps`, pas le pidfile** (PID recyclé). `discoverDevProcesses()` = `ps -A` sous **`LC_ALL=C`** (⚠️ piège vécu : `%CPU` virgule décimale FR cassait la détection) → `parsePsRow` pur, s'auto-exclut. **MULTI-MODE (2026-06-25)** : `classify` reconnaît les 3 runtimes par leur `process.title` et attache un champ **`mode: "dev"|"prod"|"cluster"`** → dev `nodefony-dev-supervisor`/`-server`/`-vite[…]` · prod `nodefony server` (mono) · cluster `nodefony master [cluster Nw]` + `nodefony worker N [cluster]`. ⚠️ `nodefony-dev-server` (tiret) ≠ `nodefony server` (espace) → 0 collision `includes`. Helpers purs : `detectRuntimeMode` (priorité dev>cluster>prod), `runtimeModes` (Set, Vite exclu), `findRuntimeConflict(procs, intended)` (process principaux d'un AUTRE mode = collision). **status** (`devStatusReport.ts` `runStatusReport`): libellé selon le mode (`Nodefony dev|production|cluster`), tableau ANSI colonne RÔLE dynamique (détail bundles Vite / `Nw` master / `#id` worker en 2ᵉ ligne) + synthèse adaptative (segments non-nuls) + warnings fail-loud conscients du mode (cohabitation multi-runtime, pidfile périmé, orphelins **dev**, empilement ; workers cluster ≠ empilement). **stop** (`devStop.ts` `runStopReport`): arrête **tout** runtime — group-kill des « racines » (`signalProcessGroup` `-pid` → emporte enfant+Vite, ou master→workers ; SIGTERM déclenche le graceful shutdown du ClusterManager) SIGTERM→SIGKILL + attente ports libres + `clearSupervisorPidFile` ; idempotent. **GARDES anti-collision** (fail-loud, exit `SysExit.UNAVAILABLE`, JAMAIS de kill cross-mode auto) : `DevSupervisor.#claimSingleInstance` ne tue que les résiduels `mode==="dev"` et refuse de démarrer sur un prod/cluster ; `launchTopology`/`assertNoConflictingRuntime` (`runtimeLauncher.ts`) refuse prod/cluster sur un autre runtime préexistant.
+**`Status`/`Stop` = commandes SYSTÈME « standalone »** (`nodefony status`/`stop`): outillage de process PUR, **interceptées par le fast-path de `CliKernel.start`** (`isStandaloneDevCommand`/`runStandaloneDevCommand`, `service/dev/devStatusReport.ts`) AVANT tout boot kernel → **marchent HORS trunk** (de n'importe où), insensibles au dist, sans effet de bord (pas de singleton pollué, pas de fallback « create project »). `StatusCommand`/`StopCommand` ne servent qu'au help (leur `generate()` = filet). Helpers `service/dev/devProcess.ts` (PARTAGÉ avec DevSupervisor : `devSupervisorPidFile`/`defaultDevPorts` anti-divergence). **Vérité = `ps`, pas le pidfile** (PID recyclé). `discoverDevProcesses()` = `ps -A` sous **`LC_ALL=C`** (⚠️ piège vécu : `%CPU` virgule décimale FR cassait la détection) → `parsePsRow` pur, s'auto-exclut. **MULTI-MODE** : `classify` reconnaît les 3 runtimes par leur `process.title` et attache un champ **`mode: "dev"|"prod"|"cluster"`** → dev `nodefony-dev-supervisor`/`-server`/`-vite[…]` · prod `nodefony server` (mono) · cluster `nodefony master [cluster Nw]` + `nodefony worker N [cluster]`. ⚠️ `nodefony-dev-server` (tiret) ≠ `nodefony server` (espace) → 0 collision `includes`. Helpers purs : `detectRuntimeMode` (priorité dev>cluster>prod), `runtimeModes` (Set, Vite exclu), `findRuntimeConflict(procs, intended)` (process principaux d'un AUTRE mode = collision). **status** (`devStatusReport.ts` `runStatusReport`): libellé selon le mode (`Nodefony dev|production|cluster`), tableau ANSI colonne RÔLE dynamique (détail bundles Vite / `Nw` master / `#id` worker en 2ᵉ ligne) + synthèse adaptative (segments non-nuls) + warnings fail-loud conscients du mode (cohabitation multi-runtime, pidfile périmé, orphelins **dev**, empilement ; workers cluster ≠ empilement). **stop** (`devStop.ts` `runStopReport`): arrête **tout** runtime — group-kill des « racines » (`signalProcessGroup` `-pid` → emporte enfant+Vite, ou master→workers ; SIGTERM déclenche le graceful shutdown du ClusterManager) SIGTERM→SIGKILL + attente ports libres + `clearSupervisorPidFile` ; idempotent. **GARDES anti-collision** (fail-loud, exit `SysExit.UNAVAILABLE`, JAMAIS de kill cross-mode auto) : `DevSupervisor.#claimSingleInstance` ne tue que les résiduels `mode==="dev"` et refuse de démarrer sur un prod/cluster ; `launchTopology`/`assertNoConflictingRuntime` (`runtimeLauncher.ts`) refuse prod/cluster sur un autre runtime préexistant.
 
 ## Cluster (mode multi-process sans PM2 — Phases 2+3)
 
@@ -191,7 +191,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 **`ClusterCommand`** (`nodefony cluster`, alias aucun, `kernelEvent:"onStart"`, `--workers N`) : master (`cluster.isPrimary`) → pose `process.env.NODEFONY_CLUSTER="1"` (héritage au fork) + crée le **`ClusterRelay`** (gateway) + `cluster.on("fork"→attach / "exit"→detach)` (couvre forks initiaux ET respawns, attaché AVANT `manager.start()`) + `ClusterManager.start()+installSignalHandlers()` (0 HTTP) ; worker → `new Kernel().start()`. `onKernelStart` (via `launchTopology`) : mono/worker → profil serveur `setRunProfile({servers:true,lifetime:"longrunning"})` ; **master reste console** (park) ; env production + `MODE_START="cluster"`.
 
-**Backplane IPC (Phase 3 — master-gateway).** Protocole de fil `clusterMessage.ts` (core) : `CLUSTER_RT_KIND="nf:rt"` + `isClusterMessage()` (UNE source du tag, le framework l'importe via `"nodefony"` → 0 magic-string dupliqué). **`ClusterRelay`** (core, master) : routeur de messages OPAQUES — reçoit une publication realtime d'un worker, la rebroadcast aux AUTRES (`#route` exclut la source = anti-echo de routage) ; ignore les autres kinds (sondes Phase 4 = agrégées ailleurs) + malformés ; seam `IRelayWorker`{id,send,onMessage} → routage testé sans forker (11 tests `ClusterRelay.test.ts`). 0 dépendance `@nodefony/framework` (respect framework→core). Côté worker : `ClusterBackplane` (framework) branché sur le hub par le module `Framework` à `onCluster("WORKER")` (gardé `NODEFONY_CLUSTER`). `Kernel.initCluster` worker : `process.on("message")` **filtre les rt** (consommés par le backplane → ni log ni re-fire, anti-flood) ; ne re-fire `onMessage` que pour les messages de contrôle. **Bench fil IPC** : `.claude/skills/nodefony-load-test/scripts/cluster-ipc.mjs` (fork réel, mesuré 2026-05-24 : ~300k publishes/s @256B, fan-out sature le master @4KB×7sub ~176 MB/s, RTT 4-sauts p50 0.40 ms).
+**Backplane IPC (Phase 3 — master-gateway).** Protocole de fil `clusterMessage.ts` (core) : `CLUSTER_RT_KIND="nf:rt"` + `isClusterMessage()` (UNE source du tag, le framework l'importe via `"nodefony"` → 0 magic-string dupliqué). **`ClusterRelay`** (core, master) : routeur de messages OPAQUES — reçoit une publication realtime d'un worker, la rebroadcast aux AUTRES (`#route` exclut la source = anti-echo de routage) ; ignore les autres kinds (sondes Phase 4 = agrégées ailleurs) + malformés ; seam `IRelayWorker`{id,send,onMessage} → routage testé sans forker (11 tests `ClusterRelay.test.ts`). 0 dépendance `@nodefony/framework` (respect framework→core). Côté worker : `ClusterBackplane` (framework) branché sur le hub par le module `Framework` à `onCluster("WORKER")` (gardé `NODEFONY_CLUSTER`). `Kernel.initCluster` worker : `process.on("message")` **filtre les rt** (consommés par le backplane → ni log ni re-fire, anti-flood) ; ne re-fire `onMessage` que pour les messages de contrôle. **Bench fil IPC** : `.claude/skills/nodefony-load-test/scripts/cluster-ipc.mjs` (fork réel, mesuré : ~300k publishes/s @256B, fan-out sature le master @4KB×7sub ~176 MB/s, RTT 4-sauts p50 0.40 ms).
 
 **`resolveWorkerCount(opts)`** (`cpuQuota.ts`, PUR) : ordre = (1) `--workers N` explicite, **non borné** (harnais backplane : sur-souscrire OK) → (2) quota cgroup arrondi, borné par `availableParallelism` → (3) `os.availableParallelism()`. Toujours `>= 1`. **`readCgroupCpuQuota(read)`** : v2 `cpu.max` (`"max"`=null) → v1 `cfs_quota/period` (`-1`=null). LE fix du bug conteneur (`os.cpus()` lit l'hôte, ignore cgroup).
 
@@ -218,7 +218,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 - `inject:services` sur **constructeur**. `inject:properties` sur **prototype**. Confusion = bug silencieux.
 - tsx : pas de `design:paramtypes` → appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)`.
 
-**Chargement modules** : `config.modules` (manifeste ordonné) → Kernel `resolveModules()`/`loadModulesFromManifest()` à `onPreRegister` (décorateur `@modules` RETIRÉ 2026-06-03). Cf `project_module_loading_architecture`.
+**Chargement modules** : `config.modules` (manifeste ordonné) → Kernel `resolveModules()`/`loadModulesFromManifest()` à `onPreRegister` (décorateur `@modules` RETIRÉ). Cf `project_module_loading_architecture`.
 
 **Decorators module** (`@services`/`@entities`) :
 
@@ -235,7 +235,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 - CliKernel → Cli, Kernel, Command, Syslog/Pdu
 - Injector → Service, Container, Event, Kernel, Nodefony, Fetch, reflect-metadata
 
-## Types CLI (2026-05-14)
+## Types CLI
 
 **ICommand** (`src/types/ICommand.ts`):
 
@@ -276,4 +276,4 @@ Redéfini localement — import circulaire `IKernel→Kernel→Command→IKernel
 - Module constructor ajoute toujours 2 listeners (onBoot + onPostReady) indépendamment des hooks
 - `interfacesFilter({})` → tous vides (ni type ni family spécifiés → matchs false, condition && → false)
 - `getDependencies()` : devDependencies exclus, doublons possibles si dep dans deux sections
-- `Command.setEvents()` : `eventsRegistered` guard ajouté (2026-05-14) — idempotent
+- `Command.setEvents()` : `eventsRegistered` guard ajouté — idempotent

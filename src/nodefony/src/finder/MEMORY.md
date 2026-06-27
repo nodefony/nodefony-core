@@ -21,6 +21,7 @@
 **Constructor**: `new FileClass(path)` — absolute or relative (resolved). Throws on missing path. Calls `getRealpath()` (follows symlinks except for symlink entries).
 
 **Methods**:
+
 - `checkType()` → string | undefined
 - `isFile()`, `isDirectory()`, `isSymbolicLink()`, `isHidden()`
 - `matchName(RegExp|string)` → bool | RegExpExecArray | null
@@ -35,7 +36,8 @@
 - `toJson()` → FileClassInterface, `toString()` → JSON string
 
 **Gotchas**:
-- `defaultEncoding.flag = "r"` — was `"w"` (pre-existing bug fixed in 2026-05-14)
+
+- `defaultEncoding.flag = "r"` — was `"w"` (pre-existing bug fixed)
 - `getRealpath()` resolves symlinks → on macOS `/var` → `/private/var`
 - `defautWriteOption.flags` (plural) is silently ignored by writeFileSync (flag without 's' is the real option)
 
@@ -65,6 +67,7 @@
 **Purpose**: Extends `Result` with `File`-aware helpers.
 
 **Methods**:
+
 - `toString()` → newline-separated names
 - `toJson(json?)` → JSON string with nested childrens
 - `uniq()` → dedup by `file.path` → new FileResult
@@ -81,6 +84,7 @@
 **Purpose**: Async directory traverser. `extends Event`.
 
 **Settings** (`DefaultSettingsInterface`):
+
 ```
 recurse: false   depth: 10   seeHidden: false
 match: null      exclude: null    excludeFile: null   excludeDir: null
@@ -88,8 +92,9 @@ followSymLink: false   matchFile: string   matchDir: string
 ```
 
 **API**:
+
 - `new Finder(settings)` → sets `this.totals` zero state
-- `checkPath(path: string|string[]|FileClass)` → FileResult (throws on bad path) ← was `ckeckPath` (typo fixed 2026-05-14)
+- `checkPath(path: string|string[]|FileClass)` → FileResult (throws on bad path) ← was `ckeckPath` (typo fixed)
 - `in(path, settings?)` → `Promise<Result>` — merges settings, fires `onFinish`, calls `clean()`
 - `clean()` → removeAllListeners + reset totals to 0
 
@@ -98,10 +103,11 @@ followSymLink: false   matchFile: string   matchDir: string
 **Events fired**: `on${type}` per entry, `onHidden`, `onError`, `onFinish(result, totals, finder)`
 
 **Internal `parser` function**:
+
 - Was `new Promise(async ...)` anti-pattern — fixed to proper `async function` with `.call(this, ...)`
 - Recursion: `Directory` → recurse with `depth - 1`, `symbolicLink` (followSymLink) → recurse on target if isDirectory()
 - depth `null` = unlimited, depth `0` = stop
 
-**Deps**: `node:fs/promises` (no lodash — was removed 2026-05-14), `Event`, `FileResult`, `File`, `FileClass`, `Result`
+**Deps**: `node:fs/promises` (no lodash — removed), `Event`, `FileResult`, `File`, `FileClass`, `Result`
 
 **Test data** at `src/tests/finder/data/` — all placeholder files are **empty** (0 bytes); create tmp files for read/content tests.

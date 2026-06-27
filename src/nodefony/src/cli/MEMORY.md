@@ -29,7 +29,7 @@
 - `initCommander()` ajoute `-i/--interactive`, `-d/--debug`, `-v/--version` automatiquement
 - `autostart` / `asciify` / `signals` / `autoLogger` / `promiseRejection` : désactiver dans les tests
 
-**Signaux idempotents (`handleSignals`, 2026-06-05)** : `signalHandler` arme `shuttingDown` au 1ᵉʳ signal (drain gracieux → `terminate()`) ; un 2ᵉ signal (Ctrl+C insistant, ou SIGTERM du DevSupervisor qui suit le SIGINT du terminal) → `process.exit(128 + SIGNUM[signal])` FORCÉ (SIGINT=2/SIGTERM=15/SIGHUP=1/SIGQUIT=3). Avant : handler non idempotent → 2ᵉ signal relançait un `terminate()` complet (double `onTerminate`, double SHUTDOWN serveurs). Pattern graceful standard : 1ᵉʳ draine, 2ᵉ tue.
+**Signaux idempotents (`handleSignals`)** : `signalHandler` arme `shuttingDown` au 1ᵉʳ signal (drain gracieux → `terminate()`) ; un 2ᵉ signal (Ctrl+C insistant, ou SIGTERM du DevSupervisor qui suit le SIGINT du terminal) → `process.exit(128 + SIGNUM[signal])` FORCÉ (SIGINT=2/SIGTERM=15/SIGHUP=1/SIGQUIT=3). Avant : handler non idempotent → 2ᵉ signal relançait un `terminate()` complet (double `onTerminate`, double SHUTDOWN serveurs). Pattern graceful standard : 1ᵉʳ draine, 2ᵉ tue.
 
 **Isolation tests** — makeCli():
 

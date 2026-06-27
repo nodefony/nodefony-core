@@ -135,7 +135,7 @@ Service(name, container?, notificationsCenter?, options?)
 - `scopeCount(name)` → number — instances vivantes (sondes fuite/Studio ; NE PAS fouiller `.scopes` à la main)
 - `Scope extends Container implements IScope` — `name: string` + `getParameters(name, merge=true, deep=true)`
 - `Scope.getParameters(name, merge=true, deep=true)` — merge local + parent si les deux sont des objets
-- ⚠️ `Scope` ADOPTE les protos parents (durcissement 2026-06-11, +6 % RPS A/B) : `Scope.set`/`remove`
+- ⚠️ `Scope` ADOPTE les protos parents (+6 % RPS A/B) : `Scope.set`/`remove`
   overridés **own-property only** — `Container.set` (écriture prototype) polluerait le proto PARTAGÉ
   du parent → service per-request visible cross-requêtes (data race). Ne pas « simplifier » ces overrides.
 
@@ -248,7 +248,7 @@ Build Rollup dédié (`createClientConfig`, `tsconfigClient.json` `types:[]`), s
 - Chrome persisté localStorage : `nf.debugbar.{visible,min,side,tab,h}`. Handle global `window.__NODEFONY_DEBUGBAR__` (show/hide/minimize) → bridge app (Studio).
 - Gotcha : le conteneur `.minbar` (chip réduit) n'a pas de `[data-el]` → ref stockée à la main (sinon barre réduite invisible).
 
-### Network panel + profiler (2026-05-21)
+### Network panel + profiler
 
 - `network.ts` : intercepteur **fetch + XHR** dev-only — **header-only** (jamais le body), défensif (try/catch, relaie l'original), réversible (`uninstall`), chain-safe, opt-out (`network:false`), **filtre les appels Vite** (cross-origin 5173). Lit `x-request-id` (clé profiler) + `traceparent` (W3C) des réponses.
 - `profile.ts` : **purs** — `NetworkModel` (ring buffer 80 + compteurs + cache profils), `computeWaterfall(phases)` (layout %), types `ProfileEntry`/`ProfilePhase`/`ProfileQuery`. **Réexportés du subpath** `nodefony/debugbar` → réutilisés par Studio (page Profiler). Tests `tests/Profiler.client.test.ts` (11).

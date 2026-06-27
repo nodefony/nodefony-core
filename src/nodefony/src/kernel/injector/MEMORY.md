@@ -13,10 +13,10 @@
 
 ## Fichiers
 
-| Fichier                                | Rôle                                                                                                                         |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `injector/injector.ts`                 | Moteur DI — registre, résolution, circular detection                                                                         |
-| `kernel/decorators/kernelDecorator.ts` | Decorators — `@injectable`, `@inject`, `@Inject`, `@services`, `@entities` (`@modules` RETIRÉ 2026-06-03 → `config.modules`) |
+| Fichier                                | Rôle                                                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `injector/injector.ts`                 | Moteur DI — registre, résolution, circular detection                                                              |
+| `kernel/decorators/kernelDecorator.ts` | Decorators — `@injectable`, `@inject`, `@Inject`, `@services`, `@entities` (`@modules` RETIRÉ → `config.modules`) |
 
 ---
 
@@ -141,7 +141,7 @@ constructor(@inject("AuthService") auth: AuthService) {}
 
 ### `@services` / `@entities` — sur Module
 
-> `@modules` RETIRÉ 2026-06-03 → chargement de modules via `config.modules` (manifeste,
+> `@modules` RETIRÉ → chargement de modules via `config.modules` (manifeste,
 > orchestré par le Kernel à `onPreRegister`). Cf `project_module_loading_architecture`.
 
 ```
@@ -209,8 +209,8 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
 ## Roadmap
 
 ```
-✅ A — @Inject property injection          (2026-05-14)
-✅ C — Circular detection async-safe       (2026-05-14)
+✅ A — @Inject property injection
+✅ C — Circular detection async-safe
 ⬜ B — Scope "scoped" AsyncLocalStorage    (prérequis: Phase 4 HTTP handler)
 ⬜ D — Registry par module (namespace)     (après B)
 ⬜ E — @InjectLazy factory                 (après D)
