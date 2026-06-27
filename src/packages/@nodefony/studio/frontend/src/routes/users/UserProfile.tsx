@@ -47,6 +47,7 @@ import { useResource } from "../../hooks";
 import { PageLayout, DataState, KeyValue } from "../../components/ui";
 import { StickyTabsList } from "../../components/ui/PageLayout";
 import { fmtDate } from "./usersModel";
+import { StatusBadge } from "./usersFormat";
 import { UserAvatar } from "./AvatarUpload";
 import { ProfileFields } from "./ProfileFields";
 import { AdminTwoFactorCard } from "./AdminTwoFactorCard";
@@ -72,12 +73,6 @@ const MIN_PASSWORD_LENGTH = 8;
 
 // ── Carte IDENTITÉ (onglet Profil) ───────────────────────────────────────────
 function IdentityCard({ detail }: { detail: AdminUserDetail }) {
-  const statusLabel = detail.locked
-    ? "Verrouillé"
-    : !detail.enabled
-      ? "Désactivé"
-      : "Actif";
-  const statusColor = detail.locked ? "red" : !detail.enabled ? "gray" : "teal";
   return (
     <Card withBorder padding="lg" radius="md" h="100%">
       <Group gap="xs" mb="md">
@@ -93,9 +88,7 @@ function IdentityCard({ detail }: { detail: AdminUserDetail }) {
           <Text size="sm" c="dimmed">
             Statut
           </Text>
-          <Badge color={statusColor} variant="light">
-            {statusLabel}
-          </Badge>
+          <StatusBadge enabled={detail.enabled} locked={detail.locked} />
         </Group>
         {detail.currentRole && (
           <KeyValue k="Rôle actif" v={detail.currentRole} />

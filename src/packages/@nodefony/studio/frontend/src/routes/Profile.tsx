@@ -56,6 +56,7 @@ import {
 import { TwoFactorCard } from "./profile/TwoFactorCard";
 import { PasskeyCard } from "./profile/PasskeyCard";
 import { ProfileFields } from "./users/ProfileFields";
+import { StatusBadge } from "./users/usersFormat";
 import { UserAvatar } from "./users/AvatarUpload";
 import type { UserProfileData } from "./users/userAdminModel";
 
@@ -79,17 +80,6 @@ export const Profile = observer(() => {
   // Compte OAuth-only (password: null) → pas de « mot de passe actuel » à fournir :
   // la re-auth est impossible → on propose l'info, jamais le formulaire de changement.
   const hasPassword = data?.hasPassword ?? true;
-
-  const statusLabel = data?.locked
-    ? "Verrouillé"
-    : data && !data.enabled
-      ? "Désactivé"
-      : "Actif";
-  const statusColor = data?.locked
-    ? "red"
-    : data && !data.enabled
-      ? "gray"
-      : "teal";
 
   // ── Édition de MON profil (avatar + claims OIDC) → POST me/profile ──
   const [savingProfile, setSavingProfile] = useState(false);
@@ -213,9 +203,10 @@ export const Profile = observer(() => {
                           <Text size="sm" c="dimmed">
                             Statut
                           </Text>
-                          <Badge color={statusColor} variant="light">
-                            {statusLabel}
-                          </Badge>
+                          <StatusBadge
+                            enabled={data.enabled}
+                            locked={data.locked}
+                          />
                         </Group>
                         {currentRole && (
                           <KeyValue k="Rôle actif" v={currentRole} />
