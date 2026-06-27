@@ -327,18 +327,27 @@ class SessionsService extends Service {
     });
   }
 
-  saveSession(context: ContextType): Promise<Session | null> {
-    if (context.session) {
-      if (!context.session.saved) {
-        return context.session.save(
-          // `context.user` = principal authentifié (unknown jusqu'à P6 security) ;
-          // `save()` attend un identifiant string. serialize() fait `user || ""`
-          // → null/undefined équivalents. Cast transitoire (câblage user→session = P6).
-          context.user ? (context.user as string) : undefined,
-        );
-      }
+  async saveSession(context: ContextType): Promise<Session | null> {
+    const session = context.session;
+    if (!session) {
+      return null;
     }
-    return Promise.resolve(null);
+    if (session.dirty && !session.readOnly) {
+      // Mutée ET persistable → écriture du blob (réécrit `updatedAt` = rafraîchit
+      // l'idle). `context.user` = principal authentifié ; `save()` attend un
+      // identifiant string. serialize() fait `user || ""` → null/undefined équiv.
+      return session.save(context.user ? (context.user as string) : undefined);
+    }
+    // Sinon → prolonge l'idle de façon THROTTLÉE sans réécrire le blob (touch
+    // NIST/OWASP). Couvre les DEUX cas où `save()` n'écrit pas mais où la session
+    // ACTIVE doit rester vivante : (1) propre — message WS read-only, GET sans
+    // mutation ; (2) `readOnly` mais `dirty` — l'activation pose `metaBag("url")`
+    // (donc dirty) alors que readOnly interdit le write : sans le touch, une
+    // session readOnly (cas Studio) verrait `updatedAt` figé → expirée à tort.
+    // Throttlé (1 write / tranche d'idle) → coût négligeable, dirty-tracking
+    // préservé pour les vraies écritures.
+    await session.touchIfNeeded();
+    return session;
   }
 
   createSession(name: string, options?: OptionsSessionType): Session {
@@ -368,7 +377,7 @@ class SessionsService extends Service {
   // gc_probability/divisor (probabiliste, dans le hot-path).
 
   /**
-   * Une passe de purge du store (`storage.gc(maxLifetimeS)`) — point d'entrée
+   * Une passe de purge du store (`storage.gc(idle, absolute)`) — point d'entrée
    * public d'un ordonnanceur : le {@link GcScheduler} l'appelle, mais un futur
    * worker cron (`session:gc` / k8s CronJob) peut l'appeler à sa place (poser
    * alors `gcIntervalS:0`). L'anti-empilement et la capture d'erreur vivent dans
@@ -376,7 +385,13 @@ class SessionsService extends Service {
    */
   async runGc(): Promise<void> {
     if (!this.storage) return;
-    await this.storage.gc(this.options.maxLifetimeS);
+    // Purge sur les DEUX bornes NIST/OWASP : idle (inactivité) + absolute (âge
+    // depuis création, jamais prolongé). Le store applique celle(s) qu'il sait
+    // (Redis : idle via TTL natif → no-op ici, absolute honoré à la lecture).
+    await this.storage.gc(
+      this.options.idleTimeoutS,
+      this.options.absoluteTimeoutS,
+    );
   }
 
   // ── Administration (data plane Studio /nodefony/http/api/sessions) ───────────

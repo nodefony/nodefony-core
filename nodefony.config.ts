@@ -135,14 +135,13 @@ export default defineConfig<Env>((ctx) => ({
         // des conteneurs = réseau privé 172.16/12, 192.168/16, 10/8). En prod,
         // régler explicitement selon l'ingress. Défaut SÛR : false (0 confiance).
         trustProxy: ctx.env.NF_BIND_ALL ? ["loopback", "uniquelocal"] : false,
-        // Stockage de session via @nodefony/drizzle (orm-core).
-        // maxLifetimeS = PANSEMENT en attendant le chantier session NIST-aligné
-        // (idle/absolute + touch). En DEV : 8h (le dev reste connecté ; sans touch,
-        // maxLifetimeS se comporte en absolute car l'activité WS ne rafraîchit pas
-        // updatedAt). En PROD : défaut inchangé (le vrai fix = touch, pas allonger).
+        // Stockage de session via @nodefony/drizzle (orm-core). Le modèle de
+        // session NIST/OWASP (idle + absolute + touch sur activité HTTP/WS) vit
+        // dans @nodefony/http : les défauts sains (idle 30 min, absolute 12 h)
+        // suffisent — le touch garde une session ACTIVE vivante sans la rendre
+        // éternelle. Plus de pansement maxLifetimeS (la dérive est corrigée).
         session: {
           handler: "drizzle",
-          maxLifetimeS: ctx.isProd ? 1440 : 28800,
         },
         formidable: { uploadDir: "./tmp/upload" },
       },

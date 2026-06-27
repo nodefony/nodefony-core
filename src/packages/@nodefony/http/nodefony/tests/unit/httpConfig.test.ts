@@ -43,9 +43,10 @@ describe("@nodefony/http — httpConfigSchema (défauts)", () => {
     // GC moderne : timer déterministe hors hot-path (remplace gc_probability/divisor).
     expect(c.session.gcIntervalS).to.equal(600);
     expect(c.session.gcJitter).to.equal(true);
-    // `start` retiré (plus de démarrage global) : activation pilotée par
-    // l'intent @UseSession / cookie. `absoluteTimeoutS` désactivé par défaut.
-    expect(c.session.absoluteTimeoutS).to.equal(0);
+    // Modèle de session NIST/OWASP : idle (inactivité, rafraîchi par le touch) +
+    // absolute (âge max, re-auth forcée), les deux ACTIFS par défaut.
+    expect(c.session.idleTimeoutS).to.equal(1800); // 30 min
+    expect(c.session.absoluteTimeoutS).to.equal(43200); // 12 h
   });
 });
 

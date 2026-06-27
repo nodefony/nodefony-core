@@ -14,7 +14,12 @@ import type { ISessionSummary } from "../interfaces/ISession";
 interface SessionsLike {
   sessionStrategy?: string;
   defaultSessionName?: string;
-  options?: { savePath?: string; maxLifetimeS?: number; handler?: string };
+  options?: {
+    savePath?: string;
+    idleTimeoutS?: number;
+    absoluteTimeoutS?: number;
+    handler?: string;
+  };
   // Le storage actif est décoré par `RevocationGuardStorage` (garde-fou de
   // révocation) → `.inner` porte le store RÉEL (drizzle/files/redis/mongo).
   storage?: {
@@ -244,7 +249,8 @@ export function createHttpAdminApi(module: Module): IAdminApi {
           driver,
           storage,
           revocationHardened,
-          gcMaxlifetime: svc.options?.maxLifetimeS ?? null,
+          idleTimeoutS: svc.options?.idleTimeoutS ?? null,
+          absoluteTimeoutS: svc.options?.absoluteTimeoutS ?? null,
           savePath,
           active,
         };

@@ -56,10 +56,27 @@ class RevocationGuardStorage implements ISessionStorage {
    */
   listAll?: (filter?: ISessionListFilter) => Promise<ISessionRecord[]>;
 
+  /**
+   * Touch (prolongation d'idle) — (ré)assignée seulement si le backend décoré la
+   * supporte, pour que `Session.touchIfNeeded` (`typeof storage.touch`) reflète la
+   * vraie capacité. **Respecte la pierre tombale** : ne prolonge JAMAIS une session
+   * révoquée (cohérent avec `write` — une révocation ne doit pas être contournée
+   * par un touch tardif d'une requête en vol).
+   */
+  touch?: (id: string, idleSeconds?: number) => Promise<void>;
+
   constructor(inner: ISessionStorage) {
     this.inner = inner;
     if (typeof inner.listAll === "function") {
       this.listAll = (filter?: ISessionListFilter) => inner.listAll!(filter);
+    }
+    if (typeof inner.touch === "function") {
+      this.touch = (id: string, idleSeconds?: number) => {
+        if (this.#isRevoked(id)) {
+          return Promise.resolve(); // session révoquée → pas de prolongation
+        }
+        return inner.touch!(id, idleSeconds);
+      };
     }
   }
 
@@ -76,8 +93,8 @@ class RevocationGuardStorage implements ISessionStorage {
   close(): boolean {
     return this.inner.close();
   }
-  gc(maxlifetime?: number): Promise<void> {
-    return this.inner.gc(maxlifetime);
+  gc(idleSeconds?: number, absoluteSeconds?: number): Promise<void> {
+    return this.inner.gc(idleSeconds, absoluteSeconds);
   }
 
   // ── Interception : destroy pose la pierre tombale, write la respecte ─────────

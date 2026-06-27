@@ -32,6 +32,12 @@ export type OptionsSessionType = {
   /** Lie la session à l'hôte (méta `host`) — rejette un changement d'origine. */
   refererCheck?: boolean;
   /**
+   * Idle timeout (NIST/OWASP, secondes) : inactivité MAX depuis la dernière
+   * activité (`updatedAt`, rafraîchi par le touch). `0`/absent = pas d'expiration
+   * par inactivité. Enforcement serveur ({@link Session.isValidSession} + GC).
+   */
+  idleTimeoutS?: number;
+  /**
    * Absolute timeout (OWASP, secondes) : durée de vie MAX depuis la création,
    * indépendante de l'activité. Borne la fenêtre d'exploitation d'un identifiant
    * volé même sur session active. `0`/absent = désactivé (seul l'idle s'applique).
@@ -382,19 +388,65 @@ class Session implements ISession {
         return false;
       }
     }
-    // Idle timeout : inactivité depuis le dernier accès (lastUsed = updated).
-    if (this.lifetime === 0 || this.lifetime === undefined) {
-      return true;
-    }
-    const lastUsed = new Date(this.updated as Date).getTime();
-    if (lastUsed && lastUsed + this.lifetime * 1000 < now) {
-      this.log(
-        `SESSION EXPIRED (idle) ==> ${this.name} : ${this.id}`,
-        "WARNING",
-      );
-      return false;
+    // Idle timeout (NIST/OWASP) : inactivité MAX depuis la dernière activité
+    // (`updated` = dernier touch/write). Enforcement 100 % serveur — le cookie
+    // (session-only) ne fait pas foi. `idleTimeoutS = 0`/absent → pas d'idle.
+    const idleS = this.options.idleTimeoutS;
+    if (idleS && idleS > 0 && this.updated) {
+      const lastUsed = new Date(this.updated).getTime();
+      if (lastUsed && lastUsed + idleS * 1000 < now) {
+        this.log(
+          `SESSION EXPIRED (idle) ==> ${this.name} : ${this.id}`,
+          "WARNING",
+        );
+        return false;
+      }
     }
     return true;
+  }
+
+  /**
+   * Prolonge l'idle timeout de la session active sur l'activité courante, **de
+   * façon throttlée** (1 écriture par tranche d'idle, jamais par requête) et
+   * **sans réécrire le blob** (write léger `touch` du storage) — l'activité
+   * HTTP/WS réelle, **y compris en lecture seule**, empêche l'expiration d'une
+   * session utilisée (NIST/OWASP : idle « since the last request »). N'affecte
+   * **jamais** l'absolute timeout (borné à la création).
+   *
+   * No-op si : pas active, pas d'entrée storage à prolonger (`!updated`), idle
+   * désactivé, store sans `touch`, ou dernière activité trop récente (throttle =
+   * mi-vie de l'idle). Met à jour `updated` localement → le throttle compte
+   * depuis ce touch.
+   */
+  async touchIfNeeded(): Promise<void> {
+    if (this.status !== "active") {
+      return;
+    }
+    const idleS = this.options.idleTimeoutS;
+    if (!idleS || idleS <= 0) {
+      return; // idle désactivé → rien à prolonger
+    }
+    const storage = this.storage;
+    if (typeof storage.touch !== "function") {
+      return; // store sans capacité touch → dégradation gracieuse
+    }
+    // Ne toucher qu'une session DÉJÀ persistée (présente dans le storage) — une
+    // session neuve non encore écrite n'a pas d'entrée à prolonger. `updated`
+    // (posé par la reprise depuis le storage OU par un save) en est le signal :
+    // crucial pour une session readOnly (jamais `saved` par cette instance, mais
+    // bien présente en base → doit rester vivante sur activité). C'est le fix.
+    if (!this.updated) {
+      return;
+    }
+    const now = Date.now();
+    const lastUsed = new Date(this.updated).getTime();
+    // Throttle : un seul write par tranche (mi-vie de l'idle). Préserve le
+    // dirty-tracking — pas d'écriture storage par requête.
+    if (lastUsed && now - lastUsed < (idleS * 1000) / 2) {
+      return;
+    }
+    await storage.touch(this.id, idleS);
+    this.updated = new Date(now);
   }
 
   checkSecureReferer(context: ContextType): boolean {

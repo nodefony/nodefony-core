@@ -32,14 +32,14 @@ const MAX_SCAN = 10_000;
  */
 class RedisSessionStorage implements ISessionStorage {
   manager: SessionsService;
-  /** Durée de vie d'une session en secondes (= TTL Redis). */
-  maxLifetimeS: number;
+  /** Idle timeout en secondes (= TTL Redis natif, glissant via `write`/`touch`). */
+  idleTimeoutS: number;
   /** Service Redis résolu en lazy (au 1ᵉʳ accès) depuis le container. */
   #service: RedisService | null = null;
 
   constructor(manager: SessionsService) {
     this.manager = manager;
-    this.maxLifetimeS = manager.options.maxLifetimeS;
+    this.idleTimeoutS = manager.options.idleTimeoutS;
   }
 
   /**
@@ -86,10 +86,10 @@ class RedisSessionStorage implements ISessionStorage {
     };
     const client = this.#client();
     if (client) {
-      // SET … EX : TTL natif. Session glissante — le TTL est rafraîchi à chaque
-      // write (toute requête qui touche la session repousse son expiration).
+      // SET … EX : TTL natif = idle timeout. Session glissante — le TTL est
+      // rafraîchi à chaque write (mutation) ET à chaque `touch` (activité pure).
       await client.set(this.#key(id), JSON.stringify(payload), {
-        EX: this.maxLifetimeS,
+        EX: this.idleTimeoutS,
       });
     }
     return payload;
@@ -99,7 +99,7 @@ class RedisSessionStorage implements ISessionStorage {
     // Redis expire les sessions seul (TTL) → pas de GC, pas de comptage (SCAN
     // serait O(keyspace)). On signale juste le backend actif au boot.
     this.manager.log(
-      `REDIS SESSIONS STORAGE ==> TTL natif (${this.maxLifetimeS}s)`,
+      `REDIS SESSIONS STORAGE ==> TTL natif idle (${this.idleTimeoutS}s)`,
       "INFO",
     );
     return 0;
@@ -120,7 +120,26 @@ class RedisSessionStorage implements ISessionStorage {
   }
 
   async gc(): Promise<void> {
-    // No-op volontaire : l'expiration est gérée par le TTL Redis (SET … EX).
+    // No-op volontaire pour l'IDLE : géré par le TTL Redis (SET … EX, glissant).
+    // L'ABSOLUTE timeout n'est pas exprimable par un TTL glissant → il est honoré
+    // à la LECTURE (`Session.isValidSession` compare `createdAt`), comme prévu par
+    // le contrat `ISessionStorage.gc`. Une entrée au-delà de l'absolute peut donc
+    // survivre côté Redis jusqu'à son TTL idle, mais est refusée à la reprise.
+  }
+
+  /**
+   * Prolonge l'idle d'une session (timeout glissant) en repositionnant le TTL
+   * natif (`EXPIRE`, O(1)) — SANS réécrire la valeur (touch NIST/OWASP). C'est le
+   * touch le moins coûteux des stores. Clé absente / connexion fermée → no-op.
+   *
+   * @param idleSeconds - nouvel idle (défaut : l'idle configuré du store).
+   */
+  async touch(id: string, idleSeconds?: number): Promise<void> {
+    const client = this.#client();
+    if (!client) {
+      return;
+    }
+    await client.expire(this.#key(id), idleSeconds ?? this.idleTimeoutS);
   }
 
   /**

@@ -382,22 +382,28 @@ describe("Session — unit tests", () => {
       ).to.equal(true);
     });
 
-    it("true si lifetime = 0 (jamais expiré par durée)", () => {
-      const s = makeSession();
-      s.lifetime = 0;
+    it("true si idleTimeoutS = 0 (jamais expiré par inactivité)", () => {
+      const s = makeSession({ idleTimeoutS: 0 });
       s.updated = new Date(0);
       expect(
         s.isValidSession({} as unknown as ISerializedSession, {} as never),
       ).to.equal(true);
     });
 
-    it("false si lifetime dépassé", () => {
-      const s = makeSession();
-      s.lifetime = 1; // 1 s
-      s.updated = new Date(Date.now() - 10_000); // il y a 10 s
+    it("idle : false si l'inactivité depuis `updated` dépasse idleTimeoutS", () => {
+      const s = makeSession({ idleTimeoutS: 1 }); // 1 s
+      s.updated = new Date(Date.now() - 10_000); // dernière activité il y a 10 s
       expect(
         s.isValidSession({} as unknown as ISerializedSession, {} as never),
       ).to.equal(false);
+    });
+
+    it("idle : true tant que l'activité reste récente (câblage `options.idleTimeoutS`)", () => {
+      const s = makeSession({ idleTimeoutS: 3600 }); // 1 h
+      s.updated = new Date(Date.now() - 10_000); // activité il y a 10 s
+      expect(
+        s.isValidSession({} as unknown as ISerializedSession, {} as never),
+      ).to.equal(true);
     });
 
     it("refererCheck on : host == meta → true", () => {
@@ -419,8 +425,7 @@ describe("Session — unit tests", () => {
     });
 
     it("absoluteTimeoutS : false si l'âge depuis création dépasse (même sans idle)", () => {
-      const s = makeSession({ absoluteTimeoutS: 1 }); // 1 s
-      s.lifetime = 0; // idle désactivé → seul l'absolu joue
+      const s = makeSession({ absoluteTimeoutS: 1 }); // 1 s ; idle absent
       s.created = new Date(Date.now() - 10_000); // créée il y a 10 s
       expect(
         s.isValidSession({} as unknown as ISerializedSession, {} as never),
@@ -429,7 +434,6 @@ describe("Session — unit tests", () => {
 
     it("absoluteTimeoutS : true tant que l'âge reste sous le plafond", () => {
       const s = makeSession({ absoluteTimeoutS: 3600 });
-      s.lifetime = 0;
       s.created = new Date(Date.now() - 10_000);
       expect(
         s.isValidSession({} as unknown as ISerializedSession, {} as never),
@@ -438,11 +442,68 @@ describe("Session — unit tests", () => {
 
     it("absoluteTimeoutS = 0 (off) : une vieille session reste valide", () => {
       const s = makeSession({ absoluteTimeoutS: 0 });
-      s.lifetime = 0;
       s.created = new Date(0); // 1970 → ignoré car désactivé
       expect(
         s.isValidSession({} as unknown as ISerializedSession, {} as never),
       ).to.equal(true);
+    });
+  });
+
+  describe("touchIfNeeded (idle glissant, throttlé — fix session active)", () => {
+    function makeTouchable(opts: Partial<OptionsSessionType>) {
+      const touches: Array<[string, number | undefined]> = [];
+      const storage = {
+        ...makeStorage(),
+        touch: (id: string, idleS?: number) => {
+          touches.push([id, idleS]);
+          return Promise.resolve();
+        },
+      } as ISessionStorage;
+      const s = new Session(
+        "t",
+        { ...defaultOpts, ...opts },
+        makeManager("migrate", storage) as never,
+      );
+      s.id = "sid";
+      s.status = "active";
+      return { s, touches };
+    }
+
+    it("touche quand l'inactivité dépasse la mi-vie de l'idle + rafraîchit `updated`", async () => {
+      const { s, touches } = makeTouchable({ idleTimeoutS: 100 });
+      s.updated = new Date(Date.now() - 80_000); // > idle/2 (50 s) → touch
+      await s.touchIfNeeded();
+      expect(touches).to.deep.equal([["sid", 100]]);
+      expect(Date.now() - (s.updated as Date).getTime()).to.be.lessThan(2_000);
+    });
+
+    it("throttle : NE touche PAS si l'activité est récente (< mi-vie) — perf préservée", async () => {
+      const { s, touches } = makeTouchable({ idleTimeoutS: 100 });
+      s.updated = new Date(Date.now() - 10_000); // < idle/2 → skip, 0 I/O
+      await s.touchIfNeeded();
+      expect(touches).to.deep.equal([]);
+    });
+
+    it("no-op si idleTimeoutS = 0 (idle désactivé)", async () => {
+      const { s, touches } = makeTouchable({ idleTimeoutS: 0 });
+      s.updated = new Date(0);
+      await s.touchIfNeeded();
+      expect(touches).to.deep.equal([]);
+    });
+
+    it("no-op si jamais persistée (`updated` absent → aucune entrée à prolonger)", async () => {
+      const { s, touches } = makeTouchable({ idleTimeoutS: 100 });
+      s.updated = undefined;
+      await s.touchIfNeeded();
+      expect(touches).to.deep.equal([]);
+    });
+
+    it("no-op + ne lève pas si le store ne supporte pas touch (dégradation)", async () => {
+      const s = makeSession({ idleTimeoutS: 100 }); // makeStorage() sans touch
+      s.id = "sid";
+      s.status = "active";
+      s.updated = new Date(Date.now() - 80_000);
+      await s.touchIfNeeded();
     });
   });
 

@@ -105,7 +105,31 @@ export interface ISessionStorage {
   open(): Promise<number>;
   close(): boolean;
   destroy(id: string): Promise<boolean>;
-  gc(maxlifetime?: number): Promise<void>;
+  /**
+   * Purge les sessions expirées sur les **deux bornes** NIST/OWASP : idle
+   * (inactivité depuis `updatedAt`) ET absolute (âge depuis `createdAt`, jamais
+   * prolongé). `absoluteSeconds` omis/0 → seul l'idle s'applique. Hors hot-path
+   * (timer `GcScheduler`). Un store à TTL natif (Redis) peut le laisser no-op
+   * pour l'idle — l'absolute restant honoré à la lecture (`isValidSession`).
+   */
+  gc(idleSeconds?: number, absoluteSeconds?: number): Promise<void>;
+  /**
+   * **Prolonge l'idle timeout** d'une session active (timeout glissant) SANS
+   * réécrire son blob — `UPDATE updatedAt` (SQL), `EXPIRE` (Redis TTL), `utimes`
+   * (fichier). Capacité **optionnelle** : un store qui ne l'implémente pas voit
+   * son idle prolongé uniquement par un vrai `write` (mutation) → dégradation
+   * gracieuse, jamais un breaking.
+   *
+   * Appelé de façon **throttlée** (1 fois par tranche d'idle, jamais par requête)
+   * sur l'activité HTTP/WS — y compris en lecture seule — pour qu'une session
+   * réellement utilisée n'expire pas. N'affecte **jamais** l'absolute timeout
+   * (borné à la création).
+   *
+   * @param id - identifiant opaque de la session.
+   * @param idleSeconds - idle courant (les stores à TTL natif, ex. Redis, en ont
+   *   besoin pour repositionner l'expiration).
+   */
+  touch?(id: string, idleSeconds?: number): Promise<void>;
   /**
    * Énumère les sessions persistées — capacité d'**ADMINISTRATION** (gouvernance,
    * « déconnecter partout »), **optionnelle**. Un backend incapable de lister

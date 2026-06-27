@@ -11,24 +11,40 @@ import type {
 const finderGC = function (
   this: FileSessionStorage,
   path: string,
-  msMaxlifetime: number,
+  idleMs: number,
+  absoluteMs: number,
+  onDone?: () => void,
 ) {
   let nbSessionsDelete = 0;
+  const now = Date.now();
   return new Finder().in(path, {
     onFile: (file: FileClass) => {
+      // Deux bornes NIST/OWASP portées par le FILESYSTEM : `mtime` = dernière
+      // activité (idle, rafraîchi par le touch via `utimes`) ; `birthtime` =
+      // création (absolute, JAMAIS prolongé). Purge dès qu'une borne ACTIVE est
+      // dépassée. Garde anti-FS-sans-birthtime (`birth > 0`) : sinon un FS qui
+      // renvoie l'epoch purgerait TOUTES les sessions → l'absolute est ignoré.
       const mtime = new Date(file.stats.mtime).getTime();
-      if (mtime + msMaxlifetime < new Date().getTime()) {
+      const birth = new Date(file.stats.birthtime).getTime();
+      const idleExpired = idleMs > 0 && mtime + idleMs < now;
+      const absoluteExpired =
+        absoluteMs > 0 &&
+        Number.isFinite(birth) &&
+        birth > 0 &&
+        birth + absoluteMs < now;
+      if (idleExpired || absoluteExpired) {
         file.unlink();
         this.manager.log(
-          `FILES SESSIONS STORAGE GARBADGE COLLECTOR SESSION ID : ${file.name} DELETED`,
+          `FILES SESSIONS STORAGE GARBAGE COLLECTOR SESSION ID : ${file.name} DELETED`,
         );
         nbSessionsDelete++;
       }
     },
     onFinish: (/* error, result*/) => {
       this.manager.log(
-        `FILES SESSIONS STORAGE GARBADGE COLLECTOR ==> ${nbSessionsDelete} DELETED`,
+        `FILES SESSIONS STORAGE GARBAGE COLLECTOR ==> ${nbSessionsDelete} DELETED`,
       );
+      onDone?.();
     },
   });
 };
@@ -36,11 +52,13 @@ const finderGC = function (
 class FileSessionStorage implements ISessionStorage {
   manager: sessionService;
   path: string;
-  maxLifetimeS: number;
+  idleTimeoutS: number;
+  absoluteTimeoutS: number;
   constructor(manager: sessionService) {
     this.manager = manager;
     this.path = manager.options.savePath;
-    this.maxLifetimeS = manager.options.maxLifetimeS;
+    this.idleTimeoutS = manager.options.idleTimeoutS;
+    this.absoluteTimeoutS = manager.options.absoluteTimeoutS;
     // Racine de stockage garantie (un seul niveau, plus d'aire) — idempotent.
     try {
       fs.mkdirSync(this.path, { recursive: true });
@@ -73,7 +91,7 @@ class FileSessionStorage implements ISessionStorage {
         }
         return resolve(0);
       }
-      this.gc(this.maxLifetimeS);
+      this.gc();
       return new Finder().in(Path, {
         recurse: false,
         onFinish: (result: Result) => {
@@ -91,7 +109,7 @@ class FileSessionStorage implements ISessionStorage {
   }
 
   close(): boolean {
-    this.gc(this.maxLifetimeS);
+    this.gc();
     return true;
   }
 
@@ -117,10 +135,37 @@ class FileSessionStorage implements ISessionStorage {
     });
   }
 
-  async gc(maxlifetime?: number): Promise<void> {
-    const msMaxlifetime = (maxlifetime || this.maxLifetimeS) * 1000;
-    if (fs.existsSync(this.path)) {
-      finderGC.call(this, this.path, msMaxlifetime);
+  async gc(idleSeconds?: number, absoluteSeconds?: number): Promise<void> {
+    const idleMs = (idleSeconds ?? this.idleTimeoutS) * 1000;
+    const absoluteMs = (absoluteSeconds ?? this.absoluteTimeoutS) * 1000;
+    if (!fs.existsSync(this.path)) {
+      return;
+    }
+    // Attendre la fin du scan (Finder async) — `gc` est DÉTERMINISTE : le
+    // `GcScheduler` (anti-chevauchement) et un worker cron peuvent compter sur sa
+    // résolution = passe terminée. (Avant : fire-and-forget → la passe « finissait »
+    // avant la purge réelle.) Robuste : une exception synchrone résout quand même.
+    await new Promise<void>((resolve) => {
+      try {
+        finderGC.call(this, this.path, idleMs, absoluteMs, resolve);
+      } catch (e) {
+        this.manager.log(e, "WARNING");
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Prolonge l'idle d'une session (timeout glissant) en rafraîchissant le `mtime`
+   * du fichier (`utimes`) — SANS réécrire le blob. Le `birthtime` (= borne
+   * absolute) reste intact. Fichier absent (session purgée entre-temps) → no-op.
+   */
+  async touch(id: string): Promise<void> {
+    const now = new Date();
+    try {
+      await fs.promises.utimes(`${this.path}/${id}`, now, now);
+    } catch {
+      // Session déjà supprimée (GC concurrent / expiration) → rien à prolonger.
     }
   }
 
@@ -131,7 +176,28 @@ class FileSessionStorage implements ISessionStorage {
           if (err) {
             return reject(err);
           }
-          return resolve(JSON.parse(data) as ISerializedSession);
+          let parsed: ISerializedSession;
+          try {
+            parsed = JSON.parse(data) as ISerializedSession;
+          } catch (e) {
+            return reject(e);
+          }
+          // Le blob `files` ne stocke PAS les horodatages — ils sont portés par le
+          // filesystem : `birthtime` = création (absolute), `mtime` = dernière
+          // activité (idle, rafraîchi par le touch). On les injecte ici pour rendre
+          // `created`/`updated` cohérents avec les stores SQL → l'idle ET l'absolute
+          // à la lecture (`isValidSession`) + le throttle du touch marchent pour
+          // `files`. Stat best-effort : un échec laisse les horodatages absents
+          // (comportement legacy : pas d'expiration à la lecture, GC seul).
+          fs.stat(file, (statErr, st) => {
+            if (!statErr) {
+              const birth = st.birthtime.getTime();
+              parsed.createdAt =
+                Number.isFinite(birth) && birth > 0 ? st.birthtime : st.mtime;
+              parsed.updatedAt = st.mtime;
+            }
+            return resolve(parsed);
+          });
         });
       } catch (e) {
         this.manager.log(`FILES SESSIONS STORAGE READ  ==> ${e}`, "ERROR");

@@ -21,11 +21,13 @@ import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
  */
 class SessionStorage implements ISessionStorage {
   manager: SessionsService;
-  maxLifetimeS: number;
+  idleTimeoutS: number;
+  absoluteTimeoutS: number;
 
   constructor(manager: SessionsService) {
     this.manager = manager;
-    this.maxLifetimeS = manager.options.maxLifetimeS;
+    this.idleTimeoutS = manager.options.idleTimeoutS;
+    this.absoluteTimeoutS = manager.options.absoluteTimeoutS;
   }
 
   /**
@@ -113,7 +115,7 @@ class SessionStorage implements ISessionStorage {
   }
 
   async open(): Promise<number> {
-    await this.gc(this.maxLifetimeS);
+    await this.gc();
     const repo = this.#repo();
     if (!repo) {
       return 0;
@@ -127,7 +129,7 @@ class SessionStorage implements ISessionStorage {
   }
 
   close(): boolean {
-    void this.gc(this.maxLifetimeS);
+    void this.gc();
     return true;
   }
 
@@ -142,17 +144,44 @@ class SessionStorage implements ISessionStorage {
     return true;
   }
 
-  async gc(maxlifetime?: number): Promise<void> {
-    const cutoff = Date.now() - (maxlifetime || this.maxLifetimeS) * 1000;
-    const criteria: Record<string, unknown> = { updatedAt: { $lt: cutoff } };
+  async gc(idleSeconds?: number, absoluteSeconds?: number): Promise<void> {
     const repo = this.#repo();
     if (!repo) {
       return;
     }
-    const deleted = await repo.delete(criteria as Partial<SessionRow>);
+    const now = Date.now();
+    // Borne idle : inactivité depuis `updatedAt` (rafraîchi par write/touch).
+    const idleCutoff = now - (idleSeconds ?? this.idleTimeoutS) * 1000;
+    let deleted = await repo.delete({
+      updatedAt: { $lt: idleCutoff },
+    } as Partial<SessionRow>);
+    // Borne absolute : âge depuis `createdAt`, JAMAIS prolongé (re-auth forcée).
+    // Deux DELETE distincts (pas de `$or`) → portable sur tout adapter orm-core.
+    const absoluteS = absoluteSeconds ?? this.absoluteTimeoutS;
+    if (absoluteS > 0) {
+      deleted += await repo.delete({
+        createdAt: { $lt: now - absoluteS * 1000 },
+      } as Partial<SessionRow>);
+    }
     if (deleted > 0) {
       this.manager.log(`DRIZZLE SESSIONS GC ==> ${deleted} DELETED`, "DEBUG");
     }
+  }
+
+  /**
+   * Prolonge l'idle d'une session (timeout glissant) : `UPDATE updatedAt = now`
+   * sur la PK `session_id` — SANS réécrire le blob (touch NIST/OWASP). N'affecte
+   * pas `createdAt` (= borne absolute). ORM déconnecté → no-op ; une ligne absente
+   * (session expirée) → 0 row affectée, silencieux.
+   */
+  async touch(id: string): Promise<void> {
+    const repo = this.#repo();
+    if (!repo) {
+      return;
+    }
+    await repo.updateOne({ session_id: id }, {
+      updatedAt: Date.now(),
+    } as Partial<SessionRow>);
   }
 
   /**

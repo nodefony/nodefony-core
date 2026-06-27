@@ -108,7 +108,7 @@ describe("FileSessionStorage.listAll (unit, tmpdir)", () => {
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-sess-"));
     const manager = {
-      options: { savePath: dir, maxLifetimeS: 3600 },
+      options: { savePath: dir, idleTimeoutS: 3600, absoluteTimeoutS: 0 },
       log: () => {},
     };
     storage = new FileSessionStorage(
@@ -383,7 +383,7 @@ describe("RevocationGuardStorage — révocation effective (anti-résurrection)"
     beforeEach(() => {
       dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-sess-revoke-"));
       const manager = {
-        options: { savePath: dir, maxLifetimeS: 3600 },
+        options: { savePath: dir, idleTimeoutS: 3600, absoluteTimeoutS: 0 },
         log: () => {},
       };
       storage = new RevocationGuardStorage(
@@ -488,29 +488,75 @@ describe("Sessions — runGc (passe métier déléguée au GcScheduler)", () => 
   // testé à part). Ici on vérifie uniquement la passe métier : délégation au store.
   type RunGcTestable = {
     storage: unknown;
-    options: { maxLifetimeS: number };
+    options: { idleTimeoutS: number; absoluteTimeoutS: number };
     runGc(): Promise<void>;
   };
   function makeService(storage: unknown): RunGcTestable {
     const svc = Object.create(SessionsService.prototype) as RunGcTestable;
     svc.storage = storage;
-    svc.options = { maxLifetimeS: 1440 };
+    svc.options = { idleTimeoutS: 1440, absoluteTimeoutS: 43200 };
     return svc;
   }
 
-  it("runGc délègue au store avec maxLifetimeS", async () => {
-    const calls: (number | undefined)[] = [];
+  it("runGc délègue au store les DEUX bornes (idle, absolute)", async () => {
+    const calls: [number | undefined, number | undefined][] = [];
     const svc = makeService({
-      gc: async (m?: number) => {
-        calls.push(m);
+      gc: async (idle?: number, absolute?: number) => {
+        calls.push([idle, absolute]);
       },
     });
     await svc.runGc();
-    expect(calls).to.deep.equal([1440]);
+    expect(calls).to.deep.equal([[1440, 43200]]);
   });
 
   it("runGc sans storage = no-op (ne lève pas)", async () => {
     const svc = makeService(null);
     await svc.runGc(); // pas d'exception
+  });
+});
+
+describe("Sessions — saveSession (orchestration save vs touch)", () => {
+  type SaveTestable = {
+    saveSession(ctx: unknown): Promise<unknown>;
+  };
+  const svc = Object.create(SessionsService.prototype) as SaveTestable;
+
+  function fakeSession(over: Record<string, unknown> = {}) {
+    const calls = { save: 0, touch: 0 };
+    const s: Record<string, unknown> = {
+      dirty: false,
+      readOnly: false,
+      save: async () => {
+        calls.save++;
+        return s;
+      },
+      touchIfNeeded: async () => {
+        calls.touch++;
+      },
+      ...over,
+    };
+    return { s, calls };
+  }
+
+  it("dirty & !readOnly → save (écriture du blob)", async () => {
+    const { s, calls } = fakeSession({ dirty: true, readOnly: false });
+    await svc.saveSession({ session: s });
+    expect(calls).to.deep.equal({ save: 1, touch: 0 });
+  });
+
+  it("dirty & readOnly → touch, PAS save (fix Studio : garder vivante sans write)", async () => {
+    const { s, calls } = fakeSession({ dirty: true, readOnly: true });
+    await svc.saveSession({ session: s });
+    expect(calls).to.deep.equal({ save: 0, touch: 1 });
+  });
+
+  it("clean → touch (message WS / GET sans mutation)", async () => {
+    const { s, calls } = fakeSession({ dirty: false });
+    await svc.saveSession({ session: s });
+    expect(calls).to.deep.equal({ save: 0, touch: 1 });
+  });
+
+  it("pas de session → null (no-op)", async () => {
+    expect(await svc.saveSession({})).to.equal(null);
   });
 });

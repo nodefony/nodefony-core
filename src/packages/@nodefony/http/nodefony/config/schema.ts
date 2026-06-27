@@ -713,20 +713,29 @@ const sessionSchema = z
         "Étale le départ du gc d'un délai aléatoire (≤ 60 s) par process — évite " +
           "les balayages simultanés sur un store partagé en cluster (thundering herd).",
       ),
-    maxLifetimeS: z
+    idleTimeoutS: z
       .number()
       .int()
-      .positive()
-      .default(1440)
-      .describe("Durée de vie max d'une session inactive (s). 1440 = 24 min."),
+      .nonnegative()
+      .default(1800)
+      .describe(
+        "Idle timeout (NIST SP 800-63B-4 / OWASP, s) : inactivité MAX depuis la " +
+          "dernière activité (HTTP ou WS) avant invalidation. Rafraîchi par un " +
+          "« touch » throttlé — l'activité réelle prolonge la session sans réécrire " +
+          "le blob (NIST/OWASP : idle « since the last request »). Enforcement 100 % " +
+          "serveur. 0 = pas d'expiration par inactivité. Défaut 1800 = 30 min.",
+      ),
     absoluteTimeoutS: z
       .number()
       .int()
       .nonnegative()
-      .default(0)
+      .default(43200)
       .describe(
-        "Absolute timeout (OWASP, s) : âge MAX d'une session depuis sa création, " +
-          "indépendant de l'activité. 0 = désactivé (seul l'idle s'applique).",
+        "Absolute timeout (NIST SP 800-63B-4 / OWASP, s) : âge MAX d'une session " +
+          "depuis sa CRÉATION, JAMAIS prolongé par l'activité → borne la fenêtre " +
+          "d'exploitation d'un identifiant volé même sur une session maintenue " +
+          "active (re-auth forcée). Sans lui, le touch rendrait une session active " +
+          "quasi éternelle (OWASP §Idle Timeout). 0 = désactivé. Défaut 43200 = 12 h.",
       ),
     refererCheck: z
       .boolean()

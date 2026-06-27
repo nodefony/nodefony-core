@@ -9,9 +9,9 @@ import {
   type SessionRow,
 } from "../../nodefony/entity/sessionEntity";
 
-/** Manager minimal (le storage n'utilise que `options.maxLifetimeS` + `log`). */
+/** Manager minimal (le storage n'utilise que les timeouts session + `log`). */
 const fakeManager = {
-  options: { maxLifetimeS: 3600, handler: "drizzle" },
+  options: { idleTimeoutS: 3600, absoluteTimeoutS: 0, handler: "drizzle" },
   log: () => {},
 } as unknown as SessionsService;
 

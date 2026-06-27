@@ -68,7 +68,10 @@ export interface SessionsStatus {
   active: number | null;
   strategy?: string | null;
   name?: string | null;
-  gcMaxlifetime?: number | null;
+  /** Idle timeout serveur (s) — inactivité max, rafraîchie par l'activité. */
+  idleTimeoutS?: number | null;
+  /** Absolute timeout serveur (s) — âge max depuis création (re-auth forcée). */
+  absoluteTimeoutS?: number | null;
 }
 
 // ─── Endpoints du data plane (@nodefony/http, namespace « http ») ─────────────
