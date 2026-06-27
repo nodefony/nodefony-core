@@ -157,6 +157,29 @@ describe("attack/amplification — pas de boucle d'audit", () => {
   });
 });
 
+describe("attack/amplification — événement webhook IGNORÉ (anti-boucle)", () => {
+  it("un événement category=webhook ne déclenche AUCUNE livraison", async () => {
+    const sink = {
+      calls: [] as Array<{ headers: Record<string, string>; body: string }>,
+    };
+    const d = new WebhookDispatcher(
+      deps(
+        [ep("wh_1")],
+        async () => ({ ok: true, status: 200, error: null }),
+        {},
+        sink,
+      ),
+    );
+    const webhookEvt: IAuditEvent = {
+      ...event("webhook.disabled"),
+      category: "webhook",
+    };
+    d.onAuditEvent(webhookEvt);
+    await flush();
+    assert.equal(sink.calls.length, 0); // pas d'auto-amplification
+  });
+});
+
 describe("attack/injection — payload d'audit malveillant", () => {
   it("un actor contenant des métacaractères JSON est échappé (structure intacte)", async () => {
     const sink = {

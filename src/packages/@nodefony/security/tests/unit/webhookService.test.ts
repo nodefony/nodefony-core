@@ -36,6 +36,41 @@ function buildService(webhooks: Record<string, unknown> = {}): WebhookService {
   return svc;
 }
 
+/** Variante avec un sink d'audit en container → capture `webhook.disabled`. */
+function buildWithAudit(webhooks: Record<string, unknown> = {}): {
+  svc: WebhookService;
+  records: Array<Record<string, unknown>>;
+} {
+  const records: Array<Record<string, unknown>> = [];
+  const container = new Container();
+  const handlers: Record<string, (...a: unknown[]) => void> = {};
+  const kernel = {
+    container,
+    once(ev: string, cb: (...a: unknown[]) => void) {
+      handlers[ev] = cb;
+    },
+  };
+  container.set("kernel", kernel);
+  container.set("auditService", {
+    subscribe: () => () => {},
+    record: (d: Record<string, unknown>) => records.push(d),
+  });
+  const module = {
+    container,
+    notificationsCenter: false,
+    options: {
+      webhooks: {
+        encryptionKey: "clé-de-test-webhook-0123456789abcdef",
+        autoDisableThreshold: 2,
+        ...webhooks,
+      },
+    },
+  } as unknown as Module;
+  const svc = new WebhookService(module);
+  handlers["onBoot"]?.();
+  return { svc, records };
+}
+
 describe("WebhookService — register & secret", () => {
   it("génère un secret whsec_ ; le summary n'expose PAS secretEnc", async () => {
     const svc = buildService();
@@ -139,5 +174,32 @@ describe("WebhookService — garde-fous", () => {
     return assert.rejects(() =>
       svc.register({ url: "https://1.1.1.1/h", events: ["*"] }),
     );
+  });
+});
+
+describe("WebhookService — traçage audit de l'auto-désactivation", () => {
+  it("auto-désactivation → 1 audit webhook.disabled (borné, pas chaque échec)", async () => {
+    const { svc, records } = buildWithAudit();
+    const { endpoint } = await svc.register({
+      url: "https://1.1.1.1/h",
+      events: ["*"],
+    });
+    await svc.markDelivery(endpoint.id, { ok: false, status: 500, error: "x" });
+    assert.equal(records.length, 0); // 1ᵉʳ échec : pas encore d'audit
+    await svc.markDelivery(endpoint.id, { ok: false, status: 500, error: "x" });
+    assert.equal(records.length, 1); // seuil 2 atteint → disabled audité
+    assert.equal(records[0]!.action, "webhook.disabled");
+    assert.equal(records[0]!.category, "webhook");
+    assert.equal(records[0]!.resource, endpoint.id);
+  });
+
+  it("un succès n'émet AUCUN audit (volume maîtrisé)", async () => {
+    const { svc, records } = buildWithAudit();
+    const { endpoint } = await svc.register({
+      url: "https://1.1.1.1/h",
+      events: ["*"],
+    });
+    await svc.markDelivery(endpoint.id, { ok: true, status: 200, error: null });
+    assert.equal(records.length, 0);
   });
 });

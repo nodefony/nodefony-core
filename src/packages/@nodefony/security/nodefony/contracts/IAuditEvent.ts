@@ -22,7 +22,8 @@ export type AuditCategory =
   | "webauthn" // passkeys (enregistrement, assertion)
   | "csrf" // défense CSRF (Fetch-Metadata, token synchronizer)
   | "cors" // politique CORS (preflight rejeté)
-  | "ws"; // verrou de frame WebSocket (api.request / subscribe refusé)
+  | "ws" // verrou de frame WebSocket (api.request / subscribe refusé)
+  | "webhook"; // webhook sortant (auto-désactivation après échecs répétés)
 
 /**
  * Issue d'une action de sécurité. La distinction `failure`/`denied` est utile à

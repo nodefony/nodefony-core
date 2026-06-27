@@ -25,7 +25,7 @@ import {
   deliverWebhook,
   type IDeliveryResult,
 } from "../src/webhook/webhookDelivery";
-import type { IAuditEvent } from "../contracts/IAuditEvent";
+import type { IAuditEvent, IAuditEventDraft } from "../contracts/IAuditEvent";
 
 const serviceName = "webhooks";
 
@@ -108,6 +108,8 @@ class WebhookService extends Service {
   #dispatcher: WebhookDispatcher | null = null;
   /** Désabonnement de l'audit (appelé à l'arrêt). */
   #unsubscribe: (() => void) | null = null;
+  /** Sink d'audit — trace l'auto-désactivation (signal borné, pas chaque échec). */
+  #audit: { record(draft: IAuditEventDraft): void } | null = null;
 
   constructor(public module: Module) {
     super(
@@ -155,11 +157,13 @@ class WebhookService extends Service {
   #attachDispatcher(): void {
     const audit = this.get<{
       subscribe(l: (e: IAuditEvent) => void): () => void;
+      record(draft: IAuditEventDraft): void;
     }>("auditService");
     if (!audit || typeof audit.subscribe !== "function") {
       this.log("webhooks: auditService absent — dispatcher inactif", "WARNING");
       return;
     }
+    this.#audit = audit;
     this.#dispatcher = new WebhookDispatcher({
       endpointCount: () => this.endpointCount(),
       getSnapshot: () => this.getSnapshot(),
@@ -436,6 +440,15 @@ class WebhookService extends Service {
         `webhook ${id} auto-désactivé après ${failureCount} échecs consécutifs`,
         "WARNING",
       );
+      // Signal d'audit BORNÉ (1 par endpoint qui meurt) — pas chaque échec.
+      this.#audit?.record({
+        category: "webhook",
+        action: "webhook.disabled",
+        outcome: "failure",
+        actor: null,
+        resource: id,
+        reason: "max_failures",
+      });
     }
     await this.#store.update(id, patch);
     this.#endpoints?.set(id, { ...current, ...patch });

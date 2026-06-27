@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-27T11:15:49.999Z",
+  "generated": "2026-06-27T11:22:26.872Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -20812,6 +20812,7 @@
       "IAuditEventDraft": [
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts"
       ],

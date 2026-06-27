@@ -116,6 +116,9 @@ export class WebhookDispatcher {
    */
   onAuditEvent(event: IAuditEvent): void {
     if (this.#stopped) return;
+    // Anti-boucle : nos propres événements (`webhook.*`) ne redéclenchent JAMAIS
+    // de livraison (sinon amplification : failed → webhook → failed → …).
+    if (event.category === "webhook") return;
     if (this.#deps.endpointCount() === 0) return; // 0 alloc, 0 travail
     for (const ep of this.#deps.getSnapshot()) {
       if (!ep.enabled) continue;
