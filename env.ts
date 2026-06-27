@@ -176,4 +176,16 @@ export const env = defineEnv({
     description:
       "Mot de passe du compte de fixture 'user' (dev, défaut 'secret').",
   }),
+
+  /**
+   * Clé de chiffrement des secrets de signature webhook au repos (P6.13,
+   * HKDF→AES-256-GCM). PROD : OBLIGATOIRE — absente = webhooks désactivés (un
+   * secret chiffré par une clé éphémère serait illisible après redémarrage / sur
+   * les autres pods). DEV : optionnelle (clé éphémère générée + warning).
+   */
+  NF_WEBHOOK_KEY: envString({
+    optional: true,
+    description:
+      "Clé de chiffrement des secrets de signature webhook (prod requis).",
+  }),
 });

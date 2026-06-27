@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-27T11:22:26.872Z",
+  "generated": "2026-06-27T12:19:30.560Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 977,
-    "symbols": 2289,
+    "files": 979,
+    "symbols": 2300,
     "classes": 311,
-    "interfaces": 608,
-    "types": 269,
+    "interfaces": 613,
+    "types": 270,
     "enums": 3,
-    "functions": 578,
+    "functions": 583,
     "constants": 520
   },
   "symbols": {
@@ -14681,6 +14681,22 @@
       "exported": true,
       "module": "@nodefony/realtime"
     },
+    "adminActor": {
+      "name": "adminActor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/adminAudit.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Helpers d'audit PARTAGÉS par les producteurs admin du module sécurité (`SecurityAdminApi`, `WebhookAdminApi`…). Extraits dans leur propre fichier pour être consommés par plusieurs producteurs SANS …"
+    },
+    "auditAdmin": {
+      "name": "auditAdmin",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/adminAudit.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Émet un événement d'audit pour une mutation admin (best-effort, fire-and-forget) — l'audit ne doit jamais bloquer ni faire échouer l'action. No-op si le service `auditService` est absent. Couplage …"
+    },
     "parseAuditQuery": {
       "name": "parseAuditQuery",
       "kind": "function",
@@ -14720,6 +14736,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Abonne la cascade au bus kernel. À appeler au `onKernelBoot` d'un module bootable (ici `@nodefony/security`). **Extensible** : tout autre module (webhooks…) peut s'abonner au MÊME `USER_REVOKED_EVE…"
+    },
+    "webhookAdminEndpoints": {
+      "name": "webhookAdminEndpoints",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Construit les endpoints admin webhook, à **spreader** dans les `adminEndpoints()` du producteur `security`. Les handlers résolvent le service `webhooks` **lazy** (à la requête) → un service désacti…"
     },
     "IGeneratedApiKey": {
       "name": "IGeneratedApiKey",
@@ -17197,8 +17221,10 @@
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/adminAudit.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
@@ -19451,6 +19477,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "RequestContext": [
@@ -19980,6 +20007,7 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "IAdminRoute": [
@@ -20060,6 +20088,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "contextRequest": [
@@ -20813,7 +20842,7 @@
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/adminAudit.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts"
       ],
       "IAuthenticator": [
@@ -21164,7 +21193,8 @@
         "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
       ],
       "WebhookEndpointSummary": [
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
       ],
       "getWebhookStoreFactory": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
@@ -22780,6 +22810,17 @@
       "FrameAuthorizer": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
         "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
+      ],
+      "adminActor": [
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
+      ],
+      "auditAdmin": [
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
+      ],
+      "webhookAdminEndpoints": [
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "USER_REVOKED_EVENT": [
         "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"

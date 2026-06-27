@@ -208,6 +208,12 @@ export default defineConfig<Env>((ctx) => ({
           ROLE_DEV: ["ROLE_USER"], // développeur (ORM, modules, routes, doc technique)
           ROLE_SUPERVISOR: ["ROLE_USER"], // exploitant / SRE (supervision, cluster, logs)
         },
+        // Webhooks sortants (P6.13) — secret de signature chiffré au repos. Clé
+        // prod via env (absente en prod = webhooks OFF, fail-safe ; dev = clé
+        // éphémère + warning). `enabled`/SSRF/livraison gardent leurs défauts.
+        webhooks: {
+          encryptionKey: ctx.env.NF_WEBHOOK_KEY,
+        },
       },
       { policy: "mandatory" },
     ),

@@ -7,11 +7,7 @@ import type {
   IAdminRequest,
   IAdminResponse,
 } from "nodefony";
-import type {
-  AuditCategory,
-  AuditOutcome,
-  IAuditEventDraft,
-} from "../../contracts/IAuditEvent";
+import type { AuditCategory, AuditOutcome } from "../../contracts/IAuditEvent";
 import type {
   IAuditQuery,
   IAuditQueryResult,
@@ -23,6 +19,8 @@ import type {
 } from "../../contracts/IFirewallDescription";
 import type { IApiKeyView } from "../../contracts/IApiKey";
 import type { IWebAuthnCredential } from "../../contracts/IWebAuthnCredential";
+import { adminActor, auditAdmin } from "./adminAudit";
+import { webhookAdminEndpoints } from "./WebhookAdminApi";
 
 /**
  * Vue MINIMALE du service `auditService` consommée par le data plane — seule la
@@ -97,20 +95,6 @@ interface IApiKeyAdmin {
   revokeAnyPat(id: string, actorId: string): Promise<IApiKeyView | null>;
 }
 
-/**
- * Identité de l'admin appelant (pour l'audit de la révocation) — duck-typing
- * prudent sur l'`IUser` projeté dans `IAdminRequest.user` (ALS du firewall).
- * Repli `"admin"` (label d'audit, jamais une décision d'autorisation).
- */
-function adminActor(user: unknown): string {
-  if (user && typeof user === "object") {
-    const u = user as { username?: unknown; identifier?: unknown };
-    if (typeof u.username === "string" && u.username) return u.username;
-    if (typeof u.identifier === "string" && u.identifier) return u.identifier;
-  }
-  return "admin";
-}
-
 const CATEGORIES: ReadonlySet<string> = new Set<AuditCategory>([
   "auth",
   "authz",
@@ -121,6 +105,7 @@ const CATEGORIES: ReadonlySet<string> = new Set<AuditCategory>([
   "csrf",
   "cors",
   "ws",
+  "webhook",
 ]);
 const OUTCOMES: ReadonlySet<string> = new Set<AuditOutcome>([
   "success",
@@ -261,21 +246,6 @@ function toCredentialView(c: IWebAuthnCredential): IAdminCredentialView {
     createdAt: c.createdAt,
     lastUsedAt: c.lastUsedAt,
   };
-}
-
-/**
- * Émet un événement d'audit pour une mutation admin (best-effort, fire-and-forget)
- * — l'audit ne doit jamais bloquer ni faire échouer le reset. No-op si le service
- * `auditService` est absent. Couplage structurel : `record` lu défensivement.
- *
- * @param container - container du kernel.
- * @param draft - événement (sans `id`/`ts`, posés par le service).
- */
-function auditAdmin(container: Container, draft: IAuditEventDraft): void {
-  const sink = container.get("auditService") as
-    | { record?: (event: IAuditEventDraft) => void }
-    | undefined;
-  sink?.record?.(draft);
 }
 
 /**
@@ -558,6 +528,11 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         return { ok: true };
       },
     },
+    // ── Webhooks sortants (P6.13 Slice C) — endpoints dans un fichier dédié
+    // (WebhookAdminApi.ts, greppable) composés ici pour hériter du RBAC
+    // ROLE_NODEFONY_ADMIN + audit + duplex HTTP/WS du broker, sans dupliquer la
+    // garde de rôle fail-closed dans un controller framework séparé.
+    ...webhookAdminEndpoints(container),
   ];
 
   const descriptor: IAdminDescriptor = {
