@@ -38,8 +38,8 @@ description: >
 (isomorphisme Nodefony : back/front partagent `nodefony`). **Ce skill PRODUIT le CONTRAT** ; le jumeau le
 **CONSOMME**. Le SEAM partagé :
 
-- **Data-plane** `/nodefony/<mod>/api/*` (back l'expose via `IAdminApi` → front via `useResource`/`ApiClient`). Recette → `reference/recipes-admin.md`.
-- **Realtime** : la **socket** (`IRealtimeSocket`) = la prise métier (multiplexe des canaux) ; le **hub** (`RealtimeHub`) = broker serveur (canaux partagés + fan-out). Recette → `reference/recipes-realtime.md`.
+- **Data-plane** `/nodefony/<mod>/api/*` (back l'expose via `IAdminApi` → front via `useResource`/`ApiClient`). Recette → `reference/framework.md`.
+- **Realtime** : la **socket** (`IRealtimeSocket`) = la prise métier (multiplexe des canaux) ; le **hub** (`RealtimeHub`) = broker serveur (canaux partagés + fan-out). Recette → `reference/realtime.md`.
 - **Types** : exports `nodefony` (isomorphes) + `I*Controller`/`I*Api` = **source de vérité unique** du contrat (jamais une copie figée dans un skill → sinon dérive).
 
 **RÈGLE** : une feature qui traverse back+front → mettre à jour **LES DEUX skills dans la MÊME session**.
@@ -57,7 +57,7 @@ section correspondante de `nodefony-studio-dev` (et inversement).
   `Request`/`Response`, serveurs, **certificats TLS** (`Certificate`/mkcert), `SessionsService`,
   `Profiler`, loggers/error-renderer, realtime WS JSON-RPC.
 - **framework** (`@nodefony/framework`) : `Router`, `Resolver`, `Route`, `Controller`, décorateurs
-  `@route`/`@controller`/`@Get`/`@Body`…, `AdminBroker`/data plane, Twig/EJS.
+  `@route`/`@controller`/`@Get`/`@Body`…, `AdminBroker`/data plane, vues Eta.
 - créer un **service** (`@injectable`), une **commande CLI**, un **endpoint** HTTP/WS ou admin,
   une **entité** (`@entity`), un **repository**, un **service CRUD** (`AbstractCrudService`), un **adapter ORM**.
 
@@ -182,7 +182,7 @@ nodefony (core, src/nodefony)        Service · Container(scopes) · Kernel · M
 @nodefony/http                       HttpKernel · Context/HttpContext/WebsocketContext · Request/Response
    │                                 serveurs(5151/5152) · SessionsService · Profiler · loggers
    ↓
-@nodefony/framework                  Router · Resolver · Route · Controller · décorateurs · AdminBroker · Twig/EJS
+@nodefony/framework                  Router · Resolver · Route · Controller · décorateurs · AdminBroker · vues Eta
    ↓
 src/modules/test                     controllers d'intégration HTTP+WS
 
@@ -208,29 +208,20 @@ jq '.symbols | to_entries | map(select(.value.module=="@nodefony/http")) | from_
 ## 4. Recettes & référence — `reference/` (chargé À LA DEMANDE)
 
 > **Comment l'utiliser** : trouve la ligne qui matche ta tâche → lis le fichier `reference/…` indiqué
-> (lui seul, pas les autres → 0 token gaspillé). Chaque fichier = recettes copier-coller **vérifiées sur
-> le source** + son sommaire en tête. Mettre à jour une recette = éditer son fichier (pas de journal).
+> (lui seul → 0 token gaspillé). **1 fichier = 1 module** : Partie A recettes copier-coller (usage) +
+> Partie B API publique + internals + gotchas du module (vérifiés sur le source). Mettre à jour = éditer
+> en place (pas de journal). Autosuffisant : tout est ici, même sans le source du core (cas projet consumer).
 
-| Ta tâche                                                                       | Lis ce fichier                                     |
-| ------------------------------------------------------------------------------ | -------------------------------------------------- |
-| Service injectable (DI), `@inject`/`@Inject`, logging                          | `reference/recipes-core.md`                        |
-| Module + hooks lifecycle                                                       | `reference/recipes-core.md`                        |
-| Commande CLI (`<module>:<action>`)                                             | `reference/recipes-core.md`                        |
-| Lazy alloc + cleanup listener (perf canonique)                                 | `reference/recipes-core.md`                        |
-| RequestContext (ALS) — propagation per-request                                 | `reference/recipes-core.md`                        |
-| Config module / config app (`defineConfig`, `env.ts`)                          | `reference/recipes-core.md`                        |
-| Interfaces & types (standard universel) + erreurs typées                       | `reference/recipes-core.md`                        |
-| Endpoint HTTP/WS (Controller + `@Get`/`@Post`/`@route`)                        | `reference/recipes-http.md`                        |
-| Autorisation par scope `@RequireScope` (axe ≠ rôles)                           | `reference/recipes-http.md`                        |
-| Contrat de réponse RFC du cycle (HTTP **et** WS)                               | `reference/recipes-http.md`                        |
-| Tests d'intégration (`src/modules/test`)                                       | `reference/recipes-http.md`                        |
-| Certificats TLS (HTTPS/WSS, service `Certificate`)                             | `reference/recipes-http.md`                        |
-| Endpoint **admin data plane** (Studio) + lien full-stack                       | `reference/recipes-admin.md`                       |
-| Entité `@entity` / Repository / Service CRUD / tx / data plane ORM             | `reference/recipes-orm.md`                         |
-| Realtime : socket isomorphe, WS, hub, RealtimeService, Redis, pont TCP/UDP/SIP | `reference/recipes-realtime.md`                    |
-| Coder AVEC la sécurité (sources normatives, `npm audit`)                       | `reference/security.md`                            |
-| **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — offline            | `reference/rfc/` (index `reference/rfc/README.md`) |
-| **Gotchas & diagnostic** (pièges récurrents, reproduire un bug)                | `reference/gotchas.md`                             |
+| Ta tâche                                                                                                                                                                                            | Lis ce fichier                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Service injectable (DI `@inject`), Module+hooks, CLI, lazy/cleanup, ALS, config (`defineConfig`/`env`), interfaces, erreurs ; + API core (Kernel/Container/Event/Syslog/Finder)                     | `reference/core.md`                                |
+| Endpoint HTTP/WS (Controller + `@Get`/`@Post`/`@route`), contrat RFC du cycle, certificats TLS, tests d'intégration ; + API/internals pipeline http (Context/Request/Response/sessions/trust-proxy) | `reference/http.md`                                |
+| Router/Resolver/Route, décorateurs (`@IsGranted`/`@RequireScope`/`@Idempotent`/`@Csp`/`@CsrfProtect`…), **admin data plane** (`IAdminApi`/broker) + lien full-stack, vues (Eta)                     | `reference/framework.md`                           |
+| Entité `@entity`, Repository, Service CRUD (`updateOne`/`updateMany`), tx, data plane ORM, multi-dialecte                                                                                           | `reference/orm.md`                                 |
+| Realtime : socket isomorphe, WS, hub, `RealtimeService`, Redis backplane, pont TCP/UDP/SIP                                                                                                          | `reference/realtime.md`                            |
+| Coder AVEC la sécurité (sources normatives, `npm audit`)                                                                                                                                            | `reference/security.md`                            |
+| **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                          | `reference/rfc/` (index `reference/rfc/README.md`) |
+| **Gotchas TRANSVERSES & diagnostic** (perf, ALS, boot, build ; reproduire un bug)                                                                                                                   | `reference/gotchas.md`                             |
 
 > Review/attaque sécurité d'un diff (red/blue-team, conformité) → skill **`nodefony-security-review`**.
 > RFC full-text rare (hors `reference/rfc/`) → skill **`nodefony-rfc`** (raw GitHub + proxy r.jina.ai).
