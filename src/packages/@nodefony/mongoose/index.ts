@@ -164,3 +164,15 @@ export {
 } from "./nodefony/entity/webAuthnCredentialEntity";
 export type { WebAuthnCredentialRow } from "./nodefony/entity/webAuthnCredentialEntity";
 export { MongooseWebAuthnCredentialStore } from "./nodefony/src/MongooseWebAuthnCredentialStore";
+
+// ─── Store d'endpoints webhook Mongoose (IWebhookStore de @nodefony/security, P6.13) ─
+// Approche B (idem token/webauthn) : `import type` seul, PAS d'auto-register. L'app
+// câble `registerWebhookStore("mongoose", …)` + `registerWebhookEndpointEntity(orm)`.
+export {
+  webhookEndpointSchema,
+  createWebhookEndpointEntity,
+  registerWebhookEndpointEntity,
+  WEBHOOK_ENDPOINT_ENTITY,
+} from "./nodefony/entity/webhookEndpointEntity";
+export type { WebhookEndpointRow } from "./nodefony/entity/webhookEndpointEntity";
+export { MongooseWebhookStore } from "./nodefony/src/MongooseWebhookStore";

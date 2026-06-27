@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-27T12:33:33.793Z",
+  "generated": "2026-06-27T12:39:01.551Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 981,
-    "symbols": 2306,
-    "classes": 312,
-    "interfaces": 614,
+    "files": 983,
+    "symbols": 2312,
+    "classes": 313,
+    "interfaces": 615,
     "types": 270,
     "enums": 3,
-    "functions": 585,
-    "constants": 522
+    "functions": 587,
+    "constants": 524
   },
   "symbols": {
     "Cli": {
@@ -8036,6 +8036,47 @@
       "module": "@nodefony/mongoose",
       "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
     },
+    "@nodefony/mongoose:WebhookEndpointRow": {
+      "name": "WebhookEndpointRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Forme **plate** d'une ligne d'endpoint renvoyée par le repository Mongoose — `id` = virtuel (= `_id` = l'id `wh_…`), `events` mutable (le contrat porte `readonly string[]`). `MongooseWebhookStore` …"
+    },
+    "@nodefony/mongoose:createWebhookEndpointEntity": {
+      "name": "createWebhookEndpointEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Construit le descripteur d'entité du store webhook pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison à un ORM dépe…"
+    },
+    "@nodefony/mongoose:registerWebhookEndpointEntity": {
+      "name": "registerWebhookEndpointEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Enregistre l'entité du store webhook dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (le modèle est compilé au connect)."
+    },
+    "webhookEndpointSchema": {
+      "name": "webhookEndpointSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Schéma Mongoose du **store d'endpoints webhook** `@nodefony/security` (P6.13, pendant documentaire de la table Drizzle) — implémentation NoSQL d' `IWebhookStore` (registre durable des destinations …"
+    },
+    "@nodefony/mongoose:WEBHOOK_ENDPOINT_ENTITY": {
+      "name": "WEBHOOK_ENDPOINT_ENTITY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
+    },
     "IMongooseConfig": {
       "name": "IMongooseConfig",
       "kind": "type",
@@ -8109,6 +8150,19 @@
       ],
       "decorators": [],
       "description": "Store de credentials WebAuthn **Mongoose** (NoSQL) — implémentation d' {@link IWebAuthnCredentialStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webauthn_credential`). Pendant docume…"
+    },
+    "MongooseWebhookStore": {
+      "name": "MongooseWebhookStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "implements": [
+        "IWebhookStore"
+      ],
+      "decorators": [],
+      "description": "Store d'endpoints webhook **Mongoose** (NoSQL) — implémentation d' {@link IWebhookStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webhook_endpoint`). Pendant documentaire de `Drizzle…"
     },
     "@nodefony/mongoose:SessionStorage": {
       "name": "SessionStorage",
@@ -16901,6 +16955,7 @@
       ],
       "IWebhookStore": [
         "DrizzleWebhookStore",
+        "MongooseWebhookStore",
         "MemoryWebhookStore"
       ],
       "ISessionStorage": [
@@ -19485,6 +19540,7 @@
         "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/modules/test/nodefony/entity/dolibarr/index.ts",
@@ -19502,6 +19558,7 @@
         "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
         "src/modules/test/nodefony/entity/dolibarr/index.ts",
@@ -19879,6 +19936,7 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
@@ -20017,6 +20075,7 @@
       ],
       "IWebhookEndpoint": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
@@ -20024,21 +20083,25 @@
       ],
       "IWebhookStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
       ],
       "WebhookEndpointUpdate": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
       ],
       "WEBHOOK_ENDPOINT_ENTITY": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
       ],
       "WebhookEndpointRow": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
       ],
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -20645,7 +20708,8 @@
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
       ],
       "IMongooseConnectorConfig": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
