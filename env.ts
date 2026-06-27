@@ -178,6 +178,16 @@ export const env = defineEnv({
   }),
 
   /**
+   * Backend du registre d'endpoints webhook (P6.13). `memory` (dev — perdu au
+   * redémarrage) | `drizzle` (DURABLE — table `webhook_endpoint` sur l'ORM SQL
+   * `"default"`). Câblé par `nodefony/security/webhookStore.ts` (entité + fabrique).
+   */
+  NF_WEBHOOK_STORE: envEnum(["memory", "drizzle"] as const, {
+    default: "memory",
+    description: "Backend des endpoints webhook (memory | drizzle durable).",
+  }),
+
+  /**
    * Clé de chiffrement des secrets de signature webhook au repos (P6.13,
    * HKDF→AES-256-GCM). PROD : OBLIGATOIRE — absente = webhooks désactivés (un
    * secret chiffré par une clé éphémère serait illisible après redémarrage / sur

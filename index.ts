@@ -9,6 +9,9 @@ import "./nodefony/entity/user";
 // Idempotence sur Drizzle (store distribué cross-pod, opt-in `NF_IDEMPOTENCY_STORE=drizzle`) :
 // enregistre l'entité (avant connect) + la fabrique (registre framework) au top-level.
 import "./nodefony/security/idempotencyStore";
+// Registre d'endpoints webhook durable sur Drizzle (opt-in `NF_WEBHOOK_STORE=drizzle`) :
+// enregistre l'entité (avant connect) + la fabrique (registre security) au top-level.
+import "./nodefony/security/webhookStore";
 // Source d'identité de l'app : pose le service "users" au boot (cf. fichier).
 import { provisionUsers } from "./nodefony/security/provisionUsers";
 

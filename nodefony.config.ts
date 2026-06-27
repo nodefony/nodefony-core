@@ -213,6 +213,9 @@ export default defineConfig<Env>((ctx) => ({
         // éphémère + warning). `enabled`/SSRF/livraison gardent leurs défauts.
         webhooks: {
           encryptionKey: ctx.env.NF_WEBHOOK_KEY,
+          // Backend du registre : memory (défaut) | drizzle (durable). Le câblage
+          // de la fabrique + l'entité vit dans `nodefony/security/webhookStore.ts`.
+          store: ctx.env.NF_WEBHOOK_STORE,
         },
       },
       { policy: "mandatory" },
