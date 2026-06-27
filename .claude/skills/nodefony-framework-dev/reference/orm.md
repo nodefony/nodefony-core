@@ -92,7 +92,7 @@ await repo.find(
 ); // RepositoryReadOptions
 await repo.findOne({ id });
 await repo.create({ title: "x", authorId }); // → entité persistée (id/défauts générés)
-await repo.update({ id }, { published: true }); // → entité|null
+await repo.updateOne({ id }, { published: true }); // → entité|null (atomique ; pas de `update` unique)
 await repo.delete({ id }); // → number supprimé
 await repo.count({ published: true });
 ```
@@ -141,7 +141,7 @@ export class ArticleService extends AbstractCrudService<
 ```typescript
 await orm.transaction(async (tx) => {
   const txRepo = repo.withTransaction(tx);        // vue liée à la tx (résout « repo non tx-aware »)
-  await txRepo.create({ ... }); await txRepo.update({ id }, { ... });
+  await txRepo.create({ ... }); await txRepo.updateOne({ id }, { ... });
 });                                                // commit auto au retour, rollback si throw
 ```
 

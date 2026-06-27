@@ -54,7 +54,7 @@ export class ThingsController extends Controller {
 - **Lire la requête par décorateurs** : `@Body()`/`@Body("f")`, `@Param("x")`, `@Query("x")`, `@Header("x")`.
   ⚠️ **`this.context.body` est VIDE/non parsé** → un POST lu ainsi tombe sur le défaut en silence.
 - En-têtes bruts : `this.context.request.headers.authorization` (clé **minuscule**, peut être `string|string[]`).
-- `@Redirect("/url", 302)`. `redirect()` : whitelist RFC 9110 §15.4 `{301,302,303,307,308}`, **défaut = 302** (Found) ; code hors liste → fallback 302 + WARNING. 307/308 **préservent** méthode+corps, 303 force GET ; 301/302 peuvent muter POST→GET. (F5 2026-05-30 : avant, tout ≠ 302 était écrasé en 301 = bug fonctionnel.) Réponses : `renderJson` / `renderView`/`renderTwig`/`renderEjs` / `forward("mod:ctrl:action")`.
+- `@Redirect("/url", 302)`. `redirect()` : whitelist RFC 9110 §15.4 `{301,302,303,307,308}`, **défaut = 302** (Found) ; code hors liste → fallback 302 + WARNING. 307/308 **préservent** méthode+corps, 303 force GET ; 301/302 peuvent muter POST→GET. Réponses : `renderJson` / `renderView` (moteur **Eta** — `renderTwig`/`renderEjs` n'existent plus) / `forward("mod:ctrl:action")`.
 - **Vhosting** : `@Domain("regexp"|["a","b"])` (classe ou méthode, précédence `@route({host})` > méthode > classe) → **403** si l'`Host` ne matche pas (`domainMatcher` pur, conforme). Hosts de confiance = config **`trustedHosts`** (ex-`domainAlias`, renommé pour la sécu). ⚠️ ordre des checks : un **405** ne doit pas masquer un **403** (Router corrigé).
 - **Ne jamais nommer une action** `session`/`request`/`response`/`context`/`method` (collision prop Controller → « Action not found »).
 - **WS** : même controller. Handshake = `execute(null)` (⚠️ l'action reçoit `undefined`, **pas** `null` →

@@ -58,12 +58,12 @@ await c.stream<TChunk>("method", params, (chunk) => {}); // RPC streaming
   consommateurs ref-comptent (`subscribe`/`unsubscribe`) ; JAMAIS de `emit("subscribe")` brut (un unsub à
   ref→0 couperait le canal pour tous). Normaliser `http(s)→ws(s)` (clé + WebSocket) sinon 2 sockets/throw.
 
-### Architecture « la socket Nodefony » (NORTH STAR — 2026-05-23)
+### Architecture « la socket Nodefony » (NORTH STAR)
 
 Le realtime est **stratifié** ; seul le transport diffère client/serveur, tout le reste est **isomorphe** :
 
 ```
-4. Hub        IRealtimeHub        ← LE PATRON : subscribe/publish/on + stats        ⬜ (RealtimeService P13)
+4. Hub        RealtimeHub         ← LE PATRON : subscribe/publish/on + stats        ✅ (classe ; pas d'interface IRealtimeHub exportée — façade userland = RealtimeService)
 3. Endpoint   IRealtimePeer       ← request/notify/receive (1 connexion)            ✅
 2. Peer       JsonRpcPeer         ← protocole JSON-RPC 2.0 (discrimination)         ✅
 1. Transport  IRealtimeTransport  ← octets : WS / ws / TCP / UDP / SIP / Redis      ✅ (seam polymorphe)
@@ -303,7 +303,7 @@ a justement supprimé).
   event-loop se **mitige** (worker_threads pour le CPU-bound, AIMD/backpressure, sortir l'ORM
   synchrone du thread principal).
 - **Si l'isomorphisme était négociable & seul le realtime à l'échelle comptait → Elixir/Phoenix.**
-- **Geste malin (polyglotte ciblé)** : `RealtimeService`/`IRealtimeHub` est **déjà
+- **Geste malin (polyglotte ciblé)** : `RealtimeService`/`RealtimeHub` est **déjà
   transport-agnostique** → c'est LE seam pour pousser, le jour du mur, le hot path du hub (pump WS,
   fan-out, backpressure) dans un **addon natif Rust (napi-rs)** in-process OU un **sidecar Go/Elixir**
   parlant notre JSON-RPC, **sans toucher au framework**. L'abstraction déjà en place vaut de l'or
