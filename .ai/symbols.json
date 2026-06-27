@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-27T00:29:54.241Z",
+  "generated": "2026-06-27T10:45:26.571Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 965,
-    "symbols": 2248,
-    "classes": 307,
-    "interfaces": 595,
-    "types": 265,
+    "files": 974,
+    "symbols": 2276,
+    "classes": 310,
+    "interfaces": 604,
+    "types": 269,
     "enums": 3,
-    "functions": 558,
+    "functions": 570,
     "constants": 520
   },
   "symbols": {
@@ -9456,6 +9456,40 @@
       "extends": null,
       "description": "Store **pluggable** des credentials WebAuthn — découple le cœur du backend de persistance (mémoire / ORM / Redis). Convention-frère d'`ITokenStore` : le builtin `memory` est sans dépendance, les ad…"
     },
+    "IWebhookEndpoint": {
+      "name": "IWebhookEndpoint",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebhookEndpoint.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Endpoint webhook sortant — une **destination** que Nodefony notifie quand un événement souscrit survient (modèle façon GitHub/Stripe). Le `secret` de signature est **chiffré au repos** (réversible,…"
+    },
+    "WebhookEndpointUpdate": {
+      "name": "WebhookEndpointUpdate",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebhookEndpoint.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Champs mutables d'un endpoint (PATCH). `id`/`createdAt`/`createdBy`/`tenantId` sont immuables après création."
+    },
+    "WebhookEndpointSummary": {
+      "name": "WebhookEndpointSummary",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebhookEndpoint.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Vue **publique** d'un endpoint (DTO console admin) — **sans** le secret chiffré. Le secret en clair n'est renvoyé qu'une fois, à la création/rotation."
+    },
+    "IWebhookStore": {
+      "name": "IWebhookStore",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Persistance des **endpoints webhook** (configuration durable, pas un cache). Backend interchangeable (Memory dev/test · Drizzle SQL · Mongoose) via le registre {@link ../src/webhook/webhookStoreReg…"
+    },
     "AccessDeniedError": {
       "name": "AccessDeniedError",
       "kind": "class",
@@ -9499,6 +9533,17 @@
       "implements": [],
       "decorators": [],
       "description": "Mutation cross-site bloquée — `code = 403` (RFC 9110 §15.5.4 : le serveur a compris la requête mais refuse de l'honorer). Levée par {@link Csrf} sur une méthode state-changing (POST/PUT/PATCH/DELET…"
+    },
+    "SsrfError": {
+      "name": "SsrfError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/errors/SsrfError.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "URL rejetée par la protection SSRF — `code = 422`. Levée quand une URL sortante (endpoint webhook, fetch applicatif…) est syntaxiquement valide mais cible une ressource **interdite** : protocole no…"
     },
     "ThrottledError": {
       "name": "ThrottledError",
@@ -9745,6 +9790,44 @@
       "module": "@nodefony/security",
       "extends": null,
       "description": "Résultat d'une authentification WebAuthn vérifiée."
+    },
+    "WebhookService": {
+      "name": "WebhookService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "**Webhooks sortants** (P6.13) — service d'orchestration du registre d'endpoints. Coquille fine : au boot (si `webhooks.enabled`) il résout le **store** d'endpoints pluggable + la **clé de chiffreme…"
+    },
+    "IWebhookRegisterInput": {
+      "name": "IWebhookRegisterInput",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Entrée de création d'un endpoint (les champs système sont dérivés)."
+    },
+    "IWebhookSecretReveal": {
+      "name": "IWebhookSecretReveal",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Résultat de création/rotation : le secret en clair n'est exposé qu'ici, **une fois**."
+    },
+    "IWebhookDeliveryPolicy": {
+      "name": "IWebhookDeliveryPolicy",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Politique de livraison lue par le dispatcher (Slice B)."
     },
     "CspFragment": {
       "name": "CspFragment",
@@ -14906,6 +14989,89 @@
       "decorators": [],
       "description": "Authentification par identifiant + mot de passe — schéma **HTTP Basic** (RFC 7617) : `Authorization: Basic base64(identifiant:motdepasse)`, charset UTF-8, split au PREMIER `:` (le mot de passe peut…"
     },
+    "IKeyDerivation": {
+      "name": "IKeyDerivation",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/crypto/secretCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Contexte de dérivation HKDF — distingue les domaines cryptographiques."
+    },
+    "deriveKey": {
+      "name": "deriveKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/crypto/secretCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Dérive une clé AES-256 (32 octets) d'un matériel de clé applicatif via HKDF-SHA256 (RFC 5869). Accepte toute longueur/forme (passphrase, hex, base64) sans jamais l'utiliser brute comme clé AES. **D…"
+    },
+    "generateEphemeralKey": {
+      "name": "generateEphemeralKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/crypto/secretCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Génère une clé éphémère 32 octets (dev sans clé configurée — non persistée)."
+    },
+    "encryptSecret": {
+      "name": "encryptSecret",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/crypto/secretCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Chiffre un secret en clair → blob opaque versionné (IV aléatoire à chaque appel)."
+    },
+    "decryptSecret": {
+      "name": "decryptSecret",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/crypto/secretCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Déchiffre un blob produit par {@link encryptSecret}. Lève si le format/version est invalide, le blob tronqué, ou le tag GCM non valide (altération OU mauvaise clé — GCM ne distingue pas les deux, p…"
+    },
+    "IAssertPublicUrlOptions": {
+      "name": "IAssertPublicUrlOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/net/ssrfGuard.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Options de validation d'une URL sortante."
+    },
+    "IPublicUrlResult": {
+      "name": "IPublicUrlResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/net/ssrfGuard.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Résultat d'une validation SSRF réussie."
+    },
+    "DnsResolver": {
+      "name": "DnsResolver",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/net/ssrfGuard.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Résolveur DNS injectable (testabilité) — renvoie toutes les IP d'un hôte."
+    },
+    "isBlockedAddress": {
+      "name": "isBlockedAddress",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/net/ssrfGuard.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Indique si une IP (littérale) est **non publique** (donc interdite comme cible sortante). Une IP syntaxiquement invalide est considérée bloquée (fail-closed). `node:net` `BlockList` rabat **nativem…"
+    },
+    "assertPublicUrl": {
+      "name": "assertPublicUrl",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/net/ssrfGuard.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Valide qu'une URL sortante est sûre (anti-SSRF) : protocole autorisé, pas d'identifiants embarqués, hôte résolvable, et **toutes** les IP résolues publiques. Lève {@link SsrfError} (422) sinon."
+    },
     "IOAuthProviderContext": {
       "name": "IOAuthProviderContext",
       "kind": "interface",
@@ -15286,31 +15452,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Dérive une clé AES-256 (32 octets) d'un matériel de clé applicatif via HKDF-SHA256 (RFC 5869). Accepte toute longueur/forme (passphrase, hex, base64) sans jamais l'utiliser brute comme clé AES. **D…"
-    },
-    "generateEphemeralKey": {
-      "name": "generateEphemeralKey",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Génère une clé éphémère 32 octets (dev sans clé configurée — non persistée)."
-    },
-    "encryptSecret": {
-      "name": "encryptSecret",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Chiffre un secret en clair → blob opaque versionné (IV aléatoire à chaque appel)."
-    },
-    "decryptSecret": {
-      "name": "decryptSecret",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Déchiffre un blob produit par {@link encryptSecret}. Lève si le format/version est invalide, le blob tronqué, ou le tag GCM non valide (altération OU mauvaise clé — GCM ne distingue pas les deux, p…"
+      "description": "Dérive la clé AES-256 du domaine TOTP via HKDF-SHA256 (RFC 5869). Déterministe (clé lisible cross-pod). Délègue à {@link deriveKey} avec le contexte figé du domaine TOTP."
     },
     "ITotpOptions": {
       "name": "ITotpOptions",
@@ -15697,6 +15839,68 @@
       "name": "listWebAuthnStores",
       "kind": "function",
       "file": "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
+    },
+    "MemoryWebhookStore": {
+      "name": "MemoryWebhookStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IWebhookStore"
+      ],
+      "decorators": [],
+      "description": "Store d'endpoints webhook **en mémoire** — défaut dev/test (non persistant : les endpoints sont perdus au redémarrage). En prod, utiliser `drizzle`/ `mongoose` (config `webhooks.store`). Map indexé…"
+    },
+    "deriveWebhookKey": {
+      "name": "deriveWebhookKey",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookCipher.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Dérive la clé AES-256 du domaine webhook via HKDF-SHA256 (RFC 5869). Déterministe (clé lisible cross-pod)."
+    },
+    "IWebhookStoreFactoryContext": {
+      "name": "IWebhookStoreFactoryContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Registre de **fabriques de stores d'endpoints webhook** — résout un nom (`memory`, `drizzle`, `mongoose`…) vers une instance, SANS coupler le cœur à un backend en dur. Convention-frère de `totpSecr…"
+    },
+    "WebhookStoreFactory": {
+      "name": "WebhookStoreFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store d'endpoints webhook pour un nom donné."
+    },
+    "registerWebhookStore": {
+      "name": "registerWebhookStore",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Enregistre (ou remplace) la fabrique d'un store d'endpoints webhook."
+    },
+    "getWebhookStoreFactory": {
+      "name": "getWebhookStoreFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store par nom, ou `undefined` si inconnu."
+    },
+    "listWebhookStores": {
+      "name": "listWebhookStores",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts",
       "exported": true,
       "module": "@nodefony/security",
       "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
@@ -16165,6 +16369,7 @@
         "TokenService",
         "TotpService",
         "WebAuthnService",
+        "WebhookService",
         "ServerHttp",
         "ServerHttps",
         "Statics",
@@ -16381,6 +16586,7 @@
         "ApiKeyError",
         "AuthenticationError",
         "CsrfError",
+        "SsrfError",
         "ThrottledError",
         "UserNotFoundError",
         "WeakPasswordError",
@@ -16665,6 +16871,9 @@
         "RoleVoter",
         "ScopeVoter"
       ],
+      "IWebhookStore": [
+        "MemoryWebhookStore"
+      ],
       "IPasswordEncoder": [
         "Argon2idEncoder",
         "BcryptEncoder",
@@ -16821,6 +17030,7 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -16877,6 +17087,7 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -16896,6 +17107,7 @@
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
@@ -16941,6 +17153,7 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -17229,6 +17442,7 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -18175,6 +18389,9 @@
       "TotpService": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "WebhookService": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "registerSecurityAdminApi": [
         "src/packages/@nodefony/security/index.ts"
       ],
@@ -18191,7 +18408,8 @@
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "securityConfigJsonSchema": [
         "src/packages/@nodefony/security/index.ts"
@@ -18514,6 +18732,7 @@
         "src/packages/@nodefony/security/nodefony/errors/ApiKeyError.ts",
         "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
         "src/packages/@nodefony/security/nodefony/errors/CsrfError.ts",
+        "src/packages/@nodefony/security/nodefony/errors/SsrfError.ts",
         "src/packages/@nodefony/security/nodefony/errors/ThrottledError.ts",
         "src/packages/@nodefony/user/nodefony/errors/UserNotFoundError.ts",
         "src/packages/@nodefony/user/nodefony/errors/WeakPasswordError.ts",
@@ -20454,7 +20673,8 @@
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "IToken": [
         "src/packages/@nodefony/security/nodefony/contracts/IAccessVoter.ts",
@@ -20532,6 +20752,16 @@
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
+      "IWebhookEndpoint": [
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+      ],
+      "WebhookEndpointUpdate": [
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+      ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
@@ -20540,11 +20770,13 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
       ],
       "IApiKeyView": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
@@ -20783,7 +21015,10 @@
         "src/packages/@nodefony/security/nodefony/service/totp.ts"
       ],
       "generateEphemeralKey": [
-        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookCipher.ts"
       ],
       "ITotpDeps": [
         "src/packages/@nodefony/security/nodefony/service/totp.ts"
@@ -20817,6 +21052,35 @@
       ],
       "getWebAuthnStoreFactory": [
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
+      ],
+      "IWebhookStore": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
+      ],
+      "WebhookEndpointSummary": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "getWebhookStoreFactory": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "decryptSecret": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookCipher.ts"
+      ],
+      "deriveWebhookKey": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "encryptSecret": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookCipher.ts"
+      ],
+      "assertPublicUrl": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "ISecurityAreaConfig": [
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
@@ -22449,6 +22713,9 @@
       "UserRealtimeToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
       ],
+      "SsrfError": [
+        "src/packages/@nodefony/security/nodefony/src/net/ssrfGuard.ts"
+      ],
       "createOidcProvider": [
         "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts"
       ],
@@ -22476,6 +22743,10 @@
         "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
       ],
+      "deriveKey": [
+        "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookCipher.ts"
+      ],
       "base32Encode": [
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
@@ -22497,12 +22768,6 @@
       "verifyTotp": [
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
-      "decryptSecret": [
-        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
-      ],
-      "encryptSecret": [
-        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
-      ],
       "FileTotpSecretStore": [
         "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
       ],
@@ -22521,6 +22786,9 @@
       ],
       "FileWebAuthnCredentialStore": [
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "MemoryWebhookStore": [
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
       ],
       "validateProfilePatch": [
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"

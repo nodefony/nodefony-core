@@ -626,19 +626,59 @@ const webhooksSchema = z
     signAlg: z
       .enum(["sha256"])
       .default("sha256")
-      .describe("HMAC sortant (X-Nodefony-Signature-256)."),
+      .describe(
+        "Schéma de signature Standard Webhooks v1 (HMAC-SHA256). Slot Ed25519 (v1a) réservé.",
+      ),
     timestampToleranceS: z
       .number()
       .int()
+      .positive()
       .default(300)
-      .describe("Fenêtre anti-replay (style Stripe)."),
+      .describe(
+        "Fenêtre anti-replay du webhook-timestamp (s, Standard Webhooks).",
+      ),
     denyPrivateIps: z
       .boolean()
       .default(true)
       .describe("Bloque SSRF (IP privées / métadonnées cloud)."),
-    maxRetries: z.number().int().default(5),
+    maxRetries: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(5)
+      .describe("Tentatives de livraison avant abandon."),
+    autoDisableThreshold: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(20)
+      .describe(
+        "Échecs consécutifs avant désactivation auto d'un endpoint (façon GitHub). 0 = jamais.",
+      ),
+    deliveryTimeoutMs: z
+      .number()
+      .int()
+      .positive()
+      .default(10000)
+      .describe("Délai max d'une tentative de livraison (ms)."),
+    allowHttp: z
+      .boolean()
+      .default(false)
+      .describe("Autorise http:// (dev only). Prod : https:// obligatoire."),
+    store: z
+      .string()
+      .default("memory")
+      .describe(
+        "Backend des endpoints : memory (dev) | drizzle | mongoose. Câblé via registerWebhookStore().",
+      ),
+    encryptionKey: z
+      .string()
+      .optional()
+      .describe(
+        "Clé de chiffrement des secrets de signature au repos (HKDF→AES-256-GCM). Prod : OBLIGATOIRE (absente = webhooks OFF). Dev : clé éphémère + warn.",
+      ),
   })
-  .describe("Webhooks sortants signés.");
+  .describe("Webhooks sortants signés (Standard Webhooks).");
 
 const auditSchema = z
   .object({

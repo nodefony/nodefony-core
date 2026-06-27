@@ -208,10 +208,15 @@ export default {
     // ══════════════════ WEBHOOKS (sortants, signés) ══════════════════
     webhooks: {
       enabled: true, //              active les webhooks. Défaut: true.
-      signAlg: "sha256", //         HMAC sortant (X-Nodefony-Signature-256). Défaut: "sha256".
-      timestampToleranceS: 300, //  fenêtre anti-replay (s, style Stripe). Défaut: 300.
-      denyPrivateIps: true, //      bloque SSRF (IP privées / 169.254.169.254). Défaut: true. NE PAS désactiver en prod.
-      maxRetries: 5, //             tentatives de livraison. Défaut: 5.
+      signAlg: "sha256", //          signature Standard Webhooks v1 (HMAC-SHA256). Défaut: "sha256".
+      timestampToleranceS: 300, //   anti-replay du webhook-timestamp (s). Défaut: 300.
+      denyPrivateIps: true, //       bloque SSRF (IP privées / 169.254.169.254). Défaut: true. NE PAS désactiver en prod.
+      maxRetries: 5, //              tentatives de livraison. Défaut: 5.
+      autoDisableThreshold: 20, //   échecs consécutifs avant désactivation auto (façon GitHub). 0 = jamais. Défaut: 20.
+      deliveryTimeoutMs: 10000, //   délai max d'une tentative (ms). Défaut: 10000.
+      allowHttp: false, //           autorise http:// (dev). Prod: https:// obligatoire. Défaut: false.
+      store: "memory", //            backend endpoints: memory|drizzle|mongoose. Défaut: "memory".
+      // encryptionKey via env (NF_WEBHOOK_KEY) — secret, jamais en dur. Prod OBLIGATOIRE ; dev: éphémère+warn.
     },
 
     // ══════════════════ AUDIT (journal sécurité) ══════════════════

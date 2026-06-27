@@ -11,6 +11,7 @@ import OAuth2Service from "./nodefony/service/oauth2";
 import ApiKeyService from "./nodefony/service/apiKeys";
 import AuditService from "./nodefony/service/auditService";
 import TotpService from "./nodefony/service/totp";
+import WebhookService from "./nodefony/service/webhooks";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import { registerUserAdminApi } from "@nodefony/user";
 import { registerUserRevocationCascade } from "./nodefony/src/admin/userRevocationCascade";
@@ -52,6 +53,7 @@ declare module "nodefony" {
   OAuth2Service,
   AuditService,
   TotpService,
+  WebhookService,
 ])
 class Security extends Module {
   constructor(kernel: Kernel) {
@@ -105,6 +107,12 @@ export { WebAuthnService };
 export { OAuth2Service };
 export { AuditService };
 export { TotpService };
+export { WebhookService };
+export type {
+  IWebhookRegisterInput,
+  IWebhookSecretReveal,
+  IWebhookDeliveryPolicy,
+} from "./nodefony/service/webhooks";
 export type { ISafeUser, ILoginOutcome } from "./nodefony/service/authFlow";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
 export type {
@@ -265,6 +273,42 @@ export type {
   ITotpLoginResult,
 } from "./nodefony/src/totp/totpOperations";
 
+// ─── Webhooks sortants (P6.13) — endpoints chiffrés + store pluggable ────────
+export { MemoryWebhookStore } from "./nodefony/src/webhook/MemoryWebhookStore";
+export {
+  registerWebhookStore,
+  getWebhookStoreFactory,
+  listWebhookStores,
+} from "./nodefony/src/webhook/webhookStoreRegistry";
+export type {
+  WebhookStoreFactory,
+  IWebhookStoreFactoryContext,
+} from "./nodefony/src/webhook/webhookStoreRegistry";
+export type {
+  IWebhookEndpoint,
+  WebhookEndpointUpdate,
+  WebhookEndpointSummary,
+} from "./nodefony/contracts/IWebhookEndpoint";
+export type { IWebhookStore } from "./nodefony/contracts/IWebhookStore";
+
+// ─── Briques génériques réutilisables (SSRF + chiffrement de secret) ─────────
+export {
+  assertPublicUrl,
+  isBlockedAddress,
+} from "./nodefony/src/net/ssrfGuard";
+export type {
+  IAssertPublicUrlOptions,
+  IPublicUrlResult,
+  DnsResolver,
+} from "./nodefony/src/net/ssrfGuard";
+export {
+  deriveKey,
+  encryptSecret,
+  decryptSecret,
+  generateEphemeralKey,
+} from "./nodefony/src/crypto/secretCipher";
+export type { IKeyDerivation } from "./nodefony/src/crypto/secretCipher";
+
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
 export { defineSecurityConfig } from "./nodefony/config/defineSecurityConfig";
 export type {
@@ -283,6 +327,7 @@ export {
   AccessDeniedError,
   ThrottledError,
   CsrfError,
+  SsrfError,
 } from "./nodefony/errors";
 
 // ─── Contrats ────────────────────────────────────────────────────────────────

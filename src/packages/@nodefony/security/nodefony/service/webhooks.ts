@@ -1,0 +1,363 @@
+import { Service, Module, Container, Event } from "nodefony";
+import { Buffer } from "node:buffer";
+import { randomBytes } from "node:crypto";
+import {
+  defineSecurityConfig,
+  type ISecurityConfig,
+  type ISecurityConfigInput,
+} from "../config/defineSecurityConfig";
+import type { IWebhookStore } from "../contracts/IWebhookStore";
+import type {
+  IWebhookEndpoint,
+  WebhookEndpointSummary,
+  WebhookEndpointUpdate,
+} from "../contracts/IWebhookEndpoint";
+import { getWebhookStoreFactory } from "../src/webhook/webhookStoreRegistry";
+import {
+  decryptSecret,
+  deriveWebhookKey,
+  encryptSecret,
+  generateEphemeralKey,
+} from "../src/webhook/webhookCipher";
+import { assertPublicUrl } from "../src/net/ssrfGuard";
+
+const serviceName = "webhooks";
+
+/** Entrée de création d'un endpoint (les champs système sont dérivés). */
+export interface IWebhookRegisterInput {
+  /** URL de destination (validée anti-SSRF). */
+  readonly url: string;
+  /** Actions d'audit souscrites (`"*"` = toutes). */
+  readonly events: readonly string[];
+  /** Libellé humain optionnel. */
+  readonly description?: string | null;
+  /** Actif dès la création ? Défaut : `true`. */
+  readonly enabled?: boolean;
+  /** Identité de l'admin créateur (traçabilité). */
+  readonly createdBy?: string | null;
+  /** Slot multi-tenant (réservé). */
+  readonly tenantId?: string | null;
+  /** Métadonnées extensibles. */
+  readonly metadata?: Record<string, unknown>;
+}
+
+/** Résultat de création/rotation : le secret en clair n'est exposé qu'ici, **une fois**. */
+export interface IWebhookSecretReveal {
+  /** Endpoint (sans secret chiffré). */
+  readonly endpoint: WebhookEndpointSummary;
+  /** Secret de signature en clair (`whsec_…`) — à communiquer au consommateur. */
+  readonly secret: string;
+}
+
+/** Politique de livraison lue par le dispatcher (Slice B). */
+export interface IWebhookDeliveryPolicy {
+  readonly timestampToleranceS: number;
+  readonly maxRetries: number;
+  readonly autoDisableThreshold: number;
+  readonly deliveryTimeoutMs: number;
+  readonly allowHttp: boolean;
+  readonly denyPrivateIps: boolean;
+}
+
+/** Retire le secret chiffré → vue publique. */
+function toSummary(endpoint: IWebhookEndpoint): WebhookEndpointSummary {
+  const { secretEnc: _omit, ...rest } = endpoint;
+  return rest;
+}
+
+/** Identifiant public d'endpoint (`wh_<random url-safe>`). */
+function generateId(): string {
+  return `wh_${randomBytes(12).toString("base64url")}`;
+}
+
+/** Secret de signature Standard Webhooks (`whsec_<base64 256 bits>`). */
+function generateSecret(): string {
+  return `whsec_${randomBytes(32).toString("base64")}`;
+}
+
+/**
+ * **Webhooks sortants** (P6.13) — service d'orchestration du registre d'endpoints.
+ *
+ * Coquille fine : au boot (si `webhooks.enabled`) il résout le **store**
+ * d'endpoints pluggable + la **clé de chiffrement** des secrets de signature, puis
+ * expose le CRUD (register/list/update/rotate/revoke). Le secret de signature est
+ * **chiffré au repos** (réversible : relu pour signer chaque livraison, jamais
+ * haché). La livraison signée elle-même (Standard Webhooks v1) vit dans le
+ * dispatcher (Slice B), qui consomme {@link getSnapshot}/{@link getSigningKey}.
+ *
+ * Toute URL est validée **anti-SSRF** à l'enregistrement (et re-pinnée à la
+ * livraison). Politique de clé calquée sur TOTP/RedisIdempotencyStore : absente en
+ * dev = clé éphémère + WARNING ; en production = fatal (webhooks désactivés).
+ */
+class WebhookService extends Service {
+  #config: ISecurityConfig | null = null;
+  #store: IWebhookStore | null = null;
+  #key: Buffer | null = null;
+  #ready = false;
+  /** Cache mémoire des endpoints (snapshot sync pour le dispatcher). */
+  #endpoints: Map<string, IWebhookEndpoint> | null = null;
+
+  constructor(public module: Module) {
+    super(
+      serviceName,
+      module.container as Container,
+      module.notificationsCenter as Event,
+      module.options,
+    );
+    this.kernel?.once("onBoot", () => this.#build());
+  }
+
+  // ── Cycle de vie ─────────────────────────────────────────────────────────────
+
+  #build(): void {
+    let config: ISecurityConfig;
+    try {
+      config = defineSecurityConfig(this.options as ISecurityConfigInput);
+    } catch {
+      // Config invalide : le firewall logge déjà CRITIC + fail-closed.
+      return;
+    }
+    if (!config.webhooks.enabled) {
+      this.log("webhooks idle — désactivés en config", "DEBUG");
+      return;
+    }
+    const store = this.#resolveStore(config);
+    if (!store) return;
+    const key = this.#resolveKey(config);
+    if (!key) return;
+    this.#config = config;
+    this.#store = store;
+    this.#key = key;
+    this.#ready = true;
+    void this.#reloadSnapshot();
+    this.log(`webhooks ready — store "${config.webhooks.store}"`, "DEBUG");
+  }
+
+  /** Adapter posé au container (ORM) prioritaire, sinon driver configuré (registre). */
+  #resolveStore(config: ISecurityConfig): IWebhookStore | null {
+    const existing = this.get<IWebhookStore>("webhookStore");
+    if (existing) return existing;
+    const driver = config.webhooks.store;
+    const factory = getWebhookStoreFactory(driver);
+    if (!factory) {
+      this.log(
+        `webhooks store "${driver}" inconnu — webhooks indisponibles`,
+        "CRITIC",
+      );
+      return null;
+    }
+    const store = factory({ container: this.container as Container, config });
+    this.container?.set("webhookStore", store);
+    return store;
+  }
+
+  /** Clé AES-256 du secret au repos. Dev : éphémère + WARNING ; prod : fatal (null). */
+  #resolveKey(config: ISecurityConfig): Buffer | null {
+    const material = config.webhooks.encryptionKey;
+    if (material && material.length > 0) {
+      return deriveWebhookKey(material);
+    }
+    const isProd =
+      (this.kernel as { environment?: string } | null)?.environment ===
+      "production";
+    if (isProd) {
+      this.log(
+        "webhooks: AUCUNE clé de chiffrement (`security.webhooks.encryptionKey`) en " +
+          "PRODUCTION — webhooks désactivés (un secret chiffré par une clé éphémère serait " +
+          "illisible après redémarrage / sur les autres pods). Fournir une clé depuis l'environnement.",
+        "CRITIC",
+      );
+      return null;
+    }
+    this.log(
+      "webhooks: aucune clé de chiffrement configurée — clé ÉPHÉMÈRE générée (dev). Les " +
+        "secrets de signature ne survivront pas au redémarrage.",
+      "WARNING",
+    );
+    return generateEphemeralKey();
+  }
+
+  async #reloadSnapshot(): Promise<void> {
+    if (!this.#store) return;
+    try {
+      const all = await this.#store.listAll();
+      this.#endpoints = new Map(all.map((e) => [e.id, e]));
+    } catch (e) {
+      this.log(e as Error, "ERROR");
+    }
+  }
+
+  // ── API publique ─────────────────────────────────────────────────────────────
+
+  /** Le service est-il opérationnel (activé + store + clé) ? */
+  isReady(): boolean {
+    return this.#ready;
+  }
+
+  /**
+   * Enregistre un endpoint : valide l'URL (anti-SSRF), génère un secret de
+   * signature, le chiffre au repos. Retourne l'endpoint + le secret **en clair**
+   * (la seule occasion de le lire pour le copier).
+   *
+   * @throws SsrfError si l'URL est invalide / cible non publique.
+   */
+  async register(input: IWebhookRegisterInput): Promise<IWebhookSecretReveal> {
+    this.#assertReady();
+    await this.#assertSafeUrl(input.url);
+    const secret = generateSecret();
+    const now = Date.now();
+    const endpoint: IWebhookEndpoint = {
+      id: generateId(),
+      url: input.url,
+      secretEnc: encryptSecret(Buffer.from(secret, "utf8"), this.#key!),
+      events: [...input.events],
+      enabled: input.enabled ?? true,
+      description: input.description ?? null,
+      tenantId: input.tenantId ?? null,
+      createdBy: input.createdBy ?? null,
+      createdAt: now,
+      updatedAt: now,
+      lastDeliveryAt: null,
+      lastDeliveryStatus: null,
+      lastDeliveryError: null,
+      failureCount: 0,
+      metadata: input.metadata ?? {},
+    };
+    await this.#store!.save(endpoint);
+    this.#endpoints?.set(endpoint.id, endpoint);
+    return { endpoint: toSummary(endpoint), secret };
+  }
+
+  /** Tous les endpoints (vue publique, sans secret). */
+  async list(): Promise<WebhookEndpointSummary[]> {
+    this.#assertReady();
+    const all = await this.#store!.listAll();
+    return all.map(toSummary);
+  }
+
+  /** Un endpoint par id (vue publique), ou `null`. */
+  async getEndpoint(id: string): Promise<WebhookEndpointSummary | null> {
+    this.#assertReady();
+    const found = await this.#store!.findById(id);
+    return found ? toSummary(found) : null;
+  }
+
+  /**
+   * Met à jour les champs mutables (url/events/enabled/description/metadata).
+   * Une nouvelle `url` est re-validée anti-SSRF. Retourne l'endpoint mis à jour,
+   * ou `null` si absent.
+   */
+  async update(
+    id: string,
+    patch: Pick<
+      WebhookEndpointUpdate,
+      "url" | "events" | "enabled" | "description" | "metadata"
+    >,
+  ): Promise<WebhookEndpointSummary | null> {
+    this.#assertReady();
+    const current = await this.#store!.findById(id);
+    if (!current) return null;
+    if (patch.url !== undefined && patch.url !== current.url) {
+      await this.#assertSafeUrl(patch.url);
+    }
+    const applied: WebhookEndpointUpdate = { ...patch, updatedAt: Date.now() };
+    await this.#store!.update(id, applied);
+    const next = { ...current, ...applied };
+    this.#endpoints?.set(id, next);
+    return toSummary(next);
+  }
+
+  /** Active/désactive un endpoint (révocation douce = `false`). */
+  async setEnabled(
+    id: string,
+    enabled: boolean,
+  ): Promise<WebhookEndpointSummary | null> {
+    return this.update(id, { enabled });
+  }
+
+  /**
+   * Régénère le secret de signature (rotation) et retourne le nouveau en clair.
+   * L'ancien cesse immédiatement d'être valide. `null` si l'endpoint est absent.
+   */
+  async rotateSecret(id: string): Promise<IWebhookSecretReveal | null> {
+    this.#assertReady();
+    const current = await this.#store!.findById(id);
+    if (!current) return null;
+    const secret = generateSecret();
+    const patch: WebhookEndpointUpdate = {
+      secretEnc: encryptSecret(Buffer.from(secret, "utf8"), this.#key!),
+      updatedAt: Date.now(),
+    };
+    await this.#store!.update(id, patch);
+    const next = { ...current, ...patch };
+    this.#endpoints?.set(id, next);
+    return { endpoint: toSummary(next), secret };
+  }
+
+  /**
+   * Révèle le secret en clair d'un endpoint (réversible — usage admin, à auditer
+   * par l'appelant). `null` si absent.
+   */
+  async revealSecret(id: string): Promise<string | null> {
+    this.#assertReady();
+    const current = await this.#store!.findById(id);
+    if (!current) return null;
+    return decryptSecret(current.secretEnc, this.#key!).toString("utf8");
+  }
+
+  /** Supprime un endpoint. Retourne `false` si absent. */
+  async delete(id: string): Promise<boolean> {
+    this.#assertReady();
+    const current = await this.#store!.findById(id);
+    if (!current) return false;
+    await this.#store!.delete(id);
+    this.#endpoints?.delete(id);
+    return true;
+  }
+
+  // ── Accessors dispatcher (Slice B) ───────────────────────────────────────────
+
+  /** Snapshot mémoire (sync) des endpoints — lecture hot-path du dispatcher. */
+  getSnapshot(): IWebhookEndpoint[] {
+    return this.#endpoints ? [...this.#endpoints.values()] : [];
+  }
+
+  /** Déchiffre le secret de signature d'un endpoint (pour signer une livraison). */
+  decryptEndpointSecret(endpoint: IWebhookEndpoint): Buffer {
+    this.#assertReady();
+    return decryptSecret(endpoint.secretEnc, this.#key!);
+  }
+
+  /** Politique de livraison (tolérance/retries/timeout…) issue de la config. */
+  getDeliveryPolicy(): IWebhookDeliveryPolicy {
+    this.#assertReady();
+    const w = this.#config!.webhooks;
+    return {
+      timestampToleranceS: w.timestampToleranceS,
+      maxRetries: w.maxRetries,
+      autoDisableThreshold: w.autoDisableThreshold,
+      deliveryTimeoutMs: w.deliveryTimeoutMs,
+      allowHttp: w.allowHttp,
+      denyPrivateIps: w.denyPrivateIps,
+    };
+  }
+
+  // ── Interne ──────────────────────────────────────────────────────────────────
+
+  #assertReady(): void {
+    if (!this.#ready || !this.#store || !this.#key) {
+      throw new Error("webhooks indisponibles (désactivés ou mal configurés)");
+    }
+  }
+
+  async #assertSafeUrl(url: string): Promise<void> {
+    const w = this.#config!.webhooks;
+    await assertPublicUrl(url, {
+      allowPrivate: !w.denyPrivateIps,
+      allowHttp: w.allowHttp,
+    });
+  }
+}
+
+export { WebhookService };
+export default WebhookService;
