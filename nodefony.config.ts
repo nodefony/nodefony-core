@@ -136,7 +136,14 @@ export default defineConfig<Env>((ctx) => ({
         // régler explicitement selon l'ingress. Défaut SÛR : false (0 confiance).
         trustProxy: ctx.env.NF_BIND_ALL ? ["loopback", "uniquelocal"] : false,
         // Stockage de session via @nodefony/drizzle (orm-core).
-        session: { handler: "drizzle" },
+        // maxLifetimeS = PANSEMENT en attendant le chantier session NIST-aligné
+        // (idle/absolute + touch). En DEV : 8h (le dev reste connecté ; sans touch,
+        // maxLifetimeS se comporte en absolute car l'activité WS ne rafraîchit pas
+        // updatedAt). En PROD : défaut inchangé (le vrai fix = touch, pas allonger).
+        session: {
+          handler: "drizzle",
+          maxLifetimeS: ctx.isProd ? 1440 : 28800,
+        },
         formidable: { uploadDir: "./tmp/upload" },
       },
       { policy: "mandatory" },
