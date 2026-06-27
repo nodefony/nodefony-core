@@ -145,6 +145,8 @@ La doc externe (RFC, TS handbook, NestJS) et les phases futures (10/12/13/14) so
 
 **Convention skills/commands (figée 2026-05-21)** : tous les skills sont préfixés `nodefony-` (namespace + auto-trigger) ; les slash-commands restent **courtes et non préfixées** (couche UX tapée qui délègue au skill — ex. `/start-server`, `/migration-audit`). Cycle de vie d'une session = **un seul skill `nodefony-session`** (modes : RESUME « reprends » après `/clear` / START `<module>` / END « fin de session » / CONSOLIDATE). La liste complète des skills est fournie par le harness — ne pas la dupliquer ici.
 
+> **Écrire/éditer un skill** → suivre les **best-practices Anthropic** (doc officielle `platform.claude.com/.../agent-skills/best-practices` ; distillées dans la mémoire IA `feedback_skill_authoring`) : **progressive disclosure** (SKILL.md = processus + INDEX < 500 l, détail dans `reference/*.md` chargé à la demande, refs **1 niveau**, TOC si > 100 l), description **3ᵉ personne** (capacité + quand ; 0 roadmap), **degrees of freedom** adaptés, **anti time-sensitive** (cf 🕰️ règle intemporelle § doc modules), **autosuffisant** (consumer = npm `dist` seul → `reference/` CONTIENT les internals), exemples vérifiés au source, note _Maintenance_ en tête (édition en place, histoire = git).
+
 **Convention de route `/nodefony/*` réservée à Studio** : tout module exposant une API d'admin (stats, introspection) doit exposer `/nodefony/<module>/api/*` documenté dans son `MEMORY.md`. Concevoir en GraphQL/REST JSON — pas de couplage à la vue. (Détails complets : skill `nodefony-roadmap`.)
 
 **Cache MEMORY** : une fois une API Node.js comprise (ex : `node:http2`), stocker les signatures critiques dans le `MEMORY.md` du module concerné — évite de relire la doc.
@@ -595,10 +597,25 @@ Après toute modification ou fin de session sur un module :
 | `MEMORY.md` | IA       | Ultra-concis, mots-clés, 0 prose. Ex : `Pdu: log entry. Buffer: FIFO O(1).` |
 | `README.md` | Humains  | Exemples complets, tableaux API, troubleshooting                            |
 
+### 🕰️ RÈGLE INTEMPORELLE (MEMORY.md ET CLAUDE.md de module) — anti-journal
+
+Ces fichiers décrivent la **vérité COURANTE** du code, **jamais un journal**. Vu en session : les
+MEMORY accumulaient des annotations datées (`(2026-MM-DD)`, `corrigé le …`, `✅ DATE`, sections
+`RESTE`/`TODO`/`Changelog`) → doublon de `git log` + vieillissement (un `RESTE:` devient un mensonge
+une fois fait). Discipline (vaut AUSSI pour les **skills**, cf leur note _Maintenance_) :
+
+- **0 date** · **0 section** `RESTE`/`TODO`/`Changelog`/`État`/`Historique` · **0 réf d'avancement par phase**
+  (`P6.x`, « livré », « à faire ») → l'**avancement = `MIGRATION_STATUS.md` SEUL**, l'**historique = `git log`**.
+- Mettre à jour = **éditer la section concernée EN PLACE**. Une leçon durable se **fond en RÈGLE** (dans Gotchas),
+  pas en entrée datée.
+- Un fait **PÉRIMÉ** (contredit par le code) se **CORRIGE** (devise : ancrer au code, `fichier:ligne`) — jamais
+  annoté « (corrigé le …) ». Les labels internes non-datés (G1/G2, V4, lots) restent OK.
+
 Vérification avant commit :
 
 ```bash
-grep -r "TODO\|FIXME\|console\.log" src/nodefony/src/
+grep -r "TODO\|FIXME\|console\.log" src/nodefony/src/           # code propre
+rg -l "20[0-9]{2}-[0-9]{2}-[0-9]{2}" **/MEMORY.md **/CLAUDE.md   # journal : doit être VIDE (hors git)
 ```
 
 ---
