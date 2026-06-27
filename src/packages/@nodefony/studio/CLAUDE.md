@@ -14,11 +14,14 @@
 
 **Dès que tu développes le frontend Studio** (page, dashboard, panneau, onglet, composant),
 tu DOIS d'abord invoquer le skill **`nodefony-studio-dev`** (déclencheurs : « dev studio »,
-« page studio », « dashboard studio », « écran/panneau studio »). Il contient le kit VIVANT :
-API exacte du UI kit + hooks `nodefony/react`, recette (route/lazy/navConfig/fallback/data plane),
-squelettes, règles qualité (a11y/sécu/perf), gate `npm run typecheck`, et le **retex** (tous les
-problèmes rencontrés + leur fix). Source de vérité unique → ne PAS réinventer ni explorer le kit.
-**Fin de session Studio** : compléter la section Retex du skill (problèmes + fixes + nouvelles briques).
+« page studio », « dashboard studio », « écran/panneau studio »). Skill **v2.0** (progressive
+disclosure) : `SKILL.md` = processus + INDEX ; le détail vit dans `reference/` chargé à la demande
+(`ui-kit.md` construire-un-écran · `realtime-studio.md` · `backend-studio.md` · `twin.md` ·
+`debugbar.md` · `gotchas-studio.md` = pièges durables). Source de vérité unique → ne PAS réinventer
+ni explorer le kit. Mécanismes front **généraux** (isomorphisme/socket/HMR/BFF/perf/a11y) → skill
+**`nodefony-frontend-dev`** dont studio-dev dérive.
+**Fin de session Studio** : fondre les nouvelles leçons en **règles** dans `reference/gotchas-studio.md`
+(jamais un journal daté — l'historique = `git log`).
 
 ## Rôle du module
 
