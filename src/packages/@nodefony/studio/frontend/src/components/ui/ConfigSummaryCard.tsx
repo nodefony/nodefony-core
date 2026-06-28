@@ -140,14 +140,21 @@ export function ConfigSummaryCard({
   const atBoot = total - live - reserved;
   const sm = SCHEMA[schema];
 
+  // Carte INTELLIGENTE : par défaut on n'affiche QUE les surcharges (réglages ≠
+  // défaut = l'identité du déploiement), pas les 100+ réglages (scroll inutile).
+  // La recherche révèle alors TOUS les réglages ; « Tout voir » ouvre la fiche.
+  const overrides = useMemo(
+    () => fields.filter((f) => f.source === "app" || f.source === "env"),
+    [fields],
+  );
   const shown = useMemo(() => {
     const terms = norm(query.trim()).split(/\s+/).filter(Boolean);
-    if (!terms.length) return fields;
+    if (!terms.length) return overrides;
     return fields.filter((f) => {
       const hay = norm(searchText(f));
       return terms.every((t) => hay.includes(t));
     });
-  }, [fields, query]);
+  }, [fields, overrides, query]);
 
   return (
     <Card
@@ -252,10 +259,26 @@ export function ConfigSummaryCard({
         mb="xs"
       />
 
-      <ScrollArea style={{ flex: 1 }} mih={80} type="auto" offsetScrollbars>
+      <Text size="xs" c="dimmed" mb={6}>
+        {query
+          ? `${shown.length} résultat${shown.length > 1 ? "s" : ""} sur ${total}`
+          : overrides.length
+            ? `${overrides.length} surcharge${overrides.length > 1 ? "s" : ""} — réglages ≠ défaut`
+            : `Tout par défaut · ${total} réglage${total > 1 ? "s" : ""}`}
+      </Text>
+
+      <ScrollArea
+        style={{ flex: 1 }}
+        mih={60}
+        mah={260}
+        type="auto"
+        offsetScrollbars
+      >
         {shown.length === 0 ? (
           <Text c="dimmed" size="xs" py="sm">
-            Aucun réglage ne correspond.
+            {query
+              ? "Aucun réglage ne correspond."
+              : "Aucune surcharge : ce module tourne sur ses défauts. Cherche un réglage ci-dessus pour explorer, ou « Tout voir »."}
           </Text>
         ) : (
           <Stack gap={6} pr="xs">
