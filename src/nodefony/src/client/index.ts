@@ -15,7 +15,6 @@ import {
   isPromise,
   isSubclassOf,
 } from "../Tools";
-import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
 import Websocket from "./transport/websocket";
 import Storage from "./api/Storage";
 import { RealtimeClient } from "./realtime/RealtimeClient";
@@ -71,11 +70,8 @@ class Nodefony {
     }
     return Nodefony.instance;
   }
-  generateV5Id(name: string, namespace?: string): string {
-    return uuidv5(name, namespace || uuidv4());
-  }
   generateId(): string {
-    return uuidv4();
+    return globalThis.crypto.randomUUID();
   }
 }
 

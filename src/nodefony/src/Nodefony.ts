@@ -1,6 +1,6 @@
 import type Kernel from "./kernel/Kernel";
 import { version as pkgVersion } from "../package.json";
-import { v4 as uuidv4, v5 as uuidv5 } from "uuid";
+import { randomUUID } from "node:crypto";
 
 /**
  * Façade statique du framework — point d'entrée global remplaçant le singleton JS legacy.
@@ -46,25 +46,12 @@ export class Nodefony {
   }
 
   /**
-   * Génère un UUID v4 (aléatoire) — utilisé pour `requestId`, identifiants de session, etc.
+   * Génère un UUID v4 (aléatoire) — utilisé pour `requestId`, ids divers, etc.
+   * Natif `node:crypto` (CSPRNG) — plus de dépendance `uuid`.
    *
    * @returns string UUID format `8-4-4-4-12`.
    */
   static generateId(): string {
-    return uuidv4();
-  }
-
-  /**
-   * Génère un UUID v5 (déterministe — hash SHA-1 nom + namespace).
-   *
-   * Même `name` + `namespace` produit toujours le même UUID. Utile pour
-   * générer des ids stables à partir d'une URL ou d'un identifiant métier.
-   *
-   * @param name - chaîne à hasher.
-   * @param namespace - UUID parent (défaut : UUID v4 aléatoire — perd le déterminisme).
-   * @returns string UUID v5.
-   */
-  static generateV5Id(name: string, namespace?: string): string {
-    return uuidv5(name, namespace || uuidv4());
+    return randomUUID();
   }
 }

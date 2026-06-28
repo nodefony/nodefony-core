@@ -20,7 +20,6 @@ const external: string[] = [
   "mime-types",
   "glob",
   "semver",
-  "uuid",
   "reflect-metadata",
   "eta",
   "pm2",

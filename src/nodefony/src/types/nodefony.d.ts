@@ -35,7 +35,6 @@ declare module "nodefony" {
     EnvironmentType: EnvironmentType;
     DebugType: DebugType;
     JSONObject: JSONObject;
-    generateV5Id(name: string, namespace?: string): string;
     generateId(): string;
   }
 }
