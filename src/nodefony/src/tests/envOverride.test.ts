@@ -10,6 +10,8 @@ import {
   pathLooksSecret,
 } from "../config/envOverride";
 import { defineEnv, envString } from "../config/index";
+import Kernel from "../kernel/Kernel";
+import { Nodefony } from "../Nodefony";
 
 describe("envOverride — coerceEnvValue", () => {
   it("booléens explicites (pas de piège znv)", () => {
@@ -137,5 +139,76 @@ describe("defineEnv — convention *_FILE (secret monté)", () => {
         ),
       /impossible/,
     );
+  });
+});
+
+/**
+ * Intégration sur un Kernel RÉEL (harness `configBoot.test.ts`) : prouve la chaîne
+ * complète findModuleBySegment → applyResolvedPath sur `module.options`.
+ */
+describe("envOverride — intégration Kernel (NF__* au boot)", () => {
+  let prev: Kernel | null;
+  beforeAll(() => {
+    prev = Nodefony.getKernel();
+  });
+  afterAll(() => {
+    Nodefony.setKernel(prev as Kernel);
+  });
+
+  const makeKernel = (): Kernel =>
+    new Kernel("development", null, { log: { active: false } });
+
+  /** Module factice : seuls `name` + `options` sont lus par applyEnvConfigOverrides. */
+  const fakeModule = (name: string, options: Record<string, unknown>) => ({
+    name,
+    options,
+  });
+
+  const applyEnv = (
+    kernel: Kernel,
+    modules: Record<string, unknown>,
+    over: Record<string, string>,
+  ): void => {
+    (kernel as unknown as { modules: Record<string, unknown> }).modules =
+      modules;
+    const saved: Record<string, string | undefined> = {};
+    for (const k of Object.keys(over)) saved[k] = process.env[k];
+    Object.assign(process.env, over);
+    try {
+      (
+        kernel as unknown as { applyEnvConfigOverrides(): void }
+      ).applyEnvConfigOverrides();
+    } finally {
+      for (const k of Object.keys(over)) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+    }
+  };
+
+  it("résout le module (basename) + le chemin (casse) et surcharge mod.options", () => {
+    const mod = fakeModule("@nodefony/demo", {
+      jwt: { accessTtlS: 900 },
+      cors: { maxAgeS: 600 },
+    });
+    applyEnv(
+      makeKernel(),
+      { "@nodefony/demo": mod },
+      { NF__DEMO__JWT__ACCESSTTLS: "300", NF__DEMO__CORS__MAXAGES: "60" },
+    );
+    assert.deepStrictEqual(mod.options, {
+      jwt: { accessTtlS: 300 },
+      cors: { maxAgeS: 60 },
+    });
+  });
+
+  it("module/chemin inconnu = no-op (pas de crash, pas de clé fantôme)", () => {
+    const mod = fakeModule("@nodefony/demo", { jwt: { accessTtlS: 900 } });
+    applyEnv(
+      makeKernel(),
+      { "@nodefony/demo": mod },
+      { NF__GHOST__X: "1", NF__DEMO__JWT__NOPE: "1" },
+    );
+    assert.deepStrictEqual(mod.options, { jwt: { accessTtlS: 900 } });
   });
 });

@@ -180,7 +180,7 @@ Voir le skill `nodefony-start-server`.
 
 ## Surcharger en déploiement — Docker / variables d'env
 
-> 🔜 **Cible actée — [ADR-0006](../adr/0006-configuration-unifiee-env-override.md)**, implémentation par slices. Le **catalogue `env.ts` est déjà en place** ; l'override générique `NF__*` et `*_FILE` sont la spec à livrer.
+> ✅ **Livré** ([ADR-0006](../adr/0006-configuration-unifiee-env-override.md)). Catalogue `env.ts`, override générique `NF__*` et secrets `*_FILE` sont opérationnels : résolus **1× au boot**, validés par le schéma Zod du module (chemin/valeur invalide → boot rejeté, jamais de surcharge silencieuse).
 
 Deux façons d'agir par l'environnement, rôles **distincts** :
 
