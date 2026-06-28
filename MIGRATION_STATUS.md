@@ -1,6 +1,6 @@
 # MIGRATION_STATUS.md — Tableau de bord
 
-> **Mis à jour : 2026-06-12** (resync vérité + dégraissage — cf [`docs/migration/AUDIT-verite-2026-06.md`](docs/migration/AUDIT-verite-2026-06.md), passes 06-05 + 06-12).
+> **Mis à jour : 2026-06-28** (resync vérité — cf [`docs/migration/AUDIT-verite-2026-06.md`](docs/migration/AUDIT-verite-2026-06.md), passes 06-05 + 06-12 + 06-28).
 > Légende : ✅ Migré | 🔶 Partiel | ⬜ À faire | 🚫 Bloqué | ⏭️ Skip/Caduc
 >
 > **Règle de tenue (CONVENTION) :** statut en **TÊTE de la 1ʳᵉ cellule** (`| ✅ P5.2 | …`), **1 ligne courte**
@@ -70,39 +70,41 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 
 ---
 
-## 📊 Avancement (vérifié code · **2026-06-17**)
+## 📊 Avancement (vérifié code · **2026-06-28**)
 
 > Comptage **autorité = emoji en 1ʳᵉ cellule** de la roadmap (1 ligne = 1 tâche, ⏭️ exclu). `◀` = bloqueur du chemin critique. **MVP sécurité ✅ atteint (P6) → bloqueur RELEASE actuel = ORM (P7), multi-dialecte sqlite/pg/mysql.**
 
 ```
-━━━━━━ NODEFONY · MIGRATION ━━━━━━━━━━━━━━━━━━━ vérifié code 2026-06-17 ━━━━━━
+━━━━━━ NODEFONY · MIGRATION ━━━━━━━━━━━━━━━━━━━ vérifié code 2026-06-28 ━━━━━━
  P0  Bugs bloquants        ██████████ 100%   6✅  0🔶  0⬜
  P1  Fondations symbiose   ██████████ 100%   8✅  0🔶  0⬜
- P2  Cycle de vie Context  █████████░  89%   8✅  0🔶  1⬜
+ P2  Cycle de vie Context  ██████████ 100%   9✅  0🔶  0⬜   (P2.6 idempotency ✅ via @Idempotent)
  P3  Logs structurés       █████████░  85%   7✅  3🔶  0⬜
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
  P5  Session/User/ORM core ████████▌░  85%  13✅  3🔶  1⬜   ◀ (P5.14 ✅ J3 ; reste P5.0b batch/cron)
- P6  Security              ████████░░  80%  17✅  3🔶  3⬜   ✅ cœur MVP LIVRÉ (P6.1-6.8b) — bloqueur MVP LEVÉ ; ✅ modèle session NIST/OWASP (idle+absolute+touch, red-team 11/11, `e27de035`) ; reste HORS MVP = durcissement (P6.18 audit persistant) + niches (mTLS/rpId) + refinements (authz niveau B · OAuth resource-server · logs auth · live audit)
+ P6  Security              ███████▊░░  78%  16✅  4🔶  3⬜   ✅ cœur MVP LIVRÉ (authn/authz/CSRF/CORS/API-Keys/webhooks COMPLET/2FA/audit/scopes/idempotence/firewall+Studio) ; reste HORS MVP : P6.18 audit persistant · mTLS/rpId · authz niveau B · OAuth resource-server · logs auth · live audit
  P7  ORM drivers           ███████▌░░  75%   3✅  3🔶  0⬜   ◀ **BLOQUEUR RELEASE** — multi-dialecte sqlite/pg/mysql (P7.10) TRÈS important + confiance ORM à regagner (comparatif froid) ; reste P7.5 E2E + P7.7 redis
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜
- P9  Polish + clôture      ██████░░░░  63%   2✅  1🔶  1⬜   (P9.4 : 0 vulnérabilité npm 2026-06-12)
- P10 Studio (admin web)    ██████░░░░  64%   5✅  8🔶  1⬜   (workspace + Jumeau + portail doc)
+ P9  Polish + clôture      ██████░░░░  63%   2✅  1🔶  1⬜   (P9.3 READMEs ✅ · P9.4 : 3 low transitives, held back)
+ P10 Studio (admin web)    ███████▎░░  73%   9✅  4🔶  2⬜   (~80 pages + Jumeau + portail doc ; reste tests intég P10.11)
  P11 CLI par module        ████░░░░░░  44%   3✅  1🔶  4⬜   ◀ **BLOQUEUR MVP** (partiel) — CLI essentielles (lifecycle start/dev/build/prod/cluster + orm:migrate + user/security:*) implémentées mais NON testées intég ; P11.6/7/8 livrés
- P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (squelettes brainstorming, non audité)
+ P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (llm = module réel non intégré ; agent-guard/mcp vides)
  P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜   (dettes backplane #1/#2 fixées c082560 · 167 tests)
  P14 Frontend Vite + iso   ████████░░  75%  11✅  2🔶  3⬜
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
  P16 Cloud-Native (10 axes)███░░░░░░░  29%  10✅  0🔶 25⬜   (16.I livez ✅ · 16.J /metrics repoussé 06-15)
 ────────────────────────────────────────────────────────────────────────
- GLOBAL                    ██████░░░░  62%  101✅ 33🔶 54⬜  (188 tâches · resync vérité 2026-06-17)
+ GLOBAL                    ██████▌░░░  65% 112✅ 27🔶 53⬜  (192 tâches · resync vérité 2026-06-28)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 > Fondations **hors roadmap** (déjà migrées, Phases 0-4) : Build, Core/Kernel, DI, Syslog, Router, Controller, Types.
 > Le durcissement transverse (cycle requête V1-V5, Container, fast path, forwarded/proxy, WS, certificats)
 > n'a **pas de lignes P dédiées** — cf § Durcissement fondations + `git log`.
-> **Verdict audit 2026-06-12 : chiffres honnêtes** ; écarts corrigés = bandeau périmé (P3/P5/P9/P10/P11/P16),
-> dettes backplane résolues non répercutées, re-obésité § Séquencement dégraissée.
+> **Verdict audit 2026-06-28 : chiffres honnêtes, mais bandeau périmé du 17/06 (189 commits depuis)** — P6 quasi
+> bouclé (webhooks COMPLET / 2FA / audit / scopes / idempotence), Studio plus avancé (~73 %). Le dashboard se
+> **sous-vendait**. Corrigés : P2.6 ✅ · P9.3 ✅ (READMEs présents) · P9.4 → 3 low · P10.7/8/14 ✅ · P10.11 → ⬜.
+> Détail : [`docs/migration/AUDIT-verite-2026-06.md`](docs/migration/AUDIT-verite-2026-06.md) (passe 06-28).
 
 ---
 
@@ -129,7 +131,7 @@ unifié HTTP+WS, `logRequest` pluggable, hooks security (`beforeResolve`/`afterA
 | ✅ P2.3 | Aborted cleanup + 499 interne          | `client-abort-499.test.ts`                                                                  |
 | ✅ P2.4 | `initialize()` error boundary          | crash → onError → 500 JSON cohérent                                                         |
 | ✅ P2.5 | Request timeout (408/504)              | 2 couches (Node natif + `onTimeout` Nodefony)                                               |
-| ⬜ P2.6 | Idempotency keys (`X-Idempotency-Key`) | dédup via ALS                                                                               |
+| ✅ P2.6 | Idempotency keys (`X-Idempotency-Key`) | livré via `@Idempotent` (P6.8) + stores Redis/Drizzle                                       |
 | ✅ P2.7 | W3C `traceparent` honor + génère       | `service/trace.ts`                                                                          |
 | ✅ P2.8 | Backpressure doc + tests streaming     | `write()===false` → attend `'drain'` (Node stream) ; CL⊥TE RFC 9112 §6.1 ; tests unit       |
 | ✅ P2.9 | Body streaming (`@Body({stream})`)     | flux brut (`Readable`), parse sauté ; route-match avant parse (A/B 0 régression) ; HTTP/1+2 |
@@ -155,7 +157,7 @@ unifié HTTP+WS, `logRequest` pluggable, hooks security (`beforeResolve`/`afterA
 `forward` cross-module, decorators × pipeline, **concurrence 100 req** (unicité ALS), WS pipeline (7 fichiers),
 DI scopes (singleton/transient), lifecycle session.
 
-### P5 — Session + User + ORM Core (79 %) ◀ chemin critique
+### P5 — Session + User + ORM Core (85 %) ◀ chemin critique
 
 | #        | Tâche                                       | État                                                                                                                                                                                                                                                                                                                                                                    |
 | -------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -178,7 +180,7 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P5.13 | `OrmSessionStorage` générique               | Drizzle + **Mongoose livrés** (contrat `ISessionStorage` portable ; sequelize supprimé)                                                                                                                                                                                                                                                                                 |
 | ✅ P5.14 | `session.user` + régén ID post-auth         | J3 `00ee6631` : câblé via `AuthFlow.login` (regen INCONDITIONNEL + destroy old, anti-fixation prouvée au banc) ; session porte l'IDENTIFIANT, re-fetch provider par requête                                                                                                                                                                                             |
 
-### P6 — Security (80 %) — ✅ cœur MVP LIVRÉ (bloqueur MVP LEVÉ) ; reste durcissement/niches HORS MVP. CHANTIER OUVERT (branche `refactor/p6-security`)
+### P6 — Security (78 %) — ✅ cœur MVP LIVRÉ (bloqueur MVP LEVÉ) ; reste durcissement/niches HORS MVP. CHANTIER OUVERT (branche `refactor/p6-security`)
 
 > **CŒUR P6 BOUCLÉ** — J0→J9 (`1634f09e`→`1df19b93`) + CSRF/CORS/en-têtes (`ebe7e915`/`0724a8c6`/`f4f9ead8`) + CSP nonce (`eb59daf6`). Authenticators Anonymous/Password/Session-BFF/JWT/OAuth2-social/WebAuthn ; autorisation voters + `@IsGranted` (HTTP **et** WS) ; Argon2id + throttle NIST. **Détail-journal = `git log` + mémoires IA + [audit vérité](docs/migration/AUDIT-verite-2026-06.md) + [plan P6](docs/audits/p6-security-audit-2026-06-12.md).** ✅ **modèle session NIST-aligné** (idle+absolute+touch HTTP+WS, retrait du reliquat PHP `maxLifetimeS`, red-team 11/11, `e27de035`). Reste : P6.18 store audit persistant · P6.16 rpId multi-vhost · P6.9b mTLS (niches). App pose `users` en prod (`3d140de1`, auth prod réparée).
 
@@ -240,14 +242,14 @@ DI scopes (singleton/transient), lifecycle session.
 
 ### P9 — Polish + clôture (63 %)
 
-| #       | Tâche                         | État                                         |
-| ------- | ----------------------------- | -------------------------------------------- |
-| ✅ P9.1 | `@entities` decorator + tests | `kernelDecorator.ts`                         |
-| ⬜ P9.2 | Barrels `index.ts`            | résiduel                                     |
-| 🔶 P9.3 | README publics                | security ✓ ; **http + framework absents**    |
-| ✅ P9.4 | Vulnérabilités npm            | **0 vulnérabilité** (`npm audit` 2026-06-12) |
+| #       | Tâche                         | État                                                                |
+| ------- | ----------------------------- | ------------------------------------------------------------------- |
+| ✅ P9.1 | `@entities` decorator + tests | `kernelDecorator.ts`                                                |
+| ⬜ P9.2 | Barrels `index.ts`            | résiduel                                                            |
+| ✅ P9.3 | README publics                | http + framework + security présents (vérif 06-28)                  |
+| 🔶 P9.4 | Vulnérabilités npm            | **3 low** transitives (dev, held back rolldown) — `npm audit` 06-28 |
 
-### P10 — Studio admin web (68 %)
+### P10 — Studio admin web (73 %)
 
 | #         | Tâche                                       | État                                                                                                                                                                          |
 | --------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -257,15 +259,15 @@ DI scopes (singleton/transient), lifecycle session.
 | 🔶 P10.4  | `IAdminApi` user/orm-core/security          | orm ✓ ; user/security en attente P5/P6                                                                                                                                        |
 | 🔶 P10.5  | Backend Studio + WS realtime                | StudioController + JSON-RPC pub/sub ; reste IAdminApi                                                                                                                         |
 | ⬜ P10.6  | Auth admin (`ROLE_NODEFONY_ADMIN`)          | dépend P6                                                                                                                                                                     |
-| 🔶 P10.7  | Frontend bootstrap + router + layouts       | React 19 + Mantine + MobX + WS permanent ; reste auth réelle                                                                                                                  |
-| 🔶 P10.8  | Vues prio (dashboard/routes/sessions/users) | Dashboard/Modules/Routes/Cluster/Runtime ✅ ; sessions/users attente P5/P6                                                                                                    |
+| ✅ P10.7  | Frontend bootstrap + router + layouts       | React 19 + Mantine + MobX + WS permanent + auth réelle (P6)                                                                                                                   |
+| ✅ P10.8  | Vues prio (dashboard/routes/sessions/users) | Dashboard/Modules/Routes/Cluster/Runtime/Sessions/Users ✅ livrées                                                                                                            |
 | ✅ P10.x  | Docs+API modules dans Studio                | onglets Docs/API + carte Core                                                                                                                                                 |
 | 🔶 P10.9  | Vues firewall/logs/databases/migrate        | Logs ✅ (WS) + Databases ✅ ; firewall/migrate attente                                                                                                                        |
 | 🔶 P10.10 | Vues services/profiling                     | incrémental (~~pm2~~ retiré C6)                                                                                                                                               |
-| 🔶 P10.11 | Tests intégration studio                    | —                                                                                                                                                                             |
+| ⬜ P10.11 | Tests intégration studio                    | 0 test studio (vérif 06-28) — back couvert e2e via security                                                                                                                   |
 | ✅ P10.12 | Workspace composable (bureau)               | fenêtres libres + espaces nommés + Mission Control + catalogue à facettes (taxonomie tags) + widgets supervision (mémoire/handles/erreurs/health/gc) ; remplace dashboard Dev |
 | ✅ P10.13 | Jumeau vivant (Twin)                        | explorateur archi runtime + registre de blocs unifié + forages Realtime/ORM/HTTP                                                                                              |
-| 🔶 P10.14 | Portail doc (`@nodefony/documentation`)     | **14 src + dist** ; briques DocLayout/MarkdownDoc/FlowGraph + data plane `/nodefony/documentation/api` — module **non tracké au dashboard avant 2026-06-17**                  |
+| ✅ P10.14 | Portail doc (`@nodefony/documentation`)     | DocLayout/MarkdownDoc/FlowGraph + data plane `/nodefony/documentation/api` (COMPLET, 14 src)                                                                                  |
 
 ### P11 — CLI par module (44 %)
 

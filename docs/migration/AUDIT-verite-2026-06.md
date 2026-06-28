@@ -1,8 +1,79 @@
 ---
 title: Audit vérité migration Nodefony
-date: 2026-06-05
+date: 2026-06-28
 auteur: audit Claude Code (exhaustif P0→P16, confronté au code)
-statut: COMPLET (P0→P16 confrontés au code) — dashboard resync le 2026-06-05
+statut: COMPLET — passes 06-05 + 06-12 + 06-28 (dashboard resync à chaque passe)
+---
+
+# Passe 2026-06-28 — re-confrontation au code (après +189 commits)
+
+> Contexte : le bandeau « Avancement » était daté **2026-06-17**. **189 commits** depuis (P6 webhooks/2FA/
+> audit/scopes/idempotence, modèle session NIST, GcScheduler, Node 24, deps cleanup, ~80 pages Studio).
+> Méthode : recompte `awk` 1ʳᵉ cellule + 4 sous-agents `Explore` (1 par groupe de phases) confrontant chaque
+> claim au code (`find`/`grep`, pas de tests lancés) + vérifs manuelles des 🔴 (README, npm audit, modules IA).
+
+## Verdict
+
+**Les chiffres sont honnêtes ; le dashboard se SOUS-VENDAIT** (bandeau gelé au 17/06 alors que P6 a quasi
+fini et que Studio a beaucoup avancé). Aucun faux positif structurant. 3 vraies corrections (P9.3 README,
+P9.4 vulns, P10.11 tests studio) + des items achevés restés marqués 🔶.
+
+## Synthèse des écarts (passe 06-28)
+
+| #   | Écart                                                                               | Gravité        | Action                           |
+| --- | ----------------------------------------------------------------------------------- | -------------- | -------------------------------- |
+| F1  | Bandeau « Avancement » daté 17/06, **189 commits** depuis                           | 🔴 forme       | recalculé → 2026-06-28           |
+| 1   | P9.3 « README http+framework **absents** » alors que les 3 sont présents            | 🔴 faux        | P9.3 🔶 → ✅                     |
+| 2   | P9.4 « **0 vulnérabilité** » (06-12) ; `npm audit` = **3 low** transitives          | 🟡 périmé      | P9.4 ✅ → 🔶 (3 low held back)   |
+| 3   | P2.6 Idempotency keys ⬜ — livré via `@Idempotent` (P6.8) + stores Redis/Drizzle    | ➕ sous-marqué | P2.6 ⬜ → ✅                     |
+| 4   | P10.7 / P10.8 / P10.14 marqués 🔶 — ~80 pages Studio + portail doc COMPLET livrés   | ➕ sous-marqué | → ✅ (Studio réel ~73 %)         |
+| 5   | P10.11 « Tests intégration studio » marqué 🔶 — **0 test** studio trouvé            | 🔴 faux        | P10.11 🔶 → ⬜                   |
+| 6   | P6 bandeau `17✅ 3🔶` — recompte cellule = `16✅ 4🔶 3⬜`                           | 🟡 périmé      | P6 80 % → 78 %                   |
+| 7   | P12 « squelettes brainstorming » — `llm` = module réel (Claude/Ollama+tests+rollup) | 🟡 nuance      | préciser (agent-guard/mcp vides) |
+
+## Verdict par phase (drapeau de fidélité déclaré↔réel)
+
+```
+P0  Bugs bloquants     100%  6✅              🟢 fidèle
+P1  Fondations         100%  8✅              🟢 fidèle
+P2  Cycle Context      100%  9✅              ➕ P2.6 livré via @Idempotent (était ⬜)
+P3  Logs structurés     85%  7✅ 3🔶          🟢 fidèle (reste LB.3b CLI)
+P4  Tests symbiose     100%  6✅              🟢 fidèle
+P5  Session/User/ORM    85% 13✅ 3🔶 1⬜      🟢 fidèle 93% — gaps déclarés (P5.0b cron, banc unifié)
+P6  Security            78% 16✅ 4🔶 3⬜      🟢 fidèle — cœur livré ; nuance = stores memory-only (P6.18/TOTP)
+P7  ORM drivers         75%  3✅ 3🔶          🟢 fidèle 85% — 0 E2E système + MySQL repoussés (déclarés)
+P8  CLI + Monitoring    63%  2✅ 1🔶 1⬜      🟢 fidèle
+P9  Polish + clôture    63%  2✅ 1🔶 1⬜      🔴 P9.3 README (faux) + 🟡 P9.4 vulns (périmé) corrigés
+P10 Studio (admin web)  73%  9✅ 4🔶 2⬜      ➕ sous-vendu (était 64 %) ; vrai écart = P10.11 tests
+P11 CLI par module      44%  3✅ 1🔶 4⬜      🟢 fidèle (commandes métier non testées intég)
+P12 Couche IA           17%  0✅ 2🔶 4⬜      🟡 « squelettes » sous-vend llm ; agent-guard/mcp vides
+P13 Realtime distribué  77%  7✅ 3🔶 1⬜      🟢 fidèle (pattern RegExp #3 reporté, attend P6)
+P14 Frontend Vite/iso   75% 11✅ 2🔶 3⬜      🟢 fidèle (Angular ✅ ; Svelte/Solid déclarés absents)
+P15 Mediasoup           0%  0✅ 8⬜           🟢 fidèle (mod/mediasoup = banc ORM, PAS implé télécom)
+P16 Cloud-Native        29% 10✅ 25⬜         🟢 fidèle (PM2 résidu = 1 ligne external rollup)
+─────────────────────────────────────────────────────────────────────
+GLOBAL                  65% 112✅ 27🔶 53⬜  (192 tâches)   62 % → 65 %
+```
+
+## Confirmé solide (preuves code)
+
+- **P5/P7** : ORM core + User + adapters Drizzle/Mongoose câblés ; Sequelize **0 résidu fonctionnel** ;
+  MikroORM absent comme prévu ; Slice 0 multi-dialecte Postgres présent (`createIdempotencyTable(dialect)`,
+  `#connectPostgres` lazy) — **MySQL absent** (`#connectMysql` non câblé, déclaré « reste »).
+- **P6** : `RoleHierarchyWalker`, `firewall.ts`, authenticators (Anonymous/Password/Session/JWT/ApiKey/
+  WebAuthn), `csrf.ts` + `@CsrfProtect`, `ScopeVoter` + `@RequireScope`, `idempotency.ts` + stores Redis/
+  Drizzle, webhooks (registre+dispatcher+stores Drizzle/Mongoose+page Studio), audit (`MemoryAuditStore`+
+  stream WS), TOTP (RFC 6238). ⚠️ **memory-only** : audit persistant (P6.18 ⬜), idempotence Mongoose
+  absente, stores TOTP Memory+File seulement → OK dev, pas prod multi-pod.
+- **P10/P13/P14** : ~80 pages `.tsx` Studio, Twin, portail doc (DocLayout/MarkdownDoc/FlowGraph),
+  `RealtimeHub`/`RedisBackplane`/JSON-RPC, presets Vite (react/vue/angular), Core isomorphe, DevSupervisor.
+
+## Limites de l'audit
+
+- Sondes = **présence/contenu du code**, tests **non exécutés** cette passe (les compteurs de tests cités
+  proviennent des claims + comptage de fichiers `*.test.ts`, pas d'un run).
+- Couche IA (P12) restée **hors scope** par directive (audit de surface seulement : compte fichiers + pkg).
+
 ---
 
 # Audit vérité — migration Nodefony (2026-06-05)
