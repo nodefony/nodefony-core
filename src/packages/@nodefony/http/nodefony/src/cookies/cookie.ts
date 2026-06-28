@@ -1,4 +1,4 @@
-import cookieLib from "cookie";
+import { parseCookie } from "cookie";
 import type { IWsCookie } from "../context/websocket/Response.js";
 import MS, { StringValue } from "ms";
 import { extend } from "nodefony";
@@ -52,7 +52,7 @@ const cookieDefaultSettings: CookieOptionsType = {
 };
 
 function parser(strToParse: string, options?: any) {
-  return cookieLib.parse(strToParse, options);
+  return parseCookie(strToParse, options);
 }
 // function parserWs(tab: websocket.ICookie[]): Record<string, string> {
 //   const ele = {};

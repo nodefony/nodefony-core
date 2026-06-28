@@ -30,15 +30,18 @@
     "orm"
   ],
   "dependencies": {
-    "better-sqlite3": "12.10.0",
+    "better-sqlite3": "12.11.1",
     "drizzle-orm": "0.45.2",
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
-    "pg": "^8.13.0"
+    "pg": "^8.22.0"
   },
   "devDependencies": {
+    "@nodefony/http": "*",
+    "@nodefony/orm-core": "*",
     "@nodefony/security": "*",
+    "@nodefony/user": "*",
     "@rollup/plugin-commonjs": "29.0.3",
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
@@ -46,12 +49,13 @@
     "@rollup/plugin-terser": "1.0.0",
     "@rollup/plugin-typescript": "12.3.0",
     "@types/better-sqlite3": "7.6.13",
-    "@types/node": "25.9.1",
-    "@types/pg": "^8.11.10",
-    "@typescript-eslint/eslint-plugin": "8.60.1",
-    "@typescript-eslint/parser": "8.60.1",
+    "@types/node": "26.0.1",
+    "@types/pg": "^8.20.0",
+    "@typescript-eslint/eslint-plugin": "8.62.0",
+    "@typescript-eslint/parser": "8.62.0",
+    "nodefony": "*",
     "rimraf": "6.1.3",
-    "rollup": "4.61.1",
+    "rollup": "4.62.2",
     "typescript": "6.0.3"
   },
   "peerDependencies": {

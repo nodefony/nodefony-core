@@ -6,7 +6,7 @@ import type {
   ISessionListFilter,
 } from "@nodefony/http";
 import { ormRegistry } from "@nodefony/orm-core";
-import type { IRepository } from "@nodefony/orm-core";
+import type { IRepository, Criteria } from "@nodefony/orm-core";
 import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
 
 /**
@@ -154,14 +154,14 @@ class SessionStorage implements ISessionStorage {
     const idleCutoff = now - (idleSeconds ?? this.idleTimeoutS) * 1000;
     let deleted = await repo.delete({
       updatedAt: { $lt: idleCutoff },
-    } as Partial<SessionRow>);
+    } as Criteria<SessionRow>);
     // Borne absolute : âge depuis `createdAt`, JAMAIS prolongé (re-auth forcée).
     // Deux DELETE distincts (pas de `$or`) → portable sur tout adapter orm-core.
     const absoluteS = absoluteSeconds ?? this.absoluteTimeoutS;
     if (absoluteS > 0) {
       deleted += await repo.delete({
         createdAt: { $lt: now - absoluteS * 1000 },
-      } as Partial<SessionRow>);
+      } as Criteria<SessionRow>);
     }
     if (deleted > 0) {
       this.manager.log(`DRIZZLE SESSIONS GC ==> ${deleted} DELETED`, "DEBUG");

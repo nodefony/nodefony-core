@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-27T22:34:05.766Z",
+  "generated": "2026-06-28T00:15:06.016Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -20062,7 +20062,9 @@
       ],
       "Criteria": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",

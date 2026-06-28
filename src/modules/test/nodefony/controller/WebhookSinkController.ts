@@ -107,7 +107,8 @@ class WebhookSinkController extends Controller {
    * renvoie `respondedStatus`. Cœur partagé par les routes de réception.
    */
   #record(raw: string, secret: string | undefined, status: number): SinkEntry {
-    const headers = this.context.request.headers;
+    const context = this.context!;
+    const headers = context.request!.headers;
     const id = headerOne(headers["webhook-id"]);
     const ts = headerOne(headers["webhook-timestamp"]);
     const sig = headerOne(headers["webhook-signature"]);
@@ -119,8 +120,8 @@ class WebhookSinkController extends Controller {
     }
     const entry: SinkEntry = {
       receivedAt: Date.now(),
-      method: this.context.method ?? "POST",
-      url: String(this.context.url ?? ""),
+      method: context.method ?? "POST",
+      url: String(context.url ?? ""),
       webhookId: id,
       webhookTimestamp: ts,
       webhookSignature: sig,
@@ -143,7 +144,13 @@ class WebhookSinkController extends Controller {
   async #readRaw(stream: NodeJS.ReadableStream): Promise<string> {
     const chunks: Buffer[] = [];
     for await (const c of stream) {
-      chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c as Uint8Array));
+      chunks.push(
+        Buffer.isBuffer(c)
+          ? c
+          : typeof c === "string"
+            ? Buffer.from(c, "utf8")
+            : Buffer.from(c),
+      );
     }
     return Buffer.concat(chunks).toString("utf8");
   }
