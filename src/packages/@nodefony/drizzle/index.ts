@@ -82,7 +82,7 @@ export { defineDrizzleConfig, drizzleConfigJsonSchema };
 export {
   drizzleConfigSchema,
   type DrizzleConfig,
-} from "./nodefony/config/schema";
+} from "./nodefony/config/config";
 export type {
   IDrizzleConfig,
   IDrizzleConfigInput,
@@ -165,7 +165,7 @@ export {
 } from "./nodefony/entity/idempotencyEntity";
 export type { IdempotencyKeyRow } from "./nodefony/entity/idempotencyEntity";
 export { DrizzleIdempotencyStore } from "./nodefony/src/DrizzleIdempotencyStore";
-export type { SqlDialect } from "./nodefony/config/schema";
+export type { SqlDialect } from "./nodefony/config/config";
 
 // ─── Store d'endpoints webhook Drizzle (IWebhookStore de @nodefony/security, P6.13) ─
 // Approche B (idem token/webauthn) : `import type` du contrat, PAS d'auto-register.

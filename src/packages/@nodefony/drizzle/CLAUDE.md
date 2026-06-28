@@ -42,8 +42,8 @@ Deux usages :
   `await` du contrat async. Connexion unique → encadrer = atomique.
   `withTransaction(tx)` réutilise le **même** db.
 - **Trappe SQL brut** : `getNativeConnection()` renvoie le db Drizzle (tag `sql`).
-- **Config = Zod (2026-06-08, alignement famille ORM)** : `nodefony/config/schema.ts`
-  (source de vérité) → `defineDrizzleConfig` (parse + env `DRIZZLE_DB_FILE` + freeze)
+- **Config = Zod (ADR-0006, 1 fichier-schéma)** : `nodefony/config/config.ts`
+  (schéma Zod + défauts `parse({})`, source unique ; `schema.ts` fusionné) → `defineDrizzleConfig` (parse + env `DRIZZLE_DB_FILE` + freeze)
   → validée au `onKernelRegister`, exposée `this.set("drizzleConfig")`. Augmente
   `NodefonyModuleConfig` (typage `use()`). ⚠️ `filename` **optionnel SANS défaut**
   dans le schéma (pur) : le chemin SQLite (kernel-dépendant) est résolu **au boot**

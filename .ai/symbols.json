@@ -1,9 +1,9 @@
 {
-  "generated": "2026-06-28T12:30:30.173Z",
+  "generated": "2026-06-28T12:51:45.785Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 985,
+    "files": 984,
     "symbols": 2328,
     "classes": 314,
     "interfaces": 619,
@@ -4930,6 +4930,36 @@
       "module": "@nodefony/documentation",
       "description": "Construit le slug d'un fichier à partir de sa source et de son chemin relatif (POSIX, sans `.md`). Inverse jamais utilisé (slug = clé, pas chemin)."
     },
+    "SqlDialect": {
+      "name": "SqlDialect",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Dialecte SQL d'un connecteur Drizzle."
+    },
+    "DrizzleConfig": {
+      "name": "DrizzleConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "SQL_DIALECTS": {
+      "name": "SQL_DIALECTS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "drizzleConfigSchema": {
+      "name": "drizzleConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
     "defineDrizzleConfig": {
       "name": "defineDrizzleConfig",
       "kind": "function",
@@ -4945,37 +4975,6 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "JSON Schema introspectable de la config Drizzle — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
-    },
-    "SqlDialect": {
-      "name": "SqlDialect",
-      "kind": "type",
-      "file": "src/packages/@nodefony/drizzle/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Dialecte SQL d'un connecteur Drizzle."
-    },
-    "DrizzleConfig": {
-      "name": "DrizzleConfig",
-      "kind": "type",
-      "file": "src/packages/@nodefony/drizzle/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Type de sortie (config normalisée + défauts appliqués)."
-    },
-    "SQL_DIALECTS": {
-      "name": "SQL_DIALECTS",
-      "kind": "const",
-      "file": "src/packages/@nodefony/drizzle/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Schéma Zod de la configuration de `@nodefony/drizzle`. **Source de vérité du module** : le type TS est dérivé via `z.infer<>` ({@link IDrizzleConfig}), et la config est validée au boot du Module cl…"
-    },
-    "drizzleConfigSchema": {
-      "name": "drizzleConfigSchema",
-      "kind": "const",
-      "file": "src/packages/@nodefony/drizzle/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle"
     },
     "IdempotencyKeyRow": {
       "name": "IdempotencyKeyRow",
@@ -19947,12 +19946,8 @@
         "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
       ],
       "drizzleConfigSchema": [
-        "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
         "src/packages/@nodefony/drizzle/nodefony/interfaces/IDrizzleConfig.ts"
-      ],
-      "DrizzleConfig": [
-        "src/packages/@nodefony/drizzle/nodefony/config/config.ts"
       ],
       "SqlDialect": [
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",

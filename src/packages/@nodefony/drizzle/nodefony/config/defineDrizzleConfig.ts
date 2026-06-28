@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { drizzleConfigSchema } from "./schema";
+import { drizzleConfigSchema } from "./config";
 import type {
   IDrizzleConfig,
   IDrizzleConfigInput,

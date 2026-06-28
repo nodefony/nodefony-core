@@ -1,7 +1,7 @@
 import type { z } from "zod";
-import type { drizzleConfigSchema } from "../config/schema";
+import type { drizzleConfigSchema } from "../config/config";
 
-export type { SqlDialect } from "../config/schema";
+export type { SqlDialect } from "../config/config";
 
 /**
  * Configuration normalisée et gelée de `@nodefony/drizzle` (sortie du builder
