@@ -188,6 +188,9 @@ Deux façons d'agir par l'environnement, rôles **distincts** :
   **typés** dans `ctx.env`. Expérience **développeur**.
 - **Override générique** (forme `NF__<MODULE>__<CHEMIN>`) — surcharge de **n'importe quel** champ d'un
   module, **sans code**, coercée + **validée par le schéma Zod** du module. Expérience **devops**.
+- **Override de la config APP** (forme `NF__APP__<CHEMIN>`) — même mécanique, segment réservé `app`
+  (jamais un nom de module → 0 collision). Surcharge `domain`, `servers.*`, `log.*`… **validés par le
+  Zod app** au resolve. Plus de « comment je surcharge le port / le domaine / le driver de log ? ».
 
 `__` (double underscore) = séparateur de niveau (choix .NET/Docker, sans ambiguïté avec le camelCase) ;
 segments **insensibles à la casse**, résolus contre les clés réelles du schéma :
@@ -196,12 +199,21 @@ segments **insensibles à la casse**, résolus contre les clés réelles du sch�
 NF__SECURITY__JWT__ACCESSTTLS=300
 NF__HTTP__SERVERS__HTTPS__PORT=8443
 NF__SECURITY__CORS__ORIGINS=https://a.com,https://b.com   # CSV → array
+NF__APP__DOMAIN=0.0.0.0                                   # config APP (segment réservé `app`)
+NF__APP__SERVERS__HTTP__PORT=8080
+NF__APP__LOG__DRIVER=file
 NF_WEBHOOK_KEY_FILE=/run/secrets/webhook_key             # secret depuis un fichier monté (*_FILE)
 ```
 
 Une valeur invalide fait **échouer le boot** avec un message nommant la variable (jamais de fallback
-silencieux). Non-chevauchement : un champ qui a une variable dédiée au catalogue n'est pas aussi piloté
-par `NF__*` (la variable nommée fait foi).
+silencieux). Un segment mal orthographié (module, app, ou chemin) déclenche un **« vouliez-vous dire
+X ? »** façon git, avec les clés disponibles. Non-chevauchement : un champ qui a une variable dédiée au
+catalogue n'est pas aussi piloté par `NF__*` (la variable nommée fait foi).
+
+> **Limite assumée pour `NF__APP__*`** : seuls les champs qui ont un **défaut framework** (`domain`,
+> `servers.*`, `log.*`) sont surchargeables génériquement. Un champ app **opt-in sans défaut**
+> (`domainCheck`, `domainAlias`) doit être déclaré dans `nodefony.config.ts` (ou câblé au catalogue
+> `ctx.env`) pour devenir adressable — sinon WARNING + suggestion, jamais de clé fantôme.
 
 ## Structure d'un module — une source de vérité (règle d'or)
 

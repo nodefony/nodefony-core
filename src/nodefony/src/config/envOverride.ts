@@ -252,3 +252,26 @@ export function diagnoseResolveFailure(
   }
   return null;
 }
+
+/**
+ * Construit le suffixe de message « did you mean » d'un chemin d'override qui n'a
+ * pas résolu contre `target` : nomme le segment fautif, propose la clé la plus
+ * proche et liste les clés disponibles. Chaîne vide si rien d'exploitable.
+ * Partagé par les overrides de MODULE (Kernel) et d'APP (defineConfig).
+ *
+ * @param target - objet de config cible (lu seul, non muté).
+ * @param path - segments du chemin de l'override (minuscules).
+ * @returns un suffixe commençant par ` — …`, ou `""`.
+ */
+export function resolveFailureHint(
+  target: Record<string, unknown>,
+  path: string[],
+): string {
+  const diag = diagnoseResolveFailure(target, path);
+  if (!diag || diag.available.length === 0) return "";
+  const suggestion = closestMatch(diag.segment, diag.available);
+  const keys = diag.available.join(", ");
+  return suggestion
+    ? ` — segment "${diag.segment}" inconnu, vouliez-vous dire « ${suggestion} » ? (clés: ${keys})`
+    : ` — segment "${diag.segment}" inconnu (clés disponibles: ${keys})`;
+}

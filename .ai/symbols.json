@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-28T14:04:39.734Z",
+  "generated": "2026-06-28T14:12:53.772Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 986,
-    "symbols": 2346,
+    "symbols": 2350,
     "classes": 314,
-    "interfaces": 621,
+    "interfaces": 622,
     "types": 274,
     "enums": 3,
-    "functions": 608,
+    "functions": 611,
     "constants": 526
   },
   "symbols": {
@@ -534,6 +534,15 @@
       "module": "@nodefony/core",
       "description": "Configuration framework par défaut, fusionnée sous la config de l'app au boot. Ne JAMAIS muter à l'exécution (le merge `extend(true, {}, defaultAppConfig, …)` clone ; l'invariant d'immutabilité est…"
     },
+    "AppEnvOverrideReport": {
+      "name": "AppEnvOverrideReport",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/defineConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Rapport d'application des overrides `NF__APP__*` — surfacé par le Kernel une fois son logger prêt (le merge tourne dans `resolve()`, AVANT le logger)."
+    },
     "AppConfigDescriptor": {
       "name": "AppConfigDescriptor",
       "kind": "interface",
@@ -542,6 +551,22 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Descripteur de config retourné par {@link defineConfig}. Opaque : le Kernel appelle `resolve(ctx)` au boot pour obtenir la config fusionnée + validée."
+    },
+    "applyAppEnvOverrides": {
+      "name": "applyAppEnvOverrides",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Applique les overrides `NF__APP__<CHEMIN…>` sur la config APP **fusionnée**, AVANT sa validation Zod (fail-closed : une valeur invalide sera rejetée par `validateAppConfig`). Pur (ne loggue pas) : …"
+    },
+    "readAppEnvOverrideReport": {
+      "name": "readAppEnvOverrideReport",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le rapport d'override `NF__APP__*` rangé sur une config résolue (clé non-énumérable). `null` si absent (config legacy / pas un descripteur)."
     },
     "defineConfig": {
       "name": "defineConfig",
@@ -669,6 +694,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rejoue la résolution de `path` contre `target` pour DIAGNOSTIQUER un échec : renvoie le 1ᵉʳ segment qui ne correspond à aucune clé (ou qui traverse un non-objet) + les clés disponibles à ce niveau.…"
+    },
+    "resolveFailureHint": {
+      "name": "resolveFailureHint",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit le suffixe de message « did you mean » d'un chemin d'override qui n'a pas résolu contre `target` : nomme le segment fautif, propose la clé la plus proche et liste les clés disponibles. Ch…"
     },
     "Reactivity": {
       "name": "Reactivity",
@@ -18996,6 +19029,23 @@
       "validateAppConfig": [
         "src/nodefony/src/config/defineConfig.ts"
       ],
+      "parseNfEnvOverrides": [
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "applyResolvedPath": [
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "pathLooksSecret": [
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "resolveFailureHint": [
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "AppConfigInput": [
         "src/nodefony/src/config/defineConfig.ts"
       ],
@@ -19167,20 +19217,10 @@
       "isConfigDescriptor": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
-      "parseNfEnvOverrides": [
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
-      ],
-      "applyResolvedPath": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "pathLooksSecret": [
+      "readAppEnvOverrideReport": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "closestMatch": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "diagnoseResolveFailure": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "nodefonyError": [

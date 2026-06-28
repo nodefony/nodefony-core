@@ -2,6 +2,11 @@ import assert from "node:assert";
 import { resolve } from "node:path";
 
 import { defineConfig, isConfigDescriptor } from "../config/index";
+import { defaultAppConfig } from "../config/defaults";
+import {
+  applyAppEnvOverrides,
+  readAppEnvOverrideReport,
+} from "../config/defineConfig";
 import type { ConfigContext } from "../config/types";
 import Kernel from "../kernel/Kernel";
 import Module from "../kernel/Module";
@@ -276,6 +281,141 @@ describe("config — câblage Kernel boot (Lot 4 : loadApp + defineConfig)", () 
       ).resolveAppOptions(mod.options, ctxOf());
       assert.strictEqual(wasDescriptor, true);
       assert.strictEqual(options.domain, "y");
+    });
+  });
+});
+
+// ─── NF__APP__* — override env de la config APP (ADR-0006, dernier trou) ───────
+
+describe("config — NF__APP__* (override env de la config app)", () => {
+  const freshMerged = (): Record<string, unknown> =>
+    structuredClone(defaultAppConfig) as Record<string, unknown>;
+
+  describe("applyAppEnvOverrides (pur)", () => {
+    it("surcharge un champ top-level (domain) et un champ imbriqué (servers.http.port)", () => {
+      const merged = freshMerged();
+      const report = applyAppEnvOverrides(merged, {
+        NF__APP__DOMAIN: "0.0.0.0",
+        NF__APP__SERVERS__HTTP__PORT: "8080",
+      });
+      assert.strictEqual(merged.domain, "0.0.0.0");
+      assert.strictEqual(
+        (merged.servers as { http: { port: number } }).http.port,
+        8080,
+      );
+      assert.strictEqual(report.applied.length, 2);
+      assert.strictEqual(report.warnings.length, 0);
+    });
+
+    it("résolution casse-insensible vers la clé réelle (log.driver)", () => {
+      const merged = freshMerged();
+      applyAppEnvOverrides(merged, { NF__APP__LOG__DRIVER: "file" });
+      assert.strictEqual((merged.log as { driver: string }).driver, "file");
+    });
+
+    it("ignore les overrides d'un MODULE et le catalogue NF_ (simple underscore)", () => {
+      const merged = freshMerged();
+      const report = applyAppEnvOverrides(merged, {
+        NF__SECURITY__JWT__ACCESSTTLS: "300", // module, pas app
+        NF_LOG_DRIVER: "file", // catalogue nommé, pas un override
+        NF__APP__DOMAIN: "1.2.3.4",
+      });
+      assert.strictEqual(merged.domain, "1.2.3.4");
+      assert.strictEqual(report.applied.length, 1); // seul NF__APP__DOMAIN
+    });
+
+    it("chemin inconnu → warning « did you mean » + cible inchangée (pas de clé fantôme)", () => {
+      const merged = freshMerged();
+      const before = structuredClone(merged);
+      const report = applyAppEnvOverrides(merged, { NF__APP__DOMAINN: "x" });
+      assert.deepStrictEqual(merged, before);
+      assert.strictEqual(report.applied.length, 0);
+      assert.strictEqual(report.warnings.length, 1);
+      assert.match(report.warnings[0], /chemin "domainn" inconnu/);
+      assert.match(report.warnings[0], /vouliez-vous dire « domain »/);
+    });
+
+    it("marque le drapeau secret pour un chemin sensible", () => {
+      // champ porteur de défaut + nom sensible : log.* n'a pas de secret ; on teste
+      // le drapeau via un chemin présent au nom sensible (ajouté à la cible).
+      const merged = freshMerged() as Record<string, unknown>;
+      (merged as { token?: string }).token = "default";
+      const report = applyAppEnvOverrides(merged, { NF__APP__TOKEN: "s3cr3t" });
+      assert.strictEqual(report.applied.length, 1);
+      assert.strictEqual(report.applied[0].secret, true);
+    });
+  });
+
+  describe("fail-closed via defineConfig().resolve (le Zod app voit l'override)", () => {
+    it("valeur VALIDE : l'override traverse jusqu'à la config résolue + rapport attaché", () => {
+      const desc = defineConfig(() => ({}));
+      withEnv({ NF__APP__SERVERS__HTTP__PORT: "8080" }, () => {
+        const resolved = desc.resolve(ctxOf()) as {
+          servers: { http: { port: number } };
+        };
+        assert.strictEqual(resolved.servers.http.port, 8080);
+        const report = readAppEnvOverrideReport(resolved);
+        assert.ok(report);
+        assert.strictEqual(report?.applied.length, 1);
+      });
+    });
+
+    it("valeur INVALIDE : resolve REJETTE (validateAppConfig fail-closed)", () => {
+      const desc = defineConfig(() => ({}));
+      withEnv({ NF__APP__SERVERS__HTTP__PORT: "abc" }, () => {
+        assert.throws(
+          () => desc.resolve(ctxOf()),
+          /Configuration d'application invalide.*servers\.http\.port/s,
+        );
+      });
+    });
+
+    it("sans NF__APP__* : rapport vide, aucune surcharge", () => {
+      const desc = defineConfig(() => ({ domain: "127.0.0.1" }));
+      const resolved = desc.resolve(ctxOf()) as { domain: string };
+      assert.strictEqual(resolved.domain, "127.0.0.1");
+      const report = readAppEnvOverrideReport(resolved);
+      assert.strictEqual(report?.applied.length, 0);
+      assert.strictEqual(report?.warnings.length, 0);
+    });
+  });
+
+  describe("surfaçage Kernel (rapport → log après resolve)", () => {
+    let prev: Kernel | null;
+    beforeAll(() => {
+      prev = Nodefony.getKernel();
+    });
+    afterAll(() => {
+      Nodefony.setKernel(prev as Kernel);
+    });
+
+    it("override appliqué → INFO ; chemin inconnu → WARNING « did you mean »", () => {
+      const k = makeKernelReal();
+      const logs: Array<{ msg: string; sev?: string }> = [];
+      (k as unknown as { log: (m: string, s?: string) => void }).log = (
+        m: string,
+        s?: string,
+      ): void => {
+        logs.push({ msg: m, sev: s });
+      };
+      let resolved: unknown;
+      withEnv({ NF__APP__DOMAIN: "0.0.0.0", NF__APP__DOMAINN: "x" }, () => {
+        resolved = defineConfig(() => ({})).resolve(ctxOf());
+      });
+      (
+        k as unknown as { surfaceAppEnvOverrides(o: unknown): void }
+      ).surfaceAppEnvOverrides(resolved);
+      assert.ok(
+        logs.some(
+          (l) => l.sev === "INFO" && /Override env app: domain/.test(l.msg),
+        ),
+      );
+      assert.ok(
+        logs.some(
+          (l) =>
+            l.sev === "WARNING" && /vouliez-vous dire « domain »/.test(l.msg),
+        ),
+      );
     });
   });
 });

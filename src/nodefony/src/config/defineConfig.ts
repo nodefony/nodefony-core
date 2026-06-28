@@ -21,12 +21,88 @@
 import { extend } from "../Tools";
 import { defaultAppConfig } from "./defaults";
 import { validateAppConfig } from "./schema";
+import {
+  parseNfEnvOverrides,
+  applyResolvedPath,
+  pathLooksSecret,
+  resolveFailureHint,
+} from "./envOverride";
 import type {
   AppConfigInput,
   ConfigContext,
   ConfigInput,
   ResolvedAppConfig,
 } from "./types";
+
+/** Segment réservé adressant la config de l'APPLICATION (vs un module). */
+const APP_SEGMENT = "app";
+
+/**
+ * Rapport d'application des overrides `NF__APP__*` — surfacé par le Kernel une
+ * fois son logger prêt (le merge tourne dans `resolve()`, AVANT le logger).
+ */
+export interface AppEnvOverrideReport {
+  /** Overrides appliqués (chemin + drapeau secret pour la rédaction au log). */
+  readonly applied: ReadonlyArray<{ path: string[]; secret: boolean }>;
+  /** Messages « did you mean » pour les chemins `NF__APP__*` non résolus. */
+  readonly warnings: string[];
+}
+
+/** Clé non-énumérable où le rapport d'override app est rangé sur la config résolue. */
+const APP_ENV_REPORT: unique symbol = Symbol("nodefony.appEnvOverrideReport");
+
+/**
+ * Applique les overrides `NF__APP__<CHEMIN…>` sur la config APP **fusionnée**,
+ * AVANT sa validation Zod (fail-closed : une valeur invalide sera rejetée par
+ * `validateAppConfig`). Pur (ne loggue pas) : renvoie un rapport que le Kernel
+ * surface. `app` n'est pas un nom de module → 0 collision avec `NF__<MODULE>__*`.
+ *
+ * N'altère QUE des chemins déjà présents (= champs ayant un défaut framework, cf
+ * `defaultAppConfig`) ; un champ opt-in SANS défaut (`domainCheck`, `domainAlias`)
+ * doit être déclaré par l'app pour devenir surchargeable — sinon WARNING + « did
+ * you mean ». Le schéma app étant non-strict, on ne crée jamais de clé fantôme.
+ *
+ * @param merged - config app fusionnée (mutée en place).
+ * @param env - source d'environnement (typiquement `process.env`).
+ * @returns le rapport (appliqués + warnings).
+ */
+export function applyAppEnvOverrides(
+  merged: Record<string, unknown>,
+  env: NodeJS.ProcessEnv,
+): AppEnvOverrideReport {
+  const applied: Array<{ path: string[]; secret: boolean }> = [];
+  const warnings: string[] = [];
+  for (const ov of parseNfEnvOverrides(env)) {
+    if (ov.moduleSeg !== APP_SEGMENT) continue;
+    if (applyResolvedPath(merged, ov.path, ov.value)) {
+      applied.push({ path: ov.path, secret: pathLooksSecret(ov.path) });
+    } else {
+      warnings.push(
+        `Override env app ignoré : chemin "${ov.path.join(".")}" inconnu (${ov.envKey})` +
+          resolveFailureHint(merged, ov.path),
+      );
+    }
+  }
+  return { applied, warnings };
+}
+
+/**
+ * Lit le rapport d'override `NF__APP__*` rangé sur une config résolue (clé
+ * non-énumérable). `null` si absent (config legacy / pas un descripteur).
+ *
+ * @param config - config app résolue par {@link defineConfig}.
+ * @returns le rapport, ou `null`.
+ */
+export function readAppEnvOverrideReport(
+  config: unknown,
+): AppEnvOverrideReport | null {
+  if (config && typeof config === "object" && APP_ENV_REPORT in config) {
+    return (config as { [APP_ENV_REPORT]?: AppEnvOverrideReport })[
+      APP_ENV_REPORT
+    ] as AppEnvOverrideReport;
+  }
+  return null;
+}
 
 /**
  * Marque de marque (brand) interne d'un descripteur de config. Symbole privé au
@@ -75,7 +151,19 @@ function mergeAndValidate(userInput: AppConfigInput): ResolvedAppConfig {
     defaultAppConfig,
     userInput,
   ) as ResolvedAppConfig;
+  // Override env `NF__APP__*` ENTRE le merge et la validation → la valeur surchargée
+  // est validée par le Zod app (fail-closed). Le rapport est rangé hors énumération
+  // pour que le Kernel le surface (warnings « did you mean ») une fois son logger prêt.
+  const report = applyAppEnvOverrides(
+    merged as Record<string, unknown>,
+    process.env,
+  );
   validateAppConfig(merged);
+  Object.defineProperty(merged, APP_ENV_REPORT, {
+    value: report,
+    enumerable: false,
+    configurable: true,
+  });
   return merged;
 }
 

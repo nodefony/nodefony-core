@@ -38,14 +38,17 @@ import type {
   IModuleManifest,
   IModuleManifestEntry,
 } from "../types/IModuleManifest";
-import { isConfigDescriptor } from "../config/defineConfig";
+import {
+  isConfigDescriptor,
+  readAppEnvOverrideReport,
+} from "../config/defineConfig";
 import { defaultAppConfig } from "../config/defaults";
 import {
   parseNfEnvOverrides,
   applyResolvedPath,
   pathLooksSecret,
   closestMatch,
-  diagnoseResolveFailure,
+  resolveFailureHint,
 } from "../config/envOverride";
 import type { ConfigContext } from "../config/types";
 import nodefonyError from "../Error";
@@ -1139,10 +1142,7 @@ class Kernel extends Service implements IKernel {
       } else {
         this.log(
           `Override env ignoré : chemin "${ov.path.join(".")}" inconnu sur ${mod.name} (${ov.envKey})` +
-            this.resolveFailureHint(
-              mod.options as Record<string, unknown>,
-              ov.path,
-            ),
+            resolveFailureHint(mod.options as Record<string, unknown>, ov.path),
           "WARNING",
         );
       }
@@ -1179,28 +1179,6 @@ class Kernel extends Service implements IKernel {
       out.push(slash >= 0 ? name.slice(slash + 1) : name);
     }
     return out;
-  }
-
-  /**
-   * Construit l'indice « did you mean » pour un chemin d'override `NF__*` qui n'a
-   * pas résolu : nomme le segment fautif, liste les clés disponibles à ce niveau
-   * et propose la plus proche (façon git). Chaîne vide si rien d'exploitable.
-   *
-   * @param options - config du module (lue seule, non mutée).
-   * @param path - segments du chemin de l'override (minuscules).
-   * @returns un suffixe de message (commençant par ` — …`) ou `""`.
-   */
-  private resolveFailureHint(
-    options: Record<string, unknown>,
-    path: string[],
-  ): string {
-    const diag = diagnoseResolveFailure(options, path);
-    if (!diag || diag.available.length === 0) return "";
-    const suggestion = closestMatch(diag.segment, diag.available);
-    const keys = diag.available.join(", ");
-    return suggestion
-      ? ` — segment "${diag.segment}" inconnu, vouliez-vous dire « ${suggestion} » ? (clés: ${keys})`
-      : ` — segment "${diag.segment}" inconnu (clés disponibles: ${keys})`;
   }
 
   /**
@@ -1266,10 +1244,9 @@ class Kernel extends Service implements IKernel {
   ): { options: TypeKernelOptions; wasDescriptor: boolean } {
     if (isConfigDescriptor(raw)) {
       // Descripteur : merge défauts framework + validation Zod DANS resolve (Lot 1).
-      return {
-        options: raw.resolve(ctx) as TypeKernelOptions,
-        wasDescriptor: true,
-      };
+      const options = raw.resolve(ctx) as TypeKernelOptions;
+      this.surfaceAppEnvOverrides(options);
+      return { options, wasDescriptor: true };
     }
     // App legacy / config absente : merge SOUS les défauts framework (RÉSILIENCE — la
     // config reste complète ; tout champ omis prend son défaut EXPLICITE) via la même
@@ -1282,6 +1259,28 @@ class Kernel extends Service implements IKernel {
       raw ?? {},
     ) as TypeKernelOptions;
     return { options, wasDescriptor: false };
+  }
+
+  /**
+   * Émet au log le rapport des overrides `NF__APP__*` appliqués à la config app
+   * (INFO par override, secret rédigé) + les warnings « did you mean » des chemins
+   * non résolus. Appelé APRÈS `resolve()` : le logger kernel est prêt (le merge,
+   * lui, tourne dans `resolve()` AVANT le logger → rapport différé, cf defineConfig).
+   *
+   * @param options - config app résolue (porte le rapport en clé non-énumérable).
+   */
+  private surfaceAppEnvOverrides(options: unknown): void {
+    const report = readAppEnvOverrideReport(options);
+    if (!report) return;
+    for (const ov of report.applied) {
+      this.log(
+        `Override env app: ${ov.path.join(".")} = ${ov.secret ? "«***»" : "(env)"}`,
+        "INFO",
+      );
+    }
+    for (const w of report.warnings) {
+      this.log(w, "WARNING");
+    }
   }
 
   /**
