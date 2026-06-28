@@ -37,7 +37,7 @@
   },
   "private": false,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.0.0"
   },
   "bin": {
     "nodefony": "bin/nodefony"
