@@ -25,7 +25,6 @@ const external: string[] = [
   "nodefony",
   "@nodefony/http",
   "@nodefony/security",
-  "bluebird",
   "eta",
   "graphql",
   "@graphql-tools/merge",

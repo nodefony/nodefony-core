@@ -26,7 +26,6 @@ const external: string[] = [
   "cli-color",
   "cookie",
   "@fastify/busboy",
-  "bluebird",
   "mime",
   "ms",
   "qs",

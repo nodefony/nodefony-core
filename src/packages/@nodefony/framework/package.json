@@ -31,7 +31,6 @@
   "dependencies": {
     "@graphql-tools/merge": "9.1.9",
     "@graphql-tools/schema": "10.0.33",
-    "bluebird": "3.7.2",
     "eta": "4.6.0",
     "graphql": "17.0.1",
     "reflect-metadata": "0.2.2"
@@ -43,7 +42,6 @@
     "@rollup/plugin-replace": "6.0.3",
     "@rollup/plugin-terser": "1.0.0",
     "@rollup/plugin-typescript": "12.3.0",
-    "@types/bluebird": "3.5.42",
     "@types/chai": "5.2.3",
     "@types/node": "26.0.1",
     "@typescript-eslint/eslint-plugin": "8.62.0",

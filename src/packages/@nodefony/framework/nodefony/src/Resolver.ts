@@ -23,7 +23,6 @@ import {
   WebsocketContext,
 } from "@nodefony/http";
 import Route, { ControllerConstructor } from "./Route.js";
-import BlueBird from "bluebird";
 import Controller from "./Controller";
 import {
   buildParamArgs,
@@ -452,8 +451,7 @@ class Resolver implements IResolver {
     const body =
       als?.body !== undefined ? als.body : (httpReq?.queryPost ?? null);
     const store = context.container?.get("idempotencyStore") as
-      | IIdempotencyStore
-      | undefined;
+      IIdempotencyStore | undefined;
     const verdict = await evaluateIdempotency({
       store,
       identity: resolveIdentity(als?.user),
@@ -525,8 +523,7 @@ class Resolver implements IResolver {
    */
   private async _enforceSecurity(req: SecurityRequirement): Promise<void> {
     const authz = this.context.container?.get("authorization") as
-      | IAuthorizer
-      | undefined;
+      IAuthorizer | undefined;
     const token = RequestContext.get()?.token;
     // Fail-closed : route gardée mais moteur d'autz absent (module security non
     // chargé) ou aucune identité résolue (pas de zone firewall) → refus.
@@ -649,10 +646,12 @@ class Resolver implements IResolver {
     const type = typeOf(result);
     switch (true) {
       case result instanceof Promise:
-      case result instanceof BlueBird:
       case isPromise(result):
-        // Unwrap puis re-dispatch. Pas de `.catch(e => throw e)` (no-op qui
-        // ajoute une microtask par requête) — le rejet se propage seul.
+        // Unwrap puis re-dispatch. `isPromise` duck-type tout thenable
+        // (Promise natif, ex-Bluebird userland, Q…) via `.then` → couvre les
+        // promesses tierces sans dépendance dédiée.
+        // Pas de `.catch(e => throw e)` (no-op qui ajoute une microtask par
+        // requête) — le rejet se propage seul.
         // `switch(true)` ne narrow pas `result` → cast localisé sur le thenable.
         return (result as PromiseLike<unknown>).then((myresult: unknown) =>
           this.returnController(myresult),

@@ -75,7 +75,7 @@ Router.resolve(ctx)
 - **`Route.match()` nécessite `URL` object** — pas de string pour `context.request.url`.
 - **`@controllers` s'enregistre sur `onBoot`** — controllers absents avant le boot kernel.
 - **`forward("mod:ctrl:action")`** — format 3 parties séparées par `:`.
-- **`bluebird` dans `Resolver.returnController()`** — dépendance legacy, ne pas supprimer.
+- **`Resolver.returnController()` unwrap tout thenable via `isPromise` (duck-type `.then`)** — Promise natif, ex-Bluebird userland, Q… sans dépendance dédiée (bluebird retiré).
 
 ---
 
@@ -95,5 +95,4 @@ Router.resolve(ctx)
 
 - Modifier `rollup.config.ts` ou `tsconfig.json`
 - Changer la structure `routes[]` statique (casse tous les controllers enregistrés)
-- Remplacer `bluebird` dans `Resolver` sans tester les controllers userland
 - Supprimer `reflect-metadata` (casse tous les décorateurs)
