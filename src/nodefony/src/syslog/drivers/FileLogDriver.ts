@@ -86,29 +86,29 @@ export async function scanJsonlTail(
  * d'une ligne). Fichier absent / illisible → string vide (jamais throw côté query).
  */
 async function readTail(path: string, maxBytes: number): Promise<string> {
-  let fh: FileHandle | undefined;
+  let opened: FileHandle;
   try {
-    fh = await open(path, "r");
+    opened = await open(path, "r");
   } catch {
     return ""; // fichier absent ou illisible → résultat vide
   }
-  try {
-    const { size } = await fh.stat();
-    if (size === 0) return "";
-    const start = size > maxBytes ? size - maxBytes : 0;
-    const length = size - start;
-    const buf = Buffer.allocUnsafe(length);
-    await fh.read(buf, 0, length, start);
-    let text = buf.toString("utf8");
-    if (start > 0) {
-      // Lecture démarrée au milieu d'une ligne → jeter ce 1ᵉʳ fragment partiel.
-      const nl = text.indexOf("\n");
-      text = nl === -1 ? "" : text.slice(nl + 1);
-    }
-    return text;
-  } finally {
-    await fh.close();
+  // `FileHandle` implémente `Symbol.asyncDispose` (Node 24) → close() automatique
+  // en sortie de scope, sur CHAQUE `return` comme sur throw. Remplace le
+  // `try/finally { fh.close() }` manuel — libération déterministe, leak-proof.
+  await using fh = opened;
+  const { size } = await fh.stat();
+  if (size === 0) return "";
+  const start = size > maxBytes ? size - maxBytes : 0;
+  const length = size - start;
+  const buf = Buffer.allocUnsafe(length);
+  await fh.read(buf, 0, length, start);
+  let text = buf.toString("utf8");
+  if (start > 0) {
+    // Lecture démarrée au milieu d'une ligne → jeter ce 1ᵉʳ fragment partiel.
+    const nl = text.indexOf("\n");
+    text = nl === -1 ? "" : text.slice(nl + 1);
   }
+  return text;
 }
 
 /** Parse une ligne JSONL en {@link IPduLike}, ou `null` si corrompue / non-Pdu. */
