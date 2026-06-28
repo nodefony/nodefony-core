@@ -17,6 +17,23 @@ related: project_config_chantier_defineconfig_kit, project_module_loading_archit
 Tout ce que vous n'écrivez pas prend le **défaut du framework** (`defaultAppConfig`, dans le core).
 Votre `nodefony.config.ts` ne contient donc QUE vos écarts.
 
+## Vue d'ensemble — comprendre TOUTE la config en 1 minute
+
+La config se lit sur **trois couches**, classées par une **échelle de précédence unique** (le plus bas perd, le plus haut gagne) :
+
+| #   | Couche                 | Qui décide | Où                                                                                 |
+| --- | ---------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| 1   | **Défaut** (framework) | Nodefony   | schéma Zod du core (`defaultAppConfig`) + de chaque module                         |
+| 2   | **Config du projet**   | vous       | `nodefony.config.ts` (vos écarts, par-env via `ctx` ; inclut `ctx.env` = `env.ts`) |
+| 3   | **Déploiement**        | le devops  | variables d'env — catalogue `NF_X` + override générique `NF__*` + secrets `*_FILE` |
+| 4   | **Invocation**         | la CLI     | flags (`--workers`, …)                                                             |
+
+> **La seule règle à retenir** : ce que vous n'écrivez pas prend le **défaut du framework**. Vous
+> n'écrivez que vos **écarts** dans `nodefony.config.ts`. Le déploiement (Docker/k8s) surcharge par
+> **variable d'environnement**, sans toucher au code. Studio affiche la **provenance** de chaque valeur.
+
+Décision d'architecture complète : [ADR-0006](../adr/0006-configuration-unifiee-env-override.md).
+
 ## Les deux fichiers racine
 
 | Fichier              | Rôle                                                                                     |
@@ -160,6 +177,46 @@ Voir le skill `nodefony-start-server`.
 ## Voir la config résolue
 
 `nodefony config:show` (CLI) ou l'onglet **Configuration** de Studio (introspection via `z.toJSONSchema`).
+
+## Surcharger en déploiement — Docker / variables d'env
+
+> 🔜 **Cible actée — [ADR-0006](../adr/0006-configuration-unifiee-env-override.md)**, implémentation par slices. Le **catalogue `env.ts` est déjà en place** ; l'override générique `NF__*` et `*_FILE` sont la spec à livrer.
+
+Deux façons d'agir par l'environnement, rôles **distincts** :
+
+- **Catalogue** (`env.ts`, forme `NF_X`) — secrets, choix structurants, défauts à logique, exposés
+  **typés** dans `ctx.env`. Expérience **développeur**.
+- **Override générique** (forme `NF__<MODULE>__<CHEMIN>`) — surcharge de **n'importe quel** champ d'un
+  module, **sans code**, coercée + **validée par le schéma Zod** du module. Expérience **devops**.
+
+`__` (double underscore) = séparateur de niveau (choix .NET/Docker, sans ambiguïté avec le camelCase) ;
+segments **insensibles à la casse**, résolus contre les clés réelles du schéma :
+
+```bash
+NF__SECURITY__JWT__ACCESSTTLS=300
+NF__HTTP__SERVERS__HTTPS__PORT=8443
+NF__SECURITY__CORS__ORIGINS=https://a.com,https://b.com   # CSV → array
+NF_WEBHOOK_KEY_FILE=/run/secrets/webhook_key             # secret depuis un fichier monté (*_FILE)
+```
+
+Une valeur invalide fait **échouer le boot** avec un message nommant la variable (jamais de fallback
+silencieux). Non-chevauchement : un champ qui a une variable dédiée au catalogue n'est pas aussi piloté
+par `NF__*` (la variable nommée fait foi).
+
+## Structure d'un module — une source de vérité (règle d'or)
+
+Chaque module porte sa config dans **un schéma Zod commenté** = la **seule** source de : type
+(`z.infer`), validation, **défaut** (`.default()`), doc (`.describe()`) et formulaire Studio
+(`z.toJSONSchema`). **Un défaut n'est jamais re-tapé ailleurs.** Forme : `config.ts` (le schéma = QUOI,
+lisible) + `defineXConfig.ts` (builder pur = COMMENT, ~15 lignes). `@nodefony/security` = module de
+référence. Voir [ADR-0006](../adr/0006-configuration-unifiee-env-override.md) (D1/D2).
+
+## Héritage quand Nodefony est une dépendance
+
+Un projet qui fait `npm i nodefony` a **les mêmes** `nodefony.config.ts` + `env.ts`, **hérite**
+automatiquement des défauts du core et de chaque module (deep-merge au boot), n'écrit que ses
+**écarts**, et son devops surcharge par `NF__*`/`*_FILE` en Docker — **sans toucher au code** du
+projet ni du framework. C'est le modèle Spring Boot starter / Symfony bundle, transposé en TS.
 
 ## Voir aussi
 
