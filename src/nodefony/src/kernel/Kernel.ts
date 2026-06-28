@@ -40,6 +40,11 @@ import type {
 } from "../types/IModuleManifest";
 import { isConfigDescriptor } from "../config/defineConfig";
 import { defaultAppConfig } from "../config/defaults";
+import {
+  parseNfEnvOverrides,
+  applyResolvedPath,
+  pathLooksSecret,
+} from "../config/envOverride";
 import type { ConfigContext } from "../config/types";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
@@ -1087,6 +1092,70 @@ class Kernel extends Service implements IKernel {
     for (const name in this.modules) {
       this.modules[name].readOverrideModuleConfig();
     }
+    // Override env générique `NF__<MODULE>__<CHEMIN>` APRÈS le merge de l'app
+    // (précédence ADR-0006 D5 : env > app) et AVANT la validation Zod du module.
+    this.applyEnvConfigOverrides();
+  }
+
+  /**
+   * Applique les overrides de config par variable d'environnement générique
+   * `NF__<MODULE>__<CHEMIN…>` (ADR-0006 D3) sur la config de chaque module ciblé.
+   *
+   * Résolu 1× au boot (hors hot path). La surcharge est déposée sur
+   * `module.options` → elle sera validée par le schéma Zod du module à
+   * `onKernelRegister` (fail-closed si invalide). Un module ou un chemin
+   * introuvable est SIGNALÉ (WARNING) sans bloquer le boot — jamais de clé
+   * fantôme silencieuse. Les valeurs de chemins « secrets » sont rédigées au log.
+   */
+  private applyEnvConfigOverrides(): void {
+    const overrides = parseNfEnvOverrides(process.env);
+    if (!overrides.length) return;
+    for (const ov of overrides) {
+      const mod = this.findModuleBySegment(ov.moduleSeg);
+      if (!mod) {
+        this.log(
+          `Override env ignoré : module "${ov.moduleSeg}" introuvable (${ov.envKey})`,
+          "WARNING",
+        );
+        continue;
+      }
+      const applied = applyResolvedPath(
+        mod.options as Record<string, unknown>,
+        ov.path,
+        ov.value,
+      );
+      if (applied) {
+        const shown = pathLooksSecret(ov.path)
+          ? "«***»"
+          : JSON.stringify(ov.value);
+        this.log(
+          `Override env: ${mod.name}.${ov.path.join(".")} = ${shown}`,
+          "INFO",
+        );
+      } else {
+        this.log(
+          `Override env ignoré : chemin "${ov.path.join(".")}" inconnu sur ${mod.name} (${ov.envKey})`,
+          "WARNING",
+        );
+      }
+    }
+  }
+
+  /**
+   * Résout un segment de nom de module (minuscule, issu d'un `NF__<MODULE>__…`)
+   * vers son instance : compare au **basename** du nom de module (après le `/`),
+   * insensible à la casse (`security` → `@nodefony/security`).
+   *
+   * @param seg - segment module normalisé (minuscule).
+   * @returns le module correspondant, ou `undefined`.
+   */
+  private findModuleBySegment(seg: string): Module | undefined {
+    for (const name in this.modules) {
+      const slash = name.lastIndexOf("/");
+      const base = slash >= 0 ? name.slice(slash + 1) : name;
+      if (base.toLowerCase() === seg) return this.modules[name];
+    }
+    return undefined;
   }
 
   /**

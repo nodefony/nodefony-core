@@ -25,7 +25,39 @@
  * // env.NF_LOG_DRIVER : "stdout" | "file" | "null"
  * ```
  */
+import { readFileSync } from "node:fs";
 import { z } from "zod";
+
+/**
+ * Résout la valeur d'une variable, en honorant la convention `<KEY>_FILE`
+ * (ADR-0006 D3) : si `KEY` est absente mais `KEY_FILE` pointe un fichier (Docker
+ * secret, K8s, Vault), lit son contenu (newline final retiré). Lever si les deux
+ * sont posés (ambiguïté) ou si le fichier est illisible (fail-fast au boot).
+ *
+ * @param key - nom de la variable du catalogue.
+ * @param source - source d'environnement.
+ * @returns la valeur (directe ou lue du fichier), ou `undefined` si absente.
+ */
+function resolveFileEnv(
+  key: string,
+  source: Record<string, string | undefined>,
+): string | undefined {
+  const direct = source[key];
+  const filePath = source[`${key}_FILE`];
+  if (filePath === undefined || filePath === "") return direct;
+  if (direct !== undefined && direct !== "") {
+    throw new Error(
+      `[nodefony] ${key} ET ${key}_FILE sont tous deux définis — n'en garder qu'un (un secret monté = ${key}_FILE).`,
+    );
+  }
+  try {
+    return readFileSync(filePath, "utf8").replace(/\r?\n$/, "");
+  } catch (e) {
+    throw new Error(
+      `[nodefony] ${key}_FILE : lecture de "${filePath}" impossible (${(e as Error).message}).`,
+    );
+  }
+}
 
 /** Ensembles 12-factor (insensibles à la casse) pour la coercion booléenne. */
 const TRUTHY = new Set(["1", "true", "yes", "on"]);
@@ -154,7 +186,8 @@ export function defineEnv<M extends Record<string, z.ZodTypeAny>>(
 ): { readonly [K in keyof M]: z.infer<M[K]> } {
   const shape = z.object(catalog);
   const input: Record<string, string | undefined> = {};
-  for (const key of Object.keys(catalog)) input[key] = source[key];
+  for (const key of Object.keys(catalog))
+    input[key] = resolveFileEnv(key, source);
   const result = shape.safeParse(input);
   if (!result.success) {
     const issues = result.error.issues

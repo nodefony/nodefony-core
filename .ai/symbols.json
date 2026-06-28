@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-28T12:51:45.785Z",
+  "generated": "2026-06-28T13:02:45.683Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 984,
-    "symbols": 2328,
+    "files": 985,
+    "symbols": 2335,
     "classes": 314,
-    "interfaces": 619,
+    "interfaces": 620,
     "types": 273,
     "enums": 3,
-    "functions": 593,
+    "functions": 599,
     "constants": 526
   },
   "symbols": {
@@ -571,6 +571,47 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit + valide un catalogue de variables d'environnement, une fois, au boot."
+    },
+    "NfEnvOverride": {
+      "name": "NfEnvOverride",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un override d'environnement résolu (issu d'une variable `NF__…`)."
+    },
+    "coerceEnvValue": {
+      "name": "coerceEnvValue",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Coerce une valeur d'environnement (toujours une chaîne) vers son type probable. Coercion **explicite** (le piège `z.coerce.boolean(\"false\") === true` est évité) : `\"true\"/\"false\"` → booléen ; entie…"
+    },
+    "parseNfEnvOverrides": {
+      "name": "parseNfEnvOverrides",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Scanne `env` et extrait tous les overrides `NF__<MODULE>__<CHEMIN…>`. Ignore les clés sans au moins un module + un champ (`NF__X` seul), et les valeurs `undefined`. Ne touche PAS `env` (lecture seu…"
+    },
+    "applyResolvedPath": {
+      "name": "applyResolvedPath",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose `value` dans `target` au `path` donné, en résolvant chaque segment contre les clés EXISTANTES (insensible à la casse). N'altère QUE des chemins déjà présents dans la config (= champs ayant un …"
+    },
+    "pathLooksSecret": {
+      "name": "pathLooksSecret",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Heuristique : ce chemin porte-t-il un secret (à rédiger dans les logs) ?"
     },
     "Reactivity": {
       "name": "Reactivity",
@@ -19062,6 +19103,15 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "isConfigDescriptor": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "parseNfEnvOverrides": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "applyResolvedPath": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "pathLooksSecret": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "nodefonyError": [
