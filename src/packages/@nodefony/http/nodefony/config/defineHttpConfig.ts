@@ -11,6 +11,8 @@ export interface IKernelConfigDefaults {
   tmpDir?: { path?: unknown } | null;
   domain?: string;
   projectName?: string;
+  /** Environnement courant — pilote les défauts secure-by-default (ex. `Server:`). */
+  environment?: string;
 }
 
 /**
@@ -86,6 +88,17 @@ export function defineHttpConfig(
   kernel?: IKernelConfigDefaults | null,
 ): IHttpConfig {
   const parsed = httpConfigSchema.parse(config) as IHttpConfig;
+  // Secure-by-default en PRODUCTION : ne PAS exposer l'identité du framework dans
+  // l'en-tête `Server:` (anti-fingerprint OWASP) SAUF si explicitement configuré.
+  // En dev le défaut « nodefony » reste (confort/branding). Override possible par
+  // env (`NF__HTTP__HEADERSERVER`) ou config app → respecté car `config.headerServer`
+  // est alors défini.
+  if (
+    kernel?.environment === "production" &&
+    config.headerServer === undefined
+  ) {
+    parsed.headerServer = null;
+  }
   return applyKernelDefaults(parsed, kernel);
 }
 

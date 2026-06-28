@@ -50,6 +50,33 @@ describe("@nodefony/http — httpConfigSchema (défauts)", () => {
   });
 });
 
+describe("@nodefony/http — headerServer secure-by-default (anti-fingerprint)", () => {
+  it("dev/test : défaut « nodefony » (branding)", () => {
+    expect(
+      defineHttpConfig({}, { environment: "development" }).headerServer,
+    ).to.equal("nodefony");
+    expect(defineHttpConfig({}).headerServer).to.equal("nodefony");
+  });
+
+  it("production : null par défaut (ne PAS exposer le framework)", () => {
+    expect(
+      defineHttpConfig({}, { environment: "production" }).headerServer,
+    ).to.equal(null);
+  });
+
+  it("production : override explicite respecté", () => {
+    expect(
+      defineHttpConfig({ headerServer: "acme" }, { environment: "production" })
+        .headerServer,
+    ).to.equal("acme");
+    // null explicite reste null
+    expect(
+      defineHttpConfig({ headerServer: null }, { environment: "production" })
+        .headerServer,
+    ).to.equal(null);
+  });
+});
+
 describe("@nodefony/http — sous-défauts (piège Zod 4 .default({}))", () => {
   const c = httpConfigSchema.parse({});
 
