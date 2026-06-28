@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-28T14:52:49.103Z",
+  "generated": "2026-06-28T15:21:45.616Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 987,
-    "symbols": 2359,
+    "symbols": 2362,
     "classes": 314,
-    "interfaces": 624,
+    "interfaces": 626,
     "types": 275,
     "enums": 3,
-    "functions": 617,
+    "functions": 618,
     "constants": 526
   },
   "symbols": {
@@ -6565,6 +6565,15 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Noms de stores distribués enregistrés (validation boot, introspection Studio, tests). N'inclut PAS `\"memory\"` (défaut implicite via `@services`, hors registre)."
+    },
+    "IConfigEntry": {
+      "name": "IConfigEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Entrée config d'un module : valeurs redactées + schéma + provenance par champ."
     },
     "createKernelAdminApi": {
       "name": "createKernelAdminApi",

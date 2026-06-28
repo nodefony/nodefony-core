@@ -57,6 +57,9 @@ const Modules = lazy(() =>
 const ModuleDetail = lazy(() =>
   import("./routes/ModuleDetail").then((m) => ({ default: m.ModuleDetail })),
 );
+const ConfigPage = lazy(() =>
+  import("./routes/config/ConfigPage").then((m) => ({ default: m.ConfigPage })),
+);
 const RoutesView = lazy(() =>
   import("./routes/RoutesView").then((m) => ({ default: m.RoutesView })),
 );
@@ -214,6 +217,7 @@ const router = createBrowserRouter([
               { path: "services", element: <Services /> },
               { path: "modules", element: <Modules /> },
               { path: "modules/:name", element: <ModuleDetail /> },
+              { path: "config", element: <ConfigPage /> },
               { path: "routes", element: <RoutesView /> },
               { path: "npm", element: <Npm /> },
             ],

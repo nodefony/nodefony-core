@@ -5,6 +5,7 @@ import {
   IconUsers,
   IconUsersGroup,
   IconRoute,
+  IconAdjustmentsAlt,
   IconList,
   IconShieldLock,
   IconShieldCheck,
@@ -195,6 +196,12 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/modules",
         label: "Modules",
         icon: IconBox,
+        roles: VIEW_ROLES.dev,
+      },
+      {
+        to: "/nodefony/config",
+        label: "Configuration",
+        icon: IconAdjustmentsAlt,
         roles: VIEW_ROLES.dev,
       },
       {

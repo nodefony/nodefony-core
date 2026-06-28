@@ -100,6 +100,104 @@ function safeConfig(
   return out;
 }
 
+/** Forme minimale d'un module pour l'introspection de configuration. */
+interface ConfigModuleLike {
+  getModuleName?: () => string;
+  options?: unknown;
+  configSchema: () => unknown;
+  isApp?: boolean;
+}
+
+/** Entrée config d'un module : valeurs redactées + schéma + provenance par champ. */
+export interface IConfigEntry {
+  /** Clé Studio (basename : `http`, `security`, `core`, ou la clé de l'app). */
+  key: string;
+  /** Nom de package (`@nodefony/http`, nom de l'app…). */
+  name: string;
+  /** Est-ce la config de l'APPLICATION (vs un module) ? */
+  isApp: boolean;
+  /** Segment d'adressage des overrides (`NF__<SEG>__…`) : `app` ou le basename. */
+  seg: string;
+  /** Config effective résolue, secrets REDACTÉS côté serveur. */
+  config: Record<string, unknown>;
+  /** JSON Schema du module (si migré Zod), sinon `null`. */
+  configSchema: unknown;
+  /** Origine par champ (`default`/`app`/`env`) — `null` si pas de schéma. */
+  provenance: Record<string, string> | null;
+  /**
+   * « QUI surcharge, où » par champ env-surchargé : chemin pointé → **nom RÉEL**
+   * de la variable d'environnement actuellement posée (`NF__SECURITY__JWT__ACCESSTTLS`).
+   * Permet à Studio de nommer la source exacte (≠ recette générique). Les champs
+   * `app` viennent de `nodefony.config.ts` (statique, côté front).
+   */
+  envKeys: Record<string, string>;
+}
+
+/**
+ * Calcule l'entrée CONFIG d'un module — partagée par `module/{name}` (détail) et
+ * l'agrégat `config` (page globale). Une seule logique de provenance (ADR-0006 D7),
+ * branche `isApp` (défauts = `defaultAppConfig`, env = segment réservé `app`) vs
+ * module (défauts = `extractJsonSchemaDefaults(schema)`, env = basename). La map de
+ * provenance ne porte que des ORIGINES (jamais de valeur → 0 fuite) ; les valeurs
+ * restent redactées par `safeConfig`.
+ *
+ * @param key - clé Studio du module.
+ * @param mod - module (forme minimale {@link ConfigModuleLike}).
+ * @returns l'entrée config normalisée.
+ */
+function computeConfigEntry(key: string, mod: ConfigModuleLike): IConfigEntry {
+  const pkg = mod.getModuleName?.() ?? key;
+  const opts = (mod.options ?? {}) as Record<string, unknown>;
+  const schema = mod.configSchema();
+  const isApp = mod.isApp ?? false;
+  const seg = isApp
+    ? "app"
+    : (pkg.includes("/")
+        ? pkg.slice(pkg.lastIndexOf("/") + 1)
+        : pkg
+      ).toLowerCase();
+  // « Qui surcharge, où » : la VRAIE variable d'env posée pour ce module/app,
+  // indexée par chemin pointé (casse réelle de la valeur résolue côté provenance).
+  const envKeys: Record<string, string> = {};
+  for (const o of parseNfEnvOverrides(process.env)) {
+    if (o.moduleSeg === seg) envKeys[o.path.join(".")] = o.envKey;
+  }
+  let provenance: Record<string, string> | null = null;
+  if (isApp) {
+    const envPaths = new Set(
+      parseNfEnvOverrides(process.env)
+        .filter((o) => o.moduleSeg === "app")
+        .map((o) => o.path.join(".")),
+    );
+    provenance = computeConfigProvenance(
+      opts,
+      defaultAppConfig as unknown as Record<string, unknown>,
+      envPaths,
+    );
+  } else if (schema) {
+    const envPaths = new Set(
+      parseNfEnvOverrides(process.env)
+        .filter((o) => o.moduleSeg === seg)
+        .map((o) => o.path.join(".")),
+    );
+    provenance = computeConfigProvenance(
+      opts,
+      extractJsonSchemaDefaults(schema),
+      envPaths,
+    );
+  }
+  return {
+    key,
+    name: pkg,
+    isApp,
+    seg,
+    config: safeConfig(opts) as Record<string, unknown>,
+    configSchema: schema,
+    provenance,
+    envKeys,
+  };
+}
+
 /**
  * Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`.
  *
@@ -320,6 +418,23 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       },
     },
     {
+      path: "config",
+      summary:
+        "Aggregated config of all modules (effective values redacted + JSON Schema + per-field provenance) for the global config page",
+      handler: async () => {
+        const modules = kernel.getModules();
+        const entries: IConfigEntry[] = [];
+        for (const k of Object.keys(modules)) {
+          const mod = modules[k] as unknown as ConfigModuleLike;
+          const opts = (mod.options ?? {}) as Record<string, unknown>;
+          // N'inclure que les modules PORTEURS de config (réglages OU schéma).
+          if (Object.keys(opts).length === 0 && !mod.configSchema()) continue;
+          entries.push(computeConfigEntry(k, mod));
+        }
+        return { modules: entries };
+      },
+    },
+    {
       // Endpoint PARAMÉTRÉ — exerce la regexp de routage `{name}` + l'extraction
       // de params (`request.params.name`). `{name}` = mono-segment → utiliser la
       // clé courte du module (`http`, `framework`), pas `@nodefony/http` (slash).
@@ -362,60 +477,29 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // Succès = donnée brute (le broker assume 200). NE PAS wrapper dans
         // `{ body }` sans `status`/`headers` → normalize ne le reconnaît pas
         // comme enveloppe et double-wrappe.
-        const pkg = mod.getModuleName?.() ?? key;
-        const opts = (mod.options ?? {}) as Record<string, unknown>;
-        const schema = mod.configSchema();
-        // Provenance par champ (défaut/app/env) — re-dérivée à l'introspection
-        // (ADR-0006 D7), sans instrumenter le merge. Calculée sur la config BRUTE
-        // (la map ne porte que des ORIGINES, jamais de valeur → 0 fuite) ; les
-        // valeurs, elles, restent redactées via safeConfig.
-        let provenance: Record<string, string> | null = null;
-        if (mod.isApp) {
-          // App : les défauts sont `defaultAppConfig` (le schéma app DÉCRIT les
-          // champs mais ne porte PAS de `.default()` → extractJsonSchemaDefaults
-          // serait vide et tout passerait pour "app"). Env = segment réservé `app`
-          // (`NF__APP__*`), jamais le basename du package de l'app.
-          const envPaths = new Set(
-            parseNfEnvOverrides(process.env)
-              .filter((o) => o.moduleSeg === "app")
-              .map((o) => o.path.join(".")),
-          );
-          provenance = computeConfigProvenance(
-            opts,
-            defaultAppConfig as unknown as Record<string, unknown>,
-            envPaths,
-          );
-        } else if (schema) {
-          const seg = pkg.includes("/")
-            ? pkg.slice(pkg.lastIndexOf("/") + 1)
-            : pkg;
-          const envPaths = new Set(
-            parseNfEnvOverrides(process.env)
-              .filter((o) => o.moduleSeg === seg.toLowerCase())
-              .map((o) => o.path.join(".")),
-          );
-          provenance = computeConfigProvenance(
-            opts,
-            extractJsonSchemaDefaults(schema),
-            envPaths,
-          );
-        }
+        // Sous-ensemble CONFIG (valeurs redactées + schéma + provenance par champ
+        // + segment d'override). Logique partagée avec l'agrégat `config` (DRY).
+        const cfg = computeConfigEntry(key, mod as unknown as ConfigModuleLike);
         return {
           key,
-          name: pkg,
+          name: cfg.name,
           version: mod.getModuleVersion?.() ?? null,
-          isApp: mod.isApp ?? false,
+          isApp: cfg.isApp,
           path: relPath(mod.path),
           dependencies: mod.getDependencies?.() ?? [],
           services,
-          config: safeConfig(opts),
+          config: cfg.config,
           // JSON Schema de la config (réglages documentés + flags meta) si le
           // module est migré Zod — sinon null (Studio retombe sur le dump brut).
-          configSchema: schema,
+          configSchema: cfg.configSchema,
           // Origine de chaque valeur résolue (default | app | env) — badge Studio.
-          provenance,
+          provenance: cfg.provenance,
+          // Segment d'adressage des overrides `NF__<SEG>__…` + var d'env réelle
+          // posée par champ (« qui surcharge, où ») — page config + onglet module.
+          seg: cfg.seg,
+          envKeys: cfg.envKeys,
           docsCount: await countModuleDocs(mod.path),
-          symbolsCount: (await listModuleSymbols(pkg)).length,
+          symbolsCount: (await listModuleSymbols(cfg.name)).length,
           coverageLines: (await readCoverage(mod.path)).total?.lines ?? null,
         };
       },
