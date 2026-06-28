@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-28T13:31:18.478Z",
+  "generated": "2026-06-28T14:04:39.734Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 986,
-    "symbols": 2342,
+    "symbols": 2346,
     "classes": 314,
-    "interfaces": 620,
+    "interfaces": 621,
     "types": 274,
     "enums": 3,
-    "functions": 605,
+    "functions": 608,
     "constants": 526
   },
   "symbols": {
@@ -605,6 +605,15 @@
       "extends": null,
       "description": "Un override d'environnement résolu (issu d'une variable `NF__…`)."
     },
+    "ResolveFailure": {
+      "name": "ResolveFailure",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Échec de résolution d'un chemin d'override : où ça a cassé + ce qui existait."
+    },
     "coerceEnvValue": {
       "name": "coerceEnvValue",
       "kind": "function",
@@ -636,6 +645,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Heuristique : ce chemin porte-t-il un secret (à rédiger dans les logs) ?"
+    },
+    "editDistance": {
+      "name": "editDistance",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Distance d'édition de Levenshtein entre deux chaînes (2 lignes glissantes, pas de matrice complète). Sert au « did you mean » : proposer la clé la plus proche quand un segment d'override `NF__*` es…"
+    },
+    "closestMatch": {
+      "name": "closestMatch",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parmi `candidates`, renvoie le plus proche de `target` (insensible à la casse) SI la distance d'édition reste plausible (≤ 40 % de la plus longue, plancher 2) — sinon `null` (ne jamais suggérer une…"
+    },
+    "diagnoseResolveFailure": {
+      "name": "diagnoseResolveFailure",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rejoue la résolution de `path` contre `target` pour DIAGNOSTIQUER un échec : renvoie le 1ᵉʳ segment qui ne correspond à aucune clé (ou qui traverse un non-objet) + les clés disponibles à ce niveau.…"
     },
     "Reactivity": {
       "name": "Reactivity",
@@ -19142,6 +19175,12 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "pathLooksSecret": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "closestMatch": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "diagnoseResolveFailure": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "nodefonyError": [

@@ -149,3 +149,106 @@ export function applyResolvedPath(
 export function pathLooksSecret(path: string[]): boolean {
   return path.some((s) => /secret|password|key|token|credential/i.test(s));
 }
+
+/**
+ * Distance d'édition de Levenshtein entre deux chaînes (2 lignes glissantes, pas
+ * de matrice complète). Sert au « did you mean » : proposer la clé la plus proche
+ * quand un segment d'override `NF__*` est mal orthographié.
+ *
+ * @param a - première chaîne.
+ * @param b - seconde chaîne.
+ * @returns le nombre minimal d'insertions/suppressions/substitutions.
+ */
+export function editDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = new Array<number>(n + 1);
+  let curr = new Array<number>(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+/**
+ * Parmi `candidates`, renvoie le plus proche de `target` (insensible à la casse)
+ * SI la distance d'édition reste plausible (≤ 40 % de la plus longue, plancher 2)
+ * — sinon `null` (ne jamais suggérer une correspondance absurde). Calque le « the
+ * most similar command is » de git : aide au debug d'un nom de variable d'env mal tapé.
+ *
+ * @param target - segment fourni par l'utilisateur (issu d'un `NF__…`).
+ * @param candidates - clés réelles existantes à comparer.
+ * @returns la meilleure suggestion, ou `null` si trop éloignée.
+ */
+export function closestMatch(
+  target: string,
+  candidates: string[],
+): string | null {
+  const t = target.toLowerCase();
+  let best: string | null = null;
+  let bestD = Infinity;
+  for (const c of candidates) {
+    const d = editDistance(t, c.toLowerCase());
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  if (best === null) return null;
+  const threshold = Math.max(
+    2,
+    Math.floor(Math.max(t.length, best.length) * 0.4),
+  );
+  return bestD <= threshold ? best : null;
+}
+
+/** Échec de résolution d'un chemin d'override : où ça a cassé + ce qui existait. */
+export interface ResolveFailure {
+  /** Index (dans `path`) du segment qui n'a pas résolu. */
+  readonly index: number;
+  /** Segment fautif (minuscule, tel que fourni). */
+  readonly segment: string;
+  /** Clés réelles disponibles au niveau où la résolution a échoué. */
+  readonly available: string[];
+}
+
+/**
+ * Rejoue la résolution de `path` contre `target` pour DIAGNOSTIQUER un échec :
+ * renvoie le 1ᵉʳ segment qui ne correspond à aucune clé (ou qui traverse un
+ * non-objet) + les clés disponibles à ce niveau. `null` si tout résout (pas un
+ * échec). Miroir de lecture seule de {@link applyResolvedPath} — ne mute rien.
+ *
+ * @param target - objet de config du module (non muté).
+ * @param path - segments du chemin (minuscules).
+ * @returns le détail de l'échec, ou `null` si le chemin résout entièrement.
+ */
+export function diagnoseResolveFailure(
+  target: Record<string, unknown>,
+  path: string[],
+): ResolveFailure | null {
+  if (path.length === 0) return null;
+  let node: Record<string, unknown> = target;
+  for (let i = 0; i < path.length; i++) {
+    const key = resolveKey(node, path[i]);
+    if (key === null) {
+      return { index: i, segment: path[i], available: Object.keys(node) };
+    }
+    if (i < path.length - 1) {
+      const next = node[key];
+      if (typeof next !== "object" || next === null || Array.isArray(next)) {
+        // segment intermédiaire qui ne mène pas à un objet traversable
+        return { index: i, segment: path[i], available: Object.keys(node) };
+      }
+      node = next as Record<string, unknown>;
+    }
+  }
+  return null;
+}

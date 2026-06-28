@@ -44,6 +44,8 @@ import {
   parseNfEnvOverrides,
   applyResolvedPath,
   pathLooksSecret,
+  closestMatch,
+  diagnoseResolveFailure,
 } from "../config/envOverride";
 import type { ConfigContext } from "../config/types";
 import nodefonyError from "../Error";
@@ -1113,8 +1115,10 @@ class Kernel extends Service implements IKernel {
     for (const ov of overrides) {
       const mod = this.findModuleBySegment(ov.moduleSeg);
       if (!mod) {
+        const suggestion = closestMatch(ov.moduleSeg, this.moduleSegments());
         this.log(
-          `Override env ignoré : module "${ov.moduleSeg}" introuvable (${ov.envKey})`,
+          `Override env ignoré : module "${ov.moduleSeg}" introuvable (${ov.envKey})` +
+            (suggestion ? ` — vouliez-vous dire « ${suggestion} » ?` : ""),
           "WARNING",
         );
         continue;
@@ -1134,7 +1138,11 @@ class Kernel extends Service implements IKernel {
         );
       } else {
         this.log(
-          `Override env ignoré : chemin "${ov.path.join(".")}" inconnu sur ${mod.name} (${ov.envKey})`,
+          `Override env ignoré : chemin "${ov.path.join(".")}" inconnu sur ${mod.name} (${ov.envKey})` +
+            this.resolveFailureHint(
+              mod.options as Record<string, unknown>,
+              ov.path,
+            ),
           "WARNING",
         );
       }
@@ -1156,6 +1164,43 @@ class Kernel extends Service implements IKernel {
       if (base.toLowerCase() === seg) return this.modules[name];
     }
     return undefined;
+  }
+
+  /**
+   * Basenames de tous les modules chargés (segment ciblable par `NF__<MODULE>__…`).
+   * Sert au « did you mean » quand le segment module d'un override ne résout pas.
+   *
+   * @returns la liste des basenames (ex. `security`, `http`).
+   */
+  private moduleSegments(): string[] {
+    const out: string[] = [];
+    for (const name in this.modules) {
+      const slash = name.lastIndexOf("/");
+      out.push(slash >= 0 ? name.slice(slash + 1) : name);
+    }
+    return out;
+  }
+
+  /**
+   * Construit l'indice « did you mean » pour un chemin d'override `NF__*` qui n'a
+   * pas résolu : nomme le segment fautif, liste les clés disponibles à ce niveau
+   * et propose la plus proche (façon git). Chaîne vide si rien d'exploitable.
+   *
+   * @param options - config du module (lue seule, non mutée).
+   * @param path - segments du chemin de l'override (minuscules).
+   * @returns un suffixe de message (commençant par ` — …`) ou `""`.
+   */
+  private resolveFailureHint(
+    options: Record<string, unknown>,
+    path: string[],
+  ): string {
+    const diag = diagnoseResolveFailure(options, path);
+    if (!diag || diag.available.length === 0) return "";
+    const suggestion = closestMatch(diag.segment, diag.available);
+    const keys = diag.available.join(", ");
+    return suggestion
+      ? ` — segment "${diag.segment}" inconnu, vouliez-vous dire « ${suggestion} » ? (clés: ${keys})`
+      : ` — segment "${diag.segment}" inconnu (clés disponibles: ${keys})`;
   }
 
   /**

@@ -8,9 +8,13 @@ import {
   parseNfEnvOverrides,
   applyResolvedPath,
   pathLooksSecret,
+  editDistance,
+  closestMatch,
+  diagnoseResolveFailure,
 } from "../config/envOverride";
 import { defineEnv, envString } from "../config/index";
 import Kernel from "../kernel/Kernel";
+import Module from "../kernel/Module";
 import { Nodefony } from "../Nodefony";
 
 describe("envOverride — coerceEnvValue", () => {
@@ -210,5 +214,238 @@ describe("envOverride — intégration Kernel (NF__* au boot)", () => {
       { NF__GHOST__X: "1", NF__DEMO__JWT__NOPE: "1" },
     );
     assert.deepStrictEqual(mod.options, { jwt: { accessTtlS: 900 } });
+  });
+});
+
+// ─── « did you mean » : aide au debug d'un NF__* mal orthographié ──────────────
+
+describe("envOverride — editDistance", () => {
+  it("0 si identiques, n si l'une est vide", () => {
+    assert.strictEqual(editDistance("abc", "abc"), 0);
+    assert.strictEqual(editDistance("", "abc"), 3);
+    assert.strictEqual(editDistance("abc", ""), 3);
+  });
+  it("compte insertions / substitutions", () => {
+    assert.strictEqual(editDistance("securty", "security"), 1); // insertion
+    assert.strictEqual(editDistance("kitten", "sitting"), 3);
+  });
+});
+
+describe("envOverride — closestMatch", () => {
+  it("propose le plus proche dans le seuil de plausibilité", () => {
+    assert.strictEqual(
+      closestMatch("securty", ["security", "http"]),
+      "security",
+    );
+    assert.strictEqual(closestMatch("accesstl", ["accessTtlS"]), "accessTtlS");
+  });
+  it("insensible à la casse", () => {
+    assert.strictEqual(closestMatch("HTTP", ["http", "framework"]), "http");
+  });
+  it("null si trop éloigné (pas de suggestion absurde)", () => {
+    assert.strictEqual(closestMatch("zzzzzz", ["http", "security"]), null);
+  });
+  it("null si aucun candidat", () => {
+    assert.strictEqual(closestMatch("x", []), null);
+  });
+});
+
+describe("envOverride — diagnoseResolveFailure", () => {
+  it("null si le chemin résout entièrement (pas un échec)", () => {
+    const t = { jwt: { accessTtlS: 900 } };
+    assert.strictEqual(diagnoseResolveFailure(t, ["jwt", "accessttls"]), null);
+  });
+  it("segment feuille inconnu → index + clés disponibles", () => {
+    const t = { jwt: { accessTtlS: 900, refreshTtlS: 60 } };
+    const d = diagnoseResolveFailure(t, ["jwt", "accesstl"]);
+    assert.deepStrictEqual(d, {
+      index: 1,
+      segment: "accesstl",
+      available: ["accessTtlS", "refreshTtlS"],
+    });
+  });
+  it("segment intermédiaire inconnu → échoue au bon niveau (racine)", () => {
+    const t = { jwt: { accessTtlS: 900 }, cors: {} };
+    const d = diagnoseResolveFailure(t, ["jwtx", "accessttls"]);
+    assert.strictEqual(d?.index, 0);
+    assert.strictEqual(d?.segment, "jwtx");
+    assert.deepStrictEqual(d?.available, ["jwt", "cors"]);
+  });
+  it("traverse un non-objet → échec signalé au segment porteur", () => {
+    const t = { jwt: 1 };
+    const d = diagnoseResolveFailure(t, ["jwt", "x"]);
+    assert.strictEqual(d?.index, 0);
+    assert.deepStrictEqual(d?.available, ["jwt"]);
+  });
+});
+
+/**
+ * Câblage Kernel : le WARNING d'un override `NF__*` qui ne résout pas porte bien
+ * la suggestion « vouliez-vous dire X ? » (on capture `kernel.log`, indépendant du
+ * niveau de log). Couvre les deux points d'échec : module + chemin.
+ */
+describe("envOverride — message enrichi (module/chemin proche)", () => {
+  let prev: Kernel | null;
+  beforeAll(() => {
+    prev = Nodefony.getKernel();
+  });
+  afterAll(() => {
+    Nodefony.setKernel(prev as Kernel);
+  });
+
+  const captureWarnings = (
+    modules: Record<string, unknown>,
+    over: Record<string, string>,
+  ): string[] => {
+    const kernel = new Kernel("development", null, { log: { active: false } });
+    (kernel as unknown as { modules: Record<string, unknown> }).modules =
+      modules;
+    const warnings: string[] = [];
+    (kernel as unknown as { log: (m: string, s?: string) => void }).log = (
+      m: string,
+      s?: string,
+    ): void => {
+      if (s === "WARNING") warnings.push(m);
+    };
+    const saved: Record<string, string | undefined> = {};
+    for (const k of Object.keys(over)) saved[k] = process.env[k];
+    Object.assign(process.env, over);
+    try {
+      (
+        kernel as unknown as { applyEnvConfigOverrides(): void }
+      ).applyEnvConfigOverrides();
+    } finally {
+      for (const k of Object.keys(over)) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+    }
+    return warnings;
+  };
+
+  it("module mal tapé → « vouliez-vous dire « security » ? »", () => {
+    const w = captureWarnings(
+      { "@nodefony/security": { name: "@nodefony/security", options: {} } },
+      { NF__SECURTY__JWT__ACCESSTTLS: "300" },
+    );
+    assert.strictEqual(w.length, 1);
+    assert.match(w[0], /module "securty" introuvable/);
+    assert.match(w[0], /vouliez-vous dire « security »/);
+  });
+
+  it("chemin mal tapé → segment fautif + clé proche + clés disponibles", () => {
+    const w = captureWarnings(
+      {
+        "@nodefony/security": {
+          name: "@nodefony/security",
+          options: { jwt: { accessTtlS: 900, refreshTtlS: 60 } },
+        },
+      },
+      { NF__SECURITY__JWT__ACCESSTL: "300" },
+    );
+    assert.strictEqual(w.length, 1);
+    assert.match(w[0], /chemin "jwt\.accesstl" inconnu/);
+    assert.match(w[0], /vouliez-vous dire « accessTtlS »/);
+    assert.match(w[0], /clés: accessTtlS, refreshTtlS/);
+  });
+});
+
+/**
+ * Fail-closed E2E (gap Slice 3) : une valeur `NF__*` INVALIDE est-elle rejetée par
+ * la validation du module à `onKernelRegister` ? Régime RÉEL vérifié au code
+ * (`Kernel.isBootErrorFatal`) : la validation tourne APRÈS `applyModuleConfigOverrides`
+ * (elle VOIT l'override), et l'échec est **fatal en production** (module critique →
+ * le pod crashe → restart) mais **fail-soft + bruyant en développement** (WARNING +
+ * BootReport, jamais un pass silencieux). On prouve les deux régimes + valeur valide.
+ */
+describe("envOverride — fail-closed (NF__* invalide rejeté par la validation module)", () => {
+  let prev: Kernel | null;
+  beforeAll(() => {
+    prev = Nodefony.getKernel();
+  });
+  afterAll(() => {
+    Nodefony.setKernel(prev as Kernel);
+  });
+
+  // onKernelRegister simule la validation Zod de defineXConfig : lève si port
+  // n'est pas un nombre (ex. un override CSV/typo qui n'a pas coercé en number).
+  class ValidatedModule extends Module {
+    constructor(kernel: Kernel) {
+      super("@nodefony/valcfg", kernel, "/tmp/valcfg", { port: 5152 });
+    }
+    async onKernelRegister(): Promise<this> {
+      const port = (this.options as { port: unknown }).port;
+      if (typeof port !== "number") {
+        throw new Error(
+          `config invalide: port doit être un nombre (reçu ${typeof port})`,
+        );
+      }
+      return this;
+    }
+  }
+
+  const withEnv = async <T>(
+    over: Record<string, string>,
+    fn: () => Promise<T>,
+  ): Promise<T> => {
+    const saved: Record<string, string | undefined> = {};
+    for (const k of Object.keys(over)) saved[k] = process.env[k];
+    Object.assign(process.env, over);
+    try {
+      return await fn();
+    } finally {
+      for (const k of Object.keys(over)) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+    }
+  };
+
+  const makeKernel = (env: "development" | "production"): Kernel =>
+    new Kernel(env, null, { log: { active: false } });
+
+  const applyOverrides = (k: Kernel): void =>
+    (
+      k as unknown as { applyModuleConfigOverrides(): void }
+    ).applyModuleConfigOverrides();
+
+  it("valeur VALIDE : l'override traverse jusqu'à la validation (port coercé en nombre, 0 erreur)", async () => {
+    const k = makeKernel("development");
+    const mod = (await k.addModule(ValidatedModule)) as ValidatedModule;
+    await withEnv({ NF__VALCFG__PORT: "8443" }, async () => {
+      applyOverrides(k);
+      const r = await k.fireLifecycle("onRegister", k);
+      assert.strictEqual(r.errors.length, 0);
+      assert.strictEqual((mod.options as { port: unknown }).port, 8443);
+    });
+  });
+
+  it("prod : valeur INVALIDE → onKernelRegister lève → fireLifecycle REJETTE (fail-closed)", async () => {
+    const k = makeKernel("production");
+    await k.addModule(ValidatedModule);
+    await withEnv({ NF__VALCFG__PORT: "abc" }, async () => {
+      applyOverrides(k);
+      await assert.rejects(
+        () => k.fireLifecycle("onRegister", k),
+        /port doit être un nombre/,
+      );
+    });
+  });
+
+  it("dev : valeur INVALIDE → fail-soft MAIS bruyant (erreur collectée + BootReport), jamais un pass silencieux", async () => {
+    const k = makeKernel("development");
+    await k.addModule(ValidatedModule);
+    await withEnv({ NF__VALCFG__PORT: "abc" }, async () => {
+      applyOverrides(k);
+      const r = await k.fireLifecycle("onRegister", k);
+      assert.strictEqual(r.errors.length, 1);
+      assert.match(
+        (r.errors[0].error as Error).message,
+        /port doit être un nombre/,
+      );
+    });
+    const report = k.getBootReport();
+    assert.strictEqual(report.modulesSkipped.length, 1);
+    assert.strictEqual(report.modulesSkipped[0].module, "@nodefony/valcfg");
   });
 });
