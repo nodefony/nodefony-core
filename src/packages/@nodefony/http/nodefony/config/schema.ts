@@ -74,22 +74,20 @@ const strictTransportSecuritySchema = z
 
 const securityHeadersSchema = z
   .object({
-    contentTypeOptions: z
-      .string()
-      .nullable()
-      .default("nosniff")
-      .describe(
+    contentTypeOptions: meta(z.string().nullable().default("nosniff"), {
+      runtimeMutable: true,
+      description:
         "X-Content-Type-Options — bloque le MIME-sniffing. Valeur RFC " +
-          "`nosniff` (seule reconnue). `null` = header désactivé.",
-      ),
-    frameOptions: z
-      .string()
-      .nullable()
-      .default("DENY")
-      .describe(
+        "`nosniff` (seule reconnue). `null` = header désactivé. Relu à chaque " +
+        "requête (éditable à chaud via le recompute HttpKernel).",
+    }),
+    frameOptions: meta(z.string().nullable().default("DENY"), {
+      runtimeMutable: true,
+      description:
         "X-Frame-Options — anti-clickjacking. `DENY` (recommandé) | " +
-          "`SAMEORIGIN`. Superposé par CSP `frame-ancestors`. `null` = désactivé.",
-      ),
+        "`SAMEORIGIN`. Superposé par CSP `frame-ancestors`. `null` = désactivé. " +
+        "Éditable à chaud (recompute HttpKernel).",
+    }),
     strictTransportSecurity: strictTransportSecuritySchema
       .nullable()
       .default(() => strictTransportSecuritySchema.parse({}))
@@ -795,19 +793,17 @@ export const httpConfigSchema = z
     securityHeaders: securityHeadersSchema.default(() =>
       securityHeadersSchema.parse({}),
     ),
-    maxBodySize: z
-      .number()
-      .int()
-      .nonnegative()
-      .default(1_048_576)
-      .describe(
+    maxBodySize: meta(z.number().int().nonnegative().default(1_048_576), {
+      runtimeMutable: true,
+      description:
         "Taille max (octets) d'un corps de requête NON-multipart (JSON, " +
-          "urlencoded, XML, brut) avant rejet RFC 9110 413 « Content Too Large ». " +
-          "Vérifiée d'abord sur `Content-Length` (rejet avant lecture), puis en " +
-          "continu pendant le streaming (anti chunked/Content-Length menteur). " +
-          "Défaut 1 MiB (secure-by-default, anti DoS mémoire). 0 = illimité. Le " +
-          "multipart a ses propres limites (`upload.maxFileSize`/`maxTotalFileSize`).",
-      ),
+        "urlencoded, XML, brut) avant rejet RFC 9110 413 « Content Too Large ». " +
+        "Vérifiée d'abord sur `Content-Length` (rejet avant lecture), puis en " +
+        "continu pendant le streaming (anti chunked/Content-Length menteur). " +
+        "Défaut 1 MiB (secure-by-default, anti DoS mémoire). 0 = illimité. Lu à " +
+        "chaque requête (éditable à chaud). Le multipart a ses propres limites " +
+        "(`upload.maxFileSize`/`maxTotalFileSize`).",
+    }),
     upload: uploadSchema.default(() => uploadSchema.parse({})),
     queryString: queryStringSchema.default(() => queryStringSchema.parse({})),
     http: httpServerSchema.default(() => httpServerSchema.parse({})),

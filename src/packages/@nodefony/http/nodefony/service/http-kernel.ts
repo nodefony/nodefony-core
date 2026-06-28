@@ -203,19 +203,47 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     };
     // Pré-calcul des security headers une fois au boot — defaults dans
     // `config/config.ts` (`securityHeaders`). Évite alloc + concat par requête.
+    this.computeSecurityHeaderCaches();
+  }
+
+  /**
+   * (Re)calcule les caches dérivés des en-têtes de sécurité depuis `this.options`
+   * — au boot ET à chaque édition live ({@link onConfigChanged}). Lus tels quels
+   * dans `onHttpRequest` (0 alloc/concat par requête).
+   */
+  private computeSecurityHeaderCaches(): void {
     const sec = (this.options as { securityHeaders?: SecurityHeadersConfig })
       .securityHeaders;
-    if (sec) {
-      this.secContentTypeOptions = sec.contentTypeOptions ?? null;
-      this.secFrameOptions = sec.frameOptions ?? null;
-      if (sec.strictTransportSecurity) {
-        const hsts = sec.strictTransportSecurity;
-        let v = `max-age=${hsts.maxAge}`;
-        if (hsts.includeSubDomains) v += "; includeSubDomains";
-        if (hsts.preload) v += "; preload";
-        this.secHsts = v;
-      }
+    this.secContentTypeOptions = sec?.contentTypeOptions ?? null;
+    this.secFrameOptions = sec?.frameOptions ?? null;
+    if (sec?.strictTransportSecurity) {
+      const hsts = sec.strictTransportSecurity;
+      let v = `max-age=${hsts.maxAge}`;
+      if (hsts.includeSubDomains) v += "; includeSubDomains";
+      if (hsts.preload) v += "; preload";
+      this.secHsts = v;
+    } else {
+      this.secHsts = null;
     }
+  }
+
+  /**
+   * Hook appelé par le data plane admin APRÈS une édition LIVE de la config
+   * (`PATCH /nodefony/kernel/api/config/http`, dev only). Recompute les valeurs
+   * DÉRIVÉES mises en cache (en-têtes sécurité, checker trust-proxy, trustedHosts) :
+   * sans lui, l'édition d'un champ `runtimeMutable` porté par un cache serait
+   * ignorée. Les champs lus DIRECTEMENT depuis `options` (`headerServer`,
+   * `maxBodySize`) n'en ont pas besoin — l'appel reste idempotent et bon marché.
+   */
+  onConfigChanged(): void {
+    this.computeSecurityHeaderCaches();
+    // Caches paresseux → invalidés, recompilés à la prochaine requête.
+    this._trustProxyChecker = null;
+    this._wsOriginPolicy = Object.create(null);
+    // trustedHosts + alias (compilés à onReady) → recompilés.
+    this.trustedHosts = (this.options as { trustedHosts?: TrustedHostsConfig })
+      ?.trustedHosts;
+    this.regAlias = this.compileAlias();
   }
 
   async init(): Promise<this> {

@@ -698,10 +698,15 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         for (const sname of svcMod.getServiceNames?.() ?? []) {
           const svc = svcMod.get?.(sname) as {
             options?: Record<string, unknown>;
+            onConfigChanged?: (path?: string[]) => void;
           } | null;
           if (svc?.options && svc.options !== opts) {
             applyResolvedPath(svc.options, segments, value);
           }
+          // Seam optionnel : un service qui MET EN CACHE des valeurs dérivées de
+          // la config (ex. HttpKernel : en-têtes sécurité, trust-proxy) recompute
+          // ici → l'édition d'un champ `runtimeMutable` porté par un cache prend effet.
+          svc?.onConfigChanged?.(segments);
         }
         // Marque le chemin « édité à chaud » → provenance `runtime` au re-render.
         let edited = runtimeEdited.get(key);
