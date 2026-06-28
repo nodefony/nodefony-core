@@ -205,12 +205,10 @@ export function createSyslogAdminApi(
     if (start >= size) return { text: "", to: size };
     const len = size - start;
     const buf = Buffer.alloc(len);
-    const fh = await fsp.open(file, "r");
-    try {
-      await fh.read(buf, 0, len, start);
-    } finally {
-      await fh.close();
-    }
+    // FileHandle.Symbol.asyncDispose (Node 24) → close() auto en sortie de scope
+    // (remplace try/finally) — leak-proof, couvre return comme throw.
+    await using fh = await fsp.open(file, "r");
+    await fh.read(buf, 0, len, start);
     const chunk = buf.toString("utf8");
     const lastNl = chunk.lastIndexOf("\n");
     if (lastNl === -1) return { text: "", to: start };

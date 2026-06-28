@@ -655,13 +655,6 @@ const EMPTY_AUTH_LIST: ReadonlyArray<IRealtimeAuthenticator> = Object.freeze(
   [],
 );
 
-// Échappe les méta-caractères RegExp d'une string brute (utile pour le pattern
-// matcher en mode "string exact / préfixe"). RFC PCRE — caractères à escape :
-// `. * + ? ^ $ { } ( ) | [ ] \`.
-function escapeRegExpLiteral(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /**
  * Compile un matcher utilisateur en forme efficace (RegExp précompilée + host
  * lowercase). Cold path (1× par `useAuthenticator`).
@@ -678,7 +671,9 @@ function compileMatcher(
   const pattern =
     m.pattern instanceof RegExp
       ? m.pattern
-      : new RegExp("^" + escapeRegExpLiteral(m.pattern));
+      : // `RegExp.escape` (Node 24) échappe les méta-caractères → match littéral
+        // préfixe ancré, sans helper maison (RFC : escape déterministe + sûr).
+        new RegExp("^" + RegExp.escape(m.pattern));
   const host = m.host?.toLowerCase();
   return {
     pattern,
