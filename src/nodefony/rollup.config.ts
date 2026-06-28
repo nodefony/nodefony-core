@@ -21,7 +21,6 @@ const external: string[] = [
   "mime-types",
   "moment",
   "glob",
-  "node-fetch",
   "semver",
   "uuid",
   "reflect-metadata",
