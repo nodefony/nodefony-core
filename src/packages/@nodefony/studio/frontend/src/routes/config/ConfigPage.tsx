@@ -7,10 +7,10 @@
  * Source : data plane agrégé `/nodefony/kernel/api/config` (1 requête, secrets
  * redactés côté serveur). Lecture seule (l'édition live = phase ultérieure, cf kit).
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { observer } from "mobx-react-lite";
+import { useNavigate } from "react-router-dom";
 import {
-  Accordion,
   ActionIcon,
   Badge,
   Code,
@@ -35,7 +35,6 @@ import {
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
 import {
-  ConfigLayout,
   DataGrid,
   DataState,
   DocHint,
@@ -49,6 +48,7 @@ import {
   type ActiveOverride,
   type ConfigOverviewResponse,
 } from "./configModel";
+import { ConfigModuleCard } from "./ConfigModuleCard";
 
 /** Méta d'affichage d'une provenance (aligné sur ConfigLayout `SOURCE_META`). */
 const SRC: Record<string, { label: string; color: string }> = {
@@ -156,10 +156,7 @@ export const ConfigPage = observer(() => {
 
   const model = useMemo(() => buildConfigModel(data?.modules ?? []), [data]);
   const { modules, overrides, stats } = model;
-
-  // Explorateur : un seul module ouvert à la fois (perf + divulgation progressive)
-  // → ConfigLayout n'est monté que pour le module déployé.
-  const [open, setOpen] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const overrideCols = useMemo<DataGridColumn<ActiveOverride>[]>(
     () => [
@@ -347,57 +344,27 @@ export const ConfigPage = observer(() => {
           )}
         </Paper>
 
-        {/* ── Explorateur complet (réutilise ConfigLayout, replié) ─────── */}
-        <Paper withBorder p="md" radius="md">
-          <Group gap={6} mb="sm">
-            <Text fw={600}>Explorateur complet</Text>
+        {/* ── Dashboard des modules — 1 carte résumé/module → fiche Config ─ */}
+        <Stack gap="xs">
+          <Group gap={6}>
+            <Text fw={600}>Modules</Text>
             <Text size="sm" c="dimmed">
-              tout l'arbre, module par module — déplier pour voir
+              une carte par module — clique pour ouvrir sa config
             </Text>
           </Group>
-          <Accordion
-            value={open}
-            onChange={setOpen}
-            variant="separated"
-            radius="md"
-          >
+          <Grid>
             {modules.map((m) => (
-              <Accordion.Item key={m.entry.key} value={m.entry.key}>
-                <Accordion.Control
-                  icon={
-                    m.entry.isApp ? (
-                      <Badge size="xs" variant="light" color="grape" tt="none">
-                        app
-                      </Badge>
-                    ) : undefined
+              <Grid.Col key={m.entry.key} span={{ base: 12, sm: 6, lg: 4 }}>
+                <ConfigModuleCard
+                  m={m}
+                  onOpen={() =>
+                    navigate(`/nodefony/modules/${m.entry.key}?tab=config`)
                   }
-                >
-                  <Group justify="space-between" wrap="nowrap" pr="md">
-                    <Text fw={500}>{m.entry.name}</Text>
-                    <Badge
-                      size="xs"
-                      variant="light"
-                      color={m.schemaStatus === "zod" ? "teal" : "gray"}
-                      tt="none"
-                    >
-                      {m.schemaStatus === "zod" ? "validé Zod" : "non migré"}
-                    </Badge>
-                  </Group>
-                </Accordion.Control>
-                <Accordion.Panel>
-                  {/* Monté UNIQUEMENT quand ouvert (perf : 1 ConfigLayout à la fois). */}
-                  {open === m.entry.key && (
-                    <ConfigLayout
-                      module={m.entry.name}
-                      schema={m.schemaStatus}
-                      sections={m.sections}
-                    />
-                  )}
-                </Accordion.Panel>
-              </Accordion.Item>
+                />
+              </Grid.Col>
             ))}
-          </Accordion>
-        </Paper>
+          </Grid>
+        </Stack>
       </DataState>
     </Stack>
   );

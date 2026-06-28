@@ -1,6 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { jsonSchemaToSections } from "./config/jsonSchemaToSections";
 import dayjs from "dayjs";
 import {
@@ -213,13 +213,19 @@ export const ModuleDetail = observer(() => {
   const [tests, setTests] = useState<TestsInfo>({ files: [], devMode: false });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<string | null>(() => searchParams.get("tab"));
+
+  // Onglet piloté par l'URL (`?tab=config`) — deep-link depuis le dashboard config
+  // (`/nodefony/config` → clic carte module). Sinon onglet par défaut (overview).
+  useEffect(() => {
+    setTab(searchParams.get("tab"));
+  }, [name, searchParams]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setTab(null); // revient à l'onglet par défaut quand on change de module
     Promise.all([
       store.api.getAbsolute<ModuleDetailData>(
         `/nodefony/kernel/api/module/${encodeURIComponent(name)}`,
