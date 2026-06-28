@@ -44,7 +44,10 @@ class WebsocketSecure extends Service {
       "server-websocket-secure",
       module.container as Container,
       module.notificationsCenter as Event,
-      module.options.websocket,
+      // Serveur WSS → config DÉDIÉE `websocketSecure` (pas `websocket`, le serveur
+      // plain) : sinon les knobs propres au secure (keepalive*/maxPayload/
+      // allowedOrigins) seraient ignorés. Même forme (websocketSchema).
+      module.options.websocketSecure,
     );
     this.module = module;
     this.port = this.setPort();
