@@ -46,9 +46,9 @@
     "vitest": "4.1.8"
   },
   "peerDependencies": {
-    "nodefony": "*",
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
+    "nodefony": "*",
     "zod": "^4.4.3"
   },
   "repository": {
@@ -64,5 +64,8 @@
     }
   ],
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
-  "readmeFilename": "README.md"
+  "readmeFilename": "README.md",
+  "dependencies": {
+    "tslib": "2.8.1"
+  }
 }

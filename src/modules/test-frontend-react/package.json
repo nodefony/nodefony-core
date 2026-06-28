@@ -20,15 +20,16 @@
   ],
   "dependencies": {
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "tslib": "2.8.1"
   },
   "peerDependencies": {
-    "nodefony": "*",
-    "@nodefony/http": "*",
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
-    "vite": "8.0.16",
-    "@vitejs/plugin-react": "6.0.2"
+    "@nodefony/http": "*",
+    "@vitejs/plugin-react": "6.0.2",
+    "nodefony": "*",
+    "vite": "8.0.16"
   },
   "devDependencies": {
     "@nodefony/framework": "*",

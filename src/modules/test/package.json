@@ -20,13 +20,12 @@
     "typescript"
   ],
   "repository": {},
-  "dependencies": {},
   "peerDependencies": {
-    "nodefony": "*",
-    "@nodefony/http": "*",
     "@nodefony/framework": "*",
+    "@nodefony/http": "*",
     "@nodefony/realtime": "*",
-    "@nodefony/user": "*"
+    "@nodefony/user": "*",
+    "nodefony": "*"
   },
   "devDependencies": {
     "@nodefony/framework": "*",
@@ -51,5 +50,8 @@
   },
   "license": "",
   "readmeFilename": "README.md",
-  "contributors": []
+  "contributors": [],
+  "dependencies": {
+    "tslib": "2.8.1"
+  }
 }
