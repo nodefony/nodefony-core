@@ -215,6 +215,25 @@ gateway → coalescer avant `publish` au-delà) ; RTT 4-sauts p50 ~0.40 / p99 ~0
 
 > Réfs : mémoires `project_cluster_backplane_vision`, `project_realtime_socket_probe`.
 
+### Config — override par env sur VRAI boot (`config-env-override-e2e.mjs`)
+
+Preuve **terrain** du mécanisme générique d'override de config par variable d'environnement
+(ADR-0006 : `NF__<APP|MODULE>__<CHEMIN>`). Le script **spawn lui-même** le serveur (process unique,
+`NODEFONY_DEV_CHILD=1`, ports 7771/7772 pour éviter toute collision) — **PAS de serveur dev requis**
+(**prérequis : `npm run build`**). Il ASSERTE (exit 0/1) :
+
+- `NF__APP__SERVERS__HTTP__PORT=7771` (+ https 7772) → le serveur **écoute sur le port surchargé** (override appliqué au boot, 0 code) ;
+- `NF__APP__SERVERS__HTTP__PORT=abc` → **boot rejeté** (exit ≠ 0) : la valeur invalide est rattrapée par le Zod app (**fail-closed**).
+
+```bash
+bash .claude/skills/nodefony-load-test/scripts/run.sh config-env
+```
+
+> Complète les tests unitaires (`envOverride.test.ts`, `configBoot.test.ts`) par la preuve LIVE que
+> l'override traverse le boot réel. Les vars **catalogue** `NF_X` (typées, `ctx.env`, secrets `*_FILE`,
+> gating de module) restent câblées dans `env.ts`/`nodefony.config.ts` — couche distincte, non couverte
+> par ce banc générique.
+
 ## Niveau 3 — A/B perf MONO PROD (coût du pipeline par requête)
 
 Pour **chiffrer une optimisation du pipeline HTTP** (pas explorer une limite). Le RPS d'un

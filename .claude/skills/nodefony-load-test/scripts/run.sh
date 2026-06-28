@@ -15,7 +15,8 @@
 #   run.sh cluster-ipc      # bench du FIL IPC backplane cluster (fork réel)
 #   run.sh cluster-e2e      # preuve e2e realtime cross-process (fork réel — asserte, exit 0/1)
 #   run.sh cluster-probe    # preuve e2e sonde agrégée pod (fork réel — asserte, exit 0/1)
-# ⚠️ cluster-* ne dépendent PAS du serveur dev : ils forkent eux-mêmes (nécessitent `npm run build`).
+#   run.sh config-env       # preuve e2e override config par env NF__APP__* sur VRAI boot + fail-closed
+# ⚠️ cluster-*/config-env ne dépendent PAS du serveur dev : ils (s)pawn(ent) eux-mêmes (`npm run build`).
 # Les ENV des scripts (CAP, STEP, MODE, N, C, URL…) se passent inline :
 #   CAP=4000 run.sh ws-conn        MODE=broadcast CLIENTS=30 run.sh ws-msg
 #   run.sh hub                     MODE=slow run.sh hub   # backpressure (consommateurs lents)
@@ -45,6 +46,7 @@ case "$cmd" in
   cluster-ipc) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/cluster-ipc.mjs" ;;
   cluster-e2e) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/cluster-realtime-e2e.mjs" ;;
   cluster-probe) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/cluster-probe-e2e.mjs" ;;
+  config-env) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/config-env-override-e2e.mjs" ;;
   help|*)
     sed -n '2,24p' "${BASH_SOURCE[0]}"
     ;;
