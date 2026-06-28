@@ -62,7 +62,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > **DETTE-CFG (ordering config `module-<name>` ⊥ validation Zod) ✅ RÉSOLUE** : `Kernel.applyModuleConfigOverrides()`
 > appliqué entre `onPreRegister` et `onPreBoot`. `project_config_ordering_chantier`.
 
-> 🏗️ **CHANTIER config clarté ◀ BLOQUEUR MVP** : 4 structures de config coexistent + duplication des
+> 🏗️ **CHANTIER config clarté — ✅ CŒUR LIVRÉ (ADR-0006 ; reste `NF__APP__*`)** : 4 structures de config coexistent + duplication des
 > défauts (ex. security `timeCost` 3 vs 2) = confusion réelle du user. **Vision** : chaque module =
 > `config.ts` (Zod commenté = **SEULE source des défauts**) + `defineXConfig.ts` (builder pur),
 > fusionner les `schema.ts` ; Studio = provenance par champ (défaut / surcharge / env).
@@ -394,7 +394,7 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 >
 > **A — Bloqueurs MVP** (pour un MVP utilisable) :
 >
-> 1. **Config clean** — 4 structures de config coexistent + défauts dupliqués = confusion réelle. Cible : 1 `config.ts` Zod par module (SEULE source des défauts) + `defineXConfig.ts` (builder) ; provenance par champ dans Studio. `project_config_clarity_chantier_kit`.
+> 1. **Config clean — ✅ cœur livré (ADR-0006)** : 1 source/module, `NF__*` + `*_FILE` (override Docker), précédence écrite, provenance Studio. **Reste** `NF__APP__*` (config app) → `project_config_nf_app_kit`.
 > 2. **CLI essentielles** — lifecycle (`start`/`dev`/`build`/`prod`/`cluster`) + `orm:migrate` + `user`/`security:*` : implémentées mais **NON testées en intégration** → fiabiliser + tester (P11.1-4).
 >
 > **B — Bloqueur RELEASE** (production-grade) :
