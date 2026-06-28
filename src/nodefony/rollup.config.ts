@@ -19,7 +19,6 @@ const external: string[] = [
   "lodash",
   "lodash-es",
   "mime-types",
-  "moment",
   "glob",
   "semver",
   "uuid",

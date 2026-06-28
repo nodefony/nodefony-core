@@ -34,7 +34,6 @@ const external: string[] = [
   "node-forge",
   "http-terminator",
   "mime-types",
-  "uuid",
   "xml2js",
   "tslib",
   "zod",

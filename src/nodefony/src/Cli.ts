@@ -19,7 +19,6 @@ import {
   SpawnSyncOptionsWithStringEncoding,
   SpawnOptions,
 } from "node:child_process";
-import moment from "moment";
 import semver from "semver";
 import figlet from "figlet";
 import Table, { TableConstructorOptions } from "cli-table3";
@@ -610,11 +609,73 @@ class Cli extends Service {
     return `${n.toFixed(n >= 10 || l < 1 ? 0 : 1)} ${units[l]}`;
   }
 
-  static niceUptime(date: moment.MomentInput, suffix?: boolean | undefined) {
-    return moment(date).fromNow(suffix || false);
+  /**
+   * Temps relatif lisible ("a few seconds ago", "24 years ago") — natif via
+   * `Intl.RelativeTimeFormat` (remplace `moment().fromNow()`, dep supprimée).
+   *
+   * @param date - instant de référence (Date, timestamp ms, ou string parsable).
+   * @param suffix - `true` = sans suffixe "ago"/"in" (parité `moment.fromNow(true)`).
+   */
+  static niceUptime(
+    date: Date | number | string,
+    suffix?: boolean | undefined,
+  ): string {
+    const ts = date instanceof Date ? date.getTime() : new Date(date).getTime();
+    const deltaSec = (ts - Date.now()) / 1000; // < 0 = passé
+    const abs = Math.abs(deltaSec);
+    const ladder: [Intl.RelativeTimeFormatUnit, number][] = [
+      ["year", 31536000],
+      ["month", 2592000],
+      ["day", 86400],
+      ["hour", 3600],
+      ["minute", 60],
+      ["second", 1],
+    ];
+    let unit: Intl.RelativeTimeFormatUnit = "second";
+    let value = 0;
+    for (const [u, s] of ladder) {
+      if (abs >= s || u === "second") {
+        unit = u;
+        value = Math.round(deltaSec / s);
+        break;
+      }
+    }
+    if (suffix) {
+      const n = Math.abs(value);
+      return `${n} ${unit}${n === 1 ? "" : "s"}`;
+    }
+    return new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(
+      value,
+      unit,
+    );
   }
-  static niceDate(date: moment.MomentInput, format: string | undefined) {
-    return moment(date).format(format);
+
+  /**
+   * Formate une date selon des tokens `moment`-like (`YYYY MM DD HH mm ss SSS`)
+   * en heure **locale** — natif (remplace `moment().format()`, dep supprimée).
+   *
+   * @param date - Date, timestamp ms, ou string parsable.
+   * @param format - patron (défaut `"YYYY-MM-DD HH:mm:ss"`).
+   */
+  static niceDate(
+    date: Date | number | string,
+    format?: string | undefined,
+  ): string {
+    const d = date instanceof Date ? date : new Date(date);
+    const pad = (n: number, len = 2) => String(n).padStart(len, "0");
+    const map: Record<string, string> = {
+      YYYY: String(d.getFullYear()),
+      MM: pad(d.getMonth() + 1),
+      DD: pad(d.getDate()),
+      HH: pad(d.getHours()),
+      mm: pad(d.getMinutes()),
+      ss: pad(d.getSeconds()),
+      SSS: pad(d.getMilliseconds(), 3),
+    };
+    return (format || "YYYY-MM-DD HH:mm:ss").replace(
+      /YYYY|SSS|MM|DD|HH|mm|ss/g,
+      (t) => map[t],
+    );
   }
 
   clear() {
