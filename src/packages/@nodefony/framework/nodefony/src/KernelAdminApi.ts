@@ -127,10 +127,80 @@ export interface IConfigEntry {
   /**
    * « QUI surcharge, où » par champ env-surchargé : chemin pointé → **nom RÉEL**
    * de la variable d'environnement actuellement posée (`NF__SECURITY__JWT__ACCESSTTLS`).
-   * Permet à Studio de nommer la source exacte (≠ recette générique). Les champs
-   * `app` viennent de `nodefony.config.ts` (statique, côté front).
+   * Permet à Studio de nommer la source exacte (≠ recette générique).
    */
   envKeys: Record<string, string>;
+  /**
+   * « QUI surcharge, où » par champ **app**-surchargé : chemin pointé → SOURCE
+   * réelle. Soit un MODULE qui reconfigure celui-ci via `module-<seg>` (cross-module,
+   * ex. `@nodefony/test` qui surcharge `http.upload.maxFileSize`), soit
+   * `nodefony.config.ts` (config app directe / `use()`). Rempli par
+   * {@link attributeOverrideSources} (a besoin de TOUS les modules → côté agrégat).
+   */
+  overriddenBy: Record<string, string>;
+}
+
+/**
+ * Aplatit un objet de config en chemins-feuilles pointés MINUSCULES (les arrays
+ * sont des feuilles). Sert à savoir quels chemins un override `module-<X>` déclare.
+ */
+function flattenPaths(value: unknown, prefix: string, out: Set<string>): void {
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    for (const k of Object.keys(value)) {
+      flattenPaths(
+        (value as Record<string, unknown>)[k],
+        prefix ? `${prefix}.${k}` : k,
+        out,
+      );
+    }
+  } else if (prefix) {
+    out.add(prefix.toLowerCase());
+  }
+}
+
+/**
+ * Attribue chaque champ **app**-surchargé à sa SOURCE réelle (mute `overriddenBy`).
+ *
+ * Construit l'index inversé des overrides `module-<cible>` déclarés par CHAQUE
+ * module (y compris l'app), puis, pour chaque champ « app » d'une cible, retrouve
+ * le module qui pose ce chemin → c'est le vrai « qui surcharge ». Aucun candidat
+ * `module-<cible>` → la surcharge vient de la config app directe (`nodefony.config.ts`).
+ *
+ * @param entries - toutes les entrées config de l'agrégat (mutées en place).
+ */
+function attributeOverrideSources(entries: IConfigEntry[]): void {
+  const byTarget = new Map<
+    string,
+    Array<{ source: string; paths: Set<string> }>
+  >();
+  for (const e of entries) {
+    for (const key of Object.keys(e.config)) {
+      const m = /^module-(.+)$/i.exec(key);
+      if (!m) continue;
+      const targetSeg = m[1].toLowerCase();
+      const paths = new Set<string>();
+      flattenPaths(e.config[key], "", paths);
+      const arr = byTarget.get(targetSeg);
+      if (arr) arr.push({ source: e.name, paths });
+      else byTarget.set(targetSeg, [{ source: e.name, paths }]);
+    }
+  }
+  for (const e of entries) {
+    if (!e.provenance) continue;
+    const candidates = byTarget.get(e.seg);
+    for (const [path, origin] of Object.entries(e.provenance)) {
+      if (origin !== "app") continue;
+      const pl = path.toLowerCase();
+      const hit = candidates?.find(
+        (c) =>
+          c.paths.has(pl) ||
+          [...c.paths].some(
+            (p) => pl.startsWith(`${p}.`) || p.startsWith(`${pl}.`),
+          ),
+      );
+      e.overriddenBy[path] = hit ? hit.source : "nodefony.config.ts";
+    }
+  }
 }
 
 /**
@@ -195,6 +265,7 @@ function computeConfigEntry(key: string, mod: ConfigModuleLike): IConfigEntry {
     configSchema: schema,
     provenance,
     envKeys,
+    overriddenBy: {}, // rempli par attributeOverrideSources (besoin de tous les modules)
   };
 }
 
@@ -431,6 +502,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           if (Object.keys(opts).length === 0 && !mod.configSchema()) continue;
           entries.push(computeConfigEntry(k, mod));
         }
+        // « Qui surcharge vraiment » : attribue chaque champ app au module SOURCE
+        // (cross-module `module-<X>`) ou à `nodefony.config.ts` (config app directe).
+        attributeOverrideSources(entries);
         return { modules: entries };
       },
     },

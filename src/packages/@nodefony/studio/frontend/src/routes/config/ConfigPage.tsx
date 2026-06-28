@@ -21,13 +21,16 @@ import {
   Progress,
   Stack,
   Text,
+  ThemeIcon,
   Tooltip,
 } from "@mantine/core";
 import {
   IconAdjustmentsAlt,
+  IconArrowRight,
   IconCheck,
   IconCopy,
   IconRefresh,
+  IconStack2,
 } from "@tabler/icons-react";
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
@@ -78,6 +81,68 @@ function CopyKey({ value }: { value: string }) {
   );
 }
 
+/** Maillons de la cascade de priorité (la DERNIÈRE source définie gagne). */
+const CASCADE: { label: string; color: string; help: string }[] = [
+  {
+    label: "défaut",
+    color: "gray",
+    help: "Défaut du framework (aucune surcharge).",
+  },
+  { label: "module", color: "blue", help: "Config propre du module." },
+  {
+    label: "app",
+    color: "grape",
+    help: "nodefony.config.ts, ou un autre module via module-<X>.",
+  },
+  { label: "env", color: "teal", help: "Variable NF__… — priorité maximale." },
+];
+
+/** Carte d'aide : explique la priorité des surcharges (sortie du hover, visible). */
+function CascadeCard() {
+  return (
+    <Paper withBorder p="md" radius="md">
+      <Group gap={6} mb={8}>
+        <ThemeIcon size="sm" variant="light" color="grape">
+          <IconStack2 size={14} />
+        </ThemeIcon>
+        <Text fw={600} size="sm">
+          Priorité des surcharges
+        </Text>
+        <Text size="sm" c="dimmed">
+          la DERNIÈRE source définie gagne
+        </Text>
+      </Group>
+      <Group gap={4} wrap="wrap" mb={8}>
+        {CASCADE.map((s, i) => (
+          <Group key={s.label} gap={4} wrap="nowrap">
+            {i > 0 && (
+              <IconArrowRight size={13} style={{ opacity: 0.4 }} aria-hidden />
+            )}
+            <Tooltip label={s.help} withArrow>
+              <Badge
+                variant="light"
+                color={s.color}
+                tt="none"
+                tabIndex={0}
+                style={{ cursor: "help" }}
+              >
+                {s.label}
+              </Badge>
+            </Tooltip>
+          </Group>
+        ))}
+      </Group>
+      <Text size="xs" c="dimmed">
+        La valeur effective d'un réglage empile ces sources : chaque niveau peut
+        surcharger le précédent. En 12-factor, la variable d'environnement (
+        <Code style={{ fontSize: 11 }}>NF__…</Code>) a le dernier mot — déployer
+        sans toucher au code. La colonne « Provenance » dit d'où vient la valeur
+        gagnante.
+      </Text>
+    </Paper>
+  );
+}
+
 export const ConfigPage = observer(() => {
   const store = useStore();
   const fetcher = useCallback(
@@ -98,12 +163,24 @@ export const ConfigPage = observer(() => {
 
   const overrideCols = useMemo<DataGridColumn<ActiveOverride>[]>(
     () => [
-      { key: "module", header: "Module", sortable: true, filterable: true },
       {
-        key: "field",
-        header: "Champ",
+        key: "module",
+        header: "Module",
         sortable: true,
         filterable: true,
+        value: (r) => r.module,
+        render: (r) => (
+          <Text size="sm" fw={500}>
+            {r.module}
+          </Text>
+        ),
+      },
+      {
+        key: "field",
+        header: "Réglage",
+        sortable: true,
+        filterable: true,
+        value: (r) => r.field,
         render: (r) => <Code style={{ fontSize: 12 }}>{r.field}</Code>,
       },
       {
@@ -194,6 +271,9 @@ export const ConfigPage = observer(() => {
           </StatCard>
         </Grid>
 
+        {/* Priorité des surcharges — la règle de la cascade, visible (≠ hover). */}
+        <CascadeCard />
+
         {/* Répartition de provenance — la photo du déploiement en 1 barre. */}
         <Paper withBorder p="md" radius="md">
           <Group justify="space-between" mb={8}>
@@ -234,10 +314,13 @@ export const ConfigPage = observer(() => {
         {/* ── Ce qui n'est PAS par défaut (le cœur) ────────────────────── */}
         <Paper withBorder p="md" radius="md">
           <Group gap={6} mb="sm">
-            <Text fw={600}>Ce qui n'est pas par défaut</Text>
+            <Text fw={600}>Surcharges actives</Text>
+            <Text size="sm" c="dimmed">
+              les réglages qui diffèrent du défaut
+            </Text>
             <DocHint
-              title="Les écarts au défaut"
-              summary="La liste exacte des réglages surchargés — qui les surcharge (app / env), via quoi (la variable réelle ou nodefony.config.ts), et comment les piloter en 12-factor (recette NF__). C'est ce qui définit CE déploiement."
+              title="Surcharges actives"
+              summary="La liste exacte des réglages surchargés — QUI les surcharge (le module source ou nodefony.config.ts ; la variable d'env réelle), et comment les piloter en 12-factor (recette NF__). C'est ce qui définit CE déploiement (≠ config par défaut du framework)."
             />
           </Group>
           {overrides.length ? (

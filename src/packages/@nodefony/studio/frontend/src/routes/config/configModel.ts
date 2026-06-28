@@ -32,6 +32,12 @@ export interface ConfigEntry {
   provenance: Record<string, string> | null;
   /** Chemin pointé (minuscule) → VRAIE variable d'env qui surcharge (« qui/où »). */
   envKeys: Record<string, string>;
+  /**
+   * Chemin pointé → SOURCE réelle d'un champ **app**-surchargé : un module
+   * (`@nodefony/test` qui reconfigure celui-ci via `module-<seg>`) ou
+   * `nodefony.config.ts` (config app directe). Le vrai « qui surcharge ».
+   */
+  overriddenBy: Record<string, string>;
 }
 
 /** Réponse de `GET /nodefony/kernel/api/config`. */
@@ -70,9 +76,10 @@ export interface ActiveOverride {
 }
 
 /**
- * Source PRÉCISE d'un champ surchargé (« qui surcharge, où ») :
+ * Source PRÉCISE d'un champ surchargé — le VRAI « qui surcharge, où » :
  * - `env` → la **vraie variable** d'env posée (`entry.envKeys`), sinon la recette ;
- * - `app` → `nodefony.config.ts` (la config de l'app — qui peut elle-même lire `ctx.env`).
+ * - `app` → la **source attribuée** par le serveur (`entry.overriddenBy`) : un MODULE
+ *   (`@nodefony/test` via `module-<seg>`) ou `nodefony.config.ts` (config app directe).
  */
 export function whereOf(
   entry: ConfigEntry,
@@ -85,7 +92,7 @@ export function whereOf(
       overrideKeyFor(entry.seg, fieldKey)
     );
   }
-  return "nodefony.config.ts";
+  return entry.overriddenBy[fieldKey] ?? "nodefony.config.ts";
 }
 
 /** Statistiques globales pour le bandeau instantané. */
