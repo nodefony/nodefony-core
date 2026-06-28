@@ -5,6 +5,19 @@
 # valide ; il reformate, il ne refuse pas. Bypass d'urgence : git commit --no-verify.
 npx --no-install lint-staged || exit 1
 
+# Garde anti-dérive : `.env.example` est GÉNÉRÉ depuis env.ts (catalogue defineEnv).
+# Si env.ts, .env.example ou le générateur est staged, vérifier qu'ils sont
+# synchronisés (sinon une var ajoutée à env.ts mais pas régénérée passerait). Placé
+# AVANT le pré-filtre .ts pour aussi attraper un .env.example édité à la main (non-.ts).
+if git diff --cached --name-only --diff-filter=ACMR \
+   | grep -qE '^(env\.ts|\.env\.example|scripts/gen-env-example\.ts)$'; then
+  if ! npx --no-install tsx scripts/gen-env-example.ts --check; then
+    echo "❌ .env.example désynchronisé de env.ts."
+    echo "   → npx tsx scripts/gen-env-example.ts  puis  git add .env.example"
+    exit 1
+  fi
+fi
+
 # Pré-filtre rapide (shell pur, AUCUN boot node) : si aucun .ts n'est staged,
 # il n'y a rien à régénérer → on évite ~1,3 s de démarrage node/tsx sur les
 # commits sans code (docs, config, json…). Réduit aussi la fenêtre pendant
