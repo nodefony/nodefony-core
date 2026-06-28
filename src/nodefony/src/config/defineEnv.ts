@@ -28,6 +28,72 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 
+/** Nature coercée d'une variable d'env du catalogue. */
+export type EnvVarKind = "string" | "number" | "boolean" | "enum";
+
+/**
+ * Métadonnées INTROSPECTABLES d'une variable du catalogue — capturées à la
+ * déclaration (le défaut serait sinon piégé dans la closure `z.preprocess`).
+ * Portées par le schéma Zod (clé non-énumérable) puis agrégées par `defineEnv`
+ * sur l'objet `env` retourné → alimentent la génération de `.env.example`.
+ */
+export interface EnvVarMeta {
+  /** Nature coercée (`string`/`number`/`boolean`/`enum`). */
+  readonly kind: EnvVarKind;
+  /** La variable peut-elle être absente (→ `undefined`) ? */
+  readonly optional: boolean;
+  /** Valeur par défaut déclarée (`undefined` si aucune). */
+  readonly default?: unknown;
+  /** Doc (`.describe()`), reprise telle quelle dans `.env.example`. */
+  readonly description?: string;
+  /** Valeurs autorisées (enum uniquement). */
+  readonly values?: readonly string[];
+}
+
+/** {@link EnvVarMeta} + le nom de la variable (clé du catalogue). */
+export interface NamedEnvVarMeta extends EnvVarMeta {
+  readonly name: string;
+}
+
+/** Clé non-énumérable des métadonnées posées sur un schéma d'env. */
+const ENV_META: unique symbol = Symbol("nodefony.envVarMeta");
+/** Clé non-énumérable du catalogue agrégé posé sur l'objet `env` retourné. */
+const ENV_CATALOG: unique symbol = Symbol("nodefony.envCatalog");
+
+/** Attache `meta` à `schema` (non-énumérable → invisible pour Zod/sérialisation). */
+function tagMeta<S extends z.ZodTypeAny>(schema: S, meta: EnvVarMeta): S {
+  Object.defineProperty(schema, ENV_META, {
+    value: meta,
+    enumerable: false,
+    configurable: true,
+  });
+  return schema;
+}
+
+/** Lit les métadonnées posées sur un schéma d'env (ou `null`). */
+function readMeta(schema: unknown): EnvVarMeta | null {
+  if (schema && typeof schema === "object" && ENV_META in schema) {
+    return (schema as { [ENV_META]?: EnvVarMeta })[ENV_META] ?? null;
+  }
+  return null;
+}
+
+/**
+ * Catalogue introspectable des variables déclarées par {@link defineEnv}, lu sur
+ * l'objet `env` retourné. Source unique pour générer `.env.example` (anti-dérive).
+ *
+ * @param env - l'objet retourné par `defineEnv` (catalogue de l'app).
+ * @returns la liste ordonnée des métadonnées par variable (vide si non reconnu).
+ */
+export function getEnvCatalog(env: unknown): readonly NamedEnvVarMeta[] {
+  if (env && typeof env === "object" && ENV_CATALOG in env) {
+    return (
+      (env as { [ENV_CATALOG]?: readonly NamedEnvVarMeta[] })[ENV_CATALOG] ?? []
+    );
+  }
+  return [];
+}
+
 /**
  * Résout la valeur d'une variable, en honorant la convention `<KEY>_FILE`
  * (ADR-0006 D3) : si `KEY` est absente mais `KEY_FILE` pointe un fichier (Docker
@@ -108,7 +174,12 @@ export function envString(opts: StrOpts = {}): z.ZodType<string | undefined> {
   const inner: z.ZodTypeAny =
     optional && def === undefined ? z.string().optional() : z.string();
   const schema = z.preprocess((v) => (isAbsent(v) ? def : v), inner);
-  return withDoc(schema, description) as z.ZodType<string | undefined>;
+  return tagMeta(withDoc(schema, description), {
+    kind: "string",
+    optional: Boolean(optional && def === undefined),
+    default: def,
+    description,
+  }) as z.ZodType<string | undefined>;
 }
 
 /**
@@ -127,7 +198,12 @@ export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
     const n = Number(v);
     return Number.isNaN(n) ? v : n; // non numérique → laissé brut → z.number rejette
   }, inner);
-  return withDoc(schema, description) as z.ZodType<number | undefined>;
+  return tagMeta(withDoc(schema, description), {
+    kind: "number",
+    optional: Boolean(optional && def === undefined),
+    default: def,
+    description,
+  }) as z.ZodType<number | undefined>;
 }
 
 /**
@@ -144,7 +220,12 @@ export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
     if (FALSY.has(s)) return false;
     return v; // invalide → laissé brut → z.boolean rejette
   }, z.boolean());
-  return withDoc(schema, description) as z.ZodType<boolean>;
+  return tagMeta(withDoc(schema, description), {
+    kind: "boolean",
+    optional: false, // toujours une valeur (absente → `def`)
+    default: def,
+    description,
+  }) as z.ZodType<boolean>;
 }
 
 /**
@@ -168,7 +249,13 @@ export function envEnum<T extends readonly [string, ...string[]]>(
   const inner: z.ZodTypeAny =
     optional && def === undefined ? base.optional() : base;
   const schema = z.preprocess((v) => (isAbsent(v) ? def : v), inner);
-  return withDoc(schema, description) as z.ZodType<T[number] | undefined>;
+  return tagMeta(withDoc(schema, description), {
+    kind: "enum",
+    optional: Boolean(optional && def === undefined),
+    default: def,
+    description,
+    values: [...values],
+  }) as z.ZodType<T[number] | undefined>;
 }
 
 /**
@@ -197,7 +284,22 @@ export function defineEnv<M extends Record<string, z.ZodTypeAny>>(
       `[nodefony] Variables d'environnement invalides : ${issues}`,
     );
   }
-  return Object.freeze(result.data) as {
+  // Agrège les métadonnées (introspectables) du catalogue sur l'objet retourné,
+  // en clé NON-énumérable → invisible pour le typage/consommateurs, lue par
+  // `getEnvCatalog` (génération `.env.example`). Posé AVANT le freeze.
+  const catalogMeta: NamedEnvVarMeta[] = Object.keys(catalog).map((name) => {
+    const m = readMeta(catalog[name]);
+    return m
+      ? { name, ...m }
+      : { name, kind: "string" as const, optional: true };
+  });
+  const data = result.data as Record<string, unknown>;
+  Object.defineProperty(data, ENV_CATALOG, {
+    value: Object.freeze(catalogMeta),
+    enumerable: false,
+    configurable: true,
+  });
+  return Object.freeze(data) as {
     readonly [K in keyof M]: z.infer<M[K]>;
   };
 }

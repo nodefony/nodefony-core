@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-28T14:37:22.062Z",
+  "generated": "2026-06-28T14:52:49.103Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 986,
-    "symbols": 2350,
+    "files": 987,
+    "symbols": 2359,
     "classes": 314,
-    "interfaces": 622,
-    "types": 274,
+    "interfaces": 624,
+    "types": 275,
     "enums": 3,
-    "functions": 611,
+    "functions": 617,
     "constants": 526
   },
   "symbols": {
@@ -584,6 +584,40 @@
       "module": "@nodefony/core",
       "description": "Garde de type : `value` est-il un descripteur produit par {@link defineConfig} ? Utilisé par le Kernel (`loadApp`, Lot 4) pour distinguer une app moderne (`export default defineConfig(…)`) d'une co…"
     },
+    "EnvVarMeta": {
+      "name": "EnvVarMeta",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Métadonnées INTROSPECTABLES d'une variable du catalogue — capturées à la déclaration (le défaut serait sinon piégé dans la closure `z.preprocess`). Portées par le schéma Zod (clé non-énumérable) pu…"
+    },
+    "NamedEnvVarMeta": {
+      "name": "NamedEnvVarMeta",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "EnvVarMeta",
+      "description": "{@link EnvVarMeta} + le nom de la variable (clé du catalogue)."
+    },
+    "EnvVarKind": {
+      "name": "EnvVarKind",
+      "kind": "type",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nature coercée d'une variable d'env du catalogue."
+    },
+    "getEnvCatalog": {
+      "name": "getEnvCatalog",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Catalogue introspectable des variables déclarées par {@link defineEnv}, lu sur l'objet `env` retourné. Source unique pour générer `.env.example` (anti-dérive)."
+    },
     "envString": {
       "name": "envString",
       "kind": "function",
@@ -620,6 +654,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit + valide un catalogue de variables d'environnement, une fois, au boot."
+    },
+    "renderEnvExample": {
+      "name": "renderEnvExample",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envExample.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le contenu complet de `.env.example` depuis le catalogue."
     },
     "NfEnvOverride": {
       "name": "NfEnvOverride",
@@ -16873,6 +16915,9 @@
         "Security",
         "Studio"
       ],
+      "EnvVarMeta": [
+        "NamedEnvVarMeta"
+      ],
       "FileClass": [
         "File",
         "UploadedFile"
@@ -19056,6 +19101,9 @@
       ],
       "ConfigInput": [
         "src/nodefony/src/config/defineConfig.ts"
+      ],
+      "NamedEnvVarMeta": [
+        "src/nodefony/src/config/envExample.ts"
       ],
       "ModulePolicy": [
         "src/nodefony/src/config/types.ts",

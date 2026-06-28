@@ -12,7 +12,10 @@ export {
   envNumber,
   envBoolean,
   envEnum,
+  getEnvCatalog,
 } from "./defineEnv";
+export type { EnvVarKind, EnvVarMeta, NamedEnvVarMeta } from "./defineEnv";
+export { renderEnvExample } from "./envExample";
 export { defaultAppConfig } from "./defaults";
 export { parseNfEnvOverrides } from "./envOverride";
 export type { NfEnvOverride } from "./envOverride";

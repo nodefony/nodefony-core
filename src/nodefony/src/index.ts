@@ -264,7 +264,14 @@ export {
   envNumber,
   envBoolean,
   envEnum,
+  getEnvCatalog,
 } from "./config/defineEnv";
+export type {
+  EnvVarKind,
+  EnvVarMeta,
+  NamedEnvVarMeta,
+} from "./config/defineEnv";
+export { renderEnvExample } from "./config/envExample";
 export { defaultAppConfig } from "./config/defaults";
 export { parseNfEnvOverrides } from "./config/envOverride";
 export type { NfEnvOverride } from "./config/envOverride";
