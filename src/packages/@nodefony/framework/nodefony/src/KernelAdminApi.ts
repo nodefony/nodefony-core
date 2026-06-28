@@ -686,6 +686,23 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             },
           };
         }
+        // 7b. Propager aux SERVICES du module. `Service` SHALLOW-clone `options` à
+        // la construction (`{ ...options }`) → un scalaire top-level (ex. http
+        // `headerServer`, lu par requête sur `HttpKernel.options`) ne se propage PAS
+        // par la référence (≠ nested, partagé). On applique le même chemin à chaque
+        // service porteur (`applyResolvedPath` = no-op si la clé n'existe pas).
+        const svcMod = mod as unknown as {
+          getServiceNames?: () => string[];
+          get?: (name: string) => unknown;
+        };
+        for (const sname of svcMod.getServiceNames?.() ?? []) {
+          const svc = svcMod.get?.(sname) as {
+            options?: Record<string, unknown>;
+          } | null;
+          if (svc?.options && svc.options !== opts) {
+            applyResolvedPath(svc.options, segments, value);
+          }
+        }
         // Marque le chemin « édité à chaud » → provenance `runtime` au re-render.
         let edited = runtimeEdited.get(key);
         if (!edited) {

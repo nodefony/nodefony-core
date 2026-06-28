@@ -72,12 +72,7 @@ export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
 export type httpResponse = http.ServerResponse | http2.Http2ServerResponse;
 export type ContextType = WebsocketContext | HttpContext | Context;
 export type ServerType =
-  | "http"
-  | "https"
-  | "http2"
-  | "http3"
-  | "websocket"
-  | "websocket-secure";
+  "http" | "https" | "http2" | "http3" | "websocket" | "websocket-secure";
 
 export type responseTimeoutType = "http" | "https" | "http2" | "http3";
 export type SchemeType = "http" | "https" | "ws" | "wss";
@@ -428,10 +423,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // (côté JsonAuditLogger). Override env NF_BENCH_AUDIT_NOMINAL lu 1× au
       // boot — banc A/B paires alternées sans rebuild, jamais en hot path.
       const envNominal = process.env.NF_BENCH_AUDIT_NOMINAL as
-        | "auto"
-        | "always"
-        | "never"
-        | undefined;
+        "auto" | "always" | "never" | undefined;
       const nominalMode = envNominal ?? advanced.nominal ?? "auto";
       opts.nominal =
         nominalMode === "always" ||
@@ -634,7 +626,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     response: httpResponse,
     type: ServerType,
   ): Promise<unknown> {
-    response.setHeader("Server", this.options.headerServer);
+    // `headerServer: null` = NE PAS exposer l'identité du framework (anti-fingerprint
+    // OWASP, recommandé en prod) → on N'ÉMET PAS l'en-tête (sinon `setHeader` enverrait
+    // le littéral "null", qui n'efface rien). Une string vide est traitée pareil.
+    const headerServer = this.options.headerServer;
+    if (headerServer != null && headerServer !== "") {
+      response.setHeader("Server", headerServer);
+    }
     // Security headers OWASP — defaults secure-by-default (cf config.securityHeaders).
     // HSTS gated TLS-only : poser sur HTTP plain n'a aucun effet RFC 6797 et pollue.
     if (this.secContentTypeOptions !== null) {
@@ -665,10 +663,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     (httpServer | httpsServer | websocketServer | websocketSecureServer)[]
   > {
     const servers: (
-      | httpServer
-      | httpsServer
-      | websocketServer
-      | websocketSecureServer
+      httpServer | httpsServer | websocketServer | websocketSecureServer
     )[] = [];
     const serverHttp = this.get<httpServer>("server-http");
     if (serverHttp) {
