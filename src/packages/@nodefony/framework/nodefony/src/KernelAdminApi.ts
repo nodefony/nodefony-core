@@ -7,6 +7,7 @@ import {
   parseNfEnvOverrides,
   computeConfigProvenance,
   extractJsonSchemaDefaults,
+  defaultAppConfig,
 } from "nodefony";
 import type {
   IKernel,
@@ -369,7 +370,22 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // (la map ne porte que des ORIGINES, jamais de valeur → 0 fuite) ; les
         // valeurs, elles, restent redactées via safeConfig.
         let provenance: Record<string, string> | null = null;
-        if (schema) {
+        if (mod.isApp) {
+          // App : les défauts sont `defaultAppConfig` (le schéma app DÉCRIT les
+          // champs mais ne porte PAS de `.default()` → extractJsonSchemaDefaults
+          // serait vide et tout passerait pour "app"). Env = segment réservé `app`
+          // (`NF__APP__*`), jamais le basename du package de l'app.
+          const envPaths = new Set(
+            parseNfEnvOverrides(process.env)
+              .filter((o) => o.moduleSeg === "app")
+              .map((o) => o.path.join(".")),
+          );
+          provenance = computeConfigProvenance(
+            opts,
+            defaultAppConfig as unknown as Record<string, unknown>,
+            envPaths,
+          );
+        } else if (schema) {
           const seg = pkg.includes("/")
             ? pkg.slice(pkg.lastIndexOf("/") + 1)
             : pkg;

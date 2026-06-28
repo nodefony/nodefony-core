@@ -4,6 +4,7 @@ import {
   computeConfigProvenance,
   extractJsonSchemaDefaults,
 } from "../config/configProvenance";
+import { defaultAppConfig } from "../config/defaults";
 
 describe("configProvenance — computeConfigProvenance", () => {
   it("classe chaque feuille : default / app / env", () => {
@@ -83,5 +84,31 @@ describe("configProvenance — extractJsonSchemaDefaults", () => {
   it("schéma absent / non-objet → {}", () => {
     assert.deepStrictEqual(extractJsonSchemaDefaults(null), {});
     assert.deepStrictEqual(extractJsonSchemaDefaults({ type: "string" }), {});
+  });
+});
+
+/**
+ * Scénario APP (carte Studio `isApp`) : reproduit le calcul du data plane
+ * `KernelAdminApi` pour la config de l'application — défauts = `defaultAppConfig`
+ * (le schéma app DÉCRIT sans `.default()`, donc `extractJsonSchemaDefaults` serait
+ * vide → tout en "app") et env = chemins `NF__APP__*`. Garde l'origine correcte.
+ */
+describe("configProvenance — scénario APP (defaultAppConfig + NF__APP__*)", () => {
+  it("default / app / env sur la config app réelle", () => {
+    const resolved = structuredClone(defaultAppConfig) as unknown as {
+      domain: string;
+      servers: { http: { port: number } };
+    };
+    resolved.domain = "0.0.0.0"; // surchargé par l'app (≠ défaut "localhost")
+    resolved.servers.http.port = 8080; // surchargé par NF__APP__SERVERS__HTTP__PORT
+    // log.driver reste "stdout" (défaut)
+    const prov = computeConfigProvenance(
+      resolved as unknown as Record<string, unknown>,
+      defaultAppConfig as unknown as Record<string, unknown>,
+      new Set(["servers.http.port"]),
+    );
+    assert.strictEqual(prov["domain"], "app");
+    assert.strictEqual(prov["servers.http.port"], "env");
+    assert.strictEqual(prov["log.driver"], "default");
   });
 });

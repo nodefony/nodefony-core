@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-28T14:12:53.772Z",
+  "generated": "2026-06-28T14:37:22.062Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -19024,7 +19024,8 @@
       ],
       "defaultAppConfig": [
         "src/nodefony/src/config/defineConfig.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "validateAppConfig": [
         "src/nodefony/src/config/defineConfig.ts"
