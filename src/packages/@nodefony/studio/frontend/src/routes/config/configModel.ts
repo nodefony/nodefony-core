@@ -111,15 +111,20 @@ export interface ConfigModel {
   stats: ConfigStats;
 }
 
-/** Injecte la recette d'override `NF__…` sur chaque champ NON réservé. */
-function withOverrideKeys(
+/**
+ * Injecte la **recette d'override** `NF__<SEG>__<CHEMIN>` (12-factor) sur chaque
+ * champ NON réservé → `ConfigLayout` rend la colonne « Recette » + bouton copier.
+ * Exporté : la page module (`ModuleDetail`) l'applique aussi pour rester cohérente
+ * avec la page globale.
+ */
+export function withOverrideKeys(
   sections: ConfigSection[],
   seg: string,
 ): ConfigSection[] {
   return sections.map((s) => ({
     ...s,
     fields: s.fields.map((f): ConfigField =>
-      f.reserved ? f : { ...f, env: f.env ?? overrideKeyFor(seg, f.key) },
+      f.reserved ? f : { ...f, recipe: f.recipe ?? overrideKeyFor(seg, f.key) },
     ),
   }));
 }

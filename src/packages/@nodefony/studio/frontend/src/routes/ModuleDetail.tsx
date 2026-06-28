@@ -2,6 +2,7 @@ import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { jsonSchemaToSections } from "./config/jsonSchemaToSections";
+import { withOverrideKeys } from "./config/configModel";
 import { ApiError } from "../services/ApiClient";
 import dayjs from "dayjs";
 import {
@@ -87,6 +88,8 @@ interface ModuleDetailData {
   configSchema?: unknown;
   /** Origine de chaque valeur résolue (défaut/app/env/runtime) — badge provenance (ADR-0006). */
   provenance?: Record<string, "default" | "app" | "env" | "runtime"> | null;
+  /** Segment d'adressage des overrides (`NF__<SEG>__…`) — pour la recette 12-factor. */
+  seg?: string;
 }
 interface RouteRow {
   name: string;
@@ -366,10 +369,15 @@ export const ModuleDetail = observer(() => {
   // colonne vertébrale (montre TOUT ce qui tourne, connecteurs compris) ; le JSON
   // Schema (si le module est migré Zod) AJOUTE la doc (type/défaut/flags). Tout
   // module ayant une config en bénéficie ; ConfigView ne sert que de filet ultime.
-  const cfgSections = jsonSchemaToSections(
-    data.configSchema ?? null,
-    data.config,
-    data.provenance ?? null,
+  // Recette d'override `NF__…` (12-factor) + bouton copier injectés par champ →
+  // cohérent avec la page globale `/nodefony/config` (colonne « Recette »).
+  const cfgSections = withOverrideKeys(
+    jsonSchemaToSections(
+      data.configSchema ?? null,
+      data.config,
+      data.provenance ?? null,
+    ),
+    data.seg ?? name,
   );
   const richCfg = cfgSections.length ? cfgSections : null;
   const schemaStatus: "zod" | "none" = data.configSchema ? "zod" : "none";

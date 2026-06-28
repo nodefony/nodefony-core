@@ -26,6 +26,7 @@ import {
   Box,
   Card,
   Code,
+  CopyButton,
   Group,
   NumberInput,
   Select,
@@ -47,6 +48,7 @@ import {
   IconArrowRight,
   IconSearch,
   IconCheck,
+  IconCopy,
   IconDeviceFloppy,
 } from "@tabler/icons-react";
 import { DocHint, TipHint, WarnHint } from "./DocHint";
@@ -113,6 +115,12 @@ export interface ConfigField {
   source?: ConfigSource;
   /** Variable d'environnement associée (12-factor). */
   env?: string;
+  /**
+   * Recette d'override `NF__<SEG>__<CHEMIN>` (12-factor) — comment surcharger ce
+   * champ au déploiement sans toucher au code. Rendue dans la colonne « Recette »
+   * avec un bouton copier (injectée par `withOverrideKeys`).
+   */
+  recipe?: string;
   /**
    * Contrôle d'édition à dériver (champ `runtimeMutable` non secret uniquement).
    * Absent = non éditable inline (lecture seule, recette d'override pour le reste).
@@ -394,6 +402,30 @@ function fieldSearchText(f: ConfigField): string {
   return parts.join(" ");
 }
 
+/** Cellule « Recette » 12-factor : la var `NF__…` à copier pour surcharger au déploiement. */
+function RecipeCell({ recipe }: { recipe: string }) {
+  return (
+    <Group gap={4} wrap="nowrap">
+      <Code style={{ fontSize: 11 }}>{recipe}</Code>
+      <CopyButton value={recipe} timeout={1500}>
+        {({ copied, copy }) => (
+          <Tooltip label={copied ? "Copié" : "Copier"} withArrow>
+            <ActionIcon
+              size="sm"
+              variant="subtle"
+              color={copied ? "teal" : "gray"}
+              aria-label={`Copier ${recipe}`}
+              onClick={copy}
+            >
+              {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+            </ActionIcon>
+          </Tooltip>
+        )}
+      </CopyButton>
+    </Group>
+  );
+}
+
 /** Un champ porte-t-il un éditeur inline (édition live activée + champ « à chaud ») ? */
 function isEditable(f: ConfigField, editable: boolean): boolean {
   return (
@@ -645,6 +677,10 @@ export function ConfigLayout({
   const hasSource = sections.some((s) =>
     s.fields.some((f) => f.source !== undefined),
   );
+  // Colonne « Recette » (12-factor) dès qu'un champ porte une recette d'override.
+  const hasRecipe = sections.some((s) =>
+    s.fields.some((f) => f.recipe !== undefined),
+  );
 
   return (
     <Stack gap="lg">
@@ -748,6 +784,18 @@ export function ConfigLayout({
                   <Table.Th style={{ width: 150 }}>Défaut</Table.Th>
                   <Table.Th style={{ width: 200 }}>Type & valeurs</Table.Th>
                   <Table.Th style={{ width: 180 }}>État</Table.Th>
+                  {hasRecipe && (
+                    <Table.Th style={{ width: 230 }}>
+                      <Group gap={4} wrap="nowrap">
+                        Recette
+                        <DocHint
+                          title="Recette d'override (12-factor)"
+                          summary="La variable d'environnement qui surcharge ce réglage SANS toucher au code (NF__<MODULE>__<CHEMIN>). À copier dans .env.local / l'orchestrateur (priorité maximale dans la cascade)."
+                          width={280}
+                        />
+                      </Group>
+                    </Table.Th>
+                  )}
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -822,6 +870,17 @@ export function ConfigLayout({
                     <Table.Td>
                       <StateBadges f={f} />
                     </Table.Td>
+                    {hasRecipe && (
+                      <Table.Td>
+                        {f.recipe ? (
+                          <RecipeCell recipe={f.recipe} />
+                        ) : (
+                          <Text size="xs" c="dimmed">
+                            —
+                          </Text>
+                        )}
+                      </Table.Td>
+                    )}
                   </Table.Tr>
                 ))}
               </Table.Tbody>
