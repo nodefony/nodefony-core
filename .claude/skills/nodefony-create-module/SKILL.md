@@ -109,8 +109,8 @@ Variables à remplacer dans tous les templates :
 
 **Fichiers générés TOUJOURS** : `package.json`, `tsconfig.json`, `rollup.config.ts`,
 `vitest.config.ts`, `index.ts` (Module class + exports + validation Zod au boot),
-**`nodefony/config/schema.ts`** ⭐ (Zod schema source de vérité),
-`nodefony/config/config.ts` (défauts dérivés via `schema.parse({})`),
+**`nodefony/config/config.ts`** ⭐ (schéma Zod commenté = source unique + défauts `parse({})`),
+`nodefony/config/define{{NameClass}}Config.ts` (builder pur : parse + freeze),
 `nodefony/interfaces/I{{NameClass}}Service.ts` + `index.ts` barrel,
 `nodefony/service/{{NameClass}}Service.ts`, `nodefony/src/errors/{{NameClass}}Error.ts`,
 `CLAUDE.md`, `MEMORY.md`, `README.md`, **`docs/index.md`, `docs/architecture.md`** ⭐.
@@ -126,14 +126,18 @@ Variables à remplacer dans tous les templates :
 > étendue (frontmatter Studio-friendly figé : `slug`, `title`, `section`, `audience`,
 > `version`, `status`, `updated`, `source`).
 
-> ⭐ **`schema.ts` Zod est OBLIGATOIRE depuis 2026-05-28** (convention figée — cf
-> [[feedback_config_validation_zod]]). Tout module qui expose une config DOIT avoir un
-> schéma Zod (validé au boot via `onKernelRegister` du Module class) → plante propre avec
-> messages clairs, pas de `undefined.x` silencieux en runtime. `config.ts` n'écrit JAMAIS
-> les défauts à la main : il les dérive du schéma via `{{name}}ConfigSchema.parse({})`.
-> Pattern de référence : `@nodefony/security/nodefony/config/defineSecurityConfig.ts`
-> (12 sections groupées, chaque champ avec `.describe()` → JSON Schema introspectable par
-> Studio pour form auto-généré). Zod 4.4.3 = peerDep TOUJOURS (alignée avec security).
+> ⭐ **Config unifiée — convention ADR-0006 (« une source Zod par module »)** : tout module
+> qui expose une config porte son **schéma Zod commenté dans `config.ts`** — le SEUL fichier à
+> lire pour comprendre sa config (type via `z.infer<>`, défaut via `.default()`, doc via
+> `.describe()`, JSON Schema via `z.toJSONSchema`, défauts matérialisés via
+> `{{name}}ConfigSchema.parse({})`). Le builder pur (parse + freeze) vit dans
+> `define{{NameClass}}Config.ts`. **Plus de `schema.ts` séparé** (fusionné dans `config.ts`).
+> Un défaut n'est **JAMAIS** re-tapé ailleurs (ni en double, ni `.env.example`, ni `Dockerfile`).
+> Validé au boot via `onKernelRegister` → plante propre, pas de `undefined.x` silencieux. Chaque
+> champ est surchargeable par l'app via `use("@nodefony/{{name}}", { … })` et par env générique
+> `NF__{{NAME_UPPER}}__<CHEMIN>` (override cloud-native). Réf :
+> `docs/adr/0006-configuration-unifiee-env-override.md` ; modèles `@nodefony/drizzle` (schéma
+> dans `config.ts`) et `@nodefony/security`. Zod `^4.4.3` = peerDep TOUJOURS.
 
 ### 4. Build du module
 

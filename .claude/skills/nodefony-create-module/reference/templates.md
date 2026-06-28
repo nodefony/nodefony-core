@@ -58,8 +58,8 @@
 ```json
 {
   "nodefony": "*",
-  // ⭐ TOUJOURS : zod = validation runtime du schéma de config au boot (convention figée
-  // 2026-05-28, cf [[feedback_config_validation_zod]]). Version alignée avec security 4.4.3.
+  // ⭐ TOUJOURS : zod = source unique de la config (schéma + validation au boot,
+  // convention ADR-0006). Version alignée avec security/drizzle.
   "zod": "^4.4.3",
   // si controllers :
   "@nodefony/http": "*",
@@ -292,8 +292,10 @@ TOUS les chunks `nodefony/foo/bar.js` produits par `preserveModules`.
  * et `MEMORY.md` pour les internals IA.
  */
 import { Kernel, Module, services } from "nodefony";
-import config, { type {{NameClass}}Config } from "./nodefony/config/config";
-import { {{name}}ConfigSchema } from "./nodefony/config/schema";
+import config, {
+  {{name}}ConfigSchema,
+  type {{NameClass}}Config,
+} from "./nodefony/config/config";
 import {{NameClass}}Service from "./nodefony/service/{{NameClass}}Service";
 // ↓ si commands :
 // import {{NameClass}}Command from "./nodefony/command/{{name}}-command";
@@ -312,10 +314,9 @@ class {{NameClass}} extends Module {
   }
 
   /**
-   * Validation Zod de la config racine merge au boot (convention figée 2026-05-28,
-   * cf [[feedback_config_validation_zod]]). Plante propre avec messages clairs si
-   * la config (defaults + module.options) n'est pas conforme au schéma — évite tous
-   * les `undefined.x` silencieux en runtime.
+   * Validation Zod de la config (défauts + `module.options`) au boot — convention
+   * ADR-0006 (le schéma de `config.ts` est la source unique). Plante propre avec
+   * messages clairs si non conforme — évite les `undefined.x` silencieux en runtime.
    */
   override async onKernelRegister(): Promise<this> {
     const parsed = {{name}}ConfigSchema.safeParse(this.options ?? {});
@@ -341,7 +342,16 @@ export { {{NameClass}}Service };
 
 // Interfaces publiques.
 export type { I{{NameClass}}Service } from "./nodefony/interfaces/I{{NameClass}}Service";
-export type { {{NameClass}}Config } from "./nodefony/config/config";
+export type {
+  {{NameClass}}Config,
+  {{NameClass}}ConfigInput,
+} from "./nodefony/config/config";
+
+// Builder de config (parse + valide + gèle) + JSON Schema introspectable (Studio) —
+// pattern ADR-0006 (cf `defineSecurityConfig`/`defineDrizzleConfig`). L'app appelle le
+// builder, Studio dérive son formulaire du JSON Schema.
+export { {{name}}ConfigJsonSchema } from "./nodefony/config/config";
+export { define{{NameClass}}Config } from "./nodefony/config/define{{NameClass}}Config";
 
 // Typage de `use("@nodefony/{{name}}", …)` dans `nodefony.config.ts` (convention figée
 // 2026-06-05) : on augmente le registre du core par declaration merging (pattern Nuxt/Pinia)
@@ -358,26 +368,35 @@ export {
 } from "./nodefony/src/errors/{{NameClass}}Error";
 ```
 
-### `nodefony/config/schema.ts` — schéma Zod (source de vérité)
+### `nodefony/config/config.ts` — schéma Zod commenté (source unique) + défauts
 
-> Convention figée 2026-05-28 (cf [[feedback_config_validation_zod]]) : tout module Nodefony
-> qui expose une config DOIT avoir un schéma Zod. Validé au boot du Module class (hook
-> `onKernelRegister`) → plante propre avec messages clairs si la config racine est invalide.
-> Pas de `undefined.x` silencieux en runtime. Source de vérité = schéma (TS type dérivé via
-> `z.infer<>`, pas l'inverse). Pattern de référence : `defineSecurityConfig.ts`.
+> **Convention ADR-0006 (« une source Zod par module »)** : `config.ts` est le **seul**
+> fichier à lire pour comprendre la config du module. Il porte le schéma Zod commenté
+> (`.default().describe()` = type + validation + défaut + doc), les types dérivés, le JSON
+> Schema (introspection Studio) et **matérialise les défauts** via `parse({})`. Il n'importe
+> que `zod` → nœud bas, aucun cycle. **Aucune valeur n'est re-tapée ailleurs** (ni en double,
+> ni `.env.example`, ni `Dockerfile`). Le builder pur vit dans `define{{NameClass}}Config.ts`.
+> Réf : `docs/adr/0006-configuration-unifiee-env-override.md` ; modèles `@nodefony/drizzle`
+> (schéma dans `config.ts`) et `@nodefony/security`.
 
 ```typescript
 import { z } from "zod";
 
 /**
- * Schéma Zod de la configuration de @nodefony/{{name}}.
+ * @nodefony/{{name}} — CONFIGURATION DU MODULE (schéma Zod = source unique).
  *
- * Chaque champ porte `.describe()` pour :
- *  - messages d'erreur explicites au boot,
- *  - introspection Studio (futur form auto-généré via `{{name}}ConfigJsonSchema()`).
+ * RÈGLE D'OR (ADR-0006) : ce fichier porte le schéma Zod commenté ET matérialise les
+ * défauts via `parse({})`. Aucune valeur n'est re-tapée ailleurs. Chaque champ porte
+ * `.describe()` → messages d'erreur clairs au boot + JSON Schema introspectable par
+ * Studio (formulaire auto-généré).
  *
- * Pattern enrichi à terme : voir `defineSecurityConfig.ts` (12 sections groupées par
- * préoccupation, chaque défense `enabled` togglable, défauts SÛRS).
+ * SURCHARGE (précédence croissante — ADR-0006) :
+ *   • App (typé)         : `use("@nodefony/{{name}}", { … })` dans `nodefony.config.ts` ;
+ *   • Par environnement  : la fonction `(ctx) => …` de `nodefony.config.ts` (`ctx.isProd`…) ;
+ *   • Déploiement/Docker : `NF__{{NAME_UPPER}}__<CHEMIN>=valeur` (override env générique).
+ *
+ * Enrichir à terme : voir `@nodefony/security` (sections groupées par préoccupation,
+ * chaque défense `enabled` togglable, défauts SÛRS).
  */
 export const {{name}}ConfigSchema = z
   .object({
@@ -391,42 +410,55 @@ export const {{name}}ConfigSchema = z
   })
   .describe("Configuration de @nodefony/{{name}}.");
 
+/** Entrée du builder (champs avec défaut → optionnels). */
+export type {{NameClass}}ConfigInput = z.input<typeof {{name}}ConfigSchema>;
+/** Config normalisée (défauts appliqués). */
 export type {{NameClass}}Config = z.infer<typeof {{name}}ConfigSchema>;
 
 /**
- * (Optionnel — à coder quand Studio aura besoin du form auto-généré.) Renvoie le JSON
- * Schema dérivé du schéma Zod pour qu'un consommateur (Studio) génère une UI d'édition.
- * Voir `securityConfigJsonSchema()` pour le pattern complet (z.toJSONSchema).
+ * JSON Schema introspectable de la config — Studio en dérive son formulaire d'édition
+ * (labels/types/défauts/descriptions), sans UI hardcodée.
  */
-// export function {{name}}ConfigJsonSchema(): Record<string, unknown> {
-//   return z.toJSONSchema({{name}}ConfigSchema);
-// }
-```
+export function {{name}}ConfigJsonSchema(): unknown {
+  return z.toJSONSchema({{name}}ConfigSchema);
+}
 
-### `nodefony/config/config.ts` — défauts dérivés du schéma
-
-```typescript
 /**
- * NODEFONY FRAMEWORK — Configuration DEFAULT de `@nodefony/{{name}}`.
- *
- * Source de vérité = `./schema.ts` (Zod). Ce fichier expose les défauts dérivés
- * via `{{name}}ConfigSchema.parse({})` — utile pour le `super(..., config)` du
- * Module class (toujours valide par construction).
- *
- * Surcharge côté app : `use("@nodefony/{{name}}", { …config })` dans le manifeste
- * `modules` de `nodefony.config.ts` (remplace l'ancienne clé `module-{{name}}`), ou
- * prop `module.options` du module consumer. La fusion + validation finale est faite
- * dans `index.ts` au hook `onKernelRegister` (plante propre si invalide).
- *
- * ⚠️ NE PAS éditer les valeurs ici à la main : modifier les `.default(...)` du
- * schéma, pas ce fichier.
+ * Défauts du module, matérialisés depuis le schéma (source unique). Toujours valides
+ * par construction ; passés au `super(..., config)` du Module class.
  */
-import { {{name}}ConfigSchema, type {{NameClass}}Config } from "./schema";
-
 const config: {{NameClass}}Config = {{name}}ConfigSchema.parse({});
 
 export default config;
-export type { {{NameClass}}Config };
+```
+
+### `nodefony/config/define{{NameClass}}Config.ts` — builder pur (parse + freeze)
+
+> Builder ~15 lignes, **zéro valeur** (règle d'or ADR-0006 : les défauts vivent dans le
+> schéma de `config.ts`). Importe le schéma de `./config`, valide, gèle. Le slot env
+> DÉDIÉ (variables nommées du catalogue `env.ts`) s'applique APRÈS le parse, ici — cf
+> `defineDrizzleConfig` (`DRIZZLE_DB_FILE`). L'override env GÉNÉRIQUE `NF__{{NAME_UPPER}}__*`
+> est géré par le core, pas ici.
+
+```typescript
+import { {{name}}ConfigSchema } from "./config";
+import type { {{NameClass}}Config, {{NameClass}}ConfigInput } from "./config";
+
+/**
+ * Builder type-safe de la configuration de `@nodefony/{{name}}`.
+ *
+ * Source unique = `./config.ts` (schéma Zod). VALIDE + GÈLE — aucune valeur par défaut
+ * ici. Lève une `ZodError` (message clair) si la config est invalide.
+ *
+ * @param config - configuration brute (champs omis = défauts sûrs du schéma).
+ * @returns config validée et gelée.
+ * @throws ZodError si la config est invalide.
+ */
+export function define{{NameClass}}Config(
+  config: {{NameClass}}ConfigInput = {},
+): {{NameClass}}Config {
+  return Object.freeze({{name}}ConfigSchema.parse(config));
+}
 ```
 
 ### `nodefony/interfaces/I{{NameClass}}Service.ts`
@@ -637,7 +669,8 @@ src/packages/@nodefony/{{name}}/
 ├── tsconfig.json ← NE PAS MODIFIER sans accord
 ├── CLAUDE.md / MEMORY.md / README.md
 └── nodefony/
-├── config/config.ts ← config DEFAULT (commentée en français)
+├── config/config.ts ← schéma Zod commenté (source unique) + défauts parse({})
+├── config/define{{NameClass}}Config.ts ← builder pur (parse + freeze)
 ├── interfaces/I{{NameClass}}Service.ts
 ├── service/{{NameClass}}Service.ts ← @injectable, name="{{name}}"
 ├── (command/ / controller/ / entity/ selon options)
@@ -646,12 +679,12 @@ src/packages/@nodefony/{{name}}/
 
 ## Décisions techniques figées
 
-| Sujet           | Décision                                      |
+| Sujet | Décision |
 | --------------- | --------------------------------------------- | ----- | ------- | ----- | --------- |
-| Service name DI | `"{{name}}"` (container.get("{{name}}"))      |
-| Errors          | extends `{{NameClass}}Error` (code + context) |
-| Config          | typée via `{{NameClass}}Config` (cfg field)   |
-| Logs            | via `this.log(msg, "INFO                      | DEBUG | WARNING | ERROR | CRITIC")` |
+| Service name DI | `"{{name}}"` (container.get("{{name}}")) |
+| Errors | extends `{{NameClass}}Error` (code + context) |
+| Config | typée via `{{NameClass}}Config` (cfg field) |
+| Logs | via `this.log(msg, "INFO                      | DEBUG | WARNING | ERROR | CRITIC")` |
 
 ## Pipeline (cycle de vie)
 
