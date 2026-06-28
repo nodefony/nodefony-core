@@ -23,7 +23,11 @@
 import type { ReactNode } from "react";
 import { Code } from "@mantine/core";
 import { JsonPeek } from "../../components/ui";
-import type { ConfigField, ConfigSection } from "../../components/ui";
+import type {
+  ConfigField,
+  ConfigSection,
+  ConfigEditControl,
+} from "../../components/ui";
 
 /** Nœud JSON Schema (forme partielle, tolérante aux variations). */
 interface JsonSchemaNode {
@@ -114,6 +118,52 @@ function inferType(v: unknown): string {
   return typeof v;
 }
 
+/** Types scalaires d'un nœud (top-level `type` + branches `anyOf`). */
+function scalarTypes(node: JsonSchemaNode): string[] {
+  const out = new Set<string>();
+  const add = (t: string | string[] | undefined) => {
+    if (Array.isArray(t)) t.forEach((x) => out.add(x));
+    else if (t) out.add(t);
+  };
+  add(node.type);
+  if (Array.isArray(node.anyOf)) node.anyOf.forEach((b) => add(b.type));
+  return [...out];
+}
+
+/**
+ * Dérive le contrôle d'édition d'une feuille `runtimeMutable` non secrète :
+ * `enum`→select · `boolean`→switch · `number/integer`→number (bornes) ·
+ * `string`→text. Une feuille objet/array ou une union complexe → `undefined`
+ * (pas d'édition inline : recette d'override pour le reste).
+ */
+function deriveEditControl(
+  node: JsonSchemaNode | null,
+): ConfigEditControl | undefined {
+  if (!node || node.runtimeMutable !== true || node.secret === true) {
+    return undefined;
+  }
+  if (Array.isArray(node.enum)) {
+    const options = node.enum.filter((e): e is string => typeof e === "string");
+    if (!options.length) return undefined;
+    return { kind: "select", options, nullable: node.enum.includes(null) };
+  }
+  const types = scalarTypes(node);
+  if (types.includes("array") || types.includes("object")) return undefined;
+  const nullable = types.includes("null");
+  if (types.includes("boolean")) return { kind: "switch" };
+  if (types.includes("integer") || types.includes("number")) {
+    return {
+      kind: "number",
+      min: node.minimum,
+      max: node.maximum,
+      integer: types.includes("integer") && !types.includes("number"),
+      nullable,
+    };
+  }
+  if (types.includes("string")) return { kind: "text", nullable };
+  return undefined;
+}
+
 /** Contrainte lisible : valeurs d'enum ou bornes min/max. */
 function readConstraint(node: JsonSchemaNode): string | undefined {
   if (Array.isArray(node.enum)) {
@@ -166,6 +216,8 @@ function buildField(
 ): ConfigField {
   const last = path.slice(path.lastIndexOf(".") + 1);
   const secret = node?.secret === true || SECRET_KEY.test(last);
+  // Édition inline : seulement sur une feuille « à chaud » non secrète.
+  const editControl = secret ? undefined : deriveEditControl(node);
   return {
     key: path,
     type: node ? readType(node) : inferType(value),
@@ -179,6 +231,8 @@ function buildField(
     kernelDerived: node?.kernelDerived === true,
     secret,
     source,
+    editControl,
+    editValue: editControl ? value : undefined,
     effective: secret ? (
       <Code style={{ fontSize: 12 }}>{MASK}</Code>
     ) : (

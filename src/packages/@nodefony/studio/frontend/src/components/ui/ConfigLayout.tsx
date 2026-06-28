@@ -21,17 +21,22 @@
  */
 import { useMemo, useState, type ReactNode } from "react";
 import {
+  ActionIcon,
   Badge,
   Box,
   Card,
   Code,
   Group,
+  NumberInput,
+  Select,
   Stack,
+  Switch,
   Table,
   Text,
   TextInput,
   ThemeIcon,
   Title,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconSettings,
@@ -41,6 +46,8 @@ import {
   IconEyeOff,
   IconArrowRight,
   IconSearch,
+  IconCheck,
+  IconDeviceFloppy,
 } from "@tabler/icons-react";
 import { DocHint, TipHint, WarnHint } from "./DocHint";
 
@@ -52,6 +59,30 @@ export type ConfigMutability = "live" | "boot" | "readonly";
 
 /** État de migration du schéma de validation d'un module. */
 export type ConfigSchemaStatus = "zod" | "partial" | "none";
+
+/**
+ * Descripteur d'un contrôle d'édition d'un champ, dérivé du JSON Schema côté
+ * mappeur (`jsonSchemaToSections`). ConfigLayout reste 100 % présentation : il
+ * REND ce descripteur, il ne parse jamais le schéma lui-même.
+ */
+export type ConfigEditControl =
+  | { kind: "select"; options: string[]; nullable?: boolean }
+  | { kind: "switch" }
+  | {
+      kind: "number";
+      min?: number;
+      max?: number;
+      integer?: boolean;
+      nullable?: boolean;
+    }
+  | { kind: "text"; nullable?: boolean };
+
+/** Verdict d'une tentative d'édition live (autoritaire = serveur). */
+export interface EditResult {
+  ok: boolean;
+  /** Message d'échec (validation/refus serveur) à afficher inline. */
+  error?: string;
+}
 
 /** Un réglage de configuration (une ligne). */
 export interface ConfigField {
@@ -82,6 +113,13 @@ export interface ConfigField {
   source?: ConfigSource;
   /** Variable d'environnement associée (12-factor). */
   env?: string;
+  /**
+   * Contrôle d'édition à dériver (champ `runtimeMutable` non secret uniquement).
+   * Absent = non éditable inline (lecture seule, recette d'override pour le reste).
+   */
+  editControl?: ConfigEditControl;
+  /** Valeur courante BRUTE (initialise le contrôle d'édition). */
+  editValue?: unknown;
 }
 
 /** Un groupe de réglages (par domaine). */
@@ -100,6 +138,17 @@ export interface ConfigLayoutProps {
   sections: ConfigSection[];
   /** Bandeau d'avertissement / contexte (ex. préparation, config non exposée). */
   notice?: ReactNode;
+  /**
+   * Active l'édition LIVE (réservé au dev — le serveur reste autoritaire et
+   * refuse hors dev). Un contrôle inline n'apparaît QUE sur un champ « à chaud »
+   * (`mutability:"live"`, non secret/réservé) pourvu d'un `editControl`.
+   */
+  editable?: boolean;
+  /**
+   * Applique une édition : renvoie le verdict serveur (succès/refus). La page
+   * branche ici son `PATCH …/config/{module}` + toast + refetch de provenance.
+   */
+  onEdit?: (field: ConfigField, value: unknown) => Promise<EditResult>;
 }
 
 const SOURCE_META: Record<
@@ -129,7 +178,7 @@ const SOURCE_META: Record<
   runtime: {
     label: "runtime",
     color: "cyan",
-    help: "Dérivée de l'environnement d'exécution.",
+    help: "Valeur posée à l'exécution : éditée à chaud en développement (éphémère, perdue au redémarrage) ou dérivée du runtime.",
   },
 };
 
@@ -345,6 +394,213 @@ function fieldSearchText(f: ConfigField): string {
   return parts.join(" ");
 }
 
+/** Un champ porte-t-il un éditeur inline (édition live activée + champ « à chaud ») ? */
+function isEditable(f: ConfigField, editable: boolean): boolean {
+  return (
+    editable &&
+    !!f.editControl &&
+    f.mutability === "live" &&
+    !f.secret &&
+    !f.reserved
+  );
+}
+
+/** Bouton « appliquer » des contrôles libres (number/text) — actif si modifié. */
+function SaveBtn({
+  onClick,
+  pending,
+  dirty,
+}: {
+  onClick: () => void;
+  pending: boolean;
+  dirty: boolean;
+}) {
+  return (
+    <Tooltip label="Appliquer (Entrée)" withArrow>
+      <ActionIcon
+        size="sm"
+        variant="light"
+        color="brand"
+        disabled={!dirty || pending}
+        loading={pending}
+        onClick={onClick}
+        aria-label="Appliquer la valeur"
+      >
+        <IconDeviceFloppy size={14} />
+      </ActionIcon>
+    </Tooltip>
+  );
+}
+
+/**
+ * Éditeur inline d'un champ « à chaud ». Dérive le contrôle Mantine du
+ * descripteur `editControl` (select / switch / number / text). Optimiste avec
+ * rollback : le serveur reste autoritaire — un refus (`{ ok:false }`) restaure
+ * la dernière valeur valide et affiche le message inline.
+ */
+function FieldEditor({
+  field,
+  onEdit,
+}: {
+  field: ConfigField;
+  onEdit: NonNullable<ConfigLayoutProps["onEdit"]>;
+}) {
+  const ctrl = field.editControl as ConfigEditControl;
+  const [val, setVal] = useState<unknown>(field.editValue);
+  const [draft, setDraft] = useState<string>(
+    field.editValue == null ? "" : String(field.editValue),
+  );
+  const [pending, setPending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const commit = async (next: unknown) => {
+    if (pending) return;
+    setPending(true);
+    setErr(null);
+    setSaved(false);
+    const res = await onEdit(field, next);
+    setPending(false);
+    if (res.ok) {
+      setVal(next);
+      setDraft(next == null ? "" : String(next));
+      setSaved(true);
+    } else {
+      setErr(res.error ?? "refusé");
+      setDraft(val == null ? "" : String(val)); // rollback du champ libre
+    }
+  };
+
+  const onDirty = () => {
+    if (saved) setSaved(false);
+    if (err) setErr(null);
+  };
+
+  const submitNumber = () => {
+    if (draft === "") {
+      if (ctrl.kind === "number" && ctrl.nullable) commit(null);
+      return;
+    }
+    const n = Number(draft);
+    if (Number.isNaN(n)) {
+      setErr("nombre invalide");
+      return;
+    }
+    if (val === n) return;
+    commit(n);
+  };
+
+  const submitText = () => {
+    const nullable = ctrl.kind === "text" && ctrl.nullable;
+    const next = nullable && draft.trim() === "" ? null : draft;
+    if ((val ?? null) === (next ?? null)) return;
+    commit(next);
+  };
+
+  let control: ReactNode = null;
+  if (ctrl.kind === "switch") {
+    control = (
+      <Switch
+        size="sm"
+        checked={val === true}
+        disabled={pending}
+        onChange={(e) => commit(e.currentTarget.checked)}
+        aria-label={`Modifier ${field.key}`}
+      />
+    );
+  } else if (ctrl.kind === "select") {
+    const NULL = "∅ (null)";
+    const data = ctrl.nullable ? [...ctrl.options, NULL] : ctrl.options;
+    control = (
+      <Select
+        size="xs"
+        w={170}
+        data={data}
+        value={val == null ? (ctrl.nullable ? NULL : null) : String(val)}
+        disabled={pending}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: true }}
+        onChange={(v) => v != null && commit(v === NULL ? null : v)}
+        aria-label={`Modifier ${field.key}`}
+      />
+    );
+  } else if (ctrl.kind === "number") {
+    control = (
+      <Group gap={4} wrap="nowrap">
+        <NumberInput
+          size="xs"
+          w={120}
+          value={draft === "" ? "" : Number(draft)}
+          min={ctrl.min}
+          max={ctrl.max}
+          allowDecimal={!ctrl.integer}
+          disabled={pending}
+          onChange={(v) => {
+            onDirty();
+            setDraft(v === "" ? "" : String(v));
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submitNumber();
+          }}
+          aria-label={`Modifier ${field.key}`}
+        />
+        <SaveBtn
+          onClick={submitNumber}
+          pending={pending}
+          dirty={String(val ?? "") !== draft}
+        />
+      </Group>
+    );
+  } else {
+    control = (
+      <Group gap={4} wrap="nowrap">
+        <TextInput
+          size="xs"
+          w={170}
+          value={draft}
+          placeholder={
+            ctrl.kind === "text" && ctrl.nullable ? "(vide = null)" : undefined
+          }
+          disabled={pending}
+          onChange={(e) => {
+            onDirty();
+            setDraft(e.currentTarget.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submitText();
+          }}
+          aria-label={`Modifier ${field.key}`}
+        />
+        <SaveBtn
+          onClick={submitText}
+          pending={pending}
+          dirty={(val == null ? "" : String(val)) !== draft}
+        />
+      </Group>
+    );
+  }
+
+  return (
+    <Stack gap={2}>
+      <Group gap={4} wrap="nowrap">
+        {control}
+        {saved && (
+          <IconCheck
+            size={15}
+            color="var(--mantine-color-teal-6)"
+            aria-label="Enregistré"
+          />
+        )}
+      </Group>
+      {err && (
+        <Text size="xs" c="red">
+          {err}
+        </Text>
+      )}
+    </Stack>
+  );
+}
+
 /**
  * Visualise la configuration d'un module : en-tête + statut schéma, recherche,
  * puis une table par section. Mode schéma ou effectif selon les données.
@@ -354,6 +610,8 @@ export function ConfigLayout({
   schema = "none",
   sections,
   notice,
+  editable = false,
+  onEdit,
 }: ConfigLayoutProps) {
   const sm = SCHEMA_META[schema];
   const [query, setQuery] = useState("");
@@ -526,10 +784,14 @@ export function ConfigLayout({
                       <Table.Td>
                         <Group gap={6} wrap="nowrap">
                           <Box style={{ minWidth: 0 }}>
-                            {f.effective ?? (
-                              <Text size="xs" c="dimmed">
-                                —
-                              </Text>
+                            {isEditable(f, editable) && onEdit ? (
+                              <FieldEditor field={f} onEdit={onEdit} />
+                            ) : (
+                              (f.effective ?? (
+                                <Text size="xs" c="dimmed">
+                                  —
+                                </Text>
+                              ))
                             )}
                           </Box>
                           {f.source && <SourceBadge source={f.source} />}

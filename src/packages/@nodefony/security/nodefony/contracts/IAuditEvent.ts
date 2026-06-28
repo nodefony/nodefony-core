@@ -23,7 +23,8 @@ export type AuditCategory =
   | "csrf" // défense CSRF (Fetch-Metadata, token synchronizer)
   | "cors" // politique CORS (preflight rejeté)
   | "ws" // verrou de frame WebSocket (api.request / subscribe refusé)
-  | "webhook"; // webhook sortant (auto-désactivation après échecs répétés)
+  | "webhook" // webhook sortant (auto-désactivation après échecs répétés)
+  | "config"; // mutation de config runtime depuis Studio (édition live admin)
 
 /**
  * Issue d'une action de sécurité. La distinction `failure`/`denied` est utile à

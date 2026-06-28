@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-28T18:33:41.573Z",
+  "generated": "2026-06-28T20:29:02.712Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 987,
-    "symbols": 2364,
+    "files": 988,
+    "symbols": 2382,
     "classes": 314,
-    "interfaces": 626,
-    "types": 275,
+    "interfaces": 628,
+    "types": 277,
     "enums": 3,
-    "functions": 620,
+    "functions": 634,
     "constants": 526
   },
   "symbols": {
@@ -6204,6 +6204,88 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Décision d'autorisation du data plane admin (Studio) — fonction **PURE**, cœur de la garantie RBAC, testée isolément (zéro dépendance runtime/DI). **Fail-closed.** Un endpoint qui exige un rôle (`r…"
+    },
+    "IJsonSchemaNode": {
+      "name": "IJsonSchemaNode",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Mutation de configuration en direct (édition live admin, page Studio config). Brique PURE et testable derrière l'endpoint `PATCH /nodefony/kernel/api/config/{module}` ({@link createKernelAdminApi})…"
+    },
+    "IFieldFlags": {
+      "name": "IFieldFlags",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Drapeaux d'éditabilité d'un champ, dérivés de son nœud JSON Schema."
+    },
+    "LeafValidation": {
+      "name": "LeafValidation",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Résultat d'une validation de feuille : succès, ou échec avec message humain."
+    },
+    "NotEditableReason": {
+      "name": "NotEditableReason",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Raison machine du refus d'édition live (`null` = éditable)."
+    },
+    "navigateSchemaNode": {
+      "name": "navigateSchemaNode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Descend dans un JSON Schema le long d'un chemin pointé (`upload.maxFileSize`) et renvoie le nœud feuille, ou `null` si un segment ne résout pas."
+    },
+    "nodeFlags": {
+      "name": "nodeFlags",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Extrait les flags Nodefony d'un nœud (défaut `false` partout)."
+    },
+    "validateLeafValue": {
+      "name": "validateLeafValue",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Valide une valeur scalaire contre un nœud JSON Schema feuille (type(s), `enum`, `anyOf`/`oneOf`, bornes numériques, longueur/pattern de chaîne). Fail-closed : un nœud objet/array non scalaire est r…"
+    },
+    "notEditableReason": {
+      "name": "notEditableReason",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Décide si un champ est éditable à chaud. Ordre de refus : secret > réservé > dérivé kernel > non-`runtimeMutable` (boot). `null` = éditable."
+    },
+    "recipeFor": {
+      "name": "recipeFor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Construit la **recette** d'override à appliquer dans le déploiement pour un champ non mutable à chaud (12-factor). Un secret passe par la variante `*_FILE` (jamais la valeur en clair dans l'environ…"
+    },
+    "getResolvedPath": {
+      "name": "getResolvedPath",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/configMutation.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Lit la valeur courante d'une config à un chemin pointé (insensible à la casse) — sert à journaliser l'ancienne valeur (`before`) avant mutation."
     },
     "Controller": {
       "name": "Controller",
@@ -19091,7 +19173,8 @@
       ],
       "applyResolvedPath": [
         "src/nodefony/src/config/defineConfig.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "pathLooksSecret": [
         "src/nodefony/src/config/defineConfig.ts",
@@ -20676,6 +20759,24 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "CORE_PACKAGE": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "navigateSchemaNode": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "nodeFlags": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "notEditableReason": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "validateLeafValue": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "recipeFor": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "getResolvedPath": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "IResolver": [

@@ -95,6 +95,8 @@ export {
   type ConfigSource,
   type ConfigMutability,
   type ConfigSchemaStatus,
+  type ConfigEditControl,
+  type EditResult,
 } from "./ConfigLayout";
 export {
   ConfigSummaryCard,

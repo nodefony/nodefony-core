@@ -1,7 +1,8 @@
 import { observer } from "mobx-react-lite";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { jsonSchemaToSections } from "./config/jsonSchemaToSections";
+import { ApiError } from "../services/ApiClient";
 import dayjs from "dayjs";
 import {
   ActionIcon,
@@ -67,6 +68,8 @@ import {
   MarkdownDoc,
   PAGE_CONTENT_HEIGHT,
   TABS_PANEL_HEIGHT,
+  type ConfigField,
+  type EditResult,
 } from "../components/ui";
 import { ModuleSymbolGraph } from "../components/SymbolGraph";
 import { RoleSwitch } from "../components/RoleSwitch";
@@ -82,8 +85,8 @@ interface ModuleDetailData {
   config: Record<string, unknown>;
   /** JSON Schema de la config (réglages documentés) si le module est migré Zod. */
   configSchema?: unknown;
-  /** Origine de chaque valeur résolue (défaut/app/env) — badge provenance (ADR-0006). */
-  provenance?: Record<string, "default" | "app" | "env"> | null;
+  /** Origine de chaque valeur résolue (défaut/app/env/runtime) — badge provenance (ADR-0006). */
+  provenance?: Record<string, "default" | "app" | "env" | "runtime"> | null;
 }
 interface RouteRow {
   name: string;
@@ -194,6 +197,17 @@ const KIND_COLORS: Record<string, string> = {
   enum: "yellow",
 };
 
+/** Message lisible d'un refus d'édition config (priorité au détail serveur + recette). */
+function configErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    const b = e.body as
+      { message?: string; error?: string; recipe?: string } | undefined;
+    const base = b?.message ?? b?.error ?? e.message;
+    return b?.recipe ? `${base} — recette : ${b.recipe}` : base;
+  }
+  return e instanceof Error ? e.message : String(e);
+}
+
 /**
  * ModuleDetail — page d'un module (route `/nodefony/modules/:name`).
  * Onglets affichés UNIQUEMENT s'ils ont du contenu (un pseudo-module comme
@@ -275,6 +289,45 @@ export const ModuleDetail = observer(() => {
       cancelled = true;
     };
   }, [store, name]);
+
+  // Refetch du module seul (best-effort) — après une édition live, pour refléter
+  // la nouvelle valeur effective + provenance (« runtime »).
+  const refetchModule = useCallback(async () => {
+    try {
+      const d = await store.api.getAbsolute<ModuleDetailData>(
+        `/nodefony/kernel/api/module/${encodeURIComponent(name)}`,
+      );
+      setData(d);
+    } catch {
+      // l'édition a réussi côté serveur même si le refetch échoue.
+    }
+  }, [store, name]);
+
+  // Édition LIVE d'un champ de config (dev) : le serveur reste AUTORITAIRE
+  // (PATCH validé + dev-only) ; succès → toast + refetch, refus → message inline
+  // (rollback géré par FieldEditor). Branché sur `ConfigLayout.onEdit`.
+  const handleConfigEdit = useCallback(
+    async (field: ConfigField, value: unknown): Promise<EditResult> => {
+      try {
+        await store.api.patchAbsolute(
+          `/nodefony/kernel/api/config/${encodeURIComponent(name)}`,
+          { path: field.key, value },
+        );
+        store.notifications.notify(
+          "success",
+          `${field.key} mis à jour (à chaud)`,
+          { title: "Configuration" },
+        );
+        await refetchModule();
+        return { ok: true };
+      } catch (e) {
+        const msg = configErrorMessage(e);
+        store.notifications.notify("error", msg, { title: "Édition refusée" });
+        return { ok: false, error: msg };
+      }
+    },
+    [store, name, refetchModule],
+  );
 
   if (loading) {
     return <ModuleDetailSkeleton />;
@@ -697,6 +750,8 @@ export const ModuleDetail = observer(() => {
                   module={data.name}
                   schema={schemaStatus}
                   sections={richCfg}
+                  editable={import.meta.env.DEV}
+                  onEdit={handleConfigEdit}
                 />
               ) : (
                 <ScrollArea h={520} type="auto" offsetScrollbars>

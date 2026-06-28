@@ -8,6 +8,7 @@ import {
   computeConfigProvenance,
   extractJsonSchemaDefaults,
   defaultAppConfig,
+  applyResolvedPath,
 } from "nodefony";
 import type {
   IKernel,
@@ -32,6 +33,14 @@ import {
   readCoreInfo,
   CORE_PACKAGE,
 } from "./docsReader";
+import {
+  navigateSchemaNode,
+  nodeFlags,
+  notEditableReason,
+  validateLeafValue,
+  recipeFor,
+  getResolvedPath,
+} from "./configMutation";
 
 /** Clé du pseudo-module core dans Studio (cf carte "Core" / `resolveCorePath`). */
 const CORE_KEY = "core";
@@ -203,6 +212,14 @@ function attributeOverrideSources(entries: IConfigEntry[]): void {
   }
 }
 
+/** Segment d'adressage des overrides (`NF__<SEG>__…`) d'un module : `app` ou le basename. */
+function computeSeg(pkg: string, isApp: boolean): string {
+  if (isApp) return "app";
+  return (
+    pkg.includes("/") ? pkg.slice(pkg.lastIndexOf("/") + 1) : pkg
+  ).toLowerCase();
+}
+
 /**
  * Calcule l'entrée CONFIG d'un module — partagée par `module/{name}` (détail) et
  * l'agrégat `config` (page globale). Une seule logique de provenance (ADR-0006 D7),
@@ -213,19 +230,20 @@ function attributeOverrideSources(entries: IConfigEntry[]): void {
  *
  * @param key - clé Studio du module.
  * @param mod - module (forme minimale {@link ConfigModuleLike}).
+ * @param runtimePaths - chemins (pointés minuscule) édités À CHAUD via PATCH →
+ *   provenance forcée `runtime` (≠ `app` : la valeur ne vient pas de la config app).
  * @returns l'entrée config normalisée.
  */
-function computeConfigEntry(key: string, mod: ConfigModuleLike): IConfigEntry {
+function computeConfigEntry(
+  key: string,
+  mod: ConfigModuleLike,
+  runtimePaths?: ReadonlySet<string>,
+): IConfigEntry {
   const pkg = mod.getModuleName?.() ?? key;
   const opts = (mod.options ?? {}) as Record<string, unknown>;
   const schema = mod.configSchema();
   const isApp = mod.isApp ?? false;
-  const seg = isApp
-    ? "app"
-    : (pkg.includes("/")
-        ? pkg.slice(pkg.lastIndexOf("/") + 1)
-        : pkg
-      ).toLowerCase();
+  const seg = computeSeg(pkg, isApp);
   // « Qui surcharge, où » : la VRAIE variable d'env posée pour ce module/app,
   // indexée par chemin pointé (casse réelle de la valeur résolue côté provenance).
   const envKeys: Record<string, string> = {};
@@ -256,6 +274,14 @@ function computeConfigEntry(key: string, mod: ConfigModuleLike): IConfigEntry {
       envPaths,
     );
   }
+  // Un champ édité À CHAUD diffère du défaut → la provenance le classerait « app »
+  // (trompeur : il ne vient pas de la config app). On force `runtime` pour dire la
+  // vérité : « modifié à l'exécution » (éphémère, perdu au restart).
+  if (provenance && runtimePaths && runtimePaths.size) {
+    for (const k of Object.keys(provenance)) {
+      if (runtimePaths.has(k.toLowerCase())) provenance[k] = "runtime";
+    }
+  }
   return {
     key,
     name: pkg,
@@ -267,6 +293,55 @@ function computeConfigEntry(key: string, mod: ConfigModuleLike): IConfigEntry {
     envKeys,
     overriddenBy: {}, // rempli par attributeOverrideSources (besoin de tous les modules)
   };
+}
+
+/** Libellé d'identité de l'acteur d'une mutation (duck-type `IUser`, sans import). */
+function actorLabel(user: unknown): string | null {
+  if (!user || typeof user !== "object") return null;
+  const u = user as {
+    getUserIdentifier?: () => string;
+    username?: string;
+    email?: string;
+    id?: unknown;
+  };
+  if (typeof u.getUserIdentifier === "function") {
+    try {
+      return u.getUserIdentifier();
+    } catch {
+      // identité illisible → retomber sur les champs simples ci-dessous.
+    }
+  }
+  return u.username ?? u.email ?? (u.id != null ? String(u.id) : null);
+}
+
+/**
+ * Journalise une mutation de config (catégorie `config`) **si** le service d'audit
+ * est présent — résolution par nom dans le container du kernel, no-op sinon (même
+ * découplage que `recordAudit` côté security : framework n'importe pas security).
+ * Un secret n'arrive jamais ici (refusé en amont par {@link notEditableReason}).
+ */
+function auditConfigChange(
+  kernel: IKernel,
+  request: IAdminRequest,
+  moduleKey: string,
+  path: string,
+  before: unknown,
+  after: unknown,
+): void {
+  const container = (
+    kernel as unknown as { container?: { get(name: string): unknown } }
+  ).container;
+  const sink = container?.get("auditService") as
+    { record?: (e: unknown) => void } | undefined;
+  sink?.record?.({
+    category: "config",
+    action: "config.update",
+    outcome: "success",
+    actor: actorLabel(request.user),
+    resource: `${moduleKey}.${path}`,
+    requestId: request.requestId ?? null,
+    metadata: { before, after },
+  });
 }
 
 /**
@@ -309,6 +384,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
     string,
     { status: "running" | "done"; startedAt: number; result?: TestRunResult }
   >();
+  // Chemins (pointés minuscule) édités À CHAUD via PATCH config, par clé module →
+  // provenance affichée « runtime » (dev only, éphémère ; reset au restart process).
+  const runtimeEdited = new Map<string, Set<string>>();
   const devGuard = () =>
     kernel.environment === "development" || Boolean(kernel.debug);
 
@@ -500,12 +578,133 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           const opts = (mod.options ?? {}) as Record<string, unknown>;
           // N'inclure que les modules PORTEURS de config (réglages OU schéma).
           if (Object.keys(opts).length === 0 && !mod.configSchema()) continue;
-          entries.push(computeConfigEntry(k, mod));
+          entries.push(computeConfigEntry(k, mod, runtimeEdited.get(k)));
         }
         // « Qui surcharge vraiment » : attribue chaque champ app au module SOURCE
         // (cross-module `module-<X>`) ou à `nodefony.config.ts` (config app directe).
         attributeOverrideSources(entries);
         return { modules: entries };
+      },
+    },
+    {
+      // ÉDITION LIVE d'UN champ de config — surface SENSIBLE, fail-closed à chaque
+      // étape : (1) dev-only (prod = immuable, 12-factor) ; (2) module + schéma Zod
+      // requis ; (3) champ `runtimeMutable` SEUL (jamais secret/réservé/dérivé) ;
+      // (4) valeur validée contre le JSON Schema du module (≡ overrides `NF__*`) ;
+      // (5) appliquée en RAM (`mod.options`, relue par requête) — ÉPHÉMÈRE (perdue
+      // au restart, par dessein) ; (6) auditée. Le reste = recette d'override.
+      path: "config/{module}",
+      method: "PATCH",
+      summary:
+        "Live-edit one runtimeMutable config field of a module (dev only) — validated + audited",
+      handler: (request: IAdminRequest) => {
+        // 1. Prod immuable : la config se change par redéploiement, pas en RAM.
+        if (!devGuard()) {
+          return {
+            status: 409,
+            body: {
+              error: "Config live-edit disabled outside development",
+              reason: "prod_immutable",
+            },
+          };
+        }
+        const key = request.params.module;
+        const mod = kernel.getModules()[key] as unknown as
+          ConfigModuleLike | undefined;
+        if (!mod) {
+          return { status: 404, body: { error: "Module not found", key } };
+        }
+        // 2. Corps { path, value }.
+        const body = (request.body ?? {}) as {
+          path?: unknown;
+          value?: unknown;
+        };
+        if (typeof body.path !== "string" || body.path.length === 0) {
+          return { status: 400, body: { error: "Missing 'path'" } };
+        }
+        const segments = body.path.split(".").filter((s) => s.length > 0);
+        if (segments.length === 0) {
+          return {
+            status: 400,
+            body: { error: "Invalid 'path'", path: body.path },
+          };
+        }
+        const value = body.value;
+        // 3. Schéma Zod requis (édition typée + validation).
+        const schema = mod.configSchema();
+        if (!schema) {
+          return {
+            status: 409,
+            body: {
+              error: "Module has no Zod schema — live-edit unavailable",
+              reason: "no_schema",
+            },
+          };
+        }
+        // 4. Nœud du champ.
+        const node = navigateSchemaNode(schema, segments);
+        if (!node) {
+          return {
+            status: 404,
+            body: { error: "Unknown config path", path: body.path },
+          };
+        }
+        // 5. Éditabilité (secret > réservé > dérivé > boot) → sinon recette.
+        const flags = nodeFlags(node);
+        const seg = computeSeg(
+          mod.getModuleName?.() ?? key,
+          mod.isApp ?? false,
+        );
+        const reason = notEditableReason(flags);
+        if (reason) {
+          return {
+            status: 409,
+            body: {
+              error: "Field is not live-editable",
+              reason,
+              recipe: recipeFor(seg, segments, flags.secret),
+            },
+          };
+        }
+        // 6. Validation de la valeur (type / enum / bornes / longueur).
+        const verdict = validateLeafValue(node, value);
+        if (!verdict.ok) {
+          return {
+            status: 422,
+            body: { error: "Invalid value", message: verdict.message },
+          };
+        }
+        // 7. Application en mémoire (mute `mod.options`). `before` pour l'audit.
+        const opts = (mod.options ?? {}) as Record<string, unknown>;
+        const before = getResolvedPath(opts, segments);
+        if (!applyResolvedPath(opts, segments, value)) {
+          return {
+            status: 422,
+            body: {
+              error: "Path not present in module config",
+              path: body.path,
+            },
+          };
+        }
+        // Marque le chemin « édité à chaud » → provenance `runtime` au re-render.
+        let edited = runtimeEdited.get(key);
+        if (!edited) {
+          edited = new Set();
+          runtimeEdited.set(key, edited);
+        }
+        edited.add(body.path.toLowerCase());
+        // 8. Audit (catégorie `config`) — secret jamais ici (refusé en 5).
+        auditConfigChange(kernel, request, key, body.path, before, value);
+        return {
+          status: 200,
+          body: {
+            ok: true,
+            key,
+            path: body.path,
+            value,
+            provenance: "runtime",
+          },
+        };
       },
     },
     {
@@ -553,7 +752,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // comme enveloppe et double-wrappe.
         // Sous-ensemble CONFIG (valeurs redactées + schéma + provenance par champ
         // + segment d'override). Logique partagée avec l'agrégat `config` (DRY).
-        const cfg = computeConfigEntry(key, mod as unknown as ConfigModuleLike);
+        const cfg = computeConfigEntry(
+          key,
+          mod as unknown as ConfigModuleLike,
+          runtimeEdited.get(key),
+        );
         return {
           key,
           name: cfg.name,

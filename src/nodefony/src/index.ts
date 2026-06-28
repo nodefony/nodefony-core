@@ -273,7 +273,7 @@ export type {
 } from "./config/defineEnv";
 export { renderEnvExample } from "./config/envExample";
 export { defaultAppConfig } from "./config/defaults";
-export { parseNfEnvOverrides } from "./config/envOverride";
+export { parseNfEnvOverrides, applyResolvedPath } from "./config/envOverride";
 export type { NfEnvOverride } from "./config/envOverride";
 export {
   computeConfigProvenance,
