@@ -1,4 +1,4 @@
-import clc from "cli-color";
+import clc from "../colors";
 
 /**
  * Gate de couleur ANSI des logs — résolue **une seule fois au boot**

@@ -5,7 +5,7 @@ import { typeOf } from "./Tools";
 
 import { STATUS_CODES } from "node:http";
 import { inspect } from "node:util";
-import clc from "cli-color";
+import clc from "./colors";
 
 declare global {
   interface Error {

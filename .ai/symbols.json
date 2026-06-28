@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-28T09:40:14.430Z",
+  "generated": "2026-06-28T09:58:58.217Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 984,
-    "symbols": 2324,
+    "files": 985,
+    "symbols": 2329,
     "classes": 314,
     "interfaces": 619,
-    "types": 270,
+    "types": 273,
     "enums": 3,
-    "functions": 593,
-    "constants": 525
+    "functions": 594,
+    "constants": 526
   },
   "symbols": {
     "Cli": {
@@ -37,6 +37,22 @@
       "file": "src/nodefony/src/Cli.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "ColorFn": {
+      "name": "ColorFn",
+      "kind": "type",
+      "file": "src/nodefony/src/colors.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fonction de coloration chainable : appelable (`fn(text)`) et indexable (`fn.bold`, `fn.bgBlue`…), chaque accès renvoyant une nouvelle `ColorFn` aux styles accumulés."
+    },
+    "Clc": {
+      "name": "Clc",
+      "kind": "type",
+      "file": "src/nodefony/src/colors.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racine `clc` : une {@link ColorFn} + la constante brute `reset`."
     },
     "Container": {
       "name": "Container",
@@ -2600,6 +2616,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Shim browser de `node:util` — fournit `inspect` via JSON.stringify. Suffisant pour la sortie Syslog côté browser (debug/log uniquement)."
+    },
+    "styleText": {
+      "name": "styleText",
+      "kind": "const",
+      "file": "src/nodefony/src/client/shim/util.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Shim browser de `util.styleText` — identité (le navigateur n'a pas de TTY ANSI). Consommé par la façade couleur `src/colors.ts` → jamais d'ANSI côté client (parité ancien shim `cli-color` identity …"
     },
     "Websocket": {
       "name": "Websocket",
@@ -17296,6 +17320,12 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
+      "ColorFn": [
+        "src/nodefony/src/Cli.ts"
+      ],
+      "Clc": [
+        "src/nodefony/src/Cli.ts"
+      ],
       "Service": [
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/client/index.ts",
@@ -17510,6 +17540,9 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "styleText": [
+        "src/nodefony/src/colors.ts"
       ],
       "Message": [
         "src/nodefony/src/Container.ts",

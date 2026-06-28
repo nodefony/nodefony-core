@@ -22,7 +22,7 @@ import {
 import semver from "semver";
 import figlet from "figlet";
 import Table, { TableConstructorOptions } from "cli-table3";
-import clc from "cli-color";
+import clc, { type ColorFn, type Clc } from "./colors";
 import Service, { DefaultOptionsService } from "./Service";
 import { extend } from "./Tools";
 import Container from "./Container";
@@ -30,7 +30,6 @@ import FileClass from "./FileClass";
 import Event from "./Event";
 import Command from "./command/Command";
 import { DebugType, EnvironmentType } from "./types/globals";
-import bare from "cli-color/bare";
 import Syslog from "./syslog/Syslog";
 import Kernel from "./kernel/Kernel";
 

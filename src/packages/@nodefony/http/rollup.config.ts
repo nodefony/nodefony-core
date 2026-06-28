@@ -23,7 +23,6 @@ const sourcemapPathTransform = createPathTransform({
 const external: string[] = [
   "nodefony",
   "@nodefony/framework",
-  "cli-color",
   "cookie",
   "@fastify/busboy",
   "mime",

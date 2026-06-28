@@ -13,3 +13,14 @@ export const inspect = (
     return String(obj);
   }
 };
+
+/**
+ * Shim browser de `util.styleText` — identité (le navigateur n'a pas de TTY
+ * ANSI). Consommé par la façade couleur `src/colors.ts` → jamais d'ANSI côté
+ * client (parité ancien shim `cli-color` identity Proxy).
+ */
+export const styleText = (
+  _format: any,
+  text: string | number,
+  _opts?: any,
+): string => String(text);

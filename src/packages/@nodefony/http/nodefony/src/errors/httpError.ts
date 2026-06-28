@@ -1,5 +1,4 @@
-import { nodefonyError as NodefonyError } from "nodefony";
-import clc from "cli-color";
+import { nodefonyError as NodefonyError, clc } from "nodefony";
 import { ContextType } from "../../service/http-kernel";
 import { HttpRequestType, HttpRsponseType } from "../context/http/HttpContext";
 
@@ -45,7 +44,7 @@ class HttpError extends NodefonyError {
   constructor(
     message?: string | NodefonyError | Error | any,
     code?: number,
-    context?: ContextType
+    context?: ContextType,
   ) {
     super(message, code);
     this.context = context;

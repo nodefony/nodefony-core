@@ -7,7 +7,7 @@
   "private": true,
   "packageManager": "npm@11.17.0",
   "engines": {
-    "node": ">=22.11.0"
+    "node": ">=22.13.0"
   },
   "keywords": [
     "nodefony",

@@ -12,7 +12,6 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const external: string[] = [
   "nodefony",
   "figlet",
-  "cli-color",
   "cli-table3",
   "commander",
   "@inquirer/prompts",
@@ -141,12 +140,12 @@ function createBinaryConfig(_isProduction: boolean): RollupOptions {
 }
 
 // ─── 3. Client ESM (dist/client/) — import conditionnel "browser" ────────────
-// Shim browser : `cli-color`, `node:util`, `node:events` → versions navigateur.
+// Shim browser : `node:util` (dont `styleText` pour la façade couleur),
+// `node:events` → versions navigateur. La couleur passe par `src/colors.ts`
+// (util.styleText), plus de dépendance `cli-color` à aliaser.
 const browserShim: Plugin = {
   name: "nodefony-browser-shim",
   resolveId(source: string) {
-    if (source === "cli-color")
-      return path.resolve(__dirname, "src/client/shim/cli-color.ts");
     if (source === "node:util")
       return path.resolve(__dirname, "src/client/shim/util.ts");
     if (source === "node:events")
