@@ -38,7 +38,7 @@ interface CliDefaultOptions extends DefaultOptionsService {
   autostart?: boolean;
   asciify?: boolean;
   clear?: boolean;
-  color?: bare.Format;
+  color?: ColorFn;
   prompt?: string;
   commander?: boolean;
   signals?: boolean;
@@ -110,7 +110,7 @@ class Cli extends Service {
   public response: Record<string, any> = {};
   public timers: Record<string, string> = {};
   public version: string = "";
-  public clc: typeof clc = clc;
+  public clc: Clc = clc;
   public blankLine: () => void = () => {};
   public columns: number = 0;
   public rows: number = 0;
@@ -331,9 +331,9 @@ class Cli extends Service {
   }
 
   showBanner() {
-    const version = this.commander
-      ? this.commander.version()
-      : this.options.version || "1.0.0";
+    const version =
+      (this.commander ? this.commander.version() : this.options.version) ||
+      "1.0.0";
     let banner = null;
     if (this.options.version) {
       banner = `          Version : ${blue(version)}   Platform : ${green(
