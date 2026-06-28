@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-28T13:02:45.683Z",
+  "generated": "2026-06-28T13:31:18.478Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 985,
-    "symbols": 2335,
+    "files": 986,
+    "symbols": 2342,
     "classes": 314,
     "interfaces": 620,
-    "types": 273,
+    "types": 274,
     "enums": 3,
-    "functions": 599,
+    "functions": 605,
     "constants": 526
   },
   "symbols": {
@@ -501,6 +501,30 @@
       "file": "src/nodefony/src/command/Command.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "ConfigOrigin": {
+      "name": "ConfigOrigin",
+      "kind": "type",
+      "file": "src/nodefony/src/config/configProvenance.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Provenance de configuration par champ (ADR-0006 D5/D7 — surfaçage Studio). Calcule, pour chaque valeur feuille de la config résolue d'un module, son ORIGINE — sans instrumenter le pipeline de merge…"
+    },
+    "computeConfigProvenance": {
+      "name": "computeConfigProvenance",
+      "kind": "function",
+      "file": "src/nodefony/src/config/configProvenance.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Calcule l'origine de chaque valeur feuille de la config résolue d'un module."
+    },
+    "extractJsonSchemaDefaults": {
+      "name": "extractJsonSchemaDefaults",
+      "kind": "function",
+      "file": "src/nodefony/src/config/configProvenance.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Reconstruit l'objet des défauts d'un module depuis son JSON Schema (`z.toJSONSchema`, retourné par `Module.configSchema()`) — utile quand le schéma Zod n'est pas accessible (côté data plane admin).…"
     },
     "defaultAppConfig": {
       "name": "defaultAppConfig",
@@ -17584,6 +17608,11 @@
       "styleText": [
         "src/nodefony/src/colors.ts"
       ],
+      "isPlainObject": [
+        "src/nodefony/src/Container.ts",
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
       "Message": [
         "src/nodefony/src/Container.ts",
         "src/nodefony/src/Service.ts",
@@ -19106,7 +19135,8 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "parseNfEnvOverrides": [
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "applyResolvedPath": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -20461,6 +20491,12 @@
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "collectDevStatus": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "computeConfigProvenance": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "extractJsonSchemaDefaults": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "TestRunResult": [

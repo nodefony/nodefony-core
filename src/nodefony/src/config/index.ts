@@ -14,6 +14,13 @@ export {
   envEnum,
 } from "./defineEnv";
 export { defaultAppConfig } from "./defaults";
+export { parseNfEnvOverrides } from "./envOverride";
+export type { NfEnvOverride } from "./envOverride";
+export {
+  computeConfigProvenance,
+  extractJsonSchemaDefaults,
+} from "./configProvenance";
+export type { ConfigOrigin } from "./configProvenance";
 export {
   appConfigSchema,
   appConfigJsonSchema,

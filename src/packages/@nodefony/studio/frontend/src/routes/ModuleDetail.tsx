@@ -82,6 +82,8 @@ interface ModuleDetailData {
   config: Record<string, unknown>;
   /** JSON Schema de la config (réglages documentés) si le module est migré Zod. */
   configSchema?: unknown;
+  /** Origine de chaque valeur résolue (défaut/app/env) — badge provenance (ADR-0006). */
+  provenance?: Record<string, "default" | "app" | "env"> | null;
 }
 interface RouteRow {
   name: string;
@@ -308,6 +310,7 @@ export const ModuleDetail = observer(() => {
   const cfgSections = jsonSchemaToSections(
     data.configSchema ?? null,
     data.config,
+    data.provenance ?? null,
   );
   const richCfg = cfgSections.length ? cfgSections : null;
   const schemaStatus: "zod" | "none" = data.configSchema ? "zod" : "none";

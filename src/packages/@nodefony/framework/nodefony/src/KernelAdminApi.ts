@@ -4,6 +4,9 @@ import {
   getActiveLogDriver,
   Syslog,
   collectDevStatus,
+  parseNfEnvOverrides,
+  computeConfigProvenance,
+  extractJsonSchemaDefaults,
 } from "nodefony";
 import type {
   IKernel,
@@ -359,6 +362,28 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // `{ body }` sans `status`/`headers` → normalize ne le reconnaît pas
         // comme enveloppe et double-wrappe.
         const pkg = mod.getModuleName?.() ?? key;
+        const opts = (mod.options ?? {}) as Record<string, unknown>;
+        const schema = mod.configSchema();
+        // Provenance par champ (défaut/app/env) — re-dérivée à l'introspection
+        // (ADR-0006 D7), sans instrumenter le merge. Calculée sur la config BRUTE
+        // (la map ne porte que des ORIGINES, jamais de valeur → 0 fuite) ; les
+        // valeurs, elles, restent redactées via safeConfig.
+        let provenance: Record<string, string> | null = null;
+        if (schema) {
+          const seg = pkg.includes("/")
+            ? pkg.slice(pkg.lastIndexOf("/") + 1)
+            : pkg;
+          const envPaths = new Set(
+            parseNfEnvOverrides(process.env)
+              .filter((o) => o.moduleSeg === seg.toLowerCase())
+              .map((o) => o.path.join(".")),
+          );
+          provenance = computeConfigProvenance(
+            opts,
+            extractJsonSchemaDefaults(schema),
+            envPaths,
+          );
+        }
         return {
           key,
           name: pkg,
@@ -367,10 +392,12 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           path: relPath(mod.path),
           dependencies: mod.getDependencies?.() ?? [],
           services,
-          config: safeConfig(mod.options ?? {}),
+          config: safeConfig(opts),
           // JSON Schema de la config (réglages documentés + flags meta) si le
           // module est migré Zod — sinon null (Studio retombe sur le dump brut).
-          configSchema: mod.configSchema(),
+          configSchema: schema,
+          // Origine de chaque valeur résolue (default | app | env) — badge Studio.
+          provenance,
           docsCount: await countModuleDocs(mod.path),
           symbolsCount: (await listModuleSymbols(pkg)).length,
           coverageLines: (await readCoverage(mod.path)).total?.lines ?? null,

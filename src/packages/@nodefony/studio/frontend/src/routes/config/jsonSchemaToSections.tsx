@@ -162,6 +162,7 @@ function buildField(
   path: string,
   node: JsonSchemaNode | null,
   value: unknown,
+  source?: ConfigField["source"],
 ): ConfigField {
   const last = path.slice(path.lastIndexOf(".") + 1);
   const secret = node?.secret === true || SECRET_KEY.test(last);
@@ -177,6 +178,7 @@ function buildField(
     reserved: node?.reserved === true,
     kernelDerived: node?.kernelDerived === true,
     secret,
+    source,
     effective: secret ? (
       <Code style={{ fontSize: 12 }}>{MASK}</Code>
     ) : (
@@ -246,6 +248,7 @@ function walkConfig(
 export function jsonSchemaToSections(
   jsonSchema: unknown,
   effective: unknown,
+  provenance?: Record<string, string> | null,
 ): ConfigSection[] {
   const root = isObj(jsonSchema) ? (jsonSchema as JsonSchemaNode) : null;
   const leaves: Leaf[] = [];
@@ -255,7 +258,12 @@ export function jsonSchemaToSections(
   const general: ConfigField[] = [];
   const bySection = new Map<string, ConfigField[]>();
   for (const { path, node, value } of leaves) {
-    const field = buildField(path, node, value);
+    const field = buildField(
+      path,
+      node,
+      value,
+      provenance?.[path] as ConfigField["source"] | undefined,
+    );
     const dot = path.indexOf(".");
     if (dot === -1) {
       general.push(field);

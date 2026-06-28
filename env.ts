@@ -15,6 +15,9 @@
  * `nodefony.config.ts`. Ne JAMAIS lire `process.env.X` ailleurs. Les secrets / URLs
  * viennent de l'orchestrateur (k8s Secret, Cloud Run, `-e`) ou d'un secret-manager ;
  * le modèle d'onboarding complet est `.env.example`.
+ *
+ * Secret en conteneur : toute variable accepte aussi `<NOM>_FILE` (Docker secret,
+ * K8s, Vault) → la valeur est lue depuis le fichier monté pointé (cf ADR-0006).
  */
 import { defineEnv, envBoolean, envEnum, envString } from "nodefony";
 
