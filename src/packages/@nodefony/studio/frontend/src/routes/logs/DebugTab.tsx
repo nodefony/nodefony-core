@@ -4,14 +4,15 @@
  * Consomme `/nodefony/kernel/api/log/level` (GET état · PATCH set/clear) et le
  * canal WS `syslog:stream` (flux live).
  *
- * Conçu en ZONE DANGER (vrais contrôles) avec **couplage action↔observation** :
- * chaque debug actif = une **carte autonome** (module · niveau · countdown ·
- * éteindre) qui affiche **son propre flux de logs filtré par `msgid`** qui défile
- * dedans → on voit l'effet sans changer d'onglet. Auto-extinction imposée (même
- * pour `*`). Calme : flux borné + `contain` par carte + tail auto-scrollé.
+ * Couplage action↔observation : chaque debug actif = une **carte autonome**
+ * (module · niveau · countdown · éteindre) avec **son propre flux filtré par
+ * `msgid`** (ou tout pour `*`), une **recherche**, des **chips de sévérité**, un
+ * **clear** (par carte, sans toucher les autres) et un **plein écran**. Auto-
+ * extinction imposée (même pour `*`). Calme : flux borné, `contain` par carte,
+ * tail auto-scrollé.
  *
  * Sélection du module : Autocomplete (saisie libre + suggestions = `msgid` réels
- * des logs récents). Case « Tous les modules » = wildcard `*`.
+ * des logs récents — un module SILENCIEUX n'y figure pas mais reste saisissable).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -25,10 +26,12 @@ import {
   Checkbox,
   Group,
   Loader,
+  Modal,
   ScrollArea,
   Select,
   Stack,
   Text,
+  TextInput,
   ThemeIcon,
   Title,
   Tooltip,
@@ -38,13 +41,16 @@ import {
   IconBolt,
   IconBug,
   IconInfoCircle,
+  IconMaximize,
   IconPower,
+  IconSearch,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useConnection, useStore } from "../../stores";
 import { useResource } from "../../hooks";
-import { fmtClock, recordMessage, toRecord } from "./logFormat";
-import { SeverityBadge } from "./LogVisuals";
-import type { LogRecord } from "./logsTypes";
+import { countBySeverity, fmtClock, recordMessage, toRecord } from "./logFormat";
+import { SeverityBadge, SeverityCountChips } from "./LogVisuals";
+import type { LogRecord, Severity } from "./logsTypes";
 
 /** État du debug runtime (miroir local de `GET /kernel/api/log/level`). */
 interface DebugState {
@@ -86,8 +92,9 @@ const TTL_OPTIONS = [
 const POLL_MS = 10_000;
 /** Plafond du flux live conservé côté client (croissance bornée). */
 const MAX_ENTRIES = 400;
-/** Lignes affichées par carte (tail). */
+/** Lignes affichées par carte (tail) — inline / plein écran. */
 const TAIL = 60;
+const TAIL_FULL = 500;
 
 /** Réponse minimale de la relecture de logs (pour suggérer les msgid connus). */
 interface LogsSearchLite {
@@ -122,10 +129,63 @@ function Countdown({ at }: { at: number | undefined }) {
   );
 }
 
+/** Liste de lignes de log auto-scrollée (tail). Réutilisée inline + plein écran. */
+function LogLines({
+  records,
+  height,
+}: {
+  records: LogRecord[];
+  height: number | string;
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const v = viewportRef.current;
+    if (v) v.scrollTo({ top: v.scrollHeight });
+  }, [records.length]);
+  return (
+    <ScrollArea
+      h={height}
+      viewportRef={viewportRef}
+      type="auto"
+      style={{
+        background: "var(--mantine-color-dark-8)",
+        borderRadius: 6,
+        padding: "4px 8px",
+      }}
+    >
+      {records.length === 0 ? (
+        <Text size="xs" c="dimmed" py="xs">
+          Aucune ligne (module silencieux, ou le filtre exclut tout).
+        </Text>
+      ) : (
+        <Stack gap={1}>
+          {records.map((r, i) => (
+            <Group key={`${r.uid}-${i}`} gap={6} wrap="nowrap" align="baseline">
+              <Text
+                size="xs"
+                c="dimmed"
+                ff="monospace"
+                style={{ fontVariantNumeric: "tabular-nums", flexShrink: 0 }}
+              >
+                {fmtClock(r.timeStamp)}
+              </Text>
+              <SeverityBadge severity={r.severityName} />
+              <Text size="xs" truncate ff="monospace">
+                {recordMessage(r)}
+              </Text>
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </ScrollArea>
+  );
+}
+
 /**
- * Carte d'un debug actif = en-tête (module/niveau/countdown/éteindre) + son flux
- * filtré (`msgid`, ou tout pour `*`) qui défile. Le filtrage/slice est mémoïsé ;
- * `contain: content` isole le repaint à la carte.
+ * Carte d'un debug actif : en-tête (module/niveau/countdown/éteindre) + filtres
+ * (recherche, chips sévérité, clear) + son flux filtré par `msgid` (ou tout pour
+ * `*`). Plein écran via `Modal`. `clear` = high-water mark sur `uid` (n'affecte
+ * PAS les autres cartes — le buffer est partagé). `contain` isole le repaint.
  */
 function DebugCard({
   module,
@@ -142,88 +202,147 @@ function DebugCard({
   onTurnOff: (m: string) => void;
   busy: boolean;
 }) {
-  const tail = useMemo(() => {
-    const matching =
-      module === "*" ? entries : entries.filter((r) => r.msgid === module);
-    return matching.slice(-TAIL);
-  }, [entries, module]);
+  const [search, setSearch] = useState("");
+  const [severityFilter, setSeverityFilter] = useState<Set<Severity>>(
+    () => new Set(),
+  );
+  const [clearedUid, setClearedUid] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
 
-  const viewportRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const v = viewportRef.current;
-    if (v) v.scrollTo({ top: v.scrollHeight });
-  }, [tail.length]);
+  const byModule = useMemo(
+    () =>
+      module === "*" ? entries : entries.filter((r) => r.msgid === module),
+    [entries, module],
+  );
+  const visible = useMemo(
+    () => byModule.filter((r) => r.uid > clearedUid),
+    [byModule, clearedUid],
+  );
+  const counts = useMemo(() => countBySeverity(visible), [visible]);
+  const filtered = useMemo(() => {
+    const hasSev = severityFilter.size > 0;
+    const q = search.trim().toLowerCase();
+    return visible.filter((r) => {
+      if (hasSev && !severityFilter.has(r.severityName as Severity))
+        return false;
+      if (q && !recordMessage(r).toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [visible, severityFilter, search]);
 
-  return (
-    <Card
-      withBorder
-      padding="sm"
-      style={{
-        borderColor: "var(--mantine-color-red-4)",
-        contain: "content",
-      }}
-    >
-      <Group justify="space-between" wrap="nowrap" mb="xs">
-        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-          <Badge color="red" variant="filled" tt="none">
-            {moduleLabel(module)}
-          </Badge>
-          <Text size="sm">→ {sevName(level)}</Text>
-          <Countdown at={expireAt} />
-        </Group>
-        <Tooltip label={`Éteindre ${moduleLabel(module)}`}>
+  const toggleSev = (s: Severity) =>
+    setSeverityFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  const clear = () =>
+    setClearedUid(byModule.length ? byModule[byModule.length - 1].uid : 0);
+
+  const header = (
+    <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+      <Badge color="red" variant="filled" tt="none">
+        {moduleLabel(module)}
+      </Badge>
+      <Text size="sm">→ {sevName(level)}</Text>
+      <Countdown at={expireAt} />
+    </Group>
+  );
+
+  const filters = (
+    <Stack gap="xs">
+      <Group gap="xs" wrap="nowrap">
+        <TextInput
+          size="xs"
+          leftSection={<IconSearch size={13} />}
+          placeholder="Filtrer le message…"
+          value={search}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+          style={{ flex: 1 }}
+        />
+        <Tooltip label="Vider le flux de cette carte">
           <ActionIcon
-            variant="light"
-            color="red"
-            aria-label={`Éteindre le debug de ${moduleLabel(module)}`}
-            onClick={() => onTurnOff(module)}
-            loading={busy}
+            variant="subtle"
+            color="gray"
+            aria-label="Vider le flux de la carte"
+            onClick={clear}
           >
-            <IconPower size={16} />
+            <IconTrash size={16} />
           </ActionIcon>
         </Tooltip>
       </Group>
-      <ScrollArea
-        h={150}
-        viewportRef={viewportRef}
-        type="auto"
+      <SeverityCountChips
+        counts={counts}
+        active={severityFilter}
+        onToggle={toggleSev}
+      />
+    </Stack>
+  );
+
+  return (
+    <>
+      <Card
+        withBorder
+        padding="sm"
         style={{
-          background: "var(--mantine-color-dark-8)",
-          borderRadius: 6,
-          padding: "4px 8px",
+          borderColor: "var(--mantine-color-red-4)",
+          contain: "content",
         }}
       >
-        {tail.length === 0 ? (
-          <Text size="xs" c="dimmed" py="xs">
-            En attente de logs de ce module…
-          </Text>
-        ) : (
-          <Stack gap={1}>
-            {tail.map((r, i) => (
-              <Group
-                key={`${r.uid}-${i}`}
-                gap={6}
-                wrap="nowrap"
-                align="baseline"
+        <Group justify="space-between" wrap="nowrap" mb="xs">
+          {header}
+          <Group gap={4} wrap="nowrap">
+            <Tooltip label="Plein écran">
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label="Plein écran"
+                onClick={() => setFullscreen(true)}
               >
-                <Text
-                  size="xs"
-                  c="dimmed"
-                  ff="monospace"
-                  style={{ fontVariantNumeric: "tabular-nums", flexShrink: 0 }}
-                >
-                  {fmtClock(r.timeStamp)}
-                </Text>
-                <SeverityBadge severity={r.severityName} />
-                <Text size="xs" truncate ff="monospace">
-                  {recordMessage(r)}
-                </Text>
-              </Group>
-            ))}
-          </Stack>
-        )}
-      </ScrollArea>
-    </Card>
+                <IconMaximize size={16} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label={`Éteindre ${moduleLabel(module)}`}>
+              <ActionIcon
+                variant="light"
+                color="red"
+                aria-label={`Éteindre le debug de ${moduleLabel(module)}`}
+                onClick={() => onTurnOff(module)}
+                loading={busy}
+              >
+                <IconPower size={16} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        </Group>
+        {filters}
+        <LogLines records={filtered.slice(-TAIL)} height={150} />
+      </Card>
+
+      <Modal
+        opened={fullscreen}
+        onClose={() => setFullscreen(false)}
+        fullScreen
+        title={
+          <Group gap="xs" wrap="nowrap">
+            <IconBug size={16} />
+            <Text fw={700}>
+              Debug — {moduleLabel(module)} → {sevName(level)}
+            </Text>
+            <Countdown at={expireAt} />
+          </Group>
+        }
+      >
+        <Stack gap="sm">
+          {filters}
+          <LogLines
+            records={filtered.slice(-TAIL_FULL)}
+            height="calc(100vh - 240px)"
+          />
+        </Stack>
+      </Modal>
+    </>
   );
 }
 
