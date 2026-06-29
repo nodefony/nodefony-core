@@ -83,11 +83,11 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
  P5  Session/User/ORM core ████████▌░  85%  13✅  3🔶  1⬜   ◀ (P5.14 ✅ J3 ; reste P5.0b batch/cron)
  P6  Security              ███████▊░░  78%  16✅  4🔶  3⬜   ✅ cœur MVP LIVRÉ (authn/authz/CSRF/CORS/API-Keys/webhooks COMPLET/2FA/audit/scopes/idempotence/firewall+Studio) ; reste HORS MVP : P6.18 audit persistant · mTLS/rpId · authz niveau B · OAuth resource-server · logs auth · live audit
- P7  ORM drivers           ███████▌░░  75%   3✅  3🔶  0⬜   ◀ **BLOQUEUR RELEASE** — multi-dialecte sqlite/pg/mysql (P7.10) TRÈS important + confiance ORM à regagner (comparatif froid) ; reste P7.5 E2E + P7.7 redis
+ P7  ORM drivers           ███████▌░░  75%   3✅  3🔶  0⬜   ◀ **BLOQUEUR RELEASE** — multi-dialecte sqlite/pg/mysql (P7.10) ; ⚠️ pg = **SEUL le store idempotence prouvé** (via getNativeConnection) — `DrizzleRepository` générique **jamais** pg ; 6 entités sqlite-only ; mysql=enum+throw. **Comparatif ORM froid AVANT portage** (~6 sessions). reste P7.5 E2E + P7.7 redis
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜
  P9  Polish + clôture      ██████░░░░  63%   2✅  1🔶  1⬜   (P9.3 READMEs ✅ · P9.4 : 3 low transitives, held back)
  P10 Studio (admin web)    ███████▎░░  73%   9✅  4🔶  2⬜   (~80 pages + Jumeau + portail doc ; reste tests intég P10.11)
- P11 CLI par module        ████░░░░░░  44%   3✅  1🔶  4⬜   ◀ **BLOQUEUR MVP** (partiel) — CLI essentielles (lifecycle start/dev/build/prod/cluster + orm:migrate + user/security:*) implémentées mais NON testées intég ; P11.6/7/8 livrés
+ P11 CLI par module        ████░░░░░░  44%   3✅  1🔶  4⬜   ◀ **BLOQUEUR MVP** — lifecycle (start/dev/build/prod/cluster) OK ; ⚠️ `orm:migrate`+`user:*`+`security:*` = **À CRÉER (0%, n'existent PAS)**, pas « à tester ». **Vrai bloqueur onboarding = `npx nodefony create app/module/entity` + install global** (exige la release). Infra CLI saine.
  P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (llm = module réel non intégré ; agent-guard/mcp vides)
  P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜   (dettes backplane #1/#2 fixées c082560 · 167 tests)
  P14 Frontend Vite + iso   ████████░░  75%  11✅  2🔶  3⬜

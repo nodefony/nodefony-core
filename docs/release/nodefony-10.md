@@ -116,6 +116,52 @@ des centaines de Mo).
 
 ---
 
+## 6bis. Re-cadrage 2026-06-29 — terrain vérifié + POC « mono vs N-packages »
+
+> Session de planification : **vérification du figé contre le code** (3 sous-agents). **3 sur-ventes corrigées** + 2 décisions + **1 POC à mener** pour trancher le modèle de release.
+
+### Terrain vérifié — sur-ventes du journal à corriger
+
+- **ORM postgres « prouvé 7/7 »** = faux au sens fort : seul le **store d'idempotence** tourne sur pg (via `getNativeConnection`). Le **`DrizzleRepository` générique (14 méthodes) n'a JAMAIS tourné sur pg**. 6 entités (session/user/token×3/webauthn/webhook) = **sqlite-only**. mysql = enum + throw (`mysql2` même pas en deps).
+- **CLI « essentielles implémentées, non testées »** = faux : `orm:migrate` / `user:*` / `security:*` = **0 %, à CRÉER** (lifecycle dev/prod/cluster OK ; infra CLI saine, 0 TODO).
+- **Sécu** = solide (2FA/webhooks/Argon2id/throttling NIST/WebAuthn/firewall fail-closed, 0 mock runtime). **Trous réels** : audit **100 % volatil** (RAM/per-pod) + **0 rate-limit** général (hors login). Propreté OK (0 `@ts-ignore`, 3 `as any`, 147 `:any` **structurels** events/décorateurs).
+
+### Décision A — pg + MySQL/MariaDB DANS le MVP (figé user 2026-06-29)
+
+« Un framework qui ne tourne que sur SQLite n'est pas crédible. » ⇒ **« Drizzle production-ready » (DoD §8) = multi-dialecte sqlite/pg/mysql**, pas sqlite seul (le « (✅) » du §8 était sur-vendu). **Précédé** d'un **comparatif ORM froid** (Drizzle factory-par-dialecte vs Prisma / Kysely / TypeORM nativement multi-dialecte) — le multi-dialecte est le **point faible** de Drizzle (schema-as-code dialect-spécifique) → trancher AVANT d'investir ~6 sessions de portage.
+
+### Décision B — colonne vertébrale MVP = onboarding
+
+Le bloqueur n'est pas l'admin-CLI : c'est **`npm i -g` + `npx nodefony create app` → repo qui marche**. Or ça **exige la release** (publier le code framework). Donc **release = prérequis** du CLI d'onboarding.
+
+### POC à mener — MODÈLE DE RELEASE : mono-distrib **vs** N-packages-lockstep
+
+Le §6.1 et §7.3 penchent mono et écartent changesets « car versioning indépendant ». **À ré-examiner** : changesets a un mode **`fixed`/lockstep** (1 version partout, comme Babel/Jest). Débat **non tranché** → **2 POC témoins, mêmes critères, choix à froid sur preuve.**
+
+| Critère                                    | (A) Mono-distrib `nodefony` subpaths                                        | (B) N-packages + changesets `fixed`                                |
+| ------------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 1 version, 0 juggling                      | ✅ (assemblage)                                                             | ✅ (lockstep)                                                      |
+| **Types par subpath**                      | ⚠️ **assemblage `.d.ts` MAISON** (= risque #1 du §5, fragile)               | ✅ **déjà fonctionnels** par package (monorepo typecheck 0)        |
+| Deps propres (Studio séparable / adapters) | ⚠️ tout en optional/peer d'**un** package (optional = installés par défaut) | ✅ par-package                                                     |
+| Patch sécu isolé                           | ❌ re-publish 6-7 Mo                                                        | ✅ le seul package touché                                          |
+| Outillage                                  | ⚠️ build d'assemblage **bespoke**                                           | ✅ changesets (standard)                                           |
+| Import                                     | `nodefony/http` (esthétique +)                                              | `@nodefony/http`                                                   |
+| Isomorphisme **client**                    | subpaths (déjà le cas)                                                      | idem — **le client reste subpaths du core quel que soit le choix** |
+
+> ⚠️ Le §7.3 (« changesets moins pertinent ») est **biaisé** : il suppose versioning indépendant. En mode `fixed`, changesets donne **la version unique voulue SANS l'assemblage maison ni le risque de types** — c.-à-d. il **supprime** l'angoisse #1 au lieu de la créer. C'est l'argument central pour (B).
+
+**Ce que mesure le POC** (≤ 1 session/modèle) : un **template témoin** consomme la distrib (**tarball réel** via `npm pack`) → `tsc --noEmit` + boot mini-app sur **sqlite ET pg**. Gagnant = celui qui passe le **smoke test de parité** avec le **moins de code custom** + la **surface de deps la plus propre**.
+
+### Smoke test de parité (COMMUN aux 2 modèles) — le gate anti-angoisse
+
+`npm pack` → install **dossier vierge** → mini-app + `tsc --noEmit` + boot sqlite/pg. **Vert ⇒ `import nodefony` se comporte comme en self-hosted, PROUVÉ.** À câbler en CI (le doute devient une case verte).
+
+### Taille — démystifiée
+
+Dist embarqué (subpaths released, IA/média exclus) ≈ **6-7 Mo** (petit ; **serveur**, jamais navigateur). **Vrai gras** = le **toolchain de build** (`rollup`/`terser`/`chokidar`/`figlet`/`lodash`) en `dependencies` runtime du core → **rendre lazy/optional** (chargé par `build`/`dev` seulement) ⇒ install prod lean. Adapters lourds (pg/mysql2/mongoose/redis/mediasoup) = **`peer`**. 🔑 **Install serveur ≠ bundle navigateur** (Vite, tree-shaké depuis l'app).
+
+---
+
 ## 7. Pipeline de release (GitHub Action + script)
 
 **Principe : la logique vit dans un SCRIPT Node (runnable en LOCAL) ; la GH Action est un wrapper
@@ -182,12 +228,12 @@ jobs:
 
 ### ✅ INCLUS — doivent être prêts pour 10.0.0
 
-| Domaine          | Phase              | Gate précis                                                                                                                                                                |
-| ---------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Sécurité**     | P6                 | **Complète** (firewall, auth, JWT, RBAC `@IsGranted`). **Bloqueur #1, non négociable.**                                                                                    |
-| **ORM**          | P5/P7              | **Core stable + défaut Drizzle production-ready** (✅). Adapters User Mongoose + MikroORM = **acceptable en 10.x** (ne bloquent pas).                                      |
-| **Cloud-native** | P16 (**baseline**) | **Dockerfile prêt** + **config 100 % par variables d'env** (12-factor). **PAS** le P16 complet (HPA, opérateurs k8s, secret managers, outillage multi-process = **10.x**). |
-| **Reste**        | P10/P11/P13/P14    | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend.                                                              |
+| Domaine          | Phase              | Gate précis                                                                                                                                                                                                                                                                                    |
+| ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sécurité**     | P6                 | **Complète** (firewall, auth, JWT, RBAC `@IsGranted`). **Bloqueur #1, non négociable.**                                                                                                                                                                                                        |
+| **ORM**          | P5/P7              | **Core stable** (✅) + **Drizzle production-ready = multi-dialecte sqlite/pg/mysql** (🔶 cf §6bis-A : seul sqlite + idempotence-pg faits ; pg/mysql repo générique à porter+prouver ; **précédé du comparatif ORM froid**). Adapter Mongoose (NoSQL) = **acceptable en 10.x** (ne bloque pas). |
+| **Cloud-native** | P16 (**baseline**) | **Dockerfile prêt** + **config 100 % par variables d'env** (12-factor). **PAS** le P16 complet (HPA, opérateurs k8s, secret managers, outillage multi-process = **10.x**).                                                                                                                     |
+| **Reste**        | P10/P11/P13/P14    | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend.                                                                                                                                                                                  |
 
 ### ❌ EXCLUS de 10.0.0 (→ 10.x / 11)
 
