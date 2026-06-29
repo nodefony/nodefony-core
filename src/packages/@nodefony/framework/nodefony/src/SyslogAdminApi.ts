@@ -180,6 +180,25 @@ export function createSyslogAdminApi(
   };
 
   /**
+   * Driver de RELECTURE pour la TRACE par requestId (`?scope=trace`) — privilégie
+   * la rétention LONGUE. Le ring `memory` ne garde que ~`maxStack` entrées et
+   * churne vite sous le trafic data-plane de Studio (chaque page = ~12 logs) → la
+   * trace d'une requête vue il y a quelques minutes est souvent déjà évincée. Choix
+   * AGNOSTIQUE de l'env : (1) si le driver actif est persistant (loki/opensearch/
+   * file en prod 12-factor) on le garde ; (2) sinon, en dev, le JSONL du worker
+   * COURANT (`file` = 1 fichier `nodefony-<pid>.jsonl`, PAS `cluster-file` qui
+   * scannerait tous les pids du dossier) ; (3) à défaut, le driver actif (memory) —
+   * rétention courte mais jamais en erreur. Le front ne connaît donc pas l'infra.
+   */
+  const resolveTraceDriver = () => {
+    const active = getActiveLogDriver();
+    if (active && active.name !== "memory" && active.query) return active;
+    const file = getLogDriver("file");
+    if (file?.query) return file;
+    return active;
+  };
+
+  /**
    * Résout un nom de fichier de log en chemin absolu **sûr** dans `logDir`.
    * Rejette tout nom hors `^[A-Za-z0-9._-]+\.log$` et tout chemin qui
    * s'échapperait du répertoire (anti path-traversal). `null` = invalide.
@@ -247,11 +266,19 @@ export function createSyslogAdminApi(
       ): Promise<
         unknown | IAdminResponse<{ queryable: false; driver: string | null }>
       > => {
-        const driver = getActiveLogDriver();
+        // `?driver=<name>` cible un driver enregistré précis (switch Studio) ;
+        // `?scope=trace` demande la rétention LONGUE (cf resolveTraceDriver, pour
+        // la vue Suivi de requête) ; sinon = driver actif (Explorer temps réel).
+        const wanted = oneParam(request, "driver");
+        const driver = wanted
+          ? getLogDriver(wanted)
+          : oneParam(request, "scope") === "trace"
+            ? resolveTraceDriver()
+            : getActiveLogDriver();
         if (!driver?.query) {
           return {
             status: 409,
-            body: { queryable: false, driver: driver?.name ?? null },
+            body: { queryable: false, driver: driver?.name ?? wanted ?? null },
           };
         }
         return await driver.query(buildCriteria(request));

@@ -226,9 +226,13 @@ export const TraceView = observer(() => {
   const fetcher = useCallback(
     () =>
       store.api.getAbsolute<LogQueryResult>(
+        // `scope=trace` → le backend relit le driver à rétention LONGUE (JSONL
+        // persistant en dev, driver persistant actif en prod) au lieu du ring
+        // mémoire volatile : sinon la trace d'une requête vue il y a quelques
+        // minutes est souvent évincée par le trafic data-plane de Studio.
         `/nodefony/syslog/api/logs/search?requestId=${encodeURIComponent(
           requestId,
-        )}&order=asc&limit=300`,
+        )}&order=asc&limit=300&scope=trace`,
       ),
     [store, requestId],
   );
@@ -806,9 +810,12 @@ export const TraceView = observer(() => {
     <DataState
       loading={loading && !logs.length}
       error={error}
-      empty={!loading && !logs.length}
+      // Vide SEULEMENT si AUCUNE source n'a de données (ni logs, ni profil, ni
+      // audit) : un requestId dont les logs ont rotaté mais qui garde un profil
+      // ou des événements d'audit reste exploitable → on rend la page.
+      empty={!loading && !logs.length && !profile && !auditEvents.length}
       onRetry={reload}
-      emptyMessage={`Aucun log pour la requête ${shortId} (expirés du buffer, ou requestId inconnu).`}
+      emptyMessage={`Aucun log pour ${shortId}. La trace lit le journal PERSISTANT du worker courant — un requestId d'un run précédent (redémarrage serveur = nouveau pid), purgé du JSONL, ou inconnu n'y figure pas.`}
     >
       <TabbedPage
         icon={<IconRoute2 size={22} />}
