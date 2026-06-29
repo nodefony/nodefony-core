@@ -34,6 +34,7 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { useNodefonyState } from "nodefony/react";
+import { useSearchParams } from "react-router-dom";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
 import { TabbedPage } from "../components/ui";
@@ -108,7 +109,10 @@ export const Logs = observer(() => {
   // Onglet actif PERSISTÉ (sessionStorage) → revenir du Suivi de requête
   // (`/nodefony/logs/trace/:id`) restaure l'onglet au lieu de retomber sur
   // « Vue d'ensemble ». Les filtres de l'Explorer sont persistés de leur côté.
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<TabId>(() => {
+    const q = searchParams.get("tab");
+    if (q && TAB_IDS.has(q)) return q as TabId;
     const s = sessionStorage.getItem(TAB_KEY);
     return s && TAB_IDS.has(s) ? (s as TabId) : "overview";
   });
@@ -120,6 +124,12 @@ export const Logs = observer(() => {
       /* quota / mode privé — non bloquant */
     }
   }, []);
+  // Deep-link `?tab=<id>` (ex. clic sur le chip top-bar Debug) → ouvre l'onglet,
+  // même si la page Logs est déjà montée.
+  useEffect(() => {
+    const q = searchParams.get("tab");
+    if (q && TAB_IDS.has(q)) changeTab(q as TabId);
+  }, [searchParams, changeTab]);
   const [selected, setSelected] = useState<LogRecord | null>(null);
   const [traceRequestId, setTraceRequestId] = useState<string>("");
   // Bumpé à chaque switch de driver → force l'Explorer à recharger.

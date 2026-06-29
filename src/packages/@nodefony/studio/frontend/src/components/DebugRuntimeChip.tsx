@@ -5,19 +5,29 @@
  * RIEN tant qu'aucun override par-module n'est posé (ergonomie « temps réel
  * calme » : le statique domine la top bar). Dès qu'un module est passé en debug à
  * chaud, une pastille ROUGE apparaît, avec un *breathe* d'opacité **doux**
- * (compositor-only, coupé sous `prefers-reduced-motion`). Survol = liste des
- * modules + niveau ; clic = page Logs (panneau Debug).
+ * (compositor-only, coupé sous `prefers-reduced-motion`).
  *
- * Sémantique « hot » = overrides PAR MODULE non vides (action runtime délibérée,
- * notable). Le `-d` / `NF__DEBUG` global au boot est déjà surfacé par
- * {@link RuntimeModeChip} (« · debug ») → pas redondé ici.
+ * Au **survol** : un `HoverCard` explique ce qui se passe (modules ciblés, niveau,
+ * extinction approchée) → on comprend d'un coup d'œil. **Clic** : ouvre directement
+ * le panneau **Logs ▸ Debug** (gérer / éteindre).
  *
- * @remarks Pas de canal live encore : re-synchro par poll à cadence calme (un
- *   toggle de debug est rare). Upgrade prévu = canal realtime `debug:state`.
+ * Sémantique « hot » = overrides PAR MODULE non vides (action runtime délibérée).
+ * Le `-d` / `NF__DEBUG` global au boot est déjà surfacé par {@link RuntimeModeChip}.
+ *
+ * @remarks Pas de canal live encore : re-synchro par poll à cadence calme.
+ *   Upgrade prévu = canal realtime `debug:state`.
  */
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import {
+  Badge,
+  Divider,
+  Group,
+  HoverCard,
+  Stack,
+  Text,
+  UnstyledButton,
+} from "@mantine/core";
 import { useReducedMotion } from "@mantine/hooks";
 import { IconBug } from "@tabler/icons-react";
 import { useStore } from "../stores";
@@ -27,6 +37,7 @@ import { useResource } from "../hooks";
 interface DebugLevelState {
   globalDebug: boolean;
   overrides: Record<string, number>;
+  expiresAt: Record<string, number>;
 }
 
 /** Noms RFC 5424 par index (miroir local — l'override stocke un numéro). */
@@ -41,6 +52,16 @@ const SEVERITY_NAMES = [
   "DEBUG",
 ] as const;
 const sevName = (n: number): string => SEVERITY_NAMES[n] ?? String(n);
+const moduleLabel = (m: string): string => (m === "*" ? "Tous (*)" : m);
+
+/** Reste APPROXIMATIF (calme — pas de tick par seconde dans la top bar). */
+function coarseRemaining(at: number | undefined): string {
+  if (at === undefined) return "permanent";
+  const ms = at - Date.now();
+  if (ms <= 0) return "expiré";
+  const min = Math.round(ms / 60000);
+  return min < 1 ? "< 1 min" : `~${min} min`;
+}
 
 /** Cadence de rafraîchissement (calme — un toggle de debug est rare). */
 const POLL_MS = 20_000;
@@ -73,8 +94,6 @@ export function DebugRuntimeChip() {
   );
   const { data, reload } = useResource(fetcher);
 
-  // Re-synchro à cadence calme : capte un toggle posé ailleurs (autre admin,
-  // env au boot, expiration TTL côté serveur).
   useEffect(() => {
     const id = setInterval(reload, POLL_MS);
     return () => clearInterval(id);
@@ -83,58 +102,84 @@ export function DebugRuntimeChip() {
   useEffect(ensureKeyframes, []);
 
   const overrides = data?.overrides ?? {};
+  const expiresAt = data?.expiresAt ?? {};
   const modules = Object.keys(overrides);
-  // Rien à signaler → 0 pastille (le statique domine la top bar).
   if (modules.length === 0) return null;
 
   const label =
     `Debug runtime actif sur ${modules.length} module${modules.length > 1 ? "s" : ""} : ` +
-    `${modules.join(", ")} — ouvrir le panneau Debug`;
+    `${modules.map(moduleLabel).join(", ")} — ouvrir le panneau Debug`;
 
   return (
     // role=status + aria-live : l'apparition de la pastille (debug allumé) est
     // annoncée au lecteur d'écran. Le <button> garde sa sémantique (enfant).
     <div role="status" aria-live="polite" style={{ display: "inline-flex" }}>
-      <Tooltip
+      <HoverCard
+        width={264}
+        position="bottom-start"
+        shadow="md"
+        openDelay={120}
+        closeDelay={100}
         withinPortal
-        multiline
-        label={
-          <Stack gap={2}>
-            <Text fw={700} size="xs">
-              Debug runtime ciblé actif
-            </Text>
-            {modules.map((m) => (
-              <Text key={m} size="xs">
-                {m} → {sevName(overrides[m])}
+      >
+        <HoverCard.Target>
+          <UnstyledButton
+            aria-label={label}
+            onClick={() => navigate("/nodefony/logs?tab=debug")}
+            style={{ lineHeight: 0 }}
+          >
+            <Badge
+              color="red"
+              variant="filled"
+              leftSection={<IconBug size={12} />}
+              style={{
+                cursor: "pointer",
+                textTransform: "none",
+                animation: reducedMotion
+                  ? undefined
+                  : "nfDebugBreathe 2.4s ease-in-out infinite",
+              }}
+            >
+              debug · {modules.length}
+            </Badge>
+          </UnstyledButton>
+        </HoverCard.Target>
+
+        <HoverCard.Dropdown p="sm">
+          <Stack gap="xs">
+            <div>
+              <Text fw={700} size="sm">
+                Debug runtime actif
               </Text>
-            ))}
-            <Text size="xs" c="dimmed">
-              Clic : page Logs ▸ Debug (éteindre)
+              <Text size="xs" c="dimmed">
+                {modules.length} cible{modules.length > 1 ? "s" : ""} en
+                verbosité élevée (s'éteint seul).
+              </Text>
+            </div>
+            <Divider />
+            <Stack gap={4}>
+              {modules.map((m) => (
+                <Group key={m} justify="space-between" wrap="nowrap" gap="xs">
+                  <Text size="xs" fw={600} truncate>
+                    {moduleLabel(m)}
+                  </Text>
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {sevName(overrides[m])} · {coarseRemaining(expiresAt[m])}
+                  </Text>
+                </Group>
+              ))}
+            </Stack>
+            <Divider />
+            <Text size="xs" c="red" fw={600}>
+              Clic → gérer (Logs ▸ Debug)
             </Text>
           </Stack>
-        }
-      >
-        <UnstyledButton
-          aria-label={label}
-          onClick={() => navigate("/nodefony/logs")}
-          style={{ lineHeight: 0 }}
-        >
-          <Badge
-            color="red"
-            variant="filled"
-            leftSection={<IconBug size={12} />}
-            style={{
-              cursor: "pointer",
-              textTransform: "none",
-              animation: reducedMotion
-                ? undefined
-                : "nfDebugBreathe 2.4s ease-in-out infinite",
-            }}
-          >
-            debug · {modules.length}
-          </Badge>
-        </UnstyledButton>
-      </Tooltip>
+        </HoverCard.Dropdown>
+      </HoverCard>
     </div>
   );
 }
