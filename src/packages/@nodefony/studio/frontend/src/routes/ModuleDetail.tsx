@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { jsonSchemaToSections } from "./config/jsonSchemaToSections";
 import { withOverrideKeys } from "./config/configModel";
+import { ConfigExplorer } from "./config/ConfigExplorer";
 import { ApiError } from "../services/ApiClient";
 import dayjs from "dayjs";
 import {
@@ -59,7 +60,6 @@ import {
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import {
-  ConfigLayout,
   PageLayout,
   StickyTabsList,
   ConfigSummaryCard,
@@ -754,8 +754,9 @@ export const ModuleDetail = observer(() => {
           {hasConfig && (
             <Tabs.Panel value="config">
               {richCfg ? (
-                <ConfigLayout
+                <ConfigExplorer
                   module={data.name}
+                  seg={data.seg ?? name}
                   schema={schemaStatus}
                   sections={richCfg}
                   editable={import.meta.env.DEV}

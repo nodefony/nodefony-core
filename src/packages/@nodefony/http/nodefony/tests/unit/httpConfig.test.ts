@@ -271,4 +271,42 @@ describe("@nodefony/http — métadonnées de champ (JSON Schema)", () => {
     };
     expect(json.properties.watch.reserved).to.equal(true);
   });
+
+  it("upload : les limites busboy sont éditables à chaud (relues par requête)", () => {
+    const json = httpConfigJsonSchema() as {
+      properties: Record<string, SchemaNode>;
+    };
+    const up = json.properties.upload.properties ?? {};
+    for (const k of [
+      "maxFileSize",
+      "maxTotalFileSize",
+      "maxFiles",
+      "maxFields",
+      "maxFieldsSize",
+    ]) {
+      expect(up[k]?.runtimeMutable, k).to.equal(true);
+    }
+  });
+
+  it("HSTS : maxAge/includeSubDomains/preload éditables à chaud (recompute seam)", () => {
+    const json = httpConfigJsonSchema() as {
+      properties: Record<string, SchemaNode>;
+    };
+    const sts =
+      json.properties.securityHeaders.properties?.strictTransportSecurity;
+    // strictTransportSecurity est nullable → branche objet dans un anyOf.
+    const obj = sts?.properties
+      ? sts
+      : (sts?.anyOf ?? []).find((b) => b.properties);
+    for (const k of ["maxAge", "includeSubDomains", "preload"]) {
+      expect(obj?.properties?.[k]?.runtimeMutable, k).to.equal(true);
+    }
+  });
 });
+
+/** Vue minimale d'un nœud JSON Schema (flags Nodefony + navigation). */
+interface SchemaNode {
+  runtimeMutable?: boolean;
+  properties?: Record<string, SchemaNode>;
+  anyOf?: SchemaNode[];
+}

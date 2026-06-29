@@ -95,6 +95,66 @@ export function whereOf(
   return entry.overriddenBy[fieldKey] ?? "nodefony.config.ts";
 }
 
+/** Provenance d'une valeur surchargée (≠ défaut/module). */
+export type OverrideSource = "app" | "env" | "runtime";
+
+/** Un champ surchargé, scopé à UN module (sans le contexte cross-module). */
+export interface FieldOverride {
+  /** Chemin pointé du réglage (`session.handler`, `securityHeaders.frameOptions`). */
+  field: string;
+  /** D'où vient la valeur gagnante. */
+  source: OverrideSource;
+  /** Donnée sensible (valeur masquée). */
+  secret: boolean;
+  /** Recette d'override `NF__…` (comment piloter ce champ en 12-factor). */
+  overrideKey: string;
+  /** « Qui/où » surcharge, lisible (vraie var d'env, fichier app, ou « runtime »). */
+  where: string;
+}
+
+/** Résout le « qui/où » précis d'un champ surchargé (cross-module, page globale). */
+export type WhereResolver = (field: string, source: "app" | "env") => string;
+
+/**
+ * Collecte les **champs surchargés** (provenance ≠ défaut/module) d'un jeu de
+ * sections — la version « scopée module » de ce que `buildConfigModel` calcule en
+ * agrégé. Partagée entre la page globale et l'onglet Config d'un module (cohérence
+ * « mener par les écarts »). Sans `where`, le « qui/où » retombe sur la recette
+ * d'override (l'onglet module n'a pas le détail cross-module `envKeys`/`overriddenBy`).
+ *
+ * @param sections - sections déjà enrichies (`jsonSchemaToSections` + `withOverrideKeys`).
+ * @param seg - segment d'adressage du module (`NF__<SEG>__…`).
+ * @param where - résolveur optionnel du « surchargé par » précis.
+ * @returns les champs surchargés, dans l'ordre des sections.
+ */
+export function collectFieldOverrides(
+  sections: ConfigSection[],
+  seg: string,
+  where?: WhereResolver,
+): FieldOverride[] {
+  const out: FieldOverride[] = [];
+  for (const sec of sections) {
+    for (const f of sec.fields) {
+      const src = f.source;
+      if (src !== "app" && src !== "env" && src !== "runtime") continue;
+      const overrideKey = overrideKeyFor(seg, f.key);
+      out.push({
+        field: f.key,
+        source: src,
+        secret: Boolean(f.secret),
+        overrideKey,
+        where:
+          src === "runtime"
+            ? "édité à chaud (runtime)"
+            : where
+              ? where(f.key, src)
+              : overrideKey,
+      });
+    }
+  }
+  return out;
+}
+
 /** Statistiques globales pour le bandeau instantané. */
 export interface ConfigStats {
   moduleCount: number;

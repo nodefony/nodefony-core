@@ -47,26 +47,27 @@ import { meta } from "./configMeta";
 
 const strictTransportSecuritySchema = z
   .object({
-    maxAge: z
-      .number()
-      .int()
-      .nonnegative()
-      .default(31_536_000)
-      .describe(
+    maxAge: meta(z.number().int().nonnegative().default(31_536_000), {
+      runtimeMutable: true,
+      description:
         "Durée (s) pendant laquelle le navigateur force HTTPS. Défaut 1 an " +
-          "(recommandation OWASP). Posé uniquement sur réponses HTTPS/HTTP2.",
-      ),
-    includeSubDomains: z
-      .boolean()
-      .default(true)
-      .describe("Étend le HSTS à tous les sous-domaines. Défaut true (OWASP)."),
-    preload: z
-      .boolean()
-      .default(false)
-      .describe(
+        "(recommandation OWASP). Posé uniquement sur réponses HTTPS/HTTP2. " +
+        "Éditable à chaud (recompute HttpKernel → en-tête HSTS recalculé).",
+    }),
+    includeSubDomains: meta(z.boolean().default(true), {
+      runtimeMutable: true,
+      description:
+        "Étend le HSTS à tous les sous-domaines. Défaut true (OWASP). " +
+        "Éditable à chaud (recompute HttpKernel).",
+    }),
+    preload: meta(z.boolean().default(false), {
+      runtimeMutable: true,
+      description:
         "Inscrit le domaine à la HSTS preload list — ENGAGEMENT IRRÉVERSIBLE. " +
-          "Ne pas activer sans avoir lu https://hstspreload.org/#removal.",
-      ),
+        "Ne pas activer sans avoir lu https://hstspreload.org/#removal. " +
+        "Éditable à chaud (effet immédiat sur l'en-tête, mais l'inscription " +
+        "preload réelle est externe et irréversible).",
+    }),
   })
   .describe(
     "HSTS (RFC 6797). Mettre la section à `null` pour ne pas émettre le header.",
@@ -108,48 +109,38 @@ const uploadSchema = z
         "Répertoire de dépôt des fichiers uploadés. Vide (défaut) = résolu sur " +
         "`kernel.tmpDir` par le builder. Chemin relatif = relatif à la racine projet.",
     }),
-    maxFileSize: z
-      .number()
-      .int()
-      .positive()
-      .default(524_288_000)
-      .describe(
+    maxFileSize: meta(z.number().int().positive().default(524_288_000), {
+      runtimeMutable: true,
+      description:
         "Taille max d'UN fichier (busboy `limits.fileSize`, octets). 500 MB. " +
-          "Dépassement → 413. Réduire en production.",
-      ),
-    maxTotalFileSize: z
-      .number()
-      .int()
-      .positive()
-      .default(524_288_000)
-      .describe(
+        "Dépassement → 413. Réduire en production. Relu à chaque requête " +
+        "(éditable à chaud — tester un 413 d'upload sans redémarrer).",
+    }),
+    maxTotalFileSize: meta(z.number().int().positive().default(524_288_000), {
+      runtimeMutable: true,
+      description:
         "Taille CUMULÉE max de tous les fichiers d'une requête (octets, compteur " +
-          "Nodefony — busboy n'a pas de cumul natif). Anti-saturation disque. → 413.",
-      ),
-    maxFiles: z
-      .number()
-      .int()
-      .nonnegative()
-      .default(1000)
-      .describe(
-        "Nombre max de fichiers par requête (busboy `limits.files`) — anti-DoS.",
-      ),
-    maxFields: z
-      .number()
-      .int()
-      .nonnegative()
-      .default(1000)
-      .describe(
-        "Nombre max de champs texte (busboy `limits.fields`) — anti-abus.",
-      ),
-    maxFieldsSize: z
-      .number()
-      .int()
-      .positive()
-      .default(2_097_152)
-      .describe(
-        "Taille max d'UN champ texte (busboy `limits.fieldSize`, octets). 2 MB.",
-      ),
+        "Nodefony — busboy n'a pas de cumul natif). Anti-saturation disque. → 413. " +
+        "Relu à chaque requête (éditable à chaud).",
+    }),
+    maxFiles: meta(z.number().int().nonnegative().default(1000), {
+      runtimeMutable: true,
+      description:
+        "Nombre max de fichiers par requête (busboy `limits.files`) — anti-DoS. " +
+        "Relu à chaque requête (éditable à chaud).",
+    }),
+    maxFields: meta(z.number().int().nonnegative().default(1000), {
+      runtimeMutable: true,
+      description:
+        "Nombre max de champs texte (busboy `limits.fields`) — anti-abus. " +
+        "Relu à chaque requête (éditable à chaud).",
+    }),
+    maxFieldsSize: meta(z.number().int().positive().default(2_097_152), {
+      runtimeMutable: true,
+      description:
+        "Taille max d'UN champ texte (busboy `limits.fieldSize`, octets). 2 MB. " +
+        "Relu à chaque requête (éditable à chaud).",
+    }),
     hashAlgorithm: z
       .union([z.literal(false), z.enum(["sha256", "sha1", "md5"])])
       .default(false)
