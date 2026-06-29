@@ -44,6 +44,14 @@
   Causes vécues : module turbo-caché sans la nouvelle route, `dist` manquant (crash boot `ERR_MODULE_NOT_FOUND`),
   front HMR en avance sur le back (widgets fantômes). Fix : `npm run build -- --force` puis restart. **Back Studio /
   core modifié = rebuild + restart** (le `start.sh` ne rebuild QUE le module test). Vérifier : `grep <chaîne> dist/`.
+- **🔑 `createContext` (StoreContext, ...) = ÉPINGLER sur `globalThis`, jamais une `const` de module nue.** En dev,
+  Vite **réévalue** un module (HMR `?t=…`, ou duplication de graphe quand Studio est servi par le serveur Vite d'un
+  AUTRE bundle React — Studio n'a pas toujours son propre serveur). Une `const Ctx = createContext()` recrée alors un
+  **2e objet de contexte** : le `<Provider>` monté tôt (App.tsx) garde l'objet A ; une page **lazy** chargée APRÈS
+  (TraceView) importe l'objet B → `useContext(B)` ne voit pas le Provider de A → **« useStore() outside provider »
+  alors que l'arbre EST enveloppé**. Discriminant : erreur **PROPRE** (ctx null) = React unique + contexte dédoublé
+  (≠ « invalid hook call » = double React). Fix racine = `g[KEY] ?? (g[KEY] = createContext(null))` sur `globalThis`
+  → un seul objet de contexte réutilisé par toute réévaluation/duplication (cf `stores/index.ts`).
 
 ## 2. Routing / nav / data plane
 
