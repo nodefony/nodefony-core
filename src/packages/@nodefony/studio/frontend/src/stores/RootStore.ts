@@ -73,8 +73,13 @@ export class RootStore {
       socket: this.realtime,
       socketEnabled: () => this.ui.apiViaSocket,
       onUnauthorized: () => {
-        // 401 → on force logout pour relancer le flow.
-        void this.auth?.logout();
+        // 401 INATTENDU du data-plane (les sondes `/auth/*` sont déjà exclues côté
+        // ApiClient) = session perdue en cours d'usage → on nettoie l'état LOCAL
+        // (→ page login) SANS `POST /auth/logout` : un POST détruirait une session
+        // potentiellement encore VALIDE (401 transitoire au reload) et effacerait
+        // le cookie → déconnexion permanente sur un simple hoquet. Le logout serveur
+        // reste réservé au clic explicite de l'utilisateur.
+        this.auth?.clearLocalSession();
       },
       onError: ({ method, status, message }) => {
         // 401 = déjà géré (logout). GET = chargement de page, l'erreur est rendue

@@ -8,11 +8,7 @@ import type {
 import { DASHBOARDS, type DashboardDef } from "../auth/dashboards";
 
 export type AuthStatus =
-  | "idle"
-  | "loading"
-  | "authenticated"
-  | "unauthenticated"
-  | "error";
+  "idle" | "loading" | "authenticated" | "unauthenticated" | "error";
 
 /**
  * Clé localStorage du dernier identifiant connecté (UX « rebonjour » du login).
@@ -247,6 +243,20 @@ export class AuthStore {
     } catch {
       /* swallow — clear local state anyway */
     }
+    runInAction(() => {
+      this.user = null;
+      this.status = "unauthenticated";
+    });
+  }
+
+  /**
+   * Nettoie l'état d'auth LOCAL (→ page de login) SANS appeler `/auth/logout`.
+   * Pour un 401 INATTENDU du data-plane : on ne détruit NI la session serveur NI
+   * le cookie (le 401 peut être transitoire — reload, course) → une déconnexion
+   * sur un simple hoquet ne devient pas permanente. Le `POST /auth/logout` reste
+   * réservé au {@link logout} EXPLICITE (clic utilisateur).
+   */
+  clearLocalSession(): void {
     runInAction(() => {
       this.user = null;
       this.status = "unauthenticated";

@@ -332,7 +332,15 @@ export class ApiClient {
       credentials: "same-origin",
     });
 
-    if (res.status === 401) this.onUnauthorized?.();
+    // Un 401 sur une SONDE d'auth (`/auth/me`, `/auth/login`, `/auth/logout`) est
+    // la réponse NORMALE « pas (ou plus) connecté » — gérée par le flux d'auth
+    // lui-même (`checkSession`/`login`). La traiter comme une expiration globale
+    // déclenchait un `logout()` (POST + cookie effacé) sur CHAQUE `me`, y compris
+    // sur la page de login (non authentifié) → déconnexion auto en boucle, et un
+    // `me` 401 transitoire (reload) détruisait une session VALIDE. Seul un 401 du
+    // DATA-PLANE = session réellement perdue en cours d'usage.
+    const isAuthProbe = url.includes("/api/auth/");
+    if (res.status === 401 && !isAuthProbe) this.onUnauthorized?.();
 
     const contentType = res.headers.get("Content-Type") ?? "";
     const isJson = contentType.includes("application/json");
