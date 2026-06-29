@@ -109,7 +109,7 @@ export const Logs = observer(() => {
   // Onglet actif PERSISTÉ (sessionStorage) → revenir du Suivi de requête
   // (`/nodefony/logs/trace/:id`) restaure l'onglet au lieu de retomber sur
   // « Vue d'ensemble ». Les filtres de l'Explorer sont persistés de leur côté.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<TabId>(() => {
     const q = searchParams.get("tab");
     if (q && TAB_IDS.has(q)) return q as TabId;
@@ -128,8 +128,19 @@ export const Logs = observer(() => {
   // même si la page Logs est déjà montée.
   useEffect(() => {
     const q = searchParams.get("tab");
-    if (q && TAB_IDS.has(q)) changeTab(q as TabId);
-  }, [searchParams, changeTab]);
+    if (q && TAB_IDS.has(q)) {
+      changeTab(q as TabId);
+      // Nettoyer `?tab` → un re-clic du chip (même déjà sur la page) re-déclenche
+      // l'effet (l'URL redevient « neuve » à chaque navigation).
+      setSearchParams(
+        (p) => {
+          p.delete("tab");
+          return p;
+        },
+        { replace: true },
+      );
+    }
+  }, [searchParams, changeTab, setSearchParams]);
   const [selected, setSelected] = useState<LogRecord | null>(null);
   const [traceRequestId, setTraceRequestId] = useState<string>("");
   // Bumpé à chaque switch de driver → force l'Explorer à recharger.
