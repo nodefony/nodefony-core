@@ -2,7 +2,6 @@ import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ActionIcon,
   Box,
-  Grid,
   Group,
   Modal,
   Paper,
@@ -22,6 +21,41 @@ import {
   MODAL_FULLSCREEN_CONTENT,
   SIDEBAR_MAX_HEIGHT,
 } from "./layout";
+
+/** Largeur fixe de la colonne navigation (docs-site, façon MDN/Docusaurus). */
+const NAV_WIDTH = 264;
+/** Largeur fixe du sommaire « Sur cette page ». */
+const TOC_WIDTH = 240;
+
+/**
+ * Injecte UNE fois la grille flex responsive du docs-site (pattern `ensureDocStyles`
+ * de MarkdownDoc — la pseudo-classe media-query est impossible en style inline).
+ *
+ * Modèle : 3 colonnes flex — nav (largeur fixe) | contenu (flex, DOMINANT) |
+ * sommaire (largeur fixe). En `container`, chaque colonne prend la hauteur fixe
+ * `--nf-doc-h` et scrolle INDÉPENDAMMENT (robuste : 0 dépendance au sticky/scroll
+ * de page). Sous 992px : empilement vertical, hauteurs auto, sommaire masqué.
+ */
+function ensureDocLayoutStyles(): void {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("nf-doclayout-styles")) return;
+  const el = document.createElement("style");
+  el.id = "nf-doclayout-styles";
+  el.textContent = `
+.nf-doc-region{display:flex;gap:var(--mantine-spacing-xl,32px);align-items:stretch}
+.nf-doc-region.is-page{align-items:flex-start}
+.nf-doc-nav{flex:0 0 ${NAV_WIDTH}px;width:${NAV_WIDTH}px}
+.nf-doc-toc{flex:0 0 ${TOC_WIDTH}px;width:${TOC_WIDTH}px}
+.nf-doc-main{flex:1 1 0;min-width:0}
+.nf-doc-region.is-container>.nf-doc-region-col{height:var(--nf-doc-h)}
+@media (max-width:991px){
+  .nf-doc-region{flex-direction:column}
+  .nf-doc-nav,.nf-doc-toc{flex-basis:auto;width:100%}
+  .nf-doc-toc{display:none}
+  .nf-doc-region.is-container>.nf-doc-region-col{height:auto}
+}`;
+  document.head.appendChild(el);
+}
 
 /* ════════════════════════════════════════════════════════════════════════
  * DocLayout — LE layout de documentation UNIQUE, utilisé PARTOUT.
@@ -85,32 +119,37 @@ export function DocLayout({
 
   const hasToc = !!tocMarkdown && extractHeadings(tocMarkdown).length > 0;
 
-  /** Rend les 3 colonnes pour un mode/hauteur donnés. */
+  // Grille flex responsive du docs-site, injectée 1× (idempotent).
+  ensureDocLayoutStyles();
+
+  /** Rend les 3 colonnes flex (nav | contenu | sommaire) pour un mode/hauteur. */
   const renderGrid = (m: "page" | "container", h: string, isModal: boolean) => {
     const showToc = hasToc && (isModal ? true : tocVisible);
     const panelHeight = m === "page" ? SIDEBAR_MAX_HEIGHT : h;
-    const centerSpan = showToc ? { base: 12, md: 6 } : { base: 12, md: 9 };
 
-    const sidebarStyle =
+    // — Colonne NAV (largeur fixe via `.nf-doc-nav`) : en-tête FIXE + corps scrollable.
+    //   `page` → sticky sous le PageHeader, hauteur plafonnée. `container` → hauteur
+    //   = `--nf-doc-h` (CSS `.nf-doc-region-col`) → scroll interne INDÉPENDANT.
+    const navStyle: CSSProperties =
       m === "page"
         ? {
-            position: "sticky" as const,
+            position: "sticky",
             top: CONTENT_STICKY_TOP,
-            display: "flex",
-            flexDirection: "column" as const,
             maxHeight: SIDEBAR_MAX_HEIGHT,
+            display: "flex",
+            flexDirection: "column",
             overflow: "hidden",
           }
-        : {
-            display: "flex",
-            flexDirection: "column" as const,
-            height: h,
-            overflow: "hidden",
-          };
+        : { display: "flex", flexDirection: "column", overflow: "hidden" };
 
-    // Colonne gauche : en-tête FIXE (titre + actions + recherche) + corps scrollable.
     const sidebar = (
-      <Paper withBorder radius="md" p="sm" style={sidebarStyle}>
+      <Paper
+        withBorder
+        radius="md"
+        p="sm"
+        className="nf-doc-nav nf-doc-region-col"
+        style={navStyle}
+      >
         <Box style={{ flexShrink: 0 }}>
           <Group justify="space-between" mb={6} px="xs" wrap="nowrap">
             <Text size="xs" fw={700} c="dimmed" tt="uppercase">
@@ -126,11 +165,9 @@ export function DocLayout({
       </Paper>
     );
 
-    // Barre d'en-tête du contenu (titre fourni + toggle sommaire + plein écran).
-    // En mode "page" : sticky AU MÊME `top` que la sidebar/TOC (CONTENT_STICKY_TOP)
-    // → le titre de la sous-page reste lisible quand on scroll dans un long contenu,
-    // cohérent visuellement avec les sidebars sticky. Règle docs-site (skill
-    // `nodefony-documentation` §Règles de mise en page).
+    // En-tête du contenu (titre + toggle sommaire + plein écran). `page` → sticky
+    // au même `top` que les sidebars (le titre reste lisible au scroll). `container`
+    // → bandeau FIXE en haut du flex column ; la lecture (ScrollArea) scrolle dessous.
     const headerStickyStyle: CSSProperties =
       m === "page"
         ? {
@@ -142,11 +179,6 @@ export function DocLayout({
             paddingBottom: "var(--mantine-spacing-xs, 8px)",
           }
         : {};
-    // Quand le sommaire est MASQUÉ, on rapatrie le bouton « afficher » à
-    // droite du titre (sinon il n'y a plus aucun moyen de le rouvrir). Quand
-    // le sommaire est VISIBLE, le bouton « masquer » vit DANS la card TOC
-    // elle-même, à côté de « Sur cette page » (emplacement légitime — on agit
-    // sur la TOC depuis la TOC).
     const headerBar = (
       <Group
         gap="xs"
@@ -184,15 +216,19 @@ export function DocLayout({
       </Group>
     );
 
-    // Colonne centre : header + corps (scroll page en `page`, interne en `container`).
+    // — Colonne CONTENU (flex DOMINANT via `.nf-doc-main`) — `page` scrolle avec
+    //   la page ; `container` a son propre ScrollArea (hauteur `--nf-doc-h`).
     const center =
       m === "page" ? (
-        <Box>
+        <Box className="nf-doc-main nf-doc-region-col">
           {headerBar}
           {children}
         </Box>
       ) : (
-        <Box style={{ display: "flex", flexDirection: "column", height: h }}>
+        <Box
+          className="nf-doc-main nf-doc-region-col"
+          style={{ display: "flex", flexDirection: "column" }}
+        >
           {headerBar}
           <ScrollArea
             type="auto"
@@ -205,48 +241,56 @@ export function DocLayout({
         </Box>
       );
 
-    // Colonne droite : sommaire (sticky en `page`, hauteur fixe en `container`).
+    // — Colonne SOMMAIRE (largeur fixe via `.nf-doc-toc`) — sticky en `page` ;
+    //   en `container` la hauteur vient de `align-items:stretch` + DocToc `maxHeight`.
     const tocCol = showToc && tocMarkdown && (
-      <Grid.Col span={{ base: 12, md: 3 }} visibleFrom="md">
-        <Box
-          style={
-            m === "page"
-              ? { position: "sticky", top: CONTENT_STICKY_TOP }
-              : undefined
-          }
-        >
-          <Paper withBorder radius="md" p="sm">
-            <DocToc
-              markdown={tocMarkdown}
-              scrollRootRef={m === "container" ? readerViewport : undefined}
-              maxHeight={panelHeight}
-              actions={
-                !isModal ? (
-                  <Tooltip label="Masquer le sommaire">
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      size="xs"
-                      onClick={() => setTocVisible(false)}
-                      aria-label="Masquer le sommaire"
-                    >
-                      <IconLayoutSidebarRightCollapse size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                ) : undefined
+      <Box
+        className="nf-doc-toc"
+        style={
+          m === "page"
+            ? {
+                position: "sticky",
+                top: CONTENT_STICKY_TOP,
+                alignSelf: "flex-start",
               }
-            />
-          </Paper>
-        </Box>
-      </Grid.Col>
+            : undefined
+        }
+      >
+        <Paper withBorder radius="md" p="sm">
+          <DocToc
+            markdown={tocMarkdown}
+            scrollRootRef={m === "container" ? readerViewport : undefined}
+            maxHeight={panelHeight}
+            actions={
+              !isModal ? (
+                <Tooltip label="Masquer le sommaire">
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="xs"
+                    onClick={() => setTocVisible(false)}
+                    aria-label="Masquer le sommaire"
+                  >
+                    <IconLayoutSidebarRightCollapse size={14} />
+                  </ActionIcon>
+                </Tooltip>
+              ) : undefined
+            }
+          />
+        </Paper>
+      </Box>
     );
 
+    const regionStyle: CSSProperties = { "--nf-doc-h": h } as CSSProperties;
     return (
-      <Grid gap="xl">
-        <Grid.Col span={{ base: 12, md: 3 }}>{sidebar}</Grid.Col>
-        <Grid.Col span={centerSpan}>{center}</Grid.Col>
+      <Box
+        className={`nf-doc-region ${m === "page" ? "is-page" : "is-container"}`}
+        style={regionStyle}
+      >
+        {sidebar}
+        {center}
         {tocCol}
-      </Grid>
+      </Box>
     );
   };
 

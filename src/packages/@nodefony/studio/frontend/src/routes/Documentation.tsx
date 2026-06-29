@@ -29,6 +29,7 @@ import {
   DocLayout,
   DocPageHeader,
   MarkdownDoc,
+  PAGE_CONTENT_HEIGHT,
   PageLayout,
 } from "../components/ui";
 import { LiveGraphSection } from "../realtime/socket/LiveGraphSection";
@@ -358,7 +359,8 @@ export const Documentation = observer(() => {
           />
         }
         tocMarkdown={markdown}
-        mode="page"
+        mode="container"
+        height={PAGE_CONTENT_HEIGHT}
       >
         <DataState
           loading={page.loading && !page.data}
