@@ -136,8 +136,7 @@ describe("RFC 9110 §15.5.6 — 405 Method Not Allowed MUST include Allow header
 // ─── RFC 9110 §6.4.1 + §15.3.5 — no body in 204 / 304 ────────────────────────
 
 describe("RFC 9110 §6.4.1 — 204/304 MUST NOT have a body", () => {
-  // Skipped until /nodefony/test/nocontent route exists
-  it.skip("204 No Content has empty body and no Content-Length > 0", async () => {
+  it("204 No Content has empty body and no Content-Length > 0", async () => {
     const r = await req("GET", "/nodefony/test/nocontent");
     expect(r.status).to.equal(204);
     expect(r.bodyLen).to.equal(0);

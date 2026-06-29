@@ -48,8 +48,6 @@ import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
 import Eta from "./nodefony/service/Eta";
-//import mygraphql from "graphql";
-//console.log(mygraphql);
 import { mergeResolvers, mergeTypeDefs } from "@graphql-tools/merge";
 import { mergeSchemas, makeExecutableSchema } from "@graphql-tools/schema";
 
@@ -106,8 +104,7 @@ import {
 // cluster = double-effet ; ≠ realtime fail-soft, car le risque diffère).
 registerIdempotencyStore("redis", (ctx) => {
   const redis = ctx.module.kernel?.container?.get("redis") as
-    | { getClient(name: string): unknown }
-    | undefined;
+    { getClient(name: string): unknown } | undefined;
   if (!redis) {
     throw new Error(
       `the @nodefony/redis module is not loaded ` +
@@ -243,8 +240,7 @@ class Framework extends Module {
    */
   override async onKernelReady(): Promise<this> {
     const broker = this.kernel?.container?.get("adminBroker") as
-      | IAdminBroker
-      | undefined;
+      IAdminBroker | undefined;
     if (broker && this.kernel) {
       if (!broker.has("kernel")) {
         broker.register(createKernelAdminApi(this.kernel));

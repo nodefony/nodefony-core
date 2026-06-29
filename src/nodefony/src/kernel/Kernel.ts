@@ -2424,7 +2424,6 @@ class Kernel extends Service implements IKernel {
     }
     this.log(`terminate : ${code}`);
     try {
-      //console.log(this.notificationsCenter?._events);
       await this.fireAsync("onTerminate", this, code);
     } catch (e) {
       this.log(e, "ERROR");

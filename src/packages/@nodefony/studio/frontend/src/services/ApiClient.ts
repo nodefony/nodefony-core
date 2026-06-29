@@ -7,7 +7,7 @@
  * **API souveraine (Ph.3)** : si une Socket Nodefony connectée est fournie
  * (`socket`), les GET passent par le pont JSON-RPC `api.request {path}` — la
  * MÊME action controller, le MÊME snapshot que le REST (prouvé backend,
- * `api-souverain-bridge.test.ts`). Transparent pour les pages : même URL, même
+ * `@nodefony/http` `ws-data-plane-auth.test.ts`). Transparent pour les pages : même URL, même
  * shape, mêmes erreurs (`ApiError`). La socket ne sert que les SUCCÈS :
  * fallback fetch automatique si elle est absente/déconnectée, si le pont
  * n'est pas exposé (`-32601`), si la route est sans transport WS pour cette

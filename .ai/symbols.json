@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-29T15:14:51.998Z",
+  "generated": "2026-06-29T17:02:22.762Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -19269,6 +19269,9 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Install": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Outdated": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Status": [

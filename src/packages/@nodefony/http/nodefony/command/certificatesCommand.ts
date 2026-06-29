@@ -21,7 +21,7 @@ const options: OptionsCommandInterface = {
 class Certificates extends Command {
   constructor(cli: CliKernel) {
     super(
-      "certificates",
+      "http:certificates",
       "Generate / inspect the DEV TLS certificate",
       cli,
       options,

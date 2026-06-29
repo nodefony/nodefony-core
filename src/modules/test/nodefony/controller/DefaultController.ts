@@ -121,6 +121,17 @@ class DefaultController extends Controller {
     });
   }
 
+  // RFC 9110 §6.4.1 + §15.3.5 — 204 No Content : corps vide, et PAS de
+  // Content-Length > 0 (le framework retire l'en-tête pour 204/304, cf
+  // Response.setLength → noContentLengthStatusCodes). Banc `http-rfc-errors`.
+  @route("nocontent", {
+    path: "/nocontent",
+    requirements: { methods: ["GET", "HEAD"] },
+  })
+  noContent() {
+    return this.render("", "utf-8", 204);
+  }
+
   // Sert le bundle standalone de la debug bar pour la page EJS (rendue serveur,
   // hors Vite). La page `/index4` l'inclut via <script type="module">.
   @route("debugbar-js", {
