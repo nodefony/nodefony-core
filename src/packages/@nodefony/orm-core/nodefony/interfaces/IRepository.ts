@@ -93,7 +93,7 @@ export interface RepositoryReadOptions {
  * Contrat CRUD minimal exposé par un repository, indépendant de l'ORM sous-jacent.
  *
  * Un repository est obtenu via `IOrm.getRepository(name)` et manipule des entités
- * de type `T`. Les sémantiques fines (cascade, hooks, upsert) sont déléguées à
+ * de type `T`. Les sémantiques fines (cascade, hooks) sont déléguées à
  * l'adapter concret ; ce contrat garantit uniquement le socle portable.
  *
  * @typeParam T - type de l'entité gérée par le repository.
@@ -127,6 +127,18 @@ export interface IRepository<T = unknown> {
   create(data: Partial<T>): Promise<T>;
 
   /**
+   * Insère **plusieurs** entités en **une seule** requête (`INSERT … VALUES
+   * (…),(…)` SQL / `insertMany` Mongo) et retourne leurs versions persistées
+   * (ids générés, défauts appliqués), dans l'ordre. Un tableau vide est un
+   * **no-op** (`[]`, aucune requête). Préférer à N appels `create` (N round-trips)
+   * pour le seed / l'import / l'ingestion par lots.
+   *
+   * @param data - entités à créer.
+   * @returns les entités persistées, dans le même ordre.
+   */
+  createMany(data: Partial<T>[]): Promise<T[]>;
+
+  /**
    * Met à jour **au plus une** entité correspondant au critère, de façon
    * **atomique**, et retourne sa version persistée (ou `null` si aucune ne
    * correspond).
@@ -144,6 +156,31 @@ export interface IRepository<T = unknown> {
   updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null>;
 
   /**
+   * Insère **ou** met à jour atomiquement l'entité identifiée par `criteria`
+   * (clé unique), en **une seule** requête (`INSERT … ON CONFLICT DO UPDATE …
+   * RETURNING` SQL / `findOneAndUpdate({ upsert })` Mongo) — jamais un `SELECT`
+   * d'existence suivi d'un `INSERT`/`UPDATE` séparé (2 round-trips + une race
+   * insert/update entre les deux).
+   *
+   * - **INSERT** (clé absente) : la ligne créée = `{ ...criteria, ...insertOnly,
+   *   ...update }`.
+   * - **UPDATE** (conflit de clé) : seul `update` est ré-appliqué (`SET`) ;
+   *   `criteria` et `insertOnly` ne touchent PAS la ligne existante (ex.
+   *   `createdAt` posé à la création est préservé).
+   *
+   * @param criteria - clé de conflit (colonnes **uniques**, égalité simple — pas
+   *   d'opérateurs riches `$`). Sert aussi de valeurs d'insertion.
+   * @param update - champs posés à l'insertion ET ré-appliqués en cas de conflit.
+   * @param insertOnly - champs posés **uniquement** à l'insertion (ex. `createdAt`).
+   * @returns l'entité persistée (ligne réelle via `RETURNING` / `returnDocument`).
+   */
+  upsert(
+    criteria: Criteria<T>,
+    update: Partial<T>,
+    insertOnly?: Partial<T>,
+  ): Promise<T>;
+
+  /**
    * Met à jour **toutes** les entités correspondant au critère et retourne le
    * **nombre** de lignes modifiées (parité de signature avec
    * {@link IRepository.delete}).
@@ -156,6 +193,22 @@ export interface IRepository<T = unknown> {
   updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number>;
 
   /**
+   * Incrémente **atomiquement** des champs numériques d'**au plus une** entité
+   * (`SET f = f + ?` SQL / `$inc` Mongo), sans read-modify-write (donc sans race)
+   * — pour les compteurs (stats, usage/tokens, rate-limit). Un delta négatif
+   * décrémente. Retourne l'entité après modification, ou `null` si le critère ne
+   * matche rien.
+   *
+   * @param criteria - filtre de sélection (au plus une entité affectée).
+   * @param changes - deltas par champ (`{ hits: 1, credits: -5 }`).
+   * @returns l'entité mise à jour, ou `null`.
+   */
+  increment(
+    criteria: Criteria<T>,
+    changes: Partial<Record<keyof T, number>>,
+  ): Promise<T | null>;
+
+  /**
    * Supprime les entités correspondant au critère.
    *
    * @param criteria - filtre de sélection.
@@ -164,11 +217,41 @@ export interface IRepository<T = unknown> {
   delete(criteria: Criteria<T>): Promise<number>;
 
   /**
+   * Supprime **au plus une** entité de façon **atomique** (symétrique
+   * d'{@link IRepository.updateOne} ; `DELETE … LIMIT 1` SQL / `deleteOne` Mongo).
+   *
+   * @param criteria - filtre de sélection.
+   * @returns `true` si une entité a été supprimée, `false` sinon.
+   */
+  deleteOne(criteria: Criteria<T>): Promise<boolean>;
+
+  /**
+   * Supprime **au plus une** entité et **retourne** sa valeur supprimée (ou
+   * `null`), de façon atomique (`DELETE … RETURNING` SQL / `findOneAndDelete`
+   * Mongo) — claim-and-remove (file de jobs, outbox, pop atomique).
+   *
+   * @param criteria - filtre de sélection.
+   * @returns l'entité supprimée, ou `null` si aucune ne correspond.
+   */
+  findOneAndDelete(criteria: Criteria<T>): Promise<T | null>;
+
+  /**
    * Compte les entités correspondant au critère (toutes si omis).
    *
    * @param criteria - filtre optionnel.
    */
   count(criteria?: Criteria<T>): Promise<number>;
+
+  /**
+   * Indique si **au moins une** entité correspond au critère, sans rapatrier la
+   * ligne (`SELECT 1 … LIMIT 1` SQL / `exists` Mongo). Préférer à
+   * `findOne(...) !== null` (aucune colonne chargée) et à `count(...) > 0` (pas de
+   * comptage complet) pour un simple test d'existence.
+   *
+   * @param criteria - filtre de sélection.
+   * @returns `true` si une entité correspond, `false` sinon.
+   */
+  exists(criteria: Criteria<T>): Promise<boolean>;
 
   /**
    * Retourne une **vue de ce repository liée à une transaction** : toutes ses

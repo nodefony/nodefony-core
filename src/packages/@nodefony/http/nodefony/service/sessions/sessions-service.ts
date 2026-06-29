@@ -303,7 +303,12 @@ class SessionsService extends Service {
               request.request.session = session;
             }
             context.sessionStarting = false;
-            session.setMetaBag("url", new URL(context.url, "http://localhost"));
+            // NB : on ne pose AUCUNE donnée per-requête ici (ex. l'URL courante).
+            // La poser salirait la session à CHAQUE requête → branche `save()`
+            // (SELECT d'existence + réécriture du blob) au lieu du `touch` léger
+            // (lazy-write, cf saveSession). Aucun consommateur ne lit cette URL ;
+            // les métas durables (ip/ua/host) sont posées 1× à la création
+            // (setMetasSession).
             if (context.cleaned) {
               return reject(new Error("context already cleaned"));
             }
@@ -339,11 +344,11 @@ class SessionsService extends Service {
       return session.save(context.user ? (context.user as string) : undefined);
     }
     // Sinon → prolonge l'idle de façon THROTTLÉE sans réécrire le blob (touch
-    // NIST/OWASP). Couvre les DEUX cas où `save()` n'écrit pas mais où la session
-    // ACTIVE doit rester vivante : (1) propre — message WS read-only, GET sans
-    // mutation ; (2) `readOnly` mais `dirty` — l'activation pose `metaBag("url")`
-    // (donc dirty) alors que readOnly interdit le write : sans le touch, une
-    // session readOnly (cas Studio) verrait `updatedAt` figé → expirée à tort.
+    // NIST/OWASP). Couvre les cas où `save()` n'écrit pas mais où la session
+    // ACTIVE doit rester vivante : (1) session NON mutée — GET / message WS
+    // read-only sans écriture applicative (cas DOMINANT : l'activation ne salit
+    // plus la session) ; (2) `readOnly` mutée par erreur — write interdit mais
+    // l'idle doit quand même glisser (sinon `updatedAt` figé → expirée à tort).
     // Throttlé (1 write / tranche d'idle) → coût négligeable, dirty-tracking
     // préservé pour les vraies écritures.
     await session.touchIfNeeded();

@@ -94,19 +94,17 @@ class SessionStorage implements ISessionStorage {
       user: serialize.user || null,
       updatedAt: now,
     };
-    const existing = await repo.findOne({ session_id: id });
-    if (existing) {
-      await repo.updateOne({ session_id: id }, fields as Partial<SessionRow>);
-    } else {
-      await repo.create({
-        session_id: id,
-        createdAt: now,
-        ...fields,
-      } as Partial<SessionRow>);
-    }
+    // UPSERT atomique (`findOneAndUpdate({ upsert:true })`) : 1 round-trip, pas
+    // de SELECT d'existence ni de race insert/update. `createdAt` = insert-only
+    // → préservé sur une session existante, posé à `now` sur une neuve.
+    const row = await repo.upsert(
+      { session_id: id },
+      fields as Partial<SessionRow>,
+      { createdAt: now } as Partial<SessionRow>,
+    );
     return {
       ...serialize,
-      createdAt: new Date(existing?.createdAt ?? now),
+      createdAt: new Date(row.createdAt),
       updatedAt: new Date(now),
     };
   }

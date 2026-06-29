@@ -251,6 +251,23 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     );
   }
 
+  async createMany(data: Partial<T>[]): Promise<T[]> {
+    if (data.length === 0) {
+      return [];
+    }
+    return this.#prof(
+      () => this.#descr("insertMany"),
+      async () => {
+        const docs = await this.#model.insertMany(
+          data as Record<string, unknown>[],
+          { session: this.#session ?? undefined },
+        );
+        return docs.map((doc) => this.#plain(doc));
+      },
+      (rows) => rows.length,
+    );
+  }
+
   async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
     const filter = this.#filter(criteria);
     // Atomique : `findOneAndUpdate({ new: true })` → 1 round-trip, retourne le
@@ -273,6 +290,44 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     );
   }
 
+  async upsert(
+    criteria: Criteria<T>,
+    update: Partial<T>,
+    insertOnly?: Partial<T>,
+  ): Promise<T> {
+    const filter = this.#filter(criteria);
+    // Atomique : `findOneAndUpdate({ upsert:true })` → 1 round-trip. `$set`
+    // ré-applique `update` (insert + conflit) ; `$setOnInsert` pose `insertOnly`
+    // (ex. createdAt) QU'À la création. Les égalités de `filter` (clé) sont
+    // ajoutées au document inséré par MongoDB → inutile de les répéter.
+    return this.#prof(
+      () => this.#descr("findOneAndUpdate", filter),
+      async () => {
+        const doc = await this.#model
+          .findOneAndUpdate(
+            filter,
+            {
+              $set: update as Record<string, unknown>,
+              $setOnInsert: (insertOnly ?? {}) as Record<string, unknown>,
+            },
+            {
+              upsert: true,
+              returnDocument: "after",
+              session: this.#session ?? undefined,
+            },
+          )
+          .exec();
+        if (!doc) {
+          // upsert:true + returnDocument:after garantit un document ; garde de
+          // typage (le contrat renvoie T non-nullable).
+          throw new Error("MongooseRepository.upsert: aucun document retourné");
+        }
+        return this.#plain(doc);
+      },
+      () => 1,
+    );
+  }
+
   async updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number> {
     const filter = this.#filter(criteria);
     return this.#prof(
@@ -286,6 +341,29 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
         return res.modifiedCount ?? 0;
       },
       (n) => n,
+    );
+  }
+
+  async increment(
+    criteria: Criteria<T>,
+    changes: Partial<Record<keyof T, number>>,
+  ): Promise<T | null> {
+    const filter = this.#filter(criteria);
+    // Atomique : `findOneAndUpdate({ $inc })` → 1 round-trip, delta côté serveur
+    // (pas de read-modify-write, donc pas de race sur le compteur).
+    return this.#prof(
+      () => this.#descr("findOneAndUpdate", filter),
+      async () => {
+        const doc = await this.#model
+          .findOneAndUpdate(
+            filter,
+            { $inc: changes as Record<string, number> },
+            { returnDocument: "after", session: this.#session ?? undefined },
+          )
+          .exec();
+        return doc ? this.#plain(doc) : null;
+      },
+      (doc) => (doc ? 1 : 0),
     );
   }
 
@@ -303,6 +381,34 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     );
   }
 
+  async deleteOne(criteria: Criteria<T>): Promise<boolean> {
+    const filter = this.#filter(criteria);
+    return this.#prof(
+      () => this.#descr("deleteOne", filter),
+      async () => {
+        const res = await this.#model.deleteOne(filter, {
+          session: this.#session ?? undefined,
+        });
+        return (res.deletedCount ?? 0) > 0;
+      },
+      (ok) => (ok ? 1 : 0),
+    );
+  }
+
+  async findOneAndDelete(criteria: Criteria<T>): Promise<T | null> {
+    const filter = this.#filter(criteria);
+    return this.#prof(
+      () => this.#descr("findOneAndDelete", filter),
+      async () => {
+        const doc = await this.#model
+          .findOneAndDelete(filter, { session: this.#session ?? undefined })
+          .exec();
+        return doc ? this.#plain(doc) : null;
+      },
+      (doc) => (doc ? 1 : 0),
+    );
+  }
+
   async count(criteria?: Criteria<T>): Promise<number> {
     const filter = this.#filter(criteria);
     return this.#prof(
@@ -311,6 +417,21 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
         this.#model.countDocuments(filter, {
           session: this.#session ?? undefined,
         }),
+    );
+  }
+
+  async exists(criteria: Criteria<T>): Promise<boolean> {
+    const filter = this.#filter(criteria);
+    return this.#prof(
+      () => this.#descr("exists", filter),
+      async () => {
+        const q = this.#model.exists(filter);
+        if (this.#session) {
+          q.session(this.#session);
+        }
+        const doc = await q.exec();
+        return doc !== null;
+      },
     );
   }
 

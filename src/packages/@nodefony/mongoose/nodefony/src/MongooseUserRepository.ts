@@ -124,6 +124,54 @@ export class MongooseUserRepository implements IUserRepository {
     return row ? this.#toUser(row) : null;
   }
 
+  async upsert(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    update: Partial<IPasswordAuthenticatedUser>,
+    insertOnly?: Partial<IPasswordAuthenticatedUser>,
+  ): Promise<IPasswordAuthenticatedUser> {
+    const row = await this.#base.upsert(
+      criteria as unknown as UserCriteria,
+      update as Partial<UserRow>,
+      insertOnly as Partial<UserRow> | undefined,
+    );
+    return this.#toUser(row);
+  }
+
+  async createMany(
+    data: Partial<IPasswordAuthenticatedUser>[],
+  ): Promise<IPasswordAuthenticatedUser[]> {
+    const rows = await this.#base.createMany(data as Partial<UserRow>[]);
+    return rows.map((row) => this.#toUser(row));
+  }
+
+  exists(criteria: Criteria<IPasswordAuthenticatedUser>): Promise<boolean> {
+    return this.#base.exists(criteria as unknown as UserCriteria);
+  }
+
+  deleteOne(criteria: Criteria<IPasswordAuthenticatedUser>): Promise<boolean> {
+    return this.#base.deleteOne(criteria as unknown as UserCriteria);
+  }
+
+  async findOneAndDelete(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+  ): Promise<IPasswordAuthenticatedUser | null> {
+    const row = await this.#base.findOneAndDelete(
+      criteria as unknown as UserCriteria,
+    );
+    return row ? this.#toUser(row) : null;
+  }
+
+  async increment(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    changes: Partial<Record<keyof IPasswordAuthenticatedUser, number>>,
+  ): Promise<IPasswordAuthenticatedUser | null> {
+    const row = await this.#base.increment(
+      criteria as unknown as UserCriteria,
+      changes as Partial<Record<keyof UserRow, number>>,
+    );
+    return row ? this.#toUser(row) : null;
+  }
+
   updateMany(
     criteria: Criteria<IPasswordAuthenticatedUser>,
     data: Partial<IPasswordAuthenticatedUser>,

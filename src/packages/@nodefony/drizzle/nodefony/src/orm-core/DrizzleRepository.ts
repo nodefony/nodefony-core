@@ -338,6 +338,19 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return rows[0] as T;
   }
 
+  async createMany(data: Partial<T>[]): Promise<T[]> {
+    if (data.length === 0) {
+      return []; // no-op : pas d'INSERT à 0 ligne (drizzle/SQL le rejetteraient).
+    }
+    const rows = (await this.#prof(
+      this.#db
+        .insert(this.#table)
+        .values(data as Record<string, unknown>[])
+        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
+    )) as Record<string, unknown>[];
+    return rows as T[];
+  }
+
   async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
     // Atomique : UPDATE … WHERE rowid IN (SELECT rowid … LIMIT 1) RETURNING.
     // - une SEULE requête → pas de relecture (qui renverrait null à tort si le
@@ -359,6 +372,46 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return (rows[0] as T) ?? null;
   }
 
+  async upsert(
+    criteria: Criteria<T>,
+    update: Partial<T>,
+    insertOnly?: Partial<T>,
+  ): Promise<T> {
+    // Une SEULE requête : INSERT … ON CONFLICT(<criteria>) DO UPDATE SET <update>
+    // RETURNING. Remplace le findOne+(update|create) = 2 round-trips + une race
+    // insert/update. `target` = colonnes de conflit (clé unique) ; `set` ne
+    // ré-applique QUE `update` → les champs insert-only (ex. createdAt) ne sont
+    // pas écrasés en cas de conflit. (SQLite/Postgres ; mysql = onDuplicateKeyUpdate
+    // au portage multi-dialecte du repository.)
+    const target = Object.keys(criteria).map((field) => {
+      const col = this.#col(this.#table, field);
+      if (!col) {
+        throw new UnknownCriteriaField(
+          field,
+          getTableName(this.#table),
+          Object.keys(getTableColumns(this.#table)),
+        );
+      }
+      return col;
+    });
+    const values = {
+      ...(criteria as Record<string, unknown>),
+      ...((insertOnly ?? {}) as Record<string, unknown>),
+      ...(update as Record<string, unknown>),
+    };
+    const rows = (await this.#prof(
+      this.#db
+        .insert(this.#table)
+        .values(values)
+        .onConflictDoUpdate({
+          target,
+          set: update as Record<string, unknown>,
+        })
+        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
+    )) as Record<string, unknown>[];
+    return rows[0] as T;
+  }
+
   async updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number> {
     const where = this.#where(criteria);
     const builder = this.#db
@@ -372,6 +425,39 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return result.changes ?? 0;
   }
 
+  async increment(
+    criteria: Criteria<T>,
+    changes: Partial<Record<keyof T, number>>,
+  ): Promise<T | null> {
+    // Atomique : UPDATE … SET f = f + ? WHERE rowid IN (… LIMIT 1) RETURNING.
+    // Le delta est calculé côté SQL → pas de read-modify-write, donc pas de race
+    // sur le compteur. Même garantie « au plus une + 0 relecture » qu'updateOne.
+    const setObj: Record<string, SQL> = {};
+    for (const [field, delta] of Object.entries(changes)) {
+      const col = this.#col(this.#table, field);
+      if (!col) {
+        throw new UnknownCriteriaField(
+          field,
+          getTableName(this.#table),
+          Object.keys(getTableColumns(this.#table)),
+        );
+      }
+      setObj[field] = sql`${col} + ${delta}`;
+    }
+    const where = this.#where(criteria);
+    const pick = where
+      ? sql`rowid in (select rowid from ${this.#table} where ${where} limit 1)`
+      : sql`rowid in (select rowid from ${this.#table} limit 1)`;
+    const rows = (await this.#prof(
+      this.#db
+        .update(this.#table)
+        .set(setObj)
+        .where(pick)
+        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
+    )) as Record<string, unknown>[];
+    return (rows[0] as T) ?? null;
+  }
+
   async delete(criteria: Criteria<T>): Promise<number> {
     const where = this.#where(criteria);
     const builder = this.#db.delete(this.#table);
@@ -381,6 +467,32 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       }>,
     )) as { changes?: number };
     return result.changes ?? 0;
+  }
+
+  async deleteOne(criteria: Criteria<T>): Promise<boolean> {
+    const rows = await this.#deleteOneReturning(criteria);
+    return rows.length > 0;
+  }
+
+  async findOneAndDelete(criteria: Criteria<T>): Promise<T | null> {
+    const rows = await this.#deleteOneReturning(criteria);
+    return (rows[0] as T) ?? null;
+  }
+
+  /** DELETE atomique d'AU PLUS une ligne (`rowid … LIMIT 1`), RETURNING la ligne. */
+  async #deleteOneReturning(
+    criteria: Criteria<T>,
+  ): Promise<Record<string, unknown>[]> {
+    const where = this.#where(criteria);
+    const pick = where
+      ? sql`rowid in (select rowid from ${this.#table} where ${where} limit 1)`
+      : sql`rowid in (select rowid from ${this.#table} limit 1)`;
+    return (await this.#prof(
+      this.#db
+        .delete(this.#table)
+        .where(pick)
+        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
+    )) as Record<string, unknown>[];
   }
 
   async count(criteria?: Criteria<T>): Promise<number> {
@@ -395,6 +507,22 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       >,
     )) as Array<{ value: number }>;
     return Number(rows[0]?.value ?? 0);
+  }
+
+  async exists(criteria: Criteria<T>): Promise<boolean> {
+    const where = this.#where(criteria);
+    let query = this.#db
+      .select({ one: sql`1` })
+      .from(this.#table)
+      .$dynamic();
+    if (where) {
+      query = query.where(where);
+    }
+    query = query.limit(1);
+    const rows = (await this.#prof(
+      query as unknown as ProfiledQuery<unknown[]>,
+    )) as unknown[];
+    return rows.length > 0;
   }
 
   withTransaction(tx: ITransaction): IRepository<T> {

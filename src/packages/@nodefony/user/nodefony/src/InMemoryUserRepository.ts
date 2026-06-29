@@ -96,6 +96,73 @@ export class InMemoryUserRepository implements IUserRepository {
     return Promise.resolve(user);
   }
 
+  async upsert(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    update: Partial<IPasswordAuthenticatedUser>,
+    insertOnly?: Partial<IPasswordAuthenticatedUser>,
+  ): Promise<IPasswordAuthenticatedUser> {
+    const updated = await this.updateOne(criteria, update);
+    if (updated) return updated;
+    return this.create({
+      ...(criteria as Partial<IPasswordAuthenticatedUser>),
+      ...(insertOnly as Partial<IPasswordAuthenticatedUser> | undefined),
+      ...update,
+    });
+  }
+
+  async createMany(
+    data: Partial<IPasswordAuthenticatedUser>[],
+  ): Promise<IPasswordAuthenticatedUser[]> {
+    const out: IPasswordAuthenticatedUser[] = [];
+    for (const d of data) {
+      out.push(await this.create(d));
+    }
+    return out;
+  }
+
+  exists(criteria: Criteria<IPasswordAuthenticatedUser>): Promise<boolean> {
+    return Promise.resolve(
+      [...this.#store.values()].some((u) => this.#match(u, criteria)),
+    );
+  }
+
+  deleteOne(criteria: Criteria<IPasswordAuthenticatedUser>): Promise<boolean> {
+    for (const [id, user] of this.#store) {
+      if (this.#match(user, criteria)) {
+        this.#store.delete(id);
+        return Promise.resolve(true);
+      }
+    }
+    return Promise.resolve(false);
+  }
+
+  findOneAndDelete(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+  ): Promise<IPasswordAuthenticatedUser | null> {
+    for (const [id, user] of this.#store) {
+      if (this.#match(user, criteria)) {
+        this.#store.delete(id);
+        return Promise.resolve(user);
+      }
+    }
+    return Promise.resolve(null);
+  }
+
+  increment(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    changes: Partial<Record<keyof IPasswordAuthenticatedUser, number>>,
+  ): Promise<IPasswordAuthenticatedUser | null> {
+    const user = [...this.#store.values()].find((u) =>
+      this.#match(u, criteria),
+    );
+    if (!user) return Promise.resolve(null);
+    const rec = user as unknown as Record<string, number>;
+    for (const [field, delta] of Object.entries(changes)) {
+      rec[field] = (rec[field] ?? 0) + (delta as number);
+    }
+    return Promise.resolve(user);
+  }
+
   async updateMany(
     criteria: Criteria<IPasswordAuthenticatedUser>,
     data: Partial<IPasswordAuthenticatedUser>,

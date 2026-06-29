@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mongoTestUri } from "../helpers/mongoTestUri";
 import { SessionsService } from "@nodefony/http";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
+import type { IRepository } from "@nodefony/orm-core";
 import { MongooseOrm } from "../../nodefony/src/orm-core/index";
 // L'import du storage déclenche son auto-enregistrement dans le registre http (IoC).
 import MongooseSessionStorage from "../../nodefony/src/SessionStorage";
@@ -166,6 +167,81 @@ describe.skipIf(!URI)(
         const byName = Object.fromEntries(cols.map((c) => [c.name, c]));
         assert.equal(byName._id.primaryKey, true);
         assert.ok(byName.session_id, "colonne session_id présente");
+      });
+    });
+
+    // ── Verbes repository Tier 1+2 (parité avec l'adapter Drizzle) ─────────────
+    describe("verbes repository (createMany / exists / deleteOne / findOneAndDelete / increment)", () => {
+      const repo = (): IRepository<SessionRow> =>
+        orm.getRepository<SessionRow>("session");
+      const seed = (
+        id: string,
+        extra: Partial<SessionRow> = {},
+      ): Partial<SessionRow> => {
+        const now = Date.now();
+        return {
+          session_id: id,
+          Attributes: {},
+          flashBag: {},
+          metaBag: {},
+          user: null,
+          createdAt: now,
+          updatedAt: now,
+          ...extra,
+        } as Partial<SessionRow>;
+      };
+
+      it("createMany insère N en une fois (ordre préservé) ; [] = no-op", async () => {
+        assert.deepEqual(await repo().createMany([]), []);
+        const rows = await repo().createMany([seed("v-cm1"), seed("v-cm2")]);
+        assert.deepEqual(
+          rows.map((r) => r.session_id),
+          ["v-cm1", "v-cm2"],
+        );
+        assert.equal(await repo().count({ session_id: "v-cm1" }), 1);
+      });
+
+      it("exists = true/false", async () => {
+        await repo().create(seed("v-ex"));
+        assert.equal(await repo().exists({ session_id: "v-ex" }), true);
+        assert.equal(await repo().exists({ session_id: "v-nope" }), false);
+      });
+
+      it("deleteOne supprime AU PLUS une (true puis false)", async () => {
+        await repo().create(seed("v-del"));
+        assert.equal(await repo().deleteOne({ session_id: "v-del" }), true);
+        assert.equal(await repo().exists({ session_id: "v-del" }), false);
+        assert.equal(await repo().deleteOne({ session_id: "v-del" }), false);
+      });
+
+      it("findOneAndDelete retourne la ligne puis elle disparaît", async () => {
+        await repo().create(seed("v-fad", { user: "popme" }));
+        const row = await repo().findOneAndDelete({ session_id: "v-fad" });
+        assert.equal(row?.session_id, "v-fad");
+        assert.equal(row?.user, "popme");
+        assert.equal(await repo().exists({ session_id: "v-fad" }), false);
+        assert.equal(
+          await repo().findOneAndDelete({ session_id: "v-fad" }),
+          null,
+        );
+      });
+
+      it("increment ajoute un delta atomique (et décrémente) ; null si absent", async () => {
+        await repo().create(seed("v-inc", { updatedAt: 1000 }));
+        const up = await repo().increment(
+          { session_id: "v-inc" },
+          { updatedAt: 5 },
+        );
+        assert.equal(up?.updatedAt, 1005);
+        const down = await repo().increment(
+          { session_id: "v-inc" },
+          { updatedAt: -1000 },
+        );
+        assert.equal(down?.updatedAt, 5);
+        assert.equal(
+          await repo().increment({ session_id: "v-nope" }, { updatedAt: 1 }),
+          null,
+        );
       });
     });
   },

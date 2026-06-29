@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { RequestContext, type IProfilerQuery } from "nodefony";
 import { SessionsService } from "@nodefony/http";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
+import type { IRepository } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
 // L'import du storage déclenche son auto-enregistrement dans le registre http (IoC).
 import DrizzleSessionStorage from "../../nodefony/src/SessionStorage";
@@ -164,6 +166,139 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
     it("filtre par user via WHERE SQL réel", async () => {
       const alice = await storage.listAll({ user: "u-alice" });
       assert.deepEqual(alice.map((r) => r.id).sort(), ["ls-1", "ls-3"]);
+    });
+  });
+
+  // ── Compteur de queries : anti-« trou ORM » (read→write = 1 SELECT) ─────────
+  // Détecte un SELECT redondant dans le cycle de requête. Le SQL paramétré de
+  // chaque requête ORM est capturé via le buffer profiler de l'ALS (même seam
+  // que la debug bar : `RequestContext.get().queries`). Régression : si `write`
+  // refait un findOne d'existence (au lieu de l'UPSERT), le compteur repasse à 2.
+  describe("compteur de queries (anti-trou ORM)", () => {
+    async function capture(fn: () => Promise<void>): Promise<string[]> {
+      const queries: IProfilerQuery[] = [];
+      await RequestContext.run({ requestId: "qcount", queries }, fn);
+      return queries.map((q) => q.sql);
+    }
+    const selects = (sqls: string[]): string[] =>
+      sqls.filter((s) => /^\s*select/i.test(s));
+
+    beforeAll(async () => {
+      await storage.write("qc", {
+        Attributes: { a: 1 },
+        metaBag: {},
+        flashBag: {},
+        user: "qc-user",
+      });
+    });
+
+    it("write seul = 1 requête (UPSERT), 0 SELECT", async () => {
+      const sqls = await capture(async () => {
+        await storage.write("qc", {
+          Attributes: { a: 2 },
+          metaBag: {},
+          flashBag: {},
+          user: "qc-user",
+        });
+      });
+      assert.equal(selects(sqls).length, 0, JSON.stringify(sqls));
+      assert.equal(
+        sqls.length,
+        1,
+        `1 seule requête attendue (UPSERT) : ${JSON.stringify(sqls)}`,
+      );
+    });
+
+    it("un cycle read→write ne fait qu'UN SELECT (pas de check d'existence redondant)", async () => {
+      const sqls = await capture(async () => {
+        await storage.read("qc"); // SELECT #1 — hydratation
+        await storage.write("qc", {
+          Attributes: { a: 3 },
+          metaBag: {},
+          flashBag: {},
+          user: "qc-user",
+        }); // UPSERT (0 SELECT) — plus le 2ᵉ SELECT du findOne d'existence
+      });
+      assert.equal(
+        selects(sqls).length,
+        1,
+        `1 SELECT attendu (doublon de write éliminé) : ${JSON.stringify(sqls)}`,
+      );
+    });
+  });
+
+  // ── Verbes repository Tier 1+2 sur le repo générique (entité session) ───────
+  describe("verbes repository (createMany / exists / deleteOne / findOneAndDelete / increment)", () => {
+    const repo = (): IRepository<SessionRow> =>
+      orm.getRepository<SessionRow>("session");
+    const seed = (
+      id: string,
+      extra: Partial<SessionRow> = {},
+    ): Partial<SessionRow> => {
+      const now = Date.now();
+      return {
+        session_id: id,
+        Attributes: {},
+        flashBag: {},
+        metaBag: {},
+        user: null,
+        createdAt: now,
+        updatedAt: now,
+        ...extra,
+      } as Partial<SessionRow>;
+    };
+
+    it("createMany insère N en une requête (ordre préservé) ; [] = no-op", async () => {
+      assert.deepEqual(await repo().createMany([]), []);
+      const rows = await repo().createMany([seed("v-cm1"), seed("v-cm2")]);
+      assert.deepEqual(
+        rows.map((r) => r.session_id),
+        ["v-cm1", "v-cm2"],
+      );
+      assert.equal(await repo().count({ session_id: "v-cm1" }), 1);
+    });
+
+    it("exists = true/false (sans charger la ligne)", async () => {
+      await repo().create(seed("v-ex"));
+      assert.equal(await repo().exists({ session_id: "v-ex" }), true);
+      assert.equal(await repo().exists({ session_id: "v-nope" }), false);
+    });
+
+    it("deleteOne supprime AU PLUS une (true puis false)", async () => {
+      await repo().create(seed("v-del"));
+      assert.equal(await repo().deleteOne({ session_id: "v-del" }), true);
+      assert.equal(await repo().exists({ session_id: "v-del" }), false);
+      assert.equal(await repo().deleteOne({ session_id: "v-del" }), false);
+    });
+
+    it("findOneAndDelete retourne la ligne supprimée puis elle disparaît", async () => {
+      await repo().create(seed("v-fad", { user: "popme" }));
+      const row = await repo().findOneAndDelete({ session_id: "v-fad" });
+      assert.equal(row?.session_id, "v-fad");
+      assert.equal(row?.user, "popme");
+      assert.equal(await repo().exists({ session_id: "v-fad" }), false);
+      assert.equal(
+        await repo().findOneAndDelete({ session_id: "v-fad" }),
+        null,
+      );
+    });
+
+    it("increment ajoute un delta atomique (et décrémente) ; null si absent", async () => {
+      await repo().create(seed("v-inc", { updatedAt: 1000 }));
+      const up = await repo().increment(
+        { session_id: "v-inc" },
+        { updatedAt: 5 },
+      );
+      assert.equal(up?.updatedAt, 1005);
+      const down = await repo().increment(
+        { session_id: "v-inc" },
+        { updatedAt: -1000 },
+      );
+      assert.equal(down?.updatedAt, 5);
+      assert.equal(
+        await repo().increment({ session_id: "v-nope" }, { updatedAt: 1 }),
+        null,
+      );
     });
   });
 });
