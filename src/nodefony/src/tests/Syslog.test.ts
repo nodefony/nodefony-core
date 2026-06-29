@@ -2237,4 +2237,57 @@ describe("SYSLOG — per-module debug override (runtime, hot)", () => {
     );
     assert.strictEqual(Syslog.severityFromInput("99"), null);
   });
+
+  it("getDebugOverrideExpiry — échéance posée avec ttl, absente sans ttl, nettoyée au clear", () => {
+    vi.useFakeTimers();
+    try {
+      const sl = new Syslog({ moduleName: "T2" });
+      sl.setDebugOverride("A", "DEBUG", 60_000);
+      sl.setDebugOverride("B", "DEBUG"); // permanent (sans ttl)
+      const exp = sl.getDebugOverrideExpiry();
+      assert.ok(exp.A > 0, "A (ttl) a une échéance");
+      assert.strictEqual(exp.B, undefined, "B (permanent) sans échéance");
+      sl.clearDebugOverride("A");
+      assert.deepStrictEqual(
+        sl.getDebugOverrideExpiry(),
+        {},
+        "échéance nettoyée au clear",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("getDebugOverrideExpiry — re-pose PERMANENTE retire l'échéance antérieure", () => {
+    vi.useFakeTimers();
+    try {
+      const sl = new Syslog({ moduleName: "T2" });
+      sl.setDebugOverride("A", "DEBUG", 60_000);
+      assert.ok(sl.getDebugOverrideExpiry().A > 0);
+      sl.setDebugOverride("A", "DEBUG"); // re-pose SANS ttl → redevient permanent
+      assert.strictEqual(sl.getDebugOverrideExpiry().A, undefined);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("override '*' (debug tout) — s'applique à TOUT module, le spécifique prime", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    assert.strictEqual(sl.log("d", "DEBUG", "ANY").status, "DROPPED");
+    // '*' → DEBUG passe pour N'IMPORTE quel module
+    sl.setDebugOverride("*", "DEBUG");
+    assert.strictEqual(sl.log("d", "DEBUG", "ANY").status, "ACCEPTED");
+    assert.strictEqual(sl.log("d", "DEBUG", "OTHER").status, "ACCEPTED");
+    // un override SPÉCIFIQUE prime sur '*' (ici plus restrictif)
+    sl.setDebugOverride("NOISY", "WARNING");
+    assert.strictEqual(
+      sl.log("i", "INFO", "NOISY").status,
+      "DROPPED",
+      "le spécifique prime sur *",
+    );
+    assert.strictEqual(sl.log("w", "WARNING", "NOISY").status, "ACCEPTED");
+    // les autres modules suivent toujours '*'
+    assert.strictEqual(sl.log("d", "DEBUG", "ANY").status, "ACCEPTED");
+  });
 });

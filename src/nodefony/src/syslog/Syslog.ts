@@ -703,6 +703,12 @@ class Syslog extends Event implements ISyslog {
     string,
     ReturnType<typeof setTimeout>
   > | null = null;
+  /**
+   * Échéance (epoch ms) de chaque override TEMPORISÉ — pour exposer le « s'éteint
+   * dans X » au panneau Studio. `null` tant qu'aucun override temporisé ; un
+   * override permanent (sans ttl) n'y figure pas. Nettoyé en miroir du timer.
+   */
+  private _debugOverrideExpiry: Map<string, number> | null = null;
 
   /**
    * Construit le Syslog avec settings (merge default + override user).
@@ -984,6 +990,16 @@ class Syslog extends Event implements ISyslog {
       }, ttlMs);
       timer.unref();
       this._debugOverrideTimers.set(module, timer);
+      if (this._debugOverrideExpiry === null) {
+        this._debugOverrideExpiry = new Map();
+      }
+      this._debugOverrideExpiry.set(module, Date.now() + ttlMs);
+    } else if (this._debugOverrideExpiry !== null) {
+      // (re)pose PERMANENTE → retire une échéance antérieure éventuelle.
+      this._debugOverrideExpiry.delete(module);
+      if (this._debugOverrideExpiry.size === 0) {
+        this._debugOverrideExpiry = null;
+      }
     }
   }
 
@@ -996,6 +1012,12 @@ class Syslog extends Event implements ISyslog {
    */
   clearDebugOverride(module: string): boolean {
     this.clearOverrideTimer(module);
+    if (this._debugOverrideExpiry !== null) {
+      this._debugOverrideExpiry.delete(module);
+      if (this._debugOverrideExpiry.size === 0) {
+        this._debugOverrideExpiry = null;
+      }
+    }
     if (this._debugOverrides === null) {
       return false;
     }
@@ -1015,6 +1037,7 @@ class Syslog extends Event implements ISyslog {
       this._debugOverrideTimers = null;
     }
     this._debugOverrides = null;
+    this._debugOverrideExpiry = null;
   }
 
   /**
@@ -1030,6 +1053,24 @@ class Syslog extends Event implements ISyslog {
     const out: Record<string, number> = {};
     for (const [module, threshold] of this._debugOverrides) {
       out[module] = threshold;
+    }
+    return out;
+  }
+
+  /**
+   * Échéances (epoch ms) des overrides TEMPORISÉS (introspection — countdown
+   * Studio « s'éteint dans X »). `{}` si aucun ; un override permanent (sans ttl)
+   * n'y figure pas.
+   *
+   * @returns map `module → epoch ms d'extinction` (copie).
+   */
+  getDebugOverrideExpiry(): Record<string, number> {
+    if (this._debugOverrideExpiry === null) {
+      return {};
+    }
+    const out: Record<string, number> = {};
+    for (const [module, at] of this._debugOverrideExpiry) {
+      out[module] = at;
     }
     return out;
   }
@@ -1142,7 +1183,11 @@ class Syslog extends Event implements ISyslog {
       if (this._debugOverrides !== null) {
         const key =
           payload instanceof Pdu ? payload.msgid : msgid || this.settings.msgid;
-        const eff = this._debugOverrides.get(key as string);
+        // Override spécifique au module, sinon override GLOBAL `*` (« debug
+        // tout » — réutilise le TTL/auto-extinction des overrides par-module).
+        const eff =
+          this._debugOverrides.get(key as string) ??
+          this._debugOverrides.get("*");
         if (eff !== undefined) {
           threshold = eff;
         }

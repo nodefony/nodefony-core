@@ -776,6 +776,8 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         return {
           globalDebug: syslog.severityEnabled("DEBUG"),
           overrides: syslog.getDebugOverrides(),
+          // Échéances (epoch ms) des overrides temporisés → countdown Studio.
+          expiresAt: syslog.getDebugOverrideExpiry(),
         };
       },
     },

@@ -26,6 +26,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { RealtimeHubContent } from "../components/RealtimeHubContent";
 import { RuntimeModeChip } from "../components/RuntimeModeChip";
+import { DebugRuntimeChip } from "../components/DebugRuntimeChip";
 import { ConnectionOverlay } from "../components/ConnectionOverlay";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import {
@@ -276,7 +277,10 @@ export const AdminLayout = observer(() => {
                 realtime) sont de l'exploitation → un simple user ne les sonde pas
                 (0 fetch, 0 403 console). */}
             {isVisibleForRoles(VIEW_ROLES.devops, auth.roles) ? (
-              <RuntimeModeChip />
+              <>
+                <RuntimeModeChip />
+                <DebugRuntimeChip />
+              </>
             ) : null}
             {/* Nom du bureau actif (change au switch d'espace, route workspace). */}
             {loc.pathname.startsWith("/nodefony/workspace") ? (

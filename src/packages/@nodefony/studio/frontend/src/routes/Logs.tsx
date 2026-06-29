@@ -19,10 +19,11 @@
  */
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "@mantine/core";
+import { Badge, Button } from "@mantine/core";
 import {
   IconActivity,
   IconAdjustments,
+  IconBolt,
   IconBook2,
   IconBroadcast,
   IconBug,
@@ -48,6 +49,7 @@ import {
 import { SyslogConfigPanel } from "./logs/SyslogConfigPanel";
 import { PduDetailDrawer } from "./logs/PduDetailDrawer";
 import { ProfilingTab } from "./logs/ProfilingTab";
+import { DebugTab } from "./logs/DebugTab";
 import type { BackplaneMeta, LogRecord } from "./logs/logsTypes";
 
 type TabId =
@@ -58,6 +60,7 @@ type TabId =
   | "profiling"
   | "files"
   | "doc"
+  | "debug"
   | "config";
 
 /** Onglets valides — garde contre une valeur périmée en sessionStorage. */
@@ -69,6 +72,7 @@ const TAB_IDS: ReadonlySet<string> = new Set<TabId>([
   "profiling",
   "files",
   "doc",
+  "debug",
   "config",
 ]);
 const TAB_KEY = "nf.logs.tab";
@@ -85,6 +89,21 @@ export const Logs = observer(() => {
     [store],
   );
   const { data: meta, loading, error, reload } = useResource(fetcher);
+
+  // État du debug runtime → pastille sur l'onglet « Debug » quand actif.
+  const debugFetcher = useCallback(
+    () =>
+      store.api.getAbsolute<{ overrides: Record<string, number> }>(
+        "/nodefony/kernel/api/log/level",
+      ),
+    [store],
+  );
+  const { data: debugState, reload: reloadDebug } = useResource(debugFetcher);
+  const debugCount = Object.keys(debugState?.overrides ?? {}).length;
+  useEffect(() => {
+    const id = setInterval(reloadDebug, 10_000);
+    return () => clearInterval(id);
+  }, [reloadDebug]);
 
   // Onglet actif PERSISTÉ (sessionStorage) → revenir du Suivi de requête
   // (`/nodefony/logs/trace/:id`) restaure l'onglet au lieu de retomber sur
@@ -237,10 +256,22 @@ export const Logs = observer(() => {
             panel: <FlowLegendDoc />,
           },
           {
+            value: "debug",
+            label: "Debug",
+            icon: <IconBolt size={16} />,
+            badge:
+              debugCount > 0 ? (
+                <Badge size="xs" color="red" circle variant="filled">
+                  {debugCount}
+                </Badge>
+              ) : undefined,
+            panel: <DebugTab onGoLive={() => changeTab("live")} />,
+          },
+          {
             value: "config",
             label: "Config",
             icon: <IconAdjustments size={16} />,
-            panel: <SyslogConfigPanel meta={meta} />,
+            panel: <SyslogConfigPanel meta={meta} onChanged={reload} />,
           },
         ]}
       />

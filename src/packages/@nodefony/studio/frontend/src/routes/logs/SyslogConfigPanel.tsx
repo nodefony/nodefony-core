@@ -14,11 +14,19 @@
  */
 import { Alert, Badge, Code, Text } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
-import { ConfigLayout, type ConfigSection } from "../../components/ui";
+import {
+  ConfigLayout,
+  type ConfigField,
+  type ConfigSection,
+  type EditResult,
+} from "../../components/ui";
+import { useStore } from "../../stores";
 import type { BackplaneMeta } from "./logsTypes";
 
 export interface SyslogConfigPanelProps {
   meta: BackplaneMeta | null;
+  /** Refetch de la méta backplane après un switch live (provenance à jour). */
+  onChanged?: () => void;
 }
 
 /** Valeur de config en monospace. */
@@ -36,7 +44,38 @@ const urlDefined = (
   </Badge>
 );
 
-export function SyslogConfigPanel({ meta }: SyslogConfigPanelProps) {
+export function SyslogConfigPanel({
+  meta,
+  onChanged,
+}: SyslogConfigPanelProps) {
+  const store = useStore();
+
+  // Switch du driver de RELECTURE — MÊME action que la Vue d'ensemble
+  // (POST /backplane/driver, dev-only, atomique) mais présentée ICI, là où le
+  // champ est annoncé « modifiable à chaud » : la confiance n'exclut pas le
+  // contrôle (un champ « live » DOIT porter son contrôle, comme la page Config
+  // globale). Routé par `key` — seul queryDriver est éditable dans ce panneau.
+  const onEdit = async (
+    field: ConfigField,
+    value: unknown,
+  ): Promise<EditResult> => {
+    if (field.key !== "log.queryDriver") {
+      return { ok: false, error: "Champ non éditable ici" };
+    }
+    try {
+      await store.api.postAbsolute("/nodefony/syslog/api/backplane/driver", {
+        name: String(value),
+      });
+      onChanged?.();
+      return { ok: true };
+    } catch (e) {
+      return {
+        ok: false,
+        error: e instanceof Error ? e.message : "switch refusé",
+      };
+    }
+  };
+
   if (!meta) {
     return (
       <Text size="sm" c="dimmed">
@@ -51,6 +90,9 @@ export function SyslogConfigPanel({ meta }: SyslogConfigPanelProps) {
   const has = (n: string) => writable.has(n);
   const queryDriver = meta.activeDriver?.name ?? null;
   const sink = meta.write.sink;
+  // Options du switch = drivers enregistrés (le serveur refuse un nom inconnu).
+  const driverOptions = meta.drivers.map((d) => d.name);
+  const isDev = meta.environment !== "production";
 
   const sections: ConfigSection[] = [
     {
@@ -69,6 +111,8 @@ export function SyslogConfigPanel({ meta }: SyslogConfigPanelProps) {
           mutability: "live",
           description:
             "Destination de RELECTURE (Explorer). Seul réglage modifiable à chaud (dev).",
+          editControl: { kind: "select", options: driverOptions },
+          editValue: queryDriver ?? "memory",
         },
         {
           key: "log.driver",
@@ -156,6 +200,8 @@ export function SyslogConfigPanel({ meta }: SyslogConfigPanelProps) {
       module="@nodefony/core — Syslog (Log Backplane)"
       schema="partial"
       sections={sections}
+      editable={isDev}
+      onEdit={onEdit}
       notice={
         <Alert
           variant="light"
