@@ -1,18 +1,19 @@
 /**
  * **DebugTab** — onglet « Debug » de la page Logs : CONTRÔLE du debug runtime
- * (par module OU global `*`, à chaud, sans redéploiement). Consomme le data-plane
- * `/nodefony/kernel/api/log/level` (GET état · PATCH set/clear).
+ * (par module OU global `*`, à chaud, sans redéploiement) + OBSERVATION couplée.
+ * Consomme `/nodefony/kernel/api/log/level` (GET état · PATCH set/clear) et le
+ * canal WS `syslog:stream` (flux live).
  *
- * Conçu en ZONE DANGER (vrais contrôles, pas un badge « live » sans bouton) :
- * activer élève la verbosité jusqu'à un niveau, avec **auto-extinction** imposée
- * (countdown) — y compris pour « tous les modules » (`*`), qui réutilise le même
- * TTL → un « debug tout » reste borné. Éteindre = un clic.
+ * Conçu en ZONE DANGER (vrais contrôles) avec **couplage action↔observation** :
+ * chaque debug actif = une **carte autonome** (module · niveau · countdown ·
+ * éteindre) qui affiche **son propre flux de logs filtré par `msgid`** qui défile
+ * dedans → on voit l'effet sans changer d'onglet. Auto-extinction imposée (même
+ * pour `*`). Calme : flux borné + `contain` par carte + tail auto-scrollé.
  *
- * Sélection du module : Autocomplete (saisie libre + suggestions = les `msgid`
- * réellement émis dans les logs récents + les overrides actifs) → on n'a pas à
- * connaître le nom exact par cœur. Case « Tous les modules » = wildcard `*`.
+ * Sélection du module : Autocomplete (saisie libre + suggestions = `msgid` réels
+ * des logs récents). Case « Tous les modules » = wildcard `*`.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionIcon,
   Alert,
@@ -24,6 +25,7 @@ import {
   Checkbox,
   Group,
   Loader,
+  ScrollArea,
   Select,
   Stack,
   Text,
@@ -38,8 +40,11 @@ import {
   IconInfoCircle,
   IconPower,
 } from "@tabler/icons-react";
-import { useStore } from "../../stores";
+import { useConnection, useStore } from "../../stores";
 import { useResource } from "../../hooks";
+import { fmtClock, recordMessage, toRecord } from "./logFormat";
+import { SeverityBadge } from "./LogVisuals";
+import type { LogRecord } from "./logsTypes";
 
 /** État du debug runtime (miroir local de `GET /kernel/api/log/level`). */
 interface DebugState {
@@ -60,7 +65,6 @@ const SEVERITY_NAMES = [
   "DEBUG",
 ] as const;
 const sevName = (n: number): string => SEVERITY_NAMES[n] ?? String(n);
-/** Libellé d'un module dans l'UI (`*` = tous). */
 const moduleLabel = (m: string): string =>
   m === "*" ? "Tous les modules (*)" : m;
 
@@ -78,8 +82,12 @@ const TTL_OPTIONS = [
   { value: "3600000", label: "60 minutes" },
 ];
 
-/** Cadence de re-synchro (calme) : capte l'expiration TTL + un toggle externe. */
+/** Cadence de re-synchro de l'état (calme). */
 const POLL_MS = 10_000;
+/** Plafond du flux live conservé côté client (croissance bornée). */
+const MAX_ENTRIES = 400;
+/** Lignes affichées par carte (tail). */
+const TAIL = 60;
 
 /** Réponse minimale de la relecture de logs (pour suggérer les msgid connus). */
 interface LogsSearchLite {
@@ -87,8 +95,8 @@ interface LogsSearchLite {
 }
 
 /**
- * Compte à rebours calme — tick 1 s ISOLÉ dans ce sous-composant (le reste de
- * l'onglet ne re-render pas), `tabular-nums` (0 jitter de largeur).
+ * Compte à rebours calme — tick 1 s ISOLÉ (le reste ne re-render pas),
+ * `tabular-nums`.
  */
 function Countdown({ at }: { at: number | undefined }) {
   const [, force] = useState(0);
@@ -114,16 +122,121 @@ function Countdown({ at }: { at: number | undefined }) {
   );
 }
 
+/**
+ * Carte d'un debug actif = en-tête (module/niveau/countdown/éteindre) + son flux
+ * filtré (`msgid`, ou tout pour `*`) qui défile. Le filtrage/slice est mémoïsé ;
+ * `contain: content` isole le repaint à la carte.
+ */
+function DebugCard({
+  module,
+  level,
+  expireAt,
+  entries,
+  onTurnOff,
+  busy,
+}: {
+  module: string;
+  level: number;
+  expireAt: number | undefined;
+  entries: LogRecord[];
+  onTurnOff: (m: string) => void;
+  busy: boolean;
+}) {
+  const tail = useMemo(() => {
+    const matching =
+      module === "*" ? entries : entries.filter((r) => r.msgid === module);
+    return matching.slice(-TAIL);
+  }, [entries, module]);
+
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const v = viewportRef.current;
+    if (v) v.scrollTo({ top: v.scrollHeight });
+  }, [tail.length]);
+
+  return (
+    <Card
+      withBorder
+      padding="sm"
+      style={{
+        borderColor: "var(--mantine-color-red-4)",
+        contain: "content",
+      }}
+    >
+      <Group justify="space-between" wrap="nowrap" mb="xs">
+        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+          <Badge color="red" variant="filled" tt="none">
+            {moduleLabel(module)}
+          </Badge>
+          <Text size="sm">→ {sevName(level)}</Text>
+          <Countdown at={expireAt} />
+        </Group>
+        <Tooltip label={`Éteindre ${moduleLabel(module)}`}>
+          <ActionIcon
+            variant="light"
+            color="red"
+            aria-label={`Éteindre le debug de ${moduleLabel(module)}`}
+            onClick={() => onTurnOff(module)}
+            loading={busy}
+          >
+            <IconPower size={16} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+      <ScrollArea
+        h={150}
+        viewportRef={viewportRef}
+        type="auto"
+        style={{
+          background: "var(--mantine-color-dark-8)",
+          borderRadius: 6,
+          padding: "4px 8px",
+        }}
+      >
+        {tail.length === 0 ? (
+          <Text size="xs" c="dimmed" py="xs">
+            En attente de logs de ce module…
+          </Text>
+        ) : (
+          <Stack gap={1}>
+            {tail.map((r, i) => (
+              <Group
+                key={`${r.uid}-${i}`}
+                gap={6}
+                wrap="nowrap"
+                align="baseline"
+              >
+                <Text
+                  size="xs"
+                  c="dimmed"
+                  ff="monospace"
+                  style={{ fontVariantNumeric: "tabular-nums", flexShrink: 0 }}
+                >
+                  {fmtClock(r.timeStamp)}
+                </Text>
+                <SeverityBadge severity={r.severityName} />
+                <Text size="xs" truncate ff="monospace">
+                  {recordMessage(r)}
+                </Text>
+              </Group>
+            ))}
+          </Stack>
+        )}
+      </ScrollArea>
+    </Card>
+  );
+}
+
 export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
   const store = useStore();
+  const conn = useConnection();
   const fetcher = useCallback(
     () => store.api.getAbsolute<DebugState>("/nodefony/kernel/api/log/level"),
     [store],
   );
   const { data, loading, error, reload } = useResource(fetcher);
 
-  // Suggestions de modules = msgid réellement émis (best-effort : si la relecture
-  // échoue, l'Autocomplete garde la saisie libre).
+  // Suggestions de modules = msgid réellement émis (best-effort).
   const sugFetcher = useCallback(
     () =>
       store.api.getAbsolute<LogsSearchLite>(
@@ -132,6 +245,28 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
     [store],
   );
   const { data: sug } = useResource(sugFetcher);
+
+  // Flux live partagé (1 abonnement) — chaque carte filtre par msgid.
+  const [entries, setEntries] = useState<LogRecord[]>([]);
+  useEffect(() => {
+    const handler = (raw: unknown) => {
+      if (!raw || typeof raw !== "object") return;
+      const rec = raw as { logs?: unknown[]; dropped?: number };
+      const items = Array.isArray(rec.logs) ? rec.logs : [raw];
+      const views: LogRecord[] = [];
+      for (const d of items) {
+        const r = toRecord(d);
+        if (r) views.push(r);
+      }
+      if (views.length === 0) return;
+      setEntries((prev) => {
+        const next = [...prev, ...views];
+        return next.length > MAX_ENTRIES ? next.slice(-MAX_ENTRIES) : next;
+      });
+    };
+    const dispose = conn.subscribe("syslog:stream", handler);
+    return () => dispose();
+  }, [conn]);
 
   const [allModules, setAllModules] = useState(false);
   const [moduleName, setModuleName] = useState("");
@@ -154,15 +289,15 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
     return [...set].sort();
   }, [sug, data]);
 
-  const target = allModules ? "*" : moduleName.trim();
+  const targetModule = allModules ? "*" : moduleName.trim();
 
   const activate = useCallback(async () => {
-    if (!target) return;
+    if (!targetModule) return;
     setBusy(true);
     setActionError(null);
     try {
       await store.api.patchAbsolute("/nodefony/kernel/api/log/level", {
-        module: target,
+        module: targetModule,
         level: level ?? "DEBUG",
         ttlMs: Number(ttl ?? "900000"),
       });
@@ -173,7 +308,7 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
     } finally {
       setBusy(false);
     }
-  }, [store, target, allModules, level, ttl, reload]);
+  }, [store, targetModule, allModules, level, ttl, reload]);
 
   const turnOff = useCallback(
     async (m: string) => {
@@ -206,28 +341,16 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
         variant="light"
         color="blue"
         icon={<IconInfoCircle size={18} />}
-        title="Ce panneau CONTRÔLE le debug — le flux de logs est dans « Live »"
+        title="Active un debug ciblé — ses logs défilent dans sa carte ci-dessous"
       >
-        Ici tu allumes / éteins la verbosité. Le <b>flux des logs</b> s'affiche
-        dans l'onglet{" "}
+        Chaque debug actif crée une <b>carte avec son propre flux</b> (filtré sur
+        son module). ⚠️ En <b>développement</b>, tout est déjà en DEBUG → activer
+        un module ne change la visibilité qu'en <b>production</b> (logs filtrés à
+        INFO). Le flux complet reste dans l'onglet{" "}
         <Anchor component="button" type="button" onClick={onGoLive} fw={600}>
           Live
         </Anchor>
-        . ⚠️ En <b>développement</b>, tout est déjà en DEBUG → activer un module
-        ne change la visibilité qu'en <b>production</b> (où les logs sont filtrés
-        à INFO). L'effet est donc surtout visible en prod / sur un incident réel.
-      </Alert>
-      <Alert
-        variant="light"
-        color="red"
-        icon={<IconAlertTriangle size={18} />}
-        title="Debug runtime — ce n'est pas anodin"
-      >
-        Élever la verbosité À CHAUD (sans redéploiement) est précieux pour
-        diagnostiquer un incident — mais coûteux : volume de logs, données métier
-        exposées au flux, pression I/O, et bruit qui noie les vraies erreurs.{" "}
-        <b>Auto-extinction imposée</b> (le serveur éteint seul), même pour « tous
-        les modules ». À réserver à une fenêtre de diagnostic.
+        .
       </Alert>
 
       <Card
@@ -275,7 +398,7 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
             leftSection={<IconBug size={16} />}
             onClick={activate}
             loading={busy}
-            disabled={!target}
+            disabled={!targetModule}
           >
             Activer le debug
           </Button>
@@ -294,59 +417,48 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
         ) : null}
       </Card>
 
-      <Card withBorder padding="lg">
-        <Group justify="space-between" mb="sm">
-          <Title order={5}>Debug actif</Title>
-          {data?.globalDebug ? (
-            <Tooltip label="Seuil global = DEBUG (via -d / NF__DEBUG, réglé au boot)">
-              <Badge color="orange" variant="light">
-                DEBUG global actif
-              </Badge>
-            </Tooltip>
-          ) : null}
-        </Group>
-        {loading && !data ? (
-          <Group gap="xs">
-            <Loader size="xs" />
-            <Text size="sm" c="dimmed">
-              Chargement…
-            </Text>
-          </Group>
-        ) : error ? (
-          <Alert color="red" variant="light">
-            {error}
-          </Alert>
-        ) : modules.length === 0 ? (
+      <Group justify="space-between">
+        <Title order={5}>Debug actif</Title>
+        {data?.globalDebug ? (
+          <Tooltip label="Seuil global = DEBUG (via -d / NF__DEBUG, réglé au boot)">
+            <Badge color="orange" variant="light">
+              DEBUG global actif
+            </Badge>
+          </Tooltip>
+        ) : null}
+      </Group>
+
+      {loading && !data ? (
+        <Group gap="xs">
+          <Loader size="xs" />
           <Text size="sm" c="dimmed">
-            Aucun debug ciblé. Tout suit le seuil global.
+            Chargement…
           </Text>
-        ) : (
-          <Stack gap="xs">
-            {modules.map((m) => (
-              <Group key={m} justify="space-between" wrap="nowrap">
-                <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                  <Badge color="red" variant="filled" tt="none">
-                    {moduleLabel(m)}
-                  </Badge>
-                  <Text size="sm">→ {sevName(overrides[m])}</Text>
-                  <Countdown at={expiresAt[m]} />
-                </Group>
-                <Tooltip label={`Éteindre ${moduleLabel(m)}`}>
-                  <ActionIcon
-                    variant="light"
-                    color="red"
-                    aria-label={`Éteindre le debug de ${moduleLabel(m)}`}
-                    onClick={() => turnOff(m)}
-                    loading={busy}
-                  >
-                    <IconPower size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            ))}
-          </Stack>
-        )}
-      </Card>
+        </Group>
+      ) : error ? (
+        <Alert color="red" variant="light">
+          {error}
+        </Alert>
+      ) : modules.length === 0 ? (
+        <Text size="sm" c="dimmed">
+          Aucun debug ciblé. Tout suit le seuil global — active un module
+          ci-dessus pour voir son flux ici.
+        </Text>
+      ) : (
+        <Stack gap="sm">
+          {modules.map((m) => (
+            <DebugCard
+              key={m}
+              module={m}
+              level={overrides[m]}
+              expireAt={expiresAt[m]}
+              entries={entries}
+              onTurnOff={turnOff}
+              busy={busy}
+            />
+          ))}
+        </Stack>
+      )}
     </Stack>
   );
 }
