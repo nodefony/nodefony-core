@@ -62,26 +62,28 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
   une **entité** (`@entity`), un **repository**, un **service CRUD** (`AbstractCrudService`), un **adapter ORM**.
 
 **Passer la main** :
-| Besoin | Skill |
-| ------ | ----- |
-| Scaffolder un module vide (package.json/rollup/tsconfig/structure) | `nodefony-create-module` |
-| Module applicatif avec front Vite (React/Vue/Angular) | `nodefony-create-frontend-module` |
-| Frontend Studio (page/dashboard/composant React) | `nodefony-studio-dev` |
-| Lancer la suite mémoire (avant commit pipeline) | `nodefony-check-memory-health` |
-| Démarrer/redémarrer le serveur dev | `nodefony-start-server` |
-| Conformité RFC HTTP/WS/CORS/cookies | `nodefony-rfc` |
-| Revue sécurité du diff avant commit | `nodefony-security-review` |
-| Typer un truc tordu (utility types, @types/node) | `nodefony-ts-docs` |
-| Charge / stress HTTP+WS | `nodefony-load-test` |
+
+| Besoin                                                             | Skill                             |
+| ------------------------------------------------------------------ | --------------------------------- |
+| Scaffolder un module vide (package.json/rollup/tsconfig/structure) | `nodefony-create-module`          |
+| Module applicatif avec front Vite (React/Vue/Angular)              | `nodefony-create-frontend-module` |
+| Frontend Studio (page/dashboard/composant React)                   | `nodefony-studio-dev`             |
+| Lancer la suite mémoire (avant commit pipeline)                    | `nodefony-check-memory-health`    |
+| Démarrer/redémarrer le serveur dev                                 | `nodefony-start-server`           |
+| Conformité RFC HTTP/WS/CORS/cookies                                | `nodefony-rfc`                    |
+| Revue sécurité du diff avant commit                                | `nodefony-security-review`        |
+| Typer un truc tordu (utility types, @types/node)                   | `nodefony-ts-docs`                |
+| Charge / stress HTTP+WS                                            | `nodefony-load-test`              |
 
 **Déclencher EN PLUS pendant le dev (orchestration — ne pas coder « de mémoire » sur ces sujets)** :
-| Dès que tu touches… | Déclenche AVANT/PENDANT |
-| ------------------- | ----------------------- |
-| HTTP/HTTP2/WS, headers, status, CORS, cookies, framing | **`nodefony-rfc`** (vérifier la RFC EXACTE — IETF/W3C bruts) |
-| un type tordu, une API Node (`node:*`, `NodeJS.Timeout`, streams), un utility type | **`nodefony-ts-docs`** |
-| auth, crypto, secrets, validation d'entrée, surface d'attaque, header de sécurité | **`nodefony-security-review`** + sources OWASP/ANSSI (§10) |
-| Kernel / Container / pipeline request / mémoire | **`nodefony-check-memory-health`** (avant commit) |
-| inspiration architecture (DI, guards, modules) | **`nodefony-nestjs`** (mot-clé « NestJS » uniquement) |
+
+| Dès que tu touches…                                                                | Déclenche AVANT/PENDANT                                      |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| HTTP/HTTP2/WS, headers, status, CORS, cookies, framing                             | **`nodefony-rfc`** (vérifier la RFC EXACTE — IETF/W3C bruts) |
+| un type tordu, une API Node (`node:*`, `NodeJS.Timeout`, streams), un utility type | **`nodefony-ts-docs`**                                       |
+| auth, crypto, secrets, validation d'entrée, surface d'attaque, header de sécurité  | **`nodefony-security-review`** + sources OWASP/ANSSI (§10)   |
+| Kernel / Container / pipeline request / mémoire                                    | **`nodefony-check-memory-health`** (avant commit)            |
+| inspiration architecture (DI, guards, modules)                                     | **`nodefony-nestjs`** (mot-clé « NestJS » uniquement)        |
 
 > Règle : sur RFC, types Node/TS, ou sécurité/vulns, **TOUJOURS** consulter la source/skill — ne jamais
 > trancher de mémoire. Ces skills sont gratuits en tokens tant qu'ils ne se déclenchent pas.
@@ -217,7 +219,7 @@ jq '.symbols | to_entries | map(select(.value.module=="@nodefony/http")) | from_
 | Service injectable (DI `@inject`), Module+hooks, CLI, lazy/cleanup, ALS, config (`defineConfig`/`env`), interfaces, erreurs ; + API core (Kernel/Container/Event/Syslog/Finder)                     | `reference/core.md`                                |
 | Endpoint HTTP/WS (Controller + `@Get`/`@Post`/`@route`), contrat RFC du cycle, certificats TLS, tests d'intégration ; + API/internals pipeline http (Context/Request/Response/sessions/trust-proxy) | `reference/http.md`                                |
 | Router/Resolver/Route, décorateurs (`@IsGranted`/`@RequireScope`/`@Idempotent`/`@Csp`/`@CsrfProtect`…), **admin data plane** (`IAdminApi`/broker) + lien full-stack, vues (Eta)                     | `reference/framework.md`                           |
-| Entité `@entity`, Repository, Service CRUD (`updateOne`/`updateMany`), tx, data plane ORM, multi-dialecte                                                                                           | `reference/orm.md`                                 |
+| Entité `@entity`, Repository (contrat CRUD complet : `upsert`/`createMany`/`exists`/`increment`/`deleteOne`/`findOneAndDelete`…), Service CRUD, tx, data plane ORM, multi-dialecte                  | `reference/orm.md`                                 |
 | Realtime : socket isomorphe, WS, hub, `RealtimeService`, Redis backplane, pont TCP/UDP/SIP                                                                                                          | `reference/realtime.md`                            |
 | Coder AVEC la sécurité (sources normatives, `npm audit`)                                                                                                                                            | `reference/security.md`                            |
 | **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                          | `reference/rfc/` (index `reference/rfc/README.md`) |

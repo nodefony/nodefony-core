@@ -91,9 +91,15 @@ await repo.find(
   },
 ); // RepositoryReadOptions
 await repo.findOne({ id });
+await repo.exists({ id }); // → boolean (SELECT 1 LIMIT 1 ; ≪ findOne!=null / count>0)
 await repo.create({ title: "x", authorId }); // → entité persistée (id/défauts générés)
+await repo.createMany([{ title: "a" }, { title: "b" }]); // → T[] (1 INSERT ; [] = no-op)
+await repo.upsert({ slug }, { title }, { createdAt: now }); // insert|update ATOMIQUE (ON CONFLICT / findOneAndUpdate upsert ; insertOnly posé qu'à la création)
 await repo.updateOne({ id }, { published: true }); // → entité|null (atomique ; pas de `update` unique)
-await repo.delete({ id }); // → number supprimé
+await repo.increment({ id }, { hits: 1, credits: -5 }); // → T|null ($inc / SET f=f+? ; pas de read-modify-write)
+await repo.delete({ id }); // → number supprimé (masse)
+await repo.deleteOne({ id }); // → boolean (AU PLUS une, atomique)
+await repo.findOneAndDelete({ id }); // → T|null (pop atomique : claim-and-remove)
 await repo.count({ published: true });
 ```
 
@@ -233,21 +239,36 @@ connaît plus l'ORM. Valeur de l'abstraction = **swap d'ORM** (un nouvel adapter
 
 **`IRepository<T>`** — CRUD portable. `orm-core/nodefony/interfaces/IRepository.ts:101`
 
-| Méthode           | Signature                                                                                               | Ancrage              |
-| ----------------- | ------------------------------------------------------------------------------------------------------- | -------------------- |
-| `find`            | `(criteria?: Criteria<T>, options?: RepositoryReadOptions): Promise<T[]>`                               | `IRepository.ts:109` |
-| `findOne`         | `(criteria: Criteria<T>, options?): Promise<T \| null>`                                                 | `IRepository.ts:117` |
-| `create`          | `(data: Partial<T>): Promise<T>` (id/défauts générés)                                                   | `IRepository.ts:127` |
-| `updateOne`       | `(criteria, data): Promise<T \| null>` — **atomique** (`UPDATE … RETURNING` / `findOneAndUpdate`)       | `IRepository.ts:144` |
-| `updateMany`      | `(criteria, data): Promise<number>` — masse, renvoie le nb modifié                                      | `IRepository.ts:156` |
-| `delete`          | `(criteria): Promise<number>`                                                                           | `IRepository.ts:164` |
-| `count`           | `(criteria?): Promise<number>`                                                                          | `IRepository.ts:171` |
-| `withTransaction` | `(tx: ITransaction): IRepository<T>` — **vue liée à la tx** (résout « repo non tx-aware », ADR-0003 #4) | `IRepository.ts:182` |
+| Méthode            | Signature                                                                                                                                                                 | Ancrage              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `find`             | `(criteria?, options?: RepositoryReadOptions): Promise<T[]>`                                                                                                              | `IRepository.ts:109` |
+| `findOne`          | `(criteria, options?): Promise<T \| null>`                                                                                                                                | `IRepository.ts:117` |
+| `exists`           | `(criteria): Promise<boolean>` — `SELECT 1 … LIMIT 1` / `exists` (préférer à `findOne!=null` / `count>0`)                                                                 | `IRepository.ts:254` |
+| `create`           | `(data: Partial<T>): Promise<T>` (id/défauts générés)                                                                                                                     | `IRepository.ts:127` |
+| `createMany`       | `(data[]): Promise<T[]>` — 1 `INSERT … VALUES (…),(…)` / `insertMany` ; `[]` = no-op                                                                                      | `IRepository.ts:139` |
+| `upsert`           | `(criteria, update, insertOnly?): Promise<T>` — insert\|update **atomique** (`ON CONFLICT DO UPDATE` / `findOneAndUpdate({upsert})`) ; `insertOnly` posé qu'à la création | `IRepository.ts:177` |
+| `updateOne`        | `(criteria, data): Promise<T \| null>` — **atomique** (`UPDATE … RETURNING` / `findOneAndUpdate`)                                                                         | `IRepository.ts:156` |
+| `updateMany`       | `(criteria, data): Promise<number>` — masse                                                                                                                               | `IRepository.ts:193` |
+| `increment`        | `(criteria, changes): Promise<T \| null>` — `SET f=f+?` / `$inc` (atomique, sans read-modify-write ; delta<0 décrémente)                                                  | `IRepository.ts:206` |
+| `delete`           | `(criteria): Promise<number>` — masse                                                                                                                                     | `IRepository.ts:217` |
+| `deleteOne`        | `(criteria): Promise<boolean>` — AU PLUS une, atomique                                                                                                                    | `IRepository.ts:226` |
+| `findOneAndDelete` | `(criteria): Promise<T \| null>` — pop atomique (`DELETE … RETURNING` / `findOneAndDelete`)                                                                               | `IRepository.ts:236` |
+| `count`            | `(criteria?): Promise<number>`                                                                                                                                            | `IRepository.ts:243` |
+| `withTransaction`  | `(tx: ITransaction): IRepository<T>` — **vue liée à la tx** (résout « repo non tx-aware », ADR-0003 #4)                                                                   | `IRepository.ts:265` |
 
 > ⚠️ **VÉRITÉ COURANTE** : l'API d'écriture est `updateOne` + `updateMany` (pas un `update` unique —
 > les MEMORY/recipes qui écrivent `repo.update(...)` sont **périmés**). `updateOne` est **atomique**
 > (une seule requête) : jamais `UPDATE` puis relecture séparée — la relecture renverrait `null` à tort
 > dès que le critère porte sur un champ modifié.
+
+> 🧭 **Contrat = intersection portable MINIMALE** (SQL∩NoSQL). On n'ajoute un verbe que s'il est
+> (a) portable partout ET (b) supprime un anti-pattern / footgun perf : `exists` (tue le
+> `findOne`-pour-tester), `upsert` + `createMany` (tuent le SELECT-puis-écrire / les N round-trips),
+> `increment` (compteur atomique sans read-modify-write). **HORS contrat** (non portable → trappe
+> `getNativeConnection()` ou module dédié) : agrégats / `GROUP BY` / joins / fenêtrage / full-text, et la
+> **recherche vectorielle** (`@nodefony/vector`). Ne PAS faire de `IRepository` un Prisma : la portabilité
+> « swap d'ORM » EST la valeur. Verbes à forme d'API encore non tranchée (donc absents) : `findPage`
+> (curseur keyset), `upsertMany` (bulk), `stream` (curseur ; bloqué par le driver SYNC better-sqlite3).
 
 **Critères** (`IRepository.ts`) — `Criteria<T>` = `{ [K in keyof T]?: FieldCriteria<T[K]> } & OrmCriteria` :
 typé par champ (`{ email }` doit être `string` si `T.email` l'est) **+** échappatoire `OrmCriteria`
@@ -348,7 +369,10 @@ Exports : `DrizzleOrm`, `DrizzleRepository`, `DrizzleTransaction` (+ types `Driz
 `(db, table, relations, ormName="default")` (`:92`). `#where(criteria)` traduit en `eq/and/gt/inArray/
 like` (`:186`). `#populate` = eager-load **manuel**, 1 requête `IN(...)` par relation (`:249`). Sortie
 = **cast `rows as T[]`** (`:320` — schema-as-code : la ligne EST l'entité, pas de remap générique).
-`updateOne` (`:341`) / `updateMany` (`:362`) / `withTransaction` (`:400`).
+Verbes : `createMany` (`:341`), `updateOne` (`:354`), `upsert` (`:375`, `onConflictDoUpdate`+RETURNING),
+`updateMany` (`:415`), `increment` (`:428`, `SET f=f+?` + rowid LIMIT 1), `deleteOne`/`findOneAndDelete`
+(`:472`/`:477`, `DELETE … rowid LIMIT 1 RETURNING` — helper `#deleteOneReturning`), `exists` (`:512`,
+`SELECT 1 LIMIT 1`), `withTransaction` (`:528`).
 
 **`DrizzleTransaction`** : `BEGIN`/`COMMIT`/`ROLLBACK` **manuels** sur la connexion (unique). `getNative()`
 = le même `db` (1 connexion). savepoint = SQL brut.
@@ -367,7 +391,10 @@ multi-ORM) puis compile schémas/modèles depuis `entityRegistry` (`connection.m
 
 **`MongooseRepository<T>`** — `MongooseRepository.ts:42`. **Ctor** `(model, ormName, session?)` (`:53`).
 `id`→`_id` en critère, sortie `toObject({ virtuals:true })` (expose le virtuel `id` hex). `relations`→
-`populate()`, `$like`→`$regex`. `updateOne` (`:254`)/`updateMany` (`:276`)/`withTransaction` (`:317`).
+`populate()`, `$like`→`$regex`. Verbes : `createMany` (`:254`, `insertMany`), `updateOne` (`:271`),
+`upsert` (`:293`, `findOneAndUpdate({upsert})` + `$setOnInsert`), `updateMany` (`:331`), `increment`
+(`:347`, `$inc`), `deleteOne`/`findOneAndDelete` (`:384`/`:398`), `exists` (`:423`, `Model.exists`),
+`withTransaction` (`:438`).
 
 **`MongooseTransaction`** : wrap `ClientSession` (`session.withTransaction`, managé). savepoint/rollbackTo
 = **no-op** (Mongo n'a pas de savepoints). **Transactions = replica set obligatoire** (standalone = pas de tx).
