@@ -1923,3 +1923,318 @@ describe("SYSLOG — severity entry gate (T2)", () => {
     assert.strictEqual(sl.log("nu").status, "DROPPED");
   });
 });
+
+// Debug runtime PAR MODULE (allumable à chaud) — élève le seuil d'UN module
+// (clé = msgid, = nom du Service émetteur par défaut) sous le gate global, sans
+// reboot, avec auto-extinction TTL. Construit AU-DESSUS du gate T2.
+describe("SYSLOG — per-module debug override (runtime, hot)", () => {
+  it("rallume DEBUG d'UN module sous gate prod, les autres restent gatés", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO"); // gate global = prod
+    assert.strictEqual(sl.log("d", "DEBUG", "FIREWALL").status, "DROPPED");
+    sl.setDebugOverride("FIREWALL", "DEBUG");
+    assert.strictEqual(
+      sl.log("d", "DEBUG", "FIREWALL").status,
+      "ACCEPTED",
+      "le module ciblé passe en DEBUG",
+    );
+    assert.strictEqual(
+      sl.log("d", "DEBUG", "ROUTER").status,
+      "DROPPED",
+      "un autre module n'est PAS affecté",
+    );
+    assert.strictEqual(
+      sl.log("i", "INFO", "ROUTER").status,
+      "ACCEPTED",
+      "le seuil global INFO reste valable ailleurs",
+    );
+  });
+
+  it("clearDebugOverride referme le module + idempotent", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    sl.setDebugOverride("FIREWALL", "DEBUG");
+    assert.strictEqual(sl.log("d", "DEBUG", "FIREWALL").status, "ACCEPTED");
+    assert.strictEqual(sl.clearDebugOverride("FIREWALL"), true);
+    assert.strictEqual(
+      sl.log("d", "DEBUG", "FIREWALL").status,
+      "DROPPED",
+      "retour au seuil global après clear",
+    );
+    assert.strictEqual(
+      sl.clearDebugOverride("FIREWALL"),
+      false,
+      "clear sur un module absent = false",
+    );
+  });
+
+  it("override pré-Pdu : la clé suit le msgid du Pdu construit", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    sl.setDebugOverride("SESSION", "DEBUG");
+    const pdu = new Pdu("pre-built", "DEBUG", "T2", "SESSION", "");
+    assert.strictEqual(sl.log(pdu).status, "ACCEPTED");
+    const other = new Pdu("pre-built", "DEBUG", "T2", "ROUTER", "");
+    assert.strictEqual(sl.log(other).status, "DROPPED");
+  });
+
+  it("getDebugOverrides — snapshot puis retour à {} (lazy null = 0 coût)", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    assert.deepStrictEqual(sl.getDebugOverrides(), {});
+    sl.setDebugOverride("FIREWALL", "DEBUG"); // DEBUG = 7
+    sl.setDebugOverride("SESSION", 7);
+    assert.deepStrictEqual(sl.getDebugOverrides(), {
+      FIREWALL: 7,
+      SESSION: 7,
+    });
+    sl.clearAllDebugOverrides();
+    assert.deepStrictEqual(sl.getDebugOverrides(), {});
+  });
+
+  it("auto-extinction TTL — l'override s'éteint seul après le délai", () => {
+    vi.useFakeTimers();
+    try {
+      const sl = new Syslog({ moduleName: "T2" });
+      sl.setSeverityThreshold("INFO");
+      sl.setDebugOverride("FIREWALL", "DEBUG", 60_000);
+      assert.strictEqual(sl.log("d", "DEBUG", "FIREWALL").status, "ACCEPTED");
+      vi.advanceTimersByTime(60_001);
+      assert.strictEqual(
+        sl.log("d", "DEBUG", "FIREWALL").status,
+        "DROPPED",
+        "le debug ciblé s'est auto-éteint",
+      );
+      assert.deepStrictEqual(sl.getDebugOverrides(), {});
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("re-poser un module ré-arme le timer (pas d'extinction prématurée)", () => {
+    vi.useFakeTimers();
+    try {
+      const sl = new Syslog({ moduleName: "T2" });
+      sl.setSeverityThreshold("INFO");
+      sl.setDebugOverride("FIREWALL", "DEBUG", 60_000);
+      vi.advanceTimersByTime(50_000);
+      sl.setDebugOverride("FIREWALL", "DEBUG", 60_000); // ré-arme à 0
+      vi.advanceTimersByTime(50_000); // 100s cumulés, mais 50s depuis le re-pose
+      assert.strictEqual(
+        sl.log("d", "DEBUG", "FIREWALL").status,
+        "ACCEPTED",
+        "toujours actif car le timer a été ré-armé",
+      );
+      vi.advanceTimersByTime(11_000); // dépasse le 2e délai
+      assert.strictEqual(sl.log("d", "DEBUG", "FIREWALL").status, "DROPPED");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("sans gate global (dev) l'override est sans effet — tout passe déjà", () => {
+    const sl = new Syslog({ moduleName: "T2" }); // pas de setSeverityThreshold → null
+    sl.setDebugOverride("FIREWALL", "INFO");
+    assert.strictEqual(
+      sl.log("d", "DEBUG", "FIREWALL").status,
+      "ACCEPTED",
+      "aucun gate d'entrée → l'override ne restreint rien",
+    );
+  });
+
+  it("reset() purge les overrides et leurs timers", () => {
+    vi.useFakeTimers();
+    try {
+      const sl = new Syslog({ moduleName: "T2" });
+      sl.setSeverityThreshold("INFO");
+      sl.setDebugOverride("FIREWALL", "DEBUG", 60_000);
+      sl.reset();
+      assert.deepStrictEqual(sl.getDebugOverrides(), {});
+      // setSeverityThreshold reposé après reset (reset ne touche pas le gate global)
+      sl.setSeverityThreshold("INFO");
+      assert.strictEqual(
+        sl.log("d", "DEBUG", "FIREWALL").status,
+        "DROPPED",
+        "override bien retiré par reset",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Blanc-box ASSUMÉ : prouve la revendication perf « lazy null = 0 coût hot
+  // path » (le gate teste `_debugOverrides !== null`). Une Map vide non-nulle
+  // ferait payer le hot path pour rien — un test fonctionnel ne l'attraperait
+  // pas. On accède au privé exprès pour verrouiller cet invariant.
+  it("lazy null — null au repos, Map au 1er override, re-null après dernier clear", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    const internal = sl as unknown as {
+      _debugOverrides: unknown;
+      _debugOverrideTimers: unknown;
+    };
+    assert.strictEqual(internal._debugOverrides, null, "null au départ");
+    assert.strictEqual(internal._debugOverrideTimers, null);
+    sl.setDebugOverride("FIREWALL", "DEBUG"); // sans ttl → aucun timer
+    assert.notStrictEqual(
+      internal._debugOverrides,
+      null,
+      "Map allouée au 1er override",
+    );
+    assert.strictEqual(
+      internal._debugOverrideTimers,
+      null,
+      "pas de Map de timers sans ttl",
+    );
+    sl.clearDebugOverride("FIREWALL");
+    assert.strictEqual(
+      internal._debugOverrides,
+      null,
+      "re-null après le dernier clear (0 coût hot path restauré)",
+    );
+  });
+
+  it("lazy null — la Map de timers retombe à null après auto-extinction", () => {
+    vi.useFakeTimers();
+    try {
+      const sl = new Syslog({ moduleName: "T2" });
+      const internal = sl as unknown as {
+        _debugOverrides: unknown;
+        _debugOverrideTimers: unknown;
+      };
+      sl.setDebugOverride("FIREWALL", "DEBUG", 60_000);
+      assert.notStrictEqual(internal._debugOverrideTimers, null);
+      vi.advanceTimersByTime(60_001);
+      assert.strictEqual(
+        internal._debugOverrideTimers,
+        null,
+        "timer purgé après extinction",
+      );
+      assert.strictEqual(internal._debugOverrides, null, "override purgé");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("override = seuil ABSOLU du module (peut RESTREINDRE, pas que rallumer)", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO"); // global : <= INFO(6) passe
+    // Override plus restrictif : ce module bruyant ne passe qu'à WARNING(4)+.
+    sl.setDebugOverride("NOISY", "WARNING");
+    assert.strictEqual(
+      sl.log("i", "INFO", "NOISY").status,
+      "DROPPED",
+      "INFO restreint POUR CE module (override absolu, pas un max)",
+    );
+    assert.strictEqual(sl.log("w", "WARNING", "NOISY").status, "ACCEPTED");
+    assert.strictEqual(
+      sl.log("i", "INFO", "OTHER").status,
+      "ACCEPTED",
+      "les autres modules gardent le seuil global",
+    );
+  });
+
+  it("compteur gated — non incrémenté quand l'override laisse passer", () => {
+    const sl = new Syslog({ moduleName: "T2" });
+    sl.setSeverityThreshold("INFO");
+    sl.log("d", "DEBUG", "FIREWALL"); // gaté
+    assert.strictEqual(sl.gated, 1);
+    sl.setDebugOverride("FIREWALL", "DEBUG");
+    sl.log("d", "DEBUG", "FIREWALL"); // passe via override
+    assert.strictEqual(
+      sl.gated,
+      1,
+      "un log passé par override n'incrémente pas gated",
+    );
+    sl.log("d", "DEBUG", "ROUTER"); // autre module → toujours gaté
+    assert.strictEqual(sl.gated, 2);
+  });
+
+  it("multi-override — extinction TTL sélective (un s'éteint, l'autre reste)", () => {
+    vi.useFakeTimers();
+    try {
+      const sl = new Syslog({ moduleName: "T2" });
+      sl.setSeverityThreshold("INFO");
+      sl.setDebugOverride("FIREWALL", "DEBUG", 30_000);
+      sl.setDebugOverride("SESSION", "DEBUG", 90_000);
+      vi.advanceTimersByTime(31_000); // FIREWALL expiré, SESSION encore actif
+      assert.strictEqual(sl.log("d", "DEBUG", "FIREWALL").status, "DROPPED");
+      assert.strictEqual(sl.log("d", "DEBUG", "SESSION").status, "ACCEPTED");
+      assert.deepStrictEqual(sl.getDebugOverrides(), { SESSION: 7 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("parseDebugSpec — modules simples (DEBUG par défaut)", () => {
+    assert.deepStrictEqual(Syslog.parseDebugSpec("FIREWALL,SESSION"), {
+      global: false,
+      overrides: [
+        { module: "FIREWALL", level: 7 },
+        { module: "SESSION", level: 7 },
+      ],
+    });
+  });
+
+  it("parseDebugSpec — séparateurs virgule/espace mêlés + vides ignorés", () => {
+    assert.deepStrictEqual(Syslog.parseDebugSpec(" FIREWALL ,, SESSION "), {
+      global: false,
+      overrides: [
+        { module: "FIREWALL", level: 7 },
+        { module: "SESSION", level: 7 },
+      ],
+    });
+  });
+
+  it("parseDebugSpec — '*' = debug global, pas d'override", () => {
+    const r = Syslog.parseDebugSpec("*");
+    assert.strictEqual(r.global, true);
+    assert.deepStrictEqual(r.overrides, []);
+  });
+
+  it("parseDebugSpec — MODULE:LEVEL par NOM et par NUMÉRIQUE", () => {
+    // NOTICE = 5 ; "3" (chaîne numérique) doit être coercée en ERROR(3)
+    assert.deepStrictEqual(Syslog.parseDebugSpec("ROUTER:NOTICE,API:3"), {
+      global: false,
+      overrides: [
+        { module: "ROUTER", level: 5 },
+        { module: "API", level: 3 },
+      ],
+    });
+  });
+
+  it("parseDebugSpec — niveau inconnu → DEBUG (tolérant, pas de crash boot)", () => {
+    assert.deepStrictEqual(Syslog.parseDebugSpec("X:bogus"), {
+      global: false,
+      overrides: [{ module: "X", level: 7 }],
+    });
+  });
+
+  it("parseDebugSpec — vide → rien", () => {
+    assert.deepStrictEqual(Syslog.parseDebugSpec(""), {
+      global: false,
+      overrides: [],
+    });
+  });
+
+  it("severityFromInput — noms valides → numéro RFC 5424", () => {
+    assert.strictEqual(Syslog.severityFromInput("DEBUG"), 7);
+    assert.strictEqual(Syslog.severityFromInput("INFO"), 6);
+    assert.strictEqual(Syslog.severityFromInput("ERROR"), 3);
+  });
+
+  it("severityFromInput — numérique (number ET chaîne) dans 0-7", () => {
+    assert.strictEqual(Syslog.severityFromInput(7), 7);
+    assert.strictEqual(Syslog.severityFromInput("3"), 3);
+    assert.strictEqual(Syslog.severityFromInput(0), 0);
+  });
+
+  it("severityFromInput — REJETTE l'invalide → null (pas de fail-open)", () => {
+    assert.strictEqual(Syslog.severityFromInput("NOPE"), null);
+    assert.strictEqual(Syslog.severityFromInput(8), null, "hors plage haute");
+    assert.strictEqual(
+      Syslog.severityFromInput(-1),
+      null,
+      "SPINNER n'est pas un niveau de debug d'entrée",
+    );
+    assert.strictEqual(Syslog.severityFromInput("99"), null);
+  });
+});

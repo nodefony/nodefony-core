@@ -1622,6 +1622,21 @@ class Kernel extends Service implements IKernel {
     this.syslog?.setSeverityThreshold(
       this.environment === "production" && !this.debug ? "INFO" : null,
     );
+    // Debug runtime CIBLÉ via env — lu directement comme NODE_ENV/NODEFONY_CLUSTER
+    // (knob opérationnel framework, PAS config applicative → hors catalogue
+    // env.ts de l'app). `NF__DEBUG=FIREWALL,SESSION:NOTICE` rallume ces modules
+    // au boot ; `*` lève le gate global. Pas de TTL : un restart remet à zéro
+    // (l'opérateur l'a posé sciemment, persistance souhaitée le temps du run).
+    const debugSpec = process.env.NF__DEBUG;
+    if (debugSpec && this.syslog) {
+      const { global, overrides } = Syslog.parseDebugSpec(debugSpec);
+      if (global) {
+        this.syslog.setSeverityThreshold(null);
+      }
+      for (const ov of overrides) {
+        this.syslog.setDebugOverride(ov.module, ov.level);
+      }
+    }
     if (this.cli) {
       return this.cli.initSyslog(this.environment, this.debug);
     } else {

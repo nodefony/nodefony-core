@@ -682,6 +682,27 @@ class Syslog extends Event implements ISyslog {
   private _gatedPdu: Pdu | null = null;
   /** Nombre de logs court-circuités par le gate de sévérité (T2). */
   public gated: number = 0;
+  /**
+   * Overrides de seuil PAR MODULE (clé = `msgid` du Pdu, qui vaut le nom du
+   * Service émetteur par défaut — cf `Service.log`). `null` par défaut → 0 coût
+   * sur le hot path tant qu'aucun debug ciblé n'est actif (RÈGLE perf : lazy
+   * null). Posé à chaud par {@link setDebugOverride} (env `NF__DEBUG` au boot,
+   * endpoint admin, toggle Studio) : élève la verbosité d'UN module sous gate
+   * prod sans toucher les autres ni redémarrer. Consulté dans {@link log} APRÈS
+   * le gate global, AVANT toute allocation.
+   */
+  private _debugOverrides: Map<string, number> | null = null;
+  /**
+   * Timers d'auto-extinction des overrides (clé = même `msgid`). `null` tant
+   * qu'aucun override temporisé n'est armé. Garde-fou anti-oubli : un debug
+   * ciblé ne reste JAMAIS allumé indéfiniment. Timers `unref` (ne tiennent pas
+   * la boucle d'événements en vie) + purgés par {@link clearDebugOverride} /
+   * {@link reset} (RÈGLE perf : pas de timer sans cleanup).
+   */
+  private _debugOverrideTimers: Map<
+    string,
+    ReturnType<typeof setTimeout>
+  > | null = null;
 
   /**
    * Construit le Syslog avec settings (merge default + override user).
@@ -826,6 +847,79 @@ class Syslog extends Event implements ISyslog {
   }
 
   /**
+   * Valide STRICTEMENT une sévérité d'ENTRÉE (nom RFC 5424 ou numérique 0-7) →
+   * numéro, ou `null` si invalide. Pour les surfaces d'entrée (endpoint admin,
+   * env) : un niveau inconnu doit être REJETÉ, jamais silencieusement
+   * réinterprété (≠ {@link toSeverityNumber}, fail-open `-1` pour le hot path).
+   *
+   * @param level - nom (`"DEBUG"`) ou numéro (`7` / `"7"`).
+   * @returns le numéro 0-7, ou `null` si hors plage / nom inconnu.
+   */
+  static severityFromInput(level: string | number): number | null {
+    if (typeof level === "number") {
+      return Number.isInteger(level) && level >= 0 && level <= 7 ? level : null;
+    }
+    if (typeof level === "string") {
+      if (/^\d+$/.test(level)) {
+        const n = Number(level);
+        return n >= 0 && n <= 7 ? n : null;
+      }
+      const v = sysLogSeverity[level as Severity];
+      return typeof v === "number" ? v : null;
+    }
+    return null;
+  }
+
+  /**
+   * Parse une spec `NF__DEBUG` (env runtime) en directives de debug ciblé.
+   * Tokens séparés par virgule/espace :
+   * - `*` → debug GLOBAL (lève le gate de sévérité, tout passe) ;
+   * - `MODULE` → override `MODULE` à DEBUG ;
+   * - `MODULE:LEVEL` → override `MODULE` au niveau `LEVEL` (nom/numérique ;
+   *   inconnu → DEBUG, tolérant : un typo d'env ne doit pas crasher le boot).
+   *
+   * Pur (statique, sans état) → testable seul ; appliqué par le Kernel au boot
+   * via {@link setSeverityThreshold} / {@link setDebugOverride}.
+   *
+   * @param spec - valeur brute de `NF__DEBUG` (ex. `"FIREWALL,SESSION:NOTICE"`).
+   * @returns `{ global, overrides }`.
+   */
+  static parseDebugSpec(spec: string): {
+    global: boolean;
+    overrides: Array<{ module: string; level: number }>;
+  } {
+    const result: {
+      global: boolean;
+      overrides: Array<{ module: string; level: number }>;
+    } = { global: false, overrides: [] };
+    if (typeof spec !== "string") {
+      return result;
+    }
+    for (const token of spec.split(/[,\s]+/)) {
+      if (!token) {
+        continue;
+      }
+      if (token === "*") {
+        result.global = true;
+        continue;
+      }
+      const sep = token.indexOf(":");
+      if (sep === -1) {
+        result.overrides.push({ module: token, level: 7 });
+        continue;
+      }
+      const module = token.slice(0, sep);
+      if (!module) {
+        continue;
+      }
+      // Niveau inconnu → DEBUG (tolérant : un typo d'env ne crashe pas le boot).
+      const lvl = Syslog.severityFromInput(token.slice(sep + 1)) ?? 7;
+      result.overrides.push({ module, level: lvl });
+    }
+    return result;
+  }
+
+  /**
    * T2 — règle (ou lève) le gate d'entrée par sévérité À CHAUD, sans reboot.
    * `null` = plus de gate (tout est créé/poussé, comportement historique) ;
    * `"DEBUG"`/7 = tout passe en restant gateable ; `"INFO"`/6 = défaut prod.
@@ -855,6 +949,106 @@ class Syslog extends Event implements ISyslog {
     return Syslog.toSeverityNumber(severity) <= this._severityThreshold;
   }
 
+  /**
+   * Élève à chaud le seuil de verbosité d'UN module (debug ciblé), sans reboot et
+   * sans toucher aux autres modules. `module` = `msgid` du Pdu (par défaut le nom
+   * du Service émetteur, cf `Service.log`). Effet : tant que l'override est actif,
+   * un log de ce module passe le gate d'entrée jusqu'à `level` (ex. `"DEBUG"`)
+   * alors que le reste reste au seuil global (ex. `"INFO"` en prod).
+   *
+   * Garde-fou : si `ttlMs > 0`, l'override s'auto-éteint après ce délai (timer
+   * `unref`). (Re)poser le même module ré-arme proprement le timer. Sans gate
+   * global actif (`_severityThreshold === null`, ex. dev) l'override est sans
+   * effet — tout passe déjà.
+   *
+   * @param module - identité du module (`msgid` / nom du Service).
+   * @param level - sévérité max laissée passer pour ce module (nom ou numérique).
+   * @param ttlMs - durée de vie en ms (auto-extinction). Omis/≤0 = permanent (déconseillé en prod).
+   */
+  setDebugOverride(
+    module: string,
+    level: Severity | number,
+    ttlMs?: number,
+  ): void {
+    if (this._debugOverrides === null) {
+      this._debugOverrides = new Map();
+    }
+    this._debugOverrides.set(module, Syslog.toSeverityNumber(level));
+    this.clearOverrideTimer(module);
+    if (ttlMs !== undefined && ttlMs > 0) {
+      if (this._debugOverrideTimers === null) {
+        this._debugOverrideTimers = new Map();
+      }
+      const timer = setTimeout(() => {
+        this.clearDebugOverride(module);
+      }, ttlMs);
+      timer.unref();
+      this._debugOverrideTimers.set(module, timer);
+    }
+  }
+
+  /**
+   * Retire l'override de debug ciblé d'un module (et son timer d'auto-extinction).
+   * Retombe à `null` quand le dernier override part (RÈGLE perf : 0 coût hot path).
+   *
+   * @param module - identité du module (`msgid`).
+   * @returns `true` si un override existait et a été retiré.
+   */
+  clearDebugOverride(module: string): boolean {
+    this.clearOverrideTimer(module);
+    if (this._debugOverrides === null) {
+      return false;
+    }
+    const had = this._debugOverrides.delete(module);
+    if (this._debugOverrides.size === 0) {
+      this._debugOverrides = null;
+    }
+    return had;
+  }
+
+  /** Retire TOUS les overrides de debug ciblé + leurs timers (retour à 0 coût). */
+  clearAllDebugOverrides(): void {
+    if (this._debugOverrideTimers !== null) {
+      for (const timer of this._debugOverrideTimers.values()) {
+        clearTimeout(timer);
+      }
+      this._debugOverrideTimers = null;
+    }
+    this._debugOverrides = null;
+  }
+
+  /**
+   * Snapshot des overrides de debug ciblé actifs (introspection — endpoint admin,
+   * toggle Studio). Cold path. `{}` si aucun.
+   *
+   * @returns map `module → seuil numérique` (copie, pas la structure interne).
+   */
+  getDebugOverrides(): Record<string, number> {
+    if (this._debugOverrides === null) {
+      return {};
+    }
+    const out: Record<string, number> = {};
+    for (const [module, threshold] of this._debugOverrides) {
+      out[module] = threshold;
+    }
+    return out;
+  }
+
+  /** Annule + retire le timer d'auto-extinction d'un module (si présent). */
+  private clearOverrideTimer(module: string): void {
+    if (this._debugOverrideTimers === null) {
+      return;
+    }
+    const timer = this._debugOverrideTimers.get(module);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      this._debugOverrideTimers.delete(module);
+      if (this._debugOverrideTimers.size === 0) {
+        this._debugOverrideTimers = null;
+      }
+    }
+  }
+
   get async(): boolean {
     return this._async;
   }
@@ -878,6 +1072,7 @@ class Syslog extends Event implements ISyslog {
   reset(): this {
     this._ring.clear();
     this.removeAllListeners();
+    this.clearAllDebugOverrides();
     return this;
   }
 
@@ -939,7 +1134,20 @@ class Syslog extends Event implements ISyslog {
           : Syslog.toSeverityNumber(
               severity ?? this.settings.defaultSeverity ?? "DEBUG",
             );
-      if (sev > this._severityThreshold) {
+      // Seuil EFFECTIF : global par défaut, ÉLEVÉ pour un module sous debug
+      // ciblé ({@link setDebugOverride}). Lazy : tout le bloc est sauté tant
+      // qu'aucun override n'est posé (0 coût hot path). Clé = msgid (= nom du
+      // Service émetteur par défaut).
+      let threshold = this._severityThreshold;
+      if (this._debugOverrides !== null) {
+        const key =
+          payload instanceof Pdu ? payload.msgid : msgid || this.settings.msgid;
+        const eff = this._debugOverrides.get(key as string);
+        if (eff !== undefined) {
+          threshold = eff;
+        }
+      }
+      if (sev > threshold) {
         this.gated++;
         if (this._gatedPdu === null) {
           this._gatedPdu = createPDU.call(

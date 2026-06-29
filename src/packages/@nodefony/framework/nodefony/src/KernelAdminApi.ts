@@ -345,6 +345,39 @@ function auditConfigChange(
 }
 
 /**
+ * Journalise un changement de debug runtime (catégorie `log`). Même découplage
+ * que {@link auditConfigChange} (résolution par nom, no-op si pas d'audit).
+ */
+function auditLogLevelChange(
+  kernel: IKernel,
+  request: IAdminRequest,
+  module: string,
+  action: "set" | "clear",
+  level: number | null,
+  ttlMs: number | null,
+): void {
+  const container = (
+    kernel as unknown as { container?: { get(name: string): unknown } }
+  ).container;
+  const sink = container?.get("auditService") as
+    { record?: (e: unknown) => void } | undefined;
+  sink?.record?.({
+    category: "log",
+    action: `log.debug.${action}`,
+    outcome: "success",
+    actor: actorLabel(request.user),
+    resource: module,
+    requestId: request.requestId ?? null,
+    metadata: { level, ttlMs },
+  });
+}
+
+/** TTL par défaut d'un debug ciblé ouvert via l'endpoint (15 min). */
+const DEFAULT_DEBUG_TTL_MS = 15 * 60 * 1000;
+/** Plafond dur du TTL (60 min) — borne anti-« debug oublié allumé » en prod. */
+const MAX_DEBUG_TTL_MS = 60 * 60 * 1000;
+
+/**
  * Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`.
  *
  * Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core`
@@ -726,6 +759,92 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             value,
             provenance: "runtime",
           },
+        };
+      },
+    },
+    {
+      // État courant du debug runtime (lecture) : DEBUG global actif ? + overrides
+      // par-module (module → seuil numérique). Alimente le toggle/bandeau Studio.
+      path: "log/level",
+      summary:
+        "Current runtime debug state — global DEBUG flag + active per-module overrides",
+      handler: () => {
+        const syslog = (kernel as unknown as { syslog?: Syslog | null }).syslog;
+        if (!syslog) {
+          return { status: 503, body: { error: "Syslog unavailable" } };
+        }
+        return {
+          globalDebug: syslog.severityEnabled("DEBUG"),
+          overrides: syslog.getDebugOverrides(),
+        };
+      },
+    },
+    {
+      // DEBUG RUNTIME CIBLÉ (à chaud, sans reboot) — surface SENSIBLE mais, à la
+      // différence de `config/{module}`, ACTIVE EN PROD (son but : débugger un
+      // incident sans redéploiement). Garde-fous : (1) RBAC ROLE_NODEFONY_ADMIN
+      // (défaut du producteur) ; (2) PAR MODULE uniquement (la bascule globale
+      // reste l'env `NF__DEBUG`, décidée au boot) ; (3) niveau validé STRICT (422
+      // sinon) ; (4) AUTO-EXTINCTION imposée (ttl défaut + plafonné → un debug
+      // ouvert ici ne reste JAMAIS allumé) ; (5) audité (catégorie `log`).
+      path: "log/level",
+      method: "PATCH",
+      summary:
+        "Turn targeted per-module debug on/off at runtime (prod-safe, auto-expiring, audited)",
+      handler: (request: IAdminRequest) => {
+        const syslog = (kernel as unknown as { syslog?: Syslog | null }).syslog;
+        if (!syslog) {
+          return { status: 503, body: { error: "Syslog unavailable" } };
+        }
+        const body = (request.body ?? {}) as {
+          module?: unknown;
+          level?: unknown;
+          ttlMs?: unknown;
+        };
+        if (typeof body.module !== "string" || body.module.length === 0) {
+          return {
+            status: 400,
+            body: { error: "Missing 'module' (per-module debug only)" },
+          };
+        }
+        const module = body.module;
+        // Clear : level "off" / null / "" → éteindre ce module.
+        if (body.level === "off" || body.level === null || body.level === "") {
+          const cleared = syslog.clearDebugOverride(module);
+          auditLogLevelChange(kernel, request, module, "clear", null, null);
+          return {
+            ok: true,
+            module,
+            cleared,
+            overrides: syslog.getDebugOverrides(),
+          };
+        }
+        // Set : niveau validé STRICT (nom ou numérique 0-7).
+        if (typeof body.level !== "string" && typeof body.level !== "number") {
+          return { status: 400, body: { error: "Missing 'level'" } };
+        }
+        const level = Syslog.severityFromInput(body.level);
+        if (level === null) {
+          return {
+            status: 422,
+            body: { error: "Invalid 'level'", level: body.level },
+          };
+        }
+        // Auto-extinction IMPOSÉE par l'endpoint (≠ core, qui tolère le permanent) :
+        // défaut 15 min, plafond 60 min → jamais de debug oublié allumé en prod.
+        const reqTtl =
+          typeof body.ttlMs === "number" && body.ttlMs > 0
+            ? body.ttlMs
+            : DEFAULT_DEBUG_TTL_MS;
+        const ttlMs = Math.min(reqTtl, MAX_DEBUG_TTL_MS);
+        syslog.setDebugOverride(module, level, ttlMs);
+        auditLogLevelChange(kernel, request, module, "set", level, ttlMs);
+        return {
+          ok: true,
+          module,
+          level,
+          ttlMs,
+          overrides: syslog.getDebugOverrides(),
         };
       },
     },
