@@ -60,8 +60,21 @@ Toutes co-localisées dans `@nodefony/studio/frontend/src/components/ui/` (sauf 
 
 ### `DocLayout` — LE layout docs-site (source unique)
 
-3 colonnes : **nav** (gauche, sticky) | **contenu** (centre, le SEUL à scroller) | **sommaire**
-(droite, sticky, optionnel). Portail et onglet Docs module consomment le MÊME composant → cohérence.
+**Grille FLEXBOX 3 colonnes à largeur fixe** (façon MDN/Docusaurus) : **nav 264px** | **contenu FLEX
+(dominant)** | **sommaire 240px** (optionnel). PAS une `Grid` Mantine proportionnelle (l'ancienne
+md:3/6/3 plafonnait le contenu à 50 % = « centre trop petit »). CSS responsive injecté 1×
+(`ensureDocLayoutStyles`, pattern `ensureDocStyles`) : sous 992px → empilement + sommaire masqué.
+Portail et onglet Docs module consomment le MÊME composant → cohérence.
+
+Deux modes de scroll :
+
+- **`mode="container"` (RECOMMANDÉ — portail + onglet module)** : zone à **hauteur fixe** (`height`,
+  ex `PAGE_CONTENT_HEIGHT`) où **chaque colonne scrolle INDÉPENDAMMENT** (hauteur `--nf-doc-h` posée
+  inline + `.nf-doc-region-col`). **Robuste : 0 dépendance au sticky/scroll de page.** Corrige « menus
+  sans scroll » + « fullscreen médiocre » (le plein écran rend le même flex en `container` plein viewport).
+- **`mode="page"`** : sidebars sticky, le contenu scrolle avec la page. **Fragile** (dépend de
+  `--nf-pageheader-height` publiée + du scroll de `AppShell.Main`) → réservé au cas où on VEUT le scroll
+  de page. Le portail est passé de `page` à `container` pour cette raison.
 
 ```tsx
 <DocLayout
@@ -484,6 +497,17 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
 
 ## Changelog (SemVer)
 
+- **1.3.0** (2026-06-30) — **Refonte ergonomie DocLayout (flexbox 3 colonnes + container par défaut)**.
+  3 plaintes ergo du portail (menus sans scroll, centre trop petit, fullscreen médiocre) = UNE racine :
+  le modèle « scroll de page + sticky » (`Grid` md:3/6/3 → contenu 50 %, sticky fragile dépendant de
+  `--nf-pageheader-height` + scroll `AppShell.Main`). Fix : `DocLayout` passé de `Grid` Mantine à un
+  **flexbox 3 colonnes à largeur fixe** (nav 264 | contenu FLEX dominant | sommaire 240), CSS responsive
+  injecté 1× (`ensureDocLayoutStyles`, hauteurs via `--nf-doc-h` + `.nf-doc-region-col`, empilement +
+  TOC masqué < 992px). Portail `Documentation.tsx` migré `mode="page"` → `mode="container"`
+  `height={PAGE_CONTENT_HEIGHT}` → **chaque colonne scrolle indépendamment** (0 dépendance au sticky),
+  fullscreen = même flex immersif. `ModuleDetail` (déjà `container`) hérite du contenu dominant.
+  **Leçon** : pour un docs-site, préférer **container + flex largeur fixe** au **page + sticky** (ce
+  dernier dépend de trop de variables shell). Gates : typecheck studio 0, transforms Vite 200 (HMR).
 - **1.2.0** (2026-05-28) — **Vitrine « doc Socket » + Registry Vite glob + Backend scan hiérarchique**.
   Création de la première vitrine de doc complète (`docs/realtime/socket/`) :
   7 pages MD (vue-ensemble · architecture · protocole · fan-out · sondes · backplane ·
