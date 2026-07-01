@@ -16,6 +16,7 @@ import { FileSink } from "../syslog/sinks/FileSink";
 import {
   registerLogDriver,
   setActiveLogDriver,
+  getActiveLogDriver,
   getLogDriverFactory,
   listLogDriverFactories,
   type ILogDriverContext,
@@ -24,6 +25,10 @@ import {
   registerBuiltinLogDrivers,
   resolveQueryDriver,
 } from "../syslog/drivers/builtinLogDrivers";
+import {
+  isInKubernetes,
+  shouldWarnPerPodView,
+} from "../service/cluster/podEnvironment";
 import type { ITransport } from "../types/ITransport";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
@@ -2114,6 +2119,29 @@ class Kernel extends Service implements IKernel {
         (urls ? ` (${urls})` : ""),
       "NOTICE",
     );
+    // Garde-fou observabilité MULTI-POD (honnêteté, pas de magie) — émis ICI (boot
+    // complet, logging pleinement opérationnel), pas dans initializeLog (trop tôt).
+    // En Kubernetes, un driver de vue LOCAL (memory/file/cluster-file) ne relit que
+    // CE pod ; le nombre de replicas n'est pas connu du process et la destination
+    // d'agrégation (Loki/OpenSearch) est un secret d'infra (12-factor) → on AVERTIT,
+    // on ne choisit pas. NOTICE (pas WARNING) car mono-pod = faux positif toléré.
+    const logCfg = this.options.log;
+    if (
+      shouldWarnPerPodView(
+        isInKubernetes(),
+        getActiveLogDriver()?.name,
+        Boolean(logCfg?.loki?.url || logCfg?.opensearch?.url),
+      )
+    ) {
+      this.log(
+        `Kubernetes détecté + log.queryDriver="${getActiveLogDriver()?.name}" ` +
+          `(vue PAR POD) : la relecture des logs ne couvre que CE pod. En multi-pod ` +
+          `(replicas > 1), configure log.queryDriver="loki"|"opensearch" (+ URL) ` +
+          `pour une vue globale.`,
+        "NOTICE",
+        "SYSLOG",
+      );
+    }
   }
 
   /**

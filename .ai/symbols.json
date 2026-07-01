@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-01T18:10:53.848Z",
+  "generated": "2026-07-01T19:27:20.586Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 988,
-    "symbols": 2384,
+    "files": 989,
+    "symbols": 2386,
     "classes": 314,
     "interfaces": 628,
     "types": 277,
     "enums": 3,
-    "functions": 636,
+    "functions": 638,
     "constants": 526
   },
   "symbols": {
@@ -3303,6 +3303,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Appelle le fournisseur ORM riche branché (async), ou `null` si aucun driver ne l'a posé. Le résultat est un blob OPAQUE (forme connue de Studio seul). Ne throw pas pour son propre compte : la propa…"
+    },
+    "isInKubernetes": {
+      "name": "isInKubernetes",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/podEnvironment.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Détection de l'environnement d'orchestration (pod Kubernetes). Utilité : un driver de VUE local (logs `memory`/`file`/`cluster-file`, hub realtime `cluster`) ne couvre QUE le process/pod courant. E…"
+    },
+    "shouldWarnPerPodView": {
+      "name": "shouldWarnPerPodView",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/podEnvironment.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide s'il faut AVERTIR que la vue des logs est limitée à un pod. Vrai quand on tourne en Kubernetes (multi-pod possible), que le driver de relecture actif est LOCAL (per-pod), et qu'AUCUNE destin…"
     },
     "ProcessProbe": {
       "name": "ProcessProbe",
@@ -19313,6 +19329,11 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
+      "getActiveLogDriver": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
       "getLogDriverFactory": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -19327,6 +19348,12 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "resolveQueryDriver": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "isInKubernetes": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "shouldWarnPerPodView": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "ITransport": [
@@ -20719,10 +20746,6 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
-      ],
-      "getActiveLogDriver": [
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "collectDevStatus": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
