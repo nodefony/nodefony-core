@@ -138,19 +138,19 @@ unifié HTTP+WS, `logRequest` pluggable, hooks security (`beforeResolve`/`afterA
 
 ### P3 — Logs structurés (85 %)
 
-| #        | Tâche                                    | État                                                                           |
-| -------- | ---------------------------------------- | ------------------------------------------------------------------------------ |
-| ✅ P3.1  | Audit log canonique (1 PDU JSON/req)     | `JsonAuditLogger`                                                              |
-| ✅ P3.2  | Pretty formatter dev                     | `PrettyRequestLogger`                                                          |
-| ✅ P3.3  | Severity selon HTTP status               | `severityFromStatus()`                                                         |
-| ✅ P3.4  | Header redaction (Authz/Cookie)          | flags booléens, valeurs jamais loggées                                         |
-| ✅ P3.5  | Erreur enrichie (cause chain + stack)    | `AuditErrorEntry` récursif                                                     |
-| 🔶 P3.6  | Filtrage par requestId (CLI)             | `Pdu.requestId` livré ; reste le CLI tool (LB.3b)                              |
-| ✅ P3.7  | Mode trace verbose (phase DEBUG)         | `logPhasesVerbose()` opt-in `timing.verbose`, perf-gate (0 coût off), teardown |
-| 🔶 P3.8  | Rate limit logs par requestId            | anti-flood livré ; reste clé par requestId                                     |
-| ✅ P3.9  | WS logs (handshake/close/error + wsId)   | per-message volontairement écarté (hot path)                                   |
-| ⏭️ P3.10 | Transport NCSA/Combined dédié            | absorbé par P3.11 (driver `file`)                                              |
-| 🔶 P3.11 | **Log Backplane** (write↔read pluggable) | LB.W+LB.0→LB.5+LB.4 ✅ ; reste LB.3b CLI. Cf durcissement                      |
+| #        | Tâche                                    | État                                                                                                                                 |
+| -------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| ✅ P3.1  | Audit log canonique (1 PDU JSON/req)     | `JsonAuditLogger`                                                                                                                    |
+| ✅ P3.2  | Pretty formatter dev                     | `PrettyRequestLogger`                                                                                                                |
+| ✅ P3.3  | Severity selon HTTP status               | `severityFromStatus()`                                                                                                               |
+| ✅ P3.4  | Header redaction (Authz/Cookie)          | flags booléens, valeurs jamais loggées                                                                                               |
+| ✅ P3.5  | Erreur enrichie (cause chain + stack)    | `AuditErrorEntry` récursif                                                                                                           |
+| 🔶 P3.6  | Filtrage par requestId (CLI)             | `Pdu.requestId` livré ; reste le CLI tool (LB.3b)                                                                                    |
+| ✅ P3.7  | Mode trace verbose (phase DEBUG)         | `logPhasesVerbose()` opt-in `timing.verbose`, perf-gate (0 coût off), teardown                                                       |
+| 🔶 P3.8  | Rate limit logs par requestId            | anti-flood livré ; reste clé par requestId                                                                                           |
+| ✅ P3.9  | WS logs (handshake/close/error + wsId)   | per-message volontairement écarté (hot path)                                                                                         |
+| ⏭️ P3.10 | Transport NCSA/Combined dédié            | absorbé par P3.11 (driver `file`)                                                                                                    |
+| 🔶 P3.11 | **Log Backplane** (write↔read pluggable) | LB.W+LB.0→LB.5+LB.4 ✅ ; défaut `queryDriver:auto` cluster-aware + garde-fou k8s multi-pod (`83f8b9ff`/`a0408f10`) ; reste LB.3b CLI |
 
 ### P4 — Tests symbiose ✅ (6/6)
 
