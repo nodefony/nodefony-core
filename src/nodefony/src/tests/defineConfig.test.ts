@@ -45,7 +45,7 @@ const GOLDEN_DEFAULTS = {
     buffered: "auto",
     driver: "stdout",
     file: { sync: false },
-    queryDriver: "memory",
+    queryDriver: "auto",
   },
 };
 

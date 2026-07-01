@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-01T17:34:12.033Z",
+  "generated": "2026-07-01T18:10:53.848Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 988,
-    "symbols": 2383,
+    "symbols": 2384,
     "classes": 314,
     "interfaces": 628,
     "types": 277,
     "enums": 3,
-    "functions": 635,
+    "functions": 636,
     "constants": 526
   },
   "symbols": {
@@ -3734,6 +3734,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Options du superviseur de dev."
+    },
+    "resolveQueryDriver": {
+      "name": "resolveQueryDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout le driver de relecture EFFECTIF depuis la valeur demandée et le mode de lancement. La sentinelle `\"auto\"` (défaut du framework) S'ADAPTE : un worker de cluster (process forké) relit via `clu…"
     },
     "registerBuiltinLogDrivers": {
       "name": "registerBuiltinLogDrivers",
@@ -19316,6 +19324,9 @@
         "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
       ],
       "registerBuiltinLogDrivers": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "resolveQueryDriver": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "ITransport": [

@@ -43,13 +43,14 @@ export const env = defineEnv({
   }),
 
   /**
-   * Driver de RELECTURE du log backplane (≠ sink d'écriture). `memory` (ring
+   * Driver de RELECTURE du log backplane (≠ sink d'écriture). `auto` (défaut :
+   * s'adapte au mode — mono → `memory`, cluster → `cluster-file`) | `memory` (ring
    * volatile, dev) | `file` | `cluster-file` | `loki` | `opensearch`. La résolution
    * finale (et le fallback `memory` si la destination est KO) est faite au boot.
    */
   NF_LOG_QUERY_DRIVER: envString({
-    default: "memory",
-    description: "Driver de relecture du log backplane.",
+    default: "auto",
+    description: "Driver de relecture du log backplane (auto|memory|file|…).",
   }),
 
   /**

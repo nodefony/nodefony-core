@@ -19,6 +19,7 @@ import { pduToRecord } from "../syslog/drivers/ILogDriver";
 import { createMemoryLogDriver } from "../syslog/drivers/MemoryLogDriver";
 import { createFileLogDriver } from "../syslog/drivers/FileLogDriver";
 import { createClusterFileLogDriver } from "../syslog/drivers/ClusterFileLogDriver";
+import { resolveQueryDriver } from "../syslog/drivers/builtinLogDrivers";
 import {
   registerLogDriver,
   setActiveLogDriver,
@@ -507,6 +508,29 @@ describe("Log Backplane (LB.2) — driver file JSONL queryable", () => {
       `attendu une fenêtre tronquée, reçu total=${r.total}`,
     );
     assert.strictEqual(r.rows[0]!.payload, "p50"); // le + récent présent, fragment partiel jeté
+  });
+});
+
+describe("Log Backplane (LB.5) — défaut `auto` adapté au mode (resolveQueryDriver)", () => {
+  it("auto + mono-process → memory (0 I/O)", () => {
+    assert.strictEqual(resolveQueryDriver("auto", false), "memory");
+    assert.strictEqual(resolveQueryDriver(undefined, false), "memory");
+  });
+
+  it("auto + worker de cluster → cluster-file (vue unifiée)", () => {
+    assert.strictEqual(resolveQueryDriver("auto", true), "cluster-file");
+    assert.strictEqual(resolveQueryDriver(undefined, true), "cluster-file");
+  });
+
+  it("surcharge explicite respectée — même en cluster (on ne réécrit que le défaut)", () => {
+    // memory choisi EXPRÈS en cluster : non promu (principe de moindre surprise).
+    assert.strictEqual(resolveQueryDriver("memory", true), "memory");
+    assert.strictEqual(resolveQueryDriver("file", true), "file");
+    assert.strictEqual(resolveQueryDriver("loki", true), "loki");
+    assert.strictEqual(
+      resolveQueryDriver("cluster-file", false),
+      "cluster-file",
+    );
   });
 });
 

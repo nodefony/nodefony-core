@@ -60,6 +60,9 @@ export const defaultAppConfig: ResolvedAppConfig = {
     buffered: "auto",
     driver: "stdout",
     file: { sync: false },
-    queryDriver: "memory",
+    // `auto` : le driver de relecture s'adapte au mode de lancement au boot
+    // (mono → `memory` ; worker de cluster → `cluster-file`, vue unifiée). Une
+    // valeur explicite (memory/file/loki/…) surcharge et fige ce choix.
+    queryDriver: "auto",
   },
 };

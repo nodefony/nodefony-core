@@ -26,6 +26,30 @@ function jsonlPath(ctx: ILogDriverContext): string {
   );
 }
 
+/**
+ * Résout le driver de relecture EFFECTIF depuis la valeur demandée et le mode de
+ * lancement. La sentinelle `"auto"` (défaut du framework) S'ADAPTE : un worker de
+ * cluster (process forké) relit via `cluster-file` — vue UNIFIÉE agrégeant les JSONL
+ * de tous les workers — là où `memory` (ring per-worker) ne montrerait qu'un worker
+ * (vue partielle, round-robin trompeur) ; un mono-process reste sur `memory` (0 I/O).
+ *
+ * On n'intervient QUE sur le défaut : toute valeur EXPLICITE (`memory`, `file`,
+ * `loki`, …) est une surcharge de l'opérateur → respectée telle quelle, jamais
+ * réécrite (principe de moindre surprise, 12-factor).
+ *
+ * @param requested - `log.queryDriver` résolu (config app/env) ; `undefined` ou
+ *   `"auto"` = laisser le framework décider.
+ * @param isWorker - process forké d'un cluster (`cluster.isWorker`).
+ * @returns nom du driver de relecture à activer + monter.
+ */
+export function resolveQueryDriver(
+  requested: string | undefined,
+  isWorker: boolean,
+): string {
+  if (requested !== undefined && requested !== "auto") return requested;
+  return isWorker ? "cluster-file" : "memory";
+}
+
 let registered = false;
 
 /**

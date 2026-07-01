@@ -20,7 +20,10 @@ import {
   listLogDriverFactories,
   type ILogDriverContext,
 } from "../syslog/drivers/logDriverRegistry";
-import { registerBuiltinLogDrivers } from "../syslog/drivers/builtinLogDrivers";
+import {
+  registerBuiltinLogDrivers,
+  resolveQueryDriver,
+} from "../syslog/drivers/builtinLogDrivers";
 import type { ITransport } from "../types/ITransport";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
@@ -1550,7 +1553,13 @@ class Kernel extends Service implements IKernel {
       logCfg?.maxStack ??
       (this.environment === "development" ? 2000 : undefined);
     if (maxStack) this.syslog?.setMaxStack(maxStack);
-    const queryDriver = logCfg?.queryDriver ?? "memory";
+    // Défaut `auto` = la vue s'adapte au mode de lancement (mono → `memory` 0 I/O ;
+    // worker de cluster → `cluster-file`, vue unifiée cross-worker). Surcharge
+    // explicite respectée. Résolution pure + testée (`resolveQueryDriver`).
+    const queryDriver = resolveQueryDriver(
+      logCfg?.queryDriver,
+      cluster.isWorker,
+    );
     // Résolution des drivers par FABRIQUES (logDriverRegistry) — AUCUN `if (name === …)`
     // dans le Kernel : les drivers natifs (memory/file/cluster-file/loki/opensearch)
     // s'enregistrent dans `builtinLogDrivers` (idempotent), un userland ajoute le sien

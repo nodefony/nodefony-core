@@ -170,8 +170,10 @@ export interface LogConfig {
   /** Options du sink fichier. */
   file?: LogFileConfig;
   /**
-   * Driver de RELECTURE du log backplane (≠ sink d'écriture).
-   * @default "memory"
+   * Driver de RELECTURE du log backplane (≠ sink d'écriture). `auto` (défaut)
+   * s'adapte au mode : mono → `memory`, worker de cluster → `cluster-file` (vue
+   * unifiée). Toute valeur explicite (`memory`/`file`/`loki`/…) surcharge.
+   * @default "auto"
    * @reactivity boot
    */
   queryDriver?: string;
@@ -300,5 +302,4 @@ export interface ConfigContext<E = Record<string, unknown>> {
  * @typeParam E - forme du catalogue d'env typé (Lot 2).
  */
 export type ConfigInput<E = Record<string, unknown>> =
-  | AppConfigInput
-  | ((ctx: ConfigContext<E>) => AppConfigInput);
+  AppConfigInput | ((ctx: ConfigContext<E>) => AppConfigInput);

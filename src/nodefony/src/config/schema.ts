@@ -72,8 +72,9 @@ const logSchema = z
       .string()
       .optional()
       .describe(
-        "Driver de stockage du backplane de requêtes de log (query plane). " +
-          "Défaut : `memory`.",
+        "Driver de relecture du backplane de log (query plane). Défaut `auto` : " +
+          "s'adapte au mode de lancement (mono → `memory`, worker de cluster → " +
+          "`cluster-file`, vue unifiée). Valeur explicite (memory/file/loki/…) = surcharge.",
       ),
     loki: z
       .object({
