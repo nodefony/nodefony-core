@@ -5,7 +5,7 @@ import {
   type ISecurityConfig,
   type ISecurityConfigInput,
 } from "../config/defineSecurityConfig";
-import { MemoryAuditStore } from "../src/audit/MemoryAuditStore";
+import { getAuditStoreFactory } from "../src/audit/auditStoreRegistry";
 import type { IAuditEvent, IAuditEventDraft } from "../contracts/IAuditEvent";
 import type {
   IAuditQuery,
@@ -15,7 +15,6 @@ import type {
 } from "../contracts/IAuditStore";
 
 const serviceName = "auditService";
-const MS_PER_DAY = 86_400_000;
 const GC_INTERVAL_MS = 3_600_000; // 1 h
 
 /**
@@ -69,12 +68,24 @@ class AuditService extends Service implements IAuditSink {
       this.log("audit service idle — désactivé par la config", "DEBUG");
       return;
     }
+    // Store pluggable résolu par NOM (`audit.driver`) via le registre — le socle
+    // n'embarque que le builtin `memory` ; drizzle/mongoose/redis s'enregistrent
+    // depuis leur module (multi-pod, rétention longue). Convention-frère
+    // `tokenStore.driver` → `getTokenStoreFactory`.
+    const factory = getAuditStoreFactory(config.audit.driver);
+    if (!factory) {
+      this.log(
+        `audit store "${config.audit.driver}" inconnu — audit désactivé (journal de sécurité non collecté)`,
+        "WARNING",
+      );
+      return;
+    }
     this.#enabled = true;
     this.#idPrefix = randomBytes(4).toString("hex");
-    this.#store = new MemoryAuditStore(
-      Date.now,
-      config.audit.retentionDays * MS_PER_DAY,
-    );
+    this.#store = factory({
+      container: this.container as Container,
+      config,
+    });
     // Partage par NOM (data plane P6.15, bridge WS Lot 4) — convention-frère
     // `tokenStore`/`passwordEncoder`.
     this.container?.set("auditStore", this.#store);
@@ -94,7 +105,7 @@ class AuditService extends Service implements IAuditSink {
     });
     this.#gc.start();
     this.log(
-      `audit service ready — store "memory", rétention ${config.audit.retentionDays}j`,
+      `audit service ready — store "${config.audit.driver}", rétention ${config.audit.retentionDays}j`,
       "DEBUG",
     );
   }

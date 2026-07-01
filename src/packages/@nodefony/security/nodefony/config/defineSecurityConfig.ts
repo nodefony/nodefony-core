@@ -699,6 +699,12 @@ const webhooksSchema = z
 const auditSchema = z
   .object({
     enabled: z.boolean().default(true),
+    driver: z
+      .string()
+      .default("memory")
+      .describe(
+        "Backend du journal (résolu via `auditStoreRegistry`). `memory` = per-pod, volatile, borné (défaut) ; `drizzle`/`mongoose`/`redis` = persistant + partagé multi-pod (l'app câble la fabrique + les entités).",
+      ),
     immutable: z
       .boolean()
       .default(true)

@@ -160,6 +160,46 @@ registerIdempotencyStore("drizzle", ({ module }) => {
 >   **1 fresh + 9 in-flight**/round (0 race) + replay/mismatch/in-flight cross-pod. C'est la preuve que
 >   SQLite ne peut pas donner. Prérequis : `docker compose --profile postgres up -d postgres`.
 
+## Journal d'audit Drizzle (P6.18 — audit persistant)
+
+Implémente `IAuditStore` (contrat `@nodefony/security`, `import type` → 0 cycle, approche B) :
+journal de sécurité **append-only** durable + partageable multi-pod, là où `MemoryAuditStore`
+(défaut) est volatile et per-pod. Convention-frère = `DrizzleTokenStore`.
+
+- **`nodefony/entity/auditEventEntity.ts`** : `auditEventTable` (`id` PK, `ts`, `category`/`outcome`
+  `$type`, `action`, contexte NULLABLE `actor`/`resource`/`reason`/`ip`/`userAgent`/`requestId`,
+  `flags`/`metadata` json) + index (`ts`/`category`/`actor`/`requestId`) + `createAuditEntities(orm)`/
+  `registerAuditEntities(orm)` (binding **dynamique**, **avant** connect) + `AuditEventRow`.
+- **`nodefony/src/DrizzleAuditStore.ts`** : `append` = INSERT (immuable) ; `gc(now)` = DELETE des
+  `ts < now-retention` (pas de TTL SQL → GC applicatif) ; **`query` = trappe native** (query builder
+  Drizzle **dialect-agnostique**) — ordre total `(ts DESC, id DESC)`, curseur **composite**
+  `(ts,id) < (cursorTs,cursorId)` (non exprimable en criteria AND-only), `limit+1` = garde `nextBefore`,
+  `count()` pour le total. **Résolveur LAZY** (`() => DrizzleDb|null`, garde `isConnected()`) → `null` =
+  fail-soft (append no-op best-effort, query page vide, gc 0). `DrizzleAuditStore.from(orm, now?, retentionMs?)`.
+- **Sélection** : `security.audit.driver` (défaut `memory`) résolu par `auditStoreRegistry`
+  (`@nodefony/security`). Preuve : `tests/integration/audit-store.test.ts` (**7/7** SQLite — append/query
+  filtres/pagination curseur/collision ms/gc/dégradation).
+
+**Câblage (approche B — l'app, comme token/idempotency) — NON câblé par défaut** (activation =
+décision de déploiement multi-pod) :
+
+```typescript
+// 1) sélection : use("@nodefony/security", { audit: { driver: "drizzle" } })
+// 2) entité (avant orm.connect()) :
+import { registerAuditEntities, DrizzleAuditStore } from "@nodefony/drizzle";
+import { registerAuditStore } from "@nodefony/security";
+registerAuditEntities("default");
+// 3) fabrique (registre security) — résout l'ORM par NOM, lazy via .from :
+registerAuditStore("drizzle", ({ container }) => {
+  const orm = container.get("drizzle")?.getOrm("default");
+  if (!orm) throw new Error("@nodefony/drizzle not loaded");
+  return DrizzleAuditStore.from(orm);
+});
+```
+
+> **Multi-dialecte** : entité `sqliteTable` pour l'instant (le query builder porte tel quel en pg/mysql) ;
+> la variante `createAuditEntities(orm, dialect)` viendra avec le slice multi-dialecte (cf ci-dessous).
+
 ## Portabilité multi-dialecte (chantier — Slice 0 ✅ 2026-06-26)
 
 > **Pourquoi** : un framework doit porter ses entités sur les bases majeures (sqlite dev/test,
@@ -200,4 +240,5 @@ consomme `getNativeConnection`, pas le repository → non bloquant pour le Slice
 - ✅ P7.4 adapter orm-core + ADR-0003 risque #3 résolu.
 - ✅ **P5.9 entité `User` Drizzle** (8 tests : CRUD + finders + tx + défauts). ORM par défaut → fait EN PREMIER (avant Mongoose P5.8).
 - ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests SQLite + **e2e Postgres cross-pod 7/7** (atomicité réelle prouvée).
+- ✅ **Journal d'audit Drizzle (P6.18)** — `IAuditStore` SQL append-only, pagination curseur composite `(ts,id)` via query builder dialect-agnostique, gc rétention, dégradation gracieuse, 7 tests SQLite. Multi-pod pg = slice multi-dialecte. Cf section « Journal d'audit Drizzle ».
 - 🚧 **Portabilité multi-dialecte (chantier, Slice 0 ✅ 2026-06-26)** — `connector.dialect` + `DrizzleOrm` lazy pg + factory d'entité ; **idempotency porté + prouvé sur PG**. Reste : `user`/`token`/`session`/`webauthn` (1 entité/session) puis **mysql** + DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».

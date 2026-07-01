@@ -139,6 +139,19 @@ export type {
 } from "./nodefony/entity/tokenEntity";
 export { DrizzleTokenStore } from "./nodefony/src/DrizzleTokenStore";
 
+// ─── Journal d'audit Drizzle (contrat IAuditStore de @nodefony/security, P6.14) ─
+// Approche B : `import type` seul (0 dép runtime). PAS d'auto-register — l'app
+// câble `registerAuditStore("drizzle", …)` + `registerAuditEntities(orm)`. Append-
+// only + pagination curseur exacte (ts, id) via le query builder dialect-agnostique.
+export {
+  auditEventTable,
+  createAuditEntities,
+  registerAuditEntities,
+  AUDIT_ENTITY_NAMES,
+} from "./nodefony/entity/auditEventEntity";
+export type { AuditEventRow } from "./nodefony/entity/auditEventEntity";
+export { DrizzleAuditStore } from "./nodefony/src/DrizzleAuditStore";
+
 // ─── Store de credentials WebAuthn Drizzle (IWebAuthnCredentialStore, J9) ─────
 // Approche B (idem token) : `import type` seul, PAS d'auto-register. L'app câble
 // `registerWebAuthnStore("drizzle", …)` + `registerWebAuthnCredentialEntity(orm)`.

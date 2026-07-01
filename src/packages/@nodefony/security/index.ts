@@ -80,8 +80,7 @@ class Security extends Module {
   override async onKernelBoot(): Promise<this> {
     const container = this.kernel?.container;
     const registry = container?.get("adminBroker") as
-      | IAdminRegistry
-      | undefined;
+      IAdminRegistry | undefined;
     if (registry && container) {
       registerSecurityAdminApi(registry, container as Container);
       registerUserAdminApi(registry, container as Container);
@@ -239,6 +238,15 @@ export type {
   IAuditQuery,
   IAuditQueryResult,
 } from "./nodefony/contracts/IAuditStore";
+export {
+  registerAuditStore,
+  getAuditStoreFactory,
+  listAuditStores,
+} from "./nodefony/src/audit/auditStoreRegistry";
+export type {
+  AuditStoreFactory,
+  IAuditStoreFactoryContext,
+} from "./nodefony/src/audit/auditStoreRegistry";
 export { recordAudit } from "./nodefony/src/audit/recordAudit";
 export { readAuditContext } from "./nodefony/src/audit/readAuditContext";
 export type { AuditContextInfo } from "./nodefony/src/audit/readAuditContext";

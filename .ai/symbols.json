@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-01T19:27:20.586Z",
+  "generated": "2026-07-01T21:44:03.498Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 989,
-    "symbols": 2386,
-    "classes": 314,
-    "interfaces": 628,
-    "types": 277,
+    "files": 992,
+    "symbols": 2398,
+    "classes": 315,
+    "interfaces": 630,
+    "types": 279,
     "enums": 3,
-    "functions": 638,
-    "constants": 526
+    "functions": 643,
+    "constants": 528
   },
   "symbols": {
     "Cli": {
@@ -5173,6 +5173,47 @@
       "module": "@nodefony/drizzle",
       "description": "JSON Schema introspectable de la config Drizzle — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
     },
+    "AuditEventRow": {
+      "name": "AuditEventRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Forme plate d'une ligne du journal d'audit. Miroir d'`IAuditEvent` avec les champs optionnels rendus explicitement `| null` (colonnes NULLABLE SQL). Le store mappe `null` ↔ `undefined` aux frontières."
+    },
+    "createAuditEntities": {
+      "name": "createAuditEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit les descripteurs d'entités du journal d'audit pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM d…"
+    },
+    "registerAuditEntities": {
+      "name": "registerAuditEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Enregistre les entités du journal d'audit dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée les tables au connect)."
+    },
+    "auditEventTable": {
+      "name": "auditEventTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Table Drizzle du **journal d'audit** `@nodefony/security` (schema-as-code) — implémentation SQL d'`IAuditStore` (append-only, tamper-evident). Driver `better-sqlite3` ; Postgres/MySQL par simple ch…"
+    },
+    "AUDIT_ENTITY_NAMES": {
+      "name": "AUDIT_ENTITY_NAMES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Noms logiques des entités du store (clés de lookup `getRepository`)."
+    },
     "IdempotencyKeyRow": {
       "name": "IdempotencyKeyRow",
       "kind": "interface",
@@ -5475,6 +5516,19 @@
       "implements": [],
       "decorators": [],
       "description": "Service bootable du module `@nodefony/drizzle`. Au boot du kernel (`onBoot`), instancie un {@link DrizzleOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le connecte ; chaque OR…"
+    },
+    "DrizzleAuditStore": {
+      "name": "DrizzleAuditStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "IAuditStore"
+      ],
+      "decorators": [],
+      "description": "Journal d'audit **Drizzle** (driver `better-sqlite3` en test, Postgres/MySQL en prod) — implémentation SQL d'{@link IAuditStore} (append-only, tamper-evident) pour la **rétention longue** et le **p…"
     },
     "DrizzleIdempotencyStore": {
       "name": "DrizzleIdempotencyStore",
@@ -15313,6 +15367,47 @@
       "module": "@nodefony/security",
       "description": "Canal WS du flux live d'audit (P6.14 lot 4). Le préfixe `security:` le place sous le plancher `SECURITY_CHANNEL_POLICY` (ROLE_NODEFONY_ADMIN) du verrou de frame — un user lambda ne peut pas s'y abo…"
     },
+    "IAuditStoreFactoryContext": {
+      "name": "IAuditStoreFactoryContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Registre de **fabriques de stores d'audit** — résout le nom configuré (`security.audit.driver`) vers une instance d'{@link IAuditStore}, SANS coupler le cœur à un backend en dur. Pourquoi : le jour…"
+    },
+    "AuditStoreFactory": {
+      "name": "AuditStoreFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store d'audit pour un nom donné."
+    },
+    "registerAuditStore": {
+      "name": "registerAuditStore",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Enregistre (ou remplace) la fabrique d'un store d'audit. Appelée par le builtin `memory` au chargement, et par les adapters (drizzle/mongoose/redis) pour les leurs."
+    },
+    "getAuditStoreFactory": {
+      "name": "getAuditStoreFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fabrique d'un store par nom, ou `undefined` si inconnu."
+    },
+    "listAuditStores": {
+      "name": "listAuditStores",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
+    },
     "MemoryAuditStore": {
       "name": "MemoryAuditStore",
       "kind": "class",
@@ -17311,6 +17406,10 @@
         "HttpTransport",
         "SyslogTransport"
       ],
+      "IAuditStore": [
+        "DrizzleAuditStore",
+        "MemoryAuditStore"
+      ],
       "IIdempotencyStore": [
         "DrizzleIdempotencyStore",
         "MemoryIdempotencyStore",
@@ -17458,9 +17557,6 @@
       ],
       "IRealtimeConnProbe": [
         "WsConnectionTransport"
-      ],
-      "IAuditStore": [
-        "MemoryAuditStore"
       ],
       "IAuthenticator": [
         "AnonymousAuthenticator",
@@ -17722,6 +17818,7 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
@@ -18115,6 +18212,7 @@
       "DrizzleOrm": [
         "src/modules/mediasoup/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -19979,6 +20077,7 @@
       ],
       "entityRegistry": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
@@ -19997,6 +20096,7 @@
       ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
@@ -20290,6 +20390,20 @@
         "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
         "src/packages/@nodefony/drizzle/nodefony/interfaces/IDrizzleConfig.ts"
       ],
+      "AuditCategory": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
+      "AuditOutcome": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
+      "IAuditEventFlags": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/readAuditContext.ts"
+      ],
       "SqlDialect": [
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
@@ -20340,6 +20454,46 @@
       "IDrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
+      "IAuditEvent": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
+      ],
+      "IAuditQuery": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
+      ],
+      "IAuditQueryResult": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
+      ],
+      "IAuditStore": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
+      ],
+      "DrizzleDb": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
+      ],
+      "auditEventTable": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
+      ],
+      "AuditEventRow": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
+      ],
       "IIdempotencyStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
@@ -20354,12 +20508,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
-      ],
-      "DrizzleDb": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
       ],
       "createIdempotencyTable": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
@@ -21438,22 +21586,6 @@
         "src/packages/@nodefony/security/nodefony/src/voter/RoleVoter.ts",
         "src/packages/@nodefony/security/nodefony/src/voter/ScopeVoter.ts"
       ],
-      "AuditCategory": [
-        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
-      ],
-      "AuditOutcome": [
-        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
-      ],
-      "IAuditEvent": [
-        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
-        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
-      ],
       "IAuditEventDraft": [
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
@@ -21510,6 +21642,7 @@
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
@@ -21543,26 +21676,12 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
-      "MemoryAuditStore": [
+      "getAuditStoreFactory": [
         "src/packages/@nodefony/security/nodefony/service/auditService.ts"
-      ],
-      "IAuditQuery": [
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
-      ],
-      "IAuditQueryResult": [
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
       "IAuditSink": [
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts"
-      ],
-      "IAuditStore": [
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
-        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
       "IUserProvider": [
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
@@ -23435,8 +23554,8 @@
       "IUserRevokedEvent": [
         "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"
       ],
-      "IAuditEventFlags": [
-        "src/packages/@nodefony/security/nodefony/src/audit/readAuditContext.ts"
+      "MemoryAuditStore": [
+        "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts"
       ],
       "AnonymousToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts"
