@@ -867,7 +867,19 @@ const realtimeChannelRuleSchema = z
   .describe("Politique d'autorisation d'un namespace de canaux WS.");
 
 const securityConfigSchema = z.object({
-  encoders: z.record(z.string(), encoderSchema).default({}),
+  // Défaut NON VIDE : un encodeur `default` argon2id (OWASP/RFC 9106). Le pont
+  // config.encoders (firewall.#provisionSharedServices) pose `passwordEncoder` au
+  // container UNIQUEMENT à partir de ces specs — un défaut `{}` laissait l'auth
+  // MORTE dès qu'une app ne configurait pas d'encodeur (régression : les encoders
+  // du banc vivaient dans le module `test` dev-only → absents en production/cluster,
+  // provisionUsers throw au boot). Une app ajoute ses entrées (legacy bcrypt pour la
+  // migration au login…) ; le premier reste le principal.
+  encoders: z
+    .record(z.string(), encoderSchema)
+    .default(() => ({ default: encoderSchema.parse({ type: "argon2id" }) }))
+    .describe(
+      "Chaîne d'encodeurs de mot de passe. 1re entrée = principal (hash à la création), suivantes = legacy en lecture seule (migration au login). Défaut : un argon2id sûr — le firewall en dérive le service `passwordEncoder`.",
+    ),
   roleHierarchy: z
     .record(z.string(), z.array(z.string()))
     .default({})

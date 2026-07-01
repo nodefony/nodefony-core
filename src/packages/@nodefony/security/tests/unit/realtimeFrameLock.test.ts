@@ -631,6 +631,17 @@ describe("firewall.#build / isSecure / provisionShared (boot)", () => {
     assert.ok(container.get("passwordEncoder"));
   });
 
+  it("provisionSharedServices : AUCUN encoders configuré → passwordEncoder argon2id par DÉFAUT (auth vivante en prod)", () => {
+    // Régression prod/cluster : les encoders vivaient dans le module `test`
+    // (dev-only) → absents en production → `passwordEncoder` jamais posé →
+    // provisionUsers throw → boot terminate. Le défaut Zod DOIT poser un encodeur.
+    const { container } = bootFirewall(ZONE, true, {}); // 0 encoders fourni
+    assert.ok(
+      container.get("passwordEncoder"),
+      "le pont config.encoders doit poser passwordEncoder même sans config app",
+    );
+  });
+
   it("provisionSharedServices : rateLimit.enabled → loginThrottler au container", () => {
     const { container } = bootFirewall(ZONE, true, {
       rateLimit: { enabled: true },
