@@ -50,9 +50,9 @@ aucune stratégie de version ; (c) hygiène publish (`files`/`exports`) à cadre
 
 ---
 
-## 4. Modèle cible proposé (à valider)
+## 4. Modèle cible — ⚠️ §4.1 OBSOLÈTE (tranché 2026-07-02 → §6bis : modèle (B) N-packages lockstep)
 
-### 4.1 Mono-distribution `nodefony` à **version unique** (subpaths)
+### 4.1 ~~Mono-distribution `nodefony` à **version unique** (subpaths)~~ — ABANDONNÉ
 
 Les 16 `@nodefony/*` deviennent des **subpaths** d'un seul package : `nodefony/http`,
 `nodefony/framework`, `nodefony/security`, `nodefony/drizzle`, `nodefony/studio`… **UN `package.json`,
@@ -134,11 +134,17 @@ des centaines de Mo).
 
 Le bloqueur n'est pas l'admin-CLI : c'est **`npm i -g` + `npx nodefony create app` → repo qui marche**. Or ça **exige la release** (publier le code framework). Donc **release = prérequis** du CLI d'onboarding.
 
-### POC à mener — MODÈLE DE RELEASE : mono-distrib **vs** N-packages-lockstep
+### ✅ MODÈLE DE RELEASE TRANCHÉ (2026-07-02) : (B) N-packages + changesets `fixed`/lockstep
 
-Le §6.1 et §7.3 penchent mono et écartent changesets « car versioning indépendant ». **À ré-examiner** : changesets a un mode **`fixed`/lockstep** (1 version partout, comme Babel/Jest). Débat **non tranché** → **2 POC témoins, mêmes critères, choix à froid sur preuve.**
+**Décision user 2026-07-02** (ré-audit du plan) : le modèle **(B) N-packages lockstep** est acté ; la
+mono-distrib (A) est **abandonnée**. Raisonnement : la douleur v1→7 = le **versioning croisé**, pas le
+nombre de packages → le lockstep la tue par construction (1 version partout, publication groupée,
+deps internes exactes), SANS l'assemblage `.d.ts` maison (risque #1 du §5), SANS l'union des deps
+tierces dans un seul package (install lean par-package), SANS outillage bespoke. Le scope `@nodefony/*`
+est **conservé tel quel** (0 renommage, 0 changement d'import). Le POC comparatif devient un simple
+**smoke test de VALIDATION** du modèle B (cf infra), à mener avant la release réelle.
 
-| Critère                                    | (A) Mono-distrib `nodefony` subpaths                                        | (B) N-packages + changesets `fixed`                                |
+| Critère (analyse ayant fondé la décision)  | (A) Mono-distrib — abandonnée                                               | (B) N-packages + changesets `fixed` — **ACTÉ**                     |
 | ------------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | 1 version, 0 juggling                      | ✅ (assemblage)                                                             | ✅ (lockstep)                                                      |
 | **Types par subpath**                      | ⚠️ **assemblage `.d.ts` MAISON** (= risque #1 du §5, fragile)               | ✅ **déjà fonctionnels** par package (monorepo typecheck 0)        |
@@ -150,11 +156,19 @@ Le §6.1 et §7.3 penchent mono et écartent changesets « car versioning indép
 
 > ⚠️ Le §7.3 (« changesets moins pertinent ») est **biaisé** : il suppose versioning indépendant. En mode `fixed`, changesets donne **la version unique voulue SANS l'assemblage maison ni le risque de types** — c.-à-d. il **supprime** l'angoisse #1 au lieu de la créer. C'est l'argument central pour (B).
 
-**Ce que mesure le POC** (≤ 1 session/modèle) : un **template témoin** consomme la distrib (**tarball réel** via `npm pack`) → `tsc --noEmit` + boot mini-app sur **sqlite ET pg**. Gagnant = celui qui passe le **smoke test de parité** avec le **moins de code custom** + la **surface de deps la plus propre**.
+### Smoke test de parité (VALIDATION du modèle B — avant la release réelle)
 
-### Smoke test de parité (COMMUN aux 2 modèles) — le gate anti-angoisse
+`npm pack` → install **dossier vierge** → mini-app + `tsc --noEmit` + boot sqlite/pg. **Vert ⇒ `import nodefony` se comporte comme en self-hosted, PROUVÉ.** À câbler en CI (le doute devient une case verte). Plus un POC comparatif (modèle tranché) : c'est la **gate de validation** unique, à mener avant la release (Phase 1.2 recadrée).
 
-`npm pack` → install **dossier vierge** → mini-app + `tsc --noEmit` + boot sqlite/pg. **Vert ⇒ `import nodefony` se comporte comme en self-hosted, PROUVÉ.** À câbler en CI (le doute devient une case verte).
+> ⚠️ **Point d'exécution à couvrir par cette gate** (repéré au terrain 2026-07-02) : 7 packages du
+> cœur (http, framework, security, frontend, realtime, orm-core, user) ont `exports["."].types =
+"./index.ts"` (source TS, pattern anti-race turbo du monorepo) → publiés tels quels, leurs types
+> seraient CASSÉS chez le consommateur (source absente du tarball `files: ["dist"]`). npm ne supporte
+> pas `publishConfig.exports` (pnpm only) ⇒ le pipeline (`scripts/release.mjs`) doit **basculer
+> `exports.types` → `./dist/types/index.d.ts` au moment du pack/publish** (le pattern source reste en
+> dev). `attw` + `tsc` témoin vérifient. Autre piège : npm ≥ 7 **auto-installe les `peerDependencies`**
+> → les adapters lourds (pg/mysql2/mongoose/redis) exigent `peerDependenciesMeta: { optional: true }`
+> pour une install lean.
 
 ### Taille — démystifiée
 
@@ -257,16 +271,18 @@ discussion → relire ce fichier d'abord.
 
 ## Journal des décisions
 
-| Date       | Décision                                                                                                                                                                                                 | Statut                  |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| 2026-05-24 | Périmètre = `src/nodefony` + `src/packages/@nodefony/*` (modules/\* + racine exclus)                                                                                                                     | ✅ acté                 |
-| 2026-05-24 | **Version UNIQUE** + build embarque les dist (fini les N packages indépendants)                                                                                                                          | ✅ acté (vision)        |
-| 2026-05-24 | App utilisateur = **repo dev-ready** (DX du repo de dev, sans source framework)                                                                                                                          | ✅ acté (vision)        |
-| 2026-05-24 | Modèle mono-package subpaths + deps lourdes optionnelles                                                                                                                                                 | 🔶 proposé, à confirmer |
-| 2026-05-24 | Résolution types par `exports[...].types` par subpath + attw + tsc témoin                                                                                                                                | 🔶 proposé              |
-| 2026-05-24 | **Pipeline = script Node** (logique, runnable local) + **GH Action mince** (wrapper)                                                                                                                     | ✅ acté (vision)        |
-| 2026-05-24 | Déclencheur tag `v10.*`/`workflow_dispatch` ; assemblage N→1 = MAISON ; version via commitlint                                                                                                           | 🔶 proposé              |
-| 2026-05-24 | **DoD 10.0.0** = P6 sécu + ORM(core+Drizzle) + cloud-native BASELINE (Dockerfile + env), tout SAUF IA(P12) + média/SIP(P15)                                                                              | ✅ acté                 |
-| 2026-05-24 | Cloud-native gate = **Dockerfile + config par env** seulement (PAS tout P16)                                                                                                                             | ✅ acté                 |
-| 2026-05-24 | **Couche client SIP exclue** de 10.0.0 (avec mediasoup + IA) → 10.x                                                                                                                                      | ✅ acté                 |
-| 2026-05-30 | Audit `private` vérifié terrain : **6** packages `private:true` = http, framework, security, frontend, **realtime**, studio (realtime manquait §3). IA (agent/llm/rag/vector/memory) = `private` absent. | ✅ constaté             |
+| Date       | Décision                                                                                                                                                                                                     | Statut                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| 2026-05-24 | Périmètre = `src/nodefony` + `src/packages/@nodefony/*` (modules/\* + racine exclus)                                                                                                                         | ✅ acté                 |
+| 2026-05-24 | **Version UNIQUE** + build embarque les dist (fini les N packages indépendants)                                                                                                                              | ✅ acté (vision)        |
+| 2026-05-24 | App utilisateur = **repo dev-ready** (DX du repo de dev, sans source framework)                                                                                                                              | ✅ acté (vision)        |
+| 2026-05-24 | Modèle mono-package subpaths + deps lourdes optionnelles                                                                                                                                                     | 🔶 proposé, à confirmer |
+| 2026-05-24 | Résolution types par `exports[...].types` par subpath + attw + tsc témoin                                                                                                                                    | 🔶 proposé              |
+| 2026-05-24 | **Pipeline = script Node** (logique, runnable local) + **GH Action mince** (wrapper)                                                                                                                         | ✅ acté (vision)        |
+| 2026-05-24 | Déclencheur tag `v10.*`/`workflow_dispatch` ; assemblage N→1 = MAISON ; version via commitlint                                                                                                               | 🔶 proposé              |
+| 2026-05-24 | **DoD 10.0.0** = P6 sécu + ORM(core+Drizzle) + cloud-native BASELINE (Dockerfile + env), tout SAUF IA(P12) + média/SIP(P15)                                                                                  | ✅ acté                 |
+| 2026-05-24 | Cloud-native gate = **Dockerfile + config par env** seulement (PAS tout P16)                                                                                                                                 | ✅ acté                 |
+| 2026-05-24 | **Couche client SIP exclue** de 10.0.0 (avec mediasoup + IA) → 10.x                                                                                                                                          | ✅ acté                 |
+| 2026-05-30 | Audit `private` vérifié terrain : **6** packages `private:true` = http, framework, security, frontend, **realtime**, studio (realtime manquait §3). IA (agent/llm/rag/vector/memory) = `private` absent.     | ✅ constaté             |
+| 2026-07-02 | **MODÈLE DE RELEASE = (B) N-packages + changesets `fixed`/lockstep** ; mono-distrib (A) abandonnée ; scope `@nodefony/*` conservé ; POC comparatif → recadré en **smoke test de validation** (avant release) | ✅ acté                 |
+| 2026-07-02 | Pipeline publish : bascule `exports.types` source→`dist/types` au pack (7 packages cœur) + `peerDependenciesMeta.optional` sur adapters lourds                                                               | ✅ acté (contrainte)    |
