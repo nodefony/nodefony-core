@@ -36,6 +36,14 @@ import WebsocketContext from "./nodefony/src/context/websocket/WebsocketContext"
 import HttpRequest from "./nodefony/src/context/http/Request";
 import Http2Request from "./nodefony/src/context/http2/Request";
 
+// Augmente le registre de config des modules → `use("@nodefony/http", { … })`
+// propose les clés typées (rateLimit, session, securityHeaders…) en complétion.
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/http": IHttpConfigInput;
+  }
+}
+
 @services([
   HttpKernel,
   Certificate,
@@ -103,8 +111,7 @@ class Http extends Module {
    */
   override async onKernelBoot(): Promise<this> {
     const registry = this.kernel?.container?.get("adminBroker") as
-      | IAdminRegistry
-      | undefined;
+      IAdminRegistry | undefined;
     if (registry && !registry.has("http")) {
       registry.register(createHttpAdminApi(this));
     }
@@ -180,6 +187,15 @@ export type {
   DomainPattern,
   TrustedHostsConfig,
 } from "./nodefony/src/context/domainMatcher";
+
+// Rate-limit général par IP (P0.3) — store mémoire (fixed window) + contrat
+// pluggable (un store distribué Redis pourra l'implémenter sans cycle).
+export { MemoryRateLimitStore } from "./nodefony/src/rateLimit/MemoryRateLimitStore";
+export type {
+  IRateLimitStore,
+  IRateLimitOptions,
+  RateLimitVerdict,
+} from "./nodefony/src/rateLimit/IRateLimitStore";
 
 export {
   Context,

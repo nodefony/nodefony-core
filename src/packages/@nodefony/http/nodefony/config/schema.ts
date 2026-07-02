@@ -737,6 +737,55 @@ const sessionSchema = z
       "files (défaut) · drizzle · mongoose.",
   );
 
+// ───────────────────────────── rateLimit (strict) ───────────────────────────
+// Rate-limit GÉNÉRAL par IP des requêtes HTTP entrantes (P0.3). À NE PAS
+// confondre avec `security.rateLimit` = backoff de LOGIN anti-bruteforce (NIST,
+// par identifiant saisi). Ici : plafond de trafic par IP cliente, sur TOUTES les
+// routes, en-têtes `X-RateLimit-*` + `429` (RFC 6585). Désactivé par défaut
+// (cloud-native : souvent délégué à l'ingress/gateway ; opt-in explicite).
+const rateLimitSchema = z
+  .object({
+    enabled: meta(z.boolean().default(false), {
+      runtimeMutable: true,
+      description:
+        "Active le rate-limit général par IP. Défaut false (opt-in : coût " +
+        "hot-path + souvent délégué à l'infra en cloud-native). Éditable à " +
+        "chaud (HttpKernel reconstruit le compteur).",
+    }),
+    windowS: meta(z.number().int().positive().default(60), {
+      runtimeMutable: true,
+      description:
+        "Largeur de la fenêtre fixe, en secondes. Le compteur par IP repart à " +
+        "zéro à chaque fenêtre. Défaut 60 s.",
+    }),
+    max: meta(z.number().int().positive().default(300), {
+      runtimeMutable: true,
+      description:
+        "Nombre max de requêtes par IP et par fenêtre. Au-delà : `429` + " +
+        "`Retry-After`. Défaut 300 / 60 s (≈ 5 req/s soutenu). À ajuster selon " +
+        "l'application.",
+    }),
+    maxTracked: meta(z.number().int().min(1000).default(100_000), {
+      description:
+        "Borne mémoire : nombre max d'IP suivies simultanément. Au cap, purge " +
+        "des fenêtres expirées puis éviction FIFO. Défaut 100 000.",
+    }),
+    gcIntervalS: meta(z.number().int().positive().default(300), {
+      description:
+        "Intervalle (s) du balayage de purge des fenêtres expirées, hors " +
+        "hot-path (GcScheduler du core). Défaut 300 s.",
+    }),
+    gcJitter: meta(z.boolean().default(true), {
+      description:
+        "Étale le tick GC d'un jitter aléatoire (anti-thundering-herd multi-" +
+        "pod). Défaut true.",
+    }),
+  })
+  .describe(
+    "Rate-limit général par IP des requêtes HTTP (P0.3) — distinct du backoff " +
+      "de login de @nodefony/security. En-têtes `X-RateLimit-*` + `429` (RFC 6585).",
+  );
+
 // ───────────────────────── racine ───────────────────────────────────────────
 
 export const httpConfigSchema = z
@@ -819,6 +868,7 @@ export const httpConfigSchema = z
       ),
     statics: staticsSchema.default(() => staticsSchema.parse({})),
     session: sessionSchema.default(() => sessionSchema.parse({})),
+    rateLimit: rateLimitSchema.default(() => rateLimitSchema.parse({})),
   })
   .describe("Configuration de @nodefony/http.");
 

@@ -11,6 +11,7 @@ import {
   //inject,
   nodefonyError,
   RequestContext,
+  GcScheduler,
 } from "nodefony";
 import type { Resolver, Router } from "@nodefony/framework";
 import type { Controller } from "@nodefony/framework";
@@ -20,6 +21,8 @@ import {
   type TrustProxyChecker,
   type TrustProxyConfig,
 } from "../src/context/trustProxy";
+import { resolveForwarded } from "../src/context/forwarded";
+import { MemoryRateLimitStore } from "../src/rateLimit/MemoryRateLimitStore";
 import {
   compileTrustedHosts,
   compileDomainPatterns,
@@ -65,6 +68,16 @@ interface SecurityHeadersConfig {
     includeSubDomains: boolean;
     preload: boolean;
   } | null;
+}
+
+/** Shape de `options.rateLimit` (cf `config/schema.ts` → `rateLimitSchema`). */
+interface RateLimitConfig {
+  enabled: boolean;
+  windowS: number;
+  max: number;
+  maxTracked: number;
+  gcIntervalS: number;
+  gcJitter: boolean;
 }
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
@@ -182,6 +195,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     string,
     { disabled: boolean; extra: RegExp[] }
   > = Object.create(null);
+  // Rate-limit général par IP (P0.3) — lazy null : 0 alloc, 0 coût sur le hot
+  // path quand désactivé (défaut). Construit au boot depuis options.rateLimit si
+  // `enabled`, purgé hors hot-path par le GcScheduler du core, reconstruit sur
+  // édition live de la config (onConfigChanged).
+  private rateLimiter: MemoryRateLimitStore | null = null;
+  private rateLimitGc: GcScheduler | null = null;
   constructor(module: Module) {
     super(
       serviceName,
@@ -244,6 +263,40 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     this.trustedHosts = (this.options as { trustedHosts?: TrustedHostsConfig })
       ?.trustedHosts;
     this.regAlias = this.compileAlias();
+    // Rate-limit : enabled / windowS / max sont `runtimeMutable` → reconstruit le
+    // compteur et réarme (ou désarme) le GC depuis la nouvelle config.
+    this.configureRateLimit();
+  }
+
+  /**
+   * (Re)configure le rate-limit général par IP depuis `options.rateLimit` — au
+   * boot (`onReady`) ET à chaque édition live ({@link onConfigChanged}). Désarme
+   * le GC précédent puis reconstruit compteur + scheduler UNIQUEMENT si
+   * `enabled` ; sinon `rateLimiter` reste `null` → 0 coût sur le hot path.
+   */
+  private configureRateLimit(): void {
+    // Désarme un éventuel scheduler précédent (reconfiguration / passage à off).
+    this.rateLimitGc?.stop();
+    this.rateLimitGc = null;
+    const cfg = (this.options as { rateLimit?: RateLimitConfig }).rateLimit;
+    if (!cfg?.enabled) {
+      this.rateLimiter = null;
+      return;
+    }
+    this.rateLimiter = new MemoryRateLimitStore({
+      windowMs: cfg.windowS * 1000,
+      max: cfg.max,
+      maxTracked: cfg.maxTracked,
+    });
+    // Maintenance déterministe HORS hot-path : purge les fenêtres expirées. Le
+    // store s'auto-borne déjà (éviction FIFO au cap) → le GC est un complément.
+    this.rateLimitGc = new GcScheduler({
+      intervalS: cfg.gcIntervalS,
+      jitter: cfg.gcJitter !== false,
+      run: () => this.rateLimiter?.gc() ?? 0,
+      onError: (e) => this.log(e as Error, "WARNING", "RATELIMIT-GC"),
+    });
+    this.rateLimitGc.start();
   }
 
   async init(): Promise<this> {
@@ -262,6 +315,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // Profiler dev-only — null si non enregistré (prod). Container.get
       // renvoie null pour un service absent (pas de throw).
       this.profiler = this.get<Profiler>("profiler");
+      // Rate-limit général par IP (P0.3) — armé si options.rateLimit.enabled.
+      this.configureRateLimit();
+    });
+    // Désarme le GC du rate-limit à l'arrêt (le GcScheduler `unref` déjà, mais on
+    // stoppe proprement pour les restarts DevSupervisor / les tests).
+    this.once("onTerminate", () => {
+      this.rateLimitGc?.stop();
     });
     this.kernel?.prependOnceListener("onBoot", () => {
       this.router = this.get<Router>("router");
@@ -671,6 +731,39 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
     if (this.secHsts !== null && (type === "https" || type === "http2")) {
       response.setHeader("Strict-Transport-Security", this.secHsts);
+    }
+    // Rate-limit général par IP (P0.3) — AVANT le pipeline : un flood est rejeté
+    // ici SANS allouer le context / le scope DI / l'ALS (coût = 1 lookup Map).
+    // Lazy null → 0 coût quand désactivé (défaut). L'IP est résolue EXACTEMENT
+    // comme pour l'audit/les logs (forwarded-aware, RFC 7239 + XFF) → même clé de
+    // comptage, non spoofable tant que `trustProxy` n'accorde pas sa confiance.
+    if (this.rateLimiter !== null) {
+      const ip = resolveForwarded(
+        request.headers,
+        request.socket?.remoteAddress,
+        this.getTrustProxyChecker(),
+      ).clientIp;
+      // ip null = aucun socket réel fiable → on ne compte pas (ne JAMAIS agréger
+      // tout le trafic sous une même clé null, qui deviendrait un point de DoS).
+      if (ip !== null) {
+        const verdict = this.rateLimiter.hit(ip);
+        response.setHeader("X-RateLimit-Limit", verdict.limit);
+        response.setHeader("X-RateLimit-Remaining", verdict.remaining);
+        response.setHeader(
+          "X-RateLimit-Reset",
+          Math.ceil(verdict.resetAtMs / 1000),
+        );
+        if (verdict.limited) {
+          response.setHeader("Retry-After", verdict.retryAfterS);
+          // L'union ServerResponse|Http2ServerResponse rend `writeHead`/`end`
+          // non appelables (TS2349 : surcharges incompatibles entre membres). Le
+          // mode compat HTTP/2 expose la même API que HTTP/1 → cast sûr.
+          const res = response as http.ServerResponse;
+          res.writeHead(429);
+          res.end();
+          return;
+        }
+      }
     }
     // ROUTER-FIRST (façon Express) : le static n'est PLUS tenté en amont — il est
     // devenu un FALLBACK du 404 dans `handleHttp` (après le route-match). Le point

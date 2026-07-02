@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-01T21:44:03.498Z",
+  "generated": "2026-07-02T20:27:28.648Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 992,
-    "symbols": 2398,
-    "classes": 315,
-    "interfaces": 630,
+    "files": 994,
+    "symbols": 2404,
+    "classes": 316,
+    "interfaces": 635,
     "types": 279,
     "enums": 3,
     "functions": 643,
@@ -14628,6 +14628,46 @@
       "module": "@nodefony/http",
       "description": "Valeurs par défaut d'un modèle d'introspection (complété par la commande)."
     },
+    "RateLimitVerdict": {
+      "name": "RateLimitVerdict",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Contrat d'un compteur de **rate-limit général par IP** (P0.3) et son verdict. À NE PAS confondre avec `security.rateLimit` (backoff de LOGIN NIST, par identifiant saisi). Ici : plafond de trafic pa…"
+    },
+    "IRateLimitOptions": {
+      "name": "IRateLimitOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Options de construction d'un {@link IRateLimitStore}."
+    },
+    "IRateLimitStore": {
+      "name": "IRateLimitStore",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Compteur de rate-limit par clé (IP). Implémentation par défaut : {@link import(\"./MemoryRateLimitStore\").MemoryRateLimitStore} (fenêtre fixe, en mémoire)."
+    },
+    "MemoryRateLimitStore": {
+      "name": "MemoryRateLimitStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [
+        "IRateLimitStore"
+      ],
+      "decorators": [],
+      "description": "Store de rate-limit **en mémoire** — algorithme *fixed window* par clé (IP). Une entrée par IP `{ count, resetAt }` ; à l'expiration de la fenêtre le compteur repart à zéro (mutation in-place, 0 al…"
+    },
     "Session": {
       "name": "Session",
       "kind": "class",
@@ -17544,6 +17584,9 @@
       "ICookieInterface": [
         "Cookie"
       ],
+      "IRateLimitStore": [
+        "MemoryRateLimitStore"
+      ],
       "ISession": [
         "Session"
       ],
@@ -18387,6 +18430,7 @@
       "GcScheduler": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotencyGc.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
@@ -21205,6 +21249,14 @@
       "TrustProxyConfig": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
+      "resolveForwarded": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "MemoryRateLimitStore": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
       "compileTrustedHosts": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
@@ -23407,6 +23459,15 @@
       "HttpRsponseType": [
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts"
       ],
+      "IRateLimitOptions": [
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
+      ],
+      "IRateLimitStore": [
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
+      ],
+      "RateLimitVerdict": [
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
+      ],
       "CookieOptionsType": [
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
@@ -23717,10 +23778,6 @@
       ],
       "IUploadOptions": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
-      ],
-      "resolveForwarded": [
-        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "hasForwardingHeaders": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
