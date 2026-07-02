@@ -1,13 +1,13 @@
 {
-  "generated": "2026-07-02T20:27:28.648Z",
+  "generated": "2026-07-02T21:38:07.869Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 994,
-    "symbols": 2404,
+    "symbols": 2405,
     "classes": 316,
     "interfaces": 635,
-    "types": 279,
+    "types": 280,
     "enums": 3,
     "functions": 643,
     "constants": 528
@@ -19861,9 +19861,6 @@
       "launchTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts"
-      ],
-      "DevSupervisor": [
-        "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
       "BootReporter": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"

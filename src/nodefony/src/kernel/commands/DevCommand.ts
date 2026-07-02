@@ -1,7 +1,6 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
-import DevSupervisor from "../../service/dev/DevSupervisor";
 import BootReporter from "../../service/dev/BootReporter";
 
 const options: OptionsCommandInterface = {
@@ -89,6 +88,10 @@ class Dev extends Command {
       lifetime: "longrunning",
       interactive: false,
     });
+    // DevSupervisor (→ chokidar) chargé à la demande : seul le superviseur parent du
+    // mode dev en a besoin — le boot prod/enfant ne paie pas le watcher au chargement.
+    const { default: DevSupervisor } =
+      await import("../../service/dev/DevSupervisor");
     const supervisor = new DevSupervisor({
       cwd: process.cwd(),
       childEnvKey: CHILD_ENV,

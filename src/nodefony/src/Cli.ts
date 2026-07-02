@@ -20,7 +20,6 @@ import {
   SpawnOptions,
 } from "node:child_process";
 import semver from "semver";
-import figlet from "figlet";
 import Table, { TableConstructorOptions } from "cli-table3";
 import clc, { type ColorFn, type Clc } from "./colors";
 import Service, { DefaultOptionsService } from "./Service";
@@ -32,6 +31,20 @@ import Command from "./command/Command";
 import { DebugType, EnvironmentType } from "./types/globals";
 import Syslog from "./syslog/Syslog";
 import Kernel from "./kernel/Kernel";
+
+type FigletModule = typeof import("figlet");
+let figletModule: FigletModule | null = null;
+
+/**
+ * Charge `figlet` à la demande (import dynamique, idempotent) — la bannière ASCII est
+ * cosmétique : les commandes qui ne l'affichent pas ne paient pas son chargement au boot.
+ */
+const loadFiglet = async (): Promise<FigletModule> => {
+  if (!figletModule) {
+    figletModule = (await import("figlet")).default;
+  }
+  return figletModule;
+};
 
 interface CliDefaultOptions extends DefaultOptionsService {
   processName?: string;
@@ -422,7 +435,8 @@ class Cli extends Service {
     }
   }
 
-  getFonts(): void {
+  async getFonts(): Promise<void> {
+    const figlet = await loadFiglet();
     figlet.fonts((_err, fonts) => {
       fonts?.forEach((ele) => {
         this.log(ele);
@@ -435,6 +449,7 @@ class Cli extends Service {
     options?: object,
     callback?: (error: Error, data: string) => void,
   ): Promise<string> {
+    const figlet = await loadFiglet();
     return new Promise((resolve, reject) => {
       figlet(
         txt,
