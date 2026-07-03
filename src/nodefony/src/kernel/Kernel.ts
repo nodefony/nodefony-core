@@ -357,6 +357,8 @@ class Kernel extends Service implements IKernel {
    */
   suppressBootBanners: boolean = false;
   trunk: trunkType = null;
+  // Entrée app résolue par resolveAppEntry() — undefined = pas encore résolue.
+  private _appEntry: string | null | undefined = undefined;
   core: boolean = false;
   command: Command | null = null;
   commandArgs: CommandArgs = [];
@@ -520,6 +522,19 @@ class Kernel extends Service implements IKernel {
     this.trunk = await this.isTrunk();
     this.initializeLog();
     if (!this.trunk && this.cli) {
+      // Hors projet Nodefony (aucune entrée d'app résolue depuis package.json).
+      // Le wizard de création est un outil INTERACTIF : sans TTY (container,
+      // CI, orchestrateur), prompter est absurde (le prompt crashe « User
+      // force closed ») → erreur claire + exit 1, diagnosticable en logs.
+      if (!this.isTTY) {
+        this.log(
+          `Pas de projet Nodefony ici (${this.path}) : aucune entrée d'app ` +
+            `résolue (package.json \`main\`, dist/index.js ou index.js). ` +
+            `Vérifie le répertoire de travail et le build (dist/).`,
+          "CRITIC",
+        );
+        return (await this.terminate(1)) as this;
+      }
       return await this.cli
         .runCommandAsync("start", ["-i"])
         .then(() => {
@@ -1216,7 +1231,11 @@ class Kernel extends Service implements IKernel {
    * @throws si le validateur de l'app rejette la config (message agrégé).
    */
   private async validateAppConfig(): Promise<void> {
-    const mod = (await import(`${this.path}/dist/index.js`)) as {
+    const entry = this.resolveAppEntry();
+    if (entry === null) {
+      return;
+    }
+    const mod = (await import(entry)) as {
       validateConfig?: (options: unknown) => void;
     };
     mod.validateConfig?.(this.app?.options);
@@ -1363,12 +1382,15 @@ class Kernel extends Service implements IKernel {
     // ── Chargement + résolution de config = phase la plus fragile du boot →
     //    blindée : toute défaillance produit un diagnostic clair + fail-fast propre
     //    (cf bootConfigError), jamais une stack opaque.
+    // Entrée résolue depuis le package.json de l'app (main, fallback legacy) —
+    // même résolution que isTrunk (mémoïsée), ICI a lieu l'unique import réel.
+    const appEntry = this.resolveAppEntry() ?? `${this.path}/dist/index.js`;
     try {
-      this.app = await this.loadModule(`${this.path}/dist/index.js`);
+      this.app = await this.loadModule(appEntry);
     } catch (e) {
       throw this.bootConfigError(
         "Chargement de l'application impossible",
-        `Le point d'entrée \`${this.path}/dist/index.js\` n'a pas pu être importé/évalué.`,
+        `Le point d'entrée \`${appEntry}\` n'a pas pu être importé/évalué.`,
         e,
         [
           "Build périmé ou absent → `npm run clean && npm run build`.",
@@ -1380,7 +1402,7 @@ class Kernel extends Service implements IKernel {
     // Catalogue env optionnel exposé par l'app (`export const env = defineEnv(…)`)
     // → alimente `ctx.env` ; absent (app legacy) → `process.env`. Import en cache
     // ESM (déjà résolu ci-dessus → ne peut plus échouer) → coût négligeable.
-    const appModule = (await import(`${this.path}/dist/index.js`)) as {
+    const appModule = (await import(appEntry)) as {
       env?: unknown;
     };
     const ctx = this.buildConfigContext(appModule.env);
@@ -1448,40 +1470,79 @@ class Kernel extends Service implements IKernel {
     return this.app;
   }
 
-  isTypeScript(): boolean {
-    try {
-      new FileClass(`${this.path}/index.ts`);
-      return true;
-    } catch (e) {
-      return false;
+  /**
+   * Résout le point d'entrée de l'application depuis SON `package.json`
+   * (champ `main` — la source de vérité Node), fallback legacy `dist/index.js`
+   * puis `index.js`. Vérifie l'EXISTENCE du fichier, sans jamais l'importer :
+   * l'exécution (side effects top-level, cache ESM) et la validation du module
+   * (export default = `Module`) appartiennent à {@link loadApp}, une seule
+   * fois, avec son diagnostic `bootConfigError`. Mémoïsé (stable pour le boot).
+   *
+   * Anti faux-positif : un projet Node QUELCONQUE (Express…) a aussi un
+   * `package.json` + `main` → on exige le signal d'identité Nodefony, sans
+   * import : `nodefony` déclaré dans les dépendances, OU installé
+   * (`node_modules/nodefony` — couvre le monorepo self-hosted où la racine ne
+   * le déclare pas mais où le workspace le symlinke).
+   *
+   * En production (image Docker), seuls `package.json` + `dist/` +
+   * `node_modules` sont déployés : la détection ne dépend d'AUCUN source.
+   *
+   * @returns chemin absolu de l'entrée, ou `null` (cwd hors projet Nodefony).
+   */
+  resolveAppEntry(): string | null {
+    if (this._appEntry !== undefined) {
+      return this._appEntry;
     }
+    let pkg: {
+      main?: string;
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+    };
+    try {
+      pkg = JSON.parse(
+        fs.readFileSync(path.resolve(this.path, "package.json"), "utf8"),
+      );
+    } catch {
+      // Pas de package.json lisible = pas un projet Node.
+      this._appEntry = null;
+      return null;
+    }
+    const declaresNodefony = Boolean(
+      pkg.dependencies?.nodefony ??
+      pkg.devDependencies?.nodefony ??
+      pkg.peerDependencies?.nodefony,
+    );
+    if (
+      !declaresNodefony &&
+      !fs.existsSync(path.resolve(this.path, "node_modules", "nodefony"))
+    ) {
+      this._appEntry = null;
+      return null;
+    }
+    for (const candidate of pkg.main
+      ? [pkg.main]
+      : ["dist/index.js", "index.js"]) {
+      const abs = path.resolve(this.path, candidate);
+      if (fs.existsSync(abs)) {
+        this._appEntry = abs;
+        return abs;
+      }
+    }
+    this._appEntry = null;
+    return null;
   }
 
   async isTrunk(): Promise<trunkType> {
-    if (this.isTypeScript()) {
-      try {
-        const module = await import(`${this.path}/dist/index.js`);
-        if (this.isModule(module.default)) {
-          return "typescript";
-        }
-        this.log(new Error(`No Nodeofny Trunk Detected`), "ERROR");
-        return null;
-      } catch (e) {
-        this.log(e, "ERROR");
-        return null;
-      }
-    } else {
-      try {
-        const module = await import(`${this.path}/index.js`);
-        if (this.isModule(module.default)) {
-          return "javascript";
-        }
-        return null;
-      } catch (e) {
-        //this.log(e, "ERROR");
-        return null;
-      }
+    const entry = this.resolveAppEntry();
+    if (entry === null) {
+      return null;
     }
+    // Distinction purement informative (aucune logique ne la consomme) :
+    // entrée compilée sous dist/ vs entrée JS à la racine.
+    return entry.includes(`${path.sep}dist${path.sep}`)
+      ? "typescript"
+      : "javascript";
   }
 
   async isCore(): Promise<boolean> {

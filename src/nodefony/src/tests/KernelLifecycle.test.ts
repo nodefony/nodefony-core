@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import assert from "node:assert";
+import fs from "node:fs";
+import os from "node:os";
+import nodePath from "node:path";
 import Kernel, { Events, TypeKernelOptions } from "../kernel/Kernel";
 import Module from "../kernel/Module";
 import Service from "../Service";
@@ -941,5 +944,98 @@ describe("Kernel — BootReport (verdict de boot)", () => {
     assert.strictEqual(r.modulesSkipped.length, 1);
     assert.strictEqual(r.modulesSkipped[0].module, "@scope/bad");
     assert.strictEqual(r.modulesSkipped[0].phase, "load");
+  });
+});
+
+// ─── resolveAppEntry() / isTrunk() — détection d'app SANS import ─────────────
+
+describe("Kernel — resolveAppEntry() / isTrunk()", () => {
+  let dir: string;
+
+  function fixture(files: Record<string, string>, dirs: string[] = []): Kernel {
+    dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "nf-trunk-"));
+    for (const d of dirs) {
+      fs.mkdirSync(nodePath.join(dir, d), { recursive: true });
+    }
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = nodePath.join(dir, rel);
+      fs.mkdirSync(nodePath.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, content);
+    }
+    const k = mkKernel();
+    k.path = dir;
+    return k;
+  }
+
+  afterEach(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("app compilée SANS sources (image Docker) : main + dep nodefony → entrée résolue", async () => {
+    const k = fixture({
+      "package.json": JSON.stringify({
+        main: "dist/index.js",
+        dependencies: { nodefony: "^10.0.0" },
+      }),
+      "dist/index.js": "export default class App {}",
+    });
+    assert.strictEqual(
+      k.resolveAppEntry(),
+      nodePath.join(dir, "dist/index.js"),
+    );
+    assert.strictEqual(await k.isTrunk(), "typescript");
+  });
+
+  it("projet Node QUELCONQUE (main existant mais aucune trace de nodefony) → null", async () => {
+    const k = fixture({
+      "package.json": JSON.stringify({
+        main: "index.js",
+        dependencies: { express: "^5.0.0" },
+      }),
+      "index.js": "module.exports = {}",
+    });
+    assert.strictEqual(k.resolveAppEntry(), null);
+    assert.strictEqual(await k.isTrunk(), null);
+  });
+
+  it("monorepo self-hosted : nodefony non déclaré mais node_modules/nodefony présent → résolu", () => {
+    const k = fixture(
+      {
+        "package.json": JSON.stringify({ workspaces: ["src/*"] }),
+        "dist/index.js": "export default class App {}",
+      },
+      ["node_modules/nodefony"],
+    );
+    assert.strictEqual(
+      k.resolveAppEntry(),
+      nodePath.join(dir, "dist/index.js"),
+    );
+  });
+
+  it("pas de package.json → null (jamais un projet)", async () => {
+    const k = fixture({ "dist/index.js": "export default class App {}" });
+    assert.strictEqual(k.resolveAppEntry(), null);
+    assert.strictEqual(await k.isTrunk(), null);
+  });
+
+  it("entrée legacy index.js racine (pas de main) → trunk javascript", async () => {
+    const k = fixture({
+      "package.json": JSON.stringify({
+        dependencies: { nodefony: "^10.0.0" },
+      }),
+      "index.js": "export default class App {}",
+    });
+    assert.strictEqual(k.resolveAppEntry(), nodePath.join(dir, "index.js"));
+    assert.strictEqual(await k.isTrunk(), "javascript");
+  });
+
+  it("main déclaré mais fichier ABSENT (build pas fait) → null", () => {
+    const k = fixture({
+      "package.json": JSON.stringify({
+        main: "dist/index.js",
+        dependencies: { nodefony: "^10.0.0" },
+      }),
+    });
+    assert.strictEqual(k.resolveAppEntry(), null);
   });
 });
