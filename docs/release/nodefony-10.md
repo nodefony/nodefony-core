@@ -172,11 +172,21 @@ in-flight terminée au stop, exit 0, logs drain. Reste : le câbler en CI + boot
 > pure les tirait). À étendre aux adapters lourds (pg/mysql2/mongoose/redis) quand leurs peers seront
 > câblés. `attw` reste à ajouter en complément du `tsc` témoin.
 >
-> 🔎 **Contrainte consommateur découverte par la gate** : les `.d.ts` publiés contiennent des imports
-> relatifs SANS extension → une app cliente doit compiler en `moduleResolution: "Bundler"` (comme le
-> repo ; `NodeNext` ne les résout pas) + `types: ["node"]` (TS 6 n'auto-inclut plus les `@types`).
-> Documenté dans le template (`examples/minimal-app/tsconfig.json`). Alternative long terme : générer
-> des `.d.ts` à extensions explicites.
+> ✅ **Types publiés certifiés `node16`/`nodenext` + `bundler` (audit toolchain 2026-07-04, TRANCHÉ
+> une fois pour toutes)**. Terrain : `attw` relevait 182 `InternalResolutionError` (imports relatifs
+> sans extension dans les `.d.ts`, + 19 erreurs `globals` cassant même `bundler`). Doctrine vérifiée :
+> Node ESM exige les extensions (doc esm.md) ; tsc ne réécrit JAMAIS un specifier nu (TS 5.7
+> `rewriteRelativeImportExtensions` ne traite que les imports portant déjà `.ts`). **Décision** :
+> (1) `src/types/globals.d.ts` (`.d.ts` manuel legacy, jamais émis → types fantômes) migré en
+> `globals.ts` ; (2) **post-processing AST au pack** (`fix-dts-extensions.mjs`, câblé dans
+> `pack-all.mjs`) : specifiers relatifs des `.d.ts` extensionnés contre le fs (fichier→`.js`,
+> dossier→`/index.js`), idempotent, specifier irrésolu = échec du pack ; (3) **gate `attw
+--profile esm-only` 13/13 dans le smoke** (entrée d'asset `nodefony/debugbar.js` exclue). Rejetés :
+> codemod extensions des sources (centaines de fichiers, contredit le style `Bundler` interne) et
+> dts-bundling (nouvelle dep + 13 rollup.config + risques inlining/multi-entry). Le template compile
+> en **`NodeNext`** (résolution la plus stricte) — `Bundler` marche a fortiori. `types: ["node"]`
+> requis (TS 6 n'auto-inclut plus les `@types`). Assumés : `require()` CJS (framework ESM-only) et
+> résolution `node10` (TS < 4.7) non supportés.
 
 ### Taille — démystifiée
 

@@ -25,8 +25,22 @@ PORT=15151
 fail() { echo "✗ $1" >&2; docker rm -f "$CTN" >/dev/null 2>&1 || true; exit 1; }
 ok() { echo "✓ $1"; }
 
-# ── 1. Pack (bascule exports.types + peers optional, restore garanti) ────────
+# ── 1. Pack (bascule exports.types + peers optional + .d.ts extensionnés) ────
 node "$ROOT/scripts/release/pack-all.mjs"
+
+# ── 1bis. Gate attw : types du tarball certifiés sous node16-ESM + bundler ───
+# (profil esm-only : node10 et require() CJS ignorés — framework ESM-only).
+# `nodefony/debugbar.js` = export d'ASSET (bundle standalone pour <script src>,
+# consommé par URL, jamais importé en TS) → exclu de l'analyse de types.
+echo ">>> attw (types des tarballs, profil esm-only)"
+for tgz in "$ROOT"/release/tarballs/*.tgz; do
+  EXCLUDE=""
+  [[ "$(basename "$tgz")" == nodefony-10.* ]] && EXCLUDE="--exclude-entrypoints ./debugbar.js"
+  # shellcheck disable=SC2086 — $EXCLUDE volontairement non quoté (0 ou 2 mots)
+  npx --yes @arethetypeswrong/cli "$tgz" --profile esm-only $EXCLUDE > /dev/null 2>&1 \
+    || { npx --yes @arethetypeswrong/cli "$tgz" --profile esm-only $EXCLUDE | tail -25; fail "attw KO sur $(basename "$tgz") — types publiés cassés"; }
+done
+ok "attw 13/13 (node16-ESM + bundler verts)"
 
 # ── 2. App témoin → workdir, deps réécrites vers les tarballs ────────────────
 rm -rf "$WORK"

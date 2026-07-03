@@ -23,6 +23,7 @@ import {
   rmSync,
 } from "node:fs";
 import path from "node:path";
+import { fixDtsExtensions } from "./fix-dts-extensions.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const OUT = path.join(ROOT, "release", "tarballs");
@@ -85,6 +86,24 @@ for (const w of workspaces) {
       if (pkg.peerDependencies?.[p]) {
         pkg.peerDependenciesMeta[p] = { optional: true };
       }
+    }
+  }
+
+  // Types publiés conformes node16/nodenext : extensionne les specifiers
+  // relatifs de TOUS les .d.ts sous dist/ (arbres types/, client/types/, …).
+  // EN PLACE et idempotent (Bundler interne accepte `.js`) — cf
+  // fix-dts-extensions.mjs. Un specifier irrésolu = type fantôme → échec.
+  if (existsSync(path.join(dir, "dist"))) {
+    const r = fixDtsExtensions(path.join(dir, "dist"));
+    if (r.unresolved.length) {
+      failures.push(
+        `${pkg.name}: ${r.unresolved.length} specifier(s) .d.ts irrésolus (types fantômes) — ` +
+          r.unresolved.slice(0, 5).join(" · "),
+      );
+      continue;
+    }
+    if (r.rewrites > 0) {
+      console.log(`  ${pkg.name}: ${r.rewrites} specifiers .d.ts extensionnés`);
     }
   }
 
