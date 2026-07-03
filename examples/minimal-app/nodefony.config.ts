@@ -10,6 +10,12 @@ export default defineConfig<typeof env>((ctx) => ({
   // Un container doit écouter TOUTES les interfaces : le port mapping
   // Docker/k8s n'atteint jamais un bind 127.0.0.1.
   domain: ctx.isProd ? "0.0.0.0" : "127.0.0.1",
+  servers: {
+    // Cas nominal cloud-native : le TLS est terminé à l'ingress/LB — le pod
+    // sert en clair. `false` désactive HTTPS (et le WSS qui en hérite) :
+    // pas de certificats auto-générés au boot, un seul port exposé (5151).
+    https: false,
+  },
   log: {
     debug: ctx.isProd ? [] : "*",
     // stdout = contrat cloud-native (collecteur de logs de l'orchestrateur).

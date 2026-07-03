@@ -97,26 +97,37 @@ const serversSchema = z
       .boolean()
       .optional()
       .describe("Monte le service de fichiers statiques. Défaut : true."),
-    http: serverSchema
+    http: z
+      .union([serverSchema, z.literal(false)])
       .optional()
-      .describe("Serveur HTTP/1.1 en clair (port 5151 par défaut)."),
+      .describe(
+        "Serveur HTTP/1.1 en clair (port 5151 par défaut). `false` = désactivé " +
+          "(déploiement TLS-only) — le WS en clair tombe avec.",
+      ),
     https: z
-      .object({
-        port: z
-          .number()
-          .int()
-          .positive()
-          .optional()
-          .describe("Port d'écoute HTTPS. Défaut : 5152."),
-        protocol: z
-          .enum(["1.1", "2.0"])
-          .optional()
-          .describe(
-            "Version HTTP servie sur le port TLS. `2.0` = HTTP/2 (h2). Défaut : `2.0`.",
-          ),
-      })
+      .union([
+        z.object({
+          port: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Port d'écoute HTTPS. Défaut : 5152."),
+          protocol: z
+            .enum(["1.1", "2.0"])
+            .optional()
+            .describe(
+              "Version HTTP servie sur le port TLS. `2.0` = HTTP/2 (h2). Défaut : `2.0`.",
+            ),
+        }),
+        z.literal(false),
+      ])
       .optional()
-      .describe("Serveur HTTPS (TLS), HTTP/2 par défaut (port 5152)."),
+      .describe(
+        "Serveur HTTPS (TLS), HTTP/2 par défaut (port 5152). `false` = désactivé " +
+          "— cas NOMINAL cloud-native (TLS terminé à l'ingress/LB, le pod sert en " +
+          "clair) ; le WSS tombe avec.",
+      ),
     ws: z
       .object({})
       .optional()
@@ -223,6 +234,32 @@ export function appConfigJsonSchema(): unknown {
 }
 
 /**
+ * Aplati les issues Zod en libellés `chemin.complet: message`, en DESCENDANT
+ * dans les unions : une `invalid_union` (ex. `servers.https` = objet | `false`)
+ * masquerait le champ fautif (`servers.http: Invalid input`) — on reprend les
+ * issues de la branche la plus informative (celle qui pointe un champ interne)
+ * pour garder le diagnostic précis (`servers.http.port: …`).
+ */
+function flattenZodIssues(
+  issues: readonly z.core.$ZodIssue[],
+  base: PropertyKey[] = [],
+): string[] {
+  const out: string[] = [];
+  for (const issue of issues) {
+    const path = [...base, ...issue.path];
+    const branches = (issue as { errors?: z.core.$ZodIssue[][] }).errors;
+    if (issue.code === "invalid_union" && branches?.length) {
+      const best =
+        branches.find((b) => b.some((i) => i.path.length > 0)) ?? branches[0];
+      out.push(...flattenZodIssues(best, path));
+      continue;
+    }
+    out.push(`${path.join(".") || "(root)"}: ${issue.message}`);
+  }
+  return out;
+}
+
+/**
  * Valide la config app résolue ; lève une erreur au message agrégé si invalide.
  *
  * Appelée par `defineConfig().resolve()` après le deep-merge avec les défauts.
@@ -233,9 +270,7 @@ export function appConfigJsonSchema(): unknown {
 export function validateAppConfig(options: unknown): void {
   const result = appConfigSchema.safeParse(options);
   if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-      .join(" · ");
+    const issues = flattenZodIssues(result.error.issues).join(" · ");
     throw new Error(
       `[nodefony] Configuration d'application invalide : ${issues}`,
     );

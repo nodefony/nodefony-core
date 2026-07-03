@@ -78,6 +78,13 @@ describe("config — defineConfig (moteur Lot 1)", () => {
       assert.strictEqual(r.packageManager, "npm");
     });
 
+    it("servers.https: false accepté (TLS à l'ingress) — remplace l'objet défaut au merge", () => {
+      const r = defineConfig({ servers: { https: false } }).resolve(makeCtx());
+      assert.strictEqual(r.servers?.https, false);
+      // Sibling préservé : le serveur HTTP garde son défaut.
+      assert.strictEqual((r.servers?.http as { port?: number })?.port, 5151);
+    });
+
     it("override user en profondeur sans écraser les siblings", () => {
       const r = defineConfig({
         servers: { http: { port: 8080 } },

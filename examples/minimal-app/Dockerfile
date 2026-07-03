@@ -27,7 +27,7 @@ RUN npx tsc && npm prune --omit=dev
 FROM node:24-slim
 ENV NODE_ENV=production
 WORKDIR /app
-# /app doit appartenir à node : le boot écrit (tmp, certificats auto-signés).
+# /app doit appartenir à node : le boot écrit (tmp/, logs éventuels).
 RUN chown node:node /app
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist

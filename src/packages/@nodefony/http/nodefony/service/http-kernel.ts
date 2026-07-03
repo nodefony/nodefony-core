@@ -898,25 +898,29 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     const servers: (
       httpServer | httpsServer | websocketServer | websocketSecureServer
     )[] = [];
+    // Guards `.active` : un serveur désactivé par config (`servers.http|https:
+    // false` — ex. TLS terminé à l'ingress, cas nominal k8s) est SAUTÉ, pas
+    // créé (`createServer()` rejette si inactif). Les serveurs WS tombent avec
+    // leur porteur (ws ← http, wss ← https).
     const serverHttp = this.get<httpServer>("server-http");
-    if (serverHttp) {
+    if (serverHttp?.active) {
       await serverHttp.createServer();
       servers.push(serverHttp);
     }
     const serverHttps = this.get<httpsServer>("server-https");
-    if (serverHttps) {
+    if (serverHttps?.active) {
       await serverHttps.createServer();
       servers.push(serverHttps);
     }
     const serverWebsocket = this.get<websocketServer>("server-websocket");
-    if (serverWebsocket && serverHttp) {
+    if (serverWebsocket && serverHttp?.active) {
       await serverWebsocket.createServer(serverHttp);
       servers.push(serverWebsocket);
     }
     const serverWebsocketSecure = this.get<websocketSecureServer>(
       "server-websocket-secure",
     );
-    if (serverWebsocketSecure && serverHttps) {
+    if (serverWebsocketSecure && serverHttps?.active) {
       await serverWebsocketSecure.createServer(serverHttps);
       servers.push(serverWebsocketSecure);
     }

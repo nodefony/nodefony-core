@@ -108,10 +108,13 @@ export interface ServersConfig {
    * @reactivity boot
    */
   statics?: boolean;
-  /** Serveur HTTP plain. */
-  http?: HttpServerConfig;
-  /** Serveur HTTPS (le WSS en hérite). */
-  https?: HttpsServerConfig;
+  /** Serveur HTTP plain. `false` = désactivé (déploiement TLS-only). */
+  http?: HttpServerConfig | false;
+  /**
+   * Serveur HTTPS (le WSS en hérite). `false` = désactivé — cas NOMINAL
+   * cloud-native : TLS terminé à l'ingress/LB, le pod sert en clair.
+   */
+  https?: HttpsServerConfig | false;
   /** Serveur WebSocket (hérite du HTTP associé). */
   ws?: Record<string, unknown>;
   /** Serveur WebSocket Secure (hérite du HTTPS associé). */
