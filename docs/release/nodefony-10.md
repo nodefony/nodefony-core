@@ -156,19 +156,27 @@ est **conservé tel quel** (0 renommage, 0 changement d'import). Le POC comparat
 
 > ⚠️ Le §7.3 (« changesets moins pertinent ») est **biaisé** : il suppose versioning indépendant. En mode `fixed`, changesets donne **la version unique voulue SANS l'assemblage maison ni le risque de types** — c.-à-d. il **supprime** l'angoisse #1 au lieu de la créer. C'est l'argument central pour (B).
 
-### Smoke test de parité (VALIDATION du modèle B — avant la release réelle)
+### Smoke test de parité (VALIDATION du modèle B) — ✅ LIVRÉ, fusionné avec la preuve Docker (0.7)
 
-`npm pack` → install **dossier vierge** → mini-app + `tsc --noEmit` + boot sqlite/pg. **Vert ⇒ `import nodefony` se comporte comme en self-hosted, PROUVÉ.** À câbler en CI (le doute devient une case verte). Plus un POC comparatif (modèle tranché) : c'est la **gate de validation** unique, à mener avant la release (Phase 1.2 recadrée).
+**Réalisé** : `bash scripts/release/smoke-docker.sh` = `scripts/release/pack-all.mjs` (pack des 13
+publiables) → app témoin `examples/minimal-app` copiée HORS repo (deps → tarballs) → `docker build`
+(npm install **vierge** + `tsc` = gate types) → `docker run` → probes `/livez` `/readyz` + routes →
+`docker stop` pendant une requête lente. **Preuve 7/7** : tsc vert sur tarballs, boot container,
+in-flight terminée au stop, exit 0, logs drain. Reste : le câbler en CI + boot pg (multi-dialecte Ph.2).
 
-> ⚠️ **Point d'exécution à couvrir par cette gate** (repéré au terrain 2026-07-02) : 7 packages du
-> cœur (http, framework, security, frontend, realtime, orm-core, user) ont `exports["."].types =
-"./index.ts"` (source TS, pattern anti-race turbo du monorepo) → publiés tels quels, leurs types
-> seraient CASSÉS chez le consommateur (source absente du tarball `files: ["dist"]`). npm ne supporte
-> pas `publishConfig.exports` (pnpm only) ⇒ le pipeline (`scripts/release.mjs`) doit **basculer
-> `exports.types` → `./dist/types/index.d.ts` au moment du pack/publish** (le pattern source reste en
-> dev). `attw` + `tsc` témoin vérifient. Autre piège : npm ≥ 7 **auto-installe les `peerDependencies`**
-> → les adapters lourds (pg/mysql2/mongoose/redis) exigent `peerDependenciesMeta: { optional: true }`
-> pour une install lean.
+> ✅ **Mutations AU PACK câblées dans `pack-all.mjs`** (mutation temporaire du package.json,
+> restauration à l'octet près en try/finally) : (1) **bascule `exports.types`** `./index.ts` →
+> `./dist/types/index.d.ts` — détection AUTO des packages concernés (les 7 du cœur), garde-fou
+> `dist/types/index.d.ts` présent ; (2) **`peerDependenciesMeta.optional`** injecté (table
+> `PACK_PEER_OPTIONAL` : react/react-dom du core — npm ≥7 auto-installe les peers, toute app backend
+> pure les tirait). À étendre aux adapters lourds (pg/mysql2/mongoose/redis) quand leurs peers seront
+> câblés. `attw` reste à ajouter en complément du `tsc` témoin.
+>
+> 🔎 **Contrainte consommateur découverte par la gate** : les `.d.ts` publiés contiennent des imports
+> relatifs SANS extension → une app cliente doit compiler en `moduleResolution: "Bundler"` (comme le
+> repo ; `NodeNext` ne les résout pas) + `types: ["node"]` (TS 6 n'auto-inclut plus les `@types`).
+> Documenté dans le template (`examples/minimal-app/tsconfig.json`). Alternative long terme : générer
+> des `.d.ts` à extensions explicites.
 
 ### Taille — démystifiée
 
@@ -242,12 +250,12 @@ jobs:
 
 ### ✅ INCLUS — doivent être prêts pour 10.0.0
 
-| Domaine          | Phase              | Gate précis                                                                                                                                                                                                                                                                                    |
-| ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Sécurité**     | P6                 | **Complète** (firewall, auth, JWT, RBAC `@IsGranted`). **Bloqueur #1, non négociable.**                                                                                                                                                                                                        |
-| **ORM**          | P5/P7              | **Core stable** (✅) + **Drizzle production-ready = multi-dialecte sqlite/pg/mysql** (🔶 cf §6bis-A : seul sqlite + idempotence-pg faits ; pg/mysql repo générique à porter+prouver ; **précédé du comparatif ORM froid**). Adapter Mongoose (NoSQL) = **acceptable en 10.x** (ne bloque pas). |
-| **Cloud-native** | P16 (**baseline**) | **Dockerfile prêt** + **config 100 % par variables d'env** (12-factor). **PAS** le P16 complet (HPA, opérateurs k8s, secret managers, outillage multi-process = **10.x**).                                                                                                                     |
-| **Reste**        | P10/P11/P13/P14    | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend.                                                                                                                                                                                  |
+| Domaine          | Phase              | Gate précis                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sécurité**     | P6                 | **Complète** (firewall, auth, JWT, RBAC `@IsGranted`). **Bloqueur #1, non négociable.**                                                                                                                                                                                                                                                                                                        |
+| **ORM**          | P5/P7              | **Core stable** (✅) + **Drizzle production-ready = multi-dialecte sqlite/pg/mysql** (🔶 cf §6bis-A : seul sqlite + idempotence-pg faits ; pg/mysql repo générique à porter+prouver ; **précédé du comparatif ORM froid**). Adapter Mongoose (NoSQL) = **acceptable en 10.x** (ne bloque pas).                                                                                                 |
+| **Cloud-native** | P16 (**baseline**) | ✅ **Dockerfile livré** (template `examples/minimal-app` prouvé par `smoke-docker.sh`) + **graceful shutdown complet** (drain 3 serveurs, probes `/livez` `/readyz` natives, bascule readiness au SIGTERM, `shutdownDeadline` kernel) — Phase 0.7. Config par env (12-factor) : `defineEnv` + `NF__*` déjà en place. **PAS** le P16 complet (HPA, opérateurs k8s, secret managers = **10.x**). |
+| **Reste**        | P10/P11/P13/P14    | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend.                                                                                                                                                                                                                                                                                  |
 
 ### ❌ EXCLUS de 10.0.0 (→ 10.x / 11)
 
