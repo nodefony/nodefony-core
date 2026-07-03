@@ -131,6 +131,16 @@ claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung
   - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
     Re-vécu J2 (builds turbo répétés) ; dépannage : `rm /private/tmp/claude-*/.../tasks/*.output` (tâches finies) débloque.
 
+## 🔐 Red-team / délégation IA
+
+- `[1× — 2026-07-03]` **Sous-agents de reconnaissance sur une revue SÉCU → forcer `model:"fable"`**, pas le défaut (Opus). Une cartographie de câblage ratée → tests qui tapent à côté → faux verdict « brique SAINE » (devise : le plan ≠ le code). Le user tient à Fable sur le critique (a signalé le downgrade Opus des Explore, j'ai coupé+relancé). Reco : `Agent({subagent_type:"Explore", model:"fable", …})` pour cartographier une surface d'attaque.
+- `[1× — 2026-07-03]` **Red-team threat-first : matrice AVANT lecture, PUIS croiser le kit red-team EXISTANT avant d'écrire.** La matrice à froid a trouvé F4 (révocation asymétrique `subscribe`, vrai angle mort). MAIS S1-S4 (CSWSH/ALS/api.request/plancher canal) étaient déjà couverts en P6 → la valeur était dans les TROUS (robustesse/DoS). Sans le croisement, on re-teste du déjà-prouvé. Lire `project_p6_redteam_attack_tests_kit` en début de campagne.
+- `[1× — 2026-07-03]` **Fix sécu qui touche une décision archi (NORTH STAR) = présenter stratégies + reco, laisser trancher.** F4 blue touchait « le socket survit à la session » (choix délibéré) → 3 stratégies (A subscribe / B heartbeat / C push) en prose, user a validé (B). Ne pas coder un changement de modèle unilatéralement.
+
+## 🐚 Git / commit
+
+- `[1× — 2026-07-03]` **commitlint `subject-case` rejette un sujet qui commence par une MAJUSCULE / un token majuscule** : `fix(realtime): F4 (revue 0.6) — …` refusé (« subject must not be sentence-case/upper-case »). → sujet en **minuscule**, code du finding (F4) **en fin** entre parenthèses : `fix(realtime): révocation … (F4, revue 0.6)`. Le trailer `Co-Authored-By: Claude Fable 5` était bon (convention du repo, pas Opus).
+
 ## 🎨 Front / Studio / UX
 
 - **[1× — 06-30] Layout docs-site = `container` (hauteur fixe + colonnes à scroll INDÉPENDANT) > `page`+sticky (fragile).** 3 plaintes ergo du portail doc (menus sans scroll, centre trop petit, fullscreen médiocre) = 1 racine : modèle « scroll de page + sticky » (Grille md:3/6/3 → contenu 50 % ; sticky dépendant de `--nf-pageheader-height` publié + scroll `AppShell.Main`). Fix = `DocLayout` en **flexbox 3 colonnes largeur fixe** (nav 264 | contenu FLEX dominant | sommaire 240, CSS responsive injecté 1× `ensureDocLayoutStyles`) + portail en `mode=container` `height={PAGE_CONTENT_HEIGHT}` → chaque colonne scrolle seule. Validé visuellement par le user. Gravé dans skill `nodefony-documentation` 1.3.0.
