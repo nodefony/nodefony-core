@@ -22,7 +22,11 @@ import {
   WsConnectionTransport,
   type RawWsConnection,
 } from "../transport/WsConnectionTransport";
-import { getRealtimeHub, type ChannelSink } from "./RealtimeHub";
+import {
+  getRealtimeHub,
+  type ChannelSink,
+  type IRevocableConnection,
+} from "./RealtimeHub";
 import { ANONYMOUS_REALTIME_TOKEN } from "./AnonymousRealtimeToken";
 import type {
   IRealtimeController,
@@ -393,6 +397,18 @@ export abstract class RealtimeController<
     // seam #2 plus haut (même scope) — pas de relookup.
     hub.registerConnection(transport);
 
+    // F4 (revue 0.6) — révocation des sockets à identité RÉVOCABLE. Le verrou de frame
+    // est SYNC (identité figée au handshake, cf FrameAuthorizer) → il ne coupe pas un
+    // socket dont la session meurt (logout HTTP), là où `api.request` re-valide par
+    // requête (`isValid`). On inscrit CETTE connexion au tick de révalidation du hub,
+    // UNIQUEMENT si le token porte `isValid` (session BFF révocable) : anonyme/JWT sans
+    // revalidation n'y entrent pas → 0 coût. Retiré au close (onFinish, plus bas).
+    let revocable: IRevocableConnection | null = null;
+    if (typeof token.isValid === "function") {
+      revocable = { token, close: (code, reason) => conn.close(code, reason) };
+      hub.registerRevocable(revocable);
+    }
+
     // Politique de forward : déclare les canaux broadcast (cross-process) de cet
     // endpoint au hub (idempotent, cold-path). Défaut = aucun → tout instance-local.
     const broadcast = this.realtimeBroadcastChannels();
@@ -428,6 +444,7 @@ export abstract class RealtimeController<
       }
       state.channels.clear();
       hub.unregisterConnection(transport); // sonde : sortie symétrique du registre
+      if (revocable) hub.unregisterRevocable(revocable); // F4 : sortie du tick de révocation
       transport.fireClose();
       peer.dispose("ws closed");
       this.log("WS realtime client disconnected — cleanup done", "INFO");

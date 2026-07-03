@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-03T11:45:59.882Z",
+  "generated": "2026-07-03T14:26:33.341Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 995,
-    "symbols": 2409,
+    "symbols": 2411,
     "classes": 315,
-    "interfaces": 637,
+    "interfaces": 638,
     "types": 282,
     "enums": 3,
     "functions": 644,
-    "constants": 528
+    "constants": 529
   },
   "symbols": {
     "Cli": {
@@ -15174,6 +15174,15 @@
       "decorators": [],
       "description": "RealtimeHub — broker temps réel **PAR INSTANCE** (1 pod = 1 process = 1 hub local). Élève le realtime serveur du modèle **per-connexion** (chaque connexion son propre ticker/listener = N fois le mê…"
     },
+    "IRevocableConnection": {
+      "name": "IRevocableConnection",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Connexion à identité RÉVOCABLE inscrite au registre de re-validation (F4). Ne porte QUE ce qu'il faut pour re-valider puis fermer : le token (avec `isValid`) et un `close` fermant la socket brute. …"
+    },
     "OriginGuard": {
       "name": "OriginGuard",
       "kind": "type",
@@ -15221,6 +15230,14 @@
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Seuil d'alerte slow-consumer (octets de `bufferedAmount`). Au-delà, la connexion est comptée comme « lente » par la sonde (PAS encore de drop/close — la sonde MESURE avant qu'on optimise : stringif…"
+    },
+    "REVOCATION_REVALIDATE_MS": {
+      "name": "REVOCATION_REVALIDATE_MS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Période de re-validation des identités RÉVOCABLES (session BFF) — F4 (revue 0.6). Le verrou de frame est SYNC par doctrine (identité figée au handshake, cf {@link FrameAuthorizer}) → il ne peut pas…"
     },
     "ServerRealtimeSocket": {
       "name": "ServerRealtimeSocket",
@@ -23586,6 +23603,9 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
+      "IRevocableConnection": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "ANONYMOUS_REALTIME_TOKEN": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",

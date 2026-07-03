@@ -56,6 +56,28 @@ interface RegisteredAuthenticator {
 export const SLOW_CONSUMER_BYTES = 1 << 20; // 1 MiB
 
 /**
+ * Période de re-validation des identités RÉVOCABLES (session BFF) — F4 (revue 0.6).
+ * Le verrou de frame est SYNC par doctrine (identité figée au handshake, cf
+ * {@link FrameAuthorizer}) → il ne peut pas re-lire la session par frame. Un socket
+ * survivrait donc à sa session (`subscribe` garderait ses flux après un logout HTTP),
+ * là où `api.request` re-valide déjà par requête (`isValid()`). Ce tick ferme
+ * l'écart : toutes les `REVOCATION_REVALIDATE_MS`, les tokens révocables sont
+ * re-validés et la connexion fermée si l'identité n'est plus valide (≤ 1 fenêtre de
+ * délai). Ordre de grandeur aligné sur le heartbeat WS (`keepaliveInterval` 20 s).
+ */
+export const REVOCATION_REVALIDATE_MS = 30_000;
+
+/**
+ * Connexion à identité RÉVOCABLE inscrite au registre de re-validation (F4). Ne
+ * porte QUE ce qu'il faut pour re-valider puis fermer : le token (avec `isValid`) et
+ * un `close` fermant la socket brute. 1 entrée = 1 connexion à session BFF.
+ */
+export interface IRevocableConnection {
+  readonly token: IRealtimeToken;
+  readonly close: (code: number, reason: string) => void;
+}
+
+/**
  * Sink d'un canal : pousse une charge vers UNE connexion abonnée (son `peer.notify`).
  * 1 sink = 1 connexion. Le hub fan-out la charge à tous les sinks d'un canal.
  */
@@ -129,6 +151,17 @@ export class RealtimeHub {
   // UNIQUEMENT la sonde (backpressure : `bufferedAmount` vit sur la connexion brute,
   // pas sur le sink opaque). Inscrit au handshake, retiré au close (symétrique).
   #connections: Set<IRealtimeConnProbe> | null = null;
+
+  // Registre des connexions à identité RÉVOCABLE (session BFF portant `isValid`) —
+  // F4 (revue 0.6). Lazy : `null` tant qu'aucune session révocable (anonyme/JWT sans
+  // revalidation n'y entrent JAMAIS → 0 coût). Re-validé périodiquement par
+  // {@link revalidateRevocable} → ferme les sockets dont la session est morte/changée.
+  #revocable: Set<IRevocableConnection> | null = null;
+
+  // Timer du tick de re-validation (F4). Lazy : démarré au 1ᵉʳ révocable, arrêté dès
+  // que le registre se vide → 0 timer au repos (règle perf). `unref` : ne bloque
+  // jamais l'arrêt du process.
+  #revalidateTimer: ReturnType<typeof setInterval> | null = null;
 
   // Backplane cross-process (P13). `null` par défaut = mono-process (Loopback implicite,
   // 0 overhead : `publish` ne paie qu'un test `!== null`). Branché par le module quand
@@ -374,6 +407,68 @@ export class RealtimeHub {
   /** Retire une connexion du registre de la sonde (au close). No-op si absente. */
   unregisterConnection(conn: IRealtimeConnProbe): void {
     this.#connections?.delete(conn);
+  }
+
+  /**
+   * Inscrit une connexion à identité RÉVOCABLE (session BFF) au registre de
+   * re-validation (F4, revue 0.6). Démarre le tick au 1ᵉʳ inscrit (timer `unref`,
+   * 0 timer au repos). À équilibrer par {@link unregisterRevocable} au close.
+   * N'inscrire QUE les tokens portant `isValid` (le controller filtre) : une identité
+   * non révocable (anonyme/JWT sans revalidation) ne doit pas y entrer.
+   */
+  registerRevocable(entry: IRevocableConnection): void {
+    const set = (this.#revocable ??= new Set<IRevocableConnection>());
+    set.add(entry);
+    if (this.#revalidateTimer === null) {
+      this.#revalidateTimer = setInterval(() => {
+        void this.revalidateRevocable();
+      }, REVOCATION_REVALIDATE_MS);
+      this.#revalidateTimer.unref?.();
+    }
+  }
+
+  /**
+   * Retire une connexion du registre de révocation (au close). Arrête le tick dès que
+   * le registre est vide (0 timer au repos). No-op si absente.
+   */
+  unregisterRevocable(entry: IRevocableConnection): void {
+    if (this.#revocable === null) return;
+    this.#revocable.delete(entry);
+    if (this.#revocable.size === 0 && this.#revalidateTimer !== null) {
+      clearInterval(this.#revalidateTimer);
+      this.#revalidateTimer = null;
+    }
+  }
+
+  /**
+   * Tick de re-validation (F4) : re-lit l'identité de chaque connexion révocable
+   * (`token.isValid()`) et FERME la socket (`4001`) si la session est morte/changée.
+   * Fail-closed : une re-validation qui throw ferme aussi (parité `invokeApiRequest`).
+   * Snapshot du registre AVANT les `await` (le `close` mute le registre via le cleanup
+   * `onFinish`). Exposé (public) pour un test déterministe sans fake timers.
+   */
+  async revalidateRevocable(): Promise<void> {
+    if (this.#revocable === null || this.#revocable.size === 0) return;
+    const snapshot = [...this.#revocable];
+    for (const entry of snapshot) {
+      let valid: boolean | undefined;
+      try {
+        valid = await entry.token.isValid?.();
+      } catch {
+        valid = false; // fail-closed : re-validation en erreur = session invalide
+      }
+      if (valid === false) {
+        // Retire AVANT le close : le close déclenche `onFinish` (async) qui
+        // ré-appellera unregisterRevocable (idempotent) ; on évite surtout un
+        // re-close au tick suivant si onFinish n'a pas encore couru.
+        this.unregisterRevocable(entry);
+        try {
+          entry.close(4001, "session revoked");
+        } catch {
+          /* socket déjà fermée / close fautif → onFinish finira le nettoyage */
+        }
+      }
+    }
   }
 
   /**
