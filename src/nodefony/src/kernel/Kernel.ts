@@ -86,6 +86,12 @@ export interface TypeKernelOptions extends DefaultOptionsService {
    * Cf `project_module_loading_architecture` (mémoire IA).
    */
   modules?: IModuleManifest;
+  /**
+   * Deadline GLOBALE du shutdown (ms) — cf `AppConfigInput.shutdownDeadline`
+   * (config/types.ts). Au-delà, {@link Kernel.terminate} force la sortie code 1
+   * même si un listener `onTerminate` pend. `0` = filet désactivé.
+   */
+  shutdownDeadline?: number;
   log?: {
     active?: boolean;
     /**
@@ -185,6 +191,15 @@ const kernelDefaultOptions: TypeKernelOptions = {
     //captureRejections: true,
   },
 };
+
+// Deadline globale du shutdown (fallback si la config app n'est pas passée —
+// tests unitaires, kernels embarqués). Le défaut nominal vit dans
+// `config/defaults.ts` (`shutdownDeadline`), aligné sur cette valeur.
+const DEFAULT_SHUTDOWN_DEADLINE = 15_000;
+// Sentinelles du Promise.race de terminate() (identité stricte, jamais égales
+// à une valeur de listener).
+const SHUTDOWN_DEADLINE = Symbol("shutdown-deadline");
+const SHUTDOWN_DRAIN_ERROR = Symbol("shutdown-drain-error");
 
 type ClusterType = "master" | "worker";
 type NodefonyStartType = "CONSOLE" | "NODEFONY" | "NODEFONY_CONSOLE";
@@ -2446,6 +2461,12 @@ class Kernel extends Service implements IKernel {
   /**
    * Shutdown propre du kernel — fire `"onTerminate"` puis `CliKernel.quit(code)` sur next tick.
    *
+   * Le drain complet (`fireAsync("onTerminate")` : bascule readiness → close WS
+   * 1001 → drain HTTP → cleanup services) est borné par la deadline GLOBALE
+   * `shutdownDeadline` (défaut 15 s, < grace period orchestrateur) : un listener
+   * qui pend (SSE ouvert, store bloqué, module tiers) force la sortie code 1 —
+   * jamais un process zombie qui attend le SIGKILL externe. `0` = filet désactivé.
+   *
    * @param code - exit code Unix (0 = succès, 1+ = erreur).
    * @returns Promise résolue avec `this` (ou rejected si `quit()` throw).
    */
@@ -2460,10 +2481,45 @@ class Kernel extends Service implements IKernel {
       this.parkTimer = null;
     }
     this.log(`terminate : ${code}`);
-    try {
-      await this.fireAsync("onTerminate", this, code);
-    } catch (e) {
-      this.log(e, "ERROR");
+    // Rejet du drain capturé ICI (pas dans un try du race) : si la deadline
+    // gagne, un rejet ultérieur du drain serait un unhandledRejection.
+    const drain = this.fireAsync("onTerminate", this, code).catch(
+      (e: unknown) => {
+        this.log(e, "ERROR");
+        return SHUTDOWN_DRAIN_ERROR;
+      },
+    );
+    const deadlineMs =
+      (this.options as TypeKernelOptions).shutdownDeadline ??
+      DEFAULT_SHUTDOWN_DEADLINE;
+    let raced: unknown;
+    if (deadlineMs > 0) {
+      let deadlineTimer: NodeJS.Timeout | null = null;
+      raced = await Promise.race([
+        drain,
+        new Promise((resolve) => {
+          deadlineTimer = setTimeout(
+            () => resolve(SHUTDOWN_DEADLINE),
+            deadlineMs,
+          );
+          // Ne retient pas l'event-loop si le drain finit avant (clearTimeout
+          // en défense, mais un one-shot CONSOLE ne doit pas rester vivant).
+          deadlineTimer.unref();
+        }),
+      ]);
+      if (deadlineTimer !== null) {
+        clearTimeout(deadlineTimer);
+      }
+    } else {
+      raced = await drain;
+    }
+    if (raced === SHUTDOWN_DEADLINE) {
+      this.log(
+        `shutdown deadline exceeded (${deadlineMs} ms) — forcing exit, onTerminate listeners still pending`,
+        "CRITIC",
+      );
+      code = 1;
+    } else if (raced === SHUTDOWN_DRAIN_ERROR) {
       code = 1;
     }
     return new Promise((resolve, reject) => {

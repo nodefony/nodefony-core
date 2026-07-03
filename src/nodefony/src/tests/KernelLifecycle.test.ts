@@ -462,6 +462,64 @@ describe("Kernel lifecycle — terminate()", () => {
       restore();
     }
   });
+
+  it("listener onTerminate PENDU → shutdownDeadline force la sortie code 1", async () => {
+    const restore = mockQuit();
+    try {
+      const k = mkKernel("development", { shutdownDeadline: 80 });
+      // Promise jamais résolue = SSE ouvert / store bloqué / module tiers.
+      k.on("onTerminate", () => new Promise(() => {}));
+      const codes: number[] = [];
+      (CliKernel as any).quit = (c: number) => {
+        codes.push(c);
+      };
+      const t0 = Date.now();
+      await k.terminate(0);
+      assert.deepStrictEqual(codes, [1], "deadline → code forcé à 1");
+      assert.ok(
+        Date.now() - t0 < 5000,
+        "sortie via la deadline (80 ms), pas via un timeout externe",
+      );
+    } finally {
+      restore();
+    }
+  });
+
+  it("shutdownDeadline: 0 = filet désactivé (drain nominal inchangé)", async () => {
+    const restore = mockQuit();
+    try {
+      const k = mkKernel("development", { shutdownDeadline: 0 });
+      let called = false;
+      k.on("onTerminate", async () => {
+        called = true;
+      });
+      const codes: number[] = [];
+      (CliKernel as any).quit = (c: number) => {
+        codes.push(c);
+      };
+      await k.terminate(0);
+      assert.strictEqual(called, true);
+      assert.deepStrictEqual(codes, [0], "drain propre → code demandé");
+    } finally {
+      restore();
+    }
+  });
+
+  it("drain rapide sous deadline → code demandé, pas d'effet du filet", async () => {
+    const restore = mockQuit();
+    try {
+      const k = mkKernel("development", { shutdownDeadline: 5000 });
+      k.on("onTerminate", () => new Promise<void>((r) => setTimeout(r, 20)));
+      const codes: number[] = [];
+      (CliKernel as any).quit = (c: number) => {
+        codes.push(c);
+      };
+      await k.terminate(0);
+      assert.deepStrictEqual(codes, [0]);
+    } finally {
+      restore();
+    }
+  });
 });
 
 // ─── 5. addKernelService ──────────────────────────────────────────────────────

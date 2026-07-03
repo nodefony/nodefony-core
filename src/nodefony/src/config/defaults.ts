@@ -40,6 +40,11 @@ export const defaultAppConfig: ResolvedAppConfig = {
   templating: "eta",
   packageManager: "npm",
 
+  // ── Cycle de vie ──
+  // Deadline GLOBALE du shutdown : filet anti-listener-pendu de Kernel.terminate
+  // (sortie forcée code 1 au-delà). Garder < grace period orchestrateur (30 s k8s).
+  shutdownDeadline: 15_000,
+
   // ── Réseau ──
   // `domain` = adresse d'écoute (Kernel.setDomain). La validation Host
   // (`domainCheck`/`domainAlias` vs `http.trustedHosts`) est opt-in app/sécu.

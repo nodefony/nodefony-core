@@ -250,6 +250,16 @@ export interface AppConfigInput {
    * @reactivity boot
    */
   cluster?: Record<string, unknown>;
+  /**
+   * Deadline GLOBALE du shutdown (ms) — au-delà, `Kernel.terminate` force la
+   * sortie `code 1` même si un listener `onTerminate` pend (SSE ouvert, store
+   * bloqué, module tiers). Filet cloud-native : garder < grace period de
+   * l'orchestrateur (30 s k8s, 10 s Docker). Distinct de
+   * `http.servers.*.shutdownTimeout` (drain PAR SERVEUR, borne le nominal) :
+   * ici c'est le filet de TOUT le terminate. `0` = désactivé. Défaut : `15000`.
+   * @reactivity boot
+   */
+  shutdownDeadline?: number;
   /** Observabilité (Syslog + log backplane). */
   log?: LogConfig;
   /**

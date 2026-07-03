@@ -196,6 +196,17 @@ export const appConfigSchema = z.object({
       "Topologie cluster (workers, backplane). Forme détaillée résolue par " +
         "`resolveTopology` ; lue standalone par le master AVANT le boot.",
     ),
+  shutdownDeadline: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe(
+      "Deadline GLOBALE du shutdown (ms) : au-delà, sortie forcée code 1 même " +
+        "si un listener onTerminate pend. Filet cloud-native — garder < grace " +
+        "period de l'orchestrateur (30 s k8s, 10 s Docker). 0 = désactivé. " +
+        "Défaut : 15000.",
+    ),
   log: logSchema.optional(),
 });
 

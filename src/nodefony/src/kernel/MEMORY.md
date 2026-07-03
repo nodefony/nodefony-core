@@ -78,7 +78,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 **memoryUsage(msg?, sev?)**: log RSS/heapTotal/heapUsed/external via `CliKernel.niceBytes()`.
 **setDomain()**: `options.domain === "selectAuto"` → 1ère IP externe IPv4 ou `"localhost"`.
 **sendMessage(msg)**: `process.send(...)`. Throws si pas worker IPC.
-**terminate(code?)**: fire `"onTerminate"` → `process.nextTick(() => CliKernel.quit(code))`. Si `quit()` throw → `reject(e as Error)` (pas `reject(quit())`).
+**terminate(code?)**: fire `"onTerminate"` → `process.nextTick(() => CliKernel.quit(code))`. Si `quit()` throw → `reject(e as Error)` (pas `reject(quit())`). Le `fireAsync` est bornée par la **deadline GLOBALE `options.shutdownDeadline`** (défaut `config/defaults.ts` 15 000 ms, fallback interne `DEFAULT_SHUTDOWN_DEADLINE` ; `0` = filet off) : `Promise.race` avec un timer `unref` → au-delà, log CRITIC + **sortie forcée code 1** (jamais de process zombie attendant le SIGKILL orchestrateur). Rejet du drain capturé AVANT le race (sinon unhandledRejection si la deadline gagne) ; erreur listener → code 1 (inchangé). Garder `shutdownDeadline` > somme des drains nominaux (WS 600 ms + `http.servers.*.shutdownTimeout` ≤ 5 s/serveur) et < grace period orchestrateur (30 s k8s).
 
 **clean()**: `removeAllListeners() + this.modules = {}`. Ne jamais appeler directement en prod.
 

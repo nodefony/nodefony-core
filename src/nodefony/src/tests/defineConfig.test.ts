@@ -30,6 +30,8 @@ const GOLDEN_DEFAULTS = {
   locale: "en_en",
   templating: "eta",
   packageManager: "npm",
+  // Deadline globale du shutdown (0.7) — filet anti-listener-pendu de terminate.
+  shutdownDeadline: 15_000,
   domain: "localhost",
   servers: {
     statics: true,
