@@ -23,7 +23,7 @@
     "test:memory": "vitest run --config vitest.load.config.ts nodefony/tests/http/memory.test.ts",
     "coverage": "vitest run --coverage"
   },
-  "private": true,
+  "private": false,
   "keywords": [
     "nodefony",
     "javascript",
@@ -83,5 +83,12 @@
   "peerDependencies": {
     "nodefony": "*",
     "zod": "^4.4.3"
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

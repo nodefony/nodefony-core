@@ -24,5 +24,6 @@
   "license": "CECILL-B",
   "devDependencies": {
     "nodefony": "*"
-  }
+  },
+  "private": true
 }

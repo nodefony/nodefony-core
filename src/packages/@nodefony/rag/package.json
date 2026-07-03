@@ -8,5 +8,6 @@
     "@nodefony/llm": "*",
     "@nodefony/vector": "*"
   },
-  "license": "CECILL-B"
+  "license": "CECILL-B",
+  "private": true
 }

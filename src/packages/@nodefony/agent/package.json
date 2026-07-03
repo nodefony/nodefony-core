@@ -9,5 +9,6 @@
     "@nodefony/rag": "*",
     "@nodefony/memory": "*"
   },
-  "license": "CECILL-B"
+  "license": "CECILL-B",
+  "private": true
 }

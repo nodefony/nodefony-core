@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/studio",
-  "version": "10.0.0-poc.1",
+  "version": "10.0.0",
   "description": "Studio — admin web Nodefony (successeur monitoring-bundle). Frontend React 19 + Mantine v9 + MobX via @nodefony/frontend.",
   "type": "module",
   "main": "dist/index.js",
@@ -20,7 +20,7 @@
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit -p frontend/tsconfig.json"
   },
-  "private": true,
+  "private": false,
   "keywords": [
     "nodefony",
     "studio",
@@ -85,5 +85,13 @@
     "typescript": "6.0.3",
     "vitest": "4.1.8"
   },
-  "license": "CECILL-B"
+  "license": "CECILL-B",
+  "files": [
+    "dist",
+    "public",
+    "docs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

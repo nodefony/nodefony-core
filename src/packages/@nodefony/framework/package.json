@@ -21,7 +21,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "coverage": "vitest run --coverage"
   },
-  "private": true,
+  "private": false,
   "keywords": [
     "nodefony",
     "javascript",
@@ -64,5 +64,12 @@
   "peerDependencies": {
     "nodefony": "*",
     "zod": "^4.4.3"
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

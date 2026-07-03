@@ -67,5 +67,12 @@
   "readmeFilename": "README.md",
   "dependencies": {
     "tslib": "2.8.1"
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

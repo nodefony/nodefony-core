@@ -21,7 +21,7 @@
     "test": "vitest run",
     "coverage": "vitest run --coverage"
   },
-  "private": true,
+  "private": false,
   "keywords": [
     "nodefony",
     "javascript",
@@ -64,5 +64,12 @@
     "@nodefony/http": "*",
     "@nodefony/user": "*",
     "nodefony": "*"
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
