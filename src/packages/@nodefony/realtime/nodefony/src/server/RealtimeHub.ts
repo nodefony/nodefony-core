@@ -649,6 +649,22 @@ export class RealtimeHub {
   }
 
   /**
+   * F1 (revue 0.6) — des politiques de canal sont-elles DÉCLARÉES (`@RealtimeChannel`
+   * avec `roles`/`scopes`/`authenticated`) sans `frameAuthorizer` pour les faire
+   * respecter ? `true` = **dégradation silencieuse** : un canal se croit gardé mais
+   * aucun décideur n'est câblé → un subscribe passe non gardé. Vrai uniquement sans
+   * `@nodefony/security` (ou toutes les zones en `realtime: false`). Lu par le
+   * RealtimeController pour émettre un WARNING au boot (fail-loud, jamais silencieux).
+   */
+  hasUnenforcedChannelPolicies(): boolean {
+    return (
+      this.#channelPolicies !== null &&
+      this.#channelPolicies.size > 0 &&
+      this.#frameAuthorizer === null
+    );
+  }
+
+  /**
    * **Seam #1b** — déclare la politique d'autorisation d'un canal/méthode
    * (`@RealtimeChannel`/`@RealtimeInbound` avec opts). Appelé au handshake par
    * le controller pour CHAQUE canal décoré (idempotent : même nom = écrase, les

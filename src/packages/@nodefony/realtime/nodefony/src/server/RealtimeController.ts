@@ -58,6 +58,11 @@ interface RealtimeHolder {
   __nfRealtime?: RealtimeConnState;
 }
 
+// F1 (revue 0.6) — garde anti-spam : le WARNING « policies de canal non appliquées »
+// (aucun frameAuthorizer câblé) n'est émis qu'UNE fois par process, quel que soit le
+// nombre de connexions/controllers. Une fois suffit à alerter l'exploitant.
+let warnedUnenforcedPolicies = false;
+
 /**
  * RealtimeController — base d'un endpoint WebSocket temps réel SERVEUR (JSON-RPC 2.0).
  *
@@ -388,6 +393,20 @@ export abstract class RealtimeController<
     if (channelPolicies) {
       for (const name in channelPolicies) {
         hub.registerChannelPolicy(name, channelPolicies[name]!);
+      }
+      // F1 (revue 0.6) — fail-LOUD : une policy de canal n'est appliquée que si un
+      // frameAuthorizer est câblé (par @nodefony/security au boot des zones realtime).
+      // Sans lui, la policy est INERTE (canal servable mais NON gardé) → dégradation
+      // silencieuse. On alerte (jamais en silence) : le canal se croit gardé, il est
+      // ouvert. Cf project_resilience_no_silent_degradation.
+      if (hub.hasUnenforcedChannelPolicies() && !warnedUnenforcedPolicies) {
+        warnedUnenforcedPolicies = true;
+        this.log(
+          "Realtime channel policies declared but NO frame authorizer is wired — " +
+            "these policies are NOT enforced (a protected channel is currently open). " +
+            "Load @nodefony/security with a realtime zone to enforce them.",
+          "WARNING",
+        );
       }
     }
 
