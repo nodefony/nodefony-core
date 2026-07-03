@@ -15,8 +15,6 @@ import {
   isPromise,
   isSubclassOf,
 } from "../Tools";
-import Websocket from "./transport/websocket";
-import Storage from "./api/Storage";
 import { RealtimeClient } from "./realtime/RealtimeClient";
 import { closeCodeToNotice } from "./realtime/notice";
 import { JsonRpcPeer, RpcError } from "../realtime/JsonRpcPeer";
@@ -54,28 +52,26 @@ export type {
   RealtimeHandler,
 } from "../realtime/IRealtimeSocket";
 
-class Nodefony {
-  private static instance: Nodefony;
-  public Service: typeof Service = Service;
-  public Container: typeof Container = Container;
-  public Syslog: typeof Syslog = Syslog;
-  public Pdu: typeof Pdu = Pdu;
-  public Websocket: typeof Websocket = Websocket;
-  public Storage: typeof Storage = Storage;
-  public RealtimeClient: typeof RealtimeClient = RealtimeClient;
-  private constructor() {}
-  public static getInstance(): Nodefony {
-    if (!Nodefony.instance) {
-      Nodefony.instance = new Nodefony();
-    }
-    return Nodefony.instance;
-  }
-  generateId(): string {
-    return globalThis.crypto.randomUUID();
-  }
+// Contrat du kernel client isomorphe (ADR-0007) — types-only, 0 octet de runtime.
+// L'implémentation (`createClientKernel`) arrive en Phase 3.2.
+export type {
+  IClientKernel,
+  NodefonyClientServices,
+  ClientKernelEvent,
+  ClientKernelState,
+} from "./IClientKernel";
+
+/**
+ * Génère un identifiant unique (UUID v4) côté client.
+ *
+ * Named export plat — remplace l'ancienne façade singleton `Nodefony` du barrel
+ * client (supprimée par l'ADR-0007 D4 : named exports only, symétrie avec le
+ * barrel node où le singleton exporté a déjà été supprimé).
+ */
+export function generateId(): string {
+  return globalThis.crypto.randomUUID();
 }
 
-export default Nodefony.getInstance();
 export {
   Service,
   Container,
