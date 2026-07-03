@@ -32,7 +32,7 @@ import { DebugType, EnvironmentType } from "./types/globals";
 import Syslog from "./syslog/Syslog";
 import Kernel from "./kernel/Kernel";
 
-type FigletModule = typeof import("figlet");
+type FigletModule = (typeof import("figlet"))["default"];
 let figletModule: FigletModule | null = null;
 
 /**
