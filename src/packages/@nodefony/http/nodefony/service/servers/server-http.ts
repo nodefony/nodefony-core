@@ -19,10 +19,12 @@ import http from "node:http";
 import http2 from "node:http2";
 import { AddressInfo } from "node:net";
 import { handleClientError } from "./clientError";
+import { createDrainTerminator, HttpTerminator } from "./serverShutdown";
 
 class ServerHttp extends Service {
   module: Module;
   server: http.Server | http2.Http2Server | null = null;
+  httpTerminator: HttpTerminator | null = null;
   port: number;
   protocol: ProtocolType = "1.1";
   ready: boolean = false;
@@ -69,6 +71,10 @@ class ServerHttp extends Service {
           requestTimeout: this.options.requestTimeout,
         });
         this.server = http.createServer(opt);
+        this.httpTerminator = createDrainTerminator(
+          this.server as http.Server,
+          this.options.shutdownTimeout,
+        );
         if (this.options.maxHeadersCount) {
           if (this.server) {
             this.server.maxHeadersCount = this.options.maxHeadersCount;
@@ -132,20 +138,25 @@ class ServerHttp extends Service {
               this.log(myError, "CRITIC");
           }
         });
-        this.kernel?.once("onTerminate", () => {
-          return new Promise((resolve) => {
-            if (this.server) {
-              (this.server as http.Server).closeAllConnections();
-              return this.server.close(() => {
-                this.log(
-                  `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
-                  "INFO",
-                );
-                return resolve(true);
-              });
-            }
-            return resolve(true);
-          });
+        // Drain graceful (SIGTERM/docker stop) : les requêtes in-flight se
+        // terminent, destruction forcée après `shutdownTimeout` ms. Remplace
+        // `closeAllConnections()` qui coupait les requêtes en cours. Le
+        // terminator appelle `server.close()` lui-même. Les WS upgradées sont
+        // fermées AVANT (listeners prepend) — cf serverShutdown.ts.
+        this.kernel?.once("onTerminate", async () => {
+          if (!this.server) {
+            return;
+          }
+          try {
+            await this.httpTerminator?.terminate();
+            this.log(
+              `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
+              "INFO",
+            );
+          } catch (e) {
+            // Shutdown best-effort : logger, ne jamais casser la terminaison.
+            this.log(e, "ERROR", "TERMINATE");
+          }
         });
 
         this.server.on("clientError", (e, socket) => {

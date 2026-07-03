@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-03T19:52:52.394Z",
+  "generated": "2026-07-03T20:42:51.540Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 996,
-    "symbols": 2414,
+    "files": 997,
+    "symbols": 2416,
     "classes": 316,
     "interfaces": 638,
     "types": 282,
     "enums": 3,
-    "functions": 645,
-    "constants": 530
+    "functions": 646,
+    "constants": 531
   },
   "symbols": {
     "Cli": {
@@ -14159,6 +14159,22 @@
       "implements": [],
       "decorators": []
     },
+    "createDrainTerminator": {
+      "name": "createDrainTerminator",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/serverShutdown.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Fabrique le terminator de drain graceful d'un serveur HTTP/HTTPS/HTTP2. Au `terminate()` (shutdown SIGTERM/docker stop) : les requêtes in-flight se terminent (header `connection: close` injecté sur…"
+    },
+    "DEFAULT_SHUTDOWN_TIMEOUT": {
+      "name": "DEFAULT_SHUTDOWN_TIMEOUT",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/serverShutdown.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Drain par défaut (ms) — même valeur que le défaut Zod `servers.*.shutdownTimeout`."
+    },
     "IWsHeartbeatOptions": {
       "name": "IWsHeartbeatOptions",
       "kind": "interface",
@@ -23446,6 +23462,10 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
       ],
       "handleClientError": [
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
+      ],
+      "createDrainTerminator": [
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
       ],

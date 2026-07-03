@@ -222,6 +222,16 @@ const httpServerSchema = z
       .nonnegative()
       .default(30_000)
       .describe("Timeout d'envoi de la réponse complète (ms)."),
+    shutdownTimeout: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(5000)
+      .describe(
+        "Drain graceful au shutdown (ms) : délai laissé aux requêtes in-flight " +
+          "avant destruction forcée des sockets (SIGTERM/docker stop). Doit " +
+          "rester < grace period de l'orchestrateur (30 s k8s, 10 s Docker).",
+      ),
     headers: z
       .record(z.string(), z.string())
       .nullable()

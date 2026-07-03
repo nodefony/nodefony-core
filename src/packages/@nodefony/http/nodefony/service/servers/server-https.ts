@@ -19,7 +19,7 @@ import HttpKernel, {
 import http from "node:http";
 import https from "node:https";
 import http2 from "node:http2";
-import { createHttpTerminator, HttpTerminator } from "http-terminator";
+import { createDrainTerminator, HttpTerminator } from "./serverShutdown";
 //import net from "node:net";
 import { AddressInfo } from "node:net";
 import { TLSSocket } from "node:tls";
@@ -60,9 +60,7 @@ class ServerHttps extends Service {
 
   terminator(): HttpTerminator {
     if (this.server) {
-      return createHttpTerminator({
-        server: this.server,
-      });
+      return createDrainTerminator(this.server, this.options.shutdownTimeout);
     }
     throw new Error(`Server not found`);
   }
@@ -167,20 +165,23 @@ class ServerHttps extends Service {
           }
         });
 
-        this.kernel?.once("onTerminate", () => {
-          return new Promise((resolve) => {
-            if (this.server) {
-              (this.server as https.Server).closeAllConnections();
-              return this.server.close(() => {
-                this.log(
-                  `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
-                  "INFO",
-                );
-                return resolve(true);
-              });
-            }
-            return resolve(true);
-          });
+        // Drain graceful (SIGTERM/docker stop) : in-flight terminées, destroy
+        // forcé après `shutdownTimeout` ms. Remplace `closeAllConnections()`
+        // qui coupait les requêtes en cours. Le terminator close() le serveur.
+        this.kernel?.once("onTerminate", async () => {
+          if (!this.server) {
+            return;
+          }
+          try {
+            await this.httpTerminator?.terminate();
+            this.log(
+              `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
+              "INFO",
+            );
+          } catch (e) {
+            // Shutdown best-effort : logger, ne jamais casser la terminaison.
+            this.log(e, "ERROR", "TERMINATE");
+          }
         });
         this.server.on("clientError", (e, socket) => {
           this.fire("onClientError", e, socket);
@@ -305,21 +306,17 @@ class ServerHttps extends Service {
         });
         // P7 — handler async direct (plus de `new Promise(async …)`) : un rejet
         // de `terminate()` remontait en unhandledRejection au shutdown.
+        // Le terminator draine puis close() le serveur lui-même.
         this.kernel?.once("onTerminate", async () => {
           if (!this.server) {
             return;
           }
           try {
             await this.httpTerminator?.terminate();
-            await new Promise<void>((resolve) => {
-              this.server?.close(() => {
-                this.log(
-                  `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
-                  "INFO",
-                );
-                resolve();
-              });
-            });
+            this.log(
+              `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
+              "INFO",
+            );
           } catch (e) {
             // Shutdown best-effort : logger, ne jamais casser la terminaison.
             this.log(e, "ERROR", "TERMINATE");

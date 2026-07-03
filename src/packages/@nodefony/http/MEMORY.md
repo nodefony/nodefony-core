@@ -104,6 +104,8 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 
 **Arrêt gracieux WS** : `terminate()` envoie le message applicatif `{nodefony:{state:shutDown}}` PUIS `client.close(1001,"Server shutting down")` (frame Close RFC 6455 §7.4.1 "Going Away") AVANT `server.close()`. Sans le `client.close(1001)`, couper la socket TCP fait voir **1006** au client (Abnormal Closure, réservé, jamais émis sur le fil) → indistinguable d'une coupure réseau. 1001 = reconnexion normale côté client (cf realtime close codes). Idem `server-websocket-secure`.
 
+**Arrêt gracieux HTTP/HTTPS/H2 (drain SIGTERM)** : les 3 chemins (`server-http`, `server-https` H1 et H2) drainent via `http-terminator` (`serverShutdown.ts` → `createDrainTerminator`) : requêtes in-flight terminées (`connection: close` injecté), sockets idle fermées, destroy forcé après `servers.*.shutdownTimeout` ms (Zod, défaut 5000 — garder < grace period orchestrateur : 30 s k8s, 10 s Docker). Le terminator `close()` le serveur lui-même — ne PAS rappeler `server.close()` derrière. ⚠️ JAMAIS `closeAllConnections()` au shutdown (coupe les requêtes en cours = requêtes perdues à chaque rolling update). **Ordre garanti** : WS/WSS s'attachent à `onTerminate` en `prependOnceListener` (close 1001 des clients) AVANT le drain HTTP (`once`) — sinon le terminator détruirait les sockets upgradées sans frame Close (1006). Preuve e2e versionnée : `run.sh graceful` (in-flight 200 + WS 1001 + port libéré).
+
 ## Multi-process / scaling (post-PM2)
 
 - Serveurs bind via `server.listen(this.port, this.domain, cb)` **positionnel** (`server-http.ts:97`, `server-https.ts:120/237`).
