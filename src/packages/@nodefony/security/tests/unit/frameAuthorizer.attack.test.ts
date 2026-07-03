@@ -123,3 +123,55 @@ describe("RED-TEAM frameAuthorizer — contournement du plancher de canal systè
     assert.equal(authorize({ method: "orm:flow", params: {} }, ANON), false);
   });
 });
+
+/**
+ * 0.6 F2 — PLANCHER irréductible : une règle de config `realtimeChannels` est
+ * placée AVANT les défauts (1ᵉʳ match gagne) → sans plancher, elle pourrait OUVRIR
+ * un namespace réservé plateforme à l'anonyme. Le plancher garantit `authenticated`
+ * au minimum sur ces namespaces : la config peut RESSERRER/re-cibler, jamais
+ * DESCENDRE sous authenticated. Un namespace APPLICATIF (non réservé) reste, lui,
+ * librement ouvrable (y compris anonyme). Cf project_realtime_dos_limits_kit (F2).
+ */
+describe("0.6 F2 — plancher irréductible des namespaces réservés (anti-desserrage config)", () => {
+  // Config MALVEILLANTE/ERRONÉE : tente d'ouvrir des namespaces réservés à l'anonyme,
+  // + re-cible un namespace applicatif (légitime). Placée AVANT les défauts.
+  const looseRules = [
+    { prefix: "security:", policy: { authenticated: false } }, // tente d'ouvrir l'audit
+    { prefix: "syslog:", policy: {} }, // policy vide = aucune contrainte
+    { prefix: "chat:", policy: {} }, // namespace APPLICATIF → librement public
+    ...DEFAULT_SYSTEM_RULES,
+  ];
+  const authz = buildFrameAuthorizer(firewall, { systemRules: looseRules });
+
+  it("[F2] config ouvre security: à l'anonyme → REFUSÉ (plancher force authenticated)", () => {
+    assert.equal(authz(sub("security:audit"), ANON), false);
+  });
+
+  it("[F2] config met une policy VIDE sur syslog: → anonyme REFUSÉ (plancher)", () => {
+    assert.equal(authz(sub("syslog:stream"), ANON), false);
+  });
+
+  it("[F2] la config PEUT desserrer jusqu'à authenticated (pas en-dessous) : USER autorisé", () => {
+    // Le plancher n'IMPOSE pas ROLE_ADMIN : si l'opérateur re-cible délibérément à
+    // authenticated-only, un user authentifié passe. Il bloque SEULEMENT l'anonyme.
+    assert.equal(authz(sub("security:audit"), USER), true);
+    assert.equal(authz(sub("syslog:stream"), USER), true);
+  });
+
+  it("[F2] anti-bypass : un prefixe de config plus COURT ne contourne pas le plancher", () => {
+    // Règle {prefix:"sec"} → matche "security:audit" en 1er, policy ouverte. Le
+    // plancher se base sur le NAMESPACE du canal (security:), pas le prefixe matché.
+    const sneaky = [
+      { prefix: "sec", policy: { authenticated: false } },
+      ...DEFAULT_SYSTEM_RULES,
+    ];
+    const a = buildFrameAuthorizer(firewall, { systemRules: sneaky });
+    assert.equal(a(sub("security:audit"), ANON), false);
+  });
+
+  it("[F2] un namespace APPLICATIF (non réservé) reste librement ouvrable à l'anonyme", () => {
+    // Le plancher ne s'applique QU'AUX namespaces réservés plateforme : un canal
+    // métier que la config ouvre reste public (le framework ne bride pas l'app).
+    assert.equal(authz(sub("chat:room-42"), ANON), true);
+  });
+});

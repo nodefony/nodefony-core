@@ -68,6 +68,7 @@ export type FrameDenyReporter = (
  * Surchargeable finement par `realtimeChannels` (ex. `ROLE_SECURITY_AUDITOR`).
  */
 export const SYSTEM_CHANNEL_POLICY: IChannelPolicy = {
+  authenticated: true,
   roles: ["ROLE_ADMIN"],
 };
 
@@ -103,8 +104,25 @@ export const DEFAULT_SYSTEM_PREFIXES = [
  * pour permettre un filtrage par tenant quand le chantier multi-tenant arrivera.
  */
 export const SECURITY_CHANNEL_POLICY: IChannelPolicy = {
+  authenticated: true,
   roles: ["ROLE_NODEFONY_ADMIN"],
 };
+
+/**
+ * F2 (revue 0.6) — PLANCHER IRRÉDUCTIBLE des namespaces réservés plateforme. Ces
+ * namespaces exposent l'état interne du pod (logs, audit, métriques, requêtes,
+ * supervision) : une règle de config `realtimeChannels` (placée AVANT les défauts,
+ * 1ᵉʳ match gagne) pourrait sinon les OUVRIR à l'anonyme (`{ authenticated:false }`
+ * ou policy vide). Le plancher garantit qu'un canal de ces namespaces exige
+ * TOUJOURS au moins `authenticated` — la config peut RESSERRER (rôle/scope) ou
+ * re-cibler le rôle, jamais DESCENDRE sous authenticated. `security:` inclus (son
+ * défaut ROLE_NODEFONY_ADMIN est déjà au-dessus, mais le plancher le blinde contre
+ * une surcharge de config). Défense structurelle, fail-closed (cf F1 fail-loud).
+ */
+export const RESERVED_FLOOR_PREFIXES = [
+  "security:",
+  ...DEFAULT_SYSTEM_PREFIXES,
+] as const;
 
 /**
  * Règles système par défaut. `security:` est placé EN TÊTE (1ᵉʳ match gagne) avec
@@ -177,12 +195,38 @@ function matchSystemPolicy(
   rules: readonly ISystemChannelRule[],
 ): IChannelPolicy | null {
   for (let i = 0; i < rules.length; i++) {
-    if (startsWithCI(channel, rules[i]!.prefix)) return rules[i]!.policy;
+    if (startsWithCI(channel, rules[i]!.prefix)) {
+      return floorReserved(channel, rules[i]!.policy);
+    }
   }
   if (containsCI(channel, ":health") || containsCI(channel, ":stats")) {
     return SYSTEM_CHANNEL_POLICY;
   }
   return null;
+}
+
+/**
+ * F2 (revue 0.6) — applique le PLANCHER irréductible : si `channel` est dans un
+ * namespace réservé plateforme ({@link RESERVED_FLOOR_PREFIXES}), l'autorisation
+ * effective exige AU MOINS `authenticated`, même si la `policy` (issue d'une règle
+ * de config) tente de l'ouvrir. Basé sur le namespace du CANAL, PAS sur le prefixe
+ * de la règle qui a matché → pas de contournement via un prefixe de config plus
+ * court/altéré (`{ prefix:"sec", authenticated:false }` sur `security:audit`).
+ * `policy.authenticated` déjà vrai (cas nominal, défauts + `:health`) → retour tel
+ * quel, 0 allocation. N'alloue que sur une config qui tente de DESSERRER un
+ * namespace réservé (cold path de misconfiguration).
+ */
+function floorReserved(
+  channel: string,
+  policy: IChannelPolicy,
+): IChannelPolicy {
+  if (policy.authenticated) return policy;
+  for (let i = 0; i < RESERVED_FLOOR_PREFIXES.length; i++) {
+    if (startsWithCI(channel, RESERVED_FLOOR_PREFIXES[i]!)) {
+      return { ...policy, authenticated: true };
+    }
+  }
+  return policy;
 }
 
 /**
@@ -224,7 +268,15 @@ function satisfies(
   return true;
 }
 
-/** Verrou `api.request {path}` — invariant : ne donne jamais plus que `GET {path}`. */
+/**
+ * Verrou `api.request {path}` — vérifie l'autorisation de ZONE du pathname (le
+ * MÊME re-match de zone qu'un `GET {path}` ; ne regarde PAS la méthode logique).
+ * Une zone protégée + un token anonyme = refus. Les mutations (POST/PUT/PATCH/
+ * DELETE) restent possibles via le pont MAIS seulement si la route déclare le
+ * transport WEBSOCKET + `methodOverride` (une route REST HTTP-only = 405,
+ * inatteignable), et sont gardées EN PLUS par `@IsGranted` + clé d'idempotence au
+ * data plane. Le verrou n'accorde donc que le plancher de ZONE, pas l'action.
+ */
 function authorizeApiRequest(
   firewall: IFrameAuthorizerFirewall,
   params: unknown,
@@ -280,7 +332,8 @@ function authorizeChannel(
  *
  * Trois surfaces gardées :
  *  - `api.request {path}` (pont API souverain) : re-match de zone HTTP → zone
- *    protégée + anonyme = refus (invariant `api.request ≤ GET`).
+ *    protégée + anonyme = refus (autorisation de ZONE, identique à `GET {path}` ;
+ *    la méthode/action est gardée en aval par le router + `@IsGranted`).
  *  - `subscribe {channel}` : politique de canal (système plancher + déclaration
  *    métier `@RealtimeChannel` → rôles/scopes).
  *  - inbound (`method` = canal full-duplex déclaré avec policy) : même politique

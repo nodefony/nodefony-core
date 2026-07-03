@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-03T18:45:48.358Z",
+  "generated": "2026-07-03T19:13:23.384Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 995,
-    "symbols": 2411,
+    "symbols": 2413,
     "classes": 315,
     "interfaces": 638,
     "types": 282,
     "enums": 3,
-    "functions": 644,
-    "constants": 529
+    "functions": 645,
+    "constants": 530
   },
   "symbols": {
     "Cli": {
@@ -15872,6 +15872,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Plancher des canaux de **sécurité** (`security:audit`, P6.14 lot 4) : réservé au super-admin Nodefony (`ROLE_NODEFONY_ADMIN`) — un cran AU-DESSUS du plancher d'observabilité générique (`ROLE_ADMIN`…"
+    },
+    "RESERVED_FLOOR_PREFIXES": {
+      "name": "RESERVED_FLOOR_PREFIXES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "F2 (revue 0.6) — PLANCHER IRRÉDUCTIBLE des namespaces réservés plateforme. Ces namespaces exposent l'état interne du pod (logs, audit, métriques, requêtes, supervision) : une règle de config `realt…"
     },
     "DEFAULT_SYSTEM_RULES": {
       "name": "DEFAULT_SYSTEM_RULES",
