@@ -140,8 +140,8 @@ class Statics extends Service {
     for (const name in modules) {
       const mod = modules[name];
       if (!mod || mod.isApp) continue;
-      // Config par module (cf {@link PublicMountOption}). Même pattern que les
-      // autres options top-level d'un module (`watch`…) : lue dans `mod.options`.
+      // Config par module (cf {@link PublicMountOption}) : option top-level
+      // du module, lue dans `mod.options`.
       const cfg = (mod.options as { publicMount?: PublicMountOption })
         ?.publicMount;
       if (cfg === false) continue; // opt-out explicite

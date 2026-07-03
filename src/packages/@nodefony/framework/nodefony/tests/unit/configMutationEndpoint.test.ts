@@ -6,7 +6,7 @@ const httpSchema = {
   type: "object",
   properties: {
     headerServer: { type: ["string", "null"], runtimeMutable: true },
-    watch: { type: "boolean", reserved: true },
+    http3: { type: "boolean", reserved: true },
     jwt: {
       type: "object",
       properties: {
@@ -35,7 +35,7 @@ function makeHttpMod(): MockMod {
     isApp: false,
     options: {
       headerServer: "nodefony",
-      watch: true,
+      http3: true,
       jwt: { secret: "s", accessTtlS: 900 },
     },
     configSchema: () => httpSchema,
@@ -169,7 +169,7 @@ describe("PATCH config/{module} — édition live (surface sensible)", () => {
   it("champ réservé (boot) → 409 reason reserved + recette", () => {
     const kernel = makeKernel({ modules: { http: makeHttpMod() } });
     const res = patchHandler(kernel)(
-      req("http", { path: "watch", value: false }),
+      req("http", { path: "http3", value: false }),
     );
     expect(res.status).to.equal(409);
     expect((res.body as { reason: string }).reason).to.equal("reserved");

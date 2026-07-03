@@ -18,7 +18,7 @@ const schema: IJsonSchemaNode = {
       default: "nodefony",
       runtimeMutable: true,
     },
-    watch: { type: "boolean", default: true, reserved: true },
+    http3: { type: "boolean", default: true, reserved: true },
     logLevel: { enum: ["debug", "info", "warn"], runtimeMutable: true },
     jwt: {
       type: "object",
@@ -173,8 +173,8 @@ describe("configMutation — validateLeafValue", () => {
   });
 
   it("boolean", () => {
-    expect(validateLeafValue(node(["watch"]), false).ok).to.equal(true);
-    expect(validateLeafValue(node(["watch"]), "false").ok).to.equal(false);
+    expect(validateLeafValue(node(["http3"]), false).ok).to.equal(true);
+    expect(validateLeafValue(node(["http3"]), "false").ok).to.equal(false);
   });
 });
 

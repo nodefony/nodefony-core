@@ -1,6 +1,4 @@
 export default {
-  watch: true,
-
   "module-http": {
     // Plus de racine statique `test` : le `public/` du module est auto-monté
     // sous le préfixe natif `/test/` par server-static (`mountModulePublics`).

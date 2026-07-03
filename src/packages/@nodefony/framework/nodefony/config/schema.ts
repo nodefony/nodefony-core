@@ -18,8 +18,7 @@ import { meta } from "@nodefony/http";
  *
  * Le framework n'expose presque aucune option : son rôle (Router/Resolver/
  * Controller/décorateurs) est piloté par les décorateurs et le code, pas par la
- * config. Les seules clés réellement consommées dans le source (audit 2026-05-30) :
- *   - `watch` — RÉSERVÉ au futur serveur HMR (non lu en runtime aujourd'hui).
+ * config. Les seules clés réellement consommées dans le source :
  *   - `router` / `adminBroker` — bags d'options de **Service de base** transmis
  *     tels quels aux Services `Router` / `AdminBroker` (4ᵉ arg du `super(...)`).
  *     Aucune forme métier figée → `looseObject` + `optional` (ne RIEN stripper,
@@ -72,18 +71,6 @@ const idempotencySchema = z.object({
 
 export const frameworkConfigSchema = z
   .object({
-    watch: meta(z.boolean().default(true), {
-      reserved: true,
-      description:
-        "RÉSERVÉ (no-op) — le hot-reload dev (watch → rebuild ciblé → restart de " +
-        "process) est déjà assuré GLOBALEMENT par le DevSupervisor sur tout " +
-        "`src/` (liste de chemins fixe), PAS par ce flag. Un vrai HMR backend " +
-        "in-process est impossible en ESM (Node ne décharge pas un module déjà " +
-        "importé → le restart est le seul rechargement fiable ; le frontend garde " +
-        "le HMR Vite). Ce flag per-module n'est lu nulle part aujourd'hui ; " +
-        "réservé à un futur opt-out per-module du watch. NE PAS retirer (réservé, " +
-        "cf sessions 2026-05-30 / 2026-06-24).",
-    }),
     router: serviceOptionsSchema
       .optional()
       .describe(

@@ -14,7 +14,6 @@ describe("@nodefony/http — httpConfigSchema (défauts)", () => {
   const c = httpConfigSchema.parse({});
 
   it("expose les défauts de premier niveau", () => {
-    expect(c.watch).to.equal(true);
     expect(c.headerServer).to.equal("nodefony");
     expect(c.trustProxy).to.equal(false);
   });
@@ -258,7 +257,6 @@ describe("@nodefony/http — statics.enabled (toggle reverse-proxy)", () => {
 
 describe("@nodefony/http — métadonnées de champ (JSON Schema)", () => {
   it("schema.shape porte les flags Nodefony", () => {
-    expect(httpConfigSchema.shape.watch.meta()?.reserved).to.equal(true);
     expect(httpConfigSchema.shape.http3.meta()?.reserved).to.equal(true);
     expect(httpConfigSchema.shape.headerServer.meta()?.runtimeMutable).to.equal(
       true,
@@ -269,7 +267,7 @@ describe("@nodefony/http — métadonnées de champ (JSON Schema)", () => {
     const json = httpConfigJsonSchema() as {
       properties: Record<string, { reserved?: boolean }>;
     };
-    expect(json.properties.watch.reserved).to.equal(true);
+    expect(json.properties.http3.reserved).to.equal(true);
   });
 
   it("upload : les limites busboy sont éditables à chaud (relues par requête)", () => {

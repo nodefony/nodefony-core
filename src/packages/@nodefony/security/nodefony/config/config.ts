@@ -26,9 +26,6 @@ import { defineSecurityConfig } from "./defineSecurityConfig";
  *   • Studio (à chaud)   : chaque section porte `enabled` → activable/désactivable.
  */
 export default {
-  // Recharge la config en dev quand le fichier change. Défaut: false.
-  watch: false,
-
   // Tous les défauts proviennent du schéma Zod — JAMAIS re-tapés ici (ADR-0006 D1).
   ...defineSecurityConfig(),
 };
