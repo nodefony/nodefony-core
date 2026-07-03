@@ -18,6 +18,7 @@
 #   run.sh config-env       # preuve e2e override config par env NF__APP__* sur VRAI boot + fail-closed
 #   run.sh ratelimit        # preuve e2e rate-limit IP (429 + X-RateLimit-*) — serveur UP avec NF__HTTP__RATELIMIT__ENABLED=true
 #   run.sh ws-handshake-rl  # preuve e2e rate-limit du handshake WS (close 1013 + compteur partagé) — même prérequis
+#   run.sh ws-conn-cap      # preuve e2e du cap connexions WS concurrentes/IP (backstop opt-in) — serveur UP avec NF__HTTP__WSMAXCONNECTIONSPERIP=3
 # ⚠️ cluster-*/config-env ne dépendent PAS du serveur dev : ils (s)pawn(ent) eux-mêmes (`npm run build`).
 # Les ENV des scripts (CAP, STEP, MODE, N, C, URL…) se passent inline :
 #   CAP=4000 run.sh ws-conn        MODE=broadcast CLIENTS=30 run.sh ws-msg
@@ -51,6 +52,7 @@ case "$cmd" in
   config-env) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/config-env-override-e2e.mjs" ;;
   ratelimit) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ratelimit-e2e.mjs" ;;
   ws-handshake-rl) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-handshake-ratelimit-e2e.mjs" ;;
+  ws-conn-cap) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-conn-cap-e2e.mjs" ;;
   help|*)
     sed -n '2,24p' "${BASH_SOURCE[0]}"
     ;;

@@ -23,6 +23,7 @@ import {
 } from "../src/context/trustProxy";
 import { resolveForwarded } from "../src/context/forwarded";
 import { MemoryRateLimitStore } from "../src/rateLimit/MemoryRateLimitStore";
+import { WsConnectionCounter } from "../src/rateLimit/WsConnectionCounter";
 import {
   compileTrustedHosts,
   compileDomainPatterns,
@@ -201,6 +202,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // édition live de la config (onConfigChanged).
   private rateLimiter: MemoryRateLimitStore | null = null;
   private rateLimitGc: GcScheduler | null = null;
+  // F6c (revue 0.6) — backstop OPT-IN : cap de connexions WS concurrentes par IP.
+  // Lazy null : 0 alloc / 0 tracking quand désactivé (défaut `null` = délégué à
+  // l'ingress). Construit au boot depuis `options.wsMaxConnectionsPerIp`, reconstruit
+  // sur édition live. Auto-borné (pas de GC) — cf WsConnectionCounter.
+  #wsConnCounter: WsConnectionCounter | null = null;
   constructor(module: Module) {
     super(
       serviceName,
@@ -266,6 +272,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // Rate-limit : enabled / windowS / max sont `runtimeMutable` → reconstruit le
     // compteur et réarme (ou désarme) le GC depuis la nouvelle config.
     this.configureRateLimit();
+    this.configureWsConnectionLimit();
   }
 
   /**
@@ -299,6 +306,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     this.rateLimitGc.start();
   }
 
+  /**
+   * (Re)configure le backstop OPT-IN de connexions WS concurrentes par IP (F6c)
+   * depuis `options.wsMaxConnectionsPerIp` — au boot ET à l'édition live. `null` (ou
+   * ≤ 0) = désactivé → `#wsConnCounter` reste `null` (0 alloc / 0 tracking, cas
+   * cloud-native par défaut : le cap concurrent est délégué à l'ingress). Reconstruit
+   * un compteur neuf : les sockets déjà ouvertes décrémentent l'ancienne instance
+   * (capturée dans leur closure de fermeture) → pas de dérive sur la nouvelle.
+   */
+  private configureWsConnectionLimit(): void {
+    const max = (this.options as { wsMaxConnectionsPerIp?: number | null })
+      .wsMaxConnectionsPerIp;
+    this.#wsConnCounter =
+      typeof max === "number" && max > 0 ? new WsConnectionCounter(max) : null;
+  }
+
   async init(): Promise<this> {
     // Apply config-driven request logger (P3.x). Done synchronously here so
     // logger is set before the first request — env override stays simple.
@@ -317,6 +339,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.profiler = this.get<Profiler>("profiler");
       // Rate-limit général par IP (P0.3) — armé si options.rateLimit.enabled.
       this.configureRateLimit();
+      // F6c — backstop connexions WS concurrentes/IP (opt-in, désactivé par défaut).
+      this.configureWsConnectionLimit();
     });
     // Désarme le GC du rate-limit à l'arrêt (le GcScheduler `unref` déjà, mais on
     // stoppe proprement pour les restarts DevSupervisor / les tests).
@@ -1171,27 +1195,42 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     req: IncomingMessage,
     type: ServerType,
   ): Promise<unknown> {
-    // Rate-limit du HANDSHAKE WS par IP — MÊME compteur que les requêtes HTTP
-    // (`onHttpRequest`) : un upgrade WS EST une requête HTTP (GET + Upgrade), il
-    // compte dans le même plafond « général par IP ». Rejeté ICI, AVANT
-    // `enterScope`/l'ALS/le pipeline (symétrie avec le 429 HTTP) → un flood de
-    // handshakes ne peut pas accumuler des sockets ouvertes (le vrai vecteur DoS :
-    // sockets ouvertes → flood de frames → famine event-loop). L'IP est résolue
-    // EXACTEMENT comme en HTTP (forwarded-aware, RFC 7239 + trustProxy) — le raw
-    // socket est spoofable, seul le framework tient l'IP fiable.
-    // Le handshake ne peut pas répondre un 429 (le 101 est déjà émis par `ws`) →
-    // close RFC 6455 1013 « Try Again Later » (le client back-off + reconnecte).
-    // AUCUN log par rejet : un log/handshake rejeté serait lui-même un
-    // amplificateur DoS sous flood.
-    if (this.rateLimiter !== null) {
+    // Bornes par IP à l'upgrade WS — rejetées ICI, AVANT `enterScope`/l'ALS/le
+    // pipeline (symétrie avec le 429 HTTP), car le vrai vecteur DoS = accumuler des
+    // sockets ouvertes (→ flood de frames → famine event-loop). Le handshake ne peut
+    // pas répondre un 429 (le 101 est déjà émis par `ws`) → close RFC 6455 1013
+    // « Try Again Later ». AUCUN log par rejet (un log/handshake rejeté sous flood
+    // serait lui-même un amplificateur DoS). L'IP est résolue UNE fois, EXACTEMENT
+    // comme en HTTP (forwarded-aware, RFC 7239 + trustProxy) — le raw socket est
+    // spoofable, seul le framework tient l'IP fiable. On ne la résout que si au moins
+    // un limiteur par IP est armé (0 coût quand tout est désactivé, cas par défaut).
+    const wsConnCounter = this.#wsConnCounter;
+    if (this.rateLimiter !== null || wsConnCounter !== null) {
       const ip = resolveForwarded(
         req.headers,
         req.socket?.remoteAddress,
         this.getTrustProxyChecker(),
       ).clientIp;
-      if (ip !== null && this.rateLimiter.hit(ip).limited) {
-        if (ws.readyState === Ws.OPEN) ws.close(1013, "rate limit");
-        return;
+      if (ip !== null) {
+        // F5 — rate-limit du DÉBIT de handshakes (même compteur que les requêtes
+        // HTTP : un upgrade WS EST une requête HTTP GET+Upgrade).
+        if (this.rateLimiter !== null && this.rateLimiter.hit(ip).limited) {
+          if (ws.readyState === Ws.OPEN) ws.close(1013, "rate limit");
+          return;
+        }
+        // F6c — backstop OPT-IN : cap de connexions CONCURRENTES par IP (par-process,
+        // délégué à l'ingress par défaut). `wsConnCounter` capturé (const) → la socket
+        // décrémente TOUJOURS l'instance qui l'a comptée, même après reconfiguration.
+        // `once("close")` = 1 listener auto-retiré, fire garanti à la fermeture (y
+        // compris `terminate` heartbeat / rejet firewall) → pas de fuite de compteur.
+        if (wsConnCounter !== null) {
+          if (!wsConnCounter.tryAcquire(ip)) {
+            if (ws.readyState === Ws.OPEN)
+              ws.close(1013, "too many connections");
+            return;
+          }
+          ws.once("close", () => wsConnCounter.release(ip));
+        }
       }
     }
     await this.fireAsync("onServerRequest", req, null, type).catch((e) => {

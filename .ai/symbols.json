@@ -1,11 +1,11 @@
 {
-  "generated": "2026-07-03T19:13:23.384Z",
+  "generated": "2026-07-03T19:52:52.394Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 995,
-    "symbols": 2413,
-    "classes": 315,
+    "files": 996,
+    "symbols": 2414,
+    "classes": 316,
     "interfaces": 638,
     "types": 282,
     "enums": 3,
@@ -14710,6 +14710,17 @@
       "decorators": [],
       "description": "Store de rate-limit **en mémoire** — algorithme *fixed window* par clé (IP). Une entrée par IP `{ count, resetAt }` ; à l'expiration de la fenêtre le compteur repart à zéro (mutation in-place, 0 al…"
     },
+    "WsConnectionCounter": {
+      "name": "WsConnectionCounter",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/rateLimit/WsConnectionCounter.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Compteur de connexions WebSocket CONCURRENTES par IP — backstop opt-in (F6c, revue 0.6). Distinct du {@link MemoryRateLimitStore} : celui-ci compte un DÉBIT d'ouverture par fenêtre (handshakes/s) ;…"
+    },
     "Session": {
       "name": "Session",
       "kind": "class",
@@ -21314,6 +21325,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "MemoryRateLimitStore": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "WsConnectionCounter": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "compileTrustedHosts": [

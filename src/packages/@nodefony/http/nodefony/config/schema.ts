@@ -860,6 +860,24 @@ export const httpConfigSchema = z
     statics: staticsSchema.default(() => staticsSchema.parse({})),
     session: sessionSchema.default(() => sessionSchema.parse({})),
     rateLimit: rateLimitSchema.default(() => rateLimitSchema.parse({})),
+    wsMaxConnectionsPerIp: meta(
+      z.number().int().positive().nullable().default(null),
+      {
+        runtimeMutable: true,
+        description:
+          "Backstop OPT-IN : plafond de connexions WebSocket CONCURRENTES par IP " +
+          "cliente. `null` (DÉFAUT) = désactivé. Distinct de `rateLimit` (qui borne " +
+          "le DÉBIT d'ouverture par fenêtre) : ici on borne le NOMBRE de sockets " +
+          "simultanément ouvertes par IP. Au-delà, l'upgrade est fermé (RFC 6455 " +
+          "close 1013). ⚠️ PORTÉE PAR PROCESS (1 pod) : un vrai plafond GLOBAL/IP se " +
+          "fait à l'INGRESS/LB — nginx `limit_conn`, HAProxy `sc_conn_cur`, " +
+          "annotation k8s `nginx.ingress.kubernetes.io/limit-connections` — qui voit " +
+          "TOUT le trafic, rejette AVANT que l'app paie le fd + le handshake TLS, et " +
+          "couvre tous les pods. En cloud-native, laisser `null` et déléguer à " +
+          "l'edge. N'activer (ex. 20) que sur bare-metal/VPS SANS ingress, comme " +
+          "défense en profondeur. IP résolue forwarded-aware (RFC 7239 + trustProxy).",
+      },
+    ),
   })
   .describe("Configuration de @nodefony/http.");
 
