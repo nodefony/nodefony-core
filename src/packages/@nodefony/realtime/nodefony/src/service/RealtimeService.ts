@@ -95,6 +95,14 @@ class RealtimeService extends Service {
     // Seam #4 — pose la politique Origin (CSRF defense RFC 6455 §10.2) sur le
     // hub. `enabled: false` (défaut) → guard `null` (rétrocompat). Cold path.
     hub.setOriginGuard(buildOriginGuard(this.#config));
+    // F6a (revue 0.6) — plafond de canaux par connexion (anti-OOM) posé sur le hub
+    // depuis la config (défaut 256, `null` = illimité). Lu par `startChannel`.
+    hub.setMaxChannelsPerConnection(
+      this.#config.limits.maxChannelsPerConnection,
+    );
+    // F9 (revue 0.6) — câble le seuil de comptage des consommateurs lents de la
+    // sonde depuis la config (avant : clé morte, la sonde lisait une constante).
+    hub.setSlowConsumerBytes(this.#config.slowConsumer.bytes);
     return this;
   }
 

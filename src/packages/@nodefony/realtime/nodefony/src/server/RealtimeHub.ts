@@ -209,6 +209,20 @@ export class RealtimeHub {
   // `defineRealtimeConfig().csrf.checkOrigin`. Cold path (1× par upgrade).
   #originGuard: OriginGuard | null = null;
 
+  // F6a (revue 0.6) — plafond de canaux PAR CONNEXION (anti-OOM). Lu par
+  // `RealtimeController.startChannel` à chaque subscribe (hot-ish path : 1 lecture
+  // de champ, pas d'alloc). Défaut = celui du schéma (256) → cap actif même si le
+  // hub est utilisé sans `RealtimeService` (tests). Posé depuis
+  // `defineRealtimeConfig().limits.maxChannelsPerConnection` au boot. `null` = illimité.
+  #maxChannelsPerConnection: number | null = 256;
+
+  // F9 (revue 0.6) — seuil `bufferedAmount` de comptage des consommateurs lents dans
+  // `probe()`. Défaut = SLOW_CONSUMER_BYTES ; posé depuis
+  // `defineRealtimeConfig().slowConsumer.bytes` au boot (avant ce câblage, la clé de
+  // config était MORTE : la sonde lisait la constante). Métrique d'observabilité
+  // uniquement — l'ACTION de back-pressure a ses propres seuils dans WsConnectionTransport.
+  #slowConsumerBytes: number = SLOW_CONSUMER_BYTES;
+
   // Politique de forward PAR CANAL (Phase 4). Préfixes des canaux **broadcast**
   // (cross-process). Lazy : `null` tant qu'aucun canal broadcast n'est déclaré →
   // par défaut TOUT canal est **instance-local** (ne traverse PAS le backplane).
@@ -513,7 +527,7 @@ export class RealtimeHub {
         const buf = c.bufferedAmount;
         if (buf > maxBufferedAmount) maxBufferedAmount = buf;
         totalBufferedAmount += buf;
-        if (buf >= SLOW_CONSUMER_BYTES) slowConsumers += 1;
+        if (buf >= this.#slowConsumerBytes) slowConsumers += 1;
       }
     }
     return {
@@ -607,6 +621,29 @@ export class RealtimeHub {
    */
   checkOrigin(origin: string | undefined): boolean {
     return this.#originGuard === null ? true : this.#originGuard(origin);
+  }
+
+  /**
+   * F6a (revue 0.6) — plafond de canaux par connexion (anti-OOM). Posé 1× au
+   * boot par `RealtimeService.init()` depuis
+   * `defineRealtimeConfig().limits.maxChannelsPerConnection`. `null` = illimité.
+   */
+  setMaxChannelsPerConnection(max: number | null): void {
+    this.#maxChannelsPerConnection = max;
+  }
+
+  /** Plafond courant de canaux par connexion (`null` = illimité). Lu par `startChannel`. */
+  get maxChannelsPerConnection(): number | null {
+    return this.#maxChannelsPerConnection;
+  }
+
+  /**
+   * F9 (revue 0.6) — pose le seuil de comptage des consommateurs lents (`probe()`).
+   * Posé 1× au boot par `RealtimeService.init()` depuis
+   * `defineRealtimeConfig().slowConsumer.bytes` (sinon la clé de config serait morte).
+   */
+  setSlowConsumerBytes(bytes: number): void {
+    this.#slowConsumerBytes = bytes;
   }
 
   /**

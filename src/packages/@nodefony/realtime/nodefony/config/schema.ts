@@ -77,13 +77,38 @@ const slowConsumerSchema = z
       .default(1 << 20)
       .describe(
         "Seuil de `bufferedAmount` (octets) au-dessus duquel une connexion " +
-          "WS est comptée comme `slowConsumer` dans la sonde RealtimeHub. " +
-          "Défaut : 1 MiB (1<<20). À augmenter pour clients lents tolérés " +
-          "(IoT, mobile faible bande), à diminuer pour back-pressure plus " +
-          "agressif.",
+          "WS est comptée comme `slowConsumer` dans la sonde RealtimeHub " +
+          "(métrique d'observabilité). Défaut : 1 MiB (1<<20). À augmenter " +
+          "pour clients lents tolérés (IoT, mobile faible bande), à diminuer " +
+          "pour un signalement plus précoce. N.B. : ce seuil pilote UNIQUEMENT " +
+          "le COMPTAGE de la sonde — l'ACTION de back-pressure (drop/close de " +
+          "frames) a ses propres seuils dans `WsConnectionTransport` " +
+          "(`BACKPRESSURE_DROP_BYTES` 1 MiB / `BACKPRESSURE_CLOSE_BYTES` 8 MiB).",
       ),
   })
-  .describe("Détection des consommateurs lents (back-pressure WS).");
+  .describe("Détection des consommateurs lents (métrique de la sonde WS).");
+
+// Bornes de ressources PAR CONNEXION — garde anti-DoS/OOM (revue 0.6, F6a).
+const limitsSchema = z
+  .object({
+    maxChannelsPerConnection: z
+      .number()
+      .int()
+      .positive()
+      .nullable()
+      .default(256)
+      .describe(
+        "Plafond de canaux qu'UNE connexion peut ouvrir (subscribe). Chaque " +
+          "canal ouvert = 1 ticker hub + 1 provider + 1 entrée Map côté " +
+          "connexion → sans borne, un socket peut subscribe à N canaux jusqu'à " +
+          "l'OOM. Au-delà du plafond, le subscribe est REFUSÉ (le canal n'est " +
+          "pas ouvert) et le client reçoit `realtime:denied` (motif `limit`). " +
+          "GARDE anti-OOM, PAS une bride : sous le seuil le multiplexage " +
+          "N-canaux reste libre. `null` = illimité (opt-out explicite, à " +
+          "réserver aux déploiements maîtrisés). Défaut 256.",
+      ),
+  })
+  .describe("Bornes de ressources par connexion (anti-DoS/OOM).");
 
 // Seam sécurité #4 — Origin check natif sur upgrade WS (P13 Bloc A étape 6).
 const checkOriginSchema = z
@@ -143,6 +168,7 @@ export const realtimeConfigSchema = z
     slowConsumer: slowConsumerSchema.default(() =>
       slowConsumerSchema.parse({}),
     ),
+    limits: limitsSchema.default(() => limitsSchema.parse({})),
     csrf: csrfSchema.default(() => csrfSchema.parse({})),
   })
   .describe("Configuration de @nodefony/realtime.");

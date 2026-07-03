@@ -534,6 +534,25 @@ export abstract class RealtimeController<
     if (!channel) return;
     const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
     if (!state || state.channels.has(channel)) return;
+    // F6a (revue 0.6) — cap anti-OOM : plafond de canaux par connexion. Chaque
+    // canal ouvert = 1 ticker hub + provider + entrée Map → un socket qui subscribe
+    // à N canaux sans borne = OOM. Vérifié APRÈS l'idempotence (un re-subscribe d'un
+    // canal déjà tenu ne compte pas). `null` = illimité (opt-out explicite). Sous le
+    // seuil, le multiplexage N-canaux reste libre (North Star).
+    const cap = getRealtimeHub().maxChannelsPerConnection;
+    if (cap !== null && state.channels.size >= cap) {
+      // Refus OBSERVABLE (pas de dégradation silencieuse : sinon le client se croit
+      // abonné). `realtime:denied` = convention existante ; motif `limit` (une borne
+      // de ressource n'est pas un secret, ≠ oracle d'autorisation). Log DEBUG et NON
+      // WARNING : un log par subscribe refusé sous flood serait un amplificateur.
+      const denied: IRealtimeDenied = { channel, reason: "limit" };
+      state.peer.notify("realtime:denied", denied);
+      this.log(
+        `WS subscribe refusé (cap ${cap} canaux/connexion atteint) → ${channel}`,
+        "DEBUG",
+      );
+      return;
+    }
     // Sink de CETTE connexion : pousse la charge fan-outée par le hub sur son peer.
     const sink: ChannelSink = (payload) => state.peer.notify(channel, payload);
     // Le hub PARTAGE le provider entre connexions (1 ticker/canal/pod) ; la factory
