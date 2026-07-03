@@ -1,0 +1,23 @@
+{
+  "name": "nodefony-minimal-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "App témoin Nodefony minimale — template cloud-native (Dockerfile, graceful shutdown, probes /livez /readyz)",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "nodefony production",
+    "dev": "nodefony development"
+  },
+  "dependencies": {
+    "nodefony": "*",
+    "@nodefony/http": "*",
+    "@nodefony/framework": "*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.0",
+    "@types/node": "^24.0.0"
+  }
+}

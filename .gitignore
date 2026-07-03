@@ -59,3 +59,4 @@ analyse.txt
 realtime.txt
 *.discussion.txt
 vite.config.generated.mjs
+/release/
