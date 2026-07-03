@@ -81,6 +81,23 @@ interface RateLimitConfig {
   gcJitter: boolean;
 }
 
+/** Shape de `options.health` (cf `config/schema.ts` → `healthSchema`). */
+interface HealthConfig {
+  enabled: boolean;
+  livenessPath: string;
+  readinessPath: string;
+  shutdownDelay: number;
+}
+
+// Réponses des probes de santé pré-allouées — le kubelet/LB sonde toutes les
+// 2-10 s : 0 alloc / 0 stringify par sonde (règle perf).
+const HEALTH_HEADERS = {
+  "content-type": "application/json",
+  "cache-control": "no-store",
+};
+const HEALTH_BODY_OK = '{"status":"ok"}';
+const HEALTH_BODY_UNREADY = '{"status":"unready"}';
+
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
 export type httpResponse = http.ServerResponse | http2.Http2ServerResponse;
@@ -207,6 +224,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // l'ingress). Construit au boot depuis `options.wsMaxConnectionsPerIp`, reconstruit
   // sur édition live. Auto-borné (pas de GC) — cf WsConnectionCounter.
   #wsConnCounter: WsConnectionCounter | null = null;
+  // Probes de santé cloud-native (0.7) — null = désactivé (0 coût hot path :
+  // 1 null-check + 2 comparaisons de string par requête quand actif).
+  #healthPaths: { liveness: string; readiness: string } | null = null;
+  #healthShutdownDelay: number = 0;
+  // Bascule readiness : true dès le début du shutdown (readyz → 503 AVANT le
+  // drain, le LB retire le pod). Posée par le prepend `onTerminate` de init().
+  #terminating: boolean = false;
   constructor(module: Module) {
     super(
       serviceName,
@@ -273,6 +297,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // compteur et réarme (ou désarme) le GC depuis la nouvelle config.
     this.configureRateLimit();
     this.configureWsConnectionLimit();
+    this.configureHealth();
   }
 
   /**
@@ -321,6 +346,35 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       typeof max === "number" && max > 0 ? new WsConnectionCounter(max) : null;
   }
 
+  /**
+   * (Re)configure les probes de santé `/livez` + `/readyz` depuis
+   * `options.health` — au boot (`onReady`) ET à l'édition live. `enabled:false`
+   * → `#healthPaths` reste `null` (0 coût sur le hot path).
+   */
+  private configureHealth(): void {
+    const cfg = (this.options as { health?: HealthConfig }).health;
+    this.#healthPaths = cfg?.enabled
+      ? { liveness: cfg.livenessPath, readiness: cfg.readinessPath }
+      : null;
+    this.#healthShutdownDelay = cfg?.shutdownDelay ?? 0;
+  }
+
+  /**
+   * Répond une probe de santé — court-circuit TOTAL du pipeline : pas de
+   * contexte/scope DI/session/ALS, pas de rate-limit, pas de log par sonde
+   * (le kubelet sonde toutes les 2-10 s). Réponses pré-allouées.
+   *
+   * @param response - réponse serveur brute (HTTP/1 ou H2 compat)
+   * @param ok - `true` → 200, `false` → 503 (readiness pendant boot/shutdown)
+   */
+  #respondHealth(response: httpResponse, ok: boolean): void {
+    // Même cast que le rate-limit : l'union ServerResponse|Http2ServerResponse
+    // rend writeHead/end non appelables (TS2349), l'API compat H2 est identique.
+    const res = response as http.ServerResponse;
+    res.writeHead(ok ? 200 : 503, HEALTH_HEADERS);
+    res.end(ok ? HEALTH_BODY_OK : HEALTH_BODY_UNREADY);
+  }
+
   async init(): Promise<this> {
     // Apply config-driven request logger (P3.x). Done synchronously here so
     // logger is set before the first request — env override stays simple.
@@ -341,11 +395,27 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.configureRateLimit();
       // F6c — backstop connexions WS concurrentes/IP (opt-in, désactivé par défaut).
       this.configureWsConnectionLimit();
+      // Probes de santé /livez + /readyz (0.7 cloud-native).
+      this.configureHealth();
     });
     // Désarme le GC du rate-limit à l'arrêt (le GcScheduler `unref` déjà, mais on
     // stoppe proprement pour les restarts DevSupervisor / les tests).
     this.once("onTerminate", () => {
       this.rateLimitGc?.stop();
+    });
+    // Bascule readiness au shutdown. Posé à `onPostReady` (= APRÈS les prepends
+    // des serveurs WS créés à initServers) pour prepend EN DERNIER → passer EN
+    // PREMIER au fireAsync("onTerminate") séquentiel. Séquence obtenue :
+    // readyz→503 (+ shutdownDelay : le LB retire le pod) → close 1001 WS →
+    // drain HTTP → exit. Jamais posé si le boot échoue avant onPostReady
+    // (terminate(1) au boot = rien à drainer).
+    this.kernel?.once("onPostReady", () => {
+      this.kernel?.prependOnceListener("onTerminate", async () => {
+        this.#terminating = true;
+        if (this.#healthShutdownDelay > 0) {
+          await new Promise((r) => setTimeout(r, this.#healthShutdownDelay));
+        }
+      });
     });
     this.kernel?.prependOnceListener("onBoot", () => {
       this.router = this.get<Router>("router");
@@ -755,6 +825,24 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
     if (this.secHsts !== null && (type === "https" || type === "http2")) {
       response.setHeader("Strict-Transport-Security", this.secHsts);
+    }
+    // Probes de santé /livez + /readyz (0.7) — AVANT le rate-limit : un kubelet
+    // throttlé (429) croirait le pod mort → cascade de restarts. Match STRICT
+    // sur l'URL brute (les probes k8s/Docker tapent le path exact, sans query).
+    // livez = 200 tant que le process sert (y compris pendant le drain — un
+    // restart en plein drain casserait le graceful shutdown). readyz = 200
+    // seulement boot complet (postReady) ET pas en cours d'arrêt.
+    if (this.#healthPaths !== null) {
+      const url = request.url;
+      if (url === this.#healthPaths.liveness) {
+        return this.#respondHealth(response, true);
+      }
+      if (url === this.#healthPaths.readiness) {
+        return this.#respondHealth(
+          response,
+          !this.#terminating && this.kernel?.postReady === true,
+        );
+      }
     }
     // Rate-limit général par IP (P0.3) — AVANT le pipeline : un flood est rejeté
     // ici SANS allouer le context / le scope DI / l'ALS (coût = 1 lookup Map).

@@ -146,6 +146,11 @@ class Websocket extends Service {
             return reject(e);
           }
         }, 300);
+        // La résolution appartient au setTimeout : sans ce return, la Promise
+        // résolvait immédiatement → fireAsync("onTerminate") enchaînait sur le
+        // drain HTTP sans attendre la fenêtre de close des clients WS (et la
+        // fenêtre readiness 503 post-SIGTERM disparaissait).
+        return;
       }
       return resolve(true);
     });

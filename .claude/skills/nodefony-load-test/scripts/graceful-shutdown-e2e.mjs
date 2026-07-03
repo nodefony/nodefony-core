@@ -1,10 +1,11 @@
-// Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trou 1 revue 0.7) — sans navigateur.
+// Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur.
 //
 // Prouve le drain bout-en-bout au SIGTERM (= docker stop / éviction k8s) :
 //   1. une requête HTTP in-flight (route lente 2 s) se TERMINE (200 complet) ;
-//   2. une WebSocket ouverte reçoit une frame Close 1001 « Going Away » (pas une
+//   2. /readyz bascule 503 dès le SIGTERM, AVANT le drain (le LB retire le pod) ;
+//   3. une WebSocket ouverte reçoit une frame Close 1001 « Going Away » (pas une
 //      coupure TCP 1006) — les serveurs WS ferment AVANT le drain HTTP (prepend) ;
-//   3. le process sort et libère les ports (exit 0 côté serveur).
+//   4. le process sort et libère les ports (exit 0 côté serveur).
 //
 // AVANT le fix : `closeAllConnections()` au onTerminate coupait NET les requêtes
 // en cours (curl exit 52/56) → requêtes perdues à chaque déploiement/rolling update.
@@ -74,6 +75,18 @@ await sleep(400);
 process.kill(pid, "SIGTERM");
 console.log(
   `— SIGTERM envoyé à ${pid} (requête in-flight à ~400 ms / 2000 ms)`,
+);
+
+// 4b) Bascule readiness (trou 3) : dès le SIGTERM, /readyz doit répondre 503
+// (le LB retire le pod) PENDANT que le serveur accepte encore (fenêtre = close
+// 1001 des WS ~600 ms + `health.shutdownDelay` éventuel, AVANT le drain HTTP).
+await sleep(120);
+const readyz = await fetch(`http://127.0.0.1:${PORT}/readyz`)
+  .then((r) => r.status)
+  .catch(() => 0);
+ok(
+  readyz === 503,
+  `readyz bascule 503 dès le SIGTERM, avant le drain (reçu : ${readyz})`,
 );
 
 // 5) Asserts.

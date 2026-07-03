@@ -799,6 +799,52 @@ const rateLimitSchema = z
       "de login de @nodefony/security. En-têtes `X-RateLimit-*` + `429` (RFC 6585).",
   );
 
+// ───────────────────────── health (probes cloud-native) ─────────────────────
+
+const healthSchema = z
+  .looseObject({
+    enabled: meta(z.boolean().default(true), {
+      runtimeMutable: true,
+      description:
+        "Expose les probes de santé. Réponses minimales sans fuite d'info " +
+        '(`{"status":…}`), court-circuit TOTAL du pipeline : pas de session, ' +
+        "pas de rate-limit (un kubelet throttlé = cascade de restarts), pas de " +
+        "log par sonde.",
+    }),
+    livenessPath: z
+      .string()
+      .default("/livez")
+      .describe(
+        "Chemin de la probe liveness (k8s `livenessProbe.httpGet.path`). " +
+          "Répond 200 tant que le process sert — Y COMPRIS pendant le drain " +
+          "(un restart pendant le drain casserait le graceful shutdown).",
+      ),
+    readinessPath: z
+      .string()
+      .default("/readyz")
+      .describe(
+        "Chemin de la probe readiness (k8s `readinessProbe.httpGet.path`). " +
+          "200 quand le boot est complet (`onPostReady`) ; 503 avant, et dès " +
+          "le début du shutdown (le LB retire le pod AVANT le drain).",
+      ),
+    shutdownDelay: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(0)
+      .describe(
+        "Délai (ms) entre la bascule readiness→503 et le début du drain — " +
+          "laisse aux endpoints k8s/LB le temps de retirer le pod (fenêtre " +
+          "réelle de propagation ~1-2 s). 0 (défaut) = drain immédiat ; " +
+          "alternative opérationnelle : `lifecycle.preStop: sleep N` dans le " +
+          "pod spec. À additionner au budget < grace period (30 s k8s).",
+      ),
+  })
+  .describe(
+    "Probes de santé cloud-native `/livez` + `/readyz` (liveness/readiness " +
+      "k8s, HEALTHCHECK Docker) — servies par les serveurs HTTP et HTTPS.",
+  );
+
 // ───────────────────────── racine ───────────────────────────────────────────
 
 export const httpConfigSchema = z
@@ -870,6 +916,7 @@ export const httpConfigSchema = z
     statics: staticsSchema.default(() => staticsSchema.parse({})),
     session: sessionSchema.default(() => sessionSchema.parse({})),
     rateLimit: rateLimitSchema.default(() => rateLimitSchema.parse({})),
+    health: healthSchema.default(() => healthSchema.parse({})),
     wsMaxConnectionsPerIp: meta(
       z.number().int().positive().nullable().default(null),
       {
