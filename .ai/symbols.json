@@ -1,14 +1,14 @@
 {
-  "generated": "2026-07-03T22:40:46.967Z",
+  "generated": "2026-07-03T23:09:18.744Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 997,
-    "symbols": 2418,
+    "files": 998,
+    "symbols": 2425,
     "classes": 316,
-    "interfaces": 639,
-    "types": 282,
-    "enums": 3,
+    "interfaces": 641,
+    "types": 286,
+    "enums": 4,
     "functions": 647,
     "constants": 531
   },
@@ -1873,6 +1873,36 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Sink `/dev/null` : noop total (bench — mesure du plafond sans I/O de log)."
+    },
+    "nodefonyOptions": {
+      "name": "nodefonyOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/globals.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "JSONObject": {
+      "name": "JSONObject",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/globals.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "EnvironmentType": {
+      "name": "EnvironmentType",
+      "kind": "type",
+      "file": "src/nodefony/src/types/globals.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "DebugType": {
+      "name": "DebugType",
+      "kind": "type",
+      "file": "src/nodefony/src/types/globals.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "IAdminRequest": {
       "name": "IAdminRequest",
@@ -18021,6 +18051,31 @@
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
+      "DebugType": [
+        "src/nodefony/src/Cli.ts",
+        "src/nodefony/src/Service.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/nodefony/src/types/ICliKernel.ts",
+        "src/nodefony/src/types/IKernel.ts",
+        "src/nodefony/src/types/IService.ts",
+        "src/nodefony/src/types/ISyslog.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "EnvironmentType": [
+        "src/nodefony/src/Cli.ts",
+        "src/nodefony/src/Service.ts",
+        "src/nodefony/src/bin/nodefony.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/nodefony/src/types/ICliKernel.ts",
+        "src/nodefony/src/types/IKernel.ts",
+        "src/nodefony/src/types/IService.ts",
+        "src/nodefony/src/types/ISyslog.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
       "Syslog": [
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Container.ts",
@@ -19699,6 +19754,10 @@
       ],
       "PackageJson": [
         "src/nodefony/src/kernel/Module.ts"
+      ],
+      "JSONObject": [
+        "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/types/IModule.ts"
       ],
       "tagListener": [
         "src/nodefony/src/kernel/Module.ts"

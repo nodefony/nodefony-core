@@ -11,11 +11,11 @@ declare global {
 }
 
 declare enum environment {
-  "dev",
-  "development",
-  "prod",
-  "production",
-  "staging",
+  dev,
+  development,
+  prod,
+  production,
+  staging,
 }
 
 export type EnvironmentType = keyof typeof environment;
