@@ -738,19 +738,22 @@ const sessionSchema = z
   );
 
 // ───────────────────────────── rateLimit (strict) ───────────────────────────
-// Rate-limit GÉNÉRAL par IP des requêtes HTTP entrantes (P0.3). À NE PAS
-// confondre avec `security.rateLimit` = backoff de LOGIN anti-bruteforce (NIST,
-// par identifiant saisi). Ici : plafond de trafic par IP cliente, sur TOUTES les
-// routes, en-têtes `X-RateLimit-*` + `429` (RFC 6585). Désactivé par défaut
+// Rate-limit GÉNÉRAL par IP des requêtes entrantes (P0.3). À NE PAS confondre
+// avec `security.rateLimit` = backoff de LOGIN anti-bruteforce (NIST, par
+// identifiant saisi). Ici : plafond de trafic par IP cliente, sur TOUTES les
+// routes, en-têtes `X-RateLimit-*` + `429` (RFC 6585). Couvre AUSSI le HANDSHAKE
+// WebSocket (l'upgrade EST une requête HTTP → même compteur ; au-delà du plafond,
+// close RFC 6455 1013 « Try Again Later » au lieu d'un 429). Désactivé par défaut
 // (cloud-native : souvent délégué à l'ingress/gateway ; opt-in explicite).
 const rateLimitSchema = z
   .object({
     enabled: meta(z.boolean().default(false), {
       runtimeMutable: true,
       description:
-        "Active le rate-limit général par IP. Défaut false (opt-in : coût " +
-        "hot-path + souvent délégué à l'infra en cloud-native). Éditable à " +
-        "chaud (HttpKernel reconstruit le compteur).",
+        "Active le rate-limit général par IP (requêtes HTTP ET handshakes " +
+        "WebSocket, même compteur). Défaut false (opt-in : coût hot-path + " +
+        "souvent délégué à l'infra en cloud-native). Éditable à chaud " +
+        "(HttpKernel reconstruit le compteur).",
     }),
     windowS: meta(z.number().int().positive().default(60), {
       runtimeMutable: true,

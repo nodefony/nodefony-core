@@ -1171,6 +1171,29 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     req: IncomingMessage,
     type: ServerType,
   ): Promise<unknown> {
+    // Rate-limit du HANDSHAKE WS par IP — MÊME compteur que les requêtes HTTP
+    // (`onHttpRequest`) : un upgrade WS EST une requête HTTP (GET + Upgrade), il
+    // compte dans le même plafond « général par IP ». Rejeté ICI, AVANT
+    // `enterScope`/l'ALS/le pipeline (symétrie avec le 429 HTTP) → un flood de
+    // handshakes ne peut pas accumuler des sockets ouvertes (le vrai vecteur DoS :
+    // sockets ouvertes → flood de frames → famine event-loop). L'IP est résolue
+    // EXACTEMENT comme en HTTP (forwarded-aware, RFC 7239 + trustProxy) — le raw
+    // socket est spoofable, seul le framework tient l'IP fiable.
+    // Le handshake ne peut pas répondre un 429 (le 101 est déjà émis par `ws`) →
+    // close RFC 6455 1013 « Try Again Later » (le client back-off + reconnecte).
+    // AUCUN log par rejet : un log/handshake rejeté serait lui-même un
+    // amplificateur DoS sous flood.
+    if (this.rateLimiter !== null) {
+      const ip = resolveForwarded(
+        req.headers,
+        req.socket?.remoteAddress,
+        this.getTrustProxyChecker(),
+      ).clientIp;
+      if (ip !== null && this.rateLimiter.hit(ip).limited) {
+        if (ws.readyState === Ws.OPEN) ws.close(1013, "rate limit");
+        return;
+      }
+    }
     await this.fireAsync("onServerRequest", req, null, type).catch((e) => {
       throw e;
     });
