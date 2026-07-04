@@ -37,8 +37,10 @@ describe("@nodefony/http — httpConfigSchema (défauts)", () => {
     expect(c.websocketSecure.maxPayload).to.equal(1024 * 1024);
   });
 
-  it("session : handler files + GC déterministe (timer, plus de proba PHP)", () => {
-    expect(c.session.store).to.equal("files");
+  it("session : store auto (suit l'infra déclarée) + GC déterministe (timer, plus de proba PHP)", () => {
+    // `auto` = résolu au boot selon l'infra déclarée (cache > database > files) ;
+    // sans infra, le comportement reste le handler `files` historique.
+    expect(c.session.store).to.equal("auto");
     // GC moderne : timer déterministe hors hot-path (remplace gc_probability/divisor).
     expect(c.session.gcIntervalS).to.equal(600);
     expect(c.session.gcJitter).to.equal(true);

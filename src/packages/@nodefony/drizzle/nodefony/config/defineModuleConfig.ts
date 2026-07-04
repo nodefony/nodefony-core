@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveInfra, sqliteFilenameFromUrl } from "nodefony";
 import { drizzleConfigSchema } from "./config";
 import type {
   IDrizzleConfig,
@@ -11,17 +12,27 @@ import type {
  * Le schéma reste pur ; l'env est une couche explicite par-dessus. Précédence :
  * env > config app > défauts.
  *
- * - `DRIZZLE_DB_FILE` → `filename` du connecteur primaire (`default`, sinon le
- *   premier). Pratique pour pointer un fichier hors arborescence app (volume monté).
+ * - Infra `database` (`NF_DATABASE_URL`, alias `DATABASE_URL`) de famille SQL →
+ *   dialecte + cible du connecteur primaire (`default`, sinon le premier) :
+ *   `sqlite:…` → `filename` ; `postgres://…`/`mysql://…` → `url`. Une URL
+ *   `mongodb://` est IGNORÉE ici (l'infra appartient alors à `@nodefony/mongoose`).
  */
 function applyEnvOverrides(config: IDrizzleConfig): IDrizzleConfig {
-  const env = process.env;
-  if (env.DRIZZLE_DB_FILE) {
+  const database = resolveInfra(process.env).database;
+  if (database && database.family === "sql" && database.dialect) {
     const target = config.connectors.default
       ? "default"
       : Object.keys(config.connectors)[0];
-    if (target && config.connectors[target]) {
-      config.connectors[target].filename = env.DRIZZLE_DB_FILE;
+    const connector = target ? config.connectors[target] : undefined;
+    if (connector) {
+      connector.dialect = database.dialect;
+      if (database.dialect === "sqlite") {
+        connector.filename = sqliteFilenameFromUrl(database.url);
+        delete connector.url;
+      } else {
+        connector.url = database.url;
+        delete connector.filename;
+      }
     }
   }
   return config;

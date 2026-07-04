@@ -4,6 +4,9 @@ import {
   Container,
   Event,
   GcScheduler,
+  AUTO_STORE,
+  EMPTY_INFRA,
+  resolveAutoStore,
   type Severity,
 } from "nodefony";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -17,7 +20,10 @@ import {
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import type { LoginThrottler } from "../src/throttle/LoginThrottler";
-import { getTokenStoreFactory } from "../src/token/tokenStoreRegistry";
+import {
+  getTokenStoreFactory,
+  listTokenStores,
+} from "../src/token/tokenStoreRegistry";
 import { recordAudit } from "../src/audit/recordAudit";
 import { JwtKeystore } from "../src/token/JwtKeystore";
 import { resolveJwtRuntime, type IJwtRuntime } from "../src/token/jwtRuntime";
@@ -102,10 +108,22 @@ class TokenService extends Service {
       this.log("token service idle — JWT et clés API désactivés", "DEBUG");
       return;
     }
-    const factory = getTokenStoreFactory(config.tokenStore.store);
+    // `auto` (défaut) = suivre l'infra database déclarée, borné aux backends
+    // réellement enregistrés ; repli memory ANNONCÉ. Valeur explicite respectée.
+    let storeName = config.tokenStore.store;
+    if (storeName === AUTO_STORE) {
+      const auto = resolveAutoStore(
+        "durable",
+        this.kernel?.infra ?? EMPTY_INFRA,
+        listTokenStores(),
+      );
+      storeName = auto.store;
+      this.log(`tokenStore "auto" → "${storeName}" (${auto.reason})`, "INFO");
+    }
+    const factory = getTokenStoreFactory(storeName);
     if (!factory) {
       this.log(
-        `token store "${config.tokenStore.store}" inconnu — JWT/clés API indisponibles`,
+        `token store "${storeName}" inconnu — JWT/clés API indisponibles`,
         "CRITIC",
       );
       return;

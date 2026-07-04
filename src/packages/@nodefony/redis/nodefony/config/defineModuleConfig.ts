@@ -11,15 +11,17 @@ import type {
  * Le schéma reste pur (déterministe, sérialisable en JSON Schema) ; l'env est
  * une couche explicite par-dessus. Précédence : env > config app > défauts.
  *
- * - `REDIS_URL`   → `config.url` (gagne sur host/port/auth pour toutes les conn.)
+ * - Infra cache `NF_REDIS_URL` (alias plateforme `REDIS_URL`) → `config.url`
+ *   (gagne sur host/port/auth pour toutes les connexions)
  * - `REDIS_HOST`  → `globalOptions.socket.host`
  * - `REDIS_PORT`  → `globalOptions.socket.port`
  * - `REDIS_PASSWORD` → `globalOptions.password` (secret JAMAIS dans la config)
  */
 function applyEnvOverrides(config: IRedisConfig): IRedisConfig {
   const env = process.env;
-  if (env.REDIS_URL) {
-    config.url = env.REDIS_URL;
+  const cacheUrl = env.NF_REDIS_URL || env.REDIS_URL;
+  if (cacheUrl) {
+    config.url = cacheUrl;
   }
   if (env.REDIS_HOST) {
     config.globalOptions.socket.host = env.REDIS_HOST;

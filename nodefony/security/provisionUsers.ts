@@ -1,4 +1,4 @@
-import { Module } from "nodefony";
+import { Module, resolveAutoStore } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
 import { InMemoryUserRepository, UserService } from "@nodefony/user";
 import type { IPasswordEncoder } from "@nodefony/user";
@@ -27,8 +27,13 @@ const LOG_CTX = "USERS";
  * était morte en production.
  *
  * Dépôt choisi par `NF_USER_STORE` :
- * - `drizzle` (défaut) : persistance SQL réelle (connecteur `"default"`, entité
- *   `User` enregistrée par `nodefony/entity/user.ts`) + seed idempotent ;
+ * - `auto` (défaut) : suit l'infra database déclarée (`NF_DATABASE_URL` SQL →
+ *   drizzle, mongo → mongoose), repli `drizzle` (SQL local — les comptes doivent
+ *   survivre au restart, jamais de repli memory silencieux) ;
+ * - `drizzle` : persistance SQL réelle (connecteur `"default"`, entité `User`
+ *   enregistrée par `nodefony/entity/user.ts`) + seed idempotent ;
+ * - `mongoose` : persistance MongoDB (connecteur `"nodefony"` du module
+ *   `@nodefony/mongoose` — chargé dans le manifeste, sinon échec franc) ;
  * - `memory` : annuaire volatil (tests de charge sans I/O SQLite, scripts, tests manuels).
  *
  * Idempotent et non destructif : si un annuaire `"users"` est déjà présent
@@ -52,7 +57,25 @@ export async function provisionUsers(module: Module): Promise<void> {
     );
   }
 
-  if (env.NF_USER_STORE === "memory") {
+  // `auto` = suivre l'infra database déclarée ; repli drizzle (persistant — un
+  // annuaire memory silencieux perdrait les inscriptions). Valeur explicite gagne.
+  let store: string = env.NF_USER_STORE;
+  if (store === "auto") {
+    const resolution = resolveAutoStore(
+      "durable",
+      module.kernel?.infra ?? { database: null, cache: null, logs: null },
+      ["drizzle", "mongoose", "memory"],
+      "drizzle",
+    );
+    store = resolution.store;
+    module.log(
+      `NF_USER_STORE=auto → "${store}" (${resolution.reason}).`,
+      "INFO",
+      LOG_CTX,
+    );
+  }
+
+  if (store === "memory") {
     // Annuaire volatil : seedé par construction (hashs pré-calculés) → 0 coût au boot.
     container.set(
       "users",
@@ -67,12 +90,34 @@ export async function provisionUsers(module: Module): Promise<void> {
     return;
   }
 
-  // Défaut : persistance Drizzle. Le DrizzleService a connecté l'ORM "default" à
+  if (store === "mongoose") {
+    // Import dynamique : ne tire @nodefony/mongoose que si le dépôt mongo est
+    // réellement choisi (le module reste opt-in dans le manifeste).
+    const { MongooseUserRepository } = await import("@nodefony/mongoose");
+    const orm = ormRegistry.get("nodefony");
+    if (!orm) {
+      throw new Error(
+        `provisionUsers: NF_USER_STORE=mongoose mais l'ORM "nodefony" est absent ` +
+          `du registre — le module @nodefony/mongoose est-il chargé dans le manifeste ?`,
+      );
+    }
+    const users = new UserService(
+      MongooseUserRepository.from(
+        orm as Parameters<typeof MongooseUserRepository.from>[0],
+      ),
+      encoder,
+    );
+    container.set("users", users);
+    await seedPersistentUsers(users, module, "Mongoose");
+    return;
+  }
+
+  // Drizzle : persistance SQL. Le DrizzleService a connecté l'ORM "default" à
   // onBoot → il est présent au onKernelReady (phases de boot séquentielles).
   const orm = ormRegistry.get("default") as DrizzleOrm;
   const users = new UserService(DrizzleUserRepository.from(orm), encoder);
   container.set("users", users);
-  await seedPersistentUsers(users, module);
+  await seedPersistentUsers(users, module, "Drizzle");
 }
 
 /**
@@ -84,12 +129,14 @@ export async function provisionUsers(module: Module): Promise<void> {
  * - **DEV** : comptes de fixture connus (`admin`/`user`, mot de passe `secret` par
  *   défaut, surchargeable via `.env.local`) → bancs d'intégration out-of-the-box.
  *
- * @param users - service utilisateur déjà branché sur le dépôt Drizzle.
+ * @param users - service utilisateur déjà branché sur un dépôt persistant.
  * @param module - module applicatif (pour les logs + l'environnement).
+ * @param backend - nom du dépôt (affichage log uniquement).
  */
 async function seedPersistentUsers(
   users: UserService,
   module: Module,
+  backend: string,
 ): Promise<void> {
   const isProd = module.kernel?.environment === "production";
 
@@ -139,7 +186,7 @@ async function seedPersistentUsers(
     });
   }
   module.log(
-    `Comptes de fixture dev prêts (${ADMIN_IDENTIFIER} + ${USER_IDENTIFIER}) — dépôt Drizzle.`,
+    `Comptes de fixture dev prêts (${ADMIN_IDENTIFIER} + ${USER_IDENTIFIER}) — dépôt ${backend}.`,
     "INFO",
     LOG_CTX,
   );

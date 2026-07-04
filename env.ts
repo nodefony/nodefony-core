@@ -22,6 +22,32 @@
 import { defineEnv, envBoolean, envEnum, envString } from "nodefony";
 
 export const env = defineEnv({
+  // ── Infra déclarée (modèle « infra déclarée » — cf docs/guides/configuration.md) ──
+  /**
+   * Infra `database` (durable) : UNE URL déclare la base de l'app — le dialecte est
+   * déduit du scheme (`sqlite:…` | `postgres://…` | `mysql://…` | `mongodb://…`) et
+   * les briques durables en `store: "auto"` (users, tokens, audit, webhooks…) la
+   * suivent. Alias plateforme accepté : `DATABASE_URL` (Heroku/Railway — `NF_` gagne).
+   * Absente = profil solo (sqlite local + memory + files). Porte le secret → jamais loggée brute.
+   */
+  NF_DATABASE_URL: envString({
+    optional: true,
+    description:
+      "Infra database : URL unique (sqlite:|postgres://|mysql://|mongodb://), dialecte déduit du scheme.",
+  }),
+
+  /**
+   * Infra `cache` (éphémère partagé) : URL Redis. Sa présence CHARGE le module
+   * `@nodefony/redis` (gating `when` du manifeste) et aiguille les briques
+   * éphémères en `store: "auto"` (idempotence, sessions) vers Redis. Alias
+   * plateforme accepté : `REDIS_URL` (`NF_` gagne). Porte le secret → jamais loggée brute.
+   */
+  NF_REDIS_URL: envString({
+    optional: true,
+    description:
+      "Infra cache : URL Redis (redis://…) — sa présence charge @nodefony/redis.",
+  }),
+
   /**
    * Sink d'écriture des logs (LB.W). `stdout` = cloud-native (pipe non-bloquant) ;
    * `file` = 1 fd async par worker (anti-goulet en cluster) ; `null` = bench.
@@ -43,10 +69,12 @@ export const env = defineEnv({
   }),
 
   /**
-   * Driver de RELECTURE du log backplane (≠ sink d'écriture). `auto` (défaut :
-   * s'adapte au mode — mono → `memory`, cluster → `cluster-file`) | `memory` (ring
-   * volatile, dev) | `file` | `cluster-file` | `loki` | `opensearch`. La résolution
-   * finale (et le fallback `memory` si la destination est KO) est faite au boot.
+   * Driver de RELECTURE du log backplane (≠ sink d'écriture). `auto` (défaut) :
+   * une URL de destination déclarée (NF_LOKI_URL/NF_OPENSEARCH_URL) impose son
+   * driver — l'URL ⇒ le driver, un seul knob (les DEUX URLs sans choix explicite =
+   * échec au boot) ; sinon s'adapte au mode (mono → `memory`, cluster →
+   * `cluster-file`). Valeurs explicites : `memory` | `file` | `cluster-file` |
+   * `loki` | `opensearch` (surcharge d'expert, jamais réécrite).
    */
   NF_LOG_QUERY_DRIVER: envString({
     default: "auto",
@@ -54,8 +82,9 @@ export const env = defineEnv({
   }),
 
   /**
-   * Destination PROD Loki (LB.4), active si `NF_LOG_QUERY_DRIVER=loki`. Optionnelle
-   * (sans URL → fallback `memory` au boot, jamais de crash).
+   * Infra `logs`, destination Loki (LB.4). Sa présence dérive le driver de
+   * relecture (`NF_LOG_QUERY_DRIVER=auto` → `loki`). Optionnelle (destination KO
+   * au runtime → fallback `memory`, jamais de crash).
    */
   NF_LOKI_URL: envString({
     optional: true,
@@ -63,8 +92,8 @@ export const env = defineEnv({
   }),
 
   /**
-   * Destination PROD OpenSearch (LB.4), active si `NF_LOG_QUERY_DRIVER=opensearch`.
-   * Optionnelle (sans URL → fallback `memory` au boot).
+   * Infra `logs`, destination OpenSearch (LB.4). Sa présence dérive le driver de
+   * relecture (`NF_LOG_QUERY_DRIVER=auto` → `opensearch`). Optionnelle.
    */
   NF_OPENSEARCH_URL: envString({
     optional: true,
@@ -126,15 +155,17 @@ export const env = defineEnv({
   // ── Source d'identité de l'application (provisioning du service "users") ────
   /**
    * Implémentation du dépôt utilisateur posé par l'app au boot (`App.onKernelReady`
-   * → `provisionUsers`). `drizzle` (défaut) = persistance SQL réelle, dev ≡ prod ;
+   * → `provisionUsers`). `auto` (défaut) = suit l'infra database déclarée
+   * (`NF_DATABASE_URL` SQL → drizzle, mongo → mongoose), repli `drizzle` (SQL local
+   * — les comptes DOIVENT survivre au restart) ; `drizzle`/`mongoose` = explicite ;
    * `memory` = annuaire volatil (zéro I/O SQLite) pour les **tests de charge**
    * (la mesure n'est pas polluée par le sync better-sqlite3), les scripts et les
    * tests manuels. Surcharge ponctuelle : `NF_USER_STORE=memory` dans `.env.local`.
    */
-  NF_USER_STORE: envEnum(["drizzle", "memory"] as const, {
-    default: "drizzle",
+  NF_USER_STORE: envEnum(["auto", "drizzle", "mongoose", "memory"] as const, {
+    default: "auto",
     description:
-      "Dépôt du service users : drizzle (persistant) | memory (volatil).",
+      "Dépôt du service users : auto (suit l'infra database) | drizzle | mongoose | memory (volatil).",
   }),
 
   // ── Backing du cache d'idempotence des mutations (P6.8) ────────────────────
@@ -152,11 +183,14 @@ export const env = defineEnv({
    * Un store distribué demandé mais non câblé → le boot ÉCHOUE (fail-loud, jamais
    * de dédup silencieuse). Reco prod multi-pod : `redis` (ou `drizzle` si pas de Redis).
    */
-  NF_IDEMPOTENCY_STORE: envEnum(["memory", "redis", "drizzle"] as const, {
-    default: "memory",
-    description:
-      "Cache d'idempotence : memory (per-pod) | redis | drizzle (distribués cross-pod).",
-  }),
+  NF_IDEMPOTENCY_STORE: envEnum(
+    ["auto", "memory", "redis", "drizzle"] as const,
+    {
+      default: "auto",
+      description:
+        "Cache d'idempotence : auto (suit l'infra déclarée) | memory (per-pod) | redis | drizzle (distribués cross-pod).",
+    },
+  ),
 
   /**
    * Mot de passe de l'administrateur seedé au boot. En **dev**, défaut `secret`
@@ -186,9 +220,10 @@ export const env = defineEnv({
    * redémarrage) | `drizzle` (DURABLE — table `webhook_endpoint` sur l'ORM SQL
    * `"default"`). Câblé par `nodefony/security/webhookStore.ts` (entité + fabrique).
    */
-  NF_WEBHOOK_STORE: envEnum(["memory", "drizzle"] as const, {
-    default: "memory",
-    description: "Backend des endpoints webhook (memory | drizzle durable).",
+  NF_WEBHOOK_STORE: envEnum(["auto", "memory", "drizzle"] as const, {
+    default: "auto",
+    description:
+      "Backend des endpoints webhook : auto (suit l'infra déclarée) | memory | drizzle (durable).",
   }),
 
   /**

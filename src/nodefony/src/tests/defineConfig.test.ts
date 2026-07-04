@@ -11,6 +11,7 @@ import type { ConfigContext } from "../config/types";
 function makeCtx(over: Partial<ConfigContext> = {}): ConfigContext {
   return {
     env: {},
+    infra: { database: null, cache: null, logs: null },
     appEnv: "production",
     runtimeEnv: "production",
     isProd: true,

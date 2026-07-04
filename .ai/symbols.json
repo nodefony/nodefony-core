@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-04T13:55:03.078Z",
+  "generated": "2026-07-04T14:58:29.873Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 995,
-    "symbols": 2435,
+    "files": 996,
+    "symbols": 2452,
     "classes": 316,
-    "interfaces": 643,
-    "types": 286,
+    "interfaces": 648,
+    "types": 290,
     "enums": 4,
-    "functions": 652,
-    "constants": 534
+    "functions": 658,
+    "constants": 536
   },
   "symbols": {
     "Cli": {
@@ -795,6 +795,131 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Construit le suffixe de message « did you mean » d'un chemin d'override qui n'a pas résolu contre `target` : nomme le segment fautif, propose la clé la plus proche et liste les clés disponibles. Ch…"
+    },
+    "IInfraDatabase": {
+      "name": "IInfraDatabase",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Infra `database` résolu depuis `NF_DATABASE_URL`/`DATABASE_URL`."
+    },
+    "IInfraCache": {
+      "name": "IInfraCache",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Infra `cache` résolu depuis `NF_REDIS_URL`/`REDIS_URL`."
+    },
+    "IInfraLogs": {
+      "name": "IInfraLogs",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Infra `logs` (relecture backplane) — les DEUX URLs peuvent être présentes."
+    },
+    "IInfra": {
+      "name": "IInfra",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "L'infra déclarée — `null` = non déclarée."
+    },
+    "IAutoStoreResolution": {
+      "name": "IAutoStoreResolution",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Choix d'un backend pour `\"auto\"` + provenance lisible (log de boot, Studio)."
+    },
+    "InfraSqlDialect": {
+      "name": "InfraSqlDialect",
+      "kind": "type",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résolution de l'INFRA DÉCLARÉE depuis l'environnement (modèle « infra déclarée »). L'utilisateur ne configure pas chaque brique : il déclare son infra via des URLs (pattern Rails/Django/Symfony) : …"
+    },
+    "DatabaseFamily": {
+      "name": "DatabaseFamily",
+      "kind": "type",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Famille du infra `database` — pilote le choix de l'adapter (drizzle/mongoose)."
+    },
+    "InfraEnvSource": {
+      "name": "InfraEnvSource",
+      "kind": "type",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Source d'environnement (forme de `process.env`) — injectable pour les tests."
+    },
+    "StoreKind": {
+      "name": "StoreKind",
+      "kind": "type",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nature de la donnée d'une brique — pilote l'ordre de préférence des backends : - `durable` (tokens, passkeys, audit, webhooks, user) → infra database. - `ephemeral` (idempotence) → infra cache, sin…"
+    },
+    "parseDatabaseUrl": {
+      "name": "parseDatabaseUrl",
+      "kind": "function",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'URL du infra `database` : scheme → famille + dialecte."
+    },
+    "sqliteFilenameFromUrl": {
+      "name": "sqliteFilenameFromUrl",
+      "kind": "function",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fichier SQLite d'une URL `sqlite:` du infra `database`. Formes acceptées : `sqlite::memory:`, `sqlite:./relatif.db`, `sqlite:/abs.db`, `sqlite:///abs.db`. URL vide après le scheme → `:memory:`."
+    },
+    "resolveInfra": {
+      "name": "resolveInfra",
+      "kind": "function",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout les 3 infra déclarée depuis l'environnement. Fonction PURE (aucun kernel) : consommée par le Kernel (1 fois, mémoïsé), par le contexte `defineConfig` (`ctx.infra`) et par les builders de con…"
+    },
+    "resolveAutoStore": {
+      "name": "resolveAutoStore",
+      "kind": "function",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout la sentinelle `\"auto\"` d'une brique en nom de backend, borné aux backends RÉELLEMENT enregistrés (`available` = `listXStores()` du registre — reflète l'auto-register des adapters chargés). C…"
+    },
+    "AUTO_STORE": {
+      "name": "AUTO_STORE",
+      "kind": "const",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sentinelle des champs `store` : « laisser le framework choisir selon l'infra déclarée »."
+    },
+    "EMPTY_INFRA": {
+      "name": "EMPTY_INFRA",
+      "kind": "const",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Infra vide (rien de déclaré) — fallback sûr quand le kernel est absent (tests)."
     },
     "Reactivity": {
       "name": "Reactivity",
@@ -3896,7 +4021,7 @@
       "file": "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Résout le driver de relecture EFFECTIF depuis la valeur demandée et le mode de lancement. La sentinelle `\"auto\"` (défaut du framework) S'ADAPTE : un worker de cluster (process forké) relit via `clu…"
+      "description": "Résout le driver de relecture EFFECTIF depuis la valeur demandée, le mode de lancement et les destinations distantes déclarées. La sentinelle `\"auto\"` (défaut du framework) S'ADAPTE : 1. une destin…"
     },
     "registerBuiltinLogDrivers": {
       "name": "registerBuiltinLogDrivers",
@@ -18659,6 +18784,30 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
+      "AUTO_STORE": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "EMPTY_INFRA": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "resolveAutoStore": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
       "IAdminBroker": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/realtime/index.ts",
@@ -19601,6 +19750,11 @@
         "src/nodefony/src/config/types.ts",
         "src/nodefony/src/config/use.ts"
       ],
+      "IInfra": [
+        "src/nodefony/src/config/types.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/types/IKernel.ts"
+      ],
       "KnownModule": [
         "src/nodefony/src/config/use.ts"
       ],
@@ -19780,6 +19934,11 @@
       ],
       "closestMatch": [
         "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "resolveInfra": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts"
       ],
       "nodefonyError": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -20800,6 +20959,9 @@
       ],
       "DocSource": [
         "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
+      ],
+      "sqliteFilenameFromUrl": [
+        "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts"
       ],
       "drizzleConfigSchema": [
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
@@ -22054,6 +22216,9 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
+      "listAuditStores": [
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts"
+      ],
       "IAuditSink": [
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts"
@@ -22216,6 +22381,9 @@
       "listOAuthProviders": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
+      "listTokenStores": [
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
+      ],
       "JwtKeystore": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
@@ -22280,6 +22448,9 @@
       "totpStatus": [
         "src/packages/@nodefony/security/nodefony/service/totp.ts"
       ],
+      "listWebAuthnStores": [
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
+      ],
       "IWebhookDelivery": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
@@ -22287,6 +22458,9 @@
       "WebhookEndpointSummary": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
+      ],
+      "listWebhookStores": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "decryptSecret": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",

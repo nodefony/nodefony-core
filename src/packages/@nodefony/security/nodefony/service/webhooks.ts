@@ -1,4 +1,12 @@
-import { Service, Module, Container, Event } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  AUTO_STORE,
+  EMPTY_INFRA,
+  resolveAutoStore,
+} from "nodefony";
 import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
 import {
@@ -13,7 +21,10 @@ import type {
   WebhookEndpointSummary,
   WebhookEndpointUpdate,
 } from "../contracts/IWebhookEndpoint";
-import { getWebhookStoreFactory } from "../src/webhook/webhookStoreRegistry";
+import {
+  getWebhookStoreFactory,
+  listWebhookStores,
+} from "../src/webhook/webhookStoreRegistry";
 import {
   decryptSecret,
   deriveWebhookKey,
@@ -214,7 +225,18 @@ class WebhookService extends Service {
   #resolveStore(config: ISecurityConfig): IWebhookStore | null {
     const existing = this.get<IWebhookStore>("webhookStore");
     if (existing) return existing;
-    const driver = config.webhooks.store;
+    // `auto` (défaut) = suivre l'infra database déclarée, borné aux backends
+    // enregistrés ; repli memory ANNONCÉ. Valeur explicite respectée.
+    let driver = config.webhooks.store;
+    if (driver === AUTO_STORE) {
+      const auto = resolveAutoStore(
+        "durable",
+        this.kernel?.infra ?? EMPTY_INFRA,
+        listWebhookStores(),
+      );
+      driver = auto.store;
+      this.log(`webhooks.store "auto" → "${driver}" (${auto.reason})`, "INFO");
+    }
     const factory = getWebhookStoreFactory(driver);
     if (!factory) {
       this.log(

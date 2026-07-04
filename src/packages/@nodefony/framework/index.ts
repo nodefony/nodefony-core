@@ -1,5 +1,13 @@
 import path from "node:path";
-import { Kernel, Module, services, GcScheduler } from "nodefony";
+import {
+  Kernel,
+  Module,
+  services,
+  GcScheduler,
+  AUTO_STORE,
+  EMPTY_INFRA,
+  resolveAutoStore,
+} from "nodefony";
 import type { IAdminBroker } from "./nodefony/interfaces/IAdminBroker";
 import config from "./nodefony/config/config";
 import type {
@@ -169,8 +177,19 @@ class Framework extends Module {
    *    silencieux (le WARNING annonce la dégradation).
    */
   override async onKernelBoot(): Promise<this> {
-    const name =
-      (this.options as FrameworkConfig)?.idempotency?.store ?? "memory";
+    let name = (this.options as FrameworkConfig)?.idempotency?.store ?? "auto";
+    if (name === AUTO_STORE) {
+      // `auto` (défaut) = suivre l'infra déclarée (cache redis > database),
+      // borné aux stores distribués réellement enregistrés ; sans infra →
+      // memory (per-pod, suffisant hors cluster). Valeur explicite respectée.
+      const auto = resolveAutoStore(
+        "ephemeral",
+        this.kernel?.infra ?? EMPTY_INFRA,
+        listIdempotencyStores(),
+      );
+      name = auto.store;
+      this.log(`idempotency.store "auto" → "${name}" (${auto.reason})`, "INFO");
+    }
     if (name === "memory") {
       return this; // défaut per-pod déjà posé par @services (MemoryIdempotencyStore)
     }

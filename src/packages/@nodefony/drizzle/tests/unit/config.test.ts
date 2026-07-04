@@ -39,17 +39,55 @@ describe("@nodefony/drizzle — config (Zod, alignement ORM 2026-06)", () => {
     });
   });
 
-  describe("surcharge env", () => {
-    it("DRIZZLE_DB_FILE → filename du connecteur primaire `default`", () => {
-      const prev = process.env.DRIZZLE_DB_FILE;
-      process.env.DRIZZLE_DB_FILE = "/tmp/app.db";
-      try {
-        const c = defineDrizzleConfig();
-        assert.equal(c.connectors.default.filename, "/tmp/app.db");
-      } finally {
-        if (prev === undefined) delete process.env.DRIZZLE_DB_FILE;
-        else process.env.DRIZZLE_DB_FILE = prev;
+  describe("surcharge env (infra database — NF_DATABASE_URL)", () => {
+    function withEnv(vars: Record<string, string>, fn: () => void): void {
+      const saved: Record<string, string | undefined> = {};
+      for (const [key, value] of Object.entries(vars)) {
+        saved[key] = process.env[key];
+        process.env[key] = value;
       }
+      try {
+        fn();
+      } finally {
+        for (const [key, prev] of Object.entries(saved)) {
+          if (prev === undefined) delete process.env[key];
+          else process.env[key] = prev;
+        }
+      }
+    }
+
+    it("NF_DATABASE_URL=sqlite:… → filename du connecteur primaire `default`", () => {
+      withEnv({ NF_DATABASE_URL: "sqlite:/tmp/app.db" }, () => {
+        const c = defineDrizzleConfig();
+        assert.equal(c.connectors.default.dialect, "sqlite");
+        assert.equal(c.connectors.default.filename, "/tmp/app.db");
+      });
+    });
+
+    it("NF_DATABASE_URL=postgres:// → dialect + url (filename écarté)", () => {
+      withEnv({ NF_DATABASE_URL: "postgres://u:p@h:5432/db" }, () => {
+        const c = defineDrizzleConfig({
+          connectors: { default: { filename: ":memory:" } },
+        });
+        assert.equal(c.connectors.default.dialect, "postgres");
+        assert.equal(c.connectors.default.url, "postgres://u:p@h:5432/db");
+        assert.equal(c.connectors.default.filename, undefined);
+      });
+    });
+
+    it("alias plateforme DATABASE_URL honoré (NF_ absent)", () => {
+      withEnv({ DATABASE_URL: "sqlite::memory:" }, () => {
+        const c = defineDrizzleConfig();
+        assert.equal(c.connectors.default.filename, ":memory:");
+      });
+    });
+
+    it("NF_DATABASE_URL=mongodb:// → ignorée par drizzle (infra mongoose)", () => {
+      withEnv({ NF_DATABASE_URL: "mongodb://h:27017/db" }, () => {
+        const c = defineDrizzleConfig();
+        assert.equal(c.connectors.default.dialect, "sqlite");
+        assert.equal(c.connectors.default.url, undefined);
+      });
     });
   });
 

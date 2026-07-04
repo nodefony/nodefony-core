@@ -59,6 +59,8 @@ import {
   resolveFailureHint,
 } from "../config/envOverride";
 import type { ConfigContext } from "../config/types";
+import { resolveInfra } from "../config/infra";
+import type { IInfra } from "../config/infra";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
@@ -1261,12 +1263,32 @@ class Kernel extends Service implements IKernel {
       process.env.APP_ENV || process.env.NODEFONY_ENV || runtimeEnv;
     return {
       env: (env ?? process.env) as ConfigContext["env"],
+      infra: this.infra,
       appEnv,
       runtimeEnv,
       isProd: runtimeEnv === "production",
       isDev: runtimeEnv === "development",
       isTest: runtimeEnv === "test",
     };
+  }
+
+  /** Infra déclarée mémoïsés — lazy, `null` tant que non lus. */
+  private _infra: IInfra | null = null;
+
+  /**
+   * Infra déclarée (`database`/`cache`/`logs`) résolus depuis
+   * `process.env` (modèle « infra déclarée », Phase 0.8). Calcul 1 fois, mémoïsé —
+   * consommé par le ctx `defineConfig` (`ctx.infra`) et par les briques dont
+   * le store vaut `"auto"` (`resolveAutoStore`).
+   *
+   * @throws Error au premier accès si `NF_DATABASE_URL` a un scheme non
+   *   supporté (fail-loud : jamais de repli sqlite silencieux).
+   */
+  get infra(): IInfra {
+    if (this._infra === null) {
+      this._infra = resolveInfra(process.env);
+    }
+    return this._infra;
   }
 
   /**
@@ -1634,12 +1656,20 @@ class Kernel extends Service implements IKernel {
       logCfg?.maxStack ??
       (this.environment === "development" ? 2000 : undefined);
     if (maxStack) this.syslog?.setMaxStack(maxStack);
-    // Défaut `auto` = la vue s'adapte au mode de lancement (mono → `memory` 0 I/O ;
-    // worker de cluster → `cluster-file`, vue unifiée cross-worker). Surcharge
-    // explicite respectée. Résolution pure + testée (`resolveQueryDriver`).
+    // Défaut `auto` = dérivé de la config : une destination distante déclarée
+    // (loki/opensearch — URL montée depuis l'infra logs) impose son driver de
+    // relecture (1 knob : l'URL ⇒ le driver) ; les DEUX déclarées sans choix
+    // explicite = throw (fail-loud, pas d'arbitrage silencieux). Sinon la vue
+    // s'adapte au mode de lancement (mono → `memory` 0 I/O ; worker de cluster
+    // → `cluster-file`, vue unifiée cross-worker). Surcharge explicite
+    // respectée. Résolution pure + testée (`resolveQueryDriver`).
     const queryDriver = resolveQueryDriver(
       logCfg?.queryDriver,
       cluster.isWorker,
+      {
+        loki: logCfg?.loki?.url,
+        opensearch: logCfg?.opensearch?.url,
+      },
     );
     // Résolution des drivers par FABRIQUES (logDriverRegistry) — AUCUN `if (name === …)`
     // dans le Kernel : les drivers natifs (memory/file/cluster-file/loki/opensearch)

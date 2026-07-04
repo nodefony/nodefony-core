@@ -99,6 +99,7 @@ describe("config — use() (Lot 3 : colocation + registre typé)", () => {
       });
       const resolved = cfg.resolve({
         env: {},
+        infra: { database: null, cache: null, logs: null },
         appEnv: "test",
         runtimeEnv: "test",
         isProd: false,

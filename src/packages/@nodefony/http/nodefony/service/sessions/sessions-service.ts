@@ -11,6 +11,9 @@ import {
   inject,
   injectable,
   GcScheduler,
+  AUTO_STORE,
+  EMPTY_INFRA,
+  resolveAutoStore,
 } from "nodefony";
 import type {
   ISessionStorage,
@@ -196,11 +199,27 @@ class SessionsService extends Service {
   }
 
   initializeStorage(): ISessionStorage | null {
-    const Storage = SessionsService.getStorage(this.options.store);
+    // `auto` (défaut) = suivre l'infra déclarée (cache redis > database > files),
+    // borné aux handlers réellement enregistrés. Valeur explicite respectée.
+    let storeName: string = this.options.store;
+    if (storeName === AUTO_STORE) {
+      const auto = resolveAutoStore(
+        "session",
+        this.kernel?.infra ?? EMPTY_INFRA,
+        SessionsService.storageHandlers(),
+        "files",
+      );
+      storeName = auto.store;
+      this.log(
+        `session.store "auto" → "${storeName}" (${auto.reason})`,
+        "INFO",
+      );
+    }
+    const Storage = SessionsService.getStorage(storeName);
     if (!Storage) {
       this.storage = null;
       this.log(
-        `SESSION STORE NOT FOUND : "${this.options.store}" ` +
+        `SESSION STORE NOT FOUND : "${storeName}" ` +
           `(enregistrés : ${SessionsService.storageHandlers().join(", ") || "aucun"})`,
         "ERROR",
       );
@@ -211,14 +230,10 @@ class SessionsService extends Service {
     // un défaut du cycle de vie, pas d'un store. `storage.inner` reste le store
     // réel (introspection admin : quel driver persiste les sessions).
     this.storage = new RevocationGuardStorage(new Storage(this));
-    this.log(`SESSION STORAGE active : ${this.options.store}`, "INFO");
+    this.log(`SESSION STORAGE active : ${storeName}`, "INFO");
     // Événement (kernel + service) : quel backend de session est actif.
-    this.fire("onSessionStorageReady", this.options.store, this.storage);
-    this.kernel?.fire(
-      "onSessionStorageReady",
-      this.options.store,
-      this.storage,
-    );
+    this.fire("onSessionStorageReady", storeName, this.storage);
+    this.kernel?.fire("onSessionStorageReady", storeName, this.storage);
     this.kernel?.on("onReady", async () => {
       await this.storage.open();
       // Maintenance déterministe HORS hot-path (GcScheduler unifié du core) :

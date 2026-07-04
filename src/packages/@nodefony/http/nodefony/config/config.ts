@@ -759,11 +759,12 @@ const sessionSchema = z
     store: z
       .string()
       .min(1)
-      .default("files")
+      .default("auto")
       .describe(
-        "Store de session : nom d'un storage enregistré au registre " +
-          "(`files` | `drizzle` | `mongoose` | `redis`). Vocabulaire unifié : " +
-          "données = `store` (≠ `driver` réservé aux flux/transports).",
+        "Store de session : `auto` (défaut — suit l'infra déclarée : cache " +
+          "redis > database > files) ou le nom d'un storage enregistré au " +
+          "registre (`files` | `drizzle` | `mongoose` | `redis`). Vocabulaire " +
+          "unifié : données = `store` (≠ `driver` réservé aux flux/transports).",
       ),
     savePath: z
       .string()

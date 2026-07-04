@@ -167,6 +167,7 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
       }));
       const resolved = cfg.resolve({
         env,
+        infra: { database: null, cache: null, logs: null },
         appEnv: "production",
         runtimeEnv: "production",
         isProd: true,

@@ -4,6 +4,7 @@ import type { IBootReport } from "../kernel/bootReport";
 import type FileClass from "../FileClass";
 import type { EnvironmentType, DebugType } from "./globals";
 import type { ICliKernel } from "./ICliKernel";
+import type { IInfra } from "../config/infra";
 import type { ICommand } from "./ICommand";
 import type os from "node:os";
 
@@ -46,6 +47,12 @@ export interface IKernel extends IService {
   readonly path: string;
   readonly isDev: boolean;
   readonly isProd: boolean;
+  /**
+   * Infra déclarée (`database`/`cache`/`logs`) résolue depuis l'environnement
+   * (URLs `NF_DATABASE_URL`/`NF_REDIS_URL`/…). Mémoïsée — consommée par les
+   * briques dont le store vaut `"auto"` (`resolveAutoStore`).
+   */
+  readonly infra: IInfra;
   /**
    * L'environnement FOURNIT-il un vrai terminal ? Résolu une fois au boot
    * (`process.stdout.isTTY`, surchargeable `NO_TTY`). Volet « environnement » qui

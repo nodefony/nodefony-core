@@ -147,10 +147,11 @@ export default defineConfig<Env>((ctx) => ({
       },
       { policy: "mandatory" },
     ),
-    // Idempotence des mutations : `memory` (per-pod, défaut) | `redis` (builtin
-    // @nodefony/framework) | `drizzle` (AUTO-ENREGISTRÉ par le module drizzle) —
-    // distribués cross-pod, opt-in `NF_IDEMPOTENCY_STORE`. Le framework résout
-    // le nom au boot (fail-loud si non enregistré). Cf `@Idempotent` (P6.8).
+    // Idempotence des mutations : `auto` (défaut — suit l'infra déclarée :
+    // NF_REDIS_URL → redis, sinon NF_DATABASE_URL → drizzle, sinon memory) |
+    // `memory` (per-pod) | `redis` | `drizzle` (distribués cross-pod). Opt-in
+    // explicite `NF_IDEMPOTENCY_STORE`. Le framework résout le nom au boot
+    // (fail-loud si non enregistré). Cf `@Idempotent` (P6.8).
     use(
       "@nodefony/framework",
       { idempotency: { store: ctx.env.NF_IDEMPOTENCY_STORE } },
@@ -240,13 +241,14 @@ export default defineConfig<Env>((ctx) => ({
     // Studio admin — console d'administration du framework.
     { name: "@nodefony/studio", policy: "mandatory" },
 
-    // ── Accès Redis générique — chargé À LA DEMANDE. Deux consommateurs cross-pod :
-    //    le backplane realtime `redis` (fan-out, Phase 16) ET le store d'idempotence
-    //    distribué (`NF_IDEMPOTENCY_STORE=redis`, P6.8). Connexion par défaut
-    //    localhost:6379 + `REDIS_PASSWORD` (env layering). Avec les défauts (IPC
-    //    intra-pod + idempotence `memory`) il reste inutile → non chargé.
+    // ── Accès Redis générique — chargé par la DÉCLARATION de l'infra cache :
+    //    `NF_REDIS_URL` présente ⇔ module chargé (un seul signal, pas de magie
+    //    localhost). Consommateurs cross-pod : backplane realtime `redis`,
+    //    stores `redis` (idempotence, sessions, tokens). Demander un store
+    //    `redis` SANS déclarer `NF_REDIS_URL` = échec franc à la résolution
+    //    (fail-loud), jamais de connexion implicite.
     use("@nodefony/redis", undefined, {
-      when: () => ctx.env.NF_IDEMPOTENCY_STORE === "redis",
+      when: () => !!ctx.infra.cache,
     }),
 
     // ── Exemple : module NoSQL Mongoose (non chargé par défaut). Décommenter ICI

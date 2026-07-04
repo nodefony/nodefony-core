@@ -47,6 +47,7 @@ function withEnv(
 function ctxOf(over: Partial<ConfigContext> = {}): ConfigContext {
   return {
     env: {},
+    infra: { database: null, cache: null, logs: null },
     appEnv: "production",
     runtimeEnv: "production",
     isProd: true,

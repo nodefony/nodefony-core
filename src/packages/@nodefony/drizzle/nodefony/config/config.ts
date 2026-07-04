@@ -23,7 +23,8 @@ import { z } from "zod";
  *
  * SURCHARGE (précédence croissante — cf ADR-0006) :
  *   • App (typé)         : `use("@nodefony/drizzle", { connectors: { … } })` ;
- *   • Par environnement  : `DRIZZLE_DB_FILE` (appliqué dans `defineDrizzleConfig`) ;
+ *   • Par environnement  : infra database `NF_DATABASE_URL`/`DATABASE_URL`
+ *     (dialecte déduit du scheme, appliqué dans `defineDrizzleConfig`) ;
  *   • Déploiement/Docker : `NF__DRIZZLE__<CHEMIN>=valeur` (override env générique).
  */
 
@@ -57,7 +58,7 @@ const connectorSchema = z
         "Fichier SQLite du connecteur (dialecte `sqlite`). OMIS → résolu au boot " +
           "vers `<app>/nodefony/databases/nodefony-<connecteur>.db` (kernel " +
           "présent). `:memory:` = base éphémère en mémoire (tests). Surchargé par " +
-          "l'env `DRIZZLE_DB_FILE` pour le connecteur primaire.",
+          "le infra database `NF_DATABASE_URL=sqlite:…` pour le connecteur primaire.",
       ),
     url: z
       .string()

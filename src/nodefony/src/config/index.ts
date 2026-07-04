@@ -30,6 +30,25 @@ export {
   validateAppConfig,
 } from "./schema";
 export type { AppConfig } from "./schema";
+export {
+  resolveInfra,
+  resolveAutoStore,
+  parseDatabaseUrl,
+  sqliteFilenameFromUrl,
+  AUTO_STORE,
+  EMPTY_INFRA,
+} from "./infra";
+export type {
+  IInfra,
+  IInfraDatabase,
+  IInfraCache,
+  IInfraLogs,
+  IAutoStoreResolution,
+  InfraSqlDialect,
+  DatabaseFamily,
+  StoreKind,
+  InfraEnvSource,
+} from "./infra";
 export { configReactivity, getConfigReactivity } from "./reactivity";
 export type { Reactivity } from "./reactivity";
 export type {

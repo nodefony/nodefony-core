@@ -289,6 +289,25 @@ export type { AppConfig } from "./config/schema";
 export { configReactivity, getConfigReactivity } from "./config/reactivity";
 export type { Reactivity } from "./config/reactivity";
 export type { IConfigFieldMeta } from "./config/configMeta";
+export {
+  resolveInfra,
+  resolveAutoStore,
+  parseDatabaseUrl,
+  sqliteFilenameFromUrl,
+  AUTO_STORE,
+  EMPTY_INFRA,
+} from "./config/infra";
+export type {
+  IInfra,
+  IInfraDatabase,
+  IInfraCache,
+  IInfraLogs,
+  IAutoStoreResolution,
+  InfraSqlDialect,
+  DatabaseFamily,
+  StoreKind,
+  InfraEnvSource,
+} from "./config/infra";
 export type {
   AppConfigInput,
   ResolvedAppConfig,

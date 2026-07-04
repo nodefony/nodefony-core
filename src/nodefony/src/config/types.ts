@@ -14,6 +14,7 @@
  * Ces types ne dépendent PAS du Kernel (importables/testables sans serveur).
  */
 import type { ModulePolicy } from "../types/IModuleManifest";
+import type { IInfra } from "./infra";
 
 /**
  * Noms de modules connus du framework — proposés à l'autocomplétion tout en
@@ -296,6 +297,12 @@ export type ResolvedAppConfig = AppConfigInput;
 export interface ConfigContext<E = Record<string, unknown>> {
   /** Catalogue des variables d'environnement typées (`defineEnv`, Lot 2). */
   readonly env: E;
+  /**
+   * Infra déclarée résolus depuis l'environnement (modèle « infra déclarée »,
+   * Phase 0.8) — `database`/`cache`/`logs`. Sert au gating de modules
+   * (ex. `when: () => !!ctx.infra.cache` pour redis) sans relire `process.env`.
+   */
+  readonly infra: IInfra;
   /** Environnement applicatif libre (`APP_ENV`/`NODEFONY_ENV`) — granularité métier. */
   readonly appEnv: string;
   /** Environnement runtime canonisé (`NODE_ENV`). */

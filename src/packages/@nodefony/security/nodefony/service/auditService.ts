@@ -1,11 +1,23 @@
-import { Service, Module, Container, Event, GcScheduler } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  GcScheduler,
+  AUTO_STORE,
+  EMPTY_INFRA,
+  resolveAutoStore,
+} from "nodefony";
 import { randomBytes } from "node:crypto";
 import {
   defineSecurityConfig,
   type ISecurityConfig,
   type ISecurityConfigInput,
 } from "../config/defineModuleConfig";
-import { getAuditStoreFactory } from "../src/audit/auditStoreRegistry";
+import {
+  getAuditStoreFactory,
+  listAuditStores,
+} from "../src/audit/auditStoreRegistry";
 import type { IAuditEvent, IAuditEventDraft } from "../contracts/IAuditEvent";
 import type {
   IAuditQuery,
@@ -72,10 +84,22 @@ class AuditService extends Service implements IAuditSink {
     // n'embarque que le builtin `memory` ; drizzle/mongoose/redis s'enregistrent
     // depuis leur module (multi-pod, rétention longue). Convention-frère
     // `tokenStore.store` → `getTokenStoreFactory`.
-    const factory = getAuditStoreFactory(config.audit.store);
+    // `auto` (défaut) = suivre l'infra database déclarée, borné aux backends
+    // enregistrés ; repli memory ANNONCÉ. Valeur explicite respectée.
+    let storeName = config.audit.store;
+    if (storeName === AUTO_STORE) {
+      const auto = resolveAutoStore(
+        "durable",
+        this.kernel?.infra ?? EMPTY_INFRA,
+        listAuditStores(),
+      );
+      storeName = auto.store;
+      this.log(`audit.store "auto" → "${storeName}" (${auto.reason})`, "INFO");
+    }
+    const factory = getAuditStoreFactory(storeName);
     if (!factory) {
       this.log(
-        `audit store "${config.audit.store}" inconnu — audit désactivé (journal de sécurité non collecté)`,
+        `audit store "${storeName}" inconnu — audit désactivé (journal de sécurité non collecté)`,
         "WARNING",
       );
       return;

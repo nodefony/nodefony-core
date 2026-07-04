@@ -1,4 +1,12 @@
-import { Service, Module, Container, Event } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  AUTO_STORE,
+  EMPTY_INFRA,
+  resolveAutoStore,
+} from "nodefony";
 import { Buffer } from "node:buffer";
 import type {
   AuthenticationResponseJSON,
@@ -16,7 +24,10 @@ import {
 import { AuthenticationError } from "../errors/AuthenticationError";
 import type { IWebAuthnCredential } from "../contracts/IWebAuthnCredential";
 import type { IWebAuthnCredentialStore } from "../contracts/IWebAuthnCredentialStore";
-import { getWebAuthnStoreFactory } from "../src/webauthn/webAuthnCredentialStoreRegistry";
+import {
+  getWebAuthnStoreFactory,
+  listWebAuthnStores,
+} from "../src/webauthn/webAuthnCredentialStoreRegistry";
 
 const serviceName = "webauthn";
 
@@ -125,7 +136,21 @@ class WebAuthnService extends Service {
     if (existing) {
       this.#store = existing;
     } else {
-      const driver = config.passkeys.store;
+      // `auto` (défaut) = suivre l'infra database déclarée, borné aux backends
+      // enregistrés ; repli memory ANNONCÉ. Valeur explicite respectée.
+      let driver = config.passkeys.store;
+      if (driver === AUTO_STORE) {
+        const auto = resolveAutoStore(
+          "durable",
+          this.kernel?.infra ?? EMPTY_INFRA,
+          listWebAuthnStores(),
+        );
+        driver = auto.store;
+        this.log(
+          `passkeys.store "auto" → "${driver}" (${auto.reason})`,
+          "INFO",
+        );
+      }
       const factory = getWebAuthnStoreFactory(driver);
       if (!factory) {
         this.log(

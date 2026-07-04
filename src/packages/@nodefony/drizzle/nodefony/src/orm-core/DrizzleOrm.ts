@@ -2,11 +2,13 @@ import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import BetterSqlite3 from "better-sqlite3";
+import { is } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { getTableConfig } from "drizzle-orm/sqlite-core";
-import type { SQLiteTable } from "drizzle-orm/sqlite-core";
-import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
-import type { PgTable } from "drizzle-orm/pg-core";
+import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
+import {
+  getTableConfig as getPgTableConfig,
+  PgTable,
+} from "drizzle-orm/pg-core";
 // `import type` UNIQUEMENT (effacé à la compilation) → @types/pg sert au typage,
 // le driver `pg` runtime est `optionalDependency` chargée en LAZY (`await import`)
 // dans `#connectPostgres` (jamais au top-level : un déploiement SQLite n'a pas pg).
@@ -253,10 +255,32 @@ export class DrizzleOrm extends Orm {
     this.#client = client;
     this.#db = drizzle(client);
     for (const entity of entities) {
+      this.#assertDialectTable(entity, SQLiteTable, "sqlite");
       const table = entity.schema as SQLiteTable;
       this.#tables![entity.name] = table;
       entity.model = table;
       client.exec(this.#createTableSQL(table));
+    }
+  }
+
+  /**
+   * Garde fail-loud : une entité dont la table n'est pas du dialecte du
+   * connecteur (ex. variante sqlite enregistrée sur un connecteur postgres)
+   * doit échouer avec un message ACTIONNABLE — pas le `TypeError: Cannot
+   * convert undefined or null to object` cryptique de `getTableConfig`.
+   */
+  #assertDialectTable(
+    entity: IEntity,
+    tableCtor: typeof SQLiteTable | typeof PgTable,
+    dialect: string,
+  ): void {
+    if (!is(entity.schema as Record<string, unknown>, tableCtor)) {
+      throw new Error(
+        `DrizzleOrm "${this.name}" (${dialect}): entity "${entity.name}" is not ` +
+          `ported to this dialect (its schema is not a ${dialect} table). Port it ` +
+          `via a createXTable("${dialect}") factory, or keep this connector on a ` +
+          `dialect the entity supports (multi-dialect worksite).`,
+      );
     }
   }
 
@@ -297,6 +321,7 @@ export class DrizzleOrm extends Orm {
     this.#pgPool = pool;
     this.#db = pgDrizzle(pool) as DrizzleDb;
     for (const entity of entities) {
+      this.#assertDialectTable(entity, PgTable, "postgres");
       const table = entity.schema as PgTable;
       this.#tables![entity.name] = table as unknown as SQLiteTable;
       entity.model = table;
@@ -548,8 +573,7 @@ export class DrizzleOrm extends Orm {
     if (!this.#client) return undefined;
     try {
       const row = this.#client.prepare("SELECT sqlite_version() AS v").get() as
-        | { v?: string }
-        | undefined;
+        { v?: string } | undefined;
       return row?.v;
     } catch {
       return undefined;

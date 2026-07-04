@@ -42,15 +42,17 @@ const serviceOptionsSchema = z.looseObject({});
 const idempotencySchema = z.object({
   store: z
     .string()
-    .default("memory")
+    .default("auto")
     .describe(
       "Backing du cache d'idempotence des mutations (`@Idempotent` + data " +
-        "plane admin). `memory` (défaut) = cache per-pod (la socket reste " +
-        "affine à son pod). Un nom DISTRIBUÉ (`redis`, `drizzle`) doit être " +
-        "câblé par l'application via `registerIdempotencyStore(name, …)` ET " +
-        "résolu au boot → override du défaut mémoire. Un nom non câblé fait " +
-        "ÉCHOUER le boot (fail-loud : pas de dédup silencieuse en cluster). " +
-        "Reco prod multi-pod : `redis` (SET NX + TTL natif, 409 in-flight réel).",
+        "plane admin). `auto` (défaut) = suit l'infra déclarée (NF_REDIS_URL " +
+        "→ redis, sinon NF_DATABASE_URL → drizzle, sinon memory per-pod). " +
+        "`memory` = cache per-pod (la socket reste affine à son pod). Un nom " +
+        "DISTRIBUÉ (`redis`, `drizzle`) est enregistré via " +
+        "`registerIdempotencyStore(name, …)` (auto-register par les adapters) " +
+        "ET résolu au boot → override du défaut mémoire. Un nom EXPLICITE non " +
+        "câblé fait ÉCHOUER le boot (fail-loud : pas de dédup silencieuse en " +
+        "cluster). Reco prod multi-pod : `redis` (SET NX + TTL natif).",
     ),
   gcIntervalS: z
     .number()

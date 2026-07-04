@@ -27,11 +27,17 @@ function jsonlPath(ctx: ILogDriverContext): string {
 }
 
 /**
- * Résout le driver de relecture EFFECTIF depuis la valeur demandée et le mode de
- * lancement. La sentinelle `"auto"` (défaut du framework) S'ADAPTE : un worker de
- * cluster (process forké) relit via `cluster-file` — vue UNIFIÉE agrégeant les JSONL
- * de tous les workers — là où `memory` (ring per-worker) ne montrerait qu'un worker
- * (vue partielle, round-robin trompeur) ; un mono-process reste sur `memory` (0 I/O).
+ * Résout le driver de relecture EFFECTIF depuis la valeur demandée, le mode de
+ * lancement et les destinations distantes déclarées. La sentinelle `"auto"`
+ * (défaut du framework) S'ADAPTE :
+ * 1. une destination distante déclarée (URL loki/opensearch — infra logs) impose
+ *    son driver : l'URL ⇒ le driver, un seul knob. Les DEUX déclarées sans choix
+ *    explicite = throw (fail-loud : pas d'arbitrage silencieux entre deux
+ *    destinations de relecture) ;
+ * 2. sinon un worker de cluster (process forké) relit via `cluster-file` — vue
+ *    UNIFIÉE agrégeant les JSONL de tous les workers — là où `memory` (ring
+ *    per-worker) ne montrerait qu'un worker ; un mono-process reste sur
+ *    `memory` (0 I/O).
  *
  * On n'intervient QUE sur le défaut : toute valeur EXPLICITE (`memory`, `file`,
  * `loki`, …) est une surcharge de l'opérateur → respectée telle quelle, jamais
@@ -40,13 +46,25 @@ function jsonlPath(ctx: ILogDriverContext): string {
  * @param requested - `log.queryDriver` résolu (config app/env) ; `undefined` ou
  *   `"auto"` = laisser le framework décider.
  * @param isWorker - process forké d'un cluster (`cluster.isWorker`).
+ * @param urls - URLs des destinations distantes déclarées (config `log.loki`/
+ *   `log.opensearch`, montées depuis l'infra logs).
  * @returns nom du driver de relecture à activer + monter.
+ * @throws Error si les deux URLs sont déclarées sans `queryDriver` explicite.
  */
 export function resolveQueryDriver(
   requested: string | undefined,
   isWorker: boolean,
+  urls?: { loki?: string; opensearch?: string },
 ): string {
   if (requested !== undefined && requested !== "auto") return requested;
+  if (urls?.loki && urls?.opensearch) {
+    throw new Error(
+      "log.queryDriver ambigu : NF_LOKI_URL ET NF_OPENSEARCH_URL déclarées — " +
+        'préciser log.queryDriver ("loki" | "opensearch")',
+    );
+  }
+  if (urls?.loki) return "loki";
+  if (urls?.opensearch) return "opensearch";
   return isWorker ? "cluster-file" : "memory";
 }
 

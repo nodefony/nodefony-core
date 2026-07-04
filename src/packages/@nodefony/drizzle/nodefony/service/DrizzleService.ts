@@ -11,6 +11,22 @@ import type {
 
 const serviceName = "drizzle";
 
+/** URL de connexion sans credentials — un log de boot ne porte jamais de secret. */
+function redactUrl(url?: string): string {
+  if (!url) {
+    return "no url";
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.password) {
+      parsed.password = "***";
+    }
+    return parsed.toString();
+  } catch {
+    return "invalid url";
+  }
+}
+
 /**
  * Service bootable du module `@nodefony/drizzle`.
  *
@@ -78,17 +94,22 @@ class DrizzleService extends Service {
     return path.resolve(root, "nodefony", "databases", file);
   }
 
-  /** Connecte un connecteur (crée le dossier de la base si nécessaire). */
+  /** Connecte un connecteur (crée le dossier de la base SQLite si nécessaire). */
   async #connectOne(name: string, cfg: IDrizzleConnectorConfig): Promise<void> {
-    // `filename` optionnel (schéma pur) → résolu ici via le kernel si omis.
-    const filename = cfg.filename ?? this.#defaultFilename(name);
-    if (filename !== ":memory:") {
-      fs.mkdirSync(path.dirname(filename), { recursive: true });
+    const dialect = cfg.dialect ?? "sqlite";
+    let filename: string | undefined;
+    if (dialect === "sqlite") {
+      // `filename` optionnel (schéma pur) → résolu ici via le kernel si omis.
+      filename = cfg.filename ?? this.#defaultFilename(name);
+      if (filename !== ":memory:") {
+        fs.mkdirSync(path.dirname(filename), { recursive: true });
+      }
     }
-    const orm = new DrizzleOrm(name, { filename });
+    const orm = new DrizzleOrm(name, { dialect, filename, url: cfg.url });
     await orm.connect();
     this.#orms.set(name, orm);
-    this.log(`Drizzle ORM "${name}" connected (${filename})`, "INFO");
+    const target = dialect === "sqlite" ? filename : redactUrl(cfg.url);
+    this.log(`Drizzle ORM "${name}" connected (${dialect}: ${target})`, "INFO");
   }
 
   /** Ferme toutes les connexions. */

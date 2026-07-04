@@ -393,9 +393,9 @@ const tokenStoreSchema = z
   .object({
     store: z
       .string()
-      .default("memory")
+      .default("auto")
       .describe(
-        "Store de jetons (refresh/PAT/denylist) : memory|file|drizzle|mongoose|redis. Pluggable (`registerTokenStore`). Memory = dev/tests (volatile, non partagé). Vocabulaire unifié : données = `store`.",
+        "Store de jetons (refresh/PAT/denylist) : auto (suit l'infra database déclarée, repli memory)|memory|file|drizzle|mongoose|redis. Pluggable (`registerTokenStore`). Memory = dev/tests (volatile, non partagé). Vocabulaire unifié : données = `store`.",
       ),
     gcIntervalS: z
       .number()
@@ -488,9 +488,9 @@ const passkeysSchema = z
       ),
     store: z
       .string()
-      .default("memory")
+      .default("auto")
       .describe(
-        "Backend de stockage des credentials : memory|file|drizzle|mongoose|redis. Pluggable (`registerWebAuthnStore`). 'memory' = volatile, perdu au redémarrage [défaut] ; 'file' = persiste sur disque (mono-process : dev / petit déploiement) ; drizzle/mongoose/redis = cluster/prod (l'app câble l'adapter de son module backend).",
+        "Backend de stockage des credentials : auto (suit l'infra database déclarée, repli memory) [défaut]|memory|file|drizzle|mongoose|redis. Pluggable (`registerWebAuthnStore`). 'memory' = volatile, perdu au redémarrage ; 'file' = persiste sur disque (mono-process : dev / petit déploiement) ; drizzle/mongoose/redis = cluster/prod (auto-register par l'adapter chargé).",
       ),
     storePath: z
       .string()
@@ -699,9 +699,9 @@ const webhooksSchema = z
       .describe("Autorise http:// (dev only). Prod : https:// obligatoire."),
     store: z
       .string()
-      .default("memory")
+      .default("auto")
       .describe(
-        "Backend des endpoints : memory (dev) | drizzle | mongoose. Câblé via registerWebhookStore().",
+        "Backend des endpoints : auto (suit l'infra database déclarée, repli memory) | memory (dev) | drizzle | mongoose. Câblé via registerWebhookStore().",
       ),
     encryptionKey: z
       .string()
@@ -717,9 +717,9 @@ const auditSchema = z
     enabled: z.boolean().default(true),
     store: z
       .string()
-      .default("memory")
+      .default("auto")
       .describe(
-        "Store du journal (résolu via `auditStoreRegistry`). `memory` = per-pod, volatile, borné (défaut) ; `drizzle` = persistant + partagé multi-pod (auto-register par l'adapter). Vocabulaire unifié : données = `store`.",
+        "Store du journal (résolu via `auditStoreRegistry`). `auto` = suit l'infra database déclarée, repli memory (défaut) ; `memory` = per-pod, volatile, borné ; `drizzle` = persistant + partagé multi-pod (auto-register par l'adapter). Vocabulaire unifié : données = `store`.",
       ),
     immutable: z
       .boolean()

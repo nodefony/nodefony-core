@@ -43,7 +43,7 @@ Deux usages :
   `withTransaction(tx)` réutilise le **même** db.
 - **Trappe SQL brut** : `getNativeConnection()` renvoie le db Drizzle (tag `sql`).
 - **Config = Zod (ADR-0006, 1 fichier-schéma)** : `nodefony/config/config.ts`
-  (schéma Zod + défauts `parse({})`, source unique ; `schema.ts` fusionné) → `defineDrizzleConfig` (parse + env `DRIZZLE_DB_FILE` + freeze)
+  (schéma Zod + défauts `parse({})`, source unique ; `schema.ts` fusionné) → `defineDrizzleConfig` (parse + infra database `NF_DATABASE_URL`/`DATABASE_URL` : dialecte déduit du scheme, `sqlite:`→`filename`, `postgres://`/`mysql://`→`url`, `mongodb://` ignorée + freeze)
   → validée au `onKernelRegister`, exposée `this.set("drizzleConfig")`. Augmente
   `NodefonyModuleConfig` (typage `use()`). ⚠️ `filename` **optionnel SANS défaut**
   dans le schéma (pur) : le chemin SQLite (kernel-dépendant) est résolu **au boot**
