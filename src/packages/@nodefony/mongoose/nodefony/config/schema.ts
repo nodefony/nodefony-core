@@ -81,6 +81,16 @@ export const mongooseConfigSchema = z
           "`nodefony` (≠ `default` de Drizzle) évite toute collision d'entité " +
           "dans le `entityRegistry` (process-wide) si les deux ORM cohabitent.",
       ),
+    frameworkEntities: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Déclare le schéma framework sur le connecteur `nodefony` (tokens, " +
+          "webauthn, webhooks — modèles compilés au connect) et rend les stores " +
+          "correspondants sélectionnables par nom (`mongoose`). Couverture " +
+          "partielle assumée : PAS d'audit ni d'idempotence mongoose. " +
+          "`false` = module data-only.",
+      ),
   })
   .describe("Configuration de @nodefony/mongoose.");
 

@@ -10,6 +10,9 @@ const external: string[] = [
   "@nodefony/http",
   "@nodefony/user",
   "@nodefony/security",
+  // Registre d'idempotence (auto-register des stores framework) — import
+  // RUNTIME de registerIdempotencyStore, peerDep jamais bundlée.
+  "@nodefony/framework",
   "drizzle-orm",
   "better-sqlite3",
   // Driver Postgres LAZY (`await import("pg")`) — optionalDependency, externalisé

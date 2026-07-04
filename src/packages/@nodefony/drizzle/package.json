@@ -60,8 +60,10 @@
     "typescript": "6.0.3"
   },
   "peerDependencies": {
+    "@nodefony/framework": "*",
     "@nodefony/http": "*",
     "@nodefony/orm-core": "*",
+    "@nodefony/security": "*",
     "@nodefony/user": "*",
     "nodefony": "*"
   },

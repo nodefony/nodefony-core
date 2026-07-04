@@ -147,11 +147,10 @@ export default defineConfig<Env>((ctx) => ({
       },
       { policy: "mandatory" },
     ),
-    // Idempotence des mutations : `memory` (per-pod, défaut) OU `redis`
-    // (distribué cross-pod, opt-in `NF_IDEMPOTENCY_STORE=redis` + module redis
-    // chargé). La fabrique `redis` est câblée dans `index.ts`
-    // (`registerIdempotencyStore`) ; le framework la résout au boot (fail-loud si
-    // le nom est configuré mais non câblé). Cf `@Idempotent` (P6.8).
+    // Idempotence des mutations : `memory` (per-pod, défaut) | `redis` (builtin
+    // @nodefony/framework) | `drizzle` (AUTO-ENREGISTRÉ par le module drizzle) —
+    // distribués cross-pod, opt-in `NF_IDEMPOTENCY_STORE`. Le framework résout
+    // le nom au boot (fail-loud si non enregistré). Cf `@Idempotent` (P6.8).
     use(
       "@nodefony/framework",
       { idempotency: { store: ctx.env.NF_IDEMPOTENCY_STORE } },

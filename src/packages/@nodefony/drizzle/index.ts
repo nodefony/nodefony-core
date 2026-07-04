@@ -15,6 +15,10 @@ import {
   drizzleConfigJsonSchema,
 } from "./nodefony/config/defineDrizzleConfig";
 import DrizzleService from "./nodefony/service/DrizzleService";
+import {
+  registerDrizzleFrameworkStores,
+  FRAMEWORK_ORM,
+} from "./nodefony/registerStores";
 import type {
   IDrizzleConfig,
   IDrizzleConfigInput,
@@ -60,6 +64,39 @@ class Drizzle extends Module {
       throw new Error(`[@nodefony/drizzle] Invalid config: ${issues}`);
     }
     this.set("drizzleConfig", validated);
+
+    // AUTO-REGISTER du schéma framework (tokens/audit/webauthn/webhooks/
+    // idempotence) sur le connecteur `default` + fabriques de stores dans les
+    // registres security/framework — AVANT le connect de `onBoot` (tables créées
+    // à la connexion). L'app n'écrit plus aucun `registerXStore` ; elle garde la
+    // main via les guards (entité/fabrique déjà posées = respectées) ou coupe
+    // tout avec `frameworkEntities: false` (module data-only).
+    if (validated.frameworkEntities !== false) {
+      const dialect = validated.connectors?.default?.dialect ?? "sqlite";
+      const report = registerDrizzleFrameworkStores(dialect);
+      if (report.unported.length) {
+        this.log(
+          `schéma framework : entités non portées sur "${dialect}" → stores ` +
+            `drizzle indisponibles pour [${report.unported.join(", ")}] ` +
+            `(chantier multi-dialecte Ph.2.1)`,
+          "WARNING",
+        );
+      }
+      if (report.appOwned.length) {
+        this.log(
+          `schéma framework : entités déjà enregistrées par l'app ` +
+            `[${report.appOwned.join(", ")}] — auto-register respecte l'app`,
+          "DEBUG",
+        );
+      }
+      if (report.registered.length) {
+        this.log(
+          `schéma framework déclaré sur "${FRAMEWORK_ORM}" (${dialect}) : ` +
+            `[${report.registered.join(", ")}]`,
+          "DEBUG",
+        );
+      }
+    }
     return this;
   }
 
@@ -122,9 +159,9 @@ export type { UserRow } from "./nodefony/entity/userTable";
 export { DrizzleUserRepository } from "./nodefony/src/DrizzleUserRepository";
 
 // ─── Store de jetons Drizzle (contrat ITokenStore de @nodefony/security, J4b) ─
-// Approche B : `@nodefony/security` n'est consommé qu'en `import type` (0 dép
-// runtime). PAS d'auto-register — l'application câble `registerTokenStore` +
-// `registerTokenEntities(orm)` (l'ORM choisi par l'app héberge les tables).
+// AUTO-REGISTER (onKernelRegister) : entité + fabrique "drizzle" déclarées par le
+// module — sélectionnable via `tokenStore.driver: "drizzle"`, zéro câblage app.
+// Exports conservés pour usage direct/banc-test (les guards laissent la main à l'app).
 export {
   accessTokenTable,
   deniedJtiTable,
@@ -140,9 +177,8 @@ export type {
 export { DrizzleTokenStore } from "./nodefony/src/DrizzleTokenStore";
 
 // ─── Journal d'audit Drizzle (contrat IAuditStore de @nodefony/security, P6.14) ─
-// Approche B : `import type` seul (0 dép runtime). PAS d'auto-register — l'app
-// câble `registerAuditStore("drizzle", …)` + `registerAuditEntities(orm)`. Append-
-// only + pagination curseur exacte (ts, id) via le query builder dialect-agnostique.
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `audit.driver: "drizzle"`.
+// Append-only + pagination curseur exacte (ts, id), query builder dialect-agnostique.
 export {
   auditEventTable,
   createAuditEntities,
@@ -153,8 +189,7 @@ export type { AuditEventRow } from "./nodefony/entity/auditEventEntity";
 export { DrizzleAuditStore } from "./nodefony/src/DrizzleAuditStore";
 
 // ─── Store de credentials WebAuthn Drizzle (IWebAuthnCredentialStore, J9) ─────
-// Approche B (idem token) : `import type` seul, PAS d'auto-register. L'app câble
-// `registerWebAuthnStore("drizzle", …)` + `registerWebAuthnCredentialEntity(orm)`.
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `passkeys.store: "drizzle"`.
 export {
   webAuthnCredentialTable,
   createWebAuthnCredentialEntity,
@@ -165,10 +200,9 @@ export type { WebAuthnCredentialRow } from "./nodefony/entity/webAuthnCredential
 export { DrizzleWebAuthnCredentialStore } from "./nodefony/src/DrizzleWebAuthnCredentialStore";
 
 // ─── Store d'idempotence Drizzle (IIdempotencyStore au CORE — multi-pod sans Redis) ─
-// Approche B (idem token/webauthn) : `import type` du contrat core, PAS d'auto-register.
-// L'app câble `registerIdempotencyStore("drizzle", …)` (registre @nodefony/framework) +
-// `registerIdempotencyEntities(orm)`. Réservation atomique = INSERT … ON CONFLICT DO
-// UPDATE … WHERE expiré (le `SET NX PX` SQL). GC applicatif (pas de TTL natif).
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `NF_IDEMPOTENCY_STORE=drizzle`
+// — porté sqlite ET postgres (Slice 0). Réservation atomique = INSERT … ON CONFLICT
+// DO UPDATE … WHERE expiré (le `SET NX PX` SQL). GC applicatif (pas de TTL natif).
 export {
   idempotencyKeyTable,
   createIdempotencyTable,
@@ -181,8 +215,7 @@ export { DrizzleIdempotencyStore } from "./nodefony/src/DrizzleIdempotencyStore"
 export type { SqlDialect } from "./nodefony/config/config";
 
 // ─── Store d'endpoints webhook Drizzle (IWebhookStore de @nodefony/security, P6.13) ─
-// Approche B (idem token/webauthn) : `import type` du contrat, PAS d'auto-register.
-// L'app câble `registerWebhookStore("drizzle", …)` + `registerWebhookEndpointEntity(orm)`.
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `NF_WEBHOOK_STORE=drizzle`.
 // Registre DURABLE des endpoints (survit au redémarrage, ≠ MemoryWebhookStore).
 export {
   webhookEndpointTable,
@@ -192,3 +225,11 @@ export {
 } from "./nodefony/entity/webhookEndpointEntity";
 export type { WebhookEndpointRow } from "./nodefony/entity/webhookEndpointEntity";
 export { DrizzleWebhookStore } from "./nodefony/src/DrizzleWebhookStore";
+
+// ─── Auto-register du schéma framework (appelé par onKernelRegister) ─────────
+// Exporté pour les tests et les apps avancées (rejouable : guards idempotents).
+export {
+  registerDrizzleFrameworkStores,
+  FRAMEWORK_ORM,
+} from "./nodefony/registerStores";
+export type { IFrameworkStoresReport } from "./nodefony/registerStores";

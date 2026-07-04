@@ -57,6 +57,7 @@
   "peerDependencies": {
     "@nodefony/http": "*",
     "@nodefony/orm-core": "*",
+    "@nodefony/security": "*",
     "@nodefony/user": "*",
     "nodefony": "*"
   },

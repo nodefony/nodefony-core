@@ -49,12 +49,12 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
   (`webAuthnCredentialStoreRegistry`, convention-frère tokenStore) : `memory` (volatile) + **`file`**
   (`FileWebAuthnCredentialStore` = Memory + persistance JSON **atomique** tmp+rename, flush coalescé +
   **`flushNow` à `onTerminate`** = 0 perte au restart). Driver = `config.passkeys.store` (`z.string()`
-  pluggable, J9). **Adapters cluster ✅ J9** (approche B, `import type` seul → 0 dép runtime, l'app câble) :
+  pluggable, J9). **Adapters cluster ✅ J9** — AUTO-ENREGISTRÉS par LEUR module (`registerStores.ts`
+  de drizzle/mongoose/redis, appelé à `onKernelRegister` ; sélection par nom, zéro câblage app) :
   `RedisWebAuthnCredentialStore` (HASH+SET, pas de TTL), `DrizzleWebAuthnCredentialStore` +
   `MongooseWebAuthnCredentialStore` (au-dessus de `IRepository`, mapping `Row↔contrat` car `nickname?`+
-  readonly ; entité `webauthn_credential` `module:"security"`). Câblage app (idem tokenStore) :
-  `registerWebAuthnStore("redis", ({container})=>RedisWebAuthnCredentialStore.from(container.get("redis")))` ;
-  ORM = `registerWebAuthnCredentialEntity(orm)` **avant** `orm.connect()` + `registerWebAuthnStore("drizzle", …from(orm))`.
+  readonly ; entité `webauthn_credential` `module:"security"`). Guards premier-arrivé : une app qui
+  pose sa propre entité/fabrique AVANT garde la main.
 - Endpoints WebAuthn : `WebAuthnController` (@nodefony/framework) `/nodefony/security/api/webauthn/
 {register,login}/{options,verify}` (`bypassFirewall`, montés si "webauthn"). **register exige session**
   (me() → 401, Zero Trust) ; **login démarre une session ANONYME** (`AuthFlow.ensureSession`) pour porter
@@ -109,7 +109,7 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   `auditStoreRegistry` (`registerAuditStore`/`getAuditStoreFactory`/`listAuditStores`, calque
   `tokenStoreRegistry` ; driver inconnu → WARNING + audit désactivé, jamais de crash) : builtin `memory`
   (`MemoryAuditStore` FIFO borné, query curseur récent→ancien) ; `drizzle` = `DrizzleAuditStore` persistant
-  append-only (P6.18, câblé approche B par l'app). **Secret jamais dans l'event** → presence-only `flags`. **Émission EXPLICITE par point** (pas EventEmitter firewall : Token/
+  append-only (P6.18, auto-enregistré par le module drizzle — sélection `audit.driver:"drizzle"` seule). **Secret jamais dans l'event** → presence-only `flags`. **Émission EXPLICITE par point** (pas EventEmitter firewall : Token/
   ApiKey/OAuth émettent hors chaîne). Helpers `recordAudit(container, draft)` (résout `auditService`, no-op si
   absent) + `readAuditContext(ctx)` (ip/ua/requestId+flags). **Lot 2** (cold) : `AuthFlow` login.success/
   failure/throttled/logout ; `Authorization` access.denied (`#auditDeny`). **Lot 2b** (HOT-PATH, succès MUET) :

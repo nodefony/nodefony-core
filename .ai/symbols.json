@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-03T23:09:18.744Z",
+  "generated": "2026-07-04T10:53:43.142Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 998,
-    "symbols": 2425,
+    "files": 1001,
+    "symbols": 2435,
     "classes": 316,
-    "interfaces": 641,
+    "interfaces": 643,
     "types": 286,
     "enums": 4,
-    "functions": 647,
-    "constants": 531
+    "functions": 653,
+    "constants": 533
   },
   "symbols": {
     "Cli": {
@@ -2154,6 +2154,64 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
+    },
+    "IFrameworkStoresReport": {
+      "name": "IFrameworkStoresReport",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Bilan de l'auto-enregistrement (loggé par le module — jamais silencieux)."
+    },
+    "registerDrizzleFrameworkStores": {
+      "name": "registerDrizzleFrameworkStores",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Déclare les entités framework portées sur `dialect` (connecteur `default`) et enregistre leurs fabriques de stores dans les registres de `@nodefony/security` et `@nodefony/framework`. Idempotent (g…"
+    },
+    "FRAMEWORK_ORM": {
+      "name": "FRAMEWORK_ORM",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "AUTO-ENREGISTREMENT des backends framework portés par Drizzle — « charger le module = ses backends deviennent sélectionnables par simple nom ». Appelé par `Drizzle.onKernelRegister` (config validée…"
+    },
+    "@nodefony/mongoose:IFrameworkStoresReport": {
+      "name": "IFrameworkStoresReport",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Bilan de l'auto-enregistrement (loggé par le module — jamais silencieux)."
+    },
+    "registerMongooseFrameworkStores": {
+      "name": "registerMongooseFrameworkStores",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Déclare les entités framework Mongoose (connecteur `nodefony`) et enregistre leurs fabriques de stores dans les registres de `@nodefony/security`. Idempotent (guards) — rejouable sans effet."
+    },
+    "@nodefony/mongoose:FRAMEWORK_ORM": {
+      "name": "FRAMEWORK_ORM",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "AUTO-ENREGISTREMENT des backends framework portés par Mongoose — « charger le module = ses backends deviennent sélectionnables par simple nom » (convention- frère : `registerDrizzleFrameworkStores`…"
+    },
+    "registerRedisFrameworkStores": {
+      "name": "registerRedisFrameworkStores",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/registerStores.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Enregistre les fabriques de stores Redis dans les registres de `@nodefony/security`. Idempotent (guards) — rejouable sans effet."
     },
     "Storage": {
       "name": "Storage",
@@ -17946,6 +18004,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/nodefony/src/client/api/Storage.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
@@ -18404,6 +18463,7 @@
       ],
       "DrizzleOrm": [
         "src/modules/mediasoup/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
@@ -18568,6 +18628,13 @@
       "DrizzleService": [
         "src/packages/@nodefony/drizzle/index.ts"
       ],
+      "registerDrizzleFrameworkStores": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "FRAMEWORK_ORM": [
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/mongoose/index.ts"
+      ],
       "IDrizzleConfig": [
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
@@ -18608,10 +18675,12 @@
         "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts"
       ],
       "getIdempotencyStoreFactory": [
-        "src/packages/@nodefony/framework/index.ts"
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
       "registerIdempotencyStore": [
-        "src/packages/@nodefony/framework/index.ts"
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
       "listIdempotencyStores": [
         "src/packages/@nodefony/framework/index.ts"
@@ -19122,6 +19191,9 @@
       "MongooseService": [
         "src/packages/@nodefony/mongoose/index.ts"
       ],
+      "registerMongooseFrameworkStores": [
+        "src/packages/@nodefony/mongoose/index.ts"
+      ],
       "IMongooseConfig": [
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts",
@@ -19271,6 +19343,7 @@
       ],
       "RedisService": [
         "src/packages/@nodefony/redis/index.ts",
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
@@ -19281,6 +19354,9 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts"
       ],
       "redisConfigJsonSchema": [
+        "src/packages/@nodefony/redis/index.ts"
+      ],
+      "registerRedisFrameworkStores": [
         "src/packages/@nodefony/redis/index.ts"
       ],
       "IRedisConfig": [
@@ -19851,6 +19927,177 @@
       "WrapperResult": [
         "src/nodefony/src/types/ISyslog.ts"
       ],
+      "entityRegistry": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/modules/test/nodefony/entity/dolibarr/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
+      ],
+      "ormRegistry": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/modules/test/nodefony/controller/DbController.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
+      ],
+      "registerTokenStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts"
+      ],
+      "getTokenStoreFactory": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
+      ],
+      "registerAuditStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "getAuditStoreFactory": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts"
+      ],
+      "registerWebAuthnStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts"
+      ],
+      "getWebAuthnStoreFactory": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
+      ],
+      "registerWebhookStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "getWebhookStoreFactory": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "DrizzleDb": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
+      ],
+      "SqlDialect": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "registerTokenEntities": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "TOKEN_ENTITY_NAMES": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
+      ],
+      "registerAuditEntities": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "AUDIT_ENTITY_NAMES": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "registerWebAuthnCredentialEntity": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "WEBAUTHN_CREDENTIAL_ENTITY": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts"
+      ],
+      "registerWebhookEndpointEntity": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "WEBHOOK_ENDPOINT_ENTITY": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
+      ],
+      "registerIdempotencyEntities": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "createIdempotencyTable": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
+      ],
+      "IDEMPOTENCY_ENTITY_NAME": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "idempotencyKeyTable": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
+      ],
+      "DrizzleTokenStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "DrizzleAuditStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "DrizzleWebAuthnCredentialStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "DrizzleWebhookStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "DrizzleIdempotencyStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "MongooseOrm": [
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
+      ],
+      "MongooseTokenStore": [
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "MongooseWebAuthnCredentialStore": [
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "MongooseWebhookStore": [
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "RedisTokenStore": [
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts"
+      ],
+      "RedisWebAuthnCredentialStore": [
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts"
+      ],
       "RealtimeState": [
         "src/nodefony/src/client/debugbar/DebugBar.ts",
         "src/nodefony/src/client/debugbar/model.ts",
@@ -20264,25 +20511,6 @@
         "src/nodefony/src/syslog/transports/LokiTransport.ts",
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
       ],
-      "entityRegistry": [
-        "src/modules/mediasoup/nodefony/entity/schema.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/modules/test/nodefony/entity/dolibarr/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
-      ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
@@ -20350,15 +20578,6 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
-      ],
-      "ormRegistry": [
-        "src/modules/test/nodefony/controller/DbController.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
       ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
@@ -20593,10 +20812,6 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/readAuditContext.ts"
       ],
-      "SqlDialect": [
-        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
-      ],
       "IdempotentResponse": [
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
@@ -20670,13 +20885,6 @@
         "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
-      "DrizzleDb": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
-      ],
       "auditEventTable": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
       ],
@@ -20697,12 +20905,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
-      ],
-      "createIdempotencyTable": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
-      ],
-      "idempotencyKeyTable": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
       ],
       "IdempotencyKeyRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
@@ -20754,10 +20956,6 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
-      ],
-      "TOKEN_ENTITY_NAMES": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
       ],
       "DeniedJtiRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
@@ -20847,10 +21045,6 @@
         "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
       ],
-      "WEBAUTHN_CREDENTIAL_ENTITY": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts"
-      ],
       "WebAuthnCredentialRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts"
@@ -20876,10 +21070,6 @@
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
-      ],
-      "WEBHOOK_ENDPOINT_ENTITY": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
       ],
       "WebhookEndpointRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
@@ -21520,13 +21710,6 @@
       "MongooseConfig": [
         "src/packages/@nodefony/mongoose/nodefony/config/config.ts"
       ],
-      "MongooseOrm": [
-        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
-      ],
       "IMongooseConnectorConfig": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
@@ -21876,9 +22059,6 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
-      "getAuditStoreFactory": [
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts"
-      ],
       "IAuditSink": [
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts"
@@ -22041,9 +22221,6 @@
       "listOAuthProviders": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
-      "getTokenStoreFactory": [
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
-      ],
       "JwtKeystore": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
@@ -22108,9 +22285,6 @@
       "totpStatus": [
         "src/packages/@nodefony/security/nodefony/service/totp.ts"
       ],
-      "getWebAuthnStoreFactory": [
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
-      ],
       "IWebhookDelivery": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
@@ -22118,9 +22292,6 @@
       "WebhookEndpointSummary": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
-      ],
-      "getWebhookStoreFactory": [
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "decryptSecret": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",

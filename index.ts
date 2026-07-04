@@ -5,13 +5,10 @@ import AppController from "./nodefony/controllers/AppController";
 import indexController from "./nodefony/controllers/indexController";
 // Entité User (table `@nodefony/drizzle`) sur l'ORM Drizzle par défaut : enregistrée
 // au top-level → présente dans le entityRegistry avant le boot (table créée, ERD, profiler).
+// NB : les stores framework (idempotence, webhooks, tokens, audit, passkeys) sont
+// AUTO-ENREGISTRÉS par leurs modules adapters (drizzle/mongoose/redis) — l'app n'a
+// plus aucun câblage `registerXStore` à écrire (lot 0.8, ex-« approche B »).
 import "./nodefony/entity/user";
-// Idempotence sur Drizzle (store distribué cross-pod, opt-in `NF_IDEMPOTENCY_STORE=drizzle`) :
-// enregistre l'entité (avant connect) + la fabrique (registre framework) au top-level.
-import "./nodefony/security/idempotencyStore";
-// Registre d'endpoints webhook durable sur Drizzle (opt-in `NF_WEBHOOK_STORE=drizzle`) :
-// enregistre l'entité (avant connect) + la fabrique (registre security) au top-level.
-import "./nodefony/security/webhookStore";
 // Source d'identité de l'app : pose le service "users" au boot (cf. fichier).
 import { provisionUsers } from "./nodefony/security/provisionUsers";
 

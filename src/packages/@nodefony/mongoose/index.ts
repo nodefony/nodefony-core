@@ -19,6 +19,10 @@ import {
   mongooseConfigJsonSchema,
 } from "./nodefony/config/defineMongooseConfig";
 import MongooseService from "./nodefony/service/MongooseService";
+import {
+  registerMongooseFrameworkStores,
+  FRAMEWORK_ORM,
+} from "./nodefony/registerStores";
 import type {
   IMongooseConfig,
   IMongooseConfigInput,
@@ -73,6 +77,29 @@ class Mongoose extends Module {
       throw new Error(`[@nodefony/mongoose] Invalid config: ${issues}`);
     }
     this.set("mongooseConfig", validated);
+
+    // AUTO-REGISTER du schéma framework (tokens/webauthn/webhooks) sur le
+    // connecteur `nodefony` + fabriques "mongoose" dans les registres security —
+    // AVANT le connect de `onBoot`. Zéro câblage app ; guards = l'app garde la
+    // main ; `frameworkEntities: false` = module data-only. Couverture partielle
+    // assumée (pas d'audit/idempotence mongoose — sélection = échec franc).
+    if (validated.frameworkEntities !== false) {
+      const report = registerMongooseFrameworkStores();
+      if (report.appOwned.length) {
+        this.log(
+          `schéma framework : entités déjà enregistrées par l'app ` +
+            `[${report.appOwned.join(", ")}] — auto-register respecte l'app`,
+          "DEBUG",
+        );
+      }
+      if (report.registered.length) {
+        this.log(
+          `schéma framework déclaré sur "${FRAMEWORK_ORM}" : ` +
+            `[${report.registered.join(", ")}]`,
+          "DEBUG",
+        );
+      }
+    }
     return this;
   }
 
@@ -137,8 +164,8 @@ export type { UserRow } from "./nodefony/entity/userEntity";
 export { MongooseUserRepository } from "./nodefony/src/MongooseUserRepository";
 
 // ─── Store de jetons Mongoose (contrat ITokenStore de @nodefony/security, J4b) ─
-// Approche B : `@nodefony/security` en `import type` (0 dép runtime). PAS d'auto-
-// register — l'app câble `registerTokenStore` + `registerTokenEntities(orm)`.
+// AUTO-REGISTER (onKernelRegister) : entité + fabrique "mongoose" déclarées par le
+// module — sélectionnable via `tokenStore.driver: "mongoose"`, zéro câblage app.
 export {
   accessTokenSchema,
   deniedJtiSchema,
@@ -154,8 +181,7 @@ export type {
 export { MongooseTokenStore } from "./nodefony/src/MongooseTokenStore";
 
 // ─── Store de credentials WebAuthn Mongoose (IWebAuthnCredentialStore, J9) ────
-// Approche B (idem token) : `import type` seul, PAS d'auto-register. L'app câble
-// `registerWebAuthnStore("mongoose", …)` + `registerWebAuthnCredentialEntity(orm)`.
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `passkeys.store: "mongoose"`.
 export {
   webAuthnCredentialSchema,
   createWebAuthnCredentialEntity,
@@ -166,8 +192,7 @@ export type { WebAuthnCredentialRow } from "./nodefony/entity/webAuthnCredential
 export { MongooseWebAuthnCredentialStore } from "./nodefony/src/MongooseWebAuthnCredentialStore";
 
 // ─── Store d'endpoints webhook Mongoose (IWebhookStore de @nodefony/security, P6.13) ─
-// Approche B (idem token/webauthn) : `import type` seul, PAS d'auto-register. L'app
-// câble `registerWebhookStore("mongoose", …)` + `registerWebhookEndpointEntity(orm)`.
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `webhooks.store: "mongoose"`.
 export {
   webhookEndpointSchema,
   createWebhookEndpointEntity,
@@ -176,3 +201,11 @@ export {
 } from "./nodefony/entity/webhookEndpointEntity";
 export type { WebhookEndpointRow } from "./nodefony/entity/webhookEndpointEntity";
 export { MongooseWebhookStore } from "./nodefony/src/MongooseWebhookStore";
+
+// ─── Auto-register du schéma framework (appelé par onKernelRegister) ─────────
+// Exporté pour les tests et les apps avancées (rejouable : guards idempotents).
+export {
+  registerMongooseFrameworkStores,
+  FRAMEWORK_ORM,
+} from "./nodefony/registerStores";
+export type { IFrameworkStoresReport } from "./nodefony/registerStores";

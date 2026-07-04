@@ -82,6 +82,15 @@ export const drizzleConfigSchema = z
           "(≠ `nodefony` de Mongoose) isole l'entité `session` dans le " +
           "`entityRegistry` process-wide si les deux ORM cohabitent.",
       ),
+    frameworkEntities: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Déclare le schéma framework sur le connecteur `default` (tokens, audit, " +
+          "webauthn, webhooks, idempotence — tables créées au connect) et rend " +
+          "les stores correspondants sélectionnables par nom (`drizzle`). " +
+          "`false` = module data-only (aucune entité ni fabrique framework).",
+      ),
   })
   .describe("Configuration de @nodefony/drizzle.");
 

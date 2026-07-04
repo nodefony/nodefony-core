@@ -24,6 +24,7 @@ import {
   defineRedisConfig,
   redisConfigJsonSchema,
 } from "./nodefony/config/defineRedisConfig";
+import { registerRedisFrameworkStores } from "./nodefony/registerStores";
 import type {
   IRedisConfig,
   IRedisConfigInput,
@@ -67,6 +68,12 @@ class Redis extends Module {
       throw new Error(`[@nodefony/redis] Invalid config: ${issues}`);
     }
     this.set("redisConfig", validated);
+
+    // AUTO-REGISTER des fabriques de stores Redis (tokens/webauthn) dans les
+    // registres security — zéro câblage app ; guards = l'app garde la main.
+    // Session et idempotence redis sont enregistrées ailleurs (registre IoC de
+    // SessionsService / builtin @nodefony/framework).
+    registerRedisFrameworkStores();
     return this;
   }
 }
@@ -85,14 +92,15 @@ export type {
 } from "./nodefony/interfaces/IRedisConfig";
 
 // ─── Store de jetons Redis (contrat ITokenStore de @nodefony/security, J4b) ───
-// Approche B : `@nodefony/security` en `import type` (0 dép runtime). PAS d'auto-
-// register — l'app câble `registerTokenStore("redis", ({container}) =>
-// RedisTokenStore.from(container.get("redis")))`. TTL natif → gc() no-op.
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `tokenStore.driver: "redis"`,
+// zéro câblage app. TTL natif → gc() no-op.
 export { RedisTokenStore } from "./nodefony/src/RedisTokenStore";
 export type { RedisClientLike } from "./nodefony/src/RedisTokenStore";
 
 // ─── Store de credentials WebAuthn Redis (IWebAuthnCredentialStore, J9) ───────
-// Approche B : `@nodefony/security` en `import type` (0 dép runtime). PAS d'auto-
-// register — l'app câble `registerWebAuthnStore("redis", ({container}) =>
-// RedisWebAuthnCredentialStore.from(container.get("redis")))`. Pas de TTL → pas de gc.
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `passkeys.store: "redis"`.
+// Pas de TTL → pas de gc.
 export { RedisWebAuthnCredentialStore } from "./nodefony/src/RedisWebAuthnCredentialStore";
+
+// ─── Auto-register des fabriques framework (appelé par onKernelRegister) ─────
+export { registerRedisFrameworkStores } from "./nodefony/registerStores";

@@ -53,7 +53,9 @@ Deux usages :
 ## Interdits
 
 - `any`, `@ts-ignore`, `require()`. ESM only, préfixe `node:`.
-- Importer `@nodefony/http`/`@nodefony/framework` (orm = couche basse).
+- Importer `@nodefony/http`/`@nodefony/framework`/`@nodefony/security` HORS points d'enregistrement :
+  seuls les REGISTRES sont consommés (`SessionsService.registerStorage` dans `SessionStorage.ts`,
+  `register*Store` dans `registerStores.ts`) — jamais le pipeline, jamais les services.
 - Logique métier.
 
 ## Gotchas
@@ -108,7 +110,7 @@ Convention structure (figée 2026-06-08) : **`nodefony/entity/` = schéma, `node
 
 Implémente `IIdempotencyStore` (contrat au **CORE** `nodefony`, `import type` → 0 cycle) :
 dédup des **mutations** rejouées PARTAGÉE cross-pod, sans Redis (pour un cluster qui a déjà
-une base). Convention-frère = `DrizzleTokenStore` (approche B) + `RedisIdempotencyStore` (logique idempotence).
+une base). Convention-frère = `DrizzleTokenStore` + `RedisIdempotencyStore` (logique idempotence).
 
 - **`nodefony/entity/idempotencyEntity.ts`** : `idempotencyKeyTable` (`key` PK, `fingerprint`,
   `state` `if|done`, `response` json nullable, `expiresAt` int NOT NULL + index) + `createIdempotencyEntities(orm)`/
@@ -123,29 +125,13 @@ une base). Convention-frère = `DrizzleTokenStore` (approche B) + `RedisIdempote
   natif SQL → GC applicatif). **Résolveur LAZY** (`() => DrizzleDb|null`, garde `isConnected()`) →
   ordre de boot + shutdown gérés ; `null` → fail-soft (begin=fresh sans dédup, reste no-op).
 
-**Câblage (approche B — l'app, comme le token store) — NON câblé par défaut** : activation =
-décision de déploiement (cluster multi-pod). Recette :
-
-```typescript
-// 1) sélection : NF_IDEMPOTENCY_STORE=drizzle (knob framework `idempotency.store`)
-//    + connecteur multi-pod : use("@nodefony/drizzle", { connectors: { default:
-//      { dialect: "postgres", url: ctx.env.PG_URL } } })
-// 2) entité (avant orm.connect()) — le dialecte doit matcher celui du connecteur :
-import {
-  registerIdempotencyEntities,
-  DrizzleIdempotencyStore,
-} from "@nodefony/drizzle";
-import { registerIdempotencyStore } from "@nodefony/framework";
-registerIdempotencyEntities("default", "postgres");
-// 3) fabrique (registre framework) — résout l'ORM par NOM, lazy via .from
-//    (`from` lit `orm.dialect` → injecte la variante de table du dialecte) :
-registerIdempotencyStore("drizzle", ({ module }) => {
-  const drizzle = module.kernel?.container?.get("drizzle"); // DrizzleService
-  const orm = drizzle?.getOrm("default");
-  if (!orm) throw new Error("@nodefony/drizzle not loaded");
-  return DrizzleIdempotencyStore.from(orm); // résolveur lazy → tolère l'ordre de boot
-});
-```
+**Câblage — AUTO-REGISTER par le module** (`nodefony/registerStores.ts`, appelé par
+`Drizzle.onKernelRegister`) : entité (variante du dialecte du connecteur `default`) + fabrique
+(registre `@nodefony/framework`) déclarées automatiquement. **Activation = `NF_IDEMPOTENCY_STORE=drizzle`,
+RIEN d'autre à écrire.** Résolution du handle STRICTEMENT lazy par usage (la fabrique est résolue
+à `onKernelBoot` du framework, AVANT le connect Drizzle — jamais d'ORM à la construction).
+Opt-out : `frameworkEntities: false` (module data-only) ; une app qui pose sa propre
+entité/fabrique AVANT le chargement du module garde la main (guards idempotents).
 
 > **Multi-dialecte (2026-06-26)** : `createIdempotencyTable(dialect)` produit la variante `sqlite`
 > OU `postgres` ; `registerIdempotencyEntities(orm, dialect)` et `DrizzleIdempotencyStore.from(orm)`
@@ -162,7 +148,7 @@ registerIdempotencyStore("drizzle", ({ module }) => {
 
 ## Journal d'audit Drizzle (P6.18 — audit persistant)
 
-Implémente `IAuditStore` (contrat `@nodefony/security`, `import type` → 0 cycle, approche B) :
+Implémente `IAuditStore` (contrat `@nodefony/security`, `import type` pour le contrat → 0 cycle) :
 journal de sécurité **append-only** durable + partageable multi-pod, là où `MemoryAuditStore`
 (défaut) est volatile et per-pod. Convention-frère = `DrizzleTokenStore`.
 
@@ -180,22 +166,11 @@ journal de sécurité **append-only** durable + partageable multi-pod, là où `
   (`@nodefony/security`). Preuve : `tests/integration/audit-store.test.ts` (**7/7** SQLite — append/query
   filtres/pagination curseur/collision ms/gc/dégradation).
 
-**Câblage (approche B — l'app, comme token/idempotency) — NON câblé par défaut** (activation =
-décision de déploiement multi-pod) :
-
-```typescript
-// 1) sélection : use("@nodefony/security", { audit: { driver: "drizzle" } })
-// 2) entité (avant orm.connect()) :
-import { registerAuditEntities, DrizzleAuditStore } from "@nodefony/drizzle";
-import { registerAuditStore } from "@nodefony/security";
-registerAuditEntities("default");
-// 3) fabrique (registre security) — résout l'ORM par NOM, lazy via .from :
-registerAuditStore("drizzle", ({ container }) => {
-  const orm = container.get("drizzle")?.getOrm("default");
-  if (!orm) throw new Error("@nodefony/drizzle not loaded");
-  return DrizzleAuditStore.from(orm);
-});
-```
+**Câblage — AUTO-REGISTER par le module** (`nodefony/registerStores.ts`, appelé par
+`Drizzle.onKernelRegister`) : entité + fabrique (registre `@nodefony/security`) déclarées
+automatiquement. **Activation = `use("@nodefony/security", { audit: { driver: "drizzle" } })`,
+RIEN d'autre à écrire.** Rétention lue de `config.audit.retentionDays`. Guards : l'app garde la
+main ; opt-out `frameworkEntities: false`.
 
 > **Multi-dialecte** : entité `sqliteTable` pour l'instant (le query builder porte tel quel en pg/mysql) ;
 > la variante `createAuditEntities(orm, dialect)` viendra avec le slice multi-dialecte (cf ci-dessous).

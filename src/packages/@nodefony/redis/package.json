@@ -54,6 +54,7 @@
   "peerDependencies": {
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
+    "@nodefony/security": "*",
     "nodefony": "*",
     "zod": "^4.4.3"
   },
