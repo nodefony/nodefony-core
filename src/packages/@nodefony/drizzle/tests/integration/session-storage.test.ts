@@ -13,7 +13,7 @@ import {
 
 /** Manager minimal (le storage n'utilise que les timeouts session + `log`). */
 const fakeManager = {
-  options: { idleTimeoutS: 3600, absoluteTimeoutS: 0, handler: "drizzle" },
+  options: { idleTimeoutS: 3600, absoluteTimeoutS: 0, store: "drizzle" },
   log: () => {},
 } as unknown as SessionsService;
 

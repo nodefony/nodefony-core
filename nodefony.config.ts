@@ -56,9 +56,9 @@ export default defineConfig<Env>((ctx) => ({
     queryDriver: ctx.env.NF_LOG_QUERY_DRIVER,
     // Destinations PROD (LB.4) : montées seulement si l'URL est fournie ET que
     // `queryDriver` vaut leur nom (sinon fallback "memory" au boot, jamais de crash).
-    ...(ctx.env.LOKI_URL ? { loki: { url: ctx.env.LOKI_URL } } : {}),
-    ...(ctx.env.OPENSEARCH_URL
-      ? { opensearch: { url: ctx.env.OPENSEARCH_URL } }
+    ...(ctx.env.NF_LOKI_URL ? { loki: { url: ctx.env.NF_LOKI_URL } } : {}),
+    ...(ctx.env.NF_OPENSEARCH_URL
+      ? { opensearch: { url: ctx.env.NF_OPENSEARCH_URL } }
       : {}),
   },
 
@@ -141,7 +141,7 @@ export default defineConfig<Env>((ctx) => ({
         // suffisent — le touch garde une session ACTIVE vivante sans la rendre
         // éternelle. Plus de pansement maxLifetimeS (la dérive est corrigée).
         session: {
-          handler: "drizzle",
+          store: "drizzle",
         },
         formidable: { uploadDir: "./tmp/upload" },
       },

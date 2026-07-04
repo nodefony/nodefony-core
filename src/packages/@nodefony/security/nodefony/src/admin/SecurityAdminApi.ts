@@ -57,7 +57,7 @@ interface TokenStoreLike {
 
 /**
  * Déduit le **driver** logique d'un store à partir de son nom de classe — le
- * `tokenService` connaît le driver config (`tokenStore.driver`) mais ne l'expose
+ * `tokenService` connaît le driver config (`tokenStore.store`) mais ne l'expose
  * pas au container ; on le re-dérive du store réel posé (miroir du pattern
  * `HttpAdminApi.sessions` qui lit `storage.constructor.name`). Mapping fermé sur
  * les implémentations connues ({@link ITokenStore}) ; `null` pour un store tiers
@@ -319,8 +319,7 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         "Hiérarchie de rôles déclarée + résolution transitive " +
         "(RoleHierarchyWalker, niveau A de l'autorisation).",
       handler: ():
-        | IRoleHierarchyDescription
-        | IAdminResponse<{ error: string }> => {
+        IRoleHierarchyDescription | IAdminResponse<{ error: string }> => {
         const firewall = container.get("firewall") as IFirewall | undefined;
         if (!firewall) {
           return { status: 503, body: { error: "firewall unavailable" } };

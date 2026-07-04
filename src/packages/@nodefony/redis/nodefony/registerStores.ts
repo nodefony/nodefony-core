@@ -19,7 +19,7 @@ import { RedisWebAuthnCredentialStore } from "./src/RedisWebAuthnCredentialStore
  * dégradation gracieuse pendant boot/shutdown — pattern `RedisSessionStorage`).
  *
  * Fabriques `get`-guarded : une fabrique déjà posée par l'app garde la main.
- * Session (`session.handler: "redis"`) et idempotence (`NF_IDEMPOTENCY_STORE=redis`,
+ * Session (`session.store: "redis"`) et idempotence (`NF_IDEMPOTENCY_STORE=redis`,
  * builtin `@nodefony/framework`) restent enregistrées ailleurs — ici : tokens
  * (PAT + denylist JWT) et credentials WebAuthn.
  */

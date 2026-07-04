@@ -1,8 +1,6 @@
 import { expect } from "chai";
-import {
-  frameworkConfigSchema,
-  frameworkConfigJsonSchema,
-} from "../../config/schema.js";
+import { frameworkConfigSchema } from "../../config/config.js";
+import { frameworkConfigJsonSchema } from "../../config/defineModuleConfig.js";
 
 describe("frameworkConfigSchema (config Zod)", () => {
   describe("défauts", () => {

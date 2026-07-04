@@ -6,7 +6,7 @@ import type { IUser } from "@nodefony/user";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
 import { RealtimeService } from "../../src/service/RealtimeService.js";
-import { defineRealtimeConfig } from "../../config/defineRealtimeConfig.js";
+import { defineRealtimeConfig } from "../../config/defineModuleConfig.js";
 import { RealtimeChannel } from "../../decorators/realtimeDecorators.js";
 import type { ContextType } from "@nodefony/http";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";

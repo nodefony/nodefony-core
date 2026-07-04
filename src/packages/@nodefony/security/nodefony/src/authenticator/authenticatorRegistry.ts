@@ -1,7 +1,7 @@
 import type { Container } from "nodefony";
 import type { IPasswordVerifier, IUserProvider } from "@nodefony/user";
 import type { IAuthenticator } from "../../contracts/IAuthenticator";
-import type { ISecurityConfig } from "../../config/defineSecurityConfig";
+import type { ISecurityConfig } from "../../config/defineModuleConfig";
 import { AnonymousAuthenticator } from "./AnonymousAuthenticator";
 import { SessionAuthenticator } from "./SessionAuthenticator";
 import { UserPasswordAuthenticator } from "./UserPasswordAuthenticator";

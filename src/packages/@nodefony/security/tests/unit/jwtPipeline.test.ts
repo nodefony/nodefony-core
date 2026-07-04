@@ -14,7 +14,7 @@ import {
   type IFrameAuthorizerFirewall,
 } from "../../nodefony/src/realtime/frameAuthorizer";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
-import type { ISecurityAreaConfig } from "../../nodefony/config/defineSecurityConfig";
+import type { ISecurityAreaConfig } from "../../nodefony/config/defineModuleConfig";
 import type { IRealtimeToken } from "../../nodefony/src/realtime/realtimeContracts";
 import type { IJwtRuntime } from "../../nodefony/src/token/jwtRuntime";
 

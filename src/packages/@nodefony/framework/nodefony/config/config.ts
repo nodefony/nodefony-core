@@ -1,4 +1,100 @@
-import { frameworkConfigSchema } from "./schema";
+import { z } from "zod";
+
+/**
+ * @nodefony/framework — CONFIGURATION DU MODULE (schéma Zod = source unique).
+ *
+ * RÈGLE D'OR (ADR-0006) : ce fichier porte le **schéma Zod commenté** (type +
+ * validation + défaut + doc) ET matérialise les défauts. Aucune valeur n'est
+ * re-tapée ailleurs. Le builder (`defineModuleConfig.ts` →
+ * `defineFrameworkConfig`) importe le schéma D'ICI (nœud bas : ce fichier
+ * n'importe que `zod` → pas de cycle). La config est validée au boot du Module
+ * class (hook `onKernelRegister`, cf `index.ts`) → plante propre avec un
+ * message clair si la config est invalide, plutôt qu'un `undefined.x`
+ * silencieux en runtime.
+ *
+ * ## Surface volontairement minimale
+ *
+ * Le framework n'expose presque aucune option : son rôle (Router/Resolver/
+ * Controller/décorateurs) est piloté par les décorateurs et le code, pas par la
+ * config. Les seules clés réellement consommées dans le source :
+ *   - `router` / `adminBroker` — bags d'options de **Service de base** transmis
+ *     tels quels aux Services `Router` / `AdminBroker` (4ᵉ arg du `super(...)`).
+ *     Aucune forme métier figée → `looseObject` + `optional` (ne RIEN stripper,
+ *     absent par défaut = `undefined`, comme avant validation).
+ *
+ * ## Pureté
+ *
+ * Aucun `Nodefony.getKernel()` ni `process.env` → sortie déterministe,
+ * sérialisable en JSON Schema (`frameworkConfigJsonSchema` dans
+ * `defineModuleConfig.ts`) pour Studio.
+ */
+
+// Bag d'options de Service de base (Router / AdminBroker). `looseObject` =
+// aucune clé strippée (options Service génériques, pas une config figée).
+const serviceOptionsSchema = z.looseObject({});
+
+// Sous-schéma extrait (piège Zod 4 : un `.default({…})` plat ne ré-applique pas
+// les sous-défauts gcIntervalS/gcJitter → `.default(() => schema.parse({}))`).
+const idempotencySchema = z.object({
+  store: z
+    .string()
+    .default("memory")
+    .describe(
+      "Backing du cache d'idempotence des mutations (`@Idempotent` + data " +
+        "plane admin). `memory` (défaut) = cache per-pod (la socket reste " +
+        "affine à son pod). Un nom DISTRIBUÉ (`redis`, `drizzle`) doit être " +
+        "câblé par l'application via `registerIdempotencyStore(name, …)` ET " +
+        "résolu au boot → override du défaut mémoire. Un nom non câblé fait " +
+        "ÉCHOUER le boot (fail-loud : pas de dédup silencieuse en cluster). " +
+        "Reco prod multi-pod : `redis` (SET NX + TTL natif, 409 in-flight réel).",
+    ),
+  gcIntervalS: z
+    .number()
+    .int()
+    .min(0)
+    .default(600)
+    .describe(
+      "Intervalle de purge des clés d'idempotence expirées (s), HORS " +
+        "hot-path. N'a d'effet QUE pour un store SANS expiration native " +
+        "(`drizzle` → `DELETE WHERE expiresAt<=now`) ; `redis` (TTL `PX`) et " +
+        "`memory` (purge passive) l'ignorent. 0 = timer désarmé (cron/k8s).",
+    ),
+  gcJitter: z
+    .boolean()
+    .default(true)
+    .describe(
+      "Étale le départ du gc d'idempotence par process — anti thundering-herd " +
+        "sur le store SQL partagé en cluster.",
+    ),
+});
+
+export const frameworkConfigSchema = z
+  .object({
+    router: serviceOptionsSchema
+      .optional()
+      .describe(
+        "Options transmises au Service `Router` (bag d'options de Service de " +
+          "base : logger, timers…). Loose : non strippées. Absent (défaut) = aucune.",
+      ),
+    adminBroker: serviceOptionsSchema
+      .optional()
+      .describe(
+        "Options transmises au Service `AdminBroker` (data plane admin " +
+          "`/nodefony/<ns>/api/*`). Loose : non strippées. Absent (défaut) = aucune.",
+      ),
+    idempotency: idempotencySchema
+      .default(() => idempotencySchema.parse({}))
+      .describe(
+        "Idempotence des mutations (anti double-effet). Cf " +
+          "draft-ietf-httpapi-idempotency-key-header.",
+      ),
+  })
+  .describe("Configuration de @nodefony/framework.");
+
+/** Type de sortie (config normalisée + défauts appliqués). */
+export type FrameworkConfig = z.infer<typeof frameworkConfigSchema>;
+/** Type d'entrée (toutes sections omissibles — défauts du schéma). */
+export type FrameworkConfigInput = z.input<typeof frameworkConfigSchema>;
 
 // Config par défaut DÉRIVÉE du schéma Zod (source unique — jamais de défaut
 // écrit à la main, cf `feedback_config_validation_zod`). `parse({})` matérialise

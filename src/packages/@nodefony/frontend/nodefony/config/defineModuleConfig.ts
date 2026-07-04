@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { frontendConfigSchema, type FrontendConfig } from "./schema";
+import { frontendConfigSchema, type FrontendConfig } from "./config";
 
 /**
  * Builder type-safe de la configuration de `@nodefony/frontend`.
  *
  * Principes (alignés sur `defineRealtimeConfig` / famille ORM) :
- * - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE + GÈLE, ne dévie pas.
+ * - **Source unique** : `./config.ts` (Zod). Le builder VALIDE + GÈLE, ne dévie pas.
  * - **Auto-documenté + introspectable** : chaque champ Zod porte `.describe()` →
  *   {@link frontendConfigJsonSchema} produit un JSON Schema que le panneau de
  *   config Studio consomme.

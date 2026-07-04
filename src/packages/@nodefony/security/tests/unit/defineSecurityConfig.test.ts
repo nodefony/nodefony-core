@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   defineSecurityConfig,
   securityConfigJsonSchema,
-} from "../../nodefony/config/defineSecurityConfig";
+} from "../../nodefony/config/defineModuleConfig";
 
 /**
  * Gates des décisions S0 (réalignement 2026-06-12) — ces tests VERROUILLENT les

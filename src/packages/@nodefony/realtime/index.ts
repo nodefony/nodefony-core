@@ -29,7 +29,7 @@ import {
   realtimeConfigJsonSchema,
   type IRealtimeConfig,
   type IRealtimeConfigInput,
-} from "./nodefony/config/defineRealtimeConfig";
+} from "./nodefony/config/defineModuleConfig";
 import RealtimeService from "./nodefony/src/service/RealtimeService";
 
 // Symboles serveur exportés (les surfaces consommateurs userland).
@@ -107,8 +107,7 @@ registerBackplaneDriver(ClusterBackplane.driver, (ctx) =>
 // par l'adaptateur, aucune dépendance directe. Fail-soft si redis absent.
 registerBackplaneDriver(RedisBackplane.driver, (ctx) => {
   const redisService = ctx.module.kernel?.container?.get("redis") as
-    | { getClient(name: string): unknown }
-    | undefined;
+    { getClient(name: string): unknown } | undefined;
   if (!redisService) {
     ctx.module.log(
       `driver "${RedisBackplane.driver}" : module @nodefony/redis absent (non listé dans @modules) — RealtimeHub reste local`,
@@ -168,7 +167,7 @@ class Realtime extends Module {
   /**
    * Validation Zod de la config racine merge au boot (convention figée 2026-05-28,
    * cf [[feedback_config_validation_zod]]) — via le builder `defineRealtimeConfig`
-   * (source unique `nodefony/config/schema.ts`). Plante propre avec messages clairs
+   * (source unique `nodefony/config/config.ts`). Plante propre avec messages clairs
    * si la config (defaults + `module.options`) n'est pas conforme au schéma — évite
    * tous les `undefined.x` silencieux en runtime.
    *
@@ -208,8 +207,7 @@ class Realtime extends Module {
    */
   override async onKernelBoot(): Promise<this> {
     const broker = this.kernel?.container?.get("adminBroker") as
-      | IAdminBroker
-      | undefined;
+      IAdminBroker | undefined;
     if (broker && !broker.has("realtime")) {
       broker.register(createRealtimeAdminApi());
     }
@@ -391,11 +389,11 @@ export { ANONYMOUS_REALTIME_TOKEN } from "./nodefony/src/server/AnonymousRealtim
 export {
   defineRealtimeConfig,
   realtimeConfigJsonSchema,
-} from "./nodefony/config/defineRealtimeConfig";
+} from "./nodefony/config/defineModuleConfig";
 export type {
   IRealtimeConfig,
   IRealtimeConfigInput,
-} from "./nodefony/config/defineRealtimeConfig";
+} from "./nodefony/config/defineModuleConfig";
 
 // Décorateurs realtime (style déclaratif, NestJS-like) — P13 Bloc A étape 3.
 export {

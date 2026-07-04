@@ -5,7 +5,7 @@ import {
   defineSecurityConfig,
   type ISecurityConfig,
   type ISecurityConfigInput,
-} from "../config/defineSecurityConfig";
+} from "../config/defineModuleConfig";
 import type { IWebhookStore } from "../contracts/IWebhookStore";
 import type {
   IWebhookEndpoint,

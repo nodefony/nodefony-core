@@ -4,7 +4,7 @@ import {
   defineSecurityConfig,
   type ISecurityConfig,
   type ISecurityConfigInput,
-} from "../config/defineSecurityConfig";
+} from "../config/defineModuleConfig";
 import type { ITotpSecretStore } from "../contracts/ITotpSecretStore";
 import { getTotpStoreFactory } from "../src/totp/totpSecretStoreRegistry";
 import { deriveTotpKey, generateEphemeralKey } from "../src/totp/totpCipher";

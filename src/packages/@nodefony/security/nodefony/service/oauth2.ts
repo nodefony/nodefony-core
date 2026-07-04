@@ -5,7 +5,7 @@ import {
   defineSecurityConfig,
   type ISecurityConfig,
   type ISecurityConfigInput,
-} from "../config/defineSecurityConfig";
+} from "../config/defineModuleConfig";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import type { IOAuthProvider } from "../contracts/IOAuthProvider";
 import {

@@ -69,7 +69,7 @@ function buildService(configInput: unknown): {
 
 const baseConfig = {
   jwt: { enabled: true, issuer: "https://test.nf", audiences: ["nf-api"] },
-  tokenStore: { driver: "memory", gcIntervalS: 0 },
+  tokenStore: { store: "memory", gcIntervalS: 0 },
 };
 
 describe("TokenService — émission", () => {
@@ -225,7 +225,7 @@ describe("TokenService — gc (orchestration du seam ITokenStore.gc)", () => {
   it("JWT désactivé → service idle (isEnabled false, runGc no-op)", async () => {
     const b = buildService({
       jwt: { enabled: false },
-      tokenStore: { driver: "memory" },
+      tokenStore: { store: "memory" },
     });
     b.boot();
     assert.equal(b.svc.isEnabled(), false);

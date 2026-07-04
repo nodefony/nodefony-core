@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   defineDrizzleConfig,
   drizzleConfigJsonSchema,
-} from "../../nodefony/config/defineDrizzleConfig";
+} from "../../nodefony/config/defineModuleConfig";
 
 describe("@nodefony/drizzle — config (Zod, alignement ORM 2026-06)", () => {
   describe("défauts", () => {

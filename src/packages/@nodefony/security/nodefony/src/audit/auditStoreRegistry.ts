@@ -1,11 +1,11 @@
 import type { Container } from "nodefony";
-import type { ISecurityConfig } from "../../config/defineSecurityConfig";
+import type { ISecurityConfig } from "../../config/defineModuleConfig";
 import type { IAuditStore } from "../../contracts/IAuditStore";
 import { MemoryAuditStore } from "./MemoryAuditStore";
 
 /**
  * Registre de **fabriques de stores d'audit** — résout le nom configuré
- * (`security.audit.driver`) vers une instance d'{@link IAuditStore}, SANS coupler
+ * (`security.audit.store`) vers une instance d'{@link IAuditStore}, SANS coupler
  * le cœur à un backend en dur.
  *
  * Pourquoi : le journal d'audit est pluggable par contrat (mémoire/ORM/Redis/Loki) ;

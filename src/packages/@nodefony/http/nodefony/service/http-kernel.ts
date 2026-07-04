@@ -71,7 +71,7 @@ interface SecurityHeadersConfig {
   } | null;
 }
 
-/** Shape de `options.rateLimit` (cf `config/schema.ts` → `rateLimitSchema`). */
+/** Shape de `options.rateLimit` (cf `config/config.ts` → `rateLimitSchema`). */
 interface RateLimitConfig {
   enabled: boolean;
   windowS: number;
@@ -81,7 +81,7 @@ interface RateLimitConfig {
   gcJitter: boolean;
 }
 
-/** Shape de `options.health` (cf `config/schema.ts` → `healthSchema`). */
+/** Shape de `options.health` (cf `config/config.ts` → `healthSchema`). */
 interface HealthConfig {
   enabled: boolean;
   livenessPath: string;

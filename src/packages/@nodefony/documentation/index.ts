@@ -21,7 +21,7 @@ import config from "./nodefony/config/config";
 import {
   defineDocumentationConfig,
   documentationConfigJsonSchema,
-} from "./nodefony/config/defineDocumentationConfig";
+} from "./nodefony/config/defineModuleConfig";
 import DocumentationService from "./nodefony/service/DocumentationService";
 import DocumentationController from "./nodefony/controller/DocumentationController";
 
@@ -84,11 +84,11 @@ export { DocumentationService, DocumentationController };
 export {
   defineDocumentationConfig,
   documentationConfigJsonSchema,
-} from "./nodefony/config/defineDocumentationConfig";
+} from "./nodefony/config/defineModuleConfig";
 export {
   documentationConfigSchema,
   type DocumentationConfig,
-} from "./nodefony/config/schema";
+} from "./nodefony/config/config";
 
 // Briques pures réutilisables (RAG / SSG futurs)
 export {

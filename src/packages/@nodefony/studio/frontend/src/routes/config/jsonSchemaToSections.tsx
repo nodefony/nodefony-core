@@ -16,7 +16,7 @@
  * - **Champs** = feuilles (récursion), clé = chemin pointé
  *   (`connectors.default.filename`, `securityHeaders.frameOptions`).
  * - **Flags Nodefony** (`reserved` / `runtimeMutable` / `kernelDerived` / `secret`)
- *   recopiés dans le JSON Schema par `meta()` côté serveur → mutabilité + badges.
+ *   recopiés dans le JSON Schema par `.meta()` (natif zod) côté serveur → mutabilité + badges.
  * - **Secrets** masqués (flag schéma OU nom de clé sensible) — la redaction réelle
  *   est faite côté serveur (le payload ne porte jamais le secret).
  */
@@ -41,7 +41,7 @@ interface JsonSchemaNode {
   minimum?: number;
   maximum?: number;
   items?: JsonSchemaNode;
-  // Flags Nodefony recopiés par `meta()` → `z.toJSONSchema()`.
+  // Flags Nodefony recopiés par `.meta()` natif zod → `z.toJSONSchema()`.
   reserved?: boolean;
   runtimeMutable?: boolean;
   kernelDerived?: boolean;

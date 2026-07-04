@@ -4,7 +4,7 @@ import {
   defineSecurityConfig,
   type ISecurityConfig,
   type ISecurityConfigInput,
-} from "../config/defineSecurityConfig";
+} from "../config/defineModuleConfig";
 import type { ITokenStore, IAccessTokenRecord } from "../contracts/ITokenStore";
 import type {
   IApiKeyView,

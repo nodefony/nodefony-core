@@ -17,7 +17,7 @@
 
 /**
  * Vue minimale d'un nœud JSON Schema (produit par `z.toJSONSchema`), incluant les
- * **flags Nodefony** recopiés au top-level par le helper `meta()` des modules.
+ * **flags Nodefony** recopiés au top-level par le `.meta()` natif zod des modules.
  */
 export interface IJsonSchemaNode {
   type?: string | string[];

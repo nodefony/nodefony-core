@@ -1,5 +1,5 @@
 import type { Container } from "nodefony";
-import type { ISecurityConfig } from "../../config/defineSecurityConfig";
+import type { ISecurityConfig } from "../../config/defineModuleConfig";
 import type { IWebhookStore } from "../../contracts/IWebhookStore";
 import { MemoryWebhookStore } from "./MemoryWebhookStore";
 

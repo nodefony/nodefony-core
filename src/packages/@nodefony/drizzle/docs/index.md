@@ -81,7 +81,7 @@ Trappe brute : `orm.getNativeConnection()` → `db.all(sql\`… JOIN … CTE …
 Fournit un `SessionStorage` (contrat `ISessionStorage` de `@nodefony/http`) backé
 par le repository orm-core. **Inversion de contrôle** : le storage s'auto-enregistre
 dans le registre de `SessionsService` (`registerStorage("drizzle", …)`) → http ne
-dépend d'aucun ORM. Activation via la config : `session: { handler: "drizzle" }`.
+dépend d'aucun ORM. Activation via la config : `session: { store: "drizzle" }`.
 
 - Entité `session` (`nodefony/entity/sessionEntity.ts`) : table créée au boot,
   colonnes JSON (`Attributes`/`flashBag`/`metaBag`).

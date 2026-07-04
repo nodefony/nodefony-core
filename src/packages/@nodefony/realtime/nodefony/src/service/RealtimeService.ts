@@ -10,7 +10,7 @@ import {
 } from "../server/RealtimeHub";
 import type { IBackplane } from "../../interfaces/IBackplane";
 import type { IRealtimeProbe } from "../../interfaces/IRealtimeProbe";
-import type { IRealtimeConfig } from "../../config/defineRealtimeConfig";
+import type { IRealtimeConfig } from "../../config/defineModuleConfig";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator";
 import type { IRealtimeAuthenticatorMatcher } from "../../interfaces/IRealtimeAuthenticatorMatcher";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";

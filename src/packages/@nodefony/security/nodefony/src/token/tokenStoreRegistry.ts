@@ -1,5 +1,5 @@
 import type { Container } from "nodefony";
-import type { ISecurityConfig } from "../../config/defineSecurityConfig";
+import type { ISecurityConfig } from "../../config/defineModuleConfig";
 import type { ITokenStore } from "../../contracts/ITokenStore";
 import { MemoryTokenStore } from "./MemoryTokenStore";
 

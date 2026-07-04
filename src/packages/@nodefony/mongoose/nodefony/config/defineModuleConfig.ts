@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { mongooseConfigSchema } from "./schema";
+import { mongooseConfigSchema } from "./config";
 import type {
   IMongooseConfig,
   IMongooseConfigInput,

@@ -124,7 +124,7 @@ class SessionsService extends Service {
    * (`SessionsService.registerStorage("drizzle", DrizzleStorage)`). Ainsi
    * `@nodefony/http` **ne dépend d'aucun ORM** : pas d'import croisé, pas de
    * cycle, et ajouter un driver ne touche plus ce fichier. Le handler de la
-   * config (`session.handler`) sélectionne le storage par son nom.
+   * config (`session.store`) sélectionne le storage par son nom.
    */
   // `private static` (soft TS) et non `static #storages` (hard ECMAScript) :
   // un identifiant privé `#` statique est incompatible avec un décorateur de
@@ -133,7 +133,7 @@ class SessionsService extends Service {
   private static readonly storages = new Map<string, SessionStorageCtor>();
 
   /**
-   * Enregistre un storage de session sous un nom de handler (insensible à la
+   * Enregistre un storage de session sous un nom de store (insensible à la
    * casse) et émet l'événement kernel `onRegisterSessionStorage` (observabilité
    * Studio / extension). Le kernel peut être absent au tout premier chargement
    * (registration statique) → fire gardé.
@@ -146,7 +146,7 @@ class SessionsService extends Service {
     kernel?.log(`SESSION STORAGE registered : ${key}`, "DEBUG", "SESSION");
   }
 
-  /** Storage enregistré pour un handler, ou `undefined`. */
+  /** Storage enregistré pour un store, ou `undefined`. */
   static getStorage(name: string): SessionStorageCtor | undefined {
     return SessionsService.storages.get(String(name ?? "").toLowerCase());
   }
@@ -196,11 +196,11 @@ class SessionsService extends Service {
   }
 
   initializeStorage(): ISessionStorage | null {
-    const Storage = SessionsService.getStorage(this.options.handler);
+    const Storage = SessionsService.getStorage(this.options.store);
     if (!Storage) {
       this.storage = null;
       this.log(
-        `SESSION HANDLER STORAGE NOT FOUND : "${this.options.handler}" ` +
+        `SESSION STORE NOT FOUND : "${this.options.store}" ` +
           `(enregistrés : ${SessionsService.storageHandlers().join(", ") || "aucun"})`,
         "ERROR",
       );
@@ -211,12 +211,12 @@ class SessionsService extends Service {
     // un défaut du cycle de vie, pas d'un store. `storage.inner` reste le store
     // réel (introspection admin : quel driver persiste les sessions).
     this.storage = new RevocationGuardStorage(new Storage(this));
-    this.log(`SESSION STORAGE active : ${this.options.handler}`, "INFO");
+    this.log(`SESSION STORAGE active : ${this.options.store}`, "INFO");
     // Événement (kernel + service) : quel backend de session est actif.
-    this.fire("onSessionStorageReady", this.options.handler, this.storage);
+    this.fire("onSessionStorageReady", this.options.store, this.storage);
     this.kernel?.fire(
       "onSessionStorageReady",
-      this.options.handler,
+      this.options.store,
       this.storage,
     );
     this.kernel?.on("onReady", async () => {

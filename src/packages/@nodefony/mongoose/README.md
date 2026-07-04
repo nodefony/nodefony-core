@@ -52,7 +52,7 @@ plante proprement avec un message clair.
 
 L'import du module enregistre automatiquement un `SessionStorage` sous le handler `"mongoose"`
 (inversion de contrôle — `@nodefony/http` ne dépend d'aucun ORM). Sélectionnez-le via la config de
-session (`handler: "mongoose"`). Le store persiste dans la collection `sessions` du connecteur
+session (`store: "mongoose"`). Le store persiste dans la collection `sessions` du connecteur
 `nodefony`, avec un GC des sessions expirées.
 
 ## Usage direct de l'adapter (banc-test)

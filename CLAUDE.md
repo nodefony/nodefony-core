@@ -451,8 +451,14 @@ chaque module = EXACTEMENT 2 fichiers, mêmes noms PARTOUT (zéro question) —
 - **`schema.ts` n'existe plus** (fusion vers `config.ts`, le nœud bas — jamais vers `define`, sinon
   cycle `interfaces ↔ define`). Fichier uniforme, mais **fonction exportée PRÉFIXÉE module**
   (`defineHttpConfig()`…) — évite les collisions d'import cross-modules.
-- Métas de champ : `meta()` + `IConfigFieldMeta` importés du **CORE** (`configMeta.ts`) — plus aucune
-  machinerie méta par module. On nomme le RÔLE, jamais l'outil (pas de `defineZodConfig`).
+- Métas de champ : **`.meta()` NATIF zod** — le core (`config/configMeta.ts`) porte UNIQUEMENT
+  l'interface `IConfigFieldMeta` (`reserved`/`runtimeMutable`/`kernelDerived`/`secret`) + l'augmentation
+  `declare module "zod" { interface GlobalMeta }` → les flags sont typés dans `.meta()` PARTOUT
+  (modules ET apps) sans aucun helper, et sortent dans `z.toJSONSchema()` (provenance Studio).
+  ⚠️ `.meta()` TOUJOURS EN DERNIER de la chaîne (chaque méthode zod clone → `.default()` après
+  `.meta()` PERD la métadonnée, prouvé par POC). On nomme le RÔLE, jamais l'outil.
+- **Vocabulaire sélection** : données = champ `store` partout (`session.store`, `tokenStore.store`,
+  `audit.store`, `passkeys.store`…) ; flux/transport = `driver` (backplane realtime, logs).
 
 ---
 

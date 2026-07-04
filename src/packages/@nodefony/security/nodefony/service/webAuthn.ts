@@ -12,7 +12,7 @@ import {
   defineSecurityConfig,
   type ISecurityConfig,
   type ISecurityConfigInput,
-} from "../config/defineSecurityConfig";
+} from "../config/defineModuleConfig";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import type { IWebAuthnCredential } from "../contracts/IWebAuthnCredential";
 import type { IWebAuthnCredentialStore } from "../contracts/IWebAuthnCredentialStore";
@@ -274,8 +274,7 @@ class WebAuthnService extends Service {
     const lib = await this.#ensureLib();
     const pk = this.#config!.passkeys;
     let allowCredentials:
-      | { id: string; transports?: AuthenticatorTransportFuture[] }[]
-      | undefined;
+      { id: string; transports?: AuthenticatorTransportFuture[] }[] | undefined;
     if (userId) {
       const creds = await this.#store!.findByUser(userId);
       allowCredentials = creds.map((c) => ({

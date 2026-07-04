@@ -100,7 +100,7 @@ export type OverrideSource = "app" | "env" | "runtime";
 
 /** Un champ surchargé, scopé à UN module (sans le contexte cross-module). */
 export interface FieldOverride {
-  /** Chemin pointé du réglage (`session.handler`, `securityHeaders.frameOptions`). */
+  /** Chemin pointé du réglage (`session.store`, `securityHeaders.frameOptions`). */
   field: string;
   /** D'où vient la valeur gagnante. */
   source: OverrideSource;

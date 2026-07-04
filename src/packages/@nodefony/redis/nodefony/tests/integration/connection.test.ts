@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { Container } from "nodefony";
 import { createClient } from "redis";
 import RedisService from "../../service/redis";
-import { defineRedisConfig } from "../../config/defineRedisConfig";
+import { defineRedisConfig } from "../../config/defineModuleConfig";
 import type { Module } from "nodefony";
 import type { IRedisConfigInput } from "../../interfaces/IRedisConfig";
 

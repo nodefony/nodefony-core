@@ -88,7 +88,7 @@ export interface EditResult {
 
 /** Un réglage de configuration (une ligne). */
 export interface ConfigField {
-  /** Clé (`headerServer`, `session.handler`, `upload.uploadDir`…). */
+  /** Clé (`headerServer`, `session.store`, `upload.uploadDir`…). */
   key: string;
   /** Type/forme issu du schéma Zod (`enum`, `string`, `number`, `boolean`, `url`…). */
   type?: string;

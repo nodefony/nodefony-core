@@ -13,7 +13,7 @@ import config from "./nodefony/config/config";
 import {
   defineDrizzleConfig,
   drizzleConfigJsonSchema,
-} from "./nodefony/config/defineDrizzleConfig";
+} from "./nodefony/config/defineModuleConfig";
 import DrizzleService from "./nodefony/service/DrizzleService";
 import {
   registerDrizzleFrameworkStores,
@@ -160,7 +160,7 @@ export { DrizzleUserRepository } from "./nodefony/src/DrizzleUserRepository";
 
 // ─── Store de jetons Drizzle (contrat ITokenStore de @nodefony/security, J4b) ─
 // AUTO-REGISTER (onKernelRegister) : entité + fabrique "drizzle" déclarées par le
-// module — sélectionnable via `tokenStore.driver: "drizzle"`, zéro câblage app.
+// module — sélectionnable via `tokenStore.store: "drizzle"`, zéro câblage app.
 // Exports conservés pour usage direct/banc-test (les guards laissent la main à l'app).
 export {
   accessTokenTable,
@@ -177,7 +177,7 @@ export type {
 export { DrizzleTokenStore } from "./nodefony/src/DrizzleTokenStore";
 
 // ─── Journal d'audit Drizzle (contrat IAuditStore de @nodefony/security, P6.14) ─
-// AUTO-REGISTER (onKernelRegister) : sélectionnable via `audit.driver: "drizzle"`.
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `audit.store: "drizzle"`.
 // Append-only + pagination curseur exacte (ts, id), query builder dialect-agnostique.
 export {
   auditEventTable,

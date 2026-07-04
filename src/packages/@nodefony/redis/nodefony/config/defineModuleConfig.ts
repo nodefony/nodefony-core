@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { redisConfigSchema } from "./schema";
+import { redisConfigSchema } from "./config";
 import type {
   IRedisConfig,
   IRedisConfigInput,

@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { Container } from "nodefony";
-import type { ISecurityConfig } from "../../config/defineSecurityConfig";
+import type { ISecurityConfig } from "../../config/defineModuleConfig";
 import type { IWebAuthnCredentialStore } from "../../contracts/IWebAuthnCredentialStore";
 import { MemoryWebAuthnCredentialStore } from "./MemoryWebAuthnCredentialStore";
 import { FileWebAuthnCredentialStore } from "./FileWebAuthnCredentialStore";

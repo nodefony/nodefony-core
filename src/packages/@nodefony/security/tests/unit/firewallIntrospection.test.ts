@@ -7,7 +7,7 @@ import type {
   IFirewallDescription,
   IRoleHierarchyDescription,
 } from "../../nodefony/contracts/IFirewallDescription";
-import type { ISecurityConfigInput } from "../../nodefony/config/defineSecurityConfig";
+import type { ISecurityConfigInput } from "../../nodefony/config/defineModuleConfig";
 
 /**
  * Introspection du firewall (data plane Studio P6.15) — `Firewall.describe()` +

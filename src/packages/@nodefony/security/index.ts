@@ -15,8 +15,8 @@ import WebhookService from "./nodefony/service/webhooks";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import { registerUserAdminApi } from "@nodefony/user";
 import { registerUserRevocationCascade } from "./nodefony/src/admin/userRevocationCascade";
-import type { ISecurityConfigInput } from "./nodefony/config/defineSecurityConfig";
-import { securityConfigJsonSchema } from "./nodefony/config/defineSecurityConfig";
+import type { ISecurityConfigInput } from "./nodefony/config/defineModuleConfig";
+import { securityConfigJsonSchema } from "./nodefony/config/defineModuleConfig";
 
 // Augmente le registre du core (declaration merging) → `use("@nodefony/security", …)`
 // propose les CLÉS (cors/csrf/headers/areas…) ET les VALEURS enum (coop, frameguard,
@@ -318,12 +318,12 @@ export {
 export type { IKeyDerivation } from "./nodefony/src/crypto/secretCipher";
 
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
-export { defineSecurityConfig } from "./nodefony/config/defineSecurityConfig";
+export { defineSecurityConfig } from "./nodefony/config/defineModuleConfig";
 export type {
   ISecurityConfig,
   ISecurityConfigInput,
   ISecurityAreaConfig,
-} from "./nodefony/config/defineSecurityConfig";
+} from "./nodefony/config/defineModuleConfig";
 
 // ─── Throttling login (NIST SP 800-63B) ──────────────────────────────────────
 export { LoginThrottler } from "./nodefony/src/throttle/LoginThrottler";

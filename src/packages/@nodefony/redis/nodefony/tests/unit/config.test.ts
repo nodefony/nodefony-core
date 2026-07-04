@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { redisConfigSchema } from "../../config/schema";
-import { defineRedisConfig } from "../../config/defineRedisConfig";
+import { redisConfigSchema } from "../../config/config";
+import { defineRedisConfig } from "../../config/defineModuleConfig";
 import { buildClientOptions } from "../../src/buildClientOptions";
 
 // Isolation : ces tests unitaires doivent être déterministes quelle que soit la

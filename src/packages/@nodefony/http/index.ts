@@ -1,8 +1,10 @@
 import { Kernel, Module, services } from "nodefony";
 import type { IAdminRegistry } from "nodefony";
 import config from "./nodefony/config/config";
-import { defineHttpConfig } from "./nodefony/config/defineHttpConfig";
-import { httpConfigJsonSchema } from "./nodefony/config/schema";
+import {
+  defineHttpConfig,
+  httpConfigJsonSchema,
+} from "./nodefony/config/defineModuleConfig";
 import type { IHttpConfigInput } from "./nodefony/interfaces/IHttpConfig";
 import { createHttpAdminApi } from "./nodefony/service/HttpAdminApi";
 import { createProfilerAdminApi } from "./nodefony/service/ProfilerAdminApi";
@@ -158,22 +160,21 @@ class Http extends Module {
 
 export default Http;
 
-// Config — schéma Zod (source de vérité), builder, introspection JSON Schema
+// Config — schéma Zod (source de vérité), builder, introspection JSON Schema.
+// Flags de champ : `.meta()` natif zod, typé par `IConfigFieldMeta` (core).
 export {
   defineHttpConfig,
   httpConfigJsonSchema,
-} from "./nodefony/config/defineHttpConfig";
+} from "./nodefony/config/defineModuleConfig";
 export {
   httpConfigSchema,
   type HttpConfig,
   type HttpConfigInput,
-} from "./nodefony/config/schema";
+} from "./nodefony/config/config";
 export type {
   IHttpConfig,
   IHttpConfigInput,
 } from "./nodefony/interfaces/IHttpConfig";
-export { meta } from "./nodefony/config/configMeta";
-export type { INodefonyFieldMeta } from "./nodefony/config/configMeta";
 
 // Matching de domaine (Host) — fonctions pures réutilisées par @nodefony/framework
 // (Route.matchHostname / @Domain) pour la cohérence kernel ↔ route.

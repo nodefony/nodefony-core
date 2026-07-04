@@ -17,7 +17,7 @@ import {
   DocNotFoundError,
   DocUnsafeSlugError,
 } from "../src/errors/DocumentationError";
-import type { DocumentationConfig } from "../config/schema";
+import type { DocumentationConfig } from "../config/config";
 import type {
   DocAudience,
   DocStatus,

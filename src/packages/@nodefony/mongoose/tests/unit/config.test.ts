@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   defineMongooseConfig,
   mongooseConfigJsonSchema,
-} from "../../nodefony/config/defineMongooseConfig";
+} from "../../nodefony/config/defineModuleConfig";
 
 describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
   describe("défauts", () => {

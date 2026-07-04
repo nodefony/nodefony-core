@@ -1,4 +1,4 @@
-import type { ISecurityConfig } from "../../config/defineSecurityConfig";
+import type { ISecurityConfig } from "../../config/defineModuleConfig";
 
 /**
  * Paramètres JWT **résolus** partagés par l'émetteur ({@link TokenService}) et le

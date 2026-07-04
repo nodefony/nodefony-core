@@ -25,7 +25,7 @@ import type {
 } from "../../nodefony/src/realtime/realtimeContracts";
 import type { IAuthenticator } from "../../nodefony/contracts/IAuthenticator";
 import type { IToken } from "../../nodefony/contracts/IToken";
-import type { ISecurityAreaConfig } from "../../nodefony/config/defineSecurityConfig";
+import type { ISecurityAreaConfig } from "../../nodefony/config/defineModuleConfig";
 
 /**
  * Câblage des émetteurs d'audit du HOT-PATH (P6.14 — Lot 2b) : firewall
@@ -433,7 +433,7 @@ function setupToken(auditEnabled = true): {
   const svc = new TokenService(
     makeModule(container, {
       jwt: { enabled: true, issuer: "https://test.nf", audiences: ["nf-api"] },
-      tokenStore: { driver: "memory", gcIntervalS: 0 },
+      tokenStore: { store: "memory", gcIntervalS: 0 },
     }),
   );
   boot();
@@ -510,7 +510,7 @@ function setupApiKeys(): { keys: ApiKeyService; audit: AuditService } {
   new TokenService(
     makeModule(container, {
       apiKeys: { enabled: true },
-      tokenStore: { driver: "memory", gcIntervalS: 0 },
+      tokenStore: { store: "memory", gcIntervalS: 0 },
     }),
   );
   const keys = new ApiKeyService(

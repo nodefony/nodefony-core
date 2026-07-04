@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-04T10:53:43.142Z",
+  "generated": "2026-07-04T13:14:05.312Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1001,
+    "files": 995,
     "symbols": 2435,
     "classes": 316,
     "interfaces": 643,
     "types": 286,
     "enums": 4,
-    "functions": 653,
-    "constants": 533
+    "functions": 652,
+    "constants": 534
   },
   "symbols": {
     "Cli": {
@@ -543,6 +543,15 @@
       "file": "src/nodefony/src/command/Command.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "IConfigFieldMeta": {
+      "name": "IConfigFieldMeta",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/configMeta.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Métadonnées Nodefony d'un champ de config Zod, au-delà de la `description`. Portées par le `.meta()` NATIF de zod 4 (global registry) — recopiées telles quelles par `z.toJSONSchema()`, donc lisible…"
     },
     "ConfigOrigin": {
       "name": "ConfigOrigin",
@@ -5043,10 +5052,25 @@
       "implements": [],
       "decorators": []
     },
+    "DocumentationConfig": {
+      "name": "DocumentationConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/documentation/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "documentationConfigSchema": {
+      "name": "documentationConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/documentation/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/documentation"
+    },
     "defineDocumentationConfig": {
       "name": "defineDocumentationConfig",
       "kind": "function",
-      "file": "src/packages/@nodefony/documentation/nodefony/config/defineDocumentationConfig.ts",
+      "file": "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/documentation",
       "description": "Valide une config partielle (défauts du schéma) PUIS applique la surcharge par variables d'environnement (précédence max)."
@@ -5054,24 +5078,10 @@
     "documentationConfigJsonSchema": {
       "name": "documentationConfigJsonSchema",
       "kind": "function",
-      "file": "src/packages/@nodefony/documentation/nodefony/config/defineDocumentationConfig.ts",
+      "file": "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/documentation",
       "description": "JSON Schema introspectable de la config documentation — destiné au panneau de config Studio (`/nodefony/config`). N'inclut PAS la surcharge ENV (appliquée hors schéma, dans le builder)."
-    },
-    "DocumentationConfig": {
-      "name": "DocumentationConfig",
-      "kind": "type",
-      "file": "src/packages/@nodefony/documentation/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/documentation"
-    },
-    "documentationConfigSchema": {
-      "name": "documentationConfigSchema",
-      "kind": "const",
-      "file": "src/packages/@nodefony/documentation/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/documentation"
     },
     "DocumentationController": {
       "name": "DocumentationController",
@@ -5290,7 +5300,7 @@
     "defineDrizzleConfig": {
       "name": "defineDrizzleConfig",
       "kind": "function",
-      "file": "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Builder type-safe de la configuration de `@nodefony/drizzle`. Aligné sur `defineMongooseConfig` (l'autre driver ORM) : source unique (`./schema.ts`), VALIDE + applique l'ENV + GÈLE. Le **chemin SQL…"
@@ -5298,7 +5308,7 @@
     "drizzleConfigJsonSchema": {
       "name": "drizzleConfigJsonSchema",
       "kind": "function",
-      "file": "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "JSON Schema introspectable de la config Drizzle — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
@@ -5741,31 +5751,41 @@
     "FrameworkConfig": {
       "name": "FrameworkConfig",
       "kind": "type",
-      "file": "src/packages/@nodefony/framework/nodefony/config/schema.ts",
+      "file": "src/packages/@nodefony/framework/nodefony/config/config.ts",
       "exported": true,
-      "module": "@nodefony/framework"
+      "module": "@nodefony/framework",
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
     },
     "FrameworkConfigInput": {
       "name": "FrameworkConfigInput",
       "kind": "type",
-      "file": "src/packages/@nodefony/framework/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/framework"
-    },
-    "frameworkConfigJsonSchema": {
-      "name": "frameworkConfigJsonSchema",
-      "kind": "function",
-      "file": "src/packages/@nodefony/framework/nodefony/config/schema.ts",
+      "file": "src/packages/@nodefony/framework/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "JSON Schema introspectable de la config framework — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
+      "description": "Type d'entrée (toutes sections omissibles — défauts du schéma)."
     },
     "frameworkConfigSchema": {
       "name": "frameworkConfigSchema",
       "kind": "const",
-      "file": "src/packages/@nodefony/framework/nodefony/config/schema.ts",
+      "file": "src/packages/@nodefony/framework/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/framework"
+    },
+    "defineFrameworkConfig": {
+      "name": "defineFrameworkConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Builder type-safe de la configuration de `@nodefony/framework` (PUR — ne retape JAMAIS un défaut : source unique = `./config.ts`). Valide la config brute contre le schéma Zod et matérialise les déf…"
+    },
+    "frameworkConfigJsonSchema": {
+      "name": "frameworkConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "JSON Schema introspectable de la config framework — destiné au formulaire d'édition Studio et à la documentation générée (les flags de champ posés via `.meta()` sont recopiés par `z.toJSONSchema`)."
     },
     "AdminApiController": {
       "name": "AdminApiController",
@@ -7051,10 +7071,25 @@
       "decorators": [],
       "description": "`nodefony frontend:status` — lit l'état du superviseur Vite. Utilisé par Vision (Phase 10) pour afficher l'état du builder dans son tableau de bord admin."
     },
+    "FrontendConfig": {
+      "name": "FrontendConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "frontendConfigSchema": {
+      "name": "frontendConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/frontend"
+    },
     "IFrontendConfigInput": {
       "name": "IFrontendConfigInput",
       "kind": "type",
-      "file": "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Entrée du builder (champs avec défaut optionnels)."
@@ -7062,32 +7097,18 @@
     "defineFrontendConfig": {
       "name": "defineFrontendConfig",
       "kind": "function",
-      "file": "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/frontend",
-      "description": "Builder type-safe de la configuration de `@nodefony/frontend`. Principes (alignés sur `defineRealtimeConfig` / famille ORM) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE + GÈLE, ne…"
+      "description": "Builder type-safe de la configuration de `@nodefony/frontend`. Principes (alignés sur `defineRealtimeConfig` / famille ORM) : - **Source unique** : `./config.ts` (Zod). Le builder VALIDE + GÈLE, ne…"
     },
     "frontendConfigJsonSchema": {
       "name": "frontendConfigJsonSchema",
       "kind": "function",
-      "file": "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "JSON Schema introspectable de la config frontend — destiné au panneau de config Studio (`/nodefony/config`)."
-    },
-    "FrontendConfig": {
-      "name": "FrontendConfig",
-      "kind": "type",
-      "file": "src/packages/@nodefony/frontend/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/frontend"
-    },
-    "frontendConfigSchema": {
-      "name": "frontendConfigSchema",
-      "kind": "const",
-      "file": "src/packages/@nodefony/frontend/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/frontend"
     },
     "IFrontendModuleDeclaration": {
       "name": "IFrontendModuleDeclaration",
@@ -7349,27 +7370,33 @@
       "decorators": [],
       "description": "Commande CLI `proxy:generate <nginx|haproxy>` — génère une configuration reverse-proxy DÉRIVÉE de l'introspection Nodefony (domaines de confiance, dossiers statiques servis, ports). Évite d'écrire …"
     },
-    "INodefonyFieldMeta": {
-      "name": "INodefonyFieldMeta",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/http/nodefony/config/configMeta.ts",
+    "HttpConfig": {
+      "name": "HttpConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null,
-      "description": "Métadonnées Nodefony attachées à un champ de config Zod (au-delà de la `description`). Écrites dans le **global registry** de Zod via {@link meta} → recopiées telles quelles par `z.toJSONSchema()`,…"
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
     },
-    "meta": {
-      "name": "meta",
-      "kind": "function",
-      "file": "src/packages/@nodefony/http/nodefony/config/configMeta.ts",
+    "HttpConfigInput": {
+      "name": "HttpConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Attache une `description` + des {@link INodefonyFieldMeta} à un schéma Zod, de façon typée et chaînable. Remplace `.describe(text)` quand un champ porte une sémantique Nodefony (réservé / éditable …"
+      "description": "Type d'entrée (toutes sections omissibles — défauts du schéma)."
+    },
+    "httpConfigSchema": {
+      "name": "httpConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/http"
     },
     "IKernelConfigDefaults": {
       "name": "IKernelConfigDefaults",
       "kind": "interface",
-      "file": "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts",
+      "file": "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/http",
       "extends": null,
@@ -7378,47 +7405,18 @@
     "defineHttpConfig": {
       "name": "defineHttpConfig",
       "kind": "function",
-      "file": "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts",
+      "file": "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Builder type-safe de la configuration de `@nodefony/http`. Aligné sur `defineRedisConfig` / `defineSecurityConfig` : source unique = `./schema.ts` (Zod) ; le builder VALIDE puis complète les défaut…"
+      "description": "Builder type-safe de la configuration de `@nodefony/http`. Aligné sur `defineRedisConfig` / `defineSecurityConfig` : source unique = `./config.ts` (Zod) ; le builder VALIDE puis complète les défaut…"
     },
     "httpConfigJsonSchema": {
       "name": "httpConfigJsonSchema",
       "kind": "function",
-      "file": "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts",
+      "file": "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/http",
       "description": "JSON Schema introspectable de la config HTTP — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
-    },
-    "HttpConfig": {
-      "name": "HttpConfig",
-      "kind": "type",
-      "file": "src/packages/@nodefony/http/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/http"
-    },
-    "HttpConfigInput": {
-      "name": "HttpConfigInput",
-      "kind": "type",
-      "file": "src/packages/@nodefony/http/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/http"
-    },
-    "@nodefony/http:httpConfigJsonSchema": {
-      "name": "httpConfigJsonSchema",
-      "kind": "function",
-      "file": "src/packages/@nodefony/http/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "description": "Schéma JSON (draft 2020-12) de la config http, dérivé du schéma Zod ci-dessus. `z.toJSONSchema()` recopie les `description`, `default`, types/contraintes ET les flags Nodefony attachés via {@link m…"
-    },
-    "httpConfigSchema": {
-      "name": "httpConfigSchema",
-      "kind": "const",
-      "file": "src/packages/@nodefony/http/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/http"
     },
     "PhaseTiming": {
       "name": "PhaseTiming",
@@ -7565,7 +7563,7 @@
       "file": "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Configuration validée de `@nodefony/http` (sortie du parse Zod + défauts kernel appliqués par le builder). Source de vérité = `../config/schema.ts`."
+      "description": "Configuration validée de `@nodefony/http` (sortie du parse Zod + défauts kernel appliqués par le builder). Source de vérité = `../config/config.ts`."
     },
     "IHttpConfigInput": {
       "name": "IHttpConfigInput",
@@ -7573,7 +7571,7 @@
       "file": "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Configuration brute fournie par l'application (toutes sections optionnelles — les sections omises reçoivent leurs défauts). Entrée du builder {@link import(\"../config/defineHttpConfig\").defineHttpC…"
+      "description": "Configuration brute fournie par l'application (toutes sections optionnelles — les sections omises reçoivent leurs défauts). Entrée du builder {@link import(\"../config/defineModuleConfig\").defineHtt…"
     },
     "IHttpKernel": {
       "name": "IHttpKernel",
@@ -8377,26 +8375,10 @@
       "module": "@nodefony/memory",
       "extends": null
     },
-    "defineMongooseConfig": {
-      "name": "defineMongooseConfig",
-      "kind": "function",
-      "file": "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts",
-      "exported": true,
-      "module": "@nodefony/mongoose",
-      "description": "Builder type-safe de la configuration de `@nodefony/mongoose`. Principes (alignés sur `defineRedisConfig` / `defineRealtimeConfig`) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE, a…"
-    },
-    "mongooseConfigJsonSchema": {
-      "name": "mongooseConfigJsonSchema",
-      "kind": "function",
-      "file": "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts",
-      "exported": true,
-      "module": "@nodefony/mongoose",
-      "description": "JSON Schema introspectable de la config Mongoose — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
-    },
     "MongooseConfig": {
       "name": "MongooseConfig",
       "kind": "type",
-      "file": "src/packages/@nodefony/mongoose/nodefony/config/schema.ts",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
       "description": "Type de sortie (config normalisée + défauts appliqués)."
@@ -8404,9 +8386,25 @@
     "mongooseConfigSchema": {
       "name": "mongooseConfigSchema",
       "kind": "const",
-      "file": "src/packages/@nodefony/mongoose/nodefony/config/schema.ts",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/mongoose"
+    },
+    "defineMongooseConfig": {
+      "name": "defineMongooseConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Builder type-safe de la configuration de `@nodefony/mongoose`. Principes (alignés sur `defineRedisConfig` / `defineRealtimeConfig`) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE, a…"
+    },
+    "mongooseConfigJsonSchema": {
+      "name": "mongooseConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "JSON Schema introspectable de la config Mongoose — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
     },
     "@nodefony/mongoose:SessionEntity": {
       "name": "SessionEntity",
@@ -9301,10 +9299,25 @@
       ],
       "decorators": []
     },
+    "RealtimeConfig": {
+      "name": "RealtimeConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "realtimeConfigSchema": {
+      "name": "realtimeConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/realtime"
+    },
     "IRealtimeConfigInput": {
       "name": "IRealtimeConfigInput",
       "kind": "type",
-      "file": "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Entrée du builder (champs avec défaut optionnels)."
@@ -9312,7 +9325,7 @@
     "IRealtimeConfig": {
       "name": "IRealtimeConfig",
       "kind": "type",
-      "file": "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Config normalisée et gelée (sortie du builder, lue par `RealtimeService`)."
@@ -9320,32 +9333,18 @@
     "defineRealtimeConfig": {
       "name": "defineRealtimeConfig",
       "kind": "function",
-      "file": "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "Builder type-safe de la configuration de `@nodefony/realtime`. Principes (alignés sur `defineSecurityConfig`) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE + GÈLE, ne dévie pas. - …"
+      "description": "Builder type-safe de la configuration de `@nodefony/realtime`. Principes (alignés sur `defineSecurityConfig`) : - **Source unique** : `./config.ts` (Zod). Le builder VALIDE + GÈLE, ne dévie pas. - …"
     },
     "realtimeConfigJsonSchema": {
       "name": "realtimeConfigJsonSchema",
       "kind": "function",
-      "file": "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "JSON Schema introspectable de la config realtime — destiné au formulaire d'édition Studio (futur). N'inclut PAS `backplane.instance` (non sérialisable)."
-    },
-    "RealtimeConfig": {
-      "name": "RealtimeConfig",
-      "kind": "type",
-      "file": "src/packages/@nodefony/realtime/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/realtime"
-    },
-    "realtimeConfigSchema": {
-      "name": "realtimeConfigSchema",
-      "kind": "const",
-      "file": "src/packages/@nodefony/realtime/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/realtime"
     },
     "RealtimeChannelFactory": {
       "name": "RealtimeChannelFactory",
@@ -9570,10 +9569,25 @@
       "extends": null,
       "description": "Jeton realtime — surface MINIMALE de l'identité d'une connexion WebSocket. Sous-ensemble STRICT de `@nodefony/security`'s `IToken` (TypeScript structural typing → toute classe `Token` security l'im…"
     },
+    "RedisConfig": {
+      "name": "RedisConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/redis/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "redisConfigSchema": {
+      "name": "redisConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/redis/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/redis"
+    },
     "defineRedisConfig": {
       "name": "defineRedisConfig",
       "kind": "function",
-      "file": "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts",
+      "file": "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/redis",
       "description": "Builder type-safe de la configuration de `@nodefony/redis`. Principes (alignés sur `defineRealtimeConfig` / `defineSecurityConfig`) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE, a…"
@@ -9581,24 +9595,10 @@
     "redisConfigJsonSchema": {
       "name": "redisConfigJsonSchema",
       "kind": "function",
-      "file": "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts",
+      "file": "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/redis",
       "description": "JSON Schema introspectable de la config Redis — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
-    },
-    "RedisConfig": {
-      "name": "RedisConfig",
-      "kind": "type",
-      "file": "src/packages/@nodefony/redis/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/redis"
-    },
-    "redisConfigSchema": {
-      "name": "redisConfigSchema",
-      "kind": "const",
-      "file": "src/packages/@nodefony/redis/nodefony/config/schema.ts",
-      "exported": true,
-      "module": "@nodefony/redis"
     },
     "IRedisConfig": {
       "name": "IRedisConfig",
@@ -9714,7 +9714,7 @@
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
       "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
+      "file": "src/packages/@nodefony/security/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/security",
       "description": "Entrée du builder (champs avec défaut optionnels)."
@@ -9722,7 +9722,7 @@
     "ISecurityConfig": {
       "name": "ISecurityConfig",
       "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
+      "file": "src/packages/@nodefony/security/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/security",
       "description": "Config normalisée et gelée (sortie du builder, lue par le firewall)."
@@ -9730,15 +9730,22 @@
     "ISecurityAreaConfig": {
       "name": "ISecurityAreaConfig",
       "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
+      "file": "src/packages/@nodefony/security/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/security",
       "description": "Config d'une zone normalisée."
     },
+    "securityConfigSchema": {
+      "name": "securityConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/security"
+    },
     "defineSecurityConfig": {
       "name": "defineSecurityConfig",
       "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
+      "file": "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/security",
       "description": "Valide + normalise + gèle la configuration de sécurité."
@@ -9746,7 +9753,7 @@
     "securityConfigJsonSchema": {
       "name": "securityConfigJsonSchema",
       "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
+      "file": "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/security",
       "description": "JSON Schema introspectable de la config sécurité — **Studio génère son formulaire d'édition depuis ça** (labels/types/défauts/descriptions), sans UI hardcodée. Surface du data plane `/nodefony/secu…"
@@ -15588,7 +15595,7 @@
       "exported": true,
       "module": "@nodefony/security",
       "extends": null,
-      "description": "Registre de **fabriques de stores d'audit** — résout le nom configuré (`security.audit.driver`) vers une instance d'{@link IAuditStore}, SANS coupler le cœur à un backend en dur. Pourquoi : le jour…"
+      "description": "Registre de **fabriques de stores d'audit** — résout le nom configuré (`security.audit.store`) vers une instance d'{@link IAuditStore}, SANS coupler le cœur à un backend en dur. Pourquoi : le journ…"
     },
     "AuditStoreFactory": {
       "name": "AuditStoreFactory",
@@ -18637,12 +18644,12 @@
       ],
       "IDrizzleConfig": [
         "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
+        "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "IDrizzleConfigInput": [
         "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts"
+        "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts"
       ],
       "GcScheduler": [
         "src/packages/@nodefony/framework/index.ts",
@@ -18660,19 +18667,20 @@
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
-      "frameworkConfigSchema": [
-        "src/packages/@nodefony/framework/index.ts",
-        "src/packages/@nodefony/framework/nodefony/config/config.ts"
-      ],
-      "frameworkConfigJsonSchema": [
-        "src/packages/@nodefony/framework/index.ts"
-      ],
       "FrameworkConfigInput": [
-        "src/packages/@nodefony/framework/index.ts"
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts"
       ],
       "FrameworkConfig": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts"
+      ],
+      "defineFrameworkConfig": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "frameworkConfigJsonSchema": [
+        "src/packages/@nodefony/framework/index.ts"
       ],
       "getIdempotencyStoreFactory": [
         "src/packages/@nodefony/framework/index.ts",
@@ -19029,7 +19037,7 @@
       ],
       "IHttpConfigInput": [
         "src/packages/@nodefony/http/index.ts",
-        "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts"
+        "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"
       ],
       "createHttpAdminApi": [
         "src/packages/@nodefony/http/index.ts"
@@ -19196,12 +19204,12 @@
       ],
       "IMongooseConfig": [
         "src/packages/@nodefony/mongoose/index.ts",
-        "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts",
+        "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
       "IMongooseConfigInput": [
         "src/packages/@nodefony/mongoose/index.ts",
-        "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts"
+        "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts"
       ],
       "withTimeout": [
         "src/packages/@nodefony/realtime/index.ts",
@@ -19333,7 +19341,7 @@
       ],
       "IBackplane": [
         "src/packages/@nodefony/realtime/index.ts",
-        "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+        "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
@@ -19361,13 +19369,13 @@
       ],
       "IRedisConfig": [
         "src/packages/@nodefony/redis/index.ts",
-        "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts",
+        "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts"
       ],
       "IRedisConfigInput": [
         "src/packages/@nodefony/redis/index.ts",
-        "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts"
+        "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts"
       ],
       "Firewall": [
         "src/packages/@nodefony/security/index.ts",
@@ -19411,6 +19419,7 @@
       ],
       "ISecurityConfigInput": [
         "src/packages/@nodefony/security/index.ts",
+        "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
@@ -20722,12 +20731,10 @@
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
       ],
       "documentationConfigSchema": [
-        "src/packages/@nodefony/documentation/nodefony/config/config.ts",
-        "src/packages/@nodefony/documentation/nodefony/config/defineDocumentationConfig.ts"
+        "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts"
       ],
       "DocumentationConfig": [
-        "src/packages/@nodefony/documentation/nodefony/config/config.ts",
-        "src/packages/@nodefony/documentation/nodefony/config/defineDocumentationConfig.ts",
+        "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
       ],
       "DocNotFoundError": [
@@ -20795,7 +20802,7 @@
         "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
       ],
       "drizzleConfigSchema": [
-        "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
+        "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/drizzle/nodefony/interfaces/IDrizzleConfig.ts"
       ],
       "AuditCategory": [
@@ -21116,9 +21123,8 @@
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
-      "meta": [
-        "src/packages/@nodefony/framework/nodefony/config/schema.ts",
-        "src/packages/@nodefony/http/nodefony/config/schema.ts"
+      "frameworkConfigSchema": [
+        "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts"
       ],
       "IAdminResponse": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
@@ -21396,12 +21402,10 @@
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "frontendConfigSchema": [
-        "src/packages/@nodefony/frontend/nodefony/config/config.ts",
-        "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts"
+        "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts"
       ],
       "FrontendConfig": [
-        "src/packages/@nodefony/frontend/nodefony/config/config.ts",
-        "src/packages/@nodefony/frontend/nodefony/config/defineFrontendConfig.ts",
+        "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "IFrontPreset": [
@@ -21498,15 +21502,10 @@
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
       "httpConfigSchema": [
-        "src/packages/@nodefony/http/nodefony/config/config.ts",
-        "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts"
-      ],
-      "HttpConfig": [
-        "src/packages/@nodefony/http/nodefony/config/config.ts",
-        "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts"
+        "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"
       ],
       "IHttpConfig": [
-        "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts"
+        "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"
       ],
       "HTTPMethodType": [
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts"
@@ -21528,6 +21527,9 @@
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "HttpConfig": [
+        "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts"
       ],
       "HttpConfigInput": [
         "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts"
@@ -21703,12 +21705,8 @@
         "src/packages/@nodefony/memory/src/services/MemoryService.ts"
       ],
       "mongooseConfigSchema": [
-        "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
-        "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts",
+        "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/mongoose/nodefony/interfaces/IMongooseConfig.ts"
-      ],
-      "MongooseConfig": [
-        "src/packages/@nodefony/mongoose/nodefony/config/config.ts"
       ],
       "IMongooseConnectorConfig": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
@@ -21865,12 +21863,10 @@
         "src/packages/@nodefony/rag/src/services/RagService.ts"
       ],
       "realtimeConfigSchema": [
-        "src/packages/@nodefony/realtime/nodefony/config/config.ts",
-        "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts"
+        "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts"
       ],
       "RealtimeConfig": [
-        "src/packages/@nodefony/realtime/nodefony/config/config.ts",
-        "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts"
+        "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts"
       ],
       "RpcActionHandler": [
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
@@ -21929,12 +21925,8 @@
         "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
       ],
       "redisConfigSchema": [
-        "src/packages/@nodefony/redis/nodefony/config/config.ts",
-        "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts",
+        "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/redis/nodefony/interfaces/IRedisConfig.ts"
-      ],
-      "RedisConfig": [
-        "src/packages/@nodefony/redis/nodefony/config/config.ts"
       ],
       "buildClientOptions": [
         "src/packages/@nodefony/redis/nodefony/service/redis.ts"
@@ -21942,8 +21934,11 @@
       "IRedisConnectionConfig": [
         "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts"
       ],
-      "defineSecurityConfig": [
-        "src/packages/@nodefony/security/nodefony/config/config.ts",
+      "securityConfigSchema": [
+        "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts"
+      ],
+      "ISecurityConfig": [
+        "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -21951,7 +21946,14 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
       ],
       "IToken": [
         "src/packages/@nodefony/security/nodefony/contracts/IAccessVoter.ts",
@@ -22016,7 +22018,7 @@
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
-      "ISecurityConfig": [
+      "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -22024,14 +22026,7 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "IApiKeyView": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",

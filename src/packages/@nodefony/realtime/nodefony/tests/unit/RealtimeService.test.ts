@@ -4,7 +4,7 @@ import type { Module } from "nodefony";
 
 import { RealtimeService } from "../../src/service/RealtimeService.js";
 import { getRealtimeHub, RealtimeHub } from "../../src/server/RealtimeHub.js";
-import { defineRealtimeConfig } from "../../config/defineRealtimeConfig.js";
+import { defineRealtimeConfig } from "../../config/defineModuleConfig.js";
 import { ANONYMOUS_REALTIME_TOKEN } from "../../src/server/AnonymousRealtimeToken.js";
 import type {
   IBackplane,

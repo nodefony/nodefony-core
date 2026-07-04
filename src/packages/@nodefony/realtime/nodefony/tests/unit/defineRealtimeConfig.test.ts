@@ -3,7 +3,7 @@ import {
   defineRealtimeConfig,
   realtimeConfigJsonSchema,
   type IRealtimeConfig,
-} from "../../config/defineRealtimeConfig.js";
+} from "../../config/defineModuleConfig.js";
 import type {
   IBackplane,
   BackplaneHandler,

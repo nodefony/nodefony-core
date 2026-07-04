@@ -186,7 +186,7 @@ export function registerDrizzleFrameworkStores(
         return;
       }
       registerAuditStore("drizzle", (ctx) => {
-        const orm = resolveConnectedOrm(`audit.driver "drizzle"`, dialect);
+        const orm = resolveConnectedOrm(`audit.store "drizzle"`, dialect);
         const days = ctx?.config?.audit?.retentionDays;
         return DrizzleAuditStore.from(
           orm,

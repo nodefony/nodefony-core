@@ -11,7 +11,7 @@ import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 import { ThrottledError } from "../../nodefony/errors/ThrottledError";
 import type { IAuthenticator } from "../../nodefony/contracts/IAuthenticator";
 import type { IToken } from "../../nodefony/contracts/IToken";
-import type { ISecurityAreaConfig } from "../../nodefony/config/defineSecurityConfig";
+import type { ISecurityAreaConfig } from "../../nodefony/config/defineModuleConfig";
 
 /**
  * Sémantique de la chaîne d'authenticators (mode `first` | `all`) + Zero Trust

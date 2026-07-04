@@ -23,7 +23,7 @@ import defaultConfig from "./nodefony/config/config";
 import {
   defineRedisConfig,
   redisConfigJsonSchema,
-} from "./nodefony/config/defineRedisConfig";
+} from "./nodefony/config/defineModuleConfig";
 import { registerRedisFrameworkStores } from "./nodefony/registerStores";
 import type {
   IRedisConfig,
@@ -84,7 +84,7 @@ export { RedisService, redis };
 // L'export charge le fichier → son `registerStorage("redis", …)` s'exécute.
 export { default as RedisSessionStorage } from "./nodefony/src/SessionStorage";
 export { defineRedisConfig, redisConfigJsonSchema };
-export { redisConfigSchema, type RedisConfig } from "./nodefony/config/schema";
+export { redisConfigSchema, type RedisConfig } from "./nodefony/config/config";
 export type {
   IRedisConfig,
   IRedisConfigInput,
@@ -92,7 +92,7 @@ export type {
 } from "./nodefony/interfaces/IRedisConfig";
 
 // ─── Store de jetons Redis (contrat ITokenStore de @nodefony/security, J4b) ───
-// AUTO-REGISTER (onKernelRegister) : sélectionnable via `tokenStore.driver: "redis"`,
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `tokenStore.store: "redis"`,
 // zéro câblage app. TTL natif → gc() no-op.
 export { RedisTokenStore } from "./nodefony/src/RedisTokenStore";
 export type { RedisClientLike } from "./nodefony/src/RedisTokenStore";

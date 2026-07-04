@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { httpConfigSchema } from "./schema";
+import { httpConfigSchema } from "./config";
 import type { IHttpConfig, IHttpConfigInput } from "../interfaces/IHttpConfig";
 
 /**
@@ -76,7 +76,7 @@ function applyKernelDefaults(
  * Builder type-safe de la configuration de `@nodefony/http`.
  *
  * Aligné sur `defineRedisConfig` / `defineSecurityConfig` : source unique =
- * `./schema.ts` (Zod) ; le builder VALIDE puis complète les défauts kernel.
+ * `./config.ts` (Zod) ; le builder VALIDE puis complète les défauts kernel.
  *
  * @param config - configuration brute (sections omises = défauts sûrs).
  * @param kernel - kernel courant, pour les défauts dérivés (tmpDir, domain).

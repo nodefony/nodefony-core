@@ -1,6 +1,6 @@
 import type { ContextType } from "@nodefony/http";
 import type { ISecuredArea } from "../contracts/ISecuredArea";
-import type { ISecurityAreaConfig } from "../config/defineSecurityConfig";
+import type { ISecurityAreaConfig } from "../config/defineModuleConfig";
 
 /**
  * Zone sécurisée concrète — pattern d'URL compilé + métadonnées d'authentification.

@@ -1,10 +1,10 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import { httpConfigSchema } from "../../config/schema.js";
+import { httpConfigSchema } from "../../config/config.js";
 import {
   defineHttpConfig,
   httpConfigJsonSchema,
-} from "../../config/defineHttpConfig.js";
+} from "../../config/defineModuleConfig.js";
 
 // Config Zod de @nodefony/http : défauts, sous-défauts (piège Zod 4), strip des
 // sections strictes, passthrough des sections loose, retrait des clés mortes,
@@ -38,7 +38,7 @@ describe("@nodefony/http — httpConfigSchema (défauts)", () => {
   });
 
   it("session : handler files + GC déterministe (timer, plus de proba PHP)", () => {
-    expect(c.session.handler).to.equal("files");
+    expect(c.session.store).to.equal("files");
     // GC moderne : timer déterministe hors hot-path (remplace gc_probability/divisor).
     expect(c.session.gcIntervalS).to.equal(600);
     expect(c.session.gcJitter).to.equal(true);

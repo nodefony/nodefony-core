@@ -2,12 +2,14 @@ import path from "node:path";
 import { Kernel, Module, services, GcScheduler } from "nodefony";
 import type { IAdminBroker } from "./nodefony/interfaces/IAdminBroker";
 import config from "./nodefony/config/config";
+import type {
+  FrameworkConfigInput,
+  FrameworkConfig,
+} from "./nodefony/config/config";
 import {
-  frameworkConfigSchema,
+  defineFrameworkConfig,
   frameworkConfigJsonSchema,
-  type FrameworkConfigInput,
-  type FrameworkConfig,
-} from "./nodefony/config/schema";
+} from "./nodefony/config/defineModuleConfig";
 import {
   getIdempotencyStoreFactory,
   registerIdempotencyStore,
@@ -132,8 +134,8 @@ class Framework extends Module {
   }
 
   /**
-   * Phase `onRegister` : valide la config du module contre le schéma Zod
-   * ({@link frameworkConfigSchema}) AVANT que les `@services` (Router,
+   * Phase `onRegister` : valide la config du module via le builder
+   * ({@link defineFrameworkConfig}) AVANT que les `@services` (Router,
    * AdminBroker — qui lisent `module.options.router`/`.adminBroker`) ne soient
    * instanciés à `onBoot`. Une config invalide plante proprement ici avec un
    * message clair, plutôt qu'un `undefined.x` silencieux en runtime
@@ -141,19 +143,9 @@ class Framework extends Module {
    * `this.options` (matérialise les défauts, préserve `router`/`adminBroker`).
    */
   override async onKernelRegister(): Promise<this> {
-    try {
-      this.options = frameworkConfigSchema.parse(
-        (this.options as FrameworkConfigInput) ?? {},
-      );
-    } catch (e) {
-      const issues =
-        e instanceof Error && "issues" in e && Array.isArray(e.issues)
-          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
-              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-              .join(" · ")
-          : (e as Error).message;
-      throw new Error(`[@nodefony/framework] Invalid config: ${issues}`);
-    }
+    this.options = defineFrameworkConfig(
+      (this.options as FrameworkConfigInput) ?? {},
+    );
     return this;
   }
 
@@ -380,12 +372,11 @@ export {
   UploadedFiles,
   routeExpectsBodyStream,
   graphql,
-  frameworkConfigSchema,
-  frameworkConfigJsonSchema,
   registerIdempotencyStore,
   getIdempotencyStoreFactory,
   listIdempotencyStores,
 };
+export { frameworkConfigSchema } from "./nodefony/config/config";
 export type {
   IdempotencyStoreFactory,
   IIdempotencyStoreFactoryContext,
@@ -400,7 +391,11 @@ export type { IResourceService } from "./nodefony/src/ResourceController";
 export type {
   FrameworkConfig,
   FrameworkConfigInput,
-} from "./nodefony/config/schema";
+} from "./nodefony/config/config";
+export {
+  defineFrameworkConfig,
+  frameworkConfigJsonSchema,
+} from "./nodefony/config/defineModuleConfig";
 export type {
   IController,
   IRoute,

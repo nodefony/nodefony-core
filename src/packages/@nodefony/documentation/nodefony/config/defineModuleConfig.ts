@@ -8,7 +8,7 @@
  * @see ./schema.ts — source de vérité (types dérivés via z.infer)
  */
 import { z } from "zod";
-import { documentationConfigSchema, type DocumentationConfig } from "./schema";
+import { documentationConfigSchema, type DocumentationConfig } from "./config";
 
 /** Lit une variable d'env non vide, ou `undefined` si absente/vide. */
 function env(name: string): string | undefined {
@@ -49,4 +49,4 @@ export function documentationConfigJsonSchema(): unknown {
   return z.toJSONSchema(documentationConfigSchema);
 }
 
-export { documentationConfigSchema } from "./schema";
+export { documentationConfigSchema } from "./config";

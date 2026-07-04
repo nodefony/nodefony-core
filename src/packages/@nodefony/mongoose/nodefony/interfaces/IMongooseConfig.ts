@@ -1,12 +1,12 @@
 import type { z } from "zod";
-import type { mongooseConfigSchema } from "../config/schema";
+import type { mongooseConfigSchema } from "../config/config";
 
 /**
  * Configuration normalisée et gelée de `@nodefony/mongoose` (sortie du builder
  * {@link defineMongooseConfig}, consommée par le `MongooseService`).
  *
  * Type **dérivé du schéma Zod** — NE PAS redéclarer les champs à la main (ils
- * divergeraient silencieusement de la source de vérité `config/schema.ts`).
+ * divergeraient silencieusement de la source de vérité `config/config.ts`).
  */
 export type IMongooseConfig = z.infer<typeof mongooseConfigSchema>;
 

@@ -5,12 +5,12 @@ import {
   getAuditStoreFactory,
   listAuditStores,
 } from "../../nodefony/src/audit/auditStoreRegistry";
-import type { ISecurityConfig } from "../../nodefony/config/defineSecurityConfig";
+import type { ISecurityConfig } from "../../nodefony/config/defineModuleConfig";
 import type { IAuditStore } from "../../nodefony/contracts/IAuditStore";
 
 /**
  * Registre du journal d'audit (P6.14) — sélection pluggable du backend
- * (`security.audit.driver`) sans coupler le service à un store en dur :
+ * (`security.audit.store`) sans coupler le service à un store en dur :
  * - le builtin `memory` s'enregistre à l'import (0 dépendance) ;
  * - la fabrique reste défensive si la config est partielle (pas de crash) ;
  * - un driver inconnu renvoie `undefined` → le service désactive l'audit.

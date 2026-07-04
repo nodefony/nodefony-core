@@ -16,7 +16,7 @@ import {
   defineFrontendConfig,
   frontendConfigJsonSchema,
   type IFrontendConfigInput,
-} from "./nodefony/config/defineFrontendConfig";
+} from "./nodefony/config/defineModuleConfig";
 import FrontendService from "./nodefony/service/FrontendService";
 import { createFrontendAdminApi } from "./nodefony/src/FrontendAdminApi";
 import FrontendBuild from "./nodefony/command/frontend-build";
@@ -74,11 +74,9 @@ class Frontend extends Module {
    */
   override async onKernelBoot(): Promise<this> {
     const registry = this.kernel?.container?.get("adminBroker") as
-      | IAdminRegistry
-      | undefined;
+      IAdminRegistry | undefined;
     const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (registry && svc && !registry.has("frontend")) {
       registry.register(createFrontendAdminApi(svc));
     }
@@ -146,8 +144,8 @@ export {
   defineFrontendConfig,
   frontendConfigJsonSchema,
   type IFrontendConfigInput,
-} from "./nodefony/config/defineFrontendConfig";
+} from "./nodefony/config/defineModuleConfig";
 export {
   frontendConfigSchema,
   type FrontendConfig,
-} from "./nodefony/config/schema";
+} from "./nodefony/config/config";

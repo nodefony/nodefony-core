@@ -63,8 +63,8 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
     });
 
     it("optional absent → undefined", () => {
-      const env = defineEnv({ LOKI_URL: envString({ optional: true }) }, {});
-      assert.strictEqual(env.LOKI_URL, undefined);
+      const env = defineEnv({ NF_LOKI_URL: envString({ optional: true }) }, {});
+      assert.strictEqual(env.NF_LOKI_URL, undefined);
     });
   });
 
@@ -132,21 +132,21 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
           }),
           NF_LOG_FILE_SYNC: envBoolean({ default: false }),
           NF_LOG_QUERY_DRIVER: envString({ default: "memory" }),
-          LOKI_URL: envString({ optional: true }),
-          OPENSEARCH_URL: envString({ optional: true }),
+          NF_LOKI_URL: envString({ optional: true }),
+          NF_OPENSEARCH_URL: envString({ optional: true }),
         },
         {
           NF_LOG_DRIVER: "file",
           NF_LOG_FILE_SYNC: "yes",
-          LOKI_URL: "http://loki:3100",
+          NF_LOKI_URL: "http://loki:3100",
         },
       );
       assert.deepStrictEqual(env, {
         NF_LOG_DRIVER: "file",
         NF_LOG_FILE_SYNC: true,
         NF_LOG_QUERY_DRIVER: "memory",
-        LOKI_URL: "http://loki:3100",
-        OPENSEARCH_URL: undefined,
+        NF_LOKI_URL: "http://loki:3100",
+        NF_OPENSEARCH_URL: undefined,
       });
     });
   });

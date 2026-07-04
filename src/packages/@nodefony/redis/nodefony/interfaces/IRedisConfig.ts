@@ -1,12 +1,12 @@
 import type { z } from "zod";
-import type { redisConfigSchema } from "../config/schema";
+import type { redisConfigSchema } from "../config/config";
 
 /**
  * Configuration normalisée et gelée de `@nodefony/redis` (sortie du builder
  * {@link defineRedisConfig}, lue par le `RedisService`).
  *
  * Type dérivé du schéma Zod — NE PAS redéclarer les champs à la main (ils
- * divergeraient silencieusement de la source de vérité `config/schema.ts`).
+ * divergeraient silencieusement de la source de vérité `config/config.ts`).
  */
 export type IRedisConfig = z.infer<typeof redisConfigSchema>;
 

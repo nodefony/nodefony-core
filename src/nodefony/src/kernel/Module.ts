@@ -119,7 +119,7 @@ class Module extends Service implements IModule {
    * Studio affiche alors la config en mode « réglages documentés » (clé, type,
    * défaut, valeurs possibles, état, et valeur effective issue de `options`) au
    * lieu d'un dump brut clé→valeur. Les flags Nodefony (`reserved`,
-   * `runtimeMutable`, `kernelDerived`, `secret`) attachés via `meta()` sont
+   * `runtimeMutable`, `kernelDerived`, `secret`) attachés via `.meta()` (natif zod) sont
    * recopiés dans le JSON Schema par `z.toJSONSchema()` et exploités par l'UI.
    *
    * Défaut `null` (aucun schéma). Un module migré **override** pour renvoyer son
@@ -241,8 +241,7 @@ class Module extends Service implements IModule {
       index = regModuleName.exec(ele);
       if (index && index[1]) {
         const mod = this.kernel?.getModule(index[1] as string) as
-          | Module
-          | undefined;
+          Module | undefined;
         if (!mod) {
           // Les overrides sont désormais appliqués à `preRegister` (tous les
           // modules @modules + l'app sont enregistrés) : un module introuvable ICI

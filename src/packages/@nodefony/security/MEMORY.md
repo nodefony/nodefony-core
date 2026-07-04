@@ -105,11 +105,11 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
 - **Journal d'audit (P6.14)** — événements de sécurité = **transitions d'état** (≠ trafic `JsonAuditLogger`
   P3.1). `AuditService` (`auditService`, `IAuditSink`) : `record` **no-op coût NUL si off** (`audit.enabled`,
   ON défaut OWASP A09), stamp `id`+`ts` centralisé, fan-out live **lazy** (`subscribe`, lot 4), `gc` rétention
-  `unref` ; pose `auditStore`. **Store PLUGGABLE** (`audit.driver`, défaut `memory`) résolu par
+  `unref` ; pose `auditStore`. **Store PLUGGABLE** (`audit.store`, défaut `memory`) résolu par
   `auditStoreRegistry` (`registerAuditStore`/`getAuditStoreFactory`/`listAuditStores`, calque
   `tokenStoreRegistry` ; driver inconnu → WARNING + audit désactivé, jamais de crash) : builtin `memory`
   (`MemoryAuditStore` FIFO borné, query curseur récent→ancien) ; `drizzle` = `DrizzleAuditStore` persistant
-  append-only (P6.18, auto-enregistré par le module drizzle — sélection `audit.driver:"drizzle"` seule). **Secret jamais dans l'event** → presence-only `flags`. **Émission EXPLICITE par point** (pas EventEmitter firewall : Token/
+  append-only (P6.18, auto-enregistré par le module drizzle — sélection `audit.store:"drizzle"` seule). **Secret jamais dans l'event** → presence-only `flags`. **Émission EXPLICITE par point** (pas EventEmitter firewall : Token/
   ApiKey/OAuth émettent hors chaîne). Helpers `recordAudit(container, draft)` (résout `auditService`, no-op si
   absent) + `readAuditContext(ctx)` (ip/ua/requestId+flags). **Lot 2** (cold) : `AuthFlow` login.success/
   failure/throttled/logout ; `Authorization` access.denied (`#auditDeny`). **Lot 2b** (HOT-PATH, succès MUET) :

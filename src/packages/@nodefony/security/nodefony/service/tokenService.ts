@@ -13,7 +13,7 @@ import {
   defineSecurityConfig,
   type ISecurityConfig,
   type ISecurityConfigInput,
-} from "../config/defineSecurityConfig";
+} from "../config/defineModuleConfig";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import type { LoginThrottler } from "../src/throttle/LoginThrottler";
@@ -47,7 +47,7 @@ export interface ITokenResponse {
  * Orchestrateur des jetons longue durée (P6 J4) — émission/refresh des JWT +
  * **maintenance du store** (le seam `ITokenStore.gc()` n'a pas d'autre appelant).
  *
- * Au boot (si `jwt.enabled`) : résout le store pluggable (`tokenStore.driver`),
+ * Au boot (si `jwt.enabled`) : résout le store pluggable (`tokenStore.store`),
  * crée le keystore Ed25519, les pose au container (`tokenStore`/`jwtKeystore`,
  * consommés par le `JwtAuthenticator` et les endpoints framework), puis arme un
  * **timer de gc** `unref` (n'empêche pas l'arrêt) avec **jitter** de phase
@@ -102,10 +102,10 @@ class TokenService extends Service {
       this.log("token service idle — JWT et clés API désactivés", "DEBUG");
       return;
     }
-    const factory = getTokenStoreFactory(config.tokenStore.driver);
+    const factory = getTokenStoreFactory(config.tokenStore.store);
     if (!factory) {
       this.log(
-        `token store "${config.tokenStore.driver}" inconnu — JWT/clés API indisponibles`,
+        `token store "${config.tokenStore.store}" inconnu — JWT/clés API indisponibles`,
         "CRITIC",
       );
       return;
@@ -133,7 +133,7 @@ class TokenService extends Service {
     });
     this.#gc.start();
     this.log(
-      `token service ready — store "${config.tokenStore.driver}", jwt=${jwtEnabled}, apiKeys=${apiKeysEnabled}, gc ${config.tokenStore.gcIntervalS}s`,
+      `token service ready — store "${config.tokenStore.store}", jwt=${jwtEnabled}, apiKeys=${apiKeysEnabled}, gc ${config.tokenStore.gcIntervalS}s`,
       "DEBUG",
     );
   }

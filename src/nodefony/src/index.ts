@@ -288,6 +288,7 @@ export {
 export type { AppConfig } from "./config/schema";
 export { configReactivity, getConfigReactivity } from "./config/reactivity";
 export type { Reactivity } from "./config/reactivity";
+export type { IConfigFieldMeta } from "./config/configMeta";
 export type {
   AppConfigInput,
   ResolvedAppConfig,

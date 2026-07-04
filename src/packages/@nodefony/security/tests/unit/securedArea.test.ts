@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { ContextType } from "@nodefony/http";
 import { SecuredArea } from "../../nodefony/src/SecuredArea";
-import { defineSecurityConfig } from "../../nodefony/config/defineSecurityConfig";
+import { defineSecurityConfig } from "../../nodefony/config/defineModuleConfig";
 
 /**
  * Contrat de zone (J3b Étape 1) — VERROUILLE :

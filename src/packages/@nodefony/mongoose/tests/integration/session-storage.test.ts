@@ -13,7 +13,7 @@ import {
 
 /** Manager minimal (le storage n'utilise que les timeouts session + `log`). */
 const fakeManager = {
-  options: { idleTimeoutS: 3600, absoluteTimeoutS: 0, handler: "mongoose" },
+  options: { idleTimeoutS: 3600, absoluteTimeoutS: 0, store: "mongoose" },
   log: () => {},
 } as unknown as SessionsService;
 

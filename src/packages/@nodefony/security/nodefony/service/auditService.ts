@@ -4,7 +4,7 @@ import {
   defineSecurityConfig,
   type ISecurityConfig,
   type ISecurityConfigInput,
-} from "../config/defineSecurityConfig";
+} from "../config/defineModuleConfig";
 import { getAuditStoreFactory } from "../src/audit/auditStoreRegistry";
 import type { IAuditEvent, IAuditEventDraft } from "../contracts/IAuditEvent";
 import type {
@@ -68,14 +68,14 @@ class AuditService extends Service implements IAuditSink {
       this.log("audit service idle — désactivé par la config", "DEBUG");
       return;
     }
-    // Store pluggable résolu par NOM (`audit.driver`) via le registre — le socle
+    // Store pluggable résolu par NOM (`audit.store`) via le registre — le socle
     // n'embarque que le builtin `memory` ; drizzle/mongoose/redis s'enregistrent
     // depuis leur module (multi-pod, rétention longue). Convention-frère
-    // `tokenStore.driver` → `getTokenStoreFactory`.
-    const factory = getAuditStoreFactory(config.audit.driver);
+    // `tokenStore.store` → `getTokenStoreFactory`.
+    const factory = getAuditStoreFactory(config.audit.store);
     if (!factory) {
       this.log(
-        `audit store "${config.audit.driver}" inconnu — audit désactivé (journal de sécurité non collecté)`,
+        `audit store "${config.audit.store}" inconnu — audit désactivé (journal de sécurité non collecté)`,
         "WARNING",
       );
       return;
@@ -105,7 +105,7 @@ class AuditService extends Service implements IAuditSink {
     });
     this.#gc.start();
     this.log(
-      `audit service ready — store "${config.audit.driver}", rétention ${config.audit.retentionDays}j`,
+      `audit service ready — store "${config.audit.store}", rétention ${config.audit.retentionDays}j`,
       "DEBUG",
     );
   }

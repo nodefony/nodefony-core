@@ -19,13 +19,13 @@ last-updated: 2026-05-21
 
 ## Choisir le backend — un seul réglage
 
-La config `session.handler` du module http sélectionne le storage par son **nom** :
+La config `session.store` du module http sélectionne le storage par son **nom** :
 
 ```typescript
 // nodefony/config/modules/http-config.ts (override applicatif)
 export default {
   session: {
-    handler: "drizzle", // "files" | "drizzle" | "mongoose"
+    store: "drizzle", // "files" | "drizzle" | "mongoose"
   },
 };
 ```
@@ -37,7 +37,7 @@ export default {
 | `mongoose` | `@nodefony/mongoose` | Collection MongoDB                                   |
 
 > Le backend n'est disponible que si **le module qui le fournit est chargé**
-> (`@modules()`). Ex. `handler: "drizzle"` exige `@nodefony/drizzle` dans `@modules()`.
+> (`@modules()`). Ex. `store: "drizzle"` exige `@nodefony/drizzle` dans `@modules()`.
 
 ## Comment ça marche (inversion de contrôle)
 
@@ -120,7 +120,7 @@ SessionsService.registerStorage("redis", RedisSessionStorage);
 export default RedisSessionStorage;
 ```
 
-3. Activer : `session: { handler: "redis" }`. Le module fournisseur doit être dans `@modules()`.
+3. Activer : `session: { store: "redis" }`. Le module fournisseur doit être dans `@modules()`.
 
 > **Gotcha rollup** : appeler `SessionsService.registerStorage(...)` rend l'import
 > `@nodefony/http` **valeur** (plus type-only) → ajouter `@nodefony/http` à la liste

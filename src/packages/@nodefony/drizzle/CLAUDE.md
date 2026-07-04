@@ -162,13 +162,13 @@ journal de sécurité **append-only** durable + partageable multi-pod, là où `
   `(ts,id) < (cursorTs,cursorId)` (non exprimable en criteria AND-only), `limit+1` = garde `nextBefore`,
   `count()` pour le total. **Résolveur LAZY** (`() => DrizzleDb|null`, garde `isConnected()`) → `null` =
   fail-soft (append no-op best-effort, query page vide, gc 0). `DrizzleAuditStore.from(orm, now?, retentionMs?)`.
-- **Sélection** : `security.audit.driver` (défaut `memory`) résolu par `auditStoreRegistry`
+- **Sélection** : `security.audit.store` (défaut `memory`) résolu par `auditStoreRegistry`
   (`@nodefony/security`). Preuve : `tests/integration/audit-store.test.ts` (**7/7** SQLite — append/query
   filtres/pagination curseur/collision ms/gc/dégradation).
 
 **Câblage — AUTO-REGISTER par le module** (`nodefony/registerStores.ts`, appelé par
 `Drizzle.onKernelRegister`) : entité + fabrique (registre `@nodefony/security`) déclarées
-automatiquement. **Activation = `use("@nodefony/security", { audit: { driver: "drizzle" } })`,
+automatiquement. **Activation = `use("@nodefony/security", { audit: { store: "drizzle" } })`,
 RIEN d'autre à écrire.** Rétention lue de `config.audit.retentionDays`. Guards : l'app garde la
 main ; opt-out `frameworkEntities: false`.
 

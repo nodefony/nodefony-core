@@ -28,7 +28,7 @@ import { CsrfError } from "../errors/CsrfError";
 import {
   defineSecurityConfig,
   type ISecurityConfig,
-} from "../config/defineSecurityConfig";
+} from "../config/defineModuleConfig";
 import {
   getAuthenticatorFactory,
   listAuthenticatorFactories,

@@ -1,6 +1,6 @@
 import type { Module } from "nodefony";
 import type { IBackplane } from "../../interfaces/IBackplane.js";
-import type { IRealtimeConfig } from "../../config/defineRealtimeConfig.js";
+import type { IRealtimeConfig } from "../../config/defineModuleConfig.js";
 
 /**
  * Registre de **drivers backplane** — résout `config.backplane.driver` (une

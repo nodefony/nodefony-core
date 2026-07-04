@@ -14,7 +14,7 @@ import path from "node:path";
 import Session, { OptionsSessionType } from "../../src/session/session.js";
 import FileSessionStorage from "../../src/session/storage/FileSessionStorage.js";
 import RevocationGuardStorage from "../../src/session/storage/RevocationGuardStorage.js";
-import { httpConfigSchema } from "../../config/schema.js";
+import { httpConfigSchema } from "../../config/config.js";
 import type {
   ISessionStorage,
   ISerializedSession,

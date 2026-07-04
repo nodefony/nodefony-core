@@ -100,7 +100,7 @@ class FileSessionStorage implements ISessionStorage {
             total = result[0].childrens.length;
           }
           this.manager.log(
-            `SESSIONS STORAGE ==> ${this.manager.options.handler.toUpperCase()} COUNT SESSIONS : ${total}`,
+            `SESSIONS STORAGE ==> ${this.manager.options.store.toUpperCase()} COUNT SESSIONS : ${total}`,
           );
           return resolve(total);
         },

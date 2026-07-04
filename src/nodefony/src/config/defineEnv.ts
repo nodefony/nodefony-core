@@ -20,7 +20,7 @@
  * export const env = defineEnv({
  *   NF_LOG_DRIVER: envEnum(["stdout", "file", "null"], { default: "stdout" }),
  *   NF_LOG_FILE_SYNC: envBoolean({ default: false }),
- *   LOKI_URL: envString({ optional: true }),
+ *   NF_LOKI_URL: envString({ optional: true }),
  * });
  * // env.NF_LOG_DRIVER : "stdout" | "file" | "null"
  * ```

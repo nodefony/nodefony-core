@@ -7,7 +7,7 @@
  * legacy du core — le service `extends Service` et orchestre des adapters
  * orm-core autonomes (modèle `DrizzleService`). Le core ne connaît plus l'ORM.
  *
- * Config = source de vérité Zod (`nodefony/config/schema.ts`), validée au boot
+ * Config = source de vérité Zod (`nodefony/config/config.ts`), validée au boot
  * via {@link defineMongooseConfig} (style `@nodefony/redis`/`@nodefony/realtime`).
  */
 import mongoose from "mongoose";
@@ -17,7 +17,7 @@ import config from "./nodefony/config/config";
 import {
   defineMongooseConfig,
   mongooseConfigJsonSchema,
-} from "./nodefony/config/defineMongooseConfig";
+} from "./nodefony/config/defineModuleConfig";
 import MongooseService from "./nodefony/service/MongooseService";
 import {
   registerMongooseFrameworkStores,
@@ -129,7 +129,7 @@ export { defineMongooseConfig, mongooseConfigJsonSchema };
 export {
   mongooseConfigSchema,
   type MongooseConfig,
-} from "./nodefony/config/schema";
+} from "./nodefony/config/config";
 export type {
   IMongooseConfig,
   IMongooseConfigInput,
@@ -165,7 +165,7 @@ export { MongooseUserRepository } from "./nodefony/src/MongooseUserRepository";
 
 // ─── Store de jetons Mongoose (contrat ITokenStore de @nodefony/security, J4b) ─
 // AUTO-REGISTER (onKernelRegister) : entité + fabrique "mongoose" déclarées par le
-// module — sélectionnable via `tokenStore.driver: "mongoose"`, zéro câblage app.
+// module — sélectionnable via `tokenStore.store: "mongoose"`, zéro câblage app.
 export {
   accessTokenSchema,
   deniedJtiSchema,

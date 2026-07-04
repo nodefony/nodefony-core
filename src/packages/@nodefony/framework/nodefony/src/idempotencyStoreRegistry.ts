@@ -1,5 +1,5 @@
 import type { Module, IIdempotencyStore } from "nodefony";
-import type { FrameworkConfig } from "../config/schema";
+import type { FrameworkConfig } from "../config/config";
 
 /**
  * Registre de **fabriques de stores d'idempotence DISTRIBUÉS** — résout le nom

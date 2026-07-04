@@ -57,7 +57,7 @@ export const env = defineEnv({
    * Destination PROD Loki (LB.4), active si `NF_LOG_QUERY_DRIVER=loki`. Optionnelle
    * (sans URL → fallback `memory` au boot, jamais de crash).
    */
-  LOKI_URL: envString({
+  NF_LOKI_URL: envString({
     optional: true,
     description: "URL HTTP de la destination Loki (poussée + relecture).",
   }),
@@ -66,7 +66,7 @@ export const env = defineEnv({
    * Destination PROD OpenSearch (LB.4), active si `NF_LOG_QUERY_DRIVER=opensearch`.
    * Optionnelle (sans URL → fallback `memory` au boot).
    */
-  OPENSEARCH_URL: envString({
+  NF_OPENSEARCH_URL: envString({
     optional: true,
     description: "URL HTTP de la destination OpenSearch (poussée + relecture).",
   }),
