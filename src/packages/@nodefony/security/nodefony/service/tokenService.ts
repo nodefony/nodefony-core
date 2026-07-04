@@ -122,11 +122,27 @@ class TokenService extends Service {
     }
     const factory = getTokenStoreFactory(storeName);
     if (!factory) {
-      this.log(
-        `token store "${storeName}" inconnu — JWT/clés API indisponibles`,
-        "CRITIC",
-      );
+      // Doctrine d'échec : store EXPLICITEMENT configuré introuvable = config
+      // erronée. Prod → boot avorté (fail-loud) ; dev → brique désactivée,
+      // ANNONCÉE (jamais de fallback memory silencieux pour du durable).
+      const msg =
+        `token store "${storeName}" inconnu ` +
+        `(enregistrés : ${listTokenStores().join(", ") || "aucun"})`;
+      if (this.kernel?.environment === "production") {
+        throw new Error(`${msg} — JWT/clés API indisponibles : boot avorté.`);
+      }
+      this.log(`${msg} — JWT/clés API indisponibles`, "CRITIC");
       return;
+    }
+    // Prod-guard : store durable en mémoire = denylist JWT, refresh tokens et
+    // clés API PER-POD et VOLATILS — l'impact est nommé, le boot continue.
+    if (storeName === "memory" && this.kernel?.environment === "production") {
+      this.log(
+        `tokenStore "memory" en PRODUCTION — denylist JWT, refresh tokens et clés API ` +
+          `per-pod et volatils : révocation non partagée entre pods, tout est perdu au ` +
+          `redémarrage. Déclarer une infra durable (NF_DATABASE_URL) ou un store persistant.`,
+        "WARNING",
+      );
     }
     this.#store = factory({ container: this.container as Container, config });
     // Partage par NOM (`ApiKeyService`, `JwtAuthenticator`, endpoints framework —

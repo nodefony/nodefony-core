@@ -45,7 +45,10 @@ const filled = (
 };
 
 // Instancie AuditService avec un kernel/module simulés (pattern apiKeyService.test).
-function buildAudit(audit: Record<string, unknown>): {
+function buildAudit(
+  audit: Record<string, unknown>,
+  environment?: string,
+): {
   svc: AuditService;
   container: Container;
 } {
@@ -53,6 +56,7 @@ function buildAudit(audit: Record<string, unknown>): {
   const handlers: Record<string, (...a: unknown[]) => void> = {};
   const kernel = {
     container,
+    environment,
     once(ev: string, cb: (...a: unknown[]) => void) {
       handlers[ev] = cb;
     },
@@ -298,5 +302,31 @@ describe("AuditService — actif", () => {
     assert.doesNotThrow(() => svc.record(draft));
     assert.deepEqual(ok, ["access.denied"]);
     assert.equal((await svc.query()).total, 1); // persisté malgré le listener KO
+  });
+});
+
+// Doctrine d'échec (0.8 lot 4) : store EXPLICITE introuvable = config erronée →
+// prod = boot avorté (fail-loud) ; dev = audit désactivé ANNONCÉ. Le store
+// "memory" explicite reste accepté en prod (WARNING appuyé, pas de refus).
+describe("AuditService — doctrine d'échec store explicite", () => {
+  it("dev : store inconnu → audit désactivé, pas de throw", () => {
+    const { svc, container } = buildAudit({ enabled: true, store: "granite" });
+    assert.equal(svc.isEnabled(), false);
+    assert.equal(container.get("auditStore"), null);
+  });
+
+  it("prod : store inconnu → throw au boot (fail-loud)", () => {
+    assert.throws(
+      () => buildAudit({ enabled: true, store: "granite" }, "production"),
+      /audit store "granite" inconnu/,
+    );
+  });
+
+  it("prod : store memory → boot OK (WARNING nommant l'impact, pas de refus)", () => {
+    const { svc } = buildAudit(
+      { enabled: true, store: "memory" },
+      "production",
+    );
+    assert.equal(svc.isEnabled(), true);
   });
 });

@@ -98,11 +98,31 @@ class AuditService extends Service implements IAuditSink {
     }
     const factory = getAuditStoreFactory(storeName);
     if (!factory) {
+      // Doctrine d'échec : store EXPLICITE introuvable = config erronée.
+      // Prod → boot avorté ; dev → brique désactivée, ANNONCÉE.
+      const msg =
+        `audit store "${storeName}" inconnu ` +
+        `(enregistrés : ${listAuditStores().join(", ") || "aucun"})`;
+      if (this.kernel?.environment === "production") {
+        throw new Error(
+          `${msg} — journal de sécurité non collecté : boot avorté.`,
+        );
+      }
       this.log(
-        `audit store "${storeName}" inconnu — audit désactivé (journal de sécurité non collecté)`,
-        "WARNING",
+        `${msg} — audit désactivé (journal de sécurité non collecté)`,
+        "CRITIC",
       );
       return;
+    }
+    // Prod-guard : journal de conformité en mémoire = volatil, per-pod, borné
+    // RAM — rétention réglementaire impossible.
+    if (storeName === "memory" && this.kernel?.environment === "production") {
+      this.log(
+        `audit.store "memory" en PRODUCTION — journal de sécurité volatil et per-pod : ` +
+          `perdu au redémarrage, invisible des autres pods, rétention de conformité ` +
+          `impossible. Déclarer une infra durable (NF_DATABASE_URL).`,
+        "WARNING",
+      );
     }
     this.#enabled = true;
     this.#idPrefix = randomBytes(4).toString("hex");

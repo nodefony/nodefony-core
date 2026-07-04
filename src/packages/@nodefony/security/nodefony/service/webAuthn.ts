@@ -153,11 +153,26 @@ class WebAuthnService extends Service {
       }
       const factory = getWebAuthnStoreFactory(driver);
       if (!factory) {
-        this.log(
-          `webauthn store "${driver}" inconnu — passkeys indisponibles`,
-          "CRITIC",
-        );
+        // Doctrine d'échec : store EXPLICITE introuvable = config erronée.
+        // Prod → boot avorté ; dev → brique désactivée, ANNONCÉE.
+        const msg =
+          `webauthn store "${driver}" inconnu ` +
+          `(enregistrés : ${listWebAuthnStores().join(", ") || "aucun"})`;
+        if (this.kernel?.environment === "production") {
+          throw new Error(`${msg} — passkeys indisponibles : boot avorté.`);
+        }
+        this.log(`${msg} — passkeys indisponibles`, "CRITIC");
         return;
+      }
+      // Prod-guard : credentials WebAuthn en mémoire = tous les passkeys
+      // enregistrés perdus au redémarrage (utilisateurs verrouillés dehors).
+      if (driver === "memory" && this.kernel?.environment === "production") {
+        this.log(
+          `passkeys.store "memory" en PRODUCTION — credentials WebAuthn volatils : tous ` +
+            `les passkeys enregistrés sont perdus au redémarrage (utilisateurs verrouillés ` +
+            `hors de leur compte). Déclarer une infra durable (NF_DATABASE_URL).`,
+          "WARNING",
+        );
       }
       this.#store = factory({ container: this.container as Container, config });
       this.container?.set("webAuthnCredentialStore", this.#store);

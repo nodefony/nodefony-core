@@ -239,11 +239,26 @@ class WebhookService extends Service {
     }
     const factory = getWebhookStoreFactory(driver);
     if (!factory) {
-      this.log(
-        `webhooks store "${driver}" inconnu — webhooks indisponibles`,
-        "CRITIC",
-      );
+      // Doctrine d'échec : store EXPLICITE introuvable = config erronée.
+      // Prod → boot avorté ; dev → brique désactivée, ANNONCÉE.
+      const msg =
+        `webhooks store "${driver}" inconnu ` +
+        `(enregistrés : ${listWebhookStores().join(", ") || "aucun"})`;
+      if (this.kernel?.environment === "production") {
+        throw new Error(`${msg} — webhooks indisponibles : boot avorté.`);
+      }
+      this.log(`${msg} — webhooks indisponibles`, "CRITIC");
       return null;
+    }
+    // Prod-guard : abonnements en mémoire = volatils et per-pod (perdus au
+    // redémarrage, non partagés entre pods).
+    if (driver === "memory" && this.kernel?.environment === "production") {
+      this.log(
+        `webhooks.store "memory" en PRODUCTION — abonnements volatils et per-pod : ` +
+          `perdus au redémarrage, non partagés entre pods. Déclarer une infra durable ` +
+          `(NF_DATABASE_URL).`,
+        "WARNING",
+      );
     }
     const store = factory({ container: this.container as Container, config });
     this.container?.set("webhookStore", store);

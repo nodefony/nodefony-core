@@ -76,6 +76,18 @@ export async function provisionUsers(module: Module): Promise<void> {
   }
 
   if (store === "memory") {
+    // Prod-guard : annuaire VOLATIL (comptes de fixture dev) — toute inscription
+    // est perdue au redémarrage. Choix explicite (NF_USER_STORE), donc WARNING
+    // appuyé plutôt que refus : un banc éphémère prod reste légitime.
+    if (module.kernel?.environment === "production") {
+      module.log(
+        `NF_USER_STORE=memory en PRODUCTION — annuaire utilisateurs volatil : comptes ` +
+          `perdus au redémarrage, non partagés entre pods. Déclarer une infra durable ` +
+          `(NF_DATABASE_URL).`,
+        "WARNING",
+        LOG_CTX,
+      );
+    }
     // Annuaire volatil : seedé par construction (hashs pré-calculés) → 0 coût au boot.
     container.set(
       "users",

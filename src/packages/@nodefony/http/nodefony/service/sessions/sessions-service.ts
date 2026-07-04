@@ -215,15 +215,26 @@ class SessionsService extends Service {
         "INFO",
       );
     }
-    const Storage = SessionsService.getStorage(storeName);
+    let Storage = SessionsService.getStorage(storeName);
     if (!Storage) {
-      this.storage = null;
-      this.log(
-        `SESSION STORE NOT FOUND : "${storeName}" ` +
-          `(enregistrés : ${SessionsService.storageHandlers().join(", ") || "aucun"})`,
-        "ERROR",
-      );
-      return null;
+      // Doctrine d'échec : handler EXPLICITE introuvable = config erronée.
+      // Prod → boot avorté (des sessions silencieusement mortes cassent le
+      // firewall/BFF en cascade) ; dev → repli "files" ANNONCÉ (l'app reste
+      // utilisable). Le cas "auto" ne passe jamais ici (borné aux enregistrés).
+      const known = SessionsService.storageHandlers().join(", ") || "aucun";
+      const msg = `session store "${storeName}" inconnu (enregistrés : ${known})`;
+      if (this.kernel?.environment === "production") {
+        throw new Error(`${msg} — sessions indisponibles : boot avorté.`);
+      }
+      this.log(`${msg} — repli "files"`, "WARNING");
+      storeName = "files";
+      Storage = SessionsService.getStorage(storeName);
+      if (!Storage) {
+        // Même le repli builtin manque : irrécupérable, dev compris.
+        throw new Error(
+          `session store de repli "files" introuvable — sessions indisponibles.`,
+        );
+      }
     }
     // Décoration générique : le garde-fou de révocation s'applique à TOUT
     // backend (file/drizzle/redis/mongo) sans le modifier — la résurrection est

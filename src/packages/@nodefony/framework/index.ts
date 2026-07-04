@@ -191,6 +191,16 @@ class Framework extends Module {
       this.log(`idempotency.store "auto" → "${name}" (${auto.reason})`, "INFO");
     }
     if (name === "memory") {
+      // Prod-guard : dédup PER-POD uniquement — en multi-pod, un rejeu routé
+      // vers un autre pod n'est pas dédupliqué (double-effet possible).
+      if (this.kernel?.environment === "production") {
+        this.log(
+          `idempotency.store "memory" en PRODUCTION — déduplication per-pod uniquement : ` +
+            `un rejeu routé vers un autre pod n'est pas dédupliqué (double-effet possible). ` +
+            `Déclarer une infra partagée (NF_REDIS_URL ou NF_DATABASE_URL).`,
+          "WARNING",
+        );
+      }
       return this; // défaut per-pod déjà posé par @services (MemoryIdempotencyStore)
     }
     try {

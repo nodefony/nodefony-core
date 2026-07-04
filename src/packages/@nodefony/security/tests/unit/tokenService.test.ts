@@ -43,7 +43,10 @@ const users = {
 const sha256 = (s: string): string =>
   createHash("sha256").update(s).digest("hex");
 
-function buildService(configInput: unknown): {
+function buildService(
+  configInput: unknown,
+  environment?: string,
+): {
   svc: TokenService;
   container: Container;
   boot: () => void;
@@ -52,6 +55,7 @@ function buildService(configInput: unknown): {
   const handlers: Record<string, (...a: unknown[]) => void> = {};
   const kernel = {
     container,
+    environment,
     once(ev: string, cb: (...a: unknown[]) => void) {
       handlers[ev] = cb;
     },
@@ -230,5 +234,34 @@ describe("TokenService — gc (orchestration du seam ITokenStore.gc)", () => {
     b.boot();
     assert.equal(b.svc.isEnabled(), false);
     assert.equal(await b.svc.runGc(), 0);
+  });
+});
+
+// Doctrine d'échec (0.8 lot 4) : store EXPLICITE introuvable = config erronée →
+// prod = boot avorté (fail-loud) ; dev = brique désactivée ANNONCÉE. Le store
+// "memory" explicite reste accepté en prod (WARNING appuyé, pas de refus).
+describe("TokenService — doctrine d'échec store explicite", () => {
+  const badConfig = {
+    jwt: { enabled: true, issuer: "https://test.nf", audiences: ["nf-api"] },
+    tokenStore: { store: "granite", gcIntervalS: 0 },
+  };
+
+  it("dev : store inconnu → brique désactivée, pas de throw", () => {
+    const b = buildService(badConfig);
+    b.boot();
+    assert.equal(b.svc.isEnabled(), false);
+    assert.equal(b.container.get("tokenStore"), null);
+  });
+
+  it("prod : store inconnu → throw au boot (fail-loud)", () => {
+    const b = buildService(badConfig, "production");
+    assert.throws(() => b.boot(), /token store "granite" inconnu/);
+  });
+
+  it("prod : store memory → boot OK (WARNING nommant l'impact, pas de refus)", () => {
+    const b = buildService(baseConfig, "production");
+    b.boot();
+    assert.equal(b.svc.isEnabled(), true);
+    assert.ok(b.container.get("tokenStore"));
   });
 });
