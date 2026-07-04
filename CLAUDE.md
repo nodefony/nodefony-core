@@ -441,6 +441,19 @@ intégrée au `resolve()` du descripteur, dans le core).
 ses clés typées. Sans augmentation, `use()` accepte quand même la config (`Record<string, unknown>`) —
 jamais bloquant, juste moins d'auto-complétion. Recette complète : [`docs/guides/configuration.md`](docs/guides/configuration.md).
 
+**Convention STRUCTURE de la config d'un module (figée 2026-07-04 — cible, migration en cours, réf = `@nodefony/drizzle`)** :
+chaque module = EXACTEMENT 2 fichiers, mêmes noms PARTOUT (zéro question) —
+
+- `nodefony/config/config.ts` = **LE QUOI** : schéma Zod commenté (source UNIQUE des défauts,
+  `.default().describe()` + flags `meta()`), type inféré, défauts matérialisés `schema.parse({})`.
+- `nodefony/config/defineModuleConfig.ts` = **LE COMMENT** : builder PUR `define<Module>Config()`
+  (parse input → env layering → freeze — ne retape JAMAIS un défaut) + `<module>ConfigJsonSchema()`.
+- **`schema.ts` n'existe plus** (fusion vers `config.ts`, le nœud bas — jamais vers `define`, sinon
+  cycle `interfaces ↔ define`). Fichier uniforme, mais **fonction exportée PRÉFIXÉE module**
+  (`defineHttpConfig()`…) — évite les collisions d'import cross-modules.
+- Métas de champ : `meta()` + `IConfigFieldMeta` importés du **CORE** (`configMeta.ts`) — plus aucune
+  machinerie méta par module. On nomme le RÔLE, jamais l'outil (pas de `defineZodConfig`).
+
 ---
 
 ## Workflow de session Claude Code
