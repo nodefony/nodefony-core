@@ -20,7 +20,7 @@
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./index.ts",
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js"
     }
   },
@@ -39,12 +39,11 @@
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
     "@rollup/plugin-typescript": "12.3.0",
-    "@types/node": "25.9.1",
+    "@types/node": "26.0.1",
     "@vitest/coverage-v8": "4.1.8",
+    "nodefony": "*",
     "rimraf": "6.1.3",
-    "rollup": "4.61.1",
-    "rollup-sourcemap-path-transform": "1.2.0",
-    "tslib": "2.8.1",
+    "rollup": "4.62.2",
     "typescript": "6.0.3",
     "vitest": "4.1.8"
   },
@@ -52,6 +51,15 @@
   "license": "CECILL-B"
 }
 ```
+
+> **`exports["."].types` — 2 patterns (CLAUDE.md racine)** : un NOUVEAU module pointe
+> `./dist/types/index.d.ts` (standard, `.d.ts` généré). Le pattern `"./index.ts"` (source,
+> anti-race TS2307) est RÉSERVÉ aux modules consommés en source par un autre workspace
+> (http/framework/security/frontend/orm-core/user) — ne pas l'utiliser par défaut.
+> **Toolchain = devDependencies UNIQUEMENT** (décision 0.4) : rollup/plugins/typescript ne
+> vont JAMAIS en `dependencies` (poids runtime). Les peers workspace consommés (`nodefony`,
+> `@nodefony/http`…) se doublent en devDeps `"*"` pour le typecheck/build local.
+> Plus de `rollup-sourcemap-path-transform` ni `tslib` en devDeps (retirés — cf modules réels).
 
 **peer_deps_with_zod selon options activées** :
 
@@ -169,112 +177,63 @@ field séparé `cfg: FooConfig` (voir template Service).
 
 ### `rollup.config.ts`
 
+> **Forme COURTE alignée sur les modules réels récents** (réf = `@nodefony/documentation`,
+> décisions sessions 0.4/0.7) : `input: "index.ts"` UNIQUE (preserveModules découvre le
+> graphe — plus de `globSync`), **plus de `rollup-sourcemap-path-transform` ni `glob`**
+> (deps supprimées), toolchain rollup entièrement en **devDependencies** (jamais en
+> dependencies — décision Phase 0.4 « build hors deps runtime »).
+
 ```typescript
-import path, { resolve } from "node:path";
-import { defineConfig, Plugin, RollupOptions } from "rollup";
+import { defineConfig, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import json from "@rollup/plugin-json";
-import { createPathTransform } from "rollup-sourcemap-path-transform";
-import { globSync } from "glob";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const sourcemapPathTransform = createPathTransform({
-  prefixes: {
-    "*src/": `${resolve(".", "nodefony", "src")}/`,
-    "*service/": `${resolve(".", "nodefony", "service")}/`,
-    "*command/": `${resolve(".", "nodefony", "command")}/`,
-    "*controller/": `${resolve(".", "nodefony", "controller")}/`,
-    "*entity/": `${resolve(".", "nodefony", "entity")}/`,
-    "*interfaces/": `${resolve(".", "nodefony", "interfaces")}/`,
-    "*config/": `${resolve(".", "nodefony", "config")}/`,
-  },
-});
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 const external: string[] = [
   "nodefony",
-  // Ajouter selon peer_deps :
+  // Ajouter selon peer_deps (⚠️ garder external ↔ peerDependencies EN PHASE,
+  // cf skill `nodefony-check-externals`) :
   // "@nodefony/http",
   // "@nodefony/framework",
-  // "@nodefony/drizzle",
-  // "@nodefony/frontend",
+  "zod",
   "tslib",
 ];
 
-const nodefonyFiles = globSync("nodefony/**/*.ts", {
-  ignore: ["**/*.d.ts", "**/*.spec.ts", "**/*.test.ts", "**/tests/**"],
-});
-
-const input = {
-  index: "./index.ts",
-  ...Object.fromEntries(
-    nodefonyFiles.map((file) => [
-      path.relative(".", file).replace(/\.ts$/, ""),
-      "./" + file,
-    ]),
-  ),
-};
-
-const sharedNodeOptions = defineConfig({
-  treeshake: {
-    moduleSideEffects: "no-external",
-    propertyReadSideEffects: false,
-    tryCatchDeoptimization: false,
-  },
-  output: {
-    dir: resolve(".", "dist"),
-    entryFileNames: `[name].js`,
-    exports: "auto",
-    format: "es",
-  },
-  onwarn(warning, warn) {
-    // EMPTY_BUNDLE : fichier types-only (interfaces) sous preserveModules → chunk JS vide (bénin).
-    if (warning.code === "EMPTY_BUNDLE") return;
-    if (warning.message.includes("Circular dependency")) return;
-    if (warning.message.includes("TS5055")) return;
-    warn(warning);
-  },
-});
-
-function createNodePlugins(
-  _isProduction: boolean,
-  sourceMap: boolean,
-  declarationDir: string | false,
-): Plugin[] {
-  return [
-    nodeResolve({ preferBuiltins: true }),
-    typescript({
-      tsconfig: path.resolve("tsconfig.json"),
-      sourceMap,
-      declaration: declarationDir !== false,
-      declarationDir: declarationDir !== false ? declarationDir : undefined,
-    }),
-    json(),
-  ];
-}
-
-function createNodeConfig(isProduction: boolean): RollupOptions {
+export default (commandLineArgs: Record<string, unknown>): RollupOptions => {
+  const isProduction = !commandLineArgs["watch"];
   return defineConfig({
-    input,
-    ...sharedNodeOptions,
+    input: "index.ts",
+    treeshake: {
+      moduleSideEffects: "no-external",
+      propertyReadSideEffects: false,
+    },
     output: {
-      ...sharedNodeOptions.output,
+      dir: "./dist",
+      format: "esm",
       sourcemap: !isProduction,
       preserveModules: true,
       preserveModulesRoot: ".",
-      sourcemapPathTransform,
+      entryFileNames: "[name].js",
     },
     external: (id) =>
       id !== "." &&
       external.some(
         (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
       ),
-    plugins: [...createNodePlugins(isProduction, !isProduction, "dist/types")],
+    plugins: [
+      nodeResolve({ preferBuiltins: true }),
+      typescript({
+        tsconfig: path.resolve(__dirname, "tsconfig.json"),
+        declaration: true,
+        declarationDir: "dist/types",
+      }),
+      json(),
+    ],
   });
-}
-
-export default (commandLineArgs: Record<string, unknown>): RollupOptions => {
-  const isDev = Boolean(commandLineArgs.watch);
-  return createNodeConfig(!isDev);
 };
 ```
 
@@ -293,9 +252,10 @@ TOUS les chunks `nodefony/foo/bar.js` produits par `preserveModules`.
  */
 import { Kernel, Module, services } from "nodefony";
 import config, {
-  {{name}}ConfigSchema,
   type {{NameClass}}Config,
+  type {{NameClass}}ConfigInput,
 } from "./nodefony/config/config";
+import { define{{NameClass}}Config } from "./nodefony/config/defineModuleConfig";
 import {{NameClass}}Service from "./nodefony/service/{{NameClass}}Service";
 // ↓ si commands :
 // import {{NameClass}}Command from "./nodefony/command/{{name}}-command";
@@ -314,18 +274,15 @@ class {{NameClass}} extends Module {
   }
 
   /**
-   * Validation Zod de la config (défauts + `module.options`) au boot — convention
-   * ADR-0006 (le schéma de `config.ts` est la source unique). Plante propre avec
-   * messages clairs si non conforme — évite les `undefined.x` silencieux en runtime.
+   * Validation Zod de la config (défauts + `module.options`) au boot via le
+   * BUILDER (convention ADR-0006 + lot 2 : le schéma de `config.ts` est la source
+   * unique, `defineModuleConfig.ts` valide et formate les erreurs). Plante propre
+   * avec messages clairs si non conforme — évite les `undefined.x` silencieux.
    */
   override async onKernelRegister(): Promise<this> {
-    const parsed = {{name}}ConfigSchema.safeParse(this.options ?? {});
-    if (!parsed.success) {
-      const issues = parsed.error.issues
-        .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-        .join(" · ");
-      throw new Error(`[@nodefony/{{name}}] Invalid config: ${issues}`);
-    }
+    this.options = define{{NameClass}}Config(
+      (this.options as {{NameClass}}ConfigInput) ?? {},
+    );
     return this;
   }
 
@@ -348,10 +305,12 @@ export type {
 } from "./nodefony/config/config";
 
 // Builder de config (parse + valide + gèle) + JSON Schema introspectable (Studio) —
-// pattern ADR-0006 (cf `defineSecurityConfig`/`defineDrizzleConfig`). L'app appelle le
-// builder, Studio dérive son formulaire du JSON Schema.
-export { {{name}}ConfigJsonSchema } from "./nodefony/config/config";
-export { define{{NameClass}}Config } from "./nodefony/config/define{{NameClass}}Config";
+// pattern ADR-0006 + lot 2 : le FICHIER s'appelle `defineModuleConfig.ts` PARTOUT
+// (uniforme), la FONCTION reste préfixée module (0 collision d'import cross-modules).
+export {
+  define{{NameClass}}Config,
+  {{name}}ConfigJsonSchema,
+} from "./nodefony/config/defineModuleConfig";
 
 // Typage de `use("@nodefony/{{name}}", …)` dans `nodefony.config.ts` (convention figée
 // 2026-06-05) : on augmente le registre du core par declaration merging (pattern Nuxt/Pinia)
@@ -370,14 +329,24 @@ export {
 
 ### `nodefony/config/config.ts` — schéma Zod commenté (source unique) + défauts
 
-> **Convention ADR-0006 (« une source Zod par module »)** : `config.ts` est le **seul**
-> fichier à lire pour comprendre la config du module. Il porte le schéma Zod commenté
-> (`.default().describe()` = type + validation + défaut + doc), les types dérivés, le JSON
-> Schema (introspection Studio) et **matérialise les défauts** via `parse({})`. Il n'importe
-> que `zod` → nœud bas, aucun cycle. **Aucune valeur n'est re-tapée ailleurs** (ni en double,
-> ni `.env.example`, ni `Dockerfile`). Le builder pur vit dans `define{{NameClass}}Config.ts`.
+> **Convention ADR-0006 + lot 2 0.8 (« une source Zod par module »)** : `config.ts` est le
+> **seul** fichier à lire pour comprendre la config du module. Il porte le schéma Zod
+> commenté (`.default().describe()` = type + validation + défaut + doc), les types dérivés
+> et **matérialise les défauts** via `parse({})`. Il n'importe que `zod` → nœud bas, aucun
+> cycle. **Aucune valeur n'est re-tapée ailleurs** (ni en double, ni `.env.example`, ni
+> `Dockerfile`). Le builder pur + le JSON Schema vivent dans `defineModuleConfig.ts`.
 > Réf : `docs/adr/0006-configuration-unifiee-env-override.md` ; modèles `@nodefony/drizzle`
-> (schéma dans `config.ts`) et `@nodefony/security`.
+> et `@nodefony/documentation`.
+>
+> **Flags de champ = `.meta()` NATIF zod** (l'augmentation `GlobalMeta` du core rend
+> `reserved`/`runtimeMutable`/`kernelDerived`/`secret` typés PARTOUT — 0 helper, 0 import,
+> cf `IConfigFieldMeta`). ⚠️ **`.meta()` TOUJOURS EN DERNIER de la chaîne** : chaque méthode
+> zod clone l'instance → `.default()` APRÈS `.meta()` PERD la métadonnée (prouvé par POC).
+> Tout champ sensible (mot de passe, URL à credentials, clé) porte `secret: true`.
+>
+> **Vocabulaire sélection (gravé lot 2)** : un backend de DONNÉES = champ **`store`**
+> (`session.store`, `audit.store`, `passkeys.store`…) ; un FLUX/transport = `driver`
+> (backplane realtime, logs). Env : préfixe **`NF_`** pour toute variable Nodefony.
 
 ```typescript
 import { z } from "zod";
@@ -400,13 +369,17 @@ import { z } from "zod";
  */
 export const {{name}}ConfigSchema = z
   .object({
-    enabled: z
-      .boolean()
-      .default(true)
-      .describe(
+    enabled: z.boolean().default(true).meta({
+      runtimeMutable: true, // exemple de flag Nodefony (.meta() natif, typé par le core)
+      description:
         "Active le module {{name}} au boot. Recommandation prod : true. " +
-          "false = module chargé mais inerte (logs, registry, mais aucun listener actif).",
-      ),
+        "false = module chargé mais inerte (logs, registry, mais aucun listener actif).",
+    }),
+    // Exemple champ sensible : TOUJOURS flagger `secret: true` (masqué Studio + logs).
+    // apiKey: z.string().optional().meta({
+    //   secret: true,
+    //   description: "Clé d'accès au service X — fournie par env, jamais committée.",
+    // }),
   })
   .describe("Configuration de @nodefony/{{name}}.");
 
@@ -414,14 +387,6 @@ export const {{name}}ConfigSchema = z
 export type {{NameClass}}ConfigInput = z.input<typeof {{name}}ConfigSchema>;
 /** Config normalisée (défauts appliqués). */
 export type {{NameClass}}Config = z.infer<typeof {{name}}ConfigSchema>;
-
-/**
- * JSON Schema introspectable de la config — Studio en dérive son formulaire d'édition
- * (labels/types/défauts/descriptions), sans UI hardcodée.
- */
-export function {{name}}ConfigJsonSchema(): unknown {
-  return z.toJSONSchema({{name}}ConfigSchema);
-}
 
 /**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours valides
@@ -432,32 +397,51 @@ const config: {{NameClass}}Config = {{name}}ConfigSchema.parse({});
 export default config;
 ```
 
-### `nodefony/config/define{{NameClass}}Config.ts` — builder pur (parse + freeze)
+### `nodefony/config/defineModuleConfig.ts` — builder pur (parse + freeze) + JSON Schema
 
-> Builder ~15 lignes, **zéro valeur** (règle d'or ADR-0006 : les défauts vivent dans le
-> schéma de `config.ts`). Importe le schéma de `./config`, valide, gèle. Le slot env
-> DÉDIÉ (variables nommées du catalogue `env.ts`) s'applique APRÈS le parse, ici — cf
-> `defineDrizzleConfig` (`DRIZZLE_DB_FILE`). L'override env GÉNÉRIQUE `NF__{{NAME_UPPER}}__*`
-> est géré par le core, pas ici.
+> **Nom de FICHIER uniforme PARTOUT** (`defineModuleConfig.ts`, gravé lot 2 0.8) ; la
+> **fonction reste préfixée module** (`define{{NameClass}}Config()`) — 0 collision d'import
+> cross-modules. Builder ~30 lignes, **zéro valeur** (règle d'or ADR-0006 : les défauts
+> vivent dans le schéma de `config.ts`). Importe le schéma de `./config`, valide (erreurs
+> formatées par champ), gèle. Porte AUSSI `{{name}}ConfigJsonSchema()` (introspection
+> Studio). Le slot env DÉDIÉ (variables `NF_*` du catalogue `env.ts`) s'applique APRÈS le
+> parse, ici. L'override env GÉNÉRIQUE `NF__{{NAME_UPPER}}__*` est géré par le core, pas ici.
 
 ```typescript
+import { z } from "zod";
 import { {{name}}ConfigSchema } from "./config";
 import type { {{NameClass}}Config, {{NameClass}}ConfigInput } from "./config";
 
 /**
- * Builder type-safe de la configuration de `@nodefony/{{name}}`.
- *
- * Source unique = `./config.ts` (schéma Zod). VALIDE + GÈLE — aucune valeur par défaut
- * ici. Lève une `ZodError` (message clair) si la config est invalide.
+ * Builder type-safe de la configuration de `@nodefony/{{name}}` (PUR — ne retape
+ * JAMAIS un défaut : source unique = `./config.ts`).
  *
  * @param config - configuration brute (champs omis = défauts sûrs du schéma).
  * @returns config validée et gelée.
- * @throws ZodError si la config est invalide.
+ * @throws Error si la config est invalide (issues Zod agrégées, lisibles par champ).
  */
 export function define{{NameClass}}Config(
   config: {{NameClass}}ConfigInput = {},
 ): {{NameClass}}Config {
-  return Object.freeze({{name}}ConfigSchema.parse(config));
+  try {
+    return Object.freeze({{name}}ConfigSchema.parse(config));
+  } catch (e) {
+    const issues =
+      e instanceof Error && "issues" in e && Array.isArray(e.issues)
+        ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
+            .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+            .join(" · ")
+        : (e as Error).message;
+    throw new Error(`[@nodefony/{{name}}] Invalid config: ${issues}`);
+  }
+}
+
+/**
+ * JSON Schema introspectable de la config — Studio en dérive son formulaire d'édition
+ * (labels/types/défauts/descriptions + flags `.meta()` recopiés), sans UI hardcodée.
+ */
+export function {{name}}ConfigJsonSchema(): unknown {
+  return z.toJSONSchema({{name}}ConfigSchema);
 }
 ```
 
@@ -670,7 +654,7 @@ src/packages/@nodefony/{{name}}/
 ├── CLAUDE.md / MEMORY.md / README.md
 └── nodefony/
 ├── config/config.ts ← schéma Zod commenté (source unique) + défauts parse({})
-├── config/define{{NameClass}}Config.ts ← builder pur (parse + freeze)
+├── config/defineModuleConfig.ts ← builder pur (fonction define{{NameClass}}Config + jsonSchema)
 ├── interfaces/I{{NameClass}}Service.ts
 ├── service/{{NameClass}}Service.ts ← @injectable, name="{{name}}"
 ├── (command/ / controller/ / entity/ selon options)

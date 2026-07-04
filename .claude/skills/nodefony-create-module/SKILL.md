@@ -110,7 +110,8 @@ Variables à remplacer dans tous les templates :
 **Fichiers générés TOUJOURS** : `package.json`, `tsconfig.json`, `rollup.config.ts`,
 `vitest.config.ts`, `index.ts` (Module class + exports + validation Zod au boot),
 **`nodefony/config/config.ts`** ⭐ (schéma Zod commenté = source unique + défauts `parse({})`),
-`nodefony/config/define{{NameClass}}Config.ts` (builder pur : parse + freeze),
+`nodefony/config/defineModuleConfig.ts` (nom de FICHIER uniforme partout — fonction préfixée
+`define{{NameClass}}Config()` : parse + erreurs formatées + freeze + `{{name}}ConfigJsonSchema()`),
 `nodefony/interfaces/I{{NameClass}}Service.ts` + `index.ts` barrel,
 `nodefony/service/{{NameClass}}Service.ts`, `nodefony/src/errors/{{NameClass}}Error.ts`,
 `CLAUDE.md`, `MEMORY.md`, `README.md`, **`docs/index.md`, `docs/architecture.md`** ⭐.
@@ -126,18 +127,26 @@ Variables à remplacer dans tous les templates :
 > étendue (frontmatter Studio-friendly figé : `slug`, `title`, `section`, `audience`,
 > `version`, `status`, `updated`, `source`).
 
-> ⭐ **Config unifiée — convention ADR-0006 (« une source Zod par module »)** : tout module
-> qui expose une config porte son **schéma Zod commenté dans `config.ts`** — le SEUL fichier à
-> lire pour comprendre sa config (type via `z.infer<>`, défaut via `.default()`, doc via
-> `.describe()`, JSON Schema via `z.toJSONSchema`, défauts matérialisés via
-> `{{name}}ConfigSchema.parse({})`). Le builder pur (parse + freeze) vit dans
-> `define{{NameClass}}Config.ts`. **Plus de `schema.ts` séparé** (fusionné dans `config.ts`).
+> ⭐ **Config unifiée — convention ADR-0006 + lot 2 0.8 (« une source Zod par module »)** :
+> tout module qui expose une config porte son **schéma Zod commenté dans `config.ts`** — le
+> SEUL fichier à lire pour comprendre sa config (type via `z.infer<>`, défaut via `.default()`,
+> doc via `.describe()`, défauts matérialisés via `{{name}}ConfigSchema.parse({})`). Le builder
+> pur (parse + erreurs formatées + freeze) ET le JSON Schema (`z.toJSONSchema`) vivent dans
+> **`defineModuleConfig.ts`** (nom de fichier UNIFORME partout, fonction PRÉFIXÉE module).
+> **Plus de `schema.ts` séparé** (fusionné dans `config.ts`).
 > Un défaut n'est **JAMAIS** re-tapé ailleurs (ni en double, ni `.env.example`, ni `Dockerfile`).
 > Validé au boot via `onKernelRegister` → plante propre, pas de `undefined.x` silencieux. Chaque
 > champ est surchargeable par l'app via `use("@nodefony/{{name}}", { … })` et par env générique
 > `NF__{{NAME_UPPER}}__<CHEMIN>` (override cloud-native). Réf :
-> `docs/adr/0006-configuration-unifiee-env-override.md` ; modèles `@nodefony/drizzle` (schéma
-> dans `config.ts`) et `@nodefony/security`. Zod `^4.4.3` = peerDep TOUJOURS.
+> `docs/adr/0006-configuration-unifiee-env-override.md` ; modèles `@nodefony/drizzle` et
+> `@nodefony/documentation`. Zod `^4.4.3` = peerDep TOUJOURS.
+>
+> ⭐ **Flags de champ = `.meta()` NATIF zod** (l'augmentation `GlobalMeta` du core type
+> `reserved`/`runtimeMutable`/`kernelDerived`/`secret` partout — 0 helper, cf
+> `IConfigFieldMeta`). ⚠️ `.meta()` **TOUJOURS EN DERNIER** de la chaîne zod (un `.default()`
+> après `.meta()` PERD la métadonnée). Tout champ sensible porte `secret: true`.
+> **Vocabulaire** : backend de DONNÉES = champ `store` · FLUX/transport = `driver` · env
+> Nodefony = préfixe `NF_`.
 
 ### 4. Build du module
 
