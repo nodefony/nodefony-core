@@ -30,6 +30,11 @@ function applyEnvOverrides(config: IDrizzleConfig): IDrizzleConfig {
 /**
  * Builder type-safe de la configuration de `@nodefony/drizzle`.
  *
+ * ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même
+ * pattern que `nodefony.config.ts` ↔ `defineConfig()` du core : `config.ts` PORTE
+ * la config (schéma + défauts), `define<X>Config()` la VALIDE au boot (parse +
+ * env + freeze) et publie le JSON Schema Studio.
+ *
  * Aligné sur `defineMongooseConfig` (l'autre driver ORM) : source unique
  * (`./schema.ts`), VALIDE + applique l'ENV + GÈLE. Le **chemin SQLite par défaut**
  * (kernel-dépendant) n'est PAS résolu ici (schéma pur) mais dans `DrizzleService`

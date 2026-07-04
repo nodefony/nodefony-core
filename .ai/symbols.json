@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-04T13:14:05.312Z",
+  "generated": "2026-07-04T13:55:03.078Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -5303,7 +5303,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Builder type-safe de la configuration de `@nodefony/drizzle`. Aligné sur `defineMongooseConfig` (l'autre driver ORM) : source unique (`./schema.ts`), VALIDE + applique l'ENV + GÈLE. Le **chemin SQL…"
+      "description": "Builder type-safe de la configuration de `@nodefony/drizzle`. ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même pattern que `nodefony.config.ts` ↔ `defineConfig()` du core…"
     },
     "drizzleConfigJsonSchema": {
       "name": "drizzleConfigJsonSchema",
@@ -5777,7 +5777,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Builder type-safe de la configuration de `@nodefony/framework` (PUR — ne retape JAMAIS un défaut : source unique = `./config.ts`). Valide la config brute contre le schéma Zod et matérialise les déf…"
+      "description": "Builder type-safe de la configuration de `@nodefony/framework` (PUR — ne retape JAMAIS un défaut : source unique = `./config.ts`). ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fich…"
     },
     "frameworkConfigJsonSchema": {
       "name": "frameworkConfigJsonSchema",
@@ -7100,7 +7100,7 @@
       "file": "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/frontend",
-      "description": "Builder type-safe de la configuration de `@nodefony/frontend`. Principes (alignés sur `defineRealtimeConfig` / famille ORM) : - **Source unique** : `./config.ts` (Zod). Le builder VALIDE + GÈLE, ne…"
+      "description": "Builder type-safe de la configuration de `@nodefony/frontend`. ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même pattern que `nodefony.config.ts` ↔ `defineConfig()` du cor…"
     },
     "frontendConfigJsonSchema": {
       "name": "frontendConfigJsonSchema",
@@ -7408,7 +7408,7 @@
       "file": "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Builder type-safe de la configuration de `@nodefony/http`. Aligné sur `defineRedisConfig` / `defineSecurityConfig` : source unique = `./config.ts` (Zod) ; le builder VALIDE puis complète les défaut…"
+      "description": "Builder type-safe de la configuration de `@nodefony/http`. ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même pattern que `nodefony.config.ts` ↔ `defineConfig()` du core : …"
     },
     "httpConfigJsonSchema": {
       "name": "httpConfigJsonSchema",
@@ -8396,7 +8396,7 @@
       "file": "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "description": "Builder type-safe de la configuration de `@nodefony/mongoose`. Principes (alignés sur `defineRedisConfig` / `defineRealtimeConfig`) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE, a…"
+      "description": "Builder type-safe de la configuration de `@nodefony/mongoose`. ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même pattern que `nodefony.config.ts` ↔ `defineConfig()` du cor…"
     },
     "mongooseConfigJsonSchema": {
       "name": "mongooseConfigJsonSchema",
@@ -9336,7 +9336,7 @@
       "file": "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "Builder type-safe de la configuration de `@nodefony/realtime`. Principes (alignés sur `defineSecurityConfig`) : - **Source unique** : `./config.ts` (Zod). Le builder VALIDE + GÈLE, ne dévie pas. - …"
+      "description": "Builder type-safe de la configuration de `@nodefony/realtime`. ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même pattern que `nodefony.config.ts` ↔ `defineConfig()` du cor…"
     },
     "realtimeConfigJsonSchema": {
       "name": "realtimeConfigJsonSchema",
@@ -9590,7 +9590,7 @@
       "file": "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts",
       "exported": true,
       "module": "@nodefony/redis",
-      "description": "Builder type-safe de la configuration de `@nodefony/redis`. Principes (alignés sur `defineRealtimeConfig` / `defineSecurityConfig`) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE, a…"
+      "description": "Builder type-safe de la configuration de `@nodefony/redis`. ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même pattern que `nodefony.config.ts` ↔ `defineConfig()` du core :…"
     },
     "redisConfigJsonSchema": {
       "name": "redisConfigJsonSchema",

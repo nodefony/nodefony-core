@@ -3,6 +3,10 @@ import { z } from "zod";
 /**
  * @nodefony/redis — CONFIGURATION DU MODULE (schéma Zod = source unique).
  *
+ * ⭐ TL;DR : CE SCHÉMA EST LA CONFIG. Chaque `.default(...)` = la valeur d'usine ;
+ * changer un défaut du module = ÉDITER ICI (et nulle part ailleurs). L'app, elle,
+ * surcharge via `use("@nodefony/...", { … })` dans SON `nodefony.config.ts`.
+ *
  * RÈGLE D'OR (ADR-0006) : ce fichier porte le **schéma Zod commenté** (type +
  * validation + défaut + doc) ET matérialise les défauts via `parse({})`. Aucune
  * valeur n'est re-tapée ailleurs. Le builder (`defineModuleConfig.ts` →

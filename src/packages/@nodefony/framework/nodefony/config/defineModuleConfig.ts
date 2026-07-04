@@ -6,6 +6,11 @@ import type { FrameworkConfig, FrameworkConfigInput } from "./config";
  * Builder type-safe de la configuration de `@nodefony/framework` (PUR — ne
  * retape JAMAIS un défaut : source unique = `./config.ts`).
  *
+ * ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même
+ * pattern que `nodefony.config.ts` ↔ `defineConfig()` du core : `config.ts` PORTE
+ * la config (schéma + défauts), `define<X>Config()` la VALIDE au boot (parse +
+ * env + freeze) et publie le JSON Schema Studio.
+ *
  * Valide la config brute contre le schéma Zod et matérialise les défauts.
  * Une config invalide échoue avec un message lisible par champ (fail-loud au
  * boot, plutôt qu'un `undefined.x` silencieux en runtime).

@@ -6,6 +6,11 @@ import type { ISecurityConfig, ISecurityConfigInput } from "./config";
  * Builder type-safe de la configuration de sécurité Nodefony (PUR — ne retape
  * JAMAIS un défaut : source unique = `./config.ts`, le schéma Zod commenté).
  *
+ * ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même
+ * pattern que `nodefony.config.ts` ↔ `defineConfig()` du core : `config.ts` PORTE
+ * la config (schéma + défauts), `define<X>Config()` la VALIDE au boot (parse +
+ * env + freeze) et publie le JSON Schema Studio.
+ *
  * Valide + normalise + gèle ; conflits de patterns de zones détectés au boot.
  */
 

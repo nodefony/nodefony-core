@@ -3,6 +3,10 @@ import { z } from "zod";
 /**
  * ════════════════════════════════════════════════════════════════════════════
  *  @nodefony/security — CONFIGURATION DU MODULE (schéma Zod = source unique)
+ *
+ * ⭐ TL;DR : CE SCHÉMA EST LA CONFIG. Chaque `.default(...)` = la valeur d'usine ;
+ * changer un défaut du module = ÉDITER ICI (et nulle part ailleurs). L'app, elle,
+ * surcharge via `use("@nodefony/...", { … })` dans SON `nodefony.config.ts`.
  * ════════════════════════════════════════════════════════════════════════════
  *
  * RÈGLE D'OR (ADR-0006) : ce fichier porte le **schéma Zod commenté** (type +

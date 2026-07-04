@@ -1,11 +1,16 @@
 /**
  * @nodefony/documentation — Builder de configuration validée (Zod) + ENV.
  *
- * Sépare la VALIDATION (schéma pur `schema.ts`) de l'APPLICATION des variables
+ * ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même
+ * pattern que `nodefony.config.ts` ↔ `defineConfig()` du core : `config.ts` PORTE
+ * la config (schéma + défauts), `define<X>Config()` la VALIDE au boot (parse +
+ * env + freeze) et publie le JSON Schema Studio.
+ *
+ * Sépare la VALIDATION (schéma pur de `config.ts`) de l'APPLICATION des variables
  * d'environnement : le schéma reste déterministe (sérialisable en JSON Schema
  * pour Studio), et l'env est appliqué APRÈS le parse, ici.
  *
- * @see ./schema.ts — source de vérité (types dérivés via z.infer)
+ * @see ./config.ts — source de vérité (types dérivés via z.infer)
  */
 import { z } from "zod";
 import { documentationConfigSchema, type DocumentationConfig } from "./config";

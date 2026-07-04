@@ -3,6 +3,10 @@ import { z } from "zod";
 /**
  * @nodefony/frontend — CONFIGURATION DU MODULE (schéma Zod = source unique).
  *
+ * ⭐ TL;DR : CE SCHÉMA EST LA CONFIG. Chaque `.default(...)` = la valeur d'usine ;
+ * changer un défaut du module = ÉDITER ICI (et nulle part ailleurs). L'app, elle,
+ * surcharge via `use("@nodefony/...", { … })` dans SON `nodefony.config.ts`.
+ *
  * Ce module pilote Vite (builder + dev server) pour transpiler les frontends
  * déclarés par chaque module Nodefony :
  *
