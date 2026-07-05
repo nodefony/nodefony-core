@@ -296,7 +296,7 @@ export interface FilterInterface {
  *   son instance typée.
  */
 export interface ServiceWithInit extends Service {
-  init?(owner?: Module | Kernel): Promise<this>;
+  init?(owner?: Module<unknown> | Kernel): Promise<this>;
 }
 
 export interface ServiceConstructor {
@@ -2332,7 +2332,7 @@ class Kernel extends Service implements IKernel {
    */
   async guardServiceInitialize(
     serviceInit: ServiceWithInit,
-    owner: Module | Kernel,
+    owner: Module<unknown> | Kernel,
     critical: boolean,
   ): Promise<void> {
     if (!serviceInit.init) {
