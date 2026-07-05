@@ -49,11 +49,14 @@ const REDIS_UP = await redisReachable();
 /** Construit un Module minimal (faux) suffisant pour RedisService. */
 function fakeModule(redis: IRedisConfigInput): Module {
   const container = new Container();
+  // Le service lit sa config VALIDÉE via `this.module.config` (comme en prod, où
+  // le Module valide à onKernelRegister). On fournit la config validée directement.
+  const config = defineRedisConfig(redis);
   return {
     container,
     kernel: null,
-    options: { redis },
-    get: () => undefined,
+    options: config,
+    config,
   } as unknown as Module;
 }
 

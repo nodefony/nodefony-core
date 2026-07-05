@@ -85,8 +85,11 @@ export default defineConfig<Env>((ctx) => ({
     use(
       "@nodefony/http",
       {
-        // En dev, accepte les certificats auto-signés (mkcert). Prod : true.
-        rejectUnauthorized: !ctx.isDev,
+        // Serveur HTTPS : en dev, accepte les certificats auto-signés (mkcert) ;
+        // en prod, rejette tout certificat TLS non valide (secure-by-default).
+        // ⚠️ Doit vivre sous `https` (httpsServerSchema) — au top-level la clé est
+        // silencieusement strippée au parse et la valeur n'est JAMAIS appliquée.
+        https: { rejectUnauthorized: !ctx.isDev },
         // Certificat TLS (HTTPS/WSS). DEV : génération auto — mkcert (CA locale
         // trustée → 0 warning navigateur, HMR Vite) si dispo, sinon auto-signé
         // node-forge (SHA-256). PROD : fournir un VRAI certificat (Let's Encrypt,
@@ -143,7 +146,9 @@ export default defineConfig<Env>((ctx) => ({
         session: {
           store: "drizzle",
         },
-        formidable: { uploadDir: "./tmp/upload" },
+        // Upload multipart (moteur busboy). `uploadDir` = dossier de dépôt ;
+        // vide → résolu sur `kernel.tmpDir`. (Ex-clé `formidable` = moteur retiré.)
+        upload: { uploadDir: "./tmp/upload" },
       },
       { policy: "mandatory" },
     ),

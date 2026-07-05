@@ -75,11 +75,21 @@ class RealtimeService extends Service {
    * par la Module class). Aucun warn — c'est le cas commun.
    */
   async init(_module: Module): Promise<this> {
-    this.#config = this.get<IRealtimeConfig>("realtimeConfig");
+    this.#config = this.module.config as IRealtimeConfig;
     if (!this.#config) {
       throw new Error(
-        `${serviceName}: realtimeConfig manquant dans le container (la Module class doit la poser à onKernelRegister)`,
+        `${serviceName}: realtimeConfig absente (this.module.config vide) — la Module class doit la valider à onKernelRegister`,
       );
+    }
+    // `enabled: false` → module chargé mais inerte : on NE câble RIEN sur le hub
+    // (backplane / origin guard / limites / slow-consumer restent aux défauts, 0
+    // listener actif). Cf `realtimeConfigSchema.enabled`.
+    if (!this.#config.enabled) {
+      this.log(
+        "realtime enabled:false → service inerte (hub non câblé)",
+        "INFO",
+      );
+      return this;
     }
     const hub = this.getHub();
     const custom =

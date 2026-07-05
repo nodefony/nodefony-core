@@ -37,7 +37,7 @@ declare module "nodefony" {
 }
 
 @services([MongooseService])
-class Mongoose extends Module {
+class Mongoose extends Module<IMongooseConfig> {
   /**
    * Module **optionnel** (driver NoSQL externe, opt-in) : un échec de son boot
    * (Mongo injoignable) ne tue jamais le process — le store de session dégrade
@@ -76,7 +76,9 @@ class Mongoose extends Module {
           : (e as Error).message;
       throw new Error(`[@nodefony/mongoose] Invalid config: ${issues}`);
     }
-    this.set("mongooseConfig", validated);
+    // Config validée exposée via this.options → `this.config` (accès uniforme
+    // typé). Le MongooseService la lit sur son module (`this.module.config`).
+    this.options = validated;
 
     // AUTO-REGISTER du schéma framework (tokens/webauthn/webhooks) sur le
     // connecteur `nodefony` + fabriques "mongoose" dans les registres security —

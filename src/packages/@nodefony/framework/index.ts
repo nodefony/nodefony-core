@@ -128,7 +128,7 @@ registerIdempotencyStore("redis", (ctx) => {
 });
 
 @services([Router, Eta, AdminBroker, MemoryIdempotencyStore])
-class Framework extends Module {
+class Framework extends Module<FrameworkConfig> {
   /** Balayage périodique du store d'idempotence SQL (drizzle) — `null` sinon. */
   #idempotencyGc: GcScheduler | null = null;
 

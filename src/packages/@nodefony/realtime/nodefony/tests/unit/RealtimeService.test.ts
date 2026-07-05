@@ -30,16 +30,26 @@ class FakeBackplane implements IBackplane {
 }
 
 /**
- * Construit un mock minimaliste de Module : Container + Event partagés, options
- * vides. Suffit au constructor de Service (zéro lifecycle kernel).
+ * Construit un mock minimaliste de Module : Container + Event partagés, config
+ * exposée DIRECTEMENT (miroir prod : le service lit `this.module.config`).
+ * Suffit au constructor de Service (zéro lifecycle kernel).
+ *
+ * `options` reste `{}` (fixe) : c'est l'argument passé au constructeur `Service`
+ * (`attachConfiguredListeners` y itère `Object.keys`, il doit rester un objet
+ * même quand on simule une config manquante via `config: null`). Seul `config`
+ * porte la valeur testée — c'est la seule propriété lue par `RealtimeService`.
  */
-function buildModuleMock(): { module: Module; container: Container } {
+function buildModuleMock(config: unknown = defineRealtimeConfig()): {
+  module: Module;
+  container: Container;
+} {
   const container = new Container();
   const nc = new Event({}, null, {});
   const moduleMock = {
     container,
     notificationsCenter: nc,
     options: {},
+    config,
   } as unknown as Module;
   return { module: moduleMock, container };
 }
@@ -61,25 +71,50 @@ describe("RealtimeService — façade DI du hub realtime", () => {
 
   describe("construction", () => {
     it("hérite de Service et expose le nom realtimeService", () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       expect(svc.getName()).to.equal("realtimeService");
     });
 
     it("init plante si realtimeConfig manque dans le container", async () => {
-      const { module } = buildModuleMock();
+      const { module } = buildModuleMock(null);
       const svc = new RealtimeService(module);
       await expect(svc.init(module)).rejects.toThrow(/realtimeConfig/);
     });
   });
 
+  // `enabled: false` → module chargé mais INERTE : init NE câble rien sur le hub
+  // (backplane custom ignoré, origin guard/limites aux défauts). Cf le câblage
+  // `RealtimeService.init` (garde `if (!this.#config.enabled) return`).
+  describe("initialize — enabled:false (module inerte)", () => {
+    it("enabled:false → le backplane custom n'est PAS branché (hub inerte)", async () => {
+      const bp = new FakeBackplane();
+      const { module } = buildModuleMock(
+        defineRealtimeConfig({ enabled: false }, { backplane: bp }),
+      );
+      const svc = new RealtimeService(module);
+      await svc.init(module);
+      const hub = getRealtimeHub();
+      // Inerte : la config custom (backplane) n'a PAS été appliquée au hub.
+      expect(hub.backplane).to.not.equal(bp);
+    });
+
+    it("enabled:true (défaut) → le backplane custom EST branché (contraste)", async () => {
+      const bp = new FakeBackplane();
+      const { module } = buildModuleMock(
+        defineRealtimeConfig({ enabled: true }, { backplane: bp }),
+      );
+      const svc = new RealtimeService(module);
+      await svc.init(module);
+      const hub = getRealtimeHub();
+      expect(hub.backplane).to.equal(bp);
+    });
+  });
+
   describe("initialize — backplane custom", () => {
     it("branche backplane.instance fournie via defineRealtimeConfig", async () => {
-      const { module, container } = buildModuleMock();
       const bp = new FakeBackplane();
-      container.set(
-        "realtimeConfig",
+      const { module } = buildModuleMock(
         defineRealtimeConfig({}, { backplane: bp }),
       );
       const svc = new RealtimeService(module);
@@ -91,7 +126,6 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     it("branche realtimeBackplane du container si pas d'instance dans la config", async () => {
       const { module, container } = buildModuleMock();
       const bp = new FakeBackplane();
-      container.set("realtimeConfig", defineRealtimeConfig());
       container.set("realtimeBackplane", bp);
       const svc = new RealtimeService(module);
       await svc.init(module);
@@ -99,8 +133,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("aucun backplane fourni → hub reste sur son backplane par défaut", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
       // null = Loopback implicite (hot-path teste `=== null`)
@@ -110,9 +143,8 @@ describe("RealtimeService — façade DI du hub realtime", () => {
 
   describe("API — délégation au hub", () => {
     it("getConfig retourne la config gelée", async () => {
-      const { module, container } = buildModuleMock();
       const cfg = defineRealtimeConfig({ slowConsumer: { bytes: 4096 } });
-      container.set("realtimeConfig", cfg);
+      const { module } = buildModuleMock(cfg);
       const svc = new RealtimeService(module);
       await svc.init(module);
       expect(svc.getConfig()).to.equal(cfg);
@@ -120,8 +152,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("getHub retourne le singleton RealtimeHub", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
       expect(svc.getHub()).to.be.instanceOf(RealtimeHub);
@@ -129,8 +160,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("publish + subscribe + unsubscribe délégués au hub", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
 
@@ -154,8 +184,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("markBroadcastChannel délégué au hub", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
 
@@ -167,8 +196,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("setFrameAuthorizer (Seam #1) délégué au hub + null le retire", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
 
@@ -180,8 +208,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("resolveChannelPolicy (Seam #1b) délégué au hub", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
 
@@ -198,8 +225,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
   // ─── Seams sécurité P13 Bloc A étape 6 ──────────────────────────────────
   describe("Seam #4 — Origin guard depuis defineRealtimeConfig().csrf.checkOrigin", () => {
     it("csrf.checkOrigin.enabled=false (défaut) → hub.checkOrigin renvoie true partout", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
       expect(svc.getHub().checkOrigin("https://evil.com")).to.equal(true);
@@ -207,9 +233,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("csrf.checkOrigin.enabled=true + allowList exact → accepte/refuse selon liste", async () => {
-      const { module, container } = buildModuleMock();
-      container.set(
-        "realtimeConfig",
+      const { module } = buildModuleMock(
         defineRealtimeConfig({
           csrf: {
             checkOrigin: {
@@ -228,9 +252,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("allowMissingOrigin=false (défaut) → Origin absente refusée (fail-closed)", async () => {
-      const { module, container } = buildModuleMock();
-      container.set(
-        "realtimeConfig",
+      const { module } = buildModuleMock(
         defineRealtimeConfig({
           csrf: {
             checkOrigin: {
@@ -247,9 +269,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("allowMissingOrigin=true → Origin absente acceptée (clients non-browser)", async () => {
-      const { module, container } = buildModuleMock();
-      container.set(
-        "realtimeConfig",
+      const { module } = buildModuleMock(
         defineRealtimeConfig({
           csrf: {
             checkOrigin: {
@@ -271,9 +291,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("enabled=true + allowList vide → tout refusé (fail-closed sécurisé)", async () => {
-      const { module, container } = buildModuleMock();
-      container.set(
-        "realtimeConfig",
+      const { module } = buildModuleMock(
         defineRealtimeConfig({
           csrf: {
             checkOrigin: {
@@ -290,9 +308,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("enabled=true SANS allowList déclarée → liste vide (branche `?? []`)", async () => {
-      const { module, container } = buildModuleMock();
-      container.set(
-        "realtimeConfig",
+      const { module } = buildModuleMock(
         defineRealtimeConfig({ csrf: { checkOrigin: { enabled: true } } }),
       );
       const svc = new RealtimeService(module);
@@ -311,8 +327,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     }
 
     it("useAuthenticator délègue au hub (matcher enregistré)", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
       const auth = makeAuth("jwt");
@@ -321,8 +336,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("getTokenForPeer délègue au hub (fallback Anonymous)", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
       const peer = new JsonRpcPeer({ send: () => {} });
@@ -338,16 +352,14 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
 
     it("getConfig APRÈS init → renvoie la config gelée", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
       expect(svc.getConfig()).to.be.an("object");
     });
 
     it("probe délègue au hub (snapshot d'observabilité)", async () => {
-      const { module, container } = buildModuleMock();
-      container.set("realtimeConfig", defineRealtimeConfig());
+      const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
       await svc.init(module);
       expect(svc.probe()).to.be.an("object");

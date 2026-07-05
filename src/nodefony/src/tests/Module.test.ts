@@ -1306,3 +1306,69 @@ describe("Module — registre de services (contrats DI)", () => {
     );
   });
 });
+
+// ─── 20. config getter (accès uniforme typé à la config du module) ───────────
+//
+// `this.config` = vue typée en LECTURE sur `this.options` (le stockage de
+// Service). Un module se type via `extends Module<IXConfig>`. Remplace le double
+// idiome historique (this.options brut / container key `<module>Config`).
+
+describe("Module — config getter", () => {
+  it("this.config renvoie this.options (MÊME référence, pas une copie)", () => {
+    const opts = { foo: "bar", nested: { a: 1 } };
+    const mod = new Module(
+      "cfg-same-ref",
+      makeKernelStub(),
+      process.cwd(),
+      opts,
+    );
+    assert.strictEqual(
+      mod.config,
+      mod.options,
+      "config et options doivent être le même objet",
+    );
+    assert.strictEqual((mod.config as Record<string, unknown>).foo, "bar");
+  });
+
+  it("this.config reflète la réassignation de this.options (validation au boot)", () => {
+    const mod = new Module("cfg-reassign", makeKernelStub(), process.cwd(), {});
+    const validated = { enabled: true, store: "drizzle" };
+    mod.options = validated as unknown as DefaultOptionsService;
+    assert.strictEqual(
+      mod.config,
+      validated,
+      "après this.options = validated, this.config renvoie la config validée",
+    );
+    assert.strictEqual((mod.config as Record<string, unknown>).enabled, true);
+  });
+
+  it("sous-classe typée Module<TConfig> → this.config typé sans cast", () => {
+    interface MyCfg {
+      host: string;
+      port: number;
+    }
+    class TypedModule extends Module<MyCfg> {
+      constructor(k: Kernel) {
+        super("typed-cfg", k, process.cwd(), {
+          host: "h",
+          port: 1,
+        } as unknown as DefaultOptionsService);
+      }
+      // Accès typé : this.config.host compile sans cast (TConfig = MyCfg).
+      readHost(): string {
+        return this.config.host;
+      }
+    }
+    const t = new TypedModule(makeKernelStub());
+    assert.strictEqual(t.readHost(), "h");
+    assert.strictEqual(t.config.port, 1);
+  });
+
+  it("Module non typé → this.config = Record<string, unknown> (défaut générique)", () => {
+    const mod = new Module("cfg-untyped", makeKernelStub(), process.cwd(), {
+      any: "value",
+    });
+    const cfg: Record<string, unknown> = mod.config;
+    assert.strictEqual(cfg.any, "value");
+  });
+});

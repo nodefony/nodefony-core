@@ -11,7 +11,6 @@ import {
 import type { RedisClientType } from "redis";
 import Connection from "../src/Connection";
 import { buildClientOptions } from "../src/buildClientOptions";
-import { defineRedisConfig } from "../config/defineModuleConfig";
 import type { IRedisConfig } from "../interfaces/IRedisConfig";
 
 const serviceName = "redis";
@@ -66,11 +65,7 @@ class RedisService extends Service {
     if (this.#config) {
       return this.#config;
     }
-    const fromContainer = this.module.get?.("redisConfig") as
-      IRedisConfig | undefined;
-    this.#config =
-      fromContainer ??
-      defineRedisConfig((this.module.options?.redis as never) ?? {});
+    this.#config = this.module.config as IRedisConfig;
     return this.#config;
   }
 

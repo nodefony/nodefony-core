@@ -31,7 +31,7 @@ import type {
 } from "./nodefony/interfaces/IRedisConfig";
 
 @services([RedisService])
-class Redis extends Module {
+class Redis extends Module<IRedisConfig> {
   /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
   static override critical = false;
 
@@ -67,7 +67,9 @@ class Redis extends Module {
           : (e as Error).message;
       throw new Error(`[@nodefony/redis] Invalid config: ${issues}`);
     }
-    this.set("redisConfig", validated);
+    // Config validée exposée via this.options → `this.config` (accès uniforme
+    // typé). Le RedisService la lit sur son module (`this.module.config`).
+    this.options = validated;
 
     // AUTO-REGISTER des fabriques de stores Redis (tokens/webauthn) dans les
     // registres security — zéro câblage app ; guards = l'app garde la main.

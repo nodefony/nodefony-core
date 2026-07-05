@@ -55,7 +55,10 @@ const controllers: Record<string, TypeController<Controller>> = {};
  * @remarks Le constructor ajoute TOUJOURS 2 listeners (onBoot + onPostReady) indépendamment des
  *   hooks user — comportement normal pour récupérer rollup/watcher + démarrer le watch dev.
  */
-class Module extends Service implements IModule {
+class Module<TConfig = Record<string, unknown>>
+  extends Service
+  implements IModule
+{
   commands: Record<string, Command> = {};
   static controllers = controllers;
   /**
@@ -130,6 +133,22 @@ class Module extends Service implements IModule {
    */
   configSchema(): unknown | null {
     return null;
+  }
+
+  /**
+   * Config **validée + gelée** du module — point d'accès UNIFORME et typé.
+   *
+   * Renvoie `this.options` (l'objet de config du module, réassigné par sa
+   * validation Zod à `onKernelRegister`). Un module se type via
+   * `extends Module<IXConfig>` → `this.config` est alors `IXConfig` sans cast.
+   * Remplace le double idiome historique (`this.options` brut d'un côté,
+   * `this.get("<module>Config")` de l'autre) par un seul accès. Coût nul : le
+   * getter renvoie la référence, aucune allocation ni appel système.
+   *
+   * @returns la config du module, typée `TConfig` (défaut `Record<string, unknown>`).
+   */
+  get config(): TConfig {
+    return this.options as unknown as TConfig;
   }
 
   /**

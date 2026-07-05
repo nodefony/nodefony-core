@@ -8,7 +8,8 @@ import DrizzleService from "../../nodefony/service/DrizzleService";
 // logique d'orchestration NÔTRE — sans booter un vrai Kernel.
 const makeModule = (drizzleConfig: unknown): Module =>
   ({
-    get: (key: string) => (key === "drizzleConfig" ? drizzleConfig : undefined),
+    // Le service lit sa config via `this.module.config` (getter uniforme).
+    config: drizzleConfig,
   }) as unknown as Module;
 
 describe("DrizzleService — orchestration boot (hors kernel)", () => {

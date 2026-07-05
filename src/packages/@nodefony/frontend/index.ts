@@ -17,6 +17,7 @@ import {
   frontendConfigJsonSchema,
   type IFrontendConfigInput,
 } from "./nodefony/config/defineModuleConfig";
+import type { FrontendConfig } from "./nodefony/config/config";
 import FrontendService from "./nodefony/service/FrontendService";
 import { createFrontendAdminApi } from "./nodefony/src/FrontendAdminApi";
 import FrontendBuild from "./nodefony/command/frontend-build";
@@ -31,7 +32,7 @@ declare module "nodefony" {
 }
 
 @services([FrontendService])
-class Frontend extends Module {
+class Frontend extends Module<FrontendConfig> {
   constructor(kernel: Kernel) {
     super("frontend", kernel, import.meta.url, config);
     this.addCommand(FrontendBuild);

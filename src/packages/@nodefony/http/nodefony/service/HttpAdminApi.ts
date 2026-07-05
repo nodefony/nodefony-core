@@ -18,7 +18,7 @@ interface SessionsLike {
     savePath?: string;
     idleTimeoutS?: number;
     absoluteTimeoutS?: number;
-    handler?: string;
+    store?: string;
   };
   // Le storage actif est décoré par `RevocationGuardStorage` (garde-fou de
   // révocation) → `.inner` porte le store RÉEL (drizzle/files/redis/mongo).
@@ -215,12 +215,12 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         const svc = module.get("sessions") as SessionsLike | undefined;
         if (!svc) return { enabled: false, active: 0 };
         // « Où on écrit » : le store RÉEL est sous le garde-fou de révocation
-        // (`storage.inner`). Le `handler` config (drizzle/files/redis/mongo) est
-        // le nom propre du driver ; on garde `storage` = classe du store réel.
+        // (`storage.inner`). Le `store` config (drizzle/files/redis/mongo) est
+        // le nom propre du backend ; on garde `storage` = classe du store réel.
         const inner = svc.storage?.inner ?? null;
         const storage =
           inner?.constructor?.name ?? svc.storage?.constructor?.name ?? "none";
-        const driver = svc.options?.handler ?? null;
+        const driver = svc.options?.store ?? null;
         // Révocation effective garantie ssi le store est bien décoré (anti-
         // résurrection — bug 2026-06-21 ; couvre TOUT backend). Honnête : false
         // si un jour le garde-fou n'était pas posé.

@@ -70,9 +70,9 @@ class DrizzleService extends Service {
     });
   }
 
-  /** Config validée (Zod) exposée par le Module au `onKernelRegister`. */
-  #config(): IDrizzleConfig | undefined {
-    return this.module.get?.("drizzleConfig") as IDrizzleConfig | undefined;
+  /** Config validée (Zod) exposée par le Module (`this.module.config`). */
+  #config(): IDrizzleConfig {
+    return this.module.config as IDrizzleConfig;
   }
 
   /** Connecte tous les connecteurs déclarés en config (validée Zod). */

@@ -5,7 +5,10 @@ import {
   defineHttpConfig,
   httpConfigJsonSchema,
 } from "./nodefony/config/defineModuleConfig";
-import type { IHttpConfigInput } from "./nodefony/interfaces/IHttpConfig";
+import type {
+  IHttpConfig,
+  IHttpConfigInput,
+} from "./nodefony/interfaces/IHttpConfig";
 import { createHttpAdminApi } from "./nodefony/service/HttpAdminApi";
 import { createProfilerAdminApi } from "./nodefony/service/ProfilerAdminApi";
 import { Profiler } from "./nodefony/src/profiler/Profiler";
@@ -57,7 +60,7 @@ declare module "nodefony" {
   WebsocketSecureServer,
   UploadService,
 ])
-class Http extends Module {
+class Http extends Module<IHttpConfig> {
   //httpKernel: HttpKernel | null = null;
   constructor(kernel: Kernel) {
     super("http", kernel, import.meta.url, config);

@@ -32,7 +32,7 @@ declare module "nodefony" {
 }
 
 @services([DrizzleService])
-class Drizzle extends Module {
+class Drizzle extends Module<IDrizzleConfig> {
   constructor(kernel: Kernel) {
     super("drizzle", kernel, import.meta.url, config);
   }
@@ -63,7 +63,9 @@ class Drizzle extends Module {
           : (e as Error).message;
       throw new Error(`[@nodefony/drizzle] Invalid config: ${issues}`);
     }
-    this.set("drizzleConfig", validated);
+    // Config validée exposée via this.options → `this.config` (accès uniforme
+    // typé). Le DrizzleService la lit sur son module (`this.module.config`).
+    this.options = validated;
 
     // AUTO-REGISTER du schéma framework (tokens/audit/webauthn/webhooks/
     // idempotence) sur le connecteur `default` + fabriques de stores dans les

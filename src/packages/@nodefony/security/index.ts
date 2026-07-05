@@ -55,6 +55,11 @@ declare module "nodefony" {
   TotpService,
   WebhookService,
 ])
+// NOTE : PAS `extends Module<ISecurityConfig>` — security valide sa config de façon
+// DÉCENTRALISÉE (defineSecurityConfig() appelé dans chacun des 8 @services, gardé en
+// #config privé), jamais réassignée à this.options. `this.config` renverrait donc la
+// config BRUTE non validée → on ne type pas le getter tant que la validation n'est pas
+// centralisée en onKernelRegister (chantier séparé, cf tâche follow-up).
 class Security extends Module {
   constructor(kernel: Kernel) {
     super("security", kernel, fileURLToPath(import.meta.url), config);

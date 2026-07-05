@@ -134,11 +134,12 @@ const USER = mkUser("alice", ["ROLE_USER"]);
 async function bootSecurity(): Promise<void> {
   const container = new Container();
   const nc = new Event({}, null, {});
-  container.set("realtimeConfig", defineRealtimeConfig());
   const svcModule = {
     container,
     notificationsCenter: nc,
-    options: {},
+    options: defineRealtimeConfig(),
+    // Le service lit sa config via `this.module.config` (miroir prod).
+    config: defineRealtimeConfig(),
   } as unknown as Module;
   const svc = new RealtimeService(svcModule);
   await svc.init(svcModule);

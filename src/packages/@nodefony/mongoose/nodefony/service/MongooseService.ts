@@ -54,9 +54,9 @@ class MongooseService extends Service {
     });
   }
 
-  /** Config validée (Zod) exposée par le Module au `onKernelRegister`. */
-  #config(): IMongooseConfig | undefined {
-    return this.module.get?.("mongooseConfig") as IMongooseConfig | undefined;
+  /** Config validée (Zod) exposée par le Module (`this.module.config`). */
+  #config(): IMongooseConfig {
+    return this.module.config as IMongooseConfig;
   }
 
   /** Connecte tous les connecteurs déclarés en config (validée Zod). */

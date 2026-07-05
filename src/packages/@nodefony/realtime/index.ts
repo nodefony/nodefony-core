@@ -139,7 +139,7 @@ registerBackplaneDriver(RedisBackplane.driver, (ctx) => {
 });
 
 @services([RealtimeService])
-class Realtime extends Module {
+class Realtime extends Module<IRealtimeConfig> {
   /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
   static override critical = false;
 
@@ -153,9 +153,12 @@ class Realtime extends Module {
     // par requête). On capte le rôle (consommé par la sélection de backplane à
     // `onKernelBoot`) et on branche la sonde pod. Le backplane lui-même est
     // résolu via le registre de drivers (cf #wireBackplane) — pas ici.
+    // On CAPTE seulement le rôle ici (onCluster = preRegister, AVANT que la config
+    // validée soit posée à `onKernelRegister`). Le branchement de la sonde est
+    // différé à `onKernelBoot` — sinon `cluster.probe.enabled` serait illisible
+    // (config absente à ce stade) → champ mort.
     kernel.once("onCluster", (role: "MASTER" | "WORKER") => {
       this.#clusterRole = role;
-      this.#wireClusterProbe(role);
     });
   }
 
@@ -190,7 +193,9 @@ class Realtime extends Module {
           : (e as Error).message;
       throw new Error(`[@nodefony/realtime] Invalid config: ${issues}`);
     }
-    this.set("realtimeConfig", validated);
+    // Config validée exposée via this.options → `this.config` (accès uniforme
+    // typé). Le RealtimeService la lit sur son module (`this.module.config`).
+    this.options = validated;
     return this;
   }
 
@@ -206,12 +211,25 @@ class Realtime extends Module {
    * `onKernelBoot` court donc avant et garantit l'ordre.
    */
   override async onKernelBoot(): Promise<this> {
+    // `enabled: false` → module inerte : ni API admin, ni backplane, ni sonde pod.
+    // Cf `realtimeConfigSchema.enabled` (registry chargé, mais 0 listener actif).
+    const cfg = this.config;
+    if (!cfg.enabled) {
+      this.log(
+        "realtime enabled:false → boot inerte (ni admin API ni backplane ni sonde)",
+        "INFO",
+      );
+      return this;
+    }
     const broker = this.kernel?.container?.get("adminBroker") as
       IAdminBroker | undefined;
     if (broker && !broker.has("realtime")) {
       broker.register(createRealtimeAdminApi());
     }
     await this.#wireBackplane();
+    // Sonde pod (cluster worker) — différée ici pour lire `cluster.probe.enabled`
+    // (config indisponible dans le callback `onCluster` du constructeur).
+    this.#wireClusterProbe(this.#clusterRole);
     return this;
   }
 
@@ -233,8 +251,7 @@ class Realtime extends Module {
    * si le driver déclaré est inconnu du registre.
    */
   async #wireBackplane(): Promise<void> {
-    const config = this.get("realtimeConfig") as IRealtimeConfig | undefined;
-    if (!config) return;
+    const config = this.config;
     const hub = getRealtimeHub();
     if (hub.backplane !== null) return; // custom (instance/DI) déjà branché
 
@@ -331,12 +348,15 @@ class Realtime extends Module {
    * sert la vue per-instance. Le backplane (realtime) reste indépendant de la sonde.
    * Idempotent.
    */
-  #wireClusterProbe(role: "MASTER" | "WORKER"): void {
+  #wireClusterProbe(role: "MASTER" | "WORKER" | "MONO"): void {
     if (role !== "WORKER" || process.env.NODEFONY_CLUSTER !== "1") return;
     // Sonde agrégée pod (Phase 4c) — opt-in, désactivable → bypass total
     // (0 client / 0 timer / 0 IPC quand off). Indépendante du backplane realtime,
     // qui est résolu par le registre de drivers à `onKernelBoot`.
-    if (process.env.NODEFONY_CLUSTER_PROBE !== "0") {
+    // Deux leviers de coupure : la config `cluster.probe.enabled` ET l'override
+    // env `NODEFONY_CLUSTER_PROBE=0` — l'un OU l'autre à false suffit.
+    const probeEnabled = this.config.cluster.probe.enabled;
+    if (probeEnabled && process.env.NODEFONY_CLUSTER_PROBE !== "0") {
       setClusterProbeClient(new ClusterProbeClient()).start(buildOwnHealth);
       this.log("RealtimeHub: ClusterProbeClient branché (sonde pod)", "INFO");
     }

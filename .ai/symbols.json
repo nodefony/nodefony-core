@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-04T15:46:07.703Z",
+  "generated": "2026-07-05T10:43:13.027Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -18741,6 +18741,11 @@
       "documentationConfigJsonSchema": [
         "src/packages/@nodefony/documentation/index.ts"
       ],
+      "DocumentationConfig": [
+        "src/packages/@nodefony/documentation/index.ts",
+        "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
       "DocumentationService": [
         "src/packages/@nodefony/documentation/index.ts"
       ],
@@ -19166,6 +19171,11 @@
       "IFrontendConfigInput": [
         "src/packages/@nodefony/frontend/index.ts"
       ],
+      "FrontendConfig": [
+        "src/packages/@nodefony/frontend/index.ts",
+        "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
       "createFrontendAdminApi": [
         "src/packages/@nodefony/frontend/index.ts"
       ],
@@ -19183,6 +19193,10 @@
       ],
       "httpConfigJsonSchema": [
         "src/packages/@nodefony/http/index.ts"
+      ],
+      "IHttpConfig": [
+        "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"
       ],
       "IHttpConfigInput": [
         "src/packages/@nodefony/http/index.ts",
@@ -19507,8 +19521,7 @@
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
       "defineRedisConfig": [
-        "src/packages/@nodefony/redis/index.ts",
-        "src/packages/@nodefony/redis/nodefony/service/redis.ts"
+        "src/packages/@nodefony/redis/index.ts"
       ],
       "redisConfigJsonSchema": [
         "src/packages/@nodefony/redis/index.ts"
@@ -20892,10 +20905,6 @@
       "documentationConfigSchema": [
         "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts"
       ],
-      "DocumentationConfig": [
-        "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts",
-        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
-      ],
       "DocNotFoundError": [
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
@@ -21566,10 +21575,6 @@
       "frontendConfigSchema": [
         "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts"
       ],
-      "FrontendConfig": [
-        "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
-      ],
       "IFrontPreset": [
         "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontBuilder.ts",
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts",
@@ -21664,9 +21669,6 @@
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
       "httpConfigSchema": [
-        "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"
-      ],
-      "IHttpConfig": [
         "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"
       ],
       "HTTPMethodType": [

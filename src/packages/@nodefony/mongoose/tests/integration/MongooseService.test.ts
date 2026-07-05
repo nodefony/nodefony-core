@@ -7,8 +7,8 @@ import type { IMongooseConnectorConfig } from "../../nodefony/interfaces/IMongoo
 
 const makeModule = (mongooseConfig: unknown): Module =>
   ({
-    get: (key: string) =>
-      key === "mongooseConfig" ? mongooseConfig : undefined,
+    // Le service lit sa config via `this.module.config` (getter uniforme).
+    config: mongooseConfig,
   }) as unknown as Module;
 
 describe("MongooseService — buildUri (assemblage pur)", () => {

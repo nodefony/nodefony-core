@@ -22,12 +22,13 @@ import {
   defineDocumentationConfig,
   documentationConfigJsonSchema,
 } from "./nodefony/config/defineModuleConfig";
+import type { DocumentationConfig } from "./nodefony/config/config";
 import DocumentationService from "./nodefony/service/DocumentationService";
 import DocumentationController from "./nodefony/controller/DocumentationController";
 
 @services([DocumentationService])
 @controllers([DocumentationController])
-class Documentation extends Module {
+class Documentation extends Module<DocumentationConfig> {
   /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
   static override critical = false;
 
