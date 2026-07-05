@@ -1,51 +1,72 @@
 # @nodefony/security
 
-Couche de sécurité de Nodefony — **refonte 2026 (en cours, P6)**.
+Couche de sécurité de Nodefony (**P6**).
 
 Firewall par zones, authentication (pattern `IAuthenticator`), autorisation (rôles + voters),
-CORS, CSRF, en-têtes de sécurité, JWT, clés API, webhooks, audit. **HTTP full stateless**
-(JWT en cookie), **Zero Trust** par défaut. Consomme [`@nodefony/user`](../user).
+CORS, CSRF, en-têtes de sécurité, JWT, clés API, WebAuthn/passkeys, OAuth2 social, 2FA TOTP,
+webhooks signés, audit persistant. **Modèle d'identité hybride**, **Zero Trust** par défaut.
+Consomme [`@nodefony/user`](../user).
 
-> ⚠️ **Statut** : S1 (fondation) livré. L'authentication concrète (authenticators), le câblage
-> du pipeline, l'autorisation par décorateurs et la console Studio arrivent aux sessions suivantes.
+> **Statut** : cœur livré — firewall + zones, session serveur (NIST), JWT (`jose`), WebAuthn,
+> OAuth2 social, CSRF/CORS/en-têtes natifs, clés API/PAT, 2FA TOTP, webhooks, audit persistant,
+> rate-limit. Reste : voters d'autorisation, CSP nonce par requête, décorateurs `@CsrfProtect`.
 
 ## Principes
 
-- **Pattern `IAuthenticator`** (style Symfony 6) — pas de Bridge/Factory.
+- **Pattern `IAuthenticator`** (supports / authenticate / onSuccess) — pas de Bridge/Factory.
 - **Zero Trust** : une zone protégée sans utilisateur authentifié → `401`.
-- **Stateless** : identité via JWT signé (cookie `HttpOnly; Secure; SameSite=Strict`).
-- **Config type-safe** : `defineSecurityConfig()` validée par Zod, **tout désactivable**,
-  **introspectable** (Studio génère son formulaire d'édition).
+- **Identité hybride** (révisé 2026-06-06) : le **web/Studio** ouvre une **session serveur**
+  (cookie opaque BFF, révocable, `HttpOnly; Secure; SameSite`) ; les **API/agents** portent leur
+  preuve à chaque requête (**JWT** signé / clé API). Jamais « full stateless » : la session reste
+  la fondation web (révocation immédiate), le JWT est réservé au sans-état machine-à-machine.
+- **Config type-safe** : schéma **Zod** (18 sections, tout `enabled`), **introspectable** (Studio
+  génère son formulaire d'édition). L'app configure via `use("@nodefony/security", { … })`.
 - **En-têtes natifs** (sans la lib `helmet`) — 0 dépendance, nonce CSP par requête.
 
 ## Configuration
 
+La sécurité se configure dans le **`nodefony.config.ts`** de l'app via `use()` — colocalisée
+avec le chargement du module, jamais dans un fichier séparé :
+
 ```ts
-// config/security.ts
-import { defineSecurityConfig } from "@nodefony/security";
+// nodefony.config.ts
+import { defineConfig, use } from "nodefony";
 
-export default defineSecurityConfig({
-  encoders: { user: { type: "bcrypt", rounds: 12 } },
-
-  roleHierarchy: {
-    ROLE_ADMIN: ["ROLE_USER"],
-  },
-
-  areas: {
-    // API publique sauf /admin — protégée par JWT
-    main_api: { pattern: "^/api/(?!admin)", authenticators: ["jwt"] },
-    // Zone admin sur un domaine dédié, double-facteur infra+app
-    admin: {
-      pattern: "^/api/admin",
-      authenticators: ["mtls", "jwt"],
-      host: "admin.exemple.com",
-    },
-  },
-});
+export default defineConfig((ctx) => ({
+  modules: [
+    "@nodefony/http",
+    "@nodefony/framework",
+    use(
+      "@nodefony/security",
+      {
+        // Hiérarchie de rôles (RBAC) — ROLE_X hérite des rôles listés (DFS au boot).
+        roleHierarchy: { ROLE_ADMIN: ["ROLE_USER"] },
+        // Zones firewall — clé = nom de zone, valeur = pattern + authenticators.
+        areas: {
+          // Web/Studio : session serveur (cookie opaque BFF).
+          admin: { pattern: "^/admin", authenticators: ["session"] },
+          // API machine-à-machine : preuve à chaque requête, aucune session.
+          "api-m2m": {
+            pattern: "^/api",
+            authenticators: ["jwt", "apikey"],
+            stateless: true,
+          },
+        },
+      },
+      { policy: "mandatory" }, // sécurité = requise dès qu'on sert du trafic
+    ),
+  ],
+}));
 ```
 
+> Une zone se déclare idéalement **par module** (override `module-security`, dans la config du
+> module) pour vivre au plus près de ses routes. Authenticators fournis : `anonymous`, `session`,
+> `userpassword`, `jwt`, `apikey`, `webauthn`, plus les providers OAuth2. La chaîne est validée
+> au boot (`mode: "first"` par défaut = le premier qui reconnaît authentifie ; `"all"` = tous
+> requis, ex. mTLS + JWT). Config invalide → firewall **fail-closed** (tout rejeté).
+
 Toutes les sections (`cors`, `csrf`, `headers`, `rateLimit`, `jwt`, `apiKeys`, `webhooks`,
-`audit`, `studio`) ont des **défauts sûrs** et sont **désactivables** via `enabled`.
+`audit`, `studio`…) ont des **défauts sûrs** et sont **désactivables** via `enabled`.
 Voir [`nodefony/config/config.ts`](./nodefony/config/config.ts) — chaque option y est
 documentée (explication + défaut + reco).
 
@@ -53,18 +74,18 @@ documentée (explication + défaut + reco).
 
 | Section         | Rôle                                                          | Défaut                                               |
 | --------------- | ------------------------------------------------------------- | ---------------------------------------------------- |
-| `encoders`      | hash mot de passe                                             | bcrypt rounds 12                                     |
+| `encoders`      | hash mot de passe                                             | Argon2id (OWASP) ; bcrypt legacy                     |
 | `roleHierarchy` | héritage de rôles                                             | `{}` (plats)                                         |
 | `areas`         | zones firewall (pattern + host + authenticators)              | `{}` (aucune route protégée)                         |
 | `cors`          | Cross-Origin                                                  | strict (jamais `*`+credentials)                      |
 | `csrf`          | Fetch Metadata (`Sec-Fetch-Site`) + repli Origin (OWASP 2025) | activé ; `strictSameSite:false`, `trustedOrigins:[]` |
 | `headers`       | HSTS/CSP+nonces/frameguard/noSniff… (natif)                   | activé ; avancés (COOP/COEP/CORP…) en option         |
 | `rateLimit`     | anti brute-force + lockout                                    | activé                                               |
-| `jwt`           | jetons stateless en cookie                                    | EdDSA, access 15 min / refresh 7 j, rotation         |
+| `jwt`           | jetons API/agents (sans-état)                                 | EdDSA, access 15 min / refresh 7 j, rotation         |
 | `apiKeys`       | clés API (PAT) hashées                                        | préfixe `nf`, expiry 90 j                            |
 | `webhooks`      | sortants signés HMAC                                          | anti-replay + anti-SSRF                              |
 | `audit`         | journal sécurité (append-only)                                | activé, stream Studio                                |
-| `studio`        | durcissement console admin                                    | **OFF**, `localhost`, MFA requise                    |
+| `studio`        | durcissement console admin                                    | **OFF**, `localhost` (durcissement réservé)          |
 
 ### CSRF — Fetch Metadata d'abord
 

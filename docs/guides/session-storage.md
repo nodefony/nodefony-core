@@ -13,9 +13,10 @@ last-updated: 2026-05-21
 > et comment en écrire un sur mesure. Le mécanisme est en **inversion de contrôle** :
 > `@nodefony/http` ne dépend d'aucun ORM — chaque backend **s'enregistre lui-même**.
 
-> ⚠️ **Cap stratégique** : à terme l'authent HTTP vise le **stateless (JWT cookie)**,
-> les sessions RAM/serveur sont en voie de dépréciation (cf décision sécurité P6).
-> Ce guide décrit le système de session **tel qu'il existe aujourd'hui**.
+> ℹ️ **Modèle d'identité hybride** (révisé 2026-06-06) : le web/Studio s'appuie sur une
+> **session serveur** (cookie opaque BFF, révocable) — c'est la fondation, pas une dette ;
+> le **JWT** est réservé aux API/agents sans-état (M2M). La session reste donc pleinement
+> supportée. Vue d'ensemble de TOUTE la persistance : [`persistence.md`](./persistence.md).
 
 ## Choisir le backend — un seul réglage
 

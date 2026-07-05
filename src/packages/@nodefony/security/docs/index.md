@@ -2,35 +2,37 @@
 title: "@nodefony/security"
 module: "@nodefony/security"
 since: "10.0.0"
-updated: "2026-06-05"
+updated: "2026-07-05"
 status: wip
 order: 0
 ---
 
 # @nodefony/security
 
-> Couche de sécurité de Nodefony (refonte P6) : **Firewall** par zones, **authentication**
+> Couche de sécurité de Nodefony (P6) : **Firewall** par zones, **authentication**
 > (pattern `IAuthenticator`), autorisation (rôles / voters), CORS, CSRF, en-têtes, JWT, clés API,
-> webhooks, audit. Consomme `@nodefony/user` (jamais l'inverse).
+> WebAuthn/passkeys, OAuth2 social, 2FA TOTP, webhooks signés, audit persistant. Consomme
+> `@nodefony/user` (jamais l'inverse).
 
 ## Vue d'ensemble
 
 La sécurité est **fermée par défaut** (Zero Trust) : une zone protégée sans authentification
-valide ni `@Anonymous` répond **401**. HTTP est **full stateless** — l'identité transite par un
-**JWT** cookie `HttpOnly; Secure; SameSite=Strict` (signé via `jose`), adapté au scaling horizontal
-cloud-native. Le WebSocket, lui, est stateful (identité portée par AsyncLocalStorage).
+valide ni `@Anonymous` répond **401**. Le modèle d'identité est **hybride** (révisé 2026-06-06) :
+le **web/Studio** ouvre une **session serveur** (cookie opaque BFF, révocable) ; les **API/agents**
+portent leur preuve à chaque requête — **JWT** signé via `jose` ou clé API — pour le sans-état
+machine-à-machine. Le WebSocket est stateful (identité portée par AsyncLocalStorage).
 
 ## Décisions structurantes
 
-| Sujet           | Décision                                                                    |
-| --------------- | --------------------------------------------------------------------------- |
-| Pattern auth    | `IAuthenticator` (style Symfony 6), pas Bridge/Factory                      |
-| HTTP            | stateless — JWT cookie `HttpOnly;Secure;SameSite=Strict`                    |
-| Zero Trust      | zone protégée + anonyme + pas `@Anonymous` → **401**                        |
-| Config          | `defineSecurityConfig()` + Zod (12 sections, tout `enabled`, `.describe()`) |
-| En-têtes        | natifs (pas `helmet`) — 0 dep, nonce CSP par requête                        |
-| Crypto password | `@node-rs/bcrypt` (peerDep optionnelle), via `@nodefony/user`               |
-| OAuth / JWT     | `arctic` (OAuth) + `jose` (JWT) — jamais `passport`/`jsonwebtoken`          |
+| Sujet           | Décision                                                                   |
+| --------------- | -------------------------------------------------------------------------- |
+| Pattern auth    | `IAuthenticator` (supports/authenticate/onSuccess), pas Bridge/Factory     |
+| HTTP            | hybride — session serveur (cookie opaque BFF) web/Studio + JWT/clé API M2M |
+| Zero Trust      | zone protégée + anonyme + pas `@Anonymous` → **401**                       |
+| Config          | `use("@nodefony/security", {…})` + Zod (18 sections, tout `enabled`)       |
+| En-têtes        | natifs (pas `helmet`) — 0 dep, nonce CSP par requête                       |
+| Crypto password | Argon2id (RFC 9106) par défaut ; bcrypt legacy — via `@nodefony/user`      |
+| OAuth / JWT     | `arctic` (OAuth) + `jose` (JWT) — jamais `passport`/`jsonwebtoken`         |
 
 ## Composants
 
@@ -44,26 +46,40 @@ cloud-native. Le WebSocket, lui, est stateful (identité portée par AsyncLocalS
 ## Configuration
 
 ```typescript
-import { defineSecurityConfig } from "@nodefony/security";
+import { defineConfig, use } from "nodefony";
 
-export default defineSecurityConfig((ctx) => ({
-  firewall: {
-    enabled: true,
-    areas: [{ name: "admin", pattern: "^/nodefony", anonymous: false }],
-  },
-  jwt: { enabled: true, cookie: { name: "nf_token", sameSite: "strict" } },
-  headers: { enabled: true, csp: { enabled: true } },
+export default defineConfig((ctx) => ({
+  modules: [
+    use(
+      "@nodefony/security",
+      {
+        roleHierarchy: { ROLE_ADMIN: ["ROLE_USER"] },
+        // Zones firewall : clé = nom de zone, valeur = pattern + authenticators.
+        areas: {
+          admin: { pattern: "^/nodefony", authenticators: ["session"] },
+          api: {
+            pattern: "^/api",
+            authenticators: ["jwt", "apikey"],
+            stateless: true, // API M2M : aucune session, preuve à chaque requête
+          },
+        },
+      },
+      { policy: "mandatory" },
+    ),
+  ],
 }));
 ```
 
 Chaque section porte `enabled` (désactivable à chaud) et est validée par Zod au boot
-(`securityConfigJsonSchema()` alimente l'auto-form Studio).
+(`securityConfigJsonSchema()` alimente l'auto-form Studio). ⚠️ Il n'y a **pas** de clé
+`firewall` : les zones vivent sous `areas` (record), au top-level de la config du module.
 
 ## État
 
-S1 livré (fondation : contrats, firewall skeleton Zero Trust, RoleHierarchyWalker, SecuredArea,
-config Zod). Reste : câblage http-kernel complet, authenticators (S2+), JWT (S3), CSRF (S4),
-OAuth `arctic` (S6). Voir `MIGRATION_STATUS.md` (P6) et le `CLAUDE.md` du module.
+Cœur P6 livré : firewall + zones, session serveur (NIST), JWT (`jose`), WebAuthn/passkeys, OAuth2
+social (`arctic`), CSRF/CORS/en-têtes natifs, clés API/PAT, 2FA TOTP, webhooks signés, audit
+persistant, rate-limit. Reste : voters d'autorisation, CSP nonce par requête, décorateurs CSRF
+(`@CsrfProtect`/`@CsrfExempt`). Voir `MIGRATION_STATUS.md` (P6) et le `CLAUDE.md` du module.
 
 ## Liens
 

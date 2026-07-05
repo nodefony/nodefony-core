@@ -13,11 +13,12 @@ Tutoriels pas-à-pas orientés utilisateur du framework (vs les pages `architect
 
 ## Pages disponibles
 
-| Page                                         | Sujet                                                                        | Statut |
-| -------------------------------------------- | ---------------------------------------------------------------------------- | ------ |
-| [`configuration.md`](./configuration.md)     | Configurer une app (`defineConfig` / `env.ts` / `use` / manifeste `modules`) | stable |
-| [`frontend-react.md`](./frontend-react.md)   | Ajouter un frontend React 19 (Vite) à un module Nodefony                     | stable |
-| [`session-storage.md`](./session-storage.md) | Stockage de session : mécanisme IoC, backends, storage sur mesure            | stable |
+| Page                                         | Sujet                                                                              | Statut |
+| -------------------------------------------- | ---------------------------------------------------------------------------------- | ------ |
+| [`configuration.md`](./configuration.md)     | Configurer une app (`defineConfig` / `env.ts` / `use` / manifeste `modules`)       | stable |
+| [`frontend-react.md`](./frontend-react.md)   | Ajouter un frontend React 19 (Vite) à un module Nodefony                           | stable |
+| [`session-storage.md`](./session-storage.md) | Stockage de session : mécanisme IoC, backends, storage sur mesure                  | stable |
+| [`persistence.md`](./persistence.md)         | Persistance & stores : infra déclarée, profils, matrice brique×backend, audit≠logs | stable |
 
 ## Pages (à venir)
 
