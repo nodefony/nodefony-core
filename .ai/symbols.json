@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-05T13:24:52.102Z",
+  "generated": "2026-07-05T22:14:59.840Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 996,
-    "symbols": 2452,
+    "symbols": 2455,
     "classes": 316,
-    "interfaces": 648,
-    "types": 290,
+    "interfaces": 649,
+    "types": 291,
     "enums": 4,
-    "functions": 658,
+    "functions": 659,
     "constants": 536
   },
   "symbols": {
@@ -841,6 +841,15 @@
       "extends": null,
       "description": "Choix d'un backend pour `\"auto\"` + provenance lisible (log de boot, Studio)."
     },
+    "IStoreResolution": {
+      "name": "IStoreResolution",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résolution EFFECTIVE d'une brique de persistance, capturée au boot par le consommateur (au moment exact où il pose son store au container) et retenue dans le registre du Kernel ({@link IKernel.regi…"
+    },
     "InfraSqlDialect": {
       "name": "InfraSqlDialect",
       "kind": "type",
@@ -873,6 +882,14 @@
       "module": "@nodefony/core",
       "description": "Nature de la donnée d'une brique — pilote l'ordre de préférence des backends : - `durable` (tokens, passkeys, audit, webhooks, user) → infra database. - `ephemeral` (idempotence) → infra cache, sin…"
     },
+    "StoreProvenance": {
+      "name": "StoreProvenance",
+      "kind": "type",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Catégorie de provenance d'un store résolu (dérivée de la valeur configurée)."
+    },
     "parseDatabaseUrl": {
       "name": "parseDatabaseUrl",
       "kind": "function",
@@ -904,6 +921,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Résout la sentinelle `\"auto\"` d'une brique en nom de backend, borné aux backends RÉELLEMENT enregistrés (`available` = `listXStores()` du registre — reflète l'auto-register des adapters chargés). C…"
+    },
+    "deriveStoreBackend": {
+      "name": "deriveStoreBackend",
+      "kind": "function",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déduit le nom court du backend d'un store à partir de la classe concrète de son instance (convention de nommage `<Backend>XxxStore` → `drizzle`, `mongoose`, `redis`, `memory`, `file`). Sert à retro…"
     },
     "AUTO_STORE": {
       "name": "AUTO_STORE",
@@ -16988,7 +17013,7 @@
       "exported": true,
       "module": "@nodefony/user",
       "extends": null,
-      "description": "Statut du sous-système utilisateur — miroir consommé par la console Studio (« où on écrit »). `store` = classe du repository réel ; `driver` = backend **déduit** du nom de classe (`memory`/`drizzle…"
+      "description": "Statut du sous-système utilisateur — miroir consommé par la console Studio (« où on écrit »). `store` = **backend** de persistance (`memory`/`drizzle`/ `mongoose`, `null` si indéterminable) — align…"
     },
     "toUserSummary": {
       "name": "toUserSummary",
@@ -18791,6 +18816,7 @@
       ],
       "AUTO_STORE": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
@@ -19953,6 +19979,10 @@
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts"
+      ],
+      "IStoreResolution": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/types/IKernel.ts"
       ],
       "nodefonyError": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -22403,6 +22433,11 @@
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
+      "deriveStoreBackend": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
       "ITotpSecretStore": [
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
@@ -22410,6 +22445,9 @@
         "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
       ],
       "getTotpStoreFactory": [
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "listTotpStores": [
         "src/packages/@nodefony/security/nodefony/service/totp.ts"
       ],
       "deriveTotpKey": [

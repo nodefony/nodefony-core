@@ -59,7 +59,7 @@ import {
 import { UsersTable } from "./users/UsersTable";
 import { UsersHelp } from "./users/UsersHelp";
 import { CreateUserModal } from "./users/CreateUserModal";
-import { StorageBadge } from "./users/usersFormat";
+import { BrickStoreChip } from "./stores/BrickStoreChip";
 
 export const Users = observer(() => {
   const store = useStore();
@@ -198,13 +198,7 @@ export const Users = observer(() => {
               Vue gouvernance — suppression auditée.
             </Text>
           )}
-          {status?.enabled && (
-            <StorageBadge
-              driver={status.driver}
-              store={status.store}
-              count={status.count}
-            />
-          )}
+          <BrickStoreChip brick="user" />
         </Group>
       </Group>
 

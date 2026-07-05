@@ -59,8 +59,8 @@ import {
   resolveFailureHint,
 } from "../config/envOverride";
 import type { ConfigContext } from "../config/types";
-import { resolveInfra } from "../config/infra";
-import type { IInfra } from "../config/infra";
+import { resolveInfra, AUTO_STORE } from "../config/infra";
+import type { IInfra, IStoreResolution } from "../config/infra";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
@@ -1289,6 +1289,44 @@ class Kernel extends Service implements IKernel {
       this._infra = resolveInfra(process.env);
     }
     return this._infra;
+  }
+
+  /**
+   * Registre des résolutions de stores — lazy (`null` tant qu'aucune brique n'a
+   * résolu son store). Alloué au premier `registerStoreResolution` (au boot, une
+   * fois par brique) — jamais dans le hot-path. Clé = `brick` (dernière gagne).
+   */
+  private _storeResolutions: Map<string, IStoreResolution> | null = null;
+
+  /**
+   * Résolutions EFFECTIVES des stores de persistance capturées au boot — la
+   * vérité vécue (replis annoncés inclus). Alimente `/nodefony/kernel/api/stores`
+   * et l'écran Studio « Stores ». Vide si aucune brique n'a encore résolu.
+   */
+  get storeResolutions(): IStoreResolution[] {
+    return this._storeResolutions
+      ? Array.from(this._storeResolutions.values())
+      : [];
+  }
+
+  /**
+   * Enregistre la résolution effective d'une brique (idempotent par `brick`).
+   * La provenance est dérivée de `configured` : la sentinelle `"auto"` ⇒
+   * `"infra"` (résolu depuis l'infra déclarée), un backend nommé ⇒ `"explicit"`.
+   *
+   * @param resolution - triplet brique/configuré/résolu + raison + nature
+   *   ({@link IStoreResolution} sans `provenance`, dérivée ici).
+   */
+  registerStoreResolution(
+    resolution: Omit<IStoreResolution, "provenance">,
+  ): void {
+    if (this._storeResolutions === null) {
+      this._storeResolutions = new Map<string, IStoreResolution>();
+    }
+    this._storeResolutions.set(resolution.brick, {
+      ...resolution,
+      provenance: resolution.configured === AUTO_STORE ? "infra" : "explicit",
+    });
   }
 
   /**

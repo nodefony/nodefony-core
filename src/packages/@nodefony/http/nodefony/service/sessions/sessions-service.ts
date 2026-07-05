@@ -202,6 +202,8 @@ class SessionsService extends Service {
     // `auto` (défaut) = suivre l'infra déclarée (cache redis > database > files),
     // borné aux handlers réellement enregistrés. Valeur explicite respectée.
     let storeName: string = this.options.store;
+    const configured = storeName;
+    let reason = `store explicitement configuré ("${configured}")`;
     if (storeName === AUTO_STORE) {
       const auto = resolveAutoStore(
         "session",
@@ -210,6 +212,7 @@ class SessionsService extends Service {
         "files",
       );
       storeName = auto.store;
+      reason = auto.reason;
       this.log(
         `session.store "auto" → "${storeName}" (${auto.reason})`,
         "INFO",
@@ -228,6 +231,7 @@ class SessionsService extends Service {
       }
       this.log(`${msg} — repli "files"`, "WARNING");
       storeName = "files";
+      reason = `repli "files" (store "${configured}" introuvable)`;
       Storage = SessionsService.getStorage(storeName);
       if (!Storage) {
         // Même le repli builtin manque : irrécupérable, dev compris.
@@ -242,6 +246,15 @@ class SessionsService extends Service {
     // réel (introspection admin : quel driver persiste les sessions).
     this.storage = new RevocationGuardStorage(new Storage(this));
     this.log(`SESSION STORAGE active : ${storeName}`, "INFO");
+    this.kernel?.registerStoreResolution({
+      brick: "session",
+      nature: "session",
+      configured,
+      resolved: storeName,
+      available: SessionsService.storageHandlers(),
+      reason,
+      configPath: "http.session.store",
+    });
     // Événement (kernel + service) : quel backend de session est actif.
     this.fire("onSessionStorageReady", storeName, this.storage);
     this.kernel?.fire("onSessionStorageReady", storeName, this.storage);

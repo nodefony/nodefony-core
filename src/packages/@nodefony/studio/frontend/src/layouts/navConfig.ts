@@ -13,6 +13,7 @@ import {
   IconWebhook,
   IconHistory,
   IconDatabase,
+  IconDatabaseCog,
   IconSchema,
   IconBox,
   IconBrandNpm,
@@ -177,6 +178,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/nodefony/orm", label: "ORM", icon: IconDatabase },
       { to: "/nodefony/databases", label: "Schéma ERD", icon: IconSchema },
+      { to: "/nodefony/stores", label: "Stores", icon: IconDatabaseCog },
       {
         to: "/nodefony/migrate",
         label: "Migrations",

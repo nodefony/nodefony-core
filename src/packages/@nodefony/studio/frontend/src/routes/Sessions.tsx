@@ -68,7 +68,7 @@ import {
 } from "./sessions/sessionsModel";
 import { SessionsTable } from "./sessions/SessionsTable";
 import { SessionsHelp } from "./sessions/SessionsHelp";
-import { StorageBadge } from "./sessions/sessionsFormat";
+import { BrickStoreChip } from "./stores/BrickStoreChip";
 
 type Mode = "mine" | "all";
 
@@ -295,14 +295,7 @@ export const Sessions = observer(() => {
               Vue gouvernance — révocation auditée.
             </Text>
           )}
-          {status?.enabled && (
-            <StorageBadge
-              driver={status.driver}
-              storage={status.storage}
-              revocationHardened={status.revocationHardened}
-              savePath={status.savePath}
-            />
-          )}
+          <BrickStoreChip brick="session" />
         </Group>
         {mode === "all" && (
           <TextInput

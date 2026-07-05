@@ -169,6 +169,42 @@ export interface IAutoStoreResolution {
   reason: string;
 }
 
+/** Catégorie de provenance d'un store résolu (dérivée de la valeur configurée). */
+export type StoreProvenance = "infra" | "explicit";
+
+/**
+ * Résolution EFFECTIVE d'une brique de persistance, capturée au boot par le
+ * consommateur (au moment exact où il pose son store au container) et retenue
+ * dans le registre du Kernel ({@link IKernel.registerStoreResolution}). C'est la
+ * VÉRITÉ vécue — y compris les replis annoncés du lot 4 (session → `"files"` en
+ * dev) — pas une re-dérivation à la volée. Alimente l'écran Studio « Stores ».
+ */
+export interface IStoreResolution {
+  /** Identifiant de la brique (ex. `"tokens"`, `"session"`, `"audit"`). */
+  brick: string;
+  /** Nature de la donnée — pilote la durabilité affichée ({@link StoreKind}). */
+  nature: StoreKind;
+  /** Valeur configurée telle quelle : `"auto"` (sentinelle) ou un backend explicite. */
+  configured: string;
+  /** Backend effectivement résolu et posé au runtime. */
+  resolved: string;
+  /**
+   * Backends RÉELLEMENT enregistrés pour cette brique (`listXStores()`), capturés
+   * par le consommateur — évite à l'endpoint d'importer les registres (le cœur
+   * `@nodefony/framework` ne peut pas dépendre de `@nodefony/security`/`http`).
+   */
+  available: readonly string[];
+  /**
+   * Provenance : `"infra"` (résolu depuis l'infra déclarée, `configured === "auto"`)
+   * ou `"explicit"` (backend nommé dans la config/env de l'app).
+   */
+  provenance: StoreProvenance;
+  /** Raison lisible (FR) de la résolution — de `resolveAutoStore` ou construite. */
+  reason: string;
+  /** Chemin du champ de config (ex. `"security.tokenStore.store"`) — croise la provenance de champ Studio. */
+  configPath?: string;
+}
+
 /**
  * Résout la sentinelle `"auto"` d'une brique en nom de backend, borné aux
  * backends RÉELLEMENT enregistrés (`available` = `listXStores()` du registre —
@@ -217,4 +253,24 @@ export function resolveAutoStore(
     store: fallback,
     reason: `aucune infra déclarée — défaut "${fallback}"`,
   };
+}
+
+/**
+ * Déduit le nom court du backend d'un store à partir de la classe concrète de
+ * son instance (convention de nommage `<Backend>XxxStore` → `drizzle`, `mongoose`,
+ * `redis`, `memory`, `file`). Sert à retrouver le backend RÉEL d'un adapter posé
+ * au container quand la brique a été résolue en `"auto"` (l'adapter court-circuite
+ * la fabrique nommée). Classe non reconnue → nom de classe brut (honnête).
+ *
+ * @param store - instance de store (lue défensivement — seul `constructor.name`).
+ * @returns nom court du backend, ou `"inconnu"` si l'instance n'expose pas de classe.
+ */
+export function deriveStoreBackend(store: unknown): string {
+  const name = (store as { constructor?: { name?: string } } | null)
+    ?.constructor?.name;
+  if (!name) {
+    return "inconnu";
+  }
+  const match = /^(Drizzle|Mongoose|Redis|Memory|File)/.exec(name);
+  return match ? match[1].toLowerCase() : name;
 }

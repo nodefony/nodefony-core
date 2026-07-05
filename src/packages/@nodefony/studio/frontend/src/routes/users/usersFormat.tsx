@@ -220,16 +220,16 @@ export function TenantChip({
  * volatil (les comptes disparaissent au redémarrage), couleur d'alerte.
  */
 export function StorageBadge({
-  driver,
   store,
+  repository,
   count,
 }: {
-  driver: "memory" | "drizzle" | "mongoose" | null;
-  store: string;
+  store: "memory" | "drizzle" | "mongoose" | null;
+  repository: string;
   count: number | null;
 }): ReactNode {
-  const volatile = driver === "memory";
-  const label = driver ?? store;
+  const volatile = store === "memory";
+  const label = store ?? repository;
   return (
     <Tooltip
       withArrow
@@ -237,7 +237,7 @@ export function StorageBadge({
       multiline
       label={
         <Stack gap={2}>
-          <Text size="xs">Store : {store}</Text>
+          <Text size="xs">Repository : {repository}</Text>
           {count !== null ? <Text size="xs">Comptes : {count}</Text> : null}
           <Text size="xs">
             {volatile

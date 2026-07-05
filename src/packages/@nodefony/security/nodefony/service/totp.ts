@@ -1,4 +1,10 @@
-import { Service, Module, Container, Event } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  deriveStoreBackend,
+} from "nodefony";
 import { Buffer } from "node:buffer";
 import {
   defineSecurityConfig,
@@ -6,7 +12,10 @@ import {
   type ISecurityConfigInput,
 } from "../config/defineModuleConfig";
 import type { ITotpSecretStore } from "../contracts/ITotpSecretStore";
-import { getTotpStoreFactory } from "../src/totp/totpSecretStoreRegistry";
+import {
+  getTotpStoreFactory,
+  listTotpStores,
+} from "../src/totp/totpSecretStoreRegistry";
 import { deriveTotpKey, generateEphemeralKey } from "../src/totp/totpCipher";
 import {
   type ITotpDeps,
@@ -115,6 +124,15 @@ class TotpService extends Service {
   #resolveStore(config: ISecurityConfig): ITotpSecretStore | null {
     const existing = this.get<ITotpSecretStore>("totpSecretStore");
     if (existing) {
+      this.kernel?.registerStoreResolution({
+        brick: "totp",
+        nature: "durable",
+        configured: config.totp.store,
+        resolved: deriveStoreBackend(existing),
+        available: listTotpStores(),
+        reason: "adapter posé au container (infra database déclarée)",
+        configPath: "security.totp.store",
+      });
       return existing;
     }
     const driver = config.totp.store;
@@ -125,6 +143,15 @@ class TotpService extends Service {
     }
     const store = factory({ container: this.container as Container, config });
     this.container?.set("totpSecretStore", store);
+    this.kernel?.registerStoreResolution({
+      brick: "totp",
+      nature: "durable",
+      configured: config.totp.store,
+      resolved: driver,
+      available: listTotpStores(),
+      reason: `store configuré ("${driver}")`,
+      configPath: "security.totp.store",
+    });
     return store;
   }
 

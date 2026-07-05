@@ -60,6 +60,9 @@ const ModuleDetail = lazy(() =>
 const ConfigPage = lazy(() =>
   import("./routes/config/ConfigPage").then((m) => ({ default: m.ConfigPage })),
 );
+const Stores = lazy(() =>
+  import("./routes/stores/StoresView").then((m) => ({ default: m.StoresView })),
+);
 const RoutesView = lazy(() =>
   import("./routes/RoutesView").then((m) => ({ default: m.RoutesView })),
 );
@@ -212,6 +215,7 @@ const router = createBrowserRouter([
               { path: "orm", element: <OrmOverview /> },
               { path: "orm/:pid", element: <OrmWorker /> },
               { path: "databases", element: <Database /> },
+              { path: "stores", element: <Stores /> },
               { path: "orm-entity", element: <OrmEntity /> },
               { path: "migrate", element: <Migrate /> },
               { path: "services", element: <Services /> },

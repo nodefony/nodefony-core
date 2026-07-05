@@ -292,6 +292,7 @@ export type { IConfigFieldMeta } from "./config/configMeta";
 export {
   resolveInfra,
   resolveAutoStore,
+  deriveStoreBackend,
   parseDatabaseUrl,
   sqliteFilenameFromUrl,
   AUTO_STORE,
@@ -303,6 +304,8 @@ export type {
   IInfraCache,
   IInfraLogs,
   IAutoStoreResolution,
+  IStoreResolution,
+  StoreProvenance,
   InfraSqlDialect,
   DatabaseFamily,
   StoreKind,

@@ -111,6 +111,7 @@ class TokenService extends Service {
     // `auto` (défaut) = suivre l'infra database déclarée, borné aux backends
     // réellement enregistrés ; repli memory ANNONCÉ. Valeur explicite respectée.
     let storeName = config.tokenStore.store;
+    let reason = `store explicitement configuré ("${storeName}")`;
     if (storeName === AUTO_STORE) {
       const auto = resolveAutoStore(
         "durable",
@@ -118,6 +119,7 @@ class TokenService extends Service {
         listTokenStores(),
       );
       storeName = auto.store;
+      reason = auto.reason;
       this.log(`tokenStore "auto" → "${storeName}" (${auto.reason})`, "INFO");
     }
     const factory = getTokenStoreFactory(storeName);
@@ -145,6 +147,15 @@ class TokenService extends Service {
       );
     }
     this.#store = factory({ container: this.container as Container, config });
+    this.kernel?.registerStoreResolution({
+      brick: "tokens",
+      nature: "durable",
+      configured: config.tokenStore.store,
+      resolved: storeName,
+      available: listTokenStores(),
+      reason,
+      configPath: "security.tokenStore.store",
+    });
     // Partage par NOM (`ApiKeyService`, `JwtAuthenticator`, endpoints framework —
     // convention-frère `passwordEncoder`/`loginThrottler`).
     this.container?.set("tokenStore", this.#store);

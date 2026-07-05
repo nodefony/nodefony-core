@@ -36,6 +36,7 @@ import {
 import { useStore, useNotifications } from "../stores";
 import { useResource } from "../hooks";
 import { PageLayout, StatCard, DataState } from "../components/ui";
+import { BrickStoreChip } from "./stores/BrickStoreChip";
 import {
   WEBHOOKS_ENDPOINT,
   webhookEndpoint,
@@ -197,6 +198,7 @@ export const Webhooks = observer(() => {
       icon={<IconWebhook size={26} />}
       actions={
         <Group gap="sm" wrap="nowrap">
+          <BrickStoreChip brick="webhooks" />
           <Button
             leftSection={<IconPlus size={16} />}
             disabled={!configEnabled}

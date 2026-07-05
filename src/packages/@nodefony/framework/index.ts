@@ -177,7 +177,10 @@ class Framework extends Module<FrameworkConfig> {
    *    silencieux (le WARNING annonce la dégradation).
    */
   override async onKernelBoot(): Promise<this> {
-    let name = (this.options as FrameworkConfig)?.idempotency?.store ?? "auto";
+    const configured =
+      (this.options as FrameworkConfig)?.idempotency?.store ?? AUTO_STORE;
+    let name = configured;
+    let reason = `store explicitement configuré ("${configured}")`;
     if (name === AUTO_STORE) {
       // `auto` (défaut) = suivre l'infra déclarée (cache redis > database),
       // borné aux stores distribués réellement enregistrés ; sans infra →
@@ -188,6 +191,7 @@ class Framework extends Module<FrameworkConfig> {
         listIdempotencyStores(),
       );
       name = auto.store;
+      reason = auto.reason;
       this.log(`idempotency.store "auto" → "${name}" (${auto.reason})`, "INFO");
     }
     if (name === "memory") {
@@ -201,6 +205,15 @@ class Framework extends Module<FrameworkConfig> {
           "WARNING",
         );
       }
+      this.kernel?.registerStoreResolution({
+        brick: "idempotency",
+        nature: "ephemeral",
+        configured,
+        resolved: "memory",
+        available: listIdempotencyStores(),
+        reason,
+        configPath: "framework.idempotency.store",
+      });
       return this; // défaut per-pod déjà posé par @services (MemoryIdempotencyStore)
     }
     try {
@@ -216,6 +229,15 @@ class Framework extends Module<FrameworkConfig> {
       });
       this.set("idempotencyStore", store); // override du défaut mémoire (cross-pod)
       this.log(`Idempotency store → "${name}" (distributed)`, "INFO");
+      this.kernel?.registerStoreResolution({
+        brick: "idempotency",
+        nature: "ephemeral",
+        configured,
+        resolved: name,
+        available: listIdempotencyStores(),
+        reason,
+        configPath: "framework.idempotency.store",
+      });
       // Store SANS expiration native (drizzle expose `gc` ; redis=TTL PX et
       // memory=purge passive ne l'exposent pas) → arme un balayage périodique HORS
       // hot-path. Corrige le « gc orphelin » : sans ça, les clés SQL expirées

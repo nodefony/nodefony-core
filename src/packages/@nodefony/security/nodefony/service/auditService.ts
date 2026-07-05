@@ -87,6 +87,7 @@ class AuditService extends Service implements IAuditSink {
     // `auto` (défaut) = suivre l'infra database déclarée, borné aux backends
     // enregistrés ; repli memory ANNONCÉ. Valeur explicite respectée.
     let storeName = config.audit.store;
+    let reason = `store explicitement configuré ("${storeName}")`;
     if (storeName === AUTO_STORE) {
       const auto = resolveAutoStore(
         "durable",
@@ -94,6 +95,7 @@ class AuditService extends Service implements IAuditSink {
         listAuditStores(),
       );
       storeName = auto.store;
+      reason = auto.reason;
       this.log(`audit.store "auto" → "${storeName}" (${auto.reason})`, "INFO");
     }
     const factory = getAuditStoreFactory(storeName);
@@ -133,6 +135,15 @@ class AuditService extends Service implements IAuditSink {
     // Partage par NOM (data plane P6.15, bridge WS Lot 4) — convention-frère
     // `tokenStore`/`passwordEncoder`.
     this.container?.set("auditStore", this.#store);
+    this.kernel?.registerStoreResolution({
+      brick: "audit",
+      nature: "durable",
+      configured: config.audit.store,
+      resolved: storeName,
+      available: listAuditStores(),
+      reason,
+      configPath: "security.audit.store",
+    });
     // GcScheduler unifié du core — gagne le jitter (anti thundering-herd cluster),
     // l'anti-empilement et la capture d'erreur (l'ancien `.then()` nu laissait un
     // rejet de gc() filer en unhandledRejection).

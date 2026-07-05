@@ -64,7 +64,7 @@ import {
 import { ApiKeysTable } from "./apikeys/ApiKeysTable";
 import { CreateApiKeyModal } from "./apikeys/CreateApiKeyModal";
 import { ApiKeysHelp } from "./apikeys/ApiKeysHelp";
-import { StorageBadge } from "./apikeys/apiKeysFormat";
+import { BrickStoreChip } from "./stores/BrickStoreChip";
 
 type Mode = "user" | "admin";
 
@@ -250,7 +250,7 @@ export const ApiKeys = observer(() => {
             </Text>
           )}
           {status && status.store !== "none" && (
-            <StorageBadge status={status} />
+            <BrickStoreChip brick="tokens" />
           )}
         </Group>
       )}

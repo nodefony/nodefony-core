@@ -292,16 +292,17 @@ function countActiveAdmins(all: IUser[]): number {
 
 /**
  * Statut du sous-système utilisateur — miroir consommé par la console Studio
- * (« où on écrit »). `store` = classe du repository réel ; `driver` = backend
- * **déduit** du nom de classe (`memory`/`drizzle`/`mongoose`), `null` si
- * indéterminable. Aucun secret/hash : seulement la topologie de persistance.
+ * (« où on écrit »). `store` = **backend** de persistance (`memory`/`drizzle`/
+ * `mongoose`, `null` si indéterminable) — aligné sur le vocabulaire config 0.8
+ * (données = `store`) et l'écran Studio « Stores ». `repository` = nom de la
+ * classe réelle du dépôt. Aucun secret/hash : seulement la topologie.
  */
 export interface IUsersStatus {
   enabled: boolean;
-  /** Nom de classe du repository (ex. `DrizzleUserRepository`), `"none"` si absent. */
-  store: string;
-  /** Backend déduit du nom de classe (`memory`/`drizzle`/`mongoose`), ou `null`. */
-  driver: "memory" | "drizzle" | "mongoose" | null;
+  /** Backend de persistance (`memory`/`drizzle`/`mongoose`), ou `null` si indéterminable. */
+  store: "memory" | "drizzle" | "mongoose" | null;
+  /** Nom de classe du repository réel (ex. `DrizzleUserRepository`), `"none"` si absent. */
+  repository: string;
   /** Nombre d'utilisateurs si dénombrable (lecture défensive), sinon `null`. */
   count: number | null;
   /** Réserve multi-tenant (toujours `null` en mono-tenant — slot coût-0). */
@@ -309,15 +310,15 @@ export interface IUsersStatus {
 }
 
 /**
- * Déduit le backend de persistance du nom de classe du repository — convention
- * de nommage des adapters (`InMemoryUserRepository`/`DrizzleUserRepository`/
- * `MongooseUserRepository`). `null` si le nom ne matche aucun adapter connu
- * (jamais throw — un repo custom reste affichable via `store`).
+ * Déduit le **backend** (store) de persistance du nom de classe du repository —
+ * convention de nommage des adapters (`InMemoryUserRepository`/
+ * `DrizzleUserRepository`/`MongooseUserRepository`). `null` si le nom ne matche
+ * aucun adapter connu (jamais throw — un repo custom reste affichable via `repository`).
  */
-function deduceUserDriver(
-  storeName: string,
+function deduceUserStore(
+  repositoryName: string,
 ): "memory" | "drizzle" | "mongoose" | null {
-  const n = storeName.toLowerCase();
+  const n = repositoryName.toLowerCase();
   if (n.includes("inmemory") || n.includes("memory")) return "memory";
   if (n.includes("drizzle")) return "drizzle";
   if (n.includes("mongoose") || n.includes("mongo")) return "mongoose";
@@ -403,8 +404,8 @@ export function createUserAdminApi(container: Container): IAdminApi {
         if (!users) {
           return {
             enabled: false,
-            store: "none",
-            driver: null,
+            store: null,
+            repository: "none",
             count: null,
             tenantId: null,
           };
@@ -412,10 +413,10 @@ export function createUserAdminApi(container: Container): IAdminApi {
         // `repository` est protégé : lecture défensive du nom de classe (le
         // service expose son CRUD, pas son dépôt → duck-typing prudent).
         const repo = (users as unknown as { repository?: unknown }).repository;
-        const store =
+        const repository =
           (repo as { constructor?: { name?: string } } | undefined)?.constructor
             ?.name ?? "none";
-        const driver = deduceUserDriver(store);
+        const store = deduceUserStore(repository);
         // `count()` peut throw selon le backend (réseau, schéma) → on n'expose
         // jamais d'erreur : un compte indénombrable reste `null`.
         let count: number | null = null;
@@ -424,7 +425,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
         } catch {
           count = null;
         }
-        return { enabled: true, store, driver, count, tenantId: null };
+        return { enabled: true, store, repository, count, tenantId: null };
       },
     },
     {

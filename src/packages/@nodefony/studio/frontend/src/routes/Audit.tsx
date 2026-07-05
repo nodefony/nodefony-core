@@ -54,6 +54,7 @@ import {
   ActorText,
   EventTime,
 } from "./audit/auditFormat";
+import { BrickStoreChip } from "./stores/BrickStoreChip";
 import { AuditFilters } from "./audit/AuditFilters";
 import { AuditDetail } from "./audit/AuditDetail";
 import { AuditLive } from "./audit/AuditLive";
@@ -322,6 +323,7 @@ export const Audit = observer(() => {
       icon={<IconShieldCheck size={26} />}
       actions={
         <Group gap="sm" wrap="nowrap">
+          <BrickStoreChip brick="audit" />
           <Group gap={6} wrap="nowrap">
             <Switch
               size="sm"

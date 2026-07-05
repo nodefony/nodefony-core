@@ -6,6 +6,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  deriveStoreBackend,
 } from "nodefony";
 import { Buffer } from "node:buffer";
 import type {
@@ -133,12 +134,17 @@ class WebAuthnService extends Service {
     const existing = this.get<IWebAuthnCredentialStore>(
       "webAuthnCredentialStore",
     );
+    let resolved: string;
+    let reason: string;
     if (existing) {
       this.#store = existing;
+      resolved = deriveStoreBackend(existing);
+      reason = "adapter posé au container (infra database déclarée)";
     } else {
       // `auto` (défaut) = suivre l'infra database déclarée, borné aux backends
       // enregistrés ; repli memory ANNONCÉ. Valeur explicite respectée.
       let driver = config.passkeys.store;
+      reason = `store explicitement configuré ("${driver}")`;
       if (driver === AUTO_STORE) {
         const auto = resolveAutoStore(
           "durable",
@@ -146,6 +152,7 @@ class WebAuthnService extends Service {
           listWebAuthnStores(),
         );
         driver = auto.store;
+        reason = auto.reason;
         this.log(
           `passkeys.store "auto" → "${driver}" (${auto.reason})`,
           "INFO",
@@ -176,7 +183,17 @@ class WebAuthnService extends Service {
       }
       this.#store = factory({ container: this.container as Container, config });
       this.container?.set("webAuthnCredentialStore", this.#store);
+      resolved = driver;
     }
+    this.kernel?.registerStoreResolution({
+      brick: "passkeys",
+      nature: "durable",
+      configured: config.passkeys.store,
+      resolved,
+      available: listWebAuthnStores(),
+      reason,
+      configPath: "security.passkeys.store",
+    });
     this.#ready = true;
     this.log(
       `webauthn ready — rpID "${this.#rpID}", store "${config.passkeys.store}"`,

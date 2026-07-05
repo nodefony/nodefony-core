@@ -65,15 +65,15 @@ export interface UserListResponse {
 
 /**
  * Statut du sous-système utilisateur — miroir du handler `users/status`.
- * **« Où on écrit »** : la classe du `store` réel + le `driver` déduit
- * (`memory`/`drizzle`/`mongoose`) + le `count` si dénombrable.
+ * **« Où on écrit »** : le `store` (backend `memory`/`drizzle`/`mongoose`, aligné
+ * sur le vocabulaire config 0.8) + la classe `repository` réelle + le `count`.
  */
 export interface UsersStatus {
   enabled: boolean;
+  /** Backend de persistance (`memory`/`drizzle`/`mongoose`), `null` si indéterminable. */
+  store: "memory" | "drizzle" | "mongoose" | null;
   /** Classe du repository réel (ex. `DrizzleUserRepository`), `none` si absent. */
-  store: string;
-  /** Backend déduit (`memory`/`drizzle`/`mongoose`), `null` si indéterminable. */
-  driver: "memory" | "drizzle" | "mongoose" | null;
+  repository: string;
   /** Nombre d'utilisateurs si dénombrable, sinon `null`. */
   count: number | null;
   /** Réserve multi-tenant (`null` = mono-tenant). */

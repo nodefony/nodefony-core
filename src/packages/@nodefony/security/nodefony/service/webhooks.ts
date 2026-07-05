@@ -6,6 +6,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  deriveStoreBackend,
 } from "nodefony";
 import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
@@ -224,10 +225,22 @@ class WebhookService extends Service {
   /** Adapter posé au container (ORM) prioritaire, sinon driver configuré (registre). */
   #resolveStore(config: ISecurityConfig): IWebhookStore | null {
     const existing = this.get<IWebhookStore>("webhookStore");
-    if (existing) return existing;
+    if (existing) {
+      this.kernel?.registerStoreResolution({
+        brick: "webhooks",
+        nature: "durable",
+        configured: config.webhooks.store,
+        resolved: deriveStoreBackend(existing),
+        available: listWebhookStores(),
+        reason: "adapter posé au container (infra database déclarée)",
+        configPath: "security.webhooks.store",
+      });
+      return existing;
+    }
     // `auto` (défaut) = suivre l'infra database déclarée, borné aux backends
     // enregistrés ; repli memory ANNONCÉ. Valeur explicite respectée.
     let driver = config.webhooks.store;
+    let reason = `store explicitement configuré ("${driver}")`;
     if (driver === AUTO_STORE) {
       const auto = resolveAutoStore(
         "durable",
@@ -235,6 +248,7 @@ class WebhookService extends Service {
         listWebhookStores(),
       );
       driver = auto.store;
+      reason = auto.reason;
       this.log(`webhooks.store "auto" → "${driver}" (${auto.reason})`, "INFO");
     }
     const factory = getWebhookStoreFactory(driver);
@@ -262,6 +276,15 @@ class WebhookService extends Service {
     }
     const store = factory({ container: this.container as Container, config });
     this.container?.set("webhookStore", store);
+    this.kernel?.registerStoreResolution({
+      brick: "webhooks",
+      nature: "durable",
+      configured: config.webhooks.store,
+      resolved: driver,
+      available: listWebhookStores(),
+      reason,
+      configPath: "security.webhooks.store",
+    });
     return store;
   }
 

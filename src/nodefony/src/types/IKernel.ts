@@ -4,7 +4,7 @@ import type { IBootReport } from "../kernel/bootReport";
 import type FileClass from "../FileClass";
 import type { EnvironmentType, DebugType } from "./globals";
 import type { ICliKernel } from "./ICliKernel";
-import type { IInfra } from "../config/infra";
+import type { IInfra, IStoreResolution } from "../config/infra";
 import type { ICommand } from "./ICommand";
 import type os from "node:os";
 
@@ -53,6 +53,21 @@ export interface IKernel extends IService {
    * briques dont le store vaut `"auto"` (`resolveAutoStore`).
    */
   readonly infra: IInfra;
+  /**
+   * Résolutions EFFECTIVES des stores de persistance, capturées au boot par
+   * chaque brique (`registerStoreResolution`) — la vérité vécue (replis inclus),
+   * alimente l'écran Studio « Stores ». Vide tant qu'aucune brique n'a résolu.
+   */
+  readonly storeResolutions: IStoreResolution[];
+  /**
+   * Enregistre la résolution effective d'une brique de persistance (idempotent
+   * par `brick` — la dernière résolution gagne). La provenance est dérivée de
+   * `configured` (`"auto"` → `"infra"`, sinon `"explicit"`). Appelé au boot,
+   * après le `log()` de résolution du consommateur.
+   */
+  registerStoreResolution(
+    resolution: Omit<IStoreResolution, "provenance">,
+  ): void;
   /**
    * L'environnement FOURNIT-il un vrai terminal ? Résolu une fois au boot
    * (`process.stdout.isTTY`, surchargeable `NO_TTY`). Volet « environnement » qui

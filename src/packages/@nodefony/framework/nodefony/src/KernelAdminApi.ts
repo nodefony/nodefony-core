@@ -431,6 +431,69 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       ? p.slice(repoRoot.length).replace(/^[/\\]+/, "") || "."
       : (p ?? null);
 
+  // Masque les credentials (`user:pass@`) d'une URL d'infra avant de la renvoyer :
+  // une URL de base/cache peut porter un mot de passe — jamais exposé au client.
+  const redactInfraUrl = (url: string): string =>
+    url.replace(/\/\/[^/@]*@/, "//***@");
+
+  // Entrées config agrégées (valeurs redactées + provenance par champ) — partagé
+  // par l'endpoint `config` (page globale) et `stores` (source d'un store explicite).
+  const buildConfigEntries = (): IConfigEntry[] => {
+    const modules = kernel.getModules();
+    const entries: IConfigEntry[] = [];
+    for (const k of Object.keys(modules)) {
+      const mod = modules[k] as unknown as ConfigModuleLike;
+      const opts = (mod.options ?? {}) as Record<string, unknown>;
+      // N'inclure que les modules PORTEURS de config (réglages OU schéma).
+      if (Object.keys(opts).length === 0 && !mod.configSchema()) continue;
+      entries.push(computeConfigEntry(k, mod, runtimeEdited.get(k)));
+    }
+    // « Qui surcharge vraiment » : attribue chaque champ app au module SOURCE.
+    attributeOverrideSources(entries);
+    return entries;
+  };
+
+  // Source RÉELLE d'un champ `store` : croise le `configPath` d'une brique (ex.
+  // `security.tokenStore.store`) avec la provenance par champ (default/app/env) pour
+  // NOMMER d'où vient la valeur — comble « je ne sais pas quel fichier la déclare ».
+  // `seg` = basename du module (`http`/`security`/`framework`) ; `field` = chemin
+  // pointé minuscule relatif au module (`tokenstore.store`).
+  const resolveStoreSource = (
+    configPath: string | undefined,
+    entriesBySeg: Map<string, IConfigEntry>,
+  ): { origin: string; detail: string } | null => {
+    if (!configPath) return null;
+    const dot = configPath.indexOf(".");
+    if (dot < 0) return null;
+    const seg = configPath.slice(0, dot).toLowerCase();
+    const field = configPath.slice(dot + 1).toLowerCase();
+    const entry = entriesBySeg.get(seg);
+    if (!entry?.provenance) return null;
+    // Les clés de provenance gardent la CASSE D'ORIGINE (ex. `tokenStore.store`) →
+    // retrouver la clé réelle par comparaison insensible à la casse.
+    const key = Object.keys(entry.provenance).find(
+      (k) => k.toLowerCase() === field,
+    );
+    const origin = key ? entry.provenance[key] : undefined;
+    if (!origin || !key) return null;
+    if (origin === "env") {
+      return {
+        origin,
+        detail: entry.envKeys[key] ?? "variable d'environnement",
+      };
+    }
+    if (origin === "app") {
+      return {
+        origin,
+        detail: entry.overriddenBy[key] ?? "nodefony.config.ts",
+      };
+    }
+    if (origin === "runtime") {
+      return { origin, detail: "édition à chaud (Studio)" };
+    }
+    return { origin, detail: "défaut du schéma" };
+  };
+
   const endpoints: IAdminEndpoint[] = [
     {
       path: "health",
@@ -603,20 +666,55 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "config",
       summary:
         "Aggregated config of all modules (effective values redacted + JSON Schema + per-field provenance) for the global config page",
-      handler: async () => {
-        const modules = kernel.getModules();
-        const entries: IConfigEntry[] = [];
-        for (const k of Object.keys(modules)) {
-          const mod = modules[k] as unknown as ConfigModuleLike;
-          const opts = (mod.options ?? {}) as Record<string, unknown>;
-          // N'inclure que les modules PORTEURS de config (réglages OU schéma).
-          if (Object.keys(opts).length === 0 && !mod.configSchema()) continue;
-          entries.push(computeConfigEntry(k, mod, runtimeEdited.get(k)));
-        }
-        // « Qui surcharge vraiment » : attribue chaque champ app au module SOURCE
-        // (cross-module `module-<X>`) ou à `nodefony.config.ts` (config app directe).
-        attributeOverrideSources(entries);
-        return { modules: entries };
+      handler: async () => ({ modules: buildConfigEntries() }),
+    },
+    {
+      // Écran Studio « Stores » : état RUNTIME de la persistance (Phase 0.8 lot 6).
+      // Pour chaque brique : store effectivement résolu au boot (replis inclus),
+      // provenance (infra déclarée vs explicite), backends réellement enregistrés.
+      // La donnée vient du registre `kernel.storeResolutions` (alimenté par chaque
+      // consommateur au boot) → ce cœur `framework` n'importe AUCUN registre de
+      // `security`/`http` (cycle interdit). L'infra déclarée est renvoyée avec ses
+      // URLs REDACTÉES (credentials masqués). Réservé admin (route non `public`).
+      path: "stores",
+      summary:
+        "Runtime persistence stores per brick (resolved store, provenance, available backends) + declared infra",
+      handler: () => {
+        const infra = kernel.infra;
+        // Provenance par champ (default/app/env + source) pour NOMMER d'où vient
+        // chaque store explicite — indexée par basename de module.
+        const entriesBySeg = new Map(
+          buildConfigEntries().map((e) => [e.seg, e]),
+        );
+        return {
+          infra: {
+            database: infra.database
+              ? {
+                  scheme: infra.database.scheme,
+                  family: infra.database.family,
+                  dialect: infra.database.dialect,
+                  url: redactInfraUrl(infra.database.url),
+                }
+              : null,
+            cache: infra.cache
+              ? { url: redactInfraUrl(infra.cache.url) }
+              : null,
+            logs: infra.logs
+              ? {
+                  lokiUrl: infra.logs.lokiUrl
+                    ? redactInfraUrl(infra.logs.lokiUrl)
+                    : null,
+                  opensearchUrl: infra.logs.opensearchUrl
+                    ? redactInfraUrl(infra.logs.opensearchUrl)
+                    : null,
+                }
+              : null,
+          },
+          stores: kernel.storeResolutions.map((res) => ({
+            ...res,
+            source: resolveStoreSource(res.configPath, entriesBySeg),
+          })),
+        };
       },
     },
     {
