@@ -223,8 +223,8 @@ class Framework extends Module<FrameworkConfig> {
       // (testable sans booter un kernel).
       const idem = (this.options as FrameworkConfig).idempotency;
       this.#idempotencyGc = scheduleIdempotencyGc(store, {
-        intervalS: idem?.gcIntervalS ?? 600,
-        jitter: idem?.gcJitter !== false,
+        intervalS: idem.gcIntervalS,
+        jitter: idem.gcJitter,
         onError: (e) => this.log(e as Error, "WARNING"),
         log: (m) => this.log(m, "INFO"),
       });

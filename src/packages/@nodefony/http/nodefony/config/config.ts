@@ -741,10 +741,6 @@ const sessionCookieSchema = z
 
 const sessionSchema = z
   .object({
-    applyTransaction: z
-      .boolean()
-      .default(true)
-      .describe("Utilise les transactions pour le storage (store `drizzle`)."),
     strictMode: z
       .boolean()
       .default(true)

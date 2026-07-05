@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveInfra } from "nodefony";
 import { redisConfigSchema } from "./config";
 import type {
   IRedisConfig,
@@ -12,14 +13,16 @@ import type {
  * une couche explicite par-dessus. Précédence : env > config app > défauts.
  *
  * - Infra cache `NF_REDIS_URL` (alias plateforme `REDIS_URL`) → `config.url`
- *   (gagne sur host/port/auth pour toutes les connexions)
+ *   (gagne sur host/port/auth pour toutes les connexions). La résolution de
+ *   l'URL de cache est déléguée à `resolveInfra` (core) — source UNIQUE des
+ *   alias, partagée avec drizzle/mongoose ; pas de réimplémentation locale.
  * - `REDIS_HOST`  → `globalOptions.socket.host`
  * - `REDIS_PORT`  → `globalOptions.socket.port`
  * - `REDIS_PASSWORD` → `globalOptions.password` (secret JAMAIS dans la config)
  */
 function applyEnvOverrides(config: IRedisConfig): IRedisConfig {
   const env = process.env;
-  const cacheUrl = env.NF_REDIS_URL || env.REDIS_URL;
+  const cacheUrl = resolveInfra(env).cache?.url;
   if (cacheUrl) {
     config.url = cacheUrl;
   }

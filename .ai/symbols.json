@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-05T12:40:19.960Z",
+  "generated": "2026-07-05T12:53:52.940Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -19951,7 +19951,8 @@
       "resolveInfra": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
-        "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts"
+        "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts"
       ],
       "nodefonyError": [
         "src/nodefony/src/kernel/Kernel.ts",

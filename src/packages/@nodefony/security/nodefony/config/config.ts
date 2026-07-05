@@ -478,14 +478,11 @@ const passkeysSchema = z
       .describe(
         "Délai (ms) laissé à l'utilisateur pour compléter une ceremony (navigator.credentials.*). Défaut: 60000.",
       ),
-    challengeTtlS: z
-      .number()
-      .int()
-      .positive()
-      .default(300)
-      .describe(
-        "Durée de vie (s) du challenge serveur (anti-replay, lié à la session). Défaut: 300 (5 min).",
-      ),
+    challengeTtlS: z.number().int().positive().default(300).meta({
+      reserved: true,
+      description:
+        "RÉSERVÉ — non câblé. Durée de vie (s) prévue du challenge serveur (anti-replay). Aujourd'hui le challenge suit la session ; ce TTL dédié n'est lu par aucun authenticator. Défaut: 300 (5 min).",
+    }),
     store: z
       .string()
       .default("auto")
@@ -925,14 +922,24 @@ export const securityConfigSchema = z.object({
   tokenStore: tokenStoreSchema.default(() => tokenStoreSchema.parse({})),
   passkeys: passkeysSchema.default(() => passkeysSchema.parse({})),
   totp: totpSchema.default(() => totpSchema.parse({})),
-  tokenExchange: tokenExchangeSchema.default(() =>
-    tokenExchangeSchema.parse({}),
-  ),
+  tokenExchange: tokenExchangeSchema
+    .default(() => tokenExchangeSchema.parse({}))
+    .meta({
+      reserved: true,
+      description:
+        "RÉSERVÉ — Token Exchange RFC 8693 (délégation agents/MCP). Slot P12, aucun champ encore lu par le runtime.",
+    }),
   oauth2: oauth2Schema.default(() => oauth2Schema.parse({})),
   apiKeys: apiKeysSchema.default(() => apiKeysSchema.parse({})),
   webhooks: webhooksSchema.default(() => webhooksSchema.parse({})),
   audit: auditSchema.default(() => auditSchema.parse({})),
-  studio: studioSchema.default(() => studioSchema.parse({})),
+  studio: studioSchema
+    .default(() => studioSchema.parse({}))
+    .meta({
+      reserved: true,
+      description:
+        "RÉSERVÉ — durcissement de l'exposition réseau de la console Studio. Section entière non câblée (l'enforcement viendra avec Studio, P14) : aucun champ n'est lu par le runtime aujourd'hui.",
+    }),
 });
 
 /** Entrée du builder (champs avec défaut optionnels). */
