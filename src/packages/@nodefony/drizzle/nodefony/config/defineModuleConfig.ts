@@ -47,7 +47,7 @@ function applyEnvOverrides(config: IDrizzleConfig): IDrizzleConfig {
  * env + freeze) et publie le JSON Schema Studio.
  *
  * Aligné sur `defineMongooseConfig` (l'autre driver ORM) : source unique
- * (`./schema.ts`), VALIDE + applique l'ENV + GÈLE. Le **chemin SQLite par défaut**
+ * (`./config.ts`), VALIDE + applique l'ENV + GÈLE. Le **chemin SQLite par défaut**
  * (kernel-dépendant) n'est PAS résolu ici (schéma pur) mais dans `DrizzleService`
  * au boot — cf audit config ORM 2026-06 §3.2.
  *

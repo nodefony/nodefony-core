@@ -63,7 +63,7 @@ realtimeConfigJsonSchema();
 ```
 
 **Piège Zod 4** : `.default({})` plat NE déclenche PAS les sous-défauts internes
-→ pattern obligatoire `.default(() => subSchema.parse({}))` partout dans `schema.ts`.
+→ pattern obligatoire `.default(() => subSchema.parse({}))` partout dans `config.ts`.
 Cf [[feedback_config_validation_zod]].
 
 ## Pipeline (cycle de vie d'une frame en cluster — cas 2 pods)

@@ -28,7 +28,7 @@ cache TTL, registre de providers `{{ }}`) → elle mérite un cycle de vie propr
 @nodefony/documentation/
 ├── index.ts                         ← Module + @services + @controllers + re-exports publics
 ├── nodefony/
-│   ├── config/{schema.ts,defineDocumentationConfig.ts,config.ts}  ← Zod + ENV
+│   ├── config/{config.ts,defineModuleConfig.ts}  ← Zod + ENV
 │   ├── controller/DocumentationController.ts  ← @controller("/nodefony") — MINCE (délègue)
 │   ├── service/DocumentationService.ts        ← STATEFUL (cache, vars, scan, allowlist)
 │   ├── src/{frontmatter.ts,slug.ts,docScanner.ts,errors/}  ← briques PURES réutilisables
@@ -62,7 +62,7 @@ Slug inconnu / non sûr → **404 générique** (`{slug, error}`) ; détail logg
 - **frontmatter maison** (`src/frontmatter.ts`), pas `gray-matter` : la doc n'utilise qu'un YAML plat
   (scalaire / liste) → on ne paie pas les deps transitives. NON supporté volontaire : objets imbriqués,
   multilignes `|`/`>`, ancres.
-- **Config Zod** (`feedback_config_validation_zod`) : `schema.ts` = source de vérité, validée au
+- **Config Zod** (`feedback_config_validation_zod`) : `config.ts` = source de vérité, validée au
   `onKernelRegister`. Le schéma reste PUR (pas de `process.env`) ; l'ENV est mergé dans le builder.
 - **Cache** : TTL sur l'index seulement ; le contenu d'une page est toujours relu.
 - **`critical=false`** : un échec de boot de ce module ne tue jamais le process (résilience).

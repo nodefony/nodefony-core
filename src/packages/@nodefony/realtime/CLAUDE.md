@@ -75,7 +75,7 @@ src/packages/@nodefony/realtime/
     │   ├── errors/RealtimeError.ts     ← (livré)
     │   ├── server/                     ← (P13.0) RealtimeHub, RealtimeController, RealtimeAdminApi
     │   ├── backplane/                  ← (P13.0) LoopbackBackplane, ClusterBackplane, (P13.5) RedisBackplane, (P13.6) KafkaBackplane
-    │   ├── config/defineRealtimeConfig.ts  ← (P13.4) builder + Zod
+    │   ├── config/defineModuleConfig.ts  ← builder + Zod
     │   ├── decorators/                 ← (P13.8) @RealtimeController, @RealtimeEvent
     │   └── protocols/                  ← (P13.1) tcp/, udp/, unix/
     └── tests/unit/                     ← (P13.0) RealtimeHub.test.ts, RealtimeController.test.ts, ClusterBackplane.test.ts

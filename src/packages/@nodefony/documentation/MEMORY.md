@@ -17,7 +17,7 @@ Data plane de documentation transverse **HEADLESS**. Indexe `docs/` racine + `<m
 - `src/slug.ts` — `isSafeSlug` (anti-traversée) + `pathToSlug` + `sanitizeSegment`. `SAFE_SLUG=/^[A-Za-z0-9_.~-]+$/`, `MAX_SLUG_LENGTH=512`.
 - `src/docScanner.ts` — `scanDocsDir` (`readdir recursive`, best-effort `ENOENT→[]`, tri `relPath`). `ScannedDoc{slug,relPath,absPath,source,group,meta,title}`.
 - `src/errors/DocumentationError.ts` — `DocumentationError` (`docCode` string ≠ `code` number du parent `nodefonyError`) → `DocNotFoundError`/`DocUnsafeSlugError`.
-- `config/schema.ts` — Zod : `enabled`, `scan{rootDir,includeModules,exclude}`, `repo{url,branch?,editPathPrefix}`, `cache{ttlMs}`. `defineDocumentationConfig` = parse + merge ENV.
+- `config/config.ts` — Zod : `enabled`, `scan{rootDir,includeModules,exclude}`, `repo{url,branch?,editPathPrefix}`, `cache{ttlMs}`. `defineDocumentationConfig` = parse + merge ENV.
 - `interfaces/IDocumentation.ts` — `DocAudience`/`DocStatus`/`IDocTree`/`IDocPage`/`IDocPageRef`/`IDocSection`/`IDocAudienceInfo`/`DocVarProvider`/`IDocumentationService`.
 
 ## Config (clé `module-documentation` + ENV)

@@ -8,13 +8,13 @@ Accès Redis générique. Module = fournisseur de connexions + client brut. 0 lo
 
 - `Redis` (index.ts): Module. `@services([RedisService])`. `onKernelRegister` → `defineRedisConfig` → `set("redisConfig")`.
 - `RedisService` (service/redis.ts): `initialize()` ouvre les connexions ; `getClient(name)`, `getConnection(name)`, `createConnection(name)`, `closeConnections()`. Map `#connections` lazy (null).
-- `Connection` (src/Connection.ts): wrap `createClient` v5. Handlers `#onError/#onConnect/#onReady/#onEnd/#onReconnecting` stockés → `removeListener` à `close()`.
+- `Connection` (src/Connection.ts): wrap `createClient` v6. Handlers `#onError/#onConnect/#onReady/#onEnd/#onReconnecting` stockés → `removeListener` à `close()`.
 - `buildClientOptions` (src/buildClientOptions.ts): config → `RedisClientOptions`. Merge global+override. `url` prioritaire. Construit `reconnectStrategy` fn.
-- `schema.ts`: Zod source de vérité. `defineRedisConfig`: validate+env+freeze. `redisConfigJsonSchema()`: JSON Schema Studio.
+- `config.ts`: Zod source de vérité. `defineRedisConfig`: validate+env+freeze. `redisConfigJsonSchema()`: JSON Schema Studio.
 
 ## Config
 
-- Source: `config/schema.ts`. Défauts: `enabled=true`, `localhost:6379`, family 0, connectTimeout 5000, tls false, reconnect `{baseMs:100,maxMs:10000,maxRetries:0}`.
+- Source: `config/config.ts`. Défauts: `enabled=true`, `localhost:6379`, family 0, connectTimeout 5000, tls false, reconnect `{baseMs:100,maxMs:10000,maxRetries:0}`.
 - 3 connexions défaut: `main`/`publish`/`subscribe`. database 0.
 - Env (dans builder, après parse): `REDIS_URL`>host/port/auth, `REDIS_HOST`, `REDIS_PORT` (validé), `REDIS_PASSWORD`.
 - Surcharge app: clé `module-redis`.
@@ -32,7 +32,7 @@ Accès Redis générique. Module = fournisseur de connexions + client brut. 0 lo
 - pub/sub Redis est GLOBAL (ignore `database`) ; database n'isole que le storage clé-valeur.
 - client abonné (SUBSCRIBE) ne peut plus émettre de commandes → d'où 3 connexions.
 - `prefix` legacy supprimé (pas natif redis v6).
-- schema.ts PUR : pas de `process.env` (sinon non sérialisable JSON Schema). Env = builder.
+- config.ts PUR : pas de `process.env` (sinon non sérialisable JSON Schema). Env = builder.
 - zod ajouté à `rollup.config.ts external` + `nodefony/tests` exclu du tsconfig (2026-05-28).
 - **redis v6 (bump 2026-05-28, depuis v5.12.1)** : RESP3 = défaut v6 (API set/get/pub/sub inchangée). `maintNotifications:"disabled"` forcé dans `buildClientOptions` (Redis OSS → pas de push frames maintenance + timeouts déterministes). `client.close()` remplace `quit()` (déprécié) dans `Connection.close()`. v6 exige Node >= 20 (on est 26 ; engines racine ">=18" = dette). Fallback si pub/sub casse sous RESP3 : `RESP:2` dans options.
 

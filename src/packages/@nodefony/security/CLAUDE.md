@@ -18,7 +18,7 @@ webhooks, audit. Consomme `@nodefony/user` (jamais l'inverse).
 | Pattern auth           | **`IAuthenticator`** (supports/authenticate/onSuccess), PAS Bridge/Factory      | lisible, extensible, plugins                         |
 | HTTP                   | **hybride** : session serveur cookie opaque (BFF) web/Studio + JWT API/agents   | révocable + scaling via store partagé (révisé 06-06) |
 | Zero Trust             | zone protégée + anonyme + pas `@Anonymous` → **401**                            | fermé par défaut                                     |
-| Config                 | **`defineSecurityConfig()` + Zod** (12 sections, tout `enabled`, `.describe()`) | type-safe + Studio auto-form + désactivable à chaud  |
+| Config                 | **`defineSecurityConfig()` + Zod** (18 sections, tout `enabled`, `.describe()`) | type-safe + Studio auto-form + désactivable à chaud  |
 | En-têtes               | **natif** (pas la lib helmet)                                                   | 0 dep, contrôle total, nonce CSP par requête         |
 | Identité machine       | un `ServiceAccount` implémente `IUser`                                          | pas de principal séparé                              |
 | Coupling http→security | **type-only** (http importe `Firewall`/`Csrf`/`SecuredArea`)                    | conservé tel quel ; découplage = dette future        |
@@ -31,7 +31,7 @@ nodefony/
 ├── contracts/                 IToken · IAuthenticator · ISecuredArea · IFirewall · IAccessVoter(+VoterVote)
 ├── errors/                    AuthenticationError(401) · AccessDeniedError(403)
 ├── config/
-│   ├── defineSecurityConfig.ts  builder + Zod (12 sections) + securityConfigJsonSchema()
+│   ├── defineModuleConfig.ts  builder + Zod (18 sections) + securityConfigJsonSchema()
 │   └── config.ts                défauts SÛRS, ENTIÈREMENT commenté (réf humaine)
 ├── src/
 │   ├── SecuredArea.ts         match pattern + host/vhost

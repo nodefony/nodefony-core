@@ -85,7 +85,7 @@ function applyResilienceDefaults(
  * env + freeze) et publie le JSON Schema Studio.
  *
  * Principes (alignés sur `defineRealtimeConfig` / `defineSecurityConfig`) :
- * - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE, applique l'ENV,
+ * - **Source unique** : `./config.ts` (Zod). Le builder VALIDE, applique l'ENV,
  *   puis GÈLE — il ne dévie jamais du schéma.
  * - **Auto-documenté** : chaque champ Zod porte un `.describe()` →
  *   {@link redisConfigJsonSchema} produit un JSON Schema qu'un formulaire Studio

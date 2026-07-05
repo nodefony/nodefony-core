@@ -18,7 +18,7 @@ metadata:
 
 Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Différenciateur : HTTP et WS dans le même pipeline Controller.
 
-## Config Zod — schema.ts source de vérité
+## Config Zod — config.ts source de vérité
 
 `nodefony/config/{config.ts, defineModuleConfig.ts}` + interface `interfaces/IHttpConfig.ts`. Convention [[feedback_config_validation_zod]].
 
@@ -146,7 +146,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 
 ## Rate-limit général par IP (P0.3)
 
-Plafond de trafic **par IP** sur TOUTES les routes HTTP — **≠ `security.rateLimit`** (backoff de LOGIN NIST par identifiant saisi). Store `src/rateLimit/{IRateLimitStore,MemoryRateLimitStore}.ts` + config `http.rateLimit` (schema.ts) + check dans `HttpKernel.onHttpRequest`.
+Plafond de trafic **par IP** sur TOUTES les routes HTTP — **≠ `security.rateLimit`** (backoff de LOGIN NIST par identifiant saisi). Store `src/rateLimit/{IRateLimitStore,MemoryRateLimitStore}.ts` + config `http.rateLimit` (config.ts) + check dans `HttpKernel.onHttpRequest`.
 
 - **`MemoryRateLimitStore`** : fenêtre FIXE par IP (`{count, resetAt}`), O(1)/req (1 `Map.get` + arithmétique). `Map` **lazy `null`** (0 coût si jamais sollicité) ; à l'expiration, reset **en place** (0 alloc pour une IP récurrente). Mémoire bornée `maxTracked` (purge des fenêtres expirées → éviction **FIFO**) + `gc(now)` planifiable. Horloge `now` injectable (tests déterministes). `trackedCount`/`rejectedTotal` = introspection. Contrat `IRateLimitStore` **SYNC** (hot-path → 0 microtask ; un store Redis distribué introduira son PROPRE chemin, pas ce contrat). Verdict `RateLimitVerdict {limited, limit, remaining, resetAtMs, retryAfterS}`.
 - **Config `http.rateLimit`** (Zod strict) : `enabled`(**false**, opt-in)/`windowS`(60)/`max`(300)/`maxTracked`(100k)/`gcIntervalS`(300)/`gcJitter`(true). `enabled`/`windowS`/`max` = `runtimeMutable`. Défaut OFF = cloud-native délègue souvent à l'ingress/gateway + coût hot-path non imposé sans opt-in. `use("@nodefony/http", {rateLimit})` typé (augmentation `NodefonyModuleConfig` ajoutée à `index.ts`, absente avant).
@@ -437,7 +437,7 @@ http = **2ᵉ producteur** du data plane admin Studio (1er = kernel). `createHtt
 ## Deps clés
 
 - `ws@8` — ESM : `import { WebSocketServer } from 'ws'` (jamais `Ws` default, jamais `Ws.Server`)
-- `formidable@3` — upload
+- `@fastify/busboy@3` — upload
 - `serve-static@2` — static files
 - `node-forge@1` — TLS/certificates
 

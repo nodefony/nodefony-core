@@ -167,14 +167,14 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
 
 ## Config
 
-- `defineSecurityConfig(input={})` → Zod parse → `Object.freeze`. 12 sections : encoders, roleHierarchy,
+- `defineSecurityConfig(input={})` → Zod parse → `Object.freeze`. 18 sections : encoders, roleHierarchy,
   areas, cors, csrf, headers, rateLimit, jwt, **oauth2** (J9), apiKeys, webhooks, audit, studio (+ tokenStore/
-  passkeys/tokenExchange/realtimeChannels). Tout `enabled` (désactivable). `oauth2` : `{enabled, defaultRoles:
+  passkeys/totp/tokenExchange/realtimeChannels). Tout `enabled` (désactivable). `oauth2` : `{enabled, defaultRoles:
 ["ROLE_USER"], allowSignup, successRedirect, failureRedirect, providers:{<name>:{clientId, clientSecret,
 redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
 - `securityConfigJsonSchema()` = `z.toJSONSchema(schema)` → **Studio génère son formulaire**.
 - `config.ts` = défauts SÛRS ENTIÈREMENT commentés (réf humaine). Zones : champ `host?` (vhost).
-- `tokenStore` (J4) : `{driver:"memory", gcIntervalS:600, gcJitter:true, retentionRevokedDays:30}` —
+- `tokenStore` (J4) : `{store:"auto", gcIntervalS:600, gcJitter:true, retentionRevokedDays:30}` —
   store de jetons pluggable. `jwt.{issuer?, keystore:{keySetJson?,dir?}}` (issuer omis → `"nodefony"`).
 - Défauts : Zero Trust, CORS strict (jamais `*`+credentials), headers natifs (avancés COOP/COEP/CORP optionnels),
   Studio `enabled:false`/`exposure:localhost`.

@@ -53,7 +53,7 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - **Décorateur enregistre dans le singleton** `entityRegistry` au chargement du module → tests décorateurs doivent `unregister` en `afterEach`.
 - `Orm.connect()` est une **template method** — surcharger `onConnect()`, pas `connect()` (sinon `onOrmReady` plus émis).
 - Registres = **classes pures sans import nodefony** (testables tsx isolé) ; `Orm` seul importe `Service`. Erreurs = `Error` natif (throws config-time, pas hot path).
-- Tests unit : `npx mocha --config .mocharc.json` (mocha+tsx, `node:assert`). Pas dans le `test` script package.json (placeholder legacy `node -e`).
+- Tests unit : `npm test` (`vitest run`, convention universelle ; `node:assert`).
 - P5.1 = interfaces only → `index.js` quasi vide (tout en `export type`). Normal. Runtime arrive en P5.2.
 - Tx cross-ORM (2PC) NON gérée — limite documentée.
 - Inversion de dép STRICTE : orm-core n'importe jamais un driver concret ni http/framework.

@@ -23,7 +23,7 @@ d'autres couches — il ne contient aucune logique métier.
 | **Lib**             | `redis` v6 (node-redis). `createClient({ socket, username, password, database, name, maintNotifications })`. `reconnectStrategy` dans `socket`.                                                          |
 | **RESP3 (v6)**      | RESP3 = protocole par défaut v6 (assumé : set/get/pub/sub inchangés côté API). `maintNotifications: "disabled"` forcé (Redis OSS, pas Enterprise → déterministe). Fallback si souci pub/sub : `RESP: 2`. |
 | **Fermeture (v6)**  | `client.close()` (graceful, drain) — `quit()`/`QUIT` dépréciés. `destroy()` = forcé (non utilisé).                                                                                                       |
-| **Config**          | Source de vérité = `nodefony/config/schema.ts` (Zod). Builder `defineRedisConfig` valide + applique l'env + gèle. Style realtime.                                                                        |
+| **Config**          | Source de vérité = `nodefony/config/config.ts` (Zod). Builder `defineRedisConfig` valide + applique l'env + gèle. Style realtime.                                                                        |
 | **Env layering**    | `REDIS_URL` / `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` appliqués APRÈS le parse (schéma reste pur, déterministe, JSON Schema).                                                                     |
 | **3 connexions**    | `main` (commandes/storage), `publish`, `subscribe`. Raison : un client abonné ne peut plus émettre de commandes (protocole Redis).                                                                       |
 | **reconnect**       | Politique déclarative (`baseMs`/`maxMs`/`maxRetries`) → fonction `reconnectStrategy` construite au runtime (Zod ne sérialise pas).                                                                       |
@@ -47,7 +47,7 @@ d'autres couches — il ne contient aucune logique métier.
 ├── CLAUDE.md / MEMORY.md / README.md
 ├── docs/{index,architecture,configuration}.md
 └── nodefony/
-    ├── config/{schema.ts, defineRedisConfig.ts, config.ts}
+    ├── config/{config.ts, defineModuleConfig.ts}
     ├── interfaces/{IRedisConfig.ts, index.ts}
     ├── service/redis.ts             ← RedisService
     ├── src/{Connection.ts, buildClientOptions.ts}
@@ -57,7 +57,7 @@ d'autres couches — il ne contient aucune logique métier.
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
 - Modifier `rollup.config.ts` ou `tsconfig.json` (zod ajouté à `external` + tests exclus le 2026-05-28).
-- Lire `process.env` dans `schema.ts` (le schéma doit rester pur → env dans le builder).
+- Lire `process.env` dans `config.ts` (le schéma doit rester pur → env dans le builder).
 - Coder le `RedisBackplane` (P13.5) DANS ce module — c'est un **consommateur** (realtime) qui
   importe `RedisService` (il vit dans `@nodefony/realtime`).
   > ⚠️ `RedisSessionStorage` **EST désormais ici** (`nodefony/src/SessionStorage.ts`) — décision

@@ -23,7 +23,7 @@ non chargé par défaut (Drizzle = ORM SQL par défaut).
 
 - **`extends Service`, PAS `extends Orm` core** : la refonte a supprimé l'`Orm` legacy du core. Le
   service orchestre des adapters orm-core autonomes (modèle `DrizzleService`). Le core ne connaît plus l'ORM.
-- **Config = Zod** (`nodefony/config/schema.ts`, source de vérité) → builder `defineMongooseConfig`
+- **Config = Zod** (`nodefony/config/config.ts`, source de vérité) → builder `defineMongooseConfig`
   (parse + env + freeze) → validée au `onKernelRegister`, exposée au container sous `mongooseConfig`.
   Augmente `NodefonyModuleConfig` → `use("@nodefony/mongoose", …)` typé. Réf : audit config ORM.
 - **Connecteur défaut = `nodefony`** (≠ `default` de Drizzle) → `SESSION_ORM = "nodefony"`. **Raison** :
@@ -43,7 +43,7 @@ credentials + version) · `ping` (`admin().command({ping:1})`) · `probe` (`serv
 
 - `any`, `@ts-ignore`, `require()`. ESM only, préfixe `node:`.
 - Importer `@nodefony/framework` (orm = couche basse). Logique métier.
-- Lire `process.env` dans `schema.ts` (le schéma reste pur → env dans `defineMongooseConfig`).
+- Lire `process.env` dans `config.ts` (le schéma reste pur → env dans `defineMongooseConfig`).
 - Déréférencer `Nodefony.getKernel()` au top-level d'un fichier d'import.
 
 ## Gotchas

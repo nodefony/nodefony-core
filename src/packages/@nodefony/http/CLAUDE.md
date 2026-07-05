@@ -22,7 +22,7 @@ C'est le différenciateur clé du framework — HTTP et WebSocket partagent le m
 ```
 src/packages/@nodefony/http/
 ├── index.ts                        ← classe Http (Module) + exports publics
-├── package.json                    ← deps: ws, formidable, serve-static, uuid…
+├── package.json                    ← deps: ws, @fastify/busboy, serve-static, uuid…
 ├── rollup.config.ts                ← NE PAS MODIFIER sans accord
 ├── tsconfig.json                   ← NE PAS MODIFIER sans accord
 └── nodefony/
@@ -33,7 +33,7 @@ src/packages/@nodefony/http/
     │   ├── http-kernel.ts          ← orchestrateur central — routing, firewall, erreurs
     │   ├── certificates.ts         ← génération/chargement TLS (node-forge)
     │   ├── sessions/sessions-service.ts
-    │   ├── upload/upload-service.ts  ← formidable
+    │   ├── upload/upload-service.ts  ← @fastify/busboy
     │   └── servers/
     │       ├── server-http.ts      ← node:http — port 5151
     │       ├── server-https.ts     ← node:https + HTTP/2 — port 5152
@@ -165,7 +165,7 @@ Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs** : la
 | `http/errors.test.ts`                           | JSON error format (code, message, stack, route) | 18    | ✅   |
 | `http/decorators.test.ts`                       | @Param/@Body/@Query via HTTP                    | 10    | ✅   |
 | `http/fileStream.test.ts`                       | Streaming                                       | 8     | ✅   |
-| `http/upload.test.ts`                           | Upload formidable                               | 7     | ✅   |
+| `http/upload.test.ts`                           | Upload @fastify/busboy                          | 7     | ✅   |
 | `http/httpKernel.test.ts`                       | Pipeline, Content-Type, erreurs, X-Request-Id   | 35    | ✅   |
 | `http/static.test.ts`                           | Fichiers statiques                              | 12    | ✅   |
 | `http/session.test.ts`                          | Sessions HTTP                                   | 15    | ✅   |

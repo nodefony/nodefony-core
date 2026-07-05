@@ -1,7 +1,7 @@
 /**
  * @nodefony/redis — Accès Redis générique pour Nodefony.
  *
- * Module d'infrastructure : gère N connexions Redis nommées (lib `redis` v5) à
+ * Module d'infrastructure : gère N connexions Redis nommées (lib `redis` v6) à
  * partir d'une config validée par Zod. Il N'IMPOSE aucun usage — il expose le
  * client Redis brut par connexion (`RedisService.getClient(name)`), donc on
  * l'utilise pour TOUT : cache clé-valeur, sessions, files (streams/lists),
