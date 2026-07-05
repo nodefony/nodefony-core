@@ -38,7 +38,7 @@ await pub?.publish("chat:room1", "hello");
 
 ## Configuration
 
-Source de vérité : `nodefony/config/schema.ts` (Zod). Trois niveaux de précédence :
+Source de vérité : `nodefony/config/config.ts` (Zod). Trois niveaux de précédence :
 **défauts → config app (`module-redis`) → environnement**.
 
 ```typescript

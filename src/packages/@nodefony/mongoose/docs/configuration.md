@@ -10,7 +10,7 @@ last-updated: 2026-06-08
 # Configuration de @nodefony/mongoose
 
 La configuration est validée par **Zod** au boot. La **source de vérité** est
-`nodefony/config/schema.ts` — le type TS est dérivé du schéma (`z.infer`), et chaque champ porte une
+`nodefony/config/config.ts` — le type TS est dérivé du schéma (`z.infer`), et chaque champ porte une
 description (auto-documentation + JSON Schema pour un futur éditeur Studio).
 
 ## Forme

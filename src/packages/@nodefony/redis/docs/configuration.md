@@ -16,7 +16,7 @@ tags: [redis, config, zod, env, connections, tls, reconnect]
 
 ## Source de vérité unique
 
-Tout part de `nodefony/config/schema.ts` (Zod). Le type TS, les défauts, et la
+Tout part de `nodefony/config/config.ts` (Zod). Le type TS, les défauts, et la
 documentation des champs (`.describe()`) en dérivent. **Ne jamais éditer les valeurs à la
 main** ailleurs : on modifie les `.default(...)` du schéma.
 
@@ -28,12 +28,12 @@ Trois niveaux, par ordre de précédence croissant :
 
 ## Variables d'environnement
 
-| Variable         | Cible                              | Note                                            |
-| ---------------- | ---------------------------------- | ----------------------------------------------- |
-| `REDIS_URL`      | `url` (toutes connexions)          | `redis[s]://[[user][:pass]@]host[:port][/db]`   |
-| `REDIS_HOST`     | `globalOptions.socket.host`        |                                                 |
-| `REDIS_PORT`     | `globalOptions.socket.port`        | ignoré si non numérique / hors 1-65535          |
-| `REDIS_PASSWORD` | `globalOptions.password`           | secret — **jamais** dans la config versionnée   |
+| Variable         | Cible                       | Note                                          |
+| ---------------- | --------------------------- | --------------------------------------------- |
+| `REDIS_URL`      | `url` (toutes connexions)   | `redis[s]://[[user][:pass]@]host[:port][/db]` |
+| `REDIS_HOST`     | `globalOptions.socket.host` |                                               |
+| `REDIS_PORT`     | `globalOptions.socket.port` | ignoré si non numérique / hors 1-65535        |
+| `REDIS_PASSWORD` | `globalOptions.password`    | secret — **jamais** dans la config versionnée |
 
 > `url` prend précédence sur `host`/`port`/`auth` : pratique pour les PaaS (Upstash,
 > Heroku Redis) qui ne fournissent qu'une URL.

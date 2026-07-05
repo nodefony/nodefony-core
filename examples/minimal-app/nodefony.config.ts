@@ -26,5 +26,10 @@ export default defineConfig<typeof env>((ctx) => ({
     // consommées par le HEALTHCHECK du Dockerfile et les probes k8s.
     use("@nodefony/http", {}),
     "@nodefony/framework",
+    // 💾 Pour persister, ajoute l'adapter + la sécurité et déclare l'infra dans
+    // `env.ts` (NF_DATABASE_URL) — les stores se câblent en `auto`. Ex. :
+    //   "@nodefony/drizzle",                       // ORM SQL (suit NF_DATABASE_URL)
+    //   use("@nodefony/security", { /* areas… */ }, { policy: "mandatory" }),
+    // Cf docs/guides/persistence.md (infra déclarée) + configuration.md.
   ],
 }));

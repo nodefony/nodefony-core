@@ -76,7 +76,7 @@ traversée de répertoire impossible :
 
 ## Configuration & cycle de boot
 
-- `config/schema.ts` (Zod) est la **source de vérité** ; le type TS en est dérivé (`z.infer`).
+- `config/config.ts` (Zod) est la **source de vérité** ; le type TS en est dérivé (`z.infer`).
 - `onKernelRegister` valide la config (défauts + surcharge `module-documentation` + ENV) et la
   réassigne à `this.options` **avant** que le service ne soit instancié.
 - `onKernelReady` enregistre les variables built-in (`version`, `branch`, `commit`) via `GitService`,

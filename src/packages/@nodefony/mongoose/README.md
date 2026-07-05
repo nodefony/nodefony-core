@@ -45,7 +45,7 @@ Mongoose : `user`/`pass`/`maxPoolSize`/timeouts).
 **Surcharge par environnement** (précédence max) : `MONGODB_URI` (uri du connecteur primaire) ·
 `MONGODB_DEBUG` (1/true). ⚠️ Les secrets (`user:pass`) passent par l'env, **jamais** par le dépôt.
 
-La config est validée par **Zod** au boot (`schema.ts` = source de vérité). Une config invalide
+La config est validée par **Zod** au boot (`config.ts` = source de vérité). Une config invalide
 plante proprement avec un message clair.
 
 ## Stockage de session
