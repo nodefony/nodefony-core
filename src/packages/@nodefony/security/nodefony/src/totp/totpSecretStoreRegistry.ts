@@ -1,9 +1,7 @@
-import path from "node:path";
-import { Nodefony, type Container } from "nodefony";
+import type { Container } from "nodefony";
 import type { ISecurityConfig } from "../../config/defineModuleConfig";
 import type { ITotpSecretStore } from "../../contracts/ITotpSecretStore";
 import { MemoryTotpSecretStore } from "./MemoryTotpSecretStore";
-import { FileTotpSecretStore } from "./FileTotpSecretStore";
 
 /**
  * Registre de **fabriques de stores de secrets TOTP** — résout un nom (`memory`,
@@ -49,27 +47,8 @@ export function listTotpStores(): string[] {
   return [...factories.keys()];
 }
 
-/**
- * Chemin par défaut de la persistance fichier (mono-process) :
- * `totp.storePath` si fourni, sinon `<kernel.varDir>/totp/secrets.json` (base commune
- * des stores fichier ; repli `<cwd>/var` si le kernel n'a pas encore booté).
- */
-function defaultStorePath(config: ISecurityConfig): string {
-  const configured = config.totp?.storePath;
-  if (typeof configured === "string" && configured.length > 0) {
-    return configured;
-  }
-  const varDir = String(
-    Nodefony.getKernel()?.varDir?.path ?? path.resolve(process.cwd(), "var"),
-  );
-  return path.join(varDir, "totp", "secrets.json");
-}
-
-// ─── Builtins sans dépendance — enregistrés à l'import du module ─────────────
+// ─── Builtin sans dépendance — enregistré à l'import du module ────────────────
+// Seul `memory` (volatil) est builtin. La PERSISTANCE du 2FA passe par un adapter
+// durable (`totp.store: "drizzle"` — auto-register par @nodefony/drizzle), plus de
+// store fichier JSON maison (retiré : sqlite couvre la persistance mono-nœud).
 registerTotpStore("memory", () => new MemoryTotpSecretStore());
-
-// Persistance fichier (mono-process) — les secrets survivent au redémarrage.
-registerTotpStore(
-  "file",
-  (ctx) => new FileTotpSecretStore(defaultStorePath(ctx.config)),
-);

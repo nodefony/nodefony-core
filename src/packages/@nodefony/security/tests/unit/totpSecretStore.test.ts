@@ -1,10 +1,5 @@
 import assert from "node:assert/strict";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { MemoryTotpSecretStore } from "../../nodefony/src/totp/MemoryTotpSecretStore";
-import { FileTotpSecretStore } from "../../nodefony/src/totp/FileTotpSecretStore";
-import { getTotpStoreFactory } from "../../nodefony/src/totp/totpSecretStoreRegistry";
-import type { ITotpStoreFactoryContext } from "../../nodefony/src/totp/totpSecretStoreRegistry";
 import type { ITotpSecret } from "../../nodefony/contracts/ITotpSecret";
 
 /**
@@ -98,28 +93,5 @@ describe("MemoryTotpSecretStore — snapshot/restore", () => {
     fresh.restore(snap);
     assert.equal((await fresh.findByUser("alice"))?.confirmedAt, 5);
     assert.equal((await fresh.findByUser("bob"))?.userId, "bob");
-  });
-});
-
-describe("FileTotpSecretStore / registry — emplacement + résilience boot", () => {
-  it("location expose le chemin physique du fichier", () => {
-    const file = join(tmpdir(), "nf-totp-loc.json");
-    assert.equal(new FileTotpSecretStore(file).location, file);
-  });
-
-  it("fabrique « file » SANS kernel → repli var/totp, JAMAIS de throw", () => {
-    // getKernel() null hors boot : la fabrique ne doit pas crasher (sinon boot KO).
-    const ctx = { config: { totp: {} } } as unknown as ITotpStoreFactoryContext;
-    const store = getTotpStoreFactory("file")!(ctx) as FileTotpSecretStore;
-    assert.ok(store.location.endsWith(join("var", "totp", "secrets.json")));
-  });
-
-  it("totp.storePath explicite → respecté", () => {
-    const custom = join(tmpdir(), "nf-custom-totp.json");
-    const ctx = {
-      config: { totp: { storePath: custom } },
-    } as unknown as ITotpStoreFactoryContext;
-    const store = getTotpStoreFactory("file")!(ctx) as FileTotpSecretStore;
-    assert.equal(store.location, custom);
   });
 });

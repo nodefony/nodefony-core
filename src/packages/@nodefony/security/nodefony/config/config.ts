@@ -395,7 +395,7 @@ const tokenStoreSchema = z
       .string()
       .default("auto")
       .describe(
-        "Store de jetons (refresh/PAT/denylist) : auto (suit l'infra database déclarée, repli memory)|memory|file|drizzle|mongoose|redis. Pluggable (`registerTokenStore`). Memory = dev/tests (volatile, non partagé). Vocabulaire unifié : données = `store`.",
+        "Store de jetons (refresh/PAT/denylist) : auto [défaut] (infra database → drizzle/mongoose ; sinon sqlite local si drizzle chargé ; sinon repli memory volatil)|memory|drizzle|mongoose|redis. Pluggable (`registerTokenStore`). Memory = dev/tests (volatil, non partagé). Vocabulaire unifié : données = `store`.",
       ),
     gcIntervalS: z
       .number()
@@ -487,13 +487,7 @@ const passkeysSchema = z
       .string()
       .default("auto")
       .describe(
-        "Backend de stockage des credentials : auto (suit l'infra database déclarée, repli memory) [défaut]|memory|file|drizzle|mongoose|redis. Pluggable (`registerWebAuthnStore`). 'memory' = volatile, perdu au redémarrage ; 'file' = persiste sur disque (mono-process : dev / petit déploiement) ; drizzle/mongoose/redis = cluster/prod (auto-register par l'adapter chargé).",
-      ),
-    storePath: z
-      .string()
-      .optional()
-      .describe(
-        "Chemin du fichier JSON (driver 'file'). Omis = <cwd>/var/webauthn-credentials.json.",
+        "Backend de stockage des credentials : auto [défaut] (infra database déclarée → drizzle/mongoose ; sinon sqlite local si drizzle chargé ; sinon repli memory volatil)|memory|drizzle|mongoose|redis. Pluggable (`registerWebAuthnStore`). 'memory' = dev/tests (volatil, perdu au redémarrage — les passkeys enregistrés deviennent inutilisables). Persistance = adapter durable auto-enregistré par le module chargé.",
       ),
   })
   .describe("Passkeys (WebAuthn L3 / FIDO2) — synced par défaut.");
@@ -557,15 +551,9 @@ const totpSchema = z
       ),
     store: z
       .string()
-      .default("memory")
+      .default("auto")
       .describe(
-        "Backend de stockage du secret : memory|file|drizzle|mongoose|redis. Pluggable (`registerTotpStore`). 'memory' = volatile [défaut] ; 'file' = mono-process persistant ; drizzle/mongoose/redis = cluster/prod (l'app câble l'adapter de son module backend).",
-      ),
-    storePath: z
-      .string()
-      .optional()
-      .describe(
-        "Chemin du fichier JSON (driver 'file'). Omis = <cwd>/var/totp-secrets.json.",
+        "Backend de stockage du secret : auto [défaut] (infra database → drizzle/mongoose ; sinon sqlite local si drizzle chargé ; sinon repli memory volatil)|memory|drizzle|mongoose|redis. Pluggable (`registerTotpStore`). 'memory' = dev/tests (volatil — les secrets 2FA sont perdus au redémarrage). Persistance = adapter durable auto-enregistré par le module chargé (`totp.store: \"drizzle\"`).",
       ),
   })
   .describe(

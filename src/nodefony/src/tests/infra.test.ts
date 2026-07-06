@@ -158,14 +158,24 @@ describe("config — infra (modèle « infra déclarée », Phase 0.8)", () => {
       assert.strictEqual(noRedis.store, "drizzle");
     });
 
-    it("session : cache > database > files (fallback paramétrable)", () => {
-      const r = resolveAutoStore(
+    it("session : cache > database > sqlite local > files", () => {
+      // Sans infra ET drizzle chargé → sqlite local (bascule « sqlite défaut »).
+      const withDrizzle = resolveAutoStore(
         "session",
         NO_ROLES,
         ["files", "drizzle"],
         "files",
       );
-      assert.strictEqual(r.store, "files");
+      assert.strictEqual(withDrizzle.store, "drizzle");
+      // Sans infra ET drizzle ABSENT → repli fichier (session n'a pas de memory).
+      const filesOnly = resolveAutoStore(
+        "session",
+        NO_ROLES,
+        ["files"],
+        "files",
+      );
+      assert.strictEqual(filesOnly.store, "files");
+      // Infra database déclarée → drizzle (préférence infra, prioritaire).
       const withDb = resolveAutoStore(
         "session",
         DB_SQL,
@@ -182,10 +192,33 @@ describe("config — infra (modèle « infra déclarée », Phase 0.8)", () => {
       assert.match(r.reason, /mongoose/);
     });
 
-    it("aucune infra → fallback avec raison explicite", () => {
+    it("SQLITE DÉFAUT : sans infra + drizzle chargé → drizzle (persistant, pas memory)", () => {
+      // Le cœur du lot 3b : dev/prod mono-nœud persistent sans config.
+      const durable = resolveAutoStore("durable", NO_ROLES, [
+        "memory",
+        "drizzle",
+      ]);
+      assert.strictEqual(durable.store, "drizzle");
+      assert.match(durable.reason, /local persistant/);
+      // ephemeral idem (redis absent) → drizzle avant le repli memory.
+      const ephemeral = resolveAutoStore("ephemeral", NO_ROLES, [
+        "memory",
+        "drizzle",
+      ]);
+      assert.strictEqual(ephemeral.store, "drizzle");
+      // mongoose préféré si c'est le seul backend persistant chargé.
+      const mongo = resolveAutoStore("durable", NO_ROLES, [
+        "memory",
+        "mongoose",
+      ]);
+      assert.strictEqual(mongo.store, "mongoose");
+    });
+
+    it("aucune infra + aucun backend persistant chargé → repli volatil annoncé", () => {
       const r = resolveAutoStore("durable", NO_ROLES, ["memory"]);
       assert.strictEqual(r.store, "memory");
       assert.match(r.reason, /aucune infra/);
+      assert.match(r.reason, /volatil/);
     });
   });
 

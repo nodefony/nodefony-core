@@ -252,6 +252,14 @@ export class DrizzleOrm extends Orm {
   /** Connexion SQLite (better-sqlite3, synchrone) + création des tables (dev/test). */
   #connectSqlite(entities: IEntity[]): void {
     const client = new BetterSqlite3(this.#filename);
+    // WAL : lectures concurrentes des écritures + meilleure durabilité — indispensable
+    // dès qu'on assume sqlite en prod mono-nœud (défaut « sqlite partout », cf Rails 8).
+    // `synchronous=NORMAL` = compromis sûr+rapide recommandé AVEC WAL. Sans objet sur
+    // `:memory:` (pas de fichier journal) → gaté sur un fichier réel.
+    if (this.#filename !== ":memory:") {
+      client.pragma("journal_mode = WAL");
+      client.pragma("synchronous = NORMAL");
+    }
     this.#client = client;
     this.#db = drizzle(client);
     for (const entity of entities) {

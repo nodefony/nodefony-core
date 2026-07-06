@@ -1,9 +1,7 @@
-import path from "node:path";
-import { Nodefony, type Container } from "nodefony";
+import type { Container } from "nodefony";
 import type { ISecurityConfig } from "../../config/defineModuleConfig";
 import type { IWebAuthnCredentialStore } from "../../contracts/IWebAuthnCredentialStore";
 import { MemoryWebAuthnCredentialStore } from "./MemoryWebAuthnCredentialStore";
-import { FileWebAuthnCredentialStore } from "./FileWebAuthnCredentialStore";
 
 /**
  * Registre de **fabriques de stores de credentials WebAuthn** — résout un nom
@@ -48,20 +46,8 @@ export function listWebAuthnStores(): string[] {
   return [...factories.keys()];
 }
 
-// ─── Builtins sans dépendance — enregistrés à l'import du module ─────────────
+// ─── Builtin sans dépendance — enregistré à l'import du module ────────────────
+// Seul `memory` (volatil, dev/tests) est builtin. La PERSISTANCE passe par un
+// adapter durable (drizzle/mongoose/redis) auto-enregistré par le module chargé —
+// plus de store fichier JSON maison (retiré : sqlite couvre la persistance mono-nœud).
 registerWebAuthnStore("memory", () => new MemoryWebAuthnCredentialStore());
-
-// Persistance fichier (mono-process) — les passkeys survivent au redémarrage.
-// Chemin : `passkeys.storePath` si fourni, sinon `<kernel.varDir>/webauthn/credentials.json`
-// (base commune des stores fichier ; repli `<cwd>/var` si le kernel n'a pas encore booté).
-registerWebAuthnStore("file", (ctx) => {
-  const configured = ctx?.config?.passkeys?.storePath;
-  const varDir = String(
-    Nodefony.getKernel()?.varDir?.path ?? path.resolve(process.cwd(), "var"),
-  );
-  const filePath =
-    typeof configured === "string" && configured.length > 0
-      ? configured
-      : path.join(varDir, "webauthn", "credentials.json");
-  return new FileWebAuthnCredentialStore(filePath);
-});

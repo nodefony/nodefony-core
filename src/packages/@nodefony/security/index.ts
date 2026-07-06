@@ -177,7 +177,6 @@ export type {
 // ─── Store de jetons (PAT / refresh / denylist) + registre pluggable ─────────
 export { MemoryTokenStore } from "./nodefony/src/token/MemoryTokenStore";
 export type { TokenStoreSnapshot } from "./nodefony/src/token/MemoryTokenStore";
-export { FileTokenStore } from "./nodefony/src/token/FileTokenStore";
 export { JwtKeystore } from "./nodefony/src/token/JwtKeystore";
 export { resolveJwtRuntime } from "./nodefony/src/token/jwtRuntime";
 export type { IJwtRuntime } from "./nodefony/src/token/jwtRuntime";
@@ -194,7 +193,6 @@ export type {
 // ─── WebAuthn / Passkeys (P6 J9) — credentials + store pluggable ─────────────
 export { MemoryWebAuthnCredentialStore } from "./nodefony/src/webauthn/MemoryWebAuthnCredentialStore";
 export type { WebAuthnStoreSnapshot } from "./nodefony/src/webauthn/MemoryWebAuthnCredentialStore";
-export { FileWebAuthnCredentialStore } from "./nodefony/src/webauthn/FileWebAuthnCredentialStore";
 export {
   registerWebAuthnStore,
   getWebAuthnStoreFactory,
@@ -264,7 +262,6 @@ export {
 // ─── 2FA TOTP (P6.17, RFC 6238) — secret chiffré + store pluggable ───────────
 export { MemoryTotpSecretStore } from "./nodefony/src/totp/MemoryTotpSecretStore";
 export type { TotpStoreSnapshot } from "./nodefony/src/totp/MemoryTotpSecretStore";
-export { FileTotpSecretStore } from "./nodefony/src/totp/FileTotpSecretStore";
 export {
   registerTotpStore,
   getTotpStoreFactory,

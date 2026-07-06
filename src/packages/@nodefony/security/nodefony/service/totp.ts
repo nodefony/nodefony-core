@@ -3,6 +3,9 @@ import {
   Module,
   Container,
   Event,
+  AUTO_STORE,
+  EMPTY_INFRA,
+  resolveAutoStore,
   deriveStoreBackend,
   readStoreLocation,
 } from "nodefony";
@@ -119,8 +122,9 @@ class TotpService extends Service {
   }
 
   /**
-   * Résout le store de secrets : adapter posé au container (ORM/Redis) en
-   * priorité, sinon le driver configuré (`memory` | `file`) via le registre.
+   * Résout le store de secrets : adapter posé au container (ORM/Redis) en priorité,
+   * sinon le driver configuré. `auto` (défaut) suit l'infra database déclarée puis
+   * un backend local persistant (sqlite/drizzle chargé), repli `memory` ANNONCÉ.
    */
   #resolveStore(config: ISecurityConfig): ITotpSecretStore | null {
     const existing = this.get<ITotpSecretStore>("totpSecretStore");
@@ -137,11 +141,39 @@ class TotpService extends Service {
       });
       return existing;
     }
-    const driver = config.totp.store;
+    let driver = config.totp.store;
+    let reason = `store explicitement configuré ("${driver}")`;
+    if (driver === AUTO_STORE) {
+      const auto = resolveAutoStore(
+        "durable",
+        this.kernel?.infra ?? EMPTY_INFRA,
+        listTotpStores(),
+      );
+      driver = auto.store;
+      reason = auto.reason;
+      this.log(`totp.store "auto" → "${driver}" (${auto.reason})`, "INFO");
+    }
     const factory = getTotpStoreFactory(driver);
     if (!factory) {
-      this.log(`totp store "${driver}" inconnu — 2FA indisponible`, "CRITIC");
+      // Doctrine d'échec : store EXPLICITE introuvable = config erronée.
+      const msg =
+        `totp store "${driver}" inconnu ` +
+        `(enregistrés : ${listTotpStores().join(", ") || "aucun"})`;
+      if (this.kernel?.environment === "production") {
+        throw new Error(`${msg} — 2FA indisponible : boot avorté.`);
+      }
+      this.log(`${msg} — 2FA indisponible`, "CRITIC");
       return null;
+    }
+    // Prod-guard : secrets 2FA en mémoire = perdus au redémarrage (utilisateurs
+    // verrouillés hors de leur second facteur).
+    if (driver === "memory" && this.kernel?.environment === "production") {
+      this.log(
+        `totp.store "memory" en PRODUCTION — secrets 2FA volatils : perdus au ` +
+          `redémarrage (utilisateurs verrouillés). Déclarer une infra durable ` +
+          `(NF_DATABASE_URL) ou charger @nodefony/drizzle.`,
+        "WARNING",
+      );
     }
     const store = factory({ container: this.container as Container, config });
     this.container?.set("totpSecretStore", store);
@@ -151,7 +183,7 @@ class TotpService extends Service {
       configured: config.totp.store,
       resolved: driver,
       available: listTotpStores(),
-      reason: `store configuré ("${driver}")`,
+      reason,
       configPath: "security.totp.store",
       location: readStoreLocation(store),
     });

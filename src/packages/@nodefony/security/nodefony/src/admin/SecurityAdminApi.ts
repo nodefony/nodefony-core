@@ -72,9 +72,6 @@ function tokenStoreDriver(
   switch (className) {
     case "MemoryTokenStore":
       return "memory";
-    case "FileTokenStore":
-      // Store fichier (builtin) — persistance locale, hors SGBD/cache.
-      return "memory";
     case "DrizzleTokenStore":
     case "MongooseTokenStore":
       return "orm";

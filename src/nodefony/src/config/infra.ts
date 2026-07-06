@@ -257,9 +257,25 @@ export function resolveAutoStore(
         `(enregistrés : ${available.join(", ") || "aucun"}) — repli "${fallback}"`,
     };
   }
+  // Aucune infra RÉSEAU déclarée : préférer un backend LOCAL PERSISTANT réellement
+  // chargé (`drizzle` = sqlite local, puis `mongoose`) AVANT le repli volatil.
+  // C'est la bascule « sqlite par défaut » : dev ET prod mono-nœud persistent sans
+  // aucune config (`nodefony new` marche, tes données survivent au redémarrage) ; on
+  // ne « sort » de sqlite qu'en déclarant une infra réseau (NF_DATABASE_URL) pour
+  // scaler en multi-nœud. Ordre = même préférence que l'infra database (sql avant mongo).
+  for (const local of ["drizzle", "mongoose"] as const) {
+    if (available.includes(local)) {
+      return {
+        store: local,
+        reason: `aucune infra déclarée — backend local persistant "${local}" (mono-nœud)`,
+      };
+    }
+  }
   return {
     store: fallback,
-    reason: `aucune infra déclarée — défaut "${fallback}"`,
+    reason:
+      `aucune infra déclarée, aucun backend persistant chargé — repli "${fallback}"` +
+      (fallback === "memory" ? " (volatil)" : ""),
   };
 }
 

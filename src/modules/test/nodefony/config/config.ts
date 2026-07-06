@@ -65,11 +65,12 @@ export default {
       corp: "same-origin",
       permissionsPolicy: "camera=(), microphone=(), geolocation=()",
     },
-    // P6 J9 — passkeys WebAuthn : store FICHIER en dev (les credentials
-    // persistent au redémarrage, contrairement à "memory" vidé à chaque restart).
-    // Fichier dans var/ (gitignoré). Cluster/prod → driver ORM/Redis (à venir).
+    // P6 J9 — passkeys WebAuthn : store `auto` → suit l'infra ; sans infra déclarée
+    // mais @nodefony/drizzle chargé → sqlite local (les credentials persistent au
+    // redémarrage). Multi-nœud → déclarer NF_DATABASE_URL. Le store fichier JSON a
+    // été retiré (sqlite couvre la persistance mono-nœud).
     passkeys: {
-      store: "file",
+      store: "auto",
     },
     // P6 J9 — banc social login OAuth2 : un provider de TEST déterministe (zéro
     // réseau, enregistré dans secure/oauthTestProvider.ts) prouve le flux complet

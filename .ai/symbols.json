@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-06T15:38:14.789Z",
+  "generated": "2026-07-06T16:03:29.020Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 998,
-    "symbols": 2464,
-    "classes": 317,
+    "files": 995,
+    "symbols": 2460,
+    "classes": 314,
     "interfaces": 650,
     "types": 292,
     "enums": 4,
-    "functions": 663,
+    "functions": 662,
     "constants": 538
   },
   "symbols": {
@@ -16339,17 +16339,6 @@
       "decorators": [],
       "description": "Token du visiteur non authentifié — Zero Trust : un visiteur EST un utilisateur anonyme (jamais `null`). Porte le singleton gelé `anonymousUser` → **zéro allocation d'utilisateur** par requête non …"
     },
-    "FileTokenStore": {
-      "name": "FileTokenStore",
-      "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "MemoryTokenStore",
-      "implements": [],
-      "decorators": [],
-      "description": "Store de jetons **sur fichier** (JSON) — `MemoryTokenStore` + persistance. Étend la référence mémoire : toute la logique (records, denylist, révocation en masse, gc, reuse detection) est héritée ; …"
-    },
     "JwtKeystore": {
       "name": "JwtKeystore",
       "kind": "class",
@@ -16455,17 +16444,6 @@
       ],
       "decorators": [],
       "description": "Jeton porteur d'un utilisateur réel — produit par les authenticators à credential (`userpassword`, puis `session`/`jwt`...). Cycle en deux états, UN SEUL objet alloué par tentative (cold path login…"
-    },
-    "FileTotpSecretStore": {
-      "name": "FileTotpSecretStore",
-      "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "MemoryTotpSecretStore",
-      "implements": [],
-      "decorators": [],
-      "description": "Store de secrets TOTP **sur fichier** (JSON) — {@link MemoryTotpSecretStore} + persistance. Toute la logique est héritée ; on n'ajoute QUE l'écriture/lecture disque, via un flush **différé/coalescé…"
     },
     "MemoryTotpSecretStore": {
       "name": "MemoryTotpSecretStore",
@@ -16812,17 +16790,6 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Toutes les fabriques enregistrées (consommées par l'`AuthorizationService`)."
-    },
-    "FileWebAuthnCredentialStore": {
-      "name": "FileWebAuthnCredentialStore",
-      "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "MemoryWebAuthnCredentialStore",
-      "implements": [],
-      "decorators": [],
-      "description": "Store de credentials WebAuthn **sur fichier** (JSON) — {@link MemoryWebAuthnCredentialStore} + persistance. Toute la logique d'index est héritée ; on n'ajoute QUE l'écriture/lecture disque. L'état …"
     },
     "MemoryWebAuthnCredentialStore": {
       "name": "MemoryWebAuthnCredentialStore",
@@ -17786,15 +17753,6 @@
       "IBackplaneMessage": [
         "ClusterBackplaneEnvelope"
       ],
-      "MemoryTokenStore": [
-        "FileTokenStore"
-      ],
-      "MemoryTotpSecretStore": [
-        "FileTotpSecretStore"
-      ],
-      "MemoryWebAuthnCredentialStore": [
-        "FileWebAuthnCredentialStore"
-      ],
       "Context": [
         "HttpContext",
         "WebsocketContext"
@@ -18519,9 +18477,7 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
       ],
       "inspect": [
         "src/nodefony/src/Error.ts",
@@ -18893,6 +18849,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
@@ -18901,6 +18858,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
@@ -18909,6 +18867,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
@@ -21137,7 +21096,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "ISocialProvider": [
@@ -21241,7 +21199,6 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "ITokenStore": [
@@ -21260,7 +21217,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "DeniedJtiRow": [
@@ -21274,7 +21230,6 @@
       "ITotpSecret": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
@@ -21287,7 +21242,6 @@
       ],
       "TotpSecretUpdate": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
       ],
       "TotpSecretRow": [
@@ -21355,7 +21309,6 @@
         "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
       ],
       "IWebAuthnCredentialStore": [
@@ -21370,7 +21323,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
       ],
       "WebAuthnCredentialRow": [
@@ -24314,22 +24266,11 @@
       "createGithubProvider": [
         "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts"
       ],
-      "MemoryTokenStore": [
-        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
-      ],
-      "TokenStoreSnapshot": [
-        "src/packages/@nodefony/security/nodefony/src/token/FileTokenStore.ts"
-      ],
       "IJwtSigningKey": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
-      "MemoryTotpSecretStore": [
-        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
-      ],
-      "TotpStoreSnapshot": [
-        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts"
+      "MemoryTokenStore": [
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
       ],
       "deriveKey": [
         "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
@@ -24356,7 +24297,7 @@
       "verifyTotp": [
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
-      "FileTotpSecretStore": [
+      "MemoryTotpSecretStore": [
         "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
       ],
       "RoleVoter": [
@@ -24366,13 +24307,6 @@
         "src/packages/@nodefony/security/nodefony/src/voter/voterRegistry.ts"
       ],
       "MemoryWebAuthnCredentialStore": [
-        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
-      ],
-      "WebAuthnStoreSnapshot": [
-        "src/packages/@nodefony/security/nodefony/src/webauthn/FileWebAuthnCredentialStore.ts"
-      ],
-      "FileWebAuthnCredentialStore": [
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
       ],
       "IWebhookDeliveryPolicy": [
