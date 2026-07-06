@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-06T21:42:39.771Z",
+  "generated": "2026-07-06T22:54:30.024Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 996,
-    "symbols": 2461,
-    "classes": 314,
-    "interfaces": 650,
-    "types": 292,
+    "files": 997,
+    "symbols": 2478,
+    "classes": 313,
+    "interfaces": 655,
+    "types": 293,
     "enums": 4,
-    "functions": 663,
-    "constants": 538
+    "functions": 673,
+    "constants": 540
   },
   "symbols": {
     "Cli": {
@@ -5512,6 +5512,65 @@
       "module": "@nodefony/drizzle",
       "description": "Noms logiques des entités du store (clés de lookup `getRepository`)."
     },
+    "IFrameworkColSpec": {
+      "name": "IFrameworkColSpec",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Spécification logique d'une colonne d'entité framework."
+    },
+    "IFrameworkIndexSpec": {
+      "name": "IFrameworkIndexSpec",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Index déclaratif (lu par drizzle-kit en prod ; sans effet sur le DDL dérivé)."
+    },
+    "IFrameworkTableSpec": {
+      "name": "IFrameworkTableSpec",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Spécification logique complète d'une table d'entité framework."
+    },
+    "FrameworkTableFactory": {
+      "name": "FrameworkTableFactory",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Factory mémoïsée d'une entité framework — overloads par dialecte littéral."
+    },
+    "FrameworkColKind": {
+      "name": "FrameworkColKind",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "colKit — kit de colonnes partagé des **entités framework** (chantier portabilité multi-dialecte, garde-fou G1 du comparatif ORM `docs/audits/orm-comparatif-froid-2026-07.md`). **Pourquoi** : Drizzl…"
+    },
+    "buildFrameworkTable": {
+      "name": "buildFrameworkTable",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "createFrameworkTableFactory": {
+      "name": "createFrameworkTableFactory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Fabrique la factory `createXTable(dialect)` d'une entité framework : une table par dialecte, construite au premier usage puis **mémoïsée** (une seule instance par dialecte — le DDL, le registre d'e…"
+    },
     "IdempotencyKeyRow": {
       "name": "IdempotencyKeyRow",
       "kind": "interface",
@@ -5561,19 +5620,6 @@
       "module": "@nodefony/drizzle",
       "description": "Nom logique de l'entité (clé de lookup `getRepository` / `entityRegistry`)."
     },
-    "SessionEntity": {
-      "name": "SessionEntity",
-      "kind": "class",
-      "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "extends": null,
-      "implements": [],
-      "decorators": [
-        "entity"
-      ],
-      "description": "Entité session enregistrée dans le `entityRegistry` pour le connecteur `default` — `DrizzleOrm` crée la table à la connexion (au boot)."
-    },
     "SessionRow": {
       "name": "SessionRow",
       "kind": "interface",
@@ -5583,6 +5629,22 @@
       "extends": null,
       "description": "Forme plate d'une ligne de session telle que renvoyée par le repository."
     },
+    "createSessionEntity": {
+      "name": "createSessionEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit le descripteur d'entité session pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connecteur → l'enreg…"
+    },
+    "registerSessionEntity": {
+      "name": "registerSessionEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Enregistre l'entité session dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
+    },
     "SESSION_ORM": {
       "name": "SESSION_ORM",
       "kind": "const",
@@ -5591,13 +5653,29 @@
       "module": "@nodefony/drizzle",
       "description": "ORM cible du stockage de session (connecteur par défaut du module)."
     },
+    "SESSION_ENTITY_NAME": {
+      "name": "SESSION_ENTITY_NAME",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Nom logique de l'entité (clé de lookup `getRepository` / `entityRegistry`)."
+    },
+    "createSessionTable": {
+      "name": "createSessionTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la table de session pour un dialecte donné (mémoïsée — une instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ; `mysql` jette (S4)."
+    },
     "sessionTable": {
       "name": "sessionTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Table Drizzle de stockage des sessions (schema-as-code). Équivalent portable de l'entité session legacy : mêmes champs logiques (`session_id` PK, sacs `Attributes`/`flashBag`/`metaBag` en JSON, `us…"
+      "description": "Variante SQLite de la table de session (dialecte par défaut) — export conservé pour l'usage direct/banc-test."
     },
     "DeniedJtiRow": {
       "name": "DeniedJtiRow",
@@ -8626,7 +8704,7 @@
       "module": "@nodefony/mongoose",
       "description": "JSON Schema introspectable de la config Mongoose — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
     },
-    "@nodefony/mongoose:SessionEntity": {
+    "SessionEntity": {
       "name": "SessionEntity",
       "kind": "class",
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
@@ -18091,10 +18169,6 @@
       "Domain": [
         "DomainClassController"
       ],
-      "entity": [
-        "SessionEntity",
-        "SessionEntity"
-      ],
       "injectable": [
         "AdminBroker",
         "MemoryIdempotencyStore",
@@ -18102,6 +18176,9 @@
         "FrontendService",
         "HttpKernel",
         "SessionsService"
+      ],
+      "entity": [
+        "SessionEntity"
       ]
     },
     "usedBy": {
@@ -20220,6 +20297,7 @@
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
@@ -20302,7 +20380,9 @@
       ],
       "SqlDialect": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "registerTokenEntities": [
@@ -20361,6 +20441,17 @@
       "idempotencyKeyTable": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
+      ],
+      "registerSessionEntity": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "SESSION_ENTITY_NAME": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "SESSION_ORM": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
       "DrizzleTokenStore": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
@@ -20820,6 +20911,7 @@
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
@@ -21123,9 +21215,11 @@
         "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
       ],
-      "entity": [
-        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts"
+      "createFrameworkTableFactory": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts"
+      ],
+      "IFrameworkTableSpec": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts"
       ],
       "IResourcePermission": [
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts"
@@ -21416,10 +21510,6 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
-      ],
-      "SESSION_ORM": [
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
       "SessionRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -22002,6 +22092,9 @@
       "mongooseConfigSchema": [
         "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/mongoose/nodefony/interfaces/IMongooseConfig.ts"
+      ],
+      "entity": [
+        "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts"
       ],
       "IMongooseConnectorConfig": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"

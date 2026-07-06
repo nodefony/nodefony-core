@@ -95,7 +95,11 @@ class DrizzleService extends Service {
   #defaultFilename(name: string): string {
     const kernel = this.kernel as Kernel | null;
     const root = kernel?.path ?? process.cwd();
-    const base = kernel?.varDir?.path ?? path.resolve(root, "var");
+    // `.path` d'un FileClass est un `PathOrFileDescriptor` → narrowing string
+    // (path.resolve n'accepte pas le descripteur numérique).
+    const varPath = kernel?.varDir?.path;
+    const base =
+      typeof varPath === "string" ? varPath : path.resolve(root, "var");
     const file =
       name === "default" ? "nodefony-drizzle.db" : `nodefony-${name}.db`;
     return path.resolve(base, "databases", file);
