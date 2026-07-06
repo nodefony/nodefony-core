@@ -24,6 +24,7 @@ import {
  */
 
 const FRAMEWORK_ENTITIES = [
+  "session",
   "access_token",
   "audit_event",
   "webauthn_credential",
@@ -38,9 +39,9 @@ const minimalConfig = {
 } as unknown as ISecurityConfig;
 
 describe("registerDrizzleFrameworkStores — auto-register (lot 0.8)", () => {
-  it("dialecte postgres : seule l'idempotence est portée (Slice 0), le reste est annoncé unported", () => {
+  it("dialecte postgres : session + idempotence portées (S1/Slice 0), le reste annoncé unported", () => {
     const report = registerDrizzleFrameworkStores("postgres");
-    assert.deepStrictEqual(report.registered, ["idempotency_key"]);
+    assert.deepStrictEqual(report.registered, ["session", "idempotency_key"]);
     assert.strictEqual(report.appOwned.length, 0);
     assert.deepStrictEqual(
       [...report.unported].sort(),
@@ -61,8 +62,8 @@ describe("registerDrizzleFrameworkStores — auto-register (lot 0.8)", () => {
 
   it("dialecte sqlite : les 5 entités restantes sont déclarées + fabriques enregistrées", () => {
     const report = registerDrizzleFrameworkStores("sqlite");
-    // idempotency_key déjà déclarée par le run postgres ci-dessus → respectée.
-    assert.deepStrictEqual(report.appOwned, ["idempotency_key"]);
+    // session + idempotency_key déjà déclarées par le run postgres → respectées.
+    assert.deepStrictEqual(report.appOwned, ["session", "idempotency_key"]);
     assert.strictEqual(report.unported.length, 0);
     assert.deepStrictEqual(
       [...report.registered].sort(),
@@ -105,10 +106,11 @@ describe("registerDrizzleFrameworkStores — auto-register (lot 0.8)", () => {
   });
 
   it("bout-en-bout : ORM connecté (:memory:) → la fabrique token rend un store opérationnel", async () => {
-    // Le 1ᵉʳ test (postgres) a laissé la VARIANTE pgTable d'idempotency_key dans
-    // le registre process-wide → re-déclarer la variante sqlite avant le connect
-    // (en réel, un seul dialecte par boot — artefact d'ordre de test).
+    // Le 1ᵉʳ test (postgres) a laissé les VARIANTES pgTable (idempotency_key,
+    // session) dans le registre process-wide → re-déclarer les variantes sqlite
+    // avant le connect (en réel, un seul dialecte par boot — artefact d'ordre).
     entityRegistry.unregister("idempotency_key", FRAMEWORK_ORM);
+    entityRegistry.unregister("session", FRAMEWORK_ORM);
     registerDrizzleFrameworkStores("sqlite");
     const orm = new DrizzleOrm(FRAMEWORK_ORM, { filename: ":memory:" });
     await orm.connect(); // compile les entités du registre → tables créées

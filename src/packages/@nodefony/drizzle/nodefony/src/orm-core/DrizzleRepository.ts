@@ -18,6 +18,7 @@ import {
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { RequestContext, redactSecrets } from "nodefony";
 import {
@@ -82,6 +83,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   readonly #relations: Record<string, DrizzleResolvedRelation>;
   /** Connecteur ORM (clé du registre) — tag des métriques de flux. */
   readonly #ormName: string;
+  /**
+   * Colonnes de la clé primaire (lazy — résolu au premier `*One`) : `null` =
+   * aucune PK déclarée (fallback `rowid`, SQLite-only) ; `undefined` = pas
+   * encore résolu. Rien d'alloué au constructeur (règle perf).
+   */
+  #pk: SQLiteColumn[] | null | undefined;
 
   /**
    * @param db - handle Drizzle (instance racine ou transaction).
@@ -104,6 +111,74 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   /** Colonne Drizzle d'une table par nom logique. */
   #col(table: SQLiteTable, name: string): SQLiteColumn {
     return (table as unknown as TableColumns)[name];
+  }
+
+  /**
+   * Colonnes de la PK de la table (mémoïsées) : colonnes inline `.primaryKey()`
+   * d'abord (introspection core, valide sur tous les dialectes — couvre toutes
+   * les entités framework), sinon PK composite déclarée via `primaryKey({
+   * columns })` (extraConfig, best-effort), sinon `null`.
+   */
+  #pkColumns(): SQLiteColumn[] | null {
+    if (this.#pk !== undefined) {
+      return this.#pk;
+    }
+    let cols = Object.values(getTableColumns(this.#table)).filter(
+      (col) => col.primary,
+    );
+    if (cols.length === 0) {
+      try {
+        cols = [...(getTableConfig(this.#table).primaryKeys[0]?.columns ?? [])];
+      } catch {
+        cols = [];
+      }
+    }
+    this.#pk = cols.length > 0 ? cols : null;
+    return this.#pk;
+  }
+
+  /**
+   * Prédicat `WHERE` qui borne un UPDATE/DELETE à **au plus une** ligne :
+   * `pk IN (SELECT pk FROM (SELECT pk FROM t WHERE … LIMIT 1) AS picked)`.
+   *
+   * POURQUOI cette forme (et pas `rowid` / `LIMIT` direct) :
+   * - `rowid` est SQLite-only — c'était le SQL dialect-spécifique n°1 du
+   *   repository (audit comparatif ORM 2026-07, garde-fou G3) ;
+   * - `UPDATE … LIMIT 1` n'est pas du SQL standard (PG le rejette) ;
+   * - la **table dérivée** intermédiaire est requise par MySQL, qui interdit à
+   *   la fois `LIMIT` dans une sous-requête `IN` directe ET la re-lecture de
+   *   la table cible d'un UPDATE/DELETE en sous-requête (ERROR 1093) — la
+   *   dérivée force la matérialisation. SQLite et PG l'acceptent telle quelle
+   *   → une seule forme pour les trois dialectes ;
+   * - PK composite : row-values `(a, b) IN (…)` (SQLite ≥ 3.15 / PG / MySQL).
+   *
+   * Fallback sans PK déclarée : `rowid` (SQLite-only — toutes les entités
+   * framework ont une PK ; une table d'app sans PK est un cas sqlite assumé).
+   */
+  #pickOne(where: SQL | undefined): SQL {
+    const pk = this.#pkColumns();
+    if (!pk) {
+      return where
+        ? sql`rowid in (select rowid from ${this.#table} where ${where} limit 1)`
+        : sql`rowid in (select rowid from ${this.#table} limit 1)`;
+    }
+    const qualified = sql.join(pk, sql.raw(", "));
+    const inner = where
+      ? sql`select ${qualified} from ${this.#table} where ${where} limit 1`
+      : sql`select ${qualified} from ${this.#table} limit 1`;
+    const output = sql.join(
+      pk.map((col) => sql.identifier(col.name)),
+      sql.raw(", "),
+    );
+    const first = pk[0];
+    const target =
+      pk.length === 1 && first ? sql`${first}` : sql`(${qualified})`;
+    return sql`${target} in (select ${output} from (${inner}) as picked)`;
+  }
+
+  /** Lignes affectées, normalisé par driver (better-sqlite3 `changes` / pg `rowCount`). */
+  #affected(result: { changes?: number; rowCount?: number | null }): number {
+    return result.changes ?? result.rowCount ?? 0;
   }
 
   /** Tronque + redacte un SQL paramétré pour l'affichage (jamais de valeur). */
@@ -352,16 +427,13 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   }
 
   async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
-    // Atomique : UPDATE … WHERE rowid IN (SELECT rowid … LIMIT 1) RETURNING.
+    // Atomique : UPDATE … WHERE <pickOne> RETURNING.
     // - une SEULE requête → pas de relecture (qui renverrait null à tort si le
     //   critère porte sur un champ modifié — bug B1) ;
-    // - `rowid IN (… LIMIT 1)` garantit « au plus une » ligne SANS supposer une
-    //   PK nommée `id` (tout table SQLite a un rowid) ;
+    // - `#pickOne` garantit « au plus une » ligne via la PK découverte (forme
+    //   portable sqlite/pg/mysql — cf. sa doc) ;
     // - RETURNING rend la ligne réellement persistée.
-    const where = this.#where(criteria);
-    const pick = where
-      ? sql`rowid in (select rowid from ${this.#table} where ${where} limit 1)`
-      : sql`rowid in (select rowid from ${this.#table} limit 1)`;
+    const pick = this.#pickOne(this.#where(criteria));
     const rows = (await this.#prof(
       this.#db
         .update(this.#table)
@@ -420,16 +492,17 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const result = (await this.#prof(
       (where ? builder.where(where) : builder) as unknown as ProfiledQuery<{
         changes?: number;
+        rowCount?: number | null;
       }>,
-    )) as { changes?: number };
-    return result.changes ?? 0;
+    )) as { changes?: number; rowCount?: number | null };
+    return this.#affected(result);
   }
 
   async increment(
     criteria: Criteria<T>,
     changes: Partial<Record<keyof T, number>>,
   ): Promise<T | null> {
-    // Atomique : UPDATE … SET f = f + ? WHERE rowid IN (… LIMIT 1) RETURNING.
+    // Atomique : UPDATE … SET f = f + ? WHERE <pickOne> RETURNING.
     // Le delta est calculé côté SQL → pas de read-modify-write, donc pas de race
     // sur le compteur. Même garantie « au plus une + 0 relecture » qu'updateOne.
     const setObj: Record<string, SQL> = {};
@@ -444,10 +517,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       }
       setObj[field] = sql`${col} + ${delta}`;
     }
-    const where = this.#where(criteria);
-    const pick = where
-      ? sql`rowid in (select rowid from ${this.#table} where ${where} limit 1)`
-      : sql`rowid in (select rowid from ${this.#table} limit 1)`;
+    const pick = this.#pickOne(this.#where(criteria));
     const rows = (await this.#prof(
       this.#db
         .update(this.#table)
@@ -464,9 +534,10 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const result = (await this.#prof(
       (where ? builder.where(where) : builder) as unknown as ProfiledQuery<{
         changes?: number;
+        rowCount?: number | null;
       }>,
-    )) as { changes?: number };
-    return result.changes ?? 0;
+    )) as { changes?: number; rowCount?: number | null };
+    return this.#affected(result);
   }
 
   async deleteOne(criteria: Criteria<T>): Promise<boolean> {
@@ -479,14 +550,11 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return (rows[0] as T) ?? null;
   }
 
-  /** DELETE atomique d'AU PLUS une ligne (`rowid … LIMIT 1`), RETURNING la ligne. */
+  /** DELETE atomique d'AU PLUS une ligne (PK via `#pickOne`), RETURNING la ligne. */
   async #deleteOneReturning(
     criteria: Criteria<T>,
   ): Promise<Record<string, unknown>[]> {
-    const where = this.#where(criteria);
-    const pick = where
-      ? sql`rowid in (select rowid from ${this.#table} where ${where} limit 1)`
-      : sql`rowid in (select rowid from ${this.#table} limit 1)`;
+    const pick = this.#pickOne(this.#where(criteria));
     return (await this.#prof(
       this.#db
         .delete(this.#table)

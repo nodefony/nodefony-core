@@ -135,12 +135,18 @@ export type {
 } from "./nodefony/interfaces/IDrizzleConfig";
 
 // ─── Stockage de session Drizzle (consommé par @nodefony/http) ──────────────
-// L'import de l'entité exécute son décorateur `@entity` → table créée au boot.
+// AUTO-REGISTER (onKernelRegister) : entité déclarée selon le dialecte du
+// connecteur `default` (sqlite|postgres — S1 multi-dialecte) ; le storage
+// s'enregistre dans le registre http à l'import. Sélection = `session.store:
+// "drizzle"`, zéro câblage app.
 export { default as SessionStorage } from "./nodefony/src/SessionStorage";
 export {
-  default as SessionEntity,
   sessionTable,
+  createSessionTable,
+  createSessionEntity,
+  registerSessionEntity,
   SESSION_ORM,
+  SESSION_ENTITY_NAME,
 } from "./nodefony/entity/sessionEntity";
 export type { SessionRow } from "./nodefony/entity/sessionEntity";
 

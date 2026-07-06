@@ -44,6 +44,11 @@ import {
   IDEMPOTENCY_ENTITY_NAME,
   idempotencyKeyTable,
 } from "./entity/idempotencyEntity";
+import {
+  registerSessionEntity,
+  SESSION_ENTITY_NAME,
+  SESSION_ORM,
+} from "./entity/sessionEntity";
 import { DrizzleTokenStore } from "./src/DrizzleTokenStore";
 import { DrizzleAuditStore } from "./src/DrizzleAuditStore";
 import { DrizzleWebAuthnCredentialStore } from "./src/DrizzleWebAuthnCredentialStore";
@@ -81,6 +86,7 @@ export const FRAMEWORK_ORM = "default";
 /** Portage par entité (chantier multi-dialecte — Ph.2.1 allume les cases). */
 const SQLITE_ONLY: readonly SqlDialect[] = ["sqlite"];
 const IDEMPOTENCY_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
+const SESSION_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
 
 /** Bilan de l'auto-enregistrement (loggé par le module — jamais silencieux). */
 export interface IFrameworkStoresReport {
@@ -161,6 +167,26 @@ export function registerDrizzleFrameworkStores(
     }
     registerFactory();
   };
+
+  // ── Session HTTP — registre de storage @nodefony/http ──────────────────────
+  // Le STORAGE (`SessionStorage`) s'enregistre dans `SessionsService` à l'import
+  // du module (indépendant du dialecte) → seule l'ENTITÉ suit le dialecte ici.
+  // Historiquement enregistrée par un `@entity` figé à l'import (variante sqlite
+  // imposée quel que soit le connecteur) — S1 multi-dialecte l'a rendue
+  // dynamique. Opt-out `frameworkEntities:false` + `session.store:"drizzle"` :
+  // l'entité manque → échec franc au premier `open()` du SessionsService (boot).
+  wire(
+    SESSION_ENTITY_NAME,
+    SESSION_PORTED,
+    () => {
+      const sessionDialect: "sqlite" | "postgres" =
+        dialect === "postgres" ? "postgres" : "sqlite";
+      registerSessionEntity(SESSION_ORM, sessionDialect);
+    },
+    () => {
+      /* storage déjà enregistré à l'import de SessionStorage (registre http). */
+    },
+  );
 
   // ── Tokens (PAT + denylist JWT) — registre @nodefony/security ──────────────
   wire(

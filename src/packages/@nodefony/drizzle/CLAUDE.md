@@ -189,28 +189,46 @@ main ; opt-out `frameworkEntities: false`.
 **Mécanisme (le patron à dérouler)** :
 
 - **`connector.dialect`** (`"sqlite" | "postgres" | "mysql"`, défaut `sqlite`) dans `config.ts`
-  (+ `url` pour pg/mysql). Type `SqlDialect` exporté.
+  (+ `url` pour pg/mysql). Type `SqlDialect` exporté. En pratique l'app ne l'écrit pas :
+  `NF_DATABASE_URL=postgres://…` (infra déclarée) → `defineDrizzleConfig` déduit dialecte + url.
 - **`DrizzleOrm` dialect-aware** : `onConnect` route `#connectSqlite` (better-sqlite3, sync) /
   `#connectPostgres` (driver `pg` **lazy** `await import`, `optionalDependency`, externalisé rollup).
   DDL dérivé partagé `#buildCreateTable` (le bon `getTableConfig` selon dialecte ; `col.getSQLType()`
   rend `text`/`integer` SQLite, `text`/`bigint`/`jsonb` PG). `disconnect`/`ping`/`describeConnection`/
   `describeEntity` routés. `getNativeConnection<DrizzleDb>()` inchangé.
-- **Factory d'entité** `createXTable(dialect)` : switch → table du dialecte. Divergences typiques :
-  `expiresAt` `integer` (SQLite 64-bit) → `bigint mode:number` (PG ; `integer` PG 32-bit déborde sur
-  epoch ms), `text mode:json` → `jsonb`. **Mêmes NOMS de colonnes** → le store/repo reste agnostique.
+- **`colKit`** (`entity/colKit.ts`, garde-fou G1 de l'audit comparatif ORM) : **spec logique →
+  table du dialecte**. `IFrameworkTableSpec` (kinds `text`/`json`/`bool`/`epochMs`/`int` +
+  pk/notNull/unique/`defaultFn`/`onUpdateFn` + index) → `buildFrameworkTable(dialect, spec)` ;
+  `createFrameworkTableFactory(spec)` = factory `createXTable(dialect)` **mémoïsée** (1 instance
+  par dialecte). **RÈGLE : toute entité à porter passe par le colKit** (ajouter mysql = étendre
+  colKit, PAS les entités). Divergences de type assumées DANS le kit : epoch ms = `integer` SQLite
+  → `bigint mode:number` PG ; JSON = `text mode:json` → `jsonb` ; bool = `integer mode:boolean` →
+  `boolean`. **Mêmes NOMS de colonnes** partout → stores/repo agnostiques. INTERNE (pas d'export
+  `index.ts` — décision audit : pas de sur-promesse d'API).
+- **Repository portable** : `#pickOne` borne `updateOne`/`increment`/`deleteOne`/`findOneAndDelete`
+  à « au plus une » via la **PK découverte** (lazy, mémoïsée), forme unique 3 dialectes :
+  `pk IN (SELECT pk FROM (SELECT pk … LIMIT 1) AS picked)` (table dérivée = requise par MySQL —
+  LIMIT-in-IN interdit + ERROR 1093 ; PK composite = row-values). `rowid` = **fallback seulement**
+  (table sans PK, sqlite-only assumé). Compteurs normalisés `#affected` (`changes` better-sqlite3 /
+  `rowCount` pg). ⚠️ Resté dialecte dans le repo (à router au portage typé) : `limit(-1)` du hack
+  OFFSET-sans-LIMIT (sqlite-only — PG rejette `LIMIT -1`) ; `onConflictDoUpdate` (upsert) =
+  sqlite/pg, mysql = `onDuplicateKeyUpdate` ; `returning()` absent de mysql (verbes `*One`).
+- **Factory d'entité legacy** (`createIdempotencyTable`) : switch explicite 2 tables — antérieure au
+  colKit, à migrer opportunément. Les nouvelles déclinaisons = colKit direct (réf : `sessionEntity`).
 - **Drivers** : `pg` `optionalDependencies` (+ `@types/pg` dev) ; `mysql2` suivra. `better-sqlite3`
   reste `dependencies` (défaut bootable).
 
-**Dette assumée du Slice 0** (typage cross-dialecte Drizzle = pénible) : `#tables`/`#db` typés SQLite ;
-en postgres les `PgTable`/`NodePgDatabase` y sont stockés via cast (runtime correct, API commune). Le
-typage `getRepository` postgres viendra avec le **portage du `DrizzleRepository`** (le store d'idempotence
-consomme `getNativeConnection`, pas le repository → non bloquant pour le Slice 0).
+**Dette assumée** (typage cross-dialecte Drizzle = pénible) : `#tables`/`#db` typés SQLite ;
+en postgres les `PgTable`/`NodePgDatabase` y sont stockés via cast (runtime correct, API commune —
+**prouvé** : le `DrizzleRepository` générique complet tourne sur PG, e2e session). Le typage
+`getRepository` postgres viendra avec le portage typé du `DrizzleRepository` (lot S3).
 
-**Reste (slices suivants, 1 entité = 1 session)** : `userTable` (⚠️ `findBySocialProvider` =
-`json_each` SQLite → `jsonb` PG), `tokenEntity`, `sessionEntity`, `webAuthnCredentialEntity`,
-`totpSecretEntity` ; puis **mysql** (`mysql2`) + DDL prod drizzle-kit. Décider à ce moment d'un
-**kit de colonnes partagé** (`colKit(dialect)`) si la duplication des factory devient sensible
-(prototype d'abord, mesurer).
+**Portées** : `idempotency` (sqlite+pg, e2e cross-pod) · **`session`** (sqlite+pg via colKit,
+**auto-register par le wire de `registerStores.ts`** — plus de `@entity` à l'import ; e2e PG
+storage complet gaté `NF_PG_URL`). **Restantes (1-2 entités = 1 session)** : `userTable`
+(⚠️ `findBySocialProvider` = `json_each` SQLite → `@>` jsonb PG / `JSON_CONTAINS` MySQL),
+`tokenEntity`, `webAuthnCredentialEntity`, `totpSecretEntity`, `webhookEndpointEntity`,
+`auditEventEntity` ; puis **mysql** (`mysql2`) + DDL prod drizzle-kit.
 
 ## Roadmap
 
@@ -219,4 +237,4 @@ consomme `getNativeConnection`, pas le repository → non bloquant pour le Slice
 - ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests SQLite + **e2e Postgres cross-pod 7/7** (atomicité réelle prouvée).
 - ✅ **Journal d'audit Drizzle (P6.18)** — `IAuditStore` SQL append-only, pagination curseur composite `(ts,id)` via query builder dialect-agnostique, gc rétention, dégradation gracieuse, 7 tests SQLite. Multi-pod pg = slice multi-dialecte. Cf section « Journal d'audit Drizzle ».
 - ✅ **Store de secrets TOTP Drizzle** — `ITotpSecretStore` SQL (2FA persistant, comble le seul gap durable sans adapter). Table `totp_secret` (PK `userId`, 1 secret/user), `save` upsert, `update` patch partiel (anti-rejeu RFC 6238 préservé), `secretEnc` opaque (chiffré côté service). Auto-register `totp.store: "drizzle"` (sqlite-only, comme webauthn/token). 9 tests SQLite.
-- 🚧 **Portabilité multi-dialecte (chantier, Slice 0 ✅ 2026-06-26)** — `connector.dialect` + `DrizzleOrm` lazy pg + factory d'entité ; **idempotency porté + prouvé sur PG**. Reste : `user`/`token`/`session`/`webauthn` (1 entité/session) puis **mysql** + DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».
+- 🚧 **Portabilité multi-dialecte (chantier)** — `connector.dialect` + `DrizzleOrm` lazy pg + **colKit** + repository PK-portable (`#pickOne`) ; **idempotency + session portés + prouvés sur PG**. Reste : `user`/`token`/`webauthn`/`totp`/`webhook`/`audit` puis **mysql** + DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».
