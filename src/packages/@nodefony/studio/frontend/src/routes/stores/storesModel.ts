@@ -1,9 +1,9 @@
 /**
  * Modèle de la page « Stores de persistance » (`/nodefony/stores`) — miroir PUR
- * (0 JSX) du data plane `/nodefony/kernel/api/stores` (+ statut du sous-système
- * utilisateur, fusionné en brique). Version RUNTIME de la matrice brique×backend :
- * pour chaque brique, le store réellement résolu au boot, sa provenance et les
- * backends disponibles — remplace la doc statique qui se périmait.
+ * (0 JSX) du data plane `/nodefony/kernel/api/stores`. Version RUNTIME de la matrice
+ * brique×backend : pour chaque brique (user compris — enregistrée par `provisionUsers`),
+ * le store réellement résolu au boot, sa provenance et les backends disponibles —
+ * remplace la doc statique qui se périmait.
  */
 /** Catégorie de provenance d'un store résolu (miroir back `StoreProvenance`). */
 export type StoreProvenance = "infra" | "explicit";
