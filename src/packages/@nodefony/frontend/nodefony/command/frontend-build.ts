@@ -25,10 +25,17 @@ class FrontendBuild extends Command {
     this.addOption("-f, --force", "rebuild even if the manifest is up-to-date");
   }
 
-  override async generate(
-    _arg: string,
-    opts: { force?: boolean } = {},
-  ): Promise<this> {
+  override async generate(): Promise<this> {
+    // Options lues via l'API CANONIQUE Commander (`this.command.opts()`). Se fier au
+    // RANG des args de l'action est un piège : Commander passe `(…positionnels,
+    // options, command)` → SANS argument positionnel (cas de `frontend:build`),
+    // `options` est le 1ᵉʳ arg, pas le 2ᵉ. L'ancienne signature `generate(_arg, opts)`
+    // lisait donc `opts.force` sur l'objet `command` (pas d'options en Commander
+    // moderne) → `--force` silencieusement ignoré. `opts()` est fiable quel que soit
+    // le nombre de positionnels.
+    const opts = ((
+      this.command as unknown as { opts?: () => { force?: boolean } }
+    )?.opts?.() ?? {}) as { force?: boolean };
     const svc = this.kernel?.container?.get("frontend") as
       FrontendService | undefined;
     if (!svc) {
