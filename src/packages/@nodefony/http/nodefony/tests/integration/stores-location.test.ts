@@ -91,6 +91,7 @@ async function loginAsAdmin(): Promise<string> {
 interface StoreEntry {
   brick: string;
   resolved: string;
+  available: string[];
   location?: string;
 }
 
@@ -116,6 +117,13 @@ describe("Stores — emplacement physique (endpoint /kernel/api/stores)", () => 
         expect(s.location, `location de ${s.brick}`).to.be.a("string").that.is
           .not.empty;
       }
+      // Invariant d'affichage : le backend RÉSOLU figure TOUJOURS dans les
+      // backends disponibles (sinon « Store actif: memory » alors que « dispo »
+      // ne le liste pas — incohérence idempotency corrigée via listXBackends).
+      expect(
+        s.available,
+        `available de ${s.brick} contient le résolu`,
+      ).to.include(s.resolved);
     }
 
     // Preuve du répertoire unifié : tout store à backend FICHIER expose un chemin

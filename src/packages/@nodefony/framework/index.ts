@@ -22,6 +22,7 @@ import {
   getIdempotencyStoreFactory,
   registerIdempotencyStore,
   listIdempotencyStores,
+  listIdempotencyBackends,
 } from "./nodefony/src/idempotencyStoreRegistry";
 import {
   RedisIdempotencyStore,
@@ -210,7 +211,9 @@ class Framework extends Module<FrameworkConfig> {
         nature: "ephemeral",
         configured,
         resolved: "memory",
-        available: listIdempotencyStores(),
+        // Affichage : memory (builtin @services) + distribués → le résolu figure
+        // toujours dans les dispo (≠ listIdempotencyStores, résolution seule).
+        available: listIdempotencyBackends(),
         reason,
         configPath: "framework.idempotency.store",
       });
@@ -234,7 +237,8 @@ class Framework extends Module<FrameworkConfig> {
         nature: "ephemeral",
         configured,
         resolved: name,
-        available: listIdempotencyStores(),
+        // memory (builtin) + distribués → le résolu figure toujours dans les dispo.
+        available: listIdempotencyBackends(),
         reason,
         configPath: "framework.idempotency.store",
       });

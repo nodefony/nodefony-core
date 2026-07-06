@@ -60,9 +60,24 @@ export function getIdempotencyStoreFactory(
 }
 
 /**
- * Noms de stores distribués enregistrés (validation boot, introspection Studio,
- * tests). N'inclut PAS `"memory"` (défaut implicite via `@services`, hors registre).
+ * Noms de stores distribués enregistrés (résolution `auto` + validation boot).
+ * N'inclut PAS `"memory"` : dans `resolveAutoStore`, memory est le **fallback**
+ * (per-pod), jamais une préférence à sélectionner — l'y mettre fausserait le choix.
  */
 export function listIdempotencyStores(): string[] {
   return [...factories.keys()];
+}
+
+/**
+ * Backends d'idempotence UTILISABLES, pour l'AFFICHAGE (écran Studio « Stores »).
+ * Inclut le builtin `"memory"` (toujours présent via `@services`, per-pod) EN TÊTE
+ * + les stores distribués enregistrés. Distinct de {@link listIdempotencyStores}
+ * (distribués seuls, pour la résolution) : côté Studio, le store résolu doit
+ * TOUJOURS figurer dans les backends dispo — sinon `resolved: "memory"` apparaît
+ * absent de la liste (incohérence). Convention-frère : les autres briques
+ * enregistrent leur builtin `memory` dans leur registre, donc `listXStores()`
+ * l'inclut déjà ; idempotency pose son memory hors registre → on le rajoute ici.
+ */
+export function listIdempotencyBackends(): string[] {
+  return ["memory", ...factories.keys()];
 }

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-06T12:02:16.634Z",
+  "generated": "2026-07-06T13:24:48.186Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 996,
-    "symbols": 2456,
+    "symbols": 2457,
     "classes": 316,
     "interfaces": 649,
     "types": 291,
     "enums": 4,
-    "functions": 660,
+    "functions": 661,
     "constants": 536
   },
   "symbols": {
@@ -7032,7 +7032,15 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Noms de stores distribués enregistrés (validation boot, introspection Studio, tests). N'inclut PAS `\"memory\"` (défaut implicite via `@services`, hors registre)."
+      "description": "Noms de stores distribués enregistrés (résolution `auto` + validation boot). N'inclut PAS `\"memory\"` : dans `resolveAutoStore`, memory est le **fallback** (per-pod), jamais une préférence à sélecti…"
+    },
+    "listIdempotencyBackends": {
+      "name": "listIdempotencyBackends",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Backends d'idempotence UTILISABLES, pour l'AFFICHAGE (écran Studio « Stores »). Inclut le builtin `\"memory\"` (toujours présent via `@services`, per-pod) EN TÊTE + les stores distribués enregistrés.…"
     },
     "IConfigEntry": {
       "name": "IConfigEntry",
@@ -18881,6 +18889,9 @@
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
       "listIdempotencyStores": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "listIdempotencyBackends": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "RedisIdempotencyStore": [
