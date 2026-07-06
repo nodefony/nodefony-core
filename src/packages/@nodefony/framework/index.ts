@@ -184,12 +184,14 @@ class Framework extends Module<FrameworkConfig> {
     let reason = `store explicitement configuré ("${configured}")`;
     if (name === AUTO_STORE) {
       // `auto` (défaut) = suivre l'infra déclarée (cache redis > database),
-      // borné aux stores distribués réellement enregistrés ; sans infra →
-      // memory (per-pod, suffisant hors cluster). Valeur explicite respectée.
+      // borné aux backends UTILISABLES (memory builtin @services + distribués) —
+      // `listIdempotencyBackends()`, pas `listIdempotencyStores()` : inclure memory
+      // permet à l'override global `NF_STORE=memory` de sélectionner le builtin (banc
+      // de charge). Normal : memory n'est jamais une préférence, seulement le repli.
       const auto = resolveAutoStore(
         "ephemeral",
         this.kernel?.infra ?? EMPTY_INFRA,
-        listIdempotencyStores(),
+        listIdempotencyBackends(),
       );
       name = auto.store;
       reason = auto.reason;

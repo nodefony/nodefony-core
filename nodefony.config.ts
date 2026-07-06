@@ -138,13 +138,13 @@ export default defineConfig<Env>((ctx) => ({
         // des conteneurs = réseau privé 172.16/12, 192.168/16, 10/8). En prod,
         // régler explicitement selon l'ingress. Défaut SÛR : false (0 confiance).
         trustProxy: ctx.env.NF_BIND_ALL ? ["loopback", "uniquelocal"] : false,
-        // Stockage de session via @nodefony/drizzle (orm-core). Le modèle de
-        // session NIST/OWASP (idle + absolute + touch sur activité HTTP/WS) vit
-        // dans @nodefony/http : les défauts sains (idle 30 min, absolute 12 h)
-        // suffisent — le touch garde une session ACTIVE vivante sans la rendre
-        // éternelle. Plus de pansement maxLifetimeS (la dérive est corrigée).
+        // Stockage de session en `auto` : sans infra déclarée mais @nodefony/drizzle
+        // chargé → sqlite local (persistant) ; honore l'override global
+        // `NF_STORE=memory` (banc de charge). Le modèle NIST/OWASP (idle + absolute +
+        // touch sur activité HTTP/WS) vit dans @nodefony/http (défauts sains : idle
+        // 30 min, absolute 12 h). Multi-nœud → déclarer NF_DATABASE_URL / NF_REDIS_URL.
         session: {
-          store: "drizzle",
+          store: "auto",
         },
         // Upload multipart (moteur busboy). `uploadDir` = dossier de dépôt ;
         // vide → résolu sur `kernel.tmpDir`. (Ex-clé `formidable` = moteur retiré.)

@@ -47,6 +47,14 @@ export interface IInfra {
   database: IInfraDatabase | null;
   cache: IInfraCache | null;
   logs: IInfraLogs | null;
+  /**
+   * Override GLOBAL de sélection de store (`NF_STORE`) — force TOUTE brique `auto`
+   * vers ce backend, en amont de toute préférence d'infra. Cas d'usage : `memory`
+   * pour un banc de CHARGE (mesurer le framework sans le goulot sqlite/disque), sans
+   * toucher aux configs par brique. `undefined`/`null` = pas d'override. N'affecte
+   * JAMAIS un store configuré EXPLICITEMENT (celui-ci ne passe pas par `auto`).
+   */
+  forceStore?: string | null;
 }
 
 /** Source d'environnement (forme de `process.env`) — injectable pour les tests. */
@@ -138,10 +146,14 @@ export function resolveInfra(env: InfraEnvSource = process.env): IInfra {
       logs.opensearchUrl = opensearchUrl;
     }
   }
+  // Override global de store (`NF_STORE`) — force toute brique `auto` sur ce backend
+  // (typiquement `memory` pour un banc de charge). Vide = pas d'override.
+  const forceStore = pick(env, ["NF_STORE"]);
   return {
     database: databaseUrl ? parseDatabaseUrl(databaseUrl) : null,
     cache: cacheUrl ? { url: cacheUrl } : null,
     logs,
+    forceStore: forceStore ?? null,
   };
 }
 
@@ -232,6 +244,16 @@ export function resolveAutoStore(
   available: readonly string[],
   fallback = "memory",
 ): IAutoStoreResolution {
+  // Override GLOBAL (`NF_STORE`) — PRIORITÉ MAX sur toute préférence d'infra : force
+  // ce backend pour toute brique `auto` s'il est enregistré (banc de charge « tout en
+  // memory » en 1 variable). Backend demandé mais absent de CETTE brique → on l'ignore
+  // (jamais de crash) et on retombe sur la résolution normale.
+  if (infra.forceStore && available.includes(infra.forceStore)) {
+    return {
+      store: infra.forceStore,
+      reason: `NF_STORE=${infra.forceStore} (override global — banc de charge)`,
+    };
+  }
   const preferences: IAutoStoreResolution[] = [];
   if (kind !== "durable" && infra.cache) {
     preferences.push({ store: "redis", reason: "infra cache (NF_REDIS_URL)" });

@@ -10,7 +10,12 @@ import {
 } from "../config/index";
 import { resolveQueryDriver } from "../syslog/drivers/builtinLogDrivers";
 
-const NO_ROLES: IInfra = { database: null, cache: null, logs: null };
+const NO_ROLES: IInfra = {
+  database: null,
+  cache: null,
+  logs: null,
+  forceStore: null,
+};
 
 describe("config — infra (modèle « infra déclarée », Phase 0.8)", () => {
   describe("resolveInfra", () => {
@@ -83,6 +88,15 @@ describe("config — infra (modèle « infra déclarée », Phase 0.8)", () => {
         /non supporté/,
       );
       assert.throws(() => parseDatabaseUrl("pasduneurl"), /non supporté/);
+    });
+
+    it("NF_STORE → forceStore (override global) ; absent → null", () => {
+      assert.strictEqual(
+        resolveInfra({ NF_STORE: "memory" }).forceStore,
+        "memory",
+      );
+      assert.strictEqual(resolveInfra({}).forceStore, null);
+      assert.strictEqual(resolveInfra({ NF_STORE: "" }).forceStore, null);
     });
   });
 
@@ -219,6 +233,35 @@ describe("config — infra (modèle « infra déclarée », Phase 0.8)", () => {
       assert.strictEqual(r.store, "memory");
       assert.match(r.reason, /aucune infra/);
       assert.match(r.reason, /volatil/);
+    });
+
+    describe("NF_STORE — override global (banc de charge)", () => {
+      const FORCE_MEM = roles({ forceStore: "memory" });
+
+      it("force TOUTE brique auto en memory, PRIORITÉ sur l'infra déclarée", () => {
+        // Même avec une infra database → memory gagne (le banc veut du volatil pur).
+        const withDb = roles({
+          database: DB_SQL.database,
+          forceStore: "memory",
+        });
+        const r = resolveAutoStore("durable", withDb, ["memory", "drizzle"]);
+        assert.strictEqual(r.store, "memory");
+        assert.match(r.reason, /NF_STORE=memory/);
+      });
+
+      it("couvre durable / ephemeral / session (toutes natures)", () => {
+        for (const kind of ["durable", "ephemeral", "session"] as const) {
+          const r = resolveAutoStore(kind, FORCE_MEM, ["memory", "drizzle"]);
+          assert.strictEqual(r.store, "memory", `kind=${kind}`);
+        }
+      });
+
+      it("backend forcé ABSENT de la brique → ignoré, résolution normale (pas de crash)", () => {
+        // La brique ne connaît pas "memory" (ex. session sans builtin) → on ignore
+        // l'override et on résout normalement (ici drizzle local).
+        const r = resolveAutoStore("durable", FORCE_MEM, ["drizzle"]);
+        assert.strictEqual(r.store, "drizzle");
+      });
     });
   });
 

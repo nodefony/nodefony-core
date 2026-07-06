@@ -168,6 +168,17 @@ export const env = defineEnv({
       "Dépôt du service users : auto (suit l'infra database) | drizzle | mongoose | memory (volatil).",
   }),
 
+  /**
+   * OVERRIDE GLOBAL de sélection de store — force TOUTE brique `auto` (session,
+   * tokens, passkeys, totp, audit, webhooks, idempotence, users) vers ce backend,
+   * en amont de toute préférence d'infra. Cas d'usage : `NF_STORE=memory` pour un
+   * banc de CHARGE — mesurer le framework sans le goulot sqlite/disque, en UNE
+   * variable, sans toucher aux configs par brique. Vide = pas d'override. N'affecte
+   * PAS un store configuré explicitement (il ne passe pas par `auto`). Un backend
+   * demandé mais non enregistré sur une brique est ignoré pour elle (jamais de crash).
+   */
+  NF_STORE: envString({ optional: true }),
+
   // ── Backing du cache d'idempotence des mutations (P6.8) ────────────────────
   /**
    * Store d'idempotence (anti double-effet `@Idempotent` + data plane admin).
