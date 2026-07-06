@@ -72,6 +72,8 @@ export interface UsersStatus {
   enabled: boolean;
   /** Backend de persistance (`memory`/`drizzle`/`mongoose`), `null` si indéterminable. */
   store: "memory" | "drizzle" | "mongoose" | null;
+  /** Backends de persistance disponibles (le résolu `store` en fait partie). */
+  available: string[];
   /** Classe du repository réel (ex. `DrizzleUserRepository`), `none` si absent. */
   repository: string;
   /** Nombre d'utilisateurs si dénombrable, sinon `null`. */

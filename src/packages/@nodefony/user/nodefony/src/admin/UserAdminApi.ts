@@ -11,6 +11,7 @@ import type { IUser, ISocialProvider } from "../../contracts/IUser";
 import type { IUserProfile } from "../../contracts/IUserProfile";
 import type { UserService } from "../../service/UserService";
 import { WeakPasswordError } from "../../errors/WeakPasswordError";
+import { listUserStores } from "../userStoreRegistry";
 import {
   validateProfilePatch,
   projectProfile,
@@ -301,6 +302,13 @@ export interface IUsersStatus {
   enabled: boolean;
   /** Backend de persistance (`memory`/`drizzle`/`mongoose`), ou `null` si indéterminable. */
   store: "memory" | "drizzle" | "mongoose" | null;
+  /**
+   * Backends de persistance DISPONIBLES (`listUserStores()` : memory builtin +
+   * adapters ORM chargés) — le résolu `store` en fait toujours partie. Aligne la
+   * brique « user » sur les 7 autres de l'écran Studio « Stores » (résolu parmi
+   * disponibles), au lieu du trompeur `[store]`.
+   */
+  available: string[];
   /** Nom de classe du repository réel (ex. `DrizzleUserRepository`), `"none"` si absent. */
   repository: string;
   /** Nombre d'utilisateurs si dénombrable (lecture défensive), sinon `null`. */
@@ -405,6 +413,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
           return {
             enabled: false,
             store: null,
+            available: listUserStores(),
             repository: "none",
             count: null,
             tenantId: null,
@@ -417,6 +426,12 @@ export function createUserAdminApi(container: Container): IAdminApi {
           (repo as { constructor?: { name?: string } } | undefined)?.constructor
             ?.name ?? "none";
         const store = deduceUserStore(repository);
+        // Backends disponibles + garantie « résolu ∈ disponibles » : un dépôt
+        // custom résolu mais non enregistré reste cohérent à l'affichage.
+        const available = listUserStores();
+        if (store && !available.includes(store)) {
+          available.push(store);
+        }
         // `count()` peut throw selon le backend (réseau, schéma) → on n'expose
         // jamais d'erreur : un compte indénombrable reste `null`.
         let count: number | null = null;
@@ -425,7 +440,14 @@ export function createUserAdminApi(container: Container): IAdminApi {
         } catch {
           count = null;
         }
-        return { enabled: true, store, repository, count, tenantId: null };
+        return {
+          enabled: true,
+          store,
+          available,
+          repository,
+          count,
+          tenantId: null,
+        };
       },
     },
     {

@@ -214,12 +214,19 @@ export function userBrick(status: UsersStatus | null): StoreResolution | null {
   if (!status || !status.enabled || !status.store) {
     return null;
   }
+  // `available` = backends réellement branchables (registre `listUserStores` :
+  // memory builtin + adapters ORM chargés), avec repli défensif sur `[store]` si
+  // un back plus ancien ne renvoie pas encore le champ. Le résolu est garanti dedans.
+  const available =
+    status.available && status.available.length > 0
+      ? status.available
+      : [status.store];
   return {
     brick: "user",
     nature: "durable",
     configured: status.store,
     resolved: status.store,
-    available: [status.store],
+    available,
     provenance: "explicit",
     reason: `dépôt ORM ${status.repository}`,
     configPath: "app · NF_USER_STORE / provisionUsers",

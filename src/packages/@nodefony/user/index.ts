@@ -50,6 +50,12 @@ export type { IEncoderSpec } from "./nodefony/src/encoders/encoderFromConfig";
 
 // ─── Repository de référence in-memory (charge / scripts / fixtures) ─────────
 export { InMemoryUserRepository } from "./nodefony/src/InMemoryUserRepository";
+// Registre des backends de persistance user DISPONIBLES (Studio « Stores ») —
+// `"memory"` builtin ici, drizzle/mongoose déclarés par leur adapter au boot.
+export {
+  registerUserStore,
+  listUserStores,
+} from "./nodefony/src/userStoreRegistry";
 
 // ─── Service (P5.6) ──────────────────────────────────────────────────────────
 export { UserService } from "./nodefony/service/UserService";

@@ -13,6 +13,7 @@
 import mongoose from "mongoose";
 import { Kernel, Module, services, registerErrorAdapter } from "nodefony";
 import { wireOrmAdminPlane } from "@nodefony/orm-core";
+import { registerUserStore } from "@nodefony/user";
 import config from "./nodefony/config/config";
 import {
   defineMongooseConfig,
@@ -79,6 +80,11 @@ class Mongoose extends Module<IMongooseConfig> {
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le MongooseService la lit sur son module (`this.module.config`).
     this.options = validated;
+
+    // Déclare "mongoose" comme backend de persistance user DISPONIBLE
+    // (MongooseUserRepository) → l'écran Studio « Stores » liste le user comme les
+    // autres briques. Toujours (l'app le SÉLECTIONNE via NF_USER_STORE).
+    registerUserStore("mongoose");
 
     // AUTO-REGISTER du schéma framework (tokens/webauthn/webhooks) sur le
     // connecteur `nodefony` + fabriques "mongoose" dans les registres security —

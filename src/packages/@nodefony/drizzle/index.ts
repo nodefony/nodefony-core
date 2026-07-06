@@ -9,6 +9,7 @@
  */
 import { Kernel, Module, services } from "nodefony";
 import { wireOrmAdminPlane } from "@nodefony/orm-core";
+import { registerUserStore } from "@nodefony/user";
 import config from "./nodefony/config/config";
 import {
   defineDrizzleConfig,
@@ -66,6 +67,11 @@ class Drizzle extends Module<IDrizzleConfig> {
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le DrizzleService la lit sur son module (`this.module.config`).
     this.options = validated;
+
+    // Déclare "drizzle" comme backend de persistance user DISPONIBLE (DrizzleUserRepository)
+    // → l'écran Studio « Stores » liste le user comme les autres briques. Toujours (l'app
+    // le SÉLECTIONNE via NF_USER_STORE), indépendant de `frameworkEntities`.
+    registerUserStore("drizzle");
 
     // AUTO-REGISTER du schéma framework (tokens/audit/webauthn/webhooks/
     // idempotence) sur le connecteur `default` + fabriques de stores dans les
