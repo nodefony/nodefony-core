@@ -3,12 +3,10 @@ import { controllers } from "@nodefony/framework";
 import config from "./nodefony.config";
 import AppController from "./nodefony/controllers/AppController";
 import indexController from "./nodefony/controllers/indexController";
-// Entité User (table `@nodefony/drizzle`) sur l'ORM Drizzle par défaut : enregistrée
-// au top-level → présente dans le entityRegistry avant le boot (table créée, ERD, profiler).
-// NB : les stores framework (idempotence, webhooks, tokens, audit, passkeys) sont
-// AUTO-ENREGISTRÉS par leurs modules adapters (drizzle/mongoose/redis) — l'app n'a
-// plus aucun câblage `registerXStore` à écrire (lot 0.8, ex-« approche B »).
-import "./nodefony/entity/user";
+// NB : les entités framework (User, session, tokens, audit, passkeys, webhooks,
+// idempotence) et leurs stores sont AUTO-ENREGISTRÉS par leurs modules adapters
+// (drizzle/mongoose/redis) sur la variante du DIALECTE configuré — l'app n'a plus
+// aucun câblage `registerXStore`/entité à écrire (lot 0.8 + S2 multi-dialecte).
 // Source d'identité de l'app : pose le service "users" au boot (cf. fichier).
 import { provisionUsers } from "./nodefony/security/provisionUsers";
 

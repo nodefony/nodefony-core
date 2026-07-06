@@ -1,61 +1,67 @@
 import { randomUUID } from "node:crypto";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import type { ISocialProvider } from "@nodefony/user";
+import type { SqlDialect } from "../interfaces/IDrizzleConfig";
+import {
+  createFrameworkTableFactory,
+  type IFrameworkTableSpec,
+} from "./colKit";
 
 /**
- * Table Drizzle de l'utilisateur Nodefony (schema-as-code) — implémentation SQL
- * **par défaut** du contrat `@nodefony/user` (P5.9, ORM recommandé #1).
+ * Entité de l'utilisateur Nodefony (schema-as-code) — implémentation SQL
+ * **par défaut** du contrat `@nodefony/user` (P5.9, ORM recommandé #1),
+ * déclinée via le `colKit` (S2 multi-dialecte) : une spec logique, la table
+ * du dialecte du connecteur.
  *
  * Colonnes calquées sur `BaseUser` : identité (`id`/`identifier`), credential
  * (`password` nullable = compte 100 % OAuth), rôles **plats** JSON, statut
  * (`enabled`/`locked`), profil de session (`currentRole`), les **champs
  * anti-migration** JSON (`socialProviders`, `metadata`) et les **horodatages**
- * (`createdAt`/`updatedAt`, ms epoch). Aucun ajout de provider ne demande de
- * migration.
+ * (`createdAt`/`updatedAt`, kind `dateMs` — exposés `Date`, ≠ `epochMs` des
+ * stores security qui exposent des `number`). Aucun ajout de provider ne
+ * demande de migration.
  *
- * ⚠️ **Valeurs par défaut en `$defaultFn` (JS-level), pas `.default()` (SQL)** :
- * l'adapter dérive le DDL via `getTableConfig()` qui n'émet **pas** les `DEFAULT`
- * SQL → une colonne `NOT NULL` sans valeur à l'`INSERT` casserait. Les
- * `$defaultFn` sont appliqués par Drizzle au moment de l'insert : `id` (UUID),
- * `roles`/`socialProviders` (`[]`), `metadata` (`{}`), `enabled` (`true`),
- * `locked` (`false`), `createdAt`/`updatedAt` (`now`). `updatedAt` est régénéré à
- * chaque update via `$onUpdateFn` (pendant SQL du `timestamps: true` Mongoose).
+ * ⚠️ **Valeurs par défaut en `defaultFn` (JS-level), pas `.default()` (SQL)**
+ * (règle colKit) : `id` (UUID), `roles`/`socialProviders` (`[]`), `metadata`
+ * (`{}`), `enabled` (`true`), `locked` (`false`), `createdAt`/`updatedAt`
+ * (`now`). `updatedAt` est régénéré à chaque update via `onUpdateFn` (pendant
+ * SQL du `timestamps: true` Mongoose).
  */
-export const userTable = sqliteTable("User", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => randomUUID()),
-  identifier: text("identifier").notNull().unique(),
-  password: text("password"),
-  roles: text("roles", { mode: "json" })
-    .$type<string[]>()
-    .notNull()
-    .$defaultFn(() => []),
-  enabled: integer("enabled", { mode: "boolean" })
-    .notNull()
-    .$defaultFn(() => true),
-  locked: integer("locked", { mode: "boolean" })
-    .notNull()
-    .$defaultFn(() => false),
-  currentRole: text("currentRole"),
-  socialProviders: text("socialProviders", { mode: "json" })
-    .$type<ISocialProvider[]>()
-    .notNull()
-    .$defaultFn(() => []),
-  metadata: text("metadata", { mode: "json" })
-    .$type<Record<string, unknown>>()
-    .notNull()
-    .$defaultFn(() => ({})),
-  createdAt: integer("createdAt", { mode: "timestamp_ms" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
-    .notNull()
-    .$defaultFn(() => new Date())
-    .$onUpdateFn(() => new Date()),
-});
+const USER_TABLE_SPEC = {
+  name: "User",
+  columns: {
+    id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
+    identifier: { kind: "text", notNull: true, unique: true },
+    password: { kind: "text" },
+    roles: { kind: "json", notNull: true, defaultFn: () => [] },
+    enabled: { kind: "bool", notNull: true, defaultFn: () => true },
+    locked: { kind: "bool", notNull: true, defaultFn: () => false },
+    currentRole: { kind: "text" },
+    socialProviders: { kind: "json", notNull: true, defaultFn: () => [] },
+    metadata: { kind: "json", notNull: true, defaultFn: () => ({}) },
+    createdAt: { kind: "dateMs", notNull: true, defaultFn: () => new Date() },
+    updatedAt: {
+      kind: "dateMs",
+      notNull: true,
+      defaultFn: () => new Date(),
+      onUpdateFn: () => new Date(),
+    },
+  },
+} satisfies IFrameworkTableSpec;
+
+/**
+ * Factory de la table `User` pour un dialecte donné (mémoïsée — une instance
+ * par dialecte). `sqlite` (défaut) et `postgres` sont portés ; `mysql` jette (S4).
+ */
+export const createUserTable = createFrameworkTableFactory(USER_TABLE_SPEC);
+
+/**
+ * Variante SQLite de la table `User` (dialecte par défaut) — export conservé
+ * pour l'usage direct/banc-test (ex. module mediasoup).
+ */
+export const userTable: SQLiteTable = createUserTable("sqlite");
 
 /**
  * Forme plate d'une ligne `User` renvoyée par le repository de base (colonnes JSON
@@ -78,19 +84,28 @@ export interface UserRow {
 /**
  * Construit le descripteur d'entité `User` Drizzle pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) : la
- * table est statique mais sa liaison à un ORM dépend de la config → on ne peut
- * pas la figer via `@entity`. À enregistrer dans `entityRegistry` **avant**
- * `orm.connect()` (cf {@link registerUserEntity}).
+ * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
+ * variante de table suit le dialecte du connecteur (auto-register
+ * `registerStores.ts` à `onKernelRegister`). À enregistrer dans `entityRegistry`
+ * **avant** `orm.connect()` (cf {@link registerUserEntity}).
  *
  * @param orm - clé de l'ORM cible dans le `ormRegistry`.
- * @returns descripteur {@link IEntity} (`name: "User"`, `schema: userTable`).
+ * @param dialect - dialecte SQL du connecteur (sélectionne la variante de table).
+ * @returns descripteur {@link IEntity} (`name: "User"`).
  */
-export function createUserEntity(orm: string): IEntity {
+export function createUserEntity(
+  orm: string,
+  dialect: SqlDialect = "sqlite",
+): IEntity {
   // `module: "user"` → l'entité est regroupée sous @nodefony/user dans l'ERD Studio.
   // (Horodatages = colonnes explicites ci-dessus ; le flag `timestamps` IEntity ne
   // concerne que les ORM qui les gèrent au niveau schéma, ex. Mongoose.)
-  return { orm, name: "User", module: "user", schema: userTable };
+  return {
+    orm,
+    name: "User",
+    module: "user",
+    schema: createUserTable(dialect),
+  };
 }
 
 /**
@@ -98,7 +113,11 @@ export function createUserEntity(orm: string): IEntity {
  * À appeler **avant** `orm.connect()` (l'adapter compile/crée les tables au connect).
  *
  * @param orm - clé de l'ORM cible.
+ * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
-export function registerUserEntity(orm: string): void {
-  entityRegistry.register(createUserEntity(orm));
+export function registerUserEntity(
+  orm: string,
+  dialect: SqlDialect = "sqlite",
+): void {
+  entityRegistry.register(createUserEntity(orm, dialect));
 }

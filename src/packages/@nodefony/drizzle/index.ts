@@ -166,6 +166,7 @@ export type {
 // Entité (table) dans entity/, couche d'accès (repository) dans src/.
 export {
   userTable,
+  createUserTable,
   createUserEntity,
   registerUserEntity,
 } from "./nodefony/entity/userTable";
@@ -180,6 +181,9 @@ export {
   accessTokenTable,
   deniedJtiTable,
   subjectRevocationTable,
+  createAccessTokenTable,
+  createDeniedJtiTable,
+  createSubjectRevocationTable,
   createTokenEntities,
   registerTokenEntities,
   TOKEN_ENTITY_NAMES,
@@ -206,6 +210,7 @@ export { DrizzleAuditStore } from "./nodefony/src/DrizzleAuditStore";
 // AUTO-REGISTER (onKernelRegister) : sélectionnable via `passkeys.store: "drizzle"`.
 export {
   webAuthnCredentialTable,
+  createWebAuthnCredentialTable,
   createWebAuthnCredentialEntity,
   registerWebAuthnCredentialEntity,
   WEBAUTHN_CREDENTIAL_ENTITY,
@@ -217,6 +222,7 @@ export { DrizzleWebAuthnCredentialStore } from "./nodefony/src/DrizzleWebAuthnCr
 // AUTO-REGISTER (onKernelRegister) : sélectionnable via `totp.store: "drizzle"`.
 export {
   totpSecretTable,
+  createTotpSecretTable,
   createTotpSecretEntity,
   registerTotpSecretEntity,
   TOTP_SECRET_ENTITY,

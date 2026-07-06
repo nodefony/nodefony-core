@@ -1,6 +1,11 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
+import type { SqlDialect } from "../interfaces/IDrizzleConfig";
+import {
+  createFrameworkTableFactory,
+  type IFrameworkTableSpec,
+} from "./colKit";
 
 /**
  * Algorithme HMAC du code TOTP (RFC 6238) — union littérale (miroir du
@@ -11,53 +16,63 @@ import type { IEntity } from "@nodefony/orm-core";
 type TotpAlgorithm = "SHA1" | "SHA256" | "SHA512";
 
 /**
- * Table Drizzle du **store de secrets TOTP** `@nodefony/security` (schema-as-code)
- * — implémentation SQL d'`ITotpSecretStore` (2FA). Driver `better-sqlite3` ;
- * Postgres/MySQL par simple changement de driver.
+ * Entité du **store de secrets TOTP** `@nodefony/security` (2FA) — implémentation
+ * SQL d'`ITotpSecretStore`, déclinée via le `colKit` (S2 multi-dialecte) : une
+ * spec logique, la table du dialecte du connecteur.
  *
  * **Modèle 1 secret / utilisateur** → clé primaire = `userId` (pas d'id de ligne
  * séparé, `save` est un upsert par `userId`). Pas d'index secondaire : tout accès
  * passe par la PK.
  *
- * **Liaison ORM dynamique** (pattern `webAuthnCredentialEntity`/`tokenEntity`, pas
- * `@entity` figé) : l'auto-register du module (`registerDrizzleFrameworkStores`)
- * câble entité + fabrique ; l'app peut poser les siennes AVANT (guards idempotents).
- *
  * ⚠️ **`secretEnc` = secret déjà CHIFFRÉ** (AES-256-GCM par le service détenteur de
  * la clé) : le store ne voit que des octets opaques, jamais le secret `K` en clair.
  *
- * ⚠️ **Horodatages en epoch ms (`integer` mode number), pas `timestamp_ms`** :
- * `ITotpSecret` porte des `number` (`Date.now()`), pas des `Date`.
+ * ⚠️ **`lastUsedStep` = tranche `T` RFC 6238 (kind `int`)**, pas un horodatage —
+ * les vrais horodatages (`confirmedAt`/`createdAt`/`lastUsedAt`) sont en `epochMs`.
  *
- * ⚠️ **Pas de `.default()` SQL** : le DDL dérivé (`getTableConfig`) n'émet pas de
- * `DEFAULT` — le store fournit TOUJOURS toutes les colonnes `notNull` au `save` ;
- * `recoveryCodes` garde un `$defaultFn` JS en filet.
+ * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le store fournit TOUJOURS toutes
+ * les colonnes `notNull` au `save` ; `recoveryCodes` garde un `defaultFn` JS en filet.
  */
-export const totpSecretTable = sqliteTable("totp_secret", {
-  /** Propriétaire du secret (clé naturelle — un seul secret par utilisateur). */
-  userId: text("userId").primaryKey(),
-  /** Secret partagé `K` **chiffré** (blob opaque `iv.tag.ciphertext` base64url). */
-  secretEnc: text("secretEnc").notNull(),
-  /** Fonction HMAC du code (`SHA1`|`SHA256`|`SHA512`). */
-  algorithm: text("algorithm").$type<TotpAlgorithm>().notNull(),
-  /** Nombre de chiffres du code. */
-  digits: integer("digits").notNull(),
-  /** Période d'un code en secondes. */
-  period: integer("period").notNull(),
-  /** Condensats `sha256` des codes de récupération non encore consommés. */
-  recoveryCodes: text("recoveryCodes", { mode: "json" })
-    .$type<string[]>()
-    .notNull()
-    .$defaultFn(() => []),
-  /** Confirmation de l'enrôlement (epoch ms) ou `null` (anti-lock-out). */
-  confirmedAt: integer("confirmedAt"),
-  /** Dernière tranche `T` validée (RFC 6238 §5.2, anti-rejeu) ou `null`. */
-  lastUsedStep: integer("lastUsedStep"),
-  /** Création (epoch ms). */
-  createdAt: integer("createdAt").notNull(),
-  /** Dernier usage réussi (epoch ms) ou `null`. */
-  lastUsedAt: integer("lastUsedAt"),
-});
+const TOTP_SECRET_TABLE_SPEC = {
+  name: "totp_secret",
+  columns: {
+    /** Propriétaire du secret (clé naturelle — un seul secret par utilisateur). */
+    userId: { kind: "text", primaryKey: true },
+    /** Secret partagé `K` **chiffré** (blob opaque `iv.tag.ciphertext` base64url). */
+    secretEnc: { kind: "text", notNull: true },
+    /** Fonction HMAC du code (`SHA1`|`SHA256`|`SHA512`). */
+    algorithm: { kind: "text", notNull: true },
+    /** Nombre de chiffres du code. */
+    digits: { kind: "int", notNull: true },
+    /** Période d'un code en secondes. */
+    period: { kind: "int", notNull: true },
+    /** Condensats `sha256` des codes de récupération non encore consommés. */
+    recoveryCodes: { kind: "json", notNull: true, defaultFn: () => [] },
+    /** Confirmation de l'enrôlement (epoch ms) ou `null` (anti-lock-out). */
+    confirmedAt: { kind: "epochMs" },
+    /** Dernière tranche `T` validée (RFC 6238 §5.2, anti-rejeu) ou `null`. */
+    lastUsedStep: { kind: "int" },
+    /** Création (epoch ms). */
+    createdAt: { kind: "epochMs", notNull: true },
+    /** Dernier usage réussi (epoch ms) ou `null`. */
+    lastUsedAt: { kind: "epochMs" },
+  },
+} satisfies IFrameworkTableSpec;
+
+/**
+ * Factory de la table de secrets TOTP pour un dialecte donné (mémoïsée — une
+ * instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ;
+ * `mysql` jette (S4).
+ */
+export const createTotpSecretTable = createFrameworkTableFactory(
+  TOTP_SECRET_TABLE_SPEC,
+);
+
+/**
+ * Variante SQLite de la table de secrets TOTP (dialecte par défaut) — export
+ * conservé pour l'usage direct/banc-test.
+ */
+export const totpSecretTable: SQLiteTable = createTotpSecretTable("sqlite");
 
 /**
  * Forme **plate** d'une ligne de secret renvoyée par le repository ORM. Structure
@@ -83,19 +98,23 @@ export const TOTP_SECRET_ENTITY = "totp_secret";
 
 /**
  * Construit le descripteur d'entité du store de secrets TOTP pour un ORM nommé.
- * L'`orm` est **dynamique** (nom du connecteur de l'app) : la table est statique
- * mais sa liaison à un ORM dépend de la config → pas d'`@entity` figé. À enregistrer
+ * L'`orm` est **dynamique** (nom du connecteur de l'app) et la variante de table
+ * suit le dialecte du connecteur (auto-register `registerStores.ts`). À enregistrer
  * **avant** `orm.connect()`. `module: "security"` → regroupé sous @nodefony/security
  * dans l'ERD Studio.
  *
  * @param orm - clé de l'ORM cible dans le `ormRegistry`.
+ * @param dialect - dialecte SQL du connecteur (sélectionne la variante de table).
  */
-export function createTotpSecretEntity(orm: string): IEntity {
+export function createTotpSecretEntity(
+  orm: string,
+  dialect: SqlDialect = "sqlite",
+): IEntity {
   return {
     orm,
     name: TOTP_SECRET_ENTITY,
     module: "security",
-    schema: totpSecretTable,
+    schema: createTotpSecretTable(dialect),
   };
 }
 
@@ -104,7 +123,11 @@ export function createTotpSecretEntity(orm: string): IEntity {
  * donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect).
  *
  * @param orm - clé de l'ORM cible.
+ * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
-export function registerTotpSecretEntity(orm: string): void {
-  entityRegistry.register(createTotpSecretEntity(orm));
+export function registerTotpSecretEntity(
+  orm: string,
+  dialect: SqlDialect = "sqlite",
+): void {
+  entityRegistry.register(createTotpSecretEntity(orm, dialect));
 }

@@ -18,6 +18,7 @@ import {
   jsonb as pgJsonb,
   pgTable,
   text as pgText,
+  timestamp as pgTimestamp,
   uniqueIndex as pgUniqueIndex,
 } from "drizzle-orm/pg-core";
 import type {
@@ -45,7 +46,8 @@ import type { SqlDialect } from "../interfaces/IDrizzleConfig";
  * - divergences de TYPE assumées ici et nulle part ailleurs : epoch ms =
  *   `integer` SQLite (64-bit) / `bigint mode:"number"` PG (`integer` PG 32-bit
  *   déborde) ; JSON = `text mode:"json"` SQLite / `jsonb` PG ; booléen =
- *   `integer mode:"boolean"` SQLite / `boolean` PG ;
+ *   `integer mode:"boolean"` SQLite / `boolean` PG ; date JS (`dateMs`, exposée
+ *   `Date`) = `integer mode:"timestamp_ms"` SQLite / `timestamptz(3)` PG ;
  * - défauts en **`$defaultFn`/`$onUpdateFn` (JS-level) uniquement** — le DDL
  *   dérivé (`getTableConfig` → `DrizzleOrm.#buildCreateTable`) n'émet PAS les
  *   `DEFAULT` SQL (gotcha `userTable`) ; les `index` déclarés ne sortent que
@@ -57,7 +59,8 @@ import type { SqlDialect } from "../interfaces/IDrizzleConfig";
  */
 
 /** Types logiques couverts par les entités framework (étendre ici si besoin). */
-export type FrameworkColKind = "text" | "json" | "bool" | "epochMs" | "int";
+export type FrameworkColKind =
+  "text" | "json" | "bool" | "epochMs" | "int" | "dateMs";
 
 /** Spécification logique d'une colonne d'entité framework. */
 export interface IFrameworkColSpec {
@@ -146,6 +149,11 @@ function sqliteColumn(
     case "int":
       base = sqliteInteger(name);
       break;
+    case "dateMs":
+      // Exposé en `Date` JS (≠ epochMs qui expose un number) — stocké en epoch
+      // ms INTEGER, converti par le mode Drizzle.
+      base = sqliteInteger(name, { mode: "timestamp_ms" });
+      break;
   }
   return applyMods(
     base as ChainableColumnBuilder,
@@ -173,6 +181,16 @@ function pgColumn(name: string, spec: IFrameworkColSpec): PgColumnBuilderBase {
       break;
     case "int":
       base = pgInteger(name);
+      break;
+    case "dateMs":
+      // Même type JS que SQLite (`Date`) ; côté SQL le type natif diverge
+      // (timestamptz ≠ INTEGER ms) — divergence assumée DANS le kit, comme
+      // json/bool. Précision 3 = milliseconde (aligne le stockage SQLite).
+      base = pgTimestamp(name, {
+        withTimezone: true,
+        mode: "date",
+        precision: 3,
+      });
       break;
   }
   return applyMods(

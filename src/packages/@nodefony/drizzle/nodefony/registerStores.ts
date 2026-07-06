@@ -49,6 +49,7 @@ import {
   SESSION_ENTITY_NAME,
   SESSION_ORM,
 } from "./entity/sessionEntity";
+import { registerUserEntity } from "./entity/userTable";
 import { DrizzleTokenStore } from "./src/DrizzleTokenStore";
 import { DrizzleAuditStore } from "./src/DrizzleAuditStore";
 import { DrizzleWebAuthnCredentialStore } from "./src/DrizzleWebAuthnCredentialStore";
@@ -87,6 +88,10 @@ export const FRAMEWORK_ORM = "default";
 const SQLITE_ONLY: readonly SqlDialect[] = ["sqlite"];
 const IDEMPOTENCY_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
 const SESSION_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
+const TOKEN_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
+const WEBAUTHN_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
+const TOTP_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
+const USER_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
 
 /** Bilan de l'auto-enregistrement (loggé par le module — jamais silencieux). */
 export interface IFrameworkStoresReport {
@@ -178,21 +183,35 @@ export function registerDrizzleFrameworkStores(
   wire(
     SESSION_ENTITY_NAME,
     SESSION_PORTED,
-    () => {
-      const sessionDialect: "sqlite" | "postgres" =
-        dialect === "postgres" ? "postgres" : "sqlite";
-      registerSessionEntity(SESSION_ORM, sessionDialect);
-    },
+    // `wire` filtre les dialectes non portés AVANT d'appeler la closure → le
+    // dialecte passe tel quel (la factory colKit connaît sqlite et postgres).
+    () => registerSessionEntity(SESSION_ORM, dialect),
     () => {
       /* storage déjà enregistré à l'import de SessionStorage (registre http). */
+    },
+  );
+
+  // ── Utilisateurs (annuaire) — entité `User`, brique de 1ʳᵉ classe ──────────
+  // Le BACKEND "drizzle" est déclaré par `registerUserStore` (onKernelRegister,
+  // registre @nodefony/user) et la sélection appartient à l'APP (`provisionUsers`
+  // piloté par NF_USER_STORE) → seule l'ENTITÉ est déclarée ici, sur la variante
+  // du dialecte. Historiquement enregistrée par l'app au top-level (variante
+  // sqlite figée) — S2 multi-dialecte l'a rendue dynamique, comme la session.
+  wire(
+    "User",
+    USER_PORTED,
+    () => registerUserEntity(FRAMEWORK_ORM, dialect),
+    () => {
+      /* backend déclaré via registerUserStore (userStoreRegistry) — pas de
+         fabrique par brique : la résolution user appartient à provisionUsers. */
     },
   );
 
   // ── Tokens (PAT + denylist JWT) — registre @nodefony/security ──────────────
   wire(
     TOKEN_ENTITY_NAMES.records,
-    SQLITE_ONLY,
-    () => registerTokenEntities(FRAMEWORK_ORM),
+    TOKEN_PORTED,
+    () => registerTokenEntities(FRAMEWORK_ORM, dialect),
     () => {
       if (getTokenStoreFactory("drizzle")) {
         return;
@@ -233,8 +252,8 @@ export function registerDrizzleFrameworkStores(
   // ── Credentials WebAuthn (passkeys) — registre @nodefony/security ───────────
   wire(
     WEBAUTHN_CREDENTIAL_ENTITY,
-    SQLITE_ONLY,
-    () => registerWebAuthnCredentialEntity(FRAMEWORK_ORM),
+    WEBAUTHN_PORTED,
+    () => registerWebAuthnCredentialEntity(FRAMEWORK_ORM, dialect),
     () => {
       if (getWebAuthnStoreFactory("drizzle")) {
         return;
@@ -250,8 +269,8 @@ export function registerDrizzleFrameworkStores(
   // ── Secrets TOTP (2FA) — registre @nodefony/security ────────────────────────
   wire(
     TOTP_SECRET_ENTITY,
-    SQLITE_ONLY,
-    () => registerTotpSecretEntity(FRAMEWORK_ORM),
+    TOTP_PORTED,
+    () => registerTotpSecretEntity(FRAMEWORK_ORM, dialect),
     () => {
       if (getTotpStoreFactory("drizzle")) {
         return;

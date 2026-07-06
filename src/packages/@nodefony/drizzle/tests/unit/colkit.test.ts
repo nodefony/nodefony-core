@@ -33,6 +33,7 @@ const SPEC = {
     enabled: { kind: "bool", notNull: true },
     hits: { kind: "int", notNull: true },
     expiresAt: { kind: "epochMs", notNull: true },
+    seenAt: { kind: "dateMs" },
   },
   indexes: [
     { name: "colkit_probe_expiresAt_idx", on: ["expiresAt"] },
@@ -61,6 +62,8 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
       assert.equal(cols.get("enabled")?.getSQLType(), "integer"); // bool = integer mode:"boolean"
       assert.equal(cols.get("hits")?.getSQLType(), "integer");
       assert.equal(cols.get("expiresAt")?.getSQLType(), "integer"); // epoch ms 64-bit
+      // dateMs = integer ms epoch, exposé `Date` par le mode timestamp_ms.
+      assert.equal(cols.get("seenAt")?.getSQLType(), "integer");
     });
 
     it("applique pk / notNull / unique", () => {
@@ -92,6 +95,11 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
       assert.equal(cols.get("hits")?.getSQLType(), "integer");
       // epoch ms ≈ 1.7e12 déborde `integer` PG 32-bit → bigint obligatoire.
       assert.equal(cols.get("expiresAt")?.getSQLType(), "bigint");
+      // dateMs = timestamptz(3) PG (même type JS `Date` que la variante SQLite).
+      assert.match(
+        cols.get("seenAt")?.getSQLType() ?? "",
+        /^timestamp.*with time zone$/,
+      );
     });
 
     it("applique pk / notNull / unique", () => {
@@ -177,6 +185,37 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
           .returning()) as Array<Record<string, unknown>>;
         assert.equal(updated[0]?.state, "moved");
         assert.equal(updated[0]?.rev, 99, "onUpdateFn régénéré à l'UPDATE");
+      } finally {
+        client.close();
+      }
+    });
+
+    it("kind dateMs : round-trip `Date` réel (stocké ms, relu Date) — sqlite", async () => {
+      const spec = {
+        name: "colkit_datems",
+        columns: {
+          id: { kind: "text", primaryKey: true },
+          bornAt: { kind: "dateMs", notNull: true },
+        },
+      } satisfies IFrameworkTableSpec;
+      const table = buildFrameworkTable("sqlite", spec);
+      const client = new BetterSqlite3(":memory:");
+      try {
+        const db = drizzle(client);
+        client.exec(
+          `CREATE TABLE "colkit_datems" ("id" text PRIMARY KEY, "bornAt" integer NOT NULL)`,
+        );
+        const at = new Date(1_700_000_000_123);
+        await db.insert(table).values({ id: "d1", bornAt: at });
+        const rows = (await db.select().from(table)) as Array<
+          Record<string, unknown>
+        >;
+        assert.ok(rows[0]?.bornAt instanceof Date);
+        assert.equal(
+          (rows[0]?.bornAt as Date).getTime(),
+          at.getTime(),
+          "précision milliseconde conservée",
+        );
       } finally {
         client.close();
       }

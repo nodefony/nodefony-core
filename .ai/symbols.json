@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-06T22:55:25.714Z",
+  "generated": "2026-07-06T23:44:25.674Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 997,
-    "symbols": 2478,
+    "files": 998,
+    "symbols": 2486,
     "classes": 313,
-    "interfaces": 655,
+    "interfaces": 656,
     "types": 293,
     "enums": 4,
-    "functions": 673,
-    "constants": 540
+    "functions": 674,
+    "constants": 546
   },
   "symbols": {
     "Cli": {
@@ -5701,7 +5701,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit les descripteurs d'entités du store de jetons pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : les tables sont statiques mais leur liaison à un…"
+      "description": "Construit les descripteurs d'entités du store de jetons pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connec…"
     },
     "registerTokenEntities": {
       "name": "registerTokenEntities",
@@ -5711,29 +5711,51 @@
       "module": "@nodefony/drizzle",
       "description": "Enregistre les entités du store de jetons dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée les tables au connect)."
     },
+    "createAccessTokenTable": {
+      "name": "createAccessTokenTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la table des records (mémoïsée — une instance par dialecte)."
+    },
+    "createDeniedJtiTable": {
+      "name": "createDeniedJtiTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la denylist `jti` (mémoïsée — une instance par dialecte)."
+    },
+    "createSubjectRevocationTable": {
+      "name": "createSubjectRevocationTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory des seuils de révocation (mémoïsée — une instance par dialecte)."
+    },
     "accessTokenTable": {
       "name": "accessTokenTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Tables Drizzle du **store de jetons** `@nodefony/security` (schema-as-code) — implémentation SQL d'`ITokenStore` (PAT, refresh, denylist `jti`, seuil de révocation en masse). Driver `better-sqlite3…"
+      "description": "Variantes SQLite des trois tables (dialecte par défaut) — exports conservés pour l'usage direct/banc-test."
     },
     "deniedJtiTable": {
       "name": "deniedJtiTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
       "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Denylist des access tokens (`jti`) révoqués avant leur `exp` — révocation immédiate ciblée. Purgée par `gc` une fois `expiresAt` (epoch ms) dépassé."
+      "module": "@nodefony/drizzle"
     },
     "subjectRevocationTable": {
       "name": "subjectRevocationTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
       "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Seuil de révocation **en masse** par porteur : tout access auto-porté émis avant `invalidBefore` (epoch ms) est rejeté (logout global / ban)."
+      "module": "@nodefony/drizzle"
     },
     "TOKEN_ENTITY_NAMES": {
       "name": "TOKEN_ENTITY_NAMES",
@@ -5758,7 +5780,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité du store de secrets TOTP pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app) : la table est statique mais sa liaison à un ORM dépend de la co…"
+      "description": "Construit le descripteur d'entité du store de secrets TOTP pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app) et la variante de table suit le dialecte du connecteur (auto-reg…"
     },
     "registerTotpSecretEntity": {
       "name": "registerTotpSecretEntity",
@@ -5768,13 +5790,21 @@
       "module": "@nodefony/drizzle",
       "description": "Enregistre l'entité du store de secrets TOTP dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
     },
+    "createTotpSecretTable": {
+      "name": "createTotpSecretTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la table de secrets TOTP pour un dialecte donné (mémoïsée — une instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ; `mysql` jette (S4)."
+    },
     "totpSecretTable": {
       "name": "totpSecretTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Table Drizzle du **store de secrets TOTP** `@nodefony/security` (schema-as-code) — implémentation SQL d'`ITotpSecretStore` (2FA). Driver `better-sqlite3` ; Postgres/MySQL par simple changement de d…"
+      "description": "Variante SQLite de la table de secrets TOTP (dialecte par défaut) — export conservé pour l'usage direct/banc-test."
     },
     "TOTP_SECRET_ENTITY": {
       "name": "TOTP_SECRET_ENTITY",
@@ -5799,7 +5829,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité `User` Drizzle pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM dépend d…"
+      "description": "Construit le descripteur d'entité `User` Drizzle pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connecteur (a…"
     },
     "registerUserEntity": {
       "name": "registerUserEntity",
@@ -5809,13 +5839,21 @@
       "module": "@nodefony/drizzle",
       "description": "Enregistre l'entité `User` Drizzle dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter compile/crée les tables au connect)."
     },
+    "createUserTable": {
+      "name": "createUserTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la table `User` pour un dialecte donné (mémoïsée — une instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ; `mysql` jette (S4)."
+    },
     "userTable": {
       "name": "userTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Table Drizzle de l'utilisateur Nodefony (schema-as-code) — implémentation SQL **par défaut** du contrat `@nodefony/user` (P5.9, ORM recommandé #1). Colonnes calquées sur `BaseUser` : identité (`id`…"
+      "description": "Variante SQLite de la table `User` (dialecte par défaut) — export conservé pour l'usage direct/banc-test (ex. module mediasoup)."
     },
     "WebAuthnCredentialRow": {
       "name": "WebAuthnCredentialRow",
@@ -5832,7 +5870,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité du store de credentials pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM…"
+      "description": "Construit le descripteur d'entité du store de credentials pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du conn…"
     },
     "registerWebAuthnCredentialEntity": {
       "name": "registerWebAuthnCredentialEntity",
@@ -5842,13 +5880,21 @@
       "module": "@nodefony/drizzle",
       "description": "Enregistre l'entité du store de credentials dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
     },
+    "createWebAuthnCredentialTable": {
+      "name": "createWebAuthnCredentialTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la table de credentials pour un dialecte donné (mémoïsée — une instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ; `mysql` jette (S4)."
+    },
     "webAuthnCredentialTable": {
       "name": "webAuthnCredentialTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Table Drizzle du **store de credentials WebAuthn** `@nodefony/security` (schema-as-code) — implémentation SQL d'`IWebAuthnCredentialStore` (passkeys). Driver `better-sqlite3` ; Postgres/MySQL par s…"
+      "description": "Variante SQLite de la table de credentials (dialecte par défaut) — export conservé pour l'usage direct/banc-test."
     },
     "WEBAUTHN_CREDENTIAL_ENTITY": {
       "name": "WEBAUTHN_CREDENTIAL_ENTITY",
@@ -6024,6 +6070,14 @@
       ],
       "decorators": [],
       "description": "Store d'endpoints webhook **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link IWebhookStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webhook_endpoint`). Persistance …"
+    },
+    "findUserIdBySocialProvider": {
+      "name": "findUserIdBySocialProvider",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Cherche l'`id` du user dont le tableau JSON `socialProviders` contient un lien `{provider, providerId}` — le finder du pattern **Shadow User** OAuth (`DrizzleUserRepository.findBySocialProvider`). …"
     },
     "SessionStorage": {
       "name": "SessionStorage",
@@ -20375,6 +20429,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
       ],
@@ -20383,6 +20438,12 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "registerTokenEntities": [
@@ -20452,6 +20513,9 @@
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+      ],
+      "registerUserEntity": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
       "DrizzleTokenStore": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
@@ -21216,20 +21280,18 @@
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
       ],
       "createFrameworkTableFactory": [
-        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts"
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts"
       ],
       "IFrameworkTableSpec": [
-        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts"
-      ],
-      "IResourcePermission": [
-        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts"
-      ],
-      "TokenRevokeReason": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
-        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts"
       ],
       "ISocialProvider": [
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
@@ -21342,6 +21404,12 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
+      "TokenRevokeReason": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
       "DeniedJtiRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
@@ -21420,6 +21488,9 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "findUserIdBySocialProvider": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"
       ],
       "UserRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",

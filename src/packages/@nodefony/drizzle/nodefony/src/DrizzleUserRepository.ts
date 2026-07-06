@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import type {
   Criteria,
   IRepository,
@@ -12,6 +11,8 @@ import type {
 } from "@nodefony/user";
 import type { DrizzleDb } from "./orm-core/DrizzleRepository";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
+import type { SqlDialect } from "../interfaces/IDrizzleConfig";
+import { findUserIdBySocialProvider } from "./queryKit";
 import type { UserRow } from "../entity/userTable";
 
 /** Critère typé sur la ligne `User` (sous-ensemble compatible avec le contrat). */
@@ -26,8 +27,8 @@ type UserCriteria = Criteria<UserRow>;
  * - **mapping ligne ↔ `BaseUser`** : les consommateurs reçoivent un objet
  *   porteur du comportement (`hasRole`/`isActive`/`isLocked`), pas une ligne nue ;
  * - **finders métier** : `findByIdentifier` (lookup unique) et
- *   `findBySocialProvider` (recherche dans le JSON `socialProviders` via
- *   `json_each`, pattern Shadow User OAuth).
+ *   `findBySocialProvider` (recherche dans le JSON `socialProviders`, routée
+ *   par dialecte via le queryKit — pattern Shadow User OAuth).
  *
  * Le credential (`password`) transite par cette frontière — c'est attendu : le
  * repository **est** la frontière de persistance du hash (cf `IUserRepository`).
@@ -35,20 +36,27 @@ type UserCriteria = Criteria<UserRow>;
 export class DrizzleUserRepository implements IUserRepository {
   readonly #base: IRepository<UserRow>;
   readonly #db: DrizzleDb;
+  readonly #dialect: SqlDialect;
 
   /**
    * @param base - repository portable sur la table `User` (CRUD + criteria).
    * @param db - handle Drizzle (racine ou transaction) pour les requêtes JSON brutes.
+   * @param dialect - dialecte SQL du connecteur (route les requêtes du queryKit).
    */
-  constructor(base: IRepository<UserRow>, db: DrizzleDb) {
+  constructor(
+    base: IRepository<UserRow>,
+    db: DrizzleDb,
+    dialect: SqlDialect = "sqlite",
+  ) {
     this.#base = base;
     this.#db = db;
+    this.#dialect = dialect;
   }
 
   /**
    * Construit le repository utilisateur depuis un {@link DrizzleOrm} connecté.
    * L'entité `User` doit avoir été enregistrée (cf `registerUserEntity`) avant
-   * `orm.connect()`.
+   * `orm.connect()` — sur la variante de table du dialecte de l'ORM.
    *
    * @param orm - ORM Drizzle connecté.
    * @returns le repository utilisateur prêt à l'emploi.
@@ -57,6 +65,7 @@ export class DrizzleUserRepository implements IUserRepository {
     return new DrizzleUserRepository(
       orm.getRepository<UserRow>("User"),
       orm.getNativeConnection<DrizzleDb>(),
+      orm.dialect,
     );
   }
 
@@ -193,6 +202,7 @@ export class DrizzleUserRepository implements IUserRepository {
     return new DrizzleUserRepository(
       this.#base.withTransaction(tx),
       tx.getNative<DrizzleDb>(),
+      this.#dialect,
     );
   }
 
@@ -205,27 +215,24 @@ export class DrizzleUserRepository implements IUserRepository {
   }
 
   /**
-   * Recherche par compte externe lié — scanne le JSON `socialProviders` via
-   * `json_each` (1 requête), récupère l'`id`, puis recharge par le chemin typé
+   * Recherche par compte externe lié — cherche dans le JSON `socialProviders`
+   * via le queryKit (forme native du dialecte : `json_each` SQLite / `@>`
+   * jsonb PG, 1 requête), récupère l'`id`, puis recharge par le chemin typé
    * (parsing JSON/booléens cohérent). `null` si aucun lien.
    */
   async findBySocialProvider(
     provider: string,
     providerId: string,
   ): Promise<IPasswordAuthenticatedUser | null> {
-    const rows = (await this.#db.all(
-      sql`SELECT "id" AS id FROM "User"
-          WHERE EXISTS (
-            SELECT 1 FROM json_each("User"."socialProviders")
-            WHERE json_extract(value, '$.provider') = ${provider}
-              AND json_extract(value, '$.providerId') = ${providerId}
-          ) LIMIT 1`,
-    )) as Array<{ id: string }>;
-    if (rows.length === 0) {
+    const id = await findUserIdBySocialProvider(
+      this.#db,
+      this.#dialect,
+      provider,
+      providerId,
+    );
+    if (id === null) {
       return null;
     }
-    return this.findOne({
-      id: rows[0].id,
-    } as Criteria<IPasswordAuthenticatedUser>);
+    return this.findOne({ id } as Criteria<IPasswordAuthenticatedUser>);
   }
 }

@@ -68,7 +68,8 @@ function registerUserResolution(
  *   drizzle, mongo → mongoose), repli `drizzle` (SQL local — les comptes doivent
  *   survivre au restart, jamais de repli memory silencieux) ;
  * - `drizzle` : persistance SQL réelle (connecteur `"default"`, entité `User`
- *   enregistrée par `nodefony/entity/user.ts`) + seed idempotent ;
+ *   auto-enregistrée par le module @nodefony/drizzle sur la variante du
+ *   dialecte configuré — `registerStores.ts`) + seed idempotent ;
  * - `mongoose` : persistance MongoDB (connecteur `"nodefony"` du module
  *   `@nodefony/mongoose` — chargé dans le manifeste, sinon échec franc) ;
  * - `memory` : annuaire volatil (tests de charge sans I/O SQLite, scripts, tests manuels).

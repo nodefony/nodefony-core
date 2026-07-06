@@ -19,12 +19,27 @@ import {
 
 /**
  * Auto-enregistrement des stores framework (lot 0.8) — « charger le module =
- * backends sélectionnables par nom ». Registres process-wide → tests ordonnés
- * dans CE fichier (isolation par fichier vitest).
+ * backends sélectionnables par nom », scénario **sqlite** (dialecte par défaut).
+ * Registres process-wide → tests ordonnés dans CE fichier ; le scénario
+ * postgres vit dans `auto-register-postgres.test.ts` (isolation par fichier
+ * vitest = un dialecte de wire par process, comme un boot réel).
  */
 
 const FRAMEWORK_ENTITIES = [
   "session",
+  "User",
+  "access_token",
+  "audit_event",
+  "webauthn_credential",
+  "totp_secret",
+  "webhook_endpoint",
+  "idempotency_key",
+] as const;
+
+/** Ordre d'exécution du wire (report `registered`). */
+const WIRE_ORDER = [
+  "session",
+  "User",
   "access_token",
   "audit_event",
   "webauthn_credential",
@@ -38,43 +53,12 @@ const minimalConfig = {
   tokenStore: { retentionRevokedDays: 30 },
 } as unknown as ISecurityConfig;
 
-describe("registerDrizzleFrameworkStores — auto-register (lot 0.8)", () => {
-  it("dialecte postgres : session + idempotence portées (S1/Slice 0), le reste annoncé unported", () => {
-    const report = registerDrizzleFrameworkStores("postgres");
-    assert.deepStrictEqual(report.registered, ["session", "idempotency_key"]);
-    assert.strictEqual(report.appOwned.length, 0);
-    assert.deepStrictEqual(
-      [...report.unported].sort(),
-      [
-        "access_token",
-        "audit_event",
-        "webauthn_credential",
-        "totp_secret",
-        "webhook_endpoint",
-      ].sort(),
-    );
-    // Les registres reflètent le RÉEL : pas de fabrique pour un backend non porté.
-    assert.ok(!listTokenStores().includes("drizzle"));
-    assert.ok(!listAuditStores().includes("drizzle"));
-    assert.ok(!listTotpStores().includes("drizzle"));
-    assert.ok(listIdempotencyStores().includes("drizzle"));
-  });
-
-  it("dialecte sqlite : les 5 entités restantes sont déclarées + fabriques enregistrées", () => {
+describe("registerDrizzleFrameworkStores — auto-register sqlite (lot 0.8)", () => {
+  it("dialecte sqlite : les 8 entités déclarées + fabriques enregistrées", () => {
     const report = registerDrizzleFrameworkStores("sqlite");
-    // session + idempotency_key déjà déclarées par le run postgres → respectées.
-    assert.deepStrictEqual(report.appOwned, ["session", "idempotency_key"]);
+    assert.deepStrictEqual(report.registered, [...WIRE_ORDER]);
+    assert.strictEqual(report.appOwned.length, 0);
     assert.strictEqual(report.unported.length, 0);
-    assert.deepStrictEqual(
-      [...report.registered].sort(),
-      [
-        "access_token",
-        "audit_event",
-        "webauthn_credential",
-        "totp_secret",
-        "webhook_endpoint",
-      ].sort(),
-    );
     for (const name of FRAMEWORK_ENTITIES) {
       assert.ok(
         entityRegistry.has(name, FRAMEWORK_ORM),
@@ -106,12 +90,6 @@ describe("registerDrizzleFrameworkStores — auto-register (lot 0.8)", () => {
   });
 
   it("bout-en-bout : ORM connecté (:memory:) → la fabrique token rend un store opérationnel", async () => {
-    // Le 1ᵉʳ test (postgres) a laissé les VARIANTES pgTable (idempotency_key,
-    // session) dans le registre process-wide → re-déclarer les variantes sqlite
-    // avant le connect (en réel, un seul dialecte par boot — artefact d'ordre).
-    entityRegistry.unregister("idempotency_key", FRAMEWORK_ORM);
-    entityRegistry.unregister("session", FRAMEWORK_ORM);
-    registerDrizzleFrameworkStores("sqlite");
     const orm = new DrizzleOrm(FRAMEWORK_ORM, { filename: ":memory:" });
     await orm.connect(); // compile les entités du registre → tables créées
     try {
