@@ -15,6 +15,8 @@ import { Alert, Badge, Button, Code, Group, Switch, Text, Tooltip } from "@manti
 import {
   IconAlertTriangle,
   IconArrowsLeftRight,
+  IconBolt,
+  IconInfoCircle,
   IconRefresh,
   IconTrash,
   IconWorld,
@@ -33,9 +35,10 @@ function pathOf(url: string): string {
   }
 }
 
-export const ProfilingTab = observer(() => {
-  const store = useProfiler();
-  const navigate = useNavigate();
+export const ProfilingTab = observer(
+  ({ onGoDebug }: { onGoDebug?: () => void }) => {
+    const store = useProfiler();
+    const navigate = useNavigate();
 
   useEffect(() => {
     void store.loadRecent();
@@ -167,6 +170,41 @@ export const ProfilingTab = observer(() => {
     ],
     [],
   );
+
+  // Prod : le data plane profiler renvoie 404 (dev-only, non monté). On n'affiche
+  // PAS d'erreur brute → encart clair qui renvoie vers le debug runtime (onglet Debug),
+  // le bon outil d'observation EN PRODUCTION.
+  if (store.unavailable) {
+    return (
+      <Alert
+        color="blue"
+        variant="light"
+        icon={<IconInfoCircle size={18} />}
+        title="Profiler désactivé en production"
+      >
+        <Text size="sm" mb="xs">
+          Le profiling <b>par requête</b> (timing des phases + requêtes SQL) est{" "}
+          <b>dev-only</b> : il ajoute un coût à chaque requête et exposerait des
+          détails internes. Il n'est donc pas monté en production.
+        </Text>
+        <Text size="sm" mb="sm">
+          Pour observer <b>en production</b>, utilise le <b>debug runtime ciblé</b> :
+          niveau DEBUG par module, activé à chaud sans redémarrage, auto-expirant et
+          audité — sur l'onglet Debug.
+        </Text>
+        {onGoDebug && (
+          <Button
+            size="xs"
+            color="blue"
+            leftSection={<IconBolt size={16} />}
+            onClick={onGoDebug}
+          >
+            Aller à l'onglet Debug
+          </Button>
+        )}
+      </Alert>
+    );
+  }
 
   return (
     <>

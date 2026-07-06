@@ -259,7 +259,7 @@ export const Logs = observer(() => {
             value: "profiling",
             label: "Profiling",
             icon: <IconBug size={16} />,
-            panel: <ProfilingTab />,
+            panel: <ProfilingTab onGoDebug={() => changeTab("debug")} />,
           },
           {
             value: "files",

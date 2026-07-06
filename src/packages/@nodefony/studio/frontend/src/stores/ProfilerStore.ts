@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { ApiError } from "../services/ApiClient";
 import type { ApiClient } from "../services/ApiClient";
 
 // NOTE : on NE PAS importer de type depuis "nodefony/debugbar" ICI. Ce fichier
@@ -72,6 +73,13 @@ export class ProfilerStore {
   count = 0;
   loading = false;
   error: string | null = null;
+  /**
+   * `true` quand le data plane profiler renvoie 404 = profiler NON monté. Le
+   * profiler est **dev-only** (`@nodefony/http` ne l'instancie pas en production :
+   * overhead par requête + fuite d'info) → en prod l'onglet affiche un encart qui
+   * renvoie vers l'onglet Debug, pas une erreur.
+   */
+  unavailable = false;
 
   selectedId: string | null = null;
   detail: ProfileEntry | null = null;
@@ -90,6 +98,7 @@ export class ProfilerStore {
   async loadRecent(): Promise<void> {
     this.loading = true;
     this.error = null;
+    this.unavailable = false;
     try {
       const res = await this.api.getAbsolute<{
         count: number;
@@ -102,7 +111,13 @@ export class ProfilerStore {
       });
     } catch (e) {
       runInAction(() => {
-        this.error = e instanceof Error ? e.message : String(e);
+        // 404 = data plane profiler absent (dev-only → non monté en prod). Ce n'est
+        // pas une erreur : on bascule sur l'encart « désactivé en prod » (ProfilingTab).
+        if (e instanceof ApiError && e.status === 404) {
+          this.unavailable = true;
+        } else {
+          this.error = e instanceof Error ? e.message : String(e);
+        }
         this.loading = false;
       });
     }
