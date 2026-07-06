@@ -31,6 +31,23 @@ class SessionStorage implements ISessionStorage {
   }
 
   /**
+   * Emplacement physique de la base (fichier SQLite) pour l'écran Studio « Stores »
+   * — lu par `readStoreLocation` du core au boot de `SessionsService`. Résolu
+   * **lazy** depuis l'ORM du connecteur session (comme {@link SessionStorage.#repo}) :
+   * `undefined` si l'ORM n'est pas encore enregistré, en `:memory:`, ou réseau
+   * (postgres/mysql → l'emplacement EST l'infra déclarée, surfacée à part). Lecture
+   * DÉFENSIVE (getter `location` optionnel) — l'ORM base `IOrm` ne l'expose pas.
+   */
+  get location(): string | undefined {
+    if (!ormRegistry.has(SESSION_ORM)) {
+      return undefined;
+    }
+    const loc = (ormRegistry.get(SESSION_ORM) as { location?: unknown })
+      .location;
+    return typeof loc === "string" && loc.length > 0 ? loc : undefined;
+  }
+
+  /**
    * Repository de l'entité session, ou `null` si l'ORM n'est pas (ou plus)
    * connecté.
    *

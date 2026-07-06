@@ -34,7 +34,7 @@ Config par défaut (`nodefony/config/config.ts`) — surchargeable côté app vi
 ```typescript
 export default {
   connectors: {
-    default: { filename: "<root>/nodefony/databases/nodefony-drizzle.db" },
+    default: { filename: "<root>/var/databases/nodefony-drizzle.db" },
     // ":memory:" ou absent → base éphémère
   },
 };

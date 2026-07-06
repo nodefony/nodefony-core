@@ -7,7 +7,9 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  readStoreLocation,
 } from "nodefony";
+import type { IIdempotencyStore } from "nodefony";
 import type { IAdminBroker } from "./nodefony/interfaces/IAdminBroker";
 import config from "./nodefony/config/config";
 import type {
@@ -132,6 +134,12 @@ registerIdempotencyStore("redis", (ctx) => {
 class Framework extends Module<FrameworkConfig> {
   /** Balayage périodique du store d'idempotence SQL (drizzle) — `null` sinon. */
   #idempotencyGc: GcScheduler | null = null;
+  /**
+   * Store d'idempotence distribué (drizzle/redis) posé au container, retenu pour
+   * rafraîchir sa `location` au `onKernelReady` (à `onKernelBoot` l'ORM n'est pas
+   * encore connecté → `readStoreLocation` vide). `null` = repli mémoire (per-pod).
+   */
+  #idempotencyStore: IIdempotencyStore | null = null;
 
   constructor(kernel: Kernel) {
     super("framework", kernel, import.meta.url, config);
@@ -233,6 +241,7 @@ class Framework extends Module<FrameworkConfig> {
         config: this.options as FrameworkConfig,
       });
       this.set("idempotencyStore", store); // override du défaut mémoire (cross-pod)
+      this.#idempotencyStore = store; // retenu pour rafraîchir `location` au onReady
       this.log(`Idempotency store → "${name}" (distributed)`, "INFO");
       this.kernel?.registerStoreResolution({
         brick: "idempotency",
@@ -243,6 +252,9 @@ class Framework extends Module<FrameworkConfig> {
         available: listIdempotencyBackends(),
         reason,
         configPath: "framework.idempotency.store",
+        // À `onKernelBoot` l'ORM drizzle n'est pas encore connecté → location vide.
+        // Rafraîchie à `onKernelReady` (cf {@link Framework.onKernelReady}).
+        location: readStoreLocation(store),
       });
       // Store SANS expiration native (drizzle expose `gc` ; redis=TTL PX et
       // memory=purge passive ne l'exposent pas) → arme un balayage périodique HORS
@@ -288,6 +300,22 @@ class Framework extends Module<FrameworkConfig> {
    * présents au moment du `mountAll()` qui clôt cette phase.
    */
   override async onKernelReady(): Promise<this> {
+    // Rafraîchit la `location` de la brique idempotency : à `onKernelBoot` l'ORM
+    // drizzle n'était pas connecté (fabrique lazy) → l'emplacement du `.db` n'était
+    // pas lisible. Ici (après le boot de TOUS les modules) il l'est. On ré-enregistre
+    // la résolution existante (idempotent par brick) en ne changeant QUE la location.
+    const idemLocation = readStoreLocation(this.#idempotencyStore);
+    if (idemLocation && this.kernel) {
+      const current = this.kernel.storeResolutions.find(
+        (r) => r.brick === "idempotency",
+      );
+      if (current && !current.location) {
+        this.kernel.registerStoreResolution({
+          ...current,
+          location: idemLocation,
+        });
+      }
+    }
     const broker = this.kernel?.container?.get("adminBroker") as
       IAdminBroker | undefined;
     if (broker && this.kernel) {

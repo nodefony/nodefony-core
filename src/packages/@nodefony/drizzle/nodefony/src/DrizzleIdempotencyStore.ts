@@ -90,6 +90,7 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
   readonly #now: () => number;
   readonly #leaseMs: number;
   readonly #ttlMs: number;
+  readonly #resolveLocation: (() => string | undefined) | undefined;
   /** Compteur LOCAL best-effort des réservations faites par CE pod (cf {@link size}). */
   #pending = 0;
 
@@ -102,6 +103,10 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
    * @param ttlMs - rétention d'une réponse mémorisée (ms).
    * @param table - variante de table à utiliser (dialecte). Défaut = variante
    *   SQLite ; `from()` injecte la variante du dialecte de l'ORM.
+   * @param resolveLocation - résolveur **lazy** de l'emplacement physique de la
+   *   base ({@link DrizzleOrm.location}) pour Studio. Lazy (comme `resolveDb`) car
+   *   le store est fabriqué AVANT le connect de l'ORM → l'emplacement n'est lisible
+   *   qu'une fois l'ORM enregistré (lu au `onReady`, pas à la construction).
    */
   constructor(
     resolveDb: () => DrizzleDb | null,
@@ -109,12 +114,24 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
     leaseMs: number = DEFAULT_LEASE_MS,
     ttlMs: number = DEFAULT_TTL_MS,
     table: IdempotencyTable = idempotencyKeyTable,
+    resolveLocation?: () => string | undefined,
   ) {
     this.#resolveDb = resolveDb;
     this.#table = table;
     this.#now = now;
     this.#leaseMs = leaseMs;
     this.#ttlMs = ttlMs;
+    this.#resolveLocation = resolveLocation;
+  }
+
+  /**
+   * Emplacement physique de la base (fichier SQLite) pour l'écran Studio « Stores »
+   * — lu par `readStoreLocation`. Résolu **lazy** (l'ORM n'existe pas à la
+   * construction) : `undefined` tant que l'ORM n'est pas enregistré, en `:memory:`,
+   * ou sur un backend réseau (pg/mysql → voir l'infra déclarée).
+   */
+  get location(): string | undefined {
+    return this.#resolveLocation?.();
   }
 
   /**
@@ -143,6 +160,7 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
       // Variante de table du dialecte de l'ORM (sqlite|postgres) → le store opère
       // sur le bon schéma au runtime ; le typage reste sur la variante SQLite.
       createIdempotencyTable(orm.dialect) as IdempotencyTable,
+      () => orm.location,
     );
   }
 

@@ -49,8 +49,8 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
       );
     });
 
-    it("le built-in 'files' de http est aussi enregistré", () => {
-      assert.ok(SessionsService.storageHandlers().includes("files"));
+    it("le built-in 'memory' de http est aussi enregistré", () => {
+      assert.ok(SessionsService.storageHandlers().includes("memory"));
       assert.ok(SessionsService.storageHandlers().includes("drizzle"));
     });
 

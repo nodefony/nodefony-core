@@ -7,6 +7,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  readStoreLocation,
 } from "nodefony";
 import { randomBytes } from "node:crypto";
 import {
@@ -143,6 +144,7 @@ class AuditService extends Service implements IAuditSink {
       available: listAuditStores(),
       reason,
       configPath: "security.audit.store",
+      location: readStoreLocation(this.#store),
     });
     // GcScheduler unifié du core — gagne le jitter (anti thundering-herd cluster),
     // l'anti-empilement et la capture d'erreur (l'ancien `.then()` nu laissait un

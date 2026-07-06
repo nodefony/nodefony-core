@@ -15,7 +15,8 @@ Deux usages :
    classe `Drizzle extends Module` (`@services([DrizzleService])`). Ajouté à
    `@modules()` de l'app → `DrizzleService` connecte au boot (`onBoot`) un
    `DrizzleOrm` **par connecteur** de la config (`nodefony/config/config.ts`,
-   défaut : connecteur `default` sur `<root>/nodefony/databases/nodefony-drizzle.db`).
+   défaut : connecteur `default` sur `<root>/var/databases/nodefony-drizzle.db`,
+   sous `kernel.varDir` = base commune des données runtime persistées).
    Ferme à `onTerminate`. C'est l'**ORM SQL par défaut recommandé** de l'app dev.
 2. **Adapter lib** : les classes `DrizzleOrm`/`Repository`/`Transaction` restent
    exportées (named) pour un usage direct / banc-test (`new DrizzleOrm(name, {filename})`,

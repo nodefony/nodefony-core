@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-06T17:52:06.058Z",
+  "generated": "2026-07-06T18:48:56.015Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -18872,6 +18872,26 @@
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
+      "readStoreLocation": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "IIdempotencyStore": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotencyGc.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
       "IAdminBroker": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/realtime/index.ts",
@@ -21153,16 +21173,6 @@
       "AuditEventRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
       ],
-      "IIdempotencyStore": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
-        "src/packages/@nodefony/framework/nodefony/src/idempotencyGc.ts",
-        "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
       "IdempotencyOutcome": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
@@ -22477,12 +22487,6 @@
       ],
       "listOAuthProviders": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
-      ],
-      "readStoreLocation": [
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/service/totp.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "listTokenStores": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"

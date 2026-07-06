@@ -33,10 +33,24 @@ import {
  */
 export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   readonly #repo: IRepository<WebAuthnCredentialRow>;
+  readonly #location: string | undefined;
 
-  /** @param repo - repository de la table `webauthn_credential`. */
-  constructor(repo: IRepository<WebAuthnCredentialRow>) {
+  /**
+   * @param repo - repository de la table `webauthn_credential`.
+   * @param location - emplacement physique de la base (fichier SQLite) pour Studio
+   *   ({@link DrizzleOrm.location}) ; `undefined` pour un backend réseau/`:memory:`.
+   */
+  constructor(repo: IRepository<WebAuthnCredentialRow>, location?: string) {
     this.#repo = repo;
+    this.#location = location;
+  }
+
+  /**
+   * Emplacement physique de la base (fichier SQLite) pour l'écran Studio « Stores »
+   * — lu par `readStoreLocation`. `undefined` = backend réseau ou `:memory:`.
+   */
+  get location(): string | undefined {
+    return this.#location;
   }
 
   /**
@@ -49,6 +63,7 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
   static from(orm: DrizzleOrm): DrizzleWebAuthnCredentialStore {
     return new DrizzleWebAuthnCredentialStore(
       orm.getRepository<WebAuthnCredentialRow>(WEBAUTHN_CREDENTIAL_ENTITY),
+      orm.location,
     );
   }
 

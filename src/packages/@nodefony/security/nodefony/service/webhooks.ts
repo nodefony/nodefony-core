@@ -7,6 +7,7 @@ import {
   EMPTY_INFRA,
   resolveAutoStore,
   deriveStoreBackend,
+  readStoreLocation,
 } from "nodefony";
 import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
@@ -234,6 +235,7 @@ class WebhookService extends Service {
         available: listWebhookStores(),
         reason: "adapter posé au container (infra database déclarée)",
         configPath: "security.webhooks.store",
+        location: readStoreLocation(existing),
       });
       return existing;
     }
@@ -284,6 +286,7 @@ class WebhookService extends Service {
       available: listWebhookStores(),
       reason,
       configPath: "security.webhooks.store",
+      location: readStoreLocation(store),
     });
     return store;
   }

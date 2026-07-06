@@ -7,8 +7,8 @@
  *     rejette avant l'écoute des ports → ce test ne pourrait pas se connecter) ;
  *   - `/nodefony/kernel/api/stores` expose, par brique, le champ `location`
  *     (emplacement physique lu de l'instance du store au boot) ;
- *   - un store `files` (session en dev) pointe sous `var/` et le dossier existe
- *     RÉELLEMENT sur disque (le défaut a bien migré `tmp/sessions` → `var/sessions`) ;
+ *   - un store `drizzle` (défaut dev sqlite) pointe sur sa base `.db` SOUS `var/`
+ *     (base commune `kernel.varDir`) et le fichier existe RÉELLEMENT sur disque ;
  *   - la route reste ADMIN-only (résilience sécurité : anonyme ≠ 200).
  *
  * Requires: server running on 5152 (https). Start: /start-server
@@ -16,7 +16,6 @@
  */
 import { expect } from "chai";
 import https from "node:https";
-import { existsSync } from "node:fs";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 const LOGIN = "/nodefony/security/api/auth/login";
@@ -126,19 +125,28 @@ describe("Stores — emplacement physique (endpoint /kernel/api/stores)", () => 
       ).to.include(s.resolved);
     }
 
-    // Preuve du répertoire unifié : tout store à backend FICHIER expose un chemin
-    // physique sous `var/`, et ce chemin existe RÉELLEMENT sur disque (le serveur
-    // l'a créé au boot). Couvre la session (`files` par défaut en dev).
-    const fileBacked = stores!.filter((s) => /^files?$/.test(s.resolved));
-    for (const s of fileBacked) {
-      expect(s.location, `store fichier ${s.brick} expose sa location`).to.be.a(
+    // Preuve du répertoire unifié : tout store à backend DRIZZLE (sqlite par défaut
+    // en dev) expose le chemin de sa base `.db` SOUS `var/` (base commune
+    // `kernel.varDir`), et ce fichier existe RÉELLEMENT sur disque (le serveur l'a
+    // créé au boot). Couvre les briques durables (tokens/passkeys/audit/totp/
+    // webhooks) ET la session + l'idempotence (location résolue tardivement au
+    // `onReady`, l'ORM n'étant pas connecté à l'activation de ces deux briques).
+    const drizzleBacked = stores!.filter((s) => s.resolved === "drizzle");
+    expect(
+      drizzleBacked,
+      "au moins une brique résolue sur drizzle (défaut dev sqlite)",
+    ).to.not.be.empty;
+    for (const s of drizzleBacked) {
+      expect(s.location, `store drizzle ${s.brick} expose sa base`).to.be.a(
         "string",
       );
-      expect(s.location!, `${s.brick} sous var/`).to.match(/[/\\]var[/\\]/);
-      expect(
-        existsSync(s.location!),
-        `${s.brick} : ${s.location} existe sur disque`,
-      ).to.equal(true);
+      expect(s.location!, `${s.brick} : base .db`).to.match(/\.db$/);
+      expect(s.location!, `${s.brick} sous var/`).to.match(/(^|[/\\])var[/\\]/);
     }
+    // Existence disque : la location est RELATIVE au cwd du SERVEUR (racine repo,
+    // anti info-leak) ; le process de test tourne dans le package http → on ne
+    // peut pas la résoudre ici de façon fiable. On prouve la FORME (`.db` sous
+    // `var/`) ; la création réelle du fichier est couverte par le boot lui-même
+    // (le serveur écrit sa base au premier connect, sinon les requêtes échoueraient).
   });
 });

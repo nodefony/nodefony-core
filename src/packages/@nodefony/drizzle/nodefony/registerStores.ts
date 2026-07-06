@@ -294,6 +294,17 @@ export function registerDrizzleFrameworkStores(
           // Variante de table du dialecte configuré (sqlite|postgres) — même
           // source que le connecteur `default`, cohérente par construction.
           createIdempotencyTable(idemDialect) as typeof idempotencyKeyTable,
+          // Emplacement physique LAZY (Studio) : l'ORM n'existe pas encore ici
+          // (fabrique AVANT connect) → lu au 1ᵉʳ accès (onReady), même résolution
+          // que `resolveDb`. Base SQLite du connecteur `default`, sinon undefined.
+          () => {
+            try {
+              const orm = ormRegistry.get(FRAMEWORK_ORM);
+              return orm instanceof DrizzleOrm ? orm.location : undefined;
+            } catch {
+              return undefined;
+            }
+          },
         );
       });
     },

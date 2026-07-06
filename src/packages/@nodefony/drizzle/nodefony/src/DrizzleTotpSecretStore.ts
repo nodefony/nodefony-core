@@ -34,10 +34,24 @@ import {
  */
 export class DrizzleTotpSecretStore implements ITotpSecretStore {
   readonly #repo: IRepository<TotpSecretRow>;
+  readonly #location: string | undefined;
 
-  /** @param repo - repository de la table `totp_secret`. */
-  constructor(repo: IRepository<TotpSecretRow>) {
+  /**
+   * @param repo - repository de la table `totp_secret`.
+   * @param location - emplacement physique de la base (fichier SQLite) pour Studio
+   *   ({@link DrizzleOrm.location}) ; `undefined` pour un backend réseau/`:memory:`.
+   */
+  constructor(repo: IRepository<TotpSecretRow>, location?: string) {
     this.#repo = repo;
+    this.#location = location;
+  }
+
+  /**
+   * Emplacement physique de la base (fichier SQLite) pour l'écran Studio « Stores »
+   * — lu par `readStoreLocation`. `undefined` = backend réseau ou `:memory:`.
+   */
+  get location(): string | undefined {
+    return this.#location;
   }
 
   /**
@@ -49,6 +63,7 @@ export class DrizzleTotpSecretStore implements ITotpSecretStore {
   static from(orm: DrizzleOrm): DrizzleTotpSecretStore {
     return new DrizzleTotpSecretStore(
       orm.getRepository<TotpSecretRow>(TOTP_SECRET_ENTITY),
+      orm.location,
     );
   }
 

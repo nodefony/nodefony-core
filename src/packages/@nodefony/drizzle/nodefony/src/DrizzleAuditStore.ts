@@ -59,6 +59,7 @@ export class DrizzleAuditStore implements IAuditStore {
   readonly #table: AuditEventTable;
   readonly #now: () => number;
   readonly #retentionMs: number;
+  readonly #location: string | undefined;
 
   /**
    * @param resolveDb - résolveur **lazy** du handle Drizzle (`null` = ORM non
@@ -66,17 +67,29 @@ export class DrizzleAuditStore implements IAuditStore {
    * @param now - horloge (epoch ms) injectable pour des tests déterministes.
    * @param retentionMs - fenêtre de rétention (ms) avant purge par `gc`.
    * @param table - variante de table à utiliser (dialecte). Défaut = SQLite.
+   * @param location - emplacement physique de la base (fichier SQLite) pour Studio
+   *   ({@link DrizzleOrm.location}) ; `undefined` pour un backend réseau/`:memory:`.
    */
   constructor(
     resolveDb: () => DrizzleDb | null,
     now: () => number = Date.now,
     retentionMs: number = DEFAULT_RETENTION_MS,
     table: AuditEventTable = auditEventTable,
+    location?: string,
   ) {
     this.#resolveDb = resolveDb;
     this.#table = table;
     this.#now = now;
     this.#retentionMs = retentionMs;
+    this.#location = location;
+  }
+
+  /**
+   * Emplacement physique de la base (fichier SQLite) pour l'écran Studio « Stores »
+   * — lu par `readStoreLocation`. `undefined` = backend réseau ou `:memory:`.
+   */
+  get location(): string | undefined {
+    return this.#location;
   }
 
   /**
@@ -98,6 +111,8 @@ export class DrizzleAuditStore implements IAuditStore {
       () => (orm.isConnected() ? orm.getNativeConnection<DrizzleDb>() : null),
       now,
       retentionMs,
+      auditEventTable,
+      orm.location,
     );
   }
 

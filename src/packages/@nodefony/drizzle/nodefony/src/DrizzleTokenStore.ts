@@ -48,6 +48,7 @@ export class DrizzleTokenStore implements ITokenStore {
   readonly #revocations: IRepository<SubjectRevocationRow>;
   readonly #now: () => number;
   readonly #retentionRevokedMs: number;
+  readonly #location: string | undefined;
 
   /**
    * @param records - repository de la table `access_token` (PAT + refresh).
@@ -55,6 +56,8 @@ export class DrizzleTokenStore implements ITokenStore {
    * @param revocations - repository des seuils `subject_revocation`.
    * @param now - horloge (epoch ms) injectable pour les tests.
    * @param retentionRevokedMs - rétention d'un PAT révoqué sans `exp` avant purge.
+   * @param location - emplacement physique de la base (fichier SQLite) pour Studio
+   *   ({@link DrizzleOrm.location}) ; `undefined` pour un backend réseau/`:memory:`.
    */
   constructor(
     records: IRepository<IAccessTokenRecord>,
@@ -62,12 +65,22 @@ export class DrizzleTokenStore implements ITokenStore {
     revocations: IRepository<SubjectRevocationRow>,
     now: () => number = Date.now,
     retentionRevokedMs: number = DEFAULT_RETENTION_REVOKED_MS,
+    location?: string,
   ) {
     this.#records = records;
     this.#denied = denied;
     this.#revocations = revocations;
     this.#now = now;
     this.#retentionRevokedMs = retentionRevokedMs;
+    this.#location = location;
+  }
+
+  /**
+   * Emplacement physique de la base (fichier SQLite) pour l'écran Studio « Stores »
+   * — lu par `readStoreLocation`. `undefined` = backend réseau ou `:memory:`.
+   */
+  get location(): string | undefined {
+    return this.#location;
   }
 
   /**
@@ -90,6 +103,7 @@ export class DrizzleTokenStore implements ITokenStore {
       orm.getRepository<SubjectRevocationRow>(TOKEN_ENTITY_NAMES.revocations),
       now,
       retentionRevokedMs,
+      orm.location,
     );
   }
 

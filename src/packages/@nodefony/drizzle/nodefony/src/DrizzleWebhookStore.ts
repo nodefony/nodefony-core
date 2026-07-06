@@ -33,10 +33,24 @@ import {
  */
 export class DrizzleWebhookStore implements IWebhookStore {
   readonly #repo: IRepository<WebhookEndpointRow>;
+  readonly #location: string | undefined;
 
-  /** @param repo - repository de la table `webhook_endpoint`. */
-  constructor(repo: IRepository<WebhookEndpointRow>) {
+  /**
+   * @param repo - repository de la table `webhook_endpoint`.
+   * @param location - emplacement physique de la base (fichier SQLite) pour Studio
+   *   ({@link DrizzleOrm.location}) ; `undefined` pour un backend réseau/`:memory:`.
+   */
+  constructor(repo: IRepository<WebhookEndpointRow>, location?: string) {
     this.#repo = repo;
+    this.#location = location;
+  }
+
+  /**
+   * Emplacement physique de la base (fichier SQLite) pour l'écran Studio « Stores »
+   * — lu par `readStoreLocation`. `undefined` = backend réseau ou `:memory:`.
+   */
+  get location(): string | undefined {
+    return this.#location;
   }
 
   /**
@@ -49,6 +63,7 @@ export class DrizzleWebhookStore implements IWebhookStore {
   static from(orm: DrizzleOrm): DrizzleWebhookStore {
     return new DrizzleWebhookStore(
       orm.getRepository<WebhookEndpointRow>(WEBHOOK_ENDPOINT_ENTITY),
+      orm.location,
     );
   }
 

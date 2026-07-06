@@ -249,22 +249,27 @@ class SessionsService extends Service {
     const innerStorage = new Storage(this);
     this.storage = new RevocationGuardStorage(innerStorage);
     this.log(`SESSION STORAGE active : ${storeName}`, "INFO");
-    this.kernel?.registerStoreResolution({
-      brick: "session",
-      nature: "session",
-      configured,
-      resolved: storeName,
-      available: SessionsService.storageHandlers(),
-      reason,
-      configPath: "http.session.store",
-      // Lu depuis le store réel (avant le garde-fou de révocation) : un backend
-      // `files` expose son dossier ; drizzle/redis/mongoose → undefined (voir infra).
-      location: readStoreLocation(innerStorage),
-    });
     // Événement (kernel + service) : quel backend de session est actif.
     this.fire("onSessionStorageReady", storeName, this.storage);
     this.kernel?.fire("onSessionStorageReady", storeName, this.storage);
     this.kernel?.on("onReady", async () => {
+      // Résolution de store enregistrée ICI (pas à l'activation) : `onReady` fire
+      // APRÈS le `onBoot` de TOUS les modules → l'ORM (drizzle) est connecté et
+      // `readStoreLocation(innerStorage)` peut lire le fichier `.db`. À l'activation
+      // (http boote avant drizzle) l'ORM n'existe pas encore → location vide. La
+      // résolution n'est lue QUE par l'endpoint Studio (bien après le boot).
+      this.kernel?.registerStoreResolution({
+        brick: "session",
+        nature: "session",
+        configured,
+        resolved: storeName,
+        available: SessionsService.storageHandlers(),
+        reason,
+        configPath: "http.session.store",
+        // Store réel (avant le garde-fou de révocation) : backend fichier → chemin ;
+        // drizzle → base SQLite ; memory/réseau → undefined (voir l'infra).
+        location: readStoreLocation(innerStorage),
+      });
       await this.storage.open();
       // Maintenance déterministe HORS hot-path (GcScheduler unifié du core) :
       // armée une fois le store ouvert, désarmée au onTerminate. Le scan ne

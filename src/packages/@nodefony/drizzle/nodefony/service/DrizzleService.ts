@@ -85,13 +85,20 @@ class DrizzleService extends Service {
 
   /**
    * Chemin SQLite par défaut d'un connecteur, résolu AU BOOT (kernel présent —
-   * jamais au top-level d'un import). `<app>/nodefony/databases/nodefony-<x>.db`.
+   * jamais au top-level d'un import) : `<app>/var/databases/nodefony-<x>.db`.
+   *
+   * Sous `kernel.varDir` (= `<app>/var`) = la base COMMUNE des données runtime
+   * persistées (stores fichier + bases SQLite, lot 1 « varDir ») → un seul
+   * répertoire à sauvegarder/gitignorer, et « où sont mes données » a une réponse
+   * unique. Fallback `<root>/var` si le kernel n'a pas encore matérialisé `varDir`.
    */
   #defaultFilename(name: string): string {
-    const root = (this.kernel as Kernel | null)?.path ?? process.cwd();
+    const kernel = this.kernel as Kernel | null;
+    const root = kernel?.path ?? process.cwd();
+    const base = kernel?.varDir?.path ?? path.resolve(root, "var");
     const file =
       name === "default" ? "nodefony-drizzle.db" : `nodefony-${name}.db`;
-    return path.resolve(root, "nodefony", "databases", file);
+    return path.resolve(base, "databases", file);
   }
 
   /** Connecte un connecteur (crée le dossier de la base SQLite si nécessaire). */

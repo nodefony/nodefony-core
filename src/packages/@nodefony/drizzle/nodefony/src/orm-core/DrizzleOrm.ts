@@ -117,6 +117,22 @@ export class DrizzleOrm extends Orm {
     return this.#dialect;
   }
 
+  /**
+   * Emplacement PHYSIQUE lisible de la base, pour l'écran Studio « Stores »
+   * (« où sont écrites mes données ? »). Fichier SQLite **relativisé** au cwd
+   * (anti info-leak, cf {@link DrizzleOrm.#safeTarget}) — `undefined` pour
+   * `:memory:` (volatil) et pour un backend RÉSEAU (postgres/mysql), dont
+   * l'emplacement EST l'infra déclarée, déjà surfacée à part (le Studio dérive
+   * alors « backend réseau — voir l'infra »). Stable dès la construction
+   * (`#filename` fixé au ctor, indépendant du connect).
+   */
+  get location(): string | undefined {
+    if (this.#dialect !== "sqlite" || this.#filename === ":memory:") {
+      return undefined;
+    }
+    return this.#safeTarget();
+  }
+
   /** Entités enregistrées dans `entityRegistry` ciblant cet ORM. */
   #ownEntities(): IEntity[] {
     return entityRegistry.list().filter((entity) => entity.orm === this.name);
