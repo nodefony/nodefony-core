@@ -287,16 +287,33 @@ class ParserJson extends Parser {
 //   }
 // };
 
+/** Media-range « accepte tout » (wildcard type + sous-type) — repli sûr, jamais throw. */
+const ACCEPT_ANY: { type: RegExp; subtype: RegExp }[] = [
+  { type: /.*/, subtype: /.*/ },
+];
+
+/**
+ * Construit le matcher d'un composant de media-range `Accept` (`type` ou `subtype`).
+ * Le wildcard `*` devient `.*` ; **tout autre token est ÉCHAPPÉ puis ancré** avant
+ * `new RegExp` — jamais passé brut.
+ *
+ * ⚠️ Sécurité : le `Accept` est un en-tête CLIENT arbitraire. Le passer brut à
+ * `new RegExp` (ancien code) faisait **throw** sur un métacaractère non balancé —
+ * ex. un token à `*` en tête (`*x`) → `SyntaxError: Nothing to repeat` — throw NON
+ * rattrapé remontant dans le constructeur de la requête = **crash / DoS trivial via
+ * un simple en-tête**. L'échappement rend `new RegExp` infaillible ; l'ancrage
+ * corrige aussi la négociation (match du token ENTIER, pas d'une sous-chaîne).
+ */
+const acceptMatcher = (token: string | undefined): RegExp =>
+  !token || token === "*"
+    ? /.*/
+    : new RegExp(`^${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+
 const acceptParser = function (
   acc?: string,
 ): { type: RegExp; subtype: RegExp; [key: string]: any }[] {
   if (!acc) {
-    return [
-      {
-        type: new RegExp(".*"),
-        subtype: new RegExp(".*"),
-      },
-    ];
+    return [{ type: /.*/, subtype: /.*/ }];
   }
   const arr = [];
   try {
@@ -305,16 +322,14 @@ const acceptParser = function (
       const type = types[i].split(";");
       const mine = type.shift();
       if (!mine) {
-        throw new Error(`acceptParser error mine `);
+        continue; // segment vide (ex. « , ,text/html ») → ignoré, jamais throw.
       }
-      const dec = mine.split("/");
+      const dec = mine.trim().split("/");
       const ele1 = dec.shift();
       const ele2 = dec.shift();
-      const e1: string | RegExp = ele1 === "*" ? ".*" : ele1 || ".*";
-      const e2: string | RegExp = ele2 === "*" ? ".*" : ele2 || ".*";
       const obj: { [key: string]: any } = {
-        type: new RegExp(e1),
-        subtype: new RegExp(e2),
+        type: acceptMatcher(ele1),
+        subtype: acceptMatcher(ele2),
       };
       for (let j = 0; j < type.length; j++) {
         const params = type[j].split("=");
@@ -325,14 +340,19 @@ const acceptParser = function (
       }
       arr.push(obj);
     }
+    if (arr.length === 0) {
+      return ACCEPT_ANY;
+    }
     // sort
     return arr.sort((a, b) => {
       const qA = a.q || 1;
       const qB = b.q || 1;
       return qB - qA;
     }) as { type: RegExp; subtype: RegExp; [key: string]: any }[];
-  } catch (e) {
-    throw e;
+  } catch {
+    // Un `Accept` malformé ne doit JAMAIS faire échouer une requête (Zero Trust
+    // sur l'entrée client) → repli « accepte tout » plutôt que de propager.
+    return ACCEPT_ANY;
   }
 };
 

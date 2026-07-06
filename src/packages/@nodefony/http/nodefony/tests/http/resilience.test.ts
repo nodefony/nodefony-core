@@ -286,4 +286,19 @@ describe("Resilience — abort pendant une réponse streamée (HTTP/2)", () => {
     const health = await get("/nodefony/test/index");
     expect(health.status).to.equal(200);
   });
+
+  // Régression : un en-tête `Accept` porteur d'un métacaractère regex (`*` en tête,
+  // parenthèse, crochet…) faisait `new RegExp(token)` dans `acceptParser` → throw
+  // NON rattrapé dans le constructeur de la requête → la requête plantait
+  // (SyntaxError « Nothing to repeat »). Le token est désormais échappé + le parseur
+  // ne throw plus (repli accepte-tout). Chaque en-tête toxique DOIT rendre 200.
+  it("en-tête Accept toxique (métacaractère regex) → 200, jamais de crash", async () => {
+    for (const accept of ["*x", "*/*x", "a(/b", "[/]", "text/ht(ml", "+/*"]) {
+      const res = await get("/nodefony/test/index", { Accept: accept });
+      expect(res.status, `Accept: ${accept}`).to.equal(200);
+    }
+    // Le serveur reste sain juste après.
+    const health = await get("/nodefony/test/index");
+    expect(health.status).to.equal(200);
+  });
 });

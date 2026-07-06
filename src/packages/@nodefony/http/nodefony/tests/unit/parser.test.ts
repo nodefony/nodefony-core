@@ -83,8 +83,53 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
     expect(r[0].charset).to.equal("utf-8");
   });
 
-  it("throw si un type est vide (media-range manquant)", () => {
-    expect(() => acceptParser(";q=1")).to.throw();
+  // Un `Accept` est un en-tête CLIENT arbitraire : le parseur ne doit JAMAIS
+  // throw (sinon crash de la construction de la requête = DoS trivial). Il replie
+  // sur « accepte tout » (`*/*`) au lieu de propager.
+  it("media-range vide (`;q=1`) → repli accepte-tout, JAMAIS throw", () => {
+    let r!: ReturnType<typeof acceptParser>;
+    expect(() => (r = acceptParser(";q=1"))).to.not.throw();
+    expect(r).to.have.lengthOf(1);
+    expect(r[0].type.test("anything")).to.equal(true);
+    expect(r[0].subtype.test("whatever")).to.equal(true);
+  });
+
+  // Régression : un token avec un métacaractère regex NON balancé (`*` en tête,
+  // parenthèse, crochet…) faisait `new RegExp(token)` → SyntaxError NON rattrapé
+  // → crash de `new HttpRequest`. Le token est désormais ÉCHAPPÉ (match littéral).
+  it("token à métacaractère regex (`*x`, `a(`, `[`) → 0 throw (échappé)", () => {
+    for (const bad of [
+      "*x/y",
+      "a(/b",
+      "[/]",
+      "*/*x",
+      "text/ht(ml",
+      "+/*",
+      "a{2}/b",
+    ]) {
+      let r!: ReturnType<typeof acceptParser>;
+      expect(() => (r = acceptParser(bad)), bad).to.not.throw();
+      expect(r.length, bad).to.be.greaterThan(0);
+    }
+  });
+
+  it("token échappé = match LITTÉRAL ancré, pas une regex", () => {
+    // `*x` n'est PAS le wildcard `*` → matche littéralement la chaîne "*x",
+    // et RIEN d'autre (ancré) : pas d'interprétation regex.
+    const r = acceptParser("*x/plain");
+    expect(r[0].type.test("*x")).to.equal(true);
+    expect(r[0].type.test("x")).to.equal(false); // pas `*` = « zéro ou plus »
+    expect(r[0].type.test("y*xz")).to.equal(false); // ancré ^…$
+  });
+
+  it("wildcard `*` (type ET sous-type) reste `.*`", () => {
+    const any = acceptParser("*/*");
+    expect(any[0].type.test("application")).to.equal(true);
+    expect(any[0].subtype.test("json")).to.equal(true);
+    const img = acceptParser("image/*");
+    expect(img[0].type.test("image")).to.equal(true);
+    expect(img[0].type.test("text")).to.equal(false); // `image` ancré ≠ substring
+    expect(img[0].subtype.test("png")).to.equal(true);
   });
 });
 
