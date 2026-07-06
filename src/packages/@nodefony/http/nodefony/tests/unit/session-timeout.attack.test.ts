@@ -8,19 +8,15 @@
  * JAMAIS l'absolute, et ne ressuscite JAMAIS une session révoquée.
  */
 import { expect } from "chai";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { vi } from "vitest";
 import Session, { OptionsSessionType } from "../../src/session/session.js";
-import FileSessionStorage from "../../src/session/storage/FileSessionStorage.js";
+import MemorySessionStorage from "../../src/session/storage/MemorySessionStorage.js";
 import RevocationGuardStorage from "../../src/session/storage/RevocationGuardStorage.js";
 import { httpConfigSchema } from "../../config/config.js";
 import type {
   ISessionStorage,
   ISerializedSession,
 } from "../../interfaces/ISession.js";
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ── Câblage minimal (PAS la logique testée) ──────────────────────────────────
 function makeStorage(over: Partial<ISessionStorage> = {}): ISessionStorage {
@@ -146,52 +142,62 @@ describe("RED-TEAM session timeout — Passe 1 (threat-first)", () => {
   });
 });
 
-// ── V5 : FileStorage — le touch (utimes) prolonge l'idle (mtime) mais PAS
-// l'absolute (birthtime). Attaque : marteler le touch pour survivre à l'absolute. ─
-describe("RED-TEAM session timeout — FileStorage (fs réel, tmpdir)", () => {
-  let dir: string;
-  let storage: FileSessionStorage;
+// ── V5 : MemoryStorage — le touch prolonge l'idle (`updatedAt`) mais JAMAIS
+// l'absolute (`createdAt`). Attaque : marteler le touch pour survivre à l'absolute.
+// Horloge SIMULÉE (`vi`) → déterministe (≠ ancien banc `files` à `sleep` réel). ────
+describe("RED-TEAM session timeout — MemoryStorage (horloge simulée)", () => {
+  let storage: MemorySessionStorage;
+  const blob: ISerializedSession = {
+    Attributes: {},
+    metaBag: {},
+    flashBag: {},
+    user: "",
+  };
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-sess-attack-"));
+    vi.useFakeTimers();
     const manager = {
-      options: { savePath: dir, idleTimeoutS: 3600, absoluteTimeoutS: 0 },
+      options: { idleTimeoutS: 3600, absoluteTimeoutS: 0, store: "memory" },
       log: () => undefined,
     };
-    storage = new FileSessionStorage(
-      manager as unknown as ConstructorParameters<typeof FileSessionStorage>[0],
+    storage = new MemorySessionStorage(
+      manager as unknown as ConstructorParameters<
+        typeof MemorySessionStorage
+      >[0],
     );
   });
-  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+  afterEach(() => vi.useRealTimers());
 
-  it("V5 — touch (utimes) NE prolonge PAS l'absolute (birthtime intact)", async () => {
-    const id = "victim";
-    fs.writeFileSync(`${dir}/${id}`, JSON.stringify({ user: "" }));
-    await sleep(1100); // vieillit la session > 1 s
-    await storage.touch(id); // rafraîchit mtime (idle) — birthtime inchangé
-    // GC : idle large (3600 s) — le touch l'aurait sauvée de l'idle. absolute 1 s
-    // → la création (> 1 s) la condamne MALGRÉ le touch.
+  it("V5 — touch NE prolonge PAS l'absolute (createdAt intact)", async () => {
+    await storage.write("victim", blob);
+    vi.advanceTimersByTime(1100); // vieillit la session > 1 s
+    await storage.touch("victim"); // rafraîchit updatedAt (idle) — createdAt inchangé
+    // idle large (3600 s) : le touch l'aurait sauvée de l'idle. absolute 1 s → la
+    // création (> 1 s) la condamne MALGRÉ le touch.
     await storage.gc(3600, 1);
     expect(
-      fs.existsSync(`${dir}/${id}`),
+      Object.keys(await storage.start("victim")),
       "session au-delà de l'absolute purgée malgré le touch",
-    ).to.equal(false);
+    ).to.have.length(0);
   });
 
-  it("V5 — gc idle purge une session inactive (mtime ancien), garde une active", async () => {
-    fs.writeFileSync(`${dir}/old`, "{}");
-    fs.writeFileSync(`${dir}/fresh`, "{}");
-    // vieillit `old` : mtime il y a 10 s ; `fresh` reste à maintenant.
-    const past = new Date(Date.now() - 10_000);
-    fs.utimesSync(`${dir}/old`, past, past);
+  it("V5 — gc idle purge une session inactive (updatedAt ancien), garde une active", async () => {
+    await storage.write("old", blob);
+    vi.advanceTimersByTime(10_000); // `old` inactive depuis 10 s
+    await storage.write("fresh", blob); // `fresh` = maintenant
     await storage.gc(5, 0); // idle 5 s, absolute off
-    expect(fs.existsSync(`${dir}/old`), "inactive purgée").to.equal(false);
-    expect(fs.existsSync(`${dir}/fresh`), "active conservée").to.equal(true);
+    expect(
+      Object.keys(await storage.start("old")),
+      "inactive purgée",
+    ).to.have.length(0);
+    expect((await storage.start("fresh")).user, "active conservée").to.equal(
+      "",
+    );
   });
 
   it("V5 — anti-DoS : une session fraîche n'est JAMAIS purgée (idle+absolute larges)", async () => {
-    fs.writeFileSync(`${dir}/active`, "{}");
+    await storage.write("active", blob);
     await storage.gc(3600, 43200);
-    expect(fs.existsSync(`${dir}/active`)).to.equal(true);
+    expect(Object.keys(await storage.start("active"))).to.have.length.above(0);
   });
 });

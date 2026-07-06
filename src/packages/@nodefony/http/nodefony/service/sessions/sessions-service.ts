@@ -34,7 +34,7 @@ import Http2Request from "../../src/context/http2/Request";
 import HttpRequest from "../../src/context/http/Request";
 import Certificate from "../../service/certificates";
 import { createHash, createHmac } from "node:crypto";
-import FileSessionStorage from "../../src/session/storage/FileSessionStorage";
+import MemorySessionStorage from "../../src/session/storage/MemorySessionStorage";
 import RevocationGuardStorage from "../../src/session/storage/RevocationGuardStorage";
 
 export type sessionStrategyType = "none" | "migrate" | "invalidate";
@@ -200,8 +200,9 @@ class SessionsService extends Service {
   }
 
   initializeStorage(): ISessionStorage | null {
-    // `auto` (défaut) = suivre l'infra déclarée (cache redis > database > files),
-    // borné aux handlers réellement enregistrés. Valeur explicite respectée.
+    // `auto` (défaut) = suivre l'infra déclarée (cache redis > database > sqlite
+    // local si drizzle chargé > repli memory), borné aux handlers réellement
+    // enregistrés. Valeur explicite respectée.
     let storeName: string = this.options.store;
     const configured = storeName;
     let reason = `store explicitement configuré ("${configured}")`;
@@ -210,7 +211,7 @@ class SessionsService extends Service {
         "session",
         this.kernel?.infra ?? EMPTY_INFRA,
         SessionsService.storageHandlers(),
-        "files",
+        "memory",
       );
       storeName = auto.store;
       reason = auto.reason;
@@ -223,26 +224,26 @@ class SessionsService extends Service {
     if (!Storage) {
       // Doctrine d'échec : handler EXPLICITE introuvable = config erronée.
       // Prod → boot avorté (des sessions silencieusement mortes cassent le
-      // firewall/BFF en cascade) ; dev → repli "files" ANNONCÉ (l'app reste
-      // utilisable). Le cas "auto" ne passe jamais ici (borné aux enregistrés).
+      // firewall/BFF en cascade) ; dev → repli "memory" ANNONCÉ (l'app reste
+      // utilisable, sessions volatiles). Le cas "auto" ne passe jamais ici.
       const known = SessionsService.storageHandlers().join(", ") || "aucun";
       const msg = `session store "${storeName}" inconnu (enregistrés : ${known})`;
       if (this.kernel?.environment === "production") {
         throw new Error(`${msg} — sessions indisponibles : boot avorté.`);
       }
-      this.log(`${msg} — repli "files"`, "WARNING");
-      storeName = "files";
-      reason = `repli "files" (store "${configured}" introuvable)`;
+      this.log(`${msg} — repli "memory"`, "WARNING");
+      storeName = "memory";
+      reason = `repli "memory" (store "${configured}" introuvable)`;
       Storage = SessionsService.getStorage(storeName);
       if (!Storage) {
         // Même le repli builtin manque : irrécupérable, dev compris.
         throw new Error(
-          `session store de repli "files" introuvable — sessions indisponibles.`,
+          `session store de repli "memory" introuvable — sessions indisponibles.`,
         );
       }
     }
     // Décoration générique : le garde-fou de révocation s'applique à TOUT
-    // backend (file/drizzle/redis/mongo) sans le modifier — la résurrection est
+    // backend (memory/drizzle/redis/mongo) sans le modifier — la résurrection est
     // un défaut du cycle de vie, pas d'un store. `storage.inner` reste le store
     // réel (introspection admin : quel driver persiste les sessions).
     const innerStorage = new Storage(this);
@@ -654,7 +655,11 @@ class SessionsService extends Service {
   }
 }
 
-// Storage built-in fourni par @nodefony/http (les ORM enregistrent les leurs).
-SessionsService.registerStorage("files", FileSessionStorage);
+// Storage built-in fourni par @nodefony/http (les ORM enregistrent les leurs) :
+// `memory` (volatil — dev/charge/CI, pendant des Memory*Store de sécurité). La
+// persistance des sessions passe par un adapter durable (drizzle=sqlite mono-nœud,
+// redis/mongoose multi-nœud) auto-enregistré par le module chargé. Le store fichier
+// (1 fichier/session) a été retiré : sqlite couvre la persistance mono-nœud.
+SessionsService.registerStorage("memory", MemorySessionStorage);
 
 export default SessionsService;

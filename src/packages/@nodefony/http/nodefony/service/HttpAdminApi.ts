@@ -1,5 +1,3 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import type { Module } from "nodefony";
 import type {
   IAdminApi,
@@ -101,21 +99,6 @@ function currentIdentifier(user: unknown): string | null {
     }
   }
   return null;
-}
-
-/** Compte récursivement les fichiers de session sous `dir` (0 si absent). */
-async function countSessionFiles(dir: string): Promise<number> {
-  try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    let n = 0;
-    for (const e of entries) {
-      if (e.isDirectory()) n += await countSessionFiles(path.join(dir, e.name));
-      else n++;
-    }
-    return n;
-  } catch {
-    return 0; // dossier inexistant = aucune session
-  }
 }
 
 /**
@@ -225,20 +208,12 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         // résurrection — bug 2026-06-21 ; couvre TOUT backend). Honnête : false
         // si un jour le garde-fou n'était pas posé.
         const revocationHardened = inner !== null;
-        // savePath/active n'ont de sens que pour un store FICHIER : le `driver`
-        // config est la source fiable (drizzle/redis/mongo n'écrivent PAS de
-        // fichiers, même si un `savePath` traîne dans la config par défaut → on
-        // ne l'exposerait pas, sinon le badge mentirait « drizzle · tmp/… »).
-        const isFileStore = driver === "files";
-        const save = isFileStore ? svc.options?.savePath : undefined;
-        // Nb de fichiers de session (store fichier). 0 si dossier absent.
-        const active = save
-          ? await countSessionFiles(path.resolve(process.cwd(), save))
-          : null;
-        // Chemin RELATIF au cwd (jamais l'absolu — info-leak FS).
-        const savePath = save
-          ? path.relative(process.cwd(), path.resolve(process.cwd(), save))
-          : null;
+        // `savePath`/`active` étaient propres au store fichier (1 fichier/session),
+        // retiré : plus aucun backend session n'écrit de fichiers plats → toujours
+        // `null` (DTO conservé pour la page Sessions ; les backends memory/drizzle/
+        // redis/mongo comptent via leur propre introspection, pas un dossier).
+        const savePath: string | null = null;
+        const active: number | null = null;
         return {
           enabled: true,
           strategy: svc.sessionStrategy ?? null,

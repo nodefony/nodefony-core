@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-06T16:03:29.020Z",
+  "generated": "2026-07-06T16:28:35.854Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 995,
-    "symbols": 2460,
+    "symbols": 2459,
     "classes": 314,
     "interfaces": 650,
     "types": 292,
     "enums": 4,
-    "functions": 662,
+    "functions": 661,
     "constants": 538
   },
   "symbols": {
@@ -17392,17 +17392,18 @@
       "module": "@nodefony/http",
       "description": "Formatage **pur** (0 état, 0 dépendance) du CONTENU d'un message WebSocket pour le log de trace (Suivi de requête Studio). Séparé de `WebsocketContext` pour être testable aux limites sans serveur. …"
     },
-    "FileSessionStorage": {
-      "name": "FileSessionStorage",
+    "MemorySessionStorage": {
+      "name": "MemorySessionStorage",
       "kind": "class",
-      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
       "exported": true,
       "module": "@nodefony/http",
       "extends": null,
       "implements": [
         "ISessionStorage"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Store de sessions **en mémoire** (Map process) — implémentation de référence d'{@link ISessionStorage}, pendant `session` des `Memory*Store` de sécurité. **Volatil** : les sessions vivent dans la R…"
     },
     "RevocationGuardStorage": {
       "name": "RevocationGuardStorage",
@@ -17852,7 +17853,7 @@
         "SessionStorage",
         "SessionStorage",
         "RedisSessionStorage",
-        "FileSessionStorage",
+        "MemorySessionStorage",
         "RevocationGuardStorage"
       ],
       "IAdminBroker": [
@@ -18253,8 +18254,7 @@
         "src/nodefony/src/types/IKernel.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
       ],
       "Event": [
         "src/nodefony/src/Cli.ts",
@@ -19845,8 +19845,7 @@
       ],
       "Result": [
         "src/nodefony/src/finder/FileResult.ts",
-        "src/nodefony/src/finder/Finder.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+        "src/nodefony/src/finder/Finder.ts"
       ],
       "logColor": [
         "src/nodefony/src/kernel/CliKernel.ts",
@@ -21361,7 +21360,7 @@
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "ISerializedSession": [
@@ -21369,7 +21368,7 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "ISessionRecord": [
@@ -21377,7 +21376,7 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "ISessionListFilter": [
@@ -21385,7 +21384,7 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "SESSION_ORM": [
@@ -23986,7 +23985,7 @@
       "OptionsSessionType": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
-      "FileSessionStorage": [
+      "MemorySessionStorage": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "RevocationGuardStorage": [
@@ -24386,9 +24385,6 @@
       ],
       "formatWsLogContent": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "Finder": [
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
       ],
       "IOAuthProviderContext": [
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts"

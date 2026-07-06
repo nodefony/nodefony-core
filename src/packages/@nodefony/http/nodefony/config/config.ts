@@ -757,17 +757,10 @@ const sessionSchema = z
       .min(1)
       .default("auto")
       .describe(
-        "Store de session : `auto` (défaut — suit l'infra déclarée : cache " +
-          "redis > database > files) ou le nom d'un storage enregistré au " +
-          "registre (`files` | `drizzle` | `mongoose` | `redis`). Vocabulaire " +
-          "unifié : données = `store` (≠ `driver` réservé aux flux/transports).",
-      ),
-    savePath: z
-      .string()
-      .default("./var/sessions")
-      .describe(
-        "Chemin de stockage du handler `files` (relatif à la racine projet) — " +
-          "sous `var/` (données runtime persistées), base commune des stores fichier.",
+        "Store de session : `auto` (défaut — suit l'infra : cache redis > database " +
+          "> sqlite local si drizzle chargé > repli memory) ou le nom d'un storage " +
+          "enregistré (`memory` | `drizzle` | `mongoose` | `redis`). `memory` = " +
+          "volatil (dev/charge). Vocabulaire unifié : données = `store` (≠ `driver`).",
       ),
     gcIntervalS: z
       .number()

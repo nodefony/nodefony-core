@@ -1,13 +1,10 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import SessionsService, {
   computeSessionRef,
   toSessionSummary,
 } from "../../service/sessions/sessions-service.js";
-import FileSessionStorage from "../../src/session/storage/FileSessionStorage.js";
+import MemorySessionStorage from "../../src/session/storage/MemorySessionStorage.js";
 import RevocationGuardStorage from "../../src/session/storage/RevocationGuardStorage.js";
 import type {
   ISerializedSession,
@@ -101,41 +98,34 @@ describe("Sessions admin — redaction du DTO (unit)", () => {
   });
 });
 
-describe("FileSessionStorage.listAll (unit, tmpdir)", () => {
-  let dir: string;
-  let storage: FileSessionStorage;
+describe("MemorySessionStorage.listAll (unit)", () => {
+  let storage: MemorySessionStorage;
+
+  const makeManager = () =>
+    ({
+      options: { idleTimeoutS: 3600, absoluteTimeoutS: 0, store: "memory" },
+      log: () => {},
+    }) as unknown as ConstructorParameters<typeof MemorySessionStorage>[0];
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-sess-"));
-    const manager = {
-      options: { savePath: dir, idleTimeoutS: 3600, absoluteTimeoutS: 0 },
-      log: () => {},
-    };
-    storage = new FileSessionStorage(
-      manager as unknown as ConstructorParameters<typeof FileSessionStorage>[0],
-    );
+    storage = new MemorySessionStorage(makeManager());
   });
 
-  afterEach(() => {
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
+  const write = (
+    id: string,
+    data: Partial<ISerializedSession>,
+  ): Promise<unknown> =>
+    storage.write(id, {
+      Attributes: {},
+      metaBag: {},
+      flashBag: {},
+      user: "",
+      ...data,
+    } as ISerializedSession);
 
-  function writeSession(id: string, data: Partial<ISerializedSession>): void {
-    fs.writeFileSync(
-      path.join(dir, id),
-      JSON.stringify({
-        Attributes: {},
-        metaBag: {},
-        flashBag: {},
-        user: "",
-        ...data,
-      }),
-    );
-  }
-
-  it("énumère toutes les sessions persistées ({ id, data })", async () => {
-    writeSession("id-a", { user: "alice" });
-    writeSession("id-b", { user: "bob" });
+  it("énumère toutes les sessions ({ id, data })", async () => {
+    await write("id-a", { user: "alice" });
+    await write("id-b", { user: "bob" });
     const all = await storage.listAll();
     expect(all).to.have.length(2);
     expect(all.map((r) => r.id).sort()).to.deep.equal(["id-a", "id-b"]);
@@ -143,22 +133,22 @@ describe("FileSessionStorage.listAll (unit, tmpdir)", () => {
   });
 
   it("filtre par user", async () => {
-    writeSession("id-a", { user: "alice" });
-    writeSession("id-b", { user: "bob" });
-    writeSession("id-c", { user: "alice" });
+    await write("id-a", { user: "alice" });
+    await write("id-b", { user: "bob" });
+    await write("id-c", { user: "alice" });
     const aliceOnly = await storage.listAll({ user: "alice" });
     expect(aliceOnly.map((r) => r.id).sort()).to.deep.equal(["id-a", "id-c"]);
   });
 
-  it("ignore les fichiers corrompus / non-JSON (best-effort)", async () => {
-    writeSession("good", { user: "alice" });
-    fs.writeFileSync(path.join(dir, "corrupt"), "{not valid json");
-    const all = await storage.listAll();
-    expect(all.map((r) => r.id)).to.deep.equal(["good"]);
+  it("store vide → liste vide", async () => {
+    expect(await storage.listAll()).to.deep.equal([]);
   });
 
-  it("dossier vide → liste vide", async () => {
-    expect(await storage.listAll()).to.deep.equal([]);
+  it("destroy retire la session de l'énumération", async () => {
+    await write("id-a", { user: "alice" });
+    await write("id-b", { user: "bob" });
+    await storage.destroy("id-a");
+    expect((await storage.listAll()).map((r) => r.id)).to.deep.equal(["id-b"]);
   });
 });
 
@@ -376,27 +366,21 @@ describe("RevocationGuardStorage — révocation effective (anti-résurrection)"
     user,
   });
 
-  describe("décorant un vrai FileSessionStorage (tmpdir)", () => {
-    let dir: string;
+  describe("décorant un vrai MemorySessionStorage", () => {
     let storage: RevocationGuardStorage;
 
     beforeEach(() => {
-      dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-sess-revoke-"));
       const manager = {
-        options: { savePath: dir, idleTimeoutS: 3600, absoluteTimeoutS: 0 },
+        options: { idleTimeoutS: 3600, absoluteTimeoutS: 0, store: "memory" },
         log: () => {},
       };
       storage = new RevocationGuardStorage(
-        new FileSessionStorage(
+        new MemorySessionStorage(
           manager as unknown as ConstructorParameters<
-            typeof FileSessionStorage
+            typeof MemorySessionStorage
           >[0],
         ),
       );
-    });
-
-    afterEach(() => {
-      fs.rmSync(dir, { recursive: true, force: true });
     });
 
     it("un write APRÈS destroy ne ressuscite PAS la session (autosave de fin de requête)", async () => {
