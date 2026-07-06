@@ -203,6 +203,14 @@ export interface IStoreResolution {
   reason: string;
   /** Chemin du champ de config (ex. `"security.tokenStore.store"`) — croise la provenance de champ Studio. */
   configPath?: string;
+  /**
+   * Emplacement PHYSIQUE lisible du store, lu depuis l'instance au boot
+   * ({@link readStoreLocation}) — chemin de fichier pour un store `file`
+   * (ex. `<var>/webauthn/credentials.json`), base SQLite pour `drizzle`. `undefined`
+   * pour un store `memory` (volatil) ou un backend réseau (l'emplacement = l'infra
+   * déclarée, déjà surfacée à part). Répond à « où sont écrites mes données ? » dans Studio.
+   */
+  location?: string;
 }
 
 /**
@@ -273,4 +281,21 @@ export function deriveStoreBackend(store: unknown): string {
   }
   const match = /^(Drizzle|Mongoose|Redis|Memory|File)/.exec(name);
   return match ? match[1].toLowerCase() : name;
+}
+
+/**
+ * Lit l'emplacement PHYSIQUE d'un store depuis son instance (getter public
+ * `location`), pour l'écran Studio « Stores » — répond à « où mes données sont-elles
+ * écrites ? ». Un store fichier (passkeys, TOTP, sessions) expose le chemin de son
+ * fichier/dossier ; un store `memory` ou un backend réseau (drizzle/redis/mongoose)
+ * n'expose rien → `undefined` (l'UI dérive « en mémoire » ou renvoie à l'infra).
+ *
+ * @param store - instance de store (lue défensivement — seul un getter `location` string).
+ * @returns chemin lisible, ou `undefined` si le store n'expose pas d'emplacement.
+ */
+export function readStoreLocation(store: unknown): string | undefined {
+  const location = (store as { location?: unknown } | null)?.location;
+  return typeof location === "string" && location.length > 0
+    ? location
+    : undefined;
 }

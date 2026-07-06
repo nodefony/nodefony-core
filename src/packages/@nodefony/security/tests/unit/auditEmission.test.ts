@@ -21,6 +21,7 @@ function makeKernel(container: Container): { boot: () => void } {
     once(ev: string, cb: () => void) {
       if (ev === "onBoot") bootCbs.push(cb);
     },
+    registerStoreResolution() {},
   };
   container.set("kernel", kernel);
   return { boot: () => bootCbs.forEach((cb) => cb()) };

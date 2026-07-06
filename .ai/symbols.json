@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-06T07:23:03.908Z",
+  "generated": "2026-07-06T12:02:16.634Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 996,
-    "symbols": 2455,
+    "symbols": 2456,
     "classes": 316,
     "interfaces": 649,
     "types": 291,
     "enums": 4,
-    "functions": 659,
+    "functions": 660,
     "constants": 536
   },
   "symbols": {
@@ -929,6 +929,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Déduit le nom court du backend d'un store à partir de la classe concrète de son instance (convention de nommage `<Backend>XxxStore` → `drizzle`, `mongoose`, `redis`, `memory`, `file`). Sert à retro…"
+    },
+    "readStoreLocation": {
+      "name": "readStoreLocation",
+      "kind": "function",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit l'emplacement PHYSIQUE d'un store depuis son instance (getter public `location`), pour l'écran Studio « Stores » — répond à « où mes données sont-elles écrites ? ». Un store fichier (passkeys, …"
     },
     "AUTO_STORE": {
       "name": "AUTO_STORE",
@@ -18448,7 +18456,9 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
       ],
       "inspect": [
         "src/nodefony/src/Error.ts",
@@ -22413,6 +22423,12 @@
       ],
       "listOAuthProviders": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
+      ],
+      "readStoreLocation": [
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "listTokenStores": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"

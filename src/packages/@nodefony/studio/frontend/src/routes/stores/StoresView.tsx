@@ -10,6 +10,9 @@ import {
   Button,
   Alert,
   Tabs,
+  CopyButton,
+  ActionIcon,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconRefresh,
@@ -19,6 +22,9 @@ import {
   IconList,
   IconHelpCircle,
   IconRoute,
+  IconCopy,
+  IconCheck,
+  IconFolder,
 } from "@tabler/icons-react";
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
@@ -43,6 +49,8 @@ import {
   isVolatileDurable,
   userBrick,
   formatSource,
+  storeLocation,
+  baseName,
   type Infra,
   type StoresPayload,
   type StoreResolution,
@@ -103,6 +111,44 @@ const COLUMNS: DataGridColumn<StoreResolution>[] = [
         {r.resolved}
       </Badge>
     ),
+  },
+  {
+    key: "location",
+    header: "Emplacement",
+    value: (r) => storeLocation(r).path ?? storeLocation(r).hint,
+    render: (r) => {
+      const { path, hint } = storeLocation(r);
+      // Backend sans chemin local (memory / réseau) → on explique où vit la donnée.
+      if (!path) {
+        return (
+          <Text size="xs" c="dimmed">
+            {hint}
+          </Text>
+        );
+      }
+      // Chemin physique : nom de fichier en évidence + chemin complet copiable.
+      return (
+        <Group gap={4} wrap="nowrap">
+          <IconFolder size={13} style={{ flexShrink: 0, opacity: 0.6 }} />
+          <Tooltip label={path} openDelay={300} multiline maw={420}>
+            <Code style={{ fontSize: 11 }}>{baseName(path)}</Code>
+          </Tooltip>
+          <CopyButton value={path} timeout={1500}>
+            {({ copied, copy }) => (
+              <ActionIcon
+                size="xs"
+                variant="subtle"
+                color={copied ? "teal" : "gray"}
+                onClick={copy}
+                aria-label={`Copier le chemin de ${r.brick}`}
+              >
+                {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+              </ActionIcon>
+            )}
+          </CopyButton>
+        </Group>
+      );
+    },
   },
   {
     key: "provenance",

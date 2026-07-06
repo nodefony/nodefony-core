@@ -22,6 +22,7 @@ import {
   PROVENANCE_LABEL,
   NATURE_LABEL,
   formatSource,
+  storeLocation,
   isVolatileDurable,
   userBrick,
   type StoresPayload,
@@ -60,6 +61,7 @@ export const BrickStoreChip = observer(({ brick }: { brick: string }) => {
   }
   const volatile = isVolatileDurable(data);
   const source = formatSource(data.source);
+  const loc = storeLocation(data);
 
   return (
     <HoverCard
@@ -94,6 +96,11 @@ export const BrickStoreChip = observer(({ brick }: { brick: string }) => {
           <KeyValue k="Configuré" v={data.configured} mono />
           <KeyValue k="Provenance" v={PROVENANCE_LABEL[data.provenance]} />
           {source && <KeyValue k="Source" v={source} />}
+          <KeyValue
+            k="Emplacement"
+            v={loc.path ?? loc.hint}
+            mono={!!loc.path}
+          />
           <Text size="xs" c="dimmed">
             {data.reason}
           </Text>

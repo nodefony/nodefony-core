@@ -181,6 +181,7 @@ describe("Firewall ⇄ realtime — security:audit enregistré + live (câblage 
       once(ev2: string, cb: () => void) {
         if (ev2 === "onBoot") cbs.push(cb);
       },
+      registerStoreResolution() {},
     });
     return { boot: () => cbs.forEach((cb) => cb()) };
   }

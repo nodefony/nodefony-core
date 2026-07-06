@@ -28,6 +28,11 @@ export class FileTotpSecretStore extends MemoryTotpSecretStore {
   #flushTimer: ReturnType<typeof setTimeout> | null = null;
   #writing: Promise<void> | null = null;
 
+  /** Emplacement physique du fichier JSON (secrets déjà chiffrés) — introspection Studio. */
+  get location(): string {
+    return this.#path;
+  }
+
   constructor(path: string, debounceMs = 50) {
     super();
     this.#path = path;

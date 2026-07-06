@@ -4,6 +4,7 @@ import {
   Container,
   Event,
   deriveStoreBackend,
+  readStoreLocation,
 } from "nodefony";
 import { Buffer } from "node:buffer";
 import {
@@ -132,6 +133,7 @@ class TotpService extends Service {
         available: listTotpStores(),
         reason: "adapter posé au container (infra database déclarée)",
         configPath: "security.totp.store",
+        location: readStoreLocation(existing),
       });
       return existing;
     }
@@ -151,6 +153,7 @@ class TotpService extends Service {
       available: listTotpStores(),
       reason: `store configuré ("${driver}")`,
       configPath: "security.totp.store",
+      location: readStoreLocation(store),
     });
     return store;
   }

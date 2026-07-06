@@ -3,6 +3,8 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FileWebAuthnCredentialStore } from "../../nodefony/src/webauthn/FileWebAuthnCredentialStore";
+import { getWebAuthnStoreFactory } from "../../nodefony/src/webauthn/webAuthnCredentialStoreRegistry";
+import type { IWebAuthnStoreFactoryContext } from "../../nodefony/src/webauthn/webAuthnCredentialStoreRegistry";
 import type { IWebAuthnCredential } from "../../nodefony/contracts/IWebAuthnCredential";
 
 /**
@@ -90,5 +92,37 @@ describe("FileWebAuthnCredentialStore — persistance", () => {
   it("fichier absent au boot → état vide (pas de crash)", async () => {
     const a = new FileWebAuthnCredentialStore(join(dir, "absent.json"));
     assert.deepEqual(await a.findByUser("bob"), []);
+  });
+
+  it("location expose le chemin physique (introspection Studio)", () => {
+    const a = new FileWebAuthnCredentialStore(file);
+    assert.equal(a.location, file);
+  });
+});
+
+describe("webAuthnCredentialStoreRegistry — fabrique « file » (résilience boot)", () => {
+  const factory = () => getWebAuthnStoreFactory("file")!;
+
+  it("SANS kernel (fabrique appelée hors boot) → repli var/webauthn, JAMAIS de throw", () => {
+    // Nodefony.getKernel() est null hors boot → la fabrique NE DOIT PAS crasher
+    // (sinon le boot du framework casse) : repli `<cwd>/var/webauthn/credentials.json`.
+    const ctx = {
+      config: { passkeys: {} },
+    } as unknown as IWebAuthnStoreFactoryContext;
+    const store = factory()(ctx) as FileWebAuthnCredentialStore;
+    assert.ok(
+      store.location.endsWith(join("var", "webauthn", "credentials.json")),
+    );
+  });
+
+  it("passkeys.storePath explicite → respecté (jamais écrasé par le défaut)", () => {
+    const custom = join(tmpdir(), "nf-custom-passkeys.json");
+    const ctx = {
+      config: { passkeys: { storePath: custom } },
+    } as unknown as IWebAuthnStoreFactoryContext;
+    assert.equal(
+      (factory()(ctx) as FileWebAuthnCredentialStore).location,
+      custom,
+    );
   });
 });

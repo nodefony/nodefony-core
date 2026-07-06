@@ -34,6 +34,7 @@ function bootAudit(enabled = true): {
     once(ev: string, cb: () => void) {
       if (ev === "onBoot") bootCbs.push(cb);
     },
+    registerStoreResolution() {},
   };
   container.set("kernel", kernel);
   const audit = new AuditService({

@@ -764,9 +764,10 @@ const sessionSchema = z
       ),
     savePath: z
       .string()
-      .default("./tmp/sessions")
+      .default("./var/sessions")
       .describe(
-        "Chemin de stockage du handler `files` (relatif à la racine projet).",
+        "Chemin de stockage du handler `files` (relatif à la racine projet) — " +
+          "sous `var/` (données runtime persistées), base commune des stores fichier.",
       ),
     gcIntervalS: z
       .number()

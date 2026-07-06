@@ -35,6 +35,11 @@ export class FileWebAuthnCredentialStore extends MemoryWebAuthnCredentialStore {
   // Sérialise les écritures entre elles (évite deux `rename` concurrents).
   #writing: Promise<void> | null = null;
 
+  /** Emplacement physique du fichier JSON — introspection Studio (« où sont mes passkeys ? »). */
+  get location(): string {
+    return this.#path;
+  }
+
   constructor(path: string, debounceMs = 50) {
     super();
     this.#path = path;

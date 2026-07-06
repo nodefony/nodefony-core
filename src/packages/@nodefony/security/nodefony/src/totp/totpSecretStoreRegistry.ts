@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { Container } from "nodefony";
+import { Nodefony, type Container } from "nodefony";
 import type { ISecurityConfig } from "../../config/defineModuleConfig";
 import type { ITotpSecretStore } from "../../contracts/ITotpSecretStore";
 import { MemoryTotpSecretStore } from "./MemoryTotpSecretStore";
@@ -49,12 +49,20 @@ export function listTotpStores(): string[] {
   return [...factories.keys()];
 }
 
-/** Chemin par défaut de la persistance fichier (mono-process). */
+/**
+ * Chemin par défaut de la persistance fichier (mono-process) :
+ * `totp.storePath` si fourni, sinon `<kernel.varDir>/totp/secrets.json` (base commune
+ * des stores fichier ; repli `<cwd>/var` si le kernel n'a pas encore booté).
+ */
 function defaultStorePath(config: ISecurityConfig): string {
   const configured = config.totp?.storePath;
-  return typeof configured === "string" && configured.length > 0
-    ? configured
-    : path.resolve(process.cwd(), "var", "totp-secrets.json");
+  if (typeof configured === "string" && configured.length > 0) {
+    return configured;
+  }
+  const varDir = String(
+    Nodefony.getKernel()?.varDir?.path ?? path.resolve(process.cwd(), "var"),
+  );
+  return path.join(varDir, "totp", "secrets.json");
 }
 
 // ─── Builtins sans dépendance — enregistrés à l'import du module ─────────────

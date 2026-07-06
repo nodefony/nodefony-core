@@ -20,6 +20,7 @@ function makeKernel(container: Container): { boot: () => void } {
     once(ev: string, cb: () => void) {
       if (ev === "onBoot") cbs.push(cb);
     },
+    registerStoreResolution() {},
   });
   return { boot: () => cbs.forEach((c) => c()) };
 }

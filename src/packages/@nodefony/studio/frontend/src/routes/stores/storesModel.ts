@@ -34,6 +34,13 @@ export interface StoreResolution {
   configPath?: string;
   /** D'où vient la valeur configurée (fichier/env) — `null` si indéterminable. */
   source?: StoreSource | null;
+  /**
+   * Emplacement PHYSIQUE où la donnée est écrite, lu de l'instance du store au boot
+   * (miroir back `IStoreResolution.location`). Chemin de fichier pour un backend
+   * `file` (`<var>/webauthn/credentials.json`) ; absent pour `memory` (volatil) ou
+   * un backend réseau (l'emplacement = l'infra déclarée, affichée à part).
+   */
+  location?: string;
 }
 
 export interface InfraDatabase {
@@ -142,6 +149,31 @@ export const SOURCE_ORIGIN_LABEL: Record<string, string> = {
 export function formatSource(source?: StoreSource | null): string | null {
   if (!source) return null;
   return `${SOURCE_ORIGIN_LABEL[source.origin] ?? source.origin} — ${source.detail}`;
+}
+
+/**
+ * Emplacement physique lisible d'un store pour l'écran Stores. Si le store expose
+ * un chemin (`file`) → on l'affiche tel quel. Sinon on DÉRIVE une explication du
+ * `resolved` : `memory` = volatil en RAM ; un backend réseau (drizzle/redis/mongoose)
+ * n'a pas de chemin local → l'emplacement est l'infra déclarée (bandeau du haut).
+ */
+export function storeLocation(r: StoreResolution): {
+  path: string | null;
+  hint: string;
+} {
+  if (r.location) {
+    return { path: r.location, hint: "fichier sur disque" };
+  }
+  if (r.resolved === "memory") {
+    return { path: null, hint: "en mémoire (process) — perdu au redémarrage" };
+  }
+  return { path: null, hint: "backend réseau — voir l'infra déclarée" };
+}
+
+/** Nom de fichier (dernier segment) d'un chemin, pour l'emphase visuelle. */
+export function baseName(pathStr: string): string {
+  const parts = pathStr.split(/[/\\]/).filter(Boolean);
+  return parts[parts.length - 1] ?? pathStr;
 }
 
 /** Ordre d'affichage canonique ; les briques hors liste passent en fin. */

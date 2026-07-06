@@ -29,6 +29,11 @@ export class FileTokenStore extends MemoryTokenStore {
   readonly #debounceMs: number;
   #flushTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /** Emplacement physique du fichier JSON — introspection Studio. */
+  get location(): string {
+    return this.#path;
+  }
+
   constructor(
     path: string,
     now: () => number = Date.now,

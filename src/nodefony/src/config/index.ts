@@ -33,6 +33,7 @@ export type { AppConfig } from "./schema";
 export {
   resolveInfra,
   resolveAutoStore,
+  readStoreLocation,
   parseDatabaseUrl,
   sqliteFilenameFromUrl,
   AUTO_STORE,

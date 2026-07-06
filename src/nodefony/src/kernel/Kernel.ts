@@ -399,6 +399,12 @@ class Kernel extends Service implements IKernel {
   numberCpu: number = os.cpus().length;
   modules: Record<string, Module> = {};
   tmpDir?: FileClass;
+  /**
+   * Répertoire des données runtime **persistées** (`<path>/var`) — base commune des
+   * stores fichier (passkeys, TOTP, sessions) et bases SQLite. Gitignoré comme
+   * `tmpDir` → garanti créé au boot. Distinct de `tmpDir` (éphémère).
+   */
+  varDir?: FileClass;
   interfaces: NetworkInterface;
   domain: string = "localhost";
   progress: number = Events.onInit;
@@ -586,6 +592,14 @@ class Kernel extends Service implements IKernel {
     const tmpPath = path.resolve(process.cwd(), "tmp");
     fs.mkdirSync(tmpPath, { recursive: true });
     this.tmpDir = new FileClass(tmpPath);
+
+    // `var/` = données runtime PERSISTÉES (stores fichier passkeys/TOTP/sessions,
+    // bases SQLite). Gitignoré comme `tmp/` → absent sur checkout frais/pod neuf. On
+    // garantit le dossier ici (idempotent, 1 syscall au boot, hors hot path) pour que
+    // les fabriques de stores fichier disposent d'une base commune (`kernel.varDir`).
+    const varPath = path.resolve(this.path, "var");
+    fs.mkdirSync(varPath, { recursive: true });
+    this.varDir = new FileClass(varPath);
 
     if (!this.started) {
       await this.fireAsync("onPreStart", this).catch((e) => {

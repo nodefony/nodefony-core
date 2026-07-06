@@ -1,0 +1,136 @@
+/// <reference types="node" />
+/**
+ * Integration e2e — emplacement PHYSIQUE des stores (Phase 0.8, lot 1 « varDir »).
+ *
+ * Prouve bout-en-bout, sur serveur live, la chaîne critique du boot :
+ *   - le serveur BOOTE (donc `kernel.varDir` a été créé sans throw — sinon `start()`
+ *     rejette avant l'écoute des ports → ce test ne pourrait pas se connecter) ;
+ *   - `/nodefony/kernel/api/stores` expose, par brique, le champ `location`
+ *     (emplacement physique lu de l'instance du store au boot) ;
+ *   - un store `files` (session en dev) pointe sous `var/` et le dossier existe
+ *     RÉELLEMENT sur disque (le défaut a bien migré `tmp/sessions` → `var/sessions`) ;
+ *   - la route reste ADMIN-only (résilience sécurité : anonyme ≠ 200).
+ *
+ * Requires: server running on 5152 (https). Start: /start-server
+ * Fixtures dev : admin/secret (ROLE_NODEFONY_ADMIN).
+ */
+import { expect } from "chai";
+import https from "node:https";
+import { existsSync } from "node:fs";
+
+const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
+const LOGIN = "/nodefony/security/api/auth/login";
+const STORES = "/nodefony/kernel/api/stores";
+const TIMEOUT = 10_000;
+
+type Res = { status: number; headers: Record<string, unknown>; body: unknown };
+
+function request(
+  method: string,
+  path: string,
+  headers: Record<string, string> = {},
+  body?: unknown,
+): Promise<Res> {
+  return new Promise((resolve, reject) => {
+    const payload = body !== undefined ? JSON.stringify(body) : undefined;
+    const h: Record<string, string> = { ...headers };
+    if (payload !== undefined) {
+      h["content-type"] = "application/json";
+      h["content-length"] = String(Buffer.byteLength(payload));
+    }
+    const req = https.request({ ...BASE, path, method, headers: h }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (c: Buffer) => chunks.push(c));
+      res.on("end", () => {
+        const raw = Buffer.concat(chunks).toString();
+        let parsed: unknown = raw;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          /* texte brut / vide */
+        }
+        resolve({
+          status: res.statusCode!,
+          headers: res.headers as Record<string, unknown>,
+          body: parsed,
+        });
+      });
+    });
+    req.on("error", reject);
+    req.setTimeout(TIMEOUT, () => req.destroy(new Error("http timeout")));
+    if (payload !== undefined) req.write(payload);
+    req.end();
+  });
+}
+
+const get = (p: string, h: Record<string, string> = {}) => request("GET", p, h);
+
+function sessionCookieOf(res: Res): string | null {
+  const setCookie = res.headers["set-cookie"];
+  const first = Array.isArray(setCookie) ? setCookie[0] : setCookie;
+  if (typeof first !== "string") return null;
+  return first.split(";")[0] ?? null;
+}
+
+async function loginAsAdmin(): Promise<string> {
+  const res = await request(
+    "POST",
+    LOGIN,
+    {},
+    {
+      username: "admin",
+      password: "secret",
+    },
+  );
+  expect(res.status, "login admin").to.equal(200);
+  const cookie = sessionCookieOf(res);
+  expect(cookie, "login pose un cookie de session").to.be.a("string");
+  return cookie!;
+}
+
+interface StoreEntry {
+  brick: string;
+  resolved: string;
+  location?: string;
+}
+
+describe("Stores — emplacement physique (endpoint /kernel/api/stores)", () => {
+  it("anonyme → JAMAIS 200 (route admin-only, résilience sécurité)", async () => {
+    const res = await get(STORES);
+    expect(res.status, "anonyme sur /stores").to.be.oneOf([401, 403]);
+  });
+
+  it("admin → registre des stores avec `location` par brique", async () => {
+    const cookie = await loginAsAdmin();
+    const res = await get(STORES, { cookie });
+    expect(res.status, "admin lit /stores").to.equal(200);
+
+    const stores = (res.body as { stores?: StoreEntry[] }).stores;
+    expect(stores, "payload.stores").to.be.an("array").that.is.not.empty;
+
+    // Qualité : aucune location vide ne fuit (undefined OK, "" jamais).
+    for (const s of stores!) {
+      expect(s.brick, "brick").to.be.a("string").that.is.not.empty;
+      expect(s.resolved, "resolved").to.be.a("string").that.is.not.empty;
+      if (s.location !== undefined) {
+        expect(s.location, `location de ${s.brick}`).to.be.a("string").that.is
+          .not.empty;
+      }
+    }
+
+    // Preuve du répertoire unifié : tout store à backend FICHIER expose un chemin
+    // physique sous `var/`, et ce chemin existe RÉELLEMENT sur disque (le serveur
+    // l'a créé au boot). Couvre la session (`files` par défaut en dev).
+    const fileBacked = stores!.filter((s) => /^files?$/.test(s.resolved));
+    for (const s of fileBacked) {
+      expect(s.location, `store fichier ${s.brick} expose sa location`).to.be.a(
+        "string",
+      );
+      expect(s.location!, `${s.brick} sous var/`).to.match(/[/\\]var[/\\]/);
+      expect(
+        existsSync(s.location!),
+        `${s.brick} : ${s.location} existe sur disque`,
+      ).to.equal(true);
+    }
+  });
+});

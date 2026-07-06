@@ -3,6 +3,7 @@ import assert from "node:assert";
 import {
   resolveInfra,
   resolveAutoStore,
+  readStoreLocation,
   parseDatabaseUrl,
   sqliteFilenameFromUrl,
   type IInfra,
@@ -185,6 +186,28 @@ describe("config — infra (modèle « infra déclarée », Phase 0.8)", () => {
       const r = resolveAutoStore("durable", NO_ROLES, ["memory"]);
       assert.strictEqual(r.store, "memory");
       assert.match(r.reason, /aucune infra/);
+    });
+  });
+
+  describe("readStoreLocation — emplacement physique lu de l'instance", () => {
+    it("store fichier (getter location string) → chemin renvoyé", () => {
+      assert.strictEqual(
+        readStoreLocation({ location: "/app/var/webauthn/credentials.json" }),
+        "/app/var/webauthn/credentials.json",
+      );
+    });
+    it("store mémoire (pas de getter) → undefined", () => {
+      assert.strictEqual(readStoreLocation({}), undefined);
+    });
+    it("location vide → undefined (jamais de chaîne vide affichée)", () => {
+      assert.strictEqual(readStoreLocation({ location: "" }), undefined);
+    });
+    it("location non-string (backend réseau) → undefined", () => {
+      assert.strictEqual(readStoreLocation({ location: 5432 }), undefined);
+    });
+    it("null / undefined → undefined (lecture défensive, jamais de throw)", () => {
+      assert.strictEqual(readStoreLocation(null), undefined);
+      assert.strictEqual(readStoreLocation(undefined), undefined);
     });
   });
 

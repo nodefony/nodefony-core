@@ -19,6 +19,7 @@ function buildService(webhooks: Record<string, unknown> = {}): WebhookService {
     once(ev: string, cb: (...a: unknown[]) => void) {
       handlers[ev] = cb;
     },
+    registerStoreResolution() {},
   };
   container.set("kernel", kernel);
   const module = {
@@ -49,6 +50,7 @@ function buildWithAudit(webhooks: Record<string, unknown> = {}): {
     once(ev: string, cb: (...a: unknown[]) => void) {
       handlers[ev] = cb;
     },
+    registerStoreResolution() {},
   };
   container.set("kernel", kernel);
   container.set("auditService", {

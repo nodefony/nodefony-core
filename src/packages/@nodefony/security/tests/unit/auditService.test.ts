@@ -60,6 +60,7 @@ function buildAudit(
     once(ev: string, cb: (...a: unknown[]) => void) {
       handlers[ev] = cb;
     },
+    registerStoreResolution() {},
   };
   container.set("kernel", kernel);
   const module = {

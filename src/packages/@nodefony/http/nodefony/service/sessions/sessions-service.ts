@@ -14,6 +14,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  readStoreLocation,
 } from "nodefony";
 import type {
   ISessionStorage,
@@ -244,7 +245,8 @@ class SessionsService extends Service {
     // backend (file/drizzle/redis/mongo) sans le modifier — la résurrection est
     // un défaut du cycle de vie, pas d'un store. `storage.inner` reste le store
     // réel (introspection admin : quel driver persiste les sessions).
-    this.storage = new RevocationGuardStorage(new Storage(this));
+    const innerStorage = new Storage(this);
+    this.storage = new RevocationGuardStorage(innerStorage);
     this.log(`SESSION STORAGE active : ${storeName}`, "INFO");
     this.kernel?.registerStoreResolution({
       brick: "session",
@@ -254,6 +256,9 @@ class SessionsService extends Service {
       available: SessionsService.storageHandlers(),
       reason,
       configPath: "http.session.store",
+      // Lu depuis le store réel (avant le garde-fou de révocation) : un backend
+      // `files` expose son dossier ; drizzle/redis/mongoose → undefined (voir infra).
+      location: readStoreLocation(innerStorage),
     });
     // Événement (kernel + service) : quel backend de session est actif.
     this.fire("onSessionStorageReady", storeName, this.storage);

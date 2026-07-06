@@ -143,4 +143,13 @@ describe("FileTokenStore — persistance", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("location expose le chemin physique du fichier (introspection Studio)", () => {
+    const { dir, path } = tmpFile();
+    try {
+      assert.equal(new FileTokenStore(path).location, path);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

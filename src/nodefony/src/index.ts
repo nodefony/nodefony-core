@@ -293,6 +293,7 @@ export {
   resolveInfra,
   resolveAutoStore,
   deriveStoreBackend,
+  readStoreLocation,
   parseDatabaseUrl,
   sqliteFilenameFromUrl,
   AUTO_STORE,

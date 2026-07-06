@@ -7,6 +7,7 @@ import {
   EMPTY_INFRA,
   resolveAutoStore,
   deriveStoreBackend,
+  readStoreLocation,
 } from "nodefony";
 import { Buffer } from "node:buffer";
 import type {
@@ -193,6 +194,7 @@ class WebAuthnService extends Service {
       available: listWebAuthnStores(),
       reason,
       configPath: "security.passkeys.store",
+      location: readStoreLocation(this.#store),
     });
     this.#ready = true;
     this.log(

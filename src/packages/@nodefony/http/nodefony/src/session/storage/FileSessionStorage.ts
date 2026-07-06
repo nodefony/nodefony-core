@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { resolve } from "node:path";
 import { FileClass, Finder, Result } from "nodefony";
 import type sessionService from "../../../service/sessions/sessions-service";
 import type {
@@ -54,6 +55,11 @@ class FileSessionStorage implements ISessionStorage {
   path: string;
   idleTimeoutS: number;
   absoluteTimeoutS: number;
+
+  /** Dossier physique (absolu) des fichiers de session — introspection Studio. */
+  get location(): string {
+    return resolve(this.path);
+  }
   constructor(manager: sessionService) {
     this.manager = manager;
     this.path = manager.options.savePath;

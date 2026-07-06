@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { Container } from "nodefony";
+import { Nodefony, type Container } from "nodefony";
 import type { ISecurityConfig } from "../../config/defineModuleConfig";
 import type { IWebAuthnCredentialStore } from "../../contracts/IWebAuthnCredentialStore";
 import { MemoryWebAuthnCredentialStore } from "./MemoryWebAuthnCredentialStore";
@@ -52,12 +52,16 @@ export function listWebAuthnStores(): string[] {
 registerWebAuthnStore("memory", () => new MemoryWebAuthnCredentialStore());
 
 // Persistance fichier (mono-process) — les passkeys survivent au redémarrage.
-// Chemin : `passkeys.storePath` si fourni, sinon <cwd>/var/webauthn-credentials.json.
+// Chemin : `passkeys.storePath` si fourni, sinon `<kernel.varDir>/webauthn/credentials.json`
+// (base commune des stores fichier ; repli `<cwd>/var` si le kernel n'a pas encore booté).
 registerWebAuthnStore("file", (ctx) => {
   const configured = ctx?.config?.passkeys?.storePath;
+  const varDir = String(
+    Nodefony.getKernel()?.varDir?.path ?? path.resolve(process.cwd(), "var"),
+  );
   const filePath =
     typeof configured === "string" && configured.length > 0
       ? configured
-      : path.resolve(process.cwd(), "var", "webauthn-credentials.json");
+      : path.join(varDir, "webauthn", "credentials.json");
   return new FileWebAuthnCredentialStore(filePath);
 });

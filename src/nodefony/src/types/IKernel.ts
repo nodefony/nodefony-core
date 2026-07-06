@@ -45,6 +45,12 @@ export interface IKernel extends IService {
   readonly debug: DebugType;
   readonly projectName: string;
   readonly path: string;
+  /**
+   * Répertoire des données runtime PERSISTÉES (`<path>/var`) — base commune des
+   * stores fichier (passkeys, TOTP, sessions) et bases SQLite. Gitignoré ; garanti
+   * créé au boot (comme `tmpDir`, éphémère). Absent tant que le Kernel n'a pas booté.
+   */
+  readonly varDir?: FileClass;
   readonly isDev: boolean;
   readonly isProd: boolean;
   /**
