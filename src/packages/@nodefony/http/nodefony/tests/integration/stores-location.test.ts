@@ -125,28 +125,30 @@ describe("Stores — emplacement physique (endpoint /kernel/api/stores)", () => 
       ).to.include(s.resolved);
     }
 
-    // Preuve du répertoire unifié : tout store à backend DRIZZLE (sqlite par défaut
-    // en dev) expose le chemin de sa base `.db` SOUS `var/` (base commune
-    // `kernel.varDir`), et ce fichier existe RÉELLEMENT sur disque (le serveur l'a
-    // créé au boot). Couvre les briques durables (tokens/passkeys/audit/totp/
-    // webhooks) ET la session + l'idempotence (location résolue tardivement au
-    // `onReady`, l'ORM n'étant pas connecté à l'activation de ces deux briques).
-    const drizzleBacked = stores!.filter((s) => s.resolved === "drizzle");
-    expect(
-      drizzleBacked,
-      "au moins une brique résolue sur drizzle (défaut dev sqlite)",
-    ).to.not.be.empty;
-    for (const s of drizzleBacked) {
+    // Backend-AGNOSTIQUE (le serveur peut tourner en sqlite=défaut OU NF_STORE=memory) :
+    // on assert les invariants VRAIS des deux côtés, sans exiger un backend précis.
+    //
+    // - Store DRIZZLE (sqlite par défaut) : expose le chemin de sa base `.db` SOUS
+    //   `var/` (base commune `kernel.varDir`). Couvre les briques durables
+    //   (tokens/passkeys/audit/totp/webhooks) + session + idempotence (location
+    //   résolue tardivement au `onReady`) + user (résolue par `provisionUsers`).
+    for (const s of stores!.filter((s) => s.resolved === "drizzle")) {
       expect(s.location, `store drizzle ${s.brick} expose sa base`).to.be.a(
         "string",
       );
       expect(s.location!, `${s.brick} : base .db`).to.match(/\.db$/);
       expect(s.location!, `${s.brick} sous var/`).to.match(/(^|[/\\])var[/\\]/);
     }
-    // Existence disque : la location est RELATIVE au cwd du SERVEUR (racine repo,
-    // anti info-leak) ; le process de test tourne dans le package http → on ne
-    // peut pas la résoudre ici de façon fiable. On prouve la FORME (`.db` sous
-    // `var/`) ; la création réelle du fichier est couverte par le boot lui-même
-    // (le serveur écrit sa base au premier connect, sinon les requêtes échoueraient).
+    // - Store MEMORY (NF_STORE=memory, ou repli) : volatil en RAM → JAMAIS de
+    //   chemin physique (l'UI dérive « en mémoire »).
+    for (const s of stores!.filter((s) => s.resolved === "memory")) {
+      expect(s.location, `store memory ${s.brick} sans emplacement`).to.equal(
+        undefined,
+      );
+    }
+    // Existence disque non vérifiée ici : la location est RELATIVE au cwd du SERVEUR
+    // (racine repo, anti info-leak) et le process de test tourne dans le package http.
+    // La création réelle du fichier est couverte par le boot (le serveur écrit sa
+    // base au premier connect, sinon les requêtes échoueraient).
   });
 });

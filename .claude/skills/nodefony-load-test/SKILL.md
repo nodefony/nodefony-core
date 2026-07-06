@@ -280,6 +280,38 @@ Résultats engrangés avec ce banc (mono prod, route session-free) : **router-fi
 (REJETÉ — le ring buffer paie un objet plus cher qu'une string → discipline A/B = ne garder que
 le mesuré). L'audit complet reste ON par défaut ; `log.requestLogger.sampleRate` = levier opt-in.
 
+### Matrice store — memory vs sqlite (coût du backend sur route authentifiée)
+
+Valide que le choix de store (`NF_STORE`) se comporte comme attendu : `memory` est
+~gratuit, `sqlite` (`better-sqlite3`, **sync**) paie un SELECT **bloquant** par reprise
+de session. On compare une route qui TOUCHE le store à une route session-free (contrôle),
+**INTRA-RUN** (même serveur → aucune dérive machine ; jamais comparer des absolus cross-run).
+
+```bash
+# 1 serveur par backend (start.sh propage process.env) :
+NF_STORE=memory bash .claude/skills/nodefony-start-server/start.sh   # tout en memory
+bash .claude/skills/nodefony-start-server/start.sh                   # défaut = sqlite (drizzle)
+# Login → cookie de session, puis wrk (baseline + route session DANS LE MÊME run) :
+JAR=$(mktemp); curl -sk -c "$JAR" -X POST \
+  https://127.0.0.1:5152/nodefony/security/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"secret"}' -o /dev/null
+COOKIE=$(awk 'NF>=7 && $6 ~ /nodefony/ {print $6"="$7}' "$JAR" | head -1)
+wrk -t4 -c25 -d8s https://127.0.0.1:5152/nodefony/test/als-test/state              # contrôle session-free 0-ORM
+wrk -t4 -c25 -d8s -H "Cookie: $COOKIE" https://127.0.0.1:5152/nodefony/security/api/auth/me  # reprise session/req
+```
+
+**Lecture (ce qui est LOGIQUE)** — comparer les RATIOS intra-run :
+
+- `als-test/state` (contrôle) ~IDENTIQUE memory vs sqlite (ne touche AUCUN store) → un écart
+  ici = **dérive machine**, PAS le store. ⚠️ NE PAS prendre `/nodefony/test/index` comme baseline
+  (rend du HTML lourd → fausse le ratio).
+- `auth/me` **memory** ≈ son propre `als-test/state` (Map.get ≈ gratuit, coût ~10 %).
+- `auth/me` **sqlite** ~2× plus lent que SON baseline (le `.get()` `better-sqlite3` sérialise
+  l'event-loop) → **memory ~1.9× sqlite** sur la reprise de session.
+- Direction STABLE dans le temps ([[project_session_store_perf_finding]]) ; l'écart absolu a
+  rétréci (6×→~2×) au fil des optims session (dirty-tracking, touch throttlé, modèle NIST). En
+  prod multi-nœud le store async (`redis`) restaure le débit ; `better-sqlite3` reste mono-nœud.
+
 ### Banc comparatif frameworks (`bench-frameworks/`) — Nodefony vs Express/Fastify/nu
 
 Sandbox **isolé** (`bench-frameworks/`, package.json propre, node_modules gitignoré — ne touche

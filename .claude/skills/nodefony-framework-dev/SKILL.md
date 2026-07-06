@@ -248,6 +248,20 @@ cd src/packages/@nodefony/<mod> && npm run test:integration
 # 5. 🚨 SUITE LOURDE — si modif Kernel / pipeline request / cycle de vie / mémoire (OBLIGATOIRE)
 cd src/packages/@nodefony/http && npm run test:memory   # vitest (mocha SUPPRIMÉ) — ou skill nodefony-check-memory-health
 
+# 5bis. 🗄️ MATRICE STORE — si modif d'un store de persistance / résolution / session / provisionUsers
+#   Les tests UNIT sont backend-AGNOSTIQUES (drizzle teste sur :memory: interne, security sur stores
+#   memory — ils ne lisent PAS NF_STORE) → 1 seule passe. La matrice memory vs sqlite se joue sur le
+#   SERVEUR LIVE : relancer test:integration sous les DEUX backends.
+NF_STORE=memory bash .claude/skills/nodefony-start-server/start.sh   # tout en memory
+cd src/packages/@nodefony/http && npm run test:integration          # doit passer 100% (idem sqlite)
+bash .claude/skills/nodefony-start-server/start.sh                   # défaut = sqlite (drizzle)
+cd src/packages/@nodefony/http && npm run test:integration          # 100%
+#   ⚠️ Un test qui assert un backend précis (ex. « brique X = drizzle / a une location .db ») CASSE
+#   sous NF_STORE=memory → l'écrire backend-AGNOSTIQUE (assert les invariants vrais des deux côtés :
+#   available⊇resolved ; resolved=drizzle ⇒ .db sous var/ ; resolved=memory ⇒ pas de location).
+#   Coût RPS attendu (route authentifiée) : memory ≈ gratuit, sqlite ~2× plus lent (SELECT sync) →
+#   protocole wrk dans le skill nodefony-load-test (§ Matrice store memory vs sqlite).
+
 # 6. Symboles (régénérés par le hook pre-commit, mais utile manuellement)
 npm run generate-symbols
 ```
