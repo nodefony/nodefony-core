@@ -1,6 +1,10 @@
 import { Module, resolveAutoStore } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
-import { InMemoryUserRepository, UserService } from "@nodefony/user";
+import {
+  InMemoryUserRepository,
+  UserService,
+  listUserStores,
+} from "@nodefony/user";
 import type { IPasswordEncoder } from "@nodefony/user";
 import { DrizzleUserRepository } from "@nodefony/drizzle";
 import type { DrizzleOrm } from "@nodefony/drizzle";
@@ -15,6 +19,39 @@ import {
 } from "./devUsers";
 
 const LOG_CTX = "USERS";
+
+/**
+ * Enregistre la résolution de la brique « user » dans le registre du kernel — au
+ * MÊME titre que les 7 autres briques de persistance (token/session/audit…), pour
+ * qu'elle apparaisse dans l'écran Studio « Stores » avec `configured` (la valeur
+ * `NF_USER_STORE`, souvent `auto`), la provenance dérivée, les backends disponibles
+ * et l'emplacement physique. `provisionUsers` est le SEUL endroit qui connaît à la
+ * fois le choix configuré, le backend résolu et l'ORM (donc le fichier `.db`).
+ *
+ * @param module - module applicatif (porte le kernel).
+ * @param configured - valeur brute `NF_USER_STORE` (`auto`/`drizzle`/`mongoose`/`memory`).
+ * @param resolved - backend réellement branché.
+ * @param reason - explication lisible de la résolution.
+ * @param location - emplacement physique (fichier `.db` drizzle), `undefined` sinon.
+ */
+function registerUserResolution(
+  module: Module,
+  configured: string,
+  resolved: string,
+  reason: string,
+  location?: string,
+): void {
+  module.kernel?.registerStoreResolution({
+    brick: "user",
+    nature: "durable",
+    configured,
+    resolved,
+    available: listUserStores(),
+    reason,
+    configPath: "NF_USER_STORE",
+    location,
+  });
+}
 
 /**
  * Pose le service applicatif `"users"` (source d'identité du firewall) dans le
@@ -59,7 +96,9 @@ export async function provisionUsers(module: Module): Promise<void> {
 
   // `auto` = suivre l'infra database déclarée ; repli drizzle (persistant — un
   // annuaire memory silencieux perdrait les inscriptions). Valeur explicite gagne.
-  let store: string = env.NF_USER_STORE;
+  const configured = env.NF_USER_STORE;
+  let store: string = configured;
+  let reason = `NF_USER_STORE="${configured}" (explicite).`;
   if (store === "auto") {
     const resolution = resolveAutoStore(
       "durable",
@@ -68,11 +107,8 @@ export async function provisionUsers(module: Module): Promise<void> {
       "drizzle",
     );
     store = resolution.store;
-    module.log(
-      `NF_USER_STORE=auto → "${store}" (${resolution.reason}).`,
-      "INFO",
-      LOG_CTX,
-    );
+    reason = `NF_USER_STORE=auto → "${store}" (${resolution.reason}).`;
+    module.log(reason, "INFO", LOG_CTX);
   }
 
   if (store === "memory") {
@@ -99,6 +135,8 @@ export async function provisionUsers(module: Module): Promise<void> {
       "INFO",
       LOG_CTX,
     );
+    // Volatil → aucun emplacement physique (RAM).
+    registerUserResolution(module, configured, "memory", reason);
     return;
   }
 
@@ -120,6 +158,8 @@ export async function provisionUsers(module: Module): Promise<void> {
       encoder,
     );
     container.set("users", users);
+    // Backend RÉSEAU (MongoDB) → emplacement = l'infra déclarée, surfacée à part.
+    registerUserResolution(module, configured, "mongoose", reason);
     await seedPersistentUsers(users, module, "Mongoose");
     return;
   }
@@ -129,6 +169,8 @@ export async function provisionUsers(module: Module): Promise<void> {
   const orm = ormRegistry.get("default") as DrizzleOrm;
   const users = new UserService(DrizzleUserRepository.from(orm), encoder);
   container.set("users", users);
+  // Emplacement physique = base SQLite du connecteur "default" (var/databases/…).
+  registerUserResolution(module, configured, "drizzle", reason, orm.location);
   await seedPersistentUsers(users, module, "Drizzle");
 }
 

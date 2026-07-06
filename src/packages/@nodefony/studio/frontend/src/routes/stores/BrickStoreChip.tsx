@@ -13,8 +13,6 @@ import { Link } from "react-router-dom";
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
 import { KeyValue } from "../../components/ui";
-import type { UsersStatus } from "../users/usersModel";
-import { USERS_STATUS_ENDPOINT } from "../users/usersModel";
 import {
   STORES_ENDPOINT,
   BRICK_LABEL,
@@ -24,7 +22,6 @@ import {
   formatSource,
   storeLocation,
   isVolatileDurable,
-  userBrick,
   type StoresPayload,
   type StoreResolution,
 } from "./storesModel";
@@ -38,21 +35,10 @@ import {
 export const BrickStoreChip = observer(({ brick }: { brick: string }) => {
   const store = useStore();
   const fetcher = useCallback(async (): Promise<StoreResolution | null> => {
-    const [payload, userStatus] = await Promise.all([
-      store.api.getAbsolute<StoresPayload>(STORES_ENDPOINT),
-      // La brique `user` vient d'un autre module (peut 403/manquer) → non bloquant.
-      brick === "user"
-        ? store.api
-            .getAbsolute<UsersStatus>(USERS_STATUS_ENDPOINT)
-            .catch(() => null)
-        : Promise.resolve(null),
-    ]);
-    const all = payload.stores.slice();
-    const extra = userBrick(userStatus);
-    if (extra) {
-      all.push(extra);
-    }
-    return all.find((r) => r.brick === brick) ?? null;
+    // Toutes les briques (user compris) viennent du registre unique
+    // `/nodefony/kernel/api/stores` → plus de fetch séparé du statut user.
+    const payload = await store.api.getAbsolute<StoresPayload>(STORES_ENDPOINT);
+    return payload.stores.find((r) => r.brick === brick) ?? null;
   }, [store, brick]);
 
   const { data } = useResource(fetcher);

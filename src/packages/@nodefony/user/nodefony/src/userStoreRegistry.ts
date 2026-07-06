@@ -25,13 +25,19 @@ export function registerUserStore(name: string): void {
 }
 
 /**
- * Liste triée des backends utilisateur disponibles — alimente le champ
- * `available` du statut user (écran Studio « Stores »).
+ * Liste des backends utilisateur disponibles — alimente le champ `available` du
+ * statut user (écran Studio « Stores »). `"memory"` est mis EN TÊTE (baseline
+ * builtin, toujours disponible = le repli qui marche partout), les adapters ORM
+ * suivent triés. L'ordre est celui affiché dans la colonne « Backends dispo ».
  *
  * @returns noms des backends enregistrés (vide si aucun — jamais `null`).
  */
 export function listUserStores(): string[] {
-  return stores ? [...stores].sort() : [];
+  if (!stores) {
+    return [];
+  }
+  const rest = [...stores].filter((s) => s !== "memory").sort();
+  return stores.has("memory") ? ["memory", ...rest] : rest;
 }
 
 // `"memory"` (InMemoryUserRepository) est builtin de @nodefony/user → toujours

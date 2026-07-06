@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-06T19:05:21.375Z",
+  "generated": "2026-07-06T19:22:48.254Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -11216,7 +11216,7 @@
       "file": "src/packages/@nodefony/user/nodefony/src/userStoreRegistry.ts",
       "exported": true,
       "module": "@nodefony/user",
-      "description": "Liste triée des backends utilisateur disponibles — alimente le champ `available` du statut user (écran Studio « Stores »)."
+      "description": "Liste des backends utilisateur disponibles — alimente le champ `available` du statut user (écran Studio « Stores »). `\"memory\"` est mis EN TÊTE (baseline builtin, toujours disponible = le repli qui…"
     },
     "MemoryVectorStore": {
       "name": "MemoryVectorStore",

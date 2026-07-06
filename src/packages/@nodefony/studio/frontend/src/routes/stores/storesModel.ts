@@ -5,9 +5,6 @@
  * pour chaque brique, le store réellement résolu au boot, sa provenance et les
  * backends disponibles — remplace la doc statique qui se périmait.
  */
-import type { UsersStatus } from "../users/usersModel";
-import { USERS_STATUS_ENDPOINT } from "../users/usersModel";
-
 /** Catégorie de provenance d'un store résolu (miroir back `StoreProvenance`). */
 export type StoreProvenance = "infra" | "explicit";
 
@@ -71,7 +68,6 @@ export interface StoresPayload {
 
 /** Data plane. */
 export const STORES_ENDPOINT = "/nodefony/kernel/api/stores";
-export { USERS_STATUS_ENDPOINT };
 
 // ── Flux & transport (le `driver`) — complément de la vue data (le `store`) ─────
 export const KERNEL_INFO_ENDPOINT = "/nodefony/kernel/api/info";
@@ -203,33 +199,4 @@ export function sortBricks(rows: StoreResolution[]): StoreResolution[] {
  */
 export function isVolatileDurable(r: StoreResolution): boolean {
   return r.nature === "durable" && r.resolved === "memory";
-}
-
-/**
- * Fabrique la brique synthétique « Utilisateurs » depuis le statut du
- * sous-système user (persistance ORM directe — hors registre `resolveAutoStore`,
- * donc absente du payload `stores`). `null` si indisponible/désactivé.
- */
-export function userBrick(status: UsersStatus | null): StoreResolution | null {
-  if (!status || !status.enabled || !status.store) {
-    return null;
-  }
-  // `available` = backends réellement branchables (registre `listUserStores` :
-  // memory builtin + adapters ORM chargés), avec repli défensif sur `[store]` si
-  // un back plus ancien ne renvoie pas encore le champ. Le résolu est garanti dedans.
-  const available =
-    status.available && status.available.length > 0
-      ? status.available
-      : [status.store];
-  return {
-    brick: "user",
-    nature: "durable",
-    configured: status.store,
-    resolved: status.store,
-    available,
-    provenance: "explicit",
-    reason: `dépôt ORM ${status.repository}`,
-    configPath: "app · NF_USER_STORE / provisionUsers",
-    source: { origin: "app", detail: "provisionUsers / NF_USER_STORE" },
-  };
 }

@@ -37,17 +37,14 @@ import {
   DataGrid,
   type DataGridColumn,
 } from "../../components/ui";
-import type { UsersStatus } from "../users/usersModel";
 import {
   STORES_ENDPOINT,
-  USERS_STATUS_ENDPOINT,
   BRICK_LABEL,
   BRICK_PURPOSE,
   PROVENANCE_LABEL,
   NATURE_LABEL,
   sortBricks,
   isVolatileDurable,
-  userBrick,
   formatSource,
   storeLocation,
   baseName,
@@ -246,18 +243,11 @@ const COLUMNS: DataGridColumn<StoreResolution>[] = [
 export const StoresView = observer(() => {
   const store = useStore();
   const fetcher = useCallback(async (): Promise<StoresData> => {
-    const [payload, userStatus] = await Promise.all([
-      store.api.getAbsolute<StoresPayload>(STORES_ENDPOINT),
-      // Le statut user vit dans un autre module (peut 403/manquer) → non bloquant.
-      store.api
-        .getAbsolute<UsersStatus>(USERS_STATUS_ENDPOINT)
-        .catch(() => null),
-    ]);
-    const extra = userBrick(userStatus);
-    const rows = sortBricks(
-      extra ? [...payload.stores, extra] : payload.stores,
-    );
-    return { infra: payload.infra, rows };
+    // La brique « user » est désormais une résolution de store à part entière
+    // (enregistrée par `provisionUsers` via `registerStoreResolution`) → elle
+    // arrive dans `payload.stores` comme les 7 autres, plus de fusion synthétique.
+    const payload = await store.api.getAbsolute<StoresPayload>(STORES_ENDPOINT);
+    return { infra: payload.infra, rows: sortBricks(payload.stores) };
   }, [store]);
 
   const { data, loading, error, reload } = useResource(fetcher);
