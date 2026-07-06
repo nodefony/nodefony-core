@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   GitService,
   getActiveLogDriver,
@@ -458,6 +460,29 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   // NOMMER d'où vient la valeur — comble « je ne sais pas quel fichier la déclare ».
   // `seg` = basename du module (`http`/`security`/`framework`) ; `field` = chemin
   // pointé minuscule relatif au module (`tokenstore.store`).
+  // Résout le nom d'une source app (`overriddenBy`) en CHEMIN de fichier :
+  // `nodefony.config.ts` tel quel, sinon le `config.ts` conventionnel du module
+  // qui déclare la surcharge (`<mod.path>/nodefony/config/config.ts`, vérifié
+  // sur disque) — pointe le fichier RÉEL, pas seulement le nom du module.
+  const resolveSourceFile = (src: string): string => {
+    if (src === "nodefony.config.ts") return src;
+    for (const [k, m] of Object.entries(kernel.getModules())) {
+      const mm = m as {
+        getModuleName?: () => string;
+        path?: string;
+        isApp?: boolean;
+      };
+      if ((mm.getModuleName?.() ?? k) !== src) continue;
+      if (mm.isApp) return "nodefony.config.ts";
+      if (!mm.path) return src;
+      const cfg = join(mm.path, "nodefony", "config", "config.ts");
+      return existsSync(cfg)
+        ? (relPath(cfg) ?? src)
+        : (relPath(mm.path) ?? src);
+    }
+    return src;
+  };
+
   const resolveStoreSource = (
     configPath: string | undefined,
     entriesBySeg: Map<string, IConfigEntry>,
@@ -485,7 +510,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
     if (origin === "app") {
       return {
         origin,
-        detail: entry.overriddenBy[key] ?? "nodefony.config.ts",
+        detail: resolveSourceFile(
+          entry.overriddenBy[key] ?? "nodefony.config.ts",
+        ),
       };
     }
     if (origin === "runtime") {
