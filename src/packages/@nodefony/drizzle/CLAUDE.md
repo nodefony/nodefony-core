@@ -206,9 +206,10 @@ typage `getRepository` postgres viendra avec le **portage du `DrizzleRepository`
 consomme `getNativeConnection`, pas le repository → non bloquant pour le Slice 0).
 
 **Reste (slices suivants, 1 entité = 1 session)** : `userTable` (⚠️ `findBySocialProvider` =
-`json_each` SQLite → `jsonb` PG), `tokenEntity`, `sessionEntity`, `webAuthnCredentialEntity` ; puis
-**mysql** (`mysql2`) + DDL prod drizzle-kit. Décider à ce moment d'un **kit de colonnes partagé**
-(`colKit(dialect)`) si la duplication des factory devient sensible (prototype d'abord, mesurer).
+`json_each` SQLite → `jsonb` PG), `tokenEntity`, `sessionEntity`, `webAuthnCredentialEntity`,
+`totpSecretEntity` ; puis **mysql** (`mysql2`) + DDL prod drizzle-kit. Décider à ce moment d'un
+**kit de colonnes partagé** (`colKit(dialect)`) si la duplication des factory devient sensible
+(prototype d'abord, mesurer).
 
 ## Roadmap
 
@@ -216,4 +217,5 @@ consomme `getNativeConnection`, pas le repository → non bloquant pour le Slice
 - ✅ **P5.9 entité `User` Drizzle** (8 tests : CRUD + finders + tx + défauts). ORM par défaut → fait EN PREMIER (avant Mongoose P5.8).
 - ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests SQLite + **e2e Postgres cross-pod 7/7** (atomicité réelle prouvée).
 - ✅ **Journal d'audit Drizzle (P6.18)** — `IAuditStore` SQL append-only, pagination curseur composite `(ts,id)` via query builder dialect-agnostique, gc rétention, dégradation gracieuse, 7 tests SQLite. Multi-pod pg = slice multi-dialecte. Cf section « Journal d'audit Drizzle ».
+- ✅ **Store de secrets TOTP Drizzle** — `ITotpSecretStore` SQL (2FA persistant, comble le seul gap durable sans adapter). Table `totp_secret` (PK `userId`, 1 secret/user), `save` upsert, `update` patch partiel (anti-rejeu RFC 6238 préservé), `secretEnc` opaque (chiffré côté service). Auto-register `totp.store: "drizzle"` (sqlite-only, comme webauthn/token). 9 tests SQLite.
 - 🚧 **Portabilité multi-dialecte (chantier, Slice 0 ✅ 2026-06-26)** — `connector.dialect` + `DrizzleOrm` lazy pg + factory d'entité ; **idempotency porté + prouvé sur PG**. Reste : `user`/`token`/`session`/`webauthn` (1 entité/session) puis **mysql** + DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».

@@ -4,6 +4,7 @@ import {
   listTokenStores,
   listAuditStores,
   listWebAuthnStores,
+  listTotpStores,
   listWebhookStores,
   getTokenStoreFactory,
 } from "@nodefony/security";
@@ -26,6 +27,7 @@ const FRAMEWORK_ENTITIES = [
   "access_token",
   "audit_event",
   "webauthn_credential",
+  "totp_secret",
   "webhook_endpoint",
   "idempotency_key",
 ] as const;
@@ -46,16 +48,18 @@ describe("registerDrizzleFrameworkStores — auto-register (lot 0.8)", () => {
         "access_token",
         "audit_event",
         "webauthn_credential",
+        "totp_secret",
         "webhook_endpoint",
       ].sort(),
     );
     // Les registres reflètent le RÉEL : pas de fabrique pour un backend non porté.
     assert.ok(!listTokenStores().includes("drizzle"));
     assert.ok(!listAuditStores().includes("drizzle"));
+    assert.ok(!listTotpStores().includes("drizzle"));
     assert.ok(listIdempotencyStores().includes("drizzle"));
   });
 
-  it("dialecte sqlite : les 4 entités restantes sont déclarées + fabriques enregistrées", () => {
+  it("dialecte sqlite : les 5 entités restantes sont déclarées + fabriques enregistrées", () => {
     const report = registerDrizzleFrameworkStores("sqlite");
     // idempotency_key déjà déclarée par le run postgres ci-dessus → respectée.
     assert.deepStrictEqual(report.appOwned, ["idempotency_key"]);
@@ -66,6 +70,7 @@ describe("registerDrizzleFrameworkStores — auto-register (lot 0.8)", () => {
         "access_token",
         "audit_event",
         "webauthn_credential",
+        "totp_secret",
         "webhook_endpoint",
       ].sort(),
     );
@@ -78,6 +83,7 @@ describe("registerDrizzleFrameworkStores — auto-register (lot 0.8)", () => {
     assert.ok(listTokenStores().includes("drizzle"));
     assert.ok(listAuditStores().includes("drizzle"));
     assert.ok(listWebAuthnStores().includes("drizzle"));
+    assert.ok(listTotpStores().includes("drizzle"));
     assert.ok(listWebhookStores().includes("drizzle"));
     assert.ok(listIdempotencyStores().includes("drizzle"));
   });

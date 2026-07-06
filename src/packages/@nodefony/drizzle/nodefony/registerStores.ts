@@ -6,6 +6,8 @@ import {
   getAuditStoreFactory,
   registerWebAuthnStore,
   getWebAuthnStoreFactory,
+  registerTotpStore,
+  getTotpStoreFactory,
   registerWebhookStore,
   getWebhookStoreFactory,
 } from "@nodefony/security";
@@ -29,6 +31,10 @@ import {
   WEBAUTHN_CREDENTIAL_ENTITY,
 } from "./entity/webAuthnCredentialEntity";
 import {
+  registerTotpSecretEntity,
+  TOTP_SECRET_ENTITY,
+} from "./entity/totpSecretEntity";
+import {
   registerWebhookEndpointEntity,
   WEBHOOK_ENDPOINT_ENTITY,
 } from "./entity/webhookEndpointEntity";
@@ -41,6 +47,7 @@ import {
 import { DrizzleTokenStore } from "./src/DrizzleTokenStore";
 import { DrizzleAuditStore } from "./src/DrizzleAuditStore";
 import { DrizzleWebAuthnCredentialStore } from "./src/DrizzleWebAuthnCredentialStore";
+import { DrizzleTotpSecretStore } from "./src/DrizzleTotpSecretStore";
 import { DrizzleWebhookStore } from "./src/DrizzleWebhookStore";
 import { DrizzleIdempotencyStore } from "./src/DrizzleIdempotencyStore";
 
@@ -209,6 +216,23 @@ export function registerDrizzleFrameworkStores(
       registerWebAuthnStore("drizzle", () =>
         DrizzleWebAuthnCredentialStore.from(
           resolveConnectedOrm(`passkeys.store "drizzle"`, dialect),
+        ),
+      );
+    },
+  );
+
+  // ── Secrets TOTP (2FA) — registre @nodefony/security ────────────────────────
+  wire(
+    TOTP_SECRET_ENTITY,
+    SQLITE_ONLY,
+    () => registerTotpSecretEntity(FRAMEWORK_ORM),
+    () => {
+      if (getTotpStoreFactory("drizzle")) {
+        return;
+      }
+      registerTotpStore("drizzle", () =>
+        DrizzleTotpSecretStore.from(
+          resolveConnectedOrm(`totp.store "drizzle"`, dialect),
         ),
       );
     },

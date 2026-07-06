@@ -201,6 +201,17 @@ export {
 export type { WebAuthnCredentialRow } from "./nodefony/entity/webAuthnCredentialEntity";
 export { DrizzleWebAuthnCredentialStore } from "./nodefony/src/DrizzleWebAuthnCredentialStore";
 
+// ─── Store de secrets TOTP Drizzle (ITotpSecretStore, 2FA persistant) ─────────
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `totp.store: "drizzle"`.
+export {
+  totpSecretTable,
+  createTotpSecretEntity,
+  registerTotpSecretEntity,
+  TOTP_SECRET_ENTITY,
+} from "./nodefony/entity/totpSecretEntity";
+export type { TotpSecretRow } from "./nodefony/entity/totpSecretEntity";
+export { DrizzleTotpSecretStore } from "./nodefony/src/DrizzleTotpSecretStore";
+
 // ─── Store d'idempotence Drizzle (IIdempotencyStore au CORE — multi-pod sans Redis) ─
 // AUTO-REGISTER (onKernelRegister) : sélectionnable via `NF_IDEMPOTENCY_STORE=drizzle`
 // — porté sqlite ET postgres (Slice 0). Réservation atomique = INSERT … ON CONFLICT

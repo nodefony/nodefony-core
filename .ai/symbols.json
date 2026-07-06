@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-06T13:24:48.186Z",
+  "generated": "2026-07-06T15:20:18.054Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 996,
-    "symbols": 2457,
-    "classes": 316,
-    "interfaces": 649,
-    "types": 291,
+    "files": 998,
+    "symbols": 2464,
+    "classes": 317,
+    "interfaces": 650,
+    "types": 292,
     "enums": 4,
-    "functions": 661,
-    "constants": 536
+    "functions": 663,
+    "constants": 538
   },
   "symbols": {
     "Cli": {
@@ -5665,6 +5665,47 @@
       "module": "@nodefony/drizzle",
       "description": "Noms logiques des entités du store (clés de lookup `getRepository`)."
     },
+    "TotpSecretRow": {
+      "name": "TotpSecretRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Forme **plate** d'une ligne de secret renvoyée par le repository ORM. Structure identique à `ITotpSecret` (tout `| null` déjà présent côté contrat) → mapping quasi-identité dans `DrizzleTotpSecretS…"
+    },
+    "createTotpSecretEntity": {
+      "name": "createTotpSecretEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit le descripteur d'entité du store de secrets TOTP pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app) : la table est statique mais sa liaison à un ORM dépend de la co…"
+    },
+    "registerTotpSecretEntity": {
+      "name": "registerTotpSecretEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Enregistre l'entité du store de secrets TOTP dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
+    },
+    "totpSecretTable": {
+      "name": "totpSecretTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Table Drizzle du **store de secrets TOTP** `@nodefony/security` (schema-as-code) — implémentation SQL d'`ITotpSecretStore` (2FA). Driver `better-sqlite3` ; Postgres/MySQL par simple changement de d…"
+    },
+    "TOTP_SECRET_ENTITY": {
+      "name": "TOTP_SECRET_ENTITY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
+    },
     "UserRow": {
       "name": "UserRow",
       "kind": "interface",
@@ -5853,6 +5894,19 @@
       ],
       "decorators": [],
       "description": "Store de jetons **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link ITokenStore} au-dessus de trois repositories `@nodefony/orm-core` (`access_token`, `denied_jti`, `subject_revocat…"
+    },
+    "DrizzleTotpSecretStore": {
+      "name": "DrizzleTotpSecretStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "ITotpSecretStore"
+      ],
+      "decorators": [],
+      "description": "Store de secrets TOTP **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link ITotpSecretStore} au-dessus d'un unique repository `@nodefony/orm-core` (`totp_secret`). Comble le gap « 2F…"
     },
     "DrizzleUserRepository": {
       "name": "DrizzleUserRepository",
@@ -17816,6 +17870,10 @@
         "RedisTokenStore",
         "MemoryTokenStore"
       ],
+      "ITotpSecretStore": [
+        "DrizzleTotpSecretStore",
+        "MemoryTotpSecretStore"
+      ],
       "IUserRepository": [
         "DrizzleUserRepository",
         "MongooseUserRepository",
@@ -17975,9 +18033,6 @@
       ],
       "IJwtKeystore": [
         "JwtKeystore"
-      ],
-      "ITotpSecretStore": [
-        "MemoryTotpSecretStore"
       ],
       "IAccessVoter": [
         "RoleVoter",
@@ -18643,6 +18698,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts"
@@ -20167,6 +20223,7 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
@@ -20221,6 +20278,13 @@
         "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
+      "registerTotpStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "getTotpStoreFactory": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
       "registerWebhookStore": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
@@ -20269,6 +20333,13 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts"
       ],
+      "registerTotpSecretEntity": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "TOTP_SECRET_ENTITY": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts"
+      ],
       "registerWebhookEndpointEntity": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
@@ -20300,6 +20371,9 @@
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
       "DrizzleWebAuthnCredentialStore": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "DrizzleTotpSecretStore": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
       "DrizzleWebhookStore": [
@@ -20749,6 +20823,7 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
@@ -21141,6 +21216,7 @@
       ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
@@ -21194,6 +21270,28 @@
       "SubjectRevocationRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
+      ],
+      "ITotpSecret": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "ITotpSecretStore": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
+      ],
+      "TotpSecretUpdate": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
+      ],
+      "TotpSecretRow": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts"
       ],
       "Criteria": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -22228,12 +22326,6 @@
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
-      "ITotpSecret": [
-        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
-      ],
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
@@ -22464,15 +22556,6 @@
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
-      ],
-      "ITotpSecretStore": [
-        "src/packages/@nodefony/security/nodefony/service/totp.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts"
-      ],
-      "getTotpStoreFactory": [
-        "src/packages/@nodefony/security/nodefony/service/totp.ts"
       ],
       "listTotpStores": [
         "src/packages/@nodefony/security/nodefony/service/totp.ts"
@@ -24247,10 +24330,6 @@
       ],
       "TotpStoreSnapshot": [
         "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts"
-      ],
-      "TotpSecretUpdate": [
-        "src/packages/@nodefony/security/nodefony/src/totp/FileTotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
       ],
       "deriveKey": [
         "src/packages/@nodefony/security/nodefony/src/totp/totpCipher.ts",
