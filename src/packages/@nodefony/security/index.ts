@@ -285,6 +285,21 @@ export type {
   ITotpStatus,
   ITotpLoginResult,
 } from "./nodefony/src/totp/totpOperations";
+// Primitives TOTP **pures** (store injecté) — le cœur réutilisé par `TotpService`
+// (coquille) ET par un banc e2e (ex. valider un adapter de store sur le vrai flux
+// 2FA enrôlement→confirmation→login anti-rejeu, sans monter le service).
+export {
+  beginTotpEnrollment,
+  confirmTotpEnrollment,
+  verifyTotpLogin,
+  disableTotp,
+  totpStatus,
+} from "./nodefony/src/totp/totpOperations";
+export type { ITotpDeps } from "./nodefony/src/totp/totpOperations";
+// Primitives cryptographiques RFC 6238 (côté « authenticator » : dériver la clé de
+// chiffrement, décoder le secret base32, calculer le code d'une fenêtre).
+export { totpCode, base32Decode } from "./nodefony/src/totp/totpCrypto";
+export { deriveTotpKey } from "./nodefony/src/totp/totpCipher";
 
 // ─── Webhooks sortants (P6.13) — endpoints chiffrés + store pluggable ────────
 export { MemoryWebhookStore } from "./nodefony/src/webhook/MemoryWebhookStore";
