@@ -248,4 +248,17 @@ export const env = defineEnv({
     description:
       "Clé de chiffrement des secrets de signature webhook (prod requis).",
   }),
+
+  /**
+   * Clé de chiffrement des secrets 2FA/TOTP au repos (AES-256-GCM, ≥ 32 octets
+   * après décodage). PROD : OBLIGATOIRE — absente = 2FA désactivé (un secret
+   * chiffré par une clé éphémère serait illisible après redémarrage / sur les
+   * autres pods). DEV : optionnelle (clé éphémère générée + warning). Même pont
+   * que {@link NF_WEBHOOK_KEY}.
+   */
+  NF_TOTP_KEY: envString({
+    optional: true,
+    description:
+      "Clé de chiffrement des secrets 2FA/TOTP au repos (prod requis, ≥ 32 octets).",
+  }),
 });

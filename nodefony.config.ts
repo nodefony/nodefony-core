@@ -212,6 +212,13 @@ export default defineConfig<Env>((ctx) => ({
           ROLE_DEV: ["ROLE_USER"], // développeur (ORM, modules, routes, doc technique)
           ROLE_SUPERVISOR: ["ROLE_USER"], // exploitant / SRE (supervision, cluster, logs)
         },
+        // 2FA TOTP (P6) — secret 2FA chiffré au repos (AES-256-GCM). Clé prod via
+        // env (absente en prod = 2FA OFF, fail-safe : un secret chiffré par une clé
+        // éphémère serait illisible après redémarrage / sur les autres pods ; dev =
+        // clé éphémère + warning). MÊME pont env que les webhooks.
+        totp: {
+          encryptionKey: ctx.env.NF_TOTP_KEY,
+        },
         // Webhooks sortants (P6.13) — secret de signature chiffré au repos. Clé
         // prod via env (absente en prod = webhooks OFF, fail-safe ; dev = clé
         // éphémère + warning). `enabled`/SSRF/livraison gardent leurs défauts.
