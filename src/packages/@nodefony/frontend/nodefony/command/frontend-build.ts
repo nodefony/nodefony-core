@@ -1,4 +1,6 @@
 import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
+import fs from "node:fs";
+import path from "node:path";
 import type FrontendService from "../service/FrontendService";
 
 const options: OptionsCommandInterface = {
@@ -28,8 +30,7 @@ class FrontendBuild extends Command {
     opts: { force?: boolean } = {},
   ): Promise<this> {
     const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (!svc) {
       this.log(
         "service `frontend` not registered — is @nodefony/frontend loaded?",
@@ -38,29 +39,66 @@ class FrontendBuild extends Command {
       process.exitCode = 1;
       return this;
     }
-    if (svc.listEntries().length === 0) {
+    const entries = svc.listEntries();
+    if (entries.length === 0) {
       this.log("no frontend entries declared", "WARNING");
+      // Sortie UTILISATEUR explicite (console, comme `frontend:status`) : `this.log`
+      // n'atteint pas le terminal en CLI → sans ça la commande semble « ne rien faire ».
+      console.log(
+        "frontend:build — aucun frontend déclaré, rien à construire.",
+      );
       return this;
     }
 
-    this.log(
-      `building ${svc.listEntries().length} entry(ies)${opts.force ? " (--force)" : ""}…`,
-      "INFO",
+    // Date lisible du dernier build d'une entrée = mtime de son manifest Vite.
+    const lastBuilt = (name: string): string => {
+      const e = entries.find((x) => x.entryName === name);
+      if (!e) return "?";
+      try {
+        return fs
+          .statSync(path.join(e.outDir, ".vite", "manifest.json"))
+          .mtime.toLocaleString("fr-FR");
+      } catch {
+        return "jamais";
+      }
+    };
+
+    // Résumé VISIBLE à l'écran (console) — le vrai retour à l'utilisateur. `this.log`
+    // (INFO) part au syslog mais n'apparaît PAS sur stdout en mode CLI → la commande
+    // paraissait « sortir sans info » quand tout était à jour (incrémental silencieux).
+    console.log(
+      `frontend:build — ${entries.length} frontend(s)${opts.force ? " (--force)" : ""}…`,
     );
     try {
       const res = await svc.build({ force: opts.force });
+      if (res.built.length) {
+        console.log(`  ✓ construit(s) : ${res.built.join(", ")}`);
+      }
+      for (const name of res.skipped) {
+        console.log(
+          `  • à jour       : ${name} (dernier build ${lastBuilt(name)}) — rien à faire`,
+        );
+      }
+      for (const f of res.failures) {
+        console.log(`  ✗ ÉCHEC        : ${f.entryName} — ${f.message}`);
+      }
+      if (!res.built.length && !res.failures.length) {
+        console.log(
+          "  → tout est à jour. Rien à reconstruire (--force pour tout refaire).",
+        );
+      }
+      // Trace syslog (audit/observabilité) — doublon volontaire du résumé console.
       this.log(
-        `built: [${res.built.join(", ") || "—"}] | skipped: [${res.skipped.join(", ") || "—"}] | failed: [${res.failures.map((f) => f.entryName).join(", ") || "—"}]`,
+        `built:[${res.built.join(", ") || "—"}] skipped:[${res.skipped.join(", ") || "—"}] failed:[${res.failures.map((f) => f.entryName).join(", ") || "—"}]`,
         res.failures.length ? "ERROR" : "INFO",
       );
-      for (const f of res.failures) {
-        this.log(`  ✗ ${f.entryName}: ${f.message}`, "ERROR");
-      }
       // Pipeline : exit non-zero si un bundle a échoué.
       if (res.failures.length) process.exitCode = 1;
     } catch (e) {
       // Échec global (aucune entrée, import Vite KO, etc.)
-      this.log(e instanceof Error ? e.message : String(e), "ERROR");
+      const msg = e instanceof Error ? e.message : String(e);
+      this.log(msg, "ERROR");
+      console.log(`frontend:build — ÉCHEC : ${msg}`);
       process.exitCode = 1;
     }
     return this;
