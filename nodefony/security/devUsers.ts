@@ -41,22 +41,31 @@ export const ADMIN_IDENTIFIER = "admin";
 export const USER_IDENTIFIER = "user";
 
 /**
- * Comptes pour le dépôt **in-memory** (`NF_USER_STORE=memory`) : hashs bcrypt coût
- * 12 **pré-calculés** de `secret` → zéro hachage au boot (essentiel sous charge) et
- * `needsRehash` faux (aucun re-hash parasite pendant les suites). Le dépôt Drizzle,
- * lui, est seedé en clair par `provisionUsers` (hash Argon2id de l'encodeur courant).
+ * Comptes pour le dépôt **in-memory** (`NF_USER_STORE=memory`) : hashs **Argon2id**
+ * (m=19456, t=3, p=1 = défauts de l'encodeur) **pré-calculés** de `secret` → zéro
+ * hachage au boot (essentiel sous charge) et `needsRehash` faux (aucun re-hash
+ * parasite pendant les suites, coûts ≥ ceux du runtime).
+ *
+ * **Argon2id et pas bcrypt** : bcrypt exige un encodeur legacy déclaré, qui ne vit
+ * que dans le module test (`policy:"dev"`) → en **production** ce module est absent,
+ * donc un hash bcrypt n'était pas vérifiable et le login `admin/secret` échouait en
+ * prod + `NF_STORE=memory` (banc de charge authentifié impossible). Argon2id EST
+ * l'encodeur par défaut (toujours présent, dev ET prod) → les fixtures s'authentifient
+ * partout. Le dépôt Drizzle, lui, reste seedé en clair par `provisionUsers`.
  */
 export const DEV_USERS_INMEMORY: IBaseUserOptions[] = [
   {
     id: "00000000-0000-4000-8000-00000000ad01",
     identifier: ADMIN_IDENTIFIER,
     roles: ADMIN_DEV_ROLES,
-    password: "$2y$12$LClrbAwB2rWklN.9mNaLSe8M3VT6g2HcuCSBkpdJAg/bgw8N66ktG",
+    password:
+      "$argon2id$v=19$m=19456,t=3,p=1$Y4FuXRa3p4ilDrYLHq6pLw$xg8CN+QS+I0dV0FB4DCVkW3FbgMVwd52kyTm5dbn/bY",
   },
   {
     id: "00000000-0000-4000-8000-0000000005e1",
     identifier: USER_IDENTIFIER,
     roles: USER_ROLES,
-    password: "$2y$12$SUihCkfVHcpC5EdUgTE/fOk0btOqY3RaUJutRyTkKepvUlxLVqO1u",
+    password:
+      "$argon2id$v=19$m=19456,t=3,p=1$/nK+Rhq5BdmWJJhL5zYcLg$Jr5J8Cp7Trxrnr70xH4Elt/P/Ipyr4Fq/NE6vSwDdSc",
   },
 ];
