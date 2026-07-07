@@ -21,6 +21,7 @@
   ],
   "repository": {},
   "peerDependencies": {
+    "@nodefony/drizzle": "*",
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
     "@nodefony/realtime": "*",
@@ -28,6 +29,7 @@
     "nodefony": "*"
   },
   "devDependencies": {
+    "@nodefony/drizzle": "*",
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
     "@nodefony/realtime": "*",

@@ -30,6 +30,9 @@ const external: string[] = [
   // distincts → `getTableConfig()` de l'adapter Drizzle ne lirait pas la table
   // (dual-package hazard). Externalisé : Node résout l'unique copie de node_modules.
   "drizzle-orm",
+  // Même raison (adapter partagé + better-sqlite3 natif jamais bundlé) : le
+  // connecteur dédié de la fixture Dolibarr importe DrizzleOrm (cf mediasoup).
+  "@nodefony/drizzle",
   "@nodefony/security",
   "@nodefony/framework",
   // Obligatoire (même raison que orm-core) : `RealtimeHub` est un singleton

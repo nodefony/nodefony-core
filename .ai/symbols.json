@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-07T23:18:47.922Z",
+  "generated": "2026-07-07T23:42:44.548Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -18844,6 +18844,7 @@
       ],
       "DrizzleOrm": [
         "src/modules/mediasoup/index.ts",
+        "src/modules/test/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",

@@ -48,11 +48,17 @@ import { controllers } from "@nodefony/framework";
 // dispatch d'une commande de module (namespace `test:<action>`).
 import BatchTestCommand from "./nodefony/command/BatchTestCommand";
 import DaemonTestCommand from "./nodefony/command/DaemonTestCommand";
-// Fixture "gros schéma" Dolibarr (410 tables, GPLv3, .gitignore) sur l'ORM Drizzle
-// par défaut — register au top-level AVANT le onBoot du DrizzleService (qui crée les
-// tables via CREATE TABLE IF NOT EXISTS depuis l'entityRegistry).
+// Fixture "gros schéma" Dolibarr (410 tables, GPLv3, .gitignore) — tables
+// sqliteTable FIGÉES → JAMAIS sur le connecteur `default` (qui suit l'infra
+// déclarée NF_DATABASE_URL : en postgres/mysql, le garde multi-dialecte
+// refuserait les 410 entités et l'ORM entier tomberait — vécu). La fixture vit
+// sur son PROPRE connecteur sqlite `dolibarr` (pattern du banc mediasoup),
+// ouvert au boot du module (cf onKernelBoot).
 import { registerDolibarrEntities } from "./nodefony/entity/dolibarr";
-registerDolibarrEntities("default");
+import { DrizzleOrm } from "@nodefony/drizzle";
+
+/** Nom du connecteur Drizzle dédié à la fixture Dolibarr (clé `ormRegistry`). */
+const DOLIBARR_ORM = "dolibarr";
 
 @services([])
 @controllers([
@@ -89,6 +95,9 @@ registerDolibarrEntities("default");
   PocBookResourceController,
 ])
 class Test extends Module {
+  /** Connecteur Drizzle dédié à la fixture Dolibarr, fermé à `onTerminate`. */
+  #dolibarrOrm: DrizzleOrm | null = null;
+
   constructor(kernel: Kernel) {
     super("test", kernel, import.meta.url, config);
     // Enregistre les commandes de module dans commander DÈS la construction du module
@@ -104,11 +113,25 @@ class Test extends Module {
   // `POST /nodefony/test/api/idem-probe` est montée (+ transport WEBSOCKET).
   override async onKernelBoot(): Promise<this> {
     const broker = this.kernel?.container?.get("adminBroker") as
-      | IAdminRegistry
-      | undefined;
+      IAdminRegistry | undefined;
     if (broker && !broker.has("test")) {
       broker.register(createTestAdminApi());
     }
+    // Fixture Dolibarr sur son connecteur sqlite DÉDIÉ (`:memory:`) — entités
+    // AVANT connect (le connect crée les 410 tables + résout les relations).
+    // Indépendant du dialecte de l'infra déclarée → ERD distinct dans Studio.
+    registerDolibarrEntities(DOLIBARR_ORM);
+    const orm = new DrizzleOrm(DOLIBARR_ORM, { filename: ":memory:" });
+    await orm.connect();
+    this.#dolibarrOrm = orm;
+    this.log(
+      `Drizzle ORM "${DOLIBARR_ORM}" connecté (fixture Dolibarr 410 tables, :memory:)`,
+      "INFO",
+    );
+    this.kernel?.once("onTerminate", async () => {
+      await this.#dolibarrOrm?.disconnect().catch(() => undefined);
+      this.#dolibarrOrm = null;
+    });
     return this;
   }
 
