@@ -30,9 +30,10 @@ import type { DrizzleDb } from "./orm-core/DrizzleRepository";
  */
 
 /**
- * Vue structurelle de l'exécuteur node-postgres de Drizzle — le handle PG est
- * stocké derrière le type `DrizzleDb` (typé SQLite, dette assumée S1→S3) ; on
- * ne re-type que la surface utilisée ici.
+ * Vue structurelle de l'exécuteur node-postgres de Drizzle — le handle PG vit
+ * derrière `DrizzleDb` (vue d'exécution CANONIQUE typée sqlite, cf sa doc) ;
+ * la surface native qui DIVERGE (`execute().rows` vs `all()`) est re-typée ici,
+ * au seul endroit qui l'exécute.
  */
 interface PgExecutor {
   execute(query: SQL): Promise<{ rows: Array<Record<string, unknown>> }>;

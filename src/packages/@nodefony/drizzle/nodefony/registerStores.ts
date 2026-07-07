@@ -85,13 +85,14 @@ import { DrizzleIdempotencyStore } from "./src/DrizzleIdempotencyStore";
 export const FRAMEWORK_ORM = "default";
 
 /** Portage par entité (chantier multi-dialecte — Ph.2.1 allume les cases). */
-const SQLITE_ONLY: readonly SqlDialect[] = ["sqlite"];
 const IDEMPOTENCY_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
 const SESSION_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
 const TOKEN_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
 const WEBAUTHN_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
 const TOTP_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
 const USER_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
+const AUDIT_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
+const WEBHOOK_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
 
 /** Bilan de l'auto-enregistrement (loggé par le module — jamais silencieux). */
 export interface IFrameworkStoresReport {
@@ -231,8 +232,8 @@ export function registerDrizzleFrameworkStores(
   // ── Journal d'audit — registre @nodefony/security ───────────────────────────
   wire(
     AUDIT_ENTITY_NAMES.events,
-    SQLITE_ONLY,
-    () => registerAuditEntities(FRAMEWORK_ORM),
+    AUDIT_PORTED,
+    () => registerAuditEntities(FRAMEWORK_ORM, dialect),
     () => {
       if (getAuditStoreFactory("drizzle")) {
         return;
@@ -286,8 +287,8 @@ export function registerDrizzleFrameworkStores(
   // ── Endpoints webhook — registre @nodefony/security ─────────────────────────
   wire(
     WEBHOOK_ENDPOINT_ENTITY,
-    SQLITE_ONLY,
-    () => registerWebhookEndpointEntity(FRAMEWORK_ORM),
+    WEBHOOK_PORTED,
+    () => registerWebhookEndpointEntity(FRAMEWORK_ORM, dialect),
     () => {
       if (getWebhookStoreFactory("drizzle")) {
         return;

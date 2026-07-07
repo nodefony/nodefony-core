@@ -1,4 +1,5 @@
 import { and, count, desc, eq, gte, lt, lte, or } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 // `import type` du contrat (via `@nodefony/security`) → effacé à la compilation :
 // 0 dépendance runtime de l'ORM vers la couche sécurité (approche B). L'application
 // câble le store (`registerAuditStore("drizzle", …)`) + l'entité
@@ -9,15 +10,17 @@ import type {
   IAuditQueryResult,
   IAuditStore,
 } from "@nodefony/security";
-import type { DrizzleDb } from "./orm-core/DrizzleRepository";
+import {
+  execTable,
+  type DrizzleDb,
+  type DrizzleTable,
+} from "./orm-core/DrizzleRepository";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
 import {
   auditEventTable,
+  createAuditEventTable,
   type AuditEventRow,
 } from "../entity/auditEventEntity";
-
-/** Table du journal telle que consommée par le store (variante SQLite par défaut). */
-type AuditEventTable = typeof auditEventTable;
 
 /** Rétention par défaut d'un événement : 365 jours (aligné `MemoryAuditStore`). */
 const DEFAULT_RETENTION_MS = 365 * 24 * 3_600_000;
@@ -56,7 +59,10 @@ const MAX_LIMIT = 500;
  */
 export class DrizzleAuditStore implements IAuditStore {
   readonly #resolveDb: () => DrizzleDb | null;
-  readonly #table: AuditEventTable;
+  readonly #table: DrizzleTable;
+  /** Colonnes par nom logique, vue canonique (les specs colKit partagent les
+   *  NOMS entre dialectes → le query builder reste dialecte-agnostique). */
+  readonly #c: Record<string, SQLiteColumn>;
   readonly #now: () => number;
   readonly #retentionMs: number;
   readonly #location: string | undefined;
@@ -74,11 +80,13 @@ export class DrizzleAuditStore implements IAuditStore {
     resolveDb: () => DrizzleDb | null,
     now: () => number = Date.now,
     retentionMs: number = DEFAULT_RETENTION_MS,
-    table: AuditEventTable = auditEventTable,
+    table: DrizzleTable = auditEventTable,
     location?: string,
   ) {
     this.#resolveDb = resolveDb;
     this.#table = table;
+    // Accès colonne par nom logique (gotcha module : vue Record de la table).
+    this.#c = execTable(table) as unknown as Record<string, SQLiteColumn>;
     this.#now = now;
     this.#retentionMs = retentionMs;
     this.#location = location;
@@ -96,7 +104,8 @@ export class DrizzleAuditStore implements IAuditStore {
    * Construit le store depuis un {@link DrizzleOrm}. Le handle est résolu **lazy**
    * (gardé par `isConnected()` → `null` tant que l'ORM n'est pas/plus connecté).
    * L'entité (`registerAuditEntities`) doit avoir été enregistrée **avant**
-   * `orm.connect()` (la table est créée au connect).
+   * `orm.connect()` (la table est créée au connect) — sur la **variante de table
+   * du dialecte de l'ORM** (S3 multi-dialecte).
    *
    * @param orm - ORM Drizzle hébergeant la table `audit_event`.
    * @param now - horloge injectable (tests).
@@ -111,7 +120,7 @@ export class DrizzleAuditStore implements IAuditStore {
       () => (orm.isConnected() ? orm.getNativeConnection<DrizzleDb>() : null),
       now,
       retentionMs,
-      auditEventTable,
+      createAuditEventTable(orm.dialect),
       orm.location,
     );
   }
@@ -122,7 +131,7 @@ export class DrizzleAuditStore implements IAuditStore {
       return; // ORM non connecté (boot/shutdown) → best-effort no-op.
     }
     // INSERT immuable : les champs optionnels d'IAuditEvent tombent sur NULL en SQL.
-    await db.insert(this.#table).values({
+    await db.insert(execTable(this.#table)).values({
       id: event.id,
       ts: event.ts,
       category: event.category,
@@ -144,7 +153,8 @@ export class DrizzleAuditStore implements IAuditStore {
     if (!db) {
       return { events: [], nextBefore: null, total: 0 };
     }
-    const table = this.#table;
+    const table = execTable(this.#table);
+    const c = this.#c;
     const limit = Math.min(
       Math.max(1, filter.limit ?? DEFAULT_LIMIT),
       MAX_LIMIT,
@@ -162,15 +172,15 @@ export class DrizzleAuditStore implements IAuditStore {
     let where = filterWhere;
     if (filter.before !== undefined) {
       const curRows = (await db
-        .select({ ts: table.ts, id: table.id })
+        .select({ ts: c.ts, id: c.id })
         .from(table)
-        .where(eq(table.id, filter.before))
+        .where(eq(c.id, filter.before))
         .limit(1)) as Array<{ ts: number; id: string }>;
       const cur = curRows[0];
       if (cur) {
         const cursorCond = or(
-          lt(table.ts, cur.ts),
-          and(eq(table.ts, cur.ts), lt(table.id, cur.id)),
+          lt(c.ts, cur.ts),
+          and(eq(c.ts, cur.ts), lt(c.id, cur.id)),
         );
         where = filterWhere ? and(filterWhere, cursorCond) : cursorCond;
       }
@@ -182,7 +192,7 @@ export class DrizzleAuditStore implements IAuditStore {
       .select()
       .from(table)
       .where(where)
-      .orderBy(desc(table.ts), desc(table.id))
+      .orderBy(desc(c.ts), desc(c.id))
       .limit(limit + 1)) as AuditEventRow[];
 
     const hasMore = rows.length > limit;
@@ -198,36 +208,40 @@ export class DrizzleAuditStore implements IAuditStore {
       return 0; // ORM non connecté → rien à purger.
     }
     const threshold = now - this.#retentionMs;
+    // Compteur normalisé par driver (better-sqlite3 `changes` / pg `rowCount`).
     const result = (await db
-      .delete(this.#table)
-      .where(lt(this.#table.ts, threshold))) as { changes?: number };
-    return result.changes ?? 0;
+      .delete(execTable(this.#table))
+      .where(lt(this.#c.ts, threshold))) as {
+      changes?: number;
+      rowCount?: number | null;
+    };
+    return result.changes ?? result.rowCount ?? 0;
   }
 
   /** Compose la clause `WHERE` des filtres AND ; `undefined` si aucun (= tout). */
   #buildFilter(filter: IAuditQuery) {
-    const table = this.#table;
+    const c = this.#c;
     const clauses = [];
     if (filter.category !== undefined) {
-      clauses.push(eq(table.category, filter.category));
+      clauses.push(eq(c.category, filter.category));
     }
     if (filter.outcome !== undefined) {
-      clauses.push(eq(table.outcome, filter.outcome));
+      clauses.push(eq(c.outcome, filter.outcome));
     }
     if (filter.actor !== undefined) {
-      clauses.push(eq(table.actor, filter.actor));
+      clauses.push(eq(c.actor, filter.actor));
     }
     if (filter.action !== undefined) {
-      clauses.push(eq(table.action, filter.action));
+      clauses.push(eq(c.action, filter.action));
     }
     if (filter.requestId !== undefined) {
-      clauses.push(eq(table.requestId, filter.requestId));
+      clauses.push(eq(c.requestId, filter.requestId));
     }
     if (filter.since !== undefined) {
-      clauses.push(gte(table.ts, filter.since));
+      clauses.push(gte(c.ts, filter.since));
     }
     if (filter.until !== undefined) {
-      clauses.push(lte(table.ts, filter.until));
+      clauses.push(lte(c.ts, filter.until));
     }
     return clauses.length > 0 ? and(...clauses) : undefined;
   }

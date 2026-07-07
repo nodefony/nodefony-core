@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-06T23:44:25.674Z",
+  "generated": "2026-07-07T22:02:08.098Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 998,
-    "symbols": 2486,
+    "symbols": 2490,
     "classes": 313,
     "interfaces": 656,
-    "types": 293,
+    "types": 294,
     "enums": 4,
-    "functions": 674,
-    "constants": 546
+    "functions": 675,
+    "constants": 548
   },
   "symbols": {
     "Cli": {
@@ -5486,7 +5486,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit les descripteurs d'entités du journal d'audit pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM d…"
+      "description": "Construit les descripteurs d'entités du journal d'audit pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connec…"
     },
     "registerAuditEntities": {
       "name": "registerAuditEntities",
@@ -5496,13 +5496,21 @@
       "module": "@nodefony/drizzle",
       "description": "Enregistre les entités du journal d'audit dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée les tables au connect)."
     },
+    "createAuditEventTable": {
+      "name": "createAuditEventTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la table du journal (mémoïsée — une instance par dialecte)."
+    },
     "auditEventTable": {
       "name": "auditEventTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Table Drizzle du **journal d'audit** `@nodefony/security` (schema-as-code) — implémentation SQL d'`IAuditStore` (append-only, tamper-evident). Driver `better-sqlite3` ; Postgres/MySQL par simple ch…"
+      "description": "Variante SQLite de la table (dialecte par défaut) — export conservé pour l'usage direct/banc-test."
     },
     "AUDIT_ENTITY_NAMES": {
       "name": "AUDIT_ENTITY_NAMES",
@@ -5919,7 +5927,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité du store webhook pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM dépend…"
+      "description": "Construit le descripteur d'entité du store webhook pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connecteur …"
     },
     "registerWebhookEndpointEntity": {
       "name": "registerWebhookEndpointEntity",
@@ -5929,13 +5937,21 @@
       "module": "@nodefony/drizzle",
       "description": "Enregistre l'entité du store webhook dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
     },
+    "createWebhookEndpointTable": {
+      "name": "createWebhookEndpointTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la table des endpoints (mémoïsée — une instance par dialecte)."
+    },
     "webhookEndpointTable": {
       "name": "webhookEndpointTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Table Drizzle du **store d'endpoints webhook** `@nodefony/security` (P6.13, schema-as-code) — implémentation SQL d'`IWebhookStore` (registre durable des destinations notifiées). Driver `better-sqli…"
+      "description": "Variante SQLite de la table (dialecte par défaut) — export conservé pour l'usage direct/banc-test."
     },
     "WEBHOOK_ENDPOINT_ENTITY": {
       "name": "WEBHOOK_ENDPOINT_ENTITY",
@@ -14470,7 +14486,31 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Handle Drizzle (instance racine ou transaction) — schéma résolu côté adapter."
+      "description": "Handle Drizzle (instance racine ou transaction) — schéma résolu côté adapter. Typage = **vue d'exécution CANONIQUE** (surface better-sqlite3) quel que soit le dialecte : `NodePgDatabase` expose la …"
+    },
+    "DrizzleTable": {
+      "name": "DrizzleTable",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Table Drizzle multi-dialecte (l'union honnête des variantes colKit)."
+    },
+    "DrizzleColumn": {
+      "name": "DrizzleColumn",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Colonne Drizzle dialecte-agnostique (classe de base — acceptée par les opérateurs `eq`/`lt`/`asc`… et les fragments `sql`)."
+    },
+    "execTable": {
+      "name": "execTable",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Vue d'exécution canonique (typage sqlite) d'une table multi-dialecte — **LE point unique** de conversion vers les builders (cf {@link DrizzleDb} : la surface builder est structurellement identique …"
     },
     "DrizzleTransaction": {
       "name": "DrizzleTransaction",
@@ -20435,6 +20475,7 @@
       ],
       "SqlDialect": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
@@ -20442,9 +20483,11 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
       ],
       "registerTokenEntities": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
@@ -21271,6 +21314,24 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/readAuditContext.ts"
       ],
+      "createFrameworkTableFactory": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts"
+      ],
+      "IFrameworkTableSpec": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts"
+      ],
       "IdempotentResponse": [
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
@@ -21278,20 +21339,6 @@
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
-      ],
-      "createFrameworkTableFactory": [
-        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts"
-      ],
-      "IFrameworkTableSpec": [
-        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts"
       ],
       "ISocialProvider": [
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
@@ -21343,7 +21390,17 @@
         "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
+      "execTable": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
+      ],
+      "DrizzleTable": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
       "auditEventTable": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
+      ],
+      "createAuditEventTable": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
       ],
       "AuditEventRow": [

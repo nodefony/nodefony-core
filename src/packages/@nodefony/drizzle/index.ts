@@ -199,6 +199,7 @@ export { DrizzleTokenStore } from "./nodefony/src/DrizzleTokenStore";
 // Append-only + pagination curseur exacte (ts, id), query builder dialect-agnostique.
 export {
   auditEventTable,
+  createAuditEventTable,
   createAuditEntities,
   registerAuditEntities,
   AUDIT_ENTITY_NAMES,
@@ -250,6 +251,7 @@ export type { SqlDialect } from "./nodefony/config/config";
 // Registre DURABLE des endpoints (survit au redémarrage, ≠ MemoryWebhookStore).
 export {
   webhookEndpointTable,
+  createWebhookEndpointTable,
   createWebhookEndpointEntity,
   registerWebhookEndpointEntity,
   WEBHOOK_ENDPOINT_ENTITY,

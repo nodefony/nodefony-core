@@ -24,9 +24,9 @@ import {
  * process, comme un boot réel. AUCUNE connexion PG requise ici (pur registre) —
  * la preuve runtime PG vit dans les e2e `*-postgres.e2e.test.ts`.
  *
- * Contrat de portage S2 : session (S1), User + access_token +
- * webauthn_credential + totp_secret (S2), idempotency_key (Slice 0) portés ;
- * audit_event + webhook_endpoint restent sqlite-only jusqu'à S3.
+ * Contrat de portage : session (S1), User + access_token + webauthn_credential
+ * + totp_secret (S2), audit_event + webhook_endpoint (S3), idempotency_key
+ * (Slice 0) — les 8 briques framework portées sqlite+postgres.
  */
 
 const nullContainer = { get: () => null } as unknown as Container;
@@ -35,32 +35,29 @@ const minimalConfig = {
 } as unknown as ISecurityConfig;
 
 describe("registerDrizzleFrameworkStores — auto-register postgres (S2)", () => {
-  it("report : les 6 briques portées registered, audit+webhook annoncés unported", () => {
+  it("report : les 8 briques framework registered, plus AUCUNE unported", () => {
     const report = registerDrizzleFrameworkStores("postgres");
     assert.deepStrictEqual(report.registered, [
       "session",
       "User",
       "access_token",
+      "audit_event",
       "webauthn_credential",
       "totp_secret",
+      "webhook_endpoint",
       "idempotency_key",
     ]);
     assert.strictEqual(report.appOwned.length, 0);
-    assert.deepStrictEqual(
-      [...report.unported].sort(),
-      ["audit_event", "webhook_endpoint"].sort(),
-    );
+    assert.deepStrictEqual([...report.unported], []);
   });
 
-  it("les registres reflètent le RÉEL : fabriques présentes pour le porté, absentes pour le reste", () => {
+  it("les registres reflètent le RÉEL : fabriques présentes pour les 8 briques portées", () => {
     assert.ok(listTokenStores().includes("drizzle"));
     assert.ok(listWebAuthnStores().includes("drizzle"));
     assert.ok(listTotpStores().includes("drizzle"));
     assert.ok(listIdempotencyStores().includes("drizzle"));
-    // Non portés sur PG : les sélectionner doit échouer franc au boot — jamais
-    // de fabrique fantôme qui casserait en SQL différé.
-    assert.ok(!listAuditStores().includes("drizzle"));
-    assert.ok(!listWebhookStores().includes("drizzle"));
+    assert.ok(listAuditStores().includes("drizzle"));
+    assert.ok(listWebhookStores().includes("drizzle"));
   });
 
   it("fail-loud : la fabrique déclarée pour postgres REFUSE un ORM connecté d'un autre dialecte", async () => {
@@ -76,8 +73,10 @@ describe("registerDrizzleFrameworkStores — auto-register postgres (S2)", () =>
       "access_token",
       "denied_jti",
       "subject_revocation",
+      "audit_event",
       "webauthn_credential",
       "totp_secret",
+      "webhook_endpoint",
       "idempotency_key",
     ]) {
       entityRegistry.unregister(name, FRAMEWORK_ORM);

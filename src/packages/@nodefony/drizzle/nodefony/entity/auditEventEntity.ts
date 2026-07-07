@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 // `import type` UNIQUEMENT → effacé à la compilation (approche B : 0 dépendance
@@ -8,62 +8,74 @@ import type {
   AuditOutcome,
   IAuditEventFlags,
 } from "@nodefony/security";
+import type { SqlDialect } from "../interfaces/IDrizzleConfig";
+import {
+  createFrameworkTableFactory,
+  type IFrameworkTableSpec,
+} from "./colKit";
 
 /**
- * Table Drizzle du **journal d'audit** `@nodefony/security` (schema-as-code) —
- * implémentation SQL d'`IAuditStore` (append-only, tamper-evident). Driver
- * `better-sqlite3` ; Postgres/MySQL par simple changement de driver (le store
- * n'utilise que des colonnes portables + le query builder dialect-agnostique).
+ * Entité du **journal d'audit** `@nodefony/security` (schema-as-code) —
+ * implémentation SQL d'`IAuditStore` (append-only, tamper-evident), déclinée
+ * via le `colKit` (S3 multi-dialecte) : une spec logique, la variante de table
+ * du dialecte du connecteur.
  *
- * **Liaison ORM dynamique** (pattern `tokenEntity`, pas `@entity` figé) : en
- * approche B, c'est l'**application** qui câble le store (`registerAuditStore`) ET
- * le connecteur cible (`registerAuditEntities(orm)`) — le module drizzle
- * n'auto-enregistre rien. La table est statique, sa liaison dépend de la config.
+ * ⚠️ **Horodatage en epoch ms (kind `epochMs`, exposé `number`)** :
+ * `IAuditEvent.ts` porte un `number` (`Date.now()`), pas une `Date`.
+ * `AuditEventRow` (forme repository) est **identique** à `IAuditEvent` (champs
+ * optionnels ⇒ colonnes NULLABLE) → zéro mapping surprise store ↔ entité. Les
+ * unions du contrat (`category`/`outcome`) vivent sur le type `Row` (frontière
+ * typée), plus sur les colonnes — décision S1 : les types publics des entités
+ * framework sont leurs interfaces `Row`, pas l'inférence Drizzle.
  *
- * ⚠️ **Horodatage en epoch ms (`integer` mode number)** : `IAuditEvent.ts` porte
- * un `number` (`Date.now()`), pas une `Date`. `AuditEventRow` (forme repository)
- * est **identique** à `IAuditEvent` (champs optionnels ⇒ colonnes NULLABLE) → zéro
- * mapping surprise store ↔ entité.
- *
- * ⚠️ **Pas de `.default()` SQL** : le DDL dérivé (`getTableConfig`) n'émet ni
- * `DEFAULT` ni index séparés. Les `index()` ci-dessous sont lus par `drizzle-kit`
+ * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le DDL dérivé n'émet ni
+ * `DEFAULT` ni index séparés. Les index déclarés sont lus par `drizzle-kit`
  * (migrations prod) et sans effet sur le DDL dev/test (perf de filtrage seule,
  * jamais de sémantique) — ils couvrent les axes de la console d'audit (`ts` pour
  * la pagination chronologique, `category`/`actor`/`requestId` pour les filtres).
  */
-export const auditEventTable = sqliteTable(
-  "audit_event",
-  {
-    // ── Identité + horodatage (posés par l'AuditService) ──────────────────────
-    id: text("id").primaryKey(),
-    ts: integer("ts").notNull(),
+const AUDIT_EVENT_TABLE_SPEC = {
+  name: "audit_event",
+  columns: {
+    // ── Identité + horodatage (posés par l'AuditService) ────────────────────
+    id: { kind: "text", primaryKey: true },
+    ts: { kind: "epochMs", notNull: true },
 
-    // ── Classification ────────────────────────────────────────────────────────
-    category: text("category").$type<AuditCategory>().notNull(),
-    action: text("action").notNull(),
-    outcome: text("outcome").$type<AuditOutcome>().notNull(),
+    // ── Classification ──────────────────────────────────────────────────────
+    category: { kind: "text", notNull: true },
+    action: { kind: "text", notNull: true },
+    outcome: { kind: "text", notNull: true },
 
-    // ── Contexte (tous NULLABLE — libellés d'identité, jamais un secret) ──────
-    actor: text("actor"),
-    resource: text("resource"),
-    reason: text("reason"),
-    ip: text("ip"),
-    userAgent: text("userAgent"),
-    requestId: text("requestId"),
+    // ── Contexte (tous NULLABLE — libellés d'identité, jamais un secret) ────
+    actor: { kind: "text" },
+    resource: { kind: "text" },
+    reason: { kind: "text" },
+    ip: { kind: "text" },
+    userAgent: { kind: "text" },
+    requestId: { kind: "text" },
 
-    // ── Présence de matériel sensible + extras (JSON, jamais la valeur) ───────
-    flags: text("flags", { mode: "json" }).$type<IAuditEventFlags>(),
-    metadata: text("metadata", { mode: "json" }).$type<
-      Record<string, unknown>
-    >(),
+    // ── Présence de matériel sensible + extras (JSON, jamais la valeur) ─────
+    flags: { kind: "json" },
+    metadata: { kind: "json" },
   },
-  (t) => ({
-    tsIdx: index("audit_event_ts_idx").on(t.ts),
-    categoryIdx: index("audit_event_category_idx").on(t.category),
-    actorIdx: index("audit_event_actor_idx").on(t.actor),
-    requestIdIdx: index("audit_event_requestId_idx").on(t.requestId),
-  }),
+  indexes: [
+    { name: "audit_event_ts_idx", on: ["ts"] },
+    { name: "audit_event_category_idx", on: ["category"] },
+    { name: "audit_event_actor_idx", on: ["actor"] },
+    { name: "audit_event_requestId_idx", on: ["requestId"] },
+  ],
+} satisfies IFrameworkTableSpec;
+
+/** Factory de la table du journal (mémoïsée — une instance par dialecte). */
+export const createAuditEventTable = createFrameworkTableFactory(
+  AUDIT_EVENT_TABLE_SPEC,
 );
+
+/**
+ * Variante SQLite de la table (dialecte par défaut) — export conservé pour
+ * l'usage direct/banc-test.
+ */
+export const auditEventTable: SQLiteTable = createAuditEventTable("sqlite");
 
 /**
  * Forme plate d'une ligne du journal d'audit. Miroir d'`IAuditEvent` avec les
@@ -94,15 +106,19 @@ export const AUDIT_ENTITY_NAMES = {
 /**
  * Construit les descripteurs d'entités du journal d'audit pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) : la
- * table est statique mais sa liaison à un ORM dépend de la config → on ne peut pas
- * la figer via `@entity`. À enregistrer dans `entityRegistry` **avant**
- * `orm.connect()` (cf {@link registerAuditEntities}).
+ * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
+ * variante de table suit le dialecte du connecteur (auto-register
+ * `registerStores.ts` à `onKernelRegister`). À enregistrer dans `entityRegistry`
+ * **avant** `orm.connect()` (cf {@link registerAuditEntities}).
  *
  * @param orm - clé de l'ORM cible dans le `ormRegistry`.
+ * @param dialect - dialecte SQL du connecteur (sélectionne la variante de table).
  * @returns le descripteur {@link IEntity} du journal d'audit.
  */
-export function createAuditEntities(orm: string): IEntity[] {
+export function createAuditEntities(
+  orm: string,
+  dialect: SqlDialect = "sqlite",
+): IEntity[] {
   // `module: "security"` → la table est regroupée sous @nodefony/security dans
   // l'ERD Studio (l'audit est une feature security, hébergée par l'ORM).
   return [
@@ -110,7 +126,7 @@ export function createAuditEntities(orm: string): IEntity[] {
       orm,
       name: AUDIT_ENTITY_NAMES.events,
       module: "security",
-      schema: auditEventTable,
+      schema: createAuditEventTable(dialect),
     },
   ];
 }
@@ -120,9 +136,13 @@ export function createAuditEntities(orm: string): IEntity[] {
  * donné. À appeler **avant** `orm.connect()` (l'adapter crée les tables au connect).
  *
  * @param orm - clé de l'ORM cible.
+ * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
-export function registerAuditEntities(orm: string): void {
-  for (const entity of createAuditEntities(orm)) {
+export function registerAuditEntities(
+  orm: string,
+  dialect: SqlDialect = "sqlite",
+): void {
+  for (const entity of createAuditEntities(orm, dialect)) {
     entityRegistry.register(entity);
   }
 }

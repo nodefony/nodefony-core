@@ -167,7 +167,8 @@ journal de sécurité **append-only** durable + partageable multi-pod, là où `
   fail-soft (append no-op best-effort, query page vide, gc 0). `DrizzleAuditStore.from(orm, now?, retentionMs?)`.
 - **Sélection** : `security.audit.store` (défaut `memory`) résolu par `auditStoreRegistry`
   (`@nodefony/security`). Preuve : `tests/integration/audit-store.test.ts` (**7/7** SQLite — append/query
-  filtres/pagination curseur/collision ms/gc/dégradation).
+  filtres/pagination curseur/collision ms/gc/dégradation) + `audit-store-postgres.e2e.test.ts`
+  (**4/4** PG réel — jsonb/bigint, curseur composite, gc `rowCount`).
 
 **Câblage — AUTO-REGISTER par le module** (`nodefony/registerStores.ts`, appelé par
 `Drizzle.onKernelRegister`) : entité + fabrique (registre `@nodefony/security`) déclarées
@@ -175,8 +176,9 @@ automatiquement. **Activation = `use("@nodefony/security", { audit: { store: "dr
 RIEN d'autre à écrire.** Rétention lue de `config.audit.retentionDays`. Guards : l'app garde la
 main ; opt-out `frameworkEntities: false`.
 
-> **Multi-dialecte** : entité `sqliteTable` pour l'instant (le query builder porte tel quel en pg/mysql) ;
-> la variante `createAuditEntities(orm, dialect)` viendra avec le slice multi-dialecte (cf ci-dessous).
+> **Multi-dialecte** : entité en spec colKit (`createAuditEventTable(dialect)`,
+> `createAuditEntities(orm, dialect)`) ; le store référence les colonnes via une vue par nom logique
+> (`#c`) et exécute via `execTable` — `gc` normalise `changes ?? rowCount` (pg).
 
 ## Portabilité multi-dialecte (chantier — Slice 0 ✅ 2026-06-26)
 
@@ -220,26 +222,32 @@ main ; opt-out `frameworkEntities: false`.
   `pk IN (SELECT pk FROM (SELECT pk … LIMIT 1) AS picked)` (table dérivée = requise par MySQL —
   LIMIT-in-IN interdit + ERROR 1093 ; PK composite = row-values). `rowid` = **fallback seulement**
   (table sans PK, sqlite-only assumé). Compteurs normalisés `#affected` (`changes` better-sqlite3 /
-  `rowCount` pg). ⚠️ Resté dialecte dans le repo (à router au portage typé) : `limit(-1)` du hack
-  OFFSET-sans-LIMIT (sqlite-only — PG rejette `LIMIT -1`) ; `onConflictDoUpdate` (upsert) =
-  sqlite/pg, mysql = `onDuplicateKeyUpdate` ; `returning()` absent de mysql (verbes `*One`).
+  `rowCount` pg). Le repo porte son **`#dialect`** (5ᵉ arg ctor, propagé `withTransaction`) →
+  hack OFFSET-sans-LIMIT **routé** : sqlite = `limit(-1)`, PG = rien (OFFSET seul valide — PG
+  rejette `LIMIT -1`). ⚠️ Resté dialecte (S4 mysql) : `onConflictDoUpdate` (upsert) =
+  sqlite/pg, mysql = `onDuplicateKeyUpdate` ; `returning()` absent de mysql (verbes `*One`) ;
+  offset-sans-limit mysql = sentinel 2^64-1.
 - **Factory d'entité legacy** (`createIdempotencyTable`) : switch explicite 2 tables — antérieure au
   colKit, à migrer opportunément. Les nouvelles déclinaisons = colKit direct (réf : `sessionEntity`).
 - **Drivers** : `pg` `optionalDependencies` (+ `@types/pg` dev) ; `mysql2` suivra. `better-sqlite3`
   reste `dependencies` (défaut bootable).
 
-**Dette assumée** (typage cross-dialecte Drizzle = pénible) : `#tables`/`#db` typés SQLite ;
-en postgres les `PgTable`/`NodePgDatabase` y sont stockés via cast (runtime correct, API commune —
-**prouvé** : le `DrizzleRepository` générique complet tourne sur PG, e2e session). Le typage
-`getRepository` postgres viendra avec le portage typé du `DrizzleRepository` (lot S3).
+**Typage cross-dialecte (modèle)** : les **frontières disent la vérité** —
+`DrizzleTable = SQLiteTable | PgTable` (union : `DrizzleOrm.#tables`, ctor du repo,
+`DrizzleResolvedRelation.targetTable`) et `DrizzleColumn = Column` (base, acceptée par
+`eq`/`lt`/`asc`/`sql`) ; la conversion vers les builders passe par **`execTable()`, SEUL point**
+(vue d'exécution canonique typée sqlite — la surface builder est structurellement identique en pg,
+**prouvé** : le `DrizzleRepository` générique complet tourne sur PG, e2e par brique ; `DrizzleDb`
+= même principe pour le handle). Downcast localisé restant : `upsert.target` (`IndexColumn[]`).
+PAS de générique par dialecte (mur de typage `_` drizzle = scénario G2).
 
 **Portées (specs colKit, auto-register par le wire de `registerStores.ts` — plus de `@entity`
-ni d'enregistrement app top-level)** : `idempotency` (Slice 0, e2e cross-pod) · `session` (S1) ·
-**`User` + `access_token`/`denied_jti`/`subject_revocation` + `webauthn_credential` +
-`totp_secret` (S2)** — chaque brique prouvée par un e2e PG dédié gaté `NF_PG_URL`
-(`*-postgres.e2e.test.ts` : round-trips jsonb/bigint/timestamptz, UNIQUE réels, gc, `@>`).
-**Restantes** : `webhookEndpointEntity`, `auditEventEntity` (S3, + typage repo cross-dialecte +
-router le hack `limit(-1)`) ; puis **mysql** (`mysql2`, S4) + DDL prod drizzle-kit.
+ni d'enregistrement app top-level) — LES 8 BRIQUES** : `idempotency` (Slice 0, e2e cross-pod) ·
+`session` (S1) · **`User` + `access_token`/`denied_jti`/`subject_revocation` +
+`webauthn_credential` + `totp_secret` (S2)** · **`audit_event` + `webhook_endpoint` (S3)** —
+chaque brique prouvée par un e2e PG dédié gaté `NF_PG_URL` (`*-postgres.e2e.test.ts` :
+round-trips jsonb/bigint/timestamptz, UNIQUE réels, gc, `@>`, OFFSET-sans-LIMIT).
+**Restant** : **mysql** (`mysql2`, S4) + DDL prod drizzle-kit.
 
 ## Roadmap
 
@@ -248,4 +256,4 @@ router le hack `limit(-1)`) ; puis **mysql** (`mysql2`, S4) + DDL prod drizzle-k
 - ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests SQLite + **e2e Postgres cross-pod 7/7** (atomicité réelle prouvée).
 - ✅ **Journal d'audit Drizzle (P6.18)** — `IAuditStore` SQL append-only, pagination curseur composite `(ts,id)` via query builder dialect-agnostique, gc rétention, dégradation gracieuse, 7 tests SQLite. Multi-pod pg = slice multi-dialecte. Cf section « Journal d'audit Drizzle ».
 - ✅ **Store de secrets TOTP Drizzle** — `ITotpSecretStore` SQL (2FA persistant, comble le seul gap durable sans adapter). Table `totp_secret` (PK `userId`, 1 secret/user), `save` upsert, `update` patch partiel (anti-rejeu RFC 6238 préservé), `secretEnc` opaque (chiffré côté service). Auto-register `totp.store: "drizzle"` (sqlite-only, comme webauthn/token). 9 tests SQLite.
-- 🚧 **Portabilité multi-dialecte (chantier)** — `connector.dialect` + `DrizzleOrm` lazy pg + **colKit** (+ `dateMs`) + **queryKit** + repository PK-portable (`#pickOne`) ; **idempotency + session + user + token + webauthn + totp portés + prouvés sur PG** (e2e par brique). Reste : `webhook`/`audit` (S3) puis **mysql** (S4) + DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».
+- 🚧 **Portabilité multi-dialecte (chantier)** — `connector.dialect` + `DrizzleOrm` lazy pg + **colKit** (+ `dateMs`) + **queryKit** + repository PK-portable (`#pickOne`) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé ; **les 8 briques framework portées + prouvées sur PG** (e2e par brique). Reste : **mysql** (S4) + DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».

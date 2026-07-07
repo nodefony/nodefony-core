@@ -16,16 +16,19 @@ import {
   notInArray,
   sql,
 } from "drizzle-orm";
-import type { SQL } from "drizzle-orm";
+import type { Column, SQL } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
+import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { RequestContext, redactSecrets } from "nodefony";
 import {
   isFieldOperators,
   queryFlowMonitor,
   UnknownCriteriaField,
 } from "@nodefony/orm-core";
+import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 import type {
   Criteria,
   FieldOperators,
@@ -34,11 +37,37 @@ import type {
   RepositoryReadOptions,
 } from "@nodefony/orm-core";
 
-/** Handle Drizzle (instance racine ou transaction) — schéma résolu côté adapter. */
+/**
+ * Handle Drizzle (instance racine ou transaction) — schéma résolu côté adapter.
+ *
+ * Typage = **vue d'exécution CANONIQUE** (surface better-sqlite3) quel que soit
+ * le dialecte : `NodePgDatabase` expose la même surface builder pour les verbes
+ * du repository (`select`/`insert`/`update`/`delete`), et l'exactitude runtime
+ * est prouvée par les e2e PG (session/token/user/webauthn/totp/audit/webhook).
+ * La surface d'exécution native qui DIVERGE (`db.all` vs `db.execute().rows`)
+ * est routée par le `queryKit` — jamais ici.
+ */
 export type DrizzleDb = BetterSQLite3Database<Record<string, never>>;
 
+/** Table Drizzle multi-dialecte (l'union honnête des variantes colKit). */
+export type DrizzleTable = SQLiteTable | PgTable;
+
+/** Colonne Drizzle dialecte-agnostique (classe de base — acceptée par les
+ *  opérateurs `eq`/`lt`/`asc`… et les fragments `sql`). */
+export type DrizzleColumn = Column;
+
 /** Vue colonnes d'une table Drizzle (accès par nom logique). */
-type TableColumns = Record<string, SQLiteColumn>;
+type TableColumns = Record<string, DrizzleColumn>;
+
+/**
+ * Vue d'exécution canonique (typage sqlite) d'une table multi-dialecte —
+ * **LE point unique** de conversion vers les builders (cf {@link DrizzleDb} :
+ * la surface builder est structurellement identique sqlite/pg, prouvée e2e).
+ * Consommé aussi par les stores à requêtes builder (`DrizzleAuditStore`).
+ */
+export function execTable(table: DrizzleTable): SQLiteTable {
+  return table as SQLiteTable;
+}
 
 /** Builder Drizzle exécutable ET introspectable (`toSQL()`) — cible du tap profiler. */
 type ProfiledQuery<R> = PromiseLike<R> & { toSQL: () => { sql: string } };
@@ -50,8 +79,8 @@ type ProfiledQuery<R> = PromiseLike<R> & { toSQL: () => { sql: string } };
 export interface DrizzleResolvedRelation {
   /** Cardinalité. */
   type: "one-to-many" | "many-to-one" | "one-to-one";
-  /** Table cible Drizzle. */
-  targetTable: SQLiteTable;
+  /** Table cible Drizzle (variante du dialecte du connecteur). */
+  targetTable: DrizzleTable;
   /** Colonne clé étrangère (sur la cible pour 1-N, sur la source pour N-1). */
   foreignKey: string;
   /** Clé primaire de l'entité courante (côté parent du 1-N). */
@@ -79,37 +108,43 @@ export interface DrizzleResolvedRelation {
  */
 export class DrizzleRepository<T = unknown> implements IRepository<T> {
   readonly #db: DrizzleDb;
-  readonly #table: SQLiteTable;
+  readonly #table: DrizzleTable;
   readonly #relations: Record<string, DrizzleResolvedRelation>;
   /** Connecteur ORM (clé du registre) — tag des métriques de flux. */
   readonly #ormName: string;
+  /** Dialecte SQL du connecteur — route les rares divergences syntaxiques
+   *  (OFFSET-sans-LIMIT, introspection PK composite). */
+  readonly #dialect: SqlDialect;
   /**
    * Colonnes de la clé primaire (lazy — résolu au premier `*One`) : `null` =
    * aucune PK déclarée (fallback `rowid`, SQLite-only) ; `undefined` = pas
    * encore résolu. Rien d'alloué au constructeur (règle perf).
    */
-  #pk: SQLiteColumn[] | null | undefined;
+  #pk: DrizzleColumn[] | null | undefined;
 
   /**
    * @param db - handle Drizzle (instance racine ou transaction).
-   * @param table - table Drizzle de l'entité.
+   * @param table - table Drizzle de l'entité (variante du dialecte).
    * @param relations - relations résolues (eager-load), indexées par champ.
    * @param ormName - nom du connecteur ORM (registre) — défaut `"default"`.
+   * @param dialect - dialecte SQL du connecteur — défaut `"sqlite"`.
    */
   constructor(
     db: DrizzleDb,
-    table: SQLiteTable,
+    table: DrizzleTable,
     relations: Record<string, DrizzleResolvedRelation>,
     ormName = "default",
+    dialect: SqlDialect = "sqlite",
   ) {
     this.#db = db;
     this.#table = table;
     this.#relations = relations;
     this.#ormName = ormName;
+    this.#dialect = dialect;
   }
 
   /** Colonne Drizzle d'une table par nom logique. */
-  #col(table: SQLiteTable, name: string): SQLiteColumn {
+  #col(table: DrizzleTable, name: string): DrizzleColumn {
     return (table as unknown as TableColumns)[name];
   }
 
@@ -117,18 +152,27 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    * Colonnes de la PK de la table (mémoïsées) : colonnes inline `.primaryKey()`
    * d'abord (introspection core, valide sur tous les dialectes — couvre toutes
    * les entités framework), sinon PK composite déclarée via `primaryKey({
-   * columns })` (extraConfig, best-effort), sinon `null`.
+   * columns })` (extraConfig du dialecte, best-effort), sinon `null`.
    */
-  #pkColumns(): SQLiteColumn[] | null {
+  #pkColumns(): DrizzleColumn[] | null {
     if (this.#pk !== undefined) {
       return this.#pk;
     }
-    let cols = Object.values(getTableColumns(this.#table)).filter(
-      (col) => col.primary,
-    );
+    let cols: DrizzleColumn[] = Object.values(
+      getTableColumns(this.#table),
+    ).filter((col) => col.primary);
     if (cols.length === 0) {
       try {
-        cols = [...(getTableConfig(this.#table).primaryKeys[0]?.columns ?? [])];
+        cols =
+          this.#dialect === "postgres"
+            ? [
+                ...(getPgTableConfig(this.#table as PgTable).primaryKeys[0]
+                  ?.columns ?? []),
+              ]
+            : [
+                ...(getTableConfig(this.#table as SQLiteTable).primaryKeys[0]
+                  ?.columns ?? []),
+              ];
       } catch {
         cols = [];
       }
@@ -243,7 +287,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   /** Empile les conditions d'un objet d'opérateurs riches sur une colonne. */
   #pushOperators(
     conds: SQL[],
-    col: SQLiteColumn,
+    col: DrizzleColumn,
     ops: FieldOperators<unknown>,
   ): void {
     if (ops.$eq !== undefined) conds.push(eq(col, ops.$eq));
@@ -292,7 +336,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     criteria?: Criteria<T>,
     options?: RepositoryReadOptions,
   ): Promise<Record<string, unknown>[]> {
-    let query = this.#db.select().from(this.#table).$dynamic();
+    let query = this.#db.select().from(execTable(this.#table)).$dynamic();
     const where = this.#where(criteria);
     if (where) {
       query = query.where(where);
@@ -306,10 +350,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         ),
       );
     }
-    // SQLite : OFFSET exige un LIMIT → `-1` = illimité quand seul l'offset est posé.
     if (options?.limit !== undefined) {
       query = query.limit(options.limit);
-    } else if (options?.offset !== undefined) {
+    } else if (options?.offset !== undefined && this.#dialect === "sqlite") {
+      // SQLite : OFFSET exige un LIMIT → `-1` = illimité quand seul l'offset
+      // est posé. PG accepte OFFSET seul (et REJETTE `LIMIT -1`) → rien à
+      // poser. MySQL (S4) exigera son propre sentinel (LIMIT 2^64-1).
       query = query.limit(-1);
     }
     if (options?.offset !== undefined) {
@@ -341,7 +387,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         const children = (await this.#prof(
           this.#db
             .select()
-            .from(rel.targetTable)
+            .from(execTable(rel.targetTable))
             .where(inArray(fkCol, parentIds)) as unknown as ProfiledQuery<
             Record<string, unknown>[]
           >,
@@ -370,7 +416,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
             ? ((await this.#prof(
                 this.#db
                   .select()
-                  .from(rel.targetTable)
+                  .from(execTable(rel.targetTable))
                   .where(inArray(idCol, fkValues)) as unknown as ProfiledQuery<
                   Record<string, unknown>[]
                 >,
@@ -406,7 +452,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   async create(data: Partial<T>): Promise<T> {
     const rows = (await this.#prof(
       this.#db
-        .insert(this.#table)
+        .insert(execTable(this.#table))
         .values(data as Record<string, unknown>)
         .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
     )) as Record<string, unknown>[];
@@ -419,7 +465,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     }
     const rows = (await this.#prof(
       this.#db
-        .insert(this.#table)
+        .insert(execTable(this.#table))
         .values(data as Record<string, unknown>[])
         .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
     )) as Record<string, unknown>[];
@@ -436,7 +482,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const pick = this.#pickOne(this.#where(criteria));
     const rows = (await this.#prof(
       this.#db
-        .update(this.#table)
+        .update(execTable(this.#table))
         .set(data as Record<string, unknown>)
         .where(pick)
         .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
@@ -473,10 +519,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     };
     const rows = (await this.#prof(
       this.#db
-        .insert(this.#table)
+        .insert(execTable(this.#table))
         .values(values)
         .onConflictDoUpdate({
-          target,
+          // Vue d'exécution canonique (cf `execTable`) : le builder sqlite
+          // exige ses colonnes ; les PgColumn y passent structurellement.
+          target: target as SQLiteColumn[],
           set: update as Record<string, unknown>,
         })
         .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
@@ -487,7 +535,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   async updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number> {
     const where = this.#where(criteria);
     const builder = this.#db
-      .update(this.#table)
+      .update(execTable(this.#table))
       .set(data as Record<string, unknown>);
     const result = (await this.#prof(
       (where ? builder.where(where) : builder) as unknown as ProfiledQuery<{
@@ -520,7 +568,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const pick = this.#pickOne(this.#where(criteria));
     const rows = (await this.#prof(
       this.#db
-        .update(this.#table)
+        .update(execTable(this.#table))
         .set(setObj)
         .where(pick)
         .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
@@ -530,7 +578,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
 
   async delete(criteria: Criteria<T>): Promise<number> {
     const where = this.#where(criteria);
-    const builder = this.#db.delete(this.#table);
+    const builder = this.#db.delete(execTable(this.#table));
     const result = (await this.#prof(
       (where ? builder.where(where) : builder) as unknown as ProfiledQuery<{
         changes?: number;
@@ -557,7 +605,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const pick = this.#pickOne(this.#where(criteria));
     return (await this.#prof(
       this.#db
-        .delete(this.#table)
+        .delete(execTable(this.#table))
         .where(pick)
         .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
     )) as Record<string, unknown>[];
@@ -567,7 +615,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const where = this.#where(criteria);
     const builder = this.#db
       .select({ value: count() })
-      .from(this.#table)
+      .from(execTable(this.#table))
       .$dynamic();
     const rows = (await this.#prof(
       (where ? builder.where(where) : builder) as unknown as ProfiledQuery<
@@ -581,7 +629,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const where = this.#where(criteria);
     let query = this.#db
       .select({ one: sql`1` })
-      .from(this.#table)
+      .from(execTable(this.#table))
       .$dynamic();
     if (where) {
       query = query.where(where);
@@ -599,6 +647,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       this.#table,
       this.#relations,
       this.#ormName,
+      this.#dialect,
     );
   }
 }

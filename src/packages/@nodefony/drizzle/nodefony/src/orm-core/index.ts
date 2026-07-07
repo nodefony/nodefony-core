@@ -7,5 +7,10 @@
 export { DrizzleOrm } from "./DrizzleOrm";
 export type { DrizzleOrmOptions } from "./DrizzleOrm";
 export { DrizzleRepository } from "./DrizzleRepository";
-export type { DrizzleDb, DrizzleResolvedRelation } from "./DrizzleRepository";
+export type {
+  DrizzleDb,
+  DrizzleTable,
+  DrizzleColumn,
+  DrizzleResolvedRelation,
+} from "./DrizzleRepository";
 export { DrizzleTransaction } from "./DrizzleTransaction";

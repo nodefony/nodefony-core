@@ -26,6 +26,7 @@ import type {
 import {
   DrizzleRepository,
   type DrizzleDb,
+  type DrizzleTable,
   type DrizzleResolvedRelation,
 } from "./DrizzleRepository";
 import { DrizzleTransaction } from "./DrizzleTransaction";
@@ -86,12 +87,11 @@ export class DrizzleOrm extends Orm {
   #db: DrizzleDb | null = null;
   #connected = false;
   /**
-   * Tables Drizzle indexées par nom logique d'entité (lazy). Typé `SQLiteTable`
-   * (dialecte par défaut) ; en postgres les `PgTable` y sont stockées via cast —
-   * le typage `getRepository` postgres viendra avec le portage du `DrizzleRepository`
-   * (le store d'idempotence consomme `getNativeConnection`, pas le repository).
+   * Tables Drizzle indexées par nom logique d'entité (lazy) — union
+   * multi-dialecte {@link DrizzleTable} (variante sqlite OU pg selon le
+   * connecteur), consommée telle quelle par le `DrizzleRepository` porté.
    */
-  #tables: Record<string, SQLiteTable> | null = null;
+  #tables: Record<string, DrizzleTable> | null = null;
   /** Relations résolues : entité → champ → relation eager-load (lazy). */
   #relations: Record<string, Record<string, DrizzleResolvedRelation>> | null =
     null;
@@ -182,7 +182,7 @@ export class DrizzleOrm extends Orm {
   /** Résout les relations déclaratives d'une entité en métadonnées eager-load. */
   #resolveRelations(
     entity: IEntity,
-    tables: Record<string, SQLiteTable>,
+    tables: Record<string, DrizzleTable>,
   ): Record<string, DrizzleResolvedRelation> {
     const resolved: Record<string, DrizzleResolvedRelation> = {};
     for (const relation of entity.relations ?? []) {
@@ -202,7 +202,7 @@ export class DrizzleOrm extends Orm {
   #resolveOne(
     entity: IEntity,
     relation: IEntityRelation,
-    target: SQLiteTable,
+    target: DrizzleTable,
   ): DrizzleResolvedRelation {
     switch (relation.type) {
       case "one-to-many":
@@ -233,7 +233,7 @@ export class DrizzleOrm extends Orm {
   }
 
   protected async onConnect(): Promise<void> {
-    this.#tables = Object.create(null) as Record<string, SQLiteTable>;
+    this.#tables = Object.create(null) as Record<string, DrizzleTable>;
     this.#relations = Object.create(null) as Record<
       string,
       Record<string, DrizzleResolvedRelation>
@@ -347,7 +347,7 @@ export class DrizzleOrm extends Orm {
     for (const entity of entities) {
       this.#assertDialectTable(entity, PgTable, "postgres");
       const table = entity.schema as PgTable;
-      this.#tables![entity.name] = table as unknown as SQLiteTable;
+      this.#tables![entity.name] = table;
       entity.model = table;
       await pool.query(this.#createTablePgSQL(table));
     }
@@ -390,6 +390,7 @@ export class DrizzleOrm extends Orm {
         table,
         this.#relations?.[name] ?? {},
         this.name,
+        this.#dialect,
       );
       this.#repositories[name] = repository;
     }
@@ -495,8 +496,8 @@ export class DrizzleOrm extends Orm {
     }
     const columns: DDLColumn[] =
       this.#dialect === "postgres"
-        ? getPgTableConfig(table as unknown as PgTable).columns
-        : getTableConfig(table).columns;
+        ? getPgTableConfig(table as PgTable).columns
+        : getTableConfig(table as SQLiteTable).columns;
     return columns.map((col) => ({
       name: col.name,
       type: col.getSQLType(),
