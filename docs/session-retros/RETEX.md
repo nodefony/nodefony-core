@@ -1486,6 +1486,11 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (suite)
 
+- `[1× — 07-08]` **Un test qui grave la MATRICE D'AVANCEMENT d'un chantier casse PAR DESIGN à chaque
+  slice — sa MAJ fait partie du lot.** `auto-register-postgres.test.ts` asserte le report
+  registered/unported (contrat de portage courant) : S3 a porté audit/webhook → 3 asserts à retourner
+  - la liste d'entités à purger du test fail-loud à étendre. Ce n'est PAS un test fragile (il documente
+    le réel), mais le compter dans le mini-cahier des charges du slice (S4 mysql le recassera pareil).
 - **[1× — 06-27] Ajouter une méthode REQUISE à une interface de deps casse les mocks de tests — et le
   `build` (rollup) ne le voit pas.** `recordDelivery` ajouté à `IWebhookDispatcherDeps` → `npm run build`
   security = **vert** (rollup compile la SOURCE, pas `tests/`) mais le harness `webhookDispatcher.test`
@@ -1699,6 +1704,13 @@ from "ws"` + cast `(ws as unknown as {Sender:{frame}}).Sender`. Écrire les buff
   (→ 5 MiB) + peut saturer la capture stdout (ENOSPC transitoire) → `truncate -s 0` après.
 
 ## Derniers retex bruts (historique complet dans `docs/session-retros/archive/` depuis CONSOLIDATE 2026-06-12)
+
+- `2026-07-08-f4ee4e4a` — **S3 multi-dialecte** (`40fa5aba`) : audit/webhook via colKit + typage
+  cross-dialecte (`DrizzleTable`/`execTable` = 1 point de conversion, PAS de générique par dialecte —
+  le discriminant est une valeur RUNTIME, un générique serait viral + mur `_` drizzle/G2) + OFFSET
+  routé. Les 8 briques portées, drizzle 211/211 avec PG réel. Session 1-passe (1 seule erreur TS :
+  `upsert.target` IndexColumn ; 0 restart serveur ; gates du 1ᵉʳ coup) — kit à jour + plan figé
+  avant code = le pattern qui paie.
 
 - `2026-06-27-892bebaf` — **Webhooks P6.13 backend** (slice A+B+audit, `4d9006c5`→`32ef5069`) + fix session.
   Leçons : (1) **le red-team révèle la VRAIE protection** — mon helper regex IPv4-mapped « anti-bypass »
