@@ -26,6 +26,23 @@ import type {
   PgColumnBuilderBase,
   PgTable,
 } from "drizzle-orm/pg-core";
+import {
+  bigint as mysqlBigint,
+  boolean as mysqlBoolean,
+  customType as mysqlCustomType,
+  datetime as mysqlDatetime,
+  index as mysqlIndex,
+  int as mysqlInt,
+  mysqlTable,
+  text as mysqlText,
+  uniqueIndex as mysqlUniqueIndex,
+  varchar as mysqlVarchar,
+} from "drizzle-orm/mysql-core";
+import type {
+  MySqlColumn,
+  MySqlColumnBuilderBase,
+  MySqlTable,
+} from "drizzle-orm/mysql-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 
 /**
@@ -44,10 +61,15 @@ import type { SqlDialect } from "../interfaces/IDrizzleConfig";
  * - mêmes **NOMS** de colonnes sur tous les dialectes → stores/repositories
  *   dialect-agnostiques (l'invariant central du chantier) ;
  * - divergences de TYPE assumées ici et nulle part ailleurs : epoch ms =
- *   `integer` SQLite (64-bit) / `bigint mode:"number"` PG (`integer` PG 32-bit
- *   déborde) ; JSON = `text mode:"json"` SQLite / `jsonb` PG ; booléen =
- *   `integer mode:"boolean"` SQLite / `boolean` PG ; date JS (`dateMs`, exposée
- *   `Date`) = `integer mode:"timestamp_ms"` SQLite / `timestamptz(3)` PG ;
+ *   `integer` SQLite (64-bit) / `bigint mode:"number"` PG+MySQL (`integer` PG
+ *   32-bit déborde) ; JSON = `text mode:"json"` SQLite / `jsonb` PG / `json`
+ *   MySQL ; booléen = `integer mode:"boolean"` SQLite / `boolean` PG+MySQL ;
+ *   date JS (`dateMs`, exposée `Date`) = `integer mode:"timestamp_ms"` SQLite /
+ *   `timestamptz(3)` PG / `datetime(3)` MySQL (pas `timestamp` : borne 2038) ;
+ *   texte = `text` partout SAUF MySQL où une colonne PK/UNIQUE/indexée devient
+ *   `varchar(512)` (InnoDB ne peut pas indexer TEXT sans longueur de préfixe ;
+ *   512 × 4 bytes utf8mb4 = 2048 < 3072, la limite d'index DYNAMIC, et couvre
+ *   la clé d'idempotence ~330 chars max) ;
  * - défauts en **`$defaultFn`/`$onUpdateFn` (JS-level) uniquement** — le DDL
  *   dérivé (`getTableConfig` → `DrizzleOrm.#buildCreateTable`) n'émet PAS les
  *   `DEFAULT` SQL (gotcha `userTable`) ; les `index` déclarés ne sortent que
@@ -276,14 +298,125 @@ function buildPgTable(spec: IFrameworkTableSpec): PgTable {
 }
 
 /**
+ * Longueur des colonnes `text` **indexables** en MySQL (`varchar(512)`) :
+ * InnoDB ne peut pas porter de PK/UNIQUE/index sur un `TEXT` sans longueur de
+ * préfixe → toute colonne `text` PK/UNIQUE/référencée par un index devient un
+ * `varchar`. 512 chars × 4 bytes (utf8mb4) = 2048 bytes < 3072 (limite d'index
+ * InnoDB en row format DYNAMIC, défaut MySQL ≥ 8.0) et couvre la plus longue
+ * valeur framework (clé d'idempotence : `JSON.stringify([identity, clientKey])`
+ * ≤ ~330 chars — `IDEMPOTENCY_KEY_MAX` 255 + identité sha256 + ponctuation).
+ */
+const MYSQL_INDEXED_TEXT_LENGTH = 512;
+
+/**
+ * Type `json` du dialecte mysql, TOLÉRANT au serveur : MySQL possède un type
+ * JSON binaire que mysql2 désérialise en objet, mais **MariaDB** (la cible
+ * libre du projet, même dialecte) le stocke en alias LONGTEXT → le driver rend
+ * une **string** brute. Le `json()` natif drizzle ne parse pas côté lecture →
+ * un objet stocké reviendrait en string sur MariaDB (prouvé e2e). Ce customType
+ * parse si string, passe tel quel sinon — un seul kind `json` pour les deux
+ * serveurs.
+ */
+const mysqlJsonCompat = mysqlCustomType<{ data: unknown; driverData: unknown }>(
+  {
+    dataType() {
+      return "json";
+    },
+    toDriver(value: unknown): unknown {
+      return JSON.stringify(value);
+    },
+    fromDriver(value: unknown): unknown {
+      return typeof value === "string" ? JSON.parse(value) : value;
+    },
+  },
+);
+
+/** Colonne MySQL d'une spec logique (`indexed` = référencée par un index de table). */
+function mysqlColumn(
+  name: string,
+  spec: IFrameworkColSpec,
+  indexed: boolean,
+): MySqlColumnBuilderBase {
+  let base: unknown;
+  switch (spec.kind) {
+    case "text":
+      // TEXT n'est pas indexable sans préfixe en InnoDB → varchar dès que la
+      // colonne est PK/UNIQUE/indexée (cf MYSQL_INDEXED_TEXT_LENGTH).
+      base =
+        spec.primaryKey || spec.unique || indexed
+          ? mysqlVarchar(name, { length: MYSQL_INDEXED_TEXT_LENGTH })
+          : mysqlText(name);
+      break;
+    case "json":
+      // Compat MySQL (type binaire) + MariaDB (LONGTEXT) — cf mysqlJsonCompat.
+      base = mysqlJsonCompat(name);
+      break;
+    case "bool":
+      base = mysqlBoolean(name); // alias tinyint(1).
+      break;
+    case "epochMs":
+      // `int` MySQL = 32-bit → déborde sur un epoch ms, comme PG.
+      base = mysqlBigint(name, { mode: "number" });
+      break;
+    case "int":
+      base = mysqlInt(name);
+      break;
+    case "dateMs":
+      // `datetime(3)` (précision ms, aligné SQLite/PG) et PAS `timestamp` :
+      // timestamp MySQL est borné à 2038 et sensible à la timezone de session.
+      // La connexion mysql2 est ouverte en `timezone: "Z"` (cf #connectMysql)
+      // → écriture/lecture UTC symétriques, mêmes instants que timestamptz PG.
+      base = mysqlDatetime(name, { mode: "date", fsp: 3 });
+      break;
+  }
+  return applyMods(
+    base as ChainableColumnBuilder,
+    spec,
+  ) as unknown as MySqlColumnBuilderBase;
+}
+
+/** Construit la variante MySQL d'une spec. */
+function buildMysqlTable(spec: IFrameworkTableSpec): MySqlTable {
+  // Colonnes référencées par au moins un index → candidates varchar (cf
+  // mysqlColumn) ; les index eux-mêmes ne sortent que via drizzle-kit.
+  const indexedCols = new Set<string>();
+  for (const ix of spec.indexes ?? []) {
+    for (const name of ix.on) {
+      indexedCols.add(name);
+    }
+  }
+  const columns: Record<string, MySqlColumnBuilderBase> = {};
+  for (const [name, col] of Object.entries(spec.columns)) {
+    columns[name] = mysqlColumn(name, col, indexedCols.has(name));
+  }
+  const indexes = spec.indexes;
+  if (!indexes?.length) {
+    return mysqlTable(spec.name, columns);
+  }
+  return mysqlTable(spec.name, columns, (t) => {
+    const out: Record<string, unknown> = {};
+    for (const ix of indexes) {
+      const cols = indexColumns(
+        spec,
+        ix,
+        t as unknown as Record<string, MySqlColumn>,
+      );
+      out[ix.name] = (
+        ix.unique ? mysqlUniqueIndex(ix.name) : mysqlIndex(ix.name)
+      ).on(...cols);
+    }
+    return out as never;
+  });
+}
+
+/**
  * Construit la table Drizzle d'une spec logique pour un dialecte donné —
  * **LE point unique** où « dialecte » se traduit en schéma (garde-fou G1 :
- * ajouter mysql = une branche ICI + les types du switch de colonnes).
+ * ajouter un dialecte = une branche ICI + les types du switch de colonnes).
  *
  * @param dialect - dialecte SQL cible.
  * @param spec - spec logique de la table.
  * @returns la table Drizzle du dialecte.
- * @throws si le dialecte n'est pas encore porté (`mysql` → S4).
  */
 export function buildFrameworkTable(
   dialect: "sqlite",
@@ -294,13 +427,17 @@ export function buildFrameworkTable(
   spec: IFrameworkTableSpec,
 ): PgTable;
 export function buildFrameworkTable(
-  dialect: SqlDialect,
+  dialect: "mysql",
   spec: IFrameworkTableSpec,
-): SQLiteTable | PgTable;
+): MySqlTable;
 export function buildFrameworkTable(
   dialect: SqlDialect,
   spec: IFrameworkTableSpec,
-): SQLiteTable | PgTable {
+): SQLiteTable | PgTable | MySqlTable;
+export function buildFrameworkTable(
+  dialect: SqlDialect,
+  spec: IFrameworkTableSpec,
+): SQLiteTable | PgTable | MySqlTable {
   // Validation EAGER des index : le callback extraConfig de drizzle est lazy
   // (appelé au premier `getTableConfig`) → sans ce check, une faute de spec ne
   // sortirait qu'au DDL. Fail-loud à la construction (= au chargement du module).
@@ -324,11 +461,8 @@ export function buildFrameworkTable(
       return buildSqliteTable(spec);
     case "postgres":
       return buildPgTable(spec);
-    default:
-      throw new Error(
-        `[@nodefony/drizzle] colKit "${spec.name}": dialect "${dialect}" not ` +
-          `yet supported (sqlite, postgres available; mysql on the roadmap).`,
-      );
+    case "mysql":
+      return buildMysqlTable(spec);
   }
 }
 
@@ -336,7 +470,8 @@ export function buildFrameworkTable(
 export interface FrameworkTableFactory {
   (dialect: "sqlite"): SQLiteTable;
   (dialect: "postgres"): PgTable;
-  (dialect?: SqlDialect): SQLiteTable | PgTable;
+  (dialect: "mysql"): MySqlTable;
+  (dialect?: SqlDialect): SQLiteTable | PgTable | MySqlTable;
 }
 
 /**
@@ -351,8 +486,10 @@ export interface FrameworkTableFactory {
 export function createFrameworkTableFactory(
   spec: IFrameworkTableSpec,
 ): FrameworkTableFactory {
-  const cache = new Map<SqlDialect, SQLiteTable | PgTable>();
-  const factory = (dialect: SqlDialect = "sqlite"): SQLiteTable | PgTable => {
+  const cache = new Map<SqlDialect, SQLiteTable | PgTable | MySqlTable>();
+  const factory = (
+    dialect: SqlDialect = "sqlite",
+  ): SQLiteTable | PgTable | MySqlTable => {
     let table = cache.get(dialect);
     if (!table) {
       table = buildFrameworkTable(dialect, spec);

@@ -208,14 +208,16 @@ export class DrizzleAuditStore implements IAuditStore {
       return 0; // ORM non connecté → rien à purger.
     }
     const threshold = now - this.#retentionMs;
-    // Compteur normalisé par driver (better-sqlite3 `changes` / pg `rowCount`).
-    const result = (await db
+    // Compteur normalisé par driver : better-sqlite3 `{changes}` / pg
+    // `{rowCount}` / mysql2 tuple `[ResultSetHeader{affectedRows}, fields]`.
+    const result: unknown = await db
       .delete(execTable(this.#table))
-      .where(lt(this.#c.ts, threshold))) as {
-      changes?: number;
-      rowCount?: number | null;
-    };
-    return result.changes ?? result.rowCount ?? 0;
+      .where(lt(this.#c.ts, threshold));
+    if (Array.isArray(result)) {
+      return (result[0] as { affectedRows?: number })?.affectedRows ?? 0;
+    }
+    const r = result as { changes?: number; rowCount?: number | null };
+    return r.changes ?? r.rowCount ?? 0;
   }
 
   /** Compose la clause `WHERE` des filtres AND ; `undefined` si aucun (= tout). */

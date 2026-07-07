@@ -36,7 +36,8 @@
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "mysql2": "^3.15.0"
   },
   "devDependencies": {
     "@nodefony/http": "*",

@@ -1,21 +1,9 @@
-import {
-  index as sqliteIndex,
-  integer,
-  sqliteTable,
-  text as sqliteText,
-} from "drizzle-orm/sqlite-core";
-import {
-  bigint as pgBigint,
-  index as pgIndex,
-  jsonb,
-  pgTable,
-  text as pgText,
-} from "drizzle-orm/pg-core";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
-import type { PgTable } from "drizzle-orm/pg-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
+import { createFrameworkTableFactory } from "./colKit";
+import type { FrameworkTableFactory } from "./colKit";
 // `import type` UNIQUEMENT → effacé à la compilation (approche B : 0 dépendance
 // runtime de `@nodefony/drizzle` vers `@nodefony/framework`). Le contrat
 // d'idempotence vit au CORE (`nodefony`), donc l'import de son DTO ne crée AUCUN
@@ -54,95 +42,54 @@ import type { IdempotentResponse } from "nodefony";
  * dérivé dev/test. Toutes les colonnes sont posées explicitement par le store
  * (jamais de défaut implicite manquant qui casserait l'INSERT).
  */
-export const idempotencyKeyTable = sqliteTable(
-  "idempotency_key",
-  {
-    /**
-     * Clé d'idempotence DÉJÀ scopée à l'identité par l'appelant
-     * (`evaluateIdempotency` compose `[identité, méthode, chemin, clé client]`)
-     * → anti-IDOR garanti en amont ; le store reste agnostique au scope. PK →
-     * la réservation atomique repose sur sa contrainte d'unicité (`ON CONFLICT`).
-     */
-    key: sqliteText("key").primaryKey(),
-    /**
-     * Empreinte du **payload** (méthode + chemin + corps). Comparée à chaque
-     * `begin` : un fingerprint distinct pour la même clé vivante = réutilisation
-     * de clé pour une AUTRE requête → `mismatch` (422, draft §2.2/§2.7).
-     */
-    fingerprint: sqliteText("fingerprint").notNull(),
-    /**
-     * `if` = réservation *in-flight* (handler en cours) ; `done` = réponse
-     * mémorisée (rejouée en `replayed`). Court (2 lettres) — colonne chaude.
-     */
-    state: sqliteText("state").$type<"if" | "done">().notNull(),
-    /**
-     * Réponse mémorisée (`{status, headers?, body}`), `null` tant qu'*in-flight*.
-     * Posée à `complete`, relue en `replayed`. JSON (`mode:"json"`).
-     */
-    response: sqliteText("response", {
-      mode: "json",
-    }).$type<IdempotentResponse>(),
-    /**
-     * Échéance (epoch ms) : bail *in-flight* (`now + lease`) puis rétention de la
-     * réponse (`now + ttl`). Au-delà = entrée morte → réservable (`begin` la vole
-     * atomiquement) et purgeable (`gc`). NOT NULL → comparaison toujours définie.
-     */
-    expiresAt: integer("expiresAt").notNull(),
-  },
-  (t) => ({
-    expiresAtIdx: sqliteIndex("idempotency_key_expiresAt_idx").on(t.expiresAt),
-  }),
-);
-
 /**
- * Variante **PostgreSQL** de la table d'idempotence (driver `pg`). Mêmes NOMS de
- * colonnes que la variante SQLite → le store ({@link DrizzleIdempotencyStore})
- * reste dialect-agnostique (il référence `table.key`/`table.expiresAt`… via
- * `eq`/`lt`, agnostiques). Divergences de TYPE assumées (= la raison d'être de la
- * factory) :
- *  - `expiresAt` = `bigint` (epoch ms ≈ 1.7e12 **dépasse** `integer` PG 32-bit ;
- *    `mode:"number"` reste sûr sous 2^53) — là où SQLite `integer` est 64-bit ;
- *  - `response` = `jsonb` (type JSON natif PG) — là où SQLite stocke un `text` JSON.
+ * Spec colKit de la table (une spec logique → la variante du dialecte demandé ;
+ * types par dialecte assumés DANS le kit : `expiresAt` epochMs = `integer`
+ * SQLite 64-bit / `bigint` PG+MySQL ; `response` json = `text mode:"json"` /
+ * `jsonb` / `json` ; `key` = `varchar(512)` en MySQL — PK non indexable en
+ * TEXT, 512 couvre `JSON.stringify([identity, clientKey ≤ 255])`) :
+ * - `key` : clé DÉJÀ scopée à l'identité par l'appelant (`evaluateIdempotency`
+ *   compose `[identité, clé client]`) → anti-IDOR garanti en amont. PK → la
+ *   réservation atomique repose sur sa contrainte d'unicité (`ON CONFLICT`).
+ * - `fingerprint` : empreinte du payload (méthode + chemin + corps), comparée à
+ *   chaque `begin` — un fingerprint distinct pour la même clé vivante =
+ *   `mismatch` (422, draft §2.2/§2.7).
+ * - `state` : `if` = réservation *in-flight* ; `done` = réponse mémorisée
+ *   (rejouée en `replayed`). Union TS portée par {@link IdempotencyKeyRow}.
+ * - `response` : réponse mémorisée (`{status, headers?, body}`), `null` tant
+ *   qu'*in-flight* ; posée à `complete`, relue en `replayed`.
+ * - `expiresAt` : échéance (epoch ms) — bail *in-flight* (`now + lease`) puis
+ *   rétention (`now + ttl`). Au-delà = entrée morte → volable (`begin`) et
+ *   purgeable (`gc`). NOT NULL → comparaison toujours définie. Index lu par
+ *   drizzle-kit (accélère le `gc` ; sans effet sur le DDL dérivé dev/test).
  */
-const idempotencyKeyPgTable = pgTable(
-  "idempotency_key",
-  {
-    key: pgText("key").primaryKey(),
-    fingerprint: pgText("fingerprint").notNull(),
-    state: pgText("state").$type<"if" | "done">().notNull(),
-    response: jsonb("response").$type<IdempotentResponse>(),
-    expiresAt: pgBigint("expiresAt", { mode: "number" }).notNull(),
-  },
-  (t) => ({
-    expiresAtIdx: pgIndex("idempotency_key_expiresAt_idx").on(t.expiresAt),
-  }),
-);
+const createIdempotencyTableFactory: FrameworkTableFactory =
+  createFrameworkTableFactory({
+    name: "idempotency_key",
+    columns: {
+      key: { kind: "text", primaryKey: true },
+      fingerprint: { kind: "text", notNull: true },
+      state: { kind: "text", notNull: true },
+      response: { kind: "json" },
+      expiresAt: { kind: "epochMs", notNull: true },
+    },
+    indexes: [{ name: "idempotency_key_expiresAt_idx", on: ["expiresAt"] }],
+  });
 
 /**
  * Factory de la table d'idempotence pour un dialecte donné — **premier maillon du
  * chantier portabilité multi-dialecte** (un schéma logique → la table Drizzle du
- * bon dialecte). `sqlite` (défaut) et `postgres` sont câblés ; `mysql` suivra
- * (driver `mysql2`). Le `DrizzleOrm` appelle cette factory selon `connector.dialect`.
- *
- * @param dialect - dialecte SQL cible.
- * @returns la table Drizzle (`SQLiteTable` | `PgTable`) du dialecte.
- * @throws si le dialecte n'est pas encore supporté (`mysql`).
+ * bon dialecte), migrée du switch manuel 2 tables vers le colKit (S4 : la
+ * variante mysql sort du kit). Le `DrizzleOrm` l'appelle selon `connector.dialect`.
  */
-export function createIdempotencyTable(
-  dialect: SqlDialect = "sqlite",
-): SQLiteTable | PgTable {
-  switch (dialect) {
-    case "sqlite":
-      return idempotencyKeyTable;
-    case "postgres":
-      return idempotencyKeyPgTable;
-    default:
-      throw new Error(
-        `[@nodefony/drizzle] idempotency: dialect "${dialect}" not yet ` +
-          `supported (sqlite, postgres available; mysql on the roadmap).`,
-      );
-  }
-}
+export const createIdempotencyTable = createIdempotencyTableFactory;
+
+/**
+ * Variante SQLite mémoïsée (dialecte par défaut) — export statique de compat
+ * (bancs, typage du store {@link DrizzleIdempotencyStore}).
+ */
+export const idempotencyKeyTable: SQLiteTable =
+  createIdempotencyTable("sqlite");
 
 /**
  * Forme plate d'une ligne du store d'idempotence (telle que renvoyée par le

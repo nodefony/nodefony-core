@@ -3,6 +3,8 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
+import type { MySqlTable } from "drizzle-orm/mysql-core";
 import { createUserTable, userTable } from "../../nodefony/entity/userTable";
 import {
   createAccessTokenTable,
@@ -72,14 +74,36 @@ function pgView(table: PgTable): Map<string, ColView> {
   );
 }
 
-/** Parité structurelle générique : noms + PK + NOT NULL + UNIQUE. */
+function mysqlView(table: MySqlTable): Map<string, ColView> {
+  const { columns } = getMysqlTableConfig(table);
+  return new Map(
+    columns.map((c) => [
+      c.name,
+      {
+        name: c.name,
+        sqlType: c.getSQLType(),
+        primary: c.primary,
+        notNull: c.notNull,
+        isUnique: c.isUnique,
+      },
+    ]),
+  );
+}
+
+/** Parité structurelle générique : noms + PK + NOT NULL + UNIQUE — 3 dialectes. */
 function assertParity(factory: FrameworkTableFactory, label: string): void {
   const sqlite = sqliteView(factory("sqlite"));
   const pg = pgView(factory("postgres"));
+  const mysql = mysqlView(factory("mysql"));
   assert.deepEqual(
     [...sqlite.keys()].sort(),
     [...pg.keys()].sort(),
-    `${label}: mêmes noms de colonnes sur les deux dialectes`,
+    `${label}: mêmes noms de colonnes sqlite/pg`,
+  );
+  assert.deepEqual(
+    [...sqlite.keys()].sort(),
+    [...mysql.keys()].sort(),
+    `${label}: mêmes noms de colonnes sqlite/mysql`,
   );
   for (const [name, s] of sqlite) {
     const p = pg.get(name);
@@ -87,6 +111,19 @@ function assertParity(factory: FrameworkTableFactory, label: string): void {
     assert.equal(p.primary, s.primary, `${label}.${name}: parité PK`);
     assert.equal(p.notNull, s.notNull, `${label}.${name}: parité NOT NULL`);
     assert.equal(p.isUnique, s.isUnique, `${label}.${name}: parité UNIQUE`);
+    const m = mysql.get(name);
+    assert.ok(m, `${label}.${name} absente en MySQL`);
+    assert.equal(m.primary, s.primary, `${label}.${name}: parité PK mysql`);
+    assert.equal(
+      m.notNull,
+      s.notNull,
+      `${label}.${name}: parité NOT NULL mysql`,
+    );
+    assert.equal(
+      m.isUnique,
+      s.isUnique,
+      `${label}.${name}: parité UNIQUE mysql`,
+    );
   }
 }
 
@@ -205,16 +242,16 @@ describe("S2 multi-dialecte — parité des entités (colKit)", () => {
     assert.equal(createUserTable("postgres"), createUserTable("postgres"));
   });
 
-  it("mysql : erreur actionnable sur toutes les factories S2 (S4 non livré)", () => {
-    for (const factory of [
-      createUserTable,
-      createAccessTokenTable,
-      createDeniedJtiTable,
-      createSubjectRevocationTable,
-      createWebAuthnCredentialTable,
-      createTotpSecretTable,
-    ]) {
-      assert.throws(() => factory("mysql"), /mysql on the roadmap/);
-    }
+  it("mysql (S4) : types natifs — json / bigint / datetime(3) / varchar indexable", () => {
+    const user = mysqlView(createUserTable("mysql"));
+    assert.equal(user.get("socialProviders")?.sqlType, "json");
+    assert.equal(user.get("enabled")?.sqlType, "boolean");
+    // dateMs (createdAt/updatedAt exposés `Date`) = datetime(3), pas timestamp
+    // (borné 2038, sensible à la timezone de session).
+    assert.equal(user.get("createdAt")?.sqlType, "datetime(3)");
+    // identifier UNIQUE → varchar(512) (TEXT non indexable InnoDB).
+    assert.equal(user.get("identifier")?.sqlType, "varchar(512)");
+    const token = mysqlView(createAccessTokenTable("mysql"));
+    assert.equal(token.get("expiresAt")?.sqlType, "bigint"); // epoch ms 64-bit
   });
 });

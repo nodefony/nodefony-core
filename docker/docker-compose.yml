@@ -97,6 +97,69 @@ services:
       retries: 5
       start_period: 5s
 
+  # --- MariaDB (profile mariadb — portabilité multi-dialecte de l'adapter Drizzle) ---
+  # Fork LIBRE de MySQL (choix projet : logiciel libre) — même protocole, même
+  # driver `mysql2`, même dialecte drizzle `mysql`. Cible des e2e S4 : les 8
+  # briques framework sur le 3ᵉ dialecte (spécificités `ON DUPLICATE KEY
+  # UPDATE`, absence de RETURNING niveau plus petit dénominateur, sentinel
+  # OFFSET). Démarrage :
+  #   `docker compose -f docker/docker-compose.yml --profile mariadb up -d mariadb`
+  mariadb:
+    image: mariadb:11.4
+    container_name: nodefony-mariadb
+    restart: unless-stopped
+    profiles: ["mariadb"]
+    networks: [nodefony]
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-nodefony-dev}
+      MARIADB_USER: ${MARIADB_USER:-nodefony}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-nodefony-dev}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-nodefony}
+    ports:
+      # Loopback uniquement (surface réseau minimale en dev).
+      - "127.0.0.1:${MARIADB_PORT:-3306}:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      # healthcheck.sh = outil officiel de l'image mariadb.
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # --- MySQL (profile mysql — PREUVE DE COMPAT du dialecte, port 3307) ---
+  # Le quotidien libre = mariadb (ci-dessus) ; ce service ne sert qu'à prouver
+  # que le dialecte `mysql` de l'adapter tourne AUSSI sur MySQL Community
+  # (mêmes e2e, autre port) : NF_MYSQL_URL=mysql://…@127.0.0.1:3307/nodefony
+  # Démarrage : `docker compose -f docker/docker-compose.yml --profile mysql up -d mysql`
+  mysql:
+    image: mysql:8.4
+    container_name: nodefony-mysql
+    restart: unless-stopped
+    profiles: ["mysql"]
+    networks: [nodefony]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-nodefony-dev}
+      MYSQL_USER: ${MYSQL_USER:-nodefony}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-nodefony-dev}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-nodefony}
+    ports:
+      # Loopback uniquement ; 3307 pour cohabiter avec mariadb (3306).
+      - "127.0.0.1:${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u${MYSQL_USER:-nodefony} -p${MYSQL_PASSWORD:-nodefony-dev} --silent",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
   # --- RedisInsight (profile tools — UI de debug, jamais en prod) ---
   redisinsight:
     image: redis/redisinsight:latest
@@ -305,6 +368,8 @@ networks:
 volumes:
   redis-data:
   postgres-data:
+  mariadb-data:
+  mysql-data:
   kafka-data:
   loki-data:
   grafana-data:

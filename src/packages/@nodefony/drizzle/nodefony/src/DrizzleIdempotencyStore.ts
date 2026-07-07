@@ -1,4 +1,6 @@
-import { and, eq, lt, lte } from "drizzle-orm";
+import { and, eq, is, lt, lte } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
+import { MySqlTable } from "drizzle-orm/mysql-core";
 // `import type` du contrat (CORE) → effacé à la compilation : 0 dépendance
 // runtime vers `@nodefony/framework` (où vivent le data plane admin + `@Idempotent`
 // qui CONSOMMENT ce store). Le contrat vit au CORE exprès pour ça (cf TSDoc du
@@ -8,8 +10,13 @@ import type {
   IdempotencyOutcome,
   IdempotentResponse,
 } from "nodefony";
-import type { DrizzleDb } from "./orm-core/DrizzleRepository";
+import {
+  execTable,
+  type DrizzleDb,
+  type DrizzleTable,
+} from "./orm-core/DrizzleRepository";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
+import { reserveIdempotencyKeyMysql } from "./queryKit";
 import {
   createIdempotencyTable,
   idempotencyKeyTable,
@@ -17,12 +24,17 @@ import {
 } from "../entity/idempotencyEntity";
 
 /**
- * Table d'idempotence telle que consommée par le store. Typée sur la variante
- * **SQLite** (dialecte par défaut) ; en postgres la `PgTable` y est injectée via
- * cast (mêmes NOMS de colonnes → `table.key`/`.expiresAt`… valides) — le runtime
- * exécute alors les builders du dialecte du `db` résolu. Cf {@link createIdempotencyTable}.
+ * Lignes affectées d'une mutation builder, normalisées par driver :
+ * better-sqlite3 `{changes}` / pg `{rowCount}` / mysql2 tuple
+ * `[ResultSetHeader{affectedRows}, fields]`.
  */
-type IdempotencyTable = typeof idempotencyKeyTable;
+function affectedOf(result: unknown): number {
+  if (Array.isArray(result)) {
+    return (result[0] as { affectedRows?: number })?.affectedRows ?? 0;
+  }
+  const r = result as { changes?: number; rowCount?: number | null };
+  return r.changes ?? r.rowCount ?? 0;
+}
 
 /** Bail par défaut d'une entrée *in-flight* : 60 s (au-delà = exécution abandonnée). */
 const DEFAULT_LEASE_MS = 60_000;
@@ -86,7 +98,13 @@ const DEFAULT_TTL_MS = 600_000;
  */
 export class DrizzleIdempotencyStore implements IIdempotencyStore {
   readonly #resolveDb: () => DrizzleDb | null;
-  readonly #table: IdempotencyTable;
+  readonly #table: DrizzleTable;
+  /** Colonnes par nom logique, vue canonique (les specs colKit partagent les
+   *  NOMS entre dialectes → les builders restent dialecte-agnostiques). */
+  readonly #c: Record<string, SQLiteColumn>;
+  /** `true` si la table injectée est la variante MySQL → `begin` route sur la
+   *  réservation `ON DUPLICATE KEY UPDATE` du queryKit (pas de RETURNING). */
+  readonly #mysql: boolean;
   readonly #now: () => number;
   readonly #leaseMs: number;
   readonly #ttlMs: number;
@@ -113,11 +131,13 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
     now: () => number = Date.now,
     leaseMs: number = DEFAULT_LEASE_MS,
     ttlMs: number = DEFAULT_TTL_MS,
-    table: IdempotencyTable = idempotencyKeyTable,
+    table: DrizzleTable = idempotencyKeyTable,
     resolveLocation?: () => string | undefined,
   ) {
     this.#resolveDb = resolveDb;
     this.#table = table;
+    this.#c = execTable(table) as unknown as Record<string, SQLiteColumn>;
+    this.#mysql = is(table, MySqlTable);
     this.#now = now;
     this.#leaseMs = leaseMs;
     this.#ttlMs = ttlMs;
@@ -157,9 +177,9 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
       now,
       leaseMs,
       ttlMs,
-      // Variante de table du dialecte de l'ORM (sqlite|postgres) → le store opère
-      // sur le bon schéma au runtime ; le typage reste sur la variante SQLite.
-      createIdempotencyTable(orm.dialect) as IdempotencyTable,
+      // Variante de table du dialecte de l'ORM → le store opère sur le bon
+      // schéma au runtime (colonnes via la vue par nom logique `#c`).
+      createIdempotencyTable(orm.dialect),
       () => orm.location,
     );
   }
@@ -180,41 +200,58 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
       // ORM non connecté (boot/shutdown) → fail-soft : exécuter sans dédup.
       return { state: "fresh" };
     }
-    const table = this.#table;
     const now = this.#now();
     const leaseExpiresAt = now + this.#leaseMs;
-    // Réservation ATOMIQUE (équivalent SQL de `SET … NX PX`) : insère la clé, OU
-    // « vole » une entrée EXPIRÉE via le `DO UPDATE … WHERE expiresAt < now`. Le
-    // `RETURNING` ne renvoie une ligne QUE si l'INSERT ou l'UPDATE a réellement eu
-    // lieu → length>0 ⇒ on a obtenu la réservation (clé neuve ou morte reprise).
-    const reserved = await db
-      .insert(table)
-      .values({
+    let reserved: boolean;
+    if (this.#mysql) {
+      // MySQL : ni RETURNING ni WHERE sur le DO UPDATE → réservation atomique
+      // reconstruite en `ON DUPLICATE KEY UPDATE … IF(expiré)` + verdict par
+      // `affectedRows` (queryKit — le SQL conditionnel du dialecte vit là-bas).
+      reserved = await reserveIdempotencyKeyMysql(db, {
         key,
         fingerprint,
-        state: "if",
-        response: null,
-        expiresAt: leaseExpiresAt,
-      })
-      .onConflictDoUpdate({
-        target: table.key,
-        set: {
+        now,
+        leaseExpiresAt,
+      });
+    } else {
+      // Réservation ATOMIQUE (équivalent SQL de `SET … NX PX`) : insère la clé,
+      // OU « vole » une entrée EXPIRÉE via le `DO UPDATE … WHERE expiresAt <
+      // now`. Le `RETURNING` ne renvoie une ligne QUE si l'INSERT ou l'UPDATE a
+      // réellement eu lieu → length>0 ⇒ réservation obtenue (clé neuve ou morte
+      // reprise).
+      const rows = await db
+        .insert(execTable(this.#table))
+        .values({
+          key,
           fingerprint,
           state: "if",
           response: null,
           expiresAt: leaseExpiresAt,
-        },
-        // Ne réécrit (= ne vole) QUE si l'entrée existante est morte. Sur une
-        // entrée vivante, le WHERE échoue → 0 ligne → contention (lire l'état).
-        setWhere: lt(table.expiresAt, now),
-      })
-      .returning({ key: table.key });
-    if (reserved.length > 0) {
+        })
+        .onConflictDoUpdate({
+          target: this.#c.key as SQLiteColumn,
+          set: {
+            fingerprint,
+            state: "if",
+            response: null,
+            expiresAt: leaseExpiresAt,
+          },
+          // Ne réécrit (= ne vole) QUE si l'entrée existante est morte. Sur une
+          // entrée vivante, le WHERE échoue → 0 ligne → contention (lire l'état).
+          setWhere: lt(this.#c.expiresAt, now),
+        })
+        .returning({ key: this.#c.key });
+      reserved = rows.length > 0;
+    }
+    if (reserved) {
       this.#pending++;
       return { state: "fresh" };
     }
     // Contention : la clé était VIVANTE à l'instant de l'upsert → lire son état.
-    const rows = await db.select().from(table).where(eq(table.key, key));
+    const rows = await db
+      .select()
+      .from(execTable(this.#table))
+      .where(eq(this.#c.key, key));
     const existing = rows[0] as IdempotencyKeyRow | undefined;
     if (existing === undefined) {
       // Course rare : la clé a expiré entre l'upsert et le SELECT. Prudence
@@ -238,18 +275,15 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
     if (!db) {
       return; // ORM non connecté → no-op (cf dégradation gracieuse).
     }
-    const table = this.#table;
     // UPDATE conditionnel atomique : ne mémorise QUE si la clé est encore NOTRE
     // in-flight (ni `abort`, ni bail expiré + volée entre-temps) → jamais
     // ressusciter une clé libérée. `fingerprint` non touché = empreinte préservée
     // (mismatch 422 d'un rejeu avec un autre payload après complétion).
-    const result = (await db
-      .update(table)
+    const result = await db
+      .update(execTable(this.#table))
       .set({ state: "done", response, expiresAt: this.#now() + this.#ttlMs })
-      .where(and(eq(table.key, key), eq(table.state, "if")))) as {
-      changes?: number;
-    };
-    if ((result.changes ?? 0) > 0) {
+      .where(and(eq(this.#c.key, key), eq(this.#c.state, "if")));
+    if (affectedOf(result) > 0) {
       this.#dec();
     }
   }
@@ -259,16 +293,13 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
     if (!db) {
       return; // ORM non connecté → no-op (cf dégradation gracieuse).
     }
-    const table = this.#table;
     // Libère une clé in-flight dont l'exécution a échoué (rien n'est mémorisé →
     // l'appel pourra être réessayé). `state='if'` garde le DELETE sûr : jamais
     // d'effacement d'une réponse déjà mémorisée (`done`) par une autre exécution.
-    const result = (await db
-      .delete(table)
-      .where(and(eq(table.key, key), eq(table.state, "if")))) as {
-      changes?: number;
-    };
-    if ((result.changes ?? 0) > 0) {
+    const result = await db
+      .delete(execTable(this.#table))
+      .where(and(eq(this.#c.key, key), eq(this.#c.state, "if")));
+    if (affectedOf(result) > 0) {
       this.#dec();
     }
   }
@@ -286,11 +317,10 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
     if (!db) {
       return 0; // ORM non connecté → rien à purger.
     }
-    const table = this.#table;
-    const result = (await db
-      .delete(table)
-      .where(lte(table.expiresAt, now))) as { changes?: number };
-    return result.changes ?? 0;
+    const result = await db
+      .delete(execTable(this.#table))
+      .where(lte(this.#c.expiresAt, now));
+    return affectedOf(result);
   }
 
   /** Décrémente le compteur local borné à 0. */

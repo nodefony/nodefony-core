@@ -22,6 +22,8 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
+import type { MySqlTable } from "drizzle-orm/mysql-core";
 import { RequestContext, redactSecrets } from "nodefony";
 import {
   isFieldOperators,
@@ -50,7 +52,7 @@ import type {
 export type DrizzleDb = BetterSQLite3Database<Record<string, never>>;
 
 /** Table Drizzle multi-dialecte (l'union honnête des variantes colKit). */
-export type DrizzleTable = SQLiteTable | PgTable;
+export type DrizzleTable = SQLiteTable | PgTable | MySqlTable;
 
 /** Colonne Drizzle dialecte-agnostique (classe de base — acceptée par les
  *  opérateurs `eq`/`lt`/`asc`… et les fragments `sql`). */
@@ -169,10 +171,15 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
                 ...(getPgTableConfig(this.#table as PgTable).primaryKeys[0]
                   ?.columns ?? []),
               ]
-            : [
-                ...(getTableConfig(this.#table as SQLiteTable).primaryKeys[0]
-                  ?.columns ?? []),
-              ];
+            : this.#dialect === "mysql"
+              ? [
+                  ...(getMysqlTableConfig(this.#table as MySqlTable)
+                    .primaryKeys[0]?.columns ?? []),
+                ]
+              : [
+                  ...(getTableConfig(this.#table as SQLiteTable).primaryKeys[0]
+                    ?.columns ?? []),
+                ];
       } catch {
         cols = [];
       }
@@ -220,9 +227,19 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return sql`${target} in (select ${output} from (${inner}) as picked)`;
   }
 
-  /** Lignes affectées, normalisé par driver (better-sqlite3 `changes` / pg `rowCount`). */
-  #affected(result: { changes?: number; rowCount?: number | null }): number {
-    return result.changes ?? result.rowCount ?? 0;
+  /**
+   * Lignes affectées, normalisé par driver : better-sqlite3 `{changes}` /
+   * pg `{rowCount}` / mysql2 tuple `[ResultSetHeader{affectedRows}, fields]`.
+   */
+  #affected(
+    result: { changes?: number; rowCount?: number | null } | readonly unknown[],
+  ): number {
+    if (Array.isArray(result)) {
+      const header = result[0] as { affectedRows?: number } | undefined;
+      return header?.affectedRows ?? 0;
+    }
+    const r = result as { changes?: number; rowCount?: number | null };
+    return r.changes ?? r.rowCount ?? 0;
   }
 
   /** Tronque + redacte un SQL paramétré pour l'affichage (jamais de valeur). */
@@ -354,9 +371,17 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       query = query.limit(options.limit);
     } else if (options?.offset !== undefined && this.#dialect === "sqlite") {
       // SQLite : OFFSET exige un LIMIT → `-1` = illimité quand seul l'offset
-      // est posé. PG accepte OFFSET seul (et REJETTE `LIMIT -1`) → rien à
-      // poser. MySQL (S4) exigera son propre sentinel (LIMIT 2^64-1).
-      query = query.limit(-1);
+      // est posé. PG accepte OFFSET seul (et REJETTE `LIMIT -1`) → rien à poser.
+      // ⚠️ En FRAGMENT SQL : drizzle 0.45 IGNORE silencieusement un `limit(-1)`
+      // NUMÉRIQUE (émet `OFFSET` seul → SqliteError) — bug attrapé par le banc
+      // de contrat 3-dialectes, jamais vu avant car ce chemin n'était couvert
+      // qu'en PG (où rien n'est posé).
+      query = query.limit(sql`-1` as unknown as number);
+    } else if (options?.offset !== undefined && this.#dialect === "mysql") {
+      // MySQL : OFFSET exige aussi un LIMIT ; le sentinel documenté (2^64-1)
+      // n'est pas représentable en double JS → MAX_SAFE_INTEGER (2^53-1),
+      // illimité en pratique et transmis exact par le paramètre bindé.
+      query = query.limit(Number.MAX_SAFE_INTEGER);
     }
     if (options?.offset !== undefined) {
       query = query.offset(options.offset);
@@ -450,6 +475,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   }
 
   async create(data: Partial<T>): Promise<T> {
+    if (this.#dialect === "mysql") {
+      const rows = await this.#mysqlInsertReturning([
+        data as Record<string, unknown>,
+      ]);
+      return rows[0] as T;
+    }
     const rows = (await this.#prof(
       this.#db
         .insert(execTable(this.#table))
@@ -463,6 +494,11 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (data.length === 0) {
       return []; // no-op : pas d'INSERT à 0 ligne (drizzle/SQL le rejetteraient).
     }
+    if (this.#dialect === "mysql") {
+      return (await this.#mysqlInsertReturning(
+        data as Record<string, unknown>[],
+      )) as T[];
+    }
     const rows = (await this.#prof(
       this.#db
         .insert(execTable(this.#table))
@@ -473,6 +509,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   }
 
   async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
+    if (this.#dialect === "mysql") {
+      return this.#mysqlUpdateOneReturning(
+        data as Record<string, unknown>,
+        criteria,
+      );
+    }
     // Atomique : UPDATE … WHERE <pickOne> RETURNING.
     // - une SEULE requête → pas de relecture (qui renverrait null à tort si le
     //   critère porte sur un champ modifié — bug B1) ;
@@ -517,6 +559,31 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       ...((insertOnly ?? {}) as Record<string, unknown>),
       ...(update as Record<string, unknown>),
     };
+    if (this.#dialect === "mysql") {
+      // `ON DUPLICATE KEY UPDATE` (pas de `target` : MySQL arbitre sur TOUTES
+      // les contraintes uniques) + relecture par les valeurs FINALES des
+      // colonnes du critère (post-merge : `values[field]`) — pas de RETURNING.
+      await this.#prof(
+        (
+          this.#db.insert(execTable(this.#table)).values(values) as unknown as {
+            onDuplicateKeyUpdate(cfg: {
+              set: Record<string, unknown>;
+            }): ProfiledQuery<unknown>;
+          }
+        ).onDuplicateKeyUpdate({ set: update as Record<string, unknown> }),
+      );
+      const conds = target.map((col) => eq(col, values[col.name]));
+      const rows = (await this.#prof(
+        this.#db
+          .select()
+          .from(execTable(this.#table))
+          .where(
+            conds.length === 1 ? (conds[0] as SQL) : (and(...conds) as SQL),
+          )
+          .limit(1) as unknown as ProfiledQuery<Record<string, unknown>[]>,
+      )) as Record<string, unknown>[];
+      return rows[0] as T;
+    }
     const rows = (await this.#prof(
       this.#db
         .insert(execTable(this.#table))
@@ -565,6 +632,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       }
       setObj[field] = sql`${col} + ${delta}`;
     }
+    if (this.#dialect === "mysql") {
+      return this.#mysqlUpdateOneReturning(setObj, criteria);
+    }
     const pick = this.#pickOne(this.#where(criteria));
     const rows = (await this.#prof(
       this.#db
@@ -589,11 +659,17 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   }
 
   async deleteOne(criteria: Criteria<T>): Promise<boolean> {
+    if (this.#dialect === "mysql") {
+      return (await this.#mysqlDeleteOneReturning(criteria)) !== null;
+    }
     const rows = await this.#deleteOneReturning(criteria);
     return rows.length > 0;
   }
 
   async findOneAndDelete(criteria: Criteria<T>): Promise<T | null> {
+    if (this.#dialect === "mysql") {
+      return this.#mysqlDeleteOneReturning(criteria);
+    }
     const rows = await this.#deleteOneReturning(criteria);
     return (rows[0] as T) ?? null;
   }
@@ -609,6 +685,148 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         .where(pick)
         .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
     )) as Record<string, unknown>[];
+  }
+
+  // ── Chemins MySQL (pas de RETURNING) ──────────────────────────────────────
+  // MySQL ne renvoie jamais les lignes d'un INSERT/UPDATE/DELETE : les verbes
+  // « qui rendent la ligne » se décomposent en (SELECT cible par critère) →
+  // (mutation bornée par PK, critère RE-VÉRIFIÉ dans le WHERE — une course
+  // perdue rend 0 ligne affectée → null, jamais une mutation d'une ligne qui ne
+  // matche plus) → (relecture par PK). 2-3 round-trips au lieu d'1 : le prix du
+  // dialecte, payé UNIQUEMENT en mysql (sqlite/pg gardent le chemin RETURNING).
+
+  /** PK obligatoire en mysql (les verbes re-SELECTent par PK). Fail-loud sinon. */
+  #requirePk(verb: string): DrizzleColumn[] {
+    const pk = this.#pkColumns();
+    if (!pk) {
+      throw new Error(
+        `DrizzleRepository(${getTableName(this.#table)}): "${verb}" on mysql ` +
+          `requires a declared primary key (no RETURNING → rows are re-read by PK).`,
+      );
+    }
+    return pk;
+  }
+
+  /** WHERE d'égalité sur la PK (valeurs plates lues par nom de colonne). */
+  #pkWhere(pk: DrizzleColumn[], values: Record<string, unknown>): SQL {
+    const conds = pk.map((col) => eq(col, values[col.name]));
+    return conds.length === 1 ? (conds[0] as SQL) : (and(...conds) as SQL);
+  }
+
+  /** SELECT d'UNE ligne par valeurs de PK (relecture post-mutation mysql). */
+  async #selectByPk(
+    pk: DrizzleColumn[],
+    values: Record<string, unknown>,
+  ): Promise<Record<string, unknown> | null> {
+    const rows = (await this.#prof(
+      this.#db
+        .select()
+        .from(execTable(this.#table))
+        .where(this.#pkWhere(pk, values))
+        .limit(1) as unknown as ProfiledQuery<Record<string, unknown>[]>,
+    )) as Record<string, unknown>[];
+    return rows[0] ?? null;
+  }
+
+  /** Valeurs de PK d'une ligne cible, après application d'un `set` éventuel
+   *  (un set qui réécrit une colonne PK avec une VALEUR plate est honoré ;
+   *  les fragments SQL — increment — retombent sur la valeur d'origine). */
+  #finalPkValues(
+    pk: DrizzleColumn[],
+    target: Record<string, unknown>,
+    set?: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const col of pk) {
+      const v = set?.[col.name];
+      out[col.name] =
+        v !== undefined && (typeof v !== "object" || v === null)
+          ? v
+          : target[col.name];
+    }
+    return out;
+  }
+
+  /** UPDATE mysql « au plus une, ligne rendue » : cible par critère → UPDATE
+   *  borné PK + critère re-vérifié → relecture par PK. */
+  async #mysqlUpdateOneReturning(
+    set: Record<string, unknown>,
+    criteria: Criteria<T>,
+  ): Promise<T | null> {
+    const pk = this.#requirePk("updateOne");
+    const where = this.#where(criteria);
+    const target = (await this.#runSelect(criteria, { limit: 1 }))[0];
+    if (!target) {
+      return null;
+    }
+    const pkCond = this.#pkWhere(pk, target);
+    const result = (await this.#prof(
+      this.#db
+        .update(execTable(this.#table))
+        .set(set)
+        .where(
+          where ? (and(pkCond, where) as SQL) : pkCond,
+        ) as unknown as ProfiledQuery<readonly unknown[]>,
+    )) as readonly unknown[];
+    if (this.#affected(result) === 0) {
+      return null; // course perdue : la cible ne matchait plus le critère.
+    }
+    return (await this.#selectByPk(
+      pk,
+      this.#finalPkValues(pk, target, set),
+    )) as T | null;
+  }
+
+  /** DELETE mysql « au plus une, ligne rendue » : cible par critère → DELETE
+   *  borné PK + critère re-vérifié → ligne lue rendue. */
+  async #mysqlDeleteOneReturning(criteria: Criteria<T>): Promise<T | null> {
+    const pk = this.#requirePk("deleteOne");
+    const where = this.#where(criteria);
+    const target = (await this.#runSelect(criteria, { limit: 1 }))[0];
+    if (!target) {
+      return null;
+    }
+    const pkCond = this.#pkWhere(pk, target);
+    const result = (await this.#prof(
+      this.#db
+        .delete(execTable(this.#table))
+        .where(
+          where ? (and(pkCond, where) as SQL) : pkCond,
+        ) as unknown as ProfiledQuery<readonly unknown[]>,
+    )) as readonly unknown[];
+    return this.#affected(result) > 0 ? (target as T) : null;
+  }
+
+  /** INSERT mysql, ligne(s) rendue(s) : `$returningId()` (PK générées côté JS
+   *  par `$defaultFn` ou auto-increment) complété par les PK passées dans les
+   *  données, puis relecture par PK (ordre d'insertion préservé). */
+  async #mysqlInsertReturning(
+    data: Record<string, unknown>[],
+  ): Promise<Record<string, unknown>[]> {
+    const pk = this.#requirePk("create");
+    const ids = (await this.#prof(
+      (
+        this.#db.insert(execTable(this.#table)).values(data) as unknown as {
+          $returningId(): ProfiledQuery<Record<string, unknown>[]>;
+        }
+      ).$returningId(),
+    )) as Record<string, unknown>[];
+    const out: Record<string, unknown>[] = [];
+    for (let i = 0; i < data.length; i++) {
+      const values: Record<string, unknown> = {};
+      for (const col of pk) {
+        values[col.name] = data[i]?.[col.name] ?? ids[i]?.[col.name];
+      }
+      const row = await this.#selectByPk(pk, values);
+      if (!row) {
+        throw new Error(
+          `DrizzleRepository(${getTableName(this.#table)}): mysql insert ` +
+            `succeeded but the row could not be re-read by primary key.`,
+        );
+      }
+      out.push(row);
+    }
+    return out;
   }
 
   async count(criteria?: Criteria<T>): Promise<number> {

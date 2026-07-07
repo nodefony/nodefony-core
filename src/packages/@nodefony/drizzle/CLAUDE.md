@@ -5,7 +5,7 @@
 **adapter concret** de `@nodefony/orm-core` (avec `@nodefony/mongoose`). Driver SQL **type-safe-first** (choix #1 SQL moderne 2026).
 Implémente `Orm`/`IOrm`, `IRepository<T>`, `ITransaction` au-dessus de Drizzle ORM
 
-- `better-sqlite3` (test) — Postgres/MySQL par simple changement de driver.
+- `better-sqlite3` (test) — Postgres/MySQL/MariaDB par simple changement de driver.
 
 ## Nature : module bootable + adapter lib
 
@@ -204,50 +204,86 @@ main ; opt-out `frameworkEntities: false`.
   table du dialecte**. `IFrameworkTableSpec` (kinds `text`/`json`/`bool`/`epochMs`/`int`/`dateMs` +
   pk/notNull/unique/`defaultFn`/`onUpdateFn` + index) → `buildFrameworkTable(dialect, spec)` ;
   `createFrameworkTableFactory(spec)` = factory `createXTable(dialect)` **mémoïsée** (1 instance
-  par dialecte). **RÈGLE : toute entité à porter passe par le colKit** (ajouter mysql = étendre
-  colKit, PAS les entités). Divergences de type assumées DANS le kit : epoch ms = `integer` SQLite
-  → `bigint mode:number` PG (exposé `number`) ; date JS (`dateMs`, exposée `Date` — `userTable`) =
-  `integer mode:timestamp_ms` → `timestamptz(3) mode:date` ; JSON = `text mode:json` → `jsonb` ;
-  bool = `integer mode:boolean` → `boolean`. **Mêmes NOMS de colonnes** partout → stores/repo
-  agnostiques. INTERNE (pas d'export `index.ts` — décision audit : pas de sur-promesse d'API).
+  par dialecte). **RÈGLE : toute entité à porter passe par le colKit** (ajouter un dialecte =
+  étendre colKit, PAS les entités). Divergences de type assumées DANS le kit : epoch ms = `integer`
+  SQLite → `bigint mode:number` PG+MySQL (exposé `number`) ; date JS (`dateMs`, exposée `Date` —
+  `userTable`) = `integer mode:timestamp_ms` → `timestamptz(3) mode:date` PG / `datetime(3)
+mode:date` MySQL (pas `timestamp` : borné 2038, timezone de session — le pool mysql2 est ouvert
+  en `timezone:"Z"`) ; JSON = `text mode:json` → `jsonb` / `json` ; bool = `integer mode:boolean` →
+  `boolean` ; texte = `text` partout SAUF MySQL où PK/UNIQUE/indexé devient `varchar(512)` (TEXT
+  non indexable InnoDB sans préfixe ; 512×4 utf8mb4 = 2048 < 3072 la limite DYNAMIC, couvre la clé
+  d'idempotence ~330 max). **Mêmes NOMS de colonnes** partout → stores/repo agnostiques. INTERNE
+  (pas d'export `index.ts` — décision audit : pas de sur-promesse d'API).
 - **`queryKit`** (`src/queryKit.ts`, INTERNE — miroir du colKit pour le SQL natif) : les requêtes
   brutes des entités framework, émises **et exécutées** par dialecte (l'API native diverge :
-  `db.all()` better-sqlite3 / `db.execute().rows` node-postgres — un appelant qui recevrait le
-  fragment seul routerait lui-même et le dialecte fuirait). `findUserIdBySocialProvider` =
-  `json_each`+`json_extract` SQLite / containment `@>` jsonb PG (motif = UN paramètre bindé
-  sérialisé JSON, indexable GIN) / mysql → erreur actionnable (S4, `JSON_CONTAINS`). **Budget
-  G1 : tout `sql\`…\`` d'entité framework vit ici** et nulle part ailleurs.
+  `db.all()` better-sqlite3 / `db.execute().rows` node-postgres / tuple `[rows|header, fields]`
+  mysql2 — un appelant qui recevrait le fragment seul routerait lui-même et le dialecte fuirait).
+  `findUserIdBySocialProvider` = `json_each`+`json_extract` SQLite / containment `@>` jsonb PG /
+  `JSON_CONTAINS` MySQL (motif = UN paramètre bindé sérialisé JSON, indexable GIN en PG).
+  `reserveIdempotencyKeyMysql` = la réservation atomique du store d'idempotence en mysql (cf plus
+  bas). **Budget G1 : tout `sql\`…\`` d'entité framework vit ici** et nulle part ailleurs.
 - **Repository portable** : `#pickOne` borne `updateOne`/`increment`/`deleteOne`/`findOneAndDelete`
   à « au plus une » via la **PK découverte** (lazy, mémoïsée), forme unique 3 dialectes :
   `pk IN (SELECT pk FROM (SELECT pk … LIMIT 1) AS picked)` (table dérivée = requise par MySQL —
   LIMIT-in-IN interdit + ERROR 1093 ; PK composite = row-values). `rowid` = **fallback seulement**
-  (table sans PK, sqlite-only assumé). Compteurs normalisés `#affected` (`changes` better-sqlite3 /
-  `rowCount` pg). Le repo porte son **`#dialect`** (5ᵉ arg ctor, propagé `withTransaction`) →
-  hack OFFSET-sans-LIMIT **routé** : sqlite = `limit(-1)`, PG = rien (OFFSET seul valide — PG
-  rejette `LIMIT -1`). ⚠️ Resté dialecte (S4 mysql) : `onConflictDoUpdate` (upsert) =
-  sqlite/pg, mysql = `onDuplicateKeyUpdate` ; `returning()` absent de mysql (verbes `*One`) ;
-  offset-sans-limit mysql = sentinel 2^64-1.
-- **Factory d'entité legacy** (`createIdempotencyTable`) : switch explicite 2 tables — antérieure au
-  colKit, à migrer opportunément. Les nouvelles déclinaisons = colKit direct (réf : `sessionEntity`).
-- **Drivers** : `pg` `optionalDependencies` (+ `@types/pg` dev) ; `mysql2` suivra. `better-sqlite3`
-  reste `dependencies` (défaut bootable).
+  (table sans PK, sqlite-only assumé — en mysql : erreur actionnable, la relecture exige une PK).
+  Compteurs normalisés `#affected` (`changes` better-sqlite3 / `rowCount` pg / tuple
+  `[ResultSetHeader{affectedRows}]` mysql2). Le repo porte son **`#dialect`** (5ᵉ arg ctor,
+  propagé `withTransaction`) → hack OFFSET-sans-LIMIT **routé** : sqlite = fragment `sql\`-1\``(⚠️ drizzle 0.45 IGNORE silencieusement`limit(-1)`**numérique** — bug attrapé par le banc de
+contrat), PG = rien (OFFSET seul valide,`LIMIT -1`rejeté), mysql =`limit(MAX_SAFE_INTEGER)`(le sentinel doc 2^64-1 n'est pas représentable en double JS). **Chemins mysql (pas de
+RETURNING)** : les verbes « qui rendent la ligne » se décomposent en SELECT-cible → mutation
+bornée PK **+ critère RE-VÉRIFIÉ dans le WHERE** (course perdue → 0 ligne →`null`, jamais une
+mutation hors critère) → relecture par PK ; `create`/`createMany`=`$returningId()` (PK
+  `$defaultFn`côté JS) + relecture ordonnée ;`upsert`=`onDuplicateKeyUpdate`(MySQL arbitre
+sur TOUTES les uniques, pas de`target`) + relecture par les valeurs finales du critère.
+  2-3 round-trips au lieu d'1 : le prix du dialecte, payé UNIQUEMENT en mysql.
+- **Idempotence en mysql** (`reserveIdempotencyKeyMysql`, queryKit) : ni `RETURNING` ni `WHERE`
+  sur l'`ON DUPLICATE KEY UPDATE`, et l'`affectedRows` d'un ODKU est AMBIGU sous mysql2 (flag
+  `CLIENT_FOUND_ROWS` par défaut : « matched inchangée » = 1, indistinguable d'un INSERT — prouvé
+  serveur réel) → réservation en DEUX instructions chacune atomique au verdict non-ambigu :
+  `INSERT IGNORE` (dup → toujours 0 ; PK = un seul gagnant) puis vol par `UPDATE … WHERE key AND
+expiresAt < now` (change toujours `expiresAt` → 1 ⇔ vol ; deux voleurs se sérialisent sur le
+  verrou de ligne InnoDB). Jamais `fresh` hors réservation gagnée. L'entité idempotence est
+  passée du switch 2-tables historique à une spec colKit (la 3ᵉ variante sort du kit).
+- **Compat MySQL ET MariaDB (les deux prouvés)** : le dialecte `mysql` couvre MySQL Community et
+  MariaDB (fork libre — préférence projet pour le dev quotidien) au plus petit dénominateur.
+  Divergence encapsulée : MariaDB stocke JSON en alias LONGTEXT → le driver rend une **string** là
+  où MySQL (type binaire) rend un objet → kind `json` mysql = `customType` **`mysqlJsonCompat`**
+  (parse si string, passthrough sinon, `dataType: "json"`). Docker : service `mariadb` (11.4,
+  port 3306, quotidien) + service `mysql` (8.4, port 3307, preuve de compat) — les MÊMES e2e
+  passent sur les deux (`NF_MYSQL_URL` pointe l'un ou l'autre).
+- **Drivers** : `pg` + `mysql2` en `optionalDependencies` (lazy import, externalisés rollup ;
+  `@types/pg` dev, mysql2 embarque ses types). `better-sqlite3` reste `dependencies` (défaut
+  bootable).
 
 **Typage cross-dialecte (modèle)** : les **frontières disent la vérité** —
-`DrizzleTable = SQLiteTable | PgTable` (union : `DrizzleOrm.#tables`, ctor du repo,
+`DrizzleTable = SQLiteTable | PgTable | MySqlTable` (union : `DrizzleOrm.#tables`, ctor du repo,
 `DrizzleResolvedRelation.targetTable`) et `DrizzleColumn = Column` (base, acceptée par
 `eq`/`lt`/`asc`/`sql`) ; la conversion vers les builders passe par **`execTable()`, SEUL point**
-(vue d'exécution canonique typée sqlite — la surface builder est structurellement identique en pg,
-**prouvé** : le `DrizzleRepository` générique complet tourne sur PG, e2e par brique ; `DrizzleDb`
-= même principe pour le handle). Downcast localisé restant : `upsert.target` (`IndexColumn[]`).
-PAS de générique par dialecte (mur de typage `_` drizzle = scénario G2).
+(vue d'exécution canonique typée sqlite — la surface builder est structurellement identique en
+pg/mysql, **prouvé** : le `DrizzleRepository` générique complet tourne sur PG et MySQL/MariaDB,
+banc de contrat + e2e par brique ; `DrizzleDb` = même principe pour le handle). Downcast localisé
+restant : `upsert.target` (`IndexColumn[]`). PAS de générique par dialecte (mur de typage `_`
+drizzle = scénario G2).
 
 **Portées (specs colKit, auto-register par le wire de `registerStores.ts` — plus de `@entity`
-ni d'enregistrement app top-level) — LES 8 BRIQUES** : `idempotency` (Slice 0, e2e cross-pod) ·
-`session` (S1) · **`User` + `access_token`/`denied_jti`/`subject_revocation` +
-`webauthn_credential` + `totp_secret` (S2)** · **`audit_event` + `webhook_endpoint` (S3)** —
-chaque brique prouvée par un e2e PG dédié gaté `NF_PG_URL` (`*-postgres.e2e.test.ts` :
-round-trips jsonb/bigint/timestamptz, UNIQUE réels, gc, `@>`, OFFSET-sans-LIMIT).
-**Restant** : **mysql** (`mysql2`, S4) + DDL prod drizzle-kit.
+ni d'enregistrement app top-level) — LES 8 BRIQUES sur LES 3 DIALECTES** : `idempotency`
+(Slice 0 + S4) · `session` (S1) · **`User` + `access_token`/`denied_jti`/`subject_revocation` +
+`webauthn_credential` + `totp_secret` (S2)** · **`audit_event` + `webhook_endpoint` (S3)** ·
+**mysql/mariadb (S4)**. Preuves :
+
+- e2e PG par brique gatés `NF_PG_URL` (`*-postgres.e2e.test.ts` : round-trips
+  jsonb/bigint/timestamptz, UNIQUE réels, gc, `@>`, OFFSET-sans-LIMIT, idempotence cross-pod) ;
+- e2e mysql gatés `NF_MYSQL_URL` (`*-mysql.e2e.test.ts` : audit curseur composite + gc
+  `affectedRows`, user `JSON_CONTAINS` + injection bindée, idempotence verdicts + vol +
+  concurrence 2 pods) — passés sur **MySQL 8.4 ET MariaDB 11.4** ;
+- **banc de PARITÉ DE CONTRAT `IRepository`** (`tests/integration/repository-contract.ts`) : LA
+  même suite (create/find/opérateurs riches/updateOne-B1/au-plus-une/upsert-insertOnly/
+  offset-sans-limit/round-trip types/UnknownCriteriaField…) exécutée sur les TROIS dialectes
+  (`repository-contract-{sqlite,postgres,mysql}*.test.ts`) — un écart de comportement = un bug
+  du framework, par construction.
+
+**Restant** : DDL prod drizzle-kit (migrations versionnées par dialecte + `nodefony orm:migrate`).
 
 ## Roadmap
 
@@ -256,4 +292,4 @@ round-trips jsonb/bigint/timestamptz, UNIQUE réels, gc, `@>`, OFFSET-sans-LIMIT
 - ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests SQLite + **e2e Postgres cross-pod 7/7** (atomicité réelle prouvée).
 - ✅ **Journal d'audit Drizzle (P6.18)** — `IAuditStore` SQL append-only, pagination curseur composite `(ts,id)` via query builder dialect-agnostique, gc rétention, dégradation gracieuse, 7 tests SQLite. Multi-pod pg = slice multi-dialecte. Cf section « Journal d'audit Drizzle ».
 - ✅ **Store de secrets TOTP Drizzle** — `ITotpSecretStore` SQL (2FA persistant, comble le seul gap durable sans adapter). Table `totp_secret` (PK `userId`, 1 secret/user), `save` upsert, `update` patch partiel (anti-rejeu RFC 6238 préservé), `secretEnc` opaque (chiffré côté service). Auto-register `totp.store: "drizzle"` (sqlite-only, comme webauthn/token). 9 tests SQLite.
-- 🚧 **Portabilité multi-dialecte (chantier)** — `connector.dialect` + `DrizzleOrm` lazy pg + **colKit** (+ `dateMs`) + **queryKit** + repository PK-portable (`#pickOne`) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé ; **les 8 briques framework portées + prouvées sur PG** (e2e par brique). Reste : **mysql** (S4) + DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».
+- 🚧 **Portabilité multi-dialecte (chantier)** — `connector.dialect` + `DrizzleOrm` lazy pg/mysql + **colKit** (+ `dateMs`, `mysqlJsonCompat`) + **queryKit** + repository PK-portable (`#pickOne`, chemins mysql sans RETURNING) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé ; **les 8 briques framework portées + prouvées sur PG et MySQL/MariaDB** (e2e par brique + banc de contrat 3 dialectes). Reste : DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».

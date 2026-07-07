@@ -3,6 +3,8 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
+import type { MySqlTable } from "drizzle-orm/mysql-core";
 import {
   createAuditEventTable,
   auditEventTable,
@@ -63,14 +65,36 @@ function pgView(table: PgTable): Map<string, ColView> {
   );
 }
 
-/** Parité structurelle générique : noms + PK + NOT NULL + UNIQUE. */
+function mysqlView(table: MySqlTable): Map<string, ColView> {
+  const { columns } = getMysqlTableConfig(table);
+  return new Map(
+    columns.map((c) => [
+      c.name,
+      {
+        name: c.name,
+        sqlType: c.getSQLType(),
+        primary: c.primary,
+        notNull: c.notNull,
+        isUnique: c.isUnique,
+      },
+    ]),
+  );
+}
+
+/** Parité structurelle générique : noms + PK + NOT NULL + UNIQUE — 3 dialectes. */
 function assertParity(factory: FrameworkTableFactory, label: string): void {
   const sqlite = sqliteView(factory("sqlite"));
   const pg = pgView(factory("postgres"));
+  const mysql = mysqlView(factory("mysql"));
   assert.deepEqual(
     [...sqlite.keys()].sort(),
     [...pg.keys()].sort(),
-    `${label}: mêmes noms de colonnes sur les deux dialectes`,
+    `${label}: mêmes noms de colonnes sqlite/pg`,
+  );
+  assert.deepEqual(
+    [...sqlite.keys()].sort(),
+    [...mysql.keys()].sort(),
+    `${label}: mêmes noms de colonnes sqlite/mysql`,
   );
   for (const [name, s] of sqlite) {
     const p = pg.get(name);
@@ -78,6 +102,19 @@ function assertParity(factory: FrameworkTableFactory, label: string): void {
     assert.equal(p.primary, s.primary, `${label}.${name}: parité PK`);
     assert.equal(p.notNull, s.notNull, `${label}.${name}: parité NOT NULL`);
     assert.equal(p.isUnique, s.isUnique, `${label}.${name}: parité UNIQUE`);
+    const m = mysql.get(name);
+    assert.ok(m, `${label}.${name} absente en MySQL`);
+    assert.equal(m.primary, s.primary, `${label}.${name}: parité PK mysql`);
+    assert.equal(
+      m.notNull,
+      s.notNull,
+      `${label}.${name}: parité NOT NULL mysql`,
+    );
+    assert.equal(
+      m.isUnique,
+      s.isUnique,
+      `${label}.${name}: parité UNIQUE mysql`,
+    );
   }
 }
 
@@ -142,9 +179,17 @@ describe("S3 multi-dialecte — parité des entités (colKit)", () => {
     );
   });
 
-  it("mysql : erreur actionnable sur les factories S3 (S4 non livré)", () => {
-    for (const factory of [createAuditEventTable, createWebhookEndpointTable]) {
-      assert.throws(() => factory("mysql"), /mysql on the roadmap/);
+  it("mysql (S4) : types natifs — json / bigint / varchar sur les colonnes indexées", () => {
+    const audit = mysqlView(createAuditEventTable("mysql"));
+    assert.equal(audit.get("ts")?.sqlType, "bigint");
+    assert.equal(audit.get("flags")?.sqlType, "json");
+    // Colonnes de la console d'audit (indexées) → varchar(512).
+    for (const col of ["category", "actor", "requestId"]) {
+      assert.equal(audit.get(col)?.sqlType, "varchar(512)", `audit.${col}`);
     }
+    const webhook = mysqlView(createWebhookEndpointTable("mysql"));
+    assert.equal(webhook.get("events")?.sqlType, "json");
+    assert.equal(webhook.get("enabled")?.sqlType, "boolean");
+    assert.equal(webhook.get("createdAt")?.sqlType, "bigint");
   });
 });

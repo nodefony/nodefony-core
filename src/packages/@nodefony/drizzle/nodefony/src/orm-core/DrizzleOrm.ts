@@ -9,10 +9,16 @@ import {
   getTableConfig as getPgTableConfig,
   PgTable,
 } from "drizzle-orm/pg-core";
-// `import type` UNIQUEMENT (effacé à la compilation) → @types/pg sert au typage,
-// le driver `pg` runtime est `optionalDependency` chargée en LAZY (`await import`)
-// dans `#connectPostgres` (jamais au top-level : un déploiement SQLite n'a pas pg).
+import {
+  getTableConfig as getMysqlTableConfig,
+  MySqlTable,
+} from "drizzle-orm/mysql-core";
+// `import type` UNIQUEMENT (effacé à la compilation) → @types/pg et les types
+// embarqués de mysql2 servent au typage, les drivers runtime sont des
+// `optionalDependencies` chargées en LAZY (`await import`) dans `#connectPostgres`
+// / `#connectMysql` (jamais au top-level : un déploiement SQLite n'a ni pg ni mysql2).
 import type { Pool } from "pg";
+import type { Pool as MysqlPool } from "mysql2/promise";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
 import type {
   IColumnInfo,
@@ -36,8 +42,8 @@ import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 export interface DrizzleOrmOptions {
   /**
    * Dialecte SQL : `sqlite` (défaut, driver better-sqlite3) · `postgres` (driver
-   * `pg`, lazy) · `mysql` (à venir). Sélectionne le client ET la variante de table
-   * que les entités enregistrent.
+   * `pg`, lazy) · `mysql` (driver `mysql2`, lazy). Sélectionne le client ET la
+   * variante de table que les entités enregistrent.
    */
   dialect?: SqlDialect;
   /** Fichier SQLite (`":memory:"` par défaut) — dialecte `sqlite` uniquement. */
@@ -84,6 +90,8 @@ export class DrizzleOrm extends Orm {
   #client: BetterSqlite3.Database | null = null;
   /** Pool `pg` (dialecte postgres) — `null` hors postgres ou non connecté. */
   #pgPool: Pool | null = null;
+  /** Pool `mysql2/promise` (dialecte mysql) — `null` hors mysql ou non connecté. */
+  #mysqlPool: MysqlPool | null = null;
   #db: DrizzleDb | null = null;
   #connected = false;
   /**
@@ -147,12 +155,14 @@ export class DrizzleOrm extends Orm {
    * Générateur de `CREATE TABLE IF NOT EXISTS` partagé entre dialectes (dev/test).
    * Émet uniquement les contraintes colonne (PK / NOT NULL / UNIQUE) à partir du
    * type SQL natif de chaque colonne (`getSQLType()` rend `text`/`integer` en
-   * SQLite, `text`/`bigint`/`jsonb` en Postgres → DDL adapté sans code spécifique).
-   * La prod reste pilotée par drizzle-kit (migrations).
+   * SQLite, `text`/`bigint`/`jsonb` en Postgres, `varchar(512)`/`json` en MySQL
+   * → DDL adapté sans code spécifique). Le quoting d'identifiants diverge :
+   * `"…"` (SQL standard, SQLite/PG) vs backtick MySQL (qui ne lit `"…"` qu'en
+   * mode ANSI_QUOTES, jamais garanti). La prod reste pilotée par drizzle-kit.
    */
-  #buildCreateTable(name: string, columns: DDLColumn[]): string {
+  #buildCreateTable(name: string, columns: DDLColumn[], quote = '"'): string {
     const defs = columns.map((col) => {
-      const parts = [`"${col.name}"`, col.getSQLType()];
+      const parts = [`${quote}${col.name}${quote}`, col.getSQLType()];
       if (col.primary) {
         parts.push("PRIMARY KEY");
       }
@@ -164,7 +174,7 @@ export class DrizzleOrm extends Orm {
       }
       return parts.join(" ");
     });
-    return `CREATE TABLE IF NOT EXISTS "${name}" (${defs.join(", ")})`;
+    return `CREATE TABLE IF NOT EXISTS ${quote}${name}${quote} (${defs.join(", ")})`;
   }
 
   /** Dérive le `CREATE TABLE` SQLite depuis la table Drizzle (dev/test). */
@@ -177,6 +187,12 @@ export class DrizzleOrm extends Orm {
   #createTablePgSQL(table: PgTable): string {
     const { name, columns } = getPgTableConfig(table);
     return this.#buildCreateTable(name, columns);
+  }
+
+  /** Dérive le `CREATE TABLE` MySQL depuis la table Drizzle (dev/test). */
+  #createTableMysqlSQL(table: MySqlTable): string {
+    const { name, columns } = getMysqlTableConfig(table);
+    return this.#buildCreateTable(name, columns, "`");
   }
 
   /** Résout les relations déclaratives d'une entité en métadonnées eager-load. */
@@ -248,11 +264,9 @@ export class DrizzleOrm extends Orm {
       case "postgres":
         await this.#connectPostgres(entities);
         break;
-      default:
-        throw new Error(
-          `DrizzleOrm "${this.name}": dialect "${this.#dialect}" not yet ` +
-            `supported (sqlite, postgres available; mysql on the roadmap).`,
-        );
+      case "mysql":
+        await this.#connectMysql(entities);
+        break;
     }
 
     // 2) Résolution des relations déclaratives (eager-load manuel) — commun.
@@ -295,7 +309,7 @@ export class DrizzleOrm extends Orm {
    */
   #assertDialectTable(
     entity: IEntity,
-    tableCtor: typeof SQLiteTable | typeof PgTable,
+    tableCtor: typeof SQLiteTable | typeof PgTable | typeof MySqlTable,
     dialect: string,
   ): void {
     if (!is(entity.schema as Record<string, unknown>, tableCtor)) {
@@ -353,6 +367,50 @@ export class DrizzleOrm extends Orm {
     }
   }
 
+  /**
+   * Connexion **MySQL** : le driver `mysql2` (optionalDependency) et l'adapter
+   * `drizzle-orm/mysql2` sont chargés en LAZY (`await import`) — même patron que
+   * `#connectPostgres`. Pool promise ouvert en `timezone: "Z"` : les colonnes
+   * `datetime(3)` (kind `dateMs` du colKit) sont écrites/relues en UTC — mêmes
+   * instants que `timestamptz` PG, sans dépendre de la timezone du serveur.
+   */
+  async #connectMysql(entities: IEntity[]): Promise<void> {
+    if (!this.#url) {
+      throw new Error(
+        `DrizzleOrm "${this.name}": dialect "mysql" requires a connection \`url\`.`,
+      );
+    }
+    let pool: MysqlPool;
+    let mysqlDrizzle: (client: MysqlPool) => unknown;
+    try {
+      const mysqlNs = (await import("mysql2/promise")) as unknown as {
+        default?: { createPool: (opts: unknown) => MysqlPool };
+        createPool?: (opts: unknown) => MysqlPool;
+      };
+      const createPool = mysqlNs.createPool ?? mysqlNs.default?.createPool;
+      if (!createPool) {
+        throw new Error("`mysql2/promise` did not expose `createPool`");
+      }
+      mysqlDrizzle = (await import("drizzle-orm/mysql2"))
+        .drizzle as unknown as (client: MysqlPool) => unknown;
+      pool = createPool({ uri: this.#url, timezone: "Z" });
+    } catch (e) {
+      throw new Error(
+        `DrizzleOrm "${this.name}": the mysql dialect needs the optional ` +
+          `driver \`mysql2\` (run \`npm i mysql2\`). ${(e as Error).message}`,
+      );
+    }
+    this.#mysqlPool = pool;
+    this.#db = mysqlDrizzle(pool) as DrizzleDb;
+    for (const entity of entities) {
+      this.#assertDialectTable(entity, MySqlTable, "mysql");
+      const table = entity.schema as MySqlTable;
+      this.#tables![entity.name] = table;
+      entity.model = table;
+      await pool.query(this.#createTableMysqlSQL(table));
+    }
+  }
+
   async disconnect(): Promise<void> {
     if (this.#client) {
       this.#client.close();
@@ -360,8 +418,12 @@ export class DrizzleOrm extends Orm {
     if (this.#pgPool) {
       await this.#pgPool.end();
     }
+    if (this.#mysqlPool) {
+      await this.#mysqlPool.end();
+    }
     this.#client = null;
     this.#pgPool = null;
+    this.#mysqlPool = null;
     this.#db = null;
     this.#connected = false;
     this.#tables = null;
@@ -435,6 +497,10 @@ export class DrizzleOrm extends Orm {
       await this.#pgPool.query("SELECT 1");
       return;
     }
+    if (this.#mysqlPool) {
+      await this.#mysqlPool.query("SELECT 1");
+      return;
+    }
     if (!this.#client) {
       throw new Error(`DrizzleOrm "${this.name}": not connected.`);
     }
@@ -497,7 +563,9 @@ export class DrizzleOrm extends Orm {
     const columns: DDLColumn[] =
       this.#dialect === "postgres"
         ? getPgTableConfig(table as PgTable).columns
-        : getTableConfig(table as SQLiteTable).columns;
+        : this.#dialect === "mysql"
+          ? getMysqlTableConfig(table as MySqlTable).columns
+          : getTableConfig(table as SQLiteTable).columns;
     return columns.map((col) => ({
       name: col.name,
       type: col.getSQLType(),
@@ -516,11 +584,15 @@ export class DrizzleOrm extends Orm {
    * @returns driver + cible (chemin relatif, basename si hors projet, ou `:memory:`).
    */
   override describeConnection(): IConnectionInfo {
-    if (this.#dialect === "postgres") {
-      // Cible PG sans credentials (jamais l'user/password de l'`url` dans le data plane).
+    if (this.#dialect === "postgres" || this.#dialect === "mysql") {
+      // Cible réseau sans credentials (jamais l'user/password de l'`url` dans
+      // le data plane).
       return {
-        driver: "postgres",
-        target: this.#safePgTarget(),
+        driver: this.#dialect,
+        target: this.#safeUrlTarget(
+          this.#dialect,
+          this.#dialect === "postgres" ? "5432" : "3306",
+        ),
         ormVersion: DrizzleOrm.#ormVersion(),
       };
     }
@@ -532,16 +604,16 @@ export class DrizzleOrm extends Orm {
     };
   }
 
-  /** Cible Postgres affichable : `host:port/db`, **sans** user/password (anti-leak). */
-  #safePgTarget(): string {
+  /** Cible réseau affichable : `host:port/db`, **sans** user/password (anti-leak). */
+  #safeUrlTarget(fallback: string, defaultPort: string): string {
     if (!this.#url) {
-      return "postgres";
+      return fallback;
     }
     try {
       const u = new URL(this.#url);
-      return `${u.hostname}:${u.port || "5432"}${u.pathname}`;
+      return `${u.hostname}:${u.port || defaultPort}${u.pathname}`;
     } catch {
-      return "postgres";
+      return fallback;
     }
   }
 

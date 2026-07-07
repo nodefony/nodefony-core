@@ -1,0 +1,290 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
+import { UnknownCriteriaField } from "@nodefony/orm-core";
+import type { IRepository } from "@nodefony/orm-core";
+import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
+import {
+  createFrameworkTableFactory,
+  type FrameworkTableFactory,
+} from "../../nodefony/entity/colKit";
+import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
+
+/**
+ * BANC DE PARITÉ DU CONTRAT `IRepository` — LA même suite, exécutée sur les
+ * TROIS dialectes (sqlite toujours, postgres/mysql gatés par l'infra).
+ *
+ * **Pourquoi ce banc existe** : les chemins d'exécution divergent radicalement
+ * par dialecte (RETURNING sqlite/pg vs re-SELECT-par-PK mysql, `ON CONFLICT`
+ * vs `ON DUPLICATE KEY UPDATE`, `limit(-1)` vs OFFSET seul vs sentinel…) — la
+ * seule preuve que le CONTRAT est identique, verbe par verbe, est de faire
+ * passer les mêmes assertions aux trois backends. Un développeur d'application
+ * qui change `NF_DATABASE_URL` ne doit observer AUCUNE différence de
+ * comportement : chaque écart trouvé ici est un bug du framework, pas de
+ * l'app.
+ *
+ * Divergence sémantique ASSUMÉE (non testée, documentée) : la sensibilité à la
+ * casse de `$like` suit la collation du backend (sqlite/mysql insensibles par
+ * défaut, PG sensible) — le banc n'utilise que des motifs à casse exacte.
+ */
+
+/** Table sonde couvrant tous les kinds + defaults JS + index. */
+const probeFactory: FrameworkTableFactory = createFrameworkTableFactory({
+  name: "repo_contract_probe",
+  columns: {
+    id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
+    name: { kind: "text", notNull: true },
+    age: { kind: "int", notNull: true },
+    score: { kind: "int", notNull: true },
+    tags: { kind: "json" },
+    active: { kind: "bool", notNull: true, defaultFn: () => true },
+    createdAt: { kind: "epochMs", notNull: true, defaultFn: () => Date.now() },
+    note: { kind: "text" },
+  },
+  indexes: [{ name: "repo_contract_probe_age_idx", on: ["age"] }],
+});
+
+interface ProbeRow {
+  id: string;
+  name: string;
+  age: number;
+  score: number;
+  tags: unknown;
+  active: boolean;
+  createdAt: number;
+  note: string | null;
+}
+
+/** Options d'un run du banc (un dialecte = un fichier consommateur). */
+export interface IContractRunOptions {
+  dialect: SqlDialect;
+  /** Clé UNIQUE d'ORM (isole l'entité sonde dans le registre process-wide). */
+  ormName: string;
+  /** Options de connexion (filename sqlite / url pg-mysql). */
+  connection: { filename?: string; url?: string };
+}
+
+/**
+ * Déroule la suite de contrat sur un dialecte. À appeler DANS un `describe`
+ * (éventuellement `describe.skipIf(!url)`) du fichier consommateur.
+ */
+export function runRepositoryContract(opts: IContractRunOptions): void {
+  const { dialect, ormName } = opts;
+  let orm: DrizzleOrm;
+  let repo: IRepository<ProbeRow>;
+
+  const seed = async (): Promise<void> => {
+    await repo.delete({});
+    await repo.createMany([
+      { name: "alice", age: 30, score: 10, tags: ["a", "b"], note: "n1" },
+      { name: "bob", age: 25, score: 20, tags: [], note: null },
+      { name: "chloé 👩‍💻", age: 35, score: 30, tags: ["c"], note: "n3" },
+      { name: "dan", age: 25, score: 40, tags: null, note: null },
+    ]);
+  };
+
+  beforeAll(async () => {
+    entityRegistry.register({
+      orm: ormName,
+      name: "repo_contract_probe",
+      schema: probeFactory(dialect),
+    });
+    orm = new DrizzleOrm(ormName, { dialect, ...opts.connection });
+    await orm.connect();
+    repo = orm.getRepository<ProbeRow>("repo_contract_probe");
+    await repo.delete({}); // table persistante entre les runs (IF NOT EXISTS)
+  });
+
+  afterAll(async () => {
+    await repo.delete({});
+    await orm.disconnect();
+    entityRegistry.unregister("repo_contract_probe", ormName);
+    ormRegistry.unregister(ormName);
+  });
+
+  it("create : rend LA ligne persistée, defaults JS appliqués (id UUID, active, createdAt)", async () => {
+    const row = await repo.create({ name: "eve", age: 40, score: 1 });
+    assert.match(row.id, /^[0-9a-f-]{36}$/);
+    assert.equal(row.name, "eve");
+    assert.equal(row.active, true, "defaultFn bool");
+    assert.equal(typeof row.createdAt, "number", "defaultFn epochMs");
+    assert.equal(row.note, null, "colonne omise nullable → null");
+    const reread = await repo.findOne({ id: row.id });
+    assert.deepEqual(reread, row, "la ligne rendue EST la ligne stockée");
+  });
+
+  it("createMany : N lignes rendues, ORDRE d'insertion préservé", async () => {
+    await repo.delete({});
+    const rows = await repo.createMany([
+      { name: "m1", age: 1, score: 1 },
+      { name: "m2", age: 2, score: 2 },
+      { name: "m3", age: 3, score: 3 },
+    ]);
+    assert.deepEqual(
+      rows.map((r) => r.name),
+      ["m1", "m2", "m3"],
+    );
+    assert.equal(new Set(rows.map((r) => r.id)).size, 3);
+  });
+
+  it("round-trip types : json (array/objet), bool, epochMs, unicode/emoji", async () => {
+    const at = 1_700_000_000_123;
+    const created = await repo.create({
+      name: "Ünïcode 👩‍💻 テスト",
+      age: 99,
+      score: 0,
+      tags: { deep: { list: [1, "two", false], n: null } },
+      active: false,
+      createdAt: at,
+    });
+    const row = await repo.findOne({ id: created.id });
+    assert.ok(row);
+    assert.equal(row.name, "Ünïcode 👩‍💻 テスト");
+    assert.deepEqual(row.tags, { deep: { list: [1, "two", false], n: null } });
+    assert.equal(row.active, false);
+    assert.equal(row.createdAt, at, "epoch ms exact (64-bit)");
+  });
+
+  it("find : criteria eq + opérateurs riches ($gt/$in/$like/$ne/$nin)", async () => {
+    await seed();
+    assert.equal((await repo.find({ age: 25 })).length, 2);
+    assert.equal((await repo.find({ age: { $gt: 25 } })).length, 2);
+    assert.equal((await repo.find({ age: { $gte: 25 } })).length, 4);
+    assert.equal((await repo.find({ age: { $in: [25, 35] } })).length, 3);
+    assert.equal((await repo.find({ age: { $nin: [25] } })).length, 2);
+    assert.equal((await repo.find({ name: { $ne: "alice" } })).length, 3);
+    const like = await repo.find({ name: { $like: "ali%" } });
+    assert.deepEqual(
+      like.map((r) => r.name),
+      ["alice"],
+    );
+  });
+
+  it("find : order / limit / offset — et OFFSET-SANS-LIMIT (hack routé par dialecte)", async () => {
+    await seed();
+    const desc = await repo.find(undefined, { order: [["score", "DESC"]] });
+    assert.deepEqual(
+      desc.map((r) => r.score),
+      [40, 30, 20, 10],
+    );
+    const page = await repo.find(undefined, {
+      order: [["score", "ASC"]],
+      limit: 2,
+      offset: 1,
+    });
+    assert.deepEqual(
+      page.map((r) => r.score),
+      [20, 30],
+    );
+    // OFFSET sans LIMIT : sqlite exige limit(-1), PG l'interdit, MySQL exige
+    // un sentinel — trois émissions, UN comportement.
+    const tail = await repo.find(undefined, {
+      order: [["score", "ASC"]],
+      offset: 2,
+    });
+    assert.deepEqual(
+      tail.map((r) => r.score),
+      [30, 40],
+    );
+  });
+
+  it("findOne : première du critère, null si absent", async () => {
+    await seed();
+    const one = await repo.findOne({ name: "bob" });
+    assert.equal(one?.age, 25);
+    assert.equal(await repo.findOne({ name: "nobody" }), null);
+  });
+
+  it("updateOne : rend la ligne persistée MÊME si le critère porte sur le champ modifié (B1)", async () => {
+    await seed();
+    const row = await repo.updateOne({ name: "alice" }, { age: 31 });
+    assert.equal(row?.age, 31);
+    const moved = await repo.updateOne({ age: 31 }, { age: 32 });
+    assert.equal(
+      moved?.age,
+      32,
+      "critère sur le champ modifié — pas de null à tort",
+    );
+    assert.equal(await repo.updateOne({ name: "nobody" }, { age: 1 }), null);
+  });
+
+  it("updateOne : borné à AU PLUS UNE ligne quand plusieurs matchent", async () => {
+    await seed();
+    const row = await repo.updateOne({ age: 25 }, { score: 777 });
+    assert.equal(row?.score, 777);
+    assert.equal(
+      (await repo.find({ score: 777 })).length,
+      1,
+      "une seule des deux lignes age=25 modifiée",
+    );
+  });
+
+  it("updateMany : compteur EXACT de lignes affectées", async () => {
+    await seed();
+    assert.equal(await repo.updateMany({ age: 25 }, { score: 5 }), 2);
+    assert.equal(await repo.updateMany({ age: 999 }, { score: 5 }), 0);
+  });
+
+  it("increment : delta côté SQL, ligne rendue, null si introuvable", async () => {
+    await seed();
+    const row = await repo.increment({ name: "alice" }, { score: 7 });
+    assert.equal(row?.score, 17);
+    const again = await repo.increment({ name: "alice" }, { score: -2 });
+    assert.equal(again?.score, 15);
+    assert.equal(await repo.increment({ name: "nobody" }, { score: 1 }), null);
+  });
+
+  it("upsert : chemin INSERT (insertOnly posé) puis chemin UPDATE (insertOnly PRÉSERVÉ)", async () => {
+    await repo.delete({});
+    const inserted = await repo.upsert(
+      { id: "up-1" },
+      { score: 1, name: "vera", age: 50 },
+      { note: "created-once", tags: ["seed"] },
+    );
+    assert.equal(inserted.note, "created-once");
+    assert.equal(inserted.score, 1);
+    const updated = await repo.upsert(
+      { id: "up-1" },
+      { score: 2, name: "vera", age: 50 },
+      { note: "MUST-NOT-OVERWRITE", tags: ["other"] },
+    );
+    assert.equal(updated.score, 2, "update appliqué au conflit");
+    assert.equal(
+      updated.note,
+      "created-once",
+      "champ insert-only jamais écrasé au conflit",
+    );
+    assert.equal(await repo.count({ id: "up-1" }), 1, "toujours UNE ligne");
+  });
+
+  it("delete : compteur ; deleteOne : AU PLUS UNE ; findOneAndDelete : rend la ligne", async () => {
+    await seed();
+    assert.equal(await repo.delete({ age: 999 }), 0);
+    assert.equal(await repo.deleteOne({ age: 25 }), true);
+    assert.equal(
+      (await repo.find({ age: 25 })).length,
+      1,
+      "une seule des deux lignes age=25 supprimée",
+    );
+    const gone = await repo.findOneAndDelete({ name: "alice" });
+    assert.equal(gone?.name, "alice");
+    assert.equal(await repo.findOne({ name: "alice" }), null);
+    assert.equal(await repo.findOneAndDelete({ name: "alice" }), null);
+    assert.equal(await repo.delete({}), 2, "purge finale comptée");
+  });
+
+  it("count / exists", async () => {
+    await seed();
+    assert.equal(await repo.count(), 4);
+    assert.equal(await repo.count({ age: 25 }), 2);
+    assert.equal(await repo.exists({ name: "bob" }), true);
+    assert.equal(await repo.exists({ name: "nobody" }), false);
+  });
+
+  it("criteria strict : champ inconnu → UnknownCriteriaField (jamais un skip silencieux)", async () => {
+    await assert.rejects(
+      repo.find({ ghost: 1 } as never),
+      UnknownCriteriaField,
+    );
+  });
+}

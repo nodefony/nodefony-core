@@ -5,6 +5,8 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
+import type { MySqlTable } from "drizzle-orm/mysql-core";
 import {
   buildFrameworkTable,
   createFrameworkTableFactory,
@@ -48,6 +50,10 @@ function sqliteCols(table: SQLiteTable) {
 }
 function pgCols(table: PgTable) {
   const { columns } = getPgTableConfig(table);
+  return new Map(columns.map((c) => [c.name, c]));
+}
+function mysqlCols(table: MySqlTable) {
+  const { columns } = getMysqlTableConfig(table);
   return new Map(columns.map((c) => [c.name, c]));
 }
 
@@ -115,13 +121,50 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
     });
   });
 
+  describe("variante mysql (S4)", () => {
+    const table = buildFrameworkTable("mysql", SPEC);
+
+    it("traduit les kinds vers les types natifs MySQL (json / bigint / datetime)", () => {
+      const cols = mysqlCols(table);
+      assert.equal(cols.get("payload")?.getSQLType(), "json");
+      assert.equal(cols.get("enabled")?.getSQLType(), "boolean");
+      assert.equal(cols.get("hits")?.getSQLType(), "int");
+      // epoch ms déborde `int` MySQL 32-bit → bigint, comme PG.
+      assert.equal(cols.get("expiresAt")?.getSQLType(), "bigint");
+      // dateMs = datetime(3) (pas timestamp : borné 2038 + timezone session).
+      assert.equal(cols.get("seenAt")?.getSQLType(), "datetime(3)");
+    });
+
+    it("text PK/UNIQUE/indexé → varchar(512) (TEXT non indexable InnoDB), text sinon", () => {
+      const cols = mysqlCols(table);
+      assert.equal(cols.get("id")?.getSQLType(), "varchar(512)"); // PK
+      assert.equal(cols.get("slug")?.getSQLType(), "varchar(512)"); // UNIQUE + index
+      assert.equal(cols.get("label")?.getSQLType(), "text"); // ni PK ni indexée
+    });
+
+    it("applique pk / notNull / unique + déclare les index", () => {
+      const cols = mysqlCols(table);
+      assert.equal(cols.get("id")?.primary, true);
+      assert.equal(cols.get("label")?.notNull, true);
+      assert.equal(cols.get("slug")?.isUnique, true);
+      const { indexes } = getMysqlTableConfig(table);
+      assert.equal(indexes.length, 2);
+      const unique = indexes.find(
+        (ix) => ix.config.name === "colkit_probe_slug_uidx",
+      );
+      assert.equal(unique?.config.unique, true);
+    });
+  });
+
   describe("invariant multi-dialecte", () => {
-    it("MÊMES noms de colonnes sur sqlite et postgres (stores dialect-agnostiques)", () => {
+    it("MÊMES noms de colonnes sur les TROIS dialectes (stores dialect-agnostiques)", () => {
       const sqlite = [
         ...sqliteCols(buildFrameworkTable("sqlite", SPEC)).keys(),
       ];
       const pg = [...pgCols(buildFrameworkTable("postgres", SPEC)).keys()];
+      const mysql = [...mysqlCols(buildFrameworkTable("mysql", SPEC)).keys()];
       assert.deepEqual(sqlite.sort(), pg.sort());
+      assert.deepEqual(sqlite.sort(), mysql.sort());
       assert.deepEqual(
         sqlite.sort(),
         Object.keys(SPEC.columns).sort(),
@@ -223,13 +266,6 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
   });
 
   describe("gardes fail-loud", () => {
-    it("dialecte mysql → erreur actionnable (S4)", () => {
-      assert.throws(
-        () => buildFrameworkTable("mysql", SPEC),
-        /mysql on the roadmap/,
-      );
-    });
-
     it("index sur une colonne inconnue → erreur nommant colonne et index", () => {
       const broken = {
         name: "colkit_broken",

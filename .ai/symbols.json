@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-07T22:02:08.098Z",
+  "generated": "2026-07-07T23:18:47.922Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 998,
-    "symbols": 2490,
+    "symbols": 2494,
     "classes": 313,
-    "interfaces": 656,
-    "types": 294,
+    "interfaces": 657,
+    "types": 293,
     "enums": 4,
-    "functions": 675,
-    "constants": 548
+    "functions": 678,
+    "constants": 549
   },
   "symbols": {
     "Cli": {
@@ -5588,14 +5588,6 @@
       "extends": null,
       "description": "Forme plate d'une ligne du store d'idempotence (telle que renvoyée par le repository / `SELECT`). Identique aux colonnes de {@link idempotencyKeyTable} → zéro mapping store ↔ entité."
     },
-    "createIdempotencyTable": {
-      "name": "createIdempotencyTable",
-      "kind": "function",
-      "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Factory de la table d'idempotence pour un dialecte donné — **premier maillon du chantier portabilité multi-dialecte** (un schéma logique → la table Drizzle du bon dialecte). `sqlite` (défaut) et `p…"
-    },
     "createIdempotencyEntities": {
       "name": "createIdempotencyEntities",
       "kind": "function",
@@ -5612,13 +5604,21 @@
       "module": "@nodefony/drizzle",
       "description": "Enregistre l'entité du store d'idempotence dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
     },
+    "createIdempotencyTable": {
+      "name": "createIdempotencyTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Factory de la table d'idempotence pour un dialecte donné — **premier maillon du chantier portabilité multi-dialecte** (un schéma logique → la table Drizzle du bon dialecte), migrée du switch manuel…"
+    },
     "idempotencyKeyTable": {
       "name": "idempotencyKeyTable",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Table Drizzle du **store d'idempotence** distribué (schema-as-code) — implémentation SQL d'`IIdempotencyStore` (contrat au CORE) pour dédoublonner les **mutations** rejouées (reconnexion socket, do…"
+      "description": "Variante SQLite mémoïsée (dialecte par défaut) — export statique de compat (bancs, typage du store {@link DrizzleIdempotencyStore})."
     },
     "IDEMPOTENCY_ENTITY_NAME": {
       "name": "IDEMPOTENCY_ENTITY_NAME",
@@ -6094,6 +6094,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Cherche l'`id` du user dont le tableau JSON `socialProviders` contient un lien `{provider, providerId}` — le finder du pattern **Shadow User** OAuth (`DrizzleUserRepository.findBySocialProvider`). …"
+    },
+    "reserveIdempotencyKeyMysql": {
+      "name": "reserveIdempotencyKeyMysql",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Réservation **atomique** d'une clé d'idempotence en **MySQL** — l'équivalent du `INSERT … ON CONFLICT DO UPDATE … WHERE expiré RETURNING` des dialectes sqlite/pg (cf `DrizzleIdempotencyStore.begin`…"
     },
     "SessionStorage": {
       "name": "SessionStorage",
@@ -20542,10 +20550,6 @@
       "IDEMPOTENCY_ENTITY_NAME": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
-      "idempotencyKeyTable": [
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
-      ],
       "registerSessionEntity": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
@@ -21316,6 +21320,7 @@
       ],
       "createFrameworkTableFactory": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
@@ -21331,6 +21336,9 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts"
+      ],
+      "FrameworkTableFactory": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts"
       ],
       "IdempotentResponse": [
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
@@ -21391,10 +21399,12 @@
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
       "execTable": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
       ],
       "DrizzleTable": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "auditEventTable": [
@@ -21410,6 +21420,12 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
+      ],
+      "reserveIdempotencyKeyMysql": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
+      ],
+      "idempotencyKeyTable": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
       ],
       "IdempotencyKeyRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"

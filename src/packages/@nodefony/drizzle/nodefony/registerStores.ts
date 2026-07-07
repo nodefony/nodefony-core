@@ -42,7 +42,6 @@ import {
   registerIdempotencyEntities,
   createIdempotencyTable,
   IDEMPOTENCY_ENTITY_NAME,
-  idempotencyKeyTable,
 } from "./entity/idempotencyEntity";
 import {
   registerSessionEntity,
@@ -85,14 +84,15 @@ import { DrizzleIdempotencyStore } from "./src/DrizzleIdempotencyStore";
 export const FRAMEWORK_ORM = "default";
 
 /** Portage par entité (chantier multi-dialecte — Ph.2.1 allume les cases). */
-const IDEMPOTENCY_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
-const SESSION_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
-const TOKEN_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
-const WEBAUTHN_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
-const TOTP_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
-const USER_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
-const AUDIT_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
-const WEBHOOK_PORTED: readonly SqlDialect[] = ["sqlite", "postgres"];
+const ALL_DIALECTS: readonly SqlDialect[] = ["sqlite", "postgres", "mysql"];
+const IDEMPOTENCY_PORTED: readonly SqlDialect[] = ALL_DIALECTS;
+const SESSION_PORTED: readonly SqlDialect[] = ALL_DIALECTS;
+const TOKEN_PORTED: readonly SqlDialect[] = ALL_DIALECTS;
+const WEBAUTHN_PORTED: readonly SqlDialect[] = ALL_DIALECTS;
+const TOTP_PORTED: readonly SqlDialect[] = ALL_DIALECTS;
+const USER_PORTED: readonly SqlDialect[] = ALL_DIALECTS;
+const AUDIT_PORTED: readonly SqlDialect[] = ALL_DIALECTS;
+const WEBHOOK_PORTED: readonly SqlDialect[] = ALL_DIALECTS;
 
 /** Bilan de l'auto-enregistrement (loggé par le module — jamais silencieux). */
 export interface IFrameworkStoresReport {
@@ -308,17 +308,11 @@ export function registerDrizzleFrameworkStores(
   wire(
     IDEMPOTENCY_ENTITY_NAME,
     IDEMPOTENCY_PORTED,
-    () => {
-      const idemDialect: "sqlite" | "postgres" =
-        dialect === "postgres" ? "postgres" : "sqlite";
-      registerIdempotencyEntities(FRAMEWORK_ORM, idemDialect);
-    },
+    () => registerIdempotencyEntities(FRAMEWORK_ORM, dialect),
     () => {
       if (getIdempotencyStoreFactory("drizzle")) {
         return;
       }
-      const idemDialect: "sqlite" | "postgres" =
-        dialect === "postgres" ? "postgres" : "sqlite";
       registerIdempotencyStore("drizzle", () => {
         const resolveDb = (): DrizzleDb | null => {
           let orm: unknown;
@@ -337,9 +331,9 @@ export function registerDrizzleFrameworkStores(
           undefined,
           undefined,
           undefined,
-          // Variante de table du dialecte configuré (sqlite|postgres) — même
-          // source que le connecteur `default`, cohérente par construction.
-          createIdempotencyTable(idemDialect) as typeof idempotencyKeyTable,
+          // Variante de table du dialecte configuré — même source que le
+          // connecteur `default`, cohérente par construction.
+          createIdempotencyTable(dialect),
           // Emplacement physique LAZY (Studio) : l'ORM n'existe pas encore ici
           // (fabrique AVANT connect) → lu au 1ᵉʳ accès (onReady), même résolution
           // que `resolveDb`. Base SQLite du connecteur `default`, sinon undefined.
