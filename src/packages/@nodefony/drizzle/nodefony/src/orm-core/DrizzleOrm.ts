@@ -356,6 +356,16 @@ export class DrizzleOrm extends Orm {
       );
     }
     const pool = new PoolCtor({ connectionString: this.#url });
+    // Ping RÉEL au connect : le pool pg est LAZY (aucune I/O tant qu'aucune
+    // requête) → sans ce SELECT 1, une base injoignable « connecterait » en
+    // silence et n'échouerait qu'à la première requête métier (session read)
+    // — l'échec doit sortir AU BOOT (cf BootConfigurationError côté service).
+    try {
+      await pool.query("SELECT 1");
+    } catch (e) {
+      await pool.end().catch(() => undefined); // pas de handle fuité
+      throw e;
+    }
     this.#pgPool = pool;
     this.#db = pgDrizzle(pool) as DrizzleDb;
     for (const entity of entities) {
@@ -399,6 +409,13 @@ export class DrizzleOrm extends Orm {
         `DrizzleOrm "${this.name}": the mysql dialect needs the optional ` +
           `driver \`mysql2\` (run \`npm i mysql2\`). ${(e as Error).message}`,
       );
+    }
+    // Ping RÉEL au connect (même raison que #connectPostgres : pool lazy).
+    try {
+      await pool.query("SELECT 1");
+    } catch (e) {
+      await pool.end().catch(() => undefined); // pas de handle fuité
+      throw e;
     }
     this.#mysqlPool = pool;
     this.#db = mysqlDrizzle(pool) as DrizzleDb;

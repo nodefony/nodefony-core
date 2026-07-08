@@ -66,6 +66,7 @@ import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { readListenerTags } from "./lifecycleTags";
+import { BootConfigurationError } from "./BootConfigurationError";
 import type { IBootReport, IBootFailure, IBootServerInfo } from "./bootReport";
 
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
@@ -2059,8 +2060,16 @@ class Kernel extends Service implements IKernel {
   /**
    * Politique d'échec de boot commune (lifecycle + `initialize`). Log + verdict
    * de propagation. **Fatal** = module critique (tag `critical !== false`) ET
-   * `production` → on interrompt le boot (le pod crashe, l'orchestrateur le
-   * redémarre — cloud-native). Sinon **fail-soft** : WARNING, le boot continue.
+   * (`production` OU erreur de **configuration** {@link BootConfigurationError})
+   * → on interrompt le boot (le pod crashe, l'orchestrateur le redémarre —
+   * cloud-native). Sinon **fail-soft** : WARNING, le boot continue.
+   *
+   * **Pourquoi la config est fatale même en dev** : le fail-soft protège la DX
+   * d'un module optionnel cassé — mais une configuration EXPLICITE non
+   * honorable (infra déclarée injoignable, entité non portée sur le dialecte
+   * demandé) ne se répare pas en continuant : le serveur « vivant » qui en
+   * résulte est un piège (briques durables mortes, login impossible, cause
+   * noyée dans un WARNING — vécu). Cf {@link BootConfigurationError}.
    *
    * @param error - erreur/timeout capturé.
    * @param owner - module propriétaire (tag), ou `undefined` (listener interne).
@@ -2076,12 +2085,19 @@ class Kernel extends Service implements IKernel {
     phase: "lifecycle" | "init",
   ): boolean {
     const who = owner ?? "(anonyme)";
-    const fatal = critical !== false && this.environment === "production";
+    const configError = BootConfigurationError.is(error);
+    const fatal =
+      critical !== false && (this.environment === "production" || configError);
     const msg = error instanceof Error ? error.message : String(error);
     const tag = timedOut ? " [timeout]" : "";
     this.log(
-      `boot lifecycle: ${fatal ? "échec critique" : "échec non bloquant (fail-soft)"} ` +
-        `de "${who}"${tag} — ${msg}`,
+      `boot lifecycle: ${
+        fatal
+          ? configError
+            ? "erreur de CONFIGURATION (boot interrompu)"
+            : "échec critique"
+          : "échec non bloquant (fail-soft)"
+      } de "${who}"${tag} — ${msg}`,
       fatal ? "ERROR" : "WARNING",
     );
     if (this.debug && error instanceof Error && error.stack) {

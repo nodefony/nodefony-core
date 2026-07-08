@@ -61,4 +61,37 @@ describe("DrizzleService — orchestration boot (hors kernel)", () => {
     await service.connectAll(); // #config() undefined → connectors {} → no-op
     assert.equal(service.getOrm("svc_a"), undefined);
   });
+
+  it("connecteur configuré INJOIGNABLE → BootConfigurationError (boot fatal, jamais de dégradation silencieuse)", async () => {
+    // postgres vers un port fermé : l'utilisateur a DÉCLARÉ cette infra → un
+    // échec de connexion est une erreur de CONFIGURATION, fatale dev ET prod
+    // (le kernel interrompt le boot sur BootConfigurationError — vécu : ORM
+    // default mort en fail-soft = session/users/tokens morts, login impossible).
+    const service = new DrizzleService(
+      makeModule({
+        connectors: {
+          svc_dead: {
+            dialect: "postgres",
+            url: "postgres://nobody:wrong@127.0.0.1:1/nodefony",
+          },
+        },
+      }),
+    );
+    await assert.rejects(
+      () => service.connectAll(),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.equal(err.name, "BootConfigurationError");
+        assert.match(err.message, /svc_dead/, "nomme le connecteur");
+        assert.match(err.message, /postgres/, "nomme le dialecte");
+        assert.doesNotMatch(
+          err.message,
+          /nobody:wrong/,
+          "l'URL est RÉDIGÉE (jamais de credentials dans l'erreur)",
+        );
+        return true;
+      },
+    );
+    assert.equal(service.getOrm("svc_dead"), undefined);
+  });
 });

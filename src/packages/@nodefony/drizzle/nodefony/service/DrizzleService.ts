@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { Service } from "nodefony";
+import { Service, BootConfigurationError } from "nodefony";
 import type { Container, Event, Kernel, Module } from "nodefony";
 import { queryFlowMonitor, resolveOrmFlowEnabled } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../src/orm-core/index";
@@ -117,9 +117,24 @@ class DrizzleService extends Service {
       }
     }
     const orm = new DrizzleOrm(name, { dialect, filename, url: cfg.url });
-    await orm.connect();
-    this.#orms.set(name, orm);
     const target = dialect === "sqlite" ? filename : redactUrl(cfg.url);
+    try {
+      await orm.connect();
+    } catch (e) {
+      // Échec de connexion d'un connecteur CONFIGURÉ = erreur de CONFIGURATION
+      // → boot fatal, dev ET prod (jamais un serveur « vivant » aux briques
+      // durables mortes — session/users/tokens dépendent de cet ORM ; vécu :
+      // login impossible avec la cause noyée dans un WARNING fail-soft).
+      const cause = e instanceof Error ? e.message : String(e);
+      throw new BootConfigurationError(
+        `Drizzle : le connecteur "${name}" (${dialect}: ${target}) n'a pas pu ` +
+          `se connecter — corriger la configuration (infra déclarée ` +
+          `NF_DATABASE_URL/connectors, base démarrée ?, entités portées sur ce ` +
+          `dialecte ?) ou la retirer. Cause : ${cause}`,
+        { cause: e },
+      );
+    }
+    this.#orms.set(name, orm);
     this.log(`Drizzle ORM "${name}" connected (${dialect}: ${target})`, "INFO");
   }
 

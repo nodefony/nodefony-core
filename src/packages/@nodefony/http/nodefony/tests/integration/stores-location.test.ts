@@ -125,20 +125,32 @@ describe("Stores — emplacement physique (endpoint /kernel/api/stores)", () => 
       ).to.include(s.resolved);
     }
 
-    // Backend-AGNOSTIQUE (le serveur peut tourner en sqlite=défaut OU NF_STORE=memory) :
-    // on assert les invariants VRAIS des deux côtés, sans exiger un backend précis.
+    // Backend-AGNOSTIQUE (le serveur peut tourner en sqlite=défaut, NF_STORE=memory,
+    // OU NF_DATABASE_URL=postgres/mysql) : on assert les invariants VRAIS de chaque
+    // profil, sans exiger un backend précis.
     //
-    // - Store DRIZZLE (sqlite par défaut) : expose le chemin de sa base `.db` SOUS
-    //   `var/` (base commune `kernel.varDir`). Couvre les briques durables
-    //   (tokens/passkeys/audit/totp/webhooks) + session + idempotence (location
-    //   résolue tardivement au `onReady`) + user (résolue par `provisionUsers`).
-    for (const s of stores!.filter((s) => s.resolved === "drizzle")) {
-      expect(s.location, `store drizzle ${s.brick} expose sa base`).to.be.a(
-        "string",
-      );
-      expect(s.location!, `${s.brick} : base .db`).to.match(/\.db$/);
-      expect(s.location!, `${s.brick} sous var/`).to.match(/(^|[/\\])var[/\\]/);
+    // - Store DRIZZLE : deux profils légitimes —
+    //   · sqlite (défaut solo) : expose le chemin de sa base `.db` SOUS `var/`
+    //     (base commune `kernel.varDir`) ;
+    //   · backend RÉSEAU (infra déclarée postgres/mysql) : `location` est
+    //     `undefined` PAR DESIGN (l'emplacement EST l'infra déclarée, surfacée à
+    //     part — cf DrizzleOrm.location).
+    //   Dans les deux cas le PROFIL est homogène : toutes les briques drizzle du
+    //   connecteur ont une location, ou aucune (jamais un mélange).
+    const drizzleStores = stores!.filter((s) => s.resolved === "drizzle");
+    for (const s of drizzleStores) {
+      if (s.location !== undefined) {
+        expect(s.location, `${s.brick} : base .db`).to.match(/\.db$/);
+        expect(s.location, `${s.brick} sous var/`).to.match(
+          /(^|[/\\])var[/\\]/,
+        );
+      }
     }
+    const withLocation = drizzleStores.filter((s) => s.location !== undefined);
+    expect(
+      withLocation.length === 0 || withLocation.length === drizzleStores.length,
+      "profil drizzle homogène (tout sqlite → toutes les locations ; backend réseau → aucune)",
+    ).to.equal(true);
     // - Store MEMORY (NF_STORE=memory, ou repli) : volatil en RAM → JAMAIS de
     //   chemin physique (l'UI dérive « en mémoire »).
     for (const s of stores!.filter((s) => s.resolved === "memory")) {

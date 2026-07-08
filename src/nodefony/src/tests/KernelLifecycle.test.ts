@@ -10,6 +10,7 @@ import Container from "../Container";
 import CliKernel from "../kernel/CliKernel";
 import type { PackageJson } from "../types/IModule";
 import { readListenerTags } from "../kernel/lifecycleTags";
+import { BootConfigurationError } from "../kernel/BootConfigurationError";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -747,6 +748,47 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
     const r = await k.fireLifecycle("onBoot", k);
     assert.strictEqual(r.errors.length, 1);
     assert.strictEqual(r.stopped, false); // optionnel → pas fatal, le boot continue
+  });
+
+  // ── CONFIGURATION : BootConfigurationError = fatale MÊME en dev ─────────────
+  // Une configuration EXPLICITE non honorable (infra déclarée injoignable,
+  // entité non portée sur le dialecte demandé) ne se répare pas en continuant :
+  // le fail-soft produirait un serveur « vivant » aux briques durables mortes
+  // (vécu : login impossible, cause noyée dans un WARNING).
+  it("dev: un hook qui jette BootConfigurationError → fireLifecycle REJETTE (config = fatal)", async () => {
+    const k = mkKernel("development");
+    k.on("onBoot", () => {
+      throw new BootConfigurationError("infra déclarée injoignable");
+    });
+    await assert.rejects(
+      () => k.fireLifecycle("onBoot", k),
+      /infra déclarée injoignable/,
+    );
+  });
+
+  it("dev: BootConfigurationError d'un module NON critique (critical=false) → fail-soft (tag respecté)", async () => {
+    const k = mkKernel("development");
+    const hook = (): void => {
+      throw new BootConfigurationError("config optionnelle cassée");
+    };
+    (hook as any).__nodefony_owner = "opt";
+    (hook as any).__nodefony_critical = false;
+    k.on("onBoot", hook);
+    const r = await k.fireLifecycle("onBoot", k);
+    assert.strictEqual(r.errors.length, 1);
+    assert.strictEqual(r.stopped, false); // le tag critical=false garde la main
+  });
+
+  it("BootConfigurationError.is : instance, Error au même name (cross-copies), négatif", () => {
+    assert.ok(BootConfigurationError.is(new BootConfigurationError("x")));
+    const foreign = new Error("y");
+    foreign.name = "BootConfigurationError";
+    assert.ok(
+      BootConfigurationError.is(foreign),
+      "erreur d'une AUTRE copie du package (name identique) reconnue",
+    );
+    assert.ok(!BootConfigurationError.is(new Error("z")));
+    assert.ok(!BootConfigurationError.is("BootConfigurationError"));
   });
 });
 

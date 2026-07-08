@@ -34,6 +34,13 @@ started → preRegistered → registered → booted → ready → postReady
 > boot en cours) de `[]` (mesuré, 0 serveur = vrai échec) via le flag `measured` → sinon `healthy`
 > valait false pendant toute la montée des serveurs et `livez.degraded` criait « dégradé » à tort.
 
+**Politique d'échec de boot (`isBootErrorFatal`)** : fatal = `critical !== false` && (`production`
+OU **`BootConfigurationError`**). `BootConfigurationError` (kernel/BootConfigurationError.ts, export
+barrel) = erreur de CONFIGURATION explicite non honorable (infra déclarée injoignable, entité non
+portée sur le dialecte) → fatale MÊME en dev (le fail-soft produirait un serveur « vivant » aux
+briques durables mortes — login impossible, cause noyée en WARNING, vécu). Guard `is()` tolérant
+cross-copies (name check). Le tag `critical=false` d'un module garde la main (jamais fatal).
+
 **Events bitmask** (`Events`, frozen, exporté):
 
 ```
