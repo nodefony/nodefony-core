@@ -37,7 +37,8 @@
     "@vitejs/plugin-react": "6.0.3",
     "@vitejs/plugin-vue": ">=6.0.0",
     "nodefony": "*",
-    "vite": "8.1.4"
+    "vite": "8.1.4",
+    "zod": "^4.4.3"
   },
   "peerDependenciesMeta": {
     "@vitejs/plugin-react": {

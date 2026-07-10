@@ -25,7 +25,7 @@ import type {
 } from "../../../interfaces/IUpload";
 import { extend, Pci, Pdu, Message, Severity, Msgid } from "nodefony";
 import Session from "../../session/session";
-import { HttpError } from "@nodefony/http";
+import HttpError from "../../errors/httpError";
 import {
   resolveForwarded,
   hasForwardingHeaders,
