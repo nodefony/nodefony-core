@@ -8,6 +8,9 @@
  */
 
 import assert from "node:assert";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import CliKernel from "../kernel/CliKernel";
 import {
   extractFlags,
@@ -15,6 +18,10 @@ import {
   computeCompletions,
   renderCompletionScript,
   cliManifestFile,
+  upsertBlock,
+  removeBlock,
+  installCompletion,
+  uninstallCompletion,
   type ICliManifest,
 } from "../cli/completion";
 
@@ -226,5 +233,97 @@ describe("completion — scripts shell", () => {
         "node_modules/.cache/nodefony/cli-manifest.json",
       ),
     );
+  });
+});
+
+describe("completion — install/uninstall (HOME jetable, fs réel)", () => {
+  function tmpHome(): string {
+    return fs.mkdtempSync(path.join(os.tmpdir(), "nf-compl-home-"));
+  }
+
+  it("upsertBlock : idempotent (2 runs = 1 seul bloc) + préserve le rc", () => {
+    const rc = "# mon zshrc\nexport FOO=bar\n";
+    const once = upsertBlock(rc, "/x/completion.zsh");
+    const twice = upsertBlock(once, "/x/completion.zsh");
+    assert.strictEqual(once, twice);
+    assert.ok(twice.includes("export FOO=bar"));
+    assert.strictEqual(
+      twice.split("# >>> nodefony completion >>>").length,
+      2, // 1 occurrence
+    );
+  });
+
+  it("removeBlock : retire le bloc, préserve le reste, no-op si absent", () => {
+    const rc = "export FOO=bar\n";
+    const withBlock = upsertBlock(rc, "/x/completion.zsh");
+    const cleaned = removeBlock(withBlock);
+    assert.ok(cleaned.includes("export FOO=bar"));
+    assert.ok(!cleaned.includes("nodefony completion"));
+    assert.strictEqual(removeBlock(rc), rc);
+  });
+
+  it("install zsh : script écrit + bloc dans .zshrc (créé) ; uninstall = réversible", () => {
+    const home = tmpHome();
+    try {
+      const { scriptFile, rcFile } = installCompletion("zsh", home);
+      assert.ok(fs.existsSync(scriptFile));
+      assert.ok(
+        fs.readFileSync(scriptFile, "utf8").includes("#compdef nodefony"),
+      );
+      const rc = fs.readFileSync(rcFile as string, "utf8");
+      assert.ok(rc.includes("# >>> nodefony completion >>>"));
+      assert.ok(rc.includes(scriptFile));
+      // Re-run : idempotent.
+      installCompletion("zsh", home);
+      assert.strictEqual(
+        fs
+          .readFileSync(rcFile as string, "utf8")
+          .split("# >>> nodefony completion >>>").length,
+        2,
+      );
+      // Uninstall : bloc retiré + script supprimé.
+      uninstallCompletion("zsh", home);
+      assert.ok(!fs.existsSync(scriptFile));
+      assert.ok(
+        !fs
+          .readFileSync(rcFile as string, "utf8")
+          .includes("nodefony completion"),
+      );
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("install préserve un .zshrc existant (contenu utilisateur intact)", () => {
+    const home = tmpHome();
+    try {
+      fs.writeFileSync(
+        path.join(home, ".zshrc"),
+        "# config perso\nalias ll='ls -la'\n",
+        "utf8",
+      );
+      installCompletion("zsh", home);
+      const rc = fs.readFileSync(path.join(home, ".zshrc"), "utf8");
+      assert.ok(rc.includes("alias ll='ls -la'"));
+      assert.ok(rc.includes("# >>> nodefony completion >>>"));
+      uninstallCompletion("zsh", home);
+      const cleaned = fs.readFileSync(path.join(home, ".zshrc"), "utf8");
+      assert.ok(cleaned.includes("alias ll='ls -la'"));
+      assert.ok(!cleaned.includes("nodefony completion"));
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("install fish : fichier completions/ autoload, AUCUN rc touché", () => {
+    const home = tmpHome();
+    try {
+      const { scriptFile, rcFile } = installCompletion("fish", home);
+      assert.strictEqual(rcFile, null);
+      assert.ok(scriptFile.endsWith(".config/fish/completions/nodefony.fish"));
+      assert.ok(fs.existsSync(scriptFile));
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
   });
 });

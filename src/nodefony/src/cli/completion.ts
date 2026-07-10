@@ -1,5 +1,12 @@
 import { writeFile } from "node:fs/promises";
-import { mkdirSync, readFileSync, writeSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  writeSync,
+  rmSync,
+} from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { SysExit } from "./sysexits";
 import type { Command as CommanderCommand } from "commander";
@@ -235,26 +242,170 @@ export function detectShell(): CompletionShell | null {
     : null;
 }
 
+// ─── Installation (`completion install` / `uninstall`) ──────────────────────────
+// Pattern `conda init` : le script vit dans un fichier stable (`~/.config/nodefony/`)
+// et le rc ne porte qu'un BLOC MARQUÉ de 3 lignes qui le source — idempotent (re-run
+// = remplacement du bloc, jamais de duplication), réversible (`uninstall`). fish n'a
+// pas besoin de rc : son dossier `completions/` autocharge (mécanisme natif).
+
+const BLOCK_BEGIN = "# >>> nodefony completion >>>";
+const BLOCK_END = "# <<< nodefony completion <<<";
+
+/** Cibles d'installation d'un shell : fichier script + rc à marquer (`null` = aucun). */
+export function completionInstallTargets(
+  shell: CompletionShell,
+  home: string,
+): { scriptFile: string; rcFile: string | null } {
+  switch (shell) {
+    case "zsh":
+      return {
+        scriptFile: path.join(home, ".config", "nodefony", "completion.zsh"),
+        rcFile: path.join(home, ".zshrc"),
+      };
+    case "bash":
+      return {
+        scriptFile: path.join(home, ".config", "nodefony", "completion.bash"),
+        rcFile: path.join(home, ".bashrc"),
+      };
+    case "fish":
+      return {
+        scriptFile: path.join(
+          home,
+          ".config",
+          "fish",
+          "completions",
+          "nodefony.fish",
+        ),
+        rcFile: null,
+      };
+  }
+}
+
+/** Retire le bloc marqué (avec ses marqueurs) d'un contenu rc — no-op si absent. */
+export function removeBlock(content: string): string {
+  const begin = content.indexOf(BLOCK_BEGIN);
+  if (begin < 0) return content;
+  const end = content.indexOf(BLOCK_END, begin);
+  if (end < 0) return content; // marqueur ouvrant orphelin — ne pas charcuter le rc
+  const after = end + BLOCK_END.length;
+  // Bords normalisés (\n multiples absorbés) → remove(upsert(x)) est stable et
+  // upsert reste idempotent au CARACTÈRE près (pas d'accumulation de lignes vides).
+  const head = content.slice(0, begin).replace(/\n+$/, "");
+  const tail = content.slice(after).replace(/^\n+/, "");
+  if (head.length === 0) return tail;
+  return tail.length > 0 ? `${head}\n${tail}` : `${head}\n`;
+}
+
+/** Insère (ou remplace) le bloc marqué sourçant `scriptFile` — idempotent. */
+export function upsertBlock(content: string, scriptFile: string): string {
+  const cleaned = removeBlock(content).replace(/\n+$/, "");
+  const block = `${BLOCK_BEGIN}\n[ -f "${scriptFile}" ] && source "${scriptFile}"\n${BLOCK_END}\n`;
+  return cleaned.length > 0 ? `${cleaned}\n\n${block}` : block;
+}
+
 /**
- * Fast-path `nodefony completion [shell]` — imprime le script à sourcer.
+ * Installe la complétion pour un shell : écrit le script (mkdir -p) et, si le shell
+ * en a besoin, upsert le bloc marqué dans son rc (créé s'il n'existe pas).
+ *
+ * @returns les chemins touchés (pour le rapport utilisateur).
+ */
+export function installCompletion(
+  shell: CompletionShell,
+  home: string,
+): { scriptFile: string; rcFile: string | null } {
+  const targets = completionInstallTargets(shell, home);
+  mkdirSync(path.dirname(targets.scriptFile), { recursive: true });
+  writeFileSync(targets.scriptFile, renderCompletionScript(shell), "utf8");
+  if (targets.rcFile) {
+    let rc = "";
+    try {
+      rc = readFileSync(targets.rcFile, "utf8");
+    } catch {
+      /* rc inexistant → créé */
+    }
+    writeFileSync(targets.rcFile, upsertBlock(rc, targets.scriptFile), "utf8");
+  }
+  return targets;
+}
+
+/** Désinstalle : retire le bloc du rc et supprime le fichier script. */
+export function uninstallCompletion(
+  shell: CompletionShell,
+  home: string,
+): { scriptFile: string; rcFile: string | null } {
+  const targets = completionInstallTargets(shell, home);
+  rmSync(targets.scriptFile, { force: true });
+  if (targets.rcFile) {
+    try {
+      const rc = readFileSync(targets.rcFile, "utf8");
+      writeFileSync(targets.rcFile, removeBlock(rc), "utf8");
+    } catch {
+      /* rc absent — rien à retirer */
+    }
+  }
+  return targets;
+}
+
+/** Consigne de rechargement par shell (affichée après install). */
+function reloadHint(shell: CompletionShell): string {
+  if (shell === "fish") return "ouvre un nouveau shell fish";
+  return `exec ${shell}`;
+}
+
+/**
+ * Fast-path `nodefony completion [install|uninstall] [shell]` — imprime le script,
+ * ou l'installe/désinstalle dans le rc du shell (bloc marqué idempotent).
  *
  * @returns exit code (`EX_OK`, ou `EX_USAGE` si shell inconnu et indétectable).
  */
 export function runCompletionCommand(argv: string[]): number {
-  const arg = argv
-    .slice(2)
-    .filter((a) => !a.startsWith("-"))
-    .at(1); // [0] = "completion"
+  const positionals = argv.slice(2).filter((a) => !a.startsWith("-"));
+  // positionals[0] = "completion" ; ensuite [action] [shell] ou [shell].
+  const action =
+    positionals[1] === "install" || positionals[1] === "uninstall"
+      ? positionals[1]
+      : null;
+  const arg = positionals[action ? 2 : 1];
   const shell =
     arg && (COMPLETION_SHELLS as readonly string[]).includes(arg)
       ? (arg as CompletionShell)
       : detectShell();
-  if (!shell) {
+  if (
+    !shell ||
+    (arg && !(COMPLETION_SHELLS as readonly string[]).includes(arg))
+  ) {
     writeSync(
       2,
-      `usage: nodefony completion <${COMPLETION_SHELLS.join("|")}>\n`,
+      `usage: nodefony completion [install|uninstall] <${COMPLETION_SHELLS.join("|")}>\n`,
     );
     return SysExit.USAGE;
+  }
+  const home = os.homedir();
+  if (action === "install") {
+    const { scriptFile, rcFile } = installCompletion(shell, home);
+    writeSync(1, `✓ script  : ${scriptFile}\n`);
+    if (rcFile) {
+      writeSync(
+        1,
+        `✓ rc      : ${rcFile} (bloc « nodefony completion », idempotent)\n`,
+      );
+    }
+    writeSync(
+      1,
+      `→ recharge : ${reloadHint(shell)}\n` +
+        `→ retirer  : nodefony completion uninstall ${shell}\n` +
+        `⚠️ complète \`nodefony …\` (pas \`npx nodefony\`) — usage projet :\n` +
+        `   export PATH="$PWD/node_modules/.bin:$PATH"\n`,
+    );
+    return SysExit.OK;
+  }
+  if (action === "uninstall") {
+    const { scriptFile, rcFile } = uninstallCompletion(shell, home);
+    writeSync(1, `✓ retiré : ${scriptFile}\n`);
+    if (rcFile) {
+      writeSync(1, `✓ rc     : ${rcFile} (bloc retiré)\n`);
+    }
+    return SysExit.OK;
   }
   writeSync(1, renderCompletionScript(shell));
   return SysExit.OK;

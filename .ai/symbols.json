@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-10T20:05:45.896Z",
+  "generated": "2026-07-10T20:12:23.625Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1002,
-    "symbols": 2523,
+    "symbols": 2529,
     "classes": 315,
     "interfaces": 662,
     "types": 294,
     "enums": 4,
-    "functions": 697,
+    "functions": 703,
     "constants": 551
   },
   "symbols": {
@@ -516,13 +516,53 @@
       "module": "@nodefony/core",
       "description": "Détecte le shell courant depuis `$SHELL` (fallback interactif du sous-commande nu)."
     },
+    "completionInstallTargets": {
+      "name": "completionInstallTargets",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Cibles d'installation d'un shell : fichier script + rc à marquer (`null` = aucun)."
+    },
+    "removeBlock": {
+      "name": "removeBlock",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retire le bloc marqué (avec ses marqueurs) d'un contenu rc — no-op si absent."
+    },
+    "upsertBlock": {
+      "name": "upsertBlock",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Insère (ou remplace) le bloc marqué sourçant `scriptFile` — idempotent."
+    },
+    "installCompletion": {
+      "name": "installCompletion",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Installe la complétion pour un shell : écrit le script (mkdir -p) et, si le shell en a besoin, upsert le bloc marqué dans son rc (créé s'il n'existe pas)."
+    },
+    "uninstallCompletion": {
+      "name": "uninstallCompletion",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Désinstalle : retire le bloc du rc et supprime le fichier script."
+    },
     "runCompletionCommand": {
       "name": "runCompletionCommand",
       "kind": "function",
       "file": "src/nodefony/src/cli/completion.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Fast-path `nodefony completion [shell]` — imprime le script à sourcer."
+      "description": "Fast-path `nodefony completion [install|uninstall] [shell]` — imprime le script, ou l'installe/désinstalle dans le rc du shell (bloc marqué idempotent)."
     },
     "runCompleteQuery": {
       "name": "runCompleteQuery",
@@ -3260,7 +3300,7 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "Commande `nodefony completion <shell>` — imprime le script de complétion à sourcer (bash / zsh / fish). En pratique l'invocation directe est interceptée par le fast-path STANDALONE de `CliKernel.st…"
+      "description": "Commande `nodefony completion [install|uninstall] <shell>` — imprime le script de complétion à sourcer (bash / zsh / fish), ou l'installe dans le rc du shell (bloc marqué idempotent, réversible par…"
     },
     "Dev": {
       "name": "Dev",
@@ -20357,7 +20397,8 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "runCompletionCommand": [
-        "src/nodefony/src/kernel/CliKernel.ts"
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/CompletionCommand.ts"
       ],
       "runCompleteQuery": [
         "src/nodefony/src/kernel/CliKernel.ts"
@@ -21006,15 +21047,6 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts"
       ],
       "COMPLETION_SHELLS": [
-        "src/nodefony/src/kernel/commands/CompletionCommand.ts"
-      ],
-      "renderCompletionScript": [
-        "src/nodefony/src/kernel/commands/CompletionCommand.ts"
-      ],
-      "detectShell": [
-        "src/nodefony/src/kernel/commands/CompletionCommand.ts"
-      ],
-      "CompletionShell": [
         "src/nodefony/src/kernel/commands/CompletionCommand.ts"
       ],
       "BootReporter": [
