@@ -159,9 +159,27 @@ Nodefony est déjà TS 7-compatible ; seul l'**outillage** bloque.
 
 **Palier 2 — découpler transformation et types (chantier build).**
 Remplacer `@rollup/plugin-typescript` par `unplugin-oxc` (transformation) + `tsgo --emitDeclarationOnly`
-(déclarations). Supprime la dépendance du **build** à l'API JS. Prérequis : ajouter `rootDir` explicite
-aux 13 tsconfig, déclarer `@oxc-project/runtime` en `dependencies`. Touche `rollup.config.ts` et
+(déclarations). Supprime la dépendance du **build** à l'API JS. Touche `rollup.config.ts` et
 `tsconfig.json` → **accord explicite requis**. Reste bloqué sur TS 6 : `typescript-eslint` et `typedoc`.
+
+**Vérifié sur le core** — `tsgo --declaration --emitDeclarationOnly --rootDir ./src` :
+
+|                         | `@rollup/plugin-typescript` (actuel) | `tsgo --emitDeclarationOnly`             |
+| ----------------------- | ------------------------------------ | ---------------------------------------- |
+| Fichiers `.d.ts`        | 135                                  | 136 (+`client/medias/audioApi.d.ts`)     |
+| Exports de `index.d.ts` | 131                                  | **131 — identiques**                     |
+| Arborescence            | —                                    | **identique** (avec `rootDir` explicite) |
+| Durée                   | (dans le build Rollup)               | **2 842 ms**                             |
+| Annotations à ajouter   | 0                                    | **0**                                    |
+
+Seule friction : `TS6059` sur `rollup.config.ts`, hors `rootDir` — à exclure via le
+`tsconfig.declarations.json` qui existe déjà.
+
+**`isolatedDeclarations` n'est PAS requis** par ce palier — c'est le point clé. `tsgo` dispose du
+vérificateur de types complet et infère les déclarations. Chiffré pour mémoire, au cas où l'on
+voudrait un jour générer les `.d.ts` _par le bundler_ : il faudrait **≈ 277 annotations explicites**
+(security 149, core 88, realtime 21, drizzle 16, orm-core 3 — `http`, `framework` et `user` sont
+déjà à 0).
 
 **Palier 3 — sortir de `design:paramtypes` (chantier architecture, le vrai « framework du futur »).**
 Rendre le token explicite **obligatoire** et retirer le fallback `design:paramtypes` de l'injector.
@@ -170,6 +188,31 @@ Migrer les `@inject(...)` de paramètre vers `@Inject(...)` de propriété (déj
 `reflect-metadata`, et viser les décorateurs standard — ce qui rouvre esbuild, le strip natif Node, et
 supprime une classe entière de bugs silencieux (un type effacé par `import type` dégrade
 `design:paramtypes` en `Object`, **sans erreur**).
+
+## 6 bis. Faut-il passer à rolldown avant la release ? — NON
+
+VoidZero (qui finance Rollup) pousse **rolldown** (Rust/oxc) comme successeur, et Vite 8 l'utilise déjà
+par défaut. La tentation est réelle. Elle est prématurée, pour quatre raisons.
+
+**Rolldown ne résout aucun problème que le palier 2 ne résolve déjà.** Ce qui nous libère de l'API JS de
+TypeScript, c'est de retirer `@rollup/plugin-typescript` — pas de changer de bundler. Le palier 2 le fait
+en gardant Rollup, avec une sortie prouvée identique (131 exports, même arborescence).
+
+**Le bundler produit les artefacts npm publiés.** Changer la chaîne de production juste avant une release,
+c'est concentrer le risque au pire moment. La chaîne actuelle est éprouvée : build 19/19, 1809 tests core,
+568 http.
+
+**`preserveModules` y est jeune.** Implémenté, mais encore activement patché (normalisation d'ids,
+re-exports, JSON) sur la série 1.0.x → 1.1.x. Nos `.d.ts` par module sont le **contrat public** du
+framework.
+
+**Le gain est la vitesse de bundling, pas la qualité de l'artefact.** C'est du confort de développement,
+qui ne justifie pas de risquer une release.
+
+**L'ordre correct** : (1) palier 1 — fait ; (2) release Nodefony 10 sur Rollup + TS 6 ; (3) palier 2
+post-release ; (4) alors seulement, Rollup → Rolldown si le build devient un goulot. Le palier 2 rend
+d'ailleurs cette dernière étape **facile** : une fois les `.d.ts` générés par `tsgo` hors du bundler,
+changer de bundler ne touche plus au contrat de types.
 
 ## 7. Décisions
 
@@ -180,8 +223,13 @@ supprime une classe entière de bugs silencieux (un type effacé par `import typ
   silencieux.
 - **Rejeté : attendre `Symbol.metadata`** pour remplacer `design:paramtypes` — il ne porte pas les types
   et aucun proposal ne prévoit qu'il le fasse.
-- **Surveiller** : la sortie de l'API TS 7.1 (débloque lint + doc), et `rolldown` comme successeur de
-  Rollup (immunisé, mais la génération des `.d.ts` y est une étape séparée à recâbler).
+- **Rejeté : migrer vers `rolldown` avant la release** (§6 bis) — il ne résout rien que le palier 2 ne
+  résolve, et déplace le risque sur les artefacts publiés.
+- **Fait** : palier 1 livré (`fbd1d6ae`) — `tsgo` en typecheck, `typescript` reste 6.0.3 pour
+  Rollup/ESLint/typedoc. Paquet `@typescript/native-preview` (binaire `tsgo`), **jamais** un alias npm
+  `tsgo@npm:typescript@7` : un alias ne renomme pas le binaire et écrase `.bin/tsc` silencieusement.
+- **Surveiller** : la sortie de l'API TS 7.1 (débloque lint + doc), et la maturation de `preserveModules`
+  dans rolldown.
 
 ## 8. Sources
 
