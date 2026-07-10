@@ -96,9 +96,6 @@ function engineStatus(e: StoreEngine): {
   };
 }
 
-/** Les 8 briques de persistance (ordre canonique), pour calculer la couverture. */
-const ALL_BRICKS = Object.keys(BRICK_LABEL);
-
 /** Briques de nature ÉPHÉMÈRE/session — le foyer naturel d'un cache (Redis). */
 const EPHEMERAL_BRICKS = ["session", "idempotency"];
 
@@ -119,11 +116,9 @@ function EngineCard({
   const isCache = e.kind === "cache";
   const covered = e.provides;
   const label = (b: string) => BRICK_LABEL[b] ?? b;
-  // Domaine `durable` : briques non couvertes = trous PORTABLES (à implémenter).
-  // Domaine `cache` : on sépare la VOCATION (éphémère/session, idéale sur Redis) des
-  // briques DURABLES que Redis n'héberge que s'il est PERSISTANT (AOF) — sinon perte
-  // au restart. Pas de « trou » pour un cache : les durables ne sont pas sa vocation.
-  const gaps = isCache ? [] : ALL_BRICKS.filter((b) => !covered.includes(b));
+  // Couverture ADAPTÉE à la vocation, PAS une parité 8/8 (un adapter couvre ce qui a
+  // du sens pour sa nature). Cache : on sépare la VOCATION (éphémère/session, idéale
+  // sur Redis) des briques DURABLES que Redis n'héberge que si PERSISTANT (AOF).
   const vocation = isCache
     ? covered.filter((b) => EPHEMERAL_BRICKS.includes(b))
     : covered;
@@ -138,29 +133,27 @@ function EngineCard({
       title={e.engine}
       summary={
         isCache
-          ? `${e.package} — ${st.label}. Backend cache/éphémère : sert ${covered.length} brique(s) de nature éphémère/session.`
-          : `${e.package} — ${st.label}. Couvre ${covered.length}/${ALL_BRICKS.length} briques durables.`
+          ? `${e.package} — ${st.label}. Cache/éphémère : couvre ${covered.length} brique(s), adapté à sa vocation.`
+          : `${e.package} — ${st.label}. Couvre ${covered.length} brique(s) de persistance.`
       }
       sections={[
         {
-          label: "Couverture",
+          label: "Couverture (adaptée, pas parité)",
           body: isCache
-            ? `Vocation cache/éphémère → idéal pour : ${vocation
-                .map(label)
-                .join(", ")}.${
+            ? `Vocation cache/éphémère → idéal pour : ${
+                vocation.map(label).join(", ") || "—"
+              }.${
                 edgeDurable.length
                   ? ` Redis implémente aussi ${edgeDurable
                       .map(label)
                       .join(
                         ", ",
-                      )}, mais ce sont des données DURABLES → uniquement sur Redis PERSISTANT (AOF/RDB), sinon perdues au restart.`
+                      )}, mais DURABLES → uniquement si Redis PERSISTANT (AOF), sinon perdues au restart.`
                   : ""
-              } Pour du durable, préférer SQL/Mongo.`
-            : gaps.length
-              ? `Gère : ${covered.map(label).join(", ")}. À PORTER : ${gaps
-                  .map(label)
-                  .join(", ")} (implémentation à ajouter à cet adapter).`
-              : `Couverture durable COMPLÈTE (${ALL_BRICKS.length}/${ALL_BRICKS.length}).`,
+              } Les briques durables relèvent d'un backend durable (SQL/Mongo).`
+            : `Gère : ${
+                covered.map(label).join(", ") || "—"
+              }. Un adapter couvre ce qui a du SENS pour sa nature — pas une parité 8/8. Une brique non couverte s'ajoute via son contrat (I…Store) au besoin.`,
         },
         {
           label: "Porté maintenant",
@@ -225,12 +218,10 @@ function EngineCard({
         </Badge>
       </Group>
 
-      {/* Couverture par brique — FACTS, lus à l'aune du domaine (durable vs cache). */}
+      {/* Couverture — briques réellement couvertes (adaptées à la vocation, pas 8/8). */}
       <Group gap={4} wrap="wrap" mb={6} align="center">
         <Text size="xs" c="dimmed">
-          {isCache
-            ? "Cache éphémère — idéal pour :"
-            : `Couvre ${covered.length}/${ALL_BRICKS.length} :`}
+          {isCache ? "Cache éphémère — idéal pour :" : "Couvre :"}
         </Text>
         {(isCache ? vocation : covered).map((b) => (
           <Badge
@@ -243,19 +234,11 @@ function EngineCard({
             {label(b)}
           </Badge>
         ))}
-        {/* Domaine durable : trous PORTABLES (à porter) — ≠ « hors vocation ». */}
-        {gaps.map((b) => (
-          <Badge
-            key={b}
-            size="xs"
-            variant="outline"
-            color="orange"
-            style={{ textTransform: "none" }}
-            title="À porter — implémentation absente de cet adapter"
-          >
-            {label(b)} · à porter
-          </Badge>
-        ))}
+        {(isCache ? vocation : covered).length === 0 && (
+          <Text size="xs" c="dimmed">
+            —
+          </Text>
+        )}
       </Group>
 
       {/* Cache : briques DURABLES implémentées mais conditionnées à un Redis persistant. */}
@@ -336,8 +319,8 @@ function EnginesSection({
               body: 'chargé = branché au manifeste + enregistré (utilisable). installé, non branché = présent dans node_modules → ajouter use("@nodefony/…"). à installer = npm i @nodefony/… puis manifeste.',
             },
             {
-              label: "Domaines",
-              body: "durable (SQL/Mongo) = vocation toutes briques durables + session ; une brique absente = trou PORTABLE. cache (Redis) = vocation éphémère/session ; les briques durables sont hors vocation, pas des trous.",
+              label: "Domaines & couverture",
+              body: "Couverture ADAPTÉE à la vocation, pas une parité 8/8 : durable (SQL/Mongo) sert l'identité + le durable ; cache (Redis) sert l'éphémère/session. Chaque adapter DÉCLARE ce qu'il couvre (package.json nodefony.stores) ; une brique non couverte s'ajoute via son contrat au besoin.",
             },
           ]}
         />

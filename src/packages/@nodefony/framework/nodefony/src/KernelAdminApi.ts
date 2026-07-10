@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 import {
@@ -58,65 +58,53 @@ function stripAbs(s: string): string {
 }
 
 /**
- * Adapters de persistance OFFICIELS (npm) — catalogue de DÉCOUVRABILITÉ pour l'écran
- * Stores : quels moteurs de stockage existent, indépendamment de ce qui est chargé.
- * Le registre runtime (`available`) ne connaît QUE le chargé → un utilisateur ne peut
- * pas deviner qu'il POURRAIT brancher mongoose/redis. Ce catalogue comble ce trou (les
- * capabilities par-brique déclarées par chaque adapter = étape suivante, Palier 2).
+ * Adapters de persistance OFFICIELS — juste les NOMS, pour la découvrabilité (savoir
+ * qu'ils existent même NON installés → état « à installer »). Leurs CAPABILITÉS
+ * (domaine + briques couvertes) ne sont PAS curatées ici : chaque adapter les DÉCLARE
+ * dans son `package.json` (`nodefony.storeKind` + `nodefony.stores`), lues à chaud par
+ * {@link readAdapterManifest} (Palier 3 — source de vérité = l'adapter, extensible aux
+ * modules tiers, jamais figée dans le core).
  */
-const KNOWN_STORE_ENGINES: ReadonlyArray<{
+const OFFICIAL_STORE_ADAPTERS: ReadonlyArray<{
   engine: string;
   package: string;
   family: string;
-  /**
-   * Domaine du backend — pilote comment lire sa couverture :
-   * - `durable` (SQL/Mongo) : vocation = TOUTES les briques durables + session ; une
-   *   brique absente = vrai trou PORTABLE (à implémenter).
-   * - `cache` (Redis) : vocation = briques ÉPHÉMÈRES/session (session, idempotence) ;
-   *   les briques durables sont HORS vocation, pas des « trous » (un cache n'est pas
-   *   le bon foyer d'un audit réglementaire ou de comptes users).
-   */
-  kind: "durable" | "cache";
-  /**
-   * Briques de persistance que cet adapter SAIT gérer (a une implémentation) — la
-   * COUVERTURE, indépendante du chargement. Liste CURATÉE (reflète les classes de
-   * store réellement présentes dans chaque package aujourd'hui). À lire à l'aune du
-   * `kind`. Cible (Palier 3) : chaque adapter la DÉCLARE (`package.json`
-   * `nodefony.stores`) → auto-dérivée, jamais figée.
-   */
-  provides: readonly string[];
 }> = [
-  {
-    engine: "drizzle",
-    package: "@nodefony/drizzle",
-    family: "sql",
-    kind: "durable",
-    provides: [
-      "session",
-      "user",
-      "tokens",
-      "passkeys",
-      "totp",
-      "audit",
-      "webhooks",
-      "idempotency",
-    ],
-  },
-  {
-    engine: "mongoose",
-    package: "@nodefony/mongoose",
-    family: "mongo",
-    kind: "durable",
-    provides: ["session", "user", "tokens", "passkeys", "webhooks"],
-  },
-  {
-    engine: "redis",
-    package: "@nodefony/redis",
-    family: "cache",
-    kind: "cache",
-    provides: ["session", "tokens", "passkeys", "idempotency"],
-  },
+  { engine: "drizzle", package: "@nodefony/drizzle", family: "sql" },
+  { engine: "mongoose", package: "@nodefony/mongoose", family: "mongo" },
+  { engine: "redis", package: "@nodefony/redis", family: "cache" },
 ];
+
+/**
+ * Lit les capabilités DÉCLARÉES d'un adapter installé depuis son `package.json`
+ * (`nodefony.storeKind` = `durable|cache` ; `nodefony.stores` = briques couvertes).
+ * `null` si non installé ou sans déclaration. Le modèle est « couverture ADAPTÉE à la
+ * vocation », pas une parité 8/8 : un adapter déclare ce qu'il implémente, point.
+ */
+function readAdapterManifest(
+  pkg: string,
+): { storeKind: "durable" | "cache"; stores: string[] } | null {
+  const pkgJson = join(
+    REPO_ROOT,
+    "node_modules",
+    ...pkg.split("/"),
+    "package.json",
+  );
+  try {
+    if (!existsSync(pkgJson)) return null;
+    const meta = JSON.parse(readFileSync(pkgJson, "utf8")) as {
+      nodefony?: { storeKind?: string; stores?: unknown };
+    };
+    const nf = meta.nodefony;
+    if (!nf || !Array.isArray(nf.stores)) return null;
+    return {
+      storeKind: nf.storeKind === "cache" ? "cache" : "durable",
+      stores: nf.stores.filter((s): s is string => typeof s === "string"),
+    };
+  } catch {
+    return null;
+  }
+}
 
 const engineRequire = createRequire(import.meta.url);
 
@@ -827,16 +815,24 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           return null;
         };
         // Découvrabilité des MOTEURS : chaque adapter officiel avec son état
-        // installé (npm) × chargé (enregistré au runtime). `loaded` = présent dans
-        // l'`available` d'au moins une brique (= le module l'a bien auto-enregistré).
+        // installé (npm) × chargé (enregistré au runtime) + ses capabilités DÉCLARÉES
+        // (domaine + briques couvertes, lues à chaud du package.json — Palier 3).
+        // `loaded` = présent dans l'`available` d'au moins une brique (= auto-enregistré).
         const registered = new Set(
           kernel.storeResolutions.flatMap((r) => [...r.available]),
         );
-        const engines = KNOWN_STORE_ENGINES.map((k) => ({
-          ...k,
-          installed: isPackageInstalled(k.package),
-          loaded: registered.has(k.engine),
-        }));
+        const engines = OFFICIAL_STORE_ADAPTERS.map((a) => {
+          const manifest = readAdapterManifest(a.package);
+          return {
+            engine: a.engine,
+            package: a.package,
+            family: a.family,
+            kind: manifest?.storeKind ?? "durable",
+            provides: manifest?.stores ?? [],
+            installed: manifest !== null || isPackageInstalled(a.package),
+            loaded: registered.has(a.engine),
+          };
+        });
         return {
           engines,
           infra: {

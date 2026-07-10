@@ -2,6 +2,19 @@
   "name": "@nodefony/drizzle",
   "version": "10.0.0",
   "description": "Nodefony Framework Module Drizzle ORM (adapter orm-core)",
+  "nodefony": {
+    "storeKind": "durable",
+    "stores": [
+      "session",
+      "user",
+      "tokens",
+      "passkeys",
+      "totp",
+      "audit",
+      "webhooks",
+      "idempotency"
+    ]
+  },
   "contributors": [],
   "type": "module",
   "main": "./dist/index.js",
