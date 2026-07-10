@@ -301,6 +301,33 @@ describe.skipIf(!fs.existsSync(DIST))(
         `version semver attendue\n${r.stdout}${r.stderr}`,
       );
     });
+
+    it("status (standalone) → exit 0 et ZÉRO Kernel construit", async () => {
+      // `status`/`stop` sont des commandes SYSTÈME standalone (CliKernel.start
+      // court-circuite AVANT `new Kernel`) — l'équivalent du niveau d'arrêt le plus
+      // précoce. Le trace file prouve qu'aucun Kernel n'est instancié.
+      const traceFile = path.join(
+        os.tmpdir(),
+        `nodefony-kernel-trace-status-${process.pid}-${Date.now()}.log`,
+      );
+      try {
+        const r = await runCli(["status"], 30000, {
+          NODEFONY_KERNEL_TRACE_FILE: traceFile,
+        });
+        assert.strictEqual(
+          r.code,
+          0,
+          `status doit sortir 0 même sans runtime up\n${r.stderr}`,
+        );
+        assert.strictEqual(
+          countKernelBoots(traceFile),
+          0,
+          "status est standalone : AUCUN `new Kernel()` ne doit être tracé",
+        );
+      } finally {
+        fs.rmSync(traceFile, { force: true });
+      }
+    });
   },
 );
 
@@ -315,12 +342,76 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       if (await isPortOpen(HTTP_PORT)) ctx.skip();
     });
 
-    it("commande inconnue (typo) → exit ≠ 0 et AUCUN serveur démarré", async () => {
+    it("commande inconnue (typo) → exit 64 (EX_USAGE) et AUCUN serveur démarré", async () => {
       const r = await runCli(["foobar:nope"], 60000);
-      assert.notStrictEqual(r.code, 0, "une typo doit échouer (exit ≠ 0)");
+      // dispatchModuleCommand → terminate(SysExit.USAGE) : code SÉMANTIQUE lisible
+      // par un orchestrateur (usage ≠ crash logiciel), pas juste « ≠ 0 ».
+      assert.strictEqual(
+        r.code,
+        64,
+        `une typo doit sortir EX_USAGE (64), reçu ${r.code}\n${r.stderr}`,
+      );
       assert.ok(
         !READY_RE.test(r.stdout + r.stderr),
         `une typo ne doit JAMAIS démarrer un serveur (fallback serveur legacy)\n${r.stdout}`,
+      );
+    });
+
+    // ─── Happy-path d'une commande de MODULE (dispatch différé) ────────────────
+    // La typo ci-dessus couvre le chemin d'ERREUR du dispatch différé ; ici le chemin
+    // NOMINAL : la commande `http:network` (posée par @nodefony/http à onPreRegister,
+    // kernelEvent onRegister) doit s'exécuter au point d'arrêt déclaré, produire sa
+    // sortie, ne monter AUCUN serveur et ne construire qu'UN SEUL Kernel (console).
+    it("http:network -j (commande de module) → exit 0, JSON, 0 serveur, 1 Kernel", async () => {
+      const traceFile = path.join(
+        os.tmpdir(),
+        `nodefony-kernel-trace-modcmd-${process.pid}-${Date.now()}.log`,
+      );
+      try {
+        const r = await runCli(["http:network", "-j"], 60000, {
+          NODEFONY_KERNEL_TRACE_FILE: traceFile,
+        });
+        assert.strictEqual(
+          r.code,
+          0,
+          `http:network doit sortir 0\n${r.stderr}`,
+        );
+        assert.ok(
+          r.stdout.includes('"address"'),
+          `sortie JSON des interfaces réseau attendue\n${r.stdout.slice(-1500)}`,
+        );
+        assert.ok(
+          !READY_RE.test(r.stdout + r.stderr),
+          `une commande console ne doit JAMAIS démarrer un serveur\n${r.stdout.slice(-1500)}`,
+        );
+        assert.strictEqual(
+          countKernelBoots(traceFile),
+          1,
+          "une commande de module doit booter UN SEUL Kernel (console)",
+        );
+      } finally {
+        fs.rmSync(traceFile, { force: true });
+      }
+    });
+
+    // ─── Point d'arrêt onReady SANS serveur ─────────────────────────────────────
+    // `proxy:generate` déclare `kernelEvent: "onReady"` : la phase la plus profonde
+    // AVANT initServers. Preuve que le boot s'arrête bien à la phase déclarée : la
+    // conf est générée (introspection des serveurs) mais AUCUNE socket n'écoute.
+    it("proxy:generate nginx (kernelEvent onReady) → conf générée, 0 serveur", async () => {
+      const r = await runCli(["proxy:generate", "nginx"], 60000);
+      assert.strictEqual(
+        r.code,
+        0,
+        `proxy:generate doit sortir 0\n${r.stderr}`,
+      );
+      assert.ok(
+        r.stdout.includes("upstream nodefony"),
+        `la conf nginx doit être générée sur stdout\n${r.stdout.slice(-1500)}`,
+      );
+      assert.ok(
+        !SERVER_NET_RE.test(r.stdout + r.stderr),
+        `kernelEvent onReady = arrêt AVANT initServers : aucun serveur réseau\n${r.stdout.slice(-1500)}`,
       );
     });
 
