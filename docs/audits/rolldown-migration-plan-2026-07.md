@@ -114,11 +114,20 @@ le `rollup.config.ts` actuel — est **honoré** par rolldown. Ne pas le perdre 
 
 **Temps** : 20 473 ms → ~195 ms pour les 4 bundles.
 
-## 6. Lot 3 — Les 18 autres packages
+## 6. Lot 3 — Les 18 autres packages + l'application racine
 
 Tous rejoués, **18/18 avec surface exportée identique**. Ordre suggéré, du plus simple au plus exposé :
 `llm`, `studio`, `documentation`, `redis`, `mediasoup`, `test-frontend-*` → `user`, `orm-core`, `drizzle`,
 `mongoose` → `realtime`, `framework`, `frontend` → `http`, `security`, `test`.
+
+**L'application racine est le 20ᵉ build** (le repo agit comme une app utilisateur) : son
+`rollup.config.ts` a exactement la forme standard (index.ts + glob `nodefony/**` + external) → migrée
+par le même helper partagé. **Exigence release (contexte `create app`)** : le bundler d'application
+doit être _très propre_ — une app consommatrice du framework en mode `import` ne peut PAS dépendre
+d'un fichier interne du repo (`rolldown.shared.ts`). Livrable Phase 2 release : **publier le helper
+dans le package `nodefony`** (subpath type `nodefony/bundler`) pour que le scaffold `create app`
+génère une config de 3 lignes (`import { defineAppConfig } from "nodefony/bundler"`). La config
+racine du repo sert de config de référence de ce que `create app` générera.
 
 Total : 854 fichiers Rollup (dont **76 chunks vides**) → 951 rolldown (**0 vide**). Les `+2/+3` récurrents
 sont les helpers oxc (`_virtual/@oxc-project/runtime/helpers/{decorate,decorateMetadata,decorateParam}`),

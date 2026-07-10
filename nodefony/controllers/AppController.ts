@@ -2,7 +2,8 @@ import { resolve } from "node:path";
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import { route, controller, Controller, UseSession } from "@nodefony/framework";
-import { ContextType, HttpError } from "@nodefony/http";
+import { HttpError } from "@nodefony/http";
+import type { ContextType } from "@nodefony/http";
 
 /**
  * Bundle standalone de la debug bar (`nodefony/debugbar.js` = build core), lu

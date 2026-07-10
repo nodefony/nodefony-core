@@ -1,5 +1,5 @@
 import { route, controller, Controller, UseSession } from "@nodefony/framework";
-import { ContextType } from "@nodefony/http";
+import type { ContextType } from "@nodefony/http";
 
 @controller("")
 @UseSession()

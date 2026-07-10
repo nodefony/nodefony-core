@@ -7,7 +7,7 @@
   "type": "module",
   "types": "nodefony/types/types.d.ts",
   "scripts": {
-    "build": "rimraf dist && npm run rollup",
+    "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
