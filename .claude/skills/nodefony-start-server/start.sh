@@ -139,30 +139,56 @@ fs.writeFileSync('$PIDFILE', String(child.pid));
 console.log('SERVER PID=' + child.pid);
 "
 
-# ── 4. WAIT boot (max 25s, check 0.5s, fail-fast sur crash) ──────────────────
-echo ">>> WAIT boot (max 25s)"
+# ── 4. WAIT boot — plafond 120s, fail-fast INTELLIGENT ───────────────────────
+# Le plafond fixe de 25s donnait des FAUX TIMEOUT (4× vécus) : la vérif turbo du
+# DevSupervisor (rebuild froid ~34s même en rolldown) retarde le boot alors que
+# tout va bien. Nouveau modèle : on attend LONGTEMPS tant qu'il y a de l'ACTIVITÉ
+# (le log grossit = build/boot en cours), et on échoue VITE sur un vrai problème :
+#   - crash reconnu dans le log (grep FATAL) ;
+#   - process superviseur MORT (kill -0) ;
+#   - log SILENCIEUX ≥ 20s sans serveurs up (hang réel).
+echo ">>> WAIT boot (plafond 120s — fail-fast si crash/process mort/log figé 20s)"
 READY=0
-for i in $(seq 1 50); do
+LAST_SIZE=0
+STALL=0
+SPID=$(cat "$PIDFILE" 2>/dev/null)
+for i in $(seq 1 240); do
   if grep -q -E "SyntaxError|CRITIC|EADDRINUSE|ALREADY USE|terminate :" "$LOG" 2>/dev/null; then
     echo ">>> FATAL — crash au démarrage :"
     grep -E "SyntaxError|CRITIC|terminate|EADDRINUSE" "$LOG" | sed 's/\x1b\[[0-9;]*m//g' | tail -10
     exit 1
   fi
-  COUNT=$(grep -c "Server Listen on" "$LOG" 2>/dev/null || true)
-  COUNT=${COUNT:-0}
   # Compte les 4 serveurs réseau (http/https/ws/wss) — server-static exclu.
   NET=$(grep -E "Server Listen on (https?|wss?)://" "$LOG" 2>/dev/null | wc -l | tr -d ' ')
   NET=${NET:-0}
   if [ "$NET" -ge 4 ]; then
-    echo ">>> READY — $NET network servers listening (${i}×0.5s)"
+    echo ">>> READY — $NET network servers listening ($((i / 2))s)"
     READY=1
     break
   fi
-  [ $((i % 6)) -eq 0 ] && echo ">>> ... booting ($NET/4 network servers, ${i}×0.5s)"
+  # Process superviseur mort sans crash-marker dans le log → FATAL immédiat.
+  if [ -n "$SPID" ] && ! kill -0 "$SPID" 2>/dev/null; then
+    echo ">>> FATAL — process $SPID mort avant l'écoute des serveurs. Dernières lignes :"
+    sed 's/\x1b\[[0-9;]*m//g' "$LOG" | tail -10
+    exit 1
+  fi
+  # Détection de hang : log figé (taille inchangée) 40 ticks = 20s → inutile d'attendre 120s.
+  SIZE=$(stat -f %z "$LOG" 2>/dev/null || stat -c %s "$LOG" 2>/dev/null || echo 0)
+  if [ "$SIZE" -eq "$LAST_SIZE" ]; then STALL=$((STALL + 1)); else STALL=0; LAST_SIZE=$SIZE; fi
+  if [ "$STALL" -ge 40 ]; then
+    echo ">>> TIMEOUT — log figé depuis 20s sans serveurs ($NET/4). Dernières lignes :"
+    sed 's/\x1b\[[0-9;]*m//g' "$LOG" | tail -8
+    exit 1
+  fi
+  # Progression toutes les ~5s, avec la phase courante du DevSupervisor si visible.
+  if [ $((i % 10)) -eq 0 ]; then
+    PHASE=$(sed 's/\x1b\[[0-9;]*m//g' "$LOG" 2>/dev/null | grep -E "^\[dev\]" | tail -1 | cut -c1-70)
+    echo ">>> ... booting ($NET/4 servers, $((i / 2))s)${PHASE:+ — $PHASE}"
+  fi
   sleep 0.5
 done
 if [ "$READY" -eq 0 ]; then
-  echo ">>> TIMEOUT — pas de 4 servers après 25s. Dernières lignes :"
+  echo ">>> TIMEOUT — pas de 4 servers après 120s (activité continue = build anormalement long). Dernières lignes :"
   sed 's/\x1b\[[0-9;]*m//g' "$LOG" | tail -8
   exit 1
 fi

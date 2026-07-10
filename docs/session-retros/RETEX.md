@@ -31,7 +31,6 @@
 
 - `[1× — 2026-07-10]` **Purger une dep = grep TOUS les blocs `scripts`, pas des clés devinées.** Le sweep lot 5 a couvert `build`/`dev`/`rollup` mais raté `build:force` (`rollup -c` → `command not found`, trouvé par le user au premier build). Réflexe : `jq '.scripts | to_entries[] | select(.value | test("<dep>"))'` sur les 21 package.json, puis grep global hors node_modules.
 - `[1× — 2026-07-10]` **`npm pkg delete` est inconsistant en workspaces** (certains dirs silencieusement non modifiés dans une boucle). Pour une purge de masse fiable → `jq 'with_entries(select(.key|test(...)|not))'` directement sur les fichiers, puis UN `npm install` de resync.
-- `[4× — 2026-07-10]` **`start.sh` TIMEOUT 25 s = faux négatif quand la vérif turbo initiale est longue** : le serveur boote APRÈS le timeout ; une suite intégration lancée aussitôt → 285 fails ECONNREFUSED faux. Réflexe : `curl health` avant de qualifier, et élargir la fenêtre (follow-up gravé au kit rolldown).
 - `[1× — 2026-07-10]` **Retirer un fichier d'un `include` tsconfig peut déplacer la racine commune** (TS5011 tsgo) : `tsconfigClient` sans `rollup.config.ts` → racine `./src` → layout `dist/client/types` cassé vs exports map. Fix = `rootDir` explicite. Vérifier le LAYOUT émis, pas juste l'exit 0.
 
 ## 🧪 Méthode de comparaison de builds

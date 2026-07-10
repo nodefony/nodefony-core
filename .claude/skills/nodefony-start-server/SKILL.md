@@ -188,17 +188,17 @@ sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep -E "framework ready|D�
 
 ## Symptômes courants
 
-| Symptôme                                            | Cause                                                                       | Fix                                                                                             |
-| --------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `SyntaxError: does not provide an export named 'X'` | dist d'un module périmé                                                     | `cd src/packages/@nodefony/<module> && npm run build` puis relancer (ou `--force-build`)        |
-| `start.sh` → `>>> FATAL`                            | crash au boot                                                               | Le script affiche le stack trace ; lire `/tmp/nodefony-server.log`                              |
-| `start.sh` → `>>> TIMEOUT`                          | `#ensureBuilt` rebuild turbo long (après clean/modif core) ou kernel bloqué | Le superviseur continue en fond : suivre `/tmp/nodefony-server.log` jusqu'à `framework ready`   |
-| `EADDRINUSE`                                        | port occupé                                                                 | `start.sh` kill avant spawn ; sinon `nodefony stop` (group-kill + attente ports)                |
-| 4 servers OK mais 404 sur `/nodefony/test/*`        | dist module test périmé                                                     | `start.sh --force-build`                                                                        |
-| `⚠ boot DÉGRADÉ` au démarrage                       | modules tombés en fail-soft (dist absent/erreur)                            | `nodefony status` + lire les logs ; cause = un `dist` manquant → rebuild le module fautif       |
-| Plusieurs superviseurs / process orphelins          | `kill -9` brutal (pidfile périmé)                                           | `nodefony stop` (ou relancer : le superviseur balaie `ps` et nettoie au démarrage)              |
-| Modif backend pas prise                             | superviseur mort, OU fichier hors watch (`frontend/`/`tests/`)              | `nodefony status` (superviseur vivant ?) ; sinon `start.sh`                                     |
-| Page front noire / `ERR_CERT_AUTHORITY_INVALID`     | cert self-signed non _trusté_ → assets cross-origin 5173 bloqués            | accepter le cert OU (vrai fix) cert trusté via mkcert — cf kit `project_dev_supervisor_hmr_kit` |
+| Symptôme                                            | Cause                                                            | Fix                                                                                                                        |
+| --------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `SyntaxError: does not provide an export named 'X'` | dist d'un module périmé                                          | `cd src/packages/@nodefony/<module> && npm run build` puis relancer (ou `--force-build`)                                   |
+| `start.sh` → `>>> FATAL`                            | crash au boot                                                    | Le script affiche le stack trace ; lire `/tmp/nodefony-server.log`                                                         |
+| `start.sh` → `>>> TIMEOUT`                          | log FIGÉ 20s (hang réel) ou build > 120s                         | Plafond 120s + fail-fast (crash/process mort/log figé) : un TIMEOUT est un VRAI problème — lire `/tmp/nodefony-server.log` |
+| `EADDRINUSE`                                        | port occupé                                                      | `start.sh` kill avant spawn ; sinon `nodefony stop` (group-kill + attente ports)                                           |
+| 4 servers OK mais 404 sur `/nodefony/test/*`        | dist module test périmé                                          | `start.sh --force-build`                                                                                                   |
+| `⚠ boot DÉGRADÉ` au démarrage                       | modules tombés en fail-soft (dist absent/erreur)                 | `nodefony status` + lire les logs ; cause = un `dist` manquant → rebuild le module fautif                                  |
+| Plusieurs superviseurs / process orphelins          | `kill -9` brutal (pidfile périmé)                                | `nodefony stop` (ou relancer : le superviseur balaie `ps` et nettoie au démarrage)                                         |
+| Modif backend pas prise                             | superviseur mort, OU fichier hors watch (`frontend/`/`tests/`)   | `nodefony status` (superviseur vivant ?) ; sinon `start.sh`                                                                |
+| Page front noire / `ERR_CERT_AUTHORITY_INVALID`     | cert self-signed non _trusté_ → assets cross-origin 5173 bloqués | accepter le cert OU (vrai fix) cert trusté via mkcert — cf kit `project_dev_supervisor_hmr_kit`                            |
 
 ## Maintenance des scripts
 
