@@ -49,7 +49,7 @@
   ],
   "scripts": {
     "nodefony": "node ./bin/nodefony",
-    "build": "rollup --config rollup.config.ts --configPlugin typescript",
+    "build": "rolldown -c rolldown.config.ts && npm run build:types",
     "postbuild": "node -e \"try{require('fs').chmodSync('bin/nodefony',0o755)}catch(e){}\"",
     "dev": "rollup --config rollup.config.ts --configPlugin typescript --watch",
     "clean": "rimraf dist bin/nodefony tsconfig.tsbuildinfo",
@@ -65,7 +65,8 @@
     "lint": "eslint 'src/**/*.ts' 'rollup.config.ts'",
     "lint:fix": "eslint --fix 'src/**/*.ts' 'rollup.config.ts'",
     "doc": "typedoc",
-    "typecheck:tsc6": "tsc --noEmit"
+    "typecheck:tsc6": "tsc --noEmit",
+    "build:types": "tsgo -p tsconfig.declarations.json && tsgo -p tsconfigClient.json --emitDeclarationOnly"
   },
   "dependencies": {
     "@inquirer/prompts": "8.5.2",

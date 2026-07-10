@@ -45,6 +45,29 @@ export interface INodefonyRolldownOptions {
 const IGNORED = [/\.d\.ts$/u, /\.test\.ts$/u, /\.spec\.ts$/u, /(^|\/)tests\//u];
 
 /**
+ * Matcher `external` des packages Nodefony : exact-match ou préfixe `<nom>/`,
+ * SAUF pour `nodefony` (exact-match seulement — cf invariant en tête de fichier).
+ */
+export function nodefonyExternalMatcher(
+  external: string[],
+): (id: string) => boolean {
+  return (id: string) =>
+    id !== "." &&
+    external.some(
+      (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
+    );
+}
+
+/**
+ * Treeshake commun : les externes sont sans effet de bord (équivalent
+ * `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre.
+ */
+export const nodefonyTreeshake = {
+  moduleSideEffects: (id: string, isExternal: boolean): boolean =>
+    id.includes("reflect-metadata") ? true : !isExternal,
+};
+
+/**
  * Construit la map d'entrées d'un package Nodefony : `index.ts` + toutes les sources
  * `nodefony/**` (hors tests et `.d.ts`), nommées par chemin relatif — la sortie
  * `preserveModules` reproduit l'arborescence source dans `dist/`.
@@ -83,15 +106,8 @@ export function defineNodefonyRolldownConfig(
   return defineConfig({
     input: opts.input ?? nodefonyInput(opts.globPatterns),
     platform: opts.platform ?? "node",
-    external: (id) =>
-      id !== "." &&
-      external.some(
-        (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
-      ),
-    treeshake: {
-      moduleSideEffects: (id: string, isExternal: boolean): boolean =>
-        id.includes("reflect-metadata") ? true : !isExternal,
-    },
+    external: nodefonyExternalMatcher(external),
+    treeshake: nodefonyTreeshake,
     output: {
       dir: opts.outDir ?? "dist",
       format: "esm",
