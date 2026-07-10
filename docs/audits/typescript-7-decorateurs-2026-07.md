@@ -281,8 +281,52 @@ side-effect de `reflect-metadata` — piège documenté dans le `rollup.config.t
    explicitement (sinon il écrit dans le vrai `dist`).
 4. Les chunks vides (modules type-only) ne sont plus émis — c'est une amélioration (cf orm-core, §6 bis).
 
-**Non couvert par ce POC** : les 18 autres packages, le mode `watch`/dev, les sourcemaps, et `terser` en
-production. À dérisquer avant de toucher `rollup.config.ts`.
+**Non couvert par ce POC** : le mode `watch`/dev et les sourcemaps (§6 quater couvre les 18 packages).
+
+## 6 quater. POC sur les 18 autres packages — 18/18, surface exportée identique
+
+Méthode : un harnais importe le **vrai `rollup.config.ts`** de chaque package, en extrait `input`,
+`external` et `treeshake`, rejoue sous rolldown, puis compare la surface exportée par **import réel** de
+`dist/index.js` contre celui de rolldown (dans des process isolés — certains packages ont des registres
+globaux, `EntityRegistry`, qui explosent si l'on charge deux builds du même paquet).
+
+| Package                                          | Rollup (dont vides) | rolldown |  Exports  |  Durée |
+| ------------------------------------------------ | ------------------: | -------: | :-------: | -----: |
+| `security`                                       |             96 (19) |       98 | **88/88** |  44 ms |
+| `http`                                           |             65 (13) |       68 | **29/29** |  41 ms |
+| `frontend`                                       |              40 (5) |      104 | **20/20** |  44 ms |
+| `framework`                                      |              38 (6) |       41 | **69/69** |  28 ms |
+| `drizzle`                                        |              29 (2) |       31 | **62/62** |  23 ms |
+| `realtime`                                       |              28 (9) |       31 | **38/38** |  21 ms |
+| `orm-core`                                       |              26 (9) |       26 | **26/26** |  21 ms |
+| `user`                                           |              23 (9) |       23 | **22/22** |  16 ms |
+| `mongoose`                                       |              21 (2) |       23 | **36/36** |  21 ms |
+| `redis`                                          |              12 (2) |       14 | **10/10** |  10 ms |
+| `documentation`                                  |               9 (0) |       12 | **15/15** |   9 ms |
+| `studio`                                         |               7 (0) |        9 |  **1/1**  |   9 ms |
+| `llm`                                            |               5 (0) |        5 |  **9/9**  |   5 ms |
+| `test` (module)                                  |             442 (0) |      445 |  **1/1**  | 143 ms |
+| `mediasoup`, `test-frontend-{react,vue,angular}` |                 3-4 |      5-6 |  **1/1**  | 6-8 ms |
+
+**18/18 : aucun export manquant, aucun en trop.** Total : 854 fichiers (dont **76 chunks vides**) chez
+Rollup → 951 (dont **0 vide**) chez rolldown. Les `+2/+3` récurrents sont les helpers oxc
+(`_virtual/@oxc-project/runtime/helpers/{decorate,decorateMetadata,decorateParam}`).
+
+**Un bug latent du source, révélé par rolldown.** `@nodefony/http` **s'importe lui-même par son nom** :
+`nodefony/src/context/http/Request.ts:28` fait `import { HttpError } from "@nodefony/http"`. Rollup masque
+le problème ; rolldown suit le lien et **avale le `dist/` du paquet** (65 → 120 fichiers). En
+externalisant le nom propre du paquet, on retombe à 68. **C'est le seul self-import du repo** (vérifié sur
+les 18) et il devrait devenir un import relatif.
+
+**`frontend` : 40 → 104 fichiers, mais 290 Ko → 237 Ko.** L'écart vient de `zod`, que `frontend`
+n'externalise pas (contrairement à `http`, `orm-core`…) : rolldown le découpe en 79 modules là où Rollup
+en émet 17, tout en produisant **moins d'octets** (meilleur tree-shaking). Ce n'est pas une régression —
+mais `zod` devrait être externalisé ici par cohérence.
+
+**Écart d'option** : `treeshake.tryCatchDeoptimization` n'existe pas chez rolldown (avertissement, non
+bloquant). Le reste du bloc `treeshake` — dont `moduleSideEffects` — est honoré.
+
+**Reste non couvert** : mode `watch`/dev et sourcemaps (`rollup-sourcemap-path-transform`, cosmétique).
 
 ## 7. Décisions
 
@@ -300,8 +344,11 @@ production. À dérisquer avant de toucher `rollup.config.ts`.
 - **Fait** : palier 1 livré (`fbd1d6ae`) — `tsgo` en typecheck, `typescript` reste 6.0.3 pour
   Rollup/ESLint/typedoc. Paquet `@typescript/native-preview` (binaire `tsgo`), **jamais** un alias npm
   `tsgo@npm:typescript@7` : un alias ne renomme pas le binaire et écrase `.bin/tsc` silencieusement.
-- **Surveiller** : la sortie de l'API TS 7.1 (débloque lint + doc), et la maturation de `preserveModules`
-  dans rolldown.
+- **Prérequis au palier 2, indépendant du bundler** : corriger le self-import de
+  `@nodefony/http` (`nodefony/src/context/http/Request.ts:28` → import relatif) et externaliser `zod`
+  dans `@nodefony/frontend`. Les deux sont des défauts réels que Rollup masquait.
+- **Surveiller** : la sortie de l'API TS 7.1 (débloque lint + doc), et le mode `watch` de rolldown
+  (seul point du build encore non testé).
 
 ## 8. Sources
 
