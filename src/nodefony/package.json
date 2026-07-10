@@ -142,6 +142,7 @@
   "files": [
     "dist",
     "bin",
-    "docs"
+    "docs",
+    "templates"
   ]
 }

@@ -19,6 +19,8 @@ export enum SysExit {
   NOINPUT = 66,
   /** Service requis indisponible (dépendance non démarrée/enregistrée). */
   UNAVAILABLE = 69,
+  /** Sortie impossible à créer (dossier cible existant non vide, droits). */
+  CANTCREAT = 73,
   /** Erreur interne du logiciel (bug, exception non gérée au boot). */
   SOFTWARE = 70,
   /** Erreur de configuration. */

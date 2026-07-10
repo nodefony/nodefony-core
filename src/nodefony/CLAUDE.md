@@ -83,6 +83,7 @@ src/nodefony/
 ├── INJECTION_PLAN.md         ← plan migration injection (P4.5, Phase B/C/D/E)
 ├── bin/
 │   └── nodefony              ← exécutable CLI (link vers dist/bin/nodefony.js)
+├── templates/                ← templates scaffold `nodefony create` (app/…) — shippés npm (files)
 ├── dist/                     ← sortie rolldown (gitignored)
 └── src/
     ├── index.ts              ← barrel ESM — re-exports publics

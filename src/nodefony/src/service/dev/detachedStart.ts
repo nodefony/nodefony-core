@@ -216,6 +216,27 @@ export async function launchDetached(
   const logFile = path.resolve(opts.cwd ?? process.cwd(), opts.logFile);
   const progress = opts.onProgress ?? (() => {});
 
+  // ─── Pre-flight : ports LIBRES avant spawn ────────────────────────────────
+  // La readiness = « ports en écoute » sans notion de propriétaire : un runtime
+  // préexistant sur ces ports rendrait un FAUX READY (vécu : le child refuse via
+  // son garde single-instance et meurt, la sonde voit les ports du VIEUX serveur
+  // et sort UP). Refuser AVANT de spawner — même verdict que le garde du child,
+  // mais côté parent, avec le bon exit code.
+  const preflight = await probePorts(ports);
+  const busy = preflight.filter((p) => p.listening);
+  if (busy.length > 0) {
+    return {
+      ok: false,
+      pid: null,
+      exitCode: SysExit.UNAVAILABLE,
+      ports: preflight,
+      logFile,
+      reason:
+        `port(s) déjà en écoute : ${busy.map((p) => p.port).join(", ")} — un runtime ` +
+        `tourne déjà (nodefony status · nodefony stop)`,
+    };
+  }
+
   // Standalone : aucun Kernel n'a garanti `tmp/` ici (contrairement au boot) —
   // le dossier du log peut ne pas exister sur un checkout/pod frais.
   mkdirSync(path.dirname(logFile), { recursive: true });
@@ -265,7 +286,9 @@ export async function launchDetached(
     }
     const states = await probePorts(ports);
     const up = states.filter((p) => p.listening).length;
-    if (up === ports.length) {
+    // `!exited` re-vérifié APRÈS la sonde : des ports up + un child mort entre
+    // les deux checks = jamais un READY (ceinture du pre-flight ci-dessus).
+    if (up === ports.length && !exited) {
       const health = opts.healthPath
         ? await probeHealth(ports, opts.healthPath)
         : undefined;

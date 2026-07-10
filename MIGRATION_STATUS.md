@@ -399,8 +399,11 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 > 1. **Chaîne scaffold `create app/module/controller` (priorité user 07-10)** = le vrai bloqueur
 >    onboarding (`npx nodefony create …` + install global, exige la release). **Lot 1 ✅ : subpath
 >    `nodefony/bundler`** (socle de build publiable, 19 configs du repo basculées dessus — dogfooding,
->    `rolldown.shared.ts` supprimé). Commandes métier P11.2/11.3 (`http:*`/`security:*`/`user:*`)
->    reléguées APRÈS la chaîne scaffold ; `orm:migrate` = design prêt, impl gelée (S5c).
+>    `rolldown.shared.ts` supprimé). **Lot 2 ✅ : `nodefony create app`** (standalone 0-boot, templates
+>    shippés `templates/app/`, prouvé bout-en-bout : app générée → build rolldown → boot → 200).
+>    Reste : `create module`/`create controller` (lot 3), publication npm. Commandes métier
+>    P11.2/11.3 (`http:*`/`security:*`/`user:*`) reléguées APRÈS la chaîne scaffold ;
+>    `orm:migrate` = design prêt, impl gelée (S5c).
 > 2. **S5 — DDL prod drizzle-kit** (P7.10, dernier morceau ORM) : design ✅ validé 07-10, implémentation
 >    GELÉE → après P8+P11. `project_orm_multidialect_chantier_kit` §S5.
 > 3. **Config app `NF__APP__*`** (reste du chantier config, ADR-0006) → `project_config_nf_app_kit`.

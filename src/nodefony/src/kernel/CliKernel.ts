@@ -36,6 +36,8 @@ import {
   type ICliManifest,
 } from "../cli/completion";
 import Completion from "./commands/CompletionCommand";
+import Create from "./commands/CreateCommand";
+import { runCreateCommand } from "../cli/create";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -192,6 +194,13 @@ class CliKernel extends Cli {
       );
     }
 
+    // ─── Scaffold : `create <type> <name>` — même famille standalone ──────────
+    // Cas nominal = HORS de tout projet (`npx nodefony create app mon-app`) : il
+    // n'y a RIEN à booter (pas de nodefony.config.ts). Templates shippés npm.
+    if (requested === "create") {
+      return process.exit(runCreateCommand(process.argv));
+    }
+
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────
     // Spawn détaché + readiness (sonde ports) + health + exit code sémantique —
     // l'expérience du script start.sh absorbée nativement (cf detachedStart.ts).
@@ -323,6 +332,7 @@ class CliKernel extends Cli {
     this.addCommand(Status);
     this.addCommand(Stop);
     this.addCommand(Completion);
+    this.addCommand(Create);
   }
 
   /**
@@ -533,6 +543,7 @@ class CliKernel extends Cli {
       install: "Projet",
       outdated: "Projet",
       completion: "Projet",
+      create: "Projet",
     };
     // commande → module propriétaire (chaque Module garde ses commandes).
     const owner: Record<string, string> = {};

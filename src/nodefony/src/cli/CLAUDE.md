@@ -175,6 +175,7 @@ Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots
 | `Status`     | —         | `StatusCommand.ts`     | **standalone** (0 boot)                                   |
 | `Stop`       | —         | `StopCommand.ts`       | **standalone** (0 boot)                                   |
 | `Completion` | —         | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)   |
+| `Create`     | —         | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)          |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -189,6 +190,19 @@ en prod). Hors projet → fallback built-ins en mémoire (`CliKernel.buildBuilti
 Protocole candidats : dernier mot = en cours de frappe (le shell filtre par préfixe) ;
 commande validée → ses options + globales, sinon noms + alias. Install zsh :
 `source <(nodefony completion zsh)`.
+
+## Scaffold — `cli/create.ts`
+
+`nodefony create app <name> [--dir <path>] [--force]` — génère un projet depuis les
+templates shippés (`templates/app/`, tokens `{{appName}}`/`{{nodefonyVersion}}`,
+substitution regex simple — pas de moteur ; bascule eta prévue si `create module`
+exige des conditionnels). **Standalone 0-boot** (fast-path `CliKernel.start` — cas
+nominal HORS projet : `npx nodefony create app mon-app`). L'app générée : build
+rolldown 3 lignes via `nodefony/bundler` (`externalDeps: true`), config
+`defineConfig`/`defineEnv` commentée, controller Hello. Token inconnu dans un
+template = throw (zéro `{{` résiduel). Renames : `gitignore.tpl` → `.gitignore`
+(npm strip les dotfiles publiés). Exit codes : `OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`.
+Tests `create.test.ts` (+ e2e bin gate `RUN_CLI_BOOT=1`).
 
 ## Hooks Command
 

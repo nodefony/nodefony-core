@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-10T20:54:24.351Z",
+  "generated": "2026-07-10T21:18:43.542Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1003,
-    "symbols": 2535,
-    "classes": 315,
-    "interfaces": 664,
-    "types": 294,
+    "files": 1005,
+    "symbols": 2543,
+    "classes": 316,
+    "interfaces": 665,
+    "types": 295,
     "enums": 4,
-    "functions": 706,
-    "constants": 552
+    "functions": 710,
+    "constants": 553
   },
   "symbols": {
     "Cli": {
@@ -619,6 +619,61 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Shells supportés par `nodefony completion <shell>`."
+    },
+    "ICreateRequest": {
+      "name": "ICreateRequest",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "TCreateType": {
+      "name": "TCreateType",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "parseCreateArgv": {
+      "name": "parseCreateArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv complet du process après le mot `create`."
+    },
+    "findPackageRoot": {
+      "name": "findPackageRoot",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racine du paquet `nodefony` contenant `templates/` — remontée depuis CE fichier (source `src/cli/`, bundle `dist/node/cli/` ou `bin/nodefony` : la remontée marche pour les trois sans dépendre de la…"
+    },
+    "renderTemplates": {
+      "name": "renderTemplates",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend un arbre de templates : chaque `*.tpl` est copié dans `destDir` (suffixe retiré, renames appliqués), tokens `{{token}}` substitués. Un token inconnu jette — garantit ZÉRO `{{` résiduel dans le…"
+    },
+    "runCreateCommand": {
+      "name": "runCreateCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony create <type> <name> [--dir <path>] [--force]` — génère un projet depuis les templates shippés. Standalone : zéro boot, utilisable via `npx nodefony create app mon-app` hors de t…"
+    },
+    "CREATE_TYPES": {
+      "name": "CREATE_TYPES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Scaffold `nodefony create <type> <name>` — chaîne de création d'un projet. Pur outillage standalone (même famille que status/stop/completion) : AUCUN boot kernel — `create app` s'exécute HORS de to…"
     },
     "SysExit": {
       "name": "SysExit",
@@ -3341,6 +3396,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony completion [install|uninstall] <shell>` — imprime le script de complétion à sourcer (bash / zsh / fish), ou l'installe dans le rc du shell (bloc marqué idempotent, réversible par…"
+    },
+    "Create": {
+      "name": "Create",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/CreateCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony create <type> <name>` — scaffold d'un projet Nodefony depuis les templates shippés (`templates/<type>/`). En pratique l'invocation directe est interceptée par le fast-path STANDA…"
     },
     "Dev": {
       "name": "Dev",
@@ -18058,6 +18124,7 @@
         "Build",
         "Cluster",
         "Completion",
+        "Create",
         "Dev",
         "Install",
         "Outdated",
@@ -18582,6 +18649,7 @@
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
+        "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -20175,6 +20243,7 @@
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
+        "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -20201,6 +20270,7 @@
       ],
       "SysExit": [
         "src/nodefony/src/cli/completion.ts",
+        "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
@@ -20451,6 +20521,13 @@
       ],
       "Completion": [
         "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Create": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runCreateCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -21060,6 +21137,7 @@
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
+        "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -21091,6 +21169,9 @@
       ],
       "COMPLETION_SHELLS": [
         "src/nodefony/src/kernel/commands/CompletionCommand.ts"
+      ],
+      "CREATE_TYPES": [
+        "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
       "BootReporter": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
