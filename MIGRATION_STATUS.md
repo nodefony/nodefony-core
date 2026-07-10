@@ -99,6 +99,9 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 ```
 
 > Fondations **hors roadmap** (déjà migrées, Phases 0-4) : Build, Core/Kernel, DI, Syslog, Router, Controller, Types.
+> **Build = rolldown + tsgo** (`c600ae79`→`d295121b`, lots 0-5) : Rollup SUPPRIMÉ du repo, 20 cibles
+> (19 workspaces + app racine), surface exportée prouvée identique, `.d.ts` par `tsgo`, target ES2024,
+> core 20 s → 0,17 s, clean build 3 min 50 → 34 s. Plan : `docs/audits/rolldown-migration-plan-2026-07.md`.
 > Le durcissement transverse (cycle requête V1-V5, Container, fast path, forwarded/proxy, WS, certificats)
 > n'a **pas de lignes P dédiées** — cf § Durcissement fondations + `git log`.
 > **Verdict audit 2026-06-28 : chiffres honnêtes, mais bandeau périmé du 17/06 (189 commits depuis)** — P6 quasi
