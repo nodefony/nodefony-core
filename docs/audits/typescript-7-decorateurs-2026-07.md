@@ -158,9 +158,10 @@ Enseignement majeur : **zéro erreur de typage sous TS 7**, avec les tsconfig ac
 Nodefony est déjà TS 7-compatible ; seul l'**outillage** bloque.
 
 **Palier 2 — découpler transformation et types (chantier build).**
-Remplacer `@rollup/plugin-typescript` par `unplugin-oxc` (transformation) + `tsgo --emitDeclarationOnly`
-(déclarations). Supprime la dépendance du **build** à l'API JS. Touche `rollup.config.ts` et
-`tsconfig.json` → **accord explicite requis**. Reste bloqué sur TS 6 : `typescript-eslint` et `typedoc`.
+Remplacer `@rollup/plugin-typescript` par **rolldown** (transformation TS native via oxc — cf §6 bis pour
+l'arbitrage rolldown vs Rollup+`unplugin-oxc`) + `tsgo --emitDeclarationOnly` (déclarations). Supprime la
+dépendance du **build** à l'API JS. Touche `rollup.config.ts` et `tsconfig.json` → **accord explicite
+requis**. Reste bloqué sur TS 6 : `typescript-eslint` et `typedoc`.
 
 **Vérifié sur le core** — `tsgo --declaration --emitDeclarationOnly --rootDir ./src` :
 
@@ -189,30 +190,59 @@ Migrer les `@inject(...)` de paramètre vers `@Inject(...)` de propriété (déj
 supprime une classe entière de bugs silencieux (un type effacé par `import type` dégrade
 `design:paramtypes` en `Object`, **sans erreur**).
 
-## 6 bis. Faut-il passer à rolldown avant la release ? — NON
+## 6 bis. Rollup ou rolldown pour le palier 2 ? — **rolldown**, et AVANT la release
 
-VoidZero (qui finance Rollup) pousse **rolldown** (Rust/oxc) comme successeur, et Vite 8 l'utilise déjà
-par défaut. La tentation est réelle. Elle est prématurée, pour quatre raisons.
+> ⚠️ Cette section corrige une première rédaction qui recommandait « Rollup + `unplugin-oxc`, rolldown
+> plus tard ». Les POC ci-dessous l'ont invalidée. Le raisonnement initial était incohérent : il
+> proposait `unplugin-oxc` (**0.6.1**, pré-1.0) pour éviter rolldown (**1.1.5**, stable).
 
-**Rolldown ne résout aucun problème que le palier 2 ne résolve déjà.** Ce qui nous libère de l'API JS de
-TypeScript, c'est de retirer `@rollup/plugin-typescript` — pas de changer de bundler. Le palier 2 le fait
-en gardant Rollup, avec une sortie prouvée identique (131 exports, même arborescence).
+**Ce qu'est rolldown** : le bundler Rollup réécrit en **Rust** (binaire natif ~16 Mo via napi-rs),
+bâti sur **oxc**, avec une API compatible Rollup. Développé par VoidZero (Evan You) ; **Vite 8 l'utilise
+déjà par défaut**.
 
-**Le bundler produit les artefacts npm publiés.** Changer la chaîne de production juste avant une release,
-c'est concentrer le risque au pire moment. La chaîne actuelle est éprouvée : build 19/19, 1809 tests core,
-568 http.
+> 🚫 **Rollup n'est PAS déprécié.** `rollup@4.62.2` est sorti le 2026-06-19, aucun champ `deprecated`,
+> cadence soutenue. **Ce qui est mort, c'est `@rollup/plugin-typescript`** (9 mois sans release, cassé
+> par TS 7) — pas le bundler. On ne migre donc pas « par peur que Rollup meure », et surtout pas
+> « quel qu'en soit le coût » : on migre pour **sortir du plugin**, qui est le seul lien à l'API JS de
+> TypeScript.
+>
+> **Corollaire** : si le coût de rolldown explose sur un cas dur (bundle `bin`, client isomorphe),
+> le repli est **Rollup + `unplugin-oxc`** — il atteint le même objectif (plus de plugin TS) en gardant
+> le bundler. L'objectif est le plugin ; le bundler est un moyen.
 
-**`preserveModules` y est jeune.** Implémenté, mais encore activement patché (normalisation d'ids,
-re-exports, JSON) sur la série 1.0.x → 1.1.x. Nos `.d.ts` par module sont le **contrat public** du
-framework.
+**Il est plus simple que Rollup + oxc, pas plus risqué** :
 
-**Le gain est la vitesse de bundling, pas la qualité de l'artefact.** C'est du confort de développement,
-qui ne justifie pas de risquer une release.
+|                    | Rollup + `unplugin-oxc`                                       | rolldown                       |
+| ------------------ | ------------------------------------------------------------- | ------------------------------ |
+| Version            | 4.x + plugin **0.6.1** (pré-1.0)                              | **1.1.5 stable**               |
+| Transformation TS  | via plugin                                                    | **native** (oxc intégré)       |
+| Décorateurs legacy | option `decorator` à passer                                   | **lus depuis `tsconfig.json`** |
+| Helpers            | imports `@oxc-project/runtime/*` → **dep runtime à déclarer** | **bundlés** (`_virtual/`)      |
 
-**L'ordre correct** : (1) palier 1 — fait ; (2) release Nodefony 10 sur Rollup + TS 6 ; (3) palier 2
-post-release ; (4) alors seulement, Rollup → Rolldown si le build devient un goulot. Le palier 2 rend
-d'ailleurs cette dernière étape **facile** : une fois les `.d.ts` générés par `tsgo` hors du bundler,
-changer de bundler ne touche plus au contrat de types.
+**POC sur un vrai module (`@nodefony/orm-core`, `preserveModules` + `external`)** :
+
+|                                 |       Rollup (actuel) |                 rolldown |
+| ------------------------------- | --------------------: | -----------------------: |
+| Fichiers `.js`                  |                    26 |                       17 |
+| Dont **chunks vides** (1 octet) |                 **9** |                        0 |
+| Surface exportée de `index.js`  |            26 exports | **26 — noms identiques** |
+| Durée                           | (dans le build turbo) |                **48 ms** |
+
+Les 9 fichiers « manquants » sont exactement les modules **type-only** (`nodefony/interfaces/*`,
+`serviceWiring`) — leur `.js` fait **1 octet** chez Rollup. Le `rollup.config.ts` d'orm-core les
+documente d'ailleurs comme « EMPTY_BUNDLE … chunk JS vide (bénin) ». **rolldown ne les émet pas** :
+sortie équivalente et plus propre.
+
+**Pourquoi AVANT la release, et non après.** Le framework est en **développement**, sans consommateurs.
+Une fois 10.0.0 publiée, le `dist` et les `.d.ts` deviennent un contrat opposable : changer de bundler
+coûtera bien plus cher. Par ailleurs la release n'est pas imminente (P8 à 63 %, P11 à 44 %, S5 gelé), donc
+il reste le temps de stabiliser. C'est l'application directe de la doctrine maison : _« reculer pour mieux
+sauter, le framework est en dev pas en prod »_.
+
+**Ce qui reste à dérisquer avant de s'engager** (non couvert par les POC) : les configs Rollup complexes du
+core (bundle `bin`, bundle **client isomorphe** via `tsconfigClient.json`, `declarationDir`, terser/json),
+les `external` de chaque package, et `preserveModulesRoot` sur les 19 workspaces. Les `.d.ts`, eux, sont
+déjà résolus : `tsgo --emitDeclarationOnly`, hors du bundler (§7 palier 2).
 
 ## 7. Décisions
 
@@ -223,8 +253,10 @@ changer de bundler ne touche plus au contrat de types.
   silencieux.
 - **Rejeté : attendre `Symbol.metadata`** pour remplacer `design:paramtypes` — il ne porte pas les types
   et aucun proposal ne prévoit qu'il le fasse.
-- **Rejeté : migrer vers `rolldown` avant la release** (§6 bis) — il ne résout rien que le palier 2 ne
-  résolve, et déplace le risque sur les artefacts publiés.
+- **Le palier 2 se fera sur `rolldown`, avant la release** (§6 bis) — stable (1.1.5) là où `unplugin-oxc`
+  est pré-1.0, transformation TS native, décorateurs lus du `tsconfig`, helpers bundlés, sortie prouvée
+  équivalente sur orm-core (26 exports identiques, 9 chunks vides en moins). Le framework est en dev :
+  c'est maintenant que ça coûte le moins cher.
 - **Fait** : palier 1 livré (`fbd1d6ae`) — `tsgo` en typecheck, `typescript` reste 6.0.3 pour
   Rollup/ESLint/typedoc. Paquet `@typescript/native-preview` (binaire `tsgo`), **jamais** un alias npm
   `tsgo@npm:typescript@7` : un alias ne renomme pas le binaire et écrase `.bin/tsc` silencieusement.
