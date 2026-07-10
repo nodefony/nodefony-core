@@ -44,11 +44,7 @@ export type RuntimeMode = "dev" | "prod" | "cluster";
  * `vite` = enfant dev (bundler).
  */
 export type DevProcessRole =
-  | "supervisor"
-  | "server"
-  | "vite"
-  | "master"
-  | "worker";
+  "supervisor" | "server" | "vite" | "master" | "worker";
 
 /** Rôles « principaux » (tiennent les ports ou supervisent) — Vite exclu (enfant jetable). */
 const PRIMARY_ROLES: ReadonlySet<DevProcessRole> = new Set<DevProcessRole>([
@@ -514,7 +510,7 @@ function resolveWorkspaceDirs(cwd: string, globs: readonly string[]): string[] {
 }
 
 /**
- * Liste les workspaces qui DEVRAIENT produire un dist (présence d'un `rollup.config.ts`)
+ * Liste les workspaces qui DEVRAIENT produire un dist (présence d'un `rolldown.config.ts`)
  * mais dont le dossier `dist/` est absent ou vide — renvoie leurs **noms de package**
  * (pour `turbo --filter`). On cible l'ABSENCE de build, pas l'entrée exacte (le core
  * sort `dist/node/…`, d'autres `dist/index.js`) → vérifier « dist non vide » est le
@@ -524,7 +520,7 @@ function resolveWorkspaceDirs(cwd: string, globs: readonly string[]): string[] {
  * hit » SANS restaurer un dist supprimé (gitignored, `clean` partiel, checkout de
  * branche) → le module manquant tombe en fail-soft au boot et cascade en silence
  * (« vert mais cassé »). On vérifie le terrain (la confiance n'exclut pas le contrôle).
- * Pur filesystem, aucun boot. Un workspace sans `rollup.config.ts` (WIP non câblé) est
+ * Pur filesystem, aucun boot. Un workspace sans config de bundler (WIP non câblé) est
  * ignoré : aucun dist n'est attendu de lui.
  */
 export function missingWorkspaceDists(cwd: string): string[] {
@@ -539,7 +535,7 @@ export function missingWorkspaceDists(cwd: string): string[] {
   }
   const missing: string[] = [];
   for (const dir of resolveWorkspaceDirs(cwd, globs)) {
-    if (!existsSync(path.join(dir, "rollup.config.ts"))) continue; // pas de build attendu
+    if (!existsSync(path.join(dir, "rolldown.config.ts"))) continue; // pas de build attendu
     if (distIsBuilt(dir)) continue;
     // dist absent/vide → résout le NOM de package (pour `turbo --filter`).
     let name = path.basename(dir);

@@ -139,7 +139,7 @@ export class DevSupervisor {
     this.#debounceMs = options.debounceMs ?? 250;
     this.#childEnvKey = options.childEnvKey ?? "NODEFONY_DEV_CHILD";
     // Inclut les fichiers de config racine `nodefony.config.ts` + `env.ts` (modèle
-    // defineConfig, Lot 5) : un changement déclenche un rebuild root (`rollup -c` via
+    // defineConfig, Lot 5) : un changement déclenche un rebuild root (`rolldown -c` via
     // resolveWorkspace → null) puis le restart → la config éditée est appliquée en dev.
     // `config` = dossier d'extraction optionnel (recette « grandir », cf docs/guides/configuration.md).
     const wanted = options.paths ?? [
@@ -207,7 +207,7 @@ export class DevSupervisor {
 
   /**
    * Variante de {@link #run} qui CAPTURE la sortie au lieu de l'hériter — le
-   * spinner remplace le mur de logs turbo/rollup. La sortie n'est révélée que sur
+   * spinner remplace le mur de logs turbo/rolldown. La sortie n'est révélée que sur
    * ÉCHEC (le dev doit voir l'erreur de build : fail-loud).
    */
   #runCaptured(
@@ -264,7 +264,7 @@ export class DevSupervisor {
   /**
    * Garantit un `dist/` à jour AVANT le premier `spawn` — `turbo` (cache par
    * hash de contenu) décide ce qui doit réellement être reconstruit, l'app racine
-   * (`rollup`, sans cache) n'est rebuildée que si ses sources sont plus récentes
+   * (`rolldown`, sans cache) n'est rebuildée que si ses sources sont plus récentes
    * que son `dist`.
    *
    * Pourquoi : `start()` spawnait l'enfant sur le `dist/` existant **sans le
@@ -291,8 +291,12 @@ export class DevSupervisor {
 
     let rootOk = true;
     if (this.#rootDistStale()) {
-      this.#spinLabel = "Build de l'app (rollup)";
-      const root = await this.#runCaptured("npx", ["rollup", "-c"]);
+      this.#spinLabel = "Build de l'app (rolldown)";
+      const root = await this.#runCaptured("npx", [
+        "rolldown",
+        "-c",
+        "rolldown.config.ts",
+      ]);
       rootOk = root.ok;
       if (!root.ok) errors.push(root.output);
     }
@@ -300,7 +304,7 @@ export class DevSupervisor {
     // POST-CONDITION (la confiance n'exclut pas le contrôle) : `turbo run build` peut
     // renvoyer 0 en « cache hit » SANS restaurer un dist supprimé (gitignored, clean
     // partiel, checkout de branche). On vérifie sur le DISQUE que chaque workspace à
-    // rollup a bien son dist — sinon il tombe en fail-soft au boot et cascade en
+    // build a bien son dist — sinon il tombe en fail-soft au boot et cascade en
     // silence (« vert mais cassé », vécu : security absent → test → 404 OAuth).
     let missing = missingWorkspaceDists(this.#cwd);
     if (missing.length > 0) {
@@ -351,7 +355,7 @@ export class DevSupervisor {
   /**
    * `true` si le `dist/index.js` racine est absent ou plus ancien qu'une de ses
    * sources (`index.ts`/`nodefony.config.ts`/`env.ts`) — détection légère (3 stats)
-   * réservée à l'app racine, que `turbo` ne couvre pas (build `rollup` hors cache).
+   * réservée à l'app racine, que `turbo` ne couvre pas (build `rolldown` hors cache).
    */
   #rootDistStale(): boolean {
     const dist = path.join(this.#cwd, "dist", "index.js");
@@ -379,7 +383,7 @@ export class DevSupervisor {
    * rien (pas d'`EADDRINUSE`) n'empêche d'en lancer plusieurs. Lancé `detached`,
    * il survit à la fermeture du terminal. Sans ce verrou, chaque
    * `nodefony development` ajoutait un superviseur orphelin de plus, et **tous**
-   * rebuildaient (turbo + rollup) au moindre changement → machine saturée.
+   * rebuildaient (turbo + rolldown) au moindre changement → machine saturée.
    *
    * Deux gardes complémentaires :
    *
@@ -795,7 +799,7 @@ export class DevSupervisor {
 
   /**
    * Rebuild **ciblé** : ne reconstruit que les workspaces touchés (+ leurs
-   * dépendants via `turbo --filter=pkg...`) et l'app racine (`rollup -c`) si un
+   * dépendants via `turbo --filter=pkg...`) et l'app racine (`rolldown -c`) si un
    * fichier racine a changé. Évite de rebuilder les 17 workspaces pour un seul
    * fichier (le `npm run build` complet coûtait > 80 s).
    */
@@ -817,8 +821,9 @@ export class DevSupervisor {
     }
     // 2. App racine (l'app dépend des workspaces → après turbo).
     if (rootTouched || pkgs.size === 0) {
-      this.#log("rebuild app racine (rollup -c)…", "yellow");
-      if (!(await this.#run("npx", ["rollup", "-c"]))) return false;
+      this.#log("rebuild app racine (rolldown -c)…", "yellow");
+      if (!(await this.#run("npx", ["rolldown", "-c", "rolldown.config.ts"])))
+        return false;
     }
     return true;
   }
@@ -839,7 +844,7 @@ export class DevSupervisor {
   /**
    * Remonte de `file` jusqu'au `package.json` le plus proche et renvoie son
    * `name` (workspace turbo), ou `null` si c'est le `package.json` racine
-   * (= app, buildée par `rollup -c`). Résultat caché par dossier.
+   * (= app, buildée par `rolldown -c`). Résultat caché par dossier.
    */
   #resolvePackage(file: string): string | null {
     const root = path.resolve(this.#cwd);

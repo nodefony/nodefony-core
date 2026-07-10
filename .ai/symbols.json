@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-10T15:05:50.188Z",
+  "generated": "2026-07-10T15:57:41.136Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -3932,7 +3932,7 @@
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Liste les workspaces qui DEVRAIENT produire un dist (présence d'un `rollup.config.ts`) mais dont le dossier `dist/` est absent ou vide — renvoie leurs **noms de package** (pour `turbo --filter`). O…"
+      "description": "Liste les workspaces qui DEVRAIENT produire un dist (présence d'un `rolldown.config.ts`) mais dont le dossier `dist/` est absent ou vide — renvoie leurs **noms de package** (pour `turbo --filter`).…"
     },
     "DEV_SUPERVISOR_TITLE": {
       "name": "DEV_SUPERVISOR_TITLE",

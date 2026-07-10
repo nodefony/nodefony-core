@@ -108,7 +108,7 @@ class Module<TConfig = Record<string, unknown>>
     this.path = this.setPath(path);
     this.setEvents();
     // Aucun build runtime : le build des modules passe par la toolchain CLI
-    // (`npm run build` / `nodefony build` → turbo + rollup.config.ts par module),
+    // (`npm run build` / `nodefony build` → turbo + rolldown.config.ts par module),
     // PAS par un service rollup embarqué dans le process serveur (retiré 2026-06-02 :
     // doublon de config + coût d'import de la toolchain à chaque boot). En dev, le
     // rechargement backend = DevSupervisor (restart process) ; le HMR front = Vite.
