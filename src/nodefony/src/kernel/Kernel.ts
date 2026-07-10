@@ -668,6 +668,15 @@ class Kernel extends Service implements IKernel {
     // plus le boot ; fireLifecycle logge + propage selon criticité (prod).
     await this.fireLifecycle("onPreRegister", this);
 
+    // Manifest de complétion shell : ICI (et pas avant) les commandes de MODULE sont
+    // posées dans commander → dump complet pour le fast-path `__complete` (0 boot au
+    // TAB). DEV uniquement (prod cloud-native : FS possiblement read-only, aucune
+    // complétion dans un pod) ; fire-and-forget best-effort → coût boot nul, un
+    // échec d'écriture n'impacte JAMAIS le boot.
+    if (this.resolveRuntimeEnv(this.cli?.environment) === "development") {
+      void this.cli?.writeCompletionManifest().catch(() => {});
+    }
+
     if (this.setCommandComplete(Events.onPreRegister)) {
       return this.finishOrPark(0);
     }

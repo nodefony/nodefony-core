@@ -28,6 +28,14 @@ import {
   isDetachRequested,
   runDetachedStart,
 } from "../service/dev/detachedStart";
+import {
+  buildCliManifest,
+  writeCliManifest,
+  runCompletionCommand,
+  runCompleteQuery,
+  type ICliManifest,
+} from "../cli/completion";
+import Completion from "./commands/CompletionCommand";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -171,6 +179,19 @@ class CliKernel extends Cli {
       return process.exit(0);
     }
 
+    // ─── Complétion shell : `completion <shell>` (script) + `__complete` (TAB) ──
+    // Standalone (0 boot, millisecondes — un TAB ne boote jamais un kernel) : la
+    // donnée vient du manifest cache écrit au boot dev (commandes de module
+    // incluses), fallback built-ins construits en mémoire hors projet.
+    if (requested === "completion") {
+      return process.exit(runCompletionCommand(process.argv));
+    }
+    if (requested === "__complete") {
+      return process.exit(
+        runCompleteQuery(process.argv, () => this.buildBuiltinManifest()),
+      );
+    }
+
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────
     // Spawn détaché + readiness (sonde ports) + health + exit code sémantique —
     // l'expérience du script start.sh absorbée nativement (cf detachedStart.ts).
@@ -197,17 +218,7 @@ class CliKernel extends Cli {
     this.kernel = new Kernel(this.environment, this, options);
     try {
       if (this.commander) {
-        // Ordre = ordre des groupes dans le help (Commander rend les groupes dans
-        // l'ordre de 1ʳᵉ rencontre) : Serveur → Build → Projet → Console/jobs.
-        this.addCommand(Dev);
-        this.addCommand(Prod);
-        this.addCommand(Cluster);
-        this.addCommand(Build);
-        this.addCommand(Install);
-        this.addCommand(Outdated);
-        this.addCommand(Start);
-        this.addCommand(Status);
-        this.addCommand(Stop);
+        this.registerBuiltinCommands();
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);
@@ -290,6 +301,49 @@ class CliKernel extends Cli {
       }
       throw e;
     }
+  }
+
+  /**
+   * Enregistre les commandes built-in dans commander (idempotent : skip si déjà
+   * fait). Ordre = ordre des groupes dans le help (Commander rend les groupes dans
+   * l'ordre de 1ʳᵉ rencontre) : Serveur → Build → Projet → Console/jobs.
+   * Partagé entre `start()` et le fallback de complétion (built-ins sans boot).
+   */
+  registerBuiltinCommands(): void {
+    if (this.commands["development"]) {
+      return;
+    }
+    this.addCommand(Dev);
+    this.addCommand(Prod);
+    this.addCommand(Cluster);
+    this.addCommand(Build);
+    this.addCommand(Install);
+    this.addCommand(Outdated);
+    this.addCommand(Start);
+    this.addCommand(Status);
+    this.addCommand(Stop);
+    this.addCommand(Completion);
+  }
+
+  /**
+   * Écrit le manifest de complétion shell (cache par projet) depuis l'état COURANT
+   * de commander — appelé par le Kernel à `onPreRegister` en dev, une fois les
+   * commandes de module posées. Best-effort côté appelant (fire-and-forget).
+   */
+  async writeCompletionManifest(cwd: string = process.cwd()): Promise<void> {
+    if (!this.commander) {
+      return;
+    }
+    await writeCliManifest(this.commander, cwd, version);
+  }
+
+  /**
+   * Manifest de complétion construit en MÉMOIRE depuis commander (sans cache) —
+   * fallback du fast-path `__complete` hors projet.
+   */
+  buildBuiltinManifest(): ICliManifest {
+    this.registerBuiltinCommands();
+    return buildCliManifest(this.commander as commanderCommand, version);
   }
 
   /**
@@ -478,6 +532,7 @@ class CliKernel extends Cli {
       start: "Console / jobs",
       install: "Projet",
       outdated: "Projet",
+      completion: "Projet",
     };
     // commande → module propriétaire (chaque Module garde ses commandes).
     const owner: Record<string, string> = {};

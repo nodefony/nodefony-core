@@ -302,6 +302,52 @@ describe.skipIf(!fs.existsSync(DIST))(
       );
     });
 
+    it("completion zsh → exit 0, script compdef (standalone, 0 boot)", async () => {
+      const traceFile = path.join(
+        os.tmpdir(),
+        `nodefony-kernel-trace-compl-${process.pid}-${Date.now()}.log`,
+      );
+      try {
+        const r = await runCli(["completion", "zsh"], 30000, {
+          NODEFONY_KERNEL_TRACE_FILE: traceFile,
+        });
+        assert.strictEqual(r.code, 0, r.stderr);
+        assert.ok(r.stdout.includes("#compdef nodefony"), r.stdout);
+        assert.ok(r.stdout.includes("nodefony __complete --"), r.stdout);
+        assert.strictEqual(
+          countKernelBoots(traceFile),
+          0,
+          "completion est standalone : AUCUN Kernel",
+        );
+      } finally {
+        fs.rmSync(traceFile, { force: true });
+      }
+    });
+
+    it("__complete → candidats de commandes, exit 0, sortie machine propre", async () => {
+      const r = await runCli(["__complete", "--", ""], 30000);
+      assert.strictEqual(r.code, 0, r.stderr);
+      const candidates = r.stdout.split("\n").filter((l) => l.length > 0);
+      assert.ok(
+        candidates.includes("development"),
+        `development attendu dans les candidats\n${r.stdout}`,
+      );
+      assert.ok(candidates.includes("cluster"));
+      // Sortie MACHINE : uniquement des candidats (1 token par ligne, pas de log).
+      assert.ok(
+        candidates.every((l) => /^[\w:@/.-]+$/.test(l)),
+        `sortie polluée par des logs :\n${r.stdout}`,
+      );
+    });
+
+    it("__complete après commande validée → options (--detach, --workers)", async () => {
+      const r = await runCli(["__complete", "--", "cluster", "--"], 30000);
+      assert.strictEqual(r.code, 0, r.stderr);
+      const candidates = r.stdout.split("\n").filter((l) => l.length > 0);
+      assert.ok(candidates.includes("--workers"), r.stdout);
+      assert.ok(candidates.includes("--detach"), r.stdout);
+    });
+
     it("status (standalone) → exit 0 et ZÉRO Kernel construit", async () => {
       // `status`/`stop` sont des commandes SYSTÈME standalone (CliKernel.start
       // court-circuite AVANT `new Kernel`) — l'équivalent du niveau d'arrêt le plus
@@ -418,6 +464,24 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
         );
         // Le runtime détaché écoute réellement (indépendant du process CLI, sorti).
         assert.strictEqual(await isPortOpen(HTTP_PORT), true);
+        // Le boot dev a écrit le manifest de complétion — commandes de MODULE
+        // incluses (la donnée du TAB reste fraîche sans regénérer le script).
+        const manifest = JSON.parse(
+          fs.readFileSync(
+            path.join(
+              REPO_ROOT,
+              "node_modules",
+              ".cache",
+              "nodefony",
+              "cli-manifest.json",
+            ),
+            "utf8",
+          ),
+        ) as { commands: { name: string }[] };
+        assert.ok(
+          manifest.commands.some((c) => c.name === "http:network"),
+          "le manifest de complétion doit contenir les commandes de module",
+        );
       } finally {
         const stop = await runCli(["stop"], 30000);
         assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);

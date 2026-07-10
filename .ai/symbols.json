@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-10T19:03:19.721Z",
+  "generated": "2026-07-10T19:44:31.266Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1000,
-    "symbols": 2508,
-    "classes": 314,
-    "interfaces": 660,
-    "types": 293,
+    "files": 1002,
+    "symbols": 2523,
+    "classes": 315,
+    "interfaces": 662,
+    "types": 294,
     "enums": 4,
-    "functions": 687,
-    "constants": 550
+    "functions": 697,
+    "constants": 551
   },
   "symbols": {
     "Cli": {
@@ -426,6 +426,119 @@
       "decorators": [
         "controllers"
       ]
+    },
+    "ICliManifestCommand": {
+      "name": "ICliManifestCommand",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Complétion shell du CLI Nodefony (`nodefony completion <shell>` + requête `nodefony __complete -- <mots>`). Contrainte d'archi : les commandes de MODULE ne sont connues qu'après le chargement du ma…"
+    },
+    "ICliManifest": {
+      "name": "ICliManifest",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Manifest de complétion (cache par projet)."
+    },
+    "CompletionShell": {
+      "name": "CompletionShell",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "cliManifestFile": {
+      "name": "cliManifestFile",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Chemin du manifest cache — même dossier que le pidfile superviseur."
+    },
+    "extractFlags": {
+      "name": "extractFlags",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Extrait les flags candidats d'une chaîne commander (`\"-w, --workers <number>\"`)."
+    },
+    "buildCliManifest": {
+      "name": "buildCliManifest",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit le manifest depuis l'état COURANT de commander — appelé après que les modules ont posé leurs commandes (`onPreRegister`) pour un manifest complet, ou avec les seuls built-ins pour le fall…"
+    },
+    "writeCliManifest": {
+      "name": "writeCliManifest",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Écrit le manifest cache (mkdir -p + write async). Best-effort : l'appelant décide du fire-and-forget — un échec (FS read-only, pas de node_modules) ne doit JAMAIS impacter le boot."
+    },
+    "readCliManifest": {
+      "name": "readCliManifest",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le manifest cache — `null` si absent ou corrompu (jamais de throw)."
+    },
+    "computeCompletions": {
+      "name": "computeCompletions",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Calcule les candidats de complétion pour les mots tapés. Protocole : `words` = tous les mots APRÈS le nom du binaire, dernier mot inclus même vide (les scripts shell le transmettent tel quel). Le D…"
+    },
+    "renderCompletionScript": {
+      "name": "renderCompletionScript",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le script de complétion à sourcer pour un shell. Le script est STABLE (il délègue tout au binaire via `__complete`) : les commandes de module apparaissent sans jamais regénérer le script — seu…"
+    },
+    "detectShell": {
+      "name": "detectShell",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Détecte le shell courant depuis `$SHELL` (fallback interactif du sous-commande nu)."
+    },
+    "runCompletionCommand": {
+      "name": "runCompletionCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fast-path `nodefony completion [shell]` — imprime le script à sourcer."
+    },
+    "runCompleteQuery": {
+      "name": "runCompleteQuery",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fast-path `nodefony __complete -- <mots>` — imprime un candidat par ligne. Manifest cache absent (projet jamais booté, hors projet) → `fallback` (built-ins construits en mémoire par le CliKernel, s…"
+    },
+    "COMPLETION_SHELLS": {
+      "name": "COMPLETION_SHELLS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Shells supportés par `nodefony completion <shell>`."
     },
     "SysExit": {
       "name": "SysExit",
@@ -3137,6 +3250,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony cluster` — démarre le serveur en mode cluster sans PM2. Remplace l'ancien `nodefony staging`/`preprod` (retiré 2026-05-25 — fusionné dans le runtime prod « 2 molettes » : topolog…"
+    },
+    "Completion": {
+      "name": "Completion",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/CompletionCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony completion <shell>` — imprime le script de complétion à sourcer (bash / zsh / fish). En pratique l'invocation directe est interceptée par le fast-path STANDALONE de `CliKernel.st…"
     },
     "Dev": {
       "name": "Dev",
@@ -17853,6 +17977,7 @@
       "Command": [
         "Build",
         "Cluster",
+        "Completion",
         "Dev",
         "Install",
         "Outdated",
@@ -18366,6 +18491,7 @@
       "Command": [
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Cli.ts",
+        "src/nodefony/src/cli/completion.ts",
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
@@ -18375,6 +18501,7 @@
         "src/nodefony/src/types/ICliKernel.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -19967,6 +20094,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -19987,6 +20115,14 @@
       ],
       "loadEnv": [
         "src/nodefony/src/bin/nodefony.ts"
+      ],
+      "SysExit": [
+        "src/nodefony/src/cli/completion.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "IRealtimeSocket": [
         "src/nodefony/src/client/IClientKernel.ts",
@@ -20162,13 +20298,6 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
-      "SysExit": [
-        "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
       "CliDefaultOptions": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
@@ -20219,6 +20348,24 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "runDetachedStart": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "buildCliManifest": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "writeCliManifest": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runCompletionCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runCompleteQuery": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "ICliManifest": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Completion": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "setLogColor": [
@@ -20828,6 +20975,7 @@
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -20856,6 +21004,18 @@
       "launchTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts"
+      ],
+      "COMPLETION_SHELLS": [
+        "src/nodefony/src/kernel/commands/CompletionCommand.ts"
+      ],
+      "renderCompletionScript": [
+        "src/nodefony/src/kernel/commands/CompletionCommand.ts"
+      ],
+      "detectShell": [
+        "src/nodefony/src/kernel/commands/CompletionCommand.ts"
+      ],
+      "CompletionShell": [
+        "src/nodefony/src/kernel/commands/CompletionCommand.ts"
       ],
       "BootReporter": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"

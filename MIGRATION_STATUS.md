@@ -236,12 +236,12 @@ DI scopes (singleton/transient), lifecycle session.
 
 ### P8 — CLI + Monitoring (63 %)
 
-| #       | Tâche                        | État                                                                |
-| ------- | ---------------------------- | ------------------------------------------------------------------- |
-| ✅ P8.1 | `bin/nodefony.ts`            | banner rolldown (shebang), CLI fonctionnel                          |
-| ⬜ P8.2 | Generators Module/Controller | **couvert par skills** (`nodefony-create-module`), pas commande CLI |
-| ✅ P8.3 | `DebugBar` (monitoring)      | `src/nodefony/src/client/debugbar/`                                 |
-| 🔶 P8.4 | `Metrics` runtime            | via Studio (canal `dashboard:stats`), pas service standalone        |
+| #       | Tâche                        | État                                                                                                                                                                                           |
+| ------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ P8.1 | `bin/nodefony.ts`            | banner rolldown (shebang), CLI fonctionnel + **complétion shell bash/zsh/fish** (`completion`/`__complete` standalone 0-boot, manifest cache écrit au boot dev — commandes de module incluses) |
+| ⬜ P8.2 | Generators Module/Controller | **couvert par skills** (`nodefony-create-module`), pas commande CLI                                                                                                                            |
+| ✅ P8.3 | `DebugBar` (monitoring)      | `src/nodefony/src/client/debugbar/`                                                                                                                                                            |
+| 🔶 P8.4 | `Metrics` runtime            | via Studio (canal `dashboard:stats`), pas service standalone                                                                                                                                   |
 
 ### P9 — Polish + clôture (63 %)
 
