@@ -15,7 +15,7 @@ import {
 } from "@tabler/icons-react";
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
-import { StatCard } from "../../components/ui";
+import { StatCard, DocHint } from "../../components/ui";
 import {
   KERNEL_INFO_ENDPOINT,
   REALTIME_HEALTH_ENDPOINT,
@@ -75,10 +75,23 @@ export const TransportTab = observer(
             label="Backplane logs"
             icon={<IconFileText size={18} />}
             span={{ base: 12, sm: 4 }}
-            hint={
-              log
-                ? `Relecture/agrégation des logs. Sink d'écriture : ${log.sink}.`
-                : "Backplane logs indéterminé."
+            info={
+              <DocHint
+                title="Backplane logs"
+                summary="Relecture/agrégation des logs — le sink d'écriture reste stdout (12-factor)."
+                sections={[
+                  {
+                    label: "Actif",
+                    body: log
+                      ? `${log.driver} (sink ${log.sink})`
+                      : "indéterminé",
+                  },
+                  {
+                    label: "Drivers possibles",
+                    body: "memory · file · cluster-file · loki (NF_LOKI_URL) · opensearch (NF_OPENSEARCH_URL). Redis n'est PAS un backplane de logs.",
+                  },
+                ]}
+              />
             }
           >
             <Text fz={22} fw={700} style={{ lineHeight: 1.2 }}>
@@ -89,12 +102,23 @@ export const TransportTab = observer(
             label="Backplane realtime"
             icon={<IconBroadcast size={18} />}
             span={{ base: 12, sm: 4 }}
-            hint={
-              rt
-                ? rt.crossPod
-                  ? "cross-pod — flux partagés entre pods (redis/cluster)."
-                  : "local — fan-out per-pod (loopback)."
-                : "Module realtime absent ou indisponible."
+            info={
+              <DocHint
+                title="Backplane realtime"
+                summary="Fond de panier de la socket Nodefony : fan-out des flux WebSocket entre les pods."
+                sections={[
+                  {
+                    label: "Actif",
+                    body: rt
+                      ? `${rt.driver} — ${rt.crossPod ? "cross-pod (partagé)" : "local (per-pod)"}`
+                      : "module realtime absent",
+                  },
+                  {
+                    label: "Drivers possibles",
+                    body: "local (loopback, mono-pod) · redis (cross-pod, fan-out entre pods — NF_REDIS_URL) · cluster. Le multi-pod passe par Redis.",
+                  },
+                ]}
+              />
             }
           >
             <Text fz={22} fw={700} style={{ lineHeight: 1.2 }}>
@@ -102,13 +126,26 @@ export const TransportTab = observer(
             </Text>
           </StatCard>
           <StatCard
-            label="Cache (Redis)"
+            label="Redis"
             icon={<IconServer size={18} />}
             span={{ base: 12, sm: 4 }}
-            hint={
-              infra?.cache
-                ? infra.cache.url
-                : "Aucune infra cache déclarée (NF_REDIS_URL)."
+            info={
+              <DocHint
+                title="Redis — moteur multi-rôle"
+                summary="Déclaré via NF_REDIS_URL, un même Redis peut assurer PLUSIEURS rôles à la fois."
+                sections={[
+                  {
+                    label: "Rôles",
+                    body: "Cache · stores éphémères/partagés (session, idempotence) · backplane realtime cross-pod (fan-out WS entre pods).",
+                  },
+                  {
+                    label: "État",
+                    body: infra?.cache
+                      ? `déclaré (${infra.cache.url}) — disponible pour tous ces rôles.`
+                      : "non déclaré — repli local/mémoire (mono-pod).",
+                  },
+                ]}
+              />
             }
           >
             <Text fz={22} fw={700} style={{ lineHeight: 1.2 }}>

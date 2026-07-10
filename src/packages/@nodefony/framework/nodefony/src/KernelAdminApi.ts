@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { createRequire } from "node:module";
 import {
   GitService,
   getActiveLogDriver,
@@ -18,6 +19,7 @@ import type {
   IAdminEndpoint,
   IAdminDescriptor,
   IAdminRequest,
+  IStoreResolution,
 } from "nodefony";
 import type { TestRunResult } from "./docsReader";
 import {
@@ -53,6 +55,84 @@ const REPO_ROOT = process.cwd();
 function stripAbs(s: string): string {
   if (!s.includes(REPO_ROOT)) return s;
   return s.split(`${REPO_ROOT}/`).join("").split(REPO_ROOT).join(".");
+}
+
+/**
+ * Adapters de persistance OFFICIELS (npm) — catalogue de DÉCOUVRABILITÉ pour l'écran
+ * Stores : quels moteurs de stockage existent, indépendamment de ce qui est chargé.
+ * Le registre runtime (`available`) ne connaît QUE le chargé → un utilisateur ne peut
+ * pas deviner qu'il POURRAIT brancher mongoose/redis. Ce catalogue comble ce trou (les
+ * capabilities par-brique déclarées par chaque adapter = étape suivante, Palier 2).
+ */
+const KNOWN_STORE_ENGINES: ReadonlyArray<{
+  engine: string;
+  package: string;
+  family: string;
+  /**
+   * Domaine du backend — pilote comment lire sa couverture :
+   * - `durable` (SQL/Mongo) : vocation = TOUTES les briques durables + session ; une
+   *   brique absente = vrai trou PORTABLE (à implémenter).
+   * - `cache` (Redis) : vocation = briques ÉPHÉMÈRES/session (session, idempotence) ;
+   *   les briques durables sont HORS vocation, pas des « trous » (un cache n'est pas
+   *   le bon foyer d'un audit réglementaire ou de comptes users).
+   */
+  kind: "durable" | "cache";
+  /**
+   * Briques de persistance que cet adapter SAIT gérer (a une implémentation) — la
+   * COUVERTURE, indépendante du chargement. Liste CURATÉE (reflète les classes de
+   * store réellement présentes dans chaque package aujourd'hui). À lire à l'aune du
+   * `kind`. Cible (Palier 3) : chaque adapter la DÉCLARE (`package.json`
+   * `nodefony.stores`) → auto-dérivée, jamais figée.
+   */
+  provides: readonly string[];
+}> = [
+  {
+    engine: "drizzle",
+    package: "@nodefony/drizzle",
+    family: "sql",
+    kind: "durable",
+    provides: [
+      "session",
+      "user",
+      "tokens",
+      "passkeys",
+      "totp",
+      "audit",
+      "webhooks",
+      "idempotency",
+    ],
+  },
+  {
+    engine: "mongoose",
+    package: "@nodefony/mongoose",
+    family: "mongo",
+    kind: "durable",
+    provides: ["session", "user", "tokens", "passkeys", "webhooks"],
+  },
+  {
+    engine: "redis",
+    package: "@nodefony/redis",
+    family: "cache",
+    kind: "cache",
+    provides: ["session", "tokens", "passkeys", "idempotency"],
+  },
+];
+
+const engineRequire = createRequire(import.meta.url);
+
+/**
+ * Un package npm est-il INSTALLÉ (résolvable), qu'il soit chargé ou non ? Distingue
+ * « installé mais pas branché au manifeste » de « à installer ». Résolution standard
+ * d'abord ; repli sur la présence du dossier dans `node_modules` du projet (hoisting
+ * monorepo — `exports` peut ne pas publier tous les sous-chemins).
+ */
+function isPackageInstalled(pkg: string): boolean {
+  try {
+    engineRequire.resolve(pkg);
+    return true;
+  } catch {
+    return existsSync(join(REPO_ROOT, "node_modules", ...pkg.split("/")));
+  }
 }
 
 /**
@@ -713,19 +793,62 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const entriesBySeg = new Map(
           buildConfigEntries().map((e) => [e.seg, e]),
         );
+        // URLs d'infra REDACTÉES (credentials masqués) — calculées une seule fois,
+        // réutilisées par le bloc `infra` ET par la cible réseau (`endpoint`) des stores.
+        const dbUrl = infra.database
+          ? redactInfraUrl(infra.database.url)
+          : null;
+        const cacheUrl = infra.cache ? redactInfraUrl(infra.cache.url) : null;
+        // Cible RÉSEAU (redactée) d'UN store, par store — répond à « à quelle base ce
+        // store est-il connecté ? ». Axiome du modèle « infra déclarée » : un backend
+        // réseau vit à l'infra déclarée (database pour drizzle/mongoose, cache pour
+        // redis). Un store à emplacement FICHIER local (`location` renseignée) ou
+        // volatil (`memory`) n'a PAS d'endpoint réseau → l'emplacement suffit.
+        const storeEndpoint = (res: IStoreResolution): string | undefined => {
+          if (res.location) return undefined;
+          if (res.resolved === "redis") return cacheUrl ?? undefined;
+          if (res.resolved === "drizzle" || res.resolved === "mongoose") {
+            return dbUrl ?? undefined;
+          }
+          return undefined;
+        };
+        // Variable d'infra qui A DÉCIDÉ un store résolu en `"auto"` — SEULEMENT si
+        // l'infra correspondante est réellement DÉCLARÉE. Sinon le store a été résolu
+        // par le repli LOCAL (sqlite mono-nœud), pas par NF_DATABASE_URL : ne jamais
+        // pointer une variable non posée (honnêteté, cf devise).
+        const infraVar = (res: IStoreResolution): string | null => {
+          if (res.resolved === "redis" && infra.cache) return "NF_REDIS_URL";
+          if (
+            (res.resolved === "drizzle" || res.resolved === "mongoose") &&
+            infra.database
+          ) {
+            return "NF_DATABASE_URL";
+          }
+          return null;
+        };
+        // Découvrabilité des MOTEURS : chaque adapter officiel avec son état
+        // installé (npm) × chargé (enregistré au runtime). `loaded` = présent dans
+        // l'`available` d'au moins une brique (= le module l'a bien auto-enregistré).
+        const registered = new Set(
+          kernel.storeResolutions.flatMap((r) => [...r.available]),
+        );
+        const engines = KNOWN_STORE_ENGINES.map((k) => ({
+          ...k,
+          installed: isPackageInstalled(k.package),
+          loaded: registered.has(k.engine),
+        }));
         return {
+          engines,
           infra: {
             database: infra.database
               ? {
                   scheme: infra.database.scheme,
                   family: infra.database.family,
                   dialect: infra.database.dialect,
-                  url: redactInfraUrl(infra.database.url),
+                  url: dbUrl,
                 }
               : null,
-            cache: infra.cache
-              ? { url: redactInfraUrl(infra.cache.url) }
-              : null,
+            cache: infra.cache ? { url: cacheUrl } : null,
             logs: infra.logs
               ? {
                   lokiUrl: infra.logs.lokiUrl
@@ -737,10 +860,18 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
                 }
               : null,
           },
-          stores: kernel.storeResolutions.map((res) => ({
-            ...res,
-            source: resolveStoreSource(res.configPath, entriesBySeg),
-          })),
+          stores: kernel.storeResolutions.map((res) => {
+            // Store résolu par l'infra (`auto` → infra) : la source EST la variable
+            // d'infra, pas le « défaut du schéma » (trompeur). Sinon, provenance de champ.
+            const iv = res.provenance === "infra" ? infraVar(res) : null;
+            return {
+              ...res,
+              endpoint: storeEndpoint(res),
+              source: iv
+                ? { origin: "infra", detail: iv }
+                : resolveStoreSource(res.configPath, entriesBySeg),
+            };
+          }),
         };
       },
     },

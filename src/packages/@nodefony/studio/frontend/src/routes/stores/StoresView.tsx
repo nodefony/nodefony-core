@@ -1,5 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useCallback, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Stack,
   Grid,
@@ -10,6 +11,8 @@ import {
   Button,
   Alert,
   Tabs,
+  Card,
+  SimpleGrid,
   CopyButton,
   ActionIcon,
   Tooltip,
@@ -25,7 +28,11 @@ import {
   IconCopy,
   IconCheck,
   IconFolder,
+  IconPlug,
+  IconPlugConnected,
+  IconDownload,
 } from "@tabler/icons-react";
+import { DbLogo, hasDbLogo } from "../../components/DbLogo";
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
 import {
@@ -47,18 +54,301 @@ import {
   isVolatileDurable,
   formatSource,
   storeLocation,
+  deriveLocalDatabase,
   baseName,
   type Infra,
   type StoresPayload,
   type StoreResolution,
+  type StoreEngine,
 } from "./storesModel";
 import { StoresHelp } from "./StoresHelp";
 import { TransportTab } from "./TransportTab";
 
-/** Données prêtes pour le rendu : infra + lignes (briques + user fusionné). */
+/** Données prêtes pour le rendu : infra + lignes (briques) + moteurs détectés. */
 interface StoresData {
   infra: Infra;
   rows: StoreResolution[];
+  engines: StoreEngine[];
+}
+
+/** Statut d'un moteur (libellé + couleur + icône) — facts uniquement. */
+function engineStatus(e: StoreEngine): {
+  label: string;
+  color: string;
+  icon: ReactNode;
+} {
+  if (e.loaded)
+    return {
+      label: "chargé",
+      color: "teal",
+      icon: <IconPlugConnected size={13} />,
+    };
+  if (e.installed)
+    return {
+      label: "installé, non branché",
+      color: "blue",
+      icon: <IconPlug size={13} />,
+    };
+  return {
+    label: "à installer",
+    color: "gray",
+    icon: <IconDownload size={13} />,
+  };
+}
+
+/** Les 8 briques de persistance (ordre canonique), pour calculer la couverture. */
+const ALL_BRICKS = Object.keys(BRICK_LABEL);
+
+/** Briques de nature ÉPHÉMÈRE/session — le foyer naturel d'un cache (Redis). */
+const EPHEMERAL_BRICKS = ["session", "idempotency"];
+
+/**
+ * Tuile d'un moteur de persistance — FACTS sur la carte (statut, couverture par
+ * brique ✅/❌, briques portées), EXPLICATION dans une fiche ⓘ `DocHint` DYNAMIQUE
+ * (norme Studio : pas de prose sur l'écran factuel, contenu interpolé du live, cas 0
+ * explicité).
+ */
+function EngineCard({
+  e,
+  bricks,
+}: {
+  e: StoreEngine;
+  bricks: StoreResolution[];
+}) {
+  const st = engineStatus(e);
+  const isCache = e.kind === "cache";
+  const covered = e.provides;
+  const label = (b: string) => BRICK_LABEL[b] ?? b;
+  // Domaine `durable` : briques non couvertes = trous PORTABLES (à implémenter).
+  // Domaine `cache` : on sépare la VOCATION (éphémère/session, idéale sur Redis) des
+  // briques DURABLES que Redis n'héberge que s'il est PERSISTANT (AOF) — sinon perte
+  // au restart. Pas de « trou » pour un cache : les durables ne sont pas sa vocation.
+  const gaps = isCache ? [] : ALL_BRICKS.filter((b) => !covered.includes(b));
+  const vocation = isCache
+    ? covered.filter((b) => EPHEMERAL_BRICKS.includes(b))
+    : covered;
+  const edgeDurable = isCache
+    ? covered.filter((b) => !EPHEMERAL_BRICKS.includes(b))
+    : [];
+
+  // Fiche ⓘ typée + DYNAMIQUE : statut, couverture lue à l'aune du domaine, ce qui
+  // est porté, activation. Cas 0 explicité.
+  const help = (
+    <DocHint
+      title={e.engine}
+      summary={
+        isCache
+          ? `${e.package} — ${st.label}. Backend cache/éphémère : sert ${covered.length} brique(s) de nature éphémère/session.`
+          : `${e.package} — ${st.label}. Couvre ${covered.length}/${ALL_BRICKS.length} briques durables.`
+      }
+      sections={[
+        {
+          label: "Couverture",
+          body: isCache
+            ? `Vocation cache/éphémère → idéal pour : ${vocation
+                .map(label)
+                .join(", ")}.${
+                edgeDurable.length
+                  ? ` Redis implémente aussi ${edgeDurable
+                      .map(label)
+                      .join(
+                        ", ",
+                      )}, mais ce sont des données DURABLES → uniquement sur Redis PERSISTANT (AOF/RDB), sinon perdues au restart.`
+                  : ""
+              } Pour du durable, préférer SQL/Mongo.`
+            : gaps.length
+              ? `Gère : ${covered.map(label).join(", ")}. À PORTER : ${gaps
+                  .map(label)
+                  .join(", ")} (implémentation à ajouter à cet adapter).`
+              : `Couverture durable COMPLÈTE (${ALL_BRICKS.length}/${ALL_BRICKS.length}).`,
+        },
+        {
+          label: "Porté maintenant",
+          body: bricks.length
+            ? `${bricks.length} brique(s) résolue(s) dessus : ${bricks
+                .map((b) => label(b.brick))
+                .join(", ")}.`
+            : "Aucune brique résolue dessus actuellement.",
+        },
+        {
+          label: "Activation",
+          body: e.loaded
+            ? `Utilisable via le champ store d'une brique (ex. store: "${e.engine}").`
+            : e.installed
+              ? `Ajoute use("${e.package}") au manifeste modules de nodefony.config.ts.`
+              : `npm i ${e.package} puis ajoute-le au manifeste modules.`,
+        },
+      ]}
+    />
+  );
+
+  return (
+    <Card withBorder radius="md" p="sm">
+      <Group justify="space-between" wrap="nowrap" mb={6}>
+        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+          <div
+            style={{
+              width: 18,
+              height: 18,
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {hasDbLogo(e.engine) ? (
+              <DbLogo name={e.engine} size={18} title={e.engine} />
+            ) : (
+              <IconDatabase size={16} />
+            )}
+          </div>
+          <Stack gap={0} style={{ minWidth: 0 }}>
+            <Group gap={4} wrap="nowrap">
+              <Text size="sm" fw={600} tt="capitalize" truncate>
+                {e.engine}
+              </Text>
+              {help}
+            </Group>
+            <Text size="xs" c="dimmed" ff="monospace" truncate>
+              {e.package}
+            </Text>
+          </Stack>
+        </Group>
+        <Badge
+          size="sm"
+          variant="light"
+          color={st.color}
+          leftSection={st.icon}
+          style={{ textTransform: "none", flexShrink: 0 }}
+        >
+          {st.label}
+        </Badge>
+      </Group>
+
+      {/* Couverture par brique — FACTS, lus à l'aune du domaine (durable vs cache). */}
+      <Group gap={4} wrap="wrap" mb={6} align="center">
+        <Text size="xs" c="dimmed">
+          {isCache
+            ? "Cache éphémère — idéal pour :"
+            : `Couvre ${covered.length}/${ALL_BRICKS.length} :`}
+        </Text>
+        {(isCache ? vocation : covered).map((b) => (
+          <Badge
+            key={b}
+            size="xs"
+            variant="light"
+            color="teal"
+            style={{ textTransform: "none" }}
+          >
+            {label(b)}
+          </Badge>
+        ))}
+        {/* Domaine durable : trous PORTABLES (à porter) — ≠ « hors vocation ». */}
+        {gaps.map((b) => (
+          <Badge
+            key={b}
+            size="xs"
+            variant="outline"
+            color="orange"
+            style={{ textTransform: "none" }}
+            title="À porter — implémentation absente de cet adapter"
+          >
+            {label(b)} · à porter
+          </Badge>
+        ))}
+      </Group>
+
+      {/* Cache : briques DURABLES implémentées mais conditionnées à un Redis persistant. */}
+      {isCache && edgeDurable.length > 0 && (
+        <Group gap={4} wrap="wrap" mb={6} align="center">
+          <Text size="xs" c="dimmed">
+            Durable seulement si Redis persistant (AOF) :
+          </Text>
+          {edgeDurable.map((b) => (
+            <Badge
+              key={b}
+              size="xs"
+              variant="outline"
+              color="blue"
+              style={{ textTransform: "none" }}
+              title="Brique durable — sur Redis uniquement s'il est persistant (AOF/RDB) ; sinon SQL/Mongo"
+            >
+              {label(b)}
+            </Badge>
+          ))}
+        </Group>
+      )}
+
+      {/* Porté MAINTENANT (résolu) — dynamique. */}
+      <Text size="xs" c="dimmed">
+        {bricks.length
+          ? `Porte ${bricks.length} brique${bricks.length > 1 ? "s" : ""} actuellement.`
+          : "Aucune brique portée actuellement."}
+      </Text>
+
+      {/* Geste d'activation VISIBLE (fact actionnable) quand non branché. */}
+      {!e.loaded && (
+        <Text size="xs" c="dimmed" mt={2}>
+          →{" "}
+          {e.installed ? (
+            <Code style={{ fontSize: 10 }}>use(&quot;{e.package}&quot;)</Code>
+          ) : (
+            <Code style={{ fontSize: 10 }}>npm i {e.package}</Code>
+          )}
+        </Text>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * Section « Moteurs de persistance » : découvrabilité des adapters officiels — état
+ * installé × chargé + geste d'activation. Comble « comment savoir que je PEUX utiliser
+ * mongoose ? » (le registre runtime ne montre que le chargé).
+ */
+function EnginesSection({
+  engines,
+  rows,
+}: {
+  engines: StoreEngine[];
+  rows: StoreResolution[];
+}) {
+  if (!engines.length) return null;
+  const loaded = engines.filter((e) => e.loaded).length;
+  const branchable = engines.filter((e) => e.installed && !e.loaded).length;
+  const toInstall = engines.filter((e) => !e.installed).length;
+  const bricksOf = (engine: string) =>
+    rows.filter((r) => r.resolved === engine);
+  return (
+    <Card withBorder radius="md" p="md">
+      <Group gap="xs" mb="sm">
+        <IconPlugConnected size={18} />
+        <Text fw={600}>Moteurs de persistance</Text>
+        <Badge variant="light" color="gray" size="sm">
+          {loaded}/{engines.length} chargé(s)
+        </Badge>
+        <DocHint
+          title="Moteurs de persistance"
+          summary={`${engines.length} adapter(s) officiel(s) : ${loaded} chargé(s), ${branchable} installé(s) non branché(s), ${toInstall} à installer. Le registre runtime ne connaît que le chargé — cette carte montre aussi le reste + la couverture par brique.`}
+          sections={[
+            {
+              label: "États",
+              body: 'chargé = branché au manifeste + enregistré (utilisable). installé, non branché = présent dans node_modules → ajouter use("@nodefony/…"). à installer = npm i @nodefony/… puis manifeste.',
+            },
+            {
+              label: "Domaines",
+              body: "durable (SQL/Mongo) = vocation toutes briques durables + session ; une brique absente = trou PORTABLE. cache (Redis) = vocation éphémère/session ; les briques durables sont hors vocation, pas des trous.",
+            },
+          ]}
+        />
+      </Group>
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+        {engines.map((e) => (
+          <EngineCard key={e.engine} e={e} bricks={bricksOf(e.engine)} />
+        ))}
+      </SimpleGrid>
+    </Card>
+  );
 }
 
 /** Couleur du badge de durabilité. */
@@ -66,6 +356,77 @@ function natureColor(nature: StoreResolution["nature"]): string {
   if (nature === "durable") return "teal";
   if (nature === "ephemeral") return "yellow";
   return "cyan";
+}
+
+/**
+ * Cellule « localisateur » : icône + valeur mono tronquée (tooltip = valeur complète)
+ * + bouton copier. Sert le chemin fichier ET l'endpoint réseau (même rendu).
+ */
+function LocatorCell({
+  icon,
+  value,
+  display,
+  copyLabel,
+}: {
+  icon: ReactNode;
+  value: string;
+  display: string;
+  copyLabel: string;
+}) {
+  return (
+    <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
+      {icon}
+      <Tooltip label={value} openDelay={300} multiline maw={440}>
+        <Code style={{ fontSize: 11 }}>{display}</Code>
+      </Tooltip>
+      <CopyButton value={value} timeout={1500}>
+        {({ copied, copy }) => (
+          <ActionIcon
+            size="xs"
+            variant="subtle"
+            color={copied ? "teal" : "gray"}
+            onClick={copy}
+            aria-label={copyLabel}
+          >
+            {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+          </ActionIcon>
+        )}
+      </CopyButton>
+    </Group>
+  );
+}
+
+/** URL d'infra REDACTÉE (credentials masqués côté serveur) affichée en clair + copie. */
+function InfraUrl({ url }: { url: string | null | undefined }) {
+  if (!url) return null;
+  return (
+    <Group gap={4} wrap="nowrap" mt={4} style={{ minWidth: 0 }}>
+      <Tooltip label={url} openDelay={300} multiline maw={440}>
+        <Text
+          size="xs"
+          ff="monospace"
+          c="dimmed"
+          truncate
+          style={{ minWidth: 0 }}
+        >
+          {url}
+        </Text>
+      </Tooltip>
+      <CopyButton value={url} timeout={1500}>
+        {({ copied, copy }) => (
+          <ActionIcon
+            size="xs"
+            variant="subtle"
+            color={copied ? "teal" : "gray"}
+            onClick={copy}
+            aria-label="Copier l'URL d'infra"
+          >
+            {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+          </ActionIcon>
+        )}
+      </CopyButton>
+    </Group>
+  );
 }
 
 const COLUMNS: DataGridColumn<StoreResolution>[] = [
@@ -112,38 +473,43 @@ const COLUMNS: DataGridColumn<StoreResolution>[] = [
   {
     key: "location",
     header: "Emplacement",
-    value: (r) => storeLocation(r).path ?? storeLocation(r).hint,
+    value: (r) => {
+      const loc = storeLocation(r);
+      return loc.path ?? loc.endpoint ?? loc.hint;
+    },
     render: (r) => {
-      const { path, hint } = storeLocation(r);
-      // Backend sans chemin local (memory / réseau) → on explique où vit la donnée.
-      if (!path) {
+      const { path, endpoint, hint } = storeLocation(r);
+      // Chemin physique : nom de fichier en évidence + chemin complet copiable.
+      if (path) {
         return (
-          <Text size="xs" c="dimmed">
-            {hint}
-          </Text>
+          <LocatorCell
+            icon={
+              <IconFolder size={13} style={{ flexShrink: 0, opacity: 0.6 }} />
+            }
+            value={path}
+            display={baseName(path)}
+            copyLabel={`Copier le chemin de ${r.brick}`}
+          />
         );
       }
-      // Chemin physique : nom de fichier en évidence + chemin complet copiable.
+      // Backend réseau : URL cible redactée (host:port/db) copiable.
+      if (endpoint) {
+        return (
+          <LocatorCell
+            icon={
+              <IconServer size={13} style={{ flexShrink: 0, opacity: 0.6 }} />
+            }
+            value={endpoint}
+            display={endpoint}
+            copyLabel={`Copier l'endpoint de ${r.brick}`}
+          />
+        );
+      }
+      // Memory (volatil) / réseau sans infra déclarée → on explique où vit la donnée.
       return (
-        <Group gap={4} wrap="nowrap">
-          <IconFolder size={13} style={{ flexShrink: 0, opacity: 0.6 }} />
-          <Tooltip label={path} openDelay={300} multiline maw={420}>
-            <Code style={{ fontSize: 11 }}>{baseName(path)}</Code>
-          </Tooltip>
-          <CopyButton value={path} timeout={1500}>
-            {({ copied, copy }) => (
-              <ActionIcon
-                size="xs"
-                variant="subtle"
-                color={copied ? "teal" : "gray"}
-                onClick={copy}
-                aria-label={`Copier le chemin de ${r.brick}`}
-              >
-                {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
-              </ActionIcon>
-            )}
-          </CopyButton>
-        </Group>
+        <Text size="xs" c="dimmed">
+          {hint}
+        </Text>
       );
     },
   },
@@ -167,15 +533,31 @@ const COLUMNS: DataGridColumn<StoreResolution>[] = [
             <DocHint
               title="Provenance de la résolution"
               summary={r.reason}
-              sections={
-                source ? [{ label: "Source", body: source }] : undefined
-              }
+              sections={[
+                ...(source ? [{ label: "Source", body: source }] : []),
+                ...(r.configPath
+                  ? [
+                      {
+                        label: "Clé de config",
+                        body: `${r.configPath} — pose cette clé (nodefony.config.ts / env) pour forcer un backend explicite.`,
+                      },
+                    ]
+                  : []),
+              ]}
             />
           </Group>
           {source && (
             <Text size="xs" c="dimmed">
               {source}
             </Text>
+          )}
+          {r.configPath && (
+            <Tooltip
+              label="Clé de configuration à poser pour forcer ce store"
+              openDelay={300}
+            >
+              <Code style={{ fontSize: 10 }}>{r.configPath}</Code>
+            </Tooltip>
           )}
         </Stack>
       );
@@ -247,12 +629,20 @@ export const StoresView = observer(() => {
     // (enregistrée par `provisionUsers` via `registerStoreResolution`) → elle
     // arrive dans `payload.stores` comme les 7 autres, plus de fusion synthétique.
     const payload = await store.api.getAbsolute<StoresPayload>(STORES_ENDPOINT);
-    return { infra: payload.infra, rows: sortBricks(payload.stores) };
+    return {
+      infra: payload.infra,
+      rows: sortBricks(payload.stores),
+      engines: payload.engines ?? [],
+    };
   }, [store]);
 
   const { data, loading, error, reload } = useResource(fetcher);
   const rows = data?.rows ?? [];
   const infra = data?.infra;
+  const engines = data?.engines ?? [];
+  // Sans infra RÉSEAU déclarée (mode local `default`), la base active est un fichier
+  // sqlite exposé par les stores → on l'affiche au lieu de « — ».
+  const localDb = infra?.database ? null : deriveLocalDatabase(rows);
   const volatileCount = rows.filter(isVolatileDurable).length;
   const [tab, setTab] = useState<string | null>("stores");
 
@@ -318,84 +708,130 @@ export const StoresView = observer(() => {
             onRetry={reload}
             emptyMessage="Aucune brique de persistance résolue."
           >
-            {infra && (
-              <Grid>
-                <StatCard
-                  label="Base de données"
-                  icon={<IconDatabase size={18} />}
-                  span={{ base: 12, sm: 4 }}
-                  hint={
-                    infra.database
-                      ? infra.database.url
-                      : "Aucune infra base déclarée (NF_DATABASE_URL) — repli local."
-                  }
-                >
-                  <Text fz={22} fw={700} style={{ lineHeight: 1.2 }}>
-                    {infra.database
-                      ? (infra.database.dialect ?? infra.database.scheme)
-                      : "—"}
-                  </Text>
-                </StatCard>
-                <StatCard
-                  label="Cache (Redis)"
-                  icon={<IconServer size={18} />}
-                  span={{ base: 12, sm: 4 }}
-                  hint={
-                    infra.cache
-                      ? infra.cache.url
-                      : "Aucune infra cache déclarée (NF_REDIS_URL)."
-                  }
-                >
-                  <Text fz={22} fw={700} style={{ lineHeight: 1.2 }}>
-                    {infra.cache ? "présent" : "absent"}
-                  </Text>
-                </StatCard>
-                <StatCard
-                  label="Logs (relecture)"
-                  icon={<IconServer size={18} />}
-                  span={{ base: 12, sm: 4 }}
-                  hint={
-                    infra.logs
-                      ? (infra.logs.lokiUrl ?? infra.logs.opensearchUrl ?? "—")
-                      : "Aucune infra logs déclarée — sink stdout."
-                  }
-                >
-                  <Text fz={22} fw={700} style={{ lineHeight: 1.2 }}>
-                    {infra.logs
-                      ? infra.logs.lokiUrl
-                        ? "loki"
-                        : infra.logs.opensearchUrl
-                          ? "opensearch"
-                          : "—"
-                      : "stdout"}
-                  </Text>
-                </StatCard>
-              </Grid>
-            )}
+            <Stack gap="lg">
+              {infra && (
+                <Grid>
+                  <StatCard
+                    label="Base de données"
+                    icon={<IconDatabase size={18} />}
+                    span={{ base: 12, sm: 4 }}
+                    info={
+                      <DocHint
+                        title="Base de données"
+                        summary={
+                          infra.database
+                            ? `Infra réseau déclarée : ${infra.database.dialect ?? infra.database.scheme}.`
+                            : localDb
+                              ? "Aucune infra réseau — base locale sqlite (mono-nœud)."
+                              : "Aucune base persistante — mémoire (volatile)."
+                        }
+                        sections={[
+                          {
+                            label: "Source",
+                            body: infra.database
+                              ? "Déclarée via NF_DATABASE_URL (credentials masqués côté serveur)."
+                              : localDb
+                                ? "Repli local automatique (fichier sqlite sous var/) — aucune infra à déclarer en mono-nœud."
+                                : "Ni infra ni backend local persistant chargé — repli mémoire (volatile).",
+                          },
+                          {
+                            label: "Connecteurs",
+                            body: "Les briques de persistance vivent sur le connecteur PRIMAIRE (default) — celui qui suit NF_DATABASE_URL. Des connecteurs DÉDIÉS (fixtures en :memory:) peuvent coexister sans suivre l'infra ; leur rôle est explicité dans l'écran ORM.",
+                          },
+                        ]}
+                      />
+                    }
+                  >
+                    <Text fz={22} fw={700} style={{ lineHeight: 1.2 }}>
+                      {infra.database
+                        ? (infra.database.dialect ?? infra.database.scheme)
+                        : (localDb?.dialect ?? "—")}
+                    </Text>
+                    {infra.database ? (
+                      <InfraUrl url={infra.database.url} />
+                    ) : localDb ? (
+                      <div style={{ marginTop: 4 }}>
+                        <LocatorCell
+                          icon={
+                            <IconFolder
+                              size={13}
+                              style={{ flexShrink: 0, opacity: 0.6 }}
+                            />
+                          }
+                          value={localDb.location}
+                          display={baseName(localDb.location)}
+                          copyLabel="Copier le chemin de la base locale"
+                        />
+                      </div>
+                    ) : null}
+                  </StatCard>
+                  <StatCard
+                    label="Cache (Redis)"
+                    icon={<IconServer size={18} />}
+                    span={{ base: 12, sm: 4 }}
+                    hint={
+                      infra.cache
+                        ? "Cache déclaré via NF_REDIS_URL (credentials masqués)."
+                        : "Aucune infra cache déclarée (NF_REDIS_URL)."
+                    }
+                  >
+                    <Text fz={22} fw={700} style={{ lineHeight: 1.2 }}>
+                      {infra.cache ? "présent" : "absent"}
+                    </Text>
+                    <InfraUrl url={infra.cache?.url} />
+                  </StatCard>
+                  <StatCard
+                    label="Logs (relecture)"
+                    icon={<IconServer size={18} />}
+                    span={{ base: 12, sm: 4 }}
+                    hint={
+                      infra.logs
+                        ? "Backplane de relecture déclaré (NF_LOKI_URL / NF_OPENSEARCH_URL)."
+                        : "Aucune infra logs déclarée — sink stdout."
+                    }
+                  >
+                    <Text fz={22} fw={700} style={{ lineHeight: 1.2 }}>
+                      {infra.logs
+                        ? infra.logs.lokiUrl
+                          ? "loki"
+                          : infra.logs.opensearchUrl
+                            ? "opensearch"
+                            : "—"
+                        : "stdout"}
+                    </Text>
+                    <InfraUrl
+                      url={infra.logs?.lokiUrl ?? infra.logs?.opensearchUrl}
+                    />
+                  </StatCard>
+                </Grid>
+              )}
 
-            {volatileCount > 0 && (
-              <Alert
-                variant="light"
-                color="orange"
-                icon={<IconAlertTriangle size={16} />}
-                title="Persistance volatile détectée"
-              >
-                {volatileCount} brique(s) durable(s) résolue(s) en « memory » :
-                données perdues au redémarrage et non partagées entre pods.
-                Déclarer une infra durable (NF_DATABASE_URL) ou un store
-                explicite persistant.
-              </Alert>
-            )}
+              <EnginesSection engines={engines} rows={rows} />
 
-            <DataGrid
-              mode="client"
-              data={rows}
-              columns={COLUMNS}
-              getRowId={(r) => r.brick}
-              searchable
-              searchPlaceholder="Filtrer une brique…"
-              persist={{ key: "studio.stores", storage: "session" }}
-            />
+              {volatileCount > 0 && (
+                <Alert
+                  variant="light"
+                  color="orange"
+                  icon={<IconAlertTriangle size={16} />}
+                  title="Persistance volatile détectée"
+                >
+                  {volatileCount} brique(s) durable(s) résolue(s) en « memory »
+                  : données perdues au redémarrage et non partagées entre pods.
+                  Déclarer une infra durable (NF_DATABASE_URL) ou un store
+                  explicite persistant.
+                </Alert>
+              )}
+
+              <DataGrid
+                mode="client"
+                data={rows}
+                columns={COLUMNS}
+                getRowId={(r) => r.brick}
+                searchable
+                searchPlaceholder="Filtrer une brique…"
+                persist={{ key: "studio.stores", storage: "session" }}
+              />
+            </Stack>
           </DataState>
         </Tabs.Panel>
 

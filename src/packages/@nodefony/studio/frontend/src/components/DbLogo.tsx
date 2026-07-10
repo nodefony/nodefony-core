@@ -1,10 +1,26 @@
-import sqlite from "../assets/db-logos/sqlite.svg";
-import postgresql from "../assets/db-logos/postgresql.svg";
-import mysql from "../assets/db-logos/mysql.svg";
-import mariadb from "../assets/db-logos/mariadb.svg";
-import mongodb from "../assets/db-logos/mongodb.svg";
-import redis from "../assets/db-logos/redis.svg";
-import drizzle from "../assets/db-logos/drizzle.svg";
+// SVG importés en RAW (contenu, pas URL) puis encodés en data URI (cf `svgUri`) :
+// un asset > la limite d'inline Vite (4 Ko) serait sinon servi en URL `/@fs/…`, qui
+// 404 quand la page Studio passe par le proxy dev (port 5152 ≠ Vite). Data URI =
+// inline, aucune requête réseau → robuste quelle que soit la taille du logo.
+import sqliteRaw from "../assets/db-logos/sqlite.svg?raw";
+import postgresqlRaw from "../assets/db-logos/postgresql.svg?raw";
+import mysqlRaw from "../assets/db-logos/mysql.svg?raw";
+import mariadbRaw from "../assets/db-logos/mariadb.svg?raw";
+import mongodbRaw from "../assets/db-logos/mongodb.svg?raw";
+import redisRaw from "../assets/db-logos/redis.svg?raw";
+import drizzleRaw from "../assets/db-logos/drizzle.svg?raw";
+
+/** Encode un SVG brut en data URI inline (jamais de requête réseau). */
+const svgUri = (raw: string): string =>
+  `data:image/svg+xml,${encodeURIComponent(raw)}`;
+
+const sqlite = svgUri(sqliteRaw);
+const postgresql = svgUri(postgresqlRaw);
+const mysql = svgUri(mysqlRaw);
+const mariadb = svgUri(mariadbRaw);
+const mongodb = svgUri(mongodbRaw);
+const redis = svgUri(redisRaw);
+const drizzle = svgUri(drizzleRaw);
 
 /**
  * Table de logos par nom de **driver/base** (sqlite, postgres…) OU de **vendor

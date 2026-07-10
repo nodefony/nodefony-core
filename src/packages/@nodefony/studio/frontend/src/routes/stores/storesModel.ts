@@ -35,9 +35,17 @@ export interface StoreResolution {
    * Emplacement PHYSIQUE où la donnée est écrite, lu de l'instance du store au boot
    * (miroir back `IStoreResolution.location`). Chemin de fichier pour un backend
    * `file` (`<var>/webauthn/credentials.json`) ; absent pour `memory` (volatil) ou
-   * un backend réseau (l'emplacement = l'infra déclarée, affichée à part).
+   * un backend réseau (dont la cible est portée par `endpoint`).
    */
   location?: string;
+  /**
+   * Cible RÉSEAU (URL redactée `host:port/db`, credentials masqués côté serveur) à
+   * laquelle ce store est connecté — enrichissement de vue du data plane (dérivé de
+   * l'infra déclarée par brique, comme `source`). Présent pour un backend réseau
+   * (drizzle/mongoose → base, redis → cache) ; absent pour un store fichier (→ `location`)
+   * ou `memory` (volatil). Répond à « à quelle base ce store est-il connecté ? ».
+   */
+  endpoint?: string;
 }
 
 export interface InfraDatabase {
@@ -60,10 +68,42 @@ export interface Infra {
   logs: InfraLogs | null;
 }
 
+/**
+ * Moteur de persistance officiel (adapter npm) et son état de disponibilité — pour la
+ * DÉCOUVRABILITÉ : `installed` (package présent) × `loaded` (module branché + backend
+ * enregistré au runtime). Combler « comment savoir que je PEUX utiliser mongoose ? ».
+ */
+export interface StoreEngine {
+  /** Nom court du backend (`drizzle` · `mongoose` · `redis`). */
+  engine: string;
+  /** Package npm qui le fournit (`@nodefony/mongoose`). */
+  package: string;
+  /** Famille d'infra servie (`sql` · `mongo` · `cache`). */
+  family: string;
+  /**
+   * Domaine : `durable` (SQL/Mongo — vocation toutes briques durables + session) ou
+   * `cache` (Redis — vocation briques éphémères/session ; les durables sont hors
+   * vocation, PAS des trous). Pilote la lecture de `provides`.
+   */
+  kind: "durable" | "cache";
+  /** Package résolvable (installé), qu'il soit chargé ou non. */
+  installed: boolean;
+  /** Module branché au manifeste ET backend enregistré (utilisable maintenant). */
+  loaded: boolean;
+  /**
+   * Briques de persistance que ce moteur SAIT gérer (couverture) — indépendant du
+   * chargement. Ex. mongoose = 5/8 (manque audit/totp/idempotence). Une brique hors
+   * liste retombe sur un autre backend.
+   */
+  provides: string[];
+}
+
 /** Payload de `/nodefony/kernel/api/stores`. */
 export interface StoresPayload {
   infra: Infra;
   stores: StoreResolution[];
+  /** Moteurs de persistance officiels détectés (installé × chargé). */
+  engines: StoreEngine[];
 }
 
 /** Data plane. */
@@ -139,6 +179,7 @@ export const SOURCE_ORIGIN_LABEL: Record<string, string> = {
   app: "config app",
   env: "environnement",
   runtime: "édition à chaud",
+  infra: "infra déclarée",
 };
 
 /** Libellé « origine — détail » d'une source (ex. « config app — nodefony.config.ts »). */
@@ -148,22 +189,58 @@ export function formatSource(source?: StoreSource | null): string | null {
 }
 
 /**
- * Emplacement physique lisible d'un store pour l'écran Stores. Si le store expose
- * un chemin (`file`) → on l'affiche tel quel. Sinon on DÉRIVE une explication du
- * `resolved` : `memory` = volatil en RAM ; un backend réseau (drizzle/redis/mongoose)
- * n'a pas de chemin local → l'emplacement est l'infra déclarée (bandeau du haut).
+ * Emplacement lisible d'un store pour l'écran Stores, en 3 formes exclusives :
+ * - `path` : chemin fichier local (store `file`, sqlite local) — « où sur disque ».
+ * - `endpoint` : URL réseau redactée `host:port/db` (drizzle/mongoose/redis) — « à quelle
+ *   base connecté ». Fourni par le back (dérivé de l'infra déclarée par brique).
+ * - ni l'un ni l'autre : `memory` (volatil) ou réseau sans infra déclarée → `hint` seul.
  */
 export function storeLocation(r: StoreResolution): {
   path: string | null;
+  endpoint: string | null;
   hint: string;
 } {
   if (r.location) {
-    return { path: r.location, hint: "fichier sur disque" };
+    return { path: r.location, endpoint: null, hint: "fichier sur disque" };
+  }
+  if (r.endpoint) {
+    return {
+      path: null,
+      endpoint: r.endpoint,
+      hint: "backend réseau (endpoint)",
+    };
   }
   if (r.resolved === "memory") {
-    return { path: null, hint: "en mémoire (process) — perdu au redémarrage" };
+    return {
+      path: null,
+      endpoint: null,
+      hint: "en mémoire (process) — perdu au redémarrage",
+    };
   }
-  return { path: null, hint: "backend réseau — voir l'infra déclarée" };
+  return {
+    path: null,
+    endpoint: null,
+    hint: "backend réseau — infra non déclarée",
+  };
+}
+
+/**
+ * Base LOCALE active dérivée des stores quand aucune infra RÉSEAU n'est déclarée
+ * (`infra.database === null`, mode `default`/mono-nœud). Un store persistant local
+ * (drizzle sqlite) expose le chemin de son fichier via `location` → on l'affiche
+ * comme base active plutôt que « — ». Renvoie le 1ᵉʳ store fichier trouvé (tous les
+ * stores locaux partagent le même fichier `default`). `null` = aucune base locale
+ * (tout en mémoire → persistance volatile).
+ */
+export function deriveLocalDatabase(
+  rows: StoreResolution[],
+): { dialect: string; location: string } | null {
+  const row = rows.find(
+    (r) =>
+      (r.resolved === "drizzle" || r.resolved === "mongoose") && !!r.location,
+  );
+  // Un fichier local `.db` ⇒ sqlite (better-sqlite3, seul backend fichier).
+  return row?.location ? { dialect: "sqlite", location: row.location } : null;
 }
 
 /** Nom de fichier (dernier segment) d'un chemin, pour l'emphase visuelle. */

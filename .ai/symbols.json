@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-08T00:10:38.178Z",
+  "generated": "2026-07-10T08:08:27.803Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 999,
-    "symbols": 2495,
+    "symbols": 2496,
     "classes": 314,
     "interfaces": 657,
     "types": 293,
     "enums": 4,
-    "functions": 678,
+    "functions": 679,
     "constants": 549
   },
   "symbols": {
@@ -20249,7 +20249,8 @@
       ],
       "IStoreResolution": [
         "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/types/IKernel.ts"
+        "src/nodefony/src/types/IKernel.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "nodefonyError": [
         "src/nodefony/src/kernel/Kernel.ts",

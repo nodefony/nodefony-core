@@ -19,6 +19,7 @@ import {
   Alert,
   RingProgress,
   UnstyledButton,
+  Tooltip,
   type MantineColor,
 } from "@mantine/core";
 import { Link, useNavigate } from "react-router-dom";
@@ -64,6 +65,7 @@ import {
   analyzeModel,
   ormHealthInputs,
   ensureLivePulseStyle,
+  connectorRole,
   lsGet,
   lsSet,
 } from "../utils/ormFormat";
@@ -1113,34 +1115,52 @@ export const OrmOverview = observer(
                       ]}
                     />
                   </Group>
-                  <Group gap="xs">
-                    {list.map((o) => (
-                      <Badge
-                        key={o.name}
-                        variant="default"
-                        size="lg"
-                        leftSection={
-                          hasDbLogo(o.connection?.driver ?? o.vendor) ? (
-                            <DbLogo
-                              name={o.connection?.driver ?? o.vendor ?? ""}
-                              size={14}
-                            />
-                          ) : (
-                            <IconDatabase size={13} />
-                          )
-                        }
-                        rightSection={
-                          o.connected ? (
-                            <IconPlugConnected size={12} color="teal" />
-                          ) : (
-                            <IconPlugX size={12} color="gray" />
-                          )
-                        }
-                      >
-                        {o.name}
-                        {o.default ? " ·" : ""}
-                      </Badge>
-                    ))}
+                  <Group gap="sm">
+                    {list.map((o) => {
+                      const role = connectorRole(o);
+                      return (
+                        <Group key={o.name} gap={4} wrap="nowrap">
+                          <Badge
+                            variant="default"
+                            size="lg"
+                            leftSection={
+                              hasDbLogo(o.connection?.driver ?? o.vendor) ? (
+                                <DbLogo
+                                  name={o.connection?.driver ?? o.vendor ?? ""}
+                                  size={14}
+                                />
+                              ) : (
+                                <IconDatabase size={13} />
+                              )
+                            }
+                            rightSection={
+                              o.connected ? (
+                                <IconPlugConnected size={12} color="teal" />
+                              ) : (
+                                <IconPlugX size={12} color="gray" />
+                              )
+                            }
+                          >
+                            {o.name}
+                          </Badge>
+                          <Tooltip
+                            label={role.hint}
+                            multiline
+                            w={280}
+                            withArrow
+                          >
+                            <Badge
+                              size="sm"
+                              variant="light"
+                              color={role.color as MantineColor}
+                              style={{ textTransform: "none", cursor: "help" }}
+                            >
+                              {role.label}
+                            </Badge>
+                          </Tooltip>
+                        </Group>
+                      );
+                    })}
                   </Group>
                 </Card>
 

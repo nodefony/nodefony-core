@@ -10,6 +10,40 @@ import type { EntityNode, OrmRate } from "../types/orm";
 /** Version de la doc des fiches d'aide (`DocHint`) du dashboard ORM. */
 export const ORM_DOC = "v1.2";
 
+/**
+ * Rôle d'un connecteur ORM — clarifie « quelle est MA base ? » quand plusieurs
+ * connecteurs tournent en parallèle :
+ * - `primaire` : connecteur `default`, base applicative principale — suit l'infra
+ *   déclarée (`NF_DATABASE_URL`) ; les stores (session/users/tokens…) + le login vivent ici.
+ * - `dédié · volatile` : connecteur non-`default` en mémoire (`:memory:`) — fixture/démo/test
+ *   ISOLÉE, ne suit PAS `NF_DATABASE_URL`, perdu au redémarrage.
+ * - `dédié` : connecteur secondaire persistant avec sa propre config (base distincte).
+ */
+export function connectorRole(o: {
+  default: boolean;
+  connection?: { target?: string };
+}): { label: string; color: string; hint: string } {
+  if (o.default) {
+    return {
+      label: "primaire",
+      color: "brand",
+      hint: "Base applicative principale — suit l'infra déclarée (NF_DATABASE_URL). Tes stores (session, users, tokens, audit…) et ton login vivent ici.",
+    };
+  }
+  if (o.connection?.target === ":memory:") {
+    return {
+      label: "dédié · volatile",
+      color: "grape",
+      hint: "Connecteur DÉDIÉ en mémoire (fixture/démo/test isolée). Ne suit PAS NF_DATABASE_URL et est perdu au redémarrage — il reste sur sqlite :memory: quelle que soit l'infra déclarée.",
+    };
+  }
+  return {
+    label: "dédié",
+    color: "gray",
+    hint: "Connecteur secondaire avec sa propre config (base distincte) — indépendant de l'infra déclarée.",
+  };
+}
+
 /** Formatte un nombre de lignes en compact (1.2k, 3.4M) ; `-1` → « — ». */
 export function fmtNum(n: number): string {
   if (n < 0) return "—";

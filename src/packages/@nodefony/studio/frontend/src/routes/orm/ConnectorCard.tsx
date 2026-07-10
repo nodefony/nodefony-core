@@ -26,6 +26,9 @@ import {
   Switch,
   HoverCard,
   SegmentedControl,
+  CopyButton,
+  Tooltip,
+  ActionIcon,
   type MantineColor,
 } from "@mantine/core";
 import { Link } from "react-router-dom";
@@ -46,6 +49,8 @@ import {
   IconReload,
   IconAlertTriangle,
   IconCircleCheck,
+  IconCopy,
+  IconCheck,
 } from "@tabler/icons-react";
 import {
   useNodefonyAdaptiveChannel,
@@ -65,6 +70,7 @@ import {
   fmtDuration,
   fmtClock,
   fmtBytes,
+  connectorRole,
 } from "../../utils/ormFormat";
 import {
   normalize,
@@ -174,6 +180,12 @@ export function ConnectorCard({
   const ormVersion = orm.connection?.ormVersion ?? health?.ormVersion;
   const vendorLabel = VENDOR_LABEL[orm.vendor ?? ""] ?? orm.vendor ?? "—";
   const storage = storageOf(driver, target);
+  // Cible réseau (host:port/db) vs fichier local vs :memory: — pilote le libellé.
+  const isMemory = target === ":memory:";
+  const isNetwork = !!target && !isMemory && driver !== "sqlite";
+  // Rôle du connecteur (primaire / dédié) — lève la confusion « quelle est MA base ? »
+  // quand plusieurs connecteurs coexistent (default mysql + fixtures :memory:).
+  const role = connectorRole(orm);
 
   // Modèle propre à ce connecteur (dérivé du graphe + counts).
   const own = useMemo(() => {
@@ -218,11 +230,16 @@ export function ConnectorCard({
               <Text fw={700} truncate>
                 {orm.name}
               </Text>
-              {orm.default && (
-                <Badge size="xs" variant="light" color="brand">
-                  défaut
+              <Tooltip label={role.hint} multiline w={280} withArrow>
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={role.color as MantineColor}
+                  style={{ textTransform: "none", cursor: "help" }}
+                >
+                  {role.label}
                 </Badge>
-              )}
+              </Tooltip>
             </Group>
             <Group gap={5} wrap="nowrap" style={{ minWidth: 0 }}>
               {hasDbLogo(orm.vendor) && (
@@ -234,6 +251,31 @@ export function ConnectorCard({
                 {driver ? ` · ${driver}` : ""}
               </Text>
             </Group>
+            {/* Cible de connexion (endpoint réseau / fichier / mémoire) — visible
+                sans ouvrir l'onglet Connexion (« faire mieux » : URL au 1er regard). */}
+            {target && (
+              <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }} mt={2}>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    color: `var(--mantine-color-${storage.color}-6)`,
+                    flexShrink: 0,
+                  }}
+                  aria-hidden
+                >
+                  {storage.icon}
+                </span>
+                <Text
+                  size="xs"
+                  c="dimmed"
+                  ff="monospace"
+                  truncate
+                  title={target}
+                >
+                  {isMemory ? storage.label : target}
+                </Text>
+              </Group>
+            )}
           </div>
         </Group>
         <Badge
@@ -563,7 +605,11 @@ export function ConnectorCard({
               v={`${orm.name}${orm.default ? " (défaut)" : ""}`}
               mono
             />
+            <KeyValue k="Rôle" v={role.label} />
           </DefinitionList>
+          <Text size="xs" c="dimmed" mt={6}>
+            {role.hint}
+          </Text>
           <Group gap="xs" mt="sm" align="center">
             <Badge
               variant="light"
@@ -573,26 +619,60 @@ export function ConnectorCard({
               {storage.label}
             </Badge>
             <DocHint
-              title="Emplacement"
+              title={isNetwork ? "Endpoint réseau" : "Emplacement"}
               version={ORM_DOC}
-              summary="Emplacement physique de la base de données."
+              summary={
+                isNetwork
+                  ? "Cible réseau de la connexion (host:port/base), credentials masqués côté serveur."
+                  : "Emplacement physique de la base de données."
+              }
               sections={[
                 {
                   label: "Sécurité",
-                  body: "Chemin TOUJOURS relatif à la racine du projet — jamais d'absolu ni de credential exposé dans le data plane.",
+                  body: "Chemin TOUJOURS relatif à la racine du projet ; URL réseau SANS user/password — jamais d'absolu ni de credential exposé dans le data plane.",
                 },
               ]}
             />
           </Group>
-          {target && target !== ":memory:" && (
-            <Code
-              block
-              mt="xs"
-              style={{ fontSize: 11, wordBreak: "break-all" }}
-              title={target}
-            >
-              {target}
-            </Code>
+          {target && !isMemory ? (
+            <Group gap={6} wrap="nowrap" mt="xs" style={{ minWidth: 0 }}>
+              <Code
+                style={{
+                  fontSize: 11,
+                  wordBreak: "break-all",
+                  flex: 1,
+                  minWidth: 0,
+                }}
+                title={target}
+              >
+                {target}
+              </Code>
+              <CopyButton value={target} timeout={1500}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? "Copié" : "Copier"} withArrow>
+                    <ActionIcon
+                      size="sm"
+                      variant="subtle"
+                      color={copied ? "teal" : "gray"}
+                      onClick={copy}
+                      aria-label="Copier la cible de connexion"
+                    >
+                      {copied ? (
+                        <IconCheck size={14} />
+                      ) : (
+                        <IconCopy size={14} />
+                      )}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+            </Group>
+          ) : (
+            <Text size="xs" c="dimmed" mt="xs">
+              {isMemory
+                ? "Base volatile en mémoire — aucun fichier, données perdues au redémarrage."
+                : "Emplacement indisponible."}
+            </Text>
           )}
         </Tabs.Panel>
 
