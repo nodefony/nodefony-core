@@ -22,12 +22,41 @@ export default defineConfig<typeof env>((ctx) => ({
     driver: ctx.env.NF_LOG_DRIVER,
   },
   modules: [
-    // Les probes /livez /readyz (config `health`) sont ON par défaut.
+    // ── ORM — Drizzle (SQL) par défaut. Sans NF_DATABASE_URL = sqlite LOCAL
+    //    (profil solo) : l'app persiste out-of-the-box (users, sessions, jetons).
+    //    Déclare NF_DATABASE_URL (postgres://…) pour pointer une vraie base.
+    "@nodefony/drizzle",
+
+    // ── Socle serveur : HTTP/WS natifs + probes /livez /readyz (ON par défaut).
     use("@nodefony/http", {}),
+    // Router + controllers + décorateurs (@controller, @route).
     "@nodefony/framework",
-    // 💾 Pour persister, ajoute l'adapter + la sécurité et déclare l'infra dans
-    // `env.ts` (NF_DATABASE_URL) — les stores se câblent en `auto`. Ex. :
-    //   "@nodefony/drizzle",                       // ORM SQL (suit NF_DATABASE_URL)
-    //   use("@nodefony/security", { /* areas… */ }, { policy: "mandatory" }),
+
+    // ── Socket Nodefony (canaux duplex multiplexés). Backplane `cluster` = IPC
+    //    intra-pod, 0 dépendance externe ; `redis` = opt-in cross-pod.
+    use("@nodefony/realtime", { backplane: { driver: "cluster" } }),
+
+    // ── Firewall applicatif + audit — chaque requête passe le pipeline sécurité.
+    //    Déclare tes zones quand tu protèges des routes (validées Zod au boot,
+    //    config invalide = fail-closed) :
+    //    use("@nodefony/security", { firewalls: { main: { pattern: "^/api", … } } }),
+    use("@nodefony/security", {}),
+
+    // ── Frontend (builder Vite + statics) + console d'administration Studio
+    //    → http://127.0.0.1:5151/nodefony
+    //    `policy: "dev"` : Studio embarqué en DÉVELOPPEMENT seulement. Pour
+    //    l'activer en production, protège d'abord /nodefony par une zone
+    //    firewall (introspection config/sessions = surface admin), puis passe
+    //    la policy à "mandatory".
+    "@nodefony/frontend",
+    { name: "@nodefony/studio", policy: "dev" },
+
+    // ── Accès Redis générique — chargé par la DÉCLARATION de l'infra cache :
+    //    `NF_REDIS_URL` présente ⇔ module chargé (un seul signal, pas de magie
+    //    localhost). Consommateurs : backplane realtime `redis`, sessions,
+    //    idempotence.
+    use("@nodefony/redis", undefined, {
+      when: () => !!ctx.infra.cache,
+    }),
   ],
 }));

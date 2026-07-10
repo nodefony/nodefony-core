@@ -197,12 +197,20 @@ commande validée → ses options + globales, sinon noms + alias. Install zsh :
 templates shippés (`templates/app/`, tokens `{{appName}}`/`{{nodefonyVersion}}`,
 substitution regex simple — pas de moteur ; bascule eta prévue si `create module`
 exige des conditionnels). **Standalone 0-boot** (fast-path `CliKernel.start` — cas
-nominal HORS projet : `npx nodefony create app mon-app`). L'app générée : build
-rolldown 3 lignes via `nodefony/bundler` (`externalDeps: true`), config
-`defineConfig`/`defineEnv` commentée, controller Hello. Token inconnu dans un
-template = throw (zéro `{{` résiduel). Renames : `gitignore.tpl` → `.gitignore`
-(npm strip les dotfiles publiés). Exit codes : `OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`.
-Tests `create.test.ts` (+ e2e bin gate `RUN_CLI_BOOT=1`).
+nominal HORS projet : `npx nodefony create app mon-app`). L'app générée = VITRINE
+COMPLÈTE du framework, TOUTES les briques (prouvée boot dev ET prod) : controller
+Hello **HTTP + WS echo dans la MÊME classe** (différenciateur), `drizzle` (ORM —
+sans `NF_DATABASE_URL` : sqlite local `var/databases/`, sessions + idempotence
+persistent en `store:"auto"`), `realtime` (backplane cluster 0-dep), `security {}`
+(pass-through audité, boote sans DB), `frontend` + `studio` (`policy: "dev"` — en
+prod, zone firewall d'abord ; sert le build React pré-compilé du paquet, 0 Vite
+prod), `redis` gated `when: ctx.infra.cache` (NF_REDIS_URL ⇔ chargé), build
+rolldown 3 lignes via `nodefony/bundler` (`externalDeps: true`), typecheck
+**tsgo** (`@typescript/native-preview`). Token
+inconnu dans un template = throw (zéro `{{` résiduel). Renames : `gitignore.tpl` →
+`.gitignore` (npm strip les dotfiles publiés). Exit codes :
+`OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. Tests `create.test.ts` (+ e2e bin gate
+`RUN_CLI_BOOT=1`).
 
 ## Hooks Command
 
