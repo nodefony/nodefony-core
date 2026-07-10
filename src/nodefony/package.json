@@ -53,7 +53,7 @@
     "postbuild": "node -e \"try{require('fs').chmodSync('bin/nodefony',0o755)}catch(e){}\"",
     "dev": "rollup --config rollup.config.ts --configPlugin typescript --watch",
     "clean": "rimraf dist bin/nodefony tsconfig.tsbuildinfo",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "start": "node ./bin/nodefony",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -64,7 +64,8 @@
     "analyze": "ROLLUP_ANALYZE=true npm run build",
     "lint": "eslint 'src/**/*.ts' 'rollup.config.ts'",
     "lint:fix": "eslint --fix 'src/**/*.ts' 'rollup.config.ts'",
-    "doc": "typedoc"
+    "doc": "typedoc",
+    "typecheck:tsc6": "tsc --noEmit"
   },
   "dependencies": {
     "@inquirer/prompts": "8.5.2",

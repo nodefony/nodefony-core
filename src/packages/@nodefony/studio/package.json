@@ -18,7 +18,7 @@
     "frontend:vite-only": "vite --config frontend/vite.config.generated.mjs",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit -p frontend/tsconfig.json"
+    "typecheck": "tsgo --noEmit -p frontend/tsconfig.json"
   },
   "private": false,
   "keywords": [
