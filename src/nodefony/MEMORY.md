@@ -230,6 +230,20 @@ Nodefony.getKernel();
 
 ---
 
+## `nodefony/bundler` (`src/bundler/`) — socle de build publiable
+
+Source UNIQUE de la config rolldown (packages du repo ET apps `create app`). TOUTES les configs
+importent le subpath publié `nodefony/bundler` (dogfooding — l'app dev racine = template vivant),
+SAUF le core qui importe sa SOURCE en relatif (`./src/bundler/index` — œuf-poule : pas de dist
+avant son propre build). Prérequis des consommateurs = core buildé (ordre turbo ; un build isolé
+après clean TOTAL échoue au chargement de config → builder le core d'abord). Une app utilise :
+`import { defineNodefonyRolldownConfig } from "nodefony/bundler"` + `externalDeps: true`
+(externalise `dependencies`+`peerDependencies` de SON package.json — les packages du repo gardent
+leur liste explicite auditée par `nodefony-check-externals`). Entrée rolldown SÉPARÉE
+(`dist/node/bundler/index.js`), JAMAIS réexportée par `src/index.ts` (elle importe `rolldown`,
+peerDep OPTIONNELLE). Invariants gravés : nom propre toujours externe (anti self-import),
+side-effect `reflect-metadata` préservé, `nodefony` exact-match only. Tests `tests/bundler.test.ts`.
+
 ## Client isomorphe (`src/client/`) — subpaths navigateur
 
 Build rolldown dédié (`createClientConfig`, `tsconfigClient.json` `types:[]`), shims `node:util/events/cli-color`, sortie `dist/client/`.

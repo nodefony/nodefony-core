@@ -13,15 +13,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "rolldown";
 import type { RolldownOptions, Plugin } from "rolldown";
+// SOURCE relative (pas le subpath `nodefony/bundler`) : le core ne peut pas
+// importer son propre dist avant de l'avoir buildé (clean build).
 import {
   nodefonyExternalMatcher,
   nodefonyTreeshake,
-} from "../../rolldown.shared";
+} from "./src/bundler/index";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 const external: string[] = [
   "nodefony",
+  "rolldown",
   "figlet",
   "cli-table3",
   "commander",
@@ -36,8 +39,11 @@ const external: string[] = [
 ];
 
 // ─── 1. Node ESM (dist/node/) ─────────────────────────────────────────────────
+// `src/bundler/index.ts` = entrée SÉPARÉE (subpath `nodefony/bundler`) : jamais
+// réexportée par `src/index.ts` — elle importe `rolldown` (peerDep optionnelle),
+// le barrel principal ne doit pas le tirer.
 const nodeConfig: RolldownOptions = defineConfig({
-  input: "src/index.ts",
+  input: ["src/index.ts", "src/bundler/index.ts"],
   platform: "node",
   tsconfig: "tsconfig.json",
   external: nodefonyExternalMatcher(external),

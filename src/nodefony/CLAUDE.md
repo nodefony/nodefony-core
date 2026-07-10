@@ -94,6 +94,7 @@ src/nodefony/
     ├── Nodefony.ts           ← façade statique
     ├── Tools.ts              ← helpers
     ├── Cli.ts                ← façade CLI
+    ├── bundler/              ← socle rolldown partagé — subpath publié `nodefony/bundler` (toutes les configs du repo + apps ; le core seul importe la source en relatif)
     ├── cli/                  ← Cli class + helpers (MEMORY.md, README.md)
     ├── command/              ← Command class + lifecycle
     ├── config/               ← config par défaut framework

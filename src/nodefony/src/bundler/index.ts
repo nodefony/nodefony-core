@@ -1,9 +1,13 @@
 /**
- * rolldown.shared.ts — source UNIQUE de la config rolldown des packages Nodefony.
+ * nodefony/bundler — config rolldown partagée des packages ET des applications Nodefony.
  *
- * Chaque package importe `defineNodefonyRolldownConfig()` depuis ce fichier (même
- * pattern que `vitest.oxc.ts`) au lieu de dupliquer input/external/treeshake/output
- * dans 19 `rolldown.config.ts`.
+ * Source UNIQUE du socle de build, consommée PARTOUT via le subpath publié
+ * `import { defineNodefonyRolldownConfig } from "nodefony/bundler"` — les 19 configs
+ * du repo comme une application générée par `create app` (qui ne dépend JAMAIS d'un
+ * fichier interne du repo). `rolldown` reste une devDependency du consommateur
+ * (peerDependency optionnelle de `nodefony`). SEUL le core importe ce fichier en
+ * relatif (`./src/bundler/index`) : il ne peut pas consommer son propre dist avant
+ * de l'avoir buildé. Prérequis des autres : core buildé (ordre turbo standard).
  *
  * Invariants portés ici (pièges gravés, cf docs/audits/rolldown-migration-plan-2026-07.md §10) :
  * - le NOM PROPRE du paquet est TOUJOURS externe (anti self-import : un paquet qui
@@ -26,6 +30,13 @@ import type { RolldownOptions, RolldownPluginOption } from "rolldown";
 export interface INodefonyRolldownOptions {
   /** Liste `external` du package (deps runtime non bundlées). Le nom propre du paquet est ajouté d'office. */
   external?: string[];
+  /**
+   * Externalise automatiquement toutes les `dependencies` + `peerDependencies` du
+   * `package.json` courant (défaut `false`). Mode recommandé pour une APPLICATION :
+   * son runtime vient de `node_modules`, rien à bundler. Les packages du framework
+   * gardent leur liste `external` explicite (auditée par `nodefony-check-externals`).
+   */
+  externalDeps?: boolean;
   /** Entrées explicites — remplace le glob par défaut (`index.ts` + `nodefony/**∕*.ts`). */
   input?: Record<string, string>;
   /** Patterns glob des sources à préserver en modules (défaut `["nodefony/**∕*.ts"]`). */
@@ -43,6 +54,12 @@ export interface INodefonyRolldownOptions {
 }
 
 const IGNORED = [/\.d\.ts$/u, /\.test\.ts$/u, /\.spec\.ts$/u, /(^|\/)tests\//u];
+
+interface IPackageManifest {
+  name: string;
+  dependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+}
 
 /**
  * Matcher `external` des packages Nodefony : exact-match ou préfixe `<nom>/`,
@@ -90,9 +107,10 @@ export function nodefonyInput(
 }
 
 /**
- * Config rolldown partagée d'un package Nodefony (bundle node ESM, `preserveModules`).
+ * Config rolldown partagée d'un package ou d'une application Nodefony
+ * (bundle node ESM, `preserveModules`).
  *
- * @param opts - écarts du package par rapport au défaut (external, entrées, plugins)
+ * @param opts - écarts par rapport au défaut (external, entrées, plugins)
  * @returns la config rolldown complète, prête pour `export default`
  */
 export function defineNodefonyRolldownConfig(
@@ -100,8 +118,19 @@ export function defineNodefonyRolldownConfig(
 ): RolldownOptions {
   const pkg = JSON.parse(
     readFileSync(path.resolve("package.json"), "utf8"),
-  ) as { name: string };
-  const external = [...new Set([pkg.name, ...(opts.external ?? [])])];
+  ) as IPackageManifest;
+  const external = [
+    ...new Set([
+      pkg.name,
+      ...(opts.external ?? []),
+      ...(opts.externalDeps
+        ? [
+            ...Object.keys(pkg.dependencies ?? {}),
+            ...Object.keys(pkg.peerDependencies ?? {}),
+          ]
+        : []),
+    ]),
+  ];
 
   return defineConfig({
     input: opts.input ?? nodefonyInput(opts.globPatterns),

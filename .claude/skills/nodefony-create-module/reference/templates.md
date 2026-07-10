@@ -171,14 +171,16 @@ field séparé `cfg: FooConfig` (voir template Service).
 
 ### `rolldown.config.ts`
 
-> **Toute la mécanique vit dans `rolldown.shared.ts` (racine du repo)** — source unique :
-> platform, preserveModules, treeshake (side-effect `reflect-metadata` préservé), et
-> l'externalisation SYSTÉMATIQUE du nom propre du paquet (anti self-import). Le module ne
-> déclare QUE sa liste `external` (⚠️ garder external ↔ peerDependencies EN PHASE,
-> cf skill `nodefony-check-externals`).
+> **Toute la mécanique vit dans le subpath `nodefony/bundler`** (source
+> `src/nodefony/src/bundler/index.ts`, même import pour un module du repo ET une app
+> externe) : platform, preserveModules, treeshake (side-effect `reflect-metadata`
+> préservé), et l'externalisation SYSTÉMATIQUE du nom propre du paquet (anti self-import).
+> Le module ne déclare QUE sa liste `external` (⚠️ garder external ↔ peerDependencies EN
+> PHASE, cf skill `nodefony-check-externals`). Prérequis : le core `nodefony` doit être
+> buildé (ordre turbo standard).
 
 ```typescript
-import { defineNodefonyRolldownConfig } from "../../../../rolldown.shared";
+import { defineNodefonyRolldownConfig } from "nodefony/bundler";
 
 export default defineNodefonyRolldownConfig({
   external: [

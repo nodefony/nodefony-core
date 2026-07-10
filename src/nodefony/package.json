@@ -16,6 +16,10 @@
         "default": "./dist/node/index.js"
       }
     },
+    "./bundler": {
+      "types": "./dist/types/bundler/index.d.ts",
+      "import": "./dist/node/bundler/index.js"
+    },
     "./client": {
       "types": "./dist/client/types/src/client/index.d.ts",
       "default": "./dist/client/client/index.js"
@@ -82,6 +86,7 @@
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18",
+    "rolldown": "^1.1.5",
     "zod": "^4.4.0"
   },
   "peerDependenciesMeta": {
@@ -89,6 +94,9 @@
       "optional": true
     },
     "react-dom": {
+      "optional": true
+    },
+    "rolldown": {
       "optional": true
     }
   },

@@ -1,4 +1,4 @@
-import { defineNodefonyRolldownConfig } from "./rolldown.shared";
+import { defineNodefonyRolldownConfig } from "nodefony/bundler";
 
 export default defineNodefonyRolldownConfig({
   external: [

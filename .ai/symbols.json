@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-10T20:12:23.625Z",
+  "generated": "2026-07-10T20:54:24.351Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1002,
-    "symbols": 2529,
+    "files": 1003,
+    "symbols": 2535,
     "classes": 315,
-    "interfaces": 662,
+    "interfaces": 664,
     "types": 294,
     "enums": 4,
-    "functions": 703,
-    "constants": 551
+    "functions": 706,
+    "constants": 552
   },
   "symbols": {
     "Cli": {
@@ -426,6 +426,46 @@
       "decorators": [
         "controllers"
       ]
+    },
+    "INodefonyRolldownOptions": {
+      "name": "INodefonyRolldownOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/bundler/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "nodefonyExternalMatcher": {
+      "name": "nodefonyExternalMatcher",
+      "kind": "function",
+      "file": "src/nodefony/src/bundler/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Matcher `external` des packages Nodefony : exact-match ou préfixe `<nom>/`, SAUF pour `nodefony` (exact-match seulement — cf invariant en tête de fichier)."
+    },
+    "nodefonyInput": {
+      "name": "nodefonyInput",
+      "kind": "function",
+      "file": "src/nodefony/src/bundler/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit la map d'entrées d'un package Nodefony : `index.ts` + toutes les sources `nodefony/**` (hors tests et `.d.ts`), nommées par chemin relatif — la sortie `preserveModules` reproduit l'arbore…"
+    },
+    "defineNodefonyRolldownConfig": {
+      "name": "defineNodefonyRolldownConfig",
+      "kind": "function",
+      "file": "src/nodefony/src/bundler/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Config rolldown partagée d'un package ou d'une application Nodefony (bundle node ESM, `preserveModules`)."
+    },
+    "nodefonyTreeshake": {
+      "name": "nodefonyTreeshake",
+      "kind": "const",
+      "file": "src/nodefony/src/bundler/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Treeshake commun : les externes sont sans effet de bord (équivalent `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre."
     },
     "ICliManifestCommand": {
       "name": "ICliManifestCommand",
@@ -20155,6 +20195,9 @@
       ],
       "loadEnv": [
         "src/nodefony/src/bin/nodefony.ts"
+      ],
+      "defineConfig": [
+        "src/nodefony/src/bundler/index.ts"
       ],
       "SysExit": [
         "src/nodefony/src/cli/completion.ts",

@@ -396,11 +396,11 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 
 > **Ordonnancement (révisé 07-10, migration rolldown ✅ livrée)** :
 >
-> 1. **P8 (CLI + Monitoring 63 %) puis P11 (CLI par module 44 %)** — le front actif. Lifecycle
->    (`start`/`dev`/`build`/`prod`/`cluster`) implémenté mais **NON testé en intégration** → fiabiliser +
->    tester (P11.1-4) ; `orm:migrate`+`user:*`+`security:*` **À CRÉER**. Vrai bloqueur onboarding =
->    `npx nodefony create app/module/entity` + install global (exige la release) — inclut le **bundler
->    d'app publiable** (subpath `nodefony/bundler`, cf plan rolldown §6).
+> 1. **Chaîne scaffold `create app/module/controller` (priorité user 07-10)** = le vrai bloqueur
+>    onboarding (`npx nodefony create …` + install global, exige la release). **Lot 1 ✅ : subpath
+>    `nodefony/bundler`** (socle de build publiable, 19 configs du repo basculées dessus — dogfooding,
+>    `rolldown.shared.ts` supprimé). Commandes métier P11.2/11.3 (`http:*`/`security:*`/`user:*`)
+>    reléguées APRÈS la chaîne scaffold ; `orm:migrate` = design prêt, impl gelée (S5c).
 > 2. **S5 — DDL prod drizzle-kit** (P7.10, dernier morceau ORM) : design ✅ validé 07-10, implémentation
 >    GELÉE → après P8+P11. `project_orm_multidialect_chantier_kit` §S5.
 > 3. **Config app `NF__APP__*`** (reste du chantier config, ADR-0006) → `project_config_nf_app_kit`.

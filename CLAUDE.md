@@ -313,7 +313,7 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 
 ## Décisions techniques (finales)
 
-**Bundler** : **rolldown** (`preserveModules: true`, config partagée `rolldown.shared.ts` racine) + **`.d.ts` par `tsgo -p tsconfig.declarations.json`** (hors bundler). Rollup RETIRÉ (migration 2026-07, cf `docs/audits/rolldown-migration-plan-2026-07.md`). Ne pas remplacer sans accord.
+**Bundler** : **rolldown** (`preserveModules: true`, socle partagé = subpath **`nodefony/bundler`**, source `src/nodefony/src/bundler/index.ts` — les 19 configs du repo ET les apps `create app` importent le MÊME `defineNodefonyRolldownConfig` ; seul le core l'importe en relatif, œuf-poule dist) + **`.d.ts` par `tsgo -p tsconfig.declarations.json`** (hors bundler). Rollup RETIRÉ (migration 2026-07, cf `docs/audits/rolldown-migration-plan-2026-07.md`). Ne pas remplacer sans accord.
 
 **Serveurs** : Node.js natif uniquement — `node:http`, `node:http2`, `ws`. Jamais `Bun.serve()`.
 
