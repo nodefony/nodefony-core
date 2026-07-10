@@ -61,7 +61,6 @@
     "test:boot": "RUN_CLI_BOOT=1 vitest run",
     "test:all": "RUN_PERF=1 RUN_CLI_BOOT=1 vitest run",
     "coverage": "vitest run --coverage",
-    "analyze": "ROLLUP_ANALYZE=true npm run build",
     "lint": "eslint 'src/**/*.ts' 'rolldown.config.ts'",
     "lint:fix": "eslint --fix 'src/**/*.ts' 'rolldown.config.ts'",
     "doc": "typedoc",

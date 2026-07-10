@@ -19,7 +19,7 @@
     "start": "nodefony",
     "prepare": "husky",
     "build": "turbo run build && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
-    "build:force": "turbo run build --force && rollup -c",
+    "build:force": "turbo run build --force && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "build:core": "npm run build --workspace=src/nodefony",
     "build:packages": "turbo run build --filter=./src/packages/**",
     "build:front": "nodefony frontend:build",
@@ -32,7 +32,6 @@
     "dev": "npm run dev --workspace=src/nodefony",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "analyze": "npm run analyze --workspace=src/nodefony",
     "certificates": "bash bin/generateCertificates.sh",
     "generate-symbols": "tsx scripts/generate-symbols.ts"
   },
