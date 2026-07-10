@@ -39,6 +39,12 @@
 - `[1× — 2026-07-10]` **Ne pas conclure « X est meilleur » sur un grep mal borné.** Deux faux positifs en une session : `grep -rl "node:fs" dist/client` matchait les `.d.ts` (pas les `.js`) → fausse « fuite de builtin » ; et `xargs` mange les guillemets → `import * as React from react` (code invalide) alors que la sortie était correcte. Toujours restreindre l'extension ET relire la ligne brute.
 - `[1× — 2026-07-10]` **Un `grep` de plugins dans un `rollup.config.ts` compte le code COMMENTÉ** (`copy(`/`terser(` désactivés) et les faux amis (`replace(` = `String.prototype.replace`). Pour savoir ce qui est vivant : filtrer les lignes `^\s*//` et grepper les **imports**, pas les appels.
 
+## 🖥️ CLI / tests e2e process
+
+- `[1× — 2026-07-10]` **Un e2e qui spawne le binaire valide le DIST, pas le source.** Le filet CLI (`node bin/nodefony …`) a été lancé APRÈS le refacto mais AVANT `npm run build` → 12 verts… sur l'ANCIEN code. Réflexe : tout test qui spawn un binaire/dist = **rebuild d'abord**, sinon le vert ne prouve rien. (Cousin du « dist périmé » mais côté VALIDATION, pas boot.)
+- `[1× — 2026-07-10]` **La sortie vitest se termine par ~40 lignes blanches** → un `cmd | tail -N` après le run rend une sortie VIDE (2× dans la session, on croit à un échec silencieux). Fiable : rediriger vers un fichier puis `grep -E "Test Files|Tests"` dessus.
+- `[1× — 2026-07-10]` **Une mémoire de dette d'archi peut être PÉRIMÉE côté « déjà réglé »** : la dette CLI listait le double-boot prod/cluster comme ouvert alors que `e51af263` l'avait corrigé (asserts boot-count=1 VERTS). Avant d'auditer une dette mémorisée, croiser chaque point avec `git log`/le code — la devise vaut aussi pour les mémoires IA.
+
 ## 🏎️ Perf / bancs A/B
 
 > ♻️ CONSOLIDATE 2026-06-12 : les patterns A/B (mono-route ment / verdict 3 issues / stash+rebuild
