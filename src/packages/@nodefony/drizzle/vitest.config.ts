@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { oxcDecorators } from "../../../../vitest.oxc";
 
 /**
  * vitest pour @nodefony/drizzle — suite d'intégration (convention-frère orm-core).
@@ -33,4 +34,5 @@ export default defineConfig({
       thresholds: { lines: 75, statements: 75, functions: 75, branches: 57 },
     },
   },
+  oxc: oxcDecorators,
 });

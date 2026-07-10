@@ -37,13 +37,13 @@
     "@rollup/plugin-replace": "6.0.3",
     "@rollup/plugin-terser": "1.0.0",
     "@rollup/plugin-typescript": "12.3.0",
-    "@types/node": "26.0.1",
-    "@vitest/coverage-v8": "4.1.8",
+    "@types/node": "26.1.1",
+    "@vitest/coverage-v8": "4.1.10",
     "nodefony": "*",
     "rimraf": "6.1.3",
     "rollup": "4.62.2",
     "typescript": "6.0.3",
-    "vitest": "4.1.8"
+    "vitest": "4.1.10"
   },
   "peerDependencies": {
     "@nodefony/framework": "*",

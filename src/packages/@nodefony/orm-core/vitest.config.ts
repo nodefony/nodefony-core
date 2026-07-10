@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { oxcDecorators } from "../../../../vitest.oxc";
 
 /**
  * vitest + coverage-v8 pour @nodefony/orm-core.
@@ -30,4 +31,5 @@ export default defineConfig({
       thresholds: { lines: 77, statements: 76, functions: 80, branches: 73 },
     },
   },
+  oxc: oxcDecorators,
 });

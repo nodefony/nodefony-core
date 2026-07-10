@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
+import { oxcDecorators } from "../../../../vitest.oxc";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -32,6 +33,7 @@ export default defineConfig({
       reportsDirectory: ".coverage",
     },
   },
+  oxc: oxcDecorators,
   resolve: {
     alias: {
       "@nodefony/mongoose": r("./nodefony/tests/stubs/mongoose.ts"),

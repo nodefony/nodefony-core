@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { oxcDecorators } from "../../../../vitest.oxc";
 import { fileURLToPath } from "node:url";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
@@ -25,4 +26,5 @@ export default defineConfig({
       "@nodefony/mongoose": r("./nodefony/tests/stubs/mongoose.ts"),
     },
   },
+  oxc: oxcDecorators,
 });

@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
+import { oxcDecorators } from "../../vitest.oxc";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -17,8 +18,8 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *  - reflect-metadata (decorators), alias `before`/`after`→`beforeAll`/`afterAll` et
  *    le perf-skip OPT-IN (`RUN_PERF=1`) sont portés dans `src/tests/vitest.setup.ts`.
  *
- * Decorators : `experimentalDecorators` + `emitDecoratorMetadata` lus depuis
- * `tsconfig.json` (esbuild les honore) — requis pour le DI (`@injectable`/`@inject`).
+ * Decorators : requis pour le DI (`@injectable`/`@inject`) — cf `vitest.oxc.ts` (racine)
+ * pour le pourquoi du bloc `oxc` ci-dessous.
  */
 export default defineConfig({
   test: {
@@ -33,6 +34,7 @@ export default defineConfig({
       reportsDirectory: ".coverage",
     },
   },
+  oxc: oxcDecorators,
   resolve: {
     alias: {},
   },

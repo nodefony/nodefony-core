@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { oxcDecorators } from "../../../../vitest.oxc";
 
 /**
  * vitest + coverage-v8 pour @nodefony/realtime.
@@ -26,4 +27,5 @@ export default defineConfig({
       reportsDirectory: ".coverage",
     },
   },
+  oxc: oxcDecorators,
 });
