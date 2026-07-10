@@ -239,10 +239,50 @@ coûtera bien plus cher. Par ailleurs la release n'est pas imminente (P8 à 63 %
 il reste le temps de stabiliser. C'est l'application directe de la doctrine maison : _« reculer pour mieux
 sauter, le framework est en dev pas en prod »_.
 
-**Ce qui reste à dérisquer avant de s'engager** (non couvert par les POC) : les configs Rollup complexes du
-core (bundle `bin`, bundle **client isomorphe** via `tsconfigClient.json`, `declarationDir`, terser/json),
-les `external` de chaque package, et `preserveModulesRoot` sur les 19 workspaces. Les `.d.ts`, eux, sont
-déjà résolus : `tsgo --emitDeclarationOnly`, hors du bundler (§7 palier 2).
+**Les cas durs du core sont désormais couverts** — les 4 bundles (dont le client isomorphe) ont été
+rejoués sous rolldown avec une sortie équivalente : voir **§6 ter**. Restent à dérisquer les 18 autres
+packages, le mode `watch`, les sourcemaps et `terser` en production.
+
+## 6 ter. POC palier 2 sur le CORE — les 4 bundles, client isomorphe compris
+
+Le core est le cas le plus dur du repo : quatre configurations Rollup, dont un **client isomorphe**
+multi-entrées avec plugin `resolveId` maison. Tout a été rejoué sous rolldown, hors du repo, contre le
+`dist` réel.
+
+| Bundle                                     | Rollup (actuel) | rolldown          | Verdict                                                                                                                                           |
+| ------------------------------------------ | --------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **node** (`preserveModules`, 24 externals) | 96 `.js`        | 97 `.js`          | **137 exports identiques** (aucun manquant, aucun en trop) ; `Container` s'instancie ; `reflect-metadata` actif                                   |
+| **bin** (shebang, `exports: "default"`)    | 3 089 o         | 2 222 o           | shebang correct, plus compact                                                                                                                     |
+| **client isomorphe** (4 entrées)           | 31 `.js`        | 31 `.js`          | **arborescence identique** ; exports identiques par entrée (43/13/20/11) ; `react` externe ; **0 fuite de builtin node** ; s'importe et s'exécute |
+| **debugbar standalone** (mono-fichier)     | 170 939 o       | 128 664 o (−25 %) | 0 import résiduel, 0 fuite                                                                                                                        |
+
+**Temps** : Rollup **20 473 ms** pour les 4 bundles ; rolldown **~195 ms**. Avec `tsgo` pour les
+déclarations (~3 s), le build complet du core passe d'environ 20 s à **~3 s** (≈ ×6-7).
+
+**Déclarations `.d.ts`** — les deux surfaces sont couvertes :
+
+|                                                        | Rollup |                        `tsgo --emitDeclarationOnly` |
+| ------------------------------------------------------ | -----: | --------------------------------------------------: |
+| `dist/types` (node)                                    |    135 | 136 · **131 exports identiques**, même arborescence |
+| `dist/client/types` (isomorphe, `tsconfigClient.json`) |     52 |                     **52 · arborescence identique** |
+
+**Cinq plugins Rollup deviennent inutiles** — rolldown fait tout nativement :
+`@rollup/plugin-typescript`, `@rollup/plugin-node-resolve`, `@rollup/plugin-commonjs`,
+`@rollup/plugin-json`, `rollup-plugin-polyfill-node`. Seul le `browserShim` maison est conservé, et il
+fonctionne tel quel (API plugin compatible). Le `treeshake.moduleSideEffects` qui préserve le
+side-effect de `reflect-metadata` — piège documenté dans le `rollup.config.ts` — est **honoré**.
+
+**Quatre écarts, tous mineurs et identifiés** :
+
+1. Le module JSON est nommé `package.js` au lieu de `package.json.js`. Interne, les imports sont
+   cohérents (`from "./package.js"`).
+2. rolldown émet en plus le barrel `syslog/transports/index.js` (537 o) que Rollup tree-shake. Bénin.
+3. `declarationDir` du tsconfig **écrase** `--outDir` : pour `tsgo`, passer `--declarationDir`
+   explicitement (sinon il écrit dans le vrai `dist`).
+4. Les chunks vides (modules type-only) ne sont plus émis — c'est une amélioration (cf orm-core, §6 bis).
+
+**Non couvert par ce POC** : les 18 autres packages, le mode `watch`/dev, les sourcemaps, et `terser` en
+production. À dérisquer avant de toucher `rollup.config.ts`.
 
 ## 7. Décisions
 
