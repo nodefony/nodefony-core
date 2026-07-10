@@ -16,6 +16,14 @@
 
 ---
 
+## 📦 Dépendances / upgrade
+
+- `[1× — 2026-07-10]` **Un « minor » d'outil peut casser la COMPILATION sans casser une assertion.** `vite 8.0.16 → 8.1.4` tire `rolldown 1.1.5`, dont `OxcOptions` **omet `tsconfig`** → notre `experimentalDecorators`/`emitDecoratorMetadata` n'est plus lu, `decorator.legacy` retombe sur `false`, les décorateurs sortent **bruts** et Node lève `SyntaxError: Invalid or unexpected token`. Symptôme trompeur : **fichiers morts en COLLECTE, 0 test failed** (`Test Files 2 failed | 65 passed` / `Tests 1705 passed`). Réflexe : un `Test Files failed` avec `0 Tests failed` = échec de transformation, PAS de logique → lire la sortie transformée (`server.transformRequest()` via l'API vite), pas la stack. Correction = `oxc: { decorator: { legacy: true, emitDecoratorMetadata: true } }` (source unique `vitest.oxc.ts` racine), **pas** un gel de version.
+- `[1× — 2026-07-10]` **Vérifier `emitDecoratorMetadata`, pas seulement `legacy`.** L'injector résout par `design:paramtypes` en fallback ⇒ si la metadata n'est pas émise, l'auto-injection casse **silencieusement** (param `undefined`, aucune erreur). Toujours prouver la présence de `design:paramtypes` **avec le vrai type** dans la sortie compilée, jamais se contenter de « les tests passent ».
+- `[1× — 2026-07-10]` **Un bump de MAJOR peut être un changement de NATURE du paquet.** `typescript@7` (port Go) ne publie plus d'API JS (`main: null`, pas de `lib/typescript.js`, `ts.createProgram === undefined`) → `@rollup/plugin-typescript`/`typescript-eslint`/`typedoc` cassent. Avant d'évaluer un major d'outillage : `jq '{main,types,exports}' node_modules/<p>/package.json` + un `import()` réel, AVANT de lire le changelog.
+- `[1× — 2026-07-10]` **Réécrire des pins par `String.replace()` sur le texte du package.json touche la PREMIÈRE occurrence**, qui peut être dans `peerDependencies` et pas `devDependencies` (vécu : peer bumpé, devDep laissé → divergence). Réécrire par **bloc** (`npm pkg set "devDependencies.x=v"`), et auditer après coup avec `jq` bloc par bloc contre `git show HEAD:<f>`.
+- `[1× — 2026-07-10]` **`npm outdated` ne voit pas les `peerDependencies` pinnées exactes** et `npm update` ne bouge pas un pin exact. Le lot « tout à jour » peut laisser des peers en arrière. Inventorier les 3 blocs.
+
 ## 🏎️ Perf / bancs A/B
 
 > ♻️ CONSOLIDATE 2026-06-12 : les patterns A/B (mono-route ment / verdict 3 issues / stash+rebuild
