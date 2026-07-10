@@ -313,7 +313,8 @@ describe.skipIf(!fs.existsSync(DIST))(
         });
         assert.strictEqual(r.code, 0, r.stderr);
         assert.ok(r.stdout.includes("#compdef nodefony"), r.stdout);
-        assert.ok(r.stdout.includes("nodefony __complete --"), r.stdout);
+        assert.ok(r.stdout.includes("__complete --"), r.stdout);
+        assert.ok(r.stdout.includes("./node_modules/.bin/nodefony"), r.stdout);
         assert.strictEqual(
           countKernelBoots(traceFile),
           0,

@@ -149,6 +149,11 @@ export type CompletionShell = (typeof COMPLETION_SHELLS)[number];
  * sans jamais regénérer le script — seule la donnée (manifest cache) bouge.
  */
 export function renderCompletionScript(shell: CompletionShell): string {
+  // Résolution du binaire AU TAB (pas au source du script) : priorité au binaire DU
+  // PROJET (`./node_modules/.bin` — sa complétion suit la version + le manifest local),
+  // puis global, puis `npx --no-install` en dernier recours (plus lent, mais la
+  // complétion marche même sans PATH). NB : `npx nodefony <TAB>` lui-même complète
+  // via npx (structurel) — la complétion s'attache au MOT `nodefony`.
   switch (shell) {
     case "zsh":
       return `#compdef nodefony
@@ -156,9 +161,18 @@ export function renderCompletionScript(shell: CompletionShell): string {
 #   nodefony completion zsh > "\${fpath[1]}/_nodefony"   (puis: exec zsh)
 # ou directe dans ~/.zshrc :
 #   source <(nodefony completion zsh)
+_nodefony_bin() {
+  if [ -x ./node_modules/.bin/nodefony ]; then
+    echo ./node_modules/.bin/nodefony
+  elif command -v nodefony >/dev/null 2>&1; then
+    echo nodefony
+  else
+    echo npx --no-install nodefony
+  fi
+}
 _nodefony() {
   local -a candidates
-  candidates=("\${(@f)$(nodefony __complete -- "\${words[@]:2}" 2>/dev/null)}")
+  candidates=("\${(@f)$(\${=$(_nodefony_bin)} __complete -- "\${words[@]:2}" 2>/dev/null)}")
   (( \${#candidates} )) && compadd -a candidates
 }
 compdef _nodefony nodefony
@@ -168,10 +182,19 @@ compdef _nodefony nodefony
 #   nodefony completion bash > /etc/bash_completion.d/nodefony
 # ou directe dans ~/.bashrc :
 #   source <(nodefony completion bash)
+_nodefony_bin() {
+  if [ -x ./node_modules/.bin/nodefony ]; then
+    echo ./node_modules/.bin/nodefony
+  elif command -v nodefony >/dev/null 2>&1; then
+    echo nodefony
+  else
+    echo npx --no-install nodefony
+  fi
+}
 _nodefony_completions() {
   local cur="\${COMP_WORDS[COMP_CWORD]}"
   local candidates
-  candidates="$(nodefony __complete -- "\${COMP_WORDS[@]:1}" 2>/dev/null)"
+  candidates="$($(_nodefony_bin) __complete -- "\${COMP_WORDS[@]:1}" 2>/dev/null)"
   COMPREPLY=($(compgen -W "$candidates" -- "$cur"))
 }
 complete -F _nodefony_completions nodefony
@@ -179,7 +202,16 @@ complete -F _nodefony_completions nodefony
     case "fish":
       return `# Complétion fish Nodefony — installation :
 #   nodefony completion fish > ~/.config/fish/completions/nodefony.fish
-complete -c nodefony -f -a "(nodefony __complete -- (commandline -opc)[2..-1] 2>/dev/null)"
+function __nodefony_bin
+  if test -x ./node_modules/.bin/nodefony
+    echo ./node_modules/.bin/nodefony
+  else if command -sq nodefony
+    echo nodefony
+  else
+    echo npx --no-install nodefony
+  end
+end
+complete -c nodefony -f -a "(eval (__nodefony_bin) __complete -- (commandline -opc)[2..-1] 2>/dev/null)"
 `;
   }
 }

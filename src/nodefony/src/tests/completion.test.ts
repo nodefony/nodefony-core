@@ -101,23 +101,52 @@ describe("completion — computeCompletions (protocole dernier mot = frappe)", (
 });
 
 describe("completion — scripts shell", () => {
-  it("zsh : compdef + délégation __complete", () => {
+  it("zsh : compdef + délégation __complete + résolution binaire projet", () => {
     const s = renderCompletionScript("zsh");
     assert.ok(s.includes("#compdef nodefony"));
-    assert.ok(s.includes("nodefony __complete --"));
+    assert.ok(s.includes("__complete --"));
     assert.ok(s.includes("compdef _nodefony nodefony"));
+    // Priorité au binaire DU PROJET, fallback npx --no-install (question npx).
+    assert.ok(s.includes("./node_modules/.bin/nodefony"));
+    assert.ok(s.includes("npx --no-install nodefony"));
   });
 
-  it("bash : complete -F + compgen", () => {
+  it("bash : complete -F + compgen + résolution binaire projet", () => {
     const s = renderCompletionScript("bash");
     assert.ok(s.includes("complete -F _nodefony_completions nodefony"));
-    assert.ok(s.includes("nodefony __complete --"));
+    assert.ok(s.includes("__complete --"));
+    assert.ok(s.includes("./node_modules/.bin/nodefony"));
   });
 
-  it("fish : complete -c nodefony", () => {
+  it("fish : complete -c nodefony + résolution binaire projet", () => {
     const s = renderCompletionScript("fish");
     assert.ok(s.includes("complete -c nodefony"));
+    assert.ok(s.includes("./node_modules/.bin/nodefony"));
   });
+
+  // La syntaxe shell RÉELLE des scripts générés — `zsh -n` / `bash -n` parsent sans
+  // exécuter. Skip si le shell n'est pas sur la machine (CI minimaliste).
+  for (const sh of ["zsh", "bash"] as const) {
+    it(`${sh} -n : le script généré parse sans erreur`, async (ctx) => {
+      const { execFileSync, spawnSync } = await import("node:child_process");
+      if (spawnSync("command", ["-v", sh], { shell: true }).status !== 0) {
+        return ctx.skip();
+      }
+      const fsMod = await import("node:fs");
+      const osMod = await import("node:os");
+      const pathMod = await import("node:path");
+      const file = pathMod.join(
+        osMod.tmpdir(),
+        `nodefony-compl-${sh}-${process.pid}.sh`,
+      );
+      fsMod.writeFileSync(file, renderCompletionScript(sh), "utf8");
+      try {
+        execFileSync(sh, ["-n", file]); // throw si erreur de syntaxe
+      } finally {
+        fsMod.rmSync(file, { force: true });
+      }
+    });
+  }
 
   it("cliManifestFile — cache par projet sous node_modules/.cache/nodefony", () => {
     assert.ok(

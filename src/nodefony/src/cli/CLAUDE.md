@@ -47,16 +47,17 @@ class DevCommand extends Command {
   constructor(cli: CliKernel) {
     super(
       "development", // name
-      "Start dev server (Rollup watch)", // description
+      "Start Server in development Mode", // description
       cli,
       options,
     );
     this.alias("dev");
-    this.addOption("--no-daemon", "Foreground mode");
   }
 
   override async onKernelStart(): Promise<void> {
-    // Hook AVANT Kernel.boot() — config env, profil d'exécution, etc.
+    // Hook à onStart — env + profil DYNAMIQUE (parent/enfant, master/worker).
+    // Un profil STATIQUE se déclare plutôt dans les options (`runProfile: {...}`),
+    // appliqué par resolveCommand — marche AUSSI pour une commande de module.
     (this.cli as CliKernel).setRunProfile({
       servers: true,
       lifetime: "longrunning",
@@ -73,66 +74,74 @@ class DevCommand extends Command {
 }
 ```
 
-## Lifecycle Command
+## Lifecycle Command (parse PUR — refacto `resolveCommand`)
 
 ```
 1. Constructor
-   ├── this.commandName = name
-   ├── this.alias = []
-   ├── this.options = OptionsCommandInterface
-   └── this.setEvents()  ← guard eventsRegistered, idempotent
+   ├── this.kernelEvent / this.lifetime / this.runProfile ← DÉCLARÉS via options
+   └── createCommand(name) → commander ; l'action() ne fait que SIGNALER le match
 
 2. CliKernel.addCommand(Ctor)
    ├── new Ctor(cli)
-   ├── this.commands[name] = instance
-   └── instance.register()  ← commander.command(name).action(...)
+   └── this.commands[name] = instance
 
-3. CliKernel.parseCommand(argv)
-   └── commander match → command.run()
+3. parse commander → action() → CliKernel.resolveCommand(cmd, args)  ← POINT UNIQUE
+   ├── kernel.command / kernel.commandArgs
+   ├── applique command.runProfile DÉCLARÉ (setRunProfile → resync kernel.runProfile)
+   └── cmd.setEvents(args)  ← hooks onKernelX + once(kernelEvent, action) ; guard eventsRegistered
 
-4. command.run()
-   ├── command.onKernelStart()  ← hook pré-boot
-   ├── kernel.start()           ← boot complet
-   └── command.generate(opts)   ← après phase kernelEvent
+4. Kernel boot → à CHAQUE phase : setCommandComplete(phase)
+   ├── phase cible atteinte → finishOrPark(0)  ← terminate one-shot OU park daemon
+   └── action() → run() → generate()  ← fire à la phase kernelEvent
 ```
+
+Commandes de MODULE (posées à `onPreRegister`) : dispatch DIFFÉRÉ (cf `../kernel/CLAUDE.md`),
+même `resolveCommand` — le `runProfile` déclaré étant resynchronisé à la résolution, une
+commande de module peut être SERVEUR (`servers: true` + `kernelEvent: "onPostReady"`).
 
 ## OptionsCommandInterface
 
 ```typescript
 interface OptionsCommandInterface {
-  showBanner?: boolean; // affiche le banner ASCII au boot
-  kernelEvent?: KernelEventKey; // phase à attendre avant generate()
-  // défaut "onPostReady"
-  // valeurs: onInit | onPreStart | onStart |
-  //          onPreRegister | onRegister |
-  //          onPreBoot | onBoot | onReady |
-  //          onServersReady | onPostReady
+  showBanner?: boolean; // affiche le banner ASCII
+  kernelEvent?: KernelEventKey; // phase d'exécution + POINT D'ARRÊT du boot
+  // défaut "onRegister"
+  // valeurs: onPreStart | onStart | onPreRegister | onRegister |
+  //          onPreBoot | onBoot | onReady | onServersReady | onPostReady
+  lifetime?: "oneshot" | "longrunning"; // daemon CONSOLE → park au lieu de terminate
+  runProfile?: IRunProfile; // profil DÉCLARATIF { servers, lifetime, interactive }
+  // appliqué par resolveCommand ; les profils DYNAMIQUES (dev parent/enfant,
+  // master/worker) restent posés par setRunProfile() dans onKernelStart
 }
 ```
 
-**Choix de `kernelEvent`** :
+**Choix de `kernelEvent`** (= point d'arrêt du boot — le kernel s'ARRÊTE à cette phase) :
 
-- `"onPostReady"` (défaut) — serveurs HTTP/WS prêts. Pour les commands qui veulent les utiliser.
-- `"onReady"` — services bootés mais serveurs pas démarrés. Pour les commands utilitaires (build, test).
-- `"onBoot"` — modules instanciés. Pour debug/inspection précoce.
-- `"onPreStart"` — quasi rien fait. Pour les commands ultra-light.
+- `"onPostReady"` — serveurs HTTP/WS prêts. Pour les runtimes serveur (dev/prod/cluster).
+- `"onReady"` — tout est booté SAUF les serveurs. Pour les commands qui introspectent
+  la config/les services sans écouter (`proxy:generate`, `assets:publish`).
+- `"onBoot"` — services kernel créés. Ex : `http:certificates`.
+- `"onRegister"` (défaut) — modules enregistrés. Ex : `build`, `install`, `http:network`.
+- `"onStart"` — app chargée, aucun module. Pour l'ultra-light (menu `start`).
 
 ## Pattern d'usage CLI Nodefony
 
 ```bash
 # Built-in
-npx nodefony development        # DevCommand
+npx nodefony development        # DevCommand (--detach pour le mode détaché)
 npx nodefony build              # BuildCommand
-npx nodefony test               # TestCommand (à confirmer)
 npx nodefony production         # ProdCommand
-npx nodefony --help             # liste tout
+npx nodefony --help             # liste tout (commandes de module incluses)
 npx nodefony --version          # -v/--version
 
-# Custom (futur — Phase 11)
+# Commandes de module (posées par les modules à onPreRegister)
+npx nodefony http:network -j
+npx nodefony proxy:generate nginx
+npx nodefony frontend:build
+
+# Futur (P11.3/11.4)
 npx nodefony orm:migrate
 npx nodefony security:user:add
-npx nodefony http:routes:list
-npx nodefony frontend:create my-component
 ```
 
 ## niceBytes — helper formatage
@@ -152,19 +161,34 @@ Utilisé dans Kernel.memoryUsage() pour afficher RSS/heap.
 
 ## Commandes existantes — `src/nodefony/src/kernel/commands/`
 
-Toutes ces commandes sont **déjà migrées** en TS mais **non testées en intégration** (Phase 11).
+Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots réels).
 
-| Command    | Alias  | Fichier              | Statut                         |
-| ---------- | ------ | -------------------- | ------------------------------ |
-| `Start`    | —      | `StartCommand.ts`    | ✅                             |
-| `Dev`      | `dev`  | `DevCommand.ts`      | ✅                             |
-| `Build`    | —      | `BuildCommand.ts`    | ✅                             |
-| `Prod`     | `prod` | `ProdCommand.ts`     | ✅ foreground cloud-native     |
-| `Cluster`  | —      | `ClusterCommand.ts`  | ✅ (remplace l'ancien staging) |
-| `Install`  | —      | `InstallCommand.ts`  | ✅                             |
-| `Outdated` | —      | `OutdatedCommand.ts` | ✅                             |
+| Command      | Alias     | Fichier                | Note                                                      |
+| ------------ | --------- | ---------------------- | --------------------------------------------------------- |
+| `Start`      | —         | `StartCommand.ts`      | menu interactif (TTY)                                     |
+| `Dev`        | `dev`     | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone) |
+| `Build`      | `compile` | `BuildCommand.ts`      | point d'arrêt `onRegister`                                |
+| `Prod`       | `prod`    | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`          |
+| `Cluster`    | —         | `ClusterCommand.ts`    | `--workers`, `--detach`                                   |
+| `Install`    | —         | `InstallCommand.ts`    |                                                           |
+| `Outdated`   | —         | `OutdatedCommand.ts`   |                                                           |
+| `Status`     | —         | `StatusCommand.ts`     | **standalone** (0 boot)                                   |
+| `Stop`       | —         | `StopCommand.ts`       | **standalone** (0 boot)                                   |
+| `Completion` | —         | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)   |
 
-⚠️ **Bug pré-existant** : les commands par module (`http:*`, `framework:*`, `security:*`, `user:*`) sont cassées sur claude-ts (cf mémoire `project_cli_commands_broken_claude_ts`). À traiter dans une branche dédiée hors POC.
+Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
+dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
+
+## Complétion shell — `cli/completion.ts`
+
+`nodefony completion <bash|zsh|fish>` imprime le script à sourcer ; au TAB le script appelle
+`nodefony __complete -- <mots>` (fast-path standalone, 0 boot, exit TOUJOURS 0). La donnée =
+**manifest cache** `node_modules/.cache/nodefony/cli-manifest.json`, écrit au boot DEV à
+`onPreRegister` (commandes de module incluses), fire-and-forget (jamais d'impact boot, rien
+en prod). Hors projet → fallback built-ins en mémoire (`CliKernel.buildBuiltinManifest()`).
+Protocole candidats : dernier mot = en cours de frappe (le shell filtre par préfixe) ;
+commande validée → ses options + globales, sinon noms + alias. Install zsh :
+`source <(nodefony completion zsh)`.
 
 ## Hooks Command
 
@@ -178,15 +202,12 @@ Toutes ces commandes sont **déjà migrées** en TS mais **non testées en inté
 
 ⚠️ `Service.set()` pour les commands utilise un guard car le Container peut être absent au moment de l'enregistrement. Voir `Command.ts:register()`.
 
-## Bug pré-existant — commands modules cassées
+## Commandes de module — dispatch différé (RÉSOLU)
 
-Cf mémoire `project_cli_commands_broken_claude_ts`. À résoudre dans une branche dédiée. Symptôme : `npx nodefony http:routes:list` → "command not found" ou crash boot.
-
-Hypothèses :
-
-- Module.addCommand() pas appelé au bon moment dans le lifecycle
-- `kernel.cli` est `null` quand le module tente d'enregistrer
-- Commander parsing fait avant que les commands modules soient registered
+Les commandes de module ne sont connues de commander qu'après leur enregistrement à
+`onPreRegister` → `CliKernel` classe la commande demandée (built-in vs module) et diffère le
+parse pour les secondes (détail : `../kernel/CLAUDE.md` § Dispatch). Commande introuvable →
+exit `EX_USAGE` (64), **jamais** de fallback serveur. Happy-path ET typo couverts e2e.
 
 ## ⚠️ Gotchas
 
@@ -210,6 +231,5 @@ cd src/nodefony && npm run test 2>&1 | grep -A 3 "Cli\|Command"
 - [`README.md`](./README.md) — doc humaine API
 - [`../kernel/CLAUDE.md`](../kernel/CLAUDE.md) — CliKernel (étend Cli)
 - [`../../CLAUDE.md`](../../CLAUDE.md) — workspace core
-- `project_command_architecture` (mémoire IA) — refacto CLI, lifecycle
-- `project_cli_commands_broken_claude_ts` (mémoire IA) — bug commands modules
+- `project_cli_module_command_dispatch` (mémoire IA) — dispatch différé + refacto parse-pur
 - `project_clikernel_lifecycle` (mémoire IA) — environment undefined au constructor
