@@ -161,6 +161,9 @@ export function renderCompletionScript(shell: CompletionShell): string {
 #   nodefony completion zsh > "\${fpath[1]}/_nodefony"   (puis: exec zsh)
 # ou directe dans ~/.zshrc :
 #   source <(nodefony completion zsh)
+# ⚠️ La complétion s'applique au MOT \`nodefony\` en 1ʳᵉ position — PAS à
+# \`npx nodefony\` (le shell complète alors npx). Pour un usage projet :
+#   export PATH="$PWD/node_modules/.bin:$PATH"
 # Le système de complétion doit être chargé (compdef) — auto-init sinon.
 if ! whence compdef >/dev/null 2>&1; then
   autoload -Uz compinit && compinit
@@ -188,6 +191,8 @@ compdef _nodefony nodefony
 #   nodefony completion bash > /etc/bash_completion.d/nodefony
 # ou directe dans ~/.bashrc :
 #   source <(nodefony completion bash)
+# ⚠️ S'applique au MOT \`nodefony\` en 1ʳᵉ position — PAS à \`npx nodefony\`.
+# Usage projet : export PATH="$PWD/node_modules/.bin:$PATH"
 _nodefony_bin() {
   if [ -x ./node_modules/.bin/nodefony ]; then
     echo ./node_modules/.bin/nodefony
