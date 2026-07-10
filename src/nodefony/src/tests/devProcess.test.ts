@@ -223,7 +223,7 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
 });
 
 describe("devProcess — missingWorkspaceDists (post-condition build)", () => {
-  it("détecte un workspace à rollup SANS dist ; ignore dist présent et workspace sans rollup", () => {
+  it("détecte un workspace à rolldown SANS dist ; ignore dist présent et workspace sans rolldown", () => {
     const root = path.join(os.tmpdir(), `nf-devbuild-${process.pid}`);
     try {
       mkdirSync(path.join(root, "pkgs", "a", "dist"), { recursive: true });
@@ -233,20 +233,20 @@ describe("devProcess — missingWorkspaceDists (post-condition build)", () => {
         path.join(root, "package.json"),
         JSON.stringify({ workspaces: ["pkgs/*"] }),
       );
-      // a : rollup + dist présent → OK (absent de la liste)
-      writeFileSync(path.join(root, "pkgs", "a", "rollup.config.ts"), "");
+      // a : rolldown + dist présent → OK (absent de la liste)
+      writeFileSync(path.join(root, "pkgs", "a", "rolldown.config.ts"), "");
       writeFileSync(
         path.join(root, "pkgs", "a", "package.json"),
         JSON.stringify({ name: "@x/a", main: "dist/index.js" }),
       );
       writeFileSync(path.join(root, "pkgs", "a", "dist", "index.js"), "");
-      // b : rollup mais PAS de dist → MANQUANT
-      writeFileSync(path.join(root, "pkgs", "b", "rollup.config.ts"), "");
+      // b : rolldown mais PAS de dist → MANQUANT
+      writeFileSync(path.join(root, "pkgs", "b", "rolldown.config.ts"), "");
       writeFileSync(
         path.join(root, "pkgs", "b", "package.json"),
         JSON.stringify({ name: "@x/b", main: "dist/index.js" }),
       );
-      // c : PAS de rollup (WIP non câblé) → ignoré même sans dist
+      // c : PAS de config bundler (WIP non câblé) → ignoré même sans dist
       writeFileSync(
         path.join(root, "pkgs", "c", "package.json"),
         JSON.stringify({ name: "@x/c" }),

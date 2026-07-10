@@ -25,26 +25,20 @@
     }
   },
   "scripts": {
-    "build": "rimraf dist && npm run rollup",
-    "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
-    "dev": "rimraf dist && npm run rollup -- --watch",
+    "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
+    "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "rimraf dist",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "lint": "tsc --noEmit"
+    "lint": "tsgo --noEmit"
   },
   "keywords": ["nodefony", "typescript"],
   "peerDependencies": {{peer_deps_with_zod}},
   "devDependencies": {
-    "@rollup/plugin-json": "6.1.0",
-    "@rollup/plugin-node-resolve": "16.0.3",
-    "@rollup/plugin-typescript": "12.3.0",
     "@types/node": "26.0.1",
     "@vitest/coverage-v8": "4.1.8",
     "nodefony": "*",
     "rimraf": "6.1.3",
-    "rollup": "4.62.2",
-    "typescript": "6.0.3",
     "vitest": "4.1.8"
   },
   "private": true,
@@ -52,14 +46,17 @@
 }
 ```
 
+> **Bundler** : `rolldown` + `tsgo` (`@typescript/native-preview`) sont des devDeps de la
+> RACINE (hoistés) — un module n'en déclare PAS de copie locale.
+
 > **`exports["."].types` — 2 patterns (CLAUDE.md racine)** : un NOUVEAU module pointe
 > `./dist/types/index.d.ts` (standard, `.d.ts` généré). Le pattern `"./index.ts"` (source,
 > anti-race TS2307) est RÉSERVÉ aux modules consommés en source par un autre workspace
 > (http/framework/security/frontend/orm-core/user) — ne pas l'utiliser par défaut.
-> **Toolchain = devDependencies UNIQUEMENT** (décision 0.4) : rollup/plugins/typescript ne
-> vont JAMAIS en `dependencies` (poids runtime). Les peers workspace consommés (`nodefony`,
+> **Toolchain = devDependencies UNIQUEMENT** (décision 0.4) : outillage de build ne va
+> JAMAIS en `dependencies` (poids runtime). Les peers workspace consommés (`nodefony`,
 > `@nodefony/http`…) se doublent en devDeps `"*"` pour le typecheck/build local.
-> Plus de `rollup-sourcemap-path-transform` ni `tslib` en devDeps (retirés — cf modules réels).
+> Plus de `tslib` en devDeps (retiré — cf modules réels).
 
 **peer_deps_with_zod selon options activées** :
 
@@ -136,7 +133,7 @@ export default defineConfig({
     "outDir": "./dist",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "target": "ES2022",
+    "target": "ES2024",
     "module": "ESNext",
     "strict": true,
     "esModuleInterop": true,
@@ -151,7 +148,7 @@ export default defineConfig({
     "noUnusedParameters": true,
     "types": ["node"]
   },
-  "include": ["index.ts", "rollup.config.ts", "nodefony/**/*.ts"],
+  "include": ["index.ts", "rolldown.config.ts", "nodefony/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",
@@ -162,84 +159,66 @@ export default defineConfig({
 }
 ```
 
-> ⚠️ **Exclure les tests du build est OBLIGATOIRE.** `@rollup/plugin-typescript` type-check
-> TOUT le programme du `tsconfig.json` : un test laissé dans `include` fait remonter `describe`/`it`
-> non typés (TS2593), `import`/globals de test (TS2882/TS2304) comme warnings de build. Les tests
-> ont leur propre `tsconfig.tests.json` (`types: ["node", "vitest/globals", "chai"]`). Couvrir les
-> deux emplacements (`nodefony/tests/**` ET `tests/**`) + `**/*.test.ts` en filet.
-
-⚠️ **Piège TS7060** : si tu ajoutes `"jsx": "preserve"` dans `compilerOptions` (cas frontend),
-NE PAS retirer `"declaration": true` — sinon Rollup râle avec TS5069 sur `declarationDir`.
+> ⚠️ **Exclure les tests du build est OBLIGATOIRE.** L'émission `.d.ts` (`tsgo -p
+tsconfig.declarations.json`) type-check TOUT le programme : un test laissé dans `include`
+> fait remonter `describe`/`it` non typés (TS2593), `import`/globals de test (TS2882/TS2304).
+> Les tests ont leur propre `tsconfig.tests.json` (`types: ["node", "vitest/globals", "chai"]`).
+> Couvrir les deux emplacements (`nodefony/tests/**` ET `tests/**`) + `**/*.test.ts` en filet.
 
 ⚠️ **Piège TS2565** : NE JAMAIS redéclarer `options: FooConfig;` comme propriété de classe
 dans un Service custom — le parent l'initialise déjà. Stocker la config typée dans un
 field séparé `cfg: FooConfig` (voir template Service).
 
-### `rollup.config.ts`
+### `rolldown.config.ts`
 
-> **Forme COURTE alignée sur les modules réels récents** (réf = `@nodefony/documentation`,
-> décisions sessions 0.4/0.7) : `input: "index.ts"` UNIQUE (preserveModules découvre le
-> graphe — plus de `globSync`), **plus de `rollup-sourcemap-path-transform` ni `glob`**
-> (deps supprimées), toolchain rollup entièrement en **devDependencies** (jamais en
-> dependencies — décision Phase 0.4 « build hors deps runtime »).
+> **Toute la mécanique vit dans `rolldown.shared.ts` (racine du repo)** — source unique :
+> platform, preserveModules, treeshake (side-effect `reflect-metadata` préservé), et
+> l'externalisation SYSTÉMATIQUE du nom propre du paquet (anti self-import). Le module ne
+> déclare QUE sa liste `external` (⚠️ garder external ↔ peerDependencies EN PHASE,
+> cf skill `nodefony-check-externals`).
 
 ```typescript
-import { defineConfig, RollupOptions } from "rollup";
-import nodeResolve from "@rollup/plugin-node-resolve";
-import typescript from "@rollup/plugin-typescript";
-import json from "@rollup/plugin-json";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { defineNodefonyRolldownConfig } from "../../../../rolldown.shared";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-
-const external: string[] = [
-  "nodefony",
-  // Ajouter selon peer_deps (⚠️ garder external ↔ peerDependencies EN PHASE,
-  // cf skill `nodefony-check-externals`) :
-  // "@nodefony/http",
-  // "@nodefony/framework",
-  "zod",
-  "tslib",
-];
-
-export default (commandLineArgs: Record<string, unknown>): RollupOptions => {
-  const isProduction = !commandLineArgs["watch"];
-  return defineConfig({
-    input: "index.ts",
-    treeshake: {
-      moduleSideEffects: "no-external",
-      propertyReadSideEffects: false,
-    },
-    output: {
-      dir: "./dist",
-      format: "esm",
-      sourcemap: !isProduction,
-      preserveModules: true,
-      preserveModulesRoot: ".",
-      entryFileNames: "[name].js",
-    },
-    external: (id) =>
-      id !== "." &&
-      external.some(
-        (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
-      ),
-    plugins: [
-      nodeResolve({ preferBuiltins: true }),
-      typescript({
-        tsconfig: path.resolve(__dirname, "tsconfig.json"),
-        declaration: true,
-        declarationDir: "dist/types",
-      }),
-      json(),
-    ],
-  });
-};
+export default defineNodefonyRolldownConfig({
+  external: [
+    "nodefony",
+    // Ajouter selon peer_deps :
+    // "@nodefony/http",
+    // "@nodefony/framework",
+    "zod",
+    "tslib",
+  ],
+});
 ```
 
-⚠️ **External exact-match obligatoire** : la fonction `external` doit utiliser
-`id === e || (e !== "nodefony" && id.startsWith(e + "/"))` — sinon `"nodefony"` matche
-TOUS les chunks `nodefony/foo/bar.js` produits par `preserveModules`.
+### `tsconfig.declarations.json`
+
+> Émission des `.d.ts` HORS bundler (`tsgo -p tsconfig.declarations.json`, enchaîné par le
+> script `build`). Exclut la config bundler et les tests — n'émet que le graphe publié.
+
+```json
+{
+  "extends": "./tsconfig.json",
+  "include": ["index.ts", "nodefony/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests/**",
+    "nodefony/tests/**",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./dist/types",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true
+  }
+}
+```
 
 ### `index.ts` — Module class
 
@@ -649,7 +628,7 @@ export default {{NameClass}}Controller;
 src/packages/@nodefony/{{name}}/
 ├── index.ts ← class {{NameClass}} (Module) + exports publics
 ├── package.json
-├── rollup.config.ts ← bundler — NE PAS MODIFIER sans accord
+├── rolldown.config.ts ← bundler — NE PAS MODIFIER sans accord
 ├── tsconfig.json ← NE PAS MODIFIER sans accord
 ├── CLAUDE.md / MEMORY.md / README.md
 └── nodefony/
@@ -693,7 +672,7 @@ onKernelTerminate
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rollup.config.ts` ou `tsconfig.json`
+- Modifier `rolldown.config.ts` ou `tsconfig.json`
 - Ajouter `dependencies` directes (préférer `peerDependencies`)
 - Importer `@nodefony/framework` depuis un module qui peut être consommé par framework (cycle)
 

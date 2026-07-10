@@ -38,7 +38,7 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 - `IUser.roles: string[]` reste **plat** (perf ALS + logs structurés). RBAC dynamique = `IRole`/`IPermission` (niveau B, P6.8).
 - **`IUserProvider`** API étendue : `loadUserByIdentifier` + `loadUserByOAuth(provider,providerId)` + `refreshUser(user)`. Pattern **Shadow User** (ligne locale même en auth OAuth).
 - **`IUserRepository`** étend `IRepository<IPasswordAuthenticatedUser>` de `@nodefony/orm-core` (peerDep) — ORM-agnostique. **Affiné P5.6** : la persistance EST la frontière credential (le repo lit/écrit le hash) ; le split protège les consommateurs _en aval_ (`IUserProvider` rend `IUser`), pas le stockage.
-- **`BcryptEncoder` (P5.6)** : `@node-rs/bcrypt` (NAPI Rust) en **peerDep optionnelle** + externalisé rollup (binaire natif jamais bundlé). `verify` délègue la promesse (0 async superflu). `needsRehash` parse le coût `$2[aby]$NN$`.
+- **`BcryptEncoder` (P5.6)** : `@node-rs/bcrypt` (NAPI Rust) en **peerDep optionnelle** + externalisé rolldown (binaire natif jamais bundlé). `verify` délègue la promesse (0 async superflu). `needsRehash` parse le coût `$2[aby]$NN$`.
 - **`UserService` (P5.6)** étend **`AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>`** (orm-core) : CRUD générique hérité (`find/findOne/findById/count/create/update/delete` + events `onCreated/onUpdated/onDeleted`). N'ajoute que le credential : `createUser` (hache `plainPassword` → `create`), `findByIdentifier`, `changePassword` (→ `onPasswordChanged`), `authenticate` (leurre anti-timing + re-hash transparent ; → `onAuthenticated`/`onAuthenticationFailure`). C'est la 1ère validation réelle du pattern AbstractCrudService.
 - **`InMemoryUserRepository` (exporté, 2026-06-19)** : impl de référence d'`IUserRepository` sur une `Map` (0 ORM, 0 I/O) — pour les **tests de charge** (la mesure n'est pas polluée par le sync SQLite), les scripts et les fixtures de banc. **Promu depuis le module test** (où il était la fixture du banc P6). La persistance réelle (`@nodefony/drizzle`/`@nodefony/mongoose`) prend le **même contrat** → zéro changement en aval. L'app choisit son dépôt au boot (cf `NF_USER_STORE` côté app, `provisionUsers`).
 
@@ -49,7 +49,7 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 
 ## Roadmap (MIGRATION_STATUS P5)
 
-- ✅ **P5.5a** scaffold workspace : package.json/tsconfig/rollup/index.ts/docs + arbo `nodefony/{contracts,src/encoders,service}/`.
+- ✅ **P5.5a** scaffold workspace : package.json/tsconfig/rolldown/index.ts/docs + arbo `nodefony/{contracts,src/encoders,service}/`.
 - ✅ **P5.5** contracts : `IUser` (strict) + `IPasswordAuthenticatedUser` + `ISocialProvider` + `IUserProvider` + `IUserRepository` + `IPasswordEncoder` + `BaseUser` + `AnonymousUser` (+ singleton `anonymousUser`). 11 tests verts. **`IRole`/`IPermission` DIFFÉRÉS → P6.8** (slot réservé/commenté dans le barrel ; format RBAC à figer sur cas voter concret).
 - ✅ **P5.6** `UserService extends AbstractCrudService` (CRUD hérité + `authenticate()` + events credential) + `BcryptEncoder` (`@node-rs/bcrypt`, rounds: 12). 32 tests. Contrat `IUserRepository` affiné → `IPasswordAuthenticatedUser`.
 - ✅ **P5.9** adapter User **Drizzle** (ORM par défaut) : `@nodefony/drizzle` (`entity/userTable` schema-as-code, `src/DrizzleUserRepository implements IUserRepository`, mapping ligne↔`BaseUser`, `findByIdentifier`/`findBySocialProvider` bindé). 8 tests.
@@ -59,8 +59,8 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 
 ## Build / types
 
-- Standard conforme : `dist/types/` + `exports` (généré par Rollup, jamais de `.d.ts` manuel).
-- `npm run build` (rollup preserveModules). Tests : **Vitest** (`npm test`).
+- Standard conforme : `dist/types/` + `exports` (généré par tsgo, jamais de `.d.ts` manuel).
+- `npm run build` (rolldown preserveModules). Tests : **Vitest** (`npm test`).
 
 ## Liens mémoire IA
 

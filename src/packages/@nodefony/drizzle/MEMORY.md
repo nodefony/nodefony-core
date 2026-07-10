@@ -14,7 +14,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 ## Adapter User (P5.9 — ORM par défaut, fait EN PREMIER)
 
 - `entity/userTable.ts` : spec colKit (JSON/bool/dateMs) + `createUserTable(dialect)` mémoïsée + export `userTable` (variante sqlite), `createUserEntity(orm, dialect)`/`registerUserEntity(orm, dialect)` (binding ORM dynamique, **avant** connect — auto-register par le wire), `DrizzleUserRepository implements IUserRepository` (`from(orm)` lit `orm.dialect`).
-- Mappe ligne ↔ `BaseUser` (comportement). `findByIdentifier` + `findBySocialProvider` **routé queryKit** (json_each sqlite / `@>` jsonb pg, bindé, Shadow User). peerDep `@nodefony/user` ajoutée + externalisée rollup (sinon bundle → casse sur @node-rs/bcrypt natif).
+- Mappe ligne ↔ `BaseUser` (comportement). `findByIdentifier` + `findBySocialProvider` **routé queryKit** (json_each sqlite / `@>` jsonb pg, bindé, Shadow User). peerDep `@nodefony/user` ajoutée + externalisée rolldown (sinon bundle → casse sur @node-rs/bcrypt natif).
 - ⚠️ **Défauts via `$defaultFn` (JS), PAS `.default()` SQL** : le DDL dérivé n'émet pas les DEFAULT → NOT NULL casserait.
 - ⚠️ Test cleanup : `entityRegistry.unregister("User", ORM)` **scopé** (sans orm = efface le bucket entier = contamine le banc P7.4).
 
@@ -81,7 +81,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Config
 
-- peerDeps: nodefony, @nodefony/http, @nodefony/orm-core, @nodefony/user. deps: drizzle-orm, better-sqlite3, **zod** (ajouté à `external` rollup). **optionalDeps: pg + mysql2** (drivers LAZY, externalisés rollup) ; devDeps += @types/pg (mysql2 embarque ses types).
+- peerDeps: nodefony, @nodefony/http, @nodefony/orm-core, @nodefony/user. deps: drizzle-orm, better-sqlite3, **zod** (ajouté à `external` rolldown). **optionalDeps: pg + mysql2** (drivers LAZY, externalisés rolldown) ; devDeps += @types/pg (mysql2 embarque ses types).
 - Tests (vitest) : `npm test` = **274** (34 fichiers ; **41 e2e PG gatés `NF_PG_URL`** + **33 e2e mysql gatés `NF_MYSQL_URL`**, skip sans) — config Zod, banc orm-core, jointure complexe, SessionStorage IoC/CRUD, User P5.9, stores token/webauthn/totp/audit/webhook/idempotency, auto-register sqlite + postgres + mysql (3 fichiers, 1 dialecte de wire par process), **colKit (dont dateMs + variante mysql)**, **parité S2/S3 trois dialectes**, **repository `#pickOne` (9)**, **banc contrat `IRepository` × 3 dialectes (14×3)**, **e2e PG et mysql par brique**. Banc ADR-0002 User↔Room + age.
 - Load: `npm run test:load` (.mocharc.load.json, expose-gc) = 8 (charge/limites/mémoire). Insert 20k ~15k ops/s, scan ~1M/s, 30k cycles heapΔ 0.3MB, 300 conn heapΔ 0.1MB (0 fuite).
 - Charge SESSION runtime (skill load-test, route `/nodefony/test/rest/session/set/k/v`, HTTP/2) : 3000/80 = 409 RPS p99 282ms ; 5000/150 = 408 RPS p99 562ms ; 100% 200, delta sessions EXACT (0 perte/doublon), 0 erreur. **Plafond ~408 RPS = better-sqlite3 SYNCHRONE mono-connexion** (writes sérialisés) — pas un bug, Postgres/MySQL paralléliserait. Concurrence ↑ = latence ↑, pas débit.

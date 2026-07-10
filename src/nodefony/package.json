@@ -51,7 +51,7 @@
     "nodefony": "node ./bin/nodefony",
     "build": "rolldown -c rolldown.config.ts && npm run build:types",
     "postbuild": "node -e \"try{require('fs').chmodSync('bin/nodefony',0o755)}catch(e){}\"",
-    "dev": "rollup --config rollup.config.ts --configPlugin typescript --watch",
+    "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "rimraf dist bin/nodefony tsconfig.tsbuildinfo",
     "typecheck": "tsgo --noEmit",
     "start": "node ./bin/nodefony",
@@ -62,8 +62,8 @@
     "test:all": "RUN_PERF=1 RUN_CLI_BOOT=1 vitest run",
     "coverage": "vitest run --coverage",
     "analyze": "ROLLUP_ANALYZE=true npm run build",
-    "lint": "eslint 'src/**/*.ts' 'rollup.config.ts'",
-    "lint:fix": "eslint --fix 'src/**/*.ts' 'rollup.config.ts'",
+    "lint": "eslint 'src/**/*.ts' 'rolldown.config.ts'",
+    "lint:fix": "eslint --fix 'src/**/*.ts' 'rolldown.config.ts'",
     "doc": "typedoc",
     "typecheck:tsc6": "tsc --noEmit",
     "build:types": "tsgo -p tsconfig.declarations.json && tsgo -p tsconfigClient.json --emitDeclarationOnly"
@@ -94,10 +94,6 @@
     }
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "29.0.3",
-    "@rollup/plugin-json": "6.1.0",
-    "@rollup/plugin-node-resolve": "^16.0.3",
-    "@rollup/plugin-typescript": "12.3.0",
     "@types/figlet": "1.7.0",
     "@types/mime-types": "3.0.1",
     "@types/node": "26.1.1",
@@ -116,12 +112,9 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "rimraf": "6.1.3",
-    "rollup": "4.62.2",
-    "rollup-plugin-polyfill-node": "0.13.0",
     "tsx": "4.23.0",
     "typedoc": "0.28.20",
     "typedoc-plugin-markdown": "4.12.0",
-    "typescript": "6.0.3",
     "vitest": "4.1.10",
     "zod": "4.4.3"
   },

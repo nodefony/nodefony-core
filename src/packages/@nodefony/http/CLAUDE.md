@@ -23,7 +23,7 @@ C'est le différenciateur clé du framework — HTTP et WebSocket partagent le m
 src/packages/@nodefony/http/
 ├── index.ts                        ← classe Http (Module) + exports publics
 ├── package.json                    ← deps: ws, @fastify/busboy, serve-static, uuid…
-├── rollup.config.ts                ← NE PAS MODIFIER sans accord
+├── rolldown.config.ts                ← NE PAS MODIFIER sans accord
 ├── tsconfig.json                   ← NE PAS MODIFIER sans accord
 └── nodefony/
     ├── config/config.ts            ← config défaut (ports, TLS, sessions…)
@@ -230,7 +230,7 @@ conditionnel de `src/modules/test`, kill ports 5151/5152, **spawn `detached`** (
 `nodefony stop` (de partout). Diagnostic crash → skill **`nodefony-tail-error-logs`**.
 
 > ⚠️ **Gotcha dist — cause #1 des 404 en test.** En `development`, Nodefony charge le `dist/` existant au
-> boot PUIS recompile (Rollup) ~12 s plus tard et l'écrase : une route ajoutée au source APRÈS le dernier
+> boot PUIS recompile (rolldown) plus tard et l'écrase : une route ajoutée au source APRÈS le dernier
 > build est **absente** jusqu'au prochain restart avec dist à jour. → **rebuilder `src/modules/test`
 > (`npm run build`) avant de démarrer si le source a changé.** Diagnostic : **404** sur une route définie =
 > dist périmé ; route trouvée mais **500** = erreur controller (stack dans les logs). ⚠️ Le DevSupervisor
@@ -240,7 +240,7 @@ conditionnel de `src/modules/test`, kill ports 5151/5152, **spawn `detached`** (
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rollup.config.ts` ou `tsconfig.json`
+- Modifier `rolldown.config.ts` ou `tsconfig.json`
 - Changer les ports par défaut dans `config.ts`
 - Remplacer `ws` par une autre lib WS
 - Ajouter un default export (module utilise named exports)

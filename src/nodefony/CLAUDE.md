@@ -31,18 +31,18 @@ Il fournit :
 | ------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------- |
 | Nom npm du package | **`nodefony`** (pas `@nodefony/core`)                        | Héritage JS — renommage cassant non envisagé                     |
 | Module ESM         | **ESM only** — `import { X } from "nodefony"`                | Modern Node.js, tree-shaking                                     |
-| Exports            | **Named only** — pas de `default` export                     | Compatibilité avec Rollup `preserveModules` + DX                 |
+| Exports            | **Named only** — pas de `default` export                     | Compatibilité avec `preserveModules` + DX                        |
 | Erreur             | **`nodefonyError`** (pas `Error`)                            | Collision avec `globalThis.Error` cassait les imports            |
 | Singleton          | **`Nodefony.getKernel()`** (statique)                        | L'ancien export `kernel` direct cassait à l'init                 |
 | Préfixe interfaces | **`I`** — `IService`, `IContainer`, `IKernel`, `IScope`      | Convention universelle pour ne pas confondre interface vs classe |
 | Imports Node       | **Préfixe `node:`** obligatoire — `import fs from "node:fs"` | Standard ESM, dé-ambiguïse npm packages                          |
 | TypeScript         | **Strict, zéro `any`, zéro `@ts-ignore`**                    | Sécurité du compilateur                                          |
 | Tests              | **`vitest` 4 + `chai`** (migré 2026-06-05, ex-mocha)         | ESM-natif, esbuild, coverage v8 ; aligné sur tout le repo        |
-| Bundler            | **`rollup`** (`preserveModules: true`)                       | Per-module `.d.ts`, tree-shakeable                               |
+| Bundler            | **`rolldown`** (`preserveModules: true`) + `.d.ts` par tsgo  | Per-module `.d.ts`, tree-shakeable                               |
 
 ## Ce qui est INTERDIT sans accord explicite (CLAUDE.md racine)
 
-- ❌ Modifier `rollup.config.ts`, `tsconfig.json`, `tsconfigClient.json`, `tsconfig.declarations.json`
+- ❌ Modifier `rolldown.config.ts`, `tsconfig.json`, `tsconfigClient.json`, `tsconfig.declarations.json`
 - ❌ Modifier `package.json` (workspaces, scripts, deps)
 - ❌ Supprimer des fichiers
 - ❌ Changer la structure des dossiers
@@ -72,7 +72,7 @@ Si un seuil saute (35 MB / 1000 req HTTP, 30 MB / 100 WS) → c'est un **blocker
 ```
 src/nodefony/
 ├── package.json              ← name: "nodefony" (pas @nodefony/core)
-├── rollup.config.ts          ← preserveModules + .d.ts per module
+├── rolldown.config.ts          ← preserveModules + .d.ts per module
 ├── tsconfig.json             ← config build
 ├── tsconfig.declarations.json← config types
 ├── tsconfigClient.json       ← config browser-compat (P14.11 isomorphe — futur)
@@ -83,7 +83,7 @@ src/nodefony/
 ├── INJECTION_PLAN.md         ← plan migration injection (P4.5, Phase B/C/D/E)
 ├── bin/
 │   └── nodefony              ← exécutable CLI (link vers dist/bin/nodefony.js)
-├── dist/                     ← sortie Rollup (gitignored)
+├── dist/                     ← sortie rolldown (gitignored)
 └── src/
     ├── index.ts              ← barrel ESM — re-exports publics
     ├── Service.ts            ← classe de base
@@ -217,7 +217,7 @@ npm run test           # vitest run — 1558 tests (perf opt-in skippés), 2026-
 npm run test:perf      # RUN_PERF=1 vitest run — inclut les microbenchs à seuil (non-déterministes)
 npm run test:boot      # RUN_CLI_BOOT=1 vitest run — intégration CLI serveur réelle
 npm run coverage       # vitest run --coverage (provider v8) → .coverage/
-npm run build          # rollup build
+npm run build          # rolldown build + .d.ts tsgo
 npm run clean          # supprime dist/
 ```
 

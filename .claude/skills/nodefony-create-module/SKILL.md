@@ -1,7 +1,7 @@
 ---
 name: nodefony-create-module
 description: >
-  Scaffold complet d'un nouveau module Nodefony — package.json, tsconfig, rollup, structure
+  Scaffold complet d'un nouveau module Nodefony — package.json, tsconfig, rolldown, structure
   nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports),
   CLAUDE.md, MEMORY.md, README.md. Détecte le pattern (package @nodefony/* vs module applicatif
   src/modules/), pré-configure peerDeps et options (CLI, controllers, frontend), met à jour le manifeste `modules` de nodefony.config.ts.
@@ -107,7 +107,7 @@ Variables à remplacer dans tous les templates :
 - `{{peer_deps}}` → JSON object selon options activées
 - `{{peer_dev_types}}` → liste @types/\* devDependencies selon options
 
-**Fichiers générés TOUJOURS** : `package.json`, `tsconfig.json`, `rollup.config.ts`,
+**Fichiers générés TOUJOURS** : `package.json`, `tsconfig.json`, `rolldown.config.ts`, `tsconfig.declarations.json`,
 `vitest.config.ts`, `index.ts` (Module class + exports + validation Zod au boot),
 **`nodefony/config/config.ts`** ⭐ (schéma Zod commenté = source unique + défauts `parse({})`),
 `nodefony/config/defineModuleConfig.ts` (nom de FICHIER uniforme partout — fonction préfixée
@@ -154,7 +154,7 @@ Variables à remplacer dans tous les templates :
 npm run build --workspace={{path_dir}} 2>&1 | tail -5
 ```
 
-Vérifier qu'il n'y a PAS de `error TS[0-9]+` (les warnings TS7016 sur `rollup-sourcemap-path-transform` sont attendus et acceptables).
+Vérifier qu'il n'y a PAS de `error TS[0-9]+`.
 
 ### 5. Optionnel — activation dans le manifeste `modules` de `nodefony.config.ts`
 
@@ -184,7 +184,7 @@ npm install
 # (b) Build du module + des deps modifiées EN DIRECT (pas turbo : cache → types périmés / TS2353)
 cd src/modules/{{name}} && npm run build && ls dist/index.js   # ← vérifier l'émission, pas "created dist"
 # (c) Dist RACINE rebuild (sinon 1er boot rate le module ; start.sh ne build que le module test)
-cd /Users/cci/repository/nodefony-core && npx rollup -c
+cd /Users/cci/repository/nodefony-core && npx rolldown -c rolldown.config.ts
 # (d) stop + start
 bash .claude/skills/nodefony-start-server/stop.sh && bash .claude/skills/nodefony-start-server/start.sh
 ```
@@ -207,7 +207,7 @@ Module @nodefony/{{name}} créé.
 
 ## Templates des fichiers à générer
 
-> 📄 Tous les templates (package.json, tsconfig, rollup, index.ts, services, errors, command,
+> 📄 Tous les templates (package.json, tsconfig, rolldown, index.ts, services, errors, command,
 > controller, CLAUDE.md, MEMORY.md, README.md) sont dans
 > **[`reference/templates.md`](reference/templates.md)** — les charger au moment de l'étape 3.
 > Conventions figées : TS strict, ESM-only, named exports, préfixe `node:`, interfaces `I*`,
@@ -220,27 +220,27 @@ Module @nodefony/{{name}} créé.
 Après génération :
 
 1. **Build du module** : `npm run build --workspace={{path_dir}}`
-2. **Vérifier 0 erreur TS** (warnings TS7016 rollup-sourcemap acceptables)
+2. **Vérifier 0 erreur TS**
 3. **Si activé dans le manifeste `modules`** : `npm run build` full + check qu'aucun workspace ne casse
 4. **Reporter à l'user** le statut + chemins créés
 
 ## Pièges connus à éviter
 
-| Piège                                                                  | Symptôme                                                                                                                                                           | Fix                                                                                                                                                     |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `options: Config` redéclaré dans Service                               | TS2565 "Property 'options' is used before being assigned"                                                                                                          | Utiliser `private readonly cfg: Config` field                                                                                                           |
-| `declarationDir` sans `declaration`                                    | TS5069                                                                                                                                                             | Soit garder les 2, soit retirer les 2                                                                                                                   |
-| `external: ["nodefony"]` non exact-match                               | "nodefony" matche tous chunks `nodefony/...`                                                                                                                       | `id === e \|\| (e !== "nodefony" && id.startsWith(e + "/"))`                                                                                            |
-| Service `name` ≠ className                                             | `container.get("ClassName")` retourne undefined                                                                                                                    | Utiliser le name passé à super()                                                                                                                        |
-| ANSI dans stdout child                                                 | regex match foire                                                                                                                                                  | strip via `/\x1b\[[0-9;]*m/g`                                                                                                                           |
-| `npx command &` meurt SIGHUP                                           | process detached die                                                                                                                                               | spawn `detached: true` + `child.unref()`                                                                                                                |
-| `path.resolve(root, "./frontend/src/main.tsx")` quand root déjà absolu | `frontend/frontend/...` doublé                                                                                                                                     | Stocker entryFile relatif au root (`path.relative(root, abs)`)                                                                                          |
-| Activation `modules` (nodefony.config.ts) dans le mauvais ordre        | service non trouvé au consumer                                                                                                                                     | Frontend AVANT son consumer ; framework/http AVANT modules qui les utilisent                                                                            |
-| Forgot `/// <reference types="node" />`                                | TS errors sur globals Node                                                                                                                                         | Première ligne des fichiers test                                                                                                                        |
-| **Nouveau workspace sans `npm install`**                               | **boot crash `Cannot find package '.../node_modules/@nodefony/<mod>/dist/index.js'`**                                                                              | **`npm install` racine APRÈS création** → crée le symlink `node_modules/@nodefony/<mod>` (glob workspaces `src/modules/*` / `src/packages/@nodefony/*`) |
-| **Dist RACINE périmé après ajout au manifeste `modules`**              | 1er boot rate le module (même si le module est bâti)                                                                                                               | **rebuild dist racine** (`npx rollup -c` à la racine) — `start.sh` ne build QUE le module test ; cf mémoire `feedback_root_dist_stale_modules`          |
-| **Turbo sert des types périmés d'une lib partagée**                    | `TS2353 '<champ>' n'existe pas sur <IInterface>` alors que la source l'a (ex. champ ajouté à `IEntity` dans orm-core)                                              | **builder la dép EN DIRECT** (`cd <dep> && npm run build`), PAS via turbo (cache stale) ; cf `feedback_turbo_cache_stale_logs`                          |
-| **`created dist` menteur**                                             | build « réussi » mais `dist/index.js` **absent** — les erreurs de type `@rollup/plugin-typescript` sont des **WARNINGS**, le JS s'émet (ou pas) sans faire échouer | **TOUJOURS `ls dist/index.js`** après build, ne pas se fier au message « created dist »                                                                 |
+| Piège                                                                  | Symptôme                                                                                                              | Fix                                                                                                                                                                 |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `options: Config` redéclaré dans Service                               | TS2565 "Property 'options' is used before being assigned"                                                             | Utiliser `private readonly cfg: Config` field                                                                                                                       |
+| `declarationDir` sans `declaration`                                    | TS5069                                                                                                                | Soit garder les 2, soit retirer les 2                                                                                                                               |
+| `external: ["nodefony"]` non exact-match                               | "nodefony" matche tous chunks `nodefony/...`                                                                          | `id === e \|\| (e !== "nodefony" && id.startsWith(e + "/"))`                                                                                                        |
+| Service `name` ≠ className                                             | `container.get("ClassName")` retourne undefined                                                                       | Utiliser le name passé à super()                                                                                                                                    |
+| ANSI dans stdout child                                                 | regex match foire                                                                                                     | strip via `/\x1b\[[0-9;]*m/g`                                                                                                                                       |
+| `npx command &` meurt SIGHUP                                           | process detached die                                                                                                  | spawn `detached: true` + `child.unref()`                                                                                                                            |
+| `path.resolve(root, "./frontend/src/main.tsx")` quand root déjà absolu | `frontend/frontend/...` doublé                                                                                        | Stocker entryFile relatif au root (`path.relative(root, abs)`)                                                                                                      |
+| Activation `modules` (nodefony.config.ts) dans le mauvais ordre        | service non trouvé au consumer                                                                                        | Frontend AVANT son consumer ; framework/http AVANT modules qui les utilisent                                                                                        |
+| Forgot `/// <reference types="node" />`                                | TS errors sur globals Node                                                                                            | Première ligne des fichiers test                                                                                                                                    |
+| **Nouveau workspace sans `npm install`**                               | **boot crash `Cannot find package '.../node_modules/@nodefony/<mod>/dist/index.js'`**                                 | **`npm install` racine APRÈS création** → crée le symlink `node_modules/@nodefony/<mod>` (glob workspaces `src/modules/*` / `src/packages/@nodefony/*`)             |
+| **Dist RACINE périmé après ajout au manifeste `modules`**              | 1er boot rate le module (même si le module est bâti)                                                                  | **rebuild dist racine** (`npx rolldown -c rolldown.config.ts` à la racine) — `start.sh` ne build QUE le module test ; cf mémoire `feedback_root_dist_stale_modules` |
+| **Turbo sert des types périmés d'une lib partagée**                    | `TS2353 '<champ>' n'existe pas sur <IInterface>` alors que la source l'a (ex. champ ajouté à `IEntity` dans orm-core) | **builder la dép EN DIRECT** (`cd <dep> && npm run build`), PAS via turbo (cache stale) ; cf `feedback_turbo_cache_stale_logs`                                      |
+| **`created dist` menteur**                                             | build « réussi » mais `dist/index.js` **absent** — vérifier l'émission réelle                                         | **TOUJOURS `ls dist/index.js`** après build, ne pas se fier au message « created dist »                                                                             |
 
 ## Exemples concrets de modules créés
 

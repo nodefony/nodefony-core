@@ -72,7 +72,7 @@ décorateurs `@CsrfProtect` (token synchronizer HMAC) + `@CsrfExempt` (+ per-con
 
 - Importer `@nodefony/http`/`@nodefony/framework` **runtime** (type-only OK) sauf via le pattern existant.
 - `any`, `@ts-ignore`, `require()`. Allouer dans le hot-path sans lazy.
-- Ajouter une dep runtime sans accord (zod validé). Modifier `rollup.config.ts`/`tsconfig.json` sans accord.
+- Ajouter une dep runtime sans accord (zod validé). Modifier `rolldown.config.ts`/`tsconfig.json` sans accord.
 - Réintroduire la lib `helmet`, `passport*`, `csrf`, `jsonwebtoken` (supprimées). JWT = `jose` (S3), OAuth = `arctic` (S6).
 
 ## Perf — RÈGLE ABSOLUE

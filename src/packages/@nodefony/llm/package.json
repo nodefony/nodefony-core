@@ -14,7 +14,7 @@
   "scripts": {
     "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "clean": "rimraf dist",
-    "dev": "rollup --config rollup.config.ts --configPlugin typescript --watch",
+    "dev": "rolldown -c rolldown.config.ts --watch",
     "test": "bun test",
     "lint": "tsc --noEmit"
   },

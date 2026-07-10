@@ -6,8 +6,8 @@
   "types": "./dist/index.d.ts",
   "dependencies": {
     "@nodefony/llm": "*",
-    "@nodefony/rag": "*",
-    "@nodefony/memory": "*"
+    "@nodefony/memory": "*",
+    "@nodefony/rag": "*"
   },
   "license": "CECILL-B",
   "private": true

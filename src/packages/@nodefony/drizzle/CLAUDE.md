@@ -77,7 +77,7 @@ Deux usages :
 
 ## Build / types / test
 
-- `npm run build` (rollup preserveModules) → `dist/` + `dist/types/` + `exports`
+- `npm run build` (rolldown preserveModules) → `dist/` + `dist/types/` + `exports`
   (standard conforme, pas de `.d.ts` manuel).
 - `npm test` (`vitest.config.ts`) → `tests/integration/` : banc orm-core,
   jointure très complexe (CTE+window+sous-requêtes corrélées via trappe native,
@@ -196,7 +196,7 @@ main ; opt-out `frameworkEntities: false`.
   (+ `url` pour pg/mysql). Type `SqlDialect` exporté. En pratique l'app ne l'écrit pas :
   `NF_DATABASE_URL=postgres://…` (infra déclarée) → `defineDrizzleConfig` déduit dialecte + url.
 - **`DrizzleOrm` dialect-aware** : `onConnect` route `#connectSqlite` (better-sqlite3, sync) /
-  `#connectPostgres` (driver `pg` **lazy** `await import`, `optionalDependency`, externalisé rollup).
+  `#connectPostgres` (driver `pg` **lazy** `await import`, `optionalDependency`, externalisé rolldown).
   DDL dérivé partagé `#buildCreateTable` (le bon `getTableConfig` selon dialecte ; `col.getSQLType()`
   rend `text`/`integer` SQLite, `text`/`bigint`/`jsonb` PG). `disconnect`/`ping`/`describeConnection`/
   `describeEntity` routés. `getNativeConnection<DrizzleDb>()` inchangé.
@@ -252,7 +252,7 @@ expiresAt < now` (change toujours `expiresAt` → 1 ⇔ vol ; deux voleurs se s�
   (parse si string, passthrough sinon, `dataType: "json"`). Docker : service `mariadb` (11.4,
   port 3306, quotidien) + service `mysql` (8.4, port 3307, preuve de compat) — les MÊMES e2e
   passent sur les deux (`NF_MYSQL_URL` pointe l'un ou l'autre).
-- **Drivers** : `pg` + `mysql2` en `optionalDependencies` (lazy import, externalisés rollup ;
+- **Drivers** : `pg` + `mysql2` en `optionalDependencies` (lazy import, externalisés rolldown ;
   `@types/pg` dev, mysql2 embarque ses types). `better-sqlite3` reste `dependencies` (défaut
   bootable).
 

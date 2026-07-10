@@ -207,7 +207,7 @@ nodefony-core/
 ├── MIGRATION_STATUS.md         ← tableau de bord — LIRE EN DÉBUT DE SESSION
 └── src/
     ├── nodefony/               ← workspace @nodefony/core
-    │   ├── rollup.config.ts    ← bundler (NE PAS MODIFIER sans accord)
+    │   ├── rolldown.config.ts  ← bundler (NE PAS MODIFIER sans accord)
     │   ├── tsconfig.json
     │   └── src/
     │       ├── tests/          ← tests mocha (npm run test)
@@ -241,7 +241,7 @@ src/packages/@nodefony/[module]/ ou src/modules/[module]
 ├── MEMORY.md             ← INSTRUCTIONS SPÉCIFIQUES Audience IA
 ├── package.json          ← workspace npm
 ├── README.md             ← doc du module
-├── rollup.config.ts
+├── rolldown.config.ts
 ├── tsconfig.json
 ├── nodefony
 │   ├── interfaces        ← I*.ts
@@ -260,7 +260,7 @@ src/packages/@nodefony/[module]/ ou src/modules/[module]
 
 ### La règle
 
-Chaque module doit exposer ses types via les fichiers **générés automatiquement** par Rollup+TypeScript.
+Chaque module doit exposer ses types via les fichiers **générés automatiquement** (bundle rolldown + `.d.ts` par tsgo).
 **Jamais** de fichier `.d.ts` écrit à la main — ils divergent silencieusement du code réel.
 
 ### `package.json` — template obligatoire
@@ -280,7 +280,7 @@ Chaque module doit exposer ses types via les fichiers **générés automatiqueme
 
 - `types` : fallback pour les outils TS < 4.7
 - `exports["."].types` : pris en priorité par TS 4.7+ avec `moduleResolution: Bundler`
-- Les deux pointent vers `dist/types/` généré par Rollup — jamais vers `nodefony/types/`
+- Les deux pointent vers `dist/types/` généré par tsgo — jamais vers `nodefony/types/`
 
 ### `index.ts` — re-exporter tous les types publics
 
@@ -307,13 +307,13 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 
 - **`"./index.ts"` (source TS, anti-race)** — modules consommés EN SOURCE par un autre module : `http`, `framework`, `security`, `frontend`, `orm-core`, `user`. **Chaîne obligatoire** : security → user → orm-core → `nodefony` (core buildé en 1er → `dist` prêt). Casser un maillon (un `dist/types` au milieu) = TS2307 « Cannot find module » sur les consommateurs amont (build race). Cf [[feedback_turbo_cache_stale_logs]].
 - **`"./dist/types/..."` (`.d.ts` généré, standard)** — modules NON consommés en source : `drizzle`, `mongoose`, `redis`, `llm`. `nodefony` (core) = isomorphe (`browser`/`import`).
-- WIP P12 (pas encore câblés, pas de `rollup.config.ts`) : `agent`, `memory`, `rag`, `vector`. `studio` = `private: true` + `declaration: false` (types publics inutiles).
+- WIP P12 (pas encore câblés, pas de `rolldown.config.ts`) : `agent`, `memory`, `rag`, `vector`. `studio` = `private: true` + `declaration: false` (types publics inutiles).
 
 ---
 
 ## Décisions techniques (finales)
 
-**Bundler** : Rollup — `preserveModules: true`, génération `.d.ts` par module. Ne pas remplacer.
+**Bundler** : **rolldown** (`preserveModules: true`, config partagée `rolldown.shared.ts` racine) + **`.d.ts` par `tsgo -p tsconfig.declarations.json`** (hors bundler). Rollup RETIRÉ (migration 2026-07, cf `docs/audits/rolldown-migration-plan-2026-07.md`). Ne pas remplacer sans accord.
 
 **Serveurs** : Node.js natif uniquement — `node:http`, `node:http2`, `ws`. Jamais `Bun.serve()`.
 
@@ -647,7 +647,7 @@ Utiliser le skill **`nodefony-start-server`** (versionné dans `.claude/skills/n
 - CLI direct du skill : `/nodefony-start-server`
 - Langage naturel (auto-trigger) : "lance le serveur", "démarre nodefony", "relance le serveur"
 
-Le skill gère : kill ports 5151/5152, rebuild `src/modules/test`, spawn `detached` (évite SIGHUP), attente boot avec progression, health check, diagnostic crash. Détails complets (signaux d'alarme, parsing logs, symptômes 404, watch Rollup runtime piège) dans le `SKILL.md`.
+Le skill gère : kill ports 5151/5152, rebuild `src/modules/test`, spawn `detached` (évite SIGHUP), attente boot avec progression, health check, diagnostic crash. Détails complets (signaux d'alarme, parsing logs, symptômes 404, watch runtime piège) dans le `SKILL.md`.
 
 > Toujours `development` — pas `dev`, pas `start`, pas `production` (`production` = foreground cloud-native, topologie via `--workers` ; plus aucune daemonisation PM2).
 

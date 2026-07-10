@@ -3,7 +3,7 @@
 #
 # Usage : bash .claude/skills/nodefony-start-server/stop.sh
 #
-# Tue watch+rollup AVANT lsof+kill (sinon le watch respawn un process sur les ports).
+# Tue watch+rolldown AVANT lsof+kill (sinon le watch respawn un process sur les ports).
 # Cf mémoire IA feedback_server_kill_oneshot.
 
 set -uo pipefail
@@ -26,10 +26,10 @@ echo ">>> KILL nodefony (nodefony stop multi-mode + filet)"
 # "nodefony development|master|worker|server"` est soit MORT (titre déjà posé → l'argv
 # n'existe plus) soit REDONDANT (titre posé → `nodefony stop` le voit par ps). Ne restent
 # utiles que les argv de la fenêtre de boot PRÉ-TITRE (avant que startClusterMaster /
-# generate posent le titre), que `stop` ne voit pas encore — plus `rollup`.
+# generate posent le titre), que `stop` ne voit pas encore — plus `rolldown`.
 pkill -9 -f "nodefony cluster" 2>/dev/null     # fenêtre pré-titre du master cluster
 pkill -9 -f "nodefony production" 2>/dev/null   # fenêtre pré-titre du prod mono
-pkill -9 -f "rollup" 2>/dev/null
+pkill -9 -f "rolldown" 2>/dev/null
 # ⚠️ `-sTCP:LISTEN` OBLIGATOIRE : `lsof -ti:PORT` SEUL vise aussi les CLIENTS
 # connectés (le NAVIGATEUR sur Studio) → `kill -9` tuerait le navigateur du user.
 # On ne tue QUE les sockets en écoute = le(s) serveur(s). (cf start.sh, même fix.)

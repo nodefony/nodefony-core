@@ -59,16 +59,17 @@ serveur**, **subpath Core isomorphe** (`nodefony/*`).
 - le **back-end Studio** (`nodefony/controller/*`, `nodefony/realtime/providers.ts`) — controller, data plane utilitaire, providers de canaux.
 
 **Passer la main** :
-| Besoin | Skill |
-| ------ | ----- |
-| Mécanisme front général (isomorphisme, socket client, HMR, BFF, RBAC isomorphe, a11y/perf/calme) | `nodefony-frontend-dev` |
-| Scaffolder un module applicatif avec front Vite (React/Vue/Angular) | `nodefony-create-frontend-module` |
-| Cœur back : service, module, CLI, endpoint, **canal/action serveur**, entité ORM, subpath `nodefony/*` | `nodefony-framework-dev` |
-| Portail doc / markdown / FlowGraph / `@nodefony/documentation` | `nodefony-documentation` |
-| Revue / attaque sécurité du diff avant commit | `nodefony-security-review` |
-| Conformité RFC HTTP/WS/CORS/cookies · normes WCAG/ARIA | `nodefony-rfc` · (specs dans `frontend-dev`) |
-| Démarrer/redémarrer le serveur dev | `nodefony-start-server` |
-| Vérifier une modif front sans navigateur (curl transform Vite, purge prébundle) | `nodefony-frontend-verify` |
+
+| Besoin                                                                                                 | Skill                                        |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Mécanisme front général (isomorphisme, socket client, HMR, BFF, RBAC isomorphe, a11y/perf/calme)       | `nodefony-frontend-dev`                      |
+| Scaffolder un module applicatif avec front Vite (React/Vue/Angular)                                    | `nodefony-create-frontend-module`            |
+| Cœur back : service, module, CLI, endpoint, **canal/action serveur**, entité ORM, subpath `nodefony/*` | `nodefony-framework-dev`                     |
+| Portail doc / markdown / FlowGraph / `@nodefony/documentation`                                         | `nodefony-documentation`                     |
+| Revue / attaque sécurité du diff avant commit                                                          | `nodefony-security-review`                   |
+| Conformité RFC HTTP/WS/CORS/cookies · normes WCAG/ARIA                                                 | `nodefony-rfc` · (specs dans `frontend-dev`) |
+| Démarrer/redémarrer le serveur dev                                                                     | `nodefony-start-server`                      |
+| Vérifier une modif front sans navigateur (curl transform Vite, purge prébundle)                        | `nodefony-frontend-verify`                   |
 
 ## 2. 🚨 RÈGLES ABSOLUES Studio (non négociables — priorité MAX)
 
@@ -143,7 +144,7 @@ cd src/packages/@nodefony/studio && npm run typecheck     # gate front = exit 0 
 3. **Type-check** : `npm run typecheck` = 0 erreur (le SEUL gate de types — cf `nodefony-frontend-verify`).
 4. **Vérif sans navigateur** : curl le data plane (`curl -sk https://127.0.0.1:5152/nodefony/<m>/api/...`) + le transform
    Vite (`https://127.0.0.1:5173/@fs/<abs>.tsx` → 200). Modif **front** = HMR (0 restart) ; modif **back** Studio =
-   `npm run build` (rollup) + restart.
+   `npm run build` (rolldown) + restart.
 5. **Hard-reload** `https://127.0.0.1:5152/nodefony` (cache React) → confirmation **visuelle user** (pas de headless — règle projet).
 
 > Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. **Fin de session Studio** : fondre les nouvelles

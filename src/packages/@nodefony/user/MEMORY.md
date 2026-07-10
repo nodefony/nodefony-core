@@ -15,7 +15,7 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 ## Config
 
 - Lib pure. peerDeps : `nodefony` + `@nodefony/orm-core` (pour `IRepository`) + `@node-rs/bcrypt` (**optionnelle** — binaire NAPI, tirée seulement si on utilise `BcryptEncoder`). PAS de Module runtime, PAS dans `@modules()`.
-- rollup external : `nodefony`, `tslib`, `@nodefony/orm-core`, `@node-rs/bcrypt` (jamais bundler un addon natif).
+- rolldown external : `nodefony`, `tslib`, `@nodefony/orm-core`, `@node-rs/bcrypt` (jamais bundler un addon natif).
 
 ## Behaviors
 

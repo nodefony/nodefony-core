@@ -42,7 +42,7 @@ d'autres couches — il ne contient aucune logique métier.
 ```
 @nodefony/redis/
 ├── index.ts                         ← Module + onKernelRegister (validate) + exports
-├── package.json / rollup / tsconfig ← NE PAS MODIFIER rollup/tsconfig sans accord
+├── package.json / rolldown / tsconfig ← NE PAS MODIFIER rolldown/tsconfig sans accord
 ├── vitest.config.ts
 ├── CLAUDE.md / MEMORY.md / README.md
 ├── docs/{index,architecture,configuration}.md
@@ -56,7 +56,7 @@ d'autres couches — il ne contient aucune logique métier.
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rollup.config.ts` ou `tsconfig.json` (zod ajouté à `external` + tests exclus le 2026-05-28).
+- Modifier `rolldown.config.ts` ou `tsconfig.json` (zod ajouté à `external` + tests exclus le 2026-05-28).
 - Lire `process.env` dans `config.ts` (le schéma doit rester pur → env dans le builder).
 - Coder le `RedisBackplane` (P13.5) DANS ce module — c'est un **consommateur** (realtime) qui
   importe `RedisService` (il vit dans `@nodefony/realtime`).

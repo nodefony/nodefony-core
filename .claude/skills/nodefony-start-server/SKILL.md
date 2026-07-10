@@ -69,19 +69,19 @@ node node_modules/nodefony/bin/nodefony stop      # arrêt PROPRE du mode dev (g
 >   reste testable. `staging`/`preprod` = **déprécié** (→ `cluster`). Topologie : voir
 >   `nodefony/config/cluster/cluster.config.ts` (`cluster.workers`) ou `NODEFONY_WORKERS`.
 
-Le script gère **tout** : kill des process Nodefony résiduels (+ rollup) + ports → build conditionnel
+Le script gère **tout** : kill des process Nodefony résiduels (+ rolldown) + ports → build conditionnel
 module test → spawn detached du superviseur → wait boot (fail-fast) → verify 4 servers réseau → health
 check. Sortie : marqueurs `>>>` sur stdout. Exit 0 = UP, exit 1 = crash/timeout. Log :
 `/tmp/nodefony-server.log`, PID : `/tmp/srv.pid`.
 
 > ✅ **Édit de la config app** (`nodefony.config.ts` / `env.ts` racine) en `development` : pris en
 > compte **automatiquement**. Le DevSupervisor surveille ces fichiers (`#paths`) → une modif rebuild
-> le root (`rollup -c`) puis restart l'enfant. Au lancement, `#ensureBuilt` (turbo + vérif des `dist`
+> le root (`rolldown -c`) puis restart l'enfant. Au lancement, `#ensureBuilt` (turbo + vérif des `dist`
 > sur disque) et `#rootDistStale` (mtime `index.ts`/`nodefony.config.ts`/`env.ts` vs `dist/index.js`)
 > garantissent déjà un dist root frais. Le boot lit la config depuis `dist/{index,nodefony.config,env}.js`,
 > pas la source → c'est le superviseur qui referme l'écart. cf [[feedback_root_dist_stale_modules]].
 > ⚠️ En **`--cluster`** (runtime prod, PAS de superviseur), rebuilder le root manuellement avant le
-> boot — `start.sh --cluster` le fait (turbo + `rollup -c`).
+> boot — `start.sh --cluster` le fait (turbo + `rolldown -c`).
 
 ## Pourquoi un script (et pas des commandes inline)
 
@@ -123,9 +123,9 @@ Ce qu'il fait :
 
 - **Boot durci** : `#ensureBuilt` AVANT le 1er spawn — `turbo run build` PUIS vérification des `dist`
   **sur disque** (anti « cache turbo trompeur » : exit 0 sans restaurer un dist supprimé = 404
-  silencieux) ; `#rootDistStale` rebuild le root (`rollup -c`) si une source racine a bougé.
+  silencieux) ; `#rootDistStale` rebuild le root (`rolldown -c`) si une source racine a bougé.
 - **Auto-restart backend** : watch chokidar des sources backend (`frontend/`, `dist/`, `tests/`
-  exclus) → rebuild **ciblé** (`turbo --filter` + `rollup -c` root si touché) → **group-kill** de
+  exclus) → rebuild **ciblé** (`turbo --filter` + `rolldown -c` root si touché) → **group-kill** de
   l'enfant (`process.kill(-pid)` emporte les Vite → 0 orphelin) → attente ports libres
   (anti-`EADDRINUSE`) → respawn. Pas de HMR backend : Node ne décharge pas un module ESM importé.
 - **HMR frontend préservé** : `frontend/` exclu du watch → une modif front passe en HMR Vite (0 restart).

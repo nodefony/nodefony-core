@@ -77,7 +77,7 @@ garanti au `unsubscribe` ET `ctx.once("onFinish")`. ⚠️ Après le handshake `
 
 - Modif **front** (`frontend/src/**`) → **HMR Vite, 0 restart**.
 - Modif **back** Studio (`nodefony/**` : controller, providers, config) → `cd src/packages/@nodefony/studio
-&& npm run build` (**rollup**, pas Vite) **puis** restart serveur (`start.sh`).
+&& npm run build` (**rolldown**, pas Vite) **puis** restart serveur (`start.sh`).
 - Modif **core** ou **nouveau subpath `nodefony/*`** → build core (`cd src/nodefony && npm run build`)
   **puis** restart (Vite ré-optimise les deps au boot ; un subpath neuf n'est pas résolu à chaud).
 - Vérif back sans navigateur : **curl le data plane** (`curl -sk https://127.0.0.1:5152/nodefony/<m>/api/...`)
@@ -90,7 +90,7 @@ garanti au `unsubscribe` ET `ctx.once("onFinish")`. ⚠️ Après le handshake `
 >    touche PAS le **back Studio** (`nodefony/**` : controller, **realtime providers** comme
 >    `clusterSupervision.ts`). Un fix back « invisible au runtime » alors qu'on a « rebuildé » 5× =
 >    on a rebuildé le mauvais étage. **Back Studio → `cd src/packages/@nodefony/studio && npm run build`
->    (rollup)**, TOUJOURS. Vérifier : `grep <ta-chaîne> src/packages/@nodefony/studio/dist/nodefony/...`.
+>    (rolldown)**, TOUJOURS. Vérifier : `grep <ta-chaîne> src/packages/@nodefony/studio/dist/nodefony/...`.
 > 2. **Toute modif front** = `build:front` **+ kill/restart cluster** (`renderProdTags` cache le manifest
 >    au boot → restart obligatoire, pas juste le build) **+ hard-reload navigateur avec DevTools
 >    « Disable cache » ON** (sinon vieux `index.html` → chunk hashé supprimé → **404 import lazy = "la

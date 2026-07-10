@@ -16,7 +16,7 @@ import type { RolldownOptions, Plugin } from "rolldown";
 import {
   nodefonyExternalMatcher,
   nodefonyTreeshake,
-} from "../../rolldown.shared.ts";
+} from "../../rolldown.shared";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 

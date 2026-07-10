@@ -71,7 +71,7 @@ Appeler le skill avec ce preset (fixer ces réponses) :
 | Q3 Options                                  | **`Controllers HTTP` + `Frontend Vite`** (pas de Service/CLI/Entities sauf demande explicite) |
 | Q4 manifeste `modules` (nodefony.config.ts) | **Oui** (sinon la page n'est pas servie)                                                      |
 
-Génère : `package.json` (peers `@nodefony/frontend|framework|http`), `tsconfig.json`, `rollup.config.ts`,
+Génère : `package.json` (peers `@nodefony/frontend|framework|http`), `tsconfig.json`, `rolldown.config.ts`,
 `index.ts` (avec `@controllers` + `onKernelBoot` → `registerEntry`), `frontend/`, controller stub, config stub,
 activation dans le manifeste `modules` de `nodefony.config.ts`.
 
@@ -166,7 +166,7 @@ cd /Users/cci/repository/nodefony-core && npm install
 # (b) Build module EN DIRECT + VÉRIFIER l'émission (ne pas se fier au message "created dist")
 cd /Users/cci/repository/nodefony-core/src/modules/{MOD} && npm run build && ls dist/index.js
 # (c) Dist RACINE rebuild après ajout au manifeste `modules` de nodefony.config.ts (start.sh ne build QUE le module test)
-cd /Users/cci/repository/nodefony-core && npx rollup -c
+cd /Users/cci/repository/nodefony-core && npx rolldown -c rolldown.config.ts
 cd /Users/cci/repository/nodefony-core && npx tsc --noEmit | head -20
 ```
 
@@ -186,7 +186,7 @@ cd /Users/cci/repository/nodefony-core && npx tsc --noEmit | head -20
 - [ ] manifeste `modules` (nodefony.config.ts) : `@nodefony/frontend` AVANT `@nodefony/{MOD}` (ordre boot critique)
 - [ ] peerDeps du framework présents (react+react-dom / vue / @angular\*)
 - [ ] `npx tsc --noEmit` 0 erreur + `npm run build` du module OK
-- [ ] `npm install` lancé (symlink workspace) + `ls dist/index.js` vérifié + `rollup -c` racine (dist racine à jour)
+- [ ] `npm install` lancé (symlink workspace) + `ls dist/index.js` vérifié + `rolldown -c` racine (dist racine à jour)
 
 ## Pièges communs (les 3 frameworks)
 
@@ -197,7 +197,7 @@ cd /Users/cci/repository/nodefony-core && npx tsc --noEmit | head -20
 5. **Cert HTTPS Vite** (si HTTPS) : accepter le cert sur `:5173` ET `:5152` (origines distinctes), ou installer la CA Nodefony.
 6. **Placeholders** : remplacer `{MOD}`, `{MOD_PASCAL}`, `{ROUTE}`, `{TYPE}`, `{ENTRY}`, `{MOUNT_NODE}`, `{HTTPS_VITE}` AVANT le Write.
 
-> Pièges **spécifiques React** (preamble) et **Angular** (`--legacy-peer-deps`, external rollup, tsconfig.app,
+> Pièges **spécifiques React** (preamble) et **Angular** (`--legacy-peer-deps`, external rolldown, tsconfig.app,
 > `useDefineForClassFields:false`, HMR=reload) → **[`reference/frameworks.md`](reference/frameworks.md)**.
 
 ## Skills & références liés

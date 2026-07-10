@@ -63,17 +63,17 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
 
 **Passer la main** :
 
-| Besoin                                                             | Skill                             |
-| ------------------------------------------------------------------ | --------------------------------- |
-| Scaffolder un module vide (package.json/rollup/tsconfig/structure) | `nodefony-create-module`          |
-| Module applicatif avec front Vite (React/Vue/Angular)              | `nodefony-create-frontend-module` |
-| Frontend Studio (page/dashboard/composant React)                   | `nodefony-studio-dev`             |
-| Lancer la suite mémoire (avant commit pipeline)                    | `nodefony-check-memory-health`    |
-| Démarrer/redémarrer le serveur dev                                 | `nodefony-start-server`           |
-| Conformité RFC HTTP/WS/CORS/cookies                                | `nodefony-rfc`                    |
-| Revue sécurité du diff avant commit                                | `nodefony-security-review`        |
-| Typer un truc tordu (utility types, @types/node)                   | `nodefony-ts-docs`                |
-| Charge / stress HTTP+WS                                            | `nodefony-load-test`              |
+| Besoin                                                               | Skill                             |
+| -------------------------------------------------------------------- | --------------------------------- |
+| Scaffolder un module vide (package.json/rolldown/tsconfig/structure) | `nodefony-create-module`          |
+| Module applicatif avec front Vite (React/Vue/Angular)                | `nodefony-create-frontend-module` |
+| Frontend Studio (page/dashboard/composant React)                     | `nodefony-studio-dev`             |
+| Lancer la suite mémoire (avant commit pipeline)                      | `nodefony-check-memory-health`    |
+| Démarrer/redémarrer le serveur dev                                   | `nodefony-start-server`           |
+| Conformité RFC HTTP/WS/CORS/cookies                                  | `nodefony-rfc`                    |
+| Revue sécurité du diff avant commit                                  | `nodefony-security-review`        |
+| Typer un truc tordu (utility types, @types/node)                     | `nodefony-ts-docs`                |
+| Charge / stress HTTP+WS                                              | `nodefony-load-test`              |
 
 **Déclencher EN PLUS pendant le dev (orchestration — ne pas coder « de mémoire » sur ces sujets)** :
 
@@ -231,10 +231,10 @@ jq '.symbols | to_entries | map(select(.value.module=="@nodefony/http")) | from_
 ## 5. Gates qualité (AVANT commit — l'ordre compte)
 
 ```bash
-# 1. BUILD (rollup, par module modifié ; clean+build si pull/merge/refactor croisé)
+# 1. BUILD (rolldown, par module modifié ; clean+build si pull/merge/refactor croisé)
 cd src/packages/@nodefony/<mod> && npm run build          # ou : npm run build (turbo, racine)
 
-# 2. TYPECHECK — gate DISTINCT du build (tsc rejette ce que rollup ne fait qu'AVERTIR : ex TS18036)
+# 2. TYPECHECK — gate DISTINCT du build (tsgo rejette ce que le build ne voit pas : ex TS18036)
 npm run typecheck                                          # racine (turbo) — core a `tsc --noEmit`
 npx tsc --noEmit                                           # ou direct dans le module ciblé
 
@@ -266,7 +266,7 @@ cd src/packages/@nodefony/http && npm run test:integration          # 100%
 npm run generate-symbols
 ```
 
-- **Pourquoi typecheck séparé** : rollup tolère/avertit là où `tsc --noEmit` rejette (TS18036
+- **Pourquoi typecheck séparé** : le bundler (oxc) ne type-check PAS — `tsgo --noEmit` rejette (TS18036
   `static #x` + décorateur de classe a cassé toute la CI le 2026-05-22). Toujours typecheck avant push.
 - **Filet local = hooks git** (posés 2026-05-22) : **pre-push** `tsc --noEmit`, **commit-msg** commitlint,
   **pre-commit** lint-staged (prettier-only) + pré-filtre symbols. eslint racine = `warn` (jamais

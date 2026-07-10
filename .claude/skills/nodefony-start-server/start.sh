@@ -49,12 +49,12 @@ TEST_MODULE="$ROOT/src/modules/test"
 # C'est CORRECT là où l'ancienne rafale `pkill -f "nodefony development"` RATAIT le
 # superviseur dev — dont le titre est `nodefony-dev-supervisor`, pas `nodefony development`
 # (le `pkill` ne matchait pas → superviseur survivant, et le garde anti-collision du
-# framework refusait alors le démarrage suivant). Filet ENSUITE : rollup résiduel +
+# framework refusait alors le démarrage suivant). Filet ENSUITE : rolldown résiduel +
 # sockets en ÉCOUTE sur les ports (process non-nodefony, ou secours si `ps` indispo).
-echo ">>> KILL (nodefony stop + filet rollup/ports 5151/5152)"
+echo ">>> KILL (nodefony stop + filet rolldown/ports 5151/5152)"
 BIN="$ROOT/node_modules/nodefony/bin/nodefony"
 (cd "$ROOT" && node "$BIN" stop >/dev/null 2>&1)
-pkill -9 -f "rollup" 2>/dev/null
+pkill -9 -f "rolldown" 2>/dev/null
 # ⚠️ `-sTCP:LISTEN` OBLIGATOIRE : `lsof -ti:PORT` SEUL renvoie TOUS les détenteurs
 # d'une socket sur le port — le serveur (LISTEN) MAIS AUSSI les CLIENTS connectés
 # (le NAVIGATEUR sur Studio, en ESTABLISHED). Sans le filtre, `kill -9` tue le
@@ -96,9 +96,9 @@ if [ "$MODE" = "cluster" ]; then
   # `nodefony.config.ts` / `env.ts` / `index.ts` DOIT être recompilée AVANT le boot,
   # sinon STALE (vécu douloureux : backplane redis fantôme bloquant le boot,
   # trustedHosts/localhost périmés, manifeste `modules` d'hier absent). `start.sh` ne
-  # rebuildait QUE le module test → on rebuild le ROOT ici (turbo + `rollup -c`).
+  # rebuildait QUE le module test → on rebuild le ROOT ici (turbo + `rolldown -c`).
   # cf [[feedback_root_dist_stale_modules]].
-  echo ">>> BUILD root (turbo + rollup -c) — config prod (nodefony.config.ts) lue depuis dist/"
+  echo ">>> BUILD root (turbo + rolldown -c) — config prod (nodefony.config.ts) lue depuis dist/"
   (cd "$ROOT" && npm run build 2>&1 | grep -iE "Tasks:" | tail -1)
   # Front PROD (P14.5) : en prod le front n'est PAS servi par Vite mais en STATIQUE
   # depuis les bundles Vite COMPILÉS — renderProdTags lit outDir/.vite/manifest.json.

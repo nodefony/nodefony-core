@@ -79,7 +79,7 @@ Slug inconnu / non sûr → **404 générique** (`{slug, error}`) ; détail logg
 ```bash
 cd src/packages/@nodefony/documentation
 npm test            # vitest run — briques pures (frontmatter/slug/docScanner), 0 serveur
-npm run build       # rollup + TS → dist/ + dist/types
+npm run build       # rolldown + tsgo → dist/ + dist/types
 ```
 
 > Service + controller = testés en **intégration live server** (curl `/api/tree` + `/api/page`), pas
@@ -87,7 +87,7 @@ npm run build       # rollup + TS → dist/ + dist/types
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rollup.config.ts` / `tsconfig.json`.
+- Modifier `rolldown.config.ts` / `tsconfig.json`.
 - Concaténer un slug dans un chemin FS (casse l'invariant anti-traversée).
 - Rendre du HTML dans ce module (il reste headless — le rendu est côté consommateur).
 - Exposer une route admin mono-segment `/nodefony/documentation` (toujours `…/api/*`).

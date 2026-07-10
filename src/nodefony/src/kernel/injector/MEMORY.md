@@ -198,7 +198,7 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
 - `@inject` (param) ≠ `@Inject` (property) — casse différente, métadonnées différentes
 - `inject:services` → sur constructeur. `inject:properties` → sur **prototype**. Confusion = bug silencieux.
 - `@Inject()` sans nom + sans `design:type` → throw au moment du decorator
-- `design:paramtypes` : tsx/esbuild → absent. Rollup prod → présent si ≥ 1 decorator sur la classe.
+- `design:paramtypes` : tsx/esbuild → absent. build rolldown (oxc) → présent si ≥ 1 decorator sur la classe.
 - `Fetch` auto-enregistré dans `new Injector(kernel)` — registre vide avant
 - `Injector.injectables` global → isolation entre tests si on teste register/doublon
 - Property `!` (definite assignment) obligatoire — TS ne sait pas qu'elle sera assignée post-ctor

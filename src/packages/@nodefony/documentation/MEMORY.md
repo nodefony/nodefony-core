@@ -46,5 +46,5 @@ Data plane de documentation transverse **HEADLESS**. Indexe `docs/` racine + `<m
 ## Commandes
 
 - Tests : `cd src/packages/@nodefony/documentation && npm test` (vitest, 32 tests, 0 serveur).
-- Build : `npm run build` (rollup + TS → `dist/types`).
+- Build : `npm run build` (rolldown + tsgo → `dist/types`).
 - API : `GET /nodefony/documentation/api/tree` · `GET /nodefony/documentation/api/page/{slug}`.

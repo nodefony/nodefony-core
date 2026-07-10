@@ -1,4 +1,4 @@
-import { defineNodefonyRolldownConfig } from "../../../../rolldown.shared.ts";
+import { defineNodefonyRolldownConfig } from "../../../../rolldown.shared";
 
 export default defineNodefonyRolldownConfig({
   external: [

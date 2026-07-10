@@ -58,7 +58,7 @@ P6 pourra se brancher sans refonte. Vue d'ensemble vulgarisée → [`docs/securi
 src/packages/@nodefony/realtime/
 ├── index.ts                            ← exports publics (server + interfaces)
 ├── package.json
-├── rollup.config.ts                    ← NE PAS MODIFIER sans accord
+├── rolldown.config.ts                    ← NE PAS MODIFIER sans accord
 ├── tsconfig.json                       ← NE PAS MODIFIER sans accord
 ├── vitest.config.ts
 ├── CLAUDE.md / MEMORY.md / README.md
@@ -83,7 +83,7 @@ src/packages/@nodefony/realtime/
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rollup.config.ts` ou `tsconfig.json`
+- Modifier `rolldown.config.ts` ou `tsconfig.json`
 - Ajouter `dependencies` directes (toujours `peerDependencies`)
 - **Coder un Module class** (`extends Module`) pour ce module sans en parler — pour l'instant lib pure, le wiring serveur reste consommé par les services Nodefony existants
 - **Dupliquer le client realtime** dans ce module — c'est un subpath du core, point

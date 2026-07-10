@@ -37,7 +37,7 @@ ni explorer le kit. Mécanismes front **généraux** (isomorphisme/socket/HMR/BF
 src/packages/@nodefony/studio/
 ├── index.ts                      ← Module Studio + registerEntry(frontend)
 ├── package.json                  ← deps React/Mantine/MobX ; peerDeps @nodefony/*
-├── rollup.config.ts / tsconfig.json  ← NE PAS MODIFIER sans accord
+├── rolldown.config.ts / tsconfig.json  ← NE PAS MODIFIER sans accord
 ├── nodefony/
 │   ├── config/config.ts          ← surcharge module-frontend { https: true }
 │   ├── controller/StudioController.ts  ← UI /nodefony + /nodefony/{page} ; API /nodefony/studio/api/*
@@ -124,7 +124,7 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 
 ## TODO connus
 
-- **Types** : pas de `types` exposé — **INTENTIONNEL** (module `private:true` + rollup `declaration:false` → aucun `.d.ts` généré, jamais consommé comme lib typée ; cf exception studio dans le CLAUDE.md racine). `exports` (import-only + `./package.json`) **ajouté** 2026-06-23.
+- **Types** : pas de `types` exposé — **INTENTIONNEL** (module `private:true` + build sans .d.ts (pas de tsconfig.declarations) → aucun `.d.ts` généré, jamais consommé comme lib typée ; cf exception studio dans le CLAUDE.md racine). `exports` (import-only + `./package.json`) **ajouté** 2026-06-23.
 - ✅ ~~Remplacer les mocks `/api/auth/*` par le firewall P6~~ → **FAIT** (auth réelle session BFF, mocks supprimés).
 - Stubs restants = pages des **phases futures** : Webhooks (P6.13), couche IA P12 (Agents/Knowledge/LLM/MCP/Agent Guard/Approvals/AI Audit), Services/NPM/Migrations (P10.10/P11.4). Les pages **Sécurité** (Sessions/Users/Firewall/Audit/API Keys/Profil) et **System** (Modules/Routes/Database) sont LIVRÉES.
 
@@ -167,6 +167,6 @@ npm run coverage    # + rapport .coverage/ (affiché par l'onglet Coverage Studi
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rollup.config.ts` / `tsconfig.json`
+- Modifier `rolldown.config.ts` / `tsconfig.json`
 - Changer l'ordre de chargement (studio doit rester après @nodefony/frontend)
 - Ajouter de la logique métier dans le core via Studio (Studio est générique : il introspecte les modules via `IAdminApi`, il ne contient pas de logique applicative)

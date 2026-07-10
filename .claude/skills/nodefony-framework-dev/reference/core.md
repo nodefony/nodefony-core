@@ -137,7 +137,7 @@ export class RoutesListCommand extends Command {
 ```bash
 npx nodefony development          # DevCommand (alias `dev`) → DevSupervisor auto-restart
 npx nodefony production           # foreground in-process (cloud-native, 0 daemon) · multi-process = `cluster -w N`
-npx nodefony build               # rollup tous workspaces · npx nodefony --help / --version
+npx nodefony build               # rolldown tous workspaces · npx nodefony --help / --version
 npx nodefony <module>:<action>   # commande de module (ex. http:routes:list) — namespace obligatoire
 ```
 

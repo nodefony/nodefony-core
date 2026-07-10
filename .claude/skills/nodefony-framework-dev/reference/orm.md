@@ -428,7 +428,7 @@ orm-core étant une **lib pure**, le montage est déclenché par un **module dri
 `SQL_DIALECTS` (`:26`), `SqlDialect` (`:29`), `dialect` (`:33`), `url` (`:52`).
 
 `DrizzleOrm` est **dialect-aware** : `onConnect` route `#connectSqlite` (better-sqlite3, sync) /
-`#connectPostgres` (driver `pg` **lazy** `await import`, `optionalDependency`, externalisé rollup ;
+`#connectPostgres` (driver `pg` **lazy** `await import`, `optionalDependency`, externalisé rolldown ;
 échec → message `npm i pg`). DDL partagé `#buildCreateTable` (le bon `getTableConfig` selon dialecte ;
 `col.getSQLType()` rend les types natifs). `disconnect`/`ping`/`describeConnection`/`describeEntity` routés.
 

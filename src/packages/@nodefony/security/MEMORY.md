@@ -38,7 +38,7 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
   (`bypassFirewall`, montés si "tokenService"). Réponse RFC 6749 §5.1 (Bearer JSON, JAMAIS cookie/URL).
 - **WebAuthn / Passkeys (J9)** — `WebAuthnService` (service "webauthn") : cérémonies FIDO2 (WebAuthn L3
   §7.1 registration / §7.2 authentication) déléguées à **`@simplewebauthn/server`** (lazy `import()`,
-  externalisé rollup, vendorless côté `/browser`). `generateRegistrationOptions`/`verifyRegistration`
+  externalisé rolldown, vendorless côté `/browser`). `generateRegistrationOptions`/`verifyRegistration`
   (stocke le credential) + `generateAuthenticationOptions`/`verifyAuthentication` (vérifie sig + counter
   anti-clone, MAJ état). RP résolu au boot : `rpId` = config ?? kernel.domain, **IP→`localhost`** auto
   (le navigateur refuse une IP). `#expectedOrigin` = liste blanche config, sinon **origine requête SI
@@ -192,7 +192,7 @@ redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
 ## Gotchas
 
 - **Zod v4** : `.default(()=>S.parse({}))` sur sections objet (`.default({})` refusé : TS2769).
-- **Build** : `cd <pkg> && npm run build` (pas `npx rollup -c`, flaky). zod + @nodefony/user en `external`.
+- **Build** : `cd <pkg> && npm run build` (pas `npx rolldown -c` direct, flaky). zod + @nodefony/user en `external`.
 - **Câblage http-kernel FAIT (J1)** : `handleSecurity` appelé HTTP + WS ; `startSession` AVANT le
   firewall (J3) — lazy inchangé. Hooks `beforeResolve`/`afterAuth`/`onAuthFailure` existent (P1.7).
 - **Pont container (firewall `#provisionSharedServices`, au boot)** : `passwordEncoder`

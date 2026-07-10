@@ -1,5 +1,5 @@
 {
-  "include": ["./rollup.config.ts", "./src/client"],
+  "include": ["./src/client"],
   "exclude": [
     "src/tests/**/*",
     "src/bin/**/*",
@@ -14,6 +14,7 @@
   "compilerOptions": {
     "resolveJsonModule": true,
     "lib": ["ESNext", "DOM"],
+    "rootDir": "./",
     "stripInternal": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,

@@ -220,7 +220,7 @@ utilise **`rawLog`**. Couleurs via `Syslog.wrapper(pdu)`.
 - PROBLÈME : des loggers bakaient l'ANSI DANS `payload`/`msgid` (`clc.cyan("URL")`, `colorLogEvent`, firewall `\x1b[36mFIREWALL`) → polluait le `.jsonl` queryable + pipe prod. Strip per-log REFUSÉ (`.replace()`/log = hot path).
 - FIX : flag global résolu **1× au boot** (`Kernel.initializeLog` → `setLogColor(process.stdout.isTTY)`). `logColor` = objet à slots (combos clc : `cyan/magenta/red/green/yellow/blue/blackBright/yellowBold/redBold/cyanBold/blueBrightBold/cyanBgBlue/cyanBgBlack`) **mutés une fois** (ON=fn clc, OFF=`identity`) → **0 test/log**. `ColorFn = (string|number)=>string` (statusCode brut).
 - Critère : **TTY → couleur ; pipe/fichier/non-TTY (prod, détaché, CI) → brut**. JSONL/stdout propres hors TTY. Dev TTY foreground = JSONL coloré (sous-produit assumé ; strip viewer = micro-tâche froide).
-- Isomorphe : browser `cli-color` aliasé au shim identité (rollup) → ON≡OFF, jamais d'ANSI.
+- Isomorphe : browser `cli-color` aliasé au shim identité (bundler) → ON≡OFF, jamais d'ANSI.
 - `wrapper`/`normalizeLog`/`rawLog` : préfixe gaté via alias locaux `yellow/red/cyan/blue/green` → `logColor.*` ; `inspect({colors: isLogColorEnabled()})`.
 - Consommateurs gatés : core (Kernel events/banner), http (Context events, request-logger, pretty-request-logger, http-kernel DEBUG, WebsocketContext close/error), security (firewall msgid). Export barrel `nodefony`.
 

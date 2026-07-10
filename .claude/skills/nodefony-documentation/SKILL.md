@@ -467,7 +467,7 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
 - **PIÈGE turbo rebuild Studio** : parfois `npm run build` du studio rend un dist
   qui ne reflète pas la dernière modif source (cache turbo agressif). Symptôme :
   `grep <ta-string> dist/*.js` retourne vide alors que la source la contient.
-  Fix éprouvé : `rm -rf dist && npx rollup --config ./rollup.config.ts --configPlugin typescript`
+  Fix éprouvé : `rm -rf dist && npx rolldown -c rolldown.config.ts`
   (direct, court-circuite le wrapper). Vérifier ensuite `grep` du dist AVANT de
   redémarrer le serveur.
 - **DevSupervisor watch les SOURCES TS, pas le dist** : pour forcer un restart
@@ -528,7 +528,7 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
   principale `/nodefony/documentation` (`?doc=<slug>`). **PIÈGES retenus** :
   Vite glob pattern littéral statique (8 `..` vs 7 selon profondeur du fichier
   hôte) ; turbo cache parfois capricieux sur le rebuild Studio (utiliser
-  `npx rollup` direct quand `npm run build` semble silencieux) ; `Object.assign({})`
+  `npx rolldown` direct quand `npm run build` semble silencieux) ; `Object.assign({})`
   vide dans le transform = signe d'un glob qui ne match rien.
 - **1.1.0** (2026-05-28) — **Template doc impeccable + 0 magic number** (session 1, front-only).
   Briques `MarkdownDoc` enrichies : admonitions GitHub-flavor (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`

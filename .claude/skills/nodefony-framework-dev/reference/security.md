@@ -58,7 +58,7 @@ npm outdated                     # versions en retard (ou commande `npx nodefony
   Prioriser `--omit=dev` ; documenter le résiduel accepté.
 - **Avant TOUTE nouvelle dep runtime** (règle CLAUDE.md) : peser bundle size + mémoire + maintenance +
   surface d'attaque ; préférer l'API Node native. Vérifier mainteneur/téléchargements/dernière release
-  (typosquatting, paquet abandonné). Une nouvelle dep doit être **externalisée** dans le rollup si peerDep
+  (typosquatting, paquet abandonné). Une nouvelle dep doit être **externalisée** dans le rolldown.config si peerDep
   (cf skill `nodefony-check-externals`).
 - **Lockfile** : commiter `package-lock.json` ; ne jamais éditer l'arbre à la main. Croiser une CVE avec
   un **avis CERT-FR/ANSSI** (§ sources) sur la lib/version pour la criticité réelle.

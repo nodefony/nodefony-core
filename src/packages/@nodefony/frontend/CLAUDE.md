@@ -33,7 +33,7 @@ Pilote Vite pour transpiler les frontends déclarés par chaque module :
 src/packages/@nodefony/frontend/
 ├── index.ts                            ← class Frontend (Module) + exports publics
 ├── package.json                        ← peerDeps: vite, @vitejs/plugin-react
-├── rollup.config.ts                    ← bundler — NE PAS MODIFIER
+├── rolldown.config.ts                    ← bundler — NE PAS MODIFIER
 ├── tsconfig.json                       ← NE PAS MODIFIER
 └── nodefony/
     ├── config/config.ts                ← config default (devPort, host, autoStart)
@@ -87,16 +87,16 @@ Kernel onTerminate
 
 ## Décisions techniques figées
 
-| Sujet                      | Décision                                                               |
-| -------------------------- | ---------------------------------------------------------------------- |
-| Builder                    | **Vite** — ESM natif, HMR rapide, cohérence Rollup backend             |
-| Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé          |
-| Config Vite                | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs` |
-| Plugins                    | Hardcodés dans le `.mjs` généré selon les preset types détectés        |
-| Logs                       | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON)      |
-| Cleanup                    | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173       |
-| Multi-bundles              | **Une seule instance Vite multi-entry** (Rollup-style `input` map)     |
-| Peer deps                  | `vite`, `@vitejs/plugin-react` (optional) — pas embarquées par défaut  |
+| Sujet                      | Décision                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| Builder                    | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc) |
+| Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé                  |
+| Config Vite                | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs`         |
+| Plugins                    | Hardcodés dans le `.mjs` généré selon les preset types détectés                |
+| Logs                       | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON)              |
+| Cleanup                    | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173               |
+| Multi-bundles              | **Une seule instance Vite multi-entry** (rolldown-style `input` map)           |
+| Peer deps                  | `vite`, `@vitejs/plugin-react` (optional) — pas embarquées par défaut          |
 
 ## Mode prod (build + renderProdTags)
 
@@ -128,7 +128,7 @@ Défaut `/_assets/<entryName>/` (surchargeable via `frontend.publicPath`). Sert 
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rollup.config.ts` ou `tsconfig.json`
+- Modifier `rolldown.config.ts` ou `tsconfig.json`
 - Ajouter `vite` aux `dependencies` (doit rester `peerDependencies` — taille)
 - Importer `@nodefony/framework` ou `@nodefony/http` (cycles potentiels via app config)
 - Remplacer `child_process.spawn` par `worker_threads` (testé/rejeté — sérialisation logs explose)

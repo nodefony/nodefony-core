@@ -37,7 +37,7 @@ Admin web Nodefony (successeur `monitoring-bundle`). Backend controller + SPA Re
 ## Config
 
 - `nodefony/config/config.ts` : `{ "module-frontend": { https: true } }` (Vite HTTPS certs Nodefony, anti mixed-content sur 5152).
-- `package.json` : `main` + `exports` (import-only + `./package.json`) ; **pas de `types`** = INTENTIONNEL (`private:true` + rollup `declaration:false`, jamais consommé comme lib typée). peerDeps : nodefony, @nodefony/{http,framework,frontend}, vite, @vitejs/plugin-react. deps frontend dans CE package.json (pas de frontend/package.json). Onglet Docs : **`react-markdown`+`remark-gfm`** (compat React 19 OK, ≠ recharts cf [[feedback_recharts_react19]]) + **`mermaid`** (gros, mais **lazy** `import()` → chunk à part, 0 impact bundle initial).
+- `package.json` : `main` + `exports` (import-only + `./package.json`) ; **pas de `types`** = INTENTIONNEL (`private:true`, pas de tsconfig.declarations — jamais consommé comme lib typée). peerDeps : nodefony, @nodefony/{http,framework,frontend}, vite, @vitejs/plugin-react. deps frontend dans CE package.json (pas de frontend/package.json). Onglet Docs : **`react-markdown`+`remark-gfm`** (compat React 19 OK, ≠ recharts cf [[feedback_recharts_react19]]) + **`mermaid`** (gros, mais **lazy** `import()` → chunk à part, 0 impact bundle initial).
 - **Docs colocalisées** : `studio/docs/index.md` (+ http/framework/frontend idem). Frontmatter `title/module/since/updated/status/order` lu par le backend (`docsReader`). `frontend/docs/index.md` = ex-`docs/packages/frontend.md` (git mv, ADR-0001).
 
 ## Tests
@@ -70,7 +70,6 @@ Admin web Nodefony (successeur `monitoring-bundle`). Backend controller + SPA Re
 - Realtime forward-compat P13.4 : providers transport-agnostiques (`publish(channel,payload)`), canaux figés. Migration = supprimer le controller + brancher `realtimeService.publish`, front inchangé. Cf [[project_studio_realtime_ws]].
 - Dashboard stats = **per-instance** (process qui tient le WS), PAS cluster-aware. CPU% = % d'UN cœur (pas /cores). En multi-process (reusePort) le WS tombe sur 1 worker → 1 instance affichée. Vue cluster = ajouter `instanceId` au payload + Redis pub/sub fan-out (P13). Cloud-native OK (chaque pod se rapporte). Cf [[project_multiprocess_scaling]].
 - ⚠️ **Jauge Heap V8 = `heapUsed / heap_size_limit`, PAS `/heapTotal`**. `heapUsed/heapTotal` vaut ~99% en permanence (V8 garde `heapTotal` collé au-dessus de `heapUsed`) → trompeur, faux signal d'alerte. `heapLimit` (`v8.getHeapStatistics().heap_size_limit`, **constant** → lu 1× hors tick dans `providers.ts`) ajouté au payload `dashboard:stats.memory`. Dashboard : jauge contre le plafond (~12% normal), ligne « Remplissage » montre l'ancien ratio à titre info. La fuite se lit sur la **courbe heapUsed** absolue, pas sur le %.
-- Build : warning `rollup-sourcemap-path-transform` types — bénin.
 
 ## Routes API admin (convention `/nodefony/<module>/api/*`)
 

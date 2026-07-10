@@ -110,8 +110,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 - `setPath(path)` → résout vers répertoire
 - `setEvents()` → wire hooks lifecycle
-- `kernel.once("onBoot", ...)` → récupère le service `rollup` (build one-shot) — **toujours ajouté** (même sans hooks)
-- ⚠️ watch runtime write-only RETIRÉ : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart, `src/service/dev/DevSupervisor.ts`) : parent spawn enfant `NODEFONY_DEV_CHILD=1` en **leader de groupe** (`detached`), watch backend (frontend exclu → HMR Vite intact), rebuild ciblé turbo+rollup, **group-kill** au restart (tue Vite, 0 orphelin) + attente ports libres (anti-EADDRINUSE) + retry crash borné. Activé par `DevCommand`
+- ⚠️ watch runtime write-only RETIRÉ : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart, `src/service/dev/DevSupervisor.ts`) : parent spawn enfant `NODEFONY_DEV_CHILD=1` en **leader de groupe** (`detached`), watch backend (frontend exclu → HMR Vite intact), rebuild ciblé turbo+rolldown, **group-kill** au restart (tue Vite, 0 orphelin) + attente ports libres (anti-EADDRINUSE) + retry crash borné. Activé par `DevCommand`
 - `setParameters("modules.${name}", options)`
 
 **setPath(p)**:
@@ -240,7 +239,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 ## Deps
 
 - Kernel → Container, Service, Injector, FileClass, Nodefony, CliKernel, Module, @nodefony/http
-- Module → Service, Kernel, Injector, Container, CliKernel, RollupService (build one-shot)
+- Module → Service, Kernel, Injector, Container, CliKernel
 - CliKernel → Cli, Kernel, Command, Syslog/Pdu
 - Injector → Service, Container, Event, Kernel, Nodefony, Fetch, reflect-metadata
 

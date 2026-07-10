@@ -64,13 +64,13 @@ orchestration sous-agents. Multi-ORM = persistence audit/coûts.
 
 | Module                  | Rôle                                                      | État                                                                         | Sous-phase |
 | ----------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------- |
-| `@nodefony/llm`         | Multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq) | 🔶 seul câblé (rollup OK ; tests Bun)                                        | P12.1      |
-| `@nodefony/vector`      | Adapters (pgvector, Qdrant, Chroma)                       | ⬜ WIP sans rollup                                                           | P12.1      |
-| `@nodefony/rag`         | Pipeline RAG (ingestion/chunking/embedding/recherche)     | ⬜ WIP sans rollup                                                           | P12.1      |
-| `@nodefony/memory`      | Mémoire agents (court/long/épisodique)                    | ⬜ WIP sans rollup                                                           | P12.1      |
-| `@nodefony/agent`       | Orchestrateur + sous-agents (`@Agent`, `@Tool`)           | ⬜ WIP sans rollup                                                           | P12.2      |
+| `@nodefony/llm`         | Multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq) | 🔶 seul câblé (rolldown OK ; tests Bun)                                      | P12.1      |
+| `@nodefony/vector`      | Adapters (pgvector, Qdrant, Chroma)                       | ⬜ WIP sans rolldown                                                         | P12.1      |
+| `@nodefony/rag`         | Pipeline RAG (ingestion/chunking/embedding/recherche)     | ⬜ WIP sans rolldown                                                         | P12.1      |
+| `@nodefony/memory`      | Mémoire agents (court/long/épisodique)                    | ⬜ WIP sans rolldown                                                         | P12.1      |
+| `@nodefony/agent`       | Orchestrateur + sous-agents (`@Agent`, `@Tool`)           | ⬜ WIP sans rolldown                                                         | P12.2      |
 | `@nodefony/mcp`         | MCP server + client                                       | ❌ POC ABANDONNÉ (Skill > MCP — ne pas relancer, cf [[project_mcp_poc_kit]]) | —          |
-| `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, approval, coûts  | ⬜ WIP sans rollup                                                           | P12.4      |
+| `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, approval, coûts  | ⬜ WIP sans rolldown                                                         | P12.4      |
 | `@nodefony/studio`      | Panels IA intégrés dans Studio (pas de module séparé)     | ⬜ (Studio lui-même est livré)                                               | P12.5      |
 
 ### Principes invariants (ne pas dévier)

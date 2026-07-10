@@ -46,5 +46,5 @@ Consommé par les drivers (`@nodefony/mongoose`, `@nodefony/drizzle`, `@nodefony
 
 ## Build / types
 
-- Standard conforme : `dist/types/` + `exports` (généré par Rollup, jamais de `.d.ts` manuel).
-- `npm run build` (rollup preserveModules).
+- Standard conforme : `dist/types/` + `exports` (généré par tsgo, jamais de `.d.ts` manuel).
+- `npm run build` (rolldown preserveModules).

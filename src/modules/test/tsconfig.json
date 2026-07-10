@@ -5,7 +5,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "target": "ES2022",
+    "target": "ES2024",
     "module": "ESNext",
     "strict": true,
     "esModuleInterop": true,
@@ -17,7 +17,7 @@
     "declaration": true,
     "declarationDir": "./dist/types"
   },
-  "include": ["index.ts", "rollup.config.ts", "nodefony/**/*.ts"],
+  "include": ["index.ts", "rolldown.config.ts", "nodefony/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",

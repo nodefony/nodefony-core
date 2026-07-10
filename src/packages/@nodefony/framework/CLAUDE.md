@@ -93,6 +93,6 @@ Router.resolve(ctx)
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rollup.config.ts` ou `tsconfig.json`
+- Modifier `rolldown.config.ts` ou `tsconfig.json`
 - Changer la structure `routes[]` statique (casse tous les controllers enregistrés)
 - Supprimer `reflect-metadata` (casse tous les décorateurs)

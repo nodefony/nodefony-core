@@ -17,7 +17,7 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 ## Config / Build
 
 - `dist/types/` + `exports` (conforme standard). peerDep: `nodefony`.
-- rollup preserveModules, external = [nodefony, tslib].
+- rolldown preserveModules, external = [nodefony, tslib].
 
 ## Behaviors
 

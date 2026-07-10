@@ -16,8 +16,7 @@
     "start": "node dist/index.js",
     "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "clean": "rimraf dist",
-    "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
-    "dev": "rimraf dist && npm run rollup -- --watch",
+    "dev": "rolldown -c rolldown.config.ts --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage"
@@ -31,17 +30,10 @@
   "devDependencies": {
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
-    "@rollup/plugin-commonjs": "29.0.3",
-    "@rollup/plugin-json": "6.1.0",
-    "@rollup/plugin-node-resolve": "16.0.3",
-    "@rollup/plugin-replace": "6.0.3",
-    "@rollup/plugin-typescript": "12.3.0",
     "@types/node": "26.1.1",
     "@vitest/coverage-v8": "4.1.10",
     "nodefony": "*",
     "rimraf": "6.1.3",
-    "rollup": "4.62.2",
-    "typescript": "6.0.3",
     "vitest": "4.1.10"
   },
   "peerDependencies": {

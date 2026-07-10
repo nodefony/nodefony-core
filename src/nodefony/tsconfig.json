@@ -1,8 +1,5 @@
 {
-  "include": [
-    "./rollup.config.ts",
-    "./src"
-  ],
+  "include": ["./rolldown.config.ts", "./src"],
   "exclude": [
     "src/tests/**/*",
     "src/bin/**/*",
@@ -14,14 +11,11 @@
     "esModuleInterop": true,
     "declaration": false,
     "resolveJsonModule": true,
-    "lib": [
-      "ESNext",
-      "DOM"
-    ],
+    "lib": ["ESNext", "DOM"],
     "stripInternal": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "target": "ES2022",
+    "target": "ES2024",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
@@ -29,9 +23,7 @@
     "useUnknownInCatchVariables": false,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "paths": {
       "nodefony": ["./src/index.ts"]
     }

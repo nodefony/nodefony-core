@@ -12,12 +12,14 @@ Variables : `{MOD}`, `{MOD_PASCAL}`, `{ROUTE}` (voir SKILL.md Phase 0).
 **Nœud de montage** : `<div id="root"></div>` · **type** `react19` · **entry** `./frontend/src/main.tsx`
 
 **peerDeps** (`package.json`) :
+
 ```json
 "react": ">=19.0.0",
 "react-dom": ">=19.0.0"
 ```
 
 **`frontend/src/main.tsx`** :
+
 ```tsx
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -25,27 +27,40 @@ import { App } from "./App";
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("#root not found");
-createRoot(rootEl).render(<StrictMode><App /></StrictMode>);
+createRoot(rootEl).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
 ```
 
 **`frontend/src/App.tsx`** :
+
 ```tsx
 import { useEffect, useState } from "react";
-interface ApiData { ts: number; env: string; }
+interface ApiData {
+  ts: number;
+  env: string;
+}
 export function App() {
   const [data, setData] = useState<ApiData | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     fetch("{ROUTE}/api/data")
       .then((r) => r.json())
-      .then((j) => setData((j.result ?? j) as ApiData))   // Nodefony wrappe `{ result }`
+      .then((j) => setData((j.result ?? j) as ApiData)) // Nodefony wrappe `{ result }`
       .catch((e) => setError(e.message));
   }, []);
   return (
     <div style={{ fontFamily: "system-ui", padding: 24 }}>
       <h1>{MOD_PASCAL}</h1>
-      {error ? <pre style={{ color: "crimson" }}>{error}</pre>
-        : data ? <pre>{JSON.stringify(data, null, 2)}</pre> : <p>loading…</p>}
+      {error ? (
+        <pre style={{ color: "crimson" }}>{error}</pre>
+      ) : data ? (
+        <pre>{JSON.stringify(data, null, 2)}</pre>
+      ) : (
+        <p>loading…</p>
+      )}
     </div>
   );
 }
@@ -62,13 +77,16 @@ inline le preamble Fast Refresh pour les entries `type:"react19"`. Sans lui :
 **Nœud de montage** : `<div id="app"></div>` · **type** `vue3` · **entry** `./frontend/src/main.ts`
 
 **peerDeps** (`package.json`) :
+
 ```json
 "vite": ">=5.0.0",
 "@vitejs/plugin-vue": ">=5.0.0"
 ```
+
 (+ `vue` installé à la racine du repo.)
 
 **`frontend/src/main.ts`** :
+
 ```ts
 import { createApp } from "vue";
 import App from "./App.vue";
@@ -79,18 +97,24 @@ createApp(App).mount(el);
 ```
 
 **`frontend/src/App.vue`** (SFC `<script setup>`) :
+
 ```vue
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-interface ApiData { ts: number; env: string; }
+interface ApiData {
+  ts: number;
+  env: string;
+}
 const data = ref<ApiData | null>(null);
 const error = ref<string | null>(null);
 onMounted(async () => {
   try {
     const r = await fetch("{ROUTE}/api/data");
     const j = (await r.json()) as { result?: ApiData } & ApiData;
-    data.value = (j.result ?? j) as ApiData;       // Nodefony wrappe `{ result }`
-  } catch (e) { error.value = e instanceof Error ? e.message : String(e); }
+    data.value = (j.result ?? j) as ApiData; // Nodefony wrappe `{ result }`
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e);
+  }
 });
 </script>
 <template>
@@ -112,6 +136,7 @@ onMounted(async () => {
 **Nœud de montage** : `<app-root></app-root>` · **type** `angular` · **entry** `./frontend/src/main.ts`
 
 **deps** : Angular passe par des **devDependencies** (pas peerDeps react-style) dans le module :
+
 ```json
 "devDependencies": {
   "@analogjs/vite-plugin-angular": "^2.5.0",
@@ -119,10 +144,12 @@ onMounted(async () => {
   "@angular/compiler-cli": "^21.0.0"
 }
 ```
+
 (+ `@angular/core` `@angular/common` `@angular/platform-browser` installés à la racine).
 peerDeps module : `vite >=5.0.0` (le plugin angular est chargé lazy par `@nodefony/frontend`).
 
 **`frontend/src/main.ts`** :
+
 ```ts
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideZonelessChangeDetection } from "@angular/core";
@@ -135,9 +162,13 @@ bootstrapApplication(AppComponent, {
 ```
 
 **`frontend/src/app/app.component.ts`** :
+
 ```ts
 import { Component, OnInit, signal } from "@angular/core";
-interface ApiData { ts: number; env: string; }
+interface ApiData {
+  ts: number;
+  env: string;
+}
 @Component({
   selector: "app-root",
   standalone: true,
@@ -157,35 +188,53 @@ export class AppComponent implements OnInit {
     try {
       const r = await fetch("{ROUTE}/api/data");
       const j = (await r.json()) as { result?: ApiData } & ApiData;
-      this.data.set((j.result ?? j) as ApiData);   // Nodefony wrappe `{ result }`
-    } catch (e) { this.error.set(e instanceof Error ? e.message : String(e)); }
+      this.data.set((j.result ?? j) as ApiData); // Nodefony wrappe `{ result }`
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : String(e));
+    }
   }
 }
 ```
 
 **`frontend/tsconfig.app.json`** (REQUIS — scope le plugin Angular au frontend angular seul) :
+
 ```json
 {
   "compilerOptions": {
-    "target": "ES2022", "module": "ESNext", "moduleResolution": "bundler",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "experimentalDecorators": true, "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
-    "strict": true, "skipLibCheck": true, "esModuleInterop": true, "types": []
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "types": []
   },
   "angularCompilerOptions": { "strictTemplates": true },
-  "files": ["src/main.ts"], "include": ["src/**/*.ts"]
+  "files": ["src/main.ts"],
+  "include": ["src/**/*.ts"]
 }
 ```
 
-**`rollup.config.ts`** — externaliser Angular + AnalogJS (compiler-cli a un interop CJS de
-`typescript` que rollup ne sait pas bundler) :
+**`rolldown.config.ts`** — externaliser Angular + AnalogJS (compiler-cli a un interop CJS de
+`typescript` que le bundler ne sait pas bundler) :
+
 ```ts
-const external = ["nodefony", "@nodefony/http", "@nodefony/framework", "@nodefony/frontend", "tslib"];
-// + ne pas bundler @analogjs/* ni @angular/* (résolus côté Vite, pas côté backend rollup)
+const external = [
+  "nodefony",
+  "@nodefony/http",
+  "@nodefony/framework",
+  "@nodefony/frontend",
+  "tslib",
+];
+// + ne pas bundler @analogjs/* ni @angular/* (résolus côté Vite, pas côté backend rolldown)
 ```
 
 ### Gotchas Angular (bloquants si oubliés — cf project_frontend_angular_plan)
+
 1. **ERESOLVE TS6** : `@angular/build@21` peer `typescript <6.0` mais repo en TS 6.x → installer
    avec `--legacy-peer-deps`. `@angular/compiler-cli` (le vrai check runtime) accepte `<6.1` → OK en pratique.
 2. **Scoping `.ts`** : le plugin Angular transforme TOUS les `.ts` (extension non dédiée) → le

@@ -56,12 +56,12 @@ credentials + version) · `ping` (`admin().command({ping:1})`) · `probe` (`serv
 ## Build / Test
 
 - deps : `mongoose` 9.6.3, `mongodb` 7.2.0, `zod` ^4.4.3. peerDeps : `@nodefony/http`/`@nodefony/orm-core`/`nodefony`.
-- `npm run build` (rollup preserveModules → `dist/` + `dist/types/`). `zod` dans `external`.
+- `npm run build` (rolldown preserveModules → `dist/` + `dist/types/`). `zod` dans `external`.
 - `npm test` (`vitest run`) — **24 tests** : `tests/unit/config` (Zod) + `tests/integration/`
   (orm-core ReplSet + session-storage hybride). **`MONGO_TEST_URI`** = conteneur Mongo CI/Docker ;
   sinon `mongodb-memory-server` (binaire mongod téléchargé 1×, ~84 Mo). Banc orm-core = `MongoMemoryReplSet` (tx).
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rollup.config.ts` / `tsconfig.json` (`zod` ajouté à `external` le 2026-06-08).
+- Modifier `rolldown.config.ts` / `tsconfig.json` (`zod` ajouté à `external` le 2026-06-08).
 - Éditer les valeurs de `config.ts` à la main → modifier les `.default(...)` du **schéma**.
