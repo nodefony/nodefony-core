@@ -242,12 +242,12 @@ DI scopes (singleton/transient), lifecycle session.
 
 ### P9 — Polish + clôture (63 %)
 
-| #       | Tâche                         | État                                                                |
-| ------- | ----------------------------- | ------------------------------------------------------------------- |
-| ✅ P9.1 | `@entities` decorator + tests | `kernelDecorator.ts`                                                |
-| ⬜ P9.2 | Barrels `index.ts`            | résiduel                                                            |
-| ✅ P9.3 | README publics                | http + framework + security présents (vérif 06-28)                  |
-| 🔶 P9.4 | Vulnérabilités npm            | **3 low** transitives (dev, held back rolldown) — `npm audit` 06-28 |
+| #       | Tâche                         | État                                                                                                                                                                                                                                                                                          |
+| ------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ P9.1 | `@entities` decorator + tests | `kernelDecorator.ts`                                                                                                                                                                                                                                                                          |
+| ⬜ P9.2 | Barrels `index.ts`            | résiduel                                                                                                                                                                                                                                                                                      |
+| ✅ P9.3 | README publics                | http + framework + security présents (vérif 06-28)                                                                                                                                                                                                                                            |
+| 🔶 P9.4 | Vulnérabilités npm            | **3 low** transitives (dev, held back rolldown) — `npm audit` inchangé après la montée transverse des deps (`a88217ae` : 83 pins, plus aucun outdated hors `typescript`, major bloqué → [`docs/audits/typescript-7-decorateurs-2026-07.md`](docs/audits/typescript-7-decorateurs-2026-07.md)) |
 
 ### P10 — Studio admin web (73 %)
 
