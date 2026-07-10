@@ -15,6 +15,7 @@ import {
 import Builder from "./Builder";
 import { extend } from "../Tools";
 import type { KernelEventKey, RunLifetime } from "../types/ICommand";
+import type { IRunProfile } from "../kernel/Kernel";
 
 interface OptionsCommandInterface extends DefaultOptionsService {
   showBanner?: boolean;
@@ -26,6 +27,15 @@ interface OptionsCommandInterface extends DefaultOptionsService {
    * (leurs sockets gardent le process vivant) ; il vise les daemons sans serveur.
    */
   lifetime?: RunLifetime;
+  /**
+   * Profil d'exécution DÉCLARÉ (capability statique, cf `IRunProfile`). Appliqué par
+   * `CliKernel.resolveCommand()` au moment où la commande est résolue — quel que soit
+   * l'instant du match (built-in avant boot, commande de module à `onPreRegister`).
+   * C'est ce qui permet à une commande de MODULE d'être serveur (`servers: true` +
+   * `kernelEvent: "onPostReady"`). Les profils DYNAMIQUES (dev parent/enfant,
+   * master/worker cluster) restent posés par `setRunProfile()` dans `onKernelStart`.
+   */
+  runProfile?: IRunProfile;
 }
 
 export type CommandArgs = any[];
@@ -63,6 +73,8 @@ class Command extends Service {
   public kernelEvent: KernelEventKey = "onRegister";
   /** Durée de vie déclarée (cf {@link OptionsCommandInterface.lifetime}). */
   public lifetime: RunLifetime = "oneshot";
+  /** Profil d'exécution déclaré (cf {@link OptionsCommandInterface.runProfile}) — `null` si non déclaré. */
+  public runProfile: IRunProfile | null = null;
   // Hooks lifecycle optionnels — un par phase du Kernel (cf Events bitmask). Câblés
   // LAZY dans setEvents() : un `kernel.once(...)` n'est posé QUE si la commande définit
   // le hook → 0 listener / 0 coût pour les commandes qui ne l'utilisent pas (règle perf).
@@ -113,12 +125,14 @@ class Command extends Service {
     this.program = this.cli.commander as Cmd;
     this.kernelEvent = this.options.kernelEvent;
     this.lifetime = this.options.lifetime ?? "oneshot";
+    this.runProfile = this.options.runProfile ?? null;
     this.command = this.createCommand(name, description);
     this.command?.action((...args: any[]) => {
       if (this.kernel) {
-        this.kernel.command = this;
-        this.kernel.commandArgs = args;
-        this.setEvents(...args);
+        // Parse PUR : le match commander ne fait que SIGNALER la commande résolue.
+        // Tout le câblage lifecycle (mutation kernel, runProfile déclaré, hooks) est
+        // centralisé dans CliKernel.resolveCommand — point unique de résolution.
+        (this.cli as CliKernel).resolveCommand(this, args);
         return undefined;
       }
       // RETOURNER la promesse de l'action : sans ça, un `generate()` qui rejette
@@ -195,7 +209,7 @@ class Command extends Service {
         this.kernel.Events[this.kernelEvent],
       );
     }
-    throw new Error(`Kernel not founf`);
+    throw new Error(`Kernel not found`);
   }
 
   description(): string {

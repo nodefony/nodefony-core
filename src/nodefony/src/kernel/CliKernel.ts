@@ -510,6 +510,35 @@ class CliKernel extends Cli {
   }
 
   /**
+   * Point UNIQUE de résolution d'une commande matchée — appelé par le callback
+   * commander de {@link Command} (parse pur : le match ne fait que signaler) et par
+   * `StartCommand` (sélection interactive).
+   *
+   * Fait, dans l'ordre :
+   * 1. lie la commande au Kernel (`kernel.command` / `kernel.commandArgs`) ;
+   * 2. applique le **profil déclaré** (`command.runProfile`) s'il existe —
+   *    `setRunProfile` resynchronise AUSSI `kernel.runProfile`, donc une commande
+   *    résolue APRÈS `onStart` (commande de module, posée à `onPreRegister`) peut
+   *    être serveur : la décision de monter les serveurs se joue plus tard
+   *    (`onReady → initServers`) ;
+   * 3. câble les hooks lifecycle + l'exécution à `kernelEvent` (`setEvents`).
+   *
+   * @param command - commande matchée.
+   * @param args - arguments produits par le parse commander.
+   */
+  resolveCommand(command: Command, args: unknown[]): void {
+    const kernel = this.kernel as Kernel;
+    kernel.command = command;
+    kernel.commandArgs = args;
+    if (command.runProfile) {
+      // Copie défensive : le profil déclaré est un littéral partagé par toutes les
+      // instances de la commande — ne jamais laisser le runtime muter la déclaration.
+      this.setRunProfile({ ...command.runProfile });
+    }
+    command.setEvents(...args);
+  }
+
+  /**
    * Enregistre une commande CLI dans le registre du CliKernel + Commander.
    *
    * @param cliCommand - constructeur de la commande (signature `new (cli: CliKernel) => Command`).

@@ -91,24 +91,34 @@ class Start extends Command {
         const command = this.cli.getCommand(response);
         if (command && response) {
           if (this.kernel) {
-            this.kernel.command = command;
             this.cli.clearCommand();
             if (response) {
               process.argv.push(response);
             }
-            if (command.kernelEvent === this.kernelEvent) {
-              if (command.onKernelStart) {
-                await command.onKernelStart(...this.kernel.commandArgs);
-              }
-              return command.action(...this.kernel.commandArgs);
-            }
-            command.setEvents(...this.kernel.commandArgs);
+            // Câblage centralisé (kernel.command + runProfile déclaré + setEvents).
+            // On est ICI à `onStart` (phase de cette commande) : les hooks de la
+            // commande choisie câblés sur des phases déjà passées ne re-fireront
+            // pas → on rejoue son `onKernelStart` à la main, puis on exécute
+            // directement si sa phase cible est déjà atteinte (`isComplete`).
+            (this.cli as CliKernel).resolveCommand(
+              command,
+              this.kernel.commandArgs,
+            );
             if (command.onKernelStart) {
               await command.onKernelStart(...this.kernel.commandArgs);
             }
-            if (command.isComplete()) {
+            // `kernelEvent === "onStart"` : on est PENDANT le fire de cette phase →
+            // `progress` ne la porte pas encore (setCommandComplete arrive après) et
+            // le `once` posé par setEvents ne re-firera jamais → exécution directe.
+            if (
+              command.isComplete() ||
+              command.kernelEvent === this.kernelEvent
+            ) {
               return command.action(...this.kernel.commandArgs);
             }
+            // Phase cible pas encore atteinte → on retombe sur le re-parse commander
+            // ci-dessous (évaluation des options de la commande choisie) ; les `once`
+            // déjà posés sont protégés par le guard `eventsRegistered`.
           }
         }
         return await this.cli.runCommandAsync(response).then(() => {

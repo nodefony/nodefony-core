@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-10T15:57:41.136Z",
+  "generated": "2026-07-10T18:21:17.346Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -20009,6 +20009,10 @@
       "RunLifetime": [
         "src/nodefony/src/command/Command.ts"
       ],
+      "IRunProfile": [
+        "src/nodefony/src/command/Command.ts",
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
       "ResolvedAppConfig": [
         "src/nodefony/src/config/defaults.ts",
         "src/nodefony/src/config/defineConfig.ts",
@@ -20101,9 +20105,6 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "PackageManagerName": [
-        "src/nodefony/src/kernel/CliKernel.ts"
-      ],
-      "IRunProfile": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "CONSOLE_RUN_PROFILE": [

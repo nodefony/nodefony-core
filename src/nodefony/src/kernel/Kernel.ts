@@ -517,8 +517,9 @@ class Kernel extends Service implements IKernel {
    * (`loadApp()`), instancie services kernel (Rollup), puis enchaîne sur
    * `preRegister()` → `boot()` → `onReady()` → `initServers()`.
    *
-   * Si `command.kernelEvent` matche une phase déjà atteinte → terminate(0) immédiat (la
-   * command a fini son boulot, pas besoin d'aller plus loin).
+   * Si `command.kernelEvent` matche la phase atteinte → {@link finishOrPark} immédiat
+   * (la command a fini son boulot : terminate one-shot OU park daemon long-running) —
+   * même sémantique de sortie à TOUTES les phases d'arrêt.
    *
    * @returns `this` après boot complet.
    * @throws Toute exception du pipeline est loggée CRITIC puis re-throw.
@@ -608,7 +609,7 @@ class Kernel extends Service implements IKernel {
         throw e;
       });
       if (this.setCommandComplete(Events.onPreStart)) {
-        return this.terminate(0);
+        return this.finishOrPark(0);
       }
 
       // load application
@@ -642,7 +643,7 @@ class Kernel extends Service implements IKernel {
           this.started = true;
           if (this.cli) this.runProfile = this.cli.runProfile;
           if (this.setCommandComplete(Events.onStart)) {
-            return this.terminate(0);
+            return this.finishOrPark(0);
           }
           return this.preRegister();
         })
@@ -668,7 +669,7 @@ class Kernel extends Service implements IKernel {
     await this.fireLifecycle("onPreRegister", this);
 
     if (this.setCommandComplete(Events.onPreRegister)) {
-      return this.terminate(0);
+      return this.finishOrPark(0);
     }
     this.preRegistered = true;
     if (this.cli) {
@@ -690,7 +691,7 @@ class Kernel extends Service implements IKernel {
       .then(() => {
         this.registered = true;
         if (this.setCommandComplete(Events.onRegister)) {
-          return this.terminate(0);
+          return this.finishOrPark(0);
         }
         return this.boot().catch((e) => {
           throw e;
@@ -762,14 +763,14 @@ class Kernel extends Service implements IKernel {
     // le boot » est borné par le timeout par-listener de fireLifecycle.
     await this.fireLifecycle("onPreBoot", this);
     if (this.setCommandComplete(Events.onPreBoot)) {
-      return this.terminate(0);
+      return this.finishOrPark(0);
     }
     //return;
     return this.fireLifecycle("onBoot", this)
       .then(() => {
         this.booted = true;
         if (this.setCommandComplete(Events.onBoot)) {
-          return this.terminate(0);
+          return this.finishOrPark(0);
         }
         return this.onReady().catch((e) => {
           throw e;
