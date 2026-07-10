@@ -47,6 +47,15 @@ class Prod extends Command {
       "-w, --workers <number>",
       "Number of worker processes (default: config cluster.workers / NODEFONY_WORKERS / 1)",
     );
+    // Options du lancement DÉTACHÉ — consommées par le fast-path standalone de
+    // CliKernel.start (detachedStart.ts), déclarées pour le help.
+    this.addOption(
+      "--detach",
+      "spawn détaché + attente readiness (ports) + exit 0/69",
+    );
+    this.addOption("--wait <sec>", "plafond d'attente readiness (défaut 120)");
+    this.addOption("--health <path>", "GET de santé post-boot (best-effort)");
+    this.addOption("--log <file>", "log du runtime détaché (défaut tmp/)");
   }
 
   override async onKernelStart(opts?: { workers?: string }): Promise<void> {

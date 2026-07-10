@@ -394,6 +394,38 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       }
     });
 
+    // ─── Lancement DÉTACHÉ (volet F — l'expérience start.sh absorbée) ───────────
+    // `development --detach` : fast-path standalone (0 boot dans le process appelant),
+    // spawn détaché + readiness ports + exit 0. Cleanup par `nodefony stop` (natif).
+    it("development --detach → readiness, exit 0, puis stop propre", async () => {
+      const r = await runCli(
+        ["development", "--detach", "--wait", "150"],
+        170000,
+      );
+      try {
+        assert.strictEqual(
+          r.code,
+          0,
+          `--detach doit sortir 0 à la readiness\n${r.stdout}\n${r.stderr}`,
+        );
+        assert.ok(
+          /READY — ports en écoute/.test(r.stdout),
+          `le rapport doit annoncer la readiness\n${r.stdout}`,
+        );
+        assert.ok(
+          /UP — PID=\d+/.test(r.stdout),
+          `le rapport doit donner le PID du runtime détaché\n${r.stdout}`,
+        );
+        // Le runtime détaché écoute réellement (indépendant du process CLI, sorti).
+        assert.strictEqual(await isPortOpen(HTTP_PORT), true);
+      } finally {
+        const stop = await runCli(["stop"], 30000);
+        assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);
+      }
+      // Ports libérés après stop — aucun zombie.
+      assert.strictEqual(await isPortOpen(HTTP_PORT), false);
+    }, 210000);
+
     // ─── Point d'arrêt onReady SANS serveur ─────────────────────────────────────
     // `proxy:generate` déclare `kernelEvent: "onReady"` : la phase la plus profonde
     // AVANT initServers. Preuve que le boot s'arrête bien à la phase déclarée : la

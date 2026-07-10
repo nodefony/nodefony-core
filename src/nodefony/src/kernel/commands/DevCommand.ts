@@ -34,6 +34,16 @@ class Dev extends Command {
       options,
     );
     this.alias("dev");
+    // Options du lancement DÉTACHÉ — consommées par le fast-path standalone de
+    // CliKernel.start (detachedStart.ts), déclarées ici pour le help + pour que
+    // commander ne les rejette pas si le fast-path est court-circuité.
+    this.addOption(
+      "--detach",
+      "spawn détaché + attente readiness (ports) + exit 0/69",
+    );
+    this.addOption("--wait <sec>", "plafond d'attente readiness (défaut 120)");
+    this.addOption("--health <path>", "GET de santé post-boot (best-effort)");
+    this.addOption("--log <file>", "log du runtime détaché (défaut tmp/)");
   }
 
   /**

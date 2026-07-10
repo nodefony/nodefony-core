@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-10T18:21:17.346Z",
+  "generated": "2026-07-10T19:03:19.721Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 999,
-    "symbols": 2497,
+    "files": 1000,
+    "symbols": 2508,
     "classes": 314,
-    "interfaces": 657,
+    "interfaces": 660,
     "types": 293,
     "enums": 4,
-    "functions": 680,
-    "constants": 549
+    "functions": 687,
+    "constants": 550
   },
   "symbols": {
     "Cli": {
@@ -3737,6 +3737,73 @@
       "implements": [],
       "decorators": [],
       "description": "Affichage « boot de rêve » du serveur en développement : une checklist animée (spinner + `✓`/`✗` par phase de boot) à la place du mur de logs `INFO`/`MODULE ADD`. **Dev-only** : instancié uniquemen…"
+    },
+    "DetachedStartOptions": {
+      "name": "DetachedStartOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Lancement DÉTACHÉ d'un runtime Nodefony (`nodefony development --detach`) — absorbe l'expérience du script `start.sh` du skill dans le framework : spawn détaché + attente de readiness + health chec…"
+    },
+    "DetachedStartResult": {
+      "name": "DetachedStartResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat du lancement détaché."
+    },
+    "ParsedDetachArgs": {
+      "name": "ParsedDetachArgs",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options des flags détacheur reconnues dans argv."
+    },
+    "parseDetachArgs": {
+      "name": "parseDetachArgs",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse les flags du détacheur depuis argv (après node + bin) et STRIP ces flags des args relayés au child — un `--detach` relayé re-détacherait à l'infini. Fonction PURE (testable sans process)."
+    },
+    "isDetachRequested": {
+      "name": "isDetachRequested",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si l'invocation demande un lancement détaché (et n'est PAS déjà le child)."
+    },
+    "launchDetached": {
+      "name": "launchDetached",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Spawn le runtime détaché puis attend sa readiness (tous les ports en écoute). Signaux d'échec (fail-fast, cf en-tête du module) : - le child MEURT avant la readiness → `EX_UNAVAILABLE` + exit code …"
+    },
+    "runDetachedStart": {
+      "name": "runDetachedStart",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Point d'entrée du fast-path standalone (`CliKernel.start`) : parse argv, lance le runtime détaché, rend le rapport sur stdout et retourne le code de sortie."
+    },
+    "DETACH_CHILD_ENV": {
+      "name": "DETACH_CHILD_ENV",
+      "kind": "const",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Marqueur env anti-récursion : posé sur le child pour couper tout re-détachement."
     },
     "DevProcessInfo": {
       "name": "DevProcessInfo",
@@ -20099,6 +20166,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "CliDefaultOptions": [
@@ -20145,6 +20213,12 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "runStandaloneDevCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "isDetachRequested": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runDetachedStart": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "setLogColor": [
@@ -20854,9 +20928,23 @@
         "src/nodefony/src/service/cluster/topology.ts"
       ],
       "defaultDevPorts": [
+        "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "probePorts": [
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "signalProcessGroup": [
+        "src/nodefony/src/service/dev/detachedStart.ts"
+      ],
+      "PortState": [
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "detectRuntimeMode": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -20869,10 +20957,6 @@
       "isPidAlive": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
-      "probePorts": [
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
-      ],
       "readSupervisorPid": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
@@ -20884,10 +20968,6 @@
       ],
       "DiscoverOptions": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
-      ],
-      "PortState": [
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "clearSupervisorPidFile": [
         "src/nodefony/src/service/dev/devStop.ts"

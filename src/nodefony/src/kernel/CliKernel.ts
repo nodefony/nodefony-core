@@ -24,6 +24,10 @@ import {
   isStandaloneDevCommand,
   runStandaloneDevCommand,
 } from "../service/dev/devStatusReport";
+import {
+  isDetachRequested,
+  runDetachedStart,
+} from "../service/dev/detachedStart";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -165,6 +169,29 @@ class CliKernel extends Cli {
     if (requested !== null && isStandaloneDevCommand(requested)) {
       await runStandaloneDevCommand(requested);
       return process.exit(0);
+    }
+
+    // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────
+    // Spawn détaché + readiness (sonde ports) + health + exit code sémantique —
+    // l'expérience du script start.sh absorbée nativement (cf detachedStart.ts).
+    // AUCUN boot dans CE process (le child boote, lui, normalement) ; le marqueur
+    // env DETACH_CHILD coupe toute récursion. Borné aux commandes RUNTIME (la
+    // readiness = ports en écoute n'a aucun sens pour build/install…) — un
+    // `--detach` ailleurs suit le flux normal et sera rejeté par commander.
+    const DETACHABLE = new Set([
+      "development",
+      "dev",
+      "production",
+      "prod",
+      "cluster",
+    ]);
+    if (
+      requested !== null &&
+      DETACHABLE.has(requested) &&
+      isDetachRequested(process.argv.slice(2))
+    ) {
+      const code = await runDetachedStart(process.argv);
+      return process.exit(code);
     }
 
     this.kernel = new Kernel(this.environment, this, options);
