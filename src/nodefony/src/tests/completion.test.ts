@@ -124,6 +124,78 @@ describe("completion — scripts shell", () => {
     assert.ok(s.includes("./node_modules/.bin/nodefony"));
   });
 
+  // Exécution zsh RÉELLE (zsh -f = zéro rc) : le source enregistre bien _nodefony
+  // dans compsys, y compris SANS compinit préalable (auto-init du script — le
+  // symptôme « TAB liste les fichiers » = compdef silencieusement absent).
+  it("zsh réel : source du script → complétion ENREGISTRÉE (compinit auto)", async (ctx) => {
+    const { spawnSync } = await import("node:child_process");
+    if (spawnSync("command", ["-v", "zsh"], { shell: true }).status !== 0) {
+      return ctx.skip();
+    }
+    const fsMod = await import("node:fs");
+    const osMod = await import("node:os");
+    const pathMod = await import("node:path");
+    const dir = fsMod.mkdtempSync(pathMod.join(osMod.tmpdir(), "nf-compl-"));
+    const script = pathMod.join(dir, "completion.zsh");
+    fsMod.writeFileSync(script, renderCompletionScript("zsh"), "utf8");
+    try {
+      // HOME jetable (zcompdump) ; PAS de compinit préalable → l'auto-init joue.
+      const r = spawnSync(
+        "zsh",
+        [
+          "-fc",
+          `source ${script} && [[ \${_comps[nodefony]} == _nodefony ]] && echo REGISTERED`,
+        ],
+        { env: { ...process.env, HOME: dir } },
+      );
+      assert.ok(
+        r.stdout.toString().includes("REGISTERED"),
+        `compdef doit être posé\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+      );
+    } finally {
+      fsMod.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("zsh réel : _nodefony transmet les mots APRÈS le binaire (offset :1)", async (ctx) => {
+    const { spawnSync } = await import("node:child_process");
+    if (spawnSync("command", ["-v", "zsh"], { shell: true }).status !== 0) {
+      return ctx.skip();
+    }
+    const fsMod = await import("node:fs");
+    const osMod = await import("node:os");
+    const pathMod = await import("node:path");
+    const dir = fsMod.mkdtempSync(pathMod.join(osMod.tmpdir(), "nf-complw-"));
+    const script = pathMod.join(dir, "completion.zsh");
+    fsMod.writeFileSync(script, renderCompletionScript("zsh"), "utf8");
+    // Faux binaire projet : capture ses args (la priorité ./node_modules/.bin joue).
+    const binDir = pathMod.join(dir, "node_modules", ".bin");
+    fsMod.mkdirSync(binDir, { recursive: true });
+    const fakeBin = pathMod.join(binDir, "nodefony");
+    fsMod.writeFileSync(fakeBin, `#!/bin/sh\necho "$@" > "${dir}/args.txt"\n`);
+    fsMod.chmodSync(fakeBin, 0o755);
+    try {
+      const harness = `
+        compdef() { :; }
+        compadd() { :; }
+        source ${script}
+        words=(nodefony development --)
+        _nodefony
+      `;
+      const r = spawnSync("zsh", ["-fc", harness], {
+        cwd: dir,
+        env: { ...process.env, HOME: dir },
+      });
+      assert.strictEqual(r.status, 0, r.stderr.toString());
+      const args = fsMod.readFileSync(pathMod.join(dir, "args.txt"), "utf8");
+      // La commande tapée DOIT être transmise (bug historique : offset :2 la perdait
+      // → __complete répondait des noms de commandes au lieu des options).
+      assert.strictEqual(args.trim(), "__complete -- development --");
+    } finally {
+      fsMod.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   // La syntaxe shell RÉELLE des scripts générés — `zsh -n` / `bash -n` parsent sans
   // exécuter. Skip si le shell n'est pas sur la machine (CI minimaliste).
   for (const sh of ["zsh", "bash"] as const) {

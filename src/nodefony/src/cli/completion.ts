@@ -161,6 +161,10 @@ export function renderCompletionScript(shell: CompletionShell): string {
 #   nodefony completion zsh > "\${fpath[1]}/_nodefony"   (puis: exec zsh)
 # ou directe dans ~/.zshrc :
 #   source <(nodefony completion zsh)
+# Le système de complétion doit être chargé (compdef) — auto-init sinon.
+if ! whence compdef >/dev/null 2>&1; then
+  autoload -Uz compinit && compinit
+fi
 _nodefony_bin() {
   if [ -x ./node_modules/.bin/nodefony ]; then
     echo ./node_modules/.bin/nodefony
@@ -172,7 +176,9 @@ _nodefony_bin() {
 }
 _nodefony() {
   local -a candidates
-  candidates=("\${(@f)$(\${=$(_nodefony_bin)} __complete -- "\${words[@]:2}" 2>/dev/null)}")
+  # \${words[@]:1} : tous les mots APRÈS le nom du binaire, mot en frappe inclus
+  # (offset d'expansion 0-based — :1 saute uniquement "nodefony").
+  candidates=("\${(@f)$(\${=$(_nodefony_bin)} __complete -- "\${words[@]:1}" 2>/dev/null)}")
   (( \${#candidates} )) && compadd -a candidates
 }
 compdef _nodefony nodefony
