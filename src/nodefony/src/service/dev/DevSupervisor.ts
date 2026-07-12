@@ -694,7 +694,7 @@ export class DevSupervisor {
     const deadline = t0 + READY_TIMEOUT_MS;
     for (;;) {
       if (this.#child !== child || this.#stopping) return; // restart/stop → abandon
-      if (await this.#allPortsListening()) {
+      if (await this.#anyPortListening()) {
         // Ports à l'écoute ≠ boot SAIN : un module peut être tombé en fail-soft
         // (cascade silencieuse « vert mais cassé »). On interroge `livez` (HTTP
         // loopback, observation externe) pour le dire HAUT (fail-loud DX). MAIS les
@@ -737,13 +737,19 @@ export class DevSupervisor {
     }
   }
 
-  /** `true` si TOUS les ports surveillés acceptent une connexion (serveur à l'écoute). */
-  async #allPortsListening(): Promise<boolean> {
+  /**
+   * `true` si AU MOINS UN port surveillé accepte une connexion. « Au moins un »
+   * et pas « tous » : la liste est une CONVENTION du superviseur (5151/5152),
+   * pas la topologie réelle — une app `https: false` n'ouvre JAMAIS 5152 et un
+   * « tous » criait « boot bloqué ? » à 30 s sur un serveur qui répondait très
+   * bien (même règle que la readiness de `launchDetached`, vécu 2×).
+   */
+  async #anyPortListening(): Promise<boolean> {
     if (this.#ports.length === 0) return true;
     const states = await Promise.all(
       this.#ports.map((p) => this.#isPortFree(p)),
     );
-    return states.every((free) => !free);
+    return states.some((free) => !free);
   }
 
   /**

@@ -401,7 +401,13 @@ export async function runDetachedStart(argv: string[]): Promise<number> {
     say(`log complet : ${result.logFile}`);
     return result.exitCode;
   }
-  const portsUp = result.ports.map((p) => p.port).join(" | ");
+  // N'afficher que les ports RÉELLEMENT en écoute — la liste sondée est une
+  // convention (5151/5152) : annoncer « 5152 en écoute » sur une app
+  // https:false serait un mensonge (vécu : confusion « qui a ouvert 5152 ? »).
+  const portsUp = result.ports
+    .filter((p) => p.listening)
+    .map((p) => p.port)
+    .join(" | ");
   say(`READY — ports en écoute : ${portsUp}`);
   if (result.health !== undefined) say(`HEALTH ${result.health}`);
   say(`UP — PID=${result.pid} | log : ${result.logFile}`);
