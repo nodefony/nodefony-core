@@ -11,13 +11,15 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf dist && rolldown -c rolldown.config.ts",
+    "build": "rimraf dist && rolldown -c rolldown.config.ts && npm run build:ui",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "rimraf dist",
     "frontend:vite-only": "vite --config frontend/vite.config.generated.mjs",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "typecheck": "tsgo --noEmit -p frontend/tsconfig.json"
+    "typecheck": "tsgo --noEmit -p frontend/tsconfig.json",
+    "build:ui": "vite build --config frontend/vite.config.publish.mts",
+    "prepack": "npm run build"
   },
   "private": false,
   "keywords": [

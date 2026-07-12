@@ -52,15 +52,23 @@ class StudioController extends Controller {
   @Get("/")
   renderStudio(): unknown {
     this.setContextHtml();
-    const svc = this.context?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
-    // CSP émis par le firewall (@nodefony/security, P6 J5 étape B) : on propage le
-    // nonce de la requête au document (origines Vite déclarées via registerCspOrigins).
-    // Plus de hack setHeader ici (le TODO P14.14 est livré).
+    // Mode `static` (molette `ui`, résolue au boot par le module) : index
+    // pré-buildé shippé npm, servi par PrebuiltUi — aucune dépendance à Vite
+    // ni @nodefony/frontend. Vue minimale (pas d'import de la classe Studio :
+    // cycle index.ts ↔ controller).
+    const studio = this.context?.kernel?.getModule("studio") as
+      { ui?: { renderIndex(nonce?: string): string } | null } | undefined;
+    if (studio?.ui) {
+      return this.render(studio.ui.renderIndex(this.context?.cspNonce));
+    }
+    // Mode `vite` (dev HMR) — CSP émis par le firewall (@nodefony/security,
+    // P6 J5 étape B) : on propage le nonce de la requête au document (origines
+    // Vite déclarées via registerCspOrigins).
     // Coquille = `frontend/index.html` du module (le head/meta/externals y vivent),
     // tags injectés par @nodefony/frontend (dev = Vite, prod = manifest). Plus de
     // shell codé en dur ici → un dev personnalise son index.html sans toucher au core.
+    const svc = this.context?.container?.get("frontend") as
+      FrontendService | undefined;
     const html =
       svc?.renderDocument("studio", this.context?.cspNonce) ??
       "<!DOCTYPE html><!-- @nodefony/studio: frontend service unavailable -->";

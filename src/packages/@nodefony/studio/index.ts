@@ -11,8 +11,14 @@
  *  - Data plane admin (machine) : `/nodefony/<module>/api/*` (≥3 segments) — porté par
  *    chaque module, vit indépendamment de Studio. Studio n'en est qu'un consommateur web.
  */
+import path from "node:path";
 import { Kernel, Module } from "nodefony";
 import { controllers } from "@nodefony/framework";
+import {
+  resolveUiDelivery,
+  PrebuiltUi,
+  type UiDeliveryMode,
+} from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
 import config from "./nodefony/config/config";
 import StudioController from "./nodefony/controller/StudioController";
@@ -27,26 +33,58 @@ class Studio extends Module {
   /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
   static override critical = false;
 
+  /**
+   * Livraison statique de l'UI (mode `static`) — `null` en mode `vite`/`none`.
+   * Lu par `StudioController.renderStudio` via `kernel.getModule("studio")`.
+   */
+  ui: PrebuiltUi | null = null;
+
   constructor(kernel: Kernel) {
     super("studio", kernel, import.meta.url, config);
   }
 
   /**
-   * Enregistre la déclaration frontend auprès du FrontendService.
-   * Doit être fait AVANT `onKernelReady` pour que le superviseur Vite démarre
-   * avec cette entry.
+   * Branche la livraison de l'UI selon la molette `ui` (config module) :
+   * - `vite`   → `registerEntry` auprès du FrontendService (HMR dev).
+   * - `static` → assets pré-buildés `dist/frontend/` (produits au publish,
+   *              shippés npm) servis par `PrebuiltUi` (@nodefony/http) —
+   *              AUCUNE dépendance à Vite ni à @nodefony/frontend.
+   * Doit être fait AVANT `onKernelReady` (le superviseur Vite démarre avec
+   * ses entries ; le mount statique doit précéder les premières requêtes).
    */
   override async onKernelBoot(): Promise<this> {
-    const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
-    if (!svc) {
-      this.log(
-        "@nodefony/frontend service not registered — is the module loaded before this one?",
-        "ERROR",
-      );
+    const resolution = resolveUiDelivery({
+      requested: (this.options as { ui?: UiDeliveryMode }).ui,
+      environment: this.kernel?.environment,
+      hasFrontendService: !!this.kernel?.container?.get("frontend"),
+      sourcesDir: path.join(this.path, "frontend", "src"),
+      distIndex: path.join(this.path, "dist", "frontend", "index.html"),
+    });
+    this.log(
+      `studio UI delivery: ${resolution.mode} — ${resolution.reason}`,
+      "INFO",
+    );
+
+    if (resolution.mode === "static") {
+      this.ui = new PrebuiltUi({
+        publicPath: "/_assets/studio/",
+        distDir: path.join(this.path, "dist", "frontend"),
+      });
+      if (!this.ui.mount(this.kernel?.container, this.kernel)) {
+        this.log(
+          "server-static unavailable at boot — static mount deferred to onReady",
+          "WARNING",
+        );
+      }
       return this;
     }
+    if (resolution.mode === "none") {
+      this.log(`studio UI unavailable: ${resolution.reason}`, "ERROR");
+      return this;
+    }
+
+    // mode "vite" — HMR dev (repo self-hosted / contrib).
+    const svc = this.kernel?.container?.get("frontend") as FrontendService;
     svc.registerEntry(this, {
       type: "react19",
       entry: "./frontend/src/main.tsx",
