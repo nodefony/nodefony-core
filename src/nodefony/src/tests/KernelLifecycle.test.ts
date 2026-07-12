@@ -1060,6 +1060,50 @@ describe("Kernel — resolveAppEntry() / isTrunk()", () => {
     assert.strictEqual(await k.isTrunk(), null);
   });
 
+  describe("diagnoseUnbootableProject() — fail-loud install/build", () => {
+    it("pas un projet Node / projet non-nodefony → null (flux hors-projet inchangé)", () => {
+      const none = fixture({});
+      assert.strictEqual(none.diagnoseUnbootableProject(), null);
+      const express = fixture({
+        "package.json": JSON.stringify({
+          main: "index.js",
+          dependencies: { express: "^5.0.0" },
+        }),
+      });
+      assert.strictEqual(express.diagnoseUnbootableProject(), null);
+    });
+
+    it("dep nodefony déclarée SANS node_modules → message npm install", () => {
+      const k = fixture({
+        "package.json": JSON.stringify({
+          main: "dist/index.js",
+          dependencies: { nodefony: "^10.0.0" },
+        }),
+      });
+      assert.match(
+        k.diagnoseUnbootableProject() ?? "",
+        /NON INSTALLÉES[\s\S]*npm install/u,
+      );
+    });
+
+    it("deps installées mais AUCUNE entrée d'app → message npm run build", () => {
+      const k = fixture(
+        {
+          "package.json": JSON.stringify({
+            main: "dist/index.js",
+            dependencies: { nodefony: "^10.0.0" },
+          }),
+        },
+        ["node_modules/nodefony"],
+      );
+      assert.strictEqual(k.resolveAppEntry(), null); // bien le cas trunk=null
+      assert.match(
+        k.diagnoseUnbootableProject() ?? "",
+        /NON CONSTRUIT[\s\S]*npm run build/u,
+      );
+    });
+  });
+
   it("entrée legacy index.js racine (pas de main) → trunk javascript", async () => {
     const k = fixture({
       "package.json": JSON.stringify({

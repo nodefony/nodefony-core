@@ -532,6 +532,15 @@ class Kernel extends Service implements IKernel {
     this.trunk = await this.isTrunk();
     this.initializeLog();
     if (!this.trunk && this.cli) {
+      // PROJET Nodefony présent mais pas bootable (deps non installées / non
+      // construit) → message ACTIONNABLE + exit 1, TTY ou pas. Ouvrir le wizard
+      // de création dans un projet existant serait un contresens (vécu : app
+      // générée, `nodefony dev` avant `npm install` → « il ne détecte pas »).
+      const hint = this.diagnoseUnbootableProject();
+      if (hint) {
+        this.log(hint, "CRITIC");
+        return (await this.terminate(1)) as this;
+      }
       // Hors projet Nodefony (aucune entrée d'app résolue depuis package.json).
       // Le wizard de création est un outil INTERACTIF : sans TTY (container,
       // CI, orchestrateur), prompter est absurde (le prompt crashe « User
@@ -1628,6 +1637,56 @@ class Kernel extends Service implements IKernel {
     return entry.includes(`${path.sep}dist${path.sep}`)
       ? "typescript"
       : "javascript";
+  }
+
+  /**
+   * Diagnostic fail-loud d'un PROJET Nodefony non bootable — différencie les
+   * trois raisons qu'un `resolveAppEntry()` nul confond : « vraiment pas un
+   * projet » (→ `null`, wizard/message générique), « dépendances non
+   * installées » et « non construit ». Sans lui, un `nodefony dev` dans une
+   * app fraîchement générée tombait sur le wizard de création — déroutant
+   * alors qu'il ne manque que `npm install` / `npm run build` (vécu).
+   *
+   * @returns le message actionnable à logger CRITIC, ou `null` si ce dossier
+   *   n'est pas un projet Nodefony (le flux hors-projet reste inchangé)
+   */
+  diagnoseUnbootableProject(): string | null {
+    let pkg: {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+    };
+    try {
+      pkg = JSON.parse(
+        fs.readFileSync(path.resolve(this.path, "package.json"), "utf8"),
+      );
+    } catch {
+      return null;
+    }
+    const declaresNodefony = Boolean(
+      pkg.dependencies?.nodefony ??
+      pkg.devDependencies?.nodefony ??
+      pkg.peerDependencies?.nodefony,
+    );
+    if (!declaresNodefony) {
+      return null;
+    }
+    if (!fs.existsSync(path.resolve(this.path, "node_modules"))) {
+      return (
+        `Projet Nodefony détecté (${this.path}) mais dépendances NON INSTALLÉES.\n` +
+        `Lance :\n` +
+        `  npm install\n` +
+        `  npm run build\n` +
+        `puis relance ta commande.`
+      );
+    }
+    return (
+      `Projet Nodefony détecté (${this.path}) mais NON CONSTRUIT ` +
+      `(aucune entrée d'app : package.json \`main\`, dist/index.js ou index.js).\n` +
+      `Lance :\n` +
+      `  npm run build\n` +
+      `puis relance ta commande.`
+    );
   }
 
   async isCore(): Promise<boolean> {
