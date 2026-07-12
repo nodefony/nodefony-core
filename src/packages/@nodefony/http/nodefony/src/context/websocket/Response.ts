@@ -21,6 +21,32 @@ export interface IWsCookie {
   secure?: boolean;
 }
 
+/**
+ * Codes d'erreur d'écriture « le client est PARTI » : reload de page, onglet
+ * fermé, HMR — la socket TCP est morte côté client pendant qu'une frame était
+ * en vol. Race réseau INÉVITABLE (la garde `readyState === OPEN` ne la couvre
+ * pas : l'état bascule après l'échec d'écriture) — c'est du réseau normal, pas
+ * une erreur serveur.
+ */
+const PEER_GONE_CODES = new Set([
+  "EPIPE",
+  "ECONNRESET",
+  "ECONNABORTED",
+  "ERR_STREAM_DESTROYED",
+  "ERR_STREAM_WRITE_AFTER_END",
+]);
+
+/**
+ * `true` si l'erreur d'écriture signifie seulement que le client s'est
+ * déconnecté (frame perdue, connexion en cours de fermeture) — à logger DEBUG,
+ * jamais ERROR + stack (vécu : un simple reload de page pendant un ping WS
+ * remplissait le journal d'« Error: write EPIPE »).
+ */
+export function isPeerGoneError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return typeof code === "string" && PEER_GONE_CODES.has(code);
+}
+
 const WS_CLOSE_DESCRIPTIONS: Record<number, string> = {
   1000: "Normal Closure",
   1001: "Going Away",
@@ -102,6 +128,16 @@ class WebsocketResponse {
 
       this.connection.send(sendData, (error) => {
         if (error) {
+          // Client parti pendant l'écriture → même sémantique que decideSend
+          // "close" (l.90) : frame perdue, PAS une erreur — résolu sans bruit.
+          // Rejeter forcerait chaque handler à try/catch un simple reload.
+          if (isPeerGoneError(error)) {
+            this.log(
+              `WS send: client déconnecté pendant l'écriture (${(error as NodeJS.ErrnoException).code}) — frame perdue`,
+              "DEBUG",
+            );
+            return resolve(this);
+          }
           this.log(error, "ERROR");
           return reject(error);
         }
@@ -129,6 +165,13 @@ class WebsocketResponse {
 
     // Seuil + politique lus UNE fois hors boucle (pas par client).
     const { max, policy } = readBackpressureOptions(wss);
+    // UNE closure par broadcast (pas par client — règle perf : N clients ×
+    // M frames). Client parti = silencieux ; vraie erreur d'écriture = ERROR.
+    const onWriteError = (error?: Error) => {
+      if (error && !isPeerGoneError(error)) {
+        this.log(error, "ERROR");
+      }
+    };
     wss.clients.forEach((client) => {
       if (client.readyState !== Ws.OPEN) {
         return;
@@ -140,7 +183,10 @@ class WebsocketResponse {
         this.logFirstDrop(client, decision, max);
         return;
       }
-      client.send(sendData);
+      // Callback OBLIGATOIRE : sans lui, une erreur d'écriture async (client
+      // parti mi-broadcast) est émise en event "error" du socket au lieu
+      // d'être absorbée ici.
+      client.send(sendData, onWriteError);
     });
   }
 

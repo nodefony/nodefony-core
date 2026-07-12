@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-12T18:45:45.528Z",
+  "generated": "2026-07-12T18:53:47.714Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1010,
-    "symbols": 2572,
+    "symbols": 2573,
     "classes": 318,
     "interfaces": 671,
     "types": 299,
     "enums": 4,
-    "functions": 724,
+    "functions": 725,
     "constants": 556
   },
   "symbols": {
@@ -18034,6 +18034,14 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": null
+    },
+    "isPeerGoneError": {
+      "name": "isPeerGoneError",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "`true` si l'erreur d'écriture signifie seulement que le client s'est déconnecté (frame perdue, connexion en cours de fermeture) — à logger DEBUG, jamais ERROR + stack (vécu : un simple reload de pa…"
     },
     "WebsocketContext": {
       "name": "WebsocketContext",
