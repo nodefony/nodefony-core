@@ -38,6 +38,8 @@ export interface ICreateRequest {
   dir: string;
   /** Autorise un dossier cible existant non vide. */
   force: boolean;
+  /** Câble les deps nodefony en `file:` vers un checkout local (avant release npm). */
+  link: boolean;
 }
 
 /**
@@ -53,10 +55,13 @@ export function parseCreateArgv(
   const positionals: string[] = [];
   let dir: string | undefined;
   let force = false;
+  let link = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
     if (word === "--force" || word === "-f") {
       force = true;
+    } else if (word === "--link") {
+      link = true;
     } else if (word === "--dir") {
       dir = rest[++i];
     } else if (word.startsWith("-")) {
@@ -79,7 +84,7 @@ export function parseCreateArgv(
       error: `nom invalide « ${name} » — kebab-case attendu (ex : mon-app)`,
     };
   }
-  return { type: type as TCreateType, name, dir: dir ?? name, force };
+  return { type: type as TCreateType, name, dir: dir ?? name, force, link };
 }
 
 /**
@@ -153,9 +158,70 @@ export function renderTemplates(
 }
 
 /**
- * Commande `nodefony create <type> <name> [--dir <path>] [--force]` — génère un
- * projet depuis les templates shippés. Standalone : zéro boot, utilisable via
- * `npx nodefony create app mon-app` hors de tout projet.
+ * Workspaces nodefony d'un CHECKOUT du repo (`src/nodefony` + `src/packages/@nodefony/*`),
+ * résolus depuis la racine du paquet `nodefony`. Un paquet INSTALLÉ (node_modules)
+ * n'a pas ce voisinage → `null` (le mode `--link` n'a de sens que sur un checkout).
+ */
+export function resolveLocalWorkspaces(
+  packageRoot: string,
+): Record<string, string> | null {
+  const packagesDir = path.resolve(packageRoot, "..", "packages", "@nodefony");
+  if (!existsSync(packagesDir)) {
+    return null;
+  }
+  const map: Record<string, string> = { nodefony: packageRoot };
+  for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      map[`@nodefony/${entry.name}`] = path.join(packagesDir, entry.name);
+    }
+  }
+  return map;
+}
+
+/**
+ * Mode `--link` : réécrit dans le `package.json` GÉNÉRÉ toute dep `nodefony` /
+ * `@nodefony/*` en `file:<workspace>` — `npm install` symlinke le checkout local
+ * et installe ses deps transitives. Rend l'app contrôlable AVANT toute release
+ * npm (dev du framework) ; les deps publiques (zod, rolldown…) restent au registre.
+ *
+ * @returns les noms de paquets liés (triés, pour le récap)
+ * @throws si une dep du scope nodefony n'existe pas dans le checkout
+ */
+export function linkLocalDeps(
+  destDir: string,
+  workspaces: Record<string, string>,
+): string[] {
+  const manifestPath = path.join(destDir, "package.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<
+    string,
+    Record<string, string>
+  >;
+  const linked: string[] = [];
+  for (const block of ["dependencies", "devDependencies"]) {
+    const deps = manifest[block];
+    if (!deps) {
+      continue;
+    }
+    for (const name of Object.keys(deps)) {
+      if (name !== "nodefony" && !name.startsWith("@nodefony/")) {
+        continue;
+      }
+      const workspace = workspaces[name];
+      if (!workspace) {
+        throw new Error(`--link : workspace introuvable pour ${name}`);
+      }
+      deps[name] = `file:${workspace}`;
+      linked.push(name);
+    }
+  }
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  return linked.sort();
+}
+
+/**
+ * Commande `nodefony create <type> <name> [--dir <path>] [--force] [--link]` —
+ * génère un projet depuis les templates shippés. Standalone : zéro boot,
+ * utilisable via `npx nodefony create app mon-app` hors de tout projet.
  *
  * @returns exit code sémantique (`OK`, `USAGE`, `CANTCREAT`, `SOFTWARE`)
  */
@@ -164,7 +230,7 @@ export function runCreateCommand(argv: string[]): number {
   if ("error" in parsed) {
     process.stderr.write(
       `create: ${parsed.error}\n` +
-        `usage : nodefony create <${CREATE_TYPES.join("|")}> <name> [--dir <path>] [--force]\n`,
+        `usage : nodefony create <${CREATE_TYPES.join("|")}> <name> [--dir <path>] [--force] [--link]\n`,
     );
     return SysExit.USAGE;
   }
@@ -176,21 +242,37 @@ export function runCreateCommand(argv: string[]): number {
     return SysExit.CANTCREAT;
   }
   let files: string[];
+  let linked: string[] = [];
   try {
-    const templates = path.join(findPackageRoot(), "templates", parsed.type);
+    const packageRoot = findPackageRoot();
+    const templates = path.join(packageRoot, "templates", parsed.type);
     files = renderTemplates(templates, dest, {
       appName: parsed.name,
       nodefonyVersion: version,
     });
+    if (parsed.link) {
+      const workspaces = resolveLocalWorkspaces(packageRoot);
+      if (!workspaces) {
+        process.stderr.write(
+          `create: --link exige un CHECKOUT de nodefony-core (paquet installé détecté).\n` +
+            `Sans checkout, attends la release npm puis installe sans --link.\n`,
+        );
+        return SysExit.SOFTWARE;
+      }
+      linked = linkLocalDeps(dest, workspaces);
+    }
   } catch (e) {
     process.stderr.write(`create: ${(e as Error).message}\n`);
     return SysExit.SOFTWARE;
   }
   const relDest = path.relative(process.cwd(), dest) || ".";
+  const linkNote = linked.length
+    ? `\n🔗 --link : ${linked.length} paquets nodefony câblés en file: sur le checkout local (dev framework — ne pas publier ce package.json tel quel)\n`
+    : "";
   process.stdout.write(
     `✔ ${parsed.type} « ${parsed.name} » généré dans ${relDest}/\n\n` +
       files.map((f) => `  ${f}`).join("\n") +
-      `\n\nProchaines étapes :\n` +
+      `\n${linkNote}\nProchaines étapes :\n` +
       `  cd ${relDest}\n` +
       `  npm install\n` +
       `  npm run dev        # → http://127.0.0.1:5151/api/hello\n`,

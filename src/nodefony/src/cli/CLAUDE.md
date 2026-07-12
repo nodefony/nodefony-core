@@ -193,8 +193,8 @@ commande validée → ses options + globales, sinon noms + alias. Install zsh :
 
 ## Scaffold — `cli/create.ts`
 
-`nodefony create app <name> [--dir <path>] [--force]` — génère un projet depuis les
-templates shippés (`templates/app/`, tokens `{{appName}}`/`{{nodefonyVersion}}`,
+`nodefony create app <name> [--dir <path>] [--force] [--link]` — génère un projet
+depuis les templates shippés (`templates/app/`, tokens `{{appName}}`/`{{nodefonyVersion}}`,
 substitution regex simple — pas de moteur ; bascule eta prévue si `create module`
 exige des conditionnels). **Standalone 0-boot** (fast-path `CliKernel.start` — cas
 nominal HORS projet : `npx nodefony create app mon-app`). L'app générée = VITRINE
@@ -206,9 +206,27 @@ persistent en `store:"auto"`), `realtime` (backplane cluster 0-dep), `security {
 prod, zone firewall d'abord ; sert le build React pré-compilé du paquet, 0 Vite
 prod), `redis` gated `when: ctx.infra.cache` (NF_REDIS_URL ⇔ chargé), build
 rolldown 3 lignes via `nodefony/bundler` (`externalDeps: true`), typecheck
-**tsgo** (`@typescript/native-preview`). Token
-inconnu dans un template = throw (zéro `{{` résiduel). Renames : `gitignore.tpl` →
-`.gitignore` (npm strip les dotfiles publiés). Exit codes :
+**tsgo** (`@typescript/native-preview`).
+
+**Outillage dev généré (parité core)** : `compose.yaml` (redis défaut + profils
+`postgres`/`mariadb`/`mysql`/`tools`/`loki`+grafana provisionné — noms/projet
+préfixés `<appName>`, cohabite avec l'infra du repo), `tests/` vitest (unit
+« l'app se charge » + `e2e.test.ts` gate `RUN_E2E` : boot RÉEL
+`production --detach --wait` + fetch HTTP + WS natif Node + `/livez`, arrêt
+`nodefony stop`), `eslint.config.mjs` flat + prettier (devDep `typescript@6` =
+API JS pour eslint ; le typecheck reste tsgo — 2 outils, 2 rôles),
+`vitest.config.ts` (bloc oxc décorateurs OBLIGATOIRE, commenté). Scripts :
+`test`/`test:e2e`/`lint`/`format`/`infra:up`/`infra:down`/`stop`/`status`.
+
+**`--link` (dev framework, AVANT release npm)** : réécrit les deps
+`nodefony`/`@nodefony/*` du package.json généré en `file:<workspace>` vers le
+checkout (`resolveLocalWorkspaces` remonte depuis le paquet ; hors checkout →
+erreur claire `SOFTWARE`). `npm install` réel symlinke + installe les transitives
+— une app `--link` est contrôlable de bout en bout (install → build → tests e2e)
+sans aucune publication. Les deps publiques (zod, rolldown…) restent au registre.
+
+Token inconnu dans un template = throw (zéro `{{` résiduel). Renames :
+`gitignore.tpl` → `.gitignore` (npm strip les dotfiles publiés). Exit codes :
 `OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. Tests `create.test.ts` (+ e2e bin gate
 `RUN_CLI_BOOT=1`).
 

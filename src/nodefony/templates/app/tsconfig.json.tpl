@@ -15,6 +15,14 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true
   },
-  "include": ["index.ts", "env.ts", "nodefony.config.ts", "rolldown.config.ts", "nodefony/**/*.ts"],
+  "include": [
+    "index.ts",
+    "env.ts",
+    "nodefony.config.ts",
+    "rolldown.config.ts",
+    "vitest.config.ts",
+    "nodefony/**/*.ts",
+    "tests/**/*.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

@@ -28,6 +28,10 @@ class Create extends Command {
     this.addArgument("<name>", "project name (kebab-case)");
     this.addOption("--dir <path>", "target directory (default: ./<name>)");
     this.addOption("-f, --force", "allow a non-empty target directory");
+    this.addOption(
+      "--link",
+      "wire nodefony deps as file: links to a local checkout (framework dev)",
+    );
   }
 
   override async generate(): Promise<this> {

@@ -199,7 +199,13 @@ function probeHealth(ports: number[], healthPath: string): Promise<string> {
 }
 
 /**
- * Spawn le runtime détaché puis attend sa readiness (tous les ports en écoute).
+ * Spawn le runtime détaché puis attend sa readiness (AU MOINS UN port en écoute).
+ *
+ * « Au moins un » et pas « tous » : la liste de ports est une CONVENTION du parent
+ * (défaut `[5151, 5152]`), pas la topologie réelle de l'app — une app `https: false`
+ * n'ouvrira JAMAIS 5152 et un « tous » l'attendrait à vie (faux négatif, vécu).
+ * L'état COMPLET port par port reste dans `ports` du résultat (fail-loud : un port
+ * attendu fermé est VISIBLE dans le récap, il ne bloque juste pas la readiness).
  *
  * Signaux d'échec (fail-fast, cf en-tête du module) :
  * - le child MEURT avant la readiness → `EX_UNAVAILABLE` + exit code du child + tail log ;
@@ -288,7 +294,7 @@ export async function launchDetached(
     const up = states.filter((p) => p.listening).length;
     // `!exited` re-vérifié APRÈS la sonde : des ports up + un child mort entre
     // les deux checks = jamais un READY (ceinture du pre-flight ci-dessus).
-    if (up === ports.length && !exited) {
+    if (up > 0 && !exited) {
       const health = opts.healthPath
         ? await probeHealth(ports, opts.healthPath)
         : undefined;

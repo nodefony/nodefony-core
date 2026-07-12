@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-10T21:18:43.542Z",
+  "generated": "2026-07-12T11:26:10.593Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1005,
-    "symbols": 2543,
+    "symbols": 2545,
     "classes": 316,
     "interfaces": 665,
     "types": 295,
     "enums": 4,
-    "functions": 710,
+    "functions": 712,
     "constants": 553
   },
   "symbols": {
@@ -659,13 +659,29 @@
       "module": "@nodefony/core",
       "description": "Rend un arbre de templates : chaque `*.tpl` est copié dans `destDir` (suffixe retiré, renames appliqués), tokens `{{token}}` substitués. Un token inconnu jette — garantit ZÉRO `{{` résiduel dans le…"
     },
+    "resolveLocalWorkspaces": {
+      "name": "resolveLocalWorkspaces",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Workspaces nodefony d'un CHECKOUT du repo (`src/nodefony` + `src/packages/@nodefony/*`), résolus depuis la racine du paquet `nodefony`. Un paquet INSTALLÉ (node_modules) n'a pas ce voisinage → `nul…"
+    },
+    "linkLocalDeps": {
+      "name": "linkLocalDeps",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Mode `--link` : réécrit dans le `package.json` GÉNÉRÉ toute dep `nodefony` / `@nodefony/*` en `file:<workspace>` — `npm install` symlinke le checkout local et installe ses deps transitives. Rend l'…"
+    },
     "runCreateCommand": {
       "name": "runCreateCommand",
       "kind": "function",
       "file": "src/nodefony/src/cli/create.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Commande `nodefony create <type> <name> [--dir <path>] [--force]` — génère un projet depuis les templates shippés. Standalone : zéro boot, utilisable via `npx nodefony create app mon-app` hors de t…"
+      "description": "Commande `nodefony create <type> <name> [--dir <path>] [--force] [--link]` — génère un projet depuis les templates shippés. Standalone : zéro boot, utilisable via `npx nodefony create app mon-app` …"
     },
     "CREATE_TYPES": {
       "name": "CREATE_TYPES",
@@ -4057,7 +4073,7 @@
       "file": "src/nodefony/src/service/dev/detachedStart.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Spawn le runtime détaché puis attend sa readiness (tous les ports en écoute). Signaux d'échec (fail-fast, cf en-tête du module) : - le child MEURT avant la readiness → `EX_UNAVAILABLE` + exit code …"
+      "description": "Spawn le runtime détaché puis attend sa readiness (AU MOINS UN port en écoute). « Au moins un » et pas « tous » : la liste de ports est une CONVENTION du parent (défaut `[5151, 5152]`), pas la topo…"
     },
     "runDetachedStart": {
       "name": "runDetachedStart",

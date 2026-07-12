@@ -115,10 +115,44 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
       assert.strictEqual(r.exitCode, 0);
       assert.ok(typeof r.pid === "number" && r.pid > 0);
-      assert.ok(r.ports.every((p) => p.listening));
+      // Readiness = AU MoINS un port (la sonde peut rendre la main entre les
+      // deux listen du child) — l'état par port reste rapporté.
+      assert.ok(r.ports.some((p) => p.listening));
       // Le stdout du child va bien dans le log file.
       assert.ok(fs.readFileSync(log, "utf8").includes("[dev] fake boot"));
       // Cleanup : tuer le child factice détaché (leader de groupe).
+      try {
+        process.kill(-(r.pid as number), "SIGKILL");
+      } catch {
+        process.kill(r.pid as number, "SIGKILL");
+      }
+    } finally {
+      fs.rmSync(log, { force: true });
+    }
+  });
+
+  it("readiness partielle : UN SEUL port ouvert sur 2 sondés → ok (app https:false)", async () => {
+    const [p1, p2] = [await freePort(), await freePort()];
+    const log = tmpLog("partial");
+    try {
+      // Child factice type app `https: false` : n'ouvrira JAMAIS le 2ᵉ port —
+      // la liste sondée est une CONVENTION du parent, pas la topologie réelle.
+      const script = `
+        const net = require("node:net");
+        setTimeout(() => net.createServer().listen(${p1}, "127.0.0.1"), 300);
+        setInterval(() => {}, 1 << 30);
+      `;
+      const r = await launchDetached({
+        spawnCmd: process.execPath,
+        spawnArgs: ["-e", script],
+        logFile: log,
+        ports: [p1, p2],
+        waitSec: 15,
+      });
+      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      // Fail-loud : le port jamais ouvert reste VISIBLE comme fermé dans l'état.
+      assert.strictEqual(r.ports.find((p) => p.port === p1)?.listening, true);
+      assert.strictEqual(r.ports.find((p) => p.port === p2)?.listening, false);
       try {
         process.kill(-(r.pid as number), "SIGKILL");
       } catch {

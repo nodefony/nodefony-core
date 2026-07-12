@@ -17,6 +17,8 @@ import {
   parseCreateArgv,
   findPackageRoot,
   renderTemplates,
+  resolveLocalWorkspaces,
+  linkLocalDeps,
   runCreateCommand,
 } from "../cli/create";
 import { SysExit } from "../cli/sysexits";
@@ -41,18 +43,20 @@ describe("nodefony create — scaffold standalone", () => {
         name: "mon-app",
         dir: "mon-app",
         force: false,
+        link: false,
       });
     });
 
-    it("--dir et --force", () => {
+    it("--dir, --force et --link", () => {
       const req = parseCreateArgv(
-        argv("create", "app", "mon-app", "--dir", "x/y", "--force"),
+        argv("create", "app", "mon-app", "--dir", "x/y", "--force", "--link"),
       );
       assert.deepEqual(req, {
         type: "app",
         name: "mon-app",
         dir: "x/y",
         force: true,
+        link: true,
       });
     });
 
@@ -124,7 +128,19 @@ describe("nodefony create — scaffold standalone", () => {
         "index.ts",
         ".gitignore",
         "README.md",
+        "compose.yaml",
+        "eslint.config.mjs",
+        "vitest.config.ts",
         path.join("nodefony", "controllers", "HelloController.ts"),
+        path.join("tests", "config.test.ts"),
+        path.join("tests", "e2e.test.ts"),
+        path.join(
+          "docker",
+          "grafana",
+          "provisioning",
+          "datasources",
+          "loki.yaml",
+        ),
       ]) {
         assert.isTrue(existsSync(path.join(dest, f)), `manque ${f}`);
       }
@@ -168,6 +184,68 @@ describe("nodefony create — scaffold standalone", () => {
         runCreateCommand(argv("create", "app", "Bad_Name")),
         SysExit.USAGE,
       );
+    });
+  });
+
+  describe("--link (deps file: vers le checkout local)", () => {
+    it("resolveLocalWorkspaces : checkout → map complète, hors checkout → null", () => {
+      const workspaces = resolveLocalWorkspaces(findPackageRoot());
+      assert.isNotNull(workspaces);
+      assert.equal(workspaces!["nodefony"], findPackageRoot());
+      assert.isTrue(existsSync(workspaces!["@nodefony/http"]));
+      // Un dossier sans voisinage src/packages/@nodefony = paquet installé.
+      assert.isNull(resolveLocalWorkspaces(tmp));
+    });
+
+    it("linkLocalDeps : réécrit le scope nodefony en file:, laisse le public", () => {
+      const dest = path.join(tmp, "linked");
+      mkdirSync(dest, { recursive: true });
+      writeFileSync(
+        path.join(dest, "package.json"),
+        JSON.stringify({
+          dependencies: { nodefony: "^10.0.0", zod: "^4.4.3" },
+          devDependencies: { "@nodefony/http": "^10.0.0", rolldown: "^1.1.5" },
+        }),
+      );
+      const linked = linkLocalDeps(dest, {
+        nodefony: "/repo/src/nodefony",
+        "@nodefony/http": "/repo/src/packages/@nodefony/http",
+      });
+      assert.deepEqual(linked, ["@nodefony/http", "nodefony"]);
+      const pkg = JSON.parse(
+        readFileSync(path.join(dest, "package.json"), "utf8"),
+      ) as Record<string, Record<string, string>>;
+      assert.equal(pkg["dependencies"]["nodefony"], "file:/repo/src/nodefony");
+      assert.equal(pkg["dependencies"]["zod"], "^4.4.3");
+      assert.equal(
+        pkg["devDependencies"]["@nodefony/http"],
+        "file:/repo/src/packages/@nodefony/http",
+      );
+      assert.equal(pkg["devDependencies"]["rolldown"], "^1.1.5");
+    });
+
+    it("linkLocalDeps : dep nodefony hors checkout → throw", () => {
+      const dest = path.join(tmp, "orphan");
+      mkdirSync(dest, { recursive: true });
+      writeFileSync(
+        path.join(dest, "package.json"),
+        JSON.stringify({ dependencies: { "@nodefony/fantome": "^10.0.0" } }),
+      );
+      assert.throws(() => linkLocalDeps(dest, {}), /workspace introuvable/);
+    });
+
+    it("runCreateCommand --link : app générée câblée sur le checkout", () => {
+      const dest = path.join(tmp, "linked-app");
+      const code = runCreateCommand(
+        argv("create", "app", "linked-app", "--dir", dest, "--link"),
+      );
+      assert.equal(code, SysExit.OK);
+      const pkg = JSON.parse(
+        readFileSync(path.join(dest, "package.json"), "utf8"),
+      ) as { dependencies: Record<string, string> };
+      assert.match(pkg.dependencies["nodefony"], /^file:.*src\/nodefony$/);
+      assert.match(pkg.dependencies["@nodefony/http"], /^file:/);
+      assert.equal(pkg.dependencies["zod"], "^4.4.3");
     });
   });
 
