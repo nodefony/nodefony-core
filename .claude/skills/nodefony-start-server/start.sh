@@ -54,15 +54,35 @@ TEST_MODULE="$ROOT/src/modules/test"
 BIN="$ROOT/node_modules/nodefony/bin/nodefony"
 
 # ── 1. KILL : arrêt PROPRE via `nodefony stop` (source de vérité) PUIS filet ──
-# `nodefony stop` group-kill par `ps` TOUS les modes. Filet ENSUITE : rolldown
-# résiduel + sockets en ÉCOUTE sur les ports (process non-nodefony, secours si
-# `ps` indispo). ⚠️ `-sTCP:LISTEN` OBLIGATOIRE : sans le filtre, `lsof -ti:PORT`
-# vise aussi les CLIENTS connectés (navigateur sur Studio) → kill du navigateur.
-echo ">>> KILL (nodefony stop + filet rolldown/ports 5151/5152)"
+# `nodefony stop` group-kill par `ps` TOUS les modes — SCOPÉ à CE projet. Le
+# filet ENSUITE (résidus si `ps` indispo) doit respecter la MÊME règle : on ne
+# tue un process au port QUE si son cwd est CE repo. ⚠️ Vécu : le kill -9
+# aveugle par port a SIGKILLé le serveur dev d'une AUTRE app du poste (le
+# framework refuse ce kill trans-projet partout ailleurs). Occupant étranger →
+# REFUS explicite, jamais de kill. `-sTCP:LISTEN` OBLIGATOIRE : sans le filtre,
+# `lsof -ti:PORT` vise aussi les CLIENTS connectés (navigateur sur Studio).
+echo ">>> KILL (nodefony stop + filet scopé projet, ports 5151/5152)"
 (cd "$ROOT" && node "$BIN" stop >/dev/null 2>&1)
-pkill -9 -f "rolldown" 2>/dev/null
 PIDS=$( { lsof -ti:5151 -sTCP:LISTEN; lsof -ti:5152 -sTCP:LISTEN; } 2>/dev/null | sort -u )
-[ -n "$PIDS" ] && kill -9 $PIDS 2>/dev/null
+for PID in $PIDS; do
+  PCWD=$(lsof -a -p "$PID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
+  case "$PCWD" in
+    "$ROOT"|"$ROOT"/*) kill -9 "$PID" 2>/dev/null ;;
+    *)
+      echo ">>> ⛔ port occupé par pid $PID (${PCWD:-cwd inconnu}) — un AUTRE projet."
+      echo ">>>    Je ne tue JAMAIS le runtime d'un autre dossier : arrête-le depuis"
+      echo ">>>    SON dossier (nodefony stop) ou avec \`nodefony stop --all\`."
+      exit 73
+      ;;
+  esac
+done
+# rolldown résiduels de CE repo uniquement (même règle de scoping par cwd).
+for PID in $(pgrep -f "rolldown" 2>/dev/null); do
+  PCWD=$(lsof -a -p "$PID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
+  case "$PCWD" in
+    "$ROOT"|"$ROOT"/*) kill -9 "$PID" 2>/dev/null ;;
+  esac
+done
 sleep 1
 REMAIN=$( { lsof -ti:5151 -sTCP:LISTEN; lsof -ti:5152 -sTCP:LISTEN; } 2>/dev/null | sort -u | wc -l | tr -d ' ')
 echo ">>> ports libres ($REMAIN process restants)"
