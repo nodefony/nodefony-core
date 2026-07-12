@@ -39,13 +39,21 @@
 - `[1× — 2026-07-10]` **Ne pas conclure « X est meilleur » sur un grep mal borné.** Deux faux positifs en une session : `grep -rl "node:fs" dist/client` matchait les `.d.ts` (pas les `.js`) → fausse « fuite de builtin » ; et `xargs` mange les guillemets → `import * as React from react` (code invalide) alors que la sortie était correcte. Toujours restreindre l'extension ET relire la ligne brute.
 - `[1× — 2026-07-10]` **Un `grep` de plugins dans un `rollup.config.ts` compte le code COMMENTÉ** (`copy(`/`terser(` désactivés) et les faux amis (`replace(` = `String.prototype.replace`). Pour savoir ce qui est vivant : filtrer les lignes `^\s*//` et grepper les **imports**, pas les appels.
 
+## 🧪 App générée `--link` (banc de test réel)
+
+- `[1× — 2026-07-12]` **Une app `--link` a DEUX node_modules (app + checkout) = classe de bugs INVISIBLE dans le repo self-hosted** (node_modules unique hoisted). Vécu 2 fois le même jour : react en double (« Invalid hook call », page blanche → `resolve.dedupe`) et debugbar en 403 (realpath du paquet hors `fs.allow`). Réflexe : toute feature front se teste AUSSI depuis une app générée `--link`, pas seulement dans le repo.
+- `[1× — 2026-07-12]` **Une liste de ports sondés est une CONVENTION, pas la topologie de l'app.** 3 occurrences du même faux négatif en 2 jours (readiness `--wait`, `reportReady` superviseur, rapport READY) : exiger « TOUS les ports » sur `[5151, 5152]` en dur crie « boot bloqué » sur une app `https:false` qui répond très bien. Sémantique juste : ready = AU MOINS UN port, l'état PAR port reste affiché (fail-loud sans mensonge).
+- `[1× — 2026-07-12]` **Une page démo sans interaction se lit comme une page cassée.** Le user a conclu « react ne marche pas » devant une page qui MARCHAIT (h1 + JSON) mais n'avait ni bouton ni mouvement. Une vitrine générée doit prouver qu'elle est vivante : action utilisateur (bouton, input WS), pas juste du texte statique.
+- `[1× — 2026-07-12]` **Ne jamais grepper le log d'un run détaché sans avoir vérifié l'exit du lancement** (sortie redirigée → un launch refusé laisse l'ANCIEN log en place → faux diagnostic « le fix ne marche pas », vécu). `rm` le log avant relance OU vérifier `exit=0` d'abord.
+
 ## 🖥️ CLI / tests e2e process
 
 - `[1× — 2026-07-10]` **Un e2e qui spawne le binaire valide le DIST, pas le source.** Le filet CLI (`node bin/nodefony …`) a été lancé APRÈS le refacto mais AVANT `npm run build` → 12 verts… sur l'ANCIEN code. Réflexe : tout test qui spawn un binaire/dist = **rebuild d'abord**, sinon le vert ne prouve rien. (Cousin du « dist périmé » mais côté VALIDATION, pas boot.)
 - `[1× — 2026-07-10]` **La sortie vitest se termine par ~40 lignes blanches** → un `cmd | tail -N` après le run rend une sortie VIDE (2× dans la session, on croit à un échec silencieux). Fiable : rediriger vers un fichier puis `grep -E "Test Files|Tests"` dessus.
 - `[1× — 2026-07-10]` **Une mémoire de dette d'archi peut être PÉRIMÉE côté « déjà réglé »** : la dette CLI listait le double-boot prod/cluster comme ouvert alors que `e51af263` l'avait corrigé (asserts boot-count=1 VERTS). Avant d'auditer une dette mémorisée, croiser chaque point avec `git log`/le code — la devise vaut aussi pour les mémoires IA.
 - `[1× — 2026-07-10]` **Un script shell GÉNÉRÉ se valide en l'EXÉCUTANT dans le vrai shell, pas en le parsant.** `zsh -n` était vert alors que 2 bugs cassaient la complétion en réel : offset `${words[@]:2}` (l'**offset d'expansion zsh est 0-based** contrairement à l'indexation 1-based → `:1` pour sauter le 1er mot) + `compdef` introuvable sans `compinit` (échec SILENCIEUX → TAB retombe sur les fichiers). Les 2 trouvés par le retour user, pas par les tests. Harnais qui marche : `zsh -f` HOME jetable (vérifier `_comps[cmd]`) + faux binaire `./node_modules/.bin` qui capture ses args.
-- `[2× — 2026-07-10]` **Le cwd Bash dérive entre appels** (un `cd` pour un commit → le run vitest suivant tombe sur le mauvais workspace : « describe is not defined » via la config racine, `git add` pathspec KO). Toujours préfixer les commandes sensibles au workspace d'un `cd` absolu explicite dans le MÊME appel.
+
+> ♻️ Gradué 2026-07-12 : « le cwd Bash dérive entre appels » (4×) → [[feedback_bash_cwd_drift]].
 
 ## 🏎️ Perf / bancs A/B
 
