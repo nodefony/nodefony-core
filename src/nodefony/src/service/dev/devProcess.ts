@@ -322,6 +322,102 @@ export function splitByProject(
 }
 
 /**
+ * `true` si `cwd` ressemble à un projet Nodefony : `package.json` déclarant la
+ * dépendance `nodefony`, OU `node_modules/nodefony` présent (app installée sans
+ * la déclarer). MÊME heuristique que `Kernel.resolveAppEntry` (détection d'app),
+ * mais STANDALONE (fs seul, aucun kernel) — pour que `nodefony status`/`stop`
+ * lancés hors projet le DISENT au lieu de suggérer un `nodefony dev` voué à
+ * l'échec.
+ *
+ * @param cwd - dossier à tester.
+ */
+export function isNodefonyProjectDir(cwd: string): boolean {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.resolve(cwd, "package.json"), "utf8"),
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+    };
+    if (
+      pkg.dependencies?.nodefony ??
+      pkg.devDependencies?.nodefony ??
+      pkg.peerDependencies?.nodefony
+    ) {
+      return true;
+    }
+  } catch {
+    // pas de package.json lisible → on retombe sur node_modules/nodefony
+  }
+  return existsSync(path.resolve(cwd, "node_modules", "nodefony"));
+}
+
+/**
+ * Met en forme les runtimes ÉTRANGERS (autre projet) en bloc multi-lignes AÉRÉ :
+ * groupés par racine de projet (un Vite au cwd sous-dossier est rattaché à la
+ * racine qui le préfixe, affiché en relatif), un process par ligne (pid + rôle),
+ * puis les commandes EXACTES à copier-coller pour les arrêter. Partagé par le
+ * refus de boot (`DevSupervisor`), `nodefony dev --detach` et `nodefony stop` —
+ * même pédagogie partout (vécu : un pavé mono-ligne de 4 pids, dev bloqué sans
+ * savoir QUOI taper).
+ *
+ * @param foreign - runtimes d'autres projets (sortie `splitByProject().foreign`).
+ * @returns lignes prêtes à afficher (sans couleur ; l'appelant préfixe/colore).
+ */
+export function formatForeignRuntimes(
+  foreign: readonly DevProcessWithCwd[],
+): string[] {
+  // Racines = cwd des rôles racine (supervisor/master/server/worker) — toujours
+  // spawnés à la racine de leur projet. Les Vite s'y rattachent par préfixe.
+  const roots = [
+    ...new Set(
+      foreign
+        .filter((p) => p.role !== "vite" && p.cwd)
+        .map((p) => p.cwd as string),
+    ),
+  ];
+  const projectOf = (p: DevProcessWithCwd): string => {
+    if (!p.cwd) return "(dossier inconnu)";
+    return (
+      roots.find((r) => p.cwd === r || p.cwd!.startsWith(r + path.sep)) ?? p.cwd
+    );
+  };
+  const byProject = new Map<string, DevProcessWithCwd[]>();
+  for (const p of foreign) {
+    const key = projectOf(p);
+    const list = byProject.get(key);
+    if (list) {
+      list.push(p);
+    } else {
+      byProject.set(key, [p]);
+    }
+  }
+  const lines: string[] = [""];
+  for (const [project, procs] of byProject) {
+    lines.push(`  projet ${project}`);
+    for (const p of procs) {
+      const sub =
+        p.cwd && p.cwd !== project
+          ? `  (${path.relative(project, p.cwd)})`
+          : "";
+      lines.push(`    · pid ${p.pid}  ${p.label}${sub}`);
+    }
+  }
+  lines.push("", "  pour les arrêter :");
+  for (const project of byProject.keys()) {
+    if (!project.startsWith("(")) {
+      lines.push(`    cd ${project} && nodefony stop`);
+    }
+  }
+  lines.push(
+    "    nodefony stop --all        (tout Nodefony, tous projets)",
+    "",
+  );
+  return lines;
+}
+
+/**
  * `true` si un service écoute sur `port` en loopback (connexion acceptée). Inverse de
  * la sonde « port libre » du superviseur : ici on confirme qu'un serveur RÉPOND.
  */

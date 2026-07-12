@@ -16,6 +16,7 @@ import {
   probePorts,
   signalProcessGroup,
   splitByProject,
+  formatForeignRuntimes,
   type PortState,
 } from "./devProcess";
 
@@ -245,13 +246,11 @@ export async function launchDetached(
         who =
           " — un runtime de CE projet tourne déjà (nodefony status · nodefony stop)";
       } else if (foreign.length > 0) {
-        const list = foreign
-          .map((p) => `pid ${p.pid} (${p.cwd ?? "dossier inconnu"})`)
-          .join(", ");
+        // Bloc aéré partagé (1 process/ligne + commandes copier-coller).
         who =
-          ` — occupés par un AUTRE projet Nodefony : ${list}. ` +
-          `Arrête-le depuis SON dossier (nodefony stop) ou change les ports de cette app ` +
-          `(nodefony.config.ts + NODEFONY_DEV_PORTS)`;
+          " — occupés par un AUTRE projet Nodefony :\n" +
+          formatForeignRuntimes(foreign).join("\n") +
+          "\n  ou change les ports de CETTE app (nodefony.config.ts servers.*.port, ou NODEFONY_DEV_PORTS)";
       } else {
         who =
           " — process hors Nodefony : libère le port ou change les ports de cette app";

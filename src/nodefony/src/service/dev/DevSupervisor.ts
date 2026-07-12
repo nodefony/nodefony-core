@@ -23,6 +23,7 @@ import {
   missingWorkspaceDists,
   probePorts,
   splitByProject,
+  formatForeignRuntimes,
   terminateDevProcesses,
 } from "./devProcess";
 
@@ -560,12 +561,17 @@ export class DevSupervisor {
           .join(", ");
         if (taken.length > 0) {
           this.#log(
-            `⛔ ports ${taken.join(", ")} occupés par un AUTRE projet Nodefony : ${who}`,
+            `⛔ ports ${taken.join(", ")} occupés par un AUTRE projet Nodefony :`,
             "red",
           );
+          // Bloc aéré partagé (1 process/ligne + commandes copier-coller) — un
+          // pavé mono-ligne de N pids laissait le dev sans savoir QUOI taper.
+          for (const line of formatForeignRuntimes(others)) {
+            process.stdout.write(`${line}\n`);
+          }
           this.#log(
-            "arrête-le depuis SON dossier (`nodefony stop`) ou change les ports " +
-              "de cette app (nodefony.config.ts + NODEFONY_DEV_PORTS)",
+            "ou garde-le et change les ports de CETTE app " +
+              "(nodefony.config.ts servers.*.port, ou NODEFONY_DEV_PORTS)",
             "red",
           );
           process.exit(SysExit.UNAVAILABLE);

@@ -7,6 +7,7 @@ import {
   devSupervisorPidFile,
   discoverDevProcesses,
   formatUptime,
+  isNodefonyProjectDir,
   isPidAlive,
   probePorts,
   readSupervisorPid,
@@ -95,6 +96,12 @@ export interface DevStatusReport {
     readonly pid: number | null;
     readonly alive: boolean;
   };
+  /**
+   * `false` si le cwd n'est PAS un projet Nodefony (`isNodefonyProjectDir`) —
+   * le rendu remplace alors « lance nodefony dev » par un message explicite
+   * (un dev perdu hors projet croyait l'app simplement arrêtée, vécu).
+   */
+  readonly inProject: boolean;
 }
 
 /**
@@ -109,6 +116,7 @@ export function buildDevStatus(
   pidAlive: boolean,
   procs: readonly DevProcessInfo[],
   ports: readonly PortState[],
+  inProject = true,
 ): DevStatusReport {
   const nSup = procs.filter((p) => p.role === "supervisor").length;
   const nSrv = procs.filter((p) => p.role === "server").length;
@@ -180,6 +188,7 @@ export function buildDevStatus(
       pid,
       alive: pidAlive,
     },
+    inProject,
   };
 }
 
@@ -212,6 +221,7 @@ export async function collectDevStatus(
       },
       warnings: [],
       pidfile: { path: pidPath, pid: null, alive: false },
+      inProject: isNodefonyProjectDir(cwd),
     };
   const pid = readSupervisorPid(cwd);
   const procs = discoverDevProcesses(opts);
@@ -222,6 +232,7 @@ export async function collectDevStatus(
     pid !== null && isPidAlive(pid),
     procs,
     ports,
+    isNodefonyProjectDir(cwd),
   );
 }
 
@@ -265,7 +276,12 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
             }`,
         )
         .join("   ")}`,
-      `  ${ANSI.dim}→ lance ${ANSI.reset}${ANSI.cyan}nodefony dev${ANSI.reset}${ANSI.dim} pour démarrer${ANSI.reset}`,
+      // Hors projet, « lance nodefony dev » serait un conseil voué à l'échec →
+      // dire la vraie situation (dossier sans app Nodefony) + les 2 sorties.
+      report.inProject
+        ? `  ${ANSI.dim}→ lance ${ANSI.reset}${ANSI.cyan}nodefony dev${ANSI.reset}${ANSI.dim} pour démarrer${ANSI.reset}`
+        : `  ${ANSI.yellow}⚠ ce dossier n'est pas un projet Nodefony${ANSI.reset}${ANSI.dim} (aucun package.json avec la dépendance « nodefony »)${ANSI.reset}\n` +
+            `  ${ANSI.dim}→ place-toi à la racine d'une app, ou crée-en une : ${ANSI.reset}${ANSI.cyan}nodefony create app${ANSI.reset}`,
       "",
     );
     return;
@@ -278,6 +294,16 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
   lines.push(
     "",
     `${tag} ${ANSI.bold}Nodefony ${runtimeLabel(report.mode)} — ${procs.length} process${ANSI.reset}`,
+  );
+  // Hors projet : les process listés appartiennent à D'AUTRES dossiers — le dire,
+  // sinon « stop » d'ici ne les touchera pas (scoping projet) et le dev tourne en rond.
+  if (!report.inProject) {
+    lines.push(
+      `  ${ANSI.yellow}⚠ ce dossier n'est pas un projet Nodefony${ANSI.reset}${ANSI.dim} — vue globale du poste ;` +
+        ` stop/dev se lancent depuis la racine d'une app (ou nodefony stop --all)${ANSI.reset}`,
+    );
+  }
+  lines.push(
     "",
     `${ANSI.dim}  ${"RÔLE".padEnd(roleW)}  ${"PID".padEnd(7)}  ${"PPID".padEnd(7)}  ${"UPTIME".padEnd(9)}  ${"RSS".padEnd(9)}  %CPU${ANSI.reset}`,
     `${ANSI.dim}  ${"─".repeat(roleW + 46)}${ANSI.reset}`,

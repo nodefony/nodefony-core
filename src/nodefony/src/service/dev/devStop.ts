@@ -4,6 +4,7 @@ import {
   defaultDevPorts,
   detectRuntimeMode,
   discoverDevProcesses,
+  formatForeignRuntimes,
   probePorts,
   splitByProject,
   terminateDevProcesses,
@@ -95,13 +96,12 @@ export async function runStopReport(
   // Les runtimes des AUTRES projets : jamais touchés, mais NOMMÉS (le dev sait
   // où aller — jamais un « pourquoi mon port est pris ? » sans réponse).
   if (scoped.foreign.length > 0) {
-    const who = scoped.foreign
-      .map((p) => `pid ${p.pid} (${p.cwd ?? "dossier inconnu"})`)
-      .join(", ");
+    // Bloc aéré partagé (1 process/ligne, groupé par projet, commandes exactes).
     writeSync(
       1,
-      `${tag} ${scoped.foreign.length} runtime(s) d'un AUTRE projet non touché(s) : ${who}\n` +
-        `${tag} pour les arrêter : \`nodefony stop\` depuis LEUR dossier, ou \`nodefony stop --all\`\n`,
+      `${tag} ${scoped.foreign.length} runtime(s) d'un AUTRE projet non touché(s) :\n` +
+        formatForeignRuntimes(scoped.foreign).join("\n") +
+        "\n",
     );
   }
 
