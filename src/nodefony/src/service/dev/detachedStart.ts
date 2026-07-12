@@ -12,8 +12,10 @@ import http from "node:http";
 import { SysExit } from "../../cli/sysexits";
 import {
   defaultDevPorts,
+  discoverDevProcesses,
   probePorts,
   signalProcessGroup,
+  splitByProject,
   type PortState,
 } from "./devProcess";
 
@@ -231,15 +233,39 @@ export async function launchDetached(
   const preflight = await probePorts(ports);
   const busy = preflight.filter((p) => p.listening);
   if (busy.length > 0) {
+    // QUI occupe ? Nommer le PROJET occupant (multi-app sur un poste de dev) :
+    // le dev sait immédiatement où agir — jamais un « port pris » sans réponse.
+    let who = "";
+    try {
+      const { mine, foreign } = splitByProject(
+        discoverDevProcesses(),
+        opts.cwd ?? process.cwd(),
+      );
+      if (mine.length > 0) {
+        who =
+          " — un runtime de CE projet tourne déjà (nodefony status · nodefony stop)";
+      } else if (foreign.length > 0) {
+        const list = foreign
+          .map((p) => `pid ${p.pid} (${p.cwd ?? "dossier inconnu"})`)
+          .join(", ");
+        who =
+          ` — occupés par un AUTRE projet Nodefony : ${list}. ` +
+          `Arrête-le depuis SON dossier (nodefony stop) ou change les ports de cette app ` +
+          `(nodefony.config.ts + NODEFONY_DEV_PORTS)`;
+      } else {
+        who =
+          " — process hors Nodefony : libère le port ou change les ports de cette app";
+      }
+    } catch {
+      who = " — un runtime tourne déjà (nodefony status · nodefony stop)";
+    }
     return {
       ok: false,
       pid: null,
       exitCode: SysExit.UNAVAILABLE,
       ports: preflight,
       logFile,
-      reason:
-        `port(s) déjà en écoute : ${busy.map((p) => p.port).join(", ")} — un runtime ` +
-        `tourne déjà (nodefony status · nodefony stop)`,
+      reason: `port(s) déjà en écoute : ${busy.map((p) => p.port).join(", ")}${who}`,
     };
   }
 

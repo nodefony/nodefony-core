@@ -5,16 +5,22 @@ import {
   detectRuntimeMode,
   discoverDevProcesses,
   probePorts,
+  splitByProject,
   terminateDevProcesses,
   type PortState,
   type RuntimeMode,
 } from "./devProcess";
 
 /**
- * Commande `nodefony stop` — arrêt PROPRE et COMPLET de TOUT runtime Nodefony (dev,
- * production mono, cluster) ; remplace le `pkill -9` manuel. Standalone : aucun boot
- * kernel, aucune trunk requise → lançable de n'importe où (cf le fast-path de
- * `CliKernel.start`).
+ * Commande `nodefony stop` — arrêt PROPRE et COMPLET de tout runtime Nodefony (dev,
+ * production mono, cluster) **du PROJET courant** ; remplace le `pkill -9` manuel.
+ * Standalone : aucun boot kernel, aucune trunk requise → lançable de n'importe où
+ * (cf le fast-path de `CliKernel.start`).
+ *
+ * MULTI-PROJET : plusieurs apps Nodefony peuvent tourner sur le même poste — le
+ * balayage `ps` étant global, `stop` ne tue QUE les process dont le cwd est CE
+ * projet (`splitByProject`) ; les autres sont LISTÉS avec leur dossier (le dev
+ * sait où aller les arrêter). `--all` = comportement trans-projets explicite.
  *
  * Stratégie : vérité = `ps` (pas le seul pidfile). On tue les GROUPES « racines » (un
  * process dont le parent n'est pas dans la liste) — group-kill du superviseur/master
@@ -75,9 +81,29 @@ const portsLine = (states: readonly PortState[], freeLabel: string): string =>
     .join("   ");
 
 /** Découvre, tue (SIGTERM→SIGKILL) et nettoie ; écrit un rapport sur stdout. */
-export async function runStopReport(cwd: string): Promise<void> {
+export async function runStopReport(
+  cwd: string,
+  opts: { all?: boolean } = {},
+): Promise<void> {
   const tag = `${ANSI.dim}[stop]${ANSI.reset}`;
-  const before = discoverDevProcesses();
+  const discovered = discoverDevProcesses();
+  const scoped = opts.all
+    ? { mine: [...discovered], foreign: [] }
+    : splitByProject(discovered, cwd);
+  const before = scoped.mine;
+
+  // Les runtimes des AUTRES projets : jamais touchés, mais NOMMÉS (le dev sait
+  // où aller — jamais un « pourquoi mon port est pris ? » sans réponse).
+  if (scoped.foreign.length > 0) {
+    const who = scoped.foreign
+      .map((p) => `pid ${p.pid} (${p.cwd ?? "dossier inconnu"})`)
+      .join(", ");
+    writeSync(
+      1,
+      `${tag} ${scoped.foreign.length} runtime(s) d'un AUTRE projet non touché(s) : ${who}\n` +
+        `${tag} pour les arrêter : \`nodefony stop\` depuis LEUR dossier, ou \`nodefony stop --all\`\n`,
+    );
+  }
 
   // Idempotent : rien à tuer → on nettoie un éventuel pidfile résiduel et on le dit.
   if (before.length === 0) {
@@ -87,7 +113,7 @@ export async function runStopReport(cwd: string): Promise<void> {
       1,
       [
         "",
-        `${tag} ${ANSI.bold}Nodefony — aucune instance en cours (déjà arrêté)${ANSI.reset}`,
+        `${tag} ${ANSI.bold}Nodefony — aucune instance de ce projet en cours (déjà arrêté)${ANSI.reset}`,
         `  ${ANSI.dim}ports${ANSI.reset} : ${portsLine(ports, "libre")}`,
         "",
       ].join("\n") + "\n",

@@ -47,11 +47,13 @@ export function isStandaloneDevCommand(name: string): boolean {
 /**
  * Exécute une commande système standalone par son nom — point d'entrée du fast-path
  * `CliKernel.start` (avant tout boot). N'écrit jamais via le syslog (kernel non booté).
+ * `stop --all` = trans-projets explicite (défaut : scope au projet du cwd).
  */
 export async function runStandaloneDevCommand(name: string): Promise<void> {
   const cwd = process.cwd();
   if (name === "status") return runStatusReport(cwd);
-  if (name === "stop") return runStopReport(cwd);
+  if (name === "stop")
+    return runStopReport(cwd, { all: process.argv.includes("--all") });
 }
 
 /**

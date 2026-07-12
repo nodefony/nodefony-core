@@ -21,6 +21,8 @@ import {
   discoverDevProcesses,
   findRuntimeConflict,
   missingWorkspaceDists,
+  probePorts,
+  splitByProject,
   terminateDevProcesses,
 } from "./devProcess";
 
@@ -489,28 +491,70 @@ export class DevSupervisor {
     try {
       const all = discoverDevProcesses(); // s'auto-exclut (notre pid)
 
-      // 1a. Conflit cross-mode → REFUS fail-loud. On ne tue JAMAIS un prod/cluster
-      //     automatiquement (il est intentionnel — bench, démo). Le dev ne peut pas
-      //     démarrer par-dessus : collision de ports garantie. Le user tranche.
+      // MULTI-PROJET : plusieurs apps Nodefony sur le même poste = normal. Le
+      // balayage `ps` est GLOBAL — sans scoping par cwd, l'app 2 « nettoyait »
+      // le runtime de l'app 1 (destructeur). Règle : on ne touche JAMAIS un
+      // process d'un autre dossier ; seule la collision de PORTS le concerne.
       const conflict = findRuntimeConflict(all, "dev");
-      if (conflict.length > 0) {
-        const otherMode =
-          conflict[0].mode === "cluster" ? "cluster" : "production";
-        const pids = conflict.map((p) => p.pid).join(", ");
+      const conflictHere = splitByProject(conflict, this.#cwd);
+
+      // 1a. Conflit cross-mode de CE projet → REFUS fail-loud. On ne tue JAMAIS
+      //     un prod/cluster automatiquement (il est intentionnel — bench, démo).
+      if (conflictHere.mine.length > 0) {
+        const first = conflictHere.mine[0];
+        const otherMode = first.mode === "cluster" ? "cluster" : "production";
+        const pids = conflictHere.mine.map((p) => p.pid).join(", ");
         this.#log(
-          `⛔ un runtime Nodefony ${otherMode} tourne déjà (pid ${pids}) sur les ports ` +
-            `${this.#ports.join("/")} — le mode dev ne peut pas démarrer par-dessus`,
+          `⛔ un runtime Nodefony ${otherMode} de CE projet tourne déjà (pid ${pids}) ` +
+            `sur les ports ${this.#ports.join("/")} — le mode dev ne peut pas démarrer par-dessus`,
           "red",
         );
         this.#log("arrête-le d'abord : `nodefony stop`", "red");
         process.exit(SysExit.UNAVAILABLE);
       }
+      // 1a-bis. Runtime d'un AUTRE projet : non touché. S'il tient NOS ports, on
+      //     refuse en NOMMANT l'occupant (le dev sait immédiatement quoi faire :
+      //     l'arrêter depuis SON dossier, ou changer les ports de cette app) —
+      //     jamais d'attente muette ni de kill trans-projet.
+      const others = [
+        ...conflictHere.foreign,
+        ...splitByProject(
+          all.filter((p) => p.mode === "dev"),
+          this.#cwd,
+        ).foreign,
+      ];
+      if (others.length > 0) {
+        const busy = await probePorts(this.#ports);
+        const taken = busy.filter((p) => p.listening).map((p) => p.port);
+        const who = others
+          .map((p) => `pid ${p.pid} (${p.cwd ?? "dossier inconnu"})`)
+          .join(", ");
+        if (taken.length > 0) {
+          this.#log(
+            `⛔ ports ${taken.join(", ")} occupés par un AUTRE projet Nodefony : ${who}`,
+            "red",
+          );
+          this.#log(
+            "arrête-le depuis SON dossier (`nodefony stop`) ou change les ports " +
+              "de cette app (nodefony.config.ts + NODEFONY_DEV_PORTS)",
+            "red",
+          );
+          process.exit(SysExit.UNAVAILABLE);
+        }
+        this.#log(
+          `${others.length} runtime(s) Nodefony d'un autre projet détecté(s) (${who}) — non touchés`,
+          "yellow",
+        );
+      }
 
-      // 1b. Résiduels DEV (empilés OU orphelins) → nettoyage automatique (jetables).
-      const stale = all.filter((p) => p.mode === "dev");
+      // 1b. Résiduels DEV de CE projet (empilés OU orphelins) → nettoyage auto.
+      const stale = splitByProject(
+        all.filter((p) => p.mode === "dev"),
+        this.#cwd,
+      ).mine;
       if (stale.length > 0) {
         this.#log(
-          `${stale.length} process dev résiduel(s) détecté(s) — nettoyage avant démarrage`,
+          `${stale.length} process dev résiduel(s) de ce projet — nettoyage avant démarrage`,
           "yellow",
         );
         const survivors = await terminateDevProcesses(stale, {

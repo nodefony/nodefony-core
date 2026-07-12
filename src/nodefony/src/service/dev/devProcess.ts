@@ -1,5 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+} from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
@@ -237,6 +243,82 @@ export async function terminateDevProcesses(
     alive = await waitAllDead(alive, killWaitMs);
   }
   return alive;
+}
+
+/**
+ * Répertoire de travail d'un process — `/proc/<pid>/cwd` (Linux) ou `lsof -d cwd`
+ * (macOS/BSD). `null` si irrésolu (process mort, permissions, outil absent).
+ *
+ * Sert au SCOPING PAR PROJET du multi-app : plusieurs apps Nodefony peuvent
+ * tourner en dev sur le même poste — un balayage `ps` global sans notion de
+ * projet faisait tuer le runtime d'un AUTRE dossier (destructeur, vécu en
+ * design review). Le cwd est le seul identifiant de projet observable de
+ * l'extérieur (aucun IPC — choix d'architecture de ce module).
+ */
+export function processCwd(pid: number): string | null {
+  if (process.platform === "linux") {
+    try {
+      return readlinkSync(`/proc/${pid}/cwd`);
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const res = spawnSync(
+      "lsof",
+      ["-a", "-p", String(pid), "-d", "cwd", "-Fn"],
+      { encoding: "utf8", env: { ...process.env, LC_ALL: "C" } },
+    );
+    if (typeof res.stdout !== "string") return null;
+    for (const line of res.stdout.split("\n")) {
+      if (line.startsWith("n")) return line.slice(1);
+    }
+  } catch {
+    /* lsof absent / interdit → inconnu */
+  }
+  return null;
+}
+
+/** Un process découvert, enrichi du cwd résolu (`null` = irrésolu). */
+export type DevProcessWithCwd = DevProcessInfo & { cwd: string | null };
+
+/**
+ * Scinde des process découverts entre CE projet (`mine` — tuables par les gardes
+ * single-instance / `nodefony stop`) et les AUTRES (`foreign` — JAMAIS touchés).
+ *
+ * Règles de rattachement :
+ * - rôles racine (supervisor/master/server/worker) : cwd EXACTEMENT le projet —
+ *   ils sont toujours spawnés à la racine ;
+ * - `vite` : projet OU sous-dossier (le builder peut travailler dans `frontend/`) ;
+ * - cwd IRRÉSOLU → `foreign` : on préfère laisser vivre un orphelin (bénin, la
+ *   collision de ports est refusée plus loin) plutôt que tuer la session d'un
+ *   autre projet (destructeur).
+ *
+ * Limite assumée : deux projets IMBRIQUÉS (une app dans un sous-dossier du repo)
+ * partagent le préfixe → le Vite de l'app peut être adopté par le parent.
+ */
+export function splitByProject(
+  procs: readonly DevProcessInfo[],
+  projectCwd: string,
+  getCwd: (pid: number) => string | null = processCwd,
+): { mine: DevProcessInfo[]; foreign: DevProcessWithCwd[] } {
+  const root = path.resolve(projectCwd);
+  const mine: DevProcessInfo[] = [];
+  const foreign: DevProcessWithCwd[] = [];
+  for (const p of procs) {
+    const cwd = getCwd(p.pid);
+    const resolved = cwd === null ? null : path.resolve(cwd);
+    const belongs =
+      resolved !== null &&
+      (resolved === root ||
+        (p.role === "vite" && resolved.startsWith(root + path.sep)));
+    if (belongs) {
+      mine.push(p);
+    } else {
+      foreign.push({ ...p, cwd: resolved });
+    }
+  }
+  return { mine, foreign };
 }
 
 /**

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-12T13:44:35.572Z",
+  "generated": "2026-07-12T13:54:38.821Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1008,
-    "symbols": 2562,
+    "symbols": 2565,
     "classes": 316,
     "interfaces": 670,
-    "types": 298,
+    "types": 299,
     "enums": 4,
-    "functions": 718,
+    "functions": 720,
     "constants": 556
   },
   "symbols": {
@@ -4264,6 +4264,14 @@
       "module": "@nodefony/core",
       "description": "Rôle d'un process dans la topologie runtime Nodefony (dev OU prod OU cluster). `supervisor`/`master` = superviseurs (0 HTTP) ; `server`/`worker` = servent le HTTP ; `vite` = enfant dev (bundler)."
     },
+    "DevProcessWithCwd": {
+      "name": "DevProcessWithCwd",
+      "kind": "type",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un process découvert, enrichi du cwd résolu (`null` = irrésolu)."
+    },
     "devSupervisorPidFile": {
       "name": "devSupervisorPidFile",
       "kind": "function",
@@ -4335,6 +4343,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Arrête un ensemble de process dev par GROUPE — SIGTERM (arrêt gracieux) sur les racines puis SIGKILL des récalcitrants (groupes racines + PID restants un à un). Renvoie les PID encore vivants à la …"
+    },
+    "processCwd": {
+      "name": "processCwd",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Répertoire de travail d'un process — `/proc/<pid>/cwd` (Linux) ou `lsof -d cwd` (macOS/BSD). `null` si irrésolu (process mort, permissions, outil absent). Sert au SCOPING PAR PROJET du multi-app : …"
+    },
+    "splitByProject": {
+      "name": "splitByProject",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Scinde des process découverts entre CE projet (`mine` — tuables par les gardes single-instance / `nodefony stop`) et les AUTRES (`foreign` — JAMAIS touchés). Règles de rattachement : - rôles racine…"
     },
     "isPortListening": {
       "name": "isPortListening",
@@ -4479,7 +4503,7 @@
       "file": "src/nodefony/src/service/dev/devStatusReport.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Exécute une commande système standalone par son nom — point d'entrée du fast-path `CliKernel.start` (avant tout boot). N'écrit jamais via le syslog (kernel non booté)."
+      "description": "Exécute une commande système standalone par son nom — point d'entrée du fast-path `CliKernel.start` (avant tout boot). N'écrit jamais via le syslog (kernel non booté). `stop --all` = trans-projets …"
     },
     "buildDevStatus": {
       "name": "buildDevStatus",
@@ -21367,6 +21391,7 @@
       ],
       "discoverDevProcesses": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
@@ -21432,10 +21457,16 @@
       "probePorts": [
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "signalProcessGroup": [
         "src/nodefony/src/service/dev/detachedStart.ts"
+      ],
+      "splitByProject": [
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "PortState": [
         "src/nodefony/src/service/dev/detachedStart.ts",

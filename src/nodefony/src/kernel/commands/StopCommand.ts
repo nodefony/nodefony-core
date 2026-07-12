@@ -25,10 +25,16 @@ class Stop extends Command {
       cli as CliKernel,
       options,
     );
+    this.addOption(
+      "--all",
+      "stop Nodefony runtimes of ALL projects on this machine (default: current project only)",
+    );
   }
 
   override async generate(): Promise<this> {
-    await runStopReport(process.cwd());
+    await runStopReport(process.cwd(), {
+      all: process.argv.includes("--all"),
+    });
     await this.terminate(0);
     return this;
   }

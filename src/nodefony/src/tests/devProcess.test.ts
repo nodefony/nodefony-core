@@ -17,7 +17,9 @@ import {
   formatUptime,
   missingWorkspaceDists,
   parsePsRow,
+  processCwd,
   runtimeModes,
+  splitByProject,
   type DevProcessInfo,
 } from "../service/dev/devProcess";
 
@@ -264,6 +266,83 @@ describe("devProcess — missingWorkspaceDists (post-condition build)", () => {
       assert.deepStrictEqual(missingWorkspaceDists(root), []);
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── Multi-projet : scoping par cwd (splitByProject / processCwd) ─────────────
+
+describe("splitByProject — plusieurs apps Nodefony sur le même poste", () => {
+  const proc = (pid: number, role: DevProcessInfo["role"]): DevProcessInfo => ({
+    pid,
+    ppid: 1,
+    mode: "dev",
+    role,
+    label: role,
+    detail: "",
+    rssKb: 0,
+    cpu: 0,
+    uptimeSec: 1,
+  });
+
+  it("cwd exact → mine ; autre dossier → foreign (JAMAIS tué)", () => {
+    const cwds: Record<number, string | null> = {
+      1: "/home/dev/app-1",
+      2: "/home/dev/app-2",
+    };
+    const { mine, foreign } = splitByProject(
+      [proc(1, "supervisor"), proc(2, "supervisor")],
+      "/home/dev/app-1",
+      (pid) => cwds[pid] ?? null,
+    );
+    assert.deepStrictEqual(
+      mine.map((p) => p.pid),
+      [1],
+    );
+    assert.deepStrictEqual(
+      foreign.map((p) => [p.pid, p.cwd]),
+      [[2, "/home/dev/app-2"]],
+    );
+  });
+
+  it("vite en SOUS-dossier du projet → mine ; server en sous-dossier → foreign (spawn racine)", () => {
+    const cwds: Record<number, string> = {
+      3: "/home/dev/app-1/frontend",
+      4: "/home/dev/app-1/frontend",
+    };
+    const { mine, foreign } = splitByProject(
+      [proc(3, "vite"), proc(4, "server")],
+      "/home/dev/app-1",
+      (pid) => cwds[pid] ?? null,
+    );
+    assert.deepStrictEqual(
+      mine.map((p) => p.pid),
+      [3],
+    );
+    assert.deepStrictEqual(
+      foreign.map((p) => p.pid),
+      [4],
+    );
+  });
+
+  it("cwd IRRÉSOLU → foreign (on préfère un orphelin vivant à un projet tué)", () => {
+    const { mine, foreign } = splitByProject(
+      [proc(5, "supervisor")],
+      "/home/dev/app-1",
+      () => null,
+    );
+    assert.deepStrictEqual(mine, []);
+    assert.deepStrictEqual(
+      foreign.map((p) => [p.pid, p.cwd]),
+      [[5, null]],
+    );
+  });
+
+  it("processCwd(process.pid) résout le cwd RÉEL du process courant", () => {
+    const cwd = processCwd(process.pid);
+    // Sonde réelle (lsof/procfs) : résolution possible → doit matcher notre cwd.
+    if (cwd !== null) {
+      assert.strictEqual(path.resolve(cwd), path.resolve(process.cwd()));
     }
   });
 });
