@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-12T17:45:20.435Z",
+  "generated": "2026-07-12T18:19:35.850Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1009,
-    "symbols": 2569,
-    "classes": 317,
+    "files": 1010,
+    "symbols": 2572,
+    "classes": 318,
     "interfaces": 671,
     "types": 299,
     "enums": 4,
-    "functions": 722,
+    "functions": 724,
     "constants": 556
   },
   "symbols": {
@@ -10632,6 +10632,17 @@
       "decorators": [],
       "description": "`nodefony security:secrets` — génère les clés de chiffrement attendues par le module security (TOTP, webhooks, CSRF) au bon format (32 octets aléatoires, base64) et guide le câblage en 3 FICHIERS (…"
     },
+    "SecurityUserAdd": {
+      "name": "SecurityUserAdd",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony security:user:add <identifier>` — crée un compte utilisateur via le service applicatif `users` (hash Argon2id fait par `UserService.createUser`, jamais de mot de passe stocké en clair). M…"
+    },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
       "kind": "type",
@@ -18338,7 +18349,8 @@
         "Certificates",
         "Network",
         "ProxyGenerate",
-        "SecuritySecrets"
+        "SecuritySecrets",
+        "SecurityUserAdd"
       ],
       "IClusterMessage": [
         "IClusterProbeCtl",
@@ -18864,7 +18876,8 @@
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
       ],
       "ColorFn": [
         "src/nodefony/src/Cli.ts"
@@ -20409,6 +20422,9 @@
       "SecuritySecrets": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "SecurityUserAdd": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "registerSecurityAdminApi": [
         "src/packages/@nodefony/security/index.ts"
       ],
@@ -20464,7 +20480,8 @@
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
       ],
       "loadEnv": [
         "src/nodefony/src/bin/nodefony.ts"
@@ -21403,7 +21420,8 @@
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
@@ -21899,6 +21917,7 @@
       ],
       "UserService": [
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "ITool": [

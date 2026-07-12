@@ -1,4 +1,5 @@
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 import {
@@ -42,6 +43,10 @@ export interface ICreateRequest {
   force: boolean;
   /** `--yes` : accepter les défauts sans poser de question (même en TTY). */
   yes: boolean;
+  /** `--no-install` : ne pas lancer `npm install` après la génération. */
+  install: boolean;
+  /** `--no-git` : ne pas faire `git init` + first commit après la génération. */
+  git: boolean;
 }
 
 /**
@@ -60,12 +65,18 @@ export function parseCreateArgv(
   let dir: string | undefined;
   let force = false;
   let yes = false;
+  let install = true;
+  let git = true;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
     if (word === "--force" || word === "-f") {
       force = true;
     } else if (word === "--yes" || word === "-y") {
       yes = true;
+    } else if (word === "--no-install") {
+      install = false;
+    } else if (word === "--no-git") {
+      git = false;
     } else if (word === "--link") {
       answers.link = true;
     } else if (word === "--no-link") {
@@ -91,13 +102,57 @@ export function parseCreateArgv(
   if (name !== undefined) {
     answers.name = name;
   }
-  return { type: type as TCreateType, answers, dir, force, yes };
+  return { type: type as TCreateType, answers, dir, force, yes, install, git };
 }
 
 const USAGE =
   `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes]\n` +
   `        [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>] [--link|--no-link]\n` +
+  `        [--no-install] [--no-git]\n` +
   `        Sans flags dans un terminal → mode interactif (questions + récap).\n`;
+
+/**
+ * `npm install` dans l'app générée (sortie streamée — le dev voit npm
+ * travailler, pas un silence de 60 s). Échec = code retourné, l'appelant
+ * décide (l'app EST générée : on n'échoue pas tout le create pour un réseau).
+ */
+function runInstall(dest: string): boolean {
+  process.stdout.write(`\n⏳ npm install (${path.basename(dest)})…\n`);
+  const r = spawnSync("npm", ["install"], { cwd: dest, stdio: "inherit" });
+  return r.status === 0;
+}
+
+/**
+ * `git init` + first commit dans l'app générée — SEULEMENT si git est
+ * disponible ET que le dossier n'est pas déjà couvert par un repo (une app de
+ * banc dans le checkout du framework ne doit pas créer un repo imbriqué).
+ * Le `.gitignore` généré exclut `*.local` AVANT ce commit : les secrets de
+ * `.env.local` ne peuvent pas y entrer.
+ *
+ * @returns note affichable (fait / sauté et pourquoi)
+ */
+function runGitInit(dest: string, appName: string): string {
+  const git = (...args: string[]) =>
+    spawnSync("git", args, { cwd: dest, stdio: "ignore" });
+  if (spawnSync("git", ["--version"], { stdio: "ignore" }).error) {
+    return "git indisponible → repo non initialisé (git init à la main plus tard)";
+  }
+  if (git("rev-parse", "--is-inside-work-tree").status === 0) {
+    return "déjà dans un repo git → init sauté (pas de repo imbriqué)";
+  }
+  if (git("init").status !== 0) {
+    return "git init a échoué → repo non initialisé";
+  }
+  git("add", "-A");
+  const commit = spawnSync(
+    "git",
+    ["commit", "-m", `chore: bootstrap ${appName} (nodefony create app)`],
+    { cwd: dest, stdio: "ignore" },
+  );
+  return commit.status === 0
+    ? "repo git initialisé + premier commit"
+    : "repo git initialisé (commit initial à faire : identité git non configurée ?)";
+}
 
 /**
  * Commande `nodefony create` — orchestre l'adaptateur : parse argv, complète en
@@ -168,10 +223,26 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   process.stdout.write(
     `✔ ${parsed.type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
       result.files.map((f) => `  ${f}`).join("\n") +
-      `\n${linkNote}\nProchaines étapes :\n` +
+      `\n${linkNote}`,
+  );
+  // ── Post-génération : install PUIS git (le lockfile entre dans le 1er commit).
+  //    Opt-out : --no-install / --no-git. Un échec d'install n'annule pas le
+  //    create (l'app est là) — il est DIT et les étapes manuelles réaffichées.
+  const installed = parsed.install ? runInstall(result.dest) : false;
+  if (parsed.install && !installed) {
+    process.stdout.write(
+      `⚠ npm install a échoué — relance-le à la main dans ${relDest}/\n`,
+    );
+  }
+  const gitNote = parsed.git
+    ? runGitInit(result.dest, String(answers.name))
+    : "sauté (--no-git)";
+  process.stdout.write(`\n🌱 git : ${gitNote}\n`);
+  process.stdout.write(
+    `\nProchaines étapes :\n` +
       `  cd ${relDest}\n` +
-      `  npm install\n` +
-      `  npm run dev        # → http://127.0.0.1:5151/api/hello\n`,
+      (installed ? "" : `  npm install\n`) +
+      `  npm run dev        # → https://127.0.0.1:5152 (admin : /nodefony — admin/admin en dev)\n`,
   );
   return SysExit.OK;
 }

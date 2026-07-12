@@ -10,12 +10,17 @@ export default defineConfig<typeof env>((ctx) => ({
   // Un container doit écouter TOUTES les interfaces : le port mapping
   // Docker/k8s n'atteint jamais un bind 127.0.0.1.
   domain: ctx.isProd ? "0.0.0.0" : "127.0.0.1",
-  servers: {
-    // Cas nominal cloud-native : le TLS est terminé à l'ingress/LB — le pod
-    // sert en clair. `false` désactive HTTPS (et le WSS qui en hérite) :
-    // pas de certificats auto-générés au boot, un seul port exposé (5151).
-    https: false,
-  },
+  // ── HTTPS actif PAR DÉFAUT, même en dev (défaut du framework, aucun écart
+  //    ici) : les API navigateur modernes exigent un contexte sécurisé —
+  //    WebRTC/getUserMedia, presse-papiers, service workers, notifications.
+  //    Au premier boot, un certificat de DÉVELOPPEMENT est généré tout seul
+  //    (mkcert si installé → CA locale trustée, zéro warning navigateur ;
+  //    sinon auto-signé). Inspection/regénération : `npx nodefony certificates`.
+  //    En production : fournis un vrai certificat, OU termine le TLS à
+  //    l'ingress/LB et désactive l'écoute sécurisée ci-dessous.
+  // ── DÉSACTIVER l'écoute sécurisée (HTTPS + WSS en héritent tous deux) :
+  //    décommente — il ne restera qu'un port exposé, en clair (5151) :
+  // servers: { https: false },
   log: {
     debug: ctx.isProd ? [] : "*",
     // stdout = contrat cloud-native (collecteur de logs de l'orchestrateur).
@@ -48,7 +53,21 @@ export default defineConfig<typeof env>((ctx) => ({
     //    Déclare tes zones quand tu protèges des routes (validées Zod au boot,
     //    config invalide = fail-closed) :
     //    use("@nodefony/security", { firewalls: { main: { pattern: "^/api", … } } }),
-    use("@nodefony/security", {}),
+    use("@nodefony/security", {
+      // Clés de chiffrement au repos — les VALEURS ont été générées dans
+      // `.env.local` (gitignoré) à la création de l'app. Rotation ou
+      // rattrapage : `npx nodefony security:secrets --write`.
+      totp: { encryptionKey: ctx.env.NF_TOTP_KEY }, // secrets 2FA chiffrés
+      webhooks: { encryptionKey: ctx.env.NF_WEBHOOK_KEY }, // signatures sortantes
+      csrf: { secret: ctx.env.NF_CSRF_SECRET }, // jetons anti-CSRF (partagé cluster)
+      // Hiérarchie de rôles (un rôle COUVRE ceux qu'il liste, transitivement).
+      // ROLE_NODEFONY_* = plateforme (console Studio) ; ROLE_* = applicatif.
+      // Le compte admin seedé (nodefony/security/provisionUsers.ts) les porte.
+      roleHierarchy: {
+        ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN", "ROLE_SUPERVISOR", "ROLE_DEV"],
+        ROLE_ADMIN: ["ROLE_USER"],
+      },
+    }),
 
     // ── Frontend (builder Vite + statics) + console d'administration Studio
     //    → http://127.0.0.1:5151/nodefony

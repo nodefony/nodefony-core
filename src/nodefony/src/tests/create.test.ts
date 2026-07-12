@@ -73,6 +73,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         dir: undefined,
         force: false,
         yes: false,
+        install: true,
+        git: true,
       });
     });
 
@@ -91,6 +93,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "--dir",
           "a/b",
           "--force",
+          "--no-install",
+          "--no-git",
         ),
       );
       assert.deepEqual(req, {
@@ -104,6 +108,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         dir: "a/b",
         force: true,
         yes: true,
+        install: false,
+        git: false,
       });
     });
 
@@ -173,6 +179,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "datasources",
           "loki.yaml",
         ),
+        ".env",
+        ".env.local",
+        path.join("nodefony", "security", "provisionUsers.ts"),
       ]) {
         assert.isTrue(existsSync(path.join(dest, f)), `manque ${f}`);
       }
@@ -183,6 +192,54 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertNoEtaResidue(dest);
       assert.isEmpty(r.linked);
     });
+
+    it("secrets PAR-PROJET : .env.local porte 3 clés uniques, .gitignore les exclut", () => {
+      const dest = path.join(tmp, "sec");
+      scaffold(dest, { name: "sec" });
+      const local = readFileSync(path.join(dest, ".env.local"), "utf8");
+      const keys = ["NF_TOTP_KEY", "NF_WEBHOOK_KEY", "NF_CSRF_SECRET"];
+      const values: string[] = [];
+      for (const k of keys) {
+        const m = local.match(new RegExp(`^${k}=(.+)$`, "m"));
+        assert.isNotNull(m, `clé ${k} absente de .env.local`);
+        // 32 octets base64 = 44 caractères — le format AES-256-GCM attendu.
+        assert.lengthOf((m as RegExpMatchArray)[1], 44);
+        values.push((m as RegExpMatchArray)[1]);
+      }
+      assert.lengthOf(new Set(values), 3, "les 3 clés doivent être distinctes");
+      // Deux apps générées ne partagent JAMAIS une clé (aléatoire par projet).
+      const dest2 = path.join(tmp, "sec2");
+      scaffold(dest2, { name: "sec2" });
+      const local2 = readFileSync(path.join(dest2, ".env.local"), "utf8");
+      assert.notInclude(local2, values[0]);
+      // Le .env COMMITÉ ne porte AUCUNE valeur de secret ; le .gitignore exclut *.local.
+      const dotenv = readFileSync(path.join(dest, ".env"), "utf8");
+      for (const v of values) assert.notInclude(dotenv, v);
+      assert.include(
+        readFileSync(path.join(dest, ".gitignore"), "utf8"),
+        "*.local",
+      );
+    });
+
+    it("provisionUsers câblé : hook onKernelReady + seed admin + rôles Studio", () => {
+      const dest = path.join(tmp, "prov");
+      scaffold(dest, { name: "prov" });
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.include(index, "provisionUsers(this)");
+      assert.include(index, "onKernelReady");
+      const prov = readFileSync(
+        path.join(dest, "nodefony", "security", "provisionUsers.ts"),
+        "utf8",
+      );
+      assert.include(prov, "NF_ADMIN_PASSWORD");
+      assert.include(prov, "ROLE_NODEFONY_ADMIN");
+      const config = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
+      assert.include(config, "roleHierarchy");
+      assert.include(config, "NF_CSRF_SECRET");
+    });
   });
 
   describe("moteur — preset minimal", () => {
@@ -191,6 +248,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       scaffold(dest, { name: "mini", preset: "minimal" });
       assert.isFalse(existsSync(path.join(dest, "compose.yaml")));
       assert.isFalse(existsSync(path.join(dest, "docker")));
+      // Pas de security en minimal → ni secrets ni provisioning utilisateurs.
+      assert.isFalse(existsSync(path.join(dest, ".env.local")));
+      assert.isFalse(existsSync(path.join(dest, "nodefony", "security")));
       const pkg = readJson(path.join(dest, "package.json"));
       assert.notProperty(pkg["dependencies"], "@nodefony/drizzle");
       assert.notProperty(pkg["dependencies"], "@nodefony/studio");
@@ -385,8 +445,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
   describe("runCreateCommand (non-TTY : défauts stables pour CI/scripts)", () => {
     it("génère la vitrine complète par défaut, exit OK", async () => {
       const dest = path.join(tmp, "demo-app");
+      // --no-install/--no-git : le banc valide la GÉNÉRATION, pas npm ni git.
       const code = await runCreateCommand(
-        argv("create", "app", "demo-app", "--dir", dest),
+        argv(
+          "create",
+          "app",
+          "demo-app",
+          "--dir",
+          dest,
+          "--no-install",
+          "--no-git",
+        ),
       );
       assert.equal(code, SysExit.OK);
       assert.isTrue(existsSync(path.join(dest, "compose.yaml")));
@@ -397,7 +466,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("--preset/--frontend passent au moteur ; valeur invalide → EX_USAGE", async () => {
       const dest = path.join(tmp, "mini-app");
       const code = await runCreateCommand(
-        argv("create", "app", "mini-app", "--dir", dest, "--preset", "minimal"),
+        argv(
+          "create",
+          "app",
+          "mini-app",
+          "--dir",
+          dest,
+          "--preset",
+          "minimal",
+          "--no-install",
+          "--no-git",
+        ),
       );
       assert.equal(code, SysExit.OK);
       assert.isFalse(existsSync(path.join(dest, "compose.yaml")));
@@ -445,9 +524,20 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const here = path.dirname(fileURLToPath(import.meta.url));
       const bin = path.resolve(here, "../../bin/nodefony");
       const dest = path.join(tmp, "e2e-app");
-      execFileSync("node", [bin, "create", "app", "e2e-app", "--dir", dest], {
-        stdio: "pipe",
-      });
+      execFileSync(
+        "node",
+        [
+          bin,
+          "create",
+          "app",
+          "e2e-app",
+          "--dir",
+          dest,
+          "--no-install",
+          "--no-git",
+        ],
+        { stdio: "pipe" },
+      );
       assert.isTrue(existsSync(path.join(dest, "nodefony.config.ts")));
     });
   });

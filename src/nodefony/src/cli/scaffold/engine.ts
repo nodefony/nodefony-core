@@ -5,6 +5,7 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
+import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Eta } from "eta";
@@ -49,7 +50,11 @@ export interface IScaffoldResult {
 }
 
 /** Fichiers dont le nom rendu diffère du template (npm strip les dotfiles publiés). */
-const RENAMES: Record<string, string> = { gitignore: ".gitignore" };
+const RENAMES: Record<string, string> = {
+  gitignore: ".gitignore",
+  env: ".env",
+  "env.local": ".env.local",
+};
 
 /** Paramètres frontend par framework (type registerEntry, entry, nœud de montage). */
 export const FRONTEND_PARAMS: Record<
@@ -273,6 +278,15 @@ export function runScaffold(
     complete: preset === "complete",
     frontend,
     front,
+    // Secrets PAR-PROJET, générés À LA CRÉATION (jamais au build : un build
+    // doit rester pur/reproductible — en CI/prod les secrets viennent du
+    // secret-manager). Consommés par `complete/env.local.tpl` (gitignoré) →
+    // zéro warning « clé ÉPHÉMÈRE » au premier boot. 32 octets = AES-256-GCM.
+    secrets: {
+      NF_TOTP_KEY: randomBytes(32).toString("base64"),
+      NF_WEBHOOK_KEY: randomBytes(32).toString("base64"),
+      NF_CSRF_SECRET: randomBytes(32).toString("base64"),
+    },
   };
   // autoEscape false : on génère du CODE, pas du HTML — l'échappement des
   // entités corromprait chaque fichier. useWith false = accès via `it.` strict.

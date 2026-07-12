@@ -5,6 +5,7 @@ import { controllers } from "@nodefony/framework";
 <% } %>import config from "./nodefony.config";
 import HelloController from "./nodefony/controllers/HelloController";
 <% if (it.front) { %>import AppController from "./nodefony/controllers/AppController";
+<% } %><% if (it.complete) { %>import { provisionUsers } from "./nodefony/security/provisionUsers";
 <% } %>
 /**
  * Catalogue d'env typé, lu par le Kernel au boot pour alimenter `ctx.env`
@@ -22,7 +23,18 @@ class App extends Module {
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);
   }
-<% if (it.front) { %>
+<% if (it.complete) { %>
+  /**
+   * Pose l'annuaire utilisateurs de l'app + seed le compte admin (idempotent).
+   * L'identité est la responsabilité de l'APPLICATION — le firewall
+   * (@nodefony/security) authentifie, mais c'est ici qu'on décide QUI sont les
+   * utilisateurs et OÙ ils vivent. Détails : nodefony/security/provisionUsers.ts
+   */
+  override async onKernelReady(): Promise<this> {
+    await provisionUsers(this);
+    return this;
+  }
+<% } %><% if (it.front) { %>
   /**
    * Déclare l'entry frontend <%= it.frontend %> auprès du FrontendService —
    * AVANT `onKernelReady` pour que le superviseur Vite démarre avec elle.

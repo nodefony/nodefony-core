@@ -870,6 +870,20 @@ class Kernel extends Service implements IKernel {
                 return this.terminate(SysExit.UNAVAILABLE);
               }
               if (this.setCommandComplete(Events.onPostReady)) {
+                // Profil SERVEUR : les serveurs tiennent le process — ne JAMAIS
+                // finir ici (un finishOrPark nu ferait terminate → tuerait le
+                // runtime dev/prod fraîchement prêt).
+                // Profil CONSOLE arrêté à onPostReady (ex. `security:user:add`,
+                // qui attend le service "users" posé à onReady) : one-shot →
+                // terminate, daemon → park. SANS ça le process ne finissait
+                // JAMAIS (handles du boot vivants — commande faite, process
+                // fantôme, vécu). `process.exitCode` posé par la commande
+                // (erreur métier) est préservé — terminate(0) l'écraserait.
+                if (!this.runProfile.servers) {
+                  return this.finishOrPark(
+                    typeof process.exitCode === "number" ? process.exitCode : 0,
+                  );
+                }
                 this.log(`Live cycle terminate`, "DEBUG");
                 return this;
               } else {
