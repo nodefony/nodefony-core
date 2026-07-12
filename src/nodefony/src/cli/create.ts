@@ -123,6 +123,18 @@ function runInstall(dest: string): boolean {
 }
 
 /**
+ * `npm run build` dans l'app générée — le runtime charge `dist/index.js`
+ * (garde fail-loud « NON CONSTRUIT » au boot) : sans ce build, le premier
+ * `npm run dev` échoue. Suit l'install (pas de node_modules = pas de build) ;
+ * `dist/` est gitignoré → n'entre pas dans le premier commit.
+ */
+function runBuild(dest: string): boolean {
+  process.stdout.write(`\n⏳ npm run build (${path.basename(dest)})…\n`);
+  const r = spawnSync("npm", ["run", "build"], { cwd: dest, stdio: "inherit" });
+  return r.status === 0;
+}
+
+/**
  * `git init` + first commit dans l'app générée — SEULEMENT si git est
  * disponible ET que le dossier n'est pas déjà couvert par un repo (une app de
  * banc dans le checkout du framework ne doit pas créer un repo imbriqué).
@@ -225,13 +237,20 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       result.files.map((f) => `  ${f}`).join("\n") +
       `\n${linkNote}`,
   );
-  // ── Post-génération : install PUIS git (le lockfile entre dans le 1er commit).
-  //    Opt-out : --no-install / --no-git. Un échec d'install n'annule pas le
-  //    create (l'app est là) — il est DIT et les étapes manuelles réaffichées.
+  // ── Post-génération : install PUIS build PUIS git (lockfile dans le 1er
+  //    commit, dist/ gitignoré). Opt-out : --no-install (saute aussi le build,
+  //    qui exige node_modules) / --no-git. Un échec n'annule pas le create
+  //    (l'app est là) — il est DIT et les étapes manuelles réaffichées.
   const installed = parsed.install ? runInstall(result.dest) : false;
   if (parsed.install && !installed) {
     process.stdout.write(
       `⚠ npm install a échoué — relance-le à la main dans ${relDest}/\n`,
+    );
+  }
+  const built = installed ? runBuild(result.dest) : false;
+  if (installed && !built) {
+    process.stdout.write(
+      `⚠ npm run build a échoué — relance-le à la main dans ${relDest}/\n`,
     );
   }
   const gitNote = parsed.git
@@ -242,6 +261,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     `\nProchaines étapes :\n` +
       `  cd ${relDest}\n` +
       (installed ? "" : `  npm install\n`) +
+      (built ? "" : `  npm run build\n`) +
       `  npm run dev        # → https://127.0.0.1:5152 (admin : /nodefony — admin/admin en dev)\n`,
   );
   return SysExit.OK;

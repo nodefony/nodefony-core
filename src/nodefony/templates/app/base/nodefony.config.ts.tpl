@@ -77,6 +77,13 @@ export default defineConfig<typeof env>((ctx) => ({
     //    2) passe la policy à "mandatory" (toujours chargé). Un `"optional"`
     //    conviendrait aussi mais dirait moins ton intention : une console
     //    d'admin volontairement exposée est un choix ASSUMÉ, pas un défaut.
+    //
+    //    Livraison de l'UI Studio — molette `ui: "auto" | "static" | "vite"`
+    //    (défaut `auto`, rien à configurer) : Vite quand c'est possible
+    //    (dev + sources du checkout), sinon les assets PRÉ-BUILDÉS shippés
+    //    dans le paquet npm → en production Studio marche SANS Vite ni
+    //    @nodefony/frontend. Exemple prod assumée :
+    //    use("@nodefony/studio", { ui: "static" }, { policy: "mandatory" }),
     "@nodefony/frontend",
     { name: "@nodefony/studio", policy: "dev" },
 
