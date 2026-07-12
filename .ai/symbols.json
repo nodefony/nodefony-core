@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-12T20:44:41.373Z",
+  "generated": "2026-07-12T21:11:13.179Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1011,
-    "symbols": 2585,
+    "symbols": 2587,
     "classes": 319,
-    "interfaces": 677,
+    "interfaces": 678,
     "types": 301,
     "enums": 4,
-    "functions": 728,
+    "functions": 729,
     "constants": 556
   },
   "symbols": {
@@ -4153,6 +4153,23 @@
       "implements": [],
       "decorators": [],
       "description": "Affichage « boot de rêve » du serveur en développement : une checklist animée (spinner + `✓`/`✗` par phase de boot) à la place du mur de logs `INFO`/`MODULE ADD`. **Dev-only** : instancié uniquemen…"
+    },
+    "FirewallZoneView": {
+      "name": "FirewallZoneView",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/BootReporter.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Vue minimale d'une zone du firewall (`firewall.describe().zones`), résolue par duck-typing — le core n'importe jamais"
+    },
+    "renderZoneTable": {
+      "name": "renderZoneTable",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/BootReporter.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Tableau ANSI des zones firewall (ZONE/PATTERN/AUTH/ACCÈS) — même gabarit que le tableau process du bilan (`renderProcessTable`). ACCÈS résume la politique effective : `public` (security:false), `an…"
     },
     "DetachedStartOptions": {
       "name": "DetachedStartOptions",

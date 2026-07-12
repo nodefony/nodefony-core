@@ -9,6 +9,60 @@ import {
 } from "./devProcess";
 import { renderProcessTable } from "./devStatusReport";
 
+/**
+ * Vue minimale d'une zone du firewall (`firewall.describe().zones`), résolue
+ * par duck-typing — le core n'importe jamais @nodefony/security.
+ */
+export interface FirewallZoneView {
+  readonly name: string;
+  readonly pattern: string;
+  readonly security?: boolean;
+  readonly authenticators?: ReadonlyArray<string>;
+  readonly allowsAnonymous?: boolean;
+}
+
+/**
+ * Tableau ANSI des zones firewall (ZONE/PATTERN/AUTH/ACCÈS) — même gabarit que
+ * le tableau process du bilan (`renderProcessTable`). ACCÈS résume la politique
+ * effective : `public` (security:false), `anonyme OK` (authenticator anonymous
+ * dans la chaîne — jamais bloquant, identité résolue si présente) ou `protégé`
+ * (preuve exigée, 401 sinon). Zones applicatives en vert, aires framework
+ * (`/nodefony`) en dim.
+ */
+export function renderZoneTable(
+  lines: string[],
+  zones: ReadonlyArray<FirewallZoneView>,
+  indent: string = "  ",
+): void {
+  const nameW = Math.max(4, ...zones.map((z) => z.name.length));
+  const patW = Math.max(7, ...zones.map((z) => z.pattern.length));
+  const authOf = (z: FirewallZoneView): string =>
+    (z.authenticators ?? []).join(", ") || "—";
+  const authW = Math.max(4, ...zones.map((z) => authOf(z).length));
+  const GREEN = "\x1b[32m";
+  const YELLOW = "\x1b[33m";
+  const DIM = "\x1b[2m";
+  const RESET = "\x1b[0m";
+  lines.push(
+    `${DIM}${indent}${"ZONE".padEnd(nameW)}  ${"PATTERN".padEnd(patW)}  ${"AUTH".padEnd(authW)}  ACCÈS${RESET}`,
+    `${DIM}${indent}${"─".repeat(nameW + patW + authW + 11)}${RESET}`,
+  );
+  for (const z of zones) {
+    const framework = z.pattern.startsWith("^/nodefony");
+    const access =
+      z.security === false
+        ? `${YELLOW}public${RESET}`
+        : z.allowsAnonymous || (z.authenticators ?? []).includes("anonymous")
+          ? `anonyme OK`
+          : `${GREEN}protégé${RESET}`;
+    const color = framework ? DIM : GREEN;
+    lines.push(
+      `${indent}${color}${z.name.padEnd(nameW)}${RESET}  ` +
+        `${z.pattern.padEnd(patW)}  ${DIM}${authOf(z).padEnd(authW)}${RESET}  ${access}`,
+    );
+  }
+}
+
 /** Frames braille du spinner (rotation fluide, 10 étapes). */
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 const GREEN = "\x1b[32m";
@@ -380,6 +434,7 @@ class BootReporter {
       );
     }
     this.#renderProcessRow();
+    this.#renderFirewallRow();
     const journal =
       !report.warnings && !report.errors
         ? `${GREEN}aucun warning${RESET}`
@@ -440,6 +495,50 @@ class BootReporter {
     const table: string[] = [];
     renderProcessTable(table, procs, "        ");
     process.stdout.write(table.join("\n") + "\n");
+  }
+
+  /**
+   * Ligne « Firewall » du bilan — aiguillage sécurité, même gabarit que
+   * « Process » : synthèse sur la ligne `➜`, puis TABLEAU des zones montées
+   * (ZONE / PATTERN / AUTH / ACCÈS). Vue minimale du service `firewall`
+   * (@nodefony/security) résolu PAR NOM (le core n'importe jamais security).
+   * Zones APPLICATIVES = hors namespace réservé `/nodefony` (les aires admin y
+   * sont portées par le framework). Aucune zone applicative → les routes
+   * métier sont PUBLIQUES : on le DIT, avec la recette (fail-loud annoncé —
+   * hors zone, l'identité n'est jamais résolue). Security absent → aucune
+   * ligne (une app sans firewall est un choix assumé).
+   */
+  #renderFirewallRow(): void {
+    const fw = this.#kernel.container?.get?.("firewall") as
+      | { describe?: () => { zones?: ReadonlyArray<FirewallZoneView> } }
+      | null
+      | undefined;
+    if (typeof fw?.describe !== "function") return;
+    let zones: ReadonlyArray<FirewallZoneView> = [];
+    try {
+      zones = fw.describe().zones ?? [];
+    } catch {
+      return; // observation best-effort — jamais bloquer le verdict
+    }
+    const app = zones.filter((z) => !z.pattern.startsWith("^/nodefony"));
+    const fwk = zones.length - app.length;
+    const summary = app.length
+      ? `${app.length} zone${app.length > 1 ? "s" : ""} applicative${app.length > 1 ? "s" : ""}` +
+        (fwk
+          ? ` ${DIM}·${RESET} ${fwk} aire${fwk > 1 ? "s" : ""} framework`
+          : "")
+      : `${YELLOW}aires framework seules — tes routes métier sont PUBLIQUES${RESET}`;
+    this.#verdictRow("Firewall", summary);
+    if (zones.length) {
+      const table: string[] = [];
+      renderZoneTable(table, zones, "        ");
+      process.stdout.write(table.join("\n") + "\n");
+    }
+    if (!app.length) {
+      process.stdout.write(
+        `        ${DIM}· déclare une zone : use("@nodefony/security", { areas: { main: { pattern: "^/api", authenticators: ["session"] } } })${RESET}\n`,
+      );
+    }
   }
 
   /**
