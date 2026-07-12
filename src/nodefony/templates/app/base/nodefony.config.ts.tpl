@@ -100,14 +100,16 @@ export default defineConfig<typeof env>((ctx) => ({
     //    conviendrait aussi mais dirait moins ton intention : une console
     //    d'admin volontairement exposée est un choix ASSUMÉ, pas un défaut.
     //
-    //    Livraison de l'UI Studio — molette `ui: "auto" | "static" | "vite"`
-    //    (défaut `auto`, rien à configurer) : Vite quand c'est possible
-    //    (dev + sources du checkout), sinon les assets PRÉ-BUILDÉS shippés
-    //    dans le paquet npm → en production Studio marche SANS Vite ni
-    //    @nodefony/frontend. Exemple prod assumée :
+    //    Livraison de l'UI Studio — molette `ui: "auto" | "static" | "vite"`.
+    //    Ici `static` ÉPINGLÉ : les assets PRÉ-BUILDÉS shippés dans le paquet
+    //    npm (Studio marche sans rien recompiler). `auto`/`vite` ferait passer
+    //    l'UI Studio (React) par TON serveur Vite — utile UNIQUEMENT pour
+    //    développer Studio lui-même, et exigerait ses plugins dans TES
+    //    devDependencies (une app Vue/Angular n'a pas @vitejs/plugin-react).
+    //    Pour l'avoir aussi en production (choix ASSUMÉ, cf policy ci-dessus) :
     //    use("@nodefony/studio", { ui: "static" }, { policy: "mandatory" }),
     "@nodefony/frontend",
-    { name: "@nodefony/studio", policy: "dev" },
+    use("@nodefony/studio", { ui: "static" }, { policy: "dev" }),
 
     // ── Accès Redis générique — chargé par la DÉCLARATION de l'infra cache :
     //    `NF_REDIS_URL` présente ⇔ module chargé (un seul signal, pas de magie
