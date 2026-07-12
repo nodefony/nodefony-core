@@ -67,7 +67,12 @@ import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
-import type { IBootReport, IBootFailure, IBootServerInfo } from "./bootReport";
+import type {
+  IBootReport,
+  IBootFailure,
+  IBootServerInfo,
+  IBootModuleGated,
+} from "./bootReport";
 
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
 const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
@@ -438,6 +443,18 @@ class Kernel extends Service implements IKernel {
    * un boot nominal (règle perf core).
    */
   private bootFailures: IBootFailure[] | null = null;
+  /**
+   * Modules du manifeste volontairement NON chargés (gating `policy`/`when` de
+   * {@link resolveModuleEntries}), avec leur raison — un gating silencieux se lit
+   * comme un module perdu. **Lazy** : `null` si rien n'est gaté (cas nominal).
+   */
+  private modulesGated: IBootModuleGated[] | null = null;
+  /**
+   * Compteurs WARNING/ERROR du journal de boot, **figés** quand `postReady` passe
+   * true (après, le ring syslog mélange boot et runtime). `null` = boot en cours
+   * → {@link getBootReport} compte à la volée.
+   */
+  private bootLogCounts: { warnings: number; errors: number } | null = null;
   /**
    * Serveurs réellement en écoute, figés à `onPostReady`. `null` tant que le boot
    * n'a pas atteint cette phase ; `[]` si profil serveur mais rien n'écoute (cas
@@ -832,6 +849,10 @@ class Kernel extends Service implements IKernel {
           return this.fireLifecycle("onPostReady", this)
             .then(() => {
               this.postReady = true;
+              // Fige le journal de boot : après cette ligne le ring syslog
+              // mélange boot et runtime — les lectures tardives (Studio,
+              // BootReporter différé par Vite) gardent le compte du BOOT.
+              this.bootLogCounts = this.countBootLogIssues();
               // Bannières « Server Listen on… » : sautées sous l'écran de boot
               // animé (le bloc « ✓ Prêt » liste déjà les URLs). Affichées sinon
               // (prod / CI / --debug).
@@ -1054,6 +1075,9 @@ class Kernel extends Service implements IKernel {
     // environnement de déploiement passe par `when(config)` (axe appEnvironment).
     const isProd =
       this.resolveRuntimeEnv(this.cli?.environment) === "production";
+    // Reset (défensif si rappelée) : les skips motivés sont re-collectés à chaque
+    // résolution — sinon un double appel dupliquerait les entrées du bilan.
+    this.modulesGated = null;
     const result: { name: string; config?: Record<string, unknown> }[] = [];
     for (const item of manifest) {
       const entry: IModuleManifestEntry =
@@ -1062,14 +1086,32 @@ class Kernel extends Service implements IKernel {
         continue;
       }
       if (entry.policy === "dev" && isProd) {
+        this.recordModuleGated(entry.name, `policy "dev" — runtime production`);
         continue;
       }
       if (typeof entry.when === "function" && !entry.when(this.options)) {
+        this.recordModuleGated(
+          entry.name,
+          "condition when(config) non remplie",
+        );
         continue;
       }
       result.push({ name: entry.name, config: entry.config });
     }
     return result;
+  }
+
+  /**
+   * Enregistre un module volontairement non chargé (gating `policy`/`when`) avec
+   * sa raison — surfacé par le bilan de boot ({@link getBootReport}). Lazy : 0
+   * allocation si rien n'est gaté.
+   *
+   * @param module - nom d'entrée du manifeste.
+   * @param reason - raison lisible du non-chargement.
+   */
+  private recordModuleGated(module: string, reason: string): void {
+    (this.modulesGated ??= []).push({ module, reason });
+    this.log(`MODULE GATED : ${module} — ${reason}`, "DEBUG");
   }
 
   /**
@@ -2242,10 +2284,17 @@ class Kernel extends Service implements IKernel {
     const serversListening = this.bootServers ?? [];
     const serversExpected = Boolean(this.runProfile?.servers);
     const modulesSkipped = this.bootFailures ?? [];
+    // Journal de boot : compte figé à `postReady` (après, le ring mélange boot et
+    // runtime) ; à la volée tant que le boot est en cours.
+    const { warnings, errors } =
+      this.bootLogCounts ?? this.countBootLogIssues();
     return {
       durationMs: this.bootStartedAt > 0 ? Date.now() - this.bootStartedAt : 0,
       modulesLoaded: Object.keys(this.modules),
       modulesSkipped,
+      modulesGated: this.modulesGated ?? [],
+      warnings,
+      errors,
       serversExpected,
       serversListening,
       // Échec 0-serveur jugé UNIQUEMENT une fois la mesure faite (`measured`) : avant, on
@@ -2254,6 +2303,30 @@ class Kernel extends Service implements IKernel {
       healthy: !(serversExpected && measured && serversListening.length === 0),
       remediation: this.bootRemediationHint(modulesSkipped) ?? undefined,
     };
+  }
+
+  /**
+   * Compte les WARNING (severity 4) et les ERROR-et-pire (severity 0-3 :
+   * EMERGENCY/ALERT/CRITIC/ERROR) présents dans le ring buffer syslog. Pendant le
+   * boot, le ring ne contient QUE des logs de boot → le compte est le « journal
+   * du boot ». Borné par la capacité du ring (compte plancher, jamais gonflé).
+   *
+   * @returns compteurs `{ warnings, errors }`.
+   */
+  private countBootLogIssues(): { warnings: number; errors: number } {
+    let warnings = 0;
+    let errors = 0;
+    const ring = this.syslog?.ringStack;
+    if (ring) {
+      for (const pdu of ring) {
+        if (pdu.severity === 4) {
+          warnings++;
+        } else if (pdu.severity >= 0 && pdu.severity <= 3) {
+          errors++;
+        }
+      }
+    }
+    return { warnings, errors };
   }
 
   /**
@@ -2339,7 +2412,7 @@ class Kernel extends Service implements IKernel {
       this.log(
         `BOOT ÉCHEC — profil serveur mais aucun serveur en écoute` +
           (skipped.length
-            ? ` · ${skipped.length} module(s) ignoré(s) : ${reasons}`
+            ? ` · ${skipped.length} module(s) en échec : ${reasons}`
             : "") +
           (report.remediation ? ` — ${report.remediation}` : ""),
         "CRITIC",
@@ -2349,17 +2422,25 @@ class Kernel extends Service implements IKernel {
     if (skipped.length) {
       this.log(
         `BOOT dégradé — ${report.modulesLoaded.length} module(s) chargé(s), ` +
-          `${skipped.length} ignoré(s) : ` +
+          `${skipped.length} en échec (fail-soft) : ` +
           skipped.map((f) => `${f.module} (${f.reason})`).join(" · "),
         "WARNING",
       );
       return;
     }
     const urls = report.serversListening.map((s) => s.url).join(", ");
+    const gated = report.modulesGated.length
+      ? `, ${report.modulesGated.length} ignoré(s) (policy/when)`
+      : "";
+    const journal =
+      report.warnings || report.errors
+        ? ` · journal : ${report.errors} ERROR, ${report.warnings} WARNING`
+        : "";
     this.log(
-      `BOOT ok — ${report.modulesLoaded.length} module(s), ` +
+      `BOOT ok — ${report.modulesLoaded.length} module(s)${gated}, ` +
         `${report.serversListening.length} serveur(s) en écoute` +
-        (urls ? ` (${urls})` : ""),
+        (urls ? ` (${urls})` : "") +
+        journal,
       "NOTICE",
     );
     // Garde-fou observabilité MULTI-POD (honnêteté, pas de magie) — émis ICI (boot

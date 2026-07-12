@@ -987,6 +987,95 @@ describe("Kernel — BootReport (verdict de boot)", () => {
     assert.strictEqual(r.modulesSkipped[0].module, "@scope/bad");
     assert.strictEqual(r.modulesSkipped[0].phase, "load");
   });
+
+  // ── Bilan de boot — skips motivés (gating) + journal WARNING/ERROR ────────────
+
+  it("boot vierge : modulesGated=[], journal 0 WARNING / 0 ERROR", () => {
+    const k = mkKernel();
+    assert.strictEqual((k as any).modulesGated, null); // lazy : 0 alloc nominal
+    const r = k.getBootReport();
+    assert.deepStrictEqual(r.modulesGated, []);
+    assert.strictEqual(r.warnings, 0);
+    assert.strictEqual(r.errors, 0);
+  });
+
+  it("gating policy 'dev' en production → modulesGated AVEC la raison", () => {
+    const k = mkKernel();
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      (k.options as any).modules = [
+        { name: "@scope/devtool", policy: "dev" },
+        "@scope/always",
+      ];
+      const entries = (k as any).resolveModuleEntries();
+      assert.deepStrictEqual(
+        entries.map((e: { name: string }) => e.name),
+        ["@scope/always"],
+      );
+      const r = k.getBootReport();
+      assert.strictEqual(r.modulesGated.length, 1);
+      assert.strictEqual(r.modulesGated[0].module, "@scope/devtool");
+      assert.match(r.modulesGated[0].reason, /policy "dev"/);
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
+
+  it("gating when(config)=false → modulesGated AVEC la raison", () => {
+    const k = mkKernel();
+    (k.options as any).modules = [
+      { name: "@scope/gated", when: () => false },
+      { name: "@scope/loaded", when: () => true },
+    ];
+    const entries = (k as any).resolveModuleEntries();
+    assert.deepStrictEqual(
+      entries.map((e: { name: string }) => e.name),
+      ["@scope/loaded"],
+    );
+    const r = k.getBootReport();
+    assert.strictEqual(r.modulesGated.length, 1);
+    assert.strictEqual(r.modulesGated[0].module, "@scope/gated");
+    assert.match(r.modulesGated[0].reason, /when\(config\)/);
+  });
+
+  it("resolveModuleEntries rappelée → pas de doublon dans modulesGated", () => {
+    const k = mkKernel();
+    (k.options as any).modules = [{ name: "@scope/gated", when: () => false }];
+    (k as any).resolveModuleEntries();
+    (k as any).resolveModuleEntries();
+    assert.strictEqual(k.getBootReport().modulesGated.length, 1);
+  });
+
+  it("journal de boot : WARNING=sev 4, ERROR-et-pire=sev 0-3, le reste ignoré", () => {
+    const k = mkKernel();
+    (k as any).syslog = {
+      ringStack: [
+        { severity: 7 }, // DEBUG — ignoré
+        { severity: 6 }, // INFO — ignoré
+        { severity: 5 }, // NOTICE — ignoré
+        { severity: 4 }, // WARNING
+        { severity: 4 }, // WARNING
+        { severity: 3 }, // ERROR
+        { severity: 2 }, // CRITIC
+        { severity: 1 }, // ALERT
+        { severity: 0 }, // EMERGENCY
+        { severity: -1 }, // SPINNER — ignoré
+      ],
+    };
+    const r = k.getBootReport();
+    assert.strictEqual(r.warnings, 2);
+    assert.strictEqual(r.errors, 4);
+  });
+
+  it("journal figé à postReady : bootLogCounts prime sur le ring courant", () => {
+    const k = mkKernel();
+    (k as any).syslog = { ringStack: [{ severity: 4 }] }; // ring vivant (runtime)
+    (k as any).bootLogCounts = { warnings: 9, errors: 1 }; // compte du BOOT figé
+    const r = k.getBootReport();
+    assert.strictEqual(r.warnings, 9);
+    assert.strictEqual(r.errors, 1);
+  });
 });
 
 // ─── resolveAppEntry() / isTrunk() — détection d'app SANS import ─────────────

@@ -34,6 +34,21 @@ started → preRegistered → registered → booted → ready → postReady
 > boot en cours) de `[]` (mesuré, 0 serveur = vrai échec) via le flag `measured` → sinon `healthy`
 > valait false pendant toute la montée des serveurs et `livez.degraded` criait « dégradé » à tort.
 
+**Bilan de boot (`IBootReport`, vérité unique écran/log/Studio)** :
+
+- `modulesSkipped` = **échecs fail-soft** (`IBootFailure`, `recordBootFailure`, lazy null) ≠
+  `modulesGated` = **volontairement non chargés** (`IBootModuleGated`, gating `policy`/`when` de
+  `resolveModuleEntries`, raison lisible, lazy null, reset à chaque résolution). Vocabulaire :
+  fail-soft = « en échec », gating = « ignoré ».
+- `warnings`/`errors` = journal du boot (comptage ring syslog : WARNING=sev 4, errors=sev 0-3 ;
+  SPINNER=-1 exclu). **Figés** dans `bootLogCounts` quand `postReady` passe true (après, le ring
+  mélange boot et runtime) ; comptage à la volée avant.
+- Rendu dev = `BootReporter.#renderVerdict` (bloc « Bilan » : Modules/Vite/Process/Journal) ; la
+  ligne Process = `discoverDevProcesses({includeSelf:true})` + `splitByProject(…, kernel.path).mine`
+  (même source que `nodefony status`, scopée projet, sync best-effort). Les ports ne sont PAS
+  re-sondés (la section Serveurs = vérité interne ; une liste sondée est une convention).
+- Canal prod = `logBootVerdict` (NOTICE/WARNING/CRITIC, inclut ignorés + journal).
+
 **Politique d'échec de boot (`isBootErrorFatal`)** : fatal = `critical !== false` && (`production`
 OU **`BootConfigurationError`**). `BootConfigurationError` (kernel/BootConfigurationError.ts, export
 barrel) = erreur de CONFIGURATION explicite non honorable (infra déclarée injoignable, entité non

@@ -2,6 +2,11 @@ import readline from "node:readline";
 import type Kernel from "../../kernel/Kernel";
 import type { IBootReport, IBootFailure } from "../../kernel/bootReport";
 import Syslog from "../../syslog/Syslog";
+import {
+  discoverDevProcesses,
+  splitByProject,
+  type DevProcessInfo,
+} from "./devProcess";
 
 /** Frames braille du spinner (rotation fluide, 10 étapes). */
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
@@ -86,6 +91,12 @@ class BootReporter {
   #frontendDone = 0;
   /** Handler `onFrontendProgress` (détaché à la fin de la phase Vite). */
   #onFrontendProgress: ((p?: unknown) => void) | null = null;
+  /**
+   * Résultat final de la compilation Vite (payload `onFrontendReady`) — gardé
+   * pour rappeler un échec dans le bloc « Bilan » (la ligne `✗` de la checklist
+   * défile et se perd). `null` = pas de frontend ou pas encore fini.
+   */
+  #frontendResult: IFrontendReadyPayload | null = null;
 
   constructor(kernel: Kernel, opts: { debug: boolean; tty: boolean }) {
     this.#kernel = kernel;
@@ -302,7 +313,7 @@ class BootReporter {
       const url = report.serversListening.find((s) => s.scheme === scheme)?.url;
       if (!url) continue;
       process.stdout.write(
-        `     ${GREEN}➜${RESET}  ${BOLD}${label.padEnd(7)}${RESET}` +
+        `     ${GREEN}➜${RESET}  ${BOLD}${label.padEnd(9)}${RESET}` +
           `${CYAN}${url}${RESET}\n`,
       );
     }
@@ -318,7 +329,7 @@ class BootReporter {
       if (adminUrl) {
         process.stdout.write(`\n     ${DIM}Studio${RESET}\n`);
         process.stdout.write(
-          `     ${GREEN}➜${RESET}  ${BOLD}${"Admin".padEnd(7)}${RESET}` +
+          `     ${GREEN}➜${RESET}  ${BOLD}${"Admin".padEnd(9)}${RESET}` +
             `${CYAN}${adminUrl}/nodefony${RESET}\n`,
         );
       }
@@ -327,6 +338,109 @@ class BootReporter {
     // les ORM se connectent aux hooks `onReady` des services, trop tard pour un
     // affichage inline sous la phase « Services & ORM ».
     this.#renderSection("Données", "Services & ORM");
+    this.#renderVerdict(report);
+  }
+
+  /**
+   * Bloc « Bilan » du verdict — le « développeur rassuré » : composition réelle du
+   * boot (modules chargés / ignorés par gating AVEC la raison / échecs fail-soft),
+   * rappel d'un échec Vite (la ligne `✗` de la checklist défile et se perd), et
+   * journal du boot (compteurs WARNING/ERROR du ring syslog). Tout vient du
+   * {@link IBootReport} (vérité unique — le futur endpoint Studio lira la même).
+   */
+  #renderVerdict(report: IBootReport): void {
+    process.stdout.write(`\n     ${DIM}Bilan${RESET}\n`);
+    const loaded = report.modulesLoaded.length;
+    const gated = report.modulesGated.length;
+    const failed = report.modulesSkipped.length;
+    let modules = `${loaded} module${loaded > 1 ? "s" : ""}`;
+    if (gated) {
+      modules +=
+        ` ${DIM}·${RESET} ${YELLOW}${gated} ignoré${gated > 1 ? "s" : ""}${RESET}` +
+        ` ${DIM}(policy/when)${RESET}`;
+    }
+    if (failed) {
+      modules += ` ${DIM}·${RESET} ${RED}${failed} échec${failed > 1 ? "s" : ""}${RESET}`;
+    }
+    this.#verdictRow("Modules", modules);
+    for (const g of report.modulesGated) {
+      process.stdout.write(
+        `        ${DIM}· ${g.module} — ${g.reason}${RESET}\n`,
+      );
+    }
+    if (
+      this.#frontendResult &&
+      (this.#frontendResult.ready ?? 0) === 0 &&
+      (this.#frontendResult.bundles ?? 0) > 0
+    ) {
+      this.#verdictRow(
+        "Vite",
+        `${RED}✗ compilation échouée${RESET} ${DIM}(voir logs)${RESET}`,
+      );
+    }
+    this.#renderProcessRow();
+    const journal =
+      !report.warnings && !report.errors
+        ? `${GREEN}aucun warning${RESET}`
+        : [
+            report.errors ? `${RED}${report.errors} ERROR${RESET}` : "",
+            report.warnings
+              ? `${YELLOW}${report.warnings} WARNING${RESET}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(` ${DIM}·${RESET} `) + ` ${DIM}(détail : --debug)${RESET}`;
+    this.#verdictRow("Journal", journal);
+  }
+
+  /** Ligne du bilan `➜  LABEL  valeur` (même gabarit que les lignes serveurs). */
+  #verdictRow(label: string, value: string): void {
+    process.stdout.write(
+      `     ${GREEN}➜${RESET}  ${BOLD}${label.padEnd(9)}${RESET}${value}\n`,
+    );
+  }
+
+  /**
+   * Ligne « Process » du bilan — topologie runtime réelle (superviseur / serveur /
+   * Vite avec pid + RSS), MÊME source d'observation que `nodefony status`
+   * (`discoverDevProcesses`, ps sans IPC), scopée à CE projet (`splitByProject` —
+   * un runtime d'un autre dossier ne pollue pas le bilan). Best-effort : `ps`
+   * indisponible (Windows) ou vide → aucune ligne. Sync, 1× au boot, dev-only.
+   * Les ports ne sont PAS re-sondés ici : la section « Serveurs » du verdict est
+   * déjà la vérité interne (une liste sondée serait une convention — vécu 3×).
+   */
+  #renderProcessRow(): void {
+    let procs: readonly DevProcessInfo[] = [];
+    try {
+      procs = splitByProject(
+        discoverDevProcesses({ includeSelf: true }),
+        this.#kernel.path,
+      ).mine;
+    } catch {
+      return; // observation best-effort — jamais bloquer le verdict
+    }
+    if (!procs.length) return;
+    const roles: ReadonlyArray<readonly [string, string]> = [
+      ["supervisor", "superviseur"],
+      ["master", "master"],
+      ["server", "serveur"],
+      ["worker", "worker"],
+      ["vite", "Vite"],
+    ];
+    const parts: string[] = [];
+    for (const [role, label] of roles) {
+      const n = procs.filter((p) => p.role === role).length;
+      if (n) parts.push(`${n} ${label}${n > 1 && role !== "vite" ? "s" : ""}`);
+    }
+    this.#verdictRow("Process", parts.join(` ${DIM}·${RESET} `));
+    const detail = procs
+      .map((p) => {
+        const rss = ` (${Math.round(p.rssKb / 1024)} MB)`;
+        const bundles = p.detail ? ` ${p.detail}` : "";
+        return `${p.label} ${p.pid}${rss}${bundles}`;
+      })
+      .join(" · ");
+    process.stdout.write(`        ${DIM}· ${detail}${RESET}\n`);
   }
 
   /**
@@ -363,11 +477,11 @@ class BootReporter {
     process.stdout.write("\n");
   }
 
-  /** Lignes ⚠ des modules ignorés (boot dégradé mais serveurs en écoute). */
+  /** Lignes ⚠ des modules en échec fail-soft (boot dégradé mais serveurs en écoute). */
   #renderSkipped(skipped: IBootFailure[]): void {
     const m = skipped.length;
     process.stdout.write(
-      `  ${YELLOW}⚠ ${m} module${m > 1 ? "s" : ""} ignoré${m > 1 ? "s" : ""}${RESET}\n`,
+      `  ${YELLOW}⚠ ${m} module${m > 1 ? "s" : ""} en échec (fail-soft)${RESET}\n`,
     );
     for (const f of skipped) {
       process.stdout.write(
@@ -394,6 +508,7 @@ class BootReporter {
   #frontendEnd(payload: IFrontendReadyPayload): void {
     if (this.#done || !this.#frontendPending) return;
     this.#frontendPending = false;
+    this.#frontendResult = payload ?? null;
     this.#frontendLabel = null; // libère le spinner s'il anime encore
     // Détache le listener de progression (plus de bundle à compter) — pas de
     // listener qui traîne (règle perf-mémoire du projet).

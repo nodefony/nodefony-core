@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-12T14:45:18.804Z",
+  "generated": "2026-07-12T17:09:03.872Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1008,
-    "symbols": 2565,
+    "symbols": 2568,
     "classes": 316,
-    "interfaces": 670,
+    "interfaces": 671,
     "types": 299,
     "enums": 4,
-    "functions": 720,
+    "functions": 722,
     "constants": 556
   },
   "symbols": {
@@ -1473,6 +1473,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Rapport de boot — **vérité unique** sur le résultat du démarrage du Kernel, calculé une fois à `onPostReady` et consommé par N canaux (rendu écran dev via `BootReporter`, log structuré prod, code d…"
+    },
+    "IBootModuleGated": {
+      "name": "IBootModuleGated",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/bootReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un module du manifeste **volontairement NON chargé** par le gating `policy`/`when` de `config.modules`. Ce n'est PAS un échec (cf {@link IBootFailure}) — mais un gating silencieux se lit comme un m…"
     },
     "IBootServerInfo": {
       "name": "IBootServerInfo",
@@ -4359,6 +4368,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Scinde des process découverts entre CE projet (`mine` — tuables par les gardes single-instance / `nodefony stop`) et les AUTRES (`foreign` — JAMAIS touchés). Règles de rattachement : - rôles racine…"
+    },
+    "isNodefonyProjectDir": {
+      "name": "isNodefonyProjectDir",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si `cwd` ressemble à un projet Nodefony : `package.json` déclarant la dépendance `nodefony`, OU `node_modules/nodefony` présent (app installée sans la déclarer). MÊME heuristique que `Kernel…"
+    },
+    "formatForeignRuntimes": {
+      "name": "formatForeignRuntimes",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Met en forme les runtimes ÉTRANGERS (autre projet) en bloc multi-lignes AÉRÉ : groupés par racine de projet (un Vite au cwd sous-dossier est rattaché à la racine qui le préfixe, affiché en relatif)…"
     },
     "isPortListening": {
       "name": "isPortListening",
@@ -20874,6 +20899,9 @@
       "IBootServerInfo": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "IBootModuleGated": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "ServiceConstructor": [
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
@@ -21391,6 +21419,7 @@
       ],
       "discoverDevProcesses": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/BootReporter.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
@@ -21448,6 +21477,16 @@
       "resolveWorkerCount": [
         "src/nodefony/src/service/cluster/topology.ts"
       ],
+      "splitByProject": [
+        "src/nodefony/src/service/dev/BootReporter.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "DevProcessInfo": [
+        "src/nodefony/src/service/dev/BootReporter.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
       "defaultDevPorts": [
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -21463,7 +21502,7 @@
       "signalProcessGroup": [
         "src/nodefony/src/service/dev/detachedStart.ts"
       ],
-      "splitByProject": [
+      "formatForeignRuntimes": [
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
@@ -21481,6 +21520,9 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "isNodefonyProjectDir": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
       "isPidAlive": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
@@ -21488,9 +21530,6 @@
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "runtimeModes": [
-        "src/nodefony/src/service/dev/devStatusReport.ts"
-      ],
-      "DevProcessInfo": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "DiscoverOptions": [

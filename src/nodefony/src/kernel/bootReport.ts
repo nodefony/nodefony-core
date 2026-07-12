@@ -30,6 +30,19 @@ export interface IBootFailure {
   timedOut?: boolean;
 }
 
+/**
+ * Un module du manifeste **volontairement NON chargé** par le gating
+ * `policy`/`when` de `config.modules`. Ce n'est PAS un échec (cf {@link IBootFailure})
+ * — mais un gating silencieux se lit comme un module perdu : le bilan de boot
+ * l'affiche AVEC sa raison pour que le dev sache pourquoi son module manque.
+ */
+export interface IBootModuleGated {
+  /** Nom d'entrée du manifeste (`config.modules`). */
+  module: string;
+  /** Raison lisible du non-chargement (ex. `policy "dev" — runtime production`). */
+  reason: string;
+}
+
 /** Un serveur réseau réellement en écoute à la fin du boot. */
 export interface IBootServerInfo {
   /** Nom de service interne (`http` | `https` | `websocket` | `websocket-secure`). */
@@ -55,6 +68,15 @@ export interface IBootReport {
   modulesLoaded: string[];
   /** Modules ignorés/échoués en fail-soft (avec la raison). */
   modulesSkipped: IBootFailure[];
+  /** Modules volontairement non chargés (gating `policy`/`when`) — pas des échecs. */
+  modulesGated: IBootModuleGated[];
+  /**
+   * Logs `WARNING` émis pendant le boot (comptés dans le ring buffer syslog ;
+   * figés à `onPostReady`, comptage à la volée tant que le boot est en cours).
+   */
+  warnings: number;
+  /** Logs `ERROR` et pire (`CRITIC`/`ALERT`/`EMERGENCY`) émis pendant le boot. */
+  errors: number;
   /** `true` si le profil d'exécution attendait des serveurs réseau. */
   serversExpected: boolean;
   /** Serveurs réellement en écoute. */

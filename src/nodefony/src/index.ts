@@ -388,6 +388,7 @@ export type {
   IBootReport,
   IBootFailure,
   IBootServerInfo,
+  IBootModuleGated,
 } from "./kernel/bootReport";
 
 export type { OptionsCommandInterface } from "./command/Command";
