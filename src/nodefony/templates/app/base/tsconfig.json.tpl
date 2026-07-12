@@ -3,6 +3,10 @@
     "target": "ES2024",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // ESNext (pas le défaut du target) : en mode --link les types des paquets
+    // nodefony sont leurs SOURCES TS, qui utilisent des APIs ES2025+
+    // (RegExp.escape…) — même choix que les tsconfigs du framework.
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["node"],
     "rootDir": "./",
     "outDir": "./dist",

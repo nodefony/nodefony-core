@@ -197,6 +197,21 @@ commande validée → ses options + globales, sinon noms + alias. Install zsh :
 [--frontend <none|react|vue|angular>] [--link|--no-link]` — **standalone 0-boot**
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
 
+`nodefony create controller <name> [--kind <hello|realtime|rest>] [--route </api/x>]
+[--module <nom>]` — scaffold **IN-PROJECT** (lancé DANS une app : `findProjectRoot`
+remonte au `nodefony.config.ts`, refus propre hors projet). Cible = app racine ou un
+module local (`listTargets` : app + `modules/*/` — consommé par le CLI ET le futur
+formulaire Studio). Saveurs : `hello` = GET + WS echo MÊME classe (défaut — le
+différenciateur) ; `realtime` = sous-classe `RealtimeController` (@nodefony/realtime :
+canal `<nom>:ticker` décoré `@RealtimeChannel` + action `<nom>:ping`, TSDoc = snippet
+client `RealtimeClient`) — garde actionnable si la dep manque (preset minimal) ;
+`rest` = CRUD `@Get/@Post/@Put/@Delete` + `@Param/@Body` + echo WS. Wiring AUTO de
+l'`index.ts` cible (`wireDecoratorList` : import + insertion `@controllers([...])`,
+édition textuelle gardée — toute ambiguïté = throw actionnable, jamais de fichier
+corrompu). Nom normalisé (`blog-post`→`BlogPostController`, suffixe strippé) ; route
+défaut `/api/<kebab>` (couverte par la zone firewall du manifeste généré). Noms de
+fichiers de templates : token `__NAME__` (`templates/controller/<kind>/.../__NAME__.ts.tpl`).
+
 **Architecture 3 fronts** (préparée pour Studio — créer app/module/entity depuis
 l'admin web) :
 

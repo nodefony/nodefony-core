@@ -333,6 +333,164 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("moteur — create controller (in-project)", () => {
+    /** Scaffold controller depuis `from` (détection racine = comme le CLI). */
+    const controller = (
+      from: string,
+      answers: Record<string, string | boolean>,
+    ) =>
+      runScaffold(
+        { type: "controller", answers, dir: from, force: false },
+        version,
+      );
+
+    it("hello (défaut) : fichier + wiring index.ts + notes GET/WS", () => {
+      const dest = path.join(tmp, "capp");
+      scaffold(dest, { name: "capp", preset: "minimal" });
+      const r = controller(dest, { name: "blog" });
+      const file = path.join(
+        dest,
+        "nodefony",
+        "controllers",
+        "BlogController.ts",
+      );
+      assert.isTrue(existsSync(file));
+      const src = readFileSync(file, "utf8");
+      assert.include(src, '@controller("/api/blog")');
+      assert.include(src, 'methods: ["WEBSOCKET"]');
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.include(
+        index,
+        'import BlogController from "./nodefony/controllers/BlogController";',
+      );
+      assert.match(index, /@controllers\(\[[^\]]*BlogController\]\)/u);
+      assert.include((r.notes ?? []).join("\n"), "GET  /api/blog");
+      assertNoEtaResidue(dest);
+    });
+
+    it("normalisation : blog-postController → BlogPostController, route kebab", () => {
+      const dest = path.join(tmp, "norm");
+      scaffold(dest, { name: "norm", preset: "minimal" });
+      controller(dest, { name: "blog-postController" });
+      const file = path.join(
+        dest,
+        "nodefony",
+        "controllers",
+        "BlogPostController.ts",
+      );
+      assert.isTrue(existsSync(file));
+      assert.include(
+        readFileSync(file, "utf8"),
+        '@controller("/api/blog-post")',
+      );
+    });
+
+    it("realtime : RealtimeController + canal ticker ; minimal sans la dep → garde", () => {
+      const full = path.join(tmp, "rt");
+      scaffold(full, { name: "rt", preset: "complete" });
+      controller(full, { name: "pulse", kind: "realtime" });
+      const src = readFileSync(
+        path.join(full, "nodefony", "controllers", "PulseController.ts"),
+        "utf8",
+      );
+      assert.include(src, "extends RealtimeController");
+      assert.include(src, '@RealtimeChannel("pulse:ticker")');
+      assert.include(src, '"pulse:ping"');
+
+      const mini = path.join(tmp, "rtmini");
+      scaffold(mini, { name: "rtmini", preset: "minimal" });
+      assert.throws(
+        () => controller(mini, { name: "pulse", kind: "realtime" }),
+        /@nodefony\/realtime/u,
+      );
+    });
+
+    it("rest : CRUD + params {id} + echo WS", () => {
+      const dest = path.join(tmp, "rest");
+      scaffold(dest, { name: "rest", preset: "minimal" });
+      controller(dest, { name: "item", kind: "rest", route: "/api/items" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "ItemController.ts"),
+        "utf8",
+      );
+      assert.include(src, '@controller("/api/items")');
+      assert.include(src, '@Get("/{id}")');
+      assert.include(src, '@Post("")');
+      assert.include(src, '@Delete("/{id}")');
+      assert.include(src, "WEBSOCKET");
+    });
+
+    it("cible --module : écrit dans modules/<x> + wiring de SON index.ts", () => {
+      const dest = path.join(tmp, "mapp");
+      scaffold(dest, { name: "mapp", preset: "minimal" });
+      const mod = path.join(dest, "modules", "shop");
+      mkdirSync(path.join(mod, "nodefony"), { recursive: true });
+      writeFileSync(
+        path.join(mod, "package.json"),
+        JSON.stringify({ name: "@mapp/shop" }),
+      );
+      writeFileSync(
+        path.join(mod, "index.ts"),
+        'import { Module } from "nodefony";\n' +
+          'import { controllers } from "@nodefony/framework";\n\n' +
+          "@controllers([])\nclass Shop extends Module {}\nexport default Shop;\n",
+      );
+      controller(dest, { name: "cart", module: "@mapp/shop" });
+      assert.isTrue(
+        existsSync(
+          path.join(mod, "nodefony", "controllers", "CartController.ts"),
+        ),
+      );
+      const index = readFileSync(path.join(mod, "index.ts"), "utf8");
+      assert.include(index, "@controllers([CartController])");
+      // l'index de l'APP n'est pas touché
+      assert.notInclude(
+        readFileSync(path.join(dest, "index.ts"), "utf8"),
+        "CartController",
+      );
+    });
+
+    it("garde-fous : hors projet / module inconnu / nom en double", () => {
+      assert.throws(
+        () => controller(os.tmpdir(), { name: "x" }),
+        /aucun projet Nodefony/u,
+      );
+      const dest = path.join(tmp, "gapp");
+      scaffold(dest, { name: "gapp", preset: "minimal" });
+      assert.throws(
+        () => controller(dest, { name: "x", module: "ghost" }),
+        /introuvable — cibles du projet/u,
+      );
+      controller(dest, { name: "dup" });
+      assert.throws(() => controller(dest, { name: "dup" }), /déjà référencé/u);
+    });
+
+    it("parseCreateArgv : --kind --route --module", () => {
+      const p = parseCreateArgv(
+        argv(
+          "create",
+          "controller",
+          "blog",
+          "--kind",
+          "realtime",
+          "--route",
+          "/api/live",
+          "--module",
+          "@x/shop",
+        ),
+      );
+      assert.notProperty(p, "error");
+      const req = p as Exclude<typeof p, { error: string }>;
+      assert.equal(req.type, "controller");
+      assert.deepInclude(req.answers, {
+        name: "blog",
+        kind: "realtime",
+        route: "/api/live",
+        module: "@x/shop",
+      });
+    });
+  });
+
   describe("moteur — garde-fous", () => {
     it("dossier non vide sans force → throw ; avec force → OK", () => {
       const dest = path.join(tmp, "occupied");

@@ -87,7 +87,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜   ◀ prochain front (avec P11)
  P9  Polish + clôture      ██████░░░░  63%   2✅  1🔶  1⬜   (P9.3 READMEs ✅ · P9.4 : 3 low dev, re-audit post-rolldown 07-10)
  P10 Studio (admin web)    ████████░░  81%  12✅  2🔶  2⬜   (~80 pages + Jumeau + portail doc + écran Stores ; IAdminApi 7 producteurs ; reste tests intég P10.11)
- P11 CLI par module        █████░░░░░  50%   3✅  2🔶  3⬜   ◀ **BLOQUEUR MVP** — lifecycle OK ; `security:secrets`+`security:user:add` ✅ 07-12 ; `create app` = **onboarding COMPLET** (secrets .env.local, admin/admin dev, HTTPS, npm install + git init auto, complétion TAB) ; reste `orm:migrate` (S5) + `user:*` métier + `create module/entity` (lot 3) + release npm (install global).
+ P11 CLI par module        █████░░░░░  50%   3✅  2🔶  3⬜   ◀ **BLOQUEUR MVP** — lifecycle OK ; `security:secrets`+`security:user:add` ✅ 07-12 ; `create app` = **onboarding COMPLET** (secrets .env.local, admin/admin dev, HTTPS, npm install + git init auto, complétion TAB) ; `create controller` ✅ (3 saveurs hello/realtime/rest, in-project, wiring auto, cible app|module) ; reste `orm:migrate` (S5) + `user:*` métier + `create module/entity` (lots 3b/3c) + release npm (install global).
  P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (llm = module réel non intégré ; agent-guard/mcp vides)
  P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜   (dettes backplane #1/#2 fixées c082560 · 167 tests)
  P14 Frontend Vite + iso   ████████░░  75%  11✅  2🔶  3⬜
@@ -415,9 +415,11 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 >    guidée du create app** — zones `main` (^/api anonyme OK) + `secure` (^/api/secure protégée)
 >    actives dans l'app générée, démo login/logout sur la home (« Bonjour admin », preuve runtime
 >    curl), ligne Firewall + tableau Process au bilan de boot, build auto au create (1er `npm run
-dev` OK), fix @types/react (typecheck app générée). Reste : **homes vue/angular**, puis
->    `create module`/`create controller`/`create entity` (lot 3), `nodefony doctor`, publication
->    npm. Commandes métier P11.2/11.3 reléguées ; `orm:migrate` = design prêt, impl gelée (S5c).
+dev` OK), fix @types/react (typecheck app générée). **Homes vue/angular ✅ + logos (94d0a33f)**. **Lot 3a ✅ : `create controller`**
+>    (in-project, saveurs hello/realtime/rest — realtime = RealtimeController canal+action prouvés
+>    au client isomorphe ; wiring @controllers auto ; cible app racine ou module ; studio épinglé
+>    `ui:"static"` dans l'app générée). Reste : `create module` (3c, workspace npm local) /
+>    `create entity` (3b), `nodefony doctor`, publication npm. Commandes métier P11.2/11.3 reléguées ; `orm:migrate` = design prêt, impl gelée (S5c).
 > 2. **S5 — DDL prod drizzle-kit** (P7.10, dernier morceau ORM) : design ✅ validé 07-10, implémentation
 >    GELÉE → après P8+P11. `project_orm_multidialect_chantier_kit` §S5.
 > 3. **Config app `NF__APP__*`** (reste du chantier config, ADR-0006) → `project_config_nf_app_kit`.

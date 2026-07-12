@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-12T21:15:22.356Z",
+  "generated": "2026-07-12T23:57:51.941Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1011,
-    "symbols": 2589,
+    "symbols": 2598,
     "classes": 319,
-    "interfaces": 678,
-    "types": 301,
+    "interfaces": 679,
+    "types": 302,
     "enums": 4,
-    "functions": 731,
-    "constants": 556
+    "functions": 737,
+    "constants": 557
   },
   "symbols": {
     "Cli": {
@@ -2657,6 +2657,15 @@
       "module": "@nodefony/core",
       "extends": null
     },
+    "IScaffoldTarget": {
+      "name": "IScaffoldTarget",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Cible d'un scaffold in-project : l'app racine ou un module du projet."
+    },
     "TScaffoldAnswers": {
       "name": "TScaffoldAnswers",
       "kind": "type",
@@ -2697,13 +2706,53 @@
       "module": "@nodefony/core",
       "description": "Complète et VALIDE des réponses partielles contre la spec d'un type : défauts appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des templates est donc complet PAR CONSTRUCTIO…"
     },
+    "findProjectRoot": {
+      "name": "findProjectRoot",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` + `package.json`. C'est la cible des scaffolds IN-PRO…"
+    },
+    "listTargets": {
+      "name": "listTargets",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Cibles de scaffold du projet : l'app racine + les modules locaux (`modules/<x>/` portant `package.json` + `index.ts` — le layout produit par `create module`). Consommée par le CLI (validation `--mo…"
+    },
+    "toPascalCase": {
+      "name": "toPascalCase",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`blog-post` / `BlogPost` / `blogPost` → `BlogPost`."
+    },
+    "toKebabCase": {
+      "name": "toKebabCase",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`BlogPost` / `blog_post` → `blog-post`."
+    },
+    "wireDecoratorList": {
+      "name": "wireDecoratorList",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Câble une classe générée dans le décorateur-liste de l'`index.ts` cible (`@controllers([...])`, `@entities([...])`) : ajoute l'import après le dernier import existant + insère le nom dans le tablea…"
+    },
     "runScaffold": {
       "name": "runScaffold",
       "kind": "function",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Exécute un scaffold : layers de templates (`base/` commun, puis overlay du preset, puis overlay du framework front) rendus avec le MÊME contexte eta."
+      "description": "Exécute un scaffold — point d'entrée UNIQUE des trois fronts (CLI rapide, CLI interactif, Studio), dispatché par type : - `app` : projet NEUF dans `request.dir` (layers base/preset/frontend) ; - `c…"
     },
     "FRONTEND_PARAMS": {
       "name": "FRONTEND_PARAMS",
@@ -2761,6 +2810,13 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "TControllerKindChoice": {
+      "name": "TControllerKindChoice",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "getScaffoldSpec": {
       "name": "getScaffoldSpec",
       "kind": "function",
@@ -2784,6 +2840,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Presets d'app : la vitrine complète (défaut) ou la base saine http+framework."
+    },
+    "CONTROLLER_KIND_CHOICES": {
+      "name": "CONTROLLER_KIND_CHOICES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Saveurs de controller : le WS est TOUJOURS là (différenciateur Nodefony)."
     },
     "Storage": {
       "name": "Storage",
@@ -20622,6 +20686,9 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "CONTROLLER_KIND_CHOICES": [
+        "src/nodefony/src/cli/create.ts"
+      ],
       "FRONTEND_CHOICES": [
         "src/nodefony/src/cli/create.ts"
       ],
@@ -21382,6 +21449,9 @@
       "IScaffoldTypeSpec": [
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
+      "TControllerKindChoice": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TFrontendChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"

@@ -114,7 +114,72 @@ const APP_SPEC: IScaffoldTypeSpec = {
   ],
 };
 
-const SPECS: Record<string, IScaffoldTypeSpec> = { app: APP_SPEC };
+/** Saveurs de controller : le WS est TOUJOURS là (différenciateur Nodefony). */
+export const CONTROLLER_KIND_CHOICES = ["hello", "realtime", "rest"] as const;
+export type TControllerKindChoice = (typeof CONTROLLER_KIND_CHOICES)[number];
+
+const CONTROLLER_SPEC: IScaffoldTypeSpec = {
+  type: "controller",
+  description:
+    "Controller dans le projet courant (app racine ou module) — HTTP + WebSocket même classe",
+  questions: [
+    {
+      key: "name",
+      label:
+        "Nom du controller (ex : blog ou BlogPost — suffixe Controller ajouté)",
+      type: "string",
+      default: "",
+      pattern: "^[A-Za-z][A-Za-z0-9-]*$",
+      patternHint:
+        "lettres/chiffres/tirets, commence par une lettre (ex : blog, BlogPost)",
+    },
+    {
+      key: "kind",
+      label: "Saveur du controller",
+      type: "choice",
+      choices: [
+        {
+          value: "hello",
+          label: "HTTP + WebSocket (recommandé)",
+          hint: "GET JSON + echo WS dans la MÊME classe — le différenciateur Nodefony",
+        },
+        {
+          value: "realtime",
+          label: "Realtime (socket Nodefony)",
+          hint: "canaux pub/sub + actions RPC via RealtimeController (@nodefony/realtime)",
+        },
+        {
+          value: "rest",
+          label: "REST resource",
+          hint: "squelette CRUD (list/get/create/update/delete) + echo WS",
+        },
+      ],
+      default: "hello",
+    },
+    {
+      key: "route",
+      label:
+        "Route de base (vide = /api/<nom> — couverte par la zone firewall ^/api)",
+      type: "string",
+      default: "",
+      pattern: "^$|^/[A-Za-z0-9/_-]*$",
+      patternHint: "chemin absolu (ex : /api/blog) ou vide pour le défaut",
+    },
+    {
+      key: "module",
+      label: "Cible (vide = app racine, sinon nom d'un module du projet)",
+      type: "string",
+      default: "",
+      pattern: "^$|^[@A-Za-z][@A-Za-z0-9/_-]*$",
+      patternHint: "nom d'un module du projet (dossier modules/<nom>) ou vide",
+    },
+  ],
+};
+
+const SPECS: Record<string, IScaffoldTypeSpec> = {
+  app: APP_SPEC,
+  controller: CONTROLLER_SPEC,
+};
 
 /**
  * La spec complète du scaffold — contrat des trois fronts (CLI rapide,

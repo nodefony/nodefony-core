@@ -4,6 +4,7 @@ import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 import {
   getScaffoldSpec,
+  CONTROLLER_KIND_CHOICES,
   FRONTEND_CHOICES,
   PRESET_CHOICES,
 } from "./scaffold/spec";
@@ -30,8 +31,8 @@ import { askMissing, confirm } from "./scaffold/interactive";
  * boot kernel — cas nominal HORS projet : `npx nodefony create app mon-app`.
  */
 
-/** Types de scaffold disponibles (`module`/`controller`/`entity` = lots suivants). */
-export const CREATE_TYPES = ["app"] as const;
+/** Types de scaffold disponibles (`module`/`entity` = lots suivants). */
+export const CREATE_TYPES = ["app", "controller"] as const;
 export type TCreateType = (typeof CREATE_TYPES)[number];
 
 export interface ICreateRequest {
@@ -85,6 +86,12 @@ export function parseCreateArgv(
       answers.preset = rest[++i];
     } else if (word === "--frontend") {
       answers.frontend = rest[++i];
+    } else if (word === "--kind") {
+      answers.kind = rest[++i];
+    } else if (word === "--route") {
+      answers.route = rest[++i];
+    } else if (word === "--module") {
+      answers.module = rest[++i];
     } else if (word === "--dir") {
       dir = rest[++i];
     } else if (word.startsWith("-")) {
@@ -107,9 +114,11 @@ export function parseCreateArgv(
 
 const USAGE =
   `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes]\n` +
-  `        [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>] [--link|--no-link]\n` +
-  `        [--no-install] [--no-git]\n` +
-  `        Sans flags dans un terminal → mode interactif (questions + récap).\n`;
+  `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
+  `               [--link|--no-link] [--no-install] [--no-git]\n` +
+  `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
+  `               (dans un projet existant — app racine ou module)\n` +
+  `  Sans flags dans un terminal → mode interactif (questions + récap).\n`;
 
 /**
  * `npm install` dans l'app générée (sortie streamée — le dev voit npm
@@ -186,15 +195,20 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   if (interactive) {
     const [spec] = getScaffoldSpec(parsed.type);
     answers = await askMissing(spec, answers, caps);
-    const front =
-      answers.frontend === "none" ? "aucun" : String(answers.frontend);
-    process.stdout.write(
-      `\nRécapitulatif :\n` +
-        `  app       : ${String(answers.name)}\n` +
-        `  preset    : ${String(answers.preset)}\n` +
-        `  frontend  : ${front}\n` +
-        `  link      : ${answers.link === true ? "oui (checkout local)" : "non (registre npm)"}\n`,
-    );
+    // Récap générique piloté par la spec (mêmes questions que l'interactif).
+    const lines = spec.questions
+      .map((q) => {
+        const value = answers[q.key];
+        const shown =
+          q.type === "boolean"
+            ? value === true
+              ? "oui"
+              : "non"
+            : String(value ?? "") || "(défaut)";
+        return `  ${q.key.padEnd(9)} : ${shown}`;
+      })
+      .join("\n");
+    process.stdout.write(`\nRécapitulatif :\n${lines}\n`);
     if (!(await confirm("Générer ?"))) {
       process.stdout.write("create: annulé\n");
       return SysExit.OK;
@@ -208,7 +222,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     process.stderr.write(`create: nom requis\n${USAGE}`);
     return SysExit.USAGE;
   }
-  const dir = parsed.dir ?? String(answers.name);
+  // app = dossier NEUF ./<name> ; types in-project = détection racine depuis le cwd.
+  const dir =
+    parsed.dir ??
+    (parsed.type === "app" ? String(answers.name) : process.cwd());
   let result;
   try {
     result = runScaffold(
@@ -228,6 +245,18 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     return SysExit.SOFTWARE;
   }
   const relDest = path.relative(process.cwd(), result.dest) || ".";
+  if (parsed.type === "controller") {
+    // In-project : ni install, ni git — le projet existe. En dev, le
+    // superviseur rebuild/relance tout seul au prochain tick de watch.
+    process.stdout.write(
+      `✔ controller « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
+        result.files.map((f) => `  ${f}`).join("\n") +
+        `\n\nEndpoints :\n` +
+        (result.notes ?? []).map((n) => `  ${n}`).join("\n") +
+        `\n\nServeur dev lancé → rebuild automatique ; sinon : npm run build\n`,
+    );
+    return SysExit.OK;
+  }
   const linkNote = result.linked.length
     ? `\n🔗 link : ${result.linked.length} paquets nodefony câblés en file: sur le checkout local ` +
       `(dev framework — ne pas publier ce package.json tel quel)\n`
