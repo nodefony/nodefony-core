@@ -265,10 +265,14 @@ class Module<TConfig = Record<string, unknown>>
           // Les overrides sont désormais appliqués à `preRegister` (tous les
           // modules @modules + l'app sont enregistrés) : un module introuvable ICI
           // est réellement ABSENT (non chargé), pas « pas encore enregistré ».
-          // Avertissement de config (boot non bloqué), pas une erreur framework.
+          // Niveau selon la SOURCE : l'APP qui référence un module qu'elle ne
+          // charge pas = config morte → WARNING (compté au bilan de boot). Un
+          // MODULE peut légitimement embarquer un override pour un module
+          // OPTIONNEL (ex. studio → frontend, absent en livraison statique) et
+          // ne peut pas savoir si sa cible est chargée → INFO.
           this.log(
             `Override de config ignoré : module "${index[1]}" introuvable (absent de @modules) — retirer la clé "${ele}" ou charger le module`,
-            "WARNING",
+            this.isApp ? "WARNING" : "INFO",
           );
           continue;
         }

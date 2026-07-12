@@ -1017,11 +1017,12 @@ describe("Module — readOverrideModuleConfig() — override complet + log", () 
     assert.strictEqual(infos.length, 2, "un INFO par module overridé");
   });
 
-  it("WARNING log 'Override de config ignoré' quand le module cible est absent", () => {
+  it("WARNING log 'Override de config ignoré' quand l'APP référence un module absent", () => {
     const kernel = makeKernelReal();
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
       "Module-ghost": { x: 1 },
     });
+    appMod.isApp = true; // config morte de l'APP → anomalie comptée au bilan
 
     const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
 
@@ -1033,7 +1034,30 @@ describe("Module — readOverrideModuleConfig() — override complet + log", () 
     );
     assert.ok(
       warnPdu,
-      "log WARNING doit être émis si le module cible est absent (non chargé)",
+      "log WARNING doit être émis quand l'app référence un module absent",
+    );
+  });
+
+  it("INFO (pas WARNING) quand un MODULE embarque un override pour un module optionnel absent", () => {
+    const kernel = makeKernelReal();
+    // Cas nominal du pattern « module UI » : studio embarque `module-frontend`
+    // (https Vite) mais frontend n'est pas chargé (livraison statique).
+    const studioMod = new Module("studio", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-frontend": { https: true },
+    });
+
+    const pdus = captureLogs(studioMod, () =>
+      studioMod.readOverrideModuleConfig(),
+    );
+
+    const pdu = pdus.find((p) =>
+      String(p.payload).includes("Override de config ignoré"),
+    );
+    assert.ok(pdu, "le log doit être émis");
+    assert.strictEqual(
+      pdu!.severityName,
+      "INFO",
+      "un module source (pas l'app) → INFO, pas une anomalie de boot",
     );
   });
 
