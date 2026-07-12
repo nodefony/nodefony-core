@@ -50,10 +50,24 @@ export default defineConfig<typeof env>((ctx) => ({
     use("@nodefony/realtime", { backplane: { driver: "cluster" } }),
 
     // ── Firewall applicatif + audit — chaque requête passe le pipeline sécurité.
-    //    Déclare tes zones quand tu protèges des routes (validées Zod au boot,
-    //    config invalide = fail-closed) :
-    //    use("@nodefony/security", { firewalls: { main: { pattern: "^/api", … } } }),
+    //    Les zones sont validées Zod au boot (config invalide = fail-closed).
     use("@nodefony/security", {
+      // ── Zone firewall de TES routes — ACTIVE et jamais bloquante telle
+      //    quelle : `mode: "first"` (défaut) essaie `session` (cookie BFF →
+      //    l'utilisateur connecté est résolu, `context.user` rempli) PUIS
+      //    `anonymous` (sans preuve, on laisse passer). Hors zone, l'identité
+      //    n'est JAMAIS résolue — même connecté, une route hors zone ne sait
+      //    pas qui tu es.
+      //    · EXIGER le login sur /api : retire "anonymous".
+      //    · Protéger plus large : élargis le pattern (ex "^/(api|compte)").
+      //    Les aires /nodefony (console d'admin) restent portées par le
+      //    framework — rien à déclarer ici.
+      areas: {
+        main: {
+          pattern: "^/api",
+          authenticators: ["session", "anonymous"],
+        },
+      },
       // Clés de chiffrement au repos — les VALEURS ont été générées dans
       // `.env.local` (gitignoré) à la création de l'app. Rotation ou
       // rattrapage : `npx nodefony security:secrets --write`.

@@ -99,7 +99,16 @@ export function App() {
       setWsLog((log) => [...log, "⚠ connexion WS impossible"]),
     );
     ws.current = socket;
-    return () => socket.close();
+    return () => {
+      // StrictMode (dev) monte/démonte l'effet 2× : fermer une socket encore
+      // en CONNECTING lève un warning navigateur (« closed before the
+      // connection is established ») — on attend l'open pour fermer proprement.
+      if (socket.readyState === WebSocket.CONNECTING) {
+        socket.addEventListener("open", () => socket.close());
+      } else {
+        socket.close();
+      }
+    };
   }, []);
 
   const sendWs = () => {
