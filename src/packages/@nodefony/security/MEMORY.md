@@ -181,9 +181,12 @@ redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
 
 ## Commandes CLI
 
-- `security:secrets` (`--json`) : génère les clés attendues (NF_TOTP_KEY, NF_WEBHOOK_KEY,
-  NF_CSRF_SECRET — 32 octets base64) + imprime le câblage `.env` → `env.ts` → `use()`.
-  N'écrit RIEN. Référencée par les 3 warnings « clé ÉPHÉMÈRE » (totp/webhooks/csrf).
+- `security:secrets` (`--json`, `--write`) : génère les clés attendues (NF_TOTP_KEY,
+  NF_WEBHOOK_KEY, NF_CSRF_SECRET — 32 octets base64) + guide le câblage 3 fichiers
+  `.env.local` → `env.ts` → `use()`. Détection PAR CLÉ de l'existant (✓ / lignes
+  manquantes seules). `--write` = append des clés ABSENTES dans `.env.local`
+  (convention B : jamais le `.env` commité ; refus si `.env.local` tracké git).
+  Référencée par les 3 warnings « clé ÉPHÉMÈRE » (totp/webhooks/csrf).
   JWT hors scope (keystore.dir/keySetJson = persistance, pas un secret à coller).
   ⚠️ commande SANS arg positionnel → `generate(opts)` : les options commander arrivent
   en PREMIER argument (pas `(arg, opts)`).

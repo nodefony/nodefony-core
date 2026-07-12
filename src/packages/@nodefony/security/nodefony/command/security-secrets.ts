@@ -54,13 +54,14 @@ class SecuritySecrets extends Command {
   }
 
   /**
-   * `true` si `.env` est SUIVI par git — y écrire des secrets les mènerait au
-   * commit. Best-effort : git absent / hors repo → `false` (on écrit).
+   * `true` si `.env.local` est SUIVI par git — y écrire des secrets les mènerait
+   * au commit (convention B : `*.local` doit être gitignoré). Best-effort : git
+   * absent / hors repo → `false` (on écrit).
    */
   #dotenvTracked(): boolean {
     try {
       return (
-        spawnSync("git", ["ls-files", "--error-unmatch", ".env"], {
+        spawnSync("git", ["ls-files", "--error-unmatch", ".env.local"], {
           cwd: this.#root(),
           stdio: "ignore",
         }).status === 0
@@ -97,7 +98,11 @@ class SecuritySecrets extends Command {
     }
 
     // ── Détection de l'existant (le « une seule fois » devient automatique) ──
-    const dotenv = this.#read(".env");
+    // Convention B (Vite/Next, celle du core) : `.env` COMMITÉ (défauts
+    // non-secrets) · `.env.local` GITIGNORÉ (secrets machine). Les valeurs vont
+    // dans `.env.local` ; une clé déjà posée dans l'un OU l'autre compte.
+    const dotenvLocal = this.#read(".env.local");
+    const dotenv = this.#read(".env") + "\n" + dotenvLocal;
     const envTs = this.#read("env.ts");
     const cfgTs = this.#read("nodefony.config.ts");
     const missingInDotenv = KEYS.filter(
@@ -121,8 +126,10 @@ class SecuritySecrets extends Command {
         `${YELLOW}⚠ rien ne se tape dans le terminal : chaque bloc se colle dans le fichier indiqué.${RESET}\n\n`,
     );
 
-    // ── 1. .env : les VALEURS ────────────────────────────────────────────────
-    w(`${BOLD}1. Fichier ${CYAN}.env${RESET}${BOLD} — les valeurs${RESET}\n`);
+    // ── 1. .env.local : les VALEURS (convention B — jamais dans le .env commité) ──
+    w(
+      `${BOLD}1. Fichier ${CYAN}.env.local${RESET}${BOLD} — les valeurs${RESET} ${DIM}(gitignoré ; .env commité = défauts NON-secrets)${RESET}\n`,
+    );
     if (missingInDotenv.length === 0) {
       w(
         `   ${GREEN}✓ les 3 clés y sont déjà${RESET} ${DIM}(rien à faire — rotation = remplacer la valeur à la main)${RESET}\n\n`,
@@ -130,27 +137,27 @@ class SecuritySecrets extends Command {
     } else if (opts.write && this.#dotenvTracked()) {
       // Fail-safe : un secret écrit dans un fichier SUIVI par git finit commité.
       w(
-        `   ${YELLOW}⚠ .env est suivi par git — je n'y écris PAS de secrets.${RESET}\n` +
-          `   ${DIM}Ajoute \`.env\` au .gitignore (et \`git rm --cached .env\`), puis relance --write ;\n` +
+        `   ${YELLOW}⚠ .env.local est suivi par git — je n'y écris PAS de secrets.${RESET}\n` +
+          `   ${DIM}Ajoute \`*.local\` au .gitignore (et \`git rm --cached .env.local\`), puis relance --write ;\n` +
           `   ou colle les lignes ci-dessous à la main :${RESET}\n\n` +
           missingInDotenv.map((k) => `   ${k}=${secrets[k]}`).join("\n") +
           `\n\n`,
       );
     } else if (opts.write) {
       const block =
-        (dotenv && !dotenv.endsWith("\n") ? "\n" : "") +
+        (dotenvLocal && !dotenvLocal.endsWith("\n") ? "\n" : "") +
         `# clés security — générées par \`nodefony security:secrets\`\n` +
         missingInDotenv.map((k) => `${k}=${secrets[k]}`).join("\n") +
         "\n";
-      appendFileSync(path.resolve(this.#root(), ".env"), block);
+      appendFileSync(path.resolve(this.#root(), ".env.local"), block);
       w(
-        `   ${GREEN}✓ écrit${RESET} ${DIM}(${missingInDotenv.join(", ")} — les clés déjà présentes n'ont pas été touchées)${RESET}\n\n`,
+        `   ${GREEN}✓ écrit dans .env.local${RESET} ${DIM}(${missingInDotenv.join(", ")} — les clés déjà présentes n'ont pas été touchées)${RESET}\n\n`,
       );
     } else {
       w(
         `   colle ces lignes ${DIM}(ou relance avec ${RESET}${CYAN}--write${RESET}${DIM} pour que je les écrive)${RESET} :\n\n` +
           missingInDotenv.map((k) => `   ${k}=${secrets[k]}`).join("\n") +
-          `\n   ${DIM}(.env est local et gitignoré ; en prod : Secret k8s / vault, jamais en git)${RESET}\n\n`,
+          `\n   ${DIM}(en prod : Secret k8s / vault — jamais en git)${RESET}\n\n`,
       );
     }
 
@@ -186,8 +193,9 @@ class SecuritySecrets extends Command {
     }
 
     w(
-      `${DIM}Pourquoi 3 étapes ? .env porte la VALEUR (change à chaque rotation) ; env.ts la\n` +
-        `DÉCLARE (catalogue typé, validé au boot) ; nodefony.config.ts la CÂBLE au module.\n` +
+      `${DIM}Pourquoi 3 étapes ? .env.local porte la VALEUR (secret machine, gitignoré —\n` +
+        `le .env commité ne porte que des défauts non-secrets) ; env.ts la DÉCLARE\n` +
+        `(catalogue typé, validé au boot) ; nodefony.config.ts la CÂBLE au module.\n` +
         `Les étapes 2 et 3 ne se font qu'une fois — ensuite seule l'étape 1 vit.\n` +
         `JWT (refresh durables) : pas un secret à coller — persistance du keyset via\n` +
         `jwt.keystore.dir = "./var/keys" (dev/VPS) ou jwt.keystore.keySetJson (prod).${RESET}\n\n` +
