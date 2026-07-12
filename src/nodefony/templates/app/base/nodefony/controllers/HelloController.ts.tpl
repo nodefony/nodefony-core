@@ -1,3 +1,4 @@
+import { RequestContext } from "nodefony";
 import { route, controller, Controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 
@@ -13,7 +14,15 @@ class HelloController extends Controller {
 
   @route("route-hello", { path: "/hello", method: "GET" })
   async hello() {
-    return this.renderJson({ hello: "<%= it.appName %>", pid: process.pid });
+    // Identité résolue par la zone firewall `main` (^/api, session→anonymous,
+    // cf nodefony.config.ts) : connecté = ton user, sinon « anonyme ». HORS
+    // zone, elle n'est JAMAIS résolue — même avec un cookie de session valide.
+    const user = RequestContext.getUser() as { username?: string } | null;
+    return this.renderJson({
+      hello: "<%= it.appName %>",
+      pid: process.pid,
+      who: user?.username ?? "anonyme",
+    });
   }
 
   /**

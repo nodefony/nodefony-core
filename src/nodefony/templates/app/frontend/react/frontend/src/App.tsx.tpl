@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 interface ApiData {
   hello: string;
   pid: number;
+  /** Identité résolue par la zone firewall `main` (^/api) — « anonyme » sinon. */
+  who?: string;
 }
 
 /**
@@ -82,12 +84,49 @@ export function App() {
   const [wsInput, setWsInput] = useState("ping");
   const [wsLog, setWsLog] = useState<string[]>([]);
   const ws = useRef<WebSocket | null>(null);
-
-  useEffect(() => {
+<% if (it.complete) { %>  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("admin");
+  const [authMsg, setAuthMsg] = useState<string | null>(null);
+<% } %>
+  // Rappelé après login/logout : la zone firewall `main` (^/api) résout
+  // l'identité par requête → `who` change sans recharger la page.
+  const refreshHello = () =>
     fetch("/api/hello")
       .then((r) => r.json())
       .then((j) => setData((j.result ?? j) as ApiData)) // Nodefony wrappe `{ result }`
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+<% if (it.complete) { %>
+  // Flux session BFF du framework (cookie opaque HttpOnly — le front ne voit
+  // jamais de token) : mêmes endpoints que le login de la console /nodefony.
+  const doLogin = async () => {
+    setAuthMsg(null);
+    const r = await fetch("/nodefony/security/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ username, password }),
+    });
+    const j = (await r.json()) as { result?: { user?: { username?: string } }; user?: { username?: string } };
+    if (!r.ok) {
+      setAuthMsg("identifiants invalides");
+      return;
+    }
+    const u = j.result?.user ?? j.user;
+    setAuthMsg(`session ouverte — ${u?.username ?? username}`);
+    refreshHello();
+  };
+
+  const doLogout = async () => {
+    await fetch("/nodefony/security/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    setAuthMsg("session fermée");
+    refreshHello();
+  };
+<% } %>
+  useEffect(() => {
+    refreshHello();
 
     // WS même origine que la page (ws en http, wss en https).
     const scheme = location.protocol === "https:" ? "wss" : "ws";
@@ -168,7 +207,7 @@ export function App() {
       <main className="nf-main">
         <h1 style={{ marginTop: 0 }}>Votre app est en ligne.</h1>
         <p className="nf-dim">
-          Trois preuves interactives — édite <code>frontend/src/App.tsx</code>,
+          <%= it.complete ? "Quatre" : "Trois" %> preuves interactives — édite <code>frontend/src/App.tsx</code>,
           la page se met à jour par HMR sans perdre le compteur.
         </p>
 
@@ -182,9 +221,47 @@ export function App() {
             <p>loading…</p>
           )}
         </div>
-
+<% if (it.complete) { %>
         <div className="nf-card">
-          <h2>2. WebSocket — MÊME controller que le HTTP</h2>
+          <h2>2. Firewall — l'identité vit dans la zone <code>^/api</code></h2>
+          <p className="nf-dim">
+            <code>who</code> ci-dessus = l'identité résolue par la zone{" "}
+            <code>main</code> (<code>nodefony.config.ts</code>). Connecte-toi :
+            le MÊME <code>GET /api/hello</code> te reconnaît. Compte dev seedé{" "}
+            <code>admin / admin</code> — retire <code>"anonymous"</code> de la
+            zone pour EXIGER le login.
+          </p>
+          {data?.who && data.who !== "anonyme" ? (
+            <>
+              <span>
+                connecté — <strong>{data.who}</strong>
+              </span>{" "}
+              <button onClick={doLogout}>Se déconnecter</button>
+            </>
+          ) : (
+            <>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                aria-label="utilisateur"
+              />{" "}
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && doLogin()}
+                autoComplete="current-password"
+                aria-label="mot de passe"
+              />{" "}
+              <button onClick={doLogin}>Se connecter</button>
+            </>
+          )}
+          {authMsg && <p className="nf-dim">{authMsg}</p>}
+        </div>
+<% } %>
+        <div className="nf-card">
+          <h2><%= it.complete ? 3 : 2 %>. WebSocket — MÊME controller que le HTTP</h2>
           <p className="nf-dim">
             <code>HelloController</code> porte la route GET <em>et</em> la route
             WEBSOCKET : un seul pipeline (firewall, audit, logs).
@@ -199,7 +276,7 @@ export function App() {
         </div>
 
         <div className="nf-card">
-          <h2>3. État React + HMR</h2>
+          <h2><%= it.complete ? 4 : 3 %>. État React + HMR</h2>
           <button onClick={() => setCount((c) => c + 1)}>count = {count}</button>
         </div>
 

@@ -51,6 +51,8 @@
     "rolldown": "^1.1.5",
 <% if (it.frontend === "react") { %>    "vite": "^8.1.4",
     "@vitejs/plugin-react": "^6.0.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
 <% } %><% if (it.frontend === "vue") { %>    "vite": "^8.1.4",
     "@vitejs/plugin-vue": "^6.0.7",
 <% } %><% if (it.frontend === "angular") { %>    "vite": "^8.1.4",
