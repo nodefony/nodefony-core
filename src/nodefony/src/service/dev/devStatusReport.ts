@@ -246,6 +246,46 @@ export async function runStatusReport(cwd: string): Promise<void> {
   writeSync(1, lines.join("\n") + "\n");
 }
 
+/**
+ * Tableau ANSI des process dev (RÔLE/PID/PPID/UPTIME/RSS/%CPU + `↳ bundles`) —
+ * LE gabarit partagé `nodefony status` ⇄ bilan de fin de boot (même topologie,
+ * même sérieux). `indent` décale toute la grille (le bilan l'aligne sous ses
+ * lignes `➜`).
+ *
+ * Largeur de la colonne RÔLE = plus long label réel (labels courts : supervisor /
+ * server / vite) → alignement stable. Le détail des bundles Vite passe sur une 2ᵉ
+ * ligne indentée (hors colonne) au lieu de faire déborder la grille.
+ */
+export function renderProcessTable(
+  lines: string[],
+  procs: readonly DevProcessInfo[],
+  indent: string = "  ",
+): void {
+  const roleW = Math.max(4, ...procs.map((p) => p.label.length));
+  lines.push(
+    `${ANSI.dim}${indent}${"RÔLE".padEnd(roleW)}  ${"PID".padEnd(7)}  ${"PPID".padEnd(7)}  ${"UPTIME".padEnd(9)}  ${"RSS".padEnd(9)}  %CPU${ANSI.reset}`,
+    `${ANSI.dim}${indent}${"─".repeat(roleW + 46)}${ANSI.reset}`,
+  );
+  for (const p of procs) {
+    const color =
+      p.role === "supervisor" || p.role === "master"
+        ? ANSI.cyan
+        : p.role === "server" || p.role === "worker"
+          ? ANSI.green
+          : ANSI.dim;
+    lines.push(
+      `${indent}${color}${p.label.padEnd(roleW)}${ANSI.reset}  ` +
+        `${String(p.pid).padEnd(7)}  ${String(p.ppid).padEnd(7)}  ` +
+        `${formatUptime(p.uptimeSec).padEnd(9)}  ` +
+        `${Cli.niceBytes(p.rssKb * 1024).padEnd(9)}  ${p.cpu.toFixed(1)}`,
+    );
+    if (p.detail)
+      lines.push(
+        `${indent}  ${ANSI.dim}↳ ${p.detail.replace(/\+/g, ", ")}${ANSI.reset}`,
+      );
+  }
+}
+
 /** Rend le {@link DevStatusReport} en ANSI (tableau + ports + synthèse + warnings) dans `lines`. */
 function renderStatus(lines: string[], report: DevStatusReport): void {
   const tag = `${ANSI.dim}[status]${ANSI.reset}`;
@@ -287,10 +327,6 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
     return;
   }
 
-  // Largeur de la colonne RÔLE = plus long label réel (labels courts : supervisor /
-  // server / vite) → alignement stable. Le détail des bundles Vite passe sur une 2ᵉ
-  // ligne indentée (hors colonne) au lieu de faire déborder la grille.
-  const roleW = Math.max(4, ...procs.map((p) => p.label.length));
   lines.push(
     "",
     `${tag} ${ANSI.bold}Nodefony ${runtimeLabel(report.mode)} — ${procs.length} process${ANSI.reset}`,
@@ -303,29 +339,8 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
         ` stop/dev se lancent depuis la racine d'une app (ou nodefony stop --all)${ANSI.reset}`,
     );
   }
-  lines.push(
-    "",
-    `${ANSI.dim}  ${"RÔLE".padEnd(roleW)}  ${"PID".padEnd(7)}  ${"PPID".padEnd(7)}  ${"UPTIME".padEnd(9)}  ${"RSS".padEnd(9)}  %CPU${ANSI.reset}`,
-    `${ANSI.dim}  ${"─".repeat(roleW + 46)}${ANSI.reset}`,
-  );
-  for (const p of procs) {
-    const color =
-      p.role === "supervisor" || p.role === "master"
-        ? ANSI.cyan
-        : p.role === "server" || p.role === "worker"
-          ? ANSI.green
-          : ANSI.dim;
-    lines.push(
-      `  ${color}${p.label.padEnd(roleW)}${ANSI.reset}  ` +
-        `${String(p.pid).padEnd(7)}  ${String(p.ppid).padEnd(7)}  ` +
-        `${formatUptime(p.uptimeSec).padEnd(9)}  ` +
-        `${Cli.niceBytes(p.rssKb * 1024).padEnd(9)}  ${p.cpu.toFixed(1)}`,
-    );
-    if (p.detail)
-      lines.push(
-        `    ${ANSI.dim}↳ ${p.detail.replace(/\+/g, ", ")}${ANSI.reset}`,
-      );
-  }
+  lines.push("");
+  renderProcessTable(lines, procs);
 
   lines.push(
     "",

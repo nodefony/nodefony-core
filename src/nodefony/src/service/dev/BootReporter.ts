@@ -7,6 +7,7 @@ import {
   splitByProject,
   type DevProcessInfo,
 } from "./devProcess";
+import { renderProcessTable } from "./devStatusReport";
 
 /** Frames braille du spinner (rotation fluide, 10 étapes). */
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
@@ -433,14 +434,12 @@ class BootReporter {
       if (n) parts.push(`${n} ${label}${n > 1 && role !== "vite" ? "s" : ""}`);
     }
     this.#verdictRow("Process", parts.join(` ${DIM}·${RESET} `));
-    const detail = procs
-      .map((p) => {
-        const rss = ` (${Math.round(p.rssKb / 1024)} MB)`;
-        const bundles = p.detail ? ` ${p.detail}` : "";
-        return `${p.label} ${p.pid}${rss}${bundles}`;
-      })
-      .join(" · ");
-    process.stdout.write(`        ${DIM}· ${detail}${RESET}\n`);
+    // Détail = LE tableau de `nodefony status` (gabarit partagé
+    // renderProcessTable — même topologie, même sérieux), indenté sous la
+    // ligne `➜` du bilan.
+    const table: string[] = [];
+    renderProcessTable(table, procs, "        ");
+    process.stdout.write(table.join("\n") + "\n");
   }
 
   /**

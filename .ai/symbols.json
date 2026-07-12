@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-12T20:27:14.362Z",
+  "generated": "2026-07-12T20:44:41.373Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1011,
-    "symbols": 2584,
+    "symbols": 2585,
     "classes": 319,
     "interfaces": 677,
     "types": 301,
     "enums": 4,
-    "functions": 727,
+    "functions": 728,
     "constants": 556
   },
   "symbols": {
@@ -4553,6 +4553,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Collecte (ps + ports + pidfile) puis écrit le rapport status sur stdout."
+    },
+    "renderProcessTable": {
+      "name": "renderProcessTable",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStatusReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Tableau ANSI des process dev (RÔLE/PID/PPID/UPTIME/RSS/%CPU + `↳ bundles`) — LE gabarit partagé `nodefony status` ⇄ bilan de fin de boot (même topologie, même sérieux). `indent` décale toute la gri…"
     },
     "runStopReport": {
       "name": "runStopReport",
@@ -21601,6 +21609,9 @@
       "DevProcessInfo": [
         "src/nodefony/src/service/dev/BootReporter.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "renderProcessTable": [
+        "src/nodefony/src/service/dev/BootReporter.ts"
       ],
       "defaultDevPorts": [
         "src/nodefony/src/service/dev/detachedStart.ts",
