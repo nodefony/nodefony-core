@@ -105,6 +105,34 @@ describe("completion — computeCompletions (protocole dernier mot = frappe)", (
     const out = computeCompletions(m, ["-d", "clu"]);
     assert.ok(out.includes("cluster"));
   });
+
+  it("argument positionnel à choix : `create <TAB>` propose app", () => {
+    const m = makeManifest();
+    const out = computeCompletions(m, ["create", ""]);
+    assert.ok(out.includes("app"), "app (choices de <type>) doit être proposé");
+    assert.ok(out.includes("--preset")); // les options restent proposées
+  });
+
+  it("position suivante : `create app <TAB>` ne repropose PAS app (name libre)", () => {
+    const m = makeManifest();
+    const out = computeCompletions(m, ["create", "app", ""]);
+    assert.ok(!out.includes("app"));
+    assert.ok(out.includes("--force"));
+  });
+
+  it("valeur d'option ignorée dans le comptage : `create --preset minimal <TAB>` → app", () => {
+    const m = makeManifest();
+    const out = computeCompletions(m, ["create", "--preset", "minimal", ""]);
+    assert.ok(out.includes("app"));
+  });
+
+  it("manifest cache ANCIEN (sans champ args) → comportement inchangé", () => {
+    const m = makeManifest();
+    for (const c of m.commands) delete (c as { args?: string[][] }).args;
+    const out = computeCompletions(m, ["create", ""]);
+    assert.ok(!out.includes("app"));
+    assert.ok(out.includes("--preset"));
+  });
 });
 
 describe("completion — scripts shell", () => {

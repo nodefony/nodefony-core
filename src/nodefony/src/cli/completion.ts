@@ -34,6 +34,13 @@ export interface ICliManifestCommand {
   description: string;
   /** Flags candidats (`-w`, `--workers`, …) — sans leurs placeholders `<arg>`. */
   options: string[];
+  /**
+   * Choix des arguments POSITIONNELS, par position (`args[0]` = 1er argument).
+   * Rempli depuis les `.choices()` déclarés à commander (ex. `create <type>` →
+   * `[["app"]]`) ; `[]` = argument libre (rien à proposer). Absent sur les
+   * manifests cache antérieurs → traité comme libre (compat lecture).
+   */
+  args?: string[][];
 }
 
 /** Manifest de complétion (cache par projet). */
@@ -80,6 +87,9 @@ export function buildCliManifest(
       aliases: cmd.aliases?.() ?? [],
       description: cmd.description(),
       options: (cmd.options ?? []).flatMap((o) => extractFlags(o.flags)),
+      // `.choices()` d'un argument positionnel → candidats au TAB (vécu :
+      // `nodefony create <TAB>` ne proposait jamais `app`).
+      args: (cmd.registeredArguments ?? []).map((a) => a.argChoices ?? []),
     });
   }
   return {
@@ -126,7 +136,8 @@ export function readCliManifest(cwd: string): ICliManifest | null {
  * en cours de frappe → la sélection de commande ne regarde que les mots VALIDÉS
  * (`slice(0, -1)`), et le shell filtre les candidats par le préfixe courant.
  *
- * - commande déjà validée → ses options + les options globales ;
+ * - commande déjà validée → les CHOIX de l'argument positionnel en cours (s'il
+ *   en déclare, ex. `create` → `app`) + ses options + les options globales ;
  * - sinon → noms + alias de toutes les commandes.
  */
 export function computeCompletions(
@@ -134,13 +145,25 @@ export function computeCompletions(
   words: string[],
 ): string[] {
   const validated = words.slice(0, -1);
-  for (const w of validated) {
+  for (let i = 0; i < validated.length; i++) {
+    const w = validated[i];
     if (w.startsWith("-")) continue;
     const cmd = manifest.commands.find(
       (c) => c.name === w || c.aliases.includes(w),
     );
     if (cmd) {
-      return [...cmd.options, ...manifest.globalOptions];
+      // Position de l'argument en cours de frappe = mots validés APRÈS la
+      // commande, hors flags et hors valeur d'option (heuristique : un mot
+      // qui suit immédiatement un flag est sa valeur — `--preset minimal`).
+      const after = validated.slice(i + 1);
+      let pos = 0;
+      for (let j = 0; j < after.length; j++) {
+        if (after[j].startsWith("-")) continue;
+        if (j > 0 && after[j - 1].startsWith("-")) continue;
+        pos++;
+      }
+      const choices = cmd.args?.[pos] ?? [];
+      return [...choices, ...cmd.options, ...manifest.globalOptions];
     }
   }
   return manifest.commands.flatMap((c) => [c.name, ...c.aliases]);

@@ -24,7 +24,12 @@ class Create extends Command {
       cli,
       options,
     );
-    this.addArgument("<type>", CREATE_TYPES.join(" | "));
+    // `.choices()` : validation commander + candidats du TAB (le manifest de
+    // complétion extrait `argChoices` — sans lui, `create <TAB>` ne proposait
+    // jamais `app`).
+    this.addArgument("<type>", CREATE_TYPES.join(" | ")).choices([
+      ...CREATE_TYPES,
+    ]);
     this.addArgument("[name]", "project name (kebab-case — asked if omitted)");
     this.addOption("--dir <path>", "target directory (default: ./<name>)");
     this.addOption("-f, --force", "allow a non-empty target directory");
