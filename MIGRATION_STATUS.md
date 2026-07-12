@@ -411,7 +411,11 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 >    admin/admin dev, HTTPS défaut — cf retex). **Lot 2.7 ✅ : Studio STATIQUE prod** — molette
 >    `ui: auto|static|vite` (`resolveUiDelivery`+`PrebuiltUi` @nodefony/http, générique tout
 >    module npm avec UI) : app `--link` production SANS Vite/@nodefony/frontend → /nodefony
->    complet (banc : page+asset+SPA+login 200, CSP strict). Reste : **homes vue/angular**, puis
+>    complet (banc : page+asset+SPA+login 200, CSP strict). **Lot 2.8 ✅ (07-12 nuit) : sécurité
+>    guidée du create app** — zones `main` (^/api anonyme OK) + `secure` (^/api/secure protégée)
+>    actives dans l'app générée, démo login/logout sur la home (« Bonjour admin », preuve runtime
+>    curl), ligne Firewall + tableau Process au bilan de boot, build auto au create (1er `npm run
+dev` OK), fix @types/react (typecheck app générée). Reste : **homes vue/angular**, puis
 >    `create module`/`create controller`/`create entity` (lot 3), `nodefony doctor`, publication
 >    npm. Commandes métier P11.2/11.3 reléguées ; `orm:migrate` = design prêt, impl gelée (S5c).
 > 2. **S5 — DDL prod drizzle-kit** (P7.10, dernier morceau ORM) : design ✅ validé 07-10, implémentation

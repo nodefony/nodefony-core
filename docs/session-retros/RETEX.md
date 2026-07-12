@@ -50,6 +50,10 @@
 - `[1× — 2026-07-12 soir]` **eta `autoTrim: "nl"` mange le newline après CHAQUE tag** → 3 lignes `KEY=<%= v %>` sortent sur UNE ligne. Un bloc de lignes générées = UN tag avec `join("\n")`.
 - `[1× — 2026-07-12 soir]` **`$PIPESTATUS` n'existe pas en zsh (c'est `$pipestatus`)** → `${PIPESTATUS[0]:-$?}` évalue silencieusement `$?` du DERNIER maillon (exit toujours 0). Mesurer un exit code = run SANS pipe, puis `echo $?`.
 - `[1× — 2026-07-12 soir]` **Le manifest de complétion est un CACHE par projet** : un fix de complétion ne se voit qu'après régénération (prochain boot dev) ou purge de `node_modules/.cache/nodefony/cli-manifest.json` — tester le `__complete` réel APRÈS purge, sinon on teste l'ancien manifest.
+- `[1× — 2026-07-12 nuit]` **`create app` ne buildait pas l'app → le premier `npm run dev` du README mourait en CRITIC « NON CONSTRUIT »** (trouvé par le user, pas par le banc). Le banc onboarding doit dérouler le happy-path EXACT du README généré (`cd app && npm run dev`), pas un flux équivalent qui buildait à la main.
+- `[1× — 2026-07-12 nuit]` **`@types/react(-dom)` manquaient en devDeps du preset react → `npm run typecheck` de l'app générée cassé DEPUIS LE DÉBUT.** La gate `tsgo --noEmit` de l'app générée fait partie du banc scaffold (oxc/esbuild ne type-checke pas) — la lancer sur CHAQUE preset×frontend, pas seulement le build.
+- `[1× — 2026-07-12 nuit]` **Une fixture de test doit reproduire la DONNÉE RÉELLE, pas la donnée d'entrée** : `describe().zones[].pattern` = `RegExp.source` (V8 échappe les slashes `^\/nodefony\/…`) → le classement `startsWith("^/nodefony")` ne matchait JAMAIS en réel alors que mes tests (fixtures = pattern config non échappé) étaient verts. Attrapé par la sortie collée par le user. Fixture juste = `new RegExp(p).source`.
+- `[1× — 2026-07-12 nuit]` **Prouver un shape par le RUNTIME, pas par un DTO cousin** : `IUser` porte `identifier` (l'anonyme = `AnonymousUser` identifier `"anon."`, JAMAIS null en zone) ; le `username` de `/auth/me` est un RENOMMAGE du DTO. `who` restait « anonyme » même loggé — vu au curl réel, pas au typecheck (cast structurel silencieux).
 
 ## 🖥️ CLI / tests e2e process
 
