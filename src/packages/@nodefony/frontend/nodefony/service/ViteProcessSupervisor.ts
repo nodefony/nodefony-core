@@ -163,6 +163,19 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   private startPromise: Promise<void> | null = null;
   private stopPromise: Promise<void> | null = null;
   private willingShutdown = false;
+  /** Kill VOULU par le health check (recovery) : le prochain exit doit relancer. */
+  private expectRestartKill = false;
+  /**
+   * Signal d'arrêt reçu par NOTRE process (Ctrl+C au groupe foreground, SIGTERM
+   * d'un orchestrateur) → tout exit de Vite est un ARRÊT, jamais un crash.
+   * Indispensable : Vite intercepte SIGINT et sort `code=130, signal=null` —
+   * indiscernable d'un crash côté exit event, et `willingShutdown` (posé par le
+   * stop du kernel) arrive APRÈS la mort de Vite (race sans IPC, vécu Ctrl+C :
+   * « vite restart #1 failed » en ERROR sur un arrêt normal).
+   */
+  private readonly markShutdown = (): void => {
+    this.willingShutdown = true;
+  };
   /**
    * Listeners attachés au child courant — drainés à chaque mort du child.
    * Sans ça, le child gardé en référence (avant GC) accumule des handlers
@@ -212,6 +225,10 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     this.willingShutdown = false;
     this.restartCount = 0;
     this.lastError = null;
+    // `once` + retrait explicite au stop (règle listeners) : premier signal
+    // d'arrêt du process serveur → willingShutdown immédiat (cf markShutdown).
+    process.once("SIGINT", this.markShutdown);
+    process.once("SIGTERM", this.markShutdown);
     this.startPromise = this.spawnWithPortRetry();
     try {
       await this.startPromise;
@@ -473,6 +490,27 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         this.child = null;
         return;
       }
+      // Kill VOULU (health check → recovery) : relancer, c'est le but.
+      if (this.expectRestartKill) {
+        this.expectRestartKill = false;
+      } else if (
+        signal === "SIGINT" ||
+        signal === "SIGTERM" ||
+        signal === "SIGHUP"
+      ) {
+        // Mort par SIGNAL D'ARRÊT non voulu par nous : Ctrl+C au groupe
+        // foreground, group-kill du DevSupervisor, kill externe. JAMAIS un
+        // crash : relancer pendant un shutdown spawnait un Vite qui mourait
+        // aussitôt → « vite restart #1 failed » en ERROR sur un arrêt NORMAL
+        // (vécu Ctrl+C). Le cas Vite-intercepte-SIGINT (`code=130,
+        // signal=null`) est couvert par les hooks signaux (cf markShutdown).
+        this.state = "stopped";
+        this.child = null;
+        this.opts.logger.info(
+          `[vite] arrêté (${signal} — signal d'arrêt) : pas de relance`,
+        );
+        return;
+      }
       this.state = "crashed";
       this.lastError = `crashed (code=${code}, signal=${signal})`;
       this.child = null;
@@ -552,6 +590,9 @@ export class ViteProcessSupervisor implements IViteSupervisor {
             this.opts.logger.error(
               `vite unhealthy — killing child to trigger restart`,
             );
+            // Kill de RECOVERY : marquer l'intention AVANT le SIGTERM, sinon
+            // l'exit handler le lirait comme un signal d'arrêt (pas de relance).
+            this.expectRestartKill = true;
             this.killChild();
             // L'exit handler enchaîne sur scheduleRestart.
           }
@@ -604,6 +645,10 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   /** Stop volontaire — n'enclenche PAS l'auto-restart. */
   private async doStop(): Promise<void> {
     this.willingShutdown = true;
+    // Les hooks signaux de start() ne servent plus (retrait explicite — pas de
+    // listener process accumulé entre les cycles start/stop).
+    process.removeListener("SIGINT", this.markShutdown);
+    process.removeListener("SIGTERM", this.markShutdown);
     this.state = "stopping";
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
