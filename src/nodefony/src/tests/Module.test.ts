@@ -876,8 +876,8 @@ function captureLogs(mod: Module, fn: () => void): Pdu[] {
   return pdus;
 }
 
-describe("Module — readOverrideModuleConfig() — override complet + WARNING log", () => {
-  it("WARNING 'Override Configuration Module: http' émis lors de l'override", () => {
+describe("Module — readOverrideModuleConfig() — override complet + log", () => {
+  it("INFO 'Override Configuration Module: http' émis lors de l'override (nominal, pas WARNING)", () => {
     const kernel = makeKernelReal();
     kernel.modules["http"] = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
       port: 80,
@@ -889,15 +889,16 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
 
     const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
 
-    const warnPdu = pdus.find(
+    const infoPdu = pdus.find(
       (p) =>
-        p.severityName === "WARNING" &&
+        p.severityName === "INFO" &&
         String(p.payload).includes("Override Configuration Module") &&
         String(p.payload).includes("http"),
     );
     assert.ok(
-      warnPdu,
-      "le log WARNING 'Override Configuration Module: http' doit être émis",
+      infoPdu,
+      "le log INFO 'Override Configuration Module: http' doit être émis " +
+        "(nominal — un WARNING polluerait le journal du bilan de boot)",
     );
   });
 
@@ -1007,13 +1008,13 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     assert.strictEqual((dbMod.options as any).pool.max, 20);
     assert.strictEqual((dbMod.options as any).pool.min, 1); // préservé deep
 
-    // deux WARNINGs émis
-    const warns = pdus.filter(
+    // deux INFOs émis (nominal)
+    const infos = pdus.filter(
       (p) =>
-        p.severityName === "WARNING" &&
+        p.severityName === "INFO" &&
         String(p.payload).includes("Override Configuration Module"),
     );
-    assert.strictEqual(warns.length, 2, "un WARNING par module overridé");
+    assert.strictEqual(infos.length, 2, "un INFO par module overridé");
   });
 
   it("WARNING log 'Override de config ignoré' quand le module cible est absent", () => {

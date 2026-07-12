@@ -272,7 +272,10 @@ class Module<TConfig = Record<string, unknown>>
           );
           continue;
         }
-        this.log(`Override Configuration Module: ${mod.name}`, "WARNING");
+        // Fonctionnement NOMINAL (un module surcharge la config d'un autre,
+        // ex. framework → security) : INFO. Le WARNING était compté dans le
+        // journal du bilan de boot comme une anomalie à traiter — à tort.
+        this.log(`Override Configuration Module: ${mod.name}`, "INFO");
         if (deep) {
           mod.options = extend(true, {}, mod.options, override);
         } else {
