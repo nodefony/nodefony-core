@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-12T21:11:13.179Z",
+  "generated": "2026-07-12T21:15:22.356Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1011,
-    "symbols": 2587,
+    "symbols": 2589,
     "classes": 319,
     "interfaces": 678,
     "types": 301,
     "enums": 4,
-    "functions": 729,
+    "functions": 731,
     "constants": 556
   },
   "symbols": {
@@ -4163,13 +4163,29 @@
       "extends": null,
       "description": "Vue minimale d'une zone du firewall (`firewall.describe().zones`), résolue par duck-typing — le core n'importe jamais"
     },
+    "cleanZonePattern": {
+      "name": "cleanZonePattern",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/BootReporter.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pattern de zone LISIBLE : `describe()` remonte `RegExp.source`, où V8 échappe les slashes (`^\\/nodefony\\/…`) — on dé-échappe pour l'affichage ET pour le classement par namespace (un `startsWith(\"^/…"
+    },
+    "isFrameworkZone": {
+      "name": "isFrameworkZone",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/BootReporter.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si la zone vit dans le namespace réservé `/nodefony` → déclarée par `@nodefony/framework` (les aires data plane admin). L'inférence par pattern est fiable PAR CONVENTION : le routage `/nodef…"
+    },
     "renderZoneTable": {
       "name": "renderZoneTable",
       "kind": "function",
       "file": "src/nodefony/src/service/dev/BootReporter.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Tableau ANSI des zones firewall (ZONE/PATTERN/AUTH/ACCÈS) — même gabarit que le tableau process du bilan (`renderProcessTable`). ACCÈS résume la politique effective : `public` (security:false), `an…"
+      "description": "Tableau ANSI des zones firewall (ZONE/MODULE/PATTERN/AUTH/ACCÈS) — même gabarit que le tableau process du bilan (`renderProcessTable`). MODULE = qui déclare l'aire (`framework` pour le data plane `…"
     },
     "DetachedStartOptions": {
       "name": "DetachedStartOptions",

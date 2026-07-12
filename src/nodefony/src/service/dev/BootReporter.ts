@@ -22,33 +22,60 @@ export interface FirewallZoneView {
 }
 
 /**
- * Tableau ANSI des zones firewall (ZONE/PATTERN/AUTH/ACCÈS) — même gabarit que
- * le tableau process du bilan (`renderProcessTable`). ACCÈS résume la politique
- * effective : `public` (security:false), `anonyme OK` (authenticator anonymous
- * dans la chaîne — jamais bloquant, identité résolue si présente) ou `protégé`
- * (preuve exigée, 401 sinon). Zones applicatives en vert, aires framework
- * (`/nodefony`) en dim.
+ * Pattern de zone LISIBLE : `describe()` remonte `RegExp.source`, où V8 échappe
+ * les slashes (`^\/nodefony\/…`) — on dé-échappe pour l'affichage ET pour le
+ * classement par namespace (un `startsWith("^/nodefony")` sur la source brute
+ * ne matcherait jamais — bug vécu au premier boot réel).
+ */
+export function cleanZonePattern(pattern: string): string {
+  return pattern.replace(/\\\//g, "/");
+}
+
+/**
+ * `true` si la zone vit dans le namespace réservé `/nodefony` → déclarée par
+ * `@nodefony/framework` (les aires data plane admin). L'inférence par pattern
+ * est fiable PAR CONVENTION : le routage `/nodefony` est réservé au framework
+ * (règle figée), aucune app/module tiers n'y monte d'aire.
+ */
+export function isFrameworkZone(z: FirewallZoneView): boolean {
+  return cleanZonePattern(z.pattern).startsWith("^/nodefony");
+}
+
+/**
+ * Tableau ANSI des zones firewall (ZONE/MODULE/PATTERN/AUTH/ACCÈS) — même
+ * gabarit que le tableau process du bilan (`renderProcessTable`). MODULE = qui
+ * déclare l'aire (`framework` pour le data plane `/nodefony`, `app` pour les
+ * zones du `nodefony.config.ts`). ACCÈS résume la politique effective :
+ * `public` (security:false), `anonyme OK` (authenticator anonymous dans la
+ * chaîne — jamais bloquant, identité résolue si présente) ou `protégé`
+ * (preuve exigée, 401 sinon). Zones applicatives en vert, aires framework en dim.
  */
 export function renderZoneTable(
   lines: string[],
   zones: ReadonlyArray<FirewallZoneView>,
   indent: string = "  ",
 ): void {
-  const nameW = Math.max(4, ...zones.map((z) => z.name.length));
-  const patW = Math.max(7, ...zones.map((z) => z.pattern.length));
+  const moduleOf = (z: FirewallZoneView): string =>
+    isFrameworkZone(z) ? "framework" : "app";
   const authOf = (z: FirewallZoneView): string =>
     (z.authenticators ?? []).join(", ") || "—";
+  const nameW = Math.max(4, ...zones.map((z) => z.name.length));
+  const modW = Math.max(6, ...zones.map((z) => moduleOf(z).length));
+  const patW = Math.max(
+    7,
+    ...zones.map((z) => cleanZonePattern(z.pattern).length),
+  );
   const authW = Math.max(4, ...zones.map((z) => authOf(z).length));
   const GREEN = "\x1b[32m";
   const YELLOW = "\x1b[33m";
   const DIM = "\x1b[2m";
   const RESET = "\x1b[0m";
   lines.push(
-    `${DIM}${indent}${"ZONE".padEnd(nameW)}  ${"PATTERN".padEnd(patW)}  ${"AUTH".padEnd(authW)}  ACCÈS${RESET}`,
-    `${DIM}${indent}${"─".repeat(nameW + patW + authW + 11)}${RESET}`,
+    `${DIM}${indent}${"ZONE".padEnd(nameW)}  ${"MODULE".padEnd(modW)}  ${"PATTERN".padEnd(patW)}  ${"AUTH".padEnd(authW)}  ACCÈS${RESET}`,
+    `${DIM}${indent}${"─".repeat(nameW + modW + patW + authW + 13)}${RESET}`,
   );
   for (const z of zones) {
-    const framework = z.pattern.startsWith("^/nodefony");
+    const framework = isFrameworkZone(z);
     const access =
       z.security === false
         ? `${YELLOW}public${RESET}`
@@ -58,7 +85,9 @@ export function renderZoneTable(
     const color = framework ? DIM : GREEN;
     lines.push(
       `${indent}${color}${z.name.padEnd(nameW)}${RESET}  ` +
-        `${z.pattern.padEnd(patW)}  ${DIM}${authOf(z).padEnd(authW)}${RESET}  ${access}`,
+        `${DIM}${moduleOf(z).padEnd(modW)}${RESET}  ` +
+        `${cleanZonePattern(z.pattern).padEnd(patW)}  ` +
+        `${DIM}${authOf(z).padEnd(authW)}${RESET}  ${access}`,
     );
   }
 }
@@ -435,6 +464,7 @@ class BootReporter {
     }
     this.#renderProcessRow();
     this.#renderFirewallRow();
+    process.stdout.write("\n"); // aère le bilan (un bloc = un paragraphe)
     const journal =
       !report.warnings && !report.errors
         ? `${GREEN}aucun warning${RESET}`
@@ -476,6 +506,7 @@ class BootReporter {
       return; // observation best-effort — jamais bloquer le verdict
     }
     if (!procs.length) return;
+    process.stdout.write("\n"); // aère le bilan (un bloc = un paragraphe)
     const roles: ReadonlyArray<readonly [string, string]> = [
       ["supervisor", "superviseur"],
       ["master", "master"],
@@ -520,7 +551,8 @@ class BootReporter {
     } catch {
       return; // observation best-effort — jamais bloquer le verdict
     }
-    const app = zones.filter((z) => !z.pattern.startsWith("^/nodefony"));
+    process.stdout.write("\n"); // aère le bilan (un bloc = un paragraphe)
+    const app = zones.filter((z) => !isFrameworkZone(z));
     const fwk = zones.length - app.length;
     const summary = app.length
       ? `${app.length} zone${app.length > 1 ? "s" : ""} applicative${app.length > 1 ? "s" : ""}` +
