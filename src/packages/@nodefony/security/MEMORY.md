@@ -190,6 +190,14 @@ redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
   JWT hors scope (keystore.dir/keySetJson = persistance, pas un secret à coller).
   ⚠️ commande SANS arg positionnel → `generate(opts)` : les options commander arrivent
   en PREMIER argument (pas `(arg, opts)`).
+- `security:user:add <identifier>` (`--password`, `--roles` CSV, `--admin` =
+  ROLE_ADMIN+ROLE_NODEFONY_ADMIN) : crée un compte via `container.get("users")`
+  (hash par `UserService.createUser`). Prompt MASQUÉ en TTY (readline output muet).
+  `kernelEvent: "onPostReady"` OBLIGATOIRE : le service users est posé par l'app à
+  `onReady` → un kernelEvent onReady serait une course entre listeners du même event.
+  Le retour console one-shot à onPostReady = `Kernel.finishOrPark` (fix : avant, le
+  process ne se terminait jamais) ; erreurs métier via `process.exitCode = 1` (préservé).
+  Le login HTTP attend `{ username, password }` (pas `identifier`).
 
 ## Behaviors
 
