@@ -44,6 +44,10 @@ done
 # chemin (piège vu 3× malgré la mémoire `feedback_cd_startsh_relative_path`).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# ⚠️ SE PLACER À LA RACINE : le runtime résout l'APP depuis process.cwd(). Lancé
+# depuis un sous-dossier (ex. src/packages/@nodefony/http), le kernel bootait le
+# PACKAGE comme app (1 module, bind ::1, config défauts) — vécu 2026-07-12.
+cd "$ROOT"
 LOG="/tmp/nodefony-server.log"
 PIDFILE="/tmp/srv.pid"
 TEST_MODULE="$ROOT/src/modules/test"
