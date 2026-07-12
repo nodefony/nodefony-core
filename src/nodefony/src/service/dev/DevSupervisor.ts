@@ -2,6 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -115,6 +116,14 @@ export class DevSupervisor {
   readonly #ports: readonly number[];
   /** Fichier verrou single-instance (PID du superviseur courant). */
   readonly #pidFile: string;
+  /**
+   * App STANDALONE (générée par `create app`) vs monorepo du framework — signal :
+   * `turbo.json` (l'orchestrateur multi-workspace n'existe que dans le repo).
+   * En standalone, TOUT passage turbo serait un échec bruyant hors sujet
+   * (« Could not resolve workspace », vécu dans une app générée) : le seul
+   * build est celui de l'app (`rolldown -c`, le même que `npm run build`).
+   */
+  readonly #standalone: boolean;
 
   #child: ChildProcess | null = null;
   #childSpawnedAt = 0;
@@ -156,6 +165,7 @@ export class DevSupervisor {
     // serait un bug (status ne verrait jamais l'instance). Définis une seule fois là-bas.
     this.#ports = options.ports ?? defaultDevPorts();
     this.#pidFile = devSupervisorPidFile(this.#cwd);
+    this.#standalone = !existsSync(path.resolve(this.#cwd, "turbo.json"));
   }
 
   /** Écrit une ligne préfixée sur stdout (pas de `console.log` — code core). */
@@ -276,6 +286,9 @@ export class DevSupervisor {
    * signalé bruyamment.
    */
   async #ensureBuilt(): Promise<void> {
+    if (this.#standalone) {
+      return this.#ensureBuiltStandalone();
+    }
     const t0 = Date.now();
     const errors: string[] = [];
     // Info que le dev veut voir : ce qui MANQUE avant le build (le label le dit).
@@ -353,9 +366,61 @@ export class DevSupervisor {
   }
 
   /**
+   * Variante STANDALONE de {@link #ensureBuilt} — même contrat de résilience :
+   * fail-soft sur la DISPONIBILITÉ (un dist existant démarre quand même),
+   * fail-loud sur la DÉGRADATION (échec de build ANNONCÉ avec sa sortie et la
+   * marche à suivre — le dev ne doit jamais rester devant un « qu'est-ce que
+   * je fais ? »).
+   */
+  async #ensureBuiltStandalone(): Promise<void> {
+    const dist = path.join(this.#cwd, "dist", "index.js");
+    if (!this.#rootDistStale()) {
+      this.#log("app déjà construite (dist à jour)", "green");
+      return;
+    }
+    const t0 = Date.now();
+    this.#startSpin(
+      existsSync(dist)
+        ? "Rebuild de l'app (rolldown)"
+        : "Premier build de l'app (rolldown)",
+    );
+    const res = await this.#runCaptured("npx", [
+      "rolldown",
+      "-c",
+      "rolldown.config.ts",
+    ]);
+    if (res.ok) {
+      this.#stopSpin(
+        `${ANSI.green}✓${ANSI.reset}`,
+        `app construite (${Date.now() - t0}ms)`,
+        "green",
+      );
+      return;
+    }
+    if (existsSync(dist)) {
+      this.#stopSpin(
+        `${ANSI.yellow}⚠${ANSI.reset}`,
+        "build en ÉCHEC — démarrage sur le dist EXISTANT (possiblement périmé). " +
+          "Corrige l'erreur ci-dessous puis sauvegarde (rebuild automatique).",
+        "red",
+      );
+    } else {
+      this.#stopSpin(
+        `${ANSI.red}✗${ANSI.reset}`,
+        "build en ÉCHEC et AUCUN dist — le serveur ne peut pas démarrer. " +
+          "Corrige l'erreur ci-dessous puis sauvegarde (rebuild automatique).",
+        "red",
+      );
+    }
+    this.#dumpBuild(res.output);
+  }
+
+  /**
    * `true` si le `dist/index.js` racine est absent ou plus ancien qu'une de ses
-   * sources (`index.ts`/`nodefony.config.ts`/`env.ts`) — détection légère (3 stats)
-   * réservée à l'app racine, que `turbo` ne couvre pas (build `rolldown` hors cache).
+   * sources — fichiers racine (`index.ts`/`nodefony.config.ts`/`env.ts`, 3 stats)
+   * et, en STANDALONE, les sources de l'app (`nodefony/`, `config/`, `modules/`)
+   * que turbo ne couvre pas (il n'y a pas de turbo). Une app est petite : la
+   * marche récursive coûte quelques stats, une fois, au boot.
    */
   #rootDistStale(): boolean {
     const dist = path.join(this.#cwd, "dist", "index.js");
@@ -366,7 +431,7 @@ export class DevSupervisor {
     } catch {
       return true;
     }
-    return ["index.ts", "nodefony.config.ts", "env.ts"].some((src) => {
+    const stale = ["index.ts", "nodefony.config.ts", "env.ts"].some((src) => {
       const p = path.join(this.#cwd, src);
       try {
         return existsSync(p) && statSync(p).mtimeMs > distMtime;
@@ -374,6 +439,26 @@ export class DevSupervisor {
         return false;
       }
     });
+    if (stale || !this.#standalone) {
+      return stale;
+    }
+    for (const dirName of ["nodefony", "config", "modules"]) {
+      const dir = path.join(this.#cwd, dirName);
+      if (!existsSync(dir)) continue;
+      try {
+        for (const entry of readdirSync(dir, {
+          withFileTypes: true,
+          recursive: true,
+        })) {
+          if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+          const p = path.join(entry.parentPath, entry.name);
+          if (statSync(p).mtimeMs > distMtime) return true;
+        }
+      } catch {
+        // dossier illisible → ne bloque pas la détection
+      }
+    }
+    return false;
   }
 
   /**
@@ -804,6 +889,13 @@ export class DevSupervisor {
    * fichier (le `npm run build` complet coûtait > 80 s).
    */
   async #build(dirty: readonly string[]): Promise<boolean> {
+    // Standalone : UN build, celui de l'app — jamais turbo (pas de workspaces).
+    // Un module local (`modules/<x>` avec son package.json) rentre aussi ici :
+    // son build relève du rolldown de l'app, pas d'un orchestrateur absent.
+    if (this.#standalone) {
+      this.#log("rebuild app (rolldown -c)…", "yellow");
+      return this.#run("npx", ["rolldown", "-c", "rolldown.config.ts"]);
+    }
     const pkgs = new Set<string>();
     let rootTouched = false;
     for (const f of dirty) {
