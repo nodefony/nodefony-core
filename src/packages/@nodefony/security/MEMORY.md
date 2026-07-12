@@ -179,6 +179,15 @@ redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
 - Défauts : Zero Trust, CORS strict (jamais `*`+credentials), headers natifs (avancés COOP/COEP/CORP optionnels),
   Studio `enabled:false`/`exposure:localhost`.
 
+## Commandes CLI
+
+- `security:secrets` (`--json`) : génère les clés attendues (NF_TOTP_KEY, NF_WEBHOOK_KEY,
+  NF_CSRF_SECRET — 32 octets base64) + imprime le câblage `.env` → `env.ts` → `use()`.
+  N'écrit RIEN. Référencée par les 3 warnings « clé ÉPHÉMÈRE » (totp/webhooks/csrf).
+  JWT hors scope (keystore.dir/keySetJson = persistance, pas un secret à coller).
+  ⚠️ commande SANS arg positionnel → `generate(opts)` : les options commander arrivent
+  en PREMIER argument (pas `(arg, opts)`).
+
 ## Behaviors
 
 - `areas: {}` (défaut) → firewall = no-op (perf max). Zone protégée + anonyme → 401.

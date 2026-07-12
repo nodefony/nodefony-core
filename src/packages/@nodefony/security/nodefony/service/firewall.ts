@@ -200,7 +200,9 @@ class Firewall extends Service implements IFirewall {
       if (!secret) {
         secret = randomBytes(32).toString("base64url");
         this.log(
-          "csrf.secret absent → secret synchronizer ÉPHÉMÈRE généré (dev). En PROD/cluster, fixer csrf.secret (≥16 car., partagé entre process).",
+          "csrf.secret absent → secret synchronizer ÉPHÉMÈRE généré (dev). En PROD/cluster, " +
+            "fixer csrf.secret (≥16 car., partagé entre process) — générer la clé et le " +
+            "câblage : `npx nodefony security:secrets`.",
           "WARNING",
         );
       }

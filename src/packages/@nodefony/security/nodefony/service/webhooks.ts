@@ -311,7 +311,8 @@ class WebhookService extends Service {
     }
     this.log(
       "webhooks: aucune clé de chiffrement configurée — clé ÉPHÉMÈRE générée (dev). Les " +
-        "secrets de signature ne survivront pas au redémarrage.",
+        "secrets de signature ne survivront pas au redémarrage. Définir `webhooks.encryptionKey` " +
+        "— générer la clé et le câblage : `npx nodefony security:secrets`.",
       "WARNING",
     );
     return generateEphemeralKey();

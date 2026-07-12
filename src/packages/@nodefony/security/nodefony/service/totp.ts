@@ -215,7 +215,8 @@ class TotpService extends Service {
     }
     this.log(
       "totp: aucune clé de chiffrement configurée — clé ÉPHÉMÈRE générée (dev). Les secrets " +
-        "2FA ne survivront pas au redémarrage. Définir `security.totp.encryptionKey` pour les persister.",
+        "2FA ne survivront pas au redémarrage. Définir `totp.encryptionKey` — générer la clé " +
+        "et le câblage : `npx nodefony security:secrets`.",
       "WARNING",
     );
     return generateEphemeralKey();

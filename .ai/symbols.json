@@ -1,11 +1,11 @@
 {
-  "generated": "2026-07-12T17:09:43.625Z",
+  "generated": "2026-07-12T17:27:57.153Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1008,
-    "symbols": 2568,
-    "classes": 316,
+    "files": 1009,
+    "symbols": 2569,
+    "classes": 317,
     "interfaces": 671,
     "types": 299,
     "enums": 4,
@@ -10621,6 +10621,17 @@
       "decorators": [],
       "description": "Stockage de session **Redis** — branché sur la connexion `main` du {@link RedisService}. Implémente le contrat unifié {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http`. …"
     },
+    "SecuritySecrets": {
+      "name": "SecuritySecrets",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony security:secrets` — génère les clés de chiffrement attendues par le module security (TOTP, webhooks, CSRF) au bon format (32 octets aléatoires, base64) et imprime le câblage COMPLET à col…"
+    },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
       "kind": "type",
@@ -18326,7 +18337,8 @@
         "AssetsPublish",
         "Certificates",
         "Network",
-        "ProxyGenerate"
+        "ProxyGenerate",
+        "SecuritySecrets"
       ],
       "IClusterMessage": [
         "IClusterProbeCtl",
@@ -18851,7 +18863,8 @@
         "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
       ],
       "ColorFn": [
         "src/nodefony/src/Cli.ts"
@@ -20393,6 +20406,9 @@
       "WebhookService": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "SecuritySecrets": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "registerSecurityAdminApi": [
         "src/packages/@nodefony/security/index.ts"
       ],
@@ -20447,7 +20463,8 @@
         "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
       ],
       "loadEnv": [
         "src/nodefony/src/bin/nodefony.ts"
@@ -21385,7 +21402,8 @@
         "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",

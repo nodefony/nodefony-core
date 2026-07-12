@@ -12,6 +12,7 @@ import ApiKeyService from "./nodefony/service/apiKeys";
 import AuditService from "./nodefony/service/auditService";
 import TotpService from "./nodefony/service/totp";
 import WebhookService from "./nodefony/service/webhooks";
+import SecuritySecrets from "./nodefony/command/security-secrets";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import { registerUserAdminApi } from "@nodefony/user";
 import { registerUserRevocationCascade } from "./nodefony/src/admin/userRevocationCascade";
@@ -63,6 +64,7 @@ declare module "nodefony" {
 class Security extends Module {
   constructor(kernel: Kernel) {
     super("security", kernel, fileURLToPath(import.meta.url), config);
+    this.addCommand(SecuritySecrets);
   }
 
   /**
