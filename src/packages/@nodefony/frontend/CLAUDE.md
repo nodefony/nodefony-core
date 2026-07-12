@@ -107,6 +107,7 @@ Kernel onTerminate
   - ✅ CLI `nodefony frontend:build` fonctionne (fix dispatch commandes de module 2026-05-25 : `CliKernel` diffère le parse des commandes non-built-in à `onPreRegister`, après enregistrement par les modules — cf `project_cli_commands_broken_claude_ts`).
 - **Rendu** : `TemplateHelper.renderProdTags()` lit `outDir/.vite/manifest.json` (caché par outDir, 0 relecture disque/req) → `<link rel="stylesheet">` (CSS récursif) + `<link rel="modulepreload">` (imports) + `<script type="module" crossorigin>`, **préfixés par `publicPath`**. Manifest absent → commentaire HTML (pas de crash).
 - **Service statique** : en prod (`env !== "development"`), `FrontendService.setupProd()` (hook `onServersReady`) monte chaque `outDir` sur son `publicPath` via `container.get("server-static").addMount(prefix, dir)` — **résolu par nom** (anti-cycle, pas d'import `@nodefony/http`). Cloud-native (nginx/haproxy/CDN frontal) = Phase 16, bascule via `publicPath` sans toucher `renderProdTags`.
+- **Modules DISTRIBUÉS avec UI (studio & modules tiers)** : ce flux prod ne les concerne PAS — leur UI est pré-buildée au publish et servie par `PrebuiltUi` (@nodefony/http, molette `ui: auto|static|vite`), sans ce module. Un module en mode `static` n'appelle pas `registerEntry` → invisible de `listEntries()`/du superviseur. Cf `@nodefony/studio/CLAUDE.md` § Boot & intégration frontend.
 
 ### Coquille templatable — plus de shell hardcodé
 

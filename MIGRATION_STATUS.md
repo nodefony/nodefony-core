@@ -407,7 +407,11 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 >    install/build au boot, superviseur standalone sans turbo, multi-projet (scoping cwd, jamais
 >    tuer l'autre app, stop --all), readiness any-port, Ctrl+C ≠ crash Vite, rappel build
 >    post-boot, dedupe react (2 node_modules --link), debugbar fs.allow, coquille index.html.
->    Reste : **bilan de fin de boot + homes vue/angular (validés user, prochaine session)**, puis
+>    **Lot 2.6 ✅ (07-12 soir) : onboarding zéro-warning** (bilan de fin de boot, secrets,
+>    admin/admin dev, HTTPS défaut — cf retex). **Lot 2.7 ✅ : Studio STATIQUE prod** — molette
+>    `ui: auto|static|vite` (`resolveUiDelivery`+`PrebuiltUi` @nodefony/http, générique tout
+>    module npm avec UI) : app `--link` production SANS Vite/@nodefony/frontend → /nodefony
+>    complet (banc : page+asset+SPA+login 200, CSP strict). Reste : **homes vue/angular**, puis
 >    `create module`/`create controller`/`create entity` (lot 3), `nodefony doctor`, publication
 >    npm. Commandes métier P11.2/11.3 reléguées ; `orm:migrate` = design prêt, impl gelée (S5c).
 > 2. **S5 — DDL prod drizzle-kit** (P7.10, dernier morceau ORM) : design ✅ validé 07-10, implémentation

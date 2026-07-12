@@ -177,6 +177,27 @@ cd /Users/cci/repository/nodefony-core && npx tsc --noEmit | head -20
 > `http://127.0.0.1:5151{ROUTE}/` · `https://127.0.0.1:5152{ROUTE}/` (si HTTPS).
 > **Pas de Chrome headless** (bloque la machine) → vérif `curl -sk` transform Vite + hard-reload user.
 
+## Phase 4 (OPT-IN) — Module DISTRIBUÉ npm : UI pré-buildée (molette `ui`)
+
+> Uniquement si le module sera **publié npm** et consommé par des apps tierces (pattern
+> « admin-UI embarquée » : bull-board/GraphiQL). Le consommateur ne compile JAMAIS l'UI —
+> les assets sont pré-buildés au publish et servis statiques SANS Vite ni @nodefony/frontend.
+> **Référence vivante = `@nodefony/studio`** (1er consommateur, à copier) :
+> `index.ts` (onKernelBoot), `frontend/vite.config.publish.mts`, `package.json` (scripts).
+
+1. **Config module** : `ui: "auto" as "auto" | "static" | "vite"` + `publicMount: false`.
+2. **`onKernelBoot`** : `resolveUiDelivery` (@nodefony/http) → `vite` = `registerEntry`
+   (§2.3 inchangé) · `static` = `new PrebuiltUi({ publicPath: "/_assets/{MOD}/", distDir:
+path.join(this.path, "dist", "frontend") }).mount(container, kernel)` + exposer
+   l'instance en propriété publique `ui` · `none` = log ERROR (raison actionnable).
+3. **Controller** : si `kernel.getModule("{MOD}")?.ui` → `render(ui.renderIndex(cspNonce))`,
+   sinon flux `frontendService.renderDocument` (§2.4).
+4. **Build publish** : `frontend/vite.config.publish.mts` (app-mode, `base` = publicPath,
+   `outDir: ../dist/frontend`) ; script `build:ui` ENCHAÎNÉ dans `build` (l'UI vit dans
+   `dist/` → le `rimraf dist` du build backend l'emporte sinon) + `prepack` en filet.
+5. **Preuve** : app générée `--link` en `production` sans @nodefony/frontend → route UI 200,
+   asset hashé 200, CSP sans origine Vite (vécu : rebuild backend seul → `none` fail-loud).
+
 ## Checklist finale
 
 - [ ] `index.ts` : `apiProxyPaths` présent dans `registerEntry`

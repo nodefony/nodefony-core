@@ -55,11 +55,20 @@ src/packages/@nodefony/studio/
         └── utils/ansiToReact.tsx ← colore les logs ANSI → React
 ```
 
-## Boot & intégration frontend
+## Boot & intégration frontend — molette `ui: auto|static|vite`
 
-- **Ordre critique** : dans `index.ts` racine, `@nodefony/studio` doit être chargé **APRÈS** `@nodefony/frontend` (le service Vite doit exister au `onKernelBoot`).
-- `index.ts` → `onKernelBoot()` → `frontendService.registerEntry(this, { type:"react19", entry:"./frontend/src/main.tsx", root:"./frontend", name:"studio", apiProxyPaths:["/nodefony/studio/api"] })`.
-- `apiProxyPaths` est **obligatoire** : sans lui, `fetch("/nodefony/studio/api/...")` depuis la page servie par Vite tombe sur le SPA-fallback HTML de Vite → erreur JSON. Proxifie l'API uniquement (pas la racine `/nodefony` → les pages SPA restent servies par Vite).
+`index.ts` → `onKernelBoot()` → `resolveUiDelivery` (@nodefony/http) résout la livraison de l'UI :
+
+- **`vite`** (dev self-hosted / contrib : dev + service frontend + sources présentes) → `frontendService.registerEntry(this, { type:"react19", entry:"./frontend/src/main.tsx", root:"./frontend", name:"studio", apiProxyPaths:["^/nodefony/[^/]+/api"] })`. HMR inchangé.
+- **`static`** (app consommatrice npm, prod incluse) → assets pré-buildés `dist/frontend/` (produits par `npm run build:ui`, inclus dans le `build` du workspace + filet `prepack`) servis par `PrebuiltUi` sous `/_assets/studio/` ; `StudioController.renderStudio` rend l'index pré-buildé + nonce CSP. **NI Vite NI @nodefony/frontend requis** — admin out-of-the-box.
+- **`none`** → log ERROR avec raison actionnable (build publish manquant), le boot continue (module non critical).
+
+Règles associées :
+
+- **Ordre de chargement** : en mode vite, `@nodefony/studio` doit être chargé **APRÈS** `@nodefony/frontend` (le service doit exister au `onKernelBoot`). En static, aucun prérequis.
+- `apiProxyPaths` est **obligatoire en vite** : sans lui, `fetch("/nodefony/<module>/api/...")` depuis la page servie par Vite tombe sur le SPA-fallback HTML de Vite → erreur JSON. Proxifie l'API uniquement (pas la racine `/nodefony` → les pages SPA restent servies par Vite). Sans objet en static (fetch same-origin direct).
+- `publicMount: false` (config) : `public/dist` est l'outDir du flux Vite — jamais auto-monté sous `/studio/`.
+- Le build UI publish = `frontend/vite.config.publish.mts` (app-mode, `base: "/_assets/studio/"` = le publicPath monté — les deux DOIVENT rester alignés).
 - Multi-bundle OK : Studio coexiste avec `@nodefony/test-frontend-react` (bug multi-bundle résolu, cf mémoire `project_frontend_multibundle_bug`).
 
 ## Routes (StudioController) — partition du namespace `/nodefony` (TRANCHÉ 2026-05-20)

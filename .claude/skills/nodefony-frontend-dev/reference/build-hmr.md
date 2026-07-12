@@ -444,8 +444,7 @@ class MyModule extends Module {
 
   override async onKernelBoot(): Promise<this> {
     const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (!svc) {
       this.log("@nodefony/frontend non chargé avant ce module", "ERROR");
       return this;
@@ -489,8 +488,7 @@ class MyController extends Controller {
   render(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     // renderDocument lit l'index.html du module + injecte les tags + nonce CSP.
     // La CSP des origines Vite est gérée automatiquement par le firewall (cf §4.6).
     return super.render(
@@ -511,6 +509,23 @@ class MyController extends Controller {
 
 > Le squelette complet (package.json, peerDeps, App du framework) est produit par le skill
 > `nodefony-create-frontend-module`.
+
+### 5.4 Module DISTRIBUÉ npm — UI pré-buildée sans Vite (molette `ui`)
+
+Un module publié npm avec UI (studio, module tiers) ne fait PAS compiler son front par le
+consommateur (pattern bull-board/GraphiQL). La mécanique vit dans **@nodefony/http**
+(`resolveUiDelivery` + `PrebuiltUi`), PAS ici — le mode `static` marche **sans @nodefony/frontend**
+(zéro peerDep vite chez le consommateur) :
+
+- Config du module : molette `ui: "auto" | "static" | "vite"` (défaut `auto` = vite si
+  dev+frontend+sources — repo self-hosted/`--link` — sinon statique si `dist/frontend/` shippé,
+  sinon `none` fail-loud). JAMAIS vite en prod.
+- `static` : `PrebuiltUi.mount()` sert `dist/frontend/` (build Vite app-mode fait AU PUBLISH,
+  `base` = publicPath) sous `/_assets/<name>/` ; le controller rend `renderIndex(cspNonce)`.
+  Un module static n'appelle pas `registerEntry` → invisible du superviseur/`listEntries()`.
+- Référence vivante : `@nodefony/studio` (`index.ts` onKernelBoot, `vite.config.publish.mts`,
+  script `build:ui` enchaîné dans `build` — l'UI vit dans `dist/`, un rebuild backend seul
+  l'efface sinon). Recette pas-à-pas : skill `nodefony-create-frontend-module` Phase 4.
 
 ---
 
