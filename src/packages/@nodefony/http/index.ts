@@ -230,6 +230,22 @@ export type {
   ProfilePhase,
 } from "./nodefony/src/profiler/Profiler";
 
+// Livraison d'UI embarquée d'un module (pattern « module tiers avec UI ») :
+// résolution de la molette `ui: auto|static|vite` + service statique des
+// assets pré-buildés shippés npm. Consommé par @nodefony/studio et tout
+// module distribuant un front pré-compilé.
+export {
+  resolveUiDelivery,
+  PrebuiltUi,
+} from "./nodefony/src/assets/prebuiltUi";
+export type {
+  UiDeliveryMode,
+  UiDeliveryResolved,
+  IUiDeliveryResolution,
+  IUiDeliveryOptions,
+  IPrebuiltUiOptions,
+} from "./nodefony/src/assets/prebuiltUi";
+
 // Public interfaces — consommables par les autres modules
 export type {
   IContext,

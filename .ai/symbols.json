@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-12T18:53:47.714Z",
+  "generated": "2026-07-12T19:49:48.867Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1010,
-    "symbols": 2573,
-    "classes": 318,
-    "interfaces": 671,
-    "types": 299,
+    "files": 1011,
+    "symbols": 2583,
+    "classes": 319,
+    "interfaces": 677,
+    "types": 301,
     "enums": 4,
-    "functions": 725,
+    "functions": 726,
     "constants": 556
   },
   "symbols": {
@@ -15377,6 +15377,68 @@
       "module": "@nodefony/http",
       "description": "Construit le plan de publication des assets : pour chaque source unique (dédupliquée par préfixe — le DERNIER gagne, comme `addMount`), calcule le dossier cible `outDir/<préfixe-en-chemin>` miroir …"
     },
+    "PrebuiltUi": {
+      "name": "PrebuiltUi",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/prebuiltUi.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Livraison STATIQUE de l'UI pré-buildée d'un module (mode `static`). Deux responsabilités, zéro dépendance à"
+    },
+    "IUiDeliveryResolution": {
+      "name": "IUiDeliveryResolution",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/prebuiltUi.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Résultat de {@link resolveUiDelivery} : mode effectif + raison LOGGABLE."
+    },
+    "IUiDeliveryOptions": {
+      "name": "IUiDeliveryOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/prebuiltUi.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Entrées de {@link resolveUiDelivery}."
+    },
+    "IPrebuiltUiOptions": {
+      "name": "IPrebuiltUiOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/prebuiltUi.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Options de {@link PrebuiltUi}."
+    },
+    "UiDeliveryMode": {
+      "name": "UiDeliveryMode",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/prebuiltUi.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Molette de livraison de l'UI embarquée d'un module (`ui` dans sa config). - `auto` : Vite si possible (dev + sources +"
+    },
+    "UiDeliveryResolved": {
+      "name": "UiDeliveryResolved",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/prebuiltUi.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Mode effectivement résolu — `none` = UI indisponible (fail-loud à l'appelant)."
+    },
+    "resolveUiDelivery": {
+      "name": "resolveUiDelivery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/prebuiltUi.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Résout le mode de livraison de l'UI embarquée d'un module. Pattern universel des admin-UI embarquées (bull-board, GraphiQL, profiler Symfony) : le consommateur ne compile JAMAIS l'UI d'un module ti…"
+    },
     "Context": {
       "name": "Context",
       "kind": "class",
@@ -20455,6 +20517,15 @@
       ],
       "securityConfigJsonSchema": [
         "src/packages/@nodefony/security/index.ts"
+      ],
+      "resolveUiDelivery": [
+        "src/packages/@nodefony/studio/index.ts"
+      ],
+      "PrebuiltUi": [
+        "src/packages/@nodefony/studio/index.ts"
+      ],
+      "UiDeliveryMode": [
+        "src/packages/@nodefony/studio/index.ts"
       ],
       "StudioController": [
         "src/packages/@nodefony/studio/index.ts"
