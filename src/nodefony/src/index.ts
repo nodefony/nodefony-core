@@ -413,6 +413,25 @@ export type {
   PortState,
 } from "./service/dev/devProcess";
 
+// ─── Scaffold (création app/module/…) : spec déclarative + moteur PUR ─────────
+// Trois fronts, UN moteur : CLI rapide (argv), CLI interactif (readline) et le
+// futur data plane Studio (`GET spec` en JSON → formulaire → `POST run`). La
+// spec est 100 % JSON-able ; runScaffold n'a aucune I/O terminal.
+export { getScaffoldSpec } from "./cli/scaffold/spec";
+export type {
+  IScaffoldQuestion,
+  IScaffoldTypeSpec,
+  TFrontendChoice,
+  TPresetChoice,
+} from "./cli/scaffold/spec";
+export { runScaffold, resolveAnswers } from "./cli/scaffold/engine";
+export type {
+  IScaffoldRequest,
+  IScaffoldResult,
+  IScaffoldCaps,
+  TScaffoldAnswers,
+} from "./cli/scaffold/engine";
+
 // ─── Branchement Node-only : ALS → Pdu.requestId (corrélation log↔requête) ────
 // Le bundle browser/client (src/client/index.ts) NE RÉ-EXPORTE PAS ce fichier
 // et n'importe donc PAS `node:async_hooks`. Le provider reste `null` côté

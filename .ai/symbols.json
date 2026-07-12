@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-12T11:26:10.593Z",
+  "generated": "2026-07-12T13:06:02.503Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1005,
-    "symbols": 2545,
+    "files": 1008,
+    "symbols": 2562,
     "classes": 316,
-    "interfaces": 665,
-    "types": 295,
+    "interfaces": 670,
+    "types": 298,
     "enums": 4,
-    "functions": 712,
-    "constants": 553
+    "functions": 718,
+    "constants": 556
   },
   "symbols": {
     "Cli": {
@@ -641,39 +641,7 @@
       "file": "src/nodefony/src/cli/create.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Parse l'argv complet du process après le mot `create`."
-    },
-    "findPackageRoot": {
-      "name": "findPackageRoot",
-      "kind": "function",
-      "file": "src/nodefony/src/cli/create.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Racine du paquet `nodefony` contenant `templates/` — remontée depuis CE fichier (source `src/cli/`, bundle `dist/node/cli/` ou `bin/nodefony` : la remontée marche pour les trois sans dépendre de la…"
-    },
-    "renderTemplates": {
-      "name": "renderTemplates",
-      "kind": "function",
-      "file": "src/nodefony/src/cli/create.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Rend un arbre de templates : chaque `*.tpl` est copié dans `destDir` (suffixe retiré, renames appliqués), tokens `{{token}}` substitués. Un token inconnu jette — garantit ZÉRO `{{` résiduel dans le…"
-    },
-    "resolveLocalWorkspaces": {
-      "name": "resolveLocalWorkspaces",
-      "kind": "function",
-      "file": "src/nodefony/src/cli/create.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Workspaces nodefony d'un CHECKOUT du repo (`src/nodefony` + `src/packages/@nodefony/*`), résolus depuis la racine du paquet `nodefony`. Un paquet INSTALLÉ (node_modules) n'a pas ce voisinage → `nul…"
-    },
-    "linkLocalDeps": {
-      "name": "linkLocalDeps",
-      "kind": "function",
-      "file": "src/nodefony/src/cli/create.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Mode `--link` : réécrit dans le `package.json` GÉNÉRÉ toute dep `nodefony` / `@nodefony/*` en `file:<workspace>` — `npm install` symlinke le checkout local et installe ses deps transitives. Rend l'…"
+      "description": "Parse l'argv complet du process après le mot `create`. Ne valide QUE la forme des flags — les valeurs (nom, preset…) sont jugées par la spec du moteur."
     },
     "runCreateCommand": {
       "name": "runCreateCommand",
@@ -681,7 +649,7 @@
       "file": "src/nodefony/src/cli/create.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Commande `nodefony create <type> <name> [--dir <path>] [--force] [--link]` — génère un projet depuis les templates shippés. Standalone : zéro boot, utilisable via `npx nodefony create app mon-app` …"
+      "description": "Commande `nodefony create` — orchestre l'adaptateur : parse argv, complète en interactif si TTY, délègue au moteur, rend le récap."
     },
     "CREATE_TYPES": {
       "name": "CREATE_TYPES",
@@ -689,7 +657,7 @@
       "file": "src/nodefony/src/cli/create.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Scaffold `nodefony create <type> <name>` — chaîne de création d'un projet. Pur outillage standalone (même famille que status/stop/completion) : AUCUN boot kernel — `create app` s'exécute HORS de to…"
+      "description": "Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2 du moteur (`scaffold/engine.ts`, partagé avec Studio) : - **CLI rapide** : tout est dit en flags (`create app x --prese…"
     },
     "SysExit": {
       "name": "SysExit",
@@ -2654,6 +2622,159 @@
       "exported": true,
       "module": "@nodefony/redis",
       "description": "Enregistre les fabriques de stores Redis dans les registres de `@nodefony/security`. Idempotent (guards) — rejouable sans effet."
+    },
+    "IScaffoldCaps": {
+      "name": "IScaffoldCaps",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Capacités d'environnement évaluées par le front (cf `IScaffoldQuestion.askIf`)."
+    },
+    "IScaffoldRequest": {
+      "name": "IScaffoldRequest",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "IScaffoldResult": {
+      "name": "IScaffoldResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "TScaffoldAnswers": {
+      "name": "TScaffoldAnswers",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Moteur de scaffold — PUR : réponses validées → fichiers écrits. Aucune I/O terminal, aucun kernel : le même moteur sert le CLI rapide (argv), le CLI interactif (readline) et Studio (endpoint data p…"
+    },
+    "findPackageRoot": {
+      "name": "findPackageRoot",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racine du paquet `nodefony` contenant `templates/` — remontée depuis CE fichier (source `src/cli/scaffold/`, bundle `dist/node/cli/scaffold/` : la remontée marche pour les deux sans dépendre de la …"
+    },
+    "resolveLocalWorkspaces": {
+      "name": "resolveLocalWorkspaces",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Workspaces nodefony d'un CHECKOUT du repo (`src/nodefony` + `src/packages/@nodefony/*`), résolus depuis la racine du paquet `nodefony`. Un paquet INSTALLÉ (node_modules) n'a pas ce voisinage → `nul…"
+    },
+    "linkLocalDeps": {
+      "name": "linkLocalDeps",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Mode link : réécrit dans le `package.json` GÉNÉRÉ toute dep `nodefony` / `@nodefony/*` en `file:<workspace>` — `npm install` symlinke le checkout local et installe ses deps transitives. Rend l'app …"
+    },
+    "resolveAnswers": {
+      "name": "resolveAnswers",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Complète et VALIDE des réponses partielles contre la spec d'un type : défauts appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des templates est donc complet PAR CONSTRUCTIO…"
+    },
+    "runScaffold": {
+      "name": "runScaffold",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Exécute un scaffold : layers de templates (`base/` commun, puis overlay du preset, puis overlay du framework front) rendus avec le MÊME contexte eta."
+    },
+    "FRONTEND_PARAMS": {
+      "name": "FRONTEND_PARAMS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Paramètres frontend par framework (type registerEntry, entry, nœud de montage)."
+    },
+    "confirm": {
+      "name": "confirm",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/interactive.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Confirmation simple `[O/n]` — pour le récap final avant génération."
+    },
+    "askMissing": {
+      "name": "askMissing",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/interactive.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose les questions de la spec NON déjà répondues (les flags argv gagnent — on ne redemande jamais ce que l'utilisateur a déjà dit) et retourne les réponses fusionnées. Les questions `askIf` non sat…"
+    },
+    "IScaffoldQuestion": {
+      "name": "IScaffoldQuestion",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Spec DÉCLARATIVE du scaffold — la source unique des choix de création. Les questions sont des DONNÉES (JSON-able, zéro fonction) : le même contrat alimente les TROIS fronts de création — 1. CLI rap…"
+    },
+    "IScaffoldTypeSpec": {
+      "name": "IScaffoldTypeSpec",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Spec d'un type de scaffold (`app` aujourd'hui ; `module`/`controller`/`entity` suivent)."
+    },
+    "TFrontendChoice": {
+      "name": "TFrontendChoice",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "TPresetChoice": {
+      "name": "TPresetChoice",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "getScaffoldSpec": {
+      "name": "getScaffoldSpec",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La spec complète du scaffold — contrat des trois fronts (CLI rapide, CLI interactif, Studio). Structure 100 % sérialisable en JSON."
+    },
+    "FRONTEND_CHOICES": {
+      "name": "FRONTEND_CHOICES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Frameworks front supportés par `@nodefony/frontend` (builder Vite multi-framework)."
+    },
+    "PRESET_CHOICES": {
+      "name": "PRESET_CHOICES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Presets d'app : la vitrine complète (défaut) ou la base saine http+framework."
     },
     "Storage": {
       "name": "Storage",
@@ -19648,6 +19769,7 @@
       "Eta": [
         "src/packages/@nodefony/framework/index.ts",
         "src/nodefony/src/command/Builder.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts",
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
       ],
@@ -20292,6 +20414,35 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "getScaffoldSpec": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "FRONTEND_CHOICES": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "PRESET_CHOICES": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "findPackageRoot": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "resolveLocalWorkspaces": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "runScaffold": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "TScaffoldAnswers": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
+      "askMissing": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "confirm": [
+        "src/nodefony/src/cli/create.ts"
       ],
       "IRealtimeSocket": [
         "src/nodefony/src/client/IClientKernel.ts",
@@ -21021,6 +21172,19 @@
       ],
       "RedisWebAuthnCredentialStore": [
         "src/packages/@nodefony/redis/nodefony/registerStores.ts"
+      ],
+      "IScaffoldTypeSpec": [
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
+      "TFrontendChoice": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "TPresetChoice": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "IScaffoldCaps": [
+        "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
       "RealtimeState": [
         "src/nodefony/src/client/debugbar/DebugBar.ts",

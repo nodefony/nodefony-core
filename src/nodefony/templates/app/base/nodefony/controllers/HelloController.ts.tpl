@@ -13,7 +13,7 @@ class HelloController extends Controller {
 
   @route("route-hello", { path: "/hello", method: "GET" })
   async hello() {
-    return this.renderJson({ hello: "{{appName}}", pid: process.pid });
+    return this.renderJson({ hello: "<%= it.appName %>", pid: process.pid });
   }
 
   /**

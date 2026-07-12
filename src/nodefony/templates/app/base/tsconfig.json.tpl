@@ -13,7 +13,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true
+<% if (it.frontend === "react") { %>    "jsx": "react-jsx",
+<% } %>    "noEmit": true
   },
   "include": [
     "index.ts",
@@ -22,7 +23,10 @@
     "rolldown.config.ts",
     "vitest.config.ts",
     "nodefony/**/*.ts",
-    "tests/**/*.ts"
+<% if (it.frontend === "react") { %>    "frontend/src/**/*",
+<% } %>    "tests/**/*.ts"
   ],
-  "exclude": ["node_modules", "dist"]
+<% if (it.frontend === "angular") { %>  // Le frontend Angular a SON tsconfig (frontend/tsconfig.app.json, plugin AnalogJS).
+<% } %><% if (it.frontend === "vue") { %>  // Les SFC .vue se typechecken avec vue-tsc (hors scope tsgo backend).
+<% } %>  "exclude": ["node_modules", "dist"<% if (it.frontend === "angular" || it.frontend === "vue") { %>, "frontend"<% } %>]
 }

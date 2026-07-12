@@ -1,17 +1,17 @@
-import { defineEnv, envEnum, envString } from "nodefony";
+import { defineEnv, envEnum<% if (it.complete) { %>, envString<% } %> } from "nodefony";
 
 /**
  * Catalogue typé des variables d'environnement — SEUL lecteur de `process.env`.
  * Validé au boot (fail-fast), exposé au descripteur de config via `ctx.env`.
- *
+<% if (it.complete) { %> *
  * 💾 PERSISTANCE (infra déclarée) : tu déclares une ou deux URLs, le framework
  * DÉRIVE les stores (users, sessions, jetons, idempotence…) — `store: "auto"`.
- */
+<% } %> */
 export const env = defineEnv({
   NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
     default: "stdout",
   }),
-
+<% if (it.complete) { %>
   /**
    * Infra `database` : URL unique, dialecte déduit du scheme
    * (`sqlite:./var/app.db` | `postgres://…` | `mysql://…` | `mongodb://…`).
@@ -34,4 +34,4 @@ export const env = defineEnv({
     description:
       "Infra cache : URL Redis (redis://…) — sa présence charge @nodefony/redis.",
   }),
-});
+<% } %>});

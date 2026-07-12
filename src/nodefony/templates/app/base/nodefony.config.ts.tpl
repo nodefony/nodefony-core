@@ -22,16 +22,16 @@ export default defineConfig<typeof env>((ctx) => ({
     driver: ctx.env.NF_LOG_DRIVER,
   },
   modules: [
-    // ── ORM — Drizzle (SQL) par défaut. Sans NF_DATABASE_URL = sqlite LOCAL
+<% if (it.complete) { %>    // ── ORM — Drizzle (SQL) par défaut. Sans NF_DATABASE_URL = sqlite LOCAL
     //    (profil solo) : l'app persiste out-of-the-box (users, sessions, jetons).
     //    Déclare NF_DATABASE_URL (postgres://…) pour pointer une vraie base.
     "@nodefony/drizzle",
 
-    // ── Socle serveur : HTTP/WS natifs + probes /livez /readyz (ON par défaut).
+<% } %>    // ── Socle serveur : HTTP/WS natifs + probes /livez /readyz (ON par défaut).
     use("@nodefony/http", {}),
     // Router + controllers + décorateurs (@controller, @route).
     "@nodefony/framework",
-
+<% if (it.complete) { %>
     // ── Socket Nodefony (canaux duplex multiplexés). Backplane `cluster` = IPC
     //    intra-pod, 0 dépendance externe ; `redis` = opt-in cross-pod.
     use("@nodefony/realtime", { backplane: { driver: "cluster" } }),
@@ -58,5 +58,9 @@ export default defineConfig<typeof env>((ctx) => ({
     use("@nodefony/redis", undefined, {
       when: () => !!ctx.infra.cache,
     }),
-  ],
+<% } else if (it.front) { %>
+    // ── Builder Vite + statics : sert le frontend <%= it.frontend %> de l'app
+    //    (HMR en dev, build pré-compilé en prod).
+    "@nodefony/frontend",
+<% } %>  ],
 }));

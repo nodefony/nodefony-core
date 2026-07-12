@@ -1,13 +1,13 @@
 # Datasource Loki auto-provisionnée pour Grafana (dev) — montée en lecture seule par
 # le compose (./docker/grafana/provisioning:/etc/grafana/provisioning:ro). Pointe le
-# service `loki` via le DNS INTERNE du réseau {{appName}}-net (conteneur→conteneur),
+# service `loki` via le DNS INTERNE du réseau <%= it.appName %>-net (conteneur→conteneur),
 # JAMAIS localhost. Grafana ouvre donc directement sur Loki, 0 configuration manuelle.
 apiVersion: 1
 datasources:
   - name: Loki
     type: loki
     access: proxy
-    uid: {{appName}}-loki
+    uid: <%= it.appName %>-loki
     url: http://loki:3100
     isDefault: true
     editable: true

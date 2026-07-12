@@ -25,18 +25,22 @@ class Create extends Command {
       options,
     );
     this.addArgument("<type>", CREATE_TYPES.join(" | "));
-    this.addArgument("<name>", "project name (kebab-case)");
+    this.addArgument("[name]", "project name (kebab-case — asked if omitted)");
     this.addOption("--dir <path>", "target directory (default: ./<name>)");
     this.addOption("-f, --force", "allow a non-empty target directory");
+    this.addOption("--preset <preset>", "complete (default) | minimal");
+    this.addOption("--frontend <fw>", "none (default) | react | vue | angular");
+    this.addOption("-y, --yes", "accept spec defaults (skip interactive mode)");
     this.addOption(
       "--link",
       "wire nodefony deps as file: links to a local checkout (framework dev)",
     );
+    this.addOption("--no-link", "force registry versions (skip link question)");
   }
 
   override async generate(): Promise<this> {
     // Même routeur que le fast-path — argv porte déjà type/name/options.
-    runCreateCommand(process.argv);
+    await runCreateCommand(process.argv);
     return this;
   }
 }

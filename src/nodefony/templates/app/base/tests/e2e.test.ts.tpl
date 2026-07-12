@@ -32,7 +32,7 @@ const BASE = "http://127.0.0.1:5151";
     const res = await fetch(`${BASE}/api/hello`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { hello: string; pid: number };
-    expect(body.hello).toBe("{{appName}}");
+    expect(body.hello).toBe("<%= it.appName %>");
     expect(body.pid).toBeGreaterThan(0);
   });
 

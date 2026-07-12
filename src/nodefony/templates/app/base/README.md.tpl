@@ -1,13 +1,17 @@
-# {{appName}}
+# <%= it.appName %>
 
 Application [Nodefony](https://github.com/nodefony/nodefony-core) — générée par `nodefony create app`.
 
-Cette app n'est pas un « hello world » : c'est le **framework complet, câblé et
+<% if (it.complete) { %>Cette app n'est pas un « hello world » : c'est le **framework complet, câblé et
 prouvé** — HTTP + WebSocket dans le même controller, ORM avec persistance
 out-of-the-box, firewall applicatif, temps réel, console d'administration,
 tests, lint, infra docker. Chaque fichier est commenté : lis-les, ils expliquent
 le POURQUOI, pas juste le quoi.
-
+<% } else { %>App **minimale** : le socle serveur (`@nodefony/http`) + le router et les
+controllers (`@nodefony/framework`)<% if (it.front) { %> + le frontend <%= it.frontend %> servi par Vite<% } %> — la
+base saine, à faire grandir. Pour la vitrine complète (ORM, firewall, realtime,
+Studio, infra docker) : régénère avec `--preset complete`.
+<% } %>
 ---
 
 ## 1. Démarrage express (60 secondes)
@@ -21,28 +25,30 @@ npm run dev          # serveur de développement
 Puis :
 
 - http://127.0.0.1:5151/api/hello — ta première route
-- http://127.0.0.1:5151/nodefony — **Studio**, la console d'administration (dev)
+<% if (it.front) { %>- http://127.0.0.1:5151/ — ton app <%= it.frontend %> (HMR Vite en dev)
+<% } %><% if (it.complete) { %>- http://127.0.0.1:5151/nodefony — **Studio**, la console d'administration (dev)
 
 > L'app **persiste déjà** : sans aucune base déclarée, l'ORM Drizzle crée une
 > sqlite locale (`var/databases/`) — users, sessions et jetons y survivent aux
 > redémarrages. Aucun service externe requis pour commencer.
-
+<% } %>
 ## 2. Visite guidée — ce que l'app démontre
 
 | Quoi                            | Comment le voir                                                    |
 | ------------------------------- | ------------------------------------------------------------------ |
 | Route HTTP                      | `curl http://127.0.0.1:5151/api/hello`                             |
 | WebSocket — **même controller** | `npx wscat -c ws://127.0.0.1:5151/api/echo` puis tape un message   |
-| Studio (console admin, dev)     | http://127.0.0.1:5151/nodefony — config, sessions, logs, routes    |
+<% if (it.front) { %>| Frontend <%= it.frontend %> (Vite + HMR)  | http://127.0.0.1:5151/ — l'app fetch le backend via `/api`         |
+<% } %><% if (it.complete) { %>| Studio (console admin, dev)     | http://127.0.0.1:5151/nodefony — config, sessions, logs, routes    |
 | ORM + persistance               | Drizzle : sans `NF_DATABASE_URL`, sqlite locale automatique        |
 | Firewall + audit                | chaque requête traverse le pipeline sécurité (logs `audit`)        |
 | Realtime (canaux multiplexés)   | `@nodefony/realtime` chargé (backplane cluster, zéro dépendance)   |
-| Probes cloud-native             | `curl http://127.0.0.1:5151/livez` (liveness k8s)                  |
 | Redis (opt-in)                  | `NF_REDIS_URL` présente ⇔ module chargé, stores basculent dessus   |
+<% } %>| Probes cloud-native             | `curl http://127.0.0.1:5151/livez` (liveness k8s)                  |
 
 Le différenciateur Nodefony tient dans `nodefony/controllers/HelloController.ts` :
-**une route GET et une route WEBSOCKET dans la même classe** — même pipeline
-(firewall, audit, logs), pas deux mondes séparés.
+**une route GET et une route WEBSOCKET dans la même classe** — même pipeline,
+pas deux mondes séparés.
 
 ## 3. Structure du projet
 
@@ -50,15 +56,16 @@ Le différenciateur Nodefony tient dans `nodefony/controllers/HelloController.ts
 | -------------------------- | --------------------------------------------------------------------------- |
 | `nodefony.config.ts`       | LA config de l'app — uniquement les ÉCARTS aux défauts du framework         |
 | `env.ts`                   | Catalogue **typé** des variables d'environnement (seul lecteur de `process.env`, validé au boot) |
-| `index.ts`                 | Point d'entrée : la classe `App` (module racine) + ses controllers          |
+| `index.ts`                 | Point d'entrée : la classe `App` (module racine) + ses controllers<% if (it.front) { %> + l'entry frontend (`registerEntry`)<% } %> |
 | `nodefony/controllers/`    | Tes controllers (`@controller` + `@route`, HTTP **et** WS)                  |
-| `tests/`                   | Tests vitest — unitaires (`npm test`) + e2e réel (`npm run test:e2e`)       |
-| `compose.yaml`             | Infra de dev docker : Redis, Postgres, MariaDB, MySQL, Loki/Grafana (profils) |
-| `rolldown.config.ts`       | Build — 3 lignes, délègue tout au socle publié `nodefony/bundler`           |
+<% if (it.front) { %>| `frontend/src/`            | Ton app <%= it.frontend %> — servie par Vite (HMR dev, build prod)          |
+<% } %>| `tests/`                   | Tests vitest — unitaires (`npm test`) + e2e réel (`npm run test:e2e`)       |
+<% if (it.complete) { %>| `compose.yaml`             | Infra de dev docker : Redis, Postgres, MariaDB, MySQL, Loki/Grafana (profils) |
+<% } %>| `rolldown.config.ts`       | Build — 3 lignes, délègue tout au socle publié `nodefony/bundler`           |
 | `eslint.config.mjs`        | Lint non-intrusif (warn) ; le style est délégué à Prettier                  |
 | `vitest.config.ts`         | Config tests — porte le bloc `oxc` décorateurs (OBLIGATOIRE, commenté)      |
 | `var/`                     | Données locales (sqlite, logs fichiers) — gitignoré                         |
-
+<% if (it.complete) { %>
 ## 4. Infra de développement (docker)
 
 L'app démarre **sans docker** (sqlite locale). Le `compose.yaml` fournit l'infra
@@ -74,15 +81,15 @@ npm run infra:down                        # arrêt (les volumes survivent)
 Câblage côté app — deux variables, tout le reste se dérive (`store: "auto"`) :
 
 ```bash
-export NF_REDIS_URL="redis://:{{appName}}-dev@127.0.0.1:6379"
-export NF_DATABASE_URL="postgres://{{appName}}:{{appName}}-dev@127.0.0.1:5432/{{appName}}"
+export NF_REDIS_URL="redis://:<%= it.appName %>-dev@127.0.0.1:6379"
+export NF_DATABASE_URL="postgres://<%= it.appName %>:<%= it.appName %>-dev@127.0.0.1:5432/<%= it.appName %>"
 npm run dev
 ```
 
 Le dialecte SQL est déduit du **scheme de l'URL** (`postgres://`, `mysql://`,
 `sqlite:`) — changer de base ne change **rien d'autre** dans l'app. Les mots de
 passe par défaut du compose sont publics, pour le dev local uniquement.
-
+<% } %>
 ## 5. Tests
 
 ```bash
@@ -115,26 +122,28 @@ npm start            # nodefony production — bind 0.0.0.0, logs stdout, probes
 ```
 
 Un process Node = un pod/container ; le scaling horizontal vient de
-l'orchestrateur (k8s, Swarm, Cloud Run…). Studio est chargé en dev seulement
+l'orchestrateur (k8s, Swarm, Cloud Run…).<% if (it.complete) { %> Studio est chargé en dev seulement
 (`policy: "dev"`) — pour l'exposer en production, protège `/nodefony` par une
 zone firewall puis passe la policy à `"mandatory"` (la recette est commentée
-dans `nodefony.config.ts`).
+dans `nodefony.config.ts`).<% } %>
 
 ## 8. Développer le framework lui-même (`--link`)
 
-Cette app a peut-être été générée avec `nodefony create app <nom> --link` :
-les dépendances `nodefony`/`@nodefony/*` pointent alors en `file:` vers un
-checkout local de `nodefony-core` (elles ne sont pas encore sur npm). C'est le
-mode **développement du framework** : tu modifies le framework, tu rebuilds le
-checkout, ton app le voit. Ne publie pas ce `package.json` tel quel — après la
-release npm, régénère sans `--link` (versions `^{{nodefonyVersion}}`).
+Si cette app a été générée avec `--link`, les dépendances `nodefony`/`@nodefony/*`
+pointent en `file:` vers un checkout local de `nodefony-core` : tu modifies le
+framework, tu rebuilds le checkout, ton app le voit. Ne publie pas ce
+`package.json` tel quel — après la release npm, régénère sans `--link`
+(versions `^<%= it.nodefonyVersion %>`).
 
 ## 9. Aller plus loin
 
 - **Ajouter une route** : une méthode décorée `@route` dans un controller — c'est tout.
-- **Protéger une zone** : `use("@nodefony/security", { firewalls: { … } })` dans
+- **Régénérer autrement** : `nodefony create app` (interactif) ou
+  `--preset <complete|minimal> --frontend <none|react|vue|angular>` (scriptable).
+<% if (it.complete) { %>- **Protéger une zone** : `use("@nodefony/security", { firewalls: { … } })` dans
   `nodefony.config.ts` (validée Zod au boot, config invalide = échec franc).
 - **Canaux temps réel** : le module realtime multiplexe N canaux duplex sur une
   seule socket — voir la doc du framework.
 - **Studio** est ta carte du territoire : modules chargés, routes, config
   résolue, sessions, logs — tout ce que le framework sait, il te le montre.
+<% } %>

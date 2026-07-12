@@ -197,8 +197,9 @@ class CliKernel extends Cli {
     // ─── Scaffold : `create <type> <name>` — même famille standalone ──────────
     // Cas nominal = HORS de tout projet (`npx nodefony create app mon-app`) : il
     // n'y a RIEN à booter (pas de nodefony.config.ts). Templates shippés npm.
+    // Async : le mode interactif (TTY) pose les questions de la spec en readline.
     if (requested === "create") {
-      return process.exit(runCreateCommand(process.argv));
+      return process.exit(await runCreateCommand(process.argv));
     }
 
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────

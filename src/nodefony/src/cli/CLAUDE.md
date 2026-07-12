@@ -191,44 +191,56 @@ Protocole candidats : dernier mot = en cours de frappe (le shell filtre par pré
 commande validée → ses options + globales, sinon noms + alias. Install zsh :
 `source <(nodefony completion zsh)`.
 
-## Scaffold — `cli/create.ts`
+## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
-`nodefony create app <name> [--dir <path>] [--force] [--link]` — génère un projet
-depuis les templates shippés (`templates/app/`, tokens `{{appName}}`/`{{nodefonyVersion}}`,
-substitution regex simple — pas de moteur ; bascule eta prévue si `create module`
-exige des conditionnels). **Standalone 0-boot** (fast-path `CliKernel.start` — cas
-nominal HORS projet : `npx nodefony create app mon-app`). L'app générée = VITRINE
-COMPLÈTE du framework, TOUTES les briques (prouvée boot dev ET prod) : controller
-Hello **HTTP + WS echo dans la MÊME classe** (différenciateur), `drizzle` (ORM —
-sans `NF_DATABASE_URL` : sqlite local `var/databases/`, sessions + idempotence
-persistent en `store:"auto"`), `realtime` (backplane cluster 0-dep), `security {}`
-(pass-through audité, boote sans DB), `frontend` + `studio` (`policy: "dev"` — en
-prod, zone firewall d'abord ; sert le build React pré-compilé du paquet, 0 Vite
-prod), `redis` gated `when: ctx.infra.cache` (NF_REDIS_URL ⇔ chargé), build
-rolldown 3 lignes via `nodefony/bundler` (`externalDeps: true`), typecheck
-**tsgo** (`@typescript/native-preview`).
+`nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
+[--frontend <none|react|vue|angular>] [--link|--no-link]` — **standalone 0-boot**
+(fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
 
-**Outillage dev généré (parité core)** : `compose.yaml` (redis défaut + profils
-`postgres`/`mariadb`/`mysql`/`tools`/`loki`+grafana provisionné — noms/projet
-préfixés `<appName>`, cohabite avec l'infra du repo), `tests/` vitest (unit
-« l'app se charge » + `e2e.test.ts` gate `RUN_E2E` : boot RÉEL
-`production --detach --wait` + fetch HTTP + WS natif Node + `/livez`, arrêt
-`nodefony stop`), `eslint.config.mjs` flat + prettier (devDep `typescript@6` =
-API JS pour eslint ; le typecheck reste tsgo — 2 outils, 2 rôles),
-`vitest.config.ts` (bloc oxc décorateurs OBLIGATOIRE, commenté). Scripts :
-`test`/`test:e2e`/`lint`/`format`/`infra:up`/`infra:down`/`stop`/`status`.
+**Architecture 3 fronts** (préparée pour Studio — créer app/module/entity depuis
+l'admin web) :
 
-**`--link` (dev framework, AVANT release npm)** : réécrit les deps
-`nodefony`/`@nodefony/*` du package.json généré en `file:<workspace>` vers le
-checkout (`resolveLocalWorkspaces` remonte depuis le paquet ; hors checkout →
-erreur claire `SOFTWARE`). `npm install` réel symlinke + installe les transitives
-— une app `--link` est contrôlable de bout en bout (install → build → tests e2e)
-sans aucune publication. Les deps publiques (zod, rolldown…) restent au registre.
+- `scaffold/spec.ts` — questions DÉCLARATIVES 100 % JSON-able (name, preset,
+  frontend, link `askIf: hasCheckout`) : contrat unique des trois fronts.
+  Ajouter un choix = une entrée ici, aucun front à modifier.
+- `scaffold/engine.ts` — moteur PUR (`resolveAnswers` valide/défaute contre la
+  spec ; `runScaffold` rend les templates) : zéro I/O terminal, appelable par
+  argv, readline ou un futur endpoint data plane. Exporté par l'index public
+  (`getScaffoldSpec`/`runScaffold`).
+- `scaffold/interactive.ts` — front readline NATIF (`node:readline/promises`,
+  0 dep, streams injectables → testé sur PassThrough). En TTY sans `--yes`,
+  les questions non couvertes par les flags sont posées + récap + confirmation ;
+  hors TTY (CI, spawn) = défauts de la spec, stable pour les scripts.
+- `create.ts` — adaptateur argv (flags → réponses partielles) + orchestration.
 
-Token inconnu dans un template = throw (zéro `{{` résiduel). Renames :
+**Templates = LAYERS eta** (`templates/app/`, moteur eta — dep core, conditionnels
+`preset × frontend` impossibles en overlays purs) : `base/` (commun : controller
+Hello HTTP+WS même classe, tests vitest unit+e2e `--detach --wait`, eslint flat +
+prettier + `typescript@6` API-JS-pour-eslint (typecheck = tsgo), vitest bloc oxc
+décorateurs, `nodefony.config.ts`/`package.json`/`README` conditionnels) ·
+`complete/` (compose.yaml redis+profils postgres/mariadb/mysql/tools/loki+grafana,
+préfixé `<appName>`) · `frontend/shared/` (AppController : `renderTags(name,
+this.context?.cspNonce)` — la CSP est émise par le firewall, le controller ne
+fait que propager le nonce ; `getCspDirectives` N'EXISTE PAS) · `frontend/{react,
+vue,angular}/` (entry+App par framework, `registerEntry` type `react19|vue3|
+angular` + `apiProxyPaths: ["/api"]` dans `index.ts` à `onKernelBoot`, tsconfig
+jsx pour react, `tsconfig.app.json` pour angular). Presets : `complete` = vitrine
+totale (drizzle sqlite auto, realtime, security, frontend+studio dev, redis gated) ;
+`minimal` = http+framework (+ `@nodefony/frontend` si un framework front est choisi).
+
+**link (dev framework, AVANT release npm)** : réécrit les deps `nodefony`/
+`@nodefony/*` en `file:<workspace>` vers le checkout (`resolveLocalWorkspaces` ;
+hors checkout → erreur claire). `npm install` réel symlinke + installe les
+transitives — app contrôlable bout en bout sans publication. Défaut spec =
+`false` : un moteur ne câble JAMAIS file: sans demande explicite (interactif :
+question posée si checkout ; API/flags : `--link`).
+
+Tag eta résiduel dans un rendu = throw (projet corrompu refusé). Renames :
 `gitignore.tpl` → `.gitignore` (npm strip les dotfiles publiés). Exit codes :
-`OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. Tests `create.test.ts` (+ e2e bin gate
-`RUN_CLI_BOOT=1`).
+`OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. Tests `create.test.ts` (parse + spec +
+moteur 2 presets × 4 fronts + interactif sur streams + e2e bin gate
+`RUN_CLI_BOOT=1`). Preuves terrain : complete+react (install→build→tsgo→lint→
+unit→e2e + page HMR nonce servie), minimal, vue, angular.
 
 ## Hooks Command
 
