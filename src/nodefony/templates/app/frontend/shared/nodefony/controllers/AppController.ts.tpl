@@ -3,11 +3,11 @@ import type { ContextType } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
 
 /**
- * Sert la page HTML de l'app <%= it.frontend %> — les tags Vite (`renderTags`)
- * branchent le bon mode tout seuls : scripts HMR en dev, bundle pré-compilé en
- * prod. CSP : c'est le firewall (@nodefony/security) qui l'émet quand il est
- * chargé — le controller ne fait que PROPAGER le nonce de la requête aux
- * `<script>` rendus (satisfait `script-src 'nonce-…'`).
+ * Sert la page de l'app <%= it.frontend %>. Le HTML ne vit PAS ici : c'est la
+ * coquille `frontend/index.html` (TA page — meta, polices, externals), dans
+ * laquelle `renderDocument` injecte les balises du framework au marqueur
+ * `<!--nodefony:frontend-->` : entry Vite + HMR en dev, bundle fingerprinté
+ * en prod, nonce CSP de la requête propagé aux `<script>`.
  */
 @controller("")
 class AppController extends Controller {
@@ -21,21 +21,12 @@ class AppController extends Controller {
     const svc = this.context?.container?.get("frontend") as
       | FrontendService
       | undefined;
-    const viteTags =
-      svc?.renderTags("<%= it.appName %>", this.context?.cspNonce) ??
-      "<!-- @nodefony/frontend not ready -->";
-    return this.render(`<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title><%= it.appName %></title>
-    ${viteTags}
-  </head>
-  <body>
-    <%= it.front.mountNode %>
-  </body>
-</html>`);
+    if (!svc) {
+      return this.render("<!-- @nodefony/frontend not ready -->");
+    }
+    return this.render(
+      svc.renderDocument("<%= it.appName %>", this.context?.cspNonce),
+    );
   }
 }
 

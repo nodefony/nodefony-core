@@ -211,6 +211,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       scaffold(dest, { name: "rapp", preset: "minimal", frontend: "react" });
       assert.isTrue(existsSync(path.join(dest, "frontend", "src", "main.tsx")));
       assert.isTrue(existsSync(path.join(dest, "frontend", "src", "App.tsx")));
+      // Coquille HTML de l'app (renderDocument y injecte les tags au marqueur).
+      const shell = readFileSync(
+        path.join(dest, "frontend", "index.html"),
+        "utf8",
+      );
+      assert.include(shell, "<!--nodefony:frontend-->");
+      assert.include(shell, '<div id="root"></div>');
       assert.isTrue(
         existsSync(
           path.join(dest, "nodefony", "controllers", "AppController.ts"),

@@ -1,7 +1,6 @@
 import path from "node:path";
-import type {
-  IResolvedFrontendEntry,
-} from "../interfaces/IFrontBuilder";
+import { createRequire } from "node:module";
+import type { IResolvedFrontendEntry } from "../interfaces/IFrontBuilder";
 import { FrontendPresetUnknownError } from "../src/errors/FrontendError";
 
 /**
@@ -87,9 +86,7 @@ export class ViteConfigGenerator {
           optimizeInclude.push("vue");
           break;
         case "angular": {
-          imports.push(
-            `import angular from "@analogjs/vite-plugin-angular";`,
-          );
+          imports.push(`import angular from "@analogjs/vite-plugin-angular";`);
           const tsconfigPath = path.resolve(
             angularEntry!.root,
             "tsconfig.app.json",
@@ -127,12 +124,32 @@ export class ViteConfigGenerator {
     // process.cwd() couvre le workspace root (node_modules hoistés inclus).
     const fsAllowSet = new Set<string>([process.cwd()]);
     for (const e of entries) fsAllowSet.add(e.root);
+    // Debug bar : servie via `/@fs` depuis le PAQUET nodefony (même résolution
+    // que TemplateHelper.debugBarTag). Dans une app `--link`, le realpath sort
+    // du cwd (symlink vers le checkout du framework) → sans cette entrée, Vite
+    // répond 403 sur le module de la debug bar (vécu app générée). On autorise
+    // le dossier `dist/client` entier : les imports internes (preserveModules)
+    // remontent entre chunks frères.
+    try {
+      const dbg = createRequire(import.meta.url)
+        .resolve("nodefony/debugbar")
+        .replace(/\\/g, "/");
+      const clientRoot = dbg.includes("/dist/client/")
+        ? dbg.slice(0, dbg.indexOf("/dist/client/") + "/dist/client".length)
+        : path.dirname(dbg);
+      fsAllowSet.add(clientRoot);
+    } catch {
+      /* subpath debugbar irrésolu → pas de debug bar, rien à autoriser */
+    }
     const fsAllowLines = Array.from(fsAllowSet)
       .map((p) => `      ${JSON.stringify(p)},`)
       .join("\n");
 
     const inputLines = Object.entries(input)
-      .map(([name, file]) => `      ${JSON.stringify(name)}: ${JSON.stringify(file)},`)
+      .map(
+        ([name, file]) =>
+          `      ${JSON.stringify(name)}: ${JSON.stringify(file)},`,
+      )
       .join("\n");
 
     const optimizeLines = optimizeInclude
@@ -154,16 +171,17 @@ export class ViteConfigGenerator {
       // Vite (clé `^…`) → couvre tous les modules, présents et futurs.
       proxyPaths.add("^/nodefony/[^/]+/api");
     }
-    const proxyLines = proxyPaths.size > 0
-      ? Array.from(proxyPaths)
-          .map(
-            (p) =>
-              `      ${JSON.stringify(p)}: { target: ${JSON.stringify(
-                opts.backendOrigin,
-              )}, changeOrigin: false, secure: false, ws: true },`,
-          )
-          .join("\n")
-      : "";
+    const proxyLines =
+      proxyPaths.size > 0
+        ? Array.from(proxyPaths)
+            .map(
+              (p) =>
+                `      ${JSON.stringify(p)}: { target: ${JSON.stringify(
+                  opts.backendOrigin,
+                )}, changeOrigin: false, secure: false, ws: true },`,
+            )
+            .join("\n")
+        : "";
     // strictPort + base sont liés : on doit garantir l'origine pour que le
     // `base` reflète le vrai port. Si Vite saute sur un autre port à cause
     // d'un conflit, les imports absolus seraient cassés silencieusement.
@@ -182,15 +200,16 @@ ${fsAllowLines}
       ],
     },
 `;
-    const serverBlock = proxyPaths.size > 0
-      ? `  server: {
+    const serverBlock =
+      proxyPaths.size > 0
+        ? `  server: {
     strictPort: ${strictPort},
     cors: true,
 ${httpsLines}${fsBlock}    proxy: {
 ${proxyLines}
     },
   },`
-      : `  server: {
+        : `  server: {
     strictPort: ${strictPort},
     cors: true,
 ${httpsLines}${fsBlock}  },`;
