@@ -21,6 +21,14 @@ export default defineConfig<typeof env>((ctx) => ({
     // stdout = contrat cloud-native (collecteur de logs de l'orchestrateur).
     driver: ctx.env.NF_LOG_DRIVER,
   },
+  // ── Manifeste ORDONNÉ des modules — l'ordre du tableau = l'ordre de chargement.
+  //    Chaque entrée peut porter une POLICY (elle FILTRE, ne réordonne jamais) :
+  //      "mandatory" → socle de l'app : toujours chargé, non filtrable
+  //                    (déclare l'intention « sans lui, cette app n'a pas de sens »)
+  //      "optional"  → défaut : chargé, filtrable par une garde `when: (config) => bool`
+  //                    (ex. redis plus bas : chargé SEULEMENT si l'infra est déclarée)
+  //      "dev"       → chargé UNIQUEMENT hors production : outillage, démo, consoles
+  //                    (0 coût prod — un module non listé n'est même pas importé)
   modules: [
 <% if (it.complete) { %>    // ── ORM — Drizzle (SQL) par défaut. Sans NF_DATABASE_URL = sqlite LOCAL
     //    (profil solo) : l'app persiste out-of-the-box (users, sessions, jetons).
@@ -44,10 +52,12 @@ export default defineConfig<typeof env>((ctx) => ({
 
     // ── Frontend (builder Vite + statics) + console d'administration Studio
     //    → http://127.0.0.1:5151/nodefony
-    //    `policy: "dev"` : Studio embarqué en DÉVELOPPEMENT seulement. Pour
-    //    l'activer en production, protège d'abord /nodefony par une zone
-    //    firewall (introspection config/sessions = surface admin), puis passe
-    //    la policy à "mandatory".
+    //    `policy: "dev"` : Studio embarqué en DÉVELOPPEMENT seulement — c'est
+    //    une surface d'ADMIN (introspection config/sessions/logs). Pour l'avoir
+    //    aussi en production : 1) protège /nodefony par une zone firewall,
+    //    2) passe la policy à "mandatory" (toujours chargé). Un `"optional"`
+    //    conviendrait aussi mais dirait moins ton intention : une console
+    //    d'admin volontairement exposée est un choix ASSUMÉ, pas un défaut.
     "@nodefony/frontend",
     { name: "@nodefony/studio", policy: "dev" },
 

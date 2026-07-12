@@ -134,6 +134,13 @@ export class DevSupervisor {
   #timer: ReturnType<typeof setTimeout> | null = null;
   #building = false;
   #pending = false;
+  /**
+   * Problèmes du build INITIAL (verdict + tail de sortie), rejoués APRÈS le
+   * boot de l'enfant : le splash ASCII + les logs de boot noient le verdict
+   * émis AVANT le spawn — en scrollant, le dev ne le retrouvait plus (vécu).
+   * `null` = build initial sain, rien à rejouer.
+   */
+  #bootBuildIssues: { verdict: string; tail: string[] } | null = null;
   // Spinner de la phase de build initial (`#ensureBuilt`) — anime une ligne
   // unique sur stdout en TTY (sinon logs statiques). `null` = inactif.
   #spinTimer: ReturnType<typeof setInterval> | null = null;
@@ -246,6 +253,32 @@ export class DevSupervisor {
     if (txt) process.stdout.write(`${txt}\n`);
   }
 
+  /** Mémorise le verdict + les dernières lignes utiles pour le rejeu post-boot. */
+  #rememberBuildIssues(verdict: string, outputs: readonly string[]): void {
+    const tail = outputs
+      .join("\n")
+      .split("\n")
+      .map((l) => l.trimEnd())
+      .filter((l) => l.trim().length > 0)
+      .slice(-15);
+    this.#bootBuildIssues = { verdict, tail };
+  }
+
+  /**
+   * Rejoue le verdict de build APRÈS le boot (appelé par {@link #reportReady}) —
+   * le splash ASCII et les logs de boot de l'enfant ont défilé depuis : sans ce
+   * rappel, un build en échec au démarrage disparaissait dans le scroll.
+   */
+  #replayBuildIssues(): void {
+    if (!this.#bootBuildIssues) return;
+    const { verdict, tail } = this.#bootBuildIssues;
+    this.#bootBuildIssues = null;
+    this.#log("── rappel : le BUILD de démarrage avait un problème ──", "red");
+    this.#log(verdict, "red");
+    for (const line of tail) process.stdout.write(`${line}\n`);
+    this.#log("── fin du rappel build (corrige puis sauvegarde) ──", "red");
+  }
+
   /**
    * Démarre le superviseur : revendique le verrou single-instance (tue tout
    * superviseur précédent resté en vie), branche les signaux d'arrêt, attend les
@@ -340,12 +373,11 @@ export class DevSupervisor {
     if (missing.length > 0) {
       // fail-LOUD : ces modules NE se chargeront PAS → app DÉGRADÉE. On le CRIE
       // (jamais « vert mais cassé » en silence) ; le boot continue (fail-soft dispo).
-      this.#stopSpin(
-        `${ANSI.red}✗${ANSI.reset}`,
+      const verdict =
         `dist TOUJOURS absent : ${missing.join(", ")} — ces modules ne se ` +
-          "chargeront pas (app DÉGRADÉE). Corrige puis `npm run build`.",
-        "red",
-      );
+        "chargeront pas (app DÉGRADÉE). Corrige puis `npm run build`.";
+      this.#stopSpin(`${ANSI.red}✗${ANSI.reset}`, verdict, "red");
+      this.#rememberBuildIssues(verdict, errors);
     } else if (ws.ok && rootOk) {
       const built = missingBefore.length
         ? ` — (re)construits : ${missingBefore.join(", ")}`
@@ -356,11 +388,10 @@ export class DevSupervisor {
         "green",
       );
     } else {
-      this.#stopSpin(
-        `${ANSI.yellow}⚠${ANSI.reset}`,
-        "build INCOMPLET — démarrage sur le dist EXISTANT (possiblement périmé)",
-        "red",
-      );
+      const verdict =
+        "build INCOMPLET — démarrage sur le dist EXISTANT (possiblement périmé)";
+      this.#stopSpin(`${ANSI.yellow}⚠${ANSI.reset}`, verdict, "red");
+      this.#rememberBuildIssues(verdict, errors);
     }
     // Sur ÉCHEC seulement : déverser la sortie capturée APRÈS le verdict (spinner
     // figé) → le dev voit l'erreur de build sans le mur de logs en cas de succès.
@@ -399,21 +430,19 @@ export class DevSupervisor {
       );
       return;
     }
-    if (existsSync(dist)) {
-      this.#stopSpin(
-        `${ANSI.yellow}⚠${ANSI.reset}`,
-        "build en ÉCHEC — démarrage sur le dist EXISTANT (possiblement périmé). " +
-          "Corrige l'erreur ci-dessous puis sauvegarde (rebuild automatique).",
-        "red",
-      );
-    } else {
-      this.#stopSpin(
-        `${ANSI.red}✗${ANSI.reset}`,
-        "build en ÉCHEC et AUCUN dist — le serveur ne peut pas démarrer. " +
-          "Corrige l'erreur ci-dessous puis sauvegarde (rebuild automatique).",
-        "red",
-      );
-    }
+    const verdict = existsSync(dist)
+      ? "build en ÉCHEC — démarrage sur le dist EXISTANT (possiblement périmé). " +
+        "Corrige l'erreur ci-dessous puis sauvegarde (rebuild automatique)."
+      : "build en ÉCHEC et AUCUN dist — le serveur ne peut pas démarrer. " +
+        "Corrige l'erreur ci-dessous puis sauvegarde (rebuild automatique).";
+    this.#stopSpin(
+      existsSync(dist)
+        ? `${ANSI.yellow}⚠${ANSI.reset}`
+        : `${ANSI.red}✗${ANSI.reset}`,
+      verdict,
+      "red",
+    );
+    this.#rememberBuildIssues(verdict, [res.output]);
     this.#dumpBuild(res.output);
   }
 
@@ -721,6 +750,9 @@ export class DevSupervisor {
             "green",
           );
         }
+        // Verdict de build rejoué APRÈS le boot : le splash + les logs de
+        // l'enfant ont défilé — sans rappel, l'erreur se perdait dans le scroll.
+        this.#replayBuildIssues();
         return;
       }
       if (Date.now() >= deadline) {
@@ -730,6 +762,7 @@ export class DevSupervisor {
               `(ports ${this.#ports.join(", ")}) — boot bloqué ? voir les logs ci-dessus`,
             "yellow",
           );
+          this.#replayBuildIssues();
         }
         return;
       }
