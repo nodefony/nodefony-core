@@ -6,6 +6,14 @@ interface ApiData {
   /** Identité résolue par la zone firewall `main` (^/api) — « anonyme » sinon. */
   who?: string;
 }
+<% if (it.complete) { %>
+/** Réponse de la route PROTÉGÉE /api/secure/hello (zone `secure`, 401 sans session). */
+interface SecureData {
+  message: string;
+  zone: string;
+  pid: number;
+}
+<% } %>
 
 /**
  * Page d'accueil de l'app — vitrine AUTONOME (zéro dépendance UI) :
@@ -87,13 +95,29 @@ export function App() {
 <% if (it.complete) { %>  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin");
   const [authMsg, setAuthMsg] = useState<string | null>(null);
+  const [secureData, setSecureData] = useState<SecureData | null>(null);
 <% } %>
   // Rappelé après login/logout : la zone firewall `main` (^/api) résout
   // l'identité par requête → `who` change sans recharger la page.
   const refreshHello = () =>
     fetch("/api/hello")
       .then((r) => r.json())
-      .then((j) => setData((j.result ?? j) as ApiData)) // Nodefony wrappe `{ result }`
+      .then((j) => {
+        const d = (j.result ?? j) as ApiData; // Nodefony wrappe `{ result }`
+        setData(d);
+<% if (it.complete) { %>        // Connecté → la route PROTÉGÉE prend le relais (zone `secure`,
+        // ^/api/secure : sans session le firewall répond 401 avant le controller).
+        if (d.who && d.who !== "anonyme") {
+          fetch("/api/secure/hello", { credentials: "same-origin" })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((s) =>
+              setSecureData(s ? ((s.result ?? s) as SecureData) : null),
+            )
+            .catch(() => setSecureData(null));
+        } else {
+          setSecureData(null);
+        }
+<% } %>      })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
 <% if (it.complete) { %>
   // Flux session BFF du framework (cookie opaque HttpOnly — le front ne voit
@@ -212,11 +236,12 @@ export function App() {
         </p>
 
         <div className="nf-card">
-          <h2>1. Backend HTTP — <code>GET /api/hello</code></h2>
-          {error ? (
+<% if (it.complete) { %>          <h2>1. Backend HTTP — <code>GET {secureData ? "/api/secure/hello" : "/api/hello"}</code></h2>
+<% } else { %>          <h2>1. Backend HTTP — <code>GET /api/hello</code></h2>
+<% } %>          {error ? (
             <pre style={{ color: "crimson" }}>{error}</pre>
           ) : data ? (
-            <pre>{JSON.stringify(data, null, 2)}</pre>
+            <pre>{JSON.stringify(<%= it.complete ? "secureData ?? data" : "data" %>, null, 2)}</pre>
           ) : (
             <p>loading…</p>
           )}
@@ -225,11 +250,13 @@ export function App() {
         <div className="nf-card">
           <h2>2. Firewall — l'identité vit dans la zone <code>^/api</code></h2>
           <p className="nf-dim">
-            <code>who</code> ci-dessus = l'identité résolue par la zone{" "}
-            <code>main</code> (<code>nodefony.config.ts</code>). Connecte-toi :
-            le MÊME <code>GET /api/hello</code> te reconnaît. Compte dev seedé{" "}
-            <code>admin / admin</code> — retire <code>"anonymous"</code> de la
-            zone pour EXIGER le login.
+            Deux zones dans <code>nodefony.config.ts</code> : <code>main</code>{" "}
+            (<code>^/api</code>, session → anonymous, jamais bloquante) et{" "}
+            <code>secure</code> (<code>^/api/secure</code>, session SEULE —
+            pattern plus spécifique, il gagne le match ; sans session le
+            firewall répond 401). Connecte-toi (compte dev seedé{" "}
+            <code>admin / admin</code>) : la carte 1 bascule sur{" "}
+            <code>GET /api/secure/hello</code> → « Bonjour admin ».
           </p>
           {data?.who && data.who !== "anonyme" ? (
             <>

@@ -67,6 +67,14 @@ export default defineConfig<typeof env>((ctx) => ({
           pattern: "^/api",
           authenticators: ["session", "anonymous"],
         },
+        // Zone PROTÉGÉE — pattern PLUS SPÉCIFIQUE que ^/api : le firewall
+        // trie par longueur → /api/secure/* tombe ICI, pas dans `main`.
+        // Pas d'"anonymous" : sans session → 401 AVANT ton controller
+        // (Zero Trust). Essaie : GET /api/secure/hello (carte 1 de la home).
+        secure: {
+          pattern: "^/api/secure",
+          authenticators: ["session"],
+        },
       },
       // Clés de chiffrement au repos — les VALEURS ont été générées dans
       // `.env.local` (gitignoré) à la création de l'app. Rotation ou
