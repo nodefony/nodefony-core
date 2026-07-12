@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-12T17:27:57.153Z",
+  "generated": "2026-07-12T17:38:01.111Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -10630,7 +10630,7 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "`nodefony security:secrets` — génère les clés de chiffrement attendues par le module security (TOTP, webhooks, CSRF) au bon format (32 octets aléatoires, base64) et imprime le câblage COMPLET à col…"
+      "description": "`nodefony security:secrets` — génère les clés de chiffrement attendues par le module security (TOTP, webhooks, CSRF) au bon format (32 octets aléatoires, base64) et guide le câblage en 3 FICHIERS (…"
     },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
