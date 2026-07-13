@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-13T10:11:39.065Z",
+  "generated": "2026-07-13T11:37:06.895Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -20711,7 +20711,8 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "CONTROLLER_KIND_CHOICES": [
-        "src/nodefony/src/cli/create.ts"
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "FRONTEND_CHOICES": [
         "src/nodefony/src/cli/create.ts"

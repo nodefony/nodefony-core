@@ -233,6 +233,52 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     expect(out).to.deep.equal({ read: true });
   });
 
+  it("pont WS (methodOverride POST) → porte ACTIVE : rejeu mémorisé, corps ALS", async () => {
+    // Bug vécu au banc duplex : en WS `context.method` = transport → la porte
+    // était sautée et chaque rejeu `socket.mutate` créait un DOUBLON. La méthode
+    // LOGIQUE de la mutation du pont voyage dans `resolver.methodOverride`.
+    const store = makeStore();
+    const call = () =>
+      RequestContext.run(
+        {
+          requestId: "t",
+          user: { username: "alice" },
+          idempotencyKey: "kws",
+          body: { name: "via-socket" }, // corps de frame posé par le pont (ALS)
+        },
+        () => {
+          const r = makeResolver({
+            action: "create",
+            method: "WEBSOCKET",
+            store,
+          });
+          (r.context as unknown as { type: string }).type = "websocket";
+          r.methodOverride = "POST";
+          return r.callController();
+        },
+      );
+    expect(await call()).to.deep.equal({ created: true, n: 1 });
+    const replay = await call();
+    expect(execCount).to.equal(1); // PAS de 2e exécution (le doublon du banc)
+    expect(replay).to.deep.equal({ created: true, n: 1 });
+  });
+
+  it("pont WS (methodOverride POST) SANS clé → 400 strict (socket.mutate l'exige)", async () => {
+    const r = makeResolver({
+      action: "create",
+      method: "WEBSOCKET",
+      store: makeStore(),
+    });
+    (r.context as unknown as { type: string }).type = "websocket";
+    r.methodOverride = "POST";
+    const err = await RequestContext.run(
+      { requestId: "t", user: { username: "alice" } },
+      () => caught(r.callController()),
+    );
+    expect(err?.code).to.equal(400);
+    expect(execCount).to.equal(0);
+  });
+
   it("circular body (renderJson-like) + SERIALIZING store → dedup KEPT, replay empty", async () => {
     // Store qui SÉRIALISE la réponse mémorisée (comme drizzle/redis) : un corps
     // circulaire y throw au stringify. Bug vécu (2026-07) : le throw remontait

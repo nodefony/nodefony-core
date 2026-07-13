@@ -390,17 +390,38 @@ class Resolver implements IResolver {
     const meta = this.route
       ? resolveActionMeta(this.route)
       : computeActionMeta(this.controller, this.actionName);
-    if (meta.idempotent !== null) {
-      return this._callWithIdempotency(meta, data, reload);
-    }
     // Pas de try/catch re-throw (no-op) : les erreurs de l'action remontent
     // seules jusqu'à HttpKernel.onError. callController = exécuter PUIS rendre.
-    const { result, redirectMeta } = await this.executeAction(
-      data,
-      reload,
-      meta,
-    );
+    const { result, redirectMeta } =
+      meta.idempotent !== null
+        ? await this._callWithIdempotency(meta, data, reload)
+        : await this.executeAction(data, reload, meta);
     return this._handleRedirect(result, redirectMeta);
+  }
+
+  /**
+   * Exécute l'action AVEC la porte d'idempotence mais SANS rendu
+   * (`returnController`) — le chemin du **pont `api.request`** (WS) : la valeur
+   * nue est enveloppée `{id, result}` par le peer, jamais rendue sur le
+   * transport. La méthode HTTP logique d'une mutation du pont voyage dans
+   * {@link methodOverride} ; sans porte ici, un rejeu `socket.mutate` (socket
+   * qui reconnecte) ré-exécuterait la mutation (doublon — vécu au banc duplex).
+   *
+   * @returns `{ result }` — la valeur retournée par l'action (ou la réponse
+   *   mémorisée rejouée pour une clé d'idempotence déjà servie).
+   */
+  async executeActionGuarded(
+    data?: unknown[],
+    reload: boolean = false,
+  ): Promise<{ result: unknown }> {
+    const meta = this.route
+      ? resolveActionMeta(this.route)
+      : computeActionMeta(this.controller, this.actionName);
+    const { result } =
+      meta.idempotent !== null
+        ? await this._callWithIdempotency(meta, data, reload)
+        : await this.executeAction(data, reload, meta);
+    return { result };
   }
 
   /**
@@ -415,28 +436,30 @@ class Resolver implements IResolver {
    *  - `guarded` → exécuter, puis `complete()` (succès, réponse rejouable) ou
    *    `abort()` (échec/403 — la clé reste réessayable, un échec ne se mémorise pas).
    *
-   * No-op sur les méthodes sûres (GET…) et en WS (pas de méthode logique userland
-   * sur ce chemin — le pont admin a son propre dispositif). La réponse mémorisée est
+   * No-op sur les méthodes sûres (GET…). La réponse mémorisée est
    * le **résultat retourné** par l'action (`return data`) + son statut : une action
    * qui pilote la response manuellement (`this.render`/stream) n'est pas rejouée
    * fidèlement (le double-effet reste évité, mais le corps rejoué est vide).
+   *
+   * Retourne la forme BRUTE `{ result, redirectMeta }` (comme `executeAction`) :
+   * le rendu appartient à l'appelant — `callController` rend (`_handleRedirect`),
+   * le pont (`executeActionGuarded`) enveloppe la valeur nue.
    */
   private async _callWithIdempotency(
     meta: RouteActionMeta,
     data?: unknown[],
     reload: boolean = false,
-  ): Promise<unknown> {
+  ): Promise<{ result: unknown; redirectMeta: RedirectMeta | undefined }> {
     const context = this.context;
-    // No-op sur méthode sûre / WS → flux normal (l'action décorée peut être un GET
+    // No-op sur méthode sûre → flux normal (l'action décorée peut être un GET
     // si `@Idempotent` est posé sur la classe : seules les mutations sont gatées).
+    // En WS, la méthode LOGIQUE d'une mutation du pont `api.request` voyage dans
+    // `methodOverride` (posé par `router.resolve(ctx, path, method)`) — sans elle
+    // `context.method` = transport WEBSOCKET → la porte serait SAUTÉE et le rejeu
+    // d'une frame `socket.mutate` créerait un DOUBLON (vécu au banc duplex).
     // `meta` est repassé à `executeAction` (pas de re-résolution).
-    if (!isMutationMethod(context.method)) {
-      const { result, redirectMeta } = await this.executeAction(
-        data,
-        reload,
-        meta,
-      );
-      return this._handleRedirect(result, redirectMeta);
+    if (!isMutationMethod(this.methodOverride ?? context.method)) {
+      return this.executeAction(data, reload, meta);
     }
     const als = RequestContext.get();
     const paramCtx = context as unknown as IParamArgContext;
@@ -484,15 +507,10 @@ class Resolver implements IResolver {
           );
         }
       }
-      return this.returnController(memo);
+      return { result: memo, redirectMeta: undefined };
     }
     if (verdict.kind === "execute") {
-      const { result, redirectMeta } = await this.executeAction(
-        data,
-        reload,
-        meta,
-      );
-      return this._handleRedirect(result, redirectMeta);
+      return this.executeAction(data, reload, meta);
     }
     // guarded : exécuter puis mémoriser le succès (rejouable) / libérer l'échec.
     try {
@@ -528,7 +546,7 @@ class Resolver implements IResolver {
         }
         await store?.complete(verdict.key, { status, body: null });
       }
-      return this._handleRedirect(resolved, redirectMeta);
+      return { result: resolved, redirectMeta };
     } catch (e) {
       await store?.abort(verdict.key);
       throw e;

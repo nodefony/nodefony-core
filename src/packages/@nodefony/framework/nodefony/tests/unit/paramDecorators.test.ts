@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import "reflect-metadata";
+import { RequestContext } from "nodefony";
 import {
   Param,
   Body,
@@ -129,6 +130,28 @@ describe("resolveParamArg — résolution par source", () => {
   it("body avec clé / sans clé", () => {
     expect(r({ source: "body", key: "name" })).to.equal("john");
     expect(r({ source: "body" })).to.deep.equal({ name: "john" });
+  });
+  it("body — pont api.request : le corps ALS PRIME sur queryPost (mutation WS)", () => {
+    // Le pont pose le corps de la frame dans l'ALS (aucun corps HTTP parsé en
+    // WS) ; @Body doit le lire là, sinon une mutation socket.mutate reçoit
+    // undefined alors que la MÊME action marche en HTTP (dégradation silencieuse).
+    const fromAls = RequestContext.run(
+      { requestId: "t-ws", body: { name: "ws-body", extra: 1 } },
+      () => ({
+        full: r({ source: "body" }),
+        keyed: r({ source: "body", key: "name" }),
+      }),
+    );
+    expect(fromAls.full).to.deep.equal({ name: "ws-body", extra: 1 });
+    expect(fromAls.keyed).to.equal("ws-body");
+    // Hors bulle ALS (HTTP classique) → fallback queryPost, inchangé.
+    expect(r({ source: "body" })).to.deep.equal({ name: "john" });
+  });
+  it("body — payload ALS SANS body (HTTP dans la bulle requestId) → queryPost", () => {
+    const val = RequestContext.run({ requestId: "t-http" }, () =>
+      r({ source: "body", key: "name" }),
+    );
+    expect(val).to.equal("john");
   });
   it("headers — lookup insensible à la casse (Node lowercase)", () => {
     expect(r({ source: "headers", key: "Content-Type" })).to.equal(

@@ -104,7 +104,9 @@ function makeRouter() {
       return {
         resolve: true,
         queryOverride: undefined as unknown,
-        async executeAction(_a: unknown, _reload: boolean) {
+        // Le pont appelle `executeActionGuarded` (porte @Idempotent sans rendu)
+        // — même contrat de retour `{ result }` que l'ex-`executeAction`.
+        async executeActionGuarded(_a: unknown, _reload: boolean) {
           if (routerMode === "action403") {
             throw Object.assign(new Error("Access denied"), { code: 403 });
           }

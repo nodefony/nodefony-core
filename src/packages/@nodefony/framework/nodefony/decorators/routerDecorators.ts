@@ -620,8 +620,7 @@ function resolveSessionIntent(
   actionName: string,
 ): SessionIntent | null {
   const classMeta = Reflect.getMetadata(USE_SESSION_CLASS_METADATA, ctor) as
-    | UseSessionOptions
-    | undefined;
+    UseSessionOptions | undefined;
   const methodMeta = Reflect.getMetadata(
     USE_SESSION_METHOD_METADATA,
     ctor,
@@ -832,8 +831,7 @@ function Csp(directives: CspDirectives) {
   ): any {
     if (propertyKey === undefined) {
       const existing = Reflect.getMetadata(CSP_DIRECTIVES_METADATA, target) as
-        | CspDirectives
-        | undefined;
+        CspDirectives | undefined;
       Reflect.defineMetadata(
         CSP_DIRECTIVES_METADATA,
         mergeCspDirectives(existing, directives),
@@ -1061,6 +1059,17 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
       // flux lui-même (gros upload sans pic mémoire).
       if (meta.stream) {
         return ctx.request?.request;
+      }
+      // Pont `api.request` (WS) : le corps d'une mutation voyage dans l'ALS
+      // (aucun corps HTTP parsé sur une frame — posé per-invocation par
+      // `RealtimeController.invokeApiRequest`, zéro bleed) et PRIME sur
+      // `queryPost` (vide en WS) — même priorité que `AdminApiController.
+      // buildRequest`. En HTTP le payload ALS ne porte jamais `body` → fallback.
+      const alsBody = RequestContext.get()?.body;
+      if (alsBody !== undefined) {
+        return meta.key !== undefined
+          ? (alsBody as Record<string, unknown>)?.[meta.key]
+          : alsBody;
       }
       const qp = ctx.request?.queryPost;
       return meta.key !== undefined ? qp?.[meta.key] : qp;
@@ -1300,8 +1309,7 @@ function computeCspDirectives(
     method,
   ) as CspDirectives | undefined;
   const classDirectives = Reflect.getMetadata(CSP_DIRECTIVES_METADATA, ctor) as
-    | CspDirectives
-    | undefined;
+    CspDirectives | undefined;
   if (!classDirectives && !methodDirectives) {
     return null; // aucune @Csp → 0 coût
   }
@@ -1325,8 +1333,7 @@ function computeIdempotent(
     method,
   ) as IdempotentMeta | undefined;
   const classMeta = Reflect.getMetadata(IDEMPOTENT_METADATA, ctor) as
-    | IdempotentMeta
-    | undefined;
+    IdempotentMeta | undefined;
   if (methodMeta === undefined && classMeta === undefined) {
     return null; // action non idempotentée → 0 coût
   }
@@ -1344,17 +1351,13 @@ function computeActionMeta(
   }
   const proto = ctor.prototype;
   const params = Reflect.getMetadata(PARAM_ARGS_METADATA, proto, method) as
-    | ParamMeta[]
-    | undefined;
+    ParamMeta[] | undefined;
   const redirect = Reflect.getMetadata(REDIRECT_METADATA, proto, method) as
-    | RedirectMeta
-    | undefined;
+    RedirectMeta | undefined;
   const httpCode = Reflect.getMetadata(HTTP_CODE_METADATA, proto, method) as
-    | number
-    | undefined;
+    number | undefined;
   const headers = Reflect.getMetadata(HEADERS_METADATA, proto, method) as
-    | Record<string, string>
-    | undefined;
+    Record<string, string> | undefined;
   return {
     paramsMeta: params && params.length > 0 ? params : null,
     redirectMeta: redirect ?? null,

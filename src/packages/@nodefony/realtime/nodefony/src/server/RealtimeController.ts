@@ -729,7 +729,15 @@ export abstract class RealtimeController<
           // `reload = true` : le container de la connexion porte CE hub sous
           // "controller" — sans reload, l'action serait cherchée sur la mauvaise
           // instance (seam découvert au POC Ph.1). Singleton-safe (cache Router).
-          const { result } = await resolver.executeAction(undefined, true);
+          // `executeActionGuarded` (PAS `executeAction` nu) : il porte la porte
+          // d'idempotence `@Idempotent` (mutations — la méthode logique voyage
+          // dans `resolver.methodOverride`) SANS rendre sur le transport ;
+          // l'appel nu la court-circuitait → un rejeu `socket.mutate` créait un
+          // DOUBLON, et `callController` enverrait la réponse une 2ᵉ fois.
+          const { result } = await resolver.executeActionGuarded(
+            undefined,
+            true,
+          );
           // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
           return await Promise.resolve(result);
         } catch (e) {
