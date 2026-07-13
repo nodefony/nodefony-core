@@ -55,32 +55,41 @@ BIN="$ROOT/node_modules/nodefony/bin/nodefony"
 
 # ── 1. KILL : arrêt PROPRE via `nodefony stop` (source de vérité) PUIS filet ──
 # `nodefony stop` group-kill par `ps` TOUS les modes — SCOPÉ à CE projet. Le
-# filet ENSUITE (résidus si `ps` indispo) doit respecter la MÊME règle : on ne
-# tue un process au port QUE si son cwd est CE repo. ⚠️ Vécu : le kill -9
-# aveugle par port a SIGKILLé le serveur dev d'une AUTRE app du poste (le
-# framework refuse ce kill trans-projet partout ailleurs). Occupant étranger →
-# REFUS explicite, jamais de kill. `-sTCP:LISTEN` OBLIGATOIRE : sans le filtre,
-# `lsof -ti:PORT` vise aussi les CLIENTS connectés (navigateur sur Studio).
+# filet ENSUITE (résidus si `ps` indispo) doit respecter EXACTEMENT la règle de
+# `splitByProject` (devProcess.ts) : cwd STRICTEMENT ÉGAL à la racine — jamais
+# un préfixe. ⚠️ Vécu 2× : (1) kill -9 aveugle par port → serveur d'une AUTRE
+# app du poste ; (2) préfixe "$ROOT"/* → serveur d'une app IMBRIQUÉE dans le
+# repo (tmp/cci-app, banc de contrôle scaffold) SIGKILLé alors que `stop`
+# venait de la classer « autre projet » → superviseur zombie chez le user
+# (« serveur arrêté (SIGKILL) — en attente d'un changement »). Deux règles de
+# scoping = dérive garantie : le filet copie la règle STRICTE. Occupant non
+# strictement-CE-repo → REFUS explicite, jamais de kill. `-sTCP:LISTEN`
+# OBLIGATOIRE : sans le filtre, `lsof -ti:PORT` vise aussi les CLIENTS
+# connectés (navigateur sur Studio).
 echo ">>> KILL (nodefony stop + filet scopé projet, ports 5151/5152)"
-(cd "$ROOT" && node "$BIN" stop >/dev/null 2>&1)
+# Le rapport de `stop` (runtimes d'autres projets ÉPARGNÉS, verdict) doit rester
+# VISIBLE — l'envoyer dans /dev/null a déjà masqué le vrai occupant des ports.
+(cd "$ROOT" && node "$BIN" stop 2>&1 | sed -n 's/^/>>> [stop] /p')
 PIDS=$( { lsof -ti:5151 -sTCP:LISTEN; lsof -ti:5152 -sTCP:LISTEN; } 2>/dev/null | sort -u )
 for PID in $PIDS; do
   PCWD=$(lsof -a -p "$PID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
   case "$PCWD" in
-    "$ROOT"|"$ROOT"/*) kill -9 "$PID" 2>/dev/null ;;
+    "$ROOT") kill -9 "$PID" 2>/dev/null ;;
     *)
-      echo ">>> ⛔ port occupé par pid $PID (${PCWD:-cwd inconnu}) — un AUTRE projet."
+      echo ">>> ⛔ port occupé par pid $PID (${PCWD:-cwd inconnu}) — un AUTRE projet"
+      echo ">>>    (ou une app imbriquée dans ce repo : tmp/<app> compte comme un projet)."
       echo ">>>    Je ne tue JAMAIS le runtime d'un autre dossier : arrête-le depuis"
       echo ">>>    SON dossier (nodefony stop) ou avec \`nodefony stop --all\`."
       exit 73
       ;;
   esac
 done
-# rolldown résiduels de CE repo uniquement (même règle de scoping par cwd).
+# rolldown résiduels des WORKSPACES de ce repo uniquement (src/*) — une app
+# imbriquée (tmp/<app>) qui build garde son rolldown : même règle que les ports.
 for PID in $(pgrep -f "rolldown" 2>/dev/null); do
   PCWD=$(lsof -a -p "$PID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
   case "$PCWD" in
-    "$ROOT"|"$ROOT"/*) kill -9 "$PID" 2>/dev/null ;;
+    "$ROOT"|"$ROOT"/src/*) kill -9 "$PID" 2>/dev/null ;;
   esac
 done
 sleep 1

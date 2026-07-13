@@ -866,10 +866,26 @@ export class DevSupervisor {
       return;
     }
     if (killed || !code) {
-      this.#log(
-        `serveur arrêté (${signal ?? `code ${code}`}) — en attente d'un changement`,
-        "yellow",
-      );
+      // Signal EXTERNE (on est dans le chemin « non sollicité » : ce superviseur
+      // n'a rien demandé) — un autre process a tué le serveur, typiquement un
+      // kill de port d'un AUTRE lancement dev (vécu : app imbriquée tmp/<app>
+      // SIGKILLée par le start.sh du repo). Le dire, sinon le message est une
+      // énigme (« SIGKILL ?? ») et ce superviseur relancera au prochain save →
+      // guerre de ports silencieuse.
+      if (killed) {
+        this.#log(
+          `serveur tué par un signal EXTERNE (${signal}) — un autre process a ` +
+            `pris les ports (autre lancement dev, kill de port ?). Sauvegarde un ` +
+            `fichier pour relancer ICI, ou arrête ce superviseur (Ctrl+C) si ` +
+            `l'autre runtime est légitime`,
+          "yellow",
+        );
+      } else {
+        this.#log(
+          `serveur arrêté (code ${code}) — en attente d'un changement`,
+          "yellow",
+        );
+      }
       this.#spawnRetries = 0;
       return;
     }
