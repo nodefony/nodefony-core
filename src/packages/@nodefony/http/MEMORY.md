@@ -18,6 +18,17 @@ metadata:
 
 Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Différenciateur : HTTP et WS dans le même pipeline Controller.
 
+## Ports — repli automatique (`servers.portPolicy`)
+
+- **Les ports NE sont PAS dans le Zod de ce module** : ils vivent dans la config d'APP (core `config/schema.ts` → `servers.http.port` 5151 / `servers.https.port` 5152, défauts `config/defaults.ts`). Ce module ne fait que les LIRE (`kernel.options.servers`).
+- **`servers.portPolicy: "auto" | "strict"`** — que faire si le port désiré est occupé. Défaut **`auto` en `development`**, **`strict` en `production` ET `test`** (`resolvePortPolicy`). Prod : le port est un CONTRAT (service k8s/ingress/sonde) → glisser en silence = pod « sain » injoignable. Test : un port pris = un serveur resté debout → le banc doit s'arrêter, pas viser le serveur du voisin. `servers.portRetryAttempts` (défaut 20) borne le repli.
+- **`src/servers/portBinder.ts`** = source unique. `bindWithFallback(server, host, plan)` retente **au `listen()`** sur `EADDRINUSE` — **jamais de sonde préalable** (« le port est-il libre ? » puis binder = course TOCTOU ; le listen est atomique). `buildBindPlan(which, servers, env)` compose le plan et **réserve le port de l'AUTRE serveur** (sinon HTTP, chassé de 5151, volerait 5152 à HTTPS). Deux serveurs qui se disputent le même départ se démêlent seuls (le bind atomique arbitre).
+- ⚠️ **Le handler `error` DURABLE se pose APRÈS le bind** (`attachErrorHandler`) : attaché avant, il voyait passer les `EADDRINUSE` de repli et terminait le kernel en croyant à une panne. `reportBindError` garde le contrat FATAL (log CRITIC + `terminate(1)`) quand le bind échoue pour de bon.
+- **Tout décalage est ANNONCÉ** (WARNING `Port X déjà occupé → écoute sur Y`) — pas de dégradation silencieuse.
+- **Publication des ports effectifs** : `initServers()` → `publishRuntimePorts()` → `writeRuntimeState()` (core) → `node_modules/.cache/nodefony/runtime.json`. **Dev/test seulement** (en prod le port ne glisse pas, et l'image peut être en lecture seule). C'est le canal SANS lequel `status`/`stop`/readiness `--detach` resteraient aveugles (ils sondaient `[5151,5152]` en dur). Cf core `devProcess.ts`.
+- Les serveurs **WS n'ont pas de port propre** (adossés à http/https) et relisent `server.address()` → ils suivent le repli sans rien faire.
+- Banc : `tests/unit/portBinder.test.ts` (22, sur de VRAIES sockets — un mock de `listen` ne prouverait rien du comportement du noyau).
+
 ## Config Zod — config.ts source de vérité
 
 `nodefony/config/{config.ts, defineModuleConfig.ts}` + interface `interfaces/IHttpConfig.ts`. Convention [[feedback_config_validation_zod]].
