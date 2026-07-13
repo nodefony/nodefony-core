@@ -229,6 +229,36 @@ export const appConfigSchema = z.object({
       "Topologie cluster (workers, backplane). Forme détaillée résolue par " +
         "`resolveTopology` ; lue standalone par le master AVANT le boot.",
     ),
+  timing: z
+    .object({
+      enabled: z
+        .boolean()
+        .nullable()
+        .optional()
+        .describe(
+          "Sonde de phases du pipeline (parse/resolve/firewall/initialize/action/" +
+            "render/send) : la matière du waterfall (Studio, debug bar, profiler). " +
+            "`null` (défaut) = PAS D'AVIS → active hors production, éteinte en " +
+            "production. Un booléen EXPLICITE gagne : `true` allume la sonde en " +
+            "production (diagnostic à chaud — coût mesuré, cf docs) ; `false` " +
+            "l'éteint partout. Surchargeable sans redéployer : " +
+            "`NF__APP__TIMING__ENABLED=true`.",
+        ),
+      verbose: z
+        .boolean()
+        .optional()
+        .describe(
+          "Trace DEBUG détaillant chaque phase au teardown (1 log par requête). " +
+            "Implique `enabled`. Défaut : false — à n'allumer que le temps d'un " +
+            "diagnostic (le volume nominal n'est pas un signal).",
+        ),
+    })
+    .optional()
+    .describe(
+      "Instrumentation du pipeline (timing des phases). Éteinte en production " +
+        "par défaut : allumée, elle alloue le tableau des phases + une Map par " +
+        "requête et appelle `performance.now()` à chaque borne.",
+    ),
   shutdownDeadline: z
     .number()
     .int()

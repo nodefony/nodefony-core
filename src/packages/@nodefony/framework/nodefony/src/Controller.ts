@@ -314,10 +314,20 @@ class Controller extends Service implements IController {
     let data: string | undefined;
     try {
       const file = typeof path === "string" ? await FileClass.from(path) : path;
-      data = await this.template?.render(
-        (await file.readAsync()).toString(),
-        this.withFrontendLocals(param),
-      );
+      // Phase `render` — la PRODUCTION du corps par le moteur de vue (lecture du
+      // template + Eta). C'est le seul « rendu » qui coûte vraiment ; un
+      // `JSON.stringify` de réponse API est du bruit à côté (il reste compté dans
+      // `action`). L'ENVOI, lui, a sa propre phase (`send`) : rendre et écrire sur
+      // le fil sont deux temps distincts, et les confondre masquerait lequel traîne.
+      this.context?.phaseStart("render");
+      try {
+        data = await this.template?.render(
+          (await file.readAsync()).toString(),
+          this.withFrontendLocals(param),
+        );
+      } finally {
+        this.context?.phaseEnd("render");
+      }
       this.setContextHtml();
       return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {

@@ -243,8 +243,13 @@ class Context extends Service implements IContextInterface {
     this.setMetaData();
     // Resolve timing flag once per request. Explicit kernel option wins;
     // otherwise default = enabled in dev / development, disabled in prod.
+    // `timing.enabled` vaut `null` par défaut (= PAS D'AVIS, cf `defaultAppConfig`) :
+    // seul un booléen explicite court-circuite la règle d'environnement — ce qui
+    // permet d'allumer la sonde EN PRODUCTION (`NF__APP__TIMING__ENABLED=true`)
+    // pour un diagnostic, sans redéployer.
     const explicit = (
-      this.kernel?.options as { timing?: { enabled?: boolean } } | undefined
+      this.kernel?.options as
+        { timing?: { enabled?: boolean | null } } | undefined
     )?.timing?.enabled;
     if (typeof explicit === "boolean") {
       this._timingEnabled = explicit;
@@ -325,6 +330,20 @@ class Context extends Service implements IContextInterface {
 
   setScheme(): SchemeType {
     return "https";
+  }
+
+  /**
+   * Le timing est-il actif sur CETTE requête ? (dev/test par défaut, opt-out en
+   * production — cf constructeur.)
+   *
+   * Exposé pour que les appelants qui devraient **payer** pour mesurer (un
+   * `try/finally` autour d'une chaîne de promesses = une microtask de plus par
+   * requête) puissent garder leur chemin nominal INTACT quand la mesure est
+   * éteinte : `if (!ctx.timingEnabled) return fastPath()`. Les autres n'ont rien
+   * à tester — {@link phaseStart}/{@link phaseEnd} sont déjà des no-ops.
+   */
+  get timingEnabled(): boolean {
+    return this._timingEnabled;
   }
 
   phaseStart(name: PhaseName): void {

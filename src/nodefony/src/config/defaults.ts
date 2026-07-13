@@ -57,6 +57,15 @@ export const defaultAppConfig: ResolvedAppConfig = {
     wss: {},
   },
 
+  // ── Instrumentation du pipeline (sonde de phases → waterfall Studio/profiler) ──
+  // `enabled: null` = PAS D'AVIS, et c'est délibéré : le Context applique alors sa
+  // règle d'environnement (ON hors production, OFF en production). Un `false` en dur
+  // ici l'éteindrait AUSSI en développement — le Playground, la debug bar et le
+  // profiler perdraient leur matière. La clé doit néanmoins EXISTER : les overrides
+  // `NF__APP__*` n'écrivent que sur des chemins déjà présents → sans elle, aucun moyen
+  // d'allumer la sonde en production pour un diagnostic (`NF__APP__TIMING__ENABLED=true`).
+  timing: { enabled: null, verbose: false },
+
   // ── Observabilité (valeurs statiques ; env-dépendances superposées par defineEnv) ──
   log: {
     active: true,

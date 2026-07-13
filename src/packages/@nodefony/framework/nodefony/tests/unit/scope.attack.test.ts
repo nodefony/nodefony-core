@@ -38,6 +38,10 @@ function makeCtx(tag: string, session?: Sess) {
   const ctx = {
     container,
     notificationsCenter: new Event(),
+    // Cf `IContext` : le vrai Context instrumente ses phases (le Resolver mesure
+    // `initialize` autour de la création du controller).
+    phaseStart() {},
+    phaseEnd() {},
     request: {
       url: new URL(`http://127.0.0.1/${tag}`),
       query: { q: tag },

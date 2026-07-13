@@ -350,6 +350,25 @@ class HttpContext extends Context implements IHttpContextInterface {
         return reject(new Error("Response Already sended"));
       });
     }
+    // Phase `send` — l'envoi n'est PAS gratuit : il porte `saveSession()` (écriture
+    // du store : SQLite/Redis — de loin le premier poste d'une requête authentifiée),
+    // le hook `onSend`, le `writeHead` et le `write`. Sans elle, le waterfall
+    // s'arrêtait à la fin de l'action et ce temps-là n'était imputé à personne.
+    // Timing éteint (production) → chemin nominal STRICTEMENT inchangé : pas de
+    // `try/finally` autour de la chaîne (une microtask de plus par requête).
+    if (!this.timingEnabled) return this.#doSend(chunk, encoding);
+    this.phaseStart("send");
+    try {
+      return await this.#doSend(chunk, encoding);
+    } finally {
+      this.phaseEnd("send");
+    }
+  }
+
+  #doSend(
+    chunk?: any,
+    encoding?: BufferEncoding,
+  ): Promise<Http2Response | HttpResponse> {
     return this.saveSession()
       .then(async (_session: Session | null) => {
         // if (session) {

@@ -271,23 +271,35 @@ class Resolver implements IResolver {
    * boot) — le per-request y lit l'ALS s'il a besoin de la requête.
    */
   private async _createController(context?: ContextType): Promise<Controller> {
-    const controller = this.injector?.instantiate<Controller>(
-      this.controller as ControllerConstructor,
-      context || this.context,
-    );
-    if (!controller) {
-      throw new Error(`Route Controller not found`);
+    // Phase `initialize` — la MISE EN PLACE du controller : résolution DI
+    // (dépendances du constructeur) + hook `initialize()` (où les controllers
+    // ouvrent leur session, chargent un contexte métier…). C'est du temps réel,
+    // qui n'était imputé à personne : il disparaissait dans le bloc opaque
+    // `action`. Un singleton ne la paie qu'à sa première requête — la phase
+    // n'apparaîtra donc que là, ce qui est la vérité.
+    const ctx = context || this.context;
+    ctx.phaseStart("initialize");
+    try {
+      const controller = this.injector?.instantiate<Controller>(
+        this.controller as ControllerConstructor,
+        ctx,
+      );
+      if (!controller) {
+        throw new Error(`Route Controller not found`);
+      }
+      if (this.controller?.prototype.module) {
+        controller.module = this.controller.prototype.module;
+      }
+      if (
+        "initialize" in controller &&
+        typeof controller.initialize === "function"
+      ) {
+        await controller.initialize();
+      }
+      return controller as Controller;
+    } finally {
+      ctx.phaseEnd("initialize");
     }
-    if (this.controller?.prototype.module) {
-      controller.module = this.controller.prototype.module;
-    }
-    if (
-      "initialize" in controller &&
-      typeof controller.initialize === "function"
-    ) {
-      await controller.initialize();
-    }
-    return controller as Controller;
   }
 
   /**

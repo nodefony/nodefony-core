@@ -290,6 +290,22 @@ export interface AppConfigInput {
    * @reactivity boot
    */
   shutdownDeadline?: number;
+  /**
+   * Instrumentation du pipeline — la sonde de phases qui alimente le waterfall
+   * (Studio/Playground, debug bar, profiler).
+   *
+   * `enabled: null` (défaut) = pas d'avis → la règle d'environnement s'applique
+   * (active hors production, éteinte en production). Un booléen explicite gagne :
+   * `true` allume la sonde EN PRODUCTION (diagnostic à chaud, coût assumé),
+   * `false` l'éteint partout. Override sans redéploiement :
+   * `NF__APP__TIMING__ENABLED=true`.
+   * @reactivity boot
+   */
+  timing?: {
+    enabled?: boolean | null;
+    /** Trace DEBUG d'une ligne par requête détaillant chaque phase. Implique `enabled`. */
+    verbose?: boolean;
+  };
   /** Observabilité (Syslog + log backplane). */
   log?: LogConfig;
   /**

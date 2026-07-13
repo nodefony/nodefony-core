@@ -65,6 +65,11 @@ function makeController(opts: HarnessOptions = {}) {
   const ctx = {
     container: new Container(),
     notificationsCenter: new Event(),
+    // Le vrai `Context` porte l'instrumentation de phases (`IContext`) — un stub
+    // qui l'omet ne reproduit pas la donnée réelle et casse dès qu'un chemin la
+    // mesure (renderView → phase `render`).
+    phaseStart() {},
+    phaseEnd() {},
     request: {
       url: new URL("http://127.0.0.1/test"),
       queryGet: { a: "1" },

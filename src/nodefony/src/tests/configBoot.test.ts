@@ -419,4 +419,47 @@ describe("config — NF__APP__* (override env de la config app)", () => {
       );
     });
   });
+
+  // ─── Sonde de phases (timing) — allumable EN PRODUCTION sans redéployer ──────
+  // Le Context lit `options.timing.enabled` : `null` = pas d'avis (règle par
+  // environnement : ON hors prod, OFF en prod), un booléen EXPLICITE gagne. Le
+  // piège fermé ici : les overrides `NF__APP__*` n'écrivent que sur des chemins
+  // DÉJÀ PRÉSENTS dans la config — sans défaut matérialisé, `NF__APP__TIMING__
+  // ENABLED=true` était silencieusement ignoré et la sonde restait inatteignable
+  // en production (un diagnostic à chaud impossible, sans le moindre message).
+  describe("timing — le toggle de la sonde de phases", () => {
+    it("défaut = `null` (pas d'avis) : la règle d'environnement reste maîtresse", () => {
+      assert.strictEqual(defaultAppConfig.timing?.enabled, null);
+      assert.strictEqual(defaultAppConfig.timing?.verbose, false);
+    });
+
+    it("NF__APP__TIMING__ENABLED=true → appliqué (chemin présent, valeur coercée en booléen)", () => {
+      let resolved: Record<string, unknown> = {};
+      withEnv({ NF__APP__TIMING__ENABLED: "true" }, () => {
+        resolved = defineConfig(() => ({})).resolve(ctxOf()) as Record<
+          string,
+          unknown
+        >;
+      });
+      const timing = resolved.timing as { enabled?: unknown };
+      // Booléen, pas la chaîne "true" : le Context teste `typeof === "boolean"`.
+      assert.strictEqual(timing.enabled, true);
+      const report = readAppEnvOverrideReport(resolved);
+      assert.ok(
+        report?.applied.some((a) => a.path.join(".") === "timing.enabled"),
+        "l'override doit être RAPPORTÉ (traçable), pas appliqué en douce",
+      );
+      assert.deepStrictEqual(report?.warnings, []);
+    });
+
+    it("une app peut l'éteindre partout (`timing: { enabled: false }`)", () => {
+      const resolved = defineConfig(() => ({
+        timing: { enabled: false },
+      })).resolve(ctxOf()) as Record<string, unknown>;
+      assert.strictEqual(
+        (resolved.timing as { enabled?: unknown }).enabled,
+        false,
+      );
+    });
+  });
 });

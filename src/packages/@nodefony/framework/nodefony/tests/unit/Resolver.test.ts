@@ -189,7 +189,12 @@ describe("Resolver — parsePathernController()", () => {
 // V3.1 (POJO) : le cache controller vit sur `context.container`, plus sur le
 // Resolver lui-même.
 function withInjector(r: Resolver, instantiate: () => unknown): void {
-  r.context = { container: new Container() } as unknown as ContextType;
+  r.context = {
+    container: new Container(),
+    // Cf `IContext` : `_createController` mesure la phase `initialize` (DI + hook).
+    phaseStart() {},
+    phaseEnd() {},
+  } as unknown as ContextType;
   r.injector = { instantiate } as unknown as Resolver["injector"];
 }
 
