@@ -59,6 +59,7 @@ import TotpController, {
 } from "./nodefony/controller/TotpController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
+import { buildPlaygroundSnapshot } from "./nodefony/src/PlaygroundAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
 import Eta from "./nodefony/service/Eta";
 import { mergeResolvers, mergeTypeDefs } from "@graphql-tools/merge";
@@ -323,7 +324,16 @@ class Framework extends Module<FrameworkConfig> {
         broker.register(createKernelAdminApi(this.kernel));
       }
       if (!broker.has("framework")) {
-        broker.register(createFrameworkAdminApi(broker));
+        broker.register(
+          createFrameworkAdminApi(broker, {
+            // Playground = console qui EXÉCUTE des actions depuis le navigateur
+            // → monté en dev uniquement (`-d` inclus), jamais en prod.
+            // `debug` est un DebugType (bool | filtre) → truthiness voulue.
+            playground:
+              this.kernel.environment === "development" ||
+              Boolean(this.kernel.debug),
+          }),
+        );
       }
       if (this.kernel.syslog && !broker.has("syslog")) {
         // Viewer de fichiers = confort DEV (remplace `tail -f`). En prod, les
@@ -418,6 +428,7 @@ export {
   createKernelAdminApi,
   createFrameworkAdminApi,
   createSyslogAdminApi,
+  buildPlaygroundSnapshot,
   Eta,
   route,
   controller,
@@ -472,6 +483,13 @@ export type {
   CspDirectives,
 } from "./nodefony/decorators/routerDecorators";
 export type { ControllerScope } from "./nodefony/src/Controller";
+export type { FrameworkAdminApiOptions } from "./nodefony/src/FrameworkAdminApi";
+export type {
+  PlaygroundAction,
+  PlaygroundController,
+  PlaygroundGuards,
+  PlaygroundParam,
+} from "./nodefony/src/PlaygroundAdminApi";
 export type { IResourceService } from "./nodefony/src/ResourceController";
 export type {
   FrameworkConfig,

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-13T11:38:19.792Z",
+  "generated": "2026-07-13T13:08:49.195Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1012,
-    "symbols": 2602,
+    "files": 1013,
+    "symbols": 2612,
     "classes": 319,
-    "interfaces": 679,
+    "interfaces": 684,
     "types": 302,
     "enums": 4,
-    "functions": 740,
+    "functions": 745,
     "constants": 558
   },
   "symbols": {
@@ -7785,6 +7785,15 @@
       "module": "@nodefony/framework",
       "description": "Identité du package npm du core (`@nodefony/core`) tel qu'indexé dans `.ai/symbols.json` — le core est référencé sous ce nom logique, **pas** sous son nom npm réel (`nodefony`, héritage JS)."
     },
+    "FrameworkAdminApiOptions": {
+      "name": "FrameworkAdminApiOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Options de composition du producteur framework."
+    },
     "createFrameworkAdminApi": {
       "name": "createFrameworkAdminApi",
       "kind": "function",
@@ -7931,6 +7940,58 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
+    },
+    "PlaygroundParam": {
+      "name": "PlaygroundParam",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Endpoints « Playground » du data plane framework — la source de données de la console vivante des controllers dans Studio (`/nodefony/playground`). Sérialise ce que le Router et les décorateurs sav…"
+    },
+    "PlaygroundGuards": {
+      "name": "PlaygroundGuards",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Les gardes déclaratives d'une action, prêtes à afficher (badges Studio)."
+    },
+    "PlaygroundAction": {
+      "name": "PlaygroundAction",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Une action invocable depuis le playground (1 route du Router)."
+    },
+    "PlaygroundController": {
+      "name": "PlaygroundController",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Un controller et ses actions, groupés pour la navigation Studio."
+    },
+    "buildPlaygroundSnapshot": {
+      "name": "buildPlaygroundSnapshot",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Construit le snapshot playground : toutes les routes à controller, groupées par classe de controller, triées (module puis nom, actions par path). Exclut les routes du **pont admin** (`AdminApiContr…"
+    },
+    "createPlaygroundEndpoints": {
+      "name": "createPlaygroundEndpoints",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Endpoints playground à greffer au producteur `framework` (dev uniquement — cf gating dans `createFrameworkAdminApi`)."
     },
     "RedisIdempotencyStore": {
       "name": "RedisIdempotencyStore",
@@ -19915,6 +19976,7 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/scopeCatalog.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
@@ -19924,6 +19986,7 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
@@ -19993,7 +20056,8 @@
       ],
       "AdminApiController": [
         "src/packages/@nodefony/framework/index.ts",
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts"
       ],
       "SessionAuthController": [
         "src/packages/@nodefony/framework/index.ts"
@@ -20035,6 +20099,9 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "createFrameworkAdminApi": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "buildPlaygroundSnapshot": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "createSyslogAdminApi": [
@@ -22668,6 +22735,7 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
@@ -22742,6 +22810,9 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
+      "createPlaygroundEndpoints": [
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts"
+      ],
       "collectDevStatus": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
@@ -22811,6 +22882,14 @@
       "getResolvedPath": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
+      "resolveActionMeta": [
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "extractActionScopes": [
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/scopeCatalog.ts"
+      ],
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
@@ -22818,9 +22897,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "resolveSessionIntent": [
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "resolveActionMeta": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "computeActionMeta": [
@@ -22848,9 +22924,6 @@
       "compileDomainPatterns": [
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
-      ],
-      "extractActionScopes": [
-        "src/packages/@nodefony/framework/nodefony/src/scopeCatalog.ts"
       ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",

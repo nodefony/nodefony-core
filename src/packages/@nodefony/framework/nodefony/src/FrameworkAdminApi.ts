@@ -2,6 +2,17 @@ import type { IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
 import Router from "../service/router";
 import type Route from "./Route";
 import type { IAdminBroker } from "../interfaces/IAdminBroker";
+import { createPlaygroundEndpoints } from "./PlaygroundAdminApi";
+
+/** Options de composition du producteur framework. */
+export interface FrameworkAdminApiOptions {
+  /**
+   * Monte les endpoints Playground (`playground/routes`) — **dev uniquement** :
+   * la console Studio exécute des mutations depuis le navigateur. Hors dev les
+   * endpoints n'existent pas (404) → la page Studio affiche « dev uniquement ».
+   */
+  playground?: boolean;
+}
 
 /**
  * Producteur `IAdminApi` du module **framework** — exposé sous
@@ -23,9 +34,13 @@ import type { IAdminBroker } from "../interfaces/IAdminBroker";
  *
  * @param broker - le broker admin (pour le catalogue). Optionnel : sans lui,
  *   `admin` renvoie une liste vide.
+ * @param opts - composition (`playground: true` → endpoints Playground, dev-only).
  * @returns le contrat admin de framework, prêt à `broker.register()`.
  */
-export function createFrameworkAdminApi(broker?: IAdminBroker): IAdminApi {
+export function createFrameworkAdminApi(
+  broker?: IAdminBroker,
+  opts?: FrameworkAdminApiOptions,
+): IAdminApi {
   /** Normalise `requirements.methods` (string | string[]) → tableau majuscule. */
   const methodsOf = (route: Route): string[] => {
     const m = route.requirements?.methods ?? route.method;
@@ -231,6 +246,10 @@ export function createFrameworkAdminApi(broker?: IAdminBroker): IAdminApi {
       },
     },
   ];
+
+  if (opts?.playground) {
+    endpoints.push(...createPlaygroundEndpoints());
+  }
 
   return {
     adminNamespace: "framework",
