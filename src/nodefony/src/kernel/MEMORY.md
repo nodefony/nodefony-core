@@ -113,7 +113,15 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 - `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.initialize(this)` si présente.
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
-- `loadModule(name, build?)` → dynamic import + addModule.
+- `loadModule(name, build?)` → `import(resolveModuleEntry(this.path, name))` + addModule.
+
+### ⚠️ RÈGLE — un module se résout DEPUIS L'APP, jamais depuis le core
+
+`resolveModuleEntry(appRoot, name)` (`kernel/resolveModuleEntry.ts`) : `createRequire(<app>/package.json).resolve(name)` → URL `file://` absolue ; repli sur le **spécificateur nu** si échec (paquet exports `import`-only, absent).
+
+**Pourquoi** : un `import(name)` écrit dans le code du core est résolu par Node relativement au paquet `nodefony`. Dès que le core vit hors de l'arbre `node_modules` de l'app (`--link`, monorepo, pnpm, hoisting), un module LOCAL de l'app (workspace `modules/*`) est introuvable (« Cannot find package ») alors qu'il l'est parfaitement depuis l'app. Le repo self-hosted masque le défaut : tout y vit sous le même `node_modules`.
+
+Spec figée par `src/tests/resolveModuleEntry.test.ts` (6 tests, dont la régression : résoudre depuis un dossier étranger → repli, depuis l'app → trouvé).
 
 ---
 

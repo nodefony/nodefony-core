@@ -215,6 +215,25 @@ réécrit RIEN) ; toutes les versions TIERCES vivent dans le catalogue UNIQUE
 `it.pkg` et par `FRONTEND_PARAMS`) ; un test anti-dérive du banc compare le
 catalogue aux manifests du monorepo (même MAJEURE exigée).
 
+`nodefony create module <name> [--controller <none|hello|rest|duplex|realtime|example>]
+[--no-service] [--command] [--frontend <none|react|vue|angular>] [--description "…"]
+[--no-install]` — scaffold **IN-PROJECT** d'un module applicatif : `modules/<name>/` =
+**workspace npm** (package + `rolldown.config.ts` via `nodefony/bundler` + schéma Zod
+`config/config.ts` + builder `defineModuleConfig.ts` + `docs/` + tests vitest ;
+`CLAUDE.md`/`MEMORY.md` **seulement si le projet a un `CLAUDE.md` racine**). Câble l'app :
+`workspaces: ["modules/*"]` + scripts `build`/`typecheck`/`test` chaînés
+(`npm run X --workspaces --if-present`, build des modules AVANT l'app) + `use("@<app>/<name>", {})`
+dans le manifeste `modules` (insertion GARDÉE : crochet fermant APPARIÉ, ancre absente = note
+actionnable). **Zéro template dupliqué** : le controller et le front sont rendus par les
+scaffolds `controller`/`front` EXISTANTS, ciblés sur le module (`--module`). Gardes AVANT
+écriture : hors projet · module existant (sauf `--force`) · brique absente de l'app
+(`@nodefony/realtime` pour `--controller realtime|duplex`, `@nodefony/frontend` pour un front).
+Puis `npm install` (le symlink de workspace **est** ce qui rend le module chargeable) + build.
+
+> **Pourquoi un workspace npm** : `Kernel.loadModule` importe un module PAR SON NOM → il doit être
+> résolvable par npm. Bénéfice : le module naît paquet (publiable tel quel). Cf `resolveModuleEntry`
+> (§ ci-dessous) — sans lui, ce nom n'était pas résolvable depuis l'app.
+
 `nodefony create controller <name> [--kind <hello|realtime|rest>] [--route </api/x>]
 [--module <nom>]` — scaffold **IN-PROJECT** (lancé DANS une app : `findProjectRoot`
 remonte au `nodefony.config.ts`, refus propre hors projet). Cible = app racine ou un

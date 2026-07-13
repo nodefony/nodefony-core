@@ -16,6 +16,35 @@ controllers HTTP, commands CLI, ou frontend Vite — en suivant les conventions 
 dans `CLAUDE.md` racine et observées sur les modules existants (`@nodefony/http`,
 `@nodefony/llm`, `@nodefony/frontend`).
 
+## 🚦 DEUX CAS — ne pas confondre (lire AVANT toute génération)
+
+Le scaffold d'un module d'**application** vit maintenant dans le **CLI**. Ce skill ne le
+réimplémente PAS : deux scaffolders qui divergent, c'est le bug que ce projet a déjà payé.
+
+| Cible                                                           | Qui scaffolde                                                             |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Module d'une **APP** (`modules/<nom>/` d'un projet utilisateur) | **`nodefony create module <nom>`** — le CLI. Ce skill DÉLÈGUE.            |
+| Package **`@nodefony/*` du repo framework** (`src/packages/`)   | Ce skill (templates de `reference/templates.md`) — le CLI ne le fait pas. |
+
+**Cas APP → lancer la commande, ne rien recopier à la main :**
+
+```bash
+nodefony create module blog --controller hello --command   # + --frontend react, --no-service…
+```
+
+Elle pose un **workspace npm** (`modules/blog/`), câble les workspaces + les scripts de
+l'app, ajoute `use("@<app>/blog", {})` au manifeste `modules`, délègue le controller/front
+aux scaffolds `create controller` / `create front`, installe et construit. Templates réels :
+`src/nodefony/templates/module/` ; moteur : `src/nodefony/src/cli/scaffold/engine.ts`.
+
+Ce que l'IA apporte **en plus** de la commande (c'est ça, la valeur du skill) : le choix des
+options, des `CLAUDE.md`/`MEMORY.md` sur-mesure (pas un gabarit figé), la vérification
+post-build, et l'explication du POURQUOI. Jamais la mécanique.
+
+> **Pourquoi le repo framework n'est pas couvert par le CLI** : son layout (`src/packages/@nodefony/*`,
+> `src/modules/*`, chaîne de build turbo, types consommés en SOURCE) n'est pas celui d'une app générée
+> (`modules/*`). Le CLI cible les apps ; le repo reste servi par les templates de ce skill.
+
 ## Quand l'utiliser
 
 Dès que l'user dit :
