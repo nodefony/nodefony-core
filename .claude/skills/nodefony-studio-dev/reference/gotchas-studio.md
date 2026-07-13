@@ -63,6 +63,20 @@
   dans `App.tsx`. Page non livrée = **`StubPage`** + flag `NavItem.wip` → badge « à venir » = la sidebar devient la
   **carte d'avancement**. Remplacer un stub = lazy dans `App.tsx` + retirer du bloc `stubs` + retirer `wip` du
   navConfig + supprimer l'export stub mort.
+- **La roadmap RESTE dans le menu, mais RANGÉE** (elle sert la démo : montrer où va le produit). Deux temps de
+  lecture, faits au RENDU (`AdminLayout`), pas dans `navConfig` (qui reste rangé par thème) : les items **livrés**
+  d'abord à plein contraste, les `wip` **relégués en fin de groupe** sous un trait « À venir », atténués + badgés ;
+  l'en-tête du groupe porte le **compteur** (« 5 à venir ») → l'ampleur reste lisible **groupe replié**. Sans ce
+  tri, 16 entrées mortes sur 40 diluaient les pages qui marchent.
+- **Défaut de pliage décidé par le CONTENU, pas figé** : `ui.isGroupCollapsed(id, fallback)` — un groupe 100 %
+  « à venir » s'ouvre replié, les autres ouverts ; un choix explicite de l'utilisateur gagne toujours. (Un défaut
+  « tout plié » ouvrait la console sur une colonne de titres muets.) Changer la sémantique du défaut ⇒ **bumper la
+  clé localStorage** (`…groups.v2` → `v3`), sinon l'ancien état fige l'ancien défaut.
+- **Axe ENVIRONNEMENT en plus du rôle** : `NavItem.devOnly` masque une page dont le **back n'existe qu'en dev**
+  (ex. Playground : `@nodefony/framework` ne monte son data plane qu'en `development`/`-d` → en prod l'entrée mène
+  à un écran mort). Source = l'env RÉEL du serveur (`/studio/api/info` → `AdminStore.env`) ; env inconnu → on
+  MONTRE (mieux vaut une entrée de trop qu'une entrée disparue sur un aléa réseau). ⚠️ **C'est du confort
+  d'affichage, JAMAIS une sécurité** — la garde reste le serveur (API absente / firewall).
 - **🔑 404 ≠ 401 — discriminant à graver** : le **route-match est hissé AVANT le firewall**. Une route **absente**
   = **404** ; une route **présente derrière le firewall** = **401**. Lire un 404 comme « route absente » d'emblée
   (ne pas suspecter un dist périmé / un fantôme). Vécu : un `IAdminApi` (namespace `security`) monte sous
@@ -259,6 +273,15 @@ key={user.id}`), PAS un retry (`useResource` ne retry pas). Lire « X / Y reques
   pour le « + », semés au 1ᵉʳ lancement seul. **Templates** : `WorkspacePreset.layout?` (positions exactes, bypass
   `autoTile`) vs `items` (graines pavées auto). Bureaux/blocs filtrés par rôle (`WorkspacePreset.roles` / `CATEGORY_ROLES`).
 - **Nom du bureau actif réactif** (`observer`, lié au store) — un titre statique ne change pas.
+- **Réordonner les BUREAUX (vignettes du bandeau)** : même patron pointeur que les fenêtres (poignée +
+  `setPointerCapture` + `transform`, commit unique au relâché) — **pas de lib de DnD** : une seconde mécanique de
+  drag dériverait de la première. **Seuil de ~4 px** avant qu'un appui devienne un drag, sinon le clic « bascule de
+  bureau » part en déplacement au moindre tremblement. **Équivalent CLAVIER obligatoire** (menu ⋯ « Déplacer à
+  gauche/droite ») : un réordonnancement souris-seul est inaccessible.
+- **L'ordre des bureaux EST celui des clés de `layouts`** (ids non numériques → JS et JSON préservent l'ordre
+  d'insertion) : pas de tableau `order` parallèle à tenir en cohérence avec créations/suppressions (une seule
+  source de vérité). Déplacer = **relatif à un voisin** (`moveWorkspace(id, beforeId)`), **jamais par index** : la
+  liste affichée est filtrée par rôle → l'index vu à l'écran n'est pas l'index réel.
 - **Catalogue à facettes** : aperçu LIVE au survol = réutiliser **`useBlockSource` + `BlockBody`** (registre de blocs
   unifié, le MÊME bloc qu'au bureau) monté lazy dans le `HoverCard`. Recherche tolérante = `normalize("NFD").replace(/\p{Diacritic}/gu,"")`
   - multi-termes. **Tags** : 2 axes **saisis** (domaine hiérarchique + nature) + 1 axe **dérivé** (capacités, 0 dérive).
