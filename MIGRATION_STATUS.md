@@ -87,7 +87,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜   ◀ prochain front (avec P11)
  P9  Polish + clôture      ██████░░░░  63%   2✅  1🔶  1⬜   (P9.3 READMEs ✅ · P9.4 : 3 low dev, re-audit post-rolldown 07-10)
  P10 Studio (admin web)    ████████░░  81%  12✅  2🔶  2⬜   (~80 pages + Jumeau + portail doc + écran Stores ; IAdminApi 7 producteurs ; reste tests intég P10.11)
- P11 CLI par module        █████░░░░░  50%   3✅  2🔶  3⬜   ◀ **BLOQUEUR MVP** — lifecycle OK ; `security:secrets`+`security:user:add` ✅ 07-12 ; `create app` = **onboarding COMPLET** (secrets .env.local, admin/admin dev, HTTPS, npm install + git init auto, complétion TAB) ; `create controller` ✅ (3 saveurs hello/realtime/rest, in-project, wiring auto, cible app|module) ; reste `orm:migrate` (S5) + `user:*` métier + `create module/entity` (lots 3b/3c) + release npm (install global).
+ P11 CLI par module        █████░░░░░  50%   3✅  2🔶  3⬜   ◀ **BLOQUEUR MVP** — lifecycle OK ; `security:secrets`+`security:user:add` ✅ 07-12 ; `create app` = **onboarding COMPLET** (secrets .env.local, admin/admin dev, HTTPS, npm install + git init auto, complétion TAB) ; `create controller` ✅ (5 saveurs hello/rest/duplex/realtime/example, in-project, wiring auto, cible app|module) ; reste `orm:migrate` (S5) + `user:*` métier + `create module/entity` (lots 3b/3c) + release npm (install global).
  P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (llm = module réel non intégré ; agent-guard/mcp vides)
  P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜   (dettes backplane #1/#2 fixées c082560 · 167 tests)
  P14 Frontend Vite + iso   ████████░░  75%  11✅  2🔶  3⬜
@@ -419,8 +419,13 @@ dev` OK), fix @types/react (typecheck app générée). **Homes vue/angular ✅ +
 >    (in-project, saveurs hello/realtime/rest — realtime = RealtimeController canal+action prouvés
 >    au client isomorphe ; wiring @controllers auto ; cible app racine ou module ; studio épinglé
 >    `ui:"static"` dans l'app générée). **`create front` ✅** (ajoute un frontend Vite react|vue|angular à l'app/module sans front —
->    briques PARTAGÉES avec create app, double wiring auto, deps par catalogue). **Saveur `rest` =
->    vitrine décorateurs ✅** (+ fix framework @Idempotent/renderJson couvert par test). **Catalogue
+>    briques PARTAGÉES avec create app, double wiring auto, deps par catalogue). **Saveurs redécoupées ✅
+>    (`aa1060b7`, 07-13 après-midi — retour user)** : `example` = vitrine décorateurs (ex-rest) ·
+>    `rest` = CRUD production HTTP pur · `duplex` = mêmes actions REST + socket (pont `api.request`,
+>    banc client réel 9/9 : login, request, mutate, rejeu dédupliqué, croisement HTTP). **+ 2 fix
+>    framework débusqués par le banc duplex (`e0d93760`)** : `@Body` lit le corps ALS du pont ; porte
+>    `@Idempotent` active sur les mutations du pont (`methodOverride` + `executeActionGuarded`) —
+>    rouge/vert, framework 434/434, realtime 314/314. **Catalogue
 >    versions ✅** (`scaffold/versions.ts` + test anti-dérive ; @nodefony/* = dynamique, 0 réécriture
 >    par release). Reste : `create module` (3c, workspace npm local) / `create entity` (3b, réutilise
 >    la brique rest branchée repository), `nodefony doctor`, publication npm. Commandes métier P11.2/11.3 reléguées ; `orm:migrate` = design prêt, impl gelée (S5c).
