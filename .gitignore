@@ -9,7 +9,12 @@
 dist/
 node_modules/
 tmp/
-logs/
+# ANCRÉ (`/logs/`, pas `logs/`) : un motif non ancré vaut pour TOUT dossier nommé
+# `logs`, à n'importe quelle profondeur — il masquait `studio/frontend/src/routes/
+# logs/` (les composants de la page Logs). Un `git add <dossier>` saute un chemin
+# ignoré SANS RIEN DIRE : un nouveau composant y serait resté hors de tout commit.
+# Ici on ne vise que les logs runtime écrits à la racine du repo.
+/logs/
 # Données runtime persistées (store fichier WebAuthn, etc.) — JAMAIS commitées.
 var/
 # Certificats TLS générés — JAMAIS commités (contiennent la clé privée). Motif
