@@ -63,6 +63,12 @@ export interface ExecResult {
   error: string | null;
   /** Instance qui a répondu (`x-nodefony-instance`) — HTTP seulement. */
   instance: string | null;
+  /**
+   * `x-request-id` de la réponse — la CLÉ de la radiographie : le serveur
+   * l'émet sur chaque réponse, le Profiler indexe son profil dessus.
+   * `null` sur la porte socket (le pont ne trace pas encore par frame).
+   */
+  requestId: string | null;
 }
 
 /** Méthodes HTTP jouables d'une action (transports moins WEBSOCKET/ANY). */

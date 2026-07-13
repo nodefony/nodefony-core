@@ -90,23 +90,12 @@ const EMPTY_PHASES: PhaseTiming[] = Object.freeze(
 ) as unknown as PhaseTiming[];
 
 export type WebSocketState =
-  | "handshake"
-  | "connected"
-  | "closed"
-  | "error"
-  | "message"
-  | null;
+  "handshake" | "connected" | "closed" | "error" | "message" | null;
 
 export type contextRequest =
-  | HttpRequest
-  | Http2Request
-  | http.IncomingMessage
-  | null;
+  HttpRequest | Http2Request | http.IncomingMessage | null;
 export type contextResponse =
-  | HttpResponse
-  | Http2Response
-  | WebsocketResponse
-  | null;
+  HttpResponse | Http2Response | WebsocketResponse | null;
 
 export type HTTPMethod =
   | "GET"
@@ -127,6 +116,7 @@ import type {
   PhaseTiming,
   PhaseName,
   AfterResponseHandler,
+  ISecurityTrace,
 } from "../../interfaces/IContext";
 import type { SessionIntent } from "../../interfaces/ISession";
 
@@ -212,6 +202,16 @@ class Context extends Service implements IContextInterface {
   // reference as the RequestContext (ALS) payload's `queries`, so ORM adapters
   // push here transparently; read by `Profiler.collect()` at teardown.
   profilerQueries: IProfilerQuery[] | null = null;
+  // Témoin « le Profiler dev est actif » (posé par HttpKernel à l'entrée de la
+  // requête ; false en prod). Lu par les PRODUCTEURS de trace hors http — le
+  // firewall (@nodefony/security) le teste avant d'allouer `securityTrace` :
+  // un booléen se lit sans rien allouer, là où l'allocation, elle, est réservée
+  // au dev. Même logique que `profilerQueries` (null en prod).
+  profiling: boolean = false;
+  // Décision du firewall sur CETTE requête (zone, authenticator qui a résolu,
+  // issue, motif d'un refus) — remplie par @nodefony/security, lue par
+  // `Profiler.collect()`. `null` hors profiling ET hors zone → 0 alloc.
+  securityTrace: ISecurityTrace | null = null;
   // Timing: opt-out in prod (default), opt-in elsewhere. Overridable via
   // kernel.options.timing.enabled. When disabled: `phases` is a shared frozen
   // empty array, `phaseStart`/`phaseEnd` are noops, no Map is allocated.
@@ -622,8 +622,7 @@ class Context extends Service implements IContextInterface {
     const mode =
       (
         this.sessionService?.options?.cookie as
-          | { hostPrefix?: boolean | "auto" }
-          | undefined
+          { hostPrefix?: boolean | "auto" } | undefined
       )?.hostPrefix ?? "auto";
     const tls = this.scheme === "https" || this.scheme === "wss";
     const usePrefix = mode === true || (mode === "auto" && tls);

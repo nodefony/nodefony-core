@@ -47,6 +47,7 @@ import {
   type PlaygroundAction,
 } from "./PlaygroundModel";
 import { GuardBadges, MethodBadge, StatusBadge } from "./PlaygroundFormat";
+import { Radiography } from "./Radiography";
 
 /**
  * Exécution HTTP — fetch same-origin, latence mesurée, réponse jamais levée.
@@ -82,6 +83,9 @@ async function runHttp(
       body: payload,
       error: null,
       instance: res.headers.get("x-nodefony-instance"),
+      // La clé de la radiographie : le serveur pose ce header sur CHAQUE
+      // réponse, et le Profiler indexe le profil de la requête dessus.
+      requestId: res.headers.get("x-request-id"),
     };
   } catch (e) {
     return {
@@ -92,6 +96,7 @@ async function runHttp(
       body: null,
       error: e instanceof Error ? e.message : String(e),
       instance: null,
+      requestId: null,
     };
   }
 }
@@ -133,6 +138,9 @@ async function runSocket(
       body: payload,
       error: null,
       instance: null,
+      // Le pont ne trace pas par frame (le WebsocketContext vit pour toute la
+      // connexion) → pas de radiographie de ce côté, et on le DIT (cf Radiography).
+      requestId: null,
     };
   } catch (e) {
     const rpc = e as RpcErrorLike;
@@ -145,6 +153,7 @@ async function runSocket(
       body: rpc.data?.body ?? null,
       error: rpc.message ?? String(e),
       instance: null,
+      requestId: null,
     };
   }
 }
@@ -280,6 +289,7 @@ export function ActionPanel({ action }: ActionPanelProps) {
         error:
           "Upload multipart : porte HTTP uniquement (le pont api.request transporte du JSON).",
         instance: null,
+        requestId: null,
       });
       return;
     }
@@ -292,6 +302,7 @@ export function ActionPanel({ action }: ActionPanelProps) {
         body: null,
         error: "Choisissez un fichier avant d'envoyer.",
         instance: null,
+        requestId: null,
       });
       return;
     }
@@ -305,6 +316,7 @@ export function ActionPanel({ action }: ActionPanelProps) {
         body: null,
         error: "Body : JSON invalide (corrigez avant d'envoyer).",
         instance: null,
+        requestId: null,
       };
       (transport === "http" ? setHttpResult : setSocketResult)(bad);
       return;
@@ -549,6 +561,13 @@ export function ActionPanel({ action }: ActionPanelProps) {
             </Grid.Col>
           )}
         </Grid>
+      )}
+
+      {/* La traversée serveur de la dernière exécution HTTP (le profiler indexe
+          par `x-request-id`). La porte socket n'émet pas cet id → le panneau le
+          dit au lieu d'afficher un cadre vide. */}
+      {(httpResult || socketResult) && (
+        <Radiography requestId={httpResult?.requestId ?? null} />
       )}
     </Stack>
   );

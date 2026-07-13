@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-13T13:44:13.284Z",
+  "generated": "2026-07-13T15:24:54.957Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1013,
-    "symbols": 2612,
+    "symbols": 2616,
     "classes": 319,
-    "interfaces": 684,
-    "types": 302,
+    "interfaces": 686,
+    "types": 303,
     "enums": 4,
-    "functions": 745,
+    "functions": 746,
     "constants": 558
   },
   "symbols": {
@@ -8526,6 +8526,15 @@
       "module": "@nodefony/http",
       "extends": null
     },
+    "ISecurityTrace": {
+      "name": "ISecurityTrace",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Décision du firewall sur CETTE requête — matière de la « radiographie » (Studio / debug bar) : la zone dit ce qui était POSSIBLE (via `context.security`), cette trace dit ce qui s'est RÉELLEMENT pa…"
+    },
     "IContext": {
       "name": "IContext",
       "kind": "interface",
@@ -8584,6 +8593,14 @@
       "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
       "exported": true,
       "module": "@nodefony/http"
+    },
+    "SecurityOutcome": {
+      "name": "SecurityOutcome",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Issue de la traversée d'une zone firewall."
     },
     "AfterResponseHandler": {
       "name": "AfterResponseHandler",
@@ -15944,6 +15961,15 @@
       "module": "@nodefony/http",
       "extends": null,
       "description": "Une requête SQL/NoSQL exécutée pendant la requête HTTP (SEAM ORM — futur). Non collecté aujourd'hui : quand `@nodefony/orm-core` arrivera, les adapters pousseront leurs requêtes dans un buffer per-…"
+    },
+    "ProfileSecurity": {
+      "name": "ProfileSecurity",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/Profiler.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Traversée du firewall par cette requête — **ce qui était possible** (la zone : son nom, si elle est protégée, quels authenticators elle accepte) croisé avec **ce qui s'est passé** (quel maillon a r…"
     },
     "@nodefony/http:ProfileEntry": {
       "name": "ProfileEntry",
@@ -23658,6 +23684,10 @@
       "CsrfError": [
         "src/packages/@nodefony/security/nodefony/service/csrf.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "ISecurityTrace": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "encoderFromConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"

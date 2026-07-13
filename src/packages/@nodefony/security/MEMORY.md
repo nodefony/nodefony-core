@@ -9,6 +9,15 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
 
 - `Firewall` (service) : `isSecure(ctx)` = match zone, pose `context.security` (court-circuit si 0 zone).
   `handleSecurity(ctx)` = authenticate → `RequestContext.set("user")` → Zero Trust 401. `registerAuthenticator()`.
+- **Radiographie `context.securityTrace`** (dev-only, contrat `ISecurityTrace` de `@nodefony/http`) :
+  `#startTrace()` n'alloue QUE si `context.profiling` (témoin posé par le HttpKernel quand le Profiler
+  dev tourne → **jamais en prod** : le hot-path nominal ne paie qu'une lecture de booléen).
+  Remplie en 3 points : `#authenticate` (nom du maillon qui a résolu), sortie succès
+  (`granted`/`anonymous` + `user` + `roles`), `#recordAuth` (refus : `denied`/`failure`/`throttled` +
+  `reason`). Défaut fail-closed = `denied` (une trace tronquée ne se lit jamais « passée »).
+  **Pourquoi** : le succès nominal n'émet AUCUN audit (le volume n'est pas un signal) → sans elle, une
+  requête qui PASSE ne laisse aucune empreinte de sa zone. Lue par `Profiler.collect()` → Studio.
+  Banc : `tests/unit/firewallSecurityTrace.test.ts` (7, dont 2 « prod = 0 alloc »).
 - `SecuredArea` : `match(ctx)` = host (`ctx.domain`) puis pattern. Champs : pattern/security/stateless/authenticators/host.
 - `RoleHierarchyWalker` : `hasRole(roles, required)` O(1) (flat précalc DFS), `#detectCycles` throw au boot.
 - `AnonymousToken` : `getUser()=anonymousUser` (gelé, 0 alloc), `isAuthenticated()=false`, `getScopes()=[]`.

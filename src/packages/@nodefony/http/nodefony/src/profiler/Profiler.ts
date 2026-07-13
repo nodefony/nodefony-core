@@ -39,12 +39,43 @@ export interface ProfilePhase {
 export interface ProfileQuery {
   /** Requête (SQL ou commande NoSQL), tronquée si volumineuse. */
   sql: string;
+  /** Début relatif (`performance.now()`) — même horloge que les phases. */
+  startMs?: number;
   /** Durée d'exécution en ms. */
   durationMs: number;
   /** Lignes affectées/retournées, si connu. */
   rows?: number;
   /** Connecteur émetteur (`drizzle`, `mongoose`…). */
   connector?: string;
+}
+
+/**
+ * Traversée du firewall par cette requête — **ce qui était possible** (la zone :
+ * son nom, si elle est protégée, quels authenticators elle accepte) croisé avec
+ * **ce qui s'est passé** (quel maillon a résolu l'identité, l'issue, le motif
+ * d'un refus).
+ *
+ * Sans cela, une requête qui PASSE est invisible côté sécurité : le chemin de
+ * succès n'émet aucun événement d'audit (choix délibéré — le volume nominal
+ * n'est pas un signal). `undefined` hors zone firewall.
+ */
+export interface ProfileSecurity {
+  /** Nom de la zone traversée. */
+  zone: string | null;
+  /** La zone exige-t-elle une identité (`security: true`) ? */
+  protected: boolean;
+  /** Chaîne d'authenticators : `first` = le premier qui supporte, `all` = MFA. */
+  mode: string | null;
+  /** Authenticators que la zone accepte (ce qui était POSSIBLE). */
+  candidates: string[];
+  /** Authenticator qui a RÉELLEMENT résolu l'identité. */
+  authenticator: string | null;
+  /** `granted` · `anonymous` · `denied` · `failure` · `throttled` · `bypass` · `public`. */
+  outcome: string | null;
+  /** Motif du refus (`no_credentials`, `invalid_credentials`…). */
+  reason: string | null;
+  /** Rôles du token résolu (l'axe autorisation). */
+  roles: string[] | null;
 }
 
 /** Profil complet d'une requête (HTTP ou message WS), exposé par `get`. */
@@ -71,6 +102,8 @@ export interface ProfileEntry {
   phases: ProfilePhase[];
   /** Requêtes ORM (SEAM futur — `undefined` tant qu'aucun adapter ne pushe). */
   queries?: ProfileQuery[];
+  /** Traversée du firewall — `undefined` si la requête n'a croisé aucune zone. */
+  security?: ProfileSecurity;
 }
 
 /** Résumé léger d'un profil pour la liste `recent` (sans les phases). */
@@ -113,6 +146,24 @@ interface ProfilableContext {
    * `null`/absent hors profiling.
    */
   profilerQueries?: ProfileQuery[] | null;
+  /**
+   * Zone firewall capturée (`SecuredArea`, posée par `Firewall.isSecure`). Lue
+   * en structurel : `@nodefony/http` ne peut pas importer `@nodefony/security`.
+   */
+  security?: {
+    name?: string;
+    security?: boolean;
+    mode?: string;
+    authenticators?: readonly string[];
+  } | null;
+  /** Décision du firewall sur cette requête (dev-only, cf `ISecurityTrace`). */
+  securityTrace?: {
+    authenticator: string | null;
+    outcome: string;
+    reason: string | null;
+    user: string | null;
+    roles: string[] | null;
+  } | null;
 }
 
 /** Durée totale = (fin de la dernière phase terminée) − (début de la 1ère). */
@@ -183,6 +234,7 @@ export class Profiler {
         ctx.profilerQueries && ctx.profilerQueries.length > 0
           ? ctx.profilerQueries
           : undefined,
+      security: readSecurity(ctx),
     };
     // Ré-insertion = la clé repasse en queue (entrée la plus récente).
     this._buf.delete(requestId);
@@ -232,14 +284,45 @@ export class Profiler {
   }
 }
 
-/** Extrait le username de l'utilisateur firewall (forme défensive). */
+/**
+ * Croise la ZONE (ce qui était possible) et la TRACE (ce qui s'est passé).
+ *
+ * Hors zone firewall → `undefined` (pas de section « Sécurité » vide côté
+ * client). Zone publique traversée sans trace → `outcome: "public"` : la
+ * requête a bien croisé une zone, qui n'exigeait simplement rien.
+ */
+function readSecurity(ctx: ProfilableContext): ProfileSecurity | undefined {
+  const area = ctx.security;
+  if (!area) return undefined;
+  const t = ctx.securityTrace ?? null;
+  const isProtected = area.security === true;
+  return {
+    zone: area.name ?? null,
+    protected: isProtected,
+    mode: area.mode ?? null,
+    candidates: area.authenticators ? [...area.authenticators] : [],
+    authenticator: t?.authenticator ?? null,
+    outcome: t?.outcome ?? (isProtected ? null : "public"),
+    reason: t?.reason ?? null,
+    roles: t?.roles ?? null,
+  };
+}
+
+/**
+ * Identité de la requête.
+ *
+ * `context.user` n'est PAS la source de vérité en zone firewall : le token
+ * résolu vit dans l'ALS (`RequestContext`), qui n'est plus lisible au teardown
+ * où `collect()` s'exécute. Sans le repli sur la trace, une requête pleinement
+ * authentifiée (rôles compris) s'afficherait « anonyme ».
+ */
 function readUser(ctx: ProfilableContext): string | null {
   const u = (ctx as { user?: unknown }).user;
   if (u && typeof u === "object") {
     const username = (u as { username?: unknown }).username;
     if (typeof username === "string") return username;
   }
-  return null;
+  return ctx.securityTrace?.user ?? null;
 }
 
 export default Profiler;

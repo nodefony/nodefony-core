@@ -1078,6 +1078,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // reads the same array at teardown (outside the ALS bubble).
       const profilerQueries = this.profiler ? [] : null;
       context.profilerQueries = profilerQueries;
+      // Témoin de radiographie : le firewall le lit pour décider d'allouer (ou
+      // non) sa trace de décision. Booléen → 0 alloc en prod.
+      context.profiling = profilerQueries !== null;
       // P1.4 — enter ALS scope so requestId is propagated to every
       // downstream async hop (logs, ORM, security decorators, etc.).
       return await RequestContext.run(
@@ -1357,6 +1360,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           (req.headers as Record<string, string | string[] | undefined>)
             ?.traceparent as string | undefined,
         );
+        // Radiographie du HANDSHAKE (le contexte WS vit pour toute la connexion :
+        // la décision du firewall y est per-connexion, pas per-frame). Pas de
+        // buffer ORM ici — il serait cumulatif sur N messages, donc mensonger.
+        context.profiling = this.profiler !== null;
       }
       // P1.4 — enter ALS scope for WS pipeline (handshake + messages).
       // context.requestId is always defined (set in WebsocketContext ctor).

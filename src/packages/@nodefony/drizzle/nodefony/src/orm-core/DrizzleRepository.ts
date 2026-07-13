@@ -293,6 +293,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (buf) {
       buf.push({
         sql: this.#safeSql(builder),
+        startMs: start,
         durationMs,
         rows: Array.isArray(result) ? result.length : undefined,
         connector: "drizzle",

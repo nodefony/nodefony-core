@@ -10,7 +10,7 @@ import {
   Pdu,
   logColor,
 } from "nodefony";
-import type { ContextType } from "@nodefony/http";
+import type { ContextType, ISecurityTrace } from "@nodefony/http";
 import { encoderFromConfig } from "@nodefony/user";
 
 import { SecuredArea } from "../src/SecuredArea";
@@ -567,11 +567,19 @@ class Firewall extends Service implements IFirewall {
     if (!area || !area.security) return context; // hors zone ou zone publique
     const bypass = (context as { resolver?: { bypassFirewall?: boolean } })
       .resolver?.bypassFirewall;
-    if (bypass) return context;
+    // Radiographie (dev-only) : le chemin de succès est MUET côté audit (le
+    // volume nominal n'est pas un signal de sécurité) → sans cette trace, une
+    // requête qui PASSE ne dit ni par quelle zone, ni par quel authenticator.
+    // `context.profiling` est faux en prod → aucune allocation ici.
+    const trace = this.#startTrace(context);
+    if (bypass) {
+      if (trace) trace.outcome = "bypass";
+      return context;
+    }
 
     let token: IToken | null;
     try {
-      token = await this.#authenticate(context, area);
+      token = await this.#authenticate(context, area, trace);
     } catch (error) {
       if (error instanceof ThrottledError) {
         // 429 (RFC 6585) : pas un défi d'authentification — `Retry-After`
@@ -640,8 +648,42 @@ class Firewall extends Service implements IFirewall {
       );
     }
     // Succès (authentifié OU anonyme explicite) : AUCUNE émission — le hot-path
-    // nominal reste muet (le volume n'est pas un signal d'audit).
+    // nominal reste muet (le volume n'est pas un signal d'audit). La trace
+    // dev-only, elle, retient QUI est passé et PAR QUOI (radiographie).
+    if (trace) {
+      trace.outcome = token.isAuthenticated() ? "granted" : "anonymous";
+      trace.user = token.getUserIdentifier();
+      trace.roles = token.getRoles();
+    }
     return context;
+  }
+
+  /**
+   * Ouvre la trace de décision de la zone — **dev-only**, gratuit en production.
+   *
+   * L'allocation est conditionnée au témoin `context.profiling` (posé par le
+   * HttpKernel quand le Profiler est actif, donc jamais en prod) : sur le
+   * hot-path nominal, ceci coûte une lecture de booléen.
+   *
+   * @returns la trace fraîche (posée sur le context), ou `null` hors profiling.
+   */
+  #startTrace(context: ContextType): ISecurityTrace | null {
+    const ctx = context as unknown as {
+      profiling?: boolean;
+      securityTrace?: ISecurityTrace | null;
+    };
+    if (!ctx.profiling) return null;
+    const trace: ISecurityTrace = {
+      authenticator: null,
+      // Défaut fail-closed : tant qu'aucune sortie n'a tranché, la requête est
+      // réputée refusée (une trace tronquée ne doit jamais se lire « passée »).
+      outcome: "denied",
+      reason: null,
+      user: null,
+      roles: null,
+    };
+    ctx.securityTrace = trace;
+    return trace;
   }
 
   // Journalise un refus d'authentification de zone (cold-path : 401/429 only) —
@@ -656,6 +698,19 @@ class Firewall extends Service implements IFirewall {
     reason: string,
     actor: string | null,
   ): void {
+    // Radiographie : le refus porte son MOTIF (dev-only ; `securityTrace` est
+    // null en prod). `throttled` est un 429, pas un échec de preuve → il garde
+    // sa propre issue plutôt que d'être aplati en `failure`.
+    const trace = (
+      context as unknown as { securityTrace?: ISecurityTrace | null }
+    ).securityTrace;
+    if (trace) {
+      trace.outcome = reason === "throttled" ? "throttled" : outcome;
+      trace.reason = reason;
+      // L'acteur est connu quand une preuve a été présentée (credential rejeté,
+      // token non authentifié) — sinon `null` (personne ne s'est annoncé).
+      trace.user = actor;
+    }
     recordAudit(this.container as Container, {
       category: "auth",
       action,
@@ -853,6 +908,8 @@ class Firewall extends Service implements IFirewall {
    * `all` : tous les maillons doivent supporter ET authentifier (MFA) ; le
    * DERNIER token porte l'identité. Une preuve manquante = 401.
    *
+   * @param trace - radiographie dev-only ; reçoit le NOM du maillon qui a
+   *   résolu l'identité (`null` en prod → aucune écriture).
    * @returns le token accepté, ou `null` si aucune preuve n'a été présentée.
    * @throws AuthenticationError (401) — credential invalide ou preuve manquante
    *   (mode `all`). Toute erreur interne est logguée ERROR puis wrappée 401
@@ -861,6 +918,7 @@ class Firewall extends Service implements IFirewall {
   async #authenticate(
     context: ContextType,
     area: ISecuredArea,
+    trace: ISecurityTrace | null = null,
   ): Promise<IToken | null> {
     let token: IToken | null = null;
     for (const name of area.authenticators) {
@@ -908,6 +966,9 @@ class Firewall extends Service implements IFirewall {
         throw new AuthenticationError("Authentication failed");
       }
       await authenticator.onSuccess(context, authenticated);
+      // Radiographie : le maillon qui a RÉELLEMENT résolu l'identité (en mode
+      // `all`, le dernier — c'est lui qui la porte, cf ci-dessous).
+      if (trace) trace.authenticator = name;
       if (area.mode === "first") return authenticated;
       token = authenticated; // mode "all" : le dernier porte l'identité
     }

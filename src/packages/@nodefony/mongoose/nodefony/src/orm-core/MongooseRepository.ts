@@ -94,6 +94,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     if (buf) {
       buf.push({
         sql: descr(),
+        startMs: start,
         durationMs,
         rows: rowsOf?.(result),
         connector: "mongoose",

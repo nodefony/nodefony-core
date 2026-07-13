@@ -143,5 +143,90 @@ describe("Profiler — unit", () => {
       expect(p.get("empty")!.queries).to.be.undefined;
       expect(p.get("nul")!.queries).to.be.undefined;
     });
+
+    it("keeps startMs so a query can be placed inside the phase waterfall", () => {
+      const p = new Profiler();
+      p.collect(
+        ctx({
+          profilerQueries: [{ sql: "SELECT 1", startMs: 2.5, durationMs: 0.4 }],
+        }) as never,
+      );
+      // La phase `action` court de 1 à 5 → la requête (2.5) tombe DEDANS.
+      expect(p.get("req-1")!.queries![0].startMs).to.equal(2.5);
+    });
+  });
+
+  describe("security — la traversée du firewall", () => {
+    /** Zone protégée telle que `Firewall.isSecure` la pose sur le context. */
+    const area = {
+      name: "admin",
+      security: true,
+      mode: "first",
+      authenticators: ["session", "jwt"],
+    };
+
+    it("reports nothing when the request crossed no firewall zone", () => {
+      const p = new Profiler();
+      p.collect(ctx() as never);
+      expect(p.get("req-1")!.security).to.be.undefined;
+    });
+
+    it("crosses what the zone ALLOWED with what actually HAPPENED", () => {
+      const p = new Profiler();
+      p.collect(
+        ctx({
+          security: area,
+          securityTrace: {
+            authenticator: "session",
+            outcome: "granted",
+            reason: null,
+            roles: ["ROLE_NODEFONY_ADMIN"],
+          },
+        }) as never,
+      );
+      const s = p.get("req-1")!.security!;
+      expect(s.zone).to.equal("admin");
+      expect(s.protected).to.equal(true);
+      expect(s.mode).to.equal("first");
+      // Ce qui était POSSIBLE…
+      expect(s.candidates).to.deep.equal(["session", "jwt"]);
+      // …et ce qui a RÉELLEMENT résolu l'identité.
+      expect(s.authenticator).to.equal("session");
+      expect(s.outcome).to.equal("granted");
+      expect(s.roles).to.deep.equal(["ROLE_NODEFONY_ADMIN"]);
+    });
+
+    it("carries the REASON of a refusal (a 401 says why)", () => {
+      const p = new Profiler();
+      p.collect(
+        ctx({
+          response: { statusCode: 401 },
+          security: area,
+          securityTrace: {
+            authenticator: null,
+            outcome: "denied",
+            reason: "no_credentials",
+            roles: null,
+          },
+        }) as never,
+      );
+      const s = p.get("req-1")!.security!;
+      expect(s.outcome).to.equal("denied");
+      expect(s.reason).to.equal("no_credentials");
+      expect(s.authenticator).to.be.null;
+    });
+
+    it("marks a public zone crossed without a trace as `public`", () => {
+      const p = new Profiler();
+      p.collect(
+        ctx({
+          security: { name: "front", security: false, authenticators: [] },
+        }) as never,
+      );
+      const s = p.get("req-1")!.security!;
+      expect(s.protected).to.equal(false);
+      // Le firewall n'ouvre aucune trace hors zone protégée → l'issue se déduit.
+      expect(s.outcome).to.equal("public");
+    });
   });
 });

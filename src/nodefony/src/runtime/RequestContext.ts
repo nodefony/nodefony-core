@@ -9,6 +9,13 @@ import { AsyncLocalStorage } from "node:async_hooks";
 export interface IProfilerQuery {
   /** Requête (SQL ou commande NoSQL), tronquée si volumineuse. */
   sql: string;
+  /**
+   * Début relatif (`performance.now()`, ms) — même horloge que
+   * `PhaseTiming.startMs` du Context, donc la requête se PLACE dans le waterfall
+   * des phases (le SQL apparaît DANS la barre `action`), au lieu de flotter en
+   * liste à côté. Absent si l'adapter ne l'a pas fourni.
+   */
+  startMs?: number;
   /** Durée d'exécution en ms. */
   durationMs: number;
   /** Lignes affectées/retournées, si connu. */

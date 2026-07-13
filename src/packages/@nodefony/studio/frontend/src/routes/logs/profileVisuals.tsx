@@ -31,6 +31,7 @@ const PHASE_COLORS: Record<string, string> = {
   action: "#36b37e",
   render: "#ffab00",
   send: "#00b8d9",
+  sql: "#c56bff",
   other: "#8a9099",
 };
 
@@ -117,9 +118,33 @@ function WaterfallRow({
 /**
  * Waterfall des phases serveur (parse → resolve → firewall → action → render →
  * send). Vide si le timing est désactivé (prod sans profiler).
+ *
+ * `withQueries` place EN PLUS chaque requête ORM sur le même axe de temps : le
+ * SQL apparaît **dans** la barre `action` (on voit le temps de base de données
+ * à l'intérieur du controller) au lieu de flotter dans un tableau à côté. Les
+ * requêtes sans `startMs` (adapter qui ne l'émet pas) sont ignorées ici — elles
+ * restent listées par {@link QueryTable}, jamais placées au hasard.
  */
-export function PhaseWaterfall({ profile }: { profile: ProfileEntry }) {
-  const bars = computeWaterfall(profile.phases);
+export function PhaseWaterfall({
+  profile,
+  withQueries = false,
+}: {
+  profile: ProfileEntry;
+  withQueries?: boolean;
+}) {
+  const placeable = withQueries
+    ? (profile.queries ?? []).filter((q) => typeof q.startMs === "number")
+    : [];
+  // UN SEUL appel à computeWaterfall (phases + SQL) → même échelle, donc les
+  // barres SQL tombent réellement à l'intérieur de la barre `action`.
+  const bars = computeWaterfall([
+    ...profile.phases,
+    ...placeable.map((q, i) => ({
+      name: `sql ${i + 1}`,
+      startMs: q.startMs as number,
+      durationMs: q.durationMs,
+    })),
+  ]);
   if (bars.length === 0) {
     return (
       <Text size="sm" c="dimmed">
@@ -127,10 +152,15 @@ export function PhaseWaterfall({ profile }: { profile: ProfileEntry }) {
       </Text>
     );
   }
+  const firstSql = profile.phases.length;
   return (
     <Stack gap={4}>
-      {bars.map((b) => (
-        <WaterfallRow key={b.name} {...b} />
+      {bars.map((b, i) => (
+        <WaterfallRow
+          key={b.name}
+          {...b}
+          tier={i >= firstSql ? "sql" : b.tier}
+        />
       ))}
     </Stack>
   );

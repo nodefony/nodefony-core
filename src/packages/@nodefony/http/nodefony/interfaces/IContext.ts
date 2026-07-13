@@ -4,22 +4,12 @@ import type { ISession } from "./ISession";
 import type { HTTPMethodType } from "./IRequest";
 
 export type ServerType =
-  | "http"
-  | "https"
-  | "http2"
-  | "http3"
-  | "websocket"
-  | "websocket-secure";
+  "http" | "https" | "http2" | "http3" | "websocket" | "websocket-secure";
 
 export type SchemeType = "http" | "https" | "ws" | "wss";
 
 export type WebSocketStateType =
-  | "handshake"
-  | "connected"
-  | "closed"
-  | "error"
-  | "message"
-  | null;
+  "handshake" | "connected" | "closed" | "error" | "message" | null;
 
 export type CookiesMap = Record<string, ICookie>;
 
@@ -38,6 +28,53 @@ export interface PhaseTiming {
   startMs: number;
   endMs?: number;
   durationMs?: number;
+}
+
+/** Issue de la traversée d'une zone firewall. */
+export type SecurityOutcome =
+  /** Identité authentifiée (un authenticator a résolu un token). */
+  | "granted"
+  /** Anonyme EXPLICITE (authenticator `anonymous` listé par la zone). */
+  | "anonymous"
+  /** Refus par POLITIQUE (aucune preuve présentée en zone fermée → 401). */
+  | "denied"
+  /** Preuve PRÉSENTÉE mais invalide (l'acteur a échoué une preuve → 401). */
+  | "failure"
+  /** Backoff NIST actif (429). */
+  | "throttled"
+  /** Route exemptée (`bypassFirewall`) — la zone est traversée sans auth. */
+  | "bypass";
+
+/**
+ * Décision du firewall sur CETTE requête — matière de la « radiographie »
+ * (Studio / debug bar) : la zone dit ce qui était POSSIBLE (via
+ * `context.security`), cette trace dit ce qui s'est RÉELLEMENT passé.
+ *
+ * Le contrat vit ici (et non dans `@nodefony/security`) parce que
+ * `@nodefony/http` ne peut pas importer le module de sécurité (cycle) : http
+ * porte le champ, security le REMPLIT — exactement le pattern de
+ * `profilerQueries` (buffer porté par http, rempli par les adapters ORM).
+ *
+ * **Dev-only** : alloué par le firewall UNIQUEMENT si `context.profiling` est
+ * vrai (profiler actif → jamais en production). Le chemin nominal de succès
+ * n'émet aucun événement d'audit (le volume n'est pas un signal) : sans cette
+ * trace, une requête qui PASSE ne laisse aucune empreinte de sa zone.
+ */
+export interface ISecurityTrace {
+  /** Authenticator qui a résolu le token — `null` si aucun n'a abouti. */
+  authenticator: string | null;
+  /** Ce qui s'est passé. */
+  outcome: SecurityOutcome;
+  /** Motif du refus (`no_credentials`, `invalid_credentials`…), `null` si succès. */
+  reason: string | null;
+  /**
+   * Identité résolue par le firewall. Le token vit dans l'ALS (pas sur
+   * `context.user`) : sans ce champ, une requête authentifiée s'affiche
+   * « anonyme » alors qu'elle porte des rôles.
+   */
+  user: string | null;
+  /** Rôles portés par le token résolu, `null` hors succès. */
+  roles: string[] | null;
 }
 
 export type AfterResponseHandler = (ctx: IContext) => void | Promise<void>;
@@ -96,6 +133,12 @@ export interface IContext {
   readonly phases: PhaseTiming[];
   phaseStart(name: PhaseName): void;
   phaseEnd(name: PhaseName): void;
+
+  // Radiographie dev-only. `profiling` = témoin « le Profiler est actif » posé
+  // par le HttpKernel (false en prod) : les producteurs de trace (firewall) le
+  // lisent AVANT d'allouer quoi que ce soit → zéro coût hors dev.
+  profiling: boolean;
+  securityTrace: ISecurityTrace | null;
 
   // Lifecycle hook — after response is sent (HTTP finish/close, WS close).
   // Fires exactly once per context, deduplicated across finish/close.

@@ -19,9 +19,25 @@ export interface ProfilePhase {
 /** Requête ORM (miroir — SEAM futur). */
 export interface ProfileQuery {
   sql: string;
+  /** Début relatif (même horloge que les phases) → placement dans le waterfall. */
+  startMs?: number;
   durationMs: number;
   rows?: number;
   connector?: string;
+}
+
+/** Traversée du firewall (miroir de `@nodefony/http` `ProfileSecurity`). */
+export interface ProfileSecurity {
+  zone: string | null;
+  protected: boolean;
+  mode: string | null;
+  /** Authenticators acceptés par la zone (ce qui était POSSIBLE). */
+  candidates: string[];
+  /** Authenticator qui a RÉELLEMENT résolu l'identité. */
+  authenticator: string | null;
+  outcome: string | null;
+  reason: string | null;
+  roles: string[] | null;
 }
 
 /** Profil serveur complet (miroir de `@nodefony/http` `ProfileEntry`). */
@@ -43,6 +59,8 @@ export interface ProfileEntry {
   error: string | null;
   phases: ProfilePhase[];
   queries?: ProfileQuery[];
+  /** Zone firewall traversée + décision — `undefined` hors zone. */
+  security?: ProfileSecurity;
 }
 
 /** Résumé d'un profil (liste `recent`) — miroir de `@nodefony/http` `ProfileSummary`. */

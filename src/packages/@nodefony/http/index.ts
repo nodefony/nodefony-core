@@ -255,6 +255,8 @@ export type {
   SchemeType,
   WebSocketStateType,
   CookiesMap,
+  ISecurityTrace,
+  SecurityOutcome,
 } from "./nodefony/interfaces/IContext";
 export type {
   ICookie,
