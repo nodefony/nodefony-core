@@ -43,11 +43,45 @@ export class AdminStore {
   loading = false;
   error: string | null = null;
 
+  /**
+   * Environnement du SERVEUR (`development` | `production` | `test`…), lu sur
+   * `/studio/api/info`. `null` tant qu'il n'est pas connu.
+   *
+   * Sert à ne pas proposer une page dont le back n'existe pas dans cet
+   * environnement : le data plane du **Playground** n'est monté qu'en
+   * développement (il EXÉCUTE des actions depuis le navigateur) → en production,
+   * l'entrée de menu mènerait à un écran mort. Masquer l'entrée est du CONFORT :
+   * la vraie garde reste le serveur (l'API n'existe pas), jamais ce booléen.
+   */
+  env: string | null = null;
+
   /** Réponses des endpoints invoqués, indexées par chemin absolu. */
   invocations = new Map<string, AdminInvocation>();
 
   constructor(private readonly api: ApiClient) {
     makeAutoObservable(this, {}, { autoBind: true });
+  }
+
+  /** Le serveur tourne-t-il en production ? (inconnu → on suppose que NON). */
+  get isProd(): boolean {
+    return this.env === "production";
+  }
+
+  /**
+   * Lit l'identité du serveur (nom, version, environnement). Endpoint volontairement
+   * pauvre côté back (pré-login, hors firewall) : name/version/env, rien de plus.
+   * Silencieux en cas d'échec — l'environnement reste `null` et le menu montre tout
+   * (préférer une entrée de trop à une entrée manquante par erreur réseau).
+   */
+  async loadInfo(): Promise<void> {
+    try {
+      const info = await this.api.get<{ env?: string }>("/info");
+      runInAction(() => {
+        this.env = typeof info.env === "string" ? info.env : null;
+      });
+    } catch {
+      /* identité inconnue → aucun filtrage par environnement */
+    }
   }
 
   /** Charge (ou recharge) le catalogue des producteurs admin. */

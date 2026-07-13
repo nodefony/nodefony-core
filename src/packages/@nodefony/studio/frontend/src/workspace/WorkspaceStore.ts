@@ -268,6 +268,32 @@ export class WorkspaceStore {
     this.persist();
   }
 
+  /**
+   * Réordonne les bureaux : place `id` **juste avant** `beforeId` (ou en dernier
+   * si `null`). Sert le drag & drop des vignettes du bandeau.
+   *
+   * Sémantique RELATIVE (un voisin), pas un index absolu : la liste affichée est
+   * filtrée par rôle (`isWorkspaceVisible`) → l'index vu à l'écran n'est PAS
+   * l'index réel, et déplacer « en position 2 » déplacerait au mauvais endroit
+   * dès qu'un bureau est masqué.
+   *
+   * L'ordre EST celui des clés de `layouts` (ordre d'insertion — les ids ne sont
+   * jamais numériques, donc JS le préserve, `JSON.stringify` aussi, et `load()`
+   * le relit tel quel). Une source de vérité unique : pas de tableau `order`
+   * parallèle à maintenir en cohérence avec les créations/suppressions.
+   */
+  moveWorkspace(id: string, beforeId: string | null): void {
+    if (!this.layouts[id] || id === beforeId) return;
+    const ids = Object.keys(this.layouts).filter((k) => k !== id);
+    const at = beforeId ? ids.indexOf(beforeId) : -1;
+    if (beforeId && at < 0) return; // cible inconnue → on ne devine pas
+    ids.splice(at < 0 ? ids.length : at, 0, id);
+    const next: Record<string, WorkspaceLayout> = {};
+    for (const k of ids) next[k] = this.layouts[k];
+    this.layouts = next;
+    this.persist();
+  }
+
   /** Duplique un bureau (copie des fenêtres) et l'active. */
   duplicateWorkspace(id: string): void {
     const src = this.layouts[id];

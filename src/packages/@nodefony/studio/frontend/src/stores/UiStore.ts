@@ -4,9 +4,13 @@ import type { StudioPalette } from "../theme";
 const THEME_KEY = "nodefony.studio.theme";
 const PALETTE_KEY = "nodefony.studio.palette";
 const RAIL_KEY = "nodefony.studio.sidebar.rail";
-// v2 : la sémantique par défaut a changé (groupes PLIÉS au démarrage) → nouvelle
-// clé pour repartir propre, sans hériter d'un ancien état « tout déplié ».
-const GROUPS_KEY = "nodefony.studio.sidebar.groups.v2";
+// v3 : la sémantique par défaut a RE-changé (les groupes ne sont plus tous pliés :
+// le défaut est décidé par la sidebar selon le contenu du groupe — un groupe
+// entièrement « à venir » reste plié, les autres s'ouvrent). Nouvelle clé pour ne
+// pas hériter d'un état v2 qui figerait l'ancien défaut « tout plié ».
+const GROUPS_KEY = "nodefony.studio.sidebar.groups.v3";
+/** Pages épinglées (routes `to`), remontées en tête de sidebar. Persisté. */
+const PINNED_KEY = "nodefony.studio.sidebar.pinned";
 /** Clé PARTAGÉE avec le widget Core (`nodefony/debugbar`) → état synchronisé. */
 const DEBUGBAR_KEY = "nf.debugbar.visible";
 /** Cadence adaptative (AIMD) de la socket — politique globale, pilotée depuis le Hub. */
@@ -36,11 +40,22 @@ export class UiStore {
   /** Mode rail : navbar étroite icônes-seules (desktop). Persisté. */
   rail = false;
   /**
-   * État de pliage par groupe. Sémantique : **plié par défaut** (la sidebar est
-   * dense en 10.0.0) — un groupe est OUVERT seulement si explicitement `false`.
-   * Absent / `true` = plié. Persisté.
+   * État de pliage par groupe — **choix EXPLICITE de l'utilisateur uniquement**.
+   * Une clé absente = « pas d'avis » : c'est la sidebar qui décide alors du défaut
+   * selon le CONTENU du groupe (un groupe dont tout est « à venir » reste plié ;
+   * un groupe qui porte des pages livrées s'ouvre). Persisté.
+   *
+   * Avant, tout était plié par défaut : on ouvrait la console sur une colonne de
+   * titres muets, et il fallait déplier pour trouver quoi que ce soit.
    */
   collapsedGroups: Record<string, boolean> = {};
+  /**
+   * Pages épinglées (routes `to`) — remontées dans une section « Épinglés » en tête
+   * de sidebar, dans l'ordre d'épinglage. C'est la réponse au « j'utilise cette page
+   * vingt fois par jour » : plutôt que de deviner un ordre idéal pour tout le monde,
+   * chacun remonte les siennes. Persisté.
+   */
+  pinned: string[] = [];
   /** Filtre live de la nav (libellés). Transient — jamais persisté. */
   navQuery = "";
   /** Debug bar Nodefony visible (dev). Persisté, partagé avec le widget Core. */
@@ -129,13 +144,29 @@ export class UiStore {
     this.persist();
   }
 
-  isGroupCollapsed(id: string): boolean {
-    // Plié par défaut : seul un `false` explicite (déplié à la main) ouvre le groupe.
-    return this.collapsedGroups[id] !== false;
+  /**
+   * Le groupe est-il plié ? `fallback` = défaut décidé par l'appelant (la sidebar,
+   * qui seule connaît le contenu du groupe) quand l'utilisateur n'a jamais tranché.
+   */
+  isGroupCollapsed(id: string, fallback = false): boolean {
+    const v = this.collapsedGroups[id];
+    return typeof v === "boolean" ? v : fallback;
   }
 
-  toggleGroup(id: string): void {
-    this.collapsedGroups[id] = !this.isGroupCollapsed(id);
+  toggleGroup(id: string, fallback = false): void {
+    this.collapsedGroups[id] = !this.isGroupCollapsed(id, fallback);
+    this.persist();
+  }
+
+  isPinned(to: string): boolean {
+    return this.pinned.includes(to);
+  }
+
+  /** Épingle / dépingle une page (ordre d'épinglage conservé). */
+  togglePin(to: string): void {
+    this.pinned = this.isPinned(to)
+      ? this.pinned.filter((p) => p !== to)
+      : [...this.pinned, to];
     this.persist();
   }
 
@@ -185,6 +216,15 @@ export class UiStore {
           this.collapsedGroups = parsed as Record<string, boolean>;
         }
       }
+      const p2 = localStorage.getItem(PINNED_KEY);
+      if (p2) {
+        const parsed: unknown = JSON.parse(p2);
+        if (Array.isArray(parsed)) {
+          this.pinned = parsed.filter(
+            (x): x is string => typeof x === "string",
+          );
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -198,6 +238,7 @@ export class UiStore {
       localStorage.setItem(RAIL_KEY, this.rail ? "1" : "0");
       localStorage.setItem(ADAPTIVE_KEY, this.adaptiveCadence ? "1" : "0");
       localStorage.setItem(GROUPS_KEY, JSON.stringify(this.collapsedGroups));
+      localStorage.setItem(PINNED_KEY, JSON.stringify(this.pinned));
     } catch {
       /* ignore */
     }

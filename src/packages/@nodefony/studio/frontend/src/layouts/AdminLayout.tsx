@@ -49,6 +49,8 @@ import {
   IconPlugConnected,
   IconPlugX,
   IconSearch,
+  IconStar,
+  IconStarFilled,
   IconX,
   IconPalette,
   IconChevronRight,
@@ -69,6 +71,7 @@ import {
 } from "../stores";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { NAV_GROUPS, PRODUCER_ICONS } from "./navConfig";
+import type { NavItem } from "./navConfig";
 import { useResource } from "../hooks";
 import {
   PROFILE_ME_ENDPOINT,
@@ -79,7 +82,13 @@ import { UserAvatar } from "../routes/users/AvatarUpload";
 const RAIL_WIDTH = 68;
 const FULL_WIDTH = 264;
 
-/** Un lien de nav — rendu plein (icône + libellé) ou rail (icône + tooltip). */
+/**
+ * Un lien de nav — rendu plein (icône + libellé) ou rail (icône + tooltip).
+ *
+ * Deux niveaux de lecture volontaires : une page LIVRÉE est à plein contraste ;
+ * une page « à venir » (`dimmed`) est atténuée et badgée. Elles restent visibles
+ * (la nav montre où va le produit) mais ne se confondent plus avec ce qui marche.
+ */
 function NavEntry({
   to,
   label,
@@ -87,6 +96,9 @@ function NavEntry({
   active,
   rail,
   rightSection,
+  dimmed,
+  pinned,
+  onTogglePin,
 }: {
   to: string;
   label: string;
@@ -94,6 +106,9 @@ function NavEntry({
   active: boolean;
   rail: boolean;
   rightSection?: React.ReactNode;
+  dimmed?: boolean;
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }) {
   if (rail) {
     return (
@@ -105,7 +120,11 @@ function NavEntry({
           variant={active ? "filled" : "subtle"}
           leftSection={<ItemIcon size={20} stroke={1.6} />}
           styles={{
-            root: { justifyContent: "center", borderRadius: 8 },
+            root: {
+              justifyContent: "center",
+              borderRadius: 8,
+              opacity: dimmed ? 0.5 : 1,
+            },
             section: { marginInlineEnd: 0 },
           }}
           mb={2}
@@ -121,8 +140,39 @@ function NavEntry({
       active={active}
       variant={active ? "filled" : "subtle"}
       leftSection={<ItemIcon size={18} stroke={1.6} />}
-      rightSection={rightSection}
-      styles={{ root: { borderRadius: 8 } }}
+      rightSection={
+        // L'étoile n'apparaît qu'au survol (ou si déjà épinglée) : une colonne
+        // d'étoiles permanentes ajouterait le bruit qu'on cherche à retirer.
+        <Group gap={4} wrap="nowrap">
+          {rightSection}
+          {onTogglePin ? (
+            <ActionIcon
+              component="span"
+              role="button"
+              size="xs"
+              variant="subtle"
+              color={pinned ? "brand" : "gray"}
+              aria-label={
+                pinned ? `Désépingler ${label}` : `Épingler ${label} en haut`
+              }
+              className="nf-pin"
+              onClick={(e) => {
+                // Le lien est l'ancêtre : sans ça, épingler naviguerait.
+                e.preventDefault();
+                e.stopPropagation();
+                onTogglePin();
+              }}
+              style={{ opacity: pinned ? 1 : undefined }}
+            >
+              {pinned ? <IconStarFilled size={12} /> : <IconStar size={12} />}
+            </ActionIcon>
+          ) : null}
+        </Group>
+      }
+      styles={{
+        root: { borderRadius: 8, opacity: dimmed ? 0.55 : 1 },
+        label: dimmed ? { fontWeight: 400 } : undefined,
+      }}
       mb={2}
     />
   );
@@ -193,6 +243,14 @@ export const AdminLayout = observer(() => {
     if (isAdmin) void admin.loadCatalog();
   }, [admin, isAdmin]);
 
+  // Identité du serveur (dont l'ENVIRONNEMENT) → la nav n'affiche pas les pages
+  // dont le back n'existe qu'en développement (Playground : son data plane n'est
+  // pas monté en production, l'entrée mènerait à un écran mort). Endpoint public
+  // (pré-login, hors firewall) → chargé pour TOUS, pas seulement l'admin.
+  useEffect(() => {
+    void admin.loadInfo();
+  }, [admin]);
+
   // Sync debug bar → Studio : un clic sur une requête dans la barre (event
   // window dispatché par le widget Core `nodefony/debugbar`) ouvre le **Suivi de
   // requête** (`/nodefony/logs/trace/:requestId`) — la vue unifiée par requestId
@@ -220,6 +278,35 @@ export const AdminLayout = observer(() => {
       : loc.pathname === to || loc.pathname.startsWith(to + "/");
 
   const producers = admin.producers;
+
+  /**
+   * Une entrée est-elle proposable ? DEUX axes indépendants :
+   *  - le RÔLE (qui a le droit de voir) — déjà géré par `isVisibleForRoles` ;
+   *  - l'ENVIRONNEMENT : une page `devOnly` n'a pas de back en production, la
+   *    proposer mènerait à un écran mort. Tant que l'environnement est inconnu
+   *    (`env === null`, info pas encore chargée), on montre — mieux vaut une
+   *    entrée de trop qu'une entrée disparue sur un aléa réseau.
+   */
+  const availableHere = useCallback(
+    (item: NavItem): boolean => !(item.devOnly && admin.isProd),
+    [admin.isProd],
+  );
+
+  /** Toutes les entrées visibles pour CET utilisateur, dans CET environnement. */
+  const allItems = NAV_GROUPS.flatMap((g) =>
+    g.roles && !isVisibleForRoles(g.roles, auth.roles)
+      ? []
+      : g.items.filter(
+          (i) => isVisibleForRoles(i.roles, auth.roles) && availableHere(i),
+        ),
+  );
+  // Épinglés : dans l'ordre choisi par l'utilisateur, jamais pendant un filtre
+  // (le filtre cherche dans TOUT — une section « épinglés » y ferait doublon).
+  const pinnedItems = filtering
+    ? []
+    : ui.pinned
+        .map((to) => allItems.find((i) => i.to === to))
+        .filter((i): i is NavItem => i !== undefined);
 
   return (
     <AppShell
@@ -538,19 +625,62 @@ export const AdminLayout = observer(() => {
         )}
 
         <ScrollArea style={{ flex: 1 }} type="scroll">
+          {/* ── Épinglés : les pages que CET utilisateur ouvre tout le temps ──── */}
+          {pinnedItems.length > 0 && !rail ? (
+            <Box>
+              <Group px="sm" mt={4} mb={4} gap={4}>
+                <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
+                  Épinglés
+                </Text>
+              </Group>
+              {pinnedItems.map((item) => (
+                <NavEntry
+                  key={`pin-${item.to}`}
+                  to={item.to}
+                  label={item.label}
+                  icon={item.icon}
+                  rail={rail}
+                  active={matchItem(item.to, item.exact)}
+                  dimmed={item.wip}
+                  pinned
+                  onTogglePin={() => ui.togglePin(item.to)}
+                  rightSection={
+                    item.wip ? (
+                      <Badge size="xs" variant="light" color="gray">
+                        à venir
+                      </Badge>
+                    ) : undefined
+                  }
+                />
+              ))}
+              <Divider my={6} />
+            </Box>
+          ) : null}
+
           {NAV_GROUPS.map((g) => {
             // Gating par rôle (ADMIN voit tout via `isVisibleForRoles`) : le
             // groupe entier peut être réservé (`g.roles`), et chaque item l'est
             // finement (`i.roles`). Un groupe sans item visible disparaît.
             if (g.roles && !isVisibleForRoles(g.roles, auth.roles)) return null;
-            const visible = g.items.filter((i) =>
-              isVisibleForRoles(i.roles, auth.roles),
+            const visible = g.items.filter(
+              (i) => isVisibleForRoles(i.roles, auth.roles) && availableHere(i),
             );
-            const items = filtering
+            const matching = filtering
               ? visible.filter((i) => i.label.toLowerCase().includes(q))
               : visible;
-            if (items.length === 0) return null;
-            const collapsed = !filtering && !rail && ui.isGroupCollapsed(g.id);
+            if (matching.length === 0) return null;
+
+            // Deux temps de lecture : ce qui MARCHE, puis ce qui ARRIVE. Le tri
+            // est fait au RENDU (pas dans navConfig) → le fichier de config reste
+            // rangé par thème, la sidebar décide de la présentation.
+            const live = matching.filter((i) => !i.wip);
+            const soon = matching.filter((i) => i.wip);
+            // Défaut de pliage : un groupe qui n'a QUE des pages à venir (la
+            // vitrine roadmap) s'ouvre replié — on l'annonce sans l'imposer. Les
+            // autres s'ouvrent. Un choix explicite de l'utilisateur gagne toujours.
+            const allSoon = live.length === 0;
+            const collapsed =
+              !filtering && !rail && ui.isGroupCollapsed(g.id, allSoon);
 
             return (
               <Box key={g.id}>
@@ -558,8 +688,9 @@ export const AdminLayout = observer(() => {
                   <Divider my={6} />
                 ) : (
                   <UnstyledButton
-                    onClick={() => !filtering && ui.toggleGroup(g.id)}
+                    onClick={() => !filtering && ui.toggleGroup(g.id, allSoon)}
                     style={{ width: "100%" }}
+                    aria-expanded={!collapsed}
                   >
                     <Group
                       justify="space-between"
@@ -568,9 +699,19 @@ export const AdminLayout = observer(() => {
                       mb={4}
                       gap={4}
                     >
-                      <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
-                        {g.label}
-                      </Text>
+                      <Group gap={6} wrap="nowrap">
+                        <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
+                          {g.label}
+                        </Text>
+                        {/* Compteur des pages à venir : l'ampleur de ce qui arrive
+                            est LISIBLE groupe replié — c'est la vitrine, sans le
+                            bruit de 11 entrées dépliées en permanence. */}
+                        {!filtering && soon.length > 0 ? (
+                          <Badge size="xs" variant="light" color="gray">
+                            {soon.length} à venir
+                          </Badge>
+                        ) : null}
+                      </Group>
                       {!filtering && (
                         <IconChevronRight
                           size={13}
@@ -585,7 +726,7 @@ export const AdminLayout = observer(() => {
                   </UnstyledButton>
                 )}
                 <Collapse expanded={!collapsed}>
-                  {items.map((item) => (
+                  {live.map((item) => (
                     <NavEntry
                       key={item.to}
                       to={item.to}
@@ -593,12 +734,43 @@ export const AdminLayout = observer(() => {
                       icon={item.icon}
                       rail={rail}
                       active={matchItem(item.to, item.exact)}
+                      pinned={ui.isPinned(item.to)}
+                      onTogglePin={
+                        rail ? undefined : () => ui.togglePin(item.to)
+                      }
+                    />
+                  ))}
+                  {/* Séparateur « À venir » : la frontière entre le produit et la
+                      roadmap est explicite, dans le groupe, sans quitter la page. */}
+                  {soon.length > 0 && live.length > 0 && !rail ? (
+                    <Text
+                      size="10px"
+                      c="dimmed"
+                      tt="uppercase"
+                      px="sm"
+                      mt={6}
+                      mb={2}
+                    >
+                      À venir
+                    </Text>
+                  ) : null}
+                  {soon.map((item) => (
+                    <NavEntry
+                      key={item.to}
+                      to={item.to}
+                      label={item.label}
+                      icon={item.icon}
+                      rail={rail}
+                      active={matchItem(item.to, item.exact)}
+                      dimmed
+                      pinned={ui.isPinned(item.to)}
+                      onTogglePin={
+                        rail ? undefined : () => ui.togglePin(item.to)
+                      }
                       rightSection={
-                        item.wip ? (
-                          <Badge size="xs" variant="light" color="gray">
-                            à venir
-                          </Badge>
-                        ) : undefined
+                        <Badge size="xs" variant="light" color="gray">
+                          à venir
+                        </Badge>
                       }
                     />
                   ))}
@@ -614,14 +786,16 @@ export const AdminLayout = observer(() => {
               : producers;
             if (items.length === 0) return null;
             const collapsed =
-              !filtering && !rail && ui.isGroupCollapsed("dataplane");
+              !filtering && !rail && ui.isGroupCollapsed("dataplane", true);
             return (
               <Box>
                 {rail ? (
                   <Divider my={6} />
                 ) : (
                   <UnstyledButton
-                    onClick={() => !filtering && ui.toggleGroup("dataplane")}
+                    onClick={() =>
+                      !filtering && ui.toggleGroup("dataplane", true)
+                    }
                     style={{ width: "100%" }}
                   >
                     <Group

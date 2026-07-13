@@ -56,11 +56,21 @@ export interface NavItem {
   /** Si défini, item visible seulement si l'utilisateur a AU MOINS UN de ces rôles. */
   roles?: string[];
   /**
-   * Page « en construction » (StubPage) — pas encore livrée. Marquée d'un badge
-   * discret dans la nav → la sidebar devient la carte d'avancement du produit.
-   * Retirer le flag quand la vraie page arrive.
+   * Page « en construction » (StubPage) — pas encore livrée. Elle RESTE dans la
+   * nav (c'est la vitrine : on montre où va le produit), mais elle est reléguée
+   * en fin de groupe, atténuée et badgée « à venir » → l'œil sépare en un instant
+   * ce qui MARCHE de ce qui ARRIVE. Retirer le flag quand la vraie page arrive.
    */
   wip?: boolean;
+  /**
+   * Page dont le BACK n'existe qu'en développement → masquée en production
+   * (sinon l'entrée mène à un écran mort : l'API n'est pas montée).
+   *
+   * ⚠️ C'est du CONFORT d'affichage, jamais une sécurité : la garde est côté
+   * serveur (l'endpoint n'existe pas / le firewall refuse). Ne jamais s'appuyer
+   * sur ce flag pour « protéger » quoi que ce soit.
+   */
+  devOnly?: boolean;
 }
 
 /** Un groupe de navigation repliable. */
@@ -171,28 +181,11 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // Introspection des données (ORM / schéma / migrations) → développeur.
-    id: "data",
-    label: "Données",
-    icon: IconDatabase,
-    roles: VIEW_ROLES.dev,
-    items: [
-      { to: "/nodefony/orm", label: "ORM", icon: IconDatabase },
-      { to: "/nodefony/databases", label: "Schéma ERD", icon: IconSchema },
-      { to: "/nodefony/stores", label: "Stores", icon: IconDatabaseCog },
-      {
-        to: "/nodefony/migrate",
-        label: "Migrations",
-        icon: IconArrowsExchange,
-        wip: true,
-      },
-    ],
-  },
-  {
-    // Introspection du framework (modules/services/routes) = développeur ;
-    // l'explorateur du data plane Admin API = administrateur.
+    // Introspection du framework ET des données — un SEUL tiroir « développeur ».
+    // « Données » était un groupe à part pour 3 pages livrées : deux tiroirs
+    // presque identiques (même public, même geste) coûtent plus qu'ils ne rangent.
     id: "system",
-    label: "Système",
+    label: "Système & données",
     icon: IconApi,
     items: [
       {
@@ -225,6 +218,10 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Playground",
         icon: IconFlask,
         roles: VIEW_ROLES.dev,
+        // Le data plane du Playground n'est monté qu'en développement (il EXÉCUTE
+        // des actions du serveur depuis le navigateur) → en production, la page
+        // n'aurait aucune API derrière elle. Cf `@nodefony/framework/index.ts`.
+        devOnly: true,
       },
       {
         to: "/nodefony/system",
@@ -236,6 +233,32 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/npm",
         label: "NPM",
         icon: IconBrandNpm,
+        roles: VIEW_ROLES.dev,
+        wip: true,
+      },
+      // ── Données (ex-groupe « Données », fusionné ici) ───────────────────────
+      {
+        to: "/nodefony/orm",
+        label: "ORM",
+        icon: IconDatabase,
+        roles: VIEW_ROLES.dev,
+      },
+      {
+        to: "/nodefony/databases",
+        label: "Schéma ERD",
+        icon: IconSchema,
+        roles: VIEW_ROLES.dev,
+      },
+      {
+        to: "/nodefony/stores",
+        label: "Stores",
+        icon: IconDatabaseCog,
+        roles: VIEW_ROLES.dev,
+      },
+      {
+        to: "/nodefony/migrate",
+        label: "Migrations",
+        icon: IconArrowsExchange,
         roles: VIEW_ROLES.dev,
         wip: true,
       },

@@ -1,5 +1,6 @@
 import { observer } from "mobx-react-lite";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   ActionIcon,
   Badge,
@@ -13,9 +14,12 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import {
+  IconArrowLeft,
+  IconArrowRight,
   IconChevronDown,
   IconCopy,
   IconDots,
+  IconGripVertical,
   IconLayoutGrid,
   IconPencil,
   IconPlus,
@@ -29,6 +33,13 @@ import type { WorkspaceLayout } from "./types";
 /* Dimensions de la vignette (mini-fenêtre fantôme). */
 const TW = 156;
 const TH = 88;
+
+/**
+ * Déplacement (px) au-delà duquel un appui devient un DRAG. En deçà, l'appui
+ * reste un clic (= basculer de bureau) : sans ce seuil, le moindre tremblement
+ * de souris pendant un clic réordonnerait les bureaux dans le dos de l'utilisateur.
+ */
+const DRAG_THRESHOLD = 4;
 
 /**
  * Aperçu « mini-fenêtres fantômes » d'un bureau : les fenêtres rendues à
@@ -120,6 +131,118 @@ export const WorkspaceSwitcher = observer(() => {
   const active = ws.active;
   const canDelete = tabs.length > 1;
 
+  /* ── Réordonner les vignettes (drag au pointeur) ──────────────────────────
+   * Même patron que le bureau (`WidgetGrid`) : `setPointerCapture` (aucun event
+   * perdu si le curseur sort de la vignette), suivi en `transform` (compositor,
+   * 0 render par frame), commit UNIQUE au relâché. Pas de lib de DnD : le besoin
+   * est une liste horizontale, et la primitive pointeur est déjà celle du reste
+   * du bureau — une seconde mécanique de drag dériverait de la première.
+   *
+   * Le drag ne doit pas voler le CLIC (= basculer de bureau) : on n'arme le
+   * déplacement qu'au-delà d'un seuil (DRAG_THRESHOLD), et un clic franc reste
+   * un clic. Équivalent CLAVIER dans le menu ⋯ (« Déplacer à gauche/droite ») —
+   * un réordonnancement uniquement à la souris serait inaccessible.
+   */
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{
+    id: string;
+    el: HTMLElement;
+    sx: number;
+    moved: boolean;
+  } | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  /** Id devant lequel on insérerait si on relâchait maintenant (`null` = en fin). */
+  const [dropBefore, setDropBefore] = useState<string | null | undefined>(
+    undefined,
+  );
+
+  /** Id de la vignette devant laquelle insérer, d'après l'abscisse du curseur. */
+  const dropTargetAt = useCallback(
+    (clientX: number, draggedId: string): string | null => {
+      const rail = railRef.current;
+      if (!rail) return null;
+      const cards = Array.from(
+        rail.querySelectorAll<HTMLElement>("[data-ws-id]"),
+      );
+      for (const card of cards) {
+        const id = card.dataset.wsId;
+        if (!id || id === draggedId) continue;
+        const r = card.getBoundingClientRect();
+        // Avant la vignette dont le curseur n'a pas dépassé le milieu.
+        if (clientX < r.left + r.width / 2) return id;
+      }
+      return null; // au-delà de toutes → en dernier
+    },
+    [],
+  );
+
+  const dragMove = useCallback(
+    (e: ReactPointerEvent<HTMLElement>) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const dx = e.clientX - d.sx;
+      if (!d.moved && Math.abs(dx) < DRAG_THRESHOLD) return; // encore un clic
+      if (!d.moved) {
+        d.moved = true;
+        setDragId(d.id);
+        document.body.style.userSelect = "none";
+        d.el.style.willChange = "transform";
+      }
+      d.el.style.transform = `translate3d(${dx}px, 0, 0)`;
+      setDropBefore(dropTargetAt(e.clientX, d.id));
+    },
+    [dropTargetAt],
+  );
+
+  const dragUp = useCallback(
+    (e: ReactPointerEvent<HTMLElement>) => {
+      const d = dragRef.current;
+      if (!d) return;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* déjà relâché */
+      }
+      d.el.style.transform = "";
+      d.el.style.willChange = "";
+      document.body.style.userSelect = "";
+      const moved = d.moved;
+      const before = dropTargetAt(e.clientX, d.id);
+      dragRef.current = null;
+      setDragId(null);
+      setDropBefore(undefined);
+      if (moved) ws.moveWorkspace(d.id, before); // commit unique
+    },
+    [dropTargetAt, ws],
+  );
+
+  const dragDown = useCallback(
+    (id: string) => (e: ReactPointerEvent<HTMLElement>) => {
+      if (e.button !== 0) return;
+      const el = (e.currentTarget as HTMLElement).closest(
+        "[data-ws-id]",
+      ) as HTMLElement | null;
+      if (!el) return;
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* capture non supportée */
+      }
+      dragRef.current = { id, el, sx: e.clientX, moved: false };
+    },
+    [],
+  );
+
+  /** Déplacement au CLAVIER (menu ⋯) — le drag seul serait inaccessible. */
+  const shift = (id: string, dir: -1 | 1): void => {
+    const i = tabs.findIndex((t) => t.id === id);
+    if (i < 0) return;
+    const j = i + dir;
+    if (j < 0 || j >= tabs.length) return;
+    // Vers la droite : on passe DEVANT le suivant → cible = celui d'après (ou fin).
+    ws.moveWorkspace(id, dir === -1 ? tabs[j].id : (tabs[j + 1]?.id ?? null));
+  };
+
   const startRename = (id: string, label: string) => {
     setDraft(label);
     setEditing(id);
@@ -198,6 +321,7 @@ export const WorkspaceSwitcher = observer(() => {
       {/* Slider de vignettes (s'ouvre / se replie). */}
       <Collapse expanded={open}>
         <Box
+          ref={railRef}
           role="tablist"
           aria-label="Bureaux"
           style={{
@@ -209,19 +333,33 @@ export const WorkspaceSwitcher = observer(() => {
             // vignettes (bordure active) serait rogné. Padding haut = respiration.
             paddingTop: 6,
             paddingBottom: 12,
-            scrollSnapType: "x proximity",
+            // Pendant un drag, le snap se battrait avec le suivi du curseur.
+            scrollSnapType: dragId ? "none" : "x proximity",
           }}
         >
           {tabs.map((l) => {
             const isActive = l.id === active.id;
+            const dragging = dragId === l.id;
+            // Trait d'insertion : où la vignette atterrirait si on relâchait ici.
+            const showCaret = dragId !== null && dropBefore === l.id;
             return (
               <Box
                 key={l.id}
+                data-ws-id={l.id}
                 style={{
                   position: "relative",
                   flexShrink: 0,
                   width: TW,
                   scrollSnapAlign: "start",
+                  // La vignette portée suit le curseur (transform) et passe devant.
+                  zIndex: dragging ? 2 : undefined,
+                  opacity: dragging ? 0.85 : 1,
+                  cursor: dragging ? "grabbing" : undefined,
+                  // Marge de gauche = place du trait d'insertion (pas de reflow brutal).
+                  borderLeft: showCaret
+                    ? "2px solid var(--mantine-color-brand-5)"
+                    : "2px solid transparent",
+                  paddingLeft: 4,
                 }}
               >
                 {canDelete ? (
@@ -248,6 +386,38 @@ export const WorkspaceSwitcher = observer(() => {
                     </ActionIcon>
                   </Tooltip>
                 ) : null}
+                {/* Poignée de déplacement : le drag part d'ICI (pas de toute la
+                    vignette) — sinon un clic « bascule de bureau » un peu appuyé
+                    partirait en déplacement. Le clic sur l'aperçu reste un clic. */}
+                <Tooltip label="Glisser pour réordonner" withArrow>
+                  <Box
+                    role="button"
+                    tabIndex={-1}
+                    aria-label={`Déplacer le bureau ${l.label}`}
+                    onPointerDown={dragDown(l.id)}
+                    onPointerMove={dragMove}
+                    onPointerUp={dragUp}
+                    onPointerCancel={dragUp}
+                    style={{
+                      position: "absolute",
+                      top: 4,
+                      left: 4,
+                      zIndex: 2,
+                      display: "grid",
+                      placeItems: "center",
+                      width: 20,
+                      height: 20,
+                      borderRadius: 4,
+                      color: "var(--mantine-color-dimmed)",
+                      background:
+                        "color-mix(in srgb, var(--mantine-color-body) 70%, transparent)",
+                      cursor: dragging ? "grabbing" : "grab",
+                      touchAction: "none", // sinon le scroll tactile mange le drag
+                    }}
+                  >
+                    <IconGripVertical size={13} />
+                  </Box>
+                </Tooltip>
                 <UnstyledButton
                   role="tab"
                   aria-selected={isActive}
@@ -310,6 +480,25 @@ export const WorkspaceSwitcher = observer(() => {
                       >
                         Dupliquer
                       </Menu.Item>
+                      <Menu.Divider />
+                      {/* Réordonnancement au CLAVIER — le drag ne doit pas être la
+                          SEULE façon de déplacer un bureau (WCAG : tout geste
+                          pointeur a son équivalent clavier). */}
+                      <Menu.Item
+                        leftSection={<IconArrowLeft size={13} />}
+                        disabled={tabs[0]?.id === l.id}
+                        onClick={() => shift(l.id, -1)}
+                      >
+                        Déplacer à gauche
+                      </Menu.Item>
+                      <Menu.Item
+                        leftSection={<IconArrowRight size={13} />}
+                        disabled={tabs[tabs.length - 1]?.id === l.id}
+                        onClick={() => shift(l.id, 1)}
+                      >
+                        Déplacer à droite
+                      </Menu.Item>
+                      <Menu.Divider />
                       <Menu.Item
                         color="red"
                         leftSection={<IconTrash size={13} />}
