@@ -24,6 +24,11 @@ import { createDrainTerminator, HttpTerminator } from "./serverShutdown";
 import { AddressInfo } from "node:net";
 import { TLSSocket } from "node:tls";
 import { handleClientError } from "./clientError";
+import {
+  bindWithFallback,
+  buildBindPlan,
+  type Listenable,
+} from "../../src/servers/portBinder";
 
 class ServerHttps extends Service {
   //httpKernel: HttpKernel | null = null;
@@ -115,18 +120,14 @@ class ServerHttps extends Service {
         }
         this.module.fire("onCreateServer", this.type, this);
 
-        // LISTEN ON PORT
-        this.server?.listen(this.port, this.domain, () => {
-          this.ready = true;
-          this.module.fire("onServersReady", this.type, this);
-          this.infos = this.server?.address() as AddressInfo;
-          if (this.infos) {
-            this.port = this.infos.port;
-            this.address = this.infos.address;
-            this.family = this.infos.family as FamilyType;
-          }
-          resolve(this.server as https.Server);
-        });
+        // LISTEN — repli de port en `auto` (défaut dev). Le handler d'erreur
+        // durable n'est posé qu'APRÈS le bind (cf server-http.ts).
+        this.listenWithPolicy()
+          .then(() => resolve(this.server as https.Server))
+          .catch((error: NodeJS.ErrnoException) => {
+            this.reportBindError(error);
+            reject(error);
+          });
 
         this.server.on(
           "request",
@@ -138,32 +139,6 @@ class ServerHttps extends Service {
               });
           },
         );
-
-        this.server.on("error", (error) => {
-          const myError = new nodefonyError(error);
-          const txtError =
-            typeof error.code === "string" ? error.code : error.errno;
-          switch (txtError) {
-            case "ENOTFOUND":
-              this.log(
-                `CHECK DOMAIN IN /etc/hosts or config unable to connect to : ${this.domain}`,
-                "ERROR",
-              );
-              this.log(myError, "CRITIC");
-              break;
-            case "EADDRINUSE":
-              this.log(
-                `Domain : ${this.domain} Port : ${this.port} ==> ALREADY USE `,
-                "ERROR",
-              );
-              this.log(myError, "CRITIC");
-              this.server?.close();
-              setTimeout(() => this.kernel?.terminate(1), 1000);
-              break;
-            default:
-              this.log(myError, "CRITIC");
-          }
-        });
 
         // Drain graceful (SIGTERM/docker stop) : in-flight terminées, destroy
         // forcé après `shutdownTimeout` ms. Remplace `closeAllConnections()`
@@ -266,44 +241,17 @@ class ServerHttps extends Service {
               .catch(() => {});
           }
         });
-        // LISTEN ON PORT
-        this.server?.listen(this.port, this.domain, () => {
-          this.ready = true;
-          this.module.fire("onServersReady", this.type, this);
-          this.infos = this.server?.address() as AddressInfo;
-          if (this.infos) {
-            this.port = this.infos.port;
-            this.address = this.infos.address;
-            this.family = this.infos.family as FamilyType;
-          }
-          return resolve(this.server as http2.Http2SecureServer);
-        });
-        this.server.on("error", (error) => {
-          const myError = new nodefonyError(error);
-          const txtError =
-            typeof error.code === "string" ? error.code : error.errno;
-          switch (txtError) {
-            case "ENOTFOUND":
-              this.log(
-                `CHECK DOMAIN IN /etc/hosts or config unable to connect to : ${this.domain}`,
-                "ERROR",
-              );
-              this.log(myError, "CRITIC");
-              break;
-            case "EADDRINUSE":
-              this.log(
-                `Domain : ${this.domain} Port : ${this.port} ==> ALREADY USE `,
-                "ERROR",
-              );
-              this.log(myError, "CRITIC");
-              this.server?.close();
-              setTimeout(() => this.kernel?.terminate(1), 1000);
-              throw error;
-              break;
-            default:
-              this.log(myError, "CRITIC");
-          }
-        });
+        // LISTEN — repli de port en `auto` (défaut dev), même politique que la
+        // branche HTTP/1.1 ci-dessus. Le `throw` qui vivait ICI dans le handler
+        // `error` était une bombe : lancé depuis un écouteur d'EventEmitter, il
+        // ne remontait à personne (exception non capturée), et le `break` qui le
+        // suivait était mort.
+        this.listenWithPolicy()
+          .then(() => resolve(this.server as http2.Http2SecureServer))
+          .catch((error: NodeJS.ErrnoException) => {
+            this.reportBindError(error);
+            reject(error);
+          });
         // P7 — handler async direct (plus de `new Promise(async …)`) : un rejet
         // de `terminate()` remontait en unhandledRejection au shutdown.
         // Le terminator draine puis close() le serveur lui-même.
@@ -333,6 +281,76 @@ class ServerHttps extends Service {
         return reject(e);
       }
     });
+  }
+
+  /**
+   * Écoute selon `servers.portPolicy`, commune aux deux branches TLS (HTTP/1.1 et
+   * HTTP/2) — leur seule différence est le type du serveur, pas la politique.
+   *
+   * Pose le handler d'erreur durable une fois en écoute (donc APRÈS les éventuels
+   * `EADDRINUSE` de repli, qui ne sont pas des pannes).
+   */
+  private async listenWithPolicy(): Promise<void> {
+    const { address, shiftedFrom } = await bindWithFallback(
+      this.server as unknown as Listenable,
+      this.domain,
+      buildBindPlan(
+        "https",
+        this.module.kernel?.options.servers,
+        this.module.kernel?.environment,
+      ),
+    );
+    this.infos = address;
+    this.port = address.port;
+    this.address = address.address;
+    this.family = address.family as FamilyType;
+    if (shiftedFrom !== null) {
+      // Fail-loud : le décalage est ANNONCÉ, jamais subi en silence.
+      this.log(
+        `Port ${shiftedFrom} déjà occupé → HTTPS écoute sur ${this.port}. ` +
+          `Figer le port : servers.https.port ; échouer au lieu de glisser : ` +
+          `servers.portPolicy = "strict".`,
+        "WARNING",
+      );
+    }
+    this.ready = true;
+    this.module.fire("onServersReady", this.type, this);
+    this.attachErrorHandler();
+  }
+
+  /** Erreurs de la VIE du serveur (le bind est déjà passé — cf server-http.ts). */
+  private attachErrorHandler(): void {
+    this.server?.on("error", (error: NodeJS.ErrnoException) => {
+      this.log(new nodefonyError(error), "CRITIC");
+    });
+  }
+
+  /** Bind définitivement impossible → FATAL (contrat inchangé). */
+  private reportBindError(error: NodeJS.ErrnoException): void {
+    const myError = new nodefonyError(error);
+    switch (error.code) {
+      case "ENOTFOUND":
+        this.log(
+          `CHECK DOMAIN IN /etc/hosts or config unable to connect to : ${this.domain}`,
+          "ERROR",
+        );
+        this.log(myError, "CRITIC");
+        break;
+      case "EADDRINUSE":
+        this.log(
+          `Port ${this.port} déjà occupé (domaine ${this.domain}) — le serveur HTTPS ` +
+            `ne peut pas écouter. Libérer le port, en choisir un autre ` +
+            `(servers.https.port), ou autoriser le repli automatique ` +
+            `(servers.portPolicy = "auto", défaut en développement).`,
+          "ERROR",
+        );
+        this.log(myError, "CRITIC");
+        break;
+      default:
+        this.log(myError, "CRITIC");
+    }
+    this.server?.close();
+    setTimeout(() => this.kernel?.terminate(1), 1000);
   }
 
   showBanner(): void {

@@ -12,6 +12,7 @@ import {
   nodefonyError,
   RequestContext,
   GcScheduler,
+  writeRuntimeState,
 } from "nodefony";
 import type { Resolver, Router } from "@nodefony/framework";
 import type { Controller } from "@nodefony/framework";
@@ -924,7 +925,49 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       await serverWebsocketSecure.createServer(serverHttps);
       servers.push(serverWebsocketSecure);
     }
+    this.publishRuntimePorts(serverHttp, serverHttps);
     return servers;
+  }
+
+  /**
+   * Publie les ports EFFECTIFS du runtime (state file), une fois l'écoute établie.
+   *
+   * C'est le canal qui rend `servers.portPolicy: "auto"` utilisable : `nodefony
+   * status`, `nodefony stop` et la readiness `--detach` sondaient `[5151, 5152]`
+   * **en dur**. Dès qu'un port glisse, cette convention ment — ils sonderaient un
+   * port que personne n'écoute et conclueraient « serveur down » sur un serveur
+   * parfaitement vivant. Ici, la topologie réelle est écrite noir sur blanc.
+   *
+   * Le port DÉSIRÉ est publié à côté du port obtenu : un outil peut ainsi dire
+   * « tu voulais 5151, tu écoutes sur 5153 » sans deviner.
+   *
+   * Best-effort (jamais bloquant) et **dev/test seulement** : en production le
+   * port ne glisse pas (`portPolicy: "strict"`), et le runtime n'a rien à écrire
+   * dans un `node_modules` qui peut être en lecture seule (image conteneur).
+   */
+  private publishRuntimePorts(
+    serverHttp: httpServer | null,
+    serverHttps: httpsServer | null,
+  ): void {
+    if (this.kernel?.environment === "production") return;
+    const ports: number[] = [];
+    const desired: number[] = [];
+    if (serverHttp?.active && serverHttp.port > 0) {
+      ports.push(serverHttp.port);
+      const d = this.kernel?.options.servers?.http;
+      if (d && d.port) desired.push(d.port);
+    }
+    if (serverHttps?.active && serverHttps.port > 0) {
+      ports.push(serverHttps.port);
+      const d = this.kernel?.options.servers?.https;
+      if (d && d.port) desired.push(d.port);
+    }
+    if (ports.length === 0) return;
+    writeRuntimeState(process.cwd(), {
+      pid: process.pid,
+      ports,
+      desiredPorts: desired.length > 0 ? desired : undefined,
+    });
   }
 
   /**

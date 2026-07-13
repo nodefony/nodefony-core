@@ -136,6 +136,28 @@ const serversSchema = z
       .object({})
       .optional()
       .describe("Serveur WebSocket sécurisé (adossé au serveur HTTPS)."),
+    portPolicy: z
+      .enum(["auto", "strict"])
+      .optional()
+      .describe(
+        "Que faire si le port désiré est DÉJÀ OCCUPÉ. `auto` = prendre le " +
+          "prochain port libre (l'app boote quand même, le décalage est ANNONCÉ) — " +
+          "confort de dev : plusieurs apps côte à côte. `strict` = échec fatal " +
+          "(EADDRINUSE). Défaut : `auto` en développement, `strict` en production " +
+          "ET en test. En production le port est un CONTRAT (service k8s, ingress, " +
+          "sonde de santé) : écouter ailleurs en silence donnerait un pod « sain » " +
+          "que personne n'atteint. En test, un port occupé signale un serveur " +
+          "resté debout — le banc doit s'arrêter, pas viser un autre port.",
+      ),
+    portRetryAttempts: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        "En `portPolicy: auto`, nombre de ports essayés APRÈS le port désiré " +
+          "avant d'abandonner. Défaut : 20.",
+      ),
   })
   .describe("Serveurs réseau activés au boot (HTTP/HTTPS/WS/WSS + statics).");
 

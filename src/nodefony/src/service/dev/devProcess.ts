@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import net from "node:net";
 import path from "node:path";
@@ -102,19 +104,121 @@ export function devSupervisorPidFile(cwd: string): string {
   );
 }
 
+/** Ports Nodefony historiques — le point de départ, pas une vérité. */
+export const FALLBACK_DEV_PORTS: readonly number[] = [5151, 5152];
+
 /**
- * Ports serveur dev par défaut : `NODEFONY_DEV_PORTS` (CSV) sinon HTTP/HTTPS Nodefony
- * (`[5151, 5152]`). Partagé : `status` sonde EXACTEMENT les ports que le superviseur
- * attend libres au restart.
+ * Chemin du **state file runtime** — le canal par lequel le serveur DIT sur quels
+ * ports il écoute VRAIMENT.
+ *
+ * Il existe parce que le port n'est plus une convention : avec
+ * `servers.portPolicy: "auto"`, un port occupé fait glisser l'écoute (5151 → 5153).
+ * `status`, `stop` et la readiness `--detach` sondaient `[5151, 5152]` **en dur** —
+ * ils deviendraient aveugles à la première app décalée. Le serveur écrit donc ses
+ * ports effectifs ici, et les lecteurs les prennent à la source.
+ *
+ * À côté du pidfile, même dossier déjà gitignoré.
  */
-export function defaultDevPorts(): number[] {
+export function runtimeStateFile(cwd: string): string {
+  return path.join(cwd, "node_modules", ".cache", "nodefony", "runtime.json");
+}
+
+/** Ce que le serveur publie sur lui-même une fois ses serveurs en écoute. */
+export interface RuntimeState {
+  /** PID du process qui écoute. */
+  pid: number;
+  /** Ports EFFECTIFS (après résolution d'un éventuel conflit). */
+  ports: number[];
+  /** Ports DÉSIRÉS (config) — diffèrent des effectifs si `auto` a dû décaler. */
+  desiredPorts?: number[];
+  /** Horodatage d'écriture (`Date.now()`). */
+  ts: number;
+}
+
+/**
+ * Publie les ports EFFECTIFS du runtime. Best-effort : un échec d'écriture ne doit
+ * jamais faire tomber un serveur qui, lui, écoute très bien (les lecteurs
+ * retomberont sur les ports par défaut).
+ */
+export function writeRuntimeState(
+  cwd: string,
+  state: Omit<RuntimeState, "ts">,
+): void {
+  try {
+    const file = runtimeStateFile(cwd);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ ...state, ts: Date.now() }), "utf8");
+  } catch {
+    /* best-effort — cf TSDoc */
+  }
+}
+
+/**
+ * Lit les ports publiés par le runtime, ou `null`.
+ *
+ * **Un state file dont le process est MORT est ignoré** (et purgé) : sinon un
+ * `status` lirait les ports d'un serveur d'hier et sonderait dans le vide.
+ */
+export function readRuntimeState(cwd: string): RuntimeState | null {
+  try {
+    const file = runtimeStateFile(cwd);
+    if (!existsSync(file)) return null;
+    const raw = JSON.parse(readFileSync(file, "utf8")) as Partial<RuntimeState>;
+    const pid = typeof raw.pid === "number" ? raw.pid : 0;
+    const ports = Array.isArray(raw.ports)
+      ? raw.ports.filter((n) => Number.isInteger(n) && n > 0)
+      : [];
+    if (ports.length === 0) return null;
+    if (pid > 0 && !isPidAlive(pid)) {
+      clearRuntimeState(cwd); // reliquat d'un run mort — ne jamais s'y fier
+      return null;
+    }
+    return {
+      pid,
+      ports,
+      desiredPorts: Array.isArray(raw.desiredPorts)
+        ? raw.desiredPorts
+        : undefined,
+      ts: typeof raw.ts === "number" ? raw.ts : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Retire le state file (arrêt propre, ou reliquat d'un process mort). */
+export function clearRuntimeState(cwd: string): void {
+  try {
+    rmSync(runtimeStateFile(cwd), { force: true });
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération).
+ *
+ * Ordre de vérité, du plus fiable au moins fiable :
+ *  1. `NODEFONY_DEV_PORTS` — override explicite de l'opérateur, il gagne toujours ;
+ *  2. le **state file runtime** — ce que le serveur écoute VRAIMENT (seule source
+ *     exacte quand `portPolicy: "auto"` a décalé l'écoute) ;
+ *  3. `[5151, 5152]` — la convention historique, quand rien ne tourne encore
+ *     (cas du tout premier boot : personne n'a pu publier quoi que ce soit).
+ *
+ * @param cwd - racine du projet (le state file est par projet).
+ */
+export function defaultDevPorts(cwd: string = process.cwd()): number[] {
   const env = process.env.NODEFONY_DEV_PORTS;
-  if (!env) return [5151, 5152];
-  const parsed = env
-    .split(",")
-    .map((s) => Number.parseInt(s.trim(), 10))
-    .filter((n) => Number.isInteger(n) && n > 0);
-  return parsed.length > 0 ? parsed : [5151, 5152];
+  if (env) {
+    const parsed = env
+      .split(",")
+      .map((s) => Number.parseInt(s.trim(), 10))
+      .filter((n) => Number.isInteger(n) && n > 0);
+    if (parsed.length > 0) return parsed;
+  }
+  const state = readRuntimeState(cwd);
+  if (state && state.ports.length > 0) return [...state.ports];
+  return [...FALLBACK_DEV_PORTS];
 }
 
 /** Lit le PID du superviseur depuis le pidfile, ou `null` si absent / illisible. */

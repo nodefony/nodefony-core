@@ -406,12 +406,21 @@ export {
   detectRuntimeMode,
   runtimeModes,
   findRuntimeConflict,
+  // State file runtime — le serveur PUBLIE ses ports effectifs (`@nodefony/http`
+  // l'écrit après le listen), `status`/`stop`/readiness les LISENT. Sans ce canal,
+  // `servers.portPolicy: "auto"` rendrait ces outils aveugles (ils sondaient
+  // `[5151, 5152]` en dur).
+  writeRuntimeState,
+  readRuntimeState,
+  clearRuntimeState,
+  defaultDevPorts,
 } from "./service/dev/devProcess";
 export type {
   DevProcessInfo,
   DevProcessRole,
   RuntimeMode,
   PortState,
+  RuntimeState,
 } from "./service/dev/devProcess";
 
 // ─── Scaffold (création app/module/…) : spec déclarative + moteur PUR ─────────

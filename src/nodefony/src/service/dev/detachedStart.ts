@@ -11,9 +11,11 @@ import https from "node:https";
 import http from "node:http";
 import { SysExit } from "../../cli/sysexits";
 import {
+  clearRuntimeState,
   defaultDevPorts,
   discoverDevProcesses,
   probePorts,
+  readRuntimeState,
   signalProcessGroup,
   splitByProject,
   formatForeignRuntimes,
@@ -231,42 +233,53 @@ export async function launchDetached(
   // son garde single-instance et meurt, la sonde voit les ports du VIEUX serveur
   // et sort UP). Refuser AVANT de spawner — même verdict que le garde du child,
   // mais côté parent, avec le bon exit code.
+  const cwd = opts.cwd ?? process.cwd();
   const preflight = await probePorts(ports);
   const busy = preflight.filter((p) => p.listening);
+  // `foreignBusy` : les ports pris ne le sont PAS par nous. Depuis
+  // `servers.portPolicy: "auto"`, ce n'est plus un motif de refus — l'enfant
+  // glissera sur des ports libres et les publiera. En revanche la readiness ne
+  // doit alors JAMAIS se fier à une sonde de port : elle verrait le serveur du
+  // voisin écouter et sortirait un FAUX READY.
+  let foreignBusy = false;
   if (busy.length > 0) {
     // QUI occupe ? Nommer le PROJET occupant (multi-app sur un poste de dev) :
     // le dev sait immédiatement où agir — jamais un « port pris » sans réponse.
+    let mineRunning = false;
     let who = "";
     try {
-      const { mine, foreign } = splitByProject(
-        discoverDevProcesses(),
-        opts.cwd ?? process.cwd(),
-      );
-      if (mine.length > 0) {
-        who =
-          " — un runtime de CE projet tourne déjà (nodefony status · nodefony stop)";
-      } else if (foreign.length > 0) {
-        // Bloc aéré partagé (1 process/ligne + commandes copier-coller).
+      const { mine, foreign } = splitByProject(discoverDevProcesses(), cwd);
+      mineRunning = mine.length > 0;
+      if (foreign.length > 0) {
         who =
           " — occupés par un AUTRE projet Nodefony :\n" +
-          formatForeignRuntimes(foreign).join("\n") +
-          "\n  ou change les ports de CETTE app (nodefony.config.ts servers.*.port, ou NODEFONY_DEV_PORTS)";
-      } else {
-        who =
-          " — process hors Nodefony : libère le port ou change les ports de cette app";
+          formatForeignRuntimes(foreign).join("\n");
       }
     } catch {
-      who = " — un runtime tourne déjà (nodefony status · nodefony stop)";
+      /* introspection best-effort — le verdict ci-dessous ne dépend que de `mine` */
     }
-    return {
-      ok: false,
-      pid: null,
-      exitCode: SysExit.UNAVAILABLE,
-      ports: preflight,
-      logFile,
-      reason: `port(s) déjà en écoute : ${busy.map((p) => p.port).join(", ")}${who}`,
-    };
+    if (mineRunning) {
+      // CE projet tourne déjà : c'est un vrai doublon, et aucun repli de port ne
+      // le rendra légitime (single-instance). Refus, comme avant.
+      return {
+        ok: false,
+        pid: null,
+        exitCode: SysExit.UNAVAILABLE,
+        ports: preflight,
+        logFile,
+        reason:
+          `port(s) déjà en écoute : ${busy.map((p) => p.port).join(", ")} — ` +
+          `un runtime de CE projet tourne déjà (nodefony status · nodefony stop)`,
+      };
+    }
+    foreignBusy = true;
+    progress(
+      `ports ${busy.map((p) => p.port).join(", ")} déjà pris${who}\n` +
+        `   → cette app prendra les premiers ports libres (servers.portPolicy: "auto")`,
+    );
   }
+  // Le state file d'un run précédent ne doit pas signer la readiness du nôtre.
+  clearRuntimeState(cwd);
 
   // Standalone : aucun Kernel n'a garanti `tmp/` ici (contrairement au boot) —
   // le dossier du log peut ne pas exister sur un checkout/pod frais.
@@ -303,25 +316,37 @@ export async function launchDetached(
   });
 
   const ticks = Math.ceil((waitSec * 1000) / TICK_MS);
+  // Ports RÉELLEMENT sondés : ceux du state file dès que l'enfant l'a publié
+  // (seule source exacte si un repli a décalé l'écoute), la convention sinon.
+  let watched = ports;
   for (let i = 1; i <= ticks; i++) {
     if (exited) {
       return {
         ok: false,
         pid: child.pid ?? null,
         exitCode: SysExit.UNAVAILABLE,
-        ports: await probePorts(ports),
+        ports: await probePorts(watched),
         logFile,
         reason: `process mort avant la readiness (exit ${exitCode ?? "?"})`,
         logTail: tailLog(logFile),
       };
     }
-    const states = await probePorts(ports);
+    // L'enfant a-t-il publié sa topologie ? (Il le fait dès que ses serveurs
+    // écoutent.) On ne se fie qu'à un state file dont le process est VIVANT.
+    const state = readRuntimeState(cwd);
+    const published = state !== null && state.ports.length > 0;
+    if (published) watched = state.ports;
+    const states = await probePorts(watched);
     const up = states.filter((p) => p.listening).length;
+    // Un port qui écoute ne prouve rien tant qu'un AUTRE projet en tient : ce
+    // serait SON serveur qu'on verrait. Dans ce cas la readiness EXIGE le state
+    // file (la seule preuve que c'est bien NOTRE enfant qui répond).
+    const trustworthy = published || !foreignBusy;
     // `!exited` re-vérifié APRÈS la sonde : des ports up + un child mort entre
     // les deux checks = jamais un READY (ceinture du pre-flight ci-dessus).
-    if (up > 0 && !exited) {
+    if (up > 0 && trustworthy && !exited) {
       const health = opts.healthPath
-        ? await probeHealth(ports, opts.healthPath)
+        ? await probeHealth(watched, opts.healthPath)
         : undefined;
       return {
         ok: true,
@@ -337,7 +362,7 @@ export async function launchDetached(
       const phase = lastPhaseLine(logFile);
       const elapsed = Math.round((i * TICK_MS) / 1000);
       progress(
-        `booting (${up}/${ports.length} ports, ${elapsed}s)${phase ? ` — ${phase}` : ""}`,
+        `booting (${up}/${watched.length} ports, ${elapsed}s)${phase ? ` — ${phase}` : ""}`,
       );
     }
     await new Promise((r) => setTimeout(r, TICK_MS));

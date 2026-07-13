@@ -12,6 +12,7 @@ import {
   probePorts,
   readSupervisorPid,
   runtimeModes,
+  splitByProject,
   type DevProcessInfo,
   type DiscoverOptions,
   type PortState,
@@ -131,12 +132,25 @@ export function buildDevStatus(
 
   // Cohabitation anormale de plusieurs runtimes (ex. un dev ET un prod tiennent les mêmes
   // ports) — la 1ʳᵉ cause du bug « dev démarré par-dessus prod ». À signaler en priorité.
-  const modes = runtimeModes(procs);
+  // Restreint à CE projet : un dev ici + un prod dans le dossier d'à côté n'a rien
+  // d'anormal (chacun ses ports, cf `servers.portPolicy: "auto"`).
+  const modes = runtimeModes(splitByProject(procs, cwd).mine);
   if (modes.size > 1)
     warnings.push(
-      `${modes.size} runtimes Nodefony cohabitent (${[...modes].join(" + ")}) — ` +
-        "anormal : `nodefony stop` pour tout arrêter",
+      `${modes.size} runtimes Nodefony cohabitent sur CE projet ` +
+        `(${[...modes].join(" + ")}) — anormal : \`nodefony stop\` pour tout arrêter`,
     );
+
+  // « Empilement » = plusieurs runtimes DE CE PROJET. Depuis que les ports se
+  // replient tout seuls (`servers.portPolicy: "auto"`), faire tourner deux apps
+  // Nodefony en parallèle est NORMAL — `ps` voit alors 2 superviseurs et 2
+  // serveurs, et le compte global criait « anormal » sur une situation saine.
+  // Une alerte qui se déclenche sur le cas nominal ne se lit plus du tout : on
+  // ne compte donc que NOS process.
+  const mine = splitByProject(procs, cwd).mine;
+  const nSupMine = mine.filter((p) => p.role === "supervisor").length;
+  const nSrvMine = mine.filter((p) => p.role === "server").length;
+  const nMasterMine = mine.filter((p) => p.role === "master").length;
 
   const supPids = procs
     .filter((p) => p.role === "supervisor")
@@ -158,14 +172,20 @@ export function buildDevStatus(
     warnings.push(
       "process dev orphelins (serveur/Vite sans superviseur) — `nodefony stop` les nettoiera",
     );
-  if (nSup > 1)
-    warnings.push(`${nSup} superviseurs simultanés — empilement anormal`);
-  if (nMaster > 1)
-    warnings.push(`${nMaster} masters cluster simultanés — empilement anormal`);
+  if (nSupMine > 1)
+    warnings.push(
+      `${nSupMine} superviseurs simultanés sur CE projet — empilement anormal`,
+    );
+  if (nMasterMine > 1)
+    warnings.push(
+      `${nMasterMine} masters cluster simultanés sur CE projet — empilement anormal`,
+    );
   // Plusieurs `server` (rôle prod/dev mono) = empilement ; les workers cluster (rôle
   // distinct) sont, eux, attendus en nombre → exclus de ce contrôle.
-  if (nSrv > 1)
-    warnings.push(`${nSrv} serveurs simultanés — empilement anormal`);
+  if (nSrvMine > 1)
+    warnings.push(
+      `${nSrvMine} serveurs simultanés sur CE projet — empilement anormal`,
+    );
 
   return {
     supported: true,
@@ -225,7 +245,7 @@ export async function collectDevStatus(
     };
   const pid = readSupervisorPid(cwd);
   const procs = discoverDevProcesses(opts);
-  const ports = await probePorts(defaultDevPorts());
+  const ports = await probePorts(defaultDevPorts(cwd));
   return buildDevStatus(
     cwd,
     pid,

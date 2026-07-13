@@ -133,6 +133,24 @@ const DEFAULTS: ResolvedOptions = {
 };
 
 /**
+ * Un texte (message d'erreur OU sortie brute de Vite) dénonce-t-il un port occupé ?
+ *
+ * **Source UNIQUE** de cette décision. Elle était dupliquée en deux regex qui ont
+ * divergé : l'une cherchait `port X is in use`, alors que Vite écrit
+ * `Port 5173 is ALREADY in use`. Résultat, le retry de port ne se déclenchait
+ * jamais et la seconde app perdait tout son frontend — un conflit de port pourtant
+ * parfaitement rattrapable. On tolère donc les deux formulations, et on ne
+ * l'écrit qu'ici (deux implémentations d'une même règle = dérive garantie).
+ */
+export function isPortInUseMessage(text: string): boolean {
+  return (
+    /EADDRINUSE/i.test(text) ||
+    /address already in use/i.test(text) ||
+    /port\s+\d+\s+is\s+(?:already\s+)?in use/i.test(text)
+  );
+}
+
+/**
  * Superviseur Vite résilient — branche POC `poc/frontend-child`.
  *
  * Garanties :
@@ -294,11 +312,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   }
 
   private isPortInUseError(e: Error): boolean {
-    return (
-      /EADDRINUSE/i.test(e.message) ||
-      /address already in use/i.test(e.message) ||
-      /port \d+ is in use/i.test(e.message)
-    );
+    return isPortInUseMessage(e.message);
   }
 
   /** Spawn Vite sur un port donné et attend le ready. */
@@ -430,21 +444,39 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       const onStderr = (chunk: Buffer | string) => {
         const txt = chunk.toString();
         pipeClean(txt, "error");
-        // Vite logge "Port 5173 is in use, trying another one..." en stderr
-        // (et finit par démarrer sur un autre port). Notre `localRe` matchera
-        // la nouvelle URL → OK. Mais si strictPort=true, Vite exit avec
-        // "Port X is in use" et le child meurt → onExit gère.
+        if (resolved) return;
+        // 🐛 Le conflit de port arrive par ICI, pas par stdout. `onExit` décide de
+        // retenter en cherchant « Port X is in use » dans `buffer` — que seul
+        // `onStdout` alimentait. Résultat : `buffer` vide, aucun retry, et la
+        // famille Vite de la 2ᵉ app mourait alors que `spawnWithPortRetry` était
+        // là, prêt à décaler le port. On alimente donc le MÊME buffer.
+        buffer += txt.replace(ansiRe, "");
+        // Vite en `strictPort: false` se décale tout seul et annonce la nouvelle
+        // URL : si elle sort ici, on la prend (même lecture que sur stdout).
+        const m = buffer.match(localRe);
+        if (m) {
+          this.resolvedPort = parseInt(m[2]!, 10);
+          this.state = "ready";
+          this.healthFailures = 0;
+          resolved = true;
+          buffer = "";
+          clearTimeout(timeout);
+          resolve();
+        }
       };
 
       const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
         if (!resolved) {
           resolved = true;
           clearTimeout(timeout);
-          // Si message contient EADDRINUSE → laisse spawnWithPortRetry retry.
+          // Conflit de port → `spawnWithPortRetry` réessaiera sur port+1. MÊME
+          // détecteur que `isPortInUseError` (une 2ᵉ regex divergeait : celle-ci
+          // cherchait « Port X is in use » quand Vite écrit « Port X is ALREADY
+          // in use » → elle ne matchait jamais, et la famille Vite mourait).
           const msg = `vite exited (code=${code}, signal=${signal}) before ready`;
           this.state = "errored";
           this.lastError = msg;
-          if (/EADDRINUSE/.test(buffer) || /Port \d+ is in use/.test(buffer)) {
+          if (isPortInUseMessage(buffer)) {
             reject(new FrontendSupervisorStartError("EADDRINUSE: " + msg));
           } else {
             reject(new FrontendSupervisorStartError(msg));

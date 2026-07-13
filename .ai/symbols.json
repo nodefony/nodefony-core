@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-13T15:24:54.957Z",
+  "generated": "2026-07-13T16:39:20.906Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1013,
-    "symbols": 2616,
+    "files": 1014,
+    "symbols": 2634,
     "classes": 319,
-    "interfaces": 686,
-    "types": 303,
+    "interfaces": 691,
+    "types": 304,
     "enums": 4,
-    "functions": 746,
-    "constants": 558
+    "functions": 756,
+    "constants": 560
   },
   "symbols": {
     "Cli": {
@@ -4360,6 +4360,15 @@
       "extends": null,
       "description": "État de sonde d'un port serveur."
     },
+    "RuntimeState": {
+      "name": "RuntimeState",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le serveur publie sur lui-même une fois ses serveurs en écoute."
+    },
     "TerminateOptions": {
       "name": "TerminateOptions",
       "kind": "interface",
@@ -4410,13 +4419,45 @@
       "module": "@nodefony/core",
       "description": "Chemin du pidfile single-instance du superviseur dev — **source UNIQUE** lue par `status`/`stop` et écrite par le superviseur (divergence = bug : le lecteur ne verrait jamais l'instance). Sous `nod…"
     },
+    "runtimeStateFile": {
+      "name": "runtimeStateFile",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Chemin du **state file runtime** — le canal par lequel le serveur DIT sur quels ports il écoute VRAIMENT. Il existe parce que le port n'est plus une convention : avec `servers.portPolicy: \"auto\"`, …"
+    },
+    "writeRuntimeState": {
+      "name": "writeRuntimeState",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Publie les ports EFFECTIFS du runtime. Best-effort : un échec d'écriture ne doit jamais faire tomber un serveur qui, lui, écoute très bien (les lecteurs retomberont sur les ports par défaut)."
+    },
+    "readRuntimeState": {
+      "name": "readRuntimeState",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit les ports publiés par le runtime, ou `null`. **Un state file dont le process est MORT est ignoré** (et purgé) : sinon un `status` lirait les ports d'un serveur d'hier et sonderait dans le vide."
+    },
+    "clearRuntimeState": {
+      "name": "clearRuntimeState",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retire le state file (arrêt propre, ou reliquat d'un process mort)."
+    },
     "defaultDevPorts": {
       "name": "defaultDevPorts",
       "kind": "function",
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Ports serveur dev par défaut : `NODEFONY_DEV_PORTS` (CSV) sinon HTTP/HTTPS Nodefony (`[5151, 5152]`). Partagé : `status` sonde EXACTEMENT les ports que le superviseur attend libres au restart."
+      "description": "Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération). Ordre de vérité, du plus fiable au moins fiable : 1. `NODEFONY_DEV_PORTS` — override explicite de l'opérateur, il gagne …"
     },
     "readSupervisorPid": {
       "name": "readSupervisorPid",
@@ -4625,6 +4666,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Préfixe du titre d'un worker cluster (posé par `Prod`/`ClusterCommand.generate`, ex. `nodefony worker 3 [cluster]`)."
+    },
+    "FALLBACK_DEV_PORTS": {
+      "name": "FALLBACK_DEV_PORTS",
+      "kind": "const",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ports Nodefony historiques — le point de départ, pas une vérité."
     },
     "DevStatusReport": {
       "name": "DevStatusReport",
@@ -8360,6 +8409,14 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "extends": null
+    },
+    "isPortInUseMessage": {
+      "name": "isPortInUseMessage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Un texte (message d'erreur OU sortie brute de Vite) dénonce-t-il un port occupé ? **Source UNIQUE** de cette décision. Elle était dupliquée en deux regex qui ont divergé : l'une cherchait `port X i…"
     },
     "IViteInstanceView": {
       "name": "IViteInstanceView",
@@ -16082,6 +16139,80 @@
       "decorators": [],
       "description": "Compteur de connexions WebSocket CONCURRENTES par IP — backstop opt-in (F6c, revue 0.6). Distinct du {@link MemoryRateLimitStore} : celui-ci compte un DÉBIT d'ouverture par fenêtre (handshakes/s) ;…"
     },
+    "Listenable": {
+      "name": "Listenable",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Serveur écoutable (surface minimale commune `http`/`https`/`http2`)."
+    },
+    "BindPlan": {
+      "name": "BindPlan",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    "BindResult": {
+      "name": "BindResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    "ServersPortConfig": {
+      "name": "ServersPortConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Forme lue de `kernel.options.servers` (lecture structurelle, pas d'import core)."
+    },
+    "PortPolicy": {
+      "name": "PortPolicy",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Que faire si le port désiré est occupé."
+    },
+    "resolvePortPolicy": {
+      "name": "resolvePortPolicy",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Politique de port effective. Le défaut dépend de l'environnement, et ce n'est pas de la coquetterie : - **production** → `strict`. Le port y est un contrat (service k8s, ingress, sonde de santé). U…"
+    },
+    "buildBindPlan": {
+      "name": "buildBindPlan",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Compose le plan de bind d'un serveur depuis la config du kernel — source UNIQUE (les deux serveurs l'appellent ; la politique n'est décidée qu'ici)."
+    },
+    "bindWithFallback": {
+      "name": "bindWithFallback",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Écoute sur `plan.desired`, ou sur le prochain port libre si `attempts > 0`. Aucun `error` permanent ne doit être attaché au serveur pendant l'appel : cette fonction pose ses propres écouteurs le te…"
+    },
+    "DEFAULT_PORT_RETRY_ATTEMPTS": {
+      "name": "DEFAULT_PORT_RETRY_ATTEMPTS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Nombre de ports essayés après le désiré, en `auto`."
+    },
     "Session": {
       "name": "Session",
       "kind": "class",
@@ -21830,6 +21961,7 @@
       "splitByProject": [
         "src/nodefony/src/service/dev/BootReporter.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
@@ -21839,6 +21971,11 @@
       ],
       "renderProcessTable": [
         "src/nodefony/src/service/dev/BootReporter.ts"
+      ],
+      "clearRuntimeState": [
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "defaultDevPorts": [
         "src/nodefony/src/service/dev/detachedStart.ts",
@@ -21850,6 +21987,10 @@
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "readRuntimeState": [
+        "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "signalProcessGroup": [
@@ -23130,6 +23271,9 @@
       ],
       "toWsCloseCode": [
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
+      ],
+      "writeRuntimeState": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "buildTrustProxy": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
@@ -25258,6 +25402,18 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
       ],
       "createDrainTerminator": [
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
+      ],
+      "bindWithFallback": [
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
+      ],
+      "buildBindPlan": [
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
+      ],
+      "Listenable": [
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
       ],

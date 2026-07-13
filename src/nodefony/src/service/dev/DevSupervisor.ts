@@ -16,12 +16,14 @@ import readline from "node:readline";
 import { watch, type FSWatcher } from "chokidar";
 import { SysExit } from "../../cli/sysexits";
 import {
+  clearRuntimeState,
   defaultDevPorts,
   devSupervisorPidFile,
   discoverDevProcesses,
   findRuntimeConflict,
   missingWorkspaceDists,
   probePorts,
+  readRuntimeState,
   splitByProject,
   formatForeignRuntimes,
   terminateDevProcesses,
@@ -116,7 +118,28 @@ export class DevSupervisor {
   readonly #paths: readonly string[];
   readonly #debounceMs: number;
   readonly #childEnvKey: string;
-  readonly #ports: readonly number[];
+  /**
+   * Ports imposés à la construction (`options.ports` / `NODEFONY_DEV_PORTS`). `null`
+   * = on APPREND les ports réels de l'enfant (cf {@link DevSupervisor.ports}) —
+   * indispensable depuis `servers.portPolicy: "auto"` : l'enfant peut écouter
+   * ailleurs que sur 5151/5152, et le superviseur doit suivre, pas supposer.
+   */
+  readonly #portsOverride: readonly number[] | null;
+  /**
+   * Derniers ports EFFECTIVEMENT publiés par l'enfant (state file). Mémorisés tant
+   * que le superviseur vit : au restart, l'enfant est mort et son state file purgé,
+   * mais il faut quand même attendre que SES ports se libèrent — sinon il en
+   * prendrait de nouveaux à chaque reload et l'onglet du navigateur casserait.
+   */
+  #observedPorts: readonly number[] = [];
+  /**
+   * Ports tenus par un AUTRE projet Nodefony, constatés au démarrage. Deux usages,
+   * tous deux vitaux depuis que le port peut glisser :
+   * - ne pas ATTENDRE leur libération (elle ne viendra pas) ;
+   * - ne pas les prendre pour une readiness (sonder « ça écoute » sur le serveur
+   *   du voisin dirait OUI alors que notre enfant n'est même pas booté).
+   */
+  readonly #foreignHeldPorts = new Set<number>();
   /** Fichier verrou single-instance (PID du superviseur courant). */
   readonly #pidFile: string;
   /**
@@ -173,9 +196,36 @@ export class DevSupervisor {
     // Ports + pidfile = source de vérité PARTAGÉE avec les commandes d'introspection
     // (`nodefony status`/`stop`, cf devProcess.ts) : une divergence écrivain/lecteur
     // serait un bug (status ne verrait jamais l'instance). Définis une seule fois là-bas.
-    this.#ports = options.ports ?? defaultDevPorts();
+    this.#portsOverride = options.ports ?? null;
     this.#pidFile = devSupervisorPidFile(this.#cwd);
     this.#standalone = !existsSync(path.resolve(this.#cwd, "turbo.json"));
+  }
+
+  /**
+   * Ports que le superviseur surveille — **résolus à chaque lecture**, jamais figés
+   * au constructeur.
+   *
+   * Avant `portPolicy: "auto"`, `[5151, 5152]` était une certitude. Ce n'en est plus
+   * une : si un autre projet tient 5151, l'enfant écoute ailleurs et le PUBLIE
+   * (state file). Un superviseur qui aurait mémorisé les ports au démarrage
+   * attendrait ensuite la libération de ports que personne ne tient, et déclarerait
+   * « boot bloqué » sur un serveur qui répond très bien.
+   */
+  get #ports(): readonly number[] {
+    if (this.#portsOverride) return this.#portsOverride;
+    const live = defaultDevPorts(this.#cwd);
+    if (this.#observedPorts.length === 0) return live;
+    // Union : les ports que l'enfant tenait (à attendre libres au restart) ET ceux
+    // qu'il tient / prendra. Set → pas de doublon si rien n'a bougé.
+    return [...new Set([...live, ...this.#observedPorts])];
+  }
+
+  /** Mémorise les ports réellement pris par l'enfant (lus dans son state file). */
+  #observePorts(): void {
+    const state = readRuntimeState(this.#cwd);
+    if (state && state.ports.length > 0) {
+      this.#observedPorts = [...state.ports];
+    }
   }
 
   /** Écrit une ligne préfixée sur stdout (pas de `console.log` — code core). */
@@ -560,26 +610,32 @@ export class DevSupervisor {
           .map((p) => `pid ${p.pid} (${p.cwd ?? "dossier inconnu"})`)
           .join(", ");
         if (taken.length > 0) {
+          // Un AUTRE projet tient nos ports. Ce n'était un refus que tant que le
+          // port était une fatalité : l'enfant sait maintenant glisser sur le
+          // premier port libre (`servers.portPolicy: "auto"`, défaut en dev) et
+          // publie ce qu'il a pris. On informe donc, on ne barre plus la route.
+          // (En `portPolicy: "strict"`, c'est l'enfant qui refusera — bruyamment,
+          // au bind : le seul endroit qui SAIT vraiment.)
+          for (const p of taken) this.#foreignHeldPorts.add(p);
           this.#log(
-            `⛔ ports ${taken.join(", ")} occupés par un AUTRE projet Nodefony :`,
-            "red",
+            `ports ${taken.join(", ")} occupés par un AUTRE projet Nodefony ` +
+              `(${who}) — non touchés ; cette app prendra les premiers ports libres`,
+            "yellow",
           );
-          // Bloc aéré partagé (1 process/ligne + commandes copier-coller) — un
-          // pavé mono-ligne de N pids laissait le dev sans savoir QUOI taper.
           for (const line of formatForeignRuntimes(others)) {
             process.stdout.write(`${line}\n`);
           }
           this.#log(
-            "ou garde-le et change les ports de CETTE app " +
-              "(nodefony.config.ts servers.*.port, ou NODEFONY_DEV_PORTS)",
-            "red",
+            "figer les ports de CETTE app : nodefony.config.ts servers.*.port · " +
+              'échouer plutôt que glisser : servers.portPolicy = "strict"',
+            "yellow",
           );
-          process.exit(SysExit.UNAVAILABLE);
+        } else {
+          this.#log(
+            `${others.length} runtime(s) Nodefony d'un autre projet détecté(s) (${who}) — non touchés`,
+            "yellow",
+          );
         }
-        this.#log(
-          `${others.length} runtime(s) Nodefony d'un autre projet détecté(s) (${who}) — non touchés`,
-          "yellow",
-        );
       }
 
       // 1b. Résiduels DEV de CE projet (empilés OU orphelins) → nettoyage auto.
@@ -693,6 +749,10 @@ export class DevSupervisor {
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */
   #spawnChild(): void {
     this.#childSpawnedAt = Date.now();
+    // Le state file du run PRÉCÉDENT ne doit jamais signer la readiness du run
+    // suivant (il ferait « prêt » avant même que l'enfant n'ait bindé). L'enfant
+    // le réécrira quand il écoutera VRAIMENT.
+    clearRuntimeState(this.#cwd);
     const child = spawn(process.execPath, process.argv.slice(1), {
       cwd: this.#cwd,
       env: { ...process.env, [this.#childEnvKey]: "1" },
@@ -784,6 +844,24 @@ export class DevSupervisor {
    * bien (même règle que la readiness de `launchDetached`, vécu 2×).
    */
   async #anyPortListening(): Promise<boolean> {
+    // 1. La vérité, quand elle existe : l'enfant a PUBLIÉ ses ports (state file).
+    //    On vérifie que c'est bien LUI (pid) — un state file d'un autre run ne
+    //    doit jamais signer notre readiness.
+    const state = readRuntimeState(this.#cwd);
+    if (state && this.#child && state.pid === this.#child.pid) {
+      this.#observePorts();
+      const states = await Promise.all(
+        state.ports.map((p) => this.#isPortFree(p)),
+      );
+      return states.some((free) => !free);
+    }
+    // 2. Un AUTRE projet tient les ports par défaut : sonder « un port écoute »
+    //    répondrait OUI… en voyant SON serveur. Faux READY (l'enfant, lui, n'est
+    //    peut-être même pas booté). Tant que notre enfant n'a rien publié, on
+    //    considère qu'il n'est pas prêt — jamais on ne s'attribue le voisin.
+    if (this.#foreignHeldPorts.size > 0) return false;
+    // 3. Aucun conflit connu : sonde classique (couvre un enfant qui ne publie
+    //    pas — app console, dist antérieur au state file).
     if (this.#ports.length === 0) return true;
     const states = await Promise.all(
       this.#ports.map((p) => this.#isPortFree(p)),
@@ -1119,15 +1197,17 @@ export class DevSupervisor {
 
   /** Attend que tous les ports surveillés soient libres (ou expire). */
   async #waitPortsFree(timeoutMs = PORTS_FREE_TIMEOUT_MS): Promise<void> {
-    if (this.#ports.length === 0) return;
+    // Les ports tenus par un AUTRE projet ne se libéreront pas — les attendre,
+    // c'est brûler le timeout entier à chaque démarrage dès qu'une seconde app
+    // tourne. On n'attend que ce qui NOUS revient : l'enfant glissera sur le reste.
+    const mine = this.#ports.filter((p) => !this.#foreignHeldPorts.has(p));
+    if (mine.length === 0) return;
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      const states = await Promise.all(
-        this.#ports.map((p) => this.#isPortFree(p)),
-      );
+      const states = await Promise.all(mine.map((p) => this.#isPortFree(p)));
       if (states.every(Boolean)) return;
       if (Date.now() >= deadline) {
-        const busy = this.#ports.filter((_, i) => !states[i]);
+        const busy = mine.filter((_, i) => !states[i]);
         this.#log(
           `ports encore occupés après ${timeoutMs}ms : ${busy.join(", ")} — relance quand même`,
           "yellow",

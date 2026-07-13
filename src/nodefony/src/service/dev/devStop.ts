@@ -1,5 +1,6 @@
 import { writeSync } from "node:fs";
 import {
+  clearRuntimeState,
   clearSupervisorPidFile,
   defaultDevPorts,
   detectRuntimeMode,
@@ -108,7 +109,7 @@ export async function runStopReport(
   // Idempotent : rien à tuer → on nettoie un éventuel pidfile résiduel et on le dit.
   if (before.length === 0) {
     clearSupervisorPidFile(cwd);
-    const ports = await probePorts(defaultDevPorts());
+    const ports = await probePorts(defaultDevPorts(cwd));
     writeSync(
       1,
       [
@@ -120,6 +121,13 @@ export async function runStopReport(
     );
     return;
   }
+
+  // Ports de NOTRE runtime, lus TANT QU'IL EST VIVANT. Après le kill, son state
+  // file est purgé (process mort) et `defaultDevPorts` retomberait sur la
+  // convention `[5151, 5152]` — qu'un AUTRE projet peut très bien tenir. Le
+  // rapport final annoncerait alors « 5151 encore occupé » en montrant du doigt
+  // le serveur du voisin, sur un arrêt pourtant impeccable.
+  const ourPorts = defaultDevPorts(cwd);
 
   // Décompte par rôle (segments non-nuls) → message adapté à dev / prod / cluster.
   const mode = runtimeLabel(detectRuntimeMode(before));
@@ -150,7 +158,8 @@ export async function runStopReport(
   });
 
   clearSupervisorPidFile(cwd);
-  const ports = await waitPortsFree(defaultDevPorts(), PORTS_WAIT_MS);
+  clearRuntimeState(cwd); // plus personne n'écoute : le canal ne doit plus rien dire
+  const ports = await waitPortsFree(ourPorts, PORTS_WAIT_MS);
 
   const verdict =
     alive.length === 0

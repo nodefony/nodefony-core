@@ -120,6 +120,32 @@ export interface ServersConfig {
   ws?: Record<string, unknown>;
   /** Serveur WebSocket Secure (hérite du HTTPS associé). */
   wss?: Record<string, unknown>;
+  /**
+   * Que faire quand le port désiré est DÉJÀ OCCUPÉ.
+   *
+   * - `auto` : prendre le prochain port libre. L'app boote au lieu de mourir, et
+   *   le décalage est **annoncé** (jamais silencieux). Confort de dev : plusieurs
+   *   apps Nodefony côte à côte.
+   * - `strict` : échec fatal (EADDRINUSE).
+   *
+   * Le défaut dépend de l'environnement, et c'est délibéré :
+   * - **production → `strict`.** Le port y est un CONTRAT (service k8s, ingress,
+   *   sonde de santé). Écouter ailleurs en silence produirait un pod « sain »
+   *   que personne n'atteint — une panne invisible.
+   * - **test → `strict`.** Un port occupé signale un serveur resté debout ; le
+   *   banc doit s'arrêter net, pas taper à côté.
+   * - **développement → `auto`.** Là, un port pris est une nuisance, pas un contrat.
+   *
+   * @default "auto" en développement, "strict" en production et en test
+   * @reactivity boot
+   */
+  portPolicy?: "auto" | "strict";
+  /**
+   * En `portPolicy: "auto"`, nombre de ports essayés après le port désiré.
+   * @default 20
+   * @reactivity boot
+   */
+  portRetryAttempts?: number;
 }
 
 /** Sortie fichier du Syslog. */

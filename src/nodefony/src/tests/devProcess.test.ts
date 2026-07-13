@@ -8,8 +8,15 @@
 import assert from "node:assert";
 import path from "node:path";
 import os from "node:os";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import {
+  clearRuntimeState,
   defaultDevPorts,
   detectRuntimeMode,
   devSupervisorPidFile,
@@ -18,8 +25,11 @@ import {
   missingWorkspaceDists,
   parsePsRow,
   processCwd,
+  readRuntimeState,
   runtimeModes,
+  runtimeStateFile,
   splitByProject,
+  writeRuntimeState,
   type DevProcessInfo,
 } from "../service/dev/devProcess";
 
@@ -210,16 +220,130 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
 
   it("defaultDevPorts : défaut, override CSV, valeur invalide", () => {
     const save = process.env.NODEFONY_DEV_PORTS;
+    // cwd ISOLÉ : sans lui, le test lirait le state file du serveur de dev
+    // éventuellement lancé dans le repo (il en écrit un) → verdict machine-dépendant.
+    const cwd = mkdtempSync(path.join(os.tmpdir(), "nf-ports-"));
     try {
       delete process.env.NODEFONY_DEV_PORTS;
-      assert.deepStrictEqual(defaultDevPorts(), [5151, 5152]);
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
       process.env.NODEFONY_DEV_PORTS = "3000, 3001 ";
-      assert.deepStrictEqual(defaultDevPorts(), [3000, 3001]);
+      assert.deepStrictEqual(defaultDevPorts(cwd), [3000, 3001]);
       process.env.NODEFONY_DEV_PORTS = "nope";
-      assert.deepStrictEqual(defaultDevPorts(), [5151, 5152]); // fallback
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]); // fallback
     } finally {
       if (save === undefined) delete process.env.NODEFONY_DEV_PORTS;
       else process.env.NODEFONY_DEV_PORTS = save;
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+});
+
+/**
+ * **State file runtime** — le canal par lequel le serveur dit sur quels ports il
+ * écoute VRAIMENT.
+ *
+ * Il n'existe que parce que le port n'est plus une certitude : `servers.portPolicy:
+ * "auto"` peut faire glisser l'écoute (5151 → 5153). `status`, `stop` et la
+ * readiness sondaient `[5151, 5152]` en dur — sans ce canal, ils déclareraient
+ * « serveur down » sur un serveur parfaitement vivant.
+ */
+describe("devProcess — state file runtime (ports effectifs)", () => {
+  let cwd: string;
+  const savedEnv = process.env.NODEFONY_DEV_PORTS;
+
+  beforeEach(() => {
+    delete process.env.NODEFONY_DEV_PORTS;
+    cwd = mkdtempSync(path.join(os.tmpdir(), "nf-runtime-"));
+  });
+
+  afterEach(() => {
+    if (savedEnv === undefined) delete process.env.NODEFONY_DEV_PORTS;
+    else process.env.NODEFONY_DEV_PORTS = savedEnv;
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it("écrit puis relit les ports effectifs (aller-retour)", () => {
+    writeRuntimeState(cwd, {
+      pid: process.pid,
+      ports: [5153, 5154],
+      desiredPorts: [5151, 5152],
+    });
+    const state = readRuntimeState(cwd);
+    assert.ok(state);
+    assert.deepStrictEqual(state.ports, [5153, 5154]);
+    // Le port DÉSIRÉ est conservé : un outil peut dire « tu voulais 5151, tu
+    // écoutes sur 5153 » sans avoir à le deviner.
+    assert.deepStrictEqual(state.desiredPorts, [5151, 5152]);
+    assert.strictEqual(state.pid, process.pid);
+  });
+
+  it("crée l'arborescence si `node_modules/.cache` n'existe pas encore", () => {
+    writeRuntimeState(cwd, { pid: process.pid, ports: [7000] });
+    assert.ok(existsSync(runtimeStateFile(cwd)));
+  });
+
+  it("defaultDevPorts LIT le state file — c'est tout l'intérêt du canal", () => {
+    writeRuntimeState(cwd, { pid: process.pid, ports: [5153, 5154] });
+    assert.deepStrictEqual(defaultDevPorts(cwd), [5153, 5154]);
+  });
+
+  it("NODEFONY_DEV_PORTS reste PRIORITAIRE (l'opérateur a toujours le dernier mot)", () => {
+    writeRuntimeState(cwd, { pid: process.pid, ports: [5153, 5154] });
+    process.env.NODEFONY_DEV_PORTS = "9000,9001";
+    assert.deepStrictEqual(defaultDevPorts(cwd), [9000, 9001]);
+  });
+
+  it("state file d'un process MORT : ignoré ET purgé (jamais sonder les ports d'hier)", () => {
+    // PID hautement improbable → traité comme mort.
+    writeRuntimeState(cwd, { pid: 999_999_998, ports: [5153, 5154] });
+    assert.strictEqual(readRuntimeState(cwd), null);
+    // Purgé : un reliquat ferait mentir tous les lecteurs suivants.
+    assert.strictEqual(existsSync(runtimeStateFile(cwd)), false);
+    // Et on retombe proprement sur la convention.
+    assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
+  });
+
+  it("state file absent → convention historique (premier boot : personne n'a rien publié)", () => {
+    assert.strictEqual(readRuntimeState(cwd), null);
+    assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
+  });
+
+  it("state file CORROMPU → null, jamais un crash (best-effort)", () => {
+    const file = runtimeStateFile(cwd);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, "{ pas du json", "utf8");
+    assert.strictEqual(readRuntimeState(cwd), null);
+    assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
+  });
+
+  it("state file SANS port valide → rejeté (un canal vide ne vaut pas mieux qu'absent)", () => {
+    const file = runtimeStateFile(cwd);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      JSON.stringify({ pid: process.pid, ports: [0, -1, "x"] }),
+      "utf8",
+    );
+    assert.strictEqual(readRuntimeState(cwd), null);
+  });
+
+  it("clearRuntimeState : idempotent (purger deux fois n'explose pas)", () => {
+    writeRuntimeState(cwd, { pid: process.pid, ports: [5151] });
+    clearRuntimeState(cwd);
+    assert.strictEqual(existsSync(runtimeStateFile(cwd)), false);
+    clearRuntimeState(cwd); // déjà parti
+    assert.strictEqual(readRuntimeState(cwd), null);
+  });
+
+  it("le state file est PAR PROJET (deux apps ne se marchent pas dessus)", () => {
+    const other = mkdtempSync(path.join(os.tmpdir(), "nf-runtime-b-"));
+    try {
+      writeRuntimeState(cwd, { pid: process.pid, ports: [5151, 5152] });
+      writeRuntimeState(other, { pid: process.pid, ports: [5153, 5154] });
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
+      assert.deepStrictEqual(defaultDevPorts(other), [5153, 5154]);
+    } finally {
+      rmSync(other, { recursive: true, force: true });
     }
   });
 });

@@ -298,7 +298,7 @@ class FrontendService extends Service implements IFrontendService {
       return;
     }
 
-    const backendOrigin = `${this.cfg.backendProtocol}://${this.cfg.backendHost}:${this.cfg.backendPort}`;
+    const backendOrigin = `${this.cfg.backendProtocol}://${this.cfg.backendHost}:${this.resolveBackendPort()}`;
     const https = this.resolveHttps();
     // Propage l'environnement Nodefony à Vite :
     //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
@@ -365,6 +365,33 @@ class FrontendService extends Service implements IFrontendService {
   }
 
   /**
+   * Port backend que Vite doit proxifier — le port RÉELLEMENT écouté, pas celui
+   * qu'on espérait.
+   *
+   * `config.backendPort` (5151) n'est qu'une intention : avec
+   * `servers.portPolicy: "auto"`, un port occupé fait glisser l'écoute du backend
+   * (5151 → 5153). Un proxy figé sur 5151 enverrait alors les appels API du front
+   * vers le serveur d'une AUTRE app — au mieux des 404, au pire les données du
+   * voisin. On lit donc le port sur le serveur lui-même.
+   *
+   * Résolution par NOM (`server-http`), jamais par import : `@nodefony/frontend`
+   * ne dépend pas de `@nodefony/http` (cycle via la config d'app).
+   */
+  private resolveBackendPort(): number {
+    const server = this.container?.get?.("server-http") as
+      { port?: number; active?: boolean } | undefined;
+    const real = server?.active && server.port ? server.port : 0;
+    if (real > 0 && real !== this.cfg.backendPort) {
+      this.log(
+        `backend à l'écoute sur ${real} (et non ${this.cfg.backendPort}) — ` +
+          `le proxy Vite suit le port réel`,
+        "INFO",
+      );
+    }
+    return real > 0 ? real : this.cfg.backendPort;
+  }
+
+  /**
    * Résout les certificats HTTPS partagés (service `certificates` de
    * @nodefony/http) si `https: true`. Pas de duplication — mêmes PEM que
    * `server-https` (5152). Retombe sur HTTP avec un warning si indisponible.
@@ -372,8 +399,7 @@ class FrontendService extends Service implements IFrontendService {
   private resolveHttps(): { keyPath: string; certPath: string } | undefined {
     if (!this.cfg.https) return undefined;
     const certs = this.container?.get?.("certificates") as
-      | { privateKeyPath?: string; certPath?: string }
-      | undefined;
+      { privateKeyPath?: string; certPath?: string } | undefined;
     if (!certs?.privateKeyPath || !certs?.certPath) {
       this.log(
         "https: true requested but `certificates` service unavailable — falling back to HTTP",
@@ -470,8 +496,7 @@ class FrontendService extends Service implements IFrontendService {
       return;
     }
     const stat = this.container?.get?.("server-static") as
-      | IStaticMountService
-      | undefined;
+      IStaticMountService | undefined;
     if (stat?.addMount) {
       for (const e of this.entries) {
         stat.addMount(e.publicPath, e.outDir);
@@ -505,8 +530,7 @@ class FrontendService extends Service implements IFrontendService {
     // CSP : retirer les origines Vite du firewall (le CSP repasse au strict de base).
     (
       this.container?.get?.("firewall") as
-        | { unregisterCspOrigins?: (m: string) => void }
-        | undefined
+        { unregisterCspOrigins?: (m: string) => void } | undefined
     )?.unregisterCspOrigins?.("frontend");
     this.fire("frontend:stopped");
   }
@@ -681,8 +705,7 @@ class FrontendService extends Service implements IFrontendService {
     if (this.kernel?.domain) hosts.add(this.kernel.domain);
     const th = (
       this.container?.get?.("HttpKernel") as
-        | { trustedHosts?: boolean | string | string[] }
-        | undefined
+        { trustedHosts?: boolean | string | string[] } | undefined
     )?.trustedHosts;
     if (typeof th === "string") hosts.add(th);
     else if (Array.isArray(th)) for (const h of th) hosts.add(h);

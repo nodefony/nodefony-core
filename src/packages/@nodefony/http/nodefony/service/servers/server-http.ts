@@ -20,6 +20,11 @@ import http2 from "node:http2";
 import { AddressInfo } from "node:net";
 import { handleClientError } from "./clientError";
 import { createDrainTerminator, HttpTerminator } from "./serverShutdown";
+import {
+  bindWithFallback,
+  buildBindPlan,
+  type Listenable,
+} from "../../src/servers/portBinder";
 
 class ServerHttp extends Service {
   module: Module;
@@ -100,44 +105,44 @@ class ServerHttp extends Service {
               return;
             }),
         );
-        // LISTEN ON PORT
-        this.server.listen(this.port, this.domain, () => {
-          this.ready = true;
-          this.module.fire("onServersReady", this.type, this);
-          this.infos = this.server?.address() as AddressInfo;
-          if (this.infos) {
-            this.port = this.infos.port;
-            this.address = this.infos.address;
-            this.family = this.infos.family as FamilyType;
-          }
-          resolve(this.server as http.Server);
-        });
         this.module.fire("onCreateServer", this.type, this);
-        this.server.on("error", (error) => {
-          const myError = new nodefonyError(error);
-          const txtError =
-            typeof error.code === "string" ? error.code : error.errno;
-          switch (txtError) {
-            case "ENOTFOUND":
+        // LISTEN — en `portPolicy: "auto"` (défaut dev), un port occupé fait
+        // glisser l'écoute au prochain port libre au lieu de tuer le boot. Le
+        // handler d'erreur DURABLE n'est posé qu'APRÈS : sinon il verrait passer
+        // les EADDRINUSE de repli et terminerait le kernel en croyant à une panne.
+        bindWithFallback(
+          this.server as unknown as Listenable,
+          this.domain,
+          buildBindPlan(
+            "http",
+            this.module.kernel?.options.servers,
+            this.module.kernel?.environment,
+          ),
+        )
+          .then(({ address, shiftedFrom }) => {
+            this.infos = address;
+            this.port = address.port;
+            this.address = address.address;
+            this.family = address.family as FamilyType;
+            if (shiftedFrom !== null) {
+              // Fail-loud : une app qui écoute ailleurs que là où on l'attend
+              // DOIT le dire (cf resilience — jamais de dégradation silencieuse).
               this.log(
-                `CHECK DOMAIN IN /etc/hosts or config unable to connect to : ${this.domain}`,
-                "ERROR",
+                `Port ${shiftedFrom} déjà occupé → HTTP écoute sur ${this.port}. ` +
+                  `Figer le port : servers.http.port ; échouer au lieu de glisser : ` +
+                  `servers.portPolicy = "strict".`,
+                "WARNING",
               );
-              this.log(myError, "CRITIC");
-              break;
-            case "EADDRINUSE":
-              this.log(
-                `Domain : ${this.domain} Port : ${this.port} ==> ALREADY USE `,
-                "ERROR",
-              );
-              this.log(myError, "CRITIC");
-              this.server?.close();
-              setTimeout(() => this.kernel?.terminate(1), 1000);
-              break;
-            default:
-              this.log(myError, "CRITIC");
-          }
-        });
+            }
+            this.ready = true;
+            this.module.fire("onServersReady", this.type, this);
+            this.attachErrorHandler();
+            resolve(this.server as http.Server);
+          })
+          .catch((error: NodeJS.ErrnoException) => {
+            this.reportBindError(error);
+            reject(error);
+          });
         // Drain graceful (SIGTERM/docker stop) : les requêtes in-flight se
         // terminent, destruction forcée après `shutdownTimeout` ms. Remplace
         // `closeAllConnections()` qui coupait les requêtes en cours. Le
@@ -170,6 +175,52 @@ class ServerHttp extends Service {
         return reject(e);
       }
     });
+  }
+
+  /**
+   * Handler d'erreur DURABLE — posé une fois le serveur en écoute.
+   *
+   * Il ne traite donc plus `EADDRINUSE` au bind (le binder s'en charge, avec ou
+   * sans repli) : il couvre les erreurs de la VIE du serveur.
+   */
+  private attachErrorHandler(): void {
+    this.server?.on("error", (error: NodeJS.ErrnoException) => {
+      this.log(new nodefonyError(error), "CRITIC");
+    });
+  }
+
+  /**
+   * Le bind a échoué pour de bon — soit `portPolicy: "strict"`, soit tous les
+   * ports de repli étaient pris, soit une erreur qui n'est pas un conflit de port.
+   *
+   * Reste FATAL (contrat inchangé) : un serveur qui n'écoute pas ne doit jamais
+   * laisser le process traîner en se croyant démarré.
+   */
+  private reportBindError(error: NodeJS.ErrnoException): void {
+    const myError = new nodefonyError(error);
+    switch (error.code) {
+      case "ENOTFOUND":
+        this.log(
+          `CHECK DOMAIN IN /etc/hosts or config unable to connect to : ${this.domain}`,
+          "ERROR",
+        );
+        this.log(myError, "CRITIC");
+        break;
+      case "EADDRINUSE":
+        this.log(
+          `Port ${this.port} déjà occupé (domaine ${this.domain}) — le serveur HTTP ` +
+            `ne peut pas écouter. Libérer le port, en choisir un autre ` +
+            `(servers.http.port), ou autoriser le repli automatique ` +
+            `(servers.portPolicy = "auto", défaut en développement).`,
+          "ERROR",
+        );
+        this.log(myError, "CRITIC");
+        break;
+      default:
+        this.log(myError, "CRITIC");
+    }
+    this.server?.close();
+    setTimeout(() => this.kernel?.terminate(1), 1000);
   }
 
   showBanner(): void {
