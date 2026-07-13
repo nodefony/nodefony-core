@@ -139,6 +139,16 @@ class StudioController extends Controller {
     return this.renderStudio();
   }
 
+  /**
+   * SPA fallback profondeur 2 — deep-link / refresh sur la console playground
+   * d'un controller : `playground/:controller` (ex `/nodefony/playground/AppController`).
+   * Préfixe littéral `playground` (PAS de générique) — même règle que `modules/:name`.
+   */
+  @Get("/playground/{controller}")
+  renderSpaFallbackPlayground(): unknown {
+    return this.renderStudio();
+  }
+
   // PUBLIC (bypassFirewall) : endpoint de LIVENESS — convention universelle
   // (sonde k8s/monitoring NON authentifiée) + pingé par le flux de login AVANT
   // l'authentification (étape « ping » du ConnectionStepper). Sans bypass, l'aire

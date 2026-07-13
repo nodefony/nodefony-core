@@ -1,4 +1,5 @@
 import {
+  IconFlask,
   IconLayoutDashboard,
   IconTopologyStar3,
   IconUser,
@@ -217,6 +218,12 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/routes",
         label: "Routes",
         icon: IconRoute,
+        roles: VIEW_ROLES.dev,
+      },
+      {
+        to: "/nodefony/playground",
+        label: "Playground",
+        icon: IconFlask,
         roles: VIEW_ROLES.dev,
       },
       {

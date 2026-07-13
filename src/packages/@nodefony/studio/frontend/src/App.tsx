@@ -66,6 +66,11 @@ const Stores = lazy(() =>
 const RoutesView = lazy(() =>
   import("./routes/RoutesView").then((m) => ({ default: m.RoutesView })),
 );
+const Playground = lazy(() =>
+  import("./routes/playground/Playground").then((m) => ({
+    default: m.Playground,
+  })),
+);
 const Database = lazy(() =>
   import("./routes/Database").then((m) => ({ default: m.Database })),
 );
@@ -223,6 +228,8 @@ const router = createBrowserRouter([
               { path: "modules/:name", element: <ModuleDetail /> },
               { path: "config", element: <ConfigPage /> },
               { path: "routes", element: <RoutesView /> },
+              { path: "playground", element: <Playground /> },
+              { path: "playground/:controller", element: <Playground /> },
               { path: "npm", element: <Npm /> },
             ],
           },
