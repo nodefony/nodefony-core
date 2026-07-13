@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-13T09:52:20.361Z",
+  "generated": "2026-07-13T10:11:39.065Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1011,
-    "symbols": 2598,
+    "files": 1012,
+    "symbols": 2602,
     "classes": 319,
     "interfaces": 679,
     "types": 302,
     "enums": 4,
-    "functions": 737,
-    "constants": 557
+    "functions": 740,
+    "constants": 558
   },
   "symbols": {
     "Cli": {
@@ -2754,13 +2754,21 @@
       "module": "@nodefony/core",
       "description": "Exécute un scaffold — point d'entrée UNIQUE des trois fronts (CLI rapide, CLI interactif, Studio), dispatché par type : - `app` : projet NEUF dans `request.dir` (layers base/preset/frontend) ; - `c…"
     },
+    "wireKernelBootCall": {
+      "name": "wireKernelBootCall",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Câble un appel dans le hook `onKernelBoot()` de l'`index.ts` cible : import de la fonction + soit INSERTION d'un hook complet (s'il n'existe pas — le layout des index générés est connu), soit note …"
+    },
     "FRONTEND_PARAMS": {
       "name": "FRONTEND_PARAMS",
       "kind": "const",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Paramètres frontend par framework (type registerEntry, entry, nœud de montage)."
+      "description": "Paramètres frontend par framework — type registerEntry, entry, nœud de montage, ET les dépendances npm (SOURCE UNIQUE : consommée par le `package.json.tpl` de `create app` ET par `create front` qui…"
     },
     "confirm": {
       "name": "confirm",
@@ -2848,6 +2856,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Saveurs de controller : le WS est TOUJOURS là (différenciateur Nodefony)."
+    },
+    "pick": {
+      "name": "pick",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/versions.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sous-ensemble du catalogue (helper des tables par framework)."
+    },
+    "SCAFFOLD_VERSIONS": {
+      "name": "SCAFFOLD_VERSIONS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/versions.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Catalogue UNIQUE des versions npm émises par les scaffolds (`create app`, `create front`, lots suivants) — la SEULE table à toucher quand une dep tierce bouge. Les paquets `nodefony`/`@nodefony/*` …"
     },
     "Storage": {
       "name": "Storage",
@@ -21445,6 +21469,12 @@
       ],
       "RedisWebAuthnCredentialStore": [
         "src/packages/@nodefony/redis/nodefony/registerStores.ts"
+      ],
+      "pick": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "SCAFFOLD_VERSIONS": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "IScaffoldTypeSpec": [
         "src/nodefony/src/cli/scaffold/engine.ts",

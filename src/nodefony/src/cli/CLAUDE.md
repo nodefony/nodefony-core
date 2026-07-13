@@ -197,6 +197,24 @@ commande validée → ses options + globales, sinon noms + alias. Install zsh :
 [--frontend <none|react|vue|angular>] [--link|--no-link]` — **standalone 0-boot**
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
 
+`nodefony create front <name> [--frontend <react|vue|angular>] [--route </page>]
+[--module <nom>]` — ajoute un frontend Vite à une cible SANS front (app `none` ou
+module) : coquille HTML (brique PARTAGÉE `templates/shared/front-shell/` — la même
+que `create app`, zéro dérive), entry minimale du framework, controller de page
+(`renderDocument(name, cspNonce)` — TSDoc = tout le flux dev HMR/prod/CSP/proxy),
+registrar `register<Name>Entry` (fichier dédié documenté) ; wiring AUTO
+`@controllers` + hook `onKernelBoot` (inséré si absent — un hook EXISTANT n'est
+jamais édité : note actionnable) ; deps du framework ajoutées au package.json si
+absentes. Gardes : cible avec `frontend/index.html` → throw ; `@nodefony/frontend`
+manquant → throw actionnable.
+
+**Versions npm des templates** : les paquets `nodefony`/`@nodefony/*` sont émis en
+`^<%= it.nodefonyVersion %>` (version du paquet qui scaffolde — une release ne
+réécrit RIEN) ; toutes les versions TIERCES vivent dans le catalogue UNIQUE
+`scaffold/versions.ts` (`SCAFFOLD_VERSIONS`, consommé par `package.json.tpl` via
+`it.pkg` et par `FRONTEND_PARAMS`) ; un test anti-dérive du banc compare le
+catalogue aux manifests du monorepo (même MAJEURE exigée).
+
 `nodefony create controller <name> [--kind <hello|realtime|rest>] [--route </api/x>]
 [--module <nom>]` — scaffold **IN-PROJECT** (lancé DANS une app : `findProjectRoot`
 remonte au `nodefony.config.ts`, refus propre hors projet). Cible = app racine ou un

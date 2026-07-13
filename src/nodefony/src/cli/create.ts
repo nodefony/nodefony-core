@@ -32,7 +32,7 @@ import { askMissing, confirm } from "./scaffold/interactive";
  */
 
 /** Types de scaffold disponibles (`module`/`entity` = lots suivants). */
-export const CREATE_TYPES = ["app", "controller"] as const;
+export const CREATE_TYPES = ["app", "controller", "front"] as const;
 export type TCreateType = (typeof CREATE_TYPES)[number];
 
 export interface ICreateRequest {
@@ -117,7 +117,8 @@ const USAGE =
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
   `               [--link|--no-link] [--no-install] [--no-git]\n` +
   `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
-  `               (dans un projet existant — app racine ou module)\n` +
+  `  front      : [--frontend <react|vue|angular>] [--route </page>] [--module <nom>]\n` +
+  `               (types controller/front : dans un projet existant — app racine ou module)\n` +
   `  Sans flags dans un terminal → mode interactif (questions + récap).\n`;
 
 /**
@@ -245,11 +246,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     return SysExit.SOFTWARE;
   }
   const relDest = path.relative(process.cwd(), result.dest) || ".";
-  if (parsed.type === "controller") {
+  if (parsed.type !== "app") {
     // In-project : ni install, ni git — le projet existe. En dev, le
     // superviseur rebuild/relance tout seul au prochain tick de watch.
     process.stdout.write(
-      `✔ controller « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
+      `✔ ${parsed.type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
         result.files.map((f) => `  ${f}`).join("\n") +
         `\n\nEndpoints :\n` +
         (result.notes ?? []).map((n) => `  ${n}`).join("\n") +

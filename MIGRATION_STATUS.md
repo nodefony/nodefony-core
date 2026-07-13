@@ -418,8 +418,12 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 dev` OK), fix @types/react (typecheck app générée). **Homes vue/angular ✅ + logos (94d0a33f)**. **Lot 3a ✅ : `create controller`**
 >    (in-project, saveurs hello/realtime/rest — realtime = RealtimeController canal+action prouvés
 >    au client isomorphe ; wiring @controllers auto ; cible app racine ou module ; studio épinglé
->    `ui:"static"` dans l'app générée). Reste : `create module` (3c, workspace npm local) /
->    `create entity` (3b), `nodefony doctor`, publication npm. Commandes métier P11.2/11.3 reléguées ; `orm:migrate` = design prêt, impl gelée (S5c).
+>    `ui:"static"` dans l'app générée). **`create front` ✅** (ajoute un frontend Vite react|vue|angular à l'app/module sans front —
+>    briques PARTAGÉES avec create app, double wiring auto, deps par catalogue). **Saveur `rest` =
+>    vitrine décorateurs ✅** (+ fix framework @Idempotent/renderJson couvert par test). **Catalogue
+>    versions ✅** (`scaffold/versions.ts` + test anti-dérive ; @nodefony/* = dynamique, 0 réécriture
+>    par release). Reste : `create module` (3c, workspace npm local) / `create entity` (3b, réutilise
+>    la brique rest branchée repository), `nodefony doctor`, publication npm. Commandes métier P11.2/11.3 reléguées ; `orm:migrate` = design prêt, impl gelée (S5c).
 > 2. **S5 — DDL prod drizzle-kit** (P7.10, dernier morceau ORM) : design ✅ validé 07-10, implémentation
 >    GELÉE → après P8+P11. `project_orm_multidialect_chantier_kit` §S5.
 > 3. **Config app `NF__APP__*`** (reste du chantier config, ADR-0006) → `project_config_nf_app_kit`.

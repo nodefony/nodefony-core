@@ -176,9 +176,62 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
   ],
 };
 
+const FRONT_SPEC: IScaffoldTypeSpec = {
+  type: "front",
+  description:
+    "Ajoute un frontend Vite (page + entry + controller) à l'app ou à un module SANS front",
+  questions: [
+    {
+      key: "name",
+      label: "Nom de la page/entry (kebab-case, ex : dashboard)",
+      type: "string",
+      default: "",
+      pattern: "^[A-Za-z][A-Za-z0-9-]*$",
+      patternHint:
+        "lettres/chiffres/tirets, commence par une lettre (ex : dashboard)",
+    },
+    {
+      key: "frontend",
+      label: "Framework frontend",
+      type: "choice",
+      choices: [
+        {
+          value: "react",
+          label: "React 19",
+          hint: "entry Vite + HMR fast-refresh",
+        },
+        { value: "vue", label: "Vue 3", hint: "SFC <script setup> + HMR" },
+        {
+          value: "angular",
+          label: "Angular (standalone, zoneless)",
+          hint: "via AnalogJS",
+        },
+      ],
+      default: "react",
+    },
+    {
+      key: "route",
+      label: "Route de la page (vide = /<nom>)",
+      type: "string",
+      default: "",
+      pattern: "^$|^/[A-Za-z0-9/_-]*$",
+      patternHint: "chemin absolu (ex : /dashboard) ou vide pour le défaut",
+    },
+    {
+      key: "module",
+      label: "Cible (vide = app racine, sinon nom d'un module du projet)",
+      type: "string",
+      default: "",
+      pattern: "^$|^[@A-Za-z][@A-Za-z0-9/_-]*$",
+      patternHint: "nom d'un module du projet (dossier modules/<nom>) ou vide",
+    },
+  ],
+};
+
 const SPECS: Record<string, IScaffoldTypeSpec> = {
   app: APP_SPEC,
   controller: CONTROLLER_SPEC,
+  front: FRONT_SPEC,
 };
 
 /**

@@ -534,6 +534,127 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("moteur — create front (in-project)", () => {
+    const front = (from: string, answers: Record<string, string | boolean>) =>
+      runScaffold({ type: "front", answers, dir: from, force: false }, version);
+
+    it("app complete SANS front : coquille + entry + controller + double wiring", () => {
+      const dest = path.join(tmp, "fapp");
+      scaffold(dest, { name: "fapp", preset: "complete", frontend: "none" });
+      const r = front(dest, { name: "dashboard", frontend: "react" });
+      for (const f of [
+        path.join("frontend", "index.html"),
+        path.join("frontend", "src", "main.tsx"),
+        path.join("frontend", "src", "App.tsx"),
+        path.join("nodefony", "controllers", "DashboardController.ts"),
+        path.join("nodefony", "frontend", "registerDashboardEntry.ts"),
+      ]) {
+        assert.isTrue(existsSync(path.join(dest, f)), `manque ${f}`);
+      }
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.include(index, "DashboardController");
+      assert.match(index, /@controllers\(\[[^\]]*DashboardController\]\)/u);
+      assert.include(index, "registerDashboardEntry(this);");
+      assert.include(index, "override async onKernelBoot()");
+      // Deps du framework ajoutées au package.json (catalogue unique).
+      const pkg = readJson(path.join(dest, "package.json"));
+      assert.property(pkg["dependencies"], "react");
+      assert.property(pkg["devDependencies"], "@vitejs/plugin-react");
+      assert.include((r.notes ?? []).join("\n"), "npm install");
+      // Le controller de page rend l'entry du BON nom.
+      const ctrl = readFileSync(
+        path.join(dest, "nodefony", "controllers", "DashboardController.ts"),
+        "utf8",
+      );
+      assert.include(ctrl, 'renderDocument("dashboard"');
+      assert.include(ctrl, 'path: "/dashboard"');
+      assertNoEtaResidue(dest);
+    });
+
+    it("cible avec un front DÉJÀ posé → throw actionnable", () => {
+      const dest = path.join(tmp, "fdup");
+      scaffold(dest, { name: "fdup", preset: "complete", frontend: "react" });
+      assert.throws(
+        () => front(dest, { name: "extra", frontend: "react" }),
+        /porte déjà un front/u,
+      );
+    });
+
+    it("cible sans @nodefony/frontend (minimal none) → throw actionnable", () => {
+      const dest = path.join(tmp, "fmin");
+      scaffold(dest, { name: "fmin", preset: "minimal" });
+      assert.throws(
+        () => front(dest, { name: "page", frontend: "vue" }),
+        /@nodefony\/frontend manque/u,
+      );
+    });
+
+    it("vue : shim env.d.ts partagé ; angular : tsconfig.app.json partagé", () => {
+      const v = path.join(tmp, "fvue");
+      scaffold(v, { name: "fvue", preset: "complete", frontend: "none" });
+      front(v, { name: "board", frontend: "vue" });
+      assert.isTrue(existsSync(path.join(v, "frontend", "src", "env.d.ts")));
+      const a = path.join(tmp, "fng");
+      scaffold(a, { name: "fng", preset: "complete", frontend: "none" });
+      front(a, { name: "board", frontend: "angular" });
+      assert.isTrue(existsSync(path.join(a, "frontend", "tsconfig.app.json")));
+    });
+
+    it("les apps AVEC front gardent la coquille et les briques partagées", () => {
+      // Non-régression du déplacement des layers (front-shell/vue-shim/ng-tsconfig).
+      const rv = path.join(tmp, "regvue");
+      scaffold(rv, { name: "regvue", preset: "minimal", frontend: "vue" });
+      assert.isTrue(existsSync(path.join(rv, "frontend", "index.html")));
+      assert.isTrue(existsSync(path.join(rv, "frontend", "src", "env.d.ts")));
+      const rn = path.join(tmp, "regng");
+      scaffold(rn, { name: "regng", preset: "minimal", frontend: "angular" });
+      assert.isTrue(existsSync(path.join(rn, "frontend", "index.html")));
+      assert.isTrue(existsSync(path.join(rn, "frontend", "tsconfig.app.json")));
+      const pkg = readJson(path.join(rn, "package.json"));
+      assert.property(pkg["devDependencies"], "@analogjs/vite-plugin-angular");
+    });
+  });
+
+  describe("catalogue de versions (anti-dérive templates ↔ monorepo)", () => {
+    it("chaque version du catalogue reste alignée (même MAJEURE) sur le repo", async () => {
+      const { SCAFFOLD_VERSIONS } = await import("../cli/scaffold/versions");
+      const repoRoot = path.resolve(findPackageRoot(), "..", "..");
+      // Sources de vérité : là où le monorepo utilise RÉELLEMENT ces paquets.
+      const sources = [
+        "package.json",
+        path.join("src", "nodefony", "package.json"),
+        path.join("src", "packages", "@nodefony", "studio", "package.json"),
+        path.join("src", "packages", "@nodefony", "frontend", "package.json"),
+      ];
+      const repo: Record<string, string> = {};
+      for (const rel of sources) {
+        const p = path.join(repoRoot, rel);
+        if (!existsSync(p)) continue;
+        const pkg = readJson(p);
+        Object.assign(
+          repo,
+          pkg["devDependencies"] ?? {},
+          pkg["dependencies"] ?? {},
+        );
+      }
+      const major = (v: string) =>
+        Number.parseInt(v.replace(/^[~^>=\s]*/u, ""), 10);
+      const drifts: string[] = [];
+      for (const [name, range] of Object.entries(SCAFFOLD_VERSIONS)) {
+        const used = repo[name];
+        if (!used || used.startsWith("file:")) continue; // pas comparable
+        if (major(range) !== major(used)) {
+          drifts.push(`${name}: scaffold ${range} vs repo ${used}`);
+        }
+      }
+      assert.deepEqual(
+        drifts,
+        [],
+        `catalogue scaffold (versions.ts) en dérive de MAJEURE vs le repo :\n${drifts.join("\n")}`,
+      );
+    });
+  });
+
   describe("moteur — garde-fous", () => {
     it("dossier non vide sans force → throw ; avec force → OK", () => {
       const dest = path.join(tmp, "occupied");

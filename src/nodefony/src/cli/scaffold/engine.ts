@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Eta } from "eta";
+import { pick, SCAFFOLD_VERSIONS } from "./versions";
 import {
   getScaffoldSpec,
   type IScaffoldTypeSpec,
@@ -59,25 +60,52 @@ const RENAMES: Record<string, string> = {
   "env.local": ".env.local",
 };
 
-/** Paramètres frontend par framework (type registerEntry, entry, nœud de montage). */
+/**
+ * Paramètres frontend par framework — type registerEntry, entry, nœud de
+ * montage, ET les dépendances npm (SOURCE UNIQUE : consommée par le
+ * `package.json.tpl` de `create app` ET par `create front` qui les ajoute au
+ * package.json d'une cible existante — une version ne vit qu'ici).
+ */
 export const FRONTEND_PARAMS: Record<
   Exclude<TFrontendChoice, "none">,
-  { type: string; entry: string; mountNode: string }
+  {
+    type: string;
+    entry: string;
+    mountNode: string;
+    deps: Record<string, string>;
+    devDeps: Record<string, string>;
+  }
 > = {
   react: {
     type: "react19",
     entry: "./frontend/src/main.tsx",
     mountNode: '<div id="root"></div>',
+    deps: pick("react", "react-dom"),
+    devDeps: pick(
+      "vite",
+      "@vitejs/plugin-react",
+      "@types/react",
+      "@types/react-dom",
+    ),
   },
   vue: {
     type: "vue3",
     entry: "./frontend/src/main.ts",
     mountNode: '<div id="app"></div>',
+    deps: pick("vue"),
+    devDeps: pick("vite", "@vitejs/plugin-vue"),
   },
   angular: {
     type: "angular",
     entry: "./frontend/src/main.ts",
     mountNode: "<app-root></app-root>",
+    deps: pick("@angular/core", "@angular/common", "@angular/platform-browser"),
+    devDeps: pick(
+      "vite",
+      "@analogjs/vite-plugin-angular",
+      "@angular/build",
+      "@angular/compiler-cli",
+    ),
   },
 };
 
@@ -423,6 +451,9 @@ export function runScaffold(
   if (request.type === "controller") {
     return runControllerScaffold(request, answers, packageRoot);
   }
+  if (request.type === "front") {
+    return runFrontScaffold(request, answers, packageRoot);
+  }
   const dest = path.resolve(request.dir);
   if (existsSync(dest) && readdirSync(dest).length > 0 && !request.force) {
     throw new Error(
@@ -435,6 +466,8 @@ export function runScaffold(
   const data = {
     appName: answers.name,
     nodefonyVersion: version,
+    // Catalogue de versions tierces (source unique — cf versions.ts).
+    pkg: SCAFFOLD_VERSIONS,
     preset,
     complete: preset === "complete",
     frontend,
@@ -459,6 +492,15 @@ export function runScaffold(
     renderLayer(eta, path.join(templates, "complete"), dest, data, written);
   }
   if (front) {
+    // Coquille HTML commune à TOUS les scaffolds à front (`create app` ET
+    // `create front`) — une seule source, zéro dérive entre les commandes.
+    renderLayer(
+      eta,
+      path.join(packageRoot, "templates", "shared", "front-shell"),
+      dest,
+      data,
+      written,
+    );
     // `shared/` = ce qui est commun aux 3 frameworks (controller HTML+CSP) ;
     // le layer du framework n'apporte que son entry/App.
     renderLayer(
@@ -475,6 +517,25 @@ export function runScaffold(
       data,
       written,
     );
+    // Briques par-framework partagées avec `create front` (source unique).
+    if (frontend === "angular") {
+      renderLayer(
+        eta,
+        path.join(packageRoot, "templates", "shared", "ng-app-tsconfig"),
+        dest,
+        data,
+        written,
+      );
+    }
+    if (frontend === "vue") {
+      renderLayer(
+        eta,
+        path.join(packageRoot, "templates", "shared", "vue-shim"),
+        dest,
+        data,
+        written,
+      );
+    }
   }
   let linked: string[] = [];
   if (answers.link === true) {
@@ -581,4 +642,223 @@ function runControllerScaffold(
           ]
         : [`GET  ${route}`, `WS   ${route}/echo`];
   return { dest: target.dir, files: written.sort(), linked: [], notes };
+}
+
+/**
+ * Scaffold IN-PROJECT d'un frontend Vite (`create front`) : pose la coquille
+ * HTML (la MÊME brique que `create app`), l'entry du framework choisi, le
+ * controller de page (`renderDocument` + nonce CSP) et le registrar d'entry ;
+ * câble `@controllers` et le hook `onKernelBoot` de la cible ; complète les
+ * deps npm du framework (catalogue UNIQUE `FRONTEND_PARAMS`).
+ *
+ * @throws hors projet, cible inconnue, cible portant DÉJÀ un front
+ *   (`frontend/index.html` — ce scaffold pose l'INITIAL, il ne fusionne pas),
+ *   ou dep `@nodefony/frontend` absente de la cible.
+ */
+function runFrontScaffold(
+  request: IScaffoldRequest,
+  answers: TScaffoldAnswers,
+  packageRoot: string,
+): IScaffoldResult {
+  const projectRoot = findProjectRoot(request.dir);
+  if (!projectRoot) {
+    throw new Error(
+      "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
+        "lance la commande depuis une app (créée par `nodefony create app`)",
+    );
+  }
+  const targets = listTargets(projectRoot);
+  const moduleName = String(answers.module ?? "");
+  const target = moduleName
+    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
+    : targets[0];
+  if (!target) {
+    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
+    throw new Error(
+      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
+    );
+  }
+  if (existsSync(path.join(target.dir, "frontend", "index.html"))) {
+    throw new Error(
+      `${target.name} porte déjà un front (frontend/index.html) — ce scaffold ` +
+        `pose la coquille et l'entry INITIALES ; pour une page de plus, ajoute ` +
+        `une entry au registerEntry existant et un controller de page`,
+    );
+  }
+  const manifestPath = path.join(target.dir, "package.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<
+    string,
+    Record<string, string>
+  >;
+  const targetDeps = new Set(
+    ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
+      Object.keys(manifest[b] ?? {}),
+    ),
+  );
+  if (!targetDeps.has("@nodefony/frontend")) {
+    throw new Error(
+      `@nodefony/frontend manque dans ${target.name} — ajoute la dep + ` +
+        `"@nodefony/frontend" au manifeste modules de nodefony.config.ts`,
+    );
+  }
+  const frontend = answers.frontend as Exclude<TFrontendChoice, "none">;
+  const front = FRONTEND_PARAMS[frontend];
+  const base = String(answers.name);
+  const pascal = toPascalCase(base);
+  const nameClass = `${pascal}Controller`;
+  const kebab = toKebabCase(base);
+  const route = String(answers.route) || `/${kebab}`;
+  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const written: string[] = [];
+  const data = {
+    nameClass,
+    pascal,
+    kebab,
+    route,
+    frontend,
+    front,
+    // Titre de la coquille HTML (même clé que `create app`).
+    appName: target.name,
+  };
+  const tokens = { __NAME__: nameClass, __PASCAL__: pascal };
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "shared", "front-shell"),
+    target.dir,
+    data,
+    written,
+    tokens,
+  );
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "front", "base"),
+    target.dir,
+    data,
+    written,
+    tokens,
+  );
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "front", frontend),
+    target.dir,
+    data,
+    written,
+    tokens,
+  );
+  if (frontend === "angular") {
+    renderLayer(
+      eta,
+      path.join(packageRoot, "templates", "shared", "ng-app-tsconfig"),
+      target.dir,
+      data,
+      written,
+      tokens,
+    );
+  }
+  if (frontend === "vue") {
+    renderLayer(
+      eta,
+      path.join(packageRoot, "templates", "shared", "vue-shim"),
+      target.dir,
+      data,
+      written,
+      tokens,
+    );
+  }
+  // Deps du framework (catalogue unique) — ajoutées SEULEMENT si absentes
+  // (jamais de bump silencieux d'une version choisie par l'utilisateur).
+  const added: string[] = [];
+  const addDeps = (block: string, entries: Record<string, string>) => {
+    const deps = (manifest[block] ??= {});
+    for (const [name, version] of Object.entries(entries)) {
+      if (!targetDeps.has(name)) {
+        deps[name] = version;
+        added.push(name);
+      }
+    }
+  };
+  addDeps("dependencies", front.deps);
+  addDeps("devDependencies", front.devDeps);
+  if (added.length > 0) {
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    written.push("package.json");
+  }
+  const indexPath = path.join(target.dir, "index.ts");
+  wireDecoratorList(
+    indexPath,
+    "controllers",
+    nameClass,
+    `./nodefony/controllers/${nameClass}`,
+  );
+  const wireNote = wireKernelBootCall(
+    indexPath,
+    `register${pascal}Entry`,
+    `./nodefony/frontend/register${pascal}Entry`,
+  );
+  written.push("index.ts");
+  const notes = [
+    `page ${route} (GET — controller ${nameClass}, entry Vite « ${kebab} »)`,
+    ...(added.length > 0
+      ? [`deps ajoutées : ${added.join(", ")} → lance npm install`]
+      : []),
+    ...(wireNote ? [wireNote] : []),
+  ];
+  return { dest: target.dir, files: written.sort(), linked: [], notes };
+}
+
+/**
+ * Câble un appel dans le hook `onKernelBoot()` de l'`index.ts` cible : import
+ * de la fonction + soit INSERTION d'un hook complet (s'il n'existe pas — le
+ * layout des index générés est connu), soit note actionnable (un hook existant
+ * n'est JAMAIS édité : on ne réécrit pas du code utilisateur).
+ *
+ * @returns note à afficher si un geste manuel reste nécessaire, sinon `null`.
+ */
+export function wireKernelBootCall(
+  indexPath: string,
+  fnName: string,
+  importPath: string,
+): string | null {
+  const source = readFileSync(indexPath, "utf8");
+  const importLine = `import { ${fnName} } from "${importPath}";`;
+  const imports = [...source.matchAll(/^import [^\n]*$/gmu)];
+  const last = imports.at(-1);
+  if (!last || last.index === undefined) {
+    return `ajoute à la main : ${importLine} + ${fnName}(this); dans onKernelBoot()`;
+  }
+  const importAt = last.index + last[0].length;
+  const withImport =
+    source.slice(0, importAt) + `\n${importLine}` + source.slice(importAt);
+  if (/onKernelBoot\s*\(/u.test(withImport)) {
+    // Hook déjà présent : on pose l'import (inoffensif) mais l'appel est un
+    // geste HUMAIN — éditer une méthode existante à l'aveugle = corruption.
+    writeFileSync(indexPath, withImport);
+    return `onKernelBoot() existe déjà dans index.ts — ajoute : ${fnName}(this);`;
+  }
+  const hook =
+    `\n  /**\n` +
+    `   * Déclare l'entry frontend auprès du FrontendService — AVANT\n` +
+    `   * onKernelReady pour que le superviseur Vite démarre avec elle.\n` +
+    `   */\n` +
+    `  override async onKernelBoot(): Promise<this> {\n` +
+    `    ${fnName}(this);\n` +
+    `    return this;\n` +
+    `  }\n`;
+  // Fin de classe = la dernière `}` AVANT `export default` (layout des index
+  // générés par create app/module). Introuvable → geste manuel, jamais un
+  // fichier corrompu.
+  const closer = /\n\}\s*\n+export default /u.exec(withImport);
+  if (!closer || closer.index === undefined) {
+    writeFileSync(indexPath, withImport);
+    return (
+      `fin de classe introuvable dans index.ts — ajoute à la main le hook :\n` +
+      `  override async onKernelBoot(): Promise<this> { ${fnName}(this); return this; }`
+    );
+  }
+  const wired =
+    withImport.slice(0, closer.index) +
+    hook +
+    withImport.slice(closer.index + 1);
+  writeFileSync(indexPath, wired);
+  return null;
 }
