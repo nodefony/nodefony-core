@@ -166,12 +166,20 @@ Dans `report.mjs` : `section(titre, corps, { break: "before" })`.
 }
 ```
 
-Les **margin boxes** (`@page { @bottom-right { content: counter(page) } }`) sont spécifiées par CSS
-Paged Media 3 mais **ne sont PAS implémentées** dans les navigateurs (elles le sont dans les moteurs
-d'impression dédiés : Prince, WeasyPrint, Paged.js). En navigateur, le numéro de page vient de
-l'en-tête/pied natif de la boîte de dialogue d'impression — que vous ne contrôlez pas. **Ne perdez pas
-de temps à essayer** : si la numérotation est indispensable, il faut Paged.js (JS, ~100 Ko) ou une
-génération PDF côté serveur.
+Les **margin boxes** (`@page { @bottom-right { content: counter(page) " / " counter(pages) } }`) sont
+**implémentées depuis Chrome 131** — mais **ni Firefox ni Safari** ne les connaissent.
+
+Conséquence pratique :
+
+- Sur **Chrome**, la numérotation « page X / Y » fonctionne, gratuitement, et dégrade en silence
+  ailleurs. Vous pouvez donc la poser sans risque.
+- Sur **Firefox**, un `position: fixed` avec `counter(page)` s'incrémente (Gecko le fait) — mais le
+  **total (`counter(pages)`) est impossible**, et aucune API JS ne l'expose.
+- Sur **Safari**, aucun numéro fiable.
+
+Si la numérotation est **contractuelle** (rapport réglementaire, annexe juridique), il faut sortir du
+navigateur : Paged.js (~100 Ko de JS), ou une génération PDF côté serveur (WeasyPrint, Prince). Sinon,
+laissez l'en-tête/pied natif de la boîte de dialogue d'impression faire le travail.
 
 ## Ce qui marche vraiment, par navigateur
 
