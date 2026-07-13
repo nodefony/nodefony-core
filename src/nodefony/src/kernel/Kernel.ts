@@ -33,6 +33,7 @@ import type { ITransport } from "../types/ITransport";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
+import { resolveModuleEntry } from "./resolveModuleEntry";
 //import Fetch from "../service/fetchService";
 import { HttpKernel } from "@nodefony/http";
 import Injector from "./injector/injector";
@@ -1057,8 +1058,14 @@ class Kernel extends Service implements IKernel {
     return this.addService(res.default, module, ...args);
   }
 
+  /**
+   * Charge un module du manifeste. La résolution part de l'APPLICATION
+   * ({@link resolveModuleEntry}) et non du paquet `nodefony` : sans cela, un
+   * module local de l'app (workspace `modules/*`) est introuvable dès que le core
+   * vit hors de l'arbre `node_modules` de l'app (`--link`, monorepo, pnpm).
+   */
   async loadModule(moduleName: string): Promise<Module> {
-    const moduleClass = await import(moduleName);
+    const moduleClass = await import(resolveModuleEntry(this.path, moduleName));
     return await this.addModule(moduleClass.default);
   }
 

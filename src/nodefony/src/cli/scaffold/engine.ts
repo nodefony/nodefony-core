@@ -16,6 +16,7 @@ import {
   type IScaffoldTypeSpec,
   type TControllerKindChoice,
   type TFrontendChoice,
+  type TModuleControllerChoice,
   type TPresetChoice,
 } from "./spec";
 
@@ -449,6 +450,9 @@ export function runScaffold(
   const answers = resolveAnswers(spec, request.answers, {
     hasCheckout: workspaces !== null,
   });
+  if (request.type === "module") {
+    return runModuleScaffold(request, answers, packageRoot, version);
+  }
   if (request.type === "controller") {
     return runControllerScaffold(request, answers, packageRoot);
   }
@@ -549,6 +553,280 @@ export function runScaffold(
     linked = linkLocalDeps(dest, workspaces);
   }
   return { dest, files: written.sort(), linked };
+}
+
+/**
+ * Déclare `modules/*` en workspaces npm de l'app et branche les scripts sur eux.
+ *
+ * POURQUOI c'est indispensable : le Kernel charge un module par son NOM
+ * (`import("@app/blog")`, cf `Kernel.loadModule`) — pas par un chemin. Sans le
+ * symlink que npm pose pour un workspace, le boot échoue sur « Cannot find
+ * package ». Les scripts sont chaînés dans la foulée, sinon le module ne serait
+ * ni construit (le bundler de l'app ne regarde que `index.ts` + `nodefony/**`),
+ * ni typé, ni testé : du code mort au premier jour.
+ *
+ * Idempotent — relancé pour le 2ᵉ module, il ne touche plus à rien.
+ *
+ * @returns true si le `package.json` de l'app a été modifié.
+ */
+export function ensureWorkspaces(projectRoot: string): boolean {
+  const manifestPath = path.join(projectRoot, "package.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+    workspaces?: string[];
+    scripts?: Record<string, string>;
+  };
+  let changed = false;
+  const workspaces = manifest.workspaces ?? [];
+  if (!workspaces.includes("modules/*")) {
+    manifest.workspaces = [...workspaces, "modules/*"];
+    changed = true;
+  }
+  const scripts = (manifest.scripts ??= {});
+  // Chaînage des scripts de l'app vers ses workspaces. `--if-present` : un module
+  // sans script `test` ne casse pas la commande de l'app.
+  const CHAIN: Record<string, "before" | "after"> = {
+    build: "before", // les modules d'abord : l'app peut dépendre de leur dist
+    typecheck: "after",
+    test: "after",
+  };
+  for (const [name, when] of Object.entries(CHAIN)) {
+    const script = scripts[name];
+    if (!script || script.includes("--workspaces")) {
+      continue;
+    }
+    const delegated = `npm run ${name} --workspaces --if-present`;
+    scripts[name] =
+      when === "before"
+        ? `${delegated} && ${script}`
+        : `${script} && ${delegated}`;
+    changed = true;
+  }
+  if (changed) {
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+  return changed;
+}
+
+/**
+ * Ajoute le module au manifeste `modules` de `nodefony.config.ts` — c'est CE
+ * tableau qui décide de ce qui se charge, et dans quel ordre. Un module local
+ * vient à la fin : le socle (http, framework, security…) doit être debout avant.
+ *
+ * Édition textuelle GARDÉE (même doctrine que `wireDecoratorList`) : on n'écrit
+ * que si l'ancre est trouvée sans ambiguïté, sinon on rend une note actionnable —
+ * jamais un `nodefony.config.ts` corrompu, qui empêcherait l'app de booter.
+ *
+ * @returns note à afficher si un geste manuel reste nécessaire, sinon `null`.
+ */
+export function wireModuleManifest(
+  configPath: string,
+  pkgName: string,
+): string | null {
+  const manual = `ajoute à la main dans le manifeste modules de nodefony.config.ts :\n  use("${pkgName}", {}),`;
+  if (!existsSync(configPath)) {
+    return manual;
+  }
+  const source = readFileSync(configPath, "utf8");
+  if (source.includes(`"${pkgName}"`)) {
+    return null; // déjà câblé (rejeu de la commande) — rien à faire.
+  }
+  const anchor = /modules\s*:\s*\[/u.exec(source);
+  if (!anchor || anchor.index === undefined) {
+    return manual;
+  }
+  // Crochet fermant APPARIÉ du tableau (les configs colocalisées imbriquent des
+  // tableaux : `trustedHosts: ["localhost"]`) — un simple `indexOf("]")` couperait
+  // au premier sous-tableau.
+  let depth = 0;
+  let close = -1;
+  for (let i = anchor.index + anchor[0].length - 1; i < source.length; i++) {
+    const char = source[i];
+    if (char === "[") {
+      depth++;
+    } else if (char === "]") {
+      depth--;
+      if (depth === 0) {
+        close = i;
+        break;
+      }
+    }
+  }
+  if (close === -1) {
+    return manual;
+  }
+  // `use()` importé → forme typée (auto-complétion de la config du module) ;
+  // sinon string nue, qui reste une entrée valide du manifeste.
+  const hasUse = /import\s*\{[^}]*\buse\b[^}]*\}\s*from\s*"nodefony"/u.test(
+    source,
+  );
+  const entry = hasUse ? `  use("${pkgName}", {}),\n` : `  "${pkgName}",\n`;
+  const line =
+    `\n  // Module local du projet (modules/) — créé par \`nodefony create module\`.\n` +
+    entry;
+  writeFileSync(
+    configPath,
+    source.slice(0, close) + line + source.slice(close),
+  );
+  return null;
+}
+
+/**
+ * Scaffold IN-PROJECT d'un module applicatif : un WORKSPACE npm sous
+ * `modules/<nom>/` (package.json + build rolldown + config Zod + tests + docs),
+ * déclaré dans les workspaces de l'app et dans le manifeste `modules`.
+ *
+ * Ce scaffold pose la COQUILLE et rien d'autre : le controller et le frontend
+ * éventuels sont rendus par les scaffolds `controller` et `front` EXISTANTS,
+ * ciblés sur le module fraîchement créé. Aucun template n'est dupliqué — la
+ * commande qui sait poser un controller reste la seule à savoir le faire.
+ *
+ * @throws hors projet, module déjà présent (sans `--force`), nom en collision,
+ *   ou brique manquante dans l'app (realtime/frontend) — avec le geste exact.
+ */
+function runModuleScaffold(
+  request: IScaffoldRequest,
+  answers: TScaffoldAnswers,
+  packageRoot: string,
+  version: string,
+): IScaffoldResult {
+  const projectRoot = findProjectRoot(request.dir);
+  if (!projectRoot) {
+    throw new Error(
+      "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
+        "lance la commande depuis une app (créée par `nodefony create app`)",
+    );
+  }
+  const name = toKebabCase(String(answers.name));
+  const dest = path.join(projectRoot, "modules", name);
+  if (existsSync(dest) && readdirSync(dest).length > 0 && !request.force) {
+    throw new Error(
+      `le module ${name} existe déjà (modules/${name}) — choisis un autre nom, ou --force`,
+    );
+  }
+  const appManifestPath = path.join(projectRoot, "package.json");
+  const appManifest = JSON.parse(readFileSync(appManifestPath, "utf8")) as {
+    name?: string;
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  const appName = appManifest.name ?? path.basename(projectRoot);
+  // Scope npm dérivé de l'app : `mon-app` → `@mon-app/blog`. Un module naît donc
+  // paquet npm — le jour où il doit être publié ou partagé, il n'y a rien à refaire.
+  const scope = appName.replace(/^@/u, "").replaceAll("/", "-");
+  const pkgName = `@${scope}/${name}`;
+  const appDeps = new Set([
+    ...Object.keys(appManifest.dependencies ?? {}),
+    ...Object.keys(appManifest.devDependencies ?? {}),
+  ]);
+  const controller = String(answers.controller) as TModuleControllerChoice;
+  const frontend = answers.frontend as TFrontendChoice;
+  // Gardes AVANT le premier fichier écrit : une brique absente de l'app ne peut
+  // pas être « ajoutée » au module seul (le paquet ne serait pas installé).
+  if (
+    (controller === "realtime" || controller === "duplex") &&
+    !appDeps.has("@nodefony/realtime")
+  ) {
+    throw new Error(
+      `le controller ${controller} exige @nodefony/realtime, absent de l'app — ` +
+        `ajoute la dep + use("@nodefony/realtime") au manifeste, ou --controller hello`,
+    );
+  }
+  if (frontend !== "none" && !appDeps.has("@nodefony/frontend")) {
+    throw new Error(
+      `un frontend exige @nodefony/frontend, absent de l'app — ajoute la dep + ` +
+        `"@nodefony/frontend" au manifeste, ou --frontend none`,
+    );
+  }
+  const pascal = toPascalCase(name);
+  const data = {
+    name,
+    pkgName,
+    appName,
+    pascal,
+    camel: pascal[0].toLowerCase() + pascal.slice(1),
+    upper: name.replaceAll("-", "_").toUpperCase(),
+    description: String(answers.description) || `Module ${name} de ${appName}`,
+    nodefonyVersion: version,
+    pkg: SCAFFOLD_VERSIONS,
+    service: answers.service === true,
+    command: answers.command === true,
+    needsRealtime: controller === "realtime" || controller === "duplex",
+    frontend,
+    front: frontend !== "none" ? FRONTEND_PARAMS[frontend] : null,
+  };
+  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const templates = path.join(packageRoot, "templates", "module");
+  const tokens = { __PASCAL__: pascal, __KEBAB__: name };
+  const written: string[] = [];
+  renderLayer(eta, path.join(templates, "base"), dest, data, written, tokens);
+  if (data.service) {
+    renderLayer(
+      eta,
+      path.join(templates, "service"),
+      dest,
+      data,
+      written,
+      tokens,
+    );
+  }
+  if (data.command) {
+    renderLayer(
+      eta,
+      path.join(templates, "command"),
+      dest,
+      data,
+      written,
+      tokens,
+    );
+  }
+  // Docs IA (CLAUDE.md/MEMORY.md) : seulement si le projet en tient déjà — dans
+  // une app qui n'en a pas, ce seraient deux fichiers morts.
+  if (existsSync(path.join(projectRoot, "CLAUDE.md"))) {
+    renderLayer(eta, path.join(templates, "ai"), dest, data, written, tokens);
+  }
+  const notes: string[] = [];
+  // Le module existe sur le disque → il est désormais une CIBLE (`listTargets`) :
+  // les scaffolds controller/front peuvent le viser, sans un template dupliqué.
+  if (controller !== "none") {
+    const sub = runScaffold(
+      {
+        type: "controller",
+        answers: { name, kind: controller, route: "", module: pkgName },
+        dir: projectRoot,
+        force: request.force,
+      },
+      version,
+    );
+    written.push(...sub.files);
+    notes.push(...(sub.notes ?? []));
+  }
+  if (frontend !== "none") {
+    const sub = runScaffold(
+      {
+        type: "front",
+        answers: { name, frontend, route: "", module: pkgName },
+        dir: projectRoot,
+        force: request.force,
+      },
+      version,
+    );
+    written.push(...sub.files);
+    notes.push(...(sub.notes ?? []));
+  }
+  if (ensureWorkspaces(projectRoot)) {
+    notes.push(
+      "package.json de l'app : workspaces modules/* + scripts build/typecheck/test chaînés",
+    );
+  }
+  const manifestNote = wireModuleManifest(
+    path.join(projectRoot, "nodefony.config.ts"),
+    pkgName,
+  );
+  notes.push(
+    manifestNote ??
+      `nodefony.config.ts : use("${pkgName}", {}) ajouté au manifeste modules`,
+  );
+  return { dest, files: written.sort(), linked: [], notes };
 }
 
 /**

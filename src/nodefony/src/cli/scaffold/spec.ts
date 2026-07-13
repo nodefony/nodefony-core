@@ -244,8 +244,114 @@ const FRONT_SPEC: IScaffoldTypeSpec = {
   ],
 };
 
+/**
+ * Saveurs de controller posables AVEC le module — les mêmes que `create
+ * controller` (le scaffold module DÉLÈGUE, il ne duplique aucun template),
+ * plus `none` pour une coquille nue.
+ */
+export const MODULE_CONTROLLER_CHOICES = [
+  "none",
+  ...CONTROLLER_KIND_CHOICES,
+] as const;
+export type TModuleControllerChoice =
+  (typeof MODULE_CONTROLLER_CHOICES)[number];
+
+const MODULE_SPEC: IScaffoldTypeSpec = {
+  type: "module",
+  description:
+    "Module applicatif dans le projet courant (modules/<nom>/) — workspace npm, chargé par le manifeste",
+  questions: [
+    {
+      key: "name",
+      label: "Nom du module (kebab-case, ex : blog)",
+      type: "string",
+      default: "",
+      pattern: "^[a-z][a-z0-9-]*$",
+      patternHint:
+        "kebab-case attendu — minuscules, chiffres, tirets (ex : blog, mon-module)",
+    },
+    {
+      key: "description",
+      label: "Description courte (README + docs + package.json)",
+      type: "string",
+      default: "",
+    },
+    {
+      key: "controller",
+      label: "Controller posé avec le module",
+      type: "choice",
+      choices: [
+        {
+          value: "hello",
+          label: "HTTP + WebSocket (recommandé)",
+          hint: "GET JSON + echo WS dans la MÊME classe — le différenciateur Nodefony",
+        },
+        {
+          value: "rest",
+          label: "REST resource",
+          hint: "CRUD de production (list/get/create/update/delete) — HTTP pur",
+        },
+        {
+          value: "duplex",
+          label: "Duplex REST + socket",
+          hint: "les MÊMES actions CRUD en HTTP ET par socket.request/mutate",
+        },
+        {
+          value: "realtime",
+          label: "Realtime (socket Nodefony)",
+          hint: "canaux pub/sub + actions RPC (@nodefony/realtime)",
+        },
+        {
+          value: "example",
+          label: "Vitrine des décorateurs",
+          hint: "démo pédagogique : TOUS les décorateurs commentés + curl d'essai",
+        },
+        {
+          value: "none",
+          label: "Aucun",
+          hint: "coquille nue — `nodefony create controller x --module <nom>` plus tard",
+        },
+      ],
+      default: "hello",
+    },
+    {
+      key: "service",
+      label: "Service injectable principal (la logique du module) ?",
+      type: "boolean",
+      default: true,
+    },
+    {
+      key: "command",
+      label: "Commande CLI (`nodefony <nom>:hello`) ?",
+      type: "boolean",
+      default: false,
+    },
+    {
+      key: "frontend",
+      label: "Frontend Vite du module",
+      type: "choice",
+      choices: [
+        {
+          value: "none",
+          label: "Aucun",
+          hint: "backend seulement (ajoutable : `nodefony create front x --module <nom>`)",
+        },
+        { value: "react", label: "React 19", hint: "entry Vite + HMR" },
+        { value: "vue", label: "Vue 3", hint: "SFC <script setup> + HMR" },
+        {
+          value: "angular",
+          label: "Angular (standalone, zoneless)",
+          hint: "via AnalogJS",
+        },
+      ],
+      default: "none",
+    },
+  ],
+};
+
 const SPECS: Record<string, IScaffoldTypeSpec> = {
   app: APP_SPEC,
+  module: MODULE_SPEC,
   controller: CONTROLLER_SPEC,
   front: FRONT_SPEC,
 };

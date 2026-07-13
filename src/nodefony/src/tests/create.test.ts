@@ -618,6 +618,263 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("moteur — create module (in-project, workspace npm)", () => {
+    /** Rend un module dans une app déjà scaffoldée. */
+    const mod = (
+      from: string,
+      answers: Record<string, string | boolean>,
+      force = false,
+    ) => runScaffold({ type: "module", answers, dir: from, force }, version);
+
+    /** App de fixture — le module se pose DEDANS (comme en usage réel). */
+    const app = (name: string, preset = "complete"): string => {
+      const dest = path.join(tmp, name);
+      scaffold(dest, { name, preset, frontend: "none" });
+      return dest;
+    };
+
+    it("pose la coquille : package npm, build, config Zod, docs, tests", () => {
+      const dest = app("mapp");
+      const r = mod(dest, { name: "blog", controller: "none" });
+      for (const f of [
+        "package.json",
+        "tsconfig.json",
+        "rolldown.config.ts",
+        "vitest.config.ts",
+        "index.ts",
+        "README.md",
+        path.join("docs", "index.md"),
+        path.join("nodefony", "config", "config.ts"),
+        path.join("nodefony", "config", "defineModuleConfig.ts"),
+        path.join("nodefony", "src", "errors", "BlogError.ts"),
+        path.join("tests", "blog.test.ts"),
+      ]) {
+        assert.isTrue(existsSync(path.join(r.dest, f)), `manque ${f}`);
+      }
+      assert.equal(r.dest, path.join(dest, "modules", "blog"));
+      assertNoEtaResidue(r.dest);
+    });
+
+    it("nomme le paquet d'après l'app (@<app>/<module>) et le rend chargeable", () => {
+      const dest = app("mapp");
+      const r = mod(dest, { name: "blog", controller: "none" });
+      const pkg = readJson(path.join(r.dest, "package.json"));
+      assert.equal(pkg["name"] as unknown as string, "@mapp/blog");
+      assert.equal(pkg["main"] as unknown as string, "dist/index.js");
+      // Le Kernel importe le module PAR SON NOM → le nom du paquet et l'entrée
+      // du manifeste doivent être le MÊME identifiant.
+      const config = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
+      assert.include(config, 'use("@mapp/blog", {})');
+    });
+
+    it("déclare le workspace npm et chaîne les scripts de l'app", () => {
+      const dest = app("mapp");
+      mod(dest, { name: "blog", controller: "none" });
+      const pkg = JSON.parse(
+        readFileSync(path.join(dest, "package.json"), "utf8"),
+      ) as { workspaces: string[]; scripts: Record<string, string> };
+      assert.include(pkg.workspaces, "modules/*");
+      // Sans ce chaînage, le module ne serait ni construit, ni typé, ni testé.
+      assert.include(pkg.scripts["build"], "--workspaces");
+      assert.include(pkg.scripts["typecheck"], "--workspaces");
+      assert.include(pkg.scripts["test"], "--workspaces");
+      // Le build des modules passe AVANT celui de l'app.
+      assert.isTrue(
+        pkg.scripts["build"].indexOf("--workspaces") <
+          pkg.scripts["build"].indexOf("rolldown"),
+      );
+    });
+
+    it("est idempotent : un 2ᵉ module ne duplique ni workspace ni chaînage", () => {
+      const dest = app("mapp");
+      mod(dest, { name: "blog", controller: "none" });
+      const first = JSON.parse(
+        readFileSync(path.join(dest, "package.json"), "utf8"),
+      ) as { scripts: Record<string, string> };
+      mod(dest, { name: "shop", controller: "none" });
+      const pkg = JSON.parse(
+        readFileSync(path.join(dest, "package.json"), "utf8"),
+      ) as { workspaces: string[]; scripts: Record<string, string> };
+      assert.deepEqual(pkg.workspaces, ["modules/*"]);
+      for (const script of ["build", "typecheck", "test"]) {
+        assert.equal(
+          (pkg.scripts[script].match(/--workspaces/gu) ?? []).length,
+          1,
+          `script ${script} chaîné deux fois`,
+        );
+        // Le 2ᵉ passage n'a PAS touché aux scripts déjà chaînés.
+        assert.equal(pkg.scripts[script], first.scripts[script]);
+      }
+      const config = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
+      assert.include(config, 'use("@mapp/blog", {})');
+      assert.include(config, 'use("@mapp/shop", {})');
+    });
+
+    it("délègue le controller au scaffold controller (0 template dupliqué)", () => {
+      const dest = app("mapp");
+      const r = mod(dest, { name: "blog", controller: "hello" });
+      const ctrl = path.join(
+        r.dest,
+        "nodefony",
+        "controllers",
+        "BlogController.ts",
+      );
+      assert.isTrue(existsSync(ctrl), "controller non rendu dans le module");
+      // Câblé dans l'index DU MODULE (pas dans celui de l'app).
+      const index = readFileSync(path.join(r.dest, "index.ts"), "utf8");
+      assert.include(index, "@controllers([BlogController])");
+      assert.notInclude(
+        readFileSync(path.join(dest, "index.ts"), "utf8"),
+        "BlogController",
+      );
+      assert.deepInclude(r.notes ?? [], "GET  /api/blog");
+    });
+
+    it("service et commande CLI : posés à la demande, jamais imposés", () => {
+      const dest = app("mapp");
+      const withAll = mod(dest, {
+        name: "blog",
+        controller: "none",
+        service: true,
+        command: true,
+      });
+      assert.isTrue(
+        existsSync(
+          path.join(withAll.dest, "nodefony", "service", "BlogService.ts"),
+        ),
+      );
+      assert.isTrue(
+        existsSync(
+          path.join(withAll.dest, "nodefony", "command", "BlogCommand.ts"),
+        ),
+      );
+      const index = readFileSync(path.join(withAll.dest, "index.ts"), "utf8");
+      assert.include(index, "@services([BlogService])");
+      assert.include(index, "this.addCommand(BlogCommand)");
+
+      const bare = mod(dest, {
+        name: "shop",
+        controller: "none",
+        service: false,
+        command: false,
+      });
+      assert.isFalse(existsSync(path.join(bare.dest, "nodefony", "service")));
+      assert.isFalse(existsSync(path.join(bare.dest, "nodefony", "command")));
+      const bareIndex = readFileSync(path.join(bare.dest, "index.ts"), "utf8");
+      assert.notInclude(bareIndex, "@services");
+      assert.notInclude(bareIndex, "addCommand");
+    });
+
+    it("docs IA (CLAUDE.md/MEMORY.md) : seulement si le projet en tient", () => {
+      const plain = app("plain");
+      const r1 = mod(plain, { name: "blog", controller: "none" });
+      assert.isFalse(existsSync(path.join(r1.dest, "CLAUDE.md")));
+      assert.isFalse(existsSync(path.join(r1.dest, "MEMORY.md")));
+
+      const piloted = app("piloted");
+      writeFileSync(
+        path.join(piloted, "CLAUDE.md"),
+        "# projet piloté par IA\n",
+      );
+      const r2 = mod(piloted, { name: "blog", controller: "none" });
+      assert.isTrue(existsSync(path.join(r2.dest, "CLAUDE.md")));
+      assert.isTrue(existsSync(path.join(r2.dest, "MEMORY.md")));
+    });
+
+    it("config du module : le schéma Zod porte les défauts, le registre le type", () => {
+      const dest = app("mapp");
+      const r = mod(dest, { name: "blog", controller: "none" });
+      const config = readFileSync(
+        path.join(r.dest, "nodefony", "config", "config.ts"),
+        "utf8",
+      );
+      assert.include(config, "export const blogConfigSchema");
+      assert.include(config, "blogConfigSchema.parse({})");
+      const builder = readFileSync(
+        path.join(r.dest, "nodefony", "config", "defineModuleConfig.ts"),
+        "utf8",
+      );
+      // Le builder VALIDE, il ne porte aucune valeur (règle d'or ADR-0006).
+      assert.include(builder, "export function defineBlogConfig");
+      assert.notInclude(builder, ".default(");
+      const index = readFileSync(path.join(r.dest, "index.ts"), "utf8");
+      assert.include(index, 'declare module "nodefony"');
+      assert.include(index, '"@mapp/blog": BlogConfigInput;');
+    });
+
+    it("refuse un module qui existe déjà (sauf --force)", () => {
+      const dest = app("mapp");
+      mod(dest, { name: "blog", controller: "none" });
+      assert.throws(
+        () => mod(dest, { name: "blog", controller: "none" }),
+        /existe déjà/u,
+      );
+    });
+
+    it("refuse hors projet — avec le geste à faire", () => {
+      assert.throws(
+        () => mod(tmp, { name: "blog", controller: "none" }),
+        /aucun projet Nodefony/u,
+      );
+    });
+
+    it("refuse une brique absente de l'app plutôt que de générer du code mort", () => {
+      // Preset minimal = ni realtime ni frontend dans l'app : un module ne peut
+      // pas « ajouter » un paquet qui n'est pas installé.
+      const dest = app("mini", "minimal");
+      assert.throws(
+        () => mod(dest, { name: "blog", controller: "realtime" }),
+        /@nodefony\/realtime/u,
+      );
+      assert.throws(
+        () => mod(dest, { name: "blog", frontend: "react" }),
+        /@nodefony\/frontend/u,
+      );
+      // Rien n'a été écrit : la garde tombe AVANT le premier fichier.
+      assert.isFalse(existsSync(path.join(dest, "modules", "blog")));
+    });
+
+    it("spec module : questions JSON-able, défauts sûrs (contrat des 3 fronts)", () => {
+      const [spec] = getScaffoldSpec("module");
+      assert.equal(spec.type, "module");
+      const keys = spec.questions.map((q) => q.key);
+      assert.deepEqual(keys, [
+        "name",
+        "description",
+        "controller",
+        "service",
+        "command",
+        "frontend",
+      ]);
+      const answers = resolveAnswers(
+        spec,
+        { name: "blog" },
+        {
+          hasCheckout: false,
+        },
+      );
+      assert.deepEqual(answers, {
+        name: "blog",
+        description: "",
+        controller: "hello",
+        service: true,
+        command: false,
+        frontend: "none",
+      });
+      assert.throws(
+        () =>
+          resolveAnswers(spec, { name: "Blog Post" }, { hasCheckout: false }),
+        /kebab-case/u,
+      );
+    });
+  });
+
   describe("moteur — create front (in-project)", () => {
     const front = (from: string, answers: Record<string, string | boolean>) =>
       runScaffold({ type: "front", answers, dir: from, force: false }, version);

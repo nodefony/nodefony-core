@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-13T21:09:19.316Z",
+  "generated": "2026-07-13T23:45:04.404Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1015,
-    "symbols": 2645,
+    "files": 1016,
+    "symbols": 2651,
     "classes": 321,
     "interfaces": 697,
-    "types": 304,
+    "types": 305,
     "enums": 4,
-    "functions": 759,
-    "constants": 560
+    "functions": 763,
+    "constants": 561
   },
   "symbols": {
     "Cli": {
@@ -1672,6 +1672,14 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "resolveModuleEntry": {
+      "name": "resolveModuleEntry",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/resolveModuleEntry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout le point d'entrée d'un module Nodefony **depuis l'application**, et non depuis le paquet `nodefony`. POURQUOI cette fonction existe : un `import(\"@app/blog\")` écrit dans le code du core est …"
+    },
     "RateBounds": {
       "name": "RateBounds",
       "kind": "interface",
@@ -2783,6 +2791,22 @@
       "module": "@nodefony/core",
       "description": "Exécute un scaffold — point d'entrée UNIQUE des trois fronts (CLI rapide, CLI interactif, Studio), dispatché par type : - `app` : projet NEUF dans `request.dir` (layers base/preset/frontend) ; - `c…"
     },
+    "ensureWorkspaces": {
+      "name": "ensureWorkspaces",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déclare `modules/*` en workspaces npm de l'app et branche les scripts sur eux. POURQUOI c'est indispensable : le Kernel charge un module par son NOM (`import(\"@app/blog\")`, cf `Kernel.loadModule`) …"
+    },
+    "wireModuleManifest": {
+      "name": "wireModuleManifest",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ajoute le module au manifeste `modules` de `nodefony.config.ts` — c'est CE tableau qui décide de ce qui se charge, et dans quel ordre. Un module local vient à la fin : le socle (http, framework, se…"
+    },
     "wireKernelBootCall": {
       "name": "wireKernelBootCall",
       "kind": "function",
@@ -2854,6 +2878,13 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "TModuleControllerChoice": {
+      "name": "TModuleControllerChoice",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "getScaffoldSpec": {
       "name": "getScaffoldSpec",
       "kind": "function",
@@ -2885,6 +2916,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Saveurs de controller : le WS est TOUJOURS là (différenciateur Nodefony)."
+    },
+    "MODULE_CONTROLLER_CHOICES": {
+      "name": "MODULE_CONTROLLER_CHOICES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Saveurs de controller posables AVEC le module — les mêmes que `create controller` (le scaffold module DÉLÈGUE, il ne duplique aucun template), plus `none` pour une coquille nue."
     },
     "pick": {
       "name": "pick",
@@ -21026,10 +21065,16 @@
       "FRONTEND_CHOICES": [
         "src/nodefony/src/cli/create.ts"
       ],
+      "MODULE_CONTROLLER_CHOICES": [
+        "src/nodefony/src/cli/create.ts"
+      ],
       "PRESET_CHOICES": [
         "src/nodefony/src/cli/create.ts"
       ],
       "findPackageRoot": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "findProjectRoot": [
         "src/nodefony/src/cli/create.ts"
       ],
       "resolveLocalWorkspaces": [
@@ -21356,6 +21401,9 @@
         "src/nodefony/src/syslog/transports/FileTransport.ts",
         "src/nodefony/src/syslog/transports/HttpTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts"
+      ],
+      "resolveModuleEntry": [
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "Injector": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -21794,6 +21842,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TFrontendChoice": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "TModuleControllerChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TPresetChoice": [

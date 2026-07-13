@@ -6,10 +6,12 @@ import {
   getScaffoldSpec,
   CONTROLLER_KIND_CHOICES,
   FRONTEND_CHOICES,
+  MODULE_CONTROLLER_CHOICES,
   PRESET_CHOICES,
 } from "./scaffold/spec";
 import {
   findPackageRoot,
+  findProjectRoot,
   resolveLocalWorkspaces,
   runScaffold,
   type TScaffoldAnswers,
@@ -31,8 +33,8 @@ import { askMissing, confirm } from "./scaffold/interactive";
  * boot kernel — cas nominal HORS projet : `npx nodefony create app mon-app`.
  */
 
-/** Types de scaffold disponibles (`module`/`entity` = lots suivants). */
-export const CREATE_TYPES = ["app", "controller", "front"] as const;
+/** Types de scaffold disponibles (`entity` = lot suivant). */
+export const CREATE_TYPES = ["app", "module", "controller", "front"] as const;
 export type TCreateType = (typeof CREATE_TYPES)[number];
 
 export interface ICreateRequest {
@@ -88,6 +90,18 @@ export function parseCreateArgv(
       answers.frontend = rest[++i];
     } else if (word === "--kind") {
       answers.kind = rest[++i];
+    } else if (word === "--controller") {
+      answers.controller = rest[++i];
+    } else if (word === "--description") {
+      answers.description = rest[++i];
+    } else if (word === "--service") {
+      answers.service = true;
+    } else if (word === "--no-service") {
+      answers.service = false;
+    } else if (word === "--command") {
+      answers.command = true;
+    } else if (word === "--no-command") {
+      answers.command = false;
     } else if (word === "--route") {
       answers.route = rest[++i];
     } else if (word === "--module") {
@@ -116,6 +130,8 @@ const USAGE =
   `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes]\n` +
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
   `               [--link|--no-link] [--no-install] [--no-git]\n` +
+  `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
+  `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
   `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
   `  front      : [--frontend <react|vue|angular>] [--route </page>] [--module <nom>]\n` +
   `               (types controller/front : dans un projet existant — app racine ou module)\n` +
@@ -246,6 +262,42 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     return SysExit.SOFTWARE;
   }
   const relDest = path.relative(process.cwd(), result.dest) || ".";
+  if (parsed.type === "module") {
+    process.stdout.write(
+      `✔ module « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
+        result.files.map((f) => `  ${f}`).join("\n") +
+        `\n\nCâblage :\n` +
+        (result.notes ?? []).map((n) => `  ${n}`).join("\n") +
+        `\n`,
+    );
+    // Un module est un WORKSPACE npm : sans `npm install`, le symlink n'existe
+    // pas et le Kernel ne peut pas l'importer par son nom (« Cannot find
+    // package ») — l'install n'est donc pas un confort, c'est ce qui rend le
+    // module chargeable. Le build suit : le runtime charge `dist/index.js`.
+    const projectRoot = findProjectRoot(process.cwd());
+    if (!parsed.install) {
+      process.stdout.write(
+        `\nProchaines étapes (--no-install) :\n` +
+          `  npm install        # symlinke modules/${String(answers.name)} (workspace)\n` +
+          `  npm run build\n`,
+      );
+      return SysExit.OK;
+    }
+    const installed = projectRoot ? runInstall(projectRoot) : false;
+    if (!installed) {
+      process.stdout.write(
+        `⚠ npm install a échoué — relance-le à la racine de l'app (le module ne sera pas chargeable avant)\n`,
+      );
+      return SysExit.OK;
+    }
+    const built = runBuild(result.dest);
+    process.stdout.write(
+      built
+        ? `\n✔ module installé (workspace) et construit — un serveur dev le rechargera au prochain redémarrage\n`
+        : `\n⚠ npm run build a échoué dans ${relDest}/ — corrige puis relance-le\n`,
+    );
+    return SysExit.OK;
+  }
   if (parsed.type !== "app") {
     // In-project : ni install, ni git — le projet existe. En dev, le
     // superviseur rebuild/relance tout seul au prochain tick de watch.
