@@ -358,6 +358,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const src = readFileSync(file, "utf8");
       assert.include(src, '@controller("/api/blog")');
       assert.include(src, 'methods: ["WEBSOCKET"]');
+      // Identité par décorateur @CurrentUser (idiomatique), pas RequestContext brut.
+      assert.include(src, "@CurrentUser()");
+      assert.notInclude(src, "RequestContext");
       const index = readFileSync(path.join(dest, "index.ts"), "utf8");
       assert.include(
         index,
@@ -437,6 +440,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Bug vécu : une action @Idempotent doit RETOURNER le payload brut —
       // renderJson (structure circulaire) casserait la mémorisation du rejeu.
       assert.include(src, "return item;");
+      // Identité par décorateur, jamais RequestContext brut dans la vitrine.
+      assert.notInclude(src, "RequestContext");
       // La route paramétrique reste déclarée APRÈS les GET statiques (ordre de match).
       assert.isBelow(
         src.indexOf('@Get("/latest")'),
@@ -461,6 +466,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, "@Idempotent()");
       assert.include(src, "@UseSession()");
       assert.include(src, "ajoute `@nodefony/security`");
+      // @CurrentUser vient du framework (lit l'ALS) → présent MÊME sans security.
+      assert.include(src, "@CurrentUser()");
     });
 
     it("cible --module : écrit dans modules/<x> + wiring de SON index.ts", () => {

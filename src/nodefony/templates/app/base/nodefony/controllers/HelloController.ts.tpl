@@ -1,5 +1,4 @@
-import { RequestContext } from "nodefony";
-import { route, controller, Controller } from "@nodefony/framework";
+import { route, controller, Controller, CurrentUser } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 
 /**
@@ -13,13 +12,12 @@ class HelloController extends Controller {
   }
 
   @route("route-hello", { path: "/hello", method: "GET" })
-  async hello() {
-    // Identité résolue par la zone firewall `main` (^/api, session→anonymous,
-    // cf nodefony.config.ts) : connecté = ton user, sinon « anonyme ». HORS
-    // zone, elle n'est JAMAIS résolue — même avec un cookie de session valide.
-    // `IUser.identifier` = l'identifiant fonctionnel (login/email) ; l'anonyme
-    // est un VRAI user (AnonymousUser, identifier "anon."), jamais null en zone.
-    const user = RequestContext.getUser() as { identifier?: string } | undefined;
+  // `@CurrentUser()` injecte l'utilisateur résolu par la zone firewall `main`
+  // (^/api, session→anonymous, cf nodefony.config.ts) : connecté = ton user,
+  // sinon « anonyme ». HORS zone, il n'est JAMAIS résolu — même avec un cookie
+  // de session valide. `identifier` = l'identifiant fonctionnel (login/email) ;
+  // l'anonyme est un VRAI user (AnonymousUser, "anon."), jamais null en zone.
+  async hello(@CurrentUser() user?: { identifier?: string }) {
     const authenticated = !!user?.identifier && user.identifier !== "anon.";
     return this.renderJson({
       hello: "<%= it.appName %>",
@@ -34,8 +32,7 @@ class HelloController extends Controller {
    * ici. Le controller peut donc supposer un utilisateur authentifié.
    */
   @route("route-secure-hello", { path: "/secure/hello", method: "GET" })
-  async secureHello() {
-    const user = RequestContext.getUser() as { identifier?: string } | undefined;
+  async secureHello(@CurrentUser() user?: { identifier?: string }) {
     return this.renderJson({
       message: `Bonjour ${user?.identifier ?? "?"}`,
       zone: "secure",

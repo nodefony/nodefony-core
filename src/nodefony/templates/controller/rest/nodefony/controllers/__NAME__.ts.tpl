@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { RequestContext } from "nodefony";
 import {
   route,
   controller,
@@ -22,9 +21,11 @@ import {
   Idempotent,
   UploadedFile,
   UploadedFiles,
+  // Identité ALS posée par le firewall — marche AUSSI sans @nodefony/security
+  // (injecte alors `undefined`) : le décorateur vient du framework, pas de security.
+  CurrentUser,
 <% if (it.hasSecurity) { %>  IsGranted,
   RequireScope,
-  CurrentUser,
   CsrfProtect,
 <% } %>} from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
@@ -48,10 +49,11 @@ interface IItem {
  *  - Anti double-effet : `@Idempotent` (header `Idempotency-Key`)
  *  - Session : `@UseSession` + `@Session` (compteur de visites)
  *  - Requête brute : `@Headers`, `@Cookie`, upload `@UploadedFile(s)`
+ *  - Identité : `@CurrentUser` (utilisateur ALS posé par le firewall)
 <% if (it.hasSecurity) { %> *  - Sécurité : `@IsGranted` (rôles), `@RequireScope` (API keys M2M),
- *    `@CsrfProtect` (mutations pilotées session), `@CurrentUser` (identité ALS)
+ *    `@CsrfProtect` (mutations pilotées session)
 <% } else { %> *  - (ajoute `@nodefony/security` pour débloquer `@IsGranted`, `@RequireScope`,
- *    `@CsrfProtect`, `@CurrentUser` — régénère alors cette saveur pour voir les exemples)
+ *    `@CsrfProtect` — régénère alors cette saveur pour voir les exemples)
 <% } %> *  - WebSocket : echo dans la MÊME classe (un seul pipeline)
  *
  *  - Flux BRUT : `@Body({ stream: true })` (gros uploads sans parse en RAM)
@@ -116,8 +118,10 @@ class <%= it.nameClass %> extends Controller {
   @Post("")
   @HttpCode(201)
   @Idempotent()
-  create(@Body() payload: { name?: string }) {
-    const user = RequestContext.getUser() as { identifier?: string } | undefined;
+  create(
+    @Body() payload: { name?: string },
+    @CurrentUser() user?: { identifier?: string },
+  ) {
     const item: IItem = {
       id: randomUUID(),
       name: payload?.name ?? "sans nom",
@@ -241,12 +245,10 @@ class <%= it.nameClass %> extends Controller {
   whoami(
     @Headers("user-agent") ua: string,
     @Cookie() cookies: Record<string, ICookie> | undefined,
+    // Identité posée dans l'ALS par le firewall (anonyme = identifier "anon.").
+    @CurrentUser() user?: { identifier?: string; roles?: string[] },
   ) {
-    const user = RequestContext.getUser() as
-      | { identifier?: string; roles?: string[] }
-      | undefined;
     return this.renderJson({
-      // Identité posée dans l'ALS par le firewall (anonyme = identifier "anon.").
       identifier: user?.identifier ?? null,
       roles: user?.roles ?? [],
       userAgent: ua ?? null,

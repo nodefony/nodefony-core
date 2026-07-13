@@ -1,5 +1,4 @@
-import { RequestContext } from "nodefony";
-import { route, controller, Controller } from "@nodefony/framework";
+import { route, controller, Controller, CurrentUser } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 
 /**
@@ -18,12 +17,10 @@ class <%= it.nameClass %> extends Controller {
   }
 
   @route("<%= it.kebab %>-index", { path: "", method: "GET" })
-  async index() {
-    // `IUser.identifier` = identifiant fonctionnel ; l'anonyme est un VRAI
-    // user (AnonymousUser, identifier "anon."), jamais null en zone firewall.
-    const user = RequestContext.getUser() as
-      | { identifier?: string }
-      | undefined;
+  // `@CurrentUser()` injecte l'utilisateur posé dans l'ALS par le firewall.
+  // `identifier` = identifiant fonctionnel ; l'anonyme est un VRAI user
+  // (AnonymousUser, identifier "anon."), jamais null en zone firewall.
+  async index(@CurrentUser() user?: { identifier?: string }) {
     const authenticated = !!user?.identifier && user.identifier !== "anon.";
     return this.renderJson({
       controller: "<%= it.kebab %>",
