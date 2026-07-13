@@ -19,6 +19,7 @@ import {
   Button,
   Card,
   Code,
+  FileInput,
   Grid,
   Group,
   Stack,
@@ -32,6 +33,7 @@ import {
   IconRefresh,
   IconRepeat,
   IconSend,
+  IconUpload,
 } from "@tabler/icons-react";
 import { useNodefony } from "nodefony/react";
 import { JsonViewer, TipHint } from "../../components/ui";
@@ -46,18 +48,22 @@ import {
 } from "./PlaygroundModel";
 import { GuardBadges, MethodBadge, StatusBadge } from "./PlaygroundFormat";
 
-/** Exécution HTTP — fetch same-origin, latence mesurée, réponse jamais levée. */
+/**
+ * Exécution HTTP — fetch same-origin, latence mesurée, réponse jamais levée.
+ * `body` : string JSON OU `FormData` (upload multipart — le navigateur pose
+ * lui-même le `Content-Type` avec le boundary, ne JAMAIS le forcer).
+ */
 async function runHttp(
   method: string,
   url: string,
-  body: string | undefined,
+  body: string | FormData | undefined,
   headers: Record<string, string>,
 ): Promise<ExecResult> {
   const t0 = performance.now();
   try {
     const h = new Headers(headers);
     h.set("Accept", "application/json");
-    if (body !== undefined) h.set("Content-Type", "application/json");
+    if (typeof body === "string") h.set("Content-Type", "application/json");
     const res = await fetch(url, {
       method,
       headers: h,
@@ -195,6 +201,7 @@ export function ActionPanel({ action }: ActionPanelProps) {
   const [query, setQuery] = useState<Record<string, string>>({});
   const [headerVals, setHeaderVals] = useState<Record<string, string>>({});
   const [bodyText, setBodyText] = useState("{}");
+  const [files, setFiles] = useState<File[]>([]);
   const [idemKey, setIdemKey] = useState(makeIdempotencyKey);
   const [running, setRunning] = useState(false);
   const [httpResult, setHttpResult] = useState<ExecResult | null>(null);
@@ -215,15 +222,34 @@ export function ActionPanel({ action }: ActionPanelProps) {
         .map((p) => p.key as string),
     [action],
   );
+  // Détection UPLOAD depuis les métadonnées : `@UploadedFile()` (source "file")
+  // ou `@UploadedFiles()` (source "files") → champ fichier + envoi multipart.
+  const uploadParam = useMemo(
+    () =>
+      action.params.find((p) => p.source === "file" || p.source === "files") ??
+      null,
+    [action],
+  );
+  // `@Body({ stream: true })` = flux brut (upload streaming) — pas de formulaire
+  // rejouable, signalé tel quel.
+  const streamBody = useMemo(
+    () => action.params.some((p) => p.source === "body" && p.stream),
+    [action],
+  );
   const injected = useMemo(
     () =>
       action.params.filter(
-        (p) => !["param", "body", "query", "headers"].includes(p.source),
+        (p) =>
+          !["param", "body", "query", "headers", "file", "files"].includes(
+            p.source,
+          ),
       ),
     [action],
   );
   const hasBody =
-    isMutation(method) || action.params.some((p) => p.source === "body");
+    !uploadParam &&
+    !streamBody &&
+    (isMutation(method) || action.params.some((p) => p.source === "body"));
   const mutation = isMutation(method);
   const url = action.path ? buildUrl(action.path, vars, query) : "";
 
@@ -242,6 +268,33 @@ export function ActionPanel({ action }: ActionPanelProps) {
     transport: "http" | "socket",
     reuseKey: boolean,
   ): Promise<void> => {
+    // Upload = HTTP multipart uniquement : le pont JSON-RPC transporte du JSON,
+    // pas un flux binaire multipart (défense — le bouton socket est désactivé).
+    if (uploadParam && transport === "socket") {
+      setSocketResult({
+        transport,
+        status: null,
+        ok: false,
+        durationMs: 0,
+        body: null,
+        error:
+          "Upload multipart : porte HTTP uniquement (le pont api.request transporte du JSON).",
+        instance: null,
+      });
+      return;
+    }
+    if (uploadParam && files.length === 0) {
+      setHttpResult({
+        transport: "http",
+        status: null,
+        ok: false,
+        durationMs: 0,
+        body: null,
+        error: "Choisissez un fichier avant d'envoyer.",
+        instance: null,
+      });
+      return;
+    }
     const parsed = parseBody();
     if (!parsed.ok) {
       const bad: ExecResult = {
@@ -269,16 +322,21 @@ export function ActionPanel({ action }: ActionPanelProps) {
         if (mutation && action.guards.idempotent) {
           headers["Idempotency-Key"] = key;
         }
-        setHttpResult(
-          await runHttp(
-            method,
-            url,
-            hasBody && parsed.value !== undefined
-              ? JSON.stringify(parsed.value)
-              : undefined,
-            headers,
-          ),
-        );
+        // Upload → FormData (le navigateur pose le Content-Type + boundary) ;
+        // sinon body JSON string. Clé de champ = celle du décorateur, à défaut
+        // `file`/`files` (le serveur lit `queryFile` quel que soit le nom).
+        let body: string | FormData | undefined;
+        if (uploadParam) {
+          const fd = new FormData();
+          const field =
+            uploadParam.key ??
+            (uploadParam.source === "files" ? "files" : "file");
+          for (const f of files) fd.append(field, f, f.name);
+          body = fd;
+        } else if (hasBody && parsed.value !== undefined) {
+          body = JSON.stringify(parsed.value);
+        }
+        setHttpResult(await runHttp(method, url, body, headers));
       } else {
         setSocketResult(
           await runSocket(
@@ -359,6 +417,30 @@ export function ActionPanel({ action }: ActionPanelProps) {
           </Grid.Col>
         ))}
       </Grid>
+      {uploadParam && (
+        <FileInput
+          label={
+            uploadParam.source === "files"
+              ? "Fichiers (@UploadedFiles)"
+              : "Fichier (@UploadedFile)"
+          }
+          description="Envoyé en multipart/form-data — porte HTTP uniquement"
+          placeholder="Choisir…"
+          leftSection={<IconUpload size={16} />}
+          multiple={uploadParam.source === "files"}
+          clearable
+          value={uploadParam.source === "files" ? files : (files[0] ?? null)}
+          onChange={(v) =>
+            setFiles(Array.isArray(v) ? v : v === null ? [] : [v])
+          }
+        />
+      )}
+      {streamBody && (
+        <Text size="xs" c="dimmed">
+          @Body(stream) — flux brut ({"IncomingMessage"}) : non rejouable depuis
+          un formulaire (piper un vrai client, ex. curl --data-binary).
+        </Text>
+      )}
       {hasBody && (
         <Textarea
           label="Body (JSON)"
@@ -395,15 +477,18 @@ export function ActionPanel({ action }: ActionPanelProps) {
         </Button>
         <Tooltip
           label={
-            action.duplex
-              ? "La même action, par la socket Nodefony (pont api.request)"
-              : "Cette route ne déclare pas le transport WEBSOCKET — le pont répondra 405 (démonstration honnête)"
+            uploadParam
+              ? "Upload multipart : porte HTTP uniquement (le pont api.request transporte du JSON)"
+              : action.duplex
+                ? "La même action, par la socket Nodefony (pont api.request)"
+                : "Cette route ne déclare pas le transport WEBSOCKET — le pont répondra 405 (démonstration honnête)"
           }
         >
           <Button
             variant={action.duplex ? "light" : "default"}
             leftSection={<IconBolt size={16} />}
             loading={running}
+            disabled={uploadParam !== null}
             onClick={() => void exec("socket", false)}
           >
             Envoyer Socket
