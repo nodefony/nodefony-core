@@ -133,6 +133,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 - **wsId = `requestId` du `WebsocketContext`** : pas de champ distinct (alloc 0). Stable sur toute la socket (ctor → ALS → handshake/messages/close) → corrèle les events d'une même connexion WS. Présent dans les **3 logs de cycle de vie WS** : handshake (`renderWebsocket` → `ID : <uuid>`), `onClose`, `onConnectionError`. **Per-message NON loggé** (bruit + hot path 33-38k msg/s) — extensible via logger custom opt-in si besoin debug.
+- **`WebsocketContext.send()` — capture de rendu pont** : si `RequestContext.get()?.renderSink` présent (posé par le pont `api.request`, per-invocation), le payload est CAPTURÉ dans le sink et rien n'est émis (pas de frame nue hors protocole JSON-RPC, pas de `fire`). Hors pont : 1 lecture ALS par frame sortante (~30 ns, négligeable devant les 2 `fire()`). Cf realtime MEMORY (pont — action rendue).
 - ⚠️ **HTTP/2 GOTCHA** : `http2/Response.writeHead` chemin `stream.respond()` **bypasse** `super.writeHead` → pose `x-request-id` + `traceparent` ICI aussi. Sinon réponses HTTP/2 (port 5152, dont Studio) **sans header** → corrélation profiler/debug bar impossible (symptôme : clic requête = « no requestId »).
 
 ## Streaming backpressure + trace verbose

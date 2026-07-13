@@ -4,6 +4,7 @@ import { AsyncResource } from "node:async_hooks";
 import { logColor } from "nodefony";
 import { ServerType, SchemeType } from "../../../service/http-kernel.js";
 import { Severity, Msgid, Message, nodefonyError, Scope } from "nodefony";
+import { RequestContext } from "nodefony";
 import Ws from "ws";
 import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
@@ -123,8 +124,7 @@ export default class WebsocketContext
     // dépouille la chaîne forwarded derrière les proxies de confiance.
     this.remoteAddress = this.getRemoteAddress();
     this.acceptedProtocol = req.headers["sec-websocket-protocol"] as
-      | string
-      | undefined;
+      string | undefined;
     this.scheme = type === "websocket-secure" ? "wss" : "ws";
 
     // Zero Trust : même validation que HttpContext (réflexion + logs + ALS).
@@ -343,6 +343,16 @@ export default class WebsocketContext
   async send(data?: string | Buffer | null, encoding?: BufferEncoding) {
     if (this.response) {
       const payload = data ?? this.response.body;
+      // Pont `api.request` : une invocation qui REND (`renderJson`/`renderView`)
+      // ne doit pas écrire une frame NUE hors protocole JSON-RPC — le payload
+      // est capturé dans le sink ALS per-invocation et servi en `result` RPC
+      // (cf RealtimeController.invokeApiRequest). Hors pont : 1 lecture ALS par
+      // frame sortante (~30 ns), négligeable devant les 2 `fire()` ci-dessous.
+      const sink = RequestContext.get()?.renderSink;
+      if (sink) {
+        sink.body = payload as string | Buffer;
+        return this.response;
+      }
       this.logMessageContent("SEND", payload);
       this.fire("onMessage", payload, this, "SEND");
       this.fire("onSend", payload, this);

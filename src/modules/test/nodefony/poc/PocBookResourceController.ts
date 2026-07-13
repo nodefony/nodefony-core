@@ -53,6 +53,25 @@ class PocBookResourceController extends ResourceController<PocBook> {
     return this.getResource(id);
   }
 
+  /**
+   * Même snapshot que `list`, mais RENDU (`renderJson`) au lieu de la valeur
+   * nue — la 2ᵉ forme de retour d'action, duplex. Sonde du pont `api.request` :
+   * via la socket, le rendu doit être CAPTURÉ (pas écrit en frame nue) et le
+   * payload servi en `result` — identique au GET REST.
+   */
+  @route("poc-rbooks-rendered", {
+    path: "/meta/rendered",
+    requirements: { methods: ["GET", "WEBSOCKET"] },
+  })
+  rendered(@Query("authorId") authorId?: string) {
+    return this.renderJson({
+      rendered: true,
+      books: pocBookResourceService.find(
+        authorId !== undefined ? { authorId } : undefined,
+      ),
+    });
+  }
+
   @route("poc-rbooks-stats", {
     path: "/meta/stats",
     requirements: { methods: ["GET"] },

@@ -299,7 +299,36 @@ export abstract class RealtimeController<
 
     const transport = new WsConnectionTransport(conn);
     const peerOptions: JsonRpcPeerOptions = {
-      send: (frame) => transport.send(JSON.stringify(frame)),
+      // Fail-safe : un payload non JSON-safe (structure circulaire…) ne doit
+      // JAMAIS casser la chaîne du peer — sinon unhandledRejection serveur +
+      // timeout SILENCIEUX côté client (aucune réponse n'est émise). On répond
+      // `-32603` générique (Zero Trust : zéro détail de structure au pair) et
+      // on logge l'ERROR serveur (fail-loud, cf « pas de dégradation
+      // silencieuse »). Une notification (sans `id`) fautive est droppée.
+      send: (frame) => {
+        let json: string;
+        try {
+          json = JSON.stringify(frame);
+        } catch (e) {
+          this.log(
+            `WS realtime send: payload non sérialisable — ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+            "ERROR",
+          );
+          const id = (frame as { id?: number | string }).id;
+          if (id === undefined) return;
+          json = JSON.stringify({
+            jsonrpc: "2.0",
+            id,
+            error: {
+              code: -32603,
+              message: "internal error: non-serializable payload",
+            },
+          });
+        }
+        transport.send(json);
+      },
       onNotification: (method, params) =>
         this.onRealtimeNotification(ctx, method, params),
       onError: (context, err) =>
@@ -708,6 +737,14 @@ export abstract class RealtimeController<
         );
       }
     }
+    // Capture de rendu per-invocation : une action user peut répondre par un
+    // RENDU (`renderJson`/`renderView`) au lieu d'une valeur nue. Sans le sink,
+    // `context.send()` écrirait une frame NUE hors protocole ET le retour
+    // (`WebsocketResponse`, circulaire via `context`) casserait le stringify de
+    // l'enveloppe peer (unhandledRejection + timeout client silencieux — bug
+    // vécu au Playground). Le sink vit dans l'ALS → zéro bleed entre frames
+    // concurrentes de la même socket.
+    const renderSink: { body?: string | Buffer } = {};
     return RequestContext.run(
       {
         requestId: ctx.requestId,
@@ -723,6 +760,7 @@ export abstract class RealtimeController<
         body: p?.body,
         idempotencyKey:
           typeof p?.idempotencyKey === "string" ? p.idempotencyKey : undefined,
+        renderSink,
       },
       async () => {
         try {
@@ -739,7 +777,22 @@ export abstract class RealtimeController<
             true,
           );
           // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
-          return await Promise.resolve(result);
+          const raw = await Promise.resolve(result);
+          // L'action a RENDU (sink alimenté) → le rendu EST la réponse : on le
+          // sert en `result` (re-parsé si JSON — `renderJson` a déjà stringifié,
+          // le peer re-stringifie l'enveloppe). Le retour de `renderJson` (la
+          // `WebsocketResponse`) est ignoré : non sérialisable par construction.
+          if (renderSink.body !== undefined) {
+            const text = Buffer.isBuffer(renderSink.body)
+              ? renderSink.body.toString("utf8")
+              : renderSink.body;
+            try {
+              return JSON.parse(text) as unknown;
+            } catch {
+              return text; // rendu non-JSON (HTML/texte) → servi brut
+            }
+          }
+          return raw;
         } catch (e) {
           // La garde @IsGranted (et toute action) peut throw un `nodefonyError`
           // HTTP-like (403 Access denied, 404…). Symétrie d'un `fetch` : on EXPOSE

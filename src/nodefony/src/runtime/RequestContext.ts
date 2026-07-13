@@ -72,6 +72,18 @@ export interface RequestContextPayload {
    * → cache borné scopé à l'identité. Absente = pas de dédup (GET, HTTP legacy).
    */
   idempotencyKey?: string;
+  /**
+   * Puits de CAPTURE du rendu, posé par le **pont WS-RPC `api.request`** : une
+   * action user peut répondre par un RENDU (`renderJson`/`renderView`) au lieu
+   * d'une valeur nue. En HTTP ce rendu écrit la réponse ; via le pont il ne
+   * doit JAMAIS écrire une frame nue sur la socket (hors protocole JSON-RPC —
+   * et le retour `WebsocketResponse` est circulaire → `JSON.stringify` de
+   * l'enveloppe casserait la chaîne du peer). Quand ce sink est présent,
+   * `WebsocketContext.send()` capture le payload ici au lieu de l'émettre ; le
+   * pont le sert ensuite en `result` RPC. Per-invocation via
+   * `RequestContext.run` → zéro bleed entre frames concurrentes d'une socket.
+   */
+  renderSink?: { body?: string | Buffer };
   [key: string]: unknown;
 }
 

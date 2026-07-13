@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-13T13:09:34.621Z",
+  "generated": "2026-07-13T13:44:13.284Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -22078,7 +22078,8 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
