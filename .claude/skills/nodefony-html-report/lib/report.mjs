@@ -15,6 +15,9 @@
  * Toutes les fonctions rendent des `string` HTML et sont PURES.
  */
 
+import { NODEFONY_BRAND } from "./brand.mjs";
+export { NODEFONY_BRAND } from "./brand.mjs";
+
 /* ── primitives ─────────────────────────────────────────────────────────── */
 
 /** Échappe tout ce qui vient de données. Non négociable : un rapport affiche des entrées non maîtrisées. */
@@ -550,6 +553,20 @@ code { background:var(--card); border:1px solid var(--line); border-radius:4px; 
 .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; }
 button.ghost { background:none; border:1px solid var(--line); color:var(--dim); border-radius:7px;
   padding:5px 10px; font-size:12px; cursor:pointer; }
+/* ── marque : en-tête et pied ──────────────────────────────────────────────
+   Le logo est un data-URI (jamais un fichier externe) : le rapport reste
+   autonome hors ligne. Il est CONSERVÉ à l'impression — un PDF sans en-tête ne
+   dit pas d'où il vient, et un rapport dont on ignore la provenance ne prouve
+   rien. print-color-adjust:exact (plus haut) empêche le navigateur de le
+   vider de ses couleurs pour économiser l'encre. */
+.rep-head { display:flex; justify-content:space-between; align-items:flex-start;
+  gap:16px; padding-bottom:18px; margin-bottom:22px; border-bottom:1px solid var(--line); }
+.brand { display:flex; align-items:center; gap:11px; }
+.brand-logo { height:34px; width:auto; display:block; }
+.brand-name { font-weight:650; font-size:15px; letter-spacing:-.01em; }
+.brand-tag { color:var(--dim); font-size:12px; }
+.foot-row { display:flex; align-items:flex-start; gap:12px; }
+.foot-logo { height:26px; width:auto; flex:none; opacity:.85; }
 .print-only { display:none; }
 .hyp { font-size:13px; color:var(--dim); }
 
@@ -612,7 +629,11 @@ body.deck .foot, body.deck .topbar, body.deck .sub { display:none; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body { font-size: 11pt; }
   .wrap { max-width: none; padding: 0; }
-  .no-print, button.ghost, .topbar button { display: none !important; }
+  .no-print, button.ghost, .rep-head button { display: none !important; }
+  /* La marque RESTE (c'est la provenance du document). */
+  .rep-head { border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 16px; }
+  .brand-logo { height: 26px; }
+  .foot-logo { height: 20px; }
   .print-only { display: block; }
   a { color: inherit; text-decoration: none; }
 
@@ -669,6 +690,7 @@ export const doc = ({
   footer = "",
   data = null,
   lang = "fr",
+  brand = NODEFONY_BRAND,
 }) => `<!doctype html>
 <html lang="${esc(lang)}">
 <head>
@@ -679,13 +701,34 @@ export const doc = ({
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar">
-    <h1>${esc(title)}</h1>
+  <header class="rep-head">
+    ${
+      brand
+        ? `<div class="brand">
+      <img src="${brand.logo}" alt="${esc(brand.name)}" class="brand-logo">
+      <div>
+        <div class="brand-name">${esc(brand.name)}</div>
+        ${brand.tagline ? `<div class="brand-tag">${esc(brand.tagline)}</div>` : ""}
+      </div>
+    </div>`
+        : "<div></div>"
+    }
     <button class="ghost no-print" id="theme-toggle" aria-label="Changer de thème">◐</button>
-  </div>
+  </header>
+  <h1>${esc(title)}</h1>
   ${subtitle ? `<p class="sub">${subtitle}</p>` : ""}
   ${sections.join("\n")}
-  ${footer || data ? `<div class="foot">${footer}${data ? embedData(data) : ""}</div>` : ""}
+  ${
+    footer || data
+      ? `<footer class="foot">
+    <div class="foot-row">
+      ${brand ? `<img src="${brand.logo}" alt="" class="foot-logo">` : ""}
+      <div>${footer}</div>
+    </div>
+    ${data ? embedData(data) : ""}
+  </footer>`
+      : ""
+  }
 </div>
 <script>${SORT_JS}${THEME_JS}${PRINT_JS}</script>
 </body>

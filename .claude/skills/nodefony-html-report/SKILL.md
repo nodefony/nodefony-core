@@ -75,6 +75,7 @@ comportement + style).
 | Mode présentation (plein écran, ←/→)                     | `deckControls()`                                          |
 | Impression                                               | `printButton()`                                           |
 | Avertissement / note                                     | `warn(html)` · `note(html)`                               |
+| **Marque (logo en en-tête et en pied)**                  | `doc({ brand })` — défaut `NODEFONY_BRAND`                |
 | Formatage FR + palette                                   | `fmt.int/dec/pct/bytes/ms` · `COLORS` · `series(i)`       |
 
 Squelette minimal :
@@ -101,6 +102,28 @@ const html = doc({
   footer: `Généré par <code>node banc.mjs</code> — ${new Date().toISOString().slice(0, 16)}`,
 });
 writeFileSync("tmp/rapport.html", html);
+```
+
+## La marque (logo)
+
+Par défaut, tout rapport porte la marque **Nodefony** : logo + nom + accroche en en-tête, logo en
+pied à côté de la provenance. C'est le premier et le dernier chose que voit quelqu'un qui rouvre un
+PDF six mois plus tard — d'où le rappel en bas, collé à la commande et à la date.
+
+- **Le logo est lu à sa source** (`NodefonyLogo.tsx`, le composant de Studio), jamais recopié : deux
+  copies d'un même asset finissent toujours par diverger, et les rapports porteraient l'ancien logo
+  pendant des mois sans que personne ne le remarque. Si la source devient introuvable, `brand.mjs`
+  bascule sur un logo de secours **et l'annonce dans la console** — il ne rend jamais un rapport sans
+  marque en silence.
+- **C'est un data-URI**, donc le rapport reste autonome hors ligne (aucune requête réseau).
+- **Il survit à l'impression** : `print-color-adjust: exact` empêche le navigateur de le vider de ses
+  couleurs pour économiser l'encre. Un PDF sans en-tête ne dit pas d'où il vient.
+
+Le skill étant **générique**, tout se surcharge :
+
+```js
+doc({ brand: { name: "Acme", logo: "data:image/…", tagline: "…" } }); // autre marque
+doc({ brand: null }); // document neutre
 ```
 
 ## Checklist qualité (à passer AVANT de livrer)
