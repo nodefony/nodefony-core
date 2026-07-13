@@ -42,6 +42,16 @@ class IdemCtrl {
     execCount += 1;
     return { read: true };
   }
+  @Post("/circular")
+  @Idempotent()
+  circular() {
+    execCount += 1;
+    // Simule le retour de `this.renderJson(...)` : une structure CIRCULAIRE
+    // (la Response référence le contexte qui la référence).
+    const resp: { name: string; self?: unknown } = { name: "response" };
+    resp.self = resp;
+    return resp;
+  }
 }
 
 // Mini-store fidèle au contrat (le vrai MemoryIdempotencyStore est un Service DI,
@@ -221,6 +231,49 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     );
     expect(execCount).to.equal(1);
     expect(out).to.deep.equal({ read: true });
+  });
+
+  it("circular body (renderJson-like) + SERIALIZING store → dedup KEPT, replay empty", async () => {
+    // Store qui SÉRIALISE la réponse mémorisée (comme drizzle/redis) : un corps
+    // circulaire y throw au stringify. Bug vécu (2026-07) : le throw remontait
+    // au catch → abort() effaçait la clé EN SILENCE (la réponse étant déjà
+    // partie) → chaque rejeu RÉ-EXÉCUTAIT la mutation. Attendu : la dédup
+    // TIENT (statut mémorisé, corps de rejeu vide) + WARNING loggé.
+    const m = new Map<string, { fp: string; resp?: IdempotentResponse }>();
+    const store: IIdempotencyStore = {
+      begin(key, fp) {
+        const e = m.get(key);
+        if (!e) {
+          m.set(key, { fp });
+          return { state: "fresh" };
+        }
+        if (e.fp !== fp) return { state: "mismatch" };
+        if (e.resp) return { state: "replayed", response: e.resp };
+        return { state: "in-flight" };
+      },
+      complete(key, resp) {
+        JSON.stringify(resp); // ← le comportement drizzle/redis (colonne JSON)
+        const e = m.get(key);
+        if (e) e.resp = resp;
+      },
+      abort(key) {
+        m.delete(key);
+      },
+      get size() {
+        return m.size;
+      },
+    };
+    const call = () =>
+      RequestContext.run(
+        { requestId: "t", user: { username: "alice" }, idempotencyKey: "k9" },
+        () => makeResolver({ action: "circular", store }).callController(),
+      );
+    const first = (await call()) as { name: string };
+    expect(execCount).to.equal(1);
+    expect(first.name).to.equal("response"); // la 1ʳᵉ réponse part normalement
+    const replay = await call();
+    expect(execCount).to.equal(1); // ← LE point : pas de ré-exécution
+    expect(replay).to.equal(null); // corps mémorisé vide (dégradé, annoncé)
   });
 
   it("no store registered → executes (degrade, no dedup)", async () => {

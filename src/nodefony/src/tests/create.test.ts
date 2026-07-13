@@ -405,19 +405,62 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
-    it("rest : CRUD + params {id} + echo WS", () => {
+    it("rest complete : vitrine décorateurs (sécu + idempotence + session)", () => {
       const dest = path.join(tmp, "rest");
-      scaffold(dest, { name: "rest", preset: "minimal" });
+      scaffold(dest, { name: "rest", preset: "complete" });
       controller(dest, { name: "item", kind: "rest", route: "/api/items" });
       const src = readFileSync(
         path.join(dest, "nodefony", "controllers", "ItemController.ts"),
         "utf8",
       );
-      assert.include(src, '@controller("/api/items")');
-      assert.include(src, '@Get("/{id}")');
-      assert.include(src, '@Post("")');
-      assert.include(src, '@Delete("/{id}")');
-      assert.include(src, "WEBSOCKET");
+      for (const marker of [
+        '@controller("/api/items")',
+        '@Get("/{id}")',
+        '@Post("")',
+        "@Idempotent()",
+        "@HttpCode(201)",
+        '@IsGranted("ROLE_ADMIN")',
+        '@RequireScope("item:export")',
+        "@CsrfProtect()",
+        "@UseSession()",
+        "@CurrentUser()",
+        '@Headers("user-agent")',
+        "@UploadedFile()",
+        "@Redirect(",
+        '@Patch("/{id}")',
+        "@Body({ stream: true })",
+        'import type { IUser } from "@nodefony/user";',
+        "WEBSOCKET",
+      ]) {
+        assert.include(src, marker, `manque ${marker}`);
+      }
+      // Bug vécu : une action @Idempotent doit RETOURNER le payload brut —
+      // renderJson (structure circulaire) casserait la mémorisation du rejeu.
+      assert.include(src, "return item;");
+      // La route paramétrique reste déclarée APRÈS les GET statiques (ordre de match).
+      assert.isBelow(
+        src.indexOf('@Get("/latest")'),
+        src.indexOf('@Get("/{id}")'),
+      );
+    });
+
+    it("rest minimal : vitrine DÉGRADÉE sans security (aucun import mort)", () => {
+      const dest = path.join(tmp, "restmin");
+      scaffold(dest, { name: "restmin", preset: "minimal" });
+      controller(dest, { name: "item", kind: "rest" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "ItemController.ts"),
+        "utf8",
+      );
+      // Les NOMS restent cités dans le commentaire pédagogique (« ajoute
+      // @nodefony/security pour débloquer… ») — on vérifie l'absence d'USAGE.
+      assert.notInclude(src, '@IsGranted("');
+      assert.notInclude(src, "@nodefony/user");
+      assert.notInclude(src, "@CsrfProtect()");
+      assert.notInclude(src, "  IsGranted,");
+      assert.include(src, "@Idempotent()");
+      assert.include(src, "@UseSession()");
+      assert.include(src, "ajoute `@nodefony/security`");
     });
 
     it("cible --module : écrit dans modules/<x> + wiring de SON index.ts", () => {

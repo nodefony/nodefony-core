@@ -505,7 +505,29 @@ class Resolver implements IResolver {
       const status =
         (context.response as HttpResponse | Http2Response | null)?.statusCode ??
         200;
-      await store?.complete(verdict.key, { status, body: resolved });
+      try {
+        await store?.complete(verdict.key, { status, body: resolved });
+      } catch {
+        // Corps non mémorisable — typiquement une action qui a retourné la
+        // Response (`return this.renderJson(...)`, structure circulaire) au
+        // lieu de son payload : un store sérialisant (SQL/Redis) throw au
+        // stringify. La réponse est DÉJÀ partie → l'erreur remonterait dans le
+        // vide et l'abort effacerait la clé : le rejeu RÉ-EXÉCUTERAIT la
+        // mutation (perte de la dédup, silencieuse). On mémorise donc le
+        // statut avec un corps vide (le double-effet reste évité) et on le
+        // DIT — une action `@Idempotent` doit retourner son payload brut.
+        try {
+          (context as unknown as { log: (m: string, s: string) => void }).log(
+            `@Idempotent ${this.route?.name ?? this.actionName}: réponse non ` +
+              `mémorisable (corps non sérialisable — retourne le payload brut, ` +
+              `pas renderJson) ; dédup conservée avec un corps de rejeu vide`,
+            "WARNING",
+          );
+        } catch {
+          // le log ne casse jamais la dédup (harnais sans syslog)
+        }
+        await store?.complete(verdict.key, { status, body: null });
+      }
       return this._handleRedirect(resolved, redirectMeta);
     } catch (e) {
       await store?.abort(verdict.key);

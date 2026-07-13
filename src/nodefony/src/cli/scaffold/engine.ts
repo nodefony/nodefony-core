@@ -528,23 +528,32 @@ function runControllerScaffold(
   const nameClass = `${toPascalCase(base)}Controller`;
   const kebab = toKebabCase(base);
   const route = String(answers.route) || `/api/${kebab}`;
-  if (kind === "realtime") {
-    const manifest = JSON.parse(
-      readFileSync(path.join(target.dir, "package.json"), "utf8"),
-    ) as Record<string, Record<string, string>>;
-    const hasRealtime = ["dependencies", "devDependencies", "peerDependencies"]
-      .flatMap((b) => Object.keys(manifest[b] ?? {}))
-      .includes("@nodefony/realtime");
-    if (!hasRealtime) {
-      throw new Error(
-        `la saveur realtime exige @nodefony/realtime dans ${target.name} — ` +
-          `ajoute la dep + use("@nodefony/realtime") au manifeste, ou choisis --kind hello`,
-      );
-    }
+  // Capacités de la CIBLE (deps de son package.json) : les templates dégradent
+  // proprement — la vitrine rest ne montre les gardes sécurité que si la brique
+  // est là ; la saveur realtime, elle, n'a AUCUNE version dégradée → throw.
+  const manifest = JSON.parse(
+    readFileSync(path.join(target.dir, "package.json"), "utf8"),
+  ) as Record<string, Record<string, string>>;
+  const targetDeps = new Set(
+    ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
+      Object.keys(manifest[b] ?? {}),
+    ),
+  );
+  if (kind === "realtime" && !targetDeps.has("@nodefony/realtime")) {
+    throw new Error(
+      `la saveur realtime exige @nodefony/realtime dans ${target.name} — ` +
+        `ajoute la dep + use("@nodefony/realtime") au manifeste, ou choisis --kind hello`,
+    );
   }
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
   const written: string[] = [];
-  const data = { nameClass, kebab, route, channel: kebab };
+  const data = {
+    nameClass,
+    kebab,
+    route,
+    channel: kebab,
+    hasSecurity: targetDeps.has("@nodefony/security"),
+  };
   renderLayer(
     eta,
     path.join(packageRoot, "templates", "controller", kind),
