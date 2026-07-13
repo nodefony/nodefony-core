@@ -63,17 +63,18 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
 
 **Passer la main** :
 
-| Besoin                                                               | Skill                             |
-| -------------------------------------------------------------------- | --------------------------------- |
-| Scaffolder un module vide (package.json/rolldown/tsconfig/structure) | `nodefony-create-module`          |
-| Module applicatif avec front Vite (React/Vue/Angular)                | `nodefony-create-frontend-module` |
-| Frontend Studio (page/dashboard/composant React)                     | `nodefony-studio-dev`             |
-| Lancer la suite mémoire (avant commit pipeline)                      | `nodefony-check-memory-health`    |
-| Démarrer/redémarrer le serveur dev                                   | `nodefony-start-server`           |
-| Conformité RFC HTTP/WS/CORS/cookies                                  | `nodefony-rfc`                    |
-| Revue sécurité du diff avant commit                                  | `nodefony-security-review`        |
-| Typer un truc tordu (utility types, @types/node)                     | `nodefony-ts-docs`                |
-| Charge / stress HTTP+WS                                              | `nodefony-load-test`              |
+| Besoin                                                        | Skill                              |
+| ------------------------------------------------------------- | ---------------------------------- |
+| Scaffolder un module DANS UNE APP (workspace `modules/<nom>`) | **CLI** : `nodefony create module` |
+| Scaffolder un package `@nodefony/*` du REPO (src/packages/)   | `nodefony-create-module`           |
+| Module à front Vite (React/Vue/Angular) — repo                | `nodefony-create-frontend-module`  |
+| Frontend Studio (page/dashboard/composant React)              | `nodefony-studio-dev`              |
+| Lancer la suite mémoire (avant commit pipeline)               | `nodefony-check-memory-health`     |
+| Démarrer/redémarrer le serveur dev                            | `nodefony-start-server`            |
+| Conformité RFC HTTP/WS/CORS/cookies                           | `nodefony-rfc`                     |
+| Revue sécurité du diff avant commit                           | `nodefony-security-review`         |
+| Typer un truc tordu (utility types, @types/node)              | `nodefony-ts-docs`                 |
+| Charge / stress HTTP+WS                                       | `nodefony-load-test`               |
 
 **Déclencher EN PLUS pendant le dev (orchestration — ne pas coder « de mémoire » sur ces sujets)** :
 

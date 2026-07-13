@@ -1,10 +1,11 @@
 ---
 name: nodefony-create-module
 description: >
-  Scaffold complet d'un nouveau module Nodefony — package.json, tsconfig, rolldown, structure
-  nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports),
-  CLAUDE.md, MEMORY.md, README.md. Détecte le pattern (package @nodefony/* vs module applicatif
-  src/modules/), pré-configure peerDeps et options (CLI, controllers, frontend), met à jour le manifeste `modules` de nodefony.config.ts.
+  Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig,
+  rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services
+  + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`. Dans une APPLICATION, le
+  scaffold d'un module est une commande — `nodefony create module <nom>` — et ce skill s'y délègue au
+  lieu de la réimplémenter (une seule source de templates).
   Déclencheurs : "crée un module", "scaffold module", "nouveau module nodefony", "génère un module",
   "create module", "bootstrap module", "module @nodefony/...".
 ---

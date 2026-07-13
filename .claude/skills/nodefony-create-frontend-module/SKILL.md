@@ -1,10 +1,11 @@
 ---
 name: nodefony-create-frontend-module
 description: >
-  Scaffold d'un module applicatif Nodefony (src/modules/) avec frontend SPA servi par
-  @nodefony/frontend via Vite — framework au choix : React 19, Vue 3 ou Angular 21. Wrapper de
-  nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller
-  HTML+CSP, registerEntry, entry+App du framework, peerDeps).
+  Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via
+  Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande —
+  `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne
+  réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le
+  spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps).
   Déclencheurs : "crée un module frontend", "module react", "module vue", "module angular",
   "scaffold module avec front", "nouveau front nodefony", "module vite".
 ---
@@ -16,11 +17,38 @@ Crée un **module applicatif** (`src/modules/{nom}/`) embarquant un frontend **R
 servi par `@nodefony/frontend` (mono-supervisor Vite). Tout ce qui est commun aux 3 frameworks est ici ;
 le spécifique par framework est dans **[`reference/frameworks.md`](reference/frameworks.md)**.
 
+## 🚦 DEUX CAS — ne pas confondre (lire AVANT toute génération)
+
+Dans une **APP**, le scaffold est une COMMANDE, pas un skill. Ce skill ne la réimplémente pas :
+deux scaffolders qui divergent, c'est le bug que ce projet a déjà payé.
+
+| Cible                                                                   | Qui scaffolde                                           |
+| ----------------------------------------------------------------------- | ------------------------------------------------------- |
+| Module à front d'une **APP** (`modules/<nom>/` d'un projet utilisateur) | **le CLI** (ci-dessous). Ce skill n'intervient PAS.     |
+| Module à front du **repo framework** (`src/modules/test-frontend-*`)    | **ce skill** (le CLI ne connaît pas le layout du repo). |
+
+**Cas APP — une seule commande, tout est câblé (module + front + wiring) :**
+
+```bash
+nodefony create module shop --frontend react     # ou vue | angular
+nodefony create front dashboard --module shop    # une page de plus, sur un module existant
+```
+
+`create module --frontend X` pose le workspace npm PUIS délègue au scaffold `front` : coquille HTML,
+entry du framework, controller de page (nonce CSP), `registerEntry` dans `onKernelBoot`, deps npm du
+framework. Templates réels : `src/nodefony/templates/front/` + `templates/shared/front-shell/`
+(source UNIQUE, partagée avec `create app`). Le tableau de paramètres par framework ci-dessous vaut
+comme RÉFÉRENCE de lecture — mais dans une app, ne rends rien à la main.
+
+Ce que l'IA apporte en plus : le choix du framework, la vérification post-build (transform Vite,
+hard-reload), et l'explication du POURQUOI. Jamais la mécanique.
+
 ## Quand l'utiliser
 
-- "crée un module frontend {react|vue|angular}", "scaffold un module avec front vite"
+- "crée un module frontend {react|vue|angular}", "scaffold un module avec front vite" — **dans le repo framework**
+- **Dans une app utilisateur** → `nodefony create module <nom> --frontend <fw>` (cf encadré ci-dessus).
 - **Ne pas utiliser** pour un module SANS frontend → `nodefony-create-module` directement.
-- **Ne pas utiliser** pour ajouter un frontend à un module existant → éditer à la main.
+- **Ne pas utiliser** pour ajouter un frontend à un module existant → `nodefony create front <page> --module <nom>` (app), ou éditer à la main (repo).
 
 ## Phase 0 — Choisir le framework + variables
 
