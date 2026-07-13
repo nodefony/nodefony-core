@@ -134,12 +134,14 @@ Pour les tâches qui enchaînent plus de 3 outils sans output user-visible (buil
 
 La doc externe (RFC, TS handbook, NestJS) et les phases futures (10/12/13/14) sont **déchargées dans des skills** déclenchés par mots-clés — gratuit en tokens tant qu'ils ne se déclenchent pas :
 
-| Skill              | Quand l'utiliser                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| `nodefony-rfc`     | RFC HTTP/HTTP2/WS/CORS/Cookies (IETF + W3C raw uniquement)                                  |
-| `nodefony-ts-docs` | TS handbook, utility types, `@types/node` DefinitelyTyped                                   |
-| `nodefony-nestjs`  | Inspiration architecture NestJS — déclencheur EXCLUSIF mot-clé "NestJS"                     |
-| `nodefony-roadmap` | Phase 10 (Studio admin), 12 (IA agentic), 13 (Realtime/Redis/client), 14 (frontend builder) |
+| Skill                      | Quand l'utiliser                                                                                                                                                                                                                                                                               |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nodefony-rfc`             | RFC HTTP/HTTP2/WS/CORS/Cookies (IETF + W3C raw uniquement)                                                                                                                                                                                                                                     |
+| `nodefony-ts-docs`         | TS handbook, utility types, `@types/node` DefinitelyTyped                                                                                                                                                                                                                                      |
+| `nodefony-nestjs`          | Inspiration architecture NestJS — déclencheur EXCLUSIF mot-clé "NestJS"                                                                                                                                                                                                                        |
+| `nodefony-roadmap`         | Phase 10 (Studio admin), 12 (IA agentic), 13 (Realtime/Redis/client), 14 (frontend builder)                                                                                                                                                                                                    |
+| **`nodefony-html-report`** | **Tout livrable destiné à un HUMAIN** (audit, banc de perf, mesures, revue) → HTML autonome : `lib/report.mjs` (graphes SVG, tableaux triables, calculateurs, glisser-déposer, mode présentation, impression PDF, W3C validé) + specs W3C bundlées offline. Cf la règle de livrable ci-dessus. |
+| `nodefony-load-test`       | Charge, stress, **et dimensionnement** (`scripts/capacity.mjs` → constantes d'un pod + rapport HTML avec calculateur de pods)                                                                                                                                                                  |
 
 **Règle universelle** : interdiction de charger les sites HTML lourds (`nodejs.org`, `typescriptlang.org`, `docs.nestjs.com`, `tools.ietf.org`). Toujours via raw GitHub + proxy `https://r.jina.ai/`. Les skills contiennent les URLs canoniques + le pattern d'usage.
 
@@ -508,6 +510,34 @@ grep -E "export\s*\{" src/packages/@nodefony/<module>/dist/index.js | head -1
 ```
 
 ---
+
+## 📄 RÈGLE DE LIVRABLE — HTML pour l'HUMAIN, Markdown pour la MACHINE
+
+> **« HTML wins the session. Markdown wins the archive. »**
+
+Le format d'un livrable se choisit sur **qui le lit**, jamais par habitude :
+
+| Le livrable doit…                                                                     | Format   |
+| ------------------------------------------------------------------------------------- | -------- |
+| aider un **humain à décider** — audit, banc de perf, mesures, revue, état des lieux   | **HTML** |
+| être **manipulé** (trier, filtrer, simuler des hypothèses) ou **imprimé / présenté**  | **HTML** |
+| montrer des **graphes**, une matrice, une timeline                                    | **HTML** |
+| être **versionné** et relu en diff (`git log -p`)                                     | Markdown |
+| être **réinjecté dans un LLM** (`CLAUDE.md`, `MEMORY.md`, `MIGRATION_STATUS.md`, RAG) | Markdown |
+| documenter le code pour les prochains développeurs (`docs/`, README)                  | Markdown |
+
+**Pourquoi** : le problème n'est plus de produire, c'est que l'agent produit **plus que l'humain ne
+lit** — un rapport de 200 lignes en Markdown se fait approuver sans lecture. Le HTML remet l'humain
+dans la boucle (il voit, il manipule). Mais dès qu'une **machine** est au bout (diff git, contexte
+LLM), le Markdown est à la fois moins cher **et** plus fidèlement relu : la doc IA reste en Markdown.
+
+**Comment** : ne **jamais** écrire du HTML à la main. Le HTML se **génère à partir de données** via le
+skill **`nodefony-html-report`** (`lib/report.mjs` : graphes SVG, tableaux triables, calculateurs,
+glisser-déposer, mode présentation, impression PDF soignée, HTML5 validé W3C). Les données sources
+sont **embarquées** dans la page (`doc({ data })`) → le rapport reste rejouable, comparable et
+ré-ingérable par un LLM.
+
+**Où** : un rapport est une **photo**, pas de la documentation → `tmp/`, jamais `docs/`, jamais commité.
 
 ## 📘 Documentation — TSDoc + `docs/`
 
