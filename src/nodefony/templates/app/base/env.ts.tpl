@@ -1,4 +1,4 @@
-import { defineEnv, envEnum<% if (it.complete) { %>, envString<% } %> } from "nodefony";
+import { defineEnv, envEnum, envNumber<% if (it.complete) { %>, envString<% } %> } from "nodefony";
 
 /**
  * Catalogue typé des variables d'environnement — SEUL lecteur de `process.env`.
@@ -8,6 +8,38 @@ import { defineEnv, envEnum<% if (it.complete) { %>, envString<% } %> } from "no
  * DÉRIVE les stores (users, sessions, jetons, idempotence…) — `store: "auto"`.
 <% } %> */
 export const env = defineEnv({
+  /**
+   * Port d'écoute HTTP. Absent = défaut du framework (5151). Le déclarer est le
+   * cas du DÉPLOIEMENT : le port y est un contrat (service k8s, ingress, sonde).
+   * En dev, ne rien mettre : si 5151 est déjà pris (une autre app Nodefony),
+   * le framework prend le port libre suivant et l'ANNONCE (`portPolicy: "auto"`,
+   * défaut hors production) — en production il échoue franchement (`strict`),
+   * car un pod qui écoute ailleurs en silence est un pod injoignable.
+   */
+  NF_PORT: envNumber({
+    optional: true,
+    description: "Port d'écoute HTTP (défaut framework 5151).",
+  }),
+
+  /**
+   * Alias PLATEFORME : Cloud Run, Heroku, Railway et Fly injectent `PORT` et
+   * exigent que le process écoute dessus. On l'accepte tel quel — zéro glue de
+   * déploiement. `NF_PORT` l'emporte si les deux sont présents.
+   */
+  PORT: envNumber({
+    optional: true,
+    description: "Alias plateforme du port HTTP (Cloud Run/Heroku) — NF_PORT gagne.",
+  }),
+
+  /**
+   * Port d'écoute HTTPS/HTTP2 (défaut framework 5152). Pas d'alias plateforme :
+   * en cloud, le TLS est terminé à l'ingress et le pod sert en clair.
+   */
+  NF_PORT_HTTPS: envNumber({
+    optional: true,
+    description: "Port d'écoute HTTPS/HTTP2 (défaut framework 5152).",
+  }),
+
   NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
     default: "stdout",
   }),

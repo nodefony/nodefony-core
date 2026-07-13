@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-13T16:39:20.906Z",
+  "generated": "2026-07-13T17:42:26.518Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -21910,6 +21910,14 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "splitByProject": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/BootReporter.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
       "RuntimeMode": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -21957,13 +21965,6 @@
       ],
       "resolveWorkerCount": [
         "src/nodefony/src/service/cluster/topology.ts"
-      ],
-      "splitByProject": [
-        "src/nodefony/src/service/dev/BootReporter.ts",
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "DevProcessInfo": [
         "src/nodefony/src/service/dev/BootReporter.ts",

@@ -32,6 +32,7 @@ import {
   type TrustedHostsConfig,
 } from "../src/context/domainMatcher";
 import type { Profiler } from "../src/profiler/Profiler";
+import cluster from "node:cluster";
 import http from "node:http";
 //import https from "node:https";
 import http2 from "node:http2";
@@ -941,15 +942,25 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * Le port DÉSIRÉ est publié à côté du port obtenu : un outil peut ainsi dire
    * « tu voulais 5151, tu écoutes sur 5153 » sans deviner.
    *
-   * Best-effort (jamais bloquant) et **dev/test seulement** : en production le
-   * port ne glisse pas (`portPolicy: "strict"`), et le runtime n'a rien à écrire
-   * dans un `node_modules` qui peut être en lecture seule (image conteneur).
+   * **Publié dans TOUS les environnements, production comprise.** Le glissement de
+   * port (`auto`) n'est pas la seule façon de sortir de la convention : une app qui
+   * déclare son port (PaaS `PORT`, ingress, `servers.http.port`) écoute ailleurs
+   * que `[5151, 5152]` **en `strict` aussi**. Sans ce canal, `production --detach
+   * --wait` sonderait la convention, ne verrait rien, et group-killerait au bout de
+   * son plafond un serveur qui écoutait parfaitement (faux négatif — même famille
+   * que « une liste de ports sondés est une CONVENTION, pas la topologie »).
+   * L'écriture est best-effort : un `node_modules` en lecture seule (image
+   * conteneur) ne fait jamais tomber un serveur qui, lui, écoute très bien.
+   *
+   * En **cluster**, le pid publié est celui du MASTER, pas du worker qui écrit :
+   * les workers sont recyclés (respawn), et un pid mort fait purger le canal par
+   * {@link readRuntimeState} — `status`/`stop` redeviendraient aveugles alors que
+   * l'app écoute toujours. Le master, lui, est le propriétaire du runtime.
    */
   private publishRuntimePorts(
     serverHttp: httpServer | null,
     serverHttps: httpsServer | null,
   ): void {
-    if (this.kernel?.environment === "production") return;
     const ports: number[] = [];
     const desired: number[] = [];
     if (serverHttp?.active && serverHttp.port > 0) {
@@ -964,7 +975,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
     if (ports.length === 0) return;
     writeRuntimeState(process.cwd(), {
-      pid: process.pid,
+      pid: cluster.isWorker ? (process.ppid ?? process.pid) : process.pid,
       ports,
       desiredPorts: desired.length > 0 ? desired : undefined,
     });

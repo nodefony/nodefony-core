@@ -9,6 +9,7 @@ import { Topology } from "../../service/cluster/topology";
 import {
   discoverDevProcesses,
   findRuntimeConflict,
+  splitByProject,
   type RuntimeMode,
 } from "../../service/dev/devProcess";
 import { SysExit } from "../../cli/sysexits";
@@ -22,22 +23,30 @@ function modeLabelFr(mode: RuntimeMode): string {
 
 /**
  * Garde anti-collision (symétrique du superviseur dev) : un runtime prod/cluster ne
- * démarre PAS par-dessus un AUTRE runtime Nodefony (dev/prod/cluster d'un mode différent)
- * qui tiendrait déjà les ports. Fail-loud + exit — jamais de kill auto cross-mode (le
- * runtime préexistant est intentionnel). Primaire seulement (les workers forkés héritent
- * d'un primaire déjà validé). `ps` indisponible → liste vide → on retombe sur
- * l'`EADDRINUSE` natif (best-effort, ex. conteneur minimaliste sans `ps`).
+ * démarre PAS par-dessus un AUTRE runtime **de CE projet** (dev/prod/cluster d'un mode
+ * différent). Fail-loud + exit — jamais de kill auto cross-mode (le runtime préexistant
+ * est intentionnel). Primaire seulement (les workers forkés héritent d'un primaire déjà
+ * validé). `ps` indisponible → liste vide → on retombe sur l'`EADDRINUSE` natif
+ * (best-effort, ex. conteneur minimaliste sans `ps`).
+ *
+ * **Scopé au projet** (`splitByProject`, égalité stricte du cwd — la MÊME règle que
+ * `stop`, `status` et le superviseur : une seconde implémentation dériverait). Le motif
+ * du garde est la collision de PORTS ; or deux projets Nodefony cohabitent désormais
+ * (`servers.portPolicy: "auto"` en dev, ports déclarés en prod). Refuser un `production`
+ * parce que le dev d'une AUTRE app tourne, c'était crier au loup sur le cas nominal —
+ * et un garde qui se déclenche sur le cas nominal n'est plus lu.
  */
 function assertNoConflictingRuntime(
   intended: RuntimeMode,
   log: ClusterLog,
 ): void {
-  const conflict = findRuntimeConflict(discoverDevProcesses(), intended);
+  const { mine } = splitByProject(discoverDevProcesses(), process.cwd());
+  const conflict = findRuntimeConflict(mine, intended);
   if (conflict.length === 0) return;
   const pids = conflict.map((p) => p.pid).join(", ");
   log(
-    `⛔ un runtime Nodefony ${modeLabelFr(conflict[0].mode)} tourne déjà (pid ${pids}) — ` +
-      `démarrage ${modeLabelFr(intended)} refusé (collision de ports). ` +
+    `⛔ un runtime Nodefony ${modeLabelFr(conflict[0].mode)} de CE projet tourne déjà ` +
+      `(pid ${pids}) — démarrage ${modeLabelFr(intended)} refusé (collision de ports). ` +
       "Arrête-le d'abord : nodefony stop",
     "CRITIC",
   );

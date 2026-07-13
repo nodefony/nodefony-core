@@ -19,9 +19,47 @@
  * Secret en conteneur : toute variable accepte aussi `<NOM>_FILE` (Docker secret,
  * K8s, Vault) → la valeur est lue depuis le fichier monté pointé (cf ADR-0006).
  */
-import { defineEnv, envBoolean, envEnum, envString } from "nodefony";
+import { defineEnv, envBoolean, envEnum, envNumber, envString } from "nodefony";
 
 export const env = defineEnv({
+  // ── Réseau : ports d'écoute ────────────────────────────────────────────────
+  /**
+   * Port du serveur HTTP en clair. Absent = défaut framework (5151). Le rendre
+   * EXPLICITE est le cas PROD : le port y est un **contrat** (service k8s,
+   * ingress, sonde de santé) — c'est aussi pourquoi `servers.portPolicy` vaut
+   * `strict` hors dev (un port occupé = échec franc, jamais un glissement
+   * silencieux qui donnerait un pod « sain » que personne n'atteint).
+   * En dev, ne rien déclarer : `portPolicy: auto` prend le prochain port libre
+   * (plusieurs apps Nodefony côte à côte) et ANNONCE le décalage.
+   */
+  NF_PORT: envNumber({
+    optional: true,
+    description: "Port d'écoute HTTP (défaut framework 5151).",
+  }),
+
+  /**
+   * Alias PLATEFORME du port HTTP : Cloud Run, Heroku, Railway, Fly injectent
+   * `PORT` sans préfixe et attendent que le process écoute DESSUS. On l'accepte
+   * tel quel (zéro glue de déploiement). `NF_PORT` gagne s'il est aussi présent
+   * (même règle que `NF_DATABASE_URL` vs `DATABASE_URL`).
+   */
+  PORT: envNumber({
+    optional: true,
+    description:
+      "Alias plateforme du port HTTP (Cloud Run/Heroku) — NF_PORT gagne.",
+  }),
+
+  /**
+   * Port du serveur HTTPS/HTTP2. Absent = défaut framework (5152). Pas d'alias
+   * plateforme : en cloud-native, le TLS est terminé à l'ingress et le pod sert
+   * en clair (`servers: { https: false }`) — ce port sert au dev, au bare-metal
+   * et aux déploiements TLS bout-en-bout.
+   */
+  NF_PORT_HTTPS: envNumber({
+    optional: true,
+    description: "Port d'écoute HTTPS/HTTP2 (défaut framework 5152).",
+  }),
+
   // ── Infra déclarée (modèle « infra déclarée » — cf docs/guides/configuration.md) ──
   /**
    * Infra `database` (durable) : UNE URL déclare la base de l'app — le dialecte est

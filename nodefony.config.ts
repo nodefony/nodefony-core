@@ -38,13 +38,34 @@ export default defineConfig<Env>((ctx) => ({
   // ── Réseau ──────────────────────────────────────────────────────────────────
   // Domaine d'écoute (un seul, pas de vhost). Prod = toutes interfaces (0.0.0.0,
   // derrière l'ingress) ; dev = loopback. `NF_BIND_ALL=1` (dev) force 0.0.0.0 pour
-  // exposer le serveur au banc reverse-proxy Docker (conteneurs). Ports/serveurs =
-  // défauts framework (HTTP 5151, HTTPS 5152 HTTP/2) ; changer : `servers: { http: { port } }`.
+  // exposer le serveur au banc reverse-proxy Docker (conteneurs).
   domain: ctx.isProd || ctx.env.NF_BIND_ALL ? "0.0.0.0" : "127.0.0.1",
   // Active la barrière Host kernel-level (anti Host-header injection) : un Host
   // entrant doit matcher la liste `trustedHosts` du module http. (`domainAlias`
   // legacy retiré — `trustedHosts` est l'unique allowlist consommée.)
   domainCheck: true,
+
+  // ── Ports d'écoute ──────────────────────────────────────────────────────────
+  // Les clés ne sont émises QUE si l'environnement les déclare : sans elles, les
+  // défauts du framework s'appliquent (HTTP 5151, HTTPS 5152 en HTTP/2) — on ne
+  // retape jamais un défaut, sinon il existe à deux endroits et diverge.
+  //
+  // POURQUOI passer par l'env plutôt que d'écrire un port en dur ici : le port est
+  // une propriété du DÉPLOIEMENT, pas du code. En PaaS (Cloud Run, Heroku, Railway)
+  // la plateforme IMPOSE son port via `PORT` — un port en dur = pod qui écoute là où
+  // personne n'appelle. En dev on ne déclare rien : `portPolicy` vaut `auto` (défaut
+  // hors prod/test) → deux apps Nodefony cohabitent, le décalage de port est ANNONCÉ
+  // et publié pour `nodefony status`/`stop`. En prod/test, `portPolicy` vaut `strict` :
+  // un port occupé est un échec franc (le port est un CONTRAT : service, ingress, sonde).
+  // Forcer la politique : `servers: { portPolicy: "strict" }`.
+  servers: {
+    ...((ctx.env.NF_PORT ?? ctx.env.PORT)
+      ? { http: { port: ctx.env.NF_PORT ?? ctx.env.PORT } }
+      : {}),
+    ...(ctx.env.NF_PORT_HTTPS
+      ? { https: { port: ctx.env.NF_PORT_HTTPS } }
+      : {}),
+  },
 
   // ── Observabilité ─────────────────────────────────────────────────────────
   log: {

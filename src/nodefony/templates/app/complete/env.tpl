@@ -9,6 +9,16 @@
 # Chaque variable est déclarée et validée dans env.ts (seul lecteur de
 # process.env) — une variable non déclarée là-bas n'existe pas pour l'app.
 
+# ── Réseau ──────────────────────────────────────────────────────────────────
+# Ports d'écoute. Absents = défauts du framework (HTTP 5151, HTTPS 5152).
+# En DEV, si le port est déjà pris (une autre app Nodefony), l'app prend le
+# suivant libre et l'ANNONCE (`portPolicy: "auto"`). En PRODUCTION le port est un
+# CONTRAT (service, ingress, sonde) : occupé = échec franc (`portPolicy: "strict"`).
+# `PORT` est l'alias des plateformes (Cloud Run, Heroku, Railway) — elles
+# l'injectent elles-mêmes ; `NF_PORT` l'emporte si les deux sont là.
+# NF_PORT=5151
+# NF_PORT_HTTPS=5152
+
 # ── Observabilité ───────────────────────────────────────────────────────────
 # Sink des logs : stdout (cloud-native, défaut) | file | null
 # NF_LOG_DRIVER=stdout

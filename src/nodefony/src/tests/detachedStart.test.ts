@@ -163,6 +163,73 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     }
   });
 
+  it("port HORS convention : le child publie le state file → readiness sur SES ports", async () => {
+    // Le cas d'une app qui déclare son port (PaaS `PORT`, ingress, `servers.http.port`) :
+    // elle écoute ailleurs que la convention du parent — et ce, `portPolicy: "strict"`
+    // compris (le glissement `auto` n'est PAS la seule sortie de la convention). Sans
+    // le state file, la sonde ne verrait rien, attendrait son plafond, puis
+    // group-killerait un serveur qui écoutait parfaitement.
+    const [conv1, conv2, real] = [
+      await freePort(),
+      await freePort(),
+      await freePort(),
+    ];
+    const cwd = fs.mkdtempSync(
+      path.join(os.tmpdir(), "nodefony-detach-state-"),
+    );
+    const log = tmpLog("state");
+    try {
+      // Child factice : écoute sur `real` (jamais sondé par le parent) PUIS publie
+      // ses ports effectifs, exactement comme le fait `HttpKernel.publishRuntimePorts`.
+      const stateFile = path.join(
+        cwd,
+        "node_modules",
+        ".cache",
+        "nodefony",
+        "runtime.json",
+      );
+      const script = `
+        const net = require("node:net");
+        const fs = require("node:fs");
+        const path = require("node:path");
+        setTimeout(() => {
+          net.createServer().listen(${real}, "127.0.0.1", () => {
+            fs.mkdirSync(path.dirname(${JSON.stringify(stateFile)}), { recursive: true });
+            fs.writeFileSync(${JSON.stringify(stateFile)}, JSON.stringify({
+              pid: process.pid, ports: [${real}], desiredPorts: [${real}], ts: Date.now(),
+            }));
+          });
+        }, 300);
+        setInterval(() => {}, 1 << 30);
+      `;
+      const r = await launchDetached({
+        spawnCmd: process.execPath,
+        spawnArgs: ["-e", script],
+        logFile: log,
+        cwd,
+        ports: [conv1, conv2], // la CONVENTION du parent — aucun ne sera ouvert
+        waitSec: 15,
+      });
+      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      assert.strictEqual(r.exitCode, 0);
+      // La readiness a suivi le state file : elle rapporte le port RÉEL, pas la
+      // convention qu'on lui avait passée.
+      assert.deepStrictEqual(
+        r.ports.map((p) => p.port),
+        [real],
+      );
+      assert.strictEqual(r.ports[0].listening, true);
+      try {
+        process.kill(-(r.pid as number), "SIGKILL");
+      } catch {
+        process.kill(r.pid as number, "SIGKILL");
+      }
+    } finally {
+      fs.rmSync(log, { force: true });
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("crash : child qui meurt avant la readiness → EX_UNAVAILABLE + diagnostic", async () => {
     const p1 = await freePort();
     const log = tmpLog("crash");

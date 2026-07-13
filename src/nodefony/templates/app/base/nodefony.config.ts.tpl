@@ -18,9 +18,23 @@ export default defineConfig<typeof env>((ctx) => ({
   //    sinon auto-signé). Inspection/regénération : `npx nodefony certificates`.
   //    En production : fournis un vrai certificat, OU termine le TLS à
   //    l'ingress/LB et désactive l'écoute sécurisée ci-dessous.
+  // ── PORTS : rien n'est écrit ici tant que l'environnement ne le déclare pas
+  //    → les défauts du framework s'appliquent (HTTP 5151, HTTPS 5152 en HTTP/2).
+  //    Un port est une propriété du DÉPLOIEMENT, pas du code : en PaaS (Cloud
+  //    Run, Heroku, Railway) la plateforme IMPOSE le sien via `PORT`, et un port
+  //    codé en dur donnerait un service qui écoute là où personne n'appelle.
+  //    En dev, deux apps Nodefony peuvent tourner côte à côte : le port déjà pris
+  //    glisse au suivant et le décalage est ANNONCÉ (`portPolicy: "auto"`, défaut
+  //    hors production). En production/test, `portPolicy: "strict"` → échec franc.
   // ── DÉSACTIVER l'écoute sécurisée (HTTPS + WSS en héritent tous deux) :
-  //    décommente — il ne restera qu'un port exposé, en clair (5151) :
-  // servers: { https: false },
+  //    ajoute `https: false` dans le bloc ci-dessous — il ne restera qu'un port
+  //    exposé, en clair (le cas nominal cloud : TLS terminé à l'ingress).
+  servers: {
+    ...(ctx.env.NF_PORT ?? ctx.env.PORT
+      ? { http: { port: ctx.env.NF_PORT ?? ctx.env.PORT } }
+      : {}),
+    ...(ctx.env.NF_PORT_HTTPS ? { https: { port: ctx.env.NF_PORT_HTTPS } } : {}),
+  },
   log: {
     debug: ctx.isProd ? [] : "*",
     // stdout = contrat cloud-native (collecteur de logs de l'orchestrateur).

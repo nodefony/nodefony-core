@@ -491,6 +491,65 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       assert.strictEqual(await isPortOpen(HTTP_PORT), false);
     }, 210000);
 
+    // ─── PRODUCTION sur un port NON conventionnel ───────────────────────────────
+    // Le chemin réel du déploiement : l'app déclare son port (`NF_PORT`, ou `PORT`
+    // en PaaS Cloud Run/Heroku). Elle écoute donc AILLEURS que la convention
+    // `[5151, 5152]` que sonde le parent — en `portPolicy: "strict"` compris.
+    //
+    // Sans le state file publié EN PRODUCTION, `--wait` sondait la convention, ne
+    // voyait rien, épuisait son plafond, puis group-killait un serveur qui écoutait
+    // parfaitement (faux négatif). Ce test verrouille le chemin de bout en bout :
+    // readiness → ports publiés → `status` → `stop`. Le test de `detachedStart` ne
+    // couvre que le parent (child factice) : la publication, elle, vit dans le vrai
+    // HttpKernel — une capacité prouvée sur un chemin n'existe pas sur le voisin.
+    it("production --detach --wait sur un port déclaré (NF_PORT) → readiness sur le port RÉEL", async () => {
+      const port = 5361; // hors convention [5151, 5152]
+      const portHttps = 5362;
+      const stateFile = path.join(
+        REPO_ROOT,
+        "node_modules",
+        ".cache",
+        "nodefony",
+        "runtime.json",
+      );
+      const r = await runCli(
+        ["production", "--detach", "--wait", "150"],
+        170000,
+        { NF_PORT: String(port), NF_PORT_HTTPS: String(portHttps) },
+      );
+      try {
+        assert.strictEqual(
+          r.code,
+          0,
+          `--wait doit sortir 0 : le serveur écoute sur ${port}, pas sur la convention\n${r.stdout}\n${r.stderr}`,
+        );
+        // Il écoute VRAIMENT sur le port déclaré, et rien sur la convention.
+        assert.strictEqual(await isPortOpen(port), true);
+        assert.strictEqual(await isPortOpen(HTTP_PORT), false);
+        // Le serveur a PUBLIÉ sa topologie (le canal qui rend `status`/`stop`/
+        // readiness lucides) — en production aussi, pas seulement en dev.
+        const state = JSON.parse(fs.readFileSync(stateFile, "utf8")) as {
+          pid: number;
+          ports: number[];
+        };
+        assert.ok(
+          state.ports.includes(port),
+          `le state file doit porter le port réel — vu: ${JSON.stringify(state.ports)}`,
+        );
+        // `status` lit le state file → il rapporte le port réel, pas 5151.
+        const st = await runCli(["status"], 30000);
+        assert.strictEqual(st.code, 0);
+        assert.ok(
+          st.stdout.includes(String(port)),
+          `status doit rapporter le port réel ${port}\n${st.stdout}`,
+        );
+      } finally {
+        const stop = await runCli(["stop"], 30000);
+        assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);
+      }
+      assert.strictEqual(await isPortOpen(port), false);
+    }, 210000);
+
     // ─── Point d'arrêt onReady SANS serveur ─────────────────────────────────────
     // `proxy:generate` déclare `kernelEvent: "onReady"` : la phase la plus profonde
     // AVANT initServers. Preuve que le boot s'arrête bien à la phase déclarée : la
