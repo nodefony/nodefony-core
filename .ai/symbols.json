@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-13T17:43:55.563Z",
+  "generated": "2026-07-13T20:04:50.471Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1014,
-    "symbols": 2634,
+    "files": 1015,
+    "symbols": 2635,
     "classes": 319,
     "interfaces": 691,
     "types": 304,
     "enums": 4,
-    "functions": 756,
+    "functions": 757,
     "constants": 560
   },
   "symbols": {
@@ -4759,6 +4759,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Options du superviseur de dev."
+    },
+    "isIgnoredWatchPath": {
+      "name": "isIgnoredWatchPath",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/DevSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce chemin doit-il être IGNORÉ par le watch des sources backend ? Le superviseur ne surveille que le **serveur** : les sources client ont leur propre boucle (HMR Vite), les artefacts (`dist`) sont p…"
     },
     "resolveQueryDriver": {
       "name": "resolveQueryDriver",

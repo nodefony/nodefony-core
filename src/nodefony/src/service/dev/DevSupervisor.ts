@@ -61,6 +61,34 @@ const ANSI = {
 /** Frames braille du spinner de build (mêmes que le BootReporter enfant). */
 const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
+/**
+ * Ce chemin doit-il être IGNORÉ par le watch des sources backend ?
+ *
+ * Le superviseur ne surveille que le **serveur** : les sources client ont leur
+ * propre boucle (HMR Vite), les artefacts (`dist`) sont produits par le build, et
+ * les tests ne font pas partie du runtime.
+ *
+ * ⚠️ Le piège que cette fonction referme : « frontend » est un RÔLE (le dossier
+ * des sources SPA d'un module : `studio/frontend/`, `modules/x/frontend/`) **et**
+ * un NOM DE PAQUET (`@nodefony/frontend`, le builder Vite — qui est du code
+ * SERVEUR). Ignorer tout segment nommé `frontend` rendait le watch AVEUGLE sur
+ * tout ce paquet : on l'éditait, il ne se passait rien, jamais. On n'exclut donc
+ * le dossier `frontend` que lorsqu'il n'est PAS le paquet `@nodefony/frontend`.
+ *
+ * Fonction PURE (pas de fs) → testable sans chokidar ni serveur.
+ *
+ * @param p - chemin du fichier ou dossier (relatif au projet, ou absolu).
+ * @param isFile - `true` si l'entrée est un fichier (un non-`.ts` est alors ignoré).
+ */
+export function isIgnoredWatchPath(p: string, isFile = false): boolean {
+  // Sources client d'un module (HMR Vite) — mais PAS le paquet `@nodefony/frontend`.
+  if (/(^|[/\\])(?<!@nodefony[/\\])frontend([/\\]|$)/.test(p)) return true;
+  if (/(^|[/\\])(node_modules|dist|\.git|tests)([/\\]|$)/.test(p)) return true;
+  if (/\.(test|spec)\.ts$/.test(p)) return true;
+  if (isFile && !p.endsWith(".ts")) return true;
+  return false;
+}
+
 /** Au-delà de cette durée de vie, un crash n'est plus considéré « rapide ». */
 const FAST_CRASH_MS = 3000;
 /** Nombre maximal de redémarrages auto après un crash rapide (anti-boucle). */
@@ -1000,20 +1028,16 @@ export class DevSupervisor {
     this.#spawnChild();
   }
 
-  /** Surveillance chokidar des sources backend (frontend/dist/tests exclus). */
+  /**
+   * Surveillance chokidar des sources backend (sources client / dist / tests
+   * exclus — cf {@link isIgnoredWatchPath}, la règle EXACTE, testée à part).
+   */
   #startWatch(): void {
     this.#watcher = watch(this.#paths as string[], {
       cwd: this.#cwd,
       ignoreInitial: true,
-      ignored: (p: string, stats?: Stats) => {
-        if (
-          /(^|[/\\])(node_modules|dist|\.git|frontend|tests)([/\\]|$)/.test(p)
-        )
-          return true;
-        if (/\.(test|spec)\.ts$/.test(p)) return true;
-        if (stats?.isFile() && !p.endsWith(".ts")) return true;
-        return false;
-      },
+      ignored: (p: string, stats?: Stats) =>
+        isIgnoredWatchPath(p, stats?.isFile() ?? false),
     });
     this.#watcher.on("all", (_event, file: string) => {
       if (!file.endsWith(".ts")) return;
