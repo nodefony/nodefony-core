@@ -55,7 +55,15 @@
 - `[1× — 2026-07-12 nuit]` **Une fixture de test doit reproduire la DONNÉE RÉELLE, pas la donnée d'entrée** : `describe().zones[].pattern` = `RegExp.source` (V8 échappe les slashes `^\/nodefony\/…`) → le classement `startsWith("^/nodefony")` ne matchait JAMAIS en réel alors que mes tests (fixtures = pattern config non échappé) étaient verts. Attrapé par la sortie collée par le user. Fixture juste = `new RegExp(p).source`.
 - `[1× — 2026-07-12 nuit]` **Prouver un shape par le RUNTIME, pas par un DTO cousin** : `IUser` porte `identifier` (l'anonyme = `AnonymousUser` identifier `"anon."`, JAMAIS null en zone) ; le `username` de `/auth/me` est un RENOMMAGE du DTO. `who` restait « anonyme » même loggé — vu au curl réel, pas au typecheck (cast structurel silencieux).
 
+## 🎨 Front / Studio (chaud)
+
+- `[1× — 2026-07-13 soir]` **Mantine v9 : `Grid` n'a plus `gutter` → `gap`** (TS2322 au typecheck, pas au transform Vite). Réflexe : sur une prop Mantine douteuse, lire le `.d.ts` du composant (`node_modules/@mantine/core/lib/components/X/X.d.ts`), pas la mémoire des versions antérieures.
+- `[1× — 2026-07-13 soir]` **Une modif front Studio ne se voit dans une app `--link` (ui static) qu'après `npm run build:ui`** — le `dist/frontend` est l'UI servie, le HMR ne concerne que le repo self-hosted. Vérif : `grep <symbole> dist/frontend/assets`.
+
 ## 🖥️ CLI / tests e2e process
+
+- `[1× — 2026-07-13 soir]` **Banc repo et app user se disputent les ports 5151/5152** : 3 stop/start croisés dans la session (le user relance sa cci-app pendant le banc). Le filet strict d'hier a fait exactement son travail (refus de tuer l'app imbriquée + message actionnable) — la friction restante est la COORDINATION : annoncer au user quand on prend/rend les ports, et lui rendre la main dès le banc fini. Dette de fond : ports dev configurables par projet (collision aussi côté Vite 5173).
+- `[1× — 2026-07-13 soir]` **Le watch du DevSupervisor n'a pas réagi à des edits backend (core/http/realtime)** — aucun `↻ changement` au log après 20 s. Non diagnostiqué (peut-être anti-rebond ou scope du watch) ; réflexe appliqué : pour un banc de fermeture, `npm run build` manuel + restart = déterministe, ne pas dépendre du watch.
 
 - `[1× — 2026-07-13]` **`NODEFONY_DEV_PORTS` ne change que les ports SONDÉS, pas l'ÉCOUTE** : les ports d'écoute viennent de la config (`servers.http/https.port` dans nodefony.config.ts). Booter une 2ᵉ app dev à côté d'une autre = patcher LA CONFIG (+ env pour la sonde). Vécu 2× dans la session (demo-react, demo-front → EADDRINUSE).
 - `[1× — 2026-07-13]` **Le port Vite (5173) est FIXE → collision multi-projet dev** : la 2ᵉ app dev boote (backend OK) mais sa famille Vite meurt (« Port 5173 is already in use ») → front mort en silence relatif. Dette : dériver le port Vite des ports serveur ou le rendre configurable.
