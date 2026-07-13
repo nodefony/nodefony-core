@@ -12,6 +12,7 @@ import { Eta } from "eta";
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
 import {
   getScaffoldSpec,
+  CONTROLLER_KIND_CHOICES,
   type IScaffoldTypeSpec,
   type TControllerKindChoice,
   type TFrontendChoice,
@@ -552,12 +553,13 @@ export function runScaffold(
 
 /**
  * Scaffold IN-PROJECT d'un controller : résout la cible (app racine ou module),
- * rend le template de la saveur (`hello`/`realtime`/`rest`) dans
- * `<cible>/nodefony/controllers/` puis câble la classe dans le
+ * rend le template de la saveur (`hello`/`rest`/`duplex`/`realtime`/`example`)
+ * dans `<cible>/nodefony/controllers/` puis câble la classe dans le
  * `@controllers([...])` de l'`index.ts` cible.
  *
  * @throws hors projet, cible inconnue (le message liste les cibles), saveur
- *   realtime sans dep `@nodefony/realtime`, ou wiring impossible (actionnable).
+ *   realtime/duplex sans dep `@nodefony/realtime`, ou wiring impossible
+ *   (actionnable).
  */
 function runControllerScaffold(
   request: IScaffoldRequest,
@@ -590,7 +592,7 @@ function runControllerScaffold(
   const kebab = toKebabCase(base);
   const route = String(answers.route) || `/api/${kebab}`;
   // Capacités de la CIBLE (deps de son package.json) : les templates dégradent
-  // proprement — la vitrine rest ne montre les gardes sécurité que si la brique
+  // proprement — la vitrine example ne montre les gardes sécurité que si la brique
   // est là ; la saveur realtime, elle, n'a AUCUNE version dégradée → throw.
   const manifest = JSON.parse(
     readFileSync(path.join(target.dir, "package.json"), "utf8"),
@@ -600,9 +602,17 @@ function runControllerScaffold(
       Object.keys(manifest[b] ?? {}),
     ),
   );
-  if (kind === "realtime" && !targetDeps.has("@nodefony/realtime")) {
+  if (!CONTROLLER_KIND_CHOICES.includes(kind)) {
     throw new Error(
-      `la saveur realtime exige @nodefony/realtime dans ${target.name} — ` +
+      `saveur « ${String(kind)} » inconnue — choix : ${CONTROLLER_KIND_CHOICES.join(" | ")}`,
+    );
+  }
+  if (
+    (kind === "realtime" || kind === "duplex") &&
+    !targetDeps.has("@nodefony/realtime")
+  ) {
+    throw new Error(
+      `la saveur ${kind} exige @nodefony/realtime dans ${target.name} — ` +
         `ajoute la dep + use("@nodefony/realtime") au manifeste, ou choisis --kind hello`,
     );
   }
@@ -630,18 +640,27 @@ function runControllerScaffold(
     `./nodefony/controllers/${nameClass}`,
   );
   written.push("index.ts");
-  const notes =
-    kind === "realtime"
-      ? [
-          `WS   ${route}/realtime (socket Nodefony — canal ${kebab}:ticker, action ${kebab}:ping)`,
-        ]
-      : kind === "rest"
-        ? [
-            `REST ${route} (GET/POST) · ${route}/{id} (GET/PUT/DELETE)`,
-            `WS   ${route}/echo`,
-          ]
-        : [`GET  ${route}`, `WS   ${route}/echo`];
-  return { dest: target.dir, files: written.sort(), linked: [], notes };
+  const NOTES: Record<TControllerKindChoice, string[]> = {
+    hello: [`GET  ${route}`, `WS   ${route}/echo`],
+    rest: [`REST ${route} (GET/POST) · ${route}/{id} (GET/PUT/PATCH/DELETE)`],
+    duplex: [
+      `REST ${route} (GET/POST) · ${route}/{id} (GET/DELETE)`,
+      `WS   ${route}/realtime (socket Nodefony — mêmes actions via socket.request/mutate)`,
+    ],
+    realtime: [
+      `WS   ${route}/realtime (socket Nodefony — canal ${kebab}:ticker, action ${kebab}:ping)`,
+    ],
+    example: [
+      `REST ${route} (vitrine décorateurs — voir les curl du TSDoc généré)`,
+      `WS   ${route}/echo`,
+    ],
+  };
+  return {
+    dest: target.dir,
+    files: written.sort(),
+    linked: [],
+    notes: NOTES[kind],
+  };
 }
 
 /**

@@ -408,10 +408,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
-    it("rest complete : vitrine décorateurs (sécu + idempotence + session)", () => {
-      const dest = path.join(tmp, "rest");
-      scaffold(dest, { name: "rest", preset: "complete" });
-      controller(dest, { name: "item", kind: "rest", route: "/api/items" });
+    it("example complete : vitrine décorateurs (sécu + idempotence + session)", () => {
+      const dest = path.join(tmp, "exfull");
+      scaffold(dest, { name: "exfull", preset: "complete" });
+      controller(dest, { name: "item", kind: "example", route: "/api/items" });
       const src = readFileSync(
         path.join(dest, "nodefony", "controllers", "ItemController.ts"),
         "utf8",
@@ -449,10 +449,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
-    it("rest minimal : vitrine DÉGRADÉE sans security (aucun import mort)", () => {
-      const dest = path.join(tmp, "restmin");
-      scaffold(dest, { name: "restmin", preset: "minimal" });
-      controller(dest, { name: "item", kind: "rest" });
+    it("example minimal : vitrine DÉGRADÉE sans security (aucun import mort)", () => {
+      const dest = path.join(tmp, "exmin");
+      scaffold(dest, { name: "exmin", preset: "minimal" });
+      controller(dest, { name: "item", kind: "example" });
       const src = readFileSync(
         path.join(dest, "nodefony", "controllers", "ItemController.ts"),
         "utf8",
@@ -468,6 +468,83 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, "ajoute `@nodefony/security`");
       // @CurrentUser vient du framework (lit l'ALS) → présent MÊME sans security.
       assert.include(src, "@CurrentUser()");
+    });
+
+    it("rest : CRUD de production HTTP pur (pas de zoo, pas de WS)", () => {
+      const dest = path.join(tmp, "restpur");
+      scaffold(dest, { name: "restpur", preset: "complete" });
+      controller(dest, { name: "item", kind: "rest", route: "/api/items" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "ItemController.ts"),
+        "utf8",
+      );
+      for (const marker of [
+        '@controller("/api/items")',
+        '@Get("")',
+        '@Get("/{id}")',
+        '@Post("")',
+        '@Put("/{id}")',
+        '@Patch("/{id}")',
+        '@Delete("/{id}")',
+        "@HttpCode(201)",
+        "@Idempotent()",
+        "@CurrentUser()",
+        // complete → security : delete protégée par rôle.
+        '@IsGranted("ROLE_ADMIN")',
+        "HttpError",
+      ]) {
+        assert.include(src, marker, `manque ${marker}`);
+      }
+      // REST pur : aucun transport WS, aucun décorateur de la vitrine.
+      assert.notInclude(src, "WEBSOCKET");
+      assert.notInclude(src, "@UseSession");
+      assert.notInclude(src, "@UploadedFile");
+      assert.notInclude(src, "RequestContext");
+      // minimal (sans security) : delete dégradée SANS @IsGranted, zéro import mort.
+      const mini = path.join(tmp, "restpurmin");
+      scaffold(mini, { name: "restpurmin", preset: "minimal" });
+      controller(mini, { name: "item", kind: "rest" });
+      const srcMin = readFileSync(
+        path.join(mini, "nodefony", "controllers", "ItemController.ts"),
+        "utf8",
+      );
+      assert.notInclude(srcMin, "@IsGranted");
+      assert.notInclude(srcMin, "@nodefony/user");
+      assert.include(srcMin, '@Delete("/{id}")');
+    });
+
+    it("duplex : mêmes actions REST + socket (pont api.request) ; garde dep realtime", () => {
+      const dest = path.join(tmp, "duplex");
+      scaffold(dest, { name: "duplex", preset: "complete" });
+      controller(dest, { name: "item", kind: "duplex", route: "/api/items" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "ItemController.ts"),
+        "utf8",
+      );
+      for (const marker of [
+        "extends RealtimeController",
+        // Le PONT opt-in : sans cet override, api.request n'existe pas.
+        "realtimeApiRequest(): boolean",
+        // Transports déclarés route par route (zéro bypass).
+        'methods: ["GET", "WEBSOCKET"]',
+        'methods: ["POST", "WEBSOCKET"]',
+        'methods: ["DELETE", "WEBSOCKET"]',
+        "@Idempotent()",
+        "@CurrentUser()",
+        // Le TSDoc client montre les DEUX portes.
+        "socket.request(",
+        "socket.mutate(",
+        "idempotencyKey",
+      ]) {
+        assert.include(src, marker, `manque ${marker}`);
+      }
+      // minimal sans @nodefony/realtime → garde actionnable (comme realtime).
+      const mini = path.join(tmp, "duplexmin");
+      scaffold(mini, { name: "duplexmin", preset: "minimal" });
+      assert.throws(
+        () => controller(mini, { name: "item", kind: "duplex" }),
+        /@nodefony\/realtime/u,
+      );
     });
 
     it("cible --module : écrit dans modules/<x> + wiring de SON index.ts", () => {

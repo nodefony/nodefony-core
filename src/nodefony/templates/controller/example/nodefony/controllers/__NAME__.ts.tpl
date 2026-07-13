@@ -41,8 +41,10 @@ interface IItem {
 }
 
 /**
- * <%= it.nameClass %> — resource REST **vitrine des décorateurs Nodefony** :
+ * <%= it.nameClass %> — **vitrine des décorateurs Nodefony** (saveur `example`) :
  * chaque action montre une capacité du pipeline, commentée et testable au curl.
+ * Pour un squelette de PRODUCTION, préfère `--kind rest` (CRUD pur) ou
+ * `--kind duplex` (la même ressource en HTTP ET par la socket Nodefony).
  *
  *  - CRUD complet : `@Get`/`@Post`/`@Put`/`@Patch`/`@Delete` + `@Param`/`@Body`/`@Query`
  *  - Réponse : `@HttpCode`, `@Header`, `@Redirect`

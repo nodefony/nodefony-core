@@ -115,7 +115,13 @@ const APP_SPEC: IScaffoldTypeSpec = {
 };
 
 /** Saveurs de controller : le WS est TOUJOURS là (différenciateur Nodefony). */
-export const CONTROLLER_KIND_CHOICES = ["hello", "realtime", "rest"] as const;
+export const CONTROLLER_KIND_CHOICES = [
+  "hello",
+  "rest",
+  "duplex",
+  "realtime",
+  "example",
+] as const;
 export type TControllerKindChoice = (typeof CONTROLLER_KIND_CHOICES)[number];
 
 const CONTROLLER_SPEC: IScaffoldTypeSpec = {
@@ -144,14 +150,24 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
           hint: "GET JSON + echo WS dans la MÊME classe — le différenciateur Nodefony",
         },
         {
+          value: "rest",
+          label: "REST resource",
+          hint: "CRUD de production (list/get/create/update/delete) — HTTP pur",
+        },
+        {
+          value: "duplex",
+          label: "Duplex REST + socket (api.request)",
+          hint: "les MÊMES actions CRUD en HTTP ET par socket.request/mutate (@nodefony/realtime)",
+        },
+        {
           value: "realtime",
           label: "Realtime (socket Nodefony)",
           hint: "canaux pub/sub + actions RPC via RealtimeController (@nodefony/realtime)",
         },
         {
-          value: "rest",
-          label: "REST resource",
-          hint: "squelette CRUD (list/get/create/update/delete) + echo WS",
+          value: "example",
+          label: "Vitrine des décorateurs",
+          hint: "démo pédagogique : TOUS les décorateurs commentés + curl d'essai",
         },
       ],
       default: "hello",
