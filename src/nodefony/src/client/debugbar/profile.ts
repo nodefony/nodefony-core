@@ -71,6 +71,9 @@ const PHASE_TIER: Record<string, string> = {
   parse: "parse",
   resolve: "resolve",
   firewall: "firewall",
+  // Porte socket : re-validation de l'identité du peer à chaque frame (lecture
+  // du store de session) — famille sécurité, mais distincte du firewall HTTP.
+  identity: "identity",
   initialize: "init",
   action: "action",
   render: "render",

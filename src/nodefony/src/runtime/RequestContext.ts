@@ -91,6 +91,16 @@ export interface RequestContextPayload {
    * `RequestContext.run` → zéro bleed entre frames concurrentes d'une socket.
    */
   renderSink?: { body?: string | Buffer };
+  /**
+   * Profil de l'**invocation** en cours (`FrameProfile` de `@nodefony/http`),
+   * posé par le pont WS-RPC. Porte les phases et le buffer ORM de CETTE frame :
+   * le contexte WebSocket, lui, vit pour toute la connexion — y empiler des
+   * phases produirait une timeline cumulative, donc fausse. Typé `unknown` (le
+   * core ne connaît pas `@nodefony/http`) ; absent en HTTP, où le contexte EST
+   * l'unité de requête. Présent seulement quand le profiler dev ou le timing
+   * sont actifs.
+   */
+  invocation?: unknown;
   [key: string]: unknown;
 }
 

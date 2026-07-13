@@ -27,6 +27,9 @@ const PHASE_COLORS: Record<string, string> = {
   parse: "#4c9aff",
   resolve: "#3aa0ff",
   firewall: "#ff8a3d",
+  // Porte socket : re-validation d'identité par frame (lecture du store de
+  // session) — famille sécurité, distincte du firewall (couleurs de la debugbar).
+  identity: "#ff5c8a",
   init: "#a06bff",
   action: "#36b37e",
   render: "#ffab00",

@@ -78,6 +78,42 @@ export class RpcError extends Error {
   }
 }
 
+/**
+ * Métadonnées **serveur** d'une réponse RPC — transportées À CÔTÉ du `result`,
+ * jamais dedans (le `result` d'`api.request` doit rester identique à ce que
+ * rendrait la même route en REST : « snapshot ≡ GET REST » par construction).
+ *
+ * Aujourd'hui : `requestId` (dev) = la clé du profil de la frame dans le
+ * Profiler → le client peut aller chercher sa radiographie. Champ ouvert :
+ * un pair qui n'en connaît pas les clés l'ignore (rétro-compatible).
+ */
+export interface RpcMeta {
+  /** Identifiant du profil de CETTE invocation (`<connexion>.<n° de frame>`). */
+  requestId?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Réponse d'un handler qui veut JOINDRE des métadonnées serveur à son résultat.
+ *
+ * Un handler retourne normalement sa valeur nue (elle devient `result`). Quand
+ * il retourne une enveloppe, le peer la déballe : `result` reste la valeur nue,
+ * et `meta` voyage dans un champ frère de la trame JSON-RPC. Coût pour ceux qui
+ * ne l'utilisent pas : un `instanceof` par frame.
+ */
+export class RpcEnvelope<T = unknown> {
+  constructor(
+    readonly result: T,
+    readonly meta: RpcMeta,
+  ) {}
+}
+
+/** Résultat d'un appel sortant tracé : la valeur + la méta serveur. */
+export interface RpcTracedResult<T = unknown> {
+  result: T;
+  meta?: RpcMeta;
+}
+
 /** Handler d'une action (requête→réponse). Sync ou async ; throw → `-32603`. */
 export type RpcActionHandler = (params: unknown) => unknown | Promise<unknown>;
 
@@ -95,10 +131,7 @@ export type RpcNotificationHandler<
 
 /** Nature d'une frame entrante (renvoyée par {@link JsonRpcPeer.handleFrame}). */
 export type JsonRpcFrameKind =
-  | "request"
-  | "notification"
-  | "response"
-  | "invalid";
+  "request" | "notification" | "response" | "invalid";
 
 /**
  * Motif d'un évènement audit protocolaire (consommé par P6.14 `AuditEventEntity`) :
@@ -108,10 +141,7 @@ export type JsonRpcFrameKind =
  *  - `internal_error`    : handler d'action a throw (`-32603` envoyée, détail loggé via `onError` — Zero Trust : pas renvoyé au pair).
  */
 export type FrameAuditReason =
-  | "invalid"
-  | "denied"
-  | "method_not_found"
-  | "internal_error";
+  "invalid" | "denied" | "method_not_found" | "internal_error";
 
 export interface JsonRpcPeerOptions<
   Emit extends EventsMap = DefaultEventsMap,
@@ -224,6 +254,8 @@ interface PendingCall {
   /** Mode streaming : chunks accumulés jusqu'au `done`. */
   onChunk?: (chunk: unknown) => void;
   chunks?: unknown[];
+  /** Appel tracé : la promesse rend `{ result, meta }` au lieu du `result` nu. */
+  withMeta?: boolean;
 }
 
 /** Une réponse JSON-RPC entrante (succès, erreur, ou chunk de stream). */
@@ -232,6 +264,8 @@ interface JsonRpcInboundResponse {
   result?: unknown;
   error?: JsonRpcErrorObject;
   stream?: { chunk: unknown; done: boolean };
+  /** Métadonnées serveur (dev) — champ frère du `result`, cf {@link RpcMeta}. */
+  meta?: RpcMeta;
 }
 
 export class JsonRpcPeer<
@@ -279,6 +313,28 @@ export class JsonRpcPeer<
     timeoutMs = 30000,
   ): Promise<ActionResult<Actions, K>> {
     return this.startCall<ActionResult<Actions, K>>(method, params, timeoutMs);
+  }
+
+  /**
+   * Requête SORTANTE **tracée** — rend `{ result, meta }` au lieu du `result` nu.
+   *
+   * Même appel que {@link request} : la seule différence est que l'appelant
+   * garde la méta serveur (en dev, le `requestId` du profil de la frame → sa
+   * radiographie). Un serveur qui n'en émet pas laisse simplement `meta`
+   * absent.
+   */
+  requestTraced<K extends ActionNames<Actions>>(
+    method: K,
+    params?: ActionParams<Actions, K>,
+    timeoutMs = 30000,
+  ): Promise<RpcTracedResult<ActionResult<Actions, K>>> {
+    return this.startCall<RpcTracedResult<ActionResult<Actions, K>>>(
+      method,
+      params,
+      timeoutMs,
+      undefined,
+      true,
+    );
   }
 
   /**
@@ -391,6 +447,7 @@ export class JsonRpcPeer<
     params: unknown,
     timeoutMs: number,
     onChunk?: (chunk: unknown) => void,
+    withMeta?: boolean,
   ): Promise<T> {
     const id = this.nextId++;
     const pending = (this.pending ??= new Map<number, PendingCall>());
@@ -411,6 +468,7 @@ export class JsonRpcPeer<
         timer,
         onChunk,
         chunks: onChunk ? [] : undefined,
+        withMeta,
       });
       this.opts.send({ jsonrpc: "2.0", id, method, params });
     });
@@ -435,7 +493,20 @@ export class JsonRpcPeer<
     Promise.resolve()
       .then(() => handler(params))
       .then(
-        (result) => this.opts.send({ jsonrpc: "2.0", id, result }),
+        (result) => {
+          // Le handler a JOINT une méta serveur (dev : l'id du profil de la
+          // frame) → elle voyage en champ FRÈRE, le `result` reste la valeur nue.
+          if (result instanceof RpcEnvelope) {
+            this.opts.send({
+              jsonrpc: "2.0",
+              id,
+              result: result.result,
+              meta: result.meta,
+            });
+            return;
+          }
+          this.opts.send({ jsonrpc: "2.0", id, result });
+        },
         (err: unknown) => {
           // Erreur APPLICATIVE assumée (RpcError) → renvoyée fidèlement au pair
           // (pas un internal_error : ni onError ni audit — le handler a choisi
@@ -486,7 +557,11 @@ export class JsonRpcPeer<
     }
     if ("result" in msg) {
       this.pending.delete(msg.id);
-      pending.resolve(msg.result);
+      // Appel tracé → l'appelant reçoit la méta serveur avec le résultat ; appel
+      // ordinaire → il ne voit que le `result` (contrat historique inchangé).
+      pending.resolve(
+        pending.withMeta ? { result: msg.result, meta: msg.meta } : msg.result,
+      );
     }
   }
 }

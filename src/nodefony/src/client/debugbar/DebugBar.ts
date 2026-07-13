@@ -328,6 +328,7 @@ const STYLES = `
 .wf-bar.firewall { background:#ff8a3d; } .wf-bar.init { background:#a06bff; }
 .wf-bar.action { background:#36b37e; } .wf-bar.render { background:#ffab00; }
 .wf-bar.send { background:#00b8d9; } .wf-bar.other { background:#8a9099; }
+.wf-bar.identity { background:#ff5c8a; }
 .det-loading,.det-err { color:var(--muted); padding:6px 0; } .det-err { color:var(--crit); }
 
 /* Network pane = split DevTools : liste (scroll) + détail (scroll), détail

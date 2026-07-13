@@ -30,6 +30,7 @@ export type {
   MessageStats,
   RealtimeFrame,
   KernelPingResult,
+  IApiCallResult,
 } from "./realtime/RealtimeClient";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
 export type {

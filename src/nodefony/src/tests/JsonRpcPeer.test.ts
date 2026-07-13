@@ -1,5 +1,9 @@
 import { expect } from "chai";
-import { JsonRpcPeer, RpcError } from "../realtime/JsonRpcPeer";
+import { JsonRpcPeer, RpcError, RpcEnvelope } from "../realtime/JsonRpcPeer";
+
+/** Sucre local : une enveloppe (valeur + méta serveur) rendue par un handler. */
+const RpcEnvelopeOf = (result: unknown, meta: Record<string, unknown>) =>
+  new RpcEnvelope(result, meta);
 
 /**
  * JsonRpcPeer = moteur protocole isomorphe. Tests purs : `send` est capturé dans un
@@ -436,6 +440,57 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       expect((sent[0] as { error: { code: number } }).error.code).to.equal(
         -32603,
       );
+    });
+  });
+
+  describe("RpcEnvelope — méta serveur À CÔTÉ du result", () => {
+    it("handler qui rend une enveloppe → frame {result, meta}, result NU (contrat REST préservé)", async () => {
+      const { peer, sent } = newPeer();
+      peer.register("api.request", () =>
+        RpcEnvelopeOf({ modules: 3 }, { requestId: "abc.1" }),
+      );
+      peer.receive({ jsonrpc: "2.0", id: 7, method: "api.request" });
+      await flush();
+      const frame = sent[0] as {
+        result: unknown;
+        meta?: { requestId?: string };
+      };
+      // Le `result` reste la valeur nue — la méta n'y est PAS mélangée.
+      expect(frame.result).to.deep.equal({ modules: 3 });
+      expect(frame.meta?.requestId).to.equal("abc.1");
+    });
+
+    it("handler qui rend une valeur nue → aucun champ meta (0 octet de plus en prod)", async () => {
+      const { peer, sent } = newPeer();
+      peer.register("api.request", () => ({ modules: 3 }));
+      peer.receive({ jsonrpc: "2.0", id: 8, method: "api.request" });
+      await flush();
+      expect(sent[0]).to.not.have.property("meta");
+    });
+
+    it("requestTraced() → { result, meta } ; request() → result nu (contrat inchangé)", async () => {
+      const { peer, sent } = newPeer();
+      const traced = peer.requestTraced("api.request", { path: "/x" } as never);
+      const plain = peer.request("api.request", { path: "/y" } as never);
+      const ids = sent.map((f) => (f as { id: number }).id);
+      peer.receive({
+        jsonrpc: "2.0",
+        id: ids[0],
+        result: { a: 1 },
+        meta: { requestId: "conn.1" },
+      });
+      peer.receive({
+        jsonrpc: "2.0",
+        id: ids[1],
+        result: { b: 2 },
+        meta: { requestId: "conn.2" },
+      });
+      expect(await traced).to.deep.equal({
+        result: { a: 1 },
+        meta: { requestId: "conn.1" },
+      });
+      // L'appel ordinaire ignore la méta : il rend la valeur, comme avant.
+      expect(await plain).to.deep.equal({ b: 2 });
     });
   });
 

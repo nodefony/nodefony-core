@@ -13,6 +13,10 @@ import { URL } from "node:url";
 import { HTTPMethod } from "../Context.js";
 import HttpError from "../../errors/httpError.js";
 import { sanitizeRequestId } from "../requestId.js";
+import { FrameProfile } from "../../profiler/FrameProfile.js";
+import type { ProfiledArea } from "../../profiler/FrameProfile.js";
+import type { Profiler } from "../../profiler/Profiler.js";
+import type { PhaseName } from "../../../interfaces/IContext.js";
 import { ProxyType } from "../http/HttpContext.js";
 import { formatWsLogContent } from "./wsLogContent.js";
 import {
@@ -99,6 +103,10 @@ export default class WebsocketContext
   queryGet: Record<string, string> = {};
   queryRequest: Record<string, string> = {};
   wsPath: string = "";
+  // Numéro de la prochaine invocation du pont sur CETTE connexion — donne au
+  // profil de chaque frame un identifiant stable et ordonné. Un compteur (8
+  // octets) par socket, jamais lu en production.
+  #frameSeq = 0;
 
   constructor(scope: Scope, req: IncomingMessage, ws: Ws, type: ServerType) {
     super(scope, type);
@@ -397,6 +405,75 @@ export default class WebsocketContext
     }
     if (!wsContentLogging) return;
     this.log(formatWsLogContent(data), "DEBUG", `WS ${dir}`);
+  }
+
+  /**
+   * Ouvre le profil d'**une invocation** du pont RPC (une frame `api.request`).
+   *
+   * Le contexte WS vit pour la CONNEXION : ses `phases` sont cumulatives et son
+   * `requestId` est unique pour toute la socket. Une frame reçoit donc son
+   * propre profil, identifié `<requestId de la connexion>.<n° de frame>` — le
+   * `id` JSON-RPC ne peut pas servir de clé : il est choisi par le client.
+   *
+   * @param method - méthode LOGIQUE de l'invocation (`GET`, `POST`…).
+   * @param url - chemin invoqué par la frame (jamais l'URL de la connexion).
+   * @returns le profil, ou `null` si profiler ET timing sont éteints (prod) —
+   *          zéro allocation dans ce cas.
+   */
+  beginFrame(method: string, url: string): FrameProfile | null {
+    if (!this.profiling && !this.timingEnabled) return null;
+    this.#frameSeq += 1;
+    return new FrameProfile({
+      requestId: `${this.requestId}.${this.#frameSeq}`,
+      type: this.type,
+      scheme: this.scheme,
+      method,
+      url,
+      remoteAddress: this.remoteAddress ?? null,
+      traceparent: this.traceparent,
+      // Zone + décision du handshake : c'est de là que la frame tient son
+      // identité (re-validée à chaque invocation par `token.isValid()`).
+      security: (this as { security?: ProfiledArea | null }).security ?? null,
+      securityTrace: this.securityTrace,
+      timing: this.timingEnabled,
+      queries: this.profiling,
+    });
+  }
+
+  /**
+   * Enregistre le profil d'une invocation terminée dans le ring buffer du
+   * Profiler (no-op hors dev, ou si aucun profil n'a été ouvert).
+   */
+  collectFrame(frame: FrameProfile | null): void {
+    if (frame === null || !this.profiling) return;
+    this.get<Profiler>("profiler")?.collect(frame);
+  }
+
+  /**
+   * Les phases émises pendant une invocation du pont (`initialize` par le
+   * Resolver, `render` par le Controller…) vont dans le profil de **la frame**,
+   * pas du contexte : sans cette redirection, `Context.phases` accumulerait deux
+   * entrées par message pour toute la vie de la socket (timeline cumulative
+   * ET croissance sans borne). Hors invocation (handshake), comportement de base.
+   */
+  override phaseStart(name: PhaseName): void {
+    if (!this.timingEnabled) return;
+    const frame = RequestContext.get()?.invocation as FrameProfile | undefined;
+    if (frame) {
+      frame.phaseStart(name);
+      return;
+    }
+    super.phaseStart(name);
+  }
+
+  override phaseEnd(name: PhaseName): void {
+    if (!this.timingEnabled) return;
+    const frame = RequestContext.get()?.invocation as FrameProfile | undefined;
+    if (frame) {
+      frame.phaseEnd(name);
+      return;
+    }
+    super.phaseEnd(name);
   }
 
   async handleMessage(data: Buffer | string, isBinary: boolean) {

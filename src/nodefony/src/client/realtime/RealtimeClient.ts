@@ -24,7 +24,18 @@ import {
   JsonRpcPeer,
   type IRealtimePeer,
   type JsonRpcFrameKind,
+  type RpcTracedResult,
 } from "../../realtime/JsonRpcPeer";
+
+/**
+ * Enveloppe d'un appel {@link RealtimeClient.call} : la valeur rendue par la
+ * route, et l'identifiant du profil serveur de cette frame (dev — `null` en
+ * production, où le serveur n'émet aucune méta).
+ */
+export interface IApiCallResult<T = unknown> {
+  result: T;
+  requestId: string | null;
+}
 import {
   TransportState,
   type IRealtimeTransport,
@@ -73,11 +84,7 @@ export type {
 } from "../../realtime/RealtimeEventMap";
 
 export type RealtimeState =
-  | "disconnected"
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "error";
+  "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
 
 export interface RealtimeOptions {
   url?: string;
@@ -632,6 +639,53 @@ export class RealtimeClient<
       } as never,
       init.timeoutMs ?? 30000,
     ) as Promise<T>;
+  }
+
+  /**
+   * Appel API par la socket rendant l'**enveloppe complète** — le résultat ET
+   * la méta serveur — là où {@link request}/{@link mutate} ne rendent que la
+   * valeur (forme courante, contrat « snapshot ≡ GET REST »).
+   *
+   * Utile à l'outillage plus qu'aux applications : en développement, le serveur
+   * joint le `requestId` du profil de CETTE frame, ce qui permet d'aller lire sa
+   * radiographie (`GET /nodefony/profiler/api/{requestId}` — phases, SQL,
+   * décision du firewall). En production le serveur n'émet aucune méta :
+   * `requestId` vaut alors `null`, et l'appel coûte exactement le même trafic.
+   *
+   * ```ts
+   * const { result, requestId } = await socket.call("/nodefony/kernel/api/modules");
+   * ```
+   *
+   * Échec → rejet {@link RpcError}, comme {@link request} ; l'id du profil, lui,
+   * voyage dans `error.data.requestId` (un refus se radiographie aussi).
+   *
+   * @param path - chemin de la route (transport WEBSOCKET requis côté serveur).
+   * @param init - méthode logique (défaut `GET`), corps, clé d'idempotence.
+   */
+  async call<T = unknown>(
+    path: `/${string}`,
+    init?: {
+      method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+      body?: unknown;
+      idempotencyKey?: string;
+      timeoutMs?: number;
+    },
+  ): Promise<IApiCallResult<T>> {
+    const traced = await this.peer.requestTraced(
+      "api.request" as never,
+      {
+        path,
+        method: init?.method ?? "GET",
+        body: init?.body,
+        idempotencyKey: init?.idempotencyKey,
+      } as never,
+      init?.timeoutMs ?? 30000,
+    );
+    const { result, meta } = traced as RpcTracedResult<T>;
+    return {
+      result,
+      requestId: typeof meta?.requestId === "string" ? meta.requestId : null,
+    };
   }
 
   /**

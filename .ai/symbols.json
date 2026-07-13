@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-13T20:04:50.471Z",
+  "generated": "2026-07-13T21:09:19.316Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1015,
-    "symbols": 2635,
-    "classes": 319,
-    "interfaces": 691,
+    "symbols": 2645,
+    "classes": 321,
+    "interfaces": 697,
     "types": 304,
     "enums": 4,
-    "functions": 757,
+    "functions": 759,
     "constants": 560
   },
   "symbols": {
@@ -1781,6 +1781,17 @@
       "implements": [],
       "decorators": []
     },
+    "RpcEnvelope": {
+      "name": "RpcEnvelope",
+      "kind": "class",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Réponse d'un handler qui veut JOINDRE des métadonnées serveur à son résultat. Un handler retourne normalement sa valeur nue (elle devient `result`). Quand il retourne une enveloppe, le peer la déba…"
+    },
     "JsonRpcPeer": {
       "name": "JsonRpcPeer",
       "kind": "class",
@@ -1801,6 +1812,24 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Erreur JSON-RPC 2.0 (objet `error` d'une réponse)."
+    },
+    "RpcMeta": {
+      "name": "RpcMeta",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Métadonnées **serveur** d'une réponse RPC — transportées À CÔTÉ du `result`, jamais dedans (le `result` d'`api.request` doit rester identique à ce que rendrait la même route en REST : « snapshot ≡ …"
+    },
+    "RpcTracedResult": {
+      "name": "RpcTracedResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat d'un appel sortant tracé : la valeur + la méta serveur."
     },
     "JsonRpcPeerOptions": {
       "name": "JsonRpcPeerOptions",
@@ -3458,6 +3487,15 @@
         "IRealtimePeer"
       ],
       "decorators": []
+    },
+    "IApiCallResult": {
+      "name": "IApiCallResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Enveloppe d'un appel {@link RealtimeClient.call} : la valeur rendue par la route, et l'identifiant du profil serveur de cette frame (dev — `null` en production, où le serveur n'émet aucune méta)."
     },
     "RealtimeOptions": {
       "name": "RealtimeOptions",
@@ -15999,6 +16037,44 @@
       "implements": [],
       "decorators": []
     },
+    "FrameProfile": {
+      "name": "FrameProfile",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Profil d'**une invocation** du pont RPC (une frame `api.request`), et non de la connexion qui la porte. Pourquoi un objet séparé du `Context` : un `WebsocketContext` vit pour toute la **connexion**…"
+    },
+    "ProfiledArea": {
+      "name": "ProfiledArea",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Zone firewall capturée sur le contexte (`SecuredArea`, lue en structurel : `@nodefony/http` ne peut pas importer `@nodefony/security`)."
+    },
+    "ProfiledResolver": {
+      "name": "ProfiledResolver",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce que le Profiler lit d'un Resolver (route/controller/action)."
+    },
+    "FrameProfileInit": {
+      "name": "FrameProfileInit",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Descripteur d'ouverture d'une invocation (ce que le pont connaît d'entrée)."
+    },
     "Profiler": {
       "name": "Profiler",
       "kind": "class",
@@ -20491,7 +20567,8 @@
       "Profiler": [
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts"
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "SessionsService": [
         "src/packages/@nodefony/http/index.ts",
@@ -21829,6 +21906,9 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "JsonRpcFrameKind": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "RpcTracedResult": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "RealtimeTransportFactory": [
@@ -23266,7 +23346,8 @@
       "PhaseTiming": [
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts"
       ],
       "IErrorRenderer": [
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
@@ -23840,7 +23921,8 @@
       ],
       "ISecurityTrace": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts"
       ],
       "encoderFromConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
@@ -25455,7 +25537,8 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "IProfilerQuery": [
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts"
       ],
       "buildMetaData": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
@@ -25486,7 +25569,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "PhaseName": [
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "AfterResponseHandler": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
@@ -25592,7 +25677,13 @@
       "readOrmHealth": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
       ],
+      "RpcEnvelope": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
       "JsonRpcPeerOptions": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "ProfiledResolver": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "RawWsConnection": [
@@ -25838,6 +25929,12 @@
       ],
       "WsSendDecision": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+      ],
+      "FrameProfile": [
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "ProfiledArea": [
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "ProxyType": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"

@@ -196,17 +196,21 @@ function FirewallCard({ security }: { security: ProfileSecurity }) {
 }
 
 export interface RadiographyProps {
-  /** `x-request-id` de la réponse — `null` = porte sans traçabilité (socket). */
+  /**
+   * Identifiant du profil serveur — en HTTP le `x-request-id` de la réponse, en
+   * socket l'id de la frame rendu par le pont. `null` = rien à radiographier.
+   */
   requestId: string | null;
+  /** Porte empruntée — affichée dans le titre quand les deux sont comparées. */
+  transport?: "http" | "socket";
 }
 
 /** Panneau « radiographie » sous les résultats d'une exécution Playground. */
-export function Radiography({ requestId }: RadiographyProps) {
+export function Radiography({ requestId, transport }: RadiographyProps) {
   const { profile, error, loading } = useProfile(requestId);
 
   if (!requestId) {
-    // Fail-loud : jamais une case vide sans dire POURQUOI elle est vide. Deux
-    // causes possibles, toutes deux vraies ici — pas d'identifiant de requête.
+    // Fail-loud : jamais une case vide sans dire POURQUOI elle est vide.
     return (
       <Alert
         variant="light"
@@ -214,12 +218,12 @@ export function Radiography({ requestId }: RadiographyProps) {
         icon={<IconRadar2 size={16} />}
         title="Radiographie indisponible : aucune réponse tracée"
       >
-        La traversée s'indexe sur le <code>x-request-id</code> de la réponse. Le
-        pont socket (<code>api.request</code>) n'en émet pas encore : le
-        contexte WebSocket vit pour toute la connexion, pas pour un message — un
-        profil par frame reste à concevoir. Et une requête HTTP qui n'aboutit
-        pas (erreur réseau) n'a, elle, aucune réponse à tracer. Rejouez sur la
-        porte HTTP.
+        La traversée s'indexe sur l'identifiant du profil serveur (
+        <code>x-request-id</code> en HTTP, id de frame rendu par le pont en
+        socket). Une requête qui n'aboutit pas (erreur réseau) n'a rien à
+        tracer, et une frame refusée <em>avant</em> le pont (firewall de frame,{" "}
+        <code>-32001</code>) n'a jamais été exécutée : il n'y a pas de traversée
+        à montrer. Rejouez la requête.
       </Alert>
     );
   }
@@ -253,6 +257,11 @@ export function Radiography({ requestId }: RadiographyProps) {
         <IconRadar2 size={16} />
         <Text size="sm" fw={600}>
           Radiographie
+          {transport === "socket"
+            ? " · porte Socket"
+            : transport === "http"
+              ? " · porte HTTP"
+              : ""}
         </Text>
         <Text size="xs" c="dimmed">
           {fmtMs(profile.durationMs)} serveur · {profile.user ?? "anonyme"}

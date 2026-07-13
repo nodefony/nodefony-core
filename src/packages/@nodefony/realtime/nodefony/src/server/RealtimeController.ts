@@ -1,6 +1,7 @@
 import {
   JsonRpcPeer,
   RpcError,
+  RpcEnvelope,
   RequestContext,
   type RpcActionHandler,
   type JsonRpcPeerOptions,
@@ -16,7 +17,7 @@ import {
   type ActionParams,
   type ActionResult,
 } from "nodefony";
-import type { WebsocketContext } from "@nodefony/http";
+import type { WebsocketContext, ProfiledResolver } from "@nodefony/http";
 import { Controller } from "@nodefony/framework";
 import {
   WsConnectionTransport,
@@ -42,6 +43,61 @@ import {
   getRealtimeChannelPolicies,
   type RealtimeChannelFactory,
 } from "../../decorators/realtimeDecorators";
+
+/**
+ * Statut HTTP-équivalent d'une erreur survenue pendant une invocation du pont.
+ *
+ * UNE seule lecture pour les trois sources possibles — la `RpcError` déjà mappée
+ * (404 d'un path inconnu…), le `nodefonyError` HTTP-like levé par une action ou
+ * une garde (`@IsGranted` → 403), et le `HttpError` 405 agrégé du Router. Écrire
+ * ce test à trois endroits l'aurait fait diverger (règle : une décision, une
+ * fonction).
+ *
+ * @returns le statut, ou `null` si l'erreur n'est pas HTTP-like (→ opaque).
+ */
+function httpStatusOfFrameError(e: unknown): number | null {
+  if (e instanceof RpcError) {
+    const status = (e.data as { status?: unknown } | undefined)?.status;
+    if (typeof status === "number") return status;
+    // Params invalides (JSON-RPC 2.0 §5.1 `-32602`) = requête malformée.
+    return e.code === -32602 ? 400 : null;
+  }
+  const code = (e as { code?: unknown }).code;
+  return typeof code === "number" && code >= 400 && code <= 599 ? code : null;
+}
+
+/**
+ * Erreur renvoyée au pair pour une invocation en échec.
+ *
+ * Un refus est une RÉPONSE (statut exposé, symétrie d'un `fetch`) ; une panne
+ * reste OPAQUE (`-32603` générique côté peer — Zero Trust). En profiling, l'id
+ * du profil est joint aux refus : le client peut alors radiographier son propre
+ * refus (le 403 `@IsGranted` devient pédagogique au lieu d'être un mur).
+ */
+function toFrameRpcError(
+  e: unknown,
+  status: number | null,
+  requestId?: string,
+): unknown {
+  if (e instanceof RpcError) {
+    if (!requestId) return e;
+    const data =
+      typeof e.data === "object" && e.data !== null
+        ? { ...(e.data as Record<string, unknown>), requestId }
+        : { requestId };
+    return new RpcError(e.message, e.code, data);
+  }
+  if (status !== null) {
+    const data: Record<string, unknown> = { status };
+    if (requestId) data.requestId = requestId;
+    return new RpcError(
+      e instanceof Error ? e.message : String(e),
+      -32000,
+      data,
+    );
+  }
+  return e;
+}
 
 /** État realtime PAR connexion ws, stocké sur le contexte (persiste entre messages). */
 interface RealtimeConnState {
@@ -666,154 +722,169 @@ export abstract class RealtimeController<
     // Query du path INVOQUÉ séparée avant le match (le Router matche un pathname).
     const qIdx = path.indexOf("?");
     const pathname = qIdx === -1 ? path : path.slice(0, qIdx);
-    let resolver: ReturnType<typeof router.resolve>;
+    // RADIOGRAPHIE de la porte socket — profil de CETTE invocation. Le contexte
+    // WS vit pour la CONNEXION : ses phases et son requestId ne peuvent pas
+    // décrire une frame parmi N (timeline cumulative). Le profil naît ici, voyage
+    // dans l'ALS (seul canal déjà per-invocation, traversé par le Resolver, le
+    // controller et les adapters ORM) et se collecte au retour. `null` en prod
+    // (ni profiler ni timing) → zéro allocation sur le hot path realtime.
+    const frame = ctx.beginFrame(method, path);
     try {
-      // GET → resolve historique (le transport WEBSOCKET matche `context.method`).
-      // Mutation → `methodOverride` (méthode logique) exigé en plus du transport.
-      resolver = router.resolve(
-        ctx,
-        pathname,
-        method === "GET" ? undefined : method,
-      );
-    } catch (e) {
-      // Le Router THROW un HttpError 405 agrégé (RFC 9110 §15.5.6) quand le
-      // path existe mais sans le transport WEBSOCKET — même sémantique que le
-      // REST, exposée fetch-like. Duck-typing (pas d'import runtime http ici) ;
-      // tout code non-HTTP reste opaque (re-throw → `-32603`, Zero Trust).
-      const code = (e as { code?: unknown }).code;
-      if (typeof code === "number" && code >= 400 && code <= 599) {
-        throw new RpcError(e instanceof Error ? e.message : String(e), -32000, {
-          status: code,
+      frame?.phaseStart("resolve");
+      let resolver: ReturnType<typeof router.resolve>;
+      try {
+        // GET → resolve historique (le transport WEBSOCKET matche `context.method`).
+        // Mutation → `methodOverride` (méthode logique) exigé en plus du transport.
+        resolver = router.resolve(
+          ctx,
+          pathname,
+          method === "GET" ? undefined : method,
+        );
+      } finally {
+        frame?.phaseEnd("resolve");
+      }
+      if (!resolver.resolve) {
+        throw new RpcError(`api.request: not found ${pathname}`, -32000, {
+          status: 404,
         });
       }
-      throw e;
-    }
-    if (!resolver.resolve) {
-      throw new RpcError(`api.request: not found ${pathname}`, -32000, {
-        status: 404,
-      });
-    }
-    if (qIdx !== -1 && qIdx < path.length - 1) {
-      const sp = new URLSearchParams(path.slice(qIdx + 1));
-      const query: Record<string, unknown> = {};
-      for (const [k, v] of sp) {
-        const prev = query[k];
-        if (prev === undefined) query[k] = v;
-        else if (Array.isArray(prev)) (prev as string[]).push(v);
-        else query[k] = [prev as string, v];
-      }
-      resolver.queryOverride = query;
-    }
-    // J8 — établir le contexte de requête (ALS) AVANT d'exécuter l'action. Le
-    // pont api.request est l'équivalent WS du pipeline HTTP : le peer reçoit ses
-    // frames via le transport (HORS de la bulle ALS du handshake), donc SANS ce
-    // `run` la garde @IsGranted (Resolver) lirait `token = undefined` → 403, même
-    // pour un client légitime. On pose le token DU PEER (résolu au handshake,
-    // figé O(1) via WeakMap, lié à CETTE connexion → zéro confusion d'identité)
-    // + l'IUser (seam neutre `getAttribute("user")`) pour @CurrentUser. Coût : 1
-    // `run` (~50-100 ns) + 1 objet littéral, UNIQUEMENT sur api.request (jamais
-    // sur publish/subscribe/notify → le hot-path temps réel reste intact).
-    const token = getRealtimeHub().getTokenForPeer(peer);
-    // 🔒 ZERO TRUST — re-valider l'identité figée au handshake AVANT l'action
-    // data plane. Une WebSocket est un SINGLETON partagé qui SURVIT à sa session :
-    // après une déconnexion admin puis la connexion d'un autre compte sur le même
-    // navigateur, le token resterait « admin » → un GET data plane rejouerait avec
-    // l'identité périmée (élévation de privilège). `isValid()` re-lit la source
-    // (session BFF) ; périmée/changée → 401. Le client (ApiClient) bascule alors
-    // en fetch HTTP (cookie courant) = réponse de référence. Optionnel (anonyme/
-    // JWT n'en ont pas) ; payé SEULEMENT ici, jamais sur publish/subscribe.
-    if (token.isValid) {
-      let valid: boolean;
-      try {
-        valid = await token.isValid();
-      } catch {
-        valid = false; // fail-closed : une re-validation qui throw = refus
-      }
-      if (!valid) {
-        throw new RpcError(
-          "api.request: identité de session expirée ou invalide",
-          -32000,
-          { status: 401 },
-        );
-      }
-    }
-    // Capture de rendu per-invocation : une action user peut répondre par un
-    // RENDU (`renderJson`/`renderView`) au lieu d'une valeur nue. Sans le sink,
-    // `context.send()` écrirait une frame NUE hors protocole ET le retour
-    // (`WebsocketResponse`, circulaire via `context`) casserait le stringify de
-    // l'enveloppe peer (unhandledRejection + timeout client silencieux — bug
-    // vécu au Playground). Le sink vit dans l'ALS → zéro bleed entre frames
-    // concurrentes de la même socket.
-    const renderSink: { body?: string | Buffer } = {};
-    return RequestContext.run(
-      {
-        requestId: ctx.requestId,
-        scheme: ctx.scheme,
-        token,
-        user: token.getAttribute("user"),
-        userId: token.getUserIdentifier(),
-        // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
-        context: ctx,
-        // Mutation : corps + clé d'idempotence portés par l'ALS (pas de corps
-        // HTTP parsé en WS) → lus par `AdminApiController.buildRequest`. Absents
-        // pour un GET (`p?.body === undefined` → fallback queryPost vide).
-        body: p?.body,
-        idempotencyKey:
-          typeof p?.idempotencyKey === "string" ? p.idempotencyKey : undefined,
-        renderSink,
-      },
-      async () => {
-        try {
-          // `reload = true` : le container de la connexion porte CE hub sous
-          // "controller" — sans reload, l'action serait cherchée sur la mauvaise
-          // instance (seam découvert au POC Ph.1). Singleton-safe (cache Router).
-          // `executeActionGuarded` (PAS `executeAction` nu) : il porte la porte
-          // d'idempotence `@Idempotent` (mutations — la méthode logique voyage
-          // dans `resolver.methodOverride`) SANS rendre sur le transport ;
-          // l'appel nu la court-circuitait → un rejeu `socket.mutate` créait un
-          // DOUBLON, et `callController` enverrait la réponse une 2ᵉ fois.
-          const { result } = await resolver.executeActionGuarded(
-            undefined,
-            true,
-          );
-          // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
-          const raw = await Promise.resolve(result);
-          // L'action a RENDU (sink alimenté) → le rendu EST la réponse : on le
-          // sert en `result` (re-parsé si JSON — `renderJson` a déjà stringifié,
-          // le peer re-stringifie l'enveloppe). Le retour de `renderJson` (la
-          // `WebsocketResponse`) est ignoré : non sérialisable par construction.
-          if (renderSink.body !== undefined) {
-            const text = Buffer.isBuffer(renderSink.body)
-              ? renderSink.body.toString("utf8")
-              : renderSink.body;
-            try {
-              return JSON.parse(text) as unknown;
-            } catch {
-              return text; // rendu non-JSON (HTML/texte) → servi brut
-            }
-          }
-          return raw;
-        } catch (e) {
-          // La garde @IsGranted (et toute action) peut throw un `nodefonyError`
-          // HTTP-like (403 Access denied, 404…). Symétrie d'un `fetch` : on EXPOSE
-          // le statut via `RpcError(data.status)` — comme le resolve (405 plus
-          // haut) et `AdminApiController.dispatch`. SANS ce mapping, un refus
-          // d'autorisation remonterait en `-32603 "internal error"` OPAQUE + un
-          // log ERROR parasite (`JsonRpcPeer.handleRequest`) : un 403 n'est PAS
-          // une erreur serveur. Le message reste générique (Zero Trust :
-          // « Access denied » ne révèle pas la règle d'autorisation).
-          const code = (e as { code?: unknown }).code;
-          if (typeof code === "number" && code >= 400 && code <= 599) {
-            throw new RpcError(
-              e instanceof Error ? e.message : String(e),
-              -32000,
-              { status: code },
-            );
-          }
-          throw e;
+      // Route / controller / action du profil — lus par le Profiler au retour.
+      if (frame) frame.resolver = resolver as unknown as ProfiledResolver;
+      if (qIdx !== -1 && qIdx < path.length - 1) {
+        const sp = new URLSearchParams(path.slice(qIdx + 1));
+        const query: Record<string, unknown> = {};
+        for (const [k, v] of sp) {
+          const prev = query[k];
+          if (prev === undefined) query[k] = v;
+          else if (Array.isArray(prev)) (prev as string[]).push(v);
+          else query[k] = [prev as string, v];
         }
-      },
-    );
+        resolver.queryOverride = query;
+      }
+      // J8 — établir le contexte de requête (ALS) AVANT d'exécuter l'action. Le
+      // pont api.request est l'équivalent WS du pipeline HTTP : le peer reçoit ses
+      // frames via le transport (HORS de la bulle ALS du handshake), donc SANS ce
+      // `run` la garde @IsGranted (Resolver) lirait `token = undefined` → 403, même
+      // pour un client légitime. On pose le token DU PEER (résolu au handshake,
+      // figé O(1) via WeakMap, lié à CETTE connexion → zéro confusion d'identité)
+      // + l'IUser (seam neutre `getAttribute("user")`) pour @CurrentUser. Coût : 1
+      // `run` (~50-100 ns) + 1 objet littéral, UNIQUEMENT sur api.request (jamais
+      // sur publish/subscribe/notify → le hot-path temps réel reste intact).
+      const token = getRealtimeHub().getTokenForPeer(peer);
+      // 🔒 ZERO TRUST — re-valider l'identité figée au handshake AVANT l'action
+      // data plane. Une WebSocket est un SINGLETON partagé qui SURVIT à sa session :
+      // après une déconnexion admin puis la connexion d'un autre compte sur le même
+      // navigateur, le token resterait « admin » → un GET data plane rejouerait avec
+      // l'identité périmée (élévation de privilège). `isValid()` re-lit la source
+      // (session BFF) ; périmée/changée → 401. Le client (ApiClient) bascule alors
+      // en fetch HTTP (cookie courant) = réponse de référence. Optionnel (anonyme/
+      // JWT n'en ont pas) ; payé SEULEMENT ici, jamais sur publish/subscribe.
+      // Phase `identity` : c'est une LECTURE DE STORE (session BFF) — la sonde la
+      // montre pour ce qu'elle est, un vrai coût de la porte socket.
+      if (token.isValid) {
+        let valid: boolean;
+        frame?.phaseStart("identity");
+        try {
+          valid = await token.isValid();
+        } catch {
+          valid = false; // fail-closed : une re-validation qui throw = refus
+        } finally {
+          frame?.phaseEnd("identity");
+        }
+        if (!valid) {
+          throw new RpcError(
+            "api.request: identité de session expirée ou invalide",
+            -32000,
+            { status: 401 },
+          );
+        }
+      }
+      // Capture de rendu per-invocation : une action user peut répondre par un
+      // RENDU (`renderJson`/`renderView`) au lieu d'une valeur nue. Sans le sink,
+      // `context.send()` écrirait une frame NUE hors protocole ET le retour
+      // (`WebsocketResponse`, circulaire via `context`) casserait le stringify de
+      // l'enveloppe peer (unhandledRejection + timeout client silencieux — bug
+      // vécu au Playground). Le sink vit dans l'ALS → zéro bleed entre frames
+      // concurrentes de la même socket.
+      const renderSink: { body?: string | Buffer } = {};
+      const result = await RequestContext.run(
+        {
+          requestId: ctx.requestId,
+          scheme: ctx.scheme,
+          token,
+          user: token.getAttribute("user"),
+          userId: token.getUserIdentifier(),
+          // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
+          context: ctx,
+          // Mutation : corps + clé d'idempotence portés par l'ALS (pas de corps
+          // HTTP parsé en WS) → lus par `AdminApiController.buildRequest`. Absents
+          // pour un GET (`p?.body === undefined` → fallback queryPost vide).
+          body: p?.body,
+          idempotencyKey:
+            typeof p?.idempotencyKey === "string"
+              ? p.idempotencyKey
+              : undefined,
+          renderSink,
+          // Radiographie : le profil de la frame (phases émises par le Resolver
+          // et le Controller) + son buffer SQL. Le kernel refusait ce buffer au
+          // handshake — il aurait cumulé N messages ; per-invocation, il est exact.
+          invocation: frame ?? undefined,
+          queries: frame?.profilerQueries ?? undefined,
+        },
+        async () => {
+          frame?.phaseStart("action");
+          try {
+            // `reload = true` : le container de la connexion porte CE hub sous
+            // "controller" — sans reload, l'action serait cherchée sur la mauvaise
+            // instance (seam découvert au POC Ph.1). Singleton-safe (cache Router).
+            // `executeActionGuarded` (PAS `executeAction` nu) : il porte la porte
+            // d'idempotence `@Idempotent` (mutations — la méthode logique voyage
+            // dans `resolver.methodOverride`) SANS rendre sur le transport ;
+            // l'appel nu la court-circuitait → un rejeu `socket.mutate` créait un
+            // DOUBLON, et `callController` enverrait la réponse une 2ᵉ fois.
+            const { result: actionResult } =
+              await resolver.executeActionGuarded(undefined, true);
+            // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
+            const raw = await Promise.resolve(actionResult);
+            // L'action a RENDU (sink alimenté) → le rendu EST la réponse : on le
+            // sert en `result` (re-parsé si JSON — `renderJson` a déjà stringifié,
+            // le peer re-stringifie l'enveloppe). Le retour de `renderJson` (la
+            // `WebsocketResponse`) est ignoré : non sérialisable par construction.
+            if (renderSink.body !== undefined) {
+              const text = Buffer.isBuffer(renderSink.body)
+                ? renderSink.body.toString("utf8")
+                : renderSink.body;
+              try {
+                return JSON.parse(text) as unknown;
+              } catch {
+                return text; // rendu non-JSON (HTML/texte) → servi brut
+              }
+            }
+            return raw;
+          } finally {
+            frame?.phaseEnd("action");
+          }
+        },
+      );
+      frame?.finish(200);
+      // Le client repart avec l'identifiant du profil de SA frame (dev) — le
+      // `result` reste la valeur nue (snapshot ≡ GET REST). Hors profiling :
+      // valeur nue, aucune enveloppe, aucun octet de plus sur le fil.
+      return frame
+        ? new RpcEnvelope(result, { requestId: frame.requestId })
+        : result;
+    } catch (e) {
+      // Un refus est une RÉPONSE, pas une panne : le statut HTTP-équivalent est
+      // exposé (`data.status`) comme le ferait un `fetch`, et l'id du profil avec
+      // — c'est le cas le plus pédagogique du Playground (« refusé ICI, par ÇA »).
+      // Une erreur non HTTP-like reste OPAQUE (`-32603`, Zero Trust) : elle n'est
+      // pas ré-emballée, seul le profil serveur la garde.
+      const status = httpStatusOfFrameError(e);
+      frame?.finish(status ?? 500, e);
+      throw toFrameRpcError(e, status, frame?.requestId);
+    } finally {
+      ctx.collectFrame(frame);
+    }
   }
 
   /** Désabonne la connexion d'un canal (le hub dispose le provider au dernier abonné). */

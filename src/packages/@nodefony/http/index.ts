@@ -228,7 +228,18 @@ export type {
   ProfileEntry,
   ProfileSummary,
   ProfilePhase,
+  ProfileQuery,
+  ProfileSecurity,
 } from "./nodefony/src/profiler/Profiler";
+
+// Profil d'UNE invocation du pont RPC (une frame WebSocket) — le contexte WS
+// vit pour la connexion, la frame a donc son propre porteur de phases/SQL.
+export { FrameProfile } from "./nodefony/src/profiler/FrameProfile";
+export type {
+  FrameProfileInit,
+  ProfiledArea,
+  ProfiledResolver,
+} from "./nodefony/src/profiler/FrameProfile";
 
 // Livraison d'UI embarquée d'un module (pattern « module tiers avec UI ») :
 // résolution de la molette `ui: auto|static|vite` + service statique des

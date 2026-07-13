@@ -4,6 +4,7 @@ import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
 import { RpcError as RpcErrorServer, type RpcActionHandler } from "nodefony";
 import type { ContextType } from "@nodefony/http";
+import { FrameProfile } from "@nodefony/http";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator.js";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
@@ -166,6 +167,8 @@ class ApiRt extends RealtimeController {
 }
 
 let lastFinish: (() => void) | null = null;
+/** Profils de frame collectés par le faux contexte (radiographie de la porte). */
+let collected: FrameProfile[] = [];
 
 function makeServer(
   wire: LoopbackWire,
@@ -173,6 +176,8 @@ function makeServer(
     noRouter?: boolean;
     headers?: Record<string, string | string[]>;
     url?: unknown;
+    /** Simule un serveur avec le profiler dev actif (défaut : prod, aucun profil). */
+    profiling?: boolean;
   } = {},
 ): ApiRt {
   const conn = {
@@ -188,10 +193,35 @@ function makeServer(
       queueMicrotask(() => wire.closeClient?.(code ?? 1000, reason ?? ""));
     },
   };
+  // Le contexte WS porte la radiographie de la porte socket : une invocation du
+  // pont ouvre son PROPRE profil (le contexte, lui, vit pour la connexion).
+  // `profiling: false` (défaut) = production : `beginFrame` rend `null`, le pont
+  // n'alloue rien et répond une valeur nue — c'est le chemin que couvre la grille.
+  let frameSeq = 0;
   const ctx = {
     connection: conn,
     once: (event: string, fn: () => void) => {
       if (event === "onFinish") lastFinish = fn;
+    },
+    beginFrame: (method: string, url: string): FrameProfile | null => {
+      if (!opts.profiling) return null;
+      frameSeq += 1;
+      return new FrameProfile({
+        requestId: `rid-test.${frameSeq}`,
+        type: "websocket",
+        scheme: "wss",
+        method,
+        url,
+        remoteAddress: "127.0.0.1",
+        traceparent: null,
+        security: null,
+        securityTrace: null,
+        timing: true,
+        queries: true,
+      });
+    },
+    collectFrame: (frame: FrameProfile | null) => {
+      if (frame) collected.push(frame);
     },
     request: {
       headers: opts.headers ?? { host: "localhost" },
@@ -252,13 +282,13 @@ const mkToken = (auth: boolean): IRealtimeToken => ({
   getAttribute: (k: string) => (k === "user" ? { id: "u" } : undefined),
 });
 
-async function connect(): Promise<{
+async function connect(opts: { profiling?: boolean } = {}): Promise<{
   client: RealtimeClient;
   rt: ApiRt;
   transport: LoopbackClientTransport;
 }> {
   const wire = new LoopbackWire();
-  const rt = makeServer(wire);
+  const rt = makeServer(wire, opts);
   const transport = new LoopbackClientTransport(wire);
   const client = new RealtimeClient(
     { url: "ws://loopback/realtime", autoReconnect: false },
@@ -395,6 +425,69 @@ describe("RealtimeController E2E — pont api.request (toute la grille)", () => 
       code = (e as RpcError).code;
     }
     expect(code).to.equal(-32603);
+    client.disconnect();
+  });
+});
+
+describe("RealtimeController E2E — radiographie de la porte (profil par frame)", () => {
+  beforeEach(() => {
+    getRealtimeHub().clear();
+    routerMode = "actionOk";
+    lastFinish = null;
+    collected = [];
+  });
+
+  it("profiler actif → la réponse porte meta.requestId, et le result reste NU", async () => {
+    const { client } = await connect({ profiling: true });
+    const { result, requestId } = await client.call<{ ok: boolean }>(
+      "/nodefony/kernel/api/x",
+    );
+    // Contrat « snapshot ≡ GET REST » : la méta n'a pas emballé la valeur (le
+    // result est celui du controller, à l'identique).
+    expect(result.ok).to.equal(true);
+    expect(requestId).to.equal("rid-test.1");
+    client.disconnect();
+  });
+
+  it("chaque invocation a SON profil (phases non cumulatives sur la connexion)", async () => {
+    const { client } = await connect({ profiling: true });
+    const a = await client.call("/nodefony/kernel/api/x");
+    const b = await client.call("/nodefony/kernel/api/x");
+    expect(a.requestId).to.equal("rid-test.1");
+    expect(b.requestId).to.equal("rid-test.2");
+    expect(collected).to.have.length(2);
+    // La 2ᵉ frame ne traîne AUCUNE phase de la 1ʳᵉ.
+    const names = collected.map((f) => f.phases.map((p) => p.name));
+    expect(names[0]).to.deep.equal(names[1]);
+    expect(names[1].filter((n) => n === "action")).to.have.length(1);
+    expect(collected[0].response?.statusCode).to.equal(200);
+    client.disconnect();
+  });
+
+  it("un refus (403) est profilé AVEC son statut, et son id part dans error.data", async () => {
+    routerMode = "action403";
+    const { client } = await connect({ profiling: true });
+    let data: unknown;
+    try {
+      await client.call("/secure");
+    } catch (e) {
+      data = (e as RpcError).data;
+    }
+    expect(data).to.deep.equal({ status: 403, requestId: "rid-test.1" });
+    expect(collected).to.have.length(1);
+    expect(collected[0].response?.statusCode).to.equal(403);
+    expect(collected[0].error?.message).to.be.a("string");
+    client.disconnect();
+  });
+
+  it("hors profiling (production) → aucun profil, aucune méta, valeur nue", async () => {
+    const { client } = await connect();
+    const { result, requestId } = await client.call<{ ok: boolean }>(
+      "/nodefony/kernel/api/x",
+    );
+    expect(result.ok).to.equal(true);
+    expect(requestId).to.equal(null);
+    expect(collected).to.have.length(0);
     client.disconnect();
   });
 });

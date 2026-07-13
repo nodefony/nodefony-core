@@ -105,13 +105,17 @@ async function runHttp(
 interface RpcErrorLike {
   name?: string;
   message?: string;
-  data?: { status?: number; body?: unknown };
+  data?: { status?: number; body?: unknown; requestId?: string };
 }
 
 /**
- * Exécution socket — pont `api.request`/`api.mutate` du client Nodefony.
- * Un `RpcError` porte le statut HTTP équivalent (`data.status`) : on le rend
- * comme une réponse (pas un crash) — c'est la radiographie du refus.
+ * Exécution socket — pont `api.request` du client Nodefony.
+ *
+ * `call()` (et non `request`/`mutate`) : c'est la forme qui rend l'enveloppe
+ * complète, donc l'identifiant du profil de LA frame — la porte socket se
+ * radiographie désormais comme la porte HTTP. Un `RpcError` porte le statut
+ * HTTP équivalent (`data.status`) ET cet identifiant : on rend le refus comme
+ * une réponse (pas un crash), et il reste radiographiable.
  */
 async function runSocket(
   client: ReturnType<typeof useNodefony>,
@@ -122,25 +126,25 @@ async function runSocket(
 ): Promise<ExecResult> {
   const t0 = performance.now();
   try {
-    const payload =
+    const { result, requestId } = await client.call<unknown>(
+      url as `/${string}`,
       method === "GET"
-        ? await client.request<unknown>(url as `/${string}`)
-        : await client.mutate<unknown>(url as `/${string}`, {
+        ? undefined
+        : {
             method: method as "POST" | "PUT" | "PATCH" | "DELETE",
             body,
             idempotencyKey: idempotencyKey ?? makeIdempotencyKey(),
-          });
+          },
+    );
     return {
       transport: "socket",
       status: 200,
       ok: true,
       durationMs: performance.now() - t0,
-      body: payload,
+      body: result,
       error: null,
       instance: null,
-      // Le pont ne trace pas par frame (le WebsocketContext vit pour toute la
-      // connexion) → pas de radiographie de ce côté, et on le DIT (cf Radiography).
-      requestId: null,
+      requestId,
     };
   } catch (e) {
     const rpc = e as RpcErrorLike;
@@ -153,7 +157,10 @@ async function runSocket(
       body: rpc.data?.body ?? null,
       error: rpc.message ?? String(e),
       instance: null,
-      requestId: null,
+      // Un refus applicatif (403 @IsGranted, 404, 409 idempotence) est profilé :
+      // le pont joint l'id. Un refus AVANT dispatch (firewall de frame) n'a pas
+      // été exécuté → pas de profil, et la Radiographie le dit.
+      requestId: rpc.data?.requestId ?? null,
     };
   }
 }
@@ -563,11 +570,16 @@ export function ActionPanel({ action }: ActionPanelProps) {
         </Grid>
       )}
 
-      {/* La traversée serveur de la dernière exécution HTTP (le profiler indexe
-          par `x-request-id`). La porte socket n'émet pas cet id → le panneau le
-          dit au lieu d'afficher un cadre vide. */}
-      {(httpResult || socketResult) && (
-        <Radiography requestId={httpResult?.requestId ?? null} />
+      {/* La traversée serveur, PAR PORTE empruntée. Les deux portes profilent
+          désormais : quand l'action a été jouée sur les deux, les waterfalls se
+          lisent l'un sous l'autre — c'est là qu'on voit ce que chaque porte
+          coûte VRAIMENT (la porte socket ne paie ni parse HTTP ni saveSession,
+          mais elle re-valide l'identité à chaque frame). */}
+      {httpResult && (
+        <Radiography requestId={httpResult.requestId} transport="http" />
+      )}
+      {socketResult && (
+        <Radiography requestId={socketResult.requestId} transport="socket" />
       )}
     </Stack>
   );
