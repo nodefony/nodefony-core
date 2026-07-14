@@ -46,8 +46,8 @@ export interface IRelationInfo {
 export interface IEntityGraphNode {
   /** Nom logique de l'entité. */
   name: string;
-  /** ORM/connecteur cible. */
-  orm: string;
+  /** Connexion nommée qui porte l'entité (clé de `connectors` en config). */
+  connector: string;
   /**
    * Module Nodefony propriétaire (regroupement ERD), `""` si non rattaché.
    */

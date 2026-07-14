@@ -33,13 +33,13 @@ import { queryFlowMonitor } from "./QueryFlowMonitor";
  *
  * Endpoints :
  *  - `GET /nodefony/orm/api/orms`           → résumé des ORM/connecteurs
- *  - `GET /nodefony/orm/api/entities`       → entités (`?orm=` pour filtrer)
- *  - `GET /nodefony/orm/api/entity/{name}`  → une entité (`?orm=`)
- *  - `GET /nodefony/orm/api/graph`          → graphe complet (`?orm=`)
- *  - `GET /nodefony/orm/api/export/{format}`→ export (`dbml`), `?orm=`
+ *  - `GET /nodefony/orm/api/entities`       → entités (`?connector=` pour filtrer)
+ *  - `GET /nodefony/orm/api/entity/{name}`  → une entité (`?connector=`)
+ *  - `GET /nodefony/orm/api/graph`          → graphe complet (`?connector=`)
+ *  - `GET /nodefony/orm/api/export/{format}`→ export (`dbml`), `?connector=`
  */
 
-/** Première valeur d'un param de query (`?orm=default`). */
+/** Première valeur d'un param de query (`?connector=default`). */
 function oneParam(req: IAdminRequest, key: string): string | undefined {
   const raw = req.query[key];
   return Array.isArray(raw) ? raw[0] : raw;
@@ -76,7 +76,7 @@ function buildOrmSummaries(): IOrmSummary[] {
       vendor,
       default: name === "default",
       connected,
-      entityCount: entities.filter((e) => e.orm === name).length,
+      entityCount: entities.filter((e) => e.connector === name).length,
       connection,
     } satisfies IOrmSummary;
   });
@@ -86,18 +86,18 @@ function buildOrmSummaries(): IOrmSummary[] {
  * Construit un nœud de graphe pour une entité : relations (toujours) + colonnes
  * (via `orm.describeEntity` si l'adapter l'implémente et si l'ORM est connecté).
  */
-function buildEntityNode(orm: string, name: string): IEntityGraphNode {
-  const entity = entityRegistry.get(name, orm);
+function buildEntityNode(connector: string, name: string): IEntityGraphNode {
+  const entity = entityRegistry.get(name, connector);
   let columns: IEntityGraphNode["columns"] = [];
   try {
-    const ormInstance = ormRegistry.get(orm);
+    const ormInstance = ormRegistry.get(connector);
     columns = ormInstance.describeEntity?.(name) ?? [];
   } catch {
     columns = [];
   }
   return {
     name: entity.name,
-    orm: entity.orm,
+    connector: entity.connector,
     module: entity.module ?? "",
     domain: entity.domain ?? "",
     columns,
@@ -110,15 +110,17 @@ function buildEntityNode(orm: string, name: string): IEntityGraphNode {
   };
 }
 
-/** Construit le graphe canonique complet (optionnellement filtré par ORM). */
-export function buildOrmGraph(ormFilter?: string): IOrmGraph {
+/** Construit le graphe canonique complet (optionnellement filtré par connecteur). */
+export function buildOrmGraph(connectorFilter?: string): IOrmGraph {
   const orms = buildOrmSummaries();
   const entities = entityRegistry
     .list()
-    .filter((e) => !ormFilter || e.orm === ormFilter)
-    .map((e) => buildEntityNode(e.orm, e.name));
+    .filter((e) => !connectorFilter || e.connector === connectorFilter)
+    .map((e) => buildEntityNode(e.connector, e.name));
   return {
-    orms: ormFilter ? orms.filter((o) => o.name === ormFilter) : orms,
+    orms: connectorFilter
+      ? orms.filter((o) => o.name === connectorFilter)
+      : orms,
     entities,
   };
 }
@@ -425,29 +427,34 @@ export function createOrmAdminApi(): IAdminApi {
     },
     {
       path: "entities",
-      summary: "Entités du modèle (colonnes + relations) — ?orm= pour filtrer",
-      handler: (request) => buildOrmGraph(oneParam(request, "orm")).entities,
+      summary:
+        "Entités du modèle (colonnes + relations) — ?connector= pour filtrer",
+      handler: (request) =>
+        buildOrmGraph(oneParam(request, "connector")).entities,
     },
     {
       path: "entity/{name}",
-      summary: "Une entité (colonnes + relations) — ?orm= si homonymes",
+      summary: "Une entité (colonnes + relations) — ?connector= si homonymes",
       handler: (
         request,
       ): IEntityGraphNode | IAdminResponse<{ error: string }> => {
         const name = request.params.name ?? "";
-        const orm = oneParam(request, "orm");
+        const connector = oneParam(request, "connector");
         try {
-          // Sans ?orm, on prend le 1ᵉʳ ORM qui porte cette entité.
+          // Sans ?connector, on prend le 1ᵉʳ connecteur qui porte cette entité.
           const found = entityRegistry
             .list()
-            .find((e) => e.name === name && (!orm || e.orm === orm));
+            .find(
+              (e) =>
+                e.name === name && (!connector || e.connector === connector),
+            );
           if (!found) {
             return {
               status: 404,
               body: { error: `entity "${name}" not found` },
             };
           }
-          return buildEntityNode(found.orm, found.name);
+          return buildEntityNode(found.connector, found.name);
         } catch {
           return { status: 404, body: { error: `entity "${name}" not found` } };
         }
@@ -455,22 +462,23 @@ export function createOrmAdminApi(): IAdminApi {
     },
     {
       path: "graph",
-      summary: "Graphe canonique complet (ORMs + entités) — ?orm= pour filtrer",
-      handler: (request) => buildOrmGraph(oneParam(request, "orm")),
+      summary:
+        "Graphe canonique complet (ORMs + entités) — ?connector= pour filtrer",
+      handler: (request) => buildOrmGraph(oneParam(request, "connector")),
     },
     {
       path: "counts",
       summary:
-        "Nombre de lignes par entité (COUNT(*)) — ?orm= pour filtrer. Lazy : 1 COUNT par table.",
+        "Nombre de lignes par entité (COUNT(*)) — ?connector= pour filtrer. Lazy : 1 COUNT par table.",
       handler: async (request): Promise<Record<string, number>> => {
-        const orm = oneParam(request, "orm");
+        const connector = oneParam(request, "connector");
         const counts: Record<string, number> = {};
         const entities = entityRegistry
           .list()
-          .filter((e) => !orm || e.orm === orm);
+          .filter((e) => !connector || e.connector === connector);
         for (const e of entities) {
           try {
-            const inst = ormRegistry.get(e.orm);
+            const inst = ormRegistry.get(e.connector);
             // -1 = non comptable (ORM déconnecté / pas de repository) → l'UI affiche « — ».
             counts[e.name] = inst.isConnected()
               ? await inst.getRepository(e.name).count()
@@ -485,26 +493,27 @@ export function createOrmAdminApi(): IAdminApi {
     {
       path: "connection/health",
       summary:
-        "Diagnostic des connexions (per-instance) — état, ping/latence (fenêtre), erreurs, reconnexions, sondes (stockage/pool). ?orm= pour filtrer.",
-      handler: (request) => buildConnectionHealth(oneParam(request, "orm")),
+        "Diagnostic des connexions (per-instance) — état, ping/latence (fenêtre), erreurs, reconnexions, sondes (stockage/pool). ?connector= pour filtrer.",
+      handler: (request) =>
+        buildConnectionHealth(oneParam(request, "connector")),
     },
     {
       path: "flow",
       summary:
-        "Flux des requêtes (per-instance) — débit (via total), latence moy/EWMA, pire latence, requêtes lentes. ?orm= pour filtrer. enabled=false en prod.",
-      handler: (request) => buildOrmFlow(oneParam(request, "orm")),
+        "Flux des requêtes (per-instance) — débit (via total), latence moy/EWMA, pire latence, requêtes lentes. ?connector= pour filtrer. enabled=false en prod.",
+      handler: (request) => buildOrmFlow(oneParam(request, "connector")),
     },
     {
       path: "export/{format}",
       summary:
-        "Export du modèle — format: dbml | jsonschema (?orm= pour filtrer)",
+        "Export du modèle — format: dbml | jsonschema (?connector= pour filtrer)",
       handler: (
         request,
       ):
         | { format: string; content: string }
         | IAdminResponse<{ error: string }> => {
         const format = (request.params.format ?? "").toLowerCase();
-        const graph = buildOrmGraph(oneParam(request, "orm"));
+        const graph = buildOrmGraph(oneParam(request, "connector"));
         if (format === "dbml") {
           return { format: "dbml", content: toDbml(graph) };
         }

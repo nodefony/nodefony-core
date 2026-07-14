@@ -22,10 +22,14 @@ export interface IEntityRelation {
 /**
  * Description d'une entité enregistrée dans le registre cross-ORM.
  *
- * Une même entité logique (ex. `User`) peut exister pour plusieurs ORM : `orm`
- * désigne l'ORM cible et `schema`/`model` portent la définition propre au driver
- * (schéma Mongoose, schéma Drizzle...). `model` n'est disponible
- * qu'après connexion de l'ORM (compilation du modèle).
+ * Une même entité logique (ex. `User`) peut exister sur plusieurs connecteurs :
+ * `connector` désigne la connexion nommée cible (celle déclarée dans
+ * `connectors: { … }` de la config) et `schema`/`model` portent la définition
+ * propre au driver (schéma Mongoose, schéma Drizzle...). `model` n'est
+ * disponible qu'après connexion de l'ORM (compilation du modèle).
+ *
+ * Le mot désigne le **rôle** : une entité est liée à une *connexion*, jamais à
+ * un ORM — l'ORM (Drizzle, Mongoose) est le *driver* qui sert cette connexion.
  *
  * @typeParam S - type du schéma natif du driver.
  * @typeParam M - type du modèle compilé natif du driver.
@@ -34,8 +38,8 @@ export interface IEntity<S = unknown, M = unknown> {
   /** Nom logique de l'entité (clé de lookup, ex. `"User"`). */
   readonly name: string;
 
-  /** Nom de l'ORM cible enregistré dans le registre (ex. `"db_principale"`). */
-  readonly orm: string;
+  /** Connexion nommée cible, telle que déclarée en config (ex. `"default"`). */
+  readonly connector: string;
 
   /**
    * Module Nodefony propriétaire de l'entité (ex. `"user"`, `"test"`).

@@ -36,14 +36,14 @@ const roomsTable = sqliteTable("Room", {
 });
 
 @entity({
-  orm: ORM,
+  connector: ORM,
   name: "User",
   schema: usersTable,
   relations: [{ type: "one-to-many", target: "Room", field: "rooms" }],
 })
 class UserEntity {}
 
-@entity({ orm: ORM, name: "Room", schema: roomsTable })
+@entity({ connector: ORM, name: "Room", schema: roomsTable })
 class RoomEntity {}
 
 void UserEntity;

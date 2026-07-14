@@ -17,8 +17,8 @@ export interface EntityMetadata<S = unknown> {
   /** Nom logique de l'entité (clé de lookup). */
   readonly name: string;
 
-  /** ORM cible enregistré dans le `ormRegistry`. */
-  readonly orm: string;
+  /** Connexion nommée cible (clé du `ormRegistry`). */
+  readonly connector: string;
 
   /** Module Nodefony propriétaire (regroupement graphe/ERD), si fourni. */
   readonly module?: string;
@@ -46,8 +46,8 @@ export interface RepositoryMetadata {
   /** Nom logique de l'entité gérée par ce repository. */
   readonly entity: string;
 
-  /** ORM cible (lève l'ambiguïté si l'entité existe pour plusieurs ORM). */
-  readonly orm?: string;
+  /** Connecteur cible (lève l'ambiguïté si l'entité existe sur plusieurs connexions). */
+  readonly connector?: string;
 
   /** Constructeur décoré. */
   readonly target: DecoratedClass;

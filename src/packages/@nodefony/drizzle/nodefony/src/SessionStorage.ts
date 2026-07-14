@@ -7,7 +7,7 @@ import type {
 } from "@nodefony/http";
 import { ormRegistry } from "@nodefony/orm-core";
 import type { IRepository, Criteria } from "@nodefony/orm-core";
-import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
+import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
 
 /**
  * Stockage de session **Drizzle** (driver `better-sqlite3`), branché sur
@@ -39,10 +39,10 @@ class SessionStorage implements ISessionStorage {
    * DÉFENSIVE (getter `location` optionnel) — l'ORM base `IOrm` ne l'expose pas.
    */
   get location(): string | undefined {
-    if (!ormRegistry.has(SESSION_ORM)) {
+    if (!ormRegistry.has(SESSION_CONNECTOR)) {
       return undefined;
     }
-    const loc = (ormRegistry.get(SESSION_ORM) as { location?: unknown })
+    const loc = (ormRegistry.get(SESSION_CONNECTOR) as { location?: unknown })
       .location;
     return typeof loc === "string" && loc.length > 0 ? loc : undefined;
   }
@@ -61,7 +61,7 @@ class SessionStorage implements ISessionStorage {
    * (vraie misconfig) jette toujours via `getRepository`.
    */
   #repo(): IRepository<SessionRow> | null {
-    const orm = ormRegistry.get(SESSION_ORM);
+    const orm = ormRegistry.get(SESSION_CONNECTOR);
     if (!orm.isConnected()) {
       return null;
     }

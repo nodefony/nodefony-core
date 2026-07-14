@@ -148,7 +148,7 @@ export const TOKEN_ENTITY_NAMES = {
 /**
  * Construit les descripteurs d'entités du store de jetons pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
  * variante de table suit le dialecte du connecteur (auto-register
  * `registerStores.ts` à `onKernelRegister`). À enregistrer dans `entityRegistry`
  * **avant** `orm.connect()` (cf {@link registerTokenEntities}).
@@ -158,26 +158,26 @@ export const TOKEN_ENTITY_NAMES = {
  * @returns les trois descripteurs {@link IEntity} (records / denylist / seuils).
  */
 export function createTokenEntities(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): IEntity[] {
   // `module: "security"` → les tables sont regroupées sous @nodefony/security
   // dans l'ERD Studio (le store est une feature security, hébergée par l'ORM).
   return [
     {
-      orm,
+      connector,
       name: TOKEN_ENTITY_NAMES.records,
       module: "security",
       schema: createAccessTokenTable(dialect),
     },
     {
-      orm,
+      connector,
       name: TOKEN_ENTITY_NAMES.denied,
       module: "security",
       schema: createDeniedJtiTable(dialect),
     },
     {
-      orm,
+      connector,
       name: TOKEN_ENTITY_NAMES.revocations,
       module: "security",
       schema: createSubjectRevocationTable(dialect),
@@ -189,14 +189,14 @@ export function createTokenEntities(
  * Enregistre les entités du store de jetons dans le `entityRegistry` pour un ORM
  * donné. À appeler **avant** `orm.connect()` (l'adapter crée les tables au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  * @param dialect - dialecte SQL du connecteur (variante des tables — défaut `sqlite`).
  */
 export function registerTokenEntities(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): void {
-  for (const entity of createTokenEntities(orm, dialect)) {
+  for (const entity of createTokenEntities(connector, dialect)) {
     entityRegistry.register(entity);
   }
 }

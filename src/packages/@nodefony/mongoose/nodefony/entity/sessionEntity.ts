@@ -2,7 +2,7 @@ import type { SchemaDefinition } from "mongoose";
 import { entity } from "@nodefony/orm-core";
 
 /** ORM cible du stockage de session (connecteur par défaut du module). */
-export const SESSION_ORM = "nodefony";
+export const SESSION_CONNECTOR = "nodefony";
 
 /**
  * Schéma Mongoose de stockage des sessions (compilé par `MongooseOrm` au boot).
@@ -38,7 +38,7 @@ export interface SessionRow {
  * Entité session enregistrée dans le `entityRegistry` pour le connecteur
  * `nodefony` — `MongooseOrm` compile le modèle à la connexion (au boot).
  */
-@entity({ orm: SESSION_ORM, name: "session", schema })
+@entity({ connector: SESSION_CONNECTOR, name: "session", schema })
 class SessionEntity {}
 
 export default SessionEntity;

@@ -61,16 +61,16 @@ export const WEBAUTHN_CREDENTIAL_ENTITY = "webauthn_credential";
 /**
  * Construit le descripteur d'entité du store de credentials pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"nodefony"`) : le
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"nodefony"`) : le
  * schéma est statique mais sa liaison à un ORM dépend de la config → pas d'`@entity`
  * figé (parité `createTokenEntities`). `timestamps:false`. À enregistrer **avant**
  * `orm.connect()`.
  *
  * @param orm - clé de l'ORM cible dans le `ormRegistry`.
  */
-export function createWebAuthnCredentialEntity(orm: string): IEntity {
+export function createWebAuthnCredentialEntity(connector: string): IEntity {
   return {
-    orm,
+    connector,
     name: WEBAUTHN_CREDENTIAL_ENTITY,
     module: "security",
     schema: webAuthnCredentialSchema,
@@ -81,8 +81,8 @@ export function createWebAuthnCredentialEntity(orm: string): IEntity {
  * Enregistre l'entité du store de credentials dans le `entityRegistry` pour un
  * ORM donné. À appeler **avant** `orm.connect()` (le modèle est compilé au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  */
-export function registerWebAuthnCredentialEntity(orm: string): void {
-  entityRegistry.register(createWebAuthnCredentialEntity(orm));
+export function registerWebAuthnCredentialEntity(connector: string): void {
+  entityRegistry.register(createWebAuthnCredentialEntity(connector));
 }

@@ -46,7 +46,7 @@ describe("orm-core — décorateur @entities", () => {
   beforeEach(() => {
     kernel = new FakeKernel();
     for (const e of entityRegistry.list()) {
-      entityRegistry.unregister(e.name, e.orm);
+      entityRegistry.unregister(e.name, e.connector);
     }
   });
 
@@ -85,18 +85,24 @@ describe("orm-core — décorateur @entities", () => {
     new Decorated(kernel);
     kernel.emit("onRegister");
 
-    assert.equal(entityRegistry.get("Post").orm, "default");
+    assert.equal(entityRegistry.get("Post").connector, "default");
   });
 
   it("le connecteur du décorateur s'applique à toute la liste", () => {
     const Decorated = decorate([PostEntity, CommentEntity], {
-      orm: "analytics",
+      connector: "analytics",
     });
     new Decorated(kernel);
     kernel.emit("onRegister");
 
-    assert.equal(entityRegistry.get("Post", "analytics").orm, "analytics");
-    assert.equal(entityRegistry.get("Comment", "analytics").orm, "analytics");
+    assert.equal(
+      entityRegistry.get("Post", "analytics").connector,
+      "analytics",
+    );
+    assert.equal(
+      entityRegistry.get("Comment", "analytics").connector,
+      "analytics",
+    );
     assert.equal(entityRegistry.has("Post", "default"), false);
   });
 
@@ -104,15 +110,20 @@ describe("orm-core — décorateur @entities", () => {
     const AuditEntity = defineEntity({
       name: "AuditTrail",
       schema: {},
-      orm: "warehouse",
+      connector: "warehouse",
     });
-    const Decorated = decorate([PostEntity, AuditEntity], { orm: "analytics" });
+    const Decorated = decorate([PostEntity, AuditEntity], {
+      connector: "analytics",
+    });
     new Decorated(kernel);
     kernel.emit("onRegister");
 
-    assert.equal(entityRegistry.get("Post", "analytics").orm, "analytics");
     assert.equal(
-      entityRegistry.get("AuditTrail", "warehouse").orm,
+      entityRegistry.get("Post", "analytics").connector,
+      "analytics",
+    );
+    assert.equal(
+      entityRegistry.get("AuditTrail", "warehouse").connector,
       "warehouse",
     );
   });

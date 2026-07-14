@@ -78,14 +78,14 @@ const stubOrm: IOrm = {
 
 const author: IEntity = {
   name: "Author",
-  orm: ORM,
+  connector: ORM,
   module: "blog",
   schema: {},
   relations: [{ type: "one-to-many", target: "Article", field: "articles" }],
 };
 const article: IEntity = {
   name: "Article",
-  orm: ORM,
+  connector: ORM,
   module: "blog",
   schema: {},
   relations: [{ type: "many-to-one", target: "Author", field: "author" }],
@@ -132,7 +132,7 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
 
   it('graphe : module propagé par entité (regroupement ERD) ; défaut ""', () => {
     // Une entité sans module → groupe « — » (chaîne vide), jamais undefined.
-    entityRegistry.register({ name: "Orphan", orm: ORM, schema: {} });
+    entityRegistry.register({ name: "Orphan", connector: ORM, schema: {} });
     try {
       const g = buildOrmGraph(ORM);
       const byModule = new Map<string, string[]>();
@@ -192,7 +192,7 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     const api = createOrmAdminApi();
     const ep = api.adminEndpoints().find((e) => e.path === "export/{format}")!;
     const res = (await ep.handler(
-      req({ format: "jsonschema" }, { orm: ORM }),
+      req({ format: "jsonschema" }, { connector: ORM }),
     )) as { format: string; content: string };
     assert.equal(res.format, "jsonschema");
     const parsed = JSON.parse(res.content) as {
@@ -209,7 +209,7 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     assert.ok(Array.isArray(orms) && orms.some((o) => o.name === ORM));
 
     const exp = (await ep("export/{format}").handler(
-      req({ format: "dbml" }, { orm: ORM }),
+      req({ format: "dbml" }, { connector: ORM }),
     )) as { format: string; content: string };
     assert.equal(exp.format, "dbml");
     assert.match(exp.content, /Table Author/);

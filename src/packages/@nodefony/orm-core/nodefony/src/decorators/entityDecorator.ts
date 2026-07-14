@@ -12,8 +12,8 @@ import {
  * @typeParam S - type du schéma natif du driver.
  */
 export interface EntityOptions<S = unknown> {
-  /** ORM cible enregistré dans le `ormRegistry` (ex. `"db_principale"`). */
-  orm: string;
+  /** Connexion nommée cible, telle que déclarée en config (ex. `"db_principale"`). */
+  connector: string;
 
   /** Nom logique ; par défaut le nom de la classe décorée. */
   name?: string;
@@ -42,19 +42,19 @@ export interface EntityOptions<S = unknown> {
  *
  * Résout le piège d'ordre d'initialisation TS (le constructeur de base
  * s'exécute avant les initialiseurs de champs de la sous-classe) : le décorateur
- * s'exécute sur la **classe** au chargement du module, donc `name`/`orm` sont
- * connus sans instance. Il construit un **descripteur {@link IEntity} depuis les
- * options** (aucune instanciation au boot), l'enregistre dans le
+ * s'exécute sur la **classe** au chargement du module, donc `name`/`connector`
+ * sont connus sans instance. Il construit un **descripteur {@link IEntity} depuis
+ * les options** (aucune instanciation au boot), l'enregistre dans le
  * `entityRegistry` process-wide, et stocke la métadonnée via un `WeakMap`
  * (cf. `metadataStore`, sans `reflect-metadata`).
  *
- * @param options - ORM cible + nom/schéma/relations optionnels.
+ * @param options - connecteur cible + nom/schéma/relations optionnels.
  * @returns le décorateur de classe (renvoie la classe inchangée).
- * @throws si une entité de même `name` est déjà enregistrée pour le même `orm`.
+ * @throws si une entité de même `name` est déjà enregistrée sur le même `connector`.
  *
  * @example
  * ```ts
- * \@entity({ orm: "db_principale", schema: { id: { type: "uuid" } } })
+ * \@entity({ connector: "db_principale", schema: { id: { type: "uuid" } } })
  * class User extends Entity { ... }
  * ```
  */
@@ -63,7 +63,7 @@ export function entity<S = unknown>(options: EntityOptions<S>) {
     const name = options.name ?? target.name;
     const meta: EntityMetadata<S> = {
       name,
-      orm: options.orm,
+      connector: options.connector,
       module: options.module,
       domain: options.domain,
       schema: options.schema,
@@ -74,7 +74,7 @@ export function entity<S = unknown>(options: EntityOptions<S>) {
 
     const descriptor: IEntity<S> = {
       name,
-      orm: options.orm,
+      connector: options.connector,
       module: options.module,
       domain: options.domain,
       schema: options.schema as S,

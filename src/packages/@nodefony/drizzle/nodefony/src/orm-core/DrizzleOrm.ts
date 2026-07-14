@@ -143,7 +143,9 @@ export class DrizzleOrm extends Orm {
 
   /** Entités enregistrées dans `entityRegistry` ciblant cet ORM. */
   #ownEntities(): IEntity[] {
-    return entityRegistry.list().filter((entity) => entity.orm === this.name);
+    return entityRegistry
+      .list()
+      .filter((entity) => entity.connector === this.name);
   }
 
   /** FK déterministe camelCase `<entité>Id` (parité avec Mongoose). */

@@ -16,7 +16,7 @@ const MYSQL_URL = process.env.NF_MYSQL_URL;
 describe.skipIf(!MYSQL_URL)("DrizzleRepository — contrat (mysql)", () => {
   runRepositoryContract({
     dialect: "mysql",
-    ormName: "contract_mysql",
+    connector: "contract_mysql",
     connection: { url: MYSQL_URL },
   });
 });

@@ -131,7 +131,7 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
   it("se connecte + 8 entités enregistrées pour cet ORM", () => {
     assert.equal(orm.isConnected(), true);
     assert.equal(ormRegistry.get(ORM), orm);
-    const own = entityRegistry.list().filter((e) => e.orm === ORM);
+    const own = entityRegistry.list().filter((e) => e.connector === ORM);
     assert.equal(own.length, 8);
   });
 
@@ -356,13 +356,11 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
 
     // commit
     await orm.transaction(async (tx) => {
-      const ev = await events
-        .withTransaction(tx)
-        .create({
-          summary: "tx-ok",
-          calendarId: cal.id,
-          creatorId: creator.id,
-        });
+      const ev = await events.withTransaction(tx).create({
+        summary: "tx-ok",
+        calendarId: cal.id,
+        creatorId: creator.id,
+      });
       await recordings
         .withTransaction(tx)
         .create({ roomId: room.id, eventId: ev.id });
@@ -372,13 +370,11 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
     // rollback
     await assert.rejects(
       orm.transaction(async (tx) => {
-        await events
-          .withTransaction(tx)
-          .create({
-            summary: "tx-ko",
-            calendarId: cal.id,
-            creatorId: creator.id,
-          });
+        await events.withTransaction(tx).create({
+          summary: "tx-ko",
+          calendarId: cal.id,
+          creatorId: creator.id,
+        });
         throw new Error("boom");
       }),
       /boom/,

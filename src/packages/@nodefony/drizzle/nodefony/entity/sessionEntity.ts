@@ -8,7 +8,7 @@ import {
 } from "./colKit";
 
 /** ORM cible du stockage de session (connecteur par défaut du module). */
-export const SESSION_ORM = "default";
+export const SESSION_CONNECTOR = "default";
 
 /** Nom logique de l'entité (clé de lookup `getRepository` / `entityRegistry`). */
 export const SESSION_ENTITY_NAME = "session";
@@ -63,7 +63,7 @@ export interface SessionRow {
 /**
  * Construit le descripteur d'entité session pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
  * variante de table suit le dialecte du connecteur → l'enregistrement est fait
  * par `registerStores.ts` à `onKernelRegister` (plus de décorateur `@entity`
  * figé au chargement du fichier, qui imposait la variante sqlite quel que soit
@@ -74,12 +74,12 @@ export interface SessionRow {
  * @returns le descripteur {@link IEntity} de la table de session.
  */
 export function createSessionEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): IEntity[] {
   return [
     {
-      orm,
+      connector,
       name: SESSION_ENTITY_NAME,
       // `module: "http"` → la table est regroupée sous @nodefony/http dans
       // l'ERD Studio (la session est une feature http, hébergée par l'ORM).
@@ -93,14 +93,14 @@ export function createSessionEntity(
  * Enregistre l'entité session dans le `entityRegistry` pour un ORM donné.
  * À appeler **avant** `orm.connect()` (l'adapter crée la table au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
 export function registerSessionEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): void {
-  for (const entity of createSessionEntity(orm, dialect)) {
+  for (const entity of createSessionEntity(connector, dialect)) {
     entityRegistry.register(entity);
   }
 }

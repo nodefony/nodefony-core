@@ -43,20 +43,20 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   readonly #model: LooseModel;
   readonly #session: ClientSession | null;
   /** Connecteur ORM (clé du registre) — tag des métriques de flux. */
-  readonly #ormName: string;
+  readonly #connector: string;
 
   /**
    * @param model - modèle Mongoose compilé.
-   * @param ormName - nom du connecteur ORM (registre) — défaut `"nodefony"`.
+   * @param connector - nom de la connexion (clé du registre) — défaut `"nodefony"`.
    * @param session - session transactionnelle à laquelle lier les ops (ou `null`).
    */
   constructor(
     model: LooseModel,
-    ormName = "nodefony",
+    connector = "nodefony",
     session: ClientSession | null = null,
   ) {
     this.#model = model;
-    this.#ormName = ormName;
+    this.#connector = connector;
     this.#session = session;
   }
 
@@ -89,7 +89,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     const durationMs = performance.now() - start;
     if (flow) {
       const q = durationMs >= queryFlowMonitor.slowMs ? descr() : undefined;
-      queryFlowMonitor.record(this.#ormName, durationMs, q);
+      queryFlowMonitor.record(this.#connector, durationMs, q);
     }
     if (buf) {
       buf.push({
@@ -439,7 +439,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   withTransaction(tx: ITransaction): IRepository<T> {
     return new MongooseRepository<T>(
       this.#model,
-      this.#ormName,
+      this.#connector,
       tx.getNative<ClientSession>(),
     );
   }

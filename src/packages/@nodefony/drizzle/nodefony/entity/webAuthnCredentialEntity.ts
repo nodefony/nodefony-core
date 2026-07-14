@@ -95,7 +95,7 @@ export const WEBAUTHN_CREDENTIAL_ENTITY = "webauthn_credential";
 /**
  * Construit le descripteur d'entité du store de credentials pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
  * variante de table suit le dialecte du connecteur (auto-register
  * `registerStores.ts` à `onKernelRegister`). À enregistrer **avant**
  * `orm.connect()` (cf {@link registerWebAuthnCredentialEntity}).
@@ -107,11 +107,11 @@ export const WEBAUTHN_CREDENTIAL_ENTITY = "webauthn_credential";
  * @param dialect - dialecte SQL du connecteur (sélectionne la variante de table).
  */
 export function createWebAuthnCredentialEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): IEntity {
   return {
-    orm,
+    connector,
     name: WEBAUTHN_CREDENTIAL_ENTITY,
     module: "security",
     schema: createWebAuthnCredentialTable(dialect),
@@ -122,12 +122,12 @@ export function createWebAuthnCredentialEntity(
  * Enregistre l'entité du store de credentials dans le `entityRegistry` pour un
  * ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
 export function registerWebAuthnCredentialEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): void {
-  entityRegistry.register(createWebAuthnCredentialEntity(orm, dialect));
+  entityRegistry.register(createWebAuthnCredentialEntity(connector, dialect));
 }

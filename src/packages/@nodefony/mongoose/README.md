@@ -62,7 +62,7 @@ import { MongooseOrm } from "@nodefony/mongoose";
 import { entity, ormRegistry } from "@nodefony/orm-core";
 
 @entity({
-  orm: "mydb",
+  connector: "mydb",
   name: "User",
   schema: { email: { type: String, required: true } },
 })

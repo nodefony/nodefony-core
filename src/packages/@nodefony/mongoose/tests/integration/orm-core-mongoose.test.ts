@@ -23,7 +23,7 @@ interface Room {
 
 // ── Entités logiques du banc ORM, store hétérogène ─────────────────────────
 @entity({
-  orm: ORM,
+  connector: ORM,
   name: "User",
   schema: {
     email: { type: String, required: true, unique: true },
@@ -34,7 +34,7 @@ interface Room {
 class UserEntity {}
 
 @entity({
-  orm: ORM,
+  connector: ORM,
   name: "Room",
   schema: { name: { type: String, required: true } },
 })

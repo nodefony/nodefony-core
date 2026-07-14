@@ -12,7 +12,7 @@ const PG_URL = process.env.NF_PG_URL;
 describe.skipIf(!PG_URL)("DrizzleRepository — contrat (postgres)", () => {
   runRepositoryContract({
     dialect: "postgres",
-    ormName: "contract_pg",
+    connector: "contract_pg",
     connection: { url: PG_URL },
   });
 });

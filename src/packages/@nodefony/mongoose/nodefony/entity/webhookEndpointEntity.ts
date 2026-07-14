@@ -67,15 +67,15 @@ export const WEBHOOK_ENDPOINT_ENTITY = "webhook_endpoint";
 /**
  * Construit le descripteur d'entité du store webhook pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"nodefony"`) : le
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"nodefony"`) : le
  * schéma est statique mais sa liaison à un ORM dépend de la config → pas
  * d'`@entity` figé. `timestamps:false`. À enregistrer **avant** `orm.connect()`.
  *
  * @param orm - clé de l'ORM cible dans le `ormRegistry`.
  */
-export function createWebhookEndpointEntity(orm: string): IEntity {
+export function createWebhookEndpointEntity(connector: string): IEntity {
   return {
-    orm,
+    connector,
     name: WEBHOOK_ENDPOINT_ENTITY,
     module: "security",
     schema: webhookEndpointSchema,
@@ -86,8 +86,8 @@ export function createWebhookEndpointEntity(orm: string): IEntity {
  * Enregistre l'entité du store webhook dans le `entityRegistry` pour un ORM
  * donné. À appeler **avant** `orm.connect()` (le modèle est compilé au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  */
-export function registerWebhookEndpointEntity(orm: string): void {
-  entityRegistry.register(createWebhookEndpointEntity(orm));
+export function registerWebhookEndpointEntity(connector: string): void {
+  entityRegistry.register(createWebhookEndpointEntity(connector));
 }

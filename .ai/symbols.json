@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-14T14:08:29.235Z",
+  "generated": "2026-07-14T15:08:54.758Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -2676,8 +2676,8 @@
       "module": "@nodefony/drizzle",
       "description": "Déclare les entités framework portées sur `dialect` (connecteur `default`) et enregistre leurs fabriques de stores dans les registres de `@nodefony/security` et `@nodefony/framework`. Idempotent (g…"
     },
-    "FRAMEWORK_ORM": {
-      "name": "FRAMEWORK_ORM",
+    "FRAMEWORK_CONNECTOR": {
+      "name": "FRAMEWORK_CONNECTOR",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
       "exported": true,
@@ -2701,8 +2701,8 @@
       "module": "@nodefony/mongoose",
       "description": "Déclare les entités framework Mongoose (connecteur `nodefony`) et enregistre leurs fabriques de stores dans les registres de `@nodefony/security`. Idempotent (guards) — rejouable sans effet."
     },
-    "@nodefony/mongoose:FRAMEWORK_ORM": {
-      "name": "FRAMEWORK_ORM",
+    "@nodefony/mongoose:FRAMEWORK_CONNECTOR": {
+      "name": "FRAMEWORK_CONNECTOR",
       "kind": "const",
       "file": "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
       "exported": true,
@@ -6444,7 +6444,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit les descripteurs d'entités du journal d'audit pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connec…"
+      "description": "Construit les descripteurs d'entités du journal d'audit pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du…"
     },
     "registerAuditEntities": {
       "name": "registerAuditEntities",
@@ -6552,7 +6552,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité du store d'idempotence pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM …"
+      "description": "Construit le descripteur d'entité du store d'idempotence pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à …"
     },
     "registerIdempotencyEntities": {
       "name": "registerIdempotencyEntities",
@@ -6601,7 +6601,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité session pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connecteur → l'enreg…"
+      "description": "Construit le descripteur d'entité session pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connecteur → …"
     },
     "registerSessionEntity": {
       "name": "registerSessionEntity",
@@ -6611,8 +6611,8 @@
       "module": "@nodefony/drizzle",
       "description": "Enregistre l'entité session dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect)."
     },
-    "SESSION_ORM": {
-      "name": "SESSION_ORM",
+    "SESSION_CONNECTOR": {
+      "name": "SESSION_CONNECTOR",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
       "exported": true,
@@ -6667,7 +6667,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit les descripteurs d'entités du store de jetons pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connec…"
+      "description": "Construit les descripteurs d'entités du store de jetons pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du…"
     },
     "registerTokenEntities": {
       "name": "registerTokenEntities",
@@ -6746,7 +6746,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité du store de secrets TOTP pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app) et la variante de table suit le dialecte du connecteur (auto-reg…"
+      "description": "Construit le descripteur d'entité du store de secrets TOTP pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app) et la variante de table suit le dialecte du connecteur (a…"
     },
     "registerTotpSecretEntity": {
       "name": "registerTotpSecretEntity",
@@ -6795,7 +6795,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité `User` Drizzle pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connecteur (a…"
+      "description": "Construit le descripteur d'entité `User` Drizzle pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connec…"
     },
     "registerUserEntity": {
       "name": "registerUserEntity",
@@ -6836,7 +6836,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité du store de credentials pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du conn…"
+      "description": "Construit le descripteur d'entité du store de credentials pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte …"
     },
     "registerWebAuthnCredentialEntity": {
       "name": "registerWebAuthnCredentialEntity",
@@ -6885,7 +6885,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité du store webhook pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du connecteur …"
+      "description": "Construit le descripteur d'entité du store webhook pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) et la variante de table suit le dialecte du conn…"
     },
     "registerWebhookEndpointEntity": {
       "name": "registerWebhookEndpointEntity",
@@ -9856,8 +9856,8 @@
       "extends": null,
       "description": "Forme plate d'une ligne de session telle que renvoyée par le repository."
     },
-    "@nodefony/mongoose:SESSION_ORM": {
-      "name": "SESSION_ORM",
+    "@nodefony/mongoose:SESSION_CONNECTOR": {
+      "name": "SESSION_CONNECTOR",
       "kind": "const",
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
       "exported": true,
@@ -9888,7 +9888,7 @@
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "description": "Construit les descripteurs d'entités du store de jetons pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : les schémas sont statiques mais leur liaison à …"
+      "description": "Construit les descripteurs d'entités du store de jetons pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : les schémas sont statiques mais leur lia…"
     },
     "@nodefony/mongoose:registerTokenEntities": {
       "name": "registerTokenEntities",
@@ -9945,7 +9945,7 @@
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "description": "Construit le descripteur d'entité `User` Mongoose pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison à un ORM dépen…"
+      "description": "Construit le descripteur d'entité `User` Mongoose pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison à un OR…"
     },
     "@nodefony/mongoose:registerUserEntity": {
       "name": "registerUserEntity",
@@ -9978,7 +9978,7 @@
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "description": "Construit le descripteur d'entité du store de credentials pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison à un O…"
+      "description": "Construit le descripteur d'entité du store de credentials pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison…"
     },
     "@nodefony/mongoose:registerWebAuthnCredentialEntity": {
       "name": "registerWebAuthnCredentialEntity",
@@ -10019,7 +10019,7 @@
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "description": "Construit le descripteur d'entité du store webhook pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison à un ORM dépe…"
+      "description": "Construit le descripteur d'entité du store webhook pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison à un O…"
     },
     "@nodefony/mongoose:registerWebhookEndpointEntity": {
       "name": "registerWebhookEndpointEntity",
@@ -10161,7 +10161,7 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "extends": null,
-      "description": "Description d'une entité enregistrée dans le registre cross-ORM. Une même entité logique (ex. `User`) peut exister pour plusieurs ORM : `orm` désigne l'ORM cible et `schema`/`model` portent la défi…"
+      "description": "Description d'une entité enregistrée dans le registre cross-ORM. Une même entité logique (ex. `User`) peut exister sur plusieurs connecteurs : `connector` désigne la connexion nommée cible (celle d…"
     },
     "IOrm": {
       "name": "IOrm",
@@ -10434,7 +10434,7 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "extends": "Omit",
-      "description": "Descripteur d'entité **sans ORM figé** — la forme sous laquelle une application déclare ses entités. Pourquoi l'ORM manque : dans {@link IEntity}, `orm` est le **nom d'un connecteur** (`\"default\"`,…"
+      "description": "Descripteur d'entité **sans connecteur figé** — la forme sous laquelle une application déclare ses entités. Pourquoi le connecteur manque : dans {@link IEntity}, `connector` est le **nom d'une conn…"
     },
     "defineEntity": {
       "name": "defineEntity",
@@ -10455,7 +10455,7 @@
         "IEntity"
       ],
       "decorators": [],
-      "description": "Classe de base abstraite d'une entité, indépendante du driver ORM. Porte le contrat {@link IEntity} : nom logique, ORM cible, schéma natif (calculé via {@link Entity.getSchema}), modèle compilé (po…"
+      "description": "Classe de base abstraite d'une entité, indépendante du driver ORM. Porte le contrat {@link IEntity} : nom logique, connecteur cible, schéma natif (calculé via {@link Entity.getSchema}), modèle comp…"
     },
     "EntityRegistry": {
       "name": "EntityRegistry",
@@ -10466,7 +10466,7 @@
       "extends": null,
       "implements": [],
       "decorators": [],
-      "description": "Registre cross-ORM des entités, indexé par nom logique puis par ORM. Une même entité logique (ex. `User`) peut exister pour plusieurs ORM : l'index interne est `entities[entityName][ormName] = IEnt…"
+      "description": "Registre cross-ORM des entités, indexé par nom logique puis par connecteur. Une même entité logique (ex. `User`) peut exister sur plusieurs connexions : l'index interne est `entities[entityName][co…"
     },
     "entityRegistry": {
       "name": "entityRegistry",
@@ -10474,7 +10474,7 @@
       "file": "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
       "exported": true,
       "module": "@nodefony/orm-core",
-      "description": "Singleton process-wide partagé. Les entités s'y enregistrent (via le décorateur `@entity` en P5.3 ou {@link Entity.register}). La classe {@link EntityRegistry} reste instanciable pour des registres…"
+      "description": "Singleton process-wide partagé. Les entités s'y enregistrent (via le décorateur `entities([...])` posé sur le Module, ou {@link Entity.register}). La classe {@link EntityRegistry} reste instanciabl…"
     },
     "UnknownCriteriaField": {
       "name": "UnknownCriteriaField",
@@ -10506,7 +10506,7 @@
       "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
       "exported": true,
       "module": "@nodefony/orm-core",
-      "description": "Construit le graphe canonique complet (optionnellement filtré par ORM)."
+      "description": "Construit le graphe canonique complet (optionnellement filtré par connecteur)."
     },
     "buildConnectionHealth": {
       "name": "buildConnectionHealth",
@@ -12608,7 +12608,7 @@
       "file": "src/modules/test/nodefony/entity/dolibarr/index.ts",
       "exported": true,
       "module": "modules/test",
-      "description": "Liste des descripteurs d'entité Dolibarr pour un ORM donné."
+      "description": "Liste des descripteurs d'entité Dolibarr pour une connexion donnée."
     },
     "registerDolibarrEntities": {
       "name": "registerDolibarrEntities",
@@ -16597,8 +16597,8 @@
       "module": "@nodefony/orm-core",
       "description": "Déclare les entités qu'un module apporte — l'équivalent de `@controllers([...])` pour la couche données. ```ts"
     },
-    "DEFAULT_ORM": {
-      "name": "DEFAULT_ORM",
+    "DEFAULT_CONNECTOR": {
+      "name": "DEFAULT_CONNECTOR",
       "kind": "const",
       "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
       "exported": true,
@@ -20345,7 +20345,7 @@
       "registerDrizzleFrameworkStores": [
         "src/packages/@nodefony/drizzle/index.ts"
       ],
-      "FRAMEWORK_ORM": [
+      "FRAMEWORK_CONNECTOR": [
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/mongoose/index.ts"
       ],
@@ -22009,7 +22009,7 @@
       "SESSION_ENTITY_NAME": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
-      "SESSION_ORM": [
+      "SESSION_CONNECTOR": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"

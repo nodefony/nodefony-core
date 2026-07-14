@@ -80,7 +80,7 @@ export type {
 export {
   entity,
   entities,
-  DEFAULT_ORM,
+  DEFAULT_CONNECTOR,
   repository,
 } from "./nodefony/src/decorators/index";
 export { defineEntity } from "./nodefony/src/defineEntity";

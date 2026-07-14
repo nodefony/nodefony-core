@@ -18,7 +18,7 @@ const URI = mongoTestUri("mongo_adv");
 
 // ─────────────── updateMany + savepoints (no-op Mongo) ──────────────────────
 @entity({
-  orm: "mongo_adv_a",
+  connector: "mongo_adv_a",
   name: "AdvUser",
   schema: {
     email: { type: String, required: true },
@@ -94,13 +94,13 @@ describe.skipIf(!URI)(
 
 // ─────────────── eager-load many-to-one / one-to-one (ref source) ───────────
 @entity({
-  orm: "mongo_adv_b",
+  connector: "mongo_adv_b",
   name: "Author",
   schema: { name: { type: String, required: true } },
 })
 class AuthorEntity {}
 @entity({
-  orm: "mongo_adv_b",
+  connector: "mongo_adv_b",
   name: "Book",
   schema: { title: { type: String, required: true } },
   // L'adapter ajoute le champ ref `author` (ObjectId) sur la SOURCE.
@@ -108,7 +108,7 @@ class AuthorEntity {}
 })
 class BookEntity {}
 @entity({
-  orm: "mongo_adv_b",
+  connector: "mongo_adv_b",
   name: "Passport",
   schema: { code: { type: String, required: true } },
   relations: [{ type: "one-to-one", target: "Author", field: "author" }],
@@ -246,13 +246,13 @@ describe.skipIf(!URI)(
     it("une relation many-to-many fait ÉCHOUER la connexion (→ getNativeConnection)", async () => {
       const ORM_C = "mongo_adv_m2m";
       @entity({
-        orm: ORM_C,
+        connector: ORM_C,
         name: "Tag",
         schema: { label: { type: String, required: true } },
       })
       class TagEntity {}
       @entity({
-        orm: ORM_C,
+        connector: ORM_C,
         name: "Article",
         schema: { title: { type: String, required: true } },
         relations: [{ type: "many-to-many", target: "Tag", field: "tags" }],

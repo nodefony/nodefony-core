@@ -33,7 +33,7 @@ export interface EntityRel {
 /** Entité du graphe canonique (/nodefony/orm/api/graph). */
 export interface EntityNode {
   name: string;
-  orm: string;
+  connector: string;
   module?: string;
   domain?: string;
   columns?: { name: string; type: string }[];

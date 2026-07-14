@@ -610,7 +610,7 @@ export const OrmOverview = observer(
       () =>
         activeOrm === "*"
           ? entities
-          : entities.filter((e) => e.orm === activeOrm),
+          : entities.filter((e) => e.connector === activeOrm),
       [entities, activeOrm],
     );
     // KPIs = projet entier ; panneaux = scope de l'onglet (~400 entités → mémo).
@@ -725,12 +725,12 @@ export const OrmOverview = observer(
       () =>
         scopedEntities
           .map((e) => ({
-            key: `${e.orm}:${e.name}`,
+            key: `${e.connector}:${e.name}`,
             label: e.name,
             value: countMap[e.name] ?? -1,
             href: `/nodefony/orm-entity?name=${encodeURIComponent(
               e.name,
-            )}&orm=${encodeURIComponent(e.orm)}`,
+            )}&connector=${encodeURIComponent(e.connector)}`,
           }))
           .filter((x) => x.value > 0)
           .sort((a, b) => b.value - a.value)

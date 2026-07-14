@@ -70,7 +70,7 @@ export interface ArticleRow {
   createdAt: Date;
 }
 
-/** Le connecteur (`orm`) n'est PAS figé ici : c'est une donnée de config. */
+/** Le `connector` n'est PAS figé ici : c'est une donnée de config. */
 export const ArticleEntity = defineEntity({
   name: "Article",
   module: "blog",
@@ -101,7 +101,7 @@ class Blog extends Module { … }
   Les **index** déclarés ne sortent pas non plus de ce DDL (drizzle-kit seul les lit).
 - ⚠️ **`@entities` s'accroche à `onRegister`**, une phase AVANT le `connect()` des connecteurs (`onBoot`,
   qui crée les tables). C'est le décorateur qui s'en charge — ne le déplace jamais vers `onBoot`.
-- 🚫 **N'utilise PAS le décorateur de classe `@entity({orm, schema})`** : il fige le connecteur **à
+- 🚫 **N'utilise PAS le décorateur de classe `@entity({ connector, schema })`** : il fige le connecteur **à
   l'import**, alors que l'ORM est une donnée de **configuration**. Zéro usage en production, et pour cause.
 - **Schéma ou existence dépendant du RUNTIME** (table fabriquée à partir du dialecte, introspection,
   import massif) → là seulement, `entityRegistry.register(desc)` impératif, **avant** `orm.connect()`.
@@ -181,7 +181,7 @@ class Blog extends Module { … }
 
 **Pièges vécus (corrigés, mais à connaître) :**
 
-- Le **connecteur se déclare sur l'ENTITÉ** (`defineEntity({ orm: "wordpress" })`) — `--connector` le fait.
+- Le **connecteur se déclare sur l'ENTITÉ** (`defineEntity({ connector: "wordpress" })`) — `--connector` le fait.
   Sans ça, les tables naissent dans la base de l'app pendant que le service les cherche ailleurs, **en silence**.
 - Un module cible déclare ses briques en `peerDependencies: "*"` — c'est l'**app** qui les installe.
 - Générer dans un module ≠ dans l'app : `--module @app/<nom>` (nom **npm**, pas le dossier).
@@ -249,7 +249,7 @@ export class ArticleService extends AbstractCrudService<
 - `findById(id)` suppose **PK `id` string** (override sinon). 2ᵉ générique `R` = garde les finders métier
   (ex. `UserService extends AbstractCrudService<IUser, IUserRepository>`, `super("users", repository, ...wiring)`).
 - **DI** : `@inject("repository.<entity>")` (le binding repo↔ORM est fait par l'adapter) — JAMAIS l'ORM en dur.
-  `@repository(name, {entity, orm?})` = tag pur lien repo↔entity.
+  `@repository(name, {entity, connector?})` = tag pur lien repo↔entity.
 
 ### E. Transactions (une tx = un ORM ; 2PC cross-ORM NON garanti)
 
@@ -270,7 +270,7 @@ await orm.transaction(async (tx) => {
 
 - **profiler par-requête** (`RequestContext.queries`, debug bar) : SQL de CHAQUE requête tracée, dev-only, **coût nul hors requête tracée** (buffer ALS absent).
 - **santé** (`connection/health` + canal `orm:health`) : état/ping/latence-fenêtre/erreurs/reconnexions + sonde profonde `IOrm.probe()` (storage PRAGMA / pool). Générique (`buildConnectionHealth` itère `ormRegistry`, ping+probe), **émet une requête** (ping).
-- **flux** (`flow` + canal `orm:flow`, `queryFlowMonitor`, 2026-05-23) : DÉBIT (queries/s) + latence moy/EWMA + requêtes lentes. **Process-wide, indépendant de l'ALS**, **OFF par défaut** (gaté par le driver : `setEnabled(env!==production)`, override `NODEFONY_ORM_FLOW`). Lazy, ring slow borné 20, `toSQL()` **seulement sur le chemin lent**. **Per-connecteur** : `Map<connecteur>` (clé = nom registre, pas vendor) → le repo passe son `ormName` au tap. Débit/s **dérivé** (delta `total`/`ts`), **0 persistance** (RAM, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe). Câblé : **Drizzle** seul (Mongoose = TODO middleware). Ticker realtime = `createBrokerTicker` générique (réutilisé santé+flux).
+- **flux** (`flow` + canal `orm:flow`, `queryFlowMonitor`, 2026-05-23) : DÉBIT (queries/s) + latence moy/EWMA + requêtes lentes. **Process-wide, indépendant de l'ALS**, **OFF par défaut** (gaté par le driver : `setEnabled(env!==production)`, override `NODEFONY_ORM_FLOW`). Lazy, ring slow borné 20, `toSQL()` **seulement sur le chemin lent**. **Per-connecteur** : `Map<connecteur>` (clé = nom registre, pas vendor) → le repo passe son `connector` au tap. Débit/s **dérivé** (delta `total`/`ts`), **0 persistance** (RAM, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe). Câblé : **Drizzle** seul (Mongoose = TODO middleware). Ticker realtime = `createBrokerTicker` générique (réutilisé santé+flux).
 - **lean cluster** (`buildOrmLeanHealth()` orm-core, 2026-05-25) : agrégat **per-instance** de TOUS les connecteurs (registre + `queryFlowMonitor` + `connectionMonitor`) → `IOrmLeanHealth` (`connectors/connected/queryTotal/slowTotal/errorTotal/reconnectTotal/maxEwmaMs`). **0 ping / 0 toSQL**, O(N connecteurs). Branché dans le report de sonde cluster via le **seam core** `setOrmHealthProvider(buildOrmLeanHealth)` (driver Drizzle au boot) → **`framework` n'importe PAS `orm-core`**. Lu par `buildOwnHealth` (`IRealtimeHealth.orm`), agrégé pod dans `mergeClusterHealth.totals.orm`. Cf RETEX §11 + [[project_cluster_drilldown_kit]].
 - **rich @pid (drill cluster, 2026-05-25)** : diagnostic ORM COMPLET d'UN worker EXACT (`{ health: buildConnectionHealth(), flow: buildOrmFlow() }`) pour la page `/nodefony/orm/<pid>` en cluster. **Calqué `dashboard:supervision@<pid>`** (voie B1 : enrichir le colis broadcast, pas un 2ᵉ flux). Pièces : (1) **facette d'enrich** `ClusterProbeFacet` (`"process"|"orm"`, défaut process) sur `IClusterProbeCtl`/`IClusterProbeEnrich` (core) → 2 drills indépendants, « on paie ce qu'on regarde » par sonde ; (2) **seam core** `setOrmRichProvider(async ()=>blob)`/`readOrmRich()` (driver Drizzle, **async** car `connection/health` ping) — opaque côté core/framework ; (3) `ClusterProbeClient` : facette `"orm"` → **ticker de cache async** `#startOrmRich` (le report sync joint `payload.ormRich`, absent hors drill) ; (4) studio `orm:rich@<pid>` = **canal combiné** (1 canal = 1 enrich = **pas de ref-count**, le hub dédoublonne par nom) → local broker ticker si `pid===process.pid`, sinon `createClusterOrmTicker` (`requestEnrich(pid,true,"orm")` au sub, `false` au dispose). Prouvé e2e cross-process (`cluster-orm-rich-e2e.mjs`). Cf RETEX §11 + [[project_cluster_drilldown_kit]].
 
@@ -420,7 +420,7 @@ l'adapter.
 (`:67`), `unregister` (`:77`). Map lazy (rien alloué tant qu'aucun ORM).
 
 **`EntityRegistry`** + singleton `entityRegistry` — `orm-core/nodefony/src/EntityRegistry.ts:14` / `:146`.
-`Object.create(null)` lazy, indexé `entities[name][orm]`. `register(entity)` (`:24`), `get(name, orm?)`
+`Object.create(null)` lazy, indexé `entities[name][connector]`. `register(entity)` (`:24`), `get(name, connector?)`
 (`:54`) : **ambigu → throw** si `orm` omis et l'entité existe pour plusieurs ORM ; `has`, `unregister`.
 
 ### 2.3 `AbstractCrudService<T, R>`
@@ -452,11 +452,11 @@ service = **source de vérité métier**, REST/WS/GraphQL/CLI = adaptateurs minc
 `orm-core/nodefony/src/decorators/`. **SANS reflect-metadata** (WeakMap maison `metadataStore.ts` →
 0 dep runtime ; diverge volontairement du DI core/framework qui, lui, a besoin de reflect).
 
-- **`@entity({ orm, name?, schema?, relations?, module?, domain?, timestamps? })`** (`entityDecorator.ts:61`,
+- **`@entity({ connector, name?, schema?, relations?, module?, domain?, timestamps? })`** (`entityDecorator.ts:61`,
   class deco) : `name` défaut = nom de classe ; construit un descripteur `IEntity` **depuis les options**
   (0 instanciation) → `entityRegistry.register(descriptor)` **au chargement du module** (`:83`) + stocke
   la métadonnée. La classe décorée peut être **vide** (le descripteur vient des options).
-- **`@repository(name, { entity, orm? })`** (class deco) : **tag pur** du lien repo↔entity, **AUCUN
+- **`@repository(name, { entity, connector? })`** (class deco) : **tag pur** du lien repo↔entity, **AUCUN
   registre** (le binding DI est le job de l'adapter).
 - Accesseurs métadonnée exportés : `getEntityMeta`/`hasEntityMeta`/`getRepositoryMeta`/`hasRepositoryMeta`.
 - Helper critères exporté : `OPERATOR_KEYS` (`criteria.ts:10`), `isFieldOperators()` (`criteria.ts:38`),
@@ -470,12 +470,12 @@ Exports : `DrizzleOrm`, `DrizzleRepository`, `DrizzleTransaction` (+ types `Driz
 **`DrizzleOrm extends Orm`** — `drizzle/nodefony/src/orm-core/DrizzleOrm.ts:80`. Schema-as-code
 (`entity.schema` EST une table Drizzle `sqliteTable(...)`). DDL dérivé via `getTableConfig()`
 (`DrizzleOrm.ts:154`, dev/test ; **prod = `drizzle-kit`**). `getRepository(name)` (`:327`) →
-`new DrizzleRepository(db, table, relations, ormName)` (`:339`). `transaction` (`:350`) →
+`new DrizzleRepository(db, table, relations, connector)` (`:339`). `transaction` (`:350`) →
 `new DrizzleTransaction(db, client)` (`:359`). `getNativeConnection<DrizzleDb>()` (`:370`).
 `describeConnection()` (`:468`). `get dialect` (`:114`).
 
 **`DrizzleRepository<T>`** — `DrizzleOrm.ts` voisin, `DrizzleRepository.ts:79`. **Ctor**
-`(db, table, relations, ormName="default")` (`:92`). `#where(criteria)` traduit en `eq/and/gt/inArray/
+`(db, table, relations, connector="default")` (`:92`). `#where(criteria)` traduit en `eq/and/gt/inArray/
 like` (`:186`). `#populate` = eager-load **manuel**, 1 requête `IN(...)` par relation (`:249`). Sortie
 = **cast `rows as T[]`** (`:320` — schema-as-code : la ligne EST l'entité, pas de remap générique).
 Verbes : `createMany` (`:341`), `updateOne` (`:354`), `upsert` (`:375`, `onConflictDoUpdate`+RETURNING),
@@ -498,7 +498,7 @@ multi-ORM) puis compile schémas/modèles depuis `entityRegistry` (`connection.m
 `probe` (`:243`, `serverStatus`→pool), `describeEntity` (`:272`, `schema.paths`, `_id`=PK),
 `describeConnection` (`:295`) **sync** → `safeTarget()` (`:307`) strip `user:pass` de l'URI.
 
-**`MongooseRepository<T>`** — `MongooseRepository.ts:42`. **Ctor** `(model, ormName, session?)` (`:53`).
+**`MongooseRepository<T>`** — `MongooseRepository.ts:42`. **Ctor** `(model, connector, session?)` (`:53`).
 `id`→`_id` en critère, sortie `toObject({ virtuals:true })` (expose le virtuel `id` hex). `relations`→
 `populate()`, `$like`→`$regex`. Verbes : `createMany` (`:254`, `insertMany`), `updateOne` (`:271`),
 `upsert` (`:293`, `findOneAndUpdate({upsert})` + `$setOnInsert`), `updateMany` (`:331`), `increment`
@@ -513,16 +513,16 @@ multi-ORM) puis compile schémas/modèles depuis `entityRegistry` (`connection.m
 Représentation canonique sérialisable (ORMs + entités + colonnes + relations) qui sert l'ERD Studio
 (React Flow) **+** le contexte IA (text-to-SQL/RAG) **+** l'export. Fonctions (`orm-core/nodefony/src/`) :
 
-| Fonction                                | Rôle                                                                                                                           | Ancrage                       |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| `buildOrmGraph(ormFilter?)`             | Lit `ormRegistry`+`entityRegistry` → `IOrmGraph` (nœuds/colonnes/relations)                                                    | `OrmAdminApi.ts:114`          |
-| `buildConnectionHealth(orm?)`           | État + **ping** + `probe()` (storage/pool) — **émet une requête**                                                              | `OrmAdminApi.ts:136`          |
-| `buildOrmFlow(filter?)`                 | Débit/latence/slow — lecture pure (**aucune requête émise**)                                                                   | `OrmAdminApi.ts:238`          |
-| `toDbml(graph)` / `toJsonSchema(graph)` | Export DBML / JSON Schema                                                                                                      | `OrmAdminApi.ts:273` / `:376` |
-| `createOrmAdminApi()`                   | `IAdminApi` (endpoints `orms`/`entities`/`entity/{name}`/`graph`/`connection/health`/`flow`/`export/{format}`, `?orm=` filtre) | `OrmAdminApi.ts:419`          |
-| `registerOrmAdminApi(registry)`         | Monte `/nodefony/orm/api/*` (idempotent)                                                                                       | `OrmAdminApi.ts:541`          |
-| `wireOrmAdminPlane(kernel)`             | Câblage GLOBAL factorisé (admin API + providers santé/flux) — appelé par chaque driver à `onKernelBoot`                        | `ormWiring.ts:31`             |
-| `buildOrmLeanHealth()`                  | Agrégat per-instance (0 ping/0 toSQL) pour la sonde cluster                                                                    | `src/buildOrmLeanHealth.ts`   |
+| Fonction                                | Rôle                                                                                                                                 | Ancrage                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| `buildOrmGraph(ormFilter?)`             | Lit `ormRegistry`+`entityRegistry` → `IOrmGraph` (nœuds/colonnes/relations)                                                          | `OrmAdminApi.ts:114`          |
+| `buildConnectionHealth(connector?)`     | État + **ping** + `probe()` (storage/pool) — **émet une requête**                                                                    | `OrmAdminApi.ts:136`          |
+| `buildOrmFlow(filter?)`                 | Débit/latence/slow — lecture pure (**aucune requête émise**)                                                                         | `OrmAdminApi.ts:238`          |
+| `toDbml(graph)` / `toJsonSchema(graph)` | Export DBML / JSON Schema                                                                                                            | `OrmAdminApi.ts:273` / `:376` |
+| `createOrmAdminApi()`                   | `IAdminApi` (endpoints `orms`/`entities`/`entity/{name}`/`graph`/`connection/health`/`flow`/`export/{format}`, `?connector=` filtre) | `OrmAdminApi.ts:419`          |
+| `registerOrmAdminApi(registry)`         | Monte `/nodefony/orm/api/*` (idempotent)                                                                                             | `OrmAdminApi.ts:541`          |
+| `wireOrmAdminPlane(kernel)`             | Câblage GLOBAL factorisé (admin API + providers santé/flux) — appelé par chaque driver à `onKernelBoot`                              | `ormWiring.ts:31`             |
+| `buildOrmLeanHealth()`                  | Agrégat per-instance (0 ping/0 toSQL) pour la sonde cluster                                                                          | `src/buildOrmLeanHealth.ts`   |
 
 orm-core étant une **lib pure**, le montage est déclenché par un **module driver** (`Drizzle`/`Mongoose`
 `onKernelBoot` → `wireOrmAdminPlane`) ; lit les registres globaux → couvre **tous** les ORM.

@@ -84,7 +84,7 @@ export interface UserRow {
 /**
  * Construit le descripteur d'entité `User` Drizzle pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
  * variante de table suit le dialecte du connecteur (auto-register
  * `registerStores.ts` à `onKernelRegister`). À enregistrer dans `entityRegistry`
  * **avant** `orm.connect()` (cf {@link registerUserEntity}).
@@ -94,14 +94,14 @@ export interface UserRow {
  * @returns descripteur {@link IEntity} (`name: "User"`).
  */
 export function createUserEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): IEntity {
   // `module: "user"` → l'entité est regroupée sous @nodefony/user dans l'ERD Studio.
   // (Horodatages = colonnes explicites ci-dessus ; le flag `timestamps` IEntity ne
   // concerne que les ORM qui les gèrent au niveau schéma, ex. Mongoose.)
   return {
-    orm,
+    connector,
     name: "User",
     module: "user",
     schema: createUserTable(dialect),
@@ -112,12 +112,12 @@ export function createUserEntity(
  * Enregistre l'entité `User` Drizzle dans le `entityRegistry` pour un ORM donné.
  * À appeler **avant** `orm.connect()` (l'adapter compile/crée les tables au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
 export function registerUserEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): void {
-  entityRegistry.register(createUserEntity(orm, dialect));
+  entityRegistry.register(createUserEntity(connector, dialect));
 }

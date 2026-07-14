@@ -65,7 +65,7 @@ const usersTable = sqliteTable("User", {
   age: integer("age").notNull(),
 });
 
-@entity({ orm: "db", name: "User", schema: usersTable })
+@entity({ connector: "db", name: "User", schema: usersTable })
 class UserEntity {}
 
 // 2) Connexion (auto-enregistrement dans ormRegistry).
@@ -116,7 +116,7 @@ const roomsTable = sqliteTable("Room", {
 });
 
 @entity({
-  orm: "db",
+  connector: "db",
   name: "User",
   schema: usersTable,
   relations: [{ type: "one-to-many", target: "Room", field: "rooms" }],

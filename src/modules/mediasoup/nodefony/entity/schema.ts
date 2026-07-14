@@ -91,9 +91,9 @@ export const calendarTable = sqliteTable("Calendar", {
   hidden: integer("hidden", { mode: "boolean" })
     .notNull()
     .$defaultFn(() => false),
-  conferenceProperties: text("conferenceProperties", { mode: "json" }).$defaultFn(
-    () => ({ allowedConferenceSolutionTypes: ["MEETING"] }),
-  ),
+  conferenceProperties: text("conferenceProperties", {
+    mode: "json",
+  }).$defaultFn(() => ({ allowedConferenceSolutionTypes: ["MEETING"] })),
   defaultReminders: text("defaultReminders", { mode: "json" }).$defaultFn(
     () => [],
   ),
@@ -192,25 +192,35 @@ export const eventTagTable = sqliteTable("EventTag", {
  * À appeler **avant** `orm.connect()` (l'adapter résout les relations au connect
  * et exige que toutes les cibles soient déjà enregistrées sur le même ORM).
  *
- * @param orm - clé du connecteur cible (ex. `"mediasoup"`).
+ * @param connector - nom de la connexion cible (ex. `"mediasoup"`).
  */
-export function registerMediasoupEntities(orm: string): void {
+export function registerMediasoupEntities(connector: string): void {
   const entities: IEntity[] = [
     // User réutilise la table du contrat @nodefony/user (même schéma que le défaut).
-    { orm, module: MODULE, name: "User", schema: userTable },
-    { orm, module: MODULE, name: "Room", schema: roomTable },
+    { connector, module: MODULE, name: "User", schema: userTable },
+    { connector, module: MODULE, name: "Room", schema: roomTable },
     {
-      orm,
+      connector,
       module: MODULE,
       name: "RoomMember",
       schema: roomMemberTable,
       relations: [
-        { type: "many-to-one", target: "Room", field: "room", foreignKey: "roomId" },
-        { type: "many-to-one", target: "User", field: "user", foreignKey: "userId" },
+        {
+          type: "many-to-one",
+          target: "Room",
+          field: "room",
+          foreignKey: "roomId",
+        },
+        {
+          type: "many-to-one",
+          target: "User",
+          field: "user",
+          foreignKey: "userId",
+        },
       ],
     },
     {
-      orm,
+      connector,
       module: MODULE,
       name: "Calendar",
       schema: calendarTable,
@@ -224,7 +234,7 @@ export function registerMediasoupEntities(orm: string): void {
       ],
     },
     {
-      orm,
+      connector,
       module: MODULE,
       name: "Event",
       schema: eventTable,
@@ -235,7 +245,12 @@ export function registerMediasoupEntities(orm: string): void {
           field: "calendar",
           foreignKey: "calendarId",
         },
-        { type: "many-to-one", target: "Room", field: "room", foreignKey: "roomId" },
+        {
+          type: "many-to-one",
+          target: "Room",
+          field: "room",
+          foreignKey: "roomId",
+        },
         {
           type: "many-to-one",
           target: "User",
@@ -252,12 +267,17 @@ export function registerMediasoupEntities(orm: string): void {
       ],
     },
     {
-      orm,
+      connector,
       module: MODULE,
       name: "Recording",
       schema: recordingTable,
       relations: [
-        { type: "many-to-one", target: "Room", field: "room", foreignKey: "roomId" },
+        {
+          type: "many-to-one",
+          target: "Room",
+          field: "room",
+          foreignKey: "roomId",
+        },
         // FK nullable : un enregistrement peut être ad-hoc (sans Event planifié).
         {
           type: "many-to-one",
@@ -267,9 +287,9 @@ export function registerMediasoupEntities(orm: string): void {
         },
       ],
     },
-    { orm, module: MODULE, name: "Tag", schema: tagTable },
+    { connector, module: MODULE, name: "Tag", schema: tagTable },
     {
-      orm,
+      connector,
       module: MODULE,
       name: "EventTag",
       schema: eventTagTable,
@@ -280,7 +300,12 @@ export function registerMediasoupEntities(orm: string): void {
           field: "event",
           foreignKey: "eventId",
         },
-        { type: "many-to-one", target: "Tag", field: "tag", foreignKey: "tagId" },
+        {
+          type: "many-to-one",
+          target: "Tag",
+          field: "tag",
+          foreignKey: "tagId",
+        },
       ],
     },
   ];

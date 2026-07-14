@@ -698,7 +698,9 @@ describe("Admin data plane — SPA fallback vs vraies routes (non-shadow)", () =
     expect(r.body, "le SPA renvoie du HTML brut, pas du JSON").to.be.a(
       "string",
     );
-    expect(r.body as string).to.include("<!DOCTYPE");
+    // Casse libre : la coquille vient de Vite en dev (`<!doctype html>`) et du
+    // build publish en static (`<!DOCTYPE html>`) — le doctype est insensible à la casse.
+    expect((r.body as string).toUpperCase()).to.include("<!DOCTYPE");
   });
 
   it("GET /nodefony/kernel/api/info (authentifié) → 200 JSON (route ≥3 seg NON masquée)", async () => {

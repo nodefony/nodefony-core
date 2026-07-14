@@ -17,13 +17,13 @@ describe("@entity", () => {
   });
 
   it("stocke la métadonnée + auto-register le descripteur (name défaut = classe)", () => {
-    @entity({ orm: "drizzle", schema: { id: "uuid" } })
+    @entity({ connector: "drizzle", schema: { id: "uuid" } })
     class Foo {}
 
     const meta = getEntityMeta(Foo);
     assert.ok(meta);
     assert.equal(meta.name, "Foo");
-    assert.equal(meta.orm, "drizzle");
+    assert.equal(meta.connector, "drizzle");
     assert.deepEqual(meta.schema, { id: "uuid" });
     assert.equal(meta.target, Foo);
     // descripteur poussé dans le registre singleton
@@ -32,7 +32,7 @@ describe("@entity", () => {
   });
 
   it("name explicite remplace le nom de classe", () => {
-    @entity({ orm: "mongoose", name: "User" })
+    @entity({ connector: "mongoose", name: "User" })
     class UserModel {}
 
     assert.equal(getEntityMeta(UserModel)?.name, "User");
@@ -41,7 +41,7 @@ describe("@entity", () => {
 
   it("relations transmises au descripteur", () => {
     @entity({
-      orm: "drizzle",
+      connector: "drizzle",
       name: "User",
       relations: [{ type: "one-to-many", target: "Room", field: "rooms" }],
     })
@@ -60,14 +60,14 @@ describe("@entity", () => {
 
 describe("@repository", () => {
   it("lie repo → entity via métadonnée (tag pur, pas de registre)", () => {
-    @repository("repository.user", { entity: "User", orm: "drizzle" })
+    @repository("repository.user", { entity: "User", connector: "drizzle" })
     class UserRepo {}
 
     const meta = getRepositoryMeta(UserRepo);
     assert.ok(meta);
     assert.equal(meta.name, "repository.user");
     assert.equal(meta.entity, "User");
-    assert.equal(meta.orm, "drizzle");
+    assert.equal(meta.connector, "drizzle");
     assert.equal(meta.target, UserRepo);
     assert.equal(hasRepositoryMeta(UserRepo), true);
   });

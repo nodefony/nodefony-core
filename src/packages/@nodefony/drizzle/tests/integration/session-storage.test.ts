@@ -8,7 +8,7 @@ import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
 import DrizzleSessionStorage from "../../nodefony/src/SessionStorage";
 import {
   registerSessionEntity,
-  SESSION_ORM,
+  SESSION_CONNECTOR,
   type SessionRow,
 } from "../../nodefony/entity/sessionEntity";
 
@@ -24,16 +24,16 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
 
   beforeAll(async () => {
     // Enregistrement DYNAMIQUE (S1 multi-dialecte) — plus de @entity à l'import.
-    registerSessionEntity(SESSION_ORM);
-    orm = new DrizzleOrm(SESSION_ORM, { filename: ":memory:" });
+    registerSessionEntity(SESSION_CONNECTOR);
+    orm = new DrizzleOrm(SESSION_CONNECTOR, { filename: ":memory:" });
     await orm.connect(); // crée la table `session`
     storage = new DrizzleSessionStorage(fakeManager);
   });
 
   afterAll(async () => {
     await orm.disconnect();
-    entityRegistry.unregister("session", SESSION_ORM);
-    ormRegistry.unregister(SESSION_ORM);
+    entityRegistry.unregister("session", SESSION_CONNECTOR);
+    ormRegistry.unregister(SESSION_CONNECTOR);
   });
 
   // ── Inversion de contrôle : le storage s'est auto-enregistré dans http ─────

@@ -7,7 +7,7 @@ import type {
 } from "@nodefony/http";
 import { ormRegistry } from "@nodefony/orm-core";
 import type { IRepository, Criteria } from "@nodefony/orm-core";
-import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
+import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
 
 /**
  * Stockage de session **Mongoose** (driver NoSQL), branché sur `@nodefony/orm-core`.
@@ -41,7 +41,7 @@ class SessionStorage implements ISessionStorage {
    * misconfig) jette toujours via `getRepository`.
    */
   #repo(): IRepository<SessionRow> | null {
-    const orm = ormRegistry.get(SESSION_ORM);
+    const orm = ormRegistry.get(SESSION_CONNECTOR);
     if (!orm.isConnected()) {
       return null;
     }

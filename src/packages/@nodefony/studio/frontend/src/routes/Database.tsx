@@ -75,7 +75,7 @@ interface RelationInfo {
 }
 interface EntityNode {
   name: string;
-  orm: string;
+  connector: string;
   /** Module Nodefony propriétaire (`""` = non rattaché → groupe « — »). */
   module: string;
   /** Classification (domaine fonctionnel) — axe de regroupement prioritaire si présent. */
@@ -526,7 +526,7 @@ export const Database = observer(() => {
     (orm: string) => {
       store.api
         .getAbsolute<Record<string, number>>(
-          `/nodefony/orm/api/counts?orm=${encodeURIComponent(orm)}`,
+          `/nodefony/orm/api/counts?connector=${encodeURIComponent(orm)}`,
         )
         .then(setCounts)
         .catch(() => setCounts({}));
@@ -541,7 +541,7 @@ export const Database = observer(() => {
   const goEntity = useCallback(
     (name: string) =>
       navigate(
-        `/nodefony/orm-entity?name=${encodeURIComponent(name)}&orm=${encodeURIComponent(selected ?? "")}`,
+        `/nodefony/orm-entity?name=${encodeURIComponent(name)}&connector=${encodeURIComponent(selected ?? "")}`,
       ),
     [navigate, selected],
   );
@@ -645,7 +645,7 @@ export const Database = observer(() => {
       setLoading(true);
       store.api
         .getAbsolute<OrmGraph>(
-          `/nodefony/orm/api/graph?orm=${encodeURIComponent(orm)}`,
+          `/nodefony/orm/api/graph?connector=${encodeURIComponent(orm)}`,
         )
         .then((g) => {
           setAllEntities(g.entities);
@@ -694,7 +694,7 @@ export const Database = observer(() => {
       if (!selected) return;
       store.api
         .getAbsolute<{ content: string }>(
-          `/nodefony/orm/api/export/${format}?orm=${encodeURIComponent(selected)}`,
+          `/nodefony/orm/api/export/${format}?connector=${encodeURIComponent(selected)}`,
         )
         .then((r) => navigator.clipboard.writeText(r.content))
         .then(() => {

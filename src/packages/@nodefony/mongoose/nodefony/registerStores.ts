@@ -46,7 +46,7 @@ import { MongooseWebhookStore } from "./src/MongooseWebhookStore";
  * Mongoose, ≠ `"default"` de Drizzle — isole les entités homonymes dans le
  * `entityRegistry` process-wide si les deux ORM cohabitent).
  */
-export const FRAMEWORK_ORM = "nodefony";
+export const FRAMEWORK_CONNECTOR = "nodefony";
 
 /** Bilan de l'auto-enregistrement (loggé par le module — jamais silencieux). */
 export interface IFrameworkStoresReport {
@@ -64,21 +64,21 @@ export interface IFrameworkStoresReport {
 function resolveConnectedOrm(store: string): MongooseOrm {
   let orm: unknown;
   try {
-    orm = ormRegistry.get(FRAMEWORK_ORM);
+    orm = ormRegistry.get(FRAMEWORK_CONNECTOR);
   } catch {
     throw new Error(
-      `${store} : ORM "${FRAMEWORK_ORM}" introuvable — charger @nodefony/mongoose ` +
+      `${store} : ORM "${FRAMEWORK_CONNECTOR}" introuvable — charger @nodefony/mongoose ` +
         `AVANT @nodefony/security dans le manifeste "modules".`,
     );
   }
   if (!(orm instanceof MongooseOrm)) {
     throw new Error(
-      `${store} : l'ORM "${FRAMEWORK_ORM}" n'est pas un MongooseOrm (connecteur homonyme d'un autre driver ?).`,
+      `${store} : l'ORM "${FRAMEWORK_CONNECTOR}" n'est pas un MongooseOrm (connecteur homonyme d'un autre driver ?).`,
     );
   }
   if (!orm.isConnected()) {
     throw new Error(
-      `${store} : ORM "${FRAMEWORK_ORM}" non connecté au montage du store (ordre de boot).`,
+      `${store} : ORM "${FRAMEWORK_CONNECTOR}" non connecté au montage du store (ordre de boot).`,
     );
   }
   return orm;
@@ -99,7 +99,7 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
     registerEntity: () => void,
     registerFactory: () => void,
   ): void => {
-    if (entityRegistry.has(entityName, FRAMEWORK_ORM)) {
+    if (entityRegistry.has(entityName, FRAMEWORK_CONNECTOR)) {
       report.appOwned.push(entityName);
     } else {
       registerEntity();
@@ -111,7 +111,7 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
   // ── Tokens (PAT + denylist JWT) — registre @nodefony/security ──────────────
   wire(
     TOKEN_ENTITY_NAMES.records,
-    () => registerTokenEntities(FRAMEWORK_ORM),
+    () => registerTokenEntities(FRAMEWORK_CONNECTOR),
     () => {
       if (getTokenStoreFactory("mongoose")) {
         return;
@@ -131,7 +131,7 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
   // ── Credentials WebAuthn (passkeys) — registre @nodefony/security ───────────
   wire(
     WEBAUTHN_CREDENTIAL_ENTITY,
-    () => registerWebAuthnCredentialEntity(FRAMEWORK_ORM),
+    () => registerWebAuthnCredentialEntity(FRAMEWORK_CONNECTOR),
     () => {
       if (getWebAuthnStoreFactory("mongoose")) {
         return;
@@ -147,7 +147,7 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
   // ── Endpoints webhook — registre @nodefony/security ─────────────────────────
   wire(
     WEBHOOK_ENDPOINT_ENTITY,
-    () => registerWebhookEndpointEntity(FRAMEWORK_ORM),
+    () => registerWebhookEndpointEntity(FRAMEWORK_CONNECTOR),
     () => {
       if (getWebhookStoreFactory("mongoose")) {
         return;

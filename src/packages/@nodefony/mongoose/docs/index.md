@@ -33,7 +33,7 @@ une **connexion isolée** (`mongoose.createConnection`, pas le singleton global)
 ORM logiques coexistent. Le connecteur par défaut s'appelle **`nodefony`**.
 
 > **Pourquoi `nodefony` et pas `default`** (comme Drizzle) : l'entité `session` est enregistrée dans
-> le `entityRegistry` **process-wide** sous `(orm, nom)`. Un nom de connecteur distinct par ORM évite
+> le `entityRegistry` **process-wide** sous `(connector, nom)`. Un nom de connecteur distinct par ORM évite
 > que les deux entités `session` (SQL et NoSQL) ne collisionnent si les deux modules cohabitent.
 
 ## Spécificités MongoDB

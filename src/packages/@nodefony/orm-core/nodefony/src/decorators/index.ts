@@ -7,7 +7,7 @@
 export { entity, type EntityOptions } from "./entityDecorator";
 export {
   entities,
-  DEFAULT_ORM,
+  DEFAULT_CONNECTOR,
   type EntitiesOptions,
 } from "./entitiesDecorator";
 export { repository, type RepositoryOptions } from "./repositoryDecorator";

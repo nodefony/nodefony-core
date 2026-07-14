@@ -26,8 +26,8 @@ non chargé par défaut (Drizzle = ORM SQL par défaut).
 - **Config = Zod** (`nodefony/config/config.ts`, source de vérité) → builder `defineMongooseConfig`
   (parse + env + freeze) → validée au `onKernelRegister`, exposée au container sous `mongooseConfig`.
   Augmente `NodefonyModuleConfig` → `use("@nodefony/mongoose", …)` typé. Réf : audit config ORM.
-- **Connecteur défaut = `nodefony`** (≠ `default` de Drizzle) → `SESSION_ORM = "nodefony"`. **Raison** :
-  l'entité `session` est enregistrée dans le `entityRegistry` **process-wide** sous `(orm, name)` ;
+- **Connecteur défaut = `nodefony`** (≠ `default` de Drizzle) → `SESSION_CONNECTOR = "nodefony"`. **Raison** :
+  l'entité `session` est enregistrée dans le `entityRegistry` **process-wide** sous `(connector, name)` ;
   un nom de connecteur distinct évite la collision si Drizzle + Mongoose cohabitent. **Gotcha non évident.**
 - **Connexion isolée** (`mongoose.createConnection`, pas le singleton global) → multi-ORM.
 - **Session portable** : `SessionStorage` strictement identique au store Drizzle (timestamps ms, GC `$lt`).

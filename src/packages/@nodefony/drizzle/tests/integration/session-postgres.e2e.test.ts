@@ -6,7 +6,7 @@ import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
 import DrizzleSessionStorage from "../../nodefony/src/SessionStorage";
 import {
   registerSessionEntity,
-  SESSION_ORM,
+  SESSION_CONNECTOR,
   type SessionRow,
 } from "../../nodefony/entity/sessionEntity";
 
@@ -40,8 +40,8 @@ describe.skipIf(!PG_URL)(
       orm.getRepository<SessionRow>("session");
 
     beforeAll(async () => {
-      registerSessionEntity(SESSION_ORM, "postgres"); // variante pgTable, AVANT connect
-      orm = new DrizzleOrm(SESSION_ORM, {
+      registerSessionEntity(SESSION_CONNECTOR, "postgres"); // variante pgTable, AVANT connect
+      orm = new DrizzleOrm(SESSION_CONNECTOR, {
         dialect: "postgres",
         url: PG_URL,
       });
@@ -53,8 +53,8 @@ describe.skipIf(!PG_URL)(
 
     afterAll(async () => {
       await orm.disconnect();
-      entityRegistry.unregister("session", SESSION_ORM);
-      ormRegistry.unregister(SESSION_ORM);
+      entityRegistry.unregister("session", SESSION_CONNECTOR);
+      ormRegistry.unregister(SESSION_CONNECTOR);
     });
 
     it("write → read : round-trip complet des sacs JSON (jsonb) + user + dates", async () => {

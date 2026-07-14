@@ -11,8 +11,8 @@ export interface RepositoryOptions {
   /** Nom logique de l'entité gérée par ce repository. */
   entity: string;
 
-  /** ORM cible — lève l'ambiguïté si l'entité existe pour plusieurs ORM. */
-  orm?: string;
+  /** Connecteur cible — lève l'ambiguïté si l'entité existe sur plusieurs connexions. */
+  connector?: string;
 }
 
 /**
@@ -25,12 +25,12 @@ export interface RepositoryOptions {
  * du module — jamais par requête.
  *
  * @param name - nom logique du repository (clé DI, ex. `"repository.user"`).
- * @param options - entité gérée + ORM cible optionnel.
+ * @param options - entité gérée + connecteur cible optionnel.
  * @returns le décorateur de classe (renvoie la classe inchangée).
  *
  * @example
  * ```ts
- * \@repository("repository.user", { entity: "User", orm: "db_principale" })
+ * \@repository("repository.user", { entity: "User", connector: "db_principale" })
  * class UserRepository implements IRepository<User> { ... }
  * ```
  */
@@ -39,7 +39,7 @@ export function repository(name: string, options: RepositoryOptions) {
     const meta: RepositoryMetadata = {
       name,
       entity: options.entity,
-      orm: options.orm,
+      connector: options.connector,
       target,
     };
     setRepositoryMeta(target, meta);

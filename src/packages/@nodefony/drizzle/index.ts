@@ -18,7 +18,7 @@ import {
 import DrizzleService from "./nodefony/service/DrizzleService";
 import {
   registerDrizzleFrameworkStores,
-  FRAMEWORK_ORM,
+  FRAMEWORK_CONNECTOR,
 } from "./nodefony/registerStores";
 import type {
   IDrizzleConfig,
@@ -99,7 +99,7 @@ class Drizzle extends Module<IDrizzleConfig> {
       }
       if (report.registered.length) {
         this.log(
-          `schéma framework déclaré sur "${FRAMEWORK_ORM}" (${dialect}) : ` +
+          `schéma framework déclaré sur "${FRAMEWORK_CONNECTOR}" (${dialect}) : ` +
             `[${report.registered.join(", ")}]`,
           "DEBUG",
         );
@@ -145,7 +145,7 @@ export {
   createSessionTable,
   createSessionEntity,
   registerSessionEntity,
-  SESSION_ORM,
+  SESSION_CONNECTOR,
   SESSION_ENTITY_NAME,
 } from "./nodefony/entity/sessionEntity";
 export type { SessionRow } from "./nodefony/entity/sessionEntity";
@@ -263,6 +263,6 @@ export { DrizzleWebhookStore } from "./nodefony/src/DrizzleWebhookStore";
 // Exporté pour les tests et les apps avancées (rejouable : guards idempotents).
 export {
   registerDrizzleFrameworkStores,
-  FRAMEWORK_ORM,
+  FRAMEWORK_CONNECTOR,
 } from "./nodefony/registerStores";
 export type { IFrameworkStoresReport } from "./nodefony/registerStores";

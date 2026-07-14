@@ -9,18 +9,18 @@ type FakeSchema = { fields: string[] };
 /** Sous-classe concrète minimale pour exercer la base abstraite. */
 class FakeEntity extends Entity<FakeSchema> {
   readonly name: string;
-  readonly orm: string;
+  readonly connector: string;
   override readonly relations?: ReadonlyArray<IEntityRelation>;
   #schemaCalls = 0;
 
   constructor(
     name: string,
-    orm: string,
+    connector: string,
     relations?: ReadonlyArray<IEntityRelation>,
   ) {
     super();
     this.name = name;
-    this.orm = orm;
+    this.connector = connector;
     this.relations = relations;
   }
 
@@ -61,11 +61,11 @@ describe("Entity — classe de base abstraite cross-ORM", () => {
     assert.equal(entityRegistry.get(NAME, ORM), e);
   });
 
-  it("register() en double (même name+orm) lève", () => {
+  it("register() en double (même name+connector) lève", () => {
     new FakeEntity(NAME, ORM).register();
     assert.throws(
       () => new FakeEntity(NAME, ORM).register(),
-      /already registered for ORM/,
+      /already registered for connector/,
     );
   });
 

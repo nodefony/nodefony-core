@@ -25,7 +25,7 @@ describe("<%= it.pascal %> — entité", () => {
   let orm: DrizzleOrm;
 
   beforeAll(async () => {
-    entityRegistry.register({ ...<%= it.pascal %>Entity, orm: ORM });
+    entityRegistry.register({ ...<%= it.pascal %>Entity, connector: ORM });
     orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
   });

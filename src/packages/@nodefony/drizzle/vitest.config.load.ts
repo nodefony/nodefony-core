@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { oxcDecorators } from "../../../../vitest.oxc";
 
 /**
  * vitest — suite de CHARGE / mémoire de @nodefony/drizzle (séparée de la
@@ -22,4 +23,7 @@ export default defineConfig({
       forks: { execArgv: ["--expose-gc"] },
     },
   },
+  // Le banc porte des décorateurs (`@entity`) : sans ce bloc, oxc les émet bruts
+  // et Node lève `SyntaxError` À LA COLLECTE — banc muet, 0 test compté.
+  oxc: oxcDecorators,
 });

@@ -98,7 +98,7 @@ export const TOTP_SECRET_ENTITY = "totp_secret";
 
 /**
  * Construit le descripteur d'entité du store de secrets TOTP pour un ORM nommé.
- * L'`orm` est **dynamique** (nom du connecteur de l'app) et la variante de table
+ * Le `connector` est **dynamique** (nom du connecteur de l'app) et la variante de table
  * suit le dialecte du connecteur (auto-register `registerStores.ts`). À enregistrer
  * **avant** `orm.connect()`. `module: "security"` → regroupé sous @nodefony/security
  * dans l'ERD Studio.
@@ -107,11 +107,11 @@ export const TOTP_SECRET_ENTITY = "totp_secret";
  * @param dialect - dialecte SQL du connecteur (sélectionne la variante de table).
  */
 export function createTotpSecretEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): IEntity {
   return {
-    orm,
+    connector,
     name: TOTP_SECRET_ENTITY,
     module: "security",
     schema: createTotpSecretTable(dialect),
@@ -122,12 +122,12 @@ export function createTotpSecretEntity(
  * Enregistre l'entité du store de secrets TOTP dans le `entityRegistry` pour un ORM
  * donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
 export function registerTotpSecretEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): void {
-  entityRegistry.register(createTotpSecretEntity(orm, dialect));
+  entityRegistry.register(createTotpSecretEntity(connector, dialect));
 }

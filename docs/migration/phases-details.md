@@ -224,7 +224,7 @@ note: le STATUT à jour vit dans MIGRATION_STATUS.md (roadmap P0–P16). Ici = l
 | `@nodefony/user/src/User.ts`                          | Classe base (champs + `hasRole`, `isGranted`, `toSafeJson`)                | ⬜     | 2          | Code commun, indépendant de l'ORM                   |
 | `@nodefony/user/src/AnonymousUser.ts`                 | User par défaut non authentifié — roles `["IS_AUTHENTICATED_ANONYMOUSLY"]` | ⬜     | 1          | Évite null partout                                  |
 | `@nodefony/user/service/user-service.ts`              | Service `register/authenticate/disable/lock/unlock` + events               | ⬜     | 2          | Délègue au IUserRepository                          |
-| `@nodefony/user/adapters/sequelize/UserEntity.ts`     | `@entity({ orm: "sequelize" })` — schema Sequelize                         | ⬜     | 2          | Ref : `users-bundle/Entity/sequelize/userEntity.js` |
+| `@nodefony/user/adapters/sequelize/UserEntity.ts`     | `@entity({ connector: "sequelize" })` — schema Sequelize                   | ⬜     | 2          | Ref : `users-bundle/Entity/sequelize/userEntity.js` |
 | `@nodefony/user/adapters/sequelize/UserRepository.ts` | `implements IUserRepository`                                               | ⬜     | 2          |                                                     |
 | `@nodefony/user/adapters/mongoose/UserEntity.ts`      | Schema Mongoose                                                            | ⬜     | 2          | Ref : `users-bundle/Entity/mongoose/userEntity.js`  |
 | `@nodefony/user/adapters/mongoose/UserRepository.ts`  | `implements IUserRepository`                                               | ⬜     | 2          |                                                     |
@@ -299,7 +299,7 @@ note: le STATUT à jour vit dans MIGRATION_STATUS.md (roadmap P0–P16). Ici = l
 >
 > **✅ P5.2 + P5.4-partiel (2026-05-21)** — runtime sous `nodefony/src/` : `OrmRegistry`/`EntityRegistry` (singletons process-wide lazy, classes instanciables pour tests + instances `ormRegistry`/`entityRegistry`), `Orm` abstract `extends Service` (template `connect()` → émet `onOrmReady`, auto-register au constructeur), `Entity` abstract (`getSchema()` + `register()`). **Auto-register Entity reporté en P5.3** (trap ordre d'init TS : ctor base avant initialiseurs sous-classe → `name`/`orm` undefined → l'auto-register passe par le décorateur `@entity`). 15 tests unit verts (mocha+tsx, `node:assert`).
 >
-> **✅ P5.3 (2026-05-21)** — décorateurs sous `nodefony/src/decorators/` : `@entity({orm,name?,schema?,relations?})` (class deco, `name` défaut = nom de classe) construit un **descripteur `IEntity` depuis les options** (0 instanciation au boot) + auto-register dans `entityRegistry` au chargement du module ; `@repository(name,{entity,orm?})` = **tag pur** repo↔entity (binding DI reporté à l'adapter P5.4+). Métadonnées dans un **`WeakMap` maison** (`metadataStore.ts`) — **PAS de `reflect-metadata`** : orm-core ne fait pas de DI par `design:paramtypes`, reste lib pure 0 dep runtime (helper `__metadata` gardé → no-op sans polyfill). +7 tests (22 total). **Reste P5.4** (intégration multi-ORM + 1 adapter Sequelize).
+> **✅ P5.3 (2026-05-21)** — décorateurs sous `nodefony/src/decorators/` : `@entity({connector,name?,schema?,relations?})` (class deco, `name` défaut = nom de classe) construit un **descripteur `IEntity` depuis les options** (0 instanciation au boot) + auto-register dans `entityRegistry` au chargement du module ; `@repository(name,{entity,connector?})` = **tag pur** repo↔entity (binding DI reporté à l'adapter P5.4+). Métadonnées dans un **`WeakMap` maison** (`metadataStore.ts`) — **PAS de `reflect-metadata`** : orm-core ne fait pas de DI par `design:paramtypes`, reste lib pure 0 dep runtime (helper `__metadata` gardé → no-op sans polyfill). +7 tests (22 total). **Reste P5.4** (intégration multi-ORM + 1 adapter Sequelize).
 
 | Fichier TS cible                                           | Rôle                                                                                                         | Statut | Complexité |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------ | ---------- |
@@ -310,8 +310,8 @@ note: le STATUT à jour vit dans MIGRATION_STATUS.md (roadmap P0–P16). Ici = l
 | `@nodefony/orm-core/nodefony/src/OrmRegistry.ts`           | Singleton lazy — `register/get/has/list/unregister` + instance `ormRegistry`                                 | ✅     | 2          |
 | `@nodefony/orm-core/nodefony/src/Orm.ts`                   | Classe abstraite base extends Service, template `connect()` → `onOrmReady`, auto-register                    | ✅     | 2          |
 | `@nodefony/orm-core/nodefony/src/Entity.ts`                | Classe abstraite — `getSchema()` + `register()` (auto-register via `@entity` P5.3)                           | ✅     | 2          |
-| `@nodefony/orm-core/nodefony/src/EntityRegistry.ts`        | Cross-ORM entity lookup lazy `entities[name][ormName]` + instance `entityRegistry`                           | ✅     | 2          |
-| `@nodefony/orm-core/src/decorators/entityDecorator.ts`     | `@entity({ orm, name, schema })` — métadonnées + auto-register                                               | ⬜     | 2          |
+| `@nodefony/orm-core/nodefony/src/EntityRegistry.ts`        | Cross-ORM entity lookup lazy `entities[name][connector]` + instance `entityRegistry`                         | ✅     | 2          |
+| `@nodefony/orm-core/src/decorators/entityDecorator.ts`     | `@entity({ connector, name, schema })` — métadonnées + auto-register                                         | ⬜     | 2          |
 | `@nodefony/orm-core/src/decorators/repositoryDecorator.ts` | `@repository("UserRepository", { entity: "User" })`                                                          | ⬜     | 2          |
 | `@nodefony/orm-core/index.ts`                              | Barrel exports (+ `nodefony/interfaces/index.ts`)                                                            | ✅     | 1          |
 
@@ -717,9 +717,7 @@ export default {
     outDir: "./public/dist", // build prod
     devPort: 5173, // port Vite dev (proxy-mode)
     integrate: true, // true = middleware dans @nodefony/http | false = proxy externe
-    vite: {
-      /* options Vite custom */
-    },
+    vite: {/* options Vite custom */},
   },
 };
 ```

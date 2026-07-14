@@ -39,7 +39,7 @@ Le **driver** vit dans la config du module ORM. Exemple réel (`@nodefony/drizzl
 // nodefony.config.ts → use("@nodefony/drizzle", { connectors: { … } })
 connectors: {
   default: {
-    // ← le NOM du connecteur (= entity.orm)
+    // ← le NOM du connecteur (= entity.connector)
     filename: "nodefony/databases/nodefony-drizzle.db", // ← un fichier SQLite
   },
   // pour Postgres/MySQL : changer le client Drizzle + les params de connexion
@@ -52,7 +52,7 @@ connectors: {
 
 ## 3. Décrire la table : l'entité
 
-Une entité = un objet `IEntity` : `{ orm, name, schema }`. Le **`schema`** dépend de
+Une entité = un objet `IEntity` : `{ connector, name, schema }`. Le **`schema`** dépend de
 la famille d'ORM (c'est la seule chose qui change selon l'ORM).
 
 ### Schéma Drizzle (`sqliteTable`)
@@ -78,7 +78,7 @@ export const postTable = sqliteTable("Post", {
 
 // 2) l'entité = schéma + connecteur cible
 const postEntity: IEntity = {
-  orm: "default", // ← le NOM du connecteur (Drizzle)
+  connector: "default", // ← le NOM du connecteur (Drizzle)
   name: "Post", // ← le nom logique de la table
   schema: postTable,
 };
@@ -88,11 +88,12 @@ entityRegistry.register(postEntity);
 ```
 
 > Autre famille d'ORM (ex. Mongoose) : même `IEntity`, seul le `schema` change
-> (schéma Mongoose au lieu d'une table Drizzle) — l'`orm` reste le **nom du
-> connecteur** déclaré dans la config.
+> (schéma Mongoose au lieu d'une table Drizzle) — le `connector` reste le **nom de la
+> connexion** déclarée dans la config.
 
-> **Différence à retenir** : `orm: "sqlite"/"mysql"` n'existe PAS — on met le **nom
-> du connecteur** (`"default"`). Le moteur, lui, est dans la config.
+> **Différence à retenir** : le champ nomme une **connexion**, pas un moteur —
+> `connector: "sqlite"/"mysql"` n'existe PAS, on met `"default"` (la clé de
+> `connectors`). Le moteur, lui, est dans la config.
 
 ## 4. Enregistrer l'entité (le `import` qui compte)
 
@@ -182,7 +183,7 @@ Plusieurs opérateurs sur un même champ = **ET** (`{ age: { $gte: 18, $lt: 65 }
 
 ```ts
 // 1. config : connecteur "default" → driver  (sqlite/mysql…)
-// 2. entité : { orm: "default", name: "Post", schema }   → entityRegistry.register
+// 2. entité : { connector: "default", name: "Post", schema }   → entityRegistry.register
 // 3. import "./entity/post"  dans index.ts                → register au boot
 // 4. const posts = ormRegistry.get("default").getRepository<Post>("Post");
 // 5. await posts.create({...}) / findOne({...}) / find() / count() / update() / delete()
@@ -190,7 +191,7 @@ Plusieurs opérateurs sur un même champ = **ET** (`{ age: { $gte: 18, $lt: 65 }
 
 ## 8. Pièges qui font perdre du temps
 
-- **`orm:` = nom de connecteur, pas le driver.** `"default"` — jamais `"sqlite"`.
+- **`connector:` = nom de la connexion, pas le driver.** `"default"` — jamais `"sqlite"`.
 - **Schéma lié à la famille d'ORM.** Drizzle = `sqliteTable` (schema-as-code).
   On peut changer sqlite↔mysql (même famille) sans toucher l'entité ; changer
   de famille d'ORM = réécrire le `schema`.

@@ -35,7 +35,7 @@ interface RelationInfo {
 }
 interface EntityNode {
   name: string;
-  orm: string;
+  connector: string;
   module: string;
   domain: string;
   columns: ColumnInfo[];
@@ -53,20 +53,20 @@ export const OrmEntity = observer(() => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const name = params.get("name") ?? "";
-  const orm = params.get("orm") ?? "";
+  const connector = params.get("connector") ?? "";
 
   const fetcher = useCallback(
     () =>
       store.api.getAbsolute<EntityNode>(
-        `/nodefony/orm/api/entity/${encodeURIComponent(name)}${orm ? `?orm=${encodeURIComponent(orm)}` : ""}`,
+        `/nodefony/orm/api/entity/${encodeURIComponent(name)}${connector ? `?connector=${encodeURIComponent(connector)}` : ""}`,
       ),
-    [store, name, orm],
+    [store, name, connector],
   );
   const { data, loading, error, reload } = useResource(fetcher);
 
   const goEntity = (target: string) =>
     navigate(
-      `/nodefony/orm-entity?name=${encodeURIComponent(target)}&orm=${encodeURIComponent(data?.orm ?? orm)}`,
+      `/nodefony/orm-entity?name=${encodeURIComponent(target)}&connector=${encodeURIComponent(data?.connector ?? connector)}`,
     );
 
   // FK portées côté entité courante (pour marquer les colonnes).
@@ -81,8 +81,8 @@ export const OrmEntity = observer(() => {
       title={name || "Entité"}
       subtitle={
         data
-          ? `domaine : ${data.domain || "—"} · module : ${data.module || "—"} · ORM : ${data.orm}`
-          : orm
+          ? `domaine : ${data.domain || "—"} · module : ${data.module || "—"} · connecteur : ${data.connector}`
+          : connector
       }
       icon={<IconDatabase size={22} />}
       actions={

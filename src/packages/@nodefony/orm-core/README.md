@@ -44,7 +44,7 @@ multi-ORM simultané imposé).
 | Interface        | Rôle                                                                     |
 | ---------------- | ------------------------------------------------------------------------ |
 | `IOrm`           | Instance ORM (connexion logique) : connect, repository, transaction      |
-| `IEntity<S,M>`   | Entité enregistrée : nom logique, ORM cible, schéma, modèle natif        |
+| `IEntity<S,M>`   | Entité enregistrée : nom logique, connecteur cible, schéma, modèle natif |
 | `IRepository<T>` | CRUD portable : `find/findOne/create/update/delete/count`                |
 | `ITransaction`   | Unité de travail : `commit/rollback/savepoint/rollbackTo`                |
 | `Criteria<T>`    | Filtre typé par champ + opérateurs riches ; `OrmCriteria` = échappatoire |
@@ -99,7 +99,7 @@ multi-ORM simultané imposé).
 | Interface        | Rôle                                                                     |
 | ---------------- | ------------------------------------------------------------------------ |
 | `IOrm`           | Instance ORM (connexion logique) : connect, repository, transaction      |
-| `IEntity<S,M>`   | Entité enregistrée : nom logique, ORM cible, schéma, modèle natif        |
+| `IEntity<S,M>`   | Entité enregistrée : nom logique, connecteur cible, schéma, modèle natif |
 | `IRepository<T>` | CRUD portable : `find/findOne/create/update/delete/count`                |
 | `ITransaction`   | Unité de travail : `commit/rollback/savepoint/rollbackTo`                |
 | `Criteria<T>`    | Filtre typé par champ + opérateurs riches ; `OrmCriteria` = échappatoire |
@@ -162,14 +162,14 @@ import type { IRepository } from "@nodefony/orm-core";
 
 // `name` par défaut = nom de la classe ; ici forcé à "User".
 @entity({
-  orm: "db_principale",
+  connector: "db_principale",
   name: "User",
   schema: { id: { type: "uuid", primaryKey: true }, email: { type: "string" } },
   relations: [{ type: "one-to-many", target: "Room", field: "rooms" }],
 })
 class UserEntity {}
 
-@repository("repository.user", { entity: "User", orm: "db_principale" })
+@repository("repository.user", { entity: "User", connector: "db_principale" })
 class UserRepository implements IRepository<UserEntity> {
   /* find/findOne/create/... fournis par l'adapter ORM */
 }

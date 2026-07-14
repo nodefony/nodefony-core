@@ -13,7 +13,7 @@ import { listIdempotencyStores } from "@nodefony/framework";
 import type { Container } from "nodefony";
 import {
   registerDrizzleFrameworkStores,
-  FRAMEWORK_ORM,
+  FRAMEWORK_CONNECTOR,
   DrizzleOrm,
 } from "../../index";
 
@@ -61,7 +61,7 @@ describe("registerDrizzleFrameworkStores — auto-register sqlite (lot 0.8)", ()
     assert.strictEqual(report.unported.length, 0);
     for (const name of FRAMEWORK_ENTITIES) {
       assert.ok(
-        entityRegistry.has(name, FRAMEWORK_ORM),
+        entityRegistry.has(name, FRAMEWORK_CONNECTOR),
         `entité ${name} absente du registre`,
       );
     }
@@ -90,7 +90,7 @@ describe("registerDrizzleFrameworkStores — auto-register sqlite (lot 0.8)", ()
   });
 
   it("bout-en-bout : ORM connecté (:memory:) → la fabrique token rend un store opérationnel", async () => {
-    const orm = new DrizzleOrm(FRAMEWORK_ORM, { filename: ":memory:" });
+    const orm = new DrizzleOrm(FRAMEWORK_CONNECTOR, { filename: ":memory:" });
     await orm.connect(); // compile les entités du registre → tables créées
     try {
       const factory = getTokenStoreFactory("drizzle");
@@ -105,7 +105,7 @@ describe("registerDrizzleFrameworkStores — auto-register sqlite (lot 0.8)", ()
       assert.strictEqual(await store.findById("lot08-absent"), null);
     } finally {
       await orm.disconnect();
-      ormRegistry.unregister?.(FRAMEWORK_ORM);
+      ormRegistry.unregister?.(FRAMEWORK_CONNECTOR);
     }
   });
 });

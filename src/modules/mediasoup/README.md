@@ -80,9 +80,9 @@ Serveur dev lancé (skill `nodefony-start-server`), puis dans **Studio → Datab
 connecteur **`mediasoup`**. Ou en ligne de commande :
 
 ```bash
-curl -sk "https://127.0.0.1:5152/nodefony/orm/api/graph?orm=mediasoup"          # graphe JSON
-curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/dbml?orm=mediasoup"    # DBML (dbdiagram.io)
-curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/jsonschema?orm=mediasoup"  # JSON Schema (IA)
+curl -sk "https://127.0.0.1:5152/nodefony/orm/api/graph?connector=mediasoup"          # graphe JSON
+curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/dbml?connector=mediasoup"    # DBML (dbdiagram.io)
+curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/jsonschema?connector=mediasoup"  # JSON Schema (IA)
 ```
 
 ---

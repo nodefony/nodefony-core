@@ -3,8 +3,8 @@ import { EntityRegistry } from "../../nodefony/src/EntityRegistry";
 import type { IEntity } from "../../nodefony/interfaces/index";
 
 /** Stub minimal d'IEntity : name + orm suffisent au registre. */
-const entity = (name: string, orm: string): IEntity =>
-  ({ name, orm, schema: {} }) as IEntity;
+const entity = (name: string, connector: string): IEntity =>
+  ({ name, connector, schema: {} }) as IEntity;
 
 describe("EntityRegistry", () => {
   let reg: EntityRegistry;
@@ -36,13 +36,13 @@ describe("EntityRegistry", () => {
     assert.equal(reg.list().length, 2);
   });
 
-  it("get sans ORM est ambigu si plusieurs candidats", () => {
+  it("get sans connecteur est ambigu si plusieurs candidats", () => {
     reg.register(entity("User", "drizzle"));
     reg.register(entity("User", "mongoose"));
-    assert.throws(() => reg.get("User"), /multiple ORMs/);
+    assert.throws(() => reg.get("User"), /multiple connectors/);
   });
 
-  it("throw sur doublon (même name + orm)", () => {
+  it("throw sur doublon (même name + connector)", () => {
     reg.register(entity("User", "drizzle"));
     assert.throws(
       () => reg.register(entity("User", "drizzle")),
@@ -50,10 +50,13 @@ describe("EntityRegistry", () => {
     );
   });
 
-  it("throw sur entité inconnue / ORM absent", () => {
+  it("throw sur entité inconnue / connecteur absent", () => {
     assert.throws(() => reg.get("Ghost"), /no entity registered/);
     reg.register(entity("User", "drizzle"));
-    assert.throws(() => reg.get("User", "mongoose"), /not registered for ORM/);
+    assert.throws(
+      () => reg.get("User", "mongoose"),
+      /not registered for connector/,
+    );
   });
 
   it("unregister par ORM, puis bucket vidé", () => {

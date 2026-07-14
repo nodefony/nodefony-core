@@ -110,7 +110,7 @@ export const WEBHOOK_ENDPOINT_ENTITY = "webhook_endpoint";
 /**
  * Construit le descripteur d'entité du store webhook pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
  * variante de table suit le dialecte du connecteur (auto-register
  * `registerStores.ts` à `onKernelRegister`). À enregistrer **avant**
  * `orm.connect()`.
@@ -122,11 +122,11 @@ export const WEBHOOK_ENDPOINT_ENTITY = "webhook_endpoint";
  * @param dialect - dialecte SQL du connecteur (sélectionne la variante de table).
  */
 export function createWebhookEndpointEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): IEntity {
   return {
-    orm,
+    connector,
     name: WEBHOOK_ENDPOINT_ENTITY,
     module: "security",
     schema: createWebhookEndpointTable(dialect),
@@ -137,12 +137,12 @@ export function createWebhookEndpointEntity(
  * Enregistre l'entité du store webhook dans le `entityRegistry` pour un ORM
  * donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
 export function registerWebhookEndpointEntity(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): void {
-  entityRegistry.register(createWebhookEndpointEntity(orm, dialect));
+  entityRegistry.register(createWebhookEndpointEntity(connector, dialect));
 }

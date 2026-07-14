@@ -7,7 +7,7 @@ import { MongooseOrm } from "../../nodefony/src/orm-core/index";
 // L'import du storage déclenche son auto-enregistrement dans le registre http (IoC).
 import MongooseSessionStorage from "../../nodefony/src/SessionStorage";
 import {
-  SESSION_ORM,
+  SESSION_CONNECTOR,
   type SessionRow,
 } from "../../nodefony/entity/sessionEntity";
 
@@ -41,7 +41,7 @@ describe.skipIf(!URI)(
     let storage: MongooseSessionStorage;
 
     beforeAll(async () => {
-      orm = new MongooseOrm(SESSION_ORM, URI!);
+      orm = new MongooseOrm(SESSION_CONNECTOR, URI!);
       await orm.connect(); // compile le modèle `session` (entité @entity auto-enregistrée)
       // Ardoise propre : un Mongo externe partagé peut porter des résidus d'un run précédent.
       await orm.getRepository<SessionRow>("session").delete({});
@@ -56,7 +56,7 @@ describe.skipIf(!URI)(
         .catch(() => {});
       await orm?.disconnect();
       entityRegistry.unregister("session");
-      ormRegistry.unregister(SESSION_ORM);
+      ormRegistry.unregister(SESSION_CONNECTOR);
     });
 
     // ── Inversion de contrôle : le storage s'est auto-enregistré dans http ─────

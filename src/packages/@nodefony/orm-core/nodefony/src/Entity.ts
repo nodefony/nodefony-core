@@ -4,14 +4,14 @@ import { entityRegistry } from "./EntityRegistry";
 /**
  * Classe de base abstraite d'une entité, indépendante du driver ORM.
  *
- * Porte le contrat {@link IEntity} : nom logique, ORM cible, schéma natif
+ * Porte le contrat {@link IEntity} : nom logique, connecteur cible, schéma natif
  * (calculé via {@link Entity.getSchema}), modèle compilé (post-connexion) et
  * relations déclaratives. {@link Entity.register} insère l'entité dans le
  * {@link entityRegistry} process-wide.
  *
  * **Pas d'auto-enregistrement dans le constructeur** : en TypeScript, le
  * constructeur de la classe de base s'exécute AVANT les initialiseurs de champs
- * de la sous-classe — `name`/`orm` seraient encore `undefined`. L'enregistrement
+ * de la sous-classe — `name`/`connector` seraient encore `undefined`. L'enregistrement
  * automatique est donc porté par le décorateur `@entity` (P5.3), qui lit les
  * métadonnées de classe ; en attendant, appeler explicitement
  * {@link Entity.register} après instanciation.
@@ -19,14 +19,15 @@ import { entityRegistry } from "./EntityRegistry";
  * @typeParam S - type du schéma natif du driver.
  * @typeParam M - type du modèle compilé natif du driver.
  */
-export abstract class Entity<S = unknown, M = unknown>
-  implements IEntity<S, M>
-{
+export abstract class Entity<S = unknown, M = unknown> implements IEntity<
+  S,
+  M
+> {
   /** Nom logique de l'entité (clé de lookup, ex. `"User"`). */
   abstract readonly name: string;
 
-  /** Nom de l'ORM cible enregistré dans le {@link ormRegistry}. */
-  abstract readonly orm: string;
+  /** Connexion nommée cible, telle que déclarée en config (clé du `ormRegistry`). */
+  abstract readonly connector: string;
 
   /** Modèle compilé natif, renseigné après connexion de l'ORM. */
   model?: M;
@@ -50,7 +51,7 @@ export abstract class Entity<S = unknown, M = unknown>
    * Enregistre cette entité dans le {@link entityRegistry} process-wide.
    *
    * @returns `this` (chaînable).
-   * @throws si l'entité est déjà enregistrée pour le même ORM.
+   * @throws si l'entité est déjà enregistrée sur le même connecteur.
    */
   register(): this {
     entityRegistry.register(this);

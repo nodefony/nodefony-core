@@ -106,7 +106,7 @@ export const AUDIT_ENTITY_NAMES = {
 /**
  * Construit les descripteurs d'entités du journal d'audit pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) et la
  * variante de table suit le dialecte du connecteur (auto-register
  * `registerStores.ts` à `onKernelRegister`). À enregistrer dans `entityRegistry`
  * **avant** `orm.connect()` (cf {@link registerAuditEntities}).
@@ -116,14 +116,14 @@ export const AUDIT_ENTITY_NAMES = {
  * @returns le descripteur {@link IEntity} du journal d'audit.
  */
 export function createAuditEntities(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): IEntity[] {
   // `module: "security"` → la table est regroupée sous @nodefony/security dans
   // l'ERD Studio (l'audit est une feature security, hébergée par l'ORM).
   return [
     {
-      orm,
+      connector,
       name: AUDIT_ENTITY_NAMES.events,
       module: "security",
       schema: createAuditEventTable(dialect),
@@ -135,14 +135,14 @@ export function createAuditEntities(
  * Enregistre les entités du journal d'audit dans le `entityRegistry` pour un ORM
  * donné. À appeler **avant** `orm.connect()` (l'adapter crée les tables au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
 export function registerAuditEntities(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): void {
-  for (const entity of createAuditEntities(orm, dialect)) {
+  for (const entity of createAuditEntities(connector, dialect)) {
     entityRegistry.register(entity);
   }
 }

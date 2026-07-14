@@ -59,7 +59,7 @@ interface ProbeRow {
 export interface IContractRunOptions {
   dialect: SqlDialect;
   /** Clé UNIQUE d'ORM (isole l'entité sonde dans le registre process-wide). */
-  ormName: string;
+  connector: string;
   /** Options de connexion (filename sqlite / url pg-mysql). */
   connection: { filename?: string; url?: string };
 }
@@ -69,7 +69,7 @@ export interface IContractRunOptions {
  * (éventuellement `describe.skipIf(!url)`) du fichier consommateur.
  */
 export function runRepositoryContract(opts: IContractRunOptions): void {
-  const { dialect, ormName } = opts;
+  const { dialect, connector } = opts;
   let orm: DrizzleOrm;
   let repo: IRepository<ProbeRow>;
 
@@ -85,11 +85,11 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
 
   beforeAll(async () => {
     entityRegistry.register({
-      orm: ormName,
+      connector,
       name: "repo_contract_probe",
       schema: probeFactory(dialect),
     });
-    orm = new DrizzleOrm(ormName, { dialect, ...opts.connection });
+    orm = new DrizzleOrm(connector, { dialect, ...opts.connection });
     await orm.connect();
     repo = orm.getRepository<ProbeRow>("repo_contract_probe");
     await repo.delete({}); // table persistante entre les runs (IF NOT EXISTS)
@@ -98,8 +98,8 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
   afterAll(async () => {
     await repo.delete({});
     await orm.disconnect();
-    entityRegistry.unregister("repo_contract_probe", ormName);
-    ormRegistry.unregister(ormName);
+    entityRegistry.unregister("repo_contract_probe", connector);
+    ormRegistry.unregister(connector);
   });
 
   it("create : rend LA ligne persistée, defaults JS appliqués (id UUID, active, createdAt)", async () => {

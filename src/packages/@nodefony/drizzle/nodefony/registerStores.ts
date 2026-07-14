@@ -46,7 +46,7 @@ import {
 import {
   registerSessionEntity,
   SESSION_ENTITY_NAME,
-  SESSION_ORM,
+  SESSION_CONNECTOR,
 } from "./entity/sessionEntity";
 import { registerUserEntity } from "./entity/userTable";
 import { DrizzleTokenStore } from "./src/DrizzleTokenStore";
@@ -79,9 +79,9 @@ import { DrizzleIdempotencyStore } from "./src/DrizzleIdempotencyStore";
 
 /**
  * Connecteur conventionnel qui héberge le schéma framework (même convention que
- * `SESSION_ORM` : `"default"` pour Drizzle, `"nodefony"` pour Mongoose).
+ * `SESSION_CONNECTOR` : `"default"` pour Drizzle, `"nodefony"` pour Mongoose).
  */
-export const FRAMEWORK_ORM = "default";
+export const FRAMEWORK_CONNECTOR = "default";
 
 /** Portage par entité (chantier multi-dialecte — Ph.2.1 allume les cases). */
 const ALL_DIALECTS: readonly SqlDialect[] = ["sqlite", "postgres", "mysql"];
@@ -112,26 +112,26 @@ export interface IFrameworkStoresReport {
 function resolveConnectedOrm(store: string, dialect: SqlDialect): DrizzleOrm {
   let orm: unknown;
   try {
-    orm = ormRegistry.get(FRAMEWORK_ORM);
+    orm = ormRegistry.get(FRAMEWORK_CONNECTOR);
   } catch {
     throw new Error(
-      `${store} : ORM "${FRAMEWORK_ORM}" introuvable — charger @nodefony/drizzle ` +
+      `${store} : ORM "${FRAMEWORK_CONNECTOR}" introuvable — charger @nodefony/drizzle ` +
         `AVANT @nodefony/security dans le manifeste "modules".`,
     );
   }
   if (!(orm instanceof DrizzleOrm)) {
     throw new Error(
-      `${store} : l'ORM "${FRAMEWORK_ORM}" n'est pas un DrizzleOrm (connecteur homonyme d'un autre driver ?).`,
+      `${store} : l'ORM "${FRAMEWORK_CONNECTOR}" n'est pas un DrizzleOrm (connecteur homonyme d'un autre driver ?).`,
     );
   }
   if (!orm.isConnected()) {
     throw new Error(
-      `${store} : ORM "${FRAMEWORK_ORM}" non connecté au montage du store (ordre de boot).`,
+      `${store} : ORM "${FRAMEWORK_CONNECTOR}" non connecté au montage du store (ordre de boot).`,
     );
   }
   if (orm.dialect !== dialect) {
     throw new Error(
-      `${store} : ORM "${FRAMEWORK_ORM}" en "${orm.dialect}" mais le schéma framework a été ` +
+      `${store} : ORM "${FRAMEWORK_CONNECTOR}" en "${orm.dialect}" mais le schéma framework a été ` +
         `déclaré en "${dialect}" (incohérence de config).`,
     );
   }
@@ -165,7 +165,7 @@ export function registerDrizzleFrameworkStores(
       report.unported.push(entityName);
       return;
     }
-    if (entityRegistry.has(entityName, FRAMEWORK_ORM)) {
+    if (entityRegistry.has(entityName, FRAMEWORK_CONNECTOR)) {
       report.appOwned.push(entityName);
     } else {
       registerEntity();
@@ -186,7 +186,7 @@ export function registerDrizzleFrameworkStores(
     SESSION_PORTED,
     // `wire` filtre les dialectes non portés AVANT d'appeler la closure → le
     // dialecte passe tel quel (la factory colKit connaît sqlite et postgres).
-    () => registerSessionEntity(SESSION_ORM, dialect),
+    () => registerSessionEntity(SESSION_CONNECTOR, dialect),
     () => {
       /* storage déjà enregistré à l'import de SessionStorage (registre http). */
     },
@@ -201,7 +201,7 @@ export function registerDrizzleFrameworkStores(
   wire(
     "User",
     USER_PORTED,
-    () => registerUserEntity(FRAMEWORK_ORM, dialect),
+    () => registerUserEntity(FRAMEWORK_CONNECTOR, dialect),
     () => {
       /* backend déclaré via registerUserStore (userStoreRegistry) — pas de
          fabrique par brique : la résolution user appartient à provisionUsers. */
@@ -212,7 +212,7 @@ export function registerDrizzleFrameworkStores(
   wire(
     TOKEN_ENTITY_NAMES.records,
     TOKEN_PORTED,
-    () => registerTokenEntities(FRAMEWORK_ORM, dialect),
+    () => registerTokenEntities(FRAMEWORK_CONNECTOR, dialect),
     () => {
       if (getTokenStoreFactory("drizzle")) {
         return;
@@ -233,7 +233,7 @@ export function registerDrizzleFrameworkStores(
   wire(
     AUDIT_ENTITY_NAMES.events,
     AUDIT_PORTED,
-    () => registerAuditEntities(FRAMEWORK_ORM, dialect),
+    () => registerAuditEntities(FRAMEWORK_CONNECTOR, dialect),
     () => {
       if (getAuditStoreFactory("drizzle")) {
         return;
@@ -254,7 +254,7 @@ export function registerDrizzleFrameworkStores(
   wire(
     WEBAUTHN_CREDENTIAL_ENTITY,
     WEBAUTHN_PORTED,
-    () => registerWebAuthnCredentialEntity(FRAMEWORK_ORM, dialect),
+    () => registerWebAuthnCredentialEntity(FRAMEWORK_CONNECTOR, dialect),
     () => {
       if (getWebAuthnStoreFactory("drizzle")) {
         return;
@@ -271,7 +271,7 @@ export function registerDrizzleFrameworkStores(
   wire(
     TOTP_SECRET_ENTITY,
     TOTP_PORTED,
-    () => registerTotpSecretEntity(FRAMEWORK_ORM, dialect),
+    () => registerTotpSecretEntity(FRAMEWORK_CONNECTOR, dialect),
     () => {
       if (getTotpStoreFactory("drizzle")) {
         return;
@@ -288,7 +288,7 @@ export function registerDrizzleFrameworkStores(
   wire(
     WEBHOOK_ENDPOINT_ENTITY,
     WEBHOOK_PORTED,
-    () => registerWebhookEndpointEntity(FRAMEWORK_ORM, dialect),
+    () => registerWebhookEndpointEntity(FRAMEWORK_CONNECTOR, dialect),
     () => {
       if (getWebhookStoreFactory("drizzle")) {
         return;
@@ -308,7 +308,7 @@ export function registerDrizzleFrameworkStores(
   wire(
     IDEMPOTENCY_ENTITY_NAME,
     IDEMPOTENCY_PORTED,
-    () => registerIdempotencyEntities(FRAMEWORK_ORM, dialect),
+    () => registerIdempotencyEntities(FRAMEWORK_CONNECTOR, dialect),
     () => {
       if (getIdempotencyStoreFactory("drizzle")) {
         return;
@@ -317,7 +317,7 @@ export function registerDrizzleFrameworkStores(
         const resolveDb = (): DrizzleDb | null => {
           let orm: unknown;
           try {
-            orm = ormRegistry.get(FRAMEWORK_ORM);
+            orm = ormRegistry.get(FRAMEWORK_CONNECTOR);
           } catch {
             return null; // ORM pas encore enregistré (boot) ou retiré (shutdown).
           }
@@ -339,7 +339,7 @@ export function registerDrizzleFrameworkStores(
           // que `resolveDb`. Base SQLite du connecteur `default`, sinon undefined.
           () => {
             try {
-              const orm = ormRegistry.get(FRAMEWORK_ORM);
+              const orm = ormRegistry.get(FRAMEWORK_CONNECTOR);
               return orm instanceof DrizzleOrm ? orm.location : undefined;
             } catch {
               return undefined;

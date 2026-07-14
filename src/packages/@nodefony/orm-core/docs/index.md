@@ -36,7 +36,7 @@ sans réécrire le métier (le multi-ORM simultané n'est pas l'objectif).
 | Interface        | Rôle                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------ |
 | `IOrm`           | Instance ORM (connexion logique) : `connect/getRepository/transaction/getNativeConnection` |
-| `IEntity<S,M>`   | Entité enregistrée : nom logique, ORM cible, schéma, modèle natif                          |
+| `IEntity<S,M>`   | Entité enregistrée : nom logique, connecteur cible, schéma, modèle natif                   |
 | `IRepository<T>` | CRUD portable : `find/findOne/create/update/delete/count` + `withTransaction`              |
 | `ITransaction`   | `commit/rollback/savepoint/rollbackTo/getNative`                                           |
 
@@ -89,7 +89,7 @@ sans réécrire le métier (le multi-ORM simultané n'est pas l'objectif).
 | Interface        | Rôle                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------ |
 | `IOrm`           | Instance ORM (connexion logique) : `connect/getRepository/transaction/getNativeConnection` |
-| `IEntity<S,M>`   | Entité enregistrée : nom logique, ORM cible, schéma, modèle natif                          |
+| `IEntity<S,M>`   | Entité enregistrée : nom logique, connecteur cible, schéma, modèle natif                   |
 | `IRepository<T>` | CRUD portable : `find/findOne/create/update/delete/count` + `withTransaction`              |
 | `ITransaction`   | `commit/rollback/savepoint/rollbackTo/getNative`                                           |
 

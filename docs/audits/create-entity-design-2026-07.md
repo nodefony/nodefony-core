@@ -132,10 +132,10 @@ parce que `DrizzleService` connecte à `onBoot` et que `entityRegistry.register(
 
 **`defineEntity()`** (helper `orm-core`) : le descripteur généré ne fige **pas** l'ORM (`orm` est le nom
 d'un connecteur, donc une donnée de config, pas une donnée de code) ; le décorateur le résout —
-`@entities([...], { orm: "default" })`, ou par entité.
+`@entities([...], { connector: "default" })`, ou par entité.
 
-_Rejeté_ : le décorateur de classe `@entity({orm, schema})` existant (`orm-core`) — il exige de figer
-l'ORM **à l'import**, ce que le code du framework refuse déjà explicitement (« l'`orm` est dynamique :
+_Rejeté_ : le décorateur de classe `@entity({ connector, schema })` existant (`orm-core`) — il exige de figer
+l'ORM **à l'import**, ce que le code du framework refuse déjà explicitement (« le `connector` est dynamique :
 le schéma est statique mais sa liaison à un ORM dépend de la config »). Zéro usage en production, et
 pour cause.
 
@@ -236,7 +236,7 @@ Entité Post créée.
 
 | #   | Brique                                                                            | Où                                  | Pourquoi elle dépasse le scaffold                                        |
 | --- | --------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------ |
-| 1   | `defineEntity()` + décorateur `@entities([...], { orm })`                         | `@nodefony/orm-core`                | Donne enfin à une **app** un point de déclaration de ses entités (D4)    |
+| 1   | `defineEntity()` + décorateur `@entities([...], { connector })`                   | `@nodefony/orm-core`                | Donne enfin à une **app** un point de déclaration de ses entités (D4)    |
 | 2   | `ZodError` → `422` (+ `error.fields`)                                             | `@nodefony/http` (`error-renderer`) | Tout endpoint validé par Zod en bénéficie, HTTP **et** WS (D6)           |
 | 3   | `Nodefony.generateSortableId()` — façade sur le **`crypto.randomUUIDv7()` natif** | `nodefony` (core)                   | Le core ne sait faire que de l'UUIDv4 ; le v7 est natif dès Node 24 (D7) |
 

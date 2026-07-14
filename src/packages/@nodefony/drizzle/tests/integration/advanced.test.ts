@@ -18,7 +18,7 @@ const advUserTable = sqliteTable("AdvUser", {
   age: integer("age").notNull(),
   active: integer("active", { mode: "boolean" }).notNull(),
 });
-@entity({ orm: ORM_A, name: "AdvUser", schema: advUserTable })
+@entity({ connector: ORM_A, name: "AdvUser", schema: advUserTable })
 class AdvUserEntity {}
 void AdvUserEntity;
 
@@ -136,17 +136,17 @@ const passportTable = sqliteTable("Passport", {
   code: text("code").notNull(),
   authorId: text("authorId").notNull(),
 });
-@entity({ orm: ORM_B, name: "Author", schema: authorTable })
+@entity({ connector: ORM_B, name: "Author", schema: authorTable })
 class AuthorEntity {}
 @entity({
-  orm: ORM_B,
+  connector: ORM_B,
   name: "Book",
   schema: bookTable,
   relations: [{ type: "many-to-one", target: "Author", field: "author" }],
 })
 class BookEntity {}
 @entity({
-  orm: ORM_B,
+  connector: ORM_B,
   name: "Passport",
   schema: passportTable,
   relations: [{ type: "one-to-one", target: "Author", field: "author" }],
@@ -245,10 +245,10 @@ describe("Drizzle avancé — many-to-many = garde-fou (non portable)", () => {
         .$defaultFn(() => randomUUID()),
       title: text("title").notNull(),
     });
-    @entity({ orm: ORM_C, name: "Tag", schema: tagTable })
+    @entity({ connector: ORM_C, name: "Tag", schema: tagTable })
     class TagEntity {}
     @entity({
-      orm: ORM_C,
+      connector: ORM_C,
       name: "Article",
       schema: articleTable,
       relations: [{ type: "many-to-many", target: "Tag", field: "tags" }],

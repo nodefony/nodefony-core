@@ -9,16 +9,16 @@ import { entityRegistry } from "../EntityRegistry";
 type Constructor<T = object> = new (...args: any[]) => T;
 
 /** Connecteur retenu quand ni l'entité ni le décorateur n'en nomment un. */
-export const DEFAULT_ORM = "default";
+export const DEFAULT_CONNECTOR = "default";
 
 /** Options du décorateur {@link entities}. */
 export interface EntitiesOptions {
   /**
-   * Connecteur ORM pour toutes les entités de la liste (défaut : `"default"`).
-   * Une entité qui porte son propre `orm` garde le sien — utile pour une base
+   * Connexion nommée pour toutes les entités de la liste (défaut : `"default"`).
+   * Une entité qui porte son propre `connector` garde le sien — utile pour une base
    * secondaire (ex. un entrepôt d'analyse) déclarée dans le même module.
    */
-  orm?: string;
+  connector?: string;
 }
 
 /**
@@ -71,16 +71,20 @@ export function entities(
       /** Inscrit les entités déclarées dans le registre, avant toute connexion ORM. */
       initDecoratorEntities(): void {
         for (const definition of definitions) {
-          const orm = definition.orm ?? options.orm ?? DEFAULT_ORM;
-          if (entityRegistry.has(definition.name, orm)) {
+          const connector =
+            definition.connector ?? options.connector ?? DEFAULT_CONNECTOR;
+          if (entityRegistry.has(definition.name, connector)) {
             this.log(
-              `ENTITY ${definition.name} (${orm}) déjà enregistrée — ignorée`,
+              `ENTITY ${definition.name} (${connector}) déjà enregistrée — ignorée`,
               "DEBUG",
             );
             continue;
           }
-          entityRegistry.register({ ...definition, orm } as IEntity);
-          this.log(`ADD ENTITY : ${definition.name} (orm ${orm})`, "DEBUG");
+          entityRegistry.register({ ...definition, connector } as IEntity);
+          this.log(
+            `ADD ENTITY : ${definition.name} (connector ${connector})`,
+            "DEBUG",
+          );
         }
       }
     }

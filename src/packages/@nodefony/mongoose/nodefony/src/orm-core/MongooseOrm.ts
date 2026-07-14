@@ -61,7 +61,9 @@ export class MongooseOrm extends Orm {
 
   /** Entités enregistrées ciblant cet ORM. */
   #ownEntities(): IEntity[] {
-    return entityRegistry.list().filter((entity) => entity.orm === this.name);
+    return entityRegistry
+      .list()
+      .filter((entity) => entity.connector === this.name);
   }
 
   /** FK déterministe camelCase `<entité>Id` (réf ObjectId côté enfant). */

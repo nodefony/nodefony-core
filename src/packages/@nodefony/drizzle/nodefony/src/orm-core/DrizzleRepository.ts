@@ -113,7 +113,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   readonly #table: DrizzleTable;
   readonly #relations: Record<string, DrizzleResolvedRelation>;
   /** Connecteur ORM (clé du registre) — tag des métriques de flux. */
-  readonly #ormName: string;
+  readonly #connector: string;
   /** Dialecte SQL du connecteur — route les rares divergences syntaxiques
    *  (OFFSET-sans-LIMIT, introspection PK composite). */
   readonly #dialect: SqlDialect;
@@ -128,20 +128,20 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    * @param db - handle Drizzle (instance racine ou transaction).
    * @param table - table Drizzle de l'entité (variante du dialecte).
    * @param relations - relations résolues (eager-load), indexées par champ.
-   * @param ormName - nom du connecteur ORM (registre) — défaut `"default"`.
+   * @param connector - nom de la connexion (clé du registre) — défaut `"default"`.
    * @param dialect - dialecte SQL du connecteur — défaut `"sqlite"`.
    */
   constructor(
     db: DrizzleDb,
     table: DrizzleTable,
     relations: Record<string, DrizzleResolvedRelation>,
-    ormName = "default",
+    connector = "default",
     dialect: SqlDialect = "sqlite",
   ) {
     this.#db = db;
     this.#table = table;
     this.#relations = relations;
-    this.#ormName = ormName;
+    this.#connector = connector;
     this.#dialect = dialect;
   }
 
@@ -288,7 +288,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         durationMs >= queryFlowMonitor.slowMs
           ? this.#safeSql(builder)
           : undefined;
-      queryFlowMonitor.record(this.#ormName, durationMs, sql);
+      queryFlowMonitor.record(this.#connector, durationMs, sql);
     }
     if (buf) {
       buf.push({
@@ -865,7 +865,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       tx.getNative<DrizzleDb>(),
       this.#table,
       this.#relations,
-      this.#ormName,
+      this.#connector,
       this.#dialect,
     );
   }

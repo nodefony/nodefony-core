@@ -13,7 +13,7 @@ import { listIdempotencyStores } from "@nodefony/framework";
 import type { Container } from "nodefony";
 import {
   registerDrizzleFrameworkStores,
-  FRAMEWORK_ORM,
+  FRAMEWORK_CONNECTOR,
   DrizzleOrm,
 } from "../../index";
 
@@ -79,9 +79,9 @@ describe("registerDrizzleFrameworkStores — auto-register postgres (S2)", () =>
       "webhook_endpoint",
       "idempotency_key",
     ]) {
-      entityRegistry.unregister(name, FRAMEWORK_ORM);
+      entityRegistry.unregister(name, FRAMEWORK_CONNECTOR);
     }
-    const orm = new DrizzleOrm(FRAMEWORK_ORM, { filename: ":memory:" });
+    const orm = new DrizzleOrm(FRAMEWORK_CONNECTOR, { filename: ":memory:" });
     await orm.connect();
     const factory = getTokenStoreFactory("drizzle");
     assert.ok(factory, "fabrique drizzle absente du registre token");
@@ -92,7 +92,7 @@ describe("registerDrizzleFrameworkStores — auto-register postgres (S2)", () =>
       );
     } finally {
       await orm.disconnect();
-      ormRegistry.unregister?.(FRAMEWORK_ORM);
+      ormRegistry.unregister?.(FRAMEWORK_CONNECTOR);
     }
   });
 });

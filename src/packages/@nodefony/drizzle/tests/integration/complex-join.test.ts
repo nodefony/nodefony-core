@@ -50,11 +50,11 @@ const messageTable = sqliteTable("Message", {
   createdAt: integer("createdAt").notNull(),
 });
 
-@entity({ orm: ORM, name: "Member", schema: memberTable })
+@entity({ connector: ORM, name: "Member", schema: memberTable })
 class MemberEntity {}
-@entity({ orm: ORM, name: "Channel", schema: channelTable })
+@entity({ connector: ORM, name: "Channel", schema: channelTable })
 class ChannelEntity {}
-@entity({ orm: ORM, name: "Message", schema: messageTable })
+@entity({ connector: ORM, name: "Message", schema: messageTable })
 class MessageEntity {}
 
 void MemberEntity;

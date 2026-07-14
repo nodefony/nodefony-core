@@ -31,7 +31,7 @@ import type { IdempotentResponse } from "nodefony";
  * **Liaison ORM dynamique** (pattern `tokenEntity`/`userTable`, pas `@entity`
  * figé) : en approche B, c'est l'**application** qui câble le store
  * (`registerIdempotencyStore("drizzle", …)` — registre `@nodefony/framework`) ET
- * le connecteur cible (`registerIdempotencyEntities(orm)`). Le module drizzle
+ * le connecteur cible (`registerIdempotencyEntities(connector)`). Le module drizzle
  * n'auto-enregistre rien (activer un store distribué est une décision de
  * déploiement, pas une conséquence du chargement du module).
  *
@@ -110,7 +110,7 @@ export const IDEMPOTENCY_ENTITY_NAME = "idempotency_key" as const;
 /**
  * Construit le descripteur d'entité du store d'idempotence pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) : la
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"default"`) : la
  * table est statique mais sa liaison à un ORM dépend de la config → on ne peut
  * pas la figer via `@entity`. À enregistrer dans `entityRegistry` **avant**
  * `orm.connect()` (cf {@link registerIdempotencyEntities}).
@@ -120,12 +120,12 @@ export const IDEMPOTENCY_ENTITY_NAME = "idempotency_key" as const;
  * @returns le descripteur {@link IEntity} de la table d'idempotence.
  */
 export function createIdempotencyEntities(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): IEntity[] {
   return [
     {
-      orm,
+      connector,
       name: IDEMPOTENCY_ENTITY_NAME,
       // `module: "framework"` → la table est regroupée sous @nodefony/framework
       // dans l'ERD Studio (l'idempotence est une feature framework — data plane
@@ -140,14 +140,14 @@ export function createIdempotencyEntities(
  * Enregistre l'entité du store d'idempotence dans le `entityRegistry` pour un ORM
  * donné. À appeler **avant** `orm.connect()` (l'adapter crée la table au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  * @param dialect - dialecte SQL du connecteur (variante de table — défaut `sqlite`).
  */
 export function registerIdempotencyEntities(
-  orm: string,
+  connector: string,
   dialect: SqlDialect = "sqlite",
 ): void {
-  for (const entity of createIdempotencyEntities(orm, dialect)) {
+  for (const entity of createIdempotencyEntities(connector, dialect)) {
     entityRegistry.register(entity);
   }
 }

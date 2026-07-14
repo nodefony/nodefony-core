@@ -8,7 +8,7 @@ import { runRepositoryContract } from "./repository-contract";
 describe("DrizzleRepository — contrat (sqlite)", () => {
   runRepositoryContract({
     dialect: "sqlite",
-    ormName: "contract_sqlite",
+    connector: "contract_sqlite",
     connection: { filename: ":memory:" },
   });
 });

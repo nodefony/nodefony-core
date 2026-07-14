@@ -1,26 +1,27 @@
 import type { IEntity } from "../interfaces/IEntity";
 
 /**
- * Descripteur d'entité **sans ORM figé** — la forme sous laquelle une application
- * déclare ses entités.
+ * Descripteur d'entité **sans connecteur figé** — la forme sous laquelle une
+ * application déclare ses entités.
  *
- * Pourquoi l'ORM manque : dans {@link IEntity}, `orm` est le **nom d'un connecteur**
- * (`"default"`, `"analytics"`…). C'est une donnée de **configuration**, pas de code :
- * la même table peut être servie par un connecteur différent selon l'environnement.
- * La figer à l'import interdirait de la réutiliser — c'est exactement ce qui condamne
- * le décorateur de classe `@entity({orm, schema})` à n'être jamais employé en
- * production. Ici, l'ORM est résolu **au boot**, par le décorateur `entities`.
+ * Pourquoi le connecteur manque : dans {@link IEntity}, `connector` est le **nom
+ * d'une connexion** (`"default"`, `"analytics"`…). C'est une donnée de
+ * **configuration**, pas de code : la même table peut être servie par une connexion
+ * différente selon l'environnement. La figer à l'import interdirait de la réutiliser
+ * — c'est exactement ce qui condamne le décorateur de classe
+ * `@entity({connector, schema})` à n'être jamais employé en production. Ici, le
+ * connecteur est résolu **au boot**, par le décorateur `entities`.
  */
 export interface IEntityDefinition<S = unknown, M = unknown> extends Omit<
   IEntity<S, M>,
-  "orm"
+  "connector"
 > {
   /**
-   * Connecteur cible — à ne renseigner que pour **forcer** une entité sur un
-   * connecteur précis (base secondaire). Sinon, c'est `entities(…, { orm })` qui
-   * tranche, et à défaut le connecteur `"default"`.
+   * Connecteur cible — à ne renseigner que pour **forcer** une entité sur une
+   * connexion précise (base secondaire). Sinon, c'est `entities(…, { connector })`
+   * qui tranche, et à défaut le connecteur `"default"`.
    */
-  readonly orm?: string;
+  readonly connector?: string;
 }
 
 /**

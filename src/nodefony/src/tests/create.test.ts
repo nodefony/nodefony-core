@@ -1004,7 +1004,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.match(src, /title: text\("title"\)\.notNull\(\)\.unique\(\)/u);
       // Le descripteur ne fige PAS le connecteur (donnée de config, résolue au boot).
       assert.include(src, "export const PostEntity = defineEntity({");
-      assert.notMatch(src, /orm:\s*["']/u);
+      assert.notMatch(src, /connector:\s*["']/u);
     });
 
     it("le contrat d'entrée dérive la mise à jour, et exclut id/horodatages", () => {
@@ -1156,7 +1156,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "entity", "Post.ts"),
         "utf8",
       );
-      assert.match(src, /orm: "wordpress"/u);
+      assert.match(src, /connector: "wordpress"/u);
       const service = readFileSync(
         path.join(dest, "nodefony", "service", "PostService.ts"),
         "utf8",
@@ -1171,7 +1171,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "entity", "Post.ts"),
         "utf8",
       );
-      assert.notMatch(src, /orm:\s*["']/u);
+      assert.notMatch(src, /connector:\s*["']/u);
     });
 
     it("une RELATION en DERNIER champ : la table se ferme proprement", () => {

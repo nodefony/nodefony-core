@@ -22,7 +22,7 @@ import {
 import MongooseService from "./nodefony/service/MongooseService";
 import {
   registerMongooseFrameworkStores,
-  FRAMEWORK_ORM,
+  FRAMEWORK_CONNECTOR,
 } from "./nodefony/registerStores";
 import type {
   IMongooseConfig,
@@ -102,7 +102,7 @@ class Mongoose extends Module<IMongooseConfig> {
       }
       if (report.registered.length) {
         this.log(
-          `schéma framework déclaré sur "${FRAMEWORK_ORM}" : ` +
+          `schéma framework déclaré sur "${FRAMEWORK_CONNECTOR}" : ` +
             `[${report.registered.join(", ")}]`,
           "DEBUG",
         );
@@ -150,7 +150,7 @@ export { default as SessionStorage } from "./nodefony/src/SessionStorage";
 export {
   default as SessionEntity,
   sessionSchema,
-  SESSION_ORM,
+  SESSION_CONNECTOR,
 } from "./nodefony/entity/sessionEntity";
 export type { SessionRow } from "./nodefony/entity/sessionEntity";
 
@@ -214,6 +214,6 @@ export { MongooseWebhookStore } from "./nodefony/src/MongooseWebhookStore";
 // Exporté pour les tests et les apps avancées (rejouable : guards idempotents).
 export {
   registerMongooseFrameworkStores,
-  FRAMEWORK_ORM,
+  FRAMEWORK_CONNECTOR,
 } from "./nodefony/registerStores";
 export type { IFrameworkStoresReport } from "./nodefony/registerStores";

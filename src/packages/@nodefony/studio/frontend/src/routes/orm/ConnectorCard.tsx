@@ -189,7 +189,7 @@ export function ConnectorCard({
 
   // Modèle propre à ce connecteur (dérivé du graphe + counts).
   const own = useMemo(() => {
-    const ents = entities.filter((e) => e.orm === orm.name);
+    const ents = entities.filter((e) => e.connector === orm.name);
     let relations = 0;
     let rows = 0;
     const domains = new Set<string>();
@@ -741,7 +741,7 @@ export function ConnectorCard({
                           component={Link}
                           to={`/nodefony/orm-entity?name=${encodeURIComponent(
                             e.name,
-                          )}&orm=${encodeURIComponent(orm.name)}`}
+                          )}&connector=${encodeURIComponent(orm.name)}`}
                           size="xs"
                         >
                           {e.name}

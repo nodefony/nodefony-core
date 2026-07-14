@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { oxcDecorators } from "../../../../vitest.oxc";
 
 /**
  * vitest pour @nodefony/mongoose (convention-frère @nodefony/orm-core).
@@ -39,4 +40,8 @@ export default defineConfig({
       thresholds: { lines: 72, statements: 72, functions: 66, branches: 58 },
     },
   },
+  // Les bancs `@entity(...)` (advanced, orm-core-mongoose) portent des décorateurs :
+  // sans ce bloc, oxc les émet bruts et Node lève `SyntaxError` À LA COLLECTE — le
+  // fichier entier est muet sans qu'aucun test ne soit compté comme échoué.
+  oxc: oxcDecorators,
 });

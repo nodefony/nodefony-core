@@ -50,7 +50,7 @@ export interface UserRow {
 /**
  * Construit le descripteur d'entité `User` Mongoose pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"nodefony"`) : le
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"nodefony"`) : le
  * schéma est statique mais sa liaison à un ORM dépend de la config → pas d'`@entity`
  * figé (parité avec `createUserEntity` Drizzle). À enregistrer **avant**
  * `orm.connect()` (le modèle est compilé à la connexion par `MongooseOrm`).
@@ -58,11 +58,11 @@ export interface UserRow {
  * @param orm - clé de l'ORM cible dans le `ormRegistry`.
  * @returns descripteur {@link IEntity} (`name: "User"`, `timestamps: true`).
  */
-export function createUserEntity(orm: string): IEntity {
+export function createUserEntity(connector: string): IEntity {
   // `module: "user"` → regroupé sous @nodefony/user dans l'ERD Studio (parité Drizzle).
   // `timestamps` → createdAt/updatedAt gérés par Mongoose (option Schema).
   return {
-    orm,
+    connector,
     name: "User",
     module: "user",
     schema: userSchema,
@@ -74,8 +74,8 @@ export function createUserEntity(orm: string): IEntity {
  * Enregistre l'entité `User` Mongoose dans le `entityRegistry` pour un ORM donné.
  * À appeler **avant** `orm.connect()` (le modèle est compilé au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  */
-export function registerUserEntity(orm: string): void {
-  entityRegistry.register(createUserEntity(orm));
+export function registerUserEntity(connector: string): void {
+  entityRegistry.register(createUserEntity(connector));
 }

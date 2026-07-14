@@ -80,7 +80,7 @@ export const TOKEN_ENTITY_NAMES = {
 /**
  * Construit les descripteurs d'entités du store de jetons pour un ORM nommé.
  *
- * L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `"nodefony"`) : les
+ * Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `"nodefony"`) : les
  * schémas sont statiques mais leur liaison à un ORM dépend de la config → pas
  * d'`@entity` figé (parité `createUserEntity`). `timestamps:false` (l'appelant
  * gère `createdAt`). À enregistrer **avant** `orm.connect()`.
@@ -88,22 +88,22 @@ export const TOKEN_ENTITY_NAMES = {
  * @param orm - clé de l'ORM cible dans le `ormRegistry`.
  * @returns les trois descripteurs {@link IEntity} (records / denylist / seuils).
  */
-export function createTokenEntities(orm: string): IEntity[] {
+export function createTokenEntities(connector: string): IEntity[] {
   return [
     {
-      orm,
+      connector,
       name: TOKEN_ENTITY_NAMES.records,
       module: "security",
       schema: accessTokenSchema,
     },
     {
-      orm,
+      connector,
       name: TOKEN_ENTITY_NAMES.denied,
       module: "security",
       schema: deniedJtiSchema,
     },
     {
-      orm,
+      connector,
       name: TOKEN_ENTITY_NAMES.revocations,
       module: "security",
       schema: subjectRevocationSchema,
@@ -115,10 +115,10 @@ export function createTokenEntities(orm: string): IEntity[] {
  * Enregistre les entités du store de jetons dans le `entityRegistry` pour un ORM
  * donné. À appeler **avant** `orm.connect()` (le modèle est compilé au connect).
  *
- * @param orm - clé de l'ORM cible.
+ * @param connector - nom de la connexion cible (clé du registre).
  */
-export function registerTokenEntities(orm: string): void {
-  for (const entity of createTokenEntities(orm)) {
+export function registerTokenEntities(connector: string): void {
+  for (const entity of createTokenEntities(connector)) {
     entityRegistry.register(entity);
   }
 }

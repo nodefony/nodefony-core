@@ -86,17 +86,17 @@ describe("DrizzleRepository #pickOne — forme PK portable (S1 multi-dialecte)",
 
   beforeAll(async () => {
     entityRegistry.register({
-      orm: ORM,
+      connector: ORM,
       name: "pickone_probe",
       schema: buildFrameworkTable("sqlite", PROBE_SPEC),
     });
     entityRegistry.register({
-      orm: ORM,
+      connector: ORM,
       name: "pickone_nopk",
       schema: noPkTable,
     });
     entityRegistry.register({
-      orm: ORM,
+      connector: ORM,
       name: "pickone_composite",
       schema: compositeTable,
     });
