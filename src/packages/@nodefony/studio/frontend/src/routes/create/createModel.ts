@@ -55,6 +55,27 @@ export interface IScaffoldTarget {
 }
 
 /**
+ * Un emplacement où une NOUVELLE application a le droit de naître.
+ *
+ * Miroir de `IScaffoldRoot` (core `cli/scaffold/destination.ts`). Le `path` n'est là que
+ * pour être MONTRÉ (l'appelant est administrateur, en développement, sur sa machine : lui
+ * cacher où il installe ne protégerait rien). Le client, lui, ne renvoie que l'`id`.
+ */
+export interface IScaffoldRoot {
+  id: string;
+  label: string;
+  path: string;
+}
+
+/** Réponse de `GET /nodefony/studio/api/create/browse` — les sous-dossiers navigables. */
+export interface IScaffoldBrowse {
+  /** Sous-chemin relatif exploré (`""` = la racine). */
+  sub: string;
+  /** Sous-dossiers directs, triés (ni cachés, ni `node_modules`). */
+  dirs: string[];
+}
+
+/**
  * Étape post-écriture. Volontairement `string` et non une union figée : l'allowlist
  * fait autorité **côté serveur** (`SCAFFOLD_STEPS`) et voyage dans la réponse de
  * `create/spec` — la recopier ici la ferait diverger en silence.
@@ -108,6 +129,21 @@ export interface IScaffoldJobState {
  */
 export type IScaffoldJobMeta = Omit<IScaffoldJobState, "lines">;
 
+/**
+ * Capacités de l'environnement, telles que le SERVEUR les constate (contrat `askIf`).
+ *
+ * Elles ne se devinent pas depuis un navigateur : `hasCheckout` (« un checkout du framework
+ * est résolvable ») dépend de ce qu'il y a sur le disque du serveur. Les coder en dur côté
+ * front revenait à supprimer une option en silence — vécu : la question `link` n'était
+ * jamais posée, et l'app générée échouait à l'installation (`404` sur le registre npm, les
+ * paquets `@nodefony/*` n'y étant pas encore publiés).
+ */
+export interface IScaffoldCaps {
+  hasCheckout: boolean;
+  /** Le serveur peut en déclarer d'autres : une capacité inconnue vaut « non ». */
+  [key: string]: boolean | undefined;
+}
+
 /** Réponse de `GET /nodefony/studio/api/create/spec` quand la création est ouverte. */
 export interface ICreateSpecOk {
   enabled: true;
@@ -115,6 +151,10 @@ export interface ICreateSpecOk {
   specs: IScaffoldTypeSpec[];
   targets: IScaffoldTarget[];
   projectRoot: string;
+  /** Emplacements autorisés pour une nouvelle app (vide = le serveur n'en propose aucun). */
+  roots: IScaffoldRoot[];
+  /** Capacités constatées par le serveur — pilotent les questions `askIf`. */
+  caps: IScaffoldCaps;
 }
 
 /** Refus serveur (hors développement) — porte SA raison, qu'on affiche telle quelle. */
@@ -133,41 +173,148 @@ export interface IScaffoldCancelResult {
   cancelled: boolean;
 }
 
-/**
- * Capacités d'environnement déclarées par CE front (contrat `askIf` de la spec).
+/* ────────────────────────────────────────────────────────────────────────────
+ * Destination d'une nouvelle app
  *
- * `hasCheckout` = « un checkout du framework est résolvable » : c'est vrai pour le CLI
- * lancé à la main, jamais pour Studio (qui tourne DANS l'app, pas dans le checkout).
- * Une question `askIf` non déclarée ici n'est simplement pas posée — son défaut sûr
- * s'applique côté moteur.
- */
-export const FRONT_CAPABILITIES: Readonly<Record<string, boolean>> = {
-  hasCheckout: false,
-};
+ * Une app est le SEUL type qui naît AILLEURS : les quatre autres écrivent dans le projet
+ * courant, qui n'est pas un choix. D'où ce bloc, qui n'existe que pour `app`.
+ *
+ * Le front ne manipule JAMAIS un chemin : il choisit une racine par son **identifiant** et
+ * descend dans des **noms de dossiers** rendus par le serveur. Le chemin affiché ici n'est
+ * qu'un APERÇU (reconstitué pour l'œil) ; ce qui part sur la socket, ce sont `root` et
+ * `subPath`. Le serveur recompose et refuse tout le reste.
+ * ──────────────────────────────────────────────────────────────────────────── */
 
-/** Une question n'est posée que si sa capacité est déclarée vraie par le front. */
-export function isQuestionVisible(q: IScaffoldQuestion): boolean {
-  return !q.askIf || FRONT_CAPABILITIES[q.askIf] === true;
+/** Le type de scaffold qui naît hors du projet courant (le seul à avoir une destination). */
+export const APP_TYPE = "app";
+
+/** Clé de la question « câbler les paquets nodefony sur le checkout local » (spec du moteur). */
+export const LINK_KEY = "link";
+
+/** Clé de l'étape d'installation (allowlist serveur `SCAFFOLD_STEPS`). */
+export const INSTALL_STEP = "install";
+
+/** Ce type crée-t-il une app (→ destination à choisir) ? */
+export function isAppType(type: string | null): boolean {
+  return type === APP_TYPE;
+}
+
+/**
+ * Nom d'application acceptable — MIROIR de `APP_NAME_RE` (core `destination.ts`), qui est
+ * aussi le `pattern` de la question `name` de la spec. Recopié ici pour un seul usage :
+ * dire, dans l'aperçu, POURQUOI la destination n'est pas encore complète.
+ */
+export const APP_NAME_RE = /^[a-z][a-z0-9-]*$/u;
+
+/** Segments d'un sous-chemin (`"clients/acme"` → `["clients", "acme"]`). `""` → `[]`. */
+export function subSegments(sub: string): string[] {
+  return sub.split("/").filter((s) => s !== "");
+}
+
+/** Descend d'un cran : sous-chemin courant + un nom de dossier rendu par le serveur. */
+export function joinSub(sub: string, dir: string): string {
+  return sub === "" ? dir : `${sub}/${dir}`;
+}
+
+/** Remonte le fil d'Ariane : sous-chemin des `count` premiers segments (`0` = la racine). */
+export function subUpTo(sub: string, count: number): string {
+  return subSegments(sub).slice(0, count).join("/");
+}
+
+/** Aperçu de la destination d'une app — ce que l'utilisateur DOIT voir avant de confirmer. */
+export interface IDestinationPreview {
+  /** Chemin lisible : `<label de la racine>/<sous-dossier>/<nom>`. */
+  label: string;
+  /** Chemin serveur reconstitué — affichage seul, jamais envoyé. `null` sans racine. */
+  path: string | null;
+  /** Ce qui manque ou cloche ; `null` = destination complète et valable. */
+  issue: string | null;
+}
+
+/**
+ * Décrit la destination d'une app : où elle va naître, et sinon pourquoi on ne peut pas
+ * encore le dire.
+ *
+ * @param root - racine choisie (`null` si aucune).
+ * @param subPath - sous-dossier relatif (`""` = la racine elle-même).
+ * @param name - nom de l'app tel que saisi.
+ */
+export function describeDestination(
+  root: IScaffoldRoot | null,
+  subPath: string,
+  name: string,
+): IDestinationPreview {
+  const trimmed = name.trim();
+  const issue =
+    root === null
+      ? "Choisissez un emplacement d'installation."
+      : trimmed === ""
+        ? "Donnez un nom à l'application pour voir sa destination."
+        : APP_NAME_RE.test(trimmed)
+          ? null
+          : "Nom d'application invalide : minuscules, chiffres et tirets, commençant par une lettre (ex : mon-app).";
+  // Le dernier segment reste visible même invalide : voir « …/Mon App » explique la faute
+  // mieux qu'un aperçu qui disparaît.
+  const leaf = trimmed === "" ? "<nom>" : trimmed;
+  const parts = [root?.label ?? "<emplacement>", ...subSegments(subPath), leaf];
+  return {
+    label: parts.join("/"),
+    path: root ? [root.path, ...subSegments(subPath), leaf].join("/") : null,
+    issue,
+  };
+}
+
+/** Racine choisie par défaut : la première proposée par le serveur (souvent la seule). */
+export function defaultRootId(roots: IScaffoldRoot[]): string | null {
+  return roots[0]?.id ?? null;
+}
+
+/** Une question n'est posée que si le SERVEUR déclare vraie la capacité qu'elle exige. */
+export function isQuestionVisible(
+  q: IScaffoldQuestion,
+  caps: IScaffoldCaps,
+): boolean {
+  return !q.askIf || caps[q.askIf] === true;
 }
 
 /** Questions visibles, ventilées : celles du dialogue et celles du repli « avancé ». */
-export function splitQuestions(spec: IScaffoldTypeSpec): {
+export function splitQuestions(
+  spec: IScaffoldTypeSpec,
+  caps: IScaffoldCaps,
+): {
   main: IScaffoldQuestion[];
   advanced: IScaffoldQuestion[];
 } {
-  const visible = spec.questions.filter(isQuestionVisible);
+  const visible = spec.questions.filter((q) => isQuestionVisible(q, caps));
   return {
     main: visible.filter((q) => !q.advanced),
     advanced: visible.filter((q) => q.advanced === true),
   };
 }
 
-/** Réponses initiales d'un type = les défauts DU MOTEUR (jamais des défauts recopiés ici). */
-export function defaultAnswers(spec: IScaffoldTypeSpec): TAnswers {
+/**
+ * Réponses initiales d'un type = les défauts DU MOTEUR (jamais des défauts recopiés ici),
+ * à UNE exception assumée : `link` pour une app, quand un checkout est résolvable.
+ *
+ * Pourquoi Studio coche là où le CLI ne coche pas : le moteur garde `link: false` par
+ * défaut — un générateur ne réécrit pas des dépendances en `file:` sans demande explicite,
+ * et en CLI l'utilisateur répond. Mais depuis Studio, dans un checkout du framework, on
+ * crée une app POUR travailler avec le code local ; et surtout, tant que les paquets
+ * `@nodefony/*` ne sont pas publiés sur npm, une app SANS lien ne s'installe pas
+ * (`npm install` → 404 sur le registre). C'est une décision d'INTERFACE — la case reste
+ * décochable, et le moteur, lui, n'est pas touché.
+ */
+export function defaultAnswers(
+  spec: IScaffoldTypeSpec,
+  caps: IScaffoldCaps,
+): TAnswers {
   const answers: TAnswers = {};
   for (const q of spec.questions) {
-    if (!isQuestionVisible(q)) continue;
-    answers[q.key] = q.default;
+    if (!isQuestionVisible(q, caps)) continue;
+    answers[q.key] =
+      q.key === LINK_KEY && spec.type === APP_TYPE && caps.hasCheckout === true
+        ? true
+        : q.default;
   }
   return answers;
 }
@@ -212,14 +359,40 @@ export function validateAnswer(
 export function validateAnswers(
   spec: IScaffoldTypeSpec,
   answers: TAnswers,
+  caps: IScaffoldCaps,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   for (const q of spec.questions) {
-    if (!isQuestionVisible(q)) continue;
+    if (!isQuestionVisible(q, caps)) continue;
     const message = validateAnswer(q, answers[q.key]);
     if (message) errors[q.key] = message;
   }
   return errors;
+}
+
+/**
+ * L'installation de l'app va-t-elle échouer, et pourquoi ?
+ *
+ * Les paquets `@nodefony/*` ne sont **pas encore publiés sur npm** : un `npm install` dans
+ * une app générée sans lien local part chercher `@nodefony/drizzle` & co sur le registre et
+ * s'arrête sur un `404`. Le seul moyen d'obtenir une app installable aujourd'hui est
+ * l'option `link` (elle réécrit ces dépendances en `file:<checkout>`). Autant le dire AVANT
+ * de lancer plutôt que de laisser l'utilisateur lire l'échec dans le terminal.
+ *
+ * @returns le message d'alerte, ou `null` si l'installation a toutes ses chances.
+ */
+export function describeInstallRisk(
+  type: string | null,
+  caps: IScaffoldCaps,
+  answers: TAnswers,
+  steps: ScaffoldStep[],
+): string | null {
+  if (!isAppType(type)) return null;
+  if (!steps.includes(INSTALL_STEP)) return null;
+  if (answers[LINK_KEY] === true) return null;
+  return caps.hasCheckout === true
+    ? "Sans le câblage sur le checkout local, npm install ira chercher les paquets @nodefony/* sur le registre npm, où ils ne sont pas encore publiés : l'installation échouera (404). Cochez le câblage dans les réglages, ou décochez npm install et installez l'app plus tard."
+    : "Aucun checkout du framework n'est résolvable depuis ce serveur, et les paquets @nodefony/* ne sont pas encore publiés sur npm : npm install échouera (404). Décochez l'étape — l'application sera écrite, à installer à la main.";
 }
 
 /** Libellé humain d'une étape post-écriture (le serveur, lui, n'envoie que sa clé). */
@@ -254,16 +427,20 @@ export function stepLabel(step: ScaffoldStep): IStepLabel {
 }
 
 /**
- * Étapes cochées par défaut : `install` dès que le scaffold **touche au `package.json`**
- * (un module devient un workspace, un front ajoute les dépendances du builder) — sans
- * l'installation, le résultat n'est pas chargeable. Un controller ou une entité n'ajoutent
- * rien à installer : on ne fait pas payer une installation complète pour rien.
+ * Étapes cochées par défaut : `install` dès que le scaffold **touche à un `package.json`**
+ * — une app naît avec le sien (elle n'est pas lançable sans installation), un module
+ * devient un workspace, un front ajoute les dépendances du builder. Sans l'installation, le
+ * résultat n'est pas chargeable. Un controller ou une entité n'ajoutent rien à installer :
+ * on ne fait pas payer une installation complète pour rien.
  */
 export function defaultSteps(
   type: string,
   available: ScaffoldStep[],
 ): ScaffoldStep[] {
-  const wanted = type === "module" || type === "front" ? ["install"] : [];
+  const wanted =
+    type === APP_TYPE || type === "module" || type === "front"
+      ? ["install"]
+      : [];
   return available.filter((s) => wanted.includes(s));
 }
 

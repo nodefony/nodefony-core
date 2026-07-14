@@ -24,10 +24,12 @@ import {
   IconChevronDown,
   IconChevronRight,
 } from "@tabler/icons-react";
-import { InfoHint } from "../../components/ui";
+import { DocHint, InfoHint } from "../../components/ui";
 import {
+  LINK_KEY,
   splitQuestions,
   validateAnswer,
+  type IScaffoldCaps,
   type IScaffoldQuestion,
   type IScaffoldTarget,
   type IScaffoldTypeSpec,
@@ -78,12 +80,35 @@ function QuestionField({
   }
 
   if (question.type === "boolean") {
-    return (
+    const box = (
       <Checkbox
         label={question.label}
         checked={value === true}
         onChange={(e) => onChange(question.key, e.currentTarget.checked)}
       />
+    );
+    // Le câblage local n'est pas un réglage anodin : c'est aujourd'hui la SEULE façon
+    // d'obtenir une app installable, les paquets n'étant pas publiés sur npm. La case
+    // porte donc sa fiche, à côté d'elle.
+    if (question.key !== LINK_KEY) return box;
+    return (
+      <Group gap="xs" wrap="nowrap">
+        {box}
+        <DocHint
+          title="Câblage sur le checkout local"
+          summary="L'application utilisera le framework de VOTRE checkout (dépendances @nodefony/* réécrites en file:…) au lieu des paquets du registre npm."
+          sections={[
+            {
+              label: "Pourquoi c'est nécessaire",
+              body: "Les paquets @nodefony/* ne sont pas encore publiés sur npm : sans ce câblage, npm install s'arrête sur un 404. Décoché, l'app est écrite mais pas installable en l'état.",
+            },
+            {
+              label: "Ce que ça change",
+              body: "Les modifications du framework se répercutent immédiatement dans l'app générée — c'est le mode de travail d'un contributeur du framework.",
+            },
+          ]}
+        />
+      </Group>
     );
   }
 
@@ -122,6 +147,8 @@ export interface CreateFormProps {
   answers: TAnswers;
   errors: Record<string, string>;
   targets: IScaffoldTarget[];
+  /** Capacités CONSTATÉES par le serveur — décident des questions `askIf`. */
+  caps: IScaffoldCaps;
   onChange: (key: string, value: string | boolean) => void;
 }
 
@@ -131,10 +158,11 @@ export function CreateForm({
   answers,
   errors,
   targets,
+  caps,
   onChange,
 }: CreateFormProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const { main, advanced } = splitQuestions(spec);
+  const { main, advanced } = splitQuestions(spec, caps);
 
   return (
     <Stack gap="md">

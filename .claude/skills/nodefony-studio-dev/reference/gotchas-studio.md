@@ -177,6 +177,19 @@ key={user.id}`), PAS un retry (`useResource` ne retry pas). Lire « X / Y reques
   `index.ts` — là où le scaffold écrit) → le rechargement tombe au milieu du job et **tue le `npm install`** (process
   enfant du serveur). Le back doit encadrer son travail par `suspendSupervisor()`/`resumeSupervisor()` (cf
   `nodefony-framework-dev` § Pièges structurels). Symptôme sans ça : le terminal se coupe net et la socket meurt.
+- **🚫 Un front ne DEVINE JAMAIS une capacité du serveur.** Vécu, coûteux : `FRONT_CAPABILITIES = { hasCheckout: false }`
+  écrit en dur côté React → la question `link` du scaffold (conditionnée `askIf: "hasCheckout"`) n'était **jamais posée**,
+  donc **supprimée en silence**. Or `link` est ce qui réécrit les deps `@nodefony/*` en `file:<checkout>` — sans elle,
+  l'app générée tire des paquets **non encore publiés sur npm** et son `npm install` meurt en **404** (trouvé par le user
+  en cliquant, pas par un test). Règle : une capacité qui dépend de l'ÉTAT DU DISQUE SERVEUR se **demande au serveur**
+  (`caps` dans la réponse du data plane, cf `scaffoldCaps()`), et le défaut d'absence est le plus **restrictif**, jamais
+  une invention. Corollaire d'ergonomie : quand une option est nécessaire pour que le résultat FONCTIONNE, l'interface la
+  pré-coche **et dit pourquoi** — et si l'utilisateur la décoche, elle **avertit avant**, pas pendant.
+- **Livrer un artefact généré sans écrire sur le serveur** (`create app` mode archive) : générer dans un temporaire
+  jetable (`mkdtempSync`), archiver (`tar` — **aucune dépendance npm ajoutée**), servir par `renderFileDownload()`, purger
+  le temporaire AVEC le job. Le client télécharge « l'archive du job `<id>` », **jamais un chemin** → il n'y a rien à
+  traverser. Et on n'installe RIEN avant d'archiver : embarquer `node_modules` ferait des centaines de Mo pour un code
+  qui sera de toute façon installé à l'arrivée.
 
 ## 7. Rôles / autorisation front
 

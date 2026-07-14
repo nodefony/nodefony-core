@@ -453,7 +453,20 @@ export {
   resolveAnswers,
   listTargets,
   findProjectRoot,
+  scaffoldCaps,
 } from "./cli/scaffold/engine";
+// Où une app créée DEPUIS LE WEB a le droit de naître. En CLI la destination est le
+// `cwd` (l'utilisateur est chez lui) ; par le réseau, elle doit être RECOMPOSÉE côté
+// serveur sous une racine autorisée — un endpoint qui écrit au chemin qu'on lui donne
+// écrit aussi dans `/etc`.
+export {
+  resolveScaffoldDestination,
+  isSafeSubPath,
+  isInsideRoot,
+  ScaffoldDestinationError,
+  APP_NAME_RE,
+} from "./cli/scaffold/destination";
+export type { IScaffoldRoot } from "./cli/scaffold/destination";
 export type {
   IScaffoldRequest,
   IScaffoldResult,

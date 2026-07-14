@@ -318,6 +318,21 @@ export interface IScaffoldTarget {
  * `create module`). Consommée par le CLI (validation `--module`) et par le
  * futur formulaire Studio (liste de choix dynamique par projet).
  */
+/**
+ * Capacités de l'environnement, telles que le MOTEUR les voit.
+ *
+ * Sert aux questions conditionnelles (`askIf`) : `link` (créer une app branchée sur le
+ * checkout local du framework, au lieu des paquets npm publiés) n'a de sens que si un
+ * checkout est résolvable. Un front ne peut PAS le deviner — seul le serveur sait ce
+ * qu'il y a sur le disque. Le figer côté client à `false` reviendrait à supprimer
+ * l'option en silence.
+ *
+ * @returns les capacités passées à {@link resolveAnswers}.
+ */
+export function scaffoldCaps(): IScaffoldCaps {
+  return { hasCheckout: resolveLocalWorkspaces(findPackageRoot()) !== null };
+}
+
 export function listTargets(projectRoot: string): IScaffoldTarget[] {
   const readName = (dir: string): string | null => {
     try {
