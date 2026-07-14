@@ -1002,17 +1002,37 @@ function runEntityScaffold(
     );
   }
 
-  // Garde ORM : générer une entité dans une app sans ORM produirait du code mort qui
-  // ne compile même pas. On refuse AVANT d'écrire, avec le geste exact.
-  const manifest = JSON.parse(
-    readFileSync(path.join(target.dir, "package.json"), "utf8"),
-  ) as Record<string, Record<string, string>>;
-  const targetDeps = new Set(
-    ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
-      Object.keys(manifest[b] ?? {}),
-    ),
-  );
-  if (!targetDeps.has("@nodefony/drizzle")) {
+  // Garde ORM : générer une entité sans ORM produirait du code mort qui ne compile même
+  // pas. On refuse AVANT d'écrire, avec le geste exact.
+  //
+  // ⚠️ La brique se cherche dans l'APP, pas seulement dans la cible : un module est un
+  // workspace de l'app et déclare les paquets Nodefony en `peerDependencies: "*"` —
+  // c'est l'app qui les installe et qui charge le module ORM (manifeste `modules`).
+  // Exiger la dep dans le module rendait `--module` inutilisable (vécu).
+  const manifestPath = path.join(target.dir, "package.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<
+    string,
+    Record<string, string>
+  >;
+  const depsOf = (dir: string): Set<string> => {
+    const file = path.join(dir, "package.json");
+    if (!existsSync(file)) return new Set();
+    const pkg = JSON.parse(readFileSync(file, "utf8")) as Record<
+      string,
+      Record<string, string>
+    >;
+    return new Set(
+      ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
+        Object.keys(pkg[b] ?? {}),
+      ),
+    );
+  };
+  const targetDeps = depsOf(target.dir);
+  const projectDeps = depsOf(projectRoot);
+  if (
+    !targetDeps.has("@nodefony/drizzle") &&
+    !projectDeps.has("@nodefony/drizzle")
+  ) {
     throw new Error(
       `@nodefony/drizzle absent de ${target.name} — ajoute la dep + use("@nodefony/drizzle") ` +
         `au manifeste modules de nodefony.config.ts, puis relance`,
@@ -1145,6 +1165,25 @@ function runEntityScaffold(
       written,
       tokens,
     );
+  }
+
+  // Un MODULE déclare les briques Nodefony qu'il importe en `peerDependencies: "*"`
+  // (l'app les installe — c'est le pattern posé par `create module`). Les fichiers
+  // générés importent orm-core (defineEntity, service) et drizzle (tests) : sans ces
+  // deux entrées, le module compilerait « par chance », via le hoisting de l'app.
+  if (target.kind === "module") {
+    const peer = (manifest["peerDependencies"] ??= {});
+    let touched = false;
+    for (const brick of ["@nodefony/orm-core", "@nodefony/drizzle"]) {
+      if (!targetDeps.has(brick)) {
+        peer[brick] = "*";
+        touched = true;
+      }
+    }
+    if (touched) {
+      writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+      written.push("package.json");
+    }
   }
 
   const indexPath = path.join(target.dir, "index.ts");

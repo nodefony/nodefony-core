@@ -29,12 +29,18 @@ export interface <%= it.pascal %>Row {
 
 /**
  * Descripteur de l'entité — déclaré au module via `@entities([<%= it.pascal %>Entity])`.
- *
+<% if (it.connector === "default") { %> *
  * Le connecteur (`orm`) n'est **pas** figé ici : c'est une donnée de configuration,
- * résolue au démarrage par le décorateur.
- */
+ * résolue au démarrage par le décorateur (défaut : `default`).
+<% } else { %> *
+ * `orm` est fixé sur le connecteur **`<%= it.connector %>`** : cette entité vit sur sa
+ * propre base, distincte de celle de l'application. Sans cette ligne, le décorateur la
+ * poserait sur `default` — et sa table serait créée dans la mauvaise base pendant que
+ * le service la chercherait dans la bonne.
+<% } %> */
 export const <%= it.pascal %>Entity = defineEntity({
   name: "<%= it.pascal %>",
   module: "<%= it.moduleName %>",
-  schema: <%= it.camel %>Table,
+<% if (it.connector !== "default") { %>  orm: "<%= it.connector %>",
+<% } %>  schema: <%= it.camel %>Table,
 });

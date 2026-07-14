@@ -356,12 +356,20 @@ export function buildEntityCodegen(
   const { fn, module } = TABLE_FN[dialect];
   imports.add(fn);
 
+  // Saut de ligne FINAL obligatoire : eta supprime le newline qui suit une
+  // interpolation, donc la fermeture (`});`) remonterait sur la dernière ligne rendue.
+  // Anodin tant qu'elle finit par une virgule (`…notNull(),});` reste valide) — mais
+  // dès qu'un champ de RELATION est en dernier, son commentaire de fin de ligne avale
+  // la fermeture : `…, // → User.id …});` ne compile pas. Vécu en appliquant un vrai
+  // schéma (WordPress), invisible sur tous les exemples jusque-là.
+  const block = (lines: string[]): string => `${lines.join("\n  ")}\n`;
+
   return {
-    columns: columns.join("\n  "),
+    columns: block(columns),
     drizzleImport: `import { ${[...imports].sort().join(", ")} } from "${module}";`,
     tableFn: fn,
-    rowProps: rowProps.join("\n  "),
-    zodProps: zodProps.join("\n  "),
+    rowProps: block(rowProps),
+    zodProps: block(zodProps),
     needsNodefony: id !== "serial",
     idType: pk.tsType,
   };

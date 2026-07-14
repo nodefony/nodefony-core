@@ -1141,6 +1141,64 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("--connector : l'ENTITÉ porte le connecteur, pas seulement le service", () => {
+      // ⚠️ RÉGRESSION (vécue en important un schéma tiers sur une base dédiée) : seul
+      // le service lisait `--connector`. Le descripteur, lui, restait sur `default` →
+      // les tables étaient créées dans la base de l'APP pendant que le service les
+      // cherchait dans l'autre. Les deux moitiés de la chaîne parlaient de deux bases.
+      const dest = app("eapp13");
+      entity(dest, {
+        name: "Post",
+        fields: "title:string",
+        connector: "wordpress",
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      assert.match(src, /orm: "wordpress"/u);
+      const service = readFileSync(
+        path.join(dest, "nodefony", "service", "PostService.ts"),
+        "utf8",
+      );
+      assert.include(service, 'ormRegistry.get("wordpress")');
+    });
+
+    it("connecteur par défaut : l'entité ne fige RIEN (donnée de config)", () => {
+      const dest = app("eapp14");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      assert.notMatch(src, /orm:\s*["']/u);
+    });
+
+    it("une RELATION en DERNIER champ : la table se ferme proprement", () => {
+      // ⚠️ RÉGRESSION (vécue en appliquant un vrai schéma) : eta supprime le saut de
+      // ligne qui suit une interpolation, donc `});` remontait sur la dernière ligne
+      // rendue. Tant qu'elle finissait par une virgule, `…,});` restait VALIDE —
+      // invisible. Mais le commentaire de fin de ligne d'un champ `ref` avalait la
+      // fermeture : `…, // → User.id …});` ne compile pas.
+      const dest = app("eapp12");
+      // `timestamps: false` : SANS ça, createdAt/updatedAt suivent la relation et le
+      // commentaire n'est plus en dernière position — le bug ne se reproduit pas.
+      entity(dest, {
+        name: "Comment",
+        fields: "body:text author:ref:User",
+        timestamps: false,
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Comment.ts"),
+        "utf8",
+      );
+      // Le commentaire de la relation est bien SUIVI d'un saut de ligne avant `});`.
+      assert.match(src, /\/\/ → User\.id[^\n]*\n\}\);/u);
+      assert.notMatch(src, /\}\);.*\/\//u);
+      // Idem pour l'interface de ligne et le schéma Zod (mêmes interpolations).
+      assert.match(src, /author: string;\n\}/u);
+    });
+
     it("table au pluriel, y compris irrégulier (Story → stories)", () => {
       const dest = app("eapp11");
       entity(dest, { name: "Story", fields: "title:string" });
