@@ -181,6 +181,16 @@ class CliKernel extends Cli {
       return process.exit(0);
     }
 
+    // ─── `-v` / `--version` : standalone (0 Kernel, 0 log) ─────────────────────
+    // La version est une DONNÉE, pas une exécution : sa sortie doit être la seule
+    // ligne écrite (`VERSION=$(nodefony -v)` est un usage légitime). Passer par
+    // commander construisait un Kernel dont le `terminate(0)` loggait une ligne
+    // INFO par-dessus le numéro de version.
+    if (this.isVersionRequested()) {
+      process.stdout.write(`${version}\n`);
+      return process.exit(0);
+    }
+
     // ─── Complétion shell : `completion <shell>` (script) + `__complete` (TAB) ──
     // Standalone (0 boot, millisecondes — un TAB ne boote jamais un kernel) : la
     // donnée vient du manifest cache écrit au boot dev (commandes de module
@@ -375,12 +385,31 @@ class CliKernel extends Cli {
   }
 
   /**
+   * `true` si l'invocation demande la **version globale** : `nodefony -v` ou
+   * `nodefony --version` (que des options, aucun positionnel).
+   *
+   * Un positionnel présent → la commande décide (`nodefony dev --version` n'est pas
+   * une demande de version du CLI) : on laisse commander trancher.
+   *
+   * @returns `true` si la version du CLI est demandée.
+   */
+  private isVersionRequested(): boolean {
+    const args = process.argv.slice(2);
+    for (const arg of args) {
+      if (!arg.startsWith("-")) {
+        return false;
+      }
+    }
+    return args.includes("-v") || args.includes("--version");
+  }
+
+  /**
    * `true` si l'invocation demande le **help global** : `nodefony` nu,
    * `nodefony --help` ou `nodefony -h` (que des options, aucun positionnel).
    *
-   * Exclut volontairement `--version` (résolu par commander sans booter les
-   * modules) et `nodefony <cmd> --help` (help d'une sous-commande, laissé à
-   * commander / au dispatch de module — il y a un positionnel).
+   * Exclut volontairement `--version` (fast-path standalone, cf `isVersionRequested`)
+   * et `nodefony <cmd> --help` (help d'une sous-commande, laissé à commander / au
+   * dispatch de module — il y a un positionnel).
    *
    * @returns `true` si le help global est demandé.
    */

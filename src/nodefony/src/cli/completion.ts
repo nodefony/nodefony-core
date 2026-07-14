@@ -435,20 +435,52 @@ export function runCompletionCommand(argv: string[]): number {
 }
 
 /**
+ * Fusionne les commandes du **code courant** (built-ins, construits en mémoire) avec
+ * celles que seul le manifest cache connaît (les commandes de MODULE, posées à
+ * `onPreRegister` — impossible de les lister sans booter).
+ *
+ * Pourquoi cette asymétrie : le cache est écrit au boot dev et n'est jamais invalidé
+ * (sa clé est la version du paquet, identique d'un build à l'autre en développement).
+ * S'il faisait autorité sur les built-ins, la complétion resterait figée sur l'état du
+ * dernier boot — un `create` enrichi d'un nouveau type ne le proposerait jamais (vécu).
+ * Le binaire, lui, est toujours à jour par construction : il EST le code courant.
+ *
+ * Un module retiré peut donc survivre dans la liste jusqu'au prochain boot dev — un
+ * candidat en trop au TAB, sans conséquence, corrigé au boot suivant.
+ */
+export function mergeManifests(
+  builtins: ICliManifest,
+  cached: ICliManifest | null,
+): ICliManifest {
+  if (!cached) return builtins;
+  const known = new Set<string>();
+  for (const c of builtins.commands) {
+    known.add(c.name);
+    for (const a of c.aliases) known.add(a);
+  }
+  const moduleCommands = cached.commands.filter((c) => !known.has(c.name));
+  return {
+    ...builtins,
+    commands: [...builtins.commands, ...moduleCommands],
+  };
+}
+
+/**
  * Fast-path `nodefony __complete -- <mots>` — imprime un candidat par ligne.
  *
- * Manifest cache absent (projet jamais booté, hors projet) → `fallback` (built-ins
- * construits en mémoire par le CliKernel, sans boot). Sort TOUJOURS `EX_OK` : le
- * pire résultat d'une complétion est une liste vide, jamais une erreur dans le TAB.
+ * Source : built-ins du binaire courant (`builtins`, construits en mémoire par le
+ * CliKernel, sans boot) + commandes de module lues dans le manifest cache. Sort
+ * TOUJOURS `EX_OK` : le pire résultat d'une complétion est une liste vide, jamais une
+ * erreur dans le TAB.
  */
 export function runCompleteQuery(
   argv: string[],
-  fallback: () => ICliManifest,
+  builtins: () => ICliManifest,
 ): number {
   try {
     const sep = argv.indexOf("--");
     const words = sep >= 0 ? argv.slice(sep + 1) : [];
-    const manifest = readCliManifest(process.cwd()) ?? fallback();
+    const manifest = mergeManifests(builtins(), readCliManifest(process.cwd()));
     const candidates = computeCompletions(manifest, words);
     if (candidates.length > 0) {
       writeSync(1, candidates.join("\n") + "\n");

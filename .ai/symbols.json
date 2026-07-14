@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-14T11:45:35.007Z",
+  "generated": "2026-07-14T11:59:52.483Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1018,
-    "symbols": 2660,
+    "symbols": 2661,
     "classes": 321,
     "interfaces": 697,
     "types": 306,
     "enums": 4,
-    "functions": 769,
+    "functions": 770,
     "constants": 563
   },
   "symbols": {
@@ -636,13 +636,21 @@
       "module": "@nodefony/core",
       "description": "Fast-path `nodefony completion [install|uninstall] [shell]` — imprime le script, ou l'installe/désinstalle dans le rc du shell (bloc marqué idempotent)."
     },
+    "mergeManifests": {
+      "name": "mergeManifests",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/completion.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fusionne les commandes du **code courant** (built-ins, construits en mémoire) avec celles que seul le manifest cache connaît (les commandes de MODULE, posées à `onPreRegister` — impossible de les l…"
+    },
     "runCompleteQuery": {
       "name": "runCompleteQuery",
       "kind": "function",
       "file": "src/nodefony/src/cli/completion.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Fast-path `nodefony __complete -- <mots>` — imprime un candidat par ligne. Manifest cache absent (projet jamais booté, hors projet) → `fallback` (built-ins construits en mémoire par le CliKernel, s…"
+      "description": "Fast-path `nodefony __complete -- <mots>` — imprime un candidat par ligne. Source : built-ins du binaire courant (`builtins`, construits en mémoire par le CliKernel, sans boot) + commandes de modul…"
     },
     "COMPLETION_SHELLS": {
       "name": "COMPLETION_SHELLS",
