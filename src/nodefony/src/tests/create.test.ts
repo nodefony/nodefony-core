@@ -1080,6 +1080,28 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           ?.length,
         1,
       );
+      // ⚠️ RÉGRESSION : la 2ᵉ entité passait par le wiring des CONTROLLERS, qui écrit
+      // un import PAR DÉFAUT → `MISSING_EXPORT "default"` au build (vécu). Un
+      // descripteur d'entité est une const NOMMÉE — les DEUX imports doivent l'être.
+      assert.include(
+        index,
+        'import { CommentEntity } from "./nodefony/entity/Comment";',
+      );
+      assert.notMatch(index, /import \w+Entity from /u);
+    });
+
+    it("trois entités : chaque import reste nommé, la liste s'allonge", () => {
+      const dest = app("eapp7b");
+      entity(dest, { name: "Post", fields: "title:string" });
+      entity(dest, { name: "Comment", fields: "body:text" });
+      entity(dest, { name: "Tag", fields: "label:string" });
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+
+      assert.match(
+        index,
+        /@entities\(\[PostEntity, CommentEntity, TagEntity\]\)/u,
+      );
+      assert.notMatch(index, /import \w+Entity from /u);
     });
 
     it("--dialect postgres : pgTable et jsonb", () => {

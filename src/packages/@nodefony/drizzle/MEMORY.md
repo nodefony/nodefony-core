@@ -2,6 +2,21 @@
 
 Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-safe-first. P7.4.
 
+## Entités D'APPLICATION — `nodefony create entity`, pas le colKit
+
+- **La voie utilisateur = la commande** : `nodefony create entity Post title:string! views:int` pose table
+  Drizzle **native du dialecte** + `XRow` + schémas Zod + service CRUD + controller REST/WS + tests, et câble
+  `@entities([...])` (orm-core). Champs `nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut**.
+  Traduction type→colonne : `nodefony/src/cli/scaffold/entityFields.ts` (core, module PUR, 3 dialectes).
+- 🔴 **Le `colKit` reste INTERNE** (jamais dans `index.ts`) : il sert aux **entités FRAMEWORK** (portées sur
+  3 dialectes, table fabriquée à partir du dialecte lu au runtime). Une entité d'app écrit du **Drizzle natif**
+  — décision d'audit : exposer le kit serait une sur-promesse d'API. Le scaffold écrit le code que
+  l'utilisateur aurait écrit.
+- Entités framework (User/Session/Token/Audit/Idempotency…) : `registerX(orm, dialect)` impératif via `wire()`
+  (filtre les dialectes portés) — **pas** `@entities`, qui suppose un schéma statique.
+- DDL dev = `CREATE TABLE IF NOT EXISTS` dérivé → **modifier une entité n'altère RIEN** (aucun `ALTER`) ; ni les
+  `DEFAULT` SQL ni les index déclarés n'en sortent (drizzle-kit seul les lit). Défauts **toujours** `$defaultFn`.
+
 ## Module bootable (2026-05-21)
 
 - `index.ts` default export = `Drizzle extends Module` + `@services([DrizzleService])`. Ajouté à `@modules()` app. ORM SQL par défaut.

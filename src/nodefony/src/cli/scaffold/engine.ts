@@ -1213,14 +1213,10 @@ export function wireEntitiesDecorator(
       `${className} est déjà référencé dans ${indexPath} — choisis un autre nom d'entité`,
     );
   }
-  // Le décorateur existe déjà → la mécanique commune suffit.
-  if (/@entities\(\[/u.test(source)) {
-    wireDecoratorList(indexPath, "entities", className, importPath);
-    return;
-  }
-
   // Import NOMMÉ : un descripteur d'entité est une const exportée, pas un default
-  // (contrairement à un controller). Un `import X from …` compilerait chez personne.
+  // (contrairement à un controller, d'où l'insertion propre à l'entité ici plutôt
+  // qu'une délégation à `wireDecoratorList`, qui écrit un import par défaut — vécu :
+  // la DEUXIÈME entité d'un projet cassait le build avec `MISSING_EXPORT "default"`).
   const importLine = `import { ${className} } from "${importPath}";`;
   const manual = `  ${importLine}\n  @entities([${className}]) sur la classe Module`;
 
@@ -1230,6 +1226,21 @@ export function wireEntitiesDecorator(
     throw new Error(
       `aucun import trouvé dans ${indexPath} — ajoute à la main :\n${manual}`,
     );
+  }
+  const importAt = last.index + last[0].length;
+
+  // Le décorateur existe déjà (une entité a précédé) → compléter SA liste.
+  const listRe = /@entities\(\[([^\]]*)\]\)/u;
+  if (listRe.test(source)) {
+    const withImport =
+      source.slice(0, importAt) + `\n${importLine}` + source.slice(importAt);
+    const current = (listRe.exec(withImport) as RegExpExecArray)[1].trim();
+    const wired = withImport.replace(
+      listRe,
+      `@entities([${current ? `${current.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
+    );
+    writeFileSync(indexPath, wired);
+    return;
   }
 
   // Ancre : `@controllers(` s'il existe, sinon la déclaration de classe.
@@ -1245,7 +1256,6 @@ export function wireEntitiesDecorator(
 
   // 1) l'import du descripteur + celui du décorateur (si absent) ;
   // 2) le décorateur lui-même, juste avant l'ancre.
-  const importAt = last.index + last[0].length;
   const needsDecoratorImport = !/\bentities\b[^\n]*@nodefony\/orm-core/u.test(
     source,
   );

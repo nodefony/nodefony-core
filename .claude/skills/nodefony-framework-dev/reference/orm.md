@@ -25,38 +25,55 @@ les Modules et s'auto-enregistrent dans `ormRegistry` à leur boot. **ORM par d�
 schema-as-code) ; Mongoose = NoSQL. Un nouvel adapter → **commencer par Drizzle**.
 Contrats (core) : `IOrm` · `IEntity<S,M>` (+`IEntityRelation`) · `IRepository<T>` (+`Criteria<T>`/`FieldOperators`) · `ITransaction`.
 
-### A. Définir une entité — `@entity` schema-as-code (Drizzle, RECOMMANDÉ)
+### A. Définir une entité
+
+**Dans une APPLICATION, c'est une COMMANDE — ne recopie pas ces templates à la main :**
+
+```bash
+nodefony create entity Article title:string! tags:json published:bool author:ref:User
+```
+
+Elle pose la chaîne entière (table Drizzle native du dialecte, interface de ligne, schémas Zod
+d'entrée, service CRUD, controller REST **et** WebSocket, tests) et câble l'`index.ts`
+(`@entities([...])` créé s'il n'existe pas, `@controllers([...])` complété). Champs :
+`nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut**.
+Options utiles : `--id uuid7|uuid4|serial` · `--soft-delete` · `--no-controller` · `--module <nom>`
+· `--dialect`. Design + alternatives rejetées : `docs/audits/create-entity-design-2026-07.md`.
+
+**À la main** (module du framework, ou entité qu'on veut écrire soi-même) — la forme canonique :
 
 ```typescript
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { entity } from "@nodefony/orm-core";
+import { defineEntity } from "@nodefony/orm-core";
+import { Nodefony } from "nodefony";
 
-export const articleTable = sqliteTable("Article", {
+export const articleTable = sqliteTable("articles", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()), // ⚠️ $defaultFn (JS), PAS .default()
+    .$defaultFn(() => Nodefony.generateSortableId()), // uuid v7 : index compact
   title: text("title").notNull(),
-  tags: text("tags", { mode: "json" }).$defaultFn(() => []), // colonnes JSON = mode:"json"
+  tags: text("tags", { mode: "json" }).$defaultFn(() => []), // JSON = mode:"json"
   authorId: text("authorId").notNull(),
   published: integer("published", { mode: "boolean" }).$defaultFn(() => false),
-  createdAt: integer("createdAt")
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
     .notNull()
-    .$defaultFn(() => Date.now()),
+    .$defaultFn(() => new Date()),
 });
+
 export interface ArticleRow {
   id: string;
   title: string;
   tags: unknown;
   authorId: string;
   published: boolean;
-  createdAt: number;
+  createdAt: Date;
 }
 
-@entity({
-  orm: "default",
+/** Le connecteur (`orm`) n'est PAS figé ici : c'est une donnée de config. */
+export const ArticleEntity = defineEntity({
   name: "Article",
-  schema: articleTable,
   module: "blog",
+  schema: articleTable,
   relations: [
     {
       type: "many-to-one",
@@ -65,17 +82,29 @@ export interface ArticleRow {
       foreignKey: "authorId",
     },
   ],
-})
-class ArticleEntity {} // classe VIDE — le descripteur vient des options
-export default ArticleEntity;
+});
 ```
 
-- ⚠️ **Défauts via `$defaultFn` (JS-level), JAMAIS `.default()` SQL** : le DDL est dérivé de
+Puis on la **déclare** au module — c'est ce qui l'enregistre :
+
+```typescript
+import { entities } from "@nodefony/orm-core";
+
+@entities([ArticleEntity])            // ← résout l'ORM au boot (défaut : "default")
+@controllers([ArticleController])
+class Blog extends Module { … }
+```
+
+- ⚠️ **Défauts via `$defaultFn` (JS-level), JAMAIS `.default()` SQL** : le DDL dev est dérivé de
   `getTableConfig()` qui **n'émet pas** les `DEFAULT` → une colonne `NOT NULL` sans valeur casserait l'INSERT.
-- `@entity` enregistre le descripteur dans `entityRegistry` **au chargement du module** (0 instanciation) →
-  `DrizzleOrm` crée la table à la connexion. `module:` sert au regroupement ERD Studio.
-- **Binding ORM dynamique** (nom de connecteur dépend de la config, ex. User) → pas d'`@entity` figé :
-  `createXxxEntity(orm)` + `registerXxxEntity(orm)` appelé **avant** `orm.connect()`.
+  Les **index** déclarés ne sortent pas non plus de ce DDL (drizzle-kit seul les lit).
+- ⚠️ **`@entities` s'accroche à `onRegister`**, une phase AVANT le `connect()` des connecteurs (`onBoot`,
+  qui crée les tables). C'est le décorateur qui s'en charge — ne le déplace jamais vers `onBoot`.
+- 🚫 **N'utilise PAS le décorateur de classe `@entity({orm, schema})`** : il fige le connecteur **à
+  l'import**, alors que l'ORM est une donnée de **configuration**. Zéro usage en production, et pour cause.
+- **Schéma ou existence dépendant du RUNTIME** (table fabriquée à partir du dialecte, introspection,
+  import massif) → là seulement, `entityRegistry.register(desc)` impératif, **avant** `orm.connect()`.
+  C'est de la plomberie de module ORM, pas la voie d'un utilisateur.
 
 ### C. Repository — contrat portable (`IRepository<T>`)
 

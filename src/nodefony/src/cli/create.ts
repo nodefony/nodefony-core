@@ -251,16 +251,20 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     const [spec] = getScaffoldSpec(parsed.type);
     answers = await askMissing(spec, answers, caps);
     // Récap générique piloté par la spec (mêmes questions que l'interactif).
+    // ⚠️ On affiche ce qui SERA fait, donc le DÉFAUT de la spec quand la question n'a
+    // pas été posée (réglage `advanced`). Sans ce repli, un booléen non répondu
+    // s'affichait « non » alors que son défaut est `true` — le récap annonçait
+    // « service : non » puis le service était généré (vécu).
     const lines = spec.questions
       .map((q) => {
-        const value = answers[q.key];
+        const value = answers[q.key] ?? q.default;
         const shown =
           q.type === "boolean"
             ? value === true
               ? "oui"
               : "non"
-            : String(value ?? "") || "(défaut)";
-        return `  ${q.key.padEnd(9)} : ${shown}`;
+            : String(value ?? "") || "(auto)";
+        return `  ${q.key.padEnd(10)} : ${shown}`;
       })
       .join("\n");
     process.stdout.write(`\nRécapitulatif :\n${lines}\n`);
