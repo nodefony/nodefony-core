@@ -8,7 +8,8 @@
 
 ## Sommaire
 
-- Définir une entité — `@entity` schema-as-code (Drizzle)
+- Définir une entité — `nodefony create entity` (app) · `defineEntity` + `@entities` (à la main)
+- **Porter le schéma d'un logiciel existant** (WordPress, Dolibarr…) — méthode, mapping des types, limites dures
 - Repository — contrat portable (`IRepository<T>`)
 - Service CRUD — `AbstractCrudService<T, R>` (source de vérité métier)
 - Transactions (1 tx = 1 ORM ; 2PC cross-ORM non garanti)
@@ -105,6 +106,85 @@ class Blog extends Module { … }
 - **Schéma ou existence dépendant du RUNTIME** (table fabriquée à partir du dialecte, introspection,
   import massif) → là seulement, `entityRegistry.register(desc)` impératif, **avant** `orm.connect()`.
   C'est de la plomberie de module ORM, pas la voie d'un utilisateur.
+
+### B. Porter le schéma d'un LOGICIEL EXISTANT (WordPress, Dolibarr, Redmine…)
+
+> Exercice vérifié sur **WordPress core** (12 tables, 94 colonnes) porté dans un module d'app :
+> 12/12 générées, typecheck 0, tables créées, CRUD REST **et** socket, 48 tests générés verts.
+> Il a fait sortir **3 bugs** du scaffold — refais la méthode, pas l'improvisation.
+
+**Décide d'abord de ce que tu fais — les deux cas n'ont PAS la même réponse :**
+
+| Objectif                                                                 | Voie                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Lire la base EXISTANTE** du logiciel (mêmes tables, mêmes colonnes)    | ❌ **PAS `create entity`** — il ne contrôle ni le nom de table (`Post` → `posts`) ni celui des colonnes (`postAuthor` → `postAuthor`, jamais `post_author`). → **table Drizzle native écrite à la main** (ou introspection `drizzle-kit pull`), puis `defineEntity` + `@entities`. |
+| **Re-modéliser** le domaine dans une base NEUVE (reprendre la structure) | ✅ `create entity` — c'est le cas courant (réécriture, migration, prototypage).                                                                                                                                                                                                    |
+
+**Méthode (le cas ✅) — 4 étapes :**
+
+1. **Extraire le schéma À LA SOURCE**, jamais de mémoire : le fichier de création de tables du
+   projet, en RAW (`raw.githubusercontent.com/...`, proxy `r.jina.ai` si besoin). Pour WordPress :
+   `wp-admin/includes/schema.php`. Relève, table par table : colonnes, types, NULL, défauts, clés,
+   et les **relations implicites** (beaucoup de logiciels PHP n'ont AUCUNE contrainte de clé étrangère).
+2. **Connecteur DÉDIÉ** dans `nodefony.config.ts` — une base tierce ne se mélange pas à celle de l'app,
+   et ça évite la collision de noms d'entités (`Post` de WP vs `Post` de l'app) :
+   ```typescript
+   use("@nodefony/drizzle", {
+     connectors: {
+       default: { dialect: "sqlite" },
+       wordpress: { dialect: "sqlite", filename: "var/databases/wordpress.db" },
+     },
+   });
+   ```
+3. **Générer dans l'ordre des dépendances** (les entités RÉFÉRENCÉES d'abord : `User` avant `Post`),
+   avec `--connector`, `--module`, `--id serial` (les logiciels legacy ont des PK auto-incrémentées)
+   et souvent `--no-timestamps` (ils gèrent leurs propres dates). Une entité par ligne, dans un script :
+   ```bash
+   M="--module @app/blog --connector wordpress --id serial --no-timestamps"
+   nodefony create entity User $M --route /api/wp/users userLogin:string userEmail:string …
+   nodefony create entity Post $M --route /api/wp/posts postAuthor:ref:User postTitle:text …
+   ```
+   ⚠️ **`--route` obligatoire** si l'app a déjà une entité du même nom : deux controllers sur
+   `/api/posts` = collision de routes.
+4. **Valider la chaîne, dans cet ordre** : `npm run typecheck` → `npm run build` → boot →
+   **vérifier que les tables sont dans la BONNE base** (`sqlite_master`) → CRUD réel (201/404/422) →
+   les tests générés.
+
+**Correspondance des types (SQL → vocabulaire Nodefony) :**
+
+| SQL du logiciel                           | Champ Nodefony  | Remarque                                                                     |
+| ----------------------------------------- | --------------- | ---------------------------------------------------------------------------- |
+| `varchar(n)`, `char(n)`                   | `string`        | → `varchar(255)` (PG/MySQL) / `text` (sqlite). La longueur n'est PAS reprise |
+| `text`, `longtext`, `mediumtext`          | `text`          | les 4 tailles MySQL s'écrasent en un seul type                               |
+| `int`, `tinyint`, `smallint`              | `int`           |                                                                              |
+| `bigint(20) unsigned`                     | `int`           | ⚠️ **> 2^53 casse en JS** — au-delà, garder l'id en `string`                 |
+| `float`, `double`, `decimal`              | `float`         | ⚠️ `decimal` (monétaire) perd sa précision — à écrire à la main              |
+| `tinyint(1)`, booléen en `varchar('Y')`   | `bool`          | un booléen stocké en varchar (`'yes'`/`'1'`) reste un `string`               |
+| `datetime`, `timestamp`                   | `date`          | ⚠️ défaut `'0000-00-00 00:00:00'` : **illégal** ailleurs — ne pas reprendre  |
+| `json`, PHP sérialisé                     | `json` / `text` | du PHP sérialisé n'est PAS du JSON → `text`                                  |
+| FK implicite (`post_author` → `users.ID`) | `ref:User`      | pose un commentaire + le type ; **aucune contrainte FK n'est émise**         |
+
+**Ce qui NE PASSE PAS (limites dures — dis-le, ne bricole pas) :**
+
+- **Noms physiques** : impossible d'imposer `wp_posts` / `post_title`. C'est LA raison pour laquelle on ne
+  lit pas une base existante avec du code généré.
+- **PK composite** (`term_relationships (object_id, term_taxonomy_id)`) : non exprimable → le scaffold pose
+  un `id` en plus. Si la PK composite est structurante, écris la table à la main
+  (`primaryKey({ columns: [...] })` de Drizzle).
+- **UNIQUE composite** (`(term_id, taxonomy)`), **index préfixés** (`meta_key(191)`, spécifique MySQL),
+  **index composites** : à ajouter à la main dans la table générée (c'est du Drizzle natif, rien ne bloque).
+- **Validation Zod plus stricte que le legacy** : un `string` non-null exige `min(1)` — or ces bases mettent
+  des chaînes vides partout (défaut `''`). Soit tu marques le champ `?` (nullable), soit tu assouplis le
+  schéma généré. **Le 422 qui te le dit est un service, pas une panne.**
+- **Dénormalisation maintenue par l'appli** (`comment_count`, `count`) : écrire dans la base sans passer par
+  la logique du logiciel **désynchronise** ces compteurs.
+
+**Pièges vécus (corrigés, mais à connaître) :**
+
+- Le **connecteur se déclare sur l'ENTITÉ** (`defineEntity({ orm: "wordpress" })`) — `--connector` le fait.
+  Sans ça, les tables naissent dans la base de l'app pendant que le service les cherche ailleurs, **en silence**.
+- Un module cible déclare ses briques en `peerDependencies: "*"` — c'est l'**app** qui les installe.
+- Générer dans un module ≠ dans l'app : `--module @app/<nom>` (nom **npm**, pas le dossier).
 
 ### C. Repository — contrat portable (`IRepository<T>`)
 
