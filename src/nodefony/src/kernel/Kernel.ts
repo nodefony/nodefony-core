@@ -479,7 +479,10 @@ class Kernel extends Service implements IKernel {
    * Récupère le container du CLI si présent, sinon en crée un nouveau. Initialise les
    * interfaces réseau OS pour `setDomain()`. Fire `"onInit"` à la fin.
    *
-   * @param environment - environnement (`"development"` / `"production"` / `"test"`).
+   * @param environment - mode MOTEUR (`"development"` / `"production"`, ou leurs
+   *   abrégés `"dev"` / `"prod"`). ⚠️ Ni `"test"` ni `"staging"` : `test` est une valeur
+   *   de `NODE_ENV` normalisée en `runtimeEnv` (→ `ConfigContext.isTest`), et un staging
+   *   tourne EN mode `production` — il se distingue par `APP_ENV`, pas par son moteur.
    * @param cli - kernel CLI parent (fournit container, packageManager, commander). Peut être null.
    * @param options - options surchargées (events.nbListeners, log, etc.).
    */
