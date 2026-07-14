@@ -114,11 +114,15 @@ function deferred<T = void>() {
   return { promise, resolve };
 }
 
-const inRun = <T>(ctx: ContextType, fn: () => T): T =>
-  RequestContext.run(
-    { requestId: ctx.request?.url.pathname ?? "r", context: ctx },
-    fn,
-  );
+// `IRequest.url` est `string | URL` et optionnel (WS/HTTP2 ne portent pas la même
+// forme) → on narrow au lieu de supposer une `URL`. Les fixtures posent une `URL`,
+// donc le requestId reste le pathname (`/alice`, `/bob`…) — sémantique inchangée.
+const inRun = <T>(ctx: ContextType, fn: () => T): T => {
+  const url = ctx.request?.url;
+  const requestId =
+    url === undefined ? "r" : typeof url === "string" ? url : url.pathname;
+  return RequestContext.run({ requestId, context: ctx }, fn);
+};
 
 describe("RED-TEAM — singleton controller inter-user leak", () => {
   it("A1 — first-arrival context does NOT freeze identity for later users", async () => {

@@ -1,8 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../../../..",
     "types": ["node", "vitest/globals", "chai"],
     "noUnusedParameters": false,
     "noUnusedLocals": false
-  }
+  },
+  "include": ["tests/**/*.ts", "nodefony/tests/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

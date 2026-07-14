@@ -115,7 +115,11 @@ describe("@nodefony/redis — buildClientOptions", () => {
     assert.equal(opts.name, "main");
     assert.equal(opts.database, 3);
     assert.equal(opts.password, "pw");
-    const socket = opts.socket as { host?: string; port?: number };
+    const socket = opts.socket as {
+      host?: string;
+      port?: number;
+      reconnectStrategy?: (retries: number) => number | Error;
+    };
     assert.equal(socket.host, "override");
     assert.equal(socket.port, 1111);
     assert.equal(typeof socket.reconnectStrategy, "function");

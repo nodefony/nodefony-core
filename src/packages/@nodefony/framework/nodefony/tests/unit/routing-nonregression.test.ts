@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { Pdu } from "nodefony";
 import Router from "../../service/router.js";
 import Route from "../../src/Route.js";
 import { HttpError } from "@nodefony/http";
@@ -56,11 +57,12 @@ function makeCtx(
 // Router.resolve n'utilise que `routes` (module-level), `this.log` et
 // `this.kernel?.environment` → proxy sans Module complet (pattern Router.test.ts).
 function makeRouter(): Router {
-  const p = Object.create(Router.prototype) as Router & {
-    log: (...args: unknown[]) => void;
-  };
+  const p = Object.create(Router.prototype) as Router;
   p.routes = Router.routes;
-  p.log = () => undefined;
+  // Pas de syslog sur le proxy → stub CONFORME au contrat `Service.log` (vrai Pdu
+  // retourné, jamais consommé par `resolve`) : muet sans mentir sur la signature.
+  p.log = (pci, severity, msgid, msg) =>
+    new Pdu(pci, severity, "router", msgid, msg);
   return p;
 }
 

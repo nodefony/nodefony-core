@@ -35,6 +35,7 @@ import {
 // Encodeur stub — le provisioning ne touche JAMAIS au credential local (prouvé en
 // l'isolant : aucune des assertions ne dépend du hash).
 const encoder: IPasswordEncoder = {
+  supports: (hash) => hash.startsWith("hashed:"),
   hash: (plain) => Promise.resolve(`hashed:${plain}`),
   verify: () => Promise.resolve(true),
   needsRehash: () => false,

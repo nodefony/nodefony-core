@@ -8,6 +8,7 @@ import { defineRealtimeConfig } from "../../config/defineModuleConfig.js";
 import { ANONYMOUS_REALTIME_TOKEN } from "../../src/server/AnonymousRealtimeToken.js";
 import type {
   IBackplane,
+  IBackplaneInfo,
   BackplaneHandler,
 } from "../../interfaces/IBackplane.js";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator.js";
@@ -27,6 +28,19 @@ class FakeBackplane implements IBackplane {
     this.publishedChannels.push(channel);
   }
   onMessage(_handler: BackplaneHandler): void {}
+
+  /**
+   * Carte d'identité — même sémantique que `LoopbackBackplane` : ce faux backplane
+   * ne franchit aucune frontière de pod (aucun pair réel), d'où `crossPod: false`.
+   */
+  describe(): IBackplaneInfo {
+    return {
+      driver: "fake",
+      kind: "local",
+      originId: this.originId,
+      crossPod: false,
+    };
+  }
 }
 
 /**

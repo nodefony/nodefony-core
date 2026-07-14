@@ -18,7 +18,8 @@
     "clean": "rimraf dist",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json"
   },
   "private": false,
   "keywords": [

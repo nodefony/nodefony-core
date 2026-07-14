@@ -72,11 +72,11 @@ describe("@repository", () => {
     assert.equal(hasRepositoryMeta(UserRepo), true);
   });
 
-  it("orm optionnel", () => {
+  it("connector optionnel", () => {
     @repository("repository.room", { entity: "Room" })
     class RoomRepo {}
 
-    assert.equal(getRepositoryMeta(RoomRepo)?.orm, undefined);
+    assert.equal(getRepositoryMeta(RoomRepo)?.connector, undefined);
   });
 
   it("hasRepositoryMeta = false sur classe non décorée", () => {

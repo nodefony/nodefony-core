@@ -8,15 +8,20 @@ import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
 const ORM = "db_load";
 const N = 20_000; // volume principal
 
-interface User {
-  id: string;
-  email: string;
-  age: number;
-}
 interface Room {
   id: string;
   name: string;
   userId: string;
+}
+interface User {
+  id: string;
+  email: string;
+  age: number;
+  /**
+   * Relation `one-to-many` (cf `@entity` ci-dessous) — hydratée UNIQUEMENT quand
+   * l'eager-load est demandé (`options.relations: ["rooms"]`), d'où l'optionnel.
+   */
+  rooms?: Room[];
 }
 
 const usersTable = sqliteTable("User", {

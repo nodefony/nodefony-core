@@ -339,7 +339,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
       ack: true,
       echo: params,
     }));
-    const res = await rt.requestClient<{ ack: boolean; echo: unknown }>(
+    const res = await rt.callClient<{ ack: boolean; echo: unknown }>(
       "client:confirm",
       { n: 7 },
       2000,
@@ -382,7 +382,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
       await Promise.resolve();
       return { got: params };
     });
-    const res = await rt.requestClient<{ got: unknown }>(
+    const res = await rt.callClient<{ got: unknown }>(
       "client:async",
       { v: 1 },
       2000,
@@ -476,7 +476,17 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
   it("dispatch : wildcard on('*') reçoit (method, params) de toute notification", async () => {
     const { client, rt } = await connectPair();
     const seen: Array<[string, unknown]> = [];
-    client.on("*", (...args) => seen.push(args as [string, unknown]));
+    // Le wildcard est invoqué `h(method, params)` (2 args) par `dispatchNotification`,
+    // mais le type conditionnel de `on()` retombe sur `(payload: unknown) => void`
+    // pour un client NON paramétré ("*" n'est pas traité à part). On déclare donc le
+    // handler variadique (assignable) et on lit les VRAIS args, avec narrowing runtime
+    // — zéro cast, et l'assertion `method` est même renforcée.
+    const wildcard = (...args: unknown[]): void => {
+      const method = args[0];
+      if (typeof method !== "string") return;
+      seen.push([method, args[1]]);
+    };
+    client.on("*", wildcard);
     client.subscribe("tick");
     await flush();
     rt.publishers["tick"]("tick", { v: 3 });

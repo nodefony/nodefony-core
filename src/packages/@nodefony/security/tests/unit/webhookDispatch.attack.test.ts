@@ -76,7 +76,11 @@ function deps(
       sink?.calls.push({ headers, body });
       return deliver(url, body, headers, o);
     },
+    // Sondes d'observabilité inertes : ces bancs mesurent les BORNES (file,
+    // concurrence, mémoire), pas l'historique — aucune assertion n'en dépend.
+    // L'historique par livraison est couvert par `webhookDispatcher.test.ts`.
     markDelivery: () => {},
+    recordDelivery: () => {},
     now: () => 1_700_000_000_000,
     newMessageId: () => "msg_x",
     schedule: (fn) => {

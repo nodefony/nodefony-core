@@ -32,7 +32,8 @@
     "dev": "rolldown -c rolldown.config.ts --watch",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "test:load": "vitest run --config vitest.config.load.ts"
+    "test:load": "vitest run --config vitest.config.load.ts",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json"
   },
   "private": false,
   "keywords": [

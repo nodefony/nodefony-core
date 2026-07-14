@@ -279,7 +279,11 @@ const mkToken = (auth: boolean): IRealtimeToken => ({
   isAuthenticated: () => auth,
   getRoles: () => (auth ? ["ROLE_USER"] : ["ROLE_ANONYMOUS"]),
   getScopes: () => [],
-  getAttribute: (k: string) => (k === "user" ? { id: "u" } : undefined),
+  // `getAttribute` est GÉNÉRIQUE au contrat (`<T = unknown>(key) => T | undefined`) :
+  // on porte la même signature que le vrai token (cf `ANONYMOUS_REALTIME_TOKEN`,
+  // qui fait aussi `attributes[key] as T | undefined`).
+  getAttribute: <T = unknown>(k: string): T | undefined =>
+    k === "user" ? ({ id: "u" } as T) : undefined,
 });
 
 async function connect(opts: { profiling?: boolean } = {}): Promise<{

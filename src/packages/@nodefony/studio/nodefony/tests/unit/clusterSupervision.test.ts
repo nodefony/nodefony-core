@@ -24,6 +24,7 @@ describe("studio / clusterSupervision.mapInstanceToSupervision", () => {
       maxBufferedAmount: 0,
       totalBufferedAmount: 0,
       slowConsumers: 0,
+      drops: 0,
     },
     ...over,
   });

@@ -64,7 +64,7 @@ describe.skipIf(!PG_URL)(
         flashBag: { notice: "hello" },
         user: "alice",
       });
-      const r = (await storage.read("pg-1")) as Record<string, unknown>;
+      const r = await storage.read("pg-1");
       assert.deepEqual(r.Attributes, { cart: ["a", "b"], depth: { n: 1 } });
       assert.deepEqual(r.metaBag, { ip: "10.0.0.1" });
       assert.deepEqual(r.flashBag, { notice: "hello" });
@@ -212,7 +212,7 @@ describe.skipIf(!PG_URL)(
 
     it("destroy : la session disparaît", async () => {
       assert.equal(await storage.destroy("pg-ls1"), true);
-      const r = (await storage.read("pg-ls1")) as Record<string, unknown>;
+      const r = await storage.read("pg-ls1");
       assert.deepEqual(r, {});
     });
   },

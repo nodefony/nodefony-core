@@ -19,7 +19,8 @@
     "clean": "rimraf dist",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "test:load": "tsx tests/load/bcrypt-throughput.ts"
+    "test:load": "tsx tests/load/bcrypt-throughput.ts",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json"
   },
   "private": false,
   "keywords": [

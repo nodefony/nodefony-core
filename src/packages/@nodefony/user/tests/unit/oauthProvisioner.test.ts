@@ -23,6 +23,7 @@ import {
 
 // Encodeur stub — le provisioning ne touche jamais au credential local.
 const encoder: IPasswordEncoder = {
+  supports: (hash) => hash.startsWith("hashed:"),
   hash: (plain) => Promise.resolve(`hashed:${plain}`),
   verify: () => Promise.resolve(true),
   needsRehash: () => false,
@@ -73,11 +74,14 @@ describe("UserService — IOAuthUserProvisioner (Shadow User JIT)", () => {
   });
 
   it("JIT : crée un Shadow User (password null, rôles défaut, lien social) au 1er login", async () => {
-    let created: Partial<IPasswordAuthenticatedUser> | null = null;
+    // Porteur tableau plutôt qu'un `let x = null` : l'assignation se fait dans une
+    // closure, invisible de l'analyse de flux TS (le `let` resterait figé à `null`).
+    // Bonus : il enregistre aussi le NOMBRE d'appels à `create`.
+    const created: Partial<IPasswordAuthenticatedUser>[] = [];
     const svc = makeService({
       findBySocialProvider: () => Promise.resolve(null),
       create: (data: Partial<IPasswordAuthenticatedUser>) => {
-        created = data;
+        created.push(data);
         return Promise.resolve(
           new BaseUser({
             id: "22222222-2222-4222-8222-222222222222",
@@ -95,9 +99,10 @@ describe("UserService — IOAuthUserProvisioner (Shadow User JIT)", () => {
     });
     assert.equal(user.identifier, "bob@gmail.com");
     assert.deepEqual([...user.roles], ["ROLE_USER"]);
-    assert.ok(created);
-    assert.equal(created!.password, null);
-    const links = linksOf(created!);
+    assert.equal(created.length, 1);
+    const payload = created[0];
+    assert.equal(payload.password, null);
+    const links = linksOf(payload);
     assert.equal(links.length, 1);
     assert.equal(links[0].provider, "google");
     assert.equal(links[0].providerId, "g-108");

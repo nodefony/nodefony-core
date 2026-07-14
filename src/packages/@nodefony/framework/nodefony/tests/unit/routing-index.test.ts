@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { Pdu } from "nodefony";
 import Router from "../../service/router.js";
 import Route from "../../src/Route.js";
 import type { ContextType } from "@nodefony/http";
@@ -42,11 +43,13 @@ function makeCtx(
 }
 
 function makeRouter(): Router {
-  const p = Object.create(Router.prototype) as Router & {
-    log: (...args: unknown[]) => void;
-  };
+  const p = Object.create(Router.prototype) as Router;
   p.routes = Router.routes;
-  p.log = () => undefined;
+  // Le proxy n'a pas de syslog (pas de Module) → on substitue `log` par un stub
+  // CONFORME au contrat `Service.log` (retourne un vrai Pdu, jamais consommé par
+  // `resolve`) : muet, mais pas menteur sur la signature.
+  p.log = (pci, severity, msgid, msg) =>
+    new Pdu(pci, severity, "router", msgid, msg);
   return p;
 }
 

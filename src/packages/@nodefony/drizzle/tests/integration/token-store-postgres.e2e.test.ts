@@ -139,7 +139,7 @@ describe.skipIf(!PG_URL)(
       assert.equal(first?.revokedAt, CLOCK);
       assert.equal(first?.revokedReason, "manual");
       CLOCK += 10;
-      await store.revoke("pg-rv", "expired"); // rejoué → no-op
+      await store.revoke("pg-rv", "expired_cleanup"); // rejoué → no-op
       const second = await store.findById("pg-rv");
       assert.equal(
         second?.revokedAt,

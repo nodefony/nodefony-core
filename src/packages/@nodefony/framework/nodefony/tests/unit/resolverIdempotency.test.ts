@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import { Container, RequestContext } from "nodefony";
+import Controller from "../../src/Controller.js";
 import Resolver from "../../src/Resolver.js";
 import type Route from "../../src/Route.js";
 import type { ControllerConstructor } from "../../src/Route.js";
@@ -20,9 +21,14 @@ import type { IIdempotencyStore, IdempotentResponse } from "nodefony";
 
 let execCount = 0;
 
-class IdemCtrl {
-  setRoute(): this {
-    return this;
+// Le stub porte le CONTRAT du vrai objet : il ÉTEND `Controller` (c'est ce que le
+// Resolver manipule). Il n'est jamais construit par `new` — le vrai constructeur
+// exige name+context+DI — mais par proxy prototype (cf `newController` stubbé), donc
+// `setRoute` est neutralisé : le vrai écrit le champ PRIVÉ `#route`, absent d'un
+// objet `Object.create` (TypeError). Valeur de retour ignorée par le Resolver.
+class IdemCtrl extends Controller {
+  override setRoute(route: Route): Route {
+    return route;
   }
   @Post("/")
   @Idempotent()
@@ -115,7 +121,9 @@ function makeResolver(opts: {
   (r as unknown as { queryOverride: unknown }).queryOverride = null;
   r.controller = IdemCtrl as unknown as ControllerConstructor;
   r.actionName = opts.action;
-  r.newController = (async () => new IdemCtrl()) as Resolver["newController"];
+  // Proxy prototype : le vrai ctor de `Controller` exige name+context+DI. Les
+  // actions vivent sur le prototype → elles s'exécutent normalement.
+  r.newController = async () => Object.create(IdemCtrl.prototype) as IdemCtrl;
   // Capture le rendu sans toucher au transport (le vrai returnController appelle send/render).
   r.returnController = (async (x: unknown) =>
     x) as Resolver["returnController"];

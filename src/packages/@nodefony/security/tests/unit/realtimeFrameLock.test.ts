@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import { Container, Event, RequestContext } from "nodefony";
 import type { Module } from "nodefony";
+import type { ContextType } from "@nodefony/http";
 import { anonymousUser } from "@nodefony/user";
 import type { IUser } from "@nodefony/user";
 import { Firewall } from "../../nodefony/service/firewall";
@@ -411,13 +412,15 @@ function bootFirewall(
       },
     });
   }
-  let onBoot: (() => void) | null = null;
+  // Porteur objet (et non un `let`) : l'assignation a lieu dans une closure, que
+  // l'analyse de flux TS ne suit pas — un `let` resterait figé à `null`.
+  const hooks: { onBoot: (() => void) | null } = { onBoot: null };
   // kernel mock : `Service` ctor fait `this.kernel = container.get("kernel")` puis
   // `this.kernel?.once("onBoot", …)`. On capture le callback pour le déclencher.
   container.set("kernel", {
     container,
     once: (event: string, cb: () => void) => {
-      if (event === "onBoot") onBoot = cb;
+      if (event === "onBoot") hooks.onBoot = cb;
     },
   });
   firewall = new Firewall({
@@ -425,7 +428,7 @@ function bootFirewall(
     notificationsCenter: new Event(),
     options: { areas, ...extraConfig },
   } as unknown as Module);
-  onBoot?.(); // déclenche #build → #wireRealtime
+  hooks.onBoot?.(); // déclenche #build → #wireRealtime
   return { ...captured, firewall, container };
 }
 

@@ -200,23 +200,20 @@ describe("Firewall ⇄ realtime — security:audit enregistré + live (câblage 
     );
     container.set("auditService", audit);
     // realtimeService mock : capte la factory de canal système.
-    let auditFactory:
-      | ((
-          ch: string,
-          publish: (ch: string, payload: unknown) => void,
-        ) => (() => void) | null)
-      | null = null;
+    type SystemChannelFactory = (
+      ch: string,
+      publish: (ch: string, payload: unknown) => void,
+    ) => (() => void) | null;
+    // Porteur objet (et non un `let`) : l'assignation se fait dans une closure,
+    // que l'analyse de flux TS ne suit pas — un `let` resterait figé à `null`.
+    const captured: { auditFactory: SystemChannelFactory | null } = {
+      auditFactory: null,
+    };
     container.set("realtimeService", {
       useAuthenticator() {},
       setFrameAuthorizer() {},
-      registerSystemChannel(
-        ch: string,
-        f: (
-          ch: string,
-          publish: (ch: string, payload: unknown) => void,
-        ) => (() => void) | null,
-      ) {
-        if (ch === SECURITY_AUDIT_CHANNEL) auditFactory = f;
+      registerSystemChannel(ch: string, f: SystemChannelFactory) {
+        if (ch === SECURITY_AUDIT_CHANNEL) captured.auditFactory = f;
       },
     });
     const firewall = new Firewall(
@@ -236,15 +233,17 @@ describe("Firewall ⇄ realtime — security:audit enregistré + live (câblage 
     firewall.registerAuthenticator(new AnonymousAuthenticator());
     boot(); // #wireRealtime → registerSystemChannel(security:audit, …)
 
-    expect(auditFactory, "factory security:audit enregistrée").to.be.a(
+    expect(captured.auditFactory, "factory security:audit enregistrée").to.be.a(
       "function",
     );
 
     // 1ᵉʳ auditeur s'abonne → la factory crée le pont (lazy).
     const published: Array<{ ch: string; p: IAuditBatch }> = [];
-    const dispose = auditFactory!(SECURITY_AUDIT_CHANNEL, (ch, p) =>
+    const dispose = captured.auditFactory!(SECURITY_AUDIT_CHANNEL, (ch, p) =>
       published.push({ ch, p: p as IAuditBatch }),
     );
+    // La factory rend un disposer au 1ᵉʳ abonné (null seulement si déjà monté).
+    expect(dispose, "disposer rendu au 1ᵉʳ abonné").to.be.a("function");
     // Un refus part dans le journal → coalescé → diffusé.
     audit.record(ev("auth.denied"));
     vi.advanceTimersByTime(300);
@@ -253,7 +252,7 @@ describe("Firewall ⇄ realtime — security:audit enregistré + live (câblage 
     expect(published[0]!.p.events[0]!.action).to.equal("auth.denied");
 
     // Dernier désabonné → dispose → plus aucune diffusion.
-    dispose();
+    dispose!();
     audit.record(ev("auth.failure"));
     vi.advanceTimersByTime(300);
     expect(published.length).to.equal(1); // inchangé

@@ -99,8 +99,10 @@ function fakeSocket(opts: {
 }
 
 /** En-tête `Idempotency-Key` d'un appel fetch mocké (ou null si absent). */
-function idemHeaderOf(call: [unknown, unknown] | undefined): string | null {
-  const init = call?.[1] as RequestInit | undefined;
+function idemHeaderOf(
+  call: Parameters<typeof fetch> | undefined,
+): string | null {
+  const init = call?.[1];
   return new Headers(init?.headers).get("Idempotency-Key");
 }
 

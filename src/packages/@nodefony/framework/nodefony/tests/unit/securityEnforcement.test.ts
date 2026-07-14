@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import { Container, RequestContext } from "nodefony";
+import Controller from "../../src/Controller.js";
 import Resolver from "../../src/Resolver.js";
 import type Route from "../../src/Route.js";
 import type { ControllerConstructor } from "../../src/Route.js";
@@ -35,9 +36,13 @@ function metaWith(security: SecurityRequirement | null): RouteActionMeta {
   };
 }
 
-class StubCtrl {
-  setRoute(): this {
-    return this;
+// Le stub porte le CONTRAT du vrai objet : il ÉTEND `Controller` (ce que le Resolver
+// manipule). Jamais construit par `new` (le vrai ctor exige name+context+DI) mais par
+// proxy prototype → `setRoute` est neutralisé : le vrai écrit le champ PRIVÉ `#route`,
+// absent d'un objet `Object.create` (TypeError). Retour ignoré par le Resolver.
+class StubCtrl extends Controller {
+  override setRoute(route: Route): Route {
+    return route;
   }
   ping(): string {
     return "pong";
@@ -70,8 +75,9 @@ function makeResolver(opts: {
   (r as unknown as { queryOverride: unknown }).queryOverride = null;
   r.controller = StubCtrl as unknown as ControllerConstructor;
   r.actionName = "ping";
-  // newController stubbé : le GRANT exécute l'action sans DI réel.
-  r.newController = (async () => new StubCtrl()) as Resolver["newController"];
+  // newController stubbé : le GRANT exécute l'action sans DI réel (proxy prototype —
+  // le vrai ctor de Controller exige name+context).
+  r.newController = async () => Object.create(StubCtrl.prototype) as StubCtrl;
   return r;
 }
 
@@ -182,9 +188,9 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
   // la garde s'évalue via computeActionMeta (chemin froid, PAS le memo de route).
   // Défense en profondeur : un forward vers une action gardée re-vérifie l'autz.
   it("pont forward (route=null) : la garde s'évalue via computeActionMeta", async () => {
-    class ForwardCtrl {
-      setRoute(): this {
-        return this;
+    class ForwardCtrl extends Controller {
+      override setRoute(route: Route): Route {
+        return route;
       }
       @IsGranted("ROLE_ADMIN")
       ping(): string {
@@ -203,8 +209,8 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
     (r as unknown as { queryOverride: unknown }).queryOverride = null;
     r.controller = ForwardCtrl as unknown as ControllerConstructor;
     r.actionName = "ping";
-    r.newController = (async () =>
-      new ForwardCtrl()) as Resolver["newController"];
+    r.newController = async () =>
+      Object.create(ForwardCtrl.prototype) as ForwardCtrl;
     const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
       caught(r.executeAction()),
     );

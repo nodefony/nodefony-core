@@ -93,6 +93,58 @@ class MemoryUserRepo implements IUserRepository {
     return this.find(criteria).then((r) => r.length);
   }
 
+  createMany(data: Partial<IPasswordAuthenticatedUser>[]) {
+    return Promise.all(data.map((d) => this.create(d)));
+  }
+
+  upsert(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    update: Partial<IPasswordAuthenticatedUser>,
+    insertOnly?: Partial<IPasswordAuthenticatedUser>,
+  ) {
+    return this.updateOne(criteria, update).then((updated) => {
+      if (updated) return updated;
+      return this.create({
+        ...(criteria as Partial<IPasswordAuthenticatedUser>),
+        ...insertOnly,
+        ...update,
+      });
+    });
+  }
+
+  increment(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    changes: Partial<Record<keyof IPasswordAuthenticatedUser, number>>,
+  ) {
+    const user = [...this.store.values()].find((u) => this.match(u, criteria));
+    if (!user) return Promise.resolve(null);
+    const record = user as unknown as Record<string, number>;
+    for (const [field, delta] of Object.entries(changes)) {
+      record[field] = (record[field] ?? 0) + (delta as number);
+    }
+    return Promise.resolve<IPasswordAuthenticatedUser>(user);
+  }
+
+  deleteOne(criteria: Criteria<IPasswordAuthenticatedUser>) {
+    return this.findOneAndDelete(criteria).then((u) => u !== null);
+  }
+
+  findOneAndDelete(criteria: Criteria<IPasswordAuthenticatedUser>) {
+    for (const [id, user] of this.store) {
+      if (this.match(user, criteria)) {
+        this.store.delete(id);
+        return Promise.resolve<IPasswordAuthenticatedUser>(user);
+      }
+    }
+    return Promise.resolve(null);
+  }
+
+  exists(criteria: Criteria<IPasswordAuthenticatedUser>) {
+    return Promise.resolve(
+      [...this.store.values()].some((u) => this.match(u, criteria)),
+    );
+  }
+
   withTransaction(_tx: ITransaction) {
     return this;
   }

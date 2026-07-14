@@ -173,9 +173,9 @@ describe("Session — unit tests", () => {
       const storage = makeStorage();
       let writes = 0;
       const origWrite = storage.write.bind(storage);
-      storage.write = (id, data, ctx) => {
+      storage.write = (id, data) => {
         writes += 1;
-        return origWrite(id, data, ctx);
+        return origWrite(id, data);
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = new Session(
@@ -209,9 +209,9 @@ describe("Session — unit tests", () => {
       const storage = makeStorage();
       let writes = 0;
       const origWrite = storage.write.bind(storage);
-      storage.write = (id, data, ctx) => {
+      storage.write = (id, data) => {
         writes += 1;
-        return origWrite(id, data, ctx);
+        return origWrite(id, data);
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = new Session(

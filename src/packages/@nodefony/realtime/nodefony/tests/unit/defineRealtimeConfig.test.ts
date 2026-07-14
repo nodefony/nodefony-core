@@ -6,6 +6,7 @@ import {
 } from "../../config/defineModuleConfig.js";
 import type {
   IBackplane,
+  IBackplaneInfo,
   BackplaneHandler,
 } from "../../interfaces/IBackplane.js";
 
@@ -15,6 +16,16 @@ class NoopBackplane implements IBackplane {
   stop(): void {}
   publish(_c: string, _p: unknown): void {}
   onMessage(_h: BackplaneHandler): void {}
+
+  /** Carte d'identité — backplane inerte (aucun pair) : `local`, jamais cross-pod. */
+  describe(): IBackplaneInfo {
+    return {
+      driver: "noop",
+      kind: "local",
+      originId: this.originId,
+      crossPod: false,
+    };
+  }
 }
 
 describe("defineRealtimeConfig — builder + Zod", () => {

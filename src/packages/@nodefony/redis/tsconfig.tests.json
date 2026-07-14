@@ -3,12 +3,9 @@
   "compilerOptions": {
     "noEmit": true,
     "rootDir": "../../../..",
-    "types": ["node", "vitest/globals", "chai"],
-    "noUnusedParameters": false,
+    "types": ["node", "vitest/globals"],
     "noUnusedLocals": false,
-    "paths": {
-      "@nodefony/mongoose": ["./nodefony/tests/stubs/mongoose.ts"]
-    }
+    "noUnusedParameters": false
   },
   "include": ["tests/**/*.ts", "nodefony/tests/**/*.ts"],
   "exclude": ["node_modules", "dist"]

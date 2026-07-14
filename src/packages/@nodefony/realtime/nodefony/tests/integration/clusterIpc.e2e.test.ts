@@ -23,7 +23,11 @@
  *  5. publish duplex : A publish→B reçoit, puis B publish→A reçoit
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { fork, type ChildProcess } from "node:child_process";
+import {
+  fork,
+  type ChildProcess,
+  type Serializable,
+} from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ClusterRelay, type IRelayWorker, CLUSTER_RT_KIND } from "nodefony";
 
@@ -124,9 +128,12 @@ function asRelayWorker(w: ForkedWorker): IRelayWorker {
   return {
     id: w.pid,
     send(msg) {
+      // `IRelayWorker.send` est typé `unknown` (contrat générique du relay), alors que
+      // l'IPC Node exige un `Serializable`. Les messages du relay realtime sont des
+      // objets JSON purs (structuredClone-ables) → narrowing explicite assumé.
       // Robustesse : worker en cours de drain → on ignore l'EPIPE.
       try {
-        w.child.send(msg);
+        w.child.send(msg as Serializable);
       } catch {
         /* worker fermé entre-temps */
       }

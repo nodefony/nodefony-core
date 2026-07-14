@@ -32,12 +32,17 @@ function makeStore(
 ): MemoryIdempotencyStore {
   const s = Object.create(
     MemoryIdempotencyStore.prototype,
-  ) as MemoryIdempotencyStore & StoreInternals & { log: () => void };
-  s.entries = null;
-  s.ttlMs = over.ttlMs ?? 600_000;
-  s.leaseMs = over.leaseMs ?? 60_000;
-  s.cap = over.cap ?? 1000;
-  s.log = () => {};
+  ) as MemoryIdempotencyStore;
+  // `entries`/`ttlMs`/`leaseMs`/`cap` sont PRIVÉS (invariants du service) : le proxy
+  // `Object.create` court-circuite le constructeur (qui exige un Module), donc on les
+  // sème par la MÊME vue interne que `expire()`. Vue SÉPARÉE (pas une intersection
+  // avec la classe : TS réduirait `MemoryIdempotencyStore & StoreInternals` à `never`,
+  // un champ privé n'étant jamais compatible avec son homonyme public).
+  const priv = s as unknown as StoreInternals;
+  priv.entries = null;
+  priv.ttlMs = over.ttlMs ?? 600_000;
+  priv.leaseMs = over.leaseMs ?? 60_000;
+  priv.cap = over.cap ?? 1000;
   return s;
 }
 

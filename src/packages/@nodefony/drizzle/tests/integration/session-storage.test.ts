@@ -71,7 +71,7 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
         flashBag: { f: 3 },
         user: "bob",
       });
-      const r = (await storage.read("sid1")) as Record<string, unknown>;
+      const r = await storage.read("sid1");
       assert.deepEqual(r.Attributes, { a: 1 });
       assert.deepEqual(r.metaBag, { m: 2 });
       assert.deepEqual(r.flashBag, { f: 3 });
@@ -87,14 +87,14 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
         user: "bob2",
       });
       assert.equal(await storage.open(), 1); // toujours 1 ligne
-      const r = (await storage.read("sid1")) as Record<string, unknown>;
+      const r = await storage.read("sid1");
       assert.deepEqual(r.Attributes, { a: 9 });
       assert.equal(r.user, "bob2");
     });
 
     it("destroy supprime ; read renvoie un objet vide", async () => {
       assert.equal(await storage.destroy("sid1"), true);
-      const r = (await storage.read("sid1")) as Record<string, unknown>;
+      const r = await storage.read("sid1");
       assert.deepEqual(r, {});
       assert.equal(await storage.open(), 0);
     });

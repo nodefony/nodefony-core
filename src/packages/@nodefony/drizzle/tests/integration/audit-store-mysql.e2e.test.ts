@@ -90,11 +90,11 @@ describe.skipIf(!MYSQL_URL)(
 
     it("filtres AND (category + since/until) + total sous filtre", async () => {
       await store.append(
-        makeEvent({ id: "my-a3", ts: 300, category: "admin", actor: "bob" }),
+        makeEvent({ id: "my-a3", ts: 300, category: "authz", actor: "bob" }),
       );
-      const admin = await store.query({ category: "admin" });
-      assert.equal(admin.total, 1);
-      assert.equal(admin.events[0]?.id, "my-a3");
+      const authz = await store.query({ category: "authz" });
+      assert.equal(authz.total, 1);
+      assert.equal(authz.events[0]?.id, "my-a3");
       const window = await store.query({ since: 150, until: 250 });
       assert.equal(window.total, 1);
       assert.equal(window.events[0]?.id, "my-a2");
@@ -102,16 +102,16 @@ describe.skipIf(!MYSQL_URL)(
 
     it("pagination curseur composite (ts, id) : collision à la ms sans doublon ni trou", async () => {
       for (const id of ["my-c1", "my-c2", "my-c3"]) {
-        await store.append(makeEvent({ id, ts: 500, category: "burst" }));
+        await store.append(makeEvent({ id, ts: 500, category: "session" }));
       }
-      const page1 = await store.query({ category: "burst", limit: 2 });
+      const page1 = await store.query({ category: "session", limit: 2 });
       assert.deepEqual(
         page1.events.map((e) => e.id),
         ["my-c3", "my-c2"],
       );
       assert.equal(page1.nextBefore, "my-c2", "ligne de garde limit+1");
       const page2 = await store.query({
-        category: "burst",
+        category: "session",
         limit: 2,
         before: page1.nextBefore!,
       });

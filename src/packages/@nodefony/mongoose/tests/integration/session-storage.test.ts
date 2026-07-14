@@ -89,7 +89,7 @@ describe.skipIf(!URI)(
           flashBag: { f: 3 },
           user: "bob",
         });
-        const r = (await storage.read("sid1")) as Record<string, unknown>;
+        const r = await storage.read("sid1");
         assert.deepEqual(r.Attributes, { a: 1 });
         assert.deepEqual(r.metaBag, { m: 2 });
         assert.deepEqual(r.flashBag, { f: 3 });
@@ -105,14 +105,14 @@ describe.skipIf(!URI)(
           user: "bob2",
         });
         assert.equal(await storage.open(), 1); // toujours 1 ligne
-        const r = (await storage.read("sid1")) as Record<string, unknown>;
+        const r = await storage.read("sid1");
         assert.deepEqual(r.Attributes, { a: 9 });
         assert.equal(r.user, "bob2");
       });
 
       it("destroy supprime ; read renvoie un objet vide", async () => {
         assert.equal(await storage.destroy("sid1"), true);
-        const r = (await storage.read("sid1")) as Record<string, unknown>;
+        const r = await storage.read("sid1");
         assert.deepEqual(r, {});
         assert.equal(await storage.open(), 0);
       });
@@ -155,6 +155,7 @@ describe.skipIf(!URI)(
       it("describeConnection : driver mongodb + cible SANS credentials + version", () => {
         const info = orm.describeConnection();
         assert.equal(info.driver, "mongodb");
+        assert.ok(info.target, "target renseignée par l'adapter");
         assert.ok(
           !info.target.includes("@"),
           "target ne doit pas fuiter d'auth",

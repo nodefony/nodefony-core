@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { AbstractCrudService } from "../../index";
-import type { Criteria, IRepository, RepositoryReadOptions } from "../../index";
+import type {
+  Criteria,
+  IRepository,
+  ITransaction,
+  RepositoryReadOptions,
+} from "../../index";
 
 interface Widget {
   id: string;
@@ -75,8 +80,55 @@ class MemoryRepo implements IRepository<Widget> {
     return this.find(criteria).then((r) => r.length);
   }
 
-  withTransaction() {
-    return this;
+  createMany(data: Partial<Widget>[]) {
+    return Promise.all(data.map((d) => this.create(d)));
+  }
+
+  upsert(
+    criteria: Criteria<Widget>,
+    update: Partial<Widget>,
+    insertOnly?: Partial<Widget>,
+  ) {
+    const found = [...this.store.values()].find((w) => this.match(w, criteria));
+    if (found) {
+      Object.assign(found, update);
+      return Promise.resolve(found);
+    }
+    return this.create({ ...criteria, ...insertOnly, ...update } as Partial<Widget>);
+  }
+
+  increment(
+    criteria: Criteria<Widget>,
+    changes: Partial<Record<keyof Widget, number>>,
+  ) {
+    const w = [...this.store.values()].find((x) => this.match(x, criteria));
+    if (!w) return Promise.resolve(null);
+    for (const [k, delta] of Object.entries(changes)) {
+      const field = k as keyof Widget;
+      if (typeof w[field] === "number" && typeof delta === "number") {
+        (w[field] as number) += delta;
+      }
+    }
+    return Promise.resolve(w);
+  }
+
+  deleteOne(criteria: Criteria<Widget>) {
+    return this.findOneAndDelete(criteria).then((w) => w !== null);
+  }
+
+  findOneAndDelete(criteria: Criteria<Widget>) {
+    const w = [...this.store.values()].find((x) => this.match(x, criteria));
+    if (!w) return Promise.resolve(null);
+    this.store.delete(w.id);
+    return Promise.resolve(w);
+  }
+
+  exists(criteria: Criteria<Widget>) {
+    return this.findOne(criteria).then((w) => w !== null);
+  }
+
+  withTransaction(_tx: ITransaction) {
+    return this as IRepository<Widget>;
   }
 }
 

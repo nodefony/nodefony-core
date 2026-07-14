@@ -144,11 +144,14 @@ async function bootSecurity(): Promise<void> {
   const svc = new RealtimeService(svcModule);
   await svc.init(svcModule);
   container.set("realtimeService", svc);
-  let onBoot: (() => void) | null = null;
+  // Mock kernel : `once(event, cb)` enregistre le hook. On garde TOUS les events
+  // (contrat réel du kernel, pas seulement `onBoot`) dans une Map — le `let` narrowé
+  // à `null` par le flow-analysis ne survivait pas à l'affectation en closure.
+  const kernelHooks = new Map<string, () => void>();
   container.set("kernel", {
     container,
     once: (event: string, cb: () => void) => {
-      if (event === "onBoot") onBoot = cb;
+      kernelHooks.set(event, cb);
     },
   });
   new Firewall({
@@ -166,7 +169,7 @@ async function bootSecurity(): Promise<void> {
       realtimeChannels: [{ pattern: "billing:", roles: ["ROLE_ADMIN"] }],
     },
   } as unknown as Module);
-  onBoot?.(); // #build → #wireRealtime → câble le hub singleton
+  kernelHooks.get("onBoot")?.(); // #build → #wireRealtime → câble le hub singleton
 }
 
 function makeServer(wire: Wire): WiredRt {

@@ -3,6 +3,7 @@ import type { IUser, IUserProvider } from "@nodefony/user";
 import { UserNotFoundError } from "@nodefony/user";
 import type { ContextType } from "@nodefony/http";
 import { SessionAuthenticator } from "../../nodefony/src/authenticator/SessionAuthenticator";
+import type { IAuthenticator } from "../../nodefony/contracts/IAuthenticator";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 
 /**
@@ -100,7 +101,9 @@ describe("SessionAuthenticator (P6 J3)", () => {
   });
 
   it("pas de challenge déclaré : une session absente donne un 401 nu (pas de popup Basic)", () => {
-    const auth = new SessionAuthenticator(() => providerOf({}));
+    // Vu à travers le contrat (comme le firewall le voit) : `challenge?()` y est
+    // un hook OPTIONNEL — on prouve que cet authenticator ne l'implémente pas.
+    const auth: IAuthenticator = new SessionAuthenticator(() => providerOf({}));
     assert.equal(auth.challenge, undefined);
   });
 });

@@ -63,10 +63,14 @@ describe("mergeClusterHealth — consolidation pod", () => {
           instanceId: "A",
           connectionCount: 3,
           publishTotal: 10,
+          // `drops` fait partie du contrat `IRealtimeHealth.backpressure` : l'override
+          // REMPLACE l'objet du helper → l'omettre rendait `totals.drops` NaN
+          // (`mergeClusterHealth` fait `+= bp.drops`).
           backpressure: {
             maxBufferedAmount: 100,
             totalBufferedAmount: 100,
             slowConsumers: 1,
+            drops: 0,
           },
         }),
         health({
@@ -77,6 +81,7 @@ describe("mergeClusterHealth — consolidation pod", () => {
             maxBufferedAmount: 40,
             totalBufferedAmount: 40,
             slowConsumers: 2,
+            drops: 0,
           },
         }),
       ],

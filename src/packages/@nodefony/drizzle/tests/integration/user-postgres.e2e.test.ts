@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import type { Criteria } from "@nodefony/orm-core";
+import { BaseUser } from "@nodefony/user";
 import type {
   IPasswordAuthenticatedUser,
   ISocialProvider,
@@ -30,6 +31,19 @@ function social(provider: string, providerId: string): ISocialProvider {
   return { provider, providerId, createdAt: new Date(1_700_000_000_000) };
 }
 
+/**
+ * Le repository DÉCLARE le contrat strict `IPasswordAuthenticatedUser` (identité +
+ * rôles + credential) mais REND un `BaseUser` — porteur en plus des **champs
+ * anti-migration** (`socialProviders`, `currentRole`, `metadata`). Ce garde vérifie
+ * la promesse du mapping `#toUser` à l'exécution ET restitue le type au compilateur.
+ */
+function asBaseUser(user: IPasswordAuthenticatedUser | null): BaseUser {
+  if (!(user instanceof BaseUser)) {
+    throw new Error("le repository doit rendre un BaseUser (mapping #toUser)");
+  }
+  return user;
+}
+
 describe.skipIf(!PG_URL)(
   "DrizzleUserRepository — e2e Postgres (S2 multi-dialecte)",
   () => {
@@ -51,18 +65,20 @@ describe.skipIf(!PG_URL)(
     });
 
     it("create : defaults JS posés (UUID, roles [], enabled, dates timestamptz → Date)", async () => {
-      const alice = await users.create({
-        identifier: "pg-alice",
-        password: "argon2id$fake",
-      });
+      const alice = asBaseUser(
+        await users.create({
+          identifier: "pg-alice",
+          password: "argon2id$fake",
+        }),
+      );
       assert.match(
         alice.id,
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
         "id UUID via defaultFn",
       );
       assert.deepEqual(alice.roles, []);
-      assert.equal(alice.enabled, true);
-      assert.equal(alice.locked, false);
+      assert.equal(alice.isActive(), true, "enabled défaut true");
+      assert.equal(alice.isLocked(), false, "locked défaut false");
       assert.deepEqual(alice.socialProviders, []);
       const entity = alice as unknown as { createdAt: Date; updatedAt: Date };
       assert.ok(entity.createdAt instanceof Date, "dateMs relue en Date");
@@ -96,11 +112,17 @@ describe.skipIf(!PG_URL)(
         updatedAt: Date;
       };
       await new Promise((r) => setTimeout(r, 5));
-      const updated = await users.updateOne(
-        { identifier: "pg-alice" } as Criteria<IPasswordAuthenticatedUser>,
-        { currentRole: "ROLE_ADMIN" },
+      // `currentRole` est une colonne de `UserRow` (champ anti-migration de
+      // `BaseUser`), hors du contrat strict `IPasswordAuthenticatedUser` : le
+      // patch est typé sur la LIGNE, qui est la vérité de la table.
+      const patch: Partial<UserRow> = { currentRole: "ROLE_ADMIN" };
+      const updated = asBaseUser(
+        await users.updateOne(
+          { identifier: "pg-alice" } as Criteria<IPasswordAuthenticatedUser>,
+          patch,
+        ),
       );
-      assert.equal(updated?.currentRole, "ROLE_ADMIN");
+      assert.equal(updated.currentRole, "ROLE_ADMIN");
       const after = updated as unknown as { createdAt: Date; updatedAt: Date };
       assert.equal(
         after.createdAt.getTime(),
@@ -114,10 +136,11 @@ describe.skipIf(!PG_URL)(
     });
 
     it("findBySocialProvider (@> jsonb) : match exact provider+providerId, clés extra ignorées", async () => {
-      await users.create({
+      const bob: Partial<UserRow> = {
         identifier: "pg-bob",
         socialProviders: [social("github", "gh-42"), social("google", "g-7")],
-      });
+      };
+      await users.create(bob);
       const byGithub = await users.findBySocialProvider("github", "gh-42");
       assert.equal(byGithub?.identifier, "pg-bob", "élément 1 du tableau");
       const byGoogle = await users.findBySocialProvider("google", "g-7");
@@ -151,9 +174,10 @@ describe.skipIf(!PG_URL)(
     });
 
     it("Shadow User post-lien : le rechargement passe par le chemin typé (roles/flags parsés)", async () => {
-      const linked = await users.findBySocialProvider("github", "gh-42");
-      assert.ok(linked);
-      assert.equal(linked.enabled, true, "boolean PG parsé");
+      const linked = asBaseUser(
+        await users.findBySocialProvider("github", "gh-42"),
+      );
+      assert.equal(linked.isActive(), true, "boolean PG parsé");
       assert.deepEqual(linked.roles, [], "jsonb parsé");
       assert.equal(
         linked.socialProviders.length,

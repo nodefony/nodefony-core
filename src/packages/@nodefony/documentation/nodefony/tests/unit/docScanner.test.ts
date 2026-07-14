@@ -25,7 +25,7 @@ afterAll(async () => {
 
 describe("scanDocsDir", () => {
   it("dossier absent → [] (best-effort, pas d'erreur)", async () => {
-    expect(await scanDocsDir(join(base, "nope"))).toEqual([]);
+    expect(await scanDocsDir(join(base, "nope"), { kind: "root" })).toEqual([]);
   });
 
   it("ne retourne que les .md, exclut les segments exclus, trié par relPath", async () => {

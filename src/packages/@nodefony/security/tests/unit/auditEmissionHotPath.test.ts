@@ -359,11 +359,15 @@ describe("Firewall ⇄ realtime — frame.denied audité (câblage réel)", () =
     );
     container.set("auditService", audit);
     // realtimeService mock : capture le frameAuthorizer posé par le firewall.
-    let captured: FrameAuthorizer | null = null;
+    // Porteur objet (et non un `let`) : l'assignation se fait dans une closure,
+    // que l'analyse de flux TS ne suit pas — un `let` resterait figé à `null`.
+    const captured: { frameAuthorizer: FrameAuthorizer | null } = {
+      frameAuthorizer: null,
+    };
     container.set("realtimeService", {
       useAuthenticator() {},
       setFrameAuthorizer(fn: FrameAuthorizer) {
-        captured = fn;
+        captured.frameAuthorizer = fn;
       },
     });
     // Firewall avec une zone realtime protégée (config réelle → #build).
@@ -386,9 +390,9 @@ describe("Firewall ⇄ realtime — frame.denied audité (câblage réel)", () =
     firewall.registerAuthenticator(new AnonymousAuthenticator());
     boot(); // #build → #wireRealtime → setFrameAuthorizer(captured)
 
-    assert.ok(captured, "le firewall a posé un frameAuthorizer");
+    assert.ok(captured.frameAuthorizer, "le firewall a posé un frameAuthorizer");
     // Anonyme tente api.request sur la zone protégée → refus + audit.
-    const ok = captured!(
+    const ok = captured.frameAuthorizer(
       { method: "api.request", params: { path: "/rt/secret" } },
       ANON_WS,
     );

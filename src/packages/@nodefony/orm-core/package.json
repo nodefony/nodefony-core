@@ -18,7 +18,8 @@
     "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "rimraf dist",
     "test": "vitest run",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json"
   },
   "private": false,
   "keywords": [

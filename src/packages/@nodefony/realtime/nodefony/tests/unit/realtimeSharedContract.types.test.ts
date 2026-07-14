@@ -29,13 +29,13 @@ interface AppActions extends ActionsMap {
   "client:confirm": { in: { id: string }; out: { ok: boolean } };
 }
 
+// ── CÔTÉ CLIENT : Emit=ClientToServer, Listen=ServerToClient, Actions=AppActions
+// `declare const` est une déclaration AMBIANTE : elle n'existe qu'à la compilation
+// (jamais instanciée au runtime). Elle doit vivre au niveau MODULE — un modificateur
+// `declare` est illégal dans un corps de fonction (TS1184).
+declare const client: RealtimeClient<ClientToServer, ServerToClient, AppActions>;
+
 function _typeOnly(): void {
-  // ── CÔTÉ CLIENT : Emit=ClientToServer, Listen=ServerToClient, Actions=AppActions
-  declare const client: RealtimeClient<
-    ClientToServer,
-    ServerToClient,
-    AppActions
-  >;
   client.on("dashboard:stats", (p) => {
     expectType<{ cpu: number; mem: number }>(p);
   });
@@ -65,13 +65,29 @@ function _typeOnly(): void {
   }
   void AppRt;
 
-  // ── RÉTRO-COMPAT : un controller NON paramétré reste permissif (0 régression)
+  // ── RÉTRO-COMPAT : un controller NON paramétré reste permissif… SAUF sur les
+  //    params de `requestClient` — ASYMÉTRIE, bug de typage du core (aucun impact
+  //    runtime, d'où sa survie jusqu'au type-check des tests) :
+  //
+  //      DefaultActionsMap = { [m: string]: { in?: unknown; out: unknown } }
+  //      ActionParams<M,K> = M[K] extends { in: infer I } ? I : undefined
+  //
+  //    `in?` est OPTIONNEL → il ne satisfait PAS le `{ in: … }` REQUIS de la branche
+  //    conditionnelle → `ActionParams` retombe sur `undefined` → passer le moindre
+  //    param est une erreur de type. `notifyClient` (ligne au-dessus), lui, passe :
+  //    `EventPayload<DefaultEventsMap, K>` = `unknown`, donc bien permissif.
+  //
+  //    Le `@ts-expect-error` est un PIÈGE À RÉGRESSION VOLONTAIRE : il échouera de
+  //    lui-même le jour où `ActionParams` gérera le `in` optionnel — signal qu'il
+  //    faut le retirer et rétablir l'assertion permissive.
+  //    Cf `src/nodefony/src/realtime/RealtimeEventMap.ts` (DefaultActionsMap + ActionParams).
   class RawRt extends RealtimeController {
     constructor(ctx: ContextType) {
       super("raw-rt", ctx);
     }
     demo(): void {
       this.notifyClient("any:channel", { whatever: 1 });
+      // @ts-expect-error BUG CORE : ActionParams<DefaultActionsMap, K> = `undefined`
       void this.requestClient("any:method", { x: 1 });
     }
   }

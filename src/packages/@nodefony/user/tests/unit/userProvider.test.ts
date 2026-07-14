@@ -17,6 +17,7 @@ import {
 
 // Encodeur stub — les méthodes provider ne touchent pas au credential.
 const encoder: IPasswordEncoder = {
+  supports: (hash) => hash.startsWith("hashed:"),
   hash: (plain) => Promise.resolve(`hashed:${plain}`),
   verify: () => Promise.resolve(true),
   needsRehash: () => false,

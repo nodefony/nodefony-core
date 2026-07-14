@@ -7,13 +7,17 @@
  */
 import { expect } from "chai";
 import "reflect-metadata";
+import { Readable } from "node:stream";
 import {
   Body,
   resolveParamArg,
   routeExpectsBodyStream,
   PARAM_ARGS_METADATA,
 } from "../../decorators/routerDecorators";
-import type { ParamMeta } from "../../decorators/routerDecorators";
+import type {
+  ParamMeta,
+  IParamArgContext,
+} from "../../decorators/routerDecorators";
 
 class Ctrl {
   upload(_body: unknown) {
@@ -71,23 +75,23 @@ describe("P2.9 — @Body({ stream }) (briques framework)", () => {
   });
 
   it("resolveParamArg body+stream → flux brut (ctx.request.request)", () => {
-    const fakeReadable = {
-      pipe() {},
-      read() {},
-    } as unknown as NodeJS.ReadableStream;
-    const ctx = {
+    // Vrai `Readable` (= ce que le pipeline injecte : l'`IncomingMessage` non
+    // consommé), pas un objet cast en `NodeJS.ReadableStream` : la fixture porte
+    // le contrat réel de `IParamArgContext.request.request`.
+    const rawStream: NodeJS.ReadableStream = Readable.from(["chunk"]);
+    const ctx: IParamArgContext = {
       paramsMap: {},
-      request: { request: fakeReadable, queryPost: { a: 1 } },
+      request: { request: rawStream, queryPost: { a: 1 } },
       getRequestCookies() {},
     };
     const meta: ParamMeta = { source: "body", index: 0, stream: true };
-    expect(resolveParamArg(meta, ctx)).to.equal(fakeReadable);
+    expect(resolveParamArg(meta, ctx)).to.equal(rawStream);
   });
 
   it("resolveParamArg body SANS stream → queryPost inchangé", () => {
-    const ctx = {
+    const ctx: IParamArgContext = {
       paramsMap: {},
-      request: { request: {}, queryPost: { a: 1 } },
+      request: { request: Readable.from(["chunk"]), queryPost: { a: 1 } },
       getRequestCookies() {},
     };
     const meta: ParamMeta = { source: "body", index: 0 };
