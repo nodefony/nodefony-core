@@ -266,6 +266,27 @@ corrompu). Nom normalisé (`blog-post`→`BlogPostController`, suffixe strippé)
 défaut `/api/<kebab>` (couverte par la zone firewall du manifeste généré). Noms de
 fichiers de templates : token `__NAME__` (`templates/controller/<kind>/.../__NAME__.ts.tpl`).
 
+`nodefony create entity <Nom> [champs…] [--id <uuid7|uuid4|serial>] [--soft-delete]
+[--no-timestamps] [--no-controller] [--no-service] [--no-tests] [--route </api/x>]
+[--module <nom>] [--connector <nom>] [--dialect <sqlite|postgres|mysql>]` — scaffold
+**IN-PROJECT** de la chaîne complète : table Drizzle **native** du dialecte
+(`nodefony/entity/<Nom>.ts` + interface `<Nom>Row` + descripteur `defineEntity`),
+schémas Zod d'entrée (`<Nom>.schema.ts` : `create…Schema` + `update… = create.partial()`),
+service CRUD (`extends AbstractCrudService`, validation dans `beforeCreate`/`beforeUpdate` →
+**tous les transports** en profitent ; repository résolu au **premier usage** car l'ORM ne
+se connecte qu'à `onBoot`), controller (`extends ResourceController` — lectures en
+`methods: ["GET","WEBSOCKET"]` = REST **et** socket dans la même méthode ; 201+`Location`,
+204, 404, 422, `@Idempotent({required:false})` = mode souple), tests vitest (sqlite mémoire).
+Champs : `nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut** (types :
+`string text int float bool json date uuid`) — analyse + traduction Drizzle dans
+`scaffold/entityFields.ts` (module PUR, 18 tests, 3 dialectes). Wiring : `wireEntitiesDecorator`
+**crée** `@entities([...])` s'il n'existe pas (import **nommé** — un descripteur n'est pas un
+default), + `@controllers`. Gardes AVANT écriture : hors projet · `@nodefony/drizzle` absent de
+la cible · entité déjà déclarée · champ invalide. **Dit la vérité** : la table naît au prochain
+boot dev (`CREATE TABLE IF NOT EXISTS`), la **modifier n'altère RIEN** (pas d'`ALTER`), aucune
+migration n'est produite. Design + alternatives rejetées :
+[`docs/audits/create-entity-design-2026-07.md`](../../../../docs/audits/create-entity-design-2026-07.md).
+
 **Architecture 3 fronts** (préparée pour Studio — créer app/module/entity depuis
 l'admin web) :
 

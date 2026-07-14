@@ -5,6 +5,7 @@ import { version } from "../../package.json";
 import {
   getScaffoldSpec,
   CONTROLLER_KIND_CHOICES,
+  ENTITY_ID_CHOICES,
   FRONTEND_CHOICES,
   MODULE_CONTROLLER_CHOICES,
   PRESET_CHOICES,
@@ -33,8 +34,14 @@ import { askMissing, confirm } from "./scaffold/interactive";
  * boot kernel — cas nominal HORS projet : `npx nodefony create app mon-app`.
  */
 
-/** Types de scaffold disponibles (`entity` = lot suivant). */
-export const CREATE_TYPES = ["app", "module", "controller", "front"] as const;
+/** Types de scaffold disponibles. */
+export const CREATE_TYPES = [
+  "app",
+  "module",
+  "controller",
+  "front",
+  "entity",
+] as const;
 export type TCreateType = (typeof CREATE_TYPES)[number];
 
 export interface ICreateRequest {
@@ -106,6 +113,26 @@ export function parseCreateArgv(
       answers.route = rest[++i];
     } else if (word === "--module") {
       answers.module = rest[++i];
+      // ─── `create entity` ────────────────────────────────────────────────────
+      // `--controller` est déjà un flag À VALEUR (`create module --controller hello`) :
+      // pour une entité, le booléen s'exprime donc par sa négation, jamais par
+      // `--controller` seul (qui avalerait le mot suivant).
+    } else if (word === "--no-controller") {
+      answers.controller = false;
+    } else if (word === "--fields") {
+      answers.fields = rest[++i];
+    } else if (word === "--id") {
+      answers.id = rest[++i];
+    } else if (word === "--connector") {
+      answers.connector = rest[++i];
+    } else if (word === "--dialect") {
+      answers.dialect = rest[++i];
+    } else if (word === "--soft-delete") {
+      answers.softDelete = true;
+    } else if (word === "--no-timestamps") {
+      answers.timestamps = false;
+    } else if (word === "--no-tests") {
+      answers.tests = false;
     } else if (word === "--dir") {
       dir = rest[++i];
     } else if (word.startsWith("-")) {
@@ -114,7 +141,7 @@ export function parseCreateArgv(
       positionals.push(word);
     }
   }
-  const [type, name] = positionals;
+  const [type, name, ...extra] = positionals;
   if (!type || !(CREATE_TYPES as readonly string[]).includes(type)) {
     return {
       error: `type requis : ${CREATE_TYPES.join(" | ")} (reçu : ${type ?? "rien"})`,
@@ -122,6 +149,12 @@ export function parseCreateArgv(
   }
   if (name !== undefined) {
     answers.name = name;
+  }
+  // Les champs d'une entité se déclarent en positionnels (façon Rails) :
+  // `create entity Post title:string content:text`. `--fields "…"` reste possible
+  // pour un appel programmatique ; les positionnels l'emportent s'il y en a.
+  if (type === "entity" && extra.length > 0) {
+    answers.fields = extra.join(" ");
   }
   return { type: type as TCreateType, answers, dir, force, yes, install, git };
 }
@@ -134,7 +167,12 @@ const USAGE =
   `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
   `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
   `  front      : [--frontend <react|vue|angular>] [--route </page>] [--module <nom>]\n` +
-  `               (types controller/front : dans un projet existant — app racine ou module)\n` +
+  `  entity     : [champs…] [--id <${ENTITY_ID_CHOICES.join("|")}>] [--soft-delete] [--no-timestamps]\n` +
+  `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +
+  `               [--connector <nom>] [--dialect <sqlite|postgres|mysql>]\n` +
+  `               champs : nom:type[?|!][:index] — types : string text int float bool json date uuid ref:<Entité>\n` +
+  `               ex : nodefony create entity Post title:string! content:text views:int author:ref:User\n` +
+  `               (types controller/front/entity : dans un projet existant — app racine ou module)\n` +
   `  Sans flags dans un terminal → mode interactif (questions + récap).\n`;
 
 /**

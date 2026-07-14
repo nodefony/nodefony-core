@@ -11,8 +11,30 @@ import type { ContextType } from "@nodefony/http";
  * en mémoire, façade distante…). `create`/`updateOne`/`delete` sont
  * optionnels : une ressource read-only n'expose que la lecture.
  */
+/**
+ * Options de lecture d'une liste — **pagination avant tout**.
+ *
+ * Elles font partie du contrat parce qu'une ressource sans borne est une fuite qui
+ * attend son heure : le jour où la table grossit, `find()` charge tout en mémoire.
+ * Miroir structurel de `RepositoryReadOptions` (`@nodefony/orm-core`), sans dépendre
+ * de l'ORM.
+ */
+export interface IResourceReadOptions {
+  /** Nombre maximum d'enregistrements rendus. */
+  limit?: number;
+  /** Enregistrements sautés (⚠️ se dégrade sur les grandes tables — curseur à venir). */
+  offset?: number;
+  /** Tri, sous la forme comprise par l'implémentation. */
+  order?: unknown;
+  /** Associations à charger avec l'enregistrement. */
+  relations?: string[];
+}
+
 export interface IResourceService<T = unknown> {
-  find(criteria?: Record<string, unknown>): Promise<T[]> | T[];
+  find(
+    criteria?: Record<string, unknown>,
+    options?: IResourceReadOptions,
+  ): Promise<T[]> | T[];
   findById(id: string): Promise<T | null> | T | null;
   create?(data: Partial<T>): Promise<T> | T;
   updateOne?(
@@ -108,8 +130,11 @@ class ResourceController<T = unknown> extends Controller {
    * Liste la ressource. `criteria` est EXPLICITE (jamais dérivé de la query
    * string automatiquement — deny-by-default).
    */
-  protected listResource(criteria?: Record<string, unknown>): Promise<T[]> {
-    return Promise.resolve(this.requireResource().find(criteria));
+  protected listResource(
+    criteria?: Record<string, unknown>,
+    options?: IResourceReadOptions,
+  ): Promise<T[]> {
+    return Promise.resolve(this.requireResource().find(criteria, options));
   }
 
   /** Lit une entité par id — `null` si absente (la porte décide du 404). */

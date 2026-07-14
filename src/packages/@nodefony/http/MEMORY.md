@@ -393,7 +393,11 @@ Extension de l'`AuditErrorEntry` :
 - **T3 (`e180faf`)** : timeout socket h1 = **1 closure/socket** + re-arm **conditionnel**. ⚠️ piège : node RÉ-ARME `socket.setTimeout` aux transitions keep-alive (`server.timeout` 120 s ↔ `keepAliveTimeout` 5 s) → tout état « 1× par socket » peut être écrasé dès la req 2 → check conditionnel par requête. Poste résiduel = node-interne (prix de la feature 408).
 - **T4 (`5a37a0b`, structurel)** : churn listeners/req — 1 seul `once("close")` au teardown, `_onTimeout()` direct, `fireRequestEnd()` ; ~4 onceWrappers + 5 closures + 2 removeListener supprimés/req. ⚠️ vécu : `replace_all` d'un call site vers la méthode fraîchement extraite = récursion infinie (s'exclure soi-même).
 - **V5 RFC (`fd28a82`/`023fd5e`/`1aaa6f2`)** : teardown blindé (hook `onFinish` qui throw ne fuit plus de scope DI) ; **Host mismatch → 421** ; broadcast WS binaire ; Range RFC 9110 (416/ignore/clamp) + `destroy()` ReadStream ; `new Promise(async executor)` aplatis. Bonus : hang `super.send` http2 corrigé.
-- **Contrat retours controller (`044df1d`)** : scalaires auto-JSON (RFC 8259), `Buffer` direct, `null`/`undefined` = corps vide. (Resolver côté framework.)
+- **Contrat retours controller (`044df1d`)** : scalaires auto-JSON (RFC 8259), `Buffer` direct.
+  `null`/`undefined` = **« l'action envoie elle-même »** → `waitAsync` (PAS un corps vide — un retour nul
+  sur un 200 qui n'envoie rien PEND jusqu'au timeout). **SAUF statut sans corps** (204/205/304, RFC 9110) :
+  là, `null` = « rien à dire » → réponse vide envoyée (sinon un `@Delete @HttpCode(204) { return null }`
+  timeoutait alors que la suppression avait eu lieu). Resolver côté framework, 6 tests.
 
 ## Validation (Zod) → 422 — `service/error-renderer.ts`
 

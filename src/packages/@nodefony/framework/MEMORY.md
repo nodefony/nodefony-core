@@ -190,8 +190,20 @@ callController()
     → string → context.send()
     → HttpResponse/Http2Response/WebsocketResponse → retourner direct
     → void + isRedirect → context.send()
-    → void → waitAsync = true
+    → void + statut SANS CORPS (204/205/304) → context.send()   ← « rien à dire »
+    → void → waitAsync = true                                   ← « l'action envoie elle-même »
 ```
+
+**Retour `null`/`undefined` — 2 sens, tranchés par le STATUT** (`NO_BODY_STATUS`, RFC 9110) :
+statut 204/205/304 → réponse **vide envoyée** ; tout autre statut → `waitAsync` (l'action est
+censée envoyer plus tard). Sans cette distinction, un `@Delete @HttpCode(204) { …; return null; }`
+**pendait jusqu'au timeout (504)** alors que la suppression avait eu lieu — vécu sur une ressource
+générée par `create entity`, invisible avant car aucun code du repo ne rendait un 204. 6 tests
+(`Resolver.test.ts` § statut sans corps), dont la non-régression du 200.
+
+**`IResourceService.find(criteria?, options?)`** porte désormais `IResourceReadOptions`
+(`limit`/`offset`/`order`/`relations`) → `listResource(criteria, options)`. Une liste sans borne est
+une fuite qui attend son heure ; le controller généré plafonne (défaut 25, max 100).
 
 ## Gotchas
 

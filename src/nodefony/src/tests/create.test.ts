@@ -956,6 +956,228 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("moteur — create entity (in-project)", () => {
+    /** Scaffold entité depuis `from` (détection racine = comme le CLI). */
+    const entity = (from: string, answers: Record<string, string | boolean>) =>
+      runScaffold(
+        { type: "entity", answers, dir: from, force: false },
+        version,
+      );
+
+    /** App de fixture — preset `complete` : c'est lui qui embarque @nodefony/drizzle. */
+    const app = (name: string, preset = "complete"): string => {
+      const dest = path.join(tmp, name);
+      scaffold(dest, { name, preset, frontend: "none" });
+      return dest;
+    };
+
+    it("pose la chaîne complète : entité, schémas, service, controller, tests", () => {
+      const dest = app("eapp");
+      const r = entity(dest, {
+        name: "Post",
+        fields: "title:string content:text",
+      });
+
+      for (const f of [
+        "nodefony/entity/Post.ts",
+        "nodefony/entity/Post.schema.ts",
+        "nodefony/service/PostService.ts",
+        "nodefony/controllers/PostController.ts",
+        "tests/post.test.ts",
+      ]) {
+        assert.isTrue(existsSync(path.join(dest, f)), `${f} manquant`);
+      }
+      assert.include((r.notes ?? []).join("\n"), "table posts (sqlite)");
+      assertNoEtaResidue(dest);
+    });
+
+    it("l'entité est du Drizzle natif, avec la clé uuid7 générée côté JS", () => {
+      const dest = app("eapp2");
+      entity(dest, { name: "Post", fields: "title:string! views:int" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      assert.include(src, 'from "drizzle-orm/sqlite-core"');
+      assert.include(src, 'export const postTable = sqliteTable("posts"');
+      assert.include(src, "Nodefony.generateSortableId()");
+      assert.match(src, /title: text\("title"\)\.notNull\(\)\.unique\(\)/u);
+      // Le descripteur ne fige PAS le connecteur (donnée de config, résolue au boot).
+      assert.include(src, "export const PostEntity = defineEntity({");
+      assert.notMatch(src, /orm:\s*["']/u);
+    });
+
+    it("le contrat d'entrée dérive la mise à jour, et exclut id/horodatages", () => {
+      const dest = app("eapp3");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.schema.ts"),
+        "utf8",
+      );
+      assert.include(src, "export const createPostSchema = z.object({");
+      assert.include(src, "createPostSchema.partial()");
+      assert.notInclude(src, "id:");
+      assert.notInclude(src, "createdAt");
+    });
+
+    it("le controller sert REST ET la socket, avec les bons statuts", () => {
+      const dest = app("eapp4");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      assert.include(src, '@controller("/api/posts")');
+      assert.include(src, 'methods: ["GET", "WEBSOCKET"]'); // le différenciateur
+      assert.include(src, "@HttpCode(201)");
+      assert.include(src, "@Idempotent()");
+      assert.include(src, '"Location"');
+      assert.include(src, "@HttpCode(204)");
+      assert.include(src, "404");
+    });
+
+    it("le service porte la validation — donc tous les transports en profitent", () => {
+      const dest = app("eapp5");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "service", "PostService.ts"),
+        "utf8",
+      );
+      assert.include(src, "extends AbstractCrudService<PostRow>");
+      assert.include(src, "beforeCreate");
+      assert.include(src, "createPostSchema.parse(data)");
+      // Repository résolu au PREMIER USAGE : l'ORM ne se connecte qu'à onBoot.
+      assert.include(src, "export function getPostService()");
+    });
+
+    it("câble l'index : @entities créé de toutes pièces + @controllers complété", () => {
+      const dest = app("eapp6");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+
+      // Import NOMMÉ : un descripteur d'entité est une const exportée, pas un default
+      // (contrairement à un controller). Un `import X from …` ne compilerait pas.
+      assert.include(
+        index,
+        'import { PostEntity } from "./nodefony/entity/Post";',
+      );
+      assert.include(index, 'import { entities } from "@nodefony/orm-core";');
+      assert.match(index, /@entities\(\[PostEntity\]\)/u);
+      assert.match(index, /@controllers\(\[[^\]]*PostController\]\)/u);
+    });
+
+    it("deuxième entité : le décorateur EXISTANT est complété, pas dupliqué", () => {
+      const dest = app("eapp7");
+      entity(dest, { name: "Post", fields: "title:string" });
+      entity(dest, { name: "Comment", fields: "body:text" });
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+
+      assert.match(index, /@entities\(\[PostEntity, CommentEntity\]\)/u);
+      assert.strictEqual(index.match(/@entities\(/gu)?.length, 1);
+      // L'import du décorateur ne doit pas être ajouté deux fois.
+      assert.strictEqual(
+        index.match(/import \{ entities \} from "@nodefony\/orm-core";/gu)
+          ?.length,
+        1,
+      );
+    });
+
+    it("--dialect postgres : pgTable et jsonb", () => {
+      const dest = app("eapp8");
+      entity(dest, {
+        name: "Post",
+        fields: "meta:json",
+        dialect: "postgres",
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      assert.include(src, 'from "drizzle-orm/pg-core"');
+      assert.include(src, "pgTable");
+      assert.include(src, 'jsonb("meta")');
+    });
+
+    it("--no-controller : ni controller ni wiring de controller", () => {
+      const dest = app("eapp9");
+      entity(dest, { name: "Post", fields: "title:string", controller: false });
+      assert.isFalse(
+        existsSync(
+          path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        ),
+      );
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.match(index, /@entities\(\[PostEntity\]\)/u);
+      assert.notInclude(index, "PostController");
+    });
+
+    it("nom normalisé : PostEntity → Post (le suffixe n'est jamais redoublé)", () => {
+      const dest = app("eapp10");
+      entity(dest, { name: "PostEntity", fields: "title:string" });
+      assert.isTrue(
+        existsSync(path.join(dest, "nodefony", "entity", "Post.ts")),
+      );
+    });
+
+    it("table au pluriel, y compris irrégulier (Story → stories)", () => {
+      const dest = app("eapp11");
+      entity(dest, { name: "Story", fields: "title:string" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Story.ts"),
+        "utf8",
+      );
+      assert.include(src, 'sqliteTable("stories"');
+    });
+
+    describe("gardes — aucun fichier écrit si elles tombent", () => {
+      it("app SANS ORM : refus actionnable plutôt que du code mort", () => {
+        const dest = app("bare", "minimal"); // minimal = pas de drizzle
+        assert.throws(
+          () => entity(dest, { name: "Post", fields: "title:string" }),
+          /@nodefony\/drizzle absent/u,
+        );
+        assert.isFalse(existsSync(path.join(dest, "nodefony", "entity")));
+      });
+
+      it("hors projet : refus", () => {
+        assert.throws(
+          () => entity(tmp, { name: "Post", fields: "title:string" }),
+          /aucun projet Nodefony/u,
+        );
+      });
+
+      it("entité déjà déclarée : refus (pas d'écrasement silencieux)", () => {
+        const dest = app("dup");
+        entity(dest, { name: "Post", fields: "title:string" });
+        assert.throws(
+          () => entity(dest, { name: "Post", fields: "other:string" }),
+          /déjà référencé/u,
+        );
+      });
+
+      it("champ mal formé : refus avec le mot « invalide » (→ EX_USAGE)", () => {
+        const dest = app("badfield");
+        assert.throws(
+          () => entity(dest, { name: "Post", fields: "title:wat" }),
+          /invalide/u,
+        );
+      });
+
+      it("module cible inconnu : refus, cibles listées", () => {
+        const dest = app("nomod");
+        assert.throws(
+          () =>
+            entity(dest, {
+              name: "Post",
+              fields: "title:string",
+              module: "@x/absent",
+            }),
+          /introuvable/u,
+        );
+      });
+    });
+  });
+
   describe("catalogue de versions (anti-dérive templates ↔ monorepo)", () => {
     it("chaque version du catalogue reste alignée (même MAJEURE) sur le repo", async () => {
       const { SCAFFOLD_VERSIONS } = await import("../cli/scaffold/versions");

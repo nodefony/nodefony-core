@@ -41,6 +41,28 @@ class Create extends Command {
       "wire nodefony deps as file: links to a local checkout (framework dev)",
     );
     this.addOption("--no-link", "force registry versions (skip link question)");
+    // `create entity Post title:string content:text` — les champs sont positionnels ;
+    // ces options règlent le reste (clé primaire, artefacts, cible).
+    this.addOption(
+      "--id <kind>",
+      "entity primary key: uuid7 (default) | uuid4 | serial",
+    );
+    this.addOption("--soft-delete", "entity: add deletedAt column");
+    this.addOption("--no-timestamps", "entity: drop createdAt/updatedAt");
+    this.addOption("--no-controller", "entity: skip the REST/WS controller");
+    this.addOption("--no-tests", "entity: skip the generated tests");
+    this.addOption(
+      "--connector <name>",
+      "entity: ORM connector (default: default)",
+    );
+    this.addOption(
+      "--dialect <d>",
+      "entity: sqlite | postgres | mysql (default: from config)",
+    );
+    this.addOption(
+      "--fields <spec>",
+      'entity: "title:string content:text" (else positional)',
+    );
   }
 
   override async generate(): Promise<this> {

@@ -789,11 +789,31 @@ class Resolver implements IResolver {
             if ((this.context as HttpContext).isRedirect) {
               return (this.context as HttpContext).send();
             }
+            // Statut SANS CORPS (RFC 9110 §15.3.5 / §15.4.5) : `204 No Content`,
+            // `205 Reset Content`, `304 Not Modified`. Ici, un retour `null` ne veut
+            // PAS dire « l'action enverra elle-même » — il veut dire « il n'y a rien à
+            // dire ». Sans ce cas, un `@Delete @HttpCode(204) { …; return null; }`
+            // laissait la requête pendue jusqu'au timeout, alors que la suppression
+            // avait bien eu lieu (vécu sur une ressource générée).
+            if (NO_BODY_STATUS.has(this.getResponseStatus())) {
+              return (this.context as HttpContext).send();
+            }
             this.context.waitAsync = true;
             break;
         }
     }
   }
+
+  /** Statut courant de la réponse (0 si le transport n'en porte pas). */
+  private getResponseStatus(): number {
+    return (
+      (this.context.response as HttpResponse | Http2Response | null)
+        ?.statusCode ?? 0
+    );
+  }
 }
+
+/** Statuts dont la réponse n'a, par définition, pas de corps (RFC 9110). */
+const NO_BODY_STATUS = new Set([204, 205, 304]);
 
 export default Resolver;

@@ -95,6 +95,10 @@ export async function askMissing(
       if (q.askIf === "hasCheckout" && !caps.hasCheckout) {
         continue;
       }
+      // Réglage avancé : on ne l'impose pas au dialogue (défaut sûr, option dédiée).
+      if (q.advanced) {
+        continue;
+      }
       answers[q.key] = await ask(rl, output, q);
     }
   } finally {

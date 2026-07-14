@@ -10,6 +10,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Eta } from "eta";
 import { findProjectRoot } from "../projectRoot";
+import {
+  parseEntityFields,
+  buildEntityCodegen,
+  ENTITY_DIALECTS,
+  ENTITY_ID_KINDS,
+  type TEntityDialect,
+  type TEntityIdKind,
+} from "./entityFields";
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
 import {
   getScaffoldSpec,
@@ -444,6 +452,9 @@ export function runScaffold(
   }
   if (request.type === "front") {
     return runFrontScaffold(request, answers, packageRoot);
+  }
+  if (request.type === "entity") {
+    return runEntityScaffold(request, answers, packageRoot);
   }
   const dest = path.resolve(request.dir);
   if (existsSync(dest) && readdirSync(dest).length > 0 && !request.force) {
@@ -925,6 +936,339 @@ function runControllerScaffold(
     linked: [],
     notes: NOTES[kind],
   };
+}
+
+/** Pluriel simple, suffisant pour un nom de table (`Post` → `posts`, `Story` → `stories`). */
+function pluralize(word: string): string {
+  if (/[^aeiou]y$/u.test(word)) return `${word.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/u.test(word)) return `${word}es`;
+  return `${word}s`;
+}
+
+/** `BlogPost` → `blog_posts` — nom de table SQL. */
+function tableName(pascal: string): string {
+  return pluralize(toKebabCase(pascal)).replaceAll("-", "_");
+}
+
+/**
+ * Dialecte SQL du connecteur visé, lu dans `nodefony.config.ts`.
+ *
+ * Lecture TEXTUELLE assumée (le fichier est du TypeScript : l'exécuter pour lire une
+ * clé coûterait un boot). En cas de doute, on retombe sur `sqlite` — et le scaffold
+ * ANNONCE le dialecte retenu, pour qu'une déduction fausse se voie tout de suite au
+ * lieu de produire une table du mauvais moteur en silence.
+ */
+function detectDialect(projectRoot: string): TEntityDialect {
+  const configPath = path.join(projectRoot, "nodefony.config.ts");
+  if (!existsSync(configPath)) return "sqlite";
+  const source = readFileSync(configPath, "utf8");
+  const match = /dialect\s*:\s*["'](\w+)["']/u.exec(source);
+  const found = match?.[1];
+  return (ENTITY_DIALECTS as readonly string[]).includes(found ?? "")
+    ? (found as TEntityDialect)
+    : "sqlite";
+}
+
+/**
+ * Scaffold IN-PROJECT d'une entité (`create entity`) : table Drizzle native, interface
+ * de ligne, schémas Zod d'entrée, service CRUD, controller REST + WebSocket, tests.
+ *
+ * Câble la cible : `@entities([...])` (créé au besoin) et `@controllers([...])`.
+ *
+ * @throws hors projet · cible inconnue · aucun module ORM dans les dépendances ·
+ *   entité déjà déclarée · champ mal formé.
+ */
+function runEntityScaffold(
+  request: IScaffoldRequest,
+  answers: TScaffoldAnswers,
+  packageRoot: string,
+): IScaffoldResult {
+  const projectRoot = findProjectRoot(request.dir);
+  if (!projectRoot) {
+    throw new Error(
+      "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
+        "lance la commande depuis une app (créée par `nodefony create app`)",
+    );
+  }
+  const targets = listTargets(projectRoot);
+  const moduleName = String(answers.module ?? "");
+  const target = moduleName
+    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
+    : targets[0];
+  if (!target) {
+    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
+    throw new Error(
+      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
+    );
+  }
+
+  // Garde ORM : générer une entité dans une app sans ORM produirait du code mort qui
+  // ne compile même pas. On refuse AVANT d'écrire, avec le geste exact.
+  const manifest = JSON.parse(
+    readFileSync(path.join(target.dir, "package.json"), "utf8"),
+  ) as Record<string, Record<string, string>>;
+  const targetDeps = new Set(
+    ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
+      Object.keys(manifest[b] ?? {}),
+    ),
+  );
+  if (!targetDeps.has("@nodefony/drizzle")) {
+    throw new Error(
+      `@nodefony/drizzle absent de ${target.name} — ajoute la dep + use("@nodefony/drizzle") ` +
+        `au manifeste modules de nodefony.config.ts, puis relance`,
+    );
+  }
+
+  // `PostEntity` / `Post.ts` → `Post` (le suffixe donné n'est jamais redoublé).
+  const base = String(answers.name).replace(/[-_]?[Ee]ntity$/u, "");
+  const pascal = toPascalCase(base);
+  const camel = pascal.charAt(0).toLowerCase() + pascal.slice(1);
+  const kebab = toKebabCase(base);
+  const table = tableName(pascal);
+
+  const dialect =
+    (String(answers.dialect || "") as TEntityDialect) ||
+    detectDialect(projectRoot);
+  if (!(ENTITY_DIALECTS as readonly string[]).includes(dialect)) {
+    throw new Error(
+      `dialecte invalide « ${dialect} » — attendus : ${ENTITY_DIALECTS.join(" | ")}`,
+    );
+  }
+  const id = String(answers.id) as TEntityIdKind;
+  if (!(ENTITY_ID_KINDS as readonly string[]).includes(id)) {
+    throw new Error(
+      `--id invalide « ${id} » — attendus : ${ENTITY_ID_KINDS.join(" | ")}`,
+    );
+  }
+
+  const fields = parseEntityFields(String(answers.fields ?? ""));
+  const codegen = buildEntityCodegen(fields, {
+    dialect,
+    id,
+    timestamps: answers.timestamps !== false,
+    softDelete: answers.softDelete === true,
+  });
+
+  const route = String(answers.route) || `/api/${pluralize(kebab)}`;
+  const connector = String(answers.connector || "default");
+
+  // Exemple de charge utile — un exemple faux serait pire que pas d'exemple.
+  // Deux formes, pour deux usages :
+  //  - `curlBody` : JSON figé, collé dans le `curl` de la documentation ;
+  //  - `sampleFactory` : fabrique paramétrée par un entier, utilisée par les tests.
+  //    Elle est indispensable dès qu'un champ est UNIQUE : deux insertions du même
+  //    échantillon violeraient la contrainte, et le test généré échouerait sur
+  //    lui-même (vécu).
+  const sample: Record<string, unknown> = {};
+  const factory: string[] = [];
+  for (const f of fields) {
+    if (f.nullable) continue;
+    const isNumber = f.type === "int" || f.type === "float";
+    sample[f.name] = isNumber
+      ? 1
+      : f.type === "bool"
+        ? true
+        : f.type === "json"
+          ? {}
+          : f.type === "date"
+            ? "2026-01-01T00:00:00.000Z"
+            : `${f.name}-1`;
+    factory.push(
+      `${f.name}: ` +
+        (isNumber
+          ? "n"
+          : f.type === "bool"
+            ? "true"
+            : f.type === "json"
+              ? "{}"
+              : f.type === "date"
+                ? "new Date()"
+                : `\`${f.name}-\${n}\``),
+    );
+  }
+
+  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const written: string[] = [];
+  const data = {
+    pascal,
+    camel,
+    kebab,
+    table,
+    route,
+    connector,
+    dialect,
+    moduleName: target.kind === "app" ? "app" : String(target.name),
+    curlBody: JSON.stringify(sample),
+    sampleFactory: `{ ${factory.join(", ")} }`,
+    ...codegen,
+  };
+
+  const templates = path.join(packageRoot, "templates", "entity");
+  const tokens = { __PASCAL__: pascal, __KEBAB__: kebab };
+  const service = answers.service !== false;
+  const controller = service && answers.controller !== false;
+
+  renderLayer(
+    eta,
+    path.join(templates, "base"),
+    target.dir,
+    data,
+    written,
+    tokens,
+  );
+  if (service) {
+    renderLayer(
+      eta,
+      path.join(templates, "service"),
+      target.dir,
+      data,
+      written,
+      tokens,
+    );
+  }
+  if (controller) {
+    renderLayer(
+      eta,
+      path.join(templates, "controller"),
+      target.dir,
+      data,
+      written,
+      tokens,
+    );
+  }
+  if (answers.tests !== false) {
+    renderLayer(
+      eta,
+      path.join(templates, "tests"),
+      target.dir,
+      data,
+      written,
+      tokens,
+    );
+  }
+
+  const indexPath = path.join(target.dir, "index.ts");
+  wireEntitiesDecorator(
+    indexPath,
+    `${pascal}Entity`,
+    `./nodefony/entity/${pascal}`,
+  );
+  if (controller) {
+    wireDecoratorList(
+      indexPath,
+      "controllers",
+      `${pascal}Controller`,
+      `./nodefony/controllers/${pascal}Controller`,
+    );
+  }
+  written.push("index.ts");
+
+  // Dire la vérité sur la base : le DDL dérivé du mode dev crée la table au boot, mais
+  // ne la modifie JAMAIS ensuite, et aucune migration n'est produite.
+  const notes = [
+    `table ${table} (${dialect}) — créée au prochain boot en développement`,
+    `⚠ modifier l'entité ensuite n'altère PAS la table (pas d'ALTER en dev) — supprime la base de dev, ou passe par une migration`,
+    `⚠ production : aucune migration générée (orm:migrate n'existe pas encore)`,
+  ];
+  if (controller) {
+    notes.push(
+      `REST ${route} (GET/POST) · ${route}/{id} (GET/PUT/DELETE) — les lectures répondent AUSSI par la socket`,
+    );
+  }
+  if (!service) {
+    notes.push("service et controller non générés (--no-service)");
+  } else if (!controller) {
+    notes.push("controller non généré (--no-controller)");
+  }
+
+  return { dest: target.dir, files: written.sort(), linked: [], notes };
+}
+
+/**
+ * Ajoute une entité au décorateur `@entities([...])` de la cible — **en le créant
+ * s'il n'existe pas encore**.
+ *
+ * Différence avec `wireDecoratorList` : une app n'a aucune raison de porter un
+ * `@entities([])` vide tant qu'elle n'a pas d'entité, et les apps déjà générées n'en
+ * ont pas. Plutôt que d'exiger une ancre (throw) ou de l'imposer à tous les templates,
+ * on **pose le décorateur au premier usage**, juste au-dessus de `@controllers` (ou de
+ * la déclaration de classe s'il n'y en a pas).
+ *
+ * Édition textuelle conservatrice : toute ambiguïté fait échouer avec un geste à
+ * appliquer à la main, plutôt que de corrompre le fichier.
+ *
+ * @param indexPath - `index.ts` de la cible.
+ * @param className - nom du descripteur (`PostEntity`).
+ * @param importPath - chemin relatif du descripteur.
+ * @throws si l'entité est déjà référencée, ou si aucun point d'insertion n'est trouvé.
+ */
+export function wireEntitiesDecorator(
+  indexPath: string,
+  className: string,
+  importPath: string,
+): void {
+  const source = readFileSync(indexPath, "utf8");
+  if (new RegExp(`\\b${className}\\b`, "u").test(source)) {
+    throw new Error(
+      `${className} est déjà référencé dans ${indexPath} — choisis un autre nom d'entité`,
+    );
+  }
+  // Le décorateur existe déjà → la mécanique commune suffit.
+  if (/@entities\(\[/u.test(source)) {
+    wireDecoratorList(indexPath, "entities", className, importPath);
+    return;
+  }
+
+  // Import NOMMÉ : un descripteur d'entité est une const exportée, pas un default
+  // (contrairement à un controller). Un `import X from …` compilerait chez personne.
+  const importLine = `import { ${className} } from "${importPath}";`;
+  const manual = `  ${importLine}\n  @entities([${className}]) sur la classe Module`;
+
+  const imports = [...source.matchAll(/^import [^\n]*$/gmu)];
+  const last = imports.at(-1);
+  if (!last || last.index === undefined) {
+    throw new Error(
+      `aucun import trouvé dans ${indexPath} — ajoute à la main :\n${manual}`,
+    );
+  }
+
+  // Ancre : `@controllers(` s'il existe, sinon la déclaration de classe.
+  const anchorRe = /^@controllers\(/mu;
+  const classRe =
+    /^(?:@[\w.]+\([\s\S]*?\)\s*)*class\s+\w+\s+extends\s+Module\b/mu;
+  const anchor = anchorRe.exec(source) ?? classRe.exec(source);
+  if (!anchor || anchor.index === undefined) {
+    throw new Error(
+      `ni @controllers ni « class … extends Module » dans ${indexPath} — ajoute à la main :\n${manual}`,
+    );
+  }
+
+  // 1) l'import du descripteur + celui du décorateur (si absent) ;
+  // 2) le décorateur lui-même, juste avant l'ancre.
+  const importAt = last.index + last[0].length;
+  const needsDecoratorImport = !/\bentities\b[^\n]*@nodefony\/orm-core/u.test(
+    source,
+  );
+  const injected =
+    `\n${importLine}` +
+    (needsDecoratorImport
+      ? `\nimport { entities } from "@nodefony/orm-core";`
+      : "");
+  const withImports =
+    source.slice(0, importAt) + injected + source.slice(importAt);
+
+  // L'ancre est recalculée : les imports viennent de décaler le fichier.
+  const shifted = anchorRe.exec(withImports) ?? classRe.exec(withImports);
+  if (!shifted || shifted.index === undefined) {
+    throw new Error(
+      `point d'insertion perdu dans ${indexPath} — ajoute à la main :\n${manual}`,
+    );
+  }
+  const wired =
+    withImports.slice(0, shifted.index) +
+    `@entities([${className}])\n` +
+    withImports.slice(shifted.index);
+  writeFileSync(indexPath, wired);
 }
 
 /**

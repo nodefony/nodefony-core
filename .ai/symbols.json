@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-14T13:03:13.669Z",
+  "generated": "2026-07-14T13:39:00.845Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1020,
-    "symbols": 2671,
-    "classes": 321,
-    "interfaces": 701,
-    "types": 307,
+    "files": 1021,
+    "symbols": 2693,
+    "classes": 322,
+    "interfaces": 704,
+    "types": 311,
     "enums": 4,
-    "functions": 774,
-    "constants": 564
+    "functions": 783,
+    "constants": 569
   },
   "symbols": {
     "Cli": {
@@ -2847,6 +2847,14 @@
       "module": "@nodefony/core",
       "description": "Ajoute le module au manifeste `modules` de `nodefony.config.ts` — c'est CE tableau qui décide de ce qui se charge, et dans quel ordre. Un module local vient à la fin : le socle (http, framework, se…"
     },
+    "wireEntitiesDecorator": {
+      "name": "wireEntitiesDecorator",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ajoute une entité au décorateur `@entities([...])` de la cible — **en le créant s'il n'existe pas encore**. Différence avec `wireDecoratorList` : une app n'a aucune raison de porter un `@entities([…"
+    },
     "wireKernelBootCall": {
       "name": "wireKernelBootCall",
       "kind": "function",
@@ -2862,6 +2870,104 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Paramètres frontend par framework — type registerEntry, entry, nœud de montage, ET les dépendances npm (SOURCE UNIQUE : consommée par le `package.json.tpl` de `create app` ET par `create front` qui…"
+    },
+    "EntityFieldError": {
+      "name": "EntityFieldError",
+      "kind": "class",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur de syntaxe dans la déclaration d'un champ — message actionnable."
+    },
+    "IEntityField": {
+      "name": "IEntityField",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un champ déclaré, après analyse de `title:string!` ou `author:ref:User`."
+    },
+    "IEntityCodegen": {
+      "name": "IEntityCodegen",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Tout ce dont les templates ont besoin pour rendre une entité."
+    },
+    "TEntityDialect": {
+      "name": "TEntityDialect",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "TEntityIdKind": {
+      "name": "TEntityIdKind",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "TEntityFieldType": {
+      "name": "TEntityFieldType",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "parseEntityFields": {
+      "name": "parseEntityFields",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Analyse la déclaration textuelle des champs. Grammaire : `nom:type[?][!][:index]` · `nom:ref:Entité[?][!]` - `?` → nullable (sinon **NOT NULL** : une colonne nullable est une décision, pas un oubli…"
+    },
+    "buildEntityCodegen": {
+      "name": "buildEntityCodegen",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Produit le code des colonnes, de l'interface de ligne et du schéma Zod. Les horodatages sont posés **côté JS** (`$defaultFn`/`$onUpdateFn`) et non en SQL : le DDL dérivé du mode dev n'émet pas les …"
+    },
+    "ENTITY_DIALECTS": {
+      "name": "ENTITY_DIALECTS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Champs d'entité : de la syntaxe `title:string` au code Drizzle du dialecte visé. Module **pur** (aucune I/O, aucun template) : c'est lui qui porte la traduction « vocabulaire Nodefony → colonne Dri…"
+    },
+    "ENTITY_ID_KINDS": {
+      "name": "ENTITY_ID_KINDS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Stratégies de clé primaire."
+    },
+    "ENTITY_FIELD_TYPES": {
+      "name": "ENTITY_FIELD_TYPES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Types de champ du vocabulaire Nodefony (jamais le vocabulaire Drizzle)."
+    },
+    "TABLE_FN": {
+      "name": "TABLE_FN",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fonction de table Drizzle du dialecte (`sqliteTable`…) et son import."
     },
     "confirm": {
       "name": "confirm",
@@ -2925,6 +3031,13 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "TEntityIdChoice": {
+      "name": "TEntityIdChoice",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "getScaffoldSpec": {
       "name": "getScaffoldSpec",
       "kind": "function",
@@ -2964,6 +3077,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Saveurs de controller posables AVEC le module — les mêmes que `create controller` (le scaffold module DÉLÈGUE, il ne duplique aucun template), plus `none` pour une coquille nue."
+    },
+    "ENTITY_ID_CHOICES": {
+      "name": "ENTITY_ID_CHOICES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Stratégies de clé primaire proposées par `create entity`."
     },
     "pick": {
       "name": "pick",
@@ -8222,14 +8343,22 @@
       "decorators": [],
       "description": "Controller de ressource **souverain** (V4.2 — POC API souveraine, Phase 2) : la logique métier est écrite UNE fois dans le service de ressource, les actions de la sous-classe ne sont que des portes…"
     },
-    "IResourceService": {
-      "name": "IResourceService",
+    "IResourceReadOptions": {
+      "name": "IResourceReadOptions",
       "kind": "interface",
       "file": "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
       "exported": true,
       "module": "@nodefony/framework",
       "extends": null,
       "description": "Contrat structurel du service de ressource consommé par un {@link ResourceController} — aligné sur `AbstractCrudService` (`@nodefony/orm-core`) SANS en dépendre : le framework ne connaît pas l'ORM,…"
+    },
+    "IResourceService": {
+      "name": "IResourceService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
     },
     "Route": {
       "name": "Route",
@@ -18888,6 +19017,7 @@
         "BootConfigurationError",
         "RpcError",
         "TimeoutError",
+        "EntityFieldError",
         "AgentError",
         "LLMError",
         "MemoryError",
@@ -21133,6 +21263,9 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "ENTITY_ID_CHOICES": [
+        "src/nodefony/src/cli/create.ts"
+      ],
       "FRONTEND_CHOICES": [
         "src/nodefony/src/cli/create.ts"
       ],
@@ -21924,6 +22057,24 @@
       ],
       "RedisWebAuthnCredentialStore": [
         "src/packages/@nodefony/redis/nodefony/registerStores.ts"
+      ],
+      "parseEntityFields": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "buildEntityCodegen": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "ENTITY_DIALECTS": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "ENTITY_ID_KINDS": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "TEntityDialect": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "TEntityIdKind": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "pick": [
         "src/nodefony/src/cli/scaffold/engine.ts"

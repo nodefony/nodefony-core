@@ -29,6 +29,16 @@ export interface IScaffoldQuestion {
    * `hasCheckout` = un checkout nodefony-core est résolvable (mode --link).
    */
   askIf?: "hasCheckout";
+  /**
+   * Réglage **avancé** : jamais posé en dialogue (son défaut est sûr), mais piloté par
+   * une option de la ligne de commande — et proposé par Studio dans un repli.
+   *
+   * Pourquoi ce drapeau plutôt que sortir la question de la spec : c'est la spec qui
+   * porte les défauts, la validation et les valeurs permises. Une option absente d'ici
+   * serait silencieusement ignorée par le moteur (`resolveAnswers` ne garde que les
+   * clés déclarées) — le pire des deux mondes.
+   */
+  advanced?: boolean;
 }
 
 /** Spec d'un type de scaffold (`app` aujourd'hui ; `module`/`controller`/`entity` suivent). */
@@ -349,11 +359,125 @@ const MODULE_SPEC: IScaffoldTypeSpec = {
   ],
 };
 
+/** Stratégies de clé primaire proposées par `create entity`. */
+export const ENTITY_ID_CHOICES = ["uuid7", "uuid4", "serial"] as const;
+export type TEntityIdChoice = (typeof ENTITY_ID_CHOICES)[number];
+
+const ENTITY_SPEC: IScaffoldTypeSpec = {
+  type: "entity",
+  description:
+    "Entité + schémas de validation + service CRUD + controller REST/WebSocket (dans l'app ou un module)",
+  questions: [
+    {
+      key: "name",
+      label: "Nom de l'entité (PascalCase, ex : Post)",
+      type: "string",
+      default: "",
+      pattern: "^[A-Za-z][A-Za-z0-9]*$",
+      patternHint:
+        "PascalCase attendu — lettres et chiffres (ex : Post, BlogPost)",
+    },
+    {
+      key: "fields",
+      label:
+        "Champs (nom:type, séparés par des espaces — ? nullable, ! unique, :index)",
+      type: "string",
+      default: "",
+    },
+    {
+      key: "id",
+      label: "Clé primaire",
+      type: "choice",
+      choices: [
+        {
+          value: "uuid7",
+          label: "UUID v7 (recommandé)",
+          hint: "ordonné dans le temps → index compact ; non énumérable",
+        },
+        {
+          value: "uuid4",
+          label: "UUID v4",
+          hint: "imprévisible — quand l'identifiant ne doit rien laisser deviner",
+        },
+        {
+          value: "serial",
+          label: "Auto-incrément",
+          hint: "table interne uniquement (un id exposé s'énumère)",
+        },
+      ],
+      default: "uuid7",
+    },
+    {
+      key: "timestamps",
+      label: "Horodatages createdAt / updatedAt",
+      type: "boolean",
+      default: true,
+    },
+    {
+      key: "softDelete",
+      label: "Suppression douce (deletedAt)",
+      type: "boolean",
+      default: false,
+    },
+    {
+      key: "controller",
+      label: "Controller REST + WebSocket",
+      type: "boolean",
+      default: true,
+    },
+    {
+      key: "tests",
+      label: "Tests (base sqlite en mémoire)",
+      type: "boolean",
+      default: true,
+    },
+    // Réglages avancés : jamais demandés en dialogue (défauts sûrs), pilotés par les
+    // options de la ligne de commande. Ils restent DANS la spec pour que Studio puisse
+    // les proposer et que le moteur les valide.
+    {
+      key: "service",
+      label: "Service CRUD",
+      type: "boolean",
+      default: true,
+      advanced: true,
+    },
+    {
+      key: "module",
+      label: "Module cible",
+      type: "string",
+      default: "",
+      advanced: true,
+    },
+    {
+      key: "connector",
+      label: "Connecteur ORM",
+      type: "string",
+      default: "default",
+      advanced: true,
+    },
+    {
+      key: "dialect",
+      label: "Dialecte SQL (défaut : lu dans la config)",
+      type: "string",
+      default: "",
+      advanced: true,
+    },
+    {
+      key: "route",
+      label: "Route REST (défaut : /api/<pluriel>)",
+      type: "string",
+      default: "",
+      advanced: true,
+    },
+  ],
+};
+
 const SPECS: Record<string, IScaffoldTypeSpec> = {
   app: APP_SPEC,
   module: MODULE_SPEC,
   controller: CONTROLLER_SPEC,
   front: FRONT_SPEC,
+  entity: ENTITY_SPEC,
 };
 
 /**

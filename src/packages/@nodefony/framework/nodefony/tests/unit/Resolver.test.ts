@@ -236,3 +236,68 @@ describe("Resolver — newController() + initialize() hook", () => {
     expect(threw).to.be.true;
   });
 });
+
+// ─── Retour NUL : « rien à dire » vs « je m'en occupe » ─────────────────────
+//
+// Un retour `null`/`undefined` a longtemps signifié UNE seule chose : « l'action
+// enverra la réponse elle-même » → le Resolver posait `waitAsync` et attendait.
+// C'est juste... sauf quand le statut interdit un corps. Un `@Delete @HttpCode(204)`
+// qui rend `null` ne promet pas un envoi différé : il dit qu'il n'y a rien à envoyer.
+// Sans distinction, la requête restait pendue jusqu'au timeout (504) — alors que la
+// suppression avait bien eu lieu (vécu sur une ressource générée par `create entity`).
+describe("Resolver — returnController() — statut sans corps", () => {
+  /** Contexte HTTP portant un statut de réponse (ce que pose `@HttpCode`). */
+  function makeCtxWithStatus(statusCode: number) {
+    const { ctx, calls } = makeCtx();
+    (ctx as unknown as { response: unknown }).response = { statusCode };
+    return { ctx, calls };
+  }
+
+  for (const status of [204, 205, 304]) {
+    it(`${status} + retour null → réponse VIDE envoyée (aucune attente)`, async () => {
+      const r = proxy();
+      const { ctx, calls } = makeCtxWithStatus(status);
+      r.context = ctx as unknown as ContextType;
+
+      await r.returnController(null);
+
+      expect(calls.send.length).to.equal(1);
+      expect(calls.send[0]).to.equal(undefined); // corps vide, pas "null"
+      expect(calls.render.length).to.equal(0);
+      expect(ctx.waitAsync).to.be.false;
+    });
+  }
+
+  it("undefined se comporte comme null sur un 204", async () => {
+    const r = proxy();
+    const { ctx, calls } = makeCtxWithStatus(204);
+    r.context = ctx as unknown as ContextType;
+
+    await r.returnController(undefined);
+
+    expect(calls.send.length).to.equal(1);
+    expect(ctx.waitAsync).to.be.false;
+  });
+
+  it("200 + retour null → l'action garde la main (comportement historique)", async () => {
+    const r = proxy();
+    const { ctx, calls } = makeCtxWithStatus(200);
+    r.context = ctx as unknown as ContextType;
+
+    await r.returnController(null);
+
+    expect(calls.send.length).to.equal(0);
+    expect(ctx.waitAsync).to.be.true; // « je m'en occupe » — inchangé
+  });
+
+  it("réponse DÉJÀ envoyée sur un 204 → on ne renvoie rien par-dessus", async () => {
+    const r = proxy();
+    const { ctx, calls } = makeCtxWithStatus(204);
+    ctx.sended = true;
+    r.context = ctx as unknown as ContextType;
+
+    await r.returnController(null);
+
+    expect(calls.send.length).to.equal(0);
+  });
+});
