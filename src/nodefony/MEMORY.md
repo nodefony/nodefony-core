@@ -168,7 +168,8 @@ import { Nodefony } from "nodefony";
 Nodefony.version           // string — depuis package.json
 Nodefony.getKernel()       // Kernel | null — avant boot = null
 Nodefony.setKernel(k)      // appelé dans Kernel constructor
-Nodefony.generateId()      // uuidv4 string
+Nodefony.generateId()      // uuidv4 string — IMPRÉVISIBLE (requestId, jeton)
+Nodefony.generateSortableId() // uuidv7 string — ORDONNÉ (clé primaire d'entité)
 Nodefony.generateV5Id(name, ns?) // uuidv5 string
 ```
 
@@ -178,6 +179,12 @@ Nodefony.generateV5Id(name, ns?) // uuidv5 string
 
 - `getKernel()` retourne `null` avant `Kernel.start()` — toujours utiliser `?.`
 - Ancienne API supprimée : `nodefony.kernel`, `nodefony.generateId()`, default export
+- **UUIDv7 = `crypto.randomUUIDv7()` NATIF** (Node ≥ 24 = `engines` min) → 0 dep, pas de générateur maison.
+  ⚠️ `randomUUID({version: 7})` **ne fait PAS un v7** : option ignorée en silence → v4 (nibble `4`).
+- **v7 : PAS de monotonie intra-ms** (Node n'a pas le compteur RFC §6.2 ; mesuré ~50 % d'inversions sur
+  20 000 tirages, 0 collision). Localité d'index acquise (préfixe 48 bits) mais **jamais trier par id**
+  pour ordonner des créations → trier par `createdAt`. v7 **n'est pas un secret** (RFC : « MUST NOT be
+  used as security capabilities ») → jeton imprévisible = `generateId()` (v4).
 
 ---
 

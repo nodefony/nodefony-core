@@ -14,6 +14,23 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - ✅ (P5.3, `nodefony/src/decorators/`) `@entity({orm,name?,schema?,relations?})` (class deco): `name` défaut = nom de classe ; construit un **descripteur `IEntity` depuis les options** (0 instanciation) → `entityRegistry.register` au chargement du module + stocke métadonnée. `@repository(name,{entity,orm?})` (class deco): **tag pur** lien repo↔entity, AUCUN registre (binding DI = adapter P5.4+). `metadataStore`: **WeakMap** (pas reflect-metadata), accesseurs `get/has EntityMeta`/`RepositoryMeta`. Types: `EntityOptions`/`RepositoryOptions`/`EntityMetadata`/`RepositoryMetadata`/`DecoratedClass`.
 - ✅ (P5.3b, `nodefony/src/AbstractCrudService.ts`) **`AbstractCrudService<T, R extends IRepository<T>>` extends Service** (abstract). Socle CRUD générique : `find/findOne/findById/count` = **délégation pure** (hot path, 0 hook/event) ; `create/update/delete` = hooks template-method + events. Hooks protected no-op : `beforeCreate(data)→data`/`afterCreate(e)`/`beforeUpdate(crit,data)→data`/`afterUpdate(e)`/`beforeDelete(crit)`/`afterDelete(crit,n)`. Events fire seulement si mutation effective : `onCreated(entity)`/`onUpdated(entity)`/`onDeleted(criteria,count)`. Ctor `(name, repository, ...wiring: ServiceWiring)` — `ServiceWiring` = tuple `[container?, nc?, options?]` (exporté, `nodefony/src/serviceWiring.ts`) capté en rest-param + forwardé par spread `super(name, ...wiring)` → **fini le tunneling des 3 args de câblage** dans chaque sous-classe (DX niveau 1 ; niveau 2=ctor objet sur Service core=backlog ; niveau 3=DI @Inject = DX pas perf, singleton instancié 1×). 2ᵉ générique `R` = conserve les finders métier dans la sous-classe (ex. `UserService extends AbstractCrudService<IUser, IUserRepository>`). `findById` suppose PK `id` string (override sinon). **Singleton DI légitime** = service stateless (état/requête → ALS/Context, jamais champ). 9 tests.
 
+## Déclarer une entité — 2 voies, frontière NETTE
+
+- **`@entities([...], { orm })`** (`nodefony/src/decorators/entitiesDecorator.ts`) = **LA voie utilisateur**
+  (app + module au schéma STATIQUE, écrit ou généré par `create entity`). Mixin `Module`, symétrique de
+  `@controllers`. Descripteurs produits par **`defineEntity()`** (`nodefony/src/defineEntity.ts`) =
+  `IEntityDefinition` = `IEntity` **sans `orm`** (l'ORM est une donnée de CONFIG, résolue au boot :
+  entité > options du décorateur > `"default"`). `defineEntity` = identité typée, **0 effet de bord**
+  (importer une entité ne l'inscrit pas). Idempotent (`has()` → skip) : un module instancié 2× ne double
+  pas l'inscription ; collision réelle (2 schémas, même nom+orm) = throw du registre. 8 tests.
+- **`entityRegistry.register()`** (impératif) = **plomberie de module ORM** — entités dont le schéma ou
+  l'existence dépend du RUNTIME : entités framework drizzle (`createUserTable(dialect)` + `wire()` filtre
+  les dialectes portés), 410 tables Dolibarr (import massif, connecteur dédié). Aucune liste constante
+  possible → `@entities` ne s'y applique pas, et ne les remplacera pas.
+- 🔴 **PHASE `onRegister`, JAMAIS `onBoot`** : les connecteurs se branchent à `onBoot` et créent les
+  tables (`CREATE TABLE IF NOT EXISTS`). Inscrire à `onBoot` = COURSE avec le `connect()` (table absente
+  selon l'ordre des écouteurs). `onRegister` est strictement antérieur. `@controllers`, lui, reste à `onBoot`.
+
 ## Config / Build
 
 - `dist/types/` + `exports` (conforme standard). peerDep: `nodefony`.

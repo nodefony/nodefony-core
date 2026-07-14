@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-14T11:59:52.483Z",
+  "generated": "2026-07-14T13:03:13.669Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1018,
-    "symbols": 2661,
+    "files": 1020,
+    "symbols": 2671,
     "classes": 321,
-    "interfaces": 697,
-    "types": 306,
+    "interfaces": 701,
+    "types": 307,
     "enums": 4,
-    "functions": 770,
-    "constants": 563
+    "functions": 774,
+    "constants": 564
   },
   "symbols": {
     "Cli": {
@@ -10298,6 +10298,23 @@
       "module": "@nodefony/orm-core",
       "description": "Liste figée des opérateurs riches reconnus dans un critère portable. Source de vérité unique partagée par tous les adapters : un objet de valeur de champ n'est traité comme {@link FieldOperators} q…"
     },
+    "IEntityDefinition": {
+      "name": "IEntityDefinition",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/defineEntity.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": "Omit",
+      "description": "Descripteur d'entité **sans ORM figé** — la forme sous laquelle une application déclare ses entités. Pourquoi l'ORM manque : dans {@link IEntity}, `orm` est le **nom d'un connecteur** (`\"default\"`,…"
+    },
+    "defineEntity": {
+      "name": "defineEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/defineEntity.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Déclare une entité applicative. Fonction d'**identité typée** : elle ne fait qu'attacher le type — aucun effet de bord, aucun enregistrement. L'enregistrement est le rôle du décorateur `entities([.…"
+    },
     "Entity": {
       "name": "Entity",
       "kind": "class",
@@ -16434,6 +16451,31 @@
       "decorators": [],
       "description": "Adapte une `ClientSession` MongoDB au contrat portable {@link ITransaction}. Obtenue dans le callback de `MongooseOrm.transaction()`, qui gère le commit/abort automatique via `session.withTransacti…"
     },
+    "EntitiesOptions": {
+      "name": "EntitiesOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Options du décorateur {@link entities}."
+    },
+    "entities": {
+      "name": "entities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Déclare les entités qu'un module apporte — l'équivalent de `@controllers([...])` pour la couche données. ```ts"
+    },
+    "DEFAULT_ORM": {
+      "name": "DEFAULT_ORM",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Connecteur retenu quand ni l'entité ni le décorateur n'en nomment un."
+    },
     "EntityOptions": {
       "name": "EntityOptions",
       "kind": "interface",
@@ -19033,6 +19075,9 @@
         "MemoryShutdownError",
         "MemoryInvalidInputError"
       ],
+      "Omit": [
+        "IEntityDefinition"
+      ],
       "RagError": [
         "RagInvalidInputError",
         "RagShutdownError"
@@ -19958,6 +20003,7 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
@@ -21687,6 +21733,7 @@
         "src/modules/test/nodefony/entity/dolibarr/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
       "ormRegistry": [
@@ -22381,11 +22428,13 @@
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/defineEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
         "src/modules/test/nodefony/entity/dolibarr/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
       "userTable": [
@@ -25727,6 +25776,9 @@
       ],
       "MongooseTransaction": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "IEntityDefinition": [
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts"
       ],
       "DecoratedClass": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",

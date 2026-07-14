@@ -143,4 +143,99 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
       expect(r.reason).to.equal("custom reason");
     });
   });
+
+  // Une donnée refusée par un schéma n'est pas une requête malformée : le corps a été
+  // parsé, c'est son CONTENU qui viole le contrat → 422 (RFC 9110 §15.5.21), et le
+  // client doit savoir QUEL champ corriger.
+  describe("erreur de validation (Zod) → 422", () => {
+    /**
+     * Erreur telle que la produit zod. Reconstituée à la main (et non `z.parse()`) :
+     * la reconnaissance est STRUCTURELLE côté renderer — une app peut embarquer sa
+     * propre copie de zod, et un `instanceof` échouerait alors en silence.
+     */
+    function zodError(
+      issues: { path: string[]; message: string; code: string }[],
+    ): Error {
+      const e = new Error("validation") as Error & { issues: unknown };
+      e.name = "ZodError";
+      e.issues = issues;
+      return e;
+    }
+
+    it("rend 422 (pas 400, pas 500)", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(
+        zodError([
+          {
+            path: ["title"],
+            message: "String must contain at least 3",
+            code: "too_small",
+          },
+        ]),
+        ctx as never,
+      );
+      expect(r.status).to.equal(422);
+    });
+
+    it("nomme les champs fautifs dans le corps", () => {
+      const ctx = fakeHttpContext();
+      renderer.renderHttp(
+        zodError([
+          { path: ["title"], message: "trop court", code: "too_small" },
+          {
+            path: ["author", "email"],
+            message: "email invalide",
+            code: "invalid_string",
+          },
+        ]),
+        ctx as never,
+      );
+      const error = ctx.metaData.error as { fields?: unknown };
+      expect(error.fields).to.deep.equal([
+        { field: "title", message: "trop court", rule: "too_small" },
+        {
+          field: "author.email",
+          message: "email invalide",
+          rule: "invalid_string",
+        },
+      ]);
+    });
+
+    it("résume les champs dans le message", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(
+        zodError([{ path: ["slug"], message: "déjà pris", code: "custom" }]),
+        ctx as never,
+      );
+      expect(r.message).to.contain("slug: déjà pris");
+    });
+
+    it("une erreur ordinaire reste 500 — la détection ne déborde pas", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(new Error("boom"), ctx as never);
+      expect(r.status).to.equal(500);
+    });
+
+    it("un homonyme sans `issues` n'est PAS traité comme une validation", () => {
+      const ctx = fakeHttpContext();
+      const impostor = new Error("faux") as Error & { name: string };
+      impostor.name = "ZodError"; // nom seul : pas de tableau d'anomalies
+      const r = renderer.renderHttp(impostor, ctx as never);
+      expect(r.status).to.equal(500);
+    });
+
+    it("sur WebSocket aussi : le 422 est mappé en code de fermeture (pas 1011)", () => {
+      const ctx = fakeWsContext({ rejected: false });
+      const r = renderer.renderWebsocket(
+        zodError([
+          { path: ["qty"], message: "doit être positif", code: "too_small" },
+        ]),
+        ctx as never,
+      );
+      // 4xx → 4004 côté WS (cf toWsCloseCode) : le client ne doit pas reconnecter
+      // en boucle comme sur une erreur serveur (1011).
+      expect(r.code).to.not.equal(1011);
+      expect(r.reason).to.contain("qty");
+    });
+  });
 });

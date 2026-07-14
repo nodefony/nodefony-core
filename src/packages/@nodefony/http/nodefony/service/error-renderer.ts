@@ -9,6 +9,83 @@ import HttpError from "../src/errors/httpError";
 import { toWsCloseCode } from "../src/context/websocket/WebsocketContext";
 import { nodefonyError } from "nodefony";
 
+/** Une donnée rejetée par la validation n'est pas une requête malformée : 422, pas 400. */
+const VALIDATION_STATUS = 422;
+
+/** Une anomalie de champ, telle qu'elle sort d'un schéma Zod. */
+interface IValidationIssue {
+  /** Chemin du champ fautif (`["author", "email"]`). */
+  path?: unknown[];
+  /** Message lisible. */
+  message?: string;
+  /** Code du contrôle qui a échoué (`too_small`, `invalid_type`…). */
+  code?: string;
+}
+
+/** Champ fautif, tel qu'exposé au client dans le corps JSON (`error.fields`). */
+interface IValidationField {
+  /** Chemin pointé du champ (`"author.email"`). */
+  field: string;
+  /** Message lisible. */
+  message: string;
+  /** Contrôle qui a échoué (`too_small`…) — utile au client pour réagir finement. */
+  rule?: string;
+}
+
+/**
+ * Reconnaît une erreur de validation Zod et en extrait les champs fautifs.
+ *
+ * Reconnaissance **structurelle** (`name` + `issues`), pas `instanceof ZodError` :
+ * une application peut embarquer sa propre copie de zod (résolutions npm multiples),
+ * et `instanceof` échouerait alors en silence — la validation retomberait en 500.
+ * Même parti-pris que le duck-typing de `isPromise` dans le framework.
+ *
+ * Ne coûte rien au chemin nominal : ce code ne tourne que sur une erreur déjà levée.
+ *
+ * @param error - erreur remontée par le pipeline.
+ * @returns les champs fautifs, ou `null` si ce n'est pas une erreur de validation.
+ */
+function toValidationFields(error: Error): IValidationField[] | null {
+  const candidate = error as Error & { issues?: unknown };
+  if (error.name !== "ZodError" || !Array.isArray(candidate.issues)) {
+    return null;
+  }
+  return (candidate.issues as IValidationIssue[]).map((issue) => ({
+    field: Array.isArray(issue.path) ? issue.path.join(".") : "",
+    message: issue.message ?? "invalide",
+    rule: issue.code,
+  }));
+}
+
+/**
+ * Construit l'erreur **422** exposée au client à partir des champs fautifs.
+ *
+ * Pourquoi 422 et pas 400 : la requête est syntaxiquement correcte (le corps a été
+ * parsé) — c'est son **contenu** qui viole le contrat (RFC 9110 §15.5.21). Un 400
+ * dirait « corps illisible » et enverrait le client chercher au mauvais endroit.
+ *
+ * Le message d'origine de zod (un JSON d'anomalies) est remplacé par un résumé
+ * lisible ; la **stack d'origine est conservée** (débogage), et `fields` est porté par
+ * l'erreur elle-même : `toJSON()` sérialise les propriétés propres, donc le client
+ * reçoit `error.fields` et sait QUEL champ corriger — pas seulement que « ça a échoué ».
+ */
+function toValidationError(
+  error: Error,
+  fields: IValidationField[],
+): nodefonyError {
+  const summary = fields
+    .map((f) => (f.field ? `${f.field}: ${f.message}` : f.message))
+    .join(" · ");
+  const validation = new nodefonyError(
+    `Validation failed — ${summary}`,
+    VALIDATION_STATUS,
+  );
+  validation.stack = error.stack;
+  (validation as nodefonyError & { fields: IValidationField[] }).fields =
+    fields;
+  return validation;
+}
+
 /**
  * Default Nodefony error renderer — preserves the legacy JSON error shape.
  *
@@ -82,6 +159,18 @@ class DefaultErrorRenderer implements IErrorRenderer {
     context: IHttpContext | IWebsocketContext,
   ): HttpError {
     if (error instanceof HttpError) return error;
+    const fields = toValidationFields(error);
+    if (fields) {
+      const httpError = new HttpError(
+        toValidationError(error, fields),
+        VALIDATION_STATUS,
+        context as unknown as undefined,
+      );
+      // Porté par le HttpError LUI-MÊME : c'est lui que `renderHttp` sérialise
+      // (`toJSON()` des propriétés propres) — l'erreur enveloppée n'est pas parcourue.
+      (httpError as HttpError & { fields: IValidationField[] }).fields = fields;
+      return httpError;
+    }
     const code = (error as { code?: number }).code;
     return new HttpError(
       error,

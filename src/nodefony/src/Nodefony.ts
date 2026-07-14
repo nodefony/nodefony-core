@@ -1,6 +1,6 @@
 import type Kernel from "./kernel/Kernel";
 import { version as pkgVersion } from "../package.json";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomUUIDv7 } from "node:crypto";
 
 /**
  * Façade statique du framework — point d'entrée global remplaçant le singleton JS legacy.
@@ -53,5 +53,30 @@ export class Nodefony {
    */
   static generateId(): string {
     return randomUUID();
+  }
+
+  /**
+   * Génère un UUID **v7** (RFC 9562) — identifiant **ordonné dans le temps**, à
+   * préférer pour une clé primaire de base de données.
+   *
+   * Pourquoi lui plutôt que {@link generateId} (v4) sur une clé primaire : les 48
+   * premiers bits portent l'horodatage, donc les lignes insérées à la suite
+   * atterrissent **côte à côte dans l'index** ; un UUID v4, purement aléatoire,
+   * fragmente le B-tree à chaque insertion. Et contrairement à un auto-incrément,
+   * il ne donne pas l'énumération de toutes les ressources.
+   *
+   * ⚠️ **Deux limites à connaître.**
+   * 1. **Pas d'ordre garanti dans une même milliseconde** : Node n'implémente pas le
+   *    compteur monotone optionnel de la RFC (§6.2) — mesuré : ~50 % d'inversions
+   *    entre identifiants tirés dans la même milliseconde. Trier des créations se
+   *    fait sur `createdAt`, **jamais** sur l'identifiant.
+   * 2. **Pas un secret** : la RFC l'interdit explicitement comme capacité de sécurité
+   *    (« MUST NOT be used as security capabilities ») — l'instant de création fuit et
+   *    une partie est devinable. Pour un jeton imprévisible → {@link generateId} (v4).
+   *
+   * @returns UUID v7, format `8-4-4-4-12`.
+   */
+  static generateSortableId(): string {
+    return randomUUIDv7();
   }
 }

@@ -5,6 +5,11 @@
  * (stockées via `WeakMap`, sans `reflect-metadata`).
  */
 export { entity, type EntityOptions } from "./entityDecorator";
+export {
+  entities,
+  DEFAULT_ORM,
+  type EntitiesOptions,
+} from "./entitiesDecorator";
 export { repository, type RepositoryOptions } from "./repositoryDecorator";
 export {
   getEntityMeta,

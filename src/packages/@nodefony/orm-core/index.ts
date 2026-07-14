@@ -77,7 +77,15 @@ export type {
 } from "./nodefony/interfaces/IOrmProbe";
 
 // ─── Décorateurs (P5.3) — @entity / @repository (WeakMap, sans reflect) ──────
-export { entity, repository } from "./nodefony/src/decorators/index";
+export {
+  entity,
+  entities,
+  DEFAULT_ORM,
+  repository,
+} from "./nodefony/src/decorators/index";
+export { defineEntity } from "./nodefony/src/defineEntity";
+export type { IEntityDefinition } from "./nodefony/src/defineEntity";
+export type { EntitiesOptions } from "./nodefony/src/decorators/index";
 export {
   getEntityMeta,
   hasEntityMeta,

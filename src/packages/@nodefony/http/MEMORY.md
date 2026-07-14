@@ -395,6 +395,22 @@ Extension de l'`AuditErrorEntry` :
 - **V5 RFC (`fd28a82`/`023fd5e`/`1aaa6f2`)** : teardown blindé (hook `onFinish` qui throw ne fuit plus de scope DI) ; **Host mismatch → 421** ; broadcast WS binaire ; Range RFC 9110 (416/ignore/clamp) + `destroy()` ReadStream ; `new Promise(async executor)` aplatis. Bonus : hang `super.send` http2 corrigé.
 - **Contrat retours controller (`044df1d`)** : scalaires auto-JSON (RFC 8259), `Buffer` direct, `null`/`undefined` = corps vide. (Resolver côté framework.)
 
+## Validation (Zod) → 422 — `service/error-renderer.ts`
+
+`DefaultErrorRenderer.toHttpError()` reconnaît une erreur de validation et rend **422** (Unprocessable
+Content, RFC 9110 §15.5.21) — **pas 400** (le corps a été parsé : c'est son CONTENU qui viole le contrat)
+ni 500. Corps : `error.fields = [{field: "author.email", message, rule}]` → le client sait QUEL champ
+corriger. Message = résumé lisible (le message zod natif est un JSON verbeux) ; **stack d'origine conservée**.
+
+- **Reconnaissance STRUCTURELLE** (`name === "ZodError"` + `Array.isArray(issues)`), **jamais `instanceof`** :
+  une app peut embarquer sa propre copie de zod (résolutions npm multiples) → `instanceof` échouerait en
+  SILENCE et la validation retomberait en 500. Même parti-pris que le duck-typing d'`isPromise`.
+- `fields` est porté par le **HttpError lui-même** (c'est LUI que `renderHttp` sérialise via `toJSON()` des
+  props propres — l'erreur enveloppée n'est PAS parcourue). Piège vécu : posé sur l'erreur interne = absent du corps.
+- Couvre **HTTP ET WS** (un seul point) : côté WS le 422 → close **4004** via `toWsCloseCode`, jamais 1011
+  (sinon le client reconnecte en boucle comme sur une panne serveur).
+- **0 coût hot path** : ne s'exécute que sur une erreur déjà levée (vs un `try/catch` dans le Resolver).
+
 ## Gotchas critiques
 
 **IWsRequestExtension** : `IncomingMessage.url` = string. `Route.match()` fait `.pathname`. Fix : `WsIncomingMessage = IncomingMessage & { url: URL; query; queryGet; path }` — assigné dans `WebsocketContext` constructor.
