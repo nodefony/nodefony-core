@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Eta } from "eta";
+import { findProjectRoot } from "../projectRoot";
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
 import {
   getScaffoldSpec,
@@ -285,29 +286,14 @@ function renderLayer(
 }
 
 /**
- * Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte
- * depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` +
- * `package.json`. C'est la cible des scaffolds IN-PROJECT (controller, entity,
- * module) — par opposition à `create app` qui crée un dossier neuf.
+ * Racine du PROJET Nodefony courant — cible des scaffolds IN-PROJECT (controller,
+ * module, entity), par opposition à `create app` qui crée un dossier neuf.
  *
- * @returns racine absolue, ou `null` hors projet.
+ * Ré-export : la définition vit dans `../projectRoot` (module sans dépendance),
+ * partagée avec le lanceur `bin/nodefony` qui s'en sert pour déléguer au CLI de
+ * l'app. Une seule définition de « où commence l'app ».
  */
-export function findProjectRoot(from: string): string | null {
-  let dir = path.resolve(from);
-  for (;;) {
-    if (
-      existsSync(path.join(dir, "nodefony.config.ts")) &&
-      existsSync(path.join(dir, "package.json"))
-    ) {
-      return dir;
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) {
-      return null;
-    }
-    dir = parent;
-  }
-}
+export { findProjectRoot };
 
 /** Cible d'un scaffold in-project : l'app racine ou un module du projet. */
 export interface IScaffoldTarget {

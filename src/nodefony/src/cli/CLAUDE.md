@@ -180,6 +180,23 @@ Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
 
+## Lanceur `bin/nodefony` — RÈGLE : le CLI de l'application prime
+
+Le binaire global (`npm i -g nodefony`) est la **porte d'entrée** du framework : c'est lui qui fait
+`create app` hors de tout projet. Mais **dans** une app, la version qui fait autorité est celle des
+`node_modules` du projet — elle seule connaît ses modules, ses scaffolds et ses commandes. Le shim
+`src/bin/nodefony.ts` remonte donc au projet (`findProjectRoot`) et, s'il y trouve un **autre** paquet
+`nodefony` que lui-même, lui passe la main (`import` du bin de l'app, même process — ni spawn, ni double
+kernel). Pattern du wrapper de projet (`gradlew`, `mvnw`) : _le projet gagne_.
+
+Install cassée (paquet local présent, binaire absent) → **stderr + exit 1**, jamais de repli silencieux
+sur le global : piloter une app avec une version de framework qu'elle n'a pas choisie est un faux
+service. Détail des cas + variables (`NODEFONY_CLI_DELEGATED`, `NODEFONY_CLI_DEBUG`) : [`MEMORY.md`](./MEMORY.md).
+
+> Conséquence pour le dev du framework : `npm link` depuis `src/nodefony` rend `nodefony` disponible
+> partout et suit le checkout (symlink) ; dans le repo self-hosted comme dans une app `create app --link`,
+> le paquet local EST le checkout (`same-package`) → aucun aller-retour.
+
 ## Complétion shell — `cli/completion.ts`
 
 `nodefony completion <bash|zsh|fish>` imprime le script à sourcer ; au TAB le script appelle

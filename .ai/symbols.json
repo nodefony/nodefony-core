@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-13T23:45:04.404Z",
+  "generated": "2026-07-14T11:45:35.007Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1016,
-    "symbols": 2651,
+    "files": 1018,
+    "symbols": 2660,
     "classes": 321,
     "interfaces": 697,
-    "types": 305,
+    "types": 306,
     "enums": 4,
-    "functions": 763,
-    "constants": 561
+    "functions": 769,
+    "constants": 563
   },
   "symbols": {
     "Cli": {
@@ -427,6 +427,38 @@
         "controllers"
       ]
     },
+    "TLocalCliDecision": {
+      "name": "TLocalCliDecision",
+      "kind": "type",
+      "file": "src/nodefony/src/bin/resolveLocalCli.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décision du lanceur : exécuter soi-même, ou passer la main au CLI de l'app."
+    },
+    "resolveLocalCli": {
+      "name": "resolveLocalCli",
+      "kind": "function",
+      "file": "src/nodefony/src/bin/resolveLocalCli.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide quel CLI Nodefony doit réellement s'exécuter : **celui de l'application** dès qu'on se trouve dans un projet, sinon celui qu'on a lancé. Pourquoi cette règle : le binaire installé en global …"
+    },
+    "DELEGATED_ENV": {
+      "name": "DELEGATED_ENV",
+      "kind": "const",
+      "file": "src/nodefony/src/bin/resolveLocalCli.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Variable de garde : le CLI délégué ne délègue pas à son tour (anti-boucle)."
+    },
+    "DEBUG_ENV": {
+      "name": "DEBUG_ENV",
+      "kind": "const",
+      "file": "src/nodefony/src/bin/resolveLocalCli.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Trace la décision du lanceur sur stderr quand la variable vaut `1`."
+    },
     "INodefonyRolldownOptions": {
       "name": "INodefonyRolldownOptions",
       "kind": "interface",
@@ -658,6 +690,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2 du moteur (`scaffold/engine.ts`, partagé avec Studio) : - **CLI rapide** : tout est dit en flags (`create app x --prese…"
+    },
+    "findProjectRoot": {
+      "name": "findProjectRoot",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/projectRoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` + `package.json`. Deux consommateurs, une seule défin…"
     },
     "SysExit": {
       "name": "SysExit",
@@ -2742,14 +2782,6 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Complète et VALIDE des réponses partielles contre la spec d'un type : défauts appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des templates est donc complet PAR CONSTRUCTIO…"
-    },
-    "findProjectRoot": {
-      "name": "findProjectRoot",
-      "kind": "function",
-      "file": "src/nodefony/src/cli/scaffold/engine.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` + `package.json`. C'est la cible des scaffolds IN-PRO…"
     },
     "listTargets": {
       "name": "listTargets",
@@ -21010,37 +21042,22 @@
       "StudioRealtimeController": [
         "src/packages/@nodefony/studio/index.ts"
       ],
-      "CliKernel": [
-        "src/nodefony/src/bin/nodefony.ts",
-        "src/nodefony/src/command/Command.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/Module.ts",
-        "src/nodefony/src/kernel/commands/BuildCommand.ts",
-        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
-        "src/nodefony/src/kernel/commands/CompletionCommand.ts",
-        "src/nodefony/src/kernel/commands/CreateCommand.ts",
-        "src/nodefony/src/kernel/commands/DevCommand.ts",
-        "src/nodefony/src/kernel/commands/InstallCommand.ts",
-        "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
-        "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
-        "src/nodefony/src/kernel/commands/StartCommand.ts",
-        "src/nodefony/src/kernel/commands/StatusCommand.ts",
-        "src/nodefony/src/kernel/commands/StopCommand.ts",
-        "src/modules/test/nodefony/command/BatchTestCommand.ts",
-        "src/modules/test/nodefony/command/DaemonTestCommand.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
-        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
-        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
-        "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
-      ],
-      "loadEnv": [
+      "resolveLocalCli": [
         "src/nodefony/src/bin/nodefony.ts"
+      ],
+      "DEBUG_ENV": [
+        "src/nodefony/src/bin/nodefony.ts"
+      ],
+      "DELEGATED_ENV": [
+        "src/nodefony/src/bin/nodefony.ts"
+      ],
+      "TLocalCliDecision": [
+        "src/nodefony/src/bin/nodefony.ts"
+      ],
+      "findProjectRoot": [
+        "src/nodefony/src/bin/resolveLocalCli.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "defineConfig": [
         "src/nodefony/src/bundler/index.ts"
@@ -21072,9 +21089,6 @@
         "src/nodefony/src/cli/create.ts"
       ],
       "findPackageRoot": [
-        "src/nodefony/src/cli/create.ts"
-      ],
-      "findProjectRoot": [
         "src/nodefony/src/cli/create.ts"
       ],
       "resolveLocalWorkspaces": [
@@ -21171,6 +21185,34 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+      ],
+      "CliKernel": [
+        "src/nodefony/src/command/Command.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/CompletionCommand.ts",
+        "src/nodefony/src/kernel/commands/CreateCommand.ts",
+        "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
+        "src/nodefony/src/kernel/commands/ProdCommand.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/kernel/commands/StartCommand.ts",
+        "src/nodefony/src/kernel/commands/StatusCommand.ts",
+        "src/nodefony/src/kernel/commands/StopCommand.ts",
+        "src/modules/test/nodefony/command/BatchTestCommand.ts",
+        "src/modules/test/nodefony/command/DaemonTestCommand.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
       ],
       "Builder": [
         "src/nodefony/src/command/Command.ts"
