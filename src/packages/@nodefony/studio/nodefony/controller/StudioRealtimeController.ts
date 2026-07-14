@@ -16,6 +16,13 @@ import {
 } from "../realtime/providers";
 import { createClusterSupervisionTicker } from "../realtime/clusterSupervision";
 import { createClusterOrmTicker } from "../realtime/clusterOrm";
+import type ScaffoldService from "../service/ScaffoldService";
+import {
+  SCAFFOLD_STEPS,
+  type ScaffoldStep,
+  type IScaffoldJobState,
+} from "../service/ScaffoldService";
+import type { TScaffoldAnswers } from "nodefony";
 
 /**
  * Canal de drill-down d'un worker du cluster : `dashboard:supervision@<pid>` avec granularité
@@ -33,6 +40,17 @@ const SUPERVISION_DRILL_RE = new RegExp(
  * round-robin en cluster). Un seul canal = un seul enrich = pas de ref-count.
  */
 const ORM_RICH_DRILL_RE = /^orm:rich@(\d+)(?::\d+)?$/;
+
+/**
+ * Flux d'un job de génération de code : `scaffold:job@<uuid>`.
+ *
+ * Ce canal n'est pas cadencé (pas de suffixe `:<ms>`) : il ne sonde rien, il RELAIE ce
+ * que le job produit — une ligne écrite est une ligne poussée. À l'abonnement, le
+ * backlog déjà produit est rejoué, si bien qu'un abonné tardif (ou une page rechargée)
+ * ne perd aucune ligne.
+ */
+const SCAFFOLD_JOB_RE =
+  /^scaffold:job@([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 /**
  * Bornes de cadence par canal cadencé — défaut + min/max (ms). Convention partagée avec
@@ -95,7 +113,55 @@ class StudioRealtimeController extends RealtimeController {
     return {
       "kernel:ping": () => this.actionPing(),
       "kernel:gc": () => this.actionGc(),
+      "scaffold:run": (params) => this.actionScaffoldRun(params),
+      "scaffold:cancel": (params) => this.actionScaffoldCancel(params),
     };
+  }
+
+  /**
+   * Lance un job de génération de code et rend son identifiant SANS attendre : le front
+   * s'abonne à `scaffold:job@<id>` et regarde le travail se faire.
+   *
+   * Le client ne transmet **aucune commande** — seulement un type, des réponses de
+   * formulaire (que le moteur valide contre sa propre spec) et des étapes prises dans une
+   * liste fermée. C'est ce qui sépare « piloter un générateur » de « exécuter du shell à
+   * distance ».
+   *
+   * @throws si le service est absent ou hors développement (→ `-32603` côté client, le
+   *   détail restant côté serveur).
+   */
+  private actionScaffoldRun(params: unknown): IScaffoldJobState {
+    const svc = this.get<ScaffoldService>("scaffold");
+    if (!svc?.enabled) throw new Error("scaffold is development-only");
+
+    const p = (params ?? {}) as {
+      type?: unknown;
+      answers?: unknown;
+      steps?: unknown;
+    };
+    if (typeof p.type !== "string") throw new Error("type manquant");
+
+    const answers = (
+      p.answers && typeof p.answers === "object" ? p.answers : {}
+    ) as TScaffoldAnswers;
+
+    // Allowlist : tout ce qui n'est pas une étape connue est jeté, pas exécuté.
+    const steps = (Array.isArray(p.steps) ? p.steps : []).filter(
+      (s): s is ScaffoldStep =>
+        typeof s === "string" &&
+        (SCAFFOLD_STEPS as readonly string[]).includes(s),
+    );
+
+    return svc.start(p.type, answers, steps);
+  }
+
+  /** Interrompt le process en cours d'un job (bouton « arrêter »). */
+  private actionScaffoldCancel(params: unknown): { cancelled: boolean } {
+    const svc = this.get<ScaffoldService>("scaffold");
+    if (!svc?.enabled) throw new Error("scaffold is development-only");
+    const id = (params as { id?: unknown })?.id;
+    if (typeof id !== "string") throw new Error("id manquant");
+    return { cancelled: svc.cancel(id) };
   }
 
   /**
@@ -117,6 +183,18 @@ class StudioRealtimeController extends RealtimeController {
     channel: string,
     publish: RealtimePublish,
   ): (() => void) | null {
+    // Flux d'un job de génération de code. Aucun ticker : on relaie les lignes que le
+    // job produit. Le service rejoue d'abord le backlog → un abonné tardif voit TOUT
+    // depuis le début, ce qui rend le terminal insensible à la course
+    // « je reçois l'id / je m'abonne ».
+    const scaffoldJob = SCAFFOLD_JOB_RE.exec(channel);
+    if (scaffoldJob) {
+      const svc = this.get<ScaffoldService>("scaffold");
+      if (!svc?.enabled) return null;
+      const jobId = scaffoldJob[1] as string;
+      return svc.subscribe(jobId, (line) => publish(channel, line));
+    }
+
     // Base « stats process » : supervision (page) ET debug bar partagent le MÊME
     // ticker (sondes process) mais sur des canaux SÉPARÉS.
     const statsBase =

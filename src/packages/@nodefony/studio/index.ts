@@ -12,7 +12,7 @@
  *    chaque module, vit indépendamment de Studio. Studio n'en est qu'un consommateur web.
  */
 import path from "node:path";
-import { Kernel, Module } from "nodefony";
+import { Kernel, Module, services } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import {
   resolveUiDelivery,
@@ -23,12 +23,23 @@ import type { FrontendService } from "@nodefony/frontend";
 import config from "./nodefony/config/config";
 import StudioController from "./nodefony/controller/StudioController";
 import StudioRealtimeController from "./nodefony/controller/StudioRealtimeController";
+import StudioCreateController from "./nodefony/controller/StudioCreateController";
+import ScaffoldService from "./nodefony/service/ScaffoldService";
 
 // Le data plane de documentation est désormais porté par le module dédié
 // @nodefony/documentation (`/nodefony/documentation/api/*`). L'ancien
 // DocumentationController POC du Studio a été retiré (suppression franche) —
 // Studio n'en garde que le FRONTEND (page React consommant ce data plane).
-@controllers([StudioController, StudioRealtimeController])
+// Le service `scaffold` est enregistré en TOUT environnement (le DI n'a pas à connaître
+// l'env), mais il se refuse lui-même hors développement — et le controller comme les
+// actions temps réel s'appuient sur ce refus. Garder l'enregistrement inconditionnel
+// évite un "service introuvable" opaque là où on veut un 403 explicite.
+@services([ScaffoldService])
+@controllers([
+  StudioController,
+  StudioRealtimeController,
+  StudioCreateController,
+])
 class Studio extends Module {
   /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
   static override critical = false;

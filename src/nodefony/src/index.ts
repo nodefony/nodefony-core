@@ -440,11 +440,17 @@ export type {
   TFrontendChoice,
   TPresetChoice,
 } from "./cli/scaffold/spec";
-export { runScaffold, resolveAnswers } from "./cli/scaffold/engine";
+export {
+  runScaffold,
+  resolveAnswers,
+  listTargets,
+  findProjectRoot,
+} from "./cli/scaffold/engine";
 export type {
   IScaffoldRequest,
   IScaffoldResult,
   IScaffoldCaps,
+  IScaffoldTarget,
   TScaffoldAnswers,
 } from "./cli/scaffold/engine";
 
