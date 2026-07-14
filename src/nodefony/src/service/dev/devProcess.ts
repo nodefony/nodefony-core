@@ -196,6 +196,136 @@ export function clearRuntimeState(cwd: string): void {
 }
 
 /**
+ * Chemin du **verrou de suspension du superviseur dev** — le canal par lequel le serveur
+ * dit à son parent : « je suis en train d'écrire dans les sources, ne me redémarre pas
+ * maintenant ».
+ *
+ * Il existe parce que le watcher regarde `nodefony/`, `index.ts`, `src/` — et que
+ * certaines opérations du serveur écrivent PRÉCISÉMENT là : générer un module depuis
+ * Studio, appliquer une migration, installer un module tiers. Sans verrou, le
+ * rechargement part au milieu de l'opération et tue le `npm install` en cours (le process
+ * npm est un enfant du serveur), laissant un `node_modules` à moitié écrit.
+ *
+ * Un fichier, et pas un IPC, parce que parent et enfant n'en ont pas (`stdio: [ignore,
+ * pipe, pipe]`) — et parce que c'est déjà le patron du pidfile et du state file, au même
+ * endroit, déjà gitignoré.
+ */
+export function supervisorLockFile(cwd: string): string {
+  return path.join(cwd, "node_modules", ".cache", "nodefony", "supervisor.lock");
+}
+
+/** Ce que le serveur publie quand il demande au superviseur de patienter. */
+export interface SupervisorLock {
+  /** PID du process qui tient le verrou — sert à détecter un verrou ORPHELIN. */
+  pid: number;
+  /**
+   * Pourquoi le rechargement est suspendu, en clair.
+   *
+   * Affiché tel quel par le superviseur : un rechargement qui ne part pas SANS
+   * explication est un mystère pour l'utilisateur (« j'édite, rien ne se passe »).
+   * La raison est donc obligatoire.
+   */
+  reason: string;
+  /** Précision libre (id de job, nom de migration…) — traçabilité. */
+  detail?: string;
+  /** Horodatage de pose (`Date.now()`) — sert à l'expiration. */
+  ts: number;
+}
+
+/**
+ * Au-delà de cette durée, un verrou est tenu pour périmé quoi qu'il arrive.
+ *
+ * Deuxième filet après la vérification du PID : une opération très longue (`npm install`)
+ * reste couverte, mais aucun verrou ne peut museler le watcher indéfiniment.
+ */
+const SUPERVISOR_LOCK_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Suspend le rechargement automatique le temps d'une opération qui écrit dans les
+ * sources.
+ *
+ * À utiliser par TOUTE opération serveur qui touche aux fichiers surveillés — génération
+ * de code, migration, installation d'un module. Best-effort : un échec d'écriture ne doit
+ * jamais faire échouer l'opération elle-même (au pire, le superviseur redémarre).
+ *
+ * @param cwd - racine du projet.
+ * @param reason - raison affichée à l'utilisateur (« génération de code »…).
+ * @param detail - précision optionnelle (id de job…).
+ */
+export function suspendSupervisor(
+  cwd: string,
+  reason: string,
+  detail?: string,
+): void {
+  try {
+    const file = supervisorLockFile(cwd);
+    mkdirSync(path.dirname(file), { recursive: true });
+    const lock: SupervisorLock = {
+      pid: process.pid,
+      reason,
+      detail,
+      ts: Date.now(),
+    };
+    writeFileSync(file, JSON.stringify(lock), "utf8");
+  } catch {
+    /* best-effort : au pire le watcher redémarre — pas de quoi faire échouer l'opération */
+  }
+}
+
+/** Rend la main au superviseur (fin de l'opération, quelle qu'en soit l'issue). */
+export function resumeSupervisor(cwd: string): void {
+  try {
+    rmSync(supervisorLockFile(cwd), { force: true });
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Le rechargement est-il suspendu, et pourquoi ?
+ *
+ * **Fail-safe par construction** : dans le doute, on répond `null` (le watcher fait son
+ * travail). Un verrou muselle le rechargement automatique — le laisser traîner serait
+ * pire que le mal : on éditerait ses fichiers sans que plus rien ne se recharge, sans la
+ * moindre explication. Un verrou n'est donc retenu que s'il est VIVANT :
+ *
+ *  - son process existe encore (`kill(pid, 0)`) — un serveur tué en pleine opération
+ *    laisse son fichier derrière lui ; on ne le croit pas sur parole ;
+ *  - il a moins de {@link SUPERVISOR_LOCK_TTL_MS} — filet si un PID est recyclé par l'OS.
+ *
+ * Un verrou mort est SUPPRIMÉ au passage, pour ne pas se reposer la question.
+ *
+ * @param cwd - racine du projet.
+ * @returns le verrou vivant (avec sa raison, à afficher), ou `null`.
+ */
+export function readSupervisorSuspension(cwd: string): SupervisorLock | null {
+  let raw: string;
+  try {
+    raw = readFileSync(supervisorLockFile(cwd), "utf8");
+  } catch {
+    return null; // pas de verrou = cas nominal
+  }
+  let lock: SupervisorLock;
+  try {
+    lock = JSON.parse(raw) as SupervisorLock;
+  } catch {
+    resumeSupervisor(cwd); // illisible → on ne muselle rien sur la foi d'un déchet
+    return null;
+  }
+  if (!lock?.pid || Date.now() - (lock.ts ?? 0) > SUPERVISOR_LOCK_TTL_MS) {
+    resumeSupervisor(cwd);
+    return null;
+  }
+  try {
+    process.kill(lock.pid, 0); // signal 0 : « ce process existe-t-il ? »
+  } catch {
+    resumeSupervisor(cwd); // le poseur est mort → verrou orphelin
+    return null;
+  }
+  return lock;
+}
+
+/**
  * Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération).
  *
  * Ordre de vérité, du plus fiable au moins fiable :

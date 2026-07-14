@@ -163,6 +163,20 @@ key={user.id}`), PAS un retry (`useResource` ne retry pas). Lire « X / Y reques
 - **Cadence auto (AIMD) = réglage GLOBAL via store** (`UiStore.adaptiveCadence`) : un contrôle qui doit apparaître dans
   le popover du chip se met dans **`RealtimeHubContent`** (le composant partagé), PAS dans `RealtimeConsole` (qui ne le
   rend pas). Les pages d'état (ORM…) **lisent** `ui.adaptiveCadence`, pas de switch local par page.
+- **Un job long (terminal live) = action pour LANCER + canal pour SUIVRE, et le canal porte l'ÉTAT, pas que les lignes.**
+  Patron de la page « Créer » (`routes/create/`) : `conn.request("scaffold:run")` rend le `jobId` **tout de suite**, puis
+  `useNodefonyChannel("scaffold:job@<id>")` streame. Deux pièges, tous deux vécus :
+  1. **Course « je reçois l'id / je m'abonne »** — les premières lignes sont AUSSI les plus rapides (écriture des fichiers) :
+     elles partent avant l'abonnement et un pub/sub nu les perdrait (terminal qui démarre au milieu, sans raison visible).
+     → le serveur **garde son backlog et le REJOUE à l'abonnement** ; le front **dédoublonne par `seq`**. Un F5 en plein
+     `npm install` reconstitue alors tout le terminal.
+  2. **Si le canal ne porte que des lignes, le front ne sait jamais que c'est fini** → on retombe sur un **sondage HTTP**
+     alors qu'une socket est ouverte (absurde). → le canal pousse une union `{kind:"line"|"state"}` ; l'état part à
+     l'abonnement, dès les fichiers écrits, et à la fin. **Zéro polling.**
+- **Une action Studio qui ÉCRIT dans les sources fait redémarrer le serveur** (le watcher dev regarde `nodefony/` et
+  `index.ts` — là où le scaffold écrit) → le rechargement tombe au milieu du job et **tue le `npm install`** (process
+  enfant du serveur). Le back doit encadrer son travail par `suspendSupervisor()`/`resumeSupervisor()` (cf
+  `nodefony-framework-dev` § Pièges structurels). Symptôme sans ça : le terminal se coupe net et la socket meurt.
 
 ## 7. Rôles / autorisation front
 

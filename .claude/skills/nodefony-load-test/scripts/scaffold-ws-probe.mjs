@@ -28,6 +28,7 @@ const ws = new WebSocket("wss://127.0.0.1:5152/nodefony/studio/api/realtime", {
 
 let jobId = null;
 const lines = [];
+const states = [];
 const counts = Object.create(null);
 let subscribedAt = 0;
 
@@ -42,7 +43,7 @@ ws.on("open", () => {
     params: {
       type,
       answers: { name, kind: "hello" },
-      steps: [], // aucune étape npm : on veut isoler l'écriture + le stream
+      steps: process.env.NF_STEPS ? process.env.NF_STEPS.split(",") : [],
     },
   });
 });
@@ -68,20 +69,18 @@ ws.on("message", (raw) => {
     return;
   }
 
-  // Lignes du canal.
-  if (msg.method === "scaffold:job@" + jobId || msg.params?.channel?.startsWith?.("scaffold:job@")) {
-    const line = msg.params?.data ?? msg.params?.payload ?? msg.params;
-    if (line?.text) {
-      lines.push(line);
-      counts[line.stream] = (counts[line.stream] ?? 0) + 1;
-    }
+  // Le canal porte DEUX natures : une ligne de terminal, ou l'état du job.
+  const ev = msg.params?.data ?? msg.params?.payload ?? msg.params;
+  if (ev?.kind === "line" && ev.line) {
+    lines.push(ev.line);
+    counts[ev.line.stream] = (counts[ev.line.stream] ?? 0) + 1;
     return;
   }
-
-  // Enveloppe alternative (selon la forme du provider).
-  if (msg.params?.text) {
-    lines.push(msg.params);
-    counts[msg.params.stream] = (counts[msg.params.stream] ?? 0) + 1;
+  if (ev?.kind === "state" && ev.state) {
+    states.push(ev.state);
+    console.log(
+      `  ← état par la SOCKET : status=${ev.state.status} files=${ev.state.files.length}`,
+    );
   }
 });
 
@@ -100,6 +99,10 @@ setTimeout(() => {
   console.log(
     `REJEU DU BACKLOG: ${replayed} ligne(s) produites AVANT l'abonnement et pourtant reçues`,
   );
+  const last = states.length ? states[states.length - 1] : null;
+  console.log(
+    `ÉTATS reçus PAR LA SOCKET: ${states.length} — dernier statut: ${last ? last.status : "AUCUN"}`,
+  );
   ws.close();
-  process.exit(lines.length > 0 ? 0 : 1);
-}, 4000);
+  process.exit(lines.length > 0 && states.length > 0 ? 0 : 1);
+}, Number(process.env.NF_WAIT ?? 4000));

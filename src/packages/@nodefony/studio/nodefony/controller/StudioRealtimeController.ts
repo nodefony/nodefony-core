@@ -192,7 +192,10 @@ class StudioRealtimeController extends RealtimeController {
       const svc = this.get<ScaffoldService>("scaffold");
       if (!svc?.enabled) return null;
       const jobId = scaffoldJob[1] as string;
-      return svc.subscribe(jobId, (line) => publish(channel, line));
+      // On relaie l'ÉVÉNEMENT (ligne ou état), pas seulement la ligne : sinon le front
+      // n'apprendrait jamais par la socket qu'un job est terminé, et devrait sonder le
+      // serveur en boucle alors que la connexion est déjà là.
+      return svc.subscribe(jobId, (event) => publish(channel, event));
     }
 
     // Base « stats process » : supervision (page) ET debug bar partagent le MÊME

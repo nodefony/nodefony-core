@@ -420,6 +420,13 @@ export {
   readRuntimeState,
   clearRuntimeState,
   defaultDevPorts,
+  // Verrou de génération de code — le serveur DIT au superviseur dev « je suis en train
+  // d'écrire, ne me redémarre pas ». Sans lui, un scaffold (qui écrit dans `nodefony/` et
+  // `index.ts`, précisément là où le watcher regarde) déclenche un redémarrage AU MILIEU
+  // du job et tue le `npm install` en cours.
+  suspendSupervisor,
+  resumeSupervisor,
+  readSupervisorSuspension,
 } from "./service/dev/devProcess";
 export type {
   DevProcessInfo,
@@ -427,6 +434,7 @@ export type {
   RuntimeMode,
   PortState,
   RuntimeState,
+  SupervisorLock,
 } from "./service/dev/devProcess";
 
 // ─── Scaffold (création app/module/…) : spec déclarative + moteur PUR ─────────

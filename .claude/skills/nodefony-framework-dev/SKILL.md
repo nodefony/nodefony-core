@@ -168,6 +168,26 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
 - **`turbo run build` (et `clean && build`) NE busте PAS le cache turbo** : il restaure un `dist/` caché avec un
   mtime neuf → tu testes l'ANCIEN code (route qui hang, header périmé, export manquant). Avant tout test runtime
   d'un diff non commité : **`npx turbo run build --force --filter=@nodefony/http --filter=@nodefony/test`**.
+- **🔒 Le serveur ÉCRIT dans les sources → SUSPENDRE le superviseur dev, sinon il se tue lui-même.**
+  En dev, le `DevSupervisor` (process **parent**) watch `src/`, `nodefony/`, `index.ts`, `config/`,
+  `nodefony.config.ts`, `env.ts` (cf `isIgnoredWatchPath` : `node_modules`/`dist`/`tests`/`*.test.ts`/
+  non-`.ts`/`frontend` — sauf le paquet `@nodefony/frontend` — sont ignorés) et **redémarre l'enfant**
+  à chaque `.ts` touché. Or certaines opérations SERVEUR écrivent précisément là : génération de code
+  (`create module` depuis Studio), migration, installation d'un module. Le redémarrage tombe alors **au
+  milieu** et **tue le `npm install` en cours** (le process npm est un enfant du serveur) → `node_modules`
+  à moitié écrit. **Règle** : toute opération serveur qui touche aux fichiers surveillés encadre son
+  travail par `suspendSupervisor(root, raison, detail?)` / `resumeSupervisor(root)` (barrel `nodefony`,
+  source `service/dev/devProcess.ts`) ; le superviseur **diffère** son rechargement (les fichiers restent
+  dans `#dirty`, rien n'est perdu) et repart **à la levée** — le code généré est donc bien chargé.
+  - La **raison est obligatoire** et s'affiche (`⏸ génération de code — rechargement différé`) : un
+    rechargement qui ne part pas **sans explication** est un mystère pour celui qui édite.
+  - `resumeSupervisor` va dans le point de sortie **UNIQUE** de l'opération (succès ET échec ET annulation).
+  - Le verrou est **fail-safe** (`readSupervisorSuspension`) : il n'est retenu que si son **PID est vivant**
+    (`kill(pid,0)`) et qu'il a **< 15 min** — un serveur tué en plein job laisse son fichier derrière lui,
+    et un verrou orphelin muselleraît le rechargement *pour toute la session*, sans que rien ne l'explique.
+    Dans le doute → « pas suspendu » (le watcher travaille). Verrouillé par `src/tests/supervisorLock.test.ts`.
+  - Canal = **fichier** (`node_modules/.cache/nodefony/supervisor.lock`), pas un IPC : parent et enfant n'en
+    ont pas (`stdio: [ignore, pipe, pipe]`), et c'est déjà le patron du pidfile / du state file runtime.
 
 ### Sécurité (directive permanente — Nodefony = référence)
 

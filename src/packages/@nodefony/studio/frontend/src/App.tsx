@@ -71,6 +71,9 @@ const Playground = lazy(() =>
     default: m.Playground,
   })),
 );
+const Create = lazy(() =>
+  import("./routes/create/Create").then((m) => ({ default: m.Create })),
+);
 const Database = lazy(() =>
   import("./routes/Database").then((m) => ({ default: m.Database })),
 );
@@ -230,6 +233,9 @@ const router = createBrowserRouter([
               { path: "routes", element: <RoutesView /> },
               { path: "playground", element: <Playground /> },
               { path: "playground/:controller", element: <Playground /> },
+              // Générateur de code (dev-only côté serveur : le data plane répond 403
+              // hors développement — la page le dit alors proprement).
+              { path: "create", element: <Create /> },
               { path: "npm", element: <Npm /> },
             ],
           },

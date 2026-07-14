@@ -21,6 +21,7 @@ import {
   devSupervisorPidFile,
   discoverDevProcesses,
   findRuntimeConflict,
+  readSupervisorSuspension,
   missingWorkspaceDists,
   probePorts,
   readRuntimeState,
@@ -88,6 +89,14 @@ export function isIgnoredWatchPath(p: string, isFile = false): boolean {
   if (isFile && !p.endsWith(".ts")) return true;
   return false;
 }
+
+/**
+ * Cadence de re-vérification du verrou de suspension du superviseur.
+ *
+ * Assez court pour que le rechargement suive de près la fin du job, assez long pour ne
+ * pas relire un fichier en boucle serrée pendant un `npm install` d'une minute.
+ */
+const SUSPENSION_RECHECK_MS = 1000;
 
 /** Au-delà de cette durée de vie, un crash n'est plus considéré « rapide ». */
 const FAST_CRASH_MS = 3000;
@@ -186,6 +195,11 @@ export class DevSupervisor {
   #timer: ReturnType<typeof setTimeout> | null = null;
   #building = false;
   #pending = false;
+  /**
+   * Raison de la suspension en cours du rechargement (verrou posé par le serveur), ou
+   * `null`. Sert aussi à ne l.annoncer QU.UNE fois, et à dire quand elle se lève.
+   */
+  #suspendedBy: string | null = null;
   /**
    * Problèmes du build INITIAL (verdict + tail de sortie), rejoués APRÈS le
    * boot de l'enfant : le splash ASCII + les logs de boot noient le verdict
@@ -1061,6 +1075,27 @@ export class DevSupervisor {
     if (this.#building) {
       this.#pending = true; // une autre modif est arrivée pendant le build
       return;
+    }
+    // Le serveur écrit EN CE MOMENT dans les sources (génération de code depuis Studio,
+    // migration, installation d'un module…). Redémarrer maintenant tuerait le `npm
+    // install` en cours — le process npm est un enfant du serveur — et laisserait un
+    // `node_modules` à moitié écrit. On DIFFÈRE : les fichiers touchés restent dans
+    // `#dirty`, donc rien n'est perdu, et le rechargement part dès la levée du verrou
+    // (le code généré est alors chargé).
+    const suspension = readSupervisorSuspension(this.#cwd);
+    if (suspension) {
+      if (!this.#suspendedBy) {
+        this.#suspendedBy = suspension.reason;
+        // On DIT pourquoi : un rechargement muet qui ne part pas est un mystère.
+        this.#log(`⏸ ${suspension.reason} — rechargement différé`, "yellow");
+      }
+      if (this.#timer) clearTimeout(this.#timer);
+      this.#timer = setTimeout(() => void this.#restart(), SUSPENSION_RECHECK_MS);
+      return;
+    }
+    if (this.#suspendedBy) {
+      this.#log(`▶ ${this.#suspendedBy} — terminé, rechargement`, "green");
+      this.#suspendedBy = null;
     }
     const dirty = [...this.#dirty];
     this.#dirty.clear();

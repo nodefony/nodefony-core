@@ -42,6 +42,7 @@ import {
   IconFileCertificate,
   IconCoin,
   IconBulb,
+  IconWand,
   type Icon,
 } from "@tabler/icons-react";
 import { VIEW_ROLES } from "../auth/roles";
@@ -221,6 +222,16 @@ export const NAV_GROUPS: NavGroup[] = [
         // Le data plane du Playground n'est monté qu'en développement (il EXÉCUTE
         // des actions du serveur depuis le navigateur) → en production, la page
         // n'aurait aucune API derrière elle. Cf `@nodefony/framework/index.ts`.
+        devOnly: true,
+      },
+      {
+        // Générateur de code (module / controller / front / entité). Le back n'existe
+        // qu'en développement (il ÉCRIT sur le disque et lance npm) → masqué en prod,
+        // où l'entrée mènerait à un écran refusé. La garde réelle reste le serveur (403).
+        to: "/nodefony/create",
+        label: "Créer",
+        icon: IconWand,
+        roles: VIEW_ROLES.dev,
         devOnly: true,
       },
       {

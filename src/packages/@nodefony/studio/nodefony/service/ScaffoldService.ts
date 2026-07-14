@@ -6,6 +6,8 @@ import {
   runScaffold,
   listTargets,
   findProjectRoot,
+  suspendSupervisor,
+  resumeSupervisor,
   type Container,
   type Event,
   type Module,
@@ -57,9 +59,22 @@ export interface IScaffoldJobState {
   lines: IScaffoldLine[];
 }
 
+/**
+ * Ce qui transite sur le canal `scaffold:job@<id>`.
+ *
+ * Deux natures, et pas une seule : une ligne de terminal **et** l'état du job. Sans le
+ * second, le front n'aurait aucun moyen d'apprendre par la socket qu'un job est terminé
+ * (les lignes ne disent pas « c'est fini ») — il devrait sonder le serveur en boucle,
+ * alors qu'une connexion temps réel est déjà ouverte. On pousse donc l'état : à
+ * l'abonnement (après le rejeu), et à chaque changement.
+ */
+export type IScaffoldEvent =
+  | { kind: "line"; line: IScaffoldLine }
+  | { kind: "state"; state: IScaffoldJobState };
+
 interface IJob extends IScaffoldJobState {
   child: ChildProcess | null;
-  listeners: Set<(line: IScaffoldLine) => void> | null;
+  listeners: Set<(event: IScaffoldEvent) => void> | null;
 }
 
 /** Nombre de lignes conservées par job (rejouées à l'abonnement). Borne la mémoire. */
@@ -170,7 +185,12 @@ class ScaffoldService extends Service {
     // Lancement différé d'un tick : le front reçoit son jobId (et s'abonne) pendant que
     // le job démarre — et de toute façon le backlog rattrape ce qu'il aurait raté.
     queueMicrotask(() => {
-      void this.#run(job, type, answers, steps);
+      // Un rejet ici (ex. racine de projet introuvable) laisserait le job « running »
+      // pour toujours et le verrou du watcher posé : on le rabat sur un échec propre.
+      this.#run(job, type, answers, steps).catch((e: unknown) => {
+        this.#emit(job, "fail", (e as Error)?.message ?? String(e));
+        this.#finish(job, "failed");
+      });
     });
 
     return this.#snapshot(job);
@@ -189,18 +209,24 @@ class ScaffoldService extends Service {
 
   /**
    * S'abonne au flux d'un job. Le **backlog est rejoué** d'abord (rien n'est perdu entre
-   * le lancement et l'abonnement), puis les lignes arrivent au fil de l'eau.
+   * le lancement et l'abonnement), puis l'**état courant** est poussé, puis les
+   * événements arrivent au fil de l'eau.
+   *
+   * L'état est envoyé juste après le rejeu : un abonné qui arrive alors que le job est
+   * DÉJÀ terminé (page rechargée après coup) reçoit ainsi tout le terminal ET son issue,
+   * sans avoir à interroger le serveur.
    *
    * @returns la fonction de désabonnement (à appeler au `unsubscribe` ET à la fermeture).
    */
-  subscribe(id: string, onLine: (line: IScaffoldLine) => void): () => void {
+  subscribe(id: string, onEvent: (event: IScaffoldEvent) => void): () => void {
     const job = this.#jobs?.get(id);
     if (!job) return () => {};
-    for (const line of job.lines) onLine(line);
+    for (const line of job.lines) onEvent({ kind: "line", line });
+    onEvent({ kind: "state", state: this.#snapshot(job) });
     if (job.listeners === null) job.listeners = new Set();
-    job.listeners.add(onLine);
+    job.listeners.add(onEvent);
     return () => {
-      job.listeners?.delete(onLine);
+      job.listeners?.delete(onEvent);
       if (job.listeners?.size === 0) job.listeners = null;
     };
   }
@@ -230,13 +256,32 @@ class ScaffoldService extends Service {
     job.lines.push(line);
     // Ring : on jette les plus vieilles lignes plutôt que de gonfler indéfiniment.
     if (job.lines.length > MAX_LINES) job.lines.shift();
-    if (job.listeners) for (const fn of job.listeners) fn(line);
+    this.#publish(job, { kind: "line", line });
   }
 
+  #publish(job: IJob, event: IScaffoldEvent): void {
+    if (job.listeners) for (const fn of job.listeners) fn(event);
+  }
+
+  /**
+   * Point de sortie UNIQUE d'un job (succès, échec, annulation).
+   *
+   * Le verrou du watcher se lève ICI, et nulle part ailleurs : un verrou qu'on oublie de
+   * lever muselle le rechargement automatique pour toute la session — on éditerait ses
+   * fichiers sans que rien ne se recharge, et sans la moindre explication.
+   */
   #finish(job: IJob, status: ScaffoldJobStatus): void {
     job.status = status;
     job.endedAt = Date.now();
     job.child = null;
+    try {
+      resumeSupervisor(this.projectRoot);
+    } catch {
+      /* best-effort : de toute façon un verrou dont le process est mort est ignoré */
+    }
+    // L'issue du job part par la MÊME socket que les lignes : le front n'a jamais à
+    // demander « alors, c'est fini ? ».
+    this.#publish(job, { kind: "state", state: this.#snapshot(job) });
     // Purge différée : le front peut encore relire le job juste après la fin.
     const timer = setTimeout(() => {
       this.#jobs?.delete(job.id);
@@ -252,6 +297,11 @@ class ScaffoldService extends Service {
     steps: ScaffoldStep[],
   ): Promise<void> {
     const root = this.projectRoot;
+    // Le scaffold écrit LÀ OÙ LE WATCHER REGARDE (`nodefony/`, `index.ts`). Sans ce
+    // verrou, le superviseur dev rebuild et redémarre le serveur au milieu du job — ce
+    // qui tue le `npm install` en cours (process enfant du serveur). On le muselle le
+    // temps du job ; il rechargera de lui-même à la levée, module généré compris.
+    suspendSupervisor(root, "génération de code", `${type} ${job.id}`);
     try {
       this.#emit(job, "info", `$ nodefony create ${type}`);
       const request: IScaffoldRequest = {
@@ -272,6 +322,9 @@ class ScaffoldService extends Service {
         "ok",
         `${result.files.length} fichier(s) écrit(s) dans ${result.dest}`,
       );
+      // Les fichiers sont connus MAINTENANT — pas la peine d'attendre la fin d'un
+      // `npm install` d'une minute pour que le front puisse les afficher.
+      this.#publish(job, { kind: "state", state: this.#snapshot(job) });
     } catch (e) {
       // Le moteur valide AVANT d'écrire : un throw ici veut dire que rien n'a été touché.
       this.#emit(job, "fail", (e as Error).message);
