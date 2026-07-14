@@ -10,7 +10,19 @@ import { assert, expect } from "chai";
 import Event, { create, notification } from "../Event";
 import { isPromise } from "../Tools";
 
-declare let global: NodeJS.Global & { notificationsCenter?: Event };
+declare let global: typeof globalThis & { notificationsCenter?: Event };
+
+/**
+ * `emitAsync`/`fireAsync` renvoient `false` quand AUCUN listener n'est attaché,
+ * sinon le tableau des retours. Les tests ci-dessous attachent explicitement des
+ * listeners : le `false` est donc un ÉCHEC du contrat, pas un cas nominal.
+ */
+function results(res: false | unknown[]): unknown[] {
+  if (res === false) {
+    throw new Error("emitAsync/fireAsync a renvoyé false : aucun listener attaché");
+  }
+  return res;
+}
 
 // ─── 1. Namespace ─────────────────────────────────────────────────────────────
 
@@ -336,13 +348,13 @@ describe("NODEFONY Notifications Center", () => {
           }),
       );
       let i = 0;
-      let res: any[] = await global.notificationsCenter.fireAsync(
-        "myEvent",
-        i,
-        obj,
+      let res: unknown[] = results(
+        await global.notificationsCenter.fireAsync("myEvent", i, obj),
       );
       assert.strictEqual(res[0], obj);
-      res = await global.notificationsCenter.emitAsync("myEvent", ++i, obj);
+      res = results(
+        await global.notificationsCenter.emitAsync("myEvent", ++i, obj),
+      );
       assert.strictEqual(res[0], 1);
     });
 
@@ -360,11 +372,11 @@ describe("NODEFONY Notifications Center", () => {
           new Promise((resolve) => setTimeout(() => resolve(count + 1), 50)),
       );
       let i = 0;
-      const res = await global.notificationsCenter.fireAsync("myEvent", i, obj);
-      const res1 = await global.notificationsCenter.emitAsync(
-        "myEvent",
-        ++i,
-        obj,
+      const res = results(
+        await global.notificationsCenter.fireAsync("myEvent", i, obj),
+      );
+      const res1 = results(
+        await global.notificationsCenter.emitAsync("myEvent", ++i, obj),
       );
       assert.strictEqual(res.length, 2);
       assert.strictEqual(res[0], obj);

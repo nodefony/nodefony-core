@@ -36,7 +36,7 @@ class TestPdu extends Pdu {
   before?: string;
 }
 
-declare let global: NodeJS.Global & {
+declare let global: typeof globalThis & {
   syslog: TestSyslog;
   logger: Function;
   Pdu: TestPdu;
@@ -156,7 +156,7 @@ describe("NODEFONY SYSLOG", () => {
         assert.strict.equal(global.syslog.invalid, 0);
         assert.strict.equal(global.syslog.valid, 100);
         assert.strict.equal(global.syslog._eventsCount, 1);
-        assert.strict.equal(global.syslog._events.onLog.length, 1);
+        assert.strict.equal(global.syslog.listenerCount("onLog"), 1);
         done();
       }));
 
@@ -173,7 +173,7 @@ describe("NODEFONY SYSLOG", () => {
         assert.strict.equal(global.syslog.missed, 0);
         assert.strict.equal(global.syslog.invalid, 0);
         assert.strict.equal(global.syslog.valid, 1100);
-        assert.strict.equal(global.syslog._events.onLog.length, 2);
+        assert.strict.equal(global.syslog.listenerCount("onLog"), 2);
         assert.strict.equal(i, 1000);
         done();
       }));
@@ -1726,7 +1726,7 @@ describe("Syslog — compteurs erreurs (sonde par worker)", () => {
     s.log("spin", "SPINNER"); // -1 → ignoré (guard sev >= 0)
     assert.strictEqual(s.errorTotal, 4, "ERROR+CRITIC+ALERT+EMERGENCY");
     assert.strictEqual(s.criticTotal, 3, "CRITIC+ALERT+EMERGENCY");
-    s.clean(true);
+    s.clean();
   });
 
   it("compteurs monotones (cumulent sur plusieurs logs)", () => {
@@ -1734,7 +1734,7 @@ describe("Syslog — compteurs erreurs (sonde par worker)", () => {
     for (let i = 0; i < 5; i++) s.log("boom", "ERROR");
     assert.strictEqual(s.errorTotal, 5);
     assert.strictEqual(s.criticTotal, 0);
-    s.clean(true);
+    s.clean();
   });
 });
 

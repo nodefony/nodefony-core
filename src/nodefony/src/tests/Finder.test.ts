@@ -6,7 +6,7 @@ import FileResult from "../finder/FileResult";
 import File from "../finder/File";
 import FileClass from "../FileClass";
 
-declare let global: NodeJS.Global & {
+declare let global: typeof globalThis & {
   bundlePath: string;
   nodefonyPath: string;
   dataPath: string;

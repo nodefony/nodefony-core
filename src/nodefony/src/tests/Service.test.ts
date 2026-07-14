@@ -3,6 +3,13 @@ import Service, { EventListener } from "../Service";
 import Container from "../Container";
 import Event from "../Event";
 import Syslog from "../syslog/Syslog";
+import Pdu, {
+  type Pci,
+  type Severity,
+  type Msgid,
+  type Message,
+} from "../syslog/Pdu";
+import type { EnvironmentType } from "../types/globals";
 import type { IKernel } from "../types/IKernel";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -648,9 +655,15 @@ describe("Service — initSyslog", () => {
     assert(result !== null);
   });
 
-  it("test environment", () => {
+  it("test environment (NODE_ENV=test — valeur HORS EnvironmentType, cf Cli.ts:181)", () => {
     const s = new Service("syslog-test");
-    const result = s.initSyslog("test", false);
+    // Divergence type↔runtime RÉELLE : `Cli.ts:181` affecte `process.env.NODE_ENV`
+    // TEL QUEL à `this.environment` (cast, sans normalisation) → sous vitest,
+    // `"test"` atteint bel et bien `initSyslog()`, alors que `EnvironmentType` ne
+    // le contient pas (`"dev"|"development"|"prod"|"production"`). Le cast
+    // MATÉRIALISE ce trou : il disparaîtra quand le core normalisera NODE_ENV.
+    const nodeEnvTest = "test" as unknown as EnvironmentType;
+    const result = s.initSyslog(nodeEnvTest, false);
     assert(result !== null);
   });
 
@@ -803,8 +816,17 @@ describe("Service — héritage", () => {
 
   it("sous-classe peut surcharger log()", () => {
     class VerboseService extends Service {
-      override log(pci: unknown, severity?: string) {
-        return super.log(`[VERBOSE] ${pci}`, severity as never);
+      // La surcharge doit respecter le CONTRAT de `Service.log` :
+      // `(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message) => Pdu`.
+      // L'ancienne signature (`severity?: string`) rétrécissait le paramètre et
+      // masquait le `as never` — une surcharge qui ne compilait pas.
+      override log(
+        pci: Pci,
+        severity?: Severity,
+        msgid?: Msgid,
+        msg?: Message,
+      ): Pdu {
+        return super.log(`[VERBOSE] ${pci}`, severity, msgid, msg);
       }
     }
     const s = new VerboseService("verbose");

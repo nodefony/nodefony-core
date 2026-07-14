@@ -14,7 +14,7 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
     it("source vide → défauts déclarés", () => {
       const env = defineEnv(
         {
-          NF_LOG_DRIVER: envEnum(["stdout", "file", "null"], {
+          NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
             default: "stdout",
           }),
           NF_LOG_FILE_SYNC: envBoolean({ default: false }),
@@ -32,7 +32,7 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
     it("lit + coerce les valeurs fournies", () => {
       const env = defineEnv(
         {
-          DRIVER: envEnum(["stdout", "file"], { default: "stdout" }),
+          DRIVER: envEnum(["stdout", "file"] as const, { default: "stdout" }),
           SYNC: envBoolean({ default: false }),
           WORKERS: envNumber({ default: 1 }),
           LABEL: envString({ default: "x" }),
@@ -56,7 +56,7 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
 
     it("chaîne vide = absente → défaut", () => {
       const env = defineEnv(
-        { DRIVER: envEnum(["stdout", "file"], { default: "stdout" }) },
+        { DRIVER: envEnum(["stdout", "file"] as const, { default: "stdout" }) },
         { DRIVER: "" },
       );
       assert.strictEqual(env.DRIVER, "stdout");
@@ -74,7 +74,7 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
         () =>
           defineEnv(
             {
-              NF_LOG_DRIVER: envEnum(["stdout", "file"], { default: "stdout" }),
+              NF_LOG_DRIVER: envEnum(["stdout", "file"] as const, { default: "stdout" }),
             },
             { NF_LOG_DRIVER: "kafka" },
           ),
@@ -110,7 +110,7 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
     it("typage littéral préservé (compile-time)", () => {
       const env = defineEnv(
         {
-          NF_LOG_DRIVER: envEnum(["stdout", "file", "null"], {
+          NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
             default: "stdout",
           }),
           NF_WORKERS: envNumber({ default: 1 }),
@@ -127,7 +127,7 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
     it("réplique le catalogue log de l'app (env.ts) sans process.env", () => {
       const env = defineEnv(
         {
-          NF_LOG_DRIVER: envEnum(["stdout", "file", "null"], {
+          NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
             default: "stdout",
           }),
           NF_LOG_FILE_SYNC: envBoolean({ default: false }),
@@ -155,7 +155,7 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
     it("le type de defineEnv alimente ctx.env dans la fonction de config", () => {
       const env = defineEnv(
         {
-          NF_LOG_DRIVER: envEnum(["stdout", "file", "null"], {
+          NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
             default: "stdout",
           }),
         },

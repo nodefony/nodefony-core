@@ -1,9 +1,28 @@
 import { expect } from "chai";
 import { JsonRpcPeer, RpcError, RpcEnvelope } from "../realtime/JsonRpcPeer";
+import type {
+  ActionsMap,
+  DefaultEventsMap,
+} from "../realtime/RealtimeEventMap";
 
 /** Sucre local : une enveloppe (valeur + méta serveur) rendue par un handler. */
 const RpcEnvelopeOf = (result: unknown, meta: Record<string, unknown>) =>
   new RpcEnvelope(result, meta);
+
+/**
+ * Contrat RPC du peer de test — les seules méthodes appelées AVEC des `params`.
+ *
+ * Le déclarer n'est pas cosmétique : sur un peer NON paramétré,
+ * `ActionParams<DefaultActionsMap, K>` se réduit à `undefined` (le `in?` optionnel
+ * ne satisfait pas `{ in: infer I }`) → AUCUN `request()` avec params ne compile.
+ * C'est ce qui avait poussé à des `as never` sur les appels `api.request` : ils
+ * disparaissent ici, params et résultats redeviennent VÉRIFIÉS par le compilateur.
+ */
+interface TestActions extends ActionsMap {
+  do: { in: { a: number }; out: { ok: boolean } };
+  gen: { in: Record<string, never>; out: unknown };
+  "api.request": { in: { path: string }; out: unknown };
+}
 
 /**
  * JsonRpcPeer = moteur protocole isomorphe. Tests purs : `send` est capturé dans un
@@ -14,7 +33,7 @@ function newPeer() {
   const sent: unknown[] = [];
   const notes: { method: string; params: unknown }[] = [];
   const errs: { ctx: string; err: unknown }[] = [];
-  const peer = new JsonRpcPeer({
+  const peer = new JsonRpcPeer<DefaultEventsMap, DefaultEventsMap, TestActions>({
     send: (f) => sent.push(f),
     onNotification: (method, params) => notes.push({ method, params }),
     onError: (ctx, err) => errs.push({ ctx, err }),
@@ -110,7 +129,9 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
   describe("request() — cycle requête sortante → réponse", () => {
     it("envoie la frame puis résout sur la réponse result appariée par id", async () => {
       const { peer, sent } = newPeer();
-      const p = peer.request<{ ok: boolean }>("do", { a: 1 });
+      // `out: { ok: boolean }` vient du contrat `TestActions` — plus de param de
+      // type explicite (`request<T>` n'existe plus : le 1ᵉʳ générique est la MÉTHODE).
+      const p = peer.request("do", { a: 1 });
       expect(sent).to.deep.equal([
         { jsonrpc: "2.0", id: 1, method: "do", params: { a: 1 } },
       ]);
@@ -470,8 +491,8 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
 
     it("requestTraced() → { result, meta } ; request() → result nu (contrat inchangé)", async () => {
       const { peer, sent } = newPeer();
-      const traced = peer.requestTraced("api.request", { path: "/x" } as never);
-      const plain = peer.request("api.request", { path: "/y" } as never);
+      const traced = peer.requestTraced("api.request", { path: "/x" });
+      const plain = peer.request("api.request", { path: "/y" });
       const ids = sent.map((f) => (f as { id: number }).id);
       peer.receive({
         jsonrpc: "2.0",

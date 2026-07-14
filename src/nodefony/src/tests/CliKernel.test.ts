@@ -39,14 +39,14 @@ class TestCommand extends Command {
   constructor(cli: CliKernel) {
     super(TestCommand.commandName, "Commande test", cli);
   }
-  async action(): Promise<void> {}
+  override async action(): Promise<void> {}
 }
 class OtherCommand extends Command {
   static commandName = "other-command";
   constructor(cli: CliKernel) {
     super(OtherCommand.commandName, "Autre commande", cli);
   }
-  async action(): Promise<void> {}
+  override async action(): Promise<void> {}
 }
 
 // ─── 1. Constructor ───────────────────────────────────────────────────────────
@@ -262,7 +262,7 @@ describe("CliKernel — addCommand()", () => {
         cliArg = c;
         super("cli-capture", "", c);
       }
-      async action(): Promise<void> {}
+      override async action(): Promise<void> {}
     }
     cli.addCommand(CliCapture as any);
     assert.strictEqual(cliArg, cli);
@@ -682,14 +682,23 @@ describe("CliKernel — edge cases", () => {
     assert.ok(cli.syslog !== null);
   });
 
-  it("environment 'production' sans arg (via process.env.NODE_ENV ou default)", () => {
-    // Sans arg, CliKernel utilise process.env.NODE_ENV ou le défaut
+  it("environment sans arg = process.env.NODE_ENV TEL QUEL, sinon 'production'", () => {
+    // Ce que le test PROUVE (cf `Cli.ts:181-184`) : sans argument, `environment`
+    // est le MIROIR BRUT de `process.env.NODE_ENV` (cast, AUCUNE normalisation),
+    // et retombe sur "production" si NODE_ENV est absent.
+    //
+    // ⚠️ Conséquence RÉELLE (rapportée) : sous vitest NODE_ENV="test", donc
+    // `cli.environment === "test"` — une valeur qui N'EXISTE PAS dans
+    // `EnvironmentType` ("dev"|"development"|"prod"|"production"). L'ancienne
+    // rédaction (`=== "production" || === "development" || === "test"`) laissait
+    // croire à un contrôle de validité : les deux premières branches sont
+    // TOUJOURS fausses ici, et TS prouve que la 3ᵉ est hors-type.
     const cli = makeCliKernel();
-    assert.ok(
-      cli.environment === "production" ||
-        cli.environment === "development" ||
-        cli.environment === "test",
-      `environment doit être une string valide, got: ${cli.environment}`,
+    const expected = process.env.NODE_ENV ?? "production";
+    assert.strictEqual(
+      cli.environment as string,
+      expected,
+      `environment doit refléter NODE_ENV, got: ${cli.environment}`,
     );
   });
 

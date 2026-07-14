@@ -373,7 +373,7 @@ describe("envOverride — fail-closed (NF__* invalide rejeté par la validation 
     constructor(kernel: Kernel) {
       super("@nodefony/valcfg", kernel, "/tmp/valcfg", { port: 5152 });
     }
-    async onKernelRegister(): Promise<this> {
+    override async onKernelRegister(): Promise<this> {
       const port = (this.options as { port: unknown }).port;
       if (typeof port !== "number") {
         throw new Error(

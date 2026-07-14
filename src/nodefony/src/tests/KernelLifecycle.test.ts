@@ -70,15 +70,15 @@ class HookedModule extends Module {
   constructor(kernel: Kernel) {
     super("HookedModule", kernel, "/tmp/hooked", {});
   }
-  async onKernelRegister(): Promise<this> {
+  override async onKernelRegister(): Promise<this> {
     this.registerCalled = true;
     return this;
   }
-  async onKernelBoot(): Promise<this> {
+  override async onKernelBoot(): Promise<this> {
     this.bootCalled = true;
     return this;
   }
-  async onKernelReady(): Promise<this> {
+  override async onKernelReady(): Promise<this> {
     this.readyCalled = true;
     return this;
   }
@@ -90,7 +90,7 @@ class InitModule extends Module {
   constructor(kernel: Kernel) {
     super("InitModule", kernel, "/tmp/init", {});
   }
-  async init(kernel: unknown): Promise<this> {
+  override async init(kernel: unknown): Promise<this> {
     this.initCalled = true;
     this.initArg = kernel;
     return this;
@@ -102,12 +102,12 @@ class SlowHookedModule extends Module {
   constructor(kernel: Kernel) {
     super("SlowHookedModule", kernel, "/tmp/slow", {});
   }
-  async onKernelRegister(): Promise<this> {
+  override async onKernelRegister(): Promise<this> {
     await new Promise((r) => setImmediate(r)); // tick async
     this.order.push("register");
     return this;
   }
-  async onKernelBoot(): Promise<this> {
+  override async onKernelBoot(): Promise<this> {
     await new Promise((r) => setImmediate(r));
     this.order.push("boot");
     return this;
@@ -339,7 +339,7 @@ describe("Kernel lifecycle — module hooks", () => {
       constructor(kernel: Kernel) {
         super("HookedModule2", kernel, "/tmp/hooked2", {});
       }
-      async onKernelRegister(): Promise<this> {
+      override async onKernelRegister(): Promise<this> {
         this.registerCalled = true;
         return this;
       }
@@ -657,7 +657,7 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
       constructor(kernel: Kernel) {
         super("crit", kernel, "/tmp/crit", {});
       }
-      async onKernelBoot(): Promise<this> {
+      override async onKernelBoot(): Promise<this> {
         return this;
       }
     }
@@ -666,7 +666,7 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
       constructor(kernel: Kernel) {
         super("opt", kernel, "/tmp/opt", {});
       }
-      async onKernelBoot(): Promise<this> {
+      override async onKernelBoot(): Promise<this> {
         return this;
       }
     }
@@ -802,7 +802,7 @@ describe("Kernel — ordering config : override module-<name> avant validation",
       constructor(kernel: Kernel) {
         super("target", kernel, "/tmp/target", { foo: "default" });
       }
-      async onKernelRegister(): Promise<this> {
+      override async onKernelRegister(): Promise<this> {
         // simule defineXxxConfig(this.options) : lit la config AU MOMENT de onRegister
         this.seenFoo = (this.options as any).foo;
         return this;

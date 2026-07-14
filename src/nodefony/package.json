@@ -57,7 +57,7 @@
     "postbuild": "node -e \"try{require('fs').chmodSync('bin/nodefony',0o755)}catch(e){}\"",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "rimraf dist bin/nodefony tsconfig.tsbuildinfo",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.tests.json",
     "start": "node ./bin/nodefony",
     "test": "vitest run",
     "test:watch": "vitest",

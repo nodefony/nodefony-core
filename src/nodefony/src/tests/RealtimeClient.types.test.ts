@@ -18,7 +18,9 @@ import { describe, it } from "vitest";
 import { RealtimeClient } from "../client/realtime/RealtimeClient";
 import {
   expectType,
+  type ActionNames,
   type ActionsMap,
+  type EventNames,
   type EventsMap,
 } from "../realtime/RealtimeEventMap";
 
@@ -38,14 +40,34 @@ interface AppActions extends ActionsMap {
   "chat:fetch": { in: { id: string }; out: { msg: string } };
 }
 
-function _typeOnly(): void {
-  // Côté CLIENT : Emit=ClientToServer, Listen=ServerToClient, Actions=AppActions
-  declare const client: RealtimeClient<
-    ClientToServer,
-    ServerToClient,
-    AppActions
-  >;
+// ── Fixtures compile-only ────────────────────────────────────────────────
+// `declare const` est ILLÉGAL dans un corps de fonction (TS1184) : les fixtures
+// vivent au scope module (ambient → aucun emit runtime, `_typeOnly` jamais appelé).
 
+// Côté CLIENT : Emit=ClientToServer, Listen=ServerToClient, Actions=AppActions
+declare const client: RealtimeClient<
+  ClientToServer,
+  ServerToClient,
+  AppActions
+>;
+// RÉTRO-COMPAT — client sans paramétrage (défauts permissifs)
+declare const rawClient: RealtimeClient;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SENTINELLES — TROUS DE TYPAGE du code source, prouvés ici et RAPPORTÉS (le
+// source n'est PAS modifié par ce test). Elles CASSERONT quand les trous seront
+// bouchés → elles forcent à restaurer les garde-fous marqués ⚠️ plus bas.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// TROU 1 — `interface X extends EventsMap|ActionsMap` (la convention DOCUMENTÉE)
+// HÉRITE l'index signature de `Record<string, …>` → `ActionNames`/`EventNames`
+// valent `string`. Conséquences : (a) un nom inconnu passe la compile ;
+// (b) la branche « hors map → Promise<T> » du type conditionnel est INATTEIGNABLE.
+const _actionNamesLeakIndexSignature: ActionNames<AppActions> = "nom-inconnu";
+const _eventNamesLeakIndexSignature: EventNames<ServerToClient> =
+  "canal-inconnu";
+
+function _typeOnly(): void {
   // ── ON / OFF : typage strict sur les canaux RÉCEPTIONNÉS (Listen) ───────
   const off1 = client.on("chat:room42", (payload) => {
     expectType<{ ts: number; msg: string }>(payload);
@@ -81,16 +103,23 @@ function _typeOnly(): void {
     client.request("chat:fetch", { id: "x" }),
   );
 
-  // method hors map → fallback Promise<T> permissif (avec T explicite)
-  expectType<Promise<{ uptime: number }>>(
+  // ── ⚠️ method hors map → DEVRAIT retomber sur `Promise<T>` (T explicite) ──
+  // TROU 1 : `ActionNames<AppActions>` vaut `string` → la branche
+  // `K extends ActionNames<Actions>` du type conditionnel est TOUJOURS vraie →
+  // `T` est IGNORÉ et le retour est `Promise<unknown>`. On assert le type RÉEL.
+  expectType<Promise<unknown>>(
     client.request<"kernel:ping", { uptime: number }>("kernel:ping"),
   );
 
-  // @ts-expect-error : RPC inconnue sans T explicite → param strict refusé
-  client.request("chat:ping", { wrong: true });
+  // ── ⚠️ Garde-fou INOPÉRANT — TROU 3 (cf sentinelles en tête de fichier) ───
+  // `params: { wrong: true }` sur une RPC dont le contrat dit `in: void` DEVRAIT
+  // être refusé. La 3ᵉ surcharge de `RealtimeClient.request`
+  // (`(method: string, params?: unknown, timeoutMs?)`) est un ATTRAPE-TOUT :
+  // quand la surcharge typée échoue, TS retombe dessus et accepte n'importe quoi.
+  // Un `@ts-expect-error` ici serait « unused ».
+  client.request("chat:ping", { wrong: true }); // devrait ❌
 
   // ── RÉTRO-COMPAT — client sans paramétrage (défauts permissifs) ────────
-  declare const rawClient: RealtimeClient;
   rawClient.on("any-event", (...args) => {
     expectType<unknown[]>(args);
   });

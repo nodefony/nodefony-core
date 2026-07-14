@@ -19,7 +19,7 @@ class MockTransport implements IRealtimeTransport {
   private _open: (() => void) | null = null;
   private _close: ((c: number, r: string) => void) | null = null;
   private _msg: ((raw: string) => void) | null = null;
-  private _err: (() => void) | null = null;
+  private _err: ((err: unknown) => void) | null = null;
   connect(): void {
     this.connectCalls++;
   }
@@ -38,7 +38,7 @@ class MockTransport implements IRealtimeTransport {
   onClose(cb: (c: number, r: string) => void): void {
     this._close = cb;
   }
-  onError(cb: () => void): void {
+  onError(cb: (err: unknown) => void): void {
     this._err = cb;
   }
   // Pilotage test :
@@ -53,8 +53,8 @@ class MockTransport implements IRealtimeTransport {
   fireMsg(raw: string): void {
     this._msg?.(raw);
   }
-  fireErr(): void {
-    this._err?.();
+  fireErr(err: unknown = new Error("transport error")): void {
+    this._err?.(err);
   }
 }
 

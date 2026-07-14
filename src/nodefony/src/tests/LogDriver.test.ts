@@ -542,10 +542,11 @@ describe("Log Backplane (LB.5) — agrégation cluster (cluster-file)", () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+  // Le `pid` de la ligne écrite vient du 1ᵉʳ argument de `writeWorker` (un Rec ne
+  // le porte pas : un enregistrement appartient au worker qui l'écrit).
   type Rec = {
     uid: number;
     timeStamp: number;
-    pid: number;
     payload: string;
     severityName?: string;
     severity?: number;

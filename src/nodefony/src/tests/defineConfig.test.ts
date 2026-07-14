@@ -7,6 +7,18 @@ import {
 } from "../config/index";
 import type { ConfigContext } from "../config/types";
 
+/**
+ * `servers.http` / `servers.https` valent `Config | false` (`false` = serveur coupé,
+ * TLS à l'ingress). Lire un champ exige donc de PROUVER d'abord qu'on tient un objet
+ * — ce garde-fou remplace un accès optionnel qui, sur `false`, se serait tu.
+ */
+function serverOf<T>(v: T | false | undefined): T {
+  if (v === false || v === undefined) {
+    throw new Error(`serveur attendu CONFIGURÉ (objet), reçu: ${String(v)}`);
+  }
+  return v;
+}
+
 /** Contexte d'env de test (prod par défaut, surchargeable). */
 function makeCtx(over: Partial<ConfigContext> = {}): ConfigContext {
   return {
@@ -77,8 +89,8 @@ describe("config — defineConfig (moteur Lot 1)", () => {
   describe("resolve — merge des défauts", () => {
     it("config vide → tous les défauts framework", () => {
       const r = defineConfig({}).resolve(makeCtx());
-      assert.strictEqual(r.servers?.http?.port, 5151);
-      assert.strictEqual(r.servers?.https?.protocol, "2.0");
+      assert.strictEqual(serverOf(r.servers?.http).port, 5151);
+      assert.strictEqual(serverOf(r.servers?.https).protocol, "2.0");
       assert.strictEqual(r.log?.active, true);
       assert.strictEqual(r.domain, "localhost");
       assert.strictEqual(r.packageManager, "npm");
@@ -95,8 +107,8 @@ describe("config — defineConfig (moteur Lot 1)", () => {
       const r = defineConfig({
         servers: { http: { port: 8080 } },
       }).resolve(makeCtx());
-      assert.strictEqual(r.servers?.http?.port, 8080); // overridé
-      assert.strictEqual(r.servers?.https?.port, 5152); // défaut préservé
+      assert.strictEqual(serverOf(r.servers?.http).port, 8080); // overridé
+      assert.strictEqual(serverOf(r.servers?.https).port, 5152); // défaut préservé
       assert.strictEqual(r.servers?.statics, true); // défaut préservé
     });
 
@@ -120,7 +132,7 @@ describe("config — defineConfig (moteur Lot 1)", () => {
       const input = { servers: { http: { port: 9090 } } };
       defineConfig(input).resolve(makeCtx());
       // défauts intacts
-      assert.strictEqual(defaultAppConfig.servers?.http?.port, 5151);
+      assert.strictEqual(serverOf(defaultAppConfig.servers?.http).port, 5151);
       // input intact (pas de defaults injectés dedans)
       assert.strictEqual(input.servers.http.port, 9090);
       assert.strictEqual((input as { log?: unknown }).log, undefined);

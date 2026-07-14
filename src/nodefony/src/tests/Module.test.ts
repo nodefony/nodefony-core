@@ -155,7 +155,7 @@ describe("Module — setEvents()", () => {
       constructor(k: Kernel) {
         super("reg-hook", k, PATH_FOR_NODEFONY_DIR, {});
       }
-      async onKernelRegister(): Promise<this> {
+      override async onKernelRegister(): Promise<this> {
         return this;
       }
     }
@@ -175,7 +175,7 @@ describe("Module — setEvents()", () => {
       constructor(k: Kernel) {
         super("boot-hook", k, PATH_FOR_NODEFONY_DIR, {});
       }
-      async onKernelBoot(): Promise<this> {
+      override async onKernelBoot(): Promise<this> {
         return this;
       }
     }
@@ -195,7 +195,7 @@ describe("Module — setEvents()", () => {
       constructor(k: Kernel) {
         super("ready-hook", k, PATH_FOR_NODEFONY_DIR, {});
       }
-      async onKernelReady(): Promise<this> {
+      override async onKernelReady(): Promise<this> {
         return this;
       }
     }
@@ -307,14 +307,16 @@ describe("Module — addService()", () => {
   // Service minimal compatible avec Injector.instantiate(service, module, ...args)
   class SimpleService extends Service {
     constructor(module: Module) {
-      super("SimpleService", module.container, undefined, {});
+      // `Module.container` est `Container | null` ; `Service` attend
+      // `Container | undefined` (pas de container → il en crée un).
+      super("SimpleService", module.container ?? undefined, undefined, {});
     }
   }
 
   class InitService extends Service {
     initialized = false;
     constructor(module: Module) {
-      super("InitService", module.container, undefined, {});
+      super("InitService", module.container ?? undefined, undefined, {});
     }
     async init(_module?: Module): Promise<this> {
       this.initialized = true;
@@ -756,7 +758,7 @@ describe("Module — sous-classe avec lifecycle hooks", () => {
       constructor(k: Kernel) {
         super("app", k, PATH_FOR_NODEFONY_DIR, {});
       }
-      async onKernelRegister(): Promise<this> {
+      override async onKernelRegister(): Promise<this> {
         called = true;
         return this;
       }
@@ -774,7 +776,7 @@ describe("Module — sous-classe avec lifecycle hooks", () => {
       constructor(k: Kernel) {
         super("boot-mod", k, PATH_FOR_NODEFONY_DIR, {});
       }
-      async onKernelBoot(): Promise<this> {
+      override async onKernelBoot(): Promise<this> {
         called = true;
         return this;
       }
@@ -792,7 +794,7 @@ describe("Module — sous-classe avec lifecycle hooks", () => {
       constructor(k: Kernel) {
         super("ready-mod", k, PATH_FOR_NODEFONY_DIR, {});
       }
-      async onKernelReady(): Promise<this> {
+      override async onKernelReady(): Promise<this> {
         called = true;
         return this;
       }
@@ -810,7 +812,7 @@ describe("Module — sous-classe avec lifecycle hooks", () => {
       constructor(k: Kernel) {
         super("count-mod", k, PATH_FOR_NODEFONY_DIR, {});
       }
-      async onKernelRegister(): Promise<this> {
+      override async onKernelRegister(): Promise<this> {
         count++;
         return this;
       }

@@ -520,11 +520,10 @@ describe("Cli — parse / parseAsync", () => {
 
   it("parseAsync(['node','test']) → résout sans erreur", async () => {
     const cli = makeCli("paa-ok");
-    (await assert.isFulfilled) !== undefined
-      ? cli.parseAsync(["node", "test"])
-      : cli.parseAsync(["node", "test"]).then((r) => {
-          assert.ok(r);
-        });
+    // La promesse DOIT être attendue : sinon un rejet passerait inaperçu et le
+    // test serait vert quoi qu'il arrive.
+    const commander = await cli.parseAsync(["node", "test"]);
+    assert.ok(commander);
   });
 });
 
@@ -913,7 +912,7 @@ describe("Cli — signal handler idempotent", () => {
     // arrêt par un throw sentinelle, sinon le mock laisserait le flux retomber
     // dans le drain (faux 2ᵉ terminate).
     class ExitCalled extends Error {
-      constructor(public code: number) {
+      constructor(public override code: number) {
         super("exit");
       }
     }
