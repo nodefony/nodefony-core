@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { OPERATOR_KEYS, isFieldOperators } from "../../index";
+import {
+  OPERATOR_KEYS,
+  UPDATE_OPERATOR_KEYS,
+  isFieldOperators,
+  isUpdateOperators,
+} from "../../index";
 
 describe("criteria — isFieldOperators (opérateurs riches P7.4)", () => {
   it("expose les 10 opérateurs portables figés", () => {
@@ -44,5 +49,36 @@ describe("criteria — isFieldOperators (opérateurs riches P7.4)", () => {
     assert.equal(isFieldOperators("x"), false);
     assert.equal(isFieldOperators([1, 2]), false);
     assert.equal(isFieldOperators(new Date()), false); // valeur = égalité
+  });
+});
+
+describe("criteria — isUpdateOperators (opérateurs d'écriture d'un upsert)", () => {
+  it("expose les 2 opérateurs d'écriture figés", () => {
+    assert.deepEqual([...UPDATE_OPERATOR_KEYS], ["$max", "$min"]);
+  });
+
+  it("true : objet dont toutes les clés sont des opérateurs d'écriture", () => {
+    assert.equal(isUpdateOperators({ $max: 1 }), true);
+    assert.equal(isUpdateOperators({ $min: 1 }), true);
+    assert.equal(isUpdateOperators({ $max: 0 }), true); // valeur falsy ≠ absente
+  });
+
+  it("false : opérateur de CRITÈRE — les deux familles sont disjointes", () => {
+    // `{ $gt: 1 }` en écriture n'a pas de sens : ce serait écrit tel quel (donc
+    // en base) si on le confondait avec un opérateur d'update.
+    assert.equal(isUpdateOperators({ $gt: 1 }), false);
+    assert.equal(isUpdateOperators({ $null: true }), false);
+  });
+
+  it("false : valeur ordinaire (colonne JSON, sous-document) → écrite telle quelle", () => {
+    assert.equal(isUpdateOperators({ foo: 1 }), false);
+    assert.equal(isUpdateOperators({ $max: 1, foo: 2 }), false); // mélange
+    assert.equal(isUpdateOperators({}), false);
+    assert.equal(isUpdateOperators(null), false);
+    assert.equal(isUpdateOperators(undefined), false);
+    assert.equal(isUpdateOperators(42), false);
+    assert.equal(isUpdateOperators("x"), false);
+    assert.equal(isUpdateOperators([1, 2]), false);
+    assert.equal(isUpdateOperators(new Date()), false);
   });
 });

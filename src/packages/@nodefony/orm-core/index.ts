@@ -16,6 +16,8 @@ export type {
   Criteria,
   FieldCriteria,
   FieldOperators,
+  UpdateData,
+  UpdateOperators,
   RepositoryReadOptions,
   ITransaction,
 } from "./nodefony/interfaces/index";
@@ -23,6 +25,11 @@ export type {
 // ─── Critères riches (P7.4) — helper de détection d'opérateurs (lib pure) ────
 export { OPERATOR_KEYS, isFieldOperators } from "./nodefony/src/criteria";
 export type { OperatorKey } from "./nodefony/src/criteria";
+export {
+  UPDATE_OPERATOR_KEYS,
+  isUpdateOperators,
+} from "./nodefony/src/criteria";
+export type { UpdateOperatorKey } from "./nodefony/src/criteria";
 
 // ─── Erreurs ORM data-level (aucun couplage API) ─────────────────────────────
 export { UnknownCriteriaField } from "./nodefony/src/errors";

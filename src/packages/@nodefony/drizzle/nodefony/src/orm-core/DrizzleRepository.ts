@@ -29,6 +29,7 @@ import type { MySqlTable } from "drizzle-orm/mysql-core";
 import { RequestContext, redactSecrets } from "nodefony";
 import {
   isFieldOperators,
+  isUpdateOperators,
   queryFlowMonitor,
   UnknownCriteriaField,
 } from "@nodefony/orm-core";
@@ -39,6 +40,7 @@ import type {
   IRepository,
   ITransaction,
   RepositoryReadOptions,
+  UpdateData,
 } from "@nodefony/orm-core";
 
 /**
@@ -545,17 +547,63 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return (rows[0] as T) ?? null;
   }
 
+  /**
+   * Traduit le `update` d'un upsert en deux vues : ce qu'on ÉCRIT à l'insertion
+   * (valeurs brutes) et ce qu'on ré-applique au conflit (`SET`), où les
+   * {@link UpdateOperators} deviennent une expression du dialecte.
+   *
+   * `$max`/`$min` → `MAX(col, ?)` en sqlite, `GREATEST/LEAST(col, ?)` en
+   * postgres/mysql : `col` y désigne la valeur EXISTANTE, et la valeur proposée
+   * est bindée. À l'insertion il n'y a rien à comparer → valeur brute.
+   */
+  #writeSet(update: UpdateData<T>): {
+    set: Record<string, unknown>;
+    values: Record<string, unknown>;
+  } {
+    const set: Record<string, unknown> = {};
+    const values: Record<string, unknown> = {};
+    for (const [field, value] of Object.entries(update)) {
+      if (!isUpdateOperators(value)) {
+        set[field] = value;
+        values[field] = value;
+        continue;
+      }
+      const col = this.#col(this.#table, field);
+      if (!col) {
+        throw new UnknownCriteriaField(
+          field,
+          getTableName(this.#table),
+          Object.keys(getTableColumns(this.#table)),
+        );
+      }
+      // `sql.raw` sur une constante INTERNE (jamais une entrée appelante) : le
+      // nom de fonction n'est pas paramétrable en SQL. La valeur, elle, est bindée.
+      const apply = (fn: string, v: unknown): void => {
+        set[field] = sql`${sql.raw(fn)}(${col}, ${v})`;
+        values[field] = v;
+      };
+      if (value.$max !== undefined) {
+        apply(this.#dialect === "sqlite" ? "MAX" : "GREATEST", value.$max);
+      }
+      if (value.$min !== undefined) {
+        apply(this.#dialect === "sqlite" ? "MIN" : "LEAST", value.$min);
+      }
+    }
+    return { set, values };
+  }
+
   async upsert(
     criteria: Criteria<T>,
-    update: Partial<T>,
+    update: UpdateData<T>,
     insertOnly?: Partial<T>,
   ): Promise<T> {
     // Une SEULE requête : INSERT … ON CONFLICT(<criteria>) DO UPDATE SET <update>
     // RETURNING. Remplace le findOne+(update|create) = 2 round-trips + une race
     // insert/update. `target` = colonnes de conflit (clé unique) ; `set` ne
     // ré-applique QUE `update` → les champs insert-only (ex. createdAt) ne sont
-    // pas écrasés en cas de conflit. (SQLite/Postgres ; mysql = onDuplicateKeyUpdate
-    // au portage multi-dialecte du repository.)
+    // pas écrasés en cas de conflit. Le DO UPDATE est inconditionnel (MySQL
+    // n'accepte pas de WHERE dessus) → une valeur qui ne doit pas régresser
+    // passe par `$max`/`$min` (cf `#writeSet`), et ça reste 1 instruction.
     const target = Object.keys(criteria).map((field) => {
       const col = this.#col(this.#table, field);
       if (!col) {
@@ -567,10 +615,11 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       }
       return col;
     });
+    const write = this.#writeSet(update);
     const values = {
       ...(criteria as Record<string, unknown>),
       ...((insertOnly ?? {}) as Record<string, unknown>),
-      ...(update as Record<string, unknown>),
+      ...write.values,
     };
     if (this.#dialect === "mysql") {
       // `ON DUPLICATE KEY UPDATE` (pas de `target` : MySQL arbitre sur TOUTES
@@ -583,7 +632,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
               set: Record<string, unknown>;
             }): ProfiledQuery<unknown>;
           }
-        ).onDuplicateKeyUpdate({ set: update as Record<string, unknown> }),
+        ).onDuplicateKeyUpdate({ set: write.set }),
       );
       const conds = target.map((col) => eq(col, values[col.name]));
       const rows = (await this.#prof(
@@ -605,7 +654,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
           // Vue d'exécution canonique (cf `execTable`) : le builder sqlite
           // exige ses colonnes ; les PgColumn y passent structurellement.
           target: target as SQLiteColumn[],
-          set: update as Record<string, unknown>,
+          set: write.set,
         })
         .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
     )) as Record<string, unknown>[];

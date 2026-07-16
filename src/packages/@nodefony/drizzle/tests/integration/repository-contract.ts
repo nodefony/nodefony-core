@@ -217,6 +217,90 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
     assert.equal(await repo.count({}), 2);
   });
 
+  it("upsert : $max / $min — seuil monotone en UNE instruction (le DO UPDATE n'a pas de WHERE)", async () => {
+    await repo.delete({});
+    // INSERT : rien à comparer → la valeur est posée telle quelle.
+    const seeded = await repo.upsert(
+      { id: "seuil" },
+      { score: { $max: 20 }, name: "s", age: 1 },
+      { note: "créé" },
+    );
+    assert.equal(seeded.score, 20);
+
+    // NB : un upsert reste un INSERT qui BASCULE en UPDATE au conflit — son
+    // INSERT doit donc être valide (toutes les colonnes NOT NULL fournies),
+    // même quand on sait que la ligne existe. D'où `name`/`age` à chaque appel.
+    //
+    // CONFLIT + valeur INFÉRIEURE → ignorée : le seuil ne recule pas. C'est LA
+    // propriété que `revokeAllForSubject` exige (un seuil qui recule ferait
+    // redevenir valides des jetons révoqués).
+    await repo.upsert(
+      { id: "seuil" },
+      { score: { $max: 10 }, name: "s", age: 1 },
+    );
+    assert.equal((await repo.findOne({ id: "seuil" }))?.score, 20);
+
+    // CONFLIT + valeur SUPÉRIEURE → avance.
+    const up = await repo.upsert(
+      { id: "seuil" },
+      { score: { $max: 30 }, name: "s", age: 1 },
+    );
+    assert.equal(up.score, 30, "la ligne RETURNING porte la valeur finale");
+    assert.equal(up.note, "créé", "insertOnly toujours préservé au conflit");
+
+    // $min : le miroir.
+    await repo.upsert(
+      { id: "plancher" },
+      { score: { $min: 50 }, name: "p", age: 1 },
+    );
+    await repo.upsert(
+      { id: "plancher" },
+      { score: { $min: 80 }, name: "p", age: 1 },
+    ); // ignoré
+    assert.equal((await repo.findOne({ id: "plancher" }))?.score, 50);
+    await repo.upsert(
+      { id: "plancher" },
+      { score: { $min: 5 }, name: "p", age: 1 },
+    );
+    assert.equal((await repo.findOne({ id: "plancher" }))?.score, 5);
+
+    // Mélange opérateur + valeur nue dans le même update.
+    await repo.upsert(
+      { id: "seuil" },
+      { score: { $max: 25 }, note: "touché", name: "s", age: 1 }, // 25 < 30 → score inchangé
+    );
+    const mixed = await repo.findOne({ id: "seuil" });
+    assert.equal(mixed?.score, 30, "l'opérateur garde le max");
+    assert.equal(mixed?.note, "touché", "la valeur nue est écrite");
+    assert.equal(await repo.count({}), 2, "aucun doublon");
+  });
+
+  it("upsert CONCURRENT : $max garde le maximum, quel que soit l'ordre d'arrivée", async () => {
+    await repo.delete({});
+    // Le cas réel : N logouts simultanés posent chacun leur seuil. Un
+    // `findOne` + `if (v > existant)` laisse le DERNIER écrire → le seuil peut
+    // RECULER. Ici l'arbitrage est dans l'instruction : le SGBD tranche.
+    const vals = [5, 90, 12, 40, 7, 100, 33, 2, 61, 8];
+    const results = await Promise.allSettled(
+      vals.map((v) =>
+        repo.upsert({ id: "race" }, { score: { $max: v }, name: "r", age: 1 }),
+      ),
+    );
+    assert.deepEqual(
+      results
+        .filter((r) => r.status === "rejected")
+        .map((r) => (r as PromiseRejectedResult).reason?.message),
+      [],
+      "aucun upsert concurrent ne doit être rejeté",
+    );
+    assert.equal(
+      (await repo.findOne({ id: "race" }))?.score,
+      100,
+      "le maximum survit, jamais un écrivain arrivé plus tard avec moins",
+    );
+    assert.equal(await repo.count({}), 1);
+  });
+
   it("find : order / limit / offset — et OFFSET-SANS-LIMIT (hack routé par dialecte)", async () => {
     await seed();
     const desc = await repo.find(undefined, { order: [["score", "DESC"]] });

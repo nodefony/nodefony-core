@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-16T23:30:59.952Z",
+  "generated": "2026-07-16T23:44:20.608Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1024,
-    "symbols": 2721,
+    "symbols": 2726,
     "classes": 325,
-    "interfaces": 712,
-    "types": 318,
+    "interfaces": 713,
+    "types": 320,
     "enums": 4,
-    "functions": 791,
-    "constants": 571
+    "functions": 792,
+    "constants": 572
   },
   "symbols": {
     "Cli": {
@@ -10417,6 +10417,15 @@
       "extends": null,
       "description": "Opérateurs de comparaison riches applicables à **un** champ, façon MongoDB. Forme tranchée en P7.4 (ADR-0003 risque #3) : objet d'opérateurs `$`-préfixés. Raison : (1) familier (convention Mongo) ;…"
     },
+    "UpdateOperators": {
+      "name": "UpdateOperators",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Opérateurs d'**écriture** applicables à un champ dans le `update` d'un {@link IRepository.upsert} — par opposition aux {@link FieldOperators}, qui filtrent en lecture. Ils existent parce qu'un upse…"
+    },
     "RepositoryReadOptions": {
       "name": "RepositoryReadOptions",
       "kind": "interface",
@@ -10442,6 +10451,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Critère de filtre brut passé aux opérations d'un repository. Volontairement abstrait (`Record<string, unknown>`) : chaque adapter ORM traduit ce critère dans sa syntaxe native (clause `WHERE` SQL, …"
+    },
+    "UpdateData": {
+      "name": "UpdateData",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Données d'écriture d'un {@link IRepository.upsert} : chaque champ accepte soit sa valeur nue (écriture directe), soit un objet d'{@link UpdateOperators}."
     },
     "FieldCriteria": {
       "name": "FieldCriteria",
@@ -10512,6 +10529,14 @@
       "module": "@nodefony/orm-core",
       "description": "Clé d'opérateur riche reconnue."
     },
+    "UpdateOperatorKey": {
+      "name": "UpdateOperatorKey",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Clé d'opérateur d'écriture reconnue."
+    },
     "isFieldOperators": {
       "name": "isFieldOperators",
       "kind": "function",
@@ -10520,6 +10545,14 @@
       "module": "@nodefony/orm-core",
       "description": "Indique si une valeur de champ est un objet d'{@link FieldOperators}. Heuristique : objet simple, non-`null`, non-tableau, dont **toutes** les clés propres sont des opérateurs reconnus (et au moins…"
     },
+    "isUpdateOperators": {
+      "name": "isUpdateOperators",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Indique si une valeur d'écriture est un objet d'{@link UpdateOperators}. Même heuristique que {@link isFieldOperators} : objet simple, non-`null`, non-tableau, dont **toutes** les clés propres sont…"
+    },
     "OPERATOR_KEYS": {
       "name": "OPERATOR_KEYS",
       "kind": "const",
@@ -10527,6 +10560,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Liste figée des opérateurs riches reconnus dans un critère portable. Source de vérité unique partagée par tous les adapters : un objet de valeur de champ n'est traité comme {@link FieldOperators} q…"
+    },
+    "UPDATE_OPERATOR_KEYS": {
+      "name": "UPDATE_OPERATOR_KEYS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Liste figée des opérateurs d'**écriture** reconnus dans le `update` d'un `upsert` (cf {@link UpdateOperators}). Source de vérité unique partagée par tous les adapters — pendant, côté écriture, de {…"
     },
     "IEntityDefinition": {
       "name": "IEntityDefinition",
@@ -24041,6 +24082,11 @@
       "IMongooseConnectorConfig": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
+      "UpdateData": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
       "Connection": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
@@ -24093,6 +24139,9 @@
         "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "UpdateOperators": [
+        "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts"
       ],
       "IEntityRelation": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
@@ -26050,6 +26099,10 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "isFieldOperators": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "isUpdateOperators": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],

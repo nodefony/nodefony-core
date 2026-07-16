@@ -6,6 +6,8 @@ export type {
   Criteria,
   FieldCriteria,
   FieldOperators,
+  UpdateData,
+  UpdateOperators,
   RepositoryReadOptions,
 } from "./IRepository";
 export type { ITransaction } from "./ITransaction";

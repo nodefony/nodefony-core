@@ -1,4 +1,7 @@
-import type { FieldOperators } from "../interfaces/IRepository";
+import type {
+  FieldOperators,
+  UpdateOperators,
+} from "../interfaces/IRepository";
 
 /**
  * Liste figée des opérateurs riches reconnus dans un critère portable.
@@ -48,6 +51,51 @@ export function isFieldOperators(
   }
   for (const key of keys) {
     if (!OPERATOR_SET.has(key)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Liste figée des opérateurs d'**écriture** reconnus dans le `update` d'un
+ * `upsert` (cf {@link UpdateOperators}).
+ *
+ * Source de vérité unique partagée par tous les adapters — pendant, côté
+ * écriture, de {@link OPERATOR_KEYS}.
+ */
+export const UPDATE_OPERATOR_KEYS = ["$max", "$min"] as const;
+
+/** Clé d'opérateur d'écriture reconnue. */
+export type UpdateOperatorKey = (typeof UPDATE_OPERATOR_KEYS)[number];
+
+const UPDATE_OPERATOR_SET: ReadonlySet<string> = new Set<string>(
+  UPDATE_OPERATOR_KEYS,
+);
+
+/**
+ * Indique si une valeur d'écriture est un objet d'{@link UpdateOperators}.
+ *
+ * Même heuristique que {@link isFieldOperators} : objet simple, non-`null`,
+ * non-tableau, dont **toutes** les clés propres sont des opérateurs d'écriture
+ * reconnus (et au moins une). Une valeur objet « ordinaire » (colonne JSON,
+ * sous-document) est donc écrite telle quelle, jamais interprétée.
+ *
+ * @param value - valeur d'écriture associée à un champ.
+ * @returns `true` si `value` doit être interprétée comme des opérateurs.
+ */
+export function isUpdateOperators(
+  value: unknown,
+): value is UpdateOperators<unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const keys = Object.keys(value);
+  if (keys.length === 0) {
+    return false;
+  }
+  for (const key of keys) {
+    if (!UPDATE_OPERATOR_SET.has(key)) {
       return false;
     }
   }

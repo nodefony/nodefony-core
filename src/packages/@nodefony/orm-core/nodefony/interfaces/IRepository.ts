@@ -66,6 +66,49 @@ export interface FieldOperators<V> {
 }
 
 /**
+ * Opérateurs d'**écriture** applicables à un champ dans le `update` d'un
+ * {@link IRepository.upsert} — par opposition aux {@link FieldOperators}, qui
+ * filtrent en lecture.
+ *
+ * Ils existent parce qu'un upsert **ne peut pas porter de condition** : son
+ * `DO UPDATE` s'applique dès qu'il y a conflit de clé. Pour une valeur dont la
+ * progression est **monotone** (un seuil qui ne doit jamais reculer), la
+ * condition doit donc vivre dans la valeur écrite elle-même. Le résultat tient
+ * en **une seule instruction atomique** sur les quatre backends (`MAX()` sqlite,
+ * `GREATEST()` postgres/mysql, `$max` natif Mongo) — là où une clause `WHERE`
+ * sur le `DO UPDATE` n'existe pas en MySQL et imposerait plusieurs requêtes,
+ * donc une course entre elles.
+ *
+ * À l'INSERT, la valeur est posée telle quelle (rien à comparer).
+ *
+ * Inutiles pour faire progresser une ligne dont on sait qu'elle **existe** :
+ * `updateMany({ k, seuil: { $lt: v } }, { seuil: v })` l'exprime déjà, et de
+ * façon tout aussi atomique.
+ *
+ * @typeParam V - type de la valeur du champ ciblé.
+ *
+ * @example
+ * // le seuil de révocation ne recule jamais, même sur deux logouts simultanés
+ * repo.upsert({ subjectId }, { invalidBefore: { $max: now } });
+ */
+export interface UpdateOperators<V> {
+  /** Écrit la valeur seulement si elle est **supérieure** à celle en base. */
+  $max?: V;
+  /** Écrit la valeur seulement si elle est **inférieure** à celle en base. */
+  $min?: V;
+}
+
+/**
+ * Données d'écriture d'un {@link IRepository.upsert} : chaque champ accepte soit
+ * sa valeur nue (écriture directe), soit un objet d'{@link UpdateOperators}.
+ *
+ * @typeParam T - type de l'entité gérée.
+ */
+export type UpdateData<T> = {
+  [K in keyof T]?: T[K] | UpdateOperators<NonNullable<T[K]>>;
+};
+
+/**
  * Valeur de critère pour un champ : soit l'**égalité** directe (valeur nue),
  * soit un objet d'{@link FieldOperators} riche.
  *
@@ -200,15 +243,21 @@ export interface IRepository<T = unknown> {
    *   `criteria` et `insertOnly` ne touchent PAS la ligne existante (ex.
    *   `createdAt` posé à la création est préservé).
    *
+   * Le `DO UPDATE` est **inconditionnel** (aucun `WHERE` : MySQL n'en accepte
+   * pas sur son `ON DUPLICATE KEY UPDATE`) — pour une valeur qui ne doit jamais
+   * régresser, poser la condition DANS la valeur via {@link UpdateOperators}
+   * (`{ seuil: { $max: v } }`), ce qui reste une instruction unique.
+   *
    * @param criteria - clé de conflit (colonnes **uniques**, égalité simple — pas
    *   d'opérateurs riches `$`). Sert aussi de valeurs d'insertion.
    * @param update - champs posés à l'insertion ET ré-appliqués en cas de conflit.
+   *   Accepte une valeur nue ou un {@link UpdateOperators} (`$max`/`$min`).
    * @param insertOnly - champs posés **uniquement** à l'insertion (ex. `createdAt`).
    * @returns l'entité persistée (ligne réelle via `RETURNING` / `returnDocument`).
    */
   upsert(
     criteria: Criteria<T>,
-    update: Partial<T>,
+    update: UpdateData<T>,
     insertOnly?: Partial<T>,
   ): Promise<T>;
 

@@ -1,4 +1,4 @@
-import type { IRepository } from "@nodefony/orm-core";
+import type { IRepository, UpdateData } from "@nodefony/orm-core";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerTokenStore("mongoose", …)`.
@@ -209,22 +209,28 @@ export class MongooseTokenStore implements ITokenStore {
 
   // ── Révocation en masse par porteur ──────────────────────────────────────────
 
+  /**
+   * Pose le seuil de révocation en masse d'un porteur (« déconnecte-moi de
+   * partout ») : tout jeton émis avant `invalidBefore` est mort.
+   *
+   * **Monotone — le seuil ne recule JAMAIS**, y compris sous deux logouts
+   * simultanés : la comparaison vit dans la valeur écrite (`$max`, natif Mongo),
+   * pas dans un `if` JS après lecture. Une lecture suivie d'une écriture
+   * laisserait les deux appels voir le même état et écrire tous les deux — c'est
+   * le dernier qui resterait, même porteur d'un seuil plus ANCIEN, et **des
+   * jetons révoqués redeviendraient valides**. Parité stricte avec l'adapter
+   * Drizzle (`GREATEST`/`MAX` SQL).
+   *
+   * @param subjectId - porteur visé.
+   * @param invalidBefore - seuil (epoch ms) ; ignoré s'il est antérieur au seuil courant.
+   */
   async revokeAllForSubject(
     subjectId: string,
     invalidBefore: number,
   ): Promise<void> {
-    // Monotone : on ne recule jamais le seuil.
-    const existing = await this.#revocations.findOne({ id: subjectId });
-    if (existing) {
-      if (invalidBefore > existing.invalidBefore) {
-        await this.#revocations.updateOne({ id: subjectId }, { invalidBefore });
-      }
-    } else {
-      await this.#revocations.create({
-        _id: subjectId,
-        invalidBefore,
-      } as Partial<SubjectRevocationRow>);
-    }
+    await this.#revocations.upsert({ id: subjectId }, {
+      invalidBefore: { $max: invalidBefore },
+    } as UpdateData<SubjectRevocationRow>);
   }
 
   async getInvalidBefore(subjectId: string): Promise<number | null> {

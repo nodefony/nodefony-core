@@ -215,19 +215,31 @@ export class DrizzleTokenStore implements ITokenStore {
 
   // ── Révocation en masse par porteur ──────────────────────────────────────────
 
+  /**
+   * Pose le seuil de révocation en masse d'un porteur (« déconnecte-moi de
+   * partout ») : tout jeton émis avant `invalidBefore` est mort.
+   *
+   * **Monotone — le seuil ne recule JAMAIS**, y compris sous deux logouts
+   * simultanés : la comparaison vit dans la valeur écrite (`$max`), pas dans un
+   * `if` JS après lecture. Une lecture suivie d'une écriture laisserait les deux
+   * appels voir le même état et écrire tous les deux — c'est le dernier qui
+   * resterait, même porteur d'un seuil plus ANCIEN, et les jetons que le logout
+   * le plus récent venait d'invalider repasseraient sous le seuil : **des jetons
+   * révoqués redeviendraient valides**. Une instruction unique sur les 4
+   * backends (`MAX()` sqlite, `GREATEST()` pg/mysql, `$max` Mongo) — un `WHERE`
+   * sur le `DO UPDATE` n'existe pas en MySQL.
+   *
+   * @param subjectId - porteur visé.
+   * @param invalidBefore - seuil (epoch ms) ; ignoré s'il est antérieur au seuil courant.
+   */
   async revokeAllForSubject(
     subjectId: string,
     invalidBefore: number,
   ): Promise<void> {
-    // Monotone : on ne recule jamais le seuil (deux logouts successifs).
-    const existing = await this.#revocations.findOne({ subjectId });
-    if (existing) {
-      if (invalidBefore > existing.invalidBefore) {
-        await this.#revocations.updateOne({ subjectId }, { invalidBefore });
-      }
-    } else {
-      await this.#revocations.create({ subjectId, invalidBefore });
-    }
+    await this.#revocations.upsert(
+      { subjectId },
+      { invalidBefore: { $max: invalidBefore } },
+    );
   }
 
   async getInvalidBefore(subjectId: string): Promise<number | null> {

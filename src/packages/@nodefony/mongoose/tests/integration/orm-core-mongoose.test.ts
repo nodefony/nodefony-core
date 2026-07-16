@@ -222,6 +222,61 @@ describe.skipIf(!URI)(
       );
     });
 
+    it("upsert : $max / $min — seuil monotone atomique (parité stricte avec Drizzle)", async () => {
+      await users.delete({});
+      // INSERT : rien à comparer → valeur posée telle quelle.
+      const seeded = await users.upsert(
+        { email: "seuil@x.c" },
+        { age: { $max: 20 } },
+      );
+      assert.equal(seeded.age, 20);
+
+      // CONFLIT + valeur INFÉRIEURE → ignorée (le seuil ne recule pas).
+      await users.upsert({ email: "seuil@x.c" }, { age: { $max: 10 } });
+      assert.equal((await users.findOne({ email: "seuil@x.c" }))?.age, 20);
+
+      // CONFLIT + valeur SUPÉRIEURE → avance.
+      const up = await users.upsert(
+        { email: "seuil@x.c" },
+        { age: { $max: 30 } },
+      );
+      assert.equal(up.age, 30);
+
+      // $min : le miroir.
+      await users.upsert({ email: "plancher@x.c" }, { age: { $min: 50 } });
+      await users.upsert({ email: "plancher@x.c" }, { age: { $min: 80 } }); // ignoré
+      assert.equal((await users.findOne({ email: "plancher@x.c" }))?.age, 50);
+      await users.upsert({ email: "plancher@x.c" }, { age: { $min: 5 } });
+      assert.equal((await users.findOne({ email: "plancher@x.c" }))?.age, 5);
+
+      assert.equal(await users.count({}), 2, "aucun doublon");
+    });
+
+    it("upsert CONCURRENT : $max garde le maximum, quel que soit l'ordre d'arrivée", async () => {
+      await users.delete({});
+      // Le cas de `revokeAllForSubject` : N logouts simultanés. Un findOne +
+      // `if (v > existant)` laisserait le DERNIER écrire → le seuil RECULE.
+      const vals = [5, 90, 12, 40, 7, 100, 33, 2, 61, 8];
+      const results = await Promise.allSettled(
+        vals.map((v) =>
+          users.upsert({ email: "race@x.c" }, { age: { $max: v } }),
+        ),
+      );
+      assert.deepEqual(
+        results
+          .filter((r) => r.status === "rejected")
+          .map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+        "aucun upsert concurrent ne doit être rejeté",
+      );
+      assert.equal(
+        (await users.findOne({ email: "race@x.c" }))?.age,
+        100,
+        "le maximum survit, jamais un écrivain arrivé plus tard avec moins",
+      );
+      assert.equal(await users.count({}), 1);
+    });
+
     it("$null combiné à $eq/$ne sur le même champ : lève, n'écrase JAMAIS en silence", async () => {
       // Les deux visent la même clé Mongo ($eq/$ne) : sans garde, l'une
       // écraserait l'autre et le filtre partirait amputé (skip silencieux).

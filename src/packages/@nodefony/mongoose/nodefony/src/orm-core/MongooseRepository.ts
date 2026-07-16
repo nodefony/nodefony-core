@@ -2,12 +2,14 @@ import type { ClientSession, QueryFilter, Model } from "mongoose";
 import { RequestContext, redactSecrets } from "nodefony";
 import {
   isFieldOperators,
+  isUpdateOperators,
   queryFlowMonitor,
   UnknownCriteriaField,
 } from "@nodefony/orm-core";
 import type {
   Criteria,
   FieldOperators,
+  UpdateData,
   IRepository,
   ITransaction,
   RepositoryReadOptions,
@@ -311,14 +313,16 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
 
   async upsert(
     criteria: Criteria<T>,
-    update: Partial<T>,
+    update: UpdateData<T>,
     insertOnly?: Partial<T>,
   ): Promise<T> {
     const filter = this.#filter(criteria);
-    // Atomique : `findOneAndUpdate({ upsert:true })` → 1 round-trip. `$set`
-    // ré-applique `update` (insert + conflit) ; `$setOnInsert` pose `insertOnly`
-    // (ex. createdAt) QU'À la création. Les égalités de `filter` (clé) sont
-    // ajoutées au document inséré par MongoDB → inutile de les répéter.
+    // Atomique : `findOneAndUpdate({ upsert:true })` → 1 round-trip. `update`
+    // est ré-appliqué (insert + conflit) via `$set`, ou via `$max`/`$min` quand
+    // le champ porte un opérateur d'écriture (cf `#writeDoc`) ; `$setOnInsert`
+    // pose `insertOnly` (ex. createdAt) QU'À la création. Les égalités de
+    // `filter` (clé) sont ajoutées au document inséré par MongoDB → inutile de
+    // les répéter.
     return this.#prof(
       () => this.#descr("findOneAndUpdate", filter),
       async () => {
@@ -326,7 +330,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
           .findOneAndUpdate(
             filter,
             {
-              $set: update as Record<string, unknown>,
+              ...this.#writeDoc(update),
               $setOnInsert: (insertOnly ?? {}) as Record<string, unknown>,
             },
             {
@@ -345,6 +349,36 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       },
       () => 1,
     );
+  }
+
+  /**
+   * Traduit le `update` d'un upsert en document de mise à jour Mongo : les
+   * valeurs nues vont dans `$set`, les {@link UpdateOperators} dans l'opérateur
+   * natif de même nom (`$max`/`$min`).
+   *
+   * Mongo fait exactement ce qu'on attend : il n'écrit que si la valeur proposée
+   * est supérieure (resp. inférieure) à celle en base, et la pose telle quelle à
+   * l'insertion — donc pas de `$setOnInsert` à doubler. Pendant exact du
+   * `GREATEST(col, ?)` des adapters SQL.
+   */
+  #writeDoc(update: UpdateData<T>): Record<string, Record<string, unknown>> {
+    const $set: Record<string, unknown> = {};
+    const ops: Record<string, Record<string, unknown>> = {};
+    for (const [field, value] of Object.entries(update)) {
+      if (!isUpdateOperators(value)) {
+        $set[this.#resolveField(field)] = value;
+        continue;
+      }
+      const key = this.#resolveField(field);
+      if (value.$max !== undefined) {
+        (ops.$max ??= {})[key] = value.$max;
+      }
+      if (value.$min !== undefined) {
+        (ops.$min ??= {})[key] = value.$min;
+      }
+    }
+    // `$set: {}` est refusé par Mongo → ne l'émettre que s'il porte un champ.
+    return Object.keys($set).length > 0 ? { $set, ...ops } : ops;
   }
 
   async updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number> {

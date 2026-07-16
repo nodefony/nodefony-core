@@ -298,6 +298,41 @@ describe("Drizzle DrizzleTokenStore — ITokenStore portable (J4b)", () => {
       await store.revokeAllForSubject("u9", 2000); // avance acceptée
       assert.equal(await store.getInvalidBefore("u9"), 2000);
     });
+
+    it("CONCURRENT : le seuil ne RECULE pas (sinon des jetons révoqués redeviennent valides)", async () => {
+      // Le plus grave de la classe. Séquentiel (test précédent), la monotonie
+      // tient ; c'est ICI qu'elle casse. Un `findOne` + `if (v > existant)`
+      // laisse deux logouts simultanés lire le MÊME état, puis écrire tous les
+      // deux → c'est le DERNIER qui reste, même s'il porte un seuil plus ANCIEN.
+      // Conséquence : les jetons que le logout le plus récent venait d'invalider
+      // repassent sous le seuil → ils redeviennent valides.
+      const results = await Promise.allSettled([
+        store.revokeAllForSubject("u-race", 9_000),
+        store.revokeAllForSubject("u-race", 1_000), // le retardataire, plus ancien
+      ]);
+      assert.deepEqual(
+        results
+          .filter((r) => r.status === "rejected")
+          .map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+        "aucun logout concurrent ne doit être rejeté",
+      );
+      assert.equal(
+        await store.getInvalidBefore("u-race"),
+        9_000,
+        "le seuil le plus RÉCENT survit",
+      );
+    });
+
+    it("CONCURRENT × 10 en ordre dispersé : le maximum survit", async () => {
+      const seuils = [
+        500, 9_000, 1_200, 4_000, 700, 10_000, 3_300, 200, 6_100, 800,
+      ];
+      await Promise.all(
+        seuils.map((s) => store.revokeAllForSubject("u-race10", s)),
+      );
+      assert.equal(await store.getInvalidBefore("u-race10"), 10_000);
+    });
   });
 
   // ── Garbage collector ───────────────────────────────────────────────────────
