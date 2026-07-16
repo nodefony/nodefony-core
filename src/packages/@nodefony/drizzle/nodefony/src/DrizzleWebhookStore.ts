@@ -78,13 +78,12 @@ export class DrizzleWebhookStore implements IWebhookStore {
   }
 
   async save(endpoint: IWebhookEndpoint): Promise<void> {
-    const row = this.#toRow(endpoint);
-    const existing = await this.#repo.findOne({ id: endpoint.id });
-    if (existing) {
-      await this.#repo.updateOne({ id: endpoint.id }, row);
-    } else {
-      await this.#repo.create(row);
-    }
+    // UPSERT atomique sur la PK `id` : 1 requête, pas de `findOne` d'existence
+    // (dont l'`await` laisse deux écritures concurrentes du même endpoint voir
+    // « absent » → deux INSERT → le perdant lève « UNIQUE constraint failed »).
+    // `save` pose l'endpoint COMPLET → tout le reste est ré-appliqué au conflit.
+    const { id, ...rest } = this.#toRow(endpoint);
+    await this.#repo.upsert({ id }, rest as Partial<WebhookEndpointRow>);
   }
 
   async findById(id: string): Promise<IWebhookEndpoint | null> {

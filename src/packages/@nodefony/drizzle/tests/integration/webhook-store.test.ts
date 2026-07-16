@@ -83,6 +83,27 @@ describe("Drizzle DrizzleWebhookStore — IWebhookStore portable (P6.13)", () =>
       );
     });
 
+    it("save CONCURRENT du même id : aucun rejet, une seule ligne (réservation atomique)", async () => {
+      // Deux écritures simultanées du même endpoint (rejeu d'un formulaire
+      // d'admin) : un `findOne` + `create` laisse les deux voir « absent » →
+      // deux INSERT sur la PK `id` → le perdant lève « UNIQUE constraint failed ».
+      const results = await Promise.allSettled([
+        store.save(makeEndpoint({ id: "wh_conc", failureCount: 1 })),
+        store.save(makeEndpoint({ id: "wh_conc", failureCount: 2 })),
+      ]);
+      const rejected = results.filter((r) => r.status === "rejected");
+      assert.deepEqual(
+        rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+        "aucun save concurrent ne doit être rejeté",
+      );
+      assert.equal(
+        (await store.listAll()).filter((e) => e.id === "wh_conc").length,
+        1,
+        "une seule ligne pour la PK",
+      );
+    });
+
     it("ne partage pas les références JSON avec l'appelant (copie défensive)", async () => {
       const events = ["a"];
       const metadata: Record<string, unknown> = { k: 1 };

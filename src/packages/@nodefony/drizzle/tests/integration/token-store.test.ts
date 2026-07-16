@@ -98,6 +98,35 @@ describe("Drizzle DrizzleTokenStore — ITokenStore portable (J4b)", () => {
       assert.equal(all[0].name, "renommé");
     });
 
+    it("put CONCURRENT d'un record EXISTANT (rotation rejouée) : aucun rejet, une seule ligne", async () => {
+      // Le cas réel : la rotation d'un refresh réécrit l'ANCIEN record, et un
+      // client qui rejoue son refresh en déclenche plusieurs à la fois → N `put`
+      // concurrents du même id, sur une ligne DÉJÀ en base.
+      //
+      // Le cas « ligne absente » n'est pas testé : inatteignable (les appelants
+      // posent un id `randomUUID`) et il DIVERGERAIT entre dialectes — cf la
+      // limite documentée sur `DrizzleTokenStore.put` (`ON CONFLICT (id)`
+      // n'arbitre pas la seconde unique `secretHash`).
+      const base = makeRecord({ id: "conc-1", subjectId: "u-conc" });
+      await store.put(base); // la ligne préexiste
+      const results = await Promise.allSettled([
+        store.put({ ...base, name: "A" }),
+        store.put({ ...base, name: "B" }),
+      ]);
+      const rejected = results.filter((r) => r.status === "rejected");
+      assert.deepEqual(
+        rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+        "aucun put concurrent ne doit être rejeté",
+      );
+      const all = await store.findBySubject("u-conc");
+      assert.equal(all.length, 1, "une seule ligne pour la PK");
+      assert.ok(
+        ["A", "B"].includes(all[0].name),
+        "la ligne porte l'un des deux écrits (dernier arrivé gagne)",
+      );
+    });
+
     it("findById renvoie null pour un id inconnu", async () => {
       assert.equal(await store.findById("nope"), null);
     });
@@ -169,6 +198,23 @@ describe("Drizzle DrizzleTokenStore — ITokenStore portable (J4b)", () => {
       CLOCK = 6_000_000;
       await store.denyJti("jti-a", 7_000_000);
       assert.equal(await store.isJtiDenied("jti-a"), true);
+    });
+
+    it("denyJti CONCURRENT du même jti : aucun rejet (réservation atomique)", async () => {
+      // Même race que `put`, sur la denylist — et le perdant d'un rejeu de jeton
+      // dénoncé deux fois en parallèle NE DOIT PAS remonter une erreur 500.
+      CLOCK = 6_000_000;
+      const results = await Promise.allSettled([
+        store.denyJti("jti-conc", 7_000_000),
+        store.denyJti("jti-conc", 8_000_000),
+      ]);
+      const rejected = results.filter((r) => r.status === "rejected");
+      assert.deepEqual(
+        rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+        "aucun denyJti concurrent ne doit être rejeté",
+      );
+      assert.equal(await store.isJtiDenied("jti-conc"), true);
     });
 
     it("isJtiDenied = false pour un jti inconnu", async () => {

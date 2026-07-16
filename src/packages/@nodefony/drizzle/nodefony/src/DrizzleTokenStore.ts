@@ -109,13 +109,30 @@ export class DrizzleTokenStore implements ITokenStore {
 
   // ── Records ────────────────────────────────────────────────────────────────
 
+  /**
+   * Insère ou remplace un record (PAT / refresh) — 1 requête, `upsert` atomique
+   * sur la PK `id` plutôt qu'un `findOne` d'existence + `create`/`updateOne`
+   * (2 round-trips). `put` pose le record COMPLET (`createdAt` inclus) → tout
+   * hors `id` est ré-appliqué en cas de conflit ; pas de champ insert-only.
+   *
+   * ⚠️ **Limite `ON CONFLICT`, propre à cette table** : `access_token` porte
+   * DEUX contraintes uniques (`id` PK + `secretHash`), or un upsert n'arbitre
+   * qu'UN index. Deux INSERT **concurrents** d'un record **absent** partageant
+   * le même `secretHash` feraient donc lever le perdant (PG : `23505` sur
+   * `access_token_secretHash_unique`) — l'arbitre `id` ne couvre pas la seconde
+   * unique. Ce n'est pas atteignable : les trois appelants (`tokenService`
+   * émission + rotation, `apiKeys`) posent un `id` **généré** (`randomUUID` /
+   * `#randomId`), donc jamais deux `put` du même id neuf ; le seul `put`
+   * concurrent d'un même id porte sur une ligne **existante** (rotation
+   * rejouée), qui tombe sur le chemin DO UPDATE et passe. Une entité à deux
+   * uniques dont les DEUX seraient réellement disputées demanderait un autre
+   * remède (réservation en deux instructions, cf `reserveIdempotencyKeyMysql`).
+   *
+   * @param record - le record complet à persister.
+   */
   async put(record: IAccessTokenRecord): Promise<void> {
-    const existing = await this.#records.findOne({ id: record.id });
-    if (existing) {
-      await this.#records.updateOne({ id: record.id }, record);
-    } else {
-      await this.#records.create(record);
-    }
+    const { id, ...rest } = record;
+    await this.#records.upsert({ id }, rest as Partial<IAccessTokenRecord>);
   }
 
   findById(id: string): Promise<IAccessTokenRecord | null> {
@@ -176,12 +193,9 @@ export class DrizzleTokenStore implements ITokenStore {
   // ── Denylist jti ─────────────────────────────────────────────────────────────
 
   async denyJti(jti: string, expiresAt: number): Promise<void> {
-    const existing = await this.#denied.findOne({ jti });
-    if (existing) {
-      await this.#denied.updateOne({ jti }, { expiresAt });
-    } else {
-      await this.#denied.create({ jti, expiresAt });
-    }
+    // UPSERT atomique sur la PK `jti` (cf `put`) : deux dénonciations
+    // simultanées du même jeton ne doivent pas faire remonter une erreur.
+    await this.#denied.upsert({ jti }, { expiresAt });
   }
 
   async isJtiDenied(jti: string): Promise<boolean> {

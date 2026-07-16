@@ -112,13 +112,13 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
   }
 
   async save(credential: IWebAuthnCredential): Promise<void> {
-    const row = this.#toRow(credential);
-    const existing = await this.#repo.findOne({ id: credential.id });
-    if (existing) {
-      await this.#repo.updateOne({ id: credential.id }, row);
-    } else {
-      await this.#repo.create(row);
-    }
+    // UPSERT atomique sur la PK `id` : 1 requête, pas de `findOne` d'existence
+    // (dont l'`await` laisse deux enregistrements concurrents de la même
+    // passkey voir « absent » → deux INSERT → le perdant lève « UNIQUE
+    // constraint failed »). `save` pose le credential COMPLET → tout le reste
+    // est ré-appliqué au conflit.
+    const { id, ...rest } = this.#toRow(credential);
+    await this.#repo.upsert({ id }, rest as Partial<WebAuthnCredentialRow>);
   }
 
   async update(credentialId: string, patch: WebAuthnAuthUpdate): Promise<void> {

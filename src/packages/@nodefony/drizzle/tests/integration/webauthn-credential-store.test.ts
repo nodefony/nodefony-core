@@ -88,6 +88,28 @@ describe("Drizzle DrizzleWebAuthnCredentialStore — IWebAuthnCredentialStore po
         1,
       );
     });
+
+    it("save CONCURRENT du même id : aucun rejet, une seule ligne (réservation atomique)", async () => {
+      // Deux enregistrements de passkey en vol pour le même credential : un
+      // `findOne` + `create` laisse les deux voir « absent » → deux INSERT sur
+      // la PK `id` → le perdant lève « UNIQUE constraint failed ».
+      const results = await Promise.allSettled([
+        store.save(makeCredential({ id: "c-conc", signCount: 1 })),
+        store.save(makeCredential({ id: "c-conc", signCount: 2 })),
+      ]);
+      const rejected = results.filter((r) => r.status === "rejected");
+      assert.deepEqual(
+        rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+        "aucun save concurrent ne doit être rejeté",
+      );
+      const all = await store.findByUser("u1");
+      assert.equal(
+        all.filter((c) => c.id === "c-conc").length,
+        1,
+        "une seule ligne pour la PK",
+      );
+    });
   });
 
   describe("findByUser", () => {

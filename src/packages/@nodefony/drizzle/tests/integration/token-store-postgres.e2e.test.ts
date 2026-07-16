@@ -119,6 +119,61 @@ describe.skipIf(!PG_URL)(
       );
     });
 
+    it("put CONCURRENT × 10 d'un record EXISTANT (rotation rejouée) : 0 rejet", async () => {
+      // Le cas RÉEL de `put` concurrent sur un même id : la rotation d'un refresh
+      // (`tokenService`) réécrit l'ANCIEN record (`replacedBy`/`revokedAt`) — un
+      // client qui rejoue son refresh en déclenche plusieurs à la fois. Le record
+      // est donc DÉJÀ en base ; l'upsert tombe sur son chemin DO UPDATE.
+      //
+      // ⚠️ Le cas « ligne absente » n'est PAS testé ici, et c'est délibéré : il
+      // n'est pas atteignable (les 3 appelants de `put` posent un id `randomUUID`
+      // / `#randomId`, donc jamais deux `put` du même id neuf) — et il divergerait
+      // entre dialectes, cf la limite documentée sur `DrizzleTokenStore.put`.
+      //
+      // CHAUFFER LE POOL, sinon faux négatif : les connexions pg s'ouvrent à la
+      // demande, donc le 1ᵉʳ écrivain (seul à tenir une connexion chaude) boucle
+      // son aller-retour pendant que les 9 autres attendent leur TCP+auth — la
+      // course ne se produit jamais. En prod le pool est chaud.
+      const records = orm.getRepository(TOKEN_ENTITY_NAMES.records);
+      await Promise.all(Array.from({ length: 10 }, () => records.count({})));
+
+      const base = makeRecord({ id: "pg-conc", subjectId: "u-pg-conc" });
+      await store.put(base); // la ligne préexiste (comme l'ancien refresh)
+      const results = await Promise.allSettled(
+        Array.from({ length: 10 }, (_, i) =>
+          store.put({ ...base, name: `writer-${i}` }),
+        ),
+      );
+      const rejected = results.filter((r) => r.status === "rejected");
+      assert.deepEqual(
+        rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+        "aucun put concurrent ne doit être rejeté",
+      );
+      const all = await store.findBySubject("u-pg-conc");
+      assert.equal(all.length, 1, "toujours une seule ligne");
+      assert.ok(
+        /^writer-\d$/.test(all[0].name),
+        "la ligne porte l'écrit d'un des 10 (dernier arrivé gagne)",
+      );
+    });
+
+    it("denyJti CONCURRENT × 10 du même jti : 0 rejet (atomicité RÉELLE, pool PG)", async () => {
+      CLOCK = 1_000_000;
+      const results = await Promise.allSettled(
+        Array.from({ length: 10 }, (_, i) =>
+          store.denyJti("jti-pg-conc", CLOCK + 60_000 + i),
+        ),
+      );
+      const rejected = results.filter((r) => r.status === "rejected");
+      assert.deepEqual(
+        rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+        "aucun denyJti concurrent ne doit être rejeté",
+      );
+      assert.equal(await store.isJtiDenied("jti-pg-conc"), true);
+    });
+
     it("markUsed : trace d'usage posée (updateOne borné #pickOne sur PG)", async () => {
       await store.markUsed("pg-t1", {
         at: CLOCK + 5,

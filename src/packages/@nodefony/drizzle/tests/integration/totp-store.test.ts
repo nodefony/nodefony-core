@@ -68,6 +68,27 @@ describe("Drizzle DrizzleTotpSecretStore — ITotpSecretStore portable (2FA pers
       assert.equal(found?.secretEnc, "new");
       assert.equal(found?.digits, 8);
     });
+
+    it("save CONCURRENT du même user : aucun rejet, un seul secret (réservation atomique)", async () => {
+      // Deux enrôlements 2FA simultanés (double-clic, onglet dupliqué) : un
+      // `findOne` + `create` laisse les deux voir « non enrôlé » → deux INSERT
+      // sur la PK `userId` → le perdant lève « UNIQUE constraint failed ».
+      const results = await Promise.allSettled([
+        store.save(makeSecret({ userId: "carol", secretEnc: "A" })),
+        store.save(makeSecret({ userId: "carol", secretEnc: "B" })),
+      ]);
+      const rejected = results.filter((r) => r.status === "rejected");
+      assert.deepEqual(
+        rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+        "aucun save concurrent ne doit être rejeté",
+      );
+      const found = await store.findByUser("carol");
+      assert.ok(
+        found && ["A", "B"].includes(found.secretEnc),
+        "un seul secret, portant l'un des deux écrits",
+      );
+    });
   });
 
   describe("update (patch partiel)", () => {

@@ -105,13 +105,13 @@ export class DrizzleTotpSecretStore implements ITotpSecretStore {
   }
 
   async save(secret: ITotpSecret): Promise<void> {
-    const row = this.#toRow(secret);
-    const existing = await this.#repo.findOne({ userId: secret.userId });
-    if (existing) {
-      await this.#repo.updateOne({ userId: secret.userId }, row);
-    } else {
-      await this.#repo.create(row);
-    }
+    // UPSERT atomique sur la PK `userId` : 1 requête, pas de `findOne`
+    // d'existence (dont l'`await` laisse deux enrôlements concurrents du même
+    // user voir « non enrôlé » → deux INSERT → le perdant lève « UNIQUE
+    // constraint failed »). `save` pose le secret COMPLET (ré-enrôlement) →
+    // tout le reste est ré-appliqué au conflit.
+    const { userId, ...rest } = this.#toRow(secret);
+    await this.#repo.upsert({ userId }, rest as Partial<TotpSecretRow>);
   }
 
   async update(userId: string, patch: TotpSecretUpdate): Promise<void> {
