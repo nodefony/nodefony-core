@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-14T15:08:54.758Z",
+  "generated": "2026-07-16T20:28:09.080Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1021,
-    "symbols": 2693,
-    "classes": 322,
-    "interfaces": 704,
-    "types": 311,
+    "files": 1024,
+    "symbols": 2719,
+    "classes": 325,
+    "interfaces": 710,
+    "types": 318,
     "enums": 4,
-    "functions": 783,
-    "constants": 569
+    "functions": 791,
+    "constants": 571
   },
   "symbols": {
     "Cli": {
@@ -424,6 +424,7 @@
       "extends": "Module",
       "implements": [],
       "decorators": [
+        "services",
         "controllers"
       ]
     },
@@ -2003,7 +2004,7 @@
       "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Nom valide dans une `EventsMap` (clé `string`)."
+      "description": "Nom valide dans une `EventsMap`. Map qui DÉCLARE des canaux → union stricte de ses noms (autocomplétion, et un nom inconnu est refusé). Map SANS aucune clé littérale (les défauts permissifs) → `str…"
     },
     "EventPayload": {
       "name": "EventPayload",
@@ -2019,7 +2020,7 @@
       "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Nom valide dans une `ActionsMap`."
+      "description": "Nom valide dans une `ActionsMap` — même règle que {@link EventNames}."
     },
     "ActionParams": {
       "name": "ActionParams",
@@ -2027,7 +2028,7 @@
       "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Paramètres entrants d'une RPC. Si la déclaration est `{ in: void }` ou que `in` est absent, le paramètre devient optionnel/`void`."
+      "description": "Paramètres entrants d'une RPC, lus sur le `in` de la déclaration. On teste la PRÉSENCE de la clé (`\"in\" extends keyof M[K]`) avant d'inférer, au lieu de `M[K] extends { in: infer I }` : un `in` **o…"
     },
     "ActionResult": {
       "name": "ActionResult",
@@ -2717,6 +2718,58 @@
       "module": "@nodefony/redis",
       "description": "Enregistre les fabriques de stores Redis dans les registres de `@nodefony/security`. Idempotent (guards) — rejouable sans effet."
     },
+    "ScaffoldDestinationError": {
+      "name": "ScaffoldDestinationError",
+      "kind": "class",
+      "file": "src/nodefony/src/cli/scaffold/destination.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur de destination — message sûr, affichable tel quel (jamais un chemin serveur)."
+    },
+    "IScaffoldRoot": {
+      "name": "IScaffoldRoot",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/destination.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Racine autorisée : un espace de travail où l'on a le droit de créer une app."
+    },
+    "isSafeSubPath": {
+      "name": "isSafeSubPath",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/destination.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le sous-chemin proposé est-il navigable sans danger ?"
+    },
+    "isInsideRoot": {
+      "name": "isInsideRoot",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/destination.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`child` est-il À L'INTÉRIEUR de `root` ? Comparaison sur les chemins **normalisés**, avec le séparateur final : sans lui, `/home/user/app-secrets` passerait pour un enfant de `/home/user/app`. La r…"
+    },
+    "resolveScaffoldDestination": {
+      "name": "resolveScaffoldDestination",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/destination.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Recompose la destination d'une nouvelle app, ou refuse."
+    },
+    "APP_NAME_RE": {
+      "name": "APP_NAME_RE",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/destination.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Où une NOUVELLE application a le droit de naître, quand la création est pilotée par une interface web (Studio) plutôt que par une ligne de commande. ## Le problème En CLI, la destination est le `cw…"
+    },
     "IScaffoldCaps": {
       "name": "IScaffoldCaps",
       "kind": "interface",
@@ -2791,13 +2844,20 @@
       "module": "@nodefony/core",
       "description": "Complète et VALIDE des réponses partielles contre la spec d'un type : défauts appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des templates est donc complet PAR CONSTRUCTIO…"
     },
-    "listTargets": {
-      "name": "listTargets",
+    "scaffoldCaps": {
+      "name": "scaffoldCaps",
       "kind": "function",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Cibles de scaffold du projet : l'app racine + les modules locaux (`modules/<x>/` portant `package.json` + `index.ts` — le layout produit par `create module`). Consommée par le CLI (validation `--mo…"
+    },
+    "listTargets": {
+      "name": "listTargets",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "toPascalCase": {
       "name": "toPascalCase",
@@ -4607,6 +4667,15 @@
       "extends": null,
       "description": "Ce que le serveur publie sur lui-même une fois ses serveurs en écoute."
     },
+    "SupervisorLock": {
+      "name": "SupervisorLock",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le serveur publie quand il demande au superviseur de patienter."
+    },
     "TerminateOptions": {
       "name": "TerminateOptions",
       "kind": "interface",
@@ -4688,6 +4757,38 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Retire le state file (arrêt propre, ou reliquat d'un process mort)."
+    },
+    "supervisorLockFile": {
+      "name": "supervisorLockFile",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Chemin du **verrou de suspension du superviseur dev** — le canal par lequel le serveur dit à son parent : « je suis en train d'écrire dans les sources, ne me redémarre pas maintenant ». Il existe p…"
+    },
+    "suspendSupervisor": {
+      "name": "suspendSupervisor",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Suspend le rechargement automatique le temps d'une opération qui écrit dans les sources. À utiliser par TOUTE opération serveur qui touche aux fichiers surveillés — génération de code, migration, i…"
+    },
+    "resumeSupervisor": {
+      "name": "resumeSupervisor",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend la main au superviseur (fin de l'opération, quelle qu'en soit l'issue)."
+    },
+    "readSupervisorSuspension": {
+      "name": "readSupervisorSuspension",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le rechargement est-il suspendu, et pourquoi ? **Fail-safe par construction** : dans le doute, on répond `null` (le watcher fait son travail). Un verrou muselle le rechargement automatique — le lai…"
     },
     "defaultDevPorts": {
       "name": "defaultDevPorts",
@@ -12050,6 +12151,19 @@
       ],
       "description": "Controller Studio admin. Partition du namespace réservé `/nodefony` (cf CLAUDE.md du module) : - `/nodefony` + `/nodefony/{page}` (mono-segment) → pages SPA Studio (humain). N'existent QUE si le mo…"
     },
+    "StudioCreateController": {
+      "name": "StudioCreateController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Data plane du générateur de code (`/nodefony/studio/api/create/*`). Il ne sert QUE la matière du formulaire (la spec du moteur, en JSON) et l'état d'un job. **L'exécution passe par le temps réel**,…"
+    },
     "StudioRealtimeController": {
       "name": "StudioRealtimeController",
       "kind": "class",
@@ -12175,6 +12289,90 @@
       "exported": true,
       "module": "@nodefony/studio",
       "description": "Canaux temps réel FIGÉS (deviendront des canaux RealtimeService en P13.4)."
+    },
+    "ScaffoldService": {
+      "name": "ScaffoldService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Pilote la création de code (`nodefony create …`) depuis Studio, en **streamant** la progression comme un terminal. Le moteur de scaffold (core) est PUR : il écrit des fichiers et rend la liste de c…"
+    },
+    "IScaffoldLine": {
+      "name": "IScaffoldLine",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": null,
+      "description": "Une ligne de terminal. `seq` permet au front de détecter un trou."
+    },
+    "IScaffoldArchive": {
+      "name": "IScaffoldArchive",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": null,
+      "description": "Archive prête au téléchargement — le chemin réel reste côté serveur."
+    },
+    "IScaffoldJobState": {
+      "name": "IScaffoldJobState",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": null,
+      "description": "État d'un job, tel que servi au front (snapshot sérialisable)."
+    },
+    "ScaffoldStep": {
+      "name": "ScaffoldStep",
+      "kind": "type",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio"
+    },
+    "ScaffoldStream": {
+      "name": "ScaffoldStream",
+      "kind": "type",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Nature d'une ligne du terminal — pilote la couleur côté front."
+    },
+    "ScaffoldJobStatus": {
+      "name": "ScaffoldJobStatus",
+      "kind": "type",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio"
+    },
+    "ScaffoldDelivery": {
+      "name": "ScaffoldDelivery",
+      "kind": "type",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Où atterrit une application créée depuis Studio. - `install` — elle naît sur le disque du serveur, dans un espace de travail autorisé. C'est le cas quand Studio tourne sur SA machine (le cas couran…"
+    },
+    "IScaffoldEvent": {
+      "name": "IScaffoldEvent",
+      "kind": "type",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Ce qui transite sur le canal `scaffold:job@<id>`. Deux natures, et pas une seule : une ligne de terminal **et** l'état du job. Sans le second, le front n'aurait aucun moyen d'apprendre par la socke…"
+    },
+    "SCAFFOLD_STEPS": {
+      "name": "SCAFFOLD_STEPS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Étapes exécutables APRÈS l'écriture des fichiers. C'est une **allowlist fermée** : le client coche une étape connue, il n'envoie JAMAIS une ligne de commande. Sans ça, on offrirait une exécution de…"
     },
     "IOAuthProfile": {
       "name": "IOAuthProfile",
@@ -18994,6 +19192,7 @@
         "TotpService",
         "WebAuthnService",
         "WebhookService",
+        "ScaffoldService",
         "ServerHttp",
         "ServerHttps",
         "Statics",
@@ -19017,6 +19216,7 @@
         "BootConfigurationError",
         "RpcError",
         "TimeoutError",
+        "ScaffoldDestinationError",
         "EntityFieldError",
         "AgentError",
         "LLMError",
@@ -19153,6 +19353,7 @@
         "WebAuthnController",
         "ResourceController",
         "StudioController",
+        "StudioCreateController",
         "RealtimeController"
       ],
       "ResourceController": [
@@ -19541,7 +19742,8 @@
         "Mongoose",
         "Realtime",
         "Redis",
-        "Security"
+        "Security",
+        "Studio"
       ],
       "controller": [
         "MediasoupController",
@@ -19574,6 +19776,7 @@
         "VueController",
         "DocumentationController",
         "StudioController",
+        "StudioCreateController",
         "StudioRealtimeController"
       ],
       "UseSession": [
@@ -19677,6 +19880,7 @@
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -19735,6 +19939,7 @@
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -19803,6 +20008,7 @@
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -20126,6 +20332,7 @@
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -20193,7 +20400,8 @@
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/redis/index.ts",
-        "src/packages/@nodefony/security/index.ts"
+        "src/packages/@nodefony/security/index.ts",
+        "src/packages/@nodefony/studio/index.ts"
       ],
       "registerLogDriver": [
         "src/modules/test/index.ts",
@@ -20531,6 +20739,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "ResourceController": [
@@ -20661,6 +20870,7 @@
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "All": [
@@ -20680,7 +20890,8 @@
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
       ],
       "RequireScope": [
         "src/packages/@nodefony/framework/index.ts",
@@ -20868,6 +21079,7 @@
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
@@ -21226,6 +21438,14 @@
       "StudioRealtimeController": [
         "src/packages/@nodefony/studio/index.ts"
       ],
+      "StudioCreateController": [
+        "src/packages/@nodefony/studio/index.ts"
+      ],
+      "ScaffoldService": [
+        "src/packages/@nodefony/studio/index.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
       "resolveLocalCli": [
         "src/nodefony/src/bin/nodefony.ts"
       ],
@@ -21241,7 +21461,8 @@
       "findProjectRoot": [
         "src/nodefony/src/bin/resolveLocalCli.ts",
         "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "defineConfig": [
         "src/nodefony/src/bundler/index.ts"
@@ -21257,7 +21478,8 @@
       ],
       "getScaffoldSpec": [
         "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
       ],
       "CONTROLLER_KIND_CHOICES": [
         "src/nodefony/src/cli/create.ts",
@@ -21282,11 +21504,14 @@
         "src/nodefony/src/cli/create.ts"
       ],
       "runScaffold": [
-        "src/nodefony/src/cli/create.ts"
+        "src/nodefony/src/cli/create.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "TScaffoldAnswers": [
         "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/cli/scaffold/interactive.ts"
+        "src/nodefony/src/cli/scaffold/interactive.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "askMissing": [
         "src/nodefony/src/cli/create.ts"
@@ -22425,6 +22650,9 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "Stats": [
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "readSupervisorSuspension": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "missingWorkspaceDists": [
@@ -24441,6 +24669,13 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
+      "scaffoldCaps": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+      ],
+      "SCAFFOLD_STEPS": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
       "RateBounds": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
@@ -24462,10 +24697,49 @@
       "createClusterOrmTicker": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
+      "ScaffoldStep": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "IScaffoldJobState": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
       "IRealtimeHealth": [
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+      ],
+      "listTargets": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "suspendSupervisor": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "resumeSupervisor": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "resolveScaffoldDestination": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "isSafeSubPath": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "isInsideRoot": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "ScaffoldDestinationError": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "IScaffoldRequest": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "IScaffoldResult": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "IScaffoldRoot": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "IScaffoldTarget": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "AbstractCrudService": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"

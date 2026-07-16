@@ -10,18 +10,30 @@ const RpcEnvelopeOf = (result: unknown, meta: Record<string, unknown>) =>
   new RpcEnvelope(result, meta);
 
 /**
- * Contrat RPC du peer de test — les seules méthodes appelées AVEC des `params`.
+ * Contrat RPC du peer de test.
  *
- * Le déclarer n'est pas cosmétique : sur un peer NON paramétré,
- * `ActionParams<DefaultActionsMap, K>` se réduit à `undefined` (le `in?` optionnel
- * ne satisfait pas `{ in: infer I }`) → AUCUN `request()` avec params ne compile.
- * C'est ce qui avait poussé à des `as never` sur les appels `api.request` : ils
- * disparaissent ici, params et résultats redeviennent VÉRIFIÉS par le compilateur.
+ * Deux familles, deux intentions :
+ *
+ * 1. Les actions à `in` DÉCLARÉ (`do`, `gen`, `api.request`) : params et résultats
+ *    sont VÉRIFIÉS par le compilateur à chaque appel du test.
+ * 2. Les actions sans `in` : de simples NOMS par lesquels les tests exercent le
+ *    moteur (register/unregister, timeout, dispose, propagation d'erreur). Elles
+ *    ne portent aucun contrat de params — mais elles doivent figurer ici, car
+ *    `ActionNames` ne fuit plus l'index signature de `ActionsMap` : un nom non
+ *    déclaré est désormais refusé à la compile. C'est précisément le garde-fou
+ *    recherché — le contrat dit ce qui existe, y compris en test.
  */
 interface TestActions extends ActionsMap {
   do: { in: { a: number }; out: { ok: boolean } };
   gen: { in: Record<string, never>; out: unknown };
   "api.request": { in: { path: string }; out: unknown };
+  "kernel:ping": { out: unknown };
+  ping: { out: unknown };
+  x: { out: unknown };
+  slow: { out: unknown };
+  boom: { out: unknown };
+  a: { out: unknown };
+  b: { out: unknown };
 }
 
 /**
@@ -33,11 +45,13 @@ function newPeer() {
   const sent: unknown[] = [];
   const notes: { method: string; params: unknown }[] = [];
   const errs: { ctx: string; err: unknown }[] = [];
-  const peer = new JsonRpcPeer<DefaultEventsMap, DefaultEventsMap, TestActions>({
-    send: (f) => sent.push(f),
-    onNotification: (method, params) => notes.push({ method, params }),
-    onError: (ctx, err) => errs.push({ ctx, err }),
-  });
+  const peer = new JsonRpcPeer<DefaultEventsMap, DefaultEventsMap, TestActions>(
+    {
+      send: (f) => sent.push(f),
+      onNotification: (method, params) => notes.push({ method, params }),
+      onError: (ctx, err) => errs.push({ ctx, err }),
+    },
+  );
   return { peer, sent, notes, errs };
 }
 

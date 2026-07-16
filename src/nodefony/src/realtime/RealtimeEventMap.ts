@@ -62,26 +62,84 @@ export interface DefaultActionsMap {
   [method: string]: { in?: unknown; out: unknown };
 }
 
-/** Nom valide dans une `EventsMap` (clé `string`). */
-export type EventNames<M extends EventsMap> = keyof M & string;
+/**
+ * Retire l'index signature (`[k: string]: …`) d'un type, en ne gardant que les
+ * clés LITTÉRALES déclarées.
+ *
+ * Indispensable ici : la convention documentée est `interface App extends
+ * ActionsMap`, or `extends` fait HÉRITER le `[k: string]` de `Record<string, …>`.
+ * Sans ce filtre, `keyof App` vaut `string` — donc tout nom inconnu passe la
+ * compile, et la branche « hors map » des types conditionnels devient
+ * INATTEIGNABLE (`K extends EventNames<M>` toujours vrai). C'est ce qui typait le
+ * handler wildcard `on("*")` à UN argument alors que le runtime l'appelle avec
+ * `(method, params)`.
+ *
+ * Les maps par défaut ({@link DefaultEventsMap}, {@link DefaultActionsMap}) n'ont
+ * QUE l'index signature → elles se réduisent à `never`, ce qui fait tomber le
+ * code non paramétré dans la branche permissive : rétro-compat préservée.
+ */
+type RemoveIndexSignature<T> = {
+  [
+    K in keyof T as string extends K
+      ? never
+      : number extends K
+        ? never
+        : symbol extends K
+          ? never
+          : K
+  ]: T[K];
+};
+
+/**
+ * Clés LITTÉRALES d'une map, ou `never` si elle n'en déclare aucune (map
+ * purement permissive comme {@link DefaultEventsMap}).
+ */
+type LiteralKeys<M> = keyof RemoveIndexSignature<M> & string;
+
+/**
+ * Nom valide dans une `EventsMap`.
+ *
+ * Map qui DÉCLARE des canaux → union stricte de ses noms (autocomplétion, et un
+ * nom inconnu est refusé). Map SANS aucune clé littérale (les défauts permissifs)
+ * → `string` : le code non paramétré garde son comportement d'avant les types
+ * partagés. Le `[…] extends […]` en tuple empêche la distribution du conditionnel
+ * sur `never` (qui rendrait `never` au lieu de `string`).
+ */
+export type EventNames<M extends EventsMap> = [LiteralKeys<M>] extends [never]
+  ? string
+  : LiteralKeys<M>;
 
 /** Payload typé d'un canal. */
 export type EventPayload<M extends EventsMap, K extends keyof M> = M[K];
 
-/** Nom valide dans une `ActionsMap`. */
-export type ActionNames<M extends ActionsMap> = keyof M & string;
+/** Nom valide dans une `ActionsMap` — même règle que {@link EventNames}. */
+export type ActionNames<M extends ActionsMap> = [LiteralKeys<M>] extends [never]
+  ? string
+  : LiteralKeys<M>;
 
 /**
- * Paramètres entrants d'une RPC. Si la déclaration est `{ in: void }` ou que
- * `in` est absent, le paramètre devient optionnel/`void`.
+ * Paramètres entrants d'une RPC, lus sur le `in` de la déclaration.
+ *
+ * On teste la PRÉSENCE de la clé (`"in" extends keyof M[K]`) avant d'inférer, au
+ * lieu de `M[K] extends { in: infer I }` : un `in` **optionnel** ne satisfait pas
+ * une contrainte qui l'exige, et {@link DefaultActionsMap} déclare précisément
+ * `in?`. La forme naïve retombait donc sur `undefined` pour tout peer NON
+ * paramétré — impossible de passer le moindre paramètre, alors que ce défaut
+ * promet une rétro-compat permissive. Zéro impact runtime (types effacés), d'où
+ * la survie du trou jusqu'au type-check des tests.
+ *
+ * - `{ in: { id: string } }` → `{ id: string }`
+ * - `{ in: void }` → `void` (appel sans argument)
+ * - `{ out: X }` (pas de `in`) → `undefined` (la RPC ne prend rien)
+ * - `DefaultActionsMap` (`in?: unknown`) → `unknown` (permissif)
  */
 export type ActionParams<
   M extends ActionsMap,
   K extends keyof M,
-> = M[K] extends {
-  in: infer I;
-}
-  ? I
+> = "in" extends keyof M[K]
+  ? M[K] extends { in?: infer I }
+    ? I
+    : undefined
   : undefined;
 
 /** Résultat attendu d'une RPC (`out`). */

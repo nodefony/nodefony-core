@@ -578,6 +578,22 @@ export class RealtimeClient<
       : unknown,
     timeoutMs?: number,
   ): Promise<K extends ActionNames<Actions> ? ActionResult<Actions, K> : T>;
+  /**
+   * Forme HISTORIQUE `request<T>(method, params?)` — `T` est le type du RÉSULTAT.
+   *
+   * ⚠️ Cette surcharge est aussi un ATTRAPE-TOUT : quand la surcharge typée
+   * ci-dessus échoue (params mal formés sur une action du contrat), TS retombe
+   * ici et accepte n'importe quel payload. Le garde-fou « params conformes au
+   * contrat » est donc INOPÉRANT tant qu'elle existe (prouvé dans
+   * `tests/RealtimeClient.types.test.ts`).
+   *
+   * Elle est CONSERVÉE sciemment : la retirer est un *breaking change* d'API
+   * publique, pas un correctif. Les deux formes se disputent le 1ᵉʳ paramètre
+   * générique (`<T>` = résultat ici, `<K>` = nom de méthode au-dessus) : tout
+   * appel `request<MonType>("ma:methode")` — dont `ping()` et le Studio
+   * (`request<IScaffoldJobState>("scaffold:run", …)`) — devrait être réécrit en
+   * `request<"ma:methode", MonType>`. À trancher hors session de dette.
+   */
   async request<T = unknown>(
     method: string,
     params?: unknown,

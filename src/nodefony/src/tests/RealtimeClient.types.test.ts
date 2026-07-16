@@ -59,13 +59,16 @@ declare const rawClient: RealtimeClient;
 // bouchés → elles forcent à restaurer les garde-fous marqués ⚠️ plus bas.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// TROU 1 — `interface X extends EventsMap|ActionsMap` (la convention DOCUMENTÉE)
-// HÉRITE l'index signature de `Record<string, …>` → `ActionNames`/`EventNames`
-// valent `string`. Conséquences : (a) un nom inconnu passe la compile ;
-// (b) la branche « hors map → Promise<T> » du type conditionnel est INATTEIGNABLE.
-const _actionNamesLeakIndexSignature: ActionNames<AppActions> = "nom-inconnu";
-const _eventNamesLeakIndexSignature: EventNames<ServerToClient> =
-  "canal-inconnu";
+// TROU 1 — BOUCHÉ. `EventNames`/`ActionNames` filtrent l'index signature héritée
+// par la convention `interface X extends EventsMap|ActionsMap` : ils rendent
+// l'union des clés LITTÉRALES. Deux conséquences, toutes deux vérifiées plus bas :
+// (a) un nom inconnu est refusé ; (b) la branche « hors map → Promise<T> » du type
+// conditionnel redevient ATTEIGNABLE (elle était morte), ce qui rend aussi son
+// handler variadique au wildcard `on("*")`.
+// @ts-expect-error : "nom-inconnu" n'est pas une action déclarée d'AppActions
+const _actionNameUnknownRefused: ActionNames<AppActions> = "nom-inconnu";
+// @ts-expect-error : "canal-inconnu" n'est pas un canal déclaré de ServerToClient
+const _eventNameUnknownRefused: EventNames<ServerToClient> = "canal-inconnu";
 
 function _typeOnly(): void {
   // ── ON / OFF : typage strict sur les canaux RÉCEPTIONNÉS (Listen) ───────
@@ -103,20 +106,25 @@ function _typeOnly(): void {
     client.request("chat:fetch", { id: "x" }),
   );
 
-  // ── ⚠️ method hors map → DEVRAIT retomber sur `Promise<T>` (T explicite) ──
-  // TROU 1 : `ActionNames<AppActions>` vaut `string` → la branche
-  // `K extends ActionNames<Actions>` du type conditionnel est TOUJOURS vraie →
-  // `T` est IGNORÉ et le retour est `Promise<unknown>`. On assert le type RÉEL.
-  expectType<Promise<unknown>>(
+  // ── method hors map → retombe sur `Promise<T>`, T HONORÉ (TROU 1 bouché) ──
+  // La branche « hors map » du type conditionnel était morte tant que
+  // `ActionNames<AppActions>` valait `string`. Elle est de nouveau atteignable :
+  // le `T` explicite est respecté (et non plus écrasé en `unknown`).
+  expectType<Promise<{ uptime: number }>>(
     client.request<"kernel:ping", { uptime: number }>("kernel:ping"),
   );
 
-  // ── ⚠️ Garde-fou INOPÉRANT — TROU 3 (cf sentinelles en tête de fichier) ───
+  // ── ⚠️ Garde-fou INOPÉRANT — TROU 3 (le seul encore ouvert) ──────────────
   // `params: { wrong: true }` sur une RPC dont le contrat dit `in: void` DEVRAIT
-  // être refusé. La 3ᵉ surcharge de `RealtimeClient.request`
-  // (`(method: string, params?: unknown, timeoutMs?)`) est un ATTRAPE-TOUT :
-  // quand la surcharge typée échoue, TS retombe dessus et accepte n'importe quoi.
-  // Un `@ts-expect-error` ici serait « unused ».
+  // être refusé. La surcharge HISTORIQUE `request<T>(method: string, params?:
+  // unknown, timeoutMs?)` est un ATTRAPE-TOUT : quand la surcharge typée échoue,
+  // TS retombe dessus et accepte n'importe quoi. Un `@ts-expect-error` ici serait
+  // « unused » — d'où cette ligne nue.
+  //
+  // Elle NE PEUT PAS être retirée sans breaking change : les deux formes se
+  // disputent le 1ᵉʳ générique (`<T>` = résultat / `<K>` = nom de méthode). Tout
+  // `request<MonType>("ma:methode")` du repo — `ping()`, Studio `scaffold:run` —
+  // devrait devenir `request<"ma:methode", MonType>`. Décision produit en attente.
   client.request("chat:ping", { wrong: true }); // devrait ❌
 
   // ── RÉTRO-COMPAT — client sans paramétrage (défauts permissifs) ────────

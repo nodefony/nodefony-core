@@ -73,20 +73,25 @@ declare const rawPeer: JsonRpcPeer; // = JsonRpcPeer<Default, Default, Default>
 // où le trou sera bouché → elle force à restaurer les garde-fous marqués ⚠️.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// TROU 1 — `EventsMap`/`ActionsMap` sont des `Record<string, …>`. La convention
-// DOCUMENTÉE (`interface AppActions extends ActionsMap`) fait donc HÉRITER
-// l'index signature `[k: string]: …` → `ActionNames<AppActions>` vaut `string`
-// (et non `"chat:ping" | "chat:fetch"`). Un nom de méthode/canal INCONNU passe
-// donc la compile : les garde-fous négatifs correspondants sont INOPÉRANTS.
-const _actionNamesLeakIndexSignature: ActionNames<AppActions> = "nom-inconnu";
-const _eventNamesLeakIndexSignature: EventNames<ServerToClient> = "canal-inconnu";
+// TROU 1 — BOUCHÉ. `EventNames`/`ActionNames` filtrent l'index signature héritée
+// de `Record<string, …>` via la convention `interface AppActions extends
+// ActionsMap` : ils rendent l'union des clés LITTÉRALES déclarées, et non plus
+// `string`. Ces deux garde-fous POSITIFS verrouillent l'acquis — un nom inconnu
+// doit être refusé.
+// @ts-expect-error : "nom-inconnu" n'est pas une action déclarée d'AppActions
+const _actionNameUnknownRefused: ActionNames<AppActions> = "nom-inconnu";
+// @ts-expect-error : "canal-inconnu" n'est pas un canal déclaré de ServerToClient
+const _eventNameUnknownRefused: EventNames<ServerToClient> = "canal-inconnu";
 
-// TROU 2 — `ActionParams<M, K> = M[K] extends { in: infer I } ? I : undefined`.
-// Le `in?` OPTIONNEL de `DefaultActionsMap` ne satisfait PAS `{ in: infer I }`
-// → les params d'un peer NON paramétré sont typés `undefined` : impossible d'en
-// passer, alors que la TSDoc de `DefaultActionsMap` promet « rétro-compat 100% ».
-const _rawParamsAreUndefined: ActionParams<DefaultActionsMap, "anything"> =
-  undefined;
+// TROU 2 — BOUCHÉ. `ActionParams` teste la PRÉSENCE de la clé `in` avant
+// d'inférer : le `in?` OPTIONNEL de `DefaultActionsMap` rend donc `unknown`, et
+// non plus `undefined` (qui interdisait de passer le moindre paramètre à un peer
+// NON paramétré — en contradiction avec la rétro-compat promise par sa TSDoc).
+// Ce garde-fou POSITIF verrouille l'acquis : il casse si le type reperd sa
+// permissivité (`undefined` n'accepterait pas ce `{ foo: 1 }`).
+const _rawParamsArePermissive: ActionParams<DefaultActionsMap, "anything"> = {
+  foo: 1,
+};
 
 /**
  * Bloc compile-only. Jamais appelé ; sert exclusivement à faire passer le typage
@@ -114,24 +119,25 @@ function _typeOnly(): void {
   // @ts-expect-error : payload mal formé sur canal connu
   clientPeer.notify("chat:send", { room: 42 });
 
-  // ── ⚠️ Garde-fous INOPÉRANTS — TROU 1 (cf sentinelles en tête de fichier)
-  // Ces 3 lignes DEVRAIENT être des erreurs de compilation. Elles n'en produisent
-  // AUCUNE (un `@ts-expect-error` y serait « unused ») : un nom inconnu passe.
-  // Le jour où les maps cesseront de fuir leur index signature, elles se mettront
-  // à échouer → RESTAURER les `@ts-expect-error` ici.
-  clientPeer.request("chat:unknown"); // devrait ❌ : RPC inconnue
-  clientPeer.notify("chat:nope", { foo: 1 }); // devrait ❌ : canal inconnu
-  serverPeer.notify("chat:send", { room: "x", msg: "x" }); // devrait ❌ : canal client-only
+  // ── Garde-fous RESTAURÉS — TROU 1 bouché (cf sentinelles en tête de fichier)
+  // Les maps ne fuient plus leur index signature : ces 3 lignes sont de nouveau
+  // des erreurs de compilation, comme le contrat l'exige.
+  // @ts-expect-error : RPC inconnue du contrat AppActions
+  clientPeer.request("chat:unknown");
+  // @ts-expect-error : canal inconnu du contrat
+  clientPeer.notify("chat:nope", { foo: 1 });
+  // @ts-expect-error : "chat:send" est un canal CLIENT->serveur, le serveur ne l'émet pas
+  serverPeer.notify("chat:send", { room: "x", msg: "x" });
 
   // ── Côté SERVEUR (Emit=ServerToClient, Listen=ClientToServer) ─────────
   serverPeer.notify("chat:room42", { ts: 0, msg: "hello" });
   serverPeer.notify("presence", { user: "alice", online: true });
 
   // ── RÉTRO-COMPAT — peer sans paramétrage (défauts permissifs) ─────────
-  // ⚠️ TROU 2 : `rawPeer.request("anything", { foo: 1 })` NE COMPILE PLUS
-  // (params typés `undefined`). On teste donc la seule forme encore possible.
+  // TROU 2 bouché : les DEUX formes compilent à nouveau, avec ET sans params.
   const r1: Promise<unknown> = rawPeer.request("anything");
   expectType<Promise<unknown>>(r1);
+  expectType<Promise<unknown>>(rawPeer.request("anything", { foo: 1 }));
   rawPeer.notify("any-channel", { bar: 2 });
   rawPeer.register("any-method", () => "ok");
 
