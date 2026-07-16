@@ -17,8 +17,11 @@ import {
 // embarqués de mysql2 servent au typage, les drivers runtime sont des
 // `optionalDependencies` chargées en LAZY (`await import`) dans `#connectPostgres`
 // / `#connectMysql` (jamais au top-level : un déploiement SQLite n'a ni pg ni mysql2).
-import type { Pool } from "pg";
-import type { Pool as MysqlPool } from "mysql2/promise";
+import type { Pool, PoolClient } from "pg";
+import type {
+  Pool as MysqlPool,
+  PoolConnection as MysqlPoolConnection,
+} from "mysql2/promise";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
 import type {
   IColumnInfo,
@@ -94,6 +97,19 @@ export class DrizzleOrm extends Orm {
   #mysqlPool: MysqlPool | null = null;
   #db: DrizzleDb | null = null;
   #connected = false;
+  /**
+   * Ouvre une transaction sur le driver du connecteur — posée par le
+   * `#connectX` du dialecte, `null` hors connexion.
+   *
+   * **Pourquoi une fabrique par dialecte plutôt qu'un `switch` dans
+   * {@link DrizzleOrm.transaction}** : une transaction postgres/mysql exige une
+   * connexion DÉDIÉE empruntée au pool (le `BEGIN` et les écritures doivent
+   * tomber sur la MÊME connexion, sinon aucune atomicité) et le db Drizzle qui
+   * lui est lié — donc la factory `drizzle` du driver, importée en LAZY au
+   * connect. La closure capture ce que seul le connect connaît, et
+   * `transaction()` reste un chemin unique, sans réimport ni branche.
+   */
+  #beginTx: (() => Promise<DrizzleTransaction>) | null = null;
   /**
    * Tables Drizzle indexées par nom logique d'entité (lazy) — union
    * multi-dialecte {@link DrizzleTable} (variante sqlite OU pg selon le
@@ -293,7 +309,23 @@ export class DrizzleOrm extends Orm {
       client.pragma("synchronous = NORMAL");
     }
     this.#client = client;
-    this.#db = drizzle(client);
+    const db = drizzle(client);
+    this.#db = db;
+    // Connexion unique et synchrone : la transaction encadre le db du connecteur
+    // lui-même (rien à emprunter, rien à rendre).
+    this.#beginTx = (): Promise<DrizzleTransaction> => {
+      client.exec("BEGIN");
+      return Promise.resolve(
+        new DrizzleTransaction(db, {
+          exec: (sql: string): Promise<void> => {
+            client.exec(sql);
+            return Promise.resolve();
+          },
+          quoteIdent: (name: string): string => `"${name}"`,
+          release: (): void => undefined,
+        }),
+      );
+    };
     for (const entity of entities) {
       this.#assertDialectTable(entity, SQLiteTable, "sqlite");
       const table = entity.schema as SQLiteTable;
@@ -337,7 +369,10 @@ export class DrizzleOrm extends Orm {
       );
     }
     let PoolCtor: new (config: { connectionString?: string }) => Pool;
-    let pgDrizzle: (client: Pool) => unknown;
+    // `Pool | PoolClient` : le MÊME `drizzle` sert le pool (requêtes ordinaires)
+    // et une connexion empruntée (transaction) — l'adapter node-postgres accepte
+    // les deux, c'est ce qui rend la transaction portable sans second import.
+    let pgDrizzle: (client: Pool | PoolClient) => unknown;
     try {
       // Interop CJS/ESM : `pg` expose son API sur `default` (CJS) ou en named.
       const pgNs = (await import("pg")) as unknown as {
@@ -350,7 +385,7 @@ export class DrizzleOrm extends Orm {
       }
       PoolCtor = resolved;
       pgDrizzle = (await import("drizzle-orm/node-postgres"))
-        .drizzle as unknown as (client: Pool) => unknown;
+        .drizzle as unknown as (client: Pool | PoolClient) => unknown;
     } catch (e) {
       throw new Error(
         `DrizzleOrm "${this.name}": the postgres dialect needs the optional ` +
@@ -370,6 +405,31 @@ export class DrizzleOrm extends Orm {
     }
     this.#pgPool = pool;
     this.#db = pgDrizzle(pool) as DrizzleDb;
+    // Transaction = UNE connexion empruntée au pool, rendue au commit/rollback.
+    // Sans cet emprunt, `BEGIN` et les écritures partiraient sur des connexions
+    // différentes du pool : aucune atomicité, et un `BEGIN` orphelin recyclé.
+    this.#beginTx = async (): Promise<DrizzleTransaction> => {
+      const cx = await pool.connect();
+      try {
+        await cx.query("BEGIN");
+      } catch (e) {
+        cx.release(e as Error); // BEGIN raté → connexion suspecte, pas de recyclage
+        throw e;
+      }
+      return new DrizzleTransaction(pgDrizzle(cx) as DrizzleDb, {
+        exec: async (sql: string): Promise<void> => {
+          await cx.query(sql);
+        },
+        quoteIdent: (name: string): string => `"${name}"`,
+        // `release(err)` DÉTRUIT la connexion au lieu de la recycler. Un rejet
+        // non-`Error` (une string jetée) doit détruire aussi → `true`, jamais
+        // `undefined` (qui recyclerait une connexion à l'état inconnu).
+        release: (err?: unknown): void =>
+          cx.release(
+            err === undefined ? undefined : err instanceof Error ? err : true,
+          ),
+      });
+    };
     for (const entity of entities) {
       this.#assertDialectTable(entity, PgTable, "postgres");
       const table = entity.schema as PgTable;
@@ -393,7 +453,9 @@ export class DrizzleOrm extends Orm {
       );
     }
     let pool: MysqlPool;
-    let mysqlDrizzle: (client: MysqlPool) => unknown;
+    // `MysqlPool | MysqlPoolConnection` : même raison qu'en postgres — le pool
+    // pour les requêtes ordinaires, une connexion empruntée pour la transaction.
+    let mysqlDrizzle: (client: MysqlPool | MysqlPoolConnection) => unknown;
     try {
       const mysqlNs = (await import("mysql2/promise")) as unknown as {
         default?: { createPool: (opts: unknown) => MysqlPool };
@@ -404,7 +466,9 @@ export class DrizzleOrm extends Orm {
         throw new Error("`mysql2/promise` did not expose `createPool`");
       }
       mysqlDrizzle = (await import("drizzle-orm/mysql2"))
-        .drizzle as unknown as (client: MysqlPool) => unknown;
+        .drizzle as unknown as (
+        client: MysqlPool | MysqlPoolConnection,
+      ) => unknown;
       pool = createPool({ uri: this.#url, timezone: "Z" });
     } catch (e) {
       throw new Error(
@@ -421,6 +485,33 @@ export class DrizzleOrm extends Orm {
     }
     this.#mysqlPool = pool;
     this.#db = mysqlDrizzle(pool) as DrizzleDb;
+    // Transaction = UNE connexion empruntée au pool (même raison qu'en postgres).
+    // mysql2 n'a pas de `release(err)` : rendre une connexion à l'état inconnu
+    // est impossible à exprimer → `destroy()` explicite (le pool en rouvrira une).
+    this.#beginTx = async (): Promise<DrizzleTransaction> => {
+      const cx = await pool.getConnection();
+      try {
+        await cx.query("BEGIN");
+      } catch (e) {
+        cx.destroy();
+        throw e;
+      }
+      return new DrizzleTransaction(mysqlDrizzle(cx) as DrizzleDb, {
+        exec: async (sql: string): Promise<void> => {
+          await cx.query(sql);
+        },
+        // Backticks : `"x"` est une CHAÎNE en mysql/mariadb (hors ANSI_QUOTES),
+        // pas un identifiant → `SAVEPOINT "sp"` est une erreur de syntaxe.
+        quoteIdent: (name: string): string => `\`${name}\``,
+        release: (err?: unknown): void => {
+          if (err === undefined) {
+            cx.release();
+          } else {
+            cx.destroy();
+          }
+        },
+      });
+    };
     for (const entity of entities) {
       this.#assertDialectTable(entity, MySqlTable, "mysql");
       const table = entity.schema as MySqlTable;
@@ -444,6 +535,7 @@ export class DrizzleOrm extends Orm {
     this.#pgPool = null;
     this.#mysqlPool = null;
     this.#db = null;
+    this.#beginTx = null; // la closure capture le pool fermé → `not connected`
     this.#connected = false;
     this.#tables = null;
     this.#relations = null;
@@ -478,22 +570,33 @@ export class DrizzleOrm extends Orm {
     return repository as IRepository<T>;
   }
 
+  /**
+   * Exécute `work` dans une transaction, sur les TROIS dialectes : commit si la
+   * closure résout, rollback si elle rejette (cf {@link DrizzleTransaction}).
+   *
+   * Un repository n'entre dans la transaction que lié par `withTransaction(tx)` :
+   * en postgres/mysql, la transaction tient une connexion dédiée du pool, tandis
+   * que `getRepository()` écrit via le pool — donc hors transaction.
+   *
+   * @param work - travail transactionnel ; reçoit la transaction à lier aux repositories.
+   * @returns la valeur rendue par `work`.
+   * @throws `not connected` hors connexion ; sinon l'erreur de `work`, après rollback.
+   */
   async transaction<R>(work: (tx: ITransaction) => Promise<R>): Promise<R> {
-    const db = this.#db;
-    const client = this.#client;
-    if (!db || !client) {
+    const begin = this.#beginTx;
+    if (!begin) {
       throw new Error(`DrizzleOrm "${this.name}": not connected.`);
     }
-    // Transaction manuelle : better-sqlite3 est synchrone, le helper Drizzle
-    // committe avant les `await` du contrat async (cf DrizzleTransaction).
-    client.exec("BEGIN");
-    const tx = new DrizzleTransaction(db, client);
+    const tx = await begin();
     try {
       const result = await work(tx);
       await tx.commit(); // no-op si la closure a déjà commit/rollback
       return result;
     } catch (error) {
-      await tx.rollback(); // no-op si déjà terminée
+      // Un rollback en échec (connexion morte) ne doit JAMAIS masquer l'erreur
+      // d'origine — c'est elle qui explique l'abandon. La connexion est de toute
+      // façon détruite par le driver, pas recyclée.
+      await tx.rollback().catch(() => undefined); // no-op si déjà terminée
       throw error;
     }
   }

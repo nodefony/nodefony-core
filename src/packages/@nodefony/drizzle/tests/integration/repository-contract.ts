@@ -287,4 +287,105 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
       UnknownCriteriaField,
     );
   });
+
+  // ── Transactions ────────────────────────────────────────────────────────────
+  // Le contrat le plus cher à casser : une transaction qui ne tient pas rend une
+  // écriture partielle DURABLE. Ces cas manquaient au banc — d'où un
+  // `transaction()` resté sqlite-only, invisible tant que seuls les tests
+  // `:memory:` l'appelaient.
+  //
+  // Le rollback est aussi ce qui prouve l'ATOMICITÉ sur un pool : si `BEGIN` et
+  // les écritures partaient sur des connexions différentes (pg/mysql), l'INSERT
+  // serait auto-committé et survivrait au rollback.
+  //
+  // Divergence sémantique ASSUMÉE (non testée ici, comme la casse de `$like`) :
+  // la visibilité AVANT commit depuis un repository NON lié. En sqlite la
+  // connexion est unique — la transaction encadre le db du connecteur, donc tout
+  // repository lit/écrit dedans ; en postgres/mysql la transaction tient une
+  // connexion dédiée du pool, invisible du reste. Seule règle portable, donc
+  // seule testée : `withTransaction(tx)` est le SEUL moyen d'entrer dans la
+  // transaction, et après commit la ligne est visible de partout.
+
+  it("transaction : commit — les écritures liées par withTransaction sont durables", async () => {
+    await repo.delete({});
+    const out = await orm.transaction(async (tx) => {
+      const txRepo = repo.withTransaction(tx);
+      await txRepo.create({ name: "tx-commit-1", age: 1, score: 1 });
+      await txRepo.create({ name: "tx-commit-2", age: 2, score: 2 });
+      return "done";
+    });
+    assert.equal(out, "done");
+    assert.equal(await repo.count({}), 2);
+  });
+
+  it("transaction : rollback — la closure qui rejette n'a RIEN persisté, l'erreur remonte", async () => {
+    await repo.delete({});
+    await assert.rejects(
+      orm.transaction(async (tx) => {
+        const txRepo = repo.withTransaction(tx);
+        await txRepo.create({ name: "tx-rollback", age: 1, score: 1 });
+        throw new Error("boom");
+      }),
+      /boom/,
+    );
+    assert.equal(await repo.count({}), 0);
+  });
+
+  it("transaction : savepoint / rollbackTo — annulation PARTIELLE, la transaction continue", async () => {
+    await repo.delete({});
+    await orm.transaction(async (tx) => {
+      const txRepo = repo.withTransaction(tx);
+      await txRepo.create({ name: "kept", age: 1, score: 1 });
+      await tx.savepoint("sp1");
+      await txRepo.create({ name: "dropped", age: 2, score: 2 });
+      await tx.rollbackTo("sp1");
+      await txRepo.create({ name: "kept-after", age: 3, score: 3 });
+    });
+    // Ordre sur `age` (entier), jamais sur `name` : la PK est un UUID aléatoire
+    // (donc l'ordre physique l'est aussi) et le tri d'un texte suivrait la
+    // collation du backend — deux raisons d'échouer pour rien.
+    const names = (await repo.find({}, { order: [["age", "ASC"]] })).map(
+      (r) => r.name,
+    );
+    assert.deepEqual(names, ["kept", "kept-after"]);
+  });
+
+  it("transaction : la connexion est RENDUE au pool — N transactions d'affilée sans épuisement", async () => {
+    await repo.delete({});
+    // Un pool par défaut plafonne à 10 connexions (pg comme mysql2) : sans
+    // `release()`, ce test se fige à la 11ᵉ au lieu d'échouer — d'où le compte
+    // volontairement au-dessus du plafond, commits ET rollbacks mélangés.
+    for (let i = 0; i < 15; i++) {
+      await orm.transaction(async (tx) => {
+        await repo
+          .withTransaction(tx)
+          .create({ name: `loop-${i}`, age: i, score: i });
+      });
+      await assert.rejects(
+        orm.transaction(async (tx) => {
+          await repo
+            .withTransaction(tx)
+            .create({ name: `undone-${i}`, age: i, score: i });
+          throw new Error("rollback");
+        }),
+        /rollback/,
+      );
+    }
+    assert.equal(await repo.count({}), 15);
+  });
+
+  it("transaction : hors connexion → `not connected` (jamais un silence)", async () => {
+    const offline = new DrizzleOrm(`${connector}_offline`, {
+      dialect,
+      ...opts.connection,
+    });
+    try {
+      await assert.rejects(
+        offline.transaction(async () => undefined),
+        /not connected/,
+      );
+    } finally {
+      ormRegistry.unregister(`${connector}_offline`);
+    }
+  });
 }

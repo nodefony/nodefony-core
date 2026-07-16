@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-16T20:40:44.859Z",
+  "generated": "2026-07-16T21:44:08.367Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1024,
-    "symbols": 2719,
+    "symbols": 2720,
     "classes": 325,
-    "interfaces": 710,
+    "interfaces": 711,
     "types": 318,
     "enums": 4,
     "functions": 791,
@@ -15820,7 +15820,16 @@
         "ITransaction"
       ],
       "decorators": [],
-      "description": "Adapte une transaction `better-sqlite3` au contrat portable {@link ITransaction}. **Pourquoi une transaction manuelle (`BEGIN`/`COMMIT`/`ROLLBACK`) et pas le helper `db.transaction()` de Drizzle** …"
+      "description": "Adapte une transaction SQL au contrat portable {@link ITransaction}, sur les trois dialectes (sqlite, postgres, mysql). **Pourquoi une transaction manuelle (`BEGIN`/`COMMIT`/`ROLLBACK`) et pas le h…"
+    },
+    "ITxDriver": {
+      "name": "ITxDriver",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Pilotage transactionnel d'**une connexion**, abstrait du driver (INTERNE). Existe parce que les trois drivers pilotent une transaction différemment : `better-sqlite3` est synchrone sur une connexio…"
     },
     "ViteBuilder": {
       "name": "ViteBuilder",

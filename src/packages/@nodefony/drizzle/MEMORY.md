@@ -72,7 +72,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 - `DrizzleOrm extends Orm` : onConnect **route selon `dialect`** (sqlite better-sqlite3 sync / postgres `pg` lazy) ; `new BetterSqlite3(filename)` + `drizzle(client)` (sqlite). Schema-as-code (entity.schema = table). DDL via `getTableConfig()`. tx manuelle. **`describeEntity(name)` (2026-05-22)** : colonnes normalisées via `getTableConfig().columns` (`name/getSQLType()/primary/!notNull/isUnique`) → alimente le data plane ORM/ERD/IA (orm-core). Le **module Drizzle** (`index.ts onKernelBoot`) appelle `registerOrmAdminApi(broker)` (idempotent) → monte `/nodefony/orm/api/*` (orm-core étant lib pure).
 - `DrizzleRepository<T>` : CRUD + `#where` (criteria → eq/and/gt/inArray/like) + eager-load manuel (`#populate`, 1 req IN par relation) + `withTransaction`.
-- `DrizzleTransaction` : BEGIN/COMMIT/ROLLBACK sur client (managée). `getNative()` = même db (1 connexion). savepoint = SQL brut.
+- `DrizzleTransaction` : BEGIN/COMMIT/ROLLBACK **3 dialectes** (managée), via `ITxDriver` (`exec`/`quoteIdent`/`release`) — la classe ne connaît AUCUN driver. Fabrique posée par le `#connectX` → `DrizzleOrm.#beginTx` (`null` = not connected). **sqlite** = connexion unique (rien à rendre) ; **pg/mysql** = connexion DÉDIÉE empruntée (`pool.connect()` / `pool.getConnection()`), `drizzle(cx)` lié à ELLE, rendue au commit/rollback — sinon `BEGIN` et écritures sur des connexions différentes = 0 atomicité + pool épuisé. `release(err)` → connexion DÉTRUITE (`cx.release(err)` pg / `cx.destroy()` mysql2), jamais recyclée à l'état inconnu. `getNative()` = db de CETTE connexion → seul `withTransaction(tx)` entre dans la tx (`getRepository()` passe par le pool = HORS tx). Savepoint : nom validé `/^[A-Za-z_]\w*$/` + `quoteIdent` **par dialecte** — `"x"` = CHAÎNE en mysql/mariadb (hors ANSI_QUOTES), backticks obligatoires.
 - `DrizzleOrmOptions { filename }` (`:memory:` par défaut).
 
 ## Behaviors
@@ -86,7 +86,10 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Gotchas
 
-- better-sqlite3 SYNCHRONE → pas `db.transaction(asyncCb)` (committe avant await). → BEGIN/COMMIT manuel, connexion unique.
+- better-sqlite3 SYNCHRONE → pas `db.transaction(asyncCb)` (committe avant await). → BEGIN/COMMIT manuel.
+- **Une transaction sur un POOL exige une connexion dédiée** : sans emprunt, `BEGIN` et les écritures partent sur des connexions différentes → aucune atomicité (et `BEGIN` orphelin recyclé). Vaut pour tout futur driver poolé.
+- **Divergence assumée (non testée au banc de parité)** : visibilité avant commit depuis un repo NON lié — sqlite (connexion unique) la voit, pg/mysql non. Portable = `withTransaction(tx)` seul entre dans la tx.
+- **Banc de contrat : jamais trier sur du texte** (PK = UUID aléatoire → ordre physique aléatoire ; tri texte = collation du backend, MySQL 8.4 `utf8mb4_0900_ai_ci` ≠ MariaDB). Trier sur un entier.
 - mocha/tsx = RACINE (pas de devDeps locales → sinon CJS resolve ERR_PACKAGE_PATH_NOT_EXPORTED sur orm-core import-only exports).
 - db typé `BetterSQLite3Database<Record<string,never>>` = vue d'exécution CANONIQUE tous dialectes (pas de `db.query`, eager-load manuel) ; tables → builders via `execTable()` uniquement.
 - OFFSET sans LIMIT → routé par `#dialect` : fragment `sql\`-1\``sqlite / rien pg /`MAX_SAFE_INTEGER`mysql. ⚠️ drizzle 0.45 IGNORE silencieusement`limit(-1)` NUMÉRIQUE (émet OFFSET seul).

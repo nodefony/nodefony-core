@@ -40,8 +40,12 @@ Deux usages :
   de Drizzle (générique cross-entités, pas de double déclaration).
 - **Transaction manuelle** `BEGIN`/`COMMIT`/`ROLLBACK` : `better-sqlite3` est
   **synchrone** → son helper `db.transaction()` committe au `return`, avant les
-  `await` du contrat async. Connexion unique → encadrer = atomique.
-  `withTransaction(tx)` réutilise le **même** db.
+  `await` du contrat async. Portée aux **3 dialectes** via `ITxDriver`
+  (`exec`/`quoteIdent`/`release`) : en pg/mysql la transaction tient une
+  connexion **dédiée** du pool (le `BEGIN` et les écritures DOIVENT tomber sur la
+  même connexion), rendue au commit/rollback — détruite si celui-ci échoue.
+  `withTransaction(tx)` est le **seul** moyen d'entrer dans la transaction ; le
+  repository de `getRepository()` écrit via le pool, donc hors transaction.
 - **Trappe SQL brut** : `getNativeConnection()` renvoie le db Drizzle (tag `sql`).
 - **Config = Zod (ADR-0006, 1 fichier-schéma)** : `nodefony/config/config.ts`
   (schéma Zod + défauts `parse({})`, source unique ; dans `config.ts`) → `defineDrizzleConfig` (parse + infra database `NF_DATABASE_URL`/`DATABASE_URL` : dialecte déduit du scheme, `sqlite:`→`filename`, `postgres://`/`mysql://`→`url`, `mongodb://` ignorée + freeze)
