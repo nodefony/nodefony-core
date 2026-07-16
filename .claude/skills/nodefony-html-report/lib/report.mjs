@@ -559,8 +559,15 @@ button.ghost { background:none; border:1px solid var(--line); color:var(--dim); 
    dit pas d'où il vient, et un rapport dont on ignore la provenance ne prouve
    rien. print-color-adjust:exact (plus haut) empêche le navigateur de le
    vider de ses couleurs pour économiser l'encre. */
-.rep-head { display:flex; justify-content:space-between; align-items:flex-start;
-  gap:16px; padding-bottom:18px; margin-bottom:22px; border-bottom:1px solid var(--line); }
+/* En-tête COLLANTE : la marque et la bascule de thème restent visibles pendant
+   qu'on parcourt le rapport. Un lecteur qui a scrollé 6 écrans plus bas doit
+   toujours savoir de QUEL document il lit une ligne — c'est la première question
+   qu'on se pose en rouvrant un PDF ou un onglet laissé ouvert la veille.
+   Fond OPAQUE obligatoire (var(--bg)) : sans lui, le contenu défile sous le
+   texte de l'en-tête et les deux deviennent illisibles. */
+.rep-head { position:sticky; top:0; z-index:20; background:var(--bg);
+  display:flex; justify-content:space-between; align-items:flex-start;
+  gap:16px; padding:14px 0 12px; margin-bottom:22px; border-bottom:1px solid var(--line); }
 .brand { display:flex; align-items:center; gap:11px; }
 .brand-logo { height:34px; width:auto; display:block; }
 .brand-name { font-weight:650; font-size:15px; letter-spacing:-.01em; }
@@ -595,9 +602,20 @@ button.ghost { background:none; border:1px solid var(--line); color:var(--dim); 
 .dnd-item .rank { color:var(--dim); font-variant-numeric:tabular-nums; width:18px; flex:none; }
 .dnd-label { flex:1; }
 /* ── mode présentation (« PowerPoint-like », sans PowerPoint) ─────────────── */
-body.deck { overflow:hidden; }
-body.deck .wrap { max-width:1180px; padding:52px 40px 70px; }
-body.deck section.sec { min-height:72vh; margin-top:0; animation:slidein .28s ease-out; }
+/* MODE PRÉSENTATION — même principe que la page : l'en-tête reste EN HAUT, la
+   diapositive défile DESSOUS. Une diapo plus haute que l'écran doit pouvoir se
+   parcourir : sans overflow-y:auto sur la section, le bas d'un long tableau est
+   simplement inatteignable (le body est en overflow:hidden). D'où la colonne
+   flex : en-tête figée (flex:none), section élastique et scrollable.
+   min-height:0 est indispensable — sans lui, un enfant flex refuse de rétrécir
+   sous sa hauteur de contenu et le scroll ne s'active jamais. */
+body.deck { overflow:hidden; height:100vh; }
+body.deck .wrap { max-width:1180px; height:100vh; padding:0 40px 64px;
+  display:flex; flex-direction:column; }
+body.deck .rep-head { flex:none; margin-bottom:14px; }
+body.deck h1 { display:none; }
+body.deck section.sec { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+  margin-top:0; padding-right:6px; animation:slidein .28s ease-out; }
 body.deck h2 { font-size:32px; margin-bottom:14px; }
 body.deck .lead { font-size:18px; }
 body.deck .card .v { font-size:30px; }
@@ -631,7 +649,9 @@ body.deck .foot, body.deck .topbar, body.deck .sub { display:none; }
   .wrap { max-width: none; padding: 0; }
   .no-print, button.ghost, .rep-head button { display: none !important; }
   /* La marque RESTE (c'est la provenance du document). */
-  .rep-head { border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 16px; }
+  /* position:sticky n'a pas de sens sur papier — et laissé tel quel, il décale
+     l'en-tête dans le PDF. On le neutralise explicitement. */
+  .rep-head { position: static; border-bottom: 1px solid #ccc; padding: 0 0 10px; margin-bottom: 16px; }
   .brand-logo { height: 26px; }
   .foot-logo { height: 20px; }
   .print-only { display: block; }
@@ -1055,7 +1075,13 @@ export const deckControls = ({ id = "deck" } = {}) => `
   const ui = $(${JSON.stringify(`${id}-ui`)});
   const fill = $(${JSON.stringify(`${id}-fill`)});
   const count = $(${JSON.stringify(`${id}-count`)});
-  const secs = [...document.querySelectorAll("section.sec")];
+  // Les sections sont collectées À L'ENTRÉE du mode, jamais au chargement du
+  // script. Pourquoi : ce bloc s'exécute PENDANT le parsing, à l'endroit où il
+  // est inséré. Placé en haut du document (le cas naturel : les boutons vont en
+  // tête de page), aucune <section> n'existe encore dans le DOM — la collecte
+  // rendait un tableau VIDE et la présentation affichait « 1 / 0 » sans jamais
+  // changer de diapo. Collecter tard rend le composant indifférent à sa position.
+  let secs = [];
   let on = false, i = 0;
   // Transition injectée ICI, pas dans la feuille statique : le validateur W3C ne
   // connaît pas encore les pseudo-éléments view-transition et rejette la règle.
@@ -1069,6 +1095,9 @@ export const deckControls = ({ id = "deck" } = {}) => `
 
   const paint = () => {
     secs.forEach((s, j) => (s.style.display = j === i ? "block" : "none"));
+    // Une diapo s'ouvre EN HAUT. Sans ça, la section hérite du défilement de la
+    // précédente et l'orateur enchaîne sur un titre déjà passé.
+    if (secs[i]) secs[i].scrollTop = 0;
     fill.style.width = ((i + 1) / secs.length) * 100 + "%";
     count.textContent = (i + 1) + " / " + secs.length;
   };
@@ -1083,7 +1112,9 @@ export const deckControls = ({ id = "deck" } = {}) => `
     else paint();
   };
   const enter = async () => {
-    on = true;
+    secs = [...document.querySelectorAll("section.sec")];
+    if (!secs.length) return; // rien à présenter : ne pas piéger l'utilisateur dans un mode vide
+    on = true; i = 0;
     document.body.classList.add("deck");
     ui.hidden = false;
     btn.setAttribute("aria-pressed", "true");
