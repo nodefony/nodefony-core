@@ -9,6 +9,8 @@ import {
   gt,
   gte,
   inArray,
+  isNotNull,
+  isNull,
   like,
   lt,
   lte,
@@ -317,6 +319,10 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (ops.$in !== undefined) conds.push(inArray(col, [...ops.$in]));
     if (ops.$nin !== undefined) conds.push(notInArray(col, [...ops.$nin]));
     if (ops.$like !== undefined) conds.push(like(col, ops.$like));
+    // `!== undefined` et pas de test de vérité : `$null: false` = IS NOT NULL.
+    if (ops.$null !== undefined) {
+      conds.push(ops.$null ? isNull(col) : isNotNull(col));
+    }
   }
 
   /** Traduit un critère portable en expression `WHERE` Drizzle (ou `undefined`). */
@@ -339,6 +345,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       }
       if (isFieldOperators(value)) {
         this.#pushOperators(conds, col, value);
+      } else if (value === null) {
+        // `IS NULL`, jamais `eq(col, null)` : en SQL une égalité à NULL est
+        // toujours FAUSSE → le filtre disparaissait en silence (0 ligne, sans
+        // erreur), au lieu de matcher les colonnes vides. Même contrat que
+        // Mongoose. Équivaut à `{ champ: { $null: true } }`.
+        conds.push(isNull(col));
       } else {
         conds.push(eq(col, value));
       }

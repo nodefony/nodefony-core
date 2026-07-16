@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T22:53:37.169Z",
+  "generated": "2026-07-16T23:14:19.612Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -10449,7 +10449,7 @@
       "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
       "exported": true,
       "module": "@nodefony/orm-core",
-      "description": "Valeur de critère pour un champ : soit l'**égalité** directe (valeur nue), soit un objet d'{@link FieldOperators} riche."
+      "description": "Valeur de critère pour un champ : soit l'**égalité** directe (valeur nue), soit un objet d'{@link FieldOperators} riche. La valeur nue **`null`** signifie `IS NULL` — et non l'égalité `col = NULL`,…"
     },
     "Criteria": {
       "name": "Criteria",

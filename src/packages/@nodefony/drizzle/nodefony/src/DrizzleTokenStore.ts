@@ -31,14 +31,10 @@ const DEFAULT_RETENTION_REVOKED_MS = 30 * 24 * 3_600_000;
  *
  * **100 % portable** (aucun SQL natif) — toutes les opérations passent par le
  * contrat `IRepository`, donc le code se transpose tel quel aux autres drivers.
- * Deux contraintes du critère portable sont contournées **sans** descendre au
- * natif :
- *  - `IS NULL` n'est pas exprimable (`eq(col, null)` = toujours faux en SQL) →
- *    l'idempotence de {@link DrizzleTokenStore.revoke} (ne pas écraser la 1ʳᵉ
- *    date/raison de révocation) se fait par **read-then-write** côté JS ;
- *  - la purge des PAT révoqués **sans expiration** ({@link DrizzleTokenStore.gc})
- *    se fait par `find({ revokedAt: { $lte } })` + filtre JS `expiresAt === null`
- *    + `delete({ id: { $in } })` — jamais un `WHERE expiresAt IS NULL`.
+ * Les écritures conditionnelles portent leur condition dans le `WHERE` plutôt
+ * que dans un `if` JS après lecture (`{ revokedAt: { $null: true } }`) : chacune
+ * est une instruction unique, donc atomique — un `findOne` suivi d'un `update`
+ * laisse deux appels concurrents agir sur un état déjà périmé.
  *
  * Horloge injectable (`now`) pour des tests déterministes.
  */
@@ -163,31 +159,40 @@ export class DrizzleTokenStore implements ITokenStore {
     );
   }
 
+  /**
+   * Révoque un jeton — **idempotent** : la 1ʳᵉ date/raison de révocation est
+   * conservée (l'audit ne se réécrit pas).
+   *
+   * Le « pas encore révoqué » vit dans le `WHERE` (`revokedAt IS NULL`), pas
+   * dans un `if` JS après lecture : une seule instruction, donc deux révocations
+   * concurrentes ne peuvent plus se recouvrir (la seconde n'affecte 0 ligne au
+   * lieu d'écraser la date de la première).
+   *
+   * @param id - identifiant du jeton.
+   * @param reason - motif de révocation, posé seulement à la 1ʳᵉ.
+   */
   async revoke(id: string, reason: TokenRevokeReason): Promise<void> {
-    // Idempotent + conserve la 1ʳᵉ date/raison : on ne touche que si non révoqué.
-    // (`{ revokedAt: null }` en critère est inexploitable — `eq(col, null)` faux.)
-    const record = await this.#records.findOne({ id });
-    if (record && record.revokedAt === null) {
-      await this.#records.updateOne(
-        { id },
-        { revokedAt: this.#now(), revokedReason: reason },
-      );
-    }
+    await this.#records.updateOne(
+      { id, revokedAt: { $null: true } },
+      { revokedAt: this.#now(), revokedReason: reason },
+    );
   }
 
+  /**
+   * Coupe toute une famille de refresh (détection de rejeu, RFC 9700) — les
+   * membres déjà révoqués (ex. `rotated`) gardent leur raison d'origine.
+   *
+   * Un seul `UPDATE … WHERE family = ? AND revokedAt IS NULL` : atomique, et
+   * N+1 requêtes (1 SELECT + 1 UPDATE par membre actif) tombent à 1.
+   *
+   * @param family - famille de refresh à couper.
+   * @param reason - motif appliqué aux membres encore actifs.
+   */
   async revokeFamily(family: string, reason: TokenRevokeReason): Promise<void> {
-    // Coupe toute la famille (détection de rejeu, RFC 9700) ; les membres déjà
-    // révoqués (ex. `rotated`) gardent leur raison d'origine.
-    const records = await this.#records.find({ family });
-    const now = this.#now();
-    for (const record of records) {
-      if (record.revokedAt === null) {
-        await this.#records.updateOne(
-          { id: record.id },
-          { revokedAt: now, revokedReason: reason },
-        );
-      }
-    }
+    await this.#records.updateMany(
+      { family, revokedAt: { $null: true } },
+      { revokedAt: this.#now(), revokedReason: reason },
+    );
   }
 
   // ── Denylist jti ─────────────────────────────────────────────────────────────
@@ -241,16 +246,14 @@ export class DrizzleTokenStore implements ITokenStore {
     //    records sans `exp` (`expiresAt` NULL) sont naturellement exclus (`NULL
     //    <= now` est faux en SQL) → traités au point 3.
     purged += await this.#records.delete({ expiresAt: { $lte: now } });
-    // 3. PAT révoqués SANS expiration au-delà de la rétention (le `IS NULL` n'est
-    //    pas exprimable en critère portable → filtre JS).
-    const cutoff = now - this.#retentionRevokedMs;
-    const revoked = await this.#records.find({ revokedAt: { $lte: cutoff } });
-    const staleIds = revoked
-      .filter((record) => record.expiresAt === null)
-      .map((record) => record.id);
-    if (staleIds.length > 0) {
-      purged += await this.#records.delete({ id: { $in: staleIds } });
-    }
+    // 3. PAT révoqués SANS expiration au-delà de la rétention. Le `IS NULL` est
+    //    dans le critère (`$null`) → un seul DELETE : plus de `find` de TOUS les
+    //    révoqués rapatriés en RAM pour un filtre JS `expiresAt === null` (la
+    //    purge ne dépend plus du volume purgé).
+    purged += await this.#records.delete({
+      revokedAt: { $lte: now - this.#retentionRevokedMs },
+      expiresAt: { $null: true },
+    });
     return purged;
   }
 }

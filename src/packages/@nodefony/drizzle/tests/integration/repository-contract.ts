@@ -161,6 +161,62 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
     );
   });
 
+  it("find : $null / valeur nue null — « la colonne est vide » (jamais eq(col, NULL))", async () => {
+    await seed(); // note: 2 renseignées (n1/n3), 2 à NULL (bob/dan)
+    // En SQL `col = NULL` est TOUJOURS faux : traduire la valeur nue en égalité
+    // faisait disparaître le filtre en silence (0 ligne, sans erreur). C'est la
+    // cause racine des check-then-act des stores de sécurité.
+    const nulls = await repo.find({ note: null });
+    assert.deepEqual(
+      nulls.map((r) => r.name).sort(),
+      ["bob", "dan"],
+      "valeur nue null ≡ IS NULL",
+    );
+    const explicit = await repo.find({ note: { $null: true } });
+    assert.deepEqual(
+      explicit.map((r) => r.name).sort(),
+      ["bob", "dan"],
+      "$null: true ≡ la valeur nue",
+    );
+    const notNull = await repo.find({ note: { $null: false } });
+    assert.deepEqual(
+      notNull.map((r) => r.name).sort(),
+      ["alice", "chloé 👩‍💻"],
+      "$null: false ≡ IS NOT NULL",
+    );
+    // Combinable avec d'autres opérateurs (AND) : le cas des stores.
+    assert.equal(
+      (await repo.find({ note: { $null: true }, age: { $lte: 25 } })).length,
+      2,
+    );
+    // `$null` n'est PAS `$eq`/`$ne` : ces derniers gardent leur sens sur une
+    // valeur réelle et ne matchent jamais les NULL.
+    assert.equal((await repo.find({ note: { $ne: "n1" } })).length, 1);
+  });
+
+  it("updateOne / update / delete : $null en critère (mutation atomique conditionnelle)", async () => {
+    await seed();
+    // Le remède aux check-then-act : le filtre « pas encore renseigné » entre
+    // dans le WHERE de la mutation → une seule instruction, pas de lecture
+    // préalable dont le résultat serait déjà périmé à l'écriture.
+    const affected = await repo.updateMany({ note: null }, { note: "filled" });
+    assert.equal(affected, 2, "updateMany en masse borné aux NULL");
+    assert.equal((await repo.find({ note: null })).length, 0);
+    assert.equal((await repo.find({ note: { $null: false } })).length, 4);
+    // Rejoué : plus rien à faire (idempotent) — c'est ce qui rend l'opération
+    // sûre en concurrence, là où un findOne+update écraserait le 1er écrivain.
+    assert.equal(await repo.updateMany({ note: null }, { note: "again" }), 0);
+
+    await seed();
+    const one = await repo.updateOne({ note: null }, { note: "one" });
+    assert.ok(one && one.note === "one", "updateOne borné aux NULL");
+    assert.equal((await repo.find({ note: null })).length, 1);
+
+    await seed();
+    assert.equal(await repo.delete({ note: null }), 2, "delete borné aux NULL");
+    assert.equal(await repo.count({}), 2);
+  });
+
   it("find : order / limit / offset — et OFFSET-SANS-LIMIT (hack routé par dialecte)", async () => {
     await seed();
     const desc = await repo.find(undefined, { order: [["score", "DESC"]] });

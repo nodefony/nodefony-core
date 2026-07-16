@@ -17,6 +17,7 @@ export const OPERATOR_KEYS = [
   "$in",
   "$nin",
   "$like",
+  "$null",
 ] as const;
 
 /** Clé d'opérateur riche reconnue. */

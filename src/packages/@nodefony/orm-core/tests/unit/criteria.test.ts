@@ -2,10 +2,21 @@ import assert from "node:assert/strict";
 import { OPERATOR_KEYS, isFieldOperators } from "../../index";
 
 describe("criteria — isFieldOperators (opérateurs riches P7.4)", () => {
-  it("expose les 9 opérateurs portables figés", () => {
+  it("expose les 10 opérateurs portables figés", () => {
     assert.deepEqual(
       [...OPERATOR_KEYS],
-      ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$nin", "$like"],
+      [
+        "$eq",
+        "$ne",
+        "$gt",
+        "$gte",
+        "$lt",
+        "$lte",
+        "$in",
+        "$nin",
+        "$like",
+        "$null",
+      ],
     );
   });
 
@@ -14,6 +25,10 @@ describe("criteria — isFieldOperators (opérateurs riches P7.4)", () => {
     assert.equal(isFieldOperators({ $gte: 1, $lte: 5 }), true);
     assert.equal(isFieldOperators({ $in: [1, 2] }), true);
     assert.equal(isFieldOperators({ $like: "a%" }), true);
+    // `$null: false` reste un objet d'opérateurs (la VALEUR est fausse, pas la
+    // clé) — sinon il serait pris pour une égalité et le filtre partirait faux.
+    assert.equal(isFieldOperators({ $null: true }), true);
+    assert.equal(isFieldOperators({ $null: false }), true);
   });
 
   it("false : clé non-opérateur (égalité sur un objet ordinaire / colonne JSON)", () => {

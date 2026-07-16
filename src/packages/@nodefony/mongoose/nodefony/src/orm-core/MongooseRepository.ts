@@ -114,13 +114,31 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
    * Traduit les opérateurs riches portables en opérateurs MongoDB.
    *
    * Quasi-identité : `$gt`/`$in`/`$nin`/`$ne`/`$eq`/`$lt`... sont natifs Mongo ;
-   * seul `$like` (motif SQL) est converti en `$regex`.
+   * `$like` (motif SQL) devient `$regex`, et `$null` une comparaison à `null`
+   * (`$eq`/`$ne`) — en Mongo `null` matche aussi le champ **absent**, ce qui est
+   * bien l'équivalent du `NULL` SQL (colonne sans valeur).
+   *
+   * @throws Error si `$null` est combiné à `$eq`/`$ne` sur le même champ : les
+   *   deux viseraient la même clé Mongo et l'une écraserait l'autre **en
+   *   silence** (le contrat les déclare exclusifs — cf `FieldOperators.$null`).
    */
   #mongoOps(ops: FieldOperators<unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(ops)) {
       if (key === "$like") {
         out.$regex = sqlLikeToRegex(value as string);
+      } else if (key === "$null") {
+        const target = value ? "$eq" : "$ne";
+        if (target in out) {
+          throw new Error(
+            `criteria: $null ne se combine pas avec ${target} sur le même champ (${this.#model.modelName})`,
+          );
+        }
+        out[target] = null;
+      } else if ((key === "$eq" || key === "$ne") && key in out) {
+        throw new Error(
+          `criteria: $null ne se combine pas avec ${key} sur le même champ (${this.#model.modelName})`,
+        );
       } else {
         out[key] = value;
       }

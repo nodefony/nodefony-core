@@ -42,11 +42,43 @@ export interface FieldOperators<V> {
   $nin?: readonly V[];
   /** Motif SQL `LIKE` (`%`/`_`) — pertinent pour les champs texte uniquement. */
   $like?: string;
+  /**
+   * Teste l'**absence de valeur** : `true` → `IS NULL`, `false` → `IS NOT NULL`
+   * (Mongo : `$eq`/`$ne null`, qui couvre aussi le champ absent).
+   *
+   * Indispensable parce qu'une comparaison d'égalité à `NULL` est **fausse** en
+   * SQL (`col = NULL` ne matche rien, jamais) : sans cet opérateur, filtrer « la
+   * colonne est vide » n'est pas exprimable. Forme équivalente à la valeur nue
+   * `{ champ: null }` (cf {@link Criteria}), à préférer quand le `null` vient
+   * d'une variable et qu'on veut dire explicitement « IS NULL ».
+   *
+   * **Exclusif avec `$eq`/`$ne` sur le même champ** : les deux expriment la même
+   * comparaison à `null` et l'adapter Mongo les traduit vers la même clé — il
+   * lève plutôt que d'en écraser une en silence.
+   *
+   * @example
+   * // les jetons pas encore révoqués
+   * repo.find({ revokedAt: { $null: true } });
+   * // les PAT qui ont une expiration
+   * repo.find({ expiresAt: { $null: false } });
+   */
+  $null?: boolean;
 }
 
 /**
  * Valeur de critère pour un champ : soit l'**égalité** directe (valeur nue),
  * soit un objet d'{@link FieldOperators} riche.
+ *
+ * La valeur nue **`null`** signifie `IS NULL` — et non l'égalité `col = NULL`,
+ * qui en SQL est toujours fausse et ferait disparaître le filtre en silence
+ * (donc `{ revokedAt: null }` ≡ `{ revokedAt: { $null: true } }`). Contrat
+ * identique sur tous les adapters.
+ *
+ * Cette forme n'est ouverte que si le champ est **typé nullable** (`V` contient
+ * `null`) : sur un champ non-nullable, chercher `IS NULL` est une erreur de
+ * raisonnement, et le typage la refuse. {@link FieldOperators.$null} reste
+ * disponible sur tout champ — y compris optionnel (`champ?: T`), où il exprime
+ * « pas de valeur » (Mongo : champ absent).
  *
  * @typeParam V - type de la valeur du champ.
  */

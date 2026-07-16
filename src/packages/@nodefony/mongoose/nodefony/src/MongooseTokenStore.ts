@@ -150,28 +150,39 @@ export class MongooseTokenStore implements ITokenStore {
     );
   }
 
+  /**
+   * Révoque un jeton — **idempotent** : la 1ʳᵉ date/raison est conservée.
+   *
+   * Le « pas encore révoqué » est dans le filtre (`revokedAt: { $null: true }`),
+   * pas dans un `if` JS après lecture : une seule instruction, donc deux
+   * révocations concurrentes ne se recouvrent plus (la 2ᵉ ne matche rien au lieu
+   * d'écraser la date/raison de la 1ʳᵉ). Parité stricte avec l'adapter Drizzle.
+   *
+   * @param id - identifiant du jeton.
+   * @param reason - motif, posé seulement à la 1ʳᵉ révocation.
+   */
   async revoke(id: string, reason: TokenRevokeReason): Promise<void> {
-    // Idempotent + conserve la 1ʳᵉ date/raison (`{ revokedAt: null }` inexploitable).
-    const record = await this.#records.findOne({ id });
-    if (record && record.revokedAt === null) {
-      await this.#records.updateOne(
-        { id },
-        { revokedAt: this.#now(), revokedReason: reason },
-      );
-    }
+    await this.#records.updateOne(
+      { id, revokedAt: { $null: true } },
+      { revokedAt: this.#now(), revokedReason: reason },
+    );
   }
 
+  /**
+   * Coupe toute une famille de refresh (détection de rejeu, RFC 9700) — les
+   * membres déjà révoqués gardent leur raison d'origine.
+   *
+   * Un seul `updateMany` filtré : atomique, et N+1 requêtes (1 find + 1 update
+   * par membre actif) tombent à 1.
+   *
+   * @param family - famille de refresh à couper.
+   * @param reason - motif appliqué aux membres encore actifs.
+   */
   async revokeFamily(family: string, reason: TokenRevokeReason): Promise<void> {
-    const records = await this.#records.find({ family });
-    const now = this.#now();
-    for (const record of records) {
-      if (record.revokedAt === null) {
-        await this.#records.updateOne(
-          { id: this.#idOf(record) },
-          { revokedAt: now, revokedReason: reason },
-        );
-      }
-    }
+    await this.#records.updateMany(
+      { family, revokedAt: { $null: true } },
+      { revokedAt: this.#now(), revokedReason: reason },
+    );
   }
 
   // ── Denylist jti ─────────────────────────────────────────────────────────────
@@ -229,16 +240,14 @@ export class MongooseTokenStore implements ITokenStore {
     purged += await this.#denied.delete({ expiresAt: { $lte: now } });
     // 2. Records arrivés à expiration (les `expiresAt` null sont exclus → point 3).
     purged += await this.#records.delete({ expiresAt: { $lte: now } });
-    // 3. PAT révoqués SANS expiration au-delà de la rétention (filtre JS : le
-    //    `expiresAt === null` n'est pas exprimable en critère portable).
-    const cutoff = now - this.#retentionRevokedMs;
-    const revoked = await this.#records.find({ revokedAt: { $lte: cutoff } });
-    const staleIds = revoked
-      .filter((record) => record.expiresAt === null)
-      .map((record) => this.#idOf(record));
-    if (staleIds.length > 0) {
-      purged += await this.#records.delete({ id: { $in: staleIds } });
-    }
+    // 3. PAT révoqués SANS expiration au-delà de la rétention. Le `expiresAt`
+    //    vide est dans le critère (`$null`) → un seul delete : plus de `find` de
+    //    TOUS les révoqués rapatriés en RAM pour un filtre JS (la purge ne dépend
+    //    plus du volume purgé).
+    purged += await this.#records.delete({
+      revokedAt: { $lte: now - this.#retentionRevokedMs },
+      expiresAt: { $null: true },
+    });
     return purged;
   }
 }

@@ -158,6 +158,71 @@ describe("Drizzle DrizzleTokenStore — ITokenStore portable (J4b)", () => {
       assert.equal(second?.revokedReason, "logout");
     });
 
+    it("revoke CONCURRENT : une seule date/raison gagne (la 1ʳᵉ n'est pas écrasée)", async () => {
+      // Deux révocations simultanées du même jeton (logout sur 2 onglets, ou
+      // logout + révocation admin). Avec un findOne + `if (revokedAt === null)`,
+      // les DEUX lisent « pas révoqué » et écrivent → la 2ᵉ écrase la date et le
+      // motif de la 1ʳᵉ, donc l'audit ment sur QUAND et POURQUOI. Avec le
+      // `revokedAt IS NULL` dans le WHERE, la 2ᵉ n'affecte aucune ligne.
+      await store.put(makeRecord({ id: "rev-conc" }));
+      CLOCK = 7_000_000;
+      const results = await Promise.allSettled([
+        store.revoke("rev-conc", "logout"),
+        store.revoke("rev-conc", "manual"),
+      ]);
+      assert.deepEqual(
+        results
+          .filter((r) => r.status === "rejected")
+          .map((r) => (r as PromiseRejectedResult).reason?.message),
+        [],
+      );
+      // L'ordre est DÉTERMINISTE ici (connexion sqlite unique, microtasks FIFO) :
+      // `logout` part en premier, donc c'est lui la « 1ʳᵉ » révocation. Sans le
+      // `IS NULL` au WHERE, les deux lisent « pas révoqué » et écrivent → c'est
+      // `manual`, le DERNIER, qui reste : la promesse est violée en silence.
+      const after = await store.findById("rev-conc");
+      assert.equal(after?.revokedAt, 7_000_000);
+      assert.equal(
+        after?.revokedReason,
+        "logout",
+        "la 1ʳᵉ raison tient — la 2ᵉ révocation ne réécrit pas l'audit",
+      );
+
+      // Rejouée plus tard : toujours pas de réécriture (idempotence maintenue).
+      CLOCK = 8_000_000;
+      await store.revoke("rev-conc", "compromised");
+      const later = await store.findById("rev-conc");
+      assert.equal(later?.revokedAt, 7_000_000, "la 1ʳᵉ date tient");
+    });
+
+    it("revokeFamily CONCURRENT : les déjà-révoqués gardent leur raison d'origine", async () => {
+      // La coupe de famille (rejeu détecté) part en même temps qu'une rotation
+      // normale : le membre `rotated` ne doit pas être requalifié.
+      await store.put(
+        makeRecord({
+          id: "fc1",
+          kind: "refresh",
+          family: "fam-conc",
+          revokedAt: 500,
+          revokedReason: "rotated",
+        }),
+      );
+      await store.put(
+        makeRecord({ id: "fc2", kind: "refresh", family: "fam-conc" }),
+      );
+      CLOCK = 9_000_000;
+      await Promise.all([
+        store.revokeFamily("fam-conc", "reuse_detected"),
+        store.revokeFamily("fam-conc", "reuse_detected"),
+      ]);
+      const rotated = await store.findById("fc1");
+      assert.equal(rotated?.revokedAt, 500, "membre déjà révoqué : intouché");
+      assert.equal(rotated?.revokedReason, "rotated");
+      const cut = await store.findById("fc2");
+      assert.equal(cut?.revokedAt, 9_000_000);
+      assert.equal(cut?.revokedReason, "reuse_detected");
+    });
+
     it("revokeFamily coupe les membres actifs et préserve les déjà-révoqués", async () => {
       await store.put(
         makeRecord({

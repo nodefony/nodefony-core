@@ -191,5 +191,49 @@ describe.skipIf(!URI)(
       // $like SQL (`%`) traduit en RegExp ancrée côté adapter Mongo.
       assert.equal((await users.find({ email: { $like: "u2%" } })).length, 1);
     });
+
+    it("$null / valeur nue null : « le champ est vide » (parité stricte avec Drizzle)", async () => {
+      await users.delete({});
+      await users.create({ email: "avec@x.c", age: 20 });
+      await users.create({ email: "sans1@x.c" }); // age absent → NULL SQL
+      await users.create({ email: "sans2@x.c" });
+
+      // En Mongo, `null` matche la valeur null ET le champ ABSENT — c'est bien
+      // l'équivalent du NULL SQL (une colonne sans valeur). Même contrat que
+      // l'adapter Drizzle, où la valeur nue devient `IS NULL` (et non l'égalité
+      // `col = NULL`, toujours fausse en SQL).
+      //
+      // `age` est déclaré `age?: number` : la VALEUR NUE `{ age: null }` est
+      // refusée par le typage (`null` n'est pas dans le type du champ) — c'est
+      // voulu, cf `FieldCriteria`. `$null` reste disponible sur tout champ, et
+      // c'est lui qui exprime « absent » ici. La valeur nue est couverte par le
+      // banc de contrat Drizzle, sur une colonne `string | null`.
+      assert.equal((await users.find({ age: { $null: true } })).length, 2);
+      const filled = await users.find({ age: { $null: false } });
+      assert.deepEqual(
+        filled.map((u) => u.email),
+        ["avec@x.c"],
+      );
+      // Combinable en AND avec un autre opérateur — le cas des stores.
+      assert.equal(
+        (await users.find({ age: { $null: false }, email: { $like: "avec%" } }))
+          .length,
+        1,
+      );
+    });
+
+    it("$null combiné à $eq/$ne sur le même champ : lève, n'écrase JAMAIS en silence", async () => {
+      // Les deux visent la même clé Mongo ($eq/$ne) : sans garde, l'une
+      // écraserait l'autre et le filtre partirait amputé (skip silencieux).
+      // Le contrat les déclare exclusifs — l'adapter le fait respecter.
+      await assert.rejects(
+        () => users.find({ age: { $null: false, $ne: 30 } }),
+        /\$null ne se combine pas avec \$ne/,
+      );
+      await assert.rejects(
+        () => users.find({ age: { $null: true, $eq: 30 } }),
+        /\$null ne se combine pas avec \$eq/,
+      );
+    });
   },
 );
