@@ -111,6 +111,39 @@ const defaultOptions = {
   environment: "production",
 };
 
+/**
+ * Traduit un `NODE_ENV` brut en mode MOTEUR, ou `null` s'il n'en désigne aucun.
+ *
+ * `NODE_ENV` est un axe LIBRE (`test`, `staging`, `canary`, `prod-eu`…) tandis que
+ * {@link EnvironmentType} n'a que deux modes moteur : dev et prod. Les caster l'un
+ * dans l'autre est un mensonge au compilateur — sous vitest, `environment` valait
+ * `"test"`, une valeur ABSENTE de son propre type, propagée telle quelle à
+ * `initSyslog()` et au `Kernel`.
+ *
+ * `null` (valeur non-moteur) fait retomber l'appelant sur son défaut explicite,
+ * exactement comme si `NODE_ENV` n'était pas défini. C'est le choix CONSERVATEUR :
+ * un `test` se comportait déjà comme la production (le filtre syslog teste
+ * `=== "development"`, tout le reste tombe dans la branche prod). Le forcer en
+ * `"development"` aurait rendu toute la suite de tests verbeuse ; le forcer en
+ * `"production"` aurait fait installer `--omit=dev` sous `NODE_ENV=test`. Un axe
+ * qui ne désigne pas de moteur ne doit pas en élire un à la place de l'appelant.
+ *
+ * L'axe de déploiement, lui, reste ENTIER : le kernel lit `process.env.NODE_ENV`
+ * directement pour `runtimeEnv`/`isTest` (`buildConfigContext`) — jamais via cette
+ * fonction, qui ne réécrit rien.
+ */
+const toEngineEnvironment = (raw?: string): EnvironmentType | null => {
+  switch (raw) {
+    case "dev":
+    case "development":
+    case "prod":
+    case "production":
+      return raw;
+    default:
+      return null;
+  }
+};
+
 class Cli extends Service {
   public override options: CliDefaultOptions = extend({}, defaultOptions);
   public debug: DebugType = false;
@@ -177,11 +210,10 @@ class Cli extends Service {
       options,
     );
     this.options = <CliDefaultOptions>options;
-    if (process.env.NODE_ENV) {
-      this.environment = process.env.NODE_ENV as EnvironmentType;
-    } else {
-      this.environment = this.options.environment || "production";
-    }
+    this.environment =
+      toEngineEnvironment(process.env.NODE_ENV) ??
+      this.options.environment ??
+      "production";
     this.setProcessTitle();
     this.pid = this.options.pid ? this.setPid() : null;
     if (this.options.autoLogger) {

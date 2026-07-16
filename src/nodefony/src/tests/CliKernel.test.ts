@@ -682,24 +682,25 @@ describe("CliKernel — edge cases", () => {
     assert.ok(cli.syslog !== null);
   });
 
-  it("environment sans arg = process.env.NODE_ENV TEL QUEL, sinon 'production'", () => {
-    // Ce que le test PROUVE (cf `Cli.ts:181-184`) : sans argument, `environment`
-    // est le MIROIR BRUT de `process.env.NODE_ENV` (cast, AUCUNE normalisation),
-    // et retombe sur "production" si NODE_ENV est absent.
-    //
-    // ⚠️ Conséquence RÉELLE (rapportée) : sous vitest NODE_ENV="test", donc
-    // `cli.environment === "test"` — une valeur qui N'EXISTE PAS dans
-    // `EnvironmentType` ("dev"|"development"|"prod"|"production"). L'ancienne
-    // rédaction (`=== "production" || === "development" || === "test"`) laissait
-    // croire à un contrôle de validité : les deux premières branches sont
-    // TOUJOURS fausses ici, et TS prouve que la 3ᵉ est hors-type.
+  it("environment sans arg = mode MOTEUR normalisé, jamais NODE_ENV tel quel", () => {
+    // Ce test CONSTATAIT le bug : `environment` était le miroir BRUT de
+    // `process.env.NODE_ENV` (cast, aucune normalisation) — donc `"test"` sous
+    // vitest, une valeur ABSENTE de `EnvironmentType`, propagée à `initSyslog()`
+    // et au `Kernel`. Il prouve maintenant le contrat inverse : `NODE_ENV` est un
+    // axe LIBRE, et seules ses valeurs qui désignent un mode moteur sont retenues ;
+    // les autres (`test`, `staging`, `canary`…) laissent le défaut de l'appelant
+    // décider. Cf `toEngineEnvironment` (Cli.ts).
     const cli = makeCliKernel();
-    const expected = process.env.NODE_ENV ?? "production";
-    assert.strictEqual(
-      cli.environment as string,
-      expected,
-      `environment doit refléter NODE_ENV, got: ${cli.environment}`,
+    assert.ok(
+      ["dev", "development", "prod", "production"].includes(cli.environment),
+      `environment doit être un mode moteur, got: ${cli.environment}`,
     );
+    // Sous vitest (NODE_ENV="test") : aucun moteur désigné → défaut "production".
+    if (process.env.NODE_ENV === "test") {
+      assert.strictEqual(cli.environment, "production");
+    }
+    // L'axe de DÉPLOIEMENT n'est pas touché : le kernel en dépend pour `isTest`.
+    assert.strictEqual(process.env.NODE_ENV, "test");
   });
 
   it("initSyslog avec kernel null → ne throw pas", () => {

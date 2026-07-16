@@ -578,18 +578,71 @@ describe("Cli — showBanner / logEnv", () => {
   });
 
   it("logEnv() avec environment 'development'", () => {
-    // NODE_ENV (vitest='test') primerait sur l'environment explicite via la
-    // résolution 12-factor → on le neutralise le temps du test pour vérifier que
-    // l'environment configuré est bien reflété.
-    const savedNodeEnv = process.env.NODE_ENV;
-    delete process.env.NODE_ENV;
+    // Ce test neutralisait NODE_ENV auparavant : sous vitest il vaut `test`, et
+    // le cast brut le laissait primer sur l'environment explicite. `test` n'étant
+    // pas un mode moteur, il ne prime plus — le contournement est devenu inutile.
+    const cli = makeCli("devenv", { environment: "development" });
+    assert.ok(cli.logEnv().includes("development"));
+  });
+});
+
+// ─── 5 bis. Résolution du mode MOTEUR depuis NODE_ENV ────────────────────────
+//
+// `NODE_ENV` est un axe LIBRE (`test`, `staging`, `canary`…) ; `EnvironmentType`
+// n'a que deux modes moteur. Ces tests verrouillent la frontière : une valeur qui
+// ne désigne pas un moteur ne doit pas en élire un, et `environment` ne doit
+// JAMAIS porter une valeur absente de son propre type (ce qui était le cas sous
+// vitest : `environment === "test"`).
+
+describe("Cli — mode moteur résolu depuis NODE_ENV", () => {
+  const withNodeEnv = (value: string | undefined, fn: () => void): void => {
+    const saved = process.env.NODE_ENV;
+    if (value === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = value;
     try {
-      const cli = makeCli("devenv", { environment: "development" });
-      const env = cli.logEnv();
-      assert.ok(env.includes("development"));
+      fn();
     } finally {
-      if (savedNodeEnv !== undefined) process.env.NODE_ENV = savedNodeEnv;
+      if (saved === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = saved;
     }
+  };
+
+  for (const [nodeEnv, expected] of [
+    ["development", "development"],
+    ["dev", "dev"],
+    ["production", "production"],
+    ["prod", "prod"],
+  ] as const) {
+    it(`NODE_ENV="${nodeEnv}" → mode moteur "${expected}"`, () => {
+      withNodeEnv(nodeEnv, () => {
+        assert.strictEqual(makeCli("engine").environment, expected);
+      });
+    });
+  }
+
+  for (const nonEngine of ["test", "staging", "canary", "prod-eu", ""]) {
+    it(`NODE_ENV="${nonEngine}" n'élit AUCUN moteur → défaut de l'appelant`, () => {
+      withNodeEnv(nonEngine, () => {
+        // Sans option : le défaut "production" s'applique — le comportement
+        // observable est inchangé (le filtre syslog teste `=== "development"`,
+        // tout le reste tombe déjà dans la branche production).
+        assert.strictEqual(makeCli("noengine").environment, "production");
+        // Avec une option explicite : c'est ELLE qui décide, pas NODE_ENV.
+        assert.strictEqual(
+          makeCli("noengine", { environment: "development" }).environment,
+          "development",
+        );
+      });
+    });
+  }
+
+  it("l'axe de DÉPLOIEMENT reste entier — NODE_ENV n'est jamais réécrit", () => {
+    withNodeEnv("test", () => {
+      makeCli("keepenv");
+      // Le kernel lit `process.env.NODE_ENV` pour `runtimeEnv`/`isTest` : si le
+      // Cli l'écrasait en normalisant, `isTest` deviendrait faux sous vitest.
+      assert.strictEqual(process.env.NODE_ENV, "test");
+    });
   });
 });
 
