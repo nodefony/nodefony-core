@@ -134,6 +134,20 @@ export class DrizzleOrm extends Orm {
    */
   #beginTx: (() => Promise<DrizzleTransaction>) | null = null;
   /**
+   * File d'attente des transactions **sqlite** (lazy, `null` au repos) — dernier
+   * maillon de la chaîne : chaque transaction attend le précédent, et libère le
+   * suivant en se terminant.
+   *
+   * **Pourquoi** : la connexion `better-sqlite3` est UNIQUE → c'est un pool de
+   * taille 1. Sans file, deux transactions concurrentes (= deux requêtes HTTP
+   * simultanées) émettent deux `BEGIN` sur la même connexion et la seconde
+   * échoue (`cannot start a transaction within a transaction`) — un framework
+   * qui assume sqlite en prod mono-nœud doit encaisser ça. postgres/mysql n'en
+   * ont pas besoin : leur pool EST la file d'attente (prouvé au banc — 15
+   * transactions simultanées sur un pool de 10 passent).
+   */
+  #sqliteTxGate: Promise<void> | null = null;
+  /**
    * Tables Drizzle indexées par nom logique d'entité (lazy) — union
    * multi-dialecte {@link DrizzleTable} (variante sqlite OU pg selon le
    * connecteur), consommée telle quelle par le `DrizzleRepository` porté.
@@ -335,19 +349,35 @@ export class DrizzleOrm extends Orm {
     const db = drizzle(client);
     this.#db = db;
     // Connexion unique et synchrone : la transaction encadre le db du connecteur
-    // lui-même (rien à emprunter, rien à rendre).
-    this.#beginTx = (): Promise<DrizzleTransaction> => {
+    // lui-même (rien à emprunter) — mais elle attend son TOUR (cf #sqliteTxGate).
+    this.#beginTx = async (): Promise<DrizzleTransaction> => {
+      const previous = this.#sqliteTxGate;
+      let release!: () => void;
+      const mine = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      this.#sqliteTxGate = mine;
+      // Prendre sa place dans la file AVANT d'attendre : deux appels simultanés
+      // se chaînent (`mine` de l'un est le `previous` de l'autre) au lieu de
+      // partir tous les deux sur un `BEGIN`.
+      if (previous) {
+        await previous;
+      }
       client.exec("BEGIN");
-      return Promise.resolve(
-        new DrizzleTransaction(db, {
-          exec: (sql: string): Promise<void> => {
-            client.exec(sql);
-            return Promise.resolve();
-          },
-          quoteIdent: (name: string): string => `"${name}"`,
-          release: (): void => undefined,
-        }),
-      );
+      return new DrizzleTransaction(db, {
+        exec: (sql: string): Promise<void> => {
+          client.exec(sql);
+          return Promise.resolve();
+        },
+        quoteIdent: (name: string): string => `"${name}"`,
+        release: (): void => {
+          // Dernière de la file → on la rend au repos (lazy).
+          if (this.#sqliteTxGate === mine) {
+            this.#sqliteTxGate = null;
+          }
+          release(); // libère la suivante
+        },
+      });
     };
     for (const entity of entities) {
       this.#assertDialectTable(entity, SQLiteTable, "sqlite");
@@ -559,6 +589,7 @@ export class DrizzleOrm extends Orm {
     this.#mysqlPool = null;
     this.#db = null;
     this.#beginTx = null; // la closure capture le pool fermé → `not connected`
+    this.#sqliteTxGate = null;
     this.#connected = false;
     this.#tables = null;
     this.#relations = null;

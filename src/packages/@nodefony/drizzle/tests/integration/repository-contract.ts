@@ -11,8 +11,9 @@ import {
 import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
 
 /**
- * BANC DE PARITÉ DU CONTRAT `IRepository` — LA même suite, exécutée sur les
- * TROIS dialectes (sqlite toujours, postgres/mysql gatés par l'infra).
+ * BANC DE PARITÉ DES CONTRATS `IRepository` **et `IOrm`** — LA même suite,
+ * exécutée sur les TROIS dialectes (sqlite toujours, postgres/mysql gatés par
+ * l'infra).
  *
  * **Pourquoi ce banc existe** : les chemins d'exécution divergent radicalement
  * par dialecte (RETURNING sqlite/pg vs re-SELECT-par-PK mysql, `ON CONFLICT`
@@ -372,6 +373,59 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
       );
     }
     assert.equal(await repo.count({}), 15);
+  });
+
+  it("transaction : CONCURRENTES — 15 simultanées passent toutes (pool de 10 / connexion unique)", async () => {
+    await repo.delete({});
+    // Le cas réel : N requêtes HTTP simultanées font chacune une transaction.
+    // Séquentiel, tout marche ; c'est ICI que ça casse. Le nombre dépasse le
+    // pool par défaut (10) exprès → prouve que l'attente d'une connexion est une
+    // FILE, pas un échec. En sqlite (connexion unique = pool de 1), la file est
+    // portée par l'adapter, sinon le 2ᵉ `BEGIN` échoue (« cannot start a
+    // transaction within a transaction »).
+    const results = await Promise.allSettled(
+      Array.from({ length: 15 }, (_, i) =>
+        orm.transaction(async (tx) => {
+          const txRepo = repo.withTransaction(tx);
+          await txRepo.create({ name: `conc-${i}`, age: i, score: i });
+          // Tenir la transaction ouverte : sans ça, elles se sérialisent d'elles-
+          // mêmes et le chevauchement — donc le bug — ne se produit jamais.
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }),
+      ),
+    );
+    const rejected = results.filter((r) => r.status === "rejected");
+    assert.deepEqual(
+      rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
+      [],
+      "aucune transaction concurrente ne doit être rejetée",
+    );
+    assert.equal(await repo.count({}), 15, "les 15 écritures sont durables");
+  });
+
+  it("transaction : concurrentes ISOLÉES — un rollback n'emporte pas les voisines", async () => {
+    await repo.delete({});
+    // Corollaire du cas précédent : sérialiser ne doit pas mélanger. Chaque
+    // transaction garde son sort propre (sqlite : la file ne doit pas laisser
+    // deux travaux tomber dans le même BEGIN).
+    const results = await Promise.allSettled(
+      Array.from({ length: 6 }, (_, i) =>
+        orm.transaction(async (tx) => {
+          await repo
+            .withTransaction(tx)
+            .create({ name: `mix-${i}`, age: i, score: i });
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          if (i % 2 === 1) {
+            throw new Error(`rollback-${i}`);
+          }
+        }),
+      ),
+    );
+    assert.equal(results.filter((r) => r.status === "rejected").length, 3);
+    const names = (await repo.find({}, { order: [["age", "ASC"]] })).map(
+      (r) => r.name,
+    );
+    assert.deepEqual(names, ["mix-0", "mix-2", "mix-4"], "seuls les pairs");
   });
 
   it("transaction : hors connexion → `not connected` (jamais un silence)", async () => {
