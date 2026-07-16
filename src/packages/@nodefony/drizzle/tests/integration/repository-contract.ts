@@ -384,8 +384,80 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
         offline.transaction(async () => undefined),
         /not connected/,
       );
+      assert.equal(offline.isConnected(), false);
     } finally {
       ormRegistry.unregister(`${connector}_offline`);
+    }
+  });
+
+  // ── Contrat IOrm (introspection / santé) ────────────────────────────────────
+  // Même angle mort que `transaction()` : ces méthodes n'étaient exercées QUE
+  // sur sqlite. Or elles alimentent le data plane admin (panneau Studio ORM) —
+  // un adapter qui ne répond qu'en dev laisse la prod muette, en silence.
+
+  it("isConnected / getNativeConnection : vrais sur un connecteur connecté", async () => {
+    assert.equal(orm.isConnected(), true);
+    assert.ok(
+      orm.getNativeConnection(),
+      "trappe SQL brut (ADR-0003 risque #1)",
+    );
+  });
+
+  it("ping : round-trip RÉEL vers la base, sans erreur", async () => {
+    await orm.ping();
+  });
+
+  it("describeConnection : driver = dialecte, cible renseignée, ZÉRO credential", async () => {
+    const info = orm.describeConnection();
+    assert.equal(info.driver, dialect);
+    assert.ok(info.target, "cible affichée dans Studio");
+    assert.ok(info.ormVersion, "version de l'ORM");
+    // Le data plane expose cette cible : un mot de passe d'`url` qui fuiterait
+    // ici partirait dans Studio (et dans ses logs).
+    const dump = JSON.stringify(info);
+    assert.ok(
+      !/nodefony-dev|password|:\/\/[^/]*:[^@]*@/.test(dump),
+      `credential fuité dans describeConnection(): ${dump}`,
+    );
+  });
+
+  it("describeEntity : colonnes normalisées (alimente l'ERD / l'IA du data plane)", async () => {
+    const cols = orm.describeEntity("repo_contract_probe");
+    const byName = new Map(cols.map((c) => [c.name, c]));
+    assert.ok(cols.length >= 8, "toutes les colonnes de la sonde");
+    assert.equal(byName.get("id")?.primaryKey, true);
+    assert.equal(byName.get("name")?.nullable, false, "notNull → non nullable");
+    assert.equal(byName.get("note")?.nullable, true);
+    assert.ok(byName.get("age")?.type, "type SQL du dialecte");
+    assert.deepEqual(orm.describeEntity("ghost"), [], "entité inconnue → []");
+  });
+
+  it("probe : JAMAIS muette sur un connecteur connecté (storage sqlite / pool serveur)", async () => {
+    const p = await orm.probe();
+    assert.ok(
+      Object.keys(p).length > 0,
+      "sonde vide = panneau Studio ORM muet en production",
+    );
+    if (dialect === "sqlite") {
+      // Mono-connexion : la sonde utile est le stockage (PRAGMA).
+      assert.equal(typeof p.storage?.sizeBytes, "number");
+    } else {
+      // Base serveur : le pool EST la métrique qui compte (saturation à
+      // `pool.max` = la falaise de RPS mesurée au banc de charge).
+      assert.equal(typeof p.pool?.size, "number", "taille max du pool");
+      assert.equal(typeof p.pool?.available, "number", "connexions idle");
+      assert.equal(typeof p.pool?.borrowed, "number", "connexions en usage");
+      assert.ok((p.pool?.size ?? 0) > 0, "un plafond de 0 ne veut rien dire");
+      // La sonde doit REFLÉTER l'état, pas seulement avoir la bonne forme : une
+      // transaction tient une connexion dédiée, donc elle est EMPRUNTÉE. Sans
+      // cette assertion, des compteurs figés à 0 passeraient le test.
+      await orm.transaction(async () => {
+        const during = await orm.probe();
+        assert.ok(
+          (during.pool?.borrowed ?? 0) >= 1,
+          `transaction en cours → ≥1 connexion empruntée, sonde: ${JSON.stringify(during.pool)}`,
+        );
+      });
     }
   });
 }

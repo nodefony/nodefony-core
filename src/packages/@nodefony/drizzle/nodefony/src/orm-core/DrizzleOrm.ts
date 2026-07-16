@@ -41,6 +41,29 @@ import {
 import { DrizzleTransaction } from "./DrizzleTransaction";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 
+/**
+ * État interne du pool `mysql2` (INTERNE, best-effort) — ce que le driver ne
+ * publie pas mais que la sonde du data plane a besoin de lire.
+ *
+ * `mysql2/promise` enveloppe le pool callback (`promisePool.pool`), dont les
+ * compteurs sont des champs `_`-préfixés (des `Denque`, d'où `length`). Contrat
+ * non garanti par le driver : tout est optionnel ici, la sonde narrowe champ par
+ * champ (cf {@link DrizzleOrm.probe}). Le jour où `mysql2` renomme, la sonde
+ * devient partielle et le banc de contrat le signale — pas de crash, pas de
+ * silence.
+ */
+interface MysqlPoolInternals {
+  pool?: {
+    config?: { connectionLimit?: number };
+    /** Connexions ouvertes (libres + empruntées). */
+    _allConnections?: { length?: number };
+    /** Connexions disponibles. */
+    _freeConnections?: { length?: number };
+    /** Demandes en attente d'une connexion. */
+    _connectionQueue?: { length?: number };
+  };
+}
+
 /** Options de connexion de l'adapter Drizzle (driver selon `dialect`). */
 export interface DrizzleOrmOptions {
   /**
@@ -609,10 +632,10 @@ export class DrizzleOrm extends Orm {
   }
 
   /**
-   * Ping bas-coût : `SELECT 1` via le client `better-sqlite3` (synchrone).
-   * Mesure un round-trip réel vers le fichier SQLite pour le diagnostic.
+   * Ping bas-coût : `SELECT 1` — round-trip RÉEL vers la base, routé par
+   * dialecte (pool pg/mysql, client better-sqlite3 synchrone).
    *
-   * @throws si le client n'est pas connecté.
+   * @throws si le connecteur n'est pas connecté.
    */
   async ping(): Promise<void> {
     if (this.#pgPool) {
@@ -630,13 +653,29 @@ export class DrizzleOrm extends Orm {
   }
 
   /**
-   * Sonde de stockage SQLite via PRAGMA (synchrone, bon marché) : taille
-   * (`page_count × page_size`), mode de journal (WAL ?), pages libres
-   * (fragmentation). Best-effort — `{}` si non connecté ou PRAGMA indisponible.
+   * Sonde driver-spécifique, **routée par dialecte** — alimente le data plane
+   * admin (panneau Studio ORM) :
+   * - **sqlite** : stockage via PRAGMA (synchrone, bon marché) — taille
+   *   (`page_count × page_size`), mode de journal (WAL ?), pages libres ;
+   * - **postgres / mysql** : état du **pool**, la métrique qui compte sur une
+   *   base serveur (sa saturation est une falaise de débit) — lu sur des
+   *   compteurs EN MÉMOIRE, donc sans requête réseau.
    *
-   * @returns sonde `storage` + `extra` (driver), ou `{}`.
+   * Le stockage d'une base serveur n'est PAS sondé : il coûterait une requête
+   * (`pg_database_size`…) à chaque appel, pour une donnée que l'admin du SGBD
+   * expose déjà. Mieux vaut ne rien promettre que promettre en silence.
+   *
+   * Best-effort — `{}` seulement si le connecteur n'est pas connecté.
+   *
+   * @returns sonde `storage` (sqlite) ou `pool` (serveur), `{}` hors connexion.
    */
   async probe(): Promise<IOrmProbe> {
+    if (this.#pgPool) {
+      return this.#probePgPool(this.#pgPool);
+    }
+    if (this.#mysqlPool) {
+      return this.#probeMysqlPool(this.#mysqlPool);
+    }
     const client = this.#client;
     if (!client) return {};
     try {
@@ -668,6 +707,57 @@ export class DrizzleOrm extends Orm {
     } catch {
       return {};
     }
+  }
+
+  /**
+   * Sonde du pool **postgres** — compteurs publics du driver `pg`, lus en
+   * mémoire (aucune requête).
+   *
+   * @param pool - pool `pg` du connecteur.
+   * @returns sonde `pool` (taille max, idle, empruntées, en attente).
+   */
+  #probePgPool(pool: Pool): IOrmProbe {
+    // `options.max` = plafond configuré ; `pg` applique 10 par défaut quand il
+    // n'est pas posé — l'annoncer explicitement plutôt que laisser un trou (la
+    // saturation à 10 est justement ce qu'on cherche à voir venir).
+    const max = pool.options?.max;
+    return {
+      pool: {
+        size: typeof max === "number" ? max : 10,
+        available: pool.idleCount,
+        borrowed: pool.totalCount - pool.idleCount,
+        pending: pool.waitingCount,
+      },
+    };
+  }
+
+  /**
+   * Sonde du pool **mysql** — `mysql2` ne publie AUCUN compteur (contrairement
+   * à `pg`) : seuls des champs internes portent l'état, sous le pool callback
+   * (`promisePool.pool`). Accès défensif (chaque champ narrowé, jamais de cast
+   * aveugle) → un renommage chez `mysql2` rend une sonde PARTIELLE, jamais une
+   * exception ; et le banc de contrat, qui exige ces champs sur les dialectes
+   * serveur, vire au rouge pour le dire.
+   *
+   * @param pool - pool `mysql2/promise` du connecteur.
+   * @returns sonde `pool` (champs omis si le driver ne les expose plus).
+   */
+  #probeMysqlPool(pool: MysqlPool): IOrmProbe {
+    const internals = (pool as unknown as MysqlPoolInternals).pool;
+    const len = (q: { length?: number } | undefined): number | undefined =>
+      typeof q?.length === "number" ? q.length : undefined;
+    const all = len(internals?._allConnections);
+    const free = len(internals?._freeConnections);
+    return {
+      pool: {
+        size: internals?.config?.connectionLimit,
+        available: free,
+        // « Empruntées » n'est pas publié : c'est ouvertes − libres.
+        borrowed:
+          all !== undefined && free !== undefined ? all - free : undefined,
+        pending: len(internals?._connectionQueue),
+      },
+    };
   }
 
   /**
