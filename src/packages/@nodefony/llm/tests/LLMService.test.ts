@@ -1,30 +1,44 @@
 // @nodefony/llm — tests/LLMService.test.ts
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
-import type { ILLMProvider, IMessage, ILLMResponse, IStreamChunk } from "../src/interfaces/ILLMProvider.js";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type {
+  ILLMProvider,
+  IMessage,
+  ILLMResponse,
+  IStreamChunk,
+} from "../src/interfaces/ILLMProvider.js";
 import { LLMService } from "../src/services/LLMService.js";
 import { LLMError } from "../src/errors/LLMErrors.js";
 
-const createMockProvider = (name: "claude" | "ollama" = "claude"): ILLMProvider => ({
+const createMockProvider = (
+  name: "claude" | "ollama" = "claude",
+): ILLMProvider => ({
   name,
   model: "test-model",
   mode: name === "ollama" ? "sovereign" : "cloud",
 
-  chat: mock(async (messages: IMessage[]) => ({
+  chat: vi.fn(async (messages: IMessage[]) => ({
     content: `Echo: ${messages.at(-1)?.content}`,
     model: "test-model",
-    usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30, costEur: 0.001 },
+    usage: {
+      inputTokens: 10,
+      outputTokens: 20,
+      totalTokens: 30,
+      costEur: 0.001,
+    },
     stopReason: "end_turn" as const,
   })),
 
-  stream: mock(async function* (messages: IMessage[]): AsyncGenerator<IStreamChunk> {
+  stream: vi.fn(async function* (
+    messages: IMessage[],
+  ): AsyncGenerator<IStreamChunk> {
     const words = `Echo: ${messages.at(-1)?.content}`.split(" ");
     for (const w of words) yield { type: "token", content: w + " " };
     yield { type: "done", content: "" };
   }),
 
-  embed: mock(async () => Array.from({ length: 1536 }, () => Math.random())),
-  healthCheck: mock(async () => true),
-  shutdown: mock(async () => undefined),
+  embed: vi.fn(async () => Array.from({ length: 1536 }, () => Math.random())),
+  healthCheck: vi.fn(async () => true),
+  shutdown: vi.fn(async () => undefined),
 });
 
 describe("LLMService", () => {
@@ -49,7 +63,9 @@ describe("LLMService", () => {
 
     it("delegates stream to provider", async () => {
       const tokens: string[] = [];
-      for await (const chunk of service.stream([{ role: "user", content: "hi" }])) {
+      for await (const chunk of service.stream([
+        { role: "user", content: "hi" },
+      ])) {
         if (chunk.type === "token") tokens.push(chunk.content);
       }
       expect(tokens.length).toBeGreaterThan(0);
@@ -112,7 +128,9 @@ describe("LLMService", () => {
 
     it("aggregates errors during shutdown", async () => {
       const failingProvider = createMockProvider("claude");
-      failingProvider.shutdown = mock(async () => { throw new Error("boom"); });
+      failingProvider.shutdown = vi.fn(async () => {
+        throw new Error("boom");
+      });
       const s = new LLMService(failingProvider);
       await expect(s.shutdown()).rejects.toThrow();
     });

@@ -4,10 +4,10 @@
   "description": "Generic multi-model LLM provider interface for Nodefony",
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js"
     }
   },
@@ -15,7 +15,10 @@
     "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "clean": "rimraf dist",
     "dev": "rolldown -c rolldown.config.ts --watch",
-    "test": "bun test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json",
     "lint": "tsc --noEmit"
   },
   "peerDependencies": {
@@ -23,7 +26,10 @@
   },
   "license": "CECILL-B",
   "devDependencies": {
-    "nodefony": "*"
+    "@types/node": "26.1.1",
+    "@vitest/coverage-v8": "4.1.10",
+    "nodefony": "*",
+    "vitest": "4.1.10"
   },
   "private": true
 }

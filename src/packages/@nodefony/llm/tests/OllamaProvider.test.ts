@@ -1,5 +1,5 @@
 // @nodefony/llm — tests/OllamaProvider.test.ts
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { OllamaProvider } from "../src/providers/OllamaProvider.js";
 import { LLMError } from "../src/errors/LLMErrors.js";
 
