@@ -190,7 +190,10 @@ describe("completion — scripts shell", () => {
     } finally {
       fsMod.rmSync(dir, { recursive: true, force: true });
     }
-  });
+    // Timeout large : ce test paie un `zsh -f` + `compinit` RÉELS (~7 s quand la
+    // suite complète sature le CPU). Les 5 s par défaut en font un flake de
+    // contention, vert en isolation — pas un bug du script généré.
+  }, 30_000);
 
   it("zsh réel : _nodefony transmet les mots APRÈS le binaire (offset :1)", async (ctx) => {
     const { spawnSync } = await import("node:child_process");
@@ -229,7 +232,7 @@ describe("completion — scripts shell", () => {
     } finally {
       fsMod.rmSync(dir, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   // La syntaxe shell RÉELLE des scripts générés — `zsh -n` / `bash -n` parsent sans
   // exécuter. Skip si le shell n'est pas sur la machine (CI minimaliste).

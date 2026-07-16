@@ -462,11 +462,13 @@ describe("splitByProject — plusieurs apps Nodefony sur le même poste", () => 
     );
   });
 
+  // Timeout large : `lsof` (macOS) met plusieurs secondes quand la suite complète
+  // sature le CPU — flake de contention sous les 5 s par défaut, vert en isolation.
   it("processCwd(process.pid) résout le cwd RÉEL du process courant", () => {
     const cwd = processCwd(process.pid);
     // Sonde réelle (lsof/procfs) : résolution possible → doit matcher notre cwd.
     if (cwd !== null) {
       assert.strictEqual(path.resolve(cwd), path.resolve(process.cwd()));
     }
-  });
+  }, 30_000);
 });
