@@ -100,18 +100,22 @@ export class MongooseTokenStore implements ITokenStore {
 
   // ── Records ────────────────────────────────────────────────────────────────
 
+  /**
+   * Insère ou remplace un record (PAT / refresh) — 1 round-trip, `upsert`
+   * atomique sur la PK plutôt qu'un `findOne` d'existence + `create`/`updateOne`
+   * (dont l'`await` laisse deux put concurrents du même id lire « absent » et
+   * insérer tous les deux → E11000 pour le perdant). `put` pose le record
+   * COMPLET → tout hors `id` est ré-appliqué au conflit.
+   *
+   * `id` en critère suffit à poser `_id` : Mongo ajoute les égalités du filtre
+   * au document inséré (cf `MongooseRepository.upsert`), plus besoin du `_id`
+   * explicite. Parité stricte avec l'adapter Drizzle.
+   *
+   * @param record - le record complet à persister.
+   */
   async put(record: IAccessTokenRecord): Promise<void> {
     const { id, ...rest } = record;
-    const existing = await this.#records.findOne({ id });
-    if (existing) {
-      await this.#records.updateOne({ id }, rest);
-    } else {
-      // Mongo ne génère pas notre jti → on pose `_id` explicitement.
-      await this.#records.create({
-        _id: id,
-        ...rest,
-      } as Partial<IAccessTokenRecord>);
-    }
+    await this.#records.upsert({ id }, rest as Partial<IAccessTokenRecord>);
   }
 
   async findById(id: string): Promise<IAccessTokenRecord | null> {
@@ -188,15 +192,11 @@ export class MongooseTokenStore implements ITokenStore {
   // ── Denylist jti ─────────────────────────────────────────────────────────────
 
   async denyJti(jti: string, expiresAt: number): Promise<void> {
-    const existing = await this.#denied.findOne({ id: jti });
-    if (existing) {
-      await this.#denied.updateOne({ id: jti }, { expiresAt });
-    } else {
-      await this.#denied.create({
-        _id: jti,
-        expiresAt,
-      } as Partial<DeniedJtiRow>);
-    }
+    // UPSERT atomique sur la PK (cf `put`) : deux dénonciations simultanées du
+    // même jeton rejoué ne doivent pas faire remonter d'erreur.
+    await this.#denied.upsert({ id: jti }, {
+      expiresAt,
+    } as Partial<DeniedJtiRow>);
   }
 
   async isJtiDenied(jti: string): Promise<boolean> {

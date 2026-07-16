@@ -95,16 +95,12 @@ export class MongooseWebhookStore implements IWebhookStore {
       failureCount: endpoint.failureCount,
       metadata: { ...endpoint.metadata },
     };
-    const existing = await this.#repo.findOne({ id: endpoint.id });
-    if (existing) {
-      await this.#repo.updateOne({ id: endpoint.id }, data);
-    } else {
-      // Mongo ne génère pas notre id → on pose `_id` explicitement.
-      await this.#repo.create({
-        _id: endpoint.id,
-        ...data,
-      } as Partial<WebhookEndpointRow>);
-    }
+    // UPSERT atomique sur la PK : 1 round-trip, pas de `findOne` d'existence
+    // (dont l'`await` laisse deux écritures concurrentes du même endpoint voir
+    // « absent » → deux insert → E11000 pour le perdant). `id` en critère suffit
+    // à poser `_id` (Mongo ajoute les égalités du filtre au document inséré).
+    // Parité stricte avec l'adapter Drizzle.
+    await this.#repo.upsert({ id: endpoint.id }, data);
   }
 
   async findById(id: string): Promise<IWebhookEndpoint | null> {

@@ -96,16 +96,12 @@ export class MongooseWebAuthnCredentialStore implements IWebAuthnCredentialStore
       createdAt: credential.createdAt,
       lastUsedAt: credential.lastUsedAt,
     };
-    const existing = await this.#repo.findOne({ id: credential.id });
-    if (existing) {
-      await this.#repo.updateOne({ id: credential.id }, data);
-    } else {
-      // Mongo ne génère pas notre credentialId → on pose `_id` explicitement.
-      await this.#repo.create({
-        _id: credential.id,
-        ...data,
-      } as Partial<WebAuthnCredentialRow>);
-    }
+    // UPSERT atomique sur la PK : 1 round-trip, pas de `findOne` d'existence
+    // (dont l'`await` laisse deux enregistrements concurrents de la même passkey
+    // voir « absent » → deux insert → E11000 pour le perdant). `id` en critère
+    // suffit à poser `_id` (Mongo ajoute les égalités du filtre au document
+    // inséré). Parité stricte avec l'adapter Drizzle.
+    await this.#repo.upsert({ id: credential.id }, data);
   }
 
   async update(credentialId: string, patch: WebAuthnAuthUpdate): Promise<void> {

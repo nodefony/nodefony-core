@@ -110,6 +110,29 @@ describe.skipIf(!URI)(
         assert.equal(all[0].id, "t1");
       });
 
+      it("put CONCURRENT du même id : aucun rejet, une seule ligne (réservation atomique)", async () => {
+        // Un `findOne` + `create` laisse deux appels concurrents lire « absent »
+        // (l'`await` du find cède la main) puis insérer tous les deux → le
+        // perdant se prend un E11000 duplicate key sur `_id`. Le remède est
+        // l'instruction atomique unique (`upsert` = findOneAndUpdate upsert:true),
+        // pas une transaction. Parité stricte avec l'adapter Drizzle.
+        const base = makeRecord({ id: "conc-1", subjectId: "u-conc" });
+        const results = await Promise.allSettled([
+          store.put({ ...base, name: "A" }),
+          store.put({ ...base, name: "B" }),
+        ]);
+        assert.deepEqual(
+          results
+            .filter((r) => r.status === "rejected")
+            .map((r) => (r as PromiseRejectedResult).reason?.message),
+          [],
+          "aucun put concurrent ne doit être rejeté",
+        );
+        const all = await store.findBySubject("u-conc");
+        assert.equal(all.length, 1, "une seule ligne pour la PK");
+        assert.ok(["A", "B"].includes(all[0].name));
+      });
+
       it("findById renvoie null pour un id inconnu", async () => {
         assert.equal(await store.findById("nope"), null);
       });
@@ -187,6 +210,24 @@ describe.skipIf(!URI)(
         CLOCK = 6_000_000;
         await store.denyJti("jti-a", 7_000_000);
         assert.equal(await store.isJtiDenied("jti-a"), true);
+      });
+
+      it("denyJti CONCURRENT du même jti : aucun rejet (réservation atomique)", async () => {
+        // Un jeton rejoué dénoncé deux fois en parallèle ne doit pas faire
+        // remonter un E11000 — donc pas de 500 sur un chemin de sécurité.
+        CLOCK = 6_000_000;
+        const results = await Promise.allSettled([
+          store.denyJti("jti-conc", 7_000_000),
+          store.denyJti("jti-conc", 8_000_000),
+        ]);
+        assert.deepEqual(
+          results
+            .filter((r) => r.status === "rejected")
+            .map((r) => (r as PromiseRejectedResult).reason?.message),
+          [],
+          "aucun denyJti concurrent ne doit être rejeté",
+        );
+        assert.equal(await store.isJtiDenied("jti-conc"), true);
       });
 
       it("isJtiDenied = false pour un jti inconnu", async () => {

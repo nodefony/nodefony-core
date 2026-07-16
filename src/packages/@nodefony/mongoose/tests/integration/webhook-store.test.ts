@@ -91,6 +91,27 @@ describe.skipIf(!URI)(
         );
       });
 
+      it("save CONCURRENT du même id : aucun rejet, une seule ligne (réservation atomique)", async () => {
+        // Rejeu d'un formulaire d'admin : un findOne + create laisse les deux
+        // voir « absent » → E11000 sur `_id` pour le perdant.
+        const results = await Promise.allSettled([
+          store.save(makeEndpoint({ id: "wh_conc", failureCount: 1 })),
+          store.save(makeEndpoint({ id: "wh_conc", failureCount: 2 })),
+        ]);
+        assert.deepEqual(
+          results
+            .filter((r) => r.status === "rejected")
+            .map((r) => (r as PromiseRejectedResult).reason?.message),
+          [],
+          "aucun save concurrent ne doit être rejeté",
+        );
+        assert.equal(
+          (await store.listAll()).filter((e) => e.id === "wh_conc").length,
+          1,
+          "une seule ligne pour la PK",
+        );
+      });
+
       it("ne partage pas les références JSON avec l'appelant (copie défensive)", async () => {
         const events = ["a"];
         const metadata: Record<string, unknown> = { k: 1 };

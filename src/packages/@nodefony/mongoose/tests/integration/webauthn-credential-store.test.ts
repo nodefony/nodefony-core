@@ -90,6 +90,28 @@ describe.skipIf(!URI)(
         const u1 = await store.findByUser("u1");
         assert.equal(u1.filter((c) => c.id === "c4").length, 1);
       });
+
+      it("save CONCURRENT du même id : aucun rejet, une seule ligne (réservation atomique)", async () => {
+        // Deux enregistrements de la même passkey en vol : un findOne + create
+        // laisse les deux voir « absent » → E11000 sur `_id` pour le perdant.
+        const results = await Promise.allSettled([
+          store.save(makeCredential({ id: "c-conc", signCount: 1 })),
+          store.save(makeCredential({ id: "c-conc", signCount: 2 })),
+        ]);
+        assert.deepEqual(
+          results
+            .filter((r) => r.status === "rejected")
+            .map((r) => (r as PromiseRejectedResult).reason?.message),
+          [],
+          "aucun save concurrent ne doit être rejeté",
+        );
+        const all = await store.findByUser("u1");
+        assert.equal(
+          all.filter((c) => c.id === "c-conc").length,
+          1,
+          "une seule ligne pour la PK",
+        );
+      });
     });
 
     describe("findByUser", () => {
