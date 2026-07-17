@@ -12,6 +12,10 @@ import Injector, {
   InjectableOptions,
   PropertyInjectMeta,
 } from "../injector/injector";
+import {
+  orderServicesByDependencies,
+  type ServiceEntry,
+} from "../injector/serviceOrder";
 // import nodefony from "nodefony";
 
 type Constructor = new (...args: any[]) => Module;
@@ -35,7 +39,16 @@ function services(
       // BootReport : un boot amputé d'un service critique se déclarait « UP ».
       private async initDecoratorServices() {
         if (Array.isArray(nameOrPath)) {
-          for (const path of nameOrPath) {
+          // L'ordre d'instanciation se CALCULE depuis les dépendances déclarées
+          // (@inject / design:paramtypes) — il ne se lit plus dans la liste. Un
+          // service réclamé doit être au container avant son consommateur ;
+          // faire reposer ça sur l'ordre écrit à la main était un piège (déplacer
+          // `HttpKernel` de 3 lignes → 499 sur chaque requête). Tri STABLE : une
+          // liste déjà correcte sort inchangée.
+          const ordered = orderServicesByDependencies(
+            nameOrPath as ServiceEntry[],
+          );
+          for (const path of ordered) {
             if (typeof path !== "string") {
               await this.addService(path as ServiceConstructor).catch(
                 (e: Error) => {

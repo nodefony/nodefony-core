@@ -17,6 +17,7 @@ import FrameworkController from "./nodefony/controller/FrameworkController";
 import SessionRuntimeController from "./nodefony/controller/SessionRuntimeController";
 import DecoratorController from "./nodefony/controller/DecoratorController";
 import AlsController from "./nodefony/controller/AlsController";
+import DiController from "./nodefony/controller/DiController";
 import LifecycleController from "./nodefony/controller/LifecycleController";
 import DomainController from "./nodefony/controller/DomainController";
 import DomainClassController from "./nodefony/controller/DomainClassController";
@@ -73,6 +74,7 @@ const DOLIBARR_ORM = "dolibarr";
   SessionRuntimeController,
   DecoratorController,
   AlsController,
+  DiController,
   LifecycleController,
   DomainController,
   DomainClassController,

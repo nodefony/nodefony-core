@@ -275,12 +275,15 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
     politique (jamais fatal, même en PROD → pod amputé qui se dit sain) ni le BootReport (boot
     cassé affiché « UP »). Un service qu'on ne peut pas CONSTRUIRE suit la règle de celui qu'on ne
     peut pas INITIALISER — on gardait `init`, pas le `new`.
-  - 🔴 **L'ORDRE de la liste COMPTE** : un service doit précéder ses consommateurs (`@inject`), sinon
-    il n'est pas encore au container quand ils le réclament → il est reconstruit **sans argument**
-    → son ctor casse sur `module.container`. Vécu : `HttpKernel` descendu de 3 lignes dans
-    `http/index.ts:52` → 499 « sessionService not found » sur chaque requête. Aujourd'hui l'erreur
-    est actionnable (nomme service + demandeur + remède) ; le vrai fix = **tri topologique** (les
-    deps sont déclarées : `Reflect.getMetadata("inject:services", Ctor)`).
+  - ✅ **L'ordre de la liste NE COMPTE PLUS** : `orderServicesByDependencies` (`injector/serviceOrder.ts`)
+    trie par dépendances déclarées (`inject:services` + `design:paramtypes`) AVANT d'instancier.
+    Tri **STABLE** → une liste déjà correcte sort inchangée ; cycle → erreur qui NOMME le cycle ;
+    les chemins `string` (deps inconnaissables sans charger) et les ctors hors registre gardent leur
+    position. Avant : `HttpKernel` descendu de 3 lignes dans `http/index.ts:52` → 499
+    « sessionService not found » sur chaque requête.
+    ⚠️ **Le tri ne sauve QUE les services dont le nom round-trippe** (`@injectable` == clé `super()`,
+    cas de `HttpKernel`) : un `super("probeDep")` sous `@injectable()` → `"ProbeDep"` reste
+    irrésoluble malgré un ordre correct (dette des noms, cf `injector/MEMORY.md`).
 - `@entities` → `onBoot` → addEntity|loadEntity
 - `prependOnceListener` (setEvents) toujours index 0 avant `once` (@services/@entities)
 

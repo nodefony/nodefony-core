@@ -26,7 +26,11 @@ import Kernel from "../kernel/Kernel";
 import Module from "../kernel/Module";
 import Service from "../Service";
 import Container from "../Container";
-import { services } from "../kernel/decorators/kernelDecorator";
+import {
+  services,
+  injectable,
+  inject,
+} from "../kernel/decorators/kernelDecorator";
 
 const makeKernel = (env: "development" | "production"): Kernel =>
   new Kernel(env, null, { log: { active: false } });
@@ -192,5 +196,99 @@ describe("RED-TEAM @services — intégrité du boot", () => {
       1,
       "…mais son échec reste ANNONCÉ (jamais un skip silencieux)",
     );
+  });
+});
+
+// ─── G. L'ORDRE écrit dans @services ne doit plus décider du boot ─────────────
+//
+// LE vecteur : `@services` instancie séquentiellement et pose chaque instance au
+// container. Un consommateur écrit AVANT sa dépendance la réclamait donc à un
+// container qui ne l'a pas encore → reconstruite sans argument → ctor cassé.
+// Reproduit en vrai sur @nodefony/http : `HttpKernel` descendu de 3 lignes →
+// serveur « UP » + 499 « sessionService not found » sur CHAQUE requête.
+// L'ordre étant CALCULABLE (les deps sont déclarées), il ne doit plus se lire.
+
+describe("RED-TEAM @services — l'ordre écrit ne décide plus du boot", () => {
+  /**
+   * Dépendance : le pendant EXACT de `HttpKernel` — son nom de `super()` est
+   * ALIGNÉ sur son nom `@injectable` (le nom de classe).
+   *
+   * L'alignement n'est pas un détail de mise en scène : c'est la seule raison
+   * pour laquelle `@inject("HttpKernel")` trouve quoi que ce soit au container
+   * (`kernel.get` interroge avec le nom ÉCRIT dans `@inject`). Un `super("probeDep")`
+   * ici ferait échouer ce test pour la DETTE DES NOMS, pas pour l'ordre — et
+   * masquerait ce qu'on veut prouver. Cf. `injector.attack.test.ts` C3.
+   */
+  @injectable()
+  class ProbeDep extends Service {
+    public readonly uid = Math.random();
+    constructor(module: Module) {
+      super("ProbeDep", module.container as Container);
+    }
+  }
+
+  /** Consommateur : le pendant de `SessionsService` (`@inject("HttpKernel")`). */
+  class ProbeConsumer extends Service {
+    public dep: ProbeDep;
+    constructor(module: Module, dep: ProbeDep) {
+      super("probeConsumer", module.container as Container);
+      this.dep = dep;
+    }
+  }
+  // `@inject("ProbeDep")` en position 1 (tsx n'applique pas les param decorators).
+  (inject("ProbeDep") as unknown as (t: any, k: undefined, i: number) => void)(
+    ProbeConsumer,
+    undefined,
+    1,
+  );
+
+  /** L'ordre est écrit à l'ENVERS — exactement le geste qui cassait http. */
+  @services([ProbeConsumer, ProbeDep])
+  class ReversedOrderModule extends Module {
+    constructor(kernel: Kernel) {
+      super("@nodefony/reversed", kernel, MODULE_PATH);
+    }
+  }
+
+  it("G1 — le consommateur écrit AVANT sa dépendance : le boot reste SAIN", async () => {
+    const k = makeKernel("development");
+    await k.addModule(ReversedOrderModule);
+    await firePreBoot(k);
+
+    assert.strictEqual(
+      k.getBootReport().modulesSkipped.length,
+      0,
+      `un ordre « faux » ne doit plus rien casser — reçu: ${JSON.stringify(
+        k.getBootReport().modulesSkipped,
+      )}`,
+    );
+    assert.ok(k.get("ProbeDep"), "la dépendance doit être au container");
+    assert.ok(k.get("probeConsumer"), "le consommateur doit être au container");
+  });
+
+  it("G2 — le consommateur reçoit LE singleton du container, pas une copie privée", async () => {
+    // Le cœur du dégât d'origine : chaque consommateur obtenait son propre
+    // HttpKernel. Ici l'identité doit être partagée.
+    const k = makeKernel("development");
+    await k.addModule(ReversedOrderModule);
+    await firePreBoot(k);
+
+    const dep = k.get("ProbeDep") as ProbeDep;
+    const consumer = k.get("probeConsumer") as ProbeConsumer;
+    assert.strictEqual(
+      consumer.dep,
+      dep,
+      "le consommateur a une instance PRIVÉE : deux services qui devraient être un seul",
+    );
+  });
+
+  it("G3 — PRODUCTION : un ordre « faux » ne fait plus échouer le boot", async () => {
+    const k = makeKernel("production");
+    await k.addModule(ReversedOrderModule);
+    await assert.doesNotReject(
+      () => firePreBoot(k),
+      "l'ordre d'écriture ne doit plus avoir d'effet, a fortiori en production",
+    );
+    assert.strictEqual(k.getBootReport().modulesSkipped.length, 0);
   });
 });

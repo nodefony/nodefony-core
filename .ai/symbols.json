@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-17T12:11:40.842Z",
+  "generated": "2026-07-17T12:34:46.778Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1024,
-    "symbols": 2726,
-    "classes": 325,
+    "files": 1026,
+    "symbols": 2729,
+    "classes": 326,
     "interfaces": 713,
-    "types": 320,
+    "types": 321,
     "enums": 4,
-    "functions": 792,
+    "functions": 793,
     "constants": 572
   },
   "symbols": {
@@ -4094,6 +4094,22 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "ServiceEntry": {
+      "name": "ServiceEntry",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/injector/serviceOrder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Entrée d'un `@services([...])` : un constructeur, ou un chemin à charger."
+    },
+    "orderServicesByDependencies": {
+      "name": "orderServicesByDependencies",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/injector/serviceOrder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réordonne les services d'un `@services([...])` selon leurs dépendances **déclarées**, pour que l'ordre d'écriture cesse de compter. `@services` instancie séquentiellement et pose chaque instance au…"
+    },
     "ClusterManager": {
       "name": "ClusterManager",
       "kind": "class",
@@ -5803,6 +5819,19 @@
       "file": "src/modules/test/nodefony/controller/DefaultController.ts",
       "exported": true,
       "module": "modules/test"
+    },
+    "DiController": {
+      "name": "DiController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/DiController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Sonde d'intégration du conteneur d'injection — expose l'IDENTITÉ réelle des services au runtime, ce qu'aucun test HTTP ne peut observer autrement (le serveur vit dans un autre process). Elle répond…"
     },
     "DomainClassController": {
       "name": "DomainClassController",
@@ -19372,6 +19401,7 @@
         "DbController",
         "DecoratorController",
         "DefaultController",
+        "DiController",
         "DomainClassController",
         "DomainController",
         "FrameworkController",
@@ -19801,6 +19831,7 @@
         "DbController",
         "DecoratorController",
         "DefaultController",
+        "DiController",
         "DomainClassController",
         "DomainController",
         "FrameworkController",
@@ -20137,6 +20168,7 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
+        "src/modules/test/nodefony/controller/DiController.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "styleText": [
@@ -20248,6 +20280,7 @@
         "src/nodefony/src/Error.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/modules/test/nodefony/controller/DiController.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
@@ -20511,6 +20544,9 @@
       "AlsController": [
         "src/modules/test/index.ts"
       ],
+      "DiController": [
+        "src/modules/test/index.ts"
+      ],
       "LifecycleController": [
         "src/modules/test/index.ts"
       ],
@@ -20753,6 +20789,7 @@
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
@@ -20874,6 +20911,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
         "src/modules/test/nodefony/controller/LifecycleController.ts",
@@ -20896,6 +20934,7 @@
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
@@ -21108,6 +21147,7 @@
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
@@ -21914,6 +21954,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+        "src/nodefony/src/kernel/injector/serviceOrder.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
@@ -22013,7 +22054,8 @@
       "ServiceConstructor": [
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
-        "src/nodefony/src/kernel/injector/injector.ts"
+        "src/nodefony/src/kernel/injector/injector.ts",
+        "src/nodefony/src/kernel/injector/serviceOrder.ts"
       ],
       "ServiceWithInit": [
         "src/nodefony/src/kernel/Module.ts"
@@ -22600,6 +22642,12 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
       ],
       "PropertyInjectMeta": [
+        "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
+      ],
+      "orderServicesByDependencies": [
+        "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
+      ],
+      "ServiceEntry": [
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
       ],
       "Fetch": [
