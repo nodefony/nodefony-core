@@ -10,6 +10,15 @@ import defaultConfig, { type <%= it.pascal %>Config } from "../config/config";
  * Cycle : `constructor` (fusion défauts + config de l'app) → `initialize`
  * (branchements kernel) → méthodes métier.
  *
+ * Un service porte DEUX noms, et c'est normal :
+ *   `@injectable()`             → nomme la CLASSE (`<%= it.pascal %>Service`),
+ *                                 c'est ce qu'on écrit dans `@inject("…")`
+ *   `super("<%= it.name %>", …)` → nomme l'INSTANCE, sa clé dans le conteneur,
+ *                                 c'est ce qu'on écrit dans `kernel.get("…")`
+ * Les deux mènent à la MÊME instance : le conteneur les réconcilie via la classe.
+ * (Le décorateur ne peut pas deviner la clé — il s'exécute au chargement de la
+ * classe, le `super()` seulement à la construction.)
+ *
  * ⚠️ Ne JAMAIS redéclarer `options` comme propriété : la classe `Service` parente
  * l'assigne déjà via le 4ᵉ argument du `super()`. On garde une référence typée
  * `cfg` pour lire la config sans se battre avec TypeScript.

@@ -31,10 +31,15 @@ class <%= it.pascal %>Command extends Command {
     who: string | undefined,
     opts: { json?: boolean },
   ): Promise<this> {
-<% if (it.service) { %>    const svc = this.kernel?.container?.get("<%= it.name %>") as
+<% if (it.service) { %>    // On demande le service par sa CLÉ de conteneur — celle du `super("<%= it.name %>", …)`
+    // du service, pas le nom de sa classe. (Depuis le DI, `@inject("<%= it.pascal %>Service")`
+    // mènerait à la même instance ; mais hors injection, c'est la clé qui sert.)
+    const svc = this.kernel?.container?.get("<%= it.name %>") as
       | <%= it.pascal %>Service
       | undefined;
     if (!svc) {
+      // Absent = le module n'est pas chargé, ou son service a échoué au boot (le
+      // kernel l'aura annoncé : « boot DÉGRADÉ »). On le dit, on ne devine pas.
       this.log("service « <%= it.name %> » non enregistré", "ERROR");
       return this;
     }

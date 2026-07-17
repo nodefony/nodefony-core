@@ -758,6 +758,55 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(index, "@services([BlogService])");
       assert.include(index, "this.addCommand(BlogCommand)");
 
+      // Le service et la commande générés doivent porter les DEUX noms cohérents :
+      // `@injectable()` nomme la CLASSE, `super("blog", …)` la clé du conteneur —
+      // et la commande doit demander le service par cette CLÉ, pas par la classe.
+      const svc = readFileSync(
+        path.join(withAll.dest, "nodefony", "service", "BlogService.ts"),
+        "utf8",
+      );
+      assert.include(svc, "@injectable()");
+      // Vise le CODE, pas la prose. Le fichier généré DOCUMENTE les deux noms en
+      // commentaire (« super("blog", …) ») : un `include('"blog"')` — et même un
+      // `/super\(\s*"blog",/` — reste donc vert avec un `super()` cassé, en
+      // matchant le commentaire. Constaté en tentant de mettre ce test en rouge.
+      // On ancre sur ce que la prose ne contient pas : l'argument suivant.
+      assert.match(
+        svc,
+        /super\(\s*"blog",\s*module\.container/,
+        "le service doit s'enregistrer sous sa clé conteneur",
+      );
+      const cmd = readFileSync(
+        path.join(withAll.dest, "nodefony", "command", "BlogCommand.ts"),
+        "utf8",
+      );
+      assert.include(
+        cmd,
+        'get("blog")',
+        "la commande doit résoudre le service par sa CLÉ conteneur",
+      );
+
+      // Aucune balise de template ne doit fuiter dans le code livré — cas réel :
+      // un fichier ajouté au scaffold mais jamais passé au moteur (copié tel
+      // quel) partirait chez l'utilisateur avec ses `<% %>` en clair.
+      //
+      // ⚠️ Portée exacte, vérifiée : ce contrôle N'ATTRAPE PAS une variable mal
+      // nommée — Eta rend `<%= it.typo %>` en chaîne VIDE, sans lever. Une faute
+      // de nom produit donc un trou silencieux dans le fichier généré, que rien
+      // ici ne voit. (Le vrai filet contre ça = les assertions de contenu
+      // ci-dessus, qui exigent les chaînes attendues.)
+      for (const [file, src] of [
+        ["index.ts", index],
+        ["BlogService.ts", svc],
+        ["BlogCommand.ts", cmd],
+      ] as const) {
+        assert.notMatch(
+          src,
+          /<%|%>/,
+          `${file} contient une balise de template non rendue`,
+        );
+      }
+
       const bare = mod(dest, {
         name: "shop",
         controller: "none",
