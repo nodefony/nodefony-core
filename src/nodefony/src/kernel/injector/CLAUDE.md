@@ -14,7 +14,7 @@ Système d'injection de dépendances décorateur-driven de Nodefony. Stocke les 
 ```typescript
 import { injectable, inject } from "nodefony";
 
-@injectable({ singleton: true, name: "user-service" })
+@injectable("user-service") // ⚠️ `singleton: true` N'EXISTE PAS (ignoré) — options = { name?, scope? }
 export class UserService {
   constructor(
     @inject("database") private db: Database,
@@ -53,11 +53,11 @@ class MyOrmModule extends Module {}
 
 ## Métadonnées stockées (`Reflect.metadata`)
 
-| Clé                  | Cible               | Posée par                 | Contenu                      |
-| -------------------- | ------------------- | ------------------------- | ---------------------------- |
-| `inject:services`    | Constructeur classe | `@inject(name)` paramètre | `[{ index, name }]`          |
-| `inject:properties`  | Prototype classe    | `@Inject(name)` propriété | `{ key: name }`              |
-| `injectable:options` | Classe              | `@injectable(opts)`       | `{ singleton, name, scope }` |
+| Clé                 | Cible               | Posée par                 | Contenu                        |
+| ------------------- | ------------------- | ------------------------- | ------------------------------ |
+| `inject:services`   | Constructeur classe | `@inject(name)` paramètre | `[{ index, name }]`            |
+| `inject:properties` | Prototype classe    | `@Inject(name)` propriété | `{ key: name }`                |
+| `di:scope`          | Classe              | `@injectable(opts)`       | `"singleton"` \| `"transient"` |
 
 ⚠️ **CRITIQUE** : `inject:services` sur le **constructeur**, `inject:properties` sur le **prototype**. Confondre = bug silencieux (résolution échoue, classe instanciée avec `undefined`).
 
@@ -95,9 +95,17 @@ _instantiateWithStack(Ctor, stack, args) {
 
 Spread `[...stack, name]` (pas mutation) → safe pour async parallel resolution.
 
-## Singleton — fast path
+## Singleton — résolution par la CLASSE
 
-Si `@injectable({ singleton: true })` (défaut) ET déjà présent dans `kernel.container` → court-circuit immédiat, pas de réinstanciation. C'est `kernel.get(name)` qui sert de cache.
+Scope `"singleton"` (défaut) : le nom écrit dans `@inject` retrouve la **CLASSE**, et c'est elle qui
+dit où l'instance vit — `containerKeyOf(Ctor) ?? nom` → `kernel.get(clé)`. Absent du container →
+instancié **sans argument**, mémoïsé sous sa clé **canonique** (`instance.name`), et la clé est
+apprise pour la suite.
+
+⚠️ **Deux annuaires** : `@injectable(nom)` indexe des CLASSES, `super(nom, …)` indexe des INSTANCES
+— le décorateur ne peut pas connaître la seconde (chargement vs construction). D'où l'apprentissage
+dans `addService` (`rememberContainerKey`). Sans lui, `@inject("Router")` cherchait `"Router"` dans
+un container qui ne connaît que `"router"` → service reconstruit, cache vide, en silence.
 
 ## tsx — pas de `design:paramtypes`
 
@@ -170,7 +178,7 @@ Cf [`../../INJECTION_PLAN.md`](../../INJECTION_PLAN.md) workspace racine pour d�
 ```typescript
 import { injectable, inject } from "nodefony";
 
-@injectable({ singleton: true, name: "user-service" })
+@injectable("user-service") // ⚠️ `singleton: true` N'EXISTE PAS (ignoré) — options = { name?, scope? }
 export class UserService {
   constructor(
     @inject("database") private db: Database,

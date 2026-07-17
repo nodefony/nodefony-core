@@ -58,9 +58,12 @@ Flags chronologiques:
 ## Module — pattern d'utilisation
 
 ```typescript
-import { Module, Service } from "nodefony";
+import { Module, services } from "nodefony";
 
-@Service({ singleton: true })
+// ⚠️ `@Service({ … })` N'EXISTE PAS (le barrel exporte `injectable`, `inject`, `services`).
+// Un Module ne se décore pas pour « être un singleton » : il l'est par construction.
+// Le seul décorateur utile ici = `@services([...])`, qui déclare SES services.
+@services([MyService])
 export class MyModule extends Module {
   static readonly path: string = import.meta.url; // OBLIGATOIRE — sert setPath()
 

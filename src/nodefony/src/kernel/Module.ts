@@ -39,9 +39,11 @@ const controllers: Record<string, TypeController<Controller>> = {};
  *
  * @example
  * ```ts
- * import { Module, Service } from "nodefony";
+ * import { Module, services } from "nodefony";
  *
- * @Service({ singleton: true })
+ * // `@services([...])` déclare les services du module ; l'ordre de la liste
+ * // n'importe pas (il est recalculé depuis les dépendances déclarées).
+ * @services([MyService])
  * export class MyModule extends Module {
  *   static readonly path: string = import.meta.url;
  *

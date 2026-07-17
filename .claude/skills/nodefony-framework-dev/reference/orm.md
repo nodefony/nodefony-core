@@ -224,7 +224,9 @@ await repo.count({ published: true });
 import { AbstractCrudService, type ServiceWiring } from "@nodefony/orm-core";
 import { injectable, inject } from "nodefony";
 
-@injectable({ singleton: true, name: "article-service" })
+@injectable() // token = la CLASSE ; scope "singleton" par défaut
+// ⚠️ `singleton: true` N'EXISTE PAS dans `InjectableOptions` (= `{ name?, scope? }`) :
+// il était accepté et IGNORÉ en silence. Le seul réglage utile ici = `scope: "transient"`.
 export class ArticleService extends AbstractCrudService<
   ArticleRow,
   IArticleRepository
