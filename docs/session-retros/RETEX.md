@@ -199,6 +199,17 @@
   « débit bridé par le co-location » quand client+serveur partagent la machine — ne pas conclure « ça ne scale pas ». Idem
   node-client (http-load.mjs) ÷ wrk : node lui-même CPU-bound bride (mesuré : node+TLS 9583 vs wrk H1 17114 = +78 % juste en changeant de client/transport).
 
+## 🧩 Concevoir un contrat/standard PARTAGÉ (avant de le coder)
+
+- `[1× — 2026-07-17]` **Un contrat partagé multi-module vit dans le plus petit dénominateur commun des DÉPENDANCES, pas dans le module « thématiquement » proche.** J'avais posé `Page`/`PageQuery` dans `orm-core` ; mais `http` et `security` (Sessions/tokens) ne dépendent QUE de `nodefony` core, pas d'orm-core — et le user refusait de les coupler à l'ORM (« Redis pas dans le scope ORM »). Réflexe : avant de choisir l'emplacement d'un type partagé, `jq '.dependencies+.peerDependencies' ` sur TOUS les consommateurs visés → le point commun. Ici = le core. orm-core ré-exporte + étend (`PageQuery extends IPageQuery` avec `criteria`).
+- `[1× — 2026-07-17]` **Auditer l'EXISTANT avant de poser un « nouveau » contrat, sinon on crée un doublon divergent.** Le contrat de page à curseur existait DÉJÀ en prod (`IAuditStore.query` : `events`/`nextBefore`/`before`). Poser mon `IPage` à côté = deux paginations (l'anti-pattern « liste dupliquée »). Le standard doit ENGLOBER l'existant (events→items, nextBefore→nextCursor, before→cursor). Réflexe : `grep -rEn "page|cursor|limit|listAll|query" ` sur tous les contrats du domaine AVANT de dessiner le type.
+- `[1× — 2026-07-17]` **Ne pas se fier aux symptômes VISIBLES pour cadrer l'exhaustivité** : j'ai compté 4 stores (ceux qui font `listAll()`/`.find()` dans une façade admin) ; le user en voyait 8+. La vérité = `find … -name "I*Store.ts" -o -name "I*Repository.ts"` → 11 contrats, puis classer chacun (liste O(N) / déjà curseur / lookup-only). Un chantier « partout » exige l'inventaire des CONTRATS, pas des appels fautifs qu'on a sous les yeux.
+- `[1× — 2026-07-17]` **Un « simple swap » cache souvent un filtre non-portable.** `UserAdminApi` semblait un `find()`→`findPage()` trivial ; en réalité il filtre par `role` (containment JSON array), `isActive()` (dérivé `enabled && !locked`, le « false » est un OR) et `q` (substring) — deux ne sont PAS exprimables en `Criteria` générique → vrai fix = méthode `listPage(filters)` NATIVE par backend (patron `findBySocialProvider`). Lire le corps du handler AVANT d'estimer l'ampleur.
+
+## 🧪 git — un `git add` multi-chemins échoue en BLOC si un pathspec manque
+
+- `[1× — 2026-07-17]` **`git add <a> <b> .claude/x.md` où `x.md` a été `git rm` → `fatal: pathspec did not match` et AUCUN des fichiers n'est stagé** → le commit qui suit ne prend que ce qui était déjà dans l'index (la suppression), pas les modifs. Vécu : commit « 1 file changed » au lieu de 9, rattrapé par `--amend` après relecture du `--stat`. Réflexes : (a) ne pas re-`git add` un fichier déjà supprimé par `git rm` (il est DÉJÀ stagé) ; (b) TOUJOURS relire `git show --stat` après commit et compter les fichiers attendus.
+
 ## 🗂️ Thèmes archivés (CONSOLIDATE 2026-07-10)
 
 > Les leçons `[1×]` antérieures au ~2026-06-28 (jamais re-vécues) et les thèmes entiers ci-dessous
