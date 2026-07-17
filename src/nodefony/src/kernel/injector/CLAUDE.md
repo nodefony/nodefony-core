@@ -139,27 +139,20 @@ C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté
 
 → Conséquence : si un service crash dans `@services`, le boot continue mais le service est absent du container. Détection via `container.has("foo")` après boot, ou via les logs ERROR au démarrage.
 
-## Plan d'évolution — 5 phases
+## Options `@injectable(nameOrOptions?)`
 
-Cf [`../../INJECTION_PLAN.md`](../../INJECTION_PLAN.md) workspace racine pour détail.
+Signature réelle (`decorators/kernelDecorator.ts` + `InjectableOptions` de `injector.ts`) : accepte un **string** (nom d'enregistrement) OU un objet `{ name?, scope? }`.
 
-| Phase | Sujet                                 | État                     |
-| ----- | ------------------------------------- | ------------------------ |
-| **A** | `@Inject` property                    | ✅ partial (à confirmer) |
-| **C** | Circular detection (stack-based)      | ✅ done                  |
-| **B** | Scoped via AsyncLocalStorage officiel | ⬜ Planned               |
-| **D** | Registry par module (namespace)       | ⬜ Planned               |
-| **E** | Lazy injection (Promise-wrapped)      | ⬜ Planned               |
+| Option  | Type                         | Défaut             | Effet                                               |
+| ------- | ---------------------------- | ------------------ | --------------------------------------------------- |
+| `name`  | `string`                     | `constructor.name` | Nom d'enregistrement dans le registre des classes   |
+| `scope` | `"singleton" \| "transient"` | `"singleton"`      | 1 instance mémoïsée vs nouvelle à chaque résolution |
 
-## Options `@injectable`
+⚠️ **Pas** d'option `singleton: boolean`, **pas** de `factory`, **pas** de scope `"global"`/`"request"`/`"module"`. Le `DIScope` ne prend que `"singleton"` ou `"transient"`. Le request-scope (`enterScope("request")`) est une notion du **Container** hiérarchique, distincte du DIScope (cf `container.md`).
 
-| Option      | Type      | Défaut                      | Effet                                    |
-| ----------- | --------- | --------------------------- | ---------------------------------------- |
-| `singleton` | `boolean` | `true`                      | 1 instance partagée OR new par injection |
-| `name`      | `string`  | nom de classe (lowercase ?) | Identifiant Container                    |
-| `scope`     | `string`  | `"global"`                  | `"global"` / `"request"` / `"transient"` |
+## État du DI
 
-⚠️ **TODO: vérifier** le naming exact (camelCase ? kebab-case ?) et le default pour `scope` dans le code actuel.
+Circular detection (pile passée par valeur), tri topologique des `@services` (`serviceOrder.ts`) et **token = la classe** (clé container apprise à la pose, section « Singleton — résolution par la CLASSE » ci-dessus) sont **livrés**. Property injection (`@Inject`) reste **partielle** — préférer l'injection par constructeur. Avancement détaillé : `MIGRATION_STATUS.md`.
 
 ## ⚠️ Gotchas
 

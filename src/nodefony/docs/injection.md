@@ -3,211 +3,212 @@ module: "@nodefony/core"
 topic: dependency-injection
 audience: [human, ai]
 tags: [di, injection, decorators, injectable, inject, scopes, ioc]
-status: draft
-last-updated: 2026-05-20
+status: stable
+last-updated: 2026-07-17
 ---
 
-# Dependency Injection — `@injectable`, `@inject`
+# Dependency Injection — `@injectable`, `@inject`, `@services`
 
-> Système d'injection de dépendances décorateur-driven de Nodefony. Stocke les métadonnées via `Reflect.metadata`, résout au boot via le Container DI hiérarchique. Inspiré de NestJS (decorators) + Symfony (services.yaml mental model).
+> Système d'injection de dépendances décorateur-driven de Nodefony. Les décorateurs posent des métadonnées via `Reflect.metadata` ; l'`Injector` résout le graphe au boot et instancie dans le Container DI hiérarchique. Inspiré de NestJS (decorators) + Symfony (modèle mental services).
 
 ## Vue d'ensemble
 
 ```mermaid
 flowchart TD
-  src["Source TS avec décorateurs"] -->|"tsc + reflect-metadata"| compiled["Code compilé + métadonnées attachées"]
-  compiled -->|"Kernel.boot()"| injector["Injector — résolution du graphe"]
-  injector --> cycles["Détection de cycles (Phase C — à venir)"]
-  injector --> topo["Tri topologique"]
-  injector --> inst["Instanciation dans le Container"]
-  inst --> app["Application prête"]
+  src["Source TS avec décorateurs"] -->|"tsc/rolldown + reflect-metadata"| compiled["Code compilé + métadonnées attachées"]
+  compiled -->|"@injectable"| reg["Registre des classes injectables (par nom)"]
+  compiled -->|"@services([...]) sur un Module"| decl["Services déclarés du module"]
+  decl -->|"Kernel.boot() — onPreBoot"| topo["Tri topologique des dépendances"]
+  topo --> inst["Instanciation dans le Container"]
+  inst -->|"addService pose l'instance"| learn["La clé container est APPRISE (token = la classe)"]
+  learn --> app["Application prête"]
 ```
 
 ## Décorateurs disponibles
 
-### `@injectable(options?)`
+### `@injectable(nameOrOptions?)`
 
-Marque une classe comme service injectable.
+Marque une classe comme service injectable et l'enregistre dans le registre des classes.
 
 ```typescript
 import { injectable } from "nodefony";
 
-@injectable({ singleton: true })
-export class UserService {
-  constructor(private db: Database, private syslog: Syslog) {}
-}
+// Forme courte — le nom d'enregistrement explicite
+@injectable("user-service")
+export class UserService extends Service {}
+
+// Forme objet — nom + scope
+@injectable({ name: "user-service", scope: "singleton" })
+export class UserService2 extends Service {}
 ```
 
-| Option | Type | Défaut | Effet |
-|--------|------|--------|-------|
-| `singleton` | `boolean` | `true` | 1 instance partagée vs nouvelle par injection |
-| `name` | `string` | nom de classe | Identifiant dans le Container |
-| `scope` | `string` | `"global"` | `"global"` / `"request"` / custom |
+`InjectableOptions` (source : `src/kernel/injector/injector.ts`) :
+
+| Option  | Type                         | Défaut             | Effet                                               |
+| ------- | ---------------------------- | ------------------ | --------------------------------------------------- |
+| `name`  | `string`                     | `constructor.name` | Nom d'enregistrement dans le registre des classes   |
+| `scope` | `"singleton" \| "transient"` | `"singleton"`      | 1 instance mémoïsée vs nouvelle à chaque résolution |
+
+> ⚠️ Il n'y a **pas** d'option `singleton: boolean`, **pas** de `factory`, et le scope ne prend que `"singleton"` ou `"transient"`. Le `@injectable` sans argument enregistre la classe sous son propre nom, en `singleton`.
 
 ### `@inject(name)`
 
-Injecte une dépendance par nom depuis le Container.
+Injecte une dépendance par nom dans un **paramètre de constructeur**. Le nom est **obligatoire**.
 
 ```typescript
 import { injectable, inject } from "nodefony";
 
-@injectable()
-export class OrderService {
+@injectable("order-service")
+export class OrderService extends Service {
   constructor(
     @inject("user-service") private users: UserService,
-    @inject("database")     private db: Database,
-  ) {}
-}
-```
-
-### `@Inject` (property — Phase A, partiellement implémentée)
-
-```typescript
-@injectable()
-export class ReportService {
-  @Inject("database") private db!: Database;
-  @Inject("syslog")   private log!: Syslog;
-}
-```
-
-Plus concis mais nécessite `!` (definite assignment) et un init post-construct dans le Container.
-
-## Pattern de découverte au boot
-
-```typescript
-// 1. Application déclare ses services injectables
-@injectable()
-class FooService { /* ... */ }
-
-@injectable()
-class BarService {
-  constructor(@inject("foo") private foo: FooService) {}
-}
-
-// 2. Module déclare les services
-@Service()
-@injectable({ scope: "module" })
-export class MyModule extends Module {
-  static services = [FooService, BarService];
-}
-
-// 3. Kernel boot
-//    → @modules() declare MyModule
-//    → Injector lit Reflect.metadata sur FooService, BarService
-//    → Calcule graphe dépendances
-//    → Instancie dans l'ordre topologique (Foo avant Bar)
-//    → Container.set("foo", fooInstance), Container.set("bar", barInstance)
-```
-
-## Scopes
-
-| Scope | Lifecycle | Use case |
-|-------|-----------|----------|
-| `global` | Vie du kernel | Service singleton (database, logger, security) |
-| `request` | Par requête HTTP/WS | Resolver, session, contexte courant |
-| `transient` | Nouvelle instance à chaque injection | Cas rare — DTOs paramétrés, etc. |
-
-**Container hiérarchique** : à chaque requête, `container.enterScope("request")` crée un sous-container héritant du parent (chaîne de prototypes JS). Les services request-scope vivent dans ce sous-container, libérés via `container.leaveScope(scope)` à la fin de la requête.
-
-Voir [`container.md`](./container.md) pour les internals des scopes.
-
-## Plan d'implémentation — 5 phases
-
-Cf [`INJECTION_PLAN.md`](../../src/nodefony/INJECTION_PLAN.md) workspace core pour le détail.
-
-| Phase | Sujet | État |
-|-------|-------|------|
-| **A** | `@Inject` propriété (vs constructor) | 🔶 Partial |
-| **B** | Scoped via `AsyncLocalStorage` officiel | ⬜ Planned |
-| **C** | Circular detection + erreur explicite au boot | ⬜ Planned |
-| **D** | Registry par module (isolation) | ⬜ Planned |
-| **E** | Lazy injection (Promise-wrapped) | ⬜ Planned |
-
-## Pattern factoriel — `@injectable({ factory })`
-
-Pour les services dont l'instanciation nécessite des opérations async (connexion DB, lecture config externe) :
-
-```typescript
-// TODO: vérifier — pattern factory à confirmer dans l'implémentation actuelle
-@injectable({
-  factory: async (container: Container) => {
-    const config = await loadFromVault();
-    return new Database(config);
-  },
-})
-export class Database { /* ... */ }
-```
-
-## Résolution — comment ça marche
-
-```
-1. Métadonnées TS — Reflect.metadata
-   @injectable                       → "design:paramtypes" sur classe
-   @inject("name") constructor param → "inject:name:<paramIndex>"
-
-2. Injector scan toutes les classes décorées
-   → buildDependencyGraph()
-
-3. Tri topologique
-   → throw si cycle (Phase C)
-
-4. Instanciation séquentielle
-   → pour chaque classe :
-      - lire paramTypes
-      - résoudre les @inject(name) via Container.get()
-      - new Klass(...resolvedArgs)
-      - Container.set(klass.name OR options.name, instance)
-```
-
-## Tests existants
-
-Cf `src/packages/@nodefony/framework/tests/` et `src/nodefony/src/tests/`.
-
-```bash
-cd src/nodefony
-npm run test 2>&1 | grep -A 5 "injectable\|inject\|injector"
-```
-
-## ⚠️ Gotchas connus
-
-| Symptôme | Cause | Fix |
-|----------|-------|-----|
-| `Cannot read 'X' of undefined` au boot | Cycle de dépendance non détecté | Phase C à venir — pour l'instant, désaccoupler manuellement |
-| `Service not found in container` | `@injectable` oublié ou nom incorrect | Vérifier la métadonnée + Container.has() au boot |
-| `@inject('foo')` reçoit `null` | Service `foo` pas encore instancié | Vérifier l'ordre topologique — Phase C aidera |
-| Service request-scope tiré dans singleton | Inter-scope dependency cassée | Container hiérarchique remonte au parent — vérifier que le scope est bien ouvert |
-| Property injection non assignée | Phase A partielle | Utiliser constructor injection pour l'instant |
-
-## Pattern type — service avec dépendances
-
-```typescript
-import { injectable, inject } from "nodefony";
-import type Database from "./Database";
-import type Syslog from "./Syslog";
-
-@injectable({ singleton: true, name: "user-service" })
-export class UserService {
-  constructor(
-    @inject("database") private db: Database,
-    @inject("syslog")   private log: Syslog,
-  ) {}
-
-  async findByEmail(email: string): Promise<User | null> {
-    this.log.log(`Lookup user ${email}`, "DEBUG");
-    return await this.db.query<User>("SELECT * FROM users WHERE email = ?", [email]);
+    @inject("Fetch") private fetch: Fetch,
+  ) {
+    super("order-service" /* container, notificationsCenter */);
   }
 }
 ```
 
-Au boot, `Container.get<UserService>("user-service")` retourne l'instance prête à l'emploi avec ses dépendances injectées.
+### `@Inject(name?)`
+
+Injecte sur une **propriété** de classe (property injection). `!` (definite assignment) requis. Sans nom explicite, il tente de résoudre depuis `design:type` — mais ce dernier n'est pas émis sous `tsx`, donc **toujours passer le nom** pour un code portable.
+
+```typescript
+@injectable()
+export class ReportService extends Service {
+  @Inject("Fetch") private fetch!: Fetch;
+}
+```
+
+### `@services([...])`
+
+Décorateur de **Module** : déclare les services que le module enregistre au boot (phase `onPreBoot`). Accepte des classes injectables et/ou des chemins de service.
+
+```typescript
+import { Module, services } from "nodefony";
+
+@services([UserService, OrderService])
+export class MyModule extends Module {
+  static readonly path: string = import.meta.url; // OBLIGATOIRE
+}
+```
+
+> Un `Module` ne se décore **pas** pour « être un singleton » (`@Service({ singleton: true })` n'existe pas). Il l'est par construction. Le seul décorateur utile ici est `@services([...])`.
+
+## Le token de résolution est la CLASSE
+
+C'est le nœud du DI. **Deux annuaires distincts** :
+
+- `@injectable(nom)` indexe des **CLASSES** (registre `injectables`).
+- `super(nom, container)` indexe des **INSTANCES** (le Container).
+
+Rien ne garantit que les deux noms coïncident (`@injectable("Router")` vs `super("router")`), et le décorateur **ne peut pas** connaître le second : il s'exécute au **chargement** de la classe, `super()` seulement à la **construction**.
+
+Résolution : la clé container d'une classe est **apprise** au moment où l'instance est posée (`Module.addService` / `Kernel.addKernelService` → `Injector.rememberContainerKey(Ctor, instance.name)`). Toute résolution ultérieure passe par la **classe** ; le nom écrit dans `@inject` ne sert plus qu'à retrouver la classe.
+
+> Sans cet apprentissage, `@inject("Router")` interrogeait le container avec `"Router"` alors que l'instance y vit sous `"router"` → le container répondait `null`, le service était **reconstruit** (cache vide) en silence, et un doublon coexistait avec l'original — invisible tant qu'on ne sonde pas l'**identité** (deux instances « marchent » chacune).
+
+## Scopes DI
+
+| Scope       | Lifecycle                                  | Use case                            |
+| ----------- | ------------------------------------------ | ----------------------------------- |
+| `singleton` | 1 instance, mémoïsée sous sa clé canonique | Défaut — database, logger, security |
+| `transient` | Nouvelle instance à chaque résolution      | Cas rare — objets paramétrés        |
+
+Le scope `singleton` mémoïse sous la clé **canonique** (`instance.name`), jamais sous le nom demandé — sinon on recrée le doublon qu'on cherche à éviter.
+
+> **Ne pas confondre** avec les **scopes du Container hiérarchique** (`enterScope("request")` → sous-container par requête pour `resolver`/`session`/`context`). Ceux-ci relèvent du Container, pas du DIScope. Voir [`container.md`](./container.md).
+
+## Découverte et instanciation au boot
+
+```typescript
+// 1. Services injectables
+@injectable("foo")
+class FooService extends Service {}
+
+@injectable("bar")
+class BarService extends Service {
+  constructor(@inject("foo") private foo: FooService) {
+    super("bar" /* … */);
+  }
+}
+
+// 2. Un Module les déclare (l'ORDRE écrit ne décide plus du boot)
+@services([BarService, FooService]) // volontairement « à l'envers »
+export class MyModule extends Module {
+  static readonly path: string = import.meta.url;
+}
+
+// 3. Boot
+//    → les modules sont chargés depuis config.modules (manifeste ordonné) à onPreRegister
+//    → @services fire à onPreBoot
+//    → orderServicesByDependencies() calcule l'ordre réel depuis @inject / design:paramtypes
+//      (tri STABLE : une liste déjà correcte sort inchangée ; un cycle → erreur qui NOMME le cycle)
+//    → chaque service est instancié, posé au container, sa clé apprise
+```
+
+L'ordre d'instanciation se **calcule** depuis les dépendances déclarées — il ne se lit plus dans la liste `@services`. Faire reposer le boot sur l'ordre écrit à la main était un piège (déplacer un service de 3 lignes suffisait à casser toutes les requêtes).
+
+## Résolution — comment ça marche
+
+```
+1. Métadonnées (Reflect.metadata)
+   @injectable(nom)                  → enregistre la classe + pose "di:scope"
+   @inject("name") param constructeur → "inject:services" = [name, …] par index
+   @Inject("name") propriété          → "inject:properties" = [{ key, name }, …]
+
+2. Injector.instantiate(Ctor, ...args)
+   ├── détection de cycle par la pile (stack passée par VALEUR — async-safe)
+   ├── singleton déjà au container (via la clé apprise) → court-circuit
+   ├── lire "inject:services", résoudre chaque nom → CLASSE → clé container
+   ├── new Ctor(...resolvedArgs)
+   ├── property injection : lire "inject:properties" sur le prototype, set props
+   └── si .initialize() existe → l'appeler
+
+3. Le Container mémorise l'instance sous sa clé canonique ; Injector apprend
+   (classe → clé) pour les résolutions suivantes.
+```
+
+## Échec d'un service = politique de boot
+
+Un service qui échoue dans `@services` passe par `Module.handleServiceBootError` → `Kernel.serviceBootErrorFatal` : **fatal en production** (un pod amputé ne doit pas se déclarer « UP »), **fail-soft ANNONCÉ** ailleurs (consigné au BootReport). Un simple `log(e, "ERROR")` n'atteignait ni la politique de criticité ni le BootReport → un boot cassé s'affichait sain. Cf [`project_resilience_no_silent_degradation`] (mémoire IA).
+
+## ⚠️ Gotchas connus
+
+| Symptôme                                    | Cause                                              | Fix                                                          |
+| ------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
+| `Service X not found or not injectable`     | `@injectable` oublié ou nom incorrect              | Vérifier le nom d'enregistrement + `container.has()` au boot |
+| `@inject()` sans nom ne résout pas          | Sous `tsx`, `design:paramtypes` n'est pas émis     | Toujours passer le nom : `@inject("database")`               |
+| Deux instances d'un même service coexistent | Clé demandée ≠ clé container, apprentissage absent | Vérifier que l'instance est bien posée (`addService`)        |
+| Property `@Inject` reste `undefined`        | Property injection partielle                       | Préférer l'injection par constructeur                        |
+| Cycle de dépendance                         | A ↔ B via `@inject`                                | Erreur au boot qui **nomme** le cycle → désaccoupler         |
+
+## Pattern type — service avec dépendances
+
+```typescript
+import { injectable, inject, Service } from "nodefony";
+import type Fetch from "nodefony";
+
+@injectable("user-service")
+export class UserService extends Service {
+  constructor(@inject("Fetch") private fetch: Fetch) {
+    super("user-service" /*, container, notificationsCenter */);
+  }
+}
+
+@services([UserService])
+export class MyModule extends Module {
+  static readonly path: string = import.meta.url;
+}
+```
+
+Au boot, `kernel.get<UserService>("user-service")` (ou la classe, via la clé apprise) retourne l'instance prête, ses dépendances injectées.
 
 ## Liens
 
-- **Code source** : `src/nodefony/src/kernel/injector/`
+- **Code source** : `src/nodefony/src/kernel/injector/` (`injector.ts`, `serviceOrder.ts`) + `src/nodefony/src/kernel/decorators/kernelDecorator.ts`
 - **MEMORY.md** : `src/nodefony/src/kernel/injector/MEMORY.md`
-- **README.md** : `src/nodefony/src/kernel/injector/README.md`
-- **Plan** : `src/nodefony/INJECTION_PLAN.md`
-- **Container** (sur lequel s'appuie l'injector) : [`container.md`](./container.md)
-- **Kernel** (qui démarre l'injector au boot) : [`kernel.md`](./kernel.md)
-- **Décisions futures** : `project_injection_plan.md` (mémoire IA)
+- **Container** (scopes hiérarchiques, distincts du DIScope) : [`container.md`](./container.md)
+- **Kernel** (démarre l'`Injector` au boot) : [`kernel.md`](./kernel.md)
+- **Chargement des modules** (manifeste `config.modules`) : `project_module_loading_architecture` (mémoire IA)
 - **Graphe symbolique** : `jq '.symbols.injectable' .ai/symbols.json`

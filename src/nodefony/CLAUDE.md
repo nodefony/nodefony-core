@@ -120,13 +120,13 @@ src/nodefony/
 4. CliKernel.parseCommand(argv) — Commander parse
 5. Command.onKernelStart() — hook pré-boot
 6. Kernel.boot()
-   ├── Charge config (config/dev|prod|test/*.ts)
+   ├── Charge config (nodefony.config.ts + env.ts, deep-merge sur les défauts du core)
    ├── Module discovery (manifeste config.modules, orchestré par le Kernel)
-   ├── Service discovery (@injectable, @Service)
+   ├── Service discovery (@injectable + @services([...]) sur les modules)
    ├── fire("onPreBoot") | fire("onBoot") | fire("onReady")
    └── Activate modules
 7. Module instances créées via Container DI
-8. Si Command est "server" → http-kernel démarre les serveurs
+8. Si runProfile.servers → http-kernel démarre les serveurs
 9. fire("onPostReady") — boot complet
 ```
 
