@@ -92,6 +92,43 @@ function makeUsers(seed: BaseUser[]) {
     },
     delete: async (criteria: { id: string }) =>
       map.delete(criteria.id) ? 1 : 0,
+    // Pagination native (miroir du contrat `IUserRepository.listPage`) — filtre
+    // role/enabled/q, tri identifier ASC, slice ; on teste les HANDLERS.
+    listPage: async (query: {
+      limit: number;
+      offset?: number;
+      role?: string;
+      enabled?: boolean;
+      q?: string;
+      withTotal?: boolean;
+    }) => {
+      const limit = Math.max(1, Math.floor(query.limit));
+      const offset = Math.max(0, Math.floor(query.offset ?? 0));
+      const q = query.q?.toLowerCase();
+      const role = query.role;
+      let filtered = [...map.values()];
+      if (role !== undefined)
+        filtered = filtered.filter((u) => u.roles.includes(role));
+      if (query.enabled !== undefined)
+        filtered = filtered.filter((u) => u.isActive() === query.enabled);
+      if (q)
+        filtered = filtered.filter((u) =>
+          u.identifier.toLowerCase().includes(q),
+        );
+      filtered.sort((a, b) => a.identifier.localeCompare(b.identifier));
+      const items = filtered.slice(offset, offset + limit);
+      return {
+        items,
+        total: query.withTotal === false ? undefined : filtered.length,
+        limit,
+        offset,
+        hasNext: offset + items.length < filtered.length,
+      };
+    },
+    countActiveAdmins: async (adminRole: string) =>
+      [...map.values()].filter(
+        (u) => u.isActive() && u.roles.includes(adminRole),
+      ).length,
   };
 }
 

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-17T16:58:54.633Z",
+  "generated": "2026-07-17T18:07:19.165Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1029,
-    "symbols": 2733,
+    "symbols": 2746,
     "classes": 326,
-    "interfaces": 716,
+    "interfaces": 719,
     "types": 321,
     "enums": 4,
-    "functions": 794,
+    "functions": 804,
     "constants": 572
   },
   "symbols": {
@@ -7193,6 +7193,24 @@
       "decorators": [],
       "description": "Store d'endpoints webhook **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link IWebhookStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webhook_endpoint`). Persistance …"
     },
+    "UserListFilters": {
+      "name": "UserListFilters",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Filtres du listing utilisateur (sous-ensemble non portable de `IUserListQuery`)."
+    },
+    "UserPageWindow": {
+      "name": "UserPageWindow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Fenêtre + tri résolus (le défaut `identifier ASC` est posé par l'appelant)."
+    },
     "findUserIdBySocialProvider": {
       "name": "findUserIdBySocialProvider",
       "kind": "function",
@@ -7208,6 +7226,22 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Réservation **atomique** d'une clé d'idempotence en **MySQL** — l'équivalent du `INSERT … ON CONFLICT DO UPDATE … WHERE expiré RETURNING` des dialectes sqlite/pg (cf `DrizzleIdempotencyStore.begin`…"
+    },
+    "listUserIdsPage": {
+      "name": "listUserIdsPage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Sélectionne les `id` d'une **page** d'utilisateurs (filtres + tri + `LIMIT/ OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`."
+    },
+    "countUsers": {
+      "name": "countUsers",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Compte les utilisateurs qui matchent les filtres (`COUNT(*)` natif filtré) — base commune du `total` de la page ET du garde-fou `countActiveAdmins` (`{ enabled: true, role: adminRole }`)."
     },
     "SessionStorage": {
       "name": "SessionStorage",
@@ -12577,6 +12611,15 @@
       "module": "@nodefony/user",
       "extends": null,
       "description": "Contrat de **fourniture** d'utilisateurs — la source d'identité (DB, LDAP, SSO...). Consommé par les authenticators de `@nodefony/security` : il découple la stratégie d'authentification du stockage…"
+    },
+    "IUserListQuery": {
+      "name": "IUserListQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": "IPageQuery",
+      "description": "Requête de **listing paginé** d'utilisateurs — le contrat de page standard du core ({@link IPageQuery}) enrichi des filtres propres à l'utilisateur. Ces filtres ne sont **pas portables** au `Criter…"
     },
     "IUserRepository": {
       "name": "IUserRepository",
@@ -19522,7 +19565,8 @@
         "MemoryInvalidInputError"
       ],
       "IPageQuery": [
-        "PageQuery"
+        "PageQuery",
+        "IUserListQuery"
       ],
       "Omit": [
         "IEntityDefinition"
@@ -23474,13 +23518,34 @@
         "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
+      "IUserListQuery": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
       "IUserRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
+      "IPage": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "countUsers": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"
+      ],
       "findUserIdBySocialProvider": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"
+      ],
+      "listUserIdsPage": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"
       ],
       "UserRow": [
@@ -24209,11 +24274,8 @@
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts"
       ],
       "IPageQuery": [
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts"
-      ],
-      "IPage": [
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts"
       ],
       "PageQuery": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",

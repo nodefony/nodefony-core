@@ -1,10 +1,12 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
 import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
+import type { IPage } from "nodefony";
 import type {
   IUser,
   IPasswordAuthenticatedUser,
   ISocialProvider,
 } from "../contracts/IUser";
+import type { IUserListQuery } from "../contracts/IUserRepository";
 import type { IPasswordBlocklist } from "../contracts/IPasswordBlocklist";
 import type { IPasswordEncoder } from "../contracts/IPasswordEncoder";
 import type { IPasswordVerifier } from "../contracts/IPasswordVerifier";
@@ -128,6 +130,29 @@ export class UserService
     identifier: string,
   ): Promise<IPasswordAuthenticatedUser | null> {
     return this.repository.findByIdentifier(identifier);
+  }
+
+  /**
+   * Liste **paginée nativement** d'utilisateurs (filtres role/enabled/q) — délègue
+   * au repository, qui ne matérialise jamais plus d'une page. À préférer
+   * systématiquement à `find()` pour tout listing (data plane admin, écran).
+   *
+   * @param query - filtres + fenêtre de page.
+   * @returns une page d'utilisateurs ({@link IPage}).
+   */
+  listPage(query: IUserListQuery): Promise<IPage<IPasswordAuthenticatedUser>> {
+    return this.repository.listPage(query);
+  }
+
+  /**
+   * Compte les administrateurs actifs porteurs de `adminRole` — garde-fou
+   * anti-lockout calculé au store (jamais en chargeant tous les utilisateurs).
+   *
+   * @param adminRole - rôle d'administration à dénombrer.
+   * @returns le nombre d'admins actifs.
+   */
+  countActiveAdmins(adminRole: string): Promise<number> {
+    return this.repository.countActiveAdmins(adminRole);
   }
 
   /**

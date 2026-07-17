@@ -7,12 +7,18 @@ import type {
 import { BaseUser } from "@nodefony/user";
 import type {
   IPasswordAuthenticatedUser,
+  IUserListQuery,
   IUserRepository,
 } from "@nodefony/user";
+import type { IPage } from "nodefony";
 import type { DrizzleDb } from "./orm-core/DrizzleRepository";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
-import { findUserIdBySocialProvider } from "./queryKit";
+import {
+  countUsers,
+  findUserIdBySocialProvider,
+  listUserIdsPage,
+} from "./queryKit";
 import type { UserRow } from "../entity/userTable";
 
 /** Critère typé sur la ligne `User` (sous-ensemble compatible avec le contrat). */
@@ -234,5 +240,63 @@ export class DrizzleUserRepository implements IUserRepository {
       return null;
     }
     return this.findOne({ id } as Criteria<IPasswordAuthenticatedUser>);
+  }
+
+  /**
+   * {@inheritDoc IUserRepository.listPage}
+   *
+   * SQL natif (queryKit, routé par dialecte) → **uniquement les `id`** de la page
+   * (containment de rôle + `LIKE` insensible casse non exprimables par le query
+   * builder portable), puis rechargement des lignes complètes par le chemin typé
+   * (`find({ id: $in })`, parsing JSON/booléens cohérent), **ré-ordonnées** selon
+   * le tri SQL. Jamais plus d'une page matérialisée.
+   */
+  async listPage(
+    query: IUserListQuery,
+  ): Promise<IPage<IPasswordAuthenticatedUser>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const filters = { role: query.role, enabled: query.enabled, q: query.q };
+    const order =
+      query.order && query.order.length > 0
+        ? query.order
+        : ([["identifier", "ASC"]] as Array<[string, "ASC" | "DESC"]>);
+
+    const { ids, hasNext } = await listUserIdsPage(
+      this.#db,
+      this.#dialect,
+      filters,
+      {
+        limit,
+        offset,
+        order,
+      },
+    );
+    const total =
+      query.withTotal === false
+        ? undefined
+        : await countUsers(this.#db, this.#dialect, filters);
+
+    if (ids.length === 0) {
+      return { items: [], total, limit, offset, hasNext };
+    }
+    // Recharge typée en 1 requête, puis ré-ordonne selon l'ordre du tri SQL
+    // (le `IN (...)` ne garantit pas l'ordre) — coût O(page), borné par `limit`.
+    const rows = await this.#base.find({
+      id: { $in: ids },
+    } as unknown as UserCriteria);
+    const byId = new Map(rows.map((row) => [row.id, this.#toUser(row)]));
+    const items = ids
+      .map((id) => byId.get(id))
+      .filter((u): u is IPasswordAuthenticatedUser => u !== undefined);
+    return { items, total, limit, offset, hasNext };
+  }
+
+  /** {@inheritDoc IUserRepository.countActiveAdmins} */
+  countActiveAdmins(adminRole: string): Promise<number> {
+    return countUsers(this.#db, this.#dialect, {
+      enabled: true,
+      role: adminRole,
+    });
   }
 }

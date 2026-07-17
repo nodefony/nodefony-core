@@ -9,7 +9,7 @@ export type { IPasswordBlocklist } from "./IPasswordBlocklist";
 export type { IPasswordEncoder } from "./IPasswordEncoder";
 export type { IPasswordVerifier } from "./IPasswordVerifier";
 export type { IUserProvider } from "./IUserProvider";
-export type { IUserRepository } from "./IUserRepository";
+export type { IUserRepository, IUserListQuery } from "./IUserRepository";
 export type {
   IOAuthProfile,
   IOAuthProvisionPolicy,

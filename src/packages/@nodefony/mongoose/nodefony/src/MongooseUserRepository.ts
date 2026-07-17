@@ -2,8 +2,10 @@ import type { ClientSession, Connection, Model } from "mongoose";
 import { BaseUser } from "@nodefony/user";
 import type {
   IPasswordAuthenticatedUser,
+  IUserListQuery,
   IUserRepository,
 } from "@nodefony/user";
+import type { IPage } from "nodefony";
 import type {
   Criteria,
   IRepository,
@@ -12,6 +14,14 @@ import type {
 } from "@nodefony/orm-core";
 import type { MongooseOrm } from "./orm-core/MongooseOrm";
 import type { UserRow } from "../entity/userEntity";
+
+/** Colonnes autorisées au tri (allowlist) → clé de tri Mongo. */
+const ORDERABLE = new Set(["identifier", "enabled", "createdAt", "updatedAt"]);
+
+/** Échappe les métacaractères d'expression régulière (recherche `q` = sous-chaîne littérale). */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 /** Critère typé sur la ligne `User`. */
 type UserCriteria = Criteria<UserRow>;
@@ -225,5 +235,74 @@ export class MongooseUserRepository implements IUserRepository {
     return doc
       ? this.#toUser(doc.toObject({ virtuals: true }) as unknown as UserRow)
       : null;
+  }
+
+  /** Construit le filtre Mongo natif des filtres de listing (role/enabled/q). */
+  #listFilter(query: IUserListQuery): Record<string, unknown> {
+    const filter: Record<string, unknown> = {};
+    // `roles: role` matche un ÉLÉMENT du tableau (containment natif Mongo).
+    if (query.role !== undefined) filter.roles = query.role;
+    if (query.enabled !== undefined) filter.enabled = query.enabled;
+    if (query.q !== undefined && query.q.length > 0) {
+      filter.identifier = { $regex: escapeRegExp(query.q), $options: "i" };
+    }
+    return filter;
+  }
+
+  /**
+   * {@inheritDoc IUserRepository.listPage}
+   *
+   * Query native Mongo : `find(filter).sort().skip().limit(limit + 1)` — le store
+   * ne renvoie qu'une page (jamais de matérialisation complète). `roles: role` =
+   * containment de tableau natif, `$regex/i` = sous-chaîne insensible casse.
+   * `_id` en tiebreaker de tri (pagination offset déterministe).
+   */
+  async listPage(
+    query: IUserListQuery,
+  ): Promise<IPage<IPasswordAuthenticatedUser>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const filter = this.#listFilter(query);
+
+    const sort: Record<string, 1 | -1> = {};
+    const specs = (query.order ?? []).filter(([k]) => ORDERABLE.has(k));
+    for (const [key, dir] of specs.length > 0
+      ? specs
+      : ([["identifier", "ASC"]] as Array<[string, "ASC" | "DESC"]>)) {
+      sort[key] = dir === "DESC" ? -1 : 1;
+    }
+    sort._id = 1; // tiebreaker déterministe
+
+    let cursor = this.#model
+      .find(filter)
+      .sort(sort)
+      .skip(offset)
+      .limit(limit + 1);
+    if (this.#session) cursor = cursor.session(this.#session);
+    const docs = await cursor.exec();
+
+    const hasNext = docs.length > limit;
+    const page = hasNext ? docs.slice(0, limit) : docs;
+    const items = page.map((doc) =>
+      this.#toUser(doc.toObject({ virtuals: true }) as unknown as UserRow),
+    );
+
+    let total: number | undefined;
+    if (query.withTotal !== false) {
+      let countQuery = this.#model.countDocuments(filter);
+      if (this.#session) countQuery = countQuery.session(this.#session);
+      total = await countQuery.exec();
+    }
+    return { items, total, limit, offset, hasNext };
+  }
+
+  /** {@inheritDoc IUserRepository.countActiveAdmins} */
+  async countActiveAdmins(adminRole: string): Promise<number> {
+    let countQuery = this.#model.countDocuments({
+      enabled: true,
+      roles: adminRole,
+    });
+    if (this.#session) countQuery = countQuery.session(this.#session);
+    return countQuery.exec();
   }
 }

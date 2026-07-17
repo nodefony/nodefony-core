@@ -1,12 +1,22 @@
 import { randomUUID } from "node:crypto";
 import type { Criteria, ITransaction } from "@nodefony/orm-core";
+import type { IPage } from "nodefony";
 import { BaseUser } from "./BaseUser";
 import type { IBaseUserOptions } from "./BaseUser";
 import type {
   IPasswordAuthenticatedUser,
   ISocialProvider,
+  IUserListQuery,
   IUserRepository,
 } from "../contracts/index";
+
+/** Ramène une valeur de champ à une primitive comparable (tri déterministe). */
+function sortable(value: unknown): string | number {
+  if (typeof value === "number") return value;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (value instanceof Date) return value.getTime();
+  return String(value ?? "");
+}
 
 /**
  * Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat
@@ -66,11 +76,15 @@ export class InMemoryUserRepository implements IUserRepository {
   create(
     data: Partial<IPasswordAuthenticatedUser>,
   ): Promise<IPasswordAuthenticatedUser> {
-    // `socialProviders` est un champ d'entité hors du contrat credential — le
-    // provisioning OAuth (Shadow User) le passe ; sans lui, le 2ᵉ login ne
-    // retrouverait pas le compte (findBySocialProvider) → doublons.
+    // `socialProviders`/`enabled`/`locked` sont des champs d'ENTITÉ hors du
+    // contrat credential — les backends réels (Drizzle/Mongoose) les persistent
+    // à la création (via le repo de base) ; le store mémoire fait de même pour
+    // rester à parité (sans `socialProviders`, le 2ᵉ login OAuth ne retrouverait
+    // pas le compte → doublons ; sans `enabled`, impossible de seeder un inactif).
     const d = data as Partial<IPasswordAuthenticatedUser> & {
       socialProviders?: ISocialProvider[];
+      enabled?: boolean;
+      locked?: boolean;
     };
     const user = new BaseUser({
       id: randomUUID(),
@@ -78,6 +92,8 @@ export class InMemoryUserRepository implements IUserRepository {
       roles: d.roles ? [...d.roles] : [],
       password: d.password ?? null,
       socialProviders: d.socialProviders,
+      enabled: d.enabled,
+      locked: d.locked,
     });
     this.#store.set(user.id, user);
     return Promise.resolve(user);
@@ -219,6 +235,65 @@ export class InMemoryUserRepository implements IUserRepository {
         ),
       ) ?? null,
     );
+  }
+
+  /**
+   * {@inheritDoc IUserRepository.listPage}
+   *
+   * In-memory : la collection est déjà en RAM (bornée par conception), donc le
+   * filtrage/tri/slice se fait sur la structure — pas de matérialisation
+   * supplémentaire. `total` gratuit (longueur du filtré) sauf `withTotal: false`.
+   */
+  listPage(query: IUserListQuery): Promise<IPage<IPasswordAuthenticatedUser>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const q = query.q?.toLowerCase();
+
+    let filtered = [...this.#store.values()];
+    if (query.role !== undefined) {
+      filtered = filtered.filter((u) => u.roles.includes(query.role as string));
+    }
+    if (query.enabled !== undefined) {
+      filtered = filtered.filter((u) => u.isActive() === query.enabled);
+    }
+    if (q !== undefined && q.length > 0) {
+      filtered = filtered.filter((u) => u.identifier.toLowerCase().includes(q));
+    }
+
+    const order =
+      query.order && query.order.length > 0
+        ? query.order
+        : ([["identifier", "ASC"]] as Array<[string, "ASC" | "DESC"]>);
+    filtered.sort((a, b) => {
+      for (const [key, dir] of order) {
+        const av = sortable((a as unknown as Record<string, unknown>)[key]);
+        const bv = sortable((b as unknown as Record<string, unknown>)[key]);
+        let cmp: number;
+        if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+        else cmp = String(av).localeCompare(String(bv));
+        if (cmp !== 0) return dir === "DESC" ? -cmp : cmp;
+      }
+      return 0;
+    });
+
+    const items = filtered.slice(offset, offset + limit);
+    const total = query.withTotal === false ? undefined : filtered.length;
+    return Promise.resolve({
+      items,
+      total,
+      limit,
+      offset,
+      hasNext: offset + items.length < filtered.length,
+    });
+  }
+
+  /** {@inheritDoc IUserRepository.countActiveAdmins} */
+  countActiveAdmins(adminRole: string): Promise<number> {
+    let count = 0;
+    for (const u of this.#store.values()) {
+      if (u.isActive() && u.roles.includes(adminRole)) count += 1;
+    }
+    return Promise.resolve(count);
   }
 }
 

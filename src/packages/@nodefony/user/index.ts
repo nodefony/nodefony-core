@@ -26,6 +26,7 @@ export type {
   IPasswordVerifier,
   IUserProvider,
   IUserRepository,
+  IUserListQuery,
   IOAuthProfile,
   IOAuthProvisionPolicy,
   IOAuthUserProvisioner,

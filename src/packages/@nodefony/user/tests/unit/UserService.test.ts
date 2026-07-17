@@ -10,6 +10,7 @@ import {
   WeakPasswordError,
   type IPasswordAuthenticatedUser,
   type IUserRepository,
+  type IUserListQuery,
 } from "../../index";
 
 // Coût bcrypt bas — accélère hash/verify sans changer la logique testée.
@@ -155,6 +156,37 @@ class MemoryUserRepo implements IUserRepository {
 
   findBySocialProvider() {
     return Promise.resolve<IPasswordAuthenticatedUser | null>(null);
+  }
+
+  listPage(query: IUserListQuery) {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const q = query.q?.toLowerCase();
+    const role = query.role;
+    let filtered = [...this.store.values()];
+    if (role !== undefined)
+      filtered = filtered.filter((u) => u.roles.includes(role));
+    if (query.enabled !== undefined)
+      filtered = filtered.filter((u) => u.isActive() === query.enabled);
+    if (q)
+      filtered = filtered.filter((u) => u.identifier.toLowerCase().includes(q));
+    filtered.sort((a, b) => a.identifier.localeCompare(b.identifier));
+    const items = filtered.slice(offset, offset + limit);
+    return Promise.resolve({
+      items: items as IPasswordAuthenticatedUser[],
+      total: query.withTotal === false ? undefined : filtered.length,
+      limit,
+      offset,
+      hasNext: offset + items.length < filtered.length,
+    });
+  }
+
+  countActiveAdmins(adminRole: string) {
+    return Promise.resolve(
+      [...this.store.values()].filter(
+        (u) => u.isActive() && u.roles.includes(adminRole),
+      ).length,
+    );
   }
 }
 

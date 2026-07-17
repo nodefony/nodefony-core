@@ -179,3 +179,164 @@ export async function reserveIdempotencyKeyMysql(
   );
   return ((stolen as { affectedRows?: number })?.affectedRows ?? 0) > 0;
 }
+
+// ─── Listing paginé natif des utilisateurs (contrat `IUserRepository.listPage`) ──
+//
+// Même principe que `findUserIdBySocialProvider` : les filtres role/q descendent
+// au SQL natif (containment JSON + `LIKE` insensible casse — non exprimables par
+// le query builder portable), mais on ne SÉLECTIONNE QUE les `id` de la page ;
+// le repository recharge ensuite les lignes complètes par le chemin typé (parsing
+// JSON/booléens cohérent). Le queryKit émet ET exécute, routé par dialecte.
+
+/** Identifiant quoté selon le dialecte (`"x"` SQL standard, `` `x` `` MySQL). */
+function ident(dialect: SqlDialect, name: string): SQL {
+  return dialect === "mysql"
+    ? sql.raw("`" + name + "`")
+    : sql.raw('"' + name + '"');
+}
+
+/** Filtres du listing utilisateur (sous-ensemble non portable de `IUserListQuery`). */
+export interface UserListFilters {
+  role?: string;
+  enabled?: boolean;
+  q?: string;
+}
+
+/** Fenêtre + tri résolus (le défaut `identifier ASC` est posé par l'appelant). */
+export interface UserPageWindow {
+  limit: number;
+  offset: number;
+  order: Array<[string, "ASC" | "DESC"]>;
+}
+
+/** Colonnes autorisées au tri (allowlist stricte — le nom est concaténé, pas bindé). */
+const ORDERABLE = new Set([
+  "identifier",
+  "enabled",
+  "createdAt",
+  "updatedAt",
+  "id",
+]);
+
+/** Condition `enabled = ?` — booléen natif en PG, `0/1` ailleurs (better-sqlite3/mysql2). */
+function enabledCond(dialect: SqlDialect, flag: boolean): SQL {
+  const col = ident(dialect, "enabled");
+  if (dialect === "postgres") return sql`${col} = ${flag}`;
+  return sql`${col} = ${flag ? 1 : 0}`;
+}
+
+/** Condition « le tableau JSON `roles` contient `role` » — forme native du dialecte. */
+function roleCond(dialect: SqlDialect, role: string): SQL {
+  const roles = ident(dialect, "roles");
+  switch (dialect) {
+    case "sqlite":
+      return sql`EXISTS (SELECT 1 FROM json_each(${roles}) WHERE value = ${role})`;
+    case "postgres":
+      return sql`${roles} @> ${JSON.stringify([role])}::jsonb`;
+    case "mysql":
+      return sql`JSON_CONTAINS(${roles}, ${JSON.stringify(role)})`;
+  }
+}
+
+/** Condition `LOWER(identifier) LIKE %q%` (sous-chaîne insensible à la casse, `%`/`_` échappés). */
+function likeIdentifierCond(dialect: SqlDialect, q: string): SQL {
+  const idCol = ident(dialect, "identifier");
+  const escaped = q.toLowerCase().replace(/[\\%_]/g, (c) => "\\" + c);
+  const pattern = `%${escaped}%`;
+  // MySQL réinterprète `\` dans les littéraux → doubler ; ailleurs `\` est littéral.
+  const esc = dialect === "mysql" ? sql.raw("'\\\\'") : sql.raw("'\\'");
+  return sql`LOWER(${idCol}) LIKE ${pattern} ESCAPE ${esc}`;
+}
+
+/** Compose la clause WHERE des filtres actifs (undefined si aucun filtre). */
+function userWhere(dialect: SqlDialect, f: UserListFilters): SQL | undefined {
+  const conds: SQL[] = [];
+  if (f.enabled !== undefined) conds.push(enabledCond(dialect, f.enabled));
+  if (f.role !== undefined) conds.push(roleCond(dialect, f.role));
+  if (f.q !== undefined && f.q.length > 0) {
+    conds.push(likeIdentifierCond(dialect, f.q));
+  }
+  if (conds.length === 0) return undefined;
+  return sql.join(conds, sql` AND `);
+}
+
+/** `ORDER BY` depuis l'allowlist + tiebreaker `id ASC` (pagination offset déterministe). */
+function orderBy(
+  dialect: SqlDialect,
+  order: Array<[string, "ASC" | "DESC"]>,
+): SQL {
+  const specs = order.filter(([k]) => ORDERABLE.has(k));
+  const use = specs.length > 0 ? specs : [["identifier", "ASC"] as const];
+  const chunks = use.map(
+    ([k, dir]) =>
+      sql`${ident(dialect, k)} ${sql.raw(dir === "DESC" ? "DESC" : "ASC")}`,
+  );
+  if (!use.some(([k]) => k === "id")) {
+    chunks.push(sql`${ident(dialect, "id")} ASC`);
+  }
+  return sql.join(chunks, sql`, `);
+}
+
+/** Exécute un SELECT et normalise le retour en tableau de lignes (API native divergente). */
+async function runSelect(
+  db: DrizzleDb,
+  dialect: SqlDialect,
+  query: SQL,
+): Promise<Array<Record<string, unknown>>> {
+  switch (dialect) {
+    case "sqlite":
+      return (await db.all(query)) as Array<Record<string, unknown>>;
+    case "postgres":
+      return (await (db as unknown as PgExecutor).execute(query)).rows;
+    case "mysql": {
+      const [rows] = await (db as unknown as MysqlExecutor).execute(query);
+      return rows as Array<Record<string, unknown>>;
+    }
+  }
+}
+
+/**
+ * Sélectionne les `id` d'une **page** d'utilisateurs (filtres + tri + `LIMIT/
+ * OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`.
+ *
+ * @returns les `id` de la page (au plus `window.limit`, dans l'ordre du tri) et
+ *   `hasNext`.
+ */
+export async function listUserIdsPage(
+  db: DrizzleDb,
+  dialect: SqlDialect,
+  filters: UserListFilters,
+  window: UserPageWindow,
+): Promise<{ ids: string[]; hasNext: boolean }> {
+  const limit = Math.max(1, Math.floor(window.limit));
+  const offset = Math.max(0, Math.floor(window.offset));
+  const where = userWhere(dialect, filters);
+  const whereSql = where ? sql` WHERE ${where}` : sql``;
+  const query = sql`SELECT ${ident(dialect, "id")} AS id FROM ${ident(dialect, "User")}${whereSql}
+      ORDER BY ${orderBy(dialect, window.order)} LIMIT ${limit + 1} OFFSET ${offset}`;
+  const rows = await runSelect(db, dialect, query);
+  const ids = rows
+    .map((r) => r.id)
+    .filter((id): id is string => typeof id === "string");
+  const hasNext = ids.length > limit;
+  return { ids: hasNext ? ids.slice(0, limit) : ids, hasNext };
+}
+
+/**
+ * Compte les utilisateurs qui matchent les filtres (`COUNT(*)` natif filtré) —
+ * base commune du `total` de la page ET du garde-fou `countActiveAdmins`
+ * (`{ enabled: true, role: adminRole }`).
+ *
+ * @returns le nombre de lignes correspondantes.
+ */
+export async function countUsers(
+  db: DrizzleDb,
+  dialect: SqlDialect,
+  filters: UserListFilters,
+): Promise<number> {
+  const where = userWhere(dialect, filters);
+  const whereSql = where ? sql` WHERE ${where}` : sql``;
+  const query = sql`SELECT COUNT(*) AS cnt FROM ${ident(dialect, "User")}${whereSql}`;
+  const rows = await runSelect(db, dialect, query);
+  return Number(rows[0]?.cnt ?? 0);
+}

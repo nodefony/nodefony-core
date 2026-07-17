@@ -286,11 +286,6 @@ function readRoles(value: unknown): string[] | undefined {
   return roles;
 }
 
-/** Compte les administrateurs **actifs** (porteurs d'`ADMIN_ROLE` non désactivés). */
-function countActiveAdmins(all: IUser[]): number {
-  return all.filter((u) => u.isActive() && u.roles.includes(ADMIN_ROLE)).length;
-}
-
 /**
  * Statut du sous-système utilisateur — miroir consommé par la console Studio
  * (« où on écrit »). `store` = **backend** de persistance (`memory`/`drizzle`/
@@ -373,27 +368,23 @@ export function createUserAdminApi(container: Container): IAdminApi {
         if (!users) {
           return { status: 503, body: { error: "user service unavailable" } };
         }
-        const all = (await users.find()) as IUser[];
         const role = one(request.query, "role");
         const enabled = one(request.query, "enabled");
-        const q = one(request.query, "q")?.toLowerCase();
-        let filtered = all;
-        if (role !== undefined) {
-          filtered = filtered.filter((u) => u.roles.includes(role));
-        }
-        if (enabled !== undefined) {
-          const want = enabled === "true";
-          filtered = filtered.filter((u) => u.isActive() === want);
-        }
-        if (q !== undefined && q.length > 0) {
-          filtered = filtered.filter((u) =>
-            u.identifier.toLowerCase().includes(q),
-          );
-        }
+        const q = one(request.query, "q");
         const { limit, offset } = pageParams(request.query);
+        // Pagination NATIVE au store — JAMAIS un `find()` complet matérialisé en
+        // RAM (règle perf/mémoire) : les filtres role/enabled/q descendent dans
+        // le backend, qui ne renvoie qu'une page.
+        const page = await users.listPage({
+          limit,
+          offset,
+          ...(role !== undefined ? { role } : {}),
+          ...(enabled !== undefined ? { enabled: enabled === "true" } : {}),
+          ...(q !== undefined && q.length > 0 ? { q } : {}),
+        });
         return {
-          items: filtered.slice(offset, offset + limit).map(toUserSummary),
-          total: filtered.length,
+          items: page.items.map(toUserSummary),
+          total: page.total ?? page.items.length,
           limit,
           offset,
         };
@@ -546,8 +537,8 @@ export function createUserAdminApi(container: Container): IAdminApi {
             };
           }
           if (losesAdmin) {
-            const all = (await users.find()) as IUser[];
-            if (countActiveAdmins(all) <= 1) {
+            // Garde-fou au store (COUNT natif), pas un `find()` complet en RAM.
+            if ((await users.countActiveAdmins(ADMIN_ROLE)) <= 1) {
               return {
                 status: 409,
                 body: { error: "cannot demote the last active admin" },
@@ -566,8 +557,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
               };
             }
             if (target.isActive() && target.roles.includes(ADMIN_ROLE)) {
-              const all = (await users.find()) as IUser[];
-              if (countActiveAdmins(all) <= 1) {
+              if ((await users.countActiveAdmins(ADMIN_ROLE)) <= 1) {
                 return {
                   status: 409,
                   body: { error: "cannot disable the last active admin" },
@@ -859,8 +849,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
           };
         }
         if (target.isActive() && target.roles.includes(ADMIN_ROLE)) {
-          const all = (await users.find()) as IUser[];
-          if (countActiveAdmins(all) <= 1) {
+          if ((await users.countActiveAdmins(ADMIN_ROLE)) <= 1) {
             return {
               status: 409,
               body: { error: "cannot delete the last active admin" },
