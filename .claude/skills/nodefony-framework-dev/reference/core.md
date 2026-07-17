@@ -25,29 +25,72 @@
 ### Service injectable (DI)
 
 ```typescript
-import { injectable, inject, Service } from "nodefony";
+import { injectable, inject, Module, Service, Container } from "nodefony";
 
-@injectable({ singleton: true, name: "user-service" }) // défaut scope=singleton
+@injectable() // token = la CLASSE ; scope "singleton" par défaut
 export class UserService extends Service {
-  // ⚠️ tsx (tests) n'émet PAS design:paramtypes → TOUJOURS nommer @inject explicitement
+  // 1er param = le MODULE porteur (tout service en a besoin : il y prend son container).
+  // ⚠️ tsx (tests) n'émet PAS design:paramtypes → TOUJOURS nommer @inject explicitement.
   constructor(
-    @inject("database") private db: Database,
-    @inject("syslog") private log: Syslog,
+    module: Module,
+    @inject("DrizzleService") private db: DrizzleService,
   ) {
-    super("user-service");
+    super("userService", module.container as Container); // ← LA clé du container
   }
   async findById(id: string): Promise<IUser | null> {
-    this.log.log(`lookup ${id}`, "DEBUG");
+    this.log(`lookup ${id}`, "DEBUG");
     return this.db.query<IUser>("SELECT * FROM users WHERE id = ?", [id]); // bindé
   }
 }
 ```
 
+**Les DEUX noms d'un service** (la chose à comprendre une fois pour toutes) :
+
+| Ce que tu écris             | Ce que ça nomme                            | Sert à                      |
+| --------------------------- | ------------------------------------------ | --------------------------- |
+| `@injectable()` / `("Foo")` | la **CLASSE**, au registre des injectables | `@inject("…")`, le type     |
+| `super("userService", …)`   | l'**INSTANCE**, sa clé dans le container   | `kernel.get("userService")` |
+
+Ils n'ont **aucune raison** d'être égaux, et le décorateur ne peut pas connaître le second (il
+s'exécute au _chargement_ de la classe ; `super()` à la _construction_). Le DI les réconcilie via la
+CLASSE : la clé container est **apprise** quand `addService` pose l'instance, donc `@inject("UserService")`
+(nom de classe) **et** `kernel.get("userService")` (clé) rendent la MÊME instance.
+→ Reste libre de les aligner (`HttpKernel`/`"HttpKernel"`) ou non (`Router`/`"router"`) : les deux marchent.
+
 - `@inject("x")` (minuscule) = **paramètre ctor** (`inject:services` sur le constructeur).
 - `@Inject("x")` (Majuscule) = **propriété** post-ctor (`inject:properties` sur le **prototype**),
   `private x!: T` (definite assignment ; `undefined` pendant `super()`). Confondre les deux = bug silencieux.
-- Singleton déjà dans `kernel.get(name)` → court-circuit (pas de réinstanciation). `"transient"` → toujours new.
-- Récup runtime : `kernel.get<UserService>("user-service")`.
+- **`singleton` (défaut) = UNE instance**, mémoïsée au container. `"transient"` → toujours un new.
+- ⚠️ **Une dépendance ne reçoit JAMAIS les arguments de son parent** : elle se résout (container),
+  elle ne s'hérite pas. Donc un service résolu **comme dépendance** n'a pas d'arguments — s'il exige
+  son module, il ne doit être atteint qu'après avoir été posé (c'est le rôle de `@services`).
+
+**Utiliser le service** — trois chemins, tous vers la même instance :
+
+```typescript
+// 1. En dépendance d'un autre service (le plus courant) — par NOM DE CLASSE
+@injectable()
+export class OrderService extends Service {
+  constructor(
+    module: Module,
+    @inject("UserService") private users: UserService,
+  ) {
+    super("orderService", module.container as Container);
+  }
+}
+
+// 2. Depuis un controller (per-request) — par la clé container
+class OrderController extends Controller {
+  async index() {
+    const users = this.kernel.get<UserService>("userService");
+    return this.renderJson(await users.findById("42"));
+  }
+}
+
+// 3. N'importe où, hors DI
+const users = Nodefony.getKernel()?.get<UserService>("userService");
+```
+
 - Sévérités log : `EMERGENCY ALERT CRITIC(!=CRITICAL) ERROR WARNING NOTICE INFO DEBUG` (+ `SPINNER=-1`).
 
 ### Logging (`Service.log` — tout service en hérite)
@@ -89,9 +132,16 @@ export class MyModule extends Module {
 }
 ```
 
-- `@services([...])` → `onPreBoot` (erreurs **catchées**+log, boot continue → vérifier
-  `container.has("x")`). ⚠️ `@modules` et `@entities` N'EXISTENT PLUS (retirés — la liste des
-  modules vit dans le manifeste `config.modules` de `nodefony.config.ts`, cf chantier defineConfig).
+- `@services([...])` → instancie à `onPreBoot` et pose chaque instance au container.
+  ⚠️ `@modules` et `@entities` N'EXISTENT PLUS (retirés — la liste des modules vit dans le manifeste
+  `config.modules` de `nodefony.config.ts`, cf chantier defineConfig).
+- **L'ORDRE de la liste ne compte pas** : il est recalculé depuis les dépendances déclarées
+  (`@inject` + types) — tri topologique **stable** (une liste déjà correcte sort inchangée). Un cycle
+  lève une erreur qui NOMME le cycle. → Écris la liste dans l'ordre qui te parle.
+- **Un service qui échoue suit la politique de boot** (jamais un skip silencieux) :
+  **fatal en production** (ou sur erreur de config) → le boot s'interrompt ; **fail-soft ailleurs**,
+  mais **ANNONCÉ** — agrégé au BootReport, qui fait dire « boot DÉGRADÉ » au superviseur. Vaut pour
+  la **construction** comme pour l'`init`. Override par module : `static override critical = false`.
 - Le ctor `Module` attache **toujours** 1 listener (`onBoot` → service `rollup`) même sans hook : normal.
 - `onKernelBoot` = bon endroit pour s'enregistrer comme **producteur admin** ou **storage de session**.
 
@@ -452,17 +502,29 @@ onBoot onReady onServersReady onPostReady onTerminate=1<<10`.
 
 ### DI : `Injector` + `@injectable`/`@inject`/`@Inject`
 
-`kernel/injector/injector.ts:23` — `class Injector extends Service`. Registre statique `Injector.injectables` `:24` (global).
-Le ctor `(kernel)` `:26` auto-enregistre `Fetch`.
+`kernel/injector/injector.ts` — `class Injector extends Service`. **Deux** registres statiques (globaux) :
+`Injector.injectables` (nom → CLASSE, `Object.create(null)` — un objet littéral ferait répondre
+`isRegistered("toString"|"constructor")` **vrai** et `register("__proto__")` déracinerait le registre)
+et `containerKeys` (CLASSE → clé container réelle, **le token**). Le ctor `(kernel)` déclare **et pose**
+`Fetch` (déclarer sans poser = un `new Fetch()` par résolution, donc par requête).
 
-| Membre         | Signature                      | Rôle                                       | Ancre |
-| -------------- | ------------------------------ | ------------------------------------------ | ----- |
-| `register`     | `static (name, Ctor): Ctor`    | throw si name vide ou Ctor null            | `:35` |
-| `isRegistered` | `static (name): boolean`       | `name in injectables` (O(1))               | `:45` |
-| `getScope`     | `static (name): DIScope`       | lit `di:scope`, défaut `"singleton"`       | `:49` |
-| `get`          | `static (name): Ctor`          | throw `not found or not injectable`        | `:55` |
-| `instantiate`  | `static <T>(Ctor, ...args): T` | point d'entrée (→ `_instantiateWithStack`) | `:78` |
-| `inject`       | `static <T>(Ctor, ...args): T` | alias `instantiate`                        | `:63` |
+| Membre                 | Signature                       | Rôle                                                                  |
+| ---------------------- | ------------------------------- | --------------------------------------------------------------------- |
+| `register`             | `static (name, Ctor): Ctor`     | throw si name vide/Ctor null ; **le dernier gagne** (override assumé) |
+| `isRegistered`         | `static (name): boolean`        | `name in injectables` (O(1))                                          |
+| `getScope`             | `static (name): DIScope`        | lit `di:scope`, défaut `"singleton"`                                  |
+| `get`                  | `static (name): Ctor`           | throw `not found or not injectable`                                   |
+| `rememberContainerKey` | `static (Ctor, key): void`      | **apprend** le couple (classe, clé) — appelé par `addService`         |
+| `containerKeyOf`       | `static (Ctor): string \| null` | où l'instance vit réellement ; `null` = jamais posée                  |
+| `instantiate`          | `static <T>(Ctor, ...args): T`  | point d'entrée — **construit toujours** (ne lit pas le container)     |
+| `inject`               | `static <T>(Ctor, ...args): T`  | alias `instantiate`                                                   |
+
+**Résolution d'une dépendance** (`_resolveWithStack`) : le nom retrouve la **CLASSE** → la classe dit
+la clé (`containerKeyOf(Ctor) ?? nom`) → `kernel.get(clé)` ; absent → instancie **sans argument**, puis
+mémoïse sous la clé **canonique** (`instance.name`) et l'apprend. Un échec de construction lève une
+erreur **actionnable** (nomme le service, son demandeur, et le remède), `cause` chaînée.
+⚠️ `instantiate(X)` sur la classe RACINE ne consulte jamais le container : le scope ne gouverne que
+les **dépendances**.
 
 Types exportés : `DIScope = "singleton" \| "transient"` `:9`, `InjectableOptions` `:11`. Décorateurs (`kernelDecorator.ts:146`) :
 `@injectable(nameOrOptions?)` (register + pose `di:scope`), `@inject("name")` (paramètre ctor → metadata `inject:services`
@@ -626,8 +688,11 @@ chaque `Pdu` via `Pdu.requestIdProvider` (branché Node-only dans `index.ts:381-
   jamais `CRITICAL`**.
 - **`Container.set()` après `clean()`** → throw `Container bad argument name` (message trompeur ; vraie cause : `services===null`).
   **`get(name)` retourne `null`** quand `null` est stocké (indistinguable de « absent »).
-- **Erreurs `@services` catchées** : un service qui crash à `onPreBoot` est **absent du container** mais le boot CONTINUE →
-  vérifier `container.has("x")` après boot ou lire les logs ERROR.
+- **Un service `@services` qui crash suit la politique de boot** — jamais un skip silencieux :
+  **fatal en production** (le boot s'interrompt : mieux vaut un pod qui refuse de démarrer qu'un pod
+  amputé qui se déclare sain) ; **fail-soft ailleurs**, mais **ANNONCÉ** (BootReport → « boot
+  DÉGRADÉ »). Le service est alors absent du container → `container.has("x")` / logs. Vaut pour la
+  **construction** comme pour l'`init`. Module non critique : `static override critical = false`.
 - **Jamais dérefencer le kernel au top-level d'un fichier chargé à l'import d'un module** (`config.ts` etc.) : le kernel n'existe
   pas encore → crash `Cannot read properties of null`, module non-importable/testable. Utiliser un **getter lazy** ou un guard
   `Nodefony.getKernel()?.x ?? défaut` (pattern complet → `recipes-core.md`).

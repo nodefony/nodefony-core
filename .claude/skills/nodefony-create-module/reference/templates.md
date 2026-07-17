@@ -466,6 +466,12 @@ import defaultConfig, { type {{NameClass}}Config } from "../config/config";
  *  2. initialize : enregistre les listeners kernel (onReady, onTerminate, etc.)
  *  3. méthodes métier
  *
+ * DEUX noms, et c'est NORMAL :
+ *  - `@injectable()`        → la CLASSE, sous `{{NameClass}}Service` (sert à `@inject("…")`)
+ *  - `super("{{name}}", …)` → l'INSTANCE, clé du container (sert à `kernel.get("{{name}}")`)
+ * Le DI les réconcilie via la classe (la clé est apprise quand `@services` pose l'instance) :
+ * `@inject("{{NameClass}}Service")` et `kernel.get("{{name}}")` rendent la MÊME instance.
+ *
  * ⚠️ NE JAMAIS redéclarer `options: {{NameClass}}Config;` comme propriété — le parent
  * Service l'assigne déjà via le 4ème argument du super(). Utiliser `cfg` pour
  * l'accès typé sans TS2565 (`used before assigned`).
