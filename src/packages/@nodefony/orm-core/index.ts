@@ -20,6 +20,8 @@ export type {
   UpdateOperators,
   RepositoryReadOptions,
   ITransaction,
+  Page,
+  PageQuery,
 } from "./nodefony/interfaces/index";
 
 // ─── Critères riches (P7.4) — helper de détection d'opérateurs (lib pure) ────
@@ -43,6 +45,9 @@ export { Entity } from "./nodefony/src/Entity";
 // ─── Service CRUD générique — socle réutilisable sur IRepository<T> ──────────
 export { AbstractCrudService } from "./nodefony/src/AbstractCrudService";
 export type { ServiceWiring } from "./nodefony/src/serviceWiring";
+
+// ─── Pagination portable — contrat de page offset-first sur IRepository ──────
+export { paginate } from "./nodefony/src/paginate";
 
 // ─── Data plane ORM (graphe canonique IA-first + admin API + export DBML) ────
 export {

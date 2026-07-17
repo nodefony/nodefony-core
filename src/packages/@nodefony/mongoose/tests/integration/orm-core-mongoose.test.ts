@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { mongoTestUri } from "../helpers/mongoTestUri";
-import { entity, entityRegistry, ormRegistry } from "@nodefony/orm-core";
+import {
+  entity,
+  entityRegistry,
+  ormRegistry,
+  paginate,
+} from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { MongooseOrm } from "../../nodefony/src/orm-core/index";
 
@@ -87,6 +92,70 @@ describe.skipIf(!URI)(
 
       assert.equal(await users.delete({ id: created.id }), 1);
       assert.equal(await users.count(), 0);
+    });
+
+    it("paginate : page NATIVE (skip/limit + countDocuments) — offset-first, total, hasNext, Slice, criteria", async () => {
+      await users.delete({}); // collection propre
+      await users.createMany([
+        { email: "p10@x.io", age: 10 },
+        { email: "p20@x.io", age: 20 },
+        { email: "p30@x.io", age: 30 },
+        { email: "p40@x.io", age: 40 },
+      ]);
+      // Tri EXPLICITE : sans `sort`, l'ordre Mongo suit l'insertion/_id — jamais l'âge.
+
+      // Page 1/2 (age ASC) : [10,20], il reste 30/40 → hasNext, total exact.
+      const p1 = await paginate(users, {
+        limit: 2,
+        offset: 0,
+        order: [["age", "ASC"]],
+      });
+      assert.deepEqual(
+        p1.items.map((u) => u.age),
+        [10, 20],
+      );
+      assert.equal(p1.hasNext, true);
+      assert.equal(p1.total, 4, "countDocuments sur la collection entière");
+
+      // Page 2/2 : [30,40], plus de suite (le limit+1 ne trouve pas de 5ᵉ).
+      const p2 = await paginate(users, {
+        limit: 2,
+        offset: 2,
+        order: [["age", "ASC"]],
+      });
+      assert.deepEqual(
+        p2.items.map((u) => u.age),
+        [30, 40],
+      );
+      assert.equal(p2.hasNext, false);
+
+      // Slice (withTotal:false) : `total` omis, `hasNext` via le limit+1 (pas de count).
+      const slice = await paginate(users, {
+        limit: 2,
+        order: [["age", "ASC"]],
+        withTotal: false,
+      });
+      assert.equal(slice.total, undefined);
+      assert.equal(slice.hasNext, true);
+
+      // criteria : page ET total sur la collection FILTRÉE (age ≥ 30).
+      const filtered = await paginate(users, {
+        limit: 5,
+        criteria: { age: { $gte: 30 } },
+        order: [["age", "ASC"]],
+      });
+      assert.deepEqual(
+        filtered.items.map((u) => u.age),
+        [30, 40],
+      );
+      assert.equal(
+        filtered.total,
+        2,
+        "countDocuments filtré, pas la collection",
+      );
+      assert.equal(filtered.hasNext, false);
+
+      await users.delete({}); // cleanup — ne pas polluer les tests suivants
     });
 
     it("relation one-to-many : ref ObjectId + écriture/lecture portable", async () => {

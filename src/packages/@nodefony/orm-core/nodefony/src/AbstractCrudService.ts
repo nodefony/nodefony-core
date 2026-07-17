@@ -3,7 +3,10 @@ import type {
   IRepository,
   Criteria,
   RepositoryReadOptions,
+  Page,
+  PageQuery,
 } from "../interfaces/index";
+import { paginate } from "./paginate";
 import type { ServiceWiring } from "./serviceWiring";
 
 /**
@@ -92,6 +95,20 @@ export abstract class AbstractCrudService<
    */
   count(criteria?: Criteria<T>): Promise<number> {
     return this.repository.count(criteria);
+  }
+
+  /**
+   * Liste **une page** d'entités — pagination **native** (jamais matérialiser
+   * toute la collection). C'est la primitive à utiliser pour toute liste admin /
+   * data plane : elle ne charge qu'une page en mémoire, quelle que soit la taille
+   * de la table.
+   *
+   * @param page - requête de page ({@link PageQuery} : `limit` obligatoire,
+   *   `offset`/`order`/`criteria`/`withTotal` optionnels).
+   * @returns une {@link Page} : au plus `limit` items, `hasNext`, et `total` si demandé.
+   */
+  findPage(page: PageQuery<T>): Promise<Page<T>> {
+    return paginate(this.repository, page);
   }
 
   // ─── Mutations — hooks template-method + events de cycle de vie ─────────────

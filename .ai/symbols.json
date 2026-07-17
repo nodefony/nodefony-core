@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-17T14:37:52.105Z",
+  "generated": "2026-07-17T16:20:21.119Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1026,
-    "symbols": 2729,
+    "files": 1028,
+    "symbols": 2732,
     "classes": 326,
-    "interfaces": 713,
+    "interfaces": 715,
     "types": 321,
     "enums": 4,
-    "functions": 793,
+    "functions": 794,
     "constants": 572
   },
   "symbols": {
@@ -10437,6 +10437,24 @@
       "extends": null,
       "description": "Sonde profonde driver-spécifique retournée par {@link IOrm.probe}. Tous les champs sont optionnels : un adapter ne rapporte que ce qu'il sait mesurer."
     },
+    "PageQuery": {
+      "name": "PageQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Requête d'une **page** de résultats, portable cross-ORM — l'équivalent du `Pageable` de Spring Data. Le principe fondateur : on ne matérialise **jamais** toute une collection pour n'en montrer qu'u…"
+    },
+    "Page": {
+      "name": "Page",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Une **page** de résultats — aligné sur `Page`/`Slice` de Spring Data. `total` présent = mode **Page** (on a compté) ; `total` absent = mode **Slice** (on ne connaît que {@link Page.hasNext}). `hasN…"
+    },
     "FieldOperators": {
       "name": "FieldOperators",
       "kind": "interface",
@@ -10769,6 +10787,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Détermine si la sonde de flux ORM (`queryFlowMonitor`) doit être active : **OFF en production** (coût nul sur le hot path des requêtes), **ON sinon** (observabilité dev / Supervision). Override exp…"
+    },
+    "paginate": {
+      "name": "paginate",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Pagine un {@link IRepository} de façon **portable** — au-dessus des primitives natives `find(criteria, { limit, offset, order })` et `count(criteria)` que tout adapter implémente déjà (SQL `LIMIT/O…"
     },
     "queryFlowMonitor": {
       "name": "queryFlowMonitor",
@@ -23323,6 +23349,7 @@
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
@@ -23394,6 +23421,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
@@ -23417,6 +23445,7 @@
       "RepositoryReadOptions": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
@@ -24167,6 +24196,17 @@
       ],
       "IOrmPoolProbe": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts"
+      ],
+      "Page": [
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
+      ],
+      "PageQuery": [
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
+      ],
+      "paginate": [
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts"
       ],
       "ServiceWiring": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",

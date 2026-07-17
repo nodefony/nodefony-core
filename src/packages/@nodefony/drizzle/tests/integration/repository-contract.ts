@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
+import { entityRegistry, ormRegistry, paginate } from "@nodefony/orm-core";
 import { UnknownCriteriaField } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
@@ -327,6 +327,72 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
       tail.map((r) => r.score),
       [30, 40],
     );
+  });
+
+  it("paginate : page NATIVE (LIMIT+1 / OFFSET / COUNT) — offset-first, total, hasNext, Slice, criteria", async () => {
+    await seed(); // 4 lignes : score 10/20/30/40 (age 30/25/35/25)
+    // Tri EXPLICITE obligatoire : la PK est un UUID aléatoire → sans ORDER BY,
+    // l'ordre des pages varierait par backend (RETEX ordre implicite).
+
+    // Page 1/2 (score ASC) : [10,20], il reste 30/40 → hasNext, total exact.
+    const p1 = await paginate(repo, {
+      limit: 2,
+      offset: 0,
+      order: [["score", "ASC"]],
+    });
+    assert.deepEqual(
+      p1.items.map((r) => r.score),
+      [10, 20],
+    );
+    assert.equal(p1.hasNext, true, "il reste une page");
+    assert.equal(p1.total, 4, "COUNT natif sur la collection entière");
+    assert.equal(p1.limit, 2);
+    assert.equal(p1.offset, 0);
+
+    // Page 2/2 : [30,40], plus de suite (le LIMIT+1 ne trouve pas de 5ᵉ ligne).
+    const p2 = await paginate(repo, {
+      limit: 2,
+      offset: 2,
+      order: [["score", "ASC"]],
+    });
+    assert.deepEqual(
+      p2.items.map((r) => r.score),
+      [30, 40],
+    );
+    assert.equal(p2.hasNext, false, "dernière page");
+    assert.equal(p2.total, 4);
+
+    // Slice (withTotal:false) : `total` omis, `hasNext` vient du LIMIT+1 sans COUNT.
+    const slice = await paginate(repo, {
+      limit: 2,
+      offset: 0,
+      order: [["score", "ASC"]],
+      withTotal: false,
+    });
+    assert.equal(slice.total, undefined, "mode Slice : pas de COUNT");
+    assert.equal(slice.hasNext, true);
+    assert.deepEqual(
+      slice.items.map((r) => r.score),
+      [10, 20],
+    );
+
+    // criteria : la page ET le total portent sur la collection FILTRÉE (age=25).
+    const filtered = await paginate(repo, {
+      limit: 5,
+      criteria: { age: 25 },
+      order: [["score", "ASC"]],
+    });
+    assert.deepEqual(
+      filtered.items.map((r) => r.score),
+      [20, 40],
+      "seules les lignes age=25",
+    );
+    assert.equal(
+      filtered.total,
+      2,
+      "total = COUNT filtré, pas la table entière",
+    );
+    assert.equal(filtered.hasNext, false);
   });
 
   it("findOne : première du critère, null si absent", async () => {

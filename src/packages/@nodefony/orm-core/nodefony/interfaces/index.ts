@@ -11,6 +11,7 @@ export type {
   RepositoryReadOptions,
 } from "./IRepository";
 export type { ITransaction } from "./ITransaction";
+export type { Page, PageQuery } from "./IPage";
 export type {
   IColumnInfo,
   IConnectionInfo,
