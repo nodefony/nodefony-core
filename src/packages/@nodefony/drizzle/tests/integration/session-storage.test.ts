@@ -2,15 +2,29 @@ import assert from "node:assert/strict";
 import { RequestContext, type IProfilerQuery } from "nodefony";
 import { SessionsService } from "@nodefony/http";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
-import type { IRepository } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
 // L'import du storage déclenche son auto-enregistrement dans le registre http (IoC).
 import DrizzleSessionStorage from "../../nodefony/src/SessionStorage";
 import {
   registerSessionEntity,
   SESSION_CONNECTOR,
-  type SessionRow,
 } from "../../nodefony/entity/sessionEntity";
+
+/**
+ * Ce qui est PROPRE à ce fichier, et ne peut donc pas vivre au banc de parité
+ * (`session-store-contract.ts`, joué sur les 3 dialectes) :
+ *
+ * 1. **le registre IoC** — l'auto-enregistrement du storage dans `http` ne dépend
+ *    d'aucun dialecte (c'est du câblage, pas du SQL) ;
+ * 2. **le compteur de requêtes** — « write seul = 1 UPSERT, 0 SELECT » n'est PAS
+ *    un invariant portable : en mysql un `write` en coûte 2 (ODKU puis relecture,
+ *    faute de `RETURNING`). Le compter ici, en sqlite, garde le garde-fou
+ *    anti-« trou ORM » sans mentir sur les autres backends.
+ *
+ * Le CRUD (write/read/destroy), le gc (bornes idle ET absolue) et `listAll`
+ * (redaction) sont au banc — ils y sont vérifiés sur sqlite + postgres + mysql,
+ * au lieu d'une fois ici.
+ */
 
 /** Manager minimal (le storage n'utilise que les timeouts session + `log`). */
 const fakeManager = {
@@ -18,7 +32,7 @@ const fakeManager = {
   log: () => {},
 } as unknown as SessionsService;
 
-describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
+describe("Drizzle SessionStorage — registre IoC + coût en requêtes (sqlite)", () => {
   let orm: DrizzleOrm;
   let storage: DrizzleSessionStorage;
 
@@ -62,121 +76,14 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
     });
   });
 
-  // ── CRUD du storage backé par le repository orm-core Drizzle ───────────────
-  describe("CRUD", () => {
-    it("write puis read restitue Attributes/metaBag/flashBag/user", async () => {
-      await storage.write("sid1", {
-        Attributes: { a: 1 },
-        metaBag: { m: 2 },
-        flashBag: { f: 3 },
-        user: "bob",
-      });
-      const r = await storage.read("sid1");
-      assert.deepEqual(r.Attributes, { a: 1 });
-      assert.deepEqual(r.metaBag, { m: 2 });
-      assert.deepEqual(r.flashBag, { f: 3 });
-      assert.equal(r.user, "bob");
-      assert.ok(r.createdAt instanceof Date);
-    });
-
-    it("write sur le même id met à jour sans doublon (upsert)", async () => {
-      await storage.write("sid1", {
-        Attributes: { a: 9 },
-        metaBag: {},
-        flashBag: {},
-        user: "bob2",
-      });
-      assert.equal(await storage.open(), 1); // toujours 1 ligne
-      const r = await storage.read("sid1");
-      assert.deepEqual(r.Attributes, { a: 9 });
-      assert.equal(r.user, "bob2");
-    });
-
-    it("destroy supprime ; read renvoie un objet vide", async () => {
-      assert.equal(await storage.destroy("sid1"), true);
-      const r = await storage.read("sid1");
-      assert.deepEqual(r, {});
-      assert.equal(await storage.open(), 0);
-    });
-  });
-
-  // ── GC : opérateur riche portable ($lt) sur updatedAt ──────────────────────
-  describe("garbage collector", () => {
-    it("gc supprime les sessions expirées et garde les fraîches", async () => {
-      const repo = orm.getRepository<SessionRow>("session");
-      const now = Date.now();
-      await repo.create({
-        session_id: "old",
-        Attributes: {},
-        flashBag: {},
-        metaBag: {},
-        user: null,
-        createdAt: now - 10_000,
-        updatedAt: now - 10_000,
-      } as Partial<SessionRow>);
-      await repo.create({
-        session_id: "fresh",
-        Attributes: {},
-        flashBag: {},
-        metaBag: {},
-        user: null,
-        createdAt: now,
-        updatedAt: now,
-      } as Partial<SessionRow>);
-
-      await storage.gc(1); // cutoff = now - 1s → "old" (now-10s) supprimé
-
-      const rows = await repo.find();
-      assert.equal(rows.length, 1);
-      assert.equal(rows[0].session_id, "fresh");
-    });
-  });
-
-  // ── Énumération admin : listAll + filtre WHERE SQL + redaction à la source ──
-  describe("listAll (énumération admin)", () => {
-    beforeAll(async () => {
-      await storage.write("ls-1", {
-        Attributes: { secret: "TOP" }, // doit rester en base
-        metaBag: { ip: "1.1.1.1" },
-        flashBag: {},
-        user: "u-alice",
-      });
-      await storage.write("ls-2", {
-        Attributes: {},
-        metaBag: {},
-        flashBag: {},
-        user: "u-bob",
-      });
-      await storage.write("ls-3", {
-        Attributes: {},
-        metaBag: {},
-        flashBag: {},
-        user: "u-alice",
-      });
-    });
-
-    it("énumère en { id, data } et NE sort PAS Attributes de la base", async () => {
-      const mine = (await storage.listAll()).filter((r) =>
-        r.id.startsWith("ls-"),
-      );
-      assert.equal(mine.length, 3);
-      const a1 = mine.find((r) => r.id === "ls-1");
-      assert.equal(a1?.data.user, "u-alice");
-      assert.deepEqual(a1?.data.Attributes, {}); // secret jamais énuméré
-      assert.deepEqual(a1?.data.metaBag, { ip: "1.1.1.1" });
-    });
-
-    it("filtre par user via WHERE SQL réel", async () => {
-      const alice = await storage.listAll({ user: "u-alice" });
-      assert.deepEqual(alice.map((r) => r.id).sort(), ["ls-1", "ls-3"]);
-    });
-  });
-
   // ── Compteur de queries : anti-« trou ORM » (read→write = 1 SELECT) ─────────
   // Détecte un SELECT redondant dans le cycle de requête. Le SQL paramétré de
   // chaque requête ORM est capturé via le buffer profiler de l'ALS (même seam
   // que la debug bar : `RequestContext.get().queries`). Régression : si `write`
   // refait un findOne d'existence (au lieu de l'UPSERT), le compteur repasse à 2.
+  //
+  // ⚠️ sqlite/postgres UNIQUEMENT — en mysql l'upsert coûte 2 requêtes (ODKU +
+  // relecture, pas de RETURNING) : le nombre de requêtes n'est pas portable.
   describe("compteur de queries (anti-trou ORM)", () => {
     async function capture(fn: () => Promise<void>): Promise<string[]> {
       const queries: IProfilerQuery[] = [];
@@ -226,81 +133,6 @@ describe("Drizzle SessionStorage — mécanisme IoC + CRUD (P7.4)", () => {
         selects(sqls).length,
         1,
         `1 SELECT attendu (doublon de write éliminé) : ${JSON.stringify(sqls)}`,
-      );
-    });
-  });
-
-  // ── Verbes repository Tier 1+2 sur le repo générique (entité session) ───────
-  describe("verbes repository (createMany / exists / deleteOne / findOneAndDelete / increment)", () => {
-    const repo = (): IRepository<SessionRow> =>
-      orm.getRepository<SessionRow>("session");
-    const seed = (
-      id: string,
-      extra: Partial<SessionRow> = {},
-    ): Partial<SessionRow> => {
-      const now = Date.now();
-      return {
-        session_id: id,
-        Attributes: {},
-        flashBag: {},
-        metaBag: {},
-        user: null,
-        createdAt: now,
-        updatedAt: now,
-        ...extra,
-      } as Partial<SessionRow>;
-    };
-
-    it("createMany insère N en une requête (ordre préservé) ; [] = no-op", async () => {
-      assert.deepEqual(await repo().createMany([]), []);
-      const rows = await repo().createMany([seed("v-cm1"), seed("v-cm2")]);
-      assert.deepEqual(
-        rows.map((r) => r.session_id),
-        ["v-cm1", "v-cm2"],
-      );
-      assert.equal(await repo().count({ session_id: "v-cm1" }), 1);
-    });
-
-    it("exists = true/false (sans charger la ligne)", async () => {
-      await repo().create(seed("v-ex"));
-      assert.equal(await repo().exists({ session_id: "v-ex" }), true);
-      assert.equal(await repo().exists({ session_id: "v-nope" }), false);
-    });
-
-    it("deleteOne supprime AU PLUS une (true puis false)", async () => {
-      await repo().create(seed("v-del"));
-      assert.equal(await repo().deleteOne({ session_id: "v-del" }), true);
-      assert.equal(await repo().exists({ session_id: "v-del" }), false);
-      assert.equal(await repo().deleteOne({ session_id: "v-del" }), false);
-    });
-
-    it("findOneAndDelete retourne la ligne supprimée puis elle disparaît", async () => {
-      await repo().create(seed("v-fad", { user: "popme" }));
-      const row = await repo().findOneAndDelete({ session_id: "v-fad" });
-      assert.equal(row?.session_id, "v-fad");
-      assert.equal(row?.user, "popme");
-      assert.equal(await repo().exists({ session_id: "v-fad" }), false);
-      assert.equal(
-        await repo().findOneAndDelete({ session_id: "v-fad" }),
-        null,
-      );
-    });
-
-    it("increment ajoute un delta atomique (et décrémente) ; null si absent", async () => {
-      await repo().create(seed("v-inc", { updatedAt: 1000 }));
-      const up = await repo().increment(
-        { session_id: "v-inc" },
-        { updatedAt: 5 },
-      );
-      assert.equal(up?.updatedAt, 1005);
-      const down = await repo().increment(
-        { session_id: "v-inc" },
-        { updatedAt: -1000 },
-      );
-      assert.equal(down?.updatedAt, 5);
-      assert.equal(
-        await repo().increment({ session_id: "v-nope" }, { updatedAt: 1 }),
-        null,
       );
     });
   });

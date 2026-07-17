@@ -242,37 +242,60 @@ export function runSessionStoreContract(
   });
 
   describe("gc", () => {
-    it("supprime les sessions expirées, garde les fraîches, et COMPTE juste", async () => {
-      // Le compte remonté doit être le vrai (`changes` sqlite / `rowCount` pg /
-      // `affectedRows` mysql) — sinon le log ment sur ce qui a été purgé.
+    /** Pose une ligne aux horloges choisies (contourne le `now` interne du write). */
+    const seed = async (
+      id: string,
+      createdAt: number,
+      updatedAt: number,
+    ): Promise<void> => {
+      await repo().create({
+        session_id: id,
+        Attributes: {},
+        flashBag: {},
+        metaBag: {},
+        user: null,
+        createdAt,
+        updatedAt,
+      } as Partial<SessionRow>);
+    };
+
+    it("borne IDLE : purge les INACTIVES (updatedAt), garde les fraîches", async () => {
       await purge();
       const now = Date.now();
-      await repo().createMany([
-        {
-          session_id: "old",
-          Attributes: {},
-          flashBag: {},
-          metaBag: {},
-          user: null,
-          createdAt: now - 60_000,
-          updatedAt: now - 60_000,
-        },
-        {
-          session_id: "fresh",
-          Attributes: {},
-          flashBag: {},
-          metaBag: {},
-          user: null,
-          createdAt: now,
-          updatedAt: now,
-        },
-      ]);
-      const deleted = await repo().delete({
-        updatedAt: { $lt: now - 30_000 },
-      } as never);
-      assert.equal(deleted, 1, "le compte de suppression est RÉEL");
-      assert.ok(await repo().exists({ session_id: "fresh" }));
-      assert.equal(await repo().exists({ session_id: "old" }), false);
+      await seed("idle-old", now - 10_000, now - 10_000);
+      await seed("idle-fresh", now, now);
+      await storage.gc(1); // cutoff = now - 1s → seule "idle-old" tombe
+      assert.ok(await repo().exists({ session_id: "idle-fresh" }));
+      assert.equal(await repo().exists({ session_id: "idle-old" }), false);
+    });
+
+    it("borne ABSOLUE : une session ACTIVE mais trop VIEILLE meurt (re-auth NIST)", async () => {
+      // L'invariant de sécurité : `createdAt` n'est JAMAIS prolongé. Une session
+      // rafraîchie en continu (updatedAt = maintenant) doit quand même mourir
+      // passé l'âge absolu — sinon un vol de cookie dure indéfiniment. Les deux
+      // bornes sont deux DELETE distincts (pas de `$or`) → portable.
+      await purge();
+      const now = Date.now();
+      await seed("vieille-active", now - 100_000, now); // active MAIS née il y a 100s
+      await seed("jeune-active", now, now);
+      await storage.gc(3600, 10); // idle large, absolu = 10s
+      assert.equal(
+        await repo().exists({ session_id: "vieille-active" }),
+        false,
+        "l'âge absolu l'emporte sur l'activité",
+      );
+      assert.ok(await repo().exists({ session_id: "jeune-active" }));
+    });
+
+    it("borne absolue à 0 = DÉSACTIVÉE (aucune purge par l'âge)", async () => {
+      await purge();
+      const now = Date.now();
+      await seed("tres-vieille", now - 10_000_000, now);
+      await storage.gc(3600, 0); // 0 → la borne absolue ne s'applique pas
+      assert.ok(
+        await repo().exists({ session_id: "tres-vieille" }),
+        "absoluteSeconds = 0 ne purge rien",
+      );
     });
 
     it("gc() ne purge JAMAIS une session fraîche", async () => {
@@ -288,6 +311,15 @@ export function runSessionStoreContract(
         await repo().exists({ session_id: "vivante" }),
         "une session active survit au gc",
       );
+    });
+
+    it("gc REJOUÉ : idempotent (deux pods qui purgent ne se marchent pas dessus)", async () => {
+      await purge();
+      const now = Date.now();
+      await seed("r-old", now - 10_000, now - 10_000);
+      await storage.gc(1);
+      await storage.gc(1); // rejeu : rien de neuf, ne lève pas
+      assert.equal(await repo().count({}), 0);
     });
   });
 
