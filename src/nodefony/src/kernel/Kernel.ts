@@ -2586,6 +2586,31 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
+   * Applique la politique de criticité du boot à l'échec d'un service déclaré via
+   * `@services([...])` — **construction (`new`) comprise**, pas seulement `init`.
+   * Pendant symétrique de {@link guardServiceInitialize} pour le chemin décorateur.
+   *
+   * @remarks Le `catch` du décorateur `@services` avalait auparavant TOUT échec
+   *   (`log(e, "ERROR")` et rien d'autre) : il n'atteignait ni cette politique —
+   *   donc jamais fatal, **même en production** — ni le {@link getBootReport}, si
+   *   bien qu'un boot amputé d'un service critique se déclarait « UP ». Un service
+   *   qu'on ne peut pas CONSTRUIRE doit suivre exactement la règle de celui qu'on
+   *   ne peut pas INITIALISER.
+   *
+   * @param error - l'échec remonté par `addService`/`loadService`.
+   * @param serviceName - nom lisible (pour le log + le BootReport).
+   * @param critical - criticité du module porteur ({@link Module.critical}).
+   * @returns `true` si l'échec est fatal → l'appelant **doit** propager.
+   */
+  serviceBootErrorFatal(
+    error: unknown,
+    serviceName: string,
+    critical: boolean,
+  ): boolean {
+    return this.isBootErrorFatal(error, serviceName, critical, false, "init");
+  }
+
+  /**
    * Exécute un `initialize()` (module ou service kernel) sous garde de boot :
    * borné par {@link bootTimeoutMs} et soumis à {@link isBootErrorFatal}. Un
    * `initialize` qui se fige (connexion réseau qui pend) ne gèle plus le boot.

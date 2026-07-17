@@ -342,6 +342,43 @@ class Module<TConfig = Record<string, unknown>>
   }
 
   /**
+   * Politique d'échec d'un service déclaré via `@services([...])` : la MÊME que
+   * pour le reste du boot — fatal en production (ou sur une erreur de
+   * configuration), fail-soft **ANNONCÉ** ailleurs (agrégé au BootReport, qui
+   * fait dire « boot DÉGRADÉ » au superviseur). Jamais un skip silencieux.
+   *
+   * Appelée par le décorateur `@services`, dont le `catch` se contentait de
+   * logger : l'échec n'atteignait ni la politique de criticité ni le BootReport.
+   *
+   * @param error - l'échec remonté par `addService`/`loadService`.
+   * @param service - le constructeur (ou le chemin) du service fautif.
+   * @throws l'erreur d'origine si l'échec est fatal (production + module critique).
+   */
+  handleServiceBootError(
+    error: unknown,
+    service: string | ServiceConstructor,
+  ): void {
+    const serviceName =
+      typeof service === "string" ? service : (service?.name ?? "(anonyme)");
+    const kernel = this.kernel as Kernel | null;
+    if (!kernel) {
+      // Module orphelin (test isolé) : aucune politique de boot à appliquer.
+      this.log(error as Error, "ERROR");
+      return;
+    }
+    const critical = (this.constructor as typeof Module).critical;
+    if (
+      kernel.serviceBootErrorFatal(
+        error,
+        `${this.name} → ${serviceName}`,
+        critical,
+      )
+    ) {
+      throw error;
+    }
+  }
+
+  /**
    * Noms des services enregistrés par ce module (ordre d'ajout).
    * Vide tant qu'aucun service n'a été ajouté.
    */

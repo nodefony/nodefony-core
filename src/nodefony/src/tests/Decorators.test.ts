@@ -26,6 +26,16 @@ function makeKernelStub() {
     addModuleCalls,
     container,
     environment: "development" as const,
+    /**
+     * Politique d'échec d'un service (`@services`) — fait partie du contrat que
+     * le core attend d'un kernel. `development` → fail-soft, donc `false` :
+     * l'échec est annoncé (BootReport) mais ne propage pas. En `production` le
+     * vrai kernel renvoie `true` → le boot s'interrompt (cf. `isBootErrorFatal`,
+     * couvert par `services.attack.test.ts`).
+     */
+    serviceBootErrorFatal(): boolean {
+      return false;
+    },
     isModule(ctor: unknown): boolean {
       return (
         typeof ctor === "function" &&

@@ -28,18 +28,23 @@ function services(
           return await this.initDecoratorServices();
         });
       }
+      // Un service qui échoue passe par `handleServiceBootError` (Module) → la
+      // politique de criticité du boot : fatal en production, fail-soft ANNONCÉ
+      // (BootReport) ailleurs. Un simple `log(e, "ERROR")` — ce qui se faisait
+      // ici — n'atteignait NI la politique (jamais fatal, même en prod) NI le
+      // BootReport : un boot amputé d'un service critique se déclarait « UP ».
       private async initDecoratorServices() {
         if (Array.isArray(nameOrPath)) {
           for (const path of nameOrPath) {
             if (typeof path !== "string") {
               await this.addService(path as ServiceConstructor).catch(
                 (e: Error) => {
-                  this.log(e, "ERROR");
+                  this.handleServiceBootError(e, path as ServiceConstructor);
                 },
               );
             } else {
               await this.loadService(path as string).catch((e: Error) => {
-                this.log(e, "ERROR");
+                this.handleServiceBootError(e, path as string);
               });
             }
           }
@@ -47,12 +52,12 @@ function services(
           if (typeof nameOrPath === "string") {
             return await this.loadService(nameOrPath as string).catch(
               (e: Error) => {
-                this.log(e, "ERROR");
+                this.handleServiceBootError(e, nameOrPath as string);
               },
             );
           }
           return await this.addService(nameOrPath).catch((e: Error) => {
-            this.log(e, "ERROR");
+            this.handleServiceBootError(e, nameOrPath);
           });
         }
       }
@@ -128,8 +133,7 @@ function Inject(name?: string): PropertyDecorator {
       name ||
       (
         Reflect.getMetadata("design:type", target, propertyKey) as
-          | { name?: string }
-          | undefined
+          { name?: string } | undefined
       )?.name;
     if (!resolvedName) {
       throw new Error(

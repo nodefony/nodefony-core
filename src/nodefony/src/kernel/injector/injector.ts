@@ -123,7 +123,29 @@ class Injector extends Service {
       // Absent du container : on instancie, puis on MÉMOÏSE — sans quoi le scope
       // `singleton` rendrait une instance neuve à chaque résolution, dupliquant
       // l'état (cache, compteur, connexion) que le service est censé porter seul.
-      const instance = Injector._instantiateWithStack(Ctor, stack, []);
+      let instance: Service;
+      try {
+        instance = Injector._instantiateWithStack(Ctor, stack, []);
+      } catch (error) {
+        // Cas dominant : le service attend son module porteur, ne le reçoit pas
+        // (une dépendance se résout sans argument) et casse sur `module.container`
+        // — `Cannot read properties of undefined` ne dit RIEN de la vraie cause.
+        // La cause quasi certaine est un ORDRE : dans `@services([...])`, un
+        // service doit précéder ses consommateurs, sinon il n'est pas encore au
+        // container quand ils le réclament.
+        const requester = stack[stack.length - 1];
+        throw new Error(
+          `Cannot resolve service "${serviceName}"` +
+            (requester ? ` required by "${requester}"` : "") +
+            `: it is @injectable but absent from the kernel container, so it was ` +
+            `constructed without arguments — and its constructor threw ` +
+            `(${error instanceof Error ? error.message : String(error)}). ` +
+            `If "${serviceName}" is declared in @services([...]), list it BEFORE ` +
+            `its consumers: services are instantiated in order, and a service ` +
+            `must be in the container before anyone injects it.`,
+          { cause: error },
+        );
+      }
       kernel?.set(serviceName, instance);
       return instance;
     }

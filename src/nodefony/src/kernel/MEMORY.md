@@ -267,7 +267,20 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
 
 **Decorators module** (`@services`/`@entities`) :
 
-- `@services` → `onPreBoot` → addService|loadService (erreurs catchées)
+- `@services` → `onPreBoot` → addService|loadService (ordre de la liste = ordre d'instanciation)
+  - **Échec d'un service → politique de criticité du boot** (`Module.handleServiceBootError` →
+    `Kernel.serviceBootErrorFatal` → `isBootErrorFatal`) : **fatal en production** (ou
+    `BootConfigurationError`), **fail-soft ANNONCÉ** ailleurs (agrégé au BootReport → « boot
+    DÉGRADÉ »). ⚠️ Le `catch` se contentait de `log(e,"ERROR")` : l'échec n'atteignait ni la
+    politique (jamais fatal, même en PROD → pod amputé qui se dit sain) ni le BootReport (boot
+    cassé affiché « UP »). Un service qu'on ne peut pas CONSTRUIRE suit la règle de celui qu'on ne
+    peut pas INITIALISER — on gardait `init`, pas le `new`.
+  - 🔴 **L'ORDRE de la liste COMPTE** : un service doit précéder ses consommateurs (`@inject`), sinon
+    il n'est pas encore au container quand ils le réclament → il est reconstruit **sans argument**
+    → son ctor casse sur `module.container`. Vécu : `HttpKernel` descendu de 3 lignes dans
+    `http/index.ts:52` → 499 « sessionService not found » sur chaque requête. Aujourd'hui l'erreur
+    est actionnable (nomme service + demandeur + remède) ; le vrai fix = **tri topologique** (les
+    deps sont déclarées : `Reflect.getMetadata("inject:services", Ctor)`).
 - `@entities` → `onBoot` → addEntity|loadEntity
 - `prependOnceListener` (setEvents) toujours index 0 avant `once` (@services/@entities)
 
