@@ -3,7 +3,7 @@ import type {
   IRepository,
   Criteria,
   RepositoryReadOptions,
-  Page,
+  IPage,
   PageQuery,
 } from "../interfaces/index";
 import { paginate } from "./paginate";
@@ -107,7 +107,7 @@ export abstract class AbstractCrudService<
    *   `offset`/`order`/`criteria`/`withTotal` optionnels).
    * @returns une {@link Page} : au plus `limit` items, `hasNext`, et `total` si demandé.
    */
-  findPage(page: PageQuery<T>): Promise<Page<T>> {
+  findPage(page: PageQuery<T>): Promise<IPage<T>> {
     return paginate(this.repository, page);
   }
 

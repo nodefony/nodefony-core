@@ -20,7 +20,8 @@ export type {
   UpdateOperators,
   RepositoryReadOptions,
   ITransaction,
-  Page,
+  IPage,
+  IPageQuery,
   PageQuery,
 } from "./nodefony/interfaces/index";
 

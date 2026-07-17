@@ -365,6 +365,7 @@ export type {
   IdempotencyOutcome,
   IdempotentResponse,
 } from "./types/IIdempotencyStore";
+export type { IPage, IPageQuery } from "./types/IPage";
 export type { ISyslog } from "./types/ISyslog";
 export type { ITransport } from "./types/ITransport";
 export type { EnvironmentType, DebugType } from "./types/globals";

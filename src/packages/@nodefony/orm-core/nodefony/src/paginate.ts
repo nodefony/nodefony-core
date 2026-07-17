@@ -1,5 +1,5 @@
 import type { IRepository } from "../interfaces/IRepository";
-import type { Page, PageQuery } from "../interfaces/IPage";
+import type { IPage, PageQuery } from "../interfaces/IPage";
 
 /**
  * Pagine un {@link IRepository} de façon **portable** — au-dessus des primitives
@@ -21,7 +21,7 @@ import type { Page, PageQuery } from "../interfaces/IPage";
 export async function paginate<T>(
   repo: IRepository<T>,
   page: PageQuery<T>,
-): Promise<Page<T>> {
+): Promise<IPage<T>> {
   // Bornes sûres : une page a au moins 1 item, l'offset n'est jamais négatif.
   // Un `limit`/`offset` invalide est un bug appelant — on le normalise plutôt que
   // de propager un `find({ limit: 0 })` au comportement dépendant du dialecte.

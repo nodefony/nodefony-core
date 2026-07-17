@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-17T16:20:21.119Z",
+  "generated": "2026-07-17T16:58:54.633Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1028,
-    "symbols": 2732,
+    "files": 1029,
+    "symbols": 2733,
     "classes": 326,
-    "interfaces": 715,
+    "interfaces": 716,
     "types": 321,
     "enums": 4,
     "functions": 794,
@@ -2619,6 +2619,24 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Manifeste déclaratif des modules d'une application Nodefony, exposé via `config.modules`. Le Kernel en est le **seul orchestrateur** : il lit cette liste, la filtre (policy + `when` + environnement…"
+    },
+    "IPageQuery": {
+      "name": "IPageQuery",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "**LE contrat de pagination unique de Nodefony.** Tous les stores, toutes les API (présents et futurs) paginent avec ce type — c'est un standard de développement, jamais une pagination maison au cas…"
+    },
+    "IPage": {
+      "name": "IPage",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une **page** de résultats — la sortie unique de toute pagination Nodefony. `total` présent = mode **Page** (on a compté) ; absent = mode **Slice**. `hasNext` est fiable dans les deux cas. `nextCurs…"
     },
     "DefaultOptionsService": {
       "name": "DefaultOptionsService",
@@ -10443,17 +10461,8 @@
       "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
       "exported": true,
       "module": "@nodefony/orm-core",
-      "extends": null,
-      "description": "Requête d'une **page** de résultats, portable cross-ORM — l'équivalent du `Pageable` de Spring Data. Le principe fondateur : on ne matérialise **jamais** toute une collection pour n'en montrer qu'u…"
-    },
-    "Page": {
-      "name": "Page",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
-      "exported": true,
-      "module": "@nodefony/orm-core",
-      "extends": null,
-      "description": "Une **page** de résultats — aligné sur `Page`/`Slice` de Spring Data. `total` présent = mode **Page** (on a compté) ; `total` absent = mode **Slice** (on ne connaît que {@link Page.hasNext}). `hasN…"
+      "extends": "IPageQuery",
+      "description": "Requête de page pour un {@link IRepository} — le contrat de page core ({@link IPageQuery}) enrichi du `criteria` typé de l'ORM. C'est la forme que {@link paginate} consomme. Offset-first : `cursor`…"
     },
     "FieldOperators": {
       "name": "FieldOperators",
@@ -19512,6 +19521,9 @@
         "MemoryShutdownError",
         "MemoryInvalidInputError"
       ],
+      "IPageQuery": [
+        "PageQuery"
+      ],
       "Omit": [
         "IEntityDefinition"
       ],
@@ -23445,7 +23457,6 @@
       "RepositoryReadOptions": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
@@ -24197,7 +24208,10 @@
       "IOrmPoolProbe": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts"
       ],
-      "Page": [
+      "IPageQuery": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts"
+      ],
+      "IPage": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
       ],
