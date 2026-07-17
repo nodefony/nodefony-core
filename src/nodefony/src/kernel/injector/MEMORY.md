@@ -23,7 +23,7 @@
 ## Registre statique
 
 ```
-injectables: Record<string, ServiceConstructor>   ← module-level, partagé
+injectables = Object.create(null)                 ← module-level, partagé, SANS prototype
 Injector.injectables                              ← même référence (accès direct OK)
 Injector.register(name, Ctor)                     ← throw si name vide ou Ctor null
 Injector.isRegistered(name)                       ← O(1), `name in injectables`
@@ -32,16 +32,32 @@ Injector.getScope(name)                           ← lit "di:scope" metadata | 
 Injector.inject(Ctor, ...args)                    ← alias instantiate
 ```
 
+⚠️ `Object.create(null)` est **structurel, pas cosmétique** : un objet littéral hérite de
+`Object.prototype` → `isRegistered("toString"|"constructor"|"valueOf"|"hasOwnProperty")` répondait
+**true** (services fantômes), `get("toString")` rendait `Object.prototype.toString` comme
+constructeur, et `register("__proto__", X)` **déracinait le registre** (`call`/`apply`/`bind`
+devenaient injectables). Couvert par `tests/injector.attack.test.ts` (section B).
+
+**Override assumé** : `register` sur un nom pris **écrase** (le dernier gagne) — c'est un contrat
+(une app surcharge un service du framework), gravé par `Injector.test.ts` + sentinelle A1. Pas une
+faille : qui appelle `@injectable` exécute déjà du code arbitraire dans le process. Le risque réel
+est la collision ACCIDENTELLE, silencieuse (le registre n'a pas de logger — `Module.addService`, lui,
+WARN quand il écrase une clé du container).
+
 ---
 
 ## DIScope
 
 ```
-"singleton"  défaut — réutilise kernel.get(name) si présent, sinon new
+"singleton"  défaut — kernel.get(name) si présent, sinon instancie PUIS mémoïse (kernel.set)
 "transient"  toujours new — ignore container kernel
 ```
 
 Stocké : `Reflect.defineMetadata("di:scope", scope, Ctor)` par `@injectable`.
+
+**La mémoïsation range dans le container du KERNEL** (pas un cache statique : il fuirait d'un kernel
+à l'autre, tests compris). Corollaire assumé : **sans kernel, pas de mémoïsation possible** (aucun
+endroit où ranger) → deux résolutions = deux instances.
 
 ---
 
@@ -70,8 +86,8 @@ Stocké : `Reflect.defineMetadata("di:scope", scope, Ctor)` par `@injectable`.
 
     si aucune metadata → Reflect.construct(Ctor, argsClass)  ← backward compat
     sinon pour i in 0..max(len(paramTypes), len(injectExplicit)):
-      injectExplicit[i] → _resolveWithStack(name, argsClass, nextStack)  ← priorité
-      paramTypes[i].name in injectables → _resolveWithStack(type, argsClass, nextStack)
+      injectExplicit[i] → _resolveWithStack(name, nextStack)  ← priorité, SANS args
+      paramTypes[i].name in injectables → _resolveWithStack(type, nextStack)  ← SANS args
       sinon → argsClass[explicitIdx++]
     append argsClass restants
 
@@ -79,19 +95,29 @@ Stocké : `Reflect.defineMetadata("di:scope", scope, Ctor)` par `@injectable`.
     → _applyPropertyInjection(Ctor, instance, nextStack)
 ```
 
+🔑 **`argsClass` appartient à la classe construite, JAMAIS à ses dépendances** : une dépendance se
+RÉSOUT (container/registre), elle ne s'HÉRITE pas. Les propager donnait à une dépendance les args de
+son parent → un service recevait un objet d'un type qu'il n'attend pas, sans que TS ne voie rien
+(vécu : `Fetch(module: Module)` construit avec un `HttpContext` — ne tenait que par duck-typing sur
+`.container`). C'est aussi ce qui **interdisait toute mémoïsation** (on ne cache pas une instance
+dont les args varient). Couvert : `injector.attack.test.ts` section D.
+
 ---
 
-## `_resolveWithStack(name, argsClass, stack)`
+## `_resolveWithStack(name, stack)` — pas d'`argsClass` (cf. ci-dessus)
 
 ```
 isRegistered(name) ?
-  scope === "transient" → _instantiateWithStack(Ctor, stack, argsClass)
+  scope === "transient" → _instantiateWithStack(Ctor, stack, [])
   kernel && kernel.get(name) → retourne instance container  ← singleton court-circuit
-  sinon → _instantiateWithStack(Ctor, stack, argsClass)
+  sinon → inst = _instantiateWithStack(Ctor, stack, []) ; kernel?.set(name, inst) ; retourne inst
 sinon:
-  kernel.get(name) existe → retourne
+  kernel.get(name) existe → retourne                        ← fallback container
   sinon → throw "not found or not injectable"
 ```
+
+**Le container est interrogé avec le nom ÉCRIT dans `@inject`**, jamais avec le nom réel de
+l'instance → cf. Gotchas (divorce registre/container).
 
 ---
 
@@ -199,7 +225,26 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
 - `inject:services` → sur constructeur. `inject:properties` → sur **prototype**. Confusion = bug silencieux.
 - `@Inject()` sans nom + sans `design:type` → throw au moment du decorator
 - `design:paramtypes` : tsx/esbuild → absent. build rolldown (oxc) → présent si ≥ 1 decorator sur la classe.
-- `Fetch` auto-enregistré dans `new Injector(kernel)` — registre vide avant
+  ⚠️ **Le runtime buildé l'ÉMET** (`emitDecoratorMetadata: true` partout) → l'auto-injection par TYPE
+  est vivante en prod, même si 0 usage aujourd'hui dans le repo.
+- `Fetch` est **DÉCLARÉ ET POSÉ** dans `new Injector(kernel)` : `register("Fetch")` +
+  `kernel.set("Fetch", new Fetch(kernel))`. Déclarer sans poser laissait `kernel.get("Fetch")` vide
+  → `new Fetch()` à CHAQUE `@inject("Fetch")` (mesuré : 10 requêtes = 10 instances). Son ctor prend
+  `owner: Module | Kernel` — seul `.container` est utilisé.
+- 🔴 **DETTE — deux annuaires, un seul nom** : `@injectable(nom)` → clé du **registre** (classes) ;
+  `super(nom, container)` → `inst.name` → clé du **container** (instances, posée par `addService`).
+  Rien ne les relie : le décorateur tourne au CHARGEMENT de la classe, `super()` à la CONSTRUCTION.
+  1 seul des 7 `@injectable` round-trippe (`HttpKernel`) ; `Router`→`"router"`, `AdminBroker`→
+  `"adminBroker"`, `SessionsService`→`"sessions"`, `FrontendService`→`"frontend"`,
+  `MemoryIdempotencyStore`→`"idempotencyStore"` divergent. Conséquence contre-intuitive :
+  **être au registre est PIRE que ne pas y être** — `@inject("router")` marche (inconnu du registre →
+  fallback container), `@inject("Router")` non (registre → `get("Router")` → null). Cible = **token
+  = la CLASSE** (cf. NestJS/Angular/tsyringe), pas une chaîne. Gravé : `injector.attack.test.ts` C3
+  en `it.fails` → passera au vert tout seul quand la dette sera soldée (retirer le `.fails`).
+- 🔴 **DI ordre-dépendant** : les 6 `@inject("HttpKernel")` ne résolvent que parce que `HttpKernel`
+  est **1er** dans `@services([...])` de `http/index.ts` (instanciation séquentielle → posé au
+  container avant ses consommateurs). Le descendre dans la liste = 6 services reçoivent chacun un
+  HttpKernel privé — en silence. Aucun test ne l'attrape.
 - `Injector.injectables` global → isolation entre tests si on teste register/doublon
 - Property `!` (definite assignment) obligatoire — TS ne sait pas qu'elle sera assignée post-ctor
 - Stack `[...stack, name]` → jamais muter le tableau parent

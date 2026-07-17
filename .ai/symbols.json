@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T23:44:20.608Z",
+  "generated": "2026-07-17T11:42:51.339Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -20130,6 +20130,7 @@
         "src/packages/@nodefony/studio/index.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",

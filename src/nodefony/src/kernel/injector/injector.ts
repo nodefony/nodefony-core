@@ -18,7 +18,11 @@ export interface PropertyInjectMeta {
   name: string;
 }
 
-const injectables: Record<string, ServiceConstructor> = {};
+// Dictionnaire SANS prototype : un objet littéral hériterait de `Object.prototype`,
+// dont les membres (`toString`, `constructor`, `valueOf`…) répondraient alors à
+// `isRegistered()` comme autant de services fantômes que personne n'a enregistrés —
+// et `register("__proto__", …)` déracinerait le registre au lieu d'y poser une clé.
+const injectables: Record<string, ServiceConstructor> = Object.create(null);
 
 class Injector extends Service {
   static injectables: Record<string, ServiceConstructor> = injectables;
@@ -29,7 +33,13 @@ class Injector extends Service {
       kernel.container as Container,
       kernel.notificationsCenter as Event,
     );
+    // `Fetch` est le service « batteries incluses » du core : injectable partout
+    // via `@inject("Fetch")` sans qu'aucune app ait à le déclarer. On le DÉCLARE
+    // (registre) *et* on le POSE (container) ici : déclarer sans poser laissait
+    // `kernel.get("Fetch")` vide, donc un `new Fetch(...)` à CHAQUE résolution —
+    // un service par requête, là où le scope en promet un seul.
     Injector.register("Fetch", Fetch);
+    kernel.set("Fetch", new Fetch(kernel));
   }
 
   static register(
@@ -84,15 +94,17 @@ class Injector extends Service {
 
   // ─── Résolution par nom avec stack circulaire ─────────────────────────────────
   //
+  // Une DÉPENDANCE se résout sans argument : elle n'hérite jamais de ceux de son
+  // parent (cf. `_instantiateWithStack`). D'où l'absence d'`argsClass` ici.
+  //
   // Ordre de résolution :
   //   1. @injectable → scope détermine le comportement :
   //        transient : toujours nouvelle instance (container ignoré)
-  //        singleton : container kernel en premier, sinon nouvelle instance
+  //        singleton : container kernel en premier, sinon instanciée PUIS mémoïsée
   //   2. Non @injectable → container kernel (services ajoutés via kernel.set())
   //   3. Sinon → throw
   private static _resolveWithStack(
     serviceName: string,
-    argsClass: unknown[],
     stack: string[],
   ): unknown {
     if (Injector.isRegistered(serviceName)) {
@@ -101,14 +113,19 @@ class Injector extends Service {
         (Reflect.getMetadata("di:scope", Ctor) as DIScope) ?? "singleton";
 
       if (scope === "transient") {
-        return Injector._instantiateWithStack(Ctor, stack, argsClass);
+        return Injector._instantiateWithStack(Ctor, stack, []);
       }
 
       const kernel = Nodefony.getKernel();
       if (kernel && kernel.get(serviceName)) {
         return kernel.get(serviceName);
       }
-      return Injector._instantiateWithStack(Ctor, stack, argsClass);
+      // Absent du container : on instancie, puis on MÉMOÏSE — sans quoi le scope
+      // `singleton` rendrait une instance neuve à chaque résolution, dupliquant
+      // l'état (cache, compteur, connexion) que le service est censé porter seul.
+      const instance = Injector._instantiateWithStack(Ctor, stack, []);
+      kernel?.set(serviceName, instance);
+      return instance;
     }
 
     // Non @injectable → fallback sur le container kernel
@@ -131,7 +148,7 @@ class Injector extends Service {
       Reflect.getMetadata("inject:properties", constructor.prototype) || [];
     for (const { key, name } of propMetas) {
       (instance as Record<string, unknown>)[key as string] =
-        Injector._resolveWithStack(name, [], stack);
+        Injector._resolveWithStack(name, stack);
     }
     return instance;
   }
@@ -192,18 +209,19 @@ class Injector extends Service {
     for (let i = 0; i < totalParams; i++) {
       const explicitName = injectExplicit[i];
 
+      // `argsClass` appartient à la classe qu'on construit, PAS à ses dépendances :
+      // une dépendance se RÉSOUT (container/registre), elle ne s'HÉRITE pas. Les
+      // propager donnait à une dépendance les arguments de son parent — un service
+      // recevait alors un objet d'un type qu'il n'attend pas, sans que TypeScript
+      // ne voie rien (vécu : `Fetch(module: Module)` construit avec un `HttpContext`).
       if (explicitName) {
-        resolvedArgs.push(
-          Injector._resolveWithStack(explicitName, argsClass, nextStack),
-        );
+        resolvedArgs.push(Injector._resolveWithStack(explicitName, nextStack));
         continue;
       }
 
       const type = paramTypes[i] as { name?: string } | undefined;
       if (type?.name && Injector.isRegistered(type.name)) {
-        resolvedArgs.push(
-          Injector._resolveWithStack(type.name, argsClass, nextStack),
-        );
+        resolvedArgs.push(Injector._resolveWithStack(type.name, nextStack));
         continue;
       }
 

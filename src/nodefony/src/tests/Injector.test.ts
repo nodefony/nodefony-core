@@ -465,7 +465,9 @@ describe("Injector.instantiate — résolution depuis kernel container", () => {
 
   it("si kernel.get(name) retourne null → fallback sur le registre (nouvelle instance)", () => {
     const origGetKernel = Nodefony.getKernel;
-    const stubKernel = { get: (_name: string) => null };
+    // `set` fait partie du contrat kernel attendu par l'Injector : une résolution
+    // singleton absente du container y mémoïse l'instance créée.
+    const stubKernel = { get: (_name: string) => null, set: () => undefined };
     (Nodefony as any).getKernel = () => stubKernel;
 
     try {
@@ -491,6 +493,7 @@ describe("Injector.instantiate — résolution depuis kernel container", () => {
     const origGetKernel = Nodefony.getKernel;
     (Nodefony as any).getKernel = () => ({
       get: (n: string) => (n === "AutoB" ? shared : null),
+      set: () => undefined,
     });
 
     try {
