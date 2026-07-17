@@ -24,6 +24,22 @@ export interface PropertyInjectMeta {
 // et `register("__proto__", …)` déracinerait le registre au lieu d'y poser une clé.
 const injectables: Record<string, ServiceConstructor> = Object.create(null);
 
+// ─── Classe → clé container (le « token ») ───────────────────────────────────
+//
+// LE nœud du DI : `@injectable(nom)` indexe des CLASSES, `super(nom, container)`
+// indexe des INSTANCES, et les deux chaînes n'ont aucune raison d'être égales
+// (`Router` vs `"router"`). Le décorateur ne PEUT pas connaître la seconde : il
+// s'exécute au CHARGEMENT de la classe, `super()` seulement à la CONSTRUCTION.
+//
+// D'où l'apprentissage : au moment où un service est POSÉ au container
+// (`Module.addService` / `Kernel.addKernelService`), on connaît enfin le couple
+// (classe, clé). On s'en souvient, et toute résolution ultérieure passe par la
+// CLASSE — le nom écrit dans `@inject` ne sert plus qu'à la retrouver.
+//
+// Map (clés = constructeurs) et non objet : la clé est une référence, pas un nom
+// — c'est précisément le but. Alimentée au boot (une poignée d'entrées).
+const containerKeys = new Map<ServiceConstructor, string>();
+
 class Injector extends Service {
   static injectables: Record<string, ServiceConstructor> = injectables;
 
@@ -54,6 +70,35 @@ class Injector extends Service {
 
   static isRegistered(serviceName: string): boolean {
     return serviceName in injectables;
+  }
+
+  /**
+   * Mémorise la clé sous laquelle une classe de service vit RÉELLEMENT dans le
+   * container — apprise au moment où l'instance y est posée.
+   *
+   * @remarks Sans elle, `@inject("Router")` interrogeait le container avec
+   *   `"Router"` alors que l'instance y est rangée sous `"router"` (le nom de son
+   *   `super()`) : le container répondait `null` et le service était RECONSTRUIT,
+   *   son cache vide, silencieusement. Un seul des 7 `@injectable` échappait au
+   *   piège — `HttpKernel`, par coïncidence de casse.
+   *
+   * @param service - le constructeur, tel qu'enregistré par `@injectable`.
+   * @param containerKey - `instance.name`, la clé réelle du container.
+   */
+  static rememberContainerKey(
+    service: ServiceConstructor,
+    containerKey: string,
+  ): void {
+    if (!service || !containerKey) return;
+    containerKeys.set(service, containerKey);
+  }
+
+  /**
+   * Clé container connue d'une classe de service, ou `null` si elle n'a jamais
+   * été posée au container (rien à apprendre encore).
+   */
+  static containerKeyOf(service: ServiceConstructor): string | null {
+    return containerKeys.get(service) ?? null;
   }
 
   static getScope(serviceName: string): DIScope {
@@ -116,9 +161,15 @@ class Injector extends Service {
         return Injector._instantiateWithStack(Ctor, stack, []);
       }
 
+      // Le nom écrit dans `@inject` sert à retrouver la CLASSE ; c'est ELLE qui
+      // dit où l'instance vit (clé apprise quand le service a été posé). Sans ce
+      // relais, on interrogeait le container avec le nom DEMANDÉ — `"Router"` —
+      // là où l'instance est rangée sous `"router"` : réponse `null`, service
+      // reconstruit, cache vide, en silence.
       const kernel = Nodefony.getKernel();
-      if (kernel && kernel.get(serviceName)) {
-        return kernel.get(serviceName);
+      const key = Injector.containerKeyOf(Ctor) ?? serviceName;
+      if (kernel && kernel.get(key)) {
+        return kernel.get(key);
       }
       // Absent du container : on instancie, puis on MÉMOÏSE — sans quoi le scope
       // `singleton` rendrait une instance neuve à chaque résolution, dupliquant
@@ -146,7 +197,15 @@ class Injector extends Service {
           { cause: error },
         );
       }
-      kernel?.set(serviceName, instance);
+      // On range sous la clé CANONIQUE du service (le nom de son `super()`), pas
+      // sous le nom qu'on nous a demandé : sinon un `@inject("Router")` créerait
+      // au container un second `"Router"` à côté du `"router"` légitime — deux
+      // entrées, deux instances, le doublon qu'on cherche justement à tuer.
+      // Et on APPREND le couple (classe, clé) au passage : la prochaine
+      // résolution, par quelque nom que ce soit, retombera sur cette instance.
+      const canonicalKey = instance.name || serviceName;
+      Injector.rememberContainerKey(Ctor, canonicalKey);
+      kernel?.set(canonicalKey, instance);
       return instance;
     }
 

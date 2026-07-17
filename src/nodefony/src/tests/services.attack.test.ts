@@ -292,3 +292,89 @@ describe("RED-TEAM @services — l'ordre écrit ne décide plus du boot", () => 
     assert.strictEqual(k.getBootReport().modulesSkipped.length, 0);
   });
 });
+
+// ─── H. Le nom de classe ≠ la clé container (le cas Router/"router") ─────────
+//
+// Le trou de fond : `@injectable()` indexe la CLASSE sous son nom (`"Divergent"`),
+// `super("divergent", …)` range l'INSTANCE sous une AUTRE clé. 5 des 7 @injectable
+// du repo divergent ainsi (Router→"router", SessionsService→"sessions"…). Résoudre
+// par le nom interrogeait alors le container avec la mauvaise clé → null → service
+// reconstruit, cache vide, silencieusement.
+//
+// Ici on prouve le VRAI flux : kernel + module réels, service posé par addService.
+
+describe("RED-TEAM DI — nom de classe divergent de la clé container", () => {
+  /** Le pendant de `Router` : classe `Divergent`, clé container `"divergent"`. */
+  @injectable()
+  class Divergent extends Service {
+    public readonly uid = Math.random();
+    constructor(module: Module) {
+      super("divergent", module.container as Container);
+    }
+  }
+
+  /** Réclame la dépendance par son NOM DE CLASSE — ce que la doc recommande. */
+  class ByClassName extends Service {
+    public dep: Divergent;
+    constructor(module: Module, dep: Divergent) {
+      super("byClassName", module.container as Container);
+      this.dep = dep;
+    }
+  }
+  (inject("Divergent") as unknown as (t: any, k: undefined, i: number) => void)(
+    ByClassName,
+    undefined,
+    1,
+  );
+
+  @services([Divergent, ByClassName])
+  class DivergentModule extends Module {
+    constructor(kernel: Kernel) {
+      super("@nodefony/divergent", kernel, MODULE_PATH);
+    }
+  }
+
+  it("H1 — @inject(NomDeClasse) retrouve l'instance rangée sous une AUTRE clé", async () => {
+    const k = makeKernel("development");
+    await k.addModule(DivergentModule);
+    await firePreBoot(k);
+
+    const posed = k.get("divergent") as Divergent; // la clé RÉELLE du container
+    const consumer = k.get("byClassName") as ByClassName;
+
+    assert.ok(posed, "le service doit être au container sous sa clé `super()`");
+    assert.strictEqual(
+      consumer.dep,
+      posed,
+      'le consommateur tient une COPIE : `@inject("Divergent")` n\'a pas retrouvé ' +
+        'l\'instance rangée sous `"divergent"` — cache vide, état perdu, en silence',
+    );
+  });
+
+  it("H2 — aucun DOUBLON n'est créé au container sous le nom de classe", async () => {
+    // Le remède ne doit pas être pire : mémoïser sous le nom DEMANDÉ créerait un
+    // second service (`"Divergent"` à côté de `"divergent"`) — deux instances,
+    // le doublon qu'on cherche justement à tuer.
+    const k = makeKernel("development");
+    await k.addModule(DivergentModule);
+    await firePreBoot(k);
+
+    assert.ok(k.get("divergent"), "la clé canonique doit exister");
+    assert.ok(
+      !k.get("Divergent"),
+      "une entrée parasite sous le NOM DE CLASSE a été créée : le container " +
+        "porte deux services là où il n'en faut qu'un",
+    );
+  });
+
+  it("H3 — le boot ne se dégrade pas pour autant", async () => {
+    const k = makeKernel("development");
+    await k.addModule(DivergentModule);
+    await firePreBoot(k);
+    assert.strictEqual(
+      k.getBootReport().modulesSkipped.length,
+      0,
+      `reçu: ${JSON.stringify(k.getBootReport().modulesSkipped)}`,
+    );
+  });
+});

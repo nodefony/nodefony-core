@@ -1044,6 +1044,8 @@ class Kernel extends Service implements IKernel {
     // Service kernel = critique (true) : un `init` figé/échoué ne gèle
     // plus le boot — borné par timeout, fatal en prod, fail-soft en dev.
     await this.guardServiceInitialize(serviceInit, this, true);
+    // Apprend le couple (classe, clé container) — cf. `Module.addService`.
+    Injector.rememberContainerKey(service, inst.name);
     this.set<Service>(inst.name, inst);
     return this.get<Service>(inst.name);
   }

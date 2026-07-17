@@ -229,60 +229,57 @@ describe("RED-TEAM Injector — C. contrat du scope singleton", () => {
     assert.notStrictEqual(a.dep, b.dep);
   });
 
-  // ⚠️ DETTE OUVERTE — `it.fails` : ce test DOIT échouer aujourd'hui. Le jour où
-  // le token de résolution devient la CLASSE (et non une chaîne), il passera au
-  // vert et vitest signalera « expected to fail but passed » → retirer le .fails.
+  // LE trou historique : un service est enregistré au registre sous son NOM DE
+  // CLASSE ("Router") mais rangé au container sous la clé de son `super()`
+  // ("router"). Ces deux chaînes ne peuvent pas round-tripper — `@injectable`
+  // s'exécute au CHARGEMENT de la classe, `super("router", …)` à la CONSTRUCTION.
+  // Résolution par le NOM → `kernel.get("Router")` → null → service reconstruit,
+  // cache vide, en silence. 1 seul des 7 `@injectable` y échappait (`HttpKernel`,
+  // par coïncidence de casse).
   //
-  // Le trou : un service est enregistré au registre sous son NOM DE CLASSE
-  // ("Router") mais rangé au container sous la clé de son `super()` ("router").
-  // Ces deux chaînes ne peuvent pas round-tripper : `@injectable` s'exécute au
-  // chargement de la classe, `super("router", …)` seulement à la construction.
-  // L'option « ne plus propager les args » ne corrige pas ça — elle rend
-  // seulement le cas majoritaire BRUYANT (un service qui attend son module
-  // reçoit `undefined` → crash) au lieu de silencieux. Un service sans argument,
-  // lui, produit encore un doublon mémoïsé sous le mauvais nom.
-  it.fails(
-    "C3 — auto-injection par TYPE : le consumer reçoit le singleton du container, pas une copie",
-    () => {
-      @injectable()
-      class DivergentSvc extends Service {
-        public readonly uid = Math.random();
-        constructor() {
-          // Clé container DIFFÉRENTE du nom de classe — le cas de
-          // Router("router") / SessionsService("sessions") / AdminBroker(…).
-          super("divergentSvc", new Container());
-        }
+  // Depuis : le nom ne sert qu'à retrouver la CLASSE, et c'est ELLE qui dit où
+  // l'instance vit (clé apprise quand le service est posé — cf. `addService`).
+  it("C3 — nom divergent : le consumer reçoit le singleton du container, pas une copie", () => {
+    @injectable()
+    class DivergentSvc extends Service {
+      public readonly uid = Math.random();
+      constructor() {
+        // Clé container DIFFÉRENTE du nom de classe — le cas de
+        // Router("router") / SessionsService("sessions") / AdminBroker(…).
+        super("divergentSvc", new Container());
       }
+    }
 
-      const shared = new DivergentSvc();
-      class ConsumerByType extends Service {
-        public dep: DivergentSvc;
-        constructor(d: DivergentSvc) {
-          super("ConsumerByType", new Container());
-          this.dep = d;
-        }
+    const shared = new DivergentSvc();
+    class ConsumerByType extends Service {
+      public dep: DivergentSvc;
+      constructor(d: DivergentSvc) {
+        super("ConsumerByType", new Container());
+        this.dep = d;
       }
-      Reflect.defineMetadata(
-        "design:paramtypes",
-        [DivergentSvc],
-        ConsumerByType,
-      );
+    }
+    Reflect.defineMetadata("design:paramtypes", [DivergentSvc], ConsumerByType);
 
-      try {
-        // Le kernel ne le connaît que sous sa clé container réelle.
-        withKernel({ divergentSvc: shared }, () => {
-          const c = Injector.instantiate<any>(ConsumerByType as any);
-          assert.strictEqual(
-            c.dep,
-            shared,
-            "le consumer a reçu un service NEUF au lieu du singleton du container",
-          );
-        });
-      } finally {
-        unregister("DivergentSvc");
-      }
-    },
-  );
+    try {
+      // Ce que fait `Module.addService` en posant l'instance : il apprend le
+      // couple (classe, clé). On le rejoue ici — le vrai flux est prouvé de bout
+      // en bout par `services.attack.test.ts` H1/H2 (kernel + module réels).
+      Injector.rememberContainerKey(DivergentSvc as any, "divergentSvc");
+
+      // Le kernel ne le connaît que sous sa clé container réelle.
+      withKernel({ divergentSvc: shared }, () => {
+        const c = Injector.instantiate<any>(ConsumerByType as any);
+        assert.strictEqual(
+          c.dep,
+          shared,
+          "le consumer a reçu un service NEUF au lieu du singleton du container : " +
+            "le nom de classe ne retrouve pas la clé container",
+        );
+      });
+    } finally {
+      unregister("DivergentSvc");
+    }
+  });
 });
 
 // ─── E. `Fetch` — le service core est POSÉ, pas seulement déclaré ────────────

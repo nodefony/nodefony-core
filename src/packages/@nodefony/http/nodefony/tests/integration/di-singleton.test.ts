@@ -31,7 +31,19 @@ interface DiProbe {
   fetchPresent: boolean;
 }
 
-function get(path: string): Promise<{ status: number; body: DiProbe }> {
+interface TokenResult {
+  className: string;
+  containerKey: string;
+  posed: boolean;
+  learnedKey: string | null;
+  roundTrips: boolean;
+}
+interface DiTokens {
+  allRoundTrip: boolean;
+  results: TokenResult[];
+}
+
+function get<T = DiProbe>(path: string): Promise<{ status: number; body: T }> {
   return new Promise((resolve, reject) => {
     const req = http.request({ ...BASE, path, method: "GET" }, (res) => {
       let data = "";
@@ -40,7 +52,7 @@ function get(path: string): Promise<{ status: number; body: DiProbe }> {
         try {
           resolve({
             status: res.statusCode ?? 0,
-            body: JSON.parse(data) as DiProbe,
+            body: JSON.parse(data) as T,
           });
         } catch (e) {
           reject(new Error(`réponse non-JSON (${res.statusCode}): ${data}`));
@@ -76,6 +88,36 @@ describe("DI — intégrité du container (serveur réel)", () => {
     // avec le Context du controller là où son ctor attend un Module.
     const { body } = await get("/nodefony/test/di/probe");
     expect(body.fetchPresent, "Fetch n'est pas au container").to.be.true;
+  });
+
+  it("le nom de CLASSE retrouve l'instance, même quand la clé container diffère", async () => {
+    // Le trou de fond : `@injectable()` indexe la CLASSE (`Router`), `super("router")`
+    // range l'INSTANCE sous une AUTRE clé. 5 des 7 @injectable du repo divergent
+    // ainsi. Résoudre par le nom interrogeait le container avec la mauvaise clé →
+    // null → service reconstruit, cache vide, en silence. Un seul y échappait —
+    // `HttpKernel`, par coïncidence de casse (il sert ici de contrôle positif).
+    const { status, body } = await get<DiTokens>("/nodefony/test/di/tokens");
+    expect(status).to.equal(200);
+
+    const posed = body.results.filter((r) => r.posed);
+    expect(
+      posed.length,
+      "aucun service observé → le test ne prouve rien",
+    ).to.be.greaterThan(1);
+
+    const broken = posed.filter((r) => !r.roundTrips);
+    expect(
+      broken,
+      `ces services ne se retrouvent pas par leur nom de classe : ` +
+        broken
+          .map(
+            (r) =>
+              `${r.className} vit sous "${r.containerKey}" mais la classe pointe ` +
+              `sur "${r.learnedKey}"`,
+          )
+          .join(" · "),
+    ).to.deep.equal([]);
+    expect(body.allRoundTrip).to.be.true;
   });
 
   it("l'identité reste stable d'une requête à l'autre (pas de reconstruction)", async () => {

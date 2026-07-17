@@ -30,6 +30,10 @@ Injector.isRegistered(name)                       ← O(1), `name in injectables
 Injector.get(name)                                ← throw "not found or not injectable" si absent
 Injector.getScope(name)                           ← lit "di:scope" metadata | défaut "singleton"
 Injector.inject(Ctor, ...args)                    ← alias instantiate
+
+containerKeys: Map<ServiceConstructor, string>    ← LE TOKEN : classe → clé container réelle
+Injector.rememberContainerKey(Ctor, key)          ← appelé par addService quand l'instance est POSÉE
+Injector.containerKeyOf(Ctor)                     ← clé apprise | null (jamais posé)
 ```
 
 ⚠️ `Object.create(null)` est **structurel, pas cosmétique** : un objet littéral hérite de
@@ -108,16 +112,21 @@ dont les args varient). Couvert : `injector.attack.test.ts` section D.
 
 ```
 isRegistered(name) ?
+  Ctor = get(name)                                          ← le nom retrouve la CLASSE
   scope === "transient" → _instantiateWithStack(Ctor, stack, [])
-  kernel && kernel.get(name) → retourne instance container  ← singleton court-circuit
-  sinon → inst = _instantiateWithStack(Ctor, stack, []) ; kernel?.set(name, inst) ; retourne inst
+  key = containerKeyOf(Ctor) ?? name                        ← LA CLASSE dit où l'instance vit
+  kernel && kernel.get(key) → retourne instance container   ← singleton court-circuit
+  sinon → inst = _instantiateWithStack(Ctor, stack, [])
+          canonical = inst.name || name
+          rememberContainerKey(Ctor, canonical)             ← apprend pour la prochaine fois
+          kernel?.set(canonical, inst) ; retourne inst      ← clé CANONIQUE, jamais le nom demandé
 sinon:
   kernel.get(name) existe → retourne                        ← fallback container
-  sinon → throw "not found or not injectable"
+  sinon → throw "not found or not injectable" (message actionnable si le ctor casse)
 ```
 
-**Le container est interrogé avec le nom ÉCRIT dans `@inject`**, jamais avec le nom réel de
-l'instance → cf. Gotchas (divorce registre/container).
+**Le container est interrogé avec la clé de la CLASSE**, pas avec le nom écrit dans `@inject` —
+c'est ce qui réconcilie `@inject("Router")` et l'instance rangée sous `"router"`.
 
 ---
 
@@ -231,20 +240,22 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
   `kernel.set("Fetch", new Fetch(kernel))`. Déclarer sans poser laissait `kernel.get("Fetch")` vide
   → `new Fetch()` à CHAQUE `@inject("Fetch")` (mesuré : 10 requêtes = 10 instances). Son ctor prend
   `owner: Module | Kernel` — seul `.container` est utilisé.
-- 🔴 **DETTE — deux annuaires, un seul nom** : `@injectable(nom)` → clé du **registre** (classes) ;
-  `super(nom, container)` → `inst.name` → clé du **container** (instances, posée par `addService`).
-  Rien ne les relie : le décorateur tourne au CHARGEMENT de la classe, `super()` à la CONSTRUCTION.
-  1 seul des 7 `@injectable` round-trippe (`HttpKernel`) ; `Router`→`"router"`, `AdminBroker`→
-  `"adminBroker"`, `SessionsService`→`"sessions"`, `FrontendService`→`"frontend"`,
-  `MemoryIdempotencyStore`→`"idempotencyStore"` divergent. Conséquence contre-intuitive :
-  **être au registre est PIRE que ne pas y être** — `@inject("router")` marche (inconnu du registre →
-  fallback container), `@inject("Router")` non (registre → `get("Router")` → null). Cible = **token
-  = la CLASSE** (cf. NestJS/Angular/tsyringe), pas une chaîne. Gravé : `injector.attack.test.ts` C3
-  en `it.fails` → passera au vert tout seul quand la dette sera soldée (retirer le `.fails`).
-- 🔴 **DI ordre-dépendant** : les 6 `@inject("HttpKernel")` ne résolvent que parce que `HttpKernel`
-  est **1er** dans `@services([...])` de `http/index.ts` (instanciation séquentielle → posé au
-  container avant ses consommateurs). Le descendre dans la liste = 6 services reçoivent chacun un
-  HttpKernel privé — en silence. Aucun test ne l'attrape.
+- 🔑 **DEUX annuaires, réconciliés par la CLASSE** : `@injectable(nom)` → clé du **registre**
+  (classes) ; `super(nom, container)` → `inst.name` → clé du **container** (instances, posée par
+  `addService`). Les deux chaînes n'ont aucune raison d'être égales, et le décorateur ne PEUT pas
+  connaître la seconde (il tourne au CHARGEMENT de la classe, `super()` à la CONSTRUCTION). 5 des 7
+  divergent : `Router`→`"router"`, `AdminBroker`→`"adminBroker"`, `SessionsService`→`"sessions"`,
+  `FrontendService`→`"frontend"`, `MemoryIdempotencyStore`→`"idempotencyStore"` (seul `HttpKernel`
+  s'aligne — coïncidence de casse).
+  **Le token EST la classe** : `rememberContainerKey(Ctor, inst.name)` est appelé quand le service
+  est POSÉ (`Module.addService` / `Kernel.addKernelService`) — le seul instant où le couple est
+  connu. `_resolveWithStack` fait `containerKeyOf(Ctor) ?? serviceName` : le nom écrit dans
+  `@inject` ne sert QU'À retrouver la classe ; c'est elle qui dit où l'instance vit. 7/7 round-trip.
+  ⚠️ Clé inconnue = service jamais posé via `addService` (ex. `kernel.set()` manuel) → repli sur le
+  nom demandé (comportement historique). Le tri de `@services` garantit que la dépendance est posée
+  AVANT d'être réclamée → la clé est apprise à temps : les deux mécaniques se complètent.
+  Mémoïsation sous la clé **canonique** (`instance.name`), jamais sous le nom demandé — sinon on crée
+  le doublon qu'on veut tuer (`"Router"` à côté de `"router"`).
 - `Injector.injectables` global → isolation entre tests si on teste register/doublon
 - Property `!` (definite assignment) obligatoire — TS ne sait pas qu'elle sera assignée post-ctor
 - Stack `[...stack, name]` → jamais muter le tableau parent

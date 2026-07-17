@@ -61,6 +61,56 @@ class DiController extends Controller {
       fetchPresent: Boolean(kernel.get("Fetch")),
     });
   }
+
+  /**
+   * Round-trip du token : un service dont le NOM DE CLASSE diffère de sa clé
+   * container est-il résoluble par son nom de classe ?
+   *
+   * 5 des 7 `@injectable` du repo divergent (`Router` → `"router"`,
+   * `SessionsService` → `"sessions"`, `AdminBroker` → `"adminBroker"`…). Résoudre
+   * par le nom interrogeait le container avec la mauvaise clé → `null` → service
+   * RECONSTRUIT, cache vide, en silence. Le nom ne doit plus servir qu'à
+   * retrouver la classe ; c'est elle qui sait où l'instance vit.
+   *
+   * @returns pour chaque service : sa clé container, et si son nom de classe
+   *   retrouve bien LA même instance.
+   */
+  @route("di-tokens", { path: "/tokens", requirements: { methods: ["GET"] } })
+  tokens() {
+    const kernel = Nodefony.getKernel() as Kernel;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const injector = kernel.injector as any;
+
+    // (nom de classe tel qu'enregistré par @injectable, clé container réelle)
+    const cases: Array<[string, string]> = [
+      ["Router", "router"],
+      ["SessionsService", "sessions"],
+      ["AdminBroker", "adminBroker"],
+      ["MemoryIdempotencyStore", "idempotencyStore"],
+      ["FrontendService", "frontend"],
+      ["HttpKernel", "HttpKernel"], // le seul aligné — contrôle positif
+    ];
+
+    const results = cases.map(([className, containerKey]) => {
+      const posed = kernel.get(containerKey);
+      const Ctor = injector.constructor.injectables[className];
+      const learned = Ctor ? injector.constructor.containerKeyOf(Ctor) : null;
+      return {
+        className,
+        containerKey,
+        posed: Boolean(posed),
+        // La classe sait-elle où son instance vit ?
+        learnedKey: learned,
+        roundTrips: Boolean(posed) && learned === containerKey,
+      };
+    });
+
+    return this.renderJson({
+      // Tous les services POSÉS doivent round-tripper par leur nom de classe.
+      allRoundTrip: results.every((r) => !r.posed || r.roundTrips),
+      results,
+    });
+  }
 }
 
 export default DiController;
