@@ -59,7 +59,7 @@ class HealthyService extends Service {
 @services([BrokenService])
 class BrokenModule extends Module {
   constructor(kernel: Kernel) {
-    super("@nodefony/broken", kernel, MODULE_PATH);
+    super("@nodefony/broken", kernel, MODULE_PATH, {});
   }
 }
 
@@ -67,14 +67,14 @@ class BrokenModule extends Module {
 class NonCriticalBrokenModule extends Module {
   static override critical = false;
   constructor(kernel: Kernel) {
-    super("@nodefony/broken-soft", kernel, MODULE_PATH);
+    super("@nodefony/broken-soft", kernel, MODULE_PATH, {});
   }
 }
 
 @services([HealthyService])
 class HealthyModule extends Module {
   constructor(kernel: Kernel) {
-    super("@nodefony/healthy", kernel, MODULE_PATH);
+    super("@nodefony/healthy", kernel, MODULE_PATH, {});
   }
 }
 
@@ -246,7 +246,7 @@ describe("RED-TEAM @services — l'ordre écrit ne décide plus du boot", () => 
   @services([ProbeConsumer, ProbeDep])
   class ReversedOrderModule extends Module {
     constructor(kernel: Kernel) {
-      super("@nodefony/reversed", kernel, MODULE_PATH);
+      super("@nodefony/reversed", kernel, MODULE_PATH, {});
     }
   }
 
@@ -330,7 +330,7 @@ describe("RED-TEAM DI — nom de classe divergent de la clé container", () => {
   @services([Divergent, ByClassName])
   class DivergentModule extends Module {
     constructor(kernel: Kernel) {
-      super("@nodefony/divergent", kernel, MODULE_PATH);
+      super("@nodefony/divergent", kernel, MODULE_PATH, {});
     }
   }
 
