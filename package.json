@@ -29,6 +29,7 @@
     "test:integration": "turbo run test:integration",
     "test:load": "turbo run test:load",
     "test:memory": "turbo run test:memory",
+    "test:boot": "turbo run test:boot",
     "dev": "npm run dev --workspace=src/nodefony",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",

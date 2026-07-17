@@ -34,6 +34,11 @@
       "cache": false,
       "outputs": []
     },
+    "test:boot": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "outputs": []
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,
