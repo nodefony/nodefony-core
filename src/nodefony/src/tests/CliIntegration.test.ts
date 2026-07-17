@@ -37,6 +37,17 @@ const SERVER_NET_RE = /Server Listen on http/i; // serveur RÉSEAU (exclut les s
 const FAILSOFT_RE = /Cannot find package/i; // module physiquement introuvable → fail-soft
 const RUN_BOOT = process.env.RUN_CLI_BOOT === "1";
 
+// Readiness d'un boot serveur RÉEL. Sous turbo (N workspaces buildent/testent en
+// parallèle → CPU saturé), le spawn + import du dist + init des modules + listen
+// peut dépasser un seuil serré et faire FLAKER le test : un seuil de 45 s en dur
+// donnait un échec sporadique (même code → 1 échec puis vert) alors que le budget
+// vitest était déjà de 90 s — la readiness abandonnait à mi-parcours. Seuil large,
+// surchargeable pour une machine lente, et le budget test en dérive → readiness
+// TOUJOURS < testTimeout par construction (plus de course entre les deux).
+const READY_TIMEOUT_MS =
+  Number(process.env.NODEFONY_CLI_READY_TIMEOUT_MS) || 80_000;
+const BOOT_TEST_TIMEOUT_MS = READY_TIMEOUT_MS + 25_000; // marge countBoots + killAndWait
+
 /** Résultat d'un spawn d'une commande terminante. */
 interface CliResult {
   code: number | null;
@@ -144,7 +155,7 @@ function killAndWait(child: ChildProcess): Promise<void> {
  */
 async function spawnServerAndCountBoots(
   args: string[],
-  readyTimeoutMs = 45000,
+  readyTimeoutMs = READY_TIMEOUT_MS,
 ): Promise<{ boots: number; out: string }> {
   const traceFile = path.join(
     os.tmpdir(),
@@ -383,7 +394,10 @@ describe.skipIf(!fs.existsSync(DIST))(
 describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
   "CLI integration — boot réel (RUN_CLI_BOOT=1)",
   () => {
-    vi.setConfig({ testTimeout: 90000, hookTimeout: 90000 });
+    vi.setConfig({
+      testTimeout: BOOT_TEST_TIMEOUT_MS,
+      hookTimeout: BOOT_TEST_TIMEOUT_MS,
+    });
     beforeEach(async (ctx) => {
       // Un serveur tourne déjà (dev) → le child échouerait EADDRINUSE → skip soft.
       if (await isPortOpen(HTTP_PORT)) ctx.skip();
@@ -615,7 +629,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
         await new Promise<void>((resolve, reject) => {
           const timer = setTimeout(
             () => reject(new Error(`readiness timeout:\n${out.slice(-1500)}`)),
-            45000,
+            READY_TIMEOUT_MS,
           );
           const onData = (d: Buffer) => {
             out += d.toString();
@@ -716,7 +730,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
           const timer = setTimeout(
             () =>
               reject(new Error(`daemon n'a pas atteint son ready:\n${out}`)),
-            45000,
+            READY_TIMEOUT_MS,
           );
           const onData = (d: Buffer) => {
             out += d.toString();
