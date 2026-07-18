@@ -74,6 +74,29 @@ class FakeRedis implements RedisClientLike {
   sCard(key: string): Promise<number> {
     return Promise.resolve(this.#sets.get(key)?.size ?? 0);
   }
+
+  // SCAN paginant (curseur = index sérialisé en string, "0" = fin). Ce banc ne
+  // teste pas le listing (→ `webauthn-pagination.test.ts`), mais le double doit
+  // porter le contrat ENTIER : un fake amputé ne compile plus, et c'est tant
+  // mieux — c'est le compilateur qui signale qu'une capacité a été ajoutée.
+  scan(
+    cursor: string,
+    options?: { MATCH?: string; COUNT?: number },
+  ): Promise<{ cursor: string; keys: string[] }> {
+    const start = Number.parseInt(cursor, 10) || 0;
+    const count = options?.COUNT ?? 10;
+    const re = options?.MATCH
+      ? new RegExp(
+          `^${options.MATCH.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`,
+        )
+      : null;
+    const all = [...this.#hashes.keys()].filter((k) => !re || re.test(k));
+    const next = start + count;
+    return Promise.resolve({
+      cursor: next >= all.length ? "0" : String(next),
+      keys: all.slice(start, next),
+    });
+  }
 }
 
 /** Construit un `IWebAuthnCredential` complet avec surcharges. */

@@ -1,8 +1,32 @@
+import type { IPage } from "nodefony";
 import type { IWebAuthnCredential } from "../../contracts/IWebAuthnCredential";
 import type {
   IWebAuthnCredentialStore,
+  IWebAuthnCredentialSummary,
+  IWebAuthnListQuery,
   WebAuthnAuthUpdate,
 } from "../../contracts/IWebAuthnCredentialStore";
+
+/**
+ * Projection contractuelle : credential complet → vue admin **sans `publicKey`**.
+ * Partagée par les backends qui matérialisent des credentials en mémoire.
+ */
+export function toWebAuthnSummary(
+  c: IWebAuthnCredential,
+): IWebAuthnCredentialSummary {
+  return {
+    id: c.id,
+    userId: c.userId,
+    transports: c.transports,
+    backupEligible: c.backupEligible,
+    backupState: c.backupState,
+    uvInitialized: c.uvInitialized,
+    signCount: c.signCount,
+    createdAt: c.createdAt,
+    lastUsedAt: c.lastUsedAt,
+    ...(c.nickname !== undefined ? { nickname: c.nickname } : {}),
+  };
+}
 
 /**
  * Store de credentials WebAuthn **en mémoire** — implémentation de référence
@@ -85,6 +109,44 @@ export class MemoryWebAuthnCredentialStore implements IWebAuthnCredentialStore {
       }
     }
     return Promise.resolve();
+  }
+
+  /** Credentials filtrés, dans l'ordre contractuel (createdAt DESC, id ASC). */
+  #filtered(query: IWebAuthnListQuery): IWebAuthnCredential[] {
+    const out: IWebAuthnCredential[] = [];
+    for (const cred of this.#byId.values()) {
+      if (query.userId !== undefined && cred.userId !== query.userId) continue;
+      if (query.backedUp !== undefined && cred.backupState !== query.backedUp) {
+        continue;
+      }
+      if (query.q !== undefined && !cred.userId.startsWith(query.q)) continue;
+      out.push(cred);
+    }
+    return out.sort(
+      (a, b) =>
+        b.createdAt - a.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    );
+  }
+
+  listPage(
+    query: IWebAuthnListQuery,
+  ): Promise<IPage<IWebAuthnCredentialSummary>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset =
+      query.offset !== undefined && query.offset > 0 ? query.offset : 0;
+    const all = this.#filtered(query);
+    const items = all.slice(offset, offset + limit).map(toWebAuthnSummary);
+    return Promise.resolve({
+      items,
+      limit,
+      offset,
+      hasNext: offset + items.length < all.length,
+      ...(query.withTotal === false ? {} : { total: all.length }),
+    });
+  }
+
+  countCredentials(query: IWebAuthnListQuery): Promise<number> {
+    return Promise.resolve(this.#filtered(query).length);
   }
 
   /** Instantané sérialisable de l'état courant (pour la persistance fichier). */

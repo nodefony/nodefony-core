@@ -1,10 +1,13 @@
-import type { IRepository } from "@nodefony/orm-core";
+import { paginate, type Criteria, type IRepository } from "@nodefony/orm-core";
+import type { IPage } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerWebAuthnStore("drizzle", …)` ; le module drizzle reste pur.
 import type {
   IWebAuthnCredential,
   IWebAuthnCredentialStore,
+  IWebAuthnCredentialSummary,
+  IWebAuthnListQuery,
   WebAuthnAuthUpdate,
 } from "@nodefony/security";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
@@ -141,5 +144,67 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
 
   async delete(credentialId: string): Promise<void> {
     await this.#repo.delete({ id: credentialId });
+  }
+
+  /**
+   * Critères du listing admin. `q` = PRÉFIXE d'`userId` (`LIKE 'x%'`, indexable),
+   * jamais une recherche `%…%`.
+   */
+  #listCriteria(query: IWebAuthnListQuery): Criteria<WebAuthnCredentialRow> {
+    const criteria: Record<string, unknown> = {};
+    if (query.userId !== undefined) {
+      criteria.userId = query.userId;
+    } else if (query.q !== undefined && query.q.length > 0) {
+      // `%`/`_` du terme saisi sont échappés : un id collé n'est pas un motif.
+      criteria.userId = {
+        $like: `${query.q.replace(/[\\%_]/g, (c) => "\\" + c)}%`,
+      };
+    }
+    if (query.backedUp !== undefined) {
+      criteria.backupState = query.backedUp;
+    }
+    return criteria as unknown as Criteria<WebAuthnCredentialRow>;
+  }
+
+  /**
+   * {@inheritDoc IWebAuthnCredentialStore.listPage}
+   *
+   * 100 % portable : le helper `paginate()` d'orm-core (LIMIT/OFFSET + COUNT
+   * optionnel). La projection en vue admin retire `publicKey` — elle ne franchit
+   * jamais la frontière du store, quel que soit l'appelant.
+   */
+  async listPage(
+    query: IWebAuthnListQuery,
+  ): Promise<IPage<IWebAuthnCredentialSummary>> {
+    const page = await paginate(this.#repo, {
+      criteria: this.#listCriteria(query),
+      limit: query.limit,
+      offset: query.offset,
+      withTotal: query.withTotal,
+      order: [
+        ["createdAt", "DESC"],
+        ["id", "ASC"], // tiebreaker → offset déterministe
+      ],
+    });
+    return {
+      ...page,
+      items: page.items.map((row) => ({
+        id: row.id,
+        userId: row.userId,
+        transports: row.transports,
+        backupEligible: row.backupEligible,
+        backupState: row.backupState,
+        uvInitialized: row.uvInitialized,
+        signCount: row.signCount,
+        createdAt: row.createdAt,
+        lastUsedAt: row.lastUsedAt,
+        ...(row.nickname !== null ? { nickname: row.nickname } : {}),
+      })),
+    };
+  }
+
+  /** {@inheritDoc IWebAuthnCredentialStore.countCredentials} */
+  countCredentials(query: IWebAuthnListQuery): Promise<number> {
+    return this.#repo.count(this.#listCriteria(query));
   }
 }

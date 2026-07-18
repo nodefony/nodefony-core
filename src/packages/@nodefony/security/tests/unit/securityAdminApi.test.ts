@@ -227,12 +227,38 @@ function bootFactors(opts: {
   const recorded: IAuditEventDraft[] = [];
   const disabledFor: string[] = [];
   const removedArgs: Array<[string, string]> = [];
+  const listQueries: Record<string, unknown>[] = [];
   if (opts.withWebauthn !== false) {
     container.set("webauthn", {
       listUserCredentials: async (_userId: string) => opts.credentials ?? [],
       removeUserCredential: async (userId: string, credentialId: string) => {
         removedArgs.push([userId, credentialId]);
         return opts.removeResult ?? true;
+      },
+      // Le store projette déjà (pas de `publicKey`) — le double doit donc rendre
+      // des SUMMARY, pas des credentials complets : un mock trop généreux ferait
+      // croire que la façade redacte, alors que c'est le contrat qui garantit.
+      listCredentialsPage: async (query: Record<string, unknown>) => {
+        listQueries.push(query);
+        const items = (opts.credentials ?? []).map((c) => ({
+          id: c.id,
+          userId: c.userId,
+          transports: c.transports,
+          backupEligible: c.backupEligible,
+          backupState: c.backupState,
+          uvInitialized: c.uvInitialized,
+          signCount: c.signCount,
+          createdAt: c.createdAt,
+          lastUsedAt: c.lastUsedAt,
+          ...(c.nickname !== undefined ? { nickname: c.nickname } : {}),
+        }));
+        return {
+          items,
+          limit: query.limit as number,
+          offset: query.offset as number,
+          total: items.length,
+          hasNext: false,
+        };
       },
     });
   }
@@ -255,7 +281,7 @@ function bootFactors(opts: {
   container.set("auditService", {
     record: (e: IAuditEventDraft) => recorded.push(e),
   });
-  return { container, recorded, disabledFor, removedArgs };
+  return { container, recorded, disabledFor, removedArgs, listQueries };
 }
 
 function endpoint(container: Container, path: string) {
@@ -279,10 +305,82 @@ function reqP(
   };
 }
 
+/** Requête admin portant des paramètres de query (listing paginé). */
+function reqQ(query: Record<string, string>): IAdminRequest {
+  return {
+    params: {},
+    query,
+    body: null,
+    user: { username: "admin1" },
+    roles: ["ROLE_NODEFONY_ADMIN"],
+  };
+}
+
+describe("SecurityAdminApi — GET webauthn/list", () => {
+  it("passe les filtres au store et rend la page", async () => {
+    const { container, listQueries } = bootFactors({
+      credentials: [fakeCredential("c1", "u1")],
+    });
+    const ep = endpoint(container, "webauthn/list");
+    const res = (await ep.handler(
+      reqQ({
+        userId: "u1",
+        backedUp: "false",
+        q: "u",
+        limit: "5",
+        offset: "10",
+      }),
+    )) as {
+      enabled: boolean;
+      items: Record<string, unknown>[];
+      total?: number;
+    };
+    assert.equal(res.enabled, true);
+    assert.equal(res.items.length, 1);
+    assert.ok(
+      !("publicKey" in res.items[0]!),
+      "publicKey ne doit JAMAIS fuiter",
+    );
+    assert.deepEqual(listQueries[0], {
+      limit: 5,
+      offset: 10,
+      userId: "u1",
+      backedUp: false,
+      q: "u",
+    });
+  });
+
+  it("borne le limit demandé (anti-vidage par un admin distrait)", async () => {
+    const { container, listQueries } = bootFactors({});
+    const ep = endpoint(container, "webauthn/list");
+    await ep.handler(reqQ({ limit: "100000" }));
+    assert.ok(
+      (listQueries[0]!.limit as number) < 100000,
+      "le limit doit être plafonné",
+    );
+  });
+
+  it("service absent → enabled:false, JAMAIS une erreur", async () => {
+    // La console doit pouvoir afficher « passkeys désactivés » plutôt qu'un 503
+    // qui ressemble à une panne.
+    const { container } = bootFactors({ withWebauthn: false });
+    const ep = endpoint(container, "webauthn/list");
+    const res = (await ep.handler(reqQ({}))) as {
+      enabled: boolean;
+      items: unknown[];
+      total?: number;
+    };
+    assert.equal(res.enabled, false);
+    assert.deepEqual(res.items, []);
+    assert.equal(res.total, 0);
+  });
+});
+
 describe("SecurityAdminApi — facteurs forts (déclaration)", () => {
-  it("les 4 endpoints déclarent ROLE_NODEFONY_ADMIN + la bonne méthode", () => {
+  it("les 5 endpoints déclarent ROLE_NODEFONY_ADMIN + la bonne méthode", () => {
     const eps = createSecurityAdminApi(new Container()).adminEndpoints();
     const expected: Array<[string, string]> = [
+      ["webauthn/list", "GET"],
       ["users/{id}/passkeys", "GET"],
       ["users/{id}/passkeys/{credentialId}", "DELETE"],
       ["users/{id}/totp", "GET"],

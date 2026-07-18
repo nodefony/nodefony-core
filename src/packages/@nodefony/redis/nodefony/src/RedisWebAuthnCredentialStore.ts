@@ -1,15 +1,46 @@
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'infra Redis vers `@nodefony/security`. L'application
 // câble le store via `registerWebAuthnStore("redis", …)`.
+import type { IPage } from "nodefony";
 import type {
   IWebAuthnCredential,
   IWebAuthnCredentialStore,
+  IWebAuthnCredentialSummary,
+  IWebAuthnListQuery,
   WebAuthnAuthUpdate,
 } from "@nodefony/security";
 import type RedisService from "../service/redis";
 
 /** Préfixe namespacé des clés de credentials WebAuthn dans Redis. */
 const KEY_PREFIX = "nf:wac";
+
+/**
+ * Curseur composite `skip:scanCursor`.
+ *
+ * `SCAN COUNT` est un **indice d'effort, pas un plafond** : un batch peut rendre
+ * plus de clés que `limit`. On ne jette pas le surplus (il serait perdu) — on
+ * mémorise combien de clés du batch ont été consommées ; la page suivante rejoue
+ * le même `SCAN` et reprend à la bonne position. Rien n'est perdu, rien ne
+ * déborde. Même mécanisme que les stores de jetons et de session (convention).
+ */
+function encodeCursor(scanCursor: string, skip: number): string {
+  return `${skip}:${scanCursor}`;
+}
+
+/** Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé. */
+function decodeCursor(cursor?: string): { scanCursor: string; skip: number } {
+  if (!cursor) return { scanCursor: "0", skip: 0 };
+  const sep = cursor.indexOf(":");
+  if (sep === -1) {
+    // Curseur Redis nu (client externe, ancien format) → honoré tel quel.
+    return { scanCursor: cursor, skip: 0 };
+  }
+  const skip = Number.parseInt(cursor.slice(0, sep), 10);
+  return {
+    scanCursor: cursor.slice(sep + 1) || "0",
+    skip: Number.isFinite(skip) && skip > 0 ? skip : 0,
+  };
+}
 
 /**
  * Sous-ensemble structural du client `redis` v6 utilisé par le store de
@@ -30,6 +61,10 @@ export interface RedisClientLike {
   sRem(key: string, member: string): Promise<number>;
   sMembers(key: string): Promise<string[]>;
   sCard(key: string): Promise<number>;
+  scan(
+    cursor: string,
+    options?: { MATCH?: string; COUNT?: number },
+  ): Promise<{ cursor: string; keys: string[] }>;
 }
 
 /**
@@ -218,5 +253,97 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
     if (h.userId) {
       await client.sRem(this.#userKey(h.userId), credentialId);
     }
+  }
+
+  /**
+   * {@inheritDoc IWebAuthnCredentialStore.listPage}
+   *
+   * **Curseur SCAN pur** : UN passage `SCAN` par appel (cold-path admin). Capacité
+   * réduite ASSUMÉE et annoncée — pas de `total`, pas d'ordre global sur
+   * `createdAt` (Redis n'a pas d'index secondaire ici), la page peut compter moins
+   * d'éléments que `limit` (le filtre s'applique au batch). Le client boucle tant
+   * que `hasNext` en repassant `nextCursor`.
+   *
+   * ⚠️ On SCANne les HASH de credentials, pas les Set par utilisateur : le filtre
+   * `userId` reste un filtre de page. Passer par `sMembers` serait plus direct
+   * mais donnerait deux stratégies de pagination pour un même contrat — la
+   * seconde sans curseur, donc incohérente dès qu'on mélange les filtres.
+   */
+  async listPage(
+    query: IWebAuthnListQuery,
+  ): Promise<IPage<IWebAuthnCredentialSummary>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const client = this.#client();
+    if (!client) {
+      return { items: [], limit, hasNext: false, nextCursor: null };
+    }
+    // Curseur SCAN = STRING opaque — node-redis v6 exige une string en argument
+    // de commande. Composite (`skip:curseur`) car `COUNT` n'est pas un plafond.
+    const { scanCursor, skip } = decodeCursor(query.cursor);
+    const res = await client.scan(scanCursor, {
+      MATCH: `${KEY_PREFIX}:cred:*`,
+      COUNT: limit,
+    });
+    const next = String(res.cursor);
+    const items: IWebAuthnCredentialSummary[] = [];
+    // `consumed` compte les CLÉS parcourues (pas les items rendus) : c'est la
+    // position de reprise, et le filtre en écarte une partie.
+    let consumed = 0;
+    for (const key of res.keys.slice(skip)) {
+      if (items.length >= limit) break; // page pleine → le reste attend
+      consumed += 1;
+      const h = await client.hGetAll(key);
+      if (Object.keys(h).length === 0) continue;
+      const cred = this.#decode(h);
+      // Filtre inline (approche B : aucun import runtime de @nodefony/security).
+      if (query.userId !== undefined && cred.userId !== query.userId) continue;
+      if (
+        query.userId === undefined &&
+        query.q !== undefined &&
+        query.q.length > 0 &&
+        !cred.userId.startsWith(query.q)
+      ) {
+        continue;
+      }
+      if (query.backedUp !== undefined && cred.backupState !== query.backedUp) {
+        continue;
+      }
+      items.push(this.#toSummary(cred));
+    }
+    const restInBatch = skip + consumed < res.keys.length;
+    const nextCursor = restInBatch
+      ? encodeCursor(scanCursor, skip + consumed) // on reste sur ce batch
+      : next === "0"
+        ? null // batch épuisé ET scan terminé
+        : encodeCursor(next, 0); // batch épuisé, on avance
+    return { items, limit, hasNext: nextCursor !== null, nextCursor };
+  }
+
+  /**
+   * {@inheritDoc IWebAuthnCredentialStore.countCredentials}
+   *
+   * Un comptage exact exigerait un `SCAN` complet O(N) → refusé sur le cold-path
+   * admin : renvoie `-1` (« inconnu », capacité réduite Redis assumée).
+   * ⚠️ Ne pas confondre avec {@link countByUser}, qui est O(1) (`SCARD`) parce
+   * qu'il porte sur un index existant.
+   */
+  countCredentials(_query: IWebAuthnListQuery): Promise<number> {
+    return Promise.resolve(-1);
+  }
+
+  /** Credential complet → vue admin (sans `publicKey`, cf le contrat). */
+  #toSummary(c: IWebAuthnCredential): IWebAuthnCredentialSummary {
+    return {
+      id: c.id,
+      userId: c.userId,
+      transports: c.transports,
+      backupEligible: c.backupEligible,
+      backupState: c.backupState,
+      uvInitialized: c.uvInitialized,
+      signCount: c.signCount,
+      createdAt: c.createdAt,
+      lastUsedAt: c.lastUsedAt,
+      ...(c.nickname !== undefined ? { nickname: c.nickname } : {}),
+    };
   }
 }

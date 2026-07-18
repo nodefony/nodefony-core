@@ -24,6 +24,10 @@ import type {
 } from "../../contracts/IFirewallDescription";
 import type { IApiKeyView } from "../../contracts/IApiKey";
 import type { IWebAuthnCredential } from "../../contracts/IWebAuthnCredential";
+import type {
+  IWebAuthnCredentialSummary,
+  IWebAuthnListQuery,
+} from "../../contracts/IWebAuthnCredentialStore";
 import { adminActor, auditAdmin } from "./adminAudit";
 import { webhookAdminEndpoints } from "./WebhookAdminApi";
 
@@ -215,6 +219,9 @@ export function parseAuditQuery(
 interface IWebAuthnAdmin {
   listUserCredentials(userId: string): Promise<IWebAuthnCredential[]>;
   removeUserCredential(userId: string, credentialId: string): Promise<boolean>;
+  listCredentialsPage(
+    query: IWebAuthnListQuery,
+  ): Promise<IPage<IWebAuthnCredentialSummary>>;
 }
 
 /**
@@ -446,6 +453,67 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           return { status: 404, body: { error: "not found" } };
         }
         return { ok: true, key };
+      },
+    },
+    {
+      // Vue TRANSVERSE des passkeys : « quels appareils portent des passkeys,
+      // lesquelles meurent avec leur appareil » — invisible depuis la fiche d'un
+      // seul utilisateur. Pagination SERVEUR ; la vue ne porte pas la clé
+      // publique (garantie du contrat de store, pas une redaction d'ici).
+      // ⚠️ Ce chemin ne remplace JAMAIS `users/{id}/passkeys` : celui-ci sert la
+      // fiche d'un porteur et reste non paginé (borné par `passkeys.maxPerUser`).
+      path: "webauthn/list",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Passkeys de la plateforme (id, porteur, transports, sauvegarde, " +
+        "compteur anti-clone, dates — jamais la clé publique). Paginé serveur : " +
+        "?userId&backedUp&q&limit&offset. `enabled:false` = passkeys désactivés " +
+        "en config. `total:-1` = backend sans comptage (Redis).",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<{
+        enabled: boolean;
+        items: IWebAuthnCredentialSummary[];
+        total?: number;
+        limit: number;
+        offset: number;
+      }> => {
+        const svc = container.get("webauthn") as IWebAuthnAdmin | undefined;
+        const rawLimit = intParam(request.query, "limit");
+        const limit =
+          rawLimit === undefined
+            ? KEYS_DEFAULT_LIMIT
+            : Math.min(Math.max(rawLimit, 1), KEYS_MAX_LIMIT);
+        const offsetRaw = intParam(request.query, "offset");
+        const offset =
+          offsetRaw !== undefined && offsetRaw >= 0 ? offsetRaw : 0;
+        // Lecture DÉFENSIVE : passkeys désactivés → état honnête, jamais un 503
+        // (la console doit afficher « passkeys désactivés », pas une erreur).
+        if (!svc) {
+          return { enabled: false, items: [], total: 0, limit, offset };
+        }
+        const userId = one(request.query, "userId");
+        const backedUp = one(request.query, "backedUp");
+        const q = one(request.query, "q");
+        const page = await svc.listCredentialsPage({
+          limit,
+          offset,
+          ...(userId !== undefined ? { userId } : {}),
+          ...(backedUp === "true"
+            ? { backedUp: true }
+            : backedUp === "false"
+              ? { backedUp: false }
+              : {}),
+          ...(q !== undefined ? { q } : {}),
+        });
+        return {
+          enabled: true,
+          items: page.items,
+          total: page.total,
+          limit,
+          offset,
+        };
       },
     },
     {

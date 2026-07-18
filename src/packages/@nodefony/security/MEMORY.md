@@ -80,6 +80,17 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
   login/verify OK → `AuthFlow.establishSessionFor` (session BFF, **anti-fixation regenerateId**, revalide
   actif/locked). Front Studio : bouton « Passkey/empreinte » au login + « Enregistrer une empreinte »
   (menu user), `@simplewebauthn/browser` `startAuthentication`/`startRegistration`.
+- **Listing paginé (data plane)** — `listPage(IWebAuthnListQuery)`/`countCredentials` au contrat +
+  `GET /nodefony/security/api/webauthn/list` RBAC `ROLE_NODEFONY_ADMIN` (`?userId&backedUp&q&limit&offset`,
+  cap 200, service absent → `enabled:false` jamais 503). Vue `IWebAuthnCredentialSummary` **sans
+  `publicKey`** (pas un secret, mais 0 valeur d'exploitation en console) ; porte `backupState` (passkey non
+  sauvegardée = meurt avec l'appareil) et `signCount` (anti-clone §6.1.1). Ordre `createdAt` DESC + `id` ASC.
+  Backends : offset natif (mémoire/Drizzle ×3 dialectes/Mongoose via `paginate` orm-core) · **curseur SCAN
+  composite `skip:cursor`** en Redis (`COUNT` = indice d'effort, PAS un plafond → on mémorise les clés
+  consommées) avec `countCredentials` = **-1** (capacité réduite assumée). Banc de contrat UNIQUE :
+  `security/tests/support/webauthnPaginationContract.ts`, importé en relatif par les 3 adapters ; le banc
+  Redis tourne en **double backend** (fake par défaut, vrai serveur si `REDIS_TEST_URL`, base 10).
+  ⚠️ Ce listing ne remplace JAMAIS `users/{id}/passkeys` ni `findByUser` (chemin chaud du login).
 - Contrats : `IToken` (getUser/isAuthenticated/getRoles/getCredentials/**getScopes**/get-setAttribute),
   `IAuthenticator` (supports/createToken/authenticate/onSuccess/onFailure), `ISecuredArea`, `IFirewall`,
   `IAccessVoter` + `VoterVote` (GRANT/DENY/ABSTAIN).

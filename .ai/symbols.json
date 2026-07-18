@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-18T15:44:32.177Z",
+  "generated": "2026-07-18T16:40:15.048Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1030,
-    "symbols": 2779,
+    "symbols": 2784,
     "classes": 327,
-    "interfaces": 730,
+    "interfaces": 732,
     "types": 322,
     "enums": 4,
-    "functions": 824,
+    "functions": 827,
     "constants": 572
   },
   "symbols": {
@@ -11881,6 +11881,24 @@
       "extends": null,
       "description": "Enregistrement d'un **credential WebAuthn / passkey** côté serveur — le `credentialRecord` de WebAuthn L3 §7.1 (produit par la cérémonie d'enregistrement, relu et mis à jour à chaque authentificati…"
     },
+    "IWebAuthnCredentialSummary": {
+      "name": "IWebAuthnCredentialSummary",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Vue d'une passkey pour l'INTROSPECTION admin (« quels appareils portent des passkeys, lesquelles meurent avec leur appareil »). **Sans `publicKey`, par construction du contrat.** La clé publique n'…"
+    },
+    "IWebAuthnListQuery": {
+      "name": "IWebAuthnListQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "IPageQuery",
+      "description": "Requête de listing des passkeys — {@link IPageQuery} + les filtres qui ont un sens ici. `q` (hérité) = **préfixe** d'`userId`. ⚠️ À ne pas confondre avec {@link IWebAuthnCredentialStore.findByUser}…"
+    },
     "WebAuthnAuthUpdate": {
       "name": "WebAuthnAuthUpdate",
       "kind": "interface",
@@ -18803,6 +18821,14 @@
       "extends": null,
       "description": "Store de credentials WebAuthn **en mémoire** — implémentation de référence d'{@link IWebAuthnCredentialStore}. 0 dépendance, idéale pour le développement mono-process et les **tests**. NON partagée…"
     },
+    "toWebAuthnSummary": {
+      "name": "toWebAuthnSummary",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Projection contractuelle : credential complet → vue admin **sans `publicKey`**. Partagée par les backends qui matérialisent des credentials en mémoire."
+    },
     "IWebAuthnStoreFactoryContext": {
       "name": "IWebAuthnStoreFactoryContext",
       "kind": "interface",
@@ -19582,6 +19608,7 @@
         "PageQuery",
         "ITokenListQuery",
         "ITotpListQuery",
+        "IWebAuthnListQuery",
         "IWebhookListQuery",
         "IUserListQuery",
         "IRateLimitListQuery"
@@ -22396,6 +22423,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
@@ -22404,17 +22432,21 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
@@ -22426,6 +22458,7 @@
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
@@ -22436,6 +22469,7 @@
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts"
@@ -23612,8 +23646,10 @@
       "paginate": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts"
       ],
@@ -23621,10 +23657,12 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
@@ -23810,6 +23848,22 @@
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "IWebAuthnCredentialSummary": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
+      ],
+      "IWebAuthnListQuery": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts"
       ],
       "WebAuthnAuthUpdate": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",

@@ -1,10 +1,13 @@
-import type { IRepository } from "@nodefony/orm-core";
+import { paginate, type Criteria, type IRepository } from "@nodefony/orm-core";
+import type { IPage } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerWebAuthnStore("mongoose", …)`.
 import type {
   IWebAuthnCredential,
   IWebAuthnCredentialStore,
+  IWebAuthnCredentialSummary,
+  IWebAuthnListQuery,
   WebAuthnAuthUpdate,
 } from "@nodefony/security";
 import type { MongooseOrm } from "./orm-core/index";
@@ -124,5 +127,66 @@ export class MongooseWebAuthnCredentialStore implements IWebAuthnCredentialStore
 
   async delete(credentialId: string): Promise<void> {
     await this.#repo.delete({ id: credentialId });
+  }
+
+  /**
+   * Critères du listing admin. `q` = PRÉFIXE d'`userId` (`$like 'x%'`, traduit en
+   * ancrage `^` côté Mongo), jamais une recherche non ancrée.
+   */
+  #listCriteria(query: IWebAuthnListQuery): Criteria<WebAuthnCredentialRow> {
+    const criteria: Record<string, unknown> = {};
+    if (query.userId !== undefined) {
+      criteria.userId = query.userId;
+    } else if (query.q !== undefined && query.q.length > 0) {
+      criteria.userId = {
+        $like: `${query.q.replace(/[\\%_]/g, (c) => "\\" + c)}%`,
+      };
+    }
+    if (query.backedUp !== undefined) {
+      criteria.backupState = query.backedUp;
+    }
+    return criteria as unknown as Criteria<WebAuthnCredentialRow>;
+  }
+
+  /**
+   * {@inheritDoc IWebAuthnCredentialStore.listPage}
+   *
+   * Même helper `paginate()` que l'adapter SQL (`skip`/`limit` + `countDocuments`).
+   * La projection retire `publicKey` — elle ne franchit jamais la frontière du store.
+   * ⚠️ L'identité vient de `_id` (`#idOf`), pas du champ `id` de la row.
+   */
+  async listPage(
+    query: IWebAuthnListQuery,
+  ): Promise<IPage<IWebAuthnCredentialSummary>> {
+    const page = await paginate(this.#repo, {
+      criteria: this.#listCriteria(query),
+      limit: query.limit,
+      offset: query.offset,
+      withTotal: query.withTotal,
+      order: [
+        ["createdAt", "DESC"],
+        ["_id", "ASC"], // tiebreaker → offset déterministe (la PK Mongo)
+      ],
+    });
+    return {
+      ...page,
+      items: page.items.map((row) => ({
+        id: this.#idOf(row),
+        userId: row.userId,
+        transports: row.transports,
+        backupEligible: row.backupEligible,
+        backupState: row.backupState,
+        uvInitialized: row.uvInitialized,
+        signCount: row.signCount,
+        createdAt: row.createdAt,
+        lastUsedAt: row.lastUsedAt,
+        ...(row.nickname != null ? { nickname: row.nickname } : {}),
+      })),
+    };
+  }
+
+  /** {@inheritDoc IWebAuthnCredentialStore.countCredentials} */
+  countCredentials(query: IWebAuthnListQuery): Promise<number> {
+    return this.#repo.count(this.#listCriteria(query));
   }
 }

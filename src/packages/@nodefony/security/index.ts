@@ -213,6 +213,8 @@ export type {
 export type { IWebAuthnCredential } from "./nodefony/contracts/IWebAuthnCredential";
 export type {
   IWebAuthnCredentialStore,
+  IWebAuthnCredentialSummary,
+  IWebAuthnListQuery,
   WebAuthnAuthUpdate,
 } from "./nodefony/contracts/IWebAuthnCredentialStore";
 

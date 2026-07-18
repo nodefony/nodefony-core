@@ -25,8 +25,13 @@ import {
 } from "../config/defineModuleConfig";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { WebAuthnError } from "../errors/WebAuthnError";
+import type { IPage } from "nodefony";
 import type { IWebAuthnCredential } from "../contracts/IWebAuthnCredential";
-import type { IWebAuthnCredentialStore } from "../contracts/IWebAuthnCredentialStore";
+import type {
+  IWebAuthnCredentialStore,
+  IWebAuthnCredentialSummary,
+  IWebAuthnListQuery,
+} from "../contracts/IWebAuthnCredentialStore";
 import {
   getWebAuthnStoreFactory,
   listWebAuthnStores,
@@ -415,6 +420,30 @@ class WebAuthnService extends Service {
   listUserCredentials(userId: string): Promise<IWebAuthnCredential[]> {
     this.#ensureReady();
     return this.#store!.findByUser(userId);
+  }
+
+  /**
+   * Page de passkeys pour le data plane admin (vue TRANSVERSE : « quels appareils
+   * portent des passkeys sur toute la plateforme »).
+   *
+   * ≠ {@link listUserCredentials}, qui sert la fiche d'UN utilisateur et le chemin
+   * chaud du login. Ici on ne matérialise jamais plus d'une page, et la projection
+   * du store exclut la clé publique.
+   */
+  listCredentialsPage(
+    query: IWebAuthnListQuery,
+  ): Promise<IPage<IWebAuthnCredentialSummary>> {
+    this.#ensureReady();
+    return this.#store!.listPage(query);
+  }
+
+  /**
+   * Nombre de passkeys correspondant aux filtres, ou `-1` si le backend ne sait
+   * pas compter à coût raisonnable (Redis).
+   */
+  countCredentials(query: IWebAuthnListQuery): Promise<number> {
+    this.#ensureReady();
+    return this.#store!.countCredentials(query);
   }
 
   /** Révoque un credential (retrait d'un appareil). */
