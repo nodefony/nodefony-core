@@ -74,16 +74,16 @@ function buildAudit(
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-describe("MemoryAuditStore — append & query", () => {
+describe("MemoryAuditStore — append & listPage", () => {
   it("rend les événements du plus récent au plus ancien", async () => {
     const store = filled(3);
-    const { events, total, nextBefore } = await store.query();
+    const { items, total, nextCursor } = await store.listPage({ limit: 100 });
     assert.equal(total, 3);
     assert.deepEqual(
-      events.map((e) => e.id),
+      items.map((e) => e.id),
       ["e2", "e1", "e0"],
     );
-    assert.equal(nextBefore, null);
+    assert.equal(nextCursor, null);
   });
 
   it("filtre par category / outcome / actor / action (AND)", async () => {
@@ -116,62 +116,52 @@ describe("MemoryAuditStore — append & query", () => {
     );
 
     assert.deepEqual(
-      (await store.query({ category: "authz" })).events.map((e) => e.id),
+      (await store.listPage({ limit: 100, category: "authz" })).items.map(
+        (e) => e.id,
+      ),
       ["c", "b"],
     );
     assert.deepEqual(
-      (await store.query({ outcome: "denied", actor: "alice" })).events.map(
-        (e) => e.id,
-      ),
+      (
+        await store.listPage({ limit: 100, outcome: "denied", actor: "alice" })
+      ).items.map((e) => e.id),
       ["c"],
     );
     assert.deepEqual(
-      (await store.query({ action: "access.denied" })).events.map((e) => e.id),
+      (await store.listPage({ limit: 100, action: "access.denied" })).items.map(
+        (e) => e.id,
+      ),
       ["c", "b"],
     );
-    assert.equal((await store.query({ category: "auth" })).total, 1);
+    assert.equal(
+      (await store.listPage({ limit: 100, category: "auth" })).total,
+      1,
+    );
   });
 
   it("filtre par fenêtre temporelle since/until (inclus)", async () => {
     const store = filled(5); // ts 1000,1010,1020,1030,1040
-    const res = await store.query({ since: 1_010, until: 1_030 });
+    const res = await store.listPage({
+      limit: 100,
+      since: 1_010,
+      until: 1_030,
+    });
     assert.deepEqual(
-      res.events.map((e) => e.id),
+      res.items.map((e) => e.id),
       ["e3", "e2", "e1"],
     );
   });
 });
 
-describe("MemoryAuditStore — pagination par curseur", () => {
-  it("limite la page et expose le curseur du plus ancien", async () => {
-    const store = filled(5); // e0..e4
-    const page1 = await store.query({ limit: 2 });
-    assert.deepEqual(
-      page1.events.map((e) => e.id),
-      ["e4", "e3"],
-    );
-    assert.equal(page1.total, 5);
-    assert.equal(page1.nextBefore, "e3"); // plus ancien de la page
-
-    const page2 = await store.query({ limit: 2, before: page1.nextBefore! });
-    assert.deepEqual(
-      page2.events.map((e) => e.id),
-      ["e2", "e1"],
-    );
-    assert.equal(page2.nextBefore, "e1");
-
-    const page3 = await store.query({ limit: 2, before: page2.nextBefore! });
-    assert.deepEqual(
-      page3.events.map((e) => e.id),
-      ["e0"],
-    );
-    assert.equal(page3.nextBefore, null); // épuisé
-  });
-
+// La pagination elle-même (ordre total, curseur composite, filtres sous
+// curseur, withTotal) est prouvée par le banc de contrat PARTAGÉ
+// `tests/support/auditPaginationContract.ts` — déroulé ici sur le store mémoire
+// (`auditPagination.test.ts`) ET sur Drizzle × 3 dialectes. Ne pas le redupliquer.
+describe("MemoryAuditStore — bornes de page", () => {
   it("borne limit dans [1, 500]", async () => {
     const store = filled(3);
-    assert.equal((await store.query({ limit: 0 })).events.length, 1); // plancher 1
-    assert.equal((await store.query({ limit: 9_999 })).events.length, 3); // plafond n'altère pas < 500
+    assert.equal((await store.listPage({ limit: 0 })).items.length, 1); // plancher 1
+    assert.equal((await store.listPage({ limit: 9_999 })).items.length, 3); // plafond n'altère pas < 500
   });
 });
 
@@ -182,7 +172,7 @@ describe("MemoryAuditStore — borne de volume (anti-fuite)", () => {
       void store.append(makeEvent({ id: `e${i}`, ts: 1_000 + i }));
     }
     assert.equal(store.size, 3);
-    const ids = (await store.query()).events.map((e) => e.id);
+    const ids = (await store.listPage({ limit: 100 })).items.map((e) => e.id);
     assert.deepEqual(ids, ["e4", "e3", "e2"]); // e0/e1 tombés
   });
 });
@@ -196,7 +186,7 @@ describe("MemoryAuditStore — gc rétention", () => {
     const purged = await store.gc();
     assert.equal(purged, 1);
     assert.deepEqual(
-      (await store.query()).events.map((e) => e.id),
+      (await store.listPage({ limit: 100 })).items.map((e) => e.id),
       ["fresh"],
     );
   });
@@ -210,7 +200,7 @@ describe("MemoryAuditStore — snapshot / restore", () => {
     fresh.restore(snap);
     assert.equal(fresh.size, 3);
     assert.deepEqual(
-      (await fresh.query()).events.map((e) => e.id),
+      (await fresh.listPage({ limit: 100 })).items.map((e) => e.id),
       ["e2", "e1", "e0"],
     );
   });
@@ -227,8 +217,14 @@ describe("AuditService — désactivé (coût nul)", () => {
       outcome: "success",
       actor: "x",
     });
-    const res = await svc.query();
-    assert.deepEqual(res, { events: [], nextBefore: null, total: 0 });
+    const res = await svc.listPage({ limit: 100 });
+    assert.deepEqual(res, {
+      items: [],
+      limit: 100,
+      hasNext: false,
+      nextCursor: null,
+      total: 0,
+    });
     assert.equal(container.get("auditStore"), null); // store non posé si désactivé
   });
 
@@ -264,9 +260,9 @@ describe("AuditService — actif", () => {
   it("record pose id+ts et persiste (query le retrouve)", async () => {
     const { svc } = buildAudit({ enabled: true });
     svc.record(draft);
-    const res = await svc.query();
+    const res = await svc.listPage({ limit: 100 });
     assert.equal(res.total, 1);
-    const e = res.events[0]!;
+    const e = res.items[0]!;
     assert.equal(e.action, "access.denied");
     assert.equal(e.actor, "mallory");
     assert.ok(typeof e.id === "string" && e.id.length > 0);
@@ -278,7 +274,7 @@ describe("AuditService — actif", () => {
     svc.record(draft);
     svc.record(draft);
     svc.record(draft);
-    const ids = (await svc.query()).events.map((e) => e.id);
+    const ids = (await svc.listPage({ limit: 100 })).items.map((e) => e.id);
     assert.equal(new Set(ids).size, 3);
   });
 
@@ -302,7 +298,7 @@ describe("AuditService — actif", () => {
     svc.subscribe((e) => ok.push(e.action));
     assert.doesNotThrow(() => svc.record(draft));
     assert.deepEqual(ok, ["access.denied"]);
-    assert.equal((await svc.query()).total, 1); // persisté malgré le listener KO
+    assert.equal((await svc.listPage({ limit: 100 })).total, 1); // persisté malgré le listener KO
   });
 });
 

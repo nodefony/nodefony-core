@@ -55,13 +55,22 @@ export interface AuditEvent {
   metadata?: Record<string, unknown>;
 }
 
-/** Page de résultats — miroir de `IAuditQueryResult`, du + récent au + ancien. */
-export interface AuditQueryResult {
-  events: AuditEvent[];
-  /** Curseur de la page suivante (à passer en `before`) ; `null` = fin. */
-  nextBefore: string | null;
-  /** Total correspondant au filtre (hors pagination). */
-  total: number;
+/**
+ * Page de résultats — miroir du contrat de pagination **unique** de Nodefony
+ * (`IPage<IAuditEvent>` côté serveur), du + récent au + ancien. Le journal
+ * pagine par **curseur** : `nextCursor` est un jeton **opaque** que le client
+ * repasse tel quel, il n'a pas à savoir ce qu'il transporte.
+ */
+export interface AuditPage {
+  items: AuditEvent[];
+  /** Total correspondant au filtre — absent si le serveur a sauté le comptage. */
+  total?: number;
+  /** Taille de page servie (écho du `limit` demandé). */
+  limit: number;
+  /** `true` s'il reste des événements plus anciens au-delà de cette page. */
+  hasNext: boolean;
+  /** Jeton de la page suivante (à repasser en `cursor`) ; `null` = fin. */
+  nextCursor?: string | null;
 }
 
 /**
@@ -83,7 +92,7 @@ export interface AuditBatch {
   dropped: number;
 }
 
-/** Filtre serveur courant (sous-ensemble utile de `IAuditQuery`). */
+/** Filtre serveur courant (sous-ensemble utile de `IAuditListQuery`). */
 export interface AuditFilter {
   category?: AuditCategory;
   outcome?: AuditOutcome;
@@ -192,7 +201,7 @@ export function periodSince(
 export function buildAuditQuery(
   filter: AuditFilter,
   now: number,
-  before?: string,
+  cursor?: string,
 ): string {
   const params = new URLSearchParams();
   if (filter.category) params.set("category", filter.category);
@@ -202,6 +211,6 @@ export function buildAuditQuery(
   const since = periodSince(filter.period, now);
   if (since !== undefined) params.set("since", String(since));
   params.set("limit", String(AUDIT_PAGE_SIZE));
-  if (before) params.set("before", before);
+  if (cursor) params.set("cursor", cursor);
   return params.toString();
 }

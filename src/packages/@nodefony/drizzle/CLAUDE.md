@@ -164,15 +164,18 @@ journal de sécurité **append-only** durable + partageable multi-pod, là où `
   `flags`/`metadata` json) + index (`ts`/`category`/`actor`/`requestId`) + `createAuditEntities(orm)`/
   `registerAuditEntities(orm)` (binding **dynamique**, **avant** connect) + `AuditEventRow`.
 - **`nodefony/src/DrizzleAuditStore.ts`** : `append` = INSERT (immuable) ; `gc(now)` = DELETE des
-  `ts < now-retention` (pas de TTL SQL → GC applicatif) ; **`query` = trappe native** (query builder
-  Drizzle **dialect-agnostique**) — ordre total `(ts DESC, id DESC)`, curseur **composite**
-  `(ts,id) < (cursorTs,cursorId)` (non exprimable en criteria AND-only), `limit+1` = garde `nextBefore`,
-  `count()` pour le total. **Résolveur LAZY** (`() => DrizzleDb|null`, garde `isConnected()`) → `null` =
-  fail-soft (append no-op best-effort, query page vide, gc 0). `DrizzleAuditStore.from(orm, now?, retentionMs?)`.
+  `ts < now-retention` (pas de TTL SQL → GC applicatif) ; **`listPage` = trappe native** (query builder
+  Drizzle **dialect-agnostique**) — ordre total `(ts DESC, id DESC)`, curseur **composite auto-portant**
+  `<ts>:<id>` → `(ts,id) < (cursorTs,cursorId)` (non exprimable en criteria AND-only, et se passe du SELECT
+  de résolution qu'imposait l'ancien curseur-id), `limit+1` = garde `hasNext`, `count()` pour le total
+  **refusable** (`withTotal:false`). **Résolveur LAZY** (`() => DrizzleDb|null`, garde `isConnected()`) → `null` =
+  fail-soft (append no-op best-effort, `listPage` page vide, gc 0). `DrizzleAuditStore.from(orm, now?, retentionMs?)`.
 - **Sélection** : `security.audit.store` (défaut `memory`) résolu par `auditStoreRegistry`
-  (`@nodefony/security`). Preuve : `tests/integration/audit-store.test.ts` (**7/7** SQLite — append/query
-  filtres/pagination curseur/collision ms/gc/dégradation) + `audit-store-postgres.e2e.test.ts`
-  (**4/4** PG réel — jsonb/bigint, curseur composite, gc `rowCount`).
+  (`@nodefony/security`). Preuve : banc de contrat PARTAGÉ
+  `audit-pagination.test.ts` (13 × 3 dialectes réels, importé de `@nodefony/security`) +
+  `audit-store.test.ts` (**6/6** SQLite — le spécifique drizzle : JSON flags/metadata, collision ms,
+  filtres AND, gc, dégradation) + `audit-store-postgres.e2e.test.ts` (**4/4** PG réel — jsonb/bigint,
+  curseur composite, gc `rowCount`).
 
 **Câblage — AUTO-REGISTER par le module** (`nodefony/registerStores.ts`, appelé par
 `Drizzle.onKernelRegister`) : entité + fabrique (registre `@nodefony/security`) déclarées
@@ -294,6 +297,6 @@ ni d'enregistrement app top-level) — LES 8 BRIQUES sur LES 3 DIALECTES** : `id
 - ✅ P7.4 adapter orm-core + ADR-0003 risque #3 résolu.
 - ✅ **P5.9 entité `User` Drizzle** (8 tests : CRUD + finders + tx + défauts). ORM par défaut → fait EN PREMIER (avant Mongoose P5.8).
 - ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests SQLite + **e2e Postgres cross-pod 7/7** (atomicité réelle prouvée).
-- ✅ **Journal d'audit Drizzle (P6.18)** — `IAuditStore` SQL append-only, pagination curseur composite `(ts,id)` via query builder dialect-agnostique, gc rétention, dégradation gracieuse, 7 tests SQLite. Multi-pod pg = slice multi-dialecte. Cf section « Journal d'audit Drizzle ».
+- ✅ **Journal d'audit Drizzle (P6.18)** — `IAuditStore` SQL append-only, pagination curseur composite auto-portant `<ts>:<id>` via query builder dialect-agnostique, gc rétention, dégradation gracieuse ; banc de contrat partagé 13 × 3 dialectes + 6 tests SQLite spécifiques. Multi-pod pg = slice multi-dialecte. Cf section « Journal d'audit Drizzle ».
 - ✅ **Store de secrets TOTP Drizzle** — `ITotpSecretStore` SQL (2FA persistant, comble le seul gap durable sans adapter). Table `totp_secret` (PK `userId`, 1 secret/user), `save` upsert, `update` patch partiel (anti-rejeu RFC 6238 préservé), `secretEnc` opaque (chiffré côté service). Auto-register `totp.store: "drizzle"` (sqlite-only, comme webauthn/token). 9 tests SQLite.
 - 🚧 **Portabilité multi-dialecte (chantier)** — `connector.dialect` + `DrizzleOrm` lazy pg/mysql + **colKit** (+ `dateMs`, `mysqlJsonCompat`) + **queryKit** + repository PK-portable (`#pickOne`, chemins mysql sans RETURNING) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé ; **les 8 briques framework portées + prouvées sur PG et MySQL/MariaDB** (e2e par brique + banc de contrat 3 dialectes). Reste : DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».

@@ -41,7 +41,7 @@ import {
 } from "./firewallModel";
 import {
   type AuditEvent,
-  type AuditQueryResult,
+  type AuditPage,
   type AuditPeriod,
   periodSince,
 } from "../audit/auditModel";
@@ -79,15 +79,15 @@ export const FirewallAuthStats = observer(() => {
       // 3 requêtes parallèles : compteur exact (total filtré) par issue ; la
       // requête « denied » ramène en plus les 20 derniers refus (liste).
       const [success, failure, denied] = await Promise.all([
-        store.api.getAbsolute<AuditQueryResult>(url("success", 1)),
-        store.api.getAbsolute<AuditQueryResult>(url("failure", 1)),
-        store.api.getAbsolute<AuditQueryResult>(url("denied", 20)),
+        store.api.getAbsolute<AuditPage>(url("success", 1)),
+        store.api.getAbsolute<AuditPage>(url("failure", 1)),
+        store.api.getAbsolute<AuditPage>(url("denied", 20)),
       ]);
       return {
-        success: success.total,
-        failure: failure.total,
-        denied: denied.total,
-        recentDenied: denied.events,
+        success: success.total ?? 0,
+        failure: failure.total ?? 0,
+        denied: denied.total ?? 0,
+        recentDenied: denied.items,
       };
     } catch (e) {
       // Message FR honnête (401 mock Studio, 403, 503…) plutôt que le brut.

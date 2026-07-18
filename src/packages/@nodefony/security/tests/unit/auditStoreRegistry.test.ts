@@ -49,7 +49,14 @@ describe("auditStoreRegistry — sélection pluggable du journal", () => {
   it("registerAuditStore ajoute/remplace une fabrique", () => {
     const fake: IAuditStore = {
       append: () => Promise.resolve(),
-      query: () => Promise.resolve({ events: [], nextBefore: null, total: 0 }),
+      listPage: () =>
+        Promise.resolve({
+          items: [],
+          limit: 0,
+          hasNext: false,
+          nextCursor: null,
+          total: 0,
+        }),
       gc: () => Promise.resolve(0),
     };
     registerAuditStore("fake-test", () => fake);

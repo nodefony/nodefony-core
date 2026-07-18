@@ -46,7 +46,7 @@ import {
   type AuditBatch,
   type AuditEvent,
   type AuditFilter,
-  type AuditQueryResult,
+  type AuditPage,
 } from "./audit/auditModel";
 import {
   CategoryBadge,
@@ -120,7 +120,7 @@ export const Audit = observer(() => {
   const [filter, setFilter] = useState<AuditFilter>(DEFAULT_FILTER);
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [total, setTotal] = useState(0);
-  const [nextBefore, setNextBefore] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,9 +135,9 @@ export const Audit = observer(() => {
   const reqId = useRef(0);
 
   const fetchPage = useCallback(
-    (before?: string): Promise<AuditQueryResult> => {
-      const qs = buildAuditQuery(filter, Date.now(), before);
-      return store.api.getAbsolute<AuditQueryResult>(`${ENDPOINT}?${qs}`);
+    (cursor?: string): Promise<AuditPage> => {
+      const qs = buildAuditQuery(filter, Date.now(), cursor);
+      return store.api.getAbsolute<AuditPage>(`${ENDPOINT}?${qs}`);
     },
     [store, filter],
   );
@@ -149,15 +149,15 @@ export const Audit = observer(() => {
     try {
       const res = await fetchPage();
       if (my !== reqId.current) return;
-      setEvents(dedupSorted(res.events));
-      setTotal(res.total);
-      setNextBefore(res.nextBefore);
+      setEvents(dedupSorted(res.items));
+      setTotal(res.total ?? 0);
+      setNextCursor(res.nextCursor ?? null);
     } catch (e) {
       if (my !== reqId.current) return;
       setError(describeAuditError(e));
       setEvents([]);
       setTotal(0);
-      setNextBefore(null);
+      setNextCursor(null);
     } finally {
       if (my === reqId.current) setLoading(false);
     }
@@ -169,21 +169,21 @@ export const Audit = observer(() => {
   }, [reload]);
 
   const loadMore = useCallback(async () => {
-    if (!nextBefore || loadingMore) return;
+    if (!nextCursor || loadingMore) return;
     const my = reqId.current;
     setLoadingMore(true);
     try {
-      const res = await fetchPage(nextBefore);
+      const res = await fetchPage(nextCursor);
       if (my !== reqId.current) return; // le filtre a changé en cours de route
-      setEvents((prev) => dedupSorted([...prev, ...res.events]));
-      setNextBefore(res.nextBefore);
-      setTotal(res.total);
+      setEvents((prev) => dedupSorted([...prev, ...res.items]));
+      setNextCursor(res.nextCursor ?? null);
+      setTotal(res.total ?? 0);
     } catch (e) {
       if (my === reqId.current) setError(describeAuditError(e));
     } finally {
       if (my === reqId.current) setLoadingMore(false);
     }
-  }, [fetchPage, nextBefore, loadingMore]);
+  }, [fetchPage, nextCursor, loadingMore]);
 
   const onBatch = useCallback(
     (batch: AuditBatch) => {
@@ -437,7 +437,7 @@ export const Audit = observer(() => {
         emptyMessage="Aucun événement de sécurité pour ce filtre."
       />
 
-      {nextBefore && (
+      {nextCursor && (
         <Group justify="center">
           <Button
             variant="default"

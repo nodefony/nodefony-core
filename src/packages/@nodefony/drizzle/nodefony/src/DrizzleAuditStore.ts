@@ -4,10 +4,10 @@ import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 // 0 dépendance runtime de l'ORM vers la couche sécurité (approche B). L'application
 // câble le store (`registerAuditStore("drizzle", …)`) + l'entité
 // (`registerAuditEntities(orm)` avant `orm.connect()`).
+import type { IPage } from "nodefony";
 import type {
   IAuditEvent,
-  IAuditQuery,
-  IAuditQueryResult,
+  IAuditListQuery,
   IAuditStore,
 } from "@nodefony/security";
 import {
@@ -29,6 +29,9 @@ const DEFAULT_RETENTION_MS = 365 * 24 * 3_600_000;
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 
+/** Séparateur du curseur composite `<ts>:<id>` (cf `#parseCursor`). */
+const CURSOR_SEPARATOR = ":";
+
 /**
  * Journal d'audit **Drizzle** (driver `better-sqlite3` en test, Postgres/MySQL en
  * prod) — implémentation SQL d'{@link IAuditStore} (append-only, tamper-evident)
@@ -39,13 +42,13 @@ const MAX_LIMIT = 500;
  * suppression ciblée d'un événement — seul {@link DrizzleAuditStore.gc} (rétention)
  * retire des lignes. L'immuabilité EST la garantie d'audit.
  *
- * **Pagination curseur EXACTE (`query`)** — via le query builder Drizzle
+ * **Pagination curseur EXACTE (`listPage`)** — via le query builder Drizzle
  * (dialect-agnostique), l'ordre total est `(ts DESC, id DESC)` : `ts` porte l'ordre
  * chronologique, `id` casse les collisions à la milliseconde (rafales de login). Le
- * curseur `before` (id) est résolu par une comparaison **composite**
+ * curseur transporte **les deux** (`<ts>:<id>`) et se compare en **composite**
  * `(ts, id) < (cursorTs, cursorId)` — non exprimable en critère `IRepository`
  * AND-only, d'où la trappe native (ADR-0003, comme `DrizzleIdempotencyStore`). Une
- * ligne de garde (`limit + 1`) détermine `nextBefore` sans page vide parasite.
+ * ligne de garde (`limit + 1`) détermine `hasNext` sans page vide parasite.
  *
  * **Résolution LAZY + dégradation gracieuse** (calqué sur les stores frères) : le
  * handle Drizzle est résolu à CHAQUE appel, pas capturé à la construction — l'ordre
@@ -53,7 +56,7 @@ const MAX_LIMIT = 500;
  * encore connecté) et l'ORM se déconnecte au shutdown avant le drain des serveurs.
  * Si le handle est `null` : `append` est un no-op **best-effort** (l'audit ne
  * bloque ni ne fait échouer le flux métier — un événement au boot/shutdown est
- * perdu plutôt que de crasher un login), `query` rend une page vide et `gc` rend 0.
+ * perdu plutôt que de crasher un login), `listPage` rend une page vide et `gc` rend 0.
  *
  * Horloge injectable (`now`) pour des tests déterministes.
  */
@@ -148,46 +151,45 @@ export class DrizzleAuditStore implements IAuditStore {
     });
   }
 
-  async query(filter: IAuditQuery = {}): Promise<IAuditQueryResult> {
+  async listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>> {
+    const limit = Math.min(
+      Math.max(1, query.limit ?? DEFAULT_LIMIT),
+      MAX_LIMIT,
+    );
     const db = this.#resolveDb();
     if (!db) {
-      return { events: [], nextBefore: null, total: 0 };
+      return { items: [], limit, hasNext: false, nextCursor: null, total: 0 };
     }
     const table = execTable(this.#table);
     const c = this.#c;
-    const limit = Math.min(
-      Math.max(1, filter.limit ?? DEFAULT_LIMIT),
-      MAX_LIMIT,
-    );
-    const filterWhere = this.#buildFilter(filter);
+    const filterWhere = this.#buildFilter(query);
 
-    // Total = tous les événements du filtre (hors pagination/curseur).
-    const totalRows = (await db
-      .select({ n: count() })
-      .from(table)
-      .where(filterWhere)) as Array<{ n: number }>;
-    const total = Number(totalRows[0]?.n ?? 0);
-
-    // Curseur : ne garder que ce qui PRÉCÈDE (ts, id) de l'événement `before`.
-    let where = filterWhere;
-    if (filter.before !== undefined) {
-      const curRows = (await db
-        .select({ ts: c.ts, id: c.id })
+    // Total = tous les événements du filtre (hors pagination/curseur). Refusable
+    // (`withTotal: false`) : un COUNT filtré sur une rétention longue se paie.
+    let total: number | undefined;
+    if (query.withTotal !== false) {
+      const totalRows = (await db
+        .select({ n: count() })
         .from(table)
-        .where(eq(c.id, filter.before))
-        .limit(1)) as Array<{ ts: number; id: string }>;
-      const cur = curRows[0];
-      if (cur) {
-        const cursorCond = or(
-          lt(c.ts, cur.ts),
-          and(eq(c.ts, cur.ts), lt(c.id, cur.id)),
-        );
-        where = filterWhere ? and(filterWhere, cursorCond) : cursorCond;
-      }
+        .where(filterWhere)) as Array<{ n: number }>;
+      total = Number(totalRows[0]?.n ?? 0);
+    }
+
+    // Curseur AUTO-PORTANT `(ts, id)` : aucune résolution préalable (l'ancien
+    // curseur-id exigeait un SELECT, et rembobinait en silence si l'événement
+    // avait été purgé entre deux pages).
+    let where = filterWhere;
+    const cursor = this.#parseCursor(query.cursor);
+    if (cursor) {
+      const cursorCond = or(
+        lt(c.ts, cursor.ts),
+        and(eq(c.ts, cursor.ts), lt(c.id, cursor.id)),
+      );
+      where = filterWhere ? and(filterWhere, cursorCond) : cursorCond;
     }
 
     // Ordre total (ts DESC, id DESC) ; `limit + 1` = ligne de garde pour savoir
-    // s'il reste une page (nextBefore) sans risquer une page suivante vide.
+    // s'il reste une page (hasNext) sans risquer une page suivante vide.
     const rows = (await db
       .select()
       .from(table)
@@ -195,11 +197,35 @@ export class DrizzleAuditStore implements IAuditStore {
       .orderBy(desc(c.ts), desc(c.id))
       .limit(limit + 1)) as AuditEventRow[];
 
-    const hasMore = rows.length > limit;
-    const pageRows = hasMore ? rows.slice(0, limit) : rows;
-    const events = pageRows.map((row) => this.#toEvent(row));
-    const nextBefore = hasMore ? pageRows[pageRows.length - 1]!.id : null;
-    return { events, nextBefore, total };
+    const hasNext = rows.length > limit;
+    const pageRows = hasNext ? rows.slice(0, limit) : rows;
+    const items = pageRows.map((row) => this.#toEvent(row));
+    const last = pageRows[pageRows.length - 1];
+    return {
+      items,
+      limit,
+      hasNext,
+      nextCursor:
+        hasNext && last ? `${last.ts}${CURSOR_SEPARATOR}${last.id}` : null,
+      ...(total !== undefined ? { total } : {}),
+    };
+  }
+
+  /**
+   * Décode le curseur composite `<ts>:<id>` (format privé au store, comme son
+   * pendant mémoire). Jeton absent ou malformé → `null` : la lecture repart de
+   * la page la plus récente plutôt que d'échouer sur une consultation.
+   */
+  #parseCursor(cursor?: string): { ts: number; id: string } | null {
+    if (cursor === undefined) {
+      return null;
+    }
+    const sep = cursor.indexOf(CURSOR_SEPARATOR);
+    if (sep <= 0) {
+      return null;
+    }
+    const ts = Number(cursor.slice(0, sep));
+    return Number.isFinite(ts) ? { ts, id: cursor.slice(sep + 1) } : null;
   }
 
   async gc(now: number = this.#now()): Promise<number> {
@@ -221,7 +247,7 @@ export class DrizzleAuditStore implements IAuditStore {
   }
 
   /** Compose la clause `WHERE` des filtres AND ; `undefined` si aucun (= tout). */
-  #buildFilter(filter: IAuditQuery) {
+  #buildFilter(filter: IAuditListQuery) {
     const c = this.#c;
     const clauses = [];
     if (filter.category !== undefined) {

@@ -1,9 +1,6 @@
+import type { IPage } from "nodefony";
 import type { IAuditEvent } from "../../contracts/IAuditEvent";
-import type {
-  IAuditQuery,
-  IAuditQueryResult,
-  IAuditStore,
-} from "../../contracts/IAuditStore";
+import type { IAuditListQuery, IAuditStore } from "../../contracts/IAuditStore";
 
 /** Instantané sérialisable du journal mémoire (persistance fichier + tests). */
 export interface AuditStoreSnapshot {
@@ -13,6 +10,17 @@ export interface AuditStoreSnapshot {
 const DEFAULT_MAX_ENTRIES = 10_000;
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
+
+/**
+ * Sépare les deux composantes du curseur. Le curseur est **composite**
+ * (`<ts>:<id>`) et non un id nu : il se suffit à lui-même, donc une page reste
+ * exacte même si l'événement qui l'a produite a été purgé entre-temps par
+ * {@link MemoryAuditStore.gc} (un id nu, lui, n'aurait plus rien à résoudre →
+ * curseur ignoré → retour silencieux à la première page).
+ *
+ * Format **privé au store** : l'appelant repasse le jeton tel quel.
+ */
+const CURSOR_SEPARATOR = ":";
 
 /**
  * Journal d'audit **en mémoire** — implémentation de référence d'{@link IAuditStore}.
@@ -54,34 +62,66 @@ export class MemoryAuditStore implements IAuditStore {
     return Promise.resolve();
   }
 
-  query(filter: IAuditQuery = {}): Promise<IAuditQueryResult> {
+  listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>> {
     const limit = Math.min(
-      Math.max(1, filter.limit ?? DEFAULT_LIMIT),
+      Math.max(1, query.limit ?? DEFAULT_LIMIT),
       MAX_LIMIT,
     );
-    // Collecte filtrée en ordre d'insertion (ancien → récent).
+    // Collecte filtrée (ordre d'insertion : ancien → récent).
     const matched: IAuditEvent[] = [];
     for (let i = 0; i < this.#events.length; i++) {
       const event = this.#events[i]!;
-      if (this.#matches(event, filter)) {
+      if (this.#matches(event, query)) {
         matched.push(event);
       }
     }
     const total = matched.length;
-    // On rend du plus récent au plus ancien ; `before` borne vers le passé.
-    let end = matched.length; // exclusif
-    if (filter.before !== undefined) {
-      const idx = matched.findIndex((event) => event.id === filter.before);
-      if (idx >= 0) {
-        end = idx; // ne garder que ce qui PRÉCÈDE le curseur (plus ancien)
-      }
+    // Ordre total (ts DESC, id DESC) — le même que le backend SQL. L'ordre
+    // d'insertion ne suffit PAS : deux événements de la même milliseconde
+    // (rafale de login) doivent être départagés par leur id, sinon le curseur
+    // composite pourrait sauter ou répéter l'un d'eux.
+    matched.sort((a, b) =>
+      a.ts !== b.ts ? b.ts - a.ts : a.id < b.id ? 1 : -1,
+    );
+    // Curseur : ne garder que ce qui SUIT le jeton dans cet ordre (plus ancien).
+    let page = matched;
+    const cursor = this.#parseCursor(query.cursor);
+    if (cursor) {
+      const from = matched.findIndex(
+        (event) =>
+          event.ts < cursor.ts ||
+          (event.ts === cursor.ts && event.id < cursor.id),
+      );
+      page = from >= 0 ? matched.slice(from) : [];
     }
-    const start = Math.max(0, end - limit);
-    const pageAsc = matched.slice(start, end);
-    // Curseur suivant = le plus ancien de la page (calculé AVANT le reverse).
-    const nextBefore = start > 0 && pageAsc.length > 0 ? pageAsc[0]!.id : null;
-    pageAsc.reverse(); // récent → ancien
-    return Promise.resolve({ events: pageAsc, nextBefore, total });
+    const hasNext = page.length > limit;
+    const items = hasNext ? page.slice(0, limit) : page;
+    const last = items[items.length - 1];
+    return Promise.resolve({
+      items,
+      limit,
+      hasNext,
+      nextCursor:
+        hasNext && last ? `${last.ts}${CURSOR_SEPARATOR}${last.id}` : null,
+      ...(query.withTotal === false ? {} : { total }),
+    });
+  }
+
+  /**
+   * Décode le curseur composite. Un jeton absent ou malformé (forgé — le nôtre
+   * ne l'est jamais) rend `null` : la lecture repart de la page la plus récente,
+   * jamais d'erreur sur un chemin de consultation.
+   */
+  #parseCursor(cursor?: string): { ts: number; id: string } | null {
+    if (cursor === undefined) {
+      return null;
+    }
+    const sep = cursor.indexOf(CURSOR_SEPARATOR);
+    if (sep <= 0) {
+      return null;
+    }
+    const ts = Number(cursor.slice(0, sep));
+    return Number.isFinite(ts) ? { ts, id: cursor.slice(sep + 1) } : null;
   }
 
   gc(now: number = this.#now()): Promise<number> {
@@ -95,7 +135,7 @@ export class MemoryAuditStore implements IAuditStore {
     return Promise.resolve(purged);
   }
 
-  #matches(event: IAuditEvent, filter: IAuditQuery): boolean {
+  #matches(event: IAuditEvent, filter: IAuditListQuery): boolean {
     if (filter.category !== undefined && event.category !== filter.category) {
       return false;
     }

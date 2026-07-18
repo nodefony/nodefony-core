@@ -136,7 +136,7 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   `unref` ; pose `auditStore`. **Store PLUGGABLE** (`audit.store`, défaut `memory`) résolu par
   `auditStoreRegistry` (`registerAuditStore`/`getAuditStoreFactory`/`listAuditStores`, calque
   `tokenStoreRegistry` ; driver inconnu → WARNING + audit désactivé, jamais de crash) : builtin `memory`
-  (`MemoryAuditStore` FIFO borné, query curseur récent→ancien) ; `drizzle` = `DrizzleAuditStore` persistant
+  (`MemoryAuditStore` FIFO borné, `listPage` curseur récent→ancien) ; `drizzle` = `DrizzleAuditStore` persistant
   append-only (P6.18, auto-enregistré par le module drizzle — sélection `audit.store:"drizzle"` seule). **Secret jamais dans l'event** → presence-only `flags`. **Émission EXPLICITE par point** (pas EventEmitter firewall : Token/
   ApiKey/OAuth émettent hors chaîne). Helpers `recordAudit(container, draft)` (résout `auditService`, no-op si
   absent) + `readAuditContext(ctx)` (ip/ua/requestId+flags). **Lot 2** (cold) : `AuthFlow` login.success/
@@ -150,9 +150,19 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   countTokens=-1, capacité réduite annoncée), mémoire = slice. `listAll()` GARDÉ = dump incident (cold-path).
   Façade `ApiKeyService.listPagePat`, `SecurityAdminApi GET apikeys` paginé serveur (fin du listAll O(N)). Banc de
   contrat UNIQUE `tests/support/tokenPaginationContract.ts` (modes offset/cursor), cross-package : prouvé mémoire +
-  Drizzle sqlite/pg/mariadb/mysql + Mongoose + Redis. **Data plane lot 3** : `SecurityAdminApi` (`IAdminApi` ns "security")
-  `GET /nodefony/security/api/audit/events` RBAC `ROLE_NODEFONY_ADMIN`, 503 si off. Table actions = README
-  §Audit. **Stream live lot 4** : canal WS `security:audit` (`createAuditBridge` calque `createSyslogBridge`,
+  Drizzle sqlite/pg/mariadb/mysql + Mongoose + Redis. **Pagination native du JOURNAL (même standard)** :
+  `IAuditStore.listPage(IAuditListQuery extends IPageQuery)` → `IPage<IAuditEvent>` — **curseur EXCLUSIVEMENT**
+  (un journal reçoit des écritures pendant qu'on le parcourt : un `offset` glisserait). Curseur **composite
+  auto-portant `<ts>:<id>`** (séparateur `:` = convention des curseurs Redis frères), donc : 0 SELECT de
+  résolution côté SQL, et une page reste juste même si l'événement du curseur a été purgé par `gc` (un
+  curseur-id, lui, rembobinait EN SILENCE à la page 1 → boucle côté console). Ordre total `(ts DESC, id DESC)`
+  — l'ordre d'insertion ne suffit pas, une rafale à la même ms se départage par `id`. `total` refusable
+  (`withTotal:false` → pas de `COUNT` sur une rétention longue) ; `hasNext` fiable dans les deux cas. Plafond
+  de page DANS chaque store (défaut 100, max 500). Banc de contrat UNIQUE
+  `tests/support/auditPaginationContract.ts` : mémoire + Drizzle sqlite/pg/mysql. **Data plane lot 3** :
+  `SecurityAdminApi` (`IAdminApi` ns "security") `GET /nodefony/security/api/audit/events`
+  (`?…&limit&cursor`) RBAC `ROLE_NODEFONY_ADMIN`, 503 si off ; `parseAuditQuery` pose TOUJOURS un `limit`
+  (le contrat de page n'admet pas « tout »). Table actions = README §Audit. **Stream live lot 4** : canal WS `security:audit` (`createAuditBridge` calque `createSyslogBridge`,
   coalescé `{events,dropped}` ring borné, **lazy** : s'abonne à `AuditService.subscribe` au 1ᵉʳ auditeur,
   détache au dernier). Gardé **ROLE_NODEFONY_ADMIN** (plancher `security:` ajouté à `frameAuthorizer`,
   `SECURITY_CHANNEL_POLICY`, 1 cran au-dessus de `SYSTEM_CHANNEL_POLICY`). Enregistré comme **canal système**

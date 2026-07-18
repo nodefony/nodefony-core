@@ -12,11 +12,12 @@ import type {
   ITotpEnrollmentSummary,
   ITotpListQuery,
 } from "../../contracts/ITotpSecretStore";
-import type { AuditCategory, AuditOutcome } from "../../contracts/IAuditEvent";
 import type {
-  IAuditQuery,
-  IAuditQueryResult,
-} from "../../contracts/IAuditStore";
+  AuditCategory,
+  AuditOutcome,
+  IAuditEvent,
+} from "../../contracts/IAuditEvent";
+import type { IAuditListQuery } from "../../contracts/IAuditStore";
 import type { IFirewall } from "../../contracts/IFirewall";
 import type {
   IFirewallDescription,
@@ -33,12 +34,12 @@ import { webhookAdminEndpoints } from "./WebhookAdminApi";
 
 /**
  * Vue MINIMALE du service `auditService` consommée par le data plane — seule la
- * LECTURE (`query`) + l'état (`isEnabled`) sont nécessaires. Couplage structurel
- * (par nom de service), jamais d'import de la classe concrète.
+ * LECTURE (`listPage`) + l'état (`isEnabled`) sont nécessaires. Couplage
+ * structurel (par nom de service), jamais d'import de la classe concrète.
  */
 interface IAuditReader {
   isEnabled(): boolean;
-  query(filter?: IAuditQuery): Promise<IAuditQueryResult>;
+  listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>>;
 }
 
 /**
@@ -160,6 +161,9 @@ function one(
   return Array.isArray(value) ? value[0] : value;
 }
 
+/** Taille de page du journal d'audit quand l'appelant n'en demande pas. */
+const AUDIT_DEFAULT_LIMIT = 100;
+
 /** Entier positif d'un param, ou `undefined` si absent/non numérique. */
 function intParam(
   query: Readonly<Record<string, string | string[]>>,
@@ -172,18 +176,22 @@ function intParam(
 }
 
 /**
- * Traduit la query string admin en {@link IAuditQuery} typée. Un filtre
+ * Traduit la query string admin en {@link IAuditListQuery} typée. Un filtre
  * `category`/`outcome` **inconnu est ignoré** (permissif — l'endpoint est déjà
  * gardé `ROLE_NODEFONY_ADMIN`, renvoyer plus large à un admin est sûr) plutôt
  * que de renvoyer une 400 (robustesse de la console).
  *
+ * Le `limit` est **toujours posé** (défaut {@link AUDIT_DEFAULT_LIMIT}) : le
+ * contrat de page n'admet pas « tout » ; le store applique en plus son propre
+ * plafond, l'appelant ne peut donc pas s'en servir pour tirer un journal entier.
+ *
  * @param query - `request.query` du broker admin.
- * @returns filtre prêt pour `auditStore.query`.
+ * @returns filtre prêt pour `auditService.listPage`.
  */
 export function parseAuditQuery(
   query: Readonly<Record<string, string | string[]>>,
-): IAuditQuery {
-  const filter: IAuditQuery = {};
+): IAuditListQuery {
+  const filter: IAuditListQuery = { limit: AUDIT_DEFAULT_LIMIT };
   const category = one(query, "category");
   if (category !== undefined && CATEGORIES.has(category)) {
     filter.category = category as AuditCategory;
@@ -204,8 +212,8 @@ export function parseAuditQuery(
   if (until !== undefined) filter.until = until;
   const limit = intParam(query, "limit");
   if (limit !== undefined) filter.limit = limit;
-  const before = one(query, "before");
-  if (before !== undefined) filter.before = before;
+  const cursor = one(query, "cursor");
+  if (cursor !== undefined) filter.cursor = cursor;
   return filter;
 }
 
@@ -294,8 +302,8 @@ function toCredentialView(c: IWebAuthnCredential): IAdminCredentialView {
  * Studio (section Sécurité, P6.15) :
  *
  *  - `GET /nodefony/security/api/audit/events` — page filtrée du journal d'audit
- *    (P6.14 Lot 3 ; `?category&outcome&actor&action&requestId&since&until&limit&before`),
- *    du plus récent au plus ancien, pagination par curseur (`before` / `nextBefore`).
+ *    (P6.14 Lot 3 ; `?category&outcome&actor&action&requestId&since&until&limit&cursor`),
+ *    du plus récent au plus ancien, pagination par curseur (`cursor` / `nextCursor`).
  *  - `GET /nodefony/security/api/firewall` — introspection du firewall (zones,
  *    authenticators montés, défenses) — état RUNTIME, secrets exclus.
  *  - `GET /nodefony/security/api/roleHierarchy` — hiérarchie de rôles + résolution.
@@ -325,15 +333,15 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
       role: "ROLE_NODEFONY_ADMIN",
       summary:
         "Journal d'audit de sécurité (login/refus/jetons). Filtres : " +
-        "?category&outcome&actor&action&since&until&limit&before (curseur).",
+        "?category&outcome&actor&action&since&until&limit&cursor (curseur).",
       handler: async (
         request: IAdminRequest,
-      ): Promise<IAuditQueryResult | IAdminResponse<{ error: string }>> => {
+      ): Promise<IPage<IAuditEvent> | IAdminResponse<{ error: string }>> => {
         const audit = container.get("auditService") as IAuditReader | undefined;
         if (!audit || !audit.isEnabled()) {
           return { status: 503, body: { error: "audit journal unavailable" } };
         }
-        return audit.query(parseAuditQuery(request.query));
+        return audit.listPage(parseAuditQuery(request.query));
       },
     },
     {

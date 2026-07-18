@@ -77,7 +77,7 @@ import {
 } from "./logs/profileVisuals";
 import type { ProfileEntry } from "../stores/ProfilerStore";
 import { CategoryBadge, OutcomeBadge } from "./audit/auditFormat";
-import type { AuditQueryResult } from "./audit/auditModel";
+import type { AuditPage } from "./audit/auditModel";
 
 const TRACE_DOC = "v1.0";
 
@@ -257,7 +257,7 @@ export const TraceView = observer(() => {
   // dégrade silencieusement sur les logs heuristiques (comme le profil ORM).
   const auditFetcher = useCallback(
     () =>
-      store.api.getAbsolute<AuditQueryResult>(
+      store.api.getAbsolute<AuditPage>(
         `/nodefony/security/api/audit/events?requestId=${encodeURIComponent(
           requestId,
         )}&limit=100`,
@@ -267,7 +267,7 @@ export const TraceView = observer(() => {
   const { data: auditData } = useResource(auditFetcher);
   // Ordre chronologique (asc) pour coller à la timeline de la trace.
   const auditEvents = useMemo(
-    () => [...(auditData?.events ?? [])].sort((a, b) => a.ts - b.ts),
+    () => [...(auditData?.items ?? [])].sort((a, b) => a.ts - b.ts),
     [auditData],
   );
 

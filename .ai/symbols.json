@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-18T16:40:15.048Z",
+  "generated": "2026-07-18T21:56:46.615Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1030,
-    "symbols": 2784,
+    "symbols": 2783,
     "classes": 327,
-    "interfaces": 732,
+    "interfaces": 731,
     "types": 322,
     "enums": 4,
     "functions": 827,
@@ -11612,23 +11612,14 @@
       "module": "@nodefony/security",
       "description": "Champs fournis par l'**émetteur** d'un événement — l'`AuditService` y ajoute `id` + `ts`. Garde les points d'émission concis et sans appel système d'horloge."
     },
-    "IAuditQuery": {
-      "name": "IAuditQuery",
+    "IAuditListQuery": {
+      "name": "IAuditListQuery",
       "kind": "interface",
       "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": null,
-      "description": "Filtre de lecture du journal d'audit (console Studio P6.15, data plane P6.14 Lot 3). Tous les critères sont **AND** ; absents = non filtrant. Pagination par **curseur** (`before` = id), du plus réc…"
-    },
-    "IAuditQueryResult": {
-      "name": "IAuditQueryResult",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": null,
-      "description": "Page de résultats d'audit, du plus récent au plus ancien."
+      "extends": "IPageQuery",
+      "description": "Filtre de lecture du journal d'audit (console Studio P6.15, data plane P6.14 Lot 3) — {@link IPageQuery} + les critères propres au journal. Tous les critères sont **AND** ; absents = non filtrant. …"
     },
     "IAuditStore": {
       "name": "IAuditStore",
@@ -17658,7 +17649,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Traduit la query string admin en {@link IAuditQuery} typée. Un filtre `category`/`outcome` **inconnu est ignoré** (permissif — l'endpoint est déjà gardé `ROLE_NODEFONY_ADMIN`, renvoyer plus large à…"
+      "description": "Traduit la query string admin en {@link IAuditListQuery} typée. Un filtre `category`/`outcome` **inconnu est ignoré** (permissif — l'endpoint est déjà gardé `ROLE_NODEFONY_ADMIN`, renvoyer plus lar…"
     },
     "createSecurityAdminApi": {
       "name": "createSecurityAdminApi",
@@ -19606,6 +19597,7 @@
         "IIdempotencyListQuery",
         "ISessionListQuery",
         "PageQuery",
+        "IAuditListQuery",
         "ITokenListQuery",
         "ITotpListQuery",
         "IWebAuthnListQuery",
@@ -22419,6 +22411,7 @@
       ],
       "IPage": [
         "src/nodefony/src/types/IIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
@@ -22440,11 +22433,13 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
@@ -22456,6 +22451,7 @@
         "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
@@ -22467,6 +22463,7 @@
         "src/nodefony/src/types/IIdempotencyStore.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
@@ -23579,17 +23576,12 @@
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
       ],
-      "IAuditQuery": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
-      ],
-      "IAuditQueryResult": [
+      "IAuditListQuery": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",

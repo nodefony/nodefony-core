@@ -1,3 +1,4 @@
+import type { IPage, IPageQuery } from "nodefony";
 import type {
   AuditCategory,
   AuditOutcome,
@@ -7,10 +8,18 @@ import type {
 
 /**
  * Filtre de lecture du journal d'audit (console Studio P6.15, data plane P6.14
- * Lot 3). Tous les critères sont **AND** ; absents = non filtrant. Pagination par
- * **curseur** (`before` = id), du plus récent au plus ancien.
+ * Lot 3) — {@link IPageQuery} + les critères propres au journal. Tous les
+ * critères sont **AND** ; absents = non filtrant.
+ *
+ * Pagination par **curseur** (jamais `offset`) : un journal reçoit des écritures
+ * pendant qu'on le parcourt, un décalage numérique glisserait d'une page à
+ * l'autre. Le curseur est **opaque** — sa forme appartient au store, l'appelant
+ * ne fait que repasser le {@link IPage.nextCursor} reçu.
+ *
+ * `q` (hérité) n'est **pas** appliqué : filtrer un journal se fait par ses axes
+ * (catégorie / issue / acteur / action / requête / fenêtre), pas en plein texte.
  */
-export interface IAuditQuery {
+export interface IAuditListQuery extends IPageQuery {
   /** Restreint à un sous-système. */
   category?: AuditCategory;
   /** Restreint à une issue (`success`/`failure`/`denied`). */
@@ -25,20 +34,6 @@ export interface IAuditQuery {
   since?: number;
   /** Borne haute d'horodatage (epoch ms, inclus). */
   until?: number;
-  /** Taille de page (bornée par l'implémentation). */
-  limit?: number;
-  /** Curseur : ne renvoyer que les événements **plus anciens** que cet id. */
-  before?: string;
-}
-
-/** Page de résultats d'audit, du plus récent au plus ancien. */
-export interface IAuditQueryResult {
-  /** Événements de la page (ordre décroissant : le plus récent d'abord). */
-  events: IAuditEvent[];
-  /** Curseur de la page suivante (passer en `before`) ; `null` = fin. */
-  nextBefore: string | null;
-  /** Total d'événements correspondant au filtre (hors pagination). */
-  total: number;
 }
 
 /**
@@ -53,8 +48,15 @@ export interface IAuditQueryResult {
 export interface IAuditStore {
   /** Ajoute un événement (immuable, jamais modifié ensuite). */
   append(event: IAuditEvent): Promise<void>;
-  /** Lit une page d'événements filtrés (du plus récent au plus ancien). */
-  query(filter?: IAuditQuery): Promise<IAuditQueryResult>;
+  /**
+   * Lit **une page** d'événements filtrés, du plus récent au plus ancien —
+   * l'implémentation ne matérialise jamais plus que `limit` événements.
+   *
+   * `total` n'est renseigné que si `withTotal` n'est pas `false` (un `COUNT`
+   * filtré sur un journal de rétention longue se paie) ; {@link IPage.hasNext}
+   * et {@link IPage.nextCursor} sont fiables dans les deux cas.
+   */
+  listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>>;
   /**
    * Purge les événements au-delà de la fenêtre de rétention. À planifier
    * périodiquement par le propriétaire du store (timer `unref`). Sans appel, un

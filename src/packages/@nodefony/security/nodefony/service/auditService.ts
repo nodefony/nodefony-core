@@ -8,6 +8,7 @@ import {
   EMPTY_INFRA,
   resolveAutoStore,
   readStoreLocation,
+  type IPage,
 } from "nodefony";
 import { randomBytes } from "node:crypto";
 import {
@@ -21,8 +22,7 @@ import {
 } from "../src/audit/auditStoreRegistry";
 import type { IAuditEvent, IAuditEventDraft } from "../contracts/IAuditEvent";
 import type {
-  IAuditQuery,
-  IAuditQueryResult,
+  IAuditListQuery,
   IAuditSink,
   IAuditStore,
 } from "../contracts/IAuditStore";
@@ -226,11 +226,17 @@ class AuditService extends Service implements IAuditSink {
   // ── Lecture (data plane P6.15) ───────────────────────────────────────────────
 
   /** Lit une page du journal (délègue au store) ; vide si l'audit est inactif. */
-  query(filter?: IAuditQuery): Promise<IAuditQueryResult> {
+  listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>> {
     if (this.#store === null) {
-      return Promise.resolve({ events: [], nextBefore: null, total: 0 });
+      return Promise.resolve({
+        items: [],
+        limit: query.limit,
+        hasNext: false,
+        nextCursor: null,
+        total: 0,
+      });
     }
-    return this.#store.query(filter);
+    return this.#store.listPage(query);
   }
 
   /** `true` si l'audit est actif (config `audit.enabled`). */

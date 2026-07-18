@@ -244,8 +244,7 @@ export type {
 export type {
   IAuditStore,
   IAuditSink,
-  IAuditQuery,
-  IAuditQueryResult,
+  IAuditListQuery,
 } from "./nodefony/contracts/IAuditStore";
 export {
   registerAuditStore,

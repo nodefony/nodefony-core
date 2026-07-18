@@ -164,7 +164,7 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
       () => firewall.handleSecurity(makeContext(zone(["basic"]))),
       AuthenticationError,
     );
-    const { events, total } = await audit.query();
+    const { items: events, total } = await audit.listPage({ limit: 100 });
     assert.equal(total, 1);
     assert.equal(events[0]!.category, "auth");
     assert.equal(events[0]!.action, "auth.failure");
@@ -188,7 +188,7 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
       () => firewall.handleSecurity(makeContext(zone(["basic"]))),
       ThrottledError,
     );
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.action, "auth.throttled");
     assert.equal(events[0]!.outcome, "failure");
     assert.equal(events[0]!.reason, "throttled");
@@ -202,7 +202,7 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
       () => firewall.handleSecurity(makeContext(zone(["basic"]))),
       AuthenticationError,
     );
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.action, "auth.denied");
     assert.equal(events[0]!.outcome, "denied");
     assert.equal(events[0]!.reason, "no_credentials");
@@ -221,7 +221,7 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
       () => firewall.handleSecurity(makeContext(zone(["buggy"]))),
       AuthenticationError,
     );
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.action, "auth.denied");
     assert.equal(events[0]!.reason, "unauthenticated");
   });
@@ -237,7 +237,7 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
     await RequestContext.run({ requestId: "ok" }, () =>
       firewall.handleSecurity(makeContext(zone(["basic"]))),
     );
-    assert.equal((await audit.query()).total, 0);
+    assert.equal((await audit.listPage({ limit: 100 })).total, 0);
   });
 
   it("SUCCÈS anonyme EXPLICITE → AUCUNE émission", async () => {
@@ -248,7 +248,7 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
     await RequestContext.run({ requestId: "anon" }, () =>
       firewall.handleSecurity(makeContext(zone(["jwtlike", "anonymous"]))),
     );
-    assert.equal((await audit.query()).total, 0);
+    assert.equal((await audit.listPage({ limit: 100 })).total, 0);
   });
 });
 
@@ -390,14 +390,17 @@ describe("Firewall ⇄ realtime — frame.denied audité (câblage réel)", () =
     firewall.registerAuthenticator(new AnonymousAuthenticator());
     boot(); // #build → #wireRealtime → setFrameAuthorizer(captured)
 
-    assert.ok(captured.frameAuthorizer, "le firewall a posé un frameAuthorizer");
+    assert.ok(
+      captured.frameAuthorizer,
+      "le firewall a posé un frameAuthorizer",
+    );
     // Anonyme tente api.request sur la zone protégée → refus + audit.
     const ok = captured.frameAuthorizer(
       { method: "api.request", params: { path: "/rt/secret" } },
       ANON_WS,
     );
     assert.equal(ok, false);
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.category, "ws");
     assert.equal(events[0]!.action, "frame.denied");
     assert.equal(events[0]!.outcome, "denied");
@@ -449,7 +452,7 @@ describe("TokenService — émission audit", () => {
   it("token.issued à l'émission d'un couple (succès)", async () => {
     const { svc, audit } = setupToken();
     await svc.issueTokens(fakeUser("alice"), ["orders:read"]);
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.category, "token");
     assert.equal(events[0]!.action, "token.issued");
     assert.equal(events[0]!.outcome, "success");
@@ -467,7 +470,7 @@ describe("TokenService — émission audit", () => {
       () => svc.refresh(r1.refresh_token), // rejeu de l'ancien
       AuthenticationError,
     );
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.action, "token.reuse_detected");
     assert.equal(events[0]!.outcome, "denied");
     assert.equal(events[0]!.actor, "alice");
@@ -484,7 +487,7 @@ describe("TokenService — émission audit", () => {
       () => svc.issueForCredentials("", ""),
       AuthenticationError,
     );
-    const { events, total } = await audit.query();
+    const { items: events, total } = await audit.listPage({ limit: 100 });
     assert.equal(total, 2);
     // Récent → ancien : [0] = identifiants vides (actor null), [1] = ghost.
     assert.equal(events[0]!.action, "login.failure");
@@ -496,7 +499,7 @@ describe("TokenService — émission audit", () => {
   it("audit désactivé → token.issued NON journalisé", async () => {
     const { svc, audit } = setupToken(false);
     await svc.issueTokens(fakeUser("alice"));
-    assert.equal((await audit.query()).total, 0);
+    assert.equal((await audit.listPage({ limit: 100 })).total, 0);
   });
 });
 
@@ -532,7 +535,7 @@ describe("ApiKeyService — émission audit", () => {
       name: "ci",
       scopes: [],
     });
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.category, "token");
     assert.equal(events[0]!.action, "apikey.created");
     assert.equal(events[0]!.outcome, "success");
@@ -549,7 +552,7 @@ describe("ApiKeyService — émission audit", () => {
     });
     const ok = await keys.revokeForSubject("alice", created.id);
     assert.equal(ok, true);
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.action, "apikey.revoked");
     assert.equal(events[0]!.resource, created.id);
     assert.equal(events[0]!.reason, "manual");
@@ -563,7 +566,7 @@ describe("ApiKeyService — émission audit", () => {
     const ok = await keys.revokeForSubject("mallory", created.id);
     assert.equal(ok, false);
     // Seul apikey.created (1) a été émis — pas de révocation fantôme.
-    const { total } = await audit.query();
+    const { total } = await audit.listPage({ limit: 100 });
     assert.equal(total, 1);
   });
 });

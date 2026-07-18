@@ -16,7 +16,7 @@ import {
   AUDIT_OUTCOMES,
   type AuditEvent,
   type AuditOutcome,
-  type AuditQueryResult,
+  type AuditPage,
 } from "../../routes/audit/auditModel";
 import { BigMetric } from "./_kit";
 
@@ -28,10 +28,10 @@ function outcomeColor(o: AuditOutcome): string {
   return AUDIT_OUTCOMES.find((x) => x.value === o)?.color ?? "gray";
 }
 
-function AuditBody({ source }: WidgetRenderProps<AuditQueryResult>) {
+function AuditBody({ source }: WidgetRenderProps<AuditPage>) {
   const data = source.data;
   if (!data) return null;
-  const events = data.events ?? [];
+  const events = data.items ?? [];
   // Refus / échecs comptés sur la fenêtre chargée (les 100 derniers) — un refus
   // (`denied`) est le signal d'alerte auditeur, mis en rouge.
   const denied = events.filter((e) => e.outcome === "denied").length;
@@ -39,7 +39,7 @@ function AuditBody({ source }: WidgetRenderProps<AuditQueryResult>) {
   return (
     <Stack gap="sm">
       <Group gap="xl" wrap="nowrap" align="flex-start">
-        <BigMetric label="Événements" value={data.total} color="grape" />
+        <BigMetric label="Événements" value={data.total ?? 0} color="grape" />
         <BigMetric
           label="Refus"
           value={denied}
@@ -68,7 +68,7 @@ function AuditBody({ source }: WidgetRenderProps<AuditQueryResult>) {
   );
 }
 
-registerWidget<AuditQueryResult>({
+registerWidget<AuditPage>({
   id: "security.audit",
   title: "Activité de sécurité",
   description:

@@ -73,17 +73,17 @@ describe.skipIf(!MYSQL_URL)(
           metadata: { zone: "admin", n: 3 },
         }),
       );
-      const page = await store.query();
+      const page = await store.listPage({ limit: 100 });
       assert.equal(page.total, 2);
       assert.deepEqual(
-        page.events.map((e) => e.id),
+        page.items.map((e) => e.id),
         ["my-a2", "my-a1"], // ts DESC
       );
-      const rich = page.events[0]!;
+      const rich = page.items[0]!;
       assert.deepEqual(rich.flags, { hasCookie: true });
       assert.deepEqual(rich.metadata, { zone: "admin", n: 3 });
       assert.equal(rich.ts, 200, "epoch ms exact via bigint mode number");
-      const bare = page.events[1]!;
+      const bare = page.items[1]!;
       assert.equal(bare.flags, undefined, "NULL MySQL → champ absent");
       assert.equal(bare.metadata, undefined);
     });
@@ -92,35 +92,39 @@ describe.skipIf(!MYSQL_URL)(
       await store.append(
         makeEvent({ id: "my-a3", ts: 300, category: "authz", actor: "bob" }),
       );
-      const authz = await store.query({ category: "authz" });
+      const authz = await store.listPage({ limit: 100, category: "authz" });
       assert.equal(authz.total, 1);
-      assert.equal(authz.events[0]?.id, "my-a3");
-      const window = await store.query({ since: 150, until: 250 });
+      assert.equal(authz.items[0]?.id, "my-a3");
+      const window = await store.listPage({
+        limit: 100,
+        since: 150,
+        until: 250,
+      });
       assert.equal(window.total, 1);
-      assert.equal(window.events[0]?.id, "my-a2");
+      assert.equal(window.items[0]?.id, "my-a2");
     });
 
     it("pagination curseur composite (ts, id) : collision à la ms sans doublon ni trou", async () => {
       for (const id of ["my-c1", "my-c2", "my-c3"]) {
         await store.append(makeEvent({ id, ts: 500, category: "session" }));
       }
-      const page1 = await store.query({ category: "session", limit: 2 });
+      const page1 = await store.listPage({ category: "session", limit: 2 });
       assert.deepEqual(
-        page1.events.map((e) => e.id),
+        page1.items.map((e) => e.id),
         ["my-c3", "my-c2"],
       );
-      assert.equal(page1.nextBefore, "my-c2", "ligne de garde limit+1");
-      const page2 = await store.query({
+      assert.equal(page1.nextCursor, "500:my-c2", "curseur composite (ts|id)");
+      const page2 = await store.listPage({
         category: "session",
         limit: 2,
-        before: page1.nextBefore!,
+        cursor: page1.nextCursor!,
       });
       assert.deepEqual(
-        page2.events.map((e) => e.id),
+        page2.items.map((e) => e.id),
         ["my-c1"],
         "page 2 = le reste exact (pas de doublon, pas de trou)",
       );
-      assert.equal(page2.nextBefore, null);
+      assert.equal(page2.nextCursor, null);
     });
 
     it("gc : purge par rétention avec compteur mysql `affectedRows` (≠ 0)", async () => {
@@ -133,7 +137,7 @@ describe.skipIf(!MYSQL_URL)(
         6,
         "compteur normalisé affectedRows (tuple mysql2 — sinon 0)",
       );
-      const rest = await store.query();
+      const rest = await store.listPage({ limit: 100 });
       assert.equal(rest.total, 0);
     });
   },

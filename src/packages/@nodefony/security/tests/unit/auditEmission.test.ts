@@ -89,7 +89,7 @@ describe("AuthFlow — émission audit", () => {
     const { audit, emitter } = setup(AuthFlow);
     const ctx = fakeContext() as unknown as LoginArgs[0];
     await assert.rejects(() => emitter.login(ctx, "alice", ""));
-    const { events, total } = await audit.query();
+    const { items: events, total } = await audit.listPage({ limit: 100 });
     assert.equal(total, 1);
     assert.equal(events[0]!.category, "auth");
     assert.equal(events[0]!.action, "login.failure");
@@ -106,7 +106,7 @@ describe("AuthFlow — émission audit", () => {
     container.set("users", { authenticate: async () => null });
     const ctx = fakeContext() as unknown as LoginArgs[0];
     await assert.rejects(() => emitter.login(ctx, "ghost", "pw"));
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.action, "login.failure");
     assert.equal(events[0]!.actor, "ghost");
   });
@@ -123,7 +123,7 @@ describe("AuthFlow — émission audit", () => {
     const ctx = fakeContext() as unknown as Record<string, unknown>;
     ctx.session = fakeSession("sess-1");
     await emitter.login(ctx as unknown as LoginArgs[0], "alice", "pw");
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.action, "login.success");
     assert.equal(events[0]!.outcome, "success");
     assert.equal(events[0]!.actor, "alice");
@@ -139,7 +139,7 @@ describe("AuthFlow — émission audit", () => {
     };
     const ok = await emitter.logout(ctx as unknown as LoginArgs[0]);
     assert.equal(ok, true);
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.category, "session");
     assert.equal(events[0]!.action, "logout");
     assert.equal(events[0]!.actor, "alice");
@@ -150,7 +150,7 @@ describe("AuthFlow — émission audit", () => {
     const ctx = fakeContext() as unknown as LoginArgs[0];
     const ok = await emitter.logout(ctx);
     assert.equal(ok, false);
-    assert.equal((await audit.query()).total, 0);
+    assert.equal((await audit.listPage({ limit: 100 })).total, 0);
   });
 });
 
@@ -162,7 +162,7 @@ describe("Authorization — émission audit", () => {
     } as unknown as IToken;
     const granted = await emitter.decide(token, "SECRET_OP");
     assert.equal(granted, false);
-    const { events } = await audit.query();
+    const { items: events } = await audit.listPage({ limit: 100 });
     assert.equal(events[0]!.category, "authz");
     assert.equal(events[0]!.action, "access.denied");
     assert.equal(events[0]!.outcome, "denied");
@@ -183,6 +183,6 @@ describe("Audit désactivé — aucun émetteur ne journalise", () => {
     boot();
     const ctx = fakeContext() as unknown as LoginArgs[0];
     await assert.rejects(() => flow.login(ctx, "alice", ""));
-    assert.equal((await audit.query()).total, 0);
+    assert.equal((await audit.listPage({ limit: 100 })).total, 0);
   });
 });

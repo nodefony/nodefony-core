@@ -12,7 +12,8 @@ import {
   registerSecurityAdminApi,
   parseAuditQuery,
 } from "../../nodefony/src/admin/SecurityAdminApi";
-import type { IAuditQueryResult } from "../../nodefony/contracts/IAuditStore";
+import type { IPage } from "nodefony";
+import type { IAuditEvent } from "../../nodefony/contracts/IAuditEvent";
 import type { IAuditEventDraft } from "../../nodefony/contracts/IAuditEvent";
 import type { IWebAuthnCredential } from "../../nodefony/contracts/IWebAuthnCredential";
 
@@ -110,13 +111,13 @@ describe("SecurityAdminApi — handler audit/events", () => {
     const ep = auditEndpoint(container);
     const res = (await ep.handler(
       req({ category: "authz" }),
-    )) as IAuditQueryResult;
+    )) as IPage<IAuditEvent>;
     assert.equal(res.total, 1);
-    assert.equal(res.events[0]!.category, "authz");
-    assert.equal(res.events[0]!.actor, "bob");
+    assert.equal(res.items[0]!.category, "authz");
+    assert.equal(res.items[0]!.actor, "bob");
   });
 
-  it("pagine via limit + curseur before", async () => {
+  it("pagine via limit + curseur", async () => {
     const { audit, container } = bootAudit(true);
     for (let i = 0; i < 4; i++) {
       audit.record({
@@ -127,14 +128,15 @@ describe("SecurityAdminApi — handler audit/events", () => {
       });
     }
     const ep = auditEndpoint(container);
-    const page1 = (await ep.handler(req({ limit: "2" }))) as IAuditQueryResult;
-    assert.equal(page1.events.length, 2);
+    const page1 = (await ep.handler(req({ limit: "2" }))) as IPage<IAuditEvent>;
+    assert.equal(page1.items.length, 2);
     assert.equal(page1.total, 4);
-    assert.ok(page1.nextBefore);
+    assert.ok(page1.nextCursor);
     const page2 = (await ep.handler(
-      req({ limit: "2", before: page1.nextBefore! }),
-    )) as IAuditQueryResult;
-    assert.equal(page2.events.length, 2);
+      req({ limit: "2", cursor: page1.nextCursor! }),
+    )) as IPage<IAuditEvent>;
+    assert.equal(page2.items.length, 2);
+    assert.equal(page2.hasNext, false);
   });
 
   it("503 si l'audit est désactivé", async () => {
@@ -162,7 +164,7 @@ describe("parseAuditQuery", () => {
       since: "100",
       until: "200",
       limit: "10",
-      before: "e5",
+      cursor: "1000:e5",
     });
     assert.deepEqual(f, {
       category: "auth",
@@ -172,17 +174,26 @@ describe("parseAuditQuery", () => {
       since: 100,
       until: 200,
       limit: 10,
-      before: "e5",
+      cursor: "1000:e5",
     });
   });
 
+  // Le contrat de page n'admet pas « tout » : sans `limit` demandé, le parse en
+  // pose un — un appelant ne peut pas obtenir un journal entier en l'omettant.
+  it("pose toujours un limit par défaut", () => {
+    assert.deepEqual(parseAuditQuery({}), { limit: 100 });
+  });
+
   it("ignore category/outcome inconnus (permissif, admin only)", () => {
-    assert.deepEqual(parseAuditQuery({ category: "xxx", outcome: "yyy" }), {});
+    assert.deepEqual(parseAuditQuery({ category: "xxx", outcome: "yyy" }), {
+      limit: 100,
+    });
   });
 
   it("prend le 1er d'un param multi-valué et ignore un entier non numérique", () => {
     assert.deepEqual(parseAuditQuery({ actor: ["a", "b"], since: "abc" }), {
       actor: "a",
+      limit: 100,
     });
   });
 });
