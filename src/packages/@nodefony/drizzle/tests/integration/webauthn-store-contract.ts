@@ -186,6 +186,38 @@ export function runWebAuthnStoreContract(
     });
   });
 
+  describe("countByUser", () => {
+    it("compte les credentials du porteur, et d'aucun autre", async () => {
+      await purge();
+      await store.save(makeCredential({ id: "c1", userId: "alice" }));
+      await store.save(makeCredential({ id: "c2", userId: "alice" }));
+      await store.save(makeCredential({ id: "c3", userId: "bob" }));
+      assert.equal(await store.countByUser("alice"), 2);
+      assert.equal(await store.countByUser("bob"), 1);
+    });
+
+    it("renvoie 0 pour un utilisateur sans credential", async () => {
+      assert.equal(await store.countByUser("ghost"), 0);
+    });
+
+    it("suit save et delete (c'est ce qui LIBÈRE une place sous le plafond)", async () => {
+      await purge();
+      await store.save(makeCredential({ id: "n1", userId: "alice" }));
+      assert.equal(await store.countByUser("alice"), 1);
+      await store.save(makeCredential({ id: "n2", userId: "alice" }));
+      assert.equal(await store.countByUser("alice"), 2);
+      await store.delete("n1");
+      assert.equal(await store.countByUser("alice"), 1);
+    });
+
+    it("un re-save du MÊME id ne double pas le compte (upsert)", async () => {
+      await purge();
+      await store.save(makeCredential({ id: "dup", userId: "alice" }));
+      await store.save(makeCredential({ id: "dup", userId: "alice" }));
+      assert.equal(await store.countByUser("alice"), 1);
+    });
+  });
+
   describe("update", () => {
     it("met à jour signCount / backupState / uvInitialized / lastUsedAt", async () => {
       await purge();

@@ -253,10 +253,19 @@ class WebAuthnController extends Controller {
     return value;
   }
 
-  // 401 → message uniforme (anti-énumération) ; le reste → pipeline 500.
+  // 401 → message uniforme (anti-énumération) ; 409 → plafond d'enrôlement
+  // (message explicite : le porteur EST authentifié, rien à énumérer, et il doit
+  // pouvoir comprendre qu'il faut retirer un appareil) ; le reste → pipeline 500.
   #renderAuthError(e: unknown) {
-    if ((e as { code?: unknown }).code === 401) {
+    const code = (e as { code?: unknown }).code;
+    if (code === 401) {
       return this.renderJson({ error: "WebAuthn verification failed" }, 401);
+    }
+    if (code === 409) {
+      return this.renderJson(
+        { error: (e as Error).message ?? "Passkey limit reached" },
+        409,
+      );
     }
     throw e;
   }

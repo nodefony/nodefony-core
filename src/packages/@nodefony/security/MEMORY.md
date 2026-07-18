@@ -54,7 +54,15 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
   hostname===rpId** (dev localhost:port sûr). `authenticatorAttachment:"platform"` (défaut) = Touch ID/
   Hello **sans QR** ; `"cross-platform"`=clé/tél, `"any"`=les deux. Lazy import = règle gravée.
 - `IWebAuthnCredential` (id b64url, **publicKey COSE** b64url, signCount, transports, BE/BS, userId,
-  lastUsedAt) + `IWebAuthnCredentialStore` (findById/findByUser/save/update/delete). Store **pluggable**
+  lastUsedAt) + `IWebAuthnCredentialStore` (findById/findByUser/**countByUser**/save/update/delete).
+  ⚠️ `findByUser` **JAMAIS paginé** : `allowCredentials` est complet ou faux (le protocole n'a pas de
+  « page 2 » — un authenticator absent de la liste ne peut pas répondre). Ce qui le borne = le
+  **plafond** `passkeys.maxPerUser` (défaut 20), appliqué dans `verifyRegistration` APRÈS la vérif
+  crypto et AVANT `save` (on peut poster `register/verify` sans passer par `register/options`) →
+  `WebAuthnError` 409. Comptage **natif** (`COUNT`/`countDocuments`/`SCARD`), jamais `findByUser().length`.
+  Sans ce plafond : `login/options` est `bypassFirewall` (par design) et prend un `username` → un
+  anonyme force la lecture+sérialisation de N credentials d'autrui (amplification). SCARD Redis
+  sur-compte les orphelins nettoyés paresseusement = **fail-closed assumé**. Store **pluggable**
   (`webAuthnCredentialStoreRegistry`, convention-frère tokenStore) : `memory` (volatile) + **`file`**
   (`FileWebAuthnCredentialStore` = Memory + persistance JSON **atomique** tmp+rename, flush coalescé +
   **`flushNow` à `onTerminate`** = 0 perte au restart). Driver = `config.passkeys.store` (`z.string()`

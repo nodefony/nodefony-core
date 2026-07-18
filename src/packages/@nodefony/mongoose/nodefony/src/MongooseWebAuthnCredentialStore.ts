@@ -83,6 +83,11 @@ export class MongooseWebAuthnCredentialStore implements IWebAuthnCredentialStore
     return rows.map((row) => this.#toCredential(row));
   }
 
+  /** `countDocuments` natif — jamais un `find().length` (le plafond ne charge rien). */
+  countByUser(userId: string): Promise<number> {
+    return this.#repo.count({ userId });
+  }
+
   async save(credential: IWebAuthnCredential): Promise<void> {
     const data = {
       userId: credential.userId,

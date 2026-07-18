@@ -29,6 +29,7 @@ export interface RedisClientLike {
   sAdd(key: string, member: string): Promise<number>;
   sRem(key: string, member: string): Promise<number>;
   sMembers(key: string): Promise<string[]>;
+  sCard(key: string): Promise<number>;
 }
 
 /**
@@ -153,6 +154,23 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
       }
     }
     return out;
+  }
+
+  /**
+   * `SCARD` natif — O(1), aucune lecture de HASH (le plafond ne charge rien).
+   *
+   * Peut **sur-compter** les membres orphelins que {@link findByUser} nettoie
+   * paresseusement (credential supprimé hors `delete` — sans TTL sur les
+   * credentials, cas dégénéré). Écart assumé **fail-closed** : au pire un
+   * enrôlement de plus est refusé, jamais un de trop accepté. Client
+   * indisponible → `0` (cohérent avec les lectures qui renvoient vide).
+   */
+  async countByUser(userId: string): Promise<number> {
+    const client = this.#client();
+    if (!client) {
+      return 0;
+    }
+    return client.sCard(this.#userKey(userId));
   }
 
   async save(credential: IWebAuthnCredential): Promise<void> {

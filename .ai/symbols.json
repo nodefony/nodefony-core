@@ -1,11 +1,11 @@
 {
-  "generated": "2026-07-18T14:21:26.094Z",
+  "generated": "2026-07-18T15:44:32.177Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1029,
-    "symbols": 2778,
-    "classes": 326,
+    "files": 1030,
+    "symbols": 2779,
+    "classes": 327,
     "interfaces": 730,
     "types": 322,
     "enums": 4,
@@ -12017,6 +12017,17 @@
       "decorators": [],
       "description": "Tentatives de login trop rapprochées — `code = 429` (RFC 6585 §4). Levée par `UserPasswordAuthenticator` quand le backoff progressif ({@link LoginThrottler}) bloque encore l'identifiant saisi. Dist…"
     },
+    "WebAuthnError": {
+      "name": "WebAuthnError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/errors/WebAuthnError.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur de **gestion** d'un credential WebAuthn (enrôlement) — porte un `code` HTTP que l'adaptateur framework mappe par duck-typing (il n'importe jamais les classes de `@nodefony/security`). - `409…"
+    },
     "ApiKeyService": {
       "name": "ApiKeyService",
       "kind": "class",
@@ -19732,6 +19743,7 @@
         "CsrfError",
         "SsrfError",
         "ThrottledError",
+        "WebAuthnError",
         "UserNotFoundError",
         "WeakPasswordError",
         "DocumentationError"
@@ -22240,6 +22252,7 @@
         "src/packages/@nodefony/security/nodefony/errors/CsrfError.ts",
         "src/packages/@nodefony/security/nodefony/errors/SsrfError.ts",
         "src/packages/@nodefony/security/nodefony/errors/ThrottledError.ts",
+        "src/packages/@nodefony/security/nodefony/errors/WebAuthnError.ts",
         "src/packages/@nodefony/user/nodefony/errors/UserNotFoundError.ts",
         "src/packages/@nodefony/user/nodefony/errors/WeakPasswordError.ts",
         "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
@@ -25081,6 +25094,9 @@
       ],
       "totpStatus": [
         "src/packages/@nodefony/security/nodefony/service/totp.ts"
+      ],
+      "WebAuthnError": [
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
       "listWebAuthnStores": [
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"

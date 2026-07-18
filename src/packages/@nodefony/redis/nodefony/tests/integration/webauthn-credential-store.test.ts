@@ -67,6 +67,13 @@ class FakeRedis implements RedisClientLike {
     const s = this.#sets.get(key);
     return Promise.resolve(s ? [...s] : []);
   }
+
+  // SCARD compte les MEMBRES du SET, sans regarder les HASH : un membre
+  // orphelin est compté (c'est la sémantique Redis, et le store l'assume
+  // fail-closed). Le fake ne doit surtout pas « corriger » ça.
+  sCard(key: string): Promise<number> {
+    return Promise.resolve(this.#sets.get(key)?.size ?? 0);
+  }
 }
 
 /** Construit un `IWebAuthnCredential` complet avec surcharges. */
@@ -163,6 +170,37 @@ describe("Redis RedisWebAuthnCredentialStore — IWebAuthnCredentialStore (J9)",
       );
       // L'id orphelin a été retiré du SET → 2ᵉ lecture stable.
       assert.deepEqual(await fake.sMembers("nf:wac:user:alice"), ["y"]);
+    });
+  });
+
+  describe("countByUser", () => {
+    it("compte par porteur via SCARD, 0 si inconnu", async () => {
+      await store.save(makeCredential({ id: "a", userId: "alice" }));
+      await store.save(makeCredential({ id: "b", userId: "alice" }));
+      await store.save(makeCredential({ id: "c", userId: "bob" }));
+      assert.equal(await store.countByUser("alice"), 2);
+      assert.equal(await store.countByUser("bob"), 1);
+      assert.equal(await store.countByUser("ghost"), 0);
+    });
+
+    it("delete libère une place (c'est ce qui débloque un porteur au plafond)", async () => {
+      await store.save(makeCredential({ id: "a", userId: "alice" }));
+      await store.save(makeCredential({ id: "b", userId: "alice" }));
+      await store.delete("a");
+      assert.equal(await store.countByUser("alice"), 1);
+    });
+
+    it("SUR-COMPTE un membre orphelin — écart fail-closed assumé", async () => {
+      // SCARD lit le SET sans regarder les HASH : un credential disparu hors
+      // delete() reste compté jusqu'au prochain findByUser (nettoyage paresseux).
+      // Conséquence voulue : au pire un enrôlement de plus est refusé, jamais un
+      // de trop accepté.
+      await store.save(makeCredential({ id: "x", userId: "alice" }));
+      await store.save(makeCredential({ id: "y", userId: "alice" }));
+      await fake.del("nf:wac:cred:x");
+      assert.equal(await store.countByUser("alice"), 2);
+      await store.findByUser("alice"); // nettoie l'orphelin
+      assert.equal(await store.countByUser("alice"), 1);
     });
   });
 

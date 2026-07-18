@@ -111,6 +111,11 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
     return rows.map((row) => this.#toCredential(row));
   }
 
+  /** `COUNT(*)` natif — jamais un `find().length` (le plafond ne charge rien). */
+  countByUser(userId: string): Promise<number> {
+    return this.#repo.count({ userId });
+  }
+
   async save(credential: IWebAuthnCredential): Promise<void> {
     // UPSERT atomique sur la PK `id` : 1 requête, pas de `findOne` d'existence
     // (dont l'`await` laisse deux enregistrements concurrents de la même

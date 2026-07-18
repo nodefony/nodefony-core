@@ -132,6 +132,34 @@ describe.skipIf(!URI)(
       });
     });
 
+    describe("countByUser", () => {
+      // Un COMPTE est absolu : contrairement aux autres blocs (qui vérifient la
+      // présence d'ids connus et tolèrent les documents des tests précédents),
+      // celui-ci exige une ardoise propre à chaque cas.
+      beforeEach(async () => {
+        await orm.getRepository(WEBAUTHN_CREDENTIAL_ENTITY).delete({});
+      });
+
+      it("compte par porteur (countDocuments), 0 si inconnu", async () => {
+        await store.save(makeCredential({ id: "c1", userId: "alice" }));
+        await store.save(makeCredential({ id: "c2", userId: "alice" }));
+        await store.save(makeCredential({ id: "c3", userId: "bob" }));
+        assert.equal(await store.countByUser("alice"), 2);
+        assert.equal(await store.countByUser("bob"), 1);
+        assert.equal(await store.countByUser("ghost"), 0);
+      });
+
+      it("suit save (upsert) et delete — la borne du plafond d'enrôlement", async () => {
+        await store.save(makeCredential({ id: "n1", userId: "alice" }));
+        await store.save(makeCredential({ id: "n1", userId: "alice" }));
+        assert.equal(await store.countByUser("alice"), 1);
+        await store.save(makeCredential({ id: "n2", userId: "alice" }));
+        assert.equal(await store.countByUser("alice"), 2);
+        await store.delete("n1");
+        assert.equal(await store.countByUser("alice"), 1);
+      });
+    });
+
     describe("update", () => {
       it("met à jour signCount / backupState / uvInitialized / lastUsedAt", async () => {
         await store.save(

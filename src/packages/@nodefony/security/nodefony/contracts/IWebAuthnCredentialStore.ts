@@ -24,8 +24,23 @@ export interface IWebAuthnCredentialStore {
   /**
    * Tous les credentials d'un utilisateur — pour `allowCredentials`
    * (authentification ciblée) et l'UX « mes appareils ».
+   *
+   * **Volontairement NON paginé** : `allowCredentials` doit être COMPLET ou il
+   * est faux — un authenticator dont la passkey manque de la liste ne peut pas
+   * répondre au défi, et le protocole WebAuthn n'offre aucun « page suivante »
+   * (le navigateur reçoit une liste unique et choisit). Ce qui borne cet appel
+   * est le plafond d'enrôlement (`passkeys.maxPerUser`), pas une pagination.
    */
   findByUser(userId: string): Promise<IWebAuthnCredential[]>;
+  /**
+   * Nombre de credentials d'un utilisateur — **natif** par backend (`COUNT`,
+   * `countDocuments`, `SCARD`), jamais un `findByUser().length`.
+   *
+   * Sert le plafond d'enrôlement (`passkeys.maxPerUser`) : le chemin
+   * d'enregistrement ne doit pas charger N credentials pour en compter le
+   * nombre, et le plafond est ce qui garantit que {@link findByUser} reste borné.
+   */
+  countByUser(userId: string): Promise<number>;
   /** Persiste un nouveau credential (fin de la cérémonie d'enregistrement). */
   save(credential: IWebAuthnCredential): Promise<void>;
   /** Met à jour l'état post-authentification (compteur, sauvegarde, UV, usage). */

@@ -45,6 +45,10 @@ export class MemoryWebAuthnCredentialStore implements IWebAuthnCredentialStore {
     return Promise.resolve(out);
   }
 
+  countByUser(userId: string): Promise<number> {
+    return Promise.resolve(this.#idsByUser.get(userId)?.size ?? 0);
+  }
+
   save(credential: IWebAuthnCredential): Promise<void> {
     this.#byId.set(credential.id, credential);
     let set = this.#idsByUser.get(credential.userId);

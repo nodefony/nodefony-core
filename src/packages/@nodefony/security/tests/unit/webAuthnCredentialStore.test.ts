@@ -44,6 +44,21 @@ describe("MemoryWebAuthnCredentialStore", () => {
     assert.deepEqual(await store.findByUser("carol"), []);
   });
 
+  it("countByUser compte par porteur (borne du plafond d'enrôlement)", async () => {
+    const store = new MemoryWebAuthnCredentialStore();
+    await store.save(makeCred({ id: "a1", userId: "alice" }));
+    await store.save(makeCred({ id: "a2", userId: "alice" }));
+    await store.save(makeCred({ id: "b1", userId: "bob" }));
+    assert.equal(await store.countByUser("alice"), 2);
+    assert.equal(await store.countByUser("bob"), 1);
+    assert.equal(await store.countByUser("carol"), 0);
+    // Un re-save du même id n'ajoute rien ; un delete libère une place.
+    await store.save(makeCred({ id: "a1", userId: "alice" }));
+    assert.equal(await store.countByUser("alice"), 2);
+    await store.delete("a1");
+    assert.equal(await store.countByUser("alice"), 1);
+  });
+
   it("update applique compteur/sauvegarde/UV/usage (anti-clone §6.1.1)", async () => {
     const store = new MemoryWebAuthnCredentialStore();
     await store.save(makeCred({ signCount: 0, lastUsedAt: null }));

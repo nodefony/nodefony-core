@@ -478,6 +478,14 @@ const passkeysSchema = z
       .describe(
         "Délai (ms) laissé à l'utilisateur pour compléter une ceremony (navigator.credentials.*). Défaut: 60000.",
       ),
+    maxPerUser: z
+      .number()
+      .int()
+      .positive()
+      .default(20)
+      .describe(
+        "Plafond de passkeys enregistrées par utilisateur (409 au-delà). Borne `allowCredentials`/`excludeCredentials`, chargés ENTIERS à chaque cérémonie : sans plafond, un compte qui enrôle en masse fait grossir la réponse du défi de login — déclenchable par un anonyme qui poste son identifiant — et dépasse le `maxCredentialCountInList` des authenticators CTAP2. Défaut: 20 (large pour un humain : appareils + clés physiques + renouvellements).",
+      ),
     challengeTtlS: z.number().int().positive().default(300).meta({
       reserved: true,
       description:

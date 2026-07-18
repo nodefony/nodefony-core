@@ -24,6 +24,7 @@ import {
   type ISecurityConfigInput,
 } from "../config/defineModuleConfig";
 import { AuthenticationError } from "../errors/AuthenticationError";
+import { WebAuthnError } from "../errors/WebAuthnError";
 import type { IWebAuthnCredential } from "../contracts/IWebAuthnCredential";
 import type { IWebAuthnCredentialStore } from "../contracts/IWebAuthnCredentialStore";
 import {
@@ -272,6 +273,7 @@ class WebAuthnService extends Service {
    * @param userId - propriétaire du credential (utilisateur authentifié/en création).
    * @param requestOrigin - origine HTTP de la requête (validée si aucune origine n'est configurée).
    * @throws AuthenticationError (401) — vérification échouée.
+   * @throws WebAuthnError (409) — plafond `passkeys.maxPerUser` atteint.
    */
   async verifyRegistration(
     response: RegistrationResponseJSON,
@@ -299,6 +301,13 @@ class WebAuthnService extends Service {
     }
     if (!verification.verified || !verification.registrationInfo) {
       throw new AuthenticationError("WebAuthn registration failed");
+    }
+    // Plafond APRÈS vérification cryptographique, AVANT le `save` : c'est le
+    // `save` qu'il faut garder, pas la génération d'options (un client peut
+    // poster directement `register/verify` sans passer par `register/options`).
+    const enrolled = await this.#store!.countByUser(userId);
+    if (enrolled >= pk.maxPerUser) {
+      throw new WebAuthnError(`passkey limit reached (${pk.maxPerUser})`, 409);
     }
     const info = verification.registrationInfo;
     const credential: IWebAuthnCredential = {
