@@ -107,9 +107,49 @@ export class InMemoryUserRepository implements IUserRepository {
       this.#match(u, criteria),
     );
     if (!user) return Promise.resolve(null);
-    if ("password" in data) user.password = data.password ?? null;
-    if (data.roles) user.roles = [...data.roles];
+    this.#apply(user, data);
     return Promise.resolve(user);
+  }
+
+  /**
+   * Applique un patch sur une instance, **comme le ferait un backend réel**.
+   *
+   * Le contrat d'`IRepository.updateOne` promet d'écrire « les champs à
+   * modifier » : n'en honorer qu'une partie ferait de ce dépôt un menteur
+   * silencieux — un `{ enabled: false }` semblerait réussir (l'entité est
+   * renvoyée) sans rien désactiver, alors que Drizzle et Mongoose, eux,
+   * l'appliqueraient. Un banc de charge ou un test manuel en `NF_USER_STORE=memory`
+   * n'exercerait alors pas le comportement de production.
+   *
+   * `enabled`/`locked` sont `protected` sur {@link BaseUser} (l'état de compte
+   * s'exprime par des verbes) → on passe par ses méthodes plutôt que de forcer
+   * l'accès. `id` et `identifier` sont `readonly` : sur ce backend l'entité EST
+   * l'instance, sa clé n'est pas réécrivable — les ignorer est plus honnête que
+   * de muter un champ déclaré immuable.
+   */
+  #apply(user: BaseUser, data: Partial<IPasswordAuthenticatedUser>): void {
+    const d = data as Partial<IPasswordAuthenticatedUser> & {
+      socialProviders?: ISocialProvider[];
+      enabled?: boolean;
+      locked?: boolean;
+      currentRole?: string | null;
+      metadata?: Record<string, unknown>;
+    };
+    if ("password" in d) user.password = d.password ?? null;
+    // Copie défensive : le tableau de l'appelant ne doit pas rester partagé
+    // avec l'entité stockée (une mutation externe changerait les rôles).
+    if (d.roles) user.roles = [...d.roles];
+    if (d.socialProviders) user.socialProviders = [...d.socialProviders];
+    if (d.metadata) user.metadata = { ...d.metadata };
+    if ("currentRole" in d) user.currentRole = d.currentRole ?? null;
+    if (d.enabled !== undefined) {
+      if (d.enabled) user.enable();
+      else user.disable();
+    }
+    if (d.locked !== undefined) {
+      if (d.locked) user.lock();
+      else user.unlock();
+    }
   }
 
   async upsert(
