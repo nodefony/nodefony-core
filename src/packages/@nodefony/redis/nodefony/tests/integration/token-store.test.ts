@@ -403,7 +403,8 @@ describe.skipIf(!REDIS_TEST_URL)(
     // Import dynamique : `redis` n'est chargé que si le test tourne.
     it("put/find/markUsed/revoke/deny/subject contre un vrai Redis", async () => {
       const { createClient } = await import("redis");
-      const client = createClient({ url: REDIS_TEST_URL });
+      // Non-null : le `describe.skipIf(!REDIS_TEST_URL)` garantit l'URL ici.
+      const client = createClient({ url: REDIS_TEST_URL! });
       await client.connect();
       const ns = `test:${Date.now()}`;
       try {
