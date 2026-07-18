@@ -31,36 +31,111 @@
  * ```
  */
 
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 /** Une cible d'infra dont l'exécution dépend de variables d'environnement. */
 export interface EnvGate {
   /** Nom lisible de la cible (ex. `"PostgreSQL"`). */
   label: string;
   /** Variables requises — **toutes** doivent être présentes et non vides. */
   env: readonly string[];
-  /** Comment l'activer : lignes de commande copiables telles quelles. */
-  how: readonly string[];
+  /**
+   * Comment l'activer : lignes de commande copiables telles quelles.
+   *
+   * **Fonction, pas tableau** : les identifiants sont LUS dans le compose au
+   * moment de l'affichage. Rien n'est donc lu tant que la suite se passe bien.
+   */
+  how: () => readonly string[];
 }
 
-/** Identifiants du `docker/docker-compose.yml` (dev), repris dans les exemples. */
-const DEV_PASSWORD = "nodefony-dev";
-const COMPOSE = "docker compose -f docker/docker-compose.yml";
+const COMPOSE_FILE = "docker/docker-compose.yml";
+const COMPOSE = `docker compose -f ${COMPOSE_FILE}`;
+
+/**
+ * Identifiants par défaut **lus dans `docker/docker-compose.yml`**, jamais
+ * recopiés ici.
+ *
+ * Le compose est entièrement paramétré (`${POSTGRES_PORT:-5432}`, …) : ces
+ * `:-défaut` SONT la vérité de l'infra de dev. Les retaper dans ce fichier en
+ * ferait une seconde source — la liste dupliquée, version identifiants — qui
+ * mentirait dès que quelqu'un change un port ou un mot de passe. Un message
+ * d'aide faux est pire que pas de message.
+ *
+ * `docker/.env` est lu en priorité quand il existe, parce que c'est ce que
+ * docker compose lui-même fait : la commande affichée reste celle qui marche.
+ */
+let composeCache: Map<string, string> | null = null;
+
+function composeDefaults(): Map<string, string> {
+  if (composeCache) return composeCache;
+  const values = new Map<string, string>();
+  try {
+    // Les modules natifs sont importés statiquement (ESM strict, règle projet) ;
+    // c'est la LECTURE qui est paresseuse — rien n'est lu tant qu'aucun rapport
+    // n'est affiché, et ce fichier est chargé par toutes les configs vitest.
+    const root = dirname(fileURLToPath(import.meta.url));
+
+    const yaml = readFileSync(join(root, COMPOSE_FILE), "utf8");
+    for (const m of yaml.matchAll(/\$\{([A-Z_]+):-([^}]*)\}/g)) {
+      values.set(m[1]!, m[2]!);
+    }
+    // `docker/.env` gagne sur les `:-défaut`, exactement comme pour compose.
+    const envFile = join(root, "docker", ".env");
+    if (existsSync(envFile)) {
+      for (const line of readFileSync(envFile, "utf8").split("\n")) {
+        const m = /^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/.exec(line);
+        if (m) values.set(m[1]!, m[2]!.replace(/^["']|["']$/g, ""));
+      }
+    }
+  } catch {
+    // Compose absent (paquet publié, checkout partiel) → on retombe sur les
+    // valeurs passées en `fallback`. Informer ne doit jamais faire échouer.
+  }
+  composeCache = values;
+  return values;
+}
+
+/** Valeur du compose pour `name`, ou `fallback` si l'infra n'est pas lisible. */
+function fromCompose(name: string, fallback: string): string {
+  return composeDefaults().get(name) ?? fallback;
+}
 
 export const PG_GATE: EnvGate = {
   label: "PostgreSQL",
   env: ["NF_PG_URL"],
-  how: [
-    `${COMPOSE} --profile postgres up -d postgres`,
-    `NF_PG_URL=postgres://nodefony:${DEV_PASSWORD}@127.0.0.1:5432/nodefony npm test`,
-  ],
+  how: () => {
+    const user = fromCompose("POSTGRES_USER", "nodefony");
+    const pass = fromCompose("POSTGRES_PASSWORD", "nodefony-dev");
+    const port = fromCompose("POSTGRES_PORT", "5432");
+    const db = fromCompose("POSTGRES_DB", "nodefony");
+    return [
+      `${COMPOSE} --profile postgres up -d postgres`,
+      `NF_PG_URL=postgres://${user}:${pass}@127.0.0.1:${port}/${db} npm test`,
+    ];
+  },
 };
 
+/**
+ * Le dialecte `mysql` couvre MySQL Community ET MariaDB : le compose expose les
+ * deux (MariaDB en quotidien, MySQL sur un autre port pour prouver la compat),
+ * d'où les deux commandes — avec les ports réels de CE compose.
+ */
 export const MYSQL_GATE: EnvGate = {
   label: "MySQL / MariaDB",
   env: ["NF_MYSQL_URL"],
-  how: [
-    `${COMPOSE} --profile mariadb up -d mariadb    # ou --profile mysql (port 3307)`,
-    `NF_MYSQL_URL=mysql://nodefony:${DEV_PASSWORD}@127.0.0.1:3306/nodefony npm test`,
-  ],
+  how: () => {
+    const user = fromCompose("MARIADB_USER", "nodefony");
+    const pass = fromCompose("MARIADB_PASSWORD", "nodefony-dev");
+    const port = fromCompose("MARIADB_PORT", "3306");
+    const db = fromCompose("MARIADB_DATABASE", "nodefony");
+    const mysqlPort = fromCompose("MYSQL_PORT", "3307");
+    return [
+      `${COMPOSE} --profile mariadb up -d mariadb    # ou --profile mysql (port ${mysqlPort})`,
+      `NF_MYSQL_URL=mysql://${user}:${pass}@127.0.0.1:${port}/${db} npm test`,
+    ];
+  },
 };
 
 /**
@@ -72,11 +147,15 @@ export const MYSQL_GATE: EnvGate = {
 export const REDIS_GATE: EnvGate = {
   label: "Redis (serveur réel)",
   env: ["REDIS_URL", "REDIS_TEST_URL"],
-  how: [
-    `${COMPOSE} up -d redis`,
-    `REDIS_URL=redis://:${DEV_PASSWORD}@127.0.0.1:6379 \\`,
-    `REDIS_TEST_URL=redis://:${DEV_PASSWORD}@127.0.0.1:6379/15 npm test`,
-  ],
+  how: () => {
+    const pass = fromCompose("REDIS_PASSWORD", "nodefony-dev");
+    const port = fromCompose("REDIS_PORT", "6379");
+    return [
+      `${COMPOSE} up -d redis`,
+      `REDIS_URL=redis://:${pass}@127.0.0.1:${port} \\`,
+      `REDIS_TEST_URL=redis://:${pass}@127.0.0.1:${port}/15 npm test`,
+    ];
+  },
 };
 
 /** Les variables manquantes (ou vides) d'une gate ; `[]` = gate satisfaite. */
@@ -125,7 +204,7 @@ export function gateReporter(gates: readonly EnvGate[]) {
         lines.push(
           `  \x1b[1m${gate.label}\x1b[0m — ${missingVars(gate).join(", ")} absente(s)`,
         );
-        for (const how of gate.how) lines.push(`      ${how}`);
+        for (const how of gate.how()) lines.push(`      ${how}`);
         lines.push("");
       }
       if (skipped > 0) {
