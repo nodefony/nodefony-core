@@ -1,3 +1,5 @@
+import type { IPage, IPageQuery } from "./IPage";
+
 /**
  * Réponse mémorisée d'une mutation idempotente — la forme `{status, headers?, body}`
  * produite par un endpoint (data plane admin `AdminApiController.runAdmin`, ou
@@ -34,6 +36,38 @@ export type IdempotencyOutcome =
   | { state: "in-flight" }
   | { state: "replayed"; response: IdempotentResponse }
   | { state: "mismatch" };
+
+/**
+ * Une clé d'idempotence telle qu'exposée à l'INTROSPECTION admin.
+ *
+ * 🔒 **Sans la réponse mémorisée, par construction du contrat.** Le `body`
+ * mémorisé est la réponse métier d'un utilisateur : le rendre lisible par ce
+ * chemin serait exactement l'IDOR sur le cache contre lequel
+ * {@link IIdempotencyStore} met en garde. Le `fingerprint` est également exclu
+ * (aucune valeur d'exploitation). La `key`, elle, est visible : c'est ce qu'un
+ * admin doit voir pour repérer une clé figée *in-flight* — d'où un endpoint
+ * réservé à l'administration.
+ */
+export interface IIdempotencyKeyEntry {
+  /** La clé d'idempotence (telle que composée par l'appelant). */
+  readonly key: string;
+  /** `in-flight` = mutation en cours ; `done` = réponse mémorisée (rejouable). */
+  readonly state: "in-flight" | "done";
+  /** Échéance de l'entrée (epoch ms) — au-delà, la clé redevient `fresh`. */
+  readonly expiresAtMs: number;
+  /** `true` si une réponse est mémorisée (jamais son contenu). */
+  readonly hasResponse: boolean;
+}
+
+/**
+ * Requête de listing des clés d'idempotence — {@link IPageQuery} + le filtre
+ * d'exploitation. `q` (hérité) = **préfixe** de clé : les clés sont composées
+ * (identité + méthode + chemin), donc le préfixe isole un scope entier.
+ */
+export interface IIdempotencyListQuery extends IPageQuery {
+  /** Restreint à un état. Omis = les deux. */
+  state?: "in-flight" | "done";
+}
 
 /**
  * Cache d'idempotence borné (modèle Stripe `Idempotency-Key`) — dédoublonne les
@@ -103,6 +137,20 @@ export interface IIdempotencyStore {
    * @returns nombre d'entrées purgées.
    */
   gc?(now?: number): Promise<number> | number;
+  /**
+   * Page de clés vivantes — introspection admin (repérer une clé figée
+   * *in-flight* qui bloque les rejeux d'un client). Ne matérialise jamais plus
+   * d'une page ; la réponse mémorisée ne sort pas (cf
+   * {@link IIdempotencyKeyEntry}).
+   *
+   * Capacité selon le backend : **offset + total** (mémoire, SQL) ou
+   * **curseur** (`nextCursor`, Redis `SCAN`) — le store déclare ce qu'il sait
+   * faire en posant l'un ou l'autre, jamais les deux.
+   *
+   * Ordre : `expiresAtMs` ASC (ce qui va expirer en premier d'abord) pour les
+   * backends ordonnables ; non garanti en mode curseur (`SCAN` n'ordonne pas).
+   */
+  listPage(query: IIdempotencyListQuery): Promise<IPage<IIdempotencyKeyEntry>>;
   /**
    * Nombre d'entrées vivantes (observabilité / tests). **Sync best-effort** : la
    * vérité per-pod pour l'impl mémoire ; pour une impl distribuée (Redis), une

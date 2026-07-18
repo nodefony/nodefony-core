@@ -13,6 +13,7 @@ import {
   Idempotent,
 } from "../../decorators/routerDecorators.js";
 import type { IIdempotencyStore, IdempotentResponse } from "nodefony";
+import { emptyIdempotencyPage } from "../support/idempotencyDoubles";
 
 // P6.8 — seam d'idempotence userland : callController → _callWithIdempotency.
 // On monte un Resolver SANS pipeline HTTP (pattern securityEnforcement.test) et
@@ -82,6 +83,7 @@ function makeStore(): IIdempotencyStore {
     abort(key) {
       m.delete(key);
     },
+    listPage: emptyIdempotencyPage,
     get size() {
       return m.size;
     },
@@ -312,6 +314,17 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
       },
       abort(key) {
         m.delete(key);
+      },
+      // Le contrat impose un listing d'introspection ; ce double ne teste que la
+      // dédup → page vide, jamais consultée ici.
+      listPage(query) {
+        return Promise.resolve({
+          items: [],
+          total: 0,
+          limit: query.limit,
+          offset: query.offset ?? 0,
+          hasNext: false,
+        });
       },
       get size() {
         return m.size;

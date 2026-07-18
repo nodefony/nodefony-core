@@ -9,6 +9,8 @@
 // de `AdminApiController`, et la ré-export publique de `@nodefony/framework`.
 export type {
   IIdempotencyStore,
+  IIdempotencyKeyEntry,
+  IIdempotencyListQuery,
   IdempotencyOutcome,
   IdempotentResponse,
 } from "nodefony";

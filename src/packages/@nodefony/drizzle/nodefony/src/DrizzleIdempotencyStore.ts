@@ -1,4 +1,4 @@
-import { and, eq, is, lt, lte } from "drizzle-orm";
+import { and, asc, count, eq, gt, is, like, lt, lte } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { MySqlTable } from "drizzle-orm/mysql-core";
 // `import type` du contrat (CORE) → effacé à la compilation : 0 dépendance
@@ -6,9 +6,12 @@ import { MySqlTable } from "drizzle-orm/mysql-core";
 // qui CONSOMMENT ce store). Le contrat vit au CORE exprès pour ça (cf TSDoc du
 // contrat) → drizzle (sous framework dans le graphe) l'implémente sans cycle.
 import type {
+  IIdempotencyKeyEntry,
+  IIdempotencyListQuery,
   IIdempotencyStore,
   IdempotencyOutcome,
   IdempotentResponse,
+  IPage,
 } from "nodefony";
 import {
   execTable,
@@ -321,6 +324,84 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
       .delete(execTable(this.#table))
       .where(lte(this.#c.expiresAt, now));
     return affectedOf(result);
+  }
+
+  /**
+   * {@inheritDoc IIdempotencyStore.listPage}
+   *
+   * Query builder dialect-agnostique (comme `gc`) : `LIMIT/OFFSET` + `COUNT`
+   * filtré. On ne SELECTe QUE les colonnes exposées — la réponse mémorisée
+   * (`response`) ne quitte jamais la base par ce chemin, quelle que soit la
+   * taille de la page.
+   *
+   * Les entrées expirées sont exclues (`expiresAt > now`) : le GC applicatif
+   * passe plus tard, mais une clé échue n'est déjà plus opposable.
+   */
+  async listPage(
+    query: IIdempotencyListQuery,
+  ): Promise<IPage<IIdempotencyKeyEntry>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const db = this.#resolveDb();
+    if (!db) {
+      // ORM non connecté → page vide honnête (même dégradation que `gc`).
+      return { items: [], total: 0, limit, offset, hasNext: false };
+    }
+    const table = execTable(this.#table);
+    // Une clé échue n'est plus opposable → elle ne fait pas partie du parc
+    // vivant, même si le GC applicatif n'est pas encore passé.
+    const conds = [gt(this.#c.expiresAt, this.#now())];
+    if (query.state !== undefined) {
+      conds.push(
+        eq(this.#c.state, query.state === "in-flight" ? "if" : "done"),
+      );
+    }
+    if (query.q !== undefined && query.q.length > 0) {
+      // Préfixe ancré à gauche (indexable) ; `%`/`_` du terme sont échappés.
+      conds.push(
+        like(this.#c.key, `${query.q.replace(/[\\%_]/g, (c) => "\\" + c)}%`),
+      );
+    }
+    const where = conds.length === 1 ? conds[0] : and(...conds);
+    // `limit + 1` → `hasNext` sans dépendre du COUNT (mode Slice possible).
+    const rows = (await db
+      .select({
+        key: this.#c.key,
+        state: this.#c.state,
+        expiresAt: this.#c.expiresAt,
+      })
+      .from(table)
+      .where(where)
+      .orderBy(asc(this.#c.expiresAt), asc(this.#c.key))
+      .limit(limit + 1)
+      .offset(offset)) as Array<{
+      key: string;
+      state: string;
+      expiresAt: number;
+    }>;
+    const hasNext = rows.length > limit;
+    const page = hasNext ? rows.slice(0, limit) : rows;
+    let total: number | undefined;
+    if (query.withTotal !== false) {
+      const counted = (await db
+        .select({ cnt: count() })
+        .from(table)
+        .where(where)) as Array<{ cnt: number }>;
+      total = Number(counted[0]?.cnt ?? 0);
+    }
+    return {
+      items: page.map((row) => ({
+        key: row.key,
+        state: row.state === "if" ? ("in-flight" as const) : ("done" as const),
+        expiresAtMs: Number(row.expiresAt),
+        // `state === "done"` ⇒ une réponse est mémorisée. On ne la lit pas.
+        hasResponse: row.state !== "if",
+      })),
+      total,
+      limit,
+      offset,
+      hasNext,
+    };
   }
 
   /** Décrémente le compteur local borné à 0. */

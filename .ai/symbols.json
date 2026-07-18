@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-18T13:29:02.939Z",
+  "generated": "2026-07-18T14:21:26.094Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1029,
-    "symbols": 2774,
+    "symbols": 2778,
     "classes": 326,
-    "interfaces": 728,
+    "interfaces": 730,
     "types": 322,
     "enums": 4,
-    "functions": 822,
+    "functions": 824,
     "constants": 572
   },
   "symbols": {
@@ -2535,6 +2535,24 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Réponse mémorisée d'une mutation idempotente — la forme `{status, headers?, body}` produite par un endpoint (data plane admin `AdminApiController.runAdmin`, ou action userland `@Idempotent`), pour …"
+    },
+    "IIdempotencyKeyEntry": {
+      "name": "IIdempotencyKeyEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une clé d'idempotence telle qu'exposée à l'INTROSPECTION admin. 🔒 **Sans la réponse mémorisée, par construction du contrat.** Le `body` mémorisé est la réponse métier d'un utilisateur : le rendre …"
+    },
+    "IIdempotencyListQuery": {
+      "name": "IIdempotencyListQuery",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "IPageQuery",
+      "description": "Requête de listing des clés d'idempotence — {@link IPageQuery} + le filtre d'exploitation. `q` (hérité) = **préfixe** de clé : les clés sont composées (identité + méthode + chemin), donc le préfixe…"
     },
     "IIdempotencyStore": {
       "name": "IIdempotencyStore",
@@ -19547,6 +19565,16 @@
       "IContainer": [
         "IScope"
       ],
+      "IPageQuery": [
+        "IIdempotencyListQuery",
+        "ISessionListQuery",
+        "PageQuery",
+        "ITokenListQuery",
+        "ITotpListQuery",
+        "IWebhookListQuery",
+        "IUserListQuery",
+        "IRateLimitListQuery"
+      ],
       "IService": [
         "IKernel",
         "IModule"
@@ -19669,15 +19697,6 @@
       "IResponse": [
         "IHttpResponse",
         "IWebsocketResponse"
-      ],
-      "IPageQuery": [
-        "ISessionListQuery",
-        "PageQuery",
-        "ITokenListQuery",
-        "ITotpListQuery",
-        "IWebhookListQuery",
-        "IUserListQuery",
-        "IRateLimitListQuery"
       ],
       "LLMError": [
         "LLMRateLimitError",
@@ -22358,6 +22377,56 @@
       "isLogColorEnabled": [
         "src/nodefony/src/syslog/Syslog.ts"
       ],
+      "IPage": [
+        "src/nodefony/src/types/IIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
+      ],
+      "IPageQuery": [
+        "src/nodefony/src/types/IIdempotencyStore.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts"
+      ],
       "ICliKernel": [
         "src/nodefony/src/types/IKernel.ts"
       ],
@@ -23503,6 +23572,16 @@
       "AuditEventRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
       ],
+      "IIdempotencyKeyEntry": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
+      ],
+      "IIdempotencyListQuery": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
+      ],
       "IdempotencyOutcome": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
@@ -23562,42 +23641,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
-      "IPage": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
-        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
-        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
-        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
-        "src/packages/@nodefony/security/nodefony/service/totp.ts",
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
-        "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "IAccessTokenRecord": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
@@ -24269,15 +24312,6 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "IPageQuery": [
-        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts"
       ],
       "ICookieOptions": [
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts"

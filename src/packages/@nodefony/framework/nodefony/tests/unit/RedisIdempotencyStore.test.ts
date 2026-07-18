@@ -4,6 +4,7 @@ import {
   RedisIdempotencyStore,
   type RedisIdempotencyClientLike,
 } from "../../src/RedisIdempotencyStore";
+import { runIdempotencyPaginationContract } from "../../../../../../nodefony/src/tests/support/idempotencyPaginationContract";
 
 /**
  * Double Redis **fidèle** aux 3 commandes node-redis v6 utilisées par le store
@@ -18,7 +19,7 @@ class FakeRedis implements RedisIdempotencyClientLike {
   readonly #strings = new Map<string, string>();
   readonly #expiry = new Map<string, number>(); // key → epoch ms d'expiration
   /** Compteur d'appels (asserte le nombre de round-trips sur le hot path). */
-  calls = { set: 0, get: 0, del: 0 };
+  calls = { set: 0, get: 0, del: 0, scan: 0 };
 
   constructor(now: () => number) {
     this.#now = now;
@@ -64,6 +65,40 @@ class FakeRedis implements RedisIdempotencyClientLike {
     const had = this.#strings.delete(key);
     this.#expiry.delete(key);
     return Promise.resolve(had ? 1 : 0);
+  }
+
+  /**
+   * `SCAN` fidèle sur UN point qui compte : **`COUNT` n'est pas un plafond**.
+   * Ce double rend TOUT le keyspace en un seul batch (curseur `0`), exactement
+   * comme Redis sur un petit keyspace encodé en listpack — c'est ce
+   * comportement qui a fait déborder une page en production du banc sessions.
+   */
+  scan(
+    _cursor: string,
+    options?: { MATCH?: string; COUNT?: number },
+  ): Promise<{ cursor: string | number; keys: string[] }> {
+    this.calls.scan++;
+    const all = [...this.#strings.keys()].filter((k) => !this.#expired(k));
+    const match = options?.MATCH;
+    const keys =
+      match === undefined
+        ? all
+        : all.filter((k) => {
+            // Glob Redis limité au seul motif utilisé : `préfixe*`.
+            const star = match.indexOf("*");
+            return star === -1
+              ? k === match
+              : k.startsWith(match.slice(0, star));
+          });
+    return Promise.resolve({ cursor: "0", keys });
+  }
+
+  pTTL(key: string): Promise<number> {
+    if (this.#expired(key) || !this.#strings.has(key)) {
+      return Promise.resolve(-2); // clé absente
+    }
+    const e = this.#expiry.get(key);
+    return Promise.resolve(e === undefined ? -1 : e - this.#now());
   }
 
   /** Introspection de test (≠ contrat) : la clé existe-t-elle (non expirée) ? */
@@ -212,4 +247,28 @@ describe("Redis RedisIdempotencyStore — IIdempotencyStore distribué (SET NX +
       assert.equal(store.size, 0);
     });
   });
+});
+
+// Standard de pagination : LE banc du propriétaire du contrat (le CORE),
+// déroulé sur le backend Redis — capacité CURSEUR (SCAN, ni total ni ordre).
+// Le double rend tout le keyspace en un batch, ce qui exerce précisément le
+// garde-fou « COUNT n'est pas un plafond » du curseur composite.
+let pagedClock = 2_000_000;
+let pagedFake = new FakeRedis(() => pagedClock);
+let pagedStore = new RedisIdempotencyStore(() => pagedFake, 60_000, 600_000);
+runIdempotencyPaginationContract({
+  store: () => pagedStore,
+  clear: async () => {
+    pagedClock = 2_000_000;
+    pagedFake = new FakeRedis(() => pagedClock);
+    pagedStore = new RedisIdempotencyStore(() => pagedFake, 60_000, 600_000);
+  },
+  mode: "cursor",
+  seed: async (prefix, n) => {
+    for (let i = 0; i < n; i += 1) {
+      const key = `${prefix}-${String(i).padStart(2, "0")}`;
+      await pagedStore.begin(key, FP);
+      if (i % 2 === 0) await pagedStore.complete(key, resp(200, { i }));
+    }
+  },
 });

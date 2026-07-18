@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import type { IIdempotencyStore } from "nodefony";
 import { scheduleIdempotencyGc } from "../../src/idempotencyGc.js";
+import { emptyIdempotencyPage } from "../support/idempotencyDoubles";
 
 // Faux store d'idempotence minimal (contrat IIdempotencyStore). `gc` ajoutable
 // pour simuler un store SQL (drizzle) vs un store à TTL natif (redis/memory).
@@ -9,6 +10,7 @@ function fakeStore(extra: Partial<IIdempotencyStore> = {}): IIdempotencyStore {
     begin: () => ({ state: "fresh" }),
     complete: () => {},
     abort: () => {},
+    listPage: emptyIdempotencyPage,
     size: 0,
     ...extra,
   };

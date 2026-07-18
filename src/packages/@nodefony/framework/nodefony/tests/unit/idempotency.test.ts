@@ -13,6 +13,7 @@ import type {
   IdempotencyOutcome,
   IdempotentResponse,
 } from "nodefony";
+import { emptyIdempotencyPage } from "../support/idempotencyDoubles";
 
 // Cœur normatif PARTAGÉ de l'idempotence (draft-ietf-httpapi-idempotency-key-header)
 // — testé en isolation : la décision (verdict neutre) est prouvée ici, les deux
@@ -24,6 +25,7 @@ function fakeStore(outcome: IdempotencyOutcome): IIdempotencyStore {
     begin: () => outcome,
     complete() {},
     abort() {},
+    listPage: emptyIdempotencyPage,
     size: 0,
   };
 }
@@ -186,6 +188,7 @@ describe("idempotency — evaluateIdempotency (verdict)", () => {
       },
       complete() {},
       abort() {},
+      listPage: emptyIdempotencyPage,
       size: 0,
     };
     await evaluateIdempotency({ ...base, store });

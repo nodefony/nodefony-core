@@ -362,6 +362,8 @@ export type {
 } from "./types/IAdminApi";
 export type {
   IIdempotencyStore,
+  IIdempotencyKeyEntry,
+  IIdempotencyListQuery,
   IdempotencyOutcome,
   IdempotentResponse,
 } from "./types/IIdempotencyStore";

@@ -16,6 +16,7 @@
 import { expect } from "chai";
 import MemoryIdempotencyStore from "../../service/IdempotencyStore.js";
 import type { IdempotentResponse } from "../../interfaces/IIdempotencyStore.js";
+import { runIdempotencyPaginationContract } from "../../../../../../nodefony/src/tests/support/idempotencyPaginationContract";
 
 interface StoreInternals {
   entries: Map<
@@ -182,4 +183,23 @@ describe("MemoryIdempotencyStore — robustesse", () => {
     const s = makeStore();
     expect(() => s.abort("nope")).to.not.throw();
   });
+});
+
+// Standard de pagination : LE banc du propriétaire du contrat (le CORE),
+// déroulé ici sur le store mémoire (capacité offset).
+let paged = makeStore({ cap: 100 });
+runIdempotencyPaginationContract({
+  store: () => paged,
+  clear: async () => {
+    paged = makeStore({ cap: 100 });
+  },
+  mode: "offset",
+  seed: async (prefix, n) => {
+    for (let i = 0; i < n; i += 1) {
+      const key = `${prefix}-${String(i).padStart(2, "0")}`;
+      paged.begin(key, FP);
+      // Une clé sur deux est complétée → les deux états sont représentés.
+      if (i % 2 === 0) paged.complete(key, resp(200, { i }));
+    }
+  },
 });

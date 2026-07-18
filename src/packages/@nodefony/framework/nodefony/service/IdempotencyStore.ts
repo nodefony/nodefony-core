@@ -1,5 +1,8 @@
 import { Service, Module, Container, Event, injectable } from "nodefony";
+import type { IPage } from "nodefony";
 import type {
+  IIdempotencyKeyEntry,
+  IIdempotencyListQuery,
   IIdempotencyStore,
   IdempotencyOutcome,
   IdempotentResponse,
@@ -56,6 +59,49 @@ class MemoryIdempotencyStore extends Service implements IIdempotencyStore {
 
   get size(): number {
     return this.entries === null ? 0 : this.entries.size;
+  }
+
+  /**
+   * {@inheritDoc IIdempotencyStore.listPage}
+   *
+   * La collection est déjà en RAM et **bornée par le cap** : le tri porte sur
+   * des références, seule la page devient des vues. Les entrées expirées sont
+   * exclues à la LECTURE (la purge d'ici est passive : elle n'a lieu qu'à
+   * l'écriture) — sinon on montrerait comme vivante une clé déjà rejouable.
+   */
+  listPage(query: IIdempotencyListQuery): Promise<IPage<IIdempotencyKeyEntry>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const now = Date.now();
+    const prefix = query.q !== undefined && query.q.length > 0 ? query.q : null;
+    const matched: Array<[string, Entry]> = [];
+    for (const pair of this.entries ?? []) {
+      const [key, entry] = pair;
+      if (now > entry.expiresAt) continue; // déjà morte : pas une clé vivante
+      if (prefix !== null && !key.startsWith(prefix)) continue;
+      if (query.state !== undefined && entry.kind !== query.state) continue;
+      matched.push(pair);
+    }
+    // `expiresAt` ASC : ce qui va disparaître en premier en tête (c'est la
+    // lecture utile). Départagé par clé → offset déterministe.
+    matched.sort(
+      (a, b) =>
+        a[1].expiresAt - b[1].expiresAt ||
+        (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0),
+    );
+    const items = matched.slice(offset, offset + limit).map(([key, entry]) => ({
+      key,
+      state: entry.kind,
+      expiresAtMs: entry.expiresAt,
+      hasResponse: entry.kind === "done",
+    }));
+    return Promise.resolve({
+      items,
+      total: query.withTotal === false ? undefined : matched.length,
+      limit,
+      offset,
+      hasNext: offset + items.length < matched.length,
+    });
   }
 
   begin(key: string, fingerprint: string): IdempotencyOutcome {

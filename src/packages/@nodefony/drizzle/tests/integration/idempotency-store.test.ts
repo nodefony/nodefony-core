@@ -7,6 +7,7 @@ import {
   registerIdempotencyEntities,
   IDEMPOTENCY_ENTITY_NAME,
 } from "../../nodefony/entity/idempotencyEntity";
+import { runIdempotencyPaginationContract } from "../../../../../nodefony/src/tests/support/idempotencyPaginationContract";
 
 const ORM = "idem_test";
 
@@ -173,5 +174,42 @@ describe("Drizzle DrizzleIdempotencyStore — IIdempotencyStore SQL (axe 3, P6.8
       await store.abort("sz-b"); // -1
       assert.equal(store.size, base);
     });
+  });
+});
+
+// Standard de pagination : LE banc du propriétaire du contrat (le CORE),
+// déroulé sur le backend SQL (capacité offset + total). Déclaré en DERNIER : son
+// seed doit survivre aux écritures des describes ci-dessus.
+describe("DrizzleIdempotencyStore — listing paginé (sqlite)", () => {
+  let pagedOrm: DrizzleOrm;
+  let pagedStore: DrizzleIdempotencyStore;
+  const PAGED_ORM = "idem_paged";
+
+  beforeAll(async () => {
+    registerIdempotencyEntities(PAGED_ORM);
+    pagedOrm = new DrizzleOrm(PAGED_ORM, { filename: ":memory:" });
+    await pagedOrm.connect();
+    pagedStore = DrizzleIdempotencyStore.from(pagedOrm, now, LEASE, TTL);
+  });
+
+  afterAll(async () => {
+    await pagedOrm.disconnect();
+    entityRegistry.unregister(IDEMPOTENCY_ENTITY_NAME, PAGED_ORM);
+    ormRegistry.unregister(PAGED_ORM);
+  });
+
+  runIdempotencyPaginationContract({
+    store: () => pagedStore,
+    clear: async () => {
+      CLOCK = 30_000_000; // fenêtre propre : tout ce qui précède est échu
+    },
+    mode: "offset",
+    seed: async (prefix, n) => {
+      for (let i = 0; i < n; i += 1) {
+        const key = `${prefix}-${String(i).padStart(2, "0")}`;
+        await pagedStore.begin(key, "fp");
+        if (i % 2 === 0) await pagedStore.complete(key, respA);
+      }
+    },
   });
 });

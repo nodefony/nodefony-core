@@ -6,6 +6,7 @@ import {
   listIdempotencyStores,
   type IIdempotencyStoreFactoryContext,
 } from "../../src/idempotencyStoreRegistry";
+import { emptyIdempotencyPage } from "../support/idempotencyDoubles";
 
 /** Store sentinelle minimal (le contrat, sync — suffit pour la résolution). */
 function sentinel(tag: string): IIdempotencyStore {
@@ -13,6 +14,7 @@ function sentinel(tag: string): IIdempotencyStore {
     begin: () => ({ state: "fresh" }),
     complete: () => {},
     abort: () => {},
+    listPage: emptyIdempotencyPage,
     get size() {
       return 0;
     },
