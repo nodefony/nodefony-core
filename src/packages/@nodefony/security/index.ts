@@ -278,6 +278,8 @@ export type {
 export type { ITotpSecret } from "./nodefony/contracts/ITotpSecret";
 export type {
   ITotpSecretStore,
+  ITotpEnrollmentSummary,
+  ITotpListQuery,
   TotpSecretUpdate,
 } from "./nodefony/contracts/ITotpSecretStore";
 export type {

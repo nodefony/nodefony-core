@@ -8,6 +8,7 @@ import {
   TOTP_SECRET_ENTITY,
 } from "../../nodefony/entity/totpSecretEntity";
 import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
+import { runTotpPaginationContract } from "../../../security/tests/support/totpPaginationContract";
 
 /**
  * BANC DE PARITÉ DU CONTRAT `ITotpSecretStore` — LA même suite sur les TROIS
@@ -236,5 +237,13 @@ export function runTotpStoreContract(opts: ITotpStoreContractOptions): void {
       const other = DrizzleTotpSecretStore.from(orm);
       assert.equal((await other.findByUser("persist"))?.secretEnc, "durable");
     });
+  });
+
+  // Standard de pagination : LE banc du propriétaire du contrat
+  // (`@nodefony/security`), déroulé ici sur le backend SQL du dialecte courant.
+  // Déclaré en DERNIER : son seed doit survivre aux `purge()` des tests ci-dessus.
+  runTotpPaginationContract({
+    store: () => store,
+    clear: purge,
   });
 }

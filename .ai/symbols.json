@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-18T13:21:18.474Z",
+  "generated": "2026-07-18T13:29:02.939Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1029,
-    "symbols": 2770,
+    "symbols": 2774,
     "classes": 326,
-    "interfaces": 726,
+    "interfaces": 728,
     "types": 322,
     "enums": 4,
-    "functions": 820,
+    "functions": 822,
     "constants": 572
   },
   "symbols": {
@@ -11818,6 +11818,24 @@
       "extends": null,
       "description": "Secret TOTP d'un utilisateur (2FA) — **un seul par utilisateur** (clé = `userId`). Le secret partagé `K` est **chiffré au repos** ({@link ITotpSecret.secretEnc}) : le serveur doit pouvoir le **reli…"
     },
+    "ITotpEnrollmentSummary": {
+      "name": "ITotpEnrollmentSummary",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Vue d'un enrôlement 2FA pour l'INTROSPECTION admin (« qui a activé le 2FA, qui est resté en attente de confirmation »). **Sans secret, par construction du contrat** — ni `secretEnc` (le secret part…"
+    },
+    "ITotpListQuery": {
+      "name": "ITotpListQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "IPageQuery",
+      "description": "Requête de listing des enrôlements 2FA — {@link IPageQuery} + les filtres qui ont un sens ici. `q` (hérité) = **préfixe** d'`userId` (retrouver un id partiel collé depuis la console)."
+    },
     "TotpSecretUpdate": {
       "name": "TotpSecretUpdate",
       "kind": "interface",
@@ -18395,6 +18413,22 @@
       "extends": null,
       "description": "Instantané sérialisable de l'état — base de la persistance fichier."
     },
+    "toTotpEnrollment": {
+      "name": "toTotpEnrollment",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Projette un secret en vue d'introspection — **le seul endroit** où l'on décide ce qui sort d'un store TOTP en mémoire. `secretEnc` et les condensats des codes de récupération n'y figurent pas : seu…"
+    },
+    "matchesTotpQuery": {
+      "name": "matchesTotpQuery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Applique les filtres d'{@link ITotpListQuery} — sémantique de RÉFÉRENCE."
+    },
     "deriveTotpKey": {
       "name": "deriveTotpKey",
       "kind": "function",
@@ -19640,6 +19674,7 @@
         "ISessionListQuery",
         "PageQuery",
         "ITokenListQuery",
+        "ITotpListQuery",
         "IWebhookListQuery",
         "IUserListQuery",
         "IRateLimitListQuery"
@@ -23484,6 +23519,7 @@
       ],
       "paginate": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
@@ -23491,6 +23527,7 @@
       ],
       "Criteria": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -23528,6 +23565,7 @@
       ],
       "IPage": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -23542,8 +23580,10 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
@@ -23554,6 +23594,7 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
@@ -23605,6 +23646,18 @@
       "SubjectRevocationRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
+      ],
+      "ITotpEnrollmentSummary": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
+      ],
+      "ITotpListQuery": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
       ],
       "ITotpSecret": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
@@ -24221,6 +24274,7 @@
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts"

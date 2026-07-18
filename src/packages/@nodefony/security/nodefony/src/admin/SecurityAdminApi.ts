@@ -8,6 +8,10 @@ import type {
   IAdminResponse,
 } from "nodefony";
 import type { ITokenListQuery } from "../../contracts/ITokenStore";
+import type {
+  ITotpEnrollmentSummary,
+  ITotpListQuery,
+} from "../../contracts/ITotpSecretStore";
 import type { AuditCategory, AuditOutcome } from "../../contracts/IAuditEvent";
 import type {
   IAuditQuery,
@@ -235,6 +239,7 @@ interface ITotpStatusView {
 interface ITotpAdmin {
   status(userId: string): Promise<ITotpStatusView>;
   disable(userId: string): Promise<void>;
+  listPage(query: ITotpListQuery): Promise<IPage<ITotpEnrollmentSummary>>;
 }
 
 /**
@@ -514,6 +519,63 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           metadata: { credentialId, viaAdmin: true },
         });
         return { ok: true };
+      },
+    },
+    {
+      // Vue TRANSVERSE du 2FA : « quelle est la couverture, qui est resté en
+      // attente de confirmation » — un secret jamais confirmé ne protège
+      // personne, et c'est invisible depuis la fiche d'un seul utilisateur.
+      // Pagination SERVEUR ; la vue ne porte NI secret NI condensats de codes
+      // (garantie du contrat de store, pas une redaction d'ici).
+      path: "totp/list",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Enrôlements 2FA TOTP (userId, paramètres, confirmation, codes de " +
+        "récupération RESTANTS — jamais le secret). Paginé serveur : " +
+        "?confirmed&q&limit&offset. `enabled:false` = 2FA désactivé en config.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<{
+        enabled: boolean;
+        items: ITotpEnrollmentSummary[];
+        total?: number;
+        limit: number;
+        offset: number;
+      }> => {
+        const svc = container.get("totp") as ITotpAdmin | undefined;
+        const rawLimit = intParam(request.query, "limit");
+        const limit =
+          rawLimit === undefined
+            ? KEYS_DEFAULT_LIMIT
+            : Math.min(Math.max(rawLimit, 1), KEYS_MAX_LIMIT);
+        const offsetRaw = intParam(request.query, "offset");
+        const offset =
+          offsetRaw !== undefined && offsetRaw >= 0 ? offsetRaw : 0;
+        // Lecture DÉFENSIVE : 2FA désactivé → état honnête, jamais un 503 (la
+        // console doit pouvoir afficher « 2FA désactivé » plutôt qu'une erreur).
+        if (!svc) {
+          return { enabled: false, items: [], total: 0, limit, offset };
+        }
+        const confirmed = one(request.query, "confirmed");
+        const q = one(request.query, "q");
+        const page = await svc.listPage({
+          limit,
+          offset,
+          ...(confirmed === "true"
+            ? { confirmed: true }
+            : confirmed === "false"
+              ? { confirmed: false }
+              : {}),
+          ...(q !== undefined ? { q } : {}),
+        });
+        return {
+          enabled: true,
+          items: page.items,
+          total: page.total,
+          limit,
+          offset,
+        };
       },
     },
     {

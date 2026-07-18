@@ -15,7 +15,12 @@ import {
   type ISecurityConfig,
   type ISecurityConfigInput,
 } from "../config/defineModuleConfig";
-import type { ITotpSecretStore } from "../contracts/ITotpSecretStore";
+import type { IPage } from "nodefony";
+import type {
+  ITotpEnrollmentSummary,
+  ITotpListQuery,
+  ITotpSecretStore,
+} from "../contracts/ITotpSecretStore";
 import {
   getTotpStoreFactory,
   listTotpStores,
@@ -266,6 +271,28 @@ class TotpService extends Service {
   /** État 2FA d'un utilisateur (absent / pending / activé + codes restants). */
   status(userId: string): Promise<ITotpStatus> {
     return totpStatus(this.#ensureReady(), userId);
+  }
+
+  /**
+   * Page d'enrôlements 2FA — pagination **native au store** (jamais un parcours
+   * complet). Vue sans secret ni condensats, garantie par le contrat du store.
+   *
+   * @param query - fenêtre + filtres ({@link ITotpListQuery}).
+   * @returns la page d'enrôlements.
+   */
+  listPage(query: ITotpListQuery): Promise<IPage<ITotpEnrollmentSummary>> {
+    return this.#ensureReady().store.listPage(query);
+  }
+
+  /**
+   * Nombre d'enrôlements correspondant aux filtres — le KPI « couverture 2FA »
+   * sans énumérer.
+   *
+   * @param query - filtres ({@link ITotpListQuery}) ; `limit` ignoré.
+   * @returns le compte exact.
+   */
+  countEnrollments(query: ITotpListQuery): Promise<number> {
+    return this.#ensureReady().store.countEnrollments(query);
   }
 
   /** 2FA activé pour cet utilisateur ? (raccourci pour le flow de login). */
