@@ -318,7 +318,10 @@ export type {
   WebhookEndpointUpdate,
   WebhookEndpointSummary,
 } from "./nodefony/contracts/IWebhookEndpoint";
-export type { IWebhookStore } from "./nodefony/contracts/IWebhookStore";
+export type {
+  IWebhookListQuery,
+  IWebhookStore,
+} from "./nodefony/contracts/IWebhookStore";
 
 // ─── Briques génériques réutilisables (SSRF + chiffrement de secret) ─────────
 export {

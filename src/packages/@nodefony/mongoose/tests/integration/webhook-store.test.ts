@@ -8,6 +8,7 @@ import {
   registerWebhookEndpointEntity,
   WEBHOOK_ENDPOINT_ENTITY,
 } from "../../nodefony/entity/webhookEndpointEntity";
+import { runWebhookPaginationContract } from "../../../security/tests/support/webhookPaginationContract";
 
 const ORM = "wh_test";
 // Serveur Mongo partagé (globalSetup) scopé sur la base `wh_test` ; `null`
@@ -180,6 +181,16 @@ describe.skipIf(!URI)(
         // du secret est la responsabilité de la couche service, pas du store).
         assert.equal(one?.secretEnc, "gcm1.wh_d2");
       });
+    });
+
+    // Standard de pagination : LE banc du propriétaire du contrat
+    // (`@nodefony/security`), déroulé ici sur MongoDB. Déclaré en DERNIER (son
+    // seed doit survivre aux écritures des describes précédents).
+    runWebhookPaginationContract({
+      store: () => store,
+      clear: async () => {
+        await orm.getRepository(WEBHOOK_ENDPOINT_ENTITY).delete({});
+      },
     });
   },
 );

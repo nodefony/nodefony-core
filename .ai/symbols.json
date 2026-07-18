@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-18T12:23:37.326Z",
+  "generated": "2026-07-18T13:05:07.724Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1029,
-    "symbols": 2756,
+    "symbols": 2767,
     "classes": 326,
-    "interfaces": 721,
-    "types": 321,
+    "interfaces": 723,
+    "types": 322,
     "enums": 4,
-    "functions": 812,
+    "functions": 820,
     "constants": 572
   },
   "symbols": {
@@ -7211,6 +7211,15 @@
       "extends": null,
       "description": "Fenêtre + tri résolus (le défaut `identifier ASC` est posé par l'appelant)."
     },
+    "WebhookListFilters": {
+      "name": "WebhookListFilters",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Filtres du listing d'endpoints (sous-ensemble non portable d'`IWebhookListQuery`)."
+    },
     "findUserIdBySocialProvider": {
       "name": "findUserIdBySocialProvider",
       "kind": "function",
@@ -7234,6 +7243,22 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Sélectionne les `id` d'une **page** d'utilisateurs (filtres + tri + `LIMIT/ OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`."
+    },
+    "listWebhookIdsPage": {
+      "name": "listWebhookIdsPage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Sélectionne les `id` d'une **page** d'endpoints webhook (filtres + `LIMIT/ OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`. Ordre contractuel figé (pas d'`order` client…"
+    },
+    "countWebhookEndpoints": {
+      "name": "countWebhookEndpoints",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Compte les endpoints qui matchent les filtres (`COUNT(*)` natif filtré) — base du `total` d'une page d'endpoints."
     },
     "countUsers": {
       "name": "countUsers",
@@ -11871,6 +11896,15 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Vue **publique** d'un endpoint (DTO console admin) — **sans** le secret chiffré. Le secret en clair n'est renvoyé qu'une fois, à la création/rotation."
+    },
+    "IWebhookListQuery": {
+      "name": "IWebhookListQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "IPageQuery",
+      "description": "Requête de **listing paginé** d'endpoints webhook (data plane admin) — le contrat de page standard du core ({@link IPageQuery}) enrichi des filtres propres aux endpoints. `q` (hérité) = sous-chaîne…"
     },
     "IWebhookStore": {
       "name": "IWebhookStore",
@@ -18742,6 +18776,14 @@
       "decorators": [],
       "description": "Store d'endpoints webhook **en mémoire** — défaut dev/test (non persistant : les endpoints sont perdus au redémarrage). En prod, utiliser `drizzle`/ `mongoose` (config `webhooks.store`). Map indexé…"
     },
+    "matchesWebhookQuery": {
+      "name": "matchesWebhookQuery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Applique les filtres d'{@link IWebhookListQuery} à un endpoint — sémantique de RÉFÉRENCE du contrat, partagée par les backends qui filtrent en mémoire."
+    },
     "deriveWebhookKey": {
       "name": "deriveWebhookKey",
       "kind": "function",
@@ -19580,6 +19622,7 @@
         "ISessionListQuery",
         "PageQuery",
         "ITokenListQuery",
+        "IWebhookListQuery",
         "IUserListQuery"
       ],
       "LLMError": [
@@ -22358,6 +22401,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
@@ -22374,6 +22418,7 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
@@ -23428,6 +23473,7 @@
       "Criteria": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
@@ -23464,24 +23510,30 @@
       "IPage": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
@@ -23647,6 +23699,13 @@
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
       ],
+      "IWebhookListQuery": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+      ],
       "IWebhookStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
@@ -23660,6 +23719,12 @@
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+      ],
+      "countWebhookEndpoints": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts"
+      ],
+      "listWebhookIdsPage": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts"
       ],
       "WebhookEndpointRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
@@ -24135,6 +24200,7 @@
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts"
       ],
       "ICookieOptions": [
@@ -24318,6 +24384,7 @@
       ],
       "Connection": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],

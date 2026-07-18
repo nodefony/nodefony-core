@@ -110,7 +110,10 @@ describe("WebhookService — lecture & mutations", () => {
       url: "https://1.1.1.1/h",
       events: ["*"],
     });
-    assert.equal((await svc.list()).length, 1);
+    const page = await svc.listPage({ limit: 50 });
+    assert.equal(page.items.length, 1);
+    assert.equal(page.total, 1);
+    assert.equal(page.hasNext, false);
     assert.equal((await svc.getEndpoint(endpoint.id))?.id, endpoint.id);
     assert.equal(await svc.getEndpoint("wh_absent"), null);
   });
@@ -165,7 +168,7 @@ describe("WebhookService — lecture & mutations", () => {
     });
     assert.equal(await svc.delete(endpoint.id), true);
     assert.equal(await svc.delete(endpoint.id), false);
-    assert.equal((await svc.list()).length, 0);
+    assert.equal((await svc.listPage({ limit: 50 })).items.length, 0);
   });
 });
 

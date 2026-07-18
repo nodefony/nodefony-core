@@ -1,13 +1,18 @@
-import type { IRepository } from "@nodefony/orm-core";
+import type { Criteria, IRepository } from "@nodefony/orm-core";
+import type { IPage } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerWebhookStore("drizzle", …)` ; le module drizzle reste pur.
 import type {
   IWebhookEndpoint,
+  IWebhookListQuery,
   IWebhookStore,
   WebhookEndpointUpdate,
 } from "@nodefony/security";
+import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
+import type { DrizzleDb } from "./orm-core/DrizzleRepository";
+import { countWebhookEndpoints, listWebhookIdsPage } from "./queryKit";
 import {
   WEBHOOK_ENDPOINT_ENTITY,
   type WebhookEndpointRow,
@@ -34,15 +39,29 @@ import {
 export class DrizzleWebhookStore implements IWebhookStore {
   readonly #repo: IRepository<WebhookEndpointRow>;
   readonly #location: string | undefined;
+  readonly #db: DrizzleDb | null;
+  readonly #dialect: SqlDialect;
 
   /**
    * @param repo - repository de la table `webhook_endpoint`.
    * @param location - emplacement physique de la base (fichier SQLite) pour Studio
    *   ({@link DrizzleOrm.location}) ; `undefined` pour un backend réseau/`:memory:`.
+   * @param db - handle Drizzle natif, requis par le seul listing paginé (filtre
+   *   `event` = containment dans un tableau JSON, hors `Criteria` portable).
+   *   `null` = store construit sans handle : `listPage` refuse plutôt que de
+   *   charger toute la table en silence.
+   * @param dialect - dialecte SQL du connecteur (route les requêtes du queryKit).
    */
-  constructor(repo: IRepository<WebhookEndpointRow>, location?: string) {
+  constructor(
+    repo: IRepository<WebhookEndpointRow>,
+    location?: string,
+    db: DrizzleDb | null = null,
+    dialect: SqlDialect = "sqlite",
+  ) {
     this.#repo = repo;
     this.#location = location;
+    this.#db = db;
+    this.#dialect = dialect;
   }
 
   /**
@@ -64,6 +83,8 @@ export class DrizzleWebhookStore implements IWebhookStore {
     return new DrizzleWebhookStore(
       orm.getRepository<WebhookEndpointRow>(WEBHOOK_ENDPOINT_ENTITY),
       orm.location,
+      orm.getNativeConnection<DrizzleDb>(),
+      orm.dialect,
     );
   }
 
@@ -107,5 +128,74 @@ export class DrizzleWebhookStore implements IWebhookStore {
   async listAll(): Promise<IWebhookEndpoint[]> {
     const rows = await this.#repo.find({});
     return rows.map((row) => this.#toEndpoint(row));
+  }
+
+  /**
+   * Handle natif ou erreur explicite — un `listPage` qui retomberait sur un
+   * `find({})` complet trahirait silencieusement la garantie du contrat
+   * (« jamais plus d'une page en mémoire »).
+   */
+  #nativeDb(): DrizzleDb {
+    if (this.#db === null) {
+      throw new Error(
+        "DrizzleWebhookStore: listing paginé indisponible (store construit " +
+          "sans handle natif). Utiliser DrizzleWebhookStore.from(orm).",
+      );
+    }
+    return this.#db;
+  }
+
+  /**
+   * {@inheritDoc IWebhookStore.listPage}
+   *
+   * Chemin NATIF (queryKit) : le filtre `event` cherche dans un tableau JSON —
+   * `json_each` (sqlite) / `@>` jsonb (postgres) / `JSON_CONTAINS` (mysql), non
+   * exprimable en `Criteria` portable. On sélectionne les `id` de la page (SQL
+   * pur, aucune ligne matérialisée), puis on recharge la page typée en 1
+   * requête `IN (...)` — coût O(page), jamais O(table).
+   */
+  async listPage(query: IWebhookListQuery): Promise<IPage<IWebhookEndpoint>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const db = this.#nativeDb();
+    const filters = {
+      enabled: query.enabled,
+      event: query.event,
+      q: query.q,
+    };
+    const { ids, hasNext } = await listWebhookIdsPage(
+      db,
+      this.#dialect,
+      filters,
+      {
+        limit,
+        offset,
+      },
+    );
+    const total =
+      query.withTotal === false
+        ? undefined
+        : await countWebhookEndpoints(db, this.#dialect, filters);
+    if (ids.length === 0) {
+      return { items: [], total, limit, offset, hasNext };
+    }
+    // `IN (...)` ne garantit PAS l'ordre → on ré-ordonne selon les ids du SQL.
+    const rows = await this.#repo.find({
+      id: { $in: ids },
+    } as unknown as Criteria<WebhookEndpointRow>);
+    const byId = new Map(rows.map((row) => [row.id, this.#toEndpoint(row)]));
+    const items = ids
+      .map((id) => byId.get(id))
+      .filter((e): e is IWebhookEndpoint => e !== undefined);
+    return { items, total, limit, offset, hasNext };
+  }
+
+  /** {@inheritDoc IWebhookStore.countEndpoints} */
+  countEndpoints(query: IWebhookListQuery): Promise<number> {
+    return countWebhookEndpoints(this.#nativeDb(), this.#dialect, {
+      enabled: query.enabled,
+      event: query.event,
+      q: query.q,
+    });
   }
 }

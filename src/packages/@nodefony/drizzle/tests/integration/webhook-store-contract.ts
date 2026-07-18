@@ -8,6 +8,7 @@ import {
   WEBHOOK_ENDPOINT_ENTITY,
 } from "../../nodefony/entity/webhookEndpointEntity";
 import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
+import { runWebhookPaginationContract } from "../../../security/tests/support/webhookPaginationContract";
 
 /**
  * BANC DE PARITÉ DU CONTRAT `IWebhookStore` — LA même suite sur les TROIS
@@ -270,5 +271,13 @@ export function runWebhookStoreContract(
       await purge();
       assert.deepEqual(await store.listAll(), []);
     });
+  });
+
+  // Standard de pagination : LE banc du propriétaire du contrat
+  // (`@nodefony/security`), déroulé ici sur le backend SQL du dialecte courant.
+  // Déclaré en DERNIER : son seed doit survivre aux `purge()` des tests ci-dessus.
+  runWebhookPaginationContract({
+    store: () => store,
+    clear: purge,
   });
 }

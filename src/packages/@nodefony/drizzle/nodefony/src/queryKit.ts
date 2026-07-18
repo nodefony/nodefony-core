@@ -322,6 +322,107 @@ export async function listUserIdsPage(
   return { ids: hasNext ? ids.slice(0, limit) : ids, hasNext };
 }
 
+// ── Endpoints webhook — listing paginé admin ─────────────────────────────────
+
+/** Filtres du listing d'endpoints (sous-ensemble non portable d'`IWebhookListQuery`). */
+export interface WebhookListFilters {
+  enabled?: boolean;
+  event?: string;
+  q?: string;
+}
+
+/** Condition « le tableau JSON `events` contient `event` » — forme native du dialecte. */
+function eventCond(dialect: SqlDialect, event: string): SQL {
+  const events = ident(dialect, "events");
+  switch (dialect) {
+    case "sqlite":
+      return sql`EXISTS (SELECT 1 FROM json_each(${events}) WHERE value = ${event})`;
+    case "postgres":
+      return sql`${events} @> ${JSON.stringify([event])}::jsonb`;
+    case "mysql":
+      return sql`JSON_CONTAINS(${events}, ${JSON.stringify(event)})`;
+  }
+}
+
+/**
+ * Condition `LOWER(url) LIKE %q% OR LOWER(description) LIKE %q%` — la recherche
+ * d'un humain porte sur l'adresse OU le libellé. `description` est nullable :
+ * `COALESCE` évite qu'un `NULL` fasse retomber tout le `OR` à `NULL` (donc faux).
+ */
+function likeWebhookCond(dialect: SqlDialect, q: string): SQL {
+  const url = ident(dialect, "url");
+  const description = ident(dialect, "description");
+  const escaped = q.toLowerCase().replace(/[\\%_]/g, (c) => "\\" + c);
+  const pattern = `%${escaped}%`;
+  // MySQL réinterprète `\` dans les littéraux → doubler ; ailleurs `\` est littéral.
+  const esc = dialect === "mysql" ? sql.raw("'\\\\'") : sql.raw("'\\'");
+  return sql`(LOWER(${url}) LIKE ${pattern} ESCAPE ${esc} OR LOWER(COALESCE(${description}, '')) LIKE ${pattern} ESCAPE ${esc})`;
+}
+
+/** Compose la clause WHERE des filtres actifs (undefined si aucun filtre). */
+function webhookWhere(
+  dialect: SqlDialect,
+  f: WebhookListFilters,
+): SQL | undefined {
+  const conds: SQL[] = [];
+  if (f.enabled !== undefined) conds.push(enabledCond(dialect, f.enabled));
+  if (f.event !== undefined) conds.push(eventCond(dialect, f.event));
+  if (f.q !== undefined && f.q.length > 0) {
+    conds.push(likeWebhookCond(dialect, f.q));
+  }
+  if (conds.length === 0) return undefined;
+  return sql.join(conds, sql` AND `);
+}
+
+/**
+ * Sélectionne les `id` d'une **page** d'endpoints webhook (filtres + `LIMIT/
+ * OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`.
+ *
+ * Ordre contractuel figé (pas d'`order` client) : `createdAt DESC, id ASC` — le
+ * tiebreaker rend l'offset déterministe quand deux endpoints partagent la même
+ * milliseconde de création.
+ *
+ * @returns les `id` de la page (au plus `limit`, dans l'ordre) et `hasNext`.
+ */
+export async function listWebhookIdsPage(
+  db: DrizzleDb,
+  dialect: SqlDialect,
+  filters: WebhookListFilters,
+  window: { limit: number; offset: number },
+): Promise<{ ids: string[]; hasNext: boolean }> {
+  const limit = Math.max(1, Math.floor(window.limit));
+  const offset = Math.max(0, Math.floor(window.offset));
+  const where = webhookWhere(dialect, filters);
+  const whereSql = where ? sql` WHERE ${where}` : sql``;
+  const query = sql`SELECT ${ident(dialect, "id")} AS id FROM ${ident(dialect, "webhook_endpoint")}${whereSql}
+      ORDER BY ${ident(dialect, "createdAt")} DESC, ${ident(dialect, "id")} ASC
+      LIMIT ${limit + 1} OFFSET ${offset}`;
+  const rows = await runSelect(db, dialect, query);
+  const ids = rows
+    .map((r) => r.id)
+    .filter((id): id is string => typeof id === "string");
+  const hasNext = ids.length > limit;
+  return { ids: hasNext ? ids.slice(0, limit) : ids, hasNext };
+}
+
+/**
+ * Compte les endpoints qui matchent les filtres (`COUNT(*)` natif filtré) —
+ * base du `total` d'une page d'endpoints.
+ *
+ * @returns le nombre de lignes correspondantes.
+ */
+export async function countWebhookEndpoints(
+  db: DrizzleDb,
+  dialect: SqlDialect,
+  filters: WebhookListFilters,
+): Promise<number> {
+  const where = webhookWhere(dialect, filters);
+  const whereSql = where ? sql` WHERE ${where}` : sql``;
+  const query = sql`SELECT COUNT(*) AS cnt FROM ${ident(dialect, "webhook_endpoint")}${whereSql}`;
+  const rows = await runSelect(db, dialect, query);
+  return Number(rows[0]?.cnt ?? 0);
+}
+
 /**
  * Compte les utilisateurs qui matchent les filtres (`COUNT(*)` natif filtré) —
  * base commune du `total` de la page ET du garde-fou `countActiveAdmins`

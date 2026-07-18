@@ -16,7 +16,11 @@ import {
   type ISecurityConfig,
   type ISecurityConfigInput,
 } from "../config/defineModuleConfig";
-import type { IWebhookStore } from "../contracts/IWebhookStore";
+import type { IPage } from "nodefony";
+import type {
+  IWebhookListQuery,
+  IWebhookStore,
+} from "../contracts/IWebhookStore";
 import type {
   IWebhookEndpoint,
   IWebhookDelivery,
@@ -369,11 +373,30 @@ class WebhookService extends Service {
     return { endpoint: toSummary(endpoint), secret };
   }
 
-  /** Tous les endpoints (vue publique, sans secret). */
-  async list(): Promise<WebhookEndpointSummary[]> {
+  /**
+   * Page d'endpoints (vue publique, sans secret) — pagination **native au
+   * store** : la console n'a jamais tout le registre en RAM.
+   *
+   * @param query - fenêtre + filtres ({@link IWebhookListQuery}).
+   * @returns la page, chaque endpoint réduit à sa vue publique.
+   */
+  async listPage(
+    query: IWebhookListQuery,
+  ): Promise<IPage<WebhookEndpointSummary>> {
     this.#assertReady();
-    const all = await this.#store!.listAll();
-    return all.map(toSummary);
+    const page = await this.#store!.listPage(query);
+    return { ...page, items: page.items.map(toSummary) };
+  }
+
+  /**
+   * Nombre d'endpoints correspondant aux filtres (`COUNT` natif au store).
+   *
+   * @param query - filtres ({@link IWebhookListQuery}) ; `limit` ignoré.
+   * @returns le compte exact, ou `-1` si le backend ne sait pas compter.
+   */
+  async countEndpoints(query: IWebhookListQuery): Promise<number> {
+    this.#assertReady();
+    return this.#store!.countEndpoints(query);
   }
 
   /** Un endpoint par id (vue publique), ou `null`. */

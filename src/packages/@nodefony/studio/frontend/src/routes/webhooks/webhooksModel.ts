@@ -68,7 +68,20 @@ export interface WebhookListResponse {
   driver: WebhookDriver;
   /** Classe réelle du store (ex. `DrizzleWebhookStore`), `none` si absent. */
   store: string;
+  /**
+   * **LA page** d'endpoints (pagination serveur, native au store) — jamais le
+   * registre entier. Compter cette liste ne donne donc PAS le nombre total
+   * d'endpoints : c'est `total` qui fait foi.
+   */
   endpoints: WebhookEndpoint[];
+  /** Total exact côté serveur (absent si le backend ne sait pas compter). */
+  total?: number;
+  /** Taille de page appliquée par le serveur (défaut 50, cap 200). */
+  limit: number;
+  /** Décalage de cette page (mode offset). */
+  offset?: number;
+  /** Jeton de page suivante (mode curseur) ; `null` = fin. */
+  nextCursor?: string | null;
 }
 
 /** Driver logique du backend webhook (miroir du badge « où on écrit » Studio). */

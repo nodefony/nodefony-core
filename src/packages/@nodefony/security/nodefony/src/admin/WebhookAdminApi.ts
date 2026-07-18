@@ -3,11 +3,13 @@ import type {
   IAdminEndpoint,
   IAdminRequest,
   IAdminResponse,
+  IPage,
 } from "nodefony";
 import type {
   WebhookEndpointSummary,
   IWebhookDelivery,
 } from "../../contracts/IWebhookEndpoint";
+import type { IWebhookListQuery } from "../../contracts/IWebhookStore";
 import { adminActor, auditAdmin } from "./adminAudit";
 
 /**
@@ -66,7 +68,7 @@ interface IWebhookAdmin {
   register(
     input: IWebhookRegisterAdminInput,
   ): Promise<IWebhookSecretRevealView>;
-  list(): Promise<WebhookEndpointSummary[]>;
+  listPage(query: IWebhookListQuery): Promise<IPage<WebhookEndpointSummary>>;
   getEndpoint(id: string): Promise<WebhookEndpointSummary | null>;
   update(
     id: string,
@@ -119,6 +121,50 @@ function bodyStringArray(v: unknown): string[] | undefined {
   return v.every((x) => typeof x === "string" && x.length > 0)
     ? (v as string[])
     : undefined;
+}
+
+/** Page par défaut du listing d'endpoints (registre de config, volume modeste). */
+const ENDPOINTS_DEFAULT_LIMIT = 50;
+/** Plafond dur : un client ne peut pas demander « tout » via `?limit=`. */
+const ENDPOINTS_MAX_LIMIT = 200;
+
+/** Premier param d'une clé (la query admin peut être `string | string[]`). */
+function queryOne(
+  query: Readonly<Record<string, string | string[]>>,
+  key: string,
+): string | undefined {
+  const raw = query[key];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Traduit la query string admin en {@link IWebhookListQuery} **bornée**
+ * (`limit` défaut 50, cap 200 ; `offset`/`cursor`/`enabled`/`event`/`q`). Un
+ * filtre inconnu est ignoré (permissif — l'endpoint est déjà gardé
+ * `ROLE_NODEFONY_ADMIN`).
+ */
+function parseWebhookListQuery(
+  query: Readonly<Record<string, string | string[]>>,
+): IWebhookListQuery {
+  const rawLimit = Number.parseInt(queryOne(query, "limit") ?? "", 10);
+  const out: IWebhookListQuery = {
+    limit: Number.isFinite(rawLimit)
+      ? Math.min(Math.max(rawLimit, 1), ENDPOINTS_MAX_LIMIT)
+      : ENDPOINTS_DEFAULT_LIMIT,
+  };
+  const rawOffset = Number.parseInt(queryOne(query, "offset") ?? "", 10);
+  if (Number.isFinite(rawOffset) && rawOffset >= 0) out.offset = rawOffset;
+  const cursor = queryOne(query, "cursor");
+  if (cursor !== undefined) out.cursor = cursor;
+  const enabled = queryOne(query, "enabled");
+  if (enabled === "true") out.enabled = true;
+  else if (enabled === "false") out.enabled = false;
+  const event = queryOne(query, "event");
+  if (event !== undefined) out.event = event;
+  const q = queryOne(query, "q");
+  if (q !== undefined) out.q = q;
+  return out;
 }
 
 /**
@@ -174,24 +220,38 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
       summary:
         "Endpoints webhook sortants (registre) + backend du store (« où on " +
         "écrit » : memory/orm). Secrets EXCLUS (chiffrés au repos, jamais ici).",
-      handler: async (): Promise<{
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<{
         enabled: boolean;
         driver: WebhookDriver;
         store: string;
         endpoints: WebhookEndpointSummary[];
+        total?: number;
+        limit: number;
+        offset?: number;
+        nextCursor?: string | null;
       }> => {
         const s = svc();
         const store = container.get("webhookStore") as
-          | WebhookStoreLike
-          | undefined;
+          WebhookStoreLike | undefined;
         const className = store?.constructor?.name;
+        const query = parseWebhookListQuery(request.query);
+        // Pagination SERVEUR (jamais un listAll matérialisé : celui-ci est
+        // réservé au snapshot du dispatcher). `endpoints` = LA page ;
+        // `total`/`offset`/`nextCursor` = métadonnées du DataGrid mode="server".
+        const page = ready(s) ? await s.listPage(query) : null;
         // Lecture DÉFENSIVE (jamais de 503) : la console affiche toujours un
         // badge honnête + une table, même webhooks désactivés (→ liste vide).
         return {
           enabled: ready(s),
           driver: webhookStoreDriver(className),
           store: className ?? "none",
-          endpoints: ready(s) ? await s.list() : [],
+          endpoints: page?.items ?? [],
+          total: page?.total,
+          limit: query.limit,
+          offset: page?.offset,
+          nextCursor: page?.nextCursor,
         };
       },
     },

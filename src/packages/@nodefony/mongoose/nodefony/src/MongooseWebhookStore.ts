@@ -1,13 +1,19 @@
 import type { IRepository } from "@nodefony/orm-core";
+import type { IPage } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerWebhookStore("mongoose", …)`.
 import type {
   IWebhookEndpoint,
+  IWebhookListQuery,
   IWebhookStore,
   WebhookEndpointUpdate,
 } from "@nodefony/security";
+import type { Connection, Model } from "mongoose";
 import type { MongooseOrm } from "./orm-core/index";
+
+/** Modèle Mongoose à document libre (boundary — comme `MongooseRepository`). */
+type LooseModel = Model<Record<string, unknown>>;
 import {
   WEBHOOK_ENDPOINT_ENTITY,
   type WebhookEndpointRow,
@@ -33,10 +39,20 @@ import {
  */
 export class MongooseWebhookStore implements IWebhookStore {
   readonly #repo: IRepository<WebhookEndpointRow>;
+  readonly #model: LooseModel | null;
 
-  /** @param repo - repository de la collection `webhook_endpoint`. */
-  constructor(repo: IRepository<WebhookEndpointRow>) {
+  /**
+   * @param repo - repository de la collection `webhook_endpoint`.
+   * @param model - modèle Mongoose natif, requis par le seul listing paginé
+   *   (recherche `q` = `$or` sur deux champs, hors `Criteria` AND-only).
+   *   `null` = `listPage` refuse plutôt que de tout charger en silence.
+   */
+  constructor(
+    repo: IRepository<WebhookEndpointRow>,
+    model: LooseModel | null = null,
+  ) {
     this.#repo = repo;
+    this.#model = model;
   }
 
   /**
@@ -47,8 +63,10 @@ export class MongooseWebhookStore implements IWebhookStore {
    * @param orm - ORM Mongoose connecté hébergeant la collection du store.
    */
   static from(orm: MongooseOrm): MongooseWebhookStore {
+    const connection = orm.getNativeConnection<Connection>();
     return new MongooseWebhookStore(
       orm.getRepository<WebhookEndpointRow>(WEBHOOK_ENDPOINT_ENTITY),
+      connection.model<Record<string, unknown>>(WEBHOOK_ENDPOINT_ENTITY),
     );
   }
 
@@ -124,5 +142,76 @@ export class MongooseWebhookStore implements IWebhookStore {
   async listAll(): Promise<IWebhookEndpoint[]> {
     const rows = await this.#repo.find({});
     return rows.map((row) => this.#toEndpoint(row));
+  }
+
+  /**
+   * Modèle natif ou erreur explicite — un `listPage` qui retomberait sur un
+   * `find({})` complet trahirait silencieusement la garantie du contrat.
+   */
+  #nativeModel(): LooseModel {
+    if (this.#model === null) {
+      throw new Error(
+        "MongooseWebhookStore: listing paginé indisponible (store construit " +
+          "sans modèle natif). Utiliser MongooseWebhookStore.from(orm).",
+      );
+    }
+    return this.#model;
+  }
+
+  /**
+   * Filtre Mongo des filtres du listing. `events: <event>` = **containment de
+   * tableau natif** (Mongo matche un scalaire contre chaque élément) ; `q` =
+   * `$or` de deux `$regex/i` — le `$or` sort du `Criteria` AND-only, d'où la
+   * query native.
+   */
+  #listFilter(query: IWebhookListQuery): Record<string, unknown> {
+    const filter: Record<string, unknown> = {};
+    if (query.enabled !== undefined) filter.enabled = query.enabled;
+    if (query.event !== undefined) filter.events = query.event;
+    if (query.q !== undefined && query.q.length > 0) {
+      // Échappe les métacaractères : une recherche utilisateur n'est PAS une regex.
+      const needle = query.q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.$or = [
+        { url: { $regex: needle, $options: "i" } },
+        { description: { $regex: needle, $options: "i" } },
+      ];
+    }
+    return filter;
+  }
+
+  /**
+   * {@inheritDoc IWebhookStore.listPage}
+   *
+   * Query native : `find(filter).sort({createdAt:-1, _id:1}).skip().limit(limit+1)`
+   * — une page, jamais la collection. Le `limit + 1` donne `hasNext` sans compter.
+   */
+  async listPage(query: IWebhookListQuery): Promise<IPage<IWebhookEndpoint>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const model = this.#nativeModel();
+    const filter = this.#listFilter(query);
+    const docs = await model
+      .find(filter)
+      .sort({ createdAt: -1, _id: 1 }) // tiebreaker déterministe
+      .skip(offset)
+      .limit(limit + 1)
+      .exec();
+    const hasNext = docs.length > limit;
+    const page = hasNext ? docs.slice(0, limit) : docs;
+    const items = page.map((doc) =>
+      this.#toEndpoint(
+        doc.toObject({ virtuals: true }) as unknown as WebhookEndpointRow,
+      ),
+    );
+    const total =
+      query.withTotal === false
+        ? undefined
+        : await model.countDocuments(filter).exec();
+    return { items, total, limit, offset, hasNext };
+  }
+
+  /** {@inheritDoc IWebhookStore.countEndpoints} */
+  async countEndpoints(query: IWebhookListQuery): Promise<number> {
+    return this.#nativeModel().countDocuments(this.#listFilter(query)).exec();
   }
 }

@@ -99,7 +99,19 @@ function bootWebhooks(
       store.set(id, ep);
       return { endpoint: summary(ep), secret: `whsec_${id}` };
     },
-    list: async () => [...store.values()].map(summary),
+    listPage: async (query: { limit: number; offset?: number }) => {
+      const all = [...store.values()].map(summary);
+      const limit = query.limit;
+      const offset = query.offset ?? 0;
+      const items = all.slice(offset, offset + limit);
+      return {
+        items,
+        total: all.length,
+        limit,
+        offset,
+        hasNext: offset + items.length < all.length,
+      };
+    },
     getEndpoint: async (id: string) => {
       const ep = store.get(id);
       return ep ? summary(ep) : null;
