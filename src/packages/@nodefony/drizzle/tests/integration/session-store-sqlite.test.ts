@@ -1,4 +1,4 @@
-import { runSessionStoreContract } from "./session-store-contract";
+import { runDrizzleSessionStoreContract } from "./session-store-contract";
 
 /**
  * Contrat `SessionStorage` — dialecte **sqlite** (MÊME suite que postgres/mysql).
@@ -10,7 +10,7 @@ import { runSessionStoreContract } from "./session-store-contract";
  * restent dans `session-storage.test.ts`.
  */
 describe("DrizzleSessionStorage — contrat (sqlite)", () => {
-  runSessionStoreContract({
+  runDrizzleSessionStoreContract({
     dialect: "sqlite",
     connection: { filename: ":memory:" },
   });

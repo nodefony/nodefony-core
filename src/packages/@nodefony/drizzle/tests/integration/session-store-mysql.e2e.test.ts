@@ -1,4 +1,4 @@
-import { runSessionStoreContract } from "./session-store-contract";
+import { runDrizzleSessionStoreContract } from "./session-store-contract";
 
 /**
  * Contrat `SessionStorage` — dialecte **mysql** (MÊME suite que sqlite/postgres).
@@ -15,7 +15,7 @@ import { runSessionStoreContract } from "./session-store-contract";
 const MYSQL_URL = process.env.NF_MYSQL_URL;
 
 describe.skipIf(!MYSQL_URL)("DrizzleSessionStorage — contrat (mysql)", () => {
-  runSessionStoreContract({
+  runDrizzleSessionStoreContract({
     dialect: "mysql",
     connection: { url: MYSQL_URL },
   });

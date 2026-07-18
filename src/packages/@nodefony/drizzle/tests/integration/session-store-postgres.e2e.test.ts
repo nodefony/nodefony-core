@@ -1,4 +1,4 @@
-import { runSessionStoreContract } from "./session-store-contract";
+import { runDrizzleSessionStoreContract } from "./session-store-contract";
 
 /**
  * Contrat `SessionStorage` — dialecte **postgres** (MÊME suite que sqlite/mysql) :
@@ -13,7 +13,7 @@ import { runSessionStoreContract } from "./session-store-contract";
 const PG_URL = process.env.NF_PG_URL;
 
 describe.skipIf(!PG_URL)("DrizzleSessionStorage — contrat (postgres)", () => {
-  runSessionStoreContract({
+  runDrizzleSessionStoreContract({
     dialect: "postgres",
     connection: { url: PG_URL },
   });

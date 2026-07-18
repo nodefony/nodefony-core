@@ -14,6 +14,7 @@ import {
   runSessionPaginationContract,
   type PaginatedSessionStorage,
 } from "../../../http/nodefony/tests/support/sessionPaginationContract";
+import { runSessionStoreContract } from "../../../http/nodefony/tests/support/sessionStoreContract";
 
 /** Manager minimal (le storage n'utilise que les timeouts session + `log`). */
 const fakeManager = {
@@ -250,12 +251,22 @@ describe.skipIf(!URI)(
       });
     });
 
-    // Le banc de contrat de PAGINATION vit chez `@nodefony/http` (propriétaire du
-    // contrat `ISessionStorage`) : mêmes assertions que la mémoire, les 3 dialectes
-    // SQL et Redis. Greffé ICI plutôt que dans un fichier dédié parce que l'entité
-    // session Mongoose est un `@entity` figé sur le connecteur `nodefony` — deux
-    // fichiers le prendraient au même nom. Placé EN DERNIER : il purge la
-    // collection à son démarrage.
+    // Les DEUX bancs partagés de `@nodefony/http` (propriétaire du contrat
+    // `ISessionStorage`) : COMPORTEMENT puis PAGINATION — mêmes assertions que la
+    // mémoire, les 3 dialectes SQL et Redis. Greffés ICI plutôt que dans un
+    // fichier dédié parce que l'entité session Mongoose est un `@entity` figé sur
+    // le connecteur `nodefony` — deux fichiers le prendraient au même nom. Placés
+    // EN DERNIER : ils purgent la collection à leur démarrage.
+    runSessionStoreContract({
+      storage: () => storage,
+      clear: async () => {
+        await orm.getRepository<SessionRow>("session").delete({});
+      },
+      // `gc()` purge réellement (pas de TTL natif branché ici).
+      expiry: "applicative",
+      touch: true,
+    });
+
     runSessionPaginationContract({
       mode: "offset",
       storage: () => storage as unknown as PaginatedSessionStorage,

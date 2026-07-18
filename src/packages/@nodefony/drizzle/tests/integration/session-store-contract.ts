@@ -14,6 +14,7 @@ import {
   runSessionPaginationContract,
   type PaginatedSessionStorage,
 } from "../../../http/nodefony/tests/support/sessionPaginationContract";
+import { runSessionStoreContract } from "../../../http/nodefony/tests/support/sessionStoreContract";
 
 /**
  * BANC DE PARITÉ DU CONTRAT `SessionStorage` — LA même suite sur les TROIS
@@ -47,7 +48,7 @@ const fakeManager = {
   log: () => {},
 } as unknown as SessionsService;
 
-export function runSessionStoreContract(
+export function runDrizzleSessionStoreContract(
   opts: ISessionStoreContractOptions,
 ): void {
   const { dialect } = opts;
@@ -382,10 +383,21 @@ export function runSessionStoreContract(
     });
   });
 
-  // Le banc de contrat de PAGINATION vit chez `@nodefony/http` (propriétaire du
-  // contrat `ISessionStorage`) et se déroule ici tel quel : mêmes assertions que
-  // pour la mémoire, Mongoose et Redis. Greffé DANS ce contrat de parité, il est
-  // donc joué sur les trois dialectes sans fichier consommateur supplémentaire.
+  // Les DEUX bancs partagés de `@nodefony/http` (propriétaire du contrat
+  // `ISessionStorage`) se déroulent ici tels quels, sur les trois dialectes :
+  // COMPORTEMENT puis PAGINATION. Les cas ci-dessus restent ce qui est PROPRE au
+  // backend SQL (bornes NIST idle+absolue, upsert concurrent, valeurs hostiles,
+  // `listAll`/`open`) ; les invariants communs, eux, ne se ré-écrivent pas par
+  // backend — sinon deux rédactions du même contrat divergent en silence, et
+  // c'est précisément ce que le banc unique existe pour empêcher.
+  runSessionStoreContract({
+    storage: () => storage,
+    clear: purge,
+    // `gc()` purge réellement en SQL (≠ TTL natif Redis).
+    expiry: "applicative",
+    touch: true,
+  });
+
   runSessionPaginationContract({
     mode: "offset",
     storage: () => storage as unknown as PaginatedSessionStorage,
