@@ -29,8 +29,10 @@ import {
  * (`registerWebhookStore("drizzle", …)`) et l'entité
  * (`registerWebhookEndpointEntity(orm)` avant `orm.connect()`).
  *
- * **100 % portable** (aucun SQL natif) — toutes les opérations passent par le
- * contrat `IRepository`, donc le code se transpose tel quel aux autres drivers.
+ * **Portable sauf le listing paginé** : le CRUD passe par le contrat
+ * `IRepository` (transposable tel quel aux autres drivers) ; seuls `listPage` /
+ * `countEndpoints` descendent au SQL natif via le `queryKit`, parce que le
+ * filtre `event` cherche dans un tableau JSON — inexprimable en `Criteria`.
  *
  * **Mapping Row ↔ contrat** minimal : `IWebhookEndpoint` est déjà « plat tout
  * `| null` » ; seuls les champs JSON `events` (`readonly` → mutable) et

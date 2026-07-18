@@ -20,6 +20,18 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     testTimeout: 20000,
     hookTimeout: 20000,
+    // FICHIERS SÉRIALISÉS — non négociable tant que les bancs PG/MySQL visent la
+    // MÊME base réelle. Plusieurs fichiers portent des connecteurs distincts
+    // (`tokens_pg`, `token_pagination_pg`…) mais retombent sur la même table
+    // physique (`access_token`) : en parallèle, la purge de l'un efface le seed
+    // de l'autre et son `COUNT` compte les lignes du voisin → vert en isolation,
+    // rouge en suite, le pire des symptômes (on soupçonne le code, le coupable
+    // est le banc). Les autres modules s'isolent par base (`mongoTestUri`) ou par
+    // index (`redisTestUrl`) ; ici l'utilisateur applicatif n'a pas le droit de
+    // créer une base sous MySQL/MariaDB (`ERROR 1044`), donc on sérialise —
+    // UNE règle qui vaut pour les 3 dialectes et protège d'office tout banc
+    // futur. Coût mesuré : ~62 s au lieu de ~21 s sur la suite complète.
+    fileParallelism: false,
     coverage: {
       provider: "v8",
       // `all` = compter aussi les fichiers non importés (garde-fou honnête).
