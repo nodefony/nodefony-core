@@ -98,7 +98,28 @@ async function createKey(
   return res.body as Created;
 }
 
+/**
+ * Ardoise propre : révoque les PAT que les runs précédents ont laissés au
+ * porteur. Sans ça le banc n'est jouable qu'UNE fois — le store de jetons est
+ * persistant en dev, les clés s'accumulent, et à `maxPerSubject` la création
+ * répond `409` : la suite échoue sur un défaut du banc, pas du code.
+ */
+async function revokeExistingKeys(cookie: string): Promise<void> {
+  const res = await get(KEYS, { cookie });
+  if (res.status !== 200) return; // service indisponible → les tests le diront
+  const body = res.body as { keys?: Array<{ id?: unknown }> };
+  for (const key of body.keys ?? []) {
+    if (typeof key.id === "string") await del(`${KEYS}/${key.id}`, { cookie });
+  }
+}
+
 describe("API Keys (PAT) — P6.12 e2e", () => {
+  beforeAll(async () => {
+    for (const user of ["admin", "user"]) {
+      await revokeExistingKeys(await loginAs(user, "secret"));
+    }
+  });
+
   it("1. login → create → la clé authentifie /m2m/whoami (200, identité = porteur)", async () => {
     const cookie = await loginAs("admin", "secret");
     const created = await createKey(cookie, {

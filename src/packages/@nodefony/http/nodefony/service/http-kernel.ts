@@ -24,6 +24,7 @@ import {
 } from "../src/context/trustProxy";
 import { resolveForwarded } from "../src/context/forwarded";
 import { MemoryRateLimitStore } from "../src/rateLimit/MemoryRateLimitStore";
+import type { IRateLimitStore } from "../src/rateLimit/IRateLimitStore";
 import { WsConnectionCounter } from "../src/rateLimit/WsConnectionCounter";
 import {
   compileTrustedHosts,
@@ -308,6 +309,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * le GC précédent puis reconstruit compteur + scheduler UNIQUEMENT si
    * `enabled` ; sinon `rateLimiter` reste `null` → 0 coût sur le hot path.
    */
+  /**
+   * Compteur de rate-limit actif, ou `null` s'il est désactivé — surface de
+   * LECTURE pour le data plane admin (introspection des IP suivies). `null` est
+   * l'information « fonction désarmée », pas une erreur : l'appelant l'affiche
+   * tel quel plutôt que d'inventer un état.
+   */
+  get rateLimitStore(): IRateLimitStore | null {
+    return this.rateLimiter;
+  }
+
   private configureRateLimit(): void {
     // Désarme un éventuel scheduler précédent (reconfiguration / passage à off).
     this.rateLimitGc?.stop();

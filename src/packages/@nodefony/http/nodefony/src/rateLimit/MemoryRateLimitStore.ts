@@ -1,4 +1,7 @@
+import type { IPage } from "nodefony";
 import type {
+  IRateLimitEntry,
+  IRateLimitListQuery,
   IRateLimitOptions,
   IRateLimitStore,
   RateLimitVerdict,
@@ -92,6 +95,52 @@ export class MemoryRateLimitStore implements IRateLimitStore {
       }
     }
     return purged;
+  }
+
+  /**
+   * {@inheritDoc IRateLimitStore.listPage}
+   *
+   * La collection est déjà en RAM et **bornée par `maxTracked`** (c'est la
+   * nature de ce store) : le tri porte sur des références, seule la page est
+   * matérialisée en objets de sortie. Les fenêtres expirées sont exclues à la
+   * lecture — les montrer ferait passer un compteur mort pour du trafic vivant
+   * (le `gc` les retire plus tard, hors hot-path).
+   */
+  listPage(query: IRateLimitListQuery): Promise<IPage<IRateLimitEntry>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const now = this.#now();
+    const prefix = query.q !== undefined && query.q.length > 0 ? query.q : null;
+    const matched: Array<[string, RlEntry]> = [];
+    for (const pair of this.#entries ?? []) {
+      const [key, entry] = pair;
+      if (now >= entry.resetAt) continue; // fenêtre morte : pas du trafic vivant
+      if (prefix !== null && !key.startsWith(prefix)) continue;
+      if (
+        query.limited !== undefined &&
+        entry.count > this.#max !== query.limited
+      ) {
+        continue;
+      }
+      matched.push(pair);
+    }
+    matched.sort(
+      (a, b) =>
+        b[1].count - a[1].count || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0),
+    );
+    const items = matched.slice(offset, offset + limit).map(([key, entry]) => ({
+      key,
+      count: entry.count,
+      resetAtMs: entry.resetAt,
+      limited: entry.count > this.#max,
+    }));
+    return Promise.resolve({
+      items,
+      total: query.withTotal === false ? undefined : matched.length,
+      limit,
+      offset,
+      hasNext: offset + items.length < matched.length,
+    });
   }
 
   get trackedCount(): number {

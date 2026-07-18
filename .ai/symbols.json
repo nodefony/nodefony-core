@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-18T13:11:43.811Z",
+  "generated": "2026-07-18T13:21:18.474Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1029,
-    "symbols": 2767,
+    "symbols": 2770,
     "classes": 326,
-    "interfaces": 723,
+    "interfaces": 726,
     "types": 322,
     "enums": 4,
     "functions": 820,
@@ -16811,7 +16811,7 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": null,
-      "description": "Contrat d'un compteur de **rate-limit général par IP** (P0.3) et son verdict. À NE PAS confondre avec `security.rateLimit` (backoff de LOGIN NIST, par identifiant saisi). Ici : plafond de trafic pa…"
+      "description": "Verdict rendu par {@link IRateLimitStore.hit} — porte tout le nécessaire pour émettre les en-têtes `X-RateLimit-*` (+ `Retry-After` en cas de rejet) sans relire l'état du store."
     },
     "IRateLimitOptions": {
       "name": "IRateLimitOptions",
@@ -16821,6 +16821,24 @@
       "module": "@nodefony/http",
       "extends": null,
       "description": "Options de construction d'un {@link IRateLimitStore}."
+    },
+    "IRateLimitEntry": {
+      "name": "IRateLimitEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Une clé (IP) actuellement suivie, telle qu'exposée à l'INTROSPECTION admin — l'état, jamais le trafic : ni URL, ni en-tête, ni corps. Une IP reste une donnée personnelle → ce listing est réservé au…"
+    },
+    "IRateLimitListQuery": {
+      "name": "IRateLimitListQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IPageQuery",
+      "description": "Requête de listing des clés suivies — {@link IPageQuery} + le seul filtre qui a un sens ici. `q` (hérité) = préfixe de clé (« 10.0. » pour un sous-réseau), pas une sous-chaîne : sur une IP, seul le…"
     },
     "IRateLimitStore": {
       "name": "IRateLimitStore",
@@ -19623,7 +19641,8 @@
         "PageQuery",
         "ITokenListQuery",
         "IWebhookListQuery",
-        "IUserListQuery"
+        "IUserListQuery",
+        "IRateLimitListQuery"
       ],
       "LLMError": [
         "LLMRateLimitError",
@@ -23530,6 +23549,8 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
@@ -24201,7 +24222,8 @@
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts"
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts"
       ],
       "ICookieOptions": [
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts"
@@ -24257,6 +24279,11 @@
       "MemoryRateLimitStore": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
+      "IRateLimitStore": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
+      ],
       "WsConnectionCounter": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
@@ -24281,6 +24308,10 @@
       "ISessionSummary": [
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "IRateLimitEntry": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
       ],
       "severityFromStatus": [
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts"
@@ -26534,10 +26565,10 @@
       "HttpRsponseType": [
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts"
       ],
-      "IRateLimitOptions": [
+      "IRateLimitListQuery": [
         "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
       ],
-      "IRateLimitStore": [
+      "IRateLimitOptions": [
         "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
       ],
       "RateLimitVerdict": [

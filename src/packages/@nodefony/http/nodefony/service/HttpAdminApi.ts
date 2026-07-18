@@ -10,6 +10,22 @@ import type {
   ISessionSummary,
   ISessionListQuery,
 } from "../interfaces/ISession";
+import type {
+  IRateLimitEntry,
+  IRateLimitStore,
+} from "../src/rateLimit/IRateLimitStore";
+
+/** Nom du service HttpKernel dans le container (source unique). */
+const HTTP_KERNEL_SERVICE = "HttpKernel";
+
+/**
+ * Forme minimale lue sur le service `HttpKernel` — on ne veut QUE la surface de
+ * lecture du rate-limit, jamais le pipeline (couplage structurel volontaire,
+ * comme pour `sessions`).
+ */
+interface HttpKernelLike {
+  rateLimitStore?: IRateLimitStore | null;
+}
 
 /** Forme minimale lue sur le service `sessions` (lecture défensive). */
 interface SessionsLike {
@@ -190,6 +206,69 @@ export function createHttpAdminApi(module: Module): IAdminApi {
           ports: [...new Set(ready.map((s) => s.port).filter(Boolean))],
           schemes: [...new Set(ready.map((s) => s.scheme).filter(Boolean))],
           protocols: [...new Set(ready.map((s) => s.protocol).filter(Boolean))],
+        };
+      },
+    },
+    {
+      // Introspection du rate-limit par IP : « qui martèle, qui prend des 429 ».
+      // Pagination SERVEUR (le store ne rend qu'une page) et tri par compteur
+      // décroissant — la question d'exploitation, pas l'ordre d'insertion.
+      // ADMIN-ONLY : une IP est une donnée personnelle. Seul l'ÉTAT du compteur
+      // sort d'ici (jamais l'URL, l'en-tête ou le corps des requêtes).
+      path: "rate-limit/list",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Clés (IP) suivies par le rate-limit général, les plus bruyantes " +
+        "d'abord. Paginé serveur : ?limited&q&limit&offset. `enabled:false` " +
+        "= rate-limit désarmé en config (liste vide, pas une erreur).",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<{
+        enabled: boolean;
+        trackedCount: number;
+        rejectedTotal: number;
+        items: IRateLimitEntry[];
+        total?: number;
+        limit: number;
+        offset: number;
+      }> => {
+        const { limit, offset } = pageParams(request.query);
+        const store = (module.get(HTTP_KERNEL_SERVICE) as HttpKernelLike)
+          ?.rateLimitStore;
+        // Lecture DÉFENSIVE : rate-limit désactivé (défaut) → état honnête,
+        // jamais un 503 (la console doit pouvoir afficher « désarmé »).
+        if (!store) {
+          return {
+            enabled: false,
+            trackedCount: 0,
+            rejectedTotal: 0,
+            items: [],
+            total: 0,
+            limit,
+            offset,
+          };
+        }
+        const limitedRaw = one(request.query, "limited");
+        const q = one(request.query, "q");
+        const page = await store.listPage({
+          limit,
+          offset,
+          ...(limitedRaw === "true"
+            ? { limited: true }
+            : limitedRaw === "false"
+              ? { limited: false }
+              : {}),
+          ...(q !== undefined ? { q } : {}),
+        });
+        return {
+          enabled: true,
+          trackedCount: store.trackedCount,
+          rejectedTotal: store.rejectedTotal,
+          items: page.items,
+          total: page.total,
+          limit,
+          offset,
         };
       },
     },

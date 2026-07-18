@@ -10,6 +10,8 @@
  * (Redis, multi-pod) introduira son propre chemin d'exécution, pas ce contrat.
  */
 
+import type { IPage, IPageQuery } from "nodefony";
+
 /**
  * Verdict rendu par {@link IRateLimitStore.hit} — porte tout le nécessaire pour
  * émettre les en-têtes `X-RateLimit-*` (+ `Retry-After` en cas de rejet) sans
@@ -39,6 +41,32 @@ export interface IRateLimitOptions {
 }
 
 /**
+ * Une clé (IP) actuellement suivie, telle qu'exposée à l'INTROSPECTION admin —
+ * l'état, jamais le trafic : ni URL, ni en-tête, ni corps. Une IP reste une
+ * donnée personnelle → ce listing est réservé au data plane admin.
+ */
+export interface IRateLimitEntry {
+  /** Clé suivie (IP cliente résolue). */
+  readonly key: string;
+  /** Hits comptés dans la fenêtre courante. */
+  readonly count: number;
+  /** Fin de la fenêtre courante (ms epoch). */
+  readonly resetAtMs: number;
+  /** `true` si la clé a dépassé le plafond de la fenêtre (elle prend des 429). */
+  readonly limited: boolean;
+}
+
+/**
+ * Requête de listing des clés suivies — {@link IPageQuery} + le seul filtre qui
+ * a un sens ici. `q` (hérité) = préfixe de clé (« 10.0. » pour un sous-réseau),
+ * pas une sous-chaîne : sur une IP, seul le préfixe est signifiant.
+ */
+export interface IRateLimitListQuery extends IPageQuery {
+  /** `true` = seulement les clés au plafond, `false` = seulement les autres. */
+  limited?: boolean;
+}
+
+/**
  * Compteur de rate-limit par clé (IP). Implémentation par défaut :
  * {@link import("./MemoryRateLimitStore").MemoryRateLimitStore} (fenêtre fixe,
  * en mémoire).
@@ -57,6 +85,18 @@ export interface IRateLimitStore {
    * @returns le nombre d'entrées purgées.
    */
   gc(nowMs?: number): number;
+  /**
+   * Page des clés suivies — introspection admin (« qui me martèle ? »). Ne
+   * matérialise jamais plus d'une page, filtres appliqués au store.
+   *
+   * **Asynchrone** alors que {@link IRateLimitStore.hit} est synchrone : ce
+   * listing est hors hot-path (console admin), et un futur store distribué le
+   * servira par `SCAN`. La contrainte « zéro Promise » ne vaut que pour `hit`.
+   *
+   * Ordre contractuel : `count` DESC (les plus bruyants d'abord — c'est LA
+   * question d'exploitation), départagé par `key` ASC.
+   */
+  listPage(query: IRateLimitListQuery): Promise<IPage<IRateLimitEntry>>;
   /** Nombre de clés (IP) actuellement suivies — introspection / métrique. */
   readonly trackedCount: number;
   /** Total cumulé de requêtes rejetées (`429`) depuis le boot — métrique. */
