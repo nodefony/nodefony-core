@@ -56,3 +56,8 @@ Aucune pour l'instant (à exposer en Phase 11 si besoin : `redis:info`, `redis:f
 - **integration/{token-store,token-pagination,webauthn-credential-store}.test.ts** : stores security.
 
 Infra : `docker compose -f docker/docker-compose.yml up -d` (password `nodefony-dev`). Lancer : `REDIS_PASSWORD=nodefony-dev npx vitest run` (ou défaut nodefony-dev si env absent).
+
+## Tests — gates d'infra (⚠️ DEUX variables)
+
+- `REDIS_URL` = bancs de pagination (fake intégré si absente) · `REDIS_TEST_URL` = banc **comportemental** sur index dédié (`/15`). Les deux portent le **mot de passe** : le serveur du compose tourne en `requirepass` → sans lui, `NOAUTH` (et non un skip).
+- N'en fournir qu'une laissait **14 tests skippés, suite VERTE, sans un mot** → `vitest.config.ts` monte `gateReporter([REDIS_GATE])` (source unique `vitest.gates.ts` racine) : la fin de run nomme la cible non exercée et sa commande. Complet = **81/81**.

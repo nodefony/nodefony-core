@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../vitest.oxc";
+import { gateReporter, MYSQL_GATE, PG_GATE } from "../../../../vitest.gates";
 
 /**
  * vitest pour @nodefony/drizzle — suite d'intégration (convention-frère orm-core).
@@ -17,6 +18,10 @@ import { oxcDecorators } from "../../../../vitest.oxc";
 export default defineConfig({
   test: {
     globals: true,
+    // Les bancs PG/MySQL se skippent sans leurs variables — et un skip est
+    // VERT. Ce rapporteur nomme en fin de suite les dialectes non exercés
+    // (jusqu'à 442 tests sur 781) au lieu de laisser croire à un succès complet.
+    reporters: ["default", gateReporter([PG_GATE, MYSQL_GATE])],
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     testTimeout: 20000,
     hookTimeout: 20000,

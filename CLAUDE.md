@@ -80,6 +80,11 @@ Avant de commencer une nouvelle phase / tâche :
    - Tests = **vitest PARTOUT** (aucun runner alternatif requis). Les `bun:test` restants
      (`agent`, `memory`, `rag`, `vector`) sont **inertes** : ces modules WIP P12 n'ont pas de script
      `test` — à migrer vers vitest au câblage de la phase, pas avant.
+   - **Un `npm test` vert ne prouve pas ce qu'on croit** : les bancs sur serveur réel se skippent
+     sans leurs variables d'infra, et un skip compte comme vert (vécu : drizzle 442/781 non
+     exécutés, dont PostgreSQL ET MySQL ; redis 14 tests muets faute de `REDIS_TEST_URL`).
+     Source unique des variables + commandes docker = **`vitest.gates.ts`** (racine) ; les suites
+     concernées l'affichent en fin de run (`gateReporter`). Lire ce bloc AVANT de conclure « vert ».
 4. **Lire le `CLAUDE.md` + `MEMORY.md`** du module ciblé (table d'index plus bas).
 5. **Si fiche kit existante** (ex: `project_p1_1_kit.md` pour P1.1) → la lire AVANT toute exploration.
 6. **`.ai/symbols.json`** est régénéré par hook pre-commit. Utiliser pour résoudre les relations cross-module sans grep tout le repo.
