@@ -32,6 +32,16 @@ export interface IdempotencyPaginationHarness {
    * son backend (l'API publique `begin`/`complete` suffit partout).
    */
   seed: (prefix: string, n: number) => Promise<void>;
+  /**
+   * **Capacité optionnelle** : rend échues toutes les entrées déjà semées (en
+   * avançant l'horloge du backend, ou en semant dans le passé). Fournie, elle
+   * déverrouille la vérification qu'une clé expirée **ne sort pas** du listing.
+   *
+   * Sans elle le cas est **annoncé skippé** plutôt que silencieusement absent :
+   * un store qui oublierait son filtre d'échéance resterait vert, et le listing
+   * présenterait un parc mort comme s'il était encore opposable.
+   */
+  expireSeeded?: () => Promise<void>;
 }
 
 /** Collecte toutes les pages d'un listing par curseur (dédup SCAN par clé). */
@@ -196,5 +206,32 @@ export function runIdempotencyPaginationContract(
         assert.equal(page.total, undefined);
       });
     }
+
+    // Une clé échue n'est plus opposable : le GC applicatif passe plus tard,
+    // mais entre-temps elle ne doit PAS figurer au parc vivant. Sans ce cas, un
+    // store qui perd son filtre d'échéance reste vert — constaté sur le store
+    // Drizzle, dont le filtre pouvait être retiré sans faire rougir la suite.
+    // Placé en DERNIER : il périme le jeu de données de toute la suite.
+    it.skipIf(!harness.expireSeeded)(
+      "🔒 une clé ÉCHUE ne figure plus au listing",
+      async () => {
+        const before = await store().listPage({ limit: 100 });
+        assert.ok(
+          before.items.length > 0,
+          "pré-condition : des clés vivantes avant expiration",
+        );
+        await harness.expireSeeded!();
+        const after = await store().listPage({ limit: 100 });
+        assert.deepEqual(
+          after.items,
+          [],
+          "des clés échues sortent encore du listing",
+        );
+        assert.equal(after.hasNext, false);
+        if (harness.mode === "offset") {
+          assert.equal(after.total, 0);
+        }
+      },
+    );
   });
 }
