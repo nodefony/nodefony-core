@@ -10,6 +10,10 @@ import {
   type SessionRow,
 } from "../../nodefony/entity/sessionEntity";
 import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
+import {
+  runSessionPaginationContract,
+  type PaginatedSessionStorage,
+} from "../../../http/nodefony/tests/support/sessionPaginationContract";
 
 /**
  * BANC DE PARITÉ DU CONTRAT `SessionStorage` — LA même suite sur les TROIS
@@ -376,5 +380,15 @@ export function runSessionStoreContract(
       });
       assert.equal(await storage.open(), 1);
     });
+  });
+
+  // Le banc de contrat de PAGINATION vit chez `@nodefony/http` (propriétaire du
+  // contrat `ISessionStorage`) et se déroule ici tel quel : mêmes assertions que
+  // pour la mémoire, Mongoose et Redis. Greffé DANS ce contrat de parité, il est
+  // donc joué sur les trois dialectes sans fichier consommateur supplémentaire.
+  runSessionPaginationContract({
+    mode: "offset",
+    storage: () => storage as unknown as PaginatedSessionStorage,
+    clear: purge,
   });
 }

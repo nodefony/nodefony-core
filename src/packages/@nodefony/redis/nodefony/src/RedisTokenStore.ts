@@ -18,6 +18,35 @@ const KEY_PREFIX = "nf:tok";
 const DEFAULT_RETENTION_REVOKED_MS = 30 * 24 * 3_600_000;
 
 /**
+ * Curseur de page **composite** : `"<skip>:<curseurRedis>"`.
+ *
+ * `SCAN COUNT` est un indice d'effort, PAS un plafond : Redis peut rendre plus de
+ * clés que demandé (petit keyspace encodé en listpack → tout arrive d'un coup).
+ * Sans précaution, la page dépasserait `limit` et violerait `IPage`. Le `skip`
+ * mémorise combien de clés du batch courant ont déjà été rendues ; la page
+ * suivante rejoue le même `SCAN` et reprend à la bonne position. Rien n'est
+ * perdu, rien ne déborde. Même mécanisme que le store de session (convention).
+ */
+function encodeCursor(scanCursor: string, skip: number): string {
+  return `${skip}:${scanCursor}`;
+}
+
+/** Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé. */
+function decodeCursor(cursor?: string): { scanCursor: string; skip: number } {
+  if (!cursor) return { scanCursor: "0", skip: 0 };
+  const sep = cursor.indexOf(":");
+  if (sep === -1) {
+    // Curseur Redis nu (client externe, ancien format) → honoré tel quel.
+    return { scanCursor: cursor, skip: 0 };
+  }
+  const skip = Number.parseInt(cursor.slice(0, sep), 10);
+  return {
+    scanCursor: cursor.slice(sep + 1) || "0",
+    skip: Number.isFinite(skip) && skip > 0 ? skip : 0,
+  };
+}
+
+/**
  * Sous-ensemble structural du client `redis` v6 utilisé par le store — permet de
  * tester contre un double déterministe sans serveur (le vrai `RedisClientType`
  * satisfait cette forme par ses méthodes camelCase v6).
@@ -325,19 +354,21 @@ export class RedisTokenStore implements ITokenStore {
     if (!client) {
       return { items: [], limit, hasNext: false, nextCursor: null };
     }
-    // Curseur SCAN = STRING opaque (le `nextCursor` de la page précédente, "0" au
-    // départ) — node-redis v6 exige une string en argument de commande.
-    const cursor =
-      query.cursor !== undefined && query.cursor.length > 0
-        ? query.cursor
-        : "0";
-    const res = await client.scan(cursor, {
+    // Curseur SCAN = STRING opaque — node-redis v6 exige une string en argument
+    // de commande. Composite (`skip:curseur`) car `COUNT` n'est pas un plafond.
+    const { scanCursor, skip } = decodeCursor(query.cursor);
+    const res = await client.scan(scanCursor, {
       MATCH: `${KEY_PREFIX}:rec:*`,
       COUNT: limit,
     });
     const next = String(res.cursor);
     const items: IAccessTokenRecord[] = [];
-    for (const key of res.keys) {
+    // `consumed` compte les CLÉS parcourues (pas les items rendus) : c'est la
+    // position de reprise, et le filtre en écarte une partie.
+    let consumed = 0;
+    for (const key of res.keys.slice(skip)) {
+      if (items.length >= limit) break; // page pleine → le reste attend
+      consumed += 1;
       const h = await client.hGetAll(key);
       if (Object.keys(h).length === 0) continue;
       const rec = this.#decode(h);
@@ -354,12 +385,13 @@ export class RedisTokenStore implements ITokenStore {
       }
       items.push(rec);
     }
-    return {
-      items,
-      limit,
-      hasNext: next !== "0",
-      nextCursor: next === "0" ? null : next,
-    };
+    const restInBatch = skip + consumed < res.keys.length;
+    const nextCursor = restInBatch
+      ? encodeCursor(scanCursor, skip + consumed) // on reste sur ce batch
+      : next === "0"
+        ? null // batch épuisé ET scan terminé
+        : encodeCursor(next, 0); // batch épuisé, on avance
+    return { items, limit, hasNext: nextCursor !== null, nextCursor };
   }
 
   /**

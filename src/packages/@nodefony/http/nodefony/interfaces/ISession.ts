@@ -1,3 +1,4 @@
+import type { IPage, IPageQuery } from "nodefony";
 import type { ICookie, ICookieOptions } from "./ICookie";
 
 export type SessionStatusType = "none" | "active" | "disabled";
@@ -94,6 +95,31 @@ export interface ISessionListFilter {
 }
 
 /**
+ * Requête d'énumération **paginée** des sessions — le {@link IPageQuery} standard
+ * de Nodefony étendu des filtres propres au store de session. C'est la forme que
+ * consomme {@link ISessionStorage.listPage} ; `ISessionListFilter` reste la forme
+ * non paginée du dump {@link ISessionStorage.listAll}.
+ *
+ * **Filtres portables par construction** (`user` = égalité, `authenticated` =
+ * `user` non vide) : ils s'expriment dans tous les backends — `WHERE` SQL/Mongo
+ * indexable, prédicat mémoire — donc aucun n'oblige un store à matérialiser la
+ * collection pour filtrer.
+ *
+ * **Tri** : l'ordre du contrat est `updatedAt` DESC (session la plus récemment
+ * active d'abord), départagé par l'id pour rester **déterministe** à horodatage
+ * égal (deux sessions écrites dans la même milliseconde). Un backend curseur
+ * (Redis `SCAN`) n'a pas d'ordre global — il l'annonce, il ne le simule pas.
+ */
+export interface ISessionListQuery extends IPageQuery, ISessionListFilter {
+  /**
+   * Restreint aux sessions **authentifiées** (`true` : `user` non vide) ou
+   * **anonymes** (`false`). Omis = les deux. Sert les KPI de la console admin
+   * sans jamais énumérer (cf {@link ISessionStorage.countSessions}).
+   */
+  authenticated?: boolean;
+}
+
+/**
  * Contrat **unique** d'un backend de stockage de session (File, Redis, SQL/Drizzle…).
  * Source de vérité unifiée — l'ex-doublon `sessionStorageInterface` (any) n'est plus
  * qu'un alias transitionnel. Enregistré dans le registre IoC `SessionsService.registerStorage`.
@@ -144,6 +170,48 @@ export interface ISessionStorage {
    *   (WHERE SQL) ou l'ignorer (le service ré-applique).
    */
   listAll?(filter?: ISessionListFilter): Promise<ISessionRecord[]>;
+
+  /**
+   * Énumère **une page** de sessions — la capacité d'administration NORMALE
+   * (console, « mes appareils », révocation). Contrairement à {@link listAll},
+   * un store conforme ne matérialise **jamais** plus d'une page : `LIMIT/OFFSET`
+   * SQL, `skip/limit` Mongo, `SCAN` par curseur Redis, tranche mémoire. C'est ce
+   * qui rend le coût d'une requête admin indépendant du nombre de sessions.
+   *
+   * Optionnelle, comme {@link listAll} : un backend incapable d'énumérer l'omet
+   * → l'endpoint admin répond **501** (refus honnête), jamais une page vide
+   * trompeuse.
+   *
+   * **Redaction par construction — garantie du contrat, pas une optimisation** :
+   * les records rendus portent `Attributes` et `flashBag` **vides**. Les données
+   * métier d'une session (potentiellement des secrets) n'ont aucune raison de
+   * traverser la couche d'administration : les stores SQL/NoSQL ne les
+   * sélectionnent pas, les stores mémoire ne les recopient pas. Un appelant qui
+   * oublierait la projection en {@link ISessionSummary} ne peut donc pas les
+   * faire fuiter. (Le dump {@link listAll}, lui, reste libre de les porter.)
+   *
+   * **Deux modes, déclarés par le store dans sa réponse** :
+   * - **offset** — `total` exact (sauf `withTotal:false`) et ordre `updatedAt`
+   *   DESC déterministe ; `nextCursor` absent.
+   * - **curseur** — `nextCursor` à repasser en {@link IPageQuery.cursor}, pas de
+   *   `total` ni d'ordre global, taille de page variable. Le client boucle
+   *   jusqu'à `nextCursor === null`. Capacité réduite **assumée**, pas simulée.
+   *
+   * @param query - page + filtres ({@link ISessionListQuery}).
+   * @returns la page de {@link ISessionRecord} bruts — le service les redacte.
+   */
+  listPage?(query: ISessionListQuery): Promise<IPage<ISessionRecord>>;
+
+  /**
+   * Compte les sessions correspondant aux filtres, **sans les énumérer** (`COUNT`
+   * natif SQL/Mongo). Alimente les KPI de la console (total, authentifiées vs
+   * anonymes) sans jamais charger de collection.
+   *
+   * @returns le total exact, ou **`-1`** si le backend ne sait pas compter à coût
+   *   raisonnable (Redis : compter = re-`SCAN` tout le keyspace). `-1` est un
+   *   « je ne sais pas » explicite — l'appelant affiche l'inconnu, il ne l'invente pas.
+   */
+  countSessions?(query?: ISessionListQuery): Promise<number>;
 }
 
 export interface ISession {

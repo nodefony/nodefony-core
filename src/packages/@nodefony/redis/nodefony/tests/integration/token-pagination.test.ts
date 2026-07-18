@@ -2,6 +2,7 @@ import { createClient } from "redis";
 import { RedisTokenStore } from "../../src/RedisTokenStore";
 import type { RedisClientLike } from "../../src/RedisTokenStore";
 import { runTokenPaginationContract } from "../../../../security/tests/support/tokenPaginationContract";
+import { redisTestUrl } from "../helpers/redisTestUrl";
 
 /**
  * Le banc de contrat unique de pagination des jetons (`@nodefony/security`),
@@ -14,7 +15,10 @@ import { runTokenPaginationContract } from "../../../../security/tests/support/t
  *   Redis** : la preuve que le `SCAN` réel (curseur RESP = string opaque) est câblé
  *   correctement de bout en bout. La DB dédiée est purgée par `flushDb`.
  */
-const REAL_URL = process.env.REDIS_TEST_URL;
+// Base DÉDIÉE : ce banc purge (`flushDb`). Partager la base d'un autre fichier
+// rendrait le résultat dépendant de l'ORDRE d'exécution (vert en isolation,
+// rouge en suite) — le pire symptôme, car il fait suspecter le code.
+const REAL_URL = redisTestUrl(12);
 const RETENTION_MS = 30 * 24 * 3_600_000;
 
 function globToRegExp(glob: string | undefined): RegExp | null {

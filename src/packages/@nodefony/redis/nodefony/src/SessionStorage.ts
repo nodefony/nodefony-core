@@ -4,7 +4,9 @@ import type {
   ISerializedSession,
   ISessionRecord,
   ISessionListFilter,
+  ISessionListQuery,
 } from "@nodefony/http";
+import type { IPage } from "nodefony";
 import type RedisService from "../service/redis";
 
 /** Préfixe namespacé des clés de session dans Redis. */
@@ -16,6 +18,36 @@ const KEY_PREFIX = "nf:sess";
  * secondaire (`SET` d'ids) serait l'optimisation v2 pour un très grand parc.
  */
 const MAX_SCAN = 10_000;
+
+/**
+ * Curseur de page **composite** : `"<skip>:<curseurRedis>"`.
+ *
+ * Pourquoi composer plutôt que passer le curseur Redis nu : `SCAN COUNT` est un
+ * indice d'effort, pas un plafond — un batch peut contenir plus de clés qu'une
+ * page. Le `skip` mémorise combien de clés de CE batch ont déjà été rendues, pour
+ * que la page suivante rejoue le même `SCAN` et reprenne à la bonne position.
+ *
+ * Le split se fait au PREMIER `:` : le curseur Redis est opaque et reste intact
+ * même s'il contenait lui-même un `:`.
+ */
+function encodeCursor(scanCursor: string, skip: number): string {
+  return `${skip}:${scanCursor}`;
+}
+
+/** Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé. */
+function decodeCursor(cursor?: string): { scanCursor: string; skip: number } {
+  if (!cursor) return { scanCursor: "0", skip: 0 };
+  const sep = cursor.indexOf(":");
+  if (sep === -1) {
+    // Curseur Redis nu (client externe, ancien format) → on l'honore tel quel.
+    return { scanCursor: cursor, skip: 0 };
+  }
+  const skip = Number.parseInt(cursor.slice(0, sep), 10);
+  return {
+    scanCursor: cursor.slice(sep + 1) || "0",
+    skip: Number.isFinite(skip) && skip > 0 ? skip : 0,
+  };
+}
 
 /**
  * Stockage de session **Redis** — branché sur la connexion `main` du
@@ -187,6 +219,90 @@ class RedisSessionStorage implements ISessionStorage {
       }
     } while (cursor !== "0");
     return out;
+  }
+
+  /**
+   * {@inheritDoc ISessionStorage.listPage}
+   *
+   * **Curseur SCAN** : au plus UN passage `SCAN` par appel (cold-path admin).
+   * Capacité réduite ASSUMÉE et annoncée — pas de `total`, pas d'ordre global sur
+   * `updatedAt` (Redis n'a pas d'index secondaire ici), et la page peut compter
+   * moins d'éléments que `limit` (le filtre s'applique au batch scanné). Le client
+   * boucle tant que `hasNext`, en repassant `nextCursor`. La garantie qui compte
+   * est tenue : **le keyspace n'est jamais matérialisé** — au plus un batch.
+   *
+   * ⚠️ **`COUNT` n'est PAS un plafond** — c'est un indice d'effort par itération.
+   * Redis peut rendre plus de clés que demandé (typiquement un petit keyspace
+   * encodé en listpack : tout arrive en une fois). Sans précaution, la page
+   * dépasserait `limit` et violerait le contrat `IPage`. D'où le **curseur
+   * composite** `"<consommé>:<curseurRedis>"` : quand un batch contient plus que
+   * la page, on ne rend que `limit` éléments et on mémorise combien de clés du
+   * batch ont été consommées — la page suivante rejoue le MÊME `SCAN` et reprend
+   * là où on s'était arrêté. Coût : un re-scan du batch courant, payé uniquement
+   * sur un cold-path d'administration. Rien n'est perdu, rien ne déborde.
+   */
+  async listPage(query: ISessionListQuery): Promise<IPage<ISessionRecord>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const client = this.#client();
+    if (!client) {
+      return { items: [], limit, hasNext: false, nextCursor: null };
+    }
+    const { scanCursor, skip } = decodeCursor(query.cursor);
+    const res = await client.scan(scanCursor, {
+      MATCH: `${KEY_PREFIX}:*`,
+      COUNT: limit,
+    });
+    const next = String(res.cursor);
+    const prefixLen = KEY_PREFIX.length + 1;
+    const items: ISessionRecord[] = [];
+    // `consumed` compte les CLÉS du batch parcourues (pas les items rendus) :
+    // c'est la position de reprise, et le filtre en écarte une partie.
+    let consumed = 0;
+    for (const key of res.keys.slice(skip)) {
+      if (items.length >= limit) break; // page pleine → on garde le reste pour après
+      consumed += 1;
+      const raw = await client.get(key);
+      if (!raw) continue;
+      let data: ISerializedSession;
+      try {
+        data = JSON.parse(raw) as ISerializedSession;
+      } catch {
+        continue; // valeur corrompue → ignorée
+      }
+      if (query.user !== undefined && data.user !== query.user) continue;
+      if (
+        query.authenticated !== undefined &&
+        !!data.user !== query.authenticated
+      ) {
+        continue;
+      }
+      // Redaction par construction (garantie du contrat) : le blob Redis porte
+      // tout, mais un record d'énumération admin ne sort jamais avec les données
+      // métier. Ici la vidange est explicite — un `GET` ne sait pas projeter.
+      items.push({
+        id: key.slice(prefixLen),
+        data: { ...data, Attributes: {}, flashBag: {} },
+      });
+    }
+    // Reste-t-il des clés NON consommées dans le batch courant ?
+    const restInBatch = skip + consumed < res.keys.length;
+    const nextCursor = restInBatch
+      ? encodeCursor(scanCursor, skip + consumed) // on reste sur ce batch
+      : next === "0"
+        ? null // batch épuisé ET scan terminé
+        : encodeCursor(next, 0); // batch épuisé, on avance
+    return { items, limit, hasNext: nextCursor !== null, nextCursor };
+  }
+
+  /**
+   * {@inheritDoc ISessionStorage.countSessions}
+   *
+   * Un comptage exact exigerait un `SCAN` complet O(keyspace) → refusé même sur le
+   * cold-path admin : renvoie **`-1`** (« inconnu », capacité réduite Redis
+   * assumée). L'appelant affiche l'inconnu, il ne l'invente pas.
+   */
+  countSessions(_query?: ISessionListQuery): Promise<number> {
+    return Promise.resolve(-1);
   }
 }
 

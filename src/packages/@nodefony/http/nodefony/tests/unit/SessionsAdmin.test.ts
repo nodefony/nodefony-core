@@ -190,36 +190,57 @@ describe("Sessions admin — orchestration (unit, storage mock)", () => {
       close: () => true,
       destroy: async (id) => map.delete(id),
       gc: async () => {},
-      listAll: async (filter) => {
-        const out: ISessionRecord[] = [];
-        for (const [id, data] of map) {
-          if (filter?.user !== undefined && data.user !== filter.user) continue;
-          out.push({ id, data });
-        }
-        return out;
+      listAll: async (filter) => matching(filter?.user),
+      listPage: async (query) => {
+        const all = matching(query.user);
+        const offset = query.offset ?? 0;
+        const items = all.slice(offset, offset + query.limit);
+        return {
+          items,
+          total: query.withTotal === false ? undefined : all.length,
+          limit: query.limit,
+          offset,
+          hasNext: offset + items.length < all.length,
+        };
       },
+      countSessions: async (query) => matching(query?.user).length,
       dump: () => [...map.keys()],
     };
+    function matching(user?: string): ISessionRecord[] {
+      const out: ISessionRecord[] = [];
+      for (const [id, data] of map) {
+        if (user !== undefined && data.user !== user) continue;
+        out.push({ id, data });
+      }
+      return out;
+    }
   }
 
-  it("supportsEnumeration reflète la présence de listAll", () => {
+  it("supportsEnumeration reflète la présence de listPage", () => {
     expect(makeAdminService(makeStorage({})).supportsEnumeration()).to.equal(
       true,
     );
-    const noList = makeStorage({});
-    delete (noList as { listAll?: unknown }).listAll;
-    expect(makeAdminService(noList).supportsEnumeration()).to.equal(false);
+    const noPage = makeStorage({});
+    delete (noPage as { listPage?: unknown }).listPage;
+    expect(makeAdminService(noPage).supportsEnumeration()).to.equal(false);
   });
 
-  it("listAllSessions redacte (pas d'id) + filtre par user", async () => {
+  it("listSessionsPage redacte (pas d'id) + filtre par user", async () => {
     const svc = makeAdminService(
       makeStorage({ a: sess("alice"), b: sess("bob"), c: sess("alice") }),
     );
-    const all = await svc.listAllSessions();
-    expect(all).to.have.length(3);
-    all.forEach((s) => expect(s).to.not.have.property("id"));
-    const aliceOnly = await svc.listAllSessions({ user: "alice" });
-    expect(aliceOnly.map((s) => s.user)).to.deep.equal(["alice", "alice"]);
+    const all = await svc.listSessionsPage({ limit: 100 });
+    expect(all.items).to.have.length(3);
+    expect(all.total).to.equal(3);
+    all.items.forEach((s) => expect(s).to.not.have.property("id"));
+    const aliceOnly = await svc.listSessionsPage({
+      limit: 100,
+      user: "alice",
+    });
+    expect(aliceOnly.items.map((s) => s.user)).to.deep.equal([
+      "alice",
+      "alice",
+    ]);
   });
 
   it("destroyByRef révoque la bonne session, et seulement elle", async () => {
@@ -271,19 +292,21 @@ describe("Sessions admin — orchestration (unit, storage mock)", () => {
   // de l'identité serveur (jamais du client) → un user ne voit/révoque que les
   // siennes. Ces tests prouvent l'invariant sans serveur (orchestration pure).
 
-  it("listOwnSessions ne renvoie QUE les sessions de l'appelant", async () => {
+  it("listOwnSessionsPage ne renvoie QUE les sessions de l'appelant", async () => {
     const svc = makeAdminService(
       makeStorage({ a: sess("alice"), b: sess("bob"), c: sess("alice") }),
     );
-    const mine = await svc.listOwnSessions("alice");
-    expect(mine.map((s) => s.user)).to.deep.equal(["alice", "alice"]);
+    const mine = await svc.listOwnSessionsPage("alice", { limit: 100 });
+    expect(mine.items.map((s) => s.user)).to.deep.equal(["alice", "alice"]);
   });
 
-  it("listOwnSessions('') → [] (jamais les sessions anonymes user==='')", async () => {
+  it("listOwnSessionsPage('') → page vide (jamais les sessions anonymes user==='')", async () => {
     const svc = makeAdminService(
       makeStorage({ a: sess(""), b: sess("bob"), c: sess("") }),
     );
-    expect(await svc.listOwnSessions("")).to.deep.equal([]);
+    const page = await svc.listOwnSessionsPage("", { limit: 100 });
+    expect(page.items).to.deep.equal([]);
+    expect(page.total).to.equal(0);
   });
 
   it("destroyOwnByRef révoque MA session (et seulement elle)", async () => {

@@ -108,6 +108,20 @@ export function runTokenPaginationContract(
     });
     const store = () => harness.store();
 
+    // Invariant valable dans LES DEUX modes : `IPage.items` contient « au plus
+    // `limit` » éléments. Trivial en SQL (`LIMIT`), il ne l'est PAS en Redis :
+    // `SCAN COUNT` est un indice d'effort, pas un plafond — un batch peut rendre
+    // plus de clés que demandé. Sans ce test, le débordement passe inaperçu tant
+    // qu'on ne teste que contre un double.
+    it("borne : une page ne rend jamais plus que `limit`", async () => {
+      const page = await store().listPage({ limit: 5 });
+      assert.ok(
+        page.items.length <= 5,
+        `page de ${page.items.length} éléments pour limit=5`,
+      );
+      assert.equal(page.limit, 5);
+    });
+
     if (harness.mode === "offset") {
       it("page + total + hasNext (tri createdAt DESC)", async () => {
         const first = await store().listPage({ limit: 5, offset: 0 });

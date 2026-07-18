@@ -16,11 +16,13 @@ import {
   resolveAutoStore,
   readStoreLocation,
 } from "nodefony";
+import type { IPage } from "nodefony";
 import type {
   ISessionStorage,
   ISessionSummary,
   ISessionRecord,
   ISessionListFilter,
+  ISessionListQuery,
 } from "../../interfaces/ISession";
 import HttpKernel, {
   //ProtocolType,
@@ -61,6 +63,33 @@ function toEpoch(value: unknown): number | null {
   const t = new Date(value as string | number | Date).getTime();
   return Number.isNaN(t) ? null : t;
 }
+
+/**
+ * Taille des pages lues par les parcours d'administration (révocation par
+ * référence, « déconnecter partout »). C'est **la borne mémoire** de ces
+ * opérations : quel que soit le parc — 10 ou 10 millions de sessions — le service
+ * ne détient jamais plus de `SCAN_PAGE` records à la fois. Assez grand pour que
+ * les allers-retours au store restent rares, assez petit pour rester négligeable
+ * en RAM.
+ */
+const SCAN_PAGE = 200;
+
+/**
+ * Nombre maximal de pages lues par un parcours d'administration (garde-fou :
+ * `SCAN_PAGE × MAX_ADMIN_PAGES` sessions visitées au plus). Protège d'une boucle
+ * infinie si un store au curseur ne convergeait jamais vers la fin. Un parcours
+ * interrompu est **journalisé** — partiel signalé, jamais silencieux.
+ */
+const MAX_ADMIN_PAGES = 5_000;
+
+/**
+ * Nombre maximal de passages complets d'un « déconnecter partout ». Le premier
+ * détruit l'essentiel, le second confirme qu'il ne reste rien ; les suivants ne
+ * servent que si un store à curseur faible a sauté des éléments sous la
+ * suppression. Au-delà, on journalise plutôt que de boucler — une révocation
+ * incomplète doit être VISIBLE, pas silencieuse.
+ */
+const MAX_LOGOUT_PASSES = 10;
 
 /**
  * Dérive le pseudonyme public d'une session — `HMAC-SHA256(secret, id)` tronqué,
@@ -455,13 +484,19 @@ class SessionsService extends Service {
   // hot-path — aucune alloc ni HMAC tant qu'un admin ne consulte pas la console.
 
   /**
-   * `true` si le backend de session courant sait s'énumérer (`listAll`). Un store
-   * KV/edge sans scan retourne `false` → l'endpoint admin répond **501** (refus
-   * honnête, jamais une liste vide trompeuse).
+   * `true` si le backend de session courant sait s'énumérer **par pages**
+   * (`listPage`). Un store KV/edge sans scan retourne `false` → l'endpoint admin
+   * répond **501** (refus honnête, jamais une liste vide trompeuse).
+   *
+   * C'est bien `listPage` — et non `listAll` — qui fait foi : toute la surface
+   * d'administration (listing, révocation par référence, « déconnecter partout »)
+   * est bâtie sur la pagination, pour que son coût mémoire soit **indépendant du
+   * nombre de sessions**. Un store qui ne saurait que tout charger serait une
+   * régression déguisée en capacité.
    */
   supportsEnumeration(): boolean {
     const storage = this.storage as ISessionStorage | null;
-    return !!storage && typeof storage.listAll === "function";
+    return !!storage && typeof storage.listPage === "function";
   }
 
   /**
@@ -488,23 +523,101 @@ class SessionsService extends Service {
    * `user` est poussé au store (WHERE SQL) PUIS ré-appliqué ici (défense si un
    * store l'ignore). Pré-condition : {@link supportsEnumeration} (sinon throw).
    */
-  async listAllSessions(
-    filter?: ISessionListFilter,
-  ): Promise<ISessionSummary[]> {
+  async listSessionsPage(
+    query: ISessionListQuery,
+  ): Promise<IPage<ISessionSummary>> {
+    const storage = this.enumerable();
+    const page = await storage.listPage!(query);
+    const wantUser = query.user;
+    const items: ISessionSummary[] = [];
+    for (const rec of page.items) {
+      const user = typeof rec.data.user === "string" ? rec.data.user : "";
+      // Ré-application défensive du filtre : un store qui l'ignorerait ne peut
+      // pas faire fuiter la session d'un tiers dans « mes sessions ».
+      if (wantUser !== undefined && user !== wantUser) continue;
+      items.push(toSessionSummary(rec, this.sessionRef(rec.id)));
+    }
+    return { ...page, items };
+  }
+
+  /**
+   * Compte les sessions sans les énumérer (KPI de la console). Renvoie **`-1`**
+   * si le backend ne sait pas compter à coût raisonnable (Redis) — l'appelant
+   * affiche alors l'inconnu plutôt qu'un chiffre inventé.
+   */
+  async countSessions(query?: ISessionListQuery): Promise<number> {
+    const storage = this.enumerable();
+    if (typeof storage.countSessions !== "function") return -1;
+    return storage.countSessions(query);
+  }
+
+  /**
+   * Storage courant, garanti énumérable — factorise la pré-condition de toute la
+   * surface admin (une seule formulation de l'erreur, un seul point à faire
+   * évoluer).
+   *
+   * @throws Error si le storage est absent ou n'implémente pas `listPage`.
+   */
+  // `private` (soft TS) et non `#enumerable` (hard ECMAScript), même raison que
+  // `storages` plus haut : une méthode `#` installe un brand check runtime qui
+  // rejette tout receveur n'étant pas passé par le constructeur — or les tests
+  // d'orchestration instancient volontairement par `Object.create(prototype)`
+  // pour isoler la surface admin du constructeur lourd (kernel/certificats).
+  private enumerable(): ISessionStorage {
     const storage = this.storage as ISessionStorage | null;
-    if (!storage || typeof storage.listAll !== "function") {
+    if (!storage || typeof storage.listPage !== "function") {
       throw new Error("sessions: enumeration not supported by current storage");
     }
-    const records = await storage.listAll(filter);
-    const wantUser = filter?.user;
-    const out: ISessionSummary[] = [];
-    for (const rec of records) {
-      const user = typeof rec.data.user === "string" ? rec.data.user : "";
-      if (wantUser !== undefined && user !== wantUser) continue;
-      out.push(toSessionSummary(rec, this.sessionRef(rec.id)));
+    return storage;
+  }
+
+  /**
+   * Parcourt les sessions **page par page**, en ne gardant JAMAIS plus d'une page
+   * en mémoire — le cœur de la gouvernance bornée : retrouver une session par sa
+   * référence publique impose de recalculer un HMAC sur chaque id, mais pas de
+   * charger le parc entier pour le faire.
+   *
+   * Gère les deux modes du contrat de façon transparente pour l'appelant :
+   * curseur (`nextCursor` du store) ou offset (avance de `SCAN_PAGE`). Le visiteur
+   * renvoie `true` pour **arrêter** le parcours (court-circuit dès le match).
+   *
+   * @param filter - restriction poussée au store (ex. `user`).
+   * @param visit - appelé pour chaque record ; `true` = stop.
+   * @returns `true` si le parcours a été arrêté par le visiteur.
+   */
+  private async eachSessionRecord(
+    filter: ISessionListFilter | undefined,
+    visit: (rec: ISessionRecord) => boolean | Promise<boolean>,
+  ): Promise<boolean> {
+    const storage = this.enumerable();
+    let cursor: string | undefined;
+    let offset = 0;
+    // Garde-fou : borne le nombre d'itérations pour qu'un store au curseur
+    // pathologique (qui ne convergerait jamais vers "0") ne boucle pas à l'infini.
+    for (let guard = 0; guard < MAX_ADMIN_PAGES; guard += 1) {
+      const page: IPage<ISessionRecord> = await storage.listPage!({
+        ...filter,
+        limit: SCAN_PAGE,
+        // withTotal:false → jamais de COUNT sur un parcours (on ne l'affiche pas).
+        withTotal: false,
+        ...(cursor !== undefined ? { cursor } : { offset }),
+      });
+      for (const rec of page.items) {
+        if (await visit(rec)) return true;
+      }
+      if (!page.hasNext) return false;
+      if (page.nextCursor) {
+        cursor = page.nextCursor;
+      } else {
+        offset += SCAN_PAGE;
+      }
     }
-    out.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
-    return out;
+    this.log(
+      `sessions: parcours admin interrompu après ${MAX_ADMIN_PAGES} pages ` +
+        `(résultat potentiellement partiel)`,
+      "WARNING",
+    );
+    return false;
   }
 
   /**
@@ -514,34 +627,29 @@ class SessionsService extends Service {
    * est sûre. Idempotent — `false` si aucun `ref` ne correspond.
    */
   async destroyByRef(ref: string, actor?: string | null): Promise<boolean> {
-    const storage = this.storage as ISessionStorage | null;
-    if (!storage || typeof storage.listAll !== "function") {
-      throw new Error("sessions: enumeration not supported by current storage");
-    }
-    const records = await storage.listAll();
-    for (const rec of records) {
-      if (this.sessionRef(rec.id) === ref) {
-        const subject =
-          typeof rec.data.user === "string" ? rec.data.user : null;
-        const ok = await storage.destroy(rec.id);
-        if (ok) {
-          this.log(
-            `session revoked by admin — ref=${ref} actor=${actor ?? "admin"}`,
-            "INFO",
-          );
-          this.emitAudit({
-            category: "session",
-            action: "session.revoked",
-            outcome: "success",
-            actor: actor ?? null,
-            resource: ref,
-            metadata: { subject, viaAdmin: true },
-          });
-        }
-        return ok;
+    const storage = this.enumerable();
+    let destroyed = false;
+    await this.eachSessionRecord(undefined, async (rec) => {
+      if (this.sessionRef(rec.id) !== ref) return false;
+      const subject = typeof rec.data.user === "string" ? rec.data.user : null;
+      destroyed = await storage.destroy(rec.id);
+      if (destroyed) {
+        this.log(
+          `session revoked by admin — ref=${ref} actor=${actor ?? "admin"}`,
+          "INFO",
+        );
+        this.emitAudit({
+          category: "session",
+          action: "session.revoked",
+          outcome: "success",
+          actor: actor ?? null,
+          resource: ref,
+          metadata: { subject, viaAdmin: true },
+        });
       }
-    }
-    return false;
+      return true; // référence trouvée → on arrête le parcours
+    });
+    return destroyed;
   }
 
   /**
@@ -552,15 +660,40 @@ class SessionsService extends Service {
     identifier: string,
     actor?: string | null,
   ): Promise<number> {
-    const storage = this.storage as ISessionStorage | null;
-    if (!storage || typeof storage.listAll !== "function") {
-      throw new Error("sessions: enumeration not supported by current storage");
-    }
-    const records = await storage.listAll({ user: identifier });
+    const storage = this.enumerable();
     let destroyed = 0;
-    for (const rec of records) {
-      if (rec.data.user === identifier) {
-        if (await storage.destroy(rec.id)) destroyed++;
+    // Détruire EN PARCOURANT est le cas difficile : la suppression modifie la
+    // collection qu'on est en train de lire. Sous offset, chaque suppression fait
+    // « glisser » les éléments d'un rang — avancer le décalage en sauterait ;
+    // sous curseur, la robustesse dépend du backend (le `SCAN` Redis la garantit,
+    // un curseur naïf construit sur un rang ne la garantit pas).
+    //
+    // Plutôt que de parier sur le mode — donc sur l'implémentation d'un store
+    // qu'on ne contrôle pas — on repasse jusqu'à ce qu'un passage COMPLET ne
+    // détruise plus rien. La convergence est garantie (chaque passage non final
+    // retire au moins une session, le parc est fini) et la propriété rendue est
+    // celle qui compte : quand `destroyByUser` rend la main, il ne reste RIEN.
+    // Une révocation « déconnecter partout » qui en laisse une seule n'est pas
+    // une imprécision, c'est une faille.
+    for (let pass = 0; pass < MAX_LOGOUT_PASSES; pass += 1) {
+      let destroyedThisPass = 0;
+      await this.eachSessionRecord({ user: identifier }, async (rec) => {
+        // Re-check d'appartenance : un store qui ignorerait le filtre ne peut pas
+        // faire détruire la session d'un tiers.
+        if (rec.data.user !== identifier) return false;
+        if (await storage.destroy(rec.id)) destroyedThisPass += 1;
+        return false; // ne jamais court-circuiter : on veut TOUT le passage
+      });
+      destroyed += destroyedThisPass;
+      // Un passage complet sans destruction = le parc est propre (ou plus rien
+      // n'est destructible) → on s'arrête, en ayant la preuve, pas l'espoir.
+      if (destroyedThisPass === 0) break;
+      if (pass === MAX_LOGOUT_PASSES - 1) {
+        this.log(
+          `sessions: logout-all interrompu après ${MAX_LOGOUT_PASSES} passages ` +
+            `— user=${identifier} (révocation potentiellement incomplète)`,
+          "WARNING",
+        );
       }
     }
     if (destroyed > 0) {
@@ -591,15 +724,26 @@ class SessionsService extends Service {
   // autre. Hors hot-path (aucun coût tant qu'un user ne consulte pas ses sessions).
 
   /**
-   * Énumère les sessions APPARTENANT à `identifier` ({@link ISessionSummary}
-   * redactés), des plus récentes aux plus anciennes. Délègue à
-   * {@link listAllSessions} avec le filtre `user` (poussé au store PUIS ré-appliqué
-   * — défense en profondeur). Un `identifier` vide renvoie `[]` (jamais les
-   * sessions anonymes `user===""`).
+   * Énumère **une page** des sessions APPARTENANT à `identifier`
+   * ({@link ISessionSummary} redactés). Délègue à {@link listSessionsPage} avec le
+   * filtre `user` (poussé au store PUIS ré-appliqué — défense en profondeur). Un
+   * `identifier` vide renvoie une page vide (jamais les sessions anonymes
+   * `user===""`, qui appartiennent à tout le monde et donc à personne).
    */
-  async listOwnSessions(identifier: string): Promise<ISessionSummary[]> {
-    if (!identifier) return [];
-    return this.listAllSessions({ user: identifier });
+  async listOwnSessionsPage(
+    identifier: string,
+    query: ISessionListQuery,
+  ): Promise<IPage<ISessionSummary>> {
+    if (!identifier) {
+      return {
+        items: [],
+        total: 0,
+        limit: query.limit,
+        offset: query.offset ?? 0,
+        hasNext: false,
+      };
+    }
+    return this.listSessionsPage({ ...query, user: identifier });
   }
 
   /**
@@ -615,36 +759,32 @@ class SessionsService extends Service {
     actor?: string | null,
   ): Promise<boolean> {
     if (!identifier) return false;
-    const storage = this.storage as ISessionStorage | null;
-    if (!storage || typeof storage.listAll !== "function") {
-      throw new Error("sessions: enumeration not supported by current storage");
-    }
-    // Périmètre fermé : on ne scanne QUE les sessions de l'appelant.
-    const records = await storage.listAll({ user: identifier });
-    for (const rec of records) {
+    const storage = this.enumerable();
+    let destroyed = false;
+    // Périmètre fermé : on ne parcourt QUE les sessions de l'appelant.
+    await this.eachSessionRecord({ user: identifier }, async (rec) => {
       // Re-check d'appartenance AVANT le match de ref (défense si un store
       // ignorait le filtre) → un ref d'autrui n'est jamais atteignable ici.
-      if (rec.data.user !== identifier) continue;
-      if (this.sessionRef(rec.id) === ref) {
-        const ok = await storage.destroy(rec.id);
-        if (ok) {
-          this.log(
-            `session revoked by owner — ref=${ref} user=${identifier}`,
-            "INFO",
-          );
-          this.emitAudit({
-            category: "session",
-            action: "session.revoked",
-            outcome: "success",
-            actor: actor ?? identifier,
-            resource: ref,
-            metadata: { subject: identifier, self: true },
-          });
-        }
-        return ok;
+      if (rec.data.user !== identifier) return false;
+      if (this.sessionRef(rec.id) !== ref) return false;
+      destroyed = await storage.destroy(rec.id);
+      if (destroyed) {
+        this.log(
+          `session revoked by owner — ref=${ref} user=${identifier}`,
+          "INFO",
+        );
+        this.emitAudit({
+          category: "session",
+          action: "session.revoked",
+          outcome: "success",
+          actor: actor ?? identifier,
+          resource: ref,
+          metadata: { subject: identifier, self: true },
+        });
       }
-    }
-    return false;
+      return true; // référence trouvée → on arrête le parcours
+    });
+    return destroyed;
   }
 
   /**

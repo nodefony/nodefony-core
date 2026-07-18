@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import type { IAccessTokenRecord } from "@nodefony/security";
+import { redisTestUrl } from "../helpers/redisTestUrl";
 import {
   RedisTokenStore,
   type RedisClientLike,
@@ -393,7 +394,9 @@ describe("Redis RedisTokenStore — ITokenStore + TTL natif (J4b, FakeRedis)", (
  * (CI sans Redis / poste local zéro-config). Utilise l'horloge réelle (`Date.now`)
  * → pas de test d'expiration TTL ici (pas de fast-forward possible).
  */
-const REDIS_TEST_URL = process.env.REDIS_TEST_URL;
+// Base DÉDIÉE (cf `redisTestUrl`) : indépendance vis-à-vis des autres fichiers,
+// qui purgent la leur.
+const REDIS_TEST_URL = redisTestUrl(11);
 describe.skipIf(!REDIS_TEST_URL)(
   "Redis RedisTokenStore — serveur réel (REDIS_TEST_URL)",
   () => {

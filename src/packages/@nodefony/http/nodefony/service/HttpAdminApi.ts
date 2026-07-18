@@ -1,4 +1,4 @@
-import type { Module } from "nodefony";
+import type { Module, IPage } from "nodefony";
 import type {
   IAdminApi,
   IAdminEndpoint,
@@ -6,7 +6,10 @@ import type {
   IAdminRequest,
   IAdminResponse,
 } from "nodefony";
-import type { ISessionSummary } from "../interfaces/ISession";
+import type {
+  ISessionSummary,
+  ISessionListQuery,
+} from "../interfaces/ISession";
 
 /** Forme minimale lue sur le service `sessions` (lecture défensive). */
 interface SessionsLike {
@@ -33,11 +36,14 @@ interface SessionsLike {
  */
 interface SessionsAdmin {
   supportsEnumeration(): boolean;
-  listAllSessions(filter?: { user?: string }): Promise<ISessionSummary[]>;
+  listSessionsPage(query: ISessionListQuery): Promise<IPage<ISessionSummary>>;
   destroyByRef(ref: string, actor?: string | null): Promise<boolean>;
   destroyByUser(identifier: string, actor?: string | null): Promise<number>;
   // Self-service (scopé à l'appelant — anti-IDOR).
-  listOwnSessions(identifier: string): Promise<ISessionSummary[]>;
+  listOwnSessionsPage(
+    identifier: string,
+    query: ISessionListQuery,
+  ): Promise<IPage<ISessionSummary>>;
   destroyOwnByRef(
     identifier: string,
     ref: string,
@@ -233,22 +239,25 @@ export function createHttpAdminApi(module: Module): IAdminApi {
     },
     {
       // Énumération des sessions persistées — DTO redacté (jamais l'id brut ni
-      // Attributes ; un `ref` HMAC à la place). Paginé. Si le backend ne sait
-      // pas s'énumérer (KV/edge) → 501 honnête, jamais une liste vide trompeuse.
+      // Attributes ; un `ref` HMAC à la place). Pagination SERVEUR (le store ne
+      // rend qu'une page). Si le backend ne sait pas s'énumérer (KV/edge) → 501
+      // honnête, jamais une liste vide trompeuse.
       path: "sessions/list",
       method: "GET",
       role: "ROLE_NODEFONY_ADMIN",
       summary:
         "Sessions actives (ref/user/ip/ua/dates — jamais l'id de session). " +
-        "Paginé : ?user&limit&offset.",
+        "Paginé côté serveur : ?user&limit&offset. `total` absent et " +
+        "`nextCursor` présent sur un backend à curseur (Redis).",
       handler: async (
         request: IAdminRequest,
       ): Promise<
         | {
             items: ISessionSummary[];
-            total: number;
+            total?: number;
             limit: number;
             offset: number;
+            nextCursor?: string | null;
           }
         | IAdminResponse<{ error: string }>
       > => {
@@ -266,15 +275,24 @@ export function createHttpAdminApi(module: Module): IAdminApi {
           };
         }
         const user = one(request.query, "user");
-        const all = await svc.listAllSessions(
-          user !== undefined ? { user } : undefined,
-        );
         const { limit, offset } = pageParams(request.query);
-        return {
-          items: all.slice(offset, offset + limit),
-          total: all.length,
+        // Pagination SERVEUR : le store ne rend qu'une page (LIMIT/OFFSET, SCAN).
+        // Le coût de cet endpoint ne dépend plus du nombre de sessions.
+        const page = await svc.listSessionsPage({
           limit,
           offset,
+          ...(user !== undefined ? { user } : {}),
+        });
+        // `total` est REPORTÉ tel quel : absent sur un backend à curseur, où le
+        // déduire de `items.length` mentirait sur le périmètre.
+        return {
+          items: page.items,
+          total: page.total,
+          limit,
+          offset,
+          ...(page.nextCursor !== undefined
+            ? { nextCursor: page.nextCursor }
+            : {}),
         };
       },
     },
@@ -363,15 +381,16 @@ export function createHttpAdminApi(module: Module): IAdminApi {
       public: true,
       summary:
         "MES sessions (self-service) — ref/ip/ua/dates, scopées à l'appelant. " +
-        "Paginé : ?limit&offset.",
+        "Paginé côté serveur : ?limit&offset.",
       handler: async (
         request: IAdminRequest,
       ): Promise<
         | {
             items: ISessionSummary[];
-            total: number;
+            total?: number;
             limit: number;
             offset: number;
+            nextCursor?: string | null;
           }
         | IAdminResponse<{ error: string }>
       > => {
@@ -392,13 +411,19 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         if (!identifier) {
           return { status: 401, body: { error: "unauthenticated" } };
         }
-        const all = await svc.listOwnSessions(identifier);
         const { limit, offset } = pageParams(request.query);
-        return {
-          items: all.slice(offset, offset + limit),
-          total: all.length,
+        const page = await svc.listOwnSessionsPage(identifier, {
           limit,
           offset,
+        });
+        return {
+          items: page.items,
+          total: page.total,
+          limit,
+          offset,
+          ...(page.nextCursor !== undefined
+            ? { nextCursor: page.nextCursor }
+            : {}),
         };
       },
     },

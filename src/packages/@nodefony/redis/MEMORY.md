@@ -11,6 +11,7 @@ Accès Redis générique. Module = fournisseur de connexions + client brut. 0 lo
 - `Connection` (src/Connection.ts): wrap `createClient` v6. Handlers `#onError/#onConnect/#onReady/#onEnd/#onReconnecting` stockés → `removeListener` à `close()`.
 - `buildClientOptions` (src/buildClientOptions.ts): config → `RedisClientOptions`. Merge global+override. `url` prioritaire. Construit `reconnectStrategy` fn.
 - `config.ts`: Zod source de vérité. `defineRedisConfig`: validate+env+freeze. `redisConfigJsonSchema()`: JSON Schema Studio.
+- `RedisSessionStorage` (src/SessionStorage.ts): `ISessionStorage` de `@nodefony/http`, auto-register IoC `"redis"`. Clés `nf:sess:<id>`, TTL natif (`SET … EX` = idle glissant, `touch`=`EXPIRE`) → `gc()` no-op. `listPage` = curseur SCAN ; `countSessions` = **-1** (compter exigerait un SCAN complet ; un compteur `INCR` dériverait — le TTL efface sans passer par notre code). `listAll` = dump plafonné `MAX_SCAN`.
 
 ## Config
 
@@ -36,7 +37,9 @@ Accès Redis générique. Module = fournisseur de connexions + client brut. 0 lo
 - zod ajouté à `rolldown.config.ts external` + `nodefony/tests` exclu du tsconfig (2026-05-28).
 - **redis v6 (bump 2026-05-28, depuis v5.12.1)** : RESP3 = défaut v6 (API set/get/pub/sub inchangée). `maintNotifications:"disabled"` forcé dans `buildClientOptions` (Redis OSS → pas de push frames maintenance + timeouts déterministes). `client.close()` remplace `quit()` (déprécié) dans `Connection.close()`. v6 exige Node >= 20 (on est 26 ; engines racine ">=18" = dette). Fallback si pub/sub casse sous RESP3 : `RESP:2` dans options.
 - **`SCAN` cursor = STRING opaque, JAMAIS un `number`** : node-redis v6 refuse un number en argument de commande (erreur `encodeCommand`). `RedisTokenStore.listAll`/`listPage` normalisent `String(res.cursor)` en boucle et comparent `!== "0"`. Le `FakeRedis` des tests DOIT typer `scan(cursor: string): {cursor: string}` (un fake typé `number` masque le bug). Prouvé sur vrai serveur (`REDIS_TEST_URL`).
-- **`RedisTokenStore.listPage`** (`ITokenStore`, pagination) = **curseur SCAN pur** (1 passe/appel, `nextCursor`, filtres subjectId/kind/revoked sur le batch, PAS de total/ordre global — capacité réduite assumée) ; `countTokens` = `-1` (comptage O(N) refusé). `listAll` = dump incident cold-path.
+- **`RedisTokenStore.listPage`** (`ITokenStore`, pagination) = **curseur SCAN** (1 passe/appel, `nextCursor`, filtres subjectId/kind/revoked sur le batch, PAS de total/ordre global — capacité réduite assumée) ; `countTokens` = `-1` (comptage O(N) refusé). `listAll` = dump incident cold-path.
+- **`SCAN COUNT` est un INDICE d'effort, PAS un plafond** : Redis peut rendre plus de clés que demandé (petit keyspace en listpack → tout d'un coup) → une page nue déborderait `limit` et violerait `IPage`. Les deux stores (`RedisSessionStorage`, `RedisTokenStore`) utilisent donc un **curseur composite** `"<skip>:<curseurRedis>"` : on tronque à `limit`, on mémorise les clés consommées du batch, la page suivante rejoue le MÊME `SCAN` et reprend. Un curseur nu reçu de l'extérieur reste honoré (`skip=0`). ⚠️ Invisible contre un double : ce débordement ne sort que sur un VRAI serveur.
+- **Un banc qui purge (`flushDb`) doit avoir sa BASE dédiée** (`tests/helpers/redisTestUrl(db)`, calqué sur `mongoTestUri`) : deux fichiers sur la même base s'effacent mutuellement en parallèle → vert en isolation, rouge en suite (symptôme qui fait suspecter le code). Bases : session-store 13, session-pagination 14, token-pagination 12, token-store 11.
 
 ## Commandes CLI
 
@@ -44,9 +47,12 @@ Aucune pour l'instant (à exposer en Phase 11 si besoin : `redis:info`, `redis:f
 
 ## Tests
 
-`npx vitest run` — 15 tests :
+`npx vitest run` (gate serveur réel : `REDIS_TEST_URL=redis://:<pass>@127.0.0.1:6379/15`) — compte réel = `npx vitest run 2>&1 | tail -3`. Couverture par fichier :
 
 - **unit/config.test.ts** (10) : schema défauts, env layering, buildClientOptions merge/url/reconnect. Sans serveur. **Purge REDIS\_\* env au chargement** (isolation, sinon `REDIS_PASSWORD=... vitest` casse le test password).
 - **integration/connection.test.ts** (5) : Redis RÉEL (3 connexions, set/get main, pub/sub publish↔subscribe, close idempotent, enabled=false). **Auto-skip** (`describe.skipIf`) si Redis injoignable (probe PING au chargement). Module factice (`{container, kernel:null, options, get}`) suffit à instancier RedisService — pas de kernel requis.
+- **integration/session-store.test.ts** : banc de contrat comportemental de `@nodefony/http` (`tests/support/sessionStoreContract`, capacité `native-ttl`) + TTL propre à Redis — `write` pose TOUJOURS un `EX` (une clé sans TTL = session immortelle), `touch` repousse, clé expirée absente de l'énumération. **Gate serveur réel obligatoire** (un double « valide » toujours un TTL).
+- **integration/session-pagination.test.ts** : banc de contrat de pagination de `@nodefony/http` en mode **curseur**. Double déterministe par défaut, vrai serveur si `REDIS_TEST_URL`.
+- **integration/{token-store,token-pagination,webauthn-credential-store}.test.ts** : stores security.
 
 Infra : `docker compose -f docker/docker-compose.yml up -d` (password `nodefony-dev`). Lancer : `REDIS_PASSWORD=nodefony-dev npx vitest run` (ou défaut nodefony-dev si env absent).

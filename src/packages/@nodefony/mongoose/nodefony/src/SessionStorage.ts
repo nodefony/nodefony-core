@@ -4,8 +4,10 @@ import type {
   ISerializedSession,
   ISessionRecord,
   ISessionListFilter,
+  ISessionListQuery,
 } from "@nodefony/http";
-import { ormRegistry } from "@nodefony/orm-core";
+import type { IPage } from "nodefony";
+import { ormRegistry, paginate } from "@nodefony/orm-core";
 import type { IRepository, Criteria } from "@nodefony/orm-core";
 import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
 
@@ -195,7 +197,17 @@ class SessionStorage implements ISessionStorage {
       filter?.user !== undefined
         ? await repo.find({ user: filter.user } as Partial<SessionRow>)
         : await repo.find();
-    return rows.map((row) => ({
+    return rows.map((row) => SessionStorage.#toRecord(row));
+  }
+
+  /**
+   * Projette un document en {@link ISessionRecord} **redacté** : `Attributes` et
+   * `flashBag` restent en base, seuls `user`/`metaBag`/horodatages sortent. Une
+   * session anonyme est stockée `user = null` (cf `write`) et ressort en chaîne
+   * vide — la représentation du « pas d'utilisateur » appartient au backend.
+   */
+  static #toRecord(row: SessionRow): ISessionRecord {
+    return {
       id: row.session_id,
       data: {
         Attributes: {},
@@ -205,7 +217,74 @@ class SessionStorage implements ISessionStorage {
         createdAt: new Date(row.createdAt),
         updatedAt: new Date(row.updatedAt),
       },
-    }));
+    };
+  }
+
+  /**
+   * Traduit les filtres du contrat en `Criteria` orm-core — **portables** (égalité
+   * + test de nullité), donc poussés dans le `find` Mongo et jamais ré-appliqués
+   * en mémoire. Source unique du périmètre de {@link listPage} et
+   * {@link countSessions}. `user` explicite l'emporte sur `authenticated` (un
+   * critère AND-only ne porte qu'une condition par champ ; les combiner donnerait
+   * de toute façon un ensemble vide ou redondant).
+   */
+  static #criteria(
+    query?: ISessionListQuery,
+  ): Criteria<SessionRow> | undefined {
+    if (!query) return undefined;
+    const criteria: Record<string, unknown> = {};
+    if (query.user !== undefined) {
+      // `write` normalise l'anonyme en `null` : filtrer sur "" ne trouverait rien.
+      criteria.user = query.user === "" ? { $null: true } : query.user;
+    }
+    if (query.authenticated !== undefined && query.user === undefined) {
+      criteria.user = { $null: !query.authenticated };
+    }
+    return Object.keys(criteria).length > 0
+      ? (criteria as Criteria<SessionRow>)
+      : undefined;
+  }
+
+  /**
+   * Pagination **native** `skip/limit` + `countDocuments` (helper `paginate`
+   * orm-core) : une page = une requête bornée, quel que soit le volume en base.
+   * Ordre `updatedAt` DESC départagé par `session_id` — déterministe à horodatage
+   * égal. ORM déconnecté → page vide. Parité stricte avec le store Drizzle.
+   */
+  async listPage(query: ISessionListQuery): Promise<IPage<ISessionRecord>> {
+    const repo = this.#repo();
+    if (!repo) {
+      return {
+        items: [],
+        total: query.withTotal === false ? undefined : 0,
+        limit: query.limit,
+        offset: query.offset ?? 0,
+        hasNext: false,
+      };
+    }
+    const page = await paginate(repo, {
+      criteria: SessionStorage.#criteria(query),
+      limit: query.limit,
+      offset: query.offset,
+      withTotal: query.withTotal,
+      order: query.order ?? [
+        ["updatedAt", "DESC"],
+        ["session_id", "ASC"],
+      ],
+    });
+    return {
+      ...page,
+      items: page.items.map((row) => SessionStorage.#toRecord(row)),
+    };
+  }
+
+  /** `countDocuments` natif filtré — aucun document matérialisé. Déconnecté → 0. */
+  async countSessions(query?: ISessionListQuery): Promise<number> {
+    const repo = this.#repo();
+    if (!repo) {
+      return 0;
+    }
+    return repo.count(SessionStorage.#criteria(query));
   }
 }
 

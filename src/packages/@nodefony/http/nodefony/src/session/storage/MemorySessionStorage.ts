@@ -1,9 +1,11 @@
+import type { IPage } from "nodefony";
 import type sessionService from "../../../service/sessions/sessions-service";
 import type {
   ISessionStorage,
   ISerializedSession,
   ISessionRecord,
   ISessionListFilter,
+  ISessionListQuery,
 } from "../../../interfaces/ISession";
 
 /**
@@ -127,6 +129,72 @@ class MemorySessionStorage implements ISessionStorage {
       records.push({ id, data: { ...data } });
     }
     return Promise.resolve(records);
+  }
+
+  /**
+   * `true` si l'entrée passe les filtres — prédicat partagé par {@link listPage}
+   * et {@link countSessions} (une seule définition du périmètre : compter et
+   * lister ne peuvent pas diverger).
+   */
+  #matches(data: ISerializedSession, query?: ISessionListQuery): boolean {
+    if (!query) return true;
+    if (query.user !== undefined && data.user !== query.user) return false;
+    if (query.authenticated !== undefined) {
+      const authenticated = !!data.user;
+      if (authenticated !== query.authenticated) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Pagination **offset** avec `total` exact, ordre `updatedAt` DESC (id ASC en
+   * départage). Les données étant déjà en RAM par conception, le coût par requête
+   * est celui du tri des **références** filtrées — aucune copie de blob n'est
+   * faite hors de la page rendue.
+   *
+   * **Redaction par construction** (garantie du contrat, pas une optimisation) :
+   * `Attributes`/`flashBag` sortent VIDES, comme chez les stores SQL/NoSQL qui ne
+   * les SELECTent pas. Ici c'est gratuit — on ne recopie simplement pas ces deux
+   * bags — et ça aligne le store mémoire sur la même garantie : un record
+   * d'énumération admin ne porte jamais de donnée métier.
+   */
+  listPage(query: ISessionListQuery): Promise<IPage<ISessionRecord>> {
+    const limit = Math.max(0, query.limit);
+    const offset = Math.max(0, query.offset ?? 0);
+    // Références seulement (pas de clone) — on ne copie que la page finale.
+    const matched: Array<[string, ISerializedSession]> = [];
+    for (const entry of this.#sessions) {
+      if (this.#matches(entry[1], query)) matched.push(entry);
+    }
+    matched.sort((a, b) => {
+      const delta =
+        (b[1].updatedAt?.getTime() ?? 0) - (a[1].updatedAt?.getTime() ?? 0);
+      return delta !== 0 ? delta : a[0].localeCompare(b[0]);
+    });
+    const items = matched.slice(offset, offset + limit).map(([id, data]) => ({
+      id,
+      data: {
+        ...data,
+        Attributes: {},
+        flashBag: {},
+      },
+    }));
+    return Promise.resolve({
+      items,
+      total: query.withTotal === false ? undefined : matched.length,
+      limit: query.limit,
+      offset,
+      hasNext: offset + items.length < matched.length,
+    });
+  }
+
+  /** `COUNT` filtré — parcourt sans allouer (aucun record matérialisé). */
+  countSessions(query?: ISessionListQuery): Promise<number> {
+    let count = 0;
+    for (const data of this.#sessions.values()) {
+      if (this.#matches(data, query)) count++;
+    }
+    return Promise.resolve(count);
   }
 }
 

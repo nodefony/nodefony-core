@@ -1,8 +1,10 @@
+import type { IPage } from "nodefony";
 import type {
   ISessionStorage,
   ISerializedSession,
   ISessionRecord,
   ISessionListFilter,
+  ISessionListQuery,
 } from "../../../interfaces/ISession";
 
 /**
@@ -65,10 +67,28 @@ class RevocationGuardStorage implements ISessionStorage {
    */
   touch?: (id: string, idleSeconds?: number) => Promise<void>;
 
+  /**
+   * Énumération admin **paginée** — (ré)assignée seulement si le backend décoré
+   * la supporte, même raison que {@link listAll} : `supportsEnumeration` teste la
+   * présence de la méthode, elle doit donc refléter la vraie capacité du store
+   * décoré et non celle du décorateur.
+   */
+  listPage?: (query: ISessionListQuery) => Promise<IPage<ISessionRecord>>;
+
+  /** `COUNT` filtré — (ré)assigné seulement si le backend décoré le supporte. */
+  countSessions?: (query?: ISessionListQuery) => Promise<number>;
+
   constructor(inner: ISessionStorage) {
     this.inner = inner;
     if (typeof inner.listAll === "function") {
       this.listAll = (filter?: ISessionListFilter) => inner.listAll!(filter);
+    }
+    if (typeof inner.listPage === "function") {
+      this.listPage = (query: ISessionListQuery) => inner.listPage!(query);
+    }
+    if (typeof inner.countSessions === "function") {
+      this.countSessions = (query?: ISessionListQuery) =>
+        inner.countSessions!(query);
     }
     if (typeof inner.touch === "function") {
       this.touch = (id: string, idleSeconds?: number) => {

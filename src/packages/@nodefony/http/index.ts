@@ -283,6 +283,7 @@ export type {
   ISessionSummary,
   ISessionRecord,
   ISessionListFilter,
+  ISessionListQuery,
   SessionIntent,
   SessionStatusType,
   SessionStrategyType,

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-18T11:30:58.195Z",
+  "generated": "2026-07-18T12:23:37.326Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1029,
-    "symbols": 2751,
+    "symbols": 2756,
     "classes": 326,
-    "interfaces": 720,
+    "interfaces": 721,
     "types": 321,
     "enums": 4,
-    "functions": 808,
+    "functions": 812,
     "constants": 572
   },
   "symbols": {
@@ -9316,6 +9316,15 @@
       "module": "@nodefony/http",
       "extends": null,
       "description": "Filtre d'énumération admin de {@link ISessionStorage.listAll}. Tous les champs sont optionnels. Un store SQL peut honorer `user` (WHERE indexable) ; les autres peuvent l'ignorer — `SessionsService.…"
+    },
+    "ISessionListQuery": {
+      "name": "ISessionListQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IPageQuery, ISessionListFilter",
+      "description": "Requête d'énumération **paginée** des sessions — le {@link IPageQuery} standard de Nodefony étendu des filtres propres au store de session. C'est la forme que consomme {@link ISessionStorage.listPa…"
     },
     "ISessionStorage": {
       "name": "ISessionStorage",
@@ -19567,6 +19576,12 @@
         "IHttpResponse",
         "IWebsocketResponse"
       ],
+      "IPageQuery": [
+        "ISessionListQuery",
+        "PageQuery",
+        "ITokenListQuery",
+        "IUserListQuery"
+      ],
       "LLMError": [
         "LLMRateLimitError",
         "LLMTimeoutError",
@@ -19580,11 +19595,6 @@
       "MemoryError": [
         "MemoryShutdownError",
         "MemoryInvalidInputError"
-      ],
-      "IPageQuery": [
-        "PageQuery",
-        "ITokenListQuery",
-        "IUserListQuery"
       ],
       "Omit": [
         "IEntityDefinition"
@@ -23410,7 +23420,9 @@
       ],
       "paginate": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts"
       ],
       "Criteria": [
@@ -23452,18 +23464,26 @@
       "IPage": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
       ],
       "IAccessTokenRecord": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
@@ -23672,6 +23692,15 @@
       ],
       "ISessionListFilter": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
+      ],
+      "ISessionListQuery": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
@@ -24102,6 +24131,12 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
+      "IPageQuery": [
+        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts"
+      ],
       "ICookieOptions": [
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts"
       ],
@@ -24312,11 +24347,6 @@
       ],
       "IOrmPoolProbe": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts"
-      ],
-      "IPageQuery": [
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts"
       ],
       "PageQuery": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
