@@ -35,6 +35,8 @@ Accès Redis générique. Module = fournisseur de connexions + client brut. 0 lo
 - config.ts PUR : pas de `process.env` (sinon non sérialisable JSON Schema). Env = builder.
 - zod ajouté à `rolldown.config.ts external` + `nodefony/tests` exclu du tsconfig (2026-05-28).
 - **redis v6 (bump 2026-05-28, depuis v5.12.1)** : RESP3 = défaut v6 (API set/get/pub/sub inchangée). `maintNotifications:"disabled"` forcé dans `buildClientOptions` (Redis OSS → pas de push frames maintenance + timeouts déterministes). `client.close()` remplace `quit()` (déprécié) dans `Connection.close()`. v6 exige Node >= 20 (on est 26 ; engines racine ">=18" = dette). Fallback si pub/sub casse sous RESP3 : `RESP:2` dans options.
+- **`SCAN` cursor = STRING opaque, JAMAIS un `number`** : node-redis v6 refuse un number en argument de commande (erreur `encodeCommand`). `RedisTokenStore.listAll`/`listPage` normalisent `String(res.cursor)` en boucle et comparent `!== "0"`. Le `FakeRedis` des tests DOIT typer `scan(cursor: string): {cursor: string}` (un fake typé `number` masque le bug). Prouvé sur vrai serveur (`REDIS_TEST_URL`).
+- **`RedisTokenStore.listPage`** (`ITokenStore`, pagination) = **curseur SCAN pur** (1 passe/appel, `nextCursor`, filtres subjectId/kind/revoked sur le batch, PAS de total/ordre global — capacité réduite assumée) ; `countTokens` = `-1` (comptage O(N) refusé). `listAll` = dump incident cold-path.
 
 ## Commandes CLI
 

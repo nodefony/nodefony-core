@@ -1,4 +1,4 @@
-import type { Container } from "nodefony";
+import type { Container, IPage } from "nodefony";
 import type {
   IAdminApi,
   IAdminDescriptor,
@@ -7,6 +7,7 @@ import type {
   IAdminRequest,
   IAdminResponse,
 } from "nodefony";
+import type { ITokenListQuery } from "../../contracts/ITokenStore";
 import type { AuditCategory, AuditOutcome } from "../../contracts/IAuditEvent";
 import type {
   IAuditQuery,
@@ -88,8 +89,39 @@ function tokenStoreDriver(
  */
 interface IApiKeyAdmin {
   isEnabled(): boolean;
-  listAllPat(): Promise<IApiKeyView[]>;
+  listPagePat(query: ITokenListQuery): Promise<IPage<IApiKeyView>>;
   revokeAnyPat(id: string, actorId: string): Promise<IApiKeyView | null>;
+}
+
+/** Défaut/cap de taille de page du listing admin des clés API. */
+const KEYS_DEFAULT_LIMIT = 50;
+const KEYS_MAX_LIMIT = 200;
+
+/**
+ * Traduit la query string admin en {@link ITokenListQuery} bornée (`limit` par
+ * défaut 50, cap 200 ; `subjectId`/`revoked`/`offset`/`cursor`). Filtre inconnu
+ * ignoré (permissif — endpoint déjà gardé `ROLE_NODEFONY_ADMIN`).
+ */
+function parseTokenListQuery(
+  query: Readonly<Record<string, string | string[]>>,
+): ITokenListQuery {
+  const rawLimit = intParam(query, "limit");
+  const out: ITokenListQuery = {
+    limit:
+      rawLimit === undefined
+        ? KEYS_DEFAULT_LIMIT
+        : Math.min(Math.max(rawLimit, 1), KEYS_MAX_LIMIT),
+  };
+  const offset = intParam(query, "offset");
+  if (offset !== undefined && offset >= 0) out.offset = offset;
+  const cursor = one(query, "cursor");
+  if (cursor !== undefined) out.cursor = cursor;
+  const subjectId = one(query, "subjectId");
+  if (subjectId !== undefined) out.subjectId = subjectId;
+  const revoked = one(query, "revoked");
+  if (revoked === "true") out.revoked = true;
+  else if (revoked === "false") out.revoked = false;
+  return out;
 }
 
 const CATEGORIES: ReadonlySet<string> = new Set<AuditCategory>([
@@ -329,16 +361,35 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
       method: "GET",
       role: "ROLE_NODEFONY_ADMIN",
       summary:
-        "Toutes les clés API (PAT) du système — gouvernance cross-porteur " +
-        "(vue publique, sans secret : id/préfixe/porteur/scopes/dates).",
-      handler: async (): Promise<
-        { keys: IApiKeyView[] } | IAdminResponse<{ error: string }>
+        "Clés API (PAT) du système — gouvernance cross-porteur, pagination NATIVE " +
+        "au store (?subjectId&revoked&limit&offset|cursor). Vue publique, sans secret.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<
+        | {
+            keys: IApiKeyView[];
+            total?: number;
+            limit: number;
+            offset?: number;
+            nextCursor?: string | null;
+          }
+        | IAdminResponse<{ error: string }>
       > => {
         const svc = container.get("apiKeys") as IApiKeyAdmin | undefined;
         if (!svc || !svc.isEnabled()) {
           return { status: 503, body: { error: "api keys unavailable" } };
         }
-        return { keys: await svc.listAllPat() };
+        // Pagination serveur (jamais un listAll matérialisé). `keys` = LA page
+        // (rétro-compat front) ; `total`/`offset`/`nextCursor` = métadonnées pour
+        // la bascule DataGrid mode="server".
+        const page = await svc.listPagePat(parseTokenListQuery(request.query));
+        return {
+          keys: page.items,
+          total: page.total,
+          limit: page.limit,
+          offset: page.offset,
+          nextCursor: page.nextCursor,
+        };
       },
     },
     {

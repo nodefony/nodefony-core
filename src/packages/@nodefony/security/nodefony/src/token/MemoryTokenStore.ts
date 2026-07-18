@@ -1,9 +1,29 @@
+import type { IPage } from "nodefony";
 import type {
   IAccessTokenRecord,
+  ITokenListQuery,
   ITokenStore,
   ITokenUsage,
   TokenRevokeReason,
 } from "../../contracts/ITokenStore";
+
+/** Filtre un record contre une requête de listing (portable, réutilisé par les impls). */
+export function matchesTokenQuery(
+  record: IAccessTokenRecord,
+  query: ITokenListQuery,
+): boolean {
+  if (query.subjectId !== undefined && record.subjectId !== query.subjectId) {
+    return false;
+  }
+  if (query.kind !== undefined && record.kind !== query.kind) return false;
+  if (
+    query.revoked !== undefined &&
+    (record.revokedAt !== null) !== query.revoked
+  ) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Instantané sérialisable de l'état d'un store en mémoire — base de la
@@ -97,6 +117,36 @@ export class MemoryTokenStore implements ITokenStore {
 
   listAll(): Promise<IAccessTokenRecord[]> {
     return Promise.resolve([...this.#byId.values()]);
+  }
+
+  listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const filtered = [...this.#byId.values()].filter((r) =>
+      matchesTokenQuery(r, query),
+    );
+    // Tri createdAt DESC, id DESC (déterministe pour l'offset — parité avec le SQL).
+    filtered.sort(
+      (a, b) =>
+        b.createdAt - a.createdAt || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+    );
+    const items = filtered.slice(offset, offset + limit);
+    const total = query.withTotal === false ? undefined : filtered.length;
+    return Promise.resolve({
+      items,
+      total,
+      limit,
+      offset,
+      hasNext: offset + items.length < filtered.length,
+    });
+  }
+
+  countTokens(query: ITokenListQuery): Promise<number> {
+    let n = 0;
+    for (const r of this.#byId.values()) {
+      if (matchesTokenQuery(r, query)) n += 1;
+    }
+    return Promise.resolve(n);
   }
 
   markUsed(id: string, usage: ITokenUsage): Promise<void> {

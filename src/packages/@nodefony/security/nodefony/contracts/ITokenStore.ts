@@ -15,6 +15,8 @@
  *     auto-porté émis avant un instant T est rejeté → « déconnexion globale » / ban).
  */
 
+import type { IPage, IPageQuery } from "nodefony";
+
 /** Raison de révocation d'un jeton — tracée pour l'audit de sécurité. */
 export type TokenRevokeReason =
   | "logout" // déconnexion volontaire
@@ -144,6 +146,21 @@ export interface IAccessTokenRecord {
 }
 
 /**
+ * Requête de **listing paginé** de jetons (data plane admin) — le contrat de page
+ * standard du core ({@link IPageQuery}) enrichi des filtres propres aux jetons.
+ * Tous **portables** au `Criteria` (`subjectId` indexé, colonnes simples) → pas de
+ * SQL natif, le helper `paginate()` d'orm-core suffit côté ORM.
+ */
+export interface ITokenListQuery extends IPageQuery {
+  /** Restreint à un porteur (indexé). Omis = tous porteurs. */
+  subjectId?: string;
+  /** Restreint à une nature de jeton. Omis = PAT **et** refresh. */
+  kind?: "pat" | "refresh";
+  /** `true` = révoqués seulement, `false` = non révoqués, omis = les deux. */
+  revoked?: boolean;
+}
+
+/**
  * Contrat du store de jetons — implémentations enregistrées via
  * `registerTokenStore`, sélectionnées par config. Toutes les opérations sont
  * **asynchrones** (un backend ORM/Redis fait des I/O ; la référence mémoire
@@ -174,6 +191,22 @@ export interface ITokenStore {
    * ressort de l'appelant — `ApiKeyService.listAllPat`).
    */
   listAll(): Promise<IAccessTokenRecord[]>;
+  /**
+   * Liste **paginée** de jetons pour le data plane admin — ne matérialise **jamais**
+   * plus d'une page (contrairement à {@link ITokenStore.listAll}, réservé au dump
+   * d'incident). Filtres {@link ITokenListQuery} appliqués au store.
+   *
+   * Capacité par backend : **offset + total** (SQL/Mongo/mémoire, tri `createdAt`
+   * DESC déterministe + tiebreaker `id`) ; **curseur** (`nextCursor`, Redis SCAN —
+   * sans total ni ordre global, capacité réduite annoncée). Renvoie les records
+   * BRUTS (la projection « sans secret » = ressort de l'appelant).
+   */
+  listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>>;
+  /**
+   * Compte les jetons correspondant aux filtres — base du `total` de la page
+   * (SQL/Mongo `COUNT`, mémoire `length`). Redis : `-1` (comptage O(N) refusé).
+   */
+  countTokens(query: ITokenListQuery): Promise<number>;
   /** Met à jour `lastUsedAt`/IP/UA (no-op si l'id est inconnu). */
   markUsed(id: string, usage: ITokenUsage): Promise<void>;
   /** Révoque un jeton (pose `revokedAt`+`revokedReason`) — idempotent. */

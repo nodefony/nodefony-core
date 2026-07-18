@@ -141,9 +141,9 @@ class FakeRedis implements RedisClientLike {
   }
 
   scan(
-    _cursor: number,
+    _cursor: string,
     options?: { MATCH?: string; COUNT?: number },
-  ): Promise<{ cursor: number; keys: string[] }> {
+  ): Promise<{ cursor: string; keys: string[] }> {
     // Double déterministe : une seule passe (curseur 0). MATCH glob simple (`*`)
     // sur les HASH vivants (les records sont stockés en `rec:<id>`).
     const pattern = options?.MATCH;
@@ -163,7 +163,7 @@ class FakeRedis implements RedisClientLike {
         keys.push(key);
       }
     }
-    return Promise.resolve({ cursor: 0, keys });
+    return Promise.resolve({ cursor: "0", keys });
   }
 }
 

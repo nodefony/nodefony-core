@@ -1,8 +1,10 @@
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'infra Redis vers `@nodefony/security`. L'application
 // câble le store via `registerTokenStore("redis", …)`.
+import type { IPage } from "nodefony";
 import type {
   IAccessTokenRecord,
+  ITokenListQuery,
   ITokenStore,
   ITokenUsage,
   TokenRevokeReason,
@@ -33,9 +35,9 @@ export interface RedisClientLike {
   sRem(key: string, member: string): Promise<number>;
   sMembers(key: string): Promise<string[]>;
   scan(
-    cursor: number,
+    cursor: string,
     options?: { MATCH?: string; COUNT?: number },
-  ): Promise<{ cursor: number; keys: string[] }>;
+  ): Promise<{ cursor: string; keys: string[] }>;
 }
 
 /**
@@ -292,18 +294,82 @@ export class RedisTokenStore implements ITokenStore {
     }
     const match = `${KEY_PREFIX}:rec:*`;
     const out: IAccessTokenRecord[] = [];
-    let cursor = 0;
+    // Le curseur SCAN est une STRING opaque côté RESP (node-redis v6 refuse un
+    // number à l'encodage). `String(res.cursor)` normalise quel que soit le retour.
+    let cursor = "0";
     do {
       const res = await client.scan(cursor, { MATCH: match, COUNT: 200 });
-      cursor = res.cursor;
+      cursor = String(res.cursor);
       for (const key of res.keys) {
         const h = await client.hGetAll(key);
         if (Object.keys(h).length > 0) {
           out.push(this.#decode(h));
         }
       }
-    } while (cursor !== 0);
+    } while (cursor !== "0");
     return out;
+  }
+
+  /**
+   * {@inheritDoc ITokenStore.listPage}
+   *
+   * **Curseur SCAN pur** : UN passage `SCAN` par appel (cold-path admin). Capacité
+   * réduite ASSUMÉE et annoncée — pas de `total`, pas d'ordre global sur `createdAt`
+   * (Redis n'a pas d'index secondaire ici), la page peut compter moins d'éléments
+   * que `limit` (le filtre s'applique au batch). Le client boucle tant que
+   * `hasNext` en repassant `nextCursor`. Renvoie les records BRUTS.
+   */
+  async listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
+    const limit = Math.max(1, Math.floor(query.limit));
+    const client = this.#client();
+    if (!client) {
+      return { items: [], limit, hasNext: false, nextCursor: null };
+    }
+    // Curseur SCAN = STRING opaque (le `nextCursor` de la page précédente, "0" au
+    // départ) — node-redis v6 exige une string en argument de commande.
+    const cursor =
+      query.cursor !== undefined && query.cursor.length > 0
+        ? query.cursor
+        : "0";
+    const res = await client.scan(cursor, {
+      MATCH: `${KEY_PREFIX}:rec:*`,
+      COUNT: limit,
+    });
+    const next = String(res.cursor);
+    const items: IAccessTokenRecord[] = [];
+    for (const key of res.keys) {
+      const h = await client.hGetAll(key);
+      if (Object.keys(h).length === 0) continue;
+      const rec = this.#decode(h);
+      // Filtre inline (approche B : aucun import runtime de @nodefony/security).
+      if (query.subjectId !== undefined && rec.subjectId !== query.subjectId) {
+        continue;
+      }
+      if (query.kind !== undefined && rec.kind !== query.kind) continue;
+      if (
+        query.revoked !== undefined &&
+        (rec.revokedAt !== null) !== query.revoked
+      ) {
+        continue;
+      }
+      items.push(rec);
+    }
+    return {
+      items,
+      limit,
+      hasNext: next !== "0",
+      nextCursor: next === "0" ? null : next,
+    };
+  }
+
+  /**
+   * {@inheritDoc ITokenStore.countTokens}
+   *
+   * Un comptage exact exigerait un `SCAN` complet O(N) → refusé sur le cold-path
+   * admin : renvoie `-1` (« inconnu », capacité réduite Redis assumée).
+   */
+  countTokens(_query: ITokenListQuery): Promise<number> {
+    return Promise.resolve(-1);
   }
 
   async markUsed(id: string, usage: ITokenUsage): Promise<void> {

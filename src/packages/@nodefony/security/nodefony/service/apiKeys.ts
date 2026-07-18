@@ -1,11 +1,15 @@
-import { Service, Module, Container, Event } from "nodefony";
+import { Service, Module, Container, Event, type IPage } from "nodefony";
 import { randomUUID } from "node:crypto";
 import {
   defineSecurityConfig,
   type ISecurityConfig,
   type ISecurityConfigInput,
 } from "../config/defineModuleConfig";
-import type { ITokenStore, IAccessTokenRecord } from "../contracts/ITokenStore";
+import type {
+  ITokenStore,
+  IAccessTokenRecord,
+  ITokenListQuery,
+} from "../contracts/ITokenStore";
 import type {
   IApiKeyView,
   IApiKeyCreated,
@@ -167,17 +171,22 @@ class ApiKeyService extends Service {
   }
 
   /**
-   * Liste **toutes** les clés (PAT) du système, tous porteurs confondus — vue
-   * d'ADMINISTRATION (gouvernance / réponse à incident), publique et sans secret,
-   * récentes d'abord. Réservé au data plane admin (RBAC `ROLE_NODEFONY_ADMIN`) :
-   * l'identité du porteur (`subjectId`) est exposée pour la supervision.
+   * Liste **paginée** des clés (PAT) du système, tous porteurs confondus — vue
+   * d'ADMINISTRATION (gouvernance / réponse à incident), publique et sans secret.
+   * Réservé au data plane admin (RBAC `ROLE_NODEFONY_ADMIN`) : l'identité du porteur
+   * (`subjectId`) est exposée pour la supervision.
+   *
+   * Pagination **native au store** (jamais un `listAll()` matérialisé en RAM) : `kind`
+   * est forcé à `"pat"` ; les autres filtres (`subjectId`/`revoked`) + la fenêtre
+   * (`limit`/`offset`/`cursor`) viennent de `query`. Tri `createdAt` DESC par défaut.
+   *
+   * @param query - filtres + fenêtre de page ({@link ITokenListQuery}, `kind` ignoré).
+   * @returns une page de vues publiques ({@link IApiKeyView}, sans secret).
    */
-  async listAllPat(): Promise<IApiKeyView[]> {
+  async listPagePat(query: ITokenListQuery): Promise<IPage<IApiKeyView>> {
     const store = this.#resolveStore();
-    return (await store.listAll())
-      .filter((r) => r.kind === "pat")
-      .map((r) => this.#toView(r))
-      .sort((a, b) => b.createdAt - a.createdAt);
+    const page = await store.listPage({ ...query, kind: "pat" });
+    return { ...page, items: page.items.map((r) => this.#toView(r)) };
   }
 
   /**

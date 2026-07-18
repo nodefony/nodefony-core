@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-17T18:07:19.165Z",
+  "generated": "2026-07-18T11:30:58.195Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1029,
-    "symbols": 2746,
+    "symbols": 2751,
     "classes": 326,
-    "interfaces": 719,
+    "interfaces": 720,
     "types": 321,
     "enums": 4,
-    "functions": 804,
+    "functions": 808,
     "constants": 572
   },
   "symbols": {
@@ -11749,6 +11749,15 @@
       "extends": null,
       "description": "Enregistrement d'un jeton persistant — un PAT (clé API style GitHub) ou un refresh token. Le secret n'est JAMAIS stocké en clair : seul `secretHash` vit ici (le secret high-entropy est affiché une …"
     },
+    "ITokenListQuery": {
+      "name": "ITokenListQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "IPageQuery",
+      "description": "Requête de **listing paginé** de jetons (data plane admin) — le contrat de page standard du core ({@link IPageQuery}) enrichi des filtres propres aux jetons. Tous **portables** au `Criteria` (`subj…"
+    },
     "ITokenStore": {
       "name": "ITokenStore",
       "kind": "interface",
@@ -11764,7 +11773,7 @@
       "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "État serveur des jetons longue durée (PAT, refresh tokens), denylist des access tokens révoqués (`jti`) et seuil de révocation **en masse** par porteur. Pourquoi un store : un access token signé (J…"
+      "description": "Raison de révocation d'un jeton — tracée pour l'audit de sécurité."
     },
     "ITotpSecret": {
       "name": "ITotpSecret",
@@ -18241,6 +18250,14 @@
       "extends": null,
       "description": "Instantané sérialisable de l'état d'un store en mémoire — base de la persistance fichier ({@link MemoryTokenStore.snapshot}/`restore`) et de l'inspection. Les index dérivés (par hash/famille/sujet)…"
     },
+    "matchesTokenQuery": {
+      "name": "matchesTokenQuery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Filtre un record contre une requête de listing (portable, réutilisé par les impls)."
+    },
     "ITokenStoreFactoryContext": {
       "name": "ITokenStoreFactoryContext",
       "kind": "interface",
@@ -19566,6 +19583,7 @@
       ],
       "IPageQuery": [
         "PageQuery",
+        "ITokenListQuery",
         "IUserListQuery"
       ],
       "Omit": [
@@ -23390,6 +23408,25 @@
       "IdempotencyKeyRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
       ],
+      "paginate": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts"
+      ],
+      "Criteria": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
@@ -23412,12 +23449,36 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
+      "IPage": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
       "IAccessTokenRecord": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "ITokenListQuery": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "ITokenStore": [
@@ -23472,18 +23533,6 @@
       "TotpSecretRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts"
       ],
-      "Criteria": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
       "ITransaction": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
@@ -23527,15 +23576,6 @@
       "IUserRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
-      ],
-      "IPage": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
@@ -24275,14 +24315,12 @@
       ],
       "IPageQuery": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts"
       ],
       "PageQuery": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
-      ],
-      "paginate": [
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts"
       ],
       "ServiceWiring": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",

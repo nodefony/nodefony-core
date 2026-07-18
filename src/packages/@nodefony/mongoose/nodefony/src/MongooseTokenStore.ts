@@ -1,14 +1,30 @@
-import type { IRepository, UpdateData } from "@nodefony/orm-core";
+import { paginate } from "@nodefony/orm-core";
+import type { Criteria, IRepository, UpdateData } from "@nodefony/orm-core";
+import type { IPage } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerTokenStore("mongoose", …)`.
 import type {
   IAccessTokenRecord,
+  ITokenListQuery,
   ITokenStore,
   ITokenUsage,
   TokenRevokeReason,
 } from "@nodefony/security";
 import type { MongooseOrm } from "./orm-core/index";
+
+/** Traduit les filtres de listing en `Criteria` portable (`id`→`_id` géré par le repo). */
+function tokenListCriteria(
+  query: ITokenListQuery,
+): Criteria<IAccessTokenRecord> {
+  const criteria: Record<string, unknown> = {};
+  if (query.subjectId !== undefined) criteria.subjectId = query.subjectId;
+  if (query.kind !== undefined) criteria.kind = query.kind;
+  if (query.revoked !== undefined) {
+    criteria.revokedAt = { $null: !query.revoked };
+  }
+  return criteria as Criteria<IAccessTokenRecord>;
+}
 import {
   TOKEN_ENTITY_NAMES,
   type DeniedJtiRow,
@@ -141,6 +157,37 @@ export class MongooseTokenStore implements ITokenStore {
       row.id = this.#idOf(row);
     }
     return rows;
+  }
+
+  /**
+   * {@inheritDoc ITokenStore.listPage}
+   *
+   * `paginate()` d'orm-core (skip/limit + countDocuments) sur un filtre portable ;
+   * les `id` sont re-normalisés (`_id` → `id`) comme dans {@link listAll}.
+   */
+  async listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
+    const page = await paginate(this.#records, {
+      criteria: tokenListCriteria(query),
+      limit: query.limit,
+      offset: query.offset,
+      withTotal: query.withTotal,
+      order:
+        query.order && query.order.length > 0
+          ? query.order
+          : [
+              ["createdAt", "DESC"],
+              ["id", "DESC"],
+            ],
+    });
+    for (const row of page.items) {
+      row.id = this.#idOf(row);
+    }
+    return page;
+  }
+
+  /** {@inheritDoc ITokenStore.countTokens} */
+  countTokens(query: ITokenListQuery): Promise<number> {
+    return this.#records.count(tokenListCriteria(query));
   }
 
   async markUsed(id: string, usage: ITokenUsage): Promise<void> {

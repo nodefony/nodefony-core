@@ -1,14 +1,31 @@
-import type { IRepository } from "@nodefony/orm-core";
+import { paginate } from "@nodefony/orm-core";
+import type { Criteria, IRepository } from "@nodefony/orm-core";
+import type { IPage } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerTokenStore("drizzle", …)` ; le module drizzle reste pur.
 import type {
   IAccessTokenRecord,
+  ITokenListQuery,
   ITokenStore,
   ITokenUsage,
   TokenRevokeReason,
 } from "@nodefony/security";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
+
+/** Traduit les filtres de listing en `Criteria` portable (champs indexés/simples). */
+function tokenListCriteria(
+  query: ITokenListQuery,
+): Criteria<IAccessTokenRecord> {
+  const criteria: Record<string, unknown> = {};
+  if (query.subjectId !== undefined) criteria.subjectId = query.subjectId;
+  if (query.kind !== undefined) criteria.kind = query.kind;
+  // `revoked` → présence/absence de `revokedAt` (WHERE natif, pas de post-filtre).
+  if (query.revoked !== undefined) {
+    criteria.revokedAt = { $null: !query.revoked };
+  }
+  return criteria as Criteria<IAccessTokenRecord>;
+}
 import {
   TOKEN_ENTITY_NAMES,
   type DeniedJtiRow,
@@ -146,6 +163,34 @@ export class DrizzleTokenStore implements ITokenStore {
   /** Tous les jetons (PAT + refresh) — vue d'administration cross-porteur. */
   listAll(): Promise<IAccessTokenRecord[]> {
     return this.#records.find({});
+  }
+
+  /**
+   * {@inheritDoc ITokenStore.listPage}
+   *
+   * Portable à 100 % : le helper `paginate()` d'orm-core (LIMIT/OFFSET + COUNT
+   * optionnel) sur un `Criteria` simple — ne matérialise qu'une page. Tri défaut
+   * `createdAt DESC, id DESC` (offset déterministe).
+   */
+  listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
+    return paginate(this.#records, {
+      criteria: tokenListCriteria(query),
+      limit: query.limit,
+      offset: query.offset,
+      withTotal: query.withTotal,
+      order:
+        query.order && query.order.length > 0
+          ? query.order
+          : [
+              ["createdAt", "DESC"],
+              ["id", "DESC"],
+            ],
+    });
+  }
+
+  /** {@inheritDoc ITokenStore.countTokens} */
+  countTokens(query: ITokenListQuery): Promise<number> {
+    return this.#records.count(tokenListCriteria(query));
   }
 
   async markUsed(id: string, usage: ITokenUsage): Promise<void> {

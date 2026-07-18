@@ -10,6 +10,7 @@ export { VoterVote } from "./IAccessVoter";
 export type {
   IAccessTokenRecord,
   ITokenStore,
+  ITokenListQuery,
   ITokenUsage,
   IResourcePermission,
   TokenRevokeReason,

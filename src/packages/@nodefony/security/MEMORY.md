@@ -103,7 +103,7 @@ api/oauth2/{provider}/{authorize,callback}` (`bypassFirewall`, montés si servic
   (rôles frais) → `markUsed` **throttlé** (`lastUsedThrottleS`, 0 write hot path) → promote + `scopes`/`apiKeyId`
   en attribut ; 401 **uniforme** (anti-énum). **Discrimination JWT/PAT par FORME** : `JwtAuthenticator.supports()`
   resserré à `a.b.c` (JWS compact, 3ᵉ `*` → `alg=none` reste routé jose) → les deux cohabitent dans une zone.
-  `ApiKeyService` (`apiKeys`) : `createForSubject`/`listForSubject`/`revokeForSubject` sur le **même `ITokenStore`**
+  `ApiKeyService` (`apiKeys`) : `createForSubject`/`listForSubject`/`revokeForSubject`/**`listPagePat`** sur le **même `ITokenStore`**
   que JWT (record `kind:"pat"`, secret affiché **1×**) ; cap `maxPerSubject`→409, scopes ⊆ `allowedScopes`→400,
   expiry `defaultExpiryDays`, IDOR→`false`. **TokenService possède le store+gc** : boot étendu `jwt.enabled ‖
 apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (keystore). Endpoints =
@@ -125,7 +125,13 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   `Firewall.handleSecurity` auth.failure/throttled/denied (helper `#recordAuth`, 4 sorties d'échec seulement) ;
   verrou WS `frame.denied` (`buildFrameAuthorizer({onDeny})` tiré sur refus only → 0 alloc hot-path ; câblé
   `#wireRealtime`) ; `TokenService` token.issued/reuse_detected + login.failure/throttled (grant) ;
-  `ApiKeyService` apikey.created/revoked. **Data plane lot 3** : `SecurityAdminApi` (`IAdminApi` ns "security")
+  `ApiKeyService` apikey.created/revoked. **Pagination native jetons (standard core `IPage`/`IPageQuery`)** :
+  `ITokenStore.listPage(ITokenListQuery{subjectId,kind,revoked})` + `countTokens` — filtres PORTABLES → helper
+  `paginate()` orm-core côté SQL/Mongo (offset+total, tri createdAt DESC), curseur SCAN côté Redis (`nextCursor`,
+  countTokens=-1, capacité réduite annoncée), mémoire = slice. `listAll()` GARDÉ = dump incident (cold-path).
+  Façade `ApiKeyService.listPagePat`, `SecurityAdminApi GET apikeys` paginé serveur (fin du listAll O(N)). Banc de
+  contrat UNIQUE `tests/support/tokenPaginationContract.ts` (modes offset/cursor), cross-package : prouvé mémoire +
+  Drizzle sqlite/pg/mariadb/mysql + Mongoose + Redis. **Data plane lot 3** : `SecurityAdminApi` (`IAdminApi` ns "security")
   `GET /nodefony/security/api/audit/events` RBAC `ROLE_NODEFONY_ADMIN`, 503 si off. Table actions = README
   §Audit. **Stream live lot 4** : canal WS `security:audit` (`createAuditBridge` calque `createSyslogBridge`,
   coalescé `{events,dropped}` ring borné, **lazy** : s'abonne à `AuditService.subscribe` au 1ᵉʳ auditeur,

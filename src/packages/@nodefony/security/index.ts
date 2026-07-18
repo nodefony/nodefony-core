@@ -370,6 +370,7 @@ export type {
   IAuthorizationService,
   IAccessTokenRecord,
   ITokenStore,
+  ITokenListQuery,
   ITokenUsage,
   IResourcePermission,
   TokenRevokeReason,
