@@ -54,6 +54,7 @@ export interface TocHeading {
 export function slugifyHeading(text: string): string {
   return text
     .toLowerCase()
+    .replace(/[︀-️]/g, "") // sélecteurs de variante (⚙️ 🏗️ …) — invisibles, intapables
     .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "") // ponctuation, symboles, emoji
     .replace(/\s/g, "-");
 }

@@ -20,10 +20,18 @@
  */
 import { readFileSync } from "node:fs";
 
-/** Convention GitHub : accents CONSERVÉS, ponctuation/symboles/emoji retirés. */
+/**
+ * Convention GitHub : accents CONSERVÉS, ponctuation/symboles/emoji retirés.
+ *
+ * Les sélecteurs de variante (U+FE00–U+FE0F) sont retirés À PART : ils suivent les
+ * emoji « texte » (⚙️ 🏗️ ⚠️ 🗂️ …), sont INVISIBLES, et survivraient à la regex
+ * suivante en tant que marques (\p{M}). Les garder rendait l'ancre intapable — un
+ * rédacteur ne peut pas écrire un caractère qu'il ne voit pas.
+ */
 const slugify = (text) =>
   text
     .toLowerCase()
+    .replace(/[︀-️]/g, "")
     .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "")
     .replace(/\s/g, "-");
 

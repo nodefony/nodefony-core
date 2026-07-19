@@ -1,450 +1,738 @@
 ---
-slug: realtime-module/configuration
-title: "Configuration — Redis / Kafka / driver custom"
-section: realtime-module
-audience: developer,architect,devops,supervisor,admin
-version: v0.1
-status: draft
-updated: 2026-05-28
-source: src/packages/@nodefony/realtime/docs/configuration.md
+title: "Configuration — le fond de panier, les bornes, la porte d'entrée"
+lang: fr
 module: "@nodefony/realtime"
-topic: configuration
+topic: realtime
+coverageModule: realtime
+section: "Realtime"
+audience: [developer, devops]
 tags:
   [
     configuration,
-    backplane,
-    loopback,
-    cluster-ipc,
-    redis,
-    kafka,
-    custom-driver,
-    defineRealtimeConfig,
-    builder,
     zod,
+    backplane,
+    driver,
+    loopback,
+    cluster,
+    redis,
+    namespace,
+    origin,
+    limites,
+    environnement,
   ]
+version: "doc"
+status: stable
+updated: 2026-07-19
+source: "src/packages/@nodefony/realtime/docs/configuration.md"
 ---
 
-# Configuration — comment l'utilisateur configure Redis / Kafka dans son app
+# Configuration — le fond de panier, les bornes, la porte d'entrée
 
-> Cette page répond à **LA** question : « si je veux utiliser le realtime dans mon app,
-> comment je passe de dev local à prod cluster Redis sans tout réécrire ? ».
-> Tu y trouveras les 4 modes (Loopback / Cluster IPC / Redis / Kafka), un exemple par
-> mode, et la procédure pour écrire ton **propre driver custom** (NATS, Pulsar, RabbitMQ, …).
+> Le module temps réel expose **six réglages**, pas un de plus. Un seul décide vraiment de quelque
+> chose : le **driver de backplane**, c'est-à-dire la façon dont deux processus de ton application se
+> transmettent une publication. Les autres bornent la connexion et gardent la porte. Cette page les
+> donne tous, avec leur valeur d'usine lue dans le schéma, l'effet observable de chacun, et les trois
+> situations de déploiement qui décident du choix.
 
-> [!IMPORTANT]
-> **État aujourd'hui (2026-05-28)** : le builder `defineRealtimeConfig()` **n'est pas encore
-> codé** — il fait partie du Bloc A étape 5 du plan P13. Cette page documente la **cible
-> figée** : c'est ce à quoi ressemblera la config quand on l'aura livrée. Les modes
-> `loopback` et `cluster-ipc` MARCHENT déjà (drivers livrés), mais sans le builder leur
-> usage passe par les services Nodefony existants — pas l'API publique propre.
+📍 [Documentation](../../../../../docs/index.md) › [@nodefony/realtime](index.md) › **Configuration**
 
-## Le builder `defineRealtimeConfig()` (cible)
+## 🧠 Le modèle mental — un schéma, trois couches de surcharge
 
-Pattern figé Nodefony, style Vite — identique à `defineSecurityConfig()` côté `@nodefony/security`.
+La configuration du module n'est pas un objet que tu construis : c'est un **schéma Zod** qui porte
+déjà toutes ses valeurs d'usine. Ton application n'écrit que ses **écarts**, et le déploiement peut
+encore corriger par variables d'environnement. Chaque couche recouvre la précédente, et le résultat
+est validé puis **gelé** avant que le moindre canal existe.
 
-```typescript
-// app/config/realtime.config.ts
-import { defineRealtimeConfig } from "@nodefony/realtime";
-
-export default defineRealtimeConfig({
-  // 1) Quel "fond de panier" on utilise (= comment les pods se parlent)
-  backplane: "redis", // "loopback" | "cluster-ipc" | "redis" | "kafka" | IBackplane custom
-
-  // 2) Config du driver choisi (validée par Zod au boot, plante propre si mal formé)
-  redis: {
-    url: process.env.REDIS_URL!, // redis://user:pwd@host:6379
-    keyPrefix: "myapp:rt:", // namespace si Redis partagé avec autres apps
-    cluster: false, // ou true si Redis Cluster (sharding)
-  },
-
-  // 3) Options globales du hub (toutes optionnelles, défauts sains)
-  hub: {
-    maxBufferedAmount: 1_048_576, // backpressure 1 MB par peer (deconnecte au-delà)
-    pingIntervalMs: 30_000, // keep-alive WS
-    adaptiveCadence: true, // AIMD ON par défaut
-  },
-
-  // 4) Sondes / observabilité
-  probe: {
-    enabled: true, // canal realtime:health publié
-    sampleEveryMs: 5_000, // fréquence du snapshot santé
-  },
-});
+```mermaid
+flowchart TD
+  SCHEMA["Schéma Zod du module<br/>realtimeConfigSchema — les valeurs d'usine"]
+  APP["Ton application<br/>use('@nodefony/realtime', { … }) dans nodefony.config.ts"]
+  ENVGEN["Déploiement<br/>NF__REALTIME__&lt;CHEMIN&gt;=valeur"]
+  BUILD["Builder<br/>defineRealtimeConfig() : parse Zod → NF_REALTIME_DRIVER → freeze"]
+  HUB["RealtimeHub<br/>garde d'origine · plafond de canaux · seuil de sonde"]
+  BP["Driver de backplane<br/>résolu par nom dans le registre"]
+  SCHEMA --> APP --> ENVGEN --> BUILD
+  BUILD --> HUB
+  BUILD --> BP
 ```
 
-### Validation Zod au boot
+Trois conséquences pratiques, et ce sont elles qui font la différence à l'usage :
 
-Le builder valide la config avec un schéma Zod **avant** que le hub démarre. Si tu écris :
+1. **Une configuration vide est une configuration valide.** Ne rien écrire donne un module qui
+   fonctionne en mono-processus, avec des bornes anti-abus déjà actives.
+2. **Une clé fautive arrête le démarrage**, avec le chemin exact et le message Zod — pas un
+   `undefined` qui explose trois minutes plus tard sur la première frame.
+3. **La configuration appliquée est immuable.** Rien ne se règle à chaud : elle est gelée à la
+   validation, et le hub reçoit ses valeurs une seule fois, au démarrage.
 
-```typescript
-defineRealtimeConfig({
-  backplane: "redis",
-  // ❌ oubli : pas de redis: {...}
-});
-```
+## 📖 Lexique
 
-Le boot **plante propre** avec un message clair :
+| Terme              | Développé / traduction           | En une ligne                                                                                     |
+| ------------------ | -------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Backplane**      | fond de panier                   | le transport qui relaie une publication d'un processus vers les autres. Jamais un stockage       |
+| **Driver**         | pilote                           | l'implémentation concrète du backplane, désignée par un **nom** (`loopback`, `cluster`, `redis`) |
+| **Hub**            | broker du processus              | tient un producteur par canal et diffuse aux abonnés locaux                                      |
+| **Canal**          | channel                          | un sous-flux nommé qui circule dans la connexion WebSocket                                       |
+| **Fan-out**        | diffusion                        | une publication, N livraisons aux abonnés                                                        |
+| **Namespace**      | espace de nommage, cloison       | suffixe du canal de transport, qui empêche deux applications de se parler sur un bus mutualisé   |
+| **`originId`**     | identifiant d'origine            | l'étiquette du processus émetteur, comparée pour ne pas se rejouer son propre message            |
+| **Sonde**          | probe                            | l'instantané de santé du hub, servi en JSON                                                      |
+| **CSRF**           | _Cross-Site Request Forgery_     | un site tiers déclenche une requête authentifiée à l'insu de la victime, avec ses cookies        |
+| **CSWSH**          | _Cross-Site WebSocket Hijacking_ | la même attaque, sur une WebSocket : les navigateurs n'appliquent pas CORS à l'ouverture         |
+| **Back-pressure**  | contre-pression                  | ce qui attend dans la file d'envoi quand le client ne lit pas assez vite                         |
+| **IPC**            | _Inter-Process Communication_    | le canal de messages entre le maître et ses workers, fourni par Node                             |
+| **Pod / réplique** | instance déployée                | un processus de l'application ; plusieurs pods servent le même trafic                            |
 
-```
-[REALTIME_CONFIG] Invalid config:
-  - redis.url: Required (when backplane === "redis")
-```
+## Qu'est-ce qu'on configure ici ?
 
-Pas de surprise en runtime. Pas de `undefined.url`. Pas de plantage différé 3 minutes plus tard.
+Trois choses seulement, et elles répondent à trois questions distinctes.
 
-## Les 4 modes (un par environnement type)
+**Comment mes processus se parlent-ils ?** En développement, un seul processus : une publication
+atteint tous les abonnés parce qu'ils sont tous là. En production à trois répliques, un message
+publié sur la réplique A n'atteindra jamais un abonné branché sur la réplique B — sauf si un
+transport les relie. C'est le rôle du **backplane**, et c'est le seul réglage qui change entre un
+poste de développement et un cluster.
 
-### Mode 1 — `loopback` (dev mono-process)
+**Jusqu'où une connexion peut-elle consommer ?** Une socket ouverte est une ressource. Un client
+peut demander mille canaux, ou cesser de lire ce qu'on lui envoie. Deux clés bornent ces deux dérives.
 
-**Quand** : développement local, tests unitaires, démos qui tournent dans 1 seul process Node.
-
-```typescript
-export default defineRealtimeConfig({
-  backplane: "loopback",
-});
-```
-
-| Critère            | Valeur                      |
-| ------------------ | --------------------------- |
-| Dépendance externe | aucune ✅                   |
-| Latence            | ~0 ns (in-memory synchrone) |
-| Multi-pod          | non (1 seul process)        |
-| Persistence        | non (perdu au crash)        |
-| Cas d'usage        | dev, tests, démos           |
-
-> [!TIP]
-> **C'est le défaut implicite.** Si tu ne configures pas le backplane, c'est ce que tu auras.
-
-### Mode 2 — `cluster-ipc` (staging multi-worker, sans infra)
-
-**Quand** : tu veux tester en cluster sur ta machine de dev, ou en staging sur un serveur
-unique mais avec plusieurs workers Node (multi-core).
-
-```typescript
-export default defineRealtimeConfig({
-  backplane: "cluster-ipc",
-});
-```
-
-Lancement : `nodefony cluster -w 4` → 4 workers Node, le master leur sert de relai IPC.
-
-| Critère            | Valeur                                 |
-| ------------------ | -------------------------------------- |
-| Dépendance externe | aucune ✅                              |
-| Latence            | ~50 µs (IPC Node natif)                |
-| Multi-pod          | oui (multi-worker sur 1 machine)       |
-| Multi-host         | non (même OS)                          |
-| Persistence        | non                                    |
-| Cas d'usage        | staging, validation cluster sans infra |
+**Qui a le droit d'ouvrir la socket ?** Un navigateur envoie les cookies de ta victime même quand la
+page qui ouvre la connexion appartient à un tiers. Le contrôle d'`Origin` ferme cette porte.
 
 > [!NOTE]
-> **C'est le mode magique pour tester ton cluster sans rien installer.** Ton `ChatController`
-> et ton `ChatClient` voient un VRAI cluster avec fan-out cross-process — il manque juste le
-> multi-host (= Redis/Kafka).
+> Ce que tu ne configures **pas** ici : le port et le chemin de la WebSocket (ils viennent de
+> `@nodefony/http` et de ta route), les rôles et les zones protégées (ils viennent de
+> `@nodefony/security`, cf [Sécurité](./securite.md)), et la taille maximale d'un message entrant
+> (`websocket.maxPayload`, porté par `@nodefony/http`).
 
-### Mode 3 — `redis` (prod web multi-host)
+## La vision Nodefony — le schéma EST la configuration
 
-**Quand** : prod web standard (chat, notifications, dashboards live), déployée en cluster
-k8s ou Docker Swarm avec plusieurs replicas (pods) éventuellement sur plusieurs nodes.
+Le module suit la convention figée du framework, dont `@nodefony/drizzle` est la référence : **deux
+fichiers, jamais trois**.
 
-```typescript
-export default defineRealtimeConfig({
-  backplane: "redis",
-  redis: {
-    url: process.env.REDIS_URL!,
-    keyPrefix: "myapp:rt:",
-  },
-});
-```
+| Fichier                                 | Rôle           | Ce qu'il contient                                                                                 |
+| --------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- |
+| `nodefony/config/config.ts`             | **le quoi**    | le schéma Zod commenté, source **unique** des valeurs d'usine, et les défauts matérialisés        |
+| `nodefony/config/defineModuleConfig.ts` | **le comment** | le builder pur : analyse, surcharge d'environnement, gel — il ne retape jamais une valeur d'usine |
 
-| Critère            | Valeur                                            |
-| ------------------ | ------------------------------------------------- |
-| Dépendance externe | Redis (`>= 6.x`, peerDep `redis`)                 |
-| Latence            | ~1-3 ms (pub/sub)                                 |
-| Multi-pod          | oui                                               |
-| Multi-host         | oui ✅                                            |
-| Persistence        | non (Redis pub/sub = fire-and-forget)             |
-| Throughput         | très élevé (>100k msg/s par pod)                  |
-| Cas d'usage        | chat, notifs live, dashboards, broadcast standard |
+Le schéma `realtimeConfigSchema` (`config.ts:168`) porte chaque valeur en `.default()` et chaque
+explication en `.describe()`. Les défauts effectifs sont **dérivés** du schéma lui-même
+(`realtimeConfigSchema.parse({})`, `config.ts:194`) : il n'existe pas de second endroit où une valeur
+d'usine serait écrite, donc pas de dérive silencieuse possible entre la doc du champ et son
+comportement.
 
-> [!WARNING]
-> **Redis pub/sub n'est PAS persistant**. Si un pod est down 30 s, il rate les messages
-> publiés pendant ce temps. C'est ACCEPTABLE pour du chat (le message est en DB de toute
-> façon) mais PAS pour un bus events agents IA critique → utiliser Kafka pour ces cas (mode 4).
+Le builder `defineRealtimeConfig()` (`defineModuleConfig.ts:35`) reste **pur** : il analyse l'entrée,
+applique la seule variable d'environnement dédiée, et gèle le résultat. Il ne décide rien.
 
-#### Bonus : si tu fais Redis Cluster (sharding)
+Deux écarts assumés par rapport à la référence, à connaître :
 
-```typescript
-defineRealtimeConfig({
-  backplane: "redis",
-  redis: {
-    url: ["redis://node1:6379", "redis://node2:6379", "redis://node3:6379"],
-    cluster: true,
-  },
-});
-```
-
-### Mode 4 — `kafka` (prod massive, persistence, IA bus)
-
-**Quand** : prod massive (banking, IoT M2M, e-commerce hyper-trafic), ou bus events agents
-IA où tu veux **rejouer** une décision qui a planté.
-
-```typescript
-export default defineRealtimeConfig({
-  backplane: "kafka",
-  kafka: {
-    brokers: ["k1:9092", "k2:9092", "k3:9092"],
-    clientId: "myapp",
-    topic: "myapp.realtime", // 1 topic, partitions = hash(channel)
-    persistence: {
-      retentionMs: 7 * 86_400_000, // 7 jours d'historique rejouable
-      compressionType: "lz4",
-    },
-  },
-});
-```
-
-| Critère            | Valeur                                                                             |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| Dépendance externe | Kafka (`>= 3.x`, peerDep `kafkajs`)                                                |
-| Latence            | ~5-20 ms (write + replication)                                                     |
-| Multi-pod          | oui                                                                                |
-| Multi-host         | oui ✅                                                                             |
-| Persistence        | OUI (rejouable jusqu'à `retentionMs`)                                              |
-| Garantie           | at-least-once (un message peut arriver 2× — dédup côté hub via `messageId` opt-in) |
-| Throughput         | massif (millions msg/s avec partitions)                                            |
-| Cas d'usage        | bus events critiques, audit, IA, IoT M2M                                           |
+- **Le schéma ne porte pas de `.meta()`** — pas de champ marqué `secret`, `runtimeMutable` ou
+  `kernelDerived`. Aucune clé du module n'est un secret et aucune n'est modifiable à chaud, donc la
+  provenance affichée dans Studio reste sommaire.
+- **Le registre de types des modules n'est pas augmenté.** Les modules qui le font
+  (`declare module "nodefony" { interface NodefonyModuleConfig { … } }`) font proposer leurs clés en
+  autocomplétion dans `use()`. Ce n'est pas le cas ici : la configuration passée à
+  `use("@nodefony/realtime", { … })` est acceptée comme un objet libre. Elle reste **entièrement
+  validée au démarrage** par Zod — tu perds l'assistance de l'éditeur, jamais la sûreté.
 
 > [!IMPORTANT]
-> **Garantie « at-least-once »** : Kafka assure qu'un message arrive AU MOINS une fois,
-> mais peut arriver 2 fois (réessais). Soit ton handler est **idempotent** (recommandé),
-> soit tu actives la **dédup** côté hub via un `messageId` unique dans le payload.
+> Sans autocomplétion, une faute de frappe dans un nom de clé ne se voit pas à l'écriture. Elle ne se
+> voit pas non plus au démarrage : le schéma **retire** les clés inconnues sans se plaindre. Écris
+> `slowConsummer: { bytes: 4096 }` et tu obtiendras le défaut, en silence. Le seul réflexe qui
+> protège : relire la configuration effective sur la page module de Studio après un changement.
 
-## La magie « passer de dev à prod » sans toucher au code
+## 🚀 Démarrage rapide
 
-C'est LE scénario qui justifie le contrat `IBackplane`. Voilà comment ton projet doit le
-structurer :
+Vu depuis une application créée par `nodefony create app`. Deux fichiers, et une seule ligne qui
+diffère entre les deux situations.
 
-```typescript
-// app/config/realtime.config.ts — pilote par variables d'env
-import { defineRealtimeConfig } from "@nodefony/realtime";
+### 1. Un processus — le minimum utile
 
-const env = process.env.NODE_ENV ?? "development";
+C'est la configuration d'un poste de développement, et celle d'un déploiement à une seule réplique.
+On garde le fond de panier local, on ferme la porte d'entrée, on abaisse le plafond de canaux à ce
+dont l'application a réellement besoin.
 
-export default defineRealtimeConfig({
-  backplane:
-    env === "production" && process.env.KAFKA_BROKERS
-      ? "kafka"
-      : env === "production" && process.env.REDIS_URL
-        ? "redis"
-        : env === "staging"
-          ? "cluster-ipc"
-          : "loopback",
+```ts
+// nodefony.config.ts — le manifeste de l'application
+export default defineConfig(() => ({
+  modules: [
+    "@nodefony/http",
+    "@nodefony/framework",
+    use("@nodefony/realtime", {
+      // Un seul processus : le hub diffuse localement, aucun transport n'est ouvert.
+      backplane: { driver: "loopback" },
 
-  redis: process.env.REDIS_URL
-    ? { url: process.env.REDIS_URL, keyPrefix: "myapp:rt:" }
-    : undefined,
+      // Défense CSWSH (RFC 6455 §10.2). Sans elle, une page tierce ouvre une socket
+      // avec les cookies de ton utilisateur : le navigateur n'applique pas CORS ici.
+      csrf: {
+        checkOrigin: {
+          enabled: true,
+          allowList: ["https://127.0.0.1:5152"],
+          // Un client non-navigateur n'envoie pas d'en-tête Origin. Le laisser à
+          // false n'a de sens que si tout ton trafic vient d'un navigateur.
+          allowMissingOrigin: false,
+        },
+      },
 
-  kafka: process.env.KAFKA_BROKERS
-    ? { brokers: process.env.KAFKA_BROKERS.split(","), topic: "myapp.realtime" }
-    : undefined,
-});
+      // Garde anti-saturation : le défaut de 256 est généreux. Un écran qui suit
+      // dix canaux n'a aucune raison d'en ouvrir plus de quelques dizaines.
+      limits: { maxChannelsPerConnection: 32 },
+    }),
+  ],
+}));
 ```
 
-→ `npm run dev` (sans env) → loopback.
-→ `NODE_ENV=staging npm start` → cluster-ipc (multi-worker).
-→ `NODE_ENV=production REDIS_URL=... npm start` → Redis.
-→ `NODE_ENV=production KAFKA_BROKERS=... npm start` → Kafka.
+### 2. Plusieurs répliques — la seule ligne qui change
 
-Ton `ChatController` n'a JAMAIS bougé. Ton client `socket.subscribe()` n'a JAMAIS bougé.
+Passer à N pods sur N machines ne change **ni le contrôleur, ni le client, ni un seul canal** : on
+remplace le nom du driver, et on déclare le module qui fournit les connexions pub/sub.
 
-## Écrire son propre driver (custom `IBackplane`)
+```ts
+// nodefony.config.ts — la même application, déployée en plusieurs répliques
+export default defineConfig((ctx) => ({
+  modules: [
+    "@nodefony/http",
+    "@nodefony/framework",
 
-Le contrat `IBackplane` étant publié et stable, n'importe quel utilisateur peut écrire son
-driver pour le bus de son choix.
+    // Le driver `redis` consomme les connexions `publish` et `subscribe` de ce
+    // module. Sans lui déclaré, le hub reste local — et le dit dans les journaux.
+    "@nodefony/redis",
 
-### Exemple — driver NATS
+    use("@nodefony/realtime", {
+      backplane: {
+        // En production seulement : en développement, le fond de panier local évite
+        // d'exiger une infrastructure pour lancer l'application.
+        driver: ctx.isProd ? "redis" : "loopback",
 
-```typescript
-// son-app/src/MyNatsBackplane.ts
-import type { IBackplane } from "@nodefony/realtime";
-import { connect, NatsConnection } from "nats";
+        // La cloison. Le numéro de base Redis ne cloisonne PAS le pub/sub : sans ce
+        // nom, préproduction et production sur un même Redis échangeraient leurs
+        // diffusions. À poser explicitement, et différemment par déploiement.
+        namespace: ctx.isProd ? "boutique.prod" : "boutique.dev",
+      },
+      csrf: {
+        checkOrigin: {
+          enabled: true,
+          allowList: ["https://boutique.example.com"],
+        },
+      },
+      limits: { maxChannelsPerConnection: 32 },
+    }),
+  ],
+}));
+```
 
-export class MyNatsBackplane implements IBackplane {
-  private nc!: NatsConnection;
+Il reste à **déclarer diffusables** les canaux qui doivent franchir la frontière du processus — c'est
+une propriété du contrôleur, pas de la configuration, et le défaut est l'isolement :
 
-  constructor(private readonly opts: { servers: string[] }) {}
+```ts
+// nodefony/controllers/chat.ts — extrait
+import { RealtimeController } from "@nodefony/realtime";
 
-  async connect(): Promise<void> {
-    this.nc = await connect({ servers: this.opts.servers });
-  }
-
-  async disconnect(): Promise<void> {
-    await this.nc.close();
-  }
-
-  async subscribe(
-    channel: string,
-    onMessage: (channel: string, payload: unknown, originPodId: string) => void,
-  ): Promise<void> {
-    const sub = this.nc.subscribe(channel);
-    (async () => {
-      for await (const m of sub) {
-        const payload = JSON.parse(m.string());
-        const originPodId = m.headers?.get("podId") ?? "";
-        onMessage(channel, payload, originPodId);
-      }
-    })();
-  }
-
-  async unsubscribe(channel: string): Promise<void> {
-    // NATS gère via close de l'iterator ; à implémenter selon ton design
-  }
-
-  async publish(
-    channel: string,
-    payload: unknown,
-    originPodId: string,
-  ): Promise<void> {
-    const headers = { podId: originPodId };
-    this.nc.publish(channel, JSON.stringify(payload), { headers });
+export class ChatController extends RealtimeController {
+  // Sans cette déclaration, "chat:*" resterait confiné au processus qui l'a publié.
+  protected override realtimeBroadcastChannels(): string[] {
+    return ["chat:"];
   }
 }
 ```
 
-### Le brancher
+### Ce qu'on lit dans les journaux
 
-```typescript
-// app/config/realtime.config.ts
-import { defineRealtimeConfig } from "@nodefony/realtime";
-import { MyNatsBackplane } from "./MyNatsBackplane.ts";
+Le module annonce sa topologie effective au démarrage, en une ligne. C'est le premier endroit à
+regarder quand un message ne traverse pas.
 
-export default defineRealtimeConfig({
-  backplane: new MyNatsBackplane({ servers: ["nats://nats.example.com:4222"] }),
+| Ligne observée                                                               | Ce qu'elle dit                                                           |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `realtime backplane driver=loopback kind=local cross-pod=no (hub local)`     | mono-processus assumé : rien ne franchit la frontière                    |
+| `realtime backplane driver=redis kind=redis-pubsub … cross-pod=yes channel=` | le fan-out traverse ; le canal effectif est affiché, cloison comprise    |
+| `driver "redis" : module @nodefony/redis absent … RealtimeHub reste local`   | le module pub/sub n'est pas déclaré — repli annoncé, démarrage poursuivi |
+| `backplane driver "…" inconnu du registre (disponibles : …)`                 | nom de driver fautif ; la liste réelle est affichée dans le même message |
+
+> [!TIP]
+> Ces quatre lignes viennent du même endroit du code (`Realtime.#wireBackplane()`,
+> `src/packages/@nodefony/realtime/index.ts:253`) et de la carte d'identité que chaque driver publie.
+> Aucun repli n'est silencieux : si le fan-out est dégradé, c'est écrit.
+
+## ⚙️ Le schéma, clé par clé
+
+Six blocs, onze clés au total. Le tableau donne la vérité complète ; les sections qui suivent
+expliquent quand et pourquoi en changer.
+
+| Clé                                   | Type                   | Défaut               | Effet                                                                                           |
+| ------------------------------------- | ---------------------- | -------------------- | ----------------------------------------------------------------------------------------------- |
+| `enabled`                             | `boolean`              | `true`               | `false` = module chargé mais inerte : ni API d'administration, ni backplane, ni sonde, ni garde |
+| `backplane.driver`                    | `string`               | `"loopback"`         | nom résolu dans le registre de drivers ; inconnu → avertissement, le hub reste local            |
+| `backplane.namespace`                 | `string?`              | _absent_ → nom d'app | cloison du transport partagé ; suffixe le canal pub/sub. Motif `^[\w.-]+$`                      |
+| `cluster.probe.enabled`               | `boolean`              | `true`               | branche la sonde agrégée du pod en worker de cluster. `false` = aucun minuteur, aucun IPC       |
+| `slowConsumer.bytes`                  | `number` entier > 0    | `1048576` (1 MiB)    | seuil de **comptage** des consommateurs lents dans la sonde. Ne freine rien                     |
+| `limits.maxChannelsPerConnection`     | `number > 0` \| `null` | `256`                | plafond de canaux par connexion ; au-delà le `subscribe` est refusé. `null` = illimité          |
+| `csrf.checkOrigin.enabled`            | `boolean`              | `false`              | active le contrôle d'`Origin` à l'ouverture de la socket                                        |
+| `csrf.checkOrigin.allowList`          | `string[]`             | `[]`                 | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé                     |
+| `csrf.checkOrigin.allowMissingOrigin` | `boolean`              | `false`              | accepter une ouverture sans en-tête `Origin` (clients non-navigateur)                           |
+
+C'est **tout**. Il n'existe ni réglage de ping, ni de cadence, ni de fréquence d'échantillonnage de
+la sonde, ni de seuil de contre-pression configurable : ces comportements existent, mais leurs
+valeurs sont des constantes du code, pas des clés.
+
+### `enabled` — le module au repos
+
+Poser `false` charge le module sans rien activer. Concrètement : pas d'API d'administration
+enregistrée, pas de backplane câblé, pas de sonde de pod
+(`Realtime.onKernelBoot()`, `src/packages/@nodefony/realtime/index.ts:213`), et le service devient
+inerte (`RealtimeService.init()`, `RealtimeService.ts:77`).
+
+> [!WARNING]
+> **`enabled: false` désarme aussi tes gardes.** Le hub garde son plafond interne de 256 canaux,
+> mais l'allowlist d'origines que tu as configurée **n'est jamais posée** : c'est le service qui la
+> transmet au hub, et il ne fait plus rien. Éteindre le module pour « désactiver le temps réel » sur
+> une application dont la route WebSocket existe encore laisse la porte plus ouverte qu'avant.
+
+Le bon usage : un environnement où le temps réel n'a pas de sens (une commande CLI, un banc). Pour
+désactiver vraiment, retire le module du manifeste.
+
+### `backplane.driver` — qui relaie les publications
+
+C'est **le** réglage du module. Le champ est une chaîne libre et non une énumération, volontairement :
+la liste réelle est celle du **registre** de drivers (`listBackplaneDrivers()`,
+`backplaneRegistry.ts:68`), ouverte aux drivers que tu écris toi-même. Une énumération figée dans le
+schéma fermerait cette porte.
+
+Trois noms sont enregistrés par le module au chargement :
+
+| Nom          | Classe              | Ce qu'il relie                           | Traverse les machines |
+| ------------ | ------------------- | ---------------------------------------- | :-------------------: |
+| `"loopback"` | `LoopbackBackplane` | rien — le hub diffuse localement         |          non          |
+| `"cluster"`  | `ClusterBackplane`  | les workers d'un même processus maître   |          non          |
+| `"redis"`    | `RedisBackplane`    | tous les processus abonnés au même canal |        **oui**        |
+
+Un nom inconnu ne fait pas échouer le démarrage : il produit un avertissement qui **affiche la liste
+des drivers réellement disponibles**, et le hub reste local. C'est un choix de résilience — une faute
+de frappe dans une variable de déploiement ne doit pas empêcher l'application de servir du HTTP.
+
+> [!NOTE]
+> Il n'existe **pas** de driver Kafka. Le registre n'en connaît que trois. Un bus de messages
+> persistant se branche par la voie normale d'extension : tu écris ton driver et tu l'inscris.
+
+### `backplane.namespace` — la cloison sur un bus partagé
+
+Ne concerne que les drivers qui traversent les machines. Le canal de transport devient
+`nodefony:realtime:<namespace>` (`resolveRedisChannel()`, `RedisBackplane.ts:31`).
+
+Le défaut est **dérivé du nom de l'application**
+(`src/packages/@nodefony/realtime/index.ts:132`) — ce qui suffit à séparer deux applications
+distinctes sur un Redis mutualisé, et **ne suffit pas** à séparer deux déploiements de la **même**
+application. Préproduction et production portent le même nom d'application, donc le même canal
+dérivé, donc le même flux.
+
+> [!CAUTION]
+> C'est une clé de **sécurité**, pas de confort. Le numéro de base Redis (`database`) ne cloisonne
+> pas le pub/sub, qui est global au serveur. Deux déploiements sans namespace explicite se
+> transmettent mutuellement leurs diffusions : un message de préproduction arrive chez tes
+> utilisateurs. Pose-la dès que deux environnements partagent un Redis.
+
+Caractères acceptés : lettres, chiffres, `_`, `.`, `-` — le motif est validé par le schéma
+(`backplaneSchema`, `config.ts:45`), donc un nom fautif arrête le démarrage plutôt que de produire un
+canal exotique.
+
+### `cluster.probe.enabled` — la sonde agrégée du pod
+
+Sans effet hors d'un worker lancé par `nodefony cluster`. Dans ce contexte, la sonde remonte
+périodiquement la santé de **son** processus au maître, qui la consolide, et redistribue
+l'instantané : n'importe quel worker peut alors servir la vue « pod entier » sans interroger les
+autres (`ClusterProbeClient`, `ClusterProbeClient.ts:138`).
+
+Le coût est faible mais réel : un minuteur (déréférencé, il n'empêche pas le processus de sortir) et
+un écouteur IPC par worker. Poser `false` produit un **contournement complet** — le client n'est
+jamais instancié, donc zéro minuteur, zéro message IPC — et l'endpoint de santé retombe sur la vue
+de l'instance courante.
+
+Deux leviers coupent la sonde, et **l'un ou l'autre suffit** : cette clé, ou la variable
+`NODEFONY_CLUSTER_PROBE=0` (`src/packages/@nodefony/realtime/index.ts:359`). C'est ce qui permet
+d'éteindre une sonde sur un pod en incident sans redéployer une configuration.
+
+### `slowConsumer.bytes` — un compteur, pas un frein
+
+Seuil de `bufferedAmount` — les octets en attente d'envoi sur une socket — au-delà duquel la sonde
+compte la connexion comme « lente » (`RealtimeHub.probe()`, `RealtimeHub.ts:503`).
+
+> [!WARNING]
+> **Cette clé ne règle pas la contre-pression.** Elle ne change que le compteur `slowConsumers` de la
+> sonde. Les seuils qui **agissent** — jeter une frame, puis fermer la connexion — sont des
+> constantes : `BACKPRESSURE_DROP_BYTES` à 1 MiB et `BACKPRESSURE_CLOSE_BYTES` à 8 MiB
+> (`WsConnectionTransport.ts:32`). Le transport accepte pourtant de les recevoir à la construction,
+> mais le contrôleur le construit **sans les passer** (`RealtimeController.ts:356`) : le chemin de
+> câblage n'est pas relié. Baisser `slowConsumer.bytes` à 64 KiB en espérant fermer plus tôt les
+> clients lents ne change **rien** au comportement — seulement le nombre affiché.
+
+L'usage correct est celui d'un **seuil d'alerte** : le baisser pour être averti plus tôt qu'une
+population de clients décroche (mobile, réseau contraint), le monter pour cesser de compter comme
+anormale une application qui pousse des charges volumineuses. Le défaut de 1 MiB est aligné sur la
+taille maximale d'un message entrant : une file qui dépasse une frame pleine est déjà suspecte pour
+des canaux d'état, où seul le dernier instantané compte.
+
+### `limits.maxChannelsPerConnection` — le plafond par connexion
+
+Chaque canal ouvert coûte un producteur côté hub, un minuteur le plus souvent, et une entrée de table
+côté connexion. Sans borne, **un seul** client peut s'abonner jusqu'à épuiser la mémoire du
+processus. Le plafond est vérifié à chaque abonnement (`RealtimeController.startChannel()`,
+`RealtimeController.ts:617`).
+
+Quatre propriétés qui décident du bon réglage :
+
+- Le refus est **observable** : le client reçoit une notification `realtime:denied` avec le motif
+  `limit`. Il ne se croit jamais abonné à tort.
+- Le canal **n'est pas ouvert** : au-delà du plafond, le hub n'est même pas appelé, donc aucun
+  producteur ne démarre.
+- Un réabonnement à un canal **déjà tenu** ne consomme pas de place — l'idempotence est vérifiée
+  avant le plafond. Un client qui redemande son canal n'est pas puni.
+- La garde existe **même sans configuration** : le hub porte le même défaut de 256
+  (`RealtimeHub.ts:217`), il n'y a pas de fenêtre où elle serait absente.
+
+`null` retire la borne. C'est un retrait explicite, à réserver aux déploiements dont tu maîtrises
+les clients — un tableau de bord interne qui compose des dizaines de flux, par exemple.
+
+> [!NOTE]
+> Le plafond est **par connexion**, pas global. Cent connexions à 256 canaux restent possibles :
+> c'est une garde contre un client abusif, pas contre une charge légitime mal dimensionnée.
+
+### `csrf.checkOrigin` — qui a le droit d'ouvrir la socket
+
+Trois clés qui forment une seule politique, appliquée à l'ouverture de la connexion
+(`RealtimeHub.checkOrigin()`, `RealtimeHub.ts:622`). Une origine refusée ferme la socket avec le code
+`4003`.
+
+Le défaut est **désactivé**. C'est le seul défaut du module qui n'est pas le réglage recommandé :
+active-le dès que ta socket est joignable depuis un navigateur.
+
+Le comportement se lit en trois lignes (`buildOriginGuard()`, `RealtimeService.ts:270`) :
+
+| Situation                                        | Résultat                                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------ |
+| `enabled: false`                                 | toutes les origines passent, aucune garde n'est posée                    |
+| `enabled: true`, en-tête `Origin` présent        | accepté **uniquement** si la chaîne figure telle quelle dans `allowList` |
+| `enabled: true`, en-tête `Origin` absent ou vide | accepté si `allowMissingOrigin: true`, refusé sinon                      |
+
+La comparaison est **exacte** : schéma, hôte et port, sans joker. `https://app.example.com` ne couvre
+ni `http://app.example.com`, ni `https://app.example.com:8443`, ni un sous-domaine. C'est un
+durcissement volontaire par rapport au `*` que tolère CORS côté HTTP.
+
+Le raisonnement complet sur ce que cette défense bloque — et sur ce qu'elle ne bloque pas, un client
+non-navigateur pouvant toujours forger l'en-tête — appartient à [Sécurité](./securite.md).
+
+> [!CAUTION]
+> `enabled: true` avec une `allowList` vide **refuse tout le monde**. C'est un échec fermé
+> volontaire : mieux vaut une socket qui ne s'ouvre pas qu'une garde qu'on croit active. Si tes
+> connexions tombent en `4003` juste après avoir activé le contrôle, c'est la première chose à
+> vérifier. Et `allowMissingOrigin: true` sans authentificateur fort rouvre exactement la brèche que
+> le contrôle ferme.
+
+## 🔌 Choisir le driver de backplane — trois situations
+
+Le choix ne se déduit pas d'un tableau de performances : il se déduit de **ta topologie de
+déploiement**. Trois situations couvrent l'essentiel.
+
+### Un seul processus — `loopback`
+
+**Le besoin.** Tu développes, tu lances des tests, ou tu déploies une application à une seule
+réplique. Tous les abonnés sont dans le même processus que le producteur.
+
+```ts ignore
+use("@nodefony/realtime", { backplane: { driver: "loopback" } });
+```
+
+**Ce que tu observes.** Le journal annonce `kind=local cross-pod=no`. Le hub garde en réalité son
+backplane à `null` : le coût par publication est un test de nullité, pas un appel de fonction. La
+classe `LoopbackBackplane` existe pour matérialiser le contrat et prouver en test que brancher un
+backplane sans pair ne change rien.
+
+**Le piège.** Rien ne casse tant que tu restes à une réplique. Le jour où l'orchestrateur en démarre
+une seconde, la moitié de tes utilisateurs cesse de recevoir les messages de l'autre moitié — sans la
+moindre erreur dans les journaux. Ce n'est pas une panne détectable par une sonde de vivacité.
+
+### Plusieurs workers sur une machine — `cluster`
+
+**Le besoin.** Tu veux exploiter les cœurs d'une machine avec `nodefony cluster -w 4`, ou valider ton
+application en multi-processus **sans installer la moindre infrastructure**.
+
+```ts ignore
+use("@nodefony/realtime", { backplane: { driver: "cluster" } });
+```
+
+**Ce qui se passe.** Un worker Node ne peut parler qu'au maître. Il lui envoie ses publications, et le
+maître les redistribue aux autres workers. Le driver ne s'active qu'en **rôle worker** et avec la
+variable `NODEFONY_CLUSTER=1`, posée par la commande de cluster
+(`src/packages/@nodefony/realtime/index.ts:99`) ; ailleurs, il rend `null` et le hub reste local.
+
+**Pourquoi c'est précieux.** C'est le banc d'essai qui stabilise l'architecture multi-processus avant
+d'ajouter du réseau. Ton contrôleur, tes canaux diffusables et ton client voient un vrai fan-out
+entre processus. Il ne manque que le franchissement de machine.
+
+> [!TIP]
+> Configurer `driver: "cluster"` et lancer un processus unique n'est pas une erreur : la fabrique
+> rend `null`, le hub reste local, la ligne de journal le dit. Tu peux donc laisser ce driver dans une
+> configuration qui sert aux deux modes de lancement.
+
+### Plusieurs machines — `redis`
+
+**Le besoin.** Plusieurs répliques, potentiellement sur plusieurs nœuds : Kubernetes, Swarm, Nomad,
+Cloud Run. C'est la situation de production standard d'une application web temps réel.
+
+```ts ignore
+// Déclarer "@nodefony/redis" dans le manifeste, puis :
+use("@nodefony/realtime", {
+  backplane: { driver: "redis", namespace: "boutique.prod" },
 });
+```
+
+**Comment il se branche.** Le driver ne dépend pas de la bibliothèque `redis` : il consomme deux
+connexions du module `@nodefony/redis` par un adaptateur purement structurel
+(`createRedisServiceTransport()`, `RedisBackplane.ts:100`). Deux et non une, parce qu'un client Redis
+abonné ne peut plus émettre de commandes ordinaires — le module fournit précisément des connexions
+nommées `publish` et `subscribe` dans ses défauts.
+
+**Ce qui est garanti, et ce qui ne l'est pas.** Le pub/sub est un transport, pas un journal : aucune
+persistance, aucune reprise. Un pod indisponible trente secondes rate ce qui a été publié pendant sa
+coupure. C'est acceptable pour un salon de discussion — le message est en base — et inacceptable pour
+un bus d'événements critiques. Ne construis pas au-dessus une fiabilité que le support n'offre pas.
+
+**Si Redis est injoignable.** Le démarrage du backplane est attendu **explicitement**, et **borné à
+cinq secondes** (`src/packages/@nodefony/realtime/index.ts:83`). Au-delà, ou en cas d'échec, le
+module renonce, ferme proprement ce qu'il avait ouvert, et laisse le hub local — le démarrage
+continue. Une base de messages en panne ne doit pas empêcher tes serveurs HTTP de monter.
+
+### En un coup d'œil
+
+| Ta topologie                           | Driver       | Infrastructure requise | Ce que tu obtiens               |
+| -------------------------------------- | ------------ | ---------------------- | ------------------------------- |
+| un processus                           | `"loopback"` | aucune                 | diffusion locale, coût nul      |
+| N workers, une machine                 | `"cluster"`  | aucune                 | fan-out entre processus par IPC |
+| N répliques, plusieurs machines        | `"redis"`    | Redis + module dédié   | fan-out entre machines          |
+| un bus maison (NATS, Pulsar, RabbitMQ) | le tien      | la tienne              | ce que ton driver implémente    |
+
+## 🧩 Brancher son propre driver
+
+Le contrat `IBackplane` est public et minuscule : six membres, aucune notion de canal logique ni
+d'abonné — tout cet état vit dans le hub. Écrire un driver revient à transporter une enveloppe.
+
+**La voie recommandée : inscrire un driver dans le registre.** Ton driver devient sélectionnable par
+son nom, exactement comme les natifs, et ta configuration reste une simple chaîne — donc pilotable
+par variable d'environnement.
+
+```ts ignore
+// src/backplane/NatsBackplane.ts — dans TON application
+import {
+  registerBackplaneDriver,
+  type IBackplane,
+  type IBackplaneInfo,
+  type BackplaneHandler,
+} from "@nodefony/realtime";
+
+class NatsBackplane implements IBackplane {
+  static readonly driver = "nats";
+  #handler: BackplaneHandler | null = null;
+
+  constructor(readonly originId: string) {}
+
+  async start(): Promise<void> {
+    /* ouvrir la connexion, s'abonner au sujet, appeler #handler à la réception */
+  }
+  publish(channel: string, payload: unknown): void {
+    /* émettre vers les AUTRES pairs, en joignant this.originId */
+  }
+  onMessage(handler: BackplaneHandler): void {
+    this.#handler = handler;
+  }
+  async stop(): Promise<void> {
+    /* fermer, libérer les écouteurs — idempotent */
+  }
+  describe(): IBackplaneInfo {
+    return {
+      driver: NatsBackplane.driver,
+      kind: "nats",
+      originId: this.originId,
+      crossPod: true,
+    };
+  }
+}
+
+// À l'import du module qui porte ce fichier — donc avant le démarrage du noyau.
+registerBackplaneDriver(
+  NatsBackplane.driver,
+  (ctx) => new NatsBackplane(ctx.originId),
+);
+```
+
+Puis, en configuration : `backplane: { driver: "nats" }`.
+
+Quatre points que la fabrique doit respecter :
+
+1. Elle **construit**, elle ne démarre pas. Le câblage appelle `start()` lui-même, sous garde de
+   délai.
+2. Elle peut rendre **`null`** pour dire « inactif dans ce contexte » — mauvais rôle, infrastructure
+   absente. Le hub reste alors local, sans erreur.
+3. Elle reçoit un contexte complet (`IBackplaneFactoryContext`, `backplaneRegistry.ts:27`) : le
+   module, l'`originId` déjà résolu, le rôle dans la topologie et la configuration validée.
+4. `describe()` alimente **trois** sorties depuis une source unique : la ligne de journal, la sonde
+   de santé et l'écran Studio. Remplis-la honnêtement, en particulier `crossPod`.
+
+**L'autre voie : fournir une instance déjà construite.** Déclare un service nommé
+`realtimeBackplane` dans le conteneur d'injection de ton module. `RealtimeService.init()`
+(`RealtimeService.ts:77`) le lit et le branche **avant** que le registre soit consulté : une instance
+présente court-circuite la sélection par nom.
+
+> [!WARNING]
+> Le builder accepte aussi une instance en second argument (`defineRealtimeConfig(config, {
+backplane })`), et la documentation d'architecture présente cette voie. En pratique elle n'est pas
+> atteignable depuis `nodefony.config.ts` : le module appelle le builder avec la seule configuration
+> fusionnée (`src/packages/@nodefony/realtime/index.ts:184`), et le schéma Zod **retire** toute clé
+> qu'il ne connaît pas — dont une instance de classe. Pour brancher un objet déjà construit, utilise
+> le service `realtimeBackplane`.
+
+Le détail du contrat, de l'anti-écho et du cycle de vie d'un driver est dans
+[Architecture](./architecture.md).
+
+## ⚙️ Variables d'environnement et précédence
+
+Quatre variables influent sur le module. Deux lui sont propres, deux appartiennent au mode cluster.
+
+| Variable                 | Portée                 | Effet                                                                      |
+| ------------------------ | ---------------------- | -------------------------------------------------------------------------- |
+| `NF_REALTIME_DRIVER`     | ce module              | remplace `backplane.driver`. **Précédence maximale**                       |
+| `NF__REALTIME__<CHEMIN>` | mécanisme du cœur      | remplace n'importe quelle clé, par son chemin. Ex. `NF__REALTIME__ENABLED` |
+| `NODEFONY_CLUSTER`       | posée par le lancement | à `1`, le driver `cluster` s'active en worker. Ne la pose pas à la main    |
+| `NODEFONY_CLUSTER_PROBE` | ce module              | à `0`, coupe la sonde de pod même si `cluster.probe.enabled` est vrai      |
+| `POD_NAME`               | déploiement            | étiquette d'origine du processus ; sinon dérivée du nom d'hôte et du PID   |
+
+L'ordre de recouvrement, du plus faible au plus fort :
+
+1. **Les valeurs d'usine du schéma** — ce que tu obtiens sans rien écrire.
+2. **La configuration de l'application** — ton `use("@nodefony/realtime", { … })`.
+3. **`NF__REALTIME__<CHEMIN>`** — appliqué après la fusion et **avant** la validation Zod, donc la
+   valeur venue de l'environnement est validée comme les autres. Un chemin introuvable produit un
+   avertissement avec une suggestion, jamais une clé fantôme.
+4. **`NF_REALTIME_DRIVER`** — appliqué **après** l'analyse, dans le builder
+   (`defineModuleConfig.ts:41`). Il gagne sur tout le reste, y compris sur
+   `NF__REALTIME__BACKPLANE__DRIVER`.
+
+Le mécanisme générique mérite d'être connu : le double tiret bas sépare les niveaux, les segments
+sont insensibles à la casse, et les valeurs sont converties (booléens, nombres, listes séparées par
+des virgules, JSON).
+
+```bash
+# Le même déploiement, piloté sans reconstruire l'image.
+NF_REALTIME_DRIVER=redis
+NF__REALTIME__BACKPLANE__NAMESPACE=boutique.prod
+NF__REALTIME__LIMITS__MAXCHANNELSPERCONNECTION=64
+NF__REALTIME__CSRF__CHECKORIGIN__ALLOWLIST=https://a.example.com,https://b.example.com
+NODEFONY_CLUSTER_PROBE=0        # couper la sonde de pod sur une réplique en incident
 ```
 
 > [!TIP]
-> **AUCUN code Nodefony à modifier.** Même mécanisme que NestJS pour ses adapters Redis,
-> mais ouvert dès le départ. Ton driver vit dans TON projet, peut être publié comme package
-> `@maboite/nodefony-realtime-nats` si tu veux le partager.
+> `NF_REALTIME_DRIVER` existe **en plus** du mécanisme générique parce qu'il est la variable qu'on
+> pose en premier sur un déploiement, et qu'elle doit rester fiable quel que soit le moment où la
+> configuration de l'application fusionne. C'est le levier d'urgence : ramener un cluster à
+> `loopback` pour isoler une panne de bus se fait par une variable, sans redéployer de code.
 
-## Options globales du hub (toutes optionnelles)
+## 🧰 Le builder et le schéma exportable
 
-### `hub.maxBufferedAmount`
+Deux fonctions publiques, utiles surtout aux tests et aux outils.
 
-Limite de backpressure par peer. Si le `WebSocket.bufferedAmount` d'un peer dépasse cette
-valeur, le hub déconnecte le peer pour libérer la mémoire serveur.
+`defineRealtimeConfig(config?, options?)` (`defineModuleConfig.ts:35`) analyse, applique la variable
+de driver et **gèle**. Le module l'appelle lui-même à l'enregistrement
+(`Realtime.onKernelRegister()`, `src/packages/@nodefony/realtime/index.ts:181`) : tu n'as pas à
+l'invoquer dans une application. En revanche, c'est l'outil qui permet de vérifier une configuration
+sans démarrer un serveur.
 
-| Valeur                     | Quand                                                              |
-| -------------------------- | ------------------------------------------------------------------ |
-| `1_048_576` (1 MB, défaut) | Standard web                                                       |
-| `4_194_304` (4 MB)         | App qui pousse des payloads lourds (live video, dashboard binaire) |
-| `262_144` (256 KB)         | App pur texte (chat, notifs) — anti-DoS strict                     |
+```ts ignore
+import { defineRealtimeConfig } from "@nodefony/realtime";
 
-### `hub.pingIntervalMs`
-
-Fréquence du ping de keep-alive (frame WebSocket ping native). Côté serveur, ferme la
-connexion si pas de pong dans `2× pingIntervalMs`.
-
-| Valeur                  | Quand                                                      |
-| ----------------------- | ---------------------------------------------------------- |
-| `30_000` (30 s, défaut) | Standard web (compatible derrière la majorité des proxies) |
-| `15_000` (15 s)         | Proxies agressifs qui coupent à 30 s                       |
-| `120_000` (2 min)       | LAN privé, économie batterie mobile                        |
-
-### `hub.adaptiveCadence`
-
-Active l'AIMD (cadence client auto-ajustée). Tu peux désactiver globalement, ou seulement
-sur certains canaux via le client.
-
-```typescript
-// Global OFF
-defineRealtimeConfig({
-  backplane: "redis",
-  redis: { url: ... },
-  hub: { adaptiveCadence: false },
-});
-
-// Par canal côté client : passer intervalMs explicite
-await socket.subscribe("dashboard:supervision", { intervalMs: 500, adaptive: false });
+const cfg = defineRealtimeConfig({ backplane: { driver: "redis" } });
+// cfg.limits.maxChannelsPerConnection === 256 — les sections omises gardent leurs défauts.
+// Une valeur invalide lève une ZodError, avec le chemin exact du champ fautif.
 ```
 
-### `probe.enabled` / `probe.sampleEveryMs`
+`realtimeConfigJsonSchema()` (`defineModuleConfig.ts:53`) produit le schéma JSON du module, chaque
+champ portant sa description. C'est ce que consomme la page module de Studio pour afficher la
+configuration attendue. L'instance de backplane éventuelle en est absente : une classe n'a rien à
+faire dans un schéma sérialisable.
 
-Contrôle la sonde `realtime:health` (canal + endpoint HTTP).
+Un message d'erreur de validation est reformaté par le module avant d'être levé : chaque problème
+apparaît sous la forme `chemin: message`, séparés par des points médians
+(`src/packages/@nodefony/realtime/index.ts:181`). Tu lis quel champ est fautif, pas une trace Zod
+brute.
 
-| Valeur                                         | Quand                                                              |
-| ---------------------------------------------- | ------------------------------------------------------------------ |
-| `enabled: true, sampleEveryMs: 5_000` (défaut) | Standard — utilisé par Studio + observabilité                      |
-| `enabled: true, sampleEveryMs: 1_000`          | Debug fin, monitoring temps réel                                   |
-| `enabled: false`                               | Tests, ou prod où tu utilises un APM externe et tu veux 0 overhead |
+## 📡 Observabilité — relire ce qui s'applique vraiment
 
-## Schéma Zod de validation (cible — à coder en P13.4)
+Trois endroits, par ordre de fiabilité décroissante.
 
-Pour info, voici à quoi ressemblera le schéma Zod (Bloc A étape 5) :
+- **La page module de Studio**, `/nodefony/modules/realtime`, onglet Config : la configuration
+  **effective** après fusion, surcharges d'environnement et validation. C'est la seule vue qui dit ce
+  qui s'applique — pas ce que tu as écrit.
+- **La sonde de santé**, `/nodefony/realtime/api/health` : la carte d'identité du backplane
+  réellement branché (driver, nature, origine, franchissement de machine, canal effectif) et les
+  compteurs de contre-pression, dont `slowConsumers` qui dépend de ton seuil.
+- **Les journaux de démarrage** : la ligne de topologie, et les avertissements de repli.
 
-```typescript
-import { z } from "zod";
+> [!TIP]
+> Le triplet à comparer quand le temps réel ne traverse pas : le `driver` que tu as configuré, le
+> `driver` qu'annonce la sonde, et le `channel` effectif. Un écart entre les deux premiers signifie
+> qu'une fabrique a rendu `null` ; un `channel` inattendu signifie un namespace dérivé là où tu
+> croyais l'avoir posé.
 
-const RedisOptionsSchema = z.object({
-  url: z.union([z.string().url(), z.array(z.string().url())]),
-  keyPrefix: z.string().optional(),
-  cluster: z.boolean().optional(),
-});
+## ⚠️ Pièges
 
-const KafkaOptionsSchema = z.object({
-  brokers: z.array(z.string()).min(1),
-  clientId: z.string(),
-  topic: z.string(),
-  persistence: z
-    .object({
-      retentionMs: z.number().positive(),
-      compressionType: z
-        .enum(["none", "gzip", "snappy", "lz4", "zstd"])
-        .optional(),
-    })
-    .optional(),
-});
+| Symptôme                                                                            | Cause                                                                                                                         | Correction                                                                          |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Un message n'arrive qu'à la moitié des clients, sans aucune erreur                  | plusieurs répliques avec `driver: "loopback"`                                                                                 | passer à `redis` et déclarer `@nodefony/redis` dans le manifeste                    |
+| Driver `redis` configuré, journal `RealtimeHub reste local`                         | module `@nodefony/redis` absent du manifeste, ou connexions `publish`/`subscribe` indisponibles                               | déclarer le module ; vérifier que Redis répond                                      |
+| Le fan-out traverse, mais des messages d'un autre environnement arrivent            | `backplane.namespace` non posé : deux déploiements de la même application dérivent le même canal                              | poser un namespace explicite et distinct par environnement                          |
+| Une clé écrite dans `use()` n'a aucun effet                                         | nom de clé fautif : le registre de types n'étant pas augmenté, l'éditeur ne corrige pas, et Zod **retire** l'inconnu          | relire la configuration effective dans Studio, onglet Config                        |
+| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                         | cette clé ne pilote que le **comptage** de la sonde ; les seuils d'action sont des constantes (`WsConnectionTransport.ts:32`) | rien à régler : le comportement n'est pas configurable                              |
+| Toutes les connexions tombent en `4003` après activation du contrôle d'origine      | `allowList` vide, ou origine non identique au caractère près (port, schéma, sous-domaine)                                     | inscrire l'origine exacte ; un client non-navigateur relève de `allowMissingOrigin` |
+| `enabled: false` posé « pour désactiver », et la garde d'origine ne s'applique plus | le service devient inerte et ne pose plus les politiques sur le hub                                                           | retirer le module du manifeste plutôt que l'éteindre                                |
+| Le plafond de canaux semble ignoré en test                                          | il ne l'est pas : le hub porte le même défaut de 256 sans configuration (`RealtimeHub.ts:217`)                                | vérifier le motif de refus `realtime:denied` côté client                            |
 
-const HubOptionsSchema = z.object({
-  maxBufferedAmount: z.number().int().positive().default(1_048_576),
-  pingIntervalMs: z.number().int().positive().default(30_000),
-  adaptiveCadence: z.boolean().default(true),
-});
+## 🧪 Tests & couverture
 
-const ProbeOptionsSchema = z.object({
-  enabled: z.boolean().default(true),
-  sampleEveryMs: z.number().int().positive().default(5_000),
-});
+Les compteurs de cette page sont régénérés depuis vitest ; aucun chiffre n'est figé dans le texte. Ce
+qui compte ici, c'est **ce que les suites prouvent sur la configuration**.
 
-export const RealtimeConfigSchema = z
-  .object({
-    backplane: z.union([
-      z.literal("loopback"),
-      z.literal("cluster-ipc"),
-      z.literal("redis"),
-      z.literal("kafka"),
-      z.custom<IBackplane>(
-        (v) => typeof v === "object" && v !== null && "publish" in v,
-      ),
-    ]),
-    redis: RedisOptionsSchema.optional(),
-    kafka: KafkaOptionsSchema.optional(),
-    hub: HubOptionsSchema.optional(),
-    probe: ProbeOptionsSchema.optional(),
-  })
-  .refine((cfg) => cfg.backplane !== "redis" || cfg.redis, {
-    message: "redis options are required when backplane is 'redis'",
-  })
-  .refine((cfg) => cfg.backplane !== "kafka" || cfg.kafka, {
-    message: "kafka options are required when backplane is 'kafka'",
-  });
-```
+| Ce qui est prouvé                                                     | Où                                  |
+| --------------------------------------------------------------------- | ----------------------------------- |
+| Défauts exacts, fusion partielle, gel, rejet des valeurs hors domaine | `defineRealtimeConfig.test.ts`      |
+| Le service pose bien les trois politiques sur le hub depuis la config | `RealtimeService.test.ts`           |
+| Le registre résout un nom, refuse l'inconnu, accepte un driver ajouté | `backplaneRegistry.test.ts`         |
+| Le plafond de canaux tient, y compris sans service                    | `realtimeChannelCap.attack.test.ts` |
+| Les seuils de contre-pression appliqués par le transport              | `WsConnectionTransport.test.ts`     |
+| Le fan-out entre processus, sans aucune infrastructure                | `clusterIpc.e2e.test.ts`            |
+| Le fan-out entre machines par pub/sub                                 | `redisCluster.e2e.test.ts`          |
 
-## Liens
+> [!WARNING]
+> **Un run vert ne prouve pas le fan-out entre machines.** Le banc Redis est doublement conditionnel :
+> il n'est lancé que sur demande, et il se **saute** de lui-même si aucun Redis ne répond. Un test
+> sauté compte comme un succès — on peut donc lire « tout est vert » sur une suite qui n'a jamais
+> ouvert une connexion. Le fan-out entre workers, lui, ne demande rien et tourne toujours.
+>
+> ```bash
+> cd src/packages/@nodefony/realtime
+> npm test                                              # unitaires + IPC entre workers
+> RUN_CLUSTER_E2E=1 REDIS_PASSWORD=nodefony-dev npm test # + le fan-out entre machines
+> npm run coverage                                      # couverture (vitest, v8)
+> ```
 
-- [`index.md`](./index.md) — Vue d'ensemble + promesse DX
-- [`architecture.md`](./architecture.md) — Pile 5 étages (l'Étage 1 backplane est ici détaillé)
-- [`etat-actuel.md`](./etat-actuel.md) — Quoi marche / quoi manque
-- [`cookbook-chat.md`](./cookbook-chat.md) — Exemple complet
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [@nodefony/realtime — vue d'ensemble](index.md) ·
+  [Toute la documentation](../../../../../docs/index.md)
+- 📄 **Pages sœurs** : [Architecture](./architecture.md) (le contrat de backplane, l'anti-écho, le
+  cycle de vie d'un driver) · [Sécurité](./securite.md) (ce que le contrôle d'origine bloque
+  vraiment, l'identité, l'autorisation par canal) · [Vocabulaire](./vocabulaire.md) (les mots employés
+  ici) · [Cookbook — un chat](./cookbook-chat.md) (l'exemple complet)
+- 🧭 **Modules voisins** : [`@nodefony/redis`](../../redis/docs/index.md) (les connexions consommées
+  par le driver `redis`) · [`@nodefony/http`](../../http/docs/index.md) (la taille maximale d'un
+  message, les serveurs WebSocket) · [`@nodefony/security`](../../security/docs/index.md) (zones,
+  identité, droits)
+- 🏛️ **Transverse** : [la configuration d'une application](../../../../../docs/guides/configuration.md)
+  (`defineConfig`, `use()`, catalogue d'environnement) ·
+  [le backplane, vu du transport](../../../../../docs/realtime/socket/06-backplane.md)
+- 📖 [Lexique général](../../../../../docs/lexique.md) du framework.

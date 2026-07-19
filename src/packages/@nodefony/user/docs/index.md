@@ -112,11 +112,11 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 **Je fais migrer une base existante** — comptes déjà en bcrypt, ou venus d'un autre framework.
 
-1. [Les encodeurs](#%EF%B8%8F-les-briques-du-module) — comprendre `supports` / `hash` / `verify` / `needsRehash`.
-2. [Configuration](#%EF%B8%8F-configuration--choisir-et-faire-migrer-lencodeur) — déclarer la chaîne
+1. [Les encodeurs](#-les-briques-du-module) — comprendre `supports` / `hash` / `verify` / `needsRehash`.
+2. [Configuration](#-configuration--choisir-et-faire-migrer-lencodeur) — déclarer la chaîne
    `argon2id` **puis** `bcrypt` : le nouveau format s'écrit, l'ancien se lit encore.
 3. [Persistance](#entités-de-persistance-et-dialectes) — la forme attendue de la table/collection.
-4. [Pièges](#%EF%B8%8F-pièges-symptôme--cause--correction) — le piège de la migration inversée.
+4. [Pièges](#-pièges-symptôme--cause--correction) — le piège de la migration inversée.
 
 **J'ouvre un login social (« se connecter avec … »)** — et je ne veux pas offrir un compte admin.
 
@@ -147,7 +147,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 | `IUserProfile` + helpers                     | nom/prénom/avatar sous allowlist, hors du contrat d'identité | tu affiches un profil, tu acceptes un avatar       |
 | `UserAdminApi`                               | le data plane `/nodefony/user/api/*` (Studio)                | tu administres des comptes                         |
 
-### [`IUser`](#%EF%B8%8F-larchitecture-interne--trois-couches-étanches) — le contrat minimal
+### [`IUser`](#-larchitecture-interne--trois-couches-étanches) — le contrat minimal
 
 Cinq membres, pas un de plus : `id` (UUID), `identifier` (email ou login), `roles` (tableau **plat**),
 `hasRole()`, `isActive()`, `isLocked()` (`IUser.ts:31`). Aucun credential, aucun champ de persistance.
@@ -162,7 +162,7 @@ Extension à **un seul champ** : `readonly password: string | null`
 consommateurs (affichage, autorisation, logs) n'ont aucune raison de voir un credential, alors ils ne
 reçoivent que `IUser`. `null` est une valeur normale : c'est un compte 100 % externe.
 
-### [`BaseUser`](#%EF%B8%8F-larchitecture-interne--trois-couches-étanches) — le POJO de référence
+### [`BaseUser`](#-larchitecture-interne--trois-couches-étanches) — le POJO de référence
 
 Implémente `IPasswordAuthenticatedUser` et ajoute les **champs anti-migration** (`BaseUser.ts:44`) :
 `socialProviders` en JSON (jamais de colonnes `googleId`/`githubId`), `metadata` typée
@@ -177,19 +177,19 @@ Un singleton **gelé** avec un tableau de rôles gelé et partagé (`AnonymousUs
 allocation par requête non authentifiée. Conséquence de conception : le contexte de sécurité n'est
 jamais `null` — un visiteur **est** un utilisateur, porteur du seul rôle `ROLE_ANONYMOUS`.
 
-### [`Argon2idEncoder`](#%EF%B8%8F-configuration--choisir-et-faire-migrer-lencodeur) — le défaut, à mémoire dure
+### [`Argon2idEncoder`](#-configuration--choisir-et-faire-migrer-lencodeur) — le défaut, à mémoire dure
 
 Chaque vérification exige de la RAM en plus du CPU (19 MiB par défaut), ce qui ruine les attaques
 massivement parallèles (`Argon2idEncoder.ts:63`). Le binding natif est chargé **dynamiquement au
 premier usage** : instancier l'encodeur ne charge rien, et une app qui n'authentifie pas par mot de
 passe ne tire jamais le binaire.
 
-### [`BcryptEncoder`](#%EF%B8%8F-configuration--choisir-et-faire-migrer-lencodeur) — l'historique, toujours accepté
+### [`BcryptEncoder`](#-configuration--choisir-et-faire-migrer-lencodeur) — l'historique, toujours accepté
 
 Coût 12 par défaut, bornes `[4, 31]` (`BcryptEncoder.ts:35`). À garder **en lecture** quand tu
 reprends une base existante ; à ne plus choisir comme algorithme principal pour une nouvelle app.
 
-### [`MigratingEncoder`](#%EF%B8%8F-configuration--choisir-et-faire-migrer-lencodeur) — changer d'algorithme sans casse
+### [`MigratingEncoder`](#-configuration--choisir-et-faire-migrer-lencodeur) — changer d'algorithme sans casse
 
 Composite : `hash()` écrit **toujours** au format principal, `verify()` route vers le premier
 encodeur qui reconnaît le hash stocké, `needsRehash()` renvoie `true` dès que le hash n'est pas au

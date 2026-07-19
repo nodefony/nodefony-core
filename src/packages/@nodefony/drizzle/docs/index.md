@@ -135,7 +135,7 @@ parcours suit un ordre qui a une raison.
 **Je démarre une application** — le chemin le plus court vers des données qui survivent au redémarrage.
 
 1. [Démarrage rapide](#-démarrage-rapide) — la config, une entité, une requête. Copie-colle, ça marche.
-2. [Configuration](#%EF%B8%8F-configuration) — ce que tu peux régler, et ce qui se résout tout seul.
+2. [Configuration](#-configuration) — ce que tu peux régler, et ce qui se résout tout seul.
 3. [Les huit stores](#les-huit-stores-du-framework--la-persistance-clé-en-main) — pourquoi tu n'as
    rien câblé et que la session persiste quand même.
 4. [Le tutoriel d'entité d'orm-core](../../orm-core/docs/tutorial-entity.md) — pour aller au-delà d'une table.
@@ -146,7 +146,7 @@ parcours suit un ordre qui a une raison.
    SQLite, PostgreSQL et MySQL.
 2. [Migrations et création des tables](#migrations--ce-que-le-module-fait-et-ce-quil-ne-fait-pas) —
    **à lire avant le premier déploiement**, le DDL dérivé ne fait pas d'`ALTER`.
-3. [Pièges](#%EF%B8%8F-pièges) — les symptômes qu'on rencontre en changeant de base.
+3. [Pièges](#-pièges) — les symptômes qu'on rencontre en changeant de base.
 4. [Tests](#-tests--couverture) — comment prouver ton dialecte, au lieu de le supposer.
 
 **J'écris des requêtes** — de la plus portable à la plus spécifique.
@@ -168,7 +168,7 @@ Le tableau pour situer en cinq secondes ; les cards en dessous pour savoir où l
 
 | Brique                                                                    | Ce qu'elle résout                                 | Tu en as besoin quand…                       |
 | ------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------- |
-| [Connecteurs](#%EF%B8%8F-configuration)                                   | ouvrir une ou plusieurs bases, par dialecte       | toujours — c'est le point d'entrée           |
+| [Connecteurs](#-configuration)                                            | ouvrir une ou plusieurs bases, par dialecte       | toujours — c'est le point d'entrée           |
 | [Dialectes](#dialectes--une-base-par-déploiement-un-seul-code)            | SQLite, PostgreSQL, MySQL/MariaDB au même contrat | tu quittes le poste de développement         |
 | [Entités](#-démarrage-rapide)                                             | déclarer une table et son nom logique             | tu as des données à toi                      |
 | [Repository](#-api-publique--du-repository-au-sql-brut)                   | CRUD portable, opérateurs riches, pagination      | à chaque requête                             |
@@ -178,7 +178,7 @@ Le tableau pour situer en cinq secondes ; les cards en dessous pour savoir où l
 | [Migrations](#migrations--ce-que-le-module-fait-et-ce-quil-ne-fait-pas)   | créer et faire évoluer les tables                 | avant le premier déploiement                 |
 | [Studio](#-observabilité--studio)                                         | voir les connexions, les entités, le graphe       | tu veux comprendre ce qui tourne             |
 
-### [`connecteurs`](#%EF%B8%8F-configuration) — une connexion nommée, par dialecte
+### [`connecteurs`](#-configuration) — une connexion nommée, par dialecte
 
 Un connecteur = une base. Le connecteur `default` est celui que tout le framework utilise ; tu peux en
 déclarer d'autres (`analytics`, une fixture) qui vivront sur leur propre fichier ou serveur. Le

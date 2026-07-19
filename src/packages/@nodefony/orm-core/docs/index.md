@@ -86,14 +86,14 @@ Trois parcours selon ce que tu viens faire. L'ordre compte — chaque étape sup
 1. [🔎 Les critères de recherche](#-les-critères-de-recherche) — l'égalité, les opérateurs `$`, et
    le piège du `null` en SQL.
 2. [📄 Pagination portable](#-pagination-portable) — pourquoi `paginate()` évite le `COUNT(*)`.
-3. [⚙️ Le socle CRUD](#️-le-socle-crud--abstractcrudservice) — mettre la logique dans un service,
+3. [⚙️ Le socle CRUD](#-le-socle-crud--abstractcrudservice) — mettre la logique dans un service,
    pas dans un controller.
 4. [🧰 Les contrats](#-les-contrats--la-surface-publique) — la liste complète des verbes, et lequel
    choisir (`updateOne` vs `updateMany` vs `upsert`).
 
 **Je choisis mon backend / j'en branche un nouveau** — décision d'architecture.
 
-1. [🗄️ Backends pris en charge](#️-backends-pris-en-charge) — ce que couvre chaque driver, et ce
+1. [🗄️ Backends pris en charge](#-backends-pris-en-charge) — ce que couvre chaque driver, et ce
    qu'il ne couvre **pas** (choix assumé, pas un manque).
 2. [🧩 Extension](#-extension--brancher-son-propre-driver) — le contrat minimal d'un adapter.
 3. [ADR-0003](../../../../../docs/adr/0003-orm-core-abstraction-repository-multi-orm.md) — les
@@ -132,7 +132,7 @@ auras par défaut** en générant une application.
 
 La même surface `IRepository`, sur un modèle documentaire : schémas Mongoose, `populate` pour les
 relations déclarées, `$max`/`$min` natifs pour l'upsert. Il porte **les stores dont un déploiement
-Mongo a besoin** — voir [Backends pris en charge](#️-backends-pris-en-charge) pour la liste exacte.
+Mongo a besoin** — voir [Backends pris en charge](#-backends-pris-en-charge) pour la liste exacte.
 
 ### [`persistence`](../../../../../docs/guides/persistence.md) — l'infra vue de l'application
 
