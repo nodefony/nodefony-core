@@ -78,7 +78,9 @@
       "src/packages/@nodefony/frontend/nodefony/tests/unit/isolationGroups.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/unit/vitePortInUse.test.ts",
       "src/packages/@nodefony/http/nodefony/tests/unit/collectAssets.test.ts",
-      "src/packages/@nodefony/http/nodefony/tests/unit/prebuiltUi.test.ts"
+      "src/packages/@nodefony/http/nodefony/tests/unit/prebuiltUi.test.ts",
+      "src/nodefony/src/tests/command/Builder.test.ts",
+      "src/nodefony/src/tests/create.test.ts"
     ],
     "integration": [
       "src/packages/@nodefony/frontend/nodefony/tests/integration/frontend-build.test.ts",
