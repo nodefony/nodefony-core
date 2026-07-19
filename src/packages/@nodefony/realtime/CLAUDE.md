@@ -67,7 +67,7 @@ src/packages/@nodefony/realtime/
 │   ├── vocabulaire.md
 │   ├── architecture.md
 │   ├── configuration.md
-│   ├── etat-actuel.md
+│   ├── securite.md
 │   └── cookbook-chat.md
 └── nodefony/
     ├── interfaces/                     ← IBackplane, IRealtimeController, IRealtimeProbe, IRealtimeAuthenticator

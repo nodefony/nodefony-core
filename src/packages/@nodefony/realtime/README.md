@@ -107,8 +107,11 @@ Cf [`docs/configuration.md`](./docs/configuration.md) pour les 4 backplanes
 | [`docs/vocabulaire.md`](./docs/vocabulaire.md)     | 12 mots avec analogies physiques         |
 | [`docs/architecture.md`](./docs/architecture.md)   | Pile 5 étages + flot d'une frame cluster |
 | [`docs/configuration.md`](./docs/configuration.md) | Loopback / IPC / Redis / Kafka + custom  |
-| [`docs/etat-actuel.md`](./docs/etat-actuel.md)     | État réel + roadmap                      |
+| [`docs/securite.md`](./docs/securite.md)           | Autorisation des canaux, zones, plafonds |
 | [`docs/cookbook-chat.md`](./docs/cookbook-chat.md) | Exemple chat end-to-end                  |
+
+> L'avancement du module vit dans `MIGRATION_STATUS.md` (§ P13), jamais dans une page de doc :
+> une carte d'avancement figée dans le corpus se périme sans que personne ne la corrige.
 
 ## License
 
