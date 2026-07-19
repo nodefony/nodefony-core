@@ -57,6 +57,12 @@ Aucune pour l'instant (à exposer en Phase 11 si besoin : `redis:info`, `redis:f
 
 Infra : `docker compose -f docker/docker-compose.yml up -d` (password `nodefony-dev`). Lancer : `REDIS_PASSWORD=nodefony-dev npx vitest run` (ou défaut nodefony-dev si env absent).
 
+## Tests — résilience du SessionStorage
+
+- `session-resilience.test.ts` couvre ce que le banc comportemental ne PEUT pas exercer (il suppose un backend sain) : **connexion absente** (fail-soft de chaque verbe, sans infra) et **donnée hostile** (valeur corrompue ignorée sans emporter les sessions saines, curseur étranger). `destroy` rend `true` même sans client — idempotence VOULUE (l'appelant est un logout) ; `gc` est un no-op qui ne journalise rien (rien à dégrader : l'idle est porté par le TTL, l'absolute refusé à la lecture).
+- **`decodeCursor` ne validait que le `skip`** : le curseur SCAN partait vers Redis tel quel → un `?cursor=`
+  arbitraire faisait LEVER la lecture, alors que le TSDoc promettait de tolérer un curseur « malformé ». `scanOrZero` impose `/^\d+$/` → repli sur `"0"` (faux au pire d'une page ; jeter était faux à coup sûr).
+
 ## Tests — gates d'infra (⚠️ DEUX variables)
 
 - `REDIS_URL` = bancs de pagination (fake intégré si absente) · `REDIS_TEST_URL` = banc **comportemental** sur index dédié (`/15`). Les deux portent le **mot de passe** : le serveur du compose tourne en `requirepass` → sans lui, `NOAUTH` (et non un skip).

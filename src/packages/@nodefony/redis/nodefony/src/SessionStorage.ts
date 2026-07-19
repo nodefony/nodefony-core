@@ -34,19 +34,33 @@ function encodeCursor(scanCursor: string, skip: number): string {
   return `${skip}:${scanCursor}`;
 }
 
-/** Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé. */
+/**
+ * Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé.
+ *
+ * Le jeton vient de l'extérieur (query string du data plane admin, client qui
+ * rejoue une page) : il n'est donc PAS digne de confiance. Un curseur `SCAN`
+ * Redis est toujours une suite de chiffres — tout le reste repart de `"0"`
+ * plutôt que d'être transmis au serveur, qui répondrait par une erreur et ferait
+ * échouer une simple consultation. Repartir du début est faux au pire d'une
+ * page ; jeter serait faux à coup sûr.
+ */
 function decodeCursor(cursor?: string): { scanCursor: string; skip: number } {
   if (!cursor) return { scanCursor: "0", skip: 0 };
   const sep = cursor.indexOf(":");
   if (sep === -1) {
-    // Curseur Redis nu (client externe, ancien format) → on l'honore tel quel.
-    return { scanCursor: cursor, skip: 0 };
+    // Curseur Redis nu (client externe, ancien format) → honoré s'il est valide.
+    return { scanCursor: scanOrZero(cursor), skip: 0 };
   }
   const skip = Number.parseInt(cursor.slice(0, sep), 10);
   return {
-    scanCursor: cursor.slice(sep + 1) || "0",
+    scanCursor: scanOrZero(cursor.slice(sep + 1)),
     skip: Number.isFinite(skip) && skip > 0 ? skip : 0,
   };
+}
+
+/** Un curseur `SCAN` exploitable (chiffres) ou `"0"` — jamais du texte libre. */
+function scanOrZero(value: string): string {
+  return /^\d+$/.test(value) ? value : "0";
 }
 
 /**
