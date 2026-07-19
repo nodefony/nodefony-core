@@ -129,8 +129,14 @@ for (const md of args) {
   const mdLines = fs.readFileSync(md, "utf8").split("\n");
   const pageProblems = [];
 
-  mdLines.forEach((mdLine, i) => {
-    for (const m of mdLine.matchAll(ANCHOR_RE)) {
+  mdLines.forEach((line, i) => {
+    // Contexte = la ligne + la précédente : prettier wrappe les phrases, l'ancre
+    // peut être séparée du symbole qu'elle prouve par un retour à la ligne.
+    // SAUF dans un tableau : chaque rangée est autonome — hériter de la rangée
+    // du dessus fabriquerait de faux symboles de contexte.
+    const isTableRow = line.trimStart().startsWith("|");
+    const mdLine = !isTableRow && i > 0 ? mdLines[i - 1] + " " + line : line;
+    for (const m of line.matchAll(ANCHOR_RE)) {
       const [raw, ref, startS, endS] = m;
       total++;
       const start = Number(startS);
@@ -156,10 +162,13 @@ for (const md of args) {
           best = { kind: "OK", cand };
           break;
         }
+        // Match insensible à la casse : `setFrameAuthorizer` doit satisfaire le
+        // token `frameAuthorizer` (conventions camelCase vs nom de propriété).
         const win = code
           .slice(Math.max(0, start - 11), Math.min(code.length, end + 15))
-          .join("\n");
-        if (tokens.some((t) => win.includes(t))) {
+          .join("\n")
+          .toLowerCase();
+        if (tokens.some((t) => win.includes(t.toLowerCase()))) {
           best = { kind: "OK", cand };
           break;
         }

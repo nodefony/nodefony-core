@@ -21,7 +21,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-07-18
+updated: 2026-07-19
 source: "src/packages/@nodefony/security/docs/firewall.md"
 ---
 
@@ -49,15 +49,16 @@ flowchart TD
   AU -->|succès| OK["user + token dans l'ALS → contrôleur"]
 ```
 
-`isSecure()` (`firewall.ts:537-555`) rattache la requête à une **zone** (`matchPath` `:529-535`) ;
-`handleSecurity()` (`:561-659`) décide. Les zones sont triées par **spécificité** — le motif le plus
-long gagne, pas le premier déclaré (`:223-232`).
+`Firewall.isSecure()` (`firewall.ts:538`) rattache la requête à une **zone** via
+`Firewall.matchPath()` (`firewall.ts:529`) ; `Firewall.handleSecurity()` (`firewall.ts:561`) décide.
+Les zones sont triées par **spécificité** dans `#build()` — `list.sort` par longueur de motif :
+le plus long gagne, pas le premier déclaré (`firewall.ts:230`).
 
 ## Lexique
 
 | Terme         | Sens                                                                            |
 | ------------- | ------------------------------------------------------------------------------- |
-| Zone          | Un motif d'URL (+ host) avec sa politique (`config.areas`).                     |
+| Zone          | Un motif d'URL (+ host) avec sa politique (`config.areas`, un objet par nom).   |
 | Authenticator | Une stratégie d'identification (session, userpassword, jwt, apikey, anonymous). |
 | Zero Trust    | Sans preuve valide sur une zone protégée → 401.                                 |
 | Challenge     | En-tête `WWW-Authenticate` (RFC 7235) qui dit comment s'authentifier.           |
@@ -67,71 +68,102 @@ long gagne, pas le premier déclaré (`:223-232`).
 
 ## Démarrage rapide
 
-### 1) Protéger une zone web (session, le cas le plus courant)
+### Dans une app `nodefony create app`, le firewall est DÉJÀ actif
 
-Le web suit le modèle **BFF** : l'utilisateur se connecte une fois (formulaire → le serveur pose un
-cookie de session), puis chaque requête est prouvée par la **session**. Trois étapes :
+Le scaffold déclare deux zones dans `nodefony.config.ts` — c'est la forme canonique (un **objet par
+nom**, validé Zod au boot : `areas: z.record(...)`, `config.ts:902`) :
 
 ```typescript
-// (a) déclarer la zone protégée dans la config sécurité
+// nodefony.config.ts (extrait généré par `nodefony create app`)
 use("@nodefony/security", {
-  areas: [
-    {
-      name: "app",
-      pattern: "^/(?!login)",
-      authenticators: ["session"],
-      mode: "first",
+  areas: {
+    // Zone de TES routes : `session` PUIS `anonymous` → identifié si cookie,
+    // sinon visiteur accepté. Hors zone, l'identité n'est JAMAIS résolue.
+    main: {
+      pattern: "^/api",
+      authenticators: ["session", "anonymous"],
     },
-  ],
+    // Zone PROTÉGÉE — pattern PLUS SPÉCIFIQUE que ^/api : le firewall trie
+    // par longueur → /api/secure/* tombe ICI. Pas d'`anonymous` : sans
+    // session → 401 AVANT ton controller (Zero Trust).
+    secure: {
+      pattern: "^/api/secure",
+      authenticators: ["session"],
+    },
+  },
+  roleHierarchy: {
+    ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN", "ROLE_SUPERVISOR", "ROLE_DEV"],
+    ROLE_ADMIN: ["ROLE_USER"],
+  },
 });
 ```
 
-```typescript
-// (b) le login : le contrôleur BFF vérifie l'identifiant/mot de passe et ouvre la session
-//     (AuthFlow.login pose l'identité dans le blob de session + régénère l'ID — anti-fixation)
-@controller("/login")
-class LoginController extends Controller {
-  @Post("/")
-  async login(@Body() body: { username: string; password: string }) {
-    const outcome = await this.get("authFlow").login(
-      this.context,
-      body.username,
-      body.password,
-    );
-    return this.renderJson(outcome); // Set-Cookie de session émis par le pipeline
-  }
-}
-```
+**Le login est FOURNI** : le module security expose le BFF `POST /nodefony/security/api/auth/login`
+(body `{ username, password }` → `Set-Cookie` de session ; `AuthFlow.login` régénère l'ID de session
+— anti-fixation OWASP). Pas de LoginController à écrire.
+
+### Ce que TU écris : le controller protégé
 
 ```typescript
-// (c) une route protégée : à ce stade, context.user est GARANTI (le firewall a authentifié)
-@controller("/account")
+// nodefony/controllers/AccountController.ts — complet, compile tel quel
+import {
+  controller,
+  Controller,
+  Get,
+  IsGranted,
+  CurrentUser,
+} from "@nodefony/framework";
+import type { ContextType } from "@nodefony/http";
+import type { IUser } from "@nodefony/user";
+
+@controller("/api/secure/account")
 class AccountController extends Controller {
+  // Zone `secure` : context.user est GARANTI ici (le firewall a authentifié).
+  // @IsGranted ajoute l'AUTORISATION : il faut aussi le rôle.
   @IsGranted(["ROLE_USER"])
   @Get("/me")
-  async me() {
-    return this.renderJson({ me: this.context.user }); // ré-résolu à chaque requête (rôles frais)
+  async me(@CurrentUser() user: IUser) {
+    // identité ré-résolue à chaque requête → rôles frais, révocation immédiate
+    return this.renderJson({ identifier: user.identifier, roles: user.roles });
   }
 }
+
+export default AccountController;
 ```
 
-Ce que voit le client : après `(b)`, son navigateur détient le cookie ; il ne renvoie **rien d'autre**
-— la session est la preuve. Une session absente/expirée sur `/account/me` → **401 nu**, et le front
-redirige vers son écran de login (pas de popup Basic).
+(Wiring : `@controllers([AccountController])` dans le module de l'app — `nodefony create controller`
+le fait pour toi.)
 
-### 2) Protéger une API (jwt et/ou apikey)
+### Ce qu'on observe
+
+```bash
+# 1) Sans session : Zero Trust → 401 (aucun code à toi n'a tourné)
+curl -si http://localhost:5151/api/secure/account/me | head -1
+# HTTP/1.1 401 Unauthorized
+
+# 2) Login BFF (compte dev seedé admin/admin) → cookie de session
+curl -si -c /tmp/jar -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin"}' \
+  http://localhost:5151/nodefony/security/api/auth/login | head -1
+# HTTP/1.1 200 OK
+
+# 3) Rejouer avec le cookie → 200, identité résolue
+curl -s -b /tmp/jar http://localhost:5151/api/secure/account/me
+# {"identifier":"admin","roles":["ROLE_NODEFONY_ADMIN", …]}
+```
+
+### Protéger une API machine (jwt et/ou apikey)
 
 ```typescript
 use("@nodefony/security", {
-  areas: [
-    // jwt et apikey cohabitent : ils se distinguent par la FORME du bearer (voir plus bas)
-    {
-      name: "api",
-      pattern: "^/api",
+  areas: {
+    // jwt et apikey cohabitent : discriminés par la FORME du bearer (voir plus bas)
+    api: {
+      pattern: "^/api/v1",
       authenticators: ["jwt", "apikey"],
       mode: "first",
     },
-  ],
+  },
 });
 ```
 
@@ -160,92 +192,103 @@ Point commun de sécurité : **message d'échec uniforme** (`"Invalid token"` / 
 
 ### `session` — la preuve du web après login
 
-Credential = l'**identifiant** posé dans le blob de session (jamais un secret). `supports()` exige une
-session **reprise** portant un user (`context.session.user`, `SessionAuthenticator.ts:43-46`) — il ne
-démarre jamais la session lui-même (le pipeline le fait avant le firewall). Constat clé : l'identité
-est **re-résolue à chaque requête** via `resolveSessionIdentity` (`:70`) → rôles frais, révocation et
-verrouillage effectifs **immédiatement**. Pas de `challenge()` : session absente = 401 nu → le front
-redirige. Piège : c'est `AuthFlow.login` (BFF) qui ouvre la session et régénère l'ID (anti-fixation),
-pas cet authenticator.
+Credential = l'**identifiant** posé dans le blob de session (jamais un secret).
+`SessionAuthenticator.supports()` exige une session **reprise** portant un user
+(`SessionAuthenticator.ts:43`) — il ne démarre jamais la session lui-même (le pipeline le fait avant
+le firewall). Constat clé : l'identité est **re-résolue à chaque requête** via
+`resolveSessionIdentity()` (`SessionAuthenticator.ts:70`) → rôles frais, révocation et verrouillage
+effectifs **immédiatement**. Pas de `challenge()` : session absente = 401 nu → le front redirige.
+Piège : c'est `AuthFlow.login()` (BFF) qui ouvre la session et régénère l'ID (anti-fixation), pas cet
+authenticator.
 
 ### `userpassword` — HTTP Basic, avec throttle NIST
 
-Credential = `Authorization: Basic base64(identifiant:motdepasse)` (RFC 7617, split au **premier** `:`,
-`UserPasswordAuthenticator.ts:74-81`). La vérification (hash, comparaison, leurre anti-timing, re-hash)
-est **déléguée** au `IPasswordVerifier` (le `UserService`) — l'authenticator ne voit que le verdict.
-Constat de sécurité fort : le **throttling NIST SP 800-63B** vérifie l'identifiant **AVANT** d'appeler
-le verifier (`:101-104`) → un identifiant bloqué ne coûte **aucun hash argon2** (protège le serveur
-d'un DoS par hachage), échec → backoff, `ThrottledError` → **429 + `Retry-After`**. Challenge :
-`Basic realm="nodefony"`. Piège : le login **par formulaire** (JSON) n'est **pas** ici — il passe par
-le BFF (`AuthController`) qui appelle le verifier directement ; Basic sert l'outillage.
+Credential = `Authorization: Basic base64(identifiant:motdepasse)` (RFC 7617, split au **premier**
+`:`, `UserPasswordAuthenticator.createToken()`, `UserPasswordAuthenticator.ts:74`). La vérification
+(hash, comparaison, leurre anti-timing, re-hash) est **déléguée** au `IPasswordVerifier` (le
+`UserService`) — l'authenticator ne voit que le verdict. Constat de sécurité fort : le **throttling
+NIST SP 800-63B** vérifie l'identifiant **AVANT** d'appeler le verifier
+(`UserPasswordAuthenticator.ts:101`) → un identifiant bloqué ne coûte **aucun hash argon2** (protège
+le serveur d'un DoS par hachage), échec → backoff, `ThrottledError` → **429 + `Retry-After`**.
+Challenge : `Basic realm="nodefony"`. Piège : le login **par formulaire** (JSON) n'est **pas** ici —
+il passe par le BFF (`/nodefony/security/api/auth/login`) qui appelle le verifier directement ; Basic
+sert l'outillage.
 
 ### `jwt` — Bearer JWT signé, durci RFC 8725
 
-Credential = `Authorization: Bearer <jws>` de structure compacte `a.b.c` (`JwtAuthenticator.ts:14-20`).
-Réservé API service↔service / agents (le web reste sur la session). Access token **EdDSA** signé par le
-keystore du serveur. Défenses **dures**, prouvées en test (RFC 8725 JWT BCP) :
+Credential = `Authorization: Bearer <jws>` de structure compacte `a.b.c` (`JwtAuthenticator.ts:14`).
+Réservé API service↔service / agents (le web reste sur la session). Access token **EdDSA** signé par
+le keystore du serveur. Défenses **dures**, prouvées en test (RFC 8725 JWT BCP), toutes dans
+`JwtAuthenticator.authenticate()` :
 
-- **allowlist d'algorithmes** `["EdDSA"]` — l'algo n'est **jamais** choisi d'après l'en-tête du token ;
-  `alg=none` rejeté (`:104`).
+- **allowlist d'algorithmes** `["EdDSA"]` — l'algo n'est **jamais** choisi d'après l'en-tête du
+  token ; `alg=none` rejeté (`JwtAuthenticator.ts:104`).
 - **clé par `kid` depuis le JWKS LOCAL** (`createLocalJWKSet`) — jamais `jku`/`jwk` de l'en-tête
-  (anti-injection de clé / SSRF, `:155-159`).
-- **`aud` + `iss` obligatoires** + `typ:"at+jwt"` (un refresh présenté comme access est rejeté) + exp/nbf
-  (`:105-108`).
-- **révocation** malgré l'auto-portage : denylist `jti` + `invalidBefore` par sujet (`:122-132`).
-- **sujet revérifié** à réception (`loadUserByIdentifier(sub)`) : compte disparu/inactif/verrouillé =
-  rejet (`:174-187`).
+  (anti-injection de clé / SSRF, `JwtAuthenticator.ts:155`).
+- **`aud` + `iss` obligatoires** + `typ:"at+jwt"` (un refresh présenté comme access est rejeté) +
+  exp/nbf (`JwtAuthenticator.ts:105-108`).
+- **révocation** malgré l'auto-portage : denylist `jti` + `invalidBefore` par sujet
+  (`JwtAuthenticator.ts:122-132`).
+- **sujet revérifié** à réception (`loadUserByIdentifier(sub)`) : compte disparu/inactif/verrouillé
+  = rejet (`JwtAuthenticator.ts:174-187`).
 
-Le token promu porte `scopes`, `jti`, `claims` (`:162-172`). Piège : un JWT est auto-porté → sans état
-serveur il n'est **pas** révocable ; c'est la denylist/`invalidBefore` qui le rend révocable.
+Le token promu porte `scopes`, `jti`, `claims` (`JwtAuthenticator.ts:162-172`). Piège : un JWT est
+auto-porté → sans état serveur il n'est **pas** révocable ; c'est la denylist/`invalidBefore` qui le
+rend révocable.
 
 ### `apikey` — clé d'API opaque (PAT), révocable
 
-Credential = `Authorization: Bearer <prefix>_…` (`ApiKeyAuthenticator.ts:67-73`). Contrairement au JWT,
+Credential = `Authorization: Bearer <prefix>_…` (`ApiKeyAuthenticator.ts:67`). Contrairement au JWT,
 c'est un **bearer opaque** : sa vérité vit côté serveur (`ITokenStore`) → **révocable immédiatement**.
-Défenses : **forme + CRC validés AVANT tout accès au store** (`parseApiKey`, anti-DoS, `:98-102`),
-lookup par **hash sha256** (le secret n'existe nulle part au repos, `:105`), révocation (`revokedAt`) +
-expiration (`expiresAt`) + **ban en masse** du porteur (`invalidBefore` vs `createdAt`, `:117-120`),
-sujet revérifié (rôles frais, `:122-123`), `lastUsedAt` écrit en **throttlé** (`:127-134`). Le token
-porte `scopes`, `apiKeyId`, `tenantId` (`:138-140`). Constat : `jwt` et `apikey` **cohabitent** dans une
-zone car ils se discriminent par la forme (JWT = `a.b.c`, PAT = `prefix_…`).
+Défenses de `ApiKeyAuthenticator.authenticate()` : **forme + CRC validés AVANT tout accès au store**
+(`parseApiKey()`, anti-DoS, `ApiKeyAuthenticator.ts:98`), lookup par **hash sha256** (le secret
+n'existe nulle part au repos, `:105`), révocation (`revokedAt`) + expiration (`expiresAt`) + **ban en
+masse** du porteur (`invalidBefore` vs `createdAt`, `:117-120`), sujet revérifié (rôles frais,
+`:122`), `lastUsedAt` écrit en **throttlé** (`:127-134`). Le token porte `scopes`, `apiKeyId`,
+`tenantId` (`:138-140`). Constat : `jwt` et `apikey` **cohabitent** dans une zone car ils se
+discriminent par la forme (JWT = `a.b.c`, PAT = `prefix_…`).
 
 ### `anonymous` — accepter l'anonymat, explicitement
 
 Le **seul** authenticator qui produit un token non authentifié **sans** déclencher le Zero Trust
 (`AnonymousAuthenticator.ts:6-18`). À lister **volontairement** : `["jwt", "anonymous"]` en mode
-`first` = « identifié si preuve présente, sinon **visiteur anonyme accepté** ». En mode `all`, utile en
-dernier : « le canal doit être prouvé (ex. mTLS), l'identité utilisateur est optionnelle ». Coût nul :
-`supports()` accepte tout, le token porte le singleton gelé `anonymousUser` (0 allocation). Piège :
-sans lui, zone protégée + aucune preuve = 401.
+`first` = « identifié si preuve présente, sinon **visiteur anonyme accepté** ». En mode `all`, utile
+en dernier : « le canal doit être prouvé (ex. mTLS), l'identité utilisateur est optionnelle ». Coût
+nul : `supports()` accepte tout, le token porte le singleton gelé `anonymousUser` (0 allocation).
+Piège : sans lui, zone protégée + aucune preuve = 401.
 
 ### `session-realtime` — la session, côté WebSocket (câblé auto)
 
-Équivalent WS de `session`, **enregistré automatiquement** par le firewall au handshake des zones
-protégées `realtime` (`firewall.ts:269`). Constat de perf : il **ne relit pas la base** — il réutilise
-l'identité déjà posée en ALS par le firewall (handshake + frames tournent dans **la même bulle ALS**),
-évitant 2 lectures base par connexion (`SessionRealtimeAuthenticator.ts:16-25`). Asymétrie **assumée**
-HTTP↔WS : le jeton est **figé au handshake** (les frames lisent un cache O(1)) → une révocation prend
-effet **à la reconnexion**, pas à la frame suivante — c'est l'état de l'art (Socket.IO/Phoenix figent
-aussi). Un revalidator re-lit la session avant chaque action data plane ; fail-closed → fermeture 4001.
+Équivalent WS de `session`, **enregistré automatiquement** par `Firewall.#wireRealtime()` au
+handshake des zones protégées `realtime` (`firewall.ts:269`). Constat de perf : il **ne relit pas la
+base** — il réutilise l'identité déjà posée en ALS par le firewall (handshake + frames tournent dans
+**la même bulle ALS**), évitant 2 lectures base par connexion (`SessionRealtimeAuthenticator.ts:16-25`).
+Asymétrie **assumée** HTTP↔WS : le jeton est **figé au handshake** (les frames lisent un cache O(1))
+→ une révocation prend effet **à la reconnexion**, pas à la frame suivante — c'est l'état de l'art
+(Socket.IO/Phoenix figent aussi). Un revalidator re-lit la session avant chaque action data plane ;
+fail-closed → fermeture 4001.
 
 ## Ordre et modes (`mode: "first"` vs `"all"`)
 
-L'ordre effectif = la liste `area.authenticators` (`firewall.ts:918-976`) :
+L'ordre effectif = la liste `area.authenticators`, déroulée par `Firewall.#authenticate()`
+(`firewall.ts:918`) :
 
 - **`first`** : le premier dont `supports()` est vrai authentifie. Un credential **présenté mais
-  invalide échoue sans fallback** (`:934-935`) — on ne réessaie pas un autre authenticator avec le même
-  credential. C'est le mode courant.
-- **`all`** : chaque maillon est **obligatoire** ; le **dernier** token porte l'identité (`:936-939`).
-  Pour empiler des exigences (ex. `session` **puis** un facteur supplémentaire).
+  invalide échoue sans fallback** (`firewall.ts:934`) — on ne réessaie pas un autre authenticator
+  avec le même credential. C'est le mode courant.
+- **`all`** : chaque maillon est **obligatoire** ; le **dernier** token porte l'identité
+  (`firewall.ts:936-939`). Pour empiler des exigences (ex. `session` **puis** un facteur
+  supplémentaire).
 
-Un nom d'authenticator inconnu en config **fait échouer le boot** (fail-closed, `:363-387`) — jamais de
-zone « protégée » silencieusement ouverte.
+Un nom d'authenticator inconnu en config **fait échouer le boot** —
+`Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:363`) : jamais de zone
+« protégée » silencieusement ouverte.
 
 ## Autorisation — rôles, scopes, voters (« as-tu le droit ? »)
 
 L'authentification dit **qui** tu es ; l'autorisation dit **ce que tu peux faire**. On déclare
-l'exigence sur l'action, un **jury de voters** tranche. La garde s'applique **avant l'instanciation du
-contrôleur** (seam Resolver) — une action protégée ne s'exécute jamais pour un non-autorisé.
+l'exigence sur l'action, un **jury de voters** tranche. La garde s'applique **avant l'instanciation
+du contrôleur** (seam Resolver) — une action protégée ne s'exécute jamais pour un non-autorisé.
 
 ```typescript
 @IsGranted(["ROLE_ADMIN"])                 // rôle — OR interne : un seul attribut suffit
@@ -260,43 +303,52 @@ contrôleur** (seam Resolver) — une action protégée ne s'exécute jamais pou
 
 ### Le jury et sa stratégie
 
-`Authorization.decide(token, attribut, subject?)` (`service/authorization.ts:70`) applique une stratégie
-**affirmative + DENY veto**, fermée par défaut (**Zero Trust**) :
+`Authorization.decide(token, attribut, subject?)` (`service/authorization.ts:70`) applique une
+stratégie **affirmative + DENY veto**, fermée par défaut (**Zero Trust**) :
 
-- un seul **`DENY`** bloque (veto, court-circuit — inutile de finir le jury, `:94-97`) ;
+- un seul **`DENY`** bloque (veto, court-circuit — inutile de finir le jury,
+  `authorization.ts:94-97`) ;
 - sinon un **`GRANT`** suffit ;
-- **silence total** (tous `ABSTAIN`, ou aucun voter compétent) → **`DENY`** (`:100-108`) ;
-- un voter qui **throw** → **`DENY`** + log ERROR (fail-closed : jamais 500, jamais octroi, `:85-93`).
+- **silence total** (tous `ABSTAIN`, ou aucun voter compétent) → **`DENY`**
+  (`authorization.ts:100-108`) ;
+- un voter qui **throw** → **`DENY`** + log ERROR (fail-closed : jamais 500, jamais octroi,
+  `authorization.ts:85-93`).
 
-Tout refus est audité (WARNING + `recordAudit`, `:113-142`) ; les octrois restent muets (volume, pas un
-signal). Les voters sont instanciés **une fois au boot** via le registre (aucun nom en dur, `:55-64`).
+Tout refus est audité (WARNING + `recordAudit`, `authorization.ts:113-142`) ; les octrois restent
+muets (volume, pas un signal). Les voters sont instanciés **une fois au boot** via le registre
+(aucun nom en dur, `authorization.ts:55-64`).
 
 ### Les voters intégrés — deux axes
 
 - **RoleVoter** (`role`, attributs `ROLE_*`) — `GRANT` si l'utilisateur a le rôle, **hiérarchie
-  résolue** ; **`ABSTAIN` sinon**, jamais `DENY` (`RoleVoter.ts:25-39`). Constat : l'absence d'un rôle
-  ne doit pas opposer son veto aux autres axes — c'est le **default-DENY du jury** qui ferme la porte,
-  pas ce voter. C'est ce qui rend une clause OR (`@IsGranted(["A","B"])`) possible.
-- **ScopeVoter** (`scope`, attributs `api:action`) — le constat le plus important : un scope **ne bride
-  jamais un humain**. Un jeton `session`/`userpassword`/`anonymous` → `GRANT` (no-op : l'autorisation
-  d'un humain passe par ses **rôles**). Un jeton **machine délégué** (`apikey`/`jwt`/`oauth2`) → `GRANT`
-  si le scope exact est présent, `ABSTAIN` sinon. Et c'est **fail-closed côté machine** : tout type de
-  jeton **hors** de la liste « non scopable » — présent ou futur (`mtls`, `agent`…) — est traité comme
-  scopable, donc **bridé par défaut** (`ScopeVoter.ts:17-62`). Rôles = qui tu es ; scopes = ce qu'une
-  **clé** a le droit de faire.
+  résolue** ; **`ABSTAIN` sinon**, jamais `DENY` (`RoleVoter.vote()`, `RoleVoter.ts:25-39`).
+  Constat : l'absence d'un rôle ne doit pas opposer son veto aux autres axes — c'est le
+  **default-DENY du jury** qui ferme la porte, pas ce voter. C'est ce qui rend une clause OR
+  (`@IsGranted(["A","B"])`) possible.
+- **ScopeVoter** (`scope`, attributs `api:action`) — le constat le plus important : un scope **ne
+  bride jamais un humain**. Un jeton `session`/`userpassword`/`anonymous` → `GRANT` (no-op :
+  l'autorisation d'un humain passe par ses **rôles**). Un jeton **machine délégué**
+  (`apikey`/`jwt`/`oauth2`) → `GRANT` si le scope exact est présent, `ABSTAIN` sinon. Et c'est
+  **fail-closed côté machine** : tout type de jeton **hors** de la liste « non scopable » — présent
+  ou futur (`mtls`, `agent`…) — est traité comme scopable, donc **bridé par défaut**
+  (`ScopeVoter.vote()`, `ScopeVoter.ts:17-62`). Rôles = qui tu es ; scopes = ce qu'une **clé** a le
+  droit de faire.
 
 ### La hiérarchie de rôles
 
 `RoleHierarchyWalker` (`src/RoleHierarchyWalker.ts`) : `ROLE_ADMIN` hérite `ROLE_USER`, etc.
-**Aplatissement précalculé au boot** → `hasRole()` est O(1) sur le hot path (`:23-30`), et les **cycles
-sont détectés au boot** (throw avec le chemin complet, pas de fail-silent, `:69-95`). La hiérarchie est
-posée au container par le firewall au boot ; le `RoleVoter` la lit en lazy.
+**Aplatissement précalculé au boot** → `hasRole()` est O(1) sur le hot path
+(`RoleHierarchyWalker.ts:23-30`), et les **cycles sont détectés au boot** (throw avec le chemin
+complet, pas de fail-silent, `RoleHierarchyWalker.ts:69-95`). La hiérarchie est posée au container
+par le firewall au boot ; le `RoleVoter` la lit en lazy.
 
 ### Voters métier (le vrai pouvoir applicatif)
 
 Pour une règle qui dépend des **données** (ownership, tenant, état), on enregistre une fabrique :
 
 ```typescript
+import { registerVoterFactory } from "@nodefony/security";
+
 registerVoterFactory(
   "projectVoter",
   ({ container }) => new ProjectVoter(container),
@@ -305,58 +357,64 @@ registerVoterFactory(
 //   l'utilisateur est-il propriétaire/membre du `subject` ? GRANT / DENY / ABSTAIN.
 ```
 
-Le voter est **découvert automatiquement** par l'`AuthorizationService`, aucun changement dans le cœur
-(`voterRegistry.ts:39-59`). Pourquoi un registre et pas un scan DI des `@injectable` : les interfaces TS
-sont **effacées à la compilation** — rien à scanner ; le registre **est** le marqueur explicite
-(`voterRegistry.ts:6-16`). Trois axes (rôles, scopes, métier), un même jury, combinables.
+Le voter est **découvert automatiquement** par l'`AuthorizationService` — aucun changement dans le
+cœur (`registerVoterFactory()`, `voterRegistry.ts:40`). Pourquoi un registre et pas un scan DI des
+`@injectable` : les interfaces TS sont **effacées à la compilation** — rien à scanner ; le registre
+**est** le marqueur explicite (TSDoc du registre, `voterRegistry.ts:6-16`). Trois axes (rôles,
+scopes, métier), un même jury, combinables.
 
 ## HTTP et WebSocket — le même firewall
 
-`#wireRealtime()` (`firewall.ts:253-331`) câble, pour toute zone protégée `realtime !== false`
-(opt-out, `:262`), le `SessionRealtimeAuthenticator` au handshake (`:269`) **et** un `frameAuthorizer`
-(RBAC par canal, `:297-311`). Même résolution de zone que HTTP. Sur une socket, un refus n'a pas
-d'en-tête `WWW-Authenticate` (`:981-992`) : le **code de fermeture** suffit.
+`Firewall.#wireRealtime()` (`firewall.ts:253`) câble, pour toute zone protégée `realtime !== false`
+(opt-out, `firewall.ts:262`), le `SessionRealtimeAuthenticator` au handshake (`firewall.ts:269`)
+**et** un `frameAuthorizer` (RBAC par canal, `firewall.ts:297`). Même résolution de zone que HTTP.
+Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setChallenge()`,
+`firewall.ts:981`) : le **code de fermeture** suffit.
 
 ## En-têtes de sécurité, CSRF, CORS
 
-- **`applySecurityHeaders()`** (`:835-866`) : CSP, Referrer-Policy, COOP/COEP/CORP au-dessus du socle
-  transport de `@nodefony/http`. **Nonce CSP paresseux** (`:855-865`) : alloué seulement si une
-  directive en a besoin.
-- **`enforceCsrf()`** (défense en profondeur) : Fetch Metadata (`Sec-Fetch-Site`) + garde `Origin`
-  (`:764-776`), puis double-submit `x-csrf-token` ≡ cookie + HMAC (`:778-784`).
-- **`handleCors()`** : preflight `OPTIONS` → 204 (`:797-823`).
+- **`Firewall.applySecurityHeaders()`** (`firewall.ts:835`) : CSP, Referrer-Policy, COOP/COEP/CORP
+  au-dessus du socle transport de `@nodefony/http`. **Nonce CSP paresseux** (`hasNonce`, `firewall.ts:855`) :
+  alloué seulement si une directive en a besoin.
+- **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:741`) : Fetch Metadata
+  (`Sec-Fetch-Site`) + garde `Origin` (`firewall.ts:764`), puis double-submit `x-csrf-token` ≡
+  cookie + HMAC (`firewall.ts:778`).
+- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:797`).
 
 ## Normes appliquées
 
 | Domaine                | Norme           | Ancrage                                                |
 | ---------------------- | --------------- | ------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 7235        | `firewall.ts:122,559,978`                              |
+| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:981`)         |
 | Bearer                 | RFC 6750        | `JwtAuthenticator.ts:13` · `ApiKeyAuthenticator.ts:11` |
 | JWT (BCP)              | RFC 7519, 8725  | `JwtAuthenticator.ts:33-44,104-108`                    |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator.ts:10-28`                   |
-| Rate limit (429)       | RFC 6585        | `firewall.ts:585-587`                                  |
+| Rate limit (429)       | RFC 6585        | 429 + `Retry-After` (`firewall.ts:585`)                |
 | Backoff de login       | NIST SP 800-63B | `UserPasswordAuthenticator.ts:43-46,101-104`           |
-| CSRF                   | Fetch Metadata  | `firewall.ts:764,791`                                  |
-| Modèle                 | Zero Trust      | `firewall.ts:113,611`                                  |
+| CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:741`)           |
+| Modèle                 | Zero Trust      | `firewall.ts:611` (aucune preuve → 401)                |
 
 ## Performance & mémoire
 
-Le découpage chaud/froid EST l'optimisation : `isSecure()` (chaque requête) ne fait qu'un `matchPath` ;
-`handleSecurity()` (throttler, authenticators, nonce CSP, `securityTrace`) n'est payé que sur zone
-protégée. Les dépendances des authenticators (keystore, tokenStore, userProvider, verifier, jose) sont
-résolues **paresseusement** au premier usage (cold path) ; `jose` est importé lazy (dep lourde). Le
-nonce CSP et le `securityTrace` sont alloués à la demande. Une route publique ne paie quasiment rien.
+Le découpage chaud/froid EST l'optimisation : `isSecure()` (chaque requête) ne fait qu'un
+`matchPath` ; `handleSecurity()` (throttler, authenticators, nonce CSP, `securityTrace`) n'est payé
+que sur zone protégée. Les dépendances des authenticators (keystore, tokenStore, userProvider,
+verifier, jose) sont résolues **paresseusement** au premier usage (cold path) ; `jose` est importé
+lazy (dep lourde). Le nonce CSP et le `securityTrace` sont alloués à la demande. Une route publique
+ne paie quasiment rien.
 
 ## Pièges (symptôme → cause → correction)
 
-| Symptôme                                | Cause (dans le code)                                    | Correction                                                      |
-| --------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------- |
-| Boot « authenticator inconnu »          | Nom absent du registre (fail-closed)                    | Corriger le nom / enregistrer l'authenticator                   |
-| 401 alors qu'un credential est envoyé   | Mode `first` : credential invalide échoue sans fallback | Vérifier le format/authenticator attendu                        |
-| API : JWT et clé API se marchent dessus | —                                                       | Rien à faire : discriminés par la forme (`a.b.c` vs `prefix_…`) |
-| JWT révoqué encore accepté              | Auto-portage : révocation = état serveur                | S'assurer que `tokenStore` porte la denylist/`invalidBefore`    |
-| WS : révocation pas immédiate           | Jeton figé au handshake (asymétrie assumée)             | Effet à la reconnexion ; pour l'immédiat, canal JWT (J4)        |
-| 429 au login                            | Throttle NIST (backoff par identifiant)                 | Respecter `Retry-After` ; attendu sous attaque                  |
+| Symptôme                                 | Cause (dans le code)                                    | Correction                                                      |
+| ---------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------- |
+| Boot rejette la config (`areas`)         | `areas` déclaré en **tableau** — c'est un objet par nom | `areas: { monNom: { pattern, authenticators } }`                |
+| Boot « authenticator inconnu »           | Nom absent du registre (fail-closed)                    | Corriger le nom / enregistrer l'authenticator                   |
+| 401 alors qu'un credential est envoyé    | Mode `first` : credential invalide échoue sans fallback | Vérifier le format/authenticator attendu                        |
+| Route « publique » ne voit jamais l'user | Hors zone, l'identité n'est **jamais** résolue          | Couvrir la route par une zone `["session", "anonymous"]`        |
+| API : JWT et clé API se marchent dessus  | —                                                       | Rien à faire : discriminés par la forme (`a.b.c` vs `prefix_…`) |
+| JWT révoqué encore accepté               | Auto-portage : révocation = état serveur                | S'assurer que `tokenStore` porte la denylist/`invalidBefore`    |
+| WS : révocation pas immédiate            | Jeton figé au handshake (asymétrie assumée)             | Effet à la reconnexion ; pour l'immédiat, canal JWT (J4)        |
+| 429 au login                             | Throttle NIST (backoff par identifiant)                 | Respecter `Retry-After` ; attendu sous attaque                  |
 
 ## Observabilité — Studio
 
@@ -366,12 +424,20 @@ gestion/révocation des PAT.
 
 ## Tests & couverture
 
-Le firewall est couvert par **35 cas unitaires + 11 tests d'attaque** : `firewallChain` (18, la chaîne
-d'authenticators + modes), `firewallIntrospection` (10, l'introspection Studio), `firewallSecurityTrace`
-(7, la radiographie de décision) et `frameAuthorizer.attack` (11, les attaques sur le filtrage des
-trames WS). S'y ajoutent les bancs des authenticators (voir [authenticators](./authenticators.md)) et
-les tests d'attaque transverses (csrf, cors, authorization). Photo régénérée depuis vitest
-(`npm run coverage` dans `@nodefony/security`).
+Quatre familles couvrent la brique — les **chiffres exacts vivent dans la carte de l'aperçu**
+(régénérée par `gen-counters.mjs` depuis vitest, jamais figée ici) :
+
+- **unit** : `firewallChain` (la chaîne d'authenticators + modes first/all), `securedArea` (match
+  pattern/host), `firewallIntrospection` (l'écran Studio), `firewallSecurityTrace` (la radiographie
+  de décision) ;
+- **intégration** : `firewall-auth` (serveur réel : zones + login BFF), `securityGuard` (la garde
+  `@IsGranted` au Resolver) ;
+- **e2e** : `realtimeFirewallWiring` (le câblage WS réel) ;
+- **attaque** : les bancs transverses (csrf, cors, authorization, frames WS) exercent le firewall en
+  conditions hostiles — voir [authenticators](./authenticators.md) et
+  [authorization](./authorization.md).
+
+Couverture : `npm run coverage` dans `@nodefony/security`.
 
 ## Pour aller plus loin
 
