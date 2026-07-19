@@ -154,8 +154,22 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P16 Cloud-Native (10 axes)████░░░░░░  37%  13✅  0🔶 22⬜   (0.7 ✅ graceful+Dockerfile+probes natives · 16.J /metrics repoussé)
 ────────────────────────────────────────────────────────────────────────
  GLOBAL                    ██████▊░░░  68% 119✅ 25🔶 49⬜  (193 tâches · resync 2026-07-10)
+────────────────────────────────────────────────────────────────────────
+ DOC Corpus de référence   ████████░░  80%  41/51 pages conformes aux 4 gates
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+> **Chantier DOC — hors du compte des 193 tâches** (il n'a pas de tâches `P` numérotées).
+> Corpus de référence des modules : une page est « faite » quand elle passe **4 gates**
+> (`doc-lint` · `anchor-check` ancres vers le code · `anchor-inpage` ancres internes ·
+> `code-check` compilation du Démarrage rapide).
+> Vagues **1-5 ✅** (sécurité, architecture, cœur + hubs, identité + données) ·
+> **6 🔶** temps réel + UI 9/12 (reste `studio/workspace`, `documentation` ×2) ·
+> **7 ⬜** transverse — **y canoniser `docs/realtime/socket/`** (9 pages « stable » servies
+> par Studio qui décrivent une API `IBackplane` inexistante) · **8 ⬜** IA + devkit ·
+> **4bis ⬜** les 6 pages du core hors standard + `security/lexique`.
+> Méthode, plan des vagues et **99 écarts code↔doc relevés** (F1→F99, correction en session
+> dédiée APRÈS le corpus) : mémoire IA `project_doc_corpus_chantier_kit`.
 
 > Fondations **hors roadmap** (déjà migrées, Phases 0-4) : Build, Core/Kernel, DI, Syslog, Router, Controller, Types.
 > **Build = rolldown + tsgo** (`c600ae79`→`d295121b`, lots 0-5) : Rollup SUPPRIMÉ du repo, 20 cibles
