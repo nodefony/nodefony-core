@@ -1,4 +1,19 @@
 {
+  "user": {
+    "globs": ["src/packages/@nodefony/user/tests/**/*.test.ts"]
+  },
+  "orm-core": {
+    "globs": ["src/packages/@nodefony/orm-core/tests/**/*.test.ts"]
+  },
+  "drizzle": {
+    "globs": ["src/packages/@nodefony/drizzle/tests/**/*.test.ts"]
+  },
+  "mongoose": {
+    "globs": ["src/packages/@nodefony/mongoose/tests/**/*.test.ts"]
+  },
+  "redis": {
+    "globs": ["src/packages/@nodefony/redis/nodefony/tests/**/*.test.ts"]
+  },
   "servers": {
     "unit": [
       "src/packages/@nodefony/http/nodefony/tests/unit/certificates.test.ts",
