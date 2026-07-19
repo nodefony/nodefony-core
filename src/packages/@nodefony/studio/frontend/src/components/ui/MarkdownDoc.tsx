@@ -1,4 +1,5 @@
 import {
+  Children,
   cloneElement,
   isValidElement,
   useCallback,
@@ -6,6 +7,7 @@ import {
   useId,
   useRef,
   useState,
+  type ReactElement,
   type ReactNode,
 } from "react";
 import {
@@ -86,6 +88,24 @@ function ensureDocStyles() {
     .nf-heading-anchor:hover,
     .nf-heading-anchor:focus { opacity: 1 !important; color: var(--mantine-primary-color-filled); outline: none; }
     @media (prefers-reduced-motion: reduce) { .nf-heading-anchor { transition: none; } }
+
+    /* Catalogue de briques : l'en-tête de card (nom en pastille + libellé). */
+    .nf-brick-h {
+      display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+      border-left: 3px solid var(--mantine-primary-color-filled);
+      background: var(--mantine-color-default-hover);
+      border-radius: 8px; padding: 10px 14px;
+    }
+    .nf-brick-name {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.82em; font-weight: 700;
+      color: var(--mantine-primary-color-filled);
+      background: var(--mantine-color-default);
+      padding: 2px 10px; border-radius: 20px; white-space: nowrap;
+    }
+    .nf-brick-name a { color: inherit; text-decoration: none; }
+    .nf-brick-title { font-size: 0.92em; }
+    .nf-brick-h:hover { border-left-color: var(--mantine-primary-color-filled); }
   `;
   document.head.appendChild(s);
 }
@@ -286,6 +306,65 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   );
 }
 
+/** Style inline de l'en-tête de card (le reste vit dans `ensureDocStyles`). */
+const BRICK_HEADING_STYLE = {
+  scrollMarginTop: HEADING_SCROLL_MARGIN,
+  marginTop: "1.4em",
+  marginBottom: "0.4em",
+} as const;
+
+/* ─── Catalogue de briques : `### `nom` — titre` → en-tête de card ───────── */
+
+/** Titre de card reconnu : le nom (code inline, parfois lié) et son libellé. */
+interface BrickHeading {
+  name: ReactNode;
+  title: string;
+}
+
+/** L'élément est-il un `<code>` (éventuellement enveloppé dans un `<a>`) ? */
+function codeOf(node: ReactNode): ReactNode | null {
+  if (!isValidElement(node)) return null;
+  const el = node as ReactElement<{ children?: ReactNode }>;
+  if (el.type === "code") return el;
+  // Nom LIÉ (`### [\`cors\`](cors.md) — …`) : le lien porte le code.
+  if (
+    el.type === "a" ||
+    typeof el.type === "function" ||
+    typeof el.type === "object"
+  ) {
+    const inner = Children.toArray(el.props?.children ?? []);
+    if (
+      inner.length === 1 &&
+      isValidElement(inner[0]) &&
+      inner[0].type === "code"
+    ) {
+      return el; // on garde le lien : la card reste cliquable
+    }
+  }
+  return null;
+}
+
+/**
+ * Reconnaît `### \`nom\` — titre` (le motif de catalogue du standard).
+ *
+ * Retourne `null` dès que la forme n'y est pas — un `###` ordinaire doit rester
+ * un titre ordinaire, jamais une card par accident.
+ */
+function parseBrickHeading(children: ReactNode): BrickHeading | null {
+  const parts = Children.toArray(children);
+  if (parts.length < 2) return null;
+  const name = codeOf(parts[0]);
+  if (!name) return null;
+  const rest = parts
+    .slice(1)
+    .map((p) => (typeof p === "string" ? p : nodeText(p)))
+    .join("")
+    .trim();
+  const title = rest.replace(/^[—–-]\s*/, "").trim();
+  if (!title || title === rest) return null; // pas de séparateur → pas une card
+  return { name, title };
+}
+
 /* ─── Heading avec anchor cliquable au hover ─────────────────────────────── */
 
 function HeadingWithAnchor({
@@ -335,6 +414,23 @@ function HeadingWithAnchor({
     );
   }
   if (level === 3) {
+    // Catalogue de briques (standard §6-ergo n°6) : `### \`nom\` — titre` — le nom en
+    // code inline, éventuellement lié (forme d'un hub). Rendu en EN-TÊTE DE CARD :
+    // pastille + titre sur un liseré d'accent, pour que la série se balaie d'un œil.
+    const card = parseBrickHeading(children);
+    if (card) {
+      return (
+        <h3
+          id={id}
+          className="nf-heading nf-brick-h"
+          style={BRICK_HEADING_STYLE}
+        >
+          <span className="nf-brick-name">{card.name}</span>
+          <span className="nf-brick-title">{card.title}</span>
+          {anchor}
+        </h3>
+      );
+    }
     return (
       <h3 id={id} className="nf-heading" style={HEADING_STYLE}>
         {children}
@@ -423,7 +519,10 @@ export function MarkdownDoc({
     a({ href, children }) {
       const h = String(href ?? "");
       const ext = /^https?:\/\//i.test(h);
-      const m = h.match(/^\.?\/?([a-z0-9._-]+)\.md(#.*)?$/i);
+      // Le serveur a déjà traduit les liens internes en SLUGS (`mod~security~cors.md`) :
+      // le `~` fait partie du charset, et un chemin relatif ne devrait plus arriver ici.
+      // Cf `DocumentationService.#resolveLinks` — seul le serveur connaît chemin → slug.
+      const m = h.match(/^\.?\/?([A-Za-z0-9._~-]+)\.md(#.*)?$/);
       const slug = m?.[1];
       if (slug && onInternalLink) {
         return (

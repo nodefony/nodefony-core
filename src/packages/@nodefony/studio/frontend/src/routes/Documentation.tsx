@@ -17,6 +17,7 @@ import {
   IconChevronsDown,
   IconChevronsUp,
   IconFileText,
+  IconHome,
   IconSearch,
 } from "@tabler/icons-react";
 import { hasRole } from "nodefony/roles";
@@ -60,6 +61,8 @@ interface DocPage {
   version?: string;
   status?: string;
   wip?: boolean;
+  /** `true` pour un `index.md` : le point d'entrée de sa section. */
+  isHub?: boolean;
 }
 interface DocSection {
   id: string;
@@ -132,10 +135,17 @@ export const Documentation = observer(() => {
   // l'arbre n'est pas chargé, on retombe sur la 1re page Socket connue (évite la
   // page blanche au tout premier paint).
   const [params, setParams] = useSearchParams();
-  const firstSlug = tree.data?.sections.find((s) => s.pages.length > 0)
-    ?.pages[0]?.slug;
-  const activeSlug =
-    params.get("doc") ?? firstSlug ?? "root~realtime~socket~01-vue-ensemble";
+  // Sans `?doc=`, on ouvre le HUB GLOBAL (`docs/index.md`) : c'est le point
+  // d'entrée de la documentation, celui qui porte les parcours guidés et le
+  // catalogue. À défaut (corpus sans hub racine), le premier hub rencontré,
+  // puis seulement la première page — jamais une page arbitraire en accueil.
+  const sections = tree.data?.sections ?? [];
+  const allPages = sections.flatMap((s) => s.pages);
+  const homeSlug =
+    allPages.find((p) => p.slug === "root~index")?.slug ??
+    allPages.find((p) => p.isHub)?.slug ??
+    allPages[0]?.slug;
+  const activeSlug = params.get("doc") ?? homeSlug ?? "root~index";
   const setActiveSlug = useCallback(
     (slug: string) => setParams({ doc: slug }, { replace: false }),
     [setParams],
@@ -152,10 +162,20 @@ export const Documentation = observer(() => {
    * laisse `MarkdownDoc` rendre le lien en ancre normale (`return false`).
    */
   const onInternalLink = useCallback(
-    (shortSlug: string): boolean => {
+    (target: string): boolean => {
+      // Le serveur traduit désormais TOUS les liens internes en slugs complets
+      // (`DocumentationService.#resolveLinks`) : un slug commence par `root~` ou
+      // `mod~`. On navigue tel quel — lui recoller un préfixe fabriquerait
+      // `root~architecture~root~index` et garantirait un 404.
+      if (/^(root|mod)~/.test(target)) {
+        setActiveSlug(target);
+        return true;
+      }
+      // Repli historique : lien plat écrit dans une page pas encore servie par le
+      // résolveur — on le résout dans le dossier de la page courante.
       if (!activeSlug.includes("~")) return false;
       const prefix = activeSlug.replace(/[^~]+$/, "");
-      setActiveSlug(prefix + shortSlug);
+      setActiveSlug(prefix + target);
       return true;
     },
     [activeSlug, setActiveSlug],
@@ -175,7 +195,6 @@ export const Documentation = observer(() => {
   const visible = (audience?: Persona[]) =>
     persona === "admin" || !audience || audience.includes(persona);
 
-  const sections = tree.data?.sections ?? [];
   const markdown = page.data
     ? resolveVars(page.data.markdown, page.data.vars)
     : "";
@@ -321,7 +340,16 @@ export const Documentation = observer(() => {
                         key={p.slug}
                         active={p.slug === activeSlug}
                         label={p.title}
-                        leftSection={<IconFileText size={14} />}
+                        // Le hub ouvre sa section : icône distincte + libellé en
+                        // gras, pour qu'il se repère sans lire toute la liste.
+                        fw={p.isHub ? 600 : undefined}
+                        leftSection={
+                          p.isHub ? (
+                            <IconHome size={14} />
+                          ) : (
+                            <IconFileText size={14} />
+                          )
+                        }
                         rightSection={
                           p.wip ? (
                             <Badge size="xs" variant="light" color="gray">

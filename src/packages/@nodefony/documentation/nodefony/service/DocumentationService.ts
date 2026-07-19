@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { readdirSync, realpathSync, statSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import {
   Container,
   GitService,
@@ -13,6 +14,7 @@ import {
 import { scanDocsDir, type ScannedDoc } from "../src/docScanner";
 import { parseFrontmatter, metaList, metaString } from "../src/frontmatter";
 import { isSafeSlug } from "../src/slug";
+import { rewriteInternalLinks } from "../src/linkResolver";
 import {
   DocNotFoundError,
   DocUnsafeSlugError,
@@ -78,6 +80,8 @@ interface CacheEntry {
   at: number;
   tree: IDocTree;
   index: Map<string, ScannedDoc>;
+  /** Chemin relatif au dépôt → slug (traduction des liens internes d'une page). */
+  byPath: Map<string, string>;
 }
 
 /**
@@ -148,7 +152,7 @@ class DocumentationService extends Service {
     // Garde défense-en-profondeur AVANT toute recherche/lecture (anti-traversée).
     if (!isSafeSlug(slug)) throw new DocUnsafeSlugError(slug);
 
-    const { index } = await this.#ensureCache();
+    const { index, byPath } = await this.#ensureCache();
     const doc = index.get(slug);
     if (!doc) throw new DocNotFoundError(slug);
 
@@ -170,8 +174,29 @@ class DocumentationService extends Service {
       updated: metaString(meta, "updated"),
       source,
       sourceUrl: this.#buildSourceUrl(source),
-      markdown: this.#resolveVars(body),
+      markdown: this.#resolveLinks(this.#resolveVars(body), doc, byPath),
     };
+  }
+
+  /**
+   * Traduit les liens internes de la page en slugs navigables.
+   *
+   * Les pages se lient par chemin relatif (lisible sur GitHub et dans l'éditeur) ;
+   * le portail navigue par slug. Seul le serveur connaît la table chemin → slug,
+   * donc la traduction se fait ici — sans quoi toute remontée (`../index.md`)
+   * arrive au client comme une ancre morte.
+   */
+  #resolveLinks(
+    markdown: string,
+    from: ScannedDoc,
+    byPath: Map<string, string>,
+  ): string {
+    const root = this.#projectRoot();
+    const fromDir = relative(root, dirname(from.absPath)).replace(/\\/g, "/");
+    return rewriteInternalLinks(markdown, {
+      fromDir,
+      toSlug: (repoRel) => byPath.get(repoRel),
+    });
   }
 
   // ───────────────────────── interne ─────────────────────────
@@ -185,13 +210,20 @@ class DocumentationService extends Service {
     }
     const docs = await this.#scanAll();
     const index = new Map<string, ScannedDoc>();
-    for (const d of docs) index.set(d.slug, d);
+    // Table chemin-repo → slug : ce qui permet de traduire un lien relatif écrit
+    // dans une page (`../index.md`) en cible navigable (cf #resolveLinks).
+    const byPath = new Map<string, string>();
+    const root = this.#projectRoot();
+    for (const d of docs) {
+      index.set(d.slug, d);
+      byPath.set(relative(root, d.absPath).replace(/\\/g, "/"), d.slug);
+    }
     const tree: IDocTree = {
       generatedAt: new Date(now).toISOString(),
       audiences: [...AUDIENCES],
       sections: this.#buildSections(docs),
     };
-    this.#cache = { at: now, tree, index };
+    this.#cache = { at: now, tree, index, byPath };
     return this.#cache;
   }
 
@@ -225,7 +257,60 @@ class DocumentationService extends Service {
         );
       for (const docs of await Promise.all(scans)) out.push(...docs);
     }
+
+    if (cfg.scan.includeInstalled) {
+      const seen = new Set(
+        out
+          .filter((d) => d.source.kind === "module")
+          .map((d) => (d.source as { module: string }).module),
+      );
+      for (const [name, dir] of this.#installedDocDirs(root)) {
+        if (seen.has(name)) continue; // déjà couvert par le module chargé
+        out.push(
+          ...(await scanDocsDir(
+            dir,
+            { kind: "module", module: name },
+            exclude,
+          )),
+        );
+      }
+    }
     return out;
+  }
+
+  /**
+   * Dossiers `docs/` des paquets Nodefony **installés** (chargés ou non).
+   *
+   * Un module qu'on n'a pas encore activé est justement celui dont on lit la doc
+   * — sans ça, le portail renvoie dans le vide sur `redis`, `mongoose`… tant
+   * qu'ils ne sont pas dans le manifeste.
+   *
+   * Les chemins sont résolus en **real-path** : en dépôt workspace,
+   * `node_modules/@nodefony/x` est un lien vers `src/packages/@nodefony/x`, et
+   * c'est la source qui doit indexer (sinon les liens entre pages ne se
+   * résolvent pas — deux chemins pour un même fichier).
+   */
+  #installedDocDirs(root: string): Map<string, string> {
+    const found = new Map<string, string>();
+    const add = (name: string, dir: string): void => {
+      try {
+        if (!statSync(dir).isDirectory()) return;
+        found.set(name, realpathSync(dir));
+      } catch {
+        /* pas de docs/ dans ce paquet — rien à indexer */
+      }
+    };
+    // Le cœur du framework, publié sous le nom `nodefony`.
+    add("nodefony", join(root, "node_modules/nodefony/docs"));
+    const scope = join(root, "node_modules/@nodefony");
+    let entries: string[] = [];
+    try {
+      entries = readdirSync(scope);
+    } catch {
+      return found; // pas de scope installé (app hors npm) → rien de plus
+    }
+    for (const pkg of entries) add(pkg, join(scope, pkg, "docs"));
+    return found;
   }
 
   /** Regroupe les docs scannés en sections (racine par dossier, module par module). */
@@ -247,7 +332,7 @@ class DocumentationService extends Service {
       .map(([group, pages]) => ({
         id: `root-${group.replace(/\//g, "~")}`,
         label: this.#rootLabel(group),
-        pages: pages.map((p) => this.#toPageRef(p)),
+        pages: this.#orderPages(pages),
       }));
 
     const moduleSections: IDocSection[] = [...moduleGroups.entries()]
@@ -256,10 +341,26 @@ class DocumentationService extends Service {
         id: `mod-${mod}`,
         label: `Module ${mod}`,
         module: mod,
-        pages: pages.map((p) => this.#toPageRef(p)),
+        pages: this.#orderPages(pages),
       }));
 
     return [...rootSections, ...moduleSections];
+  }
+
+  /**
+   * Ordonne les pages d'une section : le **hub en premier**, le reste ensuite.
+   *
+   * Un `index.md` trié alphabétiquement atterrit au milieu de ses propres pages
+   * (entre `headers` et `lexique` pour la sécurité) — le point d'entrée devient
+   * alors invisible. Le hub ouvre sa section ; c'est le chemin de lecture normal.
+   */
+  #orderPages(pages: ScannedDoc[]): IDocPageRef[] {
+    return pages
+      .map((p) => this.#toPageRef(p))
+      .sort((a, b) => {
+        if (a.isHub !== b.isHub) return a.isHub ? -1 : 1;
+        return a.title.localeCompare(b.title);
+      });
   }
 
   /** Convertit un doc scanné en référence d'arbre (métadonnées seules). */
@@ -267,7 +368,9 @@ class DocumentationService extends Service {
     const audience = metaList(d.meta, "audience").filter((a) =>
       VALID_AUDIENCES.has(a),
     ) as DocAudience[];
-    const ref: IDocPageRef = { slug: d.slug, title: d.title, audience };
+    // Un `index.md` est le HUB de sa section : point d'entrée, pas page comme une autre.
+    const isHub = /(^|\/)index\.md$/i.test(d.relPath);
+    const ref: IDocPageRef = { slug: d.slug, title: d.title, audience, isHub };
     const version = metaString(d.meta, "version");
     if (version) ref.version = version;
     const status = this.#coerceStatus(metaString(d.meta, "status"));

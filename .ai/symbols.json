@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-19T00:01:48.665Z",
+  "generated": "2026-07-19T14:48:54.343Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1030,
-    "symbols": 2784,
+    "files": 1031,
+    "symbols": 2787,
     "classes": 327,
-    "interfaces": 731,
+    "interfaces": 732,
     "types": 322,
     "enums": 4,
-    "functions": 828,
+    "functions": 830,
     "constants": 572
   },
   "symbols": {
@@ -6524,6 +6524,23 @@
       "exported": true,
       "module": "@nodefony/documentation",
       "description": "Lit une clé de frontmatter en string[] (wrappe un scalaire), ou `[]`."
+    },
+    "RewriteLinksOptions": {
+      "name": "RewriteLinksOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/linkResolver.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Options de {@link rewriteInternalLinks}."
+    },
+    "rewriteInternalLinks": {
+      "name": "rewriteInternalLinks",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/linkResolver.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Réécrit les liens markdown internes d'une page en slugs navigables. Un lien dont la cible n'est pas indexée est **laissé tel quel** : mieux vaut un lien inerte qu'un slug inventé qui produirait un …"
     },
     "DocSource": {
       "name": "DocSource",
@@ -23462,6 +23479,9 @@
         "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
       ],
       "isSafeSlug": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "rewriteInternalLinks": [
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
       ],
       "DocAudience": [

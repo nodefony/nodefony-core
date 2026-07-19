@@ -28,7 +28,10 @@
       "src/nodefony/src/tests/Container.test.ts",
       "src/nodefony/src/tests/Injector.test.ts",
       "src/packages/@nodefony/framework/nodefony/tests/unit/scope.test.ts",
-      "src/packages/@nodefony/framework/nodefony/tests/unit/scopeCatalog.test.ts"
+      "src/packages/@nodefony/framework/nodefony/tests/unit/scopeCatalog.test.ts",
+      "src/nodefony/src/tests/serviceOrder.test.ts",
+      "src/nodefony/src/tests/Decorators.test.ts",
+      "src/nodefony/src/tests/Service.test.ts"
     ],
     "attack": [
       "src/nodefony/src/tests/injector.attack.test.ts",
@@ -54,7 +57,9 @@
       "src/packages/@nodefony/framework/nodefony/tests/unit/configMutationEndpoint.test.ts",
       "src/packages/@nodefony/http/nodefony/tests/unit/httpConfig.test.ts",
       "src/packages/@nodefony/security/tests/unit/defineSecurityConfig.test.ts",
-      "src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts"
+      "src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts",
+      "src/nodefony/src/tests/infra.test.ts",
+      "src/nodefony/src/tests/podEnvironment.test.ts"
     ]
   },
   "pipeline-requete": {

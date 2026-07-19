@@ -116,9 +116,11 @@ for (const f of files) {
     errs.push(
       "fil d'Ariane manquant (ligne `📍 [Documentation](…) › [Module](index.md) › **Page**`)",
     );
-  if (!isHub && !/⬆️\s+\*\*Retour au hub\*\*/m.test(src))
+  // « Retour au hub » pour une page de module ; « Retour » suffit pour une page
+  // transverse, qui n'a pas de hub de module au-dessus d'elle — seulement la racine.
+  if (!isHub && !/⬆️\s+\*\*Retour(\s+au\s+hub)?\*\*/m.test(src))
     errs.push(
-      "retour au hub manquant (1ʳᵉ ligne de « Pour aller plus loin » : `- ⬆️ **Retour au hub** : …`)",
+      "retour manquant (1ʳᵉ ligne de « Pour aller plus loin » : `- ⬆️ **Retour au hub** : …`)",
     );
 
   // 5) Ancres fichier:ligne présentes (une doc « code = vérité » sans ancre = suspecte).

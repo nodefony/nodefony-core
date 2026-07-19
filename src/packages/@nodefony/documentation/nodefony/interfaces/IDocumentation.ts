@@ -11,11 +11,7 @@ export type DocAudience = "developer" | "devops" | "supervisor" | "admin";
 
 /** Statut de maturité d'une page (issu du frontmatter `status`). */
 export type DocStatus =
-  | "stable"
-  | "draft"
-  | "temporary"
-  | "experimental"
-  | "deprecated";
+  "stable" | "draft" | "temporary" | "experimental" | "deprecated";
 
 /** Une persona décrite dans l'index (clé + libellé + description courte). */
 export interface IDocAudienceInfo {
@@ -38,6 +34,11 @@ export interface IDocPageRef {
   status?: DocStatus;
   /** `true` si la page est annoncée mais pas encore rédigée. */
   wip?: boolean;
+  /**
+   * `true` si la page est le **hub** de sa section (`index.md`) : son point
+   * d'entrée, à présenter en premier et non comme une page parmi les autres.
+   */
+  isHub?: boolean;
 }
 
 /** Une section de l'index transverse : un groupe ordonné de pages. */

@@ -61,6 +61,17 @@ const scanSchema = z
           "index transverse complet (racine + modules). false = racine seule " +
           "(parité POC). La découverte des modules passe par `kernel.modules`.",
       ),
+    includeInstalled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Scanne aussi la doc des paquets Nodefony INSTALLÉS mais pas encore " +
+          "chargés (`node_modules/@nodefony/*/docs` + le cœur `nodefony`). " +
+          "Sans cela, la doc d'un module non activé est introuvable — alors " +
+          "que c'est précisément le moment où on la lit : pour décider de " +
+          "l'activer. Les chemins sont résolus en real-path, donc un lien de " +
+          "workspace pointe vers la source, pas vers le lien symbolique.",
+      ),
     exclude: z
       .array(z.string().min(1))
       .default(["session-retros", "node_modules", "dist"])
