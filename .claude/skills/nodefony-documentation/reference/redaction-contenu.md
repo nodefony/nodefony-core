@@ -112,6 +112,14 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
    commentaires courts qui disent le POURQUOI ; jamais un bloc > ~25 lignes sans être découpé.
 5. **Mots-clés en gras** pour le balayage (le lecteur scanne en F) ; sous-titres significatifs qui
    répondent à une question, pas des titres décoratifs.
+6. **Catalogue de briques = CARDS** (série homogène : authenticators, stores, drivers…) —
+   convention 100 % Markdown : chaque brique s'écrit ``### `nom` — titre`` (le nom en code
+   inline) ; le rendu (build-preview, MarkdownDoc Studio à terme) en fait une **card** (bordure
+   accent, nom en pill, corps encadré). Toujours précéder le catalogue d'un **tableau de synthèse**
+   (choisir en 5 s) — les cards donnent le détail.
+7. **Rythmer avec les admonitions** (`> [!TIP]` · `> [!WARNING]` · `> [!IMPORTANT]`) : un piège
+   énoncé en « Piège : … » dans un paragraphe se noie ; en `[!WARNING]` il saute aux yeux.
+   1-3 par page, aux endroits où se tromper coûte cher — pas une par paragraphe.
 
 ## 6. Style d'écriture
 

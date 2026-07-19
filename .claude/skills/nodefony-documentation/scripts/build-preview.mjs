@@ -184,6 +184,16 @@ if (fm.coverageModule) {
 }
 html += metricsHtml + coverageHtml;
 
+// CARDS DE CATALOGUE (standard §6-ergo, retour user) : toute section `### \`nom\` — titre`
+// (h3 dont le titre commence par du code inline) devient une CARD visuelle — le
+// pattern des docs de référence pour une série de briques homogènes (authenticators,
+// stores, drivers…). Convention 100 % Markdown : aucun HTML dans la source.
+html = html.replace(
+  /<h3><code>([^<]+)<\/code>\s*(?:—|–|-)?\s*([^<]*)<\/h3>([\s\S]*?)(?=<h3|<h2|$)/g,
+  (_, name, title, body) =>
+    `<section class="brick"><header class="brick-h"><code class="brick-name">${name}</code><span class="brick-t">${title}</span></header><div class="brick-b">${body}</div></section>`,
+);
+
 // Ancres de preuve `fichier.ts:NNN` → références DISCRÈTES (standard §6-ergo) :
 // le lecteur voit un texte propre, la preuve reste dans la source MD (gates).
 // Ne touche que le code inline des paragraphes (les <pre> ont leur propre balisage).
@@ -261,6 +271,14 @@ a{color:var(--accent)}
 p>code,li>code,td>code{background:var(--code);padding:.15em .4em;border-radius:6px;font-size:.87em;color:var(--codefg);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 pre{background:var(--code);border:1px solid var(--border);border-radius:10px;padding:16px;overflow:auto}
 pre code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--fg)}
+/* Cards de catalogue (### \`nom\` — titre) : une brique = une card */
+.brick{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;margin:1.2em 0;overflow:hidden}
+.brick-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--border)}
+.brick-name{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:700;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:3px 12px;border-radius:20px}
+.brick-t{font-weight:600;font-size:15px}
+.brick-b{padding:4px 18px 12px}
+.brick-b>p:first-child{margin-top:.7em}
+.brick-b pre{margin:.8em 0}
 /* Références de preuve (fichier.ts:ligne) — discrètes : la preuve sans le bruit */
 .srcref{font-size:0.72em;opacity:.55;vertical-align:super;line-height:0}
 .srcref code{background:transparent;padding:0;color:var(--muted);font-size:inherit}

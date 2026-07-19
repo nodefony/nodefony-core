@@ -98,6 +98,11 @@ use("@nodefony/security", {
 });
 ```
 
+> [!IMPORTANT]
+> **Hors zone, l'identité n'est JAMAIS résolue** — même connecté, une route non couverte par une
+> zone ne sait pas qui tu es. Une route « publique » qui veut connaître l'utilisateur se couvre
+> par `["session", "anonymous"]`.
+
 **Le login est FOURNI** : le module security expose le BFF `POST /nodefony/security/api/auth/login`
 (body `{ username, password }` → `Set-Cookie` de session ; `AuthFlow.login` régénère l'ID de session
 — anti-fixation OWASP). Pas de LoginController à écrire.
@@ -234,9 +239,12 @@ le keystore du serveur. Défenses **dures**, prouvées en test (RFC 8725 JWT BCP
 - **sujet revérifié** à réception (`loadUserByIdentifier(sub)`) : compte disparu/inactif/verrouillé
   = rejet (`JwtAuthenticator.ts:174-187`).
 
-Le token promu porte `scopes`, `jti`, `claims` (`JwtAuthenticator.ts:162-172`). Piège : un JWT est
-auto-porté → sans état serveur il n'est **pas** révocable ; c'est la denylist/`invalidBefore` qui le
-rend révocable.
+Le token promu porte `scopes`, `jti`, `claims` (`JwtAuthenticator.ts:162-172`).
+
+> [!WARNING]
+> Un JWT est **auto-porté** : sans état serveur il n'est **pas** révocable. C'est la denylist
+> `jti` + `invalidBefore` (état serveur) qui le rend révocable — vérifie que ton `tokenStore`
+> les porte.
 
 ### `apikey` — clé d'API opaque (PAT), révocable
 
@@ -263,7 +271,7 @@ Le **seul** authenticator qui produit un token non authentifié **sans** déclen
 `first` = « identifié si preuve présente, sinon **visiteur anonyme accepté** ». En mode `all`, utile
 en dernier : « le canal doit être prouvé (ex. mTLS), l'identité utilisateur est optionnelle ». Coût
 nul : `supports()` accepte tout, le token porte le singleton gelé `anonymousUser` (0 allocation).
-Piège : sans lui, zone protégée + aucune preuve = 401.
+Sans lui, zone protégée + aucune preuve = 401.
 
 ### `session-realtime` — la session, côté WebSocket (câblé auto)
 
