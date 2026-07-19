@@ -1,121 +1,151 @@
 ---
-title: "@nodefony/framework — vue du module"
+title: "@nodefony/framework — routes, contrôleurs, décorateurs"
 lang: fr
 module: "@nodefony/framework"
 topic: framework
 section: "Cœur runtime"
 audience: [developer]
-tags: [router, controller, decorateurs, resolver, admin]
+tags: [router, controller, decorateurs, resolver, routing, idempotence, admin]
 version: "doc"
 status: stable
-updated: 2026-07-18
+updated: 2026-07-19
 source: "src/packages/@nodefony/framework/docs/index.md"
+coverageModule: framework
 ---
 
-# @nodefony/framework — vue du module
+# @nodefony/framework — routes, contrôleurs, décorateurs
 
-> La couche applicative : routeur, résolveur, contrôleurs, décorateurs de routes, idempotence, data
-> plane d'administration et moteur de templates Eta. C'est là qu'un développeur écrit ses routes — HTTP
-> **et** WebSocket, avec les mêmes décorateurs. Point d'entrée du module. Ancré sur le code.
+> C'est ici qu'on écrit son application. `@nodefony/http` construit le contexte d'une requête ; ce
+> module décide **quoi en faire** : quelle route, quel contrôleur, quelle action, avec quels droits.
+> Il porte la DX du framework — les décorateurs — et ses invariants — résolution ordonnée, idempotence,
+> data plane d'administration. Un contrôleur y déclare ses actions **HTTP et WebSocket avec les mêmes
+> décorateurs**.
 
-## Schéma général
+📍 [Documentation](../../../../../docs/index.md) › **@nodefony/framework**
+
+## 🧭 Par où commencer
+
+Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppose la précédente.
+
+**J'écris ma première route** — le chemin le plus court vers une application qui répond.
+
+1. [Décorateurs](decorateurs.md) — la surface que tu tapes : `@controller`, `@Get`, `@Body`, `@Param`.
+   **Commence ici**, c'est la table de référence.
+2. [Contrôleurs](controller.md) — ce dont tu hérites, comment répondre, comment échouer proprement.
+3. [Routage](routing.md) — pourquoi telle route gagne sur telle autre, et comment lire un `405`.
+
+**Je débugge une route qui ne répond pas comme prévu.**
+
+1. [Routage](routing.md) — l'ordre de déclaration **est** la priorité ; la passe 405 ; les vhosts.
+2. [Contrôleurs](controller.md) — l'ordre réel du cycle de vie, et ce que `initialize()` peut ou non
+   supposer.
+3. [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) — ce qui s'est passé
+   avant que ta route soit même consultée.
+
+**Je fiabilise des mutations** — paiements, commandes, tout ce qu'on ne veut pas jouer deux fois.
+
+1. [Idempotence](idempotence.md) — `@Idempotent`, la clé, les stores, ce qui se passe au rejeu.
+2. [Contrôleurs](controller.md) — codes de retour et réponses vides (204) sans piège.
+3. [Sécurité](../../security/docs/index.md) — l'autorisation qui va avec.
+
+## 🗂️ Les briques du module
+
+| Brique                        | Ce qu'elle résout                                  | Tu en as besoin quand…                           |
+| ----------------------------- | -------------------------------------------------- | ------------------------------------------------ |
+| [Décorateurs](decorateurs.md) | déclarer routes, paramètres, réponses, gardes      | toujours — c'est la surface d'écriture           |
+| [Contrôleurs](controller.md)  | recevoir la requête, répondre, gérer l'erreur      | toujours                                         |
+| [Routage](routing.md)         | apparier une URL à une action, arbitrer, expliquer | deux routes se disputent, ou un 404/405 surprend |
+| [Idempotence](idempotence.md) | empêcher le double effet d'une mutation rejouée    | paiement, commande, tout effet non rejouable     |
+
+### [`decorateurs`](decorateurs.md) — la surface d'écriture
+
+La table de référence complète : décorateurs de classe, de méthode HTTP, de paramètre, de réponse, de
+sécurité, WebSocket. Chacun avec son effet et un exemple court. C'est la page qu'on garde ouverte en
+écrivant un contrôleur.
+
+### [`controller`](controller.md) — le cycle d'une action
+
+Ce dont hérite un contrôleur, d'où viennent `request` / `response` / `session`, comment répondre
+(auto-JSON, codes, flux de fichiers), comment les erreurs remontent, et l'**ordre réel** du cycle de
+vie — y compris ce que `initialize()` ne peut pas encore supposer.
+
+### [`routing`](routing.md) — de l'URL à l'action
+
+Une table ordonnée où le premier motif qui correspond gagne. La page explique l'arbitrage (pas de
+score de spécificité), la partition littéral/dynamique qui accélère sans changer la sémantique, le
+`405` et son en-tête `Allow`, les vhosts, et le duplex HTTP+WebSocket sur un même chemin.
+
+### [`idempotence`](idempotence.md) — rejouer sans doubler
+
+`@Idempotent`, la clé d'idempotence, les trois stores et leurs capacités réelles, le GC des entrées
+expirées, et ce que le client observe quand il rejoue la même clé.
+
+> [!NOTE]
+> **Deux briques implémentées n'ont pas encore leur page** : le data plane d'administration
+> (`AdminBroker`, qui monte les routes `/nodefony/<ns>/api/*`) et le moteur de templates Eta. Leur
+> configuration vit dans les blocs Zod de `nodefony/config/config.ts`.
+
+## 🏛️ Place dans le framework
 
 ```mermaid
 flowchart LR
-  DEC["décorateurs<br/>@controller · @Get · @route"] --> RT["Router<br/>createRoute"]
-  RT --> RS["Resolver<br/>match → callController"]
-  RS --> C["Controller<br/>action utilisateur"]
+  DEC["décorateurs<br/>@controller · @Get · @Param"] --> RT["Router<br/>table ordonnée de routes"]
+  RT --> RS["Resolver<br/>par requête : match → action"]
+  RS --> C["Controller<br/>ton code"]
   C --> AB["AdminBroker<br/>/nodefony/&lt;ns&gt;/api/*"]
 ```
 
-## Lexique
+Le module s'appuie sur `@nodefony/http` (contexte, serveurs) et se fait garder par
+`@nodefony/security` (firewall, CSRF). L'inverse n'est pas vrai : `@nodefony/http` ne peut pas
+importer ce module — ce serait un cycle.
 
-| Terme      | Sens                                                                            |
-| ---------- | ------------------------------------------------------------------------------- |
-| Router     | Enregistre les routes et en trouve une pour une requête.                        |
-| Route      | Un motif d'URL + méthode + action de contrôleur.                                |
-| Resolver   | Résout la route d'une requête et appelle l'action (par requête).                |
-| Controller | Classe utilisateur qui traite une requête et rend une réponse.                  |
-| Décorateur | Annotation TS (`@Get`, `@IsGranted`…) qui déclare le comportement d'une action. |
-| Data plane | Endpoints d'administration exposés par un module (`/nodefony/<ns>/api/*`).      |
+## 🧰 Surface publique
 
-## Qu'est-ce que ce module
+Depuis une application : `Controller`, `Router`, `Resolver`, `Route`, `controllers()`, les décorateurs
+de route, de paramètre et de garde, `IdempotencyStore`, `AdminBroker`. Les signatures exactes vivent
+dans `.ai/symbols.json` et les types générés — jamais recopiées ici, où elles se périmeraient.
 
-`@nodefony/http` construit le contexte ; `@nodefony/framework` décide **quoi faire** de la requête :
-quelle route, quel contrôleur, quelle action, avec quels droits. Il fournit la DX (les décorateurs) et
-les invariants (résolution, garde de sécurité avant instanciation, idempotence, data plane admin).
+## ⚙️ Configuration
 
-## La vision Nodefony
+Bloc Zod (`nodefony/config/config.ts`), déclaré depuis l'application via
+`use("@nodefony/framework", { … })` : `router`, `adminBroker`, et `idempotency` (choix du store et
+réglages du GC — détaillé dans la page [Idempotence](idempotence.md)).
 
-Les décorateurs sont évalués à l'import et déclarent les routes (`nodefony/decorators/routerDecorators.ts`).
-Le `Router` (`nodefony/service/router.ts`) sépare deux flux à la compilation : les routes **statiques**
-(chemin littéral) vont dans une `Map path.toLowerCase() → candidates` — **lookup O(1)** ; les routes
-**dynamiques** (`{var}`, wildcard, métacaractère regex) restent un **scan regex ordonné**
-(`router.ts:55-71`). `resolve()` fusionne les deux flux **par position d'insertion** : la séquence de
-correspondance reste celle de la déclaration, prévisible.
+## 📜 Normes appliquées
 
-Le `Resolver` (`nodefony/src/Resolver.ts:86`) fait `match → callController → executeAction`. Le constat
-de sécurité qui compte : la **garde `@IsGranted` s'évalue AVANT `newController`** — un `403`
-court-circuite l'instanciation DI **et** le `initialize()` du contrôleur (Zero Trust : on ne construit
-rien pour un appelant non autorisé, `Resolver.ts:329-333`). Quand la route n'est pas gardée (≈ 99 % des
-cas, `security === null`), c'est **0 lookup, 0 await, 0 alloc** — la sécurité ne taxe pas le hot path.
+RFC 9110 (méthodes, `405` et en-tête `Allow`, redirections), RFC 6455 §7.4 (codes de fermeture
+WebSocket, dont le `1002` d'erreur de sous-protocole), et le brouillon IETF `Idempotency-Key`.
 
-Un contrôleur déclare ses routes HTTP **et** WS avec les **mêmes** décorateurs. Côté WS, le pointeur
-`controller` du container est **partagé par la connexion** et réécrit à chaque re-routage (invoke,
-forward) : le Resolver reconstruit l'instance si la classe courante diffère de celle de la route
-(`Resolver.ts:340-347`), et une route WS-pontable doit déclarer explicitement le transport `WEBSOCKET`
-(`Route.ts:548`) — le transport seul ne suffit pas à distinguer l'action invoquée par un message.
+## 📡 Observabilité — Studio
 
-## Les briques du module (→ pages dédiées)
+L'écran **Routes** liste la table telle qu'elle est réellement montée, et le **Playground** permet de
+jouer une route en voyant ses badges `@IsGranted` / `@Idempotent`. Chaque module publie son data plane
+via `AdminBroker`.
 
-| Brique           | Rôle                                                      | Page                            |
-| ---------------- | --------------------------------------------------------- | ------------------------------- |
-| Routeur & routes | Enregistrement, résolution statique/dynamique             | [routing](./routing.md)         |
-| Contrôleurs      | Cycle d'une action, helpers `render`/`renderJson`/`send`  | [controller](./controller.md)   |
-| Décorateurs      | `@controller`, `@Get`/`@Post`, `@route`, `@Param`/`@Body` | [decorateurs](./decorateurs.md) |
-| Idempotence      | Anti double-effet des mutations (Idempotency-Key)         | [idempotence](./idempotence.md) |
-| Data plane admin | `AdminBroker`, `/nodefony/<ns>/api/*`                     | [admin](./admin.md)             |
-| Templates (Eta)  | Rendu de vues serveur                                     | [templates](./templates.md)     |
+## 🧪 Tests & couverture
 
-## Surface publique
+Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vitest — jamais figés ici.
 
-Exports clés : `Controller`, `Router`, `Resolver`, `Route`, `controllers()`, les décorateurs de route
-et de garde, `IdempotencyStore`, `AdminBroker`. Signatures : `.ai/symbols.json`.
+| Type        | Où                       | Ce qui est prouvé                                       |
+| ----------- | ------------------------ | ------------------------------------------------------- |
+| Unitaire    | `nodefony/tests/unit/**` | routeur, resolver, contrôleur, décorateurs, idempotence |
+| Intégration | via `@nodefony/http`     | la route réelle répond sur un serveur vivant            |
+| E2E         | via `@nodefony/drizzle`  | idempotence rejouée contre une vraie base               |
 
-## Configuration
+## ⚠️ Pièges (symptôme → cause → correction)
 
-Bloc Zod (`nodefony/config/config.ts`) : `router`, `adminBroker`, `idempotency` (store/gc — voir la
-page idempotence). Détail par brique.
+| Symptôme                                      | Cause                                                           | Correction                                    |
+| --------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------- |
+| `404` sur une route qui « existe »            | Contrôleur jamais importé — les routes naissent à l'import      | L'ajouter à `@controllers([…])` du module     |
+| Une route paramétrée mange un chemin littéral | L'ordre de déclaration **est** la priorité                      | Déclarer le littéral avant le paramétré       |
+| Action WebSocket jamais atteinte              | Transport `WEBSOCKET` non déclaré sur la route                  | L'ajouter aux méthodes de la route            |
+| `TS2416` sur une action `remove`              | Le nom entre en collision avec une méthode héritée de `Service` | Renommer l'action — l'URL vient du décorateur |
+| Double effet d'une mutation rejouée           | Route sensible sans clé d'idempotence                           | Voir [idempotence](idempotence.md)            |
 
-## Normes appliquées
+## 🔗 Pour aller plus loin
 
-RFC 9110 (méthodes, 405), draft idempotency-key-header, Fetch Metadata (via security), en-têtes
-`RateLimit-*` (via http).
-
-## Observabilité — Studio
-
-**Playground** (explorateur de routes avec badges `@IsGranted`/`@Idempotent`), **Routes**, data plane
-admin par module.
-
-## Tests & couverture
-
-Le module est couvert par **535 cas** sur 36 fichiers (routing, resolver, controller, décorateurs,
-idempotence — dont le _seam_ Resolver — admin, templates), avec des doubles de test et un e2e
-d'idempotence rejoué MySQL. Photo régénérée depuis vitest — la vérité vit dans `npm run coverage`
-(`@nodefony/framework`).
-
-## Pièges (symptôme → cause → correction)
-
-| Symptôme                            | Cause                                                  | Correction                                           |
-| ----------------------------------- | ------------------------------------------------------ | ---------------------------------------------------- |
-| `404` sur une route qui « existe »  | Décorateur non importé (routes déclarées à l'import)   | S'assurer que le contrôleur est bien chargé/scanné   |
-| `403` avant même le contrôleur      | `@IsGranted` : garde évaluée **avant** l'instanciation | Attendu (Zero Trust) — vérifier le rôle/scope requis |
-| Action WS jamais atteinte           | Route sans transport `WEBSOCKET` déclaré               | Déclarer `methods: ["WEBSOCKET"]` sur la route       |
-| Double effet d'une mutation rejouée | Pas d'`Idempotency-Key` sur une route sensible         | Voir [idempotence](./idempotence.md)                 |
-| `405` sur une méthode               | Méthode non déclarée pour la route (RFC 9110)          | Ajouter la méthode au décorateur                     |
-
-## Pour aller plus loin
-
-- Pipeline de requête → [pipeline-requete](../../../docs/architecture/pipeline-requete.md)
-- Idempotence → [idempotence](./idempotence.md) · Sécurité → `src/packages/@nodefony/security/docs/index.md`
-- Vue d'ensemble → [vue-ensemble](../../../docs/architecture/vue-ensemble.md)
+- Le trajet complet d'une requête → [pipeline-requete](../../../../../docs/architecture/pipeline-requete.md)
+- La couche transport en dessous → [@nodefony/http](../../http/docs/index.md)
+- Le pare-feu qui garde les actions → [@nodefony/security](../../security/docs/index.md)
+- Portées d'injection des contrôleurs → [injection-portees](../../../../../docs/architecture/injection-portees.md)
+- Vue d'ensemble du framework → [vue-ensemble](../../../../../docs/architecture/vue-ensemble.md)

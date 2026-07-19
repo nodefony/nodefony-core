@@ -1,100 +1,149 @@
 ---
-title: "@nodefony/http — vue du module"
+title: "@nodefony/http — la couche transport"
 lang: fr
 module: "@nodefony/http"
 topic: http
 section: "Cœur runtime"
-audience: [developer]
-tags: [http, https, http2, websocket, context, serveurs]
+audience: [developer, devops]
+tags:
+  [http, https, http2, websocket, wss, context, serveurs, sessions, transport]
 version: "doc"
 status: stable
-updated: 2026-07-18
+updated: 2026-07-19
 source: "src/packages/@nodefony/http/docs/index.md"
+coverageModule: http
 ---
 
-# @nodefony/http — vue du module
+# @nodefony/http — la couche transport
 
-> La couche transport : serveurs HTTP/HTTPS/HTTP2 et WebSocket/WSS, le **contexte de requête partagé**
-> entre web et temps réel, les sessions, cookies, upload, statiques, rate-limit, certificats et le
-> profiler. Point d'entrée du module — il récapitule et renvoie aux pages de brique. Ancré sur le code.
+> Les portes d'entrée du processus. Ce module ouvre les sockets, accepte les connexions — web **et**
+> temps réel — et construit le **contexte de requête** que tout le reste du framework consomme. Sa
+> particularité tient en une phrase : HTTP et WebSocket ne sont pas deux mondes, ce sont **deux entrées
+> du même pipeline**. C'est de là que vient le différenciateur de Nodefony.
 
-## Schéma général
+📍 [Documentation](../../../../../docs/index.md) › **@nodefony/http**
+
+## 🧭 Par où commencer
+
+Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppose la précédente.
+
+**Je découvre le module** — comprendre avant de configurer.
+
+1. [Serveurs](servers.md) — ce qui écoute, sur quels ports, et comment ça démarre et s'arrête.
+2. [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) — le trajet complet
+   d'une requête, du socket jusqu'à ton contrôleur. **La page qui relie tout.**
+3. [Sessions](session.md) — le premier état serveur que rencontre une application réelle.
+4. [Routage et contrôleurs](../../framework/docs/index.md) — la suite du voyage, dans `@nodefony/framework`.
+
+**Je mets en production** — ce qu'un serveur exposé doit tenir.
+
+1. [Serveurs](servers.md) — TLS, certificats, politique de port, arrêt gracieux, sondes de vie.
+2. [Sessions](session.md) — choisir un store partagé : sans lui, deux pods ne partagent aucune session.
+3. [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) — où se branchent
+   rate-limit, en-têtes et firewall.
+4. [Sécurité](../../security/docs/index.md) — le pare-feu applicatif se pose par-dessus ce module.
+
+**Je fais du temps réel** — WebSocket dans le même contexte que le web.
+
+1. [Serveurs](servers.md) — le WS n'a pas de port à lui : il se greffe sur son porteur HTTP.
+2. [Sessions](session.md) — la session côté WebSocket, et pourquoi elle passe par l'ALS.
+3. [La socket Nodefony](../../../../../docs/realtime/socket/01-vue-ensemble.md) — la couche au-dessus,
+   qui multiplexe N canaux sur une connexion.
+
+## 🗂️ Les briques du module
+
+Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouve.
+
+| Brique                                                                      | Ce qu'elle résout                              | Tu en as besoin quand…                            |
+| --------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------- |
+| [Serveurs](servers.md)                                                      | ouvrir, régler, transmettre, fermer proprement | toujours — c'est la fondation                     |
+| [Sessions](session.md)                                                      | de l'état serveur rattaché à un visiteur       | login, panier, préférences, WS authentifié        |
+| [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) | l'ordre exact des étapes, HTTP comme WS        | tu débugges « pourquoi ça passe / ça bloque ici » |
+
+### [`servers`](servers.md) — HTTP, HTTPS, HTTP/2, WebSocket
+
+Deux ports, quatre serveurs, un seul pipeline. La page couvre la politique de port (que faire quand
+il est occupé), les certificats et le TLS de développement, le réglage du transport, les sondes de
+liveness/readiness, l'arrêt gracieux, et les défenses de bordure (slow-loris, floods, zombies
+WebSocket). **Commence ici** : tout le reste suppose un serveur qui écoute.
+
+### [`session`](session.md) — l'état serveur d'un visiteur
+
+Le cycle de vie complet, le cookie opaque, les quatre stores (`memory`, `drizzle`, `redis`,
+`mongoose`) et comment `auto` en choisit un, les délais NIST, la révocation, et la session côté
+WebSocket. C'est la brique où un choix de développement (`memory`) devient un bug de production
+(deux pods, deux sessions).
+
+### [`pipeline-requete`](../../../../../docs/architecture/pipeline-requete.md) — le trajet complet
+
+Page transverse, mais indispensable ici : elle montre où ce module s'arrête et où le framework prend
+le relais, et dans quel ordre s'enchaînent contexte, rate-limit, routage, session, CSRF et firewall.
+
+> [!NOTE]
+> **Le module couvre plus que ces trois pages.** Cookies, upload de fichiers, rate-limit, fichiers
+> statiques, certificats et profiler sont implémentés et testés, mais n'ont pas encore leur page
+> dédiée. En attendant, leur configuration est décrite dans les blocs Zod de
+> `nodefony/config/config.ts`, et leur comportement dans la page [Serveurs](servers.md) pour la partie
+> transport.
+
+## 🏛️ Place dans le framework
 
 ```mermaid
-flowchart LR
-  N["node:http/https/http2 · ws"] --> SRV["Servers<br/>server-https · server-static"]
-  SRV --> HK["http-kernel<br/>pipeline HTTP + WS"]
-  HK --> CTX["Context (base)<br/>HttpContext · WebsocketContext"]
-  CTX --> SESS["sessions"]
-  CTX --> RR["→ framework (router/controller)"]
+flowchart TD
+  N["node:http · node:https · node:http2 · ws"] --> SRV["serveurs<br/>http · https/h2 · ws · wss"]
+  SRV --> HK["HttpKernel<br/>orchestrateur du pipeline"]
+  HK --> CTX["Context<br/>HttpContext · WebsocketContext"]
+  CTX --> SESS["sessions · cookies · upload"]
+  CTX --> FW["@nodefony/security<br/>firewall, CSRF, CORS"]
+  FW --> FRW["@nodefony/framework<br/>routage → contrôleur"]
 ```
 
-## Lexique
+`@nodefony/http` ne connaît ni les routes ni les contrôleurs — il ne peut pas importer
+`@nodefony/framework` (ce serait un cycle). Il expose un contexte ; le framework s'y branche.
 
-| Sigle      | Sens                                                    |
-| ---------- | ------------------------------------------------------- |
-| HTTP/2     | Version multiplexée de HTTP (streams, pseudo-en-têtes). |
-| WS / WSS   | WebSocket (chiffré).                                    |
-| Context    | L'objet-requête partagé HTTP+WS.                        |
-| Rate limit | Limitation du débit de requêtes (anti-abus).            |
-| ALS        | AsyncLocalStorage (suivi de requête).                   |
-| Profiler   | Mesure des phases d'une requête.                        |
+## 🧰 Surface publique
 
-## Qu'est-ce que ce module
+Depuis une application : `Context`, `HttpContext`, `WebsocketContext`, `Session`, `SessionsService`,
+les services de serveurs, `cookie`, `httpError`, le profiler. Les signatures exactes vivent dans
+`.ai/symbols.json` et dans les types générés — jamais recopiées à la main dans cette page, où elles
+se périmeraient en silence.
 
-C'est la fondation réseau : ouvrir les serveurs, accepter les connexions, et **construire le contexte**
-que tout le reste consomme. Sa particularité : HTTP et WebSocket ne sont pas deux mondes mais deux
-entrées du **même** pipeline (voir la page dédiée).
+## ⚙️ Configuration
 
-## La vision Nodefony
+Tout se déclare dans `nodefony.config.ts` via `use("@nodefony/http", { … })`. Les blocs Zod
+(`nodefony/config/config.ts`) couvrent : `servers` (ports, transport, TLS, HTTP/2), `session` et
+`cookie`, `trustProxy`, `certificates`, `upload`, le rate-limit et les fichiers statiques. Chaque page
+de brique détaille son bloc et ses défauts réels.
 
-Le service `http-kernel` (`nodefony/service/http-kernel.ts`) orchestre le pipeline pour les deux
-transports ; `Context` (`nodefony/src/context/Context.ts:123`) est la base commune dont héritent
-`HttpContext` (`:77`) et `WebsocketContext` (`:83`). Les serveurs (HTTP/HTTPS/HTTP2 + WS/WSS) partagent
-la même résolution de zone et de session. Le module gère aussi les **en-têtes de sécurité de socle**
-(complétés par le firewall), le rate-limit d'entrée, et l'observabilité (profiler, admin API).
+## 📜 Normes appliquées
 
-## Les briques du module (→ pages dédiées)
+RFC 9110/9111/9112 (sémantique HTTP, cache, HTTP/1.1), RFC 9113 (HTTP/2), RFC 6455 (WebSocket et ses
+codes de fermeture), RFC 6265bis (cookies), RFC 6585 (429), RFC 6125 (identité des certificats),
+WHATWG Fetch (CORS), W3C Trace Context (`traceparent`).
 
-| Brique              | Rôle                                           | Page                                                       |
-| ------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
-| Pipeline & contexte | HTTP+WS, contexte partagé, cycle d'une requête | [pipeline](../../../docs/architecture/pipeline-requete.md) |
-| Sessions            | État serveur, cookie, stores, sécurité         | [session](./session.md)                                    |
-| Serveurs            | HTTP/HTTPS/HTTP2, statiques, TLS/certificats   | [servers](./servers.md)                                    |
-| Cookies             | Lecture/écriture, signature, préfixes          | [cookies](./cookies.md)                                    |
-| Upload              | Réception de fichiers, limites                 | [upload](./upload.md)                                      |
-| Rate limit          | Limitation IP / handshake WS (RFC 6585)        | [rate-limit](./rate-limit.md)                              |
-| Profiler & admin    | Phases, métriques, data plane admin            | [observabilite](./observabilite.md)                        |
+## 📡 Observabilité — Studio
 
-## Surface publique
+Le profiler mesure les phases d'une requête et alimente le data plane admin (`HttpAdminApi`). Les
+sessions sont surfacées dans l'écran **Sessions** de Studio, les corrélations par `traceparent` dans
+l'écran **Traces**, et l'état des serveurs dans la carte du module.
 
-Exports clés : `Context`, `HttpContext`, `WebsocketContext`, `Session`, `SessionsService`, les serveurs,
-`cookie`, `httpError`, le profiler. Signatures : `.ai/symbols.json` (jamais recopiées à la main).
+## 🧪 Tests & couverture
 
-## Configuration
+Le module porte la plus grosse couverture du dépôt — les chiffres exacts vivent dans la carte de
+l'aperçu, régénérée depuis vitest, jamais figés dans la prose.
 
-Blocs Zod (`nodefony/config/config.ts`) : `session`/`cookie`, `trustProxy`, `certificates`, `upload`,
-HTTP/2 (`maxConcurrentStreams`, `maxSessionMemory` — défense CVE-2023-44487), rate-limit, statiques.
-Chaque page de brique détaille son bloc.
+| Type             | Où                                    | Ce qui est prouvé                                     |
+| ---------------- | ------------------------------------- | ----------------------------------------------------- |
+| Unitaire         | `tests/unit/**`                       | cookies, session, erreurs, trust-proxy, requestId     |
+| Intégration      | `tests/{http,integration,routing}/**` | pipeline réel sur serveur vivant, TLS, statiques      |
+| WebSocket        | `tests/websockets/**`                 | handshake, protocoles, binaire, broadcast, sessions   |
+| Contrat          | `tests/support/*Contract.ts`          | un store tiers respecte le contrat attendu            |
+| Charge / mémoire | `tests/load/**` + `memory.test.ts`    | seuils de heap, connexions soutenues, débit de frames |
 
-## Normes appliquées
+## 🔗 Pour aller plus loin
 
-RFC 9110/9111/9112 (HTTP/1.1, sémantique, cache), RFC 9113 (HTTP/2), RFC 6455 (WebSocket, codes de
-fermeture), RFC 6265bis (cookies), RFC 6585 (429), WHATWG Fetch (CORS), W3C Trace Context.
-
-## Observabilité — Studio
-
-Profiler et data plane admin (`HttpAdminApi`) ; sessions surfacées dans l'écran **Sessions** de Studio ;
-traces via `traceparent` (écran Traces).
-
-## Tests & couverture
-
-Bancs de contrat (`tests/support/*Contract.ts`), tests HTTP/WS/intégration, **tests de charge**
-(`tests/load/*` : ALS, sessions, WS connexions/latence/messages, stream) et `memory.test.ts`.
-`npm run coverage` dans `@nodefony/http` (le % vit dans le rapport vitest, pas ici).
-
-## Pour aller plus loin
-
-- Pipeline de requête → [pipeline-requete](../../../docs/architecture/pipeline-requete.md)
-- Routage & contrôleurs → `src/packages/@nodefony/framework/docs/index.md`
-- Vue d'ensemble → [vue-ensemble](../../../docs/architecture/vue-ensemble.md)
+- Le trajet d'une requête → [pipeline-requete](../../../../../docs/architecture/pipeline-requete.md)
+- Routage et contrôleurs → [@nodefony/framework](../../framework/docs/index.md)
+- Le pare-feu par-dessus → [@nodefony/security](../../security/docs/index.md)
+- Choisir un store de sessions → [session-storage](../../../../../docs/guides/session-storage.md)
+- Vue d'ensemble du framework → [vue-ensemble](../../../../../docs/architecture/vue-ensemble.md)
