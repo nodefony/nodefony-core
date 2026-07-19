@@ -1,6 +1,6 @@
 ---
 name: nodefony-documentation
-version: 2.1.0
+version: 2.2.0
 description: >
   Kit de dev de la DOCUMENTATION Nodefony — le portail doc Studio (`/nodefony/documentation`)
   et le futur module `@nodefony/documentation`. Concern TRANSVERSE (ni purement front, ni purement
@@ -15,8 +15,9 @@ description: >
   Porte AUSSI le SYSTÈME D'ÉCRITURE de la doc de référence : standard `reference/redaction-contenu.md`
   (Diátaxis, intro obligatoire, ancres symboliques, Démarrage rapide compilable, navigation par hubs
   avec fil d'Ariane) + outillage `scripts/` (doc-lint DoD bloquante — sections, navigation, liens
-  morts —, anchor-check exactitude des ancres, code-check compilation du Démarrage rapide,
-  gen-counters compteurs de tests réels, build-preview aperçu HTML fidèle Studio).
+  morts —, anchor-check exactitude des ancres vers le code, anchor-inpage ancres internes d'une page,
+  code-check compilation du Démarrage rapide, gen-counters compteurs de tests réels, build-preview
+  aperçu HTML fidèle Studio).
   Déclencheurs : "portail doc", "doc portal", "DocLayout", "@nodefony/documentation", "MarkdownDoc",
   "DocToc", "sommaire de doc", "scrollspy doc", "FlowGraph", "page de documentation Studio",
   "écrire la doc dans Studio", "module documentation", "layout docs-site", "rendre du markdown Studio",
@@ -408,18 +409,26 @@ Réf complète (étude de faisabilité) : [[project_doc_portal_faisabilite]].
 
 ### Outillage (source unique : `scripts/` de CE skill ; artefacts → `tmp/doc-work/`)
 
-| Script                                  | Rôle                                                                                             |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `scripts/doc-lint.mjs <page.md>`        | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, 0 HTML brut) |
-| `scripts/anchor-check.mjs <page.md>`    | **Exactitude des ancres** : résout chaque `fichier:ligne` contre le code réel (SUSPECT/LINE_OUT) |
-| `scripts/gen-counters.mjs [topic]`      | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée) |
-| `scripts/build-preview.mjs <md> <html>` | Aperçu HTML autonome fidèle Studio (version/branche/commit pris de git ; Mermaid si mmdc)        |
+| Script                                  | Rôle                                                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `scripts/doc-lint.mjs <page.md>`        | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, 0 HTML brut)      |
+| `scripts/anchor-check.mjs <page.md>`    | **Exactitude des ancres CODE** : résout chaque `fichier:ligne` contre le code réel (SUSPECT/LINE_OUT) |
+| `scripts/anchor-inpage.mjs <page.md>`   | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts)        |
+| `scripts/code-check.mjs <page.md>`      | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict             |
+| `scripts/gen-counters.mjs [topic]`      | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée)      |
+| `scripts/build-preview.mjs <md> <html>` | Aperçu HTML autonome fidèle Studio (version/branche/commit pris de git ; Mermaid si mmdc)             |
+
+> ⚠️ **`anchor-inpage.mjs` et `slugifyHeading()` (`studio/frontend/src/components/ui/DocToc.tsx`)
+> portent la MÊME règle de slug** — convention GitHub, accents conservés, ponctuation/symboles/emoji
+> retirés. Modifier l'un sans l'autre remet des sommaires morts **en silence** : c'est exactement
+> comme ça que 77 ancres internes ont cassé d'un coup à l'arrivée des pages à catalogue.
 
 ### Workflow par page (ordre imposé)
 
 lire le CODE réel → rédiger (standard §8→§8sexies) → `gen-counters.mjs <topic>` (MAJ `test-map.json`
-si nouveaux fichiers de test) → `build-preview.mjs` → **`doc-lint.mjs` vert ET `anchor-check.mjs`
-0 SUSPECT** → commit `docs(<module>): …` sur la branche `doc` (jamais mergée sans validation humaine).
+si nouveaux fichiers de test) → `build-preview.mjs` → **les 4 gates verts : `doc-lint.mjs`,
+`anchor-check.mjs` (0 SUSPECT), `anchor-inpage.mjs` (0 ancre morte), `code-check.mjs` (compile)** →
+commit `docs(<module>): …` sur la branche `doc` (jamais mergée sans validation humaine).
 
 ---
 
@@ -559,6 +568,16 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
 
 ## Changelog (SemVer)
 
+- **2.2.0** (2026-07-19) — **6ᵉ gate : les ancres INTERNES, et alignement du slug sur GitHub**.
+  Trou découvert en vague 5 : aucun gate ne vérifiait `](#section)`, le lien d'une page vers ses
+  propres titres. Invisible tant que les pages n'avaient pas de sommaire interne ; les pages à
+  catalogue (hub + page de fond) en ont cassé **77 d'un coup**. Cause racine hors doc :
+  `slugifyHeading()` (`DocToc.tsx`) **retirait les accents** (forme ASCII) alors que tout auteur écrit
+  ses ancres à la GitHub (`#pièges`) — les liens marchaient sur GitHub et étaient morts dans le
+  portail. Corrigé **à la source** (une seule fonction, importée par `MarkdownDoc`) plutôt qu'en
+  tordant les liens : la double lisibilité GitHub + portail est un principe du chantier, et un
+  rédacteur retomberait sans cesse dans le piège. Nouveau `scripts/anchor-inpage.mjs` portant la
+  **même** règle, avec l'avertissement croisé dans les deux fichiers. Résultat : 77 → 0.
 - **2.1.0** (2026-07-19) — **NAVIGATION par hubs + 5ᵉ gate de compilabilité**. Retour user : l'arbre
   latéral de Studio devient touffu dès 8 pages et n'enseigne rien. Réponse en trois temps :
   (a) standard §8bis-nav — **fil d'Ariane** en tête et **retour au hub** en pied de CHAQUE page ;

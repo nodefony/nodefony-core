@@ -57,12 +57,12 @@ Quatre parcours, selon ce que tu viens faire. L'ordre compte : chaque étape sup
 2. [🔐 Les stores fournis](#-les-stores-fournis) — un par brique, avec sa clé de sélection.
 3. [Sessions HTTP](../../http/docs/session.md) et [jetons](../../security/docs/tokens.md) —
    le contrat côté consommateur ; cette page en donne l'implémentation Mongo.
-4. [⚠️ Pièges](#-pièges-symptôme--cause--correction) — l'ordre de chargement des modules se paie cher
+4. [⚠️ Pièges](#️-pièges-symptôme--cause--correction) — l'ordre de chargement des modules se paie cher
    quand on le découvre en production.
 
 **J'exploite MongoDB à fond** — au-delà du CRUD portable.
 
-1. [🏗️ Architecture interne](#-architecture-interne--du-boot-à-la-requête) — ce qui se passe au boot,
+1. [🏗️ Architecture interne](#️-architecture-interne--du-boot-à-la-requête) — ce qui se passe au boot,
    et le trajet exact d'une requête.
 2. [Relations et transactions](#relations--sans-clé-étrangère) — populate, virtuels, replica set.
 3. [La trappe native](#la-trappe-native--quand-le-contrat-ne-suffit-plus) — agrégations, `$or`,
@@ -111,7 +111,7 @@ processus — c'est l'orchestrateur qui relèvera Mongo.
 Il ouvre une connexion **isolée** (jamais le singleton global de Mongoose), compile chaque entité
 enregistrée en modèle, traduit les relations en références `ObjectId` + `populate`, et expose les
 sondes que Studio affiche. Tu ne l'appelles directement que pour la connexion native ou une
-transaction. Voir [Architecture interne](#-architecture-interne--du-boot-à-la-requête).
+transaction. Voir [Architecture interne](#️-architecture-interne--du-boot-à-la-requête).
 
 ### `MongooseRepository` — le CRUD portable
 

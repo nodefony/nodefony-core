@@ -35,14 +35,27 @@ export interface TocHeading {
   id: string;
 }
 
-/** Slug déterministe d'un titre (partagé entre TOC et titres rendus). */
+/**
+ * Slug déterministe d'un titre (partagé entre TOC et titres rendus).
+ *
+ * Convention **GitHub** : les accents sont CONSERVÉS (`Pièges` → `pièges`), seuls
+ * la ponctuation, les symboles et les emoji sont retirés, et les espaces deviennent
+ * des tirets — sans rognage des tirets de bord.
+ *
+ * Pourquoi GitHub et pas une forme ASCII : les pages du corpus se lisent aux DEUX
+ * endroits, sur GitHub et dans ce portail. Un auteur écrit spontanément `](#pièges)`
+ * — la forme que GitHub produit. Retirer les accents ici rendait ces liens morts
+ * dans le portail alors qu'ils fonctionnaient sur GitHub (77 ancres cassées d'un
+ * coup à l'apparition des pages à catalogue interne).
+ *
+ * Le gate `anchor-inpage.mjs` du skill `nodefony-documentation` applique la MÊME
+ * règle — toute divergence casserait à nouveau les sommaires en silence.
+ */
 export function slugifyHeading(text: string): string {
   return text
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // accents combinés
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+    .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "") // ponctuation, symboles, emoji
+    .replace(/\s/g, "-");
 }
 
 /** Extrait les titres markdown (niveaux min→max), hors blocs de code ```. */
