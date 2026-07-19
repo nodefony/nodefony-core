@@ -1,6 +1,6 @@
 ---
 name: nodefony-documentation
-version: 2.0.0
+version: 2.1.0
 description: >
   Kit de dev de la DOCUMENTATION Nodefony — le portail doc Studio (`/nodefony/documentation`)
   et le futur module `@nodefony/documentation`. Concern TRANSVERSE (ni purement front, ni purement
@@ -13,9 +13,10 @@ description: >
   emplacement hybride, vulgarisation). NE couvre PAS les écrans Studio génériques (→ nodefony-studio-dev)
   ni la création back from scratch (→ nodefony-create-module / nodefony-framework-dev).
   Porte AUSSI le SYSTÈME D'ÉCRITURE de la doc de référence : standard `reference/redaction-contenu.md`
-  (Diátaxis, intro obligatoire, ancres symboliques, Démarrage rapide compilable) + outillage
-  `scripts/` (doc-lint DoD bloquante, anchor-check exactitude des ancres, gen-counters compteurs de
-  tests réels, build-preview aperçu HTML fidèle Studio).
+  (Diátaxis, intro obligatoire, ancres symboliques, Démarrage rapide compilable, navigation par hubs
+  avec fil d'Ariane) + outillage `scripts/` (doc-lint DoD bloquante — sections, navigation, liens
+  morts —, anchor-check exactitude des ancres, code-check compilation du Démarrage rapide,
+  gen-counters compteurs de tests réels, build-preview aperçu HTML fidèle Studio).
   Déclencheurs : "portail doc", "doc portal", "DocLayout", "@nodefony/documentation", "MarkdownDoc",
   "DocToc", "sommaire de doc", "scrollspy doc", "FlowGraph", "page de documentation Studio",
   "écrire la doc dans Studio", "module documentation", "layout docs-site", "rendre du markdown Studio",
@@ -558,6 +559,22 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
 
 ## Changelog (SemVer)
 
+- **2.1.0** (2026-07-19) — **NAVIGATION par hubs + 5ᵉ gate de compilabilité**. Retour user : l'arbre
+  latéral de Studio devient touffu dès 8 pages et n'enseigne rien. Réponse en trois temps :
+  (a) standard §8bis-nav — **fil d'Ariane** en tête et **retour au hub** en pied de CHAQUE page ;
+  (b) standard §8bis-index réécrit — le hub devient un **bureau de travail** : parcours guidés par
+  profil (« je protège une API machine » → suite ordonnée de 3-5 liens, qui dit POURQUOI cet ordre)
+  - catalogue en **cards cliquables** précédé d'un tableau de synthèse ; (c) § Navigation du portail
+    dans ce SKILL — hubs d'abord, recherche ensuite (titres + corps + extrait), arbre en dernier.
+    **`code-check.mjs` créé** : le standard §8sexies nommait ce gate depuis le début sans qu'il existe
+    (la vague 1 compilait à la main) — il extrait les blocs du « Démarrage rapide », les compile par
+    `tsgo` strict contre les vrais paquets, isole son répertoire par page (rédacteurs parallèles) et
+    réinjecte un préambule implicite pour les extraits de config (`use`/`defineConfig`), qu'on ne
+    montre jamais avec leurs imports. **`doc-lint` gagne 3 contrôles** : fil d'Ariane, retour au hub,
+    **liens internes morts** (un lien mort dans un hub promet une page qui n'existe pas) — et un
+    **régime HUB distinct** (un hub oriente : lui réclamer Lexique/Pièges/Tests/ancres fabriquerait du
+    remplissage). **`build-preview`** rend l'en-tête de card cliquable (`.brick-nav`, focus visible,
+    `prefers-reduced-motion`) — `MarkdownDoc.tsx` doit rattraper cette parité.
 - **2.0.0** (2026-07-19) — **Le skill devient le foyer du SYSTÈME D'ÉCRITURE de la doc de référence**
   (reprise du corpus cloud, retours user : ancres illisibles/décalées, pas d'exemples). Nouveau :
   `reference/redaction-contenu.md` (standard intégral §8→§8sexies) + `scripts/` = doc-lint (DoD
