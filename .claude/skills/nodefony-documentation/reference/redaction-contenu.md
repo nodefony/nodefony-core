@@ -120,6 +120,25 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
 7. **Rythmer avec les admonitions** (`> [!TIP]` · `> [!WARNING]` · `> [!IMPORTANT]`) : un piège
    énoncé en « Piège : … » dans un paragraphe se noie ; en `[!WARNING]` il saute aux yeux.
    1-3 par page, aux endroits où se tromper coûte cher — pas une par paragraphe.
+8. **ICÔNES DE SECTION — le lecteur se prépare** (signalisation : le pictogramme annonce le
+   registre AVANT la lecture ; même icône = même type de contenu sur TOUTES les pages).
+   Vocabulaire CANONIQUE (emoji en tête du titre `##`, dans le Markdown — porté partout :
+   Studio, GitHub, RAG) :
+
+   | Section                | Icône | Section                   | Icône |
+   | ---------------------- | ----- | ------------------------- | ----- |
+   | Démarrage rapide       | 🚀    | Pièges                    | ⚠️    |
+   | Lexique                | 📖    | Tests & couverture        | 🧪    |
+   | Modèle mental / Schéma | 🧠    | Observabilité Studio      | 📡    |
+   | Configuration / modes  | ⚙️    | Normes appliquées         | 📜    |
+   | Architecture interne   | 🏗️    | Pour aller plus loin      | 🔗    |
+   | API publique           | 🧰    | Sécurité / authentifiants | 🔐    |
+   | Performance & mémoire  | ⚡    | Extension                 | 🧩    |
+   | Autorisation (jury)    | 🧑‍⚖️    | Transport HTTP/WS         | 🔌    |
+   | Défenses (en-têtes…)   | 🛡️    |                           |       |
+
+   Une section hors vocabulaire → pas d'icône (mieux : aucune) plutôt qu'une icône inventée —
+   la cohérence EST le signal. Jamais d'icône dans les `###` (réservé aux `##`).
 
 ## 6. Style d'écriture
 

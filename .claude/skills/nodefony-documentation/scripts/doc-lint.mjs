@@ -19,14 +19,21 @@ if (!files.length) {
 }
 
 // Sections obligatoires (regex sur les titres H2, insensible casse/accents partiels).
+// `(?:\S+\s+)?` tolère l'icône de section canonique (standard §6-ergo n°8 : `## 🚀 Démarrage…`).
 const REQUIRED = [
-  { key: "lexique", re: /^##\s+Lexique/im },
-  { key: "qu'est-ce / vision", re: /^##\s+(Qu['e]|La vision|Le mod[eè]le)/im },
-  { key: "pièges", re: /^##\s+Pi[eè]ges/im },
-  { key: "pour aller plus loin", re: /^##\s+Pour aller plus loin/im },
+  { key: "lexique", re: /^##\s+(?:\S+\s+)?Lexique/im },
+  {
+    key: "qu'est-ce / vision",
+    re: /^##\s+(?:\S+\s+)?(Qu['e]|La vision|Le mod[eè]le)/im,
+  },
+  { key: "pièges", re: /^##\s+(?:\S+\s+)?Pi[eè]ges/im },
+  {
+    key: "pour aller plus loin",
+    re: /^##\s+(?:\S+\s+)?Pour aller plus loin/im,
+  },
 ];
 // Section Tests : obligatoire SAUF opt-out explicite via frontmatter `tests: none`.
-const TESTS_HEADING = /^##\s+Tests?\b/im;
+const TESTS_HEADING = /^##\s+(?:\S+\s+)?Tests?\b/im;
 
 function parseFrontmatter(src) {
   const m = src.match(/^---\n([\s\S]*?)\n---/);

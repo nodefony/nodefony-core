@@ -33,7 +33,7 @@ source: "src/packages/@nodefony/security/docs/firewall.md"
 > `src/packages/@nodefony/security/nodefony/service/firewall.ts` et les authenticators de
 > `nodefony/src/authenticator/`.
 
-## Le modèle mental — chemin chaud, chemin froid
+## 🧠 Le modèle mental — chemin chaud, chemin froid
 
 Le firewall sépare **détecter** (chaud, sur chaque requête) et **décider** (froid, seulement zone
 protégée) — pour ne pas payer l'authentification sur les routes publiques.
@@ -54,7 +54,7 @@ flowchart TD
 Les zones sont triées par **spécificité** dans `#build()` — `list.sort` par longueur de motif :
 le plus long gagne, pas le premier déclaré (`firewall.ts:230`).
 
-## Lexique
+## 📖 Lexique
 
 | Terme         | Sens                                                                            |
 | ------------- | ------------------------------------------------------------------------------- |
@@ -66,7 +66,7 @@ le plus long gagne, pas le premier déclaré (`firewall.ts:230`).
 | PAT           | Personal Access Token : une clé d'API opaque, révocable côté serveur.           |
 | Bearer        | Schéma `Authorization: Bearer <token>` (RFC 6750).                              |
 
-## Démarrage rapide
+## 🚀 Démarrage rapide
 
 ### Dans une app `nodefony create app`, le firewall est DÉJÀ actif
 
@@ -179,7 +179,7 @@ Authorization: Bearer eyJhbGciOiJFZERTQS␣…␣.␣…␣.␣…        # un J
 Authorization: Bearer nfp_9a2c…                          # une clé API (préfixe nfp_)
 ```
 
-## Les authenticators intégrés
+## 🔐 Les authenticators intégrés
 
 Tous respectent le **même contrat** (`IAuthenticator`) : `supports(context)` (test bon marché : la
 requête porte-t-elle ce type de credential ?), `createToken()` (extrait le credential brut),
@@ -287,7 +287,7 @@ handshake des zones protégées `realtime` (`firewall.ts:269`).
 - **Filet** : un revalidator re-lit la session avant chaque action data plane ; fail-closed →
   fermeture 4001.
 
-## Ordre et modes (`mode: "first"` vs `"all"`)
+## ⚙️ Ordre et modes (`mode: "first"` vs `"all"`)
 
 L'ordre effectif = la liste `area.authenticators`, déroulée par `Firewall.#authenticate()`
 (`firewall.ts:918`) :
@@ -303,7 +303,7 @@ Un nom d'authenticator inconnu en config **fait échouer le boot** —
 `Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:363`) : jamais de zone
 « protégée » silencieusement ouverte.
 
-## Autorisation — rôles, scopes, voters (« as-tu le droit ? »)
+## 🧑‍⚖️ Autorisation — rôles, scopes, voters (« as-tu le droit ? »)
 
 L'authentification dit **qui** tu es ; l'autorisation dit **ce que tu peux faire**. On déclare
 l'exigence sur l'action, un **jury de voters** tranche. La garde s'applique **avant l'instanciation
@@ -383,7 +383,7 @@ cœur (`registerVoterFactory()`, `voterRegistry.ts:40`). Pourquoi un registre et
 **est** le marqueur explicite (TSDoc du registre, `voterRegistry.ts:6-16`). Trois axes (rôles,
 scopes, métier), un même jury, combinables.
 
-## HTTP et WebSocket — le même firewall
+## 🔌 HTTP et WebSocket — le même firewall
 
 `Firewall.#wireRealtime()` (`firewall.ts:253`) câble, pour toute zone protégée `realtime !== false`
 (opt-out, `firewall.ts:262`), le `SessionRealtimeAuthenticator` au handshake (`firewall.ts:269`)
@@ -391,7 +391,7 @@ scopes, métier), un même jury, combinables.
 Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setChallenge()`,
 `firewall.ts:981`) : le **code de fermeture** suffit.
 
-## En-têtes de sécurité, CSRF, CORS
+## 🛡️ En-têtes de sécurité, CSRF, CORS
 
 - **`Firewall.applySecurityHeaders()`** (`firewall.ts:835`) : CSP, Referrer-Policy, COOP/COEP/CORP
   au-dessus du socle transport de `@nodefony/http`. **Nonce CSP paresseux** (`hasNonce`, `firewall.ts:855`) :
@@ -401,7 +401,7 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
   cookie + HMAC (`firewall.ts:778`).
 - **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:797`).
 
-## Normes appliquées
+## 📜 Normes appliquées
 
 | Domaine                | Norme           | Ancrage                                                |
 | ---------------------- | --------------- | ------------------------------------------------------ |
@@ -414,7 +414,7 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
 | CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:741`)           |
 | Modèle                 | Zero Trust      | `firewall.ts:611` (aucune preuve → 401)                |
 
-## Performance & mémoire
+## ⚡ Performance & mémoire
 
 Le découpage chaud/froid EST l'optimisation : `isSecure()` (chaque requête) ne fait qu'un
 `matchPath` ; `handleSecurity()` (throttler, authenticators, nonce CSP, `securityTrace`) n'est payé
@@ -423,7 +423,7 @@ verifier, jose) sont résolues **paresseusement** au premier usage (cold path) ;
 lazy (dep lourde). Le nonce CSP et le `securityTrace` sont alloués à la demande. Une route publique
 ne paie quasiment rien.
 
-## Pièges (symptôme → cause → correction)
+## ⚠️ Pièges (symptôme → cause → correction)
 
 | Symptôme                                 | Cause (dans le code)                                    | Correction                                                      |
 | ---------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------- |
@@ -436,13 +436,13 @@ ne paie quasiment rien.
 | WS : révocation pas immédiate            | Jeton figé au handshake (asymétrie assumée)             | Effet à la reconnexion ; pour l'immédiat, canal JWT (J4)        |
 | 429 au login                             | Throttle NIST (backoff par identifiant)                 | Respecter `Retry-After` ; attendu sous attaque                  |
 
-## Observabilité — Studio
+## 📡 Observabilité — Studio
 
 Écran **Firewall** (`studio/frontend/src/routes/Firewall.tsx`) : zones, authenticators, décisions
 (`securityTrace`). Écran **Roles** : hiérarchie de rôles consommée par les voters. Écran **ApiKeys** :
 gestion/révocation des PAT.
 
-## Tests & couverture
+## 🧪 Tests & couverture
 
 Quatre familles couvrent la brique — les **chiffres exacts vivent dans la carte de l'aperçu**
 (régénérée par `gen-counters.mjs` depuis vitest, jamais figée ici) :
@@ -459,7 +459,7 @@ Quatre familles couvrent la brique — les **chiffres exacts vivent dans la cart
 
 Couverture : `npm run coverage` dans `@nodefony/security`.
 
-## Pour aller plus loin
+## 🔗 Pour aller plus loin
 
 - Vue du module → [index](./index.md) · Autorisation (voters, rôles, scopes) → [authorization](./authorization.md)
 - JWT/OAuth2/WebAuthn/TOTP/API keys en détail → pages dédiées du module

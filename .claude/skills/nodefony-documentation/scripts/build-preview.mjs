@@ -207,12 +207,13 @@ html = html.replace(
   '<span class="srcref-group">($1)</span>',
 );
 
+// Icônes de callout : la signalisation prépare le lecteur avant la 1re phrase.
 const ADM = {
-  NOTE: ["note", "Note"],
-  TIP: ["tip", "Astuce"],
-  IMPORTANT: ["important", "Important"],
-  WARNING: ["warning", "Attention"],
-  CAUTION: ["caution", "Prudence"],
+  NOTE: ["note", "ℹ️ Note"],
+  TIP: ["tip", "💡 Astuce"],
+  IMPORTANT: ["important", "❗ Important"],
+  WARNING: ["warning", "⚠️ Attention"],
+  CAUTION: ["caution", "🛑 Prudence"],
 };
 html = html.replace(
   /<blockquote>\s*<p>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/g,
