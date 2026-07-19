@@ -285,10 +285,50 @@ flowchart TD
 | Backoff de connexion   | NIST SP 800-63B                | `authenticatorRegistry.ts:75-79`        |
 | Fermeture WebSocket    | RFC 6455 §7.4.1                | `WebsocketContext.ts:56-71`             |
 
+## Le reste de la stack — au-delà du cœur runtime
+
+Cette page a détaillé le **cœur runtime** (kernel, http, framework, security). Mais Nodefony est
+**fullstack** : le dépôt compte une famille de modules autour de ce cœur (`src/packages/@nodefony/`),
+chargés à la demande via `use()` dans `nodefony.config.ts`. La carte complète :
+
+| Famille        | Modules                                                               | Rôle                                                        |
+| -------------- | --------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Cœur runtime   | `http` · `framework` · `security` · `user`                            | Serveurs, routage/contrôleurs, firewall, modèle utilisateur |
+| Données (ORM)  | `orm-core` · `drizzle` · `mongoose` · `redis`                         | Abstraction ORM multi-dialecte + drivers SQL/document/KV    |
+| Temps réel     | `realtime`                                                            | Canaux/pub-sub au-dessus du WebSocket unifié                |
+| Frontend       | `frontend`                                                            | Intégration Vite/HMR multi-framework (build applicatif)     |
+| Administration | `studio`                                                              | Console d'admin (routes, sessions, traces, config, logs)    |
+| Documentation  | `documentation`                                                       | Data plane de doc (frontmatter, providers, rendu Studio)    |
+| Couche IA      | `llm` · `rag` · `vector` · `memory` · `agent` · `mcp` · `agent-guard` | Briques pour agents/RAG (en cours de stabilisation)         |
+
+Chaque famille a (ou aura) son **point d'entrée de module** récapitulatif. Le principe reste le même
+partout : un module se déclare dans le manifeste, se greffe sur les phases de boot, pose ses services au
+container, et — quand il touche une requête — réutilise **le contexte partagé** décrit plus haut.
+
+## Pièges (au démarrage — symptôme → cause → correction)
+
+| Symptôme                                      | Cause                                                    | Correction                                                        |
+| --------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------- |
+| Un module n'est pas chargé                    | `policy: "dev"` hors dev, ou `when(config)` faux         | Vérifier l'entrée `use()` dans `nodefony.config.ts`               |
+| `401` sur une zone censée être publique       | Zone protégée + aucune preuve (Zero Trust)               | Lister `anonymous`, ou revoir le motif de zone                    |
+| Une requête WS n'atteint pas le contrôleur    | Route sans transport `WEBSOCKET`                         | Déclarer `methods: ["WEBSOCKET"]`                                 |
+| État d'une requête qui « fuit » sur une autre | `set` sur le container racine au lieu du scope           | Toujours `scope.set` per-request                                  |
+| Boot figé au démarrage                        | Un `init` qui pend (Redis/DB offline) au-delà du timeout | Vérifier l'infra ; cf [cycle-boot-kernel](./cycle-boot-kernel.md) |
+
+## Tests & couverture
+
+Le moteur complet est couvert par **~5 668 cas de test sur 439 fichiers** (hors artefacts) — répartis
+entre le cœur `nodefony` (2 104), `@nodefony/http` (1 227), `@nodefony/security` (711) et
+`@nodefony/framework` (535), plus les autres modules. Chaque page de brique donne son propre inventaire
+(unit / intégration / attaque / charge). La carte ci-dessous est une **photo** régénérée depuis vitest
+(`npm run coverage`).
+
 ## Pour aller plus loin
 
 - Le contexte partagé en détail → `src/packages/@nodefony/http/docs/`
 - Routage, contrôleurs, décorateurs → `src/packages/@nodefony/framework/docs/`
 - Le modèle de sécurité complet → `src/packages/@nodefony/security/docs/`
-- DI et portées → [container](../../src/nodefony/docs/container.md)
-- Le cycle de vie du kernel → [kernel](../../src/nodefony/docs/kernel.md)
+- Données (ORM multi-dialecte) → `src/packages/@nodefony/orm-core/docs/` · `drizzle` · `mongoose` · `redis`
+- Temps réel · Frontend · Studio → `src/packages/@nodefony/{realtime,frontend,studio}/docs/`
+- DI et portées → [container](../../src/nodefony/docs/container.md) · [injection-portees](./injection-portees.md)
+- Le cycle de vie du kernel → [cycle-boot-kernel](./cycle-boot-kernel.md)
