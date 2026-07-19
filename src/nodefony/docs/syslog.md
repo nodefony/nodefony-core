@@ -1,205 +1,170 @@
 ---
+title: "Journalisation (Syslog)"
+lang: fr
 module: "@nodefony/core"
 topic: syslog
-audience: [human, ai]
-tags: [syslog, pdu, logging, rfc-5424, ring-buffer, transports]
-status: draft
-last-updated: 2026-05-20
+coverageModule: nodefony-core
+coveragePackage: "nodefony (cœur)"
+coverageFiles: "syslog/Syslog.ts,syslog/Pdu.ts"
+section: "Architecture"
+audience: [developer, devops]
+tags: [log, syslog, rfc5424, backplane, driver, observabilite, performance]
+version: "doc"
+status: stable
+updated: 2026-07-18
+source: "src/nodefony/docs/syslog.md"
 ---
 
-# Syslog — Logging structuré RFC 5424
+# Journalisation (Syslog)
 
-> Système de logs structurés de Nodefony. Conforme RFC 5424 (BSD syslog). Stockage ring buffer O(1) en mémoire + transports pluggables (console, file, JSON, etc.).
+> Tous les logs de Nodefony passent par un hub unique, `Syslog`, qui produit des unités structurées
+> (`Pdu`), les met dans un **ring buffer** O(1), les **coalesce** en une écriture par tick, et les
+> diffuse à deux étages distincts : des **transports** (fan-out : console, Loki, OpenSearch…) et un
+> **sink/driver** final (stdout, ou un fichier par worker, ou le backplane multi-pod). Les sévérités
+> suivent la **RFC 5424**. Ancré sur `src/nodefony/src/syslog/Syslog.ts` et `Pdu.ts`.
 
-## Vue d'ensemble
+## Le modèle mental — un pipeline à étages
 
 ```mermaid
-flowchart TD
-  call["Service.log(msg, 'INFO')"] --> pdu["Pdu (Process Data Unit · 1 log = 1 Pdu)<br/>severity · severityName · payload<br/>timeStamp · msgid · moduleName"]
-  pdu --> log["Syslog.log(pdu)<br/>1. push CircularBuffer (ring O(1))<br/>2. test conditions (severity/msgid/module)<br/>3. fire('onLog')"]
-  log --> console["console<br/>(stdout)"]
-  log --> file["file<br/>(logs/)"]
-  log --> json["JSON<br/>(Studio)"]
-  log --> sse["WS/SSE Studio<br/>(Logs panel)"]
+flowchart LR
+  Src["service.log(...)"] --> G{"gate sévérité<br/>+ rateLimit"}
+  G -->|sous seuil| DROP["rien créé<br/>(0 Pdu, 0 pile)"]
+  G -->|passe| P["Pdu<br/>(unité RFC 5424)"]
+  P --> R["ring buffer<br/>CircularBuffer O(1)"]
+  P --> OL["fire 'onLog'<br/>(sync ou setImmediate)"]
+  OL --> T["transports<br/>console · loki · opensearch"]
+  OL --> W["coalescing<br/>(1 write/tick, 64KB)"]
+  W --> SK["sink/driver<br/>stdout · file/worker · backplane"]
 ```
 
-## Composants
+Deux idées structurantes à retenir avant tout :
 
-| Classe | Fichier | Rôle |
-|--------|---------|------|
-| **`Syslog`** | `src/nodefony/src/syslog/Syslog.ts` | Hub central — buffer + filtrage + dispatch transports |
-| **`Pdu`** | `src/nodefony/src/syslog/Pdu.ts` | 1 entrée de log (Process Data Unit) |
-| **`CircularBuffer`** | `src/nodefony/src/syslog/CircularBuffer.ts` | Ring buffer FIFO O(1) — taille fixe |
-| **Transports** | `src/nodefony/src/syslog/transports/` | Sortie console, file, JSON, formatter |
+1. **Rien n'est alloué sous le seuil.** La gate de sévérité (et le rateLimit) coupe _avant_ la création
+   du `Pdu` — un `log(..., "DEBUG")` en prod ne coûte quasi rien.
+2. **Transports ≠ sink.** Les _transports_ sont un fan-out d'observabilité (plusieurs destinations
+   nommées). Le _sink/driver_ est l'unique cible d'écriture texte finale, derrière le coalescing. On les
+   règle indépendamment.
 
-## Sévérités (RFC 5424 + extension SPINNER)
+## Lexique
 
-| # | Nom | Usage typique |
-|---|-----|---------------|
-| 0 | `EMERGENCY` | Système inutilisable |
-| 1 | `ALERT` | Action immédiate requise |
-| 2 | **`CRITIC`** (pas CRITICAL) | Conditions critiques |
-| 3 | `ERROR` | Erreurs logique applicative |
-| 4 | `WARNING` | Conditions d'alerte non bloquantes |
-| 5 | `NOTICE` | Normal mais important |
-| 6 | `INFO` | Informationnel |
-| 7 | `DEBUG` | Debug |
-| -1 | `SPINNER` | Animation CLI (non-RFC, extension Nodefony) |
+| Terme             | Sens                                                                          |
+| ----------------- | ----------------------------------------------------------------------------- |
+| PDU               | _Process Data Unit_ : une entrée de log structurée (`Pdu`).                   |
+| Sévérité RFC 5424 | Niveau normalisé (`EMERGENCY=0` … `DEBUG=7`).                                 |
+| Transport         | Destination d'observabilité (console, fichier, Loki, syslog, http) — fan-out. |
+| Sink / driver     | Cible d'écriture texte finale (stdout, fichier par worker, backplane).        |
+| Ring buffer       | Tampon circulaire à taille fixe, O(1) (pas de `Array.shift()` O(n)).          |
+| Coalescing        | Regrouper les écritures d'un même tick en un seul `write()`.                  |
+| Backplane         | Agrégation des logs de plusieurs process/pods vers un point commun.           |
 
-⚠️ C'est `"CRITIC"` PAS `"CRITICAL"` — c'est le nom exact dans l'enum `SysLogSeverity`.
+## Qu'est-ce que la journalisation ici — et pourquoi ça compte
 
-## Pdu — anatomie
+Logger paraît trivial, mais dans un serveur c'est un **point chaud** : appelé à chaque requête, il ne
+doit ni allouer inutilement, ni bloquer l'event-loop, ni perdre de lignes, ni tout mélanger en
+multi-pod. Et il doit rester **exploitable** : niveaux normalisés, corrélation par requête
+(`requestId`), sorties multiples (terminal en dev, Loki/OpenSearch en prod). Chaque choix ci-dessous
+répond à l'une de ces contraintes.
+
+## La `Pdu` et les 8 sévérités (RFC 5424)
+
+`Syslog` hérite d'`Event` (`Syslog.ts:628`) ; `log()` crée une `Pdu` (`Pdu.ts`), la pousse dans le ring
+et fire `"onLog"`. Les **8 sévérités RFC 5424** sont l'enum `SysLogSeverity` (`Pdu.ts:27-37`) :
+`EMERGENCY=0, ALERT=1, CRITIC=2, ERROR=3, WARNING=4, NOTICE=5, INFO=6, DEBUG=7`. Le nom canonique est
+**`CRITIC`** (pas `CRITICAL`, `Pdu.ts:19,30`), avec mapping bidirectionnel O(1) et `translateSeverity`
+(`Pdu.ts:51`) qui **jette** si le nom est invalide. Le `pid` est le `procid` RFC 5424 (`Pdu.ts:96`) ; le
+`requestId` corrèle les lignes d'une même requête.
 
 ```typescript
-class Pdu {
-  payload: unknown;              // contenu (string, Error, objet)
-  severity: number;              // 6 (numérique pour comparaisons)
-  severityName: string;          // "INFO" (string pour affichage)
-  moduleName: string;            // "MyService" (qui a logué)
-  msgid: string;                 // message id (catégorie, ex "AUTH")
-  msg: string;                   // optionnel — détail libre
-  timeStamp: number;             // Date.now()
-  pid: number;                   // process.pid
-  date: Date;                    // dérivé de timeStamp
-}
+this.log("message"); // INFO par défaut
+this.log(err, "ERROR"); // sévérité explicite
+this.log(data, "DEBUG", "MON_MSGID"); // msgid personnalisé (défaut = nom du service)
 ```
 
-## Création via `Service.log()`
+Helpers dérivés : `error/warn/info/debug/trace/print`. Format via `wrapper()` :
+`HH:MM:SS.mmm SEVERITY MSGID : payload`, colonnes alignées (`SEVERITY_WIDTH=7`, `MSGID_WIDTH=18`),
+couleurs ANSI par sévérité **désactivées hors TTY**.
 
-```typescript
-class MyService extends Service {
-  doSomething() {
-    // Variantes
-    this.log("simple message");                            // severity défaut (NOTICE/INFO selon config)
-    this.log("info message", "INFO");
-    this.log(error, "ERROR", "AUTH", "user login failed"); // 4 args max
-    this.spinlog("Chargement...");                          // severity SPINNER
-  }
-}
-```
+## Le ring buffer — mémoire bornée, relecture O(1)
 
-Toutes ces variantes retournent un `Pdu`. Le Syslog interne du service (`this.syslog`) le stocke + fire l'event `onLog`.
+Le ring est un `CircularBuffer<Pdu>` (`Syslog.ts:273`) de capacité `maxStack` (défaut **100**,
+`:367,:722`). Un tampon circulaire donne un push/évincement **O(1)** — là où un `Array.shift()` serait
+O(n) à chaque ligne. Le getter `ringStack` rend les Pdu en ordre **FIFO** (plus ancien → plus récent,
+`:737`), ce qui alimente le _journal de boot_ (le kernel compte ERROR/WARNING dans le ring) et les
+écrans de diagnostic. La capacité est réglable **au boot uniquement** (`setMaxStack`, lu depuis
+`config.log.maxStack`, `:793-805`) : la changer à chaud reconstruirait le ring.
 
-## Transports — branchement
+## Les transports — le fan-out d'observabilité
 
-```typescript
-const syslog = new Syslog(/* settings */);
+Les **transports** (`ITransport`) sont nommés `console/file/loki/syslog/http` et **ajoutables/
+retirables à chaud** (`addTransport` `:1415`, `removeTransport` `:1435`) : on branche Loki en prod sans
+toucher au reste. À chaque log passé, `_fireTransports(pdu)` les diffuse — mais **seulement s'il y en a**
+(`this._transports.length > 0`, `:1248,:1282`). Un abonnement fin est possible via `listenWithConditions`
+(`:1378`) : n'écouter que certaines sévérités ou `msgid` (ex. « pousser vers PagerDuty uniquement les
+`CRITIC` »).
 
-// Default settings
-syslog.on("onLog", (pdu: Pdu) => {
-  // Transport custom : formater + envoyer où on veut
-  console.log(`[${pdu.severityName}] ${pdu.payload}`);
-});
+## Le sink/driver — l'écriture finale (et le levier de perf prouvé)
 
-// Transport intégré : console formatée
-syslog.attachConsole();
+Derrière le coalescing, un **seul** sink texte reçoit les lignes (`ILogSink`, `Syslog.ts:83`) : quatre
+méthodes — `writeOut` (classe-stdout, non bloquant), `writeErr` (classe-stderr, sévérité ≤ 3, durable),
+`flushSync` (secours **synchrone** au `process.exit`, jamais async), `close` (libère les fd, idempotent).
 
-// Transport file
-syslog.attachFile("/var/log/nodefony.log");
+- **Défaut : `_stdoutSink`** (`:98`) = comportement historique **exact**, isomorphe (navigateur :
+  `console.*` + strip ANSI) → **0 régression** quand rien n'est configuré.
+- **`file` par worker** : un fd async **par worker cluster** → **0 lock d'inode partagé**. Le commentaire
+  du code le désigne comme _le goulet prouvé_ : **+28 % RPS** une fois levé (`:77-82`). C'est le driver à
+  activer sous charge en cluster.
+- **`NULL_LOG_SINK`** (`:113`) : noop total, pour les **bancs** (mesurer le plafond sans I/O de log).
+- **Mute à chaud** (`:123-134`, `setMuted` `:1699`) : couper la console sans redémarrer ni changer la
+  config ; préserve le **nom** du sink (≠ bascule NULL), défaut `false` → surcoût = un test booléen.
 
-// Transport JSON (pour pipeline ELK / Loki / etc.)
-syslog.attachJSON("/var/log/nodefony.json.log");
-```
+Basculer de driver (`_setLogSink`, `:154`) **flush** les lignes en attente **puis** `close` l'ancien
+(libère le fd d'un `FileSink`) avant de switcher — jamais de ligne perdue, jamais de fd fuité.
 
-## Conditions — filtrage par severity / msgid / module
+## Performance & mémoire
 
-```typescript
-// Ne logger en console QUE les ERROR et au-dessus, sauf module "ROUTER" qui tout
-syslog.setConditions({
-  console: {
-    severity: ["ERROR", "CRITIC", "ALERT", "EMERGENCY"],
-    exclude: { moduleName: ["NOISY_MODULE"] },
-  },
-});
-```
+- **Coalescing** : les écritures d'un même tick sont regroupées en **un seul `write()`** via
+  `setImmediate` (un seul par tick quel que soit le nombre de logs, `Syslog.ts:176`), avec un cap
+  `FLUSH_BYTES = 64 KB` qui borne la rétention mémoire d'un tick (`:55,:170`). Lossless (flush à chaque
+  tick), 0 sampling.
+- **Gate d'entrée par sévérité** : sous le seuil, **ni `Pdu` ni pile** ne sont créés (le coût du log
+  verbeux disparaît sur le hot path).
+- **`rateLimit`/`burstLimit`** (`:1211`, config `:239,:368`) : protection anti-flood (une boucle qui log
+  10 k/s ne noie pas la sortie).
+- **Mode async** : si activé, `"onLog"` est fire sur `setImmediate()` → libère le hot path de la
+  requête, le fan-out se fait au tick suivant (`:1152`).
 
-Les conditions sont matchées AVANT de fire `onLog`. Économie CPU + bruit log.
+## Backplane multi-pod (observabilité honnête en cluster)
 
-## CircularBuffer — ring buffer O(1)
+En cluster/Kubernetes, un driver de vue **local** (memory/file) ne relit que **son** process. Nodefony
+ne prétend pas le contraire : le kernel émet un `NOTICE` d'avertissement au boot complet quand une vue
+locale est configurée en contexte multi-pod (il ne connaît ni le nombre de replicas, ni la destination
+d'agrégation — secret d'infra, 12-factor). Le **backplane** (driver HTTP dédié, testé par
+`LogBackplaneHttp.test.ts`) agrège les logs de plusieurs process vers un point commun quand on veut une
+vue globale sans dépendre d'un Loki externe.
 
-Stocke les N derniers logs en mémoire (configurable, défaut ~1000). Permet de :
+## Tests & couverture
 
-- Studio (Phase 10) — afficher les logs récents sans relire les fichiers
-- Debug : `kernel.syslog.buffer.toArray()` → snapshot rapide
-- SSE Logs panel — stream live (Studio)
+Le logging est l'un des sous-systèmes les plus testés du cœur : **230 cas** répartis sur 5 fichiers
+(`src/nodefony/src/tests/`) — `Syslog.test.ts` (145, le hub), `LogDriver.test.ts` (48, les drivers de
+vue), `LogSink.test.ts` (13, sinks/coalescing), `topology.test.ts` (13, câblage multi-transport) et
+`LogBackplaneHttp.test.ts` (11, l'agrégation multi-pod). La couverture des deux fichiers cœur est bonne
+(voir la carte : `Syslog.ts` ~83 % lignes, `Pdu.ts` ~91 %). Compteurs et couverture ci-dessous sont une
+**photo** régénérée depuis vitest — la vérité vit dans `npm run coverage` (cœur `nodefony`).
 
-**Implémentation** : tableau de taille fixe + head/tail pointers. Push = O(1), pas de shift O(N).
+## Pièges (symptôme → cause → correction)
 
-## SSE — Studio Logs panel
+| Symptôme                                 | Cause                                       | Correction                                              |
+| ---------------------------------------- | ------------------------------------------- | ------------------------------------------------------- |
+| `"CRITICAL"` non reconnu (throw)         | Le nom canonique est `CRITIC`               | Utiliser `CRITIC` (ou le numéro `2`)                    |
+| Couleurs ANSI dans un fichier de log     | Sortie non-TTY mal détectée                 | Les couleurs sont gatées hors TTY (vérifier le driver)  |
+| Logs `DEBUG` absents                     | Gate de sévérité sous le seuil configuré    | Baisser le seuil (`config.log`)                         |
+| Débit d'écriture qui plafonne en cluster | Sink `stdout` partagé (lock d'inode)        | Driver `file` par worker (+28 % RPS)                    |
+| Vue « incomplète » en multi-pod          | Driver de vue **local** (ne lit que ce pod) | Backplane, ou agrégation externe (Loki/OpenSearch)      |
+| Lignes perdues à l'arrêt                 | `exit` avant flush                          | `flushSync` du sink est appelé en secours (best-effort) |
+| Sortie noyée par une boucle qui log      | Pas de garde de débit                       | Activer `rateLimit`/`burstLimit` (`config.log`)         |
 
-Le module `@nodefony/studio` expose un endpoint SSE `/nodefony/api/logs/stream` qui pipe l'event `onLog` vers le frontend React. Cf [`feedback_sse_http2_request_close.md`](../../.claude/projects/.../memory/feedback_sse_http2_request_close.md) (mémoire IA) pour le piège HTTP/2 `req.on("close")` qui a été fixé 2026-05-20.
+## Pour aller plus loin
 
-## Cycle de vie
-
-```typescript
-syslog.reset();        // vide le ring buffer + reset compteurs
-syslog.clean();        // libère transports + reset
-```
-
-À `Service.clean()`, le syslog du service peut être réinitialisé selon le flag :
-
-```typescript
-svc.clean();       // syslog conservé
-svc.clean(true);   // syslog.reset() appelé
-svc.clean(false);  // syslog conservé sans reset
-```
-
-## Initialisation par environnement
-
-```typescript
-svc.initSyslog("development", true);   // verbose, DEBUG OK
-svc.initSyslog("production", false);   // INFO+ seulement
-svc.initSyslog("test", false);         // silencieux ou WARN+
-```
-
-`initSyslog()` applique les **conditions par défaut** selon l'environnement :
-- `dev` : DEBUG visible si `debug=true`
-- `prod` : NOTICE / INFO selon config
-- `test` : silencieux par défaut pour ne pas polluer les tests
-
-## Pattern type — log + audit log
-
-```typescript
-@AuditLog({ action: "USER_CREATE", severity: "INFO" })
-async createUser(@Body() dto: CreateUserDto) {
-  this.log(`Creating user ${dto.email}`, "INFO");  // log normal
-  const user = await this.userService.create(dto);
-  // @AuditLog fire automatiquement post-réponse via onAfterResponse hook
-  return user;
-}
-```
-
-⚠️ **BUG-002** (cf BUG_REPORT) : `onAfterResponse` perd la bulle ALS — `@AuditLog` ne voit pas `requestId`/`user`. Fix `AsyncResource.bind` prévu avant P6.
-
-## Format Pdu (depuis 2026-05-17)
-
-Format texte : `HH:MM:SS.mmm SEVERITY MSGID : payload`
-
-Exemple :
-```
-14:32:01.247 INFO  HTTP-KERNEL : Server Listen on http://127.0.0.1:5151
-14:32:01.248 INFO  ROUTER       : route + [GET] /nodefony/test → @test/DefaultController.index
-14:32:01.350 ERROR FIREWALL     : Auth failed for user@example.com
-```
-
-Tous les filtres `start-nodefony-server` skill fonctionnent sur ce format.
-
-## Gotchas
-
-| Symptôme | Cause | Fix |
-|----------|-------|-----|
-| `Cannot find "CRITICAL"` | C'est `"CRITIC"` | Utiliser `"CRITIC"` ou `SysLogSeverity.CRITIC` |
-| Log perdu après `clean()` | `syslog=null` après clean | Pdu standalone créé en fallback (perdu) — ne pas logger après clean |
-| `pdu.severity === "INFO"` false | severity = numérique | Comparer `pdu.severityName === "INFO"` |
-| Logs verbeux en prod | initSyslog dev | Bien passer `"production"` au boot |
-| ANSI codes pollutent les greps | Console transport ajoute couleurs | `sed 's/\x1b\[[0-9;]*m//g'` sur le tail |
-
-## Liens
-
-- **Code source** : `src/nodefony/src/syslog/Syslog.ts`, `Pdu.ts`, `CircularBuffer.ts`
-- **Interface** : `src/nodefony/src/types/ISyslog.ts`
-- **MEMORY.md** : `src/nodefony/src/syslog/MEMORY.md`
-- **README.md** : `src/nodefony/src/syslog/README.md`
-- **Service.log()** : [`service.md`](./service.md)
-- **Studio Logs panel** : `@nodefony/studio/frontend/src/pages/Logs.tsx`
-- **Graphe symbolique** : `jq '.symbols.Syslog' .ai/symbols.json`, `jq '.symbols.Pdu' .ai/symbols.json`
+- Service & événements (base de Syslog, le bus `onLog`) → [service](./service.md)
+- Cycle de boot (le _journal de boot_ lu depuis le ring) → [cycle-boot-kernel](../../../docs/architecture/cycle-boot-kernel.md)
+- Observabilité HTTP (profiler, admin, traces) → `src/packages/@nodefony/http/docs/index.md`
