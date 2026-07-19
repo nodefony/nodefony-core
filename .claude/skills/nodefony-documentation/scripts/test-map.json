@@ -1,4 +1,61 @@
 {
+  "servers": {
+    "unit": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/certificates.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/trustProxy.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/generateProxyConfig.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/http.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/http1.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/https.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/httpKernel.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/host-misdirected.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/health.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/resilience.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/static.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/timeout-abort.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/abort-cleanup.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/client-abort-499.test.ts"
+    ]
+  },
+  "routing": {
+    "unit": [
+      "src/packages/@nodefony/framework/nodefony/tests/unit/Route.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/Router.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/routerDecorators.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/routing-index.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/routing-nonregression.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/routing/Router.test.ts"
+    ]
+  },
+  "controller": {
+    "unit": [
+      "src/packages/@nodefony/framework/nodefony/tests/unit/Controller.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/controller-als.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/Resolver.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/auto-json.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/errors.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/body-content-types.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/fileStream.test.ts"
+    ]
+  },
+  "decorateurs": {
+    "unit": [
+      "src/packages/@nodefony/framework/nodefony/tests/unit/httpMethodDecorators.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/paramDecorators.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/securityDecorators.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/routerDecorators.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/decorators.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/decorators-response.test.ts"
+    ]
+  },
   "vue-ensemble": {
     "globs": [
       "src/nodefony/src/tests/**/*.test.ts",
@@ -99,7 +156,10 @@
   "syslog": {
     "unit": [
       "src/nodefony/src/tests/Syslog.test.ts",
-      "src/nodefony/src/tests/redact.test.ts"
+      "src/nodefony/src/tests/redact.test.ts",
+      "src/nodefony/src/tests/LogDriver.test.ts",
+      "src/nodefony/src/tests/LogSink.test.ts",
+      "src/nodefony/src/tests/LogBackplaneHttp.test.ts"
     ]
   },
   "framework": {
