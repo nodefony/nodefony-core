@@ -140,6 +140,15 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
    Une section hors vocabulaire → pas d'icône (mieux : aucune) plutôt qu'une icône inventée —
    la cohérence EST le signal. Jamais d'icône dans les `###` (réservé aux `##`).
 
+9. **METTRE EN SITUATION — tout concept à CHOIX se raconte en scénarios** (retour user : « il
+   faut mettre le développeur en situation et le guider »). Un mode, une option, une stratégie ne
+   s'expliquent JAMAIS par la seule définition des variantes. Format imposé, dans cet ordre :
+   **le besoin vécu** (« Ton back-office est appelé par le navigateur ET par un script CI ») →
+   **la config qui y répond** (bloc court) → **le comportement observable** (table « le client
+   envoie… → résultat », ou curl). Inclure le **contre-exemple piégeux** quand il existe
+   (`["anonymous", "session"]` : ✅/❌ côte à côte). Modèle : section « Ordre et modes » de
+   `firewall.md`.
+
 ## 6. Style d'écriture
 
 - **Vulgariser d'abord** : analogie physique concrète (ex « backplane = fond de panier »), puis terme

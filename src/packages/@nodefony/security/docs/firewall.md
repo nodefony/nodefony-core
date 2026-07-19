@@ -289,19 +289,65 @@ handshake des zones protégées `realtime` (`firewall.ts:269`).
 
 ## ⚙️ Ordre et modes (`mode: "first"` vs `"all"`)
 
-L'ordre effectif = la liste `area.authenticators`, déroulée par `Firewall.#authenticate()`
-(`firewall.ts:918`) :
+La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`
+(`firewall.ts:918`). Le `mode` dit comment la parcourir. Trois situations concrètes :
 
-- **`first`** : le premier dont `supports()` est vrai authentifie. Un credential **présenté mais
-  invalide échoue sans fallback** (`firewall.ts:934`) — on ne réessaie pas un autre authenticator
-  avec le même credential. C'est le mode courant.
-- **`all`** : chaque maillon est **obligatoire** ; le **dernier** token porte l'identité
-  (`firewall.ts:936-939`). Pour empiler des exigences (ex. `session` **puis** un facteur
-  supplémentaire).
+### Situation 1 — humains ET machines sur la même API (`first`, le mode courant)
 
-Un nom d'authenticator inconnu en config **fait échouer le boot** —
-`Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:363`) : jamais de zone
-« protégée » silencieusement ouverte.
+Ton back-office est appelé par le **navigateur** des utilisateurs connectés ET par un **script CI**.
+Deux preuves différentes, mêmes routes :
+
+```typescript
+back: {
+  pattern: "^/api/back",
+  authenticators: ["session", "apikey"],
+  mode: "first",   // (défaut) le PREMIER qui reconnaît la requête authentifie
+},
+```
+
+Ce qui se passe, requête par requête :
+
+| Le client envoie…             | `supports()` vrai pour… | Résultat                                                                                     |
+| ----------------------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
+| le cookie de session          | `session`               | identifié, `apikey` jamais consulté                                                          |
+| `Authorization: Bearer nfp_…` | `apikey`                | identifié (session ne matche pas, on passe)                                                  |
+| une clé **révoquée** `nfp_…`  | `apikey`                | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:947-952`) |
+| rien                          | aucun                   | **401** (Zero Trust)                                                                         |
+
+### Situation 2 — le piège de l'ordre (`anonymous` toujours EN DERNIER)
+
+Tu veux « identifié si connecté, sinon visiteur » :
+
+```typescript
+authenticators: ["session", "anonymous"],   // ✅ session d'abord
+authenticators: ["anonymous", "session"],   // ❌ anonymous accepte TOUT le monde
+```
+
+`AnonymousAuthenticator.supports()` accepte **toutes** les requêtes — placé en premier en mode
+`first`, il court-circuite la liste : **personne n'est jamais identifié**, même avec un cookie
+valide. L'ordre est ta politique.
+
+### Situation 3 — le « sudo mode » (`all` : empiler les preuves)
+
+Une action destructrice (suppression de compte, rotation des clés) doit exiger la session **ET**
+une re-saisie du mot de passe — même logique que GitHub avant une action sensible :
+
+```typescript
+danger: {
+  pattern: "^/api/back/danger",
+  authenticators: ["session", "userpassword"],
+  mode: "all",   // CHAQUE maillon est obligatoire
+},
+```
+
+Le client doit présenter **les deux preuves** dans la même requête (cookie + `Authorization:
+Basic …`). Une seule manque → 401. Le **dernier** token de la chaîne porte l'identité
+(`firewall.ts:936-939`) — ici la preuve mot de passe, la plus fraîche.
+
+> [!TIP]
+> Un nom d'authenticator inconnu en config **fait échouer le boot** —
+> `Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:363`) : jamais de zone
+> « protégée » silencieusement ouverte à cause d'une faute de frappe.
 
 ## 🧑‍⚖️ Autorisation — rôles, scopes, voters (« as-tu le droit ? »)
 
