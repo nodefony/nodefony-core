@@ -56,23 +56,38 @@ construisent l'une sur l'autre.
 
 ## 🗂️ Les modules
 
-Chaque ligne mène au **hub** du module, qui détaille ses briques.
+Chaque card mène au **hub** du module, qui détaille ses briques.
 
-| Module                                                                             | Ce qu'il apporte                                    | Tu en as besoin quand…                  |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
-| [`nodefony`](../src/nodefony/docs/index.md)                                        | le cœur : Service, Container, Kernel, Event, Syslog | toujours — c'est le socle               |
-| [`@nodefony/http`](../src/packages/@nodefony/http/docs/index.md)                   | serveurs HTTP/HTTP2/WS, contextes, sessions         | tu touches au transport ou à la session |
-| [`@nodefony/framework`](../src/packages/@nodefony/framework/docs/index.md)         | routeur, contrôleurs, décorateurs                   | tu écris des routes                     |
-| [`@nodefony/security`](../src/packages/@nodefony/security/docs/index.md)           | firewall, authentification, autorisation, audit     | tu protèges quoi que ce soit            |
-| [`@nodefony/user`](../src/packages/@nodefony/user/docs/index.md)                   | l'identité `IUser` et son stockage                  | tu as des comptes utilisateurs          |
-| [`@nodefony/orm-core`](../src/packages/@nodefony/orm-core/docs/index.md)           | le contrat ORM commun à tous les backends           | tu écris du code portable entre bases   |
-| [`@nodefony/drizzle`](../src/packages/@nodefony/drizzle/docs/index.md)             | SQL (PostgreSQL, MySQL/MariaDB, SQLite) — le défaut | tu utilises une base SQL                |
-| [`@nodefony/mongoose`](../src/packages/@nodefony/mongoose/docs/index.md)           | MongoDB                                             | tu utilises MongoDB                     |
-| [`@nodefony/redis`](../src/packages/@nodefony/redis/docs/index.md)                 | cache, sessions, backplane temps réel               | tu scales horizontalement               |
-| [`@nodefony/realtime`](../src/packages/@nodefony/realtime/docs/index.md)           | la socket Nodefony : canaux multiplexés, fan-out    | tu fais du temps réel                   |
-| [`@nodefony/frontend`](../src/packages/@nodefony/frontend/docs/index.md)           | build Vite, HMR, multi-framework                    | tu sers une SPA                         |
-| [`@nodefony/studio`](../src/packages/@nodefony/studio/docs/index.md)               | l'administration web du framework                   | tu veux voir l'intérieur en marche      |
-| [`@nodefony/documentation`](../src/packages/@nodefony/documentation/docs/index.md) | le portail qui rend ces pages                       | tu écris ou publies de la doc           |
+```nodefony-cards
+[
+  { "icon": "🧩", "title": "nodefony", "href": "../src/nodefony/docs/index.md",
+    "desc": "Le cœur : Service, Container, Kernel, Event, Syslog.", "meta": "socle — toujours présent" },
+  { "icon": "🔌", "title": "@nodefony/http", "href": "../src/packages/@nodefony/http/docs/index.md",
+    "desc": "Serveurs HTTP/HTTP2/WebSocket, contextes, sessions.", "meta": "transport" },
+  { "icon": "🧭", "title": "@nodefony/framework", "href": "../src/packages/@nodefony/framework/docs/index.md",
+    "desc": "Routeur, contrôleurs, décorateurs.", "meta": "tu écris des routes" },
+  { "icon": "🔐", "title": "@nodefony/security", "href": "../src/packages/@nodefony/security/docs/index.md",
+    "desc": "Firewall, authentification, autorisation, audit.", "meta": "13 pages" },
+  { "icon": "👤", "title": "@nodefony/user", "href": "../src/packages/@nodefony/user/docs/index.md",
+    "desc": "L'identité IUser et son stockage.", "meta": "comptes utilisateurs" },
+  { "icon": "🗄️", "title": "@nodefony/orm-core", "href": "../src/packages/@nodefony/orm-core/docs/index.md",
+    "desc": "Le contrat ORM commun à tous les backends.", "meta": "code portable" },
+  { "icon": "🐘", "title": "@nodefony/drizzle", "href": "../src/packages/@nodefony/drizzle/docs/index.md",
+    "desc": "SQL — PostgreSQL, MySQL/MariaDB, SQLite.", "meta": "l'ORM par défaut" },
+  { "icon": "🍃", "title": "@nodefony/mongoose", "href": "../src/packages/@nodefony/mongoose/docs/index.md",
+    "desc": "MongoDB.", "meta": "document" },
+  { "icon": "⚡", "title": "@nodefony/redis", "href": "../src/packages/@nodefony/redis/docs/index.md",
+    "desc": "Cache, sessions, backplane temps réel.", "meta": "scaling horizontal" },
+  { "icon": "📡", "title": "@nodefony/realtime", "href": "../src/packages/@nodefony/realtime/docs/index.md",
+    "desc": "La socket Nodefony : canaux multiplexés, fan-out.", "meta": "temps réel" },
+  { "icon": "🎨", "title": "@nodefony/frontend", "href": "../src/packages/@nodefony/frontend/docs/index.md",
+    "desc": "Build Vite, HMR, multi-framework.", "meta": "SPA" },
+  { "icon": "🛠️", "title": "@nodefony/studio", "href": "../src/packages/@nodefony/studio/docs/index.md",
+    "desc": "L'administration web du framework.", "meta": "voir l'intérieur en marche" },
+  { "icon": "📘", "title": "@nodefony/documentation", "href": "../src/packages/@nodefony/documentation/docs/index.md",
+    "desc": "Le portail qui rend ces pages.", "meta": "méta" }
+]
+```
 
 ### [`security`](../src/packages/@nodefony/security/docs/index.md) — protéger l'application
 

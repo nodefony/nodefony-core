@@ -106,6 +106,27 @@ function ensureDocStyles() {
     .nf-brick-name a { color: inherit; text-decoration: none; }
     .nf-brick-title { font-size: 0.92em; }
     .nf-brick-h:hover { border-left-color: var(--mantine-primary-color-filled); }
+
+    /* Grille de cards d'un catalogue (bloc de fence nodefony-cards). */
+    .nf-cards {
+      display: grid; gap: 12px; margin: 1.2em 0;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+    .nf-card { text-decoration: none; color: inherit; display: block; }
+    .nf-card-link { transition: border-color 0.15s ease, transform 0.15s ease; }
+    .nf-card-link:hover {
+      border-color: var(--mantine-primary-color-filled);
+      transform: translateY(-2px);
+    }
+    .nf-card-link:focus-visible {
+      outline: 2px solid var(--mantine-primary-color-filled);
+      outline-offset: 2px;
+    }
+    .nf-card-meta { font-variant-numeric: tabular-nums; }
+    @media (prefers-reduced-motion: reduce) {
+      .nf-card-link { transition: none; }
+      .nf-card-link:hover { transform: none; }
+    }
   `;
   document.head.appendChild(s);
 }
@@ -313,6 +334,102 @@ const BRICK_HEADING_STYLE = {
   marginBottom: "0.4em",
 } as const;
 
+/* ─── Bloc déclaratif ```nodefony-cards → grille de cards ────────────────── */
+
+/** Une card de catalogue, telle qu'écrite dans le bloc JSON de la page. */
+interface DocCardItem {
+  /** Titre affiché (obligatoire — une card sans titre n'a pas de sens). */
+  title: string;
+  /** Cible : lien `.md` traduit en slug par le serveur, ou URL externe. */
+  href?: string;
+  /** Pictogramme (emoji) — purement décoratif, jamais porteur de sens seul. */
+  icon?: string;
+  /** Une à deux phrases : à quoi ça sert, quand on en a besoin. */
+  desc?: string;
+  /** Repère court affiché en pied (ex. « 13 pages », « stable »). */
+  meta?: string;
+}
+
+/**
+ * Rend un catalogue en **grille de cards** — ce qu'un enchaînement de titres
+ * markdown ne peut pas produire : react-markdown rend à plat, donc le corps
+ * d'une card n'est pas englobable. D'où le bloc déclaratif.
+ *
+ * Robuste par construction : un JSON invalide n'efface pas la page, il affiche
+ * le bloc brut (une page de doc doit rester lisible même mal écrite).
+ */
+function DocCards({
+  json,
+  onNavigate,
+}: {
+  json: string;
+  onNavigate?: (slug: string) => boolean;
+}) {
+  let items: DocCardItem[] = [];
+  let error: string | null = null;
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (!Array.isArray(parsed)) throw new Error("un tableau est attendu");
+    items = parsed.filter(
+      (i): i is DocCardItem =>
+        typeof i === "object" &&
+        i !== null &&
+        typeof (i as DocCardItem).title === "string",
+    );
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
+  if (error || !items.length) {
+    return (
+      <Alert color="yellow" variant="light" title="Bloc de cards illisible">
+        <Text size="sm">{error ?? "aucune card valide dans ce bloc"}</Text>
+      </Alert>
+    );
+  }
+  const go = (href?: string) => (e: React.MouseEvent) => {
+    if (!href || !onNavigate) return;
+    const slug = href.match(/^([A-Za-z0-9._~-]+)\.md$/)?.[1];
+    if (slug && onNavigate(slug)) e.preventDefault();
+  };
+  return (
+    <Box className="nf-cards">
+      {items.map((it) => (
+        <Paper
+          key={it.title}
+          component={it.href ? "a" : "div"}
+          href={it.href}
+          onClick={go(it.href)}
+          withBorder
+          radius="md"
+          p="md"
+          className={it.href ? "nf-card nf-card-link" : "nf-card"}
+        >
+          <Group gap={8} wrap="nowrap" align="flex-start">
+            {it.icon ? (
+              <Text component="span" size="xl" aria-hidden="true">
+                {it.icon}
+              </Text>
+            ) : null}
+            <Box style={{ minWidth: 0 }}>
+              <Text fw={600}>{it.title}</Text>
+              {it.desc ? (
+                <Text size="sm" c="dimmed" mt={2}>
+                  {it.desc}
+                </Text>
+              ) : null}
+              {it.meta ? (
+                <Text size="xs" c="dimmed" mt={6} className="nf-card-meta">
+                  {it.meta}
+                </Text>
+              ) : null}
+            </Box>
+          </Group>
+        </Paper>
+      ))}
+    </Box>
+  );
+}
+
 /* ─── Catalogue de briques : `### `nom` — titre` → en-tête de card ───────── */
 
 /** Titre de card reconnu : le nom (code inline, parfois lié) et son libellé. */
@@ -504,6 +621,12 @@ export function MarkdownDoc({
         const raw = String(props.children ?? "").replace(/\n$/, "");
         if (/\blanguage-mermaid\b/.test(cls)) {
           return <MermaidDiagram code={raw} />;
+        }
+        // Bloc déclaratif : une fence typée = un composant (même principe que
+        // Mermaid). Le contenu reste du JSON versionnable et réingérable — 0
+        // HTML brut dans le markdown, la règle du standard tient.
+        if (/\blanguage-nodefony-cards\b/.test(cls)) {
+          return <DocCards json={raw} onNavigate={onInternalLink} />;
         }
         if (/\blanguage-/.test(cls)) {
           const lang = cls.match(/language-([a-z0-9]+)/i)?.[1] ?? "";

@@ -85,3 +85,23 @@ describe("rewriteInternalLinks", () => {
     expect(rewrite(md)).toBe(md); // non indexé → intact
   });
 });
+
+describe("blocs déclaratifs (fences typées)", () => {
+  it("traduit les `href` d'un bloc nodefony-cards", () => {
+    const md = [
+      "```nodefony-cards",
+      '[{ "title": "CORS", "href": "cors.md" },',
+      ' { "title": "Doc", "href": "../../../../../docs/index.md" }]',
+      "```",
+    ].join("\n");
+    const out = rewrite(md);
+    expect(out).toContain('"href": "mod~security~cors.md"');
+    expect(out).toContain('"href": "root~index.md"');
+  });
+
+  it("laisse intact un `href` externe ou non indexé", () => {
+    const md =
+      '{ "href": "https://example.org/x.md" }\n{ "href": "fantome.md" }';
+    expect(rewrite(md)).toBe(md);
+  });
+});

@@ -25,6 +25,13 @@
  */
 const MD_LINK = /\]\((?!https?:|mailto:|#)([^)\s]+?\.md)(#[^)\s]*)?\)/gi;
 
+/**
+ * Cible d'un bloc déclaratif : `"href": "../x.md"` dans un JSON de fence typée
+ * (`nodefony-cards`…). Même règle que les liens markdown — seules les cibles
+ * `.md` internes sont traduites.
+ */
+const JSON_HREF = /"href"\s*:\s*"(?!https?:|mailto:|#)([^"\s]+?\.md)"/gi;
+
 /** Résout un chemin relatif POSIX contre le dossier d'une page. */
 function resolveRelative(fromDir: string, href: string): string {
   const base = href.startsWith("/") ? [] : fromDir.split("/").filter(Boolean);
@@ -67,9 +74,19 @@ export function rewriteInternalLinks(
   options: RewriteLinksOptions,
 ): string {
   const { fromDir, toSlug } = options;
-  return markdown.replace(MD_LINK, (whole, href: string, hash = "") => {
-    const target = resolveRelative(fromDir, href);
-    const slug = toSlug(target);
-    return slug ? `](${slug}.md${hash})` : whole;
+  const translate = (href: string): string | null => {
+    const slug = toSlug(resolveRelative(fromDir, href));
+    return slug ? `${slug}.md` : null;
+  };
+  const out = markdown.replace(MD_LINK, (whole, href: string, hash = "") => {
+    const t = translate(href);
+    return t ? `](${t}${hash})` : whole;
+  });
+  // Les blocs déclaratifs (`nodefony-cards`…) portent leurs cibles dans du JSON,
+  // hors de la syntaxe markdown : leurs `href` doivent être traduits AUSSI,
+  // sinon un catalogue de hub renvoie dans le vide.
+  return out.replace(JSON_HREF, (whole, href: string) => {
+    const t = translate(href);
+    return t ? `"href": "${t}"` : whole;
   });
 }

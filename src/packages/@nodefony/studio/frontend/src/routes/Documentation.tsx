@@ -67,6 +67,8 @@ interface DocPage {
 interface DocSection {
   id: string;
   label: string;
+  /** Nom du module propriétaire — absent pour une section de `docs/` racine. */
+  module?: string;
   pages: DocPage[];
 }
 interface DocTree {
@@ -206,6 +208,9 @@ export const Documentation = observer(() => {
   const navSections = sections
     .map((s) => ({
       ...s,
+      // « Module security » → « security » : le préfixe, répété 13 fois, est du
+      // bruit ; c'est la FAMILLE (ci-dessous) qui porte l'information.
+      label: s.module ? s.label.replace(/^Module\s+/i, "") : s.label,
       pages: s.pages.filter(
         (p) =>
           visible(p.audience) &&
@@ -213,6 +218,38 @@ export const Documentation = observer(() => {
       ),
     }))
     .filter((s) => s.pages.length > 0);
+
+  /**
+   * Le menu était illisible non par manque de repli, mais parce qu'il alignait
+   * **20 sections au même niveau**, par ordre alphabétique : « ADR » et
+   * « Audits » (références internes) y côtoyaient les modules et l'architecture.
+   * On les range en trois familles, dans l'ordre où on en a besoin — sans
+   * ajouter de niveau cliquable (les sections restent à un clic).
+   */
+  const NAV_FAMILIES: {
+    key: string;
+    label: string;
+    match: (s: DocSection) => boolean;
+  }[] = [
+    {
+      key: "guides",
+      label: "Comprendre & construire",
+      match: (s) =>
+        !s.module && /architecture|guide|racine|tutoriel/i.test(s.label),
+    },
+    { key: "modules", label: "Modules", match: (s) => Boolean(s.module) },
+    { key: "refs", label: "Références internes", match: () => true },
+  ];
+  const navFamilies = NAV_FAMILIES.map((f) => ({
+    ...f,
+    sections: navSections.filter(
+      (s) =>
+        f.match(s) &&
+        !NAV_FAMILIES.slice(0, NAV_FAMILIES.indexOf(f)).some((prev) =>
+          prev.match(s),
+        ),
+    ),
+  })).filter((f) => f.sections.length > 0);
 
   // Breadcrumb : section qui contient la page active (sinon racine seule).
   const activeSection = sections.find((s) =>
@@ -297,77 +334,105 @@ export const Documentation = observer(() => {
             minHeight={120}
           >
             <Stack gap={2}>
-              {navSections.map((s) => {
-                // En recherche → toujours déplié ; sinon tout plié par défaut.
-                const isCollapsed = navQ ? false : (collapsed[s.id] ?? true);
-                return (
-                  <NavLink
-                    key={s.id}
-                    // Mantine NavLink hiérarchique : chevron auto-animé,
-                    // children = NavLink imbriqués (cohérent avec le reste du
-                    // shell Studio, plus propre que UnstyledButton + Collapse
-                    // hand-rolled).
-                    label={
-                      <Group
-                        gap={6}
-                        wrap="nowrap"
-                        justify="space-between"
-                        style={{ width: "100%" }}
-                      >
-                        <Text
-                          size="xs"
-                          fw={700}
-                          tt="uppercase"
-                          c="dimmed"
-                          style={{ letterSpacing: "0.04em" }}
-                        >
-                          {s.label}
-                        </Text>
-                        <Badge size="xs" variant="default" radius="sm">
-                          {s.pages.length}
-                        </Badge>
-                      </Group>
-                    }
-                    opened={!isCollapsed}
-                    onChange={(o) =>
-                      setCollapsed((c) => ({ ...c, [s.id]: !o }))
-                    }
-                    childrenOffset={14}
-                    styles={{ root: { borderRadius: rem(6) } }}
+              {/* Retour à l'accueil : toujours en tête, jamais enfoui dans une
+                  section — c'est le point d'entrée de toute la documentation. */}
+              {!navQ && homeSlug ? (
+                <NavLink
+                  active={activeSlug === homeSlug}
+                  label="Accueil"
+                  fw={600}
+                  leftSection={<IconHome size={15} />}
+                  onClick={() => setActiveSlug(homeSlug)}
+                  styles={{ root: { borderRadius: rem(6) } }}
+                />
+              ) : null}
+              {navFamilies.map((fam) => (
+                <Stack key={fam.key} gap={2} mt={6}>
+                  <Text
+                    size="10px"
+                    fw={700}
+                    tt="uppercase"
+                    c="dimmed"
+                    px={8}
+                    style={{ letterSpacing: "0.08em" }}
                   >
-                    {s.pages.map((p) => (
+                    {fam.label}
+                  </Text>
+                  {fam.sections.map((s) => {
+                    // En recherche → toujours déplié ; sinon tout plié par défaut.
+                    const isCollapsed = navQ
+                      ? false
+                      : (collapsed[s.id] ?? true);
+                    return (
                       <NavLink
-                        key={p.slug}
-                        active={p.slug === activeSlug}
-                        label={p.title}
-                        // Le hub ouvre sa section : icône distincte + libellé en
-                        // gras, pour qu'il se repère sans lire toute la liste.
-                        fw={p.isHub ? 600 : undefined}
-                        leftSection={
-                          p.isHub ? (
-                            <IconHome size={14} />
-                          ) : (
-                            <IconFileText size={14} />
-                          )
-                        }
-                        rightSection={
-                          p.wip ? (
-                            <Badge size="xs" variant="light" color="gray">
-                              à venir
+                        key={s.id}
+                        // Mantine NavLink hiérarchique : chevron auto-animé,
+                        // children = NavLink imbriqués (cohérent avec le reste du
+                        // shell Studio, plus propre que UnstyledButton + Collapse
+                        // hand-rolled).
+                        label={
+                          <Group
+                            gap={6}
+                            wrap="nowrap"
+                            justify="space-between"
+                            style={{ width: "100%" }}
+                          >
+                            <Text
+                              size="xs"
+                              fw={700}
+                              tt="uppercase"
+                              c="dimmed"
+                              style={{ letterSpacing: "0.04em" }}
+                            >
+                              {s.label}
+                            </Text>
+                            <Badge size="xs" variant="default" radius="sm">
+                              {s.pages.length}
                             </Badge>
-                          ) : undefined
+                          </Group>
                         }
-                        disabled={p.wip}
-                        onClick={() => !p.wip && setActiveSlug(p.slug)}
-                        styles={{
-                          root: { borderRadius: rem(6) },
-                          label: { fontSize: rem(12.5) },
-                        }}
-                      />
-                    ))}
-                  </NavLink>
-                );
-              })}
+                        opened={!isCollapsed}
+                        onChange={(o) =>
+                          setCollapsed((c) => ({ ...c, [s.id]: !o }))
+                        }
+                        childrenOffset={14}
+                        styles={{ root: { borderRadius: rem(6) } }}
+                      >
+                        {s.pages.map((p) => (
+                          <NavLink
+                            key={p.slug}
+                            active={p.slug === activeSlug}
+                            label={p.title}
+                            // Le hub ouvre sa section : icône distincte + libellé en
+                            // gras, pour qu'il se repère sans lire toute la liste.
+                            fw={p.isHub ? 600 : undefined}
+                            leftSection={
+                              p.isHub ? (
+                                <IconHome size={14} />
+                              ) : (
+                                <IconFileText size={14} />
+                              )
+                            }
+                            rightSection={
+                              p.wip ? (
+                                <Badge size="xs" variant="light" color="gray">
+                                  à venir
+                                </Badge>
+                              ) : undefined
+                            }
+                            disabled={p.wip}
+                            onClick={() => !p.wip && setActiveSlug(p.slug)}
+                            styles={{
+                              root: { borderRadius: rem(6) },
+                              label: { fontSize: rem(12.5) },
+                            }}
+                          />
+                        ))}
+                      </NavLink>
+                    );
+                  })}
+                </Stack>
+              ))}
               {!navSections.length && (
                 <Text size="xs" c="dimmed" px="xs" py={4}>
                   Aucune page ne correspond.
