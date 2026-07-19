@@ -1,0 +1,336 @@
+{
+  "vue-ensemble": {
+    "globs": [
+      "src/nodefony/src/tests/**/*.test.ts",
+      "src/packages/@nodefony/**/tests/**/*.test.ts",
+      "src/modules/**/tests/**/*.test.ts"
+    ]
+  },
+  "cycle-boot-kernel": {
+    "unit": [
+      "src/nodefony/src/tests/Kernel.test.ts",
+      "src/nodefony/src/tests/KernelLifecycle.test.ts",
+      "src/nodefony/src/tests/KernelCommands.test.ts",
+      "src/nodefony/src/tests/Module.test.ts",
+      "src/nodefony/src/tests/lifecycleTags.test.ts",
+      "src/nodefony/src/tests/serviceOrder.test.ts",
+      "src/nodefony/src/tests/CliKernel.test.ts",
+      "src/nodefony/src/tests/CliKernelDispatch.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/httpKernel.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/lifecycle-init-crash.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/integration/lifecycle-als.test.ts"
+    ]
+  },
+  "injection-portees": {
+    "unit": [
+      "src/nodefony/src/tests/Container.test.ts",
+      "src/nodefony/src/tests/Injector.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/scope.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/scopeCatalog.test.ts"
+    ],
+    "attack": [
+      "src/nodefony/src/tests/injector.attack.test.ts",
+      "src/nodefony/src/tests/services.attack.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/scope.attack.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/integration/di-singleton.test.ts"
+    ]
+  },
+  "configuration": {
+    "unit": [
+      "src/nodefony/src/tests/defineConfig.test.ts",
+      "src/nodefony/src/tests/defineEnv.test.ts",
+      "src/nodefony/src/tests/envOverride.test.ts",
+      "src/nodefony/src/tests/envExample.test.ts",
+      "src/nodefony/src/tests/loadEnv.test.ts",
+      "src/nodefony/src/tests/configBoot.test.ts",
+      "src/nodefony/src/tests/configProvenance.test.ts",
+      "src/nodefony/src/tests/configUse.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/config.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/configMutation.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/configMutationEndpoint.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/httpConfig.test.ts",
+      "src/packages/@nodefony/security/tests/unit/defineSecurityConfig.test.ts",
+      "src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts"
+    ]
+  },
+  "pipeline-requete": {
+    "globs": [
+      "src/packages/@nodefony/http/nodefony/tests/http/**/*.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/integration/**/*.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/websockets/**/*.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/routing/**/*.test.ts"
+    ]
+  },
+  "build-bundling": {
+    "unit": [
+      "src/nodefony/src/tests/bundler.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteBuilder.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteConfigGenerator.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/isolationGroups.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/vitePortInUse.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/collectAssets.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/prebuiltUi.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/frontend/nodefony/tests/integration/frontend-build.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/integration/ViteProcessSupervisor.test.ts"
+    ]
+  },
+  "service": {
+    "unit": [
+      "src/nodefony/src/tests/Service.test.ts",
+      "src/nodefony/src/tests/serviceOrder.test.ts",
+      "src/nodefony/src/tests/Event.test.ts",
+      "src/nodefony/src/tests/EventGuarded.test.ts"
+    ],
+    "attack": ["src/nodefony/src/tests/services.attack.test.ts"]
+  },
+  "syslog": {
+    "unit": [
+      "src/nodefony/src/tests/Syslog.test.ts",
+      "src/nodefony/src/tests/redact.test.ts"
+    ]
+  },
+  "framework": {
+    "globs": ["src/packages/@nodefony/framework/nodefony/tests/**/*.test.ts"]
+  },
+  "idempotence": {
+    "unit": [
+      "src/packages/@nodefony/framework/nodefony/tests/unit/idempotency.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/idempotencyGc.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/IdempotencyStore.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/idempotencyStoreRegistry.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/RedisIdempotencyStore.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/resolverIdempotency.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/idempotency-store.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/idempotency-pagination.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/idempotency-mysql.e2e.test.ts"
+    ],
+    "contract": [
+      "src/nodefony/src/tests/support/idempotencyPaginationContract.ts"
+    ]
+  },
+  "http": {
+    "globs": ["src/packages/@nodefony/http/nodefony/tests/**/*.test.ts"]
+  },
+  "session": {
+    "unit": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/Session.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/MemorySessionStorage.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/session-pagination.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/SessionsAdmin.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/sessions-admin-paging.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/UseSession.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/session.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/session-bff.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/session-runtime.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/integration/session-revocation.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/integration/stores-location.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/websockets/websocket-session.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/session-storage.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/session-store-sqlite.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/session-storage.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/session-store.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/session-pagination.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/session-resilience.test.ts"
+    ],
+    "attack": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/session-timeout.attack.test.ts"
+    ],
+    "load": [
+      "src/packages/@nodefony/http/nodefony/tests/load/session-load.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/session-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/session-store-postgres.e2e.test.ts"
+    ],
+    "contract": [
+      "src/packages/@nodefony/http/nodefony/tests/support/sessionPaginationContract.ts",
+      "src/packages/@nodefony/http/nodefony/tests/support/sessionStoreContract.ts"
+    ]
+  },
+  "security": {
+    "globs": ["src/packages/@nodefony/security/tests/**/*.test.ts"]
+  },
+  "firewall": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/firewallChain.test.ts",
+      "src/packages/@nodefony/security/tests/unit/firewallIntrospection.test.ts",
+      "src/packages/@nodefony/security/tests/unit/firewallSecurityTrace.test.ts",
+      "src/packages/@nodefony/security/tests/unit/securedArea.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/firewall-auth.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/integration/securityGuard.integration.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/realtime/nodefony/tests/integration/realtimeFirewallWiring.e2e.test.ts"
+    ]
+  },
+  "authenticators": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/authenticators.test.ts",
+      "src/packages/@nodefony/security/tests/unit/apiKeyAuthenticator.test.ts",
+      "src/packages/@nodefony/security/tests/unit/apiKeyFormat.test.ts",
+      "src/packages/@nodefony/security/tests/unit/apiKeyService.test.ts",
+      "src/packages/@nodefony/security/tests/unit/jwtAuthenticator.test.ts",
+      "src/packages/@nodefony/security/tests/unit/jwtPipeline.test.ts",
+      "src/packages/@nodefony/security/tests/unit/sessionAuthenticator.test.ts",
+      "src/packages/@nodefony/security/tests/unit/loginThrottler.test.ts",
+      "src/packages/@nodefony/security/tests/unit/mfaStepUp.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/integration/apikey-flow.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/websockets/ws-isgranted-jwt.test.ts"
+    ]
+  },
+  "authorization": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/authorization.test.ts",
+      "src/packages/@nodefony/security/tests/unit/scopeVoter.test.ts",
+      "src/packages/@nodefony/security/tests/unit/realtimeFrameLock.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/securityDecorators.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/securityEnforcement.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/adminRbac.test.ts"
+    ],
+    "attack": [
+      "src/packages/@nodefony/security/tests/unit/authorization.attack.test.ts",
+      "src/packages/@nodefony/security/tests/unit/frameAuthorizer.attack.test.ts",
+      "src/packages/@nodefony/security/tests/unit/realtimeFramePollution.attack.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/websockets/ws-data-plane-attack.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/framework/nodefony/tests/integration/securityGuard.integration.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/websockets/ws-data-plane-auth.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/websockets/ws-isgranted-jwt.test.ts"
+    ]
+  },
+  "tokens": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/tokenService.test.ts",
+      "src/packages/@nodefony/security/tests/unit/tokenStore.test.ts",
+      "src/packages/@nodefony/security/tests/unit/tokenPagination.test.ts",
+      "src/packages/@nodefony/security/tests/unit/jwtKeystore.test.ts",
+      "src/packages/@nodefony/security/tests/unit/secretCipher.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/token-store-sqlite.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/token-pagination.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/token-store.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/token-pagination.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/token-store.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/token-pagination.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/token-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/token-store-postgres.e2e.test.ts"
+    ],
+    "contract": [
+      "src/packages/@nodefony/security/tests/support/tokenPaginationContract.ts"
+    ]
+  },
+  "csrf": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/csrf.test.ts",
+      "src/packages/@nodefony/security/tests/unit/csrfToken.test.ts"
+    ],
+    "attack": [
+      "src/packages/@nodefony/security/tests/unit/csrf.attack.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/csrf.test.ts"
+    ]
+  },
+  "cors": {
+    "unit": ["src/packages/@nodefony/security/tests/unit/cors.test.ts"],
+    "attack": [
+      "src/packages/@nodefony/security/tests/unit/cors.attack.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/cors.test.ts"
+    ]
+  },
+  "headers": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/securityHeaders.test.ts",
+      "src/packages/@nodefony/security/tests/unit/csp.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/headers.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/security-headers.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/security.test.ts"
+    ]
+  },
+  "oauth2": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/oauth2Service.test.ts",
+      "src/packages/@nodefony/security/tests/unit/oauthProviders.test.ts",
+      "src/packages/@nodefony/user/tests/unit/oauthProvisioner.test.ts"
+    ],
+    "attack": [
+      "src/packages/@nodefony/user/tests/unit/oauth.attack.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/integration/oauth2-attack.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/integration/oauth2-flow.test.ts"
+    ]
+  },
+  "webauthn": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/webAuthnCredentialOwnership.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webAuthnCredentialStore.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webAuthnEnrollmentLimit.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webauthnPagination.test.ts"
+    ],
+    "attack": [
+      "src/packages/@nodefony/security/tests/unit/webauthn.attack.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/webauthn-attack.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/webauthn-bff.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-sqlite.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-pagination.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/webauthn-credential-store.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/webauthn-pagination.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/webauthn-credential-store.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/webauthn-pagination.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-postgres.e2e.test.ts"
+    ],
+    "contract": [
+      "src/packages/@nodefony/security/tests/support/webauthnPaginationContract.ts"
+    ]
+  },
+  "totp": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/totpCrypto.test.ts",
+      "src/packages/@nodefony/security/tests/unit/totpCipher.test.ts",
+      "src/packages/@nodefony/security/tests/unit/totpOperations.test.ts",
+      "src/packages/@nodefony/security/tests/unit/totpPagination.test.ts",
+      "src/packages/@nodefony/security/tests/unit/totpSecretStore.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/totp-store-sqlite.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/totp-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/totp-store-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/totp-flow-e2e.test.ts"
+    ],
+    "contract": [
+      "src/packages/@nodefony/security/tests/support/totpPaginationContract.ts"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 ---
 name: nodefony-documentation
-version: 1.2.0
+version: 2.0.0
 description: >
   Kit de dev de la DOCUMENTATION Nodefony — le portail doc Studio (`/nodefony/documentation`)
   et le futur module `@nodefony/documentation`. Concern TRANSVERSE (ni purement front, ni purement
@@ -12,9 +12,15 @@ description: >
   versioning par tags git, frontmatter `audience`, RBAC P6) et conventions d'écriture (ADR-0001
   emplacement hybride, vulgarisation). NE couvre PAS les écrans Studio génériques (→ nodefony-studio-dev)
   ni la création back from scratch (→ nodefony-create-module / nodefony-framework-dev).
+  Porte AUSSI le SYSTÈME D'ÉCRITURE de la doc de référence : standard `reference/redaction-contenu.md`
+  (Diátaxis, intro obligatoire, ancres symboliques, Démarrage rapide compilable) + outillage
+  `scripts/` (doc-lint DoD bloquante, anchor-check exactitude des ancres, gen-counters compteurs de
+  tests réels, build-preview aperçu HTML fidèle Studio).
   Déclencheurs : "portail doc", "doc portal", "DocLayout", "@nodefony/documentation", "MarkdownDoc",
   "DocToc", "sommaire de doc", "scrollspy doc", "FlowGraph", "page de documentation Studio",
-  "écrire la doc dans Studio", "module documentation", "layout docs-site", "rendre du markdown Studio".
+  "écrire la doc dans Studio", "module documentation", "layout docs-site", "rendre du markdown Studio",
+  "écrire une page de doc", "doc de référence", "standard de rédaction", "doc-lint", "anchor-check",
+  "ancre symbolique", "démarrage rapide", "corpus doc", "reprendre la doc".
 ---
 
 # nodefony-documentation — kit doc (portail Studio + module futur)
@@ -345,19 +351,50 @@ Réf complète (étude de faisabilité) : [[project_doc_portal_faisabilite]].
 
 ---
 
-## Écriture de la doc (contenu)
+## Écriture de la doc (contenu) — LE SYSTÈME COMPLET
 
-- **Emplacement hybride (ADR-0001)** : la doc d'un module vit DANS le module (`<module>/docs/*.md`,
-  frontmatter `module:`), surfacée dans Studio. Le transverse reste sous `docs/` racine. `git mv`
-  obligatoire pour déplacer. Réf : [[feedback_doc_placement]].
-- **Frontmatter** : `module`, `audience` (liste persona), `section`, `version`, `status`
-  (`draft`/`stable`), `title`. C'est ce que lit l'index transverse.
-- **Vulgariser TOUJOURS** : analogie physique d'abord (ex « backplane = fond de panier »), puis terme
-  exact + trad FR, schéma, le POURQUOI avant le COMMENT. Vaut pour la 1ʳᵉ phrase TSDoc, le README
-  module et les pages doc. Réf : [[feedback_doc_vulgarization]].
-- **Ton selon l'audience** : page DEV = technique précis (SoC), pas analogie grand public ; l'analogie
-  sert à expliquer au lecteur, pas à truffer la copy d'ingénieurs. Réf : [[feedback_writing_tone_audience]].
-- **TSDoc** : 1ʳᵉ phrase auto-suffisante (extraite dans `symbols.json` → hover IDE + graphe).
+> **Standard intégral** : [`reference/redaction-contenu.md`](reference/redaction-contenu.md) — LIRE
+> AVANT d'écrire une page (intro §8 obligatoire, analyse §8bis par brique, complétude §8quater,
+> exemples d'usage §8sexies, Definition of Done §8quinquies). Ce qui suit est le résumé opératoire.
+
+### Où et comment
+
+- **Emplacement hybride (ADR-0001)** : doc d'un module DANS le module (`<module>/docs/*.md`,
+  frontmatter `module:`), transverse sous `docs/` racine. `git mv` pour déplacer.
+  ⭐ **`files: ["dist", "docs"]` dans le package.json** → les pages PARTENT dans le paquet npm et
+  sont lisibles depuis `node_modules` (c'est la fondation des recettes `@nodefony/devkit` : une IA
+  dans une app générée lit la doc de la version INSTALLÉE — jamais de copie qui dérive).
+- **Frontmatter « convention A »** (ce que le runtime lit) : `title`, `lang: fr`, `module`, `topic`,
+  `section`, `audience` (persona), `version: "doc"`, `status: stable|draft`, `updated`, `source` ;
+  carte de tests : `coverageModule`/`coverageFiles`/`coveragePackage`.
+- **Vulgariser TOUJOURS** (analogie d'abord, POURQUOI avant COMMENT) · **ton selon l'audience** ·
+  **TSDoc** 1ʳᵉ phrase auto-suffisante. Réfs : [[feedback_doc_vulgarization]], [[feedback_writing_tone_audience]].
+
+### Les 3 règles qui font la qualité (nées du retour user 2026-07-19)
+
+1. **ANCRE SYMBOLIQUE — le symbole d'abord, la ligne en preuve** : `` `Firewall.matchPath()`
+(`firewall.ts:529`) ``. JAMAIS de ligne nue (``(`:223-232`)``) : illisible pour un humain,
+   irrésoluble pour une IA, et fragile (vécu : 19/283 ancres décalées 2 jours après écriture).
+2. **« Démarrage rapide » = LIVRABLE** : toute page de brique montre l'exemple minimal COMPLET vu
+   depuis une app `nodefony create app` (imports réels, config `use()`, controller, ce qu'on
+   observe) — et il **compile**. Chaque capacité majeure = un extrait d'usage. Une doc qui décrit
+   sans montrer est inutilisable (constat : 22 pages, 15 blocs TS en tout).
+3. **Point de vue = CONSOMMATEUR** (`import { … } from "nodefony"`), jamais l'interne du repo.
+
+### Outillage (source unique : `scripts/` de CE skill ; artefacts → `tmp/doc-work/`)
+
+| Script                                  | Rôle                                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `scripts/doc-lint.mjs <page.md>`        | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, 0 HTML brut) |
+| `scripts/anchor-check.mjs <page.md>`    | **Exactitude des ancres** : résout chaque `fichier:ligne` contre le code réel (SUSPECT/LINE_OUT) |
+| `scripts/gen-counters.mjs [topic]`      | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée) |
+| `scripts/build-preview.mjs <md> <html>` | Aperçu HTML autonome fidèle Studio (version/branche/commit pris de git ; Mermaid si mmdc)        |
+
+### Workflow par page (ordre imposé)
+
+lire le CODE réel → rédiger (standard §8→§8sexies) → `gen-counters.mjs <topic>` (MAJ `test-map.json`
+si nouveaux fichiers de test) → `build-preview.mjs` → **`doc-lint.mjs` vert ET `anchor-check.mjs`
+0 SUSPECT** → commit `docs(<module>): …` sur la branche `doc` (jamais mergée sans validation humaine).
 
 ---
 
@@ -497,6 +534,15 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
 
 ## Changelog (SemVer)
 
+- **2.0.0** (2026-07-19) — **Le skill devient le foyer du SYSTÈME D'ÉCRITURE de la doc de référence**
+  (reprise du corpus cloud, retours user : ancres illisibles/décalées, pas d'exemples). Nouveau :
+  `reference/redaction-contenu.md` (standard intégral §8→§8sexies) + `scripts/` = doc-lint (DoD
+  bloquante), **anchor-check** (exactitude des ancres contre le code réel — 19/283 décalées trouvées),
+  **gen-counters** v2 (compteurs COMPTÉS depuis `test-map.json`, fin des photos hardcodées),
+  build-preview (provenance git réelle, artefacts → `tmp/doc-work/`). 3 règles nouvelles au standard :
+  **ancre symbolique** (symbole d'abord, ligne en preuve), **Démarrage rapide compilable obligatoire**
+  (point de vue app générée — fondation des recettes `@nodefony/devkit`), point de vue consommateur.
+  Section « Écriture de la doc » du SKILL réécrite (workflow par page + tableau outillage).
 - **1.3.0** (2026-06-30) — **Refonte ergonomie DocLayout (flexbox 3 colonnes + container par défaut)**.
   3 plaintes ergo du portail (menus sans scroll, centre trop petit, fullscreen médiocre) = UNE racine :
   le modèle « scroll de page + sticky » (`Grid` md:3/6/3 → contenu 50 %, sticky fragile dépendant de
