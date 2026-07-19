@@ -66,13 +66,20 @@ for (const stale of readdirSync(QS)) {
 }
 
 // tsconfig du harnais — recréé à chaque run (artefact régénérable, pas une source).
+//
+// ⚠️ `target`/`lib` DOIVENT rester alignés sur le tsconfig qu'engendre `nodefony
+// create app` (`src/nodefony/templates/app/base/tsconfig.json.tpl`). Le gate simule
+// une application consommatrice : s'il compile plus strictement qu'elle, il rejette
+// des exemples pourtant valides — vécu, deux pages ont dû neutraliser un bloc parce
+// que le harnais était en `lib: ES2023` alors que les apps sont en `ESNext` et que
+// le framework emploie `RegExp.escape` (ES2025).
 writeFileSync(
   path.join(QS, "tsconfig.json"),
   JSON.stringify(
     {
       compilerOptions: {
-        target: "ES2022",
-        lib: ["ES2023", "DOM"],
+        target: "ES2024",
+        lib: ["ESNext", "DOM", "DOM.Iterable"],
         module: "ESNext",
         moduleResolution: "Bundler",
         strict: true,

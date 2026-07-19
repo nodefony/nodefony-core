@@ -1,4 +1,18 @@
 {
+  "realtime": {
+    "globs": ["src/packages/@nodefony/realtime/nodefony/tests/**/*.test.ts"]
+  },
+  "frontend": {
+    "globs": ["src/packages/@nodefony/frontend/nodefony/tests/**/*.test.ts"]
+  },
+  "studio": {
+    "globs": ["src/packages/@nodefony/studio/nodefony/tests/**/*.test.ts"]
+  },
+  "documentation": {
+    "globs": [
+      "src/packages/@nodefony/documentation/nodefony/tests/**/*.test.ts"
+    ]
+  },
   "user": {
     "globs": ["src/packages/@nodefony/user/tests/**/*.test.ts"]
   },
