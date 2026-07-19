@@ -26,10 +26,14 @@ if (!files.length) {
 // remplissage — exactement ce que le standard interdit. Il a donc ses propres exigences (§8bis-index).
 const REQUIRED_HUB = [
   {
-    key: "par où commencer (parcours guidés)",
-    re: /^##\s+(?:\S+\s+)?Par o[uù] commencer/im,
+    // Un hub doit offrir un POINT DE DÉPART, pas forcément une section : il peut
+    // porter les parcours lui-même (titre) ou mener à la page qui les porte.
+    key: "point de départ (parcours guidés, ou lien vers la page qui les porte)",
+    re: /^#{1,2}\s+(?:\S+\s+)?Par o[uù] commencer|demarrer\.md/im,
   },
-  { key: "catalogue (cards)", re: /^###\s+\[?`/m },
+  // Catalogue : soit des cards déclaratives (bloc de fence `nodefony-cards`),
+  // soit la forme markdown historique `### `nom` — titre`.
+  { key: "catalogue (cards)", re: /^```nodefony-cards\b|^###\s+\[?`/m },
   {
     key: "pour aller plus loin",
     re: /^##\s+(?:\S+\s+)?Pour aller plus loin/im,
@@ -85,8 +89,11 @@ for (const f of files) {
     if (!fm[k]) errs.push(`frontmatter manquant: ${k}`);
   }
 
-  // Deux régimes : HUB (oriente) vs page de BRIQUE (explique).
-  const isHub = path.basename(f) === "index.md";
+  // Deux régimes : HUB (oriente) vs page de BRIQUE (explique). Un hub est
+  // généralement un `index.md`, mais une page d'orientation peut porter un autre
+  // nom (`demarrer.md`) — elle le déclare alors par `hub: true`.
+  const isHub =
+    path.basename(f) === "index.md" || /^hub:\s*true\s*$/im.test(src);
   // La racine `docs/index.md` n'a pas de parent : elle EST le sommet de l'Ariane.
   const isRoot = f.replace(/^\.\//, "") === "docs/index.md";
 

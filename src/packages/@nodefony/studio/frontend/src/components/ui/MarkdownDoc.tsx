@@ -107,25 +107,69 @@ function ensureDocStyles() {
     .nf-brick-title { font-size: 0.92em; }
     .nf-brick-h:hover { border-left-color: var(--mantine-primary-color-filled); }
 
-    /* Grille de cards d'un catalogue (bloc de fence nodefony-cards). */
+    /* Grille de cards d'un catalogue (bloc de fence nodefony-cards).
+       Parti pris : card d'INFORMATION sobre — pastille d'icône, titre net,
+       description atténuée, méta discrète, chevron d'affordance. Aucune ombre
+       portée ni dégradé : la hiérarchie vient de la typo et de l'espacement. */
     .nf-cards {
-      display: grid; gap: 12px; margin: 1.2em 0;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      display: grid; gap: 10px; margin: 1.3em 0;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      align-items: stretch;
     }
-    .nf-card { text-decoration: none; color: inherit; display: block; }
-    .nf-card-link { transition: border-color 0.15s ease, transform 0.15s ease; }
+    .nf-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 16px; text-decoration: none; color: inherit;
+      background: var(--mantine-color-body);
+      border-color: var(--mantine-color-default-border);
+    }
+    .nf-card-link {
+      transition: border-color .15s ease, background-color .15s ease;
+    }
     .nf-card-link:hover {
       border-color: var(--mantine-primary-color-filled);
-      transform: translateY(-2px);
+      background: var(--mantine-color-default-hover);
     }
+    .nf-card-link:hover .nf-card-go { opacity: 1; transform: translateX(2px); }
+    .nf-card-link:hover .nf-card-title { color: var(--mantine-primary-color-filled); }
     .nf-card-link:focus-visible {
       outline: 2px solid var(--mantine-primary-color-filled);
       outline-offset: 2px;
     }
-    .nf-card-meta { font-variant-numeric: tabular-nums; }
+    /* Pastille d'icône : carré arrondi teinté, taille fixe → colonnes alignées. */
+    .nf-card-icon {
+      flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 17px; line-height: 1;
+      background: color-mix(in srgb, var(--mantine-primary-color-filled) 12%, transparent);
+    }
+    .nf-card-body { display: flex; flex-direction: column; min-width: 0; gap: 3px; flex: 1 1 auto; }
+    .nf-card-title {
+      font-weight: 600; font-size: 14.5px; line-height: 1.3;
+      transition: color .15s ease;
+    }
+    .nf-card-desc {
+      font-size: 12.8px; line-height: 1.45; color: var(--mantine-color-dimmed);
+    }
+    .nf-card-meta {
+      font-size: 11px; color: var(--mantine-color-dimmed); opacity: .8;
+      font-variant-numeric: tabular-nums; margin-top: 2px;
+    }
+    .nf-card-go {
+      flex: 0 0 auto; align-self: center; opacity: .35; font-size: 15px;
+      color: var(--mantine-primary-color-filled);
+      transition: opacity .15s ease, transform .15s ease;
+    }
+    /* Card mise en avant : pleine largeur, liseré d'accent — un point d'entrée
+       unique doit se distinguer du catalogue sans crier. */
+    .nf-card-featured {
+      grid-column: 1 / -1;
+      border-left: 3px solid var(--mantine-primary-color-filled);
+      background: color-mix(in srgb, var(--mantine-primary-color-filled) 5%, var(--mantine-color-body));
+    }
+    .nf-card-featured .nf-card-title { font-size: 15.5px; }
     @media (prefers-reduced-motion: reduce) {
-      .nf-card-link { transition: none; }
-      .nf-card-link:hover { transform: none; }
+      .nf-card-link, .nf-card-go, .nf-card-title { transition: none; }
+      .nf-card-link:hover .nf-card-go { transform: none; }
     }
   `;
   document.head.appendChild(s);
@@ -348,6 +392,8 @@ interface DocCardItem {
   desc?: string;
   /** Repère court affiché en pied (ex. « 13 pages », « stable »). */
   meta?: string;
+  /** Card mise en avant : pleine largeur, accentuée (un point d'entrée unique). */
+  featured?: boolean;
 }
 
 /**
@@ -401,29 +447,33 @@ function DocCards({
           onClick={go(it.href)}
           withBorder
           radius="md"
-          p="md"
-          className={it.href ? "nf-card nf-card-link" : "nf-card"}
+          className={[
+            "nf-card",
+            it.href ? "nf-card-link" : "",
+            it.featured ? "nf-card-featured" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
-          <Group gap={8} wrap="nowrap" align="flex-start">
-            {it.icon ? (
-              <Text component="span" size="xl" aria-hidden="true">
-                {it.icon}
-              </Text>
-            ) : null}
-            <Box style={{ minWidth: 0 }}>
-              <Text fw={600}>{it.title}</Text>
-              {it.desc ? (
-                <Text size="sm" c="dimmed" mt={2}>
-                  {it.desc}
-                </Text>
-              ) : null}
-              {it.meta ? (
-                <Text size="xs" c="dimmed" mt={6} className="nf-card-meta">
-                  {it.meta}
-                </Text>
-              ) : null}
-            </Box>
-          </Group>
+          {/* Pictogramme dans une pastille : l'œil accroche un repère stable
+              à gauche, la colonne de texte reste alignée d'une card à l'autre. */}
+          {it.icon ? (
+            <span className="nf-card-icon" aria-hidden="true">
+              {it.icon}
+            </span>
+          ) : null}
+          <span className="nf-card-body">
+            <span className="nf-card-title">{it.title}</span>
+            {it.desc ? <span className="nf-card-desc">{it.desc}</span> : null}
+            {it.meta ? <span className="nf-card-meta">{it.meta}</span> : null}
+          </span>
+          {/* Chevron : dit que la card MÈNE quelque part (affordance), et
+              glisse au survol. Décoratif — le titre porte déjà le sens. */}
+          {it.href ? (
+            <span className="nf-card-go" aria-hidden="true">
+              →
+            </span>
+          ) : null}
         </Paper>
       ))}
     </Box>
