@@ -248,3 +248,10 @@
 > Gradués aussi : [[feedback_bench_isolate_session_store]] (3× mesures+profiling) ; « batcher les
 > edits backend pendant test live front » (3×) = déjà gravé CLAUDE.md racine §Hygiène n°4.
 > Consolidation détaillée : [`CONSOLIDATION-2026-07-10.md`](CONSOLIDATION-2026-07-10.md).
+
+## 📚 Corpus doc / travail par agents
+
+- `[1× — 2026-07-19]` **Le gate mécanique attrape ce que la relecture rate.** 3 preuves en 1 session : l'exemple config documentait une API INVENTÉE (`areas` en tableau — Zod l'aurait rejetée au boot), le bloc « qui compile » citait `IUser.username` (inexistant, c'est `identifier`), la prose Tests disait « 35 cas » (68 réels). Gates ×3 gravés (doc-lint + anchor-check + tsc du Démarrage rapide) : une page n'est « faite » que verte aux trois.
+- `[1× — 2026-07-19]` **1 cellule-journal de 10 KB → prettier padde TOUT le tableau à sa largeur → fichier ×8** (MIGRATION_STATUS 376 KB pour ~45 KB réels, récidive de l'obésité 06-05). Tuer la cellule géante tue le padding — vérifier `awk length` avant d'accuser le contenu.
+- `[1× — 2026-07-19]` **Un agent tué (quota session) ne perd PAS son travail écrit** : les 4 agents de la vague 1 sont morts sur la limite, mais les 4 pages étaient ÉCRITES — les gates ont permis de valider/committer un travail d'agent mort. Architecture résiliente = write early + gates mécaniques indépendants de l'agent.
+- `[1× — 2026-07-19]` **Une ancre `fichier:ligne` vieillit en jours, pas en mois** : 19/283 ancres décalées 48 h après écriture (le code bouge sous la doc). Ancre SYMBOLIQUE (`matchPath()` + ligne) = le nom survit, la ligne se recale ; anchor-check en gate.
