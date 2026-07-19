@@ -36,6 +36,8 @@ source: "src/packages/@nodefony/security/docs/tokens.md"
 > pluggable (memory/drizzle/mongoose/redis) désormais **paginé** pour l'admin. Ancré sur
 > `src/packages/@nodefony/security/nodefony/service/tokenService.ts` et `nodefony/src/token/`.
 
+📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Jetons**
+
 ## 🧠 Le modèle mental — émission, rotation, révocation
 
 ```mermaid
@@ -478,7 +480,10 @@ Couverture : `npm run coverage` dans `@nodefony/security`.
 
 ## 🔗 Pour aller plus loin
 
+- ⬆️ **Retour au hub** : [Sécurité — vue d'ensemble](index.md) · [Toute la documentation](../../../../../docs/index.md)
+- 🧭 **Pages sœurs** : [api-keys](api-keys.md) · [Authenticators](authenticators.md)
+
 - La vérification de ces jetons (JWT/PAT) → [authenticators](./authenticators.md)
 - Le firewall qui applique la zone → [firewall](./firewall.md) · L'autorisation par scopes → [authorization](./authorization.md)
-- La doctrine `store:"auto"` → [configuration](../../../docs/architecture/configuration.md)
+- La doctrine `store:"auto"` → [configuration](../../../../../docs/architecture/configuration.md)
 - Vue d'ensemble sécurité → [index](./index.md)

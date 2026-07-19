@@ -33,6 +33,8 @@ source: "src/packages/@nodefony/security/docs/authenticators.md"
 > sinon il ferme en 401 (Zero Trust). Nodefony en fournit **six** intégrés, tous ancrés ici sur le
 > code (`src/packages/@nodefony/security/nodefony/src/authenticator/`).
 
+📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Authenticators**
+
 ## 🧠 Le cycle d'un authenticator
 
 ```mermaid
@@ -458,6 +460,9 @@ Trois familles couvrent la brique — les **chiffres exacts vivent dans la carte
 Couverture : `npm run coverage` dans `@nodefony/security`.
 
 ## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Sécurité — vue d'ensemble](index.md) · [Toute la documentation](../../../../../docs/index.md)
+- 🧭 **Pages sœurs** : [Firewall](firewall.md) · [Jetons](tokens.md)
 
 - Le firewall qui enchaîne les authenticators (zones, modes, en-têtes) → [firewall](./firewall.md)
 - L'autorisation (voters, rôles, scopes) après l'authentification → [authorization](./authorization.md)

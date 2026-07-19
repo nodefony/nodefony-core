@@ -33,6 +33,8 @@ source: "src/packages/@nodefony/security/docs/authorization.md"
 > (`role`, `scope`), un contrat ouvert pour la logique métier (ownership, multi-tenant). Ancré sur
 > `src/packages/@nodefony/security/nodefony/service/authorization.ts` et `nodefony/src/voter/`.
 
+📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Autorisation**
+
 ## 🧠 Le modèle mental — un jury qui vote
 
 ```mermaid
@@ -485,6 +487,9 @@ Quatre familles couvrent la brique — les **chiffres exacts vivent dans la cart
 Couverture : `npm run coverage` dans `@nodefony/security`.
 
 ## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Sécurité — vue d'ensemble](index.md) · [Toute la documentation](../../../../../docs/index.md)
+- 🧭 **Pages sœurs** : [Firewall](firewall.md) · [Jetons](tokens.md)
 
 - L'authentification qui précède l'autorisation → [authenticators](./authenticators.md)
 - Le firewall qui pose l'identité et appelle le jury (zones, WS) → [firewall](./firewall.md)

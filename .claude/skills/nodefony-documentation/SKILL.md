@@ -185,6 +185,30 @@ Onglet « Graphe » de `ModuleDetail` (classes auto + relations extends/implemen
 
 ---
 
+## Navigation du portail — LE HUB D'ABORD, l'arbre ensuite
+
+Décision d'ergonomie (retour user) : **l'arbre de navigation latéral devient touffu** dès qu'un module
+a 8 pages, et un menu plat de 40 entrées n'enseigne rien. La navigation du portail repose donc sur
+**trois** appuis, dans cet ordre d'importance :
+
+1. **Les hubs** (`<module>/docs/index.md`) = **bureaux de travail** : parcours guidés par profil +
+   catalogue en **cards cliquables** (une card = une page, avec le problème qu'elle résout et quand
+   la lire). Gabarit imposé : standard `reference/redaction-contenu.md` §8bis-index. C'est le chemin
+   NORMAL d'entrée dans un module — pas le menu.
+2. **La recherche** (`navSearch` du `DocLayout`) : traiter en première classe, pas en décoration —
+   c'est le raccourci de qui sait ce qu'il cherche. Elle doit porter sur les **titres ET le corps**
+   des pages, avec l'extrait de contexte autour du terme trouvé.
+3. **L'arbre latéral** = raccourci pour l'habitué, jamais l'outil d'apprentissage. Le garder
+   **replié par défaut au-delà d'un module**, et ne déplier que la branche courante.
+
+Toute page porte en plus un **fil d'Ariane** (haut) et un **retour au hub** (pied) en Markdown pur —
+règle §8bis-nav du standard, vérifiée par `doc-lint`. Le lecteur ne doit jamais être en cul-de-sac.
+
+**Rendu des cards de hub** : une card naît d'un `### [\`nom\`](nom.md) — titre`(nom en code inline,
+éventuellement lié).`build-preview.mjs` rend l'en-tête entier cliquable (`.brick-nav`/`.brick-link`,
+focus visible, `prefers-reduced-motion`) — **`MarkdownDoc.tsx` doit atteindre la même parité** ; l'aperçu
+est la référence visuelle.
+
 ## Règles de mise en page docs-site (NON négociables)
 
 Issues d'un reproche user (2026-05-25 : patchs layout au coup par coup). Une UI pro = **un modèle

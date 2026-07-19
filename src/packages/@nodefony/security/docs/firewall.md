@@ -33,6 +33,8 @@ source: "src/packages/@nodefony/security/docs/firewall.md"
 > `src/packages/@nodefony/security/nodefony/service/firewall.ts` et les authenticators de
 > `nodefony/src/authenticator/`.
 
+📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Firewall**
+
 ## 🧠 Le modèle mental — chemin chaud, chemin froid
 
 Le firewall sépare **détecter** (chaud, sur chaque requête) et **décider** (froid, seulement zone
@@ -176,7 +178,7 @@ Le client envoie l'un ou l'autre :
 
 ```
 Authorization: Bearer eyJhbGciOiJFZERTQS␣…␣.␣…␣.␣…        # un JWT (structure a.b.c)
-Authorization: Bearer nfp_9a2c…                          # une clé API (préfixe nfp_)
+Authorization: Bearer nf_9a2c…                           # une clé API (préfixe nf_)
 ```
 
 ## 🔐 Les authenticators intégrés
@@ -307,12 +309,12 @@ back: {
 
 Ce qui se passe, requête par requête :
 
-| Le client envoie…             | `supports()` vrai pour… | Résultat                                                                                     |
-| ----------------------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
-| le cookie de session          | `session`               | identifié, `apikey` jamais consulté                                                          |
-| `Authorization: Bearer nfp_…` | `apikey`                | identifié (session ne matche pas, on passe)                                                  |
-| une clé **révoquée** `nfp_…`  | `apikey`                | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:947-952`) |
-| rien                          | aucun                   | **401** (Zero Trust)                                                                         |
+| Le client envoie…            | `supports()` vrai pour… | Résultat                                                                                     |
+| ---------------------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
+| le cookie de session         | `session`               | identifié, `apikey` jamais consulté                                                          |
+| `Authorization: Bearer nf_…` | `apikey`                | identifié (session ne matche pas, on passe)                                                  |
+| une clé **révoquée** `nf_…`  | `apikey`                | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:947-952`) |
+| rien                         | aucun                   | **401** (Zero Trust)                                                                         |
 
 ### Situation 2 — le piège de l'ordre (`anonymous` toujours EN DERNIER)
 
@@ -507,6 +509,9 @@ Couverture : `npm run coverage` dans `@nodefony/security`.
 
 ## 🔗 Pour aller plus loin
 
+- ⬆️ **Retour au hub** : [Sécurité — vue d'ensemble](index.md) · [Toute la documentation](../../../../../docs/index.md)
+- 🧭 **Pages sœurs** : [Authenticators](authenticators.md) · [Autorisation](authorization.md)
+
 - Vue du module → [index](./index.md) · Autorisation (voters, rôles, scopes) → [authorization](./authorization.md)
 - JWT/OAuth2/WebAuthn/TOTP/API keys en détail → pages dédiées du module
-- Où le firewall s'insère → [pipeline-requete](../../../docs/architecture/pipeline-requete.md)
+- Où le firewall s'insère → [pipeline-requete](../../../../../docs/architecture/pipeline-requete.md)

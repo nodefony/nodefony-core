@@ -20,6 +20,21 @@ if (!files.length) {
 
 // Sections obligatoires (regex sur les titres H2, insensible casse/accents partiels).
 // `(?:\S+\s+)?` tolère l'icône de section canonique (standard §6-ergo n°8 : `## 🚀 Démarrage…`).
+//
+// Un HUB (`index.md`) n'est pas une page de brique : il ORIENTE (parcours guidés + catalogue en
+// cards) au lieu d'expliquer un concept. Lui réclamer Lexique/Pièges/Tests/ancres produirait du
+// remplissage — exactement ce que le standard interdit. Il a donc ses propres exigences (§8bis-index).
+const REQUIRED_HUB = [
+  {
+    key: "par où commencer (parcours guidés)",
+    re: /^##\s+(?:\S+\s+)?Par o[uù] commencer/im,
+  },
+  { key: "catalogue (cards)", re: /^###\s+\[?`/m },
+  {
+    key: "pour aller plus loin",
+    re: /^##\s+(?:\S+\s+)?Pour aller plus loin/im,
+  },
+];
 const REQUIRED = [
   { key: "lexique", re: /^##\s+(?:\S+\s+)?Lexique/im },
   {
@@ -70,15 +85,21 @@ for (const f of files) {
     if (!fm[k]) errs.push(`frontmatter manquant: ${k}`);
   }
 
+  // Deux régimes : HUB (oriente) vs page de BRIQUE (explique).
+  const isHub = path.basename(f) === "index.md";
+  // La racine `docs/index.md` n'a pas de parent : elle EST le sommet de l'Ariane.
+  const isRoot = f.replace(/^\.\//, "") === "docs/index.md";
+
   // 2) Sections obligatoires.
-  for (const r of REQUIRED)
+  for (const r of isHub ? REQUIRED_HUB : REQUIRED)
     if (!r.re.test(src)) errs.push(`section manquante: ${r.key}`);
 
   // 3) Intro blockquote (schéma général/mise en contexte).
   if (!/^>\s+/m.test(src)) errs.push("intro (blockquote >) manquante");
 
   // 4) INVENTAIRE DES TESTS — le défaut historique. Obligatoire sauf opt-out.
-  const testsOptOut = /^tests:\s*none/im.test(src);
+  // Un hub renvoie aux compteurs de ses pages, il n'en porte pas lui-même.
+  const testsOptOut = /^tests:\s*none/im.test(src) || isHub;
   if (!testsOptOut) {
     if (!TESTS_HEADING.test(src))
       errs.push("section « Tests » manquante (ou `tests: none` si justifié)");
@@ -88,12 +109,37 @@ for (const f of files) {
       );
   }
 
+  // 4bis) NAVIGATION (standard §8bis-nav) — on ne se perd jamais : fil d'Ariane en tête,
+  // retour au hub en pied. Un hub (`index.md`) porte l'Ariane mais ne se renvoie pas à
+  // lui-même : il est la destination.
+  if (!isRoot && !/^📍\s+.*›/m.test(src))
+    errs.push(
+      "fil d'Ariane manquant (ligne `📍 [Documentation](…) › [Module](index.md) › **Page**`)",
+    );
+  if (!isHub && !/⬆️\s+\*\*Retour au hub\*\*/m.test(src))
+    errs.push(
+      "retour au hub manquant (1ʳᵉ ligne de « Pour aller plus loin » : `- ⬆️ **Retour au hub** : …`)",
+    );
+
   // 5) Ancres fichier:ligne présentes (une doc « code = vérité » sans ancre = suspecte).
+  // Un hub oriente et ne cite pas le code : lui réclamer des ancres fabriquerait du faux.
   const anchors = src.match(/[\w./@-]+\.ts:\d+/g) || [];
-  if (!testsOptOut && anchors.length < 3)
+  if (!isHub && !testsOptOut && anchors.length < 3)
     errs.push(
       `trop peu d'ancres fichier:ligne (${anchors.length}) — doc probablement superficielle`,
     );
+
+  // 5bis) LIENS INTERNES VIVANTS — une navigation par hubs ne vaut que si les liens tiennent.
+  // Un lien mort dans un hub est pire qu'une absence de lien : il promet une page qui n'existe pas.
+  const dir = path.dirname(f);
+  const dead = [];
+  for (const m of src.matchAll(
+    /\]\((?!https?:|#|mailto:)([^)\s]+\.md)(?:#[^)\s]*)?\)/g,
+  )) {
+    if (!existsSync(path.resolve(dir, m[1]))) dead.push(m[1]);
+  }
+  if (dead.length)
+    errs.push(`lien(s) interne(s) mort(s) : ${[...new Set(dead)].join(", ")}`);
 
   // 6) Pas de HTML brut (le portail n'a pas rehype-raw).
   if (

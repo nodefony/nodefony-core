@@ -188,10 +188,18 @@ html += metricsHtml + coverageHtml;
 // (h3 dont le titre commence par du code inline) devient une CARD visuelle — le
 // pattern des docs de référence pour une série de briques homogènes (authenticators,
 // stores, drivers…). Convention 100 % Markdown : aucun HTML dans la source.
+// Le nom peut être LIÉ (`### [\`cors\`](cors.md) — titre`) : c'est la forme d'un HUB, dont
+// chaque card mène à sa page. La card devient alors cliquable, nom ET titre.
 html = html.replace(
-  /<h3><code>([^<]+)<\/code>\s*(?:—|–|-)?\s*([^<]*)<\/h3>([\s\S]*?)(?=<h3|<h2|$)/g,
-  (_, name, title, body) =>
-    `<section class="brick"><header class="brick-h"><code class="brick-name">${name}</code><span class="brick-t">${title}</span></header><div class="brick-b">${body}</div></section>`,
+  /<h3>(?:<a href="([^"]*)"[^>]*>)?<code>([^<]+)<\/code>(?:<\/a>)?\s*(?:—|–|-)?\s*([^<]*)<\/h3>([\s\S]*?)(?=<h3|<h2|$)/g,
+  (_, href, name, title, body) => {
+    const nameHtml = `<code class="brick-name">${name}</code>`;
+    const titleHtml = `<span class="brick-t">${title}</span>`;
+    const head = href
+      ? `<a class="brick-link" href="${href}">${nameHtml}${titleHtml}</a>`
+      : `${nameHtml}${titleHtml}`;
+    return `<section class="brick${href ? " brick-nav" : ""}"><header class="brick-h">${head}</header><div class="brick-b">${body}</div></section>`;
+  },
 );
 
 // Ancres de preuve `fichier.ts:NNN` → références DISCRÈTES (standard §6-ergo) :
@@ -280,6 +288,13 @@ pre code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;
 .brick-b{padding:4px 18px 12px}
 .brick-b>p:first-child{margin-top:.7em}
 .brick-b pre{margin:.8em 0}
+/* Card de HUB : l'en-tête entier est un lien vers la page (bureau de travail) */
+.brick-nav{transition:border-color .15s,transform .15s}
+.brick-nav:hover{border-left-color:var(--accent);border-color:var(--accent)}
+.brick-link{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;width:100%;text-decoration:none;color:inherit}
+.brick-link:hover .brick-t{color:var(--accent)}
+.brick-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){.brick-nav{transition:none}}
 /* Références de preuve (fichier.ts:ligne) — discrètes : la preuve sans le bruit */
 .srcref{font-size:0.72em;opacity:.55;vertical-align:super;line-height:0}
 .srcref code{background:transparent;padding:0;color:var(--muted);font-size:inherit}

@@ -208,7 +208,9 @@ La doc vit **dans le module** (ADR-0001) → on l'édite à côté du code qu'on
 6. Commit `docs(<module>): <brique> — <ce qui a changé>`.
 
 **Détecter la dérive** : date git de la page < date git du code du module (Studio affiche déjà la
-fraîcheur). Toute contradiction code↔doc trouvée en chemin va dans `tmp/doc-findings.md` (le code gagne).
+fraîcheur). Toute contradiction code↔doc trouvée en chemin va dans le **kit de chantier**
+(mémoire IA `project_doc_corpus_chantier_kit`, § « Trouvailles code↔doc ») — **jamais dans `tmp/`,
+qui est jetable. Le code gagne** : la page documente le réel, le défaut du code part en correctif séparé.
 
 ## 8bis. Analyse PRÉALABLE par brique — « qu'est-ce qu'un dev doit comprendre ? »
 
@@ -227,23 +229,72 @@ ajouter (le squelette §9 est un maximum, pas une checklist rigide — on n'écr
 Une section sans matière se **supprime** (pas de remplissage). Une brique riche (session) aura entité +
 dialectes + Studio + sécurité fournie ; une brique pure (un helper) n'aura ni entité ni Studio.
 
-## 8bis-index. Point d'entrée du module — `index.md` (récapitulatif)
+## 8bis-nav. NAVIGATION — on ne se perd jamais (fil d'Ariane obligatoire)
 
-Chaque module a un **`index.md`** (ADR-0001 : `<module>/docs/index.md`) — c'est le **hub** affiché en
+> Raison : dans Studio, l'arbre de navigation devient **touffu** dès qu'un module a 8 pages. Un menu
+> plat de 40 entrées n'enseigne rien et décourage. La navigation doit être portée par des **hubs
+> propres** — le menu latéral n'est qu'un raccourci pour qui sait déjà où il va.
+
+**Toute page** (brique comme hub) porte **deux** points de remontée, en Markdown pur :
+
+1. **Fil d'Ariane**, sur la ligne qui suit immédiatement le blockquote d'intro :
+
+   ```markdown
+   📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **CORS**
+   ```
+
+   - Le dernier maillon = la page courante, **en gras, jamais un lien**.
+   - Les liens sont **relatifs au fichier** (le portail résout aussi `xxx.md` par slug via
+     `onInternalLink`) — vérifier le chemin depuis l'emplacement réel de la page.
+   - Un hub de module n'a que deux maillons (`Documentation › **Sécurité**`).
+
+2. **Retour au hub en PIED**, première ligne de « 🔗 Pour aller plus loin » — sur une page de 500
+   lignes, le lecteur arrivé en bas est loin de l'Ariane :
+
+   ```markdown
+   - ⬆️ **Retour au hub** : [Sécurité — vue d'ensemble](index.md) · [Toute la documentation](../../../../../docs/index.md)
+   ```
+
+Les liens **latéraux** (pages sœurs) restent dans « Pour aller plus loin », après le retour au hub.
+Une page ne se lit jamais en cul-de-sac : elle dit toujours d'où elle vient et où aller ensuite.
+
+## 8bis-index. Point d'entrée du module — `index.md`, le HUB « bureau de travail »
+
+Chaque module a un **`index.md`** (ADR-0001 : `<module>/docs/index.md`) — le **hub** affiché en
 premier dans l'onglet Docs de Studio. Il **récapitule tout le module** et pointe vers les pages de
-brique (il ne les duplique pas). Contenu :
+brique (il ne les duplique jamais).
 
-- Titre + pitch du module + statut/version.
-- **Place dans le graphe de dépendances** (Mermaid) + rôle (ce que le module apporte).
-- **Table des concepts/briques** du module → liens vers chaque page (`idempotence`, `session`, …) avec
-  1 ligne de résumé chacune.
-- **Surface publique** (exports clés) → renvoi `symbols.json` (jamais recopier les signatures).
-- **Configuration** principale → renvoi au bloc/section config.
-- **Observabilité Studio** du module (écrans, ERD, API `/nodefony/<module>/api/*`).
-- **Compteur tests + couverture du MODULE** (photo régénérable — pas de chiffre figé dans le MD).
-- Pour aller plus loin (liens transverses).
+**Un hub n'est pas un sommaire, c'est un bureau de travail** : il doit ENSEIGNER l'organisation du
+module et permettre de choisir sa page en quelques secondes, sans lire l'arbre de navigation.
 
-L'`index.md` est donc la vue « module entier » ; les pages de brique sont les vues « concept ».
+Contenu, dans cet ordre :
+
+1. **Titre + pitch + fil d'Ariane** (§8bis-nav) + statut/version.
+2. **🧭 Par où commencer — parcours guidés** (c'est ce qui rend le hub _formateur_). 2 à 4 parcours
+   nommés par PROFIL et par BESOIN, chacun = une suite ordonnée de 3-5 liens :
+   « **Je découvre la sécurité Nodefony** » → firewall › authenticators › autorisation ;
+   « **Je protège une API machine** » → tokens › api-keys › autorisation ;
+   « **J'audite avant mise en production** » → en-têtes › csrf › cors › audit.
+   Un parcours dit **pourquoi cet ordre**, pas seulement quoi lire.
+3. **🗂️ Le catalogue en CARDS** — la pièce maîtresse. D'abord un **tableau de synthèse**
+   (page · à quoi ça sert · quand tu en as besoin) pour choisir en 5 s ; puis **une card par page**,
+   convention Markdown du §6-ergo n°6 : ``### [`cors`](cors.md) — partage de ressources entre origines``
+   suivi de 2-4 lignes : le **problème** que la page résout, **quand** on la lit, et l'entrée
+   concrète (« démarre par sa section Démarrage rapide »). Une card explicite vaut dix lignes d'arbre.
+4. **Place dans le graphe de dépendances** (Mermaid) + ce que le module apporte.
+5. **Surface publique** (exports clés) → renvoi `symbols.json` (jamais recopier les signatures).
+6. **Configuration** principale → renvoi au bloc/section config.
+7. **Observabilité Studio** du module (écrans, ERD, API `/nodefony/<module>/api/*`).
+8. **Compteur tests + couverture du MODULE** (photo régénérable — jamais de chiffre figé dans le MD).
+9. **🔗 Pour aller plus loin** — remontée vers l'index général + hubs des modules voisins.
+
+L'`index.md` est la vue « module entier » ; les pages de brique sont les vues « concept ». Le même
+gabarit vaut pour l'**index général** (`docs/index.md`), dont les cards pointent vers les hubs de
+module au lieu des pages.
+
+> [!TIP]
+> Test du hub réussi : un dev qui ne connaît pas le module trouve SA page en moins de 30 secondes,
+> sans ouvrir le menu latéral, et comprend au passage comment le module est organisé.
 
 ## 8ter. Granularité — page dédiée OU section du parent ?
 

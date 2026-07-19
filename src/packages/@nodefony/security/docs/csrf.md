@@ -31,6 +31,8 @@ source: "src/packages/@nodefony/security/docs/csrf.md"
 > défense **en profondeur opt-in** par _synchronizer token_ signé (`@CsrfProtect`, double-submit).
 > Ancré sur `src/packages/@nodefony/security/nodefony/service/csrf.ts` et `src/csrfToken.ts`.
 
+📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **CSRF**
+
 ## 🧠 Le modèle mental — deux couches, zéro friction la plupart du temps
 
 ```mermaid
@@ -156,16 +158,19 @@ le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les ac
    `x-csrf-token` sur chaque mutation.
 
 ```typescript
-// Côté SPA (fragment) — lire le cookie lisible, le rejouer dans l'en-tête
-const token = document.cookie.match(/(?:^|;\s*)csrf-token=([^;]+)/)?.[1] ?? "";
-await fetch("/api/profile/email", {
-  method: "POST",
-  headers: {
-    "content-type": "application/json",
-    "x-csrf-token": decodeURIComponent(token),
-  },
-  body: JSON.stringify({ email: "ada@example.org" }),
-});
+// Côté SPA — lire le cookie lisible, le rejouer dans l'en-tête
+export async function updateEmail(email: string): Promise<Response> {
+  const token =
+    document.cookie.match(/(?:^|;\s*)csrf-token=([^;]+)/)?.[1] ?? "";
+  return fetch("/api/profile/email", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-csrf-token": decodeURIComponent(token),
+    },
+    body: JSON.stringify({ email }),
+  });
+}
 ```
 
 ### Ce qu'on observe
@@ -375,6 +380,9 @@ Trois familles couvrent la brique — les **chiffres exacts vivent dans la carte
 Couverture : `npm run coverage` dans `@nodefony/security`.
 
 ## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Sécurité — vue d'ensemble](index.md) · [Toute la documentation](../../../../../docs/index.md)
+- 🧭 **Pages sœurs** : [CORS](cors.md) · [En-têtes de sécurité](headers.md)
 
 - Le firewall qui câble les deux couches → [firewall](./firewall.md)
 - CORS (ce qui est autorisé cross-origin, ∪ des origines de confiance CSRF) → [cors](./cors.md)

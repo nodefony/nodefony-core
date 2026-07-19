@@ -310,7 +310,8 @@
       "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-postgres.e2e.test.ts"
     ],
     "contract": [
-      "src/packages/@nodefony/security/tests/support/webauthnPaginationContract.ts"
+      "src/packages/@nodefony/security/tests/support/webauthnPaginationContract.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-contract.ts"
     ]
   },
   "totp": {
@@ -319,7 +320,8 @@
       "src/packages/@nodefony/security/tests/unit/totpCipher.test.ts",
       "src/packages/@nodefony/security/tests/unit/totpOperations.test.ts",
       "src/packages/@nodefony/security/tests/unit/totpPagination.test.ts",
-      "src/packages/@nodefony/security/tests/unit/totpSecretStore.test.ts"
+      "src/packages/@nodefony/security/tests/unit/totpSecretStore.test.ts",
+      "src/packages/@nodefony/security/tests/unit/mfaStepUp.test.ts"
     ],
     "integration": [
       "src/packages/@nodefony/drizzle/tests/integration/totp-store-sqlite.test.ts"
@@ -330,7 +332,69 @@
       "src/packages/@nodefony/drizzle/tests/integration/totp-flow-e2e.test.ts"
     ],
     "contract": [
-      "src/packages/@nodefony/security/tests/support/totpPaginationContract.ts"
+      "src/packages/@nodefony/security/tests/support/totpPaginationContract.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/totp-store-contract.ts"
+    ]
+  },
+  "api-keys": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/apiKeyAuthenticator.test.ts",
+      "src/packages/@nodefony/security/tests/unit/apiKeyFormat.test.ts",
+      "src/packages/@nodefony/security/tests/unit/apiKeyService.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/integration/apikey-flow.test.ts"
+    ],
+    "contract": [
+      "src/packages/@nodefony/security/tests/support/tokenPaginationContract.ts"
+    ]
+  },
+  "webhooks": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/webhookAdminApi.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webhookDelivery.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webhookDispatcher.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webhookPagination.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webhookService.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webhookSignature.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webhookStore.test.ts"
+    ],
+    "attack": [
+      "src/packages/@nodefony/security/tests/unit/webhookDispatch.attack.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webhookSsrf.attack.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-sqlite.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/webhook-store.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-postgres.e2e.test.ts"
+    ],
+    "contract": [
+      "src/packages/@nodefony/security/tests/support/webhookPaginationContract.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-contract.ts"
+    ]
+  },
+  "audit": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/auditBridge.test.ts",
+      "src/packages/@nodefony/security/tests/unit/auditEmission.test.ts",
+      "src/packages/@nodefony/security/tests/unit/auditEmissionHotPath.test.ts",
+      "src/packages/@nodefony/security/tests/unit/auditPagination.test.ts",
+      "src/packages/@nodefony/security/tests/unit/auditService.test.ts",
+      "src/packages/@nodefony/security/tests/unit/auditStoreRegistry.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/audit-store.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/audit-pagination.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/audit-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/audit-store-postgres.e2e.test.ts"
+    ],
+    "contract": [
+      "src/packages/@nodefony/security/tests/support/auditPaginationContract.ts"
     ]
   }
 }
