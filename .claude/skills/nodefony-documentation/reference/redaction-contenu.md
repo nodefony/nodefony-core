@@ -90,6 +90,29 @@ Admonitions supportées (remark-gfm + override) : `> [!NOTE|TIP|IMPORTANT|WARNIN
 
 Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; outil/LLM/diff → MD.
 
+## 6-ergo. ERGONOMIE DE LECTURE (retour user 2026-07-19 — appuyé NN/g + Google style guide)
+
+> Mesures Nielsen Norman Group : texte concis = **+58 %** d'usabilité, listes scannables = **+47 %**,
+> les trois principes combinés = **+124 %**. Un lecteur découragé ne lit PAS — l'exactitude d'une
+> page illisible ne sert à rien.
+
+1. **Un paragraphe = UNE idée, ≤ 4 lignes rendues.** Un pavé de 7 lignes se découpe ou devient une
+   liste. Couper de moitié par rapport au premier jet (pyramide inversée : conclusion d'abord).
+2. **Liste > prose** dès qu'on énumère ≥ 2 propriétés/défenses/étapes. Séquence → liste numérotée.
+   Conditions AVANT instructions (« Si X, fais Y » — jamais l'inverse).
+3. **Les ancres de preuve ne polluent PAS la lecture** : ce sont des références pour la
+   vérification (gates, IA, mainteneur), pas du contenu pour le lecteur.
+   - Dans la prose : **1 ancre max par affirmation-clé, en FIN de phrase** entre parenthèses.
+     Jamais en plein milieu d'une phrase, jamais 3 ancres dans un paragraphe narratif.
+   - Les ancres denses vivent dans les **tableaux** (Normes, Pièges) et sections de référence.
+   - Au **rendu** (build-preview, et MarkdownDoc Studio à terme) : une ancre `fichier.ts:NNN` est
+     affichée en **référence discrète** (petite, atténuée, type note de bas de page) — le MD reste
+     la source vérifiable, le lecteur voit un texte propre.
+4. **Le code doit être VISUEL** : coloration syntaxique obligatoire au rendu ; un bloc = une idée ;
+   commentaires courts qui disent le POURQUOI ; jamais un bloc > ~25 lignes sans être découpé.
+5. **Mots-clés en gras** pour le balayage (le lecteur scanne en F) ; sous-titres significatifs qui
+   répondent à une question, pas des titres décoratifs.
+
 ## 6. Style d'écriture
 
 - **Vulgariser d'abord** : analogie physique concrète (ex « backplane = fond de panier »), puis terme

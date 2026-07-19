@@ -49,7 +49,36 @@ if (m)
 const body = (m ? m[2] : raw).replace(/^\s*#\s+.*\r?\n/, "");
 
 // Fidélité Studio : react-markdown SANS rehype-raw → html:false.
-const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+// Coloration syntaxique : highlight.js (déjà dans node_modules), CSS inline
+// dual-thème → « le code doit être VISUEL » (standard §6-ergo).
+const { default: hljs } = await import("highlight.js/lib/core");
+const { default: hlTs } = await import("highlight.js/lib/languages/typescript");
+const { default: hlBash } = await import("highlight.js/lib/languages/bash");
+const { default: hlYaml } = await import("highlight.js/lib/languages/yaml");
+const { default: hlJson } = await import("highlight.js/lib/languages/json");
+hljs.registerLanguage("typescript", hlTs);
+hljs.registerLanguage("bash", hlBash);
+hljs.registerLanguage("yaml", hlYaml);
+hljs.registerLanguage("json", hlJson);
+const HL_ALIAS = {
+  ts: "typescript",
+  tsx: "typescript",
+  sh: "bash",
+  shell: "bash",
+  http: "bash",
+};
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true,
+  highlight(str, lang) {
+    const l = HL_ALIAS[lang] ?? lang;
+    if (l && hljs.getLanguage(l)) {
+      return hljs.highlight(str, { language: l, ignoreIllegals: true }).value;
+    }
+    return ""; // fallback markdown-it (échappement standard)
+  },
+});
 
 // Diagrammes Mermaid → SVG inline, thème NEUTRAL (net, texte sombre) posé sur une
 // carte claire dans les DEUX thèmes de page → jamais de texte invisible.
@@ -155,6 +184,19 @@ if (fm.coverageModule) {
 }
 html += metricsHtml + coverageHtml;
 
+// Ancres de preuve `fichier.ts:NNN` → références DISCRÈTES (standard §6-ergo) :
+// le lecteur voit un texte propre, la preuve reste dans la source MD (gates).
+// Ne touche que le code inline des paragraphes (les <pre> ont leur propre balisage).
+html = html.replace(
+  /<code>([A-Za-z0-9_.\-]+(?:\/[A-Za-z0-9_.\-]+)*\.(?:ts|mjs|tsx):\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)<\/code>/g,
+  '<sup class="srcref"><code>$1</code></sup>',
+);
+// Une parenthèse qui n'enrobe QUE des références devient discrète elle aussi.
+html = html.replace(
+  /\((<sup class="srcref">.*?<\/sup>(?:(?:,|\s|·)*<sup class="srcref">.*?<\/sup>)*)\)/g,
+  '<span class="srcref-group">($1)</span>',
+);
+
 const ADM = {
   NOTE: ["note", "Note"],
   TIP: ["tip", "Astuce"],
@@ -219,6 +261,26 @@ a{color:var(--accent)}
 p>code,li>code,td>code{background:var(--code);padding:.15em .4em;border-radius:6px;font-size:.87em;color:var(--codefg);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 pre{background:var(--code);border:1px solid var(--border);border-radius:10px;padding:16px;overflow:auto}
 pre code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--fg)}
+/* Références de preuve (fichier.ts:ligne) — discrètes : la preuve sans le bruit */
+.srcref{font-size:0.72em;opacity:.55;vertical-align:super;line-height:0}
+.srcref code{background:transparent;padding:0;color:var(--muted);font-size:inherit}
+.srcref-group{opacity:.75;font-size:.9em}
+.srcref:hover,.srcref-group:hover .srcref{opacity:1}
+/* Coloration syntaxique (highlight.js) — palette GitHub, dual-thème */
+.hljs-keyword,.hljs-literal,.hljs-type{color:#ff7b72}
+.hljs-string,.hljs-regexp{color:#a5d6ff}
+.hljs-title,.hljs-title.class_,.hljs-title.function_{color:#d2a8ff}
+.hljs-attr,.hljs-attribute,.hljs-variable,.hljs-property{color:#79c0ff}
+.hljs-comment,.hljs-quote{color:#8b949e;font-style:italic}
+.hljs-number,.hljs-symbol{color:#79c0ff}
+.hljs-built_in,.hljs-meta{color:#ffa657}
+[data-theme="light"] .hljs-keyword,[data-theme="light"] .hljs-literal,[data-theme="light"] .hljs-type{color:#cf222e}
+[data-theme="light"] .hljs-string,[data-theme="light"] .hljs-regexp{color:#0a3069}
+[data-theme="light"] .hljs-title,[data-theme="light"] .hljs-title.class_,[data-theme="light"] .hljs-title.function_{color:#8250df}
+[data-theme="light"] .hljs-attr,[data-theme="light"] .hljs-attribute,[data-theme="light"] .hljs-variable,[data-theme="light"] .hljs-property{color:#0550ae}
+[data-theme="light"] .hljs-comment,[data-theme="light"] .hljs-quote{color:#57606a}
+[data-theme="light"] .hljs-number,[data-theme="light"] .hljs-symbol{color:#0550ae}
+[data-theme="light"] .hljs-built_in,[data-theme="light"] .hljs-meta{color:#953800}
 blockquote{margin:1.2em 0;padding:.6em 1em;border-left:4px solid var(--border);color:var(--muted);background:var(--panel);border-radius:0 8px 8px 0}
 .adm .adm-title{margin:0 0 .3em;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
 .adm p:not(.adm-title){margin:.2em 0;color:var(--fg)}

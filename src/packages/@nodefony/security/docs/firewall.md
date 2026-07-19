@@ -193,26 +193,28 @@ Point commun de sécurité : **message d'échec uniforme** (`"Invalid token"` / 
 ### `session` — la preuve du web après login
 
 Credential = l'**identifiant** posé dans le blob de session (jamais un secret).
-`SessionAuthenticator.supports()` exige une session **reprise** portant un user
-(`SessionAuthenticator.ts:43`) — il ne démarre jamais la session lui-même (le pipeline le fait avant
-le firewall). Constat clé : l'identité est **re-résolue à chaque requête** via
-`resolveSessionIdentity()` (`SessionAuthenticator.ts:70`) → rôles frais, révocation et verrouillage
-effectifs **immédiatement**. Pas de `challenge()` : session absente = 401 nu → le front redirige.
-Piège : c'est `AuthFlow.login()` (BFF) qui ouvre la session et régénère l'ID (anti-fixation), pas cet
-authenticator.
+
+- **N'ouvre jamais la session lui-même** : il exige une session reprise portant un user
+  (`supports()`, `SessionAuthenticator.ts:43`). C'est `AuthFlow.login()` (BFF) qui ouvre et
+  régénère l'ID (anti-fixation).
+- **L'identité est re-résolue à CHAQUE requête** (`SessionAuthenticator.ts:70`) → rôles frais,
+  révocation et verrouillage effectifs immédiatement.
+- **Pas de `challenge()`** : session absente = 401 nu → le front redirige vers son écran de login
+  (pas de popup Basic).
 
 ### `userpassword` — HTTP Basic, avec throttle NIST
 
-Credential = `Authorization: Basic base64(identifiant:motdepasse)` (RFC 7617, split au **premier**
-`:`, `UserPasswordAuthenticator.createToken()`, `UserPasswordAuthenticator.ts:74`). La vérification
-(hash, comparaison, leurre anti-timing, re-hash) est **déléguée** au `IPasswordVerifier` (le
-`UserService`) — l'authenticator ne voit que le verdict. Constat de sécurité fort : le **throttling
-NIST SP 800-63B** vérifie l'identifiant **AVANT** d'appeler le verifier
-(`UserPasswordAuthenticator.ts:101`) → un identifiant bloqué ne coûte **aucun hash argon2** (protège
-le serveur d'un DoS par hachage), échec → backoff, `ThrottledError` → **429 + `Retry-After`**.
-Challenge : `Basic realm="nodefony"`. Piège : le login **par formulaire** (JSON) n'est **pas** ici —
-il passe par le BFF (`/nodefony/security/api/auth/login`) qui appelle le verifier directement ; Basic
-sert l'outillage.
+Credential = `Authorization: Basic base64(identifiant:motdepasse)` — RFC 7617, split au **premier**
+`:` (`UserPasswordAuthenticator.ts:74`).
+
+- **La vérification est déléguée** au `IPasswordVerifier` (le `UserService`) : hash, comparaison,
+  leurre anti-timing, re-hash. L'authenticator ne voit que le verdict.
+- **Le throttle NIST SP 800-63B passe AVANT le verifier** (`UserPasswordAuthenticator.ts:101`) :
+  un identifiant bloqué ne coûte **aucun hash argon2** — protège d'un DoS par hachage.
+  Échec → backoff ; `ThrottledError` → **429 + `Retry-After`**.
+- Challenge : `Basic realm="nodefony"`.
+- **Piège** : le login par formulaire (JSON) n'est **pas** ici — c'est le BFF
+  (`/nodefony/security/api/auth/login`). Basic sert l'outillage (scripts, CLI).
 
 ### `jwt` — Bearer JWT signé, durci RFC 8725
 
@@ -240,13 +242,19 @@ rend révocable.
 
 Credential = `Authorization: Bearer <prefix>_…` (`ApiKeyAuthenticator.ts:67`). Contrairement au JWT,
 c'est un **bearer opaque** : sa vérité vit côté serveur (`ITokenStore`) → **révocable immédiatement**.
-Défenses de `ApiKeyAuthenticator.authenticate()` : **forme + CRC validés AVANT tout accès au store**
-(`parseApiKey()`, anti-DoS, `ApiKeyAuthenticator.ts:98`), lookup par **hash sha256** (le secret
-n'existe nulle part au repos, `:105`), révocation (`revokedAt`) + expiration (`expiresAt`) + **ban en
-masse** du porteur (`invalidBefore` vs `createdAt`, `:117-120`), sujet revérifié (rôles frais,
-`:122`), `lastUsedAt` écrit en **throttlé** (`:127-134`). Le token porte `scopes`, `apiKeyId`,
-`tenantId` (`:138-140`). Constat : `jwt` et `apikey` **cohabitent** dans une zone car ils se
-discriminent par la forme (JWT = `a.b.c`, PAT = `prefix_…`).
+
+Défenses de `ApiKeyAuthenticator.authenticate()` :
+
+- **forme + CRC validés AVANT tout accès au store** — anti-DoS (`parseApiKey()`,
+  `ApiKeyAuthenticator.ts:98`) ;
+- lookup par **hash sha256** : le secret n'existe nulle part au repos (`:105`) ;
+- révocation (`revokedAt`), expiration (`expiresAt`), **ban en masse** du porteur
+  (`invalidBefore` vs `createdAt`, `:117-120`) ;
+- **sujet revérifié** à chaque requête — rôles frais (`:122`) ;
+- `lastUsedAt` écrit en **throttlé** — pas une écriture par requête (`:127-134`).
+
+Le token porte `scopes`, `apiKeyId`, `tenantId` (`:138-140`). `jwt` et `apikey` **cohabitent** dans
+une zone : ils se discriminent par la forme (JWT = `a.b.c`, PAT = `prefix_…`).
 
 ### `anonymous` — accepter l'anonymat, explicitement
 
@@ -260,13 +268,16 @@ Piège : sans lui, zone protégée + aucune preuve = 401.
 ### `session-realtime` — la session, côté WebSocket (câblé auto)
 
 Équivalent WS de `session`, **enregistré automatiquement** par `Firewall.#wireRealtime()` au
-handshake des zones protégées `realtime` (`firewall.ts:269`). Constat de perf : il **ne relit pas la
-base** — il réutilise l'identité déjà posée en ALS par le firewall (handshake + frames tournent dans
-**la même bulle ALS**), évitant 2 lectures base par connexion (`SessionRealtimeAuthenticator.ts:16-25`).
-Asymétrie **assumée** HTTP↔WS : le jeton est **figé au handshake** (les frames lisent un cache O(1))
-→ une révocation prend effet **à la reconnexion**, pas à la frame suivante — c'est l'état de l'art
-(Socket.IO/Phoenix figent aussi). Un revalidator re-lit la session avant chaque action data plane ;
-fail-closed → fermeture 4001.
+handshake des zones protégées `realtime` (`firewall.ts:269`).
+
+- **Perf : il ne relit pas la base.** Handshake et frames tournent dans la même bulle ALS —
+  l'identité déjà posée est réutilisée, 2 lectures base économisées par connexion
+  (`SessionRealtimeAuthenticator.ts:16-25`).
+- **Asymétrie HTTP↔WS assumée** : le jeton est **figé au handshake** (les frames lisent un cache
+  O(1)) → une révocation prend effet **à la reconnexion**, pas à la frame suivante. C'est l'état de
+  l'art (Socket.IO et Phoenix figent aussi).
+- **Filet** : un revalidator re-lit la session avant chaque action data plane ; fail-closed →
+  fermeture 4001.
 
 ## Ordre et modes (`mode: "first"` vs `"all"`)
 
@@ -325,14 +336,15 @@ muets (volume, pas un signal). Les voters sont instanciés **une fois au boot** 
   Constat : l'absence d'un rôle ne doit pas opposer son veto aux autres axes — c'est le
   **default-DENY du jury** qui ferme la porte, pas ce voter. C'est ce qui rend une clause OR
   (`@IsGranted(["A","B"])`) possible.
-- **ScopeVoter** (`scope`, attributs `api:action`) — le constat le plus important : un scope **ne
-  bride jamais un humain**. Un jeton `session`/`userpassword`/`anonymous` → `GRANT` (no-op :
-  l'autorisation d'un humain passe par ses **rôles**). Un jeton **machine délégué**
-  (`apikey`/`jwt`/`oauth2`) → `GRANT` si le scope exact est présent, `ABSTAIN` sinon. Et c'est
-  **fail-closed côté machine** : tout type de jeton **hors** de la liste « non scopable » — présent
-  ou futur (`mtls`, `agent`…) — est traité comme scopable, donc **bridé par défaut**
-  (`ScopeVoter.vote()`, `ScopeVoter.ts:17-62`). Rôles = qui tu es ; scopes = ce qu'une **clé** a le
-  droit de faire.
+- **ScopeVoter** (`scope`, attributs `api:action`) — un scope **ne bride jamais un humain**
+  (`ScopeVoter.ts:17-62`) :
+  - jeton humain (`session`/`userpassword`/`anonymous`) → `GRANT` no-op : l'autorisation d'un
+    humain passe par ses **rôles** ;
+  - jeton **machine délégué** (`apikey`/`jwt`/`oauth2`) → `GRANT` si le scope exact est présent,
+    `ABSTAIN` sinon ;
+  - **fail-closed côté machine** : tout type de jeton hors de la liste « non scopable » — présent
+    ou futur (`mtls`, `agent`…) — est traité comme scopable, donc **bridé par défaut**.
+  - En une ligne : rôles = qui tu es ; scopes = ce qu'une **clé** a le droit de faire.
 
 ### La hiérarchie de rôles
 
