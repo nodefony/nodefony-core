@@ -23,7 +23,7 @@ export class UserService {
 }
 ```
 
-### Property (Phase A — partielle)
+### Property — INTERNE, non exporté
 
 ```typescript
 @injectable()
@@ -33,7 +33,9 @@ export class ReportService {
 }
 ```
 
-⚠️ Phase A en cours — confirmer comportement actuel avant usage en prod.
+🚫 **Indisponible hors du core.** `Inject` est défini (`kernelDecorator.ts:143`) mais **absent du
+barrel** : `src/nodefony/src/index.ts` n'exporte que `injectable`, `inject`, `services`. Une app qui
+l'importe reçoit `undefined`. Utiliser l'injection **par constructeur** (`@inject`).
 
 ### Module-level (auto-discovery)
 
@@ -132,12 +134,16 @@ C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté
 
 ## Catches d'erreur par décorateur
 
-| Décorateur  | Phase     | Erreur catch ?        | Note                                            |
-| ----------- | --------- | --------------------- | ----------------------------------------------- |
-| `@services` | onPreBoot | ✅ Catché + log ERROR | Service brisé → service skip mais boot continue |
-| `@entities` | onBoot    | ✅ Catché + log ERROR | Idem                                            |
+| Décorateur  | Phase     | Erreur catch ?                       | Note                                                       |
+| ----------- | --------- | ------------------------------------ | ---------------------------------------------------------- |
+| `@services` | onPreBoot | ✅ Catché → `handleServiceBootError` | Politique de criticité : fatal en prod sur module critique |
+| `@entities` | onBoot    | ✅ Catché + log ERROR                | Idem                                                       |
 
-→ Conséquence : si un service crash dans `@services`, le boot continue mais le service est absent du container. Détection via `container.has("foo")` après boot, ou via les logs ERROR au démarrage.
+→ Conséquence : l'échec d'un service dans `@services` passe par `Module.handleServiceBootError()`
+(`Module.ts:365`), qui applique la **politique de boot** au lieu de simplement logger. En production
+sur un module critique, l'erreur est **relancée** et avorte le boot ; sinon le service est absent du
+container et l'échec est **agrégé au BootReport** (le superviseur annonce « boot DÉGRADÉ »).
+Jamais un skip silencieux. Détection via `container.has("foo")` après boot, ou via le BootReport.
 
 ## Options `@injectable(nameOrOptions?)`
 
@@ -152,19 +158,19 @@ Signature réelle (`decorators/kernelDecorator.ts` + `InjectableOptions` de `inj
 
 ## État du DI
 
-Circular detection (pile passée par valeur), tri topologique des `@services` (`serviceOrder.ts`) et **token = la classe** (clé container apprise à la pose, section « Singleton — résolution par la CLASSE » ci-dessus) sont **livrés**. Property injection (`@Inject`) reste **partielle** — préférer l'injection par constructeur. Avancement détaillé : `MIGRATION_STATUS.md`.
+Circular detection (pile passée par valeur), tri topologique des `@services` (`serviceOrder.ts`) et **token = la classe** (clé container apprise à la pose, section « Singleton — résolution par la CLASSE » ci-dessus) sont **livrés**. Property injection (`@Inject`) reste **interne au core** (non exportée) — l'injection par constructeur est la seule voie publique. Avancement détaillé : `MIGRATION_STATUS.md`.
 
 ## ⚠️ Gotchas
 
-| Symptôme                               | Cause                                               | Fix                                              |
-| -------------------------------------- | --------------------------------------------------- | ------------------------------------------------ |
-| `Service not found in container`       | `@injectable` oublié OR nom incorrect               | Vérifier metadata + Container.has()              |
-| `Cannot read 'X' of undefined` au boot | Cycle non détecté (avant Phase C)                   | Avec Phase C → erreur explicite avec stack       |
-| `@inject()` sans nom ne marche pas     | Sous tsx — pas de `design:paramtypes`               | Toujours passer le nom explicite                 |
-| Property `@Inject` reste `undefined`   | Phase A partielle, init post-construct pas appliqué | Utiliser constructor injection pour l'instant    |
-| Service tiré dans le mauvais scope     | Container hiérarchique remonte au parent            | Vérifier que le scope est ouvert avant injection |
-| @services silencieux                   | Erreur catchée dans Module.setEvents                | Lire les logs ERROR au boot                      |
-| Decorator handler appelé 2×            | `setEvents()` appelé 2×                             | Guard `eventsRegistered` ajouté 2026-05-14       |
+| Symptôme                               | Cause                                              | Fix                                              |
+| -------------------------------------- | -------------------------------------------------- | ------------------------------------------------ |
+| `Service not found in container`       | `@injectable` oublié OR nom incorrect              | Vérifier metadata + Container.has()              |
+| `Cannot read 'X' of undefined` au boot | Cycle non détecté (avant Phase C)                  | Avec Phase C → erreur explicite avec stack       |
+| `@inject()` sans nom ne marche pas     | Sous tsx — pas de `design:paramtypes`              | Toujours passer le nom explicite                 |
+| `Inject` introuvable à l'import        | Non exporté par le barrel du core (interne)        | Injection par constructeur (`@inject`)           |
+| Service tiré dans le mauvais scope     | Container hiérarchique remonte au parent           | Vérifier que le scope est ouvert avant injection |
+| Service absent après un `@services` KO | Échec passé à `handleServiceBootError` (non fatal) | Lire le BootReport (« boot DÉGRADÉ ») + logs     |
+| Decorator handler appelé 2×            | `setEvents()` appelé 2×                            | Guard `eventsRegistered` ajouté 2026-05-14       |
 
 ## Pattern type — service avec dépendances
 

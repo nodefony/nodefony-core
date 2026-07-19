@@ -210,13 +210,13 @@ Cf [`injector/CLAUDE.md`](injector/CLAUDE.md) pour le détail.
 
 > **Chargement de modules** : plus de décorateur `@modules` (RETIRÉ 2026-06-03). La liste vit dans `config.modules` (manifeste ordonné, policy/`when`/env) ; le Kernel la résout + charge à `onPreRegister` (`resolveModules`/`loadModulesFromManifest`). Cf mémoire IA `project_module_loading_architecture`.
 
-| Décorateur         | Phase déclenchée | Rôle                                    |
-| ------------------ | ---------------- | --------------------------------------- |
-| `@services([...])` | `onPreBoot`      | Services à enregistrer dans le module   |
-| `@entities([...])` | `onBoot`         | Entités ORM à enregistrer               |
-| `@injectable()`    | runtime          | Marque classe injectable                |
-| `@inject("name")`  | runtime          | Injection paramètre constructeur        |
-| `@Inject("name")`  | runtime          | Injection propriété (Phase A partielle) |
+| Décorateur         | Phase déclenchée | Rôle                                                                                                                                                                                                                                                   |
+| ------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@services([...])` | `onPreBoot`      | Services à enregistrer dans le module                                                                                                                                                                                                                  |
+| `@entities([...])` | `onBoot`         | Entités ORM à enregistrer                                                                                                                                                                                                                              |
+| `@injectable()`    | runtime          | Marque classe injectable                                                                                                                                                                                                                               |
+| `@inject("name")`  | runtime          | Injection paramètre constructeur                                                                                                                                                                                                                       |
+| `@Inject("name")`  | runtime          | Injection propriété — **interne** : défini (`kernelDecorator.ts:143`) mais PAS exporté par le barrel (`src/nodefony/src/index.ts` n'expose que `injectable`, `inject`, `services`) → indisponible pour une app. Utiliser l'injection par constructeur. |
 
 ## Gotchas critiques
 

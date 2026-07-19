@@ -61,8 +61,7 @@ Avant **TOUTE** modification dans `Service.ts`, `Container.ts`, `Kernel.ts`, `Sy
 Après modification :
 
 ```bash
-cd src/packages/@nodefony/http && TS_NODE_PROJECT=tsconfig.tests.json \
-  npx mocha --config .mocharc.load.json --grep "Memory"
+cd src/packages/@nodefony/http && npm run test:memory
 ```
 
 Si un seuil saute (35 MB / 1000 req HTTP, 30 MB / 100 WS) → c'est un **blocker**. NE PAS commit. Investiguer + lazy + cleanup avant de continuer.
