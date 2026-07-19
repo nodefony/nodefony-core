@@ -102,15 +102,8 @@ function analyze(page: { abs: string; repoRel: string }): {
  * vague de reprise en retire ses pages. Aucun ajout sans réécriture de la page.
  */
 const LEGACY_BROKEN_LINKS: readonly string[] = [
-  "docs/guides/frontend-react.md",
   "docs/migration/MIGRATION_STATUS.md",
   "docs/migration/phases-details.md",
-  "src/nodefony/docs/request-context.md",
-  "src/packages/@nodefony/framework/docs/idempotence.md",
-  "src/packages/@nodefony/framework/docs/index.md",
-  "src/packages/@nodefony/frontend/docs/index.md",
-  "src/packages/@nodefony/http/docs/index.md",
-  "src/packages/@nodefony/http/docs/session.md",
 ];
 
 describe("corpus — navigation interne", () => {

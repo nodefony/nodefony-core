@@ -135,7 +135,7 @@ le technique suit).
 
 - **Vers une autre page docs/** : chemin relatif `./architecture/kernel.md`.
 - **Vers le code source** : chemin absolu depuis la racine, sans backtick : `src/nodefony/src/Container.ts:73`.
-- **Vers un symbole** : `[Container](../../src/nodefony/docs/container.md)` (doc colocalisée au module, ADR-0001).
+- **Vers un symbole** : `[Service](../../src/nodefony/docs/service.md)` (doc colocalisée au module, ADR-0001).
 
 ## TSDoc — source de vérité pour l'API
 
@@ -159,7 +159,7 @@ Toute classe/interface/méthode publique migrée en TypeScript **doit** porter u
 
 - La **première phrase** (jusqu'au point final) est extraite automatiquement par `npm run generate-symbols` dans le champ `symbols.<Name>.description`. Garder cette phrase auto-suffisante.
 - Pas de paraphrase de la signature : décrire **l'intention** et les **invariants**.
-- Lier au markdown via `@see ../../src/nodefony/docs/container.md` (doc colocalisée, ADR-0001) quand pertinent.
+- Lier au markdown via `@see ../../src/nodefony/docs/service.md` (doc colocalisée, ADR-0001) quand pertinent.
 
 ## Workflow
 

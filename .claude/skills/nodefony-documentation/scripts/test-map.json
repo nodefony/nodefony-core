@@ -492,5 +492,33 @@
     "contract": [
       "src/packages/@nodefony/security/tests/support/auditPaginationContract.ts"
     ]
+  },
+  "client": {
+    "globs": [
+      "src/nodefony/src/tests/Realtime*.test.ts",
+      "src/nodefony/src/tests/JsonRpcPeer*.test.ts",
+      "src/nodefony/src/tests/AdaptiveRate.test.ts",
+      "src/nodefony/src/tests/clientShimEvents.test.ts",
+      "src/nodefony/src/tests/roles.test.ts",
+      "src/nodefony/src/tests/DebugBar.test.ts",
+      "src/nodefony/src/tests/Profiler.client.test.ts"
+    ]
+  },
+  "kernel": {
+    "globs": [
+      "src/nodefony/src/tests/Kernel*.test.ts",
+      "src/nodefony/src/tests/Module.test.ts",
+      "src/nodefony/src/tests/CliKernel*.test.ts",
+      "src/nodefony/src/tests/resolveModuleEntry.test.ts"
+    ]
+  },
+  "request-context": {
+    "globs": ["src/nodefony/src/tests/RequestContext.test.ts"]
+  },
+  "react-hooks": {
+    "globs": [
+      "src/nodefony/src/tests/Realtime*.test.ts",
+      "src/nodefony/src/tests/roles.test.ts"
+    ]
   }
 }

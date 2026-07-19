@@ -56,24 +56,24 @@ Trois idées portent toute la page :
 
 ## 📖 Lexique
 
-| Terme                 | Sens                                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------------------------- |
-| Service               | La classe de base : identité (`name`) + DI + journal + événements.                                       |
-| Container             | Annuaire d'injection de dépendances (DI) : un nom → une instance. Voir [container](container.md).        |
-| DI                    | _Dependency Injection_ — on **reçoit** ses dépendances au lieu de les construire soi-même.               |
-| `notificationsCenter` | Le bus d'événements d'un service (une instance d'`Event`).                                               |
-| Event                 | Bus maison qui étend l'`EventEmitter` de Node avec `emitAsync` et `emitAsyncGuarded`.                    |
-| Bus partagé           | Un même `Event` passé à plusieurs services (typiquement celui du module ou du kernel).                   |
-| Bus dédié             | Un `Event` créé pour un seul service — personne d'autre ne l'écoute.                                     |
-| Écouteur tracké       | Écouteur posé via l'API du service, donc retiré automatiquement par `clean()`.                           |
-| PDU                   | _Process Data Unit_ — une entrée de journal structurée (RFC 5424). Voir [syslog](syslog.md).             |
-| Hot path              | Le chemin parcouru à **chaque** requête HTTP/WS — la moindre allocation y coûte cher.                    |
-| Microtask             | Unité d'ordonnancement d'une `Promise` : un `await` inutile en alloue une pour rien.                     |
-| Émission gardée       | `emitAsyncGuarded` — chaque écouteur est isolé (try/catch + délai maximal), les échecs sont collectés.   |
-| Scope DI              | `singleton` (une instance mémoïsée) ou `transient` (une neuve à chaque résolution).                      |
-| Tri topologique       | Calcul de l'ordre d'instanciation depuis les dépendances déclarées, au lieu de le lire dans une liste.   |
-| BootReport            | Bilan de démarrage : ce qui a été chargé, ce qui a été ignoré, pourquoi. Fait dire « boot DÉGRADÉ ».     |
-| Fail-soft / fail-loud | Continuer malgré la panne / refuser de continuer en silence. Nodefony fait les deux, jamais en cachette. |
+| Terme                 | Sens                                                                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service               | La classe de base : identité (`name`) + DI + journal + événements.                                                                           |
+| Container             | Annuaire d'injection de dépendances (DI) : un nom → une instance. Voir [injection-portees](../../../docs/architecture/injection-portees.md). |
+| DI                    | _Dependency Injection_ — on **reçoit** ses dépendances au lieu de les construire soi-même.                                                   |
+| `notificationsCenter` | Le bus d'événements d'un service (une instance d'`Event`).                                                                                   |
+| Event                 | Bus maison qui étend l'`EventEmitter` de Node avec `emitAsync` et `emitAsyncGuarded`.                                                        |
+| Bus partagé           | Un même `Event` passé à plusieurs services (typiquement celui du module ou du kernel).                                                       |
+| Bus dédié             | Un `Event` créé pour un seul service — personne d'autre ne l'écoute.                                                                         |
+| Écouteur tracké       | Écouteur posé via l'API du service, donc retiré automatiquement par `clean()`.                                                               |
+| PDU                   | _Process Data Unit_ — une entrée de journal structurée (RFC 5424). Voir [syslog](syslog.md).                                                 |
+| Hot path              | Le chemin parcouru à **chaque** requête HTTP/WS — la moindre allocation y coûte cher.                                                        |
+| Microtask             | Unité d'ordonnancement d'une `Promise` : un `await` inutile en alloue une pour rien.                                                         |
+| Émission gardée       | `emitAsyncGuarded` — chaque écouteur est isolé (try/catch + délai maximal), les échecs sont collectés.                                       |
+| Scope DI              | `singleton` (une instance mémoïsée) ou `transient` (une neuve à chaque résolution).                                                          |
+| Tri topologique       | Calcul de l'ordre d'instanciation depuis les dépendances déclarées, au lieu de le lire dans une liste.                                       |
+| BootReport            | Bilan de démarrage : ce qui a été chargé, ce qui a été ignoré, pourquoi. Fait dire « boot DÉGRADÉ ».                                         |
+| Fail-soft / fail-loud | Continuer malgré la panne / refuser de continuer en silence. Nodefony fait les deux, jamais en cachette.                                     |
 
 ## Qu'est-ce qu'un Service — et pourquoi un bus d'événements
 
@@ -337,7 +337,7 @@ Les signatures exactes vivent dans le graphe TSDoc (`.ai/symbols.json`) ; ce qui
 
 Cette façade est **tolérante en lecture, stricte en écriture**. Le détail du container lui-même
 (scopes par requête, arbre de paramètres, héritage prototypal) est traité dans
-[container](container.md) — `Container.enterScope()` (`Container.ts:293`),
+[injection-portees](../../../docs/architecture/injection-portees.md) — `Container.enterScope()` (`Container.ts:293`),
 `Container.leaveScope()` (`Container.ts:312`) et `Container.scopeCount()` (`Container.ts:330`) pour
 les sondes de fuite.
 
@@ -436,7 +436,7 @@ C'est exactement le correctif qui empêche une fuite d'écouteurs par instance s
 `@injectable` accepte aussi un objet `{ name?, scope? }` où `scope` vaut `singleton` (défaut) ou
 `transient` — une instance neuve à chaque résolution (`injector.ts:160`). Il n'existe **ni**
 `singleton: true`, **ni** `factory`, **ni** scope `request` : le scope par requête est une notion du
-container hiérarchique, pas du DI (voir [injection](injection.md)).
+container hiérarchique, pas du DI (voir [injection-portees](../../../docs/architecture/injection-portees.md)).
 
 > [!CAUTION]
 > Le décorateur de **propriété** `@Inject` existe dans le code (`kernelDecorator.ts:143`) mais n'est
@@ -580,7 +580,7 @@ Couverture : `npm run coverage` dans `src/nodefony`.
 ## 🔗 Pour aller plus loin
 
 - ⬆️ **Retour au hub** : [@nodefony/core — vue d'ensemble](index.md) · [Toute la documentation](../../../docs/index.md)
-- 🧭 **Pages sœurs** : [Container (DI, scopes, paramètres)](container.md) · [Injection de dépendances](injection.md) · [Syslog (PDU, sévérités, transports)](syslog.md) · [Kernel & modules](kernel.md) · [RequestContext (ALS)](request-context.md)
+- 🧭 **Pages sœurs** : [Syslog (PDU, sévérités, transports)](syslog.md) · [Kernel & modules](kernel.md) · [RequestContext (ALS)](request-context.md) · [Client isomorphe](client.md)
 
 - Portées d'injection et cycle des scopes → [injection-portees](../../../docs/architecture/injection-portees.md)
 - Qui émet quelle phase, et dans quel ordre → [cycle-boot-kernel](../../../docs/architecture/cycle-boot-kernel.md)

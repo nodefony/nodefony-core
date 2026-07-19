@@ -155,7 +155,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 ────────────────────────────────────────────────────────────────────────
  GLOBAL                    ██████▊░░░  68% 119✅ 25🔶 49⬜  (193 tâches · resync 2026-07-10)
 ────────────────────────────────────────────────────────────────────────
- DOC Corpus de référence   ████████░░  80%  41/51 pages conformes aux 4 gates
+ DOC Corpus de référence   █████████▊  98%  49/50 pages conformes aux 4 gates
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -163,12 +163,15 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > Corpus de référence des modules : une page est « faite » quand elle passe **4 gates**
 > (`doc-lint` · `anchor-check` ancres vers le code · `anchor-inpage` ancres internes ·
 > `code-check` compilation du Démarrage rapide).
-> Vagues **1-5 ✅** (sécurité, architecture, cœur + hubs, identité + données) ·
-> **6 🔶** temps réel + UI 9/12 (reste `studio/workspace`, `documentation` ×2) ·
+> Vagues **1-6 ✅** (sécurité, architecture, cœur + hubs, identité + données, temps réel + UI) ·
+> **4bis ✅** cœur/API : `kernel` + `request-context` recentrées sur l'API, `react-hooks`, hub core,
+> **`client` CRÉÉE** (bibliothèque cliente isomorphe) ; `container` + `injection` **SUPPRIMÉES**
+> (recouvertes par la transverse `injection-portees`, devenue source canonique du DI) ·
 > **7 ⬜** transverse — **y canoniser `docs/realtime/socket/`** (9 pages « stable » servies
-> par Studio qui décrivent une API `IBackplane` inexistante) · **8 ⬜** IA + devkit ·
-> **4bis ⬜** les 6 pages du core hors standard + `security/lexique`.
-> Méthode, plan des vagues et **99 écarts code↔doc relevés** (F1→F99, correction en session
+> par Studio qui décrivent une API `IBackplane` inexistante) et **y fusionner `security/lexique`**
+> (seule page encore hors standard) · **8 ⬜** IA + devkit ·
+> **4ter ⬜** `cookies`, `upload`, `rate-limit`, `observabilite` (http) · `admin`, `templates` (framework).
+> Méthode, plan des vagues et **~140 écarts code↔doc relevés** (F1→F171, correction en session
 > dédiée APRÈS le corpus) : mémoire IA `project_doc_corpus_chantier_kit`.
 
 > Fondations **hors roadmap** (déjà migrées, Phases 0-4) : Build, Core/Kernel, DI, Syslog, Router, Controller, Types.

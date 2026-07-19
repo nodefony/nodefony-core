@@ -13,15 +13,15 @@ last-updated: 2026-05-20
 
 ## Pages (nouvel emplacement)
 
-| Page                                                                                 | Sujet                                             | Statut |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------- | ------ |
-| [`src/nodefony/docs/index.md`](../../src/nodefony/docs/index.md)                     | Vue d'ensemble du core                            | stable |
-| [`src/nodefony/docs/container.md`](../../src/nodefony/docs/container.md)             | DI Container, Scope, services, parameters         | stable |
-| [`src/nodefony/docs/kernel.md`](../../src/nodefony/docs/kernel.md)                   | Kernel lifecycle, modules, boot phases, CliKernel | draft  |
-| [`src/nodefony/docs/service.md`](../../src/nodefony/docs/service.md)                 | Classe de base (DI + Events + Logging)            | draft  |
-| [`src/nodefony/docs/request-context.md`](../../src/nodefony/docs/request-context.md) | `AsyncLocalStorage`, requestId/user               | draft  |
-| [`src/nodefony/docs/injection.md`](../../src/nodefony/docs/injection.md)             | `@injectable`, `@inject`, scopes, résolution      | draft  |
-| [`src/nodefony/docs/syslog.md`](../../src/nodefony/docs/syslog.md)                   | Logger RFC 5424, Pdu, ring buffer                 | draft  |
+| Page                                                                                 | Sujet                                           | Statut |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------- | ------ |
+| [`src/nodefony/docs/index.md`](../../src/nodefony/docs/index.md)                     | Vue d'ensemble du core                          | stable |
+| [`src/nodefony/docs/kernel.md`](../../src/nodefony/docs/kernel.md)                   | API du cœur — Kernel, Module, CliKernel, events | stable |
+| [`src/nodefony/docs/service.md`](../../src/nodefony/docs/service.md)                 | Classe de base (DI + Events + Logging)          | stable |
+| [`src/nodefony/docs/request-context.md`](../../src/nodefony/docs/request-context.md) | `AsyncLocalStorage`, requestId/user             | stable |
+| [`src/nodefony/docs/client.md`](../../src/nodefony/docs/client.md)                   | Bibliothèque cliente isomorphe (navigateur)     | stable |
+| [`src/nodefony/docs/react-hooks.md`](../../src/nodefony/docs/react-hooks.md)         | Hooks React `nodefony/react`                    | stable |
+| [`src/nodefony/docs/syslog.md`](../../src/nodefony/docs/syslog.md)                   | Logger RFC 5424, Pdu, ring buffer               | stable |
 
 ## Vision / architecture transverse (multi-module)
 

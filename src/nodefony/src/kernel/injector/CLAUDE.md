@@ -216,5 +216,5 @@ Tests existants couvrent : property injection, circular detection, singleton, sc
 - [`../CLAUDE.md`](../CLAUDE.md) — Kernel/Module
 - [`../../INJECTION_PLAN.md`](../../INJECTION_PLAN.md) — plan 5 phases
 - [`../../../CLAUDE.md`](../../../CLAUDE.md) — workspace core
-- [`../../../docs/injection.md`](../../../docs/injection.md) — vision architecturale (relocalisé `src/nodefony/docs/`, ADR-0001)
+- [`../../../../../docs/architecture/injection-portees.md`](../../../../../docs/architecture/injection-portees.md) — page de référence DI + portées (source canonique)
 - `project_injection_plan` (mémoire IA) — plan détaillé

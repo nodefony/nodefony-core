@@ -11,7 +11,7 @@ last-updated: 2026-05-18
 
 > Tu as un module Nodefony existant et tu veux y ajouter une SPA React 19 servie par Vite, avec HMR en dev et build optimisé en prod. Ce guide te montre comment.
 
-**Audience** : développeur Nodefony qui connaît déjà `Module`, `Service`, `Controller`. Si non, lis d'abord [`../architecture/container.md`](../architecture/container.md) puis reviens.
+**Audience** : développeur Nodefony qui connaît déjà `Module`, `Service`, `Controller`. Si non, lis d'abord [`../architecture/injection-portees.md`](../architecture/injection-portees.md) puis reviens.
 
 **Résultat final** : une page React montée à `https://localhost:5152/shop-front/` qui appelle ton API backend (`/shop-front/api/data`) via le proxy Vite, avec HMR fonctionnel.
 
@@ -80,8 +80,7 @@ class ShopFront extends Module {
 
   override async onKernelBoot(): Promise<this> {
     const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (!svc) {
       this.log(
         "@nodefony/frontend service unavailable — wrong @modules order?",
@@ -140,8 +139,7 @@ class ShopFrontController extends Controller {
   renderReact(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
 
     // ⚠️ CSP — helmet bloque les scripts Vite cross-origin par défaut.
     // Override avec la CSP du FrontendService (TODO : migrer dans security).
@@ -152,8 +150,8 @@ class ShopFrontController extends Controller {
       );
     }
 
-    const viteTags = svc?.renderTags("shop-front")
-      ?? "<!-- @nodefony/frontend not ready -->";
+    const viteTags =
+      svc?.renderTags("shop-front") ?? "<!-- @nodefony/frontend not ready -->";
 
     return this.render(`<!DOCTYPE html>
 <html lang="en">
@@ -186,7 +184,9 @@ export default ShopFrontController;
 ```html
 <!doctype html>
 <html lang="en">
-  <head><title>Shop Front — Vite standalone</title></head>
+  <head>
+    <title>Shop Front — Vite standalone</title>
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
@@ -215,7 +215,10 @@ createRoot(rootEl).render(
 ```tsx
 import { useEffect, useState } from "react";
 
-interface ApiData { ts: number; module: string; }
+interface ApiData {
+  ts: number;
+  module: string;
+}
 
 export function App() {
   const [data, setData] = useState<ApiData | null>(null);
@@ -290,14 +293,14 @@ Génère `src/modules/shop-front/public/dist/manifest.json` + assets fingerprint
 
 ## Pièges récurrents (à connaître)
 
-| Symptôme                                                   | Cause                                              | Fix                                                                  |
-| ---------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
-| `ERROR @nodefony/frontend service unavailable`             | Ordre `@modules` racine                            | Déclarer `@nodefony/frontend` AVANT le module consumer               |
-| Page blanche, `Refused to load script ... blocked:csp`     | Helmet bloque scripts Vite                         | `setHeader("Content-Security-Policy", svc.getCspDirectives())`       |
-| `Unexpected token '<'` sur `fetch("/api/...")`             | Vite sert SPA-fallback HTML                        | Déclarer `apiProxyPaths` dans `registerEntry`                        |
-| `@vitejs/plugin-react can't detect preamble`               | Preamble manquant                                  | Toujours utiliser `svc.renderTags(name)`                             |
-| Cache navigateur après modif CSP                           | Browser cache                                      | **Cmd+Shift+R** (hard reload)                                        |
-| Modules React introuvables                                 | Cert HTTPS Vite refusé sur 5173                    | Visiter `https://127.0.0.1:5173/` une fois et accepter le cert       |
+| Symptôme                                               | Cause                           | Fix                                                            |
+| ------------------------------------------------------ | ------------------------------- | -------------------------------------------------------------- |
+| `ERROR @nodefony/frontend service unavailable`         | Ordre `@modules` racine         | Déclarer `@nodefony/frontend` AVANT le module consumer         |
+| Page blanche, `Refused to load script ... blocked:csp` | Helmet bloque scripts Vite      | `setHeader("Content-Security-Policy", svc.getCspDirectives())` |
+| `Unexpected token '<'` sur `fetch("/api/...")`         | Vite sert SPA-fallback HTML     | Déclarer `apiProxyPaths` dans `registerEntry`                  |
+| `@vitejs/plugin-react can't detect preamble`           | Preamble manquant               | Toujours utiliser `svc.renderTags(name)`                       |
+| Cache navigateur après modif CSP                       | Browser cache                   | **Cmd+Shift+R** (hard reload)                                  |
+| Modules React introuvables                             | Cert HTTPS Vite refusé sur 5173 | Visiter `https://127.0.0.1:5173/` une fois et accepter le cert |
 
 ## Aller plus loin
 

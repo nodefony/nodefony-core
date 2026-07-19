@@ -497,8 +497,7 @@ sequenceDiagram
 | `setParameters` / `getParameters` | Arbre pointé `a.b.c` ; côté scope, **merge profond** avec le parent (`Container.ts:500`)          |
 | `clean()` / `reset()`             | Démontage / remise à zéro — après `clean()`, `get` rend `null` et `set` lève (`Container.ts:412`) |
 
-Signatures complètes : générées depuis les TSDoc, jamais recopiées ici. Internes détaillés →
-[container](../../src/nodefony/docs/container.md).
+Signatures complètes : générées depuis les TSDoc, jamais recopiées ici.
 
 ## 🧩 L'ordre des `@services([...])` se calcule, il ne se subit pas
 
@@ -619,7 +618,6 @@ Couverture : `npm run coverage` dans `src/nodefony`.
 
 - Quand et dans quel ordre le container racine est peuplé → [cycle-boot-kernel](cycle-boot-kernel.md)
 - Où le scope de requête s'ouvre et se ferme → [pipeline-requete](pipeline-requete.md)
-- Le container en détail (internes, paramètres) → [container](../../src/nodefony/docs/container.md)
-- Les décorateurs d'injection (référence) → [injection](../../src/nodefony/docs/injection.md)
 - La brique de base injectée → [service](../../src/nodefony/docs/service.md)
+- L'API du cœur (Kernel, Module, CliKernel) → [kernel](../../src/nodefony/docs/kernel.md)
 - Vue d'ensemble de l'architecture → [vue-ensemble](vue-ensemble.md)
