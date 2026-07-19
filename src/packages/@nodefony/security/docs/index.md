@@ -133,9 +133,20 @@ Le module surface **4 écrans dédiés** (`@nodefony/studio/frontend/src/routes/
 
 ## Tests & couverture
 
-Voir la carte ci-dessous (photo régénérable). Le module est fortement testé (red-team par brique) ;
-`npm run coverage` dans `@nodefony/security` régénère le rapport. Aucun chiffre n'est figé dans ce
-Markdown.
+Voir la carte ci-dessous (photo régénérable). Le module est fortement testé (**711 cas sur 62
+fichiers**, avec une **red-team par brique** : `*.attack.test.ts` sur csrf, cors, authorization,
+webauthn, frameAuthorizer, webhooks/SSRF…) ; `npm run coverage` dans `@nodefony/security` régénère le
+rapport. Aucun chiffre n'est figé dans ce Markdown.
+
+## Pièges (symptôme → cause → correction)
+
+| Symptôme                              | Cause                                              | Correction                                                                |
+| ------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------- |
+| `401` partout sur une zone            | Aucune preuve + `anonymous` non listé (Zero Trust) | Ajouter `anonymous` si l'anonymat est voulu                               |
+| Une route accessible sans droit       | Zone trop large / motif moins spécifique l'emporte | Affiner le motif de zone (la plus spécifique gagne)                       |
+| WS ouvert depuis un site tiers        | Origin non filtrée                                 | Le firewall pose la garde anti-CSWSH — vérifier la config WS              |
+| Droit accordé à une machine (clé API) | Voter de scope mal configuré                       | Voir [authorization](./authorization.md) (ScopeVoter)                     |
+| Détail d'erreur qui fuit au client    | Message d'auth non uniforme                        | Renvoyer le message uniforme (voir [authenticators](./authenticators.md)) |
 
 ## Pour aller plus loin
 
