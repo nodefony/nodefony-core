@@ -252,9 +252,9 @@ class Firewall extends Service implements IFirewall {
   // d'observabilité gatés). No-op si le module realtime n'est pas chargé.
   #wireRealtime(): void {
     const realtime = this.container?.get<IRealtimeService>("realtimeService");
-    if (!realtime || !this.#areas) return;
+    if (!realtime) return;
     let wired = false;
-    for (const area of this.#areas) {
+    for (const area of this.#areas ?? []) {
       // Opt-out explicite SEULEMENT (`realtime: false`) : un flag opt-IN serait
       // fail-open — une zone qui oublie le flag laisserait le WS anonyme (trou
       // silencieux). Armer une zone sans handshake WS = matcher jamais déclenché
@@ -269,65 +269,73 @@ class Firewall extends Service implements IFirewall {
       realtime.useAuthenticator(matcher, new SessionRealtimeAuthenticator());
       wired = true;
     }
-    if (wired) {
-      // Verrou de frame GLOBAL (1 hub) — partage `matchPath` (source unique de
-      // zone HTTP ⇔ WS) + RBAC par canal. Politiques système = défauts plateforme
-      // (namespaces réservés → ROLE_ADMIN) SURCHARGEABLES par la config (placée
-      // AVANT → elle gagne). `channelResolver` = realtime (politiques métier
-      // déclarées via `@RealtimeChannel`). Posé dès qu'une zone protégée existe.
-      const configRules: ISystemChannelRule[] = (
-        this.#config?.realtimeChannels ?? []
-      ).map((r) => ({
-        prefix: r.pattern,
-        policy: {
-          authenticated: r.authenticated,
-          roles: r.roles,
-          scopes: r.scopes,
-        },
-      }));
-      const systemRules =
-        configRules.length > 0
-          ? [...configRules, ...DEFAULT_SYSTEM_RULES]
-          : DEFAULT_SYSTEM_RULES;
-      // Journal d'audit (P6.14 lot 2b) : tout refus de frame WS est une
-      // transition de sécurité (api.request sur zone gardée, canal interdit). La
-      // closure n'est tirée QUE sur refus (cold) → 0 coût sur le hot-path WS. La
-      // frame ne porte ni IP ni requestId (≠ HttpContext) : acteur + cible suffisent.
-      const container = this.container as Container;
-      realtime.setFrameAuthorizer(
-        buildFrameAuthorizer(this, {
-          channelResolver: realtime,
-          systemRules,
-          onDeny: (_surface, target, reason, token) =>
-            recordAudit(container, {
-              category: "ws",
-              action: "frame.denied",
-              outcome: "denied",
-              actor: token.getUserIdentifier(),
-              resource: target,
-              reason,
-            }),
-        }),
-      );
-      // Canal live du journal d'audit (P6.14 lot 4) — enregistré comme canal
-      // SYSTÈME sur le hub : servable par TOUT endpoint (pas seulement Studio),
-      // gardé ROLE_NODEFONY_ADMIN par le plancher `security:` du verrou ci-dessus.
-      // Lazy de bout en bout : le pont ne s'abonne à l'AuditService qu'au 1ᵉʳ
-      // auditeur connecté (factory du hub) et s'en détache au dernier (0 listener
-      // au repos). Couplé au verrou (même condition `wired`) → jamais de canal
-      // d'audit non gardé.
-      const auditSource =
-        this.container?.get<IAuditEventSource>("auditService");
-      if (auditSource && realtime.registerSystemChannel) {
-        realtime.registerSystemChannel(SECURITY_AUDIT_CHANNEL, (ch, publish) =>
-          createAuditBridge(auditSource, publish, ch),
-        );
-      }
-      this.log(
-        "Realtime data plane locked — WS handshake + frame authorizer (RBAC) + audit channel wired",
-        "DEBUG",
+    // Verrou de frame GLOBAL (1 hub), posé INCONDITIONNELLEMENT dès que le hub
+    // existe — PAS seulement quand une zone qualifiante est câblée. F82 : le
+    // conditionner à `wired` était fail-OPEN — sans zone `security && realtime`
+    // (ou avec `areas` vide), aucun verrou n'était posé, `runAuthorizer` renvoyait
+    // `true` pour TOUTE frame, et les canaux d'introspection système (`syslog:`,
+    // `security:audit`, `orm:`…) étaient servis à l'anonyme. Le plancher système
+    // ({@link DEFAULT_SYSTEM_RULES}) ne dépend PAS des zones : il exige toujours au
+    // moins ROLE_ADMIN sur les namespaces réservés. Sans zone, aucun authenticator
+    // n'est câblé → tout abonné reste anonyme → ces canaux sont fermés à TOUS
+    // (fail-closed), et une app qui veut y donner accès DOIT déclarer une zone
+    // `security && realtime` (qui câble le SessionRealtimeAuthenticator ci-dessus).
+    // Partage `matchPath` (source unique de zone HTTP ⇔ WS) + RBAC par canal.
+    // Politiques système SURCHARGEABLES par la config (`realtimeChannels`, placée
+    // AVANT → elle gagne). `channelResolver` = realtime (politiques métier
+    // déclarées via `@RealtimeChannel`).
+    const configRules: ISystemChannelRule[] = (
+      this.#config?.realtimeChannels ?? []
+    ).map((r) => ({
+      prefix: r.pattern,
+      policy: {
+        authenticated: r.authenticated,
+        roles: r.roles,
+        scopes: r.scopes,
+      },
+    }));
+    const systemRules =
+      configRules.length > 0
+        ? [...configRules, ...DEFAULT_SYSTEM_RULES]
+        : DEFAULT_SYSTEM_RULES;
+    // Journal d'audit (P6.14 lot 2b) : tout refus de frame WS est une transition
+    // de sécurité (api.request sur zone gardée, canal interdit). La closure n'est
+    // tirée QUE sur refus (cold) → 0 coût sur le hot-path WS. La frame ne porte ni
+    // IP ni requestId (≠ HttpContext) : acteur + cible suffisent.
+    const container = this.container as Container;
+    realtime.setFrameAuthorizer(
+      buildFrameAuthorizer(this, {
+        channelResolver: realtime,
+        systemRules,
+        onDeny: (_surface, target, reason, token) =>
+          recordAudit(container, {
+            category: "ws",
+            action: "frame.denied",
+            outcome: "denied",
+            actor: token.getUserIdentifier(),
+            resource: target,
+            reason,
+          }),
+      }),
+    );
+    // Canal live du journal d'audit (P6.14 lot 4) — enregistré comme canal
+    // SYSTÈME sur le hub : servable par TOUT endpoint (pas seulement Studio),
+    // gardé ROLE_NODEFONY_ADMIN par le plancher `security:` du verrou ci-dessus.
+    // Lazy de bout en bout : le pont ne s'abonne à l'AuditService qu'au 1ᵉʳ
+    // auditeur connecté (factory du hub) et s'en détache au dernier (0 listener
+    // au repos). Gardé par le plancher → jamais de canal d'audit non protégé.
+    const auditSource = this.container?.get<IAuditEventSource>("auditService");
+    if (auditSource && realtime.registerSystemChannel) {
+      realtime.registerSystemChannel(SECURITY_AUDIT_CHANNEL, (ch, publish) =>
+        createAuditBridge(auditSource, publish, ch),
       );
     }
+    this.log(
+      wired
+        ? "Realtime data plane locked — WS handshake authenticators (RBAC) + frame authorizer + audit channel wired"
+        : "Realtime data plane locked — frame authorizer (system floor) wired without qualifying zone; system channels closed to anonymous",
+      "DEBUG",
+    );
   }
 
   // P6 J3 — briques TRANSVERSES construites depuis la config validée, posées

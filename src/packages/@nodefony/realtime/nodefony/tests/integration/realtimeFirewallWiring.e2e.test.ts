@@ -131,7 +131,9 @@ const USER = mkUser("alice", ["ROLE_USER"]);
  * Boote le VRAI Firewall sur un container partagé avec le VRAI RealtimeService,
  * et déclenche `#wireRealtime` (câblage hub = singleton, partagé avec le controller).
  */
-async function bootSecurity(): Promise<void> {
+async function bootSecurity(
+  fwOptions?: Record<string, unknown>,
+): Promise<void> {
   const container = new Container();
   const nc = new Event({}, null, {});
   const svcModule = {
@@ -157,7 +159,7 @@ async function bootSecurity(): Promise<void> {
   new Firewall({
     container,
     notificationsCenter: nc,
-    options: {
+    options: fwOptions ?? {
       roleHierarchy: { ROLE_ADMIN: ["ROLE_USER"] },
       areas: {
         "rt-zone": {
@@ -324,5 +326,38 @@ describe("E2E câblage firewall → realtime (chaîne sécu RÉELLE, 0 mock de d
     const ok = await trySubscribe(user, "chat:public");
     expect(ok.ticks).to.have.length(1);
     user.disconnect();
+  });
+});
+
+describe("F82 — plancher système SANS zone realtime qualifiante (fail-closed)", () => {
+  // security chargé MAIS aucune zone (`areas: {}`) → dans `#wireRealtime`, `wired`
+  // reste false. Avant le correctif, `setFrameAuthorizer` n'était appelé QUE dans la
+  // branche `wired` → aucun verrou posé → `runAuthorizer` renvoyait `true` pour TOUTE
+  // frame → les canaux d'introspection système (`syslog:`, `security:audit`, `orm:`…)
+  // étaient servis à l'anonyme (F82). Le plancher système ne dépend pas des zones : il
+  // doit être armé dès que le hub existe. Les authenticators de session restent, eux,
+  // par zone (sans zone = personne n'est authentifié = canaux système fermés à tous).
+  beforeEach(async () => {
+    getRealtimeHub().clear();
+    await bootSecurity({
+      roleHierarchy: { ROLE_ADMIN: ["ROLE_USER"] },
+      areas: {},
+    });
+  });
+
+  it("syslog:stream refusé à l'anonyme même sans zone (plancher système armé)", async () => {
+    const anon = await connectAs(null);
+    const r = await trySubscribe(anon, "syslog:stream");
+    expect(r.ticks).to.have.length(0);
+    expect(r.denied.some((d) => d.channel === "syslog:stream")).to.equal(true);
+    anon.disconnect();
+  });
+
+  it("chat:public reste ouvert à l'anonyme (pas de sur-fermeture des canaux libres)", async () => {
+    const anon = await connectAs(null);
+    const r = await trySubscribe(anon, "chat:public");
+    expect(r.ticks).to.deep.equal([{ ok: true, channel: "chat:public" }]);
+    expect(r.denied).to.have.length(0);
+    anon.disconnect();
   });
 });

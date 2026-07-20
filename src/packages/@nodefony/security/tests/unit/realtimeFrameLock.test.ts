@@ -522,7 +522,7 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
     assert.ok(typeof c.frameAuthorizer === "function");
   });
 
-  it("zone realtime: false (opt-out EXPLICITE) → AUCUN câblage WS", () => {
+  it("zone realtime: false (opt-out) → pas d'authenticator de zone, MAIS plancher système armé (F82 fail-closed)", () => {
     const c = bootFirewall({
       "http-only": {
         pattern: "^/admin",
@@ -530,8 +530,23 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
         realtime: false,
       },
     });
+    // L'opt-out `realtime: false` désactive le TRANSFERT d'identité de cette zone
+    // (aucun SessionRealtimeAuthenticator câblé) — c'est son seul rôle.
     assert.equal(c.useAuth.length, 0);
-    assert.equal(c.frameAuthorizer, null);
+    // MAIS le plancher système (namespaces réservés) ne dépend PAS des zones : F82
+    // — le conditionner au câblage d'une zone était fail-OPEN (sans zone qualifiante,
+    // `syslog:`/`security:` servis à l'anonyme). Le verrou est donc TOUJOURS posé dès
+    // que le hub existe. Sans authenticator, tout abonné reste anonyme → les canaux
+    // système sont fermés à TOUS (pour y donner accès, l'app doit déclarer une zone
+    // `security && realtime`), tandis qu'un canal applicatif libre reste ouvert.
+    assert.ok(typeof c.frameAuthorizer === "function");
+    const sysSub = {
+      method: "subscribe",
+      params: { channel: "syslog:stream" },
+    };
+    assert.equal(c.frameAuthorizer!(sysSub, ANON_TOKEN), false);
+    const freeSub = { method: "subscribe", params: { channel: "chat:public" } };
+    assert.equal(c.frameAuthorizer!(freeSub, ANON_TOKEN), true);
   });
 
   it("module realtime absent (realtimeService non enregistré) → no-op, pas de crash", () => {
