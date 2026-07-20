@@ -109,17 +109,17 @@ emplacement hybride). Migration éventuelle des 7 fichiers racine vers le module
 > cross-pod) **fixées** (`c082560`) : `resolveBackplaneOriginId()` + `backplane.namespace` Zod →
 > canal `nodefony:realtime:<ns>`. Reste dette #3 (frontière inter-modules, attend P6).
 
-| Étape                                                   | Statut        | Description                                                       |
-| ------------------------------------------------------- | ------------- | ----------------------------------------------------------------- |
-| Scaffold + doc                                          | ✅ 2026-05-28 | Module créé + 6 pages doc vulgarisée                              |
-| **P13.0** Rapatriement framework→realtime               | ✅            | 10 src + 5 tests `git mv`, cycle cassé                            |
-| **Seams** sécurité (5 hooks)                            | ✅ 2026-05-28 | cf section « 5 seams » ci-dessus                                  |
-| **P13.8** Décorateurs realtime                          | 🔶            | 3 décorateurs livrés ; reste pattern RegExp                       |
-| **P13.7** Protocole JSON-RPC 2.0 + types partagés       | ✅            | RPC bidirectionnel ; long-polling droppé                          |
-| **P13.4** `IRealtimeHub` + `RealtimeService` + config   | ✅            | Builder Zod + service DI                                          |
-| **P13.9** Tests cluster IPC (sans infra)                | ✅            | e2e `child_process.fork`, 5 tests                                 |
-| **P13.2** Refacto `@nodefony/redis`                     | 🔶            | fondation conventions + config Zod ; 15 tests                     |
-| **P13.5** `RedisBackplane` driver                       | ✅            | pub/sub cross-pod, **prouvé cluster live -w2** ; registre drivers |
-| **P13.6** `KafkaBackplane` driver                       | ⬜            | apps massives + bus agents IA                                     |
-| **P13.1** TCP / UDP / Unix sockets                      | 🔶 différable | scaffold ; code protocoles reste (niche)                          |
-| **Banc de conformité ventilation** (scénarios × driver) | ⬜            | matrice : `docs/audits/realtime-module-isolation-2026-06-05.md`   |
+| Étape                                                   | Statut        | Description                                                                    |
+| ------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------ |
+| Scaffold + doc                                          | ✅ 2026-05-28 | Module créé + 6 pages doc vulgarisée                                           |
+| **P13.0** Rapatriement framework→realtime               | ✅            | 10 src + 5 tests `git mv`, cycle cassé                                         |
+| **Seams** sécurité (5 hooks)                            | ✅ 2026-05-28 | cf section « 5 seams » ci-dessus                                               |
+| **P13.8** Décorateurs realtime                          | 🔶            | 3 décorateurs livrés ; reste pattern RegExp                                    |
+| **P13.7** Protocole JSON-RPC 2.0 + types partagés       | ✅            | RPC bidirectionnel ; long-polling droppé                                       |
+| **P13.4** `IRealtimeHub` + `RealtimeService` + config   | ✅            | Builder Zod + service DI                                                       |
+| **P13.9** Tests cluster IPC (sans infra)                | ✅            | e2e `child_process.fork`, 5 tests                                              |
+| **P13.2** Refacto `@nodefony/redis`                     | 🔶            | fondation conventions + config Zod ; 15 tests                                  |
+| **P13.5** `RedisBackplane` driver                       | ✅            | pub/sub cross-pod, **prouvé cluster live -w2** ; registre drivers              |
+| **P13.6** `KafkaBackplane` driver                       | ⬜            | apps massives + bus agents IA                                                  |
+| **P13.1** TCP / UDP / Unix sockets                      | 🔶 différable | scaffold ; code protocoles reste (niche)                                       |
+| **Banc de conformité ventilation** (scénarios × driver) | ⬜            | matrice : mémoire IA `core-dev/audits/realtime-module-isolation-2026-06-05.md` |

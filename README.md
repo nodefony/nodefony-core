@@ -293,8 +293,7 @@ fera jamais tourner un modèle dans son processus — il supervise un backend ex
 API distante), exactement comme il supervise déjà Vite. Un serveur web et un GPU ne montent pas en
 charge de la même façon.
 
-📄 [Livre blanc — la couche IA](docs/ia/livre-blanc-couche-ia.md) ·
-[Étude de faisabilité technique](docs/ia/livre-blanc-couche-ia-v1.md)
+📄 [Livre blanc — la couche IA](docs/ia/livre-blanc-couche-ia.md)
 
 ---
 
@@ -303,7 +302,6 @@ charge de la même façon.
 - [Guides](docs/guides/) — configuration, persistance, sessions, frontend React, Docker
 - [Architecture](docs/architecture/) — builder frontend, socket temps réel
 - [Décisions d'architecture (ADR)](docs/adr/) — les 7 décisions structurantes et leur _pourquoi_
-- [Audits](docs/audits/) — bancs de performance, comparatifs ORM, cycle de vie des requêtes
 - Le portail de documentation est également servi par le Studio, sur `/nodefony/documentation`
 
 ---

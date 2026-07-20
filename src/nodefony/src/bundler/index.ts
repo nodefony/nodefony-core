@@ -9,7 +9,7 @@
  * relatif (`./src/bundler/index`) : il ne peut pas consommer son propre dist avant
  * de l'avoir buildé. Prérequis des autres : core buildé (ordre turbo standard).
  *
- * Invariants portés ici (pièges gravés, cf docs/audits/rolldown-migration-plan-2026-07.md §10) :
+ * Invariants portés ici (pièges gravés, cf mémoire IA core-dev/audits/rolldown-migration-plan-2026-07.md §10) :
  * - le NOM PROPRE du paquet est TOUJOURS externe (anti self-import : un paquet qui
  *   s'importe par son nom fait avaler son `dist/` par le bundler) ;
  * - le side-effect de `reflect-metadata` survit au tree-shaking (il patche le global

@@ -4,7 +4,7 @@
 
 - [`MEMORY.md`](./MEMORY.md) — internals IA · [`README.md`](./README.md) — usage humain · [`docs/`](./docs/) — surfacé Studio
 - [`../drizzle/CLAUDE.md`](../drizzle/CLAUDE.md) — adapter SQL frère (référence) · [`../orm-core/CLAUDE.md`](../orm-core/CLAUDE.md) — socle
-- Audit config ORM : [`../../../../docs/audits/orm-config-pattern-2026-06.md`](../../../../docs/audits/orm-config-pattern-2026-06.md)
+- Audit config ORM : `orm-config-pattern-2026-06` (mémoire IA `core-dev/audits/`)
 - Mémoires : `project_orm_hardening_kit`, `project_orm_audit_state`, `feedback_config_validation_zod`, `feedback_orm_default_first`
 
 ## Rôle

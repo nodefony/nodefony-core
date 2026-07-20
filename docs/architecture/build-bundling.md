@@ -254,7 +254,7 @@ Deux détails opérationnels, appris à la dure :
 
 - **`declarationDir` doit être explicite.** Sans lui, tsgo écrit ses `.d.ts` dans le vrai `dist`, au
   milieu du JavaScript — le piège est consigné dans le plan de migration du bundler
-  ([§10](../audits/rolldown-migration-plan-2026-07.md)).
+  (§10, mémoire IA `core-dev/audits/rolldown-migration-plan-2026-07.md`).
 - **Les tests sont exclus du `tsconfig.declarations.json`**, comme ils le sont des entrées du bundler.
   Les deux chaînes doivent voir le même périmètre, sinon le paquet publie des types pour du code
   absent.
@@ -291,7 +291,8 @@ cassent, dans cet ordre :
    `"hash" is not exported`.
 2. **Le runtime**, plus insidieux : le processus se retrouve avec **deux copies** du même paquet, donc
    deux registres globaux distincts. Le symptôme consigné dans le plan de migration est un
-   `EntityRegistry: entity "session" already registered` ([§10](../audits/rolldown-migration-plan-2026-07.md)).
+   `EntityRegistry: entity "session" already registered` (§10, mémoire IA
+   `core-dev/audits/rolldown-migration-plan-2026-07.md`).
 
 > [!WARNING]
 > La liste `external` du `rolldown.config.ts` et les `peerDependencies` du `package.json` sont
@@ -563,7 +564,8 @@ Ce qui **n'est pas couvert**, et mérite d'être su :
 - **Le scaffolding** (`Builder.test.ts`, `create.test.ts`) est testé, mais ces suites ne sont pas
   rattachées à l'inventaire de ce sujet.
 - **Le mode `watch` / développement** du bundler reste le seul angle du build sans couverture
-  automatisée — il est validé manuellement ([§7 du plan de migration](../audits/rolldown-migration-plan-2026-07.md)).
+  automatisée — il est validé manuellement (§7 du plan de migration, mémoire IA
+  `core-dev/audits/rolldown-migration-plan-2026-07.md`).
 - **Aucun test de charge** n'a de sens ici : le build est un chemin froid, absent de tout profil de
   requête.
 
@@ -578,6 +580,6 @@ Couverture : `npm run coverage` dans `src/nodefony`.
   [`@nodefony/frontend`](../../src/packages/@nodefony/frontend/docs/index.md)
 - Les commandes du CLI, dont `build` et `create` → [CLI du cœur](../../src/nodefony/docs/kernel.md)
 - Comment un module déclaré dans le manifeste est chargé → [Configuration](configuration.md)
-- Les décisions et pièges de la migration du bundler →
-  [plan de migration rolldown](../audits/rolldown-migration-plan-2026-07.md)
+- Les décisions et pièges de la migration du bundler → le plan de migration rolldown
+  (mémoire IA `core-dev/audits/rolldown-migration-plan-2026-07.md`)
 - Déployer le résultat (image, assets, CDN) → [guide Docker & cloud-native](../guides/docker-cloud-native.md)

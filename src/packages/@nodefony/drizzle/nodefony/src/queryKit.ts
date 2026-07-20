@@ -6,7 +6,7 @@ import type { DrizzleDb } from "./orm-core/DrizzleRepository";
 /**
  * queryKit — les requêtes SQL **natives** des entités framework, par dialecte
  * (chantier portabilité multi-dialecte, garde-fou G1 du comparatif ORM
- * `docs/audits/orm-comparatif-froid-2026-07.md`).
+ * mémoire IA `core-dev/audits/orm-comparatif-froid-2026-07.md`).
  *
  * **Pourquoi** : le repository générique et les stores sont dialect-agnostiques
  * (query builder Drizzle) — mais une poignée de requêtes descendent au SQL brut

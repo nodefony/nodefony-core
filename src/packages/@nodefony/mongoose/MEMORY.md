@@ -35,6 +35,6 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 
 ## Liens
 
-- ADR : `docs/adr/0003` (P5.4 + portabilité 2 adapters). Audit : `docs/audits/orm-state-and-hardening-2026-06.md`.
+- ADR : `docs/adr/0003` (P5.4 + portabilité 2 adapters). Audit : mémoire IA `core-dev/audits/orm-state-and-hardening-2026-06.md`.
 - `@nodefony/orm-core` (contrats), `@nodefony/drizzle` (adapter SQL référence, parité du test/SessionStorage).
 - Mémoires : `project_orm_hardening_kit` (3 décisions virage), `project_orm_audit_state` (boussole).

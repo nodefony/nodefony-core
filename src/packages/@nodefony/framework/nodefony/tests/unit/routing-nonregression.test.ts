@@ -26,7 +26,7 @@ import type { ContextType } from "@nodefony/http";
  *   K. methodOverride (pont WS-RPC mutation) : désambiguïse la méthode LOGIQUE sur le
  *      transport WEBSOCKET unique ; une route sans WEBSOCKET reste invisible (zéro bypass).
  *
- * Réf : docs/audits/bench-frameworks-2026-06.md (verdict) + mémoire IA
+ * Réf : mémoire IA core-dev/audits/bench-frameworks-2026-06.md (verdict) + mémoire IA
  * project_fastpath_chantier_kit.
  */
 

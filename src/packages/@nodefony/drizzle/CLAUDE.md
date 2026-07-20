@@ -53,7 +53,7 @@ Deux usages :
   `NodefonyModuleConfig` (typage `use()`). ⚠️ `filename` **optionnel SANS défaut**
   dans le schéma (pur) : le chemin SQLite (kernel-dépendant) est résolu **au boot**
   par `DrizzleService` (`#defaultFilename`), jamais au top-level. Même pattern que
-  `@nodefony/mongoose`. Réf : [`docs/audits/orm-config-pattern-2026-06.md`](../../../../docs/audits/orm-config-pattern-2026-06.md).
+  `@nodefony/mongoose`. Réf : `orm-config-pattern-2026-06` (mémoire IA `core-dev/audits/`).
 
 ## Interdits
 

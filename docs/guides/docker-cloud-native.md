@@ -2,7 +2,7 @@
 title: Booter Nodefony en Docker / Kubernetes (cloud-native)
 audience: humain
 date: 2026-06-01
-related: project_pm2_deprecation, project_cloud_native_plan, docs/audits/boot-performance-2026-06-01.md
+related: project_pm2_deprecation, project_cloud_native_plan
 ---
 
 # Booter Nodefony en Docker / Kubernetes
@@ -102,8 +102,8 @@ terminationGracePeriodSeconds: 30 # > durée du graceful shutdown (~mesurée < 1
 ```
 
 - `NODEFONY_BOOT_TIMEOUT_MS` borne le temps de boot (fail-fast si un module pend).
-- Le boot de l'app est dominé par l'import/instanciation des modules (cf
-  `docs/audits/boot-performance-2026-06-01.md`) : un **pod réel** (app minimale) boote
+- Le boot de l'app est dominé par l'import/instanciation des modules (audit de performance de
+  boot, mémoire IA `core-dev/audits/boot-performance-2026-06-01.md`) : un **pod réel** (app minimale) boote
   nettement plus vite que l'app de dev de démo. Ajuster `initialDelaySeconds` en conséquence.
 
 > **Reco framework** (backlog cloud-native) : exposer un endpoint santé standard dans le core

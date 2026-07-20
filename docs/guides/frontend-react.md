@@ -306,6 +306,6 @@ Génère `src/modules/shop-front/public/dist/manifest.json` + assets fingerprint
 
 - API publique complète : [`@nodefony/frontend/docs/index.md`](../../src/packages/@nodefony/frontend/docs/index.md) (relocalisé, ADR-0001)
 - Résilience supervisor (auto-restart, port retry, health check) : [`@nodefony/frontend/docs/index.md#résilience-supervisor`](../../src/packages/@nodefony/frontend/docs/index.md#résilience-supervisor)
-- Audit perf child_process vs in-proc : [`../audits/poc-frontend-comparison.md`](../audits/poc-frontend-comparison.md)
+- Audit perf child_process vs in-proc : comparatif du POC frontend (mémoire IA `core-dev/audits/poc-frontend-comparison.md`)
 - Pattern de référence : `src/modules/test-frontend-react/` (créé durant le POC, doc fidèle)
 - Module Vision (Phase 10) consommera `@nodefony/frontend` pour son UI admin

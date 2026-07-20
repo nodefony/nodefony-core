@@ -285,7 +285,7 @@ default), + `@controllers`. Gardes AVANT écriture : hors projet · `@nodefony/d
 la cible · entité déjà déclarée · champ invalide. **Dit la vérité** : la table naît au prochain
 boot dev (`CREATE TABLE IF NOT EXISTS`), la **modifier n'altère RIEN** (pas d'`ALTER`), aucune
 migration n'est produite. Design + alternatives rejetées :
-[`docs/audits/create-entity-design-2026-07.md`](../../../../docs/audits/create-entity-design-2026-07.md).
+`create-entity-design-2026-07` (mémoire IA `core-dev/audits/`).
 
 **Architecture 3 fronts** (préparée pour Studio — créer app/module/entity depuis
 l'admin web) :

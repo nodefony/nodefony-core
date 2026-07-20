@@ -101,10 +101,7 @@ function analyze(page: { abs: string; repoRel: string }): {
  * relatifs faux hérités. CLIQUET : cette liste ne doit que RÉTRÉCIR — chaque
  * vague de reprise en retire ses pages. Aucun ajout sans réécriture de la page.
  */
-const LEGACY_BROKEN_LINKS: readonly string[] = [
-  "docs/migration/MIGRATION_STATUS.md",
-  "docs/migration/phases-details.md",
-];
+const LEGACY_BROKEN_LINKS: readonly string[] = [];
 
 describe("corpus — navigation interne", () => {
   it("trouve un corpus non vide (sinon le test ne prouve rien)", () => {

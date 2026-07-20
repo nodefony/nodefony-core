@@ -326,7 +326,7 @@ FASTIFY_SCHEMA=1 bash bench.sh fastify 5163 FASTIFY_SCHEMA=1           # fast-js
 # Nodefony via bench-ab-mono.sh (flip policy module test, cf pré-requis ci-dessus)
 ```
 
-**Mesuré 2026-06-11** (`docs/audits/bench-frameworks-2026-06.md`) : nu **23 985** · Fastify
+**Mesuré 2026-06-11** (mémoire IA `core-dev/audits/bench-frameworks-2026-06.md`) : nu **23 985** · Fastify
 **20 782** (schema neutre) · Express **11 740** · **Nodefony 5 264** RPS. Décomposition :
 Nodefony→Express ×2,23 = **coût par requête** (Express scanne linéairement AUSSI → pas le
 routing) ; Express→Fastify ×1,77 = index radix. → fast path : attaquer le coût/req AVANT

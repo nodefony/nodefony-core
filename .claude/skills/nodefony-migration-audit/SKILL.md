@@ -219,7 +219,7 @@ explicitement les tâches non faites (plus de « pas de marque » ambigu).
 
 > Déclencheurs : « gros point migration », « fichier vérité », « audit complet », « confronte TOUT au code ».
 > **Référence vivante** (passe réelle 2026-06-05, dashboard **278 KB → 32 KB**) :
-> [`docs/migration/AUDIT-verite-2026-06.md`](../../../docs/migration/AUDIT-verite-2026-06.md).
+> `AUDIT-verite-2026-06` (mémoire IA `core-dev/migration/`).
 
 Va plus loin que `auto` : croise **toutes les sources**, écrit un **fichier d'audit persistant**, puis
 **assainit la FORME** du dashboard. Tracer les phases avec `TaskCreate` (1 lot / groupe de phases).
@@ -241,7 +241,7 @@ tracké** · métrique de **surface** trompeuse (cf piège « banc ORM » plus b
 
 #### 2. Écrire le fichier d'audit PERSISTANT
 
-Au fil de l'eau dans `docs/migration/AUDIT-verite-<AAAA-MM>.md` (survit au `/clear`/coupure, devient le
+Au fil de l'eau dans la mémoire IA `core-dev/migration/AUDIT-verite-<AAAA-MM>.md` (survit au `/clear`/coupure, devient le
 matériau du resync). Squelette : `frontmatter` → **table synthèse des écarts** → 1 section / phase
 (`déclaré vs réel + sonde code`) → section **croisement docs/mémoire/MD** → **verdict global**.
 
@@ -279,7 +279,7 @@ chiffres, il **dégraisse** :
 - **`Write` du fichier condensé `>>>` N `Edit` chirurgicaux** : matcher un `old_string` de 3 800 car. coûte
   plus de tokens que réécrire le dashboard court d'un bloc. Quand `> ~50 %` est à condenser → `Write`.
 - **Préserver TOUTES les tâches** (1 ligne courte : `| ✅ P5.2 | Tâche | 1 phrase + hash |`). Le détail-journal
-  n'est PAS perdu → il reste dans `git log` + les mémoires + `docs/migration/`.
+  n'est PAS perdu → il reste dans `git log` + les mémoires + la mémoire IA `core-dev/migration/`.
 
 **Rendu — bilan d'assainissement** (à présenter après le `Write`, prouve le gain) :
 
@@ -364,4 +364,4 @@ ASSAINISSEMENT  ·  MIGRATION_STATUS.md
 - `project_migration_audit_progress` — avancement + corrections de la dernière passe (reprise).
 - `feedback_session_pitfalls`, `feedback_turbo_cache_stale_logs` — pièges build/dist pendant la vérif.
 - `project_session_2026-06-05_state` — passe `vérité` de référence (audit P0→P16 + dashboard 278→32 KB).
-- `docs/migration/AUDIT-verite-2026-06.md` — exemple concret de **fichier d'audit persistant** produit par le mode `vérité`.
+- `AUDIT-verite-2026-06` (mémoire IA `core-dev/migration/`) — exemple concret de **fichier d'audit persistant** produit par le mode `vérité`.

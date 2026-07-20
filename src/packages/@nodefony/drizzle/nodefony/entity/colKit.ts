@@ -48,7 +48,7 @@ import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 /**
  * colKit — kit de colonnes partagé des **entités framework** (chantier
  * portabilité multi-dialecte, garde-fou G1 du comparatif ORM
- * `docs/audits/orm-comparatif-froid-2026-07.md`).
+ * mémoire IA `core-dev/audits/orm-comparatif-froid-2026-07.md`).
  *
  * **Pourquoi** : Drizzle est schema-as-code *par dialecte* (`sqliteTable` ≠
  * `pgTable`, builders de colonnes distincts). Sans kit, chaque entité duplique

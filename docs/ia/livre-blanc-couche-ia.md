@@ -327,9 +327,10 @@ mûres**. Un terrain de conception propre, pas un héritage à réparer.
 > spontanément** un tool MCP à description neutre lorsqu'un _skill_ auto-déclenché couvre le
 > même besoin — le déclenchement dépend de la visibilité de la description et de la concurrence
 > avec d'autres surfaces, à concevoir explicitement. Détail :
-> [`retex-poc-mcp-vs-skill.md`](retex-poc-mcp-vs-skill.md). Les patterns agentiques de
-> référence (workflows vs agents, conception des outils) sont synthétisés dans
-> [`agents-anthropic-building-effective-agents.md`](agents-anthropic-building-effective-agents.md).
+> le RETEX du POC MCP (mémoire IA `core-dev/ia-drafts/retex-poc-mcp-vs-skill.md`). Les patterns
+> agentiques de référence (workflows vs agents, conception des outils) sont synthétisés dans le
+> résumé du document Anthropic _Building Effective Agents_ (mémoire IA
+> `core-dev/ia-drafts/agents-anthropic-building-effective-agents.md`).
 
 ### 6.2 Un Studio qui se documente lui-même
 

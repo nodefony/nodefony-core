@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-19T15:03:48.728Z",
+  "generated": "2026-07-20T10:46:37.927Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -6703,7 +6703,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "colKit — kit de colonnes partagé des **entités framework** (chantier portabilité multi-dialecte, garde-fou G1 du comparatif ORM `docs/audits/orm-comparatif-froid-2026-07.md`). **Pourquoi** : Drizzl…"
+      "description": "colKit — kit de colonnes partagé des **entités framework** (chantier portabilité multi-dialecte, garde-fou G1 du comparatif ORM mémoire IA `core-dev/audits/orm-comparatif-froid-2026-07.md`). **Pour…"
     },
     "buildFrameworkTable": {
       "name": "buildFrameworkTable",

@@ -26,10 +26,8 @@ docs/
 ├── README.md          ← ce fichier (index + conventions)
 ├── adr/               ← Architecture Decision Records (décisions figées, immuables)
 ├── architecture/      ← concepts transverses : kernel, DI, build (BUILDER.md), realtime-socket
-├── audits/            ← audits & POC datés (perf frontend, isomorphisme) — trace de décision
-├── brainstorming/     ← notes exploratoires (cloud-native, security)
 ├── guides/            ← how-to : frontend React, session storage…
-├── ia/                ← vision IA : livre-blanc-couche-ia.md (source unique) + résumé Anthropic + retex POC MCP
+├── ia/                ← vision IA : livre-blanc-couche-ia.md (source unique)
 ├── realtime/socket/   ← doc « la socket Nodefony » (01-vue-ensemble … 07-actions)
 ├── release/           ← notes de version (nodefony-10)
 ├── session-retros/    ← retex de session datés (matière première des CONSOLIDATION-*)
@@ -37,6 +35,8 @@ docs/
 ```
 
 Pas de numérotation préfixée des dossiers : l'ordre est imposé par le `README.md` de chaque sous-dossier (sauf `realtime/socket/` où la lecture est séquentielle 01→07).
+
+> **Ce que `docs/` ne contient pas** : les artefacts internes du développement du cœur — audits datés, POC, plans d'exécution, specs de migration, brouillons — ne vivent **pas** ici. `docs/` ne porte que la documentation destinée à un lecteur du framework ; ces artefacts sont conservés hors du dépôt, dans la mémoire IA (`core-dev/`).
 
 > **Vision IA** : toute la vision de la couche IA repose désormais sur un document unique — [`ia/livre-blanc-couche-ia.md`](ia/livre-blanc-couche-ia.md). Les anciens docs racine (`VISION_IA.md`, `PLAN_AGENTIC.md`, `IA_STATUS.md`, `CLAUDE_IA.md`, `VISION.md`) ont été consolidés dedans puis supprimés (2026-05-29).
 

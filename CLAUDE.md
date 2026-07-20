@@ -322,7 +322,7 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 
 ## Décisions techniques (finales)
 
-**Bundler** : **rolldown** (`preserveModules: true`, socle partagé = subpath **`nodefony/bundler`**, source `src/nodefony/src/bundler/index.ts` — les 19 configs du repo ET les apps `create app` importent le MÊME `defineNodefonyRolldownConfig` ; seul le core l'importe en relatif, œuf-poule dist) + **`.d.ts` par `tsgo -p tsconfig.declarations.json`** (hors bundler). Rollup RETIRÉ (migration 2026-07, cf `docs/audits/rolldown-migration-plan-2026-07.md`). Ne pas remplacer sans accord.
+**Bundler** : **rolldown** (`preserveModules: true`, socle partagé = subpath **`nodefony/bundler`**, source `src/nodefony/src/bundler/index.ts` — les 19 configs du repo ET les apps `create app` importent le MÊME `defineNodefonyRolldownConfig` ; seul le core l'importe en relatif, œuf-poule dist) + **`.d.ts` par `tsgo -p tsconfig.declarations.json`** (hors bundler). Rollup RETIRÉ (migration 2026-07, cf mémoire IA `core-dev/audits/rolldown-migration-plan-2026-07.md`). Ne pas remplacer sans accord.
 
 **Serveurs** : Node.js natif uniquement — `node:http`, `node:http2`, `ws`. Jamais `Bun.serve()`.
 
@@ -576,12 +576,12 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 | ------------------------------------ | ------------------------------------------------------------------------------- | ------------------------- | --------------------------------------- |
 | TSDoc inline                         | sources `.ts`                                                                   | IDE + AST + IA            | en migrant le fichier                   |
 | `<module>/docs/`                     | colocalisé au module (`src/nodefony/docs/`, `src/packages/@nodefony/<m>/docs/`) | humain + RAG + **Studio** | doc d'un concept/API d'un module précis |
-| `docs/` (racine)                     | `docs/guides/` / `audits/` / `adr/`                                             | humain + RAG futur        | transverse multi-module                 |
+| `docs/` (racine)                     | `docs/guides/` / `adr/`                                                         | humain + RAG futur        | transverse multi-module                 |
 | `CLAUDE.md` + `MEMORY.md` par module | racine du module                                                                | IA en session             | gotchas, mots-clés, décisions figées    |
 
 > **Emplacement HYBRIDE (ADR-0001)** : la doc d'un module vit DANS le module (`<module>/docs/*.md`, frontmatter `module:`) et est surfacée dans **Studio** (`/nodefony/modules/{key}` onglet Docs ; core = carte `/nodefony/modules/core` ← `src/nodefony/docs/`). Le transverse reste sous `docs/` racine. Cf [`docs/adr/0001-docs-modules-emplacement-hybride.md`](docs/adr/0001-docs-modules-emplacement-hybride.md).
 
-**Page de référence** : [`src/nodefony/docs/container.md`](src/nodefony/docs/container.md) montre le format attendu (frontmatter + sections + liens).
+**Page de référence** : [`src/packages/@nodefony/security/docs/firewall.md`](src/packages/@nodefony/security/docs/firewall.md) montre le format attendu (frontmatter + sections + ancres `fichier:ligne` + Démarrage rapide qui compile). Le standard complet et ses gates : `.claude/skills/nodefony-documentation/`.
 
 **Surfaçage Studio actif** (depuis 2026-05-20) : endpoints `/nodefony/kernel/api/module/{name}/{docs,docs/{slug},symbols}` (helper `framework/nodefony/src/docsReader.ts`) → onglets Docs (markdown + badges version/status/git) + API (`.ai/symbols.json`). Couvre core/http/framework/frontend/studio.
 

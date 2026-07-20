@@ -39,7 +39,7 @@ d'entrée, service CRUD, controller REST **et** WebSocket, tests) et câble l'`i
 (`@entities([...])` créé s'il n'existe pas, `@controllers([...])` complété). Champs :
 `nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut**.
 Options utiles : `--id uuid7|uuid4|serial` · `--soft-delete` · `--no-controller` · `--module <nom>`
-· `--dialect`. Design + alternatives rejetées : `docs/audits/create-entity-design-2026-07.md`.
+· `--dialect`. Design + alternatives rejetées : mémoire IA `core-dev/audits/create-entity-design-2026-07.md`.
 
 **À la main** (module du framework, ou entité qu'on veut écrire soi-même) — la forme canonique :
 
