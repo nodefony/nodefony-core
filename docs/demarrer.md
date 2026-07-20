@@ -45,6 +45,8 @@ Du squelette à la première route servie.
 
 ```nodefony-cards
 [
+  { "icon": "🎓", "title": "Tutoriel : ta première application", "href": "tutoriels/premiere-application.md",
+    "desc": "Si tu débutes, commence ici : de `create app` à une entité persistée, pas à pas. Les briques ci-dessous approfondissent chaque étape." },
   { "icon": "1️⃣", "title": "Configuration", "href": "architecture/configuration.md",
     "desc": "`nodefony.config.ts` + `env.ts` : la seule source de vérité, validée au boot." },
   { "icon": "2️⃣", "title": "Écrire des routes", "href": "../src/packages/@nodefony/framework/docs/index.md",

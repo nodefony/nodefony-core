@@ -115,6 +115,8 @@ Orientés tâche : on suit le guide, on obtient un résultat.
 
 ```nodefony-cards
 [
+  { "icon": "🎓", "title": "Tutoriel : ta première application", "href": "tutoriels/premiere-application.md",
+    "desc": "De zéro à une app qui répond en HTTP, en WebSocket, et persiste des données — pas à pas." },
   { "icon": "⚙️", "title": "Configuration pas à pas", "href": "guides/configuration.md",
     "desc": "La recette, quand l'architecture est déjà comprise." },
   { "icon": "🗄️", "title": "Persistance", "href": "guides/persistence.md",

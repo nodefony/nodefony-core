@@ -167,16 +167,16 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > **4bis ✅** cœur/API : `kernel` + `request-context` recentrées sur l'API, `react-hooks`, hub core,
 > **`client` CRÉÉE** (bibliothèque cliente isomorphe) ; `container` + `injection` **SUPPRIMÉES**
 > (recouvertes par la transverse `injection-portees`, devenue source canonique du DI) ·
-> **7 🔶** transverse — **(a) `docs/` assaini ✅** : 29 artefacts internes (audits datés, POC, plans,
+> **7 ✅** transverse — **(a) `docs/` assaini ✅** : 29 artefacts internes (audits datés, POC, plans,
 > specs de migration, brouillons) sortis vers la mémoire IA `core-dev/` — le portail les servait au
 > même rang que les guides, et `docs/migration/MIGRATION_STATUS.md` était un **lien symbolique** vers
 > ce tableau de bord (385 Ko servis comme page de doc). **(b) socket canonisée ✅** : `protocole`,
 > `actions`, `observabilite` créées, 6 **graphes temps réel** sauvés en fence `nodefony-livegraph`
 > (ils étaient attachés au chemin des pages supprimées), page de vision transverse recentrée sur la
-> trajectoire SIP/ponts. **(c) glossaire + CLI ✅** : régime `doc-lint` dédié aux glossaires
-> (§8bis-lexique) + les deux lexiques conformes (**2 niveaux GARDÉS**, ADR-0001, pas de fusion) ·
-> page **`cli`** (moteur, 11 commandes intégrées + commandes de module, scaffold, extension,
-> complétion — 3 gates verts) ; **reste ⬜** `reference/` · tutoriels ;
+> trajectoire SIP/ponts. **(c) TERMINÉE** : régime `doc-lint` « glossaire » (§8bis-lexique) + 2 lexiques
+> conformes (2 niveaux, ADR-0001) · page **`cli`** (moteur, commandes, scaffold, extension, complétion) ·
+> **tutoriel** « ta première application » (Diátaxis, `docs/tutoriels/`) ; **`reference/` ABSORBÉ** — la
+> référence d'API = auto (`symbols.json` + Studio), ADR-0001 interdit une référence manuelle ;
 > les 8 pages « socket » de `docs/` racine sont **SUPPRIMÉES** (elles décrivaient une API `IBackplane`
 > inexistante), leur contenu revalidé vit dans `@nodefony/realtime/docs/` · **8 ⬜** IA + devkit ·
 > **4ter ⬜** `cookies`, `upload`, `rate-limit`, `observabilite` (http) · `admin`, `templates` (framework).
