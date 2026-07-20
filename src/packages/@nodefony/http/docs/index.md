@@ -60,24 +60,19 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
 | [Sessions](session.md)                                                      | de l'état serveur rattaché à un visiteur       | login, panier, préférences, WS authentifié        |
 | [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) | l'ordre exact des étapes, HTTP comme WS        | tu débugges « pourquoi ça passe / ça bloque ici » |
 
-### [`servers`](servers.md) — HTTP, HTTPS, HTTP/2, WebSocket
-
-Deux ports, quatre serveurs, un seul pipeline. La page couvre la politique de port (que faire quand
-il est occupé), les certificats et le TLS de développement, le réglage du transport, les sondes de
-liveness/readiness, l'arrêt gracieux, et les défenses de bordure (slow-loris, floods, zombies
-WebSocket). **Commence ici** : tout le reste suppose un serveur qui écoute.
-
-### [`session`](session.md) — l'état serveur d'un visiteur
-
-Le cycle de vie complet, le cookie opaque, les quatre stores (`memory`, `drizzle`, `redis`,
-`mongoose`) et comment `auto` en choisit un, les délais NIST, la révocation, et la session côté
-WebSocket. C'est la brique où un choix de développement (`memory`) devient un bug de production
-(deux pods, deux sessions).
-
-### [`pipeline-requete`](../../../../../docs/architecture/pipeline-requete.md) — le trajet complet
-
-Page transverse, mais indispensable ici : elle montre où ce module s'arrête et où le framework prend
-le relais, et dans quel ordre s'enchaînent contexte, rate-limit, routage, session, CSRF et firewall.
+```nodefony-cards
+[
+  { "icon": "🔌", "title": "servers", "href": "servers.md",
+    "desc": "Deux ports, quatre serveurs, un seul pipeline : politique de port, certificats et TLS de développement, réglage du transport, sondes de liveness/readiness, arrêt gracieux, défenses de bordure (slow-loris, floods, zombies WebSocket).",
+    "meta": "commence ici — tout le reste suppose un serveur qui écoute" },
+  { "icon": "🗝️", "title": "session", "href": "session.md",
+    "desc": "Cycle de vie complet, cookie opaque, les quatre stores (memory, drizzle, redis, mongoose) et comment auto en choisit un, les délais NIST, la révocation, la session côté WebSocket.",
+    "meta": "la brique où un choix de dev (memory) devient un bug de prod" },
+  { "icon": "🔀", "title": "pipeline-requete", "href": "../../../../../docs/architecture/pipeline-requete.md",
+    "desc": "Où ce module s'arrête et où le framework prend le relais, et dans quel ordre s'enchaînent contexte, rate-limit, routage, session, CSRF et firewall.",
+    "meta": "page transverse — celle qui relie tout" }
+]
+```
 
 > [!NOTE]
 > **Le module couvre plus que ces trois pages.** Cookies, upload de fichiers, rate-limit, fichiers

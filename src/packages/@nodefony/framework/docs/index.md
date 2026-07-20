@@ -50,6 +50,8 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 ## 🗂️ Les briques du module
 
+Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouve.
+
 | Brique                        | Ce qu'elle résout                                  | Tu en as besoin quand…                           |
 | ----------------------------- | -------------------------------------------------- | ------------------------------------------------ |
 | [Décorateurs](decorateurs.md) | déclarer routes, paramètres, réponses, gardes      | toujours — c'est la surface d'écriture           |
@@ -57,28 +59,22 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 | [Routage](routing.md)         | apparier une URL à une action, arbitrer, expliquer | deux routes se disputent, ou un 404/405 surprend |
 | [Idempotence](idempotence.md) | empêcher le double effet d'une mutation rejouée    | paiement, commande, tout effet non rejouable     |
 
-### [`decorateurs`](decorateurs.md) — la surface d'écriture
-
-La table de référence complète : décorateurs de classe, de méthode HTTP, de paramètre, de réponse, de
-sécurité, WebSocket. Chacun avec son effet et un exemple court. C'est la page qu'on garde ouverte en
-écrivant un contrôleur.
-
-### [`controller`](controller.md) — le cycle d'une action
-
-Ce dont hérite un contrôleur, d'où viennent `request` / `response` / `session`, comment répondre
-(auto-JSON, codes, flux de fichiers), comment les erreurs remontent, et l'**ordre réel** du cycle de
-vie — y compris ce que `initialize()` ne peut pas encore supposer.
-
-### [`routing`](routing.md) — de l'URL à l'action
-
-Une table ordonnée où le premier motif qui correspond gagne. La page explique l'arbitrage (pas de
-score de spécificité), la partition littéral/dynamique qui accélère sans changer la sémantique, le
-`405` et son en-tête `Allow`, les vhosts, et le duplex HTTP+WebSocket sur un même chemin.
-
-### [`idempotence`](idempotence.md) — rejouer sans doubler
-
-`@Idempotent`, la clé d'idempotence, les trois stores et leurs capacités réelles, le GC des entrées
-expirées, et ce que le client observe quand il rejoue la même clé.
+```nodefony-cards
+[
+  { "icon": "🏷️", "title": "decorateurs", "href": "decorateurs.md",
+    "desc": "La table de référence complète — classe, méthode HTTP, paramètre, réponse, sécurité, WebSocket — chacun avec son effet et un exemple court.",
+    "meta": "la page qu'on garde ouverte en écrivant un contrôleur" },
+  { "icon": "🎛️", "title": "controller", "href": "controller.md",
+    "desc": "Ce dont hérite un contrôleur, d'où viennent request / response / session, comment répondre (auto-JSON, codes, flux de fichiers), comment les erreurs remontent, et l'ordre réel du cycle de vie.",
+    "meta": "toujours — c'est ce dont tu hérites" },
+  { "icon": "🚦", "title": "routing", "href": "routing.md",
+    "desc": "Une table ordonnée où le premier motif qui correspond gagne : l'arbitrage sans score de spécificité, la partition littéral/dynamique qui accélère sans changer la sémantique, le 405 et son en-tête Allow, les vhosts, le duplex HTTP+WebSocket sur un même chemin.",
+    "meta": "deux routes se disputent, ou un 404/405 surprend" },
+  { "icon": "🔁", "title": "idempotence", "href": "idempotence.md",
+    "desc": "@Idempotent, la clé d'idempotence, les trois stores et leurs capacités réelles, le GC des entrées expirées, et ce que le client observe quand il rejoue la même clé.",
+    "meta": "paiement, commande, tout effet non rejouable" }
+]
+```
 
 > [!NOTE]
 > **Deux briques implémentées n'ont pas encore leur page** : le data plane d'administration

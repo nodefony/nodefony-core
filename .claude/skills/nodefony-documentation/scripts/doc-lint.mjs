@@ -150,6 +150,43 @@ for (const f of files) {
   if (dead.length)
     errs.push(`lien(s) interne(s) mort(s) : ${[...new Set(dead)].join(", ")}`);
 
+  // 5ter) LIENS DES FENCES DÉCLARATIVES — un catalogue de hub rendu en cards porte ses
+  // cibles dans du JSON (`"href": "./x.md"`), pas dans la syntaxe `](…)`. Sans ce contrôle,
+  // convertir un catalogue en cards SORT tous ses liens du champ de vision du gate : la
+  // navigation d'un hub cesse d'être vérifiée au moment précis où elle devient sa raison
+  // d'être. On valide donc aussi le JSON lui-même — une fence illisible ne rend rien.
+  for (const fence of src.matchAll(/```nodefony-cards\s*\n([\s\S]*?)\n```/g)) {
+    let items;
+    try {
+      items = JSON.parse(fence[1]);
+    } catch (e) {
+      errs.push(
+        `fence nodefony-cards illisible (JSON invalide) : ${e.message}`,
+      );
+      continue;
+    }
+    if (!Array.isArray(items)) {
+      errs.push("fence nodefony-cards : un tableau d'objets est attendu");
+      continue;
+    }
+    const deadCards = [];
+    for (const it of items) {
+      if (!it || typeof it !== "object") continue;
+      if (typeof it.title !== "string" || !it.title.trim())
+        errs.push("card sans `title` (une card sans titre n'a pas de sens)");
+      const href = it.href;
+      if (typeof href !== "string" || /^(https?:|#|mailto:)/.test(href))
+        continue;
+      const target = href.replace(/#.*$/, "");
+      if (target.endsWith(".md") && !existsSync(path.resolve(dir, target)))
+        deadCards.push(target);
+    }
+    if (deadCards.length)
+      errs.push(
+        `card(s) pointant une page inexistante : ${[...new Set(deadCards)].join(", ")}`,
+      );
+  }
+
   // 6) Pas de HTML brut (le portail n'a pas rehype-raw).
   if (
     /<(div|span|table|br|img|svg)\b/i.test(src.replace(/```[\s\S]*?```/g, ""))
