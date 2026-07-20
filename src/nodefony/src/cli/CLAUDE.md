@@ -138,10 +138,10 @@ npx nodefony --version          # -v/--version
 npx nodefony http:network -j
 npx nodefony proxy:generate nginx
 npx nodefony frontend:build
+npx nodefony security:user:add -a       # crée un utilisateur admin (module security)
 
-# Futur (P11.3/11.4)
+# Futur (non implémenté)
 npx nodefony orm:migrate
-npx nodefony security:user:add
 ```
 
 ## niceBytes — helper formatage
@@ -334,15 +334,16 @@ unit→e2e + page HMR nonce servie), minimal, vue, angular.
 
 ## Hooks Command
 
-| Hook              | Quand                     | Use case                         |
-| ----------------- | ------------------------- | -------------------------------- |
-| `onKernelStart()` | AVANT `Kernel.start()`    | Config env, type, packageManager |
-| `generate(opts)`  | APRÈS phase `kernelEvent` | Exécution principale             |
-| `register()`      | Au moment de `addCommand` | Setup commander (options, args)  |
+| Hook / méthode    | Quand                     | Use case                                            |
+| ----------------- | ------------------------- | --------------------------------------------------- |
+| constructeur      | à `addCommand`            | Setup commander : `addOption`/`addArgument`/`alias` |
+| `onKernelStart()` | AVANT `Kernel.start()`    | Config env, type, packageManager                    |
+| `generate(...)`   | APRÈS phase `kernelEvent` | Exécution principale (méthode à surcharger)         |
+| `interaction()`   | mode interactif (TTY)     | Menu/prompt (ex. `start`)                           |
 
 ## Settings ProtoService cas spécial
 
-⚠️ `Service.set()` pour les commands utilise un guard car le Container peut être absent au moment de l'enregistrement. Voir `Command.ts:register()`.
+⚠️ `Service.set()` pour les commands utilise un guard car le Container peut être absent au moment de l'enregistrement. Le setup commander (`createCommand`, `addOption`/`addArgument`) se fait dans le **constructeur** de `Command` (`command/Command.ts`) — il n'y a pas de méthode `register()`.
 
 ## Commandes de module — dispatch différé (RÉSOLU)
 

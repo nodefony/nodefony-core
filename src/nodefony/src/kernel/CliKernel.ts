@@ -155,7 +155,7 @@ class CliKernel extends Cli {
   }
 
   /**
-   * Boot complet : instancie le Kernel, enregistre les 9 commands built-in, parse argv,
+   * Boot complet : instancie le Kernel, enregistre les commandes built-in, parse argv,
    * lance `kernel.start()`.
    *
    * Comportement Commander :

@@ -45,14 +45,11 @@ const prompt = async function (command: Command): Promise<ConfigType> {
     message = "Select Nodefony Command";
     choices = [
       {
-        name: "Create Web Project",
-        value: "createWeb",
-        description: "Create Nodefony Web and Api Project",
-      },
-      {
-        name: "Create Microservice Project ",
-        value: "createMicroservice",
-        description: "Create Nodefony Microservice Project ",
+        name: "create",
+        value: "create",
+        description:
+          command.cli?.getCommand("create")?.description() ||
+          "Scaffold a new Nodefony project, module or entity",
       },
     ];
   }

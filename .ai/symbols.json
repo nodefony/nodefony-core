@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-20T18:17:23.069Z",
+  "generated": "2026-07-20T22:30:24.676Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -8711,7 +8711,7 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "`nodefony frontend:dev` — démarre manuellement le superviseur Vite. Utile quand `autoStartInDevelopment: false` dans la config, ou pour relancer après un `frontend:stop`."
+      "description": "`nodefony frontend:dev` — démarre manuellement le superviseur Vite. Utile quand `autoStartInDevelopment: false` dans la config, ou pour relancer le superviseur Vite manuellement."
     },
     "FrontendStatus": {
       "name": "FrontendStatus",

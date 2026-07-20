@@ -23,7 +23,9 @@ src/nodefony/src/kernel/
 │   ├── InstallCommand.ts
 │   ├── OutdatedCommand.ts
 │   ├── StatusCommand.ts     ← introspection runtime dev/prod/cluster (ps + sonde ports, standalone)
-│   └── StopCommand.ts       ← arrêt propre de tout runtime Nodefony (group-kill, standalone)
+│   ├── StopCommand.ts       ← arrêt propre de tout runtime Nodefony (group-kill, standalone)
+│   ├── CompletionCommand.ts ← script de complétion shell bash/zsh/fish (standalone)
+│   └── CreateCommand.ts     ← scaffold projet/module/entité (standalone)
 ├── injector/                ← DI decorators (@injectable, @inject, ...)
 └── MEMORY.md / README.md / CLAUDE.md
 ```

@@ -1,8 +1,4 @@
-import {
-  OptionsCommandInterface,
-  CliKernel,
-  Command,
-} from "nodefony";
+import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 import type FrontendService from "../service/FrontendService";
 
 const options: OptionsCommandInterface = {
@@ -14,7 +10,7 @@ const options: OptionsCommandInterface = {
  * `nodefony frontend:dev` — démarre manuellement le superviseur Vite.
  *
  * Utile quand `autoStartInDevelopment: false` dans la config, ou pour
- * relancer après un `frontend:stop`.
+ * relancer le superviseur Vite manuellement.
  */
 class FrontendDev extends Command {
   constructor(cli: CliKernel) {
@@ -23,8 +19,7 @@ class FrontendDev extends Command {
 
   override async generate(): Promise<this> {
     const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (!svc) {
       this.log("service `frontend` not registered", "ERROR");
       return this;
