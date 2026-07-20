@@ -30,6 +30,16 @@ import type {
   IRedisConfigInput,
 } from "./nodefony/interfaces/IRedisConfig";
 
+// Augmente le registre de config des modules → `use("@nodefony/redis", { … })`
+// propose les clés typées en complétion, et REFUSE une clé inconnue. Sans cette
+// déclaration, `use()` retombe sur `Record<string, unknown>` : une clé mal
+// orthographiée est retirée par Zod au boot, sans un mot.
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/redis": IRedisConfigInput;
+  }
+}
+
 @services([RedisService])
 class Redis extends Module<IRedisConfig> {
   /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */

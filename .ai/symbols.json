@@ -1,13 +1,13 @@
 {
-  "generated": "2026-07-20T17:47:29.951Z",
+  "generated": "2026-07-20T18:17:23.069Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1031,
-    "symbols": 2789,
+    "symbols": 2790,
     "classes": 327,
     "interfaces": 732,
-    "types": 322,
+    "types": 323,
     "enums": 4,
     "functions": 831,
     "constants": 573
@@ -6341,6 +6341,14 @@
       "exported": true,
       "module": "@nodefony/documentation",
       "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "DocumentationConfigInput": {
+      "name": "DocumentationConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/documentation/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Type d'ENTRÉE (ce que l'utilisateur écrit dans `use()`, avant application des défauts) — tout y est optionnel. C'est CE type qui augmente le registre `NodefonyModuleConfig`, jamais la sortie : exig…"
     },
     "documentationConfigSchema": {
       "name": "documentationConfigSchema",
@@ -20895,6 +20903,9 @@
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "DocumentationConfigInput": [
+        "src/packages/@nodefony/documentation/index.ts"
       ],
       "DocumentationService": [
         "src/packages/@nodefony/documentation/index.ts"

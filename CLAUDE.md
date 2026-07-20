@@ -445,10 +445,22 @@ intégrée au `resolve()` du descripteur, dans le core).
 - Cluster : `nodefony/config/cluster/cluster.config.ts` reste un fichier **séparé kernel-free** (le master le lit standalone AVANT boot) — ne PAS le mettre dans `nodefony.config.ts`.
 
 **Convention module (OBLIGATOIRE pour le typage de `use()`)** : tout module qui expose une config doit
-(1) publier son interface `IXConfig`, et (2) **augmenter le registre** `NodefonyModuleConfig` via
-`declare module "nodefony"` (clé = nom du module → `IXConfig`) pour que `use("@nodefony/x", …)` propose
-ses clés typées. Sans augmentation, `use()` accepte quand même la config (`Record<string, unknown>`) —
-jamais bloquant, juste moins d'auto-complétion. Recette complète : [`docs/guides/configuration.md`](docs/guides/configuration.md).
+(1) publier son type d'**entrée** `IXConfigInput` / `XConfigInput` (`z.input` du schéma — tout
+optionnel), et (2) **augmenter le registre** `NodefonyModuleConfig` via `declare module "nodefony"`
+(clé = nom du module → ce type d'entrée) pour que `use("@nodefony/x", …)` propose ses clés typées.
+
+⚠️ **Le type d'ENTRÉE, jamais celui de sortie** (`z.infer`) : après application des défauts les champs
+sont requis, et surcharger une seule clé obligerait l'app à réécrire toute la config.
+
+⚠️ **L'enjeu n'est pas l'auto-complétion.** Sans augmentation, `use()` accepte tout
+(`Record<string, unknown>`) — donc une clé **mal orthographiée compile**, puis est **retirée par Zod
+au boot sans un mot** : la config a l'air prise en compte, elle ne l'est pas. L'augmentation transforme
+cette panne silencieuse en erreur de compilation. Un module tiers qui ne l'applique pas reste
+fonctionnel (jamais bloquant) — il perd juste ce filet.
+
+Le scaffold (`nodefony create module`) génère déjà cette déclaration : un module neuf naît conforme.
+Sentinelle de la convention : `@nodefony/redis` `nodefony/tests/unit/moduleConfigRegistry.types.test.ts`.
+Recette complète : [`docs/guides/configuration.md`](docs/guides/configuration.md).
 
 **Convention STRUCTURE de la config d'un module (figée 2026-07-04 — cible, migration en cours, réf = `@nodefony/drizzle`)** :
 chaque module = EXACTEMENT 2 fichiers, mêmes noms PARTOUT (zéro question) —

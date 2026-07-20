@@ -22,9 +22,22 @@ import {
   defineDocumentationConfig,
   documentationConfigJsonSchema,
 } from "./nodefony/config/defineModuleConfig";
-import type { DocumentationConfig } from "./nodefony/config/config";
+import type {
+  DocumentationConfig,
+  DocumentationConfigInput,
+} from "./nodefony/config/config";
 import DocumentationService from "./nodefony/service/DocumentationService";
 import DocumentationController from "./nodefony/controller/DocumentationController";
+
+// Augmente le registre de config des modules → `use("@nodefony/documentation", { … })`
+// propose les clés typées en complétion, et REFUSE une clé inconnue. Sans cette
+// déclaration, `use()` retombe sur `Record<string, unknown>` : une clé mal
+// orthographiée est retirée par Zod au boot, sans un mot.
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/documentation": DocumentationConfigInput;
+  }
+}
 
 @services([DocumentationService])
 @controllers([DocumentationController])

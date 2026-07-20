@@ -131,6 +131,16 @@ registerIdempotencyStore("redis", (ctx) => {
   );
 });
 
+// Augmente le registre de config des modules → `use("@nodefony/framework", { … })`
+// propose les clés typées en complétion, et REFUSE une clé inconnue. Sans cette
+// déclaration, `use()` retombe sur `Record<string, unknown>` : une clé mal
+// orthographiée est retirée par Zod au boot, sans un mot.
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/framework": FrameworkConfigInput;
+  }
+}
+
 @services([Router, Eta, AdminBroker, MemoryIdempotencyStore])
 class Framework extends Module<FrameworkConfig> {
   /** Balayage périodique du store d'idempotence SQL (drizzle) — `null` sinon. */

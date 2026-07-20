@@ -151,6 +151,16 @@ export const documentationConfigSchema = z
 export type DocumentationConfig = z.infer<typeof documentationConfigSchema>;
 
 /**
+ * Type d'ENTRÉE (ce que l'utilisateur écrit dans `use()`, avant application des
+ * défauts) — tout y est optionnel. C'est CE type qui augmente le registre
+ * `NodefonyModuleConfig`, jamais la sortie : exiger la forme normalisée
+ * obligerait l'app à réécrire chaque défaut.
+ */
+export type DocumentationConfigInput = z.input<
+  typeof documentationConfigSchema
+>;
+
+/**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours
  * valides par construction ; passés au `super(..., config)` du Module class.
  */

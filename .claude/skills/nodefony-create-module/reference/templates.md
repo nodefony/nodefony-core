@@ -293,12 +293,16 @@ export {
   {{name}}ConfigJsonSchema,
 } from "./nodefony/config/defineModuleConfig";
 
-// Typage de `use("@nodefony/{{name}}", …)` dans `nodefony.config.ts` (convention figée
-// 2026-06-05) : on augmente le registre du core par declaration merging (pattern Nuxt/Pinia)
-// → l'app obtient l'auto-complétion + le hover TSDoc des clés de config de CE module.
+// Typage de `use("@nodefony/{{name}}", …)` dans `nodefony.config.ts` : on augmente le
+// registre du core par declaration merging (pattern Nuxt/Pinia) → l'app obtient
+// l'auto-complétion + le hover TSDoc des clés de config de CE module, et une clé mal
+// orthographiée devient une erreur de COMPILATION au lieu d'un strip Zod silencieux.
+// ⚠️ Le type d'ENTRÉE (`z.input`, tout optionnel), jamais celui de sortie (`z.infer`) :
+// après application des défauts les champs sont requis, et surcharger une seule clé
+// obligerait l'app à réécrire toute la config.
 declare module "nodefony" {
   interface NodefonyModuleConfig {
-    "@nodefony/{{name}}": {{NameClass}}Config;
+    "@nodefony/{{name}}": {{NameClass}}ConfigInput;
   }
 }
 

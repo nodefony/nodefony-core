@@ -204,7 +204,11 @@ modules: [
 
 > **Typage de `use()`** : pour que `use("@nodefony/{{name}}", …)` propose les clés de config du module,
 > le module augmente le registre (cf template `index.ts` ci-dessous) :
-> `declare module "nodefony" { interface NodefonyModuleConfig { "@nodefony/{{name}}": {{NameClass}}Config } }`.
+> `declare module "nodefony" { interface NodefonyModuleConfig { "@nodefony/{{name}}": {{NameClass}}ConfigInput } }`.
+> ⚠️ Le type d'**ENTRÉE** (`z.input`, tout optionnel), JAMAIS celui de sortie (`z.infer`) : après
+> application des défauts les champs sont requis, et l'app devrait alors réécrire toute la config
+> pour surcharger une seule clé. Sans augmentation, `use()` accepte quand même (`Record<string,
+unknown>`) — jamais bloquant, mais une clé mal orthographiée part au silence (strip Zod au boot).
 
 **Séquence post-scaffold FIABLE** (ordre vécu 2026-05-22 sur `mediasoup` — chaque étape évite un crash) :
 
