@@ -106,11 +106,11 @@ valeurs — `Events` (`Kernel.ts:222`). La chaîne réelle est
 `start() → preRegister() → boot() → onReady() → initServers()`, chaque maillon appelant le suivant.
 
 **2. Un hook de module ne peut pas geler le boot.** Les phases sensibles passent par
-`Kernel.fireLifecycle()` (`Kernel.ts:2513`) et non par un `await` nu : chaque hook est **borné par un
+`Kernel.fireLifecycle()` (`Kernel.ts:2531`) et non par un `await` nu : chaque hook est **borné par un
 timeout** et son échec est arbitré par une **politique de criticité**. Le chemin chaud HTTP/WS, lui,
 garde l'émission nue — zéro timer, zéro allocation par requête.
 
-**3. Le boot rend un verdict.** `Kernel.getBootReport()` (`Kernel.ts:2303`) agrège une vérité unique
+**3. Le boot rend un verdict.** `Kernel.getBootReport()` (`Kernel.ts:2321`) agrège une vérité unique
 — modules chargés, modules ignorés, serveurs réellement en écoute — consommée par le log, le code de
 sortie, le superviseur de dev et Studio. Un boot ne meurt jamais en silence.
 
@@ -225,7 +225,7 @@ billing: câblé sur invoices             ← onKernelReady
 BOOT ok — 4 module(s), 2 serveur(s) en écoute (http://127.0.0.1:5151, ws://127.0.0.1:5151)
 ```
 
-La dernière ligne est le **verdict** (`Kernel.logBootVerdict()`, `Kernel.ts:2432`). Tant qu'elle n'est
+La dernière ligne est le **verdict** (`Kernel.logBootVerdict()`, `Kernel.ts:2450`). Tant qu'elle n'est
 pas là, le boot n'est pas fini.
 
 ## 🧩 Les points d'accroche — le catalogue des hooks
@@ -334,10 +334,31 @@ override async onKernelReady(): Promise<this> {
 
 Et si la migration échoue ? Le comportement dépend de la criticité déclarée, et c'est **voulu** :
 
-| `static critical` | En développement                         | En production                                     |
-| ----------------- | ---------------------------------------- | ------------------------------------------------- |
-| `true` (défaut)   | `WARNING`, le boot continue (confort DX) | **boot interrompu** — le pod crashe et redémarre  |
-| `false`           | `WARNING`, le boot continue              | `WARNING`, le boot continue (dégradé mais vivant) |
+| `static critical`    | En développement                          | En production                                     |
+| -------------------- | ----------------------------------------- | ------------------------------------------------- |
+| `true` (défaut)      | `WARNING` + **avertissement de sanction** | **boot interrompu** — le pod crashe et redémarre  |
+| `false`              | `WARNING`, le boot continue               | `WARNING`, le boot continue (dégradé mais vivant) |
+| _absent_ (non tagué) | `WARNING` + **avertissement de sanction** | **boot interrompu** — traité comme critique       |
+
+⚠️ **La troisième ligne est le piège** : un écouteur posé à la main
+(`kernel.on("onBoot", …)`, hors d'un `Module`) ne porte **aucune** étiquette de criticité. Il est
+donc traité comme **critique** — toléré en développement, il **interrompt le boot en production**.
+Même code, deux comportements, et l'écart ne se découvrait qu'au déploiement.
+
+Le défaut reste strict — un pod à moitié booté est pire qu'un pod qui redémarre — mais le
+développement **annonce désormais la sanction** :
+
+```
+boot lifecycle: en production, cet échec de "connectBillingDatabase" INTERROMPRAIT le boot
+  — ce hook ne porte aucun tag de criticité (posé hors d'un Module ?), et un hook non tagué
+  est traité comme CRITIQUE. Déclarer `static critical = false` sur le Module porteur si
+  l'échec est tolérable.
+```
+
+Le message **nomme** le fautif : à défaut de module propriétaire, le nom de la fonction sert de
+repli — sans quoi le journal écrivait « (anonyme) » et ne désignait personne, précisément là où
+l'information compte le plus (en production, au moment où le boot s'arrête). `critical: false` reste
+silencieux : c'est une décision assumée, et un avertissement qu'on apprend à ignorer ne protège plus.
 
 L'arbitrage est fait par `Kernel.isBootErrorFatal()` (`Kernel.ts:2217`). Une exception : une erreur de
 **configuration** (`BootConfigurationError`) est fatale **même en développement** — un serveur vivant
@@ -515,7 +536,7 @@ de l'orchestrateur. Nodefony borne ça sur trois axes.
   développement, 60 s en production**. Large à dessein : il borne la pendaison infinie, pas la
   lenteur normale.
 - **Alerte de lenteur** — au-delà de `NODEFONY_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:2189`), un
-  `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:2543`).
+  `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:2564`).
 - **Fatal ou fail-soft** — arbitré par `Kernel.isBootErrorFatal()` (`Kernel.ts:2217`) : fatal si le
   module est critique **et** (on est en production **ou** c'est une erreur de configuration) ; sinon
   `WARNING` et le boot continue.
@@ -525,13 +546,13 @@ de module, et ce sont les étiquettes posées par `tagListener()` (`lifecycleTag
 par `readListenerTags()` (`lifecycleTags.ts:60`) qui portent le propriétaire et la criticité.
 
 > [!NOTE]
-> Ces garanties s'arrêtent à la porte du chemin chaud. `Kernel.fireLifecycle()` (`Kernel.ts:2513`)
+> Ces garanties s'arrêtent à la porte du chemin chaud. `Kernel.fireLifecycle()` (`Kernel.ts:2531`)
 > ne remplace l'émission nue **que** sur la chaîne `onPreRegister` → `onPostReady`. Une requête HTTP
 > ou WebSocket n'alloue aucun timer de garde : la résilience du boot ne se paie pas par requête.
 
 ## 📡 Observabilité — le verdict de boot
 
-`Kernel.getBootReport()` (`Kernel.ts:2303`) produit un `IBootReport` (`bootReport.ts:64`) : durée,
+`Kernel.getBootReport()` (`Kernel.ts:2321`) produit un `IBootReport` (`bootReport.ts:64`) : durée,
 modules chargés, modules en échec, modules gatés, comptes d'erreurs du journal, serveurs en écoute,
 santé et remédiation suggérée.
 
@@ -540,7 +561,7 @@ les deux faisait crier « dégradé » à tort pendant toute la montée des serv
 « pas encore mesuré » n'est pas « mesuré, vraiment zéro » :
 
 - `healthy = false` **uniquement** si un profil serveur était attendu, que la mesure a été faite
-  (`Kernel.captureBootServers()`, `Kernel.ts:2269`) et qu'**aucun** serveur n'écoute (`Kernel.ts:2329`) ;
+  (`Kernel.captureBootServers()`, `Kernel.ts:2287`) et qu'**aucun** serveur n'écoute (`Kernel.ts:2329`) ;
 - des modules ignorés **seuls** laissent le boot `healthy` : dégradé, mais vivant.
 
 Le verdict est **toujours** logué, production comprise, en trois formes :
@@ -552,7 +573,7 @@ Le verdict est **toujours** logué, production comprise, en trois formes :
 | `BOOT ÉCHEC`   | `CRITIC`  | profil serveur attendu mais **aucun serveur en écoute**                |
 
 Deux aides s'y greffent. Une **remédiation** heuristique — `Kernel.bootRemediationHint()`
-(`Kernel.ts:2412`) traduit un `import()` en échec de type « Cannot find package » en « dist périmé
+(`Kernel.ts:2430`) traduit un `import()` en échec de type « Cannot find package » en « dist périmé
 probable ⇒ `npm run clean && npm run build` ». Et un **journal de boot** —
 `Kernel.countBootLogIssues()` (`Kernel.ts:2342`) compte les `ERROR`/`WARNING` émis pendant le boot,
 figés à `onPostReady` : après cet instant, le tampon mélange boot et exécution normale.

@@ -128,14 +128,28 @@ du core (declaration merging, pattern Nuxt/Pinia) :
 // dans @nodefony/x
 declare module "nodefony" {
   interface NodefonyModuleConfig {
-    "@nodefony/x": IXConfig;
+    "@nodefony/x": IXConfigInput; // ⚠️ le type d'ENTRÉE, pas celui de sortie
   }
 }
 ```
 
-Sans augmentation, `use()` accepte quand même la config (`Record<string, unknown>`) — jamais bloquant,
-juste moins d'auto-complétion. **Convention** : tout module qui expose une config publie son `IXConfig`
-et augmente ce registre (`nodefony-create-module` le scaffolde).
+⚠️ **Le type d'ENTRÉE** (`z.input` du schéma — tout optionnel), **jamais celui de sortie**
+(`z.infer`) : après application des défauts, les champs sont requis. Surcharger une seule clé
+obligerait alors l'app à réécrire toute la configuration du module.
+
+**Ce que l'augmentation évite vraiment.** Sans elle, `use()` accepte `Record<string, unknown>` : une
+clé **mal orthographiée compile**, puis Zod la retire au boot **sans un mot**. La configuration a
+l'air prise en compte, elle ne l'est pas — et rien, ni au build ni au démarrage, ne le signale.
+L'augmentation transforme cette panne silencieuse en erreur de compilation :
+
+```typescript
+use("@nodefony/redis", { enabledd: false });
+//                       ^^^^^^^^ erreur de compilation, au lieu d'un silence au boot
+```
+
+Un module tiers qui ne l'applique pas reste **fonctionnel** (jamais bloquant) — il perd simplement ce
+filet. **Convention** : tout module qui expose une config publie son type d'entrée et augmente ce
+registre. `nodefony create module` le génère déjà : un module neuf naît conforme.
 
 ## Réactivité : `hot` vs `boot`
 
