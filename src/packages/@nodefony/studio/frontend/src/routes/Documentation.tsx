@@ -33,8 +33,6 @@ import {
   PAGE_CONTENT_HEIGHT,
   PageLayout,
 } from "../components/ui";
-import { LiveGraphSection } from "../realtime/socket/LiveGraphSection";
-import { findSocketLiveGraph } from "../realtime/socket/pages";
 
 /* ════════════════════════════════════════════════════════════════════════
  * Documentation — portail unifié `/nodefony/documentation`.
@@ -43,10 +41,12 @@ import { findSocketLiveGraph } from "../realtime/socket/pages";
  * + frontmatter, index transverse par section). Studio reste GÉNÉRIQUE : il
  * affiche n'importe quel `.md` du repo via `MarkdownDoc` + DocLayout.
  *
- * Graphes live = registry isomorphe `realtime/socket/pages.ts` (composants
- * `*LiveGraph` du dossier). Mapping slug↔composant via `findSocketLiveGraph()`
- * qui accepte les 2 formats (POC court + scan FS long). Une page sans entrée
- * dans le registry rend juste le markdown (pas de bloc « Schéma live »).
+ * Graphes live : plus rien à câbler ICI. Une page qui veut un schéma vivant
+ * pose une fence ```nodefony-livegraph — `MarkdownDoc` la résout contre le
+ * registre `realtime/socket/liveGraphs.ts` et monte le composant AU FIL du
+ * propos. Avant, le graphe était injecté par SLUG et collé en pied de page :
+ * réservé aux pages d'un seul dossier, et jamais là où il expliquait quelque
+ * chose.
  *
  * Cf mémoire [[project_doc_portal_faisabilite]].
  * ════════════════════════════════════════════════════════════════════════ */
@@ -200,9 +200,6 @@ export const Documentation = observer(() => {
   const markdown = page.data
     ? resolveVars(page.data.markdown, page.data.vars)
     : "";
-  // Graphe live optionnel — pour l'instant uniquement les pages Socket.
-  const LiveGraph = findSocketLiveGraph(activeSlug);
-
   // Recherche dans la nav : filtre les pages (titre) ; déplie les sections trouvées.
   const navQ = navQuery.trim().toLowerCase();
   const navSections = sections
@@ -478,13 +475,6 @@ export const Documentation = observer(() => {
             maxWidth={1000}
             onInternalLink={onInternalLink}
           />
-          {LiveGraph && (
-            <LiveGraphSection
-              LiveGraph={LiveGraph}
-              height={560}
-              title={`Schéma live — ${page.data?.title ?? "page"}`}
-            />
-          )}
         </DataState>
       </DocLayout>
     </PageLayout>

@@ -437,7 +437,8 @@ Le branchement lui-même est **fail-soft annoncé** : la fabrique du pilote `red
 indisponibles » — et rend `null`, ce qui laisse le hub en mode local. L'application continue de
 fonctionner sur un seul pod, et le journal dit pourquoi elle n'en fait pas plus.
 
-Détails du fan-out et du protocole : [le backplane](../../../../../docs/realtime/socket/06-backplane.md).
+Détails du fan-out et du contrat de backplane : [l'architecture du temps réel](../../realtime/docs/architecture.md) ·
+le format des messages : [le protocole](../../realtime/docs/protocole.md).
 
 ## Résilience — ce qui se passe quand Redis tombe
 
@@ -706,8 +707,8 @@ Couverture : `npm run coverage` dans `@nodefony/redis`.
 - 🧩 **Les briques branchées dessus** : [sessions](../../http/docs/session.md) ·
   [jetons](../../security/docs/tokens.md) · [passkeys](../../security/docs/webauthn.md) ·
   [idempotence](../../framework/docs/idempotence.md)
-- 📡 **Le temps réel cross-pod** : [le backplane](../../../../../docs/realtime/socket/06-backplane.md) ·
-  [distribuer la socket](../../../../../docs/realtime/socket/08-distribue.md)
+- 📡 **Le temps réel cross-pod** : [le backplane](../../realtime/docs/architecture.md) ·
+  [déployer la socket en multi-pod](../../realtime/docs/configuration.md)
 - 🗄️ **Le durable, à côté** : [`@nodefony/drizzle`](../../drizzle/docs/index.md) ·
   [`@nodefony/mongoose`](../../mongoose/docs/index.md) ·
   [choisir un store de sessions](../../../../../docs/guides/session-storage.md)

@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Tabs } from "@mantine/core";
+import { Suspense, useState, type ReactNode } from "react";
+import { Tabs, Text } from "@mantine/core";
 import {
   IconActivityHeartbeat,
   IconArrowsSplit2,
@@ -8,14 +8,14 @@ import {
   IconBroadcast,
   IconCircuitResistor,
 } from "@tabler/icons-react";
-import { socketPages } from "./pages";
+import { LIVE_GRAPH_CATALOG } from "./liveGraphs";
 
 /* ════════════════════════════════════════════════════════════════════════
  * SocketExplorer — le FORAGE de la brique « Realtime Hub » du Jumeau Vivant.
  *
  * Les vues live de la Socket Nodefony (Architecture / Fan-out / Backplane /
  * Protocole / Sondes / Actions) en ONGLETS 1er niveau. Réutilise EXACTEMENT
- * les graphes du portail doc via le registre `socketPages` (source UNIQUE,
+ * les graphes du portail doc via le registre `liveGraphs` (source UNIQUE,
  * jamais un 2ᵉ registre) → « il y a même les graphes realtime de la doc ».
  *
  * Temps réel : suit le switch GLOBAL du Twin (`live`), PAS de switch par
@@ -28,9 +28,8 @@ import { socketPages } from "./pages";
 /** Hauteur du graphe (px) — alignée sur le défaut `LiveGraphSection` (doc). */
 const GRAPH_HEIGHT = 560;
 
-/** Icône par facette (slug court) — fallback générique. */
-const SLUG_ICON: Record<string, ReactNode> = {
-  "vue-ensemble": <IconBroadcast size={15} />,
+/** Icône par graphe — fallback générique. */
+const GRAPH_ICON: Record<string, ReactNode> = {
   architecture: <IconBroadcast size={15} />,
   "fan-out": <IconArrowsSplit2 size={15} />,
   backplane: <IconCircuitResistor size={15} />,
@@ -40,16 +39,11 @@ const SLUG_ICON: Record<string, ReactNode> = {
 };
 
 /**
- * Facettes ayant un graphe live (= les pages doc Socket qui en portent un),
- * **dédoublonnées par composant** : `vue-ensemble` et `architecture` partagent
- * `ArchitectureLiveGraph` → on ne garde que la 1ʳᵉ (par ordre) pour ne pas
- * afficher 2 onglets au graphe identique. Résultat = 6 vues distinctes.
+ * Une facette par graphe du catalogue — il est déjà dédoublonné et ordonné à
+ * la source (le registre porte un graphe une seule fois, quel que soit le
+ * nombre de pages qui l'invoquent).
  */
-const FACETS = socketPages
-  .filter((p) => p.LiveGraph)
-  .filter(
-    (p, i, arr) => arr.findIndex((q) => q.LiveGraph === p.LiveGraph) === i,
-  );
+const FACETS = LIVE_GRAPH_CATALOG;
 
 export interface SocketExplorerProps {
   /** Temps réel global du Jumeau (propagé au graphe de l'onglet actif). */
@@ -57,26 +51,34 @@ export interface SocketExplorerProps {
 }
 
 export function SocketExplorer({ live }: SocketExplorerProps) {
-  const [tab, setTab] = useState<string>(FACETS[0]?.slug ?? "");
+  const [tab, setTab] = useState<string>(FACETS[0]?.name ?? "");
   return (
-    <Tabs value={tab} onChange={(v) => setTab(v ?? FACETS[0]?.slug ?? "")}>
+    <Tabs value={tab} onChange={(v) => setTab(v ?? FACETS[0]?.name ?? "")}>
       <Tabs.List mb="md">
-        {FACETS.map((p) => (
+        {FACETS.map((g) => (
           <Tabs.Tab
-            key={p.slug}
-            value={p.slug}
-            leftSection={SLUG_ICON[p.slug] ?? <IconBroadcast size={15} />}
+            key={g.name}
+            value={g.name}
+            leftSection={GRAPH_ICON[g.name] ?? <IconBroadcast size={15} />}
           >
-            {p.title}
+            {g.label}
           </Tabs.Tab>
         ))}
       </Tabs.List>
-      {FACETS.map((p) => {
-        const LiveGraph = p.LiveGraph!;
+      {FACETS.map((g) => {
+        const LiveGraph = g.component;
         return (
-          <Tabs.Panel key={p.slug} value={p.slug}>
-            {tab === p.slug ? (
-              <LiveGraph live={live} height={GRAPH_HEIGHT} />
+          <Tabs.Panel key={g.name} value={g.name}>
+            {tab === g.name ? (
+              <Suspense
+                fallback={
+                  <Text size="sm" c="dimmed" py="xl">
+                    Chargement du schéma…
+                  </Text>
+                }
+              >
+                <LiveGraph live={live} height={GRAPH_HEIGHT} />
+              </Suspense>
             ) : null}
           </Tabs.Panel>
         );

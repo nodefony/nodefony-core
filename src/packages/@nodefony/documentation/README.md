@@ -102,10 +102,10 @@ Slug inconnu ou non sûr → **404** avec un corps générique (`{ "slug": "…"
 Le slug est un identifiant **URL-safe sur un seul segment** (`{slug}` dans la route). C'est une **clé
 d'allowlist**, jamais un chemin de fichier.
 
-| Source | Exemple de fichier                   | Slug                              |
-| ------ | ------------------------------------ | --------------------------------- |
-| Racine | `docs/realtime/socket/01-fan-out.md` | `root~realtime~socket~01-fan-out` |
-| Module | `@nodefony/http/docs/index.md`       | `mod~http~index`                  |
+| Source | Exemple de fichier               | Slug                          |
+| ------ | -------------------------------- | ----------------------------- |
+| Racine | `docs/guides/session-storage.md` | `root~guides~session-storage` |
+| Module | `@nodefony/http/docs/index.md`   | `mod~http~index`              |
 
 Le `/` devient `~` ; le scope npm (`@nodefony/`) est retiré.
 

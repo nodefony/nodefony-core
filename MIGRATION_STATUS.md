@@ -167,9 +167,9 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > **4bis ✅** cœur/API : `kernel` + `request-context` recentrées sur l'API, `react-hooks`, hub core,
 > **`client` CRÉÉE** (bibliothèque cliente isomorphe) ; `container` + `injection` **SUPPRIMÉES**
 > (recouvertes par la transverse `injection-portees`, devenue source canonique du DI) ·
-> **7 ⬜** transverse — **y canoniser `docs/realtime/socket/`** (9 pages « stable » servies
-> par Studio qui décrivent une API `IBackplane` inexistante) et **y fusionner `security/lexique`**
-> (seule page encore hors standard) · **8 ⬜** IA + devkit ·
+> **7 ⬜** transverse — **y fusionner `security/lexique`** (seule page encore hors standard) ;
+> les 8 pages « socket » de `docs/` racine sont **SUPPRIMÉES** (elles décrivaient une API `IBackplane`
+> inexistante), leur contenu revalidé vit dans `@nodefony/realtime/docs/` · **8 ⬜** IA + devkit ·
 > **4ter ⬜** `cookies`, `upload`, `rate-limit`, `observabilite` (http) · `admin`, `templates` (framework).
 > Méthode, plan des vagues et **~140 écarts code↔doc relevés** (F1→F171, correction en session
 > dédiée APRÈS le corpus) : mémoire IA `project_doc_corpus_chantier_kit`.
@@ -380,7 +380,7 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P13.10 | Granularité + cadence AIMD                       | différenciateur, client-driven                      |
 | ✅ P13.11 | Sonde « socket Nodefony »                        | `RealtimeHub.probe()` + endpoint health             |
 
-> **Dettes backplane multi-pod / multi-app** (détail : [`docs/realtime/socket/08-distribue.md`](docs/realtime/socket/08-distribue.md)) :
+> **Dettes backplane multi-pod / multi-app** (détail : [`@nodefony/realtime` — configuration](src/packages/@nodefony/realtime/docs/configuration.md)) :
 >
 > - ✅ **#1 + #2 RÉSOLUES (`c082560`, 2026-06-12)** : `resolveBackplaneOriginId()` = `(POD_NAME ?? hostname):pid` (anti-écho fiable cross-pod k8s) + champ `backplane.namespace` (Zod) → canal `nodefony:realtime:<ns>` dérivé de `kernel.projectName` (fin du cross-talk multi-app Redis mutualisé). +9 tests.
 > - ⬜ **#3 (moyenne)** Frontière inter-module des canaux — design figé 2026-06-05 (`@RealtimeNamespace` + garde `#channelAllowed`, posture WARN → fail-closed avec P6). **Attend P6.** Détail : `realtime-module-isolation-2026-06-05` (mémoire IA `core-dev/audits/`).

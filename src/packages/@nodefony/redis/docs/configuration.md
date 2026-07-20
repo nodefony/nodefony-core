@@ -720,7 +720,7 @@ Couverture : `npm run coverage` dans `@nodefony/redis`.
 - ⚙️ **Configurer une application Nodefony** : [le guide `defineConfig`](../../../../../docs/guides/configuration.md) ·
   [déclarer son infra](../../../../../docs/guides/persistence.md) ·
   [choisir un store de sessions](../../../../../docs/guides/session-storage.md)
-- 📡 **Le temps réel cross-pod** : [le backplane](../../../../../docs/realtime/socket/06-backplane.md)
+- 📡 **Le temps réel cross-pod** : [choisir son driver de backplane](../../realtime/docs/configuration.md)
 - 🗄️ **Le durable, à côté** : [`@nodefony/drizzle`](../../drizzle/docs/index.md) ·
   [`@nodefony/mongoose`](../../mongoose/docs/index.md)
 - 🗺️ **Se situer** : [vue d'ensemble du framework](../../../../../docs/architecture/vue-ensemble.md) ·

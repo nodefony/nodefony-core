@@ -733,6 +733,5 @@ qui compte ici, c'est **ce que les suites prouvent sur la configuration**.
   message, les serveurs WebSocket) · [`@nodefony/security`](../../security/docs/index.md) (zones,
   identité, droits)
 - 🏛️ **Transverse** : [la configuration d'une application](../../../../../docs/guides/configuration.md)
-  (`defineConfig`, `use()`, catalogue d'environnement) ·
-  [le backplane, vu du transport](../../../../../docs/realtime/socket/06-backplane.md)
+  (`defineConfig`, `use()`, catalogue d'environnement)
 - 📖 [Lexique général](../../../../../docs/lexique.md) du framework.

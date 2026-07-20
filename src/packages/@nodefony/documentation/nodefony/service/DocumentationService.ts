@@ -72,7 +72,6 @@ const ROOT_GROUP_LABELS: Record<string, string> = {
   release: "Releases",
   packages: "Packages",
   realtime: "Realtime",
-  "realtime/socket": "Realtime / La Socket Nodefony",
 };
 
 /** Snapshot caché : docs scannés + arbre construit + index slug→doc. */

@@ -47,7 +47,7 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 1. [Serveurs](servers.md) — le WS n'a pas de port à lui : il se greffe sur son porteur HTTP.
 2. [Sessions](session.md) — la session côté WebSocket, et pourquoi elle passe par l'ALS.
-3. [La socket Nodefony](../../../../../docs/realtime/socket/01-vue-ensemble.md) — la couche au-dessus,
+3. [La socket Nodefony](../../realtime/docs/index.md) — la couche au-dessus,
    qui multiplexe N canaux sur une connexion.
 
 ## 🗂️ Les briques du module

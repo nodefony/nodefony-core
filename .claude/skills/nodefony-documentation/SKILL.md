@@ -513,7 +513,7 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
   absorbe la laideur du path relatif et liste tous les MD en bloc. Pattern :
   ```ts
   const RAW_MAP = import.meta.glob<string>(
-    "../../../../../../../../docs/realtime/socket/*.md",
+    "../../../../../../../../src/packages/@nodefony/realtime/docs/*.md",
     { query: "?raw", import: "default", eager: true },
   );
   ```
@@ -521,15 +521,15 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
   le nouveau fichier matching le pattern, ré-évalue le module).
 - **PIÈGE Vite glob #1 — pattern LITTÉRAL** : le path doit être une string statique
   (Vite parse à la compile-time). Pas de concat, pas de template literal. Si tu
-  changes de profondeur du fichier hôte (ex : `routes/` → `realtime/socket/`),
-  recompte les `..` à la main, le compilateur ne te le dit pas.
+  changes de profondeur du fichier hôte (ex : `routes/` → un sous-dossier plus
+  profond), recompte les `..` à la main, le compilateur ne te le dit pas.
 - **PIÈGE Vite glob #2 — `Object.assign({})` vide = glob qui match rien** : si le
   transform Vite (`curl /@fs/.../pages.ts`) montre `Object.assign({})` SANS entrée,
   c'est que le glob ne résout aucun fichier (mauvais nombre de `..`, ou en dehors
   de `server.fs.allow`). Diagnostic 30 secondes vs heures perdues à chercher le
   bug React. **Toujours `curl` la transform après écriture du `pages.ts`**.
 - **Backend scan hiérarchique** (`DocumentationController.#listRootDocs`) :
-  grouper par chemin parent COMPLET (`realtime/socket`), pas par 1ᵉʳ segment (qui
+  grouper par chemin parent COMPLET (`<a>/<b>`), pas par 1ᵉʳ segment (qui
   fusionnait à plat). Map `labels` enrichie pour les chemins fréquents ; fallback
   auto-capitalisé en `<segment> / <segment>` pour les inconnus.
 - **Frontmatter parsé côté serveur** : `#listRootDocs` lit chaque `.md` et appelle
@@ -615,12 +615,12 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
   **Leçon** : pour un docs-site, préférer **container + flex largeur fixe** au **page + sticky** (ce
   dernier dépend de trop de variables shell). Gates : typecheck studio 0, transforms Vite 200 (HMR).
 - **1.2.0** (2026-05-28) — **Vitrine « doc Socket » + Registry Vite glob + Backend scan hiérarchique**.
-  Création de la première vitrine de doc complète (`docs/realtime/socket/`) :
-  7 pages MD (vue-ensemble · architecture · protocole · fan-out · sondes · backplane ·
-  actions), avec admonitions GitHub, anchors hover, code-copy, Mermaid, liens internes.
+  Création de la première vitrine de doc complète — la doc « socket Nodefony », aujourd'hui
+  dans [`@nodefony/realtime/docs/`](../../../src/packages/@nodefony/realtime/docs/index.md) :
+  pages MD avec admonitions GitHub, anchors hover, code-copy, Mermaid, liens internes.
   **Backplane détaillé** (Loopback / Cluster IPC / Redis pub-sub / Kafka) — tableau
   comparatif, arbre de décision, sécurité, anti-patterns. **Registry frontend**
-  `realtime/socket/pages.ts` : `import.meta.glob` charge tous les MD du dossier en
+  `pages.ts` : `import.meta.glob` charge tous les MD du dossier en
   bloc (eager, `?raw`), parse frontmatter mini-inline, expose `socketPages` trié par
   préfixe numérique. Map `LIVE_GRAPHS[slug]` associe optionnellement un composant
   graphe live (extensible). Brique **`LiveGraphSection`** (Paper + switch + graphe)
@@ -628,9 +628,9 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
   `realtime:health` et alimente le `liveNodeData` du `FlowGraph`. Page POC
   `/nodefony/socket-poc?sub=<slug>` route via `useSearchParams`. **Backend Studio
   `DocumentationController.#listRootDocs`** étendu : groupement par chemin parent
-  COMPLET (`realtime/socket` ≠ `realtime/` plat) + parser frontmatter côté serveur
+  COMPLET (`<a>/<b>` ≠ `<a>/` plat) + parser frontmatter côté serveur
   → tree expose les vrais titres + `page()` remonte `updated`/`status`/`sourceUrl`.
-  Labels enrichis (`Realtime / La Socket Nodefony`). Routing migré sur la page
+  Labels enrichis par chemin de groupe. Routing migré sur la page
   principale `/nodefony/documentation` (`?doc=<slug>`). **PIÈGES retenus** :
   Vite glob pattern littéral statique (8 `..` vs 7 selon profondeur du fichier
   hôte) ; turbo cache parfois capricieux sur le rebuild Studio (utiliser

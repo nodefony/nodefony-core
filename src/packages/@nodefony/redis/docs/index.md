@@ -55,7 +55,7 @@ abonné sur le pod B.
 
 1. [Configuration](./configuration.md) — et surtout **pourquoi trois connexions** : un client abonné
    ne peut plus émettre de commandes, c'est le protocole Redis qui l'impose.
-2. [Le backplane](../../../../../docs/realtime/socket/06-backplane.md) — le fan-out cross-process,
+2. [Le backplane](../../realtime/docs/architecture.md) — le fan-out cross-process,
    qui consomme les connexions `publish` / `subscribe` de ce module.
 3. [Architecture interne](./architecture.md) — le cloisonnement par namespace : le pub/sub Redis
    ignore le numéro de base, deux déploiements sur un Redis mutualisé se parleraient.
@@ -275,8 +275,8 @@ chose**.
   [idempotence](../../framework/docs/idempotence.md)
 - 🗄️ **Le durable, à côté** : [`@nodefony/drizzle`](../../drizzle/docs/index.md) (le défaut) ·
   [`@nodefony/mongoose`](../../mongoose/docs/index.md)
-- 📡 **Le temps réel cross-pod** : [le backplane](../../../../../docs/realtime/socket/06-backplane.md) ·
-  [la socket Nodefony](../../../../../docs/realtime/socket/01-vue-ensemble.md)
+- 📡 **Le temps réel cross-pod** : [le backplane](../../realtime/docs/architecture.md) ·
+  [la socket Nodefony](../../realtime/docs/index.md)
 - 🗺️ **Se situer** : [vue d'ensemble du framework](../../../../../docs/architecture/vue-ensemble.md) ·
   [choisir un store de sessions](../../../../../docs/guides/session-storage.md) ·
   [lexique général](../../../../../docs/lexique.md)

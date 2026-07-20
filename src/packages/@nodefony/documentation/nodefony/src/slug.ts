@@ -14,8 +14,8 @@
  *     caractère de contrôle) AVANT même de chercher dans l'allowlist.
  *
  * Schéma de slug (URL-safe, un seul segment de route) :
- *  - doc racine `docs/realtime/socket/01-x.md` → `root~realtime~socket~01-x`
- *  - doc module `<module>/docs/index.md`       → `mod~<module>~index`
+ *  - doc racine `docs/guides/session-storage.md` → `root~guides~session-storage`
+ *  - doc module `<module>/docs/index.md`         → `mod~<module>~index`
  *
  * Le `/` du chemin devient `~` (le slug doit tenir dans UN segment de route
  * `/api/page/{slug}`). On NE reconstruit jamais le chemin depuis le slug.

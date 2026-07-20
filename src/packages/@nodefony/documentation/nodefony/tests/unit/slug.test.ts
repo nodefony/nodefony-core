@@ -34,8 +34,8 @@ describe("isSafeSlug", () => {
 
 describe("pathToSlug", () => {
   it("racine : retire .md et remplace / par ~", () => {
-    expect(pathToSlug({ kind: "root" }, "realtime/socket/01-x.md")).toBe(
-      "root~realtime~socket~01-x",
+    expect(pathToSlug({ kind: "root" }, "guides/session-storage.md")).toBe(
+      "root~guides~session-storage",
     );
   });
   it("module : retire le scope @nodefony/", () => {

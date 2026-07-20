@@ -28,13 +28,12 @@ docs/
 ├── architecture/      ← concepts transverses : kernel, DI, build (BUILDER.md), realtime-socket
 ├── guides/            ← how-to : frontend React, session storage…
 ├── ia/                ← vision IA : livre-blanc-couche-ia.md (source unique)
-├── realtime/socket/   ← doc « la socket Nodefony » (01-vue-ensemble … 07-actions)
 ├── release/           ← notes de version (nodefony-10)
 ├── session-retros/    ← retex de session datés (matière première des CONSOLIDATION-*)
 └── archives/          ← docs périmés conservés pour l'historique (PROGRESS.md…)
 ```
 
-Pas de numérotation préfixée des dossiers : l'ordre est imposé par le `README.md` de chaque sous-dossier (sauf `realtime/socket/` où la lecture est séquentielle 01→07).
+Pas de numérotation préfixée des dossiers : l'ordre est imposé par le `README.md` de chaque sous-dossier.
 
 > **Ce que `docs/` ne contient pas** : les artefacts internes du développement du cœur — audits datés, POC, plans d'exécution, specs de migration, brouillons — ne vivent **pas** ici. `docs/` ne porte que la documentation destinée à un lecteur du framework ; ces artefacts sont conservés hors du dépôt, dans la mémoire IA (`core-dev/`).
 

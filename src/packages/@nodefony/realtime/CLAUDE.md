@@ -96,12 +96,12 @@ src/packages/@nodefony/realtime/
 `/nodefony/kernel/api/module/realtime/*` (cf `framework/.../KernelAdminApi.ts`).
 Le scan des `docs/*.md` du module est fait par le helper `docsReader.ts`.
 
-✅ **Vitrine pédagogique** (séparée) : `/nodefony/documentation` → section « Realtime / La
-Socket Nodefony » qui surface les 7 fichiers `docs/realtime/socket/*.md` racine avec
-live graphs (FanOut/Protocole/Sondes/Backplane/Actions).
+✅ **Vitrine pédagogique** (séparée) : `/nodefony/documentation` → les pages `docs/*.md` de CE
+module (la doc « socket Nodefony » vit ici, plus dans `docs/` racine) avec live graphs
+(FanOut/Protocole/Sondes/Backplane/Actions).
 
 Les 2 vues cohabitent intentionnellement (cf [[project_doc_portal_faisabilite]] + ADR-0001
-emplacement hybride). Migration éventuelle des 7 fichiers racine vers le module = P13.0.
+emplacement hybride).
 
 ## Roadmap (P13) — resync code 2026-06-12 (autorité : `MIGRATION_STATUS.md` § P13)
 

@@ -34,7 +34,7 @@ icon, pos{x,y}, emphasis?, external?, enter?, info? }` — **`enter`** = id du s
 4. un cas dans **`schemaTitle`**.
 
 **Recette — FORAGE vers une VUE SPÉCIALE non-`TwinSchema`** (ex. brancher des **graphes React Flow** comme
-les 6 vues `realtime/socket/`) : un `LiveGraph` n'est PAS un `TwinSchema` → **brancher dans `Twin.tsx`** :
+les vues à graphe live de la socket Nodefony) : un `LiveGraph` n'est PAS un `TwinSchema` → **brancher dans `Twin.tsx`** :
 `enter: "<x>-view"` sur la brique → dans le rendu, une **map `specialViews: Record<string, ReactNode>`**
 consultée AVANT la carte (`specialViews[current] ?? <TwinMapView/>`, 1 entrée par forage → extensible ; le
 breadcrumb + `schemaTitle("<x>-view")` marchent pareil). **Réutiliser une page route existante** (ex.
@@ -56,7 +56,7 @@ JAMAIS deviner l'ordre ni les noms. Le Jumeau se veut « vivant/honnête » → 
   « Firewall avant Router, sans Parse ni Static » (FAUX) ; réel = **Serveurs → Contexte (requestId/ALS) →
   Route match (hissé) → Parse (sauté si `@Body stream`) → Firewall (`handleSecurity`) → Controller →
   Réponse**, **+ Static en FALLBACK** après une route ratée (≠ static-first). Idem realtime (lire
-  `realtime/socket/`) et ORM (réutiliser `OrmOverview`, pas réécrire).
+  `@nodefony/realtime/MEMORY.md` + ses `docs/`) et ORM (réutiliser `OrmOverview`, pas réécrire).
 
 **Registre de BLOCS UNIFIÉ — `blocks/`** (un contenu écrit 1×, monté partout) : `IBlockDef = IWidgetDef`
 (le `render` est un composant pur). **`useBlockSource(source, live)`** = le CŒUR (snapshot HTTP + live
