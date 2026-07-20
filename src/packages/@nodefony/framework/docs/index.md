@@ -52,12 +52,14 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouve.
 
-| Brique                        | Ce qu'elle résout                                  | Tu en as besoin quand…                           |
-| ----------------------------- | -------------------------------------------------- | ------------------------------------------------ |
-| [Décorateurs](decorateurs.md) | déclarer routes, paramètres, réponses, gardes      | toujours — c'est la surface d'écriture           |
-| [Contrôleurs](controller.md)  | recevoir la requête, répondre, gérer l'erreur      | toujours                                         |
-| [Routage](routing.md)         | apparier une URL à une action, arbitrer, expliquer | deux routes se disputent, ou un 404/405 surprend |
-| [Idempotence](idempotence.md) | empêcher le double effet d'une mutation rejouée    | paiement, commande, tout effet non rejouable     |
+| Brique                          | Ce qu'elle résout                                  | Tu en as besoin quand…                                    |
+| ------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| [Décorateurs](decorateurs.md)   | déclarer routes, paramètres, réponses, gardes      | toujours — c'est la surface d'écriture                    |
+| [Contrôleurs](controller.md)    | recevoir la requête, répondre, gérer l'erreur      | toujours                                                  |
+| [Routage](routing.md)           | apparier une URL à une action, arbitrer, expliquer | deux routes se disputent, ou un 404/405 surprend          |
+| [Idempotence](idempotence.md)   | empêcher le double effet d'une mutation rejouée    | paiement, commande, tout effet non rejouable              |
+| [Admin (data plane)](admin.md)  | monter les API d'admin `/nodefony/<ns>/api/*`      | ton module expose des stats ou actions à Studio et au CLI |
+| [Templates (Eta)](templates.md) | rendre des vues HTML côté serveur                  | tu renvoies des pages HTML plutôt que du JSON             |
 
 ```nodefony-cards
 [
@@ -72,14 +74,15 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
     "meta": "deux routes se disputent, ou un 404/405 surprend" },
   { "icon": "🔁", "title": "idempotence", "href": "idempotence.md",
     "desc": "@Idempotent, la clé d'idempotence, les trois stores et leurs capacités réelles, le GC des entrées expirées, et ce que le client observe quand il rejoue la même clé.",
-    "meta": "paiement, commande, tout effet non rejouable" }
+    "meta": "paiement, commande, tout effet non rejouable" },
+  { "icon": "🛡️", "title": "admin", "href": "admin.md",
+    "desc": "Le data plane d'administration : comment un module déclare son API d'admin via AdminBroker, la convention de route /nodefony/<ns>/api/*, le RBAC fail-closed (ROLE_NODEFONY_ADMIN), le duplex HTTP/WebSocket, le catalogue et le Playground.",
+    "meta": "exposer une API d'admin cohérente CLI ↔ Web" },
+  { "icon": "📄", "title": "templates", "href": "templates.md",
+    "desc": "Le moteur de vues Eta : rendre une vue depuis un contrôleur (renderView, render), résolution des chemins de vues, passage de variables, échappement HTML par défaut contre le XSS, rendu d'erreurs.",
+    "meta": "produire du HTML côté serveur plutôt que du JSON" }
 ]
 ```
-
-> [!NOTE]
-> **Deux briques implémentées n'ont pas encore leur page** : le data plane d'administration
-> (`AdminBroker`, qui monte les routes `/nodefony/<ns>/api/*`) et le moteur de templates Eta. Leur
-> configuration vit dans les blocs Zod de `nodefony/config/config.ts`.
 
 ## 🏛️ Place dans le framework
 

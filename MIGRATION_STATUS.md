@@ -155,7 +155,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 ────────────────────────────────────────────────────────────────────────
  GLOBAL                    ██████▊░░░  68% 119✅ 25🔶 49⬜  (193 tâches · resync 2026-07-10)
 ────────────────────────────────────────────────────────────────────────
- DOC Corpus de référence   ██████████ 100%  56/56 pages conformes · 13/13 hubs en cards
+ DOC Corpus de référence   ██████████ 100%  60/60 pages conformes · 13/13 hubs en cards
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -179,7 +179,8 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > référence d'API = auto (`symbols.json` + Studio), ADR-0001 interdit une référence manuelle ;
 > les 8 pages « socket » de `docs/` racine sont **SUPPRIMÉES** (elles décrivaient une API `IBackplane`
 > inexistante), leur contenu revalidé vit dans `@nodefony/realtime/docs/` · **8 ⬜** IA + devkit ·
-> **4ter ⬜** `cookies`, `upload`, `rate-limit`, `observabilite` (http) · `admin`, `templates` (framework).
+> **4ter ✅** `cookies`, `upload`, `rate-limit`, `observabilite` (http) · `admin`, `templates`
+> (framework) — 6 pages, 4 gates verts, hubs http/framework liés (corpus 54→60).
 > Méthode, plan des vagues et **~180 écarts code↔doc relevés** (F1→F183) : mémoire IA
 > `project_doc_corpus_chantier_kit`. **Les 6 écarts SYSTÉMIQUES sont SOLDÉS** (`024f32a7`→`12cb02e4`) :
 > types realtime nommables côté navigateur (F131) · convention `I` qui cassait `@services()` (F140) ·

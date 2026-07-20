@@ -41,7 +41,9 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 2. [Sessions](session.md) — choisir un store partagé : sans lui, deux pods ne partagent aucune session.
 3. [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) — où se branchent
    rate-limit, en-têtes et firewall.
-4. [Sécurité](../../security/docs/index.md) — le pare-feu applicatif se pose par-dessus ce module.
+4. [Rate-limit](rate-limit.md) — plafonner le débit par client avant que la charge n'atteigne le contrôleur.
+5. [Observabilité](observabilite.md) — corréler les logs par `requestId` pour diagnostiquer à chaud.
+6. [Sécurité](../../security/docs/index.md) — le pare-feu applicatif se pose par-dessus ce module.
 
 **Je fais du temps réel** — WebSocket dans le même contexte que le web.
 
@@ -54,11 +56,15 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouve.
 
-| Brique                                                                      | Ce qu'elle résout                              | Tu en as besoin quand…                            |
-| --------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------- |
-| [Serveurs](servers.md)                                                      | ouvrir, régler, transmettre, fermer proprement | toujours — c'est la fondation                     |
-| [Sessions](session.md)                                                      | de l'état serveur rattaché à un visiteur       | login, panier, préférences, WS authentifié        |
-| [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) | l'ordre exact des étapes, HTTP comme WS        | tu débugges « pourquoi ça passe / ça bloque ici » |
+| Brique                                                                      | Ce qu'elle résout                               | Tu en as besoin quand…                            |
+| --------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------- |
+| [Serveurs](servers.md)                                                      | ouvrir, régler, transmettre, fermer proprement  | toujours — c'est la fondation                     |
+| [Sessions](session.md)                                                      | de l'état serveur rattaché à un visiteur        | login, panier, préférences, WS authentifié        |
+| [Cookies](cookies.md)                                                       | lire/écrire des cookies sûrs (SameSite, signés) | tu poses un état côté client hors session         |
+| [Upload & corps](upload.md)                                                 | parser le corps et recevoir des fichiers        | formulaires, imports multipart, API JSON          |
+| [Rate-limit](rate-limit.md)                                                 | plafonner le débit par client (429)             | protéger une API d'un flood ou d'un abus          |
+| [Observabilité](observabilite.md)                                           | tracer et journaliser chaque requête            | débugger en prod, corréler des logs               |
+| [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) | l'ordre exact des étapes, HTTP comme WS         | tu débugges « pourquoi ça passe / ça bloque ici » |
 
 ```nodefony-cards
 [
@@ -68,6 +74,18 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
   { "icon": "🗝️", "title": "session", "href": "session.md",
     "desc": "Cycle de vie complet, cookie opaque, les quatre stores (memory, drizzle, redis, mongoose) et comment auto en choisit un, les délais NIST, la révocation, la session côté WebSocket.",
     "meta": "la brique où un choix de dev (memory) devient un bug de prod" },
+  { "icon": "🍪", "title": "cookies", "href": "cookies.md",
+    "desc": "Lire et écrire des cookies : attributs SameSite, Secure, HttpOnly, Path, Domain, Max-Age/Expires, parsing des cookies entrants, signature HMAC, cookies côté WebSocket. Le cookie de session a sa propre page.",
+    "meta": "dès que tu poses un état côté client hors session" },
+  { "icon": "📎", "title": "upload", "href": "upload.md",
+    "desc": "Réception du corps de requête (JSON, urlencoded, multipart, brut) et upload de fichiers : accès aux champs et fichiers, API UploadedFile (taille, type, move), bornes de payload (413) et sûreté du nom de fichier.",
+    "meta": "formulaires, imports de fichiers, API JSON" },
+  { "icon": "⏳", "title": "rate-limit", "href": "rate-limit.md",
+    "desc": "Limiter le débit par client : fenêtre et quota configurables, réponse 429 avec en-têtes X-RateLimit-* et Retry-After, store pluggable, limites côté WebSocket (handshake + connexions concurrentes), introspection admin.",
+    "meta": "protéger une API d'un flood ou d'un abus" },
+  { "icon": "📈", "title": "observabilite", "href": "observabilite.md",
+    "desc": "Observer les requêtes : lignes de log (pretty ou JSON), requestId de corrélation, W3C Trace Context, trace des frames WebSocket, redaction et sampling d'audit. Où partent les logs est traité par la page Syslog du cœur.",
+    "meta": "débugger en prod, corréler les logs par requête" },
   { "icon": "🔀", "title": "pipeline-requete", "href": "../../../../../docs/architecture/pipeline-requete.md",
     "desc": "Où ce module s'arrête et où le framework prend le relais, et dans quel ordre s'enchaînent contexte, rate-limit, routage, session, CSRF et firewall.",
     "meta": "page transverse — celle qui relie tout" }
@@ -75,11 +93,10 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
 ```
 
 > [!NOTE]
-> **Le module couvre plus que ces trois pages.** Cookies, upload de fichiers, rate-limit, fichiers
-> statiques, certificats et profiler sont implémentés et testés, mais n'ont pas encore leur page
-> dédiée. En attendant, leur configuration est décrite dans les blocs Zod de
-> `nodefony/config/config.ts`, et leur comportement dans la page [Serveurs](servers.md) pour la partie
-> transport.
+> **Deux briques n'ont pas encore leur page dédiée** : les fichiers statiques et les certificats. Ils
+> sont implémentés et testés ; en attendant, leur configuration vit dans les blocs Zod de
+> `nodefony/config/config.ts` et leur comportement est décrit dans la page [Serveurs](servers.md)
+> (repli statique, stratégies de certificats TLS).
 
 ## 🏛️ Place dans le framework
 
