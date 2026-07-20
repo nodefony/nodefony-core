@@ -51,6 +51,18 @@ const REQUIRED = [
     re: /^##\s+(?:\S+\s+)?Pour aller plus loin/im,
   },
 ];
+// Un LEXIQUE / GLOSSAIRE ne décrit pas UN concept : il DÉFINIT du vocabulaire (tables
+// sigle → développé). Lui réclamer « Qu'est-ce/Vision », « Pièges », des ancres `fichier:ligne`
+// et un inventaire de tests fabriquerait du remplissage — exactement ce que le hub évite déjà.
+// 3ᵉ régime, ses propres exigences : une section « Lexique » (le cœur) + une sortie
+// « Pour aller plus loin ». Frontmatter, intro et navigation (Ariane + retour) restent dus.
+const REQUIRED_LEXIQUE = [
+  { key: "lexique", re: /^##\s+(?:\S+\s+)?Lexique/im },
+  {
+    key: "pour aller plus loin",
+    re: /^##\s+(?:\S+\s+)?Pour aller plus loin/im,
+  },
+];
 // Section Tests : obligatoire SAUF opt-out explicite via frontmatter `tests: none`.
 const TESTS_HEADING = /^##\s+(?:\S+\s+)?Tests?\b/im;
 
@@ -94,19 +106,30 @@ for (const f of files) {
   // nom (`demarrer.md`) — elle le déclare alors par `hub: true`.
   const isHub =
     path.basename(f) === "index.md" || /^hub:\s*true\s*$/im.test(src);
+  // Un glossaire se reconnaît à son nom canonique (`lexique.md`/`glossaire.md`, aux deux
+  // niveaux — global et par-module) ou au drapeau `lexique: true` en secours.
+  const isLexique =
+    /^(lexique|glossaire)\.md$/i.test(path.basename(f)) ||
+    /^lexique:\s*true\s*$/im.test(src);
   // La racine `docs/index.md` n'a pas de parent : elle EST le sommet de l'Ariane.
   const isRoot = f.replace(/^\.\//, "") === "docs/index.md";
 
-  // 2) Sections obligatoires.
-  for (const r of isHub ? REQUIRED_HUB : REQUIRED)
+  // 2) Sections obligatoires (un régime par nature de page).
+  const required = isHub
+    ? REQUIRED_HUB
+    : isLexique
+      ? REQUIRED_LEXIQUE
+      : REQUIRED;
+  for (const r of required)
     if (!r.re.test(src)) errs.push(`section manquante: ${r.key}`);
 
   // 3) Intro blockquote (schéma général/mise en contexte).
   if (!/^>\s+/m.test(src)) errs.push("intro (blockquote >) manquante");
 
   // 4) INVENTAIRE DES TESTS — le défaut historique. Obligatoire sauf opt-out.
-  // Un hub renvoie aux compteurs de ses pages, il n'en porte pas lui-même.
-  const testsOptOut = /^tests:\s*none/im.test(src) || isHub;
+  // Un hub renvoie aux compteurs de ses pages, il n'en porte pas lui-même. Un lexique
+  // définit du vocabulaire, il ne teste aucun code : dispensé de tests ET d'ancres.
+  const testsOptOut = /^tests:\s*none/im.test(src) || isHub || isLexique;
   if (!testsOptOut) {
     if (!TESTS_HEADING.test(src))
       errs.push("section « Tests » manquante (ou `tests: none` si justifié)");

@@ -1,15 +1,28 @@
 ---
-title: Lexique sécurité — toutes les abréviations expliquées
-module: security
-audience: dev
+title: "Lexique sécurité — sigles & termes expliqués"
+lang: fr
+module: "@nodefony/security"
+topic: lexique-securite
+section: "Sécurité"
+audience: [developer]
+tags: [lexique, securite, jwt, oauth, webauthn, csrf, rbac, voters, glossaire]
+status: stable
+updated: 2026-07-20
+source: "src/packages/@nodefony/security/docs/lexique.md"
 ---
 
 # Lexique sécurité Nodefony
 
-> Chaque sigle : développé → une explication simple. Tenu à jour pendant le chantier P6 —
-> toute nouvelle abréviation rencontrée dans le code/doc DOIT avoir son entrée ici.
+📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Lexique**
 
-## Architecture & patterns
+> Chaque sigle de la sécurité Nodefony : développé → une explication simple. Toute nouvelle
+> abréviation rencontrée dans le code/doc DOIT avoir son entrée ici. Les termes transverses
+> (opt-in, lazy, DI, fail-closed…) vivent dans le [lexique général](../../../../../docs/lexique.md) —
+> ce fichier ne porte que le vocabulaire PROPRE à la sécurité.
+
+## 📖 Lexique
+
+### Architecture & patterns
 
 | Sigle          | Développé                   | En clair                                                                                                                                                                                           |
 | -------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -19,7 +32,7 @@ audience: dev
 | **mTLS**       | mutual TLS (TLS mutuel)     | HTTPS contrôle l'identité du serveur ; mTLS contrôle AUSSI celle du client (certificat client exigé) — l'ambassade vérifie ton passeport avant d'ouvrir. Machine↔machine, zones admin.             |
 | **CRUD**       | Create Read Update Delete   | Les 4 opérations de base sur une ressource.                                                                                                                                                        |
 
-## Jetons & sessions
+### Jetons & sessions
 
 | Sigle     | Développé                         | En clair                                                                                                                                                                                                                  |
 | --------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -32,7 +45,7 @@ audience: dev
 | **`cnf`** | confirmation (key binding)        | Empreinte de la clé à laquelle un jeton est **menotté** (_sender-constrained_) : `jkt` (DPoP, RFC 9449) ou `x5t#S256` (mTLS, RFC 8705). Un jeton volé sans la clé privée = inutilisable. Slot réservé du store Nodefony.  |
 | **PAT**   | Personal Access Token             | Clé API personnelle (style GitHub : `nf_xxx_secret`) — stockée hachée, affichée une seule fois.                                                                                                                           |
 
-## JWT — claims, signature & portée
+### JWT — claims, signature & portée
 
 | Sigle               | Développé             | En clair                                                                                                                                                                                 |
 | ------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -49,7 +62,7 @@ audience: dev
 | **Downscoping**     | réduction de portée   | Un jeton n'accorde jamais plus que son porteur : création scopes ⊆ droits du user, usage scopes ∩ droits actuels.                                                                        |
 | **Least privilege** | moindre privilège     | N'accorder que le strict nécessaire : un PAT « lecture seule » d'un admin ne peut pas écrire.                                                                                            |
 
-## Authentification
+### Authentification
 
 | Sigle         | Développé                         | En clair                                                                                                                                                                                                      |
 | ------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -65,7 +78,7 @@ audience: dev
 | **RP / rpId** | Relying Party (ID)                | « La partie qui fait confiance » = ton site, identifié par son domaine — une passkey créée pour `exemple.fr` refuse de signer ailleurs (c'est ça l'anti-phishing).                                            |
 | **AAL2/AAL3** | Authenticator Assurance Level     | Niveaux de confiance NIST d'une authentification : AAL2 = MFA solide (passkeys synced OK), AAL3 = matériel dédié (clé physique).                                                                              |
 
-## OAuth & délégation
+### OAuth & délégation
 
 | Sigle              | Développé                                         | En clair                                                                                                                                                                                                                                  |
 | ------------------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -78,7 +91,7 @@ audience: dev
 | **Token Exchange** | RFC 8693                                          | « Troc de jeton » : un service/agent échange son jeton contre un autre pour agir **au nom de** quelqu'un (on-behalf-of), avec une portée réduite. Base de la délégation microservices ET agents IA. Slot Nodefony (`tokenExchange`, P12). |
 | **`act`**          | actor (acteur)                                    | Le claim « qui agit au nom de qui » d'un Token Exchange : chaîne d'acteurs **auditable** (l'agent A agit pour l'utilisateur U) → délégation EXPLICITE, jamais une usurpation muette (≠ impersonation).                                    |
 
-## Attaques & défenses web
+### Attaques & défenses web
 
 | Sigle              | Développé                              | En clair                                                                                                                                                                           |
 | ------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -92,7 +105,7 @@ audience: dev
 | **HMAC**           | Hash-based Message Authentication Code | Signature symétrique d'un message avec un secret partagé — prouve l'origine ET l'intégrité (webhooks signés).                                                                      |
 | **CSPRNG**         | Cryptographically Secure PRNG          | Générateur d'aléa imprévisible (≠ `Math.random()`). Obligatoire pour les ID de session.                                                                                            |
 
-## Attaques JWT & durcissement cookie
+### Attaques JWT & durcissement cookie
 
 | Sigle                   | Développé                | En clair                                                                                                                                                                  |
 | ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -101,7 +114,7 @@ audience: dev
 | **allowlist/denylist**  | liste blanche / noire    | Allowlist = « seulement ceux-ci » (algos acceptés) ; denylist = « tous sauf » (`jti` révoqués). En sécu, préférer l'allowlist.                                            |
 | **`__Host-`**           | préfixe de nom de cookie | Le navigateur refuse `__Host-x` sans `Secure` + `Path=/` + sans `Domain` → cookie cloué à l'hôte exact (anti sous-domaine pirate). Nodefony : la **session**, pas le JWT. |
 
-## Autorisation (qui a le droit de faire quoi)
+### Autorisation (qui a le droit de faire quoi)
 
 > **authn ≠ authz.** L'**authentification** (authn) répond « QUI es-tu ? » (le firewall, le login).
 > L'**autorisation** (authz) répond « as-tu le DROIT de faire ça ? » (les voters, `@IsGranted`).
@@ -117,15 +130,15 @@ audience: dev
 | **Stratégie affirmative**           | —                              | « **un seul GRANT suffit** » (tant qu'aucun DENY) — la stratégie de `decide()`. Permissive sur l'accord, stricte sur le refus.                                                                              |
 | **Veto (DENY)**                     | —                              | « **un seul DENY refuse tout** », même si d'autres votent GRANT. Le refus l'emporte toujours (sécurité d'abord).                                                                                            |
 | **Default DENY**                    | refus par défaut               | Tous ABSTAIN, ou **zéro** voter, ou aucun GRANT → **refusé** (Zero Trust). Il faut un OUI explicite, le silence ne suffit pas.                                                                              |
-| **Fail-closed (voter)**             | « échoue fermé »               | Si un voter **plante** (throw) → compté comme DENY + log ERROR, jamais une 500 qui laisserait passer. L'erreur ne doit jamais ouvrir la porte (cf lexique global `fail-closed`).                            |
+| **Fail-closed (voter)**             | « échoue fermé »               | Si un voter **plante** (throw) → compté comme DENY + log ERROR, jamais une 500 qui laisserait passer. L'erreur ne doit jamais ouvrir la porte (cf lexique général `fail-closed`).                           |
 | **`voterRegistry`**                 | registre de voters             | Fabrique pluggable (convention-frère de `authenticatorRegistry`) : on **ajoute** un voter sans toucher `decide()`. Le futur `PermissionVoter` (RBAC ORM, niveau B/J6b) s'y branchera.                       |
 | **`RoleVoter`**                     | —                              | Le voter niveau **A** : GRANT si le token porte le rôle demandé (via `RoleHierarchyWalker`), ABSTAIN sinon — **jamais de veto** (il ne bloque pas les attributs qu'il ne connaît pas).                      |
 | **Attribute**                       | attribut (de décision)         | La chose demandée passée à `decide()` : un rôle (`ROLE_ADMIN`), une permission (`post:edit`)… Ne PAS confondre avec l'ABAC « attribut contextuel » (le `subject`).                                          |
 | **Subject**                         | sujet / ressource ciblée       | L'objet **sur lequel** porte l'action (le document à éditer), passé au voter pour les règles ABAC (« est-il le propriétaire ? »). Optionnel — souvent un param de route via `@IsGranted(..., { subject })`. |
 
-## Décorateurs sécurité (panoplie J7)
+### Décorateurs sécurité (panoplie J7)
 
-> Annotations posées sur un **controller** ou une **méthode d'action** (cf lexique global `décorateur`).
+> Annotations posées sur un **controller** ou une **méthode d'action** (cf lexique général `décorateur`).
 > Ils vivent dans `@nodefony/framework` mais expriment des règles de sécurité ; le moteur d'autorisation
 > est appelé **par son nom** (0 cycle de dépendance). La **garde** s'exécute dans `Resolver.executeAction`,
 > AVANT d'instancier le controller → un refus court-circuite tout (403 sans rien allouer).
@@ -137,7 +150,7 @@ audience: dev
 | **`@CurrentUser`** | Injecte l'utilisateur authentifié (lu dans l'ALS) **en paramètre** de l'action — pas besoin d'aller le chercher dans le contexte à la main.                                                                                                                                                 |
 | **Garde (guard)**  | La vérification elle-même : le code du Resolver qui lit les métadonnées `@IsGranted`, appelle `decide()`, et laisse passer (GRANT) ou lève **403** (DENY). **Une seule garde couvre tous les transports** (HTTP, WS `api.request`, forward) — c'est l'invariant « 1 garde = N transports ». |
 
-## Organismes & textes
+### Organismes & textes
 
 | Sigle     | Développé                                                  | En clair                                                                                     |
 | --------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -148,3 +161,22 @@ audience: dev
 | **NIST**  | National Institute of Standards and Technology             | Agence US dont les guidelines (SP 800-63) font référence mondiale pour l'identité numérique. |
 | **OWASP** | Open Worldwide Application Security Project                | Communauté de référence sécu applicative (Top 10, Cheat Sheets).                             |
 | **ANSSI** | Agence Nationale de la Sécurité des Systèmes d'Information | L'autorité française de cybersécurité.                                                       |
+
+## ⚠️ Pièges — confusions fréquentes en sécurité
+
+Un même mot recouvre deux réalités : les confondre ouvre une faille ou brouille un raisonnement.
+
+| Confusion                               | À garder en tête                                                                                                                                                                       |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **authn ≠ authz**                       | authn = « QUI es-tu ? » (firewall, login). authz = « as-tu le DROIT ? » (voters, `@IsGranted`). Authentifié **et** refusé = **403**, jamais 401.                                       |
+| **MFA vs 2FA**                          | 2FA = cas particulier du MFA à **exactement 2** facteurs de catégories **différentes**. Deux mots de passe ≠ 2FA (même catégorie).                                                     |
+| **scope vs rôle**                       | Deux axes distincts : le **rôle** dit qui tu es (`ROLE_ADMIN`) ; le **scope** dit ce que CE jeton peut (`orders:read`). Un PAT a des scopes ⊆ des droits de son porteur.               |
+| **Attribute (decide) vs attribut ABAC** | `Attribute` = la chose demandée à `decide()` (un rôle, une permission). L'« attribut » ABAC = le **contexte** (le `subject`, ex. le propriétaire). Homonymes, sens opposés.            |
+| **allowlist vs denylist**               | allowlist = « seulement ceux-ci » (algos JWT acceptés) ; denylist = « tous sauf » (`jti` révoqués). En sécu, préférer l'allowlist.                                                     |
+| **JWT en cookie ?**                     | **Non.** Chez Nodefony le JWT voyage en `Authorization: Bearer` (API/machines) ; le **cookie** ne porte qu'une session opaque BFF (web/Studio). Les confondre casse le modèle hybride. |
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Sécurité — vue d'ensemble](index.md) · [Toute la documentation](../../../../../docs/index.md)
+- 📖 [Lexique général](../../../../../docs/lexique.md) — le vocabulaire transverse (opt-in, lazy, DI, fail-closed…)
+- 🔥 [Firewall](firewall.md) · 🎫 [Jetons](tokens.md) · 🛡️ [CSRF](csrf.md) — les briques où ces termes s'appliquent

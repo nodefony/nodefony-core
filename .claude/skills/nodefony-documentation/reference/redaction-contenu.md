@@ -296,6 +296,36 @@ module au lieu des pages.
 > Test du hub réussi : un dev qui ne connaît pas le module trouve SA page en moins de 30 secondes,
 > sans ouvrir le menu latéral, et comprend au passage comment le module est organisé.
 
+## 8bis-lexique. Régime GLOSSAIRE — `lexique.md`, la page qui DÉFINIT le vocabulaire
+
+Une page de brique **explique un concept** ; un hub **oriente**. Un **glossaire** fait une troisième
+chose : il **définit du vocabulaire** (tables `sigle → développé → en clair`). Lui réclamer une section
+« Qu'est-ce/Vision », des « Pièges », des ancres `fichier:ligne` et un inventaire de tests fabriquerait
+du remplissage — la même raison qui dispense déjà un hub. C'est donc un **3ᵉ régime** du `doc-lint`,
+reconnu au **nom canonique** `lexique.md` (ou `glossaire.md`), à deux niveaux :
+
+- **`docs/lexique.md` = le GLOBAL** : les termes transverses employés partout (opt-in, lazy, hot path,
+  gate, ESM, DI…) + l'index des lexiques par module.
+- **`<module>/docs/lexique.md` = par MODULE** : les termes PROPRES au module, surfacés dans sa carte
+  Studio (ADR-0001). Modèle de référence : `@nodefony/security` (BFF, JWT, voters, OAuth…).
+
+Règle de répartition : terme employé dans ≥2 modules → global ; spécifique à un module → son lexique.
+On NE crée PAS les lexiques-module vides d'avance : chacun naît quand on travaille le module.
+
+**Ce que le régime exige** (le reste est du remplissage, donc interdit) :
+
+1. **Frontmatter** convention A (§2) : `title/topic/audience/updated/source/status`.
+2. **Intro en blockquote** : à quoi sert ce lexique + le renvoi vers l'autre niveau.
+3. **Navigation** (§8bis-nav) : fil d'Ariane en tête, retour au hub en pied.
+4. **Une section `## Lexique`** (icône tolérée : `## 📖 Lexique`) chapeautant les tables, groupées par
+   thème en `###`.
+5. **`## Pour aller plus loin`** : l'autre niveau de lexique + les pages qui emploient ces termes.
+
+**Pas** de section Tests ni d'ancres code : un glossaire ne teste ni ne cite de lignes (opt-out
+automatique). Une section **`## Pièges`** reste **optionnelle** et recommandée dès que le vocabulaire
+prête à confusion (les **faux-amis** : `authn` ≠ `authz`, `scope` OAuth vs `scope` DI, `Attribute` du
+vote vs attribut ABAC) — utile, jamais imposée.
+
 ## 8ter. Granularité — page dédiée OU section du parent ?
 
 Avant de créer un fichier, décider du **niveau** de la chose à documenter.
@@ -368,7 +398,9 @@ linter au vert **plus** l'aperçu HTML qui montre la carte de tests.
 Le linter (`tmp/doc-corpus/_tools/doc-lint.mjs`) échoue si, pour une page :
 
 - frontmatter incomplet (`title/topic/audience/updated/source/status`) ;
-- une section obligatoire manque : Lexique, Qu'est-ce/Vision, **Pièges**, Pour aller plus loin ;
+- une section obligatoire manque — **selon le régime de la page** : brique = Lexique + Qu'est-ce/Vision
+  - **Pièges** + Pour aller plus loin ; hub (`index.md`, §8bis-index) = point de départ + catalogue +
+    Pour aller plus loin ; **glossaire** (`lexique.md`, §8bis-lexique) = Lexique + Pour aller plus loin ;
 - pas d'intro en blockquote ;
 - **pas de section « Tests »** ET pas de `coverage/tests.<topic>.json` (le défaut historique) — sauf
   opt-out explicite `tests: none` dûment justifié (page purement conceptuelle) ;

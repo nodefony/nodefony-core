@@ -155,7 +155,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 ────────────────────────────────────────────────────────────────────────
  GLOBAL                    ██████▊░░░  68% 119✅ 25🔶 49⬜  (193 tâches · resync 2026-07-10)
 ────────────────────────────────────────────────────────────────────────
- DOC Corpus de référence   █████████▊  98%  54/55 pages conformes · 13/13 hubs en cards
+ DOC Corpus de référence   ██████████ 100%  55/55 pages conformes · 13/13 hubs en cards
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -173,8 +173,10 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > ce tableau de bord (385 Ko servis comme page de doc). **(b) socket canonisée ✅** : `protocole`,
 > `actions`, `observabilite` créées, 6 **graphes temps réel** sauvés en fence `nodefony-livegraph`
 > (ils étaient attachés au chemin des pages supprimées), page de vision transverse recentrée sur la
-> trajectoire SIP/ponts. **(c) reste ⬜** : `cli` · glossaire — **y fusionner `security/lexique`**
-> (seule page encore hors standard) · `reference/` · tutoriels ;
+> trajectoire SIP/ponts. **(c) glossaire ✅** : régime `doc-lint` dédié (§8bis-lexique) + les deux
+> lexiques (global `docs/lexique.md` + `@nodefony/security`) conformes, **2 niveaux GARDÉS**
+> (ADR-0001, pas de fusion — le lexique sécu reste dans sa carte Studio) ; **reste ⬜** `cli` ·
+> `reference/` · tutoriels ;
 > les 8 pages « socket » de `docs/` racine sont **SUPPRIMÉES** (elles décrivaient une API `IBackplane`
 > inexistante), leur contenu revalidé vit dans `@nodefony/realtime/docs/` · **8 ⬜** IA + devkit ·
 > **4ter ⬜** `cookies`, `upload`, `rate-limit`, `observabilite` (http) · `admin`, `templates` (framework).

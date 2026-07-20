@@ -1,17 +1,26 @@
 ---
-title: Lexique général — anglicismes & termes techniques de Nodefony
-audience: dev
-date: 2026-06-13
-related: feedback_caveman_lexique, feedback_doc_vulgarization
+title: "Lexique général — anglicismes & sigles de Nodefony"
+lang: fr
+module: "global"
+topic: lexique
+section: "Architecture"
+audience: [developer]
+tags: [lexique, glossaire, vocabulaire, vulgarisation, anglicismes]
+status: stable
+updated: 2026-07-20
+source: "docs/lexique.md"
 ---
 
 # Lexique général Nodefony
 
+📍 [Documentation](index.md) › **Lexique général**
+
 > Le vocabulaire technique du projet, hors sécurité. **Le style reste « caveman »** (terme anglais
 > court dans le code, les commits, les échanges) — ce lexique est le filet : chaque anglicisme/sigle
-> employé a son entrée ici, développé + expliqué en clair (avec une analogie quand ça aide).
+> employé a son entrée ici, développé + expliqué en clair (avec une analogie quand ça aide). Les
+> termes propres à la **sécurité** vivent dans le [lexique sécurité](../src/packages/@nodefony/security/docs/lexique.md).
 
-## Architecture du lexique — 2 niveaux
+## 🧭 Deux niveaux de vocabulaire
 
 Le vocabulaire vit à **deux niveaux** (même logique que la doc : transverse → racine, spécifique → module) :
 
@@ -37,7 +46,9 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 > On NE crée PAS les lexiques modules vides d'un coup : chacun naît quand on travaille le module
 > (ou via le scaffold pour les nouveaux). Le global suffit en attendant.
 
-## Style de travail & communication
+## 📖 Lexique
+
+### Style de travail & communication
 
 | Terme                | Origine                | En clair                                                                                                                                           |
 | -------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -53,7 +64,7 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | **SAS**              | image (sas d'écluse)   | Le fichier `RETEX.md` : zone tampon des leçons récentes pas encore « gravées » en règle durable.                                                   |
 | **TLDR**             | Too Long; Didn't Read  | « En résumé » : la conclusion en une phrase, avant le détail.                                                                                      |
 
-## Architecture & patterns
+### Architecture & patterns
 
 | Terme                                | Origine                                     | En clair                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------------------------ | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -74,7 +85,7 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | **manifeste**                        | —                                           | La liste ordonnée et déclarative (ici `config.modules`) qui dit QUOI charger et dans quel ordre.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **bucket**                           | « casier / seau »                           | Compartiment de stockage **nommé**. Sessions : chaque contexte (`contextSession`) = un casier ; une session n'est trouvée que dans SON casier (le cookie ne porte qu'un id, le serveur choisit le casier selon la zone visitée). Cloud : un _bucket_ S3 = conteneur de fichiers nommé.                                                                                                                                                                                                                                                                                                                                                                                |
 
-## Cycle de vie & exécution
+### Cycle de vie & exécution
 
 | Terme                    | Origine                  | En clair                                                                                                                                                                                                                                                                                                          |
 | ------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -90,7 +101,7 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | **no-op**                | « no operation »         | Un appel qui ne fait RIEN (volontairement) et retourne sans effet. Souvent un défaut sûr ou un bypass 0-coût : `Session.readOnly` → `save()` no-op ; `setFrameAuthorizer(null)` → le verrou WS ne contrôle plus ; `RequestContext.set()` hors d'un scope ALS = no-op ; backplane `Loopback` = no-op (aucun pair). |
 | **idempotent**           | « même effet si répété » | Rejouer l'opération N fois = même état qu'une fois (poser un handler 2× ne le double pas). Rend un boot/câblage rejouable sans dégât.                                                                                                                                                                             |
 
-## Performance & mémoire
+### Performance & mémoire
 
 | Terme                    | Origine               | En clair                                                                                                                         |
 | ------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -105,7 +116,7 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | **fan-out**              | « éventail sortant »  | Un événement entrant → N livraisons (1 publish → tous les abonnés du canal).                                                     |
 | **O(1)**                 | notation Big-O        | « Coût constant » quel que soit le volume (une lecture de Map). ≠ O(n) qui grossit avec la taille. On vise O(1) sur le hot path. |
 
-## Réseau / temps réel
+### Réseau / temps réel
 
 | Terme         | Origine               | En clair                                                                                                                        |
 | ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -118,7 +129,7 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | **upgrade**   | « montée en version » | La requête HTTP spéciale qui transforme une connexion HTTP en connexion WebSocket (le handshake WS).                            |
 | **polling**   | « scrutation »        | Demander en boucle « du nouveau ? » (l'inverse du push temps réel). Évité au profit du WS.                                      |
 
-## TypeScript / build / modules
+### TypeScript / build / modules
 
 | Terme                      | Origine                   | En clair                                                                                                                     |
 | -------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -138,7 +149,7 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | **monorepo / workspace**   | —                         | Un seul dépôt contenant N paquets (`workspaces` npm). Chaque `@nodefony/*` est un workspace.                                 |
 | **turbo (cache)**          | Turborepo                 | L'outil qui ne rebuild que ce qui a changé (cache). ⚠️ peut servir un dist/log périmé → `--force` ou `clean` au besoin.      |
 
-## Tests & qualité
+### Tests & qualité
 
 | Terme                 | Origine                     | En clair                                                                                                         |
 | --------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -150,7 +161,7 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | **banc**              | terme maison (banc d'essai) | Un fichier/dispositif de test dédié à un scénario (le « banc test-secure » = le terrain de jeu de la zone sécu). |
 | **coverage**          | « couverture »              | % du code exécuté par les tests. Provider v8 chez nous.                                                          |
 
-## Cloud-native / déploiement
+### Cloud-native / déploiement
 
 | Terme                    | Origine                   | En clair                                                                                                              |
 | ------------------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -162,3 +173,21 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | **cluster**              | « grappe »                | Plusieurs process Node sur une même machine (`nodefony cluster -w N`), reliés par le backplane.                       |
 | **worker**               | « ouvrier »               | Un process de travail dans un cluster (`-w 4` = 4 workers).                                                           |
 | **stdout / stderr**      | flux de sortie standard   | Les sorties console (normale / erreur) → collectées par l'infra, pas écrites en fichier en prod.                      |
+
+## ⚠️ Pièges — les faux-amis du vocabulaire
+
+Un même mot recouvre parfois deux sens : les confondre coûte cher.
+
+| Faux-ami                        | Les deux sens                                                                                                                                                                                                              |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **scope**                       | **DI** = durée de vie d'un service (singleton, par-requête). **OAuth** = un droit accordé à un jeton (`orders:read`, voir [lexique sécu](../src/packages/@nodefony/security/docs/lexique.md)). Deux axes sans rapport.     |
+| **tree-shaking**                | S'applique au **build** (le bundler retire le code non importé), **jamais au runtime ESM** : à l'exécution, importer un barrel charge TOUT le barrel. Ne pas compter dessus pour alléger le hot path.                      |
+| **fail-open / -closed / -soft** | Trois réactions distinctes à une erreur : **closed** = refuse (défaut sûr en sécu), **open** = laisse passer (dangereux en sécu), **soft** = continue en mode dégradé. Choisir explicitement, jamais par défaut implicite. |
+| **`any` / `unknown`**           | `any` **débranche** le compilateur (INTERDIT dans Nodefony) ; `unknown` **force** à vérifier avant usage (autorisé). Un `unknown` mal relu ne devient pas un `any` — il refuse de compiler.                                |
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Toute la documentation](index.md)
+- 📖 [Lexique sécurité](../src/packages/@nodefony/security/docs/lexique.md) — BFF, JWT, OAuth, WebAuthn, voters, CSRF… (le niveau MODULE)
+- 🧭 [Vue d'ensemble](architecture/vue-ensemble.md) — l'architecture où ces termes prennent place
+- 🚀 [Démarrer](demarrer.md) — le parcours de prise en main
