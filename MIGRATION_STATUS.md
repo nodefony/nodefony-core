@@ -155,7 +155,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 ────────────────────────────────────────────────────────────────────────
  GLOBAL                    ██████▊░░░  68% 119✅ 25🔶 49⬜  (193 tâches · resync 2026-07-10)
 ────────────────────────────────────────────────────────────────────────
- DOC Corpus de référence   █████████▊  98%  49/50 pages conformes aux 4 gates
+ DOC Corpus de référence   █████████▊  98%  54/55 pages conformes · 13/13 hubs en cards
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -167,7 +167,14 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > **4bis ✅** cœur/API : `kernel` + `request-context` recentrées sur l'API, `react-hooks`, hub core,
 > **`client` CRÉÉE** (bibliothèque cliente isomorphe) ; `container` + `injection` **SUPPRIMÉES**
 > (recouvertes par la transverse `injection-portees`, devenue source canonique du DI) ·
-> **7 ⬜** transverse — **y fusionner `security/lexique`** (seule page encore hors standard) ;
+> **7 🔶** transverse — **(a) `docs/` assaini ✅** : 29 artefacts internes (audits datés, POC, plans,
+> specs de migration, brouillons) sortis vers la mémoire IA `core-dev/` — le portail les servait au
+> même rang que les guides, et `docs/migration/MIGRATION_STATUS.md` était un **lien symbolique** vers
+> ce tableau de bord (385 Ko servis comme page de doc). **(b) socket canonisée ✅** : `protocole`,
+> `actions`, `observabilite` créées, 6 **graphes temps réel** sauvés en fence `nodefony-livegraph`
+> (ils étaient attachés au chemin des pages supprimées), page de vision transverse recentrée sur la
+> trajectoire SIP/ponts. **(c) reste ⬜** : `cli` · glossaire — **y fusionner `security/lexique`**
+> (seule page encore hors standard) · `reference/` · tutoriels ;
 > les 8 pages « socket » de `docs/` racine sont **SUPPRIMÉES** (elles décrivaient une API `IBackplane`
 > inexistante), leur contenu revalidé vit dans `@nodefony/realtime/docs/` · **8 ⬜** IA + devkit ·
 > **4ter ⬜** `cookies`, `upload`, `rate-limit`, `observabilite` (http) · `admin`, `templates` (framework).
