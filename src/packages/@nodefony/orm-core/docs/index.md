@@ -115,30 +115,22 @@ Choisir en cinq secondes avec le tableau, puis lire la card correspondante.
 | [Stockage de session](../../../../../docs/guides/session-storage.md)                  | où vivent les sessions HTTP                        | tu passes de la mémoire à une base partagée       |
 | [ADR-0003](../../../../../docs/adr/0003-orm-core-abstraction-repository-multi-orm.md) | pourquoi Repository, et à quel prix                | tu remets l'abstraction en question (légitime)    |
 
-### [`tutorial-entity`](tutorial-entity.md) — ta première table, pas à pas
-
-Le guide d'entrée : les trois mots à connaître (connecteur, entité, repository), le schéma Drizzle,
-l'enregistrement, puis le CRUD complet. Il ne suppose **rien** de connu et se lit en dix minutes.
-Prends-le avant cette page si le mot « repository » ne t'évoque encore rien.
-
-### [`@nodefony/drizzle`](../../drizzle/docs/index.md) — le driver SQL par défaut
-
-L'implémentation de référence des contrats décrits ici, en SQL type-safe : `sqlite` (zéro
-installation, le défaut de développement), `postgres` et `mysql`. C'est lui qui crée les tables au
-boot, alimente la sonde de flux et fournit les colonnes de l'ERD Studio. **C'est le driver que tu
-auras par défaut** en générant une application.
-
-### [`@nodefony/mongoose`](../../mongoose/docs/index.md) — le driver MongoDB
-
-La même surface `IRepository`, sur un modèle documentaire : schémas Mongoose, `populate` pour les
-relations déclarées, `$max`/`$min` natifs pour l'upsert. Il porte **les stores dont un déploiement
-Mongo a besoin** — voir [Backends pris en charge](#-backends-pris-en-charge) pour la liste exacte.
-
-### [`persistence`](../../../../../docs/guides/persistence.md) — l'infra vue de l'application
-
-Transverse : comment une application déclare sa base (variables d'environnement, secrets), quels
-modules se câblent automatiquement dessus, et ce qui change entre développement et production.
-À lire quand tu quittes le SQLite de développement.
+```nodefony-cards
+[
+  { "icon": "🚀", "title": "tutorial-entity", "href": "tutorial-entity.md", "featured": true,
+    "desc": "Ta première table, pas à pas : les trois mots à connaître (connecteur, entité, repository), le schéma Drizzle, l'enregistrement, puis le CRUD complet. Il ne suppose rien de connu.",
+    "meta": "dix minutes — prends-le avant cette page si « repository » ne t'évoque rien" },
+  { "icon": "🐘", "title": "@nodefony/drizzle", "href": "../../drizzle/docs/index.md",
+    "desc": "Le driver SQL par défaut : l'implémentation de référence des contrats décrits ici, en SQL type-safe — sqlite (zéro installation, le défaut de développement), postgres et mysql. C'est lui qui crée les tables au boot, alimente la sonde de flux et fournit les colonnes de l'ERD Studio.",
+    "meta": "le driver que tu auras par défaut en générant une application" },
+  { "icon": "🍃", "title": "@nodefony/mongoose", "href": "../../mongoose/docs/index.md",
+    "desc": "Le driver MongoDB : la même surface IRepository, sur un modèle documentaire — schémas Mongoose, populate pour les relations déclarées, $max/$min natifs pour l'upsert.",
+    "meta": "il porte les stores dont un déploiement Mongo a besoin — liste exacte en « Backends pris en charge »" },
+  { "icon": "🗄️", "title": "persistence", "href": "../../../../../docs/guides/persistence.md",
+    "desc": "L'infra vue de l'application : comment une application déclare sa base (variables d'environnement, secrets), quels modules se câblent automatiquement dessus, et ce qui change entre développement et production.",
+    "meta": "transverse — à lire quand tu quittes le SQLite de développement" }
+]
+```
 
 ## 📖 Lexique
 

@@ -147,74 +147,40 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 | `IUserProfile` + helpers                     | nom/prénom/avatar sous allowlist, hors du contrat d'identité | tu affiches un profil, tu acceptes un avatar       |
 | `UserAdminApi`                               | le data plane `/nodefony/user/api/*` (Studio)                | tu administres des comptes                         |
 
-### [`IUser`](#-larchitecture-interne--trois-couches-étanches) — le contrat minimal
-
-Cinq membres, pas un de plus : `id` (UUID), `identifier` (email ou login), `roles` (tableau **plat**),
-`hasRole()`, `isActive()`, `isLocked()` (`IUser.ts:31`). Aucun credential, aucun champ de persistance.
-C'est **le** type que manipulent le framework, les décorateurs, Studio, les adapters ORM. Il est
-volontairement pauvre : plus il est petit, moins il coûte cher de le faire circuler et de le
-remplacer.
-
-### [`IPasswordAuthenticatedUser`](#le-split-credential--le-hash-ne-circule-pas) — le contrat qui voit le hash
-
-Extension à **un seul champ** : `readonly password: string | null`
-(`IUser.ts:72`). Ce contrat séparé est la pièce d'architecture centrale du module — 90 % des
-consommateurs (affichage, autorisation, logs) n'ont aucune raison de voir un credential, alors ils ne
-reçoivent que `IUser`. `null` est une valeur normale : c'est un compte 100 % externe.
-
-### [`BaseUser`](#-larchitecture-interne--trois-couches-étanches) — le POJO de référence
-
-Implémente `IPasswordAuthenticatedUser` et ajoute les **champs anti-migration** (`BaseUser.ts:44`) :
-`socialProviders` en JSON (jamais de colonnes `googleId`/`githubId`), `metadata` typée
-`Record<string, unknown>` (jamais `any`), `currentRole`. Les mutateurs sont **chaînables** et
-l'état de compte s'exprime par des verbes — `enable()`, `disable()`, `lock()`, `unlock()`
-(`BaseUser.ts:122`) — parce que `enabled`/`locked` sont `protected` : on ne bascule pas un compte par
-affectation.
-
-### [`AnonymousUser`](#le-visiteur-anonyme--un-utilisateur-pas-un-null) — le visiteur, pas un trou
-
-Un singleton **gelé** avec un tableau de rôles gelé et partagé (`AnonymousUser.ts:44`) : zéro
-allocation par requête non authentifiée. Conséquence de conception : le contexte de sécurité n'est
-jamais `null` — un visiteur **est** un utilisateur, porteur du seul rôle `ROLE_ANONYMOUS`.
-
-### [`Argon2idEncoder`](#-configuration--choisir-et-faire-migrer-lencodeur) — le défaut, à mémoire dure
-
-Chaque vérification exige de la RAM en plus du CPU (19 MiB par défaut), ce qui ruine les attaques
-massivement parallèles (`Argon2idEncoder.ts:63`). Le binding natif est chargé **dynamiquement au
-premier usage** : instancier l'encodeur ne charge rien, et une app qui n'authentifie pas par mot de
-passe ne tire jamais le binaire.
-
-### [`BcryptEncoder`](#-configuration--choisir-et-faire-migrer-lencodeur) — l'historique, toujours accepté
-
-Coût 12 par défaut, bornes `[4, 31]` (`BcryptEncoder.ts:35`). À garder **en lecture** quand tu
-reprends une base existante ; à ne plus choisir comme algorithme principal pour une nouvelle app.
-
-### [`MigratingEncoder`](#-configuration--choisir-et-faire-migrer-lencodeur) — changer d'algorithme sans casse
-
-Composite : `hash()` écrit **toujours** au format principal, `verify()` route vers le premier
-encodeur qui reconnaît le hash stocké, `needsRehash()` renvoie `true` dès que le hash n'est pas au
-format principal (`MigratingEncoder.ts:24`). Résultat : chaque login réussi convertit un compte, et
-la base bascule d'elle-même.
-
-### [`InMemoryUserRepository`](#entités-de-persistance-et-dialectes) — le dépôt qui n'écrit nulle part
-
-Implémentation complète d'`IUserRepository` sur une `Map`, sans ORM ni I/O
-(`InMemoryUserRepository.ts:35`). Sert de dépôt de secours réel, de fixture déterministe et de socle
-aux mesures de charge (aucune synchronisation disque ne pollue le chiffre). **Ce n'est pas un
-bouchon** : il applique tout le patch d'`updateOne`, exactement comme un backend réel.
-
-### [`UserService`](#-lapi-publique) — le service que ton app expose
-
-Spécialisation d'`AbstractCrudService` (`UserService.ts:67`) : elle **hérite** du CRUD générique et
-n'ajoute que le spécifique credential — hachage à la création, changement de mot de passe,
-`authenticate()`. Elle implémente aussi `IUserProvider`, `IPasswordVerifier` et
-`IOAuthUserProvisioner` : c'est **la même instance** qui est la source d'identité de la sécurité.
-
-### [`UserAdminApi`](#-observabilité--studio-et-data-plane) — l'administration des comptes
-
-Producteur du data plane `/nodefony/user/api/*` : liste paginée nativement, détail, création,
-modification, mot de passe, suppression, plus trois routes **self-service** (`UserAdminApi.ts:345`).
-DTO redacté par construction, mutations auditées, garde-fous anti-verrouillage.
+```nodefony-cards
+[
+  { "icon": "📇", "title": "IUser", "href": "#-larchitecture-interne--trois-couches-étanches",
+    "desc": "Le contrat minimal — cinq membres, pas un de plus : id (UUID), identifier (email ou login), roles (tableau plat), hasRole(), isActive(), isLocked(). Aucun credential, aucun champ de persistance : c'est LE type que manipulent le framework, les décorateurs, Studio et les adapters ORM.",
+    "meta": "volontairement pauvre : plus il est petit, moins il coûte à faire circuler et à remplacer" },
+  { "icon": "🔒", "title": "IPasswordAuthenticatedUser", "href": "#le-split-credential--le-hash-ne-circule-pas",
+    "desc": "Le contrat qui voit le hash : une extension à un seul champ, readonly password. C'est la pièce d'architecture centrale — les consommateurs qui n'ont aucune raison de voir un credential (affichage, autorisation, logs) ne reçoivent que IUser.",
+    "meta": "un mot de passe null est une valeur normale : un compte 100 % externe" },
+  { "icon": "🧱", "title": "BaseUser", "href": "#-larchitecture-interne--trois-couches-étanches",
+    "desc": "Le POJO de référence : il implémente IPasswordAuthenticatedUser et ajoute les champs anti-migration — socialProviders en JSON (jamais de colonnes googleId/githubId), metadata typée (jamais any), currentRole. Les mutateurs sont chaînables et l'état de compte s'exprime par des verbes : enable(), disable(), lock(), unlock().",
+    "meta": "enabled et locked sont protected : on ne bascule pas un compte par affectation" },
+  { "icon": "🚶", "title": "AnonymousUser", "href": "#le-visiteur-anonyme--un-utilisateur-pas-un-null",
+    "desc": "Le visiteur, pas un trou : un singleton gelé avec un tableau de rôles gelé et partagé, donc zéro allocation par requête non authentifiée.",
+    "meta": "le contexte n'est jamais null — un visiteur EST un utilisateur, porteur de ROLE_ANONYMOUS" },
+  { "icon": "🔐", "title": "Argon2idEncoder", "href": "#-configuration--choisir-et-faire-migrer-lencodeur",
+    "desc": "Le défaut, à mémoire dure : chaque vérification exige de la RAM en plus du CPU (19 MiB par défaut), ce qui ruine les attaques massivement parallèles.",
+    "meta": "binding natif chargé au premier usage : instancier l'encodeur ne charge rien" },
+  { "icon": "🕰️", "title": "BcryptEncoder", "href": "#-configuration--choisir-et-faire-migrer-lencodeur",
+    "desc": "L'historique, toujours accepté : coût 12 par défaut, bornes techniques [4, 31]. À garder en lecture quand tu reprends une base existante.",
+    "meta": "à ne plus choisir comme algorithme principal pour une nouvelle application" },
+  { "icon": "🔄", "title": "MigratingEncoder", "href": "#-configuration--choisir-et-faire-migrer-lencodeur",
+    "desc": "Changer d'algorithme sans casse : hash() écrit toujours au format principal, verify() route vers le premier encodeur qui reconnaît le hash stocké, needsRehash() est vrai dès que le hash n'est pas au format principal.",
+    "meta": "chaque login réussi convertit un compte — la base bascule d'elle-même" },
+  { "icon": "🧠", "title": "InMemoryUserRepository", "href": "#entités-de-persistance-et-dialectes",
+    "desc": "Le dépôt qui n'écrit nulle part : implémentation complète d'IUserRepository sur une Map, sans ORM ni I/O. Dépôt de secours réel, fixture déterministe, et socle des mesures de charge — aucune synchronisation disque ne pollue le chiffre.",
+    "meta": "ce n'est pas un bouchon : il applique tout le patch d'updateOne, comme un backend réel" },
+  { "icon": "🧰", "title": "UserService", "href": "#-lapi-publique",
+    "desc": "Le service que ton application expose : une spécialisation d'AbstractCrudService qui hérite du CRUD générique et n'ajoute que le spécifique credential — hachage à la création, changement de mot de passe, authenticate().",
+    "meta": "implémente aussi IUserProvider, IPasswordVerifier et IOAuthUserProvisioner : la même instance est la source d'identité de la sécurité" },
+  { "icon": "🛠️", "title": "UserAdminApi", "href": "#-observabilité--studio-et-data-plane",
+    "desc": "L'administration des comptes : producteur du data plane /nodefony/user/api/* — liste paginée nativement, détail, création, modification, mot de passe, suppression, plus trois routes self-service.",
+    "meta": "DTO redacté par construction, mutations auditées, garde-fous anti-verrouillage" }
+]
+```
 
 ## Qu'est-ce que c'est ? — l'identité n'est pas l'authentification
 

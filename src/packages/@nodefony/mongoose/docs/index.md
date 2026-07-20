@@ -91,65 +91,37 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 | `MongooseWebAuthnCredentialStore`     | les passkeys enregistrées                               | tu actives WebAuthn                        |
 | `MongooseWebhookStore`                | le registre durable des endpoints webhook               | tu notifies des systèmes tiers             |
 
-### [`configuration`](./configuration.md) — brancher la base
-
-Le seul fichier que tu écris vraiment : `use("@nodefony/mongoose", { … })` dans `nodefony.config.ts`.
-Une URI complète (Atlas, replica set) ou les composants `host`/`port`/`dbname`, plus les options de
-pool et d'authentification. **Le secret ne vit jamais dans le dépôt** : il arrive par l'environnement.
-Démarre par sa section « Forme », puis la table des champs.
-
-### `MongooseService` — le service bootable
-
-Il instancie **un ORM par connecteur déclaré** et le connecte à l'événement `onBoot`
-(`MongooseService.connectAll()` (`MongooseService.ts:63`)), puis referme tout à l'arrêt
-(`MongooseService.disconnectAll()` (`MongooseService.ts:104`)). Le module est déclaré **non
-critique** (`Mongoose.critical` (`mongoose/index.ts:48`)) : une base injoignable ne tue pas le
-processus — c'est l'orchestrateur qui relèvera Mongo.
-
-### `MongooseOrm` — l'adapter du contrat commun
-
-Il ouvre une connexion **isolée** (jamais le singleton global de Mongoose), compile chaque entité
-enregistrée en modèle, traduit les relations en références `ObjectId` + `populate`, et expose les
-sondes que Studio affiche. Tu ne l'appelles directement que pour la connexion native ou une
-transaction. Voir [Architecture interne](#-architecture-interne--du-boot-à-la-requête).
-
-### `MongooseRepository` — le CRUD portable
-
-**L'objet que tu manipules au quotidien.** Il implémente `IRepository` d'
-[`orm-core`](../../orm-core/docs/index.md) : `find`, `findOne`, `create`, `upsert`, `updateOne`,
-`increment`, `delete`, `count`, `exists`, plus la liaison transactionnelle. Il traduit `id` en `_id`,
-les opérateurs portables en opérateurs Mongo, et refuse un champ inconnu au lieu de renvoyer zéro
-résultat en silence. Détail : [Le repository portable](#-le-repository-portable--lapi-que-tu-utilises-vraiment).
-
-### `SessionStorage` — les sessions dans Mongo
-
-`ISessionStorage` de [`@nodefony/http`](../../http/docs/session.md), **auto-enregistré** sous le nom
-`mongoose` (`SessionStorage.ts:294`). Sélection : `session: { store: "mongoose" }`. Détail :
-[Sessions](#sessions).
-
-### `MongooseUserRepository` — l'annuaire des comptes
-
-`IUserRepository` de [`@nodefony/user`](../../user/docs/index.md) : identifiants, comptes sociaux liés,
-listing paginé. C'est **ton application** qui le câble, dans son `provisionUsers` — voir
-[Brancher l'annuaire](#brancher-lannuaire-utilisateurs) puis [Utilisateurs](#utilisateurs).
-
-### `MongooseTokenStore` — jetons et révocation
-
-`ITokenStore` de [`@nodefony/security`](../../security/docs/tokens.md), sur trois collections (jetons,
-denylist de `jti`, seuils de révocation). Sélection : `tokenStore: { store: "mongoose" }`. Détail :
-[Jetons](#jetons).
-
-### `MongooseWebAuthnCredentialStore` — les passkeys
-
-`IWebAuthnCredentialStore` ([WebAuthn](../../security/docs/webauthn.md)) : une collection, la clé du
-credential en clé primaire. Sélection : `passkeys: { store: "mongoose" }`. Détail :
-[Passkeys](#passkeys).
-
-### `MongooseWebhookStore` — les endpoints notifiés
-
-`IWebhookStore` ([webhooks](../../security/docs/webhooks.md)) : registre **durable** des destinations
-(il survit au redémarrage, contrairement au store mémoire). Sélection :
-`webhooks: { store: "mongoose" }`. Détail : [Webhooks](#webhooks).
+```nodefony-cards
+[
+  { "icon": "⚙️", "title": "configuration", "href": "configuration.md",
+    "desc": "Le seul fichier que tu écris vraiment : une URI complète (Atlas, replica set) ou les composants `host`/`port`/`dbname`, plus les options de pool et d'authentification. Le secret ne vit jamais dans le dépôt — il arrive par l'environnement.",
+    "meta": "commence par sa section « Forme », puis la table des champs" },
+  { "icon": "🔌", "title": "MongooseService", "href": "#-architecture-interne--du-boot-à-la-requête",
+    "desc": "Le service bootable : il instancie un ORM par connecteur déclaré, le connecte au démarrage et referme tout à l'arrêt. Le module est déclaré non critique — une base injoignable ne tue pas le processus.",
+    "meta": "jamais directement — il travaille pour toi" },
+  { "icon": "🧩", "title": "MongooseOrm", "href": "#-architecture-interne--du-boot-à-la-requête",
+    "desc": "L'adapter du contrat commun : une connexion isolée (jamais le singleton global de Mongoose), les entités compilées en modèles, les relations traduites en références `ObjectId` + `populate`, et les sondes qu'affiche Studio.",
+    "meta": "pour la connexion native ou une transaction" },
+  { "icon": "🧰", "title": "MongooseRepository", "href": "#-le-repository-portable--lapi-que-tu-utilises-vraiment",
+    "desc": "L'objet que tu manipules au quotidien : `find`, `create`, `upsert`, `updateOne`, `increment`, `count`, `exists`, plus la liaison transactionnelle. Il traduit `id` en `_id`, les opérateurs portables en opérateurs Mongo, et refuse un champ inconnu au lieu de rendre zéro résultat en silence.",
+    "meta": "tout le temps — c'est ton API données" },
+  { "icon": "🗝️", "title": "SessionStorage", "href": "#sessions",
+    "desc": "Les sessions HTTP et WebSocket persistées dans Mongo, auto-enregistrées sous le nom `mongoose` auprès du service de sessions de `@nodefony/http`.",
+    "meta": "sélection : session.store = mongoose" },
+  { "icon": "👤", "title": "MongooseUserRepository", "href": "#utilisateurs",
+    "desc": "L'annuaire des comptes : identifiants, comptes sociaux liés, listing paginé. Il rend des objets `BaseUser` avec leur comportement, pas des documents nus.",
+    "meta": "câblé par ton application, dans son provisionUsers" },
+  { "icon": "🎫", "title": "MongooseTokenStore", "href": "#jetons",
+    "desc": "Jetons, clés d'API, denylist de `jti` et seuils de révocation par porteur — trois collections, dont les invariants de sécurité sont tenus par la requête elle-même.",
+    "meta": "sélection : tokenStore.store = mongoose" },
+  { "icon": "🔑", "title": "MongooseWebAuthnCredentialStore", "href": "#passkeys",
+    "desc": "Les passkeys enrôlées : une collection, la clé du credential en clé primaire, un enregistrement atomique et un listing d'administration qui ne sort jamais la clé publique.",
+    "meta": "sélection : passkeys.store = mongoose" },
+  { "icon": "🪝", "title": "MongooseWebhookStore", "href": "#webhooks",
+    "desc": "Le registre durable des destinations à notifier : il survit au redémarrage, contrairement au store mémoire, et pagine sans second comptage.",
+    "meta": "sélection : webhooks.store = mongoose" }
+]
+```
 
 ## 🧠 Le schéma général
 
@@ -494,6 +466,12 @@ simplement pas. C'est aussi pour ça que `@entities` s'exécute à la phase `onR
 Chaque connecteur ouvre une **connexion isolée** (`mongoose.createConnection`), pas le singleton
 global de Mongoose : c'est ce qui permet à plusieurs bases — voire plusieurs ORM — de cohabiter dans
 le même processus.
+
+Le service orchestre ce cycle de bout en bout : il ouvre une connexion par connecteur déclaré au
+démarrage (`MongooseService.connectAll()` (`MongooseService.ts:63`)) et referme tout à l'arrêt
+(`MongooseService.disconnectAll()` (`MongooseService.ts:104`)). Le module se déclare **non critique**
+(`Mongoose.critical` (`mongoose/index.ts:48`)) : une base injoignable ne tue pas le processus —
+l'application monte quand même, l'échec est journalisé, et c'est l'orchestrateur qui relèvera Mongo.
 
 > [!NOTE]
 > **Pourquoi le connecteur par défaut s'appelle `nodefony` et pas `default`.** Les entités sont

@@ -178,51 +178,31 @@ Le tableau pour situer en cinq secondes ; les cards en dessous pour savoir où l
 | [Migrations](#migrations--ce-que-le-module-fait-et-ce-quil-ne-fait-pas)   | créer et faire évoluer les tables                 | avant le premier déploiement                 |
 | [Studio](#-observabilité--studio)                                         | voir les connexions, les entités, le graphe       | tu veux comprendre ce qui tourne             |
 
-### [`connecteurs`](#-configuration) — une connexion nommée, par dialecte
-
-Un connecteur = une base. Le connecteur `default` est celui que tout le framework utilise ; tu peux en
-déclarer d'autres (`analytics`, une fixture) qui vivront sur leur propre fichier ou serveur. Le
-dialecte et la cible se déduisent de l'infra déclarée (`NF_DATABASE_URL`), sinon de ta config.
-**Commence ici** : le reste de la page suppose un connecteur ouvert.
-
-### [`entités`](#-démarrage-rapide) — ta table, en TypeScript natif
-
-Une entité, c'est une table Drizzle ordinaire plus un descripteur (`defineEntity`) qui lui donne un
-nom logique. Aucune couche à contourner : tous les types du moteur te sont accessibles. La commande
-`nodefony create entity` écrit exactement le code que tu aurais écrit — table, ligne typée, schémas de
-validation, service CRUD, controller REST/WebSocket et tests.
-
-### [`repository`](#-api-publique--du-repository-au-sql-brut) — lire et écrire sans SQL
-
-`find`, `findOne`, `create`, `updateOne`, `upsert`, `increment`, `delete`, `count`, plus la pagination.
-Les filtres sont des objets portables (`{ views: { $gte: 10 } }`) traduits en SQL par le driver. Le
-même code tourne sur les trois dialectes — c'est prouvé par un banc de parité qui rejoue **la même
-suite** sur chacun.
-
-### [`transactions`](#transactions--une-connexion-dédiée-jamais-le-pool) — le tout-ou-rien, correctement
-
-`orm.transaction(async (tx) => …)` : ce qui réussit ensemble est commité ensemble, une exception
-annule tout. La page explique **pourquoi** une transaction emprunte une connexion dédiée au pool, et
-pourquoi seul `repo.withTransaction(tx)` entre réellement dedans — l'erreur classique coûte l'atomicité
-sans prévenir.
-
-### [`stores`](#les-huit-stores-du-framework--la-persistance-clé-en-main) — les huit briques durables
-
-Session, utilisateurs, jetons, passkeys, TOTP, audit, webhooks, idempotence. Leurs tables sont dans le
-module, leurs fabriques s'inscrivent seules dans les registres de `http`, `security` et `framework`.
-**Rien à écrire.** À lire quand tu veux savoir où sont tes données, ou en désactiver la déclaration.
-
-### [`dialectes`](#dialectes--une-base-par-déploiement-un-seul-code) — un code, trois moteurs
-
-Ce qui est identique (les noms de colonnes, le contrat du repository), ce qui diverge et pourquoi
-(types epoch/date/JSON, absence de `RETURNING` en MySQL, `OFFSET` sans `LIMIT`). Lis-la **avant** de
-changer de base, pas après le premier incident.
-
-### [`migrations`](#migrations--ce-que-le-module-fait-et-ce-quil-ne-fait-pas) — le point à ne pas rater
-
-En développement les tables sont créées au démarrage par un DDL dérivé de tes schémas. Ce DDL **ne fait
-aucun `ALTER`**, n'émet ni `DEFAULT` SQL ni index. La section dit ce que ça implique en production, et
-ce que le framework ne fournit pas encore.
+```nodefony-cards
+[
+  { "icon": "⚙️", "title": "connecteurs", "href": "#-configuration",
+    "desc": "Un connecteur = une base. `default` est celui que tout le framework utilise ; tu peux en déclarer d'autres — `analytics`, une fixture — sur leur propre fichier ou serveur. Le dialecte et la cible se déduisent de l'infra déclarée (`NF_DATABASE_URL`), sinon de ta config.",
+    "meta": "commence ici — tout le reste suppose un connecteur ouvert" },
+  { "icon": "🧱", "title": "entités", "href": "#-démarrage-rapide",
+    "desc": "Une table Drizzle ordinaire plus un descripteur `defineEntity` qui lui donne un nom logique : aucune couche à contourner, tous les types du moteur restent accessibles. `nodefony create entity` écrit le reste — ligne typée, schémas de validation, service CRUD, controller REST/WebSocket et tests.",
+    "meta": "tu as des données à toi" },
+  { "icon": "🧰", "title": "repository", "href": "#-api-publique--du-repository-au-sql-brut",
+    "desc": "`find`, `create`, `updateOne`, `upsert`, `increment`, `count`, la pagination — et des filtres portables (`views: { $gte: 10 }`) traduits en SQL par le driver. Le même code tourne sur les trois dialectes, prouvé par un banc de parité qui rejoue la même suite sur chacun.",
+    "meta": "à chaque requête" },
+  { "icon": "🔒", "title": "transactions", "href": "#transactions--une-connexion-dédiée-jamais-le-pool",
+    "desc": "Ce qui réussit ensemble est commité ensemble, une exception annule tout. La section explique pourquoi une transaction emprunte une connexion dédiée au pool, et pourquoi seul `repo.withTransaction(tx)` y entre réellement — l'erreur classique coûte l'atomicité sans prévenir.",
+    "meta": "une opération ne doit jamais rester à moitié" },
+  { "icon": "📦", "title": "stores", "href": "#les-huit-stores-du-framework--la-persistance-clé-en-main",
+    "desc": "Session, utilisateurs, jetons, passkeys, TOTP, audit, webhooks, idempotence : leurs tables vivent dans le module, leurs fabriques s'inscrivent seules dans les registres de `http`, `security` et `framework`. Rien à écrire.",
+    "meta": "à lire pour savoir où sont tes données, ou pour couper la déclaration" },
+  { "icon": "🗃️", "title": "dialectes", "href": "#dialectes--une-base-par-déploiement-un-seul-code",
+    "desc": "Ce qui reste identique (les noms de colonnes, le contrat du repository) et ce qui diverge, avec la raison : types epoch/date/JSON, absence de `RETURNING` en MySQL, `OFFSET` sans `LIMIT`.",
+    "meta": "à lire avant de changer de base, pas après le premier incident" },
+  { "icon": "🚧", "title": "migrations", "href": "#migrations--ce-que-le-module-fait-et-ce-quil-ne-fait-pas",
+    "desc": "En développement, les tables sont créées au démarrage par un DDL dérivé de tes schémas. Ce DDL ne fait aucun `ALTER`, n'émet ni `DEFAULT` SQL ni index : la section dit ce que ça implique en production, et ce que le framework ne fournit pas encore.",
+    "meta": "le point à ne pas rater avant le premier déploiement" }
+]
+```
 
 ## 🚀 Démarrage rapide
 

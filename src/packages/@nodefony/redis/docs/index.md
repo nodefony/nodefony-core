@@ -80,17 +80,16 @@ qu'on y trouve.
 | [Configuration](./configuration.md) | déclarer l'accès, les connexions, l'environnement        | tu branches Redis, ou tu changes de cible     |
 | [Architecture](./architecture.md)   | ce qui se passe dedans : connexions, résilience, données | ça dégrade, ça reconnecte, ou tu dimensionnes |
 
-### [`configuration`](./configuration.md) — déclarer l'accès
-
-Le schéma Zod du module, ses défauts réels, les variables d'environnement, et les situations
-concrètes : un Redis local en développement, une URL de PaaS, du TLS, une connexion supplémentaire
-dédiée. C'est la page qu'on ouvre en premier, et la seule à modifier pour changer de cible.
-
-### [`architecture`](./architecture.md) — ce qui se passe dedans
-
-Les couches du module, le cycle de vie des connexions, la politique de reconnexion, la dégradation
-gracieuse quand Redis n'est pas joignable, et les structures de données employées par les stores.
-À lire quand tu veux comprendre un comportement plutôt que le régler.
+```nodefony-cards
+[
+  { "icon": "⚙️", "title": "configuration", "href": "configuration.md",
+    "desc": "Le schéma Zod du module et ses défauts réels, les variables d'environnement, et les situations concrètes : un Redis local en développement, une URL de PaaS, du TLS, une connexion supplémentaire dédiée.",
+    "meta": "la page qu'on ouvre en premier — et la seule à changer pour viser une autre cible" },
+  { "icon": "🏗️", "title": "architecture", "href": "architecture.md",
+    "desc": "Les couches du module, le cycle de vie des connexions, la politique de reconnexion, la dégradation gracieuse quand Redis n'est pas joignable, et les structures de données employées par les stores.",
+    "meta": "quand tu veux comprendre un comportement plutôt que le régler" }
+]
+```
 
 ## 🧩 Ce que Redis porte — et ce qu'il ne porte pas
 

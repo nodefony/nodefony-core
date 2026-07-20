@@ -88,32 +88,25 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 | [Webhooks](webhooks.md)             | notifier un tiers, signé et sans SSRF         | un système externe doit réagir à tes événements  |
 | [Journal d'audit](audit.md)         | tracer les événements de sécurité             | conformité, investigation, supervision           |
 
-### [`firewall`](firewall.md) — le pare-feu applicatif
-
-Il répond à trois questions pour **chaque** requête : est-ce une zone protégée ? qui es-tu ? as-tu le
-droit ? Il sépare le chemin chaud (détecter) du chemin froid (décider) pour ne rien payer sur les
-routes publiques. **Lis-le en premier** : toutes les autres briques se branchent dessus.
-
-### [`authenticators`](authenticators.md) — prouver qui appelle
-
-Six stratégies au même contrat : `session`, `userpassword`, `jwt`, `apikey`, `anonymous`,
-`session-realtime`. Elles se composent dans l'ordre au sein d'une zone. Commence par la section
-« Ordre et modes » : c'est là que se logent les pièges de configuration.
-
-### [`authorization`](authorization.md) — décider des droits
-
-Rôles hiérarchisés, scopes, et **voters** métier qui portent le vrai pouvoir applicatif. Le jury vote,
-la stratégie tranche. À lire juste après les authenticators — authentifier sans autoriser ne protège rien.
-
-### [`tokens`](tokens.md) — l'identité matérialisée
-
-Émission, keystore, rotation, révocation. La page explique le choix structurant du framework : session
-opaque côté serveur pour le web, JWT pour les API — et pourquoi ce n'est pas « full stateless ».
-
-### [`audit`](audit.md) — la mémoire de ce qui s'est passé
-
-Qui s'est connecté, quel accès a été refusé, quelle clé a été révoquée. Conçu pour ne **pas** peser
-sur le chemin chaud de la requête. Alimente aussi les [webhooks](webhooks.md).
+```nodefony-cards
+[
+  { "icon": "🛡️", "title": "firewall", "href": "firewall.md", "featured": true,
+    "desc": "Le pare-feu applicatif : trois questions pour chaque requête — est-ce une zone protégée ? qui es-tu ? as-tu le droit ? Le chemin chaud (détecter) est séparé du chemin froid (décider), donc une route publique ne paie rien.",
+    "meta": "à lire en premier — toutes les autres briques s'y branchent" },
+  { "icon": "🪪", "title": "authenticators", "href": "authenticators.md",
+    "desc": "Prouver qui appelle : six stratégies au même contrat — session, userpassword, jwt, apikey, anonymous, session-realtime — qui se composent dans l'ordre au sein d'une zone.",
+    "meta": "commence par « Ordre et modes » : les pièges de configuration sont là" },
+  { "icon": "⚖️", "title": "authorization", "href": "authorization.md",
+    "desc": "Décider des droits : rôles hiérarchisés, scopes, et voters métier qui portent le vrai pouvoir applicatif. Le jury vote, la stratégie tranche.",
+    "meta": "juste après les authenticators — authentifier sans autoriser ne protège rien" },
+  { "icon": "🎫", "title": "tokens", "href": "tokens.md",
+    "desc": "L'identité matérialisée : émission, keystore, rotation, révocation — et le choix structurant du framework, session opaque côté serveur pour le web, JWT pour les API.",
+    "meta": "et pourquoi ce n'est pas « full stateless »" },
+  { "icon": "📓", "title": "audit", "href": "audit.md",
+    "desc": "La mémoire de ce qui s'est passé : qui s'est connecté, quel accès a été refusé, quelle clé a été révoquée. Conçu pour ne pas peser sur le chemin chaud de la requête.",
+    "meta": "alimente aussi les webhooks" }
+]
+```
 
 ## 🏛️ Place dans le framework
 

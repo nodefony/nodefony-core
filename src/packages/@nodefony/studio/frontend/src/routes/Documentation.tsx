@@ -14,6 +14,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconChevronRight,
   IconChevronsDown,
   IconChevronsUp,
   IconFileText,
@@ -395,21 +396,62 @@ export const Documentation = observer(() => {
                         }
                         opened={!isCollapsed}
                         active={onHub}
-                        onChange={(o) =>
-                          setCollapsed((c) => ({ ...c, [s.id]: !o }))
-                        }
+                        // DEUX gestes distincts sur deux cibles distinctes. Le
+                        // toggle automatique de Mantine (`onChange`) est retiré :
+                        // laissé en place, il se déclenchait AUSSI au clic sur le
+                        // corps et se battait avec la navigation — un clic pliait
+                        // et dépliait dans le même mouvement.
                         onClick={() => {
-                          // Un seul geste, deux effets : on déplie ET on ouvre le
-                          // hub. Replier ne se fait qu'au clic suivant, une fois
-                          // le hub déjà à l'écran — sinon un aller-retour sur le
-                          // module refermerait ce qu'on vient d'ouvrir.
-                          if (isCollapsed || !onHub) {
-                            setCollapsed((c) => ({ ...c, [s.id]: false }));
-                            if (hub) setActiveSlug(hub.slug);
-                          } else {
-                            setCollapsed((c) => ({ ...c, [s.id]: true }));
-                          }
+                          // Le CORPS mène au hub, et déplie pour montrer la suite.
+                          setCollapsed((c) => ({ ...c, [s.id]: false }));
+                          if (hub) setActiveSlug(hub.slug);
                         }}
+                        rightSection={
+                          <ActionIcon
+                            component="div"
+                            role="button"
+                            tabIndex={0}
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            aria-label={
+                              isCollapsed
+                                ? `Déplier ${s.label}`
+                                : `Replier ${s.label}`
+                            }
+                            aria-expanded={!isCollapsed}
+                            // Le CHEVRON ne fait QUE plier/déplier : il ne navigue
+                            // pas. D'où l'arrêt de propagation — sans lui, le clic
+                            // remonterait au NavLink et ouvrirait le hub.
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCollapsed((c) => ({
+                                ...c,
+                                [s.id]: !isCollapsed,
+                              }));
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setCollapsed((c) => ({
+                                  ...c,
+                                  [s.id]: !isCollapsed,
+                                }));
+                              }
+                            }}
+                          >
+                            <IconChevronRight
+                              size={14}
+                              style={{
+                                transition: "transform 150ms ease",
+                                transform: isCollapsed
+                                  ? "rotate(0deg)"
+                                  : "rotate(90deg)",
+                              }}
+                            />
+                          </ActionIcon>
+                        }
                         childrenOffset={14}
                         styles={{ root: { borderRadius: rem(6) } }}
                       >

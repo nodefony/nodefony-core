@@ -523,7 +523,12 @@ function DocCards({
   }
   const go = (href?: string) => (e: React.MouseEvent) => {
     if (!href || !onNavigate) return;
-    const slug = href.match(/^([A-Za-z0-9._~-]+)\.md$/)?.[1];
+    // Même tolérance que les liens markdown ordinaires (cf l'override `a`) :
+    // `./page.md` autant que `page.md`. Un auteur écrit naturellement la forme
+    // relative — elle est lisible sur GitHub — et exiger ici la forme nue
+    // fabriquait des cards qui s'affichent bien mais ne naviguent pas, sans
+    // qu'aucun gate puisse le voir : le fichier existe, le lien est juste inerte.
+    const slug = href.match(/^\.?\/?([A-Za-z0-9._~-]+)\.md(?:#.*)?$/)?.[1];
     if (slug && onNavigate(slug)) e.preventDefault();
   };
   return (
