@@ -35,6 +35,15 @@ source: "src/packages/@nodefony/realtime/docs/protocole.md"
 
 📍 [Documentation](../../../../../docs/index.md) › [Realtime](index.md) › **Protocole**
 
+```nodefony-livegraph
+{
+  "graph": "protocole",
+  "height": 480,
+  "title": "Le protocole, en direct",
+  "hint": "Les formes de frame qui circulent sur la socket de Studio — celle qui sert cette page."
+}
+```
+
 ## 🧠 Schéma général — trois formes, un seul moteur
 
 Le pair classe chaque frame entrante avant toute chose. Ce classement — le **dispatch** — est le
@@ -342,16 +351,6 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 > `socket.serverChannels`.
 
 Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma les montre sur la
-socket de Studio, celle qui sert cette page :
-
-```nodefony-livegraph
-{
-  "graph": "protocole",
-  "height": 480,
-  "title": "Les formes de frame, en direct",
-  "hint": "Notification, requête, réponse, push de canal. Les compteurs distinguent ce qui circule vraiment de ce qui est illustré."
-}
-```
 
 > [!WARNING]
 > `kernel:ping` et `kernel:gc` (`StudioRealtimeController.ts:114`) sont des exemples d'actions,

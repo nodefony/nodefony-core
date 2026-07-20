@@ -35,6 +35,15 @@ source: "src/packages/@nodefony/realtime/docs/architecture.md"
 
 📍 [Documentation](../../../../../docs/index.md) › [Realtime](index.md) › **Architecture**
 
+```nodefony-livegraph
+{
+  "graph": "architecture",
+  "height": 520,
+  "title": "L'architecture, en direct",
+  "hint": "Les quatre étages, avec leurs compteurs réels. OFF = aucun abonnement côté serveur ; ON = la page s'abonne au canal de santé."
+}
+```
+
 ## 🧠 Le modèle mental — une prise, un standard, un fond de panier
 
 Trois objets suffisent à comprendre l'ensemble, et ils se racontent avec du matériel bien
@@ -365,16 +374,6 @@ accumule sans borne côté serveur, et le multiplexage aggrave le phénomène : 
 lente retient **tous** ses canaux.
 
 Le schéma ci-dessous rend ces étages vivants : active le temps réel et il respire au rythme
-de la socket que tu es en train de lire — les compteurs viennent de la sonde du hub.
-
-```nodefony-livegraph
-{
-  "graph": "architecture",
-  "height": 520,
-  "title": "Les étages, en direct",
-  "hint": "Chaque étage porte ses propres compteurs. OFF = aucun abonnement côté serveur ; ON = la page s'abonne au canal de santé."
-}
-```
 
 ## 🔌 Le cycle de vie d'une connexion
 

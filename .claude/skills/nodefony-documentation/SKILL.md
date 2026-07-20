@@ -435,14 +435,23 @@ commit `docs(<module>): …` sur la branche `doc` (jamais mergée sans validatio
 ## Gates avant commit
 
 ```bash
-# 1. typecheck front Studio (0 erreur — fichiers de SOURCE, pas les .test.ts)
-cd src/packages/@nodefony/studio/frontend && npx tsc --noEmit
+# 1. typecheck front Studio — LE SEUL QUI MORD (les 3 projets : module, tests, frontend)
+cd src/packages/@nodefony/studio && npm run typecheck
 # 2. build studio DIRECT si index.ts public changé (sinon turbo sert un dist caché → 404)
 cd src/packages/@nodefony/studio && rm -rf dist && npm run build
 # 3. endpoints vivants
 curl -s -o /dev/null -w "tree:%{http_code}\n"  http://127.0.0.1:5151/nodefony/documentation/api/tree
 curl -s -o /dev/null -w "page:%{http_code}\n"  http://127.0.0.1:5151/nodefony/documentation/api/page/socket
 ```
+
+> 🔴 **N'utilise JAMAIS `cd .../studio/frontend && npx tsc --noEmit` comme gate.** Il sort **EXIT=0
+> sans compiler un seul fichier de `src/`** — prouvé en injectant `const __probe: number = "boom"` :
+> toujours vert, et `--listFiles` ne montre aucun fichier du frontend. C'est un gate **fantôme** :
+> il donne la confiance sans la vérification. Le typecheck réel du projet passe par **`tsgo`**
+> (`package.json` → `typecheck`), qui lui lève bien `TS2322` sur la même probe.
+>
+> Règle générale : avant de faire confiance à un gate, **casse-le exprès une fois**. Un gate qu'on
+> n'a jamais vu échouer n'est pas un gate, c'est une incantation.
 
 Après modif front pure → HMR Vite (0 restart). Après modif controller → `stop.sh && start.sh`
 (skill `nodefony-start-server`). Hard-reload navigateur (cache React) avant de conclure.

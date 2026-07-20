@@ -18,8 +18,12 @@ import { mapFanOutLive, useSocketLiveData } from "./useSocketLiveData";
  * FanOutLiveGraph — schéma « Fan-out & pub/sub » de la Socket.
  *
  * Lecture LR : un publish part d'un service → hub local → 3 peers locaux.
- * En cluster (illustratif, signal direct P13), le hub forward au backplane,
- * qui relaie au hub B d'un autre worker, qui fan-oute à ses propres peers.
+ * En cluster, le hub forward au backplane, qui relaie au hub B d'un autre
+ * worker, qui fan-oute à ses propres peers.
+ *
+ * Les 3 peers locaux s'allument PAR RANG (≥1, ≥2, ≥3 abonnés simultanés sur un
+ * canal) : le seuil est mesuré, l'identité du peer est illustrative. La branche
+ * cross-worker n'est alimentée qu'en vue pod agrégée avec un second worker.
  *
  * Pattern « 0 ticker quand OFF » : l'abonnement vit dans `<LiveBranch>`
  * monté seulement si `live={true}`. OFF = pas d'abonnement = pas de ticker
@@ -51,7 +55,7 @@ const NODES: FlowGraphNode[] = [
     id: "peerA",
     data: {
       label: "Peer A1",
-      sub: "abonné local",
+      sub: "abonné local · allumé dès 1 abonné sur un canal",
       icon: <IconDeviceDesktop size={20} />,
       color: "blue",
     },
@@ -60,7 +64,7 @@ const NODES: FlowGraphNode[] = [
     id: "peerB",
     data: {
       label: "Peer A2",
-      sub: "abonné local",
+      sub: "abonné local · allumé dès 2 abonnés sur un canal",
       icon: <IconDeviceDesktop size={20} />,
       color: "blue",
     },
@@ -69,7 +73,7 @@ const NODES: FlowGraphNode[] = [
     id: "peerC",
     data: {
       label: "Peer A3",
-      sub: "abonné local",
+      sub: "abonné local · allumé dès 3 abonnés sur un canal",
       icon: <IconDeviceDesktop size={20} />,
       color: "blue",
     },
@@ -78,7 +82,7 @@ const NODES: FlowGraphNode[] = [
     id: "backplane",
     data: {
       label: "IBackplane",
-      sub: "forward cross-worker — Loopback / IPC / Redis / Kafka",
+      sub: "forward cross-worker — Loopback / Cluster IPC / Redis",
       icon: <IconCircuitResistor size={20} />,
       color: "orange",
     },
@@ -87,7 +91,7 @@ const NODES: FlowGraphNode[] = [
     id: "hubB",
     data: {
       label: "RealtimeHub B",
-      sub: "autre worker — fan-out local distant",
+      sub: "2ᵉ worker du pod — neutre hors vue pod agrégée",
       icon: <IconBroadcast size={20} />,
       color: "grape",
     },
@@ -96,7 +100,7 @@ const NODES: FlowGraphNode[] = [
     id: "peerX",
     data: {
       label: "Peer B1",
-      sub: "abonné worker B",
+      sub: "abonné worker B · allumé dès 1 abonné",
       icon: <IconCpu size={20} />,
       color: "teal",
     },
@@ -105,7 +109,7 @@ const NODES: FlowGraphNode[] = [
     id: "peerY",
     data: {
       label: "Peer B2",
-      sub: "abonné worker B",
+      sub: "abonné worker B · allumé dès 2 abonnés",
       icon: <IconCpu size={20} />,
       color: "teal",
     },

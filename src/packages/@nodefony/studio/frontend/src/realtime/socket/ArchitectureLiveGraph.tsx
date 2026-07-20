@@ -68,7 +68,7 @@ const NODES: FlowGraphNode[] = [
     id: "backplane",
     data: {
       label: "IBackplane",
-      sub: "Fond de panier · Loopback → IPC cluster → Redis",
+      sub: "Fond de panier · driver réel remonté par la sonde",
       icon: <IconCircuitResistor size={20} />,
       color: "orange",
       emphasis: true,
@@ -78,7 +78,7 @@ const NODES: FlowGraphNode[] = [
     id: "w1",
     data: {
       label: "Worker A",
-      sub: "process / pod",
+      sub: "process / pod · alimenté par instances[] en vue pod",
       icon: <IconCpu size={20} />,
       color: "teal",
     },
@@ -87,7 +87,7 @@ const NODES: FlowGraphNode[] = [
     id: "w2",
     data: {
       label: "Worker B",
-      sub: "process / pod",
+      sub: "process / pod · neutre si le pod n'a qu'un worker",
       icon: <IconCpu size={20} />,
       color: "teal",
     },

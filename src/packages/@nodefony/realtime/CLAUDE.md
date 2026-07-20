@@ -17,17 +17,26 @@
 ## Rôle du module
 
 Couche **realtime serveur** Nodefony : hub WebSocket (broker fan-out), protocole JSON-RPC 2.0
-(peer isomorphe partagé avec le client core), backplane cluster (4 drivers : Loopback / Cluster
-IPC / Redis / Kafka) et — à terme — protocoles TCP / UDP / Unix sockets (P13.1).
+(peer isomorphe partagé avec le client core), backplane cluster (**3 drivers natifs** : `loopback`,
+`cluster` IPC, `redis`) + registre ouvert pour les drivers userland.
 
-**Le client navigateur n'est PAS dans ce module** — il vit dans le subpath `nodefony/realtime`
-du core, pour rester importable depuis un navigateur sans dépendre du framework serveur.
+> ⚠️ **Kafka n'existe pas.** Aucun `KafkaBackplane` n'est codé, et `backplaneRegistry.test.ts`
+> **interdit explicitement le littéral** (`expect(names).to.not.include("kafka")`) — règle « pas de
+> nom mort ». Ne l'annonce nulle part comme disponible. Idem `nodefony/src/protocols/` (TCP/UDP/Unix) :
+> le dossier n'existe pas sur disque.
+
+**Le client navigateur n'est PAS dans ce module** — il vit dans le cœur, importable sans dépendre
+du framework serveur.
+
+> ⚠️ **Le subpath est `nodefony/client`, PAS `nodefony/realtime`.** Ce dernier **n'existe pas** :
+> les exports réels du cœur sont `.`, `./bundler`, `./client`, `./debugbar`, `./react`, `./roles`.
+> L'import `nodefony/realtime` est **cassé pour tout consommateur**.
 
 ## Décisions techniques figées
 
 | Sujet                 | Décision                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Client navigateur** | Subpath `nodefony/realtime` du core — **PAS** dans ce module (raison isomorphisme, décision figée 2026-05-21)                                                                                                                                                                                                                                                                               |
+| **Client navigateur** | Subpath **`nodefony/client`** du core — **PAS** dans ce module (raison : isomorphisme). ⚠️ `nodefony/realtime` **n'existe pas**                                                                                                                                                                                                                                                             |
 | **Vocabulaire**       | `socket` = la prise (`IRealtimeSocket`, handle), `hub` = broker serveur (`RealtimeHub`), `backplane` = fond de panier cluster (`IBackplane`), `peer` = `JsonRpcPeer` (isomorphe)                                                                                                                                                                                                            |
 | **Protocole**         | JSON-RPC 2.0 maison + RPC bidirectionnel (Promise) + types partagés `ServerToClientEvents`/`ClientToServerEvents`                                                                                                                                                                                                                                                                           |
 | **Backplane**         | Contrat `IBackplane` + **registre de drivers** (`backplaneRegistry.ts`) : `config.backplane.driver` → fabrique, ZÉRO `if` sur nom en dur. Chaque driver porte son nom (`X.driver` static). Natifs : `loopback`, `cluster` (IPC), `redis` (✅ P13.5 pub/sub cross-pod). Userland : `registerBackplaneDriver(name, factory)`. Schéma `z.string()` ouvert. `NF_REALTIME_DRIVER` = env layering |
@@ -62,23 +71,25 @@ src/packages/@nodefony/realtime/
 ├── tsconfig.json                       ← NE PAS MODIFIER sans accord
 ├── vitest.config.ts
 ├── CLAUDE.md / MEMORY.md / README.md
-├── docs/                               ← surfacé dans Studio
-│   ├── index.md
+├── docs/                               ← surfacé dans Studio — 9 pages
+│   ├── index.md                        ← hub (catalogue en cards)
 │   ├── vocabulaire.md
 │   ├── architecture.md
+│   ├── protocole.md                    ← grammaire des frames, codes d'erreur réels
+│   ├── actions.md                      ← RPC : appeler et savoir si ça a marché
 │   ├── configuration.md
 │   ├── securite.md
+│   ├── observabilite.md                ← sonde, canaux de santé, écrans
 │   └── cookbook-chat.md
 └── nodefony/
     ├── interfaces/                     ← IBackplane, IRealtimeController, IRealtimeProbe, IRealtimeAuthenticator
     ├── src/
-    │   ├── errors/RealtimeError.ts     ← (livré)
-    │   ├── server/                     ← (P13.0) RealtimeHub, RealtimeController, RealtimeAdminApi
-    │   ├── backplane/                  ← (P13.0) LoopbackBackplane, ClusterBackplane, (P13.5) RedisBackplane, (P13.6) KafkaBackplane
+    │   ├── errors/RealtimeError.ts
+    │   ├── server/                     ← RealtimeHub, RealtimeController, RealtimeAdminApi
+    │   ├── backplane/                  ← LoopbackBackplane, ClusterBackplane, RedisBackplane + backplaneRegistry
     │   ├── config/defineModuleConfig.ts  ← builder + Zod
-    │   ├── decorators/                 ← (P13.8) @RealtimeController, @RealtimeEvent
-    │   └── protocols/                  ← (P13.1) tcp/, udp/, unix/
-    └── tests/unit/                     ← (P13.0) RealtimeHub.test.ts, RealtimeController.test.ts, ClusterBackplane.test.ts
+    │   └── decorators/                 ← @RealtimeAction, @RealtimeChannel, @RealtimeInbound
+    └── tests/unit/                     ← RealtimeHub.test.ts, RealtimeController.test.ts, ClusterBackplane.test.ts
 ```
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
@@ -97,29 +108,39 @@ src/packages/@nodefony/realtime/
 Le scan des `docs/*.md` du module est fait par le helper `docsReader.ts`.
 
 ✅ **Vitrine pédagogique** (séparée) : `/nodefony/documentation` → les pages `docs/*.md` de CE
-module (la doc « socket Nodefony » vit ici, plus dans `docs/` racine) avec live graphs
-(FanOut/Protocole/Sondes/Backplane/Actions).
+module. La doc « socket Nodefony » vit **ici seulement** — l'ancienne vitrine transverse
+`docs/realtime/socket/` est supprimée, et `docs/architecture/realtime-socket-nodefony.md` ne porte
+plus que la **trajectoire** (SIP, ponts protocolaires), pas la mécanique.
+
+**Les graphes vivants** (`architecture`, `protocole`, `fan-out`, `actions`, `backplane`, `sondes`)
+ne sont plus liés à un dossier de pages : ils vivent dans un registre
+(`studio/frontend/src/realtime/socket/liveGraphs.ts`) et s'invoquent **par nom**, dans n'importe
+quelle page, par une fence typée :
+
+````markdown
+```nodefony-livegraph
+{ "graph": "backplane", "height": 520 }
+```
+````
+
+Le même registre alimente le forage « Realtime Hub » du Jumeau Vivant (`SocketExplorer`) — une
+seule source, deux consommateurs.
 
 Les 2 vues cohabitent intentionnellement (cf [[project_doc_portal_faisabilite]] + ADR-0001
 emplacement hybride).
 
-## Roadmap (P13) — resync code 2026-06-12 (autorité : `MIGRATION_STATUS.md` § P13)
+## Où en est le module
 
-> **167 tests verts** (+9 skipped docker). Dettes backplane #1 (namespace canal) et #2 (originId
-> cross-pod) **fixées** (`c082560`) : `resolveBackplaneOriginId()` + `backplane.namespace` Zod →
-> canal `nodefony:realtime:<ns>`. Reste dette #3 (frontière inter-modules, attend P6).
+**L'avancement vit dans `MIGRATION_STATUS.md` (§ P13) — pas ici.** Un tableau de statuts recopié
+dans un CLAUDE.md devient un mensonge dès la session suivante : celui-ci annonçait encore un driver
+Kafka « à faire » et 6 pages de doc alors qu'il y en a 9.
 
-| Étape                                                   | Statut        | Description                                                                    |
-| ------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------ |
-| Scaffold + doc                                          | ✅ 2026-05-28 | Module créé + 6 pages doc vulgarisée                                           |
-| **P13.0** Rapatriement framework→realtime               | ✅            | 10 src + 5 tests `git mv`, cycle cassé                                         |
-| **Seams** sécurité (5 hooks)                            | ✅ 2026-05-28 | cf section « 5 seams » ci-dessus                                               |
-| **P13.8** Décorateurs realtime                          | 🔶            | 3 décorateurs livrés ; reste pattern RegExp                                    |
-| **P13.7** Protocole JSON-RPC 2.0 + types partagés       | ✅            | RPC bidirectionnel ; long-polling droppé                                       |
-| **P13.4** `IRealtimeHub` + `RealtimeService` + config   | ✅            | Builder Zod + service DI                                                       |
-| **P13.9** Tests cluster IPC (sans infra)                | ✅            | e2e `child_process.fork`, 5 tests                                              |
-| **P13.2** Refacto `@nodefony/redis`                     | 🔶            | fondation conventions + config Zod ; 15 tests                                  |
-| **P13.5** `RedisBackplane` driver                       | ✅            | pub/sub cross-pod, **prouvé cluster live -w2** ; registre drivers              |
-| **P13.6** `KafkaBackplane` driver                       | ⬜            | apps massives + bus agents IA                                                  |
-| **P13.1** TCP / UDP / Unix sockets                      | 🔶 différable | scaffold ; code protocoles reste (niche)                                       |
-| **Banc de conformité ventilation** (scénarios × driver) | ⬜            | matrice : mémoire IA `core-dev/audits/realtime-module-isolation-2026-06-05.md` |
+Ce qu'il faut savoir en entrant dans le module, et qui ne périme pas :
+
+- Le **cœur est livré et prouvé en cluster** : hub, protocole, seams sécurité, backplane Redis
+  cross-pod, sonde. On construit dessus, on ne le refonde pas.
+- Les **dettes de nommage cross-pod sont soldées** : l'espace de nommage du canal et l'`originId`
+  sont câblés. Toute doc qui les présente comme ouvertes est périmée.
+- La dette qui **reste vraiment** : la frontière inter-modules des canaux. Le registre est plat et
+  indexé par nom, donc un module peut redéclarer un canal avec une politique plus faible. Elle
+  attend l'arbitrage sécurité — et elle n'a jamais porté le nom `#channelAllowed` qu'on lui prête.

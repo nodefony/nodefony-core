@@ -83,52 +83,34 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
 | [Observabilité](./observabilite.md)      | la sonde, les canaux de santé, les écrans          | tu te demandes si ta socket va bien          |
 | [Cookbook — un chat](./cookbook-chat.md) | l'exemple complet, client et serveur               | tu veux du code qui marche tout de suite     |
 
-### [`vocabulaire`](./vocabulaire.md) — les mots avant les mécanismes
-
-Socket, hub, peer, canal, frame, fan-out, backplane, sonde. Chaque terme part d'une analogie
-concrète, puis donne le symbole réel du code. C'est la page la plus courte du module, et celle qui
-fait gagner le plus de temps sur toutes les autres.
-
-### [`architecture`](./architecture.md) — comment une frame voyage
-
-La pile complète, du transport WebSocket jusqu'à la méthode de ton contrôleur, puis le chemin
-inverse quand le serveur publie. Elle explique aussi ce qui rend le coût nul quand personne n'écoute :
-un canal n'existe qu'à partir du premier abonné et disparaît au dernier départ.
-
-### [`configuration`](./configuration.md) — les réglages qui comptent
-
-Le schéma de configuration du module, ses valeurs d'usine réelles, et surtout **le choix du driver**
-de backplane. On y trouve aussi le cloisonnement par espace de nommage — indispensable dès que deux
-déploiements partagent le même Redis — et les bornes anti-abus.
-
-### [`securite`](./securite.md) — qui parle, et qui peut quoi
-
-Une WebSocket s'authentifie **une fois**, à l'ouverture, puis reste ouverte des heures : ce n'est pas
-le modèle du web, et ça change tout. La page décrit les points de greffe par lesquels
-`@nodefony/security` vient poser l'identité, autoriser les canaux et journaliser les refus.
-
-### [`protocole`](./protocole.md) — ce qui circule vraiment sur le fil
-
-La socket parle **JSON-RPC 2.0**, et une frame n'a que trois formes : une notification, une requête
-qui attend une réponse, une réponse. La page donne la grammaire champ par champ, les méthodes
-nominales, et surtout les codes d'erreur **réellement émis** — ce qu'un onglet réseau te montrera.
-
-### [`actions`](./actions.md) — appeler, et savoir si ça a marché
-
-Publier ne dit jamais si le message est arrivé. Une action RPC, si. La page donne le critère de
-choix entre les deux, comment déclarer une action, ce qui se passe quand le client abandonne ou
-rejoue, et pourquoi un flux se diffuse sur un canal plutôt que de tenir dans une réponse.
-
-### [`observabilite`](./observabilite.md) — savoir si la socket va bien
-
-Ce que la sonde du hub expose, les canaux de santé et leur cadence, ce que Studio en montre, et
-comment écrire sa propre sonde sans faire fuir la mémoire ni empêcher le processus de s'arrêter.
-
-### [`cookbook-chat`](./cookbook-chat.md) — l'exemple intégrateur
-
-Un salon de discussion complet : configuration, service métier, contrôleur, client navigateur, puis
-le passage en cluster. À lire quand tu préfères partir d'un cas qui tourne et le déformer vers ton
-besoin.
+```nodefony-cards
+[
+  { "icon": "📖", "title": "vocabulaire", "href": "./vocabulaire.md",
+    "desc": "Socket, hub, peer, canal, frame, fan-out, backplane, sonde : chaque terme part d'une analogie concrète, puis donne le symbole réel du code.",
+    "meta": "à lire en premier — la plus courte, la plus rentable" },
+  { "icon": "🏗️", "title": "architecture", "href": "./architecture.md",
+    "desc": "La pile complète, du transport WebSocket jusqu'à la méthode de ton contrôleur — puis le chemin inverse quand le serveur publie.",
+    "meta": "comprendre plutôt que régler" },
+  { "icon": "⚙️", "title": "configuration", "href": "./configuration.md",
+    "desc": "Le schéma du module, ses valeurs d'usine réelles, et surtout le choix du driver de backplane. Avec le cloisonnement par espace de nommage et les bornes anti-abus.",
+    "meta": "avant la mise en production" },
+  { "icon": "🛡️", "title": "securite", "href": "./securite.md",
+    "desc": "Une WebSocket s'authentifie une fois, à l'ouverture, puis reste ouverte des heures : ce n'est pas le modèle du web, et ça change tout. Les points de greffe où @nodefony/security pose l'identité, autorise les canaux et journalise les refus.",
+    "meta": "ta socket est joignable depuis un navigateur" },
+  { "icon": "📜", "title": "protocole", "href": "./protocole.md",
+    "desc": "La socket parle JSON-RPC 2.0, et une frame n'a que trois formes : une notification, une requête qui attend une réponse, une réponse. Grammaire champ par champ, méthodes nominales, et codes d'erreur réellement émis.",
+    "meta": "déboguer le fil, ou écrire un client" },
+  { "icon": "↔️", "title": "actions", "href": "./actions.md",
+    "desc": "Publier ne dit jamais si le message est arrivé ; une action RPC, si. Le critère de choix entre les deux, l'abandon et le rejeu — et pourquoi un flux se diffuse sur un canal plutôt que de tenir dans une réponse.",
+    "meta": "savoir si l'appel a marché" },
+  { "icon": "📡", "title": "observabilite", "href": "./observabilite.md",
+    "desc": "Ce que la sonde du hub expose, les canaux de santé et leur cadence, ce que Studio en montre — et comment écrire la sienne sans faire fuir la mémoire ni empêcher le processus de s'arrêter.",
+    "meta": "tu te demandes si ta socket va bien" },
+  { "icon": "🍳", "title": "cookbook-chat", "href": "./cookbook-chat.md",
+    "desc": "Un salon de discussion complet : configuration, service métier, contrôleur, client navigateur, puis le passage en cluster.",
+    "meta": "du code qui tourne, à déformer vers ton besoin" }
+]
+```
 
 ## 🧩 Ce que le module apporte
 
@@ -321,7 +303,9 @@ jamais recopiées ici : elles divergeraient en silence.
 Un seul point d'entrée : `use("@nodefony/realtime", { … })` dans `nodefony.config.ts`, validé au boot
 contre le schéma du module (`realtimeConfigSchema`, `config.ts:168`). Cinq blocs :
 
-- `backplane` — le driver de fan-out et son espace de nommage.
+- `backplane` — le driver de fan-out et son espace de nommage. Ce cloisonnement devient
+  indispensable dès que **deux déploiements partagent le même Redis** : sans lui, leurs publications
+  se mélangent.
 - `csrf.checkOrigin` — le contrôle d'origine à l'ouverture de la socket.
 - `limits` — le plafond de canaux par connexion, garde anti-saturation mémoire.
 - `slowConsumer` — le seuil à partir duquel un client trop lent est signalé par la sonde.

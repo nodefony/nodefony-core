@@ -92,7 +92,8 @@ const NODES: FlowGraphNode[] = [
   },
 ];
 
-const EDGES: FlowGraphEdge[] = [
+/** Les 4 chemins de frames. Suffisant en live : chaque nœud y porte son état. */
+const EDGES_LIVE: FlowGraphEdge[] = [
   // Sans id — pub/sub fire-and-forget.
   { source: "client", target: "notifyOut", label: "sans id", color: "cyan" },
   { source: "notifyOut", target: "server", label: "method", color: "cyan" },
@@ -114,7 +115,15 @@ const EDGES: FlowGraphEdge[] = [
     color: "teal",
   },
   { source: "notifyIn", target: "client", label: "payload", color: "teal" },
-  // Indication direction (pour le statique).
+];
+
+/**
+ * Rendu statique : on ajoute le rappel « tout passe par une seule WSS ». En live
+ * cette arête doublonnerait les 4 chemins déjà tracés (le raccourci client→server
+ * se superpose visuellement à notifyOut→server), sans rien mesurer.
+ */
+const EDGES_STATIC: FlowGraphEdge[] = [
+  ...EDGES_LIVE,
   {
     source: "client",
     target: "server",
@@ -129,7 +138,7 @@ const LiveBranch = observer(({ height }: { height: number }) => {
   return (
     <FlowGraph
       nodes={NODES}
-      edges={EDGES}
+      edges={EDGES_LIVE}
       dir="TB"
       height={height}
       ariaLabel="Protocole JSON-RPC 2.0 — temps réel actif"
@@ -152,7 +161,7 @@ export function ProtocoleLiveGraph({
   return (
     <FlowGraph
       nodes={NODES}
-      edges={EDGES}
+      edges={EDGES_STATIC}
       dir="TB"
       height={height}
       ariaLabel="Protocole JSON-RPC 2.0 (statique)"

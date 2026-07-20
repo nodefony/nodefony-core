@@ -34,6 +34,15 @@ source: "src/packages/@nodefony/realtime/docs/actions.md"
 
 📍 [Documentation](../../../../../docs/index.md) › [Realtime](index.md) › **Actions RPC**
 
+```nodefony-livegraph
+{
+  "graph": "actions",
+  "height": 520,
+  "title": "Le trajet d'une action, en direct",
+  "hint": "Résolution de la méthode, verrou d'autorisation, handler. Les sorties d'erreur sont des branches à part."
+}
+```
+
 ## 🧠 Le modèle mental — deux directions sur un même fil
 
 Une seule connexion porte deux régimes de trafic. Ils ne se distinguent pas par leur contenu mais
@@ -255,16 +264,6 @@ Un `orderId` absent donne l'autre forme de réponse, l'échec explicite :
 ```
 
 Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par lesquelles elle
-peut sortir :
-
-```nodefony-livegraph
-{
-  "graph": "actions",
-  "height": 520,
-  "title": "Le trajet d'une action",
-  "hint": "Résolution de la méthode, verrou d'autorisation, handler. Les sorties d'erreur sont des branches à part : c'est là, et seulement là, que l'audit se déclenche."
-}
-```
 
 ## 🧰 Déclarer une action côté serveur
 

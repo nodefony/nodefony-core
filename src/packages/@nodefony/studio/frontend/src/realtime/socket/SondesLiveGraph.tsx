@@ -18,12 +18,16 @@ import { mapSondesLive, useSocketLiveData } from "./useSocketLiveData";
 /* ════════════════════════════════════════════════════════════════════════
  * SondesLiveGraph — schéma « Patron probe → health → canal → Studio ».
  *
- * Les 5 pièces canoniques (cf doc 05-sondes.md) :
- *   1. I<X>Probe          — sonde au plus près du code métier
- *   2. build<X>Health()   — agrégateur pur
- *   3. GET /api/<x>/health — endpoint HTTP 1er paint
- *   4. Provider ticker    — push live via setInterval + publish
- *   5. Canal <x>:health   — RealtimeHub → Studio (générique via broker)
+ * Les 5 pièces canoniques :
+ *   1. I<X>Probe                     — sonde au plus près du code métier
+ *   2. build<X>Health()              — agrégateur pur
+ *   3. GET /nodefony/<x>/api/health  — endpoint HTTP 1er paint
+ *   4. Provider ticker               — push live via setInterval + publish
+ *   5. Canal <x>:health              — RealtimeHub → Studio (via broker)
+ *
+ * Les pièces 3 et 4 sont deux CONSOMMATEURS de la pièce 2, pas une chaîne :
+ * l'endpoint ne remplit pas le canal, chacun appelle l'agrégateur pour son
+ * compte (1er paint HTTP d'un côté, flux cadencé de l'autre).
  *
  * Signal live = lecture du canal `realtime:health` : `channels[]` filtré
  * sur les noms `*:health` donne le nombre de sondes vivantes ET leur
@@ -55,7 +59,7 @@ const NODES: FlowGraphNode[] = [
   {
     id: "endpoint",
     data: {
-      label: "GET /api/<x>/health",
+      label: "GET /nodefony/<x>/api/health",
       sub: "Endpoint HTTP · 1er paint sans attendre le tick",
       icon: <IconRoute size={20} />,
       color: "cyan",
@@ -65,7 +69,7 @@ const NODES: FlowGraphNode[] = [
     id: "ticker",
     data: {
       label: "Provider ticker",
-      sub: "setInterval(1s).unref() · publish(<x>:health, …)",
+      sub: "setInterval(cadence).unref() · publish(<x>:health, …)",
       icon: <IconClock size={20} />,
       color: "orange",
     },
@@ -74,7 +78,7 @@ const NODES: FlowGraphNode[] = [
     id: "channel",
     data: {
       label: "Canal <x>:health",
-      sub: "RealtimeHub · cadence par défaut 1 Hz, AIMD-aware",
+      sub: "RealtimeHub · cadence PAR CANAL (500 ms – 60 s), AIMD-aware",
       icon: <IconBroadcast size={20} />,
       color: "indigo",
       emphasis: true,
@@ -95,13 +99,21 @@ const EDGES: FlowGraphEdge[] = [
   { source: "probe", target: "health", label: "métriques", color: "violet" },
   { source: "health", target: "endpoint", label: "snapshot", color: "cyan" },
   { source: "health", target: "ticker", label: "live", color: "orange" },
+  // L'endpoint n'alimente PAS le canal : les deux appellent indépendamment le
+  // même constructeur de santé. Le 1er paint va donc droit au consommateur, et
+  // le flux prend la voie du ticker.
   {
     source: "endpoint",
-    target: "channel",
+    target: "studio",
     label: "1er paint (HTTP)",
     color: "cyan",
   },
-  { source: "ticker", target: "channel", label: "push 1 Hz", color: "orange" },
+  {
+    source: "ticker",
+    target: "channel",
+    label: "push (cadence du canal)",
+    color: "orange",
+  },
   {
     source: "channel",
     target: "studio",

@@ -24,6 +24,15 @@ coverageModule: realtime
 
 📍 [Documentation](../../../../../docs/index.md) › [@nodefony/realtime](index.md) › **Observabilité**
 
+```nodefony-livegraph
+{
+  "graph": "sondes",
+  "height": 480,
+  "title": "La sonde, en direct",
+  "hint": "Sonde, agrégat, endpoint, minuteur, canal, écran. Le compteur de sondes vivantes est réel."
+}
+```
+
 ## Schéma général
 
 Le patron tient en cinq pièces. Un **producteur** de mesures, un **agrégateur**, puis deux chemins de
@@ -234,17 +243,6 @@ socket.subscribe("shop:health");
 > [!TIP]
 > Ferme l'onglet, et le minuteur s'arrête côté serveur. C'est la propriété la plus utile du patron :
 > **on paie ce qu'on regarde**. Un tableau de bord fermé ne coûte rien.
-
-Le patron, appliqué à la sonde du hub lui-même — de la lecture des compteurs jusqu'à l'écran :
-
-```nodefony-livegraph
-{
-  "graph": "sondes",
-  "height": 480,
-  "title": "Le patron de sonde, en direct",
-  "hint": "Sonde, agrégat, endpoint, minuteur, canal, écran. Le compteur de sondes vivantes est réel : ouvre un autre onglet Studio et regarde-le monter."
-}
-```
 
 ## 🧰 Ce que la sonde expose, champ par champ
 

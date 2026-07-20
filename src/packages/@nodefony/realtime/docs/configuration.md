@@ -36,6 +36,15 @@ source: "src/packages/@nodefony/realtime/docs/configuration.md"
 
 📍 [Documentation](../../../../../docs/index.md) › [@nodefony/realtime](index.md) › **Configuration**
 
+```nodefony-livegraph
+{
+  "graph": "backplane",
+  "height": 500,
+  "title": "Le fond de panier, en direct",
+  "hint": "Le driver actif est lu dans la sonde, pas figé dans le schéma — de quoi vérifier qu'un déploiement tourne sur celui qu'on croit."
+}
+```
+
 ## 🧠 Le modèle mental — un schéma, trois couches de surcharge
 
 La configuration du module n'est pas un objet que tu construis : c'est un **schéma Zod** qui porte
@@ -432,16 +441,6 @@ Le choix ne se déduit pas d'un tableau de performances : il se déduit de **ta 
 déploiement**. Trois situations couvrent l'essentiel.
 
 Le schéma ci-dessous met en évidence le driver **réellement actif** sur l'instance qui sert cette
-page — pratique pour vérifier qu'un déploiement tourne bien sur celui qu'on croit :
-
-```nodefony-livegraph
-{
-  "graph": "backplane",
-  "height": 500,
-  "title": "Le fond de panier, en direct",
-  "hint": "Le driver actif est lu dans la sonde, pas figé dans le schéma. Le registre étant ouvert, un driver maison apparaît au même rang que les natifs."
-}
-```
 
 ### Un seul processus — `loopback`
 
