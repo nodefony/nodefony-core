@@ -178,8 +178,13 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > les 8 pages « socket » de `docs/` racine sont **SUPPRIMÉES** (elles décrivaient une API `IBackplane`
 > inexistante), leur contenu revalidé vit dans `@nodefony/realtime/docs/` · **8 ⬜** IA + devkit ·
 > **4ter ⬜** `cookies`, `upload`, `rate-limit`, `observabilite` (http) · `admin`, `templates` (framework).
-> Méthode, plan des vagues et **~140 écarts code↔doc relevés** (F1→F171, correction en session
-> dédiée APRÈS le corpus) : mémoire IA `project_doc_corpus_chantier_kit`.
+> Méthode, plan des vagues et **~180 écarts code↔doc relevés** (F1→F183) : mémoire IA
+> `project_doc_corpus_chantier_kit`. **Les 6 écarts SYSTÉMIQUES sont SOLDÉS** (`024f32a7`→`12cb02e4`) :
+> types realtime nommables côté navigateur (F131) · convention `I` qui cassait `@services()` (F140) ·
+> écouteur de boot non tagué, fatal en prod et muet en dev (F142) · **action RPC fermée par défaut**,
+> décorateur ET override (F173) · copie du contrat de sonde dans la console realtime (F172) ·
+> config des modules typée dans `use()` (F115). 3 des 6 étaient **déjà corrigés ou partiels** dans le
+> code : le kit se vérifie au terrain avant d'être exécuté. Restent les ~174 écarts non systémiques.
 
 > Fondations **hors roadmap** (déjà migrées, Phases 0-4) : Build, Core/Kernel, DI, Syslog, Router, Controller, Types.
 > **Build = rolldown + tsgo** (`c600ae79`→`d295121b`, lots 0-5) : Rollup SUPPRIMÉ du repo, 20 cibles
