@@ -2,6 +2,7 @@ import {
   Children,
   cloneElement,
   isValidElement,
+  Suspense,
   useCallback,
   useEffect,
   useId,
@@ -36,6 +37,11 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { slugifyHeading } from "./DocToc";
 import { HEADING_SCROLL_MARGIN } from "./layout";
+import { LiveGraphSection } from "../../realtime/socket/LiveGraphSection";
+import {
+  LIVE_GRAPH_NAMES,
+  resolveLiveGraph,
+} from "../../realtime/socket/liveGraphs";
 
 /** Texte plat d'un nœud React (pour calculer l'ancre `id` d'un titre). */
 function nodeText(node: ReactNode): string {
@@ -378,6 +384,89 @@ const BRICK_HEADING_STYLE = {
   marginBottom: "0.4em",
 } as const;
 
+/* ─── Bloc déclaratif ```nodefony-livegraph → graphe live ────────────────── */
+
+/** Ce qu'une page écrit dans la fence. Seul `graph` est obligatoire. */
+interface DocLiveGraphSpec {
+  /** Nom du graphe dans le registre (`backplane`, `protocole`, …). */
+  graph: string;
+  /** Hauteur en pixels (défaut : celle de `LiveGraphSection`). */
+  height?: number;
+  /** Titre du bloc — sinon « Schéma live ». */
+  title?: string;
+  /** Phrase d'explication sous le titre. */
+  hint?: string;
+}
+
+/**
+ * Monte un **graphe live** là où l'auteur l'a posé dans la page — au fil du
+ * propos, pas en pied de page.
+ *
+ * Même principe que Mermaid et `nodefony-cards` : une fence typée = un
+ * composant, le contenu reste du JSON versionnable, et le markdown ne porte
+ * jamais de HTML brut. Le graphe est chargé à la demande (`lazy`) : une page
+ * sans fence ne tire ni `FlowGraph` ni les hooks temps réel.
+ *
+ * Robuste par construction — JSON invalide ou nom inconnu n'efface pas la
+ * page : le bloc reste lisible en brut, avec la raison.
+ */
+function DocLiveGraph({ json }: { json: string }) {
+  let spec: DocLiveGraphSpec | null = null;
+  let error: string | null = null;
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error("un objet est attendu");
+    }
+    const g = (parsed as { graph?: unknown }).graph;
+    if (typeof g !== "string" || g.length === 0) {
+      throw new Error("champ `graph` manquant");
+    }
+    spec = parsed as DocLiveGraphSpec;
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
+
+  const Graph = spec ? resolveLiveGraph(spec.graph) : undefined;
+
+  if (!spec || !Graph) {
+    return (
+      <Alert color="orange" title="Graphe live non rendu" mt="md">
+        <Text size="sm" mb="xs">
+          {error ??
+            `Graphe « ${spec?.graph ?? "?"} » inconnu. Disponibles : ${LIVE_GRAPH_NAMES.join(", ")}.`}
+        </Text>
+        <pre style={{ margin: 0, overflowX: "auto", fontSize: "0.8em" }}>
+          {json}
+        </pre>
+      </Alert>
+    );
+  }
+
+  return (
+    <Suspense
+      fallback={
+        <Paper withBorder radius="md" p="md" mt="xl">
+          <Text size="sm" c="dimmed">
+            Chargement du schéma…
+          </Text>
+        </Paper>
+      }
+    >
+      <LiveGraphSection
+        LiveGraph={Graph}
+        height={spec.height}
+        title={spec.title}
+        hint={spec.hint}
+      />
+    </Suspense>
+  );
+}
+
 /* ─── Bloc déclaratif ```nodefony-cards → grille de cards ────────────────── */
 
 /** Une card de catalogue, telle qu'écrite dans le bloc JSON de la page. */
@@ -677,6 +766,9 @@ export function MarkdownDoc({
         // HTML brut dans le markdown, la règle du standard tient.
         if (/\blanguage-nodefony-cards\b/.test(cls)) {
           return <DocCards json={raw} onNavigate={onInternalLink} />;
+        }
+        if (/\blanguage-nodefony-livegraph\b/.test(cls)) {
+          return <DocLiveGraph json={raw} />;
         }
         if (/\blanguage-/.test(cls)) {
           const lang = cls.match(/language-([a-z0-9]+)/i)?.[1] ?? "";
