@@ -2240,6 +2240,24 @@ class Kernel extends Service implements IKernel {
     if (this.debug && error instanceof Error && error.stack) {
       this.log(error.stack, "DEBUG");
     }
+    // Le développement ANNONCE la sanction de production. Sans cela, le même
+    // code a deux comportements — toléré ici, boot interrompu là-bas — et
+    // l'écart ne se découvre qu'au déploiement. On n'assouplit PAS la
+    // production (un pod à moitié booté est pire qu'un pod qui redémarre) : on
+    // rend la conséquence visible AU MOMENT où le code est écrit.
+    // `critical === false` est une décision assumée → silence (un avertissement
+    // qu'on apprend à ignorer ne protège plus personne).
+    if (!fatal && critical !== false) {
+      this.log(
+        `boot lifecycle: en production, cet échec de "${who}" INTERROMPRAIT le boot` +
+          (critical === undefined
+            ? ` — ce hook ne porte aucun tag de criticité (posé hors d'un Module ?),` +
+              ` et un hook non tagué est traité comme CRITIQUE. Déclarer` +
+              ` \`static critical = false\` sur le Module porteur si l'échec est tolérable.`
+            : `.`),
+        "WARNING",
+      );
+    }
     // Fail-soft → agrégé dans le BootReport (le boot continue, mais on garde la
     // trace pour le verdict final : « N modules ignorés (raison) »).
     if (!fatal) {
@@ -2524,11 +2542,14 @@ class Kernel extends Service implements IKernel {
         timeoutMs: this.bootTimeoutMs(),
         warnMs,
         onListenerError: (error: unknown, info: IGuardedListenerInfo) => {
-          const { owner, critical } = readListenerTags(info.listener);
+          const { owner, critical, name } = readListenerTags(info.listener);
           if (
             this.isBootErrorFatal(
               error,
-              owner,
+              // `owner` (le module) d'abord ; à défaut le nom de la fonction —
+              // un hook posé à la main n'a pas de propriétaire, mais il a
+              // souvent un nom, et c'est tout ce qui permettra de le retrouver.
+              owner ?? name,
               critical,
               info.timedOut,
               "lifecycle",
@@ -2541,9 +2562,9 @@ class Kernel extends Service implements IKernel {
           return; // fail-soft : on continue les autres modules
         },
         onListenerSlow: (info: IGuardedListenerInfo) => {
-          const { owner } = readListenerTags(info.listener);
+          const { owner, name } = readListenerTags(info.listener);
           this.log(
-            `boot lifecycle: hook "${owner ?? "(anonyme)"}" lent ` +
+            `boot lifecycle: hook "${owner ?? name ?? "(anonyme)"}" lent ` +
               `(${Math.round(info.durationMs)}ms ≥ ${warnMs}ms) sur ${event as string}`,
             "NOTICE",
           );

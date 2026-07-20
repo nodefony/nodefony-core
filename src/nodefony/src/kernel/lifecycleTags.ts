@@ -26,6 +26,14 @@ export interface IListenerTags {
   owner?: string;
   /** Criticité déclarée du module, ou `undefined` (→ traité comme critique par défaut). */
   critical?: boolean;
+  /**
+   * Nom de la FONCTION listener, quand elle en a un — repli d'identification
+   * pour les hooks posés à la main (`kernel.on("onBoot", …)`), qui ne portent
+   * aucun `owner`. Sans lui, un échec de boot se journalise « (anonyme) » et ne
+   * désigne personne : en production, où l'échec interrompt le boot, le seul
+   * indice exploitable disparaît. `undefined` pour une lambda inline anonyme.
+   */
+  name?: string;
 }
 
 /**
@@ -65,8 +73,12 @@ export function readListenerTags(fn: unknown): IListenerTags {
   // fonction taguée elle-même. On lit des propriétés optionnelles → cast neutre.
   const wrapper = fn as TaggedListener;
   const target = wrapper.listener ?? wrapper;
+  // `name` est lu sur la fonction DÉBALLÉE : le wrapper interne d'`EventEmitter
+  // .once` s'appelle `onceWrapper`, un nom qui ne désignerait que Node.
+  const rawName = (target as { name?: unknown }).name;
   return {
     owner: target.__nodefony_owner,
     critical: target.__nodefony_critical,
+    name: typeof rawName === "string" && rawName !== "" ? rawName : undefined,
   };
 }

@@ -18,7 +18,16 @@ import {
 } from "../injector/serviceOrder";
 // import nodefony from "nodefony";
 
-type Constructor = new (...args: any[]) => Module;
+// `Module<unknown>` et NON `Module` (= `Module<Record<string, unknown>>`) : ce
+// décorateur ne lit ni n'écrit `config`, donc il ne présume RIEN de sa forme —
+// `unknown` dit exactement cela, là où `any` désactiverait la vérification.
+// Avec le défaut du générique, TypeScript n'accorde d'index signature implicite
+// qu'aux *alias de type*, jamais aux *interfaces* : `class X extends
+// Module<IXConfig>` (la convention `I` que le CLAUDE.md racine IMPOSE) échouait
+// en TS1238/TS1270, sur un message qui ne nomme pas la cause. Les modules du
+// repo y échappaient par accident, leurs `IXConfig` étant des alias Zod.
+// Sentinelle : `servicesDecoratorConfig.types.test.ts`.
+type Constructor = new (...args: any[]) => Module<unknown>;
 type Injectable<T = { service: Service }> = new (...args: any[]) => T;
 
 function services(

@@ -35,6 +35,15 @@ export {
 } from "../../realtime/channelRate";
 export type { RateBounds } from "../../realtime/channelRate";
 
+// Les hooks RENDENT ces types (`useNodefonyIdentity` → `RealtimeIdentity`).
+// Sans ré-export, le consommateur ne peut pas NOMMER ce qu'il reçoit :
+// l'inférence marche, la déclaration explicite lève TS2459.
+export type {
+  RealtimeIdentity,
+  RealtimeState,
+  NodefonyNotice,
+} from "../realtime/RealtimeClient";
+
 const NodefonyContext = React.createContext<RealtimeClient | null>(null);
 
 export interface NodefonyProviderProps {

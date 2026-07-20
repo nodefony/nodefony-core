@@ -31,6 +31,13 @@ export type {
   RealtimeFrame,
   KernelPingResult,
   IApiCallResult,
+  // Ré-export DX promis par `RealtimeClient.ts` : le consommateur navigateur
+  // type `socket.identity` / la trame de refus depuis le MÊME subpath que le
+  // client. Sans ces trois lignes les types n'existent qu'au barrel node, que
+  // la condition `browser` ne résout jamais (TS2724 chez le consommateur).
+  RealtimeIdentity,
+  IRealtimeWelcome,
+  IRealtimeDenied,
 } from "./realtime/RealtimeClient";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
 export type {

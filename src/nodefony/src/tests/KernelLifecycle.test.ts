@@ -750,6 +750,96 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
     assert.strictEqual(r.stopped, false); // optionnel → pas fatal, le boot continue
   });
 
+  // ── DEV DOIT CRIER CE QUE LA PROD FERAIT (F142) ────────────────────────────
+  // Le défaut de criticité est STRICT : un hook non tagué (`critical ===
+  // undefined`) est traité comme critique. Conséquence longtemps invisible :
+  // `kernel.on("onBoot", …)` posé à la main passe en développement et
+  // INTERROMPT le boot en production — même code, deux comportements, découvert
+  // au déploiement. Le défaut reste strict (on ne démarre pas un pod à moitié),
+  // mais le développement doit ANNONCER la sanction de production.
+
+  /** Capture les messages de log émis par le kernel pendant un test. */
+  function captureLogs(k: Kernel): {
+    messages: string[];
+    stop: () => void;
+  } {
+    const messages: string[] = [];
+    const handler = (pdu: any): void => {
+      messages.push(String(pdu?.payload ?? ""));
+    };
+    (k as any).syslog.on("onLog", handler);
+    return {
+      messages,
+      stop: () => (k as any).syslog.removeListener("onLog", handler),
+    };
+  }
+
+  it("dev: un hook NON TAGUÉ qui throw → le log ANNONCE que la production interromprait le boot", async () => {
+    const k = mkKernel("development");
+    const cap = captureLogs(k);
+    k.on("onBoot", () => {
+      throw new Error("boom non tagué");
+    });
+    const r = await k.fireLifecycle("onBoot", k);
+    cap.stop();
+    // Le boot continue en dev (fail-soft) …
+    assert.strictEqual(r.stopped, false);
+    assert.strictEqual(r.errors.length, 1);
+    // … mais l'avertissement doit être EXPLICITE sur la sanction de production.
+    const warned = cap.messages.some((m) => /en production/i.test(m));
+    assert.ok(
+      warned,
+      `aucun log n'annonce la sanction de production. Logs vus :\n${cap.messages.join("\n")}`,
+    );
+  });
+
+  it("dev: le log NOMME le hook par son nom de fonction plutôt que « (anonyme) »", async () => {
+    const k = mkKernel("development");
+    const cap = captureLogs(k);
+    // Un listener posé à la main n'a pas de tag `owner` : sans dérivation, le
+    // journal écrit « (anonyme) » et ne permet de trouver personne.
+    function connectBillingDatabase(): void {
+      throw new Error("boom nommé");
+    }
+    k.on("onBoot", connectBillingDatabase);
+    await k.fireLifecycle("onBoot", k);
+    cap.stop();
+    const named = cap.messages.some((m) =>
+      m.includes("connectBillingDatabase"),
+    );
+    assert.ok(
+      named,
+      `le nom de la fonction doit apparaître dans le journal. Logs vus :\n${cap.messages.join("\n")}`,
+    );
+    const anonymous = cap.messages.some((m) => m.includes("(anonyme)"));
+    assert.strictEqual(
+      anonymous,
+      false,
+      "une fonction NOMMÉE ne doit jamais être journalisée « (anonyme) »",
+    );
+  });
+
+  it("dev: un hook tagué critical=false qui throw → PAS d'avertissement production (choix explicite)", async () => {
+    const k = mkKernel("development");
+    const cap = captureLogs(k);
+    const hook = (): void => {
+      throw new Error("module optionnel");
+    };
+    (hook as any).__nodefony_owner = "studio";
+    (hook as any).__nodefony_critical = false;
+    k.on("onBoot", hook);
+    await k.fireLifecycle("onBoot", k);
+    cap.stop();
+    // `critical: false` est une DÉCISION assumée : l'annoncer serait du bruit,
+    // et un avertissement qu'on apprend à ignorer ne protège plus personne.
+    const warned = cap.messages.some((m) => /en production/i.test(m));
+    assert.strictEqual(
+      warned,
+      false,
+      `un module explicitement optionnel ne doit pas déclencher l'avertissement. Logs vus :\n${cap.messages.join("\n")}`,
+    );
+  });
+
   // ── CONFIGURATION : BootConfigurationError = fatale MÊME en dev ─────────────
   // Une configuration EXPLICITE non honorable (infra déclarée injoignable,
   // entité non portée sur le dialecte demandé) ne se répare pas en continuant :
