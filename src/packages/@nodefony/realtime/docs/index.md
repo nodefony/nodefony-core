@@ -55,8 +55,8 @@ abonné connecté à l'autre.
    seule chose qui change entre développement et production.
 2. [Architecture](./architecture.md) — ce que le backplane transporte réellement, et ce qu'il ne
    transporte pas : un canal ne franchit les processus que si tu l'as **déclaré diffusable**.
-3. [Le backplane, vu du transport](../../../../../docs/realtime/socket/06-backplane.md) — la page
-   transverse, pour la vue d'ensemble du fan-out entre répliques.
+3. [Observabilité](./observabilite.md) — vérifier que le backplane est bien celui que tu crois :
+   la sonde annonce le driver **effectif**, pas celui que tu as écrit dans la configuration.
 4. [`@nodefony/redis`](../../redis/docs/index.md) — le module qui fournit les connexions pub/sub
    consommées par le driver `redis`.
 
@@ -78,6 +78,9 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
 | [Architecture](./architecture.md)        | le trajet d'une frame, étage par étage             | tu veux comprendre plutôt que régler         |
 | [Configuration](./configuration.md)      | drivers, cloisonnement, bornes, contrôle d'origine | tu déploies, ou tu changes de topologie      |
 | [Sécurité](./securite.md)                | identité à la poignée de main, droits par canal    | ta socket est joignable depuis un navigateur |
+| [Protocole](./protocole.md)              | la grammaire d'une frame, et les codes d'erreur    | tu débogues le fil, ou tu écris un client    |
+| [Actions RPC](./actions.md)              | appeler le serveur et attendre une réponse         | tu veux savoir si l'appel a marché           |
+| [Observabilité](./observabilite.md)      | la sonde, les canaux de santé, les écrans          | tu te demandes si ta socket va bien          |
 | [Cookbook — un chat](./cookbook-chat.md) | l'exemple complet, client et serveur               | tu veux du code qui marche tout de suite     |
 
 ### [`vocabulaire`](./vocabulaire.md) — les mots avant les mécanismes
@@ -103,6 +106,23 @@ déploiements partagent le même Redis — et les bornes anti-abus.
 Une WebSocket s'authentifie **une fois**, à l'ouverture, puis reste ouverte des heures : ce n'est pas
 le modèle du web, et ça change tout. La page décrit les points de greffe par lesquels
 `@nodefony/security` vient poser l'identité, autoriser les canaux et journaliser les refus.
+
+### [`protocole`](./protocole.md) — ce qui circule vraiment sur le fil
+
+La socket parle **JSON-RPC 2.0**, et une frame n'a que trois formes : une notification, une requête
+qui attend une réponse, une réponse. La page donne la grammaire champ par champ, les méthodes
+nominales, et surtout les codes d'erreur **réellement émis** — ce qu'un onglet réseau te montrera.
+
+### [`actions`](./actions.md) — appeler, et savoir si ça a marché
+
+Publier ne dit jamais si le message est arrivé. Une action RPC, si. La page donne le critère de
+choix entre les deux, comment déclarer une action, ce qui se passe quand le client abandonne ou
+rejoue, et pourquoi un flux se diffuse sur un canal plutôt que de tenir dans une réponse.
+
+### [`observabilite`](./observabilite.md) — savoir si la socket va bien
+
+Ce que la sonde du hub expose, les canaux de santé et leur cadence, ce que Studio en montre, et
+comment écrire sa propre sonde sans faire fuir la mémoire ni empêcher le processus de s'arrêter.
 
 ### [`cookbook-chat`](./cookbook-chat.md) — l'exemple intégrateur
 
@@ -350,16 +370,15 @@ l'infrastructure sous la main.
 
 - ⬆️ **Remonter** : [Toute la documentation](../../../../../docs/index.md)
 - 📄 **Les pages du module** : [Vocabulaire](./vocabulaire.md) · [Architecture](./architecture.md) ·
-  [Configuration](./configuration.md) · [Sécurité](./securite.md) ·
+  [Protocole](./protocole.md) · [Actions RPC](./actions.md) · [Configuration](./configuration.md) ·
+  [Sécurité](./securite.md) · [Observabilité](./observabilite.md) ·
   [Cookbook — un chat](./cookbook-chat.md)
 - 🧭 **Modules voisins** : [`@nodefony/http`](../../http/docs/index.md) (la connexion et son
   contexte) · [`@nodefony/framework`](../../framework/docs/index.md) (routage et décorateurs) ·
   [`@nodefony/security`](../../security/docs/index.md) (identité et droits) ·
   [`@nodefony/redis`](../../redis/docs/index.md) (le transport cross-machine)
-- 🏛️ **Transverse** : [la socket Nodefony](../../../../../docs/realtime/socket/01-vue-ensemble.md) ·
-  [le fan-out](../../../../../docs/realtime/socket/04-fan-out.md) ·
-  [le backplane](../../../../../docs/realtime/socket/06-backplane.md) ·
-  [vue d'ensemble du framework](../../../../../docs/architecture/vue-ensemble.md)
+- 🏛️ **Transverse** : [vue d'ensemble du framework](../../../../../docs/architecture/vue-ensemble.md) ·
+  [le pipeline d'une requête](../../../../../docs/architecture/pipeline-requete.md)
 - 📖 [Lexique général](../../../../../docs/lexique.md) du framework.
 </content>
 
