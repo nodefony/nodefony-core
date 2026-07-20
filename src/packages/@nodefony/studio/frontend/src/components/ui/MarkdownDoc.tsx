@@ -117,64 +117,119 @@ function ensureDocStyles() {
        Parti pris : card d'INFORMATION sobre — pastille d'icône, titre net,
        description atténuée, méta discrète, chevron d'affordance. Aucune ombre
        portée ni dégradé : la hiérarchie vient de la typo et de l'espacement. */
+    /* ── Grille de cards ──────────────────────────────────────────────────
+       Respiration d'abord : une card de catalogue se BALAIE, elle ne se lit
+       pas en continu. Colonnes plus larges et gouttière franche pour que
+       chaque card se détache comme un objet, au lieu de former un bloc. */
     .nf-cards {
-      display: grid; gap: 10px; margin: 1.3em 0;
-      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      display: grid; gap: 14px; margin: 1.5em 0;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       align-items: stretch;
     }
+
+    /* 🔴 ZÉRO SOULIGNEMENT, à aucun état. Une card est une SURFACE cliquable,
+       pas un lien dans une phrase : souligner son contenu au survol barbouille
+       le titre, la description ET la méta d'un trait. Le wrapper Typography de
+       Mantine style les ancres au survol, il faut donc désamorcer explicitement
+       — sur la card ET sur toute sa descendance, à tous les états. */
+    .nf-card,
+    .nf-card *,
+    .nf-card:hover,
+    .nf-card:hover *,
+    .nf-card:focus,
+    .nf-card:focus-visible,
+    .nf-card:active,
+    .nf-card:active * {
+      text-decoration: none;
+    }
+
     .nf-card {
-      display: flex; align-items: flex-start; gap: 12px;
-      padding: 14px 16px; text-decoration: none; color: inherit;
+      display: flex; align-items: flex-start; gap: 13px;
+      padding: 16px 18px; color: inherit;
       background: var(--mantine-color-body);
       border-color: var(--mantine-color-default-border);
     }
+
+    /* Un seul signal de survol qui PORTE — l'élévation. La bordure d'accent et
+       la teinte du titre l'accompagnent discrètement ; trois signaux d'égale
+       force se diluaient et rendaient le survol illisible. */
     .nf-card-link {
-      transition: border-color .15s ease, background-color .15s ease;
+      cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+      will-change: transform;
     }
     .nf-card-link:hover {
-      border-color: var(--mantine-primary-color-filled);
-      background: var(--mantine-color-default-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px -6px rgba(0, 0, 0, .28);
+      border-color: color-mix(in srgb, var(--mantine-primary-color-filled) 55%, var(--mantine-color-default-border));
     }
-    .nf-card-link:hover .nf-card-go { opacity: 1; transform: translateX(2px); }
+    .nf-card-link:active { transform: translateY(0); box-shadow: none; }
     .nf-card-link:hover .nf-card-title { color: var(--mantine-primary-color-filled); }
+    .nf-card-link:hover .nf-card-go { opacity: .9; transform: translateX(3px); }
+    .nf-card-link:hover .nf-card-icon {
+      background: color-mix(in srgb, var(--mantine-primary-color-filled) 22%, transparent);
+    }
     .nf-card-link:focus-visible {
       outline: 2px solid var(--mantine-primary-color-filled);
-      outline-offset: 2px;
+      outline-offset: 3px;
     }
-    /* Pastille d'icône : carré arrondi teinté, taille fixe → colonnes alignées. */
+
+    /* Pastille d'icône : repère stable à gauche, taille fixe → les colonnes de
+       texte s'alignent d'une card à l'autre même quand les titres diffèrent. */
     .nf-card-icon {
-      flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px;
+      flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px;
       display: inline-flex; align-items: center; justify-content: center;
-      font-size: 17px; line-height: 1;
-      background: color-mix(in srgb, var(--mantine-primary-color-filled) 12%, transparent);
+      font-size: 18px; line-height: 1;
+      background: color-mix(in srgb, var(--mantine-primary-color-filled) 13%, transparent);
+      transition: background-color .16s ease;
     }
-    .nf-card-body { display: flex; flex-direction: column; min-width: 0; gap: 3px; flex: 1 1 auto; }
+
+    .nf-card-body { display: flex; flex-direction: column; min-width: 0; gap: 4px; flex: 1 1 auto; }
     .nf-card-title {
-      font-weight: 600; font-size: 14.5px; line-height: 1.3;
-      transition: color .15s ease;
+      font-weight: 650; font-size: 15px; line-height: 1.25;
+      letter-spacing: -0.01em;
+      transition: color .16s ease;
     }
+    /* La description porte le vrai contenu : elle doit rester CONFORTABLE.
+       Contraste relevé d'un cran par rapport au gris atténué — une description
+       qu'on doit deviner ne sert à rien. */
     .nf-card-desc {
-      font-size: 12.8px; line-height: 1.45; color: var(--mantine-color-dimmed);
+      font-size: 13.2px; line-height: 1.5;
+      color: var(--mantine-color-text);
+      opacity: .78;
     }
     .nf-card-meta {
-      font-size: 11px; color: var(--mantine-color-dimmed); opacity: .8;
-      font-variant-numeric: tabular-nums; margin-top: 2px;
+      font-size: 11.5px; line-height: 1.3; color: var(--mantine-color-dimmed);
+      margin-top: 3px; font-variant-numeric: tabular-nums;
     }
     .nf-card-go {
-      flex: 0 0 auto; align-self: center; opacity: .35; font-size: 15px;
+      flex: 0 0 auto; align-self: center; opacity: .3; font-size: 16px;
       color: var(--mantine-primary-color-filled);
-      transition: opacity .15s ease, transform .15s ease;
+      transition: opacity .16s ease, transform .16s ease;
     }
+
     /* Card mise en avant : pleine largeur, liseré d'accent — un point d'entrée
-       unique doit se distinguer du catalogue sans crier. */
+       unique se distingue du catalogue sans crier. */
     .nf-card-featured {
       grid-column: 1 / -1;
       border-left: 3px solid var(--mantine-primary-color-filled);
-      background: color-mix(in srgb, var(--mantine-primary-color-filled) 5%, var(--mantine-color-body));
+      background: color-mix(in srgb, var(--mantine-primary-color-filled) 6%, var(--mantine-color-body));
     }
-    .nf-card-featured .nf-card-title { font-size: 15.5px; }
+    .nf-card-featured .nf-card-title { font-size: 16px; }
+    .nf-card-featured .nf-card-icon { width: 40px; height: 40px; font-size: 20px; }
+
+    /* Ombre plus dense en thème sombre : sur fond foncé, une ombre légère ne se
+       voit pas — l'élévation serait perdue exactement là où elle porte seule. */
+    @media (prefers-color-scheme: dark) {
+      .nf-card-link:hover { box-shadow: 0 8px 22px -6px rgba(0, 0, 0, .6); }
+    }
+    [data-mantine-color-scheme="dark"] .nf-card-link:hover {
+      box-shadow: 0 8px 22px -6px rgba(0, 0, 0, .6);
+    }
+
     @media (prefers-reduced-motion: reduce) {
-      .nf-card-link, .nf-card-go, .nf-card-title { transition: none; }
+      .nf-card-link, .nf-card-go, .nf-card-title, .nf-card-icon { transition: none; }
+      .nf-card-link:hover { transform: none; }
       .nf-card-link:hover .nf-card-go { transform: none; }
     }
   `;
