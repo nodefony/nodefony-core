@@ -109,8 +109,8 @@ chaque étape suppose la précédente.
 **Je branche une interface sur mon module** — le chemin le plus court vers une page qui vit.
 
 1. [Démarrage rapide](#-démarrage-rapide) — un module, une entrée, une page. Copie-colle, ça marche.
-2. [`registerEntry`](#registerentry--déclarer-son-interface) — les sept champs de la déclaration, et
-   lesquels comptent vraiment.
+2. [`registerEntry`](#registerentry--la-déclaration-dune-interface) — les sept champs de la
+   déclaration, et lesquels comptent vraiment.
 3. [`apiProxyPaths`](#apiproxypaths--que-le-fetch-atteigne-le-serveur) — **à ne pas sauter** : c'est
    l'oubli qui produit le bug n°1 du module.
 4. [Pièges](#-pièges) — les symptômes qu'on rencontre dans l'ordre où on les rencontre.
@@ -140,46 +140,43 @@ Le tableau pour situer en cinq secondes ; les fiches en dessous pour savoir quoi
 
 | Brique                                                                    | Ce qu'elle résout                                   | Tu en as besoin quand…                    |
 | ------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------- |
-| [`registerEntry`](#registerentry--déclarer-son-interface)                 | déclarer qu'un module a une interface               | toujours — c'est le point de contact      |
+| [`registerEntry`](#registerentry--la-déclaration-dune-interface)          | déclarer qu'un module a une interface               | toujours — c'est le point de contact      |
 | [`apiProxyPaths`](#apiproxypaths--que-le-fetch-atteigne-le-serveur)       | que les appels d'API atteignent ton serveur         | ton interface parle à ton back (donc oui) |
-| [Presets](#presets--react-vue-angular-vanilla)                            | brancher React, Vue, Angular ou du TypeScript nu    | tu choisis ton framework UI               |
+| [Presets](#-extension)                                                    | brancher React, Vue, Angular ou du TypeScript nu    | tu choisis ton framework UI               |
 | [Familles d'isolation](#familles-disolation--pourquoi-angular-a-son-vite) | faire cohabiter plusieurs frameworks                | tu mélanges Angular avec autre chose      |
 | [Rendu des balises](#rendu--des-balises-ou-un-document-complet)           | injecter le front dans une page servie par Nodefony | tu écris le contrôleur de la page         |
 | [Modes de livraison](#-les-deux-modes-de-livraison-de-linterface)         | Vite en dev, assets pré-construits ailleurs         | tu déploies, ou tu publies un module      |
 | [Build de production](#construire-pour-la-production--frontendbuild)      | compiler, empreinter, produire le manifeste         | tu prépares une image ou un paquet        |
 | [Résilience](#résilience--ce-qui-se-passe-quand-vite-tombe)               | survivre à un crash, un port occupé, un gel         | ton poste n'est pas un labo aseptisé      |
 
-### `registerEntry` — déclarer son interface
-
-**Le point de contact unique du module.** Un module appelle `registerEntry` dans son
-`onKernelBoot()` et dit trois choses : quel framework, quel fichier d'entrée, quels chemins d'API
-proxifier. Tout le reste a un défaut sensé. À lire en premier : c'est la seule API que la plupart des
-applications toucheront jamais.
-
-### `apiProxyPaths` — que le `fetch` atteigne le serveur
-
-En développement, ton interface est chargée depuis Vite. Un `fetch("/shop/api/x")` part donc vers
-**Vite**, qui ne connaît pas cette route et répond… sa page `index.html`. La fiche explique le
-symptôme (`Unexpected token '<'`), pourquoi il est si déroutant, et pourquoi le data plane
-d'administration est proxifié d'office.
-
-### Presets — React, Vue, Angular, vanilla
-
-Quatre recettes prêtes : quel greffon Vite charger, quelles dépendances pré-empaqueter, quelles
-extensions reconnaître. Les greffons sont chargés **paresseusement** — tu ne paies pas React si tu
-fais du Vue.
-
-### Familles d'isolation — pourquoi Angular a son Vite
-
-React, Vue et vanilla partagent une instance Vite sans se gêner. Angular non : son greffon transforme
-tout fichier `.ts` du serveur, y compris ceux des autres bundles. D'où une instance dédiée, sur son
-propre bloc de ports.
-
-### Rendu — des balises ou un document complet
-
-Deux portes d'entrée pour la même source : `renderTags` (tu écris ta page, on injecte les
-`<script>`) et `renderDocument` (tu écris ton `index.html`, on l'injecte dedans). Plus les helpers
-de vue disponibles dans tes templates Eta.
+```nodefony-cards
+[
+  { "icon": "📝", "title": "registerEntry", "href": "#registerentry--la-déclaration-dune-interface",
+    "desc": "Le point de contact unique du module. Un module l'appelle dans son onKernelBoot et dit trois choses : quel framework, quel fichier d'entrée, quels chemins d'API proxifier. Tout le reste a un défaut sensé.",
+    "meta": "la seule API que la plupart des applications toucheront jamais" },
+  { "icon": "🔀", "title": "apiProxyPaths", "href": "#apiproxypaths--que-le-fetch-atteigne-le-serveur",
+    "desc": "En développement ton interface vient de Vite : un fetch part donc vers Vite, qui ne connaît pas la route et répond son index.html. Le symptôme (Unexpected token '<') ne parle jamais de proxy — et le data plane d'administration, lui, est proxifié d'office.",
+    "meta": "à ne pas sauter : c'est l'oubli qui produit le bug n°1" },
+  { "icon": "🎨", "title": "Presets", "href": "#-extension",
+    "desc": "Quatre recettes prêtes — React, Vue, Angular, vanilla : quel greffon Vite charger, quelles dépendances pré-empaqueter, quelles extensions reconnaître. Les greffons sont chargés paresseusement : tu ne paies pas React si tu fais du Vue.",
+    "meta": "tu choisis ton framework UI, ou tu en ajoutes un" },
+  { "icon": "🧱", "title": "Familles d'isolation", "href": "#familles-disolation--pourquoi-angular-a-son-vite",
+    "desc": "React, Vue et vanilla partagent une instance Vite sans se gêner. Angular non : son greffon transforme tout fichier .ts du serveur, y compris ceux des autres bundles — d'où une instance dédiée, sur son propre bloc de ports.",
+    "meta": "tu mélanges Angular avec autre chose" },
+  { "icon": "🖼️", "title": "Rendu des balises", "href": "#rendu--des-balises-ou-un-document-complet",
+    "desc": "Deux portes d'entrée pour la même source : renderTags (tu écris ta page, on injecte les balises) et renderDocument (tu écris ton index.html, on l'injecte dedans). Plus les helpers de vue disponibles dans tes templates Eta.",
+    "meta": "tu écris le contrôleur de la page" },
+  { "icon": "🚚", "title": "Modes de livraison", "href": "#-les-deux-modes-de-livraison-de-linterface",
+    "desc": "D'où viennent les fichiers JavaScript que charge le navigateur : Vite pendant que tu développes, assets pré-construits en production — et dans tout module installé depuis npm, qui ne doit exiger ni Vite ni compilation.",
+    "meta": "à lire avant tout déploiement, et avant de publier un module" },
+  { "icon": "📦", "title": "Build de production", "href": "#construire-pour-la-production--frontendbuild",
+    "desc": "La commande qui compile, empreinte et produit le manifeste — entrée par entrée. Idempotente (une entrée plus fraîche que ses sources est ignorée) et tolérante : un bundle en échec n'arrête pas les autres, mais fait sortir en erreur.",
+    "meta": "tu prépares une image ou un paquet" },
+  { "icon": "🛟", "title": "Résilience", "href": "#résilience--ce-qui-se-passe-quand-vite-tombe",
+    "desc": "Port occupé, plantage, gel, Ctrl+C, arrêt du kernel : ce que fait le superviseur dans chaque cas, et pourquoi un Ctrl+C ne doit surtout pas compter comme un plantage.",
+    "meta": "ton poste n'est pas un labo aseptisé" }
+]
+```
 
 ## 🚀 Démarrage rapide
 

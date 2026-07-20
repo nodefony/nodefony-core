@@ -83,23 +83,19 @@ décident **où** ta doc doit vivre.
 | [ADR-0001 — emplacement des docs](../../../../../docs/adr/0001-docs-modules-emplacement-hybride.md) | module ou racine : la règle de placement, et pourquoi  | tu crées la documentation d'un module            |
 | [Le portail général](../../../../../docs/index.md)                                                  | le catalogue de toute la doc, rangé par type           | tu cherches une page dont tu ignores le module   |
 
-### [`architecture`](./architecture.md) — du fichier au portail
-
-Le scan des sources, le cache d'index et sa durée de vie, la fabrication de l'identifiant de page,
-la traduction des liens relatifs, et la garde anti-traversée qui protège la lecture de fichiers.
-C'est la page à ouvrir quand le portail ne montre pas ce que tu attends : elle explique **à quel
-étage** la chose s'est perdue.
-
-### [`ADR-0001`](../../../../../docs/adr/0001-docs-modules-emplacement-hybride.md) — la règle de placement
-
-La décision d'architecture qui fonde ce module : la doc d'un module vit **dans** le module, le
-transverse reste à la racine. Elle dit aussi comment une page est versionnée (frontmatter + git).
-Lis-la avant de créer ton premier `docs/`, pas après.
-
-### [`le portail général`](../../../../../docs/index.md) — le catalogue complet
-
-L'accueil de toute la documentation Nodefony, en cards par famille : fondations, cœur, sécurité,
-données, temps réel, interface. C'est ce que ce module sert, vu depuis le lecteur.
+```nodefony-cards
+[
+  { "icon": "🏗️", "title": "architecture", "href": "architecture.md",
+    "desc": "Le scan des sources, le cache d'index et sa durée de vie, la fabrication de l'identifiant de page, la traduction des liens relatifs, et la garde anti-traversée qui protège la lecture de fichiers. À ouvrir quand le portail ne montre pas ce que tu attends : elle explique à quel étage la chose s'est perdue.",
+    "meta": "une page manque, ou tu branches un autre lecteur" },
+  { "icon": "🏛️", "title": "ADR-0001 — emplacement des docs", "href": "../../../../../docs/adr/0001-docs-modules-emplacement-hybride.md",
+    "desc": "La décision d'architecture qui fonde ce module : la doc d'un module vit dans le module, le transverse reste à la racine. Elle dit aussi comment une page est versionnée — frontmatter et git.",
+    "meta": "à lire avant de créer ton premier docs/, pas après" },
+  { "icon": "🗂️", "title": "le portail général", "href": "../../../../../docs/index.md",
+    "desc": "L'accueil de toute la documentation Nodefony, en cards par famille : fondations, cœur, sécurité, données, temps réel, interface. C'est ce que ce module sert, vu depuis le lecteur.",
+    "meta": "tu cherches une page dont tu ignores le module" }
+]
+```
 
 ## 🧩 Ce que le module apporte
 

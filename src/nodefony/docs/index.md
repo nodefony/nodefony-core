@@ -111,45 +111,28 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
 | [Client isomorphe](client.md)        | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur         |
 | [Hooks React](react-hooks.md)        | la socket en idiomes React                            | ton front est en React                         |
 
-### [`service`](service.md) — la brique de base de tout composant
-
-Kernel, modules, contrôleurs, adaptateurs de base de données : tout hérite de `Service`. La page
-explique les trois capacités qu'on obtient gratuitement — être injectable, émettre et écouter des
-événements, écrire dans le journal — et le cycle de vie qui va avec, y compris le nettoyage. À lire
-en premier si tu ne dois en lire qu'une : elle rend les autres évidentes.
-
-### [`syslog`](syslog.md) — la journalisation structurée
-
-Une entrée de journal n'est pas une chaîne de caractères : c'est un enregistrement typé, horodaté,
-attribué à un module et à une sévérité. La page décrit cette structure, le tampon circulaire qui
-conserve les dernières entrées à coût constant, et les transports qui les envoient vers un fichier,
-un agrégateur ou l'écran de Studio.
-
-### [`kernel`](kernel.md) — l'API du cœur
-
-`Kernel` (ce qui te porte), `Module` (ce que tu écris), `CliKernel` (la même chose pour une commande
-en ligne), et la façade `Nodefony` qui te rend le kernel courant depuis n'importe où. C'est la page
-de référence des objets et de leurs membres — le **récit** du démarrage, lui, vit dans la page
-transverse du cycle de boot.
-
-### [`request-context`](request-context.md) — la requête qui se suit toute seule
-
-Plusieurs requêtes traversent le même processus en même temps, et chacune doit garder son identité à
-travers les `await`, les rappels et les minuteries. La page explique la façade qui rend ça possible,
-ce qu'on peut y ranger (identifiant de requête, utilisateur, trace distribuée) et le piège des
-écouteurs qui se déclenchent plus tard.
-
-### [`client`](client.md) — le même paquet, dans le navigateur
-
-Le cœur est **isomorphe** : un sous-ensemble compile pour le navigateur, et c'est ce qui te donne la
-socket temps réel côté client sans importer un second paquet. La page couvre la connexion et sa
-reprise, les canaux, la cadence auto-ajustée, et l'évaluation des rôles côté interface.
-
-### [`react-hooks`](react-hooks.md) — la socket en idiomes React
-
-Le fournisseur de contexte et les hooks : état de connexion, abonnement à un canal, données du
-dernier message, flux du journal, notifications. Tout le désabonnement au démontage est géré — dix
-composants qui écoutent dix canaux ouvrent **une** connexion, pas dix.
+```nodefony-cards
+[
+  { "icon": "🧩", "title": "service", "href": "service.md",
+    "desc": "La brique de base : kernel, modules, contrôleurs et adaptateurs de base de données en héritent tous. Trois capacités obtenues gratuitement — être injectable, émettre et écouter des événements, écrire dans le journal — et le cycle de vie qui va avec, nettoyage compris.",
+    "meta": "à lire en premier : elle rend les autres évidentes" },
+  { "icon": "📓", "title": "syslog", "href": "syslog.md",
+    "desc": "Une entrée de journal n'est pas une chaîne de caractères : c'est un enregistrement typé, horodaté, attribué à un module et à une sévérité. Avec le tampon circulaire qui garde les dernières à coût constant, et les transports vers un fichier, un agrégateur ou l'écran de Studio.",
+    "meta": "tu instrumentes, ou tu enquêtes" },
+  { "icon": "🔄", "title": "kernel", "href": "kernel.md",
+    "desc": "Kernel (ce qui te porte), Module (ce que tu écris), CliKernel (la même chose pour une commande en ligne), et la façade Nodefony qui te rend le kernel courant depuis n'importe où.",
+    "meta": "la référence des objets — le récit du démarrage vit dans le cycle de boot" },
+  { "icon": "🧵", "title": "request-context", "href": "request-context.md",
+    "desc": "Plusieurs requêtes traversent le même processus en même temps, et chacune garde son identité à travers les await, les rappels et les minuteries. Ce qu'on peut y ranger — identifiant de requête, utilisateur, trace distribuée — et le piège des écouteurs qui se déclenchent plus tard.",
+    "meta": "tu corrèles des journaux, ou tu lis l'identité" },
+  { "icon": "🌐", "title": "client", "href": "client.md",
+    "desc": "Le cœur est isomorphe : un sous-ensemble compile pour le navigateur, ce qui donne la socket temps réel côté client sans importer un second paquet. La connexion et sa reprise, les canaux, la cadence auto-ajustée, l'évaluation des rôles côté interface.",
+    "meta": "le même paquet, dans le navigateur" },
+  { "icon": "⚛️", "title": "react-hooks", "href": "react-hooks.md",
+    "desc": "Le fournisseur de contexte et les hooks : état de connexion, abonnement à un canal, données du dernier message, flux du journal, notifications. Dix composants qui écoutent dix canaux ouvrent une connexion, pas dix.",
+    "meta": "tout le désabonnement au démontage est géré" }
+]
+```
 
 > [!NOTE]
 > **L'injection de dépendances n'a pas de page ici, et c'est voulu.** Le conteneur, les portées et

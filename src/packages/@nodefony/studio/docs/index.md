@@ -79,43 +79,28 @@ qu'on y trouve, et à qui c'est ouvert. La navigation réelle est déclarée d'u
 | **IA**                | console de conversation et surfaces de gouvernance       | développeur · administrateur |
 | **Documentation**     | ces pages, rendues depuis le dépôt                       | développeur · exploitant     |
 
-### `mon-espace` — ce qui n'appartient qu'à toi
-
-Le seul groupe visible de **tout** compte authentifié : le bureau composable, le profil (mot de
-passe compris), la liste de ses propres sessions et de ses clés d'API. Les écrans Sessions et Clés
-d'API sont à double audience — le mode « administration » n'apparaît que si le compte porte le rôle
-qui va avec, et c'est le serveur qui tranche, pas l'affichage. Commence par
-[Mon bureau](./workspace.md) : c'est la page qui explique comment les tuiles se composent.
-
-### `observation` — le serveur en marche
-
-Six écrans : la **carte du serveur** (vue d'architecture animée par l'activité réelle), la
-**supervision** (processeur, mémoire, boucle d'événements), le **cluster** (agrégation de tous les
-travailleurs d'un pod, avec forage par identifiant de processus), le **runtime**, la **console temps
-réel** (canaux vivants, abonnés, débit, connexions en retard) et les **journaux** — filtrables, avec
-une vue de suivi par requête accessible depuis un identifiant de corrélation.
-
-### `systeme-et-donnees` — l'introspection du framework
-
-Le tiroir du développeur. **Modules** liste tout ce qui est chargé, et le détail d'un module ouvre
-ses onglets (documentation, symboles, routes, services, configuration, couverture).
-**Configuration** montre les valeurs effectives après fusion, **Routes** la table de routage réelle,
-**ORM** / **Schéma** / **Magasins** l'état des connexions, des entités et des banques de données.
-Deux écrans — le **playground** d'appel de contrôleurs et le **générateur de code** — ne sont
-montés qu'en développement, parce que leur data plane n'existe pas ailleurs.
-
-### `securite` — la gouvernance
-
-Journal d'audit, état du pare-feu tel qu'il tourne (zones, authentificateurs, décisions),
-utilisateurs et leur profil administrateur, rôles, webhooks. Studio n'implémente rien de tout cela :
-il rend visible ce que [`@nodefony/security`](../../security/docs/index.md) publie sur son data
-plane, avec la même politique de rôles.
-
-### `documentation` — le portail
-
-L'écran **Documentation** rend les pages Markdown du dépôt — celle que tu lis comprise. Le contenu
-et son data plane vivent dans [`@nodefony/documentation`](../../documentation/docs/index.md) ;
-Studio n'en fournit que la surface.
+```nodefony-cards
+[
+  { "icon": "👤", "title": "mon-espace", "href": "workspace.md",
+    "desc": "Le seul groupe visible de tout compte authentifié : le bureau composable, le profil (mot de passe compris), la liste de ses propres sessions et de ses clés d'API. Sessions et Clés d'API sont à double audience — le mode administration n'apparaît que si le compte porte le rôle qui va avec, et c'est le serveur qui tranche, pas l'affichage.",
+    "meta": "commence par Mon bureau : il explique comment les tuiles se composent" },
+  { "icon": "🔭", "title": "observation",
+    "desc": "La carte du serveur animée par l'activité réelle, la supervision (processeur, mémoire, boucle d'événements), le cluster agrégé sur tous les travailleurs d'un pod avec forage par identifiant de processus, le runtime, la console temps réel (canaux vivants, abonnés, débit, connexions en retard) et les journaux — filtrables, avec le suivi d'une requête depuis son identifiant de corrélation.",
+    "meta": "six écrans — développeur · exploitant" },
+  { "icon": "🧰", "title": "systeme-et-donnees",
+    "desc": "Le tiroir du développeur : les modules chargés et le détail de chacun (documentation, symboles, routes, services, configuration, couverture), la configuration effective après fusion, la table de routage réelle, l'ORM, le schéma et les magasins.",
+    "meta": "le playground d'appel de contrôleurs et le générateur de code ne sont montés qu'en développement" },
+  { "icon": "🛡️", "title": "securite", "href": "../../security/docs/index.md",
+    "desc": "Journal d'audit, état du pare-feu tel qu'il tourne (zones, authentificateurs, décisions), utilisateurs et leur profil administrateur, rôles, webhooks. Studio n'implémente rien de tout cela : il rend visible ce que le module de sécurité publie sur son data plane, avec la même politique de rôles.",
+    "meta": "administrateur de plateforme" },
+  { "icon": "🤖", "title": "ia",
+    "desc": "La console de conversation avec les modèles, et les surfaces de gouvernance qui l'encadrent.",
+    "meta": "plusieurs de ces écrans portent encore le drapeau « en travaux »" },
+  { "icon": "📘", "title": "documentation", "href": "../../documentation/docs/index.md",
+    "desc": "L'écran qui rend les pages Markdown du dépôt — celle que tu lis comprise. Le contenu et son data plane vivent dans le module de documentation ; Studio n'en fournit que la surface.",
+    "meta": "ces pages mêmes" }
+]
+```
 
 > [!NOTE]
 > **La barre latérale montre plus que ce qui est monté.** Une entrée de navigation peut porter le
