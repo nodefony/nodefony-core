@@ -1,0 +1,283 @@
+---
+title: "CLI — piloter le framework en ligne de commande"
+lang: fr
+module: "@nodefony/core"
+topic: cli
+coverageModule: nodefony-core
+coveragePackage: "nodefony (cœur)"
+coverageFiles: "Cli.ts,command/Command.ts,kernel/CliKernel.ts"
+section: "Cœur runtime"
+audience: [developer, devops]
+tags:
+  [
+    cli,
+    command,
+    development,
+    build,
+    production,
+    cluster,
+    scaffold,
+    completion,
+    create,
+  ]
+version: "doc"
+status: stable
+updated: 2026-07-20
+source: "src/nodefony/docs/cli.md"
+---
+
+# CLI — piloter le framework en ligne de commande
+
+> Une application Nodefony se pilote par **une seule porte** : le binaire `nodefony`. Il démarre le
+> serveur en développement, le construit, le lance en production, ouvre un cluster, échafaude un
+> projet ou un module, et accueille les commandes que **tes propres modules** ajoutent. Sous le
+> capot, chaque commande est une classe qui s'accroche au cycle de vie du kernel et décide **jusqu'où
+> le booter** — de « rien du tout » (un simple `status`) à « serveurs prêts » (`development`).
+
+📍 [Documentation](../../../docs/index.md) › [Cœur — @nodefony/core](index.md) › **CLI**
+
+## 🧠 Le modèle mental — un binaire, un kernel, des commandes
+
+Trois idées suffisent à comprendre toute la CLI.
+
+**Le binaire délègue à l'application.** Installé globalement, `nodefony` sert surtout à créer un
+projet hors de tout dépôt. Mais **dans** une application, c'est la version des `node_modules` du projet
+qui fait autorité — elle seule connaît ses modules et ses commandes. Le lanceur remonte donc au projet
+(`findProjectRoot`) et, s'il y trouve un autre paquet `nodefony` que lui-même, lui passe la main dans
+le **même processus** (`bin/nodefony.ts`). C'est le pattern du wrapper de projet (`gradlew`, `mvnw`) :
+_le projet gagne_.
+
+**Une commande choisit son point d'arrêt.** Chaque commande déclare un `kernelEvent` : la phase du
+boot à laquelle elle s'exécute **et où le démarrage s'arrête**. Une commande qui n'a besoin de rien
+(`status`, `stop`, `create`) ne boote **aucun** kernel — c'est un _fast-path standalone_. Une commande
+qui introspecte la config booste jusqu'à `onReady`. Une commande serveur (`development`, `production`)
+va jusqu'à `onPostReady`, où les serveurs écoutent, puis **reste** en vie.
+
+**Deux familles de commandes.** Les **intégrées** (`development`, `build`, `create`…) sont posées par
+le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:332`). Les **commandes de
+module** (`http:network`, `security:user:add`…) sont ajoutées par chaque module dans son constructeur —
+elles suivent le namespace `<module>:<action>` et empruntent exactement le même chemin.
+
+```mermaid
+flowchart LR
+  BIN["nodefony &lt;commande&gt;"] --> SHIM["bin/nodefony<br/>délègue à l'app"]
+  SHIM --> CK["CliKernel"]
+  CK -->|"status · stop · create · completion"| FP["fast-path<br/>0 boot"]
+  CK -->|"build · install"| REG["boot → onRegister"]
+  CK -->|"development · production · cluster"| PR["boot → onPostReady<br/>(serveurs, reste en vie)"]
+```
+
+## 🚀 Démarrage rapide
+
+### 1. Piloter une application
+
+Toutes les commandes s'exécutent **depuis la racine du projet** (celle qui porte `nodefony.config.ts`) :
+
+```bash
+npx nodefony development     # serveur de dev : Vite/HMR + redémarrage auto (alias : dev)
+npx nodefony build           # construit tous les paquets (alias : compile)
+npx nodefony production -w 4 # runtime prod, 4 workers, au premier plan (cloud-native)
+npx nodefony status          # les process en cours (dev/prod/cluster), sans rien démarrer
+npx nodefony stop            # arrêt propre de tout runtime lancé depuis ce projet
+npx nodefony --help          # la liste complète, commandes de module incluses
+```
+
+### 2. Ajouter sa propre commande
+
+Une commande maison vit dans un **module** : on l'ajoute dans son constructeur avec `addCommand`. Le nom
+suit la convention `<module>:<action>`, et `kernelEvent` dit à quelle phase elle s'exécute.
+
+```ts
+import { Module, Command } from "nodefony";
+import type { Kernel, CliKernel } from "nodefony";
+
+class GreetCommand extends Command {
+  constructor(cli: CliKernel) {
+    // Le kernel sera prêt (onReady) avant que generate() ne tourne.
+    super("app:greet", "Saluer depuis la ligne de commande", cli, {
+      kernelEvent: "onReady",
+    });
+    this.addArgument("<name>", "qui saluer");
+  }
+
+  override async generate(name: string): Promise<this> {
+    // `log` est hérité de Service : ni import, ni logger à injecter.
+    this.log(`bonjour ${name}`, "INFO");
+    return this;
+  }
+}
+
+class GreetModule extends Module {
+  constructor(kernel: Kernel) {
+    super("greet", kernel, import.meta.url, {});
+    // Posé au constructeur du module (exécuté quand le manifeste le charge).
+    this.addCommand(GreetCommand);
+  }
+}
+
+export default GreetModule;
+```
+
+Une fois le module déclaré dans le manifeste `modules`, la commande apparaît dans `nodefony --help` et
+s'invoque `npx nodefony app:greet Ada`.
+
+## 📖 Lexique
+
+| Terme                      | En clair                                                                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`Cli`**                  | La façade au-dessus de Commander : enregistre les commandes, parse `argv`, porte les helpers d'affichage. Utilisable **sans kernel** (standalone).      |
+| **`CliKernel`**            | Un `Cli` **relié au kernel** : c'est lui qui boote l'application pour les commandes qui en ont besoin, et qui classe intégrées vs modules.              |
+| **`Command`**              | La classe de base d'une commande. On surcharge `generate()` (l'action) et, au besoin, les hooks de cycle de vie.                                        |
+| **`kernelEvent`**          | La phase du boot où la commande s'exécute — **et** le point où le démarrage s'arrête (`onStart` → `onRegister` → `onBoot` → `onReady` → `onPostReady`). |
+| **standalone (0 boot)**    | Une commande qui ne démarre aucun kernel : `status`, `stop`, `create`, `completion`, `--version`. Réponse immédiate.                                    |
+| **runtime / long-running** | Une commande serveur (`development`, `production`, `cluster`) qui, une fois la phase atteinte, **reste** en vie au lieu de rendre la main.              |
+| **scaffold**               | La génération de code à partir de gabarits (`create app/module/entity…`) — un moteur pur alimenté par une spec déclarative.                             |
+| **dispatch différé**       | Les commandes de module ne sont connues qu'après leur enregistrement ; le kernel diffère le parse jusque-là, puis exécute la bonne.                     |
+
+## 🗂️ Les commandes intégrées
+
+Onze commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:332`). La
+colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
+
+| Commande      | Alias     | Ce qu'elle fait                                                                 | Arrêt         | Classe                    |
+| ------------- | --------- | ------------------------------------------------------------------------------- | ------------- | ------------------------- |
+| `development` | `dev`     | Serveur de dev : Vite/HMR + redémarrage auto (`--detach/--wait/--health/--log`) | `onPostReady` | `DevCommand.ts:26`        |
+| `production`  | `prod`    | Runtime prod au premier plan ; topologie via `-w, --workers`                    | `onPostReady` | `ProdCommand.ts:37`       |
+| `cluster`     | —         | Cluster de N workers (cgroup-aware, respawn) — `-w, --workers`                  | `onPostReady` | `ClusterCommand.ts:36`    |
+| `build`       | `compile` | Construit tous les paquets (délègue à `turbo run build`) — `-f/--force`         | `onRegister`  | `BuildCommand.ts:16`      |
+| `install`     | —         | `install` sur tous les modules — `-f/--force`                                   | `onRegister`  | `InstallCommand.ts:9`     |
+| `outdated`    | —         | `outdated` sur tous les modules                                                 | `onRegister`  | `OutdatedCommand.ts:9`    |
+| `start`       | —         | Menu interactif (TTY)                                                           | `onStart`     | `StartCommand.ts:70`      |
+| `status`      | —         | Introspecte les process dev/prod/cluster (**0 boot**)                           | `0 boot`      | `StatusCommand.ts:20`     |
+| `stop`        | —         | Arrête proprement les runtimes du projet (**0 boot**) — `--all`                 | `0 boot`      | `StopCommand.ts:20`       |
+| `completion`  | —         | Script de complétion shell (**0 boot**)                                         | `0 boot`      | `CompletionCommand.ts:20` |
+| `create`      | —         | Échafaude projet / module / entité (**0 boot**)                                 | `0 boot`      | `CreateCommand.ts:19`     |
+
+`status` et `stop` sont détournées vers leur exécution réelle **avant** tout boot (`CliKernel.ts:178`,
+via `isStandaloneDevCommand`, `devStatusReport.ts:45`) — leur `generate()` n'est qu'un filet.
+
+### Les commandes de module
+
+Chaque module ajoute ses commandes dans son constructeur (`Module.addCommand()`, `Module.ts:508`),
+sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme les intégrées :
+
+| Commande            | Ce qu'elle fait                                        | Classe                       |
+| ------------------- | ------------------------------------------------------ | ---------------------------- |
+| `http:network`      | Inventaire des interfaces réseau (`-j` pour du JSON)   | `networkCommand.ts:16`       |
+| `http:certificates` | Génère les certificats TLS de dev (`-f/--force`)       | `certificatesCommand.ts:21`  |
+| `proxy:generate`    | Émet une config nginx/haproxy pour l'app               | `proxyGenerateCommand.ts:31` |
+| `frontend:build`    | Build de production des bundles Vite (`-f/--force`)    | `frontend-build.ts:22`       |
+| `security:secrets`  | Vérifie / écrit les secrets de sécurité (`-w/--write`) | `security-secrets.ts:36`     |
+| `security:user:add` | Crée un utilisateur (`-p`, `-r roles`, `-a` admin)     | `security-user-add.ts:36`    |
+
+> Une commande introuvable rend le code `EX_USAGE` (64) — **jamais** un repli silencieux sur le
+> serveur (`CliKernel.ts:484`).
+
+## 🏗️ Échafauder — `create`
+
+`create` prend un **type** en argument (`app | module | controller | front | entity`, `CREATE_TYPES`,
+`create.ts:38`) et route vers un moteur de scaffold unique (`runCreateCommand()`, `create.ts:239`) :
+
+```bash
+nodefony create app mon-app --preset complete --frontend react   # nouveau projet
+nodefony create module blog --controller rest                    # module dans une app
+nodefony create entity Article title:string body:text            # entité + service + controller + tests
+```
+
+Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:487`),
+partagée par trois fronts : le CLI rapide (flags), le CLI interactif (readline), et un futur formulaire
+Studio. Ajouter une question = une entrée dans la spec, aucun front à toucher.
+
+Le détail de chaque scaffold (options, gabarits, presets) vit dans les skills dédiés : `create app`
+(preset `complete`/`minimal`, front React/Vue/Angular), `create module`, `create entity`. En résumé —
+`create app` et `create entity` **exécutent** ce qu'ils génèrent au boot suivant (la table naît en
+`CREATE TABLE IF NOT EXISTS`), et **aucune migration n'est produite** : modifier une entité déjà créée
+n'altère pas la table.
+
+## 🧩 Ajouter sa propre commande
+
+Le squelette est en [Démarrage rapide](#-démarrage-rapide) ; voici les leviers.
+
+**`generate()` est l'action.** On la surcharge (`command/Command.ts:291`) ; elle reçoit les arguments
+positionnels déclarés par `addArgument()`, et l'instance Commander en dernier paramètre. Les hooks de
+cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la demande par `setEvents()`
+(`command/Command.ts:144`), idempotent.
+
+**`kernelEvent` = jusqu'où booter.** C'est le choix structurant :
+
+- `onPostReady` — les serveurs écoutent. Pour les runtimes (dev/prod/cluster).
+- `onReady` — tout est booté **sauf** les serveurs. Pour introspecter la config/les services sans écouter.
+- `onBoot` — les services du kernel existent (ex. certificats).
+- `onRegister` (défaut) — les modules sont enregistrés (ex. build, install).
+- `onStart` — rien n'est chargé : pour le vrai standalone.
+
+**Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:508`) —
+il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts:524`). Hors module, un
+outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:585`). Dans les deux cas,
+`addCommand` **instancie** la commande et l'enregistre sous le nom porté par son constructeur.
+
+## ⚙️ La complétion shell
+
+`nodefony completion <bash|zsh|fish>` imprime un script à sourcer (`renderCompletionScript()`,
+`completion.ts:181` ; shells supportés `COMPLETION_SHELLS`, `completion.ts:173`) :
+
+```bash
+source <(nodefony completion zsh)     # essai immédiat (zsh)
+nodefony completion install zsh       # installation gérée (bloc idempotent dans le rc)
+```
+
+Au TAB, le script appelle `nodefony __complete` (fast-path 0 boot, sort toujours `OK`). Les
+suggestions viennent d'un **manifeste en cache** écrit au boot de dev (commandes de module comprises,
+`CliKernel.writeCompletionManifest()`, `CliKernel.ts:354`) ; hors projet, le repli est la liste des
+intégrées en mémoire.
+
+## 🩺 Codes de sortie
+
+La CLI suit la convention BSD `sysexits` (`SysExit`, `sysexits.ts:11`) — utile pour scripter et lire
+un échec en CI :
+
+| Code | Nom           | Quand                                                |
+| ---- | ------------- | ---------------------------------------------------- |
+| 0    | `OK`          | Succès.                                              |
+| 64   | `USAGE`       | Mauvais usage : commande/argument inconnu.           |
+| 65   | `DATAERR`     | Donnée d'entrée invalide.                            |
+| 66   | `NOINPUT`     | Entrée attendue absente.                             |
+| 69   | `UNAVAILABLE` | Un service requis est indisponible.                  |
+| 70   | `SOFTWARE`    | Erreur interne pendant l'exécution.                  |
+| 73   | `CANTCREAT`   | Impossible de créer un fichier de sortie (scaffold). |
+| 78   | `CONFIG`      | Configuration invalide.                              |
+
+## ⚠️ Pièges (symptôme → cause → correction)
+
+| Symptôme                                            | Cause                                                                | Correction                                                             |
+| --------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Un « projet fantôme » démarre (1 module, 0 warning) | La CLI résout l'application depuis `process.cwd()`                   | Lancer **depuis la racine** du projet (celle du `nodefony.config.ts`). |
+| `Kernel not ready` sur `module.addCommand(...)`     | `addCommand` appelé alors que `kernel.cli` n'existe pas encore       | L'appeler dans le **constructeur** du module, pas plus tôt.            |
+| La commande n'apparaît pas / n'est pas reconnue     | `addCommand` après le parse, ou module absent du manifeste `modules` | Ordre add → parse ; déclarer le module dans `modules`.                 |
+| `generate()` n'est jamais appelé                    | Le `kernelEvent` déclaré n'est pas atteint (mauvaise phase)          | Choisir la phase réelle (voir § « jusqu'où booter »).                  |
+| Commande inconnue → un serveur démarre              | (n'arrive pas) le dispatch rend `EX_USAGE` 64                        | Vérifier le nom exact ; `--help` liste tout.                           |
+| `create …` refuse de s'exécuter hors d'un projet    | `create module/controller/entity` sont **in-project**                | Les lancer dans une app ; seul `create app` s'utilise hors projet.     |
+
+## 🧪 Tests
+
+Le CLI est couvert par une suite dédiée du cœur, sans serveur pour la plupart :
+
+- **Unitaires** — la façade `Cli` (`Cli.test.ts`), le `CliKernel` et son registre (`CliKernel.test.ts`),
+  la classification intégrée/module sans boot (`CliKernelDispatch.test.ts`), la classe de base
+  `Command` (`command/Command.test.ts`), les commandes runtime (`KernelCommands.test.ts`), le scaffold
+  (`create.test.ts`, `entityFields.test.ts`, `scaffoldDestination.test.ts`), la complétion
+  (`completion.test.ts`) et la délégation du binaire projet/global (`resolveLocalCli.test.ts`).
+- **Intégration / bout en bout** — le binaire réel `node bin/nodefony <commande>` (`CliIntegration.test.ts`) :
+  `--help`/`--version` sans condition, et les boots serveur derrière `RUN_CLI_BOOT=1`.
+
+Le décompte exact (cas comptés, par fichier) est rendu dans la carte de tests de cette page — jamais
+figé dans le texte, où il vieillirait. Pour le relancer : `cd src/nodefony && npm run test` (les boots
+réels : `npm run test:boot`).
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [@nodefony/core — vue d'ensemble](index.md) · [Toute la documentation](../../../docs/index.md)
+- 🔄 [Kernel & Module](kernel.md) — le cycle de vie que les commandes accrochent (`onRegister` → `onPostReady`)
+- 🚦 [Cycle de boot du kernel](../../../docs/architecture/cycle-boot-kernel.md) — l'ordre d'allumage détaillé
+- 🏗️ Scaffolds : les skills `create app`, `create module`, `create entity` (options et gabarits)
+- 📖 [Lexique général](../../../docs/lexique.md) — le vocabulaire transverse du framework

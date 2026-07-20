@@ -504,6 +504,21 @@
       "src/nodefony/src/tests/Profiler.client.test.ts"
     ]
   },
+  "cli": {
+    "unit": [
+      "src/nodefony/src/tests/Cli.test.ts",
+      "src/nodefony/src/tests/CliKernel.test.ts",
+      "src/nodefony/src/tests/CliKernelDispatch.test.ts",
+      "src/nodefony/src/tests/command/Command.test.ts",
+      "src/nodefony/src/tests/KernelCommands.test.ts",
+      "src/nodefony/src/tests/create.test.ts",
+      "src/nodefony/src/tests/completion.test.ts",
+      "src/nodefony/src/tests/entityFields.test.ts",
+      "src/nodefony/src/tests/scaffoldDestination.test.ts",
+      "src/nodefony/src/tests/resolveLocalCli.test.ts"
+    ],
+    "integration": ["src/nodefony/src/tests/CliIntegration.test.ts"]
+  },
   "kernel": {
     "globs": [
       "src/nodefony/src/tests/Kernel*.test.ts",

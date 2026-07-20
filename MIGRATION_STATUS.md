@@ -155,7 +155,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 ────────────────────────────────────────────────────────────────────────
  GLOBAL                    ██████▊░░░  68% 119✅ 25🔶 49⬜  (193 tâches · resync 2026-07-10)
 ────────────────────────────────────────────────────────────────────────
- DOC Corpus de référence   ██████████ 100%  55/55 pages conformes · 13/13 hubs en cards
+ DOC Corpus de référence   ██████████ 100%  56/56 pages conformes · 13/13 hubs en cards
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -173,10 +173,10 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > ce tableau de bord (385 Ko servis comme page de doc). **(b) socket canonisée ✅** : `protocole`,
 > `actions`, `observabilite` créées, 6 **graphes temps réel** sauvés en fence `nodefony-livegraph`
 > (ils étaient attachés au chemin des pages supprimées), page de vision transverse recentrée sur la
-> trajectoire SIP/ponts. **(c) glossaire ✅** : régime `doc-lint` dédié (§8bis-lexique) + les deux
-> lexiques (global `docs/lexique.md` + `@nodefony/security`) conformes, **2 niveaux GARDÉS**
-> (ADR-0001, pas de fusion — le lexique sécu reste dans sa carte Studio) ; **reste ⬜** `cli` ·
-> `reference/` · tutoriels ;
+> trajectoire SIP/ponts. **(c) glossaire + CLI ✅** : régime `doc-lint` dédié aux glossaires
+> (§8bis-lexique) + les deux lexiques conformes (**2 niveaux GARDÉS**, ADR-0001, pas de fusion) ·
+> page **`cli`** (moteur, 11 commandes intégrées + commandes de module, scaffold, extension,
+> complétion — 3 gates verts) ; **reste ⬜** `reference/` · tutoriels ;
 > les 8 pages « socket » de `docs/` racine sont **SUPPRIMÉES** (elles décrivaient une API `IBackplane`
 > inexistante), leur contenu revalidé vit dans `@nodefony/realtime/docs/` · **8 ⬜** IA + devkit ·
 > **4ter ⬜** `cookies`, `upload`, `rate-limit`, `observabilite` (http) · `admin`, `templates` (framework).
