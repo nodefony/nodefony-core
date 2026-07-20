@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-20T17:30:29.941Z",
+  "generated": "2026-07-20T17:46:40.600Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1031,
-    "symbols": 2787,
+    "symbols": 2789,
     "classes": 327,
     "interfaces": 732,
     "types": 322,
     "enums": 4,
-    "functions": 830,
-    "constants": 572
+    "functions": 831,
+    "constants": 573
   },
   "symbols": {
     "Cli": {
@@ -11163,6 +11163,14 @@
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Lecture (lazy, au handshake) des politiques d'autorisation déclarées (`@RealtimeChannel`/`@RealtimeInbound` avec opts). `null` si aucune → le controller n'enregistre rien au hub (0 alloc). Donnée p…"
+    },
+    "DEFAULT_ACTION_POLICY": {
+      "name": "DEFAULT_ACTION_POLICY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Politique appliquée à une action RPC dont l'auteur n'a rien déclaré : **exiger une connexion authentifiée**. Une action est une méthode que le pair APPELLE et qui AGIT — le défaut sûr est de la fer…"
     },
     "IBackplaneMessage": {
       "name": "IBackplaneMessage",
@@ -26855,6 +26863,9 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "getRealtimeChannelPolicies": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "DEFAULT_ACTION_POLICY": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "RealtimeChannelFactory": [

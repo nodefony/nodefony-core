@@ -90,6 +90,76 @@ describe("@RealtimeAction — registre des actions RPC", () => {
   });
 });
 
+// ── FERMÉE PAR DÉFAUT ──────────────────────────────────────────────────────
+// Une action RPC est une méthode que le pair APPELLE : elle agit (`kernel:gc`,
+// `scaffold:run`, `orders:quote`). Elle était pourtant la seule des trois
+// surfaces déclaratives à ne pas accepter de politique, et le verrou laisse
+// passer ce qu'aucune politique ne couvre (`frameAuthorizer.ts`, « canal
+// applicatif libre ») : toute action applicative était donc PUBLIQUE, sans que
+// rien ne le dise. Un défaut sûr ne se documente pas, il se code.
+describe("@RealtimeAction — politique d'autorisation (fermée par défaut)", () => {
+  it("SANS politique déclarée → exige une connexion authentifiée", () => {
+    class Ctrl {
+      @RealtimeAction("orders:quote")
+      quote(): number {
+        return 1;
+      }
+    }
+    const policies = getRealtimeChannelPolicies(new Ctrl());
+    expect(policies).to.not.equal(null);
+    expect(policies!["orders:quote"]).to.deep.equal({ authenticated: true });
+  });
+
+  it("AVEC politique déclarée → la politique de l'auteur est respectée telle quelle", () => {
+    class Ctrl {
+      @RealtimeAction("admin:purge", { roles: ["ROLE_ADMIN"] })
+      purge(): void {}
+    }
+    const policies = getRealtimeChannelPolicies(new Ctrl())!;
+    expect(policies["admin:purge"]).to.deep.equal({ roles: ["ROLE_ADMIN"] });
+  });
+
+  it("ouverture EXPLICITE (`authenticated: false`) → action publique assumée", () => {
+    // Le seul moyen de rendre une action publique est désormais de l'écrire.
+    // `satisfies()` ne contraint rien quand `authenticated` est falsy.
+    class Ctrl {
+      @RealtimeAction("public:health", { authenticated: false })
+      health(): string {
+        return "ok";
+      }
+    }
+    const policies = getRealtimeChannelPolicies(new Ctrl())!;
+    expect(policies["public:health"]).to.deep.equal({ authenticated: false });
+  });
+
+  it("la politique par défaut n'écrase pas celle d'un canal homonyme déjà déclaré", () => {
+    // Le registre des politiques est indexé par NOM et partagé entre les trois
+    // décorateurs : une action ne doit pas rétrograder la politique d'un canal
+    // portant le même nom (ici plus stricte que le défaut).
+    class Ctrl {
+      @RealtimeChannel("ops:feed", { roles: ["ROLE_ADMIN"] })
+      feed(_channel: string, _publish: RealtimePublish): () => void {
+        return () => {};
+      }
+      @RealtimeAction("ops:feed")
+      feedAction(): void {}
+    }
+    const policies = getRealtimeChannelPolicies(new Ctrl())!;
+    expect(policies["ops:feed"]).to.deep.equal({ roles: ["ROLE_ADMIN"] });
+  });
+
+  it("le handler reste enregistré normalement (la politique ne change rien au routage)", () => {
+    class Ctrl {
+      @RealtimeAction("orders:quote")
+      quote(): number {
+        return 42;
+      }
+    }
+    const actions = getRealtimeActions(new Ctrl())!;
+    expect(actions["orders:quote"]!(undefined)).to.equal(42);
+  });
+});
+
 describe("@RealtimeChannel — registre des canaux pub/sub", () => {
   it("enregistre un factory pour un nom EXACT, retournant son dispose", () => {
     class Ctrl {

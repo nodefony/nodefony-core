@@ -3,6 +3,7 @@ import "reflect-metadata";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
 import {
+  RealtimeAction,
   RealtimeChannel,
   RealtimeInbound,
 } from "../../decorators/realtimeDecorators.js";
@@ -146,6 +147,33 @@ class AuthRt extends RealtimeController {
   @RealtimeInbound("ops:command", { roles: ["ROLE_ADMIN"] })
   opsCommand(params: unknown, reply: (payload: unknown) => void): void {
     reply({ executed: true, params });
+  }
+
+  // ── Actions RPC : fermées par défaut ────────────────────────────────────
+  // `orders:quote` ne déclare RIEN. Avant, une action sans politique n'était
+  // couverte par aucune règle et le verrou la laissait passer : un anonyme
+  // pouvait l'appeler. Elle doit désormais exiger une connexion authentifiée
+  // SANS que son auteur ait eu à y penser.
+  @RealtimeAction("orders:quote")
+  ordersQuote(): { quoted: true } {
+    return { quoted: true };
+  }
+
+  // Ouverture explicite : le seul moyen de rendre une action publique est de
+  // l'écrire. Prouve que le défaut est un DÉFAUT, pas un verrou inconditionnel.
+  @RealtimeAction("catalog:browse", { authenticated: false })
+  catalogBrowse(): { ok: true } {
+    return { ok: true };
+  }
+
+  // L'AUTRE voie de déclaration : l'override, qui n'a aucun endroit où écrire
+  // une politique. Elle doit hériter du même défaut fermé que le décorateur —
+  // sinon fermer `@RealtimeAction` ne ferait que déplacer la porte ouverte.
+  protected override realtimeActions(): Record<
+    string,
+    (params: unknown) => unknown
+  > {
+    return { "legacy:run": () => ({ ran: true }) };
   }
 
   feed(raw: string | null): void {
@@ -346,6 +374,75 @@ describe("MATRICE E2E — canal inbound protégé (push client→serveur)", () =
     await flush();
     await flush();
     expect(replies).to.deep.equal([{ executed: true, params: { do: "x" } }]);
+    expect(denials).to.have.length(0);
+    client.disconnect();
+  });
+});
+
+describe("MATRICE E2E — actions RPC fermées par défaut", () => {
+  beforeEach(() => getRealtimeHub().clear());
+
+  it("anonyme × orders:quote (aucune politique déclarée) → REFUSÉ", async () => {
+    // Le cœur de la correction : l'auteur n'a RIEN écrit, et pourtant l'action
+    // n'est pas ouverte à un inconnu. Avant, le verrou laissait passer tout ce
+    // qu'aucune politique ne couvrait — une action applicative était publique.
+    const { client } = await connectAs(TOKENS.anon);
+    const denials: Array<{ channel: string; reason: string }> = [];
+    client.onDenied((d) => denials.push(d));
+    client.emit("orders:quote", {});
+    await flush();
+    await flush();
+    expect(denials).to.deep.equal([
+      { channel: "orders:quote", reason: "forbidden" },
+    ]);
+    client.disconnect();
+  });
+
+  it("utilisateur authentifié × orders:quote → AUTORISÉ (le défaut n'exige QUE l'authentification)", async () => {
+    // Le défaut ferme la porte à un inconnu, il ne verrouille pas l'application :
+    // sans quoi il serait contourné en masse par des politiques permissives.
+    const { client } = await connectAs(TOKENS.user);
+    const denials: unknown[] = [];
+    client.onDenied((d) => denials.push(d));
+    client.emit("orders:quote", {});
+    await flush();
+    await flush();
+    expect(denials).to.have.length(0);
+    client.disconnect();
+  });
+
+  it("anonyme × legacy:run (action déclarée par OVERRIDE, sans politique possible) → REFUSÉ", async () => {
+    // L'override `realtimeActions()` ne peut pas porter de politique : le défaut
+    // fermé doit donc lui être appliqué par le controller, sinon le trou reste
+    // entier pour tout code qui n'utilise pas le décorateur (c'est le cas de
+    // Studio, dont `scaffold:run` lance un générateur de code).
+    const { client } = await connectAs(TOKENS.anon);
+    const denials: Array<{ channel: string; reason: string }> = [];
+    client.onDenied((d) => denials.push(d));
+    client.emit("legacy:run", {});
+    await flush();
+    await flush();
+    expect(denials).to.deep.equal([
+      { channel: "legacy:run", reason: "forbidden" },
+    ]);
+    client.disconnect();
+  });
+
+  it("anonyme × catalog:browse (ouverture EXPLICITE) → AUTORISÉ", async () => {
+    // Prouve que c'est un DÉFAUT et non un verrou inconditionnel : une action
+    // publique reste possible, à condition de l'écrire.
+    //
+    // ⚠️ Le nom compte : le plancher système capture TOUTE méthode contenant
+    // `:health` ou `:stats` (`frameAuthorizer.ts`, `matchSystemPolicy`), quelle
+    // que soit la politique déclarée — une action `public:health` reste donc
+    // réservée. C'est voulu (namespaces d'observabilité), mais invisible depuis
+    // le site de déclaration : d'où ce cas nommé hors de ces suffixes.
+    const { client } = await connectAs(TOKENS.anon);
+    const denials: unknown[] = [];
+    client.onDenied((d) => denials.push(d));
+    client.emit("catalog:browse", {});
+    await flush();
+    await flush();
     expect(denials).to.have.length(0);
     client.disconnect();
   });

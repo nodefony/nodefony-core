@@ -54,10 +54,26 @@ function definePolicy(
   }
   const map =
     (Reflect.getMetadata(POLICIES_KEY, ctor) as
-      | Record<string, IChannelPolicy>
-      | undefined) ?? {};
+      Record<string, IChannelPolicy> | undefined) ?? {};
   map[name] = policy;
   Reflect.defineMetadata(POLICIES_KEY, map, ctor);
+}
+
+/**
+ * Politique appliquée à une action RPC dont l'auteur n'a rien déclaré :
+ * **exiger une connexion authentifiée**. Une action est une méthode que le pair
+ * APPELLE et qui AGIT — le défaut sûr est de la fermer, pas de l'ouvrir.
+ * Pour une action délibérément publique, l'écrire : `{ authenticated: false }`.
+ */
+export const DEFAULT_ACTION_POLICY: IChannelPolicy = Object.freeze({
+  authenticated: true,
+});
+
+/** Une politique est-elle DÉJÀ déclarée sous ce nom ? */
+function hasPolicy(ctor: object, name: string): boolean {
+  const map = Reflect.getMetadata(POLICIES_KEY, ctor) as
+    Record<string, IChannelPolicy> | undefined;
+  return map ? Object.prototype.hasOwnProperty.call(map, name) : false;
 }
 
 /**
@@ -90,25 +106,54 @@ export type RealtimeChannelFactory = (
  * Le `this` est lié à l'instance de controller (`handler.bind(instance)` au
  * handshake). La méthode peut donc lire `this.context`, `this.kernel`, etc.
  *
+ * **Autorisation — FERMÉE PAR DÉFAUT.** Une action sans `policy` exige une
+ * connexion **authentifiée**. C'est délibéré : une action est une méthode que le
+ * pair appelle et qui AGIT (`kernel:gc`, `scaffold:run`, `orders:quote`), et le
+ * verrou de frame laisse passer tout ce qu'aucune politique ne couvre — sans ce
+ * défaut, toute action applicative serait publique sans que rien ne le dise.
+ * Pour une action délibérément ouverte, l'écrire : `{ authenticated: false }`.
+ *
+ * Si une politique est **déjà déclarée sous ce nom** (canal homonyme via
+ * `@RealtimeChannel`/`@RealtimeInbound`), elle est conservée : le défaut ne
+ * rétrograde jamais une politique existante, souvent plus stricte.
+ *
+ * @param method - nom RPC exposé au pair.
+ * @param policy - politique d'autorisation ; par défaut `{ authenticated: true }`.
+ *
  * @example
  *   class ChatController extends RealtimeController {
- *     @RealtimeAction("chat:ping")
+ *     @RealtimeAction("chat:ping")                       // authentifié requis
  *     ping(): { pong: true; ts: number } {
  *       return { pong: true, ts: Date.now() };
  *     }
+ *
+ *     @RealtimeAction("admin:purge", { roles: ["ROLE_ADMIN"] })
+ *     purge(): void {}
+ *
+ *     @RealtimeAction("public:health", { authenticated: false })  // ouvert, assumé
+ *     health(): string { return "ok"; }
  *   }
  */
-export function RealtimeAction(method: string): MethodDecorator {
+export function RealtimeAction(
+  method: string,
+  policy?: IChannelPolicy,
+): MethodDecorator {
   return function (target, propertyKey) {
     // `target` = prototype de la classe instance. On stocke sur le constructor
     // (target.constructor) → la même clé qu'utilisera la base au handshake.
     const ctor = (target as { constructor: object }).constructor;
     const map =
       (Reflect.getMetadata(ACTIONS_KEY, ctor) as
-        | Record<string, string | symbol>
-        | undefined) ?? {};
+        Record<string, string | symbol> | undefined) ?? {};
     map[method] = propertyKey;
     Reflect.defineMetadata(ACTIONS_KEY, map, ctor);
+    // Politique explicite de l'auteur, sinon le défaut FERMÉ — et jamais par
+    // dessus une politique déjà posée sous ce nom.
+    if (policy) {
+      definePolicy(ctor, method, policy);
+    } else if (!hasPolicy(ctor, method)) {
+      definePolicy(ctor, method, DEFAULT_ACTION_POLICY);
+    }
   };
 }
 
@@ -147,8 +192,7 @@ export function RealtimeChannel(
     const ctor = (target as { constructor: object }).constructor;
     const map =
       (Reflect.getMetadata(CHANNELS_KEY, ctor) as
-        | Record<string, string | symbol>
-        | undefined) ?? {};
+        Record<string, string | symbol> | undefined) ?? {};
     map[channel] = propertyKey;
     Reflect.defineMetadata(CHANNELS_KEY, map, ctor);
     // Politique d'autorisation (opt-in) — lue par `@nodefony/security` au
@@ -187,8 +231,7 @@ export function RealtimeInbound(
     const ctor = (target as { constructor: object }).constructor;
     const map =
       (Reflect.getMetadata(INBOUND_KEY, ctor) as
-        | Record<string, string | symbol>
-        | undefined) ?? {};
+        Record<string, string | symbol> | undefined) ?? {};
     map[method] = propertyKey;
     Reflect.defineMetadata(INBOUND_KEY, map, ctor);
     // Même politique que les canaux : un client ne peut pousser sur un canal
@@ -202,8 +245,7 @@ export function getRealtimeActions(
   instance: object,
 ): Record<string, RpcActionHandler> | null {
   const map = Reflect.getMetadata(ACTIONS_KEY, instance.constructor) as
-    | Record<string, string | symbol>
-    | undefined;
+    Record<string, string | symbol> | undefined;
   if (!map) return null;
   const out: Record<string, RpcActionHandler> = {};
   for (const [name, prop] of Object.entries(map)) {
@@ -220,8 +262,7 @@ export function getRealtimeChannels(
   instance: object,
 ): Record<string, RealtimeChannelFactory> | null {
   const map = Reflect.getMetadata(CHANNELS_KEY, instance.constructor) as
-    | Record<string, string | symbol>
-    | undefined;
+    Record<string, string | symbol> | undefined;
   if (!map) return null;
   const out: Record<string, RealtimeChannelFactory> = {};
   for (const [name, prop] of Object.entries(map)) {
@@ -238,8 +279,7 @@ export function getRealtimeInbound(
   instance: object,
 ): Record<string, RealtimeInboundHandler> | null {
   const map = Reflect.getMetadata(INBOUND_KEY, instance.constructor) as
-    | Record<string, string | symbol>
-    | undefined;
+    Record<string, string | symbol> | undefined;
   if (!map) return null;
   const out: Record<string, RealtimeInboundHandler> = {};
   for (const [name, prop] of Object.entries(map)) {
@@ -262,7 +302,6 @@ export function getRealtimeChannelPolicies(
   instance: object,
 ): Record<string, IChannelPolicy> | null {
   const map = Reflect.getMetadata(POLICIES_KEY, instance.constructor) as
-    | Record<string, IChannelPolicy>
-    | undefined;
+    Record<string, IChannelPolicy> | undefined;
   return map ?? null;
 }

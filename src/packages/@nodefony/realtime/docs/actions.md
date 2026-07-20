@@ -310,11 +310,31 @@ entrante et, pour une action, résout une politique **par son nom** — exacteme
 canaux (`buildFrameAuthorizer()`, `frameAuthorizer.ts:352` ; branche des méthodes,
 `frameAuthorizer.ts:386`). Trois situations, à connaître dans cet ordre :
 
-### Situation 1 — une action applicative est PUBLIQUE par défaut
+### Situation 1 — une action est FERMÉE par défaut
 
-`@RealtimeAction("orders:quote")` n'accepte **aucun** argument de politique : le décorateur ne
-pose qu'un nom. Sans politique résolue, le verrou laisse passer. Une action applicative est donc
-appelable par un visiteur anonyme tant que rien ne l'a couverte.
+`@RealtimeAction("orders:quote")` exige une connexion **authentifiée**, sans que tu aies rien à
+écrire (`realtimeDecorators.ts`). Le décorateur pose pour toi la politique `{ authenticated: true }`.
+Le raisonnement : une action est une méthode que le pair **appelle** et qui **agit** — le défaut sûr
+est de la fermer. Un visiteur anonyme se voit refuser la frame, et reçoit
+`realtime:denied { channel, reason: "forbidden" }`.
+
+Le décorateur accepte une politique en second argument, comme `@RealtimeChannel` et
+`@RealtimeInbound` :
+
+```ts ignore
+@RealtimeAction("orders:quote")                          // authentifié (défaut)
+quote() { … }
+
+@RealtimeAction("orders:purge", { roles: ["ROLE_ADMIN"] })   // rôle exigé
+purge() { … }
+
+@RealtimeAction("catalog:browse", { authenticated: false })  // PUBLIQUE, assumée
+browse() { … }
+```
+
+Ouvrir une action reste donc possible — mais c'est désormais un acte **délibéré et lisible à la
+déclaration**, au lieu d'un silence. Si une politique est déjà déclarée sous le même nom (canal
+homonyme), elle est conservée : le défaut ne rétrograde jamais une règle plus stricte.
 
 ### Situation 2 — les namespaces réservés portent un plancher
 
@@ -324,6 +344,11 @@ couvre `syslog:`, `orm:`, `node:`, `dashboard:`, `debugbar:`, `realtime:`, `clus
 `kernel:` (`DEFAULT_SYSTEM_PREFIXES`, `frameAuthorizer.ts:84`). C'est ce qui protège
 `kernel:gc` : le nom **est** la garde, et la comparaison est insensible à la casse pour qu'un
 `KERNEL:gc` ne passe pas à côté.
+
+Ce plancher **prime sur ta déclaration** — y compris sur `{ authenticated: false }`. Et il ne
+s'arrête pas aux préfixes : tout nom **contenant** `:health` ou `:stats` est traité comme un canal
+d'observabilité (`matchSystemPolicy`, `frameAuthorizer.ts:202`). Une action `public:health` reste
+donc réservée, quoi qu'en dise son décorateur. À savoir avant de nommer une action « ouverte ».
 
 ### Situation 3 — couvrir SES actions par la configuration
 
@@ -352,10 +377,11 @@ drapeau d'interface. Cacher un bouton n'empêche personne de forger la frame. Le
 (`StudioRealtimeController.ts:133`).
 
 > [!CAUTION]
-> Une action mutable non gardée est la surface la plus facile à oublier : elle n'apparaît dans
-> aucune table de routes HTTP, aucun test d'API REST ne la couvre, et son nom seul décide de sa
-> politique. Avant de livrer, relis la liste des `methods` annoncées et demande-toi, pour chacune :
-> « qu'arrive-t-il si un anonyme l'appelle en boucle ? »
+> Le défaut fermé protège de l'oubli, pas de la sur-ouverture. Une action mutable reste la surface
+> la plus facile à sous-estimer : elle n'apparaît dans aucune table de routes HTTP et aucun test
+> d'API REST ne la couvre. « Authentifié » ne veut pas dire « autorisé à faire _ça_ » — pour une
+> action qui écrit, exige un rôle. Avant de livrer, relis tes `@RealtimeAction` et demande-toi,
+> pour chacune : « qu'arrive-t-il si le premier compte venu l'appelle en boucle ? »
 
 ## ⏱️ Délai, abandon et rejeu
 

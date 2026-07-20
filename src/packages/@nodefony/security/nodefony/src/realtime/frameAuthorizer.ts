@@ -339,7 +339,7 @@ function authorizeChannel(
  *  - inbound (`method` = canal full-duplex déclaré avec policy) : même politique
  *    que `subscribe` — un client ne pousse pas sur un canal protégé sans droit.
  *
- * Toute autre frame (`ping`, `unsubscribe`, action RPC libre) passe — le verrou
+ * Toute autre frame (`ping`, `unsubscribe`, action explicitement ouverte) passe — le verrou
  * cible les surfaces qui atteignent le data plane / l'observabilité / un canal
  * protégé.
  *

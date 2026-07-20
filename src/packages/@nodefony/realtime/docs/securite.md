@@ -386,12 +386,13 @@ mémoire : le token déjà résolu, et la cible de la frame.
 
 `buildFrameAuthorizer()` (`frameAuthorizer.ts:352`) ne garde que ce qui atteint des données :
 
-| Frame                                   | Contrôle appliqué                                                      |
-| --------------------------------------- | ---------------------------------------------------------------------- |
-| `api.request {path}`                    | Re-match de zone HTTP : zone protégée + anonyme → refus                |
-| `subscribe {channel}`                   | Plancher système, puis policy métier déclarée sur le canal             |
-| notification `method` = canal inbound   | Même politique que `subscribe` (on ne pousse pas sur un canal protégé) |
-| `ping`, `unsubscribe`, action RPC libre | **passent** — pas de surface de données                                |
+| Frame                                 | Contrôle appliqué                                                                                               |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `api.request {path}`                  | Re-match de zone HTTP : zone protégée + anonyme → refus                                                         |
+| `subscribe {channel}`                 | Plancher système, puis policy métier déclarée sur le canal                                                      |
+| notification `method` = canal inbound | Même politique que `subscribe` (on ne pousse pas sur un canal protégé)                                          |
+| action `@RealtimeAction`              | Authentifié **par défaut** ; rôle/scope si déclarés ; ouverte seulement si `{ authenticated: false }` est écrit |
+| `ping`, `unsubscribe`                 | **passent** — pas de surface de données                                                                         |
 
 Deux détails évitent des faux refus : `authorizeApiRequest()` (`frameAuthorizer.ts:280`) laisse
 passer une frame au `path` invalide (le handler renverra `-32602` — le verrou ne duplique pas la
