@@ -431,6 +431,18 @@ non-navigateur pouvant toujours forger l'en-tête — appartient à [Sécurité]
 Le choix ne se déduit pas d'un tableau de performances : il se déduit de **ta topologie de
 déploiement**. Trois situations couvrent l'essentiel.
 
+Le schéma ci-dessous met en évidence le driver **réellement actif** sur l'instance qui sert cette
+page — pratique pour vérifier qu'un déploiement tourne bien sur celui qu'on croit :
+
+```nodefony-livegraph
+{
+  "graph": "backplane",
+  "height": 500,
+  "title": "Le fond de panier, en direct",
+  "hint": "Le driver actif est lu dans la sonde, pas figé dans le schéma. Le registre étant ouvert, un driver maison apparaît au même rang que les natifs."
+}
+```
+
 ### Un seul processus — `loopback`
 
 **Le besoin.** Tu développes, tu lances des tests, ou tu déploies une application à une seule

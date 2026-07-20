@@ -364,6 +364,18 @@ Sans ces seuils, un client lent — onglet en arrière-plan, mobile sur réseau 
 accumule sans borne côté serveur, et le multiplexage aggrave le phénomène : une connexion
 lente retient **tous** ses canaux.
 
+Le schéma ci-dessous rend ces étages vivants : active le temps réel et il respire au rythme
+de la socket que tu es en train de lire — les compteurs viennent de la sonde du hub.
+
+```nodefony-livegraph
+{
+  "graph": "architecture",
+  "height": 520,
+  "title": "Les étages, en direct",
+  "hint": "Chaque étage porte ses propres compteurs. OFF = aucun abonnement côté serveur ; ON = la page s'abonne au canal de santé."
+}
+```
+
 ## 🔌 Le cycle de vie d'une connexion
 
 Tout se joue dans `RealtimeController.onHandshake()` (`RealtimeController.ts:312`), appelé
@@ -508,6 +520,18 @@ Le drapeau est résolu **une fois**, au premier abonné, et mis en cache dans l'
 > Le symptôme classique : « mon chat marche en local, mais en cluster les onglets ne se
 > voient plus ». Cause : le préfixe `chat:` n'est pas déclaré broadcast. Le préfixe couvre
 > la granularité, donc `chat:` attrape aussi `chat:room-42` et `chat:room-42:1000`.
+
+Une publication part vers N destinations : le schéma suivant montre ce trajet, et ce que
+coûte chaque abonné supplémentaire.
+
+```nodefony-livegraph
+{
+  "graph": "fan-out",
+  "height": 500,
+  "title": "Le fan-out, en direct",
+  "hint": "Le nombre d'abonnés et le volume diffusé viennent de la sonde ; la branche cross-worker ne s'allume que si un canal est déclaré diffusable."
+}
+```
 
 ## Le backplane — franchir la frontière du process
 

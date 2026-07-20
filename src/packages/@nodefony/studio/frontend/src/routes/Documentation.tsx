@@ -360,6 +360,11 @@ export const Documentation = observer(() => {
                     const isCollapsed = navQ
                       ? false
                       : (collapsed[s.id] ?? true);
+                    // Le hub du module = sa porte d'entrée. Ouvrir un module doit
+                    // AMENER QUELQUE PART : déplier une liste de titres sans rien
+                    // afficher laisse le lecteur choisir avant d'avoir compris.
+                    const hub = s.pages.find((p) => p.isHub) ?? s.pages[0];
+                    const onHub = hub ? activeSlug === hub.slug : false;
                     return (
                       <NavLink
                         key={s.id}
@@ -389,9 +394,22 @@ export const Documentation = observer(() => {
                           </Group>
                         }
                         opened={!isCollapsed}
+                        active={onHub}
                         onChange={(o) =>
                           setCollapsed((c) => ({ ...c, [s.id]: !o }))
                         }
+                        onClick={() => {
+                          // Un seul geste, deux effets : on déplie ET on ouvre le
+                          // hub. Replier ne se fait qu'au clic suivant, une fois
+                          // le hub déjà à l'écran — sinon un aller-retour sur le
+                          // module refermerait ce qu'on vient d'ouvrir.
+                          if (isCollapsed || !onHub) {
+                            setCollapsed((c) => ({ ...c, [s.id]: false }));
+                            if (hub) setActiveSlug(hub.slug);
+                          } else {
+                            setCollapsed((c) => ({ ...c, [s.id]: true }));
+                          }
+                        }}
                         childrenOffset={14}
                         styles={{ root: { borderRadius: rem(6) } }}
                       >

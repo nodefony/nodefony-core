@@ -341,6 +341,18 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 > ses commandes sans rien coder en dur. Côté navigateur, ils se lisent en `socket.serverMethods` et
 > `socket.serverChannels`.
 
+Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma les montre sur la
+socket de Studio, celle qui sert cette page :
+
+```nodefony-livegraph
+{
+  "graph": "protocole",
+  "height": 480,
+  "title": "Les formes de frame, en direct",
+  "hint": "Notification, requête, réponse, push de canal. Les compteurs distinguent ce qui circule vraiment de ce qui est illustré."
+}
+```
+
 > [!WARNING]
 > `kernel:ping` et `kernel:gc` (`StudioRealtimeController.ts:114`) sont des exemples d'actions,
 > **pas des méthodes du cœur temps réel** : elles sont déclarées par le contrôleur

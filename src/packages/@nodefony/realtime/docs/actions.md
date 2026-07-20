@@ -254,6 +254,18 @@ Un `orderId` absent donne l'autre forme de réponse, l'échec explicite :
 }
 ```
 
+Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par lesquelles elle
+peut sortir :
+
+```nodefony-livegraph
+{
+  "graph": "actions",
+  "height": 520,
+  "title": "Le trajet d'une action",
+  "hint": "Résolution de la méthode, verrou d'autorisation, handler. Les sorties d'erreur sont des branches à part : c'est là, et seulement là, que l'audit se déclenche."
+}
+```
+
 ## 🧰 Déclarer une action côté serveur
 
 ### Deux voies, un même registre

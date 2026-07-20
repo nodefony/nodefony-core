@@ -235,6 +235,17 @@ socket.subscribe("shop:health");
 > Ferme l'onglet, et le minuteur s'arrête côté serveur. C'est la propriété la plus utile du patron :
 > **on paie ce qu'on regarde**. Un tableau de bord fermé ne coûte rien.
 
+Le patron, appliqué à la sonde du hub lui-même — de la lecture des compteurs jusqu'à l'écran :
+
+```nodefony-livegraph
+{
+  "graph": "sondes",
+  "height": 480,
+  "title": "Le patron de sonde, en direct",
+  "hint": "Sonde, agrégat, endpoint, minuteur, canal, écran. Le compteur de sondes vivantes est réel : ouvre un autre onglet Studio et regarde-le monter."
+}
+```
+
 ## 🧰 Ce que la sonde expose, champ par champ
 
 Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts:61`). Quatre familles, un discriminant.
