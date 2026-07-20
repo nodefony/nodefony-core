@@ -39,6 +39,13 @@ import {
   IconServer2,
 } from "@tabler/icons-react";
 import {
+  isCluster,
+  type ChannelStat,
+  type ClusterHealth,
+  type HealthPayload,
+  type InstanceHealth,
+} from "../utils/realtimeHealth";
+import {
   useNodefony,
   useNodefonyState,
   useNodefonyChannel,
@@ -102,68 +109,24 @@ const REALTIME_HEALTH_MS = 2000;
 const HEALTH_HISTORY = 40;
 
 /**
- * Type MIROIR LOCAL de `IRealtimeHealth` (`@nodefony/framework`). NE PAS importer
- * le type serveur dans le bundle client (frontière isomorphe) → copie minimale du
- * sous-ensemble consommé. Cumuls monotones → débit dérivé côté lecteur.
+ * Types de la sonde : repris du miroir PARTAGÉ (`utils/realtimeHealth.ts`), pas
+ * redéclarés ici. Ce fichier en portait une copie — un sous-ensemble qui ignorait
+ * `instanceId` en per-instance (pourtant REQUIS côté contrat, `IRealtimeProbe.ts`)
+ * ainsi que `process`/`orm`/`errors`/`backplane`. Une copie ne rougit jamais quand
+ * le contrat serveur bouge : elle diverge en silence. La frontière isomorphe reste
+ * respectée — le miroir est du TYPE pur, aucun import runtime serveur.
  */
-interface RtChannelStat {
-  channel: string;
-  subscribers: number;
-  messages: number;
-}
-interface RealtimeHealth {
-  ts: number;
-  channels: RtChannelStat[];
-  channelCount: number;
-  publishTotal: number;
-  fanoutTotal: number;
-  inboundTotal: number;
-  connectionCount: number;
-  bytesSentTotal: number;
-  messagesSentTotal: number;
-  backpressure: {
-    maxBufferedAmount: number;
-    totalBufferedAmount: number;
-    slowConsumers: number;
-  };
-}
+type RtChannelStat = ChannelStat;
 
 /**
- * Snapshot per-instance enrichi de l'identité worker — un élément de la vue POD.
- * Type MIROIR de `IRealtimeHealth` serveur (frontière isomorphe : pas d'import).
+ * Vue REPLIÉE consommée par le panneau : en cluster, `totals` + canaux fusionnés
+ * des workers sont ramenés à la forme d'un snapshot unique. C'est un agrégat de
+ * pod, donc sans identité d'instance — d'où l'`Omit`.
  */
-interface InstanceHealth extends RealtimeHealth {
-  instanceId: string;
-}
-
-/**
- * Vue POD agrégée (mode cluster, Phase 4c) — type MIROIR de `IRealtimeClusterHealth`.
- * `cluster:true` = discriminant : l'endpoint `realtime:health` sert CETTE forme quand le
- * master pousse l'agrégat multi-worker, sinon {@link RealtimeHealth} per-instance.
- */
-interface RealtimeClusterHealth {
-  cluster: true;
-  ts: number;
-  instanceCount: number;
-  instances: InstanceHealth[];
-  totals: {
-    channelCount: number;
-    publishTotal: number;
-    fanoutTotal: number;
-    inboundTotal: number;
-    connectionCount: number;
-    bytesSentTotal: number;
-    messagesSentTotal: number;
-    backpressure: {
-      maxBufferedAmount: number;
-      totalBufferedAmount: number;
-      slowConsumers: number;
-    };
-  };
-}
+type RealtimeHealth = Omit<InstanceHealth, "instanceId">;
 
 /** Forme brute servie par la sonde : per-instance OU vue pod agrégée. */
-type RawHealth = RealtimeHealth | RealtimeClusterHealth;
+type RawHealth = HealthPayload;
 
 /** Métadonnées de la vue pod (drill-down par worker) ; `null` en per-instance. */
 interface ClusterMeta {
@@ -174,9 +137,13 @@ interface ClusterMeta {
 /** Style cellule numérique (chasse stable) — hissé (pas de réf recréée au render). */
 const TNUM = { fontVariantNumeric: "tabular-nums" } as const;
 
-/** Discriminant de type : la sonde a-t-elle renvoyé la vue pod agrégée ? */
-function isClusterHealth(r: RawHealth): r is RealtimeClusterHealth {
-  return (r as RealtimeClusterHealth).cluster === true;
+/**
+ * Discriminant de type : la sonde a-t-elle renvoyé la vue pod agrégée ?
+ * Délègue au discriminant PARTAGÉ — deux implémentations d'une même règle
+ * finissent toujours par diverger.
+ */
+function isClusterHealth(r: RawHealth): r is ClusterHealth {
+  return isCluster(r);
 }
 
 /**
