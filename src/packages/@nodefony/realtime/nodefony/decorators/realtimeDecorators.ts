@@ -117,6 +117,11 @@ export type RealtimeChannelFactory = (
  * `@RealtimeChannel`/`@RealtimeInbound`), elle est conservée : le défaut ne
  * rétrograde jamais une politique existante, souvent plus stricte.
  *
+ * ⚠️ Le NOM peut primer sur ta politique : le plancher système de
+ * `@nodefony/security` réserve les préfixes plateforme (`kernel:`, `syslog:`…)
+ * **et** tout nom contenant `:health` ou `:stats`. Une action ainsi nommée reste
+ * réservée même déclarée `{ authenticated: false }`.
+ *
  * @param method - nom RPC exposé au pair.
  * @param policy - politique d'autorisation ; par défaut `{ authenticated: true }`.
  *
@@ -130,8 +135,8 @@ export type RealtimeChannelFactory = (
  *     @RealtimeAction("admin:purge", { roles: ["ROLE_ADMIN"] })
  *     purge(): void {}
  *
- *     @RealtimeAction("public:health", { authenticated: false })  // ouvert, assumé
- *     health(): string { return "ok"; }
+ *     @RealtimeAction("catalog:browse", { authenticated: false })  // ouvert, assumé
+ *     browse(): string { return "ok"; }
  *   }
  */
 export function RealtimeAction(
