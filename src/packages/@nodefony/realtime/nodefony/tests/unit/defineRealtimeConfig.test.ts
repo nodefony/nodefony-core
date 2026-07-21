@@ -83,6 +83,34 @@ describe("defineRealtimeConfig — builder + Zod", () => {
       expect(cfg.backplane.driver).to.equal("nats");
     });
 
+    it("backplane.secret : absent par défaut, exige ≥ 32 caractères (F83)", () => {
+      expect(defineRealtimeConfig().backplane.secret).to.equal(undefined);
+      expect(() =>
+        defineRealtimeConfig({ backplane: { secret: "trop-court" } }),
+      ).to.throw();
+      const ok = "x".repeat(32);
+      expect(
+        defineRealtimeConfig({ backplane: { secret: ok } }).backplane.secret,
+      ).to.equal(ok);
+    });
+
+    it("backplane.secret : `NF_REALTIME_BACKPLANE_SECRET` a la précédence (déploiement)", () => {
+      // Un secret n'a rien à faire dans un fichier de config versionné : l'env
+      // (k8s Secret / Docker) est la voie normale, comme NF_REALTIME_DRIVER.
+      const previous = process.env.NF_REALTIME_BACKPLANE_SECRET;
+      process.env.NF_REALTIME_BACKPLANE_SECRET = "env-" + "y".repeat(32);
+      try {
+        const cfg = defineRealtimeConfig({
+          backplane: { secret: "config-" + "z".repeat(32) },
+        });
+        expect(cfg.backplane.secret).to.equal("env-" + "y".repeat(32));
+      } finally {
+        if (previous === undefined)
+          delete process.env.NF_REALTIME_BACKPLANE_SECRET;
+        else process.env.NF_REALTIME_BACKPLANE_SECRET = previous;
+      }
+    });
+
     it("rejette un slowConsumer.bytes ≤ 0", () => {
       expect(() =>
         defineRealtimeConfig({ slowConsumer: { bytes: 0 } }),

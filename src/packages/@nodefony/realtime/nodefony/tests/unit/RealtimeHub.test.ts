@@ -324,6 +324,7 @@ describe("RealtimeHub — backplane cross-process (port IBackplane)", () => {
     const hub = new RealtimeHub();
     const bp = new FakeBackplane();
     hub.setBackplane(bp);
+    hub.markBroadcastChannel("ch"); // admission : seul un canal broadcast entre
     const got: unknown[] = [];
     hub.subscribe("ch", (p) => got.push(p), factory);
     bp.deliver({
@@ -333,6 +334,24 @@ describe("RealtimeHub — backplane cross-process (port IBackplane)", () => {
     });
     expect(got).to.deep.equal([{ fromPeer: true }]); // réinjecté localement
     expect(bp.published).to.deep.equal([]); // PAS re-propagé → 0 boucle
+  });
+
+  it("ingress : canal NON déclaré broadcast refusé (symétrie de la politique, F83)", () => {
+    // La politique de forward est opt-in en SORTIE ; elle l'est désormais aussi en
+    // ENTRÉE. Sans cette symétrie, un pair pouvait pousser sur un canal
+    // instance-local (`syslog:`, `security:audit`) que le hub refuse d'émettre.
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    const got: unknown[] = [];
+    hub.subscribe("ch", (p) => got.push(p), factory); // canal jamais déclaré
+    bp.deliver({
+      channel: "ch",
+      payload: { fromPeer: true },
+      originId: "other",
+    });
+    expect(got).to.deep.equal([]); // fail-closed
+    expect(hub.probe().ingressRejectedTotal).to.equal(1); // et compté
   });
 
   it("publishLocal ne propage JAMAIS au backplane (voie d'ingress)", () => {

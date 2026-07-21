@@ -17,6 +17,7 @@ describe("studio / clusterSupervision.mapInstanceToSupervision", () => {
     publishTotal: 0,
     fanoutTotal: 0,
     inboundTotal: 0,
+    ingressRejectedTotal: 0,
     connectionCount: 0,
     bytesSentTotal: 0,
     messagesSentTotal: 0,

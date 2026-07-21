@@ -70,6 +70,23 @@ const backplaneSchema = z
           "quand deux déploiements de la même app (staging/prod) partagent un " +
           "Redis. Caractères : alphanumériques, `_`, `.`, `-`.",
       ),
+    secret: z
+      .string()
+      .min(32)
+      .optional()
+      .describe(
+        "Secret de SCELLEMENT des messages du backplane, partagé par tous les " +
+          "pods de l'app (drivers à transport PARTAGÉ : redis, futurs drivers " +
+          "cross-host). Un bus pub/sub n'authentifie PAS l'émetteur : sans ce " +
+          "secret, quiconque écrit dans le Redis (autre app d'un Redis mutualisé, " +
+          "credential fuité, SSRF) publie sur les canaux de TOUS les pods. Posé, " +
+          "chaque message porte un HMAC-SHA256 et l'ingress devient fail-closed " +
+          "strict (non scellé ou mal scellé = ignoré, aucun downgrade). Sans lui, " +
+          "le boot ALERTE et le bus reste ouvert. Inutile pour `cluster` (IPC " +
+          "master↔workers : aucun tiers ne peut y écrire). Env : " +
+          "`NF_REALTIME_BACKPLANE_SECRET`. Minimum 32 caractères.",
+      )
+      .meta({ secret: true }),
   })
   .describe("Driver IBackplane (fan-out cluster realtime cross-process).");
 

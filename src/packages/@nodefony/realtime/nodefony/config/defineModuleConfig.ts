@@ -39,9 +39,18 @@ export function defineRealtimeConfig(
   const parsed = realtimeConfigSchema.parse(config);
   // Env layering (après parse → schéma reste pur). Précédence max.
   const driver = process.env.NF_REALTIME_DRIVER || parsed.backplane.driver;
+  // Secret de scellement : l'env est la voie NORMALE en déploiement (un secret
+  // n'a rien à faire dans un fichier de config versionné — k8s Secret / Docker).
+  const secret =
+    process.env.NF_REALTIME_BACKPLANE_SECRET || parsed.backplane.secret;
   const out: IRealtimeConfig = {
     ...parsed,
-    backplane: { ...parsed.backplane, driver, instance: options.backplane },
+    backplane: {
+      ...parsed.backplane,
+      driver,
+      secret,
+      instance: options.backplane,
+    },
   };
   return Object.freeze(out);
 }

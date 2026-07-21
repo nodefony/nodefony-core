@@ -5,7 +5,10 @@ import type {
   IRealtimeConnProbe,
   IRealtimeProbe,
 } from "../../interfaces/IRealtimeProbe";
-import type { IBackplane } from "../../interfaces/IBackplane";
+import type {
+  IBackplane,
+  IBackplaneMessage,
+} from "../../interfaces/IBackplane";
 import LoopbackBackplane from "../backplane/LoopbackBackplane";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator";
 import type {
@@ -146,6 +149,13 @@ export class RealtimeHub {
   #publishTotal = 0;
   #fanoutTotal = 0;
   #inboundTotal = 0;
+
+  // Messages d'ingress backplane REFUSÉS par le contrôle d'admission (F83) : canal
+  // non déclaré broadcast. Cumul monotone — un compteur qui décolle signale soit un
+  // pair mal configuré, soit une écriture tierce dans le bus partagé. C'est le
+  // « fail-loud » de cette porte : le hub est sans dépendance (aucun logger), la
+  // sonde est son unique canal de signalement. Cf {@link #admitFromBackplane}.
+  #ingressRejectedTotal = 0;
 
   // Registre des connexions vivantes — lazy (0 alloc tant qu'aucune connexion). Sert
   // UNIQUEMENT la sonde (backpressure : `bufferedAmount` vit sur la connexion brute,
@@ -385,18 +395,45 @@ export class RealtimeHub {
 
   /**
    * Branche le {@link IBackplane} cross-process (cluster IPC, Redis…) et câble son
-   * ingress : tout message reçu d'un autre pair est réinjecté en **fan-out local
-   * uniquement** ({@link publishLocal}) — barrière anti-boucle côté hub (le backplane
-   * filtre déjà son propre echo). Remplace un backplane précédent (l'appelant est
-   * responsable de `stop()` l'ancien). Démarre le transport.
+   * ingress ({@link #admitFromBackplane}) : un message reçu d'un autre pair est
+   * réinjecté en **fan-out local uniquement** ({@link publishLocal}) — barrière
+   * anti-boucle côté hub (le backplane filtre déjà son propre echo). Remplace un
+   * backplane précédent (l'appelant est responsable de `stop()` l'ancien). Démarre
+   * le transport.
    *
    * @returns le backplane branché (chaînage).
    */
   setBackplane(backplane: IBackplane): IBackplane {
     this.#backplane = backplane;
-    backplane.onMessage((msg) => this.publishLocal(msg.channel, msg.payload));
+    backplane.onMessage((msg) => this.#admitFromBackplane(msg));
     backplane.start();
     return backplane;
+  }
+
+  /**
+   * **Contrôle d'admission de l'ingress backplane** (F83) — un message venu d'un
+   * pair n'est réinjecté QUE si son canal est déclaré **broadcast**
+   * ({@link markBroadcastChannel}) ; sinon il est compté et jeté.
+   *
+   * POURQUOI : la politique de forward était asymétrique. En SORTIE, `publish` ne
+   * traverse le backplane que pour un canal broadcast ; en ENTRÉE, tout était
+   * accepté. Un pair (ou quiconque écrit dans un bus partagé, cf `envelope.ts`)
+   * pouvait donc pousser sur des canaux **instance-local** que la politique refuse
+   * précisément de faire voyager — `syslog:`, `security:audit`, `realtime:health` —
+   * et injecter de faux évènements dans les écrans d'admin de TOUS les pods.
+   *
+   * Symétrie rétablie, et **quel que soit le driver** : un driver userland qui
+   * n'authentifierait rien ne peut pas contourner cette porte. Zéro régression
+   * nominale : un pair légitime n'émet que des canaux broadcast (`publish` filtre à
+   * la source), et un canal ne peut avoir d'abonné local que si l'endpoint qui le
+   * sert a été handshaké — donc ses préfixes déjà déclarés.
+   */
+  #admitFromBackplane(msg: IBackplaneMessage): void {
+    if (!this.#isBroadcast(msg.channel)) {
+      this.#ingressRejectedTotal += 1;
+      return;
+    }
+    this.publishLocal(msg.channel, msg.payload);
   }
 
   /** Backplane cross-process branché, ou `null` en mono-process (lecture/tests/sonde). */
@@ -537,6 +574,7 @@ export class RealtimeHub {
       publishTotal: this.#publishTotal,
       fanoutTotal: this.#fanoutTotal,
       inboundTotal: this.#inboundTotal,
+      ingressRejectedTotal: this.#ingressRejectedTotal,
       connectionCount,
       bytesSentTotal,
       messagesSentTotal,
@@ -794,6 +832,7 @@ export class RealtimeHub {
     this.#publishTotal = 0;
     this.#fanoutTotal = 0;
     this.#inboundTotal = 0;
+    this.#ingressRejectedTotal = 0;
   }
 }
 

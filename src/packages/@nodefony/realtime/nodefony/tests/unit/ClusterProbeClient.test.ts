@@ -27,6 +27,7 @@ function health(over: Partial<IRealtimeHealth> = {}): IRealtimeHealth {
     publishTotal: 0,
     fanoutTotal: 0,
     inboundTotal: 0,
+    ingressRejectedTotal: 0,
     connectionCount: 0,
     bytesSentTotal: 0,
     messagesSentTotal: 0,
@@ -63,6 +64,7 @@ describe("mergeClusterHealth — consolidation pod", () => {
           instanceId: "A",
           connectionCount: 3,
           publishTotal: 10,
+          ingressRejectedTotal: 2,
           // `drops` fait partie du contrat `IRealtimeHealth.backpressure` : l'override
           // REMPLACE l'objet du helper → l'omettre rendait `totals.drops` NaN
           // (`mergeClusterHealth` fait `+= bp.drops`).
@@ -77,6 +79,7 @@ describe("mergeClusterHealth — consolidation pod", () => {
           instanceId: "B",
           connectionCount: 5,
           publishTotal: 7,
+          ingressRejectedTotal: 3,
           backpressure: {
             maxBufferedAmount: 40,
             totalBufferedAmount: 40,
@@ -92,6 +95,8 @@ describe("mergeClusterHealth — consolidation pod", () => {
     expect(merged.instanceCount).to.equal(2);
     expect(merged.totals.connectionCount).to.equal(8);
     expect(merged.totals.publishTotal).to.equal(17);
+    // Signal sécurité (F83) : les ingress backplane refusés sont sommés pod-wide.
+    expect(merged.totals.ingressRejectedTotal).to.equal(5);
     expect(merged.totals.backpressure.maxBufferedAmount).to.equal(100); // MAX
     expect(merged.totals.backpressure.totalBufferedAmount).to.equal(140); // somme
     expect(merged.totals.backpressure.slowConsumers).to.equal(3);

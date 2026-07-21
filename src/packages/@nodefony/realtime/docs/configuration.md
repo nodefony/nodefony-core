@@ -264,20 +264,21 @@ regarder quand un message ne traverse pas.
 
 ## ⚙️ Le schéma, clé par clé
 
-Six blocs, onze clés au total. Le tableau donne la vérité complète ; les sections qui suivent
+Six blocs, douze clés au total. Le tableau donne la vérité complète ; les sections qui suivent
 expliquent quand et pourquoi en changer.
 
-| Clé                                   | Type                   | Défaut               | Effet                                                                                           |
-| ------------------------------------- | ---------------------- | -------------------- | ----------------------------------------------------------------------------------------------- |
-| `enabled`                             | `boolean`              | `true`               | `false` = module chargé mais inerte : ni API d'administration, ni backplane, ni sonde, ni garde |
-| `backplane.driver`                    | `string`               | `"loopback"`         | nom résolu dans le registre de drivers ; inconnu → avertissement, le hub reste local            |
-| `backplane.namespace`                 | `string?`              | _absent_ → nom d'app | cloison du transport partagé ; suffixe le canal pub/sub. Motif `^[\w.-]+$`                      |
-| `cluster.probe.enabled`               | `boolean`              | `true`               | branche la sonde agrégée du pod en worker de cluster. `false` = aucun minuteur, aucun IPC       |
-| `slowConsumer.bytes`                  | `number` entier > 0    | `1048576` (1 MiB)    | seuil de **comptage** des consommateurs lents dans la sonde. Ne freine rien                     |
-| `limits.maxChannelsPerConnection`     | `number > 0` \| `null` | `256`                | plafond de canaux par connexion ; au-delà le `subscribe` est refusé. `null` = illimité          |
-| `csrf.checkOrigin.enabled`            | `boolean`              | `false`              | active le contrôle d'`Origin` à l'ouverture de la socket                                        |
-| `csrf.checkOrigin.allowList`          | `string[]`             | `[]`                 | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé                     |
-| `csrf.checkOrigin.allowMissingOrigin` | `boolean`              | `false`              | accepter une ouverture sans en-tête `Origin` (clients non-navigateur)                           |
+| Clé                                   | Type                   | Défaut               | Effet                                                                                                                      |
+| ------------------------------------- | ---------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                             | `boolean`              | `true`               | `false` = module chargé mais inerte : ni API d'administration, ni backplane, ni sonde, ni garde                            |
+| `backplane.driver`                    | `string`               | `"loopback"`         | nom résolu dans le registre de drivers ; inconnu → avertissement, le hub reste local                                       |
+| `backplane.namespace`                 | `string?`              | _absent_ → nom d'app | cloison du transport partagé ; suffixe le canal pub/sub. Motif `^[\w.-]+$`                                                 |
+| `backplane.secret`                    | `string?` (≥ 32)       | _absent_             | scelle les messages du transport partagé (HMAC) ; identique sur tous les pods. Absent = bus ouvert + avertissement au boot |
+| `cluster.probe.enabled`               | `boolean`              | `true`               | branche la sonde agrégée du pod en worker de cluster. `false` = aucun minuteur, aucun IPC                                  |
+| `slowConsumer.bytes`                  | `number` entier > 0    | `1048576` (1 MiB)    | seuil de **comptage** des consommateurs lents dans la sonde. Ne freine rien                                                |
+| `limits.maxChannelsPerConnection`     | `number > 0` \| `null` | `256`                | plafond de canaux par connexion ; au-delà le `subscribe` est refusé. `null` = illimité                                     |
+| `csrf.checkOrigin.enabled`            | `boolean`              | `false`              | active le contrôle d'`Origin` à l'ouverture de la socket                                                                   |
+| `csrf.checkOrigin.allowList`          | `string[]`             | `[]`                 | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé                                                |
+| `csrf.checkOrigin.allowMissingOrigin` | `boolean`              | `false`              | accepter une ouverture sans en-tête `Origin` (clients non-navigateur)                                                      |
 
 C'est **tout**. Il n'existe ni réglage de ping, ni de cadence, ni de fréquence d'échantillonnage de
 la sonde, ni de seuil de contre-pression configurable : ces comportements existent, mais leurs
@@ -343,6 +344,26 @@ Caractères acceptés : lettres, chiffres, `_`, `.`, `-` — le motif est valid�
 (`backplaneSchema`, `config.ts:45`), donc un nom fautif arrête le démarrage plutôt que de produire un
 canal exotique.
 
+### `backplane.secret` — sceller ce qui circule sur le bus
+
+Ne concerne, là aussi, que les transports **partagés**. Un bus pub/sub ne dit pas _qui_ a publié :
+sans secret, tout ce qui atterrit sur le canal — venu d'un pod ou d'un tiers qui sait écrire dans ce
+Redis — est traité comme un message légitime. Poser un secret fait porter à chaque message un sceau
+HMAC-SHA256, vérifié à l'arrivée (`openBackplaneEnvelope()`, `envelope.ts:96`) : un message non
+scellé, altéré ou repointé vers un autre canal est **ignoré**, sans exception possible.
+
+Le secret doit être **identique sur tous les pods** — c'est lui qui les reconnaît entre eux. En
+déploiement, passe-le par `NF_REALTIME_BACKPLANE_SECRET` (secret k8s, variable Docker) : la variable
+a la précédence sur la configuration, et un secret n'a rien à faire dans un fichier versionné.
+
+Sans secret, rien ne casse : le transport reste ouvert et le démarrage l'annonce en avertissement.
+La bonne façon de vérifier que le scellement fonctionne est le compteur `ingressRejectedTotal` de la
+sonde de santé — il reste à zéro en régime normal.
+
+> [!NOTE]
+> Le driver `cluster` (IPC entre les workers d'un même pod) n'a pas besoin de secret : ce canal ne
+> relie qu'un maître à **ses** propres processus enfants, aucun tiers ne peut y écrire.
+
 ### `cluster.probe.enabled` — la sonde agrégée du pod
 
 Sans effet hors d'un worker lancé par `nodefony cluster`. Dans ce contexte, la sonde remonte
@@ -362,7 +383,7 @@ d'éteindre une sonde sur un pod en incident sans redéployer une configuration.
 ### `slowConsumer.bytes` — un compteur, pas un frein
 
 Seuil de `bufferedAmount` — les octets en attente d'envoi sur une socket — au-delà duquel la sonde
-compte la connexion comme « lente » (`RealtimeHub.probe()`, `RealtimeHub.ts:503`).
+compte la connexion comme « lente » (`RealtimeHub.probe()`, `RealtimeHub.ts:540`).
 
 > [!WARNING]
 > **Cette clé ne règle pas la contre-pression.** Elle ne change que le compteur `slowConsumers` de la
@@ -407,7 +428,7 @@ les clients — un tableau de bord interne qui compose des dizaines de flux, par
 ### `csrf.checkOrigin` — qui a le droit d'ouvrir la socket
 
 Trois clés qui forment une seule politique, appliquée à l'ouverture de la connexion
-(`RealtimeHub.checkOrigin()`, `RealtimeHub.ts:622`). Une origine refusée ferme la socket avec le code
+(`RealtimeHub.checkOrigin()`, `RealtimeHub.ts:652`). Une origine refusée ferme la socket avec le code
 `4003`.
 
 Le défaut est **désactivé**. C'est le seul défaut du module qui n'est pas le réglage recommandé :
@@ -650,7 +671,7 @@ Deux fonctions publiques, utiles surtout aux tests et aux outils.
 
 `defineRealtimeConfig(config?, options?)` (`defineModuleConfig.ts:35`) analyse, applique la variable
 de driver et **gèle**. Le module l'appelle lui-même à l'enregistrement
-(`Realtime.onKernelRegister()`, `src/packages/@nodefony/realtime/index.ts:181`) : tu n'as pas à
+(`Realtime.onKernelRegister()`, `src/packages/@nodefony/realtime/index.ts:219`) : tu n'as pas à
 l'invoquer dans une application. En revanche, c'est l'outil qui permet de vérifier une configuration
 sans démarrer un serveur.
 
@@ -669,7 +690,7 @@ faire dans un schéma sérialisable.
 
 Un message d'erreur de validation est reformaté par le module avant d'être levé : chaque problème
 apparaît sous la forme `chemin: message`, séparés par des points médians
-(`src/packages/@nodefony/realtime/index.ts:181`). Tu lis quel champ est fautif, pas une trace Zod
+(`src/packages/@nodefony/realtime/index.ts:219`). Tu lis quel champ est fautif, pas une trace Zod
 brute.
 
 ## 📡 Observabilité — relire ce qui s'applique vraiment

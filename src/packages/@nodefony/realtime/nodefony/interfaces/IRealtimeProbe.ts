@@ -71,6 +71,13 @@ export interface IRealtimeProbe {
   fanoutTotal: number;
   /** Frames entrantes full-duplex cumulées (canaux gated SIP/bridge) (monotone). */
   inboundTotal: number;
+  /**
+   * Messages d'ingress backplane REFUSÉS (canal non déclaré broadcast) — monotone.
+   * Reste à 0 en fonctionnement normal : un pair légitime n'émet que des canaux
+   * broadcast. Un compteur qui décolle = pair mal configuré, ou écriture tierce
+   * dans un bus partagé (Redis mutualisé). Cf `RealtimeHub` (contrôle d'admission).
+   */
+  ingressRejectedTotal: number;
   /** Connexions realtime vivantes. */
   connectionCount: number;
   /** Somme cumulée des octets envoyés, toutes connexions (monotone). */
@@ -167,6 +174,8 @@ export interface IRealtimeClusterHealth {
     publishTotal: number;
     fanoutTotal: number;
     inboundTotal: number;
+    /** Ingress backplane refusés, tous workers (signal de sécurité pod-wide). */
+    ingressRejectedTotal: number;
     connectionCount: number;
     bytesSentTotal: number;
     messagesSentTotal: number;

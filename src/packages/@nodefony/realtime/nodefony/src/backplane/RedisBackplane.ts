@@ -5,6 +5,7 @@ import type {
   IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
 import { resolveBackplaneOriginId } from "./originId.js";
+import { openBackplaneEnvelope, sealBackplaneEnvelope } from "./envelope.js";
 
 /**
  * BASE du canal Redis **dédié** transportant les enveloppes realtime entre pods.
@@ -123,17 +124,6 @@ export function createRedisServiceTransport(
 }
 
 /**
- * Type-guard d'enveloppe realtime — narrowing sûr d'un message Redis parsé.
- * Le canal Redis est dédié, mais on reste robuste : un autre process publiant un
- * JSON malformé sur le même canal ne doit pas faire crasher l'ingress.
- */
-function isMessage(m: unknown): m is IBackplaneMessage {
-  if (typeof m !== "object" || m === null) return false;
-  const e = m as Partial<IBackplaneMessage>;
-  return typeof e.channel === "string" && typeof e.originId === "string";
-}
-
-/**
  * Backplane **Redis pub/sub** (P13.5) — implémentation du port {@link IBackplane}
  * pour le fan-out realtime **cross-pod** (multi-host), là où le {@link ClusterBackplane}
  * ne couvrait que les workers d'un même pod (IPC). **Drop-in** : le hub ne change pas,
@@ -148,6 +138,13 @@ function isMessage(m: unknown): m is IBackplaneMessage {
  * Anti-echo (2ᵉ barrière du contrat) : Redis renvoie au pod émetteur ce qu'il
  * publie (publisher + subscriber sont 2 connexions du même pod) → on **filtre son
  * propre `originId`** à la réception, sinon double fan-out local.
+ *
+ * Authenticité (F83) : Redis pub/sub n'authentifie PAS l'émetteur d'un message —
+ * quiconque écrit dans ce Redis (autre app d'un Redis mutualisé, credential fuité,
+ * SSRF vers le port) publierait sur les canaux de tous les pods. Avec un `secret`
+ * partagé, l'enveloppe est **scellée** (HMAC, cf `envelope.ts`) et l'ingress devient
+ * fail-closed strict : non scellé ou mal scellé = ignoré, sans downgrade possible.
+ * Sans secret le transport reste ouvert (compat) — le wiring alerte alors au boot.
  *
  * Livraison : **best-effort / at-most-once** — pub/sub Redis ne persiste ni ne
  * rejoue ; un pod déconnecté rate les messages émis pendant sa coupure (le client
@@ -165,6 +162,8 @@ export class RedisBackplane implements IBackplane {
   readonly originId: string;
   readonly #transport: IRedisBackplaneTransport;
   readonly #redisChannel: string;
+  /** Secret de scellement partagé entre pods ; `null` = bus non authentifié. */
+  readonly #secret: string | null;
   #handler: BackplaneHandler | null = null;
   #started = false;
 
@@ -172,10 +171,12 @@ export class RedisBackplane implements IBackplane {
     transport: IRedisBackplaneTransport,
     originId: string = resolveBackplaneOriginId(),
     redisChannel: string = REDIS_RT_CHANNEL,
+    secret: string | null = null,
   ) {
     this.#transport = transport;
     this.originId = originId;
     this.#redisChannel = redisChannel;
+    this.#secret = secret;
   }
 
   /**
@@ -200,7 +201,10 @@ export class RedisBackplane implements IBackplane {
       payload,
       originId: this.originId,
     };
-    this.#transport.publish(this.#redisChannel, JSON.stringify(env));
+    this.#transport.publish(
+      this.#redisChannel,
+      sealBackplaneEnvelope(env, this.#secret),
+    );
   }
 
   /** Un seul handler d'ingress ; un appel ultérieur remplace le précédent. */
@@ -208,21 +212,16 @@ export class RedisBackplane implements IBackplane {
     this.#handler = handler;
   }
 
-  /** Parse + anti-echo + délégation. Robuste : ignore tout message non conforme. */
+  /**
+   * Ouverture d'enveloppe (parse + vérification du sceau) + anti-echo + délégation.
+   * Robuste par construction : un message malformé, non scellé alors qu'un secret
+   * est exigé, ou au sceau invalide, est **ignoré** — jamais réinjecté, jamais fatal.
+   */
   #ingress(raw: string): void {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return; // JSON malformé sur le canal partagé
-    }
-    if (!isMessage(parsed)) return;
-    if (parsed.originId === this.originId) return; // anti-echo (Redis renvoie à l'émetteur)
-    this.#handler?.({
-      channel: parsed.channel,
-      payload: parsed.payload,
-      originId: parsed.originId,
-    });
+    const msg = openBackplaneEnvelope(raw, this.#secret);
+    if (msg === null) return; // malformé / sceau absent ou invalide → jeté
+    if (msg.originId === this.originId) return; // anti-echo (Redis renvoie à l'émetteur)
+    this.#handler?.(msg);
   }
 
   /** Désabonne du canal Redis et détache le handler. Idempotent. */

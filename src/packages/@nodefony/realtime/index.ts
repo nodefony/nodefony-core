@@ -131,10 +131,25 @@ registerBackplaneDriver(RedisBackplane.driver, (ctx) => {
   // d'app — deux apps distinctes n'échangent jamais leurs fan-outs.
   const namespace =
     ctx.config.backplane.namespace ?? ctx.module.kernel?.projectName;
+  // Authenticité du bus PARTAGÉ (F83). Redis pub/sub n'authentifie pas l'émetteur :
+  // sans secret, une écriture tierce dans ce Redis se diffuse à tous les pods. On
+  // ne REFUSE pas de démarrer (le fan-out cross-pod resterait cassé sur toute app
+  // déjà déployée), mais la dégradation est ANNONCÉE — jamais silencieuse.
+  const secret = ctx.config.backplane.secret ?? null;
+  if (!secret) {
+    ctx.module.log(
+      `driver "${RedisBackplane.driver}" : bus NON AUTHENTIFIÉ — les messages ne ` +
+        `sont pas scellés. Quiconque écrit dans ce Redis publie sur les canaux de ` +
+        `tous les pods. Poser backplane.secret (ou NF_REALTIME_BACKPLANE_SECRET, ` +
+        `≥ 32 caractères, identique sur tous les pods) pour sceller le transport.`,
+      "WARNING",
+    );
+  }
   return new RedisBackplane(
     createRedisServiceTransport(publisher, subscriber),
     ctx.originId,
     resolveRedisChannel(namespace),
+    secret,
   );
 });
 

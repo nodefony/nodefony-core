@@ -265,8 +265,8 @@ loopback en développement et une allowlist optionnelle (`allowedOrigins`,
 requête **sans** `Origin` est acceptée : un attaquant non-navigateur n'a pas besoin de CSWSH.
 
 **Barrière 2 — module realtime, opt-in et plus stricte.** `RealtimeHub.checkOrigin()`
-(`RealtimeHub.ts:622`) consulte une garde compilée une fois au boot par `buildOriginGuard()`
-(`RealtimeService.ts:270`) depuis `checkOriginSchema` (`realtime/nodefony/config/config.ts:125`).
+(`RealtimeHub.ts:652`) consulte une garde compilée une fois au boot par `buildOriginGuard()`
+(`RealtimeService.ts:270`) depuis `checkOriginSchema` (`realtime/nodefony/config/config.ts:142`).
 Trois différences comptent :
 
 1. **Match exact scheme + host + port**, aucun wildcard. Durcissement volontaire par rapport au
@@ -296,12 +296,12 @@ n'est jamais traitée.
    (`RealtimeController.ts:914`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
    dépendance à `@nodefony/security` dans le contrat.
 2. Contrôle d'origine (verrou 1).
-3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:597`) :
+3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:635`) :
    les matchers sont testés dans l'ordre d'enregistrement, **le premier qui matche capture**.
 4. `authenticator.authenticate(handshake)` — **async autorisé** (on est en cold path, une fois par
    connexion : lire un store est acceptable ici, jamais par frame).
 5. Pose du token sur la WeakMap `peer → token` via `RealtimeHub.setTokenForPeer()`
-   (`RealtimeHub.ts:654`), **avant** l'envoi du `welcome` : le lookup est garanti dès la première
+   (`RealtimeHub.ts:692`), **avant** l'envoi du `welcome` : le lookup est garanti dès la première
    frame.
 
 Un `throw` de `authenticate()` ferme la socket en `4001` « unauthorized », après un log `WARNING`
@@ -310,8 +310,8 @@ d'audit défectueux ne peut pas empêcher la fermeture.
 
 ### Les matchers — quelle porte, quel vigile
 
-`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:579`) associe un sélecteur à une stratégie.
-`compileMatcher()` (`RealtimeHub.ts:816`) le compile une fois :
+`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:617`) associe un sélecteur à une stratégie.
+`compileMatcher()` (`RealtimeHub.ts:855`) le compile une fois :
 
 - `pattern` chaîne → RegExp **préfixe ancrée**, méta-caractères échappés par `RegExp.escape`.
   `"/admin/"` matche `/admin/` et `/admin/foo`, littéralement.
@@ -328,7 +328,7 @@ identité d'instance et une instance partagée n'enregistrerait que le premier m
 
 ### Zero Trust — il y a toujours un token
 
-`RealtimeHub.getTokenForPeer()` (`RealtimeHub.ts:666`) ne renvoie **jamais** `null` : à défaut de
+`RealtimeHub.getTokenForPeer()` (`RealtimeHub.ts:704`) ne renvoie **jamais** `null` : à défaut de
 token posé, c'est `ANONYMOUS_REALTIME_TOKEN` (`AnonymousRealtimeToken.ts:18`), singleton gelé,
 `isAuthenticated() === false`, `roles: ["ROLE_ANONYMOUS"]`. Le code consommateur (verrou, audit)
 n'a jamais à écrire « et s'il n'y a pas de token ? ».
@@ -443,7 +443,7 @@ cumulatifs (ET) ; un axe absent n'impose rien :
 
 Une policy **vide** n'est pas enregistrée : `definePolicy()` (`realtimeDecorators.ts:40`) ignore un
 objet sans contrainte — le canal reste libre, le registre reste vide. Les déclarations sont publiées
-au hub **au handshake**, pas au boot (`RealtimeHub.registerChannelPolicy()`, `RealtimeHub.ts:713`,
+au hub **au handshake**, pas au boot (`RealtimeHub.registerChannelPolicy()`, `RealtimeHub.ts:751`,
 idempotent) ; le décideur les relit par `RealtimeService.resolveChannelPolicy()`
 (`RealtimeService.ts:243`).
 
@@ -460,14 +460,14 @@ C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:253`) : san
 
 Deuxième subtilité : `beforeDispatch` n'est branché sur une connexion que si le verrou est **déjà**
 posé au moment de son handshake (`RealtimeController.ts:402`, via
-`RealtimeHub.hasFrameAuthorizer()` — `RealtimeHub.ts:684`). Choix de performance délibéré (un hub
+`RealtimeHub.hasFrameAuthorizer()` — `RealtimeHub.ts:722`). Choix de performance délibéré (un hub
 non sécurisé garde un coût nul par frame), mais avec une conséquence : **une connexion ouverte avant
 la pose du verrou n'est jamais gardée**, et ce jusqu'à sa fermeture. En fonctionnement normal le
 firewall se construit au boot, avant tout trafic ; le cas ne se présente qu'en appelant
 `setFrameAuthorizer()` à chaud.
 
 **Le refus de dégrader en silence.** Quand des policies sont déclarées sans décideur câblé,
-`RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:696`) renvoie `true` et le controller
+`RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:734`) renvoie `true` et le controller
 émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:487`) :
 
 ```text
@@ -528,7 +528,7 @@ courant. Une erreur de re-validation vaut refus (fail-closed).
 
 **Sur les canaux**, le hub n'inscrit au registre de révocation que les connexions dont le token porte
 `isValid` (`RealtimeController.ts:511`) — anonymes et JWT n'y entrent jamais, coût nul.
-`RealtimeHub.registerRevocable()` (`RealtimeHub.ts:433`) démarre un `setInterval` `unref` au premier
+`RealtimeHub.registerRevocable()` (`RealtimeHub.ts:470`) démarre un `setInterval` `unref` au premier
 inscrit et l'arrête dès que le registre se vide : zéro timer au repos. Période :
 `REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:68`), 30 s, alignée sur le heartbeat WS.
 
@@ -572,7 +572,7 @@ Chaque canal ouvert coûte un provider, un ticker et une entrée de Map. Sans bo
 peut abonner jusqu'à l'OOM — un déni de service mémoire déclenché par **un seul** client.
 
 `RealtimeController.startChannel()` (`RealtimeController.ts:618`) refuse au-delà de
-`limits.maxChannelsPerConnection` (`realtime/nodefony/config/config.ts:103`), défaut **256**,
+`limits.maxChannelsPerConnection` (`realtime/nodefony/config/config.ts:122`), défaut **256**,
 `null` pour illimité. Points prouvés par `realtimeChannelCap.attack.test.ts` :
 
 - le plafond est actif **même sans `RealtimeService`** — le hub porte le défaut 256
@@ -617,19 +617,20 @@ au défaut de la librairie `ws`.
 
 Seules les clés à **effet de sécurité** figurent ici ; le catalogue complet est dans
 [`configuration.md`](./configuration.md).
-Source unique des défauts : `realtimeConfigSchema` (`realtime/nodefony/config/config.ts:168`).
+Source unique des défauts : `realtimeConfigSchema` (`realtime/nodefony/config/config.ts:185`).
 
-| Clé                                   | Défaut  | Effet de sécurité                                                  |
-| ------------------------------------- | ------- | ------------------------------------------------------------------ |
-| `csrf.checkOrigin.enabled`            | `false` | Active l'allowlist d'origines à l'upgrade                          |
-| `csrf.checkOrigin.allowList`          | `[]`    | Origines acceptées, **match exact**. Vide + activé = tout refusé   |
-| `csrf.checkOrigin.allowMissingOrigin` | `false` | Accepter une upgrade sans `Origin` (clients non-navigateur)        |
-| `limits.maxChannelsPerConnection`     | `256`   | Plafond de canaux par connexion ; `null` = illimité                |
-| `slowConsumer.bytes`                  | `1 MiB` | Seuil de **comptage** des consommateurs lents dans la sonde        |
-| `backplane.namespace`                 | dérivé  | Cloison du pub/sub cross-pod                                       |
-| `enabled`                             | `true`  | `false` = module inerte : aucun câblage hub depuis la config       |
-| `areas.<nom>.realtime` _(security)_   | `true`  | La zone couvre aussi les frames WS. `false` = opt-out explicite    |
-| `realtimeChannels` _(security)_       | `[]`    | Règles de canal par préfixe, **placées avant** les défauts système |
+| Clé                                   | Défaut   | Effet de sécurité                                                                         |
+| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `csrf.checkOrigin.enabled`            | `false`  | Active l'allowlist d'origines à l'upgrade                                                 |
+| `csrf.checkOrigin.allowList`          | `[]`     | Origines acceptées, **match exact**. Vide + activé = tout refusé                          |
+| `csrf.checkOrigin.allowMissingOrigin` | `false`  | Accepter une upgrade sans `Origin` (clients non-navigateur)                               |
+| `limits.maxChannelsPerConnection`     | `256`    | Plafond de canaux par connexion ; `null` = illimité                                       |
+| `slowConsumer.bytes`                  | `1 MiB`  | Seuil de **comptage** des consommateurs lents dans la sonde                               |
+| `backplane.namespace`                 | dérivé   | Cloison du pub/sub cross-pod                                                              |
+| `backplane.secret`                    | _absent_ | Scelle les messages du transport partagé (HMAC) ; absent = bus ouvert + `WARNING` au boot |
+| `enabled`                             | `true`   | `false` = module inerte : aucun câblage hub depuis la config                              |
+| `areas.<nom>.realtime` _(security)_   | `true`   | La zone couvre aussi les frames WS. `false` = opt-out explicite                           |
+| `realtimeChannels` _(security)_       | `[]`     | Règles de canal par préfixe, **placées avant** les défauts système                        |
 
 > [!TIP]
 > **`backplane.namespace` est une clé de sécurité, pas de confort.** Le numéro de base Redis ne
@@ -643,17 +644,20 @@ Cette section existe pour éviter une confiance mal placée. Chaque point est v�
 **1. Il n'y a pas de frontière de canal entre modules.** Un nom de canal est une chaîne dans un
 registre global (`#channelPolicies` du hub singleton, `RealtimeHub.ts:197`). Rien n'empêche le
 controller du module A de servir un canal au nom d'un canal du module B, ni de déclarer une policy
-plus faible sur ce même nom — la déclaration la plus récente écrase (`RealtimeHub.ts:713`, idempotent
+plus faible sur ce même nom — la déclaration la plus récente écrase (`RealtimeHub.ts:751`, idempotent
 par écrasement). En pratique, l'exploitation exige que le controller fautif accepte le nom (sa
 factory doit renvoyer un provider), donc un override permissif de `createRealtimeChannel` ; et les
 namespaces réservés restent couverts par le plancher système **si** le verrou est posé. Une garde
 d'appartenance par module est un manque connu et assumé, pas une protection existante.
 
-**2. Le backplane n'authentifie rien.** Les messages entrants d'un pair sont réinjectés en fan-out
-local par `RealtimeHub.setBackplane()` (`RealtimeHub.ts:395`) sans vérification d'origine, de
-signature ni d'intégrité. Qui écrit dans le Redis du backplane publie sur n'importe quel canal de
-tous les pods. Le périmètre de confiance est le **réseau du backplane** : Redis doit être privé,
-authentifié et cloisonné par `backplane.namespace`.
+**2. Le backplane n'authentifie l'émetteur que si tu poses un secret.** L'ingress est filtré par
+canal — seul un canal déclaré broadcast est réinjecté (`RealtimeHub.#admitFromBackplane`), donc
+`syslog:`, `security:audit` et les canaux d'observabilité restent hors d'atteinte depuis le
+transport. Mais l'**identité de l'émetteur** n'est vérifiée que lorsque `backplane.secret` est posé :
+les messages sont alors scellés (HMAC-SHA256, `envelope.ts`) et un message non scellé ou altéré est
+ignoré. Sans secret, quiconque écrit dans le Redis publie sur les canaux **broadcast** de tous les
+pods — le boot l'annonce en `WARNING`. Le rejeu d'un message scellé intact reste possible : la
+sémantique du transport est _at-most-once_, sans anti-rejeu.
 
 **3. L'autorisation d'un canal n'est vérifiée qu'au `subscribe`.** Une fois abonné, le fan-out ne
 re-consulte pas la policy : un changement de rôle en cours de connexion ne coupe pas le flux. Seule
@@ -687,7 +691,7 @@ n'est pas appliquée.
 ## 📡 Observabilité — Studio
 
 - **Santé de la socket** : `/nodefony/realtime/api/health`, alimenté par `RealtimeHub.probe()`
-  (`RealtimeHub.ts:503`) — canaux, abonnés, fan-out, connexions, back-pressure et carte d'identité
+  (`RealtimeHub.ts:540`) — canaux, abonnés, fan-out, connexions, back-pressure et carte d'identité
   du backplane. Un `drops` qui grimpe signale des clients en souffrance ; un `slowConsumers` non nul
   précède souvent une fermeture `1013`. Même snapshot en flux sur le canal `realtime:health`
   (namespace réservé : `ROLE_ADMIN`).
@@ -698,19 +702,21 @@ n'est pas appliquée.
 
 ## ⚠️ Pièges
 
-| Symptôme                                                                 | Cause                                                                                                  | Correction                                                                                        |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| Le canal `ROLE_ADMIN` est servi à tout le monde, sans erreur             | Aucune zone `security: true` + `realtime: true` → verrou de frame jamais posé                          | Déclarer une zone protégée couvrant la route WS ; chercher le WARNING « policies … NOT enforced » |
-| `syslog:stream` accessible en anonyme, **et aucun WARNING**              | L'alerte ne couvre que les policies **déclarées** ; un plancher système non appliqué reste muet        | Vérifier que le verrou est posé (log « Realtime data plane locked ») — ne pas se fier au silence  |
-| L'allowlist d'origines est configurée mais tout passe                    | `csrf.checkOrigin.enabled` reste `false` (défaut)                                                      | Poser `enabled: true` ; vérifier `allowList` non vide, sinon **tout** est refusé                  |
-| Le client mobile natif ne se connecte plus après activation de l'origine | `allowMissingOrigin: false` refuse les clients sans `Origin`                                           | Passer à `true` **uniquement** si un credential fort est vérifié (JWT signé, clé API)             |
-| Un matcher d'authenticator ne se déclenche jamais                        | Le matcher est comparé au **path**, pas à l'URL absolue ; un `pattern` chaîne est un préfixe **ancré** | Écrire `"/rt/"` et non `"rt"` ni `"wss://host/rt"`                                                |
-| Deux zones, un seul authenticator enregistré                             | Le hub dédoublonne par identité d'instance — une instance partagée n'enregistre que le premier matcher | Une **instance** d'authenticator par zone                                                         |
-| Un admin déconnecté garde ses flux pendant une dizaine de secondes       | Le tick de révocation est périodique (30 s), pas immédiat                                              | Comportement attendu ; pour une coupure immédiate, fermer la socket côté serveur                  |
-| Une session révoquée ne ferme **jamais** la socket                       | La session n'était pas lisible au handshake → revalidateur `null`, `isValid()` répond toujours `true`  | Vérifier que le handshake traverse bien la zone (session chargée avant le controller realtime)    |
-| Le client se croit abonné, ne reçoit rien                                | Refus d'autorisation **ou** plafond atteint sur une notification (pas de réponse RPC)                  | Écouter `realtime:denied` ; distinguer `reason: "forbidden"` de `reason: "limit"`                 |
-| `slowConsumer.bytes` augmenté, les frames sont toujours jetées à 1 MiB   | Cette clé pilote le **comptage** de la sonde, pas les seuils de drop/close du transport                | Les seuils de back-pressure ne sont pas configurables aujourd'hui                                 |
-| Deux déploiements se parlent en cross-talk                               | Pas de `backplane.namespace` sur un Redis mutualisé (la base Redis ne cloisonne pas le pub/sub)        | Poser un `namespace` explicite par déploiement                                                    |
+| Symptôme                                                                 | Cause                                                                                                  | Correction                                                                                            |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Le canal `ROLE_ADMIN` est servi à tout le monde, sans erreur             | Aucune zone `security: true` + `realtime: true` → verrou de frame jamais posé                          | Déclarer une zone protégée couvrant la route WS ; chercher le WARNING « policies … NOT enforced »     |
+| `syslog:stream` accessible en anonyme, **et aucun WARNING**              | L'alerte ne couvre que les policies **déclarées** ; un plancher système non appliqué reste muet        | Vérifier que le verrou est posé (log « Realtime data plane locked ») — ne pas se fier au silence      |
+| L'allowlist d'origines est configurée mais tout passe                    | `csrf.checkOrigin.enabled` reste `false` (défaut)                                                      | Poser `enabled: true` ; vérifier `allowList` non vide, sinon **tout** est refusé                      |
+| Le client mobile natif ne se connecte plus après activation de l'origine | `allowMissingOrigin: false` refuse les clients sans `Origin`                                           | Passer à `true` **uniquement** si un credential fort est vérifié (JWT signé, clé API)                 |
+| Un matcher d'authenticator ne se déclenche jamais                        | Le matcher est comparé au **path**, pas à l'URL absolue ; un `pattern` chaîne est un préfixe **ancré** | Écrire `"/rt/"` et non `"rt"` ni `"wss://host/rt"`                                                    |
+| Deux zones, un seul authenticator enregistré                             | Le hub dédoublonne par identité d'instance — une instance partagée n'enregistre que le premier matcher | Une **instance** d'authenticator par zone                                                             |
+| Un admin déconnecté garde ses flux pendant une dizaine de secondes       | Le tick de révocation est périodique (30 s), pas immédiat                                              | Comportement attendu ; pour une coupure immédiate, fermer la socket côté serveur                      |
+| Une session révoquée ne ferme **jamais** la socket                       | La session n'était pas lisible au handshake → revalidateur `null`, `isValid()` répond toujours `true`  | Vérifier que le handshake traverse bien la zone (session chargée avant le controller realtime)        |
+| Le client se croit abonné, ne reçoit rien                                | Refus d'autorisation **ou** plafond atteint sur une notification (pas de réponse RPC)                  | Écouter `realtime:denied` ; distinguer `reason: "forbidden"` de `reason: "limit"`                     |
+| `slowConsumer.bytes` augmenté, les frames sont toujours jetées à 1 MiB   | Cette clé pilote le **comptage** de la sonde, pas les seuils de drop/close du transport                | Les seuils de back-pressure ne sont pas configurables aujourd'hui                                     |
+| Deux déploiements se parlent en cross-talk                               | Pas de `backplane.namespace` sur un Redis mutualisé (la base Redis ne cloisonne pas le pub/sub)        | Poser un `namespace` explicite par déploiement                                                        |
+| Le fan-out cross-pod s'arrête après avoir posé un secret                 | `backplane.secret` différent d'un pod à l'autre : les messages sont scellés, aucun ne se vérifie       | Le **même** secret sur tous les pods (`NF_REALTIME_BACKPLANE_SECRET`) ; suivre `ingressRejectedTotal` |
+| Un canal broadcast ne reçoit rien des autres pods                        | Le préfixe n'est pas déclaré côté receveur → l'ingress refuse le canal (compté)                        | Déclarer le préfixe (`broadcast` du controller) sur **tous** les pods, pas seulement l'émetteur       |
 
 ## 🧪 Tests & couverture
 
@@ -720,11 +726,12 @@ dans ce texte.
 
 **Tests d'attaque** — ce sont eux qui font foi sur cette page :
 
-| Fichier                                   | Ce qu'il prouve                                                                                                             |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `realtimeUnenforcedPolicy.attack.test.ts` | Une policy déclarée sans `frameAuthorizer` est détectée comme inerte (fail-loud). Ne prouve **pas** que le canal est fermé. |
-| `realtimeRevocation.attack.test.ts`       | Fermeture `4001` d'une session révoquée, contrôle positif, fail-closed sur erreur, pas de re-close                          |
-| `realtimeChannelCap.attack.test.ts`       | Le plafond refuse sans appeler le hub, le refus est observable, l'idempotence ne consomme pas de slot                       |
+| Fichier                                   | Ce qu'il prouve                                                                                                                         |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `realtimeUnenforcedPolicy.attack.test.ts` | Une policy déclarée sans `frameAuthorizer` est détectée comme inerte (fail-loud). Ne prouve **pas** que le canal est fermé.             |
+| `realtimeRevocation.attack.test.ts`       | Fermeture `4001` d'une session révoquée, contrôle positif, fail-closed sur erreur, pas de re-close                                      |
+| `realtimeChannelCap.attack.test.ts`       | Le plafond refuse sans appeler le hub, le refus est observable, l'idempotence ne consomme pas de slot                                   |
+| `backplaneInjection.attack.test.ts`       | Un pair ne peut pas pousser sur un canal non broadcast (rejet compté) ; sur bus scellé, un message forgé, altéré ou repointé est ignoré |
 
 **Unitaires** : `RealtimeHubSecurity.test.ts` couvre les quatre seams (garde d'origine, matchers et
 ordre de capture, mapping `peer → token` avec repli anonyme, verrou de frame et son retrait), le
@@ -736,9 +743,9 @@ le **vrai** controller et le **vrai** verrou de `@nodefony/security` reliés par
 on observe le tick reçu ou le `realtime:denied`, jamais un booléen interne.
 `realtimeFirewallWiring.e2e.test.ts` couvre la jonction firewall → hub.
 
-**Ce qui manque** : pas de banc de charge dédié à la sécurité (surcoût du verrou sous flood), pas de
-test d'attaque sur l'injection via backplane — cohérent avec le fait que ce vecteur n'est pas
-défendu.
+**Ce qui manque** : pas de banc de charge dédié à la sécurité (surcoût du verrou sous flood), et
+aucun test ne couvre le **rejeu** d'un message scellé — cohérent avec le fait que ce vecteur n'est
+pas défendu (sémantique _at-most-once_).
 
 Outils : `nodefony-security-review`, `nodefony-load-test`, `nodefony-check-memory-health`.
 Couverture chiffrée : `npm run coverage` dans le module.

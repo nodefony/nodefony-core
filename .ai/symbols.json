@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-21T00:07:43.020Z",
+  "generated": "2026-07-21T19:44:24.430Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1031,
-    "symbols": 2790,
+    "files": 1032,
+    "symbols": 2795,
     "classes": 327,
-    "interfaces": 732,
+    "interfaces": 733,
     "types": 323,
     "enums": 4,
-    "functions": 831,
+    "functions": 835,
     "constants": 573
   },
   "symbols": {
@@ -17307,6 +17307,22 @@
       "module": "@nodefony/realtime",
       "description": "Transport de production : `process.send` (émission) + `process.on(\"message\")` (réception). Standalone — utilisable tel quel. En vrai câblage cluster (Phase 3c), un transport branché sur l'event ker…"
     },
+    "sealBackplaneEnvelope": {
+      "name": "sealBackplaneEnvelope",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Sérialise un message backplane, scellé si un secret est fourni."
+    },
+    "openBackplaneEnvelope": {
+      "name": "openBackplaneEnvelope",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Parse et **vérifie** une enveloppe reçue du bus partagé. Fail-closed strict quand un secret est posé : une enveloppe sans sceau ou au sceau invalide est rejetée — **aucun downgrade** possible en re…"
+    },
     "LoopbackBackplane": {
       "name": "LoopbackBackplane",
       "kind": "class",
@@ -26811,6 +26827,14 @@
       ],
       "IBackplaneMessage": [
         "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+      ],
+      "openBackplaneEnvelope": [
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
+      ],
+      "sealBackplaneEnvelope": [
         "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
       ],
       "CLUSTER_PROBE_CTL_KIND": [
