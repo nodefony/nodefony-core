@@ -68,7 +68,9 @@ const backplaneSchema = z
           "Redis mutualisé SANS namespace se parleraient (cross-talk). Défaut : " +
           "dérivé du nom d'app (`kernel.projectName`). À poser EXPLICITEMENT " +
           "quand deux déploiements de la même app (staging/prod) partagent un " +
-          "Redis. Caractères : alphanumériques, `_`, `.`, `-`.",
+          "Redis. Caractères : alphanumériques, `_`, `.`, `-`. Env : " +
+          "`NF_REALTIME_BACKPLANE_NAMESPACE` (prioritaire — le namespace " +
+          "distingue des DÉPLOIEMENTS, il n'a pas à être figé dans le code).",
       ),
     secret: z
       .string()

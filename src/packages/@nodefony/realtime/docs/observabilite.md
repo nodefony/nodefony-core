@@ -260,15 +260,44 @@ Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts:61`). Quatre familles, un di
 
 ### Fan-out — l'amplification réelle du broker
 
-| Champ          | Ce qu'il dit                                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `publishTotal` | Appels à `publish`. **Ce que le serveur a voulu envoyer.**                                                         |
-| `fanoutTotal`  | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                     |
-| `inboundTotal` | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts:529`). |
+| Champ                  | Ce qu'il dit                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `publishTotal`         | Appels à `publish`. **Ce que le serveur a voulu envoyer.**                                                         |
+| `fanoutTotal`          | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                     |
+| `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts:529`). |
+| `ingressRejectedTotal` | Messages venus du **backplane** et jetés parce que leur canal n'est pas déclaré diffusable.                        |
 
 Le rapport `fanoutTotal / publishTotal` est la mesure la plus parlante de la page : c'est la **taille
 moyenne d'un salon**. S'il vaut 1, chaque publication ne touche qu'une personne — un canal par client,
 autrement dit le fan-out ne sert à rien. S'il vaut 400, une publication coûte 400 sérialisations.
+
+> [!IMPORTANT]
+> **Un processus qui ne fait que publier paraît inactif.** `publishTotal` et `fanoutTotal` ne
+> s'incrémentent que si le canal a un abonné **local** : un pod qui publie vers ses pairs, sans
+> personne d'abonné chez lui — un travail planifié, un webhook entrant — affiche des compteurs à zéro
+> alors qu'il pousse en continu. Pour juger de son activité, lire l'autre bout de la chaîne : les
+> compteurs du pod qui **reçoit**.
+
+### Messages du bus refusés — le signal qui ne devrait jamais bouger
+
+`ingressRejectedTotal` compte les messages arrivés **par le bus** et refusés à l'entrée : leur canal
+n'est pas déclaré diffusable, donc il n'a rien à faire en circulation entre processus. Les canaux
+internes — journaux, audit, santé — sont dans ce cas par construction.
+
+En fonctionnement normal il vaut **zéro** : un pair légitime n'émet que des canaux diffusables. Deux
+lectures possibles quand il grimpe :
+
+- **bénigne** — une autre application partage la même cloison de transport, et ses canaux sont
+  refusés ; chacun chez soi, mais le namespace mérite d'être séparé ;
+- **sérieuse** — quelqu'un écrit sur votre bus. Une infrastructure de diffusion n'authentifie pas
+  l'émetteur : c'est le rôle du sceau (cf [Sécurité](./securite.md)).
+
+Le canal visé n'est délibérément pas exposé : un compteur d'observabilité ne doit pas devenir un
+moyen de sonder ce que le système accepte.
+
+⚠️ Ce compteur ne voit pas tout : un message **mal scellé** est écarté par le transport, avant
+d'atteindre le hub, donc sans être compté ici. Un bus scellé peut ainsi rester à zéro alors qu'il est
+attaqué — le signe est alors l'absence de trafic légitime, pas ce compteur.
 
 ### Connexions et volume
 
@@ -300,6 +329,15 @@ et le client se reconnecte puis resynchronise.
 `backplane` porte la carte d'identité du relais réellement branché — driver, nature, origine,
 franchissement de machine. Jamais `undefined` en pratique : sans backplane, la sonde rend un
 descripteur `local`. C'est le champ à lire quand le temps réel ne traverse pas les répliques.
+
+Deux champs n'apparaissent que lorsqu'ils ont un sens :
+
+- `channel` — le canal de transport **effectif**. Il répond à la seule question qu'on ne peut pas
+  poser autrement : _suis-je branché sur le bus que je crois ?_ Le nom affiché est celui utilisé,
+  pas celui écrit dans la configuration (la cloison peut venir de l'environnement).
+- `sealed` — les messages sont-ils signés ? Renseigné par les transports **partagés**, où un tiers
+  peut écrire. `false` y annonce un bus ouvert. Absent quand la question ne se pose pas : en
+  mono-processus, ou entre un maître et ses propres workers, personne d'autre ne peut publier.
 
 ### La couche d'identité, au-dessus
 
@@ -418,6 +456,7 @@ mérite d'être connue :
 | Grandeur                                                         | Agrégation  | Pourquoi                                                                   |
 | ---------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------- |
 | `publishTotal`, `fanoutTotal`, `connectionCount`, octets, frames | **somme**   | Le pod fait la somme de ce que font ses workers.                           |
+| `ingressRejectedTotal`                                           | somme       | Un refus reste un refus, quel que soit le worker qui l'a opposé.           |
 | `backpressure.maxBufferedAmount`                                 | **maximum** | La santé d'une flotte se juge sur son **pire** membre, pas sur sa moyenne. |
 | `slowConsumers`, `drops`                                         | somme       | Ce sont des dénombrements.                                                 |
 

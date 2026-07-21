@@ -73,8 +73,18 @@ export interface InstanceHealth {
   orm?: OrmLeanHealth;
   /** Optionnel : absent si la sonde n'a pu lire le syslog du kernel. */
   errors?: InstanceErrorHealth;
+  /** Ingress backplane refusés (canal non diffusable) — signal de sécurité. */
+  ingressRejectedTotal?: number;
   /** Fond de panier realtime de l'instance (bus inter-process). */
-  backplane?: { driver?: string; kind?: string; crossPod?: boolean };
+  backplane?: {
+    driver?: string;
+    kind?: string;
+    crossPod?: boolean;
+    /** Canal de transport effectif (canal Redis, topic…). */
+    channel?: string;
+    /** Messages scellés (authenticité vérifiée) — pertinent sur bus partagé. */
+    sealed?: boolean;
+  };
 }
 
 /** Totaux pod (miroir de `IRealtimeClusterHealth.totals`). */
@@ -83,6 +93,8 @@ export interface PodTotals {
   publishTotal: number;
   fanoutTotal: number;
   inboundTotal: number;
+  /** Ingress backplane refusés, tous workers (signal de sécurité pod-wide). */
+  ingressRejectedTotal?: number;
   connectionCount: number;
   bytesSentTotal: number;
   messagesSentTotal: number;
@@ -139,6 +151,7 @@ export function normalize(h: HealthPayload | null): NormalizedHealth | null {
       publishTotal: h.publishTotal,
       fanoutTotal: h.fanoutTotal,
       inboundTotal: h.inboundTotal,
+      ingressRejectedTotal: h.ingressRejectedTotal,
       connectionCount: h.connectionCount,
       bytesSentTotal: h.bytesSentTotal,
       messagesSentTotal: h.messagesSentTotal,

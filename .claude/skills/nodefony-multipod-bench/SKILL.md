@@ -23,74 +23,44 @@ un trou de conception que la suite unitaire ne pouvait pas voir.
 | « Ce provider crée-t-il bien un timer par canal ? »                          | non — test unitaire        |
 | « Combien de connexions WebSocket tient un pod ? »                           | non — `nodefony-load-test` |
 
-## 1. Le décor
-
-**Un seul conteneur : Redis.** Les applications tournent en processus locaux. La frontière
-qu'on teste est celle du **bus**, pas celle du conteneur ; mettre les apps en image coûte un
-Dockerfile et ne prouve rien de plus.
+## 1. Monter le banc — deux commandes
 
 ```bash
-docker compose -f docker/docker-compose.yml up -d redis     # 127.0.0.1:6379, requirepass
+bash .claude/skills/nodefony-multipod-bench/scripts/setup.sh   # décor (idempotent)
+bash .claude/skills/nodefony-multipod-bench/scripts/run.sh     # démarre les 3 pods
 ```
 
-**Deux applications distinctes** (au moins), générées et liées au framework local :
+`setup.sh [dossier] [namespace]` monte tout : Redis en conteneur, deux applications générées et
+liées au dépôt local, le module `chat` du banc, la configuration du bus, le build. Relancer ne
+casse rien — chaque étape vérifie ce qui existe déjà. Pour repartir de zéro : `rm -rf tmp/bench`.
 
-```bash
-mkdir -p tmp/bench && cd tmp/bench
-npx nodefony create app appalpha --preset minimal --frontend none --link --yes
-npx nodefony create app appbeta  --preset minimal --frontend none --link --yes
-```
+`run.sh` démarre **trois pods** : deux instances de la première application (même secret = pairs
+légitimes) et une instance de la seconde **sans secret** — le témoin non protégé, sans lequel aucun
+scénario défensif ne prouve quoi que ce soit. Il refuse de démarrer si un port est déjà occupé,
+plutôt que d'écraser le travail en cours. `run.sh --stop` arrête les pods du banc, et eux seuls.
 
-Le preset minimal ne lie que `http` et `framework`. Ajouter les deux modules du banc :
+## 2. Ce que le décor contient (et pourquoi)
 
-```bash
-cd appalpha
-ln -sfn ../../../../../src/packages/@nodefony/realtime node_modules/@nodefony/realtime
-ln -sfn ../../../../../src/packages/@nodefony/redis    node_modules/@nodefony/redis
-npm pkg set 'dependencies.@nodefony/realtime=file:'"$PWD"'/../../../src/packages/@nodefony/realtime'
-npm pkg set 'dependencies.@nodefony/redis=file:'"$PWD"'/../../../src/packages/@nodefony/redis'
-npx nodefony create module chat --controller realtime --no-service --no-install --yes
-```
+**Un seul conteneur : Redis.** Les applications tournent en processus locaux. La frontière qu'on
+teste est celle du **bus**, pas celle du conteneur ; mettre les apps en image coûte un Dockerfile
+et ne prouve rien de plus.
 
-Dans `nodefony.config.ts`, **avant** l'entrée du module applicatif (l'ordre du manifeste est
-l'ordre de chargement, et le driver lit le service Redis au boot) :
+**Deux applications distinctes**, `--link`ées au dépôt : elles consomment le framework en cours de
+développement, pas une version publiée. Le preset minimal ne lie que `http` et `framework` — le
+script ajoute `realtime` et `redis` par lien symbolique **absolu** (un lien relatif dépend du
+dossier depuis lequel il a été créé).
 
-```ts
-use("@nodefony/redis", {}),
-use("@nodefony/realtime", {
-  backplane: {
-    driver: "redis",
-    // Namespace FORCÉ identique dans toutes les apps du banc : on retire la
-    // cloison par nom d'application pour ne tester QUE l'authenticité.
-    namespace: "bench",
-  },
-}),
-```
+**Une cloison de transport commune** (`backplane.namespace`, `bench` par défaut) : les deux
+applications se retrouvent volontairement sur le même canal Redis. On retire ainsi la séparation
+par nom d'application, pour ne tester **que** l'authenticité des messages.
 
-Le controller doit déclarer un canal **broadcast** (sinon rien ne traverse) et exposer de quoi
-piloter le banc sans navigateur — publication, rafale, sonde. Modèle prêt à coller :
-[`reference/controller.md`](reference/controller.md).
+**Un controller de banc** (`reference/controller.md`, recopié par `setup.sh` — source unique) : un
+canal diffusable, une route de publication, une route de rafale, une sonde. Tout est pilotable au
+`curl`, sans navigateur.
 
-## 2. Le lancement — en `production`, jamais en `development`
-
-```bash
-cd appalpha && npm run build
-REDIS_URL="redis://:nodefony-dev@127.0.0.1:6379" \
-NF_REALTIME_BACKPLANE_SECRET="bench-secret-0123456789abcdefghij" \
-NF_POD_NAME=A1 NF_PORT=5171 NF_PORT_HTTPS=5271 \
-  nohup npx nodefony production > /tmp/A1.log 2>&1 < /dev/null & disown
-```
-
-Trois règles, chacune payée par un échec réel (détail : [`reference/pieges.md`](reference/pieges.md)) :
-
-1. **`production`, pas `development`** — le DevSupervisor est single-instance par racine
-   d'application : lancer un second pod depuis le même dossier **évince le premier**.
-2. **`nohup … & disown`** — un `&` nu meurt en SIGHUP dès que la commande rend la main.
-3. **Ports dédiés (517x / 527x)** — le repo auto-hébergé occupe 5151/5152 et un Vite peut
-   tenir 5173. Vérifier avec `lsof -nP -iTCP:<ports> -sTCP:LISTEN`.
-
-Le second pod de la même application se lance depuis le **même dossier** avec d'autres ports :
-en `production` il n'y a pas de superviseur, donc pas d'éviction.
+**Le mode `production`, jamais `development`** : le superviseur de développement est instance
+unique par racine d'application — un second pod lancé depuis le même dossier évincerait le premier.
+C'est aussi le mode qui ressemble au déploiement réel.
 
 ## 3. La matrice d'attaque du bus
 
@@ -117,13 +87,14 @@ docker exec nodefony-redis redis-cli -a nodefony-dev --no-auth-warning \
 
 Tous les scripts vivent dans `scripts/` et se lancent depuis le dossier du banc.
 
-| Script        | Ce qu'il rend                      | Usage                                      |
-| ------------- | ---------------------------------- | ------------------------------------------ |
-| `listen.mjs`  | ce qu'un client reçoit vraiment    | `node listen.mjs <portRx> <secondes>`      |
-| `latency.mjs` | latence pure, hors saturation      | `node latency.mjs <portRx> <portTx> 60 50` |
-| `bench.mjs`   | débit, pertes, latence sous charge | `node bench.mjs <portRx> <portTx> 50 10`   |
-| `pubcost.mjs` | coût de publication (médiane)      | `node pubcost.mjs <portTx> 9`              |
-| `forge.mjs`   | enveloppe scellée d'attaquant      | `node forge.mjs <canal> <secret>`          |
+| Script        | Ce qu'il rend                      | Usage                                       |
+| ------------- | ---------------------------------- | ------------------------------------------- |
+| `listen.mjs`  | ce qu'un client reçoit vraiment    | `node listen.mjs <portRx> <secondes>`       |
+| `latency.mjs` | latence pure, hors saturation      | `node latency.mjs <portRx> <portTx> 60 50`  |
+| `bench.mjs`   | débit, pertes, latence sous charge | `node bench.mjs <portRx> <portTx> 50 10`    |
+| `pubcost.mjs` | coût de publication (médiane)      | `node pubcost.mjs <portTx> 9`               |
+| `soak.mjs`    | charge par paliers de connexions   | `node soak.mjs <portRx> <portTx> 50,200 30` |
+| `forge.mjs`   | enveloppe scellée d'attaquant      | `node forge.mjs <canal> <secret>`           |
 
 **Lire les chiffres correctement** : `bench.mjs` publie en rafale, donc sa latence mesure
 surtout le backlog de livraison — c'est une mesure de **débit**. La latence du chemin se lit
@@ -137,7 +108,7 @@ messages en 1 à 3 ms selon que le transport est scellé ou non.
 ## 5. Le démontage
 
 ```bash
-for p in $(lsof -nP -iTCP:5171,5172,5183 -sTCP:LISTEN -t); do kill -9 $p; done
+bash .claude/skills/nodefony-multipod-bench/scripts/run.sh --stop   # les pods du banc, eux seuls
 docker compose -f docker/docker-compose.yml stop redis
 rm -rf tmp/bench
 ```

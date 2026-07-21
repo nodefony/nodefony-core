@@ -36,6 +36,18 @@ Le répertoire courant persiste entre les appels : un `cd tmp/bench/appalpha` de
 `npm run build` qui rebuild le framework au lieu de l'application. Toujours des chemins
 absolus dans le même appel.
 
+## Scripts d'amorçage (macOS)
+
+**`APP?: unbound variable` sur une ligne qui semble correcte.**
+`echo ">>> build de $APP…"` : le `…` colle au nom de variable, et **bash 3.2** — celui livré avec
+macOS — l'avale dans l'identifiant. Le message d'erreur affiche alors un nom illisible. Dès qu'une
+variable est suivie d'un caractère non-ASCII (`…`, `—`, une lettre accentuée), écrire `${APP}`.
+
+**Le script démarre les serveurs, tout répond, mais il ne rend jamais la main.**
+Un processus lancé en arrière-plan qui hérite d'un seul descripteur du shell appelant suffit à faire
+attendre ce dernier — `nohup` et `disown` n'y changent rien. Fermer explicitement les flux du
+sous-shell : `( … & disown ) >/dev/null 2>&1`.
+
 ## Protocole WebSocket
 
 **Le client se connecte, reçoit le welcome, puis plus rien.**

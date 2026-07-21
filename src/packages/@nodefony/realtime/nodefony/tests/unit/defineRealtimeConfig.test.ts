@@ -111,6 +111,23 @@ describe("defineRealtimeConfig — builder + Zod", () => {
       }
     });
 
+    it("backplane.namespace : `NF_REALTIME_BACKPLANE_NAMESPACE` a la précédence", () => {
+      // Le namespace sépare deux déploiements de la MÊME app (préprod/prod) :
+      // c'est un réglage d'environnement, pas une valeur à figer dans le code.
+      const previous = process.env.NF_REALTIME_BACKPLANE_NAMESPACE;
+      process.env.NF_REALTIME_BACKPLANE_NAMESPACE = "prod-eu";
+      try {
+        const cfg = defineRealtimeConfig({
+          backplane: { namespace: "depuis-le-fichier" },
+        });
+        expect(cfg.backplane.namespace).to.equal("prod-eu");
+      } finally {
+        if (previous === undefined)
+          delete process.env.NF_REALTIME_BACKPLANE_NAMESPACE;
+        else process.env.NF_REALTIME_BACKPLANE_NAMESPACE = previous;
+      }
+    });
+
     it("rejette un slowConsumer.bytes ≤ 0", () => {
       expect(() =>
         defineRealtimeConfig({ slowConsumer: { bytes: 0 } }),

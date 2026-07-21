@@ -65,6 +65,13 @@ export interface IBackplaneInfo {
   crossPod: boolean;
   /** Canal/topic de transport, si applicable (canal Redis, topic Kafka). */
   channel?: string;
+  /**
+   * Les messages sont-ils **scellés** (authenticité de l'émetteur vérifiée) ?
+   * Renseigné par les drivers à transport PARTAGÉ, où un tiers peut écrire :
+   * `false` y signale un bus ouvert. Absent quand la question n'a pas de sens
+   * (mono-process, IPC master↔workers — authentifié par construction).
+   */
+  sealed?: boolean;
 }
 
 /**

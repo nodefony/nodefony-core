@@ -1156,7 +1156,7 @@ flowchart LR
     HB[Hub B] --> SB["Socket de Bob"]
   end
   HA -->|"publish"| BP{{"Backplane<br/>driver = redis"}}
-  BP -->|"ingress"| HB
+  BP -->|"entrée du bus"| HB
   HA -.->|"sans backplane :<br/>le message meurt ici"| X["✖"]
 ```
 

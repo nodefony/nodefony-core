@@ -43,12 +43,19 @@ export function defineRealtimeConfig(
   // n'a rien à faire dans un fichier de config versionné — k8s Secret / Docker).
   const secret =
     process.env.NF_REALTIME_BACKPLANE_SECRET || parsed.backplane.secret;
+  // Namespace : propriété de DÉPLOIEMENT au même titre que le driver — c'est
+  // lui qui sépare deux déploiements de la MÊME application (préproduction et
+  // production portent le même nom d'app, donc le même canal dérivé). Le figer
+  // dans un fichier versionné obligerait à livrer un code par environnement.
+  const namespace =
+    process.env.NF_REALTIME_BACKPLANE_NAMESPACE || parsed.backplane.namespace;
   const out: IRealtimeConfig = {
     ...parsed,
     backplane: {
       ...parsed.backplane,
       driver,
       secret,
+      namespace,
       instance: options.backplane,
     },
   };

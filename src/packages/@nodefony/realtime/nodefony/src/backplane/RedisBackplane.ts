@@ -239,6 +239,7 @@ export class RedisBackplane implements IBackplane {
       originId: this.originId,
       crossPod: true,
       channel: this.#redisChannel,
+      sealed: this.#secret !== null,
     };
   }
 }

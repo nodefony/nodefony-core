@@ -623,15 +623,19 @@ Le détail du contrat, de l'anti-écho et du cycle de vie d'un driver est dans
 
 ## ⚙️ Variables d'environnement et précédence
 
-Quatre variables influent sur le module. Deux lui sont propres, deux appartiennent au mode cluster.
+Six variables influent sur le module. Trois lui sont propres, les autres viennent du cœur ou du
+mode cluster. Les trois premières décrivent un **déploiement** — le fond de panier auquel ce
+processus se raccorde — et c'est pour cela qu'elles ne vivent pas dans un fichier versionné.
 
-| Variable                 | Portée                 | Effet                                                                      |
-| ------------------------ | ---------------------- | -------------------------------------------------------------------------- |
-| `NF_REALTIME_DRIVER`     | ce module              | remplace `backplane.driver`. **Précédence maximale**                       |
-| `NF__REALTIME__<CHEMIN>` | mécanisme du cœur      | remplace n'importe quelle clé, par son chemin. Ex. `NF__REALTIME__ENABLED` |
-| `NODEFONY_CLUSTER`       | posée par le lancement | à `1`, le driver `cluster` s'active en worker. Ne la pose pas à la main    |
-| `NODEFONY_CLUSTER_PROBE` | ce module              | à `0`, coupe la sonde de pod même si `cluster.probe.enabled` est vrai      |
-| `POD_NAME`               | déploiement            | étiquette d'origine du processus ; sinon dérivée du nom d'hôte et du PID   |
+| Variable                          | Portée                 | Effet                                                                      |
+| --------------------------------- | ---------------------- | -------------------------------------------------------------------------- |
+| `NF_REALTIME_DRIVER`              | ce module              | remplace `backplane.driver`. **Précédence maximale**                       |
+| `NF_REALTIME_BACKPLANE_NAMESPACE` | ce module              | remplace `backplane.namespace` — sépare deux déploiements de la même app   |
+| `NF_REALTIME_BACKPLANE_SECRET`    | ce module              | remplace `backplane.secret` — scelle le transport partagé (≥ 32 car.)      |
+| `NF__REALTIME__<CHEMIN>`          | mécanisme du cœur      | remplace n'importe quelle clé, par son chemin. Ex. `NF__REALTIME__ENABLED` |
+| `NODEFONY_CLUSTER`                | posée par le lancement | à `1`, le driver `cluster` s'active en worker. Ne la pose pas à la main    |
+| `NODEFONY_CLUSTER_PROBE`          | ce module              | à `0`, coupe la sonde de pod même si `cluster.probe.enabled` est vrai      |
+| `POD_NAME`                        | déploiement            | étiquette d'origine du processus ; sinon dérivée du nom d'hôte et du PID   |
 
 L'ordre de recouvrement, du plus faible au plus fort :
 
@@ -640,9 +644,10 @@ L'ordre de recouvrement, du plus faible au plus fort :
 3. **`NF__REALTIME__<CHEMIN>`** — appliqué après la fusion et **avant** la validation Zod, donc la
    valeur venue de l'environnement est validée comme les autres. Un chemin introuvable produit un
    avertissement avec une suggestion, jamais une clé fantôme.
-4. **`NF_REALTIME_DRIVER`** — appliqué **après** l'analyse, dans le builder
-   (`defineModuleConfig.ts:41`). Il gagne sur tout le reste, y compris sur
-   `NF__REALTIME__BACKPLANE__DRIVER`.
+4. **`NF_REALTIME_DRIVER`**, **`NF_REALTIME_BACKPLANE_NAMESPACE`** et
+   **`NF_REALTIME_BACKPLANE_SECRET`** — appliqués **après** l'analyse, dans le builder
+   (`defineModuleConfig.ts:41`). Ils gagnent sur tout le reste, y compris sur le mécanisme
+   générique `NF__REALTIME__BACKPLANE__…`.
 
 Le mécanisme générique mérite d'être connu : le double tiret bas sépare les niveaux, les segments
 sont insensibles à la casse, et les valeurs sont converties (booléens, nombres, listes séparées par
@@ -681,7 +686,7 @@ const cfg = defineRealtimeConfig({ backplane: { driver: "redis" } });
 // Une valeur invalide lève une ZodError, avec le chemin exact du champ fautif.
 ```
 
-`realtimeConfigJsonSchema()` (`defineModuleConfig.ts:53`) produit le schéma JSON du module, chaque
+`realtimeConfigJsonSchema()` (`defineModuleConfig.ts:69`) produit le schéma JSON du module, chaque
 champ portant sa description. C'est ce que consomme la page module de Studio pour afficher la
 configuration attendue. L'instance de backplane éventuelle en est absente : une classe n'a rien à
 faire dans un schéma sérialisable.

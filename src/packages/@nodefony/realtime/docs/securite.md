@@ -650,7 +650,7 @@ factory doit renvoyer un provider), donc un override permissif de `createRealtim
 namespaces réservés restent couverts par le plancher système **si** le verrou est posé. Une garde
 d'appartenance par module est un manque connu et assumé, pas une protection existante.
 
-**2. Le backplane n'authentifie l'émetteur que si tu poses un secret.** L'ingress est filtré par
+**2. Le backplane n'authentifie l'émetteur que si tu poses un secret.** Ce qui ENTRE par le bus est filtré par
 canal — seul un canal déclaré broadcast est réinjecté (`RealtimeHub.#admitFromBackplane`), donc
 `syslog:`, `security:audit` et les canaux d'observabilité restent hors d'atteinte depuis le
 transport. Mais l'**identité de l'émetteur** n'est vérifiée que lorsque `backplane.secret` est posé :
@@ -716,7 +716,7 @@ n'est pas appliquée.
 | `slowConsumer.bytes` augmenté, les frames sont toujours jetées à 1 MiB   | Cette clé pilote le **comptage** de la sonde, pas les seuils de drop/close du transport                | Les seuils de back-pressure ne sont pas configurables aujourd'hui                                     |
 | Deux déploiements se parlent en cross-talk                               | Pas de `backplane.namespace` sur un Redis mutualisé (la base Redis ne cloisonne pas le pub/sub)        | Poser un `namespace` explicite par déploiement                                                        |
 | Le fan-out cross-pod s'arrête après avoir posé un secret                 | `backplane.secret` différent d'un pod à l'autre : les messages sont scellés, aucun ne se vérifie       | Le **même** secret sur tous les pods (`NF_REALTIME_BACKPLANE_SECRET`) ; suivre `ingressRejectedTotal` |
-| Un canal broadcast ne reçoit rien des autres pods                        | Le préfixe n'est pas déclaré côté receveur → l'ingress refuse le canal (compté)                        | Déclarer le préfixe (`broadcast` du controller) sur **tous** les pods, pas seulement l'émetteur       |
+| Un canal broadcast ne reçoit rien des autres pods                        | Le préfixe n'est pas déclaré côté receveur → l'entrée refuse le canal (compté)                         | Déclarer le préfixe (`broadcast` du controller) sur **tous** les pods, pas seulement l'émetteur       |
 
 ## 🧪 Tests & couverture
 

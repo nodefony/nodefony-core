@@ -18,7 +18,12 @@ import {
   IconBook,
   IconDatabase,
 } from "@tabler/icons-react";
-import { KeyValue, DefinitionList } from "../../components/ui";
+import {
+  KeyValue,
+  DefinitionList,
+  DocHint,
+  WarnHint,
+} from "../../components/ui";
 import "../../workspace/widgets"; // side-effect : peuple le registre de blocs
 import { BlockView, getBlock } from "../../blocks";
 import type { NormalizedHealth } from "../../utils/realtimeHealth";
@@ -343,6 +348,29 @@ function RealtimePanel({ norm }: { norm: NormalizedHealth | null }) {
   );
 }
 
+/** Version des fiches d'aide du fond de panier realtime (badge des bulles). */
+const BP_DOC = "v1.0";
+
+/**
+ * Pages du portail de documentation vers lesquelles renvoient les fiches d'aide.
+ * Le portail adresse une page par son slug (`mod~<module>~<fichier>`) — écrire
+ * l'URL ici plutôt qu'un chemin de fichier garde le lien valide même si la page
+ * est déplacée dans l'arborescence du module.
+ */
+const DOC_CONFIGURATION =
+  "/nodefony/documentation?doc=mod~realtime~configuration";
+const DOC_SECURITE = "/nodefony/documentation?doc=mod~realtime~securite";
+
+/** Libellé + fiche d'aide d'une ligne du panneau (la clé de `KeyValue`). */
+function LabelWithHint({ label, hint }: { label: string; hint: ReactNode }) {
+  return (
+    <Group gap={6} wrap="nowrap">
+      <span>{label}</span>
+      {hint}
+    </Group>
+  );
+}
+
 function BpRealtimePanel({
   norm,
   cluster,
@@ -351,21 +379,210 @@ function BpRealtimePanel({
   cluster: boolean;
 }) {
   const bp = norm?.instances[0]?.backplane;
+  const rejets = norm?.totals?.ingressRejectedTotal ?? 0;
+  const driver = bp?.driver ?? (cluster ? "ipc" : "loopback");
+  const canal = bp?.channel;
+  // Le scellement ne se pose que sur un transport PARTAGÉ : en mono-process ou
+  // en IPC (maître ↔ ses propres workers), aucun tiers ne peut écrire sur le bus.
+  const busPartage = bp?.crossPod === true;
+  const scelle = bp?.sealed === true;
+
   return (
     <Stack gap="sm">
       <DefinitionList>
         <KeyValue
-          k="Driver"
-          v={bp?.driver ?? (cluster ? "ipc" : "loopback")}
+          k={
+            <LabelWithHint
+              label="Driver"
+              hint={
+                <DocHint
+                  title="Le fil qui relie les processus"
+                  version={BP_DOC}
+                  summary={`Ce processus relaie ses publications par « ${driver} ». Sans fil, un message publié ici n'atteindrait que les navigateurs connectés à CE processus.`}
+                  sections={[
+                    {
+                      label: "Les trois fils natifs",
+                      body: "« loopback » : aucun relais, un seul processus. « cluster » : liaison interne entre les workers d'une même machine. « redis » : publication/abonnement entre machines distinctes.",
+                    },
+                    {
+                      label: "Si la valeur surprend",
+                      body: "Le fil se choisit à la configuration (`backplane.driver`) et peut être imposé au déploiement par NF_REALTIME_DRIVER. Un nom inconnu au démarrage laisse le hub local, avec un avertissement dans le journal.",
+                    },
+                  ]}
+                  links={[
+                    {
+                      label: "Configuration du temps réel",
+                      href: DOC_CONFIGURATION,
+                    },
+                  ]}
+                />
+              }
+            />
+          }
+          v={driver}
           mono
         />
         <KeyValue k="Portée" v={bp?.kind ?? (cluster ? "cluster" : "local")} />
-        <KeyValue k="Cross-pod" v={bp?.crossPod ? "oui" : "non"} />
+        <KeyValue
+          k={
+            <LabelWithHint
+              label="Cross-pod"
+              hint={
+                <DocHint
+                  title="Jusqu'où porte le relais"
+                  version={BP_DOC}
+                  summary={
+                    busPartage
+                      ? "Oui : le relais franchit les frontières de machine — d'autres hôtes reçoivent ce qui est publié ici."
+                      : "Non : le relais ne sort pas de cette machine (un seul processus, ou des workers locaux)."
+                  }
+                  sections={[
+                    {
+                      label: "Pourquoi ça change tout",
+                      body: "Un relais qui sort de la machine passe par une infrastructure partagée, que d'autres peuvent atteindre. C'est là que le scellement des messages devient nécessaire — et c'est pourquoi il n'est pas demandé sur une liaison interne.",
+                    },
+                  ]}
+                  links={[
+                    {
+                      label: "Architecture du temps réel",
+                      href: DOC_CONFIGURATION,
+                    },
+                  ]}
+                />
+              }
+            />
+          }
+          v={busPartage ? "oui" : "non"}
+        />
+        {canal ? (
+          <KeyValue
+            k={
+              <LabelWithHint
+                label="Canal"
+                hint={
+                  <DocHint
+                    title="Sur quel bus ce processus est branché"
+                    version={BP_DOC}
+                    summary={`Le transport publie et écoute sur « ${canal} ». Tout ce qui passe par ce nom est reçu par tous les processus qui l'écoutent, et par eux seuls.`}
+                    sections={[
+                      {
+                        label: "À quoi ça sert de le voir",
+                        body: "C'est la seule façon de répondre à « suis-je sur le bus que je crois ? ». Deux déploiements d'une même application (préproduction et production) qui partagent une infrastructure portent le même nom dérivé : sans cloison explicite, ils s'échangent leurs diffusions.",
+                      },
+                      {
+                        label: "Comment le changer",
+                        body: "Par la cloison `backplane.namespace`, ou au déploiement par NF_REALTIME_BACKPLANE_NAMESPACE. Le nom affiché ici est celui réellement utilisé, pas celui qui est écrit dans la configuration.",
+                      },
+                    ]}
+                    links={[
+                      {
+                        label: "La cloison, clé par clé",
+                        href: DOC_CONFIGURATION,
+                      },
+                      {
+                        label: "Ce que le bus ne défend pas",
+                        href: DOC_SECURITE,
+                      },
+                    ]}
+                  />
+                }
+              />
+            }
+            v={canal}
+            mono
+          />
+        ) : null}
+        {busPartage ? (
+          <KeyValue
+            k={
+              <LabelWithHint
+                label="Messages scellés"
+                hint={
+                  scelle ? (
+                    <DocHint
+                      title="Les messages portent une signature"
+                      version={BP_DOC}
+                      summary="Chaque message publié sur ce bus est signé, et ce processus rejette tout message dont la signature est absente ou fausse."
+                      sections={[
+                        {
+                          label: "Ce que ça empêche",
+                          body: "Une infrastructure de diffusion ne vérifie pas qui publie. Sans signature, quiconque peut y écrire — autre application, identifiant fuité — diffuse ce qu'il veut sur vos canaux, sur tous vos processus à la fois.",
+                        },
+                        {
+                          label: "La condition",
+                          body: "Le secret doit être IDENTIQUE sur tous les processus de l'application. S'il diverge, plus rien ne passe entre eux et le compteur de messages refusés reste à zéro : le trafic est écarté avant même l'examen du canal.",
+                        },
+                      ]}
+                      links={[
+                        { label: "Sécurité du temps réel", href: DOC_SECURITE },
+                        {
+                          label: "Poser le secret",
+                          href: DOC_CONFIGURATION,
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <WarnHint
+                      title="Bus ouvert — aucune signature"
+                      summary="Les messages circulent sans preuve d'origine : quiconque peut écrire sur cette infrastructure publie sur vos canaux, sur tous vos processus."
+                      sections={[
+                        {
+                          label: "Ce qui reste protégé",
+                          body: "Les canaux internes (journaux, audit, santé) restent hors d'atteinte : seuls les canaux explicitement diffusables sont acceptés depuis le bus. L'injection est donc bornée aux canaux applicatifs.",
+                        },
+                        {
+                          label: "Comment fermer",
+                          body: "Poser `backplane.secret`, ou NF_REALTIME_BACKPLANE_SECRET au déploiement — au moins 32 caractères, le même partout. Le démarrage signale ce mode ouvert par un avertissement.",
+                        },
+                      ]}
+                    />
+                  )
+                }
+              />
+            }
+            v={scelle ? "oui" : "NON — bus ouvert"}
+          />
+        ) : null}
+        <KeyValue
+          k={
+            <LabelWithHint
+              label="Messages du bus refusés"
+              hint={
+                <DocHint
+                  title="Messages venus du bus et jetés"
+                  version={BP_DOC}
+                  summary={
+                    rejets === 0
+                      ? "Zéro : aucun message étranger n'a tenté d'atteindre un canal interdit de circulation. C'est la valeur normale."
+                      : `${rejets} message(s) reçus du bus visaient un canal qui n'a pas le droit de circuler entre processus. Ils ont été comptés puis jetés.`
+                  }
+                  sections={[
+                    {
+                      label: "Ce qui est refusé",
+                      body: "Un canal ne franchit la frontière du processus que s'il est déclaré diffusable. Les canaux internes — journaux, audit, santé — décrivent CE processus : les faire voyager n'aurait aucun sens, et permettrait d'y injecter de fausses lignes.",
+                    },
+                    {
+                      label: "Si ce n'est pas zéro",
+                      body: "Deux explications. Bénigne : une autre application partage la même cloison et ses canaux sont refusés — chacun chez soi. Sérieuse : quelqu'un écrit sur votre bus. Le nom du canal visé n'est pas exposé ici, volontairement : un compteur ne doit pas devenir un moyen de sonder ce que le système accepte.",
+                    },
+                    {
+                      label: "Ce que ce compteur ne voit pas",
+                      body: "Les messages rejetés PLUS TÔT, faute de signature valide, ne sont pas comptés ici : ils sont écartés par le transport avant d'atteindre le hub.",
+                    },
+                  ]}
+                  links={[
+                    { label: "Sécurité du temps réel", href: DOC_SECURITE },
+                  ]}
+                />
+              }
+            />
+          }
+          v={fmt(rejets)}
+        />
       </DefinitionList>
       <Text size="xs" c="dimmed">
-        Le fond de panier relie les process : un message publié sur un worker
-        est relayé aux autres (Loopback en mono-process → IPC en cluster →
-        Redis/Kafka multi-hôtes). Cliquez la brique pour voir tous les backends.
+        Le fond de panier relie les processus : un message publié sur l'un est
+        relayé aux autres. Survolez un libellé pour savoir ce qu'il décrit.
       </Text>
     </Stack>
   );

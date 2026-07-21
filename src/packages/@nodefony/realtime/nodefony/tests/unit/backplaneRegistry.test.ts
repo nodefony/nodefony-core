@@ -110,6 +110,9 @@ describe("backplaneRegistry (résolution driver SANS if en dur)", () => {
       originId: "p",
       crossPod: true,
       channel: "app:rt",
+      // Bus partagé sans secret : la carte d'identité l'annonce, et Studio
+      // l'affiche — un transport non authentifié ne doit jamais être discret.
+      sealed: false,
     });
   });
 
