@@ -239,9 +239,7 @@ import { RealtimeController } from "@nodefony/realtime";
 
 export class ChatController extends RealtimeController {
   // Sans cette déclaration, "chat:*" resterait confiné au processus qui l'a publié.
-  protected override realtimeBroadcastChannels(): string[] {
-    return ["chat:"];
-  }
+  // (le préfixe diffusable est déclaré par `@RealtimeBroadcast` sur la classe)
 }
 ```
 

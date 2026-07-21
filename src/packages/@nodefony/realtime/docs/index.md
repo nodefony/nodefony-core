@@ -125,8 +125,8 @@ pas deux applications à écrire deux fois, mais deux entrées du même pipeline
 **Une connexion, N canaux, dans les deux sens.** Le client s'abonne à autant de canaux qu'il veut sur
 la même socket. Trois formes de trafic coexistent : le serveur diffuse (`@RealtimeChannel`,
 `realtimeDecorators.ts:142`), le client appelle et attend une réponse (`@RealtimeAction`,
-`realtimeDecorators.ts:101`), le client pousse sans attendre (`@RealtimeInbound`,
-`realtimeDecorators.ts:182`). Rien n'est ouvert qui n'ait été déclaré.
+`realtimeDecorators.ts:30`), le client pousse sans attendre (`@RealtimeInbound`,
+`realtimeDecorators.ts:30`). Rien n'est ouvert qui n'ait été déclaré.
 
 **Le travail est fait une fois par processus, pas une fois par client.** Le `RealtimeHub`
 (`RealtimeHub.ts:139`) tient **un seul producteur par canal** : le premier abonné le démarre, le
@@ -141,8 +141,8 @@ toucher au cœur.
 
 > [!IMPORTANT]
 > **Rien ne franchit la frontière du processus sans intention explicite.** Par défaut, un canal reste
-> local. Il faut le déclarer diffusable (`realtimeBroadcastChannels()`,
-> `RealtimeController.ts:195`) pour qu'il emprunte le backplane. C'est volontaire : un canal
+> local. Il faut le déclarer diffusable (`@RealtimeBroadcast`,
+> `realtimeDecorators.ts:342`) pour qu'il emprunte le backplane. C'est volontaire : un canal
 > d'observation qui décrit l'état d'**un** pod n'aurait aucun sens répliqué sur les autres.
 
 Le module se déclare par ailleurs **non critique** (`Realtime.critical`, `index.ts:144`) et son
@@ -187,11 +187,18 @@ La classe de base porte tout le protocole — poignée de main, abonnements, net
 ```ts
 // nodefony/controllers/chat.ts
 import { route, controller } from "@nodefony/framework";
-import { RealtimeController, RealtimeChannel } from "@nodefony/realtime";
+import {
+  RealtimeController,
+  RealtimeChannel,
+  RealtimeBroadcast,
+} from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
 import type { RpcActionHandler } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 
+// Déclare le préfixe diffusable dès le chargement de la classe : sans lui, le
+// canal resterait confiné à ce processus, même en cluster.
+@RealtimeBroadcast("chat:")
 @controller("/chat")
 class ChatController extends RealtimeController {
   constructor(context: ContextType) {
@@ -206,11 +213,6 @@ class ChatController extends RealtimeController {
   })
   async realtime(message: string | Buffer | null): Promise<void> {
     this.handleRealtime(message);
-  }
-
-  // Sans cette déclaration, le canal resterait confiné à ce processus.
-  protected override realtimeBroadcastChannels(): string[] {
-    return ["chat:"];
   }
 
   // Appel client → réponse serveur, comme un appel de fonction distante.
@@ -322,7 +324,7 @@ vue de tous les workers d'un pod.
 
 Le data plane admin expose `/nodefony/realtime/api/health` — canaux et abonnés, compteurs de
 diffusion, connexions, octets et frames, pression d'écriture. C'est la même donnée que celle rendue à
-l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts:503`).
+l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts:142`).
 
 ## 🧪 Tests & couverture
 

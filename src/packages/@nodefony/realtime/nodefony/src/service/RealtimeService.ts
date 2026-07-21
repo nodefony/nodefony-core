@@ -8,6 +8,7 @@ import {
   type OriginGuard,
   type FrameAuthorizer,
 } from "../server/RealtimeHub";
+import { applyDeclaredBroadcastPrefixes } from "../../decorators/realtimeDecorators";
 import type { IBackplane } from "../../interfaces/IBackplane";
 import type { IRealtimeProbe } from "../../interfaces/IRealtimeProbe";
 import type { IRealtimeConfig } from "../../config/defineModuleConfig";
@@ -113,6 +114,11 @@ class RealtimeService extends Service {
     // F9 (revue 0.6) — câble le seuil de comptage des consommateurs lents de la
     // sonde depuis la config (avant : clé morte, la sonde lisait une constante).
     hub.setSlowConsumerBytes(this.#config.slowConsumer.bytes);
+    // Politique de forward DÉCLARÉE (`@RealtimeBroadcast`) posée dès le boot :
+    // sans elle, un pod qui publie sans abonné local (job, webhook, worker) ne
+    // propagerait rien tant qu'aucun client ne s'est connecté à lui — et deux
+    // pods identiques diffuseraient différemment selon leur historique.
+    applyDeclaredBroadcastPrefixes(hub);
     return this;
   }
 

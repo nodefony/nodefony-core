@@ -42,23 +42,32 @@ interface SealedEnvelope extends IBackplaneMessage {
 }
 
 /**
- * Chaîne canonique signée. Le `\n` sépare des champs dont deux sont libres
- * (`originId`, `channel`) : le canal étant sérialisé en JSON (donc échappé), aucun
- * décalage de frontière n'est possible entre les trois parties.
+ * Sceau HMAC-SHA256 (base64url) d'un triplet **déjà sérialisé**. Le `\n` sépare
+ * trois fragments JSON : les deux premiers sont des chaînes échappées, donc
+ * aucun décalage de frontière n'est possible entre les parties.
+ *
+ * Prend les fragments et non le message : la charge n'est sérialisée **qu'une
+ * fois** par publication (elle sert et au sceau et à l'enveloppe finale) — sur
+ * un canal de fan-out, une seconde sérialisation par message se paierait à
+ * chaque diffusion.
  */
-function canonical(msg: IBackplaneMessage): string {
-  return `${JSON.stringify(msg.originId)}\n${JSON.stringify(msg.channel)}\n${JSON.stringify(msg.payload) ?? "null"}`;
-}
-
-/** Calcule le sceau HMAC-SHA256 (base64url) d'un message. */
-function seal(msg: IBackplaneMessage, secret: string): string {
+function seal(
+  originIdJson: string,
+  channelJson: string,
+  payloadJson: string,
+  secret: string,
+): string {
   return createHmac("sha256", secret)
-    .update(canonical(msg))
+    .update(`${originIdJson}\n${channelJson}\n${payloadJson}`)
     .digest("base64url");
 }
 
 /**
  * Sérialise un message backplane, scellé si un secret est fourni.
+ *
+ * L'enveloppe scellée est assemblée par concaténation des fragments déjà
+ * sérialisés — un `JSON.stringify` d'objet complet re-sérialiserait la charge
+ * une seconde fois.
  *
  * @param msg - message à transporter (canal, charge, origine).
  * @param secret - secret partagé entre pods ; `null`/`undefined` → enveloppe nue.
@@ -69,8 +78,13 @@ export function sealBackplaneEnvelope(
   secret?: string | null,
 ): string {
   if (!secret) return JSON.stringify(msg);
-  const env: SealedEnvelope = { ...msg, [SEAL_FIELD]: seal(msg, secret) };
-  return JSON.stringify(env);
+  const channelJson = JSON.stringify(msg.channel);
+  const originIdJson = JSON.stringify(msg.originId);
+  // `undefined` n'est pas du JSON — une charge absente devient `null`, la même
+  // valeur que produirait `JSON.stringify` sur l'objet complet.
+  const payloadJson = JSON.stringify(msg.payload) ?? "null";
+  const sig = seal(originIdJson, channelJson, payloadJson, secret);
+  return `{"channel":${channelJson},"payload":${payloadJson},"originId":${originIdJson},"${SEAL_FIELD}":"${sig}"}`;
 }
 
 /** Type-guard d'enveloppe — narrowing sûr d'un message brut venu du bus. */
@@ -112,7 +126,15 @@ export function openBackplaneEnvelope(
   if (!secret) return msg;
   const provided = parsed[SEAL_FIELD];
   if (typeof provided !== "string") return null; // secret exigé → sceau obligatoire
-  const expected = seal(msg, secret);
+  // Re-sérialisation des fragments pour recalculer le sceau : `JSON.stringify`
+  // est stable sur la sortie de `JSON.parse` (ordre des clés préservé, forme
+  // numérique canonique), donc l'émetteur et le receveur signent la même chaîne.
+  const expected = seal(
+    JSON.stringify(msg.originId),
+    JSON.stringify(msg.channel),
+    JSON.stringify(msg.payload) ?? "null",
+    secret,
+  );
   const a = Buffer.from(provided, "base64url");
   const b = Buffer.from(expected, "base64url");
   // Longueurs différentes → timingSafeEqual throw ; on tranche avant (la longueur

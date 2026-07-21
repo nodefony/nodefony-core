@@ -443,8 +443,10 @@ export type {
 // Décorateurs realtime (style déclaratif, NestJS-like) — P13 Bloc A étape 3.
 export {
   RealtimeAction,
+  RealtimeBroadcast,
   RealtimeChannel,
   RealtimeInbound,
+  getDeclaredBroadcastPrefixes,
 } from "./nodefony/decorators/realtimeDecorators";
 export type { RealtimeChannelFactory } from "./nodefony/decorators/realtimeDecorators";
 

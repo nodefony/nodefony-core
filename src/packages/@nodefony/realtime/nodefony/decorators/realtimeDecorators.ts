@@ -310,3 +310,58 @@ export function getRealtimeChannelPolicies(
     Record<string, IChannelPolicy> | undefined;
   return map ?? null;
 }
+
+/**
+ * Préfixes de canaux **broadcast** déclarés statiquement, tous controllers
+ * confondus. Rempli à l'IMPORT des classes (le décorateur s'exécute au
+ * chargement du module), donc connu **avant** tout trafic. `Set` : la
+ * déclaration est idempotente et deux endpoints peuvent partager un préfixe.
+ */
+const declaredBroadcastPrefixes = new Set<string>();
+
+/**
+ * Décorateur **classe** — déclare les préfixes de canaux **broadcast**
+ * (cross-process) servis par cet endpoint : leurs publications traversent le
+ * {@link IBackplane} au lieu de rester dans le processus.
+ *
+ * POURQUOI STATIQUE (trouvé sur un banc multi-pods) : la politique de forward
+ * est une propriété du code, pas de l'instant. Déclarée seulement au handshake
+ * — via l'override `realtimeBroadcastChannels()` — elle laissait un pod qui
+ * publie **sans abonné local** (job planifié, webhook, worker) ne rien
+ * propager : `publish` évaluait « pas broadcast », en silence. Ici la
+ * déclaration existe dès l'import de la classe ; le service l'applique au hub
+ * au boot, identiquement sur tous les pods.
+ *
+ * @example
+ *   \@RealtimeBroadcast("chat:", "presence:")
+ *   \@controller("/api/chat")
+ *   class ChatController extends RealtimeController { … }
+ *
+ * @param prefixes - préfixes de canal (`"chat:"` couvre `chat:room1:1000`).
+ */
+export function RealtimeBroadcast(...prefixes: string[]): ClassDecorator {
+  return function (): void {
+    for (const prefix of prefixes) declaredBroadcastPrefixes.add(prefix);
+  };
+}
+
+/** Préfixes broadcast déclarés par décorateur (introspection / tests). */
+export function getDeclaredBroadcastPrefixes(): string[] {
+  return [...declaredBroadcastPrefixes];
+}
+
+/**
+ * Applique au hub les préfixes broadcast déclarés statiquement. Appelé au boot
+ * par `RealtimeService` — avant tout trafic, donc la politique est en place que
+ * le pod ait ou non reçu une connexion. Idempotent
+ * ({@link RealtimeHub.markBroadcastChannel} l'est déjà).
+ *
+ * @param hub - hub à configurer (celui du processus).
+ */
+export function applyDeclaredBroadcastPrefixes(hub: {
+  markBroadcastChannel(prefix: string): void;
+}): void {
+  for (const prefix of declaredBroadcastPrefixes) {
+    hub.markBroadcastChannel(prefix);
+  }
+}

@@ -95,7 +95,7 @@ temps de réponse — elle mesure **ce qui n'est pas encore parti**.
 Trois partis pris, tous lisibles dans le code.
 
 **1. La sonde est une lecture pure, jamais un collecteur.** `RealtimeHub.probe()`
-(`RealtimeHub.ts:503`) ne fait qu'additionner des primitives déjà tenues à jour par le chemin chaud.
+(`RealtimeHub.ts:142`) ne fait qu'additionner des primitives déjà tenues à jour par le chemin chaud.
 Aucune entrée-sortie, aucune exception possible, aucun état de lecture conservé. Appeler la sonde
 mille fois par seconde ne changerait rien à ce que le hub fait par ailleurs.
 
@@ -264,7 +264,7 @@ Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts:61`). Quatre familles, un di
 | -------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `publishTotal` | Appels à `publish`. **Ce que le serveur a voulu envoyer.**                                                         |
 | `fanoutTotal`  | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                     |
-| `inboundTotal` | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts:492`). |
+| `inboundTotal` | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts:529`). |
 
 Le rapport `fanoutTotal / publishTotal` est la mesure la plus parlante de la page : c'est la **taille
 moyenne d'un salon**. S'il vaut 1, chaque publication ne touche qu'une personne — un canal par client,
@@ -386,11 +386,11 @@ après fusion et validation — la seule vue qui dit ce qui s'applique, plutôt 
 
 ## ⚙️ Configuration
 
-| Clé                            | Défaut | Effet                                                                    |
-| ------------------------------ | ------ | ------------------------------------------------------------------------ |
-| `slowConsumer.bytes`           | 1 Mio  | Seuil de **comptage** de `slowConsumers` dans la sonde (`config.ts:82`). |
-| `cluster.probe.enabled`        | `true` | Branche la sonde agrégée pod en worker de cluster (`config.ts:30`).      |
-| `NODEFONY_CLUSTER_PROBE` (env) | —      | Mis à `0`, coupe la sonde pod quelle que soit la configuration.          |
+| Clé                            | Défaut | Effet                                                                     |
+| ------------------------------ | ------ | ------------------------------------------------------------------------- |
+| `slowConsumer.bytes`           | 1 Mio  | Seuil de **comptage** de `slowConsumers` dans la sonde (`config.ts:196`). |
+| `cluster.probe.enabled`        | `true` | Branche la sonde agrégée pod en worker de cluster (`config.ts:30`).       |
+| `NODEFONY_CLUSTER_PROBE` (env) | —      | Mis à `0`, coupe la sonde pod quelle que soit la configuration.           |
 
 > [!CAUTION]
 > `slowConsumer.bytes` ne pilote **que la métrique**. Les seuils qui jettent une frame ou ferment une

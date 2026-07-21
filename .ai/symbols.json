@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-21T19:44:24.430Z",
+  "generated": "2026-07-21T20:22:14.154Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1032,
-    "symbols": 2795,
+    "symbols": 2797,
     "classes": 327,
     "interfaces": 733,
     "types": 323,
     "enums": 4,
-    "functions": 835,
+    "functions": 837,
     "constants": 573
   },
   "symbols": {
@@ -11172,6 +11172,30 @@
       "module": "@nodefony/realtime",
       "description": "Lecture (lazy, au handshake) des politiques d'autorisation déclarées (`@RealtimeChannel`/`@RealtimeInbound` avec opts). `null` si aucune → le controller n'enregistre rien au hub (0 alloc). Donnée p…"
     },
+    "RealtimeBroadcast": {
+      "name": "RealtimeBroadcast",
+      "kind": "decorator-fn",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Décorateur **classe** — déclare les préfixes de canaux **broadcast** (cross-process) servis par cet endpoint : leurs publications traversent le {@link IBackplane} au lieu de rester dans le processu…"
+    },
+    "getDeclaredBroadcastPrefixes": {
+      "name": "getDeclaredBroadcastPrefixes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Préfixes broadcast déclarés par décorateur (introspection / tests)."
+    },
+    "applyDeclaredBroadcastPrefixes": {
+      "name": "applyDeclaredBroadcastPrefixes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Applique au hub les préfixes broadcast déclarés statiquement. Appelé au boot par `RealtimeService` — avant tout trafic, donc la politique est en place que le pod ait ou non reçu une connexion. Idem…"
+    },
     "DEFAULT_ACTION_POLICY": {
       "name": "DEFAULT_ACTION_POLICY",
       "kind": "const",
@@ -17313,7 +17337,7 @@
       "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "Sérialise un message backplane, scellé si un secret est fourni."
+      "description": "Sérialise un message backplane, scellé si un secret est fourni. L'enveloppe scellée est assemblée par concaténation des fragments déjà sérialisés — un `JSON.stringify` d'objet complet re-sérialiser…"
     },
     "openBackplaneEnvelope": {
       "name": "openBackplaneEnvelope",
@@ -26932,6 +26956,9 @@
       "FrameAuthorizer": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
         "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
+      ],
+      "applyDeclaredBroadcastPrefixes": [
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "adminActor": [
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",

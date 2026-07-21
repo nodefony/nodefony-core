@@ -231,9 +231,7 @@ class ChatController extends RealtimeController {
 
   // OPT-IN cross-process : sans cette ligne, un message publié sur le pod A
   // ne sortirait jamais du pod A. Le préfixe couvre `chat:*`.
-  protected override realtimeBroadcastChannels(): string[] {
-    return ["chat:"];
-  }
+  // (le préfixe diffusable est déclaré par `@RealtimeBroadcast` sur la classe)
 
   // Le provider du canal : créé au 1ᵉʳ abonné, son `dispose` appelé au dernier.
   // Ici rien à produire — le contenu vient des clients, pas d'un ticker.
@@ -408,15 +406,15 @@ sequenceDiagram
 
 Les étapes, dans l'ordre exact du code :
 
-1. **Contrôle de l'origine** — `RealtimeHub.checkOrigin()` (`RealtimeHub.ts:622`). Refus →
+1. **Contrôle de l'origine** — `RealtimeHub.checkOrigin()` (`RealtimeHub.ts:142`). Refus →
    fermeture `4003`. La politique vient de la configuration ; sans politique, tout passe.
 2. **Résolution de l'identité** — `RealtimeHub.resolveAuthenticator()`
-   (`RealtimeHub.ts:597`) parcourt les authentificateurs enregistrés : **le premier motif
+   (`RealtimeHub.ts:635`) parcourt les authentificateurs enregistrés : **le premier motif
    qui correspond capture**. Aucun ne correspond ? Le jeton anonyme gelé est posé
    (`ANONYMOUS_REALTIME_TOKEN`) — la lecture d'identité ne rend donc jamais `null`. Un
    échec d'authentification ferme en `4001`.
 3. **Création du peer et du transport**, puis association `peer → jeton`
-   (`RealtimeHub.setTokenForPeer()`, `RealtimeHub.ts:654`), stockée dans une `WeakMap` : le
+   (`RealtimeHub.setTokenForPeer()`, `RealtimeHub.ts:692`), stockée dans une `WeakMap` : le
    jeton disparaît avec le peer, sans fuite.
 4. **Enregistrement des actions** — celles des décorateurs `@RealtimeAction`, puis celles
    de la surcharge `realtimeActions()`, qui gagne en cas de conflit. Le pont API
@@ -448,13 +446,13 @@ déconnexion.
 La seconde mérite une explication. Le verrou de frame est synchrone et lit une identité
 figée au handshake : il ne peut donc pas voir une session qui meurt en cours de route (une
 déconnexion HTTP, par exemple). Un minuteur — démarré au premier inscrit, arrêté dès que le
-registre se vide (`RealtimeHub.registerRevocable()`, `RealtimeHub.ts:433`) — relit
+registre se vide (`RealtimeHub.registerRevocable()`, `RealtimeHub.ts:470`) — relit
 périodiquement ces identités et coupe les sockets orphelines. Seules les identités
 **révocables** y entrent : un visiteur anonyme ne coûte rien.
 
 ## Le hub — canaux partagés et fan-out
 
-Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:849`). Il ne
+Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:888`). Il ne
 dépend de rien : ce sont les fabriques fournies par les contrôleurs qui portent les
 dépendances.
 
@@ -467,7 +465,7 @@ dépendances.
    paquet du producteur atteigne bien ce premier abonné.
 3. La fabrique du contrôleur rend `null` (canal inconnu de lui) ? Dernier recours : le
    registre des **canaux système** (`RealtimeHub.registerSystemChannel()`,
-   `RealtimeHub.ts:741`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
+   `RealtimeHub.ts:779`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
    l'abonnement est refusé et rien n'est alloué.
 
 Au dernier désabonnement, `RealtimeHub.unsubscribe()` (`RealtimeHub.ts:287`) appelle le
@@ -499,7 +497,7 @@ une connexion fautive n'interrompt pas la diffusion aux autres.
 ### Le forward est OPT-IN — le défaut est l'isolement
 
 Par défaut, **aucun canal ne traverse le backplane**. Il faut déclarer un préfixe, via
-`realtimeBroadcastChannels()` dans ton contrôleur (`RealtimeController.ts:195`) ou
+`@RealtimeBroadcast` sur ton contrôleur (`realtimeDecorators.ts:342`) ou
 directement `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:365`).
 
 Trois raisons à ce choix, qui prend à contre-pied la plupart des bibliothèques temps réel :
@@ -726,19 +724,19 @@ Deux propriétés architecturales méritent d'être notées ici, parce qu'elles 
 choix de conception visibles partout dans le module :
 
 **Coût nul quand la sécurité est absente.** Le verrou de frame n'est branché sur le peer que
-si une politique existe (`RealtimeHub.hasFrameAuthorizer()`, `RealtimeHub.ts:684`, testé une
+si une politique existe (`RealtimeHub.hasFrameAuthorizer()`, `RealtimeHub.ts:722`, testé une
 fois au handshake). Sans module de sécurité, `beforeDispatch` reste indéfini et le chemin
 chaud ne paie **rien** du tout.
 
 **Échec bruyant plutôt que faux sentiment de sécurité.** Si des canaux déclarent une
 politique sans qu'aucun décideur ne soit câblé, `hasUnenforcedChannelPolicies()`
-(`RealtimeHub.ts:696`) le détecte et un avertissement est émis une fois par process
+(`RealtimeHub.ts:734`) le détecte et un avertissement est émis une fois par process
 (`RealtimeController.ts:487`). Un canal qui **se croit** gardé alors qu'il est ouvert est
 bien plus dangereux qu'un canal ouvertement public.
 
 ## 📡 Observabilité — la sonde et Studio
 
-`RealtimeHub.probe()` (`RealtimeHub.ts:503`) rend un instantané en **lecture pure** : aucune
+`RealtimeHub.probe()` (`RealtimeHub.ts:142`) rend un instantané en **lecture pure** : aucune
 allocation sur le chemin chaud, jamais d'exception. Les compteurs sont des primitives
 incrémentées en O(1) ; ils sont **monotones**, ce qui laisse au lecteur le soin de dériver
 un débit.
@@ -791,7 +789,7 @@ révocables, authentificateurs, politiques de canal, association peer→jeton : 
 `null`. Un process sans abonné n'alloue **rien** (`RealtimeHub.ts:141` et suivants).
 
 **Aucun minuteur au repos.** Le tick de révocation démarre au premier inscrit et s'arrête
-dès que le registre se vide — `RealtimeHub.unregisterRevocable()` (`RealtimeHub.ts:448`).
+dès que le registre se vide — `RealtimeHub.unregisterRevocable()` (`RealtimeHub.ts:485`).
 Les minuteurs sont détachés de la boucle d'événements : ils ne retiennent jamais l'arrêt du
 process.
 
@@ -814,7 +812,7 @@ dans la sonde, et le plafond de canaux par connexion.
 
 | Symptôme                                                       | Cause                                                                      | Correction                                                                 |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Le chat marche en local, plus rien en cluster                  | le canal n'est pas déclaré broadcast (défaut : instance-local)             | ajouter le préfixe dans `realtimeBroadcastChannels()`                      |
+| Le chat marche en local, plus rien en cluster                  | le canal n'est pas déclaré broadcast (défaut : instance-local)             | déclarer le préfixe avec `@RealtimeBroadcast`                              |
 | Le client ne reçoit rien alors qu'il a un handler `on(...)`    | `on` reçoit, `subscribe` demande — il faut les **deux**                    | appeler `socket.subscribe(canal)`                                          |
 | Chaque message arrive **en double** en cluster                 | `publishLocal` court-circuité, ou `originId` non unique entre pods         | ne jamais republier une arrivée backplane ; vérifier `POD_NAME`/hostname   |
 | Deux applications se parlent sur un Redis mutualisé            | même canal dérivé (le numéro de base Redis ne cloisonne pas le pub/sub)    | poser un `backplane.namespace` explicite et distinct                       |

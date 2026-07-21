@@ -171,9 +171,7 @@ export class ChatController extends RealtimeController {
 
   // BROADCAST : ce préfixe traverse le backplane. Sans cette ligne, le canal
   // reste INSTANCE-LOCAL (défaut sûr) et Bob, sur un autre pod, ne voit rien.
-  protected override realtimeBroadcastChannels(): string[] {
-    return ["chat:"];
-  }
+  // (le préfixe diffusable est déclaré par `@RealtimeBroadcast` sur la classe)
 }
 ```
 
@@ -270,7 +268,7 @@ Un handler qui lève une erreur rend un `-32603` **générique** ; seule une `Rp
 ### `canal entrant` (inbound) — le client pousse
 
 Un canal où le **client a le droit d'émettre** vers le serveur. Défaut sûr : **aucun**. Un canal
-n'accepte d'entrée que déclaré explicitement, par `@RealtimeInbound` (`realtimeDecorators.ts:182`) ou
+n'accepte d'entrée que déclaré explicitement, par `@RealtimeInbound` (`realtimeDecorators.ts:30`) ou
 par l'override `realtimeInbound()` (`RealtimeController.ts:205`).
 
 Le handler reçoit `(params, reply)` — `params` vient du réseau, donc **jamais fiable** :
@@ -335,7 +333,7 @@ handshake, jamais renégociée par frame.
 ### `hub` — le broker du process
 
 Le **standard téléphonique** du pod : il tient la table « canal → abonnés locaux » et diffuse. Un
-process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:849`). Il ne connaît **ni** les
+process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:888`). Il ne connaît **ni** les
 contrôleurs, **ni** le métier : ce sont les providers qui portent les dépendances.
 
 `RealtimeHub` (`RealtimeHub.ts:139`). ⚠️ « hub » désigne **toujours** le serveur ; ce que tient le
@@ -379,7 +377,7 @@ Un canal dont la fabrique est déclarée par un module bas niveau (le journal d'
 qui devient servable par **n'importe quel** endpoint, présent ou futur, sans qu'aucun contrôleur ne
 le connaisse. Consulté seulement quand la fabrique du contrôleur a dit « inconnu ».
 
-`RealtimeHub.registerSystemChannel()` (`RealtimeHub.ts:741`).
+`RealtimeHub.registerSystemChannel()` (`RealtimeHub.ts:779`).
 
 ### `canal broadcast` — celui qui traverse le backplane
 
@@ -388,7 +386,7 @@ déclaration se fait par **préfixe**, ce qui couvre les variantes de cadence (`
 `chat:room-42:1000`).
 
 `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:365`), déclaré côté contrôleur par
-`realtimeBroadcastChannels()` (`RealtimeController.ts:195`).
+`@RealtimeBroadcast` (`realtimeDecorators.ts:342`).
 
 ### `canal instance-local` — le défaut
 
@@ -623,7 +621,7 @@ La stratégie qui transforme une poignée de main en identité : `supports` (est
 HTTP — un seul modèle mental pour les deux transports.
 
 `IRealtimeAuthenticator` (`IRealtimeAuthenticator.ts:24`), enregistrement
-`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:579`).
+`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:59`).
 
 ### `matcher` — qui capture quoi
 
@@ -631,7 +629,7 @@ Le sélecteur (motif d'URL, hôte optionnel) qui décide **quel** authenticator 
 **premier** qui capture gagne : on enregistre donc du plus spécifique au plus général.
 
 `IRealtimeAuthenticatorMatcher` (`IRealtimeAuthenticatorMatcher.ts:25`), résolution
-`resolveAuthenticator()` (`RealtimeHub.ts:597`).
+`resolveAuthenticator()` (`RealtimeHub.ts:635`).
 
 ### `jeton` (token) — l'identité figée
 
@@ -656,8 +654,8 @@ La fonction qui répond « cette frame passe-t-elle ? » à partir du jeton **d�
 **Synchrone par doctrine** : attendre une réponse distante à chaque frame sérialiserait le flux d'une
 connexion. Un contrôle qui doit interroger le réseau se fait au handshake, pas ici.
 
-`FrameAuthorizer` (`RealtimeHub.ts:39`), pose `setFrameAuthorizer()` (`RealtimeHub.ts:675`), appel
-`runAuthorizer()` (`RealtimeHub.ts:758`).
+`FrameAuthorizer` (`RealtimeHub.ts:39`), pose `setFrameAuthorizer()` (`RealtimeHub.ts:59`), appel
+`runAuthorizer()` (`RealtimeHub.ts:59`).
 
 ### `contrôle d'origine` — la défense d'ouverture
 
@@ -665,7 +663,7 @@ Le contrôle de l'en-tête `Origin` à l'ouverture (RFC 6455 §10.2) : un site t
 ouvrir une connexion authentifiée dans le dos de l'utilisateur. Correspondance **exacte**, aucun
 caractère générique.
 
-`OriginGuard` (`RealtimeHub.ts:25`), configuration `csrf.checkOrigin` (`config.ts:125`).
+`OriginGuard` (`RealtimeHub.ts:25`), configuration `csrf.checkOrigin` (`config.ts:181`).
 
 ### `révocation` — la connexion qui survit à sa session
 
@@ -673,7 +671,7 @@ Le problème que ce mot nomme : une connexion ouverte pourrait survivre à la se
 autorisée, puisque le verrou de frame ne relit rien. Un contrôle périodique referme l'écart en
 re-validant les identités révocables et en fermant celles qui ne valent plus.
 
-`registerRevocable()` (`RealtimeHub.ts:433`), `revalidateRevocable()` (`RealtimeHub.ts:464`), période
+`registerRevocable()` (`RealtimeHub.ts:501`), `revalidateRevocable()` (`RealtimeHub.ts:464`), période
 `REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:68`). Une re-validation en erreur **ferme** — jamais
 l'inverse.
 
@@ -712,7 +710,7 @@ ressources ; sans borne, une seule connexion peut les épuiser. Au-delà, l'abon
 client en est informé.
 
 `limits.maxChannelsPerConnection` (`config.ts:105`), pose `setMaxChannelsPerConnection()`
-(`RealtimeHub.ts:631`).
+(`RealtimeHub.ts:669`).
 
 ## 📡 L'observabilité — ce que la socket dit d'elle-même
 
@@ -731,7 +729,7 @@ L'oscilloscope du module : « voici mon état, maintenant ». Canaux et abonnés
 livraisons, connexions, octets, back-pressure, carte d'identité du backplane. Lecture **pure**, sans
 allocation sur le chemin chaud.
 
-`RealtimeHub.probe()` (`RealtimeHub.ts:503`) rend un `IRealtimeProbe` (`IRealtimeProbe.ts:61`).
+`RealtimeHub.probe()` (`RealtimeHub.ts:142`) rend un `IRealtimeProbe` (`IRealtimeProbe.ts:61`).
 
 > [!WARNING]
 > `IRealtimeProbe` est la **forme des données**, pas une interface à implémenter avec une méthode
@@ -784,12 +782,12 @@ elle-même par le même chemin que les autres modules.
 | Symptôme                                                           | Cause — le mot pris pour un autre                                                                                     | Correction                                                                             |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | « Je suis abonné mais je ne reçois rien »                          | `subscribe` confondu avec `on` : le flux est demandé, aucun écouteur ne le lit                                        | Les deux : `subscribe(canal)` **et** `on(canal, handler)` (`IRealtimeSocket.ts:141`)   |
-| « Ça marche en local, plus rien dès qu'on passe à plusieurs pods » | canal resté **instance-local** — le défaut. Traverser le process est une capacité qu'on **demande**                   | Déclarer le préfixe dans `realtimeBroadcastChannels()` (`RealtimeController.ts:195`)   |
+| « Ça marche en local, plus rien dès qu'on passe à plusieurs pods » | canal resté **instance-local** — le défaut. Traverser le process est une capacité qu'on **demande**                   | Déclarer le préfixe dans `@RealtimeBroadcast` (`realtimeDecorators.ts:342`)            |
 | « Le client publie, le serveur ignore »                            | canal non déclaré **entrant**. Un client ne peut rien pousser tant qu'aucun handler n'existe                          | `@RealtimeInbound("mon:canal")` (`realtimeDecorators.ts:182`)                          |
 | Deux déploiements se mélangent sur un même serveur Redis           | pas de **cloison** — le numéro de base ne cloisonne pas le pub/sub                                                    | Poser `backplane.namespace` (`config.ts:59`)                                           |
 | Le fan-out disparaît entre conteneurs identiques                   | **origine** dérivée du seul identifiant de processus : deux conteneurs sont tous deux le n° 1, l'anti-écho avale tout | `resolveBackplaneOriginId()` (`originId.ts:24`) dérive du pod ou de l'hôte             |
 | Deux tickers pour le même tableau de bord                          | **cadence** différente = **canal** différent, jamais réconcilié                                                       | Fabriquer le nom via `rateChannel()` (`channelRate.ts:44`) des deux côtés              |
-| Un canal se croit protégé mais laisse tout passer                  | **politique** déclarée sans **verrou de frame** posé pour la faire respecter                                          | Le hub le détecte et avertit : `hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:696`) |
+| Un canal se croit protégé mais laisse tout passer                  | **politique** déclarée sans **verrou de frame** posé pour la faire respecter                                          | Le hub le détecte et avertit : `hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:734`) |
 | Une connexion garde ses flux après une déconnexion applicative     | le **verrou de frame** ne relit rien : par construction, il ne voit pas la session mourir                             | Inscrire l'identité au registre de **révocation** (`RealtimeHub.ts:433`)               |
 | « Le provider a planté après la fermeture d'un onglet »            | **provider** confondu avec **sink** : le provider est partagé, il survit à la connexion créatrice                     | N'y capturer que des dépendances à longue vie (`ChannelFactory`, `RealtimeHub.ts:93`)  |
 | « Notre store realtime est indisponible »                          | **store** employé pour **driver** : le backplane ne conserve rien, il fait passer                                     | Dire « le driver de backplane » — les données ont des stores, les flux ont des drivers |

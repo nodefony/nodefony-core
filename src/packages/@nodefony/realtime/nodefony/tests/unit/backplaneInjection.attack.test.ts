@@ -5,7 +5,10 @@ import {
   REDIS_RT_CHANNEL,
   type IRedisBackplaneTransport,
 } from "../../src/backplane/RedisBackplane.js";
-import { sealBackplaneEnvelope } from "../../src/backplane/envelope.js";
+import {
+  openBackplaneEnvelope,
+  sealBackplaneEnvelope,
+} from "../../src/backplane/envelope.js";
 import type {
   BackplaneHandler,
   IBackplane,
@@ -306,6 +309,55 @@ describe("0.6 F83 (b) — Redis : enveloppe scellée (transport partagé)", () =
     bp.publish("chat:room1", { msg: "mine" }); // Redis renvoie à l'émetteur
 
     expect(received).to.deep.equal([]);
+  });
+
+  it("PERF : la charge n'est sérialisée QU'UNE fois par publication scellée", () => {
+    // Le sceau et l'enveloppe partagent le même fragment JSON. Une seconde
+    // sérialisation se paierait à CHAQUE message d'un canal de fan-out — d'où
+    // ce garde-fou structurel (compteur d'appels), pas un chronomètre.
+    let serializations = 0;
+    const payload = {
+      toJSON(): unknown {
+        serializations += 1;
+        return { msg: "hi" };
+      },
+    };
+
+    const raw = sealBackplaneEnvelope(
+      { channel: "chat:room1", payload, originId: "pod-1" },
+      SECRET,
+    );
+
+    expect(serializations).to.equal(1);
+    // …et l'enveloppe produite reste un JSON valide, scellé, ouvrable.
+    expect(openBackplaneEnvelope(raw, SECRET)).to.deep.equal({
+      channel: "chat:room1",
+      payload: { msg: "hi" },
+      originId: "pod-1",
+    });
+  });
+
+  it("une charge `undefined` est transportée comme `null` (JSON n'a pas d'undefined)", () => {
+    const raw = sealBackplaneEnvelope(
+      { channel: "chat:room1", payload: undefined, originId: "pod-1" },
+      SECRET,
+    );
+    expect(openBackplaneEnvelope(raw, SECRET)).to.deep.equal({
+      channel: "chat:room1",
+      payload: null,
+      originId: "pod-1",
+    });
+  });
+
+  it("caractères hostiles dans le canal : le sceau tient (fragments échappés)", () => {
+    // Le séparateur du sceau est `\n` : un canal qui en contient ne doit pas
+    // permettre de décaler les frontières et de faire passer un autre triplet.
+    const channel = 'chat:"\n:evil';
+    const raw = sealBackplaneEnvelope(
+      { channel, payload: { a: 1 }, originId: "pod-1" },
+      SECRET,
+    );
+    expect(openBackplaneEnvelope(raw, SECRET)?.channel).to.equal(channel);
   });
 
   it("SANS secret : le transport reste ouvert (compat) — l'alerte de boot est ailleurs", async () => {
