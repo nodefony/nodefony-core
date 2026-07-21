@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-20T23:52:47.906Z",
+  "generated": "2026-07-21T00:07:43.020Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -20573,7 +20573,8 @@
         "src/modules/test/nodefony/controller/DiController.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionRealtimeAuthenticator.ts"
       ],
       "inspect": [
         "src/nodefony/src/Error.ts",

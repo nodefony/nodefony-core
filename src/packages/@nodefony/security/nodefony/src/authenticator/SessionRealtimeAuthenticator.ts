@@ -1,4 +1,4 @@
-import { RequestContext } from "nodefony";
+import { Nodefony, RequestContext } from "nodefony";
 import { anonymousUser } from "@nodefony/user";
 import type { IUser } from "@nodefony/user";
 import { AuthenticationError } from "../../errors/AuthenticationError";
@@ -81,13 +81,12 @@ interface SessionLike {
 /**
  * Construit la closure de re-validation du token realtime : re-lit la session BFF
  * (par son id, capturé au handshake) et vérifie qu'elle est TOUJOURS vivante et
- * TOUJOURS celle de `identifier`. `null` si la session n'est pas accessible
- * (best-effort — pas de faux refus). Fail-closed : une lecture qui throw (store
- * down, session détruite) → invalide.
+ * TOUJOURS celle de `identifier`. Renvoie TOUJOURS un revalidateur (jamais `null`) :
+ * une identité authentifiée par session DOIT rester révocable. Une lecture qui throw
+ * (store down, session détruite) → invalide ; une session non re-lisible au handshake
+ * → invalide aussi (fail-closed, cf F84 ci-dessous).
  */
-function buildSessionRevalidator(
-  identifier: string,
-): (() => Promise<boolean>) | null {
+function buildSessionRevalidator(identifier: string): () => Promise<boolean> {
   const ctx = RequestContext.getContext<
     { session?: SessionLike } | undefined
   >();
@@ -99,7 +98,20 @@ function buildSessionRevalidator(
     !storage ||
     typeof storage.read !== "function"
   ) {
-    return null;
+    // F84 — une identité authentifiée par session DOIT rester révocable. Si la
+    // session n'est pas re-lisible au handshake (absente, sans id, ou sans store
+    // exploitable), on ne peut PAS prouver qu'elle est toujours vivante → Zero Trust
+    // FAIL-CLOSED : le revalidateur invalide la socket → révoquée au 1ᵉʳ tick du hub
+    // (close 4001), au lieu de survivre silencieusement. Avant, `null` faisait
+    // renvoyer `true` à `isValid()` en permanence : la socket entrait au registre
+    // révocable mais n'en sortait jamais, sans aucune trace. FAIL-LOUD : on journalise
+    // l'anomalie (identité de session sans session revalidable = zone realtime hors du
+    // pipeline `startSession`, ou état incohérent).
+    Nodefony.getKernel()?.log?.(
+      `Realtime session token "${identifier}" has no revalidatable session at handshake — connection will be revoked (fail-closed). Ensure the realtime zone runs after startSession.`,
+      "WARNING",
+    );
+    return () => Promise.resolve(false);
   }
   return async (): Promise<boolean> => {
     try {

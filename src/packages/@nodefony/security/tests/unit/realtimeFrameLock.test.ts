@@ -792,9 +792,19 @@ describe("SessionRealtimeAuthenticator — re-validation Zero Trust du token (is
     assert.equal(await token.isValid!(), false);
   });
 
-  it("best-effort : valide si la session n'est pas accessible au handshake", async () => {
+  it("F84 — session non re-lisible au handshake → révoqué (fail-closed, plus de fail-open silencieux)", async () => {
+    // Avant : `buildSessionRevalidator` renvoyait `null` → `isValid()` toujours `true`
+    // → socket inscrite au tick de révocation mais JAMAIS fermée, sans aucune trace.
+    // Après : une identité de session non revalidable est fail-closed → `isValid()` false
+    // → le hub ferme la socket (4001) au 1er tick (révocation observable, plus silencieuse).
     const token = await tokenFor(undefined, undefined);
-    assert.equal(await token.isValid!(), true);
+    assert.equal(await token.isValid!(), false);
+  });
+
+  it("F84 — session présente mais store illisible (pas de read) → révoqué (fail-closed)", async () => {
+    // Distinct du store-qui-throw : ici on ne peut même pas TENTER la re-lecture.
+    const token = await tokenFor("sess-x", { notAStore: true });
+    assert.equal(await token.isValid!(), false);
   });
 
   it("fail-closed : une re-lecture du store qui throw → refus", async () => {
