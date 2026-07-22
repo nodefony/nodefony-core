@@ -1167,3 +1167,76 @@ describe("Kernel — edge cases", () => {
     assert.strictEqual(p1, p2, "OR idempotent sur le même bit");
   });
 });
+
+describe("Kernel — warnReservedConfigKeys (filet clé réservée au boot)", () => {
+  // Schéma minimal (forme z.toJSONSchema) : une feuille réservée nested.
+  const SCHEMA = {
+    type: "object",
+    properties: {
+      webhooks: {
+        type: "object",
+        properties: {
+          timestampToleranceS: {
+            type: "number",
+            default: 300,
+            reserved: true,
+            description:
+              "INERTE côté émetteur — la tolérance est au récepteur.",
+          },
+        },
+      },
+    },
+  };
+  const fakeModule = (options: unknown, schema: unknown = SCHEMA): Module =>
+    ({
+      name: "@nodefony/fake",
+      options,
+      configSchema: () => schema,
+    }) as unknown as Module;
+
+  const runWith = (mod: Module): Pdu[] => {
+    const k = new Kernel("development", null, { log: { active: true } });
+    k.initializeLog();
+    (k as unknown as { modules: Record<string, Module> }).modules = {
+      fake: mod,
+    };
+    const { received, restore } = interceptNormalizeLog();
+    (
+      k as unknown as { warnReservedConfigKeys: () => void }
+    ).warnReservedConfigKeys();
+    restore();
+    return received;
+  };
+
+  it("émet un WARNING nommant la clé réservée posée + sa remplaçante, msgid CONFIG", () => {
+    const got = runWith(fakeModule({ webhooks: { timestampToleranceS: 600 } }));
+    const warn = got.find(
+      (p) =>
+        p.severityName === "WARNING" &&
+        String(p.payload).includes("timestampToleranceS"),
+    );
+    assert.ok(warn, "un WARNING doit signaler la clé réservée déviée");
+    assert.strictEqual(warn!.msgid, "CONFIG");
+    assert.match(String(warn!.payload), /RÉSERVÉE/);
+    assert.match(String(warn!.payload), /INERTE côté émetteur/); // description incluse
+    assert.match(
+      String(warn!.payload),
+      /@nodefony\/fake\.webhooks\.timestampToleranceS/,
+    );
+  });
+
+  it("silencieux quand la clé réservée est à son défaut", () => {
+    const got = runWith(fakeModule({ webhooks: { timestampToleranceS: 300 } }));
+    assert.ok(
+      !got.some((p) => String(p.payload).includes("timestampToleranceS")),
+      "un défaut inchangé ne doit rien émettre",
+    );
+  });
+
+  it("ignore un module non migré (configSchema null) — 0 warning", () => {
+    const got = runWith(
+      fakeModule({ webhooks: { timestampToleranceS: 600 } }, null),
+    );
+    assert.ok(!got.some((p) => p.msgid === "CONFIG"));
+  });
+});

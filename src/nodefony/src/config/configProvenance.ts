@@ -116,3 +116,72 @@ export function extractJsonSchemaDefaults(
   }
   return out;
 }
+
+/** Une clé `reserved` que l'app (ou l'env) a posée à une valeur non-défaut. */
+export interface ISetReservedKey {
+  /** Chemin pointé dans la config du module (ex. `webhooks.timestampToleranceS`). */
+  path: string;
+  /** `description` du champ (`.meta()`) — nomme la clé active de remplacement. */
+  description: string;
+}
+
+function walkReserved(
+  schemaProps: Record<string, unknown>,
+  resolved: Record<string, unknown> | undefined,
+  prefix: string,
+  out: ISetReservedKey[],
+): void {
+  for (const key of Object.keys(schemaProps)) {
+    const node = schemaProps[key];
+    if (!isPlainObject(node)) continue;
+    const path = prefix ? `${prefix}.${key}` : key;
+    const rv = resolved ? resolved[key] : undefined;
+    if (node.reserved === true) {
+      // Champ INERTE : « posé » = la valeur est PRÉSENTE dans la config résolue ET
+      // diffère du défaut du schéma (peu importe que ce soit l'app via `use()` ou un
+      // `NF__…` env — les deux sont futiles sur une clé réservée). Un défaut inchangé
+      // = rien à signaler. La garde `!== undefined` évite un faux positif si la config
+      // résolue est partielle (absente ≠ défaut sinon) : en usage réel `mod.options`
+      // est complet (post-Zod, défauts appliqués), mais on reste robuste au desync.
+      if (rv !== undefined && !valueEquals(rv, node.default)) {
+        out.push({
+          path,
+          description:
+            typeof node.description === "string" ? node.description : "",
+        });
+      }
+    } else if (isPlainObject(node.properties)) {
+      walkReserved(
+        node.properties as Record<string, unknown>,
+        isPlainObject(rv) ? rv : undefined,
+        path,
+        out,
+      );
+    }
+  }
+}
+
+/**
+ * Trouve les clés `reserved` du JSON Schema d'un module que la config résolue a
+ * fait DÉVIER de leur défaut — i.e. qu'une application a posées en croyant régler un
+ * comportement, alors qu'elles sont inertes (le levier vit ailleurs). Le pendant, au
+ * BOOT, du drapeau `reserved` que Studio se contente de griser : sans ce filet, une
+ * clé réservée écrite reste un silence (contrairement à une clé inconnue, qui est
+ * déjà signalée — {@link computeConfigProvenance} côté env). Chaque entrée porte la
+ * `description` du champ, qui nomme la clé active de remplacement.
+ *
+ * @param jsonSchema - JSON Schema du module (`Module.configSchema()`), ou `null`.
+ * @param resolved - config effective du module (`module.options` post-validation).
+ * @returns les clés réservées posées à une valeur non-défaut (vide si aucune).
+ */
+export function findSetReservedKeys(
+  jsonSchema: unknown,
+  resolved: Record<string, unknown>,
+): ISetReservedKey[] {
+  const out: ISetReservedKey[] = [];
+  if (!isPlainObject(jsonSchema)) return out;
+  const props = jsonSchema.properties;
+  if (!isPlainObject(props)) return out;
+  walkReserved(props, resolved, "", out);
+  return out;
+}

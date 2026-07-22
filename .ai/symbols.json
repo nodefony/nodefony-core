@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-22T23:25:29.551Z",
+  "generated": "2026-07-22T23:42:16.199Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1038,
-    "symbols": 2832,
+    "symbols": 2835,
     "classes": 329,
-    "interfaces": 740,
+    "interfaces": 741,
     "types": 328,
     "enums": 4,
-    "functions": 851,
+    "functions": 853,
     "constants": 580
   },
   "symbols": {
@@ -834,6 +834,15 @@
       "extends": null,
       "description": "Métadonnées Nodefony d'un champ de config Zod, au-delà de la `description`. Portées par le `.meta()` NATIF de zod 4 (global registry) — recopiées telles quelles par `z.toJSONSchema()`, donc lisible…"
     },
+    "ISetReservedKey": {
+      "name": "ISetReservedKey",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/configProvenance.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une clé `reserved` que l'app (ou l'env) a posée à une valeur non-défaut."
+    },
     "ConfigOrigin": {
       "name": "ConfigOrigin",
       "kind": "type",
@@ -857,6 +866,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Reconstruit l'objet des défauts d'un module depuis son JSON Schema (`z.toJSONSchema`, retourné par `Module.configSchema()`) — utile quand le schéma Zod n'est pas accessible (côté data plane admin).…"
+    },
+    "findSetReservedKeys": {
+      "name": "findSetReservedKeys",
+      "kind": "function",
+      "file": "src/nodefony/src/config/configProvenance.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Trouve les clés `reserved` du JSON Schema d'un module que la config résolue a fait DÉVIER de leur défaut — i.e. qu'une application a posées en croyant régler un comportement, alors qu'elles sont in…"
     },
     "defaultAppConfig": {
       "name": "defaultAppConfig",
@@ -22578,6 +22595,9 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/types/IKernel.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "findSetReservedKeys": [
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "nodefonyError": [
         "src/nodefony/src/kernel/Kernel.ts",

@@ -64,6 +64,7 @@ import {
 import type { ConfigContext } from "../config/types";
 import { resolveInfra, AUTO_STORE } from "../config/infra";
 import type { IInfra, IStoreResolution } from "../config/infra";
+import { findSetReservedKeys } from "../config/configProvenance";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
@@ -731,6 +732,10 @@ class Kernel extends Service implements IKernel {
     return this.fireLifecycle("onRegister", this)
       .then(() => {
         this.registered = true;
+        // Config validée + gelée pour tous les modules → filet « clé réservée » :
+        // avertir si l'app a posé une clé INERTE (le pendant, au boot, du drapeau
+        // `reserved` que Studio grise). Après onRegister (options post-Zod), 0 hot path.
+        this.warnReservedConfigKeys();
         if (this.setCommandComplete(Events.onRegister)) {
           return this.finishOrPark(0);
         }
@@ -1288,6 +1293,39 @@ class Kernel extends Service implements IKernel {
           `Override env ignoré : chemin "${ov.path.join(".")}" inconnu sur ${mod.name} (${ov.envKey})` +
             resolveFailureHint(mod.options as Record<string, unknown>, ov.path),
           "WARNING",
+        );
+      }
+    }
+  }
+
+  /**
+   * Filet « clé réservée » : avertit au BOOT quand une application a posé une clé de
+   * config marquée `reserved` (inerte — son levier vit ailleurs) à une valeur
+   * non-défaut. C'est le pendant runtime du drapeau que Studio se contente de griser :
+   * sans lui, une clé réservée écrite reste un silence total (l'app croit régler un
+   * comportement, rien ne se produit, rien ne le dit). Symétrique du signalement des
+   * chemins env inconnus ({@link applyEnvConfigOverrides}).
+   *
+   * Générique — 0 `if` par module : le JSON Schema (`Module.configSchema()`, avec les
+   * flags `.meta()`) et la config résolue suffisent. Un module non migré (schéma
+   * `null`) est ignoré. Appelé 1× après `onRegister` (options validées) → hors hot
+   * path ; le message inclut la `description` du champ, qui nomme la remplaçante.
+   */
+  private warnReservedConfigKeys(): void {
+    for (const name in this.modules) {
+      const mod = this.modules[name];
+      const schema = mod.configSchema();
+      if (!schema) continue;
+      const hits = findSetReservedKeys(
+        schema,
+        mod.options as Record<string, unknown>,
+      );
+      for (const hit of hits) {
+        this.log(
+          `Clé de config RÉSERVÉE posée sans effet : ${mod.name}.${hit.path} ` +
+            `est inerte.${hit.description ? " " + hit.description : ""}`,
+          "WARNING",
+          "CONFIG",
         );
       }
     }
