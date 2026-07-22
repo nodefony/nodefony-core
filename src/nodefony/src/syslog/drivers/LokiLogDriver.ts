@@ -155,9 +155,16 @@ export function createLokiLogDriver(options: LokiLogDriverOptions): ILogDriver {
         const rec = coerceRecord(raw);
         if (rec) records.push(rec);
       }
-      // filterPdus attend l'ordre FIFO (ancien→récent) ; Loki renvoie récent d'abord
-      // (direction=backward) → on inverse avant de déléguer le filtrage/tri/pagination.
-      records.reverse();
+      // Loki renvoie les entrées groupées PAR STREAM (un stream par jeu de labels
+      // severity/module/pid) → la concaténation `extractLokiLines` n'est PAS triée
+      // globalement (chaque stream est chronologique, mais l'ordre inter-streams
+      // suit la réponse). `filterPdus` itère son entrée de la FIN vers le début, donc
+      // il attend un ordre ASCENDANT (ancien→récent) et émet récent-d'abord. On trie
+      // donc par timeStamp CROISSANT (tie-break uid) avant de déléguer. ⚠️ un simple
+      // `reverse()` (ce qu'il y avait) ne suffit pas : il n'ordonne correctement que
+      // pour un flux unique déjà trié — sur du multi-sévérité il sort dans le désordre
+      // (bug attrapé par l'E2E réel, invisible du mock mono-stream).
+      records.sort((a, b) => a.timeStamp - b.timeStamp || a.uid - b.uid);
       return filterPdus(records, criteria);
     },
     probe: async (): Promise<ILogDriverProbe> => {

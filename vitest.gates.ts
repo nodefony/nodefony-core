@@ -269,6 +269,34 @@ export const MONGO_GATE: EnvGate = {
   }),
 };
 
+/**
+ * Loki (destination de logs LB.4, driver `loki`). Le driver mocké prouve le
+ * format LogQL/push ; SEUL un vrai Loki prouve qu'il l'ACCEPTE (labels, fenêtre
+ * de rejet des timestamps, `query_range`). Serveur du compose = HTTP simple sans
+ * auth (dev). Une seule variable : l'URL de base (le driver ajoute les chemins).
+ */
+export const LOKI_GATE: EnvGate = {
+  label: "Loki (serveur réel)",
+  service: { name: "loki", profile: "loki" },
+  values: () => ({
+    NF_LOKI_TEST_URL: `http://127.0.0.1:${fromCompose("LOKI_PORT", "3100")}`,
+  }),
+};
+
+/**
+ * OpenSearch (destination de logs LB.4, driver `opensearch`). Idem Loki : le
+ * mock prouve le corps `_bulk`/`_search`, un vrai serveur prouve qu'il l'accepte
+ * ET que l'index/refresh se comportent comme attendu. Le compose désactive le
+ * plugin de sécurité en dev → HTTP simple sans TLS ni auth sur :9200.
+ */
+export const OPENSEARCH_GATE: EnvGate = {
+  label: "OpenSearch (serveur réel)",
+  service: { name: "opensearch", profile: "opensearch" },
+  values: () => ({
+    NF_OPENSEARCH_TEST_URL: `http://127.0.0.1:${fromCompose("OPENSEARCH_PORT", "9200")}`,
+  }),
+};
+
 /** Les variables manquantes (ou vides) d'une gate ; `[]` = gate satisfaite. */
 function missingVars(gate: EnvGate): string[] {
   return gateEnv(gate).filter((name) => {
