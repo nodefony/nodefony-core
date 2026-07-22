@@ -395,12 +395,25 @@ services:
 
 # Réseau unique de l'infra dev. Bridge nommé explicitement (`nodefony-net`) → résolution DNS
 # par nom de service entre conteneurs, isolation vis-à-vis du bridge `default` de Docker, et
-# nettoyage propre au `down`. Pas de sous-réseau IPAM figé volontairement : laisser Docker
-# allouer la plage évite les collisions avec d'autres projets Compose sur la même machine.
+# nettoyage propre au `down`.
+#
+# Sous-réseau IPAM ÉPINGLÉ (`172.28.0.0/16`) → plage REPRODUCTIBLE : l'adressage ne dépend plus
+# de l'ordre d'allocation Docker (qui part de 172.17 et remonte), donc stable d'un `up` à l'autre
+# et d'une machine à l'autre — nécessaire pour raisonner sur le réseau et poser des IP fixes si
+# besoin. `172.28` est choisi HAUT dans la plage privée Docker : l'auto-allocation commence bas,
+# elle n'y arrive qu'avec beaucoup de réseaux → collision improbable.
+# ⚠️ Compromis assumé : figer retire le garde-fou anti-collision. Si un AUTRE projet Compose a déjà
+# pris 172.28.0.0/16, le `up` échoue (« Pool overlaps »). Le cas échéant : changer ce seul bloc
+# (ex. 172.29/172.30) — jamais publier sur 0.0.0.0, les ports restent sur 127.0.0.1 (cf services).
+# macvlan / IP LAN réelle (192.168.x) = hors-sujet ici (host↔conteneur bloqué, WiFi KO, conflit DHCP).
 networks:
   nodefony:
     name: nodefony-net
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1
 
 volumes:
   redis-data:
