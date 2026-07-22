@@ -355,6 +355,35 @@ propres illustrations — un gate qui crie sur l'énoncé d'une règle apprend �
 jour où il a raison. Un exemple n'est ni cliquable ni promis au lecteur. Restent contrôlées : la prose
 **et** les fences déclaratives `nodefony-cards`, qui sont, elles, de la vraie navigation.
 
+## 8bis-adr. Régime ADR — `docs/adr/NNNN-titre.md`, la décision datée et IMMUABLE
+
+Un ADR n'explique pas un concept : il **trace une décision**, à une date, avec ce qu'on savait
+alors. Il est **immuable** (`docs/adr/README.md`) — remis en cause, on en écrit un nouveau qui le
+_supersede_. Lui appliquer le gabarit d'une page de brique serait contradictoire dans les termes :
+cela reviendrait à demander de **rouvrir un texte qu'on s'interdit de modifier** pour y coudre un
+Lexique, des Pièges, des ancres et une carte de tests. **5ᵉ régime**, reconnu au nom numéroté
+`NNNN-` ou au champ `adr:`.
+
+**Ce que le régime exige** :
+
+1. **Frontmatter ADR** : `adr`, `title`, `date`, `status`, `deciders`. Pas `updated` — un ADR est
+   daté une fois ; « mis à jour » n'a pas de sens pour lui. Il engage quelqu'un, d'où `deciders`.
+2. **Statut dans le cycle de vie fermé** : `proposed` · `accepted` · `rejected` · `deprecated` ·
+   `superseded`. Un statut inventé décrit une décision dont on ne sait pas si elle s'applique.
+3. **Les 4 sections canoniques** (format Nygard) : `Statut`, `Contexte`, `Décision`, `Conséquences`.
+   `Alternatives écartées` et `Liens`/`Références` sont recommandées, jamais imposées.
+4. **Liens internes vivants**.
+
+**Pas** d'intro en blockquote, de fil d'Ariane, de retour au hub, d'ancres ni de carte de tests :
+la mise en contexte d'un ADR **est** sa section `Contexte`, et on l'atteint par son numéro depuis le
+registre, pas par un parcours de lecture.
+
+> **Un ADR ne s'archive pas et ne se supprime pas.** C'est le point du format : il garde sa valeur
+> même quand sa décision tombe — il dit **pourquoi** on avait tranché ainsi, ce qu'aucun autre
+> document ne conserve. Ce qui bouge est son **statut** (`deprecated`, ou `superseded` avec le
+> pointeur vers le nouveau), jamais son existence. Supprimer un ADR périmé, c'est effacer la seule
+> trace du raisonnement au moment précis où quelqu'un pourrait vouloir le refaire.
+
 ## 8ter. Granularité — page dédiée OU section du parent ?
 
 Avant de créer un fichier, décider du **niveau** de la chose à documenter.
@@ -432,6 +461,8 @@ Le linter (`tmp/doc-corpus/_tools/doc-lint.mjs`) échoue si, pour une page :
   - **Pièges** + Pour aller plus loin ; hub (`index.md`, §8bis-index) = point de départ + catalogue +
     Pour aller plus loin ; **glossaire** (`lexique.md`, §8bis-lexique) = Lexique + Pour aller plus loin ;
     **index de dossier** (`README.md`, §8bis-readme) = aucune (intro + liens vivants suffisent) ;
+    **ADR** (`NNNN-titre.md`, §8bis-adr) = Statut + Contexte + Décision + Conséquences, et un
+    `status` du cycle de vie fermé ;
 - pas d'intro en blockquote ;
 - **pas de section « Tests »** ET pas de `coverage/tests.<topic>.json` (le défaut historique) — sauf
   opt-out explicite `tests: none` dûment justifié (page purement conceptuelle) ;

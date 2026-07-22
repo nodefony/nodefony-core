@@ -63,6 +63,23 @@ const REQUIRED_LEXIQUE = [
     re: /^##\s+(?:\S+\s+)?Pour aller plus loin/im,
   },
 ];
+// Un ADR n'explique pas un concept : il TRACE UNE DÉCISION, à une date, avec ce qu'on
+// savait alors. Il est IMMUABLE (cf `docs/adr/README.md`) — s'il est remis en cause on en
+// écrit un nouveau qui le supersede. Lui réclamer Lexique/Pièges/Tests/ancres reviendrait
+// donc à demander de RÉÉCRIRE un texte qu'on s'interdit de toucher : le gabarit de page de
+// brique et l'immuabilité sont incompatibles par construction. 5ᵉ régime, avec ses propres
+// sections canoniques (format Nygard, déjà tenu par les 7 ADR du dépôt).
+const REQUIRED_ADR = [
+  { key: "statut", re: /^##\s+(?:\S+\s+)?Statut/im },
+  { key: "contexte", re: /^##\s+(?:\S+\s+)?Contexte/im },
+  { key: "décision", re: /^##\s+(?:\S+\s+)?D[eé]cision/im },
+  { key: "conséquences", re: /^##\s+(?:\S+\s+)?Cons[eé]quences/im },
+];
+// Le cycle de vie d'une décision. `superseded`/`deprecated` sont ce qui remplace la
+// SUPPRESSION : un ADR périmé garde sa valeur (il dit pourquoi on avait tranché ainsi),
+// seul son statut change. Un statut hors liste est une décision au cycle de vie inconnu.
+const ADR_STATUS = /^(proposed|accepted|rejected|deprecated|superseded)\b/i;
+
 // Section Tests : obligatoire SAUF opt-out explicite via frontmatter `tests: none`.
 const TESTS_HEADING = /^##\s+(?:\S+\s+)?Tests?\b/im;
 
@@ -127,14 +144,24 @@ for (const f of files) {
   // il a raison. 4ᵉ régime, donc : on ne garde que ce qu'un index doit tenir — dire à quoi
   // sert le dossier (intro), et POINTER JUSTE (liens vivants), son unique travail.
   const isIndexReadme = path.basename(f) === "README.md";
+  // Un ADR se reconnaît à son numéro d'ordre (`NNNN-titre.md`) ou au champ `adr:`.
+  const isAdr = /^\d{4}-/.test(path.basename(f)) || /^adr:\s*\d+/im.test(src);
 
   // 1) Frontmatter minimal (convention A). Un index de dossier ne porte pas les champs de
   // publication (`title`/`updated`/`source`) : il n'est ni rendu, ni versionné comme une page.
-  for (const k of isIndexReadme
-    ? ["module", "topic", "audience", "status"]
-    : ["title", "topic", "audience", "updated", "source", "status"]) {
+  // Un ADR porte les siens : il est daté une fois (`date`) et jamais « mis à jour »
+  // (`updated` serait un contresens), et il engage quelqu'un (`deciders`).
+  for (const k of isAdr
+    ? ["adr", "title", "date", "status", "deciders"]
+    : isIndexReadme
+      ? ["module", "topic", "audience", "status"]
+      : ["title", "topic", "audience", "updated", "source", "status"]) {
     if (!fm[k]) errs.push(`frontmatter manquant: ${k}`);
   }
+  if (isAdr && fm.status && !ADR_STATUS.test(fm.status))
+    errs.push(
+      `statut ADR inconnu: « ${fm.status} » (attendu: proposed|accepted|rejected|deprecated|superseded)`,
+    );
 
   // Deux régimes : HUB (oriente) vs page de BRIQUE (explique). Un hub est
   // généralement un `index.md`, mais une page d'orientation peut porter un autre
@@ -152,22 +179,33 @@ for (const f of files) {
   // 2) Sections obligatoires (un régime par nature de page).
   const required = isIndexReadme
     ? []
-    : isHub
-      ? REQUIRED_HUB
-      : isLexique
-        ? REQUIRED_LEXIQUE
-        : REQUIRED;
+    : isAdr
+      ? REQUIRED_ADR
+      : isHub
+        ? REQUIRED_HUB
+        : isLexique
+          ? REQUIRED_LEXIQUE
+          : REQUIRED;
   for (const r of required)
     if (!r.re.test(src)) errs.push(`section manquante: ${r.key}`);
 
-  // 3) Intro blockquote (schéma général/mise en contexte).
-  if (!/^>\s+/m.test(src)) errs.push("intro (blockquote >) manquante");
+  // 3) Intro blockquote (schéma général/mise en contexte). Un ADR en est dispensé : sa mise
+  // en contexte EST sa section « Contexte », déjà exigée, et l'exiger demanderait de rouvrir
+  // des textes immuables pour une raison cosmétique. Le contrôle ne mesurait d'ailleurs rien
+  // ici — il cherche un `>` N'IMPORTE OÙ dans le fichier, si bien que deux ADR le passaient
+  // grâce à une citation perdue dans leur corps, sans avoir la moindre intro.
+  if (!isAdr && !/^>\s+/m.test(src))
+    errs.push("intro (blockquote >) manquante");
 
   // 4) INVENTAIRE DES TESTS — le défaut historique. Obligatoire sauf opt-out.
   // Un hub renvoie aux compteurs de ses pages, il n'en porte pas lui-même. Un lexique
   // définit du vocabulaire, il ne teste aucun code : dispensé de tests ET d'ancres.
   const testsOptOut =
-    /^tests:\s*none/im.test(src) || isHub || isLexique || isIndexReadme;
+    /^tests:\s*none/im.test(src) ||
+    isHub ||
+    isLexique ||
+    isIndexReadme ||
+    isAdr;
   if (!testsOptOut) {
     if (!TESTS_HEADING.test(src))
       errs.push("section « Tests » manquante (ou `tests: none` si justifié)");
@@ -181,8 +219,10 @@ for (const f of files) {
   // retour au hub en pied. Un hub (`index.md`) porte l'Ariane mais ne se renvoie pas à
   // lui-même : il est la destination.
   // Un index de dossier n'est atteint par aucun parcours de lecture : on tombe dessus en
-  // ouvrant le répertoire. Il n'a donc ni amont à rappeler, ni retour à proposer.
-  if (!isRoot && !isIndexReadme && !/^📍\s+.*›/m.test(src))
+  // ouvrant le répertoire. Il n'a donc ni amont à rappeler, ni retour à proposer. Un ADR
+  // non plus : on l'atteint par son numéro depuis le registre, et lui coudre une Ariane
+  // demanderait de rouvrir un texte qu'on s'interdit de modifier.
+  if (!isRoot && !isIndexReadme && !isAdr && !/^📍\s+.*›/m.test(src))
     errs.push(
       "fil d'Ariane manquant (ligne `📍 [Documentation](…) › [Module](index.md) › **Page**`)",
     );
@@ -191,6 +231,7 @@ for (const f of files) {
   if (
     !isHub &&
     !isIndexReadme &&
+    !isAdr &&
     !/⬆️\s+\*\*Retour(\s+au\s+hub)?\*\*/m.test(src)
   )
     errs.push(
