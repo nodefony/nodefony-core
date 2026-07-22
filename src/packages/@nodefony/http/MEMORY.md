@@ -357,6 +357,7 @@ Extension de l'`AuditErrorEntry` :
 ## Body parsing — drain OBLIGATOIRE avant lecture
 
 - `@Body`/`@Query`(POST) lisent `request.queryPost`, rempli par les parsers (`ParserJson`/`ParserQs`/`ParserXml`).
+- **`body` = alias de `queryPost`**, UN seul sens dans tout le framework (celui d'`IAdminRequest` et de l'écosystème) : le CORPS, jamais la query string. 3 chemins, même valeur — `controller.body`, `request.body` (getter, `Request.ts:112`), `request.request.body` (posé sur la requête Node à `fireRequestEnd`). ⚠️ Ne PAS confondre avec `query`, qui FUSIONNE GET+POST (`Request.ts:385`). Banc : `decorators.test.ts` « body-alias ».
 - **Le corps DOIT être entièrement reçu avant de parser** : `Parser.parse()` (base) fait `await this.ended()` (attend `end`) PUIS `Buffer.concat(chunks)`. `initialize()` fait `await parser.parse()` AVANT de fire `onRequestEnd` → le controller lit un `queryPost` complet.
 - 🐛 **2 bugs corrigés** (révélés par `decorators-response.test.ts`/`body-content-types.test.ts`) :
   1. **`Request` ctor attachait `on("data")` (compteur `dataSize` MORT, jamais lu)** → flux en flowing mode dès la construction → les chunks s'écoulaient AVANT que le parser (attaché tard dans `parseRequest`) ne les voie → `queryPost` vide. **Listener + champ supprimés.**

@@ -43,7 +43,10 @@ class ChatController extends RealtimeController {
   /** Publication légitime depuis l'extérieur : `curl -X POST …/api/chat/say`. */
   @route("chat-say", { path: "/say", requirements: { methods: ["POST"] } })
   async say(): Promise<unknown> {
-    const body = (this.context.request?.body ?? {}) as { msg?: string };
+    // Le corps se lit par `this.body` (alias de `queryPost`) — PAS par
+    // `context.request.body`, qui n'existait pas et rendait `undefined` en
+    // silence : le banc publiait toujours "hello" sans que rien ne le dise.
+    const body = (this.body ?? {}) as { msg?: string };
     const payload = {
       msg: body.msg ?? "hello",
       from: process.env.NF_POD_NAME ?? String(process.pid),
@@ -56,11 +59,11 @@ class ChatController extends RealtimeController {
   /** Rafale de N publications (banc de charge cross-pod). */
   @route("chat-burst", { path: "/burst", requirements: { methods: ["GET"] } })
   async burst(): Promise<unknown> {
-    // La query vit sur la REQUÊTE (`request.query`), pas sur le contexte : un
-    // `context.query` inexistant retombe silencieusement sur la valeur par
+    // La query vit sur la REQUÊTE, exposée par le controller (`this.query`) :
+    // un `context.query` inexistant retombe silencieusement sur la valeur par
     // défaut — la rafale paraît lancée, elle ne publie que 100 messages.
-    const q = this.context.request?.query as
-      Record<string, unknown> | undefined;
+    // `this.queryGet` si l'on veut EXCLURE le corps ; ici GET seul, c'est égal.
+    const q = this.query as Record<string, unknown> | undefined;
     const n = Number(q?.n ?? 100);
     // Taille de charge (octets de remplissage). Un message de banc minuscule
     // (~50 o) ne ressemble à aucune charge applicative et masque tout ce qui

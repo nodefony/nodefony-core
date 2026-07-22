@@ -221,6 +221,22 @@ class Controller extends Service implements IController {
   }
 
   /**
+   * Le CORPS de la requête, parsé — nom universel de l'écosystème (Express,
+   * Fastify, NestJS), alias de {@link queryPost}.
+   *
+   * Ne pas confondre avec {@link query}, qui FUSIONNE la query string et le
+   * corps. Pour une action typée, préférer le décorateur `@Body()`.
+   *
+   * Getter (aucune allocation) : `queryPost` reste la source unique.
+   */
+  get body(): Record<string, unknown> {
+    return this.queryPost;
+  }
+  set body(value: Record<string, unknown>) {
+    this.queryPost = value;
+  }
+
+  /**
    * Session courante, ou `null`. Getter direct sur `context.session` (peuplé au
    * point d'activation unique du pipeline si la route déclare `@UseSession` /
    * `@Session`, ou si un cookie de session est repris — L1). Remplace l'ancien

@@ -130,6 +130,30 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
       expect((body as Record<string, unknown>).name).to.equal("nodefony");
     });
 
+    it("POST /body-alias — `body` livre le CORPS sur les 3 chemins, jamais la query string", async () => {
+      const payload = JSON.stringify({ msg: "hello" });
+      const { status, body } = await req(
+        "POST",
+        "/nodefony/test/decorators/body-alias?v=fromUrl",
+        payload,
+        { "Content-Type": "application/json" },
+      );
+      expect(status).to.equal(200);
+      const r = body as Record<string, Record<string, unknown> | null>;
+      // Les 3 alias rendent le corps parsé, à l'identique.
+      for (const source of [
+        "fromController",
+        "fromRequest",
+        "fromNodeRequest",
+      ]) {
+        expect(r[source], source).to.deep.equal({ msg: "hello" });
+      }
+      expect(r.queryPost).to.deep.equal({ msg: "hello" });
+      // Contrôle : `query` FUSIONNE l'URL — c'est ce qui le distingue de `body`.
+      expect(r.query).to.have.property("v", "fromUrl");
+      expect(r.fromController).to.not.have.property("v");
+    });
+
     it("POST /body-field sans le champ — null", async () => {
       const payload = JSON.stringify({ other: "foo" });
       const { status, body } = await req(

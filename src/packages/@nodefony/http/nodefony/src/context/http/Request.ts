@@ -108,6 +108,21 @@ class HttpRequest {
   queryGet: Record<string, unknown> = {};
   queryFile: UploadedFile[] = [];
   query: Record<string, unknown> = {};
+
+  /**
+   * Le CORPS de la requête, parsé — nom universel de l'écosystème (Express,
+   * Fastify, NestJS), alias de {@link queryPost}.
+   *
+   * Ne pas confondre avec {@link query}, qui FUSIONNE la query string et le
+   * corps : `body` ne rend jamais un paramètre d'URL. Le data plane admin
+   * expose déjà cette sémantique (`IAdminRequest.body`) ; ce getter la rend
+   * disponible partout.
+   *
+   * Getter (aucune allocation) : `queryPost` reste la source unique.
+   */
+  get body(): Record<string, unknown> {
+    return this.queryPost;
+  }
   queryStringOptions:
     | (QS.IParseOptions & {
         decoder?: undefined;
@@ -193,13 +208,16 @@ class HttpRequest {
   }
 
   /**
-   * Fin de corps — émission unique d'`onRequestEnd`. T4 : l'alias
-   * `request.body = query` est posé ICI (au moment du fire, `query` est le
-   * GET seul ou l'extend(GET, POST) final) — remplace le `once("onRequestEnd")`
-   * du ctor qui allouait 1 onceWrapper + 1 closure à CHAQUE requête.
+   * Fin de corps — émission unique d'`onRequestEnd`. L'alias `body` est posé
+   * ICI sur la requête Node brute (au moment du fire, le corps est parsé) —
+   * remplace le `once("onRequestEnd")` du ctor qui allouait 1 onceWrapper +
+   * 1 closure à CHAQUE requête.
+   *
+   * Il porte le CORPS (`queryPost`), pas la fusion `query` : un seul sens de
+   * `body` dans tout le framework, celui de l'écosystème et d'`IAdminRequest`.
    */
   private fireRequestEnd(): Promise<unknown> {
-    this.request.body = this.query;
+    this.request.body = this.queryPost;
     return this.context.fireAsync("onRequestEnd", this);
   }
 

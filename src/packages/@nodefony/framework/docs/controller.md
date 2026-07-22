@@ -319,6 +319,7 @@ sont des accesseurs qui dérivent du contexte **vivant**, selon le motif `champ 
 | `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts:178` |
 | `this.queryGet`  | Les paramètres de la query string                  | `Controller.ts:187` |
 | `this.queryPost` | Le corps parsé                                     | `Controller.ts:214` |
+| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts:229` |
 | `this.queryFile` | Les fichiers uploadés                              | `Controller.ts:205` |
 | `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts:229` |
 
@@ -338,11 +339,11 @@ n'est créée** — donc aucun coût de stockage.
 Deux corollaires :
 
 - Dans `initialize()`, `this.session` vaut `null` (l'activation vient plus tard — étape 6 du cycle).
-- `this.getSession()` (`Controller.ts:378`) ne « démarre » rien : il retourne la session existante,
+- `this.getSession()` (`Controller.ts:394`) ne « démarre » rien : il retourne la session existante,
   ou `undefined`.
 
-Les messages flash s'appuient dessus : `setFlashBag()`/`addFlash()` (`Controller.ts:404`) et
-`getFlashBag()` (`Controller.ts:396`) journalisent une **erreur** et retournent `null` si aucune
+Les messages flash s'appuient dessus : `setFlashBag()`/`addFlash()` (`Controller.ts:420`) et
+`getFlashBag()` (`Controller.ts:412`) journalisent une **erreur** et retournent `null` si aucune
 session n'est active — pas de crash, mais rien n'est mémorisé.
 
 ### Contrôleur `singleton` — quand `this` n'est plus à toi
@@ -407,13 +408,13 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 
 | Helper                                       | Pour…                                                    | Ancre               |
 | -------------------------------------------- | -------------------------------------------------------- | ------------------- |
-| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:363` |
+| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:379` |
 | `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts:273` |
 | `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts:308` |
 | `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts:290` |
 | `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:382` |
-| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:416` |
-| `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:266` |
+| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:432` |
+| `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:282` |
 
 `renderView()` mesure sa propre phase `render` et injecte automatiquement les aides frontend
 (`frontendTags`, `frontendDocument`, `asset`) dans les variables du template
@@ -436,7 +437,7 @@ Deux besoins distincts, deux helpers.
 
 `renderFileDownload(file, options?, headers?)` (`Controller.ts:473`) pose
 `Content-Disposition: attachment`, `Content-Length`, le type MIME du fichier, puis délègue au moteur
-de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:456`) ;
+de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:472`) ;
 la variante synchrone `getFile()` existe encore mais est marquée obsolète — elle appelle `lstatSync`
 et gèle le process le temps du stat.
 
@@ -568,7 +569,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | -------------------------------- | ------------------------ | -------------------------------------------------------------- |
 | Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:817`)                           |
 | Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:73`)                        |
-| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:627`)              |
+| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:643`)              |
 | Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:534`)                  |
 | Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:760`), vérifié par le banc `auto-json` |
 | Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:734`)                  |
@@ -597,7 +598,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | WS : l'état d'une frame « bave » sur la suivante              | L'instance est partagée par toute la connexion (`Resolver.ts:262`)                 | Réinitialiser l'état en tête d'action, ou le porter par message                                                                                   |
 | WS : l'action n'est jamais appelée                            | Route sans transport `WEBSOCKET` déclaré                                           | `requirements: { methods: ["WEBSOCKET"] }`                                                                                                        |
 | Contrôleur `singleton` : données d'un autre utilisateur       | Champ mutable per-requête sur une instance partagée                                | Retirer `@Scope("singleton")`, ou passer par les arguments décorés                                                                                |
-| Event loop figé sur une route de fichier                      | `getFile()` synchrone (`lstatSync`, `Controller.ts:428`)                           | Utiliser `getFileAsync()` (`Controller.ts:456`)                                                                                                   |
+| Event loop figé sur une route de fichier                      | `getFile()` synchrone (`lstatSync`, `Controller.ts:428`)                           | Utiliser `getFileAsync()` (`Controller.ts:472`)                                                                                                   |
 
 ## 🧪 Tests & couverture
 

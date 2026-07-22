@@ -60,6 +60,27 @@ class DecoratorController extends Controller {
     return this.renderJson({ name: name ?? null });
   }
 
+  // Alias `body` — nom universel de l'écosystème. Trois chemins doivent livrer
+  // LE MÊME corps parsé : le getter du controller, celui de la requête, et
+  // l'alias posé sur la requête Node brute. `query` est cité en contrôle : lui
+  // fusionne la query string, donc il porte `v` que les trois autres ignorent.
+  @Post("/body-alias")
+  postBodyAlias() {
+    const req = this.context?.request as {
+      body?: Record<string, unknown>;
+      queryPost?: Record<string, unknown>;
+      query?: Record<string, unknown>;
+      request?: { body?: unknown };
+    };
+    return this.renderJson({
+      fromController: this.body ?? null,
+      fromRequest: req?.body ?? null,
+      fromNodeRequest: (req?.request?.body as Record<string, unknown>) ?? null,
+      queryPost: req?.queryPost ?? null,
+      query: req?.query ?? null,
+    });
+  }
+
   // P2.9 — `@Body({ stream:true })` : le pipeline saute le parse busboy/JSON et
   // injecte le flux brut (Readable). On le consomme en comptant les octets, et on
   // prouve que le body n'a PAS été parsé (`queryPost` vide).
@@ -78,8 +99,7 @@ class DecoratorController extends Controller {
       });
     }
     const req = this.context?.request as
-      | { queryPost?: Record<string, unknown> }
-      | undefined;
+      { queryPost?: Record<string, unknown> } | undefined;
     const parsedKeys = Object.keys(req?.queryPost ?? {}).length;
     return this.renderJson({ isReadable, bytes, parsedKeys });
   }
