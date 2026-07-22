@@ -26,6 +26,7 @@
     "build:all": "npm run build && npm run build:front",
     "clean": "turbo run clean && rimraf dist",
     "test": "turbo run build && turbo run test",
+    "test:all": "tsx scripts/test-all.ts",
     "test:integration": "turbo run build && turbo run test:integration",
     "test:load": "turbo run build && turbo run test:load",
     "test:memory": "turbo run build && turbo run test:memory",

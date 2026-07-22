@@ -70,10 +70,21 @@ Avant de commencer une nouvelle phase / tâche :
 
 1. **Lire `MIGRATION_STATUS.md`** — Roadmap priorisée P0→P14 + chemin critique. Vérifier dépendances de la tâche.
 2. **Lancer les tests pour voir l'état RÉEL** (pas faire confiance au journal seul) :
+
    ```bash
-   cd src/packages/@nodefony/http && npm run test:integration 2>&1 | grep -E "passing|failing"
+   npm run test:all              # TOUT : docker + build + unit + intégration, et le RAPPORT
+   npm run test:all -- --infra   # juste l'état de l'infra, sans rien lancer
+   npm run test:all -- --dialects  # + rejoue les suites ORM sur MySQL Community
    ```
+
+   `test:all` (`scripts/test-all.ts`) démarre les conteneurs manquants, pose les variables
+   d'infra à ta place (source unique : `vitest.gates.ts`), enchaîne les phases dans le bon
+   ordre — et surtout **dit ce qu'il n'a PAS testé**. Aucune variable à retenir, aucun
+   conteneur à lancer à la main. Repère : ~7 700 tests quand toute l'infra répond.
+
+   Pour une boucle courte sur un module : `cd src/packages/@nodefony/<m> && npx vitest run`.
    Le journal peut être périmé même de quelques jours.
+
 3. **Vérifier les pièges connus** (mémoire IA `feedback_session_pitfalls.md`) :
    - Dist périmé après pull/merge → `npm run clean && npm run build`
    - `npx nodefony development &` meurt SIGHUP → utiliser le skill `nodefony-start-server`

@@ -48,6 +48,29 @@ class RoomEntity {}
 void UserEntity;
 void RoomEntity;
 
+/**
+ * Vide les documents de toutes les collections, **sans toucher aux index**.
+ *
+ * La base servie par docker PERSISTE d'un run à l'autre, contrairement au `mongod`
+ * éphémère d'origine : sans ardoise propre, ces bancs ne sont jouables qu'une
+ * fois (identifiants uniques → E11000 au second passage). Nettoyer en fin de banc
+ * ne suffirait pas — un run interrompu laisse le terrain sale pour le suivant.
+ *
+ * ⚠️ `dropDatabase()` serait le réflexe, et c'est un piège : mongoose crée ses
+ * index au `connect()`, or supprimer la base les emporte **sans les recréer**.
+ * Les contraintes d'unicité disparaissent alors en silence, et un banc de
+ * concurrence se met à compter des doublons qu'il aurait dû voir refusés.
+ */
+async function purgeDocuments(orm: MongooseOrm): Promise<void> {
+  const connection = orm.getNativeConnection<{
+    db?: {
+      collections(): Promise<{ deleteMany(f: object): Promise<unknown> }[]>;
+    };
+  }>();
+  const collections = (await connection.db?.collections()) ?? [];
+  await Promise.all(collections.map((c) => c.deleteMany({})));
+}
+
 describe.skipIf(!URI)(
   "orm-core ↔ Mongoose adapter (P5.4, store hétérogène)",
   () => {
@@ -60,6 +83,7 @@ describe.skipIf(!URI)(
       await orm.connect();
       users = orm.getRepository<User>("User");
       rooms = orm.getRepository<Room>("Room");
+      await purgeDocuments(orm);
     });
 
     afterAll(async () => {

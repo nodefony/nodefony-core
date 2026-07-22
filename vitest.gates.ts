@@ -35,19 +35,59 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Une cible d'infra dont l'exécution dépend de variables d'environnement. */
+/**
+ * Une cible d'infra dont l'exécution dépend de variables d'environnement.
+ *
+ * **Une seule source par cible** : `values()` produit les variables ET leurs
+ * valeurs (lues dans le compose). Le nom des variables (`env`) et le mode d'emploi
+ * (`how`) en DÉRIVENT — les écrire séparément recréerait la liste dupliquée que ce
+ * fichier existe précisément pour supprimer, et un mode d'emploi faux est pire
+ * qu'absent.
+ */
 export interface EnvGate {
   /** Nom lisible de la cible (ex. `"PostgreSQL"`). */
   label: string;
-  /** Variables requises — **toutes** doivent être présentes et non vides. */
-  env: readonly string[];
   /**
-   * Comment l'activer : lignes de commande copiables telles quelles.
-   *
-   * **Fonction, pas tableau** : les identifiants sont LUS dans le compose au
-   * moment de l'affichage. Rien n'est donc lu tant que la suite se passe bien.
+   * Service docker qui fournit cette cible, et son profil compose éventuel.
+   * Absent = cible sans conteneur dédié.
    */
-  how: () => readonly string[];
+  service?: { name: string; profile?: string };
+  /**
+   * Variables à poser pour exercer la cible, avec leurs valeurs de dev.
+   *
+   * **Fonction, pas objet** : les identifiants sont LUS dans le compose au moment
+   * de l'appel. Rien n'est donc lu tant qu'on n'en a pas besoin.
+   */
+  values: () => Record<string, string>;
+  /** Note libre affichée sous le mode d'emploi (variante, piège connu). */
+  note?: string;
+}
+
+/** Les variables requises par une gate — dérivées de {@link EnvGate.values}. */
+export function gateEnv(gate: EnvGate): string[] {
+  return Object.keys(gate.values());
+}
+
+/** Commande docker qui démarre la cible, ou `null` si elle n'a pas de service. */
+export function gateUpCommand(gate: EnvGate): string | null {
+  if (!gate.service) return null;
+  const profile = gate.service.profile
+    ? ` --profile ${gate.service.profile}`
+    : "";
+  return `${COMPOSE}${profile} up -d ${gate.service.name}`;
+}
+
+/** Mode d'emploi copiable — dérivé du service et des valeurs, jamais retapé. */
+export function gateHow(gate: EnvGate): string[] {
+  const lines: string[] = [];
+  const up = gateUpCommand(gate);
+  if (up) lines.push(up);
+  const assignments = Object.entries(gate.values()).map(
+    ([k, v]) => `${k}=${v}`,
+  );
+  lines.push(`${assignments.join(" ")} npm test`);
+  if (gate.note) lines.push(`# ${gate.note}`);
+  return lines;
 }
 
 const COMPOSE_FILE = "docker/docker-compose.yml";
@@ -104,17 +144,14 @@ function fromCompose(name: string, fallback: string): string {
 
 export const PG_GATE: EnvGate = {
   label: "PostgreSQL",
-  env: ["NF_PG_URL"],
-  how: () => {
-    const user = fromCompose("POSTGRES_USER", "nodefony");
-    const pass = fromCompose("POSTGRES_PASSWORD", "nodefony-dev");
-    const port = fromCompose("POSTGRES_PORT", "5432");
-    const db = fromCompose("POSTGRES_DB", "nodefony");
-    return [
-      `${COMPOSE} --profile postgres up -d postgres`,
-      `NF_PG_URL=postgres://${user}:${pass}@127.0.0.1:${port}/${db} npm test`,
-    ];
-  },
+  service: { name: "postgres", profile: "postgres" },
+  values: () => ({
+    NF_PG_URL:
+      `postgres://${fromCompose("POSTGRES_USER", "nodefony")}` +
+      `:${fromCompose("POSTGRES_PASSWORD", "nodefony-dev")}` +
+      `@127.0.0.1:${fromCompose("POSTGRES_PORT", "5432")}` +
+      `/${fromCompose("POSTGRES_DB", "nodefony")}`,
+  }),
 };
 
 /**
@@ -124,18 +161,40 @@ export const PG_GATE: EnvGate = {
  */
 export const MYSQL_GATE: EnvGate = {
   label: "MySQL / MariaDB",
-  env: ["NF_MYSQL_URL"],
-  how: () => {
-    const user = fromCompose("MARIADB_USER", "nodefony");
-    const pass = fromCompose("MARIADB_PASSWORD", "nodefony-dev");
-    const port = fromCompose("MARIADB_PORT", "3306");
-    const db = fromCompose("MARIADB_DATABASE", "nodefony");
-    const mysqlPort = fromCompose("MYSQL_PORT", "3307");
-    return [
-      `${COMPOSE} --profile mariadb up -d mariadb    # ou --profile mysql (port ${mysqlPort})`,
-      `NF_MYSQL_URL=mysql://${user}:${pass}@127.0.0.1:${port}/${db} npm test`,
-    ];
-  },
+  service: { name: "mariadb", profile: "mariadb" },
+  values: () => ({
+    NF_MYSQL_URL:
+      `mysql://${fromCompose("MARIADB_USER", "nodefony")}` +
+      `:${fromCompose("MARIADB_PASSWORD", "nodefony-dev")}` +
+      `@127.0.0.1:${fromCompose("MARIADB_PORT", "3306")}` +
+      `/${fromCompose("MARIADB_DATABASE", "nodefony")}`,
+  }),
+  note: `MySQL Community est un AUTRE serveur (profil "mysql", port ${fromCompose("MYSQL_PORT", "3307")}) — cf MYSQL_COMMUNITY_GATE`,
+};
+
+/**
+ * MySQL **Community** — la même variable que MariaDB, un serveur différent.
+ *
+ * MariaDB est un fork : même protocole, même driver, même dialecte drizzle. Mais
+ * « même dialecte » n'est pas « même serveur » — la collation par défaut, les
+ * bornes numériques et le comportement de `ON DUPLICATE KEY UPDATE` ont déjà
+ * divergé entre les deux. Exercer l'un ne dit rien de l'autre.
+ *
+ * Les deux partagent `NF_MYSQL_URL` : on ne peut pas les couvrir dans la même
+ * passe, il faut rejouer les suites ORM en pointant l'autre serveur. C'est ce que
+ * fait `npm run test:all -- --dialects`.
+ */
+export const MYSQL_COMMUNITY_GATE: EnvGate = {
+  label: "MySQL Community",
+  service: { name: "mysql", profile: "mysql" },
+  values: () => ({
+    NF_MYSQL_URL:
+      `mysql://${fromCompose("MYSQL_USER", "nodefony")}` +
+      `:${fromCompose("MYSQL_PASSWORD", "nodefony-dev")}` +
+      `@127.0.0.1:${fromCompose("MYSQL_PORT", "3307")}` +
+      `/${fromCompose("MYSQL_DATABASE", "nodefony")}`,
+  }),
+  note: "partage NF_MYSQL_URL avec MariaDB — se joue dans une passe séparée",
 };
 
 /**
@@ -146,15 +205,16 @@ export const MYSQL_GATE: EnvGate = {
  */
 export const REDIS_GATE: EnvGate = {
   label: "Redis (serveur réel)",
-  env: ["REDIS_URL", "REDIS_TEST_URL"],
-  how: () => {
+  service: { name: "redis" },
+  values: () => {
     const pass = fromCompose("REDIS_PASSWORD", "nodefony-dev");
     const port = fromCompose("REDIS_PORT", "6379");
-    return [
-      `${COMPOSE} up -d redis`,
-      `REDIS_URL=redis://:${pass}@127.0.0.1:${port} \\`,
-      `REDIS_TEST_URL=redis://:${pass}@127.0.0.1:${port}/15 npm test`,
-    ];
+    return {
+      REDIS_URL: `redis://:${pass}@127.0.0.1:${port}`,
+      // Index dédié : le banc comportemental purge sa base, il ne doit pas
+      // emporter celle des bancs de pagination.
+      REDIS_TEST_URL: `redis://:${pass}@127.0.0.1:${port}/15`,
+    };
   },
 };
 
@@ -171,20 +231,17 @@ export const REDIS_GATE: EnvGate = {
  */
 export const MONGO_GATE: EnvGate = {
   label: "MongoDB (replica set)",
-  env: ["MONGO_TEST_URI"],
-  how: () => {
-    const port = fromCompose("MONGO_PORT", "27017");
-    const rs = fromCompose("MONGO_REPLSET", "rs0");
-    return [
-      `${COMPOSE} --profile mongo up -d mongo`,
-      `MONGO_TEST_URI=mongodb://127.0.0.1:${port}/?replicaSet=${rs} npm test`,
-    ];
-  },
+  service: { name: "mongo", profile: "mongo" },
+  values: () => ({
+    MONGO_TEST_URI:
+      `mongodb://127.0.0.1:${fromCompose("MONGO_PORT", "27017")}` +
+      `/?replicaSet=${fromCompose("MONGO_REPLSET", "rs0")}`,
+  }),
 };
 
 /** Les variables manquantes (ou vides) d'une gate ; `[]` = gate satisfaite. */
 function missingVars(gate: EnvGate): string[] {
-  return gate.env.filter((name) => {
+  return gateEnv(gate).filter((name) => {
     const value = process.env[name];
     return value === undefined || value.trim() === "";
   });
@@ -228,7 +285,7 @@ export function gateReporter(gates: readonly EnvGate[]) {
         lines.push(
           `  \x1b[1m${gate.label}\x1b[0m — ${missingVars(gate).join(", ")} absente(s)`,
         );
-        for (const how of gate.how()) lines.push(`      ${how}`);
+        for (const how of gateHow(gate)) lines.push(`      ${how}`);
         lines.push("");
       }
       if (skipped > 0) {
