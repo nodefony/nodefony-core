@@ -16,6 +16,13 @@ const BEARER_SCHEME = /^bearer\s+(.+)$/i;
 // `invalid_token` → 401, posé par le firewall).
 const INVALID_TOKEN = "Invalid token";
 
+/**
+ * Marqueur interne posé par `authenticate()` et consommé par `onSuccess()` :
+ * l'horodatage à inscrire, quand la fenêtre de throttle est dépassée. Il ne
+ * traverse jamais le pipeline — l'attribut vit sur le token de la requête.
+ */
+const MARK_USED_AT = "apiKeyMarkUsedAt";
+
 /** Paramètres effectifs d'un {@link ApiKeyAuthenticator} (dérivés de la config). */
 export interface IApiKeyAuthenticatorRuntime {
   /** Marque des clés (`apiKeys.prefix`) — discrimine un PAT d'un JWT. */
@@ -123,14 +130,19 @@ export class ApiKeyAuthenticator implements IAuthenticator {
     const user = await this.#resolveUserOrReject(record.subjectId);
 
     // « Last used » throttlé : aucune écriture sur le hot path tant que la fenêtre
-    // n'est pas dépassée (slot ip/userAgent — le contexte n'est pas dans `authenticate`).
+    // n'est pas dépassée. La DÉCISION se prend ici (c'est ici qu'on tient le
+    // record), l'ÉCRITURE part dans `onSuccess`, seul endroit qui reçoit le
+    // contexte — donc l'IP et l'agent, sans quoi les colonnes d'audit du store
+    // restaient vides. Écrire ici forçait `markUsed(id, { at })`, qui remet ces
+    // deux colonnes à `null` : on n'oubliait pas seulement de les remplir, on
+    // effaçait ce qu'une autre voie aurait pu y mettre.
     const last = record.lastUsedAt;
     if (
       this.#throttleMs === 0 ||
       last === null ||
       now - last >= this.#throttleMs
     ) {
-      await store.markUsed(record.id, { at: now });
+      token.setAttribute(MARK_USED_AT, now);
     }
 
     const ut = token as UserToken;
@@ -141,9 +153,50 @@ export class ApiKeyAuthenticator implements IAuthenticator {
     return ut;
   }
 
-  /** Slot audit (P6.14). */
-  onSuccess(_context: ContextType, _token: IToken): Promise<void> {
-    return Promise.resolve();
+  /**
+   * Inscrit la trace d'usage de la clé — horodatage, IP et agent.
+   *
+   * C'est ici, et pas dans `authenticate()`, parce que c'est ici qu'on reçoit
+   * le contexte. La provenance se lit par les ACCESSEURS proxy-aware des
+   * contextes concrets (`getRemoteAddress()` dépouille `X-Forwarded-For` selon
+   * `trustProxy`), absents du type de base — duck-typing optionnel, même
+   * approche que `AuthFlow.#openSession()`.
+   *
+   * Rien n'est écrit si `authenticate()` n'a pas posé le marqueur : la fenêtre
+   * de throttle n'était pas dépassée, et le hot path reste sans écriture.
+   */
+  async onSuccess(context: ContextType, token: IToken): Promise<void> {
+    const at = token.getAttribute<number>(MARK_USED_AT);
+    if (at === undefined) {
+      return;
+    }
+    const id = token.getAttribute<string>("apiKeyId");
+    if (id === undefined) {
+      return;
+    }
+    const provenance = context as {
+      getRemoteAddress?: () => string | null | undefined;
+      getUserAgent?: () => string | undefined;
+    };
+    let ip: string | undefined;
+    let userAgent: string | undefined;
+    try {
+      ip = provenance.getRemoteAddress?.() ?? undefined;
+      userAgent = provenance.getUserAgent?.();
+    } catch {
+      /* best-effort : la traçabilité ne fait jamais échouer une authentification */
+    }
+    try {
+      await this.#resolveStore().markUsed(id, { at, ip, userAgent });
+    } catch (e) {
+      // Une trace d'audit perdue ne doit pas retirer un accès légitime — mais
+      // elle ne disparaît pas en silence (fail-soft ANNONCÉ). Le journal passe
+      // par le contexte, qui est un Service ; l'authenticator n'en est pas un.
+      context.log(
+        `apikey: trace d'usage non enregistrée (${id}) — ${String(e)}`,
+        "WARNING",
+      );
+    }
   }
 
   /** Slot audit (P6.14) — le 401 + challenge sont posés par le firewall. */

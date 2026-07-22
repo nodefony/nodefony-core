@@ -109,6 +109,19 @@ beforeEach(() => {
   );
 });
 
+/**
+ * Contexte porteur des ACCESSEURS de provenance, comme un `HttpContext` réel.
+ * Ils ne figurent pas sur le type de base : l'authenticator les lit en
+ * duck-typing, ce harnais reproduit donc la donnée telle qu'elle arrive.
+ */
+function provenanceCtx(ip?: string, ua?: string): ContextType {
+  return {
+    getRemoteAddress: () => ip,
+    getUserAgent: () => ua,
+    log: () => undefined,
+  } as unknown as ContextType;
+}
+
 /** Sème une clé PAT valide dans le store, renvoie son token clair. */
 async function seedKey(
   over: Partial<IAccessTokenRecord> = {},
@@ -150,13 +163,36 @@ describe("ApiKeyAuthenticator — clé valide", () => {
     assert.equal(t.getAttribute<string>("apiKeyId")?.startsWith("id-"), true);
   });
 
-  it("met à jour lastUsedAt (markUsed) au premier usage", async () => {
+  it("met à jour lastUsedAt AVEC ip/agent — l'écriture a lieu dans onSuccess", async () => {
     const token = await seedKey();
     const before = (await store.findBySubject("alice"))[0]!;
     assert.equal(before.lastUsedAt, null);
-    await auth.authenticate(new UserToken("apikey", token));
+    const t = await auth.authenticate(new UserToken("apikey", token));
+    // `authenticate` DÉCIDE, il n'écrit pas : il n'a pas le contexte, donc pas
+    // l'IP — écrire ici remettrait les colonnes d'audit à null.
+    assert.equal(marks, 0);
+    await auth.onSuccess(provenanceCtx("1.2.3.4", "curl/8"), t);
     const after = (await store.findBySubject("alice"))[0]!;
     assert.equal(typeof after.lastUsedAt, "number");
+    assert.equal(after.lastUsedIp, "1.2.3.4");
+    assert.equal(after.lastUsedUserAgent, "curl/8");
+    assert.equal(marks, 1);
+  });
+
+  it("onSuccess sans marqueur (throttle non dépassé) → aucune écriture", async () => {
+    const token = await seedKey({ lastUsedAt: Date.now() });
+    const t = await auth.authenticate(new UserToken("apikey", token));
+    await auth.onSuccess(provenanceCtx("1.2.3.4", "curl/8"), t);
+    assert.equal(marks, 0);
+  });
+
+  it("contexte sans accesseurs de provenance → trace posée quand même", async () => {
+    const token = await seedKey();
+    const t = await auth.authenticate(new UserToken("apikey", token));
+    await auth.onSuccess({} as unknown as ContextType, t);
+    const after = (await store.findBySubject("alice"))[0]!;
+    assert.equal(typeof after.lastUsedAt, "number");
+    assert.equal(after.lastUsedIp, null);
     assert.equal(marks, 1);
   });
 
@@ -172,7 +208,8 @@ describe("ApiKeyAuthenticator — clé valide", () => {
       { prefix: PREFIX, lastUsedThrottleS: 0 },
     );
     const token = await seedKey({ lastUsedAt: Date.now() });
-    await noThrottle.authenticate(new UserToken("apikey", token));
+    const t = await noThrottle.authenticate(new UserToken("apikey", token));
+    await noThrottle.onSuccess(provenanceCtx("9.9.9.9", "ci"), t);
     assert.equal(marks, 1);
   });
 });
