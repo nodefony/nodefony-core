@@ -118,7 +118,12 @@ import {
 // cluster = double-effet ; ≠ realtime fail-soft, car le risque diffère).
 registerIdempotencyStore("redis", (ctx) => {
   const redis = ctx.module.kernel?.container?.get("redis") as
-    { getClient(name: string): unknown } | undefined;
+    | {
+        getClient(name: string): unknown;
+        /** Cloison des clés par application — absente sur un module antérieur. */
+        keyPrefix?(base: string): string;
+      }
+    | undefined;
   if (!redis) {
     throw new Error(
       `the @nodefony/redis module is not loaded ` +
@@ -128,6 +133,17 @@ registerIdempotencyStore("redis", (ctx) => {
   return new RedisIdempotencyStore(
     () =>
       (redis.getClient("main") ?? null) as RedisIdempotencyClientLike | null,
+    undefined,
+    undefined,
+    // Cloison par application : deux applications sur un même Redis ne doivent
+    // pas partager l'espace des clés d'idempotence. Le risque y dépasse la
+    // lecture — une clé partagée fait rendre à l'une la réponse mémorisée de
+    // l'autre. `typeof` plutôt que `?.` : un module Redis antérieur n'a pas la
+    // méthode, et l'application ne doit pas tomber pour autant.
+    () =>
+      typeof redis.keyPrefix === "function"
+        ? redis.keyPrefix("nf:idem")
+        : "nf:idem",
   );
 });
 

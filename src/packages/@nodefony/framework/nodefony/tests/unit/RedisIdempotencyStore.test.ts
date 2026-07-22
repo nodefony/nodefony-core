@@ -272,3 +272,96 @@ runIdempotencyPaginationContract({
     }
   },
 });
+
+/**
+ * **Deux applications sur un même Redis ne partagent pas leurs clés
+ * d'idempotence.**
+ *
+ * L'enjeu dépasse ici la fuite de lecture. L'idempotence répond à la question
+ * « ai-je déjà traité cette demande ? » — et rend, le cas échéant, la réponse
+ * mémorisée. Deux applications partageant l'espace de clés, la demande de l'une
+ * pouvait être prise pour un rejeu par l'autre, qui lui rendait alors une réponse
+ * qu'elle n'avait jamais produite.
+ *
+ * Le risque était atténué — la clé est déjà scopée à l'identité de l'appelant en
+ * amont (`evaluateIdempotency` compose `[identity, clientKey]`) — mais pas
+ * refermé : deux applications ont volontiers un compte au même identifiant
+ * (`admin`), et une clé cliente peut être prévisible (un numéro de commande, une
+ * date). L'atténuation reposait sur une convention d'appelant, pas sur le
+ * stockage.
+ */
+describe("Cloison des clés d'idempotence par application", () => {
+  const now = () => 1_800_000_000_000;
+  const CLE = "admin:commande-42"; // identité + clé cliente, toutes deux plausibles
+
+  function storeFor(app: string | undefined, redis: FakeRedis) {
+    return new RedisIdempotencyStore(
+      () => redis,
+      undefined,
+      undefined,
+      () => (app ? `nf:${app}:idem` : "nf:idem"),
+    );
+  }
+
+  it("une application ne reçoit JAMAIS la réponse mémorisée d'une autre", async () => {
+    const redis = new FakeRedis(now); // un seul serveur, deux applications
+    const boutique = storeFor("boutique", redis);
+    const intranet = storeFor("intranet", redis);
+
+    // « boutique » traite la demande et mémorise sa réponse.
+    assert.equal((await boutique.begin(CLE, "fp-1")).state, "fresh");
+    await boutique.complete(CLE, {
+      status: 201,
+      headers: {},
+      body: "commande de boutique",
+    } as IdempotentResponse);
+
+    // « intranet » présente la MÊME clé : pour elle, c'est une demande neuve.
+    const chezIntranet = await intranet.begin(CLE, "fp-1");
+    assert.equal(
+      chezIntranet.state,
+      "fresh",
+      "la demande d'une autre application ne doit pas passer pour un rejeu",
+    );
+    assert.equal(
+      (chezIntranet as { response?: unknown }).response,
+      undefined,
+      "et surtout : aucune réponse d'autrui ne lui est rendue",
+    );
+  });
+
+  it("CONTRÔLE NÉGATIF — sans cloison, la réponse d'autrui EST rendue", async () => {
+    // Le tir qui valide l'instrument : sans cloison, le défaut se voit.
+    const redis = new FakeRedis(now);
+    const appA = storeFor(undefined, redis);
+    const appB = storeFor(undefined, redis);
+
+    assert.equal((await appA.begin(CLE, "fp-1")).state, "fresh");
+    await appA.complete(CLE, {
+      status: 201,
+      headers: {},
+      body: "réponse de A",
+    } as IdempotentResponse);
+
+    const chezB = await appB.begin(CLE, "fp-1");
+    assert.equal(
+      chezB.state,
+      "replayed",
+      "sans cloison, B voit bien la demande de A comme un rejeu",
+    );
+  });
+
+  it("l'inventaire d'administration est cloisonné lui aussi", async () => {
+    const redis = new FakeRedis(now);
+    const boutique = storeFor("boutique", redis);
+    const intranet = storeFor("intranet", redis);
+    await boutique.begin("k-boutique", "fp");
+    await intranet.begin("k-intranet", "fp");
+
+    const vue = await boutique.listPage({ limit: 50 });
+    assert.deepEqual(
+      vue.items.map((e) => e.key),
+      ["k-boutique"],
+    );
+  });
+});

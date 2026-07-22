@@ -8,7 +8,12 @@ import type {
 } from "nodefony";
 
 /** Préfixe namespacé des clés d'idempotence dans Redis. */
-const KEY_PREFIX = "nf:idem";
+/**
+ * Préfixe HISTORIQUE des clés d'idempotence. Utilisé tel quel par une application
+ * sans cloison ; sinon le service Redis y insère le nom de l'application (cf
+ * `RedisService.keyPrefix`).
+ */
+const KEY_BASE = "nf:idem";
 
 /**
  * Bail par défaut d'une entrée *in-flight* : 60 s (au-delà = exécution réputée
@@ -95,7 +100,7 @@ type Entry =
  * structurel, 0 dépendance directe → 0 cycle). Le contrat `IIdempotencyStore`
  * vit au CORE (`nodefony`), consommé en `import type`.
  *
- * **Modèle de clés** (préfixe `nf:idem`) : `nf:idem:<key>` = string JSON de
+ * **Modèle de clés** (préfixe `nf:idem`, cloisonné par application) : `<prefix>:<key>` = string JSON de
  * l'{@link Entry}. La `<key>` est DÉJÀ scopée à l'identité par l'appelant
  * (`evaluateIdempotency` compose `[identity, clientKey]`) → anti-IDOR garanti en
  * amont ; le store reste agnostique au scope.
@@ -114,6 +119,10 @@ type Entry =
  */
 export class RedisIdempotencyStore implements IIdempotencyStore {
   readonly #resolveClient: () => RedisIdempotencyClientLike | null;
+  /** Fournit le préfixe cloisonné par application (lazy : le service arrive au boot). */
+  readonly #resolvePrefix: () => string;
+  /** Préfixe mémoïsé — il est lu à chaque clé. */
+  #prefixCache: string | null = null;
   readonly #leaseMs: number;
   readonly #ttlMs: number;
   /** Compteur LOCAL best-effort d'entrées réservées par CE pod (cf {@link size}). */
@@ -129,8 +138,13 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
     resolveClient: () => RedisIdempotencyClientLike | null,
     leaseMs: number = DEFAULT_LEASE_MS,
     ttlMs: number = DEFAULT_TTL_MS,
+    // En DERNIER, et optionnel : paramètre arrivé après coup (cloison multi-app).
+    // L'insérer au milieu décalerait `leaseMs`/`ttlMs` chez tous les appelants
+    // sans qu'aucun type ne le signale — des nombres, puis une fonction.
+    resolvePrefix: () => string = () => KEY_BASE,
   ) {
     this.#resolveClient = resolveClient;
+    this.#resolvePrefix = resolvePrefix;
     this.#leaseMs = leaseMs;
     this.#ttlMs = ttlMs;
   }
@@ -176,11 +190,11 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
     // scope côté serveur, on ne rapatrie pas ce qu'on jetterait ensuite.
     const match =
       query.q !== undefined && query.q.length > 0
-        ? `${KEY_PREFIX}:${query.q}*`
-        : `${KEY_PREFIX}:*`;
+        ? `${this.#prefix()}:${query.q}*`
+        : `${this.#prefix()}:*`;
     const res = await client.scan(scanCursor, { MATCH: match, COUNT: limit });
     const next = String(res.cursor);
-    const prefixLen = KEY_PREFIX.length + 1;
+    const prefixLen = this.#prefix().length + 1;
     const items: IIdempotencyKeyEntry[] = [];
     // `consumed` compte les CLÉS parcourues (pas les items rendus) : c'est la
     // position de reprise, et le filtre d'état en écarte une partie.
@@ -217,8 +231,14 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
     return this.#resolveClient();
   }
 
+  /** Préfixe effectif des clés, cloisonné par application (mémoïsé). */
+  #prefix(): string {
+    if (this.#prefixCache === null) this.#prefixCache = this.#resolvePrefix();
+    return this.#prefixCache;
+  }
+
   #key(key: string): string {
-    return `${KEY_PREFIX}:${key}`;
+    return `${this.#prefix()}:${key}`;
   }
 
   /** Parse défensif d'une valeur de clé ; `null` si absente/corrompue. */
