@@ -695,12 +695,18 @@ registerBackplaneDriver(
 // puis, en configuration : backplane: { driver: "nats" }
 ```
 
-**2. Passer une instance** en second argument du constructeur de configuration, ou
+**2. Déclarer un service** nommé `realtimeBackplane` dans le conteneur d'injection —
+**la voie « instance » pour une application**. `RealtimeService.init()`
+(`RealtimeService.ts:98`) le résout et le branche **avant** le registre : une instance
+déjà fournie court-circuite la sélection par nom.
 
-**3. Déclarer un service** nommé `realtimeBackplane` dans le conteneur d'injection. Les
-deux sont lus par `RealtimeService.init()` (`RealtimeService.ts:77`), avec cet ordre de
-priorité, et **avant** le registre : une instance déjà branchée court-circuite la sélection
-par nom.
+**3. Passer une instance** en second argument de `defineRealtimeConfig()` — réservé au
+code qui **appelle le builder lui-même** (un `Module` sur mesure, une intégration
+programmatique). Une application qui configure via `use("@nodefony/realtime", …)` **ne
+l'atteint pas** : elle ne construit pas la config (le module appelle
+`defineRealtimeConfig(this.options)` sans second argument, `index.ts:216`), et une
+instance posée dans l'objet de config est retirée par la validation Zod (elle n'est pas
+au schéma). Pour une app, la voie « instance » est l'option 2 ci-dessus.
 
 Le registre s'introspecte : `listBackplaneDrivers()` (`backplaneRegistry.ts:68`) rend les
 noms disponibles — c'est ce que le message d'erreur affiche quand un driver déclaré est

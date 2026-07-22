@@ -26,8 +26,13 @@ export interface RawWsConnection {
  *   Later ») ; le client se reconnecte et resync. Protège la mémoire process
  *   (file non bornée × M clients = OOM, blocker #1 du multiplexing N canaux / 1 WS).
  *
- * Overridables PAR CONNEXION via le 2ᵉ arg du constructeur (câblage config realtime
- * `slowConsumer.*`). Défauts sûrs → la protection est active sans câblage.
+ * Overridables PAR CONNEXION via le 2ᵉ arg du constructeur (`{ dropBytes, closeBytes }`)
+ * — seam TESTÉ (WsConnectionTransport.test.ts) mais **non câblé à la config** aujourd'hui :
+ * le seul appelant de prod (`RealtimeController.ts:357`) construit SANS, donc en pratique
+ * ce sont toujours ces constantes. ⚠️ NE PAS confondre avec `slowConsumer.bytes` (config) :
+ * celle-ci ne règle QUE le seuil de COMPTAGE de la sonde (`RealtimeHub.#slowConsumerBytes`,
+ * cf `RealtimeHub.ts:305` « l'ACTION de back-pressure a ses propres seuils ici »), PAS
+ * l'action drop/close de ce transport.
  */
 export const BACKPRESSURE_DROP_BYTES = 1 << 20; // 1 MiB
 export const BACKPRESSURE_CLOSE_BYTES = 8 << 20; // 8 MiB
@@ -56,8 +61,8 @@ export class WsConnectionTransport
   private _messagesSent = 0;
   // Frames jetées par back-pressure (drop latest-wins + close slow-consumer).
   private _dropped = 0;
-  // Seuils résolus à la construction (overridables par la config realtime via le
-  // 2ᵉ arg ; défauts = constantes module, protection active sans câblage).
+  // Seuils résolus à la construction (2ᵉ arg = override par connexion, seam testé mais
+  // NON câblé à la config ; défauts = constantes module, protection active sans câblage).
   private readonly _dropBytes: number;
   private readonly _closeBytes: number;
 

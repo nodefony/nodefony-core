@@ -609,7 +609,7 @@ présente court-circuite la sélection par nom.
 > Le builder accepte aussi une instance en second argument (`defineRealtimeConfig(config, {
 backplane })`), et la documentation d'architecture présente cette voie. En pratique elle n'est pas
 > atteignable depuis `nodefony.config.ts` : le module appelle le builder avec la seule configuration
-> fusionnée (`src/packages/@nodefony/realtime/index.ts:184`), et le schéma Zod **retire** toute clé
+> fusionnée (`src/packages/@nodefony/realtime/index.ts:216`), et le schéma Zod **retire** toute clé
 > qu'il ne connaît pas — dont une instance de classe. Pour brancher un objet déjà construit, utilise
 > le service `realtimeBackplane`.
 
