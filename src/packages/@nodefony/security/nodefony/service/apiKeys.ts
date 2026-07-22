@@ -346,6 +346,8 @@ class ApiKeyService extends Service {
       createdAt: record.createdAt,
       expiresAt: record.expiresAt,
       lastUsedAt: record.lastUsedAt,
+      lastUsedIp: record.lastUsedIp,
+      lastUsedUserAgent: record.lastUsedUserAgent,
       revokedAt: record.revokedAt,
     };
   }

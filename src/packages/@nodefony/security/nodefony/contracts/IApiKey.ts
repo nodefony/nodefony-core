@@ -24,6 +24,14 @@ export interface IApiKeyView {
   expiresAt: number | null;
   /** Dernier usage (epoch ms) ou `null` (jamais utilisée). */
   lastUsedAt: number | null;
+  /**
+   * Adresse du dernier usage, ou `null`. C'est ce qui permet à un porteur de
+   * reconnaître une clé qui a servi ailleurs que là où il l'a déployée — donc de
+   * dater une fuite. Dépouillée de `X-Forwarded-For` selon `trustProxy`.
+   */
+  lastUsedIp: string | null;
+  /** Agent du dernier usage, ou `null` (même usage : reconnaître l'inattendu). */
+  lastUsedUserAgent: string | null;
   /** Révocation (epoch ms) ou `null` (active). */
   revokedAt: number | null;
 }

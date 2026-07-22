@@ -146,6 +146,39 @@ describe("API Keys (PAT) — P6.12 e2e", () => {
     expect(found).to.not.have.property("token");
   });
 
+  it("2bis. la trace d'usage est inscrite APRÈS un appel réel (date + agent)", async () => {
+    const cookie = await loginAs("admin", "secret");
+    const created = await createKey(cookie, { name: "traced" });
+
+    const before = (
+      (await get(KEYS, { cookie })).body as {
+        keys: Array<Record<string, unknown>>;
+      }
+    ).keys.find((k) => k.id === created.id);
+    expect(before?.lastUsedAt, "jamais utilisée → aucune trace").to.equal(null);
+
+    // Un appel authentifié PAR la clé : c'est le firewall qui déclenche
+    // `onSuccess`, seul endroit qui tient le contexte — donc la provenance.
+    const who = await get(WHOAMI, {
+      authorization: `Bearer ${created.token}`,
+      "user-agent": "nodefony-banc/1.0",
+    });
+    expect(who.status).to.equal(200);
+
+    const after = (
+      (await get(KEYS, { cookie })).body as {
+        keys: Array<Record<string, unknown>>;
+      }
+    ).keys.find((k) => k.id === created.id);
+    expect(after?.lastUsedAt, "l'usage est daté").to.be.a("number");
+    expect(after?.lastUsedUserAgent, "l'agent est retenu").to.equal(
+      "nodefony-banc/1.0",
+    );
+    // L'adresse dépend du transport (127.0.0.1 en loopback) : on vérifie
+    // qu'elle est RENSEIGNÉE, pas sa valeur — c'est le câblage qu'on prouve.
+    expect(after?.lastUsedIp, "l'adresse est retenue").to.be.a("string");
+  });
+
   it("3. révocation → la clé ne passe plus (401)", async () => {
     const cookie = await loginAs("admin", "secret");
     const created = await createKey(cookie, { name: "revoke-me" });
