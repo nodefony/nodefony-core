@@ -649,18 +649,33 @@ export abstract class RealtimeController<
       return;
     }
     // Sink de CETTE connexion : pousse la charge fan-outée par le hub sur son peer.
-    const sink: ChannelSink = (payload) => state.peer.notify(channel, payload);
+    // Quand le canal a plusieurs abonnés, le hub a déjà sérialisé la frame — une
+    // seule fois pour tous : on l'écrit telle quelle sur le transport, au lieu de
+    // refaire le même `JSON.stringify` par connexion. La frame vient de la source
+    // unique `JsonRpcPeer.buildNotification`, donc les deux voies sont identiques.
+    const sink: ChannelSink = (payload, serialized) => {
+      if (serialized !== undefined) state.transport.send(serialized);
+      else state.peer.notify(channel, payload);
+    };
     // Le hub PARTAGE le provider entre connexions (1 ticker/canal/pod) ; la factory
     // (appelée au 1ᵉʳ abonné) doit capturer des deps long-lived — cf createRealtimeChannel.
     //
     // Ordre de résolution : décorateur `@RealtimeChannel` (match EXACT, O(1)) d'abord,
     // sinon fallback sur l'override classique `createRealtimeChannel` (regex, suffixes,
     // drill cluster). Coexistence sans casse pour les controllers historiques.
-    const ok = getRealtimeHub().subscribe(channel, sink, (ch, publish) => {
-      const decFactory = this._decoratedChannels?.[ch];
-      if (decFactory) return decFactory(ch, publish);
-      return this.createRealtimeChannel(ch, publish);
-    });
+    const ok = getRealtimeHub().subscribe(
+      channel,
+      sink,
+      (ch, publish) => {
+        const decFactory = this._decoratedChannels?.[ch];
+        if (decFactory) return decFactory(ch, publish);
+        return this.createRealtimeChannel(ch, publish);
+      },
+      // Le hub ignore JSON-RPC : c'est l'abonné qui lui dit comment fabriquer la
+      // frame du canal. Appelé au plus une fois par publication, jamais par abonné.
+      (payload) =>
+        JSON.stringify(JsonRpcPeer.buildNotification(channel, payload)),
+    );
     if (ok) {
       state.channels.set(channel, sink);
       this.log(`WS subscribe → ${channel}`, "DEBUG");

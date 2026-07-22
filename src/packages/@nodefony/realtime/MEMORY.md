@@ -112,21 +112,35 @@ Alice/Bob ne savent PAS qu'ils sont sur des pods différents. Seul `IBackplane` 
 - **File d'envoi backplane BORNÉE** (`backplane/publishQueue.ts`, `BackplanePublishQueue`) : `publish` est fire-and-forget par contrat → le client réseau met en file ce qui n'est pas drainé, **sans limite** (583 MB observés sous rafale au banc, 152 MB au repos). Garde = seuil `backplane.maxQueueBytes` (défaut 8 MiB, `0` = illimité) : si `bytes >= seuil` la publication est **jetée** (on teste l'état de la file AVANT, pas la taille du message — sinon une charge > seuil ne partirait jamais : famine). Compteurs dans `describe().queue` (`bytes`/`maxBytes`/`droppedTotal`/`failedTotal`) → sonde + Studio. Transitions annoncées via `onNotice` (1 WARNING à la saturation, 1 INFO au retour avec le total perdu ; hystérésis à la moitié du seuil contre le flapping de logs). ⚠️ Le seam `IRedisBackplaneTransport.publish` RETOURNE désormais la promesse (`void | Promise<unknown>`) — c'est l'acquittement qui rend la place ; un transport **synchrone** (bus mémoire des tests, IPC) n'a pas de file → garde inerte, jamais de drop. Effet de bord fermé : le `void publisher.publish()` d'avant laissait remonter un `unhandledRejection` quand Redis coupait en plein envoi. Mutualisé pour tout driver cross-host userland (comme `envelope.ts`).
 - **🟠 DETTE #3 pas de frontière dure inter-module** : 1 hub singleton/process = namespace de canaux PLAT partagé par tous les modules. `RealtimeHub.subscribe` n'appelle la factory QUE si le canal n'existe pas encore → un `subscribe` sur un canal DÉJÀ créé par un autre module ajoute le sink **sans aucun contrôle** (cas-fuite « cas 2 »). Barrières actuelles = isolation/connexion + factory (création seulement) + sécu P6 (à brancher) + convention préfixe. Frontière dure (préfixe imposé par controller / voter par namespace dans `beforeDispatch`) = audit isolation inter-module + P6.
 
-## Perf — plan S1 : mutualiser le `JSON.stringify` du fan-out (FUTUR, déclencheur = grand fan-out)
+## Perf — fan-out mutualisé (une frame diffusée n'est sérialisée qu'une fois)
 
-> **Statut : REPORTÉ** (analysé + mesuré 2026-05-30). Le kit perf `project_request_cycle_perf_plan_kit` §3 l'annonçait « gratuit / 0 risque » — **FAUX**. À faire **le jour où un canal à grand fan-out existe** (chat/notif 100+ abonnés). Tant que les broadcasts sont santé/stats/syslog (basse cadence coalescée 200 ms + 1-10 abonnés Studio) → gain négligeable, **ne pas faire**.
+Sur un canal diffusé, la frame `{jsonrpc:"2.0", method:<canal>, params:<charge>}` est **identique
+pour tous les abonnés** : la sérialiser dans chaque sink refait N fois le même calcul. Le hub étant
+agnostique du protocole, c'est **l'abonné qui lui fournit le sérialiseur** ; le hub décide seulement
+quand l'appliquer.
 
-**Constat (chaîne réelle)** : `RealtimeHub.#fanout` (`server/RealtimeHub.ts:247`) appelle `sink(payload)` **N×** (1 par abonné). Chaque `sink = (payload) => peer.notify(channel, payload)` (`server/RealtimeController.ts:346`) → `peer.send` = `(frame) => transport.send(JSON.stringify(frame))` (`:209`). Pour un broadcast, la frame `{jsonrpc:"2.0", method:channel, params:payload}` est **IDENTIQUE** pour tous → le `JSON.stringify` est répété **N fois** pour un résultat unique. Le hub est **agnostique** (ne connaît pas le JSON-RPC) → la mutualisation doit lui fournir un sérialiseur.
+Mécanique :
 
-**Plan d'exécution (RÉTRO-COMPATIBLE — 0 casse)** :
+- `ChannelSink = (payload, serialized?) => void` — 2ᵉ argument **optionnel** : un sink historique à
+  un paramètre l'ignore, rien ne casse.
+- `ChannelSerializer` posé par `subscribe(channel, sink, factory, serialize?)`, mémorisé dans
+  `ChannelState.serialize` (le 1ᵉʳ abonné qui en fournit un ouvre la mutualisation pour les suivants).
+- `#fanout` : si `serialize !== null && sinks.size > 1` → **une** sérialisation, passée à tous.
+  Un seul abonné ⇒ rien à mutualiser ⇒ chemin d'avant, **0 surcoût**.
+- `JsonRpcPeer.buildNotification(method, params)` = **source unique** de la frame, utilisée par
+  `notify()` ET par le sérialiseur → les deux voies ne peuvent pas diverger (test d'égalité stricte).
+- `RealtimeController` : `sink = (p, raw) => raw !== undefined ? state.transport.send(raw) : peer.notify(channel, p)`.
 
-1. `ChannelSink = (payload: unknown, serialized?: string) => void` — 2ᵉ arg **optionnel** ; les sinks existants `(payload) => …` l'ignorent (canaux non-broadcast inchangés).
-2. `JsonRpcPeer` : extraire un helper **source unique** `buildNotification(method, params): JsonRpcNotification`, utilisé par `notify()` ET par le serialize (évite la divergence de format).
-3. Hub `subscribe(channel, sink, factory, serialize?)` : `serialize?: (payload) => string` optionnel, mémorisé dans `ChannelState.serialize`.
-4. `#fanout(st, payload)` : si `st.sinks.size > 1 && st.serialize` → `const raw = st.serialize(payload)` **1×**, puis `for (sink of sinks) sink(payload, raw)`. Sinon comportement actuel (`sink(payload)`).
-5. `RealtimeController` : `sink = (p, raw) => raw !== undefined ? transport.send(raw) : peer.notify(channel, p)` ; passer `serialize = (p) => JSON.stringify(JsonRpcPeer.buildNotification(channel, p))` à `subscribe`. ⚠️ `transport.send(raw)` doit reproduire EXACTEMENT `peer.send` (notification sans id → aucun tracking sauté).
+⚠️ **Charge non sérialisable** : `st.serialize(payload)` est protégé — en cas d'échec on repart sans
+frame mutualisée, chaque sink reprenant son propre filet (log + `-32603` au client concerné). Sans
+cette garde, un objet cyclique casserait le fan-out du canal ENTIER.
 
-**Gain** : N `JSON.stringify` → **1 par publish** (à fan-out N). **Gates** : vitest realtime + `nodefony-check-memory-health` (WS) + bench dédié **grand fan-out** (1 canal, 100+ sockets) — surtout PAS `/als-test/state` (HTTP, hors sujet). Cf `project_request_cycle_perf_plan_kit` §3 (S1) + `feedback_observability_no_prod_impact`.
+**Ce que ça vaut, et comment on le sait** : mesuré sur l'étage fan-out seul (200 abonnés, les deux
+chemins dans le même binaire), le coût de sérialisation tombe d'un facteur **26× (charge 50 o) à
+62× (2–8 Ko)**. Le banc multi-pods, lui, **ne peut pas trancher** : saturé, sa variance atteint ×3
+d'un tir à l'autre, bien au-delà de l'écart cherché — le budget d'une livraison WS y est dominé par
+l'écriture réseau. D'où la règle : pour un gain d'étage, mesurer l'étage
+(`tests/integration/fanoutSerialize.perf.test.ts`, opt-in `RUN_PERF=1`), pas le système saturé.
 
 ## API Studio (cible — surfacée dans `/nodefony/documentation`)
 

@@ -1,13 +1,13 @@
 {
-  "generated": "2026-07-22T07:29:06.081Z",
+  "generated": "2026-07-22T08:56:40.797Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1033,
-    "symbols": 2804,
+    "symbols": 2806,
     "classes": 328,
-    "interfaces": 735,
-    "types": 325,
+    "interfaces": 736,
+    "types": 326,
     "enums": 4,
     "functions": 838,
     "constants": 574
@@ -1887,6 +1887,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Résultat d'un appel sortant tracé : la valeur + la méta serveur."
+    },
+    "JsonRpcNotification": {
+      "name": "JsonRpcNotification",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Frame de notification sortante (JSON-RPC 2.0, sans `id` : aucune réponse attendue). Type nommé parce que cette frame **sort du peer** : le fan-out d'un canal diffusé la sérialise une fois pour tous…"
     },
     "JsonRpcPeerOptions": {
       "name": "JsonRpcPeerOptions",
@@ -17649,7 +17658,15 @@
       "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "Sink d'un canal : pousse une charge vers UNE connexion abonnée (son `peer.notify`). 1 sink = 1 connexion. Le hub fan-out la charge à tous les sinks d'un canal."
+      "description": "Sink d'un canal : pousse une charge vers UNE connexion abonnée (son `peer.notify`). 1 sink = 1 connexion. Le hub fan-out la charge à tous les sinks d'un canal. `serialized` n'est fourni que si le c…"
+    },
+    "ChannelSerializer": {
+      "name": "ChannelSerializer",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Sérialiseur de la frame d'un canal, fourni par l'abonné (le hub ignore tout du protocole). Appelé **au plus une fois par publication**, jamais par abonné."
     },
     "ChannelFactory": {
       "name": "ChannelFactory",

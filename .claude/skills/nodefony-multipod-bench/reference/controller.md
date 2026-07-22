@@ -62,6 +62,11 @@ class ChatController extends RealtimeController {
     const q = this.context.request?.query as
       Record<string, unknown> | undefined;
     const n = Number(q?.n ?? 100);
+    // Taille de charge (octets de remplissage). Un message de banc minuscule
+    // (~50 o) ne ressemble à aucune charge applicative et masque tout ce qui
+    // dépend de la TAILLE : sérialisation, compression, découpage réseau.
+    const size = Number(q?.size ?? 0);
+    const pad = size > 0 ? "x".repeat(size) : undefined;
     const hub = getRealtimeHub();
     const started = Date.now();
     for (let i = 0; i < n; i++) {
@@ -69,6 +74,7 @@ class ChatController extends RealtimeController {
         seq: i,
         ts: Date.now(),
         from: process.env.NF_POD_NAME,
+        pad,
       });
     }
     return { published: n, elapsedMs: Date.now() - started };

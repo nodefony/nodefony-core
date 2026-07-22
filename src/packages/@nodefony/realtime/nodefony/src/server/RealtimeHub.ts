@@ -83,8 +83,20 @@ export interface IRevocableConnection {
 /**
  * Sink d'un canal : pousse une charge vers UNE connexion abonnée (son `peer.notify`).
  * 1 sink = 1 connexion. Le hub fan-out la charge à tous les sinks d'un canal.
+ *
+ * `serialized` n'est fourni que si le canal a déclaré un {@link ChannelSerializer}
+ * ET qu'il a plusieurs abonnés : la frame ayant été sérialisée une fois pour tous,
+ * le sink peut l'envoyer telle quelle au lieu de refaire le travail. Absent, le
+ * sink se débrouille comme avant — un sink historique à un seul paramètre ignore
+ * simplement l'argument.
  */
-export type ChannelSink = (payload: unknown) => void;
+export type ChannelSink = (payload: unknown, serialized?: string) => void;
+
+/**
+ * Sérialiseur de la frame d'un canal, fourni par l'abonné (le hub ignore tout du
+ * protocole). Appelé **au plus une fois par publication**, jamais par abonné.
+ */
+export type ChannelSerializer = (payload: unknown) => string;
 
 /**
  * Fabrique le provider PARTAGÉ d'un canal (listener/ticker qui pousse via `publish`).
@@ -103,6 +115,11 @@ interface ChannelState {
   dispose: (() => void) | null;
   /** abonnés locaux (1 sink = 1 connexion). */
   sinks: Set<ChannelSink>;
+  /**
+   * Sérialiseur de frame du canal, posé par le 1ᵉʳ abonné qui en fournit un.
+   * `null` = canal sans mutualisation possible (sink historique) → chemin d'avant.
+   */
+  serialize: ChannelSerializer | null;
   /** publications cumulées sur ce canal (monotone) — sonde fan-out. */
   messages: number;
   /**
@@ -257,11 +274,17 @@ export class RealtimeHub {
     channel: string,
     sink: ChannelSink,
     factory: ChannelFactory,
+    serialize?: ChannelSerializer,
   ): boolean {
     const channels = (this.#channels ??= new Map<string, ChannelState>());
     let st = channels.get(channel);
     if (st) {
       st.sinks.add(sink);
+      // Canal déjà ouvert par un abonné sans sérialiseur : le premier qui en
+      // apporte un ouvre la mutualisation pour les suivants.
+      if (st.serialize === null && serialize !== undefined) {
+        st.serialize = serialize;
+      }
       return true;
     }
     // 1ᵉʳ abonné : on inscrit le sink AVANT de créer le provider (capte son 1ᵉʳ push).
@@ -269,6 +292,7 @@ export class RealtimeHub {
     st = {
       dispose: null,
       sinks: new Set([sink]),
+      serialize: serialize ?? null,
       messages: 0,
       forward: this.#isBroadcast(channel),
     };
@@ -352,9 +376,23 @@ export class RealtimeHub {
     this.#publishTotal += 1;
     st.messages += 1;
     this.#fanoutTotal += st.sinks.size;
+    // Diffusion à plusieurs : la frame est la MÊME pour tous → on la sérialise
+    // une fois ici plutôt que N fois dans les sinks. À un seul abonné il n'y a
+    // rien à mutualiser, et on ne paie donc rien de plus qu'avant.
+    let raw: string | undefined;
+    if (st.serialize !== null && st.sinks.size > 1) {
+      try {
+        raw = st.serialize(payload);
+      } catch {
+        // Charge non sérialisable : on ne casse pas le fan-out. Chaque sink
+        // reprend son chemin habituel, qui porte déjà son filet (log + réponse
+        // d'erreur au client concerné).
+        raw = undefined;
+      }
+    }
     for (const sink of st.sinks) {
       try {
-        sink(payload);
+        sink(payload, raw);
       } catch {
         /* une connexion fautive ne casse pas le fan-out aux autres */
       }

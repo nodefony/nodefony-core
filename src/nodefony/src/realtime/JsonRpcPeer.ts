@@ -134,6 +134,17 @@ export type JsonRpcFrameKind =
   "request" | "notification" | "response" | "invalid";
 
 /**
+ * Frame de notification sortante (JSON-RPC 2.0, sans `id` : aucune réponse
+ * attendue). Type nommé parce que cette frame **sort du peer** : le fan-out d'un
+ * canal diffusé la sérialise une fois pour tous ses abonnés.
+ */
+export interface JsonRpcNotification {
+  jsonrpc: "2.0";
+  method: string;
+  params?: unknown;
+}
+
+/**
  * Motif d'un évènement audit protocolaire (consommé par P6.14 `AuditEventEntity`) :
  *  - `invalid`           : frame non conforme JSON-RPC 2.0 (pas d'objet, `jsonrpc`≠"2.0", `method` non string sans `id` valide).
  *  - `denied`            : frame entrante refusée par `beforeDispatch` (Zero Trust realtime — voter P6 a dit non).
@@ -355,12 +366,30 @@ export class JsonRpcPeer<
     );
   }
 
+  /**
+   * Frame d'une notification sortante — **source unique** de sa forme.
+   *
+   * Extraite pour que le fan-out d'un canal diffusé puisse sérialiser la frame
+   * **une seule fois** pour N abonnés, sans jamais risquer de diverger du format
+   * qu'émet {@link notify} : les deux voies passent par ici.
+   *
+   * @param method - nom de la méthode (côté canal : le nom du canal).
+   * @param params - charge applicative ; omise de la frame si `undefined`.
+   * @returns la frame JSON-RPC 2.0, prête à sérialiser.
+   */
+  static buildNotification(
+    method: string,
+    params?: unknown,
+  ): JsonRpcNotification {
+    return { jsonrpc: "2.0", method, params };
+  }
+
   /** Notification SORTANTE (pas de réponse attendue). */
   notify<K extends EventNames<Emit>>(
     method: K,
     params?: EventPayload<Emit, K>,
   ): void {
-    this.opts.send({ jsonrpc: "2.0", method, params });
+    this.opts.send(JsonRpcPeer.buildNotification(method as string, params));
   }
 
   /**
