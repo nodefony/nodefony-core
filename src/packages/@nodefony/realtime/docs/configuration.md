@@ -124,31 +124,25 @@ fichiers, jamais trois**.
 | `nodefony/config/config.ts`             | **le quoi**    | le schéma Zod commenté, source **unique** des valeurs d'usine, et les défauts matérialisés        |
 | `nodefony/config/defineModuleConfig.ts` | **le comment** | le builder pur : analyse, surcharge d'environnement, gel — il ne retape jamais une valeur d'usine |
 
-Le schéma `realtimeConfigSchema` (`config.ts:168`) porte chaque valeur en `.default()` et chaque
+Le schéma `realtimeConfigSchema` (`config.ts:205`) porte chaque valeur en `.default()` et chaque
 explication en `.describe()`. Les défauts effectifs sont **dérivés** du schéma lui-même
-(`realtimeConfigSchema.parse({})`, `config.ts:194`) : il n'existe pas de second endroit où une valeur
+(`realtimeConfigSchema.parse({})`, `config.ts:231`) : il n'existe pas de second endroit où une valeur
 d'usine serait écrite, donc pas de dérive silencieuse possible entre la doc du champ et son
 comportement.
 
 Le builder `defineRealtimeConfig()` (`defineModuleConfig.ts:35`) reste **pur** : il analyse l'entrée,
-applique la seule variable d'environnement dédiée, et gèle le résultat. Il ne décide rien.
+applique les variables d'environnement dédiées (`NF_REALTIME_DRIVER`,
+`NF_REALTIME_BACKPLANE_NAMESPACE`, `NF_REALTIME_BACKPLANE_SECRET` — toutes prioritaires sur le
+fichier), et gèle le résultat. Il ne décide rien.
 
-Deux écarts assumés par rapport à la référence, à connaître :
-
-- **Le schéma ne porte pas de `.meta()`** — pas de champ marqué `secret`, `runtimeMutable` ou
-  `kernelDerived`. Aucune clé du module n'est un secret et aucune n'est modifiable à chaud, donc la
-  provenance affichée dans Studio reste sommaire.
-- **Le registre de types des modules n'est pas augmenté.** Les modules qui le font
-  (`declare module "nodefony" { interface NodefonyModuleConfig { … } }`) font proposer leurs clés en
-  autocomplétion dans `use()`. Ce n'est pas le cas ici : la configuration passée à
-  `use("@nodefony/realtime", { … })` est acceptée comme un objet libre. Elle reste **entièrement
-  validée au démarrage** par Zod — tu perds l'assistance de l'éditeur, jamais la sûreté.
+Le module **augmente le registre de types** (`index.ts:167`) : `use("@nodefony/realtime", { … })`
+propose ses clés en autocomplétion et **refuse** une clé inconnue à la compilation.
 
 > [!IMPORTANT]
-> Sans autocomplétion, une faute de frappe dans un nom de clé ne se voit pas à l'écriture. Elle ne se
-> voit pas non plus au démarrage : le schéma **retire** les clés inconnues sans se plaindre. Écris
-> `slowConsummer: { bytes: 4096 }` et tu obtiendras le défaut, en silence. Le seul réflexe qui
-> protège : relire la configuration effective sur la page module de Studio après un changement.
+> C'est ce filet qui compte, bien plus que le confort d'écriture. Sans lui, une faute de frappe ne se
+> verrait ni à l'écriture ni au démarrage : le schéma **retire** les clés inconnues sans se plaindre.
+> `slowConsummer: { bytes: 4096 }` donnerait le défaut, en silence. Avec l'augmentation, la même
+> faute ne compile pas.
 
 ## 🚀 Démarrage rapide
 
@@ -265,18 +259,19 @@ regarder quand un message ne traverse pas.
 Six blocs, douze clés au total. Le tableau donne la vérité complète ; les sections qui suivent
 expliquent quand et pourquoi en changer.
 
-| Clé                                   | Type                   | Défaut               | Effet                                                                                                                      |
-| ------------------------------------- | ---------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                             | `boolean`              | `true`               | `false` = module chargé mais inerte : ni API d'administration, ni backplane, ni sonde, ni garde                            |
-| `backplane.driver`                    | `string`               | `"loopback"`         | nom résolu dans le registre de drivers ; inconnu → avertissement, le hub reste local                                       |
-| `backplane.namespace`                 | `string?`              | _absent_ → nom d'app | cloison du transport partagé ; suffixe le canal pub/sub. Motif `^[\w.-]+$`                                                 |
-| `backplane.secret`                    | `string?` (≥ 32)       | _absent_             | scelle les messages du transport partagé (HMAC) ; identique sur tous les pods. Absent = bus ouvert + avertissement au boot |
-| `cluster.probe.enabled`               | `boolean`              | `true`               | branche la sonde agrégée du pod en worker de cluster. `false` = aucun minuteur, aucun IPC                                  |
-| `slowConsumer.bytes`                  | `number` entier > 0    | `1048576` (1 MiB)    | seuil de **comptage** des consommateurs lents dans la sonde. Ne freine rien                                                |
-| `limits.maxChannelsPerConnection`     | `number > 0` \| `null` | `256`                | plafond de canaux par connexion ; au-delà le `subscribe` est refusé. `null` = illimité                                     |
-| `csrf.checkOrigin.enabled`            | `boolean`              | `false`              | active le contrôle d'`Origin` à l'ouverture de la socket                                                                   |
-| `csrf.checkOrigin.allowList`          | `string[]`             | `[]`                 | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé                                                |
-| `csrf.checkOrigin.allowMissingOrigin` | `boolean`              | `false`              | accepter une ouverture sans en-tête `Origin` (clients non-navigateur)                                                      |
+| Clé                                   | Type                   | Défaut               | Effet                                                                                                                                                                |
+| ------------------------------------- | ---------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                             | `boolean`              | `true`               | `false` = module chargé mais inerte : ni API d'administration, ni backplane, ni sonde, ni garde                                                                      |
+| `backplane.driver`                    | `string`               | `"loopback"`         | nom résolu dans le registre de drivers ; inconnu → avertissement, le hub reste local                                                                                 |
+| `backplane.namespace`                 | `string?`              | _absent_ → nom d'app | cloison du transport partagé ; suffixe le canal pub/sub. Motif `^[\w.-]+$`                                                                                           |
+| `backplane.secret`                    | `string?` (≥ 32)       | _absent_             | scelle les messages du transport partagé (HMAC) ; identique sur tous les pods. Absent = bus ouvert + avertissement au boot                                           |
+| `backplane.maxQueueBytes`             | `number` entier ≥ 0    | `8388608` (8 MiB)    | plafond des octets publiés en attente d'accusé de réception du bus ; au-delà, les publications sont abandonnées et comptées (`backplane.queue`). `0` = aucune limite |
+| `cluster.probe.enabled`               | `boolean`              | `true`               | branche la sonde agrégée du pod en worker de cluster. `false` = aucun minuteur, aucun IPC                                                                            |
+| `slowConsumer.bytes`                  | `number` entier > 0    | `1048576` (1 MiB)    | seuil de **comptage** des consommateurs lents dans la sonde. Ne freine rien                                                                                          |
+| `limits.maxChannelsPerConnection`     | `number > 0` \| `null` | `256`                | plafond de canaux par connexion ; au-delà le `subscribe` est refusé. `null` = illimité                                                                               |
+| `csrf.checkOrigin.enabled`            | `boolean`              | `false`              | active le contrôle d'`Origin` à l'ouverture de la socket                                                                                                             |
+| `csrf.checkOrigin.allowList`          | `string[]`             | `[]`                 | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé                                                                                          |
+| `csrf.checkOrigin.allowMissingOrigin` | `boolean`              | `false`              | accepter une ouverture sans en-tête `Origin` (clients non-navigateur)                                                                                                |
 
 C'est **tout**. Il n'existe ni réglage de ping, ni de cadence, ni de fréquence d'échantillonnage de
 la sonde, ni de seuil de contre-pression configurable : ces comportements existent, mais leurs
@@ -375,7 +370,7 @@ jamais instancié, donc zéro minuteur, zéro message IPC — et l'endpoint de s
 de l'instance courante.
 
 Deux leviers coupent la sonde, et **l'un ou l'autre suffit** : cette clé, ou la variable
-`NODEFONY_CLUSTER_PROBE=0` (`src/packages/@nodefony/realtime/index.ts:359`). C'est ce qui permet
+`NODEFONY_CLUSTER_PROBE=0` (`src/packages/@nodefony/realtime/index.ts:391`). C'est ce qui permet
 d'éteindre une sonde sur un pod en incident sans redéployer une configuration.
 
 ### `slowConsumer.bytes` — un compteur, pas un frein

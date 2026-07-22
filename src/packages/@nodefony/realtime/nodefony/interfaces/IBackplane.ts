@@ -27,6 +27,23 @@
  */
 
 /**
+ * Compteurs de la **file d'envoi** d'un backplane à transport réseau : ce qui est
+ * publié mais pas encore acquitté par le bus. Sans borne, cette file (interne au
+ * client réseau) grossit sans limite sous rafale — d'où le seuil et ses compteurs,
+ * exposés jusqu'à la sonde et Studio. Cf `BackplanePublishQueue`.
+ */
+export interface IBackplaneQueueInfo {
+  /** Octets publiés en attente d'acquittement par le transport (instantané). */
+  bytes: number;
+  /** Seuil au-dessus duquel une publication est jetée ; `0` = illimité. */
+  maxBytes: number;
+  /** Publications JETÉES faute de place (monotone). `0` en régime sain. */
+  droppedTotal: number;
+  /** Publications REFUSÉES par le transport (bus coupé…) (monotone). */
+  failedTotal: number;
+}
+
+/**
  * Message transporté entre pairs par le backplane. Sérialisé une fois à l'émission
  * (IPC `structuredClone` / Redis JSON) ; le `payload` doit donc être structurellement
  * clonable / sérialisable (pas de fonction, pas de cycle).
@@ -72,6 +89,14 @@ export interface IBackplaneInfo {
    * (mono-process, IPC master↔workers — authentifié par construction).
    */
   sealed?: boolean;
+  /**
+   * État de la **file d'envoi** vers le bus (octets en vol, seuil, jetés). Renseigné
+   * par les drivers à transport RÉSEAU, dont les publications sont acquittées de
+   * façon asynchrone : c'est là qu'un bus lent fait grossir la mémoire du pod.
+   * `droppedTotal > 0` = du fan-out cross-pod a été sacrifié pour tenir la mémoire.
+   * Absent quand le transport n'a pas de file (mono-process, IPC synchrone).
+   */
+  queue?: IBackplaneQueueInfo;
 }
 
 /**

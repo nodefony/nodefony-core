@@ -330,7 +330,7 @@ et le client se reconnecte puis resynchronise.
 franchissement de machine. Jamais `undefined` en pratique : sans backplane, la sonde rend un
 descripteur `local`. C'est le champ à lire quand le temps réel ne traverse pas les répliques.
 
-Deux champs n'apparaissent que lorsqu'ils ont un sens :
+Trois champs n'apparaissent que lorsqu'ils ont un sens :
 
 - `channel` — le canal de transport **effectif**. Il répond à la seule question qu'on ne peut pas
   poser autrement : _suis-je branché sur le bus que je crois ?_ Le nom affiché est celui utilisé,
@@ -338,6 +338,16 @@ Deux champs n'apparaissent que lorsqu'ils ont un sens :
 - `sealed` — les messages sont-ils signés ? Renseigné par les transports **partagés**, où un tiers
   peut écrire. `false` y annonce un bus ouvert. Absent quand la question ne se pose pas : en
   mono-processus, ou entre un maître et ses propres workers, personne d'autre ne peut publier.
+- `queue` — la **file d'envoi** vers le bus, présente sur les transports réseau (leurs publications
+  sont acquittées plus tard). Publier n'attend pas : le message est confié au client réseau et le
+  code continue. Si le bus ralentit, ces messages s'accumulent — sur une file **interne au client**,
+  donc invisible. Quatre compteurs la rendent lisible : `bytes` (en attente d'accusé de réception),
+  `maxBytes` (le plafond, `0` = aucun), `droppedTotal` (publications abandonnées faute de place) et
+  `failedTotal` (publications refusées par le bus). `droppedTotal` est le seul de la sonde qui
+  signale une perte **volontaire** : la mémoire du processus a été préservée au prix de messages non
+  relayés aux autres répliques. Il doit rester à zéro ; s'il bouge, regarder l'état du bus avant de
+  relever le plafond (`backplane.maxQueueBytes`) — un plafond plus haut ne rattrape pas un bus en
+  retard, il repousse l'échéance.
 
 ### La couche d'identité, au-dessus
 
@@ -426,7 +436,7 @@ après fusion et validation — la seule vue qui dit ce qui s'applique, plutôt 
 
 | Clé                            | Défaut | Effet                                                                     |
 | ------------------------------ | ------ | ------------------------------------------------------------------------- |
-| `slowConsumer.bytes`           | 1 Mio  | Seuil de **comptage** de `slowConsumers` dans la sonde (`config.ts:196`). |
+| `slowConsumer.bytes`           | 1 Mio  | Seuil de **comptage** de `slowConsumers` dans la sonde (`config.ts:121`). |
 | `cluster.probe.enabled`        | `true` | Branche la sonde agrégée pod en worker de cluster (`config.ts:30`).       |
 | `NODEFONY_CLUSTER_PROBE` (env) | —      | Mis à `0`, coupe la sonde pod quelle que soit la configuration.           |
 

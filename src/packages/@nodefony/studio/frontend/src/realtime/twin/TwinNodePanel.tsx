@@ -386,6 +386,10 @@ function BpRealtimePanel({
   // en IPC (maître ↔ ses propres workers), aucun tiers ne peut écrire sur le bus.
   const busPartage = bp?.crossPod === true;
   const scelle = bp?.sealed === true;
+  // File d'envoi : seuls les transports réseau en ont une (acquittement
+  // asynchrone). Absente en mono-processus et sur le lien maître ↔ workers.
+  const file = bp?.queue;
+  const perdues = file?.droppedTotal ?? 0;
 
   return (
     <Stack gap="sm">
@@ -579,6 +583,61 @@ function BpRealtimePanel({
           }
           v={fmt(rejets)}
         />
+        {file ? (
+          <KeyValue
+            k={
+              <LabelWithHint
+                label="File d'envoi vers le bus"
+                hint={
+                  perdues === 0 ? (
+                    <DocHint
+                      title="Ce qui attend d'être remis au bus"
+                      version={BP_DOC}
+                      summary={`${fmtBytes(file.bytes)} en attente d'accusé de réception. Au-delà de ${fmtBytes(file.maxBytes)}, les publications suivantes sont abandonnées plutôt que de s'empiler.`}
+                      sections={[
+                        {
+                          label: "Pourquoi une limite",
+                          body: "Publier n'attend pas : le message est confié au bus et le code continue. Si le bus ralentit, les messages s'accumulent en mémoire — sans plafond, une rafale peut faire enfler le processus jusqu'à l'étouffement.",
+                        },
+                        {
+                          label: "Ce qui se passe à la limite",
+                          body: "Les publications sont abandonnées et comptées ici : le processus reste debout, mais les autres processus ne reçoivent pas ces messages-là. Les pages connectées se resynchronisent d'elles-mêmes à la reprise.",
+                        },
+                        {
+                          label: "Régler le plafond",
+                          body: "Par `backplane.maxQueueBytes`. La valeur 0 lève toute limite — la mémoire n'est alors plus protégée du tout.",
+                        },
+                      ]}
+                      links={[
+                        { label: "Configuration", href: DOC_CONFIGURATION },
+                      ]}
+                    />
+                  ) : (
+                    <WarnHint
+                      title="Le bus n'a pas suivi — des messages ont été abandonnés"
+                      summary={`${perdues} publication(s) n'ont pas été remises aux autres processus : la file avait atteint son plafond de ${fmtBytes(file.maxBytes)}.`}
+                      sections={[
+                        {
+                          label: "Ce que ça veut dire",
+                          body: "Le bus n'accuse plus réception assez vite : soit il est lent ou injoignable, soit cette application publie plus que le lien ne peut porter. La mémoire du processus a été préservée au prix de ces messages.",
+                        },
+                        {
+                          label: "Quoi regarder",
+                          body: "L'état du serveur de bus et sa latence d'abord ; le volume publié ensuite. Relever le plafond ne fait que retarder le problème si le bus reste en retard.",
+                        },
+                      ]}
+                    />
+                  )
+                }
+              />
+            }
+            v={
+              perdues === 0
+                ? `${fmtBytes(file.bytes)} en attente`
+                : `${fmt(perdues)} abandonnée(s)`
+            }
+          />
+        ) : null}
       </DefinitionList>
       <Text size="xs" c="dimmed">
         Le fond de panier relie les processus : un message publié sur l'un est

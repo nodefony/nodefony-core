@@ -150,6 +150,13 @@ registerBackplaneDriver(RedisBackplane.driver, (ctx) => {
     ctx.originId,
     resolveRedisChannel(namespace),
     secret,
+    {
+      // Borne mémoire des publications en vol + annonce des transitions : une
+      // saturation du bus sacrifie du fan-out cross-pod, ça se dit dans les logs
+      // du module (cf principe « pas de dégradation silencieuse »).
+      maxQueueBytes: ctx.config.backplane.maxQueueBytes,
+      onNotice: (message, severity) => ctx.module.log(message, severity),
+    },
   );
 });
 

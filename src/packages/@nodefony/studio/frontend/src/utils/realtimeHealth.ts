@@ -84,6 +84,21 @@ export interface InstanceHealth {
     channel?: string;
     /** Messages scellés (authenticité vérifiée) — pertinent sur bus partagé. */
     sealed?: boolean;
+    /**
+     * File d'envoi vers le bus — présente sur les transports réseau, dont les
+     * publications sont acquittées de façon asynchrone. `droppedTotal > 0` = du
+     * fan-out a été sacrifié pour tenir la mémoire du processus.
+     */
+    queue?: {
+      /** Octets publiés en attente d'acquittement (instantané). */
+      bytes?: number;
+      /** Seuil de jet ; `0` = illimité. */
+      maxBytes?: number;
+      /** Publications jetées faute de place (cumul). */
+      droppedTotal?: number;
+      /** Publications refusées par le bus (cumul). */
+      failedTotal?: number;
+    };
   };
 }
 

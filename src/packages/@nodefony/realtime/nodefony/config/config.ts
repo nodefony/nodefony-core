@@ -89,6 +89,24 @@ const backplaneSchema = z
           "`NF_REALTIME_BACKPLANE_SECRET`. Minimum 32 caractères.",
       )
       .meta({ secret: true }),
+    maxQueueBytes: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(1 << 23)
+      .describe(
+        "Seuil d'octets PUBLIÉS mais pas encore acquittés par le bus, au-delà " +
+          "duquel les publications suivantes sont JETÉES (drivers à transport " +
+          "réseau : redis, drivers cross-host userland). Un `publish` de " +
+          "backplane est fire-and-forget : quand le bus ne draine plus, la file " +
+          "interne du client réseau grossit sans limite (583 MB observés sous " +
+          "rafale sur le banc multi-pods). Même doctrine que le back-pressure " +
+          "WS : on sacrifie du fan-out cross-pod pour tenir la mémoire du pod, " +
+          "jamais en silence (compteurs `backplane.queue` dans la sonde + Studio, " +
+          "alerte au franchissement). Défaut 8 MiB, soit trois ordres de grandeur " +
+          "au-dessus d'un régime sain (bus acquitté en quelques ms). `0` = " +
+          "illimité (opt-out explicite : la mémoire n'est alors bornée par rien).",
+      ),
   })
   .describe("Driver IBackplane (fan-out cluster realtime cross-process).");
 

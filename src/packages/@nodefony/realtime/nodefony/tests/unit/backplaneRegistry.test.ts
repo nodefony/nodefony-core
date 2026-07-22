@@ -113,6 +113,15 @@ describe("backplaneRegistry (résolution driver SANS if en dur)", () => {
       // Bus partagé sans secret : la carte d'identité l'annonce, et Studio
       // l'affiche — un transport non authentifié ne doit jamais être discret.
       sealed: false,
+      // Transport réseau ⇒ file d'envoi bornée : la carte d'identité porte son
+      // état (octets en vol, seuil, jetés), sinon une perte de fan-out pour
+      // cause de bus saturé serait invisible.
+      queue: {
+        bytes: 0,
+        maxBytes: 1 << 23,
+        droppedTotal: 0,
+        failedTotal: 0,
+      },
     });
   });
 

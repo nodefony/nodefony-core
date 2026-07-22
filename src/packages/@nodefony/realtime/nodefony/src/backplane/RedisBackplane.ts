@@ -6,6 +6,11 @@ import type {
 } from "../../interfaces/IBackplane.js";
 import { resolveBackplaneOriginId } from "./originId.js";
 import { openBackplaneEnvelope, sealBackplaneEnvelope } from "./envelope.js";
+import {
+  BackplanePublishQueue,
+  DEFAULT_MAX_QUEUE_BYTES,
+  type BackplaneNotice,
+} from "./publishQueue.js";
 
 /**
  * BASE du canal Redis **dédié** transportant les enveloppes realtime entre pods.
@@ -41,8 +46,16 @@ export function resolveRedisChannel(namespace?: string): string {
  * `@nodefony/redis` (cf {@link createRedisServiceTransport}, le seul point couplé).
  */
 export interface IRedisBackplaneTransport {
-  /** Publie un message sérialisé sur le canal Redis (fire-and-forget côté backplane). */
-  publish(channel: string, message: string): void;
+  /**
+   * Publie un message sérialisé sur le canal Redis.
+   *
+   * Rendre la promesse du client (plutôt que `void`) permet au backplane de savoir
+   * QUAND la publication est acquittée, donc de **borner** ce qui est en vol : sans
+   * ce signal, la file interne du client réseau grossit sans limite sous rafale (cf
+   * {@link BackplanePublishQueue}). Un transport synchrone (bus mémoire de test) rend
+   * `void` — il n'a pas de file, la borne reste alors inerte.
+   */
+  publish(channel: string, message: string): void | Promise<unknown>;
   /**
    * Abonne au canal Redis. Le listener reçoit le message brut (string) ; le tri
    * (parse + anti-echo) est fait par le backplane. Async (Redis) ou sync (fake).
@@ -104,8 +117,11 @@ export function createRedisServiceTransport(
 ): IRedisBackplaneTransport {
   let listener: ((message: string, channel: string) => void) | null = null;
   return {
-    publish(channel, message): void {
-      void publisher.publish(channel, message);
+    publish(channel, message): void | Promise<unknown> {
+      // Retourné, pas avalé : c'est l'acquittement qui rend sa place dans la file
+      // bornée du backplane — et le rejet y est absorbé (un `void` ici laissait
+      // remonter un `unhandledRejection` quand Redis coupait en plein envoi).
+      return publisher.publish(channel, message) as void | Promise<unknown>;
     },
     subscribe(channel, onMessage): void | Promise<void> {
       listener = (message): void => onMessage(message);
@@ -121,6 +137,25 @@ export function createRedisServiceTransport(
       ) as void | Promise<void>;
     },
   };
+}
+
+/**
+ * Réglages optionnels du driver — regroupés en objet pour ne pas allonger une
+ * liste de paramètres positionnels déjà à quatre entrées.
+ */
+export interface IRedisBackplaneOptions {
+  /**
+   * Seuil d'octets publiés en attente d'acquittement au-delà duquel les
+   * publications sont jetées ; `0` = illimité (opt-out explicite). Défaut :
+   * {@link DEFAULT_MAX_QUEUE_BYTES}.
+   */
+  maxQueueBytes?: number;
+  /**
+   * Annonce des transitions de la file (saturation / retour à la normale) — le
+   * wiring y branche le syslog du module. Omis = silencieux : acceptable en test,
+   * jamais en production (une dégradation doit être annoncée).
+   */
+  onNotice?: BackplaneNotice;
 }
 
 /**
@@ -164,6 +199,8 @@ export class RedisBackplane implements IBackplane {
   readonly #redisChannel: string;
   /** Secret de scellement partagé entre pods ; `null` = bus non authentifié. */
   readonly #secret: string | null;
+  /** Borne mémoire des publications en vol (cf {@link BackplanePublishQueue}). */
+  readonly #queue: BackplanePublishQueue;
   #handler: BackplaneHandler | null = null;
   #started = false;
 
@@ -172,11 +209,16 @@ export class RedisBackplane implements IBackplane {
     originId: string = resolveBackplaneOriginId(),
     redisChannel: string = REDIS_RT_CHANNEL,
     secret: string | null = null,
+    options: IRedisBackplaneOptions = {},
   ) {
     this.#transport = transport;
     this.originId = originId;
     this.#redisChannel = redisChannel;
     this.#secret = secret;
+    this.#queue = new BackplanePublishQueue(
+      options.maxQueueBytes ?? DEFAULT_MAX_QUEUE_BYTES,
+      options.onNotice ?? null,
+    );
   }
 
   /**
@@ -194,6 +236,11 @@ export class RedisBackplane implements IBackplane {
   /**
    * Propage une publication locale aux autres pods via Redis. NE refait PAS le
    * fan-out local (déjà fait par le hub). Sérialisé une fois ici.
+   *
+   * L'envoi passe par la **file bornée** : si le bus n'acquitte plus, les
+   * publications suivantes sont jetées et comptées plutôt que d'empiler des
+   * mégaoctets dans le client Redis (sémantique at-most-once déjà assumée par le
+   * port ; le client realtime re-synchronise).
    */
   publish(channel: string, payload: unknown): void {
     const env: IBackplaneMessage = {
@@ -201,9 +248,11 @@ export class RedisBackplane implements IBackplane {
       payload,
       originId: this.originId,
     };
-    this.#transport.publish(
-      this.#redisChannel,
-      sealBackplaneEnvelope(env, this.#secret),
+    const raw = sealBackplaneEnvelope(env, this.#secret);
+    // `byteLength` mesure ce qui partira réellement sur la socket (UTF-8) ; son
+    // coût est négligeable devant le HMAC déjà calculé sur la même chaîne.
+    this.#queue.send(Buffer.byteLength(raw), () =>
+      this.#transport.publish(this.#redisChannel, raw),
     );
   }
 
@@ -240,6 +289,7 @@ export class RedisBackplane implements IBackplane {
       crossPod: true,
       channel: this.#redisChannel,
       sealed: this.#secret !== null,
+      queue: this.#queue.describe(),
     };
   }
 }
