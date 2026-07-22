@@ -163,6 +163,57 @@ function shippedSources(dir: string): string[] {
   return found;
 }
 
+/**
+ * Noms des paquets fournis par les ESPACES DE TRAVAIL d'un manifeste.
+ *
+ * Un manifeste qui déclare `workspaces` installe et relie ses membres lui-même :
+ * c'est le rôle du champ. Exiger qu'il les redéclare en dépendances serait
+ * exiger le contraire de ce que npm attend, et ferait crier l'outil sur la
+ * racine de tout monorepo — donc lui apprendrait à être ignoré.
+ *
+ * Seule la forme `dossier/*` est développée (celle qu'utilisent npm et ce
+ * dépôt) ; un motif plus exotique est simplement ignoré, jamais deviné.
+ */
+function workspaceMembers(
+  dir: string,
+  manifest: Record<string, unknown>,
+): string[] {
+  const globs = manifest.workspaces;
+  if (!Array.isArray(globs)) {
+    return [];
+  }
+  const names: string[] = [];
+  for (const glob of globs) {
+    if (typeof glob !== "string") {
+      continue;
+    }
+    if (glob.endsWith("/*")) {
+      const parent = path.join(dir, glob.slice(0, -2));
+      let entries;
+      try {
+        entries = readdirSync(parent, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const e of entries) {
+        if (!e.isDirectory()) {
+          continue;
+        }
+        const pkg = readManifest(path.join(parent, e.name));
+        if (pkg) {
+          names.push(pkg.name);
+        }
+      }
+    } else {
+      const pkg = readManifest(path.join(dir, glob));
+      if (pkg) {
+        names.push(pkg.name);
+      }
+    }
+  }
+  return names;
+}
+
 /** Le chemin déclaré pour les types tombe-t-il dans ce que `files` embarque ? */
 function typesAreShipped(manifest: Record<string, unknown>): boolean | null {
   const exports = manifest.exports as
@@ -198,6 +249,17 @@ export function checkPackageDeps(
         Object.keys((manifest[k] as Record<string, string> | undefined) ?? {}),
       ),
     );
+    // Un manifeste qui déclare des ESPACES DE TRAVAIL fournit lui-même ses
+    // membres : npm les installe et les relie, c'est le rôle du champ. Exiger
+    // qu'il les redéclare en dépendances serait exiger le contraire de ce que
+    // npm attend — et ferait crier l'outil sur la racine de tout monorepo, donc
+    // lui apprendrait à être ignoré.
+    // On lit la DÉCLARATION, pas les dossiers qu'on a explorés : un membre
+    // peut être fourni sans avoir été scanné (la racine du framework déclare
+    // `src/nodefony`, que la commande n'explore pas).
+    for (const member of workspaceMembers(dir, manifest)) {
+      declared.add(member);
+    }
     const allowed = new Set(typeCycles[name] ?? []);
     // On garde le PIRE cas avec SON fichier : citer un `import type` sous un
     // verdict « runtime » enverrait corriger au mauvais endroit.

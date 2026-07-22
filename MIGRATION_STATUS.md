@@ -196,6 +196,22 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > Les 85 vivants se rangent en **5 motifs qui se soldent en série** : texte périmé (36) · défaut de
 > comportement (20) · **réglage sans lecteur** (12 — clé validée, décrite, jamais lue) · filet absent
 > (9) · correction partielle (8). Rapport triable : `tmp/requalif-ecarts-doc-code.html` (non commité).
+>
+> **Correction PAR MOTIF engagée (2026-07-23)** — on corrige le motif, pas l'item : 85 décisions
+> deviennent 5 gestes. **Correction partielle : SOLDÉ** (`96e36890`) — Kafka purgé de la surface
+> publique realtime, README réécrit sur le réel (décorateurs et subpath client faux), `IWsCookie` et
+> `CookieOptionsType` dédupliqués, `unsign()` aligné sur son implémentation, TSDoc `regenerateId`
+> (câblé depuis `authFlow.ts:388`), commentaire Rollup retiré. **Réglage sans lecteur : 3/12**
+> (`887b2d9c` F9+F13 — les 5 clés inertes de `security.headers` portent `reserved:true` et NOMMENT
+> leur remplaçante `http.securityHeaders.*` ; `62db6a0f`+`94179254` F24 — la trace d'usage d'une clé
+> d'API, qui n'était pas seulement vide mais EFFACÉE à chaque usage, est écrite dans `onSuccess`
+> avec IP et agent, exposée dans `IApiKeyView` et prouvée par un banc sur serveur réel).
+> **Découvert en chemin, hors registre** : `body` n'existait ni au type ni au runtime sur
+> `context.request` (`80eb2801`, alias de `queryPost`, `body` devient un nom d'action réservé) ; et
+> **6 paquets publient des types injoignables après `npm i`** (`exports["."].types` → `./index.ts`,
+> absent de `files`) — `frontend` réparé, les 5 autres verrouillés par un cycle de types
+> `http ↔ framework ↔ security → user → orm-core`, tracés par la gate `nodefony check` (`1a139b14`,
+> `a4cc8b72`).
 
 > Fondations **hors roadmap** (déjà migrées, Phases 0-4) : Build, Core/Kernel, DI, Syslog, Router, Controller, Types.
 > **Build = rolldown + tsgo** (`c600ae79`→`d295121b`, lots 0-5) : Rollup SUPPRIMÉ du repo, 20 cibles
