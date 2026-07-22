@@ -243,7 +243,7 @@ export interface ISession {
   ): Promise<ISession>;
   destroy(cookieDelete?: boolean): Promise<boolean>;
   create(lifetime: number, id?: string, options?: ICookieOptions): ISession;
-  /** Régénère un identifiant opaque CSPRNG en conservant l'état (anti session-fixation, seam P6). */
+  /** Régénère un identifiant opaque CSPRNG en conservant l'état (anti session-fixation, appelée au login par `AuthFlow`). */
   regenerateId(): void;
 
   // Key/value attributes (Container API)

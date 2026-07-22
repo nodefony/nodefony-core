@@ -2,17 +2,15 @@
  * @nodefony/realtime — Couche realtime serveur Nodefony.
  *
  * Ce module porte le hub WebSocket (broker fan-out), le protocole JSON-RPC 2.0
- * (peer isomorphe partagé avec le client core), le backplane cluster
- * (Loopback / Cluster IPC / Redis / Kafka) et, à terme, les protocoles TCP / UDP
- * / Unix sockets (P13.1).
+ * (peer isomorphe partagé avec le client core) et le backplane cluster. Trois
+ * drivers natifs : `loopback` (mono-process), `cluster` (IPC Node) et `redis`
+ * (multi-hôte) ; le registre `backplaneRegistry` est ouvert aux drivers écrits
+ * par l'application.
  *
- * État : P13.0 — code serveur rapatrié depuis `@nodefony/framework`
- * (RealtimeHub, RealtimeController, RealtimeAdminApi, ClusterProbeClient,
- * WsConnectionTransport, LoopbackBackplane, ClusterBackplane et leurs
- * interfaces/tests). Le wiring cluster (`onCluster` → branchement
- * `ClusterBackplane` IPC + `ClusterProbeClient`) vit désormais dans le hook du
- * Module class ci-dessous. Le client isomorphe reste dans le subpath
- * `nodefony/realtime` du core (décision figée — pas de package navigateur).
+ * Le wiring cluster (`onCluster` → branchement `ClusterBackplane` IPC +
+ * `ClusterProbeClient`) vit dans le hook du Module class ci-dessous. Le client
+ * isomorphe n'est PAS ici : il vit dans le cœur, subpath `nodefony/client`
+ * (décision figée — pas de package navigateur).
  *
  * Lire `docs/index.md` pour la vue d'ensemble vulgarisée.
  *
@@ -20,7 +18,7 @@
  *  - CLAUDE.md  — décisions d'archi figées + 5 seams sécurité
  *  - MEMORY.md  — internals IA
  *  - README.md  — usage humain
- *  - docs/      — doc dev vulgarisée (6 pages)
+ *  - docs/      — doc dev vulgarisée
  */
 import { Kernel, Module, services, withTimeout } from "nodefony";
 import defaultConfig from "./nodefony/config/config";

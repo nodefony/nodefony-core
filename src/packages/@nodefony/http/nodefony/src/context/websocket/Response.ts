@@ -10,16 +10,9 @@ import {
   type WsSendDecision,
 } from "./wsBackpressure.js";
 
-export interface IWsCookie {
-  name: string;
-  value: string;
-  maxage?: number;
-  domain?: string;
-  path?: string;
-  expires?: Date;
-  httponly?: boolean;
-  secure?: boolean;
-}
+// Le cookie WS a UNE seule définition : celle du contrat public. Ré-exportée ici
+// pour les consommateurs historiques de ce chemin.
+export type { IWsCookie } from "../../../interfaces/ICookie";
 
 /**
  * Codes d'erreur d'écriture « le client est PARTI » : reload de page, onglet

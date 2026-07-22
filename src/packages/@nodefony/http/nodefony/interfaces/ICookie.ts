@@ -48,6 +48,8 @@ export interface ICookie {
   serializeWebSocket(): IWsCookie;
   clearCookie(): void;
   sign(val: string, secret: string): string;
-  unsign(val: string, secret: string): string | boolean;
+  // Les deux arguments retombent sur `this.value` / `this.options.secret` quand
+  // ils sont omis ; l'échec de vérification vaut `false`, jamais `true`.
+  unsign(val?: string, secret?: string): string | false;
   getMaxAge(): number | undefined;
 }

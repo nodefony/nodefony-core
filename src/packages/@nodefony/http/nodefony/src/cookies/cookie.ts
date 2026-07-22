@@ -1,5 +1,4 @@
 import { parseCookie } from "cookie";
-import type { IWsCookie } from "../context/websocket/Response.js";
 import MS, { StringValue } from "ms";
 import { extend } from "nodefony";
 const encode = encodeURIComponent;
@@ -10,10 +9,11 @@ import WebsocketContext from "../context/websocket/WebsocketContext.js";
 import { ContextType } from "../../service/http-kernel.js";
 import type {
   ICookie as ICookieInterface,
+  ICookieOptions,
+  IWsCookie,
+  PriorityType,
   SameSiteType,
 } from "../../interfaces/ICookie";
-
-type PriorityType = "High" | "Medium" | "Low" | undefined;
 
 declare module "http" {
   interface IncomingMessage {
@@ -27,18 +27,14 @@ declare module "http2" {
   }
 }
 
-export interface CookieOptionsType {
-  maxAge?: number;
-  path?: string;
-  domain?: string;
-  secure?: boolean;
-  expires?: Date | string | number;
-  sameSite?: SameSiteType;
-  httpOnly?: boolean;
-  signed?: boolean;
-  secret?: string;
-  priority?: PriorityType;
-}
+/**
+ * Options d'un cookie — alias du contrat public {@link ICookieOptions}.
+ *
+ * Conservé sous ce nom parce que `session.ts` et l'historique du module
+ * l'importent ainsi ; ce n'est PAS une seconde définition. Un consommateur
+ * externe nomme le type par `ICookieOptions`, exporté au barrel.
+ */
+export type CookieOptionsType = ICookieOptions;
 
 const cookieDefaultSettings: CookieOptionsType = {
   maxAge: 0, // 24*60*60,

@@ -229,9 +229,10 @@ class Session implements ISession {
 
   /**
    * Régénère l'identifiant (nouveau secret opaque) en conservant l'état courant.
-   * Anti session-fixation (OWASP) — à invoquer après authentification (seam P6,
-   * non câblé). Repositionne le cookie et marque la session `dirty`. L'ancienne
-   * entrée storage expire via GC/TTL (suppression stricte câblée au firewall P6).
+   * Anti session-fixation (OWASP) — appelée à chaque ouverture de session
+   * authentifiée par `AuthFlow.#openSession()` (`@nodefony/security`), qui
+   * détruit ensuite l'ancienne entrée de storage. Repositionne le cookie et
+   * marque la session `dirty`.
    */
   regenerateId(): void {
     this.id = this.generateId();

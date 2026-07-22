@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/realtime",
   "version": "10.0.0",
-  "description": "Couche realtime serveur Nodefony — hub WS, JSON-RPC 2.0, backplane cluster (Loopback/IPC/Redis/Kafka), futurs TCP/UDP/Unix sockets. Lib pure (code serveur rapatrié de @nodefony/framework en P13.0).",
+  "description": "Couche realtime serveur Nodefony — hub WebSocket fan-out, protocole JSON-RPC 2.0, backplane cluster (loopback / cluster IPC / redis) ouvert aux drivers applicatifs.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/types/index.d.ts",

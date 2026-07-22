@@ -1,8 +1,8 @@
 /**
  * rolldown.config.ts — build du core `nodefony` (4 bundles).
  *
- * Remplace `rollup.config.ts` (conservé jusqu'à la bascule finale : le
- * DevSupervisor spawn encore `npx rollup -c` en mode watch/dev).
+ * Seul bundler du dépôt : le DevSupervisor rebuild par `rolldown -c`, comme
+ * `npm run build`.
  *
  * Les `.d.ts` ne sont PAS générés ici : `tsgo -p tsconfig.declarations.json`
  * (node) et `tsgo -p tsconfigClient.json` (client) — voir scripts package.json.

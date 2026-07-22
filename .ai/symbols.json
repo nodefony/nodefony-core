@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-22T14:50:22.478Z",
+  "generated": "2026-07-22T21:07:17.641Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1035,
-    "symbols": 2820,
+    "symbols": 2818,
     "classes": 328,
-    "interfaces": 737,
+    "interfaces": 735,
     "types": 328,
     "enums": 4,
     "functions": 843,
@@ -16841,11 +16841,11 @@
     },
     "CookieOptionsType": {
       "name": "CookieOptionsType",
-      "kind": "interface",
+      "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null
+      "description": "Options d'un cookie — alias du contrat public {@link ICookieOptions}. Conservé sous ce nom parce que `session.ts` et l'historique du module l'importent ainsi ; ce n'est PAS une seconde définition. …"
     },
     "parser": {
       "name": "parser",
@@ -19537,14 +19537,6 @@
       "extends": null,
       "implements": [],
       "decorators": []
-    },
-    "@nodefony/http:IWsCookie": {
-      "name": "IWsCookie",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "extends": null
     },
     "isPeerGoneError": {
       "name": "isPeerGoneError",
@@ -24653,7 +24645,8 @@
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "ICookieOptions": [
-        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts"
+        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
       ],
       "IRequestLogger": [
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
@@ -26994,6 +26987,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/metaData.ts"
       ],
       "IWsCookie": [
+        "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
+      ],
+      "PriorityType": [
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
       ],
       "SameSiteType": [

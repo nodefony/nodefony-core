@@ -1015,9 +1015,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       return null;
     }
     const session = await this.sessionService.start(context, intent?.readOnly);
-    // SEAM P6 — lien identité↔session : la régénération d'ID post-authentification
-    // (anti session-fixation, OWASP) se branchera ici via
-    // `firewall.getSessionToken(context, session)` / `session.regenerateId()`.
+    // Le lien identité↔session n'est PAS ici : c'est `@nodefony/security` qui,
+    // au login, régénère l'identifiant (`AuthFlow.#openSession()` →
+    // `session.regenerateId()`, anti session-fixation OWASP). Ce point de code
+    // n'ouvre que la session, sans rien savoir de l'identité.
     return session;
   }
 
