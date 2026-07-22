@@ -4,6 +4,7 @@ import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
 import { normalize, type HealthPayload } from "../../utils/realtimeHealth";
 import { BigMetric, Metric, fmtMB, useLiveSeries, useRate } from "./_kit";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /**
  * Widget « Socket Nodefony » — débit fan-out/s DÉRIVÉ du cumul + courbe, canaux,
@@ -60,7 +61,7 @@ registerWidget<HealthPayload>({
   source: {
     kind: "hybrid",
     endpoint: "/nodefony/realtime/api/health",
-    channel: "realtime:health",
+    channel: PLATFORM_CHANNELS.socket,
   },
   defaultSpan: 6,
   minSpan: 4,

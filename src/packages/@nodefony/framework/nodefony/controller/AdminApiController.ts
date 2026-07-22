@@ -70,7 +70,7 @@ class AdminApiController extends Controller {
     // Le data plane admin est PER-INSTANCE : en multi-process (reusePort) ou
     // multi-pod, le LB route la requête vers UN seul process. On estampille
     // donc chaque réponse de l'identité d'instance (même convention que
-    // `dashboard:stats`) → Studio sait quel pod a répondu. Vue cluster = P13.
+    // `nodefony:dashboard`) → Studio sait quel pod a répondu. Vue cluster = P13.
     return this.renderJson(body, status, {
       ...headers,
       "x-nodefony-instance": AdminApiController.instanceId,

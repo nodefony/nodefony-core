@@ -70,21 +70,21 @@ Les étapes 1 et 2 appartiennent à `@nodefony/http` et `@nodefony/security` : l
 
 ## 📖 Lexique
 
-| Terme              | Sens                                                                                                                                                  |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Handshake          | La requête HTTP `Upgrade: websocket` qui ouvre la connexion. **Tout le contrôle d'identité s'y joue.**                                                |
-| Frame              | Un message JSON-RPC 2.0 circulant une fois la porte ouverte (`subscribe`, `api.request`, notification).                                               |
-| Canal (_channel_)  | Un flux nommé auquel on s'abonne (`orders:feed`, `syslog:stream`) ; le hub le diffuse à tous ses abonnés.                                             |
-| CSWSH              | _Cross-Site WebSocket Hijacking_ : un site tiers ouvre une WS vers ton app, **avec le cookie de la victime**.                                         |
-| Origin             | En-tête RFC 6455 §10.2 disant d'où vient la page qui ouvre la socket. Seule preuve d'origine disponible.                                              |
-| Token realtime     | `IRealtimeToken` — carte d'identité de la connexion, figée au handshake, lue en O(1) à chaque frame.                                                  |
-| Verrou de frame    | `FrameAuthorizer` — fonction **sync** qui accepte ou refuse une frame. Posée par security au boot.                                                    |
-| Policy de canal    | `IChannelPolicy` — exigences déclarées sur un canal (`authenticated`, `roles`, `scopes`).                                                             |
-| Namespace réservé  | Préfixe de canal appartenant à la plateforme (`syslog:`, `security:`…), porteur d'un **plancher** d'autorisation que la config ne peut pas descendre. |
-| Zero Trust         | Aucune identité n'est supposée : un visiteur porte toujours un token, anonyme par défaut.                                                             |
-| Fail-closed / loud | En cas de doute on **refuse** ; toute dégradation de sécurité est **annoncée** (WARNING), jamais silencieuse.                                         |
-| Backplane          | Le bus qui propage les publications entre pods (Redis, IPC cluster).                                                                                  |
-| BFF                | _Backend-For-Frontend_ : la session serveur (cookie opaque) qui porte l'identité web.                                                                 |
+| Terme              | Sens                                                                                                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Handshake          | La requête HTTP `Upgrade: websocket` qui ouvre la connexion. **Tout le contrôle d'identité s'y joue.**                                                                             |
+| Frame              | Un message JSON-RPC 2.0 circulant une fois la porte ouverte (`subscribe`, `api.request`, notification).                                                                            |
+| Canal (_channel_)  | Un flux nommé auquel on s'abonne (`orders:feed`, `nodefony:syslog`) ; le hub le diffuse à tous ses abonnés.                                                                        |
+| CSWSH              | _Cross-Site WebSocket Hijacking_ : un site tiers ouvre une WS vers ton app, **avec le cookie de la victime**.                                                                      |
+| Origin             | En-tête RFC 6455 §10.2 disant d'où vient la page qui ouvre la socket. Seule preuve d'origine disponible.                                                                           |
+| Token realtime     | `IRealtimeToken` — carte d'identité de la connexion, figée au handshake, lue en O(1) à chaque frame.                                                                               |
+| Verrou de frame    | `FrameAuthorizer` — fonction **sync** qui accepte ou refuse une frame. Posée par security au boot.                                                                                 |
+| Policy de canal    | `IChannelPolicy` — exigences déclarées sur un canal (`authenticated`, `roles`, `scopes`).                                                                                          |
+| Namespace réservé  | Le préfixe `nodefony:`, qui marque les canaux de la plateforme (`nodefony:syslog`, `nodefony:audit`…) et porte un **plancher** d'autorisation que la config ne peut pas descendre. |
+| Zero Trust         | Aucune identité n'est supposée : un visiteur porte toujours un token, anonyme par défaut.                                                                                          |
+| Fail-closed / loud | En cas de doute on **refuse** ; toute dégradation de sécurité est **annoncée** (WARNING), jamais silencieuse.                                                                      |
+| Backplane          | Le bus qui propage les publications entre pods (Redis, IPC cluster).                                                                                                               |
+| BFF                | _Backend-For-Frontend_ : la session serveur (cookie opaque) qui porte l'identité web.                                                                                              |
 
 ## 🔐 Qu'est-ce que ça défend, concrètement ?
 
@@ -94,7 +94,7 @@ diffuse en continu.
 | Attaque                                                                                                | Ce qui la bloque                                                   | Où                                                           |
 | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------ |
 | **CSWSH** — `evil.com` fait `new WebSocket("wss://app.exemple.com/rt")`, le navigateur joint le cookie | Contrôle d'`Origin` same-origin par défaut, puis allowlist stricte | `@nodefony/http` transport, puis `csrf.checkOrigin` realtime |
-| **Écoute des flux internes** — un visiteur s'abonne à `syslog:stream` et lit les logs du pod           | Plancher des namespaces réservés (authentifié + `ROLE_ADMIN`)      | Verrou de frame `@nodefony/security`                         |
+| **Écoute des flux internes** — un visiteur s'abonne à `nodefony:syslog` et lit les logs du pod         | Plancher des namespaces réservés (authentifié + `ROLE_ADMIN`)      | Verrou de frame `@nodefony/security`                         |
 | **Élévation par canal métier** — un `ROLE_USER` s'abonne au canal admin d'un autre module              | Policy déclarée sur le canal, évaluée avec la hiérarchie de rôles  | `@RealtimeChannel(name, { roles })` + verrou de frame        |
 | **Pont API plus permissif que REST** — `api.request {path}` pour contourner un 401 HTTP                | Re-match de la MÊME zone firewall que `GET {path}`                 | Verrou de frame, surface `api.request`                       |
 | **Socket zombie** — un admin se déconnecte, sa socket continue de diffuser                             | Re-validation périodique de l'identité, fermeture `4001`           | Tick de révocation du hub                                    |
@@ -368,13 +368,16 @@ supervision. Un tableau de bord anonyme lisait les journaux du pod.
 Le hub applique donc son **propre plancher**, qui ne dépend d'aucun module : tant qu'aucun verrou
 n'est posé, une connexion cliente ne peut pas s'abonner à un canal de plateforme.
 
-| Namespace                                                       | Ce qu'il expose             |
-| --------------------------------------------------------------- | --------------------------- |
-| `security:`                                                     | journal d'audit             |
-| `syslog:`                                                       | journaux du serveur         |
-| `orm:`                                                          | requêtes et santé des bases |
-| `node:` · `cluster:` · `dashboard:` · `debugbar:` · `realtime:` | métriques et supervision    |
-| `kernel:`                                                       | contrôle du pod             |
+Un seul territoire porte cette marque : **`nodefony:`**. Tout ce que la plateforme expose sur la
+socket y vit, et rien d'autre n'y entre.
+
+| Canal                                                                                   | Ce qu'il expose             |
+| --------------------------------------------------------------------------------------- | --------------------------- |
+| `nodefony:audit`                                                                        | journal d'audit             |
+| `nodefony:syslog`                                                                       | journaux du serveur         |
+| `nodefony:orm:health` · `nodefony:orm:flow` · `nodefony:orm:rich`                       | requêtes et santé des bases |
+| `nodefony:dashboard` · `nodefony:supervision` · `nodefony:debugbar` · `nodefony:socket` | métriques et supervision    |
+| `nodefony:kernel:ping` · `nodefony:kernel:gc`                                           | contrôle du pod             |
 
 Le raisonnement tient en une phrase : **sans module de sécurité, aucune identité n'existe**, donc
 personne ne peut prouver qu'il a le droit de lire ces canaux — le seul état sûr est le refus. Les
@@ -405,7 +408,7 @@ sequenceDiagram
   participant P as JsonRpcPeer
   participant H as RealtimeHub
   participant S as security — verrou
-  C->>P: {"method":"subscribe","params":{"channel":"syslog:stream"}}
+  C->>P: {"method":"subscribe","params":{"channel":"nodefony:syslog"}}
   P->>P: beforeDispatch (sync, hot path)
   P->>H: runAuthorizer(frame, peer)
   H->>H: getTokenForPeer(peer) — O(1) WeakMap
@@ -443,29 +446,32 @@ non-chaîne (`startChannel` ignore de toute façon un canal absent).
 Certains namespaces exposent l'intérieur du pod. Ils portent une politique par défaut que la config
 peut **resserrer**, jamais desserrer.
 
-| Namespace                                                                                 | Politique par défaut                                           |
-| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `security:`                                                                               | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:106`) |
-| `syslog:`, `orm:`, `node:`, `dashboard:`, `debugbar:`, `realtime:`, `cluster:`, `kernel:` | authentifié + `ROLE_ADMIN` (`frameAuthorizer.ts:70`)           |
-| tout canal contenant `:health` ou `:stats`                                                | authentifié + `ROLE_ADMIN`                                     |
-| tout le reste                                                                             | libre, sauf policy déclarée                                    |
+| Cible                                      | Politique par défaut                                          |
+| ------------------------------------------ | ------------------------------------------------------------- |
+| `nodefony:audit`                           | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:99`) |
+| tout le reste de `nodefony:`               | authentifié + `ROLE_ADMIN` (`frameAuthorizer.ts:70`)          |
+| tout canal contenant `:health` ou `:stats` | authentifié + `ROLE_ADMIN`                                    |
+| tout le reste                              | libre, sauf policy déclarée                                   |
+
+Le journal d'audit est un **canal précis**, pas un namespace : sa règle est posée devant celle du
+territoire (premier match gagnant), et elle n'existe que si le hub réserve bien ce territoire.
 
 Trois durcissements méritent d'être connus :
 
 - **Match insensible à la casse, sans allocation** — `startsWithCI()` (`frameAuthorizer.ts:149`).
-  Un `SYSLOG:stream` ne contourne pas le plancher `syslog:` par un simple changement de casse.
+  Un `NODEFONY:syslog` ne contourne pas le plancher `nodefony:` par un changement de casse.
 - **Plancher irréductible** — `floorReserved()` (`frameAuthorizer.ts:219`) : une règle de config qui
   tenterait d'ouvrir un namespace réservé (`{ authenticated: false }`) se voit ré-imposer
   `authenticated: true`. Le test porte sur le **namespace du canal**, pas sur le préfixe de la règle
   qui a matché : un préfixe de config plus court ou altéré ne contourne rien.
 - **La config passe avant les défauts** — les règles de `realtimeChannels`
   (`security/nodefony/config/config.ts:906`) sont placées en tête, premier match gagnant. On peut
-  donc re-cibler `syslog:` sur `ROLE_SECURITY_AUDITOR` ; on ne peut pas l'ouvrir à l'anonyme.
+  donc re-cibler `nodefony:syslog` sur `ROLE_SECURITY_AUDITOR` ; on ne peut pas l'ouvrir à l'anonyme.
 
-Le canal du journal d'audit (`security:audit`) est enregistré comme **canal système** sur le hub
+Le canal du journal d'audit (`nodefony:audit`) est enregistré comme **canal système** sur le hub
 (`RealtimeHub.registerSystemChannel()`, `RealtimeHub.ts:741`) : il devient servable par n'importe
-quel endpoint realtime, sans qu'aucun controller ne le connaisse — et il est gardé par le plancher
-`security:`. Son enregistrement est **couplé** à la pose du verrou (même condition), donc il n'existe
+quel endpoint realtime, sans qu'aucun controller ne le connaisse — et il est gardé par sa règle
+dédiée. Son enregistrement est **couplé** à la pose du verrou (même condition), donc il n'existe
 jamais de canal d'audit non gardé.
 
 ### La policy métier — déclarer sur le canal
@@ -495,7 +501,7 @@ Le verrou n'existe que si quelqu'un le pose. Deux conditions doivent être vraie
 
 C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:253`) : sans zone qualifiante,
 `wired` reste faux, `setFrameAuthorizer` n'est jamais appelé, et **aucune** policy de canal n'est
-évaluée — ni métier, ni système. `syslog:stream` redevient un canal ordinaire.
+évaluée — ni métier, ni système. `nodefony:syslog` redevient un canal ordinaire.
 
 Deuxième subtilité : `beforeDispatch` n'est branché sur une connexion que si le verrou est **déjà**
 posé au moment de son handshake (`RealtimeController.ts:402`, via
@@ -522,7 +528,7 @@ l'alerte. Le test ne prouve pas que le canal est fermé — il prouve que le fra
 > [!CAUTION]
 > **Portée exacte de cette alerte.** Elle se déclenche uniquement s'il existe au moins une policy
 > **déclarée** par un décorateur. Une application qui n'utilise aucun `@RealtimeChannel` avec
-> policy, mais qui expose des canaux de namespace réservé (`syslog:`, `orm:`…), ne déclenche
+> policy, mais qui expose des canaux de namespace réservé (`nodefony:syslog`, `nodefony:orm:health`…), ne déclenche
 > **rien** : le registre `#channelPolicies` reste vide, la condition est fausse, et les planchers
 > système restent pourtant non appliqués. La détection couvre le risque métier, pas le risque
 > plateforme.
@@ -551,8 +557,8 @@ une raison machine stable (`zone_protected` ou `channel_policy`).
 ## ⏳ Verrou 4 — la révocation : une socket survit à sa session
 
 Le problème est structurel : l'identité est figée au handshake, le verrou est sync, donc une frame
-ne peut pas relire la session. Un administrateur qui se déconnecte garderait ses flux `syslog:` et
-`security:audit` tant que sa socket vit.
+ne peut pas relire la session. Un administrateur qui se déconnecte garderait ses flux `nodefony:syslog` et
+`nodefony:audit` tant que sa socket vit.
 
 Nodefony ferme l'écart par deux mécanismes de granularité différente.
 
@@ -691,7 +697,7 @@ d'appartenance par module est un manque connu et assumé, pas une protection exi
 
 **2. Le backplane n'authentifie l'émetteur que si tu poses un secret.** Ce qui ENTRE par le bus est filtré par
 canal — seul un canal déclaré broadcast est réinjecté (`RealtimeHub.#admitFromBackplane`), donc
-`syslog:`, `security:audit` et les canaux d'observabilité restent hors d'atteinte depuis le
+`syslog:`, `nodefony:audit` et les canaux d'observabilité restent hors d'atteinte depuis le
 transport. Mais l'**identité de l'émetteur** n'est vérifiée que lorsque `backplane.secret` est posé :
 les messages sont alors scellés (HMAC-SHA256, `envelope.ts`) et un message non scellé ou altéré est
 ignoré. Sans secret, quiconque écrit dans le Redis publie sur les canaux **broadcast** de tous les
@@ -732,9 +738,9 @@ n'est pas appliquée.
 - **Santé de la socket** : `/nodefony/realtime/api/health`, alimenté par `RealtimeHub.probe()`
   (`RealtimeHub.ts:540`) — canaux, abonnés, fan-out, connexions, back-pressure et carte d'identité
   du backplane. Un `drops` qui grimpe signale des clients en souffrance ; un `slowConsumers` non nul
-  précède souvent une fermeture `1013`. Même snapshot en flux sur le canal `realtime:health`
+  précède souvent une fermeture `1013`. Même snapshot en flux sur le canal `nodefony:socket`
   (namespace réservé : `ROLE_ADMIN`).
-- **Journal d'audit** : les refus de frame arrivent sur le canal `security:audit`
+- **Journal d'audit** : les refus de frame arrivent sur le canal `nodefony:audit`
   (`ROLE_NODEFONY_ADMIN`) et dans le data plane d'audit de `@nodefony/security`.
 - **Page module** : `/nodefony/modules/realtime` — la config effective (dont `csrf.checkOrigin` et
   `limits`) y est lisible telle qu'appliquée au boot.
@@ -744,7 +750,7 @@ n'est pas appliquée.
 | Symptôme                                                                 | Cause                                                                                                  | Correction                                                                                            |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
 | Le canal `ROLE_ADMIN` est servi à tout le monde, sans erreur             | Aucune zone `security: true` + `realtime: true` → verrou de frame jamais posé                          | Déclarer une zone protégée couvrant la route WS ; chercher le WARNING « policies … NOT enforced »     |
-| `syslog:stream` accessible en anonyme, **et aucun WARNING**              | L'alerte ne couvre que les policies **déclarées** ; un plancher système non appliqué reste muet        | Vérifier que le verrou est posé (log « Realtime data plane locked ») — ne pas se fier au silence      |
+| `nodefony:syslog` accessible en anonyme, **et aucun WARNING**            | L'alerte ne couvre que les policies **déclarées** ; un plancher système non appliqué reste muet        | Vérifier que le verrou est posé (log « Realtime data plane locked ») — ne pas se fier au silence      |
 | L'allowlist d'origines est configurée mais tout passe                    | `csrf.checkOrigin.enabled` reste `false` (défaut)                                                      | Poser `enabled: true` ; vérifier `allowList` non vide, sinon **tout** est refusé                      |
 | Le client mobile natif ne se connecte plus après activation de l'origine | `allowMissingOrigin: false` refuse les clients sans `Origin`                                           | Passer à `true` **uniquement** si un credential fort est vérifié (JWT signé, clé API)                 |
 | Un matcher d'authenticator ne se déclenche jamais                        | Le matcher est comparé au **path**, pas à l'URL absolue ; un `pattern` chaîne est un préfixe **ancré** | Écrire `"/rt/"` et non `"rt"` ni `"wss://host/rt"`                                                    |

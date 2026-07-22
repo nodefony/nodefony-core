@@ -81,13 +81,11 @@ export interface WidgetSourceHybrid {
   channel: string;
 }
 export type WidgetSource =
-  | WidgetSourceSnapshot
-  | WidgetSourceLive
-  | WidgetSourceHybrid;
+  WidgetSourceSnapshot | WidgetSourceLive | WidgetSourceHybrid;
 
 /**
  * Contexte transverse fourni par le shell à CHAQUE widget, calculé une seule fois
- * au niveau du bureau. `cluster`/`instanceCount` dérivent de `realtime:health`
+ * au niveau du bureau. `cluster`/`instanceCount` dérivent de `nodefony:socket`
  * (agrégée par le master — la seule source juste en cluster, cf doc §4).
  */
 export interface WidgetRuntimeContext {

@@ -28,9 +28,9 @@ export type Severity = (typeof SEVERITIES)[number];
 /**
  * Forme **wire** d'un Pdu — miroir de `ILogRecord` (core). Produite par
  * `pduToRecord` côté serveur et partagée par TOUTES les façades : endpoint
- * data-plane (`logs`/`logs/search`) ET canal temps réel `syslog:stream`.
+ * data-plane (`logs`/`logs/search`) ET canal temps réel `nodefony:syslog`.
  *
- * `msg` est optionnel : le canal `syslog:stream` ne le sérialise pas toujours
+ * `msg` est optionnel : le canal `nodefony:syslog` ne le sérialise pas toujours
  * (souvent vide) → on dégrade proprement.
  */
 export interface LogRecord {
@@ -65,7 +65,7 @@ export interface LogDriverCapabilities {
   write: boolean;
   /** Expose `query()` — relecture filtrée. `console` = false. */
   query: boolean;
-  /** Peut alimenter un flux temps réel (`syslog:stream`). */
+  /** Peut alimenter un flux temps réel (`nodefony:syslog`). */
   stream: boolean;
 }
 
@@ -105,7 +105,7 @@ export interface BackplaneCounters {
  *
  * Trois axes **orthogonaux** : `activeDriver`/`drivers` (DESTINATION queryable —
  * où l'on RELIT), `write.sink` (axe WRITE LB.W — où la ligne texte est écrite),
- * et le bus temps réel `syslog:stream` (indépendant, non décrit ici).
+ * et le bus temps réel `nodefony:syslog` (indépendant, non décrit ici).
  */
 export interface BackplaneMeta {
   /** Driver de relecture actif (`null` si aucun). */
@@ -126,7 +126,7 @@ export interface BackplaneMeta {
     transports?: TransportInfo[];
     /** Stockage mémoire (ring) actif ? `false` = Explorer « mémoire » à 0. */
     ringEnabled?: boolean;
-    /** Diffusion temps réel (syslog:stream) active ? `false` = onglet Live grisé. */
+    /** Diffusion temps réel (nodefony:syslog) active ? `false` = onglet Live grisé. */
     streamEnabled?: boolean;
     /** Dossier des fichiers JSONL (driver file/cluster-file) — `null` en prod. */
     logDir?: string | null;

@@ -94,7 +94,7 @@ const _gBuffer = (globalThis as { Buffer?: { isBuffer(v: unknown): boolean } })
 // compiler sous tsconfigClient `types: []`. Capturé UNE seule fois (process.pid ne change
 // jamais) → 0 appel système par log (hot path). = procid RFC 5424 : identifie le PROCESS
 // émetteur → en cluster, permet de grouper/filtrer les logs PAR WORKER (ring buffer,
-// syslog:stream, transports JSON). Browser → 0.
+// nodefony:syslog, transports JSON). Browser → 0.
 const PID = (globalThis as { process?: { pid?: number } }).process?.pid ?? 0;
 
 // Fast inline typeof for PDU payload — avoids lodash overhead on hot log path
@@ -152,7 +152,7 @@ class Pdu {
    *
    * Combiné à `pid` (procid RFC 5424), permet la corrélation **complète** :
    * `pid` = quel worker, `requestId` = quelle requête. Voyage dans ring buffer +
-   * `syslog:stream` + transports JSON (champ public sérialisé naturellement).
+   * `nodefony:syslog` + transports JSON (champ public sérialisé naturellement).
    */
   public requestId?: string;
 

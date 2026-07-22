@@ -285,7 +285,7 @@ function PodStat({
  * requêtes/connecteurs en grand + **courbe débit req/s**) — **cliquable → drill
  * `/nodefony/orm/<pid>`** (détail riche par connecteur). En mono : 1 card, sans
  * en-tête pod (la KPI « Santé ORM » porte déjà le verdict). Source = sonde lean pod
- * `realtime:health` (`.totals.orm` + `.instances[].orm`, agrégée par le master →
+ * `nodefony:socket` (`.totals.orm` + `.instances[].orm`, agrégée par le master →
  * cohérente, ≠ `/orm/api/*` round-robin).
  */
 function ClusterOrmGrid({
@@ -559,7 +559,7 @@ function ClusterOrmGrid({
  *
  * Data plane `/nodefony/orm/api` : `orms` + `graph` (rapides) ; `counts` (COUNT(*),
  * plus lent) chargé séparément. Runtime cluster-aware = sonde lean pod
- * `realtime:health` (agrégée par le master → cohérente, ≠ `/orm/api/*` round-robin).
+ * `nodefony:socket` (agrégée par le master → cohérente, ≠ `/orm/api/*` round-robin).
  */
 interface OrmOverviewProps {
   /**
@@ -633,7 +633,7 @@ export const OrmOverview = observer(
     useEffect(ensureLivePulseStyle, []);
 
     // Temps réel : interrupteur GLOBAL partagé (UiStore), OFF au (re)chargement
-    // (opt-in par session). ON → on s'abonne à `realtime:health` (sonde lean pod).
+    // (opt-in par session). ON → on s'abonne à `nodefony:socket` (sonde lean pod).
     const live = ui.realtimeLive;
     // Granularité (cadence du canal) — préférence persistée, défaut 5 s.
     const [liveMs, setLiveMs] = useState<number>(
@@ -644,7 +644,7 @@ export const OrmOverview = observer(
     // Cadence réelle appliquée par l'AIMD (lecture seule) → badge feedback sur la page.
     const [effectiveMs, setEffectiveMs] = useState<number>(liveMs);
 
-    // ── Sonde LEAN pod (canal `realtime:health`) — cluster-aware ──────────────
+    // ── Sonde LEAN pod (canal `nodefony:socket`) — cluster-aware ──────────────
     // 1ᵉʳ paint + détection cluster : snapshot pod one-shot (indépendant du toggle
     // « Temps réel »). Le MASTER agrège en cluster → vue cohérente quel que soit le
     // worker qui répond (≠ /orm/api/* en round-robin reusePort → 1 worker au hasard).
@@ -1189,7 +1189,7 @@ export const OrmOverview = observer(
                     icon={<IconInfoCircle size={18} />}
                     title="Santé ORM par worker indisponible"
                   >
-                    La sonde lean ORM (`realtime:health`) n'est pas remontée par
+                    La sonde lean ORM (`nodefony:socket`) n'est pas remontée par
                     ce pod. Le diagnostic riche reste accessible par worker via
                     le drill (clique un connecteur), ou active le flux ORM
                     (`NODEFONY_ORM_FLOW=1`) pour animer débit & latence.

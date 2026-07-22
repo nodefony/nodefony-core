@@ -10,7 +10,7 @@
  * Onglets :
  *  - **Vue d'ensemble** (défaut) : comprendre — le « fond de panier », les 3 axes,
  *    le registry des drivers, la santé, le switch de lecture (dev).
- *  - **Live** : flux temps réel (WS `syslog:stream`), tail intelligent.
+ *  - **Live** : flux temps réel (WS `nodefony:syslog`), tail intelligent.
  *  - **Explorer** : requête froide paginée + **trace full-stack** par `requestId`.
  *  - **Fichiers** : viewer des fichiers de log (confort DEV).
  *

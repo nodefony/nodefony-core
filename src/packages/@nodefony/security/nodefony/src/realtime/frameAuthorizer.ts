@@ -1,3 +1,8 @@
+import {
+  NODEFONY_CHANNEL_NAMESPACE,
+  PLATFORM_CHANNELS,
+  startsWithCI,
+} from "nodefony";
 import type {
   FrameAuthorizer,
   IChannelPolicy,
@@ -64,7 +69,7 @@ export type FrameDenyReporter = (
 /**
  * Politique système par défaut des canaux d'**introspection serveur** : réservés
  * aux administrateurs. DURCISSEMENT Zero Trust (P6) : avant, « authentifié
- * suffisait » (tout `ROLE_USER` lisait `syslog:stream`) ; désormais `ROLE_ADMIN`.
+ * suffisait » (tout `ROLE_USER` lisait `nodefony:syslog`) ; désormais `ROLE_ADMIN`.
  * Surchargeable finement par `realtimeChannels` (ex. `ROLE_SECURITY_AUDITOR`).
  */
 export const SYSTEM_CHANNEL_POLICY: IChannelPolicy = {
@@ -73,33 +78,27 @@ export const SYSTEM_CHANNEL_POLICY: IChannelPolicy = {
 };
 
 /**
- * Namespaces d'introspection serveur (observabilité) — s'y abonner expose l'état
- * interne du pod (logs, requêtes, métriques, supervision). Liste extensible via
- * la config. Convention transverse Nodefony : `<module>:health` / `<module>:stats`
- * (gérée à part dans {@link matchSystemPolicy}).
+ * Namespace d'introspection serveur (observabilité) — s'y abonner expose l'état
+ * interne du pod : journaux (`nodefony:syslog`), base (`nodefony:orm:*`), métriques
+ * et supervision (`nodefony:dashboard`, `nodefony:supervision@<pid>`), sonde de la
+ * socket (`nodefony:socket`), contrôle du pod (`nodefony:kernel:gc` force un GC
+ * bloquant). Liste extensible via la config. Convention transverse Nodefony :
+ * `<module>:health` / `<module>:stats` (gérée à part dans {@link matchSystemPolicy}).
  *
- * ⚠️ Couplage ASSUMÉ : security connaît les namespaces système de la plateforme
- * (c'est son rôle de définir la politique).
+ * ⚠️ Couplage ASSUMÉ : security connaît le namespace système de la plateforme
+ * (c'est son rôle de définir la politique) — mais il ne le REDÉCLARE pas : la
+ * constante vient du cœur, comme côté hub.
  */
-export const DEFAULT_SYSTEM_PREFIXES = [
-  "syslog:", // logs serveur (syslog:stream) — fuite directe d'infos sensibles
-  "orm:", // santé / flux / requêtes ORM (orm:health, orm:flow, orm:vacuum)
-  "node:", // métriques process (node:stream)
-  "dashboard:", // supervision cluster (dashboard:stats, dashboard:supervision@pid)
-  "debugbar:", // debug bar (debugbar:stats)
-  "realtime:", // sonde socket (realtime:health)
-  "cluster:", // sonde cluster
-  "kernel:", // contrôle/sonde du pod (kernel:gc force un GC stop-the-world, kernel:ping liveness+RTT) — réservé admin
-] as const;
+export const DEFAULT_SYSTEM_PREFIXES = [NODEFONY_CHANNEL_NAMESPACE] as const;
 
 /**
- * Plancher des canaux de **sécurité** (`security:audit`, P6.14 lot 4) : réservé au
+ * Plancher des canaux de **sécurité** (`nodefony:audit`, P6.14 lot 4) : réservé au
  * super-admin Nodefony (`ROLE_NODEFONY_ADMIN`) — un cran AU-DESSUS du plancher
  * d'observabilité générique (`ROLE_ADMIN`). Le journal d'audit du pod ne se lit
  * pas avec un simple rôle admin applicatif. Cohérent avec le data plane HTTP de
  * l'audit (`SecurityAdminApi`, lot 3, même rôle).
  *
- * Multi-tenant (futur) : `security:audit` reste un canal **plateforme** (pod),
+ * Multi-tenant (futur) : `nodefony:audit` reste un canal **plateforme** (pod),
  * jamais exposé à un user tenant ; l'événement portera le `tenantId` (via l'ALS)
  * pour permettre un filtrage par tenant quand le chantier multi-tenant arrivera.
  */
@@ -109,24 +108,22 @@ export const SECURITY_CHANNEL_POLICY: IChannelPolicy = {
 };
 
 /**
- * F2 (revue 0.6) — PLANCHER IRRÉDUCTIBLE des namespaces réservés plateforme. Ces
- * namespaces exposent l'état interne du pod (logs, audit, métriques, requêtes,
- * supervision) : une règle de config `realtimeChannels` (placée AVANT les défauts,
- * 1ᵉʳ match gagne) pourrait sinon les OUVRIR à l'anonyme (`{ authenticated:false }`
- * ou policy vide). Le plancher garantit qu'un canal de ces namespaces exige
- * TOUJOURS au moins `authenticated` — la config peut RESSERRER (rôle/scope) ou
- * re-cibler le rôle, jamais DESCENDRE sous authenticated. `security:` inclus (son
- * défaut ROLE_NODEFONY_ADMIN est déjà au-dessus, mais le plancher le blinde contre
- * une surcharge de config). Défense structurelle, fail-closed (cf F1 fail-loud).
+ * F2 (revue 0.6) — PLANCHER IRRÉDUCTIBLE du namespace réservé plateforme. Il
+ * couvre tout ce qui expose l'état interne du pod (logs, audit, métriques,
+ * requêtes, supervision) : une règle de config `realtimeChannels` (placée AVANT
+ * les défauts, 1ᵉʳ match gagne) pourrait sinon l'OUVRIR à l'anonyme
+ * (`{ authenticated:false }` ou policy vide). Le plancher garantit qu'un canal de
+ * ce namespace exige TOUJOURS au moins `authenticated` — la config peut RESSERRER
+ * (rôle/scope) ou re-cibler le rôle, jamais DESCENDRE sous authenticated. Le canal
+ * d'audit en fait partie (son défaut ROLE_NODEFONY_ADMIN est déjà au-dessus, mais
+ * le plancher le blinde contre une surcharge de config). Défense structurelle,
+ * fail-closed (cf F1 fail-loud).
  */
-export const RESERVED_FLOOR_PREFIXES = [
-  "security:",
-  ...DEFAULT_SYSTEM_PREFIXES,
-] as const;
+export const RESERVED_FLOOR_PREFIXES = DEFAULT_SYSTEM_PREFIXES;
 
 /**
- * Règles système par défaut. `security:` est placé EN TÊTE (1ᵉʳ match gagne) avec
- * son plancher super-admin propre ; les autres namespaces réservés héritent de
+ * Règles système par défaut. Le canal d'audit est placé EN TÊTE (1ᵉʳ match gagne)
+ * avec son plancher super-admin propre ; le reste du namespace plateforme hérite de
  * {@link SYSTEM_CHANNEL_POLICY}. Le firewall y préfixe les règles issues de la
  * config (qui gagnent par ordre).
  */
@@ -142,50 +139,33 @@ export const DEFAULT_SYSTEM_RULES: readonly ISystemChannelRule[] =
  * ne redéclare rien : un namespace ajouté côté realtime hérite automatiquement
  * d'une politique, au lieu de rester ouvert sans que personne ne le remarque.
  *
- * `security:` est placé EN TÊTE (premier match gagnant) : son plancher est plus
- * haut que celui des autres namespaces d'observabilité.
+ * Le canal d'audit est placé EN TÊTE (premier match gagnant) : son plancher est
+ * plus haut que celui du reste de l'observabilité. Il n'est pas un namespace mais
+ * un canal précis — sa règle n'est donc posée que si la liste reçue le COUVRE : si
+ * le hub cessait un jour de réserver ce territoire, la sécurité cesserait avec lui
+ * de prétendre l'arbitrer, au lieu de garder une règle orpheline.
  *
  * @param prefixes - namespaces réservés (ordre indifférent).
- * @returns les règles, `security:` d'abord.
+ * @returns les règles, canal d'audit d'abord.
  */
 export function buildSystemRules(
   prefixes: readonly string[],
 ): readonly ISystemChannelRule[] {
   const rules: ISystemChannelRule[] = [];
-  if (prefixes.includes("security:")) {
-    rules.push({ prefix: "security:", policy: SECURITY_CHANNEL_POLICY });
+  const audit = PLATFORM_CHANNELS.audit;
+  if (prefixes.some((prefix) => startsWithCI(audit, prefix))) {
+    rules.push({ prefix: audit, policy: SECURITY_CHANNEL_POLICY });
   }
   for (const prefix of prefixes) {
-    if (prefix === "security:") continue;
     rules.push({ prefix, policy: SYSTEM_CHANNEL_POLICY });
   }
   return rules;
 }
 
 /**
- * `s` commence-t-il par `prefix`, comparaison INSENSIBLE À LA CASSE (ASCII) et
- * SANS allocation ? Un plancher de namespace réservé ne doit JAMAIS être
- * contournable en changeant la casse (`SYSLOG:stream` vs `syslog:stream`) :
- * sinon un client échappe à la politique ROLE_ADMIN par un simple `toUpperCase`
- * (defense-in-depth Zero Trust). 0 `toLowerCase()` : appelé sur le chemin
- * subscribe/inbound → on respecte la règle perf (pas d'alloc hot-path).
- */
-function startsWithCI(s: string, prefix: string): boolean {
-  if (s.length < prefix.length) return false;
-  for (let i = 0; i < prefix.length; i++) {
-    let a = s.charCodeAt(i);
-    if (a >= 65 && a <= 90) a += 32; // A-Z → a-z
-    let b = prefix.charCodeAt(i);
-    if (b >= 65 && b <= 90) b += 32;
-    if (a !== b) return false;
-  }
-  return true;
-}
-
-/**
  * `s` contient-il `needle`, insensible à la casse et sans allocation ? Pour les
  * conventions transverses `:health`/`:stats` (après le namespace de module —
- * `mymod:health` — éventuellement suffixées d'une cadence `orm:health:5000`).
+ * `mymod:health` — éventuellement suffixées d'une cadence `nodefony:orm:health:5000`).
  */
 function containsCI(s: string, needle: string): boolean {
   const last = s.length - needle.length;
@@ -235,7 +215,7 @@ function matchSystemPolicy(
  * effective exige AU MOINS `authenticated`, même si la `policy` (issue d'une règle
  * de config) tente de l'ouvrir. Basé sur le namespace du CANAL, PAS sur le prefixe
  * de la règle qui a matché → pas de contournement via un prefixe de config plus
- * court/altéré (`{ prefix:"sec", authenticated:false }` sur `security:audit`).
+ * court/altéré (`{ prefix:"sec", authenticated:false }` sur `nodefony:audit`).
  * `policy.authenticated` déjà vrai (cas nominal, défauts + `:health`) → retour tel
  * quel, 0 allocation. N'alloue que sur une config qui tente de DESSERRER un
  * namespace réservé (cold path de misconfiguration).

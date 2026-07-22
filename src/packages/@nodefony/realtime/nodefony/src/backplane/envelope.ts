@@ -23,7 +23,7 @@ import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
  * octet par octet.
  *
  * Portée : le sceau couvre l'origine, le canal ET la charge → ni repointage de
- * canal (`chat:` → `security:audit`), ni substitution de charge.
+ * canal (`chat:` → `nodefony:audit`), ni substitution de charge.
  *
  * Hors portée (assumé, cf sémantique at-most-once du port) : le **rejeu**. Un
  * tiers qui lit le bus peut re-publier un message scellé intact ; l'effet se

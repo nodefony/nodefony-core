@@ -1,18 +1,19 @@
 import type { IAuditEvent } from "../../contracts/IAuditEvent";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /**
  * Canal WS du flux live d'audit (P6.14 lot 4). Le préfixe `security:` le place
  * sous le plancher `SECURITY_CHANNEL_POLICY` (ROLE_NODEFONY_ADMIN) du verrou de
  * frame — un user lambda ne peut pas s'y abonner (refus audité `frame.denied`).
  */
-export const SECURITY_AUDIT_CHANNEL = "security:audit";
+export const SECURITY_AUDIT_CHANNEL = PLATFORM_CHANNELS.audit;
 
 /** Source d'événements live — sous-ensemble de `IAuditSink` (slot `subscribe`). */
 export interface IAuditEventSource {
   subscribe(listener: (event: IAuditEvent) => void): () => void;
 }
 
-/** Charge poussée sur le canal `security:audit` — batch coalescé + omis. */
+/** Charge poussée sur le canal `nodefony:audit` — batch coalescé + omis. */
 export interface IAuditBatch {
   events: IAuditEvent[];
   dropped: number;
@@ -28,7 +29,7 @@ export interface AuditBridgeOptions {
 }
 
 /**
- * Pont journal d'audit → canal `security:audit`, **coalescé** (P6.14 lot 4).
+ * Pont journal d'audit → canal `nodefony:audit`, **coalescé** (P6.14 lot 4).
  *
  * Calque {@link createSyslogBridge} (studio) : au lieu de 1 frame WS par
  * événement (un pic d'`auth.failure` sous brute-force noierait la console
@@ -39,13 +40,13 @@ export interface AuditBridgeOptions {
  * observabilité « superviser ≠ tomber la prod »).
  *
  * **Lazy par construction** (créé par le hub au 1ᵉʳ abonné, `dispose` au dernier) :
- * tant qu'aucun auditeur n'écoute `security:audit`, ce pont N'EXISTE PAS — aucun
+ * tant qu'aucun auditeur n'écoute `nodefony:audit`, ce pont N'EXISTE PAS — aucun
  * listener sur l'`AuditService`, aucun timer. Au repos avec auditeur connecté mais
  * sans événement : ring `null`, 0 timer (armé au 1ᵉʳ événement, `unref`).
  *
  * @param source  - l'`AuditService` (slot `subscribe`).
  * @param publish - publication hub (le canal est fourni par la factory).
- * @param channel - canal de publication (`security:audit`).
+ * @param channel - canal de publication (`nodefony:audit`).
  * @returns dispose() — détache le listener `AuditService` ET désarme le timer.
  *          OBLIGATOIRE (aucun listener/timer sans cleanup, sinon fuite à chaque
  *          dernier désabonnement).

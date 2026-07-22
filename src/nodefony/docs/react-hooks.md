@@ -80,7 +80,7 @@ Trois idées portent toute la page :
 | **Tearing**                | Deux parties d'un même rendu affichant deux versions d'une donnée qui a changé en cours de route.                                    |
 | **StrictMode**             | Mode de développement de React qui monte, démonte, puis remonte chaque composant pour révéler les fuites.                            |
 | **Mémoïsation**            | Garder la même référence entre deux rendus (`useMemo`, `useCallback`) pour éviter un travail répété.                                 |
-| **Cadence**                | Fréquence d'un canal d'état, portée par son **nom** (`orm:health:2000` = toutes les 2 s).                                            |
+| **Cadence**                | Fréquence d'un canal d'état, portée par son **nom** (`nodefony:orm:health:2000` = toutes les 2 s).                                   |
 | **AIMD**                   | _Additive Increase, Multiplicative Decrease_ — on ralentit vite sous pression, on réaccélère lentement.                              |
 | **Latest-wins**            | Canal où seule la dernière valeur compte : en décimer est sans perte (supervision, stats).                                           |
 | **Coalescence**            | Regrouper N événements en une seule trame — le journal arrive par lots, pas ligne à ligne.                                           |
@@ -333,7 +333,7 @@ local. `null` tant que rien n'est arrivé, sauf si tu fournis une valeur initial
 rendu seulement).
 
 ```tsx
-const stats = useNodefonyChannelData<Stats>("dashboard:stats");
+const stats = useNodefonyChannelData<Stats>("nodefony:dashboard");
 if (!stats) return <p>en attente…</p>;
 ```
 
@@ -352,7 +352,7 @@ badge (« mise à jour toutes les 2 s »).
 
 ```tsx
 const intervalMs = useNodefonyAdaptiveChannel(
-  "orm:health",
+  "nodefony:orm:health",
   (payload) => setHealth(payload as Health),
   1000, // cadence désirée, la plus fine
 );
@@ -382,7 +382,7 @@ supervision — une valeur à afficher, une cadence à annoncer.
 
 ```tsx
 const { data, intervalMs } = useNodefonyAdaptiveChannelData<Health>(
-  "orm:health",
+  "nodefony:orm:health",
   2000,
 );
 ```
@@ -407,11 +407,11 @@ Un tampon borné des lignes de journal poussées par le serveur. Il comprend les
 le lot groupé `{ logs, dropped }` — c'est la forme normale, produite par `createSyslogBridge()`
 (`realtime/providers.ts:145`) — et l'entrée isolée.
 
-| Option       | Défaut            | Effet                                                         |
-| ------------ | ----------------- | ------------------------------------------------------------- |
-| `max`        | `500`             | Taille du tampon ; au-delà, les plus anciennes lignes sortent |
-| `severities` | toutes            | Ne conserver que ces sévérités                                |
-| `channel`    | `"syslog:stream"` | Canal source                                                  |
+| Option       | Défaut              | Effet                                                         |
+| ------------ | ------------------- | ------------------------------------------------------------- |
+| `max`        | `500`               | Taille du tampon ; au-delà, les plus anciennes lignes sortent |
+| `severities` | toutes              | Ne conserver que ces sévérités                                |
+| `channel`    | `"nodefony:syslog"` | Canal source                                                  |
 
 Le tableau `severities` n'a pas besoin d'être mémoïsé : la dépendance de l'effet est la **chaîne**
 jointe (`sevKey`, `client/react/index.ts:286`), pas le tableau.
@@ -459,8 +459,8 @@ Le subpath réexporte la convention de nommage partagée avec le serveur
 | `parseRate(channel, base, bounds)` | `realtime/channelRate.ts:63` | Extrait et **borne** la cadence — usage serveur                  |
 | `isRateChannel(channel, base)`     | `realtime/channelRate.ts:75` | Teste si un canal est une variante cadencée d'une base           |
 
-Le point important : **un canal = une cadence = un compteur de références**. `orm:health:2000` et
-`orm:health:5000` sont deux flux distincts, jamais réconciliés.
+Le point important : **un canal = une cadence = un compteur de références**. `nodefony:orm:health:2000` et
+`nodefony:orm:health:5000` sont deux flux distincts, jamais réconciliés.
 
 ## 🏗️ Cycle de vie d'un abonnement
 
@@ -591,7 +591,7 @@ Studio est le consommateur de référence de ces hooks, et sert de banc d'essai 
 - **Console temps réel** (`/nodefony/hub`) — les trames dans les deux sens, abonnements compris. La
   page la plus utile pour vérifier qu'un hook s'abonne à ce qu'on croit, et une seule fois.
 - **Jumeau vivant** (`/nodefony/twin`) — la topologie animée par les mêmes canaux.
-- **Journal** (`/nodefony/logs`) — le flux `syslog:stream` en direct.
+- **Journal** (`/nodefony/logs`) — le flux `nodefony:syslog` en direct.
 
 Ce que ces écrans montrent, une app tierce l'obtient avec les mêmes hooks : rien n'est réservé à
 Studio.

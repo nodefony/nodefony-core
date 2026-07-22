@@ -87,6 +87,7 @@ import {
   type FlowReport,
   type OrmRate,
 } from "../../types/orm";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /** Type de stockage déduit (icône + libellé + couleur). */
 function storageOf(driver: string, target?: string) {
@@ -429,7 +430,7 @@ export function ConnectorCard({
                         },
                         {
                           label: "Source",
-                          body: "Canal orm:flow, cadence suivant le réglage temps réel.",
+                          body: "Canal nodefony:orm:flow, cadence suivant le réglage temps réel.",
                         },
                       ]}
                     />
@@ -770,7 +771,7 @@ export function ConnectorCard({
 }
 
 /**
- * Abonné à la SOCKET Nodefony, canal `orm:health` — monté UNIQUEMENT quand « Temps
+ * Abonné à la SOCKET Nodefony, canal `nodefony:orm:health` — monté UNIQUEMENT quand « Temps
  * réel » est ON (abonnement ref-compté → démonter désabonne → le serveur arrête le
  * ticker, 0 travail quand OFF). Pousse le dernier paquet à `onData`.
  *
@@ -791,7 +792,7 @@ export function OrmHealthLive({
 }) {
   const { data, intervalMs: effectiveMs } = useNodefonyAdaptiveChannelData<
     ConnHealth[]
-  >("orm:health", intervalMs, {
+  >(PLATFORM_CHANNELS.ormHealth, intervalMs, {
     defaultMs: 5000,
     enabled: adaptive,
   });
@@ -808,7 +809,7 @@ export function OrmHealthLive({
 }
 
 /**
- * Abonné à la SOCKET, canal `orm:flow` — **même mécanique adaptative** qu'`OrmHealthLive`
+ * Abonné à la SOCKET, canal `nodefony:orm:flow` — **même mécanique adaptative** qu'`OrmHealthLive`
  * (suit le réglage global AIMD). Pousse le rapport brut à `onFlow` (le débit/s est
  * dérivé côté appelant via {@link useOrmFlow}).
  */
@@ -821,7 +822,7 @@ export function OrmFlowLive({
   adaptive: boolean;
   onFlow: (payload: unknown) => void;
 }) {
-  useNodefonyAdaptiveChannel("orm:flow", onFlow, intervalMs, {
+  useNodefonyAdaptiveChannel(PLATFORM_CHANNELS.ormFlow, onFlow, intervalMs, {
     defaultMs: 2000,
     enabled: adaptive,
   });
@@ -829,10 +830,10 @@ export function OrmFlowLive({
 }
 
 /**
- * Abonné au canal **drill ORM cluster** `orm:rich@<pid>` — diagnostic ORM RICHE
+ * Abonné au canal **drill ORM cluster** `nodefony:orm:rich@<pid>` — diagnostic ORM RICHE
  * (`connection/health` + `flow`) du worker `pid` EXACT, en UN canal combiné. Remplace
  * `OrmHealthLive` + `OrmFlowLive` sur la page drill : en cluster, ces deux canaux nus
- * (`orm:health`/`orm:flow`) tombent sur un worker round-robin (reusePort) ; `orm:rich@<pid>`
+ * (`nodefony:orm:health`/`nodefony:orm:flow`) tombent sur un worker round-robin (reusePort) ; `nodefony:orm:rich@<pid>`
  * cible le worker demandé (relais ciblé master→worker, facette "orm"). En mono / worker
  * courant, le serveur sert le diagnostic local exact.
  *
@@ -875,15 +876,20 @@ export function OrmRichLive({
     },
     [onHealth, onFlow, onPending],
   );
-  useNodefonyAdaptiveChannel(`orm:rich@${pid}`, handler, intervalMs, {
-    defaultMs: 3000,
-    enabled: adaptive,
-  });
+  useNodefonyAdaptiveChannel(
+    `${PLATFORM_CHANNELS.ormRich}@${pid}`,
+    handler,
+    intervalMs,
+    {
+      defaultMs: 3000,
+      enabled: adaptive,
+    },
+  );
   return null;
 }
 
 /**
- * Abonné à la SOCKET Nodefony, canal `realtime:health` — sonde LEAN pod (cumuls
+ * Abonné à la SOCKET Nodefony, canal `nodefony:socket` — sonde LEAN pod (cumuls
  * `IOrmLeanHealth` + erreurs) **agrégée par le master en cluster** (donc cohérente,
  * ≠ `/orm/api/*` qui tape 1 worker au hasard). Sert la **détection cluster** + le
  * **verdict Santé ORM** + le breakdown par worker. Monté seulement quand « Temps
@@ -903,7 +909,7 @@ export function RealtimeHealthLive({
 }) {
   const { data, intervalMs: effectiveMs } =
     useNodefonyAdaptiveChannelData<HealthPayload>(
-      "realtime:health",
+      PLATFORM_CHANNELS.socket,
       intervalMs,
       {
         defaultMs: 5000,
@@ -924,7 +930,7 @@ export function RealtimeHealthLive({
 
 /**
  * Dérive le flux par connecteur (débit/s + EWMA + historique sparkline) à partir
- * des rapports bruts du canal `orm:flow` (delta de `total` entre 2 frames). Renvoie
+ * des rapports bruts du canal `nodefony:orm:flow` (delta de `total` entre 2 frames). Renvoie
  * `{ flowByName, onFlow, reset }` — `onFlow` à passer à {@link OrmFlowLive}.
  */
 export function useOrmFlow(): {
@@ -971,7 +977,7 @@ export function useOrmFlow(): {
 /**
  * Dérive, par worker (clé pid), les **taux** ORM (erreurs/min, reconnexions/min) et
  * l'**historique du débit requêtes/s** à partir des snapshots cumulés de la sonde lean
- * pod (`realtime:health`). 0 backend : delta des cumuls entre 2 frames, côté front.
+ * pod (`nodefony:socket`). 0 backend : delta des cumuls entre 2 frames, côté front.
  * `active=false` (temps réel OFF) → remet à zéro (pas de taux sur un snapshot figé).
  */
 export function useOrmRates(

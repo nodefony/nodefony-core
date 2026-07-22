@@ -56,10 +56,12 @@ describe("RealtimeClient — identité au welcome", () => {
 
   it("welcome ANONYME → identité + capabilities exposées", () => {
     const { client, internal } = newClient();
-    internal.handleMessage(welcome(anon, ["dashboard:stats"], ["kernel:ping"]));
+    internal.handleMessage(
+      welcome(anon, ["nodefony:dashboard"], ["nodefony:kernel:ping"]),
+    );
     expect(client.identity).to.deep.equal(anon);
-    expect(client.serverChannels).to.deep.equal(["dashboard:stats"]);
-    expect(client.serverMethods).to.deep.equal(["kernel:ping"]);
+    expect(client.serverChannels).to.deep.equal(["nodefony:dashboard"]);
+    expect(client.serverMethods).to.deep.equal(["nodefony:kernel:ping"]);
     client.disconnect();
   });
 

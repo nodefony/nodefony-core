@@ -12,7 +12,7 @@
  * « exécuter du shell à distance » — et pourquoi le serveur refuse tout hors développement
  * (le masquage de l'entrée de menu, lui, ne protège rien).
  *
- * Le suivi passe par la socket Nodefony (`scaffold:run` → canal `scaffold:job@<id>`) plutôt
+ * Le suivi passe par la socket Nodefony (`nodefony:scaffold:run` → canal `nodefony:scaffold:job@<id>`) plutôt
  * que par une réponse HTTP : une génération suivie d'un `npm install` dure des dizaines de
  * secondes, et une requête muette pendant tout ce temps n'apprend rien à personne.
  */
@@ -85,6 +85,7 @@ import {
   type ScaffoldStep,
   type TAnswers,
 } from "./createModel";
+import { PLATFORM_METHODS } from "nodefony";
 
 const SPEC_URL = "/nodefony/studio/api/create/spec";
 const JOB_URL = "/nodefony/studio/api/create/job";
@@ -320,11 +321,14 @@ export function Create() {
       const payload: TAnswers = isApp
         ? { ...answers, root: rootId ?? "", subPath }
         : answers;
-      const state = await conn.request<IScaffoldJobState>("scaffold:run", {
-        type: typeSpec.type,
-        answers: payload,
-        steps,
-      });
+      const state = await conn.request<IScaffoldJobState>(
+        PLATFORM_METHODS.scaffoldRun,
+        {
+          type: typeSpec.type,
+          answers: payload,
+          steps,
+        },
+      );
       const { lines: snapLines, ...meta } = state;
       const window_ = snapLines.slice(-MAX_TERMINAL_LINES);
       lastSeqRef.current = window_.length
@@ -349,9 +353,12 @@ export function Create() {
     if (!job) return;
     setCancelling(true);
     try {
-      await conn.request<IScaffoldCancelResult>("scaffold:cancel", {
-        id: job.id,
-      });
+      await conn.request<IScaffoldCancelResult>(
+        PLATFORM_METHODS.scaffoldCancel,
+        {
+          id: job.id,
+        },
+      );
     } catch (e) {
       notifications.notify("error", describeScaffoldError(e), {
         title: "Arrêt impossible",

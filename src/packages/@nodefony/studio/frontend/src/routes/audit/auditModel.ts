@@ -1,3 +1,4 @@
+import { PLATFORM_CHANNELS } from "nodefony";
 /**
  * Modèle de la console auditeur (P6.15) — **types miroir** du contrat back
  * `@nodefony/security` (P6.14) + constantes d'affichage. Frontière isomorphe : on
@@ -80,10 +81,10 @@ export interface AuditPage {
  * canaux inconnus) : le front est PRÊT, le tuyau backend + garde RBAC = prérequis
  * (sécurisation de Studio, P6.15). Tant que muet → la console reste en consultation.
  */
-export const SECURITY_AUDIT_CHANNEL = "security:audit";
+export const SECURITY_AUDIT_CHANNEL = PLATFORM_CHANNELS.audit;
 
 /**
- * Charge poussée sur `security:audit` — miroir de `IAuditBatch` serveur : batch
+ * Charge poussée sur `nodefony:audit` — miroir de `IAuditBatch` serveur : batch
  * coalescé (1 frame ~250 ms) + nombre d'événements omis sous surcharge (ring
  * borné). `dropped > 0` = pic d'événements (attaque ?) → afficher un récap.
  */

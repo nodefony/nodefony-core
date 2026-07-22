@@ -174,7 +174,7 @@ class RealtimeService extends Service {
   /**
    * Enregistre la factory d'un **canal système** (plateforme) — délégué à
    * {@link RealtimeHub.registerSystemChannel}. Un module bas niveau
-   * (`@nodefony/security` → `security:audit`) déclare au boot comment produire le
+   * (`@nodefony/security` → `nodefony:audit`) déclare au boot comment produire le
    * provider, sans qu'aucun `RealtimeController` ne le connaisse ; tout endpoint
    * le sert alors (lazy : créé au 1ᵉʳ abonné, disposé au dernier).
    */

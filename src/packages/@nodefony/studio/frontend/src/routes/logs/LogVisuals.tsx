@@ -129,8 +129,8 @@ export function ClusterScopeNotice({
       Cluster détecté (worker PID {cluster.pid}). Le driver actif « {label} » ne
       relit que <b>ce</b> worker → les requêtes peuvent renvoyer des résultats
       incohérents d'un rafraîchissement à l'autre (round-robin entre workers).
-      Configure <Code>log.queryDriver: "cluster-file"</Code> pour une vue unifiée
-      du cluster.
+      Configure <Code>log.queryDriver: "cluster-file"</Code> pour une vue
+      unifiée du cluster.
     </Alert>
   );
 }
@@ -205,7 +205,7 @@ const CAPABILITY_META: Record<
     icon: IconBroadcast,
     help: "Ce driver EST lui-même la source du flux temps réel (seul « mémoire » l'est : il EST le ring buffer alimenté en direct).",
     helpOff:
-      "Le temps réel ne vient pas de ce driver mais du bus « syslog:stream » (toujours actif). Tu ne perds donc PAS le direct : l'onglet Live fonctionne quel que soit le driver de relecture.",
+      "Le temps réel ne vient pas de ce driver mais du bus « nodefony:syslog » (toujours actif). Tu ne perds donc PAS le direct : l'onglet Live fonctionne quel que soit le driver de relecture.",
   },
 };
 
@@ -237,14 +237,18 @@ export function CapabilityBadges({
               key={cap}
               title={on ? meta.label : meta.labelOff}
               summary={
-                on ? meta.help : (meta.helpOff ?? "Non disponible sur ce driver.")
+                on
+                  ? meta.help
+                  : (meta.helpOff ?? "Non disponible sur ce driver.")
               }
               width={300}
               sections={[
                 {
                   label: "Contrat technique",
                   body: (
-                    <Code style={{ fontSize: 11 }}>capabilities.{meta.tech}</Code>
+                    <Code style={{ fontSize: 11 }}>
+                      capabilities.{meta.tech}
+                    </Code>
                   ),
                 },
               ]}
@@ -305,7 +309,12 @@ export function SeverityCountChips({
             aria-pressed={isActive}
             aria-label={`${sev} : ${n} — ${isActive ? "retirer du filtre" : "filtrer"}`}
             rightSection={
-              <Text span size="xs" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
+              <Text
+                span
+                size="xs"
+                fw={700}
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
                 {n}
               </Text>
             }

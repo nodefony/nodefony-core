@@ -4,8 +4,8 @@
  *
  * La cadence d'un canal à état (stats, supervision) vit dans son **nom** : `base` nu =
  * cadence serveur par défaut ; `base:<ms>` = cadence explicite. Conséquence voulue (cf
- * vision « la socket Nodefony ») : **1 canal = 1 cadence = 1 ref-count** — `orm:health:2000`
- * et `orm:health:5000` sont deux tickers distincts, jamais réconciliés.
+ * vision « la socket Nodefony ») : **1 canal = 1 cadence = 1 ref-count** — `nodefony:orm:health:2000`
+ * et `nodefony:orm:health:5000` sont deux tickers distincts, jamais réconciliés.
  *
  * Avant ce module la convention était **dupliquée** : le front fabriquait `base:${ms}` à la
  * main (3×) et le serveur la re-parsait+bornait à la main (3×) → dérive garantie (un bord
@@ -36,7 +36,7 @@ export interface RateBounds {
  * pour la cadence par défaut, ce qui évite de fragmenter le canal de base entre consommateurs
  * qui veulent tous la valeur par défaut (ils partagent alors un seul ticker ref-compté).
  *
- * @param base - canal de base (ex. `"orm:health"`).
+ * @param base - canal de base (ex. `"nodefony:orm:health"`).
  * @param intervalMs - cadence demandée (ms). Omise → canal de base.
  * @param defaultMs - cadence par défaut du canal ; `intervalMs === defaultMs` ⇒ canal de base.
  * @returns `base` ou `base:<ms>`.

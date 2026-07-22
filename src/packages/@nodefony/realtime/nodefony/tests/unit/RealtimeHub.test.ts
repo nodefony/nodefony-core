@@ -339,7 +339,7 @@ describe("RealtimeHub — backplane cross-process (port IBackplane)", () => {
   it("ingress : canal NON déclaré broadcast refusé (symétrie de la politique, F83)", () => {
     // La politique de forward est opt-in en SORTIE ; elle l'est désormais aussi en
     // ENTRÉE. Sans cette symétrie, un pair pouvait pousser sur un canal
-    // instance-local (`syslog:`, `security:audit`) que le hub refuse d'émettre.
+    // instance-local (`syslog:`, `nodefony:audit`) que le hub refuse d'émettre.
     const hub = new RealtimeHub();
     const bp = new FakeBackplane();
     hub.setBackplane(bp);
@@ -386,8 +386,8 @@ describe("RealtimeHub — politique de forward par canal (opt-in broadcast)", ()
     const bp = new FakeBackplane();
     hub.setBackplane(bp);
     const got: unknown[] = [];
-    hub.subscribe("realtime:health:1000", (p) => got.push(p), factory);
-    hub.publish("realtime:health:1000", { cpu: 1 });
+    hub.subscribe("nodefony:socket:1000", (p) => got.push(p), factory);
+    hub.publish("nodefony:socket:1000", { cpu: 1 });
     expect(got).to.deep.equal([{ cpu: 1 }]); // fan-out local OK
     expect(bp.published).to.deep.equal([]); // per-instance → JAMAIS cross-process
   });
@@ -527,14 +527,14 @@ describe("LoopbackBackplane — no-op mono-process", () => {
 describe("RealtimeHub — registre de canal système (registerSystemChannel)", () => {
   it("sert un canal système quand la factory du controller renvoie null", () => {
     const hub = new RealtimeHub();
-    hub.registerSystemChannel("security:audit", (ch, publish) => {
+    hub.registerSystemChannel("nodefony:audit", (ch, publish) => {
       publish(ch, { hello: true }); // push immédiat → capté par le 1ᵉʳ sink
       return () => {};
     });
     const got: unknown[] = [];
     // Factory du controller = canal inconnu de lui (`null`) → fallback registre.
     const ok = hub.subscribe(
-      "security:audit",
+      "nodefony:audit",
       (p) => got.push(p),
       () => null,
     );
@@ -545,13 +545,13 @@ describe("RealtimeHub — registre de canal système (registerSystemChannel)", (
   it("dispose le provider système au dernier désabonné (lazy)", () => {
     const hub = new RealtimeHub();
     let disposed = false;
-    hub.registerSystemChannel("security:audit", () => () => {
+    hub.registerSystemChannel("nodefony:audit", () => () => {
       disposed = true;
     });
     const sink = (): void => {};
-    hub.subscribe("security:audit", sink, () => null);
+    hub.subscribe("nodefony:audit", sink, () => null);
     expect(disposed).to.equal(false);
-    hub.unsubscribe("security:audit", sink);
+    hub.unsubscribe("nodefony:audit", sink);
     expect(disposed).to.equal(true);
   });
 

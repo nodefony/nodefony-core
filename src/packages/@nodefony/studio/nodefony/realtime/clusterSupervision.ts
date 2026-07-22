@@ -9,7 +9,7 @@ import type { AppMeta } from "./providers";
 /**
  * Mappe la santé d'UN worker du snapshot pod ({@link IRealtimeHealth} : lean `process` +
  * sonde riche `rich` jointe pendant le drill) vers le **format du canal
- * `dashboard:supervision`** — de sorte que le composant front de Supervision soit réutilisé
+ * `nodefony:supervision`** — de sorte que le composant front de Supervision soit réutilisé
  * tel quel, qu'il s'agisse du worker local (ticker direct) ou d'un worker distant (drill cluster).
  *
  * Pur (aucune I/O). Tolère l'absence de `rich` (enrich pas encore propagé cross-process) :
@@ -55,7 +55,7 @@ export function mapInstanceToSupervision(
 }
 
 /**
- * Provider du canal **drill-down cluster** `dashboard:supervision@<pid>` — supervision RICHE
+ * Provider du canal **drill-down cluster** `nodefony:supervision@<pid>` — supervision RICHE
  * d'UN worker DISTANT du pod (≠ le worker qui tient la connexion navigateur). Réutilise le
  * snapshot pod déjà diffusé par le master (voie B1) : aucun nouveau flux de données.
  *
@@ -69,7 +69,7 @@ export function mapInstanceToSupervision(
  * Perf : 1 `setInterval` `unref` ; lecture O(1) du cache snapshot (aucun appel système au tick).
  *
  * @param publish - sink du canal (fan-out hub).
- * @param channel - nom complet du canal (`dashboard:supervision@<pid>[:<ms>]`).
+ * @param channel - nom complet du canal (`nodefony:supervision@<pid>[:<ms>]`).
  * @param pid - worker distant ciblé.
  * @param intervalMs - cadence de republication (granularité `:<ms>`).
  * @param meta - métadonnées app statiques (env, version, branche).

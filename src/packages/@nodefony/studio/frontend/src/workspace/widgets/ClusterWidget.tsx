@@ -4,6 +4,7 @@ import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
 import { normalize, type HealthPayload } from "../../utils/realtimeHealth";
 import { Metric, WorkerTile, fmtMB } from "./_kit";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /**
  * Widget « Workers » — la salle des machines en cluster : une tuile par worker
@@ -71,7 +72,7 @@ registerWidget<HealthPayload>({
   source: {
     kind: "hybrid",
     endpoint: "/nodefony/realtime/api/health",
-    channel: "realtime:health",
+    channel: PLATFORM_CHANNELS.socket,
   },
   clusterAware: true,
   defaultSpan: 8,

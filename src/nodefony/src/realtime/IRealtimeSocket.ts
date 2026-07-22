@@ -16,7 +16,7 @@
  * ── Un canal = un sous-flux nommé DUPLEX ──
  *  Chaque canal est un tuyau bidirectionnel multiplexé sur la socket. Son **backing est
  *  pluggable côté serveur**, transparent pour le consommateur :
- *   - **pub/sub** (défaut) : notifications JSON-RPC (ex. `dashboard:stats`).
+ *   - **pub/sub** (défaut) : notifications JSON-RPC (ex. `nodefony:dashboard`).
  *   - **encapsulation de protocole** : le canal transporte un AUTRE langage tunnelé dans la
  *     socket (ex. **SIP** sur `sip:line1`).
  *   - **bridge** : le canal est câblé vers une autre couche de transport (**TCP/UDP**).

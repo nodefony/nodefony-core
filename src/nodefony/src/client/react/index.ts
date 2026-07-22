@@ -43,6 +43,7 @@ export type {
   RealtimeState,
   NodefonyNotice,
 } from "../realtime/RealtimeClient";
+import { PLATFORM_CHANNELS } from "../../realtime/platformChannels";
 
 const NodefonyContext = React.createContext<RealtimeClient | null>(null);
 
@@ -280,7 +281,7 @@ export interface UseSyslogOptions {
   max?: number;
   /** Ne garder que ces sévérités (ex `["ERROR","CRITIC"]`). Toutes par défaut. */
   severities?: string[];
-  /** Canal source. Défaut `"syslog:stream"`. */
+  /** Canal source. Défaut `"nodefony:syslog"`. */
   channel?: string;
 }
 
@@ -291,7 +292,7 @@ export interface UseSyslogOptions {
  * seul appel remplace l'effet + le buffer manuels.
  */
 export function useNodefonySyslog(opts: UseSyslogOptions = {}): unknown[] {
-  const { max = 500, severities, channel = "syslog:stream" } = opts;
+  const { max = 500, severities, channel = PLATFORM_CHANNELS.syslog } = opts;
   const sevKey = severities ? severities.join(",") : "";
   const [entries, setEntries] = React.useState<unknown[]>([]);
 

@@ -124,7 +124,7 @@ class LoopbackRt extends RealtimeController {
 
   protected override realtimeActions(): Record<string, RpcActionHandler> {
     return {
-      "kernel:ping": () => ({ pong: true, ts: 1, uptime: 1, pid: 1 }),
+      "nodefony:kernel:ping": () => ({ pong: true, ts: 1, uptime: 1, pid: 1 }),
       // erreur APPLICATIVE assumée → code/data exposés fidèlement au client.
       // `RpcErrorServer` (dist) = classe vue par le peer serveur (cf import).
       "fail:rpc": () => {
@@ -265,12 +265,12 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     expect(client.identity?.authenticated).to.equal(false);
     expect(client.identity?.type).to.equal("anonymous");
     expect(client.serverChannels).to.deep.equal(["tick"]);
-    expect(client.serverMethods).to.include("kernel:ping");
+    expect(client.serverMethods).to.include("nodefony:kernel:ping");
   });
 
-  it("request client→serveur : `kernel:ping` résolu par le handler serveur réel", async () => {
+  it("request client→serveur : `nodefony:kernel:ping` résolu par le handler serveur réel", async () => {
     const { client } = await connectPair();
-    const res = await client.request<{ pong: boolean }>("kernel:ping");
+    const res = await client.request<{ pong: boolean }>("nodefony:kernel:ping");
     expect(res.pong).to.equal(true);
   });
 

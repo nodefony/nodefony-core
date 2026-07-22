@@ -659,7 +659,7 @@ class Syslog extends Event implements ISyslog {
    */
   private _ringEnabled: boolean = true;
   /**
-   * Diffusion temps réel active (bus `syslog:stream` Studio). `false` = le pont de
+   * Diffusion temps réel active (bus `nodefony:syslog` Studio). `false` = le pont de
    * diffusion (`createSyslogBridge`) n'accumule ni ne publie rien → l'onglet Live se
    * grise. N'affecte NI l'écriture (transports/sink) NI la relecture. Coupé = on
    * cesse juste de POUSSER en live ; les logs continuent d'être générés et écrits.
@@ -768,13 +768,13 @@ class Syslog extends Event implements ISyslog {
     return true;
   }
 
-  /** `true` si la diffusion temps réel (`syslog:stream`) est active. */
+  /** `true` si la diffusion temps réel (`nodefony:syslog`) est active. */
   get streamEnabled(): boolean {
     return this._streamEnabled;
   }
 
   /**
-   * Active/désactive la diffusion temps réel (bus `syslog:stream`) à chaud. Coupé =
+   * Active/désactive la diffusion temps réel (bus `nodefony:syslog`) à chaud. Coupé =
    * le pont Studio cesse de pousser des frames (onglet Live grisé) ; l'écriture et la
    * relecture froide ne sont PAS touchées. Idempotent.
    *

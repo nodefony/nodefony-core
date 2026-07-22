@@ -307,7 +307,7 @@ s'arrête, et la connexion reste ouverte.
 
 Les canaux sont déclarés d'un seul endroit (`CHANNELS`, `providers.ts:98`) : flux des journaux,
 sondes de processus pour la supervision et pour la barre de débogage, santé et flux de l'ORM, santé
-de la socket elle-même. Beaucoup acceptent un **suffixe de cadence** (`orm:flow:5000`) : c'est le
+de la socket elle-même. Beaucoup acceptent un **suffixe de cadence** (`nodefony:orm:flow:5000`) : c'est le
 lecteur qui choisit sa granularité, dans des bornes que le serveur impose.
 
 Deux autres formes de trafic circulent sur la même connexion :

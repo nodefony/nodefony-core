@@ -29,7 +29,7 @@ import { mapSondesLive, useSocketLiveData } from "./useSocketLiveData";
  * l'endpoint ne remplit pas le canal, chacun appelle l'agrégateur pour son
  * compte (1er paint HTTP d'un côté, flux cadencé de l'autre).
  *
- * Signal live = lecture du canal `realtime:health` : `channels[]` filtré
+ * Signal live = lecture du canal `nodefony:socket` : `channels[]` filtré
  * sur les noms `*:health` donne le nombre de sondes vivantes ET leur
  * trafic cumulé (somme `messages`). Pas besoin de signal supplémentaire.
  *

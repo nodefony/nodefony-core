@@ -25,7 +25,7 @@ Unix sockets pour les usages IoT/IPC.
 | Décorateurs `@RealtimeController` / `@RealtimeEvent` | ⬜ 0 %   | Non (Bloc A étape 3)                                                 |
 | `defineRealtimeConfig()` builder                     | ⬜ 0 %   | Non (Bloc A étape 5)                                                 |
 | Cadence adaptative AIMD                              | ✅ 100 % | Oui — différenciateur                                                |
-| Sonde `realtime:health`                              | ✅ 100 % | Oui — surfacée dans Studio                                           |
+| Sonde `nodefony:socket`                              | ✅ 100 % | Oui — surfacée dans Studio                                           |
 | TCP / UDP / Unix sockets                             | ⬜ 0 %   | Non (Bloc D différable, P13.1)                                       |
 
 ## Installation
@@ -49,7 +49,7 @@ await socket.subscribe("chat:room-42");
 socket.on("chat:room-42", (msg) => console.log(msg));
 
 // RPC bidirectionnel
-const pong = await socket.request("kernel:ping");
+const pong = await socket.request("nodefony:kernel:ping");
 ```
 
 ## Usage côté SERVER (cible — après Bloc A)

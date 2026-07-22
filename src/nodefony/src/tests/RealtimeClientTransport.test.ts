@@ -91,12 +91,13 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
     const p = client.connect();
     transports[0].fireOpen();
     await p;
-    client.subscribe("dashboard:stats");
+    client.subscribe("nodefony:dashboard");
     const frames = transports[0].sent.map((s) => JSON.parse(s));
     expect(
       frames.some(
         (f) =>
-          f.method === "subscribe" && f.params?.channel === "dashboard:stats",
+          f.method === "subscribe" &&
+          f.params?.channel === "nodefony:dashboard",
       ),
     ).to.equal(true);
     client.disconnect();

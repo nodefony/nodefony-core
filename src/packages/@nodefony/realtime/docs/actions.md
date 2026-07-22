@@ -72,7 +72,7 @@ sequenceDiagram
 | Ordre         | par canal                         | par appel, chacun corrélé par son `id`          |
 | Rejeu         | inutile — une perte est rattrapée | possible, **si l'action est idempotente**       |
 | Coût au repos | un sink dans la table du hub      | une entrée en attente + une minuterie par appel |
-| Exemples      | `realtime:health`, `chat:room-42` | `kernel:ping`, `scaffold:run`                   |
+| Exemples      | `nodefony:socket`, `chat:room-42` | `nodefony:kernel:ping`, `nodefony:scaffold:run` |
 
 > [!TIP]
 > **Le critère qui tranche en une seconde : le client a-t-il besoin de savoir si ça a marché ?**
@@ -82,22 +82,22 @@ sequenceDiagram
 
 ## 📖 Lexique
 
-| Terme              | Sens                                                                                          |
-| ------------------ | --------------------------------------------------------------------------------------------- |
-| Action RPC         | Une méthode nommée, exposée par le serveur, appelable par le client et qui rend une valeur.   |
-| RPC                | _Remote Procedure Call_ : appeler une fonction qui vit ailleurs comme si elle était locale.   |
-| Frame              | L'unité qui passe sur le fil, au format JSON-RPC 2.0.                                         |
-| `id`               | Le numéro qui corrèle une requête et sa réponse. Sa présence **définit** une requête.         |
-| Corrélation        | Retrouver, à l'arrivée d'une réponse, l'appel en attente qu'elle résout.                      |
-| Accueil (welcome)  | La première frame du serveur ; son champ `methods` liste les actions découvrables.            |
-| Découverte         | Lire ce que l'endpoint expose au lieu de l'écrire en dur dans l'interface.                    |
-| Délai d'expiration | Le temps au bout duquel le client cesse d'attendre et rejette sa `Promise`.                   |
-| Idempotence        | Propriété d'une action dont deux exécutions font le même effet qu'une seule.                  |
-| Clé d'idempotence  | L'identifiant fourni par l'appelant qui permet au serveur de reconnaître un rejeu.            |
-| Verrou de frame    | La décision synchrone « cette frame passe-t-elle ? », posée par la couche sécurité.           |
-| Namespace réservé  | Un préfixe de nom (`kernel:`, `syslog:`…) dont la politique est un plancher non contournable. |
-| Pont API           | La méthode `api.request` qui rejoue une route HTTP sur la socket.                             |
-| Job                | Un travail long identifié, lancé par une action et suivi sur un canal dédié.                  |
+| Terme              | Sens                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| Action RPC         | Une méthode nommée, exposée par le serveur, appelable par le client et qui rend une valeur.             |
+| RPC                | _Remote Procedure Call_ : appeler une fonction qui vit ailleurs comme si elle était locale.             |
+| Frame              | L'unité qui passe sur le fil, au format JSON-RPC 2.0.                                                   |
+| `id`               | Le numéro qui corrèle une requête et sa réponse. Sa présence **définit** une requête.                   |
+| Corrélation        | Retrouver, à l'arrivée d'une réponse, l'appel en attente qu'elle résout.                                |
+| Accueil (welcome)  | La première frame du serveur ; son champ `methods` liste les actions découvrables.                      |
+| Découverte         | Lire ce que l'endpoint expose au lieu de l'écrire en dur dans l'interface.                              |
+| Délai d'expiration | Le temps au bout duquel le client cesse d'attendre et rejette sa `Promise`.                             |
+| Idempotence        | Propriété d'une action dont deux exécutions font le même effet qu'une seule.                            |
+| Clé d'idempotence  | L'identifiant fourni par l'appelant qui permet au serveur de reconnaître un rejeu.                      |
+| Verrou de frame    | La décision synchrone « cette frame passe-t-elle ? », posée par la couche sécurité.                     |
+| Namespace réservé  | Le préfixe `nodefony:`, qui marque les surfaces de la plateforme et porte un plancher non contournable. |
+| Pont API           | La méthode `api.request` qui rejoue une route HTTP sur la socket.                                       |
+| Job                | Un travail long identifié, lancé par une action et suivi sur un canal dédié.                            |
 
 Les mots communs à tout le module (socket, canal, hub, pair, backplane) sont définis une seule
 fois, dans le [vocabulaire](./vocabulaire.md).
@@ -338,12 +338,11 @@ homonyme), elle est conservée : le défaut ne rétrograde jamais une règle plu
 
 ### Situation 2 — les namespaces réservés portent un plancher
 
-Un nom qui tombe dans un namespace de plateforme hérite d'un plancher non contournable :
-authentifié **et** `ROLE_ADMIN` (`SYSTEM_CHANNEL_POLICY`, `frameAuthorizer.ts:70`). La liste
-couvre `syslog:`, `orm:`, `node:`, `dashboard:`, `debugbar:`, `realtime:`, `cluster:` et
-`kernel:` (`DEFAULT_SYSTEM_PREFIXES`, `frameAuthorizer.ts:84`). C'est ce qui protège
-`kernel:gc` : le nom **est** la garde, et la comparaison est insensible à la casse pour qu'un
-`KERNEL:gc` ne passe pas à côté.
+Un nom qui commence par `nodefony:` hérite d'un plancher non contournable : authentifié **et**
+`ROLE_ADMIN` (`SYSTEM_CHANNEL_POLICY`, `frameAuthorizer.ts:70`). Un seul préfixe couvre donc tout
+ce que la plateforme expose (`DEFAULT_SYSTEM_PREFIXES`, `frameAuthorizer.ts:86`). C'est ce qui
+protège `nodefony:kernel:gc` : le nom **est** la garde, et la comparaison est insensible à la casse
+pour qu'un `NODEFONY:kernel:gc` ne passe pas à côté.
 
 Ce plancher **prime sur ta déclaration** — y compris sur `{ authenticated: false }`. Et il ne
 s'arrête pas aux préfixes : tout nom **contenant** `:health` ou `:stats` est traité comme un canal
@@ -373,7 +372,7 @@ use("@nodefony/security", {
 
 Une action réservée au développement se contrôle **dans le handler, côté serveur** — jamais par un
 drapeau d'interface. Cacher un bouton n'empêche personne de forger la frame. Le modèle est
-`scaffold:run` dans Studio, qui refuse net hors développement avant même de lire ses paramètres
+`nodefony:scaffold:run` dans Studio, qui refuse net hors développement avant même de lire ses paramètres
 (`StudioRealtimeController.ts:133`).
 
 > [!CAUTION]
@@ -421,7 +420,7 @@ Trois leviers existent, et ils ne font pas la même chose :
    (`RealtimeController.ts:553`). Là encore : côté client seulement.
 3. **Une action compagnon** — la seule vraie annulation. On expose une seconde action qui prend
    l'identifiant du travail et l'interrompt côté serveur. Le modèle du dépôt est
-   `scaffold:cancel` (`StudioRealtimeController.ts:159`), pendant de `scaffold:run`.
+   `nodefony:scaffold:cancel` (`StudioRealtimeController.ts:159`), pendant de `nodefony:scaffold:run`.
 
 ### Rejouer : idempotence par action
 
@@ -431,11 +430,11 @@ fois ? »**.
 
 | Action                         | Idempotente ?                  | Rejeu sûr ?                          |
 | ------------------------------ | ------------------------------ | ------------------------------------ |
-| `kernel:ping`                  | oui — lecture pure             | oui                                  |
-| `kernel:gc`                    | oui — l'effet est un cycle GC  | oui, mais coûteux (pause du process) |
+| `nodefony:kernel:ping`         | oui — lecture pure             | oui                                  |
+| `nodefony:kernel:gc`           | oui — l'effet est un cycle GC  | oui, mais coûteux (pause du process) |
 | `api.request` en lecture       | oui — c'est un `GET`           | oui                                  |
-| `scaffold:cancel`              | oui — annuler deux fois annule | oui                                  |
-| `scaffold:run`                 | **non** — crée un travail      | **non** : deux appels, deux jobs     |
+| `nodefony:scaffold:cancel`     | oui — annuler deux fois annule | oui                                  |
+| `nodefony:scaffold:run`        | **non** — crée un travail      | **non** : deux appels, deux jobs     |
 | une mutation (`socket.mutate`) | **non** par nature             | oui, **avec une clé d'idempotence**  |
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
@@ -465,9 +464,9 @@ contraire des résultats **au fil de l'eau**, pendant des minutes.
 
 Le remède tient en trois gestes, et il est déjà en production dans Studio :
 
-1. **L'action lance et rend un identifiant**, sans attendre — `scaffold:run`
+1. **L'action lance et rend un identifiant**, sans attendre — `nodefony:scaffold:run`
    (`StudioRealtimeController.ts:133`) démarre le travail et rend son état, dont son `id`.
-2. **Le flux se diffuse sur un canal dédié**, nommé d'après ce travail — `scaffold:job@<id>`,
+2. **Le flux se diffuse sur un canal dédié**, nommé d'après ce travail — `nodefony:scaffold:job@<id>`,
    servi par le contrôleur (`StudioRealtimeController.ts:190`).
 3. **Le client s'abonne à ce canal** et regarde le travail se faire, ligne après ligne
    (`Create.tsx:323`).
@@ -523,7 +522,7 @@ passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit 
 | `-32601 method not found`                                    | nom mal orthographié, ou action déclarée sur un **autre** endpoint                 | vérifier `socket.serverMethods` — c'est la liste réelle de CETTE connexion         |
 | `-32603 internal error` sans détail                          | un `throw` ordinaire est rendu opaque au client (Zero Trust)                       | lever une `RpcError` avec un code et un message publiables                         |
 | Une `RealtimeError` levée arrive en `-32603`                 | son `code` est une chaîne de diagnostic, pas un code JSON-RPC                      | utiliser `RpcError` (`JsonRpcPeer.ts:70`) pour parler au client                    |
-| `-32001 unauthorized` sur une action légitime                | le nom tombe dans un namespace réservé (`kernel:`, `orm:`, `realtime:`…)           | renommer hors des préfixes plateforme, ou obtenir `ROLE_ADMIN`                     |
+| `-32001 unauthorized` sur une action légitime                | le nom commence par `nodefony:`, le namespace réservé à la plateforme              | renommer hors de `nodefony:`, ou obtenir `ROLE_ADMIN`                              |
 | Une action sensible est appelable par un anonyme             | une action applicative est **libre** tant qu'aucune politique ne la couvre         | ajouter une règle de préfixe (`security/nodefony/config/config.ts:906`)            |
 | Un travail relancé crée deux jobs                            | action non idempotente rejouée après une reconnexion                               | action compagnon d'annulation, ou identifiant fourni par l'appelant + mémorisation |
 | `abort()` introuvable sur la socket                          | il n'existe pas — et n'arrêterait pas le serveur de toute façon                    | exposer une action d'annulation qui prend l'identifiant du travail                 |
@@ -543,7 +542,7 @@ vivent dans la carte de l'aperçu, régénérée depuis les résultats réels, j
   annonce dans l'accueil.
 - **Unitaires, client** (`RealtimeClientCoverage.test.ts`) : formes de `request`, contrat de
   streaming, rejet des appels en attente au `dispose`.
-- **Attaque, autorisation** (`realtimeFrameLock.test.ts`) : `kernel:ping` et `kernel:gc` refusés à
+- **Attaque, autorisation** (`realtimeFrameLock.test.ts`) : `nodefony:kernel:ping` et `nodefony:kernel:gc` refusés à
   l'anonyme **et** à l'utilisateur authentifié, acceptés à l'administrateur — la preuve que le
   plancher de namespace garde bien les actions, pas seulement les canaux.
 - **Bout en bout** (`realtimeControllerPaths.e2e.test.ts`, `realtimeChannelAuth.e2e.test.ts`) :

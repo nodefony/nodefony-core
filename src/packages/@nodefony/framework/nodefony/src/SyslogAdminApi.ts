@@ -308,7 +308,7 @@ export function createSyslogAdminApi(
             transports: syslog.listTransports(),
             // Stockage mémoire (ring) actif — coupé = Explorer « mémoire » à 0.
             ringEnabled: syslog.ringEnabled,
-            // Diffusion temps réel (bus syslog:stream) active — coupé = Live grisé.
+            // Diffusion temps réel (bus nodefony:syslog) active — coupé = Live grisé.
             streamEnabled: syslog.streamEnabled,
             // Dossier des fichiers JSONL — chemin RELATIF/SÛR (jamais l'absolu :
             // info-leak FS). null en prod ou si le viewer de fichiers est désactivé.
@@ -430,7 +430,7 @@ export function createSyslogAdminApi(
           return { status: 400, body: { error: "missing enabled (boolean)" } };
         }
         const changed = syslog.setTransportEnabled(name, body.enabled);
-        // Trace de l'action sur le bus (ring + `syslog:stream`, indépendants des
+        // Trace de l'action sur le bus (ring + `nodefony:syslog`, indépendants des
         // transports) → visible dans l'onglet Live = confirmation « pris en compte ».
         if (changed) {
           syslog.log(
@@ -506,7 +506,7 @@ export function createSyslogAdminApi(
       path: "backplane/stream",
       method: "POST",
       summary:
-        "Active/désactive la diffusion temps réel (syslog:stream / Live) à chaud (DEV-only) — body { enabled }.",
+        "Active/désactive la diffusion temps réel (nodefony:syslog / Live) à chaud (DEV-only) — body { enabled }.",
       handler: (request): IAdminResponse<{ error: string }> | unknown => {
         if (options.environment !== "development") {
           return {

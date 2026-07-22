@@ -225,7 +225,7 @@ Contrat isomorphe `IRealtimeSocket` (`IRealtimeSocket.ts:122`), implémenté cô
 ### `canal` (channel) — un sous-flux nommé
 
 Un **tuyau bidirectionnel nommé**, multiplexé sur la connexion : `"chat:room-42"`,
-`"orm:health"`, `"realtime:health"`. Convention de nommage par `:` (espace de noms, puis
+`"nodefony:orm:health"`, `"nodefony:socket"`. Convention de nommage par `:` (espace de noms, puis
 précision). Ce n'est pas une classe — c'est une **chaîne de caractères indexée par le hub**.
 
 `RealtimeHub.subscribe()` (`RealtimeHub.ts:246`) l'indexe ; `IRealtimeSocket.subscribe()`
@@ -480,8 +480,8 @@ frère. Un pair qui n'en connaît pas les clés les ignore.
 
 ### `cadence` — la fréquence portée par le nom
 
-La fréquence d'un canal d'état vit **dans son nom** : `orm:health` = cadence par défaut,
-`orm:health:2000` = un rythme explicite. Conséquence voulue : **un canal, une cadence, un
+La fréquence d'un canal d'état vit **dans son nom** : `nodefony:orm:health` = cadence par défaut,
+`nodefony:orm:health:2000` = un rythme explicite. Conséquence voulue : **un canal, une cadence, un
 comptage** — deux cadences sont deux canaux, jamais réconciliés.
 
 `rateChannel()` (`channelRate.ts:44`) côté client, `parseRate()` (`channelRate.ts:63`) côté serveur —

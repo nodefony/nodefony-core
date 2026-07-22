@@ -275,7 +275,7 @@ L'accueil porte **cinq** champs : `ts`, `protocol`, `channels`, `methods`, `iden
 {
   "jsonrpc": "2.0", // signature de protocole — OBLIGATOIRE, sinon la frame est `invalid`
   "method": "subscribe", // ce qu'on demande — sa PRÉSENCE fait de la frame un appel
-  "params": { "channel": "orm:health" }, // la charge ; forme libre, jamais fiable côté serveur
+  "params": { "channel": "nodefony:orm:health" }, // la charge ; forme libre, jamais fiable côté serveur
   "id": 42, // PRÉSENT = requête (réponse due) · ABSENT = notification
 }
 ```
@@ -353,7 +353,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma les montre sur la
 
 > [!WARNING]
-> `kernel:ping` et `kernel:gc` (`StudioRealtimeController.ts:114`) sont des exemples d'actions,
+> `nodefony:kernel:ping` et `nodefony:kernel:gc` (`StudioRealtimeController.ts:114`) sont des exemples d'actions,
 > **pas des méthodes du cœur temps réel** : elles sont déclarées par le contrôleur
 > d'administration de `@nodefony/studio`. Un endpoint applicatif ne les expose pas. Le helper
 > `RealtimeClient.ping()` (`RealtimeClient.ts:715`) mesure le RTT en les appelant — il suppose donc
@@ -373,13 +373,13 @@ sequenceDiagram
   participant H as RealtimeHub
   C->>P: handshake WebSocket
   P-->>C: realtime:welcome — ts, protocol, channels, methods, identity
-  C->>P: subscribe — params.channel = "orm:health"
+  C->>P: subscribe — params.channel = "nodefony:orm:health"
   Note over P,H: le hub crée le producteur au 1er abonné
-  P-->>C: orm:health — params { queries: 42 }
-  P-->>C: orm:health — params { queries: 43 }
+  P-->>C: nodefony:orm:health — params { queries: 42 }
+  P-->>C: nodefony:orm:health — params { queries: 43 }
   C->>P: chat:history — id 7
   P-->>C: id 7 — result { messages }
-  C->>P: unsubscribe — params.channel = "orm:health"
+  C->>P: unsubscribe — params.channel = "nodefony:orm:health"
   Note over P,H: dernier abonné parti : le producteur est libéré
 ```
 
@@ -473,7 +473,7 @@ décrits dans [la page sécurité](./securite.md).
 | Une frame malformée ne renvoie **aucune** erreur                 | Ni `-32700` ni `-32600` ne sont émis — silence + audit (`JsonRpcPeer.ts:429`)                                   | Lire le motif `invalid` côté serveur, pas la réponse                              |
 | L'exception du serveur n'arrive jamais au client                 | Zero Trust : tout throw ordinaire devient `-32603` générique (`JsonRpcPeer.ts:528`)                             | Lever une `RpcError` pour exposer volontairement code et `data`                   |
 | Une notification refusée disparaît sans trace côté client        | Sans `id`, aucune réponse possible (`beforeDispatch`, `JsonRpcPeer.ts:391`)                                     | Écouter `realtime:denied` via `onDenied()` (`RealtimeClient.ts:386`)              |
-| `kernel:ping` répond `-32601` sur mon endpoint                   | L'action `kernel:ping` est déclarée par `@nodefony/studio` (`StudioRealtimeController.ts:114`)                  | Déclarer la sienne, ou lire `serverMethods` avant d'appeler                       |
+| `nodefony:kernel:ping` répond `-32601` sur mon endpoint          | L'action `nodefony:kernel:ping` est déclarée par `@nodefony/studio` (`StudioRealtimeController.ts:114`)         | Déclarer la sienne, ou lire `serverMethods` avant d'appeler                       |
 | Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:614`)                                       | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`RealtimeClient.ts:715`) |
 | Une réponse reçue est ignorée sans message                       | Corrélation sur `id` **numériques** seulement (`JsonRpcPeer.ts:537`)                                            | Ne pas fabriquer soi-même de réponse à `id` chaîne                                |
 | Les premières frames envoyées après `connect()` semblent perdues | Le transport n'est branché qu'une fois le handshake terminé                                                     | Attendre `realtime:welcome` — le client le fait déjà                              |

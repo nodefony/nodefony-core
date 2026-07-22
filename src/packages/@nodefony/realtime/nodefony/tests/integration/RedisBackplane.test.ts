@@ -94,7 +94,7 @@ describe.skipIf(!REDIS_UP)("RedisBackplane — intégration (Redis réel)", () =
     await b.start();
     await wait(80); // garantit l'abonnement effectif avant publication
 
-    a.publish("syslog:stream", { line: "hello" });
+    a.publish("nodefony:syslog", { line: "hello" });
 
     // pub/sub Redis = best-effort async → on attend la livraison
     await wait(150);
@@ -104,7 +104,7 @@ describe.skipIf(!REDIS_UP)("RedisBackplane — intégration (Redis réel)", () =
     ).to.have.lengthOf(0);
     expect(gotB).to.deep.equal([
       {
-        channel: "syslog:stream",
+        channel: "nodefony:syslog",
         payload: { line: "hello" },
         originId: "pod-A",
       },
@@ -233,10 +233,10 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
 
   it("secret VOLÉ : le canal système reste hors d'atteinte (admission du hub)", async () => {
     // Défense en profondeur : l'attaquant scelle correctement (il a le secret),
-    // mais `security:audit` n'est pas un canal broadcast → le hub refuse.
+    // mais `nodefony:audit` n'est pas un canal broadcast → le hub refuse.
     const { hub } = await mkHubPod("pod-victime", SECRET);
     const got: unknown[] = [];
-    hub.subscribe("security:audit", (p) => got.push(p), factory);
+    hub.subscribe("nodefony:audit", (p) => got.push(p), factory);
     const evil = await mkAttacker();
     await wait(80);
 
@@ -244,7 +244,7 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
       channel,
       sealBackplaneEnvelope(
         {
-          channel: "security:audit",
+          channel: "nodefony:audit",
           payload: { action: "faux évènement d'audit" },
           originId: "evil",
         },

@@ -862,7 +862,7 @@ const realtimeChannelRuleSchema = z
     pattern: z
       .string()
       .describe(
-        "Préfixe de canal (match `startsWith`) : ex. 'orm:' couvre orm:health/orm:flow. Placé AVANT les défauts système → permet de surcharger (assouplir/durcir) un namespace réservé.",
+        "Préfixe de canal (match `startsWith`) : ex. 'orm:' couvre nodefony:orm:health/nodefony:orm:flow. Placé AVANT les défauts système → permet de surcharger (assouplir/durcir) un namespace réservé.",
       ),
     authenticated: z
       .boolean()

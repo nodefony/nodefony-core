@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-22T09:30:36.832Z",
+  "generated": "2026-07-22T10:21:11.372Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1033,
-    "symbols": 2810,
+    "files": 1034,
+    "symbols": 2816,
     "classes": 328,
     "interfaces": 736,
-    "types": 326,
+    "types": 328,
     "enums": 4,
-    "functions": 841,
-    "constants": 575
+    "functions": 840,
+    "constants": 580
   },
   "symbols": {
     "Cli": {
@@ -1946,6 +1946,70 @@
       "module": "@nodefony/core",
       "description": "Motif d'un évènement audit protocolaire (consommé par P6.14 `AuditEventEntity`) : - `invalid` : frame non conforme JSON-RPC 2.0 (pas d'objet, `jsonrpc`≠\"2.0\", `method` non string sans `id` valide).…"
     },
+    "PlatformChannel": {
+      "name": "PlatformChannel",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom d'un canal de plateforme (valeur de {@link PLATFORM_CHANNELS})."
+    },
+    "PlatformMethod": {
+      "name": "PlatformMethod",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom d'une méthode RPC de plateforme (valeur de {@link PLATFORM_METHODS})."
+    },
+    "startsWithCI": {
+      "name": "startsWithCI",
+      "kind": "function",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`s` commence-t-il par `prefix`, **insensible à la casse** et sans allocation ? La casse doit être neutralisée : sinon `NODEFONY:syslog` échapperait au plancher que `nodefony:syslog` subit — un cont…"
+    },
+    "isPlatformChannel": {
+      "name": "isPlatformChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le nom désigne-t-il une surface de la plateforme (canal OU méthode) ? Un seul `startsWith` insensible à la casse, là où il fallait auparavant parcourir neuf préfixes à chaque abonnement."
+    },
+    "NODEFONY_CHANNEL_NAMESPACE": {
+      "name": "NODEFONY_CHANNEL_NAMESPACE",
+      "kind": "const",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "platformChannels — **espace de nommage des surfaces temps réel de la plateforme**, partagé par les deux bords de la socket (serveur et navigateur). Tout ce que Nodefony expose sur la socket pour pa…"
+    },
+    "PLATFORM_CHANNELS": {
+      "name": "PLATFORM_CHANNELS",
+      "kind": "const",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Canaux de **diffusion** de la plateforme (le serveur pousse, les écrans regardent). Les valeurs sont des **bases** : trois d'entre elles se déclinent par cible (`…@<pid>` pour un forage sur un proc…"
+    },
+    "PLATFORM_METHODS": {
+      "name": "PLATFORM_METHODS",
+      "kind": "const",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Méthodes **RPC** de la plateforme (le client demande, le serveur répond). Elles portent la même marque que les canaux pour la même raison : ce sont des surfaces du serveur, pas de l'application. `n…"
+    },
+    "PLATFORM_EVENTS": {
+      "name": "PLATFORM_EVENTS",
+      "kind": "const",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Événements **DOM** de la plateforme (`window`), dans le même espace de nommage. Ils ne passent pas par la socket — ce sont des `CustomEvent` que le navigateur fait circuler entre la barre de debug,…"
+    },
     "DefaultEventsMap": {
       "name": "DefaultEventsMap",
       "kind": "interface",
@@ -3315,8 +3379,7 @@
       "kind": "type",
       "file": "src/nodefony/src/client/debugbar/hmr.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Observation des hot-updates Vite **sans ouvrir de WebSocket**. Historique : cette sonde ouvrait jadis un **2ᵉ client** WebSocket `vite-hmr` sur le serveur HMR de Vite. Ce client passif (il ne renvo…"
+      "module": "@nodefony/core"
     },
     "observeViteHmr": {
       "name": "observeViteHmr",
@@ -3368,7 +3431,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Payload du canal `dashboard:supervision` (cf studio `createStatsTicker`)."
+      "description": "Payload du canal `nodefony:supervision` (cf studio `createStatsTicker`)."
     },
     "LogEntry": {
       "name": "LogEntry",
@@ -3377,7 +3440,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Pdu sérialisé tel qu'il transite sur `syslog:stream` (JSON.stringify d'un {@link Pdu} côté serveur). Le message vit dans `payload`, le producteur dans `moduleName` — on réhydrate un vrai {@link Pdu…"
+      "description": "Pdu sérialisé tel qu'il transite sur `nodefony:syslog` (JSON.stringify d'un {@link Pdu} côté serveur). Le message vit dans `payload`, le producteur dans `moduleName` — on réhydrate un vrai {@link P…"
     },
     "SyslogPayload": {
       "name": "SyslogPayload",
@@ -3386,7 +3449,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Payload coalescé du canal `syslog:stream` (cf studio `createSyslogBridge`)."
+      "description": "Payload coalescé du canal `nodefony:syslog` (cf studio `createSyslogBridge`)."
     },
     "FeedLog": {
       "name": "FeedLog",
@@ -3826,7 +3889,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Réponse de la méthode RPC standard `kernel:ping` — CONVENTION Nodefony : tout endpoint realtime (Studio aujourd'hui, `RealtimeService` en P13.4) y répond. Sert de liveness + base de mesure du round…"
+      "description": "Réponse de la méthode RPC standard `nodefony:kernel:ping` — CONVENTION Nodefony : tout endpoint realtime (Studio aujourd'hui, `RealtimeService` en P13.4) y répond. Sert de liveness + base de mesure…"
     },
     "RealtimeState": {
       "name": "RealtimeState",
@@ -5291,7 +5354,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Forme **wire** d'un Pdu (isomorphe) — sérialisation stable partagée par TOUTES les façades (endpoint data-plane, canal `syslog:stream`, drivers). Le front réhydrate via `Object.assign(new Pdu(\"\"), …"
+      "description": "Forme **wire** d'un Pdu (isomorphe) — sérialisation stable partagée par TOUTES les façades (endpoint data-plane, canal `nodefony:syslog`, drivers). Le front réhydrate via `Object.assign(new Pdu(\"\")…"
     },
     "ILogQueryResult": {
       "name": "ILogQueryResult",
@@ -10546,7 +10609,7 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "extends": null,
-      "description": "Sondes ORM — métriques d'observabilité profonde d'un connecteur, poussées via le hub temps réel (`orm:health`) pour un **contrôle total** des ORM. Deux niveaux : - **générique** (porté par {@link C…"
+      "description": "Sondes ORM — métriques d'observabilité profonde d'un connecteur, poussées via le hub temps réel (`nodefony:orm:health`) pour un **contrôle total** des ORM. Deux niveaux : - **générique** (porté par…"
     },
     "IOrmStorageProbe": {
       "name": "IOrmStorageProbe",
@@ -11131,7 +11194,7 @@
       "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "Décorateur **méthode** — expose une **action RPC** request→response du controller realtime sous le nom `method` (ex. `\"kernel:ping\"`, `\"chat:send\"`). La méthode décorée devient le handler appelé su…"
+      "description": "Décorateur **méthode** — expose une **action RPC** request→response du controller realtime sous le nom `method` (ex. `\"nodefony:kernel:ping\"`, `\"chat:send\"`). La méthode décorée devient le handler …"
     },
     "RealtimeChannel": {
       "name": "RealtimeChannel",
@@ -12505,7 +12568,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Provider du canal **drill ORM cluster** `orm:rich@<pid>` — diagnostic ORM RICHE (par connecteur : ping/latence/stockage/pool + flux requêtes) d'UN worker DISTANT du pod (≠ celui qui tient la connex…"
+      "description": "Provider du canal **drill ORM cluster** `nodefony:orm:rich@<pid>` — diagnostic ORM RICHE (par connecteur : ping/latence/stockage/pool + flux requêtes) d'UN worker DISTANT du pod (≠ celui qui tient …"
     },
     "mapInstanceToSupervision": {
       "name": "mapInstanceToSupervision",
@@ -12513,7 +12576,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Mappe la santé d'UN worker du snapshot pod ({@link IRealtimeHealth} : lean `process` + sonde riche `rich` jointe pendant le drill) vers le **format du canal `dashboard:supervision`** — de sorte que…"
+      "description": "Mappe la santé d'UN worker du snapshot pod ({@link IRealtimeHealth} : lean `process` + sonde riche `rich` jointe pendant le drill) vers le **format du canal `nodefony:supervision`** — de sorte que …"
     },
     "createClusterSupervisionTicker": {
       "name": "createClusterSupervisionTicker",
@@ -12521,7 +12584,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Provider du canal **drill-down cluster** `dashboard:supervision@<pid>` — supervision RICHE d'UN worker DISTANT du pod (≠ le worker qui tient la connexion navigateur). Réutilise le snapshot pod déjà…"
+      "description": "Provider du canal **drill-down cluster** `nodefony:supervision@<pid>` — supervision RICHE d'UN worker DISTANT du pod (≠ le worker qui tient la connexion navigateur). Réutilise le snapshot pod déjà …"
     },
     "@nodefony/studio:AppMeta": {
       "name": "AppMeta",
@@ -12530,7 +12593,7 @@
       "exported": true,
       "module": "@nodefony/studio",
       "extends": null,
-      "description": "Métadonnées applicatives statiques poussées avec `dashboard:supervision`."
+      "description": "Métadonnées applicatives statiques poussées avec `nodefony:supervision`."
     },
     "SyslogBridgeOptions": {
       "name": "SyslogBridgeOptions",
@@ -12562,7 +12625,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Pont syslog kernel → canal `syslog:stream`, **coalescé**. Au lieu de pousser 1 frame WS par `Pdu` (un flood de logs — ex broadcast WS massif — noyait le front Studio à coups de N `JSON.stringify`+`…"
+      "description": "Pont syslog kernel → canal `nodefony:syslog`, **coalescé**. Au lieu de pousser 1 frame WS par `Pdu` (un flood de logs — ex broadcast WS massif — noyait le front Studio à coups de N `JSON.stringify`…"
     },
     "createStatsTicker": {
       "name": "createStatsTicker",
@@ -12570,7 +12633,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Ticker de stats runtime → canal `dashboard:supervision` (ou `dashboard:supervision:<ms>` pour la granularité) toutes les `intervalMs`. CPU% calculé en delta entre deux ticks (1 seul `process.cpuUsa…"
+      "description": "Ticker de stats runtime → canal `nodefony:supervision` (ou `nodefony:supervision:<ms>` pour la granularité) toutes les `intervalMs`. CPU% calculé en delta entre deux ticks (1 seul `process.cpuUsage…"
     },
     "readStatsSnapshot": {
       "name": "readStatsSnapshot",
@@ -12578,7 +12641,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Snapshot ONE-SHOT des sondes process — pendant HTTP du canal `dashboard:supervision` (PATRON sondes+hub : endpoint + ticker). Échantillonne CPU% et event-loop sur une courte fenêtre (`sampleMs`) po…"
+      "description": "Snapshot ONE-SHOT des sondes process — pendant HTTP du canal `nodefony:supervision` (PATRON sondes+hub : endpoint + ticker). Échantillonne CPU% et event-loop sur une courte fenêtre (`sampleMs`) pou…"
     },
     "createBrokerTicker": {
       "name": "createBrokerTicker",
@@ -12586,7 +12649,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Ticker temps réel **générique** branché sur un endpoint admin via le broker — pousse périodiquement sur un canal le résultat d'un `fetch` asynchrone. Sert la **santé ORM** (`orm:health` : état/ping…"
+      "description": "Ticker temps réel **générique** branché sur un endpoint admin via le broker — pousse périodiquement sur un canal le résultat d'un `fetch` asynchrone. Sert la **santé ORM** (`nodefony:orm:health` : …"
     },
     "INSTANCE_ID": {
       "name": "INSTANCE_ID",
@@ -12686,7 +12749,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Ce qui transite sur le canal `scaffold:job@<id>`. Deux natures, et pas une seule : une ligne de terminal **et** l'état du job. Sans le second, le front n'aurait aucun moyen d'apprendre par la socke…"
+      "description": "Ce qui transite sur le canal `nodefony:scaffold:job@<id>`. Deux natures, et pas une seule : une ligne de terminal **et** l'état du job. Sans le second, le front n'aurait aucun moyen d'apprendre par…"
     },
     "SCAFFOLD_STEPS": {
       "name": "SCAFFOLD_STEPS",
@@ -16565,7 +16628,7 @@
       "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Bascule runtime du gate des logs d'events lifecycle. Réservé HORS hot path : tests et futur « Audit à chaud » (fenêtre bornée prod→verbeux, auto-revert serveur) — le canal Studio `syslog:stream` re…"
+      "description": "Bascule runtime du gate des logs d'events lifecycle. Réservé HORS hot path : tests et futur « Audit à chaud » (fenêtre bornée prod→verbeux, auto-revert serveur) — le canal Studio `nodefony:syslog` …"
     },
     "DomainPattern": {
       "name": "DomainPattern",
@@ -17593,7 +17656,7 @@
       "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "Construit la **santé de la socket** servie par l'endpoint/le canal `realtime:health` : la **vue POD agrégée** si la sonde cluster est branchée et a reçu un snapshot du master (Phase 4c, push), sino…"
+      "description": "Construit la **santé de la socket** servie par l'endpoint/le canal `nodefony:socket` : la **vue POD agrégée** si la sonde cluster est branchée et a reçu un snapshot du master (Phase 4c, push), sino…"
     },
     "createRealtimeAdminApi": {
       "name": "createRealtimeAdminApi",
@@ -17676,14 +17739,6 @@
       "module": "@nodefony/realtime",
       "description": "Fabrique le provider PARTAGÉ d'un canal (listener/ticker qui pousse via `publish`). Appelée UNE fois, au 1ᵉʳ abonné. Renvoie son `dispose` (appelé au dernier désabonné) ou `null` si le canal est in…"
     },
-    "isReservedSystemChannel": {
-      "name": "isReservedSystemChannel",
-      "kind": "function",
-      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
-      "exported": true,
-      "module": "@nodefony/realtime",
-      "description": "Le canal appartient-il à un namespace réservé à la plateforme ?"
-    },
     "getRealtimeHub": {
       "name": "getRealtimeHub",
       "kind": "function",
@@ -17706,7 +17761,15 @@
       "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "**Namespaces de canaux RÉSERVÉS À LA PLATEFORME.** Ces préfixes exposent l'état interne du pod : journaux, requêtes de base, métriques process, supervision, contrôle du noyau, journal d'audit. Aucu…"
+      "description": "**Namespace de canaux RÉSERVÉ À LA PLATEFORME** — un seul préfixe, `nodefony:`. Les canaux qu'il couvre exposent l'état interne du pod : journaux, requêtes de base, métriques process, supervision, …"
+    },
+    "isReservedSystemChannel": {
+      "name": "isReservedSystemChannel",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Le canal appartient-il au namespace réservé à la plateforme ? Alias de {@link isPlatformChannel} (cœur isomorphe) sous le nom que porte cette notion côté hub : le hub raisonne en « canal réservé »,…"
     },
     "REVOCATION_REVALIDATE_MS": {
       "name": "REVOCATION_REVALIDATE_MS",
@@ -17916,7 +17979,7 @@
       "exported": true,
       "module": "@nodefony/security",
       "extends": null,
-      "description": "Charge poussée sur le canal `security:audit` — batch coalescé + omis."
+      "description": "Charge poussée sur le canal `nodefony:audit` — batch coalescé + omis."
     },
     "AuditBridgeOptions": {
       "name": "AuditBridgeOptions",
@@ -17933,7 +17996,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Pont journal d'audit → canal `security:audit`, **coalescé** (P6.14 lot 4). Calque {@link createSyslogBridge} (studio) : au lieu de 1 frame WS par événement (un pic d'`auth.failure` sous brute-force…"
+      "description": "Pont journal d'audit → canal `nodefony:audit`, **coalescé** (P6.14 lot 4). Calque {@link createSyslogBridge} (studio) : au lieu de 1 frame WS par événement (un pic d'`auth.failure` sous brute-force…"
     },
     "SECURITY_AUDIT_CHANNEL": {
       "name": "SECURITY_AUDIT_CHANNEL",
@@ -18340,7 +18403,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Politique système par défaut des canaux d'**introspection serveur** : réservés aux administrateurs. DURCISSEMENT Zero Trust (P6) : avant, « authentifié suffisait » (tout `ROLE_USER` lisait `syslog:…"
+      "description": "Politique système par défaut des canaux d'**introspection serveur** : réservés aux administrateurs. DURCISSEMENT Zero Trust (P6) : avant, « authentifié suffisait » (tout `ROLE_USER` lisait `nodefon…"
     },
     "DEFAULT_SYSTEM_PREFIXES": {
       "name": "DEFAULT_SYSTEM_PREFIXES",
@@ -18348,7 +18411,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Namespaces d'introspection serveur (observabilité) — s'y abonner expose l'état interne du pod (logs, requêtes, métriques, supervision). Liste extensible via la config. Convention transverse Nodefon…"
+      "description": "Namespace d'introspection serveur (observabilité) — s'y abonner expose l'état interne du pod : journaux (`nodefony:syslog`), base (`nodefony:orm:*`), métriques et supervision (`nodefony:dashboard`,…"
     },
     "SECURITY_CHANNEL_POLICY": {
       "name": "SECURITY_CHANNEL_POLICY",
@@ -18356,7 +18419,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Plancher des canaux de **sécurité** (`security:audit`, P6.14 lot 4) : réservé au super-admin Nodefony (`ROLE_NODEFONY_ADMIN`) — un cran AU-DESSUS du plancher d'observabilité générique (`ROLE_ADMIN`…"
+      "description": "Plancher des canaux de **sécurité** (`nodefony:audit`, P6.14 lot 4) : réservé au super-admin Nodefony (`ROLE_NODEFONY_ADMIN`) — un cran AU-DESSUS du plancher d'observabilité générique (`ROLE_ADMIN`…"
     },
     "RESERVED_FLOOR_PREFIXES": {
       "name": "RESERVED_FLOOR_PREFIXES",
@@ -18364,7 +18427,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "F2 (revue 0.6) — PLANCHER IRRÉDUCTIBLE des namespaces réservés plateforme. Ces namespaces exposent l'état interne du pod (logs, audit, métriques, requêtes, supervision) : une règle de config `realt…"
+      "description": "F2 (revue 0.6) — PLANCHER IRRÉDUCTIBLE du namespace réservé plateforme. Il couvre tout ce qui expose l'état interne du pod (logs, audit, métriques, requêtes, supervision) : une règle de config `rea…"
     },
     "DEFAULT_SYSTEM_RULES": {
       "name": "DEFAULT_SYSTEM_RULES",
@@ -18372,7 +18435,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Règles système par défaut. `security:` est placé EN TÊTE (1ᵉʳ match gagne) avec son plancher super-admin propre ; les autres namespaces réservés héritent de {@link SYSTEM_CHANNEL_POLICY}. Le firewa…"
+      "description": "Règles système par défaut. Le canal d'audit est placé EN TÊTE (1ᵉʳ match gagne) avec son plancher super-admin propre ; le reste du namespace plateforme hérite de {@link SYSTEM_CHANNEL_POLICY}. Le f…"
     },
     "@nodefony/security:IRealtimeToken": {
       "name": "IRealtimeToken",
@@ -22977,6 +23040,19 @@
       "ProfileEntry": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
+      "PLATFORM_CHANNELS": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts",
+        "src/nodefony/src/client/react/index.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
+      ],
+      "PLATFORM_EVENTS": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts",
+        "src/nodefony/src/client/debugbar/hmr.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
+      ],
       "DebugBar": [
         "src/nodefony/src/client/debugbar/index.ts"
       ],
@@ -23045,6 +23121,10 @@
       ],
       "AdaptiveChannelBinding": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "PLATFORM_METHODS": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "Role": [
         "src/nodefony/src/client/roles/registry.ts"
@@ -27047,6 +27127,13 @@
       "RealtimeChannelFactory": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
+      "NODEFONY_CHANNEL_NAMESPACE": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
+      ],
+      "isPlatformChannel": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+      ],
       "IRealtimeConnProbe": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
         "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts"
@@ -27142,6 +27229,9 @@
       ],
       "createGithubProvider": [
         "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts"
+      ],
+      "startsWithCI": [
+        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
       ],
       "IJwtSigningKey": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"

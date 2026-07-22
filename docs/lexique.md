@@ -103,18 +103,18 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 
 ### Performance & mémoire
 
-| Terme                    | Origine               | En clair                                                                                                                         |
-| ------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **fail-closed**          | « échoue fermé »      | En cas de doute/erreur → on REFUSE (sécurité : config invalide → tout le trafic rejeté). Le défaut sûr.                          |
-| **fail-open**            | « échoue ouvert »     | En cas d'erreur → on LAISSE PASSER. Dangereux en sécu, parfois voulu ailleurs (dégradation).                                     |
-| **fail-soft**            | « échoue en douceur » | En cas d'erreur → on continue en mode dégradé (un module qui ne charge pas n'empêche pas le boot).                               |
-| **GC**                   | Garbage Collector     | Le ramasse-miettes de Node : libère la mémoire des objets inutilisés. Trop d'allocations = pression GC = latence p99 dégradée.   |
-| **heap**                 | « tas »               | La mémoire où vivent les objets JS. `heap delta` = combien de Mo en plus après N requêtes (un seuil dépassé = fuite suspectée).  |
-| **backpressure**         | « contre-pression »   | Quand le producteur va plus vite que le consommateur ne peut absorber → il faut ralentir/jeter, sinon la mémoire explose.        |
-| **throttling / backoff** | « brider / reculer »  | Limiter le rythme (throttling) en augmentant le délai à chaque échec (backoff). Anti-DoS / anti-bruteforce sur le login.         |
-| **coalescing**           | « fusion »            | Regrouper plusieurs petits événements en un seul envoi (le canal `syslog:stream` envoie `{logs:[…], dropped}`, pas log par log). |
-| **fan-out**              | « éventail sortant »  | Un événement entrant → N livraisons (1 publish → tous les abonnés du canal).                                                     |
-| **O(1)**                 | notation Big-O        | « Coût constant » quel que soit le volume (une lecture de Map). ≠ O(n) qui grossit avec la taille. On vise O(1) sur le hot path. |
+| Terme                    | Origine               | En clair                                                                                                                           |
+| ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **fail-closed**          | « échoue fermé »      | En cas de doute/erreur → on REFUSE (sécurité : config invalide → tout le trafic rejeté). Le défaut sûr.                            |
+| **fail-open**            | « échoue ouvert »     | En cas d'erreur → on LAISSE PASSER. Dangereux en sécu, parfois voulu ailleurs (dégradation).                                       |
+| **fail-soft**            | « échoue en douceur » | En cas d'erreur → on continue en mode dégradé (un module qui ne charge pas n'empêche pas le boot).                                 |
+| **GC**                   | Garbage Collector     | Le ramasse-miettes de Node : libère la mémoire des objets inutilisés. Trop d'allocations = pression GC = latence p99 dégradée.     |
+| **heap**                 | « tas »               | La mémoire où vivent les objets JS. `heap delta` = combien de Mo en plus après N requêtes (un seuil dépassé = fuite suspectée).    |
+| **backpressure**         | « contre-pression »   | Quand le producteur va plus vite que le consommateur ne peut absorber → il faut ralentir/jeter, sinon la mémoire explose.          |
+| **throttling / backoff** | « brider / reculer »  | Limiter le rythme (throttling) en augmentant le délai à chaque échec (backoff). Anti-DoS / anti-bruteforce sur le login.           |
+| **coalescing**           | « fusion »            | Regrouper plusieurs petits événements en un seul envoi (le canal `nodefony:syslog` envoie `{logs:[…], dropped}`, pas log par log). |
+| **fan-out**              | « éventail sortant »  | Un événement entrant → N livraisons (1 publish → tous les abonnés du canal).                                                       |
+| **O(1)**                 | notation Big-O        | « Coût constant » quel que soit le volume (une lecture de Map). ≠ O(n) qui grossit avec la taille. On vise O(1) sur le hot path.   |
 
 ### Réseau / temps réel
 

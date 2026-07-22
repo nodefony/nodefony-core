@@ -5,7 +5,7 @@ import type { IProcessHealth, IProcessRich } from "nodefony";
 
 /**
  * mapInstanceToSupervision — adapte la santé d'un worker (lean `process` + sonde riche
- * `rich`) du snapshot pod vers le format du canal `dashboard:supervision`, pour réutiliser
+ * `rich`) du snapshot pod vers le format du canal `nodefony:supervision`, pour réutiliser
  * le composant front de Supervision sur un worker distant (drill-down cluster).
  */
 describe("studio / clusterSupervision.mapInstanceToSupervision", () => {

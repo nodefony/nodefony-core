@@ -658,7 +658,7 @@ function BpLogsPanel({ info }: { info: KernelInfo | null }) {
       <Text size="xs" c="dimmed">
         Le backplane de logs collecte chaque Pdu et le diffuse (console,
         fichier, Loki, OpenSearch…) sans coupler le code à la destination.{" "}
-        <Code>syslog:stream</Code> en est la prise temps réel.
+        <Code>nodefony:syslog</Code> en est la prise temps réel.
       </Text>
     </Stack>
   );
@@ -688,7 +688,7 @@ function metaOf(nodeId: string, connectors: ConnectorRow[]): NodeMeta | null {
   return null;
 }
 
-/** Contenu live d'un nœud — abonné `realtime:health` tant que le dialog est ouvert. */
+/** Contenu live d'un nœud — abonné `nodefony:socket` tant que le dialog est ouvert. */
 function PanelContent({
   nodeId,
   info,

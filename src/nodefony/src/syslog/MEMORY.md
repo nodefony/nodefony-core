@@ -167,9 +167,9 @@ utilise **`rawLog`**. Couleurs via `Syslog.wrapper(pdu)`.
 - ⚠️ `_sink` = **process-global** (1/process) → en test, `Syslog.setLogSink(null)` en `afterEach` (anti-contamination, libère le fd).
 - ⚠️ **Durabilité** : `writeOut` lance un write async ; un `close()`/`exit` AVANT le callback ré-écrit `#inFlight` en sync (sinon perte du chunk en vol — bug attrapé par `LogSink.test.ts`). Append → pas de corruption (doublon best-effort au pire). Plan [[project_log_backplane_vision]] phase LB.W.
 
-**Driver de DESTINATION queryable (LB.0+ — axe `query`, ≠ sink write ci-dessus, ≠ bus `syslog:stream`)** — `drivers/`
+**Driver de DESTINATION queryable (LB.0+ — axe `query`, ≠ sink write ci-dessus, ≠ bus `nodefony:syslog`)** — `drivers/`
 
-- 3 axes ORTHOGONAUX à ne pas confondre : ① **sink write** (`ILogSink`, où partent les lignes texte : stdout/file/null) · ② **driver query** (`ILogDriver`, où on RELIT/filtre les Pdu : memory/file/loki) · ③ **bus temps réel** (`syslog:stream`).
+- 3 axes ORTHOGONAUX à ne pas confondre : ① **sink write** (`ILogSink`, où partent les lignes texte : stdout/file/null) · ② **driver query** (`ILogDriver`, où on RELIT/filtre les Pdu : memory/file/loki) · ③ **bus temps réel** (`nodefony:syslog`).
 - `ILogDriver { name, capabilities{write,query,stream}, query?(criteria) }` (`drivers/ILogDriver.ts`). Sélection par `logDriverRegistry` (config `log.queryDriver`, défaut `"memory"` ; switch live = dev-only). `query` = chemin **FROID** (admin/debug), `async`, JAMAIS hot path.
 - **`filterPdus(pdus, criteria)`** = helper PUR (AND, récent-first, `offset`/`limit`, `MAX_LIMIT=1000`). Type d'entrée = **`IPduLike`** (sous-ensemble structurel des champs Pdu) → filtre/projette SANS instancier un `Pdu` (0 effet de bord uid/provider). `pduToRecord(IPduLike)→ILogRecord` (forme wire plate).
 - **`createMemoryLogDriver(source)`** (LB.1, défaut dev) : `query` = `filterPdus(source())` où `source = () => syslog.ringStack`. Volatile (`write:false`), isomorphe.

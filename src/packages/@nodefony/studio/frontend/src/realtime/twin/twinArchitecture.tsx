@@ -13,6 +13,7 @@ import { useNodefonyChannel } from "nodefony/react";
 import type { LiveNodeData } from "../../components/ui";
 import type { NormalizedHealth } from "../../utils/realtimeHealth";
 import type { KernelInfo } from "./useTwinTopology";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /* ════════════════════════════════════════════════════════════════════════
  * twinArchitecture — le SCHÉMA D'ARCHITECTURE RUNTIME du Jumeau (vue d'accueil).
@@ -29,9 +30,9 @@ import type { KernelInfo } from "./useTwinTopology";
  * [Connecteurs] [Backplane realtime]
  *
  * Chaque brique est un MÉTIER cliquable → popup card live (ce qui s'y passe).
- * Les données viennent de contrats DÉJÀ servis : `realtime:health` (process,
+ * Les données viennent de contrats DÉJÀ servis : `nodefony:socket` (process,
  * orm, canaux, backpressure), `kernel/api/info` (fonds de panier), et
- * `syslog:stream` (les request id qui entrent en direct).
+ * `nodefony:syslog` (les request id qui entrent en direct).
  * ════════════════════════════════════════════════════════════════════════ */
 
 export type ArchNodeId =
@@ -212,7 +213,7 @@ function readLog(payload: unknown): LogPulse {
 const ACTIVITY_WINDOW_MS = 8000;
 
 /**
- * Abonnement `syslog:stream` (ref-compté) : fenêtre glissante des logs récents.
+ * Abonnement `nodefony:syslog` (ref-compté) : fenêtre glissante des logs récents.
  * `count` = nombre d'événements sur ~8 s (signal d'activité HTTP) ; `recent` =
  * les dernières lignes avec leur request id (pour la popup d'entrée).
  */
@@ -222,7 +223,7 @@ export function useRecentLogActivity(): { count: number; recent: LogPulse[] } {
     count: 0,
     recent: [],
   });
-  useNodefonyChannel("syslog:stream", (payload: unknown) => {
+  useNodefonyChannel(PLATFORM_CHANNELS.syslog, (payload: unknown) => {
     const now = Date.now();
     const buf = bufRef.current.filter((l) => now - l.ts < ACTIVITY_WINDOW_MS);
     buf.push(readLog(payload));

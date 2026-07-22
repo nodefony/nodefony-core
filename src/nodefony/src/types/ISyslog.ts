@@ -19,7 +19,7 @@ export interface ISyslog {
   readonly ringEnabled: boolean;
   /** Active/désactive le stockage mémoire (ring) à chaud — outil avancé. */
   setRingEnabled(enabled: boolean): boolean;
-  /** `true` si la diffusion temps réel (`syslog:stream`) est active. */
+  /** `true` si la diffusion temps réel (`nodefony:syslog`) est active. */
   readonly streamEnabled: boolean;
   /** Active/désactive la diffusion temps réel à chaud (onglet Live). */
   setStreamEnabled(enabled: boolean): boolean;

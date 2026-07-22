@@ -77,7 +77,7 @@ let lifecycleEventLogging: boolean | null = null;
 /**
  * Bascule runtime du gate des logs d'events lifecycle. Réservé HORS hot path :
  * tests et futur « Audit à chaud » (fenêtre bornée prod→verbeux, auto-revert
- * serveur) — le canal Studio `syslog:stream` retrouve alors les events sans
+ * serveur) — le canal Studio `nodefony:syslog` retrouve alors les events sans
  * redémarrage. `null` → re-résolution depuis l'env au prochain event.
  */
 export function setLifecycleEventLogging(value: boolean | null): void {

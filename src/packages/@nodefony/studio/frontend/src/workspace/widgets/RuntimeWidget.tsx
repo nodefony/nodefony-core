@@ -20,7 +20,7 @@ export interface KernelInfo {
 
 /**
  * Widget « Mode & lancement » — cluster-aware : la topologie vient de `ctx`
- * (dérivé de `realtime:health` master). En cluster → badge Cluster + N workers.
+ * (dérivé de `nodefony:socket` master). En cluster → badge Cluster + N workers.
  */
 function RuntimeModeBody({ source, ctx }: WidgetRenderProps<KernelInfo>) {
   const info = source.data;

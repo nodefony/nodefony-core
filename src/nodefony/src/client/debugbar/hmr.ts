@@ -13,12 +13,10 @@
  * lequel se branche sur le client HMR **déjà chargé** par Vite via
  * `createHotContext` — zéro connexion ajoutée.
  */
+import { PLATFORM_EVENTS } from "../../realtime/platformChannels";
+
 export type HmrKind =
-  | "connected"
-  | "update"
-  | "full-reload"
-  | "error"
-  | "prune";
+  "connected" | "update" | "full-reload" | "error" | "prune";
 
 export interface HmrEvent {
   kind: HmrKind;
@@ -27,7 +25,7 @@ export interface HmrEvent {
 }
 
 /** Nom de l'événement DOM émis par le pont HMR côté page. */
-export const HMR_EVENT = "nodefony:hmr";
+export const HMR_EVENT = PLATFORM_EVENTS.hmr;
 
 /**
  * Observe les hot-updates Vite via l'événement `window` `nodefony:hmr`.

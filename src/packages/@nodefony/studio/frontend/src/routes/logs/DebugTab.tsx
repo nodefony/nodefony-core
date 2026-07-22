@@ -2,7 +2,7 @@
  * **DebugTab** — onglet « Debug » de la page Logs : CONTRÔLE du debug runtime
  * (par module OU global `*`, à chaud, sans redéploiement) + OBSERVATION couplée.
  * Consomme `/nodefony/kernel/api/log/level` (GET état · PATCH set/clear) et le
- * canal WS `syslog:stream` (flux live).
+ * canal WS `nodefony:syslog` (flux live).
  *
  * Couplage action↔observation : chaque debug actif = une **carte autonome**
  * (module · niveau · countdown · éteindre) avec **son propre flux filtré par
@@ -48,9 +48,15 @@ import {
 } from "@tabler/icons-react";
 import { useConnection, useStore } from "../../stores";
 import { useResource } from "../../hooks";
-import { countBySeverity, fmtClock, recordMessage, toRecord } from "./logFormat";
+import {
+  countBySeverity,
+  fmtClock,
+  recordMessage,
+  toRecord,
+} from "./logFormat";
 import { SeverityBadge, SeverityCountChips } from "./LogVisuals";
 import type { LogRecord, Severity } from "./logsTypes";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /** État du debug runtime (miroir local de `GET /kernel/api/log/level`). */
 interface DebugState {
@@ -383,7 +389,7 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
         return next.length > MAX_ENTRIES ? next.slice(-MAX_ENTRIES) : next;
       });
     };
-    const dispose = conn.subscribe("syslog:stream", handler);
+    const dispose = conn.subscribe(PLATFORM_CHANNELS.syslog, handler);
     return () => dispose();
   }, [conn]);
 
@@ -462,10 +468,10 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
         icon={<IconInfoCircle size={18} />}
         title="Active un debug ciblé — ses logs défilent dans sa carte ci-dessous"
       >
-        Chaque debug actif crée une <b>carte avec son propre flux</b> (filtré sur
-        son module). ⚠️ En <b>développement</b>, tout est déjà en DEBUG → activer
-        un module ne change la visibilité qu'en <b>production</b> (logs filtrés à
-        INFO). Le flux complet reste dans l'onglet{" "}
+        Chaque debug actif crée une <b>carte avec son propre flux</b> (filtré
+        sur son module). ⚠️ En <b>développement</b>, tout est déjà en DEBUG →
+        activer un module ne change la visibilité qu'en <b>production</b> (logs
+        filtrés à INFO). Le flux complet reste dans l'onglet{" "}
         <Anchor component="button" type="button" onClick={onGoLive} fw={600}>
           Live
         </Anchor>
@@ -493,7 +499,9 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
             value={moduleName}
             onChange={setModuleName}
             disabled={allModules}
-            description={allModules ? "Désactivé : tous les modules" : undefined}
+            description={
+              allModules ? "Désactivé : tous les modules" : undefined
+            }
             style={{ flex: "1 1 240px" }}
           />
           <Select

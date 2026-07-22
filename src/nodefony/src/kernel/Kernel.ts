@@ -124,7 +124,7 @@ export interface TypeKernelOptions extends DefaultOptionsService {
      * RELIT les logs : "memory" (défaut, ring buffer ; dev) | "file" (LB.2, JSONL
      * du worker courant) | "cluster-file" (LB.5, agrège les `nodefony-*.jsonl` de
      * TOUS les workers = vue cluster) | "elastic"/"loki" (LB.4, si enregistré).
-     * Orthogonal à `driver` (sink write texte) et au bus temps réel `syslog:stream`.
+     * Orthogonal à `driver` (sink write texte) et au bus temps réel `nodefony:syslog`.
      * En prod = figé ici/env (12-factor) ; le switch à la volée est une action de
      * contrôle dev-only.
      */
@@ -1836,7 +1836,7 @@ class Kernel extends Service implements IKernel {
       Syslog.setLogSink(null); // stdout (défaut isomorphe)
     }
     // ── Log Backplane (LB.1) — axe DESTINATION queryable (≠ sink write ci-dessus,
-    //    ≠ bus temps réel syslog:stream). Le driver `memory` relit le ring buffer
+    //    ≠ bus temps réel nodefony:syslog). Le driver `memory` relit le ring buffer
     //    du syslog (source injectée lazy → lit le syslog courant à la query).
     //    Défaut dev ; `file`-JSONL / `elastic`-`loki` (Node-only, LB.2+) = drivers
     //    enregistrés à part. Switch à la volée = action de contrôle dev-only (Studio).

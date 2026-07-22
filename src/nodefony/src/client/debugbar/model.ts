@@ -1,6 +1,6 @@
 /**
  * État PUR de la debug bar — ingère les payloads des canaux realtime
- * (`dashboard:supervision`, `syslog:stream`) et expose une vue dénormalisée prête
+ * (`nodefony:supervision`, `nodefony:syslog`) et expose une vue dénormalisée prête
  * à rendre (séries temporelles pour sparklines incluses). Aucune dépendance
  * DOM/réseau → unit-testable côté Node.
  *
@@ -21,7 +21,7 @@ export interface AppMeta {
   branch?: string;
 }
 
-/** Payload du canal `dashboard:supervision` (cf studio `createStatsTicker`). */
+/** Payload du canal `nodefony:supervision` (cf studio `createStatsTicker`). */
 export interface StatsPayload {
   ts: number;
   app?: AppMeta;
@@ -42,7 +42,7 @@ export interface StatsPayload {
 }
 
 /**
- * Pdu sérialisé tel qu'il transite sur `syslog:stream` (JSON.stringify d'un
+ * Pdu sérialisé tel qu'il transite sur `nodefony:syslog` (JSON.stringify d'un
  * {@link Pdu} côté serveur). Le message vit dans `payload`, le producteur dans
  * `moduleName` — on réhydrate un vrai {@link Pdu} (même classe Core des 2 côtés).
  */
@@ -55,7 +55,7 @@ export interface LogEntry {
   msg?: string;
 }
 
-/** Payload coalescé du canal `syslog:stream` (cf studio `createSyslogBridge`). */
+/** Payload coalescé du canal `nodefony:syslog` (cf studio `createSyslogBridge`). */
 export interface SyslogPayload {
   logs?: LogEntry[];
   dropped?: number;

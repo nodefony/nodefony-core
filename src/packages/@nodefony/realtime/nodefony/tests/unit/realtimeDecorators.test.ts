@@ -24,7 +24,7 @@ import type {
 describe("@RealtimeAction — registre des actions RPC", () => {
   it("enregistre une méthode unique avec son nom de canal RPC", () => {
     class Ctrl {
-      @RealtimeAction("kernel:ping")
+      @RealtimeAction("nodefony:kernel:ping")
       ping(): { pong: true } {
         return { pong: true };
       }
@@ -32,26 +32,28 @@ describe("@RealtimeAction — registre des actions RPC", () => {
     const inst = new Ctrl();
     const actions = getRealtimeActions(inst);
     expect(actions).to.not.equal(null);
-    expect(Object.keys(actions!)).to.deep.equal(["kernel:ping"]);
+    expect(Object.keys(actions!)).to.deep.equal(["nodefony:kernel:ping"]);
     // Bind sur l'instance : `this` reste le controller même appelé via le map.
-    expect(actions!["kernel:ping"]!(undefined)).to.deep.equal({ pong: true });
+    expect(actions!["nodefony:kernel:ping"]!(undefined)).to.deep.equal({
+      pong: true,
+    });
   });
 
   it("enregistre plusieurs actions sur la même classe", () => {
     class Ctrl {
-      @RealtimeAction("kernel:ping")
+      @RealtimeAction("nodefony:kernel:ping")
       ping(): number {
         return 1;
       }
-      @RealtimeAction("kernel:gc")
+      @RealtimeAction("nodefony:kernel:gc")
       gc(): number {
         return 2;
       }
     }
     const actions = getRealtimeActions(new Ctrl())!;
     expect(Object.keys(actions).sort()).to.deep.equal([
-      "kernel:gc",
-      "kernel:ping",
+      "nodefony:kernel:gc",
+      "nodefony:kernel:ping",
     ]);
   });
 
@@ -91,8 +93,8 @@ describe("@RealtimeAction — registre des actions RPC", () => {
 });
 
 // ── FERMÉE PAR DÉFAUT ──────────────────────────────────────────────────────
-// Une action RPC est une méthode que le pair APPELLE : elle agit (`kernel:gc`,
-// `scaffold:run`, `orders:quote`). Elle était pourtant la seule des trois
+// Une action RPC est une méthode que le pair APPELLE : elle agit (`nodefony:kernel:gc`,
+// `nodefony:scaffold:run`, `orders:quote`). Elle était pourtant la seule des trois
 // surfaces déclaratives à ne pas accepter de politique, et le verrou laisse
 // passer ce qu'aucune politique ne couvre (`frameAuthorizer.ts`, « canal
 // applicatif libre ») : toute action applicative était donc PUBLIQUE, sans que
@@ -163,15 +165,18 @@ describe("@RealtimeAction — politique d'autorisation (fermée par défaut)", (
 describe("@RealtimeChannel — registre des canaux pub/sub", () => {
   it("enregistre un factory pour un nom EXACT, retournant son dispose", () => {
     class Ctrl {
-      @RealtimeChannel("dashboard:stats")
+      @RealtimeChannel("nodefony:dashboard")
       stats(_channel: string, _publish: RealtimePublish): () => void {
         return () => {};
       }
     }
     const channels = getRealtimeChannels(new Ctrl());
     expect(channels).to.not.equal(null);
-    expect(Object.keys(channels!)).to.deep.equal(["dashboard:stats"]);
-    const dispose = channels!["dashboard:stats"]!("dashboard:stats", () => {});
+    expect(Object.keys(channels!)).to.deep.equal(["nodefony:dashboard"]);
+    const dispose = channels!["nodefony:dashboard"]!(
+      "nodefony:dashboard",
+      () => {},
+    );
     expect(typeof dispose).to.equal("function");
   });
 

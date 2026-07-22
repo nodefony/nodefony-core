@@ -162,7 +162,7 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   `tests/support/auditPaginationContract.ts` : mémoire + Drizzle sqlite/pg/mysql. **Data plane lot 3** :
   `SecurityAdminApi` (`IAdminApi` ns "security") `GET /nodefony/security/api/audit/events`
   (`?…&limit&cursor`) RBAC `ROLE_NODEFONY_ADMIN`, 503 si off ; `parseAuditQuery` pose TOUJOURS un `limit`
-  (le contrat de page n'admet pas « tout »). Table actions = README §Audit. **Stream live lot 4** : canal WS `security:audit` (`createAuditBridge` calque `createSyslogBridge`,
+  (le contrat de page n'admet pas « tout »). Table actions = README §Audit. **Stream live lot 4** : canal WS `nodefony:audit` (`createAuditBridge` calque `createSyslogBridge`,
   coalescé `{events,dropped}` ring borné, **lazy** : s'abonne à `AuditService.subscribe` au 1ᵉʳ auditeur,
   détache au dernier). Gardé **ROLE_NODEFONY_ADMIN** (plancher `security:` ajouté à `frameAuthorizer`,
   `SECURITY_CHANNEL_POLICY`, 1 cran au-dessus de `SYSTEM_CHANNEL_POLICY`). Enregistré comme **canal système**

@@ -19,10 +19,11 @@ import {
   performance,
   constants as perfConstants,
 } from "node:perf_hooks";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 export type Publish = (channel: string, payload: unknown) => void;
 
-/** Métadonnées applicatives statiques poussées avec `dashboard:supervision`. */
+/** Métadonnées applicatives statiques poussées avec `nodefony:supervision`. */
 export interface AppMeta {
   name?: string;
   version?: string;
@@ -96,21 +97,21 @@ interface SyslogLike {
 
 /** Canaux temps réel FIGÉS (deviendront des canaux RealtimeService en P13.4). */
 export const CHANNELS = {
-  syslog: "syslog:stream",
-  // Canal de la SUPERVISION (sondes process) — nommé `dashboard:supervision`
-  // pour la clarté du hub. Abonné UNIQUEMENT par la page Supervision (opt-in).
-  supervision: "dashboard:supervision",
+  syslog: PLATFORM_CHANNELS.syslog,
+  // Canal de la SUPERVISION (sondes process). Abonné UNIQUEMENT par la page
+  // Supervision (opt-in) ; forage par process via le suffixe `@<pid>`.
+  supervision: PLATFORM_CHANNELS.supervision,
   // Canal DÉDIÉ à la debug bar (mêmes sondes process, ticker séparé) → la barre,
   // toujours présente en dev, ne maintient PAS le canal supervision actif.
-  debugbar: "debugbar:stats",
-  ormHealth: "orm:health",
+  debugbar: PLATFORM_CHANNELS.debugbar,
+  ormHealth: PLATFORM_CHANNELS.ormHealth,
   // Canal du FLUX ORM (débit requêtes/s + latence + slow) — distinct de la santé
   // (état/ping). Plus dynamique → cadence par défaut plus serrée côté controller.
-  ormFlow: "orm:flow",
+  ormFlow: PLATFORM_CHANNELS.ormFlow,
   // Canal de SANTÉ de la socket Nodefony (auto-observabilité du RealtimeHub) :
   // canaux/abonnés, fan-out, connexions, backpressure (bufferedAmount). La socket
   // s'observe à travers elle-même.
-  realtimeHealth: "realtime:health",
+  realtimeHealth: PLATFORM_CHANNELS.socket,
 } as const;
 
 /** Options de coalescing du pont syslog. */
@@ -123,7 +124,7 @@ export interface SyslogBridgeOptions {
 }
 
 /**
- * Pont syslog kernel → canal `syslog:stream`, **coalescé**.
+ * Pont syslog kernel → canal `nodefony:syslog`, **coalescé**.
  *
  * Au lieu de pousser 1 frame WS par `Pdu` (un flood de logs — ex broadcast WS
  * massif — noyait le front Studio à coups de N `JSON.stringify`+`send` par tick),
@@ -201,7 +202,7 @@ export function createSyslogBridge(
 }
 
 /**
- * Ticker de stats runtime → canal `dashboard:supervision` (ou `dashboard:supervision:<ms>`
+ * Ticker de stats runtime → canal `nodefony:supervision` (ou `nodefony:supervision:<ms>`
  * pour la granularité) toutes les `intervalMs`. CPU% calculé en delta entre deux
  * ticks (1 seul `process.cpuUsage()` par tick).
  *
@@ -216,7 +217,7 @@ export function createSyslogBridge(
  * `getActiveResourcesInfo`) ne tournent qu'au tick (≥ 1 s, jamais en hot path) ;
  * `setInterval` unref (cloud-native).
  *
- * @param channel - canal de publication (granularité `dashboard:supervision:<ms>`).
+ * @param channel - canal de publication (granularité `nodefony:supervision:<ms>`).
  * @returns dispose() qui clear l'interval + détache l'observer GC — OBLIGATOIRE.
  */
 export function createStatsTicker(
@@ -353,7 +354,7 @@ export function createStatsTicker(
       gc,
       heapSpaces,
       handles: { total: resources.length, byType },
-      errCount, // ERROR/CRITIC sur l'intervalle (compté serveur, pas via syslog:stream)
+      errCount, // ERROR/CRITIC sur l'intervalle (compté serveur, pas via nodefony:syslog)
     });
     errCount = 0;
   };
@@ -369,7 +370,7 @@ export function createStatsTicker(
 }
 
 /**
- * Snapshot ONE-SHOT des sondes process — pendant HTTP du canal `dashboard:supervision`
+ * Snapshot ONE-SHOT des sondes process — pendant HTTP du canal `nodefony:supervision`
  * (PATRON sondes+hub : endpoint + ticker). Échantillonne CPU% et event-loop sur
  * une courte fenêtre (`sampleMs`) pour une valeur instantanée RÉELLE en une seule
  * requête, sans flux WS. `gc` est `null` (la pression GC nécessite un observer
@@ -448,8 +449,8 @@ export async function readStatsSnapshot(
 /**
  * Ticker temps réel **générique** branché sur un endpoint admin via le broker —
  * pousse périodiquement sur un canal le résultat d'un `fetch` asynchrone. Sert
- * la **santé ORM** (`orm:health` : état/ping/latence/stockage) ET le **flux ORM**
- * (`orm:flow` : débit/latence/slow) — même mécanique, sources différentes.
+ * la **santé ORM** (`nodefony:orm:health` : état/ping/latence/stockage) ET le **flux ORM**
+ * (`nodefony:orm:flow` : débit/latence/slow) — même mécanique, sources différentes.
  *
  * SOURCE-AGNOSTIQUE : le `fetch` est branché par le controller sur l'endpoint
  * admin (`orm/connection/health`, `orm/flow`…) **via le broker** → Studio reste
@@ -473,7 +474,7 @@ export function createBrokerTicker(
     if (stopped) return;
     try {
       const data = await fetch();
-      // Publie sur le canal EXACT souscrit (granularité : `orm:health:<ms>`).
+      // Publie sur le canal EXACT souscrit (granularité : `nodefony:orm:health:<ms>`).
       if (!stopped && data) publish(channel, data);
     } catch {
       /* best-effort : un tick raté n'interrompt pas le flux */

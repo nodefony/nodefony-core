@@ -96,7 +96,7 @@ export type RealtimeChannelFactory = (
 
 /**
  * Décorateur **méthode** — expose une **action RPC** request→response du
- * controller realtime sous le nom `method` (ex. `"kernel:ping"`, `"chat:send"`).
+ * controller realtime sous le nom `method` (ex. `"nodefony:kernel:ping"`, `"chat:send"`).
  *
  * La méthode décorée devient le handler appelé sur une requête entrante AVEC `id` ;
  * sa valeur de retour est sérialisée comme `result`. Sync OU async (Promise) ;
@@ -108,7 +108,7 @@ export type RealtimeChannelFactory = (
  *
  * **Autorisation — FERMÉE PAR DÉFAUT.** Une action sans `policy` exige une
  * connexion **authentifiée**. C'est délibéré : une action est une méthode que le
- * pair appelle et qui AGIT (`kernel:gc`, `scaffold:run`, `orders:quote`), et le
+ * pair appelle et qui AGIT (`nodefony:kernel:gc`, `nodefony:scaffold:run`, `orders:quote`), et le
  * verrou de frame laisse passer tout ce qu'aucune politique ne couvre — sans ce
  * défaut, toute action applicative serait publique sans que rien ne le dise.
  * Pour une action délibérément ouverte, l'écrire : `{ authenticated: false }`.
@@ -168,8 +168,8 @@ export function RealtimeAction(
  * un `dispose: () => void` (la base le mémorise et l'appelle au dernier
  * désabonné, comme avec l'override classique).
  *
- * v1 — match EXACT uniquement. Les canaux à pattern (`/^orm:rich@(\d+)/`) ou à
- * suffixe de granularité (`dashboard:stats:1000`) restent dans l'override
+ * v1 — match EXACT uniquement. Les canaux à pattern (`/^nodefony:orm:rich@(\d+)/`) ou à
+ * suffixe de granularité (`nodefony:dashboard:1000`) restent dans l'override
  * `createRealtimeChannel()` (la base donne PRIORITÉ aux décorateurs, puis tombe
  * sur l'override en fallback — coexistence sans casse). Un mode `pattern: RegExp`
  * arrivera plus tard sans rompre cette API.

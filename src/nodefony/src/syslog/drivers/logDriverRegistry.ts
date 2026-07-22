@@ -12,7 +12,7 @@ import type { ITransport } from "../../types/ITransport";
  * pointer dessus — aucun changement dans le cœur. Source unique de la résolution.
  *
  * Le **driver actif** détermine où l'on RELIT les logs (`query`). Le sink WRITE
- * texte (LB.W, `Syslog.setLogSink`) et le bus temps réel (`syslog:stream`) sont
+ * texte (LB.W, `Syslog.setLogSink`) et le bus temps réel (`nodefony:syslog`) sont
  * des axes orthogonaux, pilotés séparément.
  *
  * Sélection à la volée : **dev-only** (action de contrôle Studio). En prod, le

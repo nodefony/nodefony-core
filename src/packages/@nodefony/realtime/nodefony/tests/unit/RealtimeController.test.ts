@@ -81,7 +81,7 @@ class TestRt extends RealtimeController {
 
   protected override realtimeActions(): Record<string, RpcActionHandler> {
     return {
-      "kernel:ping": () => ({ pong: true }),
+      "nodefony:kernel:ping": () => ({ pong: true }),
       boom: () => {
         throw new Error("secret interne");
       },
@@ -126,7 +126,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       const params = sent[0].params as Record<string, unknown>;
       expect(params.protocol).to.equal("jsonrpc-2.0");
       expect(params.channels).to.deep.equal(["tick", "logs"]);
-      expect(params.methods).to.deep.equal(["kernel:ping", "boom"]);
+      expect(params.methods).to.deep.equal(["nodefony:kernel:ping", "boom"]);
     });
 
     it("welcome porte l'identité ANONYME (Zero Trust fallback, aucun authenticator)", () => {
@@ -238,11 +238,11 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
   });
 
   describe("actions (requête → réponse)", () => {
-    it("kernel:ping (action enregistrée) → result apparié par id", async () => {
+    it("nodefony:kernel:ping (action enregistrée) → result apparié par id", async () => {
       const { ctx, sent } = makeCtx();
       const rt = new TestRt(ctx);
       rt.feed(null);
-      rt.feed(frame({ id: 5, method: "kernel:ping" }));
+      rt.feed(frame({ id: 5, method: "nodefony:kernel:ping" }));
       await flush();
       const resp = sent.find((f) => f.id === 5);
       expect(resp).to.exist;
@@ -533,7 +533,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       const { ctx, sent } = makeCtx({ url: "/realtime" });
       const rt = new TestRt(ctx);
       rt.feed(null);
-      rt.feed(frame({ id: 10, method: "kernel:ping" }));
+      rt.feed(frame({ id: 10, method: "nodefony:kernel:ping" }));
       await flush();
       const resp = sent.find((f) => f.id === 10);
       expect(resp!.result).to.deep.equal({ pong: true });
@@ -548,7 +548,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       const { ctx, sent } = makeCtx({ url: "/realtime" });
       const rt = new TestRt(ctx);
       rt.feed(null); // aucun authenticator → token ANONYMOUS posé sur le peer
-      rt.feed(frame({ id: 11, method: "kernel:ping" }));
+      rt.feed(frame({ id: 11, method: "nodefony:kernel:ping" }));
       await flush();
       expect(seenAuthenticated).to.equal(false);
       const resp = sent.find((f) => f.id === 11);

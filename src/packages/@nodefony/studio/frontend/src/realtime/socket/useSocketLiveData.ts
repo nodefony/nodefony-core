@@ -7,11 +7,12 @@ import {
   type InstanceHealth,
   type NormalizedHealth,
 } from "../../utils/realtimeHealth";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /* ════════════════════════════════════════════════════════════════════════
  * useSocketLiveData — hook qui livre un snapshot temps réel de la Socket.
  *
- * Source = canal `realtime:health`, qui rejoue le MÊME producteur que
+ * Source = canal `nodefony:socket`, qui rejoue le MÊME producteur que
  * l'endpoint `/nodefony/realtime/api/health` (`buildRealtimeHealth()`).
  * Ce producteur renvoie DEUX formes : la vue pod agrégée quand la sonde
  * cluster est branchée (`{cluster, instances[], totals{…}}`) ou le snapshot
@@ -67,7 +68,7 @@ function readBackplane(
 
 /** Snapshot brut + état client. À mapper ensuite via `mapXxxLive(snap)`. */
 export function useSocketLiveData(): SocketLiveSnapshot {
-  const raw = useNodefonyChannelData<HealthPayload>("realtime:health");
+  const raw = useNodefonyChannelData<HealthPayload>(PLATFORM_CHANNELS.socket);
   const clientState = useNodefonyState();
   // Une seule normalisation par frame reçue, partagée par les 6 mappings —
   // et un snapshot d'identité STABLE, sans quoi le `useMemo([snap])` de
@@ -311,7 +312,7 @@ export function mapFanOutLive(
  * Mapping pour le **graphe Protocole** — illustre les 4 types de frames
  * JSON-RPC 2.0 qui circulent sur la socket :
  *  - `notifyOut` : notifications client→server SANS `id` (subscribe / unsubscribe / publish)
- *  - `request`   : requêtes client→server AVEC `id` (kernel:ping, …)
+ *  - `request`   : requêtes client→server AVEC `id` (nodefony:kernel:ping, …)
  *  - `response`  : réponses server→client (result / error, même `id`)
  *  - `notifyIn`  : notifications server→client SANS `id` (channel push, realtime:welcome)
  *
@@ -372,7 +373,7 @@ export function mapProtocoleLive(
 
 /**
  * Reconnaît un canal de sonde santé, suffixe de cadence compris. La convention
- * `rateChannel()` est `base:<ms>` (`orm:health:5000`) : tester `endsWith(":health")`
+ * `rateChannel()` est `base:<ms>` (`nodefony:orm:health:5000`) : tester `endsWith(":health")`
  * rate tous les canaux cadencés. On ignore un dernier segment purement numérique
  * avant de comparer — sans allouer la sous-chaîne (ces mappings tournent à chaque
  * frame reçue).
@@ -398,7 +399,7 @@ function isHealthChannel(channel: string): boolean {
  * Mapping pour le **graphe Sondes** — illustre le patron en 5 pièces :
  *   probe → buildHealth → { endpoint HTTP, ticker WS } → canal → Studio.
  *
- * Le signal direct disponible = le canal `realtime:health` lui-même expose
+ * Le signal direct disponible = le canal `nodefony:socket` lui-même expose
  * la liste des canaux abonnés (`channels[]`) et leur trafic. On dérive :
  *  - nombre de canaux `*:health` actifs (sondes vivantes côté serveur)
  *  - somme des messages sur ces canaux (= ticks reçus)

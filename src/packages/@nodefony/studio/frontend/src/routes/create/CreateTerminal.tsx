@@ -40,6 +40,7 @@ import {
   type IScaffoldJobMeta,
   type IScaffoldLine,
 } from "./createModel";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /**
  * Abonnement au flux d'un job — composant **monté seulement quand un job existe**.
@@ -60,7 +61,7 @@ export function JobStream({
   jobId: string;
   onEvent: (event: IScaffoldEvent) => void;
 }) {
-  useNodefonyChannel(`scaffold:job@${jobId}`, (payload) => {
+  useNodefonyChannel(`${PLATFORM_CHANNELS.scaffoldJob}@${jobId}`, (payload) => {
     onEvent(payload as IScaffoldEvent);
   });
   return null;

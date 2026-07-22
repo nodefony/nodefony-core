@@ -12,8 +12,9 @@ import {
   toRecord,
 } from "../../routes/logs/logFormat";
 import { SeverityBadge } from "../../routes/logs/LogVisuals";
+import { PLATFORM_CHANNELS } from "nodefony";
 
-/** Frame coalescée du canal `syslog:stream` : `{ logs:[...], dropped }`. */
+/** Frame coalescée du canal `nodefony:syslog` : `{ logs:[...], dropped }`. */
 interface LogFrame {
   logs?: unknown[];
   dropped?: number;
@@ -34,7 +35,7 @@ function extractRecords(frame: unknown): LogRecord[] {
 }
 
 /**
- * Widget « Logs (live) » — flux `syslog:stream`. RÉUTILISE les briques de la page
+ * Widget « Logs (live) » — flux `nodefony:syslog`. RÉUTILISE les briques de la page
  * Logs (`toRecord` / `recordMessage` / `ansiToReact` / `SeverityBadge`) → même rendu
  * que la console (sévérités colorées, ANSI, lignes d'alerte surlignées). Le `WidgetHost`
  * pousse la dernière frame via `source.data` ; on en garde un petit ring (tail).
@@ -127,7 +128,7 @@ registerWidget<LogFrame>({
   description: "Flux des derniers logs du serveur (ANSI + sévérités colorées).",
   category: "logs",
   icon: IconFileText,
-  source: { kind: "live", channel: "syslog:stream" },
+  source: { kind: "live", channel: PLATFORM_CHANNELS.syslog },
   defaultSpan: 6,
   minSpan: 4,
   render: LogsBody,

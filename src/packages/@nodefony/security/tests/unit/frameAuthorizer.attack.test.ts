@@ -57,27 +57,31 @@ const sub = (channel: string) => ({ method: "subscribe", params: { channel } });
 
 describe("RED-TEAM frameAuthorizer — contournement du plancher de canal système", () => {
   // ── A. Casse du namespace réservé (le vecteur principal) ───────────────────
-  // `syslog:stream` exige ROLE_ADMIN ; `SYSLOG:stream` doit l'exiger AUSSI (sinon
+  // `nodefony:syslog` exige ROLE_ADMIN ; `NODEFONY:syslog` doit l'exiger AUSSI (sinon
   // un client change juste la casse pour échapper au plancher). Le hub route par
   // nom, mais la GARDE ne doit jamais dépendre d'un détail de casse (Zero Trust).
   it("A1 namespace système en CASSE différente → anonyme REFUSÉ (plancher tient)", () => {
     for (const ch of [
-      "SYSLOG:stream",
-      "Syslog:stream",
-      "ORM:health",
-      "Orm:flow",
-      "DASHBOARD:supervision",
-      "Node:stream",
-      "Debugbar:stats",
-      "REALTIME:health",
-      "Cluster:peers",
+      "NODEFONY:syslog",
+      "Nodefony:syslog",
+      "NoDeFoNy:orm:health",
+      "NODEFONY:orm:flow",
+      "Nodefony:supervision",
+      "NODEFONY:dashboard",
+      "Nodefony:debugbar",
+      "NODEFONY:socket",
+      "Nodefony:audit",
     ]) {
       assert.equal(authorize(sub(ch), ANON), false, `anonyme/${ch}`);
     }
   });
 
   it("A2 namespace système en CASSE différente → user SIMPLE REFUSÉ (exige ROLE_ADMIN)", () => {
-    for (const ch of ["SYSLOG:stream", "ORM:HEALTH", "Dashboard:Supervision"]) {
+    for (const ch of [
+      "NODEFONY:syslog",
+      "NODEFONY:ORM:HEALTH",
+      "Nodefony:Supervision",
+    ]) {
       assert.equal(authorize(sub(ch), USER), false, `user/${ch}`);
     }
   });
@@ -89,8 +93,8 @@ describe("RED-TEAM frameAuthorizer — contournement du plancher de canal systè
 
   it("A0 contrôle positif : namespace système (casse quelconque) + ADMIN → AUTORISÉ", () => {
     // Prouve que la garde n'est pas un « refus tout » : l'admin légitime passe.
-    assert.equal(authorize(sub("SYSLOG:stream"), ADMIN), true);
-    assert.equal(authorize(sub("syslog:stream"), ADMIN), true);
+    assert.equal(authorize(sub("NODEFONY:syslog"), ADMIN), true);
+    assert.equal(authorize(sub("nodefony:syslog"), ADMIN), true);
   });
 
   // ── B. Suffixe de cadence / drill (anti-régression du startsWith) ──────────
@@ -99,10 +103,10 @@ describe("RED-TEAM frameAuthorizer — contournement du plancher de canal systè
   // contourne pas. Couvre `channelRate` (parseRate) côté garde.
   it("B1 suffixe de cadence ne contourne pas le plancher (user REFUSÉ)", () => {
     for (const ch of [
-      "syslog:stream:5000",
-      "orm:health:1000",
-      "dashboard:supervision@1234:1000",
-      "realtime:health:2000",
+      "nodefony:syslog:5000",
+      "nodefony:orm:health:1000",
+      "nodefony:supervision@1234:1000",
+      "nodefony:socket:2000",
     ]) {
       assert.equal(authorize(sub(ch), USER), false, ch);
     }
@@ -113,14 +117,17 @@ describe("RED-TEAM frameAuthorizer — contournement du plancher de canal systè
   // d'observabilité, ni en casse exacte ni altérée.
   it("C1 inbound push sur canal système → user REFUSÉ (casse exacte ET altérée)", () => {
     assert.equal(
-      authorize({ method: "syslog:stream", params: {} }, USER),
+      authorize({ method: "nodefony:syslog", params: {} }, USER),
       false,
     );
     assert.equal(
-      authorize({ method: "SYSLOG:stream", params: {} }, USER),
+      authorize({ method: "NODEFONY:syslog", params: {} }, USER),
       false,
     );
-    assert.equal(authorize({ method: "orm:flow", params: {} }, ANON), false);
+    assert.equal(
+      authorize({ method: "nodefony:orm:flow", params: {} }, ANON),
+      false,
+    );
   });
 });
 
@@ -136,37 +143,37 @@ describe("0.6 F2 — plancher irréductible des namespaces réservés (anti-dess
   // Config MALVEILLANTE/ERRONÉE : tente d'ouvrir des namespaces réservés à l'anonyme,
   // + re-cible un namespace applicatif (légitime). Placée AVANT les défauts.
   const looseRules = [
-    { prefix: "security:", policy: { authenticated: false } }, // tente d'ouvrir l'audit
-    { prefix: "syslog:", policy: {} }, // policy vide = aucune contrainte
+    { prefix: "nodefony:audit", policy: { authenticated: false } }, // tente d'ouvrir l'audit
+    { prefix: "nodefony:syslog", policy: {} }, // policy vide = aucune contrainte
     { prefix: "chat:", policy: {} }, // namespace APPLICATIF → librement public
     ...DEFAULT_SYSTEM_RULES,
   ];
   const authz = buildFrameAuthorizer(firewall, { systemRules: looseRules });
 
   it("[F2] config ouvre security: à l'anonyme → REFUSÉ (plancher force authenticated)", () => {
-    assert.equal(authz(sub("security:audit"), ANON), false);
+    assert.equal(authz(sub("nodefony:audit"), ANON), false);
   });
 
   it("[F2] config met une policy VIDE sur syslog: → anonyme REFUSÉ (plancher)", () => {
-    assert.equal(authz(sub("syslog:stream"), ANON), false);
+    assert.equal(authz(sub("nodefony:syslog"), ANON), false);
   });
 
   it("[F2] la config PEUT desserrer jusqu'à authenticated (pas en-dessous) : USER autorisé", () => {
     // Le plancher n'IMPOSE pas ROLE_ADMIN : si l'opérateur re-cible délibérément à
     // authenticated-only, un user authentifié passe. Il bloque SEULEMENT l'anonyme.
-    assert.equal(authz(sub("security:audit"), USER), true);
-    assert.equal(authz(sub("syslog:stream"), USER), true);
+    assert.equal(authz(sub("nodefony:audit"), USER), true);
+    assert.equal(authz(sub("nodefony:syslog"), USER), true);
   });
 
   it("[F2] anti-bypass : un prefixe de config plus COURT ne contourne pas le plancher", () => {
-    // Règle {prefix:"sec"} → matche "security:audit" en 1er, policy ouverte. Le
+    // Règle {prefix:"sec"} → matche "nodefony:audit" en 1er, policy ouverte. Le
     // plancher se base sur le NAMESPACE du canal (security:), pas le prefixe matché.
     const sneaky = [
       { prefix: "sec", policy: { authenticated: false } },
       ...DEFAULT_SYSTEM_RULES,
     ];
     const a = buildFrameAuthorizer(firewall, { systemRules: sneaky });
-    assert.equal(a(sub("security:audit"), ANON), false);
+    assert.equal(a(sub("nodefony:audit"), ANON), false);
   });
 
   it("[F2] un namespace APPLICATIF (non réservé) reste librement ouvrable à l'anonyme", () => {

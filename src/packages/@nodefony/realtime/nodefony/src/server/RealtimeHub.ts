@@ -1,4 +1,8 @@
-import { JsonRpcPeer } from "nodefony";
+import {
+  JsonRpcPeer,
+  NODEFONY_CHANNEL_NAMESPACE,
+  isPlatformChannel,
+} from "nodefony";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController";
 import type { IChannelPolicy } from "../../interfaces/IChannelPolicy";
 import type {
@@ -59,64 +63,40 @@ interface RegisteredAuthenticator {
 export const SLOW_CONSUMER_BYTES = 1 << 20; // 1 MiB
 
 /**
- * **Namespaces de canaux RÉSERVÉS À LA PLATEFORME.** Ces préfixes exposent l'état
- * interne du pod : journaux, requêtes de base, métriques process, supervision,
- * contrôle du noyau, journal d'audit. Aucun n'appartient au métier d'une
- * application — ils décrivent le serveur lui-même.
+ * **Namespace de canaux RÉSERVÉ À LA PLATEFORME** — un seul préfixe, `nodefony:`.
  *
- * La liste vit **ici** parce que le hub est propriétaire de l'espace de nommage
- * des canaux : c'est lui qui les sert. `@nodefony/security`, quand il est chargé,
- * y attache des POLITIQUES (quels rôles) qu'il lit sur cette liste via la surface
- * de service — il ne la redéclare pas. Deux listes auraient divergé au premier
- * namespace ajouté.
+ * Les canaux qu'il couvre exposent l'état interne du pod : journaux, requêtes de
+ * base, métriques process, supervision, contrôle du noyau, journal d'audit. Aucun
+ * n'appartient au métier d'une application — ils décrivent le serveur lui-même.
+ *
+ * La liste reste exposée **ici** (au pluriel, sous forme de tableau) parce que le hub
+ * est propriétaire de l'espace de nommage des canaux : c'est lui qui les sert.
+ * `@nodefony/security`, quand il est chargé, y attache des POLITIQUES (quels rôles)
+ * qu'il lit sur cette liste via la surface de service — il ne la redéclare pas. Deux
+ * listes auraient divergé au premier namespace ajouté. Le tableau survit à la
+ * réduction à une entrée : la forme est un contrat public (`reservedSystemPrefixes()`),
+ * et rien n'interdit qu'un jour un second namespace de plateforme apparaisse.
+ *
+ * Le nom des canaux, lui, vient de la table `PLATFORM_CHANNELS` du cœur (isomorphe) :
+ * le navigateur doit connaître les mêmes noms que le serveur.
  *
  * Sans module de sécurité, ces canaux sont **fermés** aux connexions clientes
  * (cf {@link RealtimeHub.subscribeClient}) : aucune identité n'existe alors, donc
  * personne ne peut prouver qu'il a le droit de les lire.
  */
-export const RESERVED_SYSTEM_PREFIXES = [
-  "security:", // journal d'audit
-  "syslog:", // journaux serveur
-  "orm:", // santé, flux et requêtes de base
-  "node:", // métriques du process
-  "dashboard:", // supervision du cluster
-  "debugbar:", // barre de debug
-  "realtime:", // sonde de la socket
-  "cluster:", // sonde du cluster
-  "kernel:", // contrôle du pod (déclenchement de GC, liveness)
-] as const;
+export const RESERVED_SYSTEM_PREFIXES = [NODEFONY_CHANNEL_NAMESPACE] as const;
 
 /**
- * `s` commence-t-il par `prefix`, **insensible à la casse** et sans allocation ?
+ * Le canal appartient-il au namespace réservé à la plateforme ?
  *
- * La casse doit être neutralisée : sinon `SYSLOG:stream` échapperait au plancher
- * que `syslog:stream` subit — un contournement d'un `toUpperCase()`. Comparaison
- * caractère par caractère plutôt que `toLowerCase()` : ce test est sur le chemin
- * d'abonnement, on n'y alloue pas de chaîne.
- */
-function startsWithCI(s: string, prefix: string): boolean {
-  if (s.length < prefix.length) return false;
-  for (let i = 0; i < prefix.length; i += 1) {
-    let a = s.charCodeAt(i);
-    if (a >= 65 && a <= 90) a += 32;
-    let b = prefix.charCodeAt(i);
-    if (b >= 65 && b <= 90) b += 32;
-    if (a !== b) return false;
-  }
-  return true;
-}
-
-/**
- * Le canal appartient-il à un namespace réservé à la plateforme ?
+ * Alias de {@link isPlatformChannel} (cœur isomorphe) sous le nom que porte cette
+ * notion côté hub : le hub raisonne en « canal réservé », le client en « surface de
+ * plateforme ». Une seule implémentation — la comparaison est insensible à la casse,
+ * sinon `NODEFONY:syslog` échapperait au plancher que `nodefony:syslog` subit.
  *
- * @param channel - nom du canal demandé (suffixe de cadence inclus).
+ * @param channel - nom du canal demandé (suffixes de cadence et de forage inclus).
  */
-export function isReservedSystemChannel(channel: string): boolean {
-  for (const prefix of RESERVED_SYSTEM_PREFIXES) {
-    if (startsWithCI(channel, prefix)) return true;
-  }
-  return false;
-}
+export const isReservedSystemChannel = isPlatformChannel;
 
 /**
  * Période de re-validation des identités RÉVOCABLES (session BFF) — F4 (revue 0.6).
@@ -298,7 +278,7 @@ export class RealtimeHub {
   #channelPolicies: Map<string, IChannelPolicy> | null = null;
 
   // Registre des canaux SYSTÈME (plateforme) — factory par nom EXACT, fournie par
-  // un module bas niveau (`@nodefony/security` → `security:audit`) au boot, SANS
+  // un module bas niveau (`@nodefony/security` → `nodefony:audit`) au boot, SANS
   // qu'aucun RealtimeController ne la connaisse. Consulté par `subscribe` en
   // dernier recours (la factory du controller a renvoyé `null` = canal inconnu de
   // lui) → tout endpoint sert le canal système, ZÉRO couplage à Studio. Lazy :
@@ -329,7 +309,7 @@ export class RealtimeHub {
   // par défaut TOUT canal est **instance-local** (ne traverse PAS le backplane).
   // POURQUOI ce défaut : (1) sûreté Zero-Trust — aucune donnée per-instance (logs,
   // sondes, état interne) ne fuit cross-process sans intention explicite ; (2) tous
-  // les canaux d'observabilité actuels (syslog/supervision/orm/realtime:health) sont
+  // les canaux d'observabilité actuels (syslog/supervision/orm/nodefony:socket) sont
   // per-instance → corrects en cluster sans aucune déclaration ; (3) le forward (chat,
   // présence, notifications) devient une capacité qu'un canal **demande**. Cf
   // {@link markBroadcastChannel}. En mono-process (`#backplane === null`) cette
@@ -349,7 +329,7 @@ export class RealtimeHub {
    * {@link subscribe}, plus le plancher des canaux de plateforme.
    *
    * Pourquoi deux portes : un service du serveur qui écoute ses propres journaux
-   * est légitime ; une connexion distante qui demande `syslog:stream` alors
+   * est légitime ; une connexion distante qui demande `nodefony:syslog` alors
    * qu'aucun module de sécurité n'est chargé ne l'est pas. Le hub ne peut pas
    * deviner l'origine d'un appel — le contrôleur, lui, sait qu'il traite une
    * frame venue du réseau, et passe donc par ici.
@@ -415,7 +395,7 @@ export class RealtimeHub {
     let dispose = factory(channel, publishFn);
     if (dispose === null) {
       // Inconnu du controller → dernier recours : factory de canal SYSTÈME
-      // (plateforme) enregistrée par un module bas niveau (security:audit…).
+      // (plateforme) enregistrée par un module bas niveau (nodefony:audit…).
       const sys = this.#systemChannelFactories?.get(channel);
       if (sys) dispose = sys(channel, publishFn);
     }
@@ -585,7 +565,7 @@ export class RealtimeHub {
    * traverse le backplane que pour un canal broadcast ; en ENTRÉE, tout était
    * accepté. Un pair (ou quiconque écrit dans un bus partagé, cf `envelope.ts`)
    * pouvait donc pousser sur des canaux **instance-local** que la politique refuse
-   * précisément de faire voyager — `syslog:`, `security:audit`, `realtime:health` —
+   * précisément de faire voyager — `syslog:`, `nodefony:audit`, `nodefony:socket` —
    * et injecter de faux évènements dans les écrans d'admin de TOUS les pods.
    *
    * Symétrie rétablie, et **quel que soit le driver** : un driver userland qui
@@ -700,7 +680,7 @@ export class RealtimeHub {
    * Snapshot d'auto-observabilité de la socket (per-instance). Lecture PURE (aucune
    * alloc sur le chemin chaud, jamais throw) : agrège canaux + fan-out + connexions +
    * **backpressure** (`bufferedAmount`, risque #1). Appelé à la demande (endpoint HTTP)
-   * ou par le ticker hub `realtime:health`. Les cumuls sont monotones → débit dérivé
+   * ou par le ticker hub `nodefony:socket`. Les cumuls sont monotones → débit dérivé
    * côté lecteur. Cf {@link IRealtimeProbe}.
    */
   probe(): IRealtimeProbe {
@@ -994,7 +974,7 @@ export class RealtimeHub {
 
   /**
    * Enregistre la **factory d'un canal système** (plateforme) — un module bas
-   * niveau (ex. `@nodefony/security` : `security:audit`) déclare au boot comment
+   * niveau (ex. `@nodefony/security` : `nodefony:audit`) déclare au boot comment
    * produire le provider d'un canal, SANS qu'aucun `RealtimeController` ne le
    * connaisse. `subscribe` consulte ce registre quand la factory du controller
    * renvoie `null` → le canal devient servable par TOUT endpoint (présent/futur),

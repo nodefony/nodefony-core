@@ -37,7 +37,7 @@ import {
  * Auth : MIGRÉE (P6 J3) — `/nodefony/security/api/auth/{login,me,logout}`
  * (session BFF, SessionAuthController + AuthFlow). Plus aucun mock ici.
  *
- * Le streaming des logs passe désormais par le canal WS `syslog:stream`
+ * Le streaming des logs passe désormais par le canal WS `nodefony:syslog`
  * (`StudioRealtimeController`, JSON-RPC 2.0). L'ancien endpoint SSE
  * `/studio/api/logs/stream` a été retiré (mort + cassé en HTTP/2 : `flushHeaders`
  * inexistant sur Http2ServerResponse → `code=000`). Cf `feedback_sse_http2_request_close`.
@@ -183,7 +183,7 @@ class StudioController extends Controller {
 
   /**
    * Snapshot ONE-SHOT des sondes process (PATRON sondes+hub) — pendant HTTP du
-   * canal realtime `dashboard:supervision`. Permet à la Supervision d'afficher des
+   * canal realtime `nodefony:supervision`. Permet à la Supervision d'afficher des
    * valeurs RÉELLES quand le temps réel est désactivé (défaut, pour la perf),
    * sans ouvrir de flux WS. CPU% + event-loop échantillonnés sur une courte
    * fenêtre (~150 ms) ; `gc` null (nécessite un observer dans la durée).

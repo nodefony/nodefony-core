@@ -27,7 +27,7 @@ const processProbe = new ProcessProbe();
  * Namespace `realtime` (pas `studio`/`framework`) car la socket est une couche du
  * framework, pas de Studio : le jour où `@nodefony/realtime` (P13.1) existera, ce
  * producteur y déménagera sans changer le contrat. Réutilisé par l'endpoint HTTP
- * (1ᵉʳ paint) ET par le ticker hub realtime `realtime:health` (push live).
+ * (1ᵉʳ paint) ET par le ticker hub realtime `nodefony:socket` (push live).
  *
  * Endpoints :
  *  - `GET /nodefony/realtime/api/health` → vue POD agrégée ({@link IRealtimeClusterHealth})
@@ -64,7 +64,7 @@ export function buildOwnHealth(): IRealtimeHealth {
 }
 
 /**
- * Construit la **santé de la socket** servie par l'endpoint/le canal `realtime:health` :
+ * Construit la **santé de la socket** servie par l'endpoint/le canal `nodefony:socket` :
  * la **vue POD agrégée** si la sonde cluster est branchée et a reçu un snapshot du master
  * (Phase 4c, push), sinon la **vue per-instance** (mono-process, sonde désactivée, ou cold
  * start). Lecture pure, jamais throw. Async pour matcher la signature des tickers broker.

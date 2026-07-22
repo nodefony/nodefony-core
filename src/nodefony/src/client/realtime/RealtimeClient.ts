@@ -82,6 +82,7 @@ export type {
   RealtimeIdentity,
   IRealtimeWelcome,
 } from "../../realtime/RealtimeEventMap";
+import { PLATFORM_METHODS } from "../../realtime/platformChannels";
 
 export type RealtimeState =
   "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
@@ -145,7 +146,7 @@ function redactFrame(value: unknown, depth = 0): unknown {
 }
 
 /**
- * Réponse de la méthode RPC standard `kernel:ping` — CONVENTION Nodefony : tout
+ * Réponse de la méthode RPC standard `nodefony:kernel:ping` — CONVENTION Nodefony : tout
  * endpoint realtime (Studio aujourd'hui, `RealtimeService` en P13.4) y répond.
  * Sert de liveness + base de mesure du round-trip (cf {@link RealtimeClient.ping}).
  */
@@ -558,7 +559,7 @@ export class RealtimeClient<
    * Requête API par **path** — la MÊME action controller que le GET REST, via
    * la socket (« API souveraine » : 1 action = N transports). Sucre au-dessus
    * de la méthode RPC `api.request` (protocole caché — convention dans la lib,
-   * comme `kernel:ping`/`ping()`) :
+   * comme `nodefony:kernel:ping`/`ping()`) :
    * ```ts
    * const modules = await socket.request("/nodefony/kernel/api/modules");
    * ```
@@ -591,7 +592,7 @@ export class RealtimeClient<
    * publique, pas un correctif. Les deux formes se disputent le 1ᵉʳ paramètre
    * générique (`<T>` = résultat ici, `<K>` = nom de méthode au-dessus) : tout
    * appel `request<MonType>("ma:methode")` — dont `ping()` et le Studio
-   * (`request<IScaffoldJobState>("scaffold:run", …)`) — devrait être réécrit en
+   * (`request<IScaffoldJobState>("nodefony:scaffold:run", …)`) — devrait être réécrit en
    * `request<"ma:methode", MonType>`. À trancher hors session de dette.
    */
   async request<T = unknown>(
@@ -705,9 +706,9 @@ export class RealtimeClient<
   }
 
   /**
-   * Mesure le round-trip WS via la méthode RPC standard `kernel:ping` — helper
+   * Mesure le round-trip WS via la méthode RPC standard `nodefony:kernel:ping` — helper
    * RÉUTILISABLE par tout consommateur (topbar Studio, debug bar, app user) :
-   * la mesure du RTT et la convention `kernel:ping` vivent dans la lib cliente,
+   * la mesure du RTT et la convention `nodefony:kernel:ping` vivent dans la lib cliente,
    * pas dupliquées dans chaque front. Renvoie le payload serveur enrichi de `rtt`
    * (ms, aller-retour mesuré côté client). Lève si le serveur ne répond pas
    * (`request` timeout) ou ne connaît pas la méthode (`-32601`).
@@ -720,7 +721,7 @@ export class RealtimeClient<
         : Date.now();
     const t0 = now();
     const res = await this.request<KernelPingResult>(
-      "kernel:ping",
+      PLATFORM_METHODS.ping,
       undefined,
       timeoutMs,
     );

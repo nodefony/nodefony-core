@@ -16,7 +16,7 @@ const HEAP_LIMIT = v8.getHeapStatistics().heap_size_limit;
  * snapshot pod (cf `ClusterProbeAggregator`). Volontairement **lean** (sérialisée par
  * worker à chaque tick de report ≥ 1 s) : juste de quoi peupler une grille « salle des
  * machines » (1 carte/worker). Les sondes lourdes (GC, heap-spaces, ctx-switches) restent
- * au canal `dashboard:supervision` per-process pour le drill-down.
+ * au canal `nodefony:supervision` per-process pour le drill-down.
  */
 export interface IProcessHealth {
   /** PID du worker (= instanceId de la vue pod). */

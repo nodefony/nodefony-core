@@ -21,7 +21,7 @@ import type { IAuditEvent } from "../../nodefony/contracts/IAuditEvent";
 /**
  * Stream WS live du journal d'audit (P6.14 — Lot 4). Trois surfaces :
  *  - `createAuditBridge` : coalescing borné + cleanup (calque createSyslogBridge).
- *  - garde `security:audit` : plancher ROLE_NODEFONY_ADMIN (un cran au-dessus du
+ *  - garde `nodefony:audit` : plancher ROLE_NODEFONY_ADMIN (un cran au-dessus du
  *    plancher d'observabilité générique) → un admin applicatif ne lit pas l'audit.
  *  - câblage RÉEL : le firewall enregistre le canal système sur le hub (lazy).
  */
@@ -129,7 +129,7 @@ describe("createAuditBridge — coalescing + cleanup", () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
-describe("frameAuthorizer — security:audit gardé ROLE_NODEFONY_ADMIN", () => {
+describe("frameAuthorizer — nodefony:audit gardé ROLE_NODEFONY_ADMIN", () => {
   // hasRole = inclusion EXACTE (pas de hiérarchie) → prouve que ROLE_ADMIN simple
   // ne suffit pas : le plancher security: exige ROLE_NODEFONY_ADMIN strict.
   const fw: IFrameAuthorizerFirewall = {
@@ -170,7 +170,7 @@ describe("frameAuthorizer — security:audit gardé ROLE_NODEFONY_ADMIN", () => 
 });
 
 // ════════════════════════════════════════════════════════════════════════════
-describe("Firewall ⇄ realtime — security:audit enregistré + live (câblage réel)", () => {
+describe("Firewall ⇄ realtime — nodefony:audit enregistré + live (câblage réel)", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
@@ -192,7 +192,7 @@ describe("Firewall ⇄ realtime — security:audit enregistré + live (câblage 
       options,
     }) as unknown as Module;
 
-  it("le firewall enregistre security:audit sur le hub ; la factory diffuse en live, puis se détache", () => {
+  it("le firewall enregistre nodefony:audit sur le hub ; la factory diffuse en live, puis se détache", () => {
     const container = new Container();
     const { boot } = makeKernel(container);
     const audit = new AuditService(
@@ -231,9 +231,9 @@ describe("Firewall ⇄ realtime — security:audit enregistré + live (câblage 
       }),
     );
     firewall.registerAuthenticator(new AnonymousAuthenticator());
-    boot(); // #wireRealtime → registerSystemChannel(security:audit, …)
+    boot(); // #wireRealtime → registerSystemChannel(nodefony:audit, …)
 
-    expect(captured.auditFactory, "factory security:audit enregistrée").to.be.a(
+    expect(captured.auditFactory, "factory nodefony:audit enregistrée").to.be.a(
       "function",
     );
 

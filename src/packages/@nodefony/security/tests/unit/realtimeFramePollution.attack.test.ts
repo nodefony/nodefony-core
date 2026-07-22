@@ -52,7 +52,7 @@ describe("0.6 F7 — prototype pollution via params JSON-RPC", () => {
   it("params pollué (__proto__ injectant des roles) → canal système TOUJOURS refusé pour l'anonyme", () => {
     // channel réel présent + tentative d'injecter des roles par pollution du params.
     const frame = JSON.parse(
-      '{"method":"subscribe","params":{"channel":"syslog:stream","__proto__":{"roles":["ROLE_ADMIN"]}}}',
+      '{"method":"subscribe","params":{"channel":"nodefony:syslog","__proto__":{"roles":["ROLE_ADMIN"]}}}',
     );
     assert.equal(authorize(frame, ANON), false); // les roles pollués sont ignorés (token intact)
     assert.equal(({} as Record<string, unknown>).roles, undefined); // 0 pollution globale

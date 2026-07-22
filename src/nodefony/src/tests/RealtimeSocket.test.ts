@@ -115,14 +115,14 @@ describe("RealtimeClient — conformité IRealtimeSocket (la socket Nodefony)", 
 
   it("channel(name).on reçoit les notifications du canal, et close détache le handler", async () => {
     const { client, transport } = await openClient();
-    const line = client.channel("dashboard:stats");
+    const line = client.channel("nodefony:dashboard");
     const got: unknown[] = [];
     line.on((p) => got.push(p));
 
     transport.fireMessage(
       JSON.stringify({
         jsonrpc: "2.0",
-        method: "dashboard:stats",
+        method: "nodefony:dashboard",
         params: { cpu: 42 },
       }),
     );
@@ -132,7 +132,7 @@ describe("RealtimeClient — conformité IRealtimeSocket (la socket Nodefony)", 
     transport.fireMessage(
       JSON.stringify({
         jsonrpc: "2.0",
-        method: "dashboard:stats",
+        method: "nodefony:dashboard",
         params: { cpu: 99 },
       }),
     );
@@ -143,14 +143,18 @@ describe("RealtimeClient — conformité IRealtimeSocket (la socket Nodefony)", 
   it("getStats() expose les compteurs par canal après réception", async () => {
     const { client, transport } = await openClient();
     transport.fireMessage(
-      JSON.stringify({ jsonrpc: "2.0", method: "orm:flow", params: { q: 1 } }),
+      JSON.stringify({
+        jsonrpc: "2.0",
+        method: "nodefony:orm:flow",
+        params: { q: 1 },
+      }),
     );
-    const st = client.getChannelStats("orm:flow");
-    expect(st?.method).to.equal("orm:flow");
+    const st = client.getChannelStats("nodefony:orm:flow");
+    expect(st?.method).to.equal("nodefony:orm:flow");
     expect(st?.msgCount).to.equal(1);
-    expect(client.getStats().some((s) => s.method === "orm:flow")).to.equal(
-      true,
-    );
+    expect(
+      client.getStats().some((s) => s.method === "nodefony:orm:flow"),
+    ).to.equal(true);
     client.disconnect();
   });
 });

@@ -23,7 +23,7 @@ export function createMemoryLogDriver(source: () => IPduLike[]): ILogDriver {
   return {
     name: "memory",
     // write:false = volatile (le ring n'est pas une persistance) ; query:true =
-    // relecture filtrée ; stream:true = alimente le tap temps réel `syslog:stream`.
+    // relecture filtrée ; stream:true = alimente le tap temps réel `nodefony:syslog`.
     capabilities: { write: false, query: true, stream: true },
     query: (criteria: ILogQueryCriteria) =>
       Promise.resolve(filterPdus(source(), criteria)),

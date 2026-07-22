@@ -63,6 +63,7 @@ import {
   DocHint,
   ensureLiveStyles,
 } from "../components/ui";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /** Version de la doc des fiches d'aide du Hub (badge `DocHint`). */
 const HUB_DOC = "v1.0";
@@ -103,7 +104,7 @@ function frameColor(f: RealtimeFrame): string {
 
 /** Seuil slow-consumer = miroir de `SLOW_CONSUMER_BYTES` serveur (1 MiB). */
 const SLOW_CONSUMER_BYTES = 1024 * 1024;
-/** Cadence désirée du canal `realtime:health` (= défaut du ticker serveur). */
+/** Cadence désirée du canal `nodefony:socket` (= défaut du ticker serveur). */
 const REALTIME_HEALTH_MS = 2000;
 /** Profondeur d'historique des séries temporelles. */
 const HEALTH_HISTORY = 40;
@@ -320,7 +321,7 @@ function MiniSeries({
 }
 
 /**
- * Enfant abonné au canal `realtime:health` — monté UNIQUEMENT quand la sonde est
+ * Enfant abonné au canal `nodefony:socket` — monté UNIQUEMENT quand la sonde est
  * ON (abonnement ref-compté → démonter désabonne → le ticker serveur s'arrête, coût
  * zéro quand OFF). Cadence suit le réglage global AIMD (`adaptive`). Remonte chaque
  * snapshot (`onSnap`) et la cadence effective (`onRate`) au parent.
@@ -335,7 +336,7 @@ function HubHealthLive({
   onRate: (ms: number) => void;
 }) {
   const { data, intervalMs } = useNodefonyAdaptiveChannelData<RawHealth>(
-    "realtime:health",
+    PLATFORM_CHANNELS.socket,
     REALTIME_HEALTH_MS,
     { defaultMs: REALTIME_HEALTH_MS, enabled: adaptive },
   );
@@ -368,7 +369,7 @@ interface HubProbe {
 /**
  * Hook d'auto-observabilité de la Socket Nodefony côté SERVEUR (sonde
  * `RealtimeHub.probe`). `live=false` → instantané HTTP (`GET /realtime/api/health`,
- * coût zéro côté serveur) ; `live=true` → flux `realtime:health` (cadence AIMD).
+ * coût zéro côté serveur) ; `live=true` → flux `nodefony:socket` (cadence AIMD).
  * Débit/fan-out/cadence **dérivés** du delta entre 2 snapshots à l'ARRIVÉE d'une
  * frame (jamais un `setInterval` React → 0 render parasite).
  */
@@ -511,7 +512,7 @@ export const RealtimeConsole = observer(() => {
   pausedRef.current = paused;
 
   // Keepalive logs (ref-compté) → l'activité realtime reste visible même hors page.
-  useNodefonyChannel("syslog:stream", () => {});
+  useNodefonyChannel(PLATFORM_CHANNELS.syslog, () => {});
 
   // Capture des frames : l'abonnement à `__frame__` enclenche le ring côté client.
   useEffect(() => {
@@ -648,7 +649,7 @@ export const RealtimeConsole = observer(() => {
             <DocHint
               title="Sonde temps réel"
               version={HUB_DOC}
-              summary="Active le flux live de la sonde du Hub (canal realtime:health) → les courbes deviennent vivantes."
+              summary="Active le flux live de la sonde du Hub (canal nodefony:socket) → les courbes deviennent vivantes."
               sections={[
                 {
                   label: "ON",
@@ -728,7 +729,7 @@ export const RealtimeConsole = observer(() => {
           sections={[
             {
               label: "Le Hub",
-              body: "« Le Hub » (RealtimeHub) est le central téléphonique : chaque client (ton navigateur, la debug bar, d'autres onglets ou pods) ouvre 1 socket et s'abonne à des CANAUX (syslog:stream = logs, realtime:health = cette sonde, dashboard:supervision = stats process…).",
+              body: "« Le Hub » (RealtimeHub) est le central téléphonique : chaque client (ton navigateur, la debug bar, d'autres onglets ou pods) ouvre 1 socket et s'abonne à des CANAUX (nodefony:syslog = logs, nodefony:socket = cette sonde, nodefony:supervision = stats process…).",
             },
             {
               label: "Diffusion",
@@ -1055,7 +1056,7 @@ export const RealtimeConsole = observer(() => {
                 sections={[
                   {
                     label: "Effet observateur",
-                    body: "Au repos, c'est surtout TOI qui reçois : la sonde (realtime:health), la debug bar et les logs te poussent leurs flux.",
+                    body: "Au repos, c'est surtout TOI qui reçois : la sonde (nodefony:socket), la debug bar et les logs te poussent leurs flux.",
                   },
                   {
                     label: "Sous charge",
@@ -1189,8 +1190,8 @@ export const RealtimeConsole = observer(() => {
                   title="Cadence (AIMD)"
                   caption={
                     ui.adaptiveCadence
-                      ? "Cadence réelle du canal realtime:health. Cadence auto ON : elle RECULE sous charge (le serveur prend du retard) puis revient quand c'est fluide. Plus haut = plus lent."
-                      : "Cadence réelle du canal realtime:health. Cadence auto OFF → courbe plate (cadence fixe). Active « Cadence auto (AIMD) » en tête de page pour la voir s'adapter sous charge."
+                      ? "Cadence réelle du canal nodefony:socket. Cadence auto ON : elle RECULE sous charge (le serveur prend du retard) puis revient quand c'est fluide. Plus haut = plus lent."
+                      : "Cadence réelle du canal nodefony:socket. Cadence auto OFF → courbe plate (cadence fixe). Active « Cadence auto (AIMD) » en tête de page pour la voir s'adapter sous charge."
                   }
                   badge={
                     <Badge

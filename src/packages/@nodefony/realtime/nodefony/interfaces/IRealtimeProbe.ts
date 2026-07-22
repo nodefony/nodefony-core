@@ -153,7 +153,7 @@ export interface IRealtimeHealth extends IRealtimeProbe {
    * UNIQUEMENT pendant un drill ORM de CE worker (facette `"orm"` : le master a envoyé
    * `nf:probe:enrich {facet:"orm"}` à ce pid). Absent sinon → « on paie ce qu'on regarde »
    * (0 ping ORM hors drill). Consommé par la page drill `/nodefony/orm/<pid>` (canal
-   * `orm:rich@<pid>`) → diagnostic riche du pid EXACT (≠ round-robin).
+   * `nodefony:orm:rich@<pid>`) → diagnostic riche du pid EXACT (≠ round-robin).
    */
   ormRich?: unknown;
 }

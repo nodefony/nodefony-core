@@ -35,11 +35,11 @@ describe("ClusterBackplane (worker-side IPC)", () => {
   it("publish() émet une enveloppe taguée {kind,channel,payload,originId}", () => {
     const t = new FakeTransport();
     const bp = new ClusterBackplane(t, "pid-A");
-    bp.publish("orm:health", { rps: 12 });
+    bp.publish("nodefony:orm:health", { rps: 12 });
     expect(t.sent).to.have.lengthOf(1);
     expect(t.sent[0]).to.deep.equal({
       kind: CLUSTER_RT_KIND,
-      channel: "orm:health",
+      channel: "nodefony:orm:health",
       payload: { rps: 12 },
       originId: "pid-A",
     });
@@ -53,12 +53,12 @@ describe("ClusterBackplane (worker-side IPC)", () => {
     bp.start();
     t.deliver({
       kind: CLUSTER_RT_KIND,
-      channel: "syslog:stream",
+      channel: "nodefony:syslog",
       payload: "hello",
       originId: "pid-B",
     });
     expect(got).to.deep.equal([
-      { channel: "syslog:stream", payload: "hello", originId: "pid-B" },
+      { channel: "nodefony:syslog", payload: "hello", originId: "pid-B" },
     ]);
   });
 

@@ -47,8 +47,8 @@ type Frame = { logs: unknown[]; dropped: number };
 
 describe("realtime providers — CHANNELS / INSTANCE_ID", () => {
   it("canaux figés (contrat front + futur RealtimeService)", () => {
-    expect(CHANNELS.syslog).to.equal("syslog:stream");
-    expect(CHANNELS.supervision).to.equal("dashboard:supervision");
+    expect(CHANNELS.syslog).to.equal("nodefony:syslog");
+    expect(CHANNELS.supervision).to.equal("nodefony:supervision");
   });
   it("INSTANCE_ID = string non vide (défaut = pid)", () => {
     expect(INSTANCE_ID).to.be.a("string");
@@ -158,11 +158,11 @@ describe("createSyslogBridge — coalescing (fix lag Studio)", () => {
   });
 });
 
-describe("createStatsTicker — heartbeat dashboard:supervision", () => {
+describe("createStatsTicker — heartbeat nodefony:supervision", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("publie sur dashboard:supervision à chaque intervalMs", () => {
+  it("publie sur nodefony:supervision à chaque intervalMs", () => {
     const publish = vi.fn();
     const dispose = createStatsTicker(publish, 1000);
     expect(publish.mock.calls.length, "rien avant le 1er tick").to.equal(0);

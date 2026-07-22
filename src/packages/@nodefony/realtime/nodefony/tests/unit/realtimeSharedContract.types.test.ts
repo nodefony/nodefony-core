@@ -19,7 +19,7 @@ import { RealtimeClient } from "../../../../../../nodefony/src/client/realtime/R
 
 // ── Contrat partagé, déclaré UNE seule fois ────────────────────────────────
 interface ServerToClient extends EventsMap {
-  "dashboard:stats": { cpu: number; mem: number };
+  "nodefony:dashboard": { cpu: number; mem: number };
 }
 interface ClientToServer extends EventsMap {
   "client:cmd": { action: string };
@@ -40,7 +40,7 @@ declare const client: RealtimeClient<
 >;
 
 function _typeOnly(): void {
-  client.on("dashboard:stats", (p) => {
+  client.on("nodefony:dashboard", (p) => {
     expectType<{ cpu: number; mem: number }>(p);
   });
   client.register("client:confirm", (p) => {
@@ -56,9 +56,9 @@ function _typeOnly(): void {
     }
     demo(): void {
       // notifyClient typé par ServerToClient (ce que le serveur ÉMET)
-      this.notifyClient("dashboard:stats", { cpu: 12, mem: 34 });
+      this.notifyClient("nodefony:dashboard", { cpu: 12, mem: 34 });
       // @ts-expect-error payload mal formé sur un canal connu
-      this.notifyClient("dashboard:stats", { cpu: "x" });
+      this.notifyClient("nodefony:dashboard", { cpu: "x" });
       // requestClient typé par AppActions (la MÊME map que le client)
       expectType<Promise<{ ok: boolean }>>(
         this.requestClient("client:confirm", { id: "42" }),

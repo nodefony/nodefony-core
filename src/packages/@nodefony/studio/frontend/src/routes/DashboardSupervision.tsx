@@ -67,13 +67,14 @@ import {
   FlashValue,
   ensureLiveStyles,
 } from "../components/ui";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /** Version de la doc des fiches d'aide (`DocHint`) du dashboard Supervision. */
 const SUP_DOC = "v1.0";
 
 /**
  * Sondes process (PATRON sondes+hub) poussées sur le canal WS
- * `dashboard:supervision[:ms]` (live) OU lues en one-shot via
+ * `nodefony:supervision[:ms]` (live) OU lues en one-shot via
  * `GET /nodefony/studio/api/stats` (snapshot statique quand le temps réel est OFF).
  */
 interface StatsPayload {
@@ -100,7 +101,7 @@ interface StatsPayload {
   elu?: { utilization: number; active: number; idle: number } | null;
   /** Changements de contexte sur l'intervalle (live-only → null en snapshot). */
   ctx?: { voluntary: number; involuntary: number } | null;
-  /** ERROR/CRITIC sur l'intervalle — compté serveur (évite d'abonner syslog:stream). */
+  /** ERROR/CRITIC sur l'intervalle — compté serveur (évite d'abonner nodefony:syslog). */
   errCount?: number;
   /** Identité process (constante) : runtime Node, OS, parent. */
   proc?: {
@@ -119,7 +120,7 @@ interface StatsPayload {
     branch?: string;
   };
   /**
-   * Drill cluster (`dashboard:supervision@<pid>`) : `true` tant que la sonde riche
+   * Drill cluster (`nodefony:supervision@<pid>`) : `true` tant que la sonde riche
    * du worker distant ciblé n'est pas encore propagée (enrich en cours) → afficher
    * un état « warming », pas un écran vide. Absent sur le canal local.
    */
@@ -133,7 +134,7 @@ interface KernelInfo {
 }
 
 /**
- * Connecteur ORM unifié pour la supervision : LIVE via le canal `orm:health[:ms]`
+ * Connecteur ORM unifié pour la supervision : LIVE via le canal `nodefony:orm:health[:ms]`
  * (ping/erreurs/reconnexions), SNAPSHOT via `GET /nodefony/orm/api/orms` (état +
  * driver/target/entités). Vue « tout d'un coup d'œil » : bases ↔ process.
  */
@@ -149,7 +150,7 @@ interface OrmConn {
   errorCount?: number;
   reconnectCount?: number;
 }
-/** Sous-ensemble du payload `orm:health` (live) qu'on consomme. */
+/** Sous-ensemble du payload `nodefony:orm:health` (live) qu'on consomme. */
 interface OrmHealth {
   name: string;
   vendor: string;
@@ -170,14 +171,14 @@ interface OrmSummary {
   connection?: { driver?: string; target?: string };
 }
 
-/** Une requête lente capturée (canal `orm:flow`). SQL paramétré + redacté. */
+/** Une requête lente capturée (canal `nodefony:orm:flow`). SQL paramétré + redacté. */
 interface SlowQuery {
   ts: number;
   durationMs: number;
   connector: string;
   sql?: string;
 }
-/** Flux d'un connecteur (canal `orm:flow` / `GET /orm/api/flow`). */
+/** Flux d'un connecteur (canal `nodefony:orm:flow` / `GET /orm/api/flow`). */
 interface FlowConn {
   connector: string;
   vendor: string;
@@ -528,7 +529,7 @@ function SupervisionLive({
   onFlow,
   onRate,
 }: {
-  /** Canal supervision : `dashboard:supervision` (local) ou `…@<pid>` (drill worker). */
+  /** Canal supervision : `nodefony:supervision` (local) ou `…@<pid>` (drill worker). */
   channel: string;
   desiredMs: number;
   auto: boolean;
@@ -537,18 +538,18 @@ function SupervisionLive({
   onFlow: (p: unknown) => void;
   onRate: (ms: number) => void;
 }) {
-  // Pas d'abo `syslog:stream` ici : le compteur d'erreurs vient du payload
+  // Pas d'abo `nodefony:syslog` ici : le compteur d'erreurs vient du payload
   // supervision (compté serveur) → on n'inonde pas le dashboard de tous les logs.
   // `channel` instance-aware → changer de worker ré-abonne (base dans les deps du hook).
   const eff = useNodefonyAdaptiveChannel(channel, onStats, desiredMs, {
     defaultMs: 1000,
     enabled: auto,
   });
-  useNodefonyAdaptiveChannel("orm:health", onOrm, desiredMs, {
+  useNodefonyAdaptiveChannel(PLATFORM_CHANNELS.ormHealth, onOrm, desiredMs, {
     defaultMs: 5000,
     enabled: auto,
   });
-  useNodefonyAdaptiveChannel("orm:flow", onFlow, desiredMs, {
+  useNodefonyAdaptiveChannel(PLATFORM_CHANNELS.ormFlow, onFlow, desiredMs, {
     defaultMs: 2000,
     enabled: auto,
   });
@@ -584,10 +585,10 @@ export const DashboardSupervision = observer(() => {
   // Historique CORRÉLÉ CPU% / Heap% (même échelle 0-100) — vue superviseur :
   // CPU et mémoire sont liés (un pic mémoire → pression GC → CPU).
   const [sysHist, setSysHist] = useState<{ cpu: number; heap: number }[]>([]);
-  // Connecteurs ORM : snapshot (/orm/api/orms) + santé live (canal orm:health).
+  // Connecteurs ORM : snapshot (/orm/api/orms) + santé live (canal nodefony:orm:health).
   const [orms, setOrms] = useState<OrmSummary[]>([]);
   const [ormHealth, setOrmHealth] = useState<OrmHealth[] | null>(null);
-  // Flux ORM (débit/latence/slow) : snapshot (/orm/api/flow) + live (orm:flow).
+  // Flux ORM (débit/latence/slow) : snapshot (/orm/api/flow) + live (nodefony:orm:flow).
   // Le débit/s se DÉRIVE du delta de `total` entre 2 rapports (comme le CPU%) →
   // on garde le rapport précédent (ts + totals) pour le calcul, live-only.
   const [ormFlow, setOrmFlow] = useState<FlowReport | null>(null);
@@ -621,8 +622,8 @@ export const DashboardSupervision = observer(() => {
 
   // ─── Instance-aware (cluster) : quel WORKER superviser ──────────────────────
   // Source de vérité = query param `?pid=` (deep-link depuis la grille Cluster).
-  // Local/absent = process courant → canal `dashboard:supervision`. Worker DISTANT
-  // → canal drill `dashboard:supervision@<pid>` (sonde riche à la demande, voie B1)
+  // Local/absent = process courant → canal `nodefony:supervision`. Worker DISTANT
+  // → canal drill `nodefony:supervision@<pid>` (sonde riche à la demande, voie B1)
   // qui ACTIVE l'enrich du worker ciblé côté master. Liste des workers = snapshot pod.
   const [searchParams, setSearchParams] = useSearchParams();
   const [pods, setPods] = useState<number[]>([]);
@@ -641,8 +642,8 @@ export const DashboardSupervision = observer(() => {
     targetPid != null && podsLoaded && !pods.includes(targetPid);
   const showOverview = isCluster && (targetPid == null || pidIsStale);
   const supChannel = isRemote
-    ? `dashboard:supervision@${targetPid}`
-    : "dashboard:supervision";
+    ? `${PLATFORM_CHANNELS.supervision}@${targetPid}`
+    : PLATFORM_CHANNELS.supervision;
   // Sélection d'un worker (détail) : on cible TOUJOURS le pid (même local → détail
   // de ce process, ≠ vue d'ensemble). Worker distant = sonde riche à la demande →
   // on force le temps réel (pas de snapshot one-shot pour un process distant).
@@ -657,7 +658,7 @@ export const DashboardSupervision = observer(() => {
     setSearchParams(next, { replace: true });
   };
   // Granularité (cadence des pushes) — préférence PERSISTÉE, défaut 1 s. Canal
-  // paramétré `dashboard:supervision:<ms>` ; 1 s = canal nu. Re-cadence = ré-abo.
+  // paramétré `nodefony:supervision:<ms>` ; 1 s = canal nu. Re-cadence = ré-abo.
   const [liveMs, setLiveMs] = useState<number>(
     () => Number(lsGet("nf.supervision.liveMs")) || 1000,
   );
@@ -829,7 +830,7 @@ export const DashboardSupervision = observer(() => {
       ];
       return next.length > HISTORY ? next.slice(-HISTORY) : next;
     });
-    // Erreurs comptées CÔTÉ SERVEUR sur l'intervalle (plus de syslog:stream ici).
+    // Erreurs comptées CÔTÉ SERVEUR sur l'intervalle (plus de nodefony:syslog ici).
     setErrHist((prev) => {
       const next = [...prev, s.errCount ?? 0];
       return next.length > HISTORY ? next.slice(-HISTORY) : next;
@@ -918,7 +919,7 @@ export const DashboardSupervision = observer(() => {
     ? Object.entries(handles.byType).sort((a, b) => b[1] - a[1])[0]
     : undefined;
 
-  // Connecteurs ORM unifiés : santé LIVE (orm:health) prioritaire, sinon SNAPSHOT.
+  // Connecteurs ORM unifiés : santé LIVE (nodefony:orm:health) prioritaire, sinon SNAPSHOT.
   const connectors: OrmConn[] =
     live && ormHealth && ormHealth.length
       ? ormHealth.map((h) => ({
@@ -1417,7 +1418,7 @@ export const DashboardSupervision = observer(() => {
       {/* ── Indice de santé composite (Derringer-Suich) — état général en 1 chiffre.
           Mono → « Santé du framework » du process courant. Drill worker (?pid) →
           « Santé du worker <pid> » (ses propres sondes — `stats` vient du canal
-          dashboard:supervision@<pid>). L'AGRÉGÉ pod (pire worker) vit sur l'accueil
+          nodefony:supervision@<pid>). L'AGRÉGÉ pod (pire worker) vit sur l'accueil
           multi-process (grille). On atteint ce bloc en mono OU en drill détail
           (l'overview cluster a `return` plus haut), donc la carte a toujours du sens. ── */}
       {(!isCluster || targetPid != null) && (
@@ -1616,9 +1617,9 @@ export const DashboardSupervision = observer(() => {
                   </Group>
                   <Text size="xs" c="dimmed">
                     Pondération : le <b>poids ×N</b> donne l'importance de la
-                    sonde dans la moyenne géométrique. <b>🛡 saturation</b>{" "}
-                    (CPU, ELU, event-loop, GC) = planchée → tire vers « Dégradé
-                    », jamais « Critique » seule. <b>⚠ panne</b> (erreurs,
+                    sonde dans la moyenne géométrique. <b>🛡 saturation</b> (CPU,
+                    ELU, event-loop, GC) = planchée → tire vers « Dégradé »,
+                    jamais « Critique » seule. <b>⚠ panne</b> (erreurs,
                     connecteurs, mémoire OOM) = peut tirer l'indice à 0. ELU &
                     event-loop pèsent le plus (×1.5) car ce sont les vraies
                     jauges de saturation du thread.
@@ -1822,7 +1823,7 @@ export const DashboardSupervision = observer(() => {
           pulse={live}
           active={activeTab === "erreurs"}
           onClick={() => goLiveTab("erreurs")}
-          hint={`ERROR + CRITIC sur les 60 dernières secondes (canal syslog:stream). Surveillé ≥1/min, critique ≥10/min. ${live ? `Actuellement ${errPerMin}/min.` : "Mesuré uniquement en temps réel (activez-le)."} Clic → onglet Erreurs.`}
+          hint={`ERROR + CRITIC sur les 60 dernières secondes (canal nodefony:syslog). Surveillé ≥1/min, critique ≥10/min. ${live ? `Actuellement ${errPerMin}/min.` : "Mesuré uniquement en temps réel (activez-le)."} Clic → onglet Erreurs.`}
           value={
             waiting ? (
               <Skeleton h={30} w={50} />
@@ -1873,7 +1874,7 @@ export const DashboardSupervision = observer(() => {
           pulse={live && !!ormHealth}
           active={activeTab === "connecteurs"}
           onClick={() => setTab("connecteurs")}
-          hint={`Connexions ORM/bases ${connUp}/${connectors.length} actives${connErr > 0 ? `, ${connErr} erreur(s)` : ""}. ${live ? "Ping/erreurs en temps réel (canal orm:health)." : "Snapshot — activez le temps réel pour le ping live."} Clic → onglet Connecteurs.`}
+          hint={`Connexions ORM/bases ${connUp}/${connectors.length} actives${connErr > 0 ? `, ${connErr} erreur(s)` : ""}. ${live ? "Ping/erreurs en temps réel (canal nodefony:orm:health)." : "Snapshot — activez le temps réel pour le ping live."} Clic → onglet Connecteurs.`}
           value={
             connectors.length ? (
               <Text inherit c={connColor}>
@@ -2544,7 +2545,7 @@ export const DashboardSupervision = observer(() => {
                   {
                     label: live ? "Temps réel" : "Snapshot",
                     body: live
-                      ? "Ping, erreurs et reconnexions en direct (canal orm:health)."
+                      ? "Ping, erreurs et reconnexions en direct (canal nodefony:orm:health)."
                       : "Snapshot statique — activez le temps réel pour le ping live.",
                   },
                 ]}
@@ -2928,7 +2929,7 @@ export const DashboardSupervision = observer(() => {
                   {live ? `${errPerMin}/min` : "temps réel requis"}
                 </Badge>
               }
-              caption="Nombre d'ERROR+CRITIC par seconde (canal syslog:stream). Toute barre rouge = incident à investiguer. Mesuré en temps réel uniquement."
+              caption="Nombre d'ERROR+CRITIC par seconde (canal nodefony:syslog). Toute barre rouge = incident à investiguer. Mesuré en temps réel uniquement."
             >
               {errHist.length > 1 ? (
                 <MiniChart

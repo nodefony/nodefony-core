@@ -101,7 +101,10 @@ describe("RealtimeClient — deniedToNotice (refus de canal, pendant FRAME)", ()
   });
 
   it("message générique : ne révèle JAMAIS le rôle/scope manquant (Zero Trust)", () => {
-    const n = deniedToNotice({ channel: "syslog:stream", reason: "forbidden" });
+    const n = deniedToNotice({
+      channel: "nodefony:syslog",
+      reason: "forbidden",
+    });
     expect(n.message).to.not.match(/ROLE_|scope/i);
   });
 });

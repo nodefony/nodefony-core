@@ -4,7 +4,7 @@
  * pod, chacune avec ses **courbes CPU + Heap en direct** (live), **cliquable** pour
  * drill vers le détail complet d'UN worker (`/nodefony/supervision?pid=<pid>`).
  *
- * « En visu direct » : la grille s'abonne au snapshot pod `realtime:health` tant
+ * « En visu direct » : la grille s'abonne au snapshot pod `nodefony:socket` tant
  * qu'elle est montée (le master le diffuse déjà → coût marginal nul) et trace les
  * séries CPU/Heap par pid. 1ᵉʳ paint = fetch HTTP one-shot (cartes peuplées avant
  * la 1ʳᵉ frame). Purge la série d'un pid au respawn (pid disparu).
@@ -35,6 +35,7 @@ import {
   type HealthResult,
 } from "../utils/health";
 import { HealthWeightsPopover } from "./HealthWeightsPopover";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 const HISTORY = 60;
 const MB = 1024 ** 2;
@@ -204,7 +205,7 @@ export function ProcessGraphGrid({
   const { data: snap, loading, error, reload } = useResource(fetcher);
 
   // Live « visu direct » : abonné au snapshot pod tant que la grille est montée.
-  const live = useNodefonyChannelData<Health>("realtime:health");
+  const live = useNodefonyChannelData<Health>(PLATFORM_CHANNELS.socket);
   const health = live ?? snap;
   const insts = instancesOf(health);
 

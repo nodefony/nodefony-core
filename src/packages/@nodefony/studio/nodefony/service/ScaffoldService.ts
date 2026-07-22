@@ -94,7 +94,7 @@ export interface IScaffoldJobState {
 }
 
 /**
- * Ce qui transite sur le canal `scaffold:job@<id>`.
+ * Ce qui transite sur le canal `nodefony:scaffold:job@<id>`.
  *
  * Deux natures, et pas une seule : une ligne de terminal **et** l'état du job. Sans le
  * second, le front n'aurait aucun moyen d'apprendre par la socket qu'un job est terminé
@@ -200,7 +200,9 @@ class ScaffoldService extends Service {
    */
   roots(): IScaffoldRoot[] {
     const configured = (
-      this.options as { scaffold?: { roots?: { label: string; path: string }[] } }
+      this.options as {
+        scaffold?: { roots?: { label: string; path: string }[] };
+      }
     )?.scaffold?.roots;
     if (configured?.length) {
       return configured.map((r, i) => ({
@@ -241,7 +243,9 @@ class ScaffoldService extends Service {
     const target = sub ? path.resolve(rootReal, sub) : rootReal;
     const targetReal = realpathSync(target);
     if (targetReal !== rootReal && !isInsideRoot(rootReal, targetReal)) {
-      throw new ScaffoldDestinationError("dossier hors de l'emplacement autorisé");
+      throw new ScaffoldDestinationError(
+        "dossier hors de l'emplacement autorisé",
+      );
     }
     const dirs = readdirSync(targetReal, { withFileTypes: true })
       .filter((e) => e.isDirectory() && !e.name.startsWith("."))
@@ -289,7 +293,7 @@ class ScaffoldService extends Service {
 
   /**
    * Démarre un job et rend son identifiant **immédiatement** : l'écriture et les étapes
-   * se déroulent en arrière-plan, le front suit par le canal `scaffold:job@<id>`.
+   * se déroulent en arrière-plan, le front suit par le canal `nodefony:scaffold:job@<id>`.
    *
    * Le backlog est conservé : un abonné qui arrive après le début ne perd aucune ligne.
    *
@@ -534,7 +538,9 @@ class ScaffoldService extends Service {
     // dans l'espace de travail. Réservé au type `app` (une app est AUTONOME ; un module,
     // lui, recâble le projet — l'extraire de son projet n'aurait aucun sens).
     const delivery: ScaffoldDelivery =
-      type === "app" && answers.delivery === "download" ? "download" : "install";
+      type === "app" && answers.delivery === "download"
+        ? "download"
+        : "install";
     try {
       // Pour une app, la destination est RECOMPOSÉE sous une racine autorisée (le client
       // n'envoie jamais un chemin) ; pour tout le reste, c'est le projet courant, et
@@ -686,7 +692,11 @@ class ScaffoldService extends Service {
           this.#emit(job, "ok", `npm ${args.join(" ")} — terminé`);
           resolve(true);
         } else {
-          this.#emit(job, "fail", `npm ${args.join(" ")} — échec (code ${code})`);
+          this.#emit(
+            job,
+            "fail",
+            `npm ${args.join(" ")} — échec (code ${code})`,
+          );
           resolve(false);
         }
       });

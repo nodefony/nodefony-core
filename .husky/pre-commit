@@ -18,6 +18,18 @@ if git diff --cached --name-only --diff-filter=ACMR \
   fi
 fi
 
+# Garde anti-dérive : les noms de canaux/méthodes de plateforme (`nodefony:*`) ne
+# s'écrivent pas en dur — ils viennent de la table du cœur. Un producteur renommé
+# sans son consommateur rend un écran muet SANS qu'aucun test ne rougisse (les
+# écrans n'en ont pas) ; seule la table, donc le compilateur, ferme cette porte.
+# Filtre .tsx inclus : le front est justement la zone non testée.
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE '\.tsx?$'; then
+  if ! node scripts/check-platform-channels.mjs; then
+    echo "   → importer PLATFORM_CHANNELS / PLATFORM_METHODS / PLATFORM_EVENTS depuis \"nodefony\""
+    exit 1
+  fi
+fi
+
 # Pré-filtre rapide (shell pur, AUCUN boot node) : si aucun .ts n'est staged,
 # il n'y a rien à régénérer → on évite ~1,3 s de démarrage node/tsx sur les
 # commits sans code (docs, config, json…). Réduit aussi la fenêtre pendant

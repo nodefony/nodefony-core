@@ -1,5 +1,5 @@
 /**
- * Abonnement live au canal `security:audit` — composant INVISIBLE monté
+ * Abonnement live au canal `nodefony:audit` — composant INVISIBLE monté
  * conditionnellement (`{live && <AuditLive/>}`). Tant qu'il n'est pas monté, aucun
  * abonnement (ref-compté → 0 ticker serveur quand le switch est OFF). À chaque
  * batch coalescé reçu, remonte au parent qui fusionne en tête de liste.

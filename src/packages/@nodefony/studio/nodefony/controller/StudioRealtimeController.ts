@@ -23,9 +23,10 @@ import {
   type IScaffoldJobState,
 } from "../service/ScaffoldService";
 import type { TScaffoldAnswers } from "nodefony";
+import { PLATFORM_CHANNELS, PLATFORM_METHODS } from "nodefony";
 
 /**
- * Canal de drill-down d'un worker du cluster : `dashboard:supervision@<pid>` avec granularité
+ * Canal de drill-down d'un worker du cluster : `nodefony:supervision@<pid>` avec granularité
  * `:<ms>` optionnelle. Capture le `pid` ciblé. Le `@` (vs `:`) évite toute collision avec le
  * canal supervision normal et son suffixe de cadence.
  */
@@ -34,15 +35,15 @@ const SUPERVISION_DRILL_RE = new RegExp(
 );
 
 /**
- * Canal de drill ORM d'un worker du cluster : `orm:rich@<pid>` (granularité `:<ms>` optionnelle).
+ * Canal de drill ORM d'un worker du cluster : `nodefony:orm:rich@<pid>` (granularité `:<ms>` optionnelle).
  * Livre le diagnostic ORM RICHE (`connection/health` + `flow`) du worker `pid` EXACT — combine,
- * en un canal, les sources séparées `orm:health`/`orm:flow` (qui, elles, tombent sur un worker
+ * en un canal, les sources séparées `nodefony:orm:health`/`nodefony:orm:flow` (qui, elles, tombent sur un worker
  * round-robin en cluster). Un seul canal = un seul enrich = pas de ref-count.
  */
-const ORM_RICH_DRILL_RE = /^orm:rich@(\d+)(?::\d+)?$/;
+const ORM_RICH_DRILL_RE = /^nodefony:orm:rich@(\d+)(?::\d+)?$/;
 
 /**
- * Flux d'un job de génération de code : `scaffold:job@<uuid>`.
+ * Flux d'un job de génération de code : `nodefony:scaffold:job@<uuid>`.
  *
  * Ce canal n'est pas cadencé (pas de suffixe `:<ms>`) : il ne sonde rien, il RELAIE ce
  * que le job produit — une ligne écrite est une ligne poussée. À l'abonnement, le
@@ -50,7 +51,7 @@ const ORM_RICH_DRILL_RE = /^orm:rich@(\d+)(?::\d+)?$/;
  * ne perd aucune ligne.
  */
 const SCAFFOLD_JOB_RE =
-  /^scaffold:job@([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+  /^nodefony:scaffold:job@([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 /**
  * Bornes de cadence par canal cadencé — défaut + min/max (ms). Convention partagée avec
@@ -82,10 +83,10 @@ const RATE_BOUNDS: Readonly<Record<string, RateBounds>> = {
  * ({@link realtimeActions}).
  *
  * ── Canaux (pub/sub on-demand) ──
- *  - `syslog:stream` (Pdu kernel), `dashboard:stats`/`dashboard:supervision`,
- *    `debugbar:stats`, `orm:health`, `orm:flow` (suffixe `:<ms>` = granularité).
+ *  - `nodefony:syslog` (Pdu kernel), `nodefony:dashboard`/`nodefony:supervision`,
+ *    `nodefony:debugbar`, `nodefony:orm:health`, `nodefony:orm:flow` (suffixe `:<ms>` = granularité).
  * ── Actions (requête→réponse) ──
- *  - `kernel:ping` (liveness/RTT), `kernel:gc` (force GC si `--expose-gc`).
+ *  - `nodefony:kernel:ping` (liveness/RTT), `nodefony:kernel:gc` (force GC si `--expose-gc`).
  *
  * Forward-compat P13.4 : la base + ces providers migrent dans `RealtimeService`.
  */
@@ -111,16 +112,18 @@ class StudioRealtimeController extends RealtimeController {
   /** Actions RPC (requête→réponse, direction contrôle). */
   protected override realtimeActions(): Record<string, RpcActionHandler> {
     return {
-      "kernel:ping": () => this.actionPing(),
-      "kernel:gc": () => this.actionGc(),
-      "scaffold:run": (params) => this.actionScaffoldRun(params),
-      "scaffold:cancel": (params) => this.actionScaffoldCancel(params),
+      [PLATFORM_METHODS.ping]: () => this.actionPing(),
+      [PLATFORM_METHODS.gc]: () => this.actionGc(),
+      [PLATFORM_METHODS.scaffoldRun]: (params) =>
+        this.actionScaffoldRun(params),
+      [PLATFORM_METHODS.scaffoldCancel]: (params) =>
+        this.actionScaffoldCancel(params),
     };
   }
 
   /**
    * Lance un job de génération de code et rend son identifiant SANS attendre : le front
-   * s'abonne à `scaffold:job@<id>` et regarde le travail se faire.
+   * s'abonne à `nodefony:scaffold:job@<id>` et regarde le travail se faire.
    *
    * Le client ne transmet **aucune commande** — seulement un type, des réponses de
    * formulaire (que le moteur valide contre sa propre spec) et des étapes prises dans une
@@ -210,7 +213,7 @@ class StudioRealtimeController extends RealtimeController {
           : null;
 
     // Drill-down cluster : supervision RICHE d'UN worker ciblé par pid. Testé AVANT
-    // `statsBase` (le `@<pid>` ne matche pas `dashboard:supervision:` mais on lève toute
+    // `statsBase` (le `@<pid>` ne matche pas `nodefony:supervision:` mais on lève toute
     // ambiguïté en priorisant le drill).
     const drill = SUPERVISION_DRILL_RE.exec(channel);
     if (drill) {
@@ -238,13 +241,13 @@ class StudioRealtimeController extends RealtimeController {
       );
     }
 
-    // Drill ORM riche d'UN worker ciblé par pid (`orm:rich@<pid>`) : connection/health + flow
+    // Drill ORM riche d'UN worker ciblé par pid (`nodefony:orm:rich@<pid>`) : connection/health + flow
     // du worker EXACT. En mono / worker courant → combine localement via le broker ; worker
     // distant → enrichissement ORM à la demande via le master (facette "orm", voie B1).
     const ormDrill = ORM_RICH_DRILL_RE.exec(channel);
     if (ormDrill) {
       const pid = Number(ormDrill[1]);
-      const base = `orm:rich@${pid}`;
+      const base = `${PLATFORM_CHANNELS.ormRich}@${pid}`;
       const ms = parseRate(channel, base, RATE_BOUNDS.ormRich);
       if (pid === process.pid) {
         // CE worker (ou mono-process) → diagnostic riche local exact, sans IPC cluster.
@@ -280,7 +283,7 @@ class StudioRealtimeController extends RealtimeController {
       // Granularité client via suffixe `:<ms>` (borné 250 ms–60 s). Défaut 1 s.
       const ms = parseRate(channel, statsBase, RATE_BOUNDS.stats);
       // La supervision compte les erreurs CÔTÉ SERVEUR (syslog passé) → pas besoin
-      // d'abonner le dashboard à syslog:stream. La debug bar non.
+      // d'abonner le dashboard à nodefony:syslog. La debug bar non.
       const sysForErrors =
         statsBase === CHANNELS.supervision ? this.syslog : undefined;
       return createStatsTicker(
@@ -295,7 +298,7 @@ class StudioRealtimeController extends RealtimeController {
       channel === CHANNELS.ormHealth ||
       channel.startsWith(`${CHANNELS.ormHealth}:`)
     ) {
-      // Granularité `orm:health:<ms>` (borné 1–60 s). Défaut 5 s.
+      // Granularité `nodefony:orm:health:<ms>` (borné 1–60 s). Défaut 5 s.
       const ms = parseRate(channel, CHANNELS.ormHealth, RATE_BOUNDS.ormHealth);
       // Broker capturé À LA CRÉATION (singleton long-lived) : le provider est PARTAGÉ
       // par le hub et survit à la connexion qui l'a créé — ne JAMAIS capturer `this`.
@@ -354,7 +357,7 @@ class StudioRealtimeController extends RealtimeController {
   }
 
   /**
-   * Action `kernel:ping` — liveness + round-trip (le client mesure le RTT). Lecture
+   * Action `nodefony:kernel:ping` — liveness + round-trip (le client mesure le RTT). Lecture
    * pure, aucun effet de bord.
    */
   private actionPing(): {
@@ -374,7 +377,7 @@ class StudioRealtimeController extends RealtimeController {
   }
 
   /**
-   * Action `kernel:gc` — force un cycle GC V8 si lancé avec `--expose-gc`. Renvoie le
+   * Action `nodefony:kernel:gc` — force un cycle GC V8 si lancé avec `--expose-gc`. Renvoie le
    * delta heap (futur bouton « Force GC »). `available:false` sinon (dégradation gracieuse).
    */
   private actionGc(): {
@@ -417,7 +420,7 @@ class StudioRealtimeController extends RealtimeController {
     } as IAdminRequest);
   }
 
-  /** Métadonnées app statiques (env, branche git, version) pour `dashboard:supervision`. */
+  /** Métadonnées app statiques (env, branche git, version) pour `nodefony:supervision`. */
   private appMeta(): AppMeta {
     const k = this.kernel;
     return {

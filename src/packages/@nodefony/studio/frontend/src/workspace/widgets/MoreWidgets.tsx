@@ -17,12 +17,13 @@ import {
 } from "../../utils/realtimeHealth";
 import { BigMetric, Metric, fmtUptime } from "./_kit";
 import type { KernelInfo } from "./RuntimeWidget";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 const KERNEL_INFO = "/nodefony/kernel/api/info";
 const HEALTH_SOURCE = {
   kind: "hybrid",
   endpoint: "/nodefony/realtime/api/health",
-  channel: "realtime:health",
+  channel: PLATFORM_CHANNELS.socket,
 } as const;
 
 // ─────────────────────────── runtime.modes ─────────────────────────

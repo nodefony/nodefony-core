@@ -5,6 +5,7 @@ import type { WidgetRenderProps } from "../types";
 import { ClusterView } from "../ClusterView";
 import { normalize, type HealthPayload } from "../../utils/realtimeHealth";
 import { BigMetric, Metric, WorkerTile, useLiveSeries, useRate } from "./_kit";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /**
  * Widget « ORM » — débit requêtes/s DÉRIVÉ du cumul `totals.orm.queryTotal` + courbe,
@@ -86,7 +87,7 @@ registerWidget<HealthPayload>({
   source: {
     kind: "hybrid",
     endpoint: "/nodefony/realtime/api/health",
-    channel: "realtime:health",
+    channel: PLATFORM_CHANNELS.socket,
   },
   clusterAware: true,
   defaultSpan: 6,

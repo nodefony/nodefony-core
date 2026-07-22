@@ -4,11 +4,12 @@ import {
   type HealthPayload,
   type NormalizedHealth,
 } from "../../utils/realtimeHealth";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /* ════════════════════════════════════════════════════════════════════════
  * twinLive — superpose la VIE du serveur sur la topologie du Jumeau.
  *
- * Même canal `realtime:health` que la topologie (snapshot HTTP au 1er paint,
+ * Même canal `nodefony:socket` que la topologie (snapshot HTTP au 1er paint,
  * canal WS quand le temps réel est activé) — abonnement ref-compté : monté
  * = sonde active, démonté = coupée (pattern « 0 ticker quand OFF »).
  *
@@ -26,7 +27,7 @@ export interface TwinLiveSnapshot {
 
 /** Abonnement live (ref-compté). Démonter le composant coupe la sonde. */
 export function useTwinLive(): TwinLiveSnapshot {
-  const rt = useNodefonyChannelData<HealthPayload>("realtime:health");
+  const rt = useNodefonyChannelData<HealthPayload>(PLATFORM_CHANNELS.socket);
   const clientState = useNodefonyState();
   return { normalized: normalize(rt), clientState };
 }

@@ -6,7 +6,7 @@ import {
 
 /**
  * `ping()` est un helper RÉUTILISABLE de la lib cliente (Core isomorphe) : il
- * appelle la méthode RPC standard `kernel:ping` et enrichit la réponse serveur du
+ * appelle la méthode RPC standard `nodefony:kernel:ping` et enrichit la réponse serveur du
  * RTT mesuré côté client. On le teste en isolant `request()` (déjà couvert ailleurs)
  * → pas de vrai WebSocket, déterministe.
  */
@@ -20,7 +20,7 @@ interface RequestStub {
 }
 
 describe("RealtimeClient — ping() (helper RTT réutilisable, lib cliente)", () => {
-  it("appelle la méthode RPC standard `kernel:ping` et ajoute `rtt` au résultat", async () => {
+  it("appelle la méthode RPC standard `nodefony:kernel:ping` et ajoute `rtt` au résultat", async () => {
     const client = new RealtimeClient({
       url: "ws://localhost/nodefony/api/realtime",
       autoReconnect: false,
@@ -46,7 +46,7 @@ describe("RealtimeClient — ping() (helper RTT réutilisable, lib cliente)", ()
     const r = await client.ping();
 
     expect(calls).to.have.length(1);
-    expect(calls[0].method).to.equal("kernel:ping");
+    expect(calls[0].method).to.equal("nodefony:kernel:ping");
     expect(calls[0].params).to.equal(undefined);
     // payload serveur conservé tel quel…
     expect(r.pong).to.equal(true);
@@ -79,7 +79,7 @@ describe("RealtimeClient — ping() (helper RTT réutilisable, lib cliente)", ()
   it("rejette si le serveur ne répond pas (timeout) ou ignore la méthode (-32601)", async () => {
     const client = new RealtimeClient({ url: "ws://x", autoReconnect: false });
     (client as unknown as RequestStub).request = async () => {
-      throw new Error("RPC timeout: kernel:ping");
+      throw new Error("RPC timeout: nodefony:kernel:ping");
     };
 
     let threw = false;

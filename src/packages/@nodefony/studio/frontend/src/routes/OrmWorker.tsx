@@ -47,14 +47,15 @@ import {
   useOrmRates,
 } from "./orm/ConnectorCard";
 import { type OrmSummary, type OrmGraph, type ConnHealth } from "../types/orm";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /**
  * **Drill ORM par worker** (`/nodefony/orm/:pid`) — détail d'UN process/pod :
  *  - **Santé lean EXACTE de ce pid** : verdict 3 états + métriques cumulées + débit
- *    req/s, extraits par pid de la sonde lean pod `realtime:health` (agrégée par le
+ *    req/s, extraits par pid de la sonde lean pod `nodefony:socket` (agrégée par le
  *    master → la valeur de CE worker est exacte, ≠ round-robin).
  *  - **Diagnostic RICHE par connecteur** (ping/latence/pool/stockage/flux SQL) via le
- *    data plane `connection/health` + canal `orm:flow`. ⚠️ En cluster ce data plane
+ *    data plane `connection/health` + canal `nodefony:orm:flow`. ⚠️ En cluster ce data plane
  *    tombe sur UN worker au hasard (reusePort) : si ce n'est pas le pid demandé, on
  *    le **signale honnêtement** (le relais ciblé @pid = backend futur). En mono = exact.
  *
@@ -130,7 +131,7 @@ export const OrmWorker = observer(() => {
   const [effectiveMs, setEffectiveMs] = useState<number>(liveMs);
   useEffect(() => lsSet("nf.orm.liveMs", String(liveMs)), [liveMs]);
 
-  // ── Sonde LEAN pod (realtime:health) → lean EXACT de CE pid + détection cluster. ──
+  // ── Sonde LEAN pod (nodefony:socket) → lean EXACT de CE pid + détection cluster. ──
   const realtime = useResource(
     useCallback(
       () =>
@@ -173,7 +174,7 @@ export const OrmWorker = observer(() => {
   }, [live, resetFlow]);
 
   // Diagnostic riche réellement fourni par CE worker ? Mono : toujours. Cluster :
-  //  - en LIVE → canal `orm:rich@<pid>` = relais ciblé exact (respondingPid === pid) ;
+  //  - en LIVE → canal `nodefony:orm:rich@<pid>` = relais ciblé exact (respondingPid === pid) ;
   //  - en OFF → fallback HTTP round-robin → exact seulement si le LB est tombé sur ce pid.
   const exactDiag =
     !isClusterMode || respondingPid == null || respondingPid === pid;
@@ -212,7 +213,7 @@ export const OrmWorker = observer(() => {
       }
     >
       {/* Drill ORM riche du worker EXACT (relais ciblé @pid) : un seul canal combiné
-          `orm:rich@<pid>` → santé connecteurs + flux SQL du pid demandé (≠ round-robin). */}
+          `${PLATFORM_CHANNELS.ormRich}@<pid>` → santé connecteurs + flux SQL du pid demandé (≠ round-robin). */}
       {live && (
         <OrmRichLive
           pid={pid}
@@ -296,7 +297,7 @@ export const OrmWorker = observer(() => {
                   />
                 </Group>
                 <Text size="sm" c="dimmed">
-                  Sonde lean EXACTE de ce process (extraite de realtime:health
+                  Sonde lean EXACTE de ce process (extraite de nodefony:socket
                   par pid).
                   {myVerdict?.worst
                     ? ` Facteur limitant : ${myVerdict.worst}.`
@@ -415,8 +416,8 @@ export const OrmWorker = observer(() => {
           <b>pid {respondingPid}</b> (choisi au hasard par le load-balancer,
           reusePort), pas du worker {pid} demandé. <b>Active le temps réel</b>{" "}
           pour obtenir le diagnostic riche EXACT de ce pid (relais ciblé{" "}
-          <code>orm:rich@{pid}</code> master→worker). La santé lean ci-dessus
-          est déjà exacte pour le pid {pid}.
+          <code>nodefony:orm:rich@{pid}</code> master→worker). La santé lean
+          ci-dessus est déjà exacte pour le pid {pid}.
         </Alert>
       )}
 

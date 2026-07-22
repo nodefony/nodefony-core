@@ -23,7 +23,7 @@ function newClient(): { client: RealtimeClient; internal: Internals } {
 describe("RealtimeClient — discrimination des frames (entrant vs sortant)", () => {
   it("RÉPONSE (id, result, SANS method) → résout la requête sortante", async () => {
     const { client, internal } = newClient();
-    const p = client.request<{ ok: boolean }>("kernel:ping"); // 1ʳᵉ requête → id 1
+    const p = client.request<{ ok: boolean }>("nodefony:kernel:ping"); // 1ʳᵉ requête → id 1
     internal.handleMessage(
       JSON.stringify({ jsonrpc: "2.0", id: 1, result: { ok: true } }),
     );
@@ -34,7 +34,7 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
 
   it("RÉPONSE error (id, error, SANS method) → rejette la requête sortante", async () => {
     const { client, internal } = newClient();
-    const p = client.request("orm:flow:reset"); // id 1
+    const p = client.request("nodefony:orm:flow:reset"); // id 1
     internal.handleMessage(
       JSON.stringify({
         jsonrpc: "2.0",
@@ -85,13 +85,13 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
   it("NOTIFICATION (method, SANS id) → dispatch pub/sub, jamais prise pour une réponse", () => {
     const { client, internal } = newClient();
     const received: unknown[] = [];
-    client.on("dashboard:stats", (p) => received.push(p));
+    client.on("nodefony:dashboard", (p) => received.push(p));
     const out: unknown[] = [];
     internal.send = (m) => out.push(m);
     internal.handleMessage(
       JSON.stringify({
         jsonrpc: "2.0",
-        method: "dashboard:stats",
+        method: "nodefony:dashboard",
         params: { cpu: 12 },
       }),
     );

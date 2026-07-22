@@ -323,7 +323,7 @@ describe("RealtimeClient — RPC (path, ping, stream, register)", () => {
     client.disconnect();
   });
 
-  it("ping : mesure le RTT via kernel:ping", async () => {
+  it("ping : mesure le RTT via nodefony:kernel:ping", async () => {
     const client = await connected();
     const p = client.ping(5000);
     last().fireMsg(

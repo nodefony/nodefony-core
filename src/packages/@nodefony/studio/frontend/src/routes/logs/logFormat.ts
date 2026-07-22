@@ -90,11 +90,7 @@ export function fmtDateTime(ts: number): string {
 
 /** Type d'icône d'un driver (mappé vers un composant dans `LogVisuals.tsx`). */
 export type DriverIconKind =
-  | "memory"
-  | "file"
-  | "cluster"
-  | "search"
-  | "generic";
+  "memory" | "file" | "cluster" | "search" | "generic";
 
 /** Métadonnée d'affichage d'un driver de relecture. */
 export interface DriverMeta {
@@ -121,7 +117,7 @@ const DRIVER_META: Record<string, DriverMeta> = {
     label: "Fichier JSONL",
     description:
       "Pdu persistés en JSON Lines sur disque (1 fichier par worker, nodefony-<pid>.jsonl), " +
-      "relus par scan borné. Node-only (LB.2). Activé par config (log.queryDriver: \"file\").",
+      'relus par scan borné. Node-only (LB.2). Activé par config (log.queryDriver: "file").',
     icon: "file",
   },
   "cluster-file": {
@@ -155,7 +151,8 @@ export function driverMeta(name: string): DriverMeta {
   return (
     DRIVER_META[name] ?? {
       label: name,
-      description: "Driver de destination personnalisé enregistré dans le registry.",
+      description:
+        "Driver de destination personnalisé enregistré dans le registry.",
       icon: "generic",
     }
   );
@@ -193,7 +190,7 @@ export function isClusterAware(name: string | null | undefined): boolean {
 }
 
 /**
- * Normalise un objet wire (snapshot REST ou frame `syslog:stream`) en
+ * Normalise un objet wire (snapshot REST ou frame `nodefony:syslog`) en
  * {@link LogRecord} typé. Défensif : rejette ce qui n'a pas de `severityName`
  * (frame parasite). Source unique de l'hydratation côté front.
  */
@@ -480,7 +477,9 @@ export function realtimeStateLabel(state: string): {
  * Compte les enregistrements par sévérité (pour les chips compteurs cliquables).
  * Retourne un objet indexé par nom de sévérité connu.
  */
-export function countBySeverity(records: LogRecord[]): Record<Severity, number> {
+export function countBySeverity(
+  records: LogRecord[],
+): Record<Severity, number> {
   const counts = Object.fromEntries(SEVERITIES.map((s) => [s, 0])) as Record<
     Severity,
     number

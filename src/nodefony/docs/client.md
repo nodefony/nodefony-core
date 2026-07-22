@@ -224,7 +224,7 @@ export async function ship(orderId: string): Promise<void> {
   });
 }
 
-// Mesure du temps d'aller-retour — la convention `kernel:ping` vit dans la lib.
+// Mesure du temps d'aller-retour — la convention `nodefony:kernel:ping` vit dans la lib.
 export async function latency(): Promise<number> {
   const { rtt } = await socket.ping();
   return rtt;
@@ -418,7 +418,7 @@ qui évite le trou de quelques centaines de millisecondes qu'on obtiendrait dans
 ```typescript ignore
 // Un tableau de bord d'état : on VEUT 1 s, on ACCEPTE de reculer si ça souffre.
 const binding = socket.adaptiveChannel(
-  "dashboard:stats",
+  "nodefony:dashboard",
   (payload) => render(payload),
   {
     intervalMs: 1000,

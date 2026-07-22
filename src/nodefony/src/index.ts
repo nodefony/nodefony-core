@@ -122,6 +122,18 @@ export type {
 } from "./realtime/IRealtimeSocket";
 export { rateChannel, parseRate, isRateChannel } from "./realtime/channelRate";
 export type { RateBounds } from "./realtime/channelRate";
+export {
+  NODEFONY_CHANNEL_NAMESPACE,
+  PLATFORM_CHANNELS,
+  PLATFORM_METHODS,
+  PLATFORM_EVENTS,
+  isPlatformChannel,
+  startsWithCI,
+} from "./realtime/platformChannels";
+export type {
+  PlatformChannel,
+  PlatformMethod,
+} from "./realtime/platformChannels";
 export { expectType } from "./realtime/RealtimeEventMap";
 export type {
   EventsMap,

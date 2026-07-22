@@ -1,6 +1,6 @@
 /**
  * Sondes ORM — métriques d'observabilité profonde d'un connecteur, poussées via
- * le hub temps réel (`orm:health`) pour un **contrôle total** des ORM.
+ * le hub temps réel (`nodefony:orm:health`) pour un **contrôle total** des ORM.
  *
  * Deux niveaux :
  *  - **générique** (porté par {@link ConnectionMonitor}) : latence, cycle de vie,

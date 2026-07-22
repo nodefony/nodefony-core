@@ -188,7 +188,7 @@ export class ClusterProbeClient {
     }
     // Drill ORM actif sur CE worker → joindre le dernier blob ORM riche en cache (produit
     // par le ticker async #startOrmRich). Voyage ensuite dans le snapshot pod → canal
-    // `orm:rich@<pid>`. Absent hors drill (cache null) → 0 surcoût.
+    // `nodefony:orm:rich@<pid>`. Absent hors drill (cache null) → 0 surcoût.
     if (this.#ormRich !== null) payload.ormRich = this.#ormRich;
     this.#transport.send({ kind: CLUSTER_PROBE_KIND, payload });
   }
@@ -231,7 +231,7 @@ export class ClusterProbeClient {
   /**
    * Demande au master d'(arrêter d')enrichir le worker `pid` sur une **facette** (drill-down).
    * Émis par le worker qui tient la connexion navigateur quand un client subscribe/unsubscribe
-   * le canal `dashboard:supervision@<pid>` (facette `"process"`) ou `orm:rich@<pid>` (facette
+   * le canal `nodefony:supervision@<pid>` (facette `"process"`) ou `nodefony:orm:rich@<pid>` (facette
    * `"orm"`). No-op hors cluster (`send` no-op).
    *
    * @param pid - worker ciblé (identité de la vue pod).

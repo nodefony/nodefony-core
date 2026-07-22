@@ -40,12 +40,13 @@ import {
   useLiveSeries,
 } from "./_kit";
 import type { KernelInfo } from "./RuntimeWidget";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 // Source commune des widgets système cluster-aware : la sonde santé agrégée master.
 const HEALTH_SOURCE = {
   kind: "hybrid",
   endpoint: "/nodefony/realtime/api/health",
-  channel: "realtime:health",
+  channel: PLATFORM_CHANNELS.socket,
 } as const;
 
 // ─────────────────────────────── CPU ───────────────────────────────
@@ -206,7 +207,7 @@ function LoopBody({ source }: WidgetRenderProps<HealthPayload>) {
 // ─────────────────────────── Santé (composite) ─────────────────────
 /**
  * Taux d'erreurs/min PAR worker, dérivé du cumul monotone `errors.{errorTotal,
- * criticTotal}` (delta entre 2 ticks `realtime:health`). Un cumul brut ne dit rien
+ * criticTotal}` (delta entre 2 ticks `nodefony:socket`). Un cumul brut ne dit rien
  * (un serveur ancien a un gros total) → seul le TAUX est une sonde de santé. Garde
  * le dernier point par worker (Map pid → {ts,total}).
  */
@@ -241,10 +242,10 @@ function usePerWorkerErrRate(
 /**
  * Indice composite COMPLET d'UN worker (Derringer-Suich, brique partagée `buildHealth`,
  * MÊMES poids que la page Supervision via `loadHealthWeights`). 6 sondes disponibles dans
- * la sonde cluster `realtime:health` : CPU, Saturation (ELU), Event-loop, Mémoire (heap),
+ * la sonde cluster `nodefony:socket` : CPU, Saturation (ELU), Event-loop, Mémoire (heap),
  * Connecteurs (ORM), Erreurs (taux/min). `errRate` = taux dérivé du worker (null tant que
  * < 2 ticks → sonde exclue, pas de faux « critique »). GC overhead + Temps réel = absents
- * de la sonde lean (≠ page mono qui lit `dashboard:supervision`) → non comptés ici.
+ * de la sonde lean (≠ page mono qui lit `nodefony:supervision`) → non comptés ici.
  */
 function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
   const p = inst.process;

@@ -111,7 +111,9 @@ function _typeOnly(): void {
   // `ActionNames<AppActions>` valait `string`. Elle est de nouveau atteignable :
   // le `T` explicite est respecté (et non plus écrasé en `unknown`).
   expectType<Promise<{ uptime: number }>>(
-    client.request<"kernel:ping", { uptime: number }>("kernel:ping"),
+    client.request<"nodefony:kernel:ping", { uptime: number }>(
+      "nodefony:kernel:ping",
+    ),
   );
 
   // ── ⚠️ Garde-fou INOPÉRANT — TROU 3 (le seul encore ouvert) ──────────────
@@ -123,7 +125,7 @@ function _typeOnly(): void {
   //
   // Elle NE PEUT PAS être retirée sans breaking change : les deux formes se
   // disputent le 1ᵉʳ générique (`<T>` = résultat / `<K>` = nom de méthode). Tout
-  // `request<MonType>("ma:methode")` du repo — `ping()`, Studio `scaffold:run` —
+  // `request<MonType>("ma:methode")` du repo — `ping()`, Studio `nodefony:scaffold:run` —
   // devrait devenir `request<"ma:methode", MonType>`. Décision produit en attente.
   client.request("chat:ping", { wrong: true }); // devrait ❌
 

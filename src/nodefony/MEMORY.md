@@ -256,16 +256,16 @@ side-effect `reflect-metadata` préservé, `nodefony` exact-match only. Tests `t
 Build rolldown dédié (`createClientConfig`, `tsconfigClient.json` `types:[]`), shims `node:util/events/cli-color`, sortie `dist/client/`.
 
 - **`nodefony`** (cond. `browser`) + **`nodefony/client`** : barrel browser (RealtimeClient, Pdu, Syslog, Tools…). Bundle ~25 KB gz. **Ne JAMAIS** réexporter sip/media/debugbar depuis `client/index.ts` (exploserait le barrel).
-- **RealtimeClient (lib cliente réutilisable)** : pub/sub (`on/off/subscribe` ref-compté) + `request(method,params,timeoutMs=30000)` (req→rép JSON-RPC, Promise id-matchée) + `callStream` (LLM). Helper `ping(timeoutMs=5000)` → `{...kernel:ping, rtt}` (RTT mesuré client ; type `KernelPingResult`). RÈGLE : le générique realtime vit ICI (Studio/debugbar/apps partagent), pas dupliqué par front. Test `tests/RealtimeClientPing.test.ts`.
+- **RealtimeClient (lib cliente réutilisable)** : pub/sub (`on/off/subscribe` ref-compté) + `request(method,params,timeoutMs=30000)` (req→rép JSON-RPC, Promise id-matchée) + `callStream` (LLM). Helper `ping(timeoutMs=5000)` → `{...nodefony:kernel:ping, rtt}` (RTT mesuré client ; type `KernelPingResult`). RÈGLE : le générique realtime vit ICI (Studio/debugbar/apps partagent), pas dupliqué par front. Test `tests/RealtimeClientPing.test.ts`.
 - **`nodefony/debugbar`** : subpath debug bar (entry rolldown séparée, RealtimeClient/Pdu **partagés** via preserveModules → 0 duplication). `mountDebugBar(opts?)` + `DebugBar`. Vanilla TS + **Shadow DOM**, 0 dep UI.
 - **`nodefony/debugbar.js`** : bundle **standalone mono-fichier** (`createDebugbarStandaloneConfig` → `dist/client/debugbar.standalone.js`, deps inlinées) pour `<script type="module" src>` sur page rendue serveur (EJS/Twig, hors Vite).
 
 ### Debug bar — internals
 
 - `debugbar/{DebugBar,model,format,hmr,index}.ts`. **model/format = purs** (testés `tests/DebugBar.test.ts`, 12). DOM = vérif navigateur.
-- Données via `RealtimeClient` (canaux `dashboard:stats` + `syslog:stream`, endpoint défaut `/nodefony/studio/api/realtime`). Logs **réhydratés en `new Pdu()`** (champs `payload`/`moduleName`/`severity`, PAS `pci`/`msgid`).
+- Données via `RealtimeClient` (canaux `nodefony:dashboard` + `nodefony:syslog`, endpoint défaut `/nodefony/studio/api/realtime`). Logs **réhydratés en `new Pdu()`** (champs `payload`/`moduleName`/`severity`, PAS `pci`/`msgid`).
 - Pouls realtime = `client.framesReceived` (msg/s + VU). Sonde HMR Vite = `connectViteHmr` (2ᵉ client WS `vite-hmr`, dev). Sparklines = SVG maison (pas recharts).
-- Env + branche git viennent du bloc `app` de `dashboard:stats` (poussé serveur, cf studio providers).
+- Env + branche git viennent du bloc `app` de `nodefony:dashboard` (poussé serveur, cf studio providers).
 - Chrome persisté localStorage : `nf.debugbar.{visible,min,side,tab,h}`. Handle global `window.__NODEFONY_DEBUGBAR__` (show/hide/minimize) → bridge app (Studio).
 - Gotcha : le conteneur `.minbar` (chip réduit) n'a pas de `[data-el]` → ref stockée à la main (sinon barre réduite invisible).
 

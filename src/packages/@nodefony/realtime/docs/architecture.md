@@ -756,7 +756,7 @@ chemins de lecture, un seul producteur :
 
 - **HTTP** : `GET /nodefony/realtime/api/health`, exposé par `createRealtimeAdminApi()`
   (`RealtimeAdminApi.ts:91`) ;
-- **Canal temps réel** : `realtime:health`, poussé par un ticker.
+- **Canal temps réel** : `nodefony:socket`, poussé par un ticker.
 
 ### En cluster : la vue « pod » plutôt que « worker »
 

@@ -26,7 +26,7 @@ import { mapProtocoleLive, useSocketLiveData } from "./useSocketLiveData";
  *     - notifyIn  : channel push / realtime:welcome          (server → client)
  *
  *   avec `id` (requête RPC, round-trip attendu) :
- *     - request   : kernel:ping, …                            (client → server)
+ *     - request   : nodefony:kernel:ping, …                            (client → server)
  *     - response  : result / error                            (server → client)
  *
  * Pattern « 0 ticker quand OFF » : abonnement vit dans `<LiveBranch>`,
@@ -57,7 +57,7 @@ const NODES: FlowGraphNode[] = [
     id: "request",
     data: {
       label: "request",
-      sub: "kernel:ping, … · avec `id`",
+      sub: "nodefony:kernel:ping, … · avec `id`",
       icon: <IconHash size={20} />,
       color: "violet",
     },

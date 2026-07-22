@@ -275,7 +275,7 @@ class Firewall extends Service implements IFirewall {
     // conditionner à `wired` était fail-OPEN — sans zone `security && realtime`
     // (ou avec `areas` vide), aucun verrou n'était posé, `runAuthorizer` renvoyait
     // `true` pour TOUTE frame, et les canaux d'introspection système (`syslog:`,
-    // `security:audit`, `orm:`…) étaient servis à l'anonyme. Le plancher système
+    // `nodefony:audit`, `orm:`…) étaient servis à l'anonyme. Le plancher système
     // ({@link DEFAULT_SYSTEM_RULES}) ne dépend PAS des zones : il exige toujours au
     // moins ROLE_ADMIN sur les namespaces réservés. Sans zone, aucun authenticator
     // n'est câblé → tout abonné reste anonyme → ces canaux sont fermés à TOUS

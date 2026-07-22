@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
+import { PLATFORM_EVENTS } from "nodefony";
 import type { IViteSupervisor } from "../../interfaces/IViteSupervisor";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";
 
@@ -229,7 +230,7 @@ try {
   const { createHotContext } = await import("${baseUrl}/@vite/client");
   const h = createHotContext("/@nodefony-debugbar-hmr");
   const fire = (kind, path) =>
-    window.dispatchEvent(new CustomEvent("nodefony:hmr", { detail: { kind, path } }));
+    window.dispatchEvent(new CustomEvent("${PLATFORM_EVENTS.hmr}", { detail: { kind, path } }));
   fire("connected");
   h.on("vite:afterUpdate", (p) => {
     const ups = (p && p.updates) || [];

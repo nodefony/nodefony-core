@@ -21,7 +21,7 @@ import { LIVE_GRAPH_CATALOG } from "./liveGraphs";
  * Temps réel : suit le switch GLOBAL du Twin (`live`), PAS de switch par
  * graphe (LiveGraphSection avec son switch local reste réservé aux pages de
  * doc). « 0 ticker quand OFF » : seul l'onglet ACTIF monte son graphe (garde
- * `tab === slug`) → un seul abonnement `realtime:health` à la fois, coupé dès
+ * `tab === slug`) → un seul abonnement `nodefony:socket` à la fois, coupé dès
  * qu'on change d'onglet ou qu'on fige le temps réel.
  * ════════════════════════════════════════════════════════════════════════ */
 

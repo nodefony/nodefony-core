@@ -139,7 +139,7 @@ WS) — distinct du log de trafic (1 PDU/requête). Émission **explicite** par 
 → aucun coût ajouté au hot-path nominal. Activé par défaut (`audit.enabled`, OWASP A09), coût nul si
 désactivé. Lecture : `GET /nodefony/security/api/audit/events` (RBAC `ROLE_NODEFONY_ADMIN`).
 
-**Flux temps réel** (lot 4) : canal WS **`security:audit`**, réservé `ROLE_NODEFONY_ADMIN`
+**Flux temps réel** (lot 4) : canal WS **`nodefony:audit`**, réservé `ROLE_NODEFONY_ADMIN`
 (plancher système, un cran au-dessus de l'observabilité générique `ROLE_ADMIN`). Enregistré comme
 **canal système** sur le hub realtime (servable par tout endpoint, sans couplage à Studio) ;
 **lazy** : le pont ne s'abonne au journal qu'au 1ᵉʳ auditeur connecté et s'en détache au dernier.

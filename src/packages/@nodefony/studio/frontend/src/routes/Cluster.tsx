@@ -49,6 +49,7 @@ import {
   type HealthPayload,
   type InstanceHealth,
 } from "../utils/realtimeHealth";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la vue Cluster. */
 const CLUSTER_DOC = "v1.1";
@@ -115,7 +116,7 @@ function loopColor(ms: number): string {
 }
 
 /**
- * Abonné à la SOCKET Nodefony, canal `realtime:health` — monté UNIQUEMENT quand
+ * Abonné à la SOCKET Nodefony, canal `nodefony:socket` — monté UNIQUEMENT quand
  * « Temps réel » est ON (abonnement ref-compté → démonter désabonne → le serveur
  * arrête le ticker). Suit le réglage AIMD global (`adaptive`). Pousse le dernier
  * snapshot pod (ou per-instance) à `onData`.
@@ -133,7 +134,7 @@ function ClusterHealthLive({
 }) {
   const { data, intervalMs: effectiveMs } =
     useNodefonyAdaptiveChannelData<HealthPayload>(
-      "realtime:health",
+      PLATFORM_CHANNELS.socket,
       intervalMs,
       {
         defaultMs: 5000,
@@ -534,7 +535,7 @@ function WorkerCard({
 /**
  * **Vue Cluster** (`/nodefony/cluster`) — la « salle des machines » du pod : une
  * carte par worker (santé process + socket), totaux pod en tête. Lit le data plane
- * `/nodefony/realtime/api/health` (1ᵉʳ paint) puis suit le canal `realtime:health`
+ * `/nodefony/realtime/api/health` (1ᵉʳ paint) puis suit le canal `nodefony:socket`
  * (push WS) quand « Temps réel » est ON. En mono-process, affiche un seul worker.
  */
 export const Cluster = observer(() => {

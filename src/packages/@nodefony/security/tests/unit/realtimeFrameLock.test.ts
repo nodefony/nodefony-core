@@ -161,7 +161,7 @@ describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => 
       (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")),
   };
   // Politiques MÉTIER déclarées (`@RealtimeChannel`), exposées par le hub realtime.
-  // `syslog:custom` : volontairement faible (authenticated) pour prouver que le
+  // `nodefony:custom` : volontairement faible (authenticated) pour prouver que le
   // PLANCHER système (ROLE_ADMIN) gagne — un décorateur n'affaiblit pas un namespace réservé.
   const channelResolver: IChannelPolicyResolver = {
     resolveChannelPolicy: (channel) => {
@@ -174,7 +174,7 @@ describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => 
           return { roles: ["ROLE_ADMIN"] };
         case "app:scoped":
           return { scopes: ["metrics:read"] };
-        case "syslog:custom":
+        case "nodefony:custom":
           return { authenticated: true };
         default:
           return null;
@@ -229,27 +229,27 @@ describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => 
   // ── subscribe : canaux SYSTÈME (durcissement Zero Trust → ROLE_ADMIN) ─────
   it("subscribe canal d'observabilité + anonyme → REFUS", () => {
     for (const ch of [
-      "syslog:stream",
-      "orm:flow",
-      "orm:health",
-      "dashboard:supervision",
-      "realtime:health",
-      "node:stream",
-      "debugbar:stats",
-      "cluster:peers",
+      "nodefony:syslog",
+      "nodefony:orm:flow",
+      "nodefony:orm:health",
+      "nodefony:supervision",
+      "nodefony:socket",
+      "nodefony:audit",
+      "nodefony:debugbar",
+      "nodefony:cluster:peers",
     ]) {
       assert.equal(authorize(sub(ch), ANON_TOKEN), false, ch);
     }
   });
 
   it("subscribe canal d'observabilité + user SIMPLE → REFUS (durci : exige ROLE_ADMIN)", () => {
-    assert.equal(authorize(sub("syslog:stream"), AUTH_TOKEN), false);
-    assert.equal(authorize(sub("orm:health"), AUTH_TOKEN), false);
+    assert.equal(authorize(sub("nodefony:syslog"), AUTH_TOKEN), false);
+    assert.equal(authorize(sub("nodefony:orm:health"), AUTH_TOKEN), false);
   });
 
   it("subscribe canal d'observabilité + ADMIN → AUTORISÉ", () => {
-    assert.equal(authorize(sub("syslog:stream"), ADMIN_TOKEN), true);
-    assert.equal(authorize(sub("dashboard:supervision"), ADMIN_TOKEN), true);
+    assert.equal(authorize(sub("nodefony:syslog"), ADMIN_TOKEN), true);
+    assert.equal(authorize(sub("nodefony:supervision"), ADMIN_TOKEN), true);
   });
 
   it("subscribe convention <module>:health / :stats → ADMIN only", () => {
@@ -257,11 +257,11 @@ describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => 
     assert.equal(authorize(sub("mymod:stats"), ADMIN_TOKEN), true);
   });
 
-  it("PLANCHER système non contournable : décorateur faible sur syslog: → ADMIN quand même", () => {
-    // channelResolver dit `{authenticated:true}` pour syslog:custom, mais le
+  it("PLANCHER système non contournable : décorateur faible sur nodefony: → ADMIN quand même", () => {
+    // channelResolver dit `{authenticated:true}` pour nodefony:custom, mais le
     // namespace système (ROLE_ADMIN) prime → un user simple reste REFUSÉ.
-    assert.equal(authorize(sub("syslog:custom"), AUTH_TOKEN), false);
-    assert.equal(authorize(sub("syslog:custom"), ADMIN_TOKEN), true);
+    assert.equal(authorize(sub("nodefony:custom"), AUTH_TOKEN), false);
+    assert.equal(authorize(sub("nodefony:custom"), ADMIN_TOKEN), true);
   });
 
   // ── subscribe : canaux MÉTIER (@RealtimeChannel) ─────────────────────────
@@ -313,7 +313,7 @@ describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => 
     assert.equal(authorize({ method: "ping" }, ANON_TOKEN), true);
     assert.equal(
       authorize(
-        { method: "unsubscribe", params: { channel: "syslog:stream" } },
+        { method: "unsubscribe", params: { channel: "nodefony:syslog" } },
         ANON_TOKEN,
       ),
       true,
@@ -322,17 +322,35 @@ describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => 
   });
 
   it("action kernel: (gc/ping) = namespace plateforme → anonyme ET user simple REFUS, ADMIN OK", () => {
-    // kernel:gc force un GC V8 (effet réel = DoS stop-the-world), kernel:ping
+    // nodefony:kernel:gc force un GC V8 (effet réel = DoS stop-the-world), nodefony:kernel:ping
     // sonde la liveness du pod : namespace de contrôle/observabilité plateforme →
     // plancher ROLE_ADMIN (comme node:/cluster:/realtime:). Un authentifié
     // non-admin ne doit pas pouvoir déclencher un GC sur le pod (oubli pré-P6 :
     // `kernel:` n'était pas dans les préfixes système → action laissée libre).
-    assert.equal(authorize({ method: "kernel:gc" }, ANON_TOKEN), false);
-    assert.equal(authorize({ method: "kernel:gc" }, AUTH_TOKEN), false);
-    assert.equal(authorize({ method: "kernel:gc" }, ADMIN_TOKEN), true);
-    assert.equal(authorize({ method: "kernel:ping" }, ANON_TOKEN), false);
-    assert.equal(authorize({ method: "kernel:ping" }, AUTH_TOKEN), false);
-    assert.equal(authorize({ method: "kernel:ping" }, ADMIN_TOKEN), true);
+    assert.equal(
+      authorize({ method: "nodefony:kernel:gc" }, ANON_TOKEN),
+      false,
+    );
+    assert.equal(
+      authorize({ method: "nodefony:kernel:gc" }, AUTH_TOKEN),
+      false,
+    );
+    assert.equal(
+      authorize({ method: "nodefony:kernel:gc" }, ADMIN_TOKEN),
+      true,
+    );
+    assert.equal(
+      authorize({ method: "nodefony:kernel:ping" }, ANON_TOKEN),
+      false,
+    );
+    assert.equal(
+      authorize({ method: "nodefony:kernel:ping" }, AUTH_TOKEN),
+      false,
+    );
+    assert.equal(
+      authorize({ method: "nodefony:kernel:ping" }, ADMIN_TOKEN),
+      true,
+    );
   });
 });
 
@@ -349,18 +367,18 @@ describe("buildFrameAuthorizer — override config (realtimeChannels)", () => {
   });
 
   it("config AVANT défauts : assouplit syslog: à `authenticated` (user OK)", () => {
-    // L'admin de l'app décide d'ouvrir syslog: aux authentifiés (responsabilité
+    // L'admin de l'app décide d'ouvrir le canal des journaux aux authentifiés (responsabilité
     // assumée). La règle config est placée AVANT les défauts → elle gagne.
     const authorize = buildFrameAuthorizer(firewall, {
       systemRules: [
-        { prefix: "syslog:", policy: { authenticated: true } },
+        { prefix: "nodefony:syslog", policy: { authenticated: true } },
         ...DEFAULT_SYSTEM_RULES,
       ],
     });
-    assert.equal(authorize(sub("syslog:stream"), AUTH_TOKEN), true);
-    assert.equal(authorize(sub("syslog:stream"), ANON_TOKEN), false);
+    assert.equal(authorize(sub("nodefony:syslog"), AUTH_TOKEN), true);
+    assert.equal(authorize(sub("nodefony:syslog"), ANON_TOKEN), false);
     // orm: (non surchargé) garde le défaut ROLE_ADMIN → user refusé.
-    assert.equal(authorize(sub("orm:health"), AUTH_TOKEN), false);
+    assert.equal(authorize(sub("nodefony:orm:health"), AUTH_TOKEN), false);
   });
 
   it("config peut DURCIR un namespace custom (ex: billing: → ROLE_ADMIN)", () => {
@@ -504,7 +522,7 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
         realtime: true,
       },
     });
-    const sub = { method: "subscribe", params: { channel: "syslog:stream" } };
+    const sub = { method: "subscribe", params: { channel: "nodefony:syslog" } };
     // Hiérarchie vide (pas de roleHierarchy en config) → ROLE_ADMIN exact requis.
     assert.equal(c.frameAuthorizer!(sub, ANON_TOKEN), false);
     assert.equal(c.frameAuthorizer!(sub, AUTH_TOKEN), false); // user simple refusé
@@ -542,7 +560,7 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
     assert.ok(typeof c.frameAuthorizer === "function");
     const sysSub = {
       method: "subscribe",
-      params: { channel: "syslog:stream" },
+      params: { channel: "nodefony:syslog" },
     };
     assert.equal(c.frameAuthorizer!(sysSub, ANON_TOKEN), false);
     const freeSub = { method: "subscribe", params: { channel: "chat:public" } };

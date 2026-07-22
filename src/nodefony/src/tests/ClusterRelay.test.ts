@@ -57,7 +57,7 @@ describe("cluster / ClusterRelay (master gateway routing)", () => {
     relay.attach(b);
     relay.attach(c);
 
-    const msg = rt("syslog:stream", "hello", "pid-A");
+    const msg = rt("nodefony:syslog", "hello", "pid-A");
     a.emit(msg); // A publie
 
     expect(a.received).to.have.lengthOf(0); // jamais renvoyé à la source

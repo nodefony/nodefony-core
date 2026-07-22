@@ -191,7 +191,7 @@ export function SyslogStatusBar({ meta, realtimeState }: SyslogStatusBarProps) {
         <DocHint
           title="Live — le bus temps réel"
           version={LOGS_DOC}
-          summary="Le haut-parleur des logs : le bus « syslog:stream » diffuse chaque log au fil de l'eau, indépendamment de la destination de lecture."
+          summary="Le haut-parleur des logs : le bus « nodefony:syslog » diffuse chaque log au fil de l'eau, indépendamment de la destination de lecture."
           sections={[
             {
               label: "Toujours disponible",

@@ -106,11 +106,11 @@ describe("RedisBackplane (pub/sub cross-pod)", () => {
   it("publish() émet l'enveloppe JSON {channel,payload,originId} sur le canal Redis", () => {
     const bus = new FakeRedisBus();
     const bp = new RedisBackplane(bus.transport(), "pod-A");
-    bp.publish("orm:health", { rps: 12 });
+    bp.publish("nodefony:orm:health", { rps: 12 });
     expect(bus.published).to.have.lengthOf(1);
     expect(bus.published[0].channel).to.equal(REDIS_RT_CHANNEL);
     expect(JSON.parse(bus.published[0].message)).to.deep.equal({
-      channel: "orm:health",
+      channel: "nodefony:orm:health",
       payload: { rps: 12 },
       originId: "pod-A",
     });
@@ -127,11 +127,11 @@ describe("RedisBackplane (pub/sub cross-pod)", () => {
     await a.start();
     await b.start();
 
-    a.publish("syslog:stream", "hello");
+    a.publish("nodefony:syslog", "hello");
 
     expect(gotA).to.have.lengthOf(0); // anti-echo
     expect(gotB).to.deep.equal([
-      { channel: "syslog:stream", payload: "hello", originId: "pod-A" },
+      { channel: "nodefony:syslog", payload: "hello", originId: "pod-A" },
     ]);
   });
 

@@ -4,7 +4,7 @@
  * respirer en direct).
  *
  * 2ᵉ consommateur navigateur du Core isomorphe après Studio : MÊME backbone
- * realtime (WS JSON-RPC 2.0, canaux `dashboard:supervision` / `syslog:stream`) via
+ * realtime (WS JSON-RPC 2.0, canaux `nodefony:supervision` / `nodefony:syslog`) via
  * {@link RealtimeClient}. Aucun rendu serveur splicé dans le body : le serveur
  * *collecte*, le client *rend*.
  *
@@ -42,14 +42,18 @@ import {
   isError as isNetError,
   type ProfileEntry,
 } from "./profile";
+import {
+  PLATFORM_CHANNELS,
+  PLATFORM_EVENTS,
+} from "../../realtime/platformChannels";
 
 /** Canaux realtime consommés (figés, alignés sur les providers Studio). */
 const CHANNELS = {
-  // Canal DÉDIÉ à la debug bar (≠ `dashboard:supervision`, réservé à la page
+  // Canal DÉDIÉ à la debug bar (≠ `nodefony:supervision`, réservé à la page
   // Supervision) : mêmes sondes process, ticker séparé côté serveur → la barre,
   // présente en permanence en dev, ne maintient PAS le canal supervision actif.
-  stats: "debugbar:stats",
-  syslog: "syslog:stream",
+  stats: PLATFORM_CHANNELS.debugbar,
+  syslog: PLATFORM_CHANNELS.syslog,
 } as const;
 
 /** Endpoint WS realtime par défaut (porté par Studio aujourd'hui, RealtimeService demain). */
@@ -1216,7 +1220,7 @@ export class DebugBar {
     if (rid && typeof window !== "undefined") {
       try {
         window.dispatchEvent(
-          new CustomEvent("nodefony:debugbar:select", {
+          new CustomEvent(PLATFORM_EVENTS.debugbarSelect, {
             detail: { requestId: rid },
           }),
         );

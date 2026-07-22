@@ -55,7 +55,7 @@ class Pdu {
   status: Status; // "NOTDEFINED" | "INVALID" | "ACCEPTED" | "DROPPED"
   pid: number; // = procid RFC 5424. const PID module-level (process.pid,
   //   capturé 1× → 0 appel système/log). Browser → 0.
-  //   Voyage dans ring buffer / syslog:stream / JSON → groupe par worker.
+  //   Voyage dans ring buffer / nodefony:syslog / JSON → groupe par worker.
   requestId?: string; // corrélation log↔requête via ALS (P1.4). Présent si le
   //   Pdu est créé dans une bulle `RequestContext.run(...)` ;
   //   capturé via `Pdu.requestIdProvider` (provider injectable,

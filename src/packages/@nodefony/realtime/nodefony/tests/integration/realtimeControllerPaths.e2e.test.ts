@@ -137,7 +137,7 @@ class ApiRt extends RealtimeController {
     return ["bcast:"];
   }
   protected override realtimeActions(): Record<string, RpcActionHandler> {
-    return { "kernel:ping": () => ({ pong: true }) };
+    return { "nodefony:kernel:ping": () => ({ pong: true }) };
   }
   // Canaux déclarés via override (pas de décorateur) → exerce le FALLBACK
   // `createRealtimeChannel` de la base + la branche `null` (canal inconnu).

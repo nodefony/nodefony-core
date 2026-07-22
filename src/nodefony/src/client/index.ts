@@ -114,6 +114,17 @@ export {
 export type { LogProtocol } from "../syslog/drivers/pduProtocol";
 export type { FlowStepId, FlowStepMeta } from "../syslog/drivers/pduFlow";
 export type { RateBounds } from "../realtime/channelRate";
+export {
+  NODEFONY_CHANNEL_NAMESPACE,
+  PLATFORM_CHANNELS,
+  PLATFORM_METHODS,
+  PLATFORM_EVENTS,
+  isPlatformChannel,
+} from "../realtime/platformChannels";
+export type {
+  PlatformChannel,
+  PlatformMethod,
+} from "../realtime/platformChannels";
 export type {
   RateChangeReason,
   RateDecision,

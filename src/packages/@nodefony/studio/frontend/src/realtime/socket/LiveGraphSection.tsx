@@ -41,7 +41,7 @@ export function LiveGraphSection({
           <Text size="xs" c="dimmed" mt={2}>
             {hint ?? (
               <>
-                Le graphe respire via le canal <Code>realtime:health</Code>{" "}
+                Le graphe respire via le canal <Code>nodefony:socket</Code>{" "}
                 quand le temps réel est activé. <b>OFF</b> = 0 ticker côté
                 serveur (composant statique). <b>ON</b> = abonnement ref-compté.
               </>

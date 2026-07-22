@@ -2,7 +2,7 @@
  * **LiveLogs** — onglet « flux temps réel » de la page Log Backplane.
  *
  * Amorce avec un snapshot REST du ring (`/syslog/api/logs`) puis suit le canal WS
- * `syslog:stream` (Pdu live, coalescés `{logs,dropped}`). Le bus live est
+ * `nodefony:syslog` (Pdu live, coalescés `{logs,dropped}`). Le bus live est
  * **indépendant du driver** de relecture : il marche même si le driver actif
  * n'est pas queryable.
  *
@@ -53,6 +53,7 @@ import {
   SeverityBadge,
   SeverityCountChips,
 } from "./LogVisuals";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /** Plafond d'entrées conservées côté client (croissance bornée). */
 const MAX_ENTRIES = 500;
@@ -118,7 +119,7 @@ export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {
     };
   }, [store]);
 
-  // ── Flux live (canal WS syslog:stream) ──────────────────────────────────
+  // ── Flux live (canal WS nodefony:syslog) ──────────────────────────────────
   useEffect(() => {
     const handler = (data: unknown) => {
       if (pausedRef.current) return;
@@ -139,7 +140,7 @@ export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {
       // Si on n'est pas collé en bas, compter les nouveaux non-lus.
       if (!stickRef.current) setUnseen((n) => n + views.length);
     };
-    const dispose = conn.subscribe("syslog:stream", handler);
+    const dispose = conn.subscribe(PLATFORM_CHANNELS.syslog, handler);
     return () => dispose();
   }, [conn]);
 
@@ -206,18 +207,18 @@ export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {
       <Paper p="xs" withBorder radius="md">
         <Group justify="space-between" wrap="wrap" gap="sm">
           <Group gap="sm" wrap="wrap">
-            <Badge
-              size="sm"
-              variant="dot"
-              color={paused ? "yellow" : "teal"}
-            >
+            <Badge size="sm" variant="dot" color={paused ? "yellow" : "teal"}>
               {paused ? "Pause" : "Live"}
             </Badge>
-            <Text size="sm" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <Text
+              size="sm"
+              c="dimmed"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
               {filtered.length} / {entries.length} entrées
             </Text>
             {dropped > 0 && (
-              <Tooltip label="Logs omis côté serveur sous surcharge (coalescing syslog:stream)">
+              <Tooltip label="Logs omis côté serveur sous surcharge (coalescing nodefony:syslog)">
                 <Badge size="sm" variant="light" color="orange">
                   {dropped} omis
                 </Badge>
@@ -229,7 +230,7 @@ export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {
               onToggle={toggleSeverity}
             />
             <DocHint
-              title="Flux temps réel (bus syslog:stream)"
+              title="Flux temps réel (bus nodefony:syslog)"
               version={LOGS_DOC}
               summary="Les Pdu du kernel poussés en direct via WebSocket. Indépendant du driver de relecture — marche même si le driver n'est pas queryable."
               sections={[
@@ -355,7 +356,10 @@ export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {
                     <Text
                       size="xs"
                       c="dimmed"
-                      style={{ flexShrink: 0, fontVariantNumeric: "tabular-nums" }}
+                      style={{
+                        flexShrink: 0,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
                     >
                       {fmtClock(rec.timeStamp)}
                       <Text span size="xs" c="dimmed" opacity={0.6}>

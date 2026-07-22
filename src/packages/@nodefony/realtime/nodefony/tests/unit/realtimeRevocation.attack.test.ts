@@ -12,7 +12,7 @@ import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
  * FAILLE (prouvée en session) : le verrou de frame est SYNC (identité figée au
  * handshake) → `subscribe` ne re-lit JAMAIS la session, contrairement à `api.request`
  * (`isValid()` par requête). Un socket survivait à sa session : un admin déconnecté
- * gardait ses flux `syslog:` / `security:audit` tant que la socket vivait.
+ * gardait ses flux `syslog:` / `nodefony:audit` tant que la socket vivait.
  *
  * FIX (B, validé) : re-validation PÉRIODIQUE hors-frame. Le hub inscrit les connexions
  * à identité RÉVOCABLE (session BFF portant `isValid`) et ferme (`4001`) celles dont

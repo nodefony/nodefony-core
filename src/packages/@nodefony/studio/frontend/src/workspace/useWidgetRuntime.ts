@@ -6,7 +6,7 @@ import type { WidgetRuntimeContext } from "./types";
 
 /**
  * Contexte transverse fourni à TOUS les widgets, calculé UNE fois au niveau du bureau.
- * `cluster`/`instanceCount` dérivent de `realtime:health` (agrégée par le master en
+ * `cluster`/`instanceCount` dérivent de `nodefony:socket` (agrégée par le master en
  * cluster — la seule source juste, cf doc workspace §4). Snapshot HTTP (rafraîchi au
  * reload) : la topologie ne change pas en cours de session, inutile d'abonner un canal.
  */

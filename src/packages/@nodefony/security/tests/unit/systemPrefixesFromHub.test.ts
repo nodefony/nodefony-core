@@ -20,21 +20,27 @@ import {
 describe("Règles système dérivées de la liste du hub", () => {
   it("un namespace INCONNU de la sécurité reçoit quand même une politique", () => {
     // Le hub d'une version future réserve un namespace que ce paquet n'a jamais vu.
-    const rules = buildSystemRules(["security:", "syslog:", "quantum:"]);
+    const rules = buildSystemRules(["nodefony:", "quantum:"]);
     const quantum = rules.find((r) => r.prefix === "quantum:");
     expect(quantum).to.not.equal(undefined);
     expect(quantum?.policy).to.deep.equal(SYSTEM_CHANNEL_POLICY);
   });
 
-  it("`security:` passe EN TÊTE, avec son plancher propre (premier match gagnant)", () => {
-    const rules = buildSystemRules(["syslog:", "orm:", "security:"]);
-    expect(rules[0]?.prefix).to.equal("security:");
+  it("le canal d'AUDIT passe EN TÊTE, avec son plancher propre (premier match gagnant)", () => {
+    const rules = buildSystemRules(["nodefony:", "quantum:"]);
+    expect(rules[0]?.prefix).to.equal("nodefony:audit");
     expect(rules[0]?.policy).to.deep.equal(SECURITY_CHANNEL_POLICY);
+    // …et le namespace générique reste derrière, avec le plancher d'observabilité.
+    expect(rules[1]?.prefix).to.equal("nodefony:");
+    expect(rules[1]?.policy).to.deep.equal(SYSTEM_CHANNEL_POLICY);
   });
 
-  it("liste sans `security:` : aucune règle inventée", () => {
-    const rules = buildSystemRules(["syslog:"]);
-    expect(rules.map((r) => r.prefix)).to.deep.equal(["syslog:"]);
+  it("liste qui ne COUVRE PAS l'audit : aucune règle inventée", () => {
+    // Le hub ne réserve plus le territoire du journal d'audit → la sécurité cesse
+    // de prétendre l'arbitrer, au lieu de garder une règle orpheline qui parlerait
+    // d'un canal que plus personne ne protège.
+    const rules = buildSystemRules(["quantum:"]);
+    expect(rules.map((r) => r.prefix)).to.deep.equal(["quantum:"]);
   });
 
   it("les règles par défaut restent celles de la liste locale (repli hub ancien)", () => {

@@ -226,7 +226,10 @@ describe("Pont WS — frameAuthorizer (data plane / observabilité)", () => {
   });
 
   it("subscribe canal d'observabilité (syslog:) : durci → ADMIN requis", () => {
-    const frame = { method: "subscribe", params: { channel: "syslog:stream" } };
+    const frame = {
+      method: "subscribe",
+      params: { channel: "nodefony:syslog" },
+    };
     assert.equal(authorize(frame, anon), false);
     assert.equal(authorize(frame, user), false); // durci P6 : user simple refusé
     assert.equal(authorize(frame, admin), true);

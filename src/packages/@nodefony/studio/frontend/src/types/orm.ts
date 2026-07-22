@@ -4,7 +4,7 @@
  * pour partager le contrat sans copie et alléger le coût de relecture (cache).
  *
  * Frontière isomorphe : ces types MIROIRENT le data plane `/nodefony/orm/api/*` —
- * jamais d'import runtime serveur (cf `utils/realtimeHealth.ts` pour `realtime:health`).
+ * jamais d'import runtime serveur (cf `utils/realtimeHealth.ts` pour `nodefony:socket`).
  */
 
 /** Résumé d'un connecteur ORM (data plane /nodefony/orm/api/orms). */
@@ -110,7 +110,7 @@ export interface ConnHealth {
   extra?: Record<string, string | number | boolean>;
 }
 
-/** Flux d'un connecteur (canal `orm:flow` / `GET /orm/api/flow`) — sous-ensemble consommé. */
+/** Flux d'un connecteur (canal `nodefony:orm:flow` / `GET /orm/api/flow`) — sous-ensemble consommé. */
 export interface FlowConn {
   connector: string;
   total: number;

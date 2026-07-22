@@ -7,7 +7,7 @@
  *
  *  - **Lecture (fond de panier)** : l'Explorer relit UNE destination à la fois.
  *  - **Écriture (fan-out)** : un même log est copié vers PLUSIEURS destinations.
- *  - **Temps réel** : diffusion live sur `syslog:stream` (onglet Live).
+ *  - **Temps réel** : diffusion live sur `nodefony:syslog` (onglet Live).
  *
  * La pédagogie (les 3 axes en détail, le pourquoi « un seul panier », la légende
  * des étapes) vit dans l'onglet **Doc** ({@link FlowLegendDoc}). Les compteurs
@@ -45,7 +45,12 @@ import {
   IconPlugConnected,
   IconSearch,
 } from "@tabler/icons-react";
-import { DataState, DefinitionList, DocHint, KeyValue } from "../../components/ui";
+import {
+  DataState,
+  DefinitionList,
+  DocHint,
+  KeyValue,
+} from "../../components/ui";
 import { useNotifications, useStore } from "../../stores";
 import type { BackplaneMeta } from "./logsTypes";
 import {
@@ -56,12 +61,9 @@ import {
   writeDestinations,
   type WriteDestination,
 } from "./logFormat";
-import {
-  CapabilityBadges,
-  ClusterScopeNotice,
-  DriverIcon,
-} from "./LogVisuals";
+import { CapabilityBadges, ClusterScopeNotice, DriverIcon } from "./LogVisuals";
 import { FLOW_LEGEND } from "./eventFlow";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /** Axe affiché dans la Vue d'ensemble (un seul détail à la fois). */
 type Axis = "read" | "write" | "stream";
@@ -115,7 +117,9 @@ function AxisTile({
       }}
       style={{
         cursor: "pointer",
-        borderColor: active ? `var(--mantine-color-${color}-filled)` : undefined,
+        borderColor: active
+          ? `var(--mantine-color-${color}-filled)`
+          : undefined,
         borderWidth: active ? 2 : 1,
         background: active ? `var(--mantine-color-${color}-light)` : undefined,
         transition: "border-color 120ms ease, background 120ms ease",
@@ -285,9 +289,7 @@ function WriteCard({ dest }: { dest: WriteDestination }) {
       style={{
         opacity: dest.on ? 1 : 0.6,
         borderStyle: dest.on ? undefined : "dashed",
-        borderColor: dest.on
-          ? "var(--mantine-color-teal-filled)"
-          : undefined,
+        borderColor: dest.on ? "var(--mantine-color-teal-filled)" : undefined,
         background: dest.on ? "var(--mantine-color-teal-light)" : undefined,
       }}
     >
@@ -332,7 +334,9 @@ export function BackplanePanel({
   const registered = meta?.drivers ?? [];
   const registeredNames = new Set(registered.map((d) => d.name));
   // Drivers connus non montés ici (placeholder : URL absente, ou prod).
-  const placeholders = PLACEHOLDER_DRIVERS.filter((n) => !registeredNames.has(n));
+  const placeholders = PLACEHOLDER_DRIVERS.filter(
+    (n) => !registeredNames.has(n),
+  );
   const isDev = meta?.environment === "development";
   const writes = meta ? writeDestinations(meta) : [];
   const writesOn = writes.filter((w) => w.on).length;
@@ -352,7 +356,7 @@ export function BackplanePanel({
   }));
   const writeValues = togglableWrites.filter((w) => w.on).map((w) => w.id);
   const rt = realtimeState ? realtimeStateLabel(realtimeState) : null;
-  // Diffusion temps réel (bus syslog:stream) — coupable à chaud en dev.
+  // Diffusion temps réel (bus nodefony:syslog) — coupable à chaud en dev.
   const streamEnabled = meta?.write.streamEnabled !== false;
 
   // Lien visuel tuile → détail : le panneau de détail reprend la couleur, l'icône
@@ -369,7 +373,10 @@ export function BackplanePanel({
 
   // Modes du select : enregistrés = sélectionnables ; connus non montés = grisés.
   const driverOptions = [
-    ...registered.map((d) => ({ value: d.name, label: driverMeta(d.name).label })),
+    ...registered.map((d) => ({
+      value: d.name,
+      label: driverMeta(d.name).label,
+    })),
     ...placeholders.map((n) => {
       const dm = driverMeta(n);
       return {
@@ -439,7 +446,7 @@ export function BackplanePanel({
     }
   };
 
-  // Toggle de la diffusion temps réel (bus syslog:stream) — dev-only.
+  // Toggle de la diffusion temps réel (bus nodefony:syslog) — dev-only.
   const toggleStream = async (enabled: boolean) => {
     setTogglingStream(true);
     try {
@@ -476,7 +483,12 @@ export function BackplanePanel({
   };
 
   return (
-    <DataState loading={loading && !meta} error={error} onRetry={reload} minHeight={200}>
+    <DataState
+      loading={loading && !meta}
+      error={error}
+      onRetry={reload}
+      minHeight={200}
+    >
       {meta && (
         <Stack gap="lg">
           {/* Honnêteté cluster : la relecture est partielle sauf driver agrégateur. */}
@@ -489,8 +501,8 @@ export function BackplanePanel({
           {/* Orientation minimale + sélecteur d'axe (master). */}
           <Group gap={6}>
             <Text size="sm" c="dimmed">
-              On <b>écrit</b> vers plusieurs destinations, on en <b>relit une</b>{" "}
-              (le « fond de panier »). Choisis un axe :
+              On <b>écrit</b> vers plusieurs destinations, on en{" "}
+              <b>relit une</b> (le « fond de panier »). Choisis un axe :
             </Text>
             <DocHint
               title="L'approche « fond de panier »"
@@ -572,12 +584,17 @@ export function BackplanePanel({
               title="Temps réel"
               subtitle="diffusion live"
               value={
-                <Text size="sm" fw={600} truncate c={streamEnabled ? undefined : "dimmed"}>
+                <Text
+                  size="sm"
+                  fw={600}
+                  truncate
+                  c={streamEnabled ? undefined : "dimmed"}
+                >
                   {!streamEnabled
                     ? "diffusion coupée"
                     : rt
                       ? rt.label
-                      : "syslog:stream"}
+                      : PLATFORM_CHANNELS.syslog}
                 </Text>
               }
               action={
@@ -634,239 +651,256 @@ export function BackplanePanel({
               </Badge>
             </Group>
             {axis === "read" && (
-            <Stack gap="xs">
-              <Text size="sm" c="dimmed">
-                L'Explorer fouille <b>une</b> destination à la fois — celle-ci.
-                {isDev ? " Basculable à chaud (dev)." : ""}
-              </Text>
-              <Card withBorder radius="md" p="md">
-                <Stack gap="sm">
-                  <Group justify="space-between" wrap="wrap" gap="md">
-                    <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                      <DriverIcon name={activeName ?? "generic"} color="brand" />
-                      <Box style={{ minWidth: 0 }}>
-                        <Group gap={6} wrap="nowrap">
-                          <Text
-                            fz={10}
-                            fw={700}
-                            tt="uppercase"
-                            c="brand"
-                            style={{ letterSpacing: 0.4, lineHeight: 1.2 }}
-                          >
-                            Source consultée
-                          </Text>
-                          <Text fz={10} c="dimmed" style={{ lineHeight: 1.2 }}>
-                            · relecture
-                          </Text>
-                        </Group>
-                        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-                          <Text fw={700} truncate>
-                            {activeName
-                              ? driverMeta(activeName).label
-                              : "Aucune destination"}
-                          </Text>
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">
+                  L'Explorer fouille <b>une</b> destination à la fois —
+                  celle-ci.
+                  {isDev ? " Basculable à chaud (dev)." : ""}
+                </Text>
+                <Card withBorder radius="md" p="md">
+                  <Stack gap="sm">
+                    <Group justify="space-between" wrap="wrap" gap="md">
+                      <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                        <DriverIcon
+                          name={activeName ?? "generic"}
+                          color="brand"
+                        />
+                        <Box style={{ minWidth: 0 }}>
+                          <Group gap={6} wrap="nowrap">
+                            <Text
+                              fz={10}
+                              fw={700}
+                              tt="uppercase"
+                              c="brand"
+                              style={{ letterSpacing: 0.4, lineHeight: 1.2 }}
+                            >
+                              Source consultée
+                            </Text>
+                            <Text
+                              fz={10}
+                              c="dimmed"
+                              style={{ lineHeight: 1.2 }}
+                            >
+                              · relecture
+                            </Text>
+                          </Group>
+                          <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                            <Text fw={700} truncate>
+                              {activeName
+                                ? driverMeta(activeName).label
+                                : "Aucune destination"}
+                            </Text>
+                            {meta.activeDriver && (
+                              <Badge size="xs" variant="default" tt="none">
+                                {meta.activeDriver.name}
+                              </Badge>
+                            )}
+                          </Group>
                           {meta.activeDriver && (
-                            <Badge size="xs" variant="default" tt="none">
-                              {meta.activeDriver.name}
+                            <Group gap="xs" mt={4} wrap="nowrap">
+                              <CapabilityBadges
+                                capabilities={meta.activeDriver.capabilities}
+                              />
+                            </Group>
+                          )}
+                        </Box>
+                      </Group>
+
+                      {isDev && (
+                        <DriverSwitch
+                          value={activeName}
+                          options={driverOptions}
+                          disabled={switching}
+                          onSwitch={switchDriver}
+                          label="Changer la source consultée"
+                          width={220}
+                        />
+                      )}
+                    </Group>
+
+                    <DestinationPing driverName={activeName} />
+                  </Stack>
+                </Card>
+
+                {/* Paniers disponibles (registry) — factuel, compact. */}
+                <Group gap={6} mt={4}>
+                  <Text
+                    fz={10}
+                    fw={700}
+                    tt="uppercase"
+                    c="dimmed"
+                    style={{ letterSpacing: 0.4 }}
+                  >
+                    Paniers disponibles
+                  </Text>
+                  <Badge size="xs" variant="light" color="brand">
+                    {registered.length}
+                  </Badge>
+                </Group>
+                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+                  {registered.map((d) => {
+                    const isActive = d.name === activeName;
+                    return (
+                      <Card
+                        key={d.name}
+                        withBorder
+                        radius="md"
+                        p="sm"
+                        style={{
+                          borderColor: isActive
+                            ? "var(--mantine-color-brand-filled)"
+                            : undefined,
+                        }}
+                      >
+                        <Group justify="space-between" wrap="nowrap" mb={6}>
+                          <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                            <DriverIcon
+                              name={d.name}
+                              color={isActive ? "brand" : "gray"}
+                            />
+                            <Text fw={600} size="sm" truncate>
+                              {driverMeta(d.name).label}
+                            </Text>
+                          </Group>
+                          {isActive && (
+                            <Badge size="xs" color="brand" variant="filled">
+                              relu
                             </Badge>
                           )}
                         </Group>
-                        {meta.activeDriver && (
-                          <Group gap="xs" mt={4} wrap="nowrap">
-                            <CapabilityBadges
-                              capabilities={meta.activeDriver.capabilities}
-                            />
+                        <CapabilityBadges
+                          capabilities={d.capabilities}
+                          size="xs"
+                        />
+                      </Card>
+                    );
+                  })}
+                  {placeholders.map((name) => {
+                    const dm = driverMeta(name);
+                    const isFuture = dm.upcoming === true;
+                    return (
+                      <Card
+                        key={name}
+                        withBorder
+                        radius="md"
+                        p="sm"
+                        style={{ opacity: 0.6, borderStyle: "dashed" }}
+                      >
+                        <Group justify="space-between" wrap="nowrap" mb={6}>
+                          <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                            {isFuture ? (
+                              <ThemeIcon
+                                variant="light"
+                                color="gray"
+                                size={28}
+                                radius="md"
+                              >
+                                <IconPlugConnected size={16} />
+                              </ThemeIcon>
+                            ) : (
+                              <DriverIcon name={name} color="gray" />
+                            )}
+                            <Text fw={600} size="sm" truncate>
+                              {dm.label}
+                            </Text>
                           </Group>
-                        )}
-                      </Box>
-                    </Group>
-
-                    {isDev && (
-                      <DriverSwitch
-                        value={activeName}
-                        options={driverOptions}
-                        disabled={switching}
-                        onSwitch={switchDriver}
-                        label="Changer la source consultée"
-                        width={220}
-                      />
-                    )}
-                  </Group>
-
-                  <DestinationPing driverName={activeName} />
-                </Stack>
-              </Card>
-
-              {/* Paniers disponibles (registry) — factuel, compact. */}
-              <Group gap={6} mt={4}>
-                <Text
-                  fz={10}
-                  fw={700}
-                  tt="uppercase"
-                  c="dimmed"
-                  style={{ letterSpacing: 0.4 }}
-                >
-                  Paniers disponibles
-                </Text>
-                <Badge size="xs" variant="light" color="brand">
-                  {registered.length}
-                </Badge>
-              </Group>
-              <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-                {registered.map((d) => {
-                  const isActive = d.name === activeName;
-                  return (
-                    <Card
-                      key={d.name}
-                      withBorder
-                      radius="md"
-                      p="sm"
-                      style={{
-                        borderColor: isActive
-                          ? "var(--mantine-color-brand-filled)"
-                          : undefined,
-                      }}
-                    >
-                      <Group justify="space-between" wrap="nowrap" mb={6}>
-                        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                          <DriverIcon
-                            name={d.name}
-                            color={isActive ? "brand" : "gray"}
-                          />
-                          <Text fw={600} size="sm" truncate>
-                            {driverMeta(d.name).label}
-                          </Text>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={isFuture ? "gray" : "teal"}
+                          >
+                            {isFuture ? "à venir" : "config"}
+                          </Badge>
                         </Group>
-                        {isActive && (
-                          <Badge size="xs" color="brand" variant="filled">
-                            relu
+                        <Text size="xs" c="dimmed">
+                          non monté ici
+                        </Text>
+                      </Card>
+                    );
+                  })}
+                </SimpleGrid>
+              </Stack>
+            )}
+
+            {axis === "write" && (
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">
+                  Un même log est copié, <b>en même temps</b>, vers TOUTES les
+                  destinations actives.
+                </Text>
+                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+                  {writesPrimary.map((w) => (
+                    <WriteCard key={w.id} dest={w} />
+                  ))}
+                </SimpleGrid>
+                {writesUnconfigured.length > 0 && (
+                  <>
+                    <UnstyledButton
+                      onClick={() => setShowOffWrites((v) => !v)}
+                      aria-expanded={showOffWrites}
+                    >
+                      <Group gap={6}>
+                        {showOffWrites ? (
+                          <IconChevronDown size={14} />
+                        ) : (
+                          <IconChevronRight size={14} />
+                        )}
+                        <Text size="xs" c="dimmed">
+                          {writesUnconfigured.length} destination
+                          {writesUnconfigured.length > 1 ? "s" : ""} disponible
+                          {writesUnconfigured.length > 1 ? "s" : ""}, non
+                          configurée
+                          {writesUnconfigured.length > 1 ? "s" : ""} (requiert
+                          une config)
+                        </Text>
+                      </Group>
+                    </UnstyledButton>
+                    <Collapse expanded={showOffWrites}>
+                      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+                        {writesUnconfigured.map((w) => (
+                          <WriteCard key={w.id} dest={w} />
+                        ))}
+                      </SimpleGrid>
+                    </Collapse>
+                  </>
+                )}
+              </Stack>
+            )}
+
+            {axis === "stream" && (
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">
+                  Les logs sont diffusés en direct sur le bus{" "}
+                  <Code>nodefony:syslog</Code> (WebSocket) — c'est ce que montre
+                  l'onglet <b>Live</b>. Indépendant du driver de lecture.
+                </Text>
+                <Card withBorder radius="md" p="md">
+                  <Group gap="sm" wrap="wrap">
+                    <ThemeIcon
+                      variant="light"
+                      color="teal"
+                      size="lg"
+                      radius="md"
+                    >
+                      <IconBroadcast size={20} />
+                    </ThemeIcon>
+                    <Box>
+                      <Text fw={700}>Bus temps réel</Text>
+                      <Group gap={6} mt={4}>
+                        <Badge variant="light" color="teal" tt="none">
+                          nodefony:syslog
+                        </Badge>
+                        {rt && (
+                          <Badge variant="dot" color={rt.color} tt="none">
+                            {rt.label}
                           </Badge>
                         )}
                       </Group>
-                      <CapabilityBadges capabilities={d.capabilities} size="xs" />
-                    </Card>
-                  );
-                })}
-                {placeholders.map((name) => {
-                  const dm = driverMeta(name);
-                  const isFuture = dm.upcoming === true;
-                  return (
-                    <Card
-                      key={name}
-                      withBorder
-                      radius="md"
-                      p="sm"
-                      style={{ opacity: 0.6, borderStyle: "dashed" }}
-                    >
-                      <Group justify="space-between" wrap="nowrap" mb={6}>
-                        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                          {isFuture ? (
-                            <ThemeIcon
-                              variant="light"
-                              color="gray"
-                              size={28}
-                              radius="md"
-                            >
-                              <IconPlugConnected size={16} />
-                            </ThemeIcon>
-                          ) : (
-                            <DriverIcon name={name} color="gray" />
-                          )}
-                          <Text fw={600} size="sm" truncate>
-                            {dm.label}
-                          </Text>
-                        </Group>
-                        <Badge
-                          size="xs"
-                          variant="light"
-                          color={isFuture ? "gray" : "teal"}
-                        >
-                          {isFuture ? "à venir" : "config"}
-                        </Badge>
-                      </Group>
-                      <Text size="xs" c="dimmed">
-                        non monté ici
-                      </Text>
-                    </Card>
-                  );
-                })}
-              </SimpleGrid>
-            </Stack>
-          )}
-
-          {axis === "write" && (
-            <Stack gap="xs">
-              <Text size="sm" c="dimmed">
-                Un même log est copié, <b>en même temps</b>, vers TOUTES les
-                destinations actives.
-              </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                {writesPrimary.map((w) => (
-                  <WriteCard key={w.id} dest={w} />
-                ))}
-              </SimpleGrid>
-              {writesUnconfigured.length > 0 && (
-                <>
-                  <UnstyledButton
-                    onClick={() => setShowOffWrites((v) => !v)}
-                    aria-expanded={showOffWrites}
-                  >
-                    <Group gap={6}>
-                      {showOffWrites ? (
-                        <IconChevronDown size={14} />
-                      ) : (
-                        <IconChevronRight size={14} />
-                      )}
-                      <Text size="xs" c="dimmed">
-                        {writesUnconfigured.length} destination
-                        {writesUnconfigured.length > 1 ? "s" : ""} disponible
-                        {writesUnconfigured.length > 1 ? "s" : ""}, non configurée
-                        {writesUnconfigured.length > 1 ? "s" : ""} (requiert une
-                        config)
-                      </Text>
-                    </Group>
-                  </UnstyledButton>
-                  <Collapse expanded={showOffWrites}>
-                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-                      {writesUnconfigured.map((w) => (
-                        <WriteCard key={w.id} dest={w} />
-                      ))}
-                    </SimpleGrid>
-                  </Collapse>
-                </>
-              )}
-            </Stack>
-          )}
-
-          {axis === "stream" && (
-            <Stack gap="xs">
-              <Text size="sm" c="dimmed">
-                Les logs sont diffusés en direct sur le bus{" "}
-                <Code>syslog:stream</Code> (WebSocket) — c'est ce que montre
-                l'onglet <b>Live</b>. Indépendant du driver de lecture.
-              </Text>
-              <Card withBorder radius="md" p="md">
-                <Group gap="sm" wrap="wrap">
-                  <ThemeIcon variant="light" color="teal" size="lg" radius="md">
-                    <IconBroadcast size={20} />
-                  </ThemeIcon>
-                  <Box>
-                    <Text fw={700}>Bus temps réel</Text>
-                    <Group gap={6} mt={4}>
-                      <Badge variant="light" color="teal" tt="none">
-                        syslog:stream
-                      </Badge>
-                      {rt && (
-                        <Badge variant="dot" color={rt.color} tt="none">
-                          {rt.label}
-                        </Badge>
-                      )}
-                    </Group>
-                  </Box>
-                </Group>
-              </Card>
-            </Stack>
-          )}
+                    </Box>
+                  </Group>
+                </Card>
+              </Stack>
+            )}
           </Card>
         </Stack>
       )}
@@ -941,28 +975,31 @@ export function FlowLegendDoc() {
             color="teal"
             title="Bus temps réel"
           >
-            Diffusion <b>live</b> des logs (onglet Live, WebSocket). Indépendante
-            du driver : marche même si la destination n'est pas interrogeable.
+            Diffusion <b>live</b> des logs (onglet Live, WebSocket).
+            Indépendante du driver : marche même si la destination n'est pas
+            interrogeable.
           </ConceptCard>
         </SimpleGrid>
       </Stack>
 
       {/* Rubrique 2 — pourquoi un seul panier en lecture. */}
       <Stack gap="xs">
-        <Title order={4}>Écriture vs lecture — pourquoi « un seul panier » ?</Title>
+        <Title order={4}>
+          Écriture vs lecture — pourquoi « un seul panier » ?
+        </Title>
         <Text size="sm" c="dimmed">
           <b>Écriture = plusieurs.</b> Un même log part en parallèle vers toutes
           les destinations actives (diffusion / fan-out). <b>Lecture = une.</b>{" "}
-          On ne peut pas fusionner cohéremment une recherche paginée et triée sur
-          des backends <b>hétérogènes</b> (ring mémoire vs fichier JSONL vs Loki
-          LogQL vs OpenSearch) : pagination, ordre et sémantique de filtre
+          On ne peut pas fusionner cohéremment une recherche paginée et triée
+          sur des backends <b>hétérogènes</b> (ring mémoire vs fichier JSONL vs
+          Loki LogQL vs OpenSearch) : pagination, ordre et sémantique de filtre
           diffèrent. On choisit donc LE panier qu'on inspecte → des résultats
           cohérents.
         </Text>
         <Text size="sm" c="dimmed">
           <b>Image :</b> plusieurs magnétophones enregistrent en parallèle
-          (écriture) ; pour réécouter, on met <b>une</b> cassette dans le lecteur
-          à la fois (lecture).
+          (écriture) ; pour réécouter, on met <b>une</b> cassette dans le
+          lecteur à la fois (lecture).
         </Text>
       </Stack>
 
@@ -983,10 +1020,17 @@ export function FlowLegendDoc() {
           />
         </Group>
         <Card withBorder radius="md" p={0}>
-          <Table striped withRowBorders={false} verticalSpacing="xs" horizontalSpacing="md">
+          <Table
+            striped
+            withRowBorders={false}
+            verticalSpacing="xs"
+            horizontalSpacing="md"
+          >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th style={{ width: 220 }}>Event (dans les logs)</Table.Th>
+                <Table.Th style={{ width: 220 }}>
+                  Event (dans les logs)
+                </Table.Th>
                 <Table.Th style={{ width: 180 }}>Étape</Table.Th>
                 <Table.Th>Signification</Table.Th>
               </Table.Tr>
@@ -1153,13 +1197,21 @@ function DestinationPing({ driverName }: { driverName: string | null }) {
             color={probe.ok ? "teal" : "red"}
             variant="light"
             leftSection={
-              probe.ok ? <IconCheck size={12} /> : <IconAlertTriangle size={12} />
+              probe.ok ? (
+                <IconCheck size={12} />
+              ) : (
+                <IconAlertTriangle size={12} />
+              )
             }
             tt="none"
           >
             {probe.ok ? "joignable" : "injoignable"}
           </Badge>
-          <Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+          <Text
+            size="xs"
+            c="dimmed"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
             {probe.latencyMs} ms
           </Text>
           {probe.info &&

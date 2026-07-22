@@ -1,10 +1,10 @@
 /**
- * Types MIROIR de la sonde santé `realtime:health` (frontière isomorphe : on ne
+ * Types MIROIR de la sonde santé `nodefony:socket` (frontière isomorphe : on ne
  * JAMAIS importer le runtime serveur `@nodefony/framework` dans le bundle client).
  *
  * Source de vérité = les contrats core `IRealtimeProbe.ts` (process + socket +
  * ORM lean + erreurs) servis par le data plane `/nodefony/realtime/api/health` ET
- * poussés sur le canal `realtime:health`. **Un seul** mirror partagé ici → évite la
+ * poussés sur le canal `nodefony:socket`. **Un seul** mirror partagé ici → évite la
  * dérive silencieuse vue ailleurs (Cluster, RealtimeConsole, ProcessGraphGrid en
  * portaient chacun une copie). Toute page cluster-aware importe d'ICI.
  */

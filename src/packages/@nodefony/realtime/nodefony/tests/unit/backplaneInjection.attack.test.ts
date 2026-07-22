@@ -26,7 +26,7 @@ import type {
  *  1. **Asymétrie de politique** (tous drivers) — le forward est opt-in en SORTIE
  *     (`publish` ne traverse le backplane que pour un canal déclaré broadcast) mais
  *     l'ENTRÉE acceptait tout : un pair pouvait pousser sur `syslog:`,
- *     `security:audit` ou `realtime:health` — des canaux **instance-local** que la
+ *     `nodefony:audit` ou `nodefony:socket` — des canaux **instance-local** que la
  *     politique refuse justement de faire voyager.
  *  2. **Bus non authentifié** (drivers à transport PARTAGÉ, ex. Redis) — quiconque
  *     écrit dans le Redis publiait sur les canaux de **tous** les pods.
@@ -71,10 +71,10 @@ describe("0.6 F83 (a) — hub : admission par canal à l'ingress backplane", () 
     const bp = new PeerBackplane();
     hub.setBackplane(bp);
     const got: unknown[] = [];
-    hub.subscribe("security:audit", (p) => got.push(p), factory);
+    hub.subscribe("nodefony:audit", (p) => got.push(p), factory);
 
     bp.deliver({
-      channel: "security:audit",
+      channel: "nodefony:audit",
       payload: { forged: "faux évènement d'audit" },
       originId: "peer-attacker",
     });
@@ -82,15 +82,15 @@ describe("0.6 F83 (a) — hub : admission par canal à l'ingress backplane", () 
     expect(got).to.deep.equal([]); // fail-closed : rien n'atteint les abonnés locaux
   });
 
-  it("ATTAQUE : canal d'observabilité per-instance (`realtime:health`) → rejeté aussi", () => {
+  it("ATTAQUE : canal d'observabilité per-instance (`nodefony:socket`) → rejeté aussi", () => {
     const hub = new RealtimeHub();
     const bp = new PeerBackplane();
     hub.setBackplane(bp);
     const got: unknown[] = [];
-    hub.subscribe("realtime:health:1000", (p) => got.push(p), factory);
+    hub.subscribe("nodefony:socket:1000", (p) => got.push(p), factory);
 
     bp.deliver({
-      channel: "realtime:health:1000",
+      channel: "nodefony:socket:1000",
       payload: { cpu: 0 },
       originId: "peer-attacker",
     });
@@ -238,7 +238,7 @@ describe("0.6 F83 (b) — Redis : enveloppe scellée (transport partagé)", () =
         SECRET,
       ),
     ) as Record<string, unknown>;
-    sealed.channel = "security:audit"; // repointage de canal
+    sealed.channel = "nodefony:audit"; // repointage de canal
     bus.inject(JSON.stringify(sealed));
 
     expect(received).to.deep.equal([]);

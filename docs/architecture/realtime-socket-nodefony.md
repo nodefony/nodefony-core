@@ -90,7 +90,7 @@ annonce la nature du backing. **Le catalogue visé** :
 
 ### `pubsub` — la diffusion d'événements
 
-Des notifications JSON-RPC sur un canal nommé (`dashboard:stats`, `room:42`). C'est le seul backing
+Des notifications JSON-RPC sur un canal nommé (`nodefony:dashboard`, `room:42`). C'est le seul backing
 qui existe aujourd'hui, et c'est celui qui porte tout le temps réel applicatif.
 
 ### `protocol` — l'encapsulation d'un autre langage

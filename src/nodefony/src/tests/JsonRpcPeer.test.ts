@@ -27,7 +27,7 @@ interface TestActions extends ActionsMap {
   do: { in: { a: number }; out: { ok: boolean } };
   gen: { in: Record<string, never>; out: unknown };
   "api.request": { in: { path: string }; out: unknown };
-  "kernel:ping": { out: unknown };
+  "nodefony:kernel:ping": { out: unknown };
   ping: { out: unknown };
   x: { out: unknown };
   slow: { out: unknown };
@@ -63,11 +63,11 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
   describe("receive() — discrimination", () => {
     it("REQUÊTE entrante (method+id) sur action enregistrée → renvoie result", async () => {
       const { peer, sent } = newPeer();
-      peer.register("kernel:ping", () => ({ pong: true }));
+      peer.register("nodefony:kernel:ping", () => ({ pong: true }));
       const kind = peer.receive({
         jsonrpc: "2.0",
         id: 1,
-        method: "kernel:ping",
+        method: "nodefony:kernel:ping",
       });
       expect(kind).to.equal("request");
       await flush();
@@ -120,12 +120,12 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       const { peer, sent, notes } = newPeer();
       const kind = peer.receive({
         jsonrpc: "2.0",
-        method: "dashboard:stats",
+        method: "nodefony:dashboard",
         params: { cpu: 7 },
       });
       expect(kind).to.equal("notification");
       expect(notes).to.deep.equal([
-        { method: "dashboard:stats", params: { cpu: 7 } },
+        { method: "nodefony:dashboard", params: { cpu: 7 } },
       ]);
       expect(sent).to.have.length(0);
     });
@@ -337,14 +337,14 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
         beforeDispatch: () => false,
         onFrameAudit: (reason, frame) => audits.push({ reason, frame }),
       });
-      peer.register("kernel:ping", () => {
+      peer.register("nodefony:kernel:ping", () => {
         handlerCalled++;
         return { pong: true };
       });
       const kind = peer.receive({
         jsonrpc: "2.0",
         id: 42,
-        method: "kernel:ping",
+        method: "nodefony:kernel:ping",
       });
       expect(kind).to.equal("request");
       expect(handlerCalled).to.equal(0);

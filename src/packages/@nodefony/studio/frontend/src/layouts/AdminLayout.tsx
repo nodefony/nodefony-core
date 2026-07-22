@@ -78,6 +78,7 @@ import {
   type ProfileSummary,
 } from "../routes/profile/profileModel";
 import { UserAvatar } from "../routes/users/AvatarUpload";
+import { PLATFORM_EVENTS } from "nodefony";
 
 const RAIL_WIDTH = 68;
 const FULL_WIDTH = 264;
@@ -262,9 +263,9 @@ export const AdminLayout = observer(() => {
       if (!rid) return;
       navigate(`/nodefony/logs/trace/${encodeURIComponent(rid)}`);
     };
-    window.addEventListener("nodefony:debugbar:select", onSelect);
+    window.addEventListener(PLATFORM_EVENTS.debugbarSelect, onSelect);
     return () =>
-      window.removeEventListener("nodefony:debugbar:select", onSelect);
+      window.removeEventListener(PLATFORM_EVENTS.debugbarSelect, onSelect);
   }, [navigate]);
 
   const rail = ui.rail;

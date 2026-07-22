@@ -128,7 +128,7 @@ const EDGES: FlowGraphEdge[] = [
   { source: "hubB", target: "peerY", label: "notify", color: "grape" },
 ];
 
-/** Branche live : abonnement `realtime:health` (ref-compté, démonté = coupé). */
+/** Branche live : abonnement `nodefony:socket` (ref-compté, démonté = coupé). */
 const LiveBranch = observer(({ height }: { height: number }) => {
   const snap = useSocketLiveData();
   const liveNodeData = useMemo(() => mapFanOutLive(snap), [snap]);

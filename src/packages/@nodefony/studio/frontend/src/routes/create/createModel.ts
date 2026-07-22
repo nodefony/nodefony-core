@@ -96,7 +96,7 @@ export interface IScaffoldLine {
 export type ScaffoldJobStatus = "running" | "done" | "failed";
 
 /**
- * Ce que pousse le canal `scaffold:job@<id>` : une ligne de terminal, ou l'état du job.
+ * Ce que pousse le canal `nodefony:scaffold:job@<id>` : une ligne de terminal, ou l'état du job.
  *
  * L'état voyage sur le MÊME canal que les lignes (à l'abonnement, une fois les fichiers
  * écrits, et à la fin). C'est ce qui permet de ne jamais interroger le serveur en boucle
@@ -106,7 +106,7 @@ export type IScaffoldEvent =
   | { kind: "line"; line: IScaffoldLine }
   | { kind: "state"; state: IScaffoldJobState };
 
-/** Snapshot d'un job, tel que servi par la socket (`scaffold:run`) ou l'API (`create/job/{id}`). */
+/** Snapshot d'un job, tel que servi par la socket (`nodefony:scaffold:run`) ou l'API (`create/job/{id}`). */
 export interface IScaffoldJobState {
   id: string;
   type: string;
@@ -168,7 +168,7 @@ export type CreateSpec = ICreateSpecOk | ICreateSpecOff;
 /** Réponses du formulaire (clé de question → valeur). */
 export type TAnswers = Record<string, string | boolean>;
 
-/** Réponse de l'action `scaffold:cancel`. */
+/** Réponse de l'action `nodefony:scaffold:cancel`. */
 export interface IScaffoldCancelResult {
   cancelled: boolean;
 }

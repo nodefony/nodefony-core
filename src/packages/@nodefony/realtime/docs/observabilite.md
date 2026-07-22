@@ -44,12 +44,12 @@ flowchart LR
   PROBE --> BUILD["buildRealtimeHealth()<br/>+ identité, process, ORM, erreurs"]
   BUILD --> HTTP["GET /nodefony/realtime/api/health<br/>instantané, 1er affichage"]
   BUILD --> TICK["createBrokerTicker<br/>minuteur détaché"]
-  TICK -->|"publish"| CH["canal realtime:health<br/>cadence 2 s par défaut"]
+  TICK -->|"publish"| CH["canal nodefony:socket<br/>cadence 2 s par défaut"]
   CH --> UI["Studio<br/>Temps réel · Cluster · Carte du serveur"]
   HTTP --> UI
 ```
 
-Le détail qui rend le schéma vrai : le canal `realtime:health` **circule sur la socket elle-même**.
+Le détail qui rend le schéma vrai : le canal `nodefony:socket` **circule sur la socket elle-même**.
 La mesure emprunte le transport qu'elle mesure — c'est ce qui rend l'observation gratuite en
 infrastructure, et c'est aussi ce dont il faut se méfier quand le transport souffre.
 
@@ -253,7 +253,7 @@ Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts:61`). Quatre familles, un di
 | Champ                    | Ce qu'il dit                                                                                             |
 | ------------------------ | -------------------------------------------------------------------------------------------------------- |
 | `channels[]`             | Une entrée par canal **actif** (au moins un abonné), cf `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`). |
-| `channels[].channel`     | Le nom exact souscrit, **suffixe de cadence compris** (`orm:health:2000`).                               |
+| `channels[].channel`     | Le nom exact souscrit, **suffixe de cadence compris** (`nodefony:orm:health:2000`).                      |
 | `channels[].subscribers` | Abonnés locaux vivants. Instantané, pas un cumul.                                                        |
 | `channels[].messages`    | Publications cumulées sur ce canal.                                                                      |
 | `channelCount`           | Nombre de canaux actifs sur ce processus.                                                                |
@@ -370,7 +370,7 @@ et tout script qui ne veut pas ouvrir une socket.
 
 ### Le canal temps réel
 
-`realtime:health`. Le producteur est un minuteur qui rappelle **le même endpoint** à travers le
+`nodefony:socket`. Le producteur est un minuteur qui rappelle **le même endpoint** à travers le
 courtier admin (`StudioRealtimeController.createRealtimeChannel()`, `StudioRealtimeController.ts:182`,
 via `createBrokerTicker()` (`providers.ts:465`)). Rien n'est dupliqué : le canal est un endpoint
 rejoué.
@@ -381,8 +381,8 @@ Convention isomorphe, partagée par les deux bords : `base` nu = cadence par dé
 `base:<ms>` = cadence explicite. Le client fabrique le nom avec `rateChannel()` (`channelRate.ts:44`),
 le serveur le résout et le **borne** avec `parseRate()` (`channelRate.ts:63`).
 
-Conséquence voulue : **un canal = une cadence = un compteur de références**. `realtime:health:500` et
-`realtime:health` sont deux minuteurs distincts, jamais réconciliés — et deux consommateurs qui
+Conséquence voulue : **un canal = une cadence = un compteur de références**. `nodefony:socket:500` et
+`nodefony:socket` sont deux minuteurs distincts, jamais réconciliés — et deux consommateurs qui
 veulent tous deux le défaut partagent un seul minuteur, parce que la cadence par défaut ne produit
 **aucun** suffixe.
 
@@ -392,31 +392,31 @@ Les bornes sont déclarées dans `RATE_BOUNDS` (`StudioRealtimeController.ts:59`
 `CHANNELS` (`providers.ts:98`). Une cadence hors bornes est **ramenée dans l'intervalle**, jamais
 refusée.
 
-| Canal                   | Qui le produit                                                     | Cadence par défaut | Bornes        |
-| ----------------------- | ------------------------------------------------------------------ | ------------------ | ------------- |
-| `realtime:health`       | La sonde du hub, rejouée depuis l'endpoint admin `realtime`        | 2 s                | 500 ms – 60 s |
-| `dashboard:supervision` | `createStatsTicker()` (`providers.ts:222`) — CPU, mémoire, GC, ELU | 1 s                | 250 ms – 60 s |
-| `debugbar:stats`        | Le même producteur, canal séparé pour la barre de débogage         | 1 s                | 250 ms – 60 s |
-| `orm:health`            | Endpoint admin `orm/connection/health`, rejoué                     | 5 s                | 1 s – 60 s    |
-| `orm:flow`              | Endpoint admin `orm/flow` (débit de requêtes)                      | 2 s                | 500 ms – 60 s |
-| `syslog:stream`         | `createSyslogBridge()` (`providers.ts:145`)                        | **événementiel**   | — (coalescé)  |
+| Canal                  | Qui le produit                                                     | Cadence par défaut | Bornes        |
+| ---------------------- | ------------------------------------------------------------------ | ------------------ | ------------- |
+| `nodefony:socket`      | La sonde du hub, rejouée depuis l'endpoint admin `realtime`        | 2 s                | 500 ms – 60 s |
+| `nodefony:supervision` | `createStatsTicker()` (`providers.ts:222`) — CPU, mémoire, GC, ELU | 1 s                | 250 ms – 60 s |
+| `nodefony:debugbar`    | Le même producteur, canal séparé pour la barre de débogage         | 1 s                | 250 ms – 60 s |
+| `nodefony:orm:health`  | Endpoint admin `orm/connection/health`, rejoué                     | 5 s                | 1 s – 60 s    |
+| `nodefony:orm:flow`    | Endpoint admin `orm/flow` (débit de requêtes)                      | 2 s                | 500 ms – 60 s |
+| `nodefony:syslog`      | `createSyslogBridge()` (`providers.ts:145`)                        | **événementiel**   | — (coalescé)  |
 
 > [!WARNING]
-> **`dashboard:stats` n'existe pas.** Le canal de supervision s'appelle `dashboard:supervision` ; ce
+> **`nodefony:dashboard` n'existe pas.** Le canal de supervision s'appelle `nodefony:supervision` ; ce
 > nom n'apparaît plus que comme donnée de test. S'abonner à un canal inconnu ne lève **aucune
 > erreur** — le provider rend `null` et rien n'arrive jamais. C'est le piège numéro un de la page.
 
-`syslog:stream` est le seul de la liste à ne pas être cadencé : il **relaie** au lieu de sonder. Comme
+`nodefony:syslog` est le seul de la liste à ne pas être cadencé : il **relaie** au lieu de sonder. Comme
 un flot de journaux peut noyer un frontend, le pont accumule dans un tampon circulaire borné et n'émet
 qu'une frame agrégée toutes les 200 ms, en comptant les entrées omises — le débit de la source est
 découplé de celui de l'interface.
 
-Deux autres formes existent, réservées au forage : `dashboard:supervision@<pid>` et `orm:rich@<pid>`
+Deux autres formes existent, réservées au forage : `nodefony:supervision@<pid>` et `nodefony:orm:rich@<pid>`
 ciblent **un worker précis**, et non le premier venu.
 
 ## 📡 Observabilité — Studio
 
-Trois écrans consomment `realtime:health`, chacun avec une question différente.
+Trois écrans consomment `nodefony:socket`, chacun avec une question différente.
 
 - **Temps réel** (`/nodefony/hub`) — la console de la socket : canaux vivants et leurs abonnés,
   volume diffusé, connexions en retard. C'est l'écran du développeur qui se demande « mon canal
@@ -539,18 +539,18 @@ aux sondes qui instrumentent chaque opération et se paient donc à l'usage.
 
 ## ⚠️ Pièges
 
-| Symptôme                                                                     | Cause                                                                                                              | Correction                                                                                            |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Le processus ne s'arrête plus, `Ctrl+C` reste sans effet                     | Un minuteur de sonde sans `unref()` retient la boucle d'événements                                                 | `timer.unref()` sur **tout** minuteur de provider, et une fonction de nettoyage qui l'annule          |
-| Le minuteur tourne encore après le départ du dernier abonné                  | Le provider ne rend pas de fonction de nettoyage, ou elle n'annule pas ce qu'il a démarré                          | Toujours rendre une fonction qui annule minuteurs **et** écouteurs                                    |
-| Abonnement à un canal de santé, **rien n'arrive**, aucune erreur             | Canal inconnu du serveur : le provider rend `null`, l'abonnement est refusé en silence (`dashboard:stats` typique) | Vérifier le nom exact ; partager une constante entre les deux bords                                   |
-| `publishTotal` grimpe, `fanoutTotal` stagne                                  | Tu publies dans le vide : personne n'est abonné au canal visé                                                      | Comparer le nom publié et le nom souscrit — presque toujours une faute de frappe                      |
-| Deux appels consécutifs à `/api/health` donnent des chiffres contradictoires | En cluster, la requête tombe sur un worker au hasard et rend une vue per-instance                                  | Lire le champ `cluster` ; si absent, la sonde pod est coupée ou en démarrage à froid                  |
-| La mémoire du processus grimpe sans fuite apparente                          | Une sonde alloue à chaque tick, ou un client lent fait grossir la file d'envoi                                     | Lire `backpressure.totalBufferedAmount` ; simplifier le corps du tick                                 |
-| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                  | Cette clé pilote le **comptage** de la sonde ; les seuils d'action sont des constantes du transport                | Rien à régler : ce comportement n'est pas configurable                                                |
-| La cadence demandée n'est pas respectée                                      | Elle a été **ramenée dans les bornes** du canal, silencieusement                                                   | Lire les bornes du canal ; vérifier le nom réellement souscrit dans `channels[]`                      |
-| Deux abonnés au même canal, deux minuteurs                                   | Ils ont demandé des cadences différentes — un canal cadencé est distinct par cadence                               | Laisser la cadence par défaut (aucun suffixe) quand elle convient : les abonnés partagent un minuteur |
-| Rien n'est visible alors que le trafic est réel                              | La sonde n'observe **jamais** ce à quoi personne n'est abonné : un canal sans abonné n'existe pas                  | Ouvrir l'écran ou s'abonner ; c'est le comportement voulu, pas une panne                              |
+| Symptôme                                                                     | Cause                                                                                                                 | Correction                                                                                            |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Le processus ne s'arrête plus, `Ctrl+C` reste sans effet                     | Un minuteur de sonde sans `unref()` retient la boucle d'événements                                                    | `timer.unref()` sur **tout** minuteur de provider, et une fonction de nettoyage qui l'annule          |
+| Le minuteur tourne encore après le départ du dernier abonné                  | Le provider ne rend pas de fonction de nettoyage, ou elle n'annule pas ce qu'il a démarré                             | Toujours rendre une fonction qui annule minuteurs **et** écouteurs                                    |
+| Abonnement à un canal de santé, **rien n'arrive**, aucune erreur             | Canal inconnu du serveur : le provider rend `null`, l'abonnement est refusé en silence (`nodefony:dashboard` typique) | Vérifier le nom exact ; partager une constante entre les deux bords                                   |
+| `publishTotal` grimpe, `fanoutTotal` stagne                                  | Tu publies dans le vide : personne n'est abonné au canal visé                                                         | Comparer le nom publié et le nom souscrit — presque toujours une faute de frappe                      |
+| Deux appels consécutifs à `/api/health` donnent des chiffres contradictoires | En cluster, la requête tombe sur un worker au hasard et rend une vue per-instance                                     | Lire le champ `cluster` ; si absent, la sonde pod est coupée ou en démarrage à froid                  |
+| La mémoire du processus grimpe sans fuite apparente                          | Une sonde alloue à chaque tick, ou un client lent fait grossir la file d'envoi                                        | Lire `backpressure.totalBufferedAmount` ; simplifier le corps du tick                                 |
+| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                  | Cette clé pilote le **comptage** de la sonde ; les seuils d'action sont des constantes du transport                   | Rien à régler : ce comportement n'est pas configurable                                                |
+| La cadence demandée n'est pas respectée                                      | Elle a été **ramenée dans les bornes** du canal, silencieusement                                                      | Lire les bornes du canal ; vérifier le nom réellement souscrit dans `channels[]`                      |
+| Deux abonnés au même canal, deux minuteurs                                   | Ils ont demandé des cadences différentes — un canal cadencé est distinct par cadence                                  | Laisser la cadence par défaut (aucun suffixe) quand elle convient : les abonnés partagent un minuteur |
+| Rien n'est visible alors que le trafic est réel                              | La sonde n'observe **jamais** ce à quoi personne n'est abonné : un canal sans abonné n'existe pas                     | Ouvrir l'écran ou s'abonner ; c'est le comportement voulu, pas une panne                              |
 
 ## 🧪 Tests
 

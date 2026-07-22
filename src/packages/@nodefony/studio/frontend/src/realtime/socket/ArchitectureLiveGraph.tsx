@@ -19,7 +19,7 @@ import { mapArchitectureLive, useSocketLiveData } from "./useSocketLiveData";
  * ArchitectureLiveGraph — schéma "Architecture en couches" de la Socket.
  *
  * Couches : Client → Transport → Peer → Hub → Backplane → Workers.
- * Pattern « 0 ticker quand OFF » : l'abonnement `realtime:health` vit dans
+ * Pattern « 0 ticker quand OFF » : l'abonnement `nodefony:socket` vit dans
  * un sous-composant `<LiveBranch>` monté SEULEMENT si `live={true}`. OFF =
  * pas d'abonnement = pas de ticker côté serveur. Démonter le composant =
  * couper net.
@@ -113,7 +113,7 @@ const EDGES: FlowGraphEdge[] = [
   { source: "backplane", target: "w2", label: "delivery", color: "orange" },
 ];
 
-/** Branche live : abonnement `realtime:health` (ref-compté, démonté = coupé). */
+/** Branche live : abonnement `nodefony:socket` (ref-compté, démonté = coupé). */
 const LiveBranch = observer(({ height }: { height: number }) => {
   const snap = useSocketLiveData();
   const liveNodeData = useMemo(() => mapArchitectureLive(snap), [snap]);

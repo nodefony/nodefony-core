@@ -99,7 +99,7 @@ class LoopbackClientTransport implements IRealtimeTransport {
  * Controller de test : un canal par classe de protection, chacun déclaré via
  * `@RealtimeChannel` (la policy métier voyage jusqu'au verrou). Chaque provider
  * pousse un tick immédiat à l'abonnement → preuve OBSERVABLE de l'abonnement.
- * `syslog:stream` n'a PAS de policy métier : c'est le PLANCHER système (ROLE_ADMIN)
+ * `nodefony:syslog` n'a PAS de policy métier : c'est le PLANCHER système (ROLE_ADMIN)
  * du verrou qui le garde — on prouve qu'un canal réservé est protégé sans rien déclarer.
  */
 class AuthRt extends RealtimeController {
@@ -137,7 +137,7 @@ class AuthRt extends RealtimeController {
     return () => {};
   }
 
-  @RealtimeChannel("syslog:stream")
+  @RealtimeChannel("nodefony:syslog")
   syslogStream(channel: string, publish: RealtimePublish): () => void {
     publish(channel, { ok: true, channel });
     return () => {};
@@ -306,7 +306,7 @@ const CHANNELS: readonly ChannelCase[] = [
     allow: (t) => t.getScopes().includes("metrics:read"),
   },
   {
-    channel: "syslog:stream",
+    channel: "nodefony:syslog",
     kind: "système(ROLE_ADMIN)",
     allow: (t) => hasRole(t.getRoles(), "ROLE_ADMIN"),
   },
@@ -415,7 +415,7 @@ describe("MATRICE E2E — actions RPC fermées par défaut", () => {
     // L'override `realtimeActions()` ne peut pas porter de politique : le défaut
     // fermé doit donc lui être appliqué par le controller, sinon le trou reste
     // entier pour tout code qui n'utilise pas le décorateur (c'est le cas de
-    // Studio, dont `scaffold:run` lance un générateur de code).
+    // Studio, dont `nodefony:scaffold:run` lance un générateur de code).
     const { client } = await connectAs(TOKENS.anon);
     const denials: Array<{ channel: string; reason: string }> = [];
     client.onDenied((d) => denials.push(d));

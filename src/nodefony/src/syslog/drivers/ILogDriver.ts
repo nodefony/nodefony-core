@@ -17,7 +17,7 @@ import type { FlowStepId } from "./pduFlow";
  *   query = scan / API externe. Drivers Node-only enregistrés à part.
  *
  * Le driver actif est sélectionné par {@link logDriverRegistry} (config/env, ou
- * action de contrôle dev-only). Le **bus temps réel** (`syslog:stream`) reste
+ * action de contrôle dev-only). Le **bus temps réel** (`nodefony:syslog`) reste
  * indépendant : il diffuse les Pdu live quel que soit le driver (même non-queryable).
  */
 export interface ILogDriver {
@@ -123,7 +123,7 @@ export interface ILogQueryCriteria {
 
 /**
  * Forme **wire** d'un Pdu (isomorphe) — sérialisation stable partagée par TOUTES
- * les façades (endpoint data-plane, canal `syslog:stream`, drivers). Le front
+ * les façades (endpoint data-plane, canal `nodefony:syslog`, drivers). Le front
  * réhydrate via `Object.assign(new Pdu(""), record)` → une seule logique de rendu.
  * Produite par {@link pduToRecord}.
  */

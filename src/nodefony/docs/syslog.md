@@ -60,7 +60,7 @@ flowchart LR
   OL --> W["coalescing<br/>1 write par tick, cap 64 Kio"]
   W --> SK["sink<br/>stdout · file · null"]
   R -.->|axe RELECTURE| Q["driver queryable<br/>memory · file · cluster-file · loki · opensearch"]
-  OL -.->|axe DIFFUSION| ST["bus « syslog:stream »<br/>écran Logs de Studio"]
+  OL -.->|axe DIFFUSION| ST["bus « nodefony:syslog »<br/>écran Logs de Studio"]
 ```
 
 Trois idées à retenir avant tout le reste :
@@ -765,7 +765,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 L'écran **Logs** (`/nodefony/logs`) explore l'historique via le driver actif ; **Suivi de requête**
 (`/nodefony/logs/trace/:requestId`) rejoue toutes les lignes d'un appel dans l'ordre chronologique.
 
-Le flux temps réel passe par le canal `syslog:stream`, alimenté par un pont **coalescé**
+Le flux temps réel passe par le canal `nodefony:syslog`, alimenté par un pont **coalescé**
 (`createSyslogBridge()`, `providers.ts:146`) : au lieu d'une trame par Pdu, les logs s'accumulent
 dans un ring borné et partent en **une trame agrégée** toutes les 200 ms, avec un compteur de logs
 omis en cas de surcharge. L'interface reste lisible au lieu de se figer. La diffusion se coupe à

@@ -1,8 +1,8 @@
 /**
  * Widgets « Supervision » du bureau — reproduction FIDÈLE des panneaux de la page
  * Supervision (`routes/DashboardSupervision.tsx`), source = canal **riche**
- * `dashboard:supervision` (sonde process per-instance : CPU, ELU, event-loop, mémoire,
- * **GC**, errCount). MONO pour l'instant (le multi-cluster = sonde lean `realtime:health`,
+ * `nodefony:supervision` (sonde process per-instance : CPU, ELU, event-loop, mémoire,
+ * **GC**, errCount). MONO pour l'instant (le multi-cluster = sonde lean `nodefony:socket`,
  * à câbler plus tard). Les mêmes seuils / couleurs / formats que la page.
  *
  *  • `supervision.health` — Santé du framework (indice composite + sliders de poids) ;
@@ -10,10 +10,10 @@
  *  • `supervision.cpu` — Charge CPU (courbe) ;
  *  • `supervision.loop` — Event-loop lag (courbe) ;
  *  • `supervision.gc` — Garbage Collector (pause + cycles) ;
- *  • `orm.flow` — Débit ORM/s PAR connecteur (canal `orm:flow`).
+ *  • `orm.flow` — Débit ORM/s PAR connecteur (canal `nodefony:orm:flow`).
  *
  * Respecte « temps réel calme » : courbes SVG (compositor), `tabular-nums`, valeurs
- * en paliers entiers, abonnement orm:health gaté sur le temps réel.
+ * en paliers entiers, abonnement nodefony:orm:health gaté sur le temps réel.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -48,6 +48,7 @@ import {
 } from "../../utils/health";
 import { Legend, MiniChart } from "../../components/ui";
 import { Metric, useLiveSeries } from "./_kit";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /* ───────────────────────── Types miroir (sonde riche) ───────────────────────── */
 
@@ -58,7 +59,7 @@ interface StatsGc {
   major: number;
   minor: number;
 }
-/** Sonde process riche poussée sur `dashboard:supervision` (sous-ensemble consommé). */
+/** Sonde process riche poussée sur `nodefony:supervision` (sous-ensemble consommé). */
 interface StatsPayload {
   ts: number;
   cpuPercent: number;
@@ -74,7 +75,7 @@ interface StatsPayload {
   elu?: { utilization: number; active: number; idle: number } | null;
   errCount?: number;
 }
-/** Santé ORM live (`orm:health`) — sous-ensemble pour la sonde « Connecteurs ». */
+/** Santé ORM live (`nodefony:orm:health`) — sous-ensemble pour la sonde « Connecteurs ». */
 interface OrmHealthEntry {
   name: string;
   connected: boolean;
@@ -157,13 +158,15 @@ function useErrWindow(
   return sum;
 }
 
-/** Sonde « Connecteurs » (orm:health) — montée seulement quand le temps réel est ON. */
+/** Sonde « Connecteurs » (nodefony:orm:health) — montée seulement quand le temps réel est ON. */
 function ConnSonde({
   onData,
 }: {
   onData: (c: { up: number; total: number }) => void;
 }) {
-  const data = useNodefonyChannelData<OrmHealthEntry[]>("orm:health");
+  const data = useNodefonyChannelData<OrmHealthEntry[]>(
+    PLATFORM_CHANNELS.ormHealth,
+  );
   useEffect(() => {
     if (Array.isArray(data))
       onData({
@@ -599,7 +602,7 @@ function GcBody({ source }: WidgetRenderProps<StatsPayload>) {
 
 /* ─────────────────────────── Débit ORM par connecteur ────────────────────────── */
 
-/** Un connecteur du rapport de flux ORM (canal `orm:flow`). Cumuls monotones. */
+/** Un connecteur du rapport de flux ORM (canal `nodefony:orm:flow`). Cumuls monotones. */
 interface FlowConnector {
   connector: string;
   vendor: string;
@@ -608,7 +611,7 @@ interface FlowConnector {
   maxMs: number;
   slowTotal: number;
 }
-/** Rapport de flux ORM per-instance (`orm:flow` / `GET /orm/api/flow`). */
+/** Rapport de flux ORM per-instance (`nodefony:orm:flow` / `GET /orm/api/flow`). */
 interface FlowReport {
   enabled: boolean;
   ts: number;
@@ -724,7 +727,7 @@ function OrmFlowBody({ source }: WidgetRenderProps<FlowReport>) {
 const SUPERVISION_SRC = {
   kind: "hybrid",
   endpoint: "/nodefony/studio/api/stats",
-  channel: "dashboard:supervision",
+  channel: PLATFORM_CHANNELS.supervision,
 } as const;
 
 registerWidget<StatsPayload>({
@@ -780,13 +783,13 @@ registerWidget<FlowReport>({
   tags: ["orm", "orm-debit", "graphe"],
   title: "Débit ORM par connecteur",
   description:
-    "Requêtes/s dérivées PAR connecteur (courbe multi-séries). Per-instance (canal orm:flow).",
+    "Requêtes/s dérivées PAR connecteur (courbe multi-séries). Per-instance (canal nodefony:orm:flow).",
   category: "orm",
   icon: IconChartHistogram,
   source: {
     kind: "hybrid",
     endpoint: "/nodefony/orm/api/flow",
-    channel: "orm:flow",
+    channel: PLATFORM_CHANNELS.ormFlow,
   },
   defaultSpan: 6,
   minSpan: 4,

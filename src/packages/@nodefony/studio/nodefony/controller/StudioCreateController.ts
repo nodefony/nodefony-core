@@ -22,7 +22,13 @@ import { SCAFFOLD_STEPS } from "../service/ScaffoldService";
  * `resolveScaffoldDestination` : le client choisit une racine par identifiant et un nom,
  * jamais un chemin).
  */
-const STUDIO_TYPES = ["app", "module", "controller", "front", "entity"] as const;
+const STUDIO_TYPES = [
+  "app",
+  "module",
+  "controller",
+  "front",
+  "entity",
+] as const;
 
 /**
  * Data plane du générateur de code (`/nodefony/studio/api/create/*`).
@@ -30,7 +36,7 @@ const STUDIO_TYPES = ["app", "module", "controller", "front", "entity"] as const
  * Il ne sert QUE la matière du formulaire (la spec du moteur, en JSON) et l'état d'un
  * job. **L'exécution passe par le temps réel**, pas par HTTP : un scaffold suivi d'un
  * `npm install` dure des dizaines de secondes, et une réponse HTTP muette pendant tout
- * ce temps n'apprend rien à personne. Le canal `scaffold:job@<id>` streame chaque ligne.
+ * ce temps n'apprend rien à personne. Le canal `nodefony:scaffold:job@<id>` streame chaque ligne.
  *
  * ## Développement uniquement — refusé COTÉ SERVEUR
  *

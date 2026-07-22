@@ -5,7 +5,7 @@ import {
 } from "@nodefony/realtime";
 
 /**
- * Provider du canal **drill ORM cluster** `orm:rich@<pid>` — diagnostic ORM RICHE
+ * Provider du canal **drill ORM cluster** `nodefony:orm:rich@<pid>` — diagnostic ORM RICHE
  * (par connecteur : ping/latence/stockage/pool + flux requêtes) d'UN worker DISTANT du
  * pod (≠ celui qui tient la connexion navigateur). Réutilise le snapshot pod déjà diffusé
  * par le master (voie B1) : aucun nouveau flux de données — juste un champ `ormRich` joint
@@ -27,7 +27,7 @@ import {
  * encore propagé (≤ 1 cycle) → `richPending: true` → le front affiche « préparation du diagnostic ».
  *
  * @param publish - sink du canal (fan-out hub).
- * @param channel - nom complet du canal (`orm:rich@<pid>[:<ms>]`).
+ * @param channel - nom complet du canal (`nodefony:orm:rich@<pid>[:<ms>]`).
  * @param pid - worker distant ciblé.
  * @param intervalMs - cadence de republication (granularité `:<ms>`).
  * @returns `dispose()` — clear l'interval + coupe l'enrichissement ORM. OBLIGATOIRE.

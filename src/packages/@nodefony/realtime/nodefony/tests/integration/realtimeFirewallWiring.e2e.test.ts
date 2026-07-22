@@ -89,7 +89,7 @@ class WiredRt extends RealtimeController {
   constructor(ctx: ContextType) {
     super("wired-rt", ctx);
   }
-  @RealtimeChannel("syslog:stream")
+  @RealtimeChannel("nodefony:syslog")
   onSyslog(channel: string, publish: RealtimePublish): () => void {
     publish(channel, { ok: true, channel });
     return () => {};
@@ -262,23 +262,23 @@ describe("E2E câblage firewall → realtime (chaîne sécu RÉELLE, 0 mock de d
     client.disconnect();
   });
 
-  it("syslog:stream (système ROLE_ADMIN) : ADMIN abonné, USER refusé, ANON refusé", async () => {
+  it("nodefony:syslog (système ROLE_ADMIN) : ADMIN abonné, USER refusé, ANON refusé", async () => {
     const admin = await connectAs(ADMIN);
-    const a = await trySubscribe(admin, "syslog:stream");
-    expect(a.ticks).to.deep.equal([{ ok: true, channel: "syslog:stream" }]);
+    const a = await trySubscribe(admin, "nodefony:syslog");
+    expect(a.ticks).to.deep.equal([{ ok: true, channel: "nodefony:syslog" }]);
     expect(a.denied).to.have.length(0);
     admin.disconnect();
 
     const user = await connectAs(USER);
-    const u = await trySubscribe(user, "syslog:stream");
+    const u = await trySubscribe(user, "nodefony:syslog");
     expect(u.ticks).to.have.length(0);
-    expect(u.denied.map((d) => d.channel)).to.deep.equal(["syslog:stream"]);
+    expect(u.denied.map((d) => d.channel)).to.deep.equal(["nodefony:syslog"]);
     user.disconnect();
 
     const anon = await connectAs(null);
-    const n = await trySubscribe(anon, "syslog:stream");
+    const n = await trySubscribe(anon, "nodefony:syslog");
     expect(n.ticks).to.have.length(0);
-    expect(n.denied.map((d) => d.channel)).to.deep.equal(["syslog:stream"]);
+    expect(n.denied.map((d) => d.channel)).to.deep.equal(["nodefony:syslog"]);
     anon.disconnect();
   });
 
@@ -320,7 +320,7 @@ describe("E2E câblage firewall → realtime (chaîne sécu RÉELLE, 0 mock de d
 
   it("refus ISOLÉ : un USER refusé sur syslog: garde l'accès aux canaux libres", async () => {
     const user = await connectAs(USER);
-    const denied = await trySubscribe(user, "syslog:stream");
+    const denied = await trySubscribe(user, "nodefony:syslog");
     expect(denied.denied).to.have.length(1);
     // La connexion vit : le canal libre fonctionne malgré le refus précédent.
     const ok = await trySubscribe(user, "chat:public");
@@ -333,7 +333,7 @@ describe("F82 — plancher système SANS zone realtime qualifiante (fail-closed)
   // security chargé MAIS aucune zone (`areas: {}`) → dans `#wireRealtime`, `wired`
   // reste false. Avant le correctif, `setFrameAuthorizer` n'était appelé QUE dans la
   // branche `wired` → aucun verrou posé → `runAuthorizer` renvoyait `true` pour TOUTE
-  // frame → les canaux d'introspection système (`syslog:`, `security:audit`, `orm:`…)
+  // frame → les canaux d'introspection système (`syslog:`, `nodefony:audit`, `orm:`…)
   // étaient servis à l'anonyme (F82). Le plancher système ne dépend pas des zones : il
   // doit être armé dès que le hub existe. Les authenticators de session restent, eux,
   // par zone (sans zone = personne n'est authentifié = canaux système fermés à tous).
@@ -345,11 +345,13 @@ describe("F82 — plancher système SANS zone realtime qualifiante (fail-closed)
     });
   });
 
-  it("syslog:stream refusé à l'anonyme même sans zone (plancher système armé)", async () => {
+  it("nodefony:syslog refusé à l'anonyme même sans zone (plancher système armé)", async () => {
     const anon = await connectAs(null);
-    const r = await trySubscribe(anon, "syslog:stream");
+    const r = await trySubscribe(anon, "nodefony:syslog");
     expect(r.ticks).to.have.length(0);
-    expect(r.denied.some((d) => d.channel === "syslog:stream")).to.equal(true);
+    expect(r.denied.some((d) => d.channel === "nodefony:syslog")).to.equal(
+      true,
+    );
     anon.disconnect();
   });
 

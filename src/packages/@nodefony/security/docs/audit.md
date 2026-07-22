@@ -63,7 +63,7 @@ flowchart LR
   SVC --> ST["IAuditStore.append()<br/>memory | drizzle"]
   SVC --> LIVE["subscribe()<br/>abonnés live"]
   LIVE --> BR["createAuditBridge<br/>batch coalescé 250 ms"]
-  BR --> CH["canal WS security:audit<br/>ROLE_NODEFONY_ADMIN"]
+  BR --> CH["canal WS nodefony:audit<br/>ROLE_NODEFONY_ADMIN"]
   LIVE --> WH["WebhookDispatcher<br/>webhooks sortants"]
   ST --> API["GET /nodefony/security/api/audit/events<br/>page filtrée par curseur"]
   API --> UI["Studio — Journal d'audit"]
@@ -540,7 +540,7 @@ Quatre pièces, quatre responsabilités :
 - **`IAuditStore`** (`IAuditStore.ts:48`) — le contrat de persistance : `append`, `listPage`, `gc`.
   **`append` est la seule écriture** : ni `update`, ni `delete` ciblé. L'immuabilité EST la garantie
   d'audit.
-- **`createAuditBridge()`** (`auditBridge.ts:53`) — le pont vers le canal WS `security:audit`
+- **`createAuditBridge()`** (`auditBridge.ts:53`) — le pont vers le canal WS `nodefony:audit`
   (`auditBridge.ts:8`), enregistré comme canal **système** par le firewall (`firewall.ts:322`) et donc
   gardé par le plancher `security:` → `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:106`).
 
@@ -665,7 +665,7 @@ L'écran **Sécurité → Journal d'audit** (`Audit.tsx:62`) consomme le data pl
 - un tableau filtrable par heure, catégorie, action, issue, acteur, raison et IP (`Audit.tsx:227`) ;
 - un indicateur du **store réellement résolu** pour la brique `audit`, alimenté par la publication de
   résolution du service (`auditService.ts:139`) ;
-- un interrupteur **Temps réel** qui s'abonne au canal `security:audit` (`AuditLive.tsx:20`) — pensé
+- un interrupteur **Temps réel** qui s'abonne au canal `nodefony:audit` (`AuditLive.tsx:20`) — pensé
   pour les pics d'activité : un journal d'audit se consulte, il ne se regarde pas défiler ;
 - un renvoi vers la **trace de requête** quand l'événement porte un `requestId`, ce qui recolle
   l'événement de sécurité à toute la vie de la requête.

@@ -95,7 +95,7 @@ function BackplaneBody({ source }: WidgetRenderProps<BackplaneMeta>) {
         </Group>
       </Box>
 
-      {/* Temps réel — diffusion live sur le bus syslog:stream (indépendant). */}
+      {/* Temps réel — diffusion live sur le bus nodefony:syslog (indépendant). */}
       <Box>
         <Group gap={6} mb={4} wrap="nowrap">
           <ThemeIcon variant="light" color="teal" size="sm" radius="md">
@@ -110,7 +110,7 @@ function BackplaneBody({ source }: WidgetRenderProps<BackplaneMeta>) {
           color={streamEnabled ? "teal" : "gray"}
           tt="none"
         >
-          {streamEnabled ? "syslog:stream actif" : "diffusion coupée"}
+          {streamEnabled ? "nodefony:syslog actif" : "diffusion coupée"}
         </Badge>
       </Box>
 

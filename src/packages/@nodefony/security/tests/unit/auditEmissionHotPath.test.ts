@@ -309,7 +309,7 @@ describe("frameAuthorizer — rapporteur onDeny (cold-path)", () => {
     const user: IRealtimeToken = { ...ADMIN_WS, getRoles: () => ["ROLE_USER"] };
     assert.equal(
       authorize(
-        { method: "subscribe", params: { channel: "syslog:stream" } },
+        { method: "subscribe", params: { channel: "nodefony:syslog" } },
         user,
       ),
       false,
@@ -317,7 +317,7 @@ describe("frameAuthorizer — rapporteur onDeny (cold-path)", () => {
     assert.equal(calls.length, 1);
     assert.deepEqual(
       [calls[0]![0], calls[0]![1], calls[0]![2]],
-      ["channel", "syslog:stream", "channel_policy"],
+      ["channel", "nodefony:syslog", "channel_policy"],
     );
   });
 
@@ -330,7 +330,7 @@ describe("frameAuthorizer — rapporteur onDeny (cold-path)", () => {
     // admin sur canal système : autorisé ; canal libre : autorisé.
     assert.equal(
       authorize(
-        { method: "subscribe", params: { channel: "syslog:stream" } },
+        { method: "subscribe", params: { channel: "nodefony:syslog" } },
         ADMIN_WS,
       ),
       true,

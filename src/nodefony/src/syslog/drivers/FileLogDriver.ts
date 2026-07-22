@@ -43,7 +43,7 @@ export function createFileLogDriver(options: FileLogDriverOptions): ILogDriver {
     name: "file",
     // write:true = persistant (≠ ring volatile memory) ; query:true = relecture
     // filtrée ; stream:false = un fichier n'alimente pas le tap temps réel (le bus
-    // syslog:stream reste indépendant du driver de relecture).
+    // nodefony:syslog reste indépendant du driver de relecture).
     capabilities: { write: true, query: true, stream: false },
     query: async (criteria: ILogQueryCriteria) => {
       const records = await scanJsonlTail(path, maxScanBytes);

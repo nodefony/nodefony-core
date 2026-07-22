@@ -1,7 +1,7 @@
 /**
  * Widgets de détail SYSTÈME / ERREURS — reproduisent les onglets « Mémoire »,
  * « Système » (ressources actives) et « Erreurs » de la page Supervision, à partir
- * de la sonde riche `dashboard:supervision` (`heapSpaces`, `handles`, `errCount` —
+ * de la sonde riche `nodefony:supervision` (`heapSpaces`, `handles`, `errCount` —
  * live-only, null en snapshot comme `gc`). MONO pour l'instant.
  *
  *  • `supervision.memory`  — espaces du heap V8 (new/old/code…), barres used/size ;
@@ -19,6 +19,7 @@ import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
 import { MiniChart } from "../../components/ui";
 import { Metric, useLiveSeries } from "./_kit";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 /* ───────────────────────── Types miroir (sonde riche) ───────────────────────── */
 
@@ -295,7 +296,7 @@ function ErrorsBody({ source, ctx }: WidgetRenderProps<StatsPayload>) {
 const SRC = {
   kind: "hybrid",
   endpoint: "/nodefony/studio/api/stats",
-  channel: "dashboard:supervision",
+  channel: PLATFORM_CHANNELS.supervision,
 } as const;
 
 registerWidget<StatsPayload>({
