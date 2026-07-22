@@ -388,7 +388,8 @@ DI scopes (singleton/transient), lifecycle session.
 | 🔶 P13.2  | `@nodefony/redis` refactor                       | fondation conventions faite ; 15 tests                                                              |
 | ✅ P13.4  | `IRealtimeHub` + `RealtimeService`               | façade + `defineRealtimeConfig` Zod                                                                 |
 | ✅ P13.5  | `RedisBackplane`                                 | **prouvé cluster live -w2** ; registre drivers ; **bus authentifié (sceau HMAC) + banc multi-apps** |
-| ⬜ P13.6  | `KafkaRealtimeHub`                               | apps massives + bus agents IA                                                                       |
+| ⬜ P13.6a | `KafkaBackplane` (driver seul)                   | 4 briques réutilisées telles quelles ; seam transport injectable, 0 dep ajoutée                     |
+| ⬜ P13.6b | Module `@nodefony/kafka`                         | connexions + config + santé ; **attend un 2ᵉ consommateur** (bus events métier / P12 agents)        |
 | ✅ P13.7  | Protocole JSON-RPC 2.0 + types partagés          | RPC bidirectionnel ; long-polling droppé                                                            |
 | 🔶 P13.8  | Décorateurs `@RealtimeAction`/`@RealtimeChannel` | 3 décorateurs livrés ; reste pattern RegExp                                                         |
 | ✅ P13.9  | Tests cluster simulé (IPC)                       | e2e `child_process.fork`, 5 tests                                                                   |
@@ -400,6 +401,20 @@ DI scopes (singleton/transient), lifecycle session.
 > - ✅ **#1 + #2 RÉSOLUES (`c082560`, 2026-06-12)** : `resolveBackplaneOriginId()` = `(POD_NAME ?? hostname):pid` (anti-écho fiable cross-pod k8s) + champ `backplane.namespace` (Zod) → canal `nodefony:realtime:<ns>` dérivé de `kernel.projectName` (fin du cross-talk multi-app Redis mutualisé). +9 tests.
 > - ⬜ **#3 (moyenne)** Frontière inter-module des canaux — design figé 2026-06-05 (`@RealtimeNamespace` + garde `#channelAllowed`, posture WARN → fail-closed avec P6). **Attend P6.** Détail : `realtime-module-isolation-2026-06-05` (mémoire IA `core-dev/audits/`).
 > - ⬜ **Banc de conformité ventilation** (prouve le drop-in `IBackplane`) : scénarios paramétrés par driver (loopback/IPC/redis/kafka), comportement identique. Matrice : audit isolation § Banc de conformité.
+
+> **P13.6 — cadrage Kafka** (design complet : mémoire IA `project_kafka_backplane_kit`) : le coût n'est PAS
+> le driver. Quatre briques se réutilisent telles quelles — admission par canal (elle vit dans le **hub**,
+> aucun driver ne s'y soustrait), sceau HMAC (`envelope.ts`, déjà mutualisé pour les transports partagés),
+> `originId` anti-écho, file d'envoi bornée (`publishQueue.ts`). Ce qui change est la **sémantique** : Kafka
+> est un journal persistant partitionné, pas un pub/sub éphémère → **un groupe de consommation par pod**
+> (sinon les partitions se répartissent et un message broadcast n'atteint qu'UN pod — fan-out cassé en
+> silence) et lecture depuis `latest` (jamais `earliest` : le port est at-most-once, le client
+> re-synchronise). Le vrai coût est **P13.6b** : Redis a un module qui porte connexions/config/santé,
+> Kafka n'en a aucun. D'où la séparation — 6a livre le driver avec un seam injectable (l'app câble son
+> client, 0 dépendance ajoutée à realtime, testable sans infra) ; 6b ne se déclenche qu'avec un **2ᵉ**
+> consommateur. Choix de bibliothèque volontairement **reporté** au banc de 6a (le seam le rend
+> indolore). ⚠️ Tant que 6a n'est pas livré, le littéral `"kafka"` reste **interdit** dans le registre de
+> drivers (`backplaneRegistry.test.ts` le garde) : pas de nom mort.
 
 ### P14 — Frontend Vite + Core isomorphe (75 %)
 
