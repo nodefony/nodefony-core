@@ -655,17 +655,27 @@ const webhooksSchema = z
     signAlg: z
       .enum(["sha256"])
       .default("sha256")
-      .describe(
-        "Schéma de signature Standard Webhooks v1 (HMAC-SHA256). Slot Ed25519 (v1a) réservé.",
-      ),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE — l'algorithme de signature est fixé à HMAC-SHA256 " +
+          "(`webhookSignature.ts` `signStandardWebhook`). La seule valeur admise " +
+          "(`sha256`) est déjà le comportement réel ; le slot Ed25519 " +
+          "(Standard Webhooks v1a) n'est pas implémenté.",
+      }),
     timestampToleranceS: z
       .number()
       .int()
       .positive()
       .default(300)
-      .describe(
-        "Fenêtre anti-replay du webhook-timestamp (s, Standard Webhooks).",
-      ),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE côté ÉMETTEUR — Nodefony estampille `webhook-timestamp` mais " +
+          "la fenêtre anti-rejeu est appliquée par le RÉCEPTEUR (Standard " +
+          "Webhooks). Le framework n'a pas de vérificateur récepteur : ce " +
+          "réglage ne borne rien ici.",
+      }),
     denyPrivateIps: z
       .boolean()
       .default(true)
@@ -737,11 +747,23 @@ const auditSchema = z
     immutable: z
       .boolean()
       .default(true)
-      .describe("Journal append-only (tamper-evident)."),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE — l'immuabilité du journal vient du contrat `IAuditStore` " +
+          "(aucune méthode `update`/`delete`), pas de ce drapeau. Le passer à " +
+          "`false` n'ouvre aucune mutation.",
+      }),
     stream: z
       .boolean()
       .default(true)
-      .describe("Diffusion realtime WS vers Studio."),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE — la diffusion realtime dépend de la présence d'abonnés WS " +
+          "(canal `nodefony:audit`), pas de ce drapeau. Le journal est diffusé " +
+          "dès qu'un client s'abonne.",
+      }),
     retentionDays: z.number().int().default(365),
   })
   .describe("Journal d'audit sécurité (login, accès refusé, clés, webhooks).");
@@ -769,7 +791,13 @@ const studioSchema = z
     auditAllActions: z
       .boolean()
       .default(true)
-      .describe("Audit de CHAQUE action mutante de la console."),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE — l'audit des mutations admin est posé point par point par " +
+          "`SecurityAdminApi` (certaines mutations émettent, pas toutes) ; ce " +
+          "drapeau ne pilote aucune couverture globale.",
+      }),
   })
   .describe(
     "Sécurité de la console Studio — durcissement exposition publique.",
