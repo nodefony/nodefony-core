@@ -56,7 +56,12 @@ class ChatController extends RealtimeController {
   /** Rafale de N publications (banc de charge cross-pod). */
   @route("chat-burst", { path: "/burst", requirements: { methods: ["GET"] } })
   async burst(): Promise<unknown> {
-    const n = Number(this.context.query?.n ?? 100);
+    // La query vit sur la REQUÊTE (`request.query`), pas sur le contexte : un
+    // `context.query` inexistant retombe silencieusement sur la valeur par
+    // défaut — la rafale paraît lancée, elle ne publie que 100 messages.
+    const q = this.context.request?.query as
+      Record<string, unknown> | undefined;
+    const n = Number(q?.n ?? 100);
     const hub = getRealtimeHub();
     const started = Date.now();
     for (let i = 0; i < n; i++) {

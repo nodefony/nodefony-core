@@ -95,11 +95,20 @@ Tous les scripts vivent dans `scripts/` et se lancent depuis le dossier du banc.
 | `pubcost.mjs` | coût de publication (médiane)      | `node pubcost.mjs <portTx> 9`               |
 | `soak.mjs`    | charge par paliers de connexions   | `node soak.mjs <portRx> <portTx> 50,200 30` |
 | `forge.mjs`   | enveloppe scellée d'attaquant      | `node forge.mjs <canal> <secret>`           |
+| `mempeak.sh`  | pic mémoire pendant une rafale     | `bash mempeak.sh <portTx> 1000000`          |
 
 **Lire les chiffres correctement** : `bench.mjs` publie en rafale, donc sa latence mesure
 surtout le backlog de livraison — c'est une mesure de **débit**. La latence du chemin se lit
 sur `latency.mjs`, qui espace les messages. Toujours prendre la **médiane de plusieurs runs**,
 jamais un tir isolé.
+
+**Mesurer une mémoire, c'est mesurer un pic, et comparer deux configurations.** Un `ps` avant/après
+voit le retour à la normale, pas l'accident : `mempeak.sh` échantillonne pendant la rafale. Et un
+pic seul ne dit rien — il faut le second tir avec le garde-fou désarmé. Exemple vécu sur la file
+d'envoi du backplane, 1 M de publications synchrones depuis un pod : **388 MB** de pic avec la
+borne à 8 MiB, **3 231 MB** avec `maxQueueBytes: 0`. Le détail qui tranche le débat : dans les deux
+cas ~1 M de messages sont perdus (le bus ne suit pas), mais sans borne on paie 3,2 Go pour perdre
+exactement les mêmes.
 
 Ordre de grandeur observé sur deux pods d'une même machine, Redis en conteneur : latence
 bout-en-bout de quelques millisecondes, 50 000 livraisons sans perte, publication de 100
