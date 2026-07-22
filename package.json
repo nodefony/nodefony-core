@@ -26,6 +26,7 @@
     "build:all": "npm run build && npm run build:front",
     "clean": "turbo run clean && rimraf dist",
     "test": "turbo run build && turbo run test",
+    "posttest": "node -e \"console.log('\\n\\x1b[33m⚠  npm test = suites unitaires seules — ni serveur, ni base.\\n   Image complète (infra + intégration) : \\x1b[1mnpm run test:all\\x1b[0m\\x1b[33m\\x1b[0m\\n')\"",
     "test:all": "tsx scripts/test-all.ts",
     "test:integration": "turbo run build && turbo run test:integration",
     "test:load": "turbo run build && turbo run test:load",

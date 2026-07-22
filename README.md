@@ -156,15 +156,15 @@ surfaces : il a fallu **concevoir** les attaques.
 
 ## Qualité — ce qui est réellement verrouillé
 
-|                                             |                                                                                                                                                            |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **4 885 tests verts**                       | `npm test`, 15 espaces de travail, dont 120 cas d'attaque — auxquels s'ajoutent les suites lancées à part (`test:memory`, `test:load`, `test:integration`) |
-| **TypeScript strict**                       | dans les 14 espaces de travail ; aucun ne le désactive                                                                                                     |
-| **0 `@ts-ignore`**                          | aucun avertissement du compilateur n'est mis sous le tapis                                                                                                 |
-| **`@ts-expect-error` : uniquement en test** | ils y sont des **assertions** — ils prouvent qu'un type _refuse_ ce qu'il doit refuser                                                                     |
-| **ESM à 100 %**                             | préfixe `node:` sur 99,5 % des imports natifs                                                                                                              |
-| **0 FIXME**                                 | et une poignée de `TODO`, tous rattachés à une phase de la feuille de route                                                                                |
-| **Intégration continue**                    | Linux / macOS / Windows × Node 24 et 26 — build, typecheck, tests unitaires, intégration sur serveur réel, CodeQL quotidien                                |
+|                                             |                                                                                                                                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **7 696 tests verts**                       | `npm run test:all` — infrastructure réelle comprise (PostgreSQL, MySQL, MariaDB, MongoDB, Redis), dont 120 cas d'attaque. `npm test` seul en couvre 6 042 : il n'ouvre ni serveur ni base |
+| **TypeScript strict**                       | dans les 14 espaces de travail ; aucun ne le désactive                                                                                                                                    |
+| **0 `@ts-ignore`**                          | aucun avertissement du compilateur n'est mis sous le tapis                                                                                                                                |
+| **`@ts-expect-error` : uniquement en test** | ils y sont des **assertions** — ils prouvent qu'un type _refuse_ ce qu'il doit refuser                                                                                                    |
+| **ESM à 100 %**                             | préfixe `node:` sur 99,5 % des imports natifs                                                                                                                                             |
+| **0 FIXME**                                 | et une poignée de `TODO`, tous rattachés à une phase de la feuille de route                                                                                                               |
+| **Intégration continue**                    | Linux / macOS / Windows × Node 24 et 26 — build, typecheck, tests unitaires, intégration sur serveur réel, CodeQL quotidien                                                               |
 
 **Une méthode peu commune, qui mérite d'être signalée :** le dépôt **versionne des seuils de fuite
 mémoire et de charge**, opposables à chaque exécution — 1 000 requêtes HTTP sous 35 Mo de _heap_ ;
@@ -312,11 +312,19 @@ Les contributions sont bienvenues. Le dépôt impose les _Conventional Commits_ 
 un `build` + `typecheck` complet avant chaque _push_.
 
 ```bash
-npm test              # 4 885 cas, sur les 15 espaces de travail
+npm run test:all      # TOUT : conteneurs, build, suites unitaires et d'intégration (~7 700 cas)
+npm run test:all -- --infra      # l'état de l'infrastructure, sans lancer un test
+npm run test:all -- --dialects   # rejoue les suites ORM sur MySQL Community
+
+npm test              # suites unitaires seules (6 042 cas) — ni serveur ni base
 npm run typecheck
 npm run test:memory   # seuils de fuite mémoire
 npm run test:load     # charge HTTP et WebSocket (serveur requis)
 ```
+
+`test:all` démarre les conteneurs manquants, pose les variables d'environnement à votre place, et
+clôt par un état de ce qui a **réellement** été exercé — en nommant les cibles qu'il n'a pas pu
+atteindre. Un test sauté compte comme vert : sans cet état, une suite verte ne dit pas grand-chose.
 
 La branche `claude-ts` est la ligne de développement active. Pour toute contribution substantielle,
 ouvrez d'abord une discussion sur l'architecture.
