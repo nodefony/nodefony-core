@@ -120,6 +120,18 @@ export interface IRealtimeService {
    */
   resolveChannelPolicy?(channel: string): IChannelPolicy | null;
   /**
+   * Namespaces de canaux **réservés à la plateforme**, tels que le hub les connaît
+   * (`syslog:`, `orm:`, `kernel:`…). Le firewall y accroche ses politiques au lieu
+   * d'en tenir un second inventaire : deux listes auraient divergé au premier
+   * namespace ajouté côté realtime, et le namespace neuf serait resté **sans
+   * politique** — un trou silencieux. Le hub possède la liste, la sécurité possède
+   * les rôles.
+   *
+   * Optionnel : un hub d'une version antérieure ne l'expose pas → repli sur la
+   * liste locale ({@link RESERVED_FLOOR_PREFIXES}).
+   */
+  reservedSystemPrefixes?(): readonly string[];
+  /**
    * Seam canal SYSTÈME (P6.14 lot 4) — enregistre la factory d'un canal plateforme
    * (`security:audit`) sur le hub, sans qu'aucun controller ne le connaisse. Lazy :
    * le provider est créé au 1ᵉʳ abonné, `dispose` au dernier. Optionnel : un hub

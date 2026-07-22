@@ -28,6 +28,7 @@ function health(over: Partial<IRealtimeHealth> = {}): IRealtimeHealth {
     fanoutTotal: 0,
     inboundTotal: 0,
     ingressRejectedTotal: 0,
+    systemFloorDeniedTotal: 0,
     connectionCount: 0,
     bytesSentTotal: 0,
     messagesSentTotal: 0,

@@ -40,6 +40,8 @@ import ServerRealtimeSocket, {
 import RealtimeHub, {
   getRealtimeHub,
   SLOW_CONSUMER_BYTES,
+  RESERVED_SYSTEM_PREFIXES,
+  isReservedSystemChannel,
 } from "./nodefony/src/server/RealtimeHub";
 import LoopbackBackplane from "./nodefony/src/backplane/LoopbackBackplane";
 import RedisBackplane, {
@@ -406,6 +408,8 @@ export {
   RealtimeHub,
   getRealtimeHub,
   SLOW_CONSUMER_BYTES,
+  RESERVED_SYSTEM_PREFIXES,
+  isReservedSystemChannel,
   LoopbackBackplane,
   ClusterBackplane,
   RedisBackplane,

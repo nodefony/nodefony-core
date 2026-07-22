@@ -130,13 +130,37 @@ export const RESERVED_FLOOR_PREFIXES = [
  * {@link SYSTEM_CHANNEL_POLICY}. Le firewall y préfixe les règles issues de la
  * config (qui gagnent par ordre).
  */
-export const DEFAULT_SYSTEM_RULES: readonly ISystemChannelRule[] = [
-  { prefix: "security:", policy: SECURITY_CHANNEL_POLICY },
-  ...DEFAULT_SYSTEM_PREFIXES.map((prefix) => ({
-    prefix,
-    policy: SYSTEM_CHANNEL_POLICY,
-  })),
-];
+export const DEFAULT_SYSTEM_RULES: readonly ISystemChannelRule[] =
+  buildSystemRules(RESERVED_FLOOR_PREFIXES);
+
+/**
+ * Construit les règles système à partir d'une liste de namespaces réservés.
+ *
+ * Sépare la LISTE (quels namespaces sont réservés — propriété du hub realtime,
+ * qui sert ces canaux) de la POLITIQUE (quels droits — propriété de la sécurité).
+ * Le firewall appelle donc cette fabrique avec la liste que le hub lui donne, et
+ * ne redéclare rien : un namespace ajouté côté realtime hérite automatiquement
+ * d'une politique, au lieu de rester ouvert sans que personne ne le remarque.
+ *
+ * `security:` est placé EN TÊTE (premier match gagnant) : son plancher est plus
+ * haut que celui des autres namespaces d'observabilité.
+ *
+ * @param prefixes - namespaces réservés (ordre indifférent).
+ * @returns les règles, `security:` d'abord.
+ */
+export function buildSystemRules(
+  prefixes: readonly string[],
+): readonly ISystemChannelRule[] {
+  const rules: ISystemChannelRule[] = [];
+  if (prefixes.includes("security:")) {
+    rules.push({ prefix: "security:", policy: SECURITY_CHANNEL_POLICY });
+  }
+  for (const prefix of prefixes) {
+    if (prefix === "security:") continue;
+    rules.push({ prefix, policy: SYSTEM_CHANNEL_POLICY });
+  }
+  return rules;
+}
 
 /**
  * `s` commence-t-il par `prefix`, comparaison INSENSIBLE À LA CASSE (ASCII) et

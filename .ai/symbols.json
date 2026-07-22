@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-22T08:56:40.797Z",
+  "generated": "2026-07-22T09:30:36.832Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1033,
-    "symbols": 2806,
+    "symbols": 2810,
     "classes": 328,
     "interfaces": 736,
     "types": 326,
     "enums": 4,
-    "functions": 838,
-    "constants": 574
+    "functions": 841,
+    "constants": 575
   },
   "symbols": {
     "Cli": {
@@ -17676,6 +17676,14 @@
       "module": "@nodefony/realtime",
       "description": "Fabrique le provider PARTAGÉ d'un canal (listener/ticker qui pousse via `publish`). Appelée UNE fois, au 1ᵉʳ abonné. Renvoie son `dispose` (appelé au dernier désabonné) ou `null` si le canal est in…"
     },
+    "isReservedSystemChannel": {
+      "name": "isReservedSystemChannel",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Le canal appartient-il à un namespace réservé à la plateforme ?"
+    },
     "getRealtimeHub": {
       "name": "getRealtimeHub",
       "kind": "function",
@@ -17691,6 +17699,14 @@
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Seuil d'alerte slow-consumer (octets de `bufferedAmount`). Au-delà, la connexion est comptée comme « lente » par la sonde (PAS encore de drop/close — la sonde MESURE avant qu'on optimise : stringif…"
+    },
+    "RESERVED_SYSTEM_PREFIXES": {
+      "name": "RESERVED_SYSTEM_PREFIXES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "**Namespaces de canaux RÉSERVÉS À LA PLATEFORME.** Ces préfixes exposent l'état interne du pod : journaux, requêtes de base, métriques process, supervision, contrôle du noyau, journal d'audit. Aucu…"
     },
     "REVOCATION_REVALIDATE_MS": {
       "name": "REVOCATION_REVALIDATE_MS",
@@ -18301,6 +18317,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Rapporteur de refus de frame (journal d'audit P6.14) — invoqué UNIQUEMENT quand le verrou refuse une frame (cold-path : frames refusées rares). Le chemin autorisé (`return true`) ne l'appelle JAMAI…"
+    },
+    "buildSystemRules": {
+      "name": "buildSystemRules",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Construit les règles système à partir d'une liste de namespaces réservés. Sépare la LISTE (quels namespaces sont réservés — propriété du hub realtime, qui sert ces canaux) de la POLITIQUE (quels dr…"
     },
     "buildFrameAuthorizer": {
       "name": "buildFrameAuthorizer",
@@ -21737,6 +21761,13 @@
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "SLOW_CONSUMER_BYTES": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "RESERVED_SYSTEM_PREFIXES": [
+        "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
+      "isReservedSystemChannel": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
       "LoopbackBackplane": [
@@ -25180,6 +25211,9 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "DEFAULT_SYSTEM_RULES": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "buildSystemRules": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "ISystemChannelRule": [

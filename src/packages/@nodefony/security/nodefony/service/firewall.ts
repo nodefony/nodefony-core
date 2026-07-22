@@ -37,6 +37,7 @@ import { SessionRealtimeAuthenticator } from "../src/authenticator/SessionRealti
 import {
   buildFrameAuthorizer,
   DEFAULT_SYSTEM_RULES,
+  buildSystemRules,
   type ISystemChannelRule,
 } from "../src/realtime/frameAuthorizer";
 import { recordAudit } from "../src/audit/recordAudit";
@@ -294,10 +295,17 @@ class Firewall extends Service implements IFirewall {
         scopes: r.scopes,
       },
     }));
-    const systemRules =
-      configRules.length > 0
-        ? [...configRules, ...DEFAULT_SYSTEM_RULES]
+    // La LISTE des namespaces réservés vient du hub (il possède l'espace de nommage
+    // des canaux, et les ferme lui-même quand aucune sécurité n'est chargée) ; la
+    // POLITIQUE reste ici. Un hub d'une version antérieure ne l'expose pas → repli
+    // sur la liste locale, jamais d'absence de plancher.
+    const reserved = realtime.reservedSystemPrefixes?.();
+    const defaultRules =
+      reserved && reserved.length > 0
+        ? buildSystemRules(reserved)
         : DEFAULT_SYSTEM_RULES;
+    const systemRules =
+      configRules.length > 0 ? [...configRules, ...defaultRules] : defaultRules;
     // Journal d'audit (P6.14 lot 2b) : tout refus de frame WS est une transition
     // de sécurité (api.request sur zone gardée, canal interdit). La closure n'est
     // tirée QUE sur refus (cold) → 0 coût sur le hot-path WS. La frame ne porte ni

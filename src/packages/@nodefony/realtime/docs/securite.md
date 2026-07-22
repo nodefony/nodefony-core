@@ -358,6 +358,45 @@ secret, aucun claim d'un tiers.
 
 C'est le verrou le plus important et celui dont les limites doivent être les mieux comprises.
 
+### Et si le module de sécurité n'est pas chargé du tout ?
+
+La question mérite d'être posée avant la mécanique, parce que la réponse a longtemps été mauvaise.
+Sans `@nodefony/security`, personne ne pose de décideur : le hub laissait alors passer **tout**, y
+compris les canaux qui décrivent l'intérieur du serveur — journaux, requêtes de base, métriques,
+supervision. Un tableau de bord anonyme lisait les journaux du pod.
+
+Le hub applique donc son **propre plancher**, qui ne dépend d'aucun module : tant qu'aucun verrou
+n'est posé, une connexion cliente ne peut pas s'abonner à un canal de plateforme.
+
+| Namespace                                                       | Ce qu'il expose             |
+| --------------------------------------------------------------- | --------------------------- |
+| `security:`                                                     | journal d'audit             |
+| `syslog:`                                                       | journaux du serveur         |
+| `orm:`                                                          | requêtes et santé des bases |
+| `node:` · `cluster:` · `dashboard:` · `debugbar:` · `realtime:` | métriques et supervision    |
+| `kernel:`                                                       | contrôle du pod             |
+
+Le raisonnement tient en une phrase : **sans module de sécurité, aucune identité n'existe**, donc
+personne ne peut prouver qu'il a le droit de lire ces canaux — le seul état sûr est le refus. Les
+canaux applicatifs (`chat:`, le vôtre) ne sont pas concernés : une application sans authentification
+continue de fonctionner.
+
+Trois conséquences pratiques :
+
+- Le client **reçoit** `realtime:denied` avec le motif `forbidden` — il n'attend pas dans le vide.
+- Le serveur **journalise une fois** au premier refus, en expliquant comment ouvrir (charger
+  `@nodefony/security` et déclarer une zone protégée). Un écran vide doit toujours avoir une cause
+  lisible quelque part.
+- La sonde compte les refus (`systemFloorDeniedTotal`), ce qui distingue « configuration
+  incomplète » de « quelqu'un insiste ».
+
+Dès qu'un module de sécurité pose son verrou, ce plancher s'efface : c'est le verrou qui décide,
+avec les rôles — ce que le hub, seul, ne sait pas faire.
+
+> [!NOTE]
+> Un service **du serveur** qui s'abonne à ses propres journaux n'est pas concerné : il ne passe pas
+> par la porte des connexions clientes. Le plancher vise le réseau, pas le code local.
+
 ### La chaîne complète
 
 ```mermaid

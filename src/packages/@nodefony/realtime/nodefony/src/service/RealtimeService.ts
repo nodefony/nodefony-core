@@ -2,6 +2,7 @@ import { Service, Container, Event, Module, type JsonRpcPeer } from "nodefony";
 
 import {
   getRealtimeHub,
+  RESERVED_SYSTEM_PREFIXES,
   type RealtimeHub,
   type ChannelFactory,
   type ChannelSink,
@@ -179,6 +180,20 @@ class RealtimeService extends Service {
    */
   registerSystemChannel(channel: string, factory: ChannelFactory): void {
     this.getHub().registerSystemChannel(channel, factory);
+  }
+
+  /**
+   * Namespaces de canaux **réservés à la plateforme** — la liste que le hub ferme
+   * lui-même en l'absence de module de sécurité.
+   *
+   * Exposée pour qu'un module de sécurité y attache ses politiques **sans
+   * redéclarer la liste** : deux inventaires auraient divergé au premier namespace
+   * ajouté, et la divergence serait passée inaperçue (un namespace neuf resterait
+   * simplement sans politique). Ici, le hub possède la liste, la sécurité possède
+   * les rôles.
+   */
+  reservedSystemPrefixes(): readonly string[] {
+    return RESERVED_SYSTEM_PREFIXES;
   }
 
   /** Snapshot d'observabilité du hub local (consommé par `/nodefony/realtime/api/health`). */

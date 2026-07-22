@@ -59,6 +59,66 @@ interface RegisteredAuthenticator {
 export const SLOW_CONSUMER_BYTES = 1 << 20; // 1 MiB
 
 /**
+ * **Namespaces de canaux RÉSERVÉS À LA PLATEFORME.** Ces préfixes exposent l'état
+ * interne du pod : journaux, requêtes de base, métriques process, supervision,
+ * contrôle du noyau, journal d'audit. Aucun n'appartient au métier d'une
+ * application — ils décrivent le serveur lui-même.
+ *
+ * La liste vit **ici** parce que le hub est propriétaire de l'espace de nommage
+ * des canaux : c'est lui qui les sert. `@nodefony/security`, quand il est chargé,
+ * y attache des POLITIQUES (quels rôles) qu'il lit sur cette liste via la surface
+ * de service — il ne la redéclare pas. Deux listes auraient divergé au premier
+ * namespace ajouté.
+ *
+ * Sans module de sécurité, ces canaux sont **fermés** aux connexions clientes
+ * (cf {@link RealtimeHub.subscribeClient}) : aucune identité n'existe alors, donc
+ * personne ne peut prouver qu'il a le droit de les lire.
+ */
+export const RESERVED_SYSTEM_PREFIXES = [
+  "security:", // journal d'audit
+  "syslog:", // journaux serveur
+  "orm:", // santé, flux et requêtes de base
+  "node:", // métriques du process
+  "dashboard:", // supervision du cluster
+  "debugbar:", // barre de debug
+  "realtime:", // sonde de la socket
+  "cluster:", // sonde du cluster
+  "kernel:", // contrôle du pod (déclenchement de GC, liveness)
+] as const;
+
+/**
+ * `s` commence-t-il par `prefix`, **insensible à la casse** et sans allocation ?
+ *
+ * La casse doit être neutralisée : sinon `SYSLOG:stream` échapperait au plancher
+ * que `syslog:stream` subit — un contournement d'un `toUpperCase()`. Comparaison
+ * caractère par caractère plutôt que `toLowerCase()` : ce test est sur le chemin
+ * d'abonnement, on n'y alloue pas de chaîne.
+ */
+function startsWithCI(s: string, prefix: string): boolean {
+  if (s.length < prefix.length) return false;
+  for (let i = 0; i < prefix.length; i += 1) {
+    let a = s.charCodeAt(i);
+    if (a >= 65 && a <= 90) a += 32;
+    let b = prefix.charCodeAt(i);
+    if (b >= 65 && b <= 90) b += 32;
+    if (a !== b) return false;
+  }
+  return true;
+}
+
+/**
+ * Le canal appartient-il à un namespace réservé à la plateforme ?
+ *
+ * @param channel - nom du canal demandé (suffixe de cadence inclus).
+ */
+export function isReservedSystemChannel(channel: string): boolean {
+  for (const prefix of RESERVED_SYSTEM_PREFIXES) {
+    if (startsWithCI(channel, prefix)) return true;
+  }
+  return false;
+}
+
+/**
  * Période de re-validation des identités RÉVOCABLES (session BFF) — F4 (revue 0.6).
  * Le verrou de frame est SYNC par doctrine (identité figée au handshake, cf
  * {@link FrameAuthorizer}) → il ne peut pas re-lire la session par frame. Un socket
@@ -174,6 +234,20 @@ export class RealtimeHub {
   // sonde est son unique canal de signalement. Cf {@link #admitFromBackplane}.
   #ingressRejectedTotal = 0;
 
+  // Abonnements clients refusés par le plancher des canaux de plateforme (F82) :
+  // canal réservé demandé alors qu'aucun module de sécurité n'est chargé. Cumul
+  // monotone, remonté par la sonde — le hub n'a pas de logger, ce compteur et
+  // l'alerte ci-dessous sont ses deux seuls moyens de ne pas rester muet.
+  #systemFloorDeniedTotal = 0;
+
+  // Avertissements de PLATEFORME, posés par le contrôleur (qui, lui, sait
+  // journaliser — le hub est sans dépendance). Chaque motif n'est émis qu'UNE
+  // fois : ces signaux décrivent une configuration, pas un flux ; répétés à
+  // chaque abonnement ils deviendraient un amplificateur sous charge.
+  #notice: ((message: string, severity: "WARNING" | "INFO") => void) | null =
+    null;
+  #noticed: Set<string> | null = null;
+
   // Registre des connexions vivantes — lazy (0 alloc tant qu'aucune connexion). Sert
   // UNIQUEMENT la sonde (backpressure : `bufferedAmount` vit sur la connexion brute,
   // pas sur le sink opaque). Inscrit au handshake, retiré au close (symétrique).
@@ -270,6 +344,45 @@ export class RealtimeHub {
    *
    * @returns `true` si abonné, `false` si canal inconnu (`factory` a renvoyé `null`).
    */
+  /**
+   * Abonnement demandé par une **connexion cliente** — même chose que
+   * {@link subscribe}, plus le plancher des canaux de plateforme.
+   *
+   * Pourquoi deux portes : un service du serveur qui écoute ses propres journaux
+   * est légitime ; une connexion distante qui demande `syslog:stream` alors
+   * qu'aucun module de sécurité n'est chargé ne l'est pas. Le hub ne peut pas
+   * deviner l'origine d'un appel — le contrôleur, lui, sait qu'il traite une
+   * frame venue du réseau, et passe donc par ici.
+   *
+   * Le plancher ne s'applique **que** sans verrou de frame. Dès qu'un module de
+   * sécurité en pose un, c'est lui qui décide (avec les rôles, ce que le hub ne
+   * sait pas faire) et le plancher s'efface.
+   *
+   * @returns `true` si abonné, `false` si canal inconnu ou fermé par le plancher.
+   */
+  subscribeClient(
+    channel: string,
+    sink: ChannelSink,
+    factory: ChannelFactory,
+    serialize?: ChannelSerializer,
+  ): boolean {
+    if (this.#frameAuthorizer === null && isReservedSystemChannel(channel)) {
+      this.#systemFloorDeniedTotal += 1;
+      this.#notifyOnce(
+        "system-floor",
+        `canal de plateforme "${channel}" REFUSÉ : aucun module de sécurité ` +
+          `n'est chargé, donc aucune identité ne peut être vérifiée. Les ` +
+          `namespaces réservés (${RESERVED_SYSTEM_PREFIXES.join(" ")}) sont ` +
+          `fermés à toutes les connexions. Deux causes possibles : la sécurité ` +
+          `n'est pas installée (charger @nodefony/security et déclarer une zone ` +
+          `protégée), ou ce canal applicatif porte par erreur un préfixe réservé ` +
+          `— dans ce cas, le renommer suffit.`,
+      );
+      return false;
+    }
+    return this.subscribe(channel, sink, factory, serialize);
+  }
+
   subscribe(
     channel: string,
     sink: ChannelSink,
@@ -411,6 +524,21 @@ export class RealtimeHub {
    * @param prefix - préfixe de canal à forwarder (ex. `"chat:"`, `"presence:"`).
    */
   markBroadcastChannel(prefix: string): void {
+    // REFUS d'un namespace réservé. Diffuser `syslog:` entre pods ouvrirait
+    // l'entrée du bus à ce namespace : un tiers capable d'écrire sur le
+    // transport partagé injecterait alors de fausses lignes de journal dans
+    // TOUS les pods. C'est précisément le trou que l'admission par canal ferme —
+    // l'autoriser ici le rouvrirait par la porte de service.
+    if (isReservedSystemChannel(prefix)) {
+      this.#notifyOnce(
+        "reserved-broadcast",
+        `déclaration de diffusion IGNORÉE pour "${prefix}" : ce namespace est ` +
+          `réservé à la plateforme (${RESERVED_SYSTEM_PREFIXES.join(" ")}). ` +
+          `Le diffuser entre pods ouvrirait l'entrée du bus à ce canal — un ` +
+          `tiers pourrait y injecter du contenu. Utiliser un préfixe applicatif.`,
+      );
+      return;
+    }
     const prefixes = (this.#broadcastPrefixes ??= []);
     if (prefixes.includes(prefix)) return;
     prefixes.push(prefix);
@@ -613,6 +741,7 @@ export class RealtimeHub {
       fanoutTotal: this.#fanoutTotal,
       inboundTotal: this.#inboundTotal,
       ingressRejectedTotal: this.#ingressRejectedTotal,
+      systemFloorDeniedTotal: this.#systemFloorDeniedTotal,
       connectionCount,
       bytesSentTotal,
       messagesSentTotal,
@@ -762,6 +891,53 @@ export class RealtimeHub {
   }
 
   /**
+   * Branche l'alerte du plancher système — tirée **une seule fois**, au premier
+   * canal de plateforme refusé faute de module de sécurité.
+   *
+   * Posée par le contrôleur : le hub est sans dépendance (aucun journal), et une
+   * fermeture silencieuse serait exactement la dégradation muette qu'on cherche
+   * à interdire.
+   *
+   * @param notify - reçoit le message à journaliser (niveau avertissement).
+   */
+  onPlatformNotice(
+    notify: (message: string, severity: "WARNING" | "INFO") => void,
+  ): void {
+    this.#notice = notify;
+  }
+
+  /**
+   * Émet un avertissement de plateforme, **une seule fois par motif**.
+   *
+   * @param key      - motif (clé de déduplication), pas le texte.
+   * @param message  - ce que lira l'exploitant.
+   * @param severity - niveau de journal.
+   */
+  #notifyOnce(
+    key: string,
+    message: string,
+    severity: "WARNING" | "INFO" = "WARNING",
+  ): void {
+    if (this.#notice === null) return;
+    const seen = (this.#noticed ??= new Set<string>());
+    if (seen.has(key)) return;
+    seen.add(key);
+    this.#notice(message, severity);
+  }
+
+  /**
+   * Ce canal serait-il fermé par le plancher système ? Lecture PURE (ni compteur,
+   * ni alerte) — elle sert à expliquer un refus au client plutôt qu'à le décider.
+   *
+   * Sans elle, un abonnement refusé resterait sans réponse : le client attendrait
+   * indéfiniment des données qui ne viendront pas, ce qui est exactement la
+   * dégradation muette que ce plancher est censé faire disparaître.
+   */
+  isClosedBySystemFloor(channel: string): boolean {
+    return this.#frameAuthorizer === null && isReservedSystemChannel(channel);
+  }
+
+  /**
    * F1 (revue 0.6) — des politiques de canal sont-elles DÉCLARÉES (`@RealtimeChannel`
    * avec `roles`/`scopes`/`authenticated`) sans `frameAuthorizer` pour les faire
    * respecter ? `true` = **dégradation silencieuse** : un canal se croit gardé mais
@@ -787,6 +963,20 @@ export class RealtimeHub {
    * @param policy - exigences ({@link IChannelPolicy}) lues par security.
    */
   registerChannelPolicy(name: string, policy: IChannelPolicy): void {
+    // Un canal déclaré dans un namespace réservé hérite du plancher de la
+    // plateforme (rôle d'administration), qui l'emporte sur la politique écrite
+    // ici. Sans cet avertissement, l'auteur verrait ses utilisateurs refusés sur
+    // son propre canal sans comprendre d'où vient l'exigence.
+    if (isReservedSystemChannel(name)) {
+      this.#notifyOnce(
+        "reserved-policy",
+        `le canal "${name}" est déclaré dans un namespace RÉSERVÉ à la ` +
+          `plateforme (${RESERVED_SYSTEM_PREFIXES.join(" ")}) : le plancher ` +
+          `système s'y applique et exigera un rôle d'administration, quelle que ` +
+          `soit la politique déclarée ici. Renommer le canal avec un préfixe ` +
+          `applicatif si ce n'est pas voulu.`,
+      );
+    }
     (this.#channelPolicies ??= new Map<string, IChannelPolicy>()).set(
       name,
       policy,

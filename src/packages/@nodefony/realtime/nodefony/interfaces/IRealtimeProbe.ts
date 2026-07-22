@@ -78,6 +78,14 @@ export interface IRealtimeProbe {
    * dans un bus partagé (Redis mutualisé). Cf `RealtimeHub` (contrôle d'admission).
    */
   ingressRejectedTotal: number;
+  /**
+   * Abonnements clients REFUSÉS par le plancher des canaux de plateforme —
+   * monotone. Un canal réservé (`syslog:`, `orm:`…) a été demandé alors qu'aucun
+   * module de sécurité n'est chargé : sans identité vérifiable, le hub ferme.
+   * `> 0` signale une configuration incomplète (sécurité absente) autant qu'une
+   * tentative d'accès — dans les deux cas, quelque chose est à regarder.
+   */
+  systemFloorDeniedTotal: number;
   /** Connexions realtime vivantes. */
   connectionCount: number;
   /** Somme cumulée des octets envoyés, toutes connexions (monotone). */

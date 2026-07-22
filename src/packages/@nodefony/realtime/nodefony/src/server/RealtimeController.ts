@@ -505,6 +505,13 @@ export abstract class RealtimeController<
       }
     }
 
+    // F82 cas (2) — le hub ferme les canaux de PLATEFORME quand aucun module de
+    // sécurité n'est chargé (aucune identité vérifiable ⇒ aucun accès légitime).
+    // Le hub est sans dépendance : il ne sait pas journaliser. On lui prête donc
+    // notre journal, et il tire l'alerte au premier refus — une fermeture muette
+    // ferait chercher longtemps pourquoi un tableau de bord reste vide.
+    hub.onPlatformNotice((message, severity) => this.log(message, severity));
+
     // Sonde socket : la connexion (= ce transport) entre au registre du hub. La
     // backpressure (`bufferedAmount`) vit sur la connexion brute → seul le transport
     // l'expose. Retiré au close (onFinish, plus bas). `hub` réutilisé depuis le
@@ -663,7 +670,10 @@ export abstract class RealtimeController<
     // Ordre de résolution : décorateur `@RealtimeChannel` (match EXACT, O(1)) d'abord,
     // sinon fallback sur l'override classique `createRealtimeChannel` (regex, suffixes,
     // drill cluster). Coexistence sans casse pour les controllers historiques.
-    const ok = getRealtimeHub().subscribe(
+    // `subscribeClient` et non `subscribe` : la demande vient du RÉSEAU. C'est
+    // cette porte qui applique le plancher des canaux de plateforme ; un service
+    // interne du serveur, lui, passe par `subscribe` et n'est pas concerné.
+    const ok = getRealtimeHub().subscribeClient(
       channel,
       sink,
       (ch, publish) => {
@@ -679,6 +689,19 @@ export abstract class RealtimeController<
     if (ok) {
       state.channels.set(channel, sink);
       this.log(`WS subscribe → ${channel}`, "DEBUG");
+      return;
+    }
+    // Refus par le plancher système : on le DIT au client. Sans réponse, il
+    // attendrait des données qui ne viendront jamais — un écran vide sans cause
+    // visible. Motif générique (`forbidden`), comme partout : le détail de la
+    // politique n'est pas une information qu'on offre à qui essuie un refus.
+    if (getRealtimeHub().isClosedBySystemFloor(channel)) {
+      const denied: IRealtimeDenied = { channel, reason: "forbidden" };
+      state.peer.notify("realtime:denied", denied);
+      this.log(
+        `WS subscribe refusé (canal de plateforme, aucun module de sécurité) → ${channel}`,
+        "DEBUG",
+      );
     }
   }
 
