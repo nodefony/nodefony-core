@@ -158,6 +158,30 @@ export const REDIS_GATE: EnvGate = {
   },
 };
 
+/**
+ * MongoDB exige un **replica set**, pas seulement un serveur : sans lui, Mongo
+ * refuse toute session transactionnelle, et les bancs qui prouvent l'atomicité
+ * échoueraient sur une erreur qui ne parle pas du décor.
+ *
+ * Particularité de cette cible : à défaut de `MONGO_TEST_URI`, la suite tente de
+ * télécharger et lancer un `mongod` éphémère. Quand ça échoue (hors ligne, binaire
+ * absent), elle **skippe sans rien casser** — 146 tests peuvent rester muets
+ * derrière un vert. D'où cette gate : nommer la cible non exercée est le seul
+ * moyen de distinguer « couvert » de « silencieusement absent ».
+ */
+export const MONGO_GATE: EnvGate = {
+  label: "MongoDB (replica set)",
+  env: ["MONGO_TEST_URI"],
+  how: () => {
+    const port = fromCompose("MONGO_PORT", "27017");
+    const rs = fromCompose("MONGO_REPLSET", "rs0");
+    return [
+      `${COMPOSE} --profile mongo up -d mongo`,
+      `MONGO_TEST_URI=mongodb://127.0.0.1:${port}/?replicaSet=${rs} npm test`,
+    ];
+  },
+};
+
 /** Les variables manquantes (ou vides) d'une gate ; `[]` = gate satisfaite. */
 function missingVars(gate: EnvGate): string[] {
   return gate.env.filter((name) => {

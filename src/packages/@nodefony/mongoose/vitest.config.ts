@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../vitest.oxc";
+import { gateReporter, MONGO_GATE } from "../../../../vitest.gates";
 
 /**
  * vitest pour @nodefony/mongoose (convention-frère @nodefony/orm-core).
@@ -26,6 +27,10 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 120000,
     hookTimeout: 120000,
+    // Dit à voix haute quand MongoDB n'a PAS été exercé : le repli
+    // `mongodb-memory-server` skippe en silence quand il échoue, et une suite
+    // verte ne prouve alors que la config Zod.
+    reporters: ["default", gateReporter([MONGO_GATE])],
     coverage: {
       provider: "v8",
       // `all` = compter aussi les fichiers non importés (garde-fou honnête).

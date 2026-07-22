@@ -97,6 +97,43 @@ services:
       retries: 5
       start_period: 5s
 
+  # --- MongoDB (profile mongo — l'autre NATURE de store, pas un dialecte de plus) ---
+  # L'adapter mongoose ne se prouve pas sur SQL : documents, opérateurs `$`, et
+  # surtout des TRANSACTIONS qui exigent un replica set (Mongo refuse les sessions
+  # transactionnelles en standalone). D'où `--replSet` + l'initiation au
+  # healthcheck : sans lui, le serveur répond mais les bancs de transaction
+  # échoueraient sur un message qui ne parle pas du décor.
+  #
+  # Sans ce service, la suite retombe sur un `mongod` téléchargé à la volée
+  # (mongodb-memory-server) — indisponible hors ligne, et son échec SKIPPE les
+  # bancs sans rien casser : 146 tests peuvent rester muets en affichant du vert.
+  # Démarrage :
+  #   `docker compose -f docker/docker-compose.yml --profile mongo up -d mongo`
+  mongo:
+    image: mongo:8
+    container_name: nodefony-mongo
+    restart: unless-stopped
+    networks: [nodefony]
+    command: ["--replSet", "${MONGO_REPLSET:-rs0}", "--bind_ip_all"]
+    ports:
+      # Exposé sur localhost uniquement (pas 0.0.0.0) — surface réseau minimale en dev.
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+    profiles: ["mongo"]
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initie le replica set au premier passage puis vérifie qu'il répond. Idempotent :
+      # `rs.status()` réussit une fois initié, l'initiation n'a lieu qu'au premier tour.
+      test:
+        [
+          "CMD-SHELL",
+          'mongosh --quiet --eval ''try { rs.status().ok } catch (e) { rs.initiate({_id:"${MONGO_REPLSET:-rs0}",members:[{_id:0,host:"127.0.0.1:27017"}]}).ok }'' | grep -q 1',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
   # --- MariaDB (profile mariadb — portabilité multi-dialecte de l'adapter Drizzle) ---
   # Fork LIBRE de MySQL (choix projet : logiciel libre) — même protocole, même
   # driver `mysql2`, même dialecte drizzle `mysql`. Cible des e2e S4 : les 8
@@ -367,6 +404,7 @@ networks:
 
 volumes:
   redis-data:
+  mongo-data:
   postgres-data:
   mariadb-data:
   mysql-data:

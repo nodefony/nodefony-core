@@ -57,9 +57,20 @@ interface CliResult {
 }
 
 /** Spawn `node bin/nodefony <args>` et attend la sortie du process (commandes terminantes). */
+/**
+ * Budget d'attente d'une commande CLI qui BOOTE un kernel.
+ *
+ * Ces bancs vérifient un COMPORTEMENT (« le help liste telle commande »), pas une
+ * performance : leur horloge doit tolérer une machine chargée. Sous `turbo run
+ * test`, une trentaine de suites tournent de front et le boot d'un kernel dépasse
+ * allègrement 30 s — le test échouait alors sur la charge de ses voisins, pas sur
+ * son sujet. Réglable par `NODEFONY_CLI_TIMEOUT_MS` (CI lente, machine modeste).
+ */
+const CLI_TIMEOUT_MS = Number(process.env.NODEFONY_CLI_TIMEOUT_MS) || 120_000;
+
 function runCli(
   args: string[],
-  timeoutMs = 30000,
+  timeoutMs = CLI_TIMEOUT_MS,
   extraEnv?: Record<string, string>,
 ): Promise<CliResult> {
   return new Promise((resolve, reject) => {
@@ -215,7 +226,12 @@ async function spawnServerAndCountBoots(
 describe.skipIf(!fs.existsSync(DIST))(
   "CLI integration — commandes terminantes (--help / --version)",
   () => {
-    vi.setConfig({ testTimeout: 40000, hookTimeout: 40000 });
+    // Le budget du test doit rester AU-DESSUS de celui de la commande qu'il
+    // attend, sinon vitest coupe avant `runCli` et le diagnostic se perd.
+    vi.setConfig({
+      testTimeout: CLI_TIMEOUT_MS + 10_000,
+      hookTimeout: CLI_TIMEOUT_MS + 10_000,
+    });
 
     it("--help → exit 0 et liste les commandes built-in", async () => {
       const r = await runCli(["--help"]);
@@ -234,7 +250,9 @@ describe.skipIf(!fs.existsSync(DIST))(
       // Sans commande d'env, le bin résout le mode runtime au défaut PRODUCTION
       // (12-factor safe — cf Kernel.resolveRuntimeEnv). On le force ici pour un test
       // déterministe quel que soit le NODE_ENV de la suite mocha.
-      const r = await runCli(["--help"], 30000, { NODE_ENV: "production" });
+      const r = await runCli(["--help"], CLI_TIMEOUT_MS, {
+        NODE_ENV: "production",
+      });
       assert.strictEqual(
         r.code,
         0,
@@ -265,7 +283,9 @@ describe.skipIf(!fs.existsSync(DIST))(
     it("--help en development liste AUSSI les commandes des modules dev (test:batch)", async () => {
       // En mode development, les modules `policy:"dev"` sont chargés → leurs commandes
       // apparaissent dans le help (gating dev reflété dans la surface CLI).
-      const r = await runCli(["--help"], 30000, { NODE_ENV: "development" });
+      const r = await runCli(["--help"], CLI_TIMEOUT_MS, {
+        NODE_ENV: "development",
+      });
       assert.strictEqual(
         r.code,
         0,
@@ -319,7 +339,7 @@ describe.skipIf(!fs.existsSync(DIST))(
         `nodefony-kernel-trace-compl-${process.pid}-${Date.now()}.log`,
       );
       try {
-        const r = await runCli(["completion", "zsh"], 30000, {
+        const r = await runCli(["completion", "zsh"], CLI_TIMEOUT_MS, {
           NODEFONY_KERNEL_TRACE_FILE: traceFile,
         });
         assert.strictEqual(r.code, 0, r.stderr);
@@ -337,7 +357,7 @@ describe.skipIf(!fs.existsSync(DIST))(
     });
 
     it("__complete → candidats de commandes, exit 0, sortie machine propre", async () => {
-      const r = await runCli(["__complete", "--", ""], 30000);
+      const r = await runCli(["__complete", "--", ""], CLI_TIMEOUT_MS);
       assert.strictEqual(r.code, 0, r.stderr);
       const candidates = r.stdout.split("\n").filter((l) => l.length > 0);
       assert.ok(
@@ -353,7 +373,10 @@ describe.skipIf(!fs.existsSync(DIST))(
     });
 
     it("__complete après commande validée → options (--detach, --workers)", async () => {
-      const r = await runCli(["__complete", "--", "cluster", "--"], 30000);
+      const r = await runCli(
+        ["__complete", "--", "cluster", "--"],
+        CLI_TIMEOUT_MS,
+      );
       assert.strictEqual(r.code, 0, r.stderr);
       const candidates = r.stdout.split("\n").filter((l) => l.length > 0);
       assert.ok(candidates.includes("--workers"), r.stdout);
@@ -369,7 +392,7 @@ describe.skipIf(!fs.existsSync(DIST))(
         `nodefony-kernel-trace-status-${process.pid}-${Date.now()}.log`,
       );
       try {
-        const r = await runCli(["status"], 30000, {
+        const r = await runCli(["status"], CLI_TIMEOUT_MS, {
           NODEFONY_KERNEL_TRACE_FILE: traceFile,
         });
         assert.strictEqual(
@@ -404,7 +427,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
     });
 
     it("commande inconnue (typo) → exit 64 (EX_USAGE) et AUCUN serveur démarré", async () => {
-      const r = await runCli(["foobar:nope"], 60000);
+      const r = await runCli(["foobar:nope"], CLI_TIMEOUT_MS);
       // dispatchModuleCommand → terminate(SysExit.USAGE) : code SÉMANTIQUE lisible
       // par un orchestrateur (usage ≠ crash logiciel), pas juste « ≠ 0 ».
       assert.strictEqual(
@@ -429,7 +452,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
         `nodefony-kernel-trace-modcmd-${process.pid}-${Date.now()}.log`,
       );
       try {
-        const r = await runCli(["http:network", "-j"], 60000, {
+        const r = await runCli(["http:network", "-j"], CLI_TIMEOUT_MS, {
           NODEFONY_KERNEL_TRACE_FILE: traceFile,
         });
         assert.strictEqual(
@@ -498,7 +521,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
           "le manifest de complétion doit contenir les commandes de module",
         );
       } finally {
-        const stop = await runCli(["stop"], 30000);
+        const stop = await runCli(["stop"], CLI_TIMEOUT_MS);
         assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);
       }
       // Ports libérés après stop — aucun zombie.
@@ -551,14 +574,14 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
           `le state file doit porter le port réel — vu: ${JSON.stringify(state.ports)}`,
         );
         // `status` lit le state file → il rapporte le port réel, pas 5151.
-        const st = await runCli(["status"], 30000);
+        const st = await runCli(["status"], CLI_TIMEOUT_MS);
         assert.strictEqual(st.code, 0);
         assert.ok(
           st.stdout.includes(String(port)),
           `status doit rapporter le port réel ${port}\n${st.stdout}`,
         );
       } finally {
-        const stop = await runCli(["stop"], 30000);
+        const stop = await runCli(["stop"], CLI_TIMEOUT_MS);
         assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);
       }
       assert.strictEqual(await isPortOpen(port), false);
@@ -569,7 +592,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
     // AVANT initServers. Preuve que le boot s'arrête bien à la phase déclarée : la
     // conf est générée (introspection des serveurs) mais AUCUNE socket n'écoute.
     it("proxy:generate nginx (kernelEvent onReady) → conf générée, 0 serveur", async () => {
-      const r = await runCli(["proxy:generate", "nginx"], 60000);
+      const r = await runCli(["proxy:generate", "nginx"], CLI_TIMEOUT_MS);
       assert.strictEqual(
         r.code,
         0,
@@ -693,7 +716,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
     // sortie des commandes de module. Ce N'EST PAS un problème de flush Syslog
     // (filet anti-perte présent et fonctionnel) ni une régression (pré-existant).
     it.skip("test:batch → mode BATCH : exit 0, AUCUN serveur, terminaison propre", async () => {
-      const r = await runCli(["test:batch"], 60000);
+      const r = await runCli(["test:batch"], CLI_TIMEOUT_MS);
       assert.strictEqual(
         r.code,
         0,
