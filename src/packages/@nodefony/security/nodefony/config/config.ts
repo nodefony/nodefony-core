@@ -200,16 +200,24 @@ const headersSchema = z
     hsts: z
       .boolean()
       .default(true)
-      .describe(
-        "Strict-Transport-Security (force HTTPS). ⚙️ TRANSPORT : posé par @nodefony/http à l'entrée brute (couvre statics + erreurs + serveur nu) — security ne le ré-émet pas (1 source/en-tête).",
-      ),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE ICI — l'en-tête est posé par @nodefony/http à l'entrée brute " +
+          "(couvre statics, erreurs et serveur nu ; une seule source par en-tête). " +
+          "Pour le régler : `http.securityHeaders.strictTransportSecurity` " +
+          "(`null` pour ne pas émettre l'en-tête).",
+      }),
     hstsMaxAgeS: z
       .number()
       .int()
       .default(31536000)
-      .describe(
-        "Durée HSTS (s). Défaut: 1 an, includeSubDomains. ⚙️ TRANSPORT (http).",
-      ),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE ICI — pour régler la durée : " +
+          "`http.securityHeaders.strictTransportSecurity.maxAge`.",
+      }),
     csp: z
       .string()
       .default(
@@ -227,15 +235,23 @@ const headersSchema = z
     frameguard: z
       .enum(["deny", "sameorigin"])
       .default("deny")
-      .describe(
-        "X-Frame-Options (anti-clickjacking). ⚙️ TRANSPORT : posé par @nodefony/http (couvre statics + erreurs) — security ne le ré-émet pas.",
-      ),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE ICI — l'en-tête anti-clickjacking est posé par @nodefony/http " +
+          "(il couvre aussi les statics et les erreurs). Pour le régler : " +
+          "`http.securityHeaders.frameOptions` (`DENY` | `SAMEORIGIN` | `null`).",
+      }),
     noSniff: z
       .boolean()
       .default(true)
-      .describe(
-        "X-Content-Type-Options: nosniff. ⚙️ TRANSPORT : posé par @nodefony/http (couvre statics + erreurs) — security ne le ré-émet pas.",
-      ),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE ICI — posé par @nodefony/http (couvre aussi statics et erreurs). " +
+          "Pour le régler : `http.securityHeaders.contentTypeOptions` " +
+          "(`nosniff`, ou `null` pour désactiver).",
+      }),
     referrerPolicy: z
       .enum([
         "no-referrer",
@@ -254,9 +270,13 @@ const headersSchema = z
     hidePoweredBy: z
       .boolean()
       .default(true)
-      .describe(
-        "Retire X-Powered-By (anti-fingerprinting). No-op sous Nodefony : aucun X-Powered-By n'est émis (≠ Express) ; le `Server` est géré par @nodefony/http.",
-      ),
+      .meta({
+        reserved: true,
+        description:
+          "INERTE — sans objet sous Nodefony, qui n'émet jamais de X-Powered-By " +
+          "(contrairement à Express). L'en-tête `Server` est géré par " +
+          "@nodefony/http. Rien à activer : il n'y a rien à retirer.",
+      }),
     // ── Avancés : optionnels (non posés par défaut ; commentés dans config.ts) ──
     coop: z
       .enum(["same-origin", "same-origin-allow-popups", "unsafe-none"])
