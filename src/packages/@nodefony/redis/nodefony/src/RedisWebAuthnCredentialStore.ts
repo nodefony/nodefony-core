@@ -12,7 +12,13 @@ import type {
 import type RedisService from "../service/redis";
 
 /** Préfixe namespacé des clés de credentials WebAuthn dans Redis. */
-const KEY_PREFIX = "nf:wac";
+/**
+ * Préfixe HISTORIQUE des clés (identifiants WebAuthn). Utilisé tel quel par une application sans
+ * cloison ; sinon le service y insère le nom de l'application (cf
+ * {@link RedisService.keyPrefix}) — deux applications sur un même Redis ne
+ * doivent ni écrire ni BALAYER le même espace de clés.
+ */
+const KEY_BASE = "nf:wac";
 
 /**
  * Curseur composite `skip:scanCursor`.
@@ -92,13 +98,22 @@ export interface RedisClientLike {
  */
 export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   readonly #resolveClient: () => RedisClientLike | null;
+  /** Fournit le préfixe cloisonné (lazy : le service peut n'exister qu'au boot). */
+  readonly #resolvePrefix: () => string;
+  /** Préfixe mémoïsé — il est lu à chaque clé. */
+  #prefixCache: string | null = null;
 
   /**
    * @param resolveClient - résolveur **lazy** du client Redis (l'ordre de boot
    *   n'est pas garanti à la construction ; `null` = connexion indisponible).
+   * @param resolvePrefix - résolveur **lazy** du préfixe cloisonné par application.
    */
-  constructor(resolveClient: () => RedisClientLike | null) {
+  constructor(
+    resolveClient: () => RedisClientLike | null,
+    resolvePrefix: () => string = () => KEY_BASE,
+  ) {
     this.#resolveClient = resolveClient;
+    this.#resolvePrefix = resolvePrefix;
   }
 
   /**
@@ -110,7 +125,14 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   static from(service: RedisService): RedisWebAuthnCredentialStore {
     return new RedisWebAuthnCredentialStore(
       () => service.getClient("main") as unknown as RedisClientLike | null,
+      () => service.keyPrefix(KEY_BASE),
     );
+  }
+
+  /** Préfixe effectif des clés, cloisonné par application (mémoïsé). */
+  #prefix(): string {
+    if (this.#prefixCache === null) this.#prefixCache = this.#resolvePrefix();
+    return this.#prefixCache;
   }
 
   #client(): RedisClientLike | null {
@@ -118,10 +140,10 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   }
 
   #credKey(id: string): string {
-    return `${KEY_PREFIX}:cred:${id}`;
+    return `${this.#prefix()}:cred:${id}`;
   }
   #userKey(userId: string): string {
-    return `${KEY_PREFIX}:user:${userId}`;
+    return `${this.#prefix()}:user:${userId}`;
   }
 
   /** Sérialise un credential en champs de HASH (omet `lastUsedAt`/`nickname` absents). */
@@ -281,7 +303,7 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
     // de commande. Composite (`skip:curseur`) car `COUNT` n'est pas un plafond.
     const { scanCursor, skip } = decodeCursor(query.cursor);
     const res = await client.scan(scanCursor, {
-      MATCH: `${KEY_PREFIX}:cred:*`,
+      MATCH: `${this.#prefix()}:cred:*`,
       COUNT: limit,
     });
     const next = String(res.cursor);

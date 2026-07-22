@@ -279,9 +279,49 @@ valeur effective diffère du schéma au démarrage — `maxRetries`, traitée da
 | `url`           | chaîne (secret)          | _absent_                         | URL complète `redis[s]://[[user][:pass]@]host[:port][/db]`. Prend le pas sur `globalOptions`. |
 | `globalOptions` | objet                    | défauts de `globalOptionsSchema` | Options communes fusionnées dans **chaque** connexion.                                        |
 | `connections`   | dictionnaire nom → objet | `main`, `publish`, `subscribe`   | Les connexions à ouvrir au démarrage.                                                         |
+| `keyNamespace`  | chaîne                   | nom de l'application             | Cloison des **clés** par application sur un Redis mutualisé (cf ci-dessous).                  |
 
 Le sous-objet `connections` est un dictionnaire libre : la clé est le nom logique, la valeur décrit la
 connexion. Les trois entrées par défaut sont matérialisées dans `redisConfigSchema` (`config.ts:227`).
+
+#### `keyNamespace` — deux applications sur un même Redis
+
+Un serveur Redis se mutualise volontiers. La `database` donne l'illusion d'une séparation, mais elle
+vaut `0` par défaut et n'isole rien de plus : deux applications y écrivent alors dans le même espace de
+clés. Comme les clés portaient un nom fixe (`nf:sess:<id>`), l'écran Sessions de l'une **listait les
+sessions de l'autre** — son balayage `nf:sess:*` ne pouvait pas les distinguer.
+
+La cloison insère le nom de l'application dans le préfixe :
+
+```
+nf:boutique:sess:<id>      nf:boutique:tok:<id>      nf:boutique:wac:<id>
+nf:intranet:sess:<id>      nf:intranet:tok:<id>      nf:intranet:wac:<id>
+```
+
+**Ce qu'elle sépare, et ce qu'elle ne sépare pas.** Elle sépare des _applications_, jamais les
+instances d'une même application — c'est ce qui décide si une session survit au load-balancer :
+
+|                              |                                                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| 10 pods de « boutique »      | **même** cloison → même espace de clés → une session ouverte via un pod est lue par tous les autres |
+| « boutique » et « intranet » | cloisons **différentes** → espaces disjoints → aucune ne voit l'autre                               |
+
+La cloison est dérivée de `kernel.projectName`, c'est-à-dire du nom de l'application **dans son code** :
+tous ses pods calculent donc la même valeur. Le partage des sessions entre instances — la raison d'être
+d'un store Redis — reste entier. Elle n'est surtout pas dérivée du nom d'hôte ou du PID : chaque pod
+aurait son propre espace, et l'utilisateur serait déconnecté dès qu'une requête change de pod.
+
+**Le cas à connaître** : deux _déploiements_ de la même application (préproduction et production)
+portent le même nom, donc la même cloison. S'ils partagent un serveur Redis, posez-leur un
+`keyNamespace` explicite — par la variable `NF_REDIS_KEY_NAMESPACE`, qui prend le pas sur la
+configuration (une cloison distingue des environnements, elle n'a pas à être figée dans le code).
+
+```ts
+use("@nodefony/redis", { keyNamespace: "boutique-preprod" });
+```
+
+Une application seule sur son Redis n'a rien à cloisonner : sans cloison résolue, les préfixes
+historiques (`nf:sess`, `nf:tok`, `nf:wac`) sont conservés tels quels.
 
 ### `globalOptions`
 

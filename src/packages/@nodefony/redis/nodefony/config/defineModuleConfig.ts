@@ -19,6 +19,7 @@ import type {
  * - `REDIS_HOST`  → `globalOptions.socket.host`
  * - `REDIS_PORT`  → `globalOptions.socket.port`
  * - `REDIS_PASSWORD` → `globalOptions.password` (secret JAMAIS dans la config)
+ * - `NF_REDIS_KEY_NAMESPACE` → `keyNamespace` (cloison de DÉPLOIEMENT, pas de code)
  */
 function applyEnvOverrides(config: IRedisConfig): IRedisConfig {
   const env = process.env;
@@ -37,6 +38,12 @@ function applyEnvOverrides(config: IRedisConfig): IRedisConfig {
   }
   if (env.REDIS_PASSWORD) {
     config.globalOptions.password = env.REDIS_PASSWORD;
+  }
+  // La cloison sépare des DÉPLOIEMENTS (préproduction et production portent le
+  // même nom d'app, donc la même cloison dérivée). La figer dans un fichier
+  // versionné obligerait à livrer un code par environnement.
+  if (env.NF_REDIS_KEY_NAMESPACE) {
+    config.keyNamespace = env.NF_REDIS_KEY_NAMESPACE;
   }
   return config;
 }

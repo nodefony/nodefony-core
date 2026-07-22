@@ -222,6 +222,24 @@ export const redisConfigSchema = z
     globalOptions: globalOptionsSchema.default(() =>
       globalOptionsSchema.parse({}),
     ),
+    keyNamespace: z
+      .string()
+      .min(1)
+      .regex(/^[\w.-]+$/)
+      .optional()
+      .describe(
+        "Cloison des CLÉS par application sur un Redis mutualisé — préfixe " +
+          "`nf:<keyNamespace>:<type>` au lieu de `nf:<type>`. Sans elle, deux " +
+          "applications écrivent dans le même espace de clés (`database` vaut 0 " +
+          "par défaut et ne cloisonne rien de plus) : l'écran Sessions de l'une " +
+          "LISTE les sessions de l'autre, son balayage `nf:sess:*` ne pouvant " +
+          "pas les distinguer. Défaut : dérivé du nom d'app " +
+          "(`kernel.projectName`). À poser EXPLICITEMENT quand deux déploiements " +
+          "de la même app (préproduction/production) partagent un Redis. " +
+          "Caractères : alphanumériques, `_`, `.`, `-`. Env : " +
+          "`NF_REDIS_KEY_NAMESPACE` (prioritaire — une cloison distingue des " +
+          "DÉPLOIEMENTS, elle n'a pas à être figée dans le code).",
+      ),
     connections: z
       .record(z.string(), connectionSchema)
       .default(() => ({

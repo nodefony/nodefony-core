@@ -11,6 +11,7 @@ import {
 import type { RedisClientType } from "redis";
 import Connection from "../src/Connection";
 import { buildClientOptions } from "../src/buildClientOptions";
+import { resolveKeyPrefix } from "../src/keyNamespace";
 import type { IRedisConfig } from "../interfaces/IRedisConfig";
 
 const serviceName = "redis";
@@ -33,6 +34,12 @@ class RedisService extends Service {
   #connections: Record<string, Connection> | null = null;
   /** Config validée + gelée (résolue à l'init). */
   #config: IRedisConfig | null = null;
+  /**
+   * Cloison de clés résolue — `undefined` tant que non calculée, `null` quand la
+   * résolution a conclu qu'il n'y en a pas (distinction nécessaire : sans elle,
+   * une application anonyme recalculerait à chaque clé).
+   */
+  #keyNamespace: string | null | undefined = undefined;
 
   constructor(module: Module) {
     super(
@@ -58,6 +65,36 @@ class RedisService extends Service {
   /** Connexions ouvertes (vide si aucune). */
   get connections(): Record<string, Connection> {
     return this.#connections ?? {};
+  }
+
+  /**
+   * Cloison des clés de CETTE application, résolue une fois.
+   *
+   * `keyNamespace` explicite, sinon le nom de l'application. Les stores composent
+   * leur préfixe avec (`resolveKeyPrefix`) pour que deux applications sur un même
+   * Redis n'écrivent — et surtout ne BALAIENT — jamais le même espace de clés.
+   *
+   * `undefined` = aucune cloison résolue (application anonyme) → les stores
+   * gardent leur préfixe historique : une application seule n'a rien à séparer.
+   */
+  get keyNamespace(): string | undefined {
+    if (this.#keyNamespace === undefined) {
+      this.#keyNamespace =
+        this.#resolveConfig().keyNamespace ??
+        this.module.kernel?.projectName ??
+        null;
+    }
+    return this.#keyNamespace ?? undefined;
+  }
+
+  /**
+   * Préfixe de clés d'un store, cloisonné par application.
+   *
+   * @param base - préfixe historique du store (`nf:sess`, `nf:tok`, `nf:wac`).
+   * @returns le préfixe à utiliser pour composer les clés ET les motifs de balayage.
+   */
+  keyPrefix(base: string): string {
+    return resolveKeyPrefix(base, this.keyNamespace);
   }
 
   /** Config Redis validée (résout depuis le container, fallback options). */

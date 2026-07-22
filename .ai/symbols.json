@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-22T11:59:25.903Z",
+  "generated": "2026-07-22T13:54:49.882Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1034,
-    "symbols": 2819,
+    "files": 1035,
+    "symbols": 2820,
     "classes": 328,
     "interfaces": 737,
     "types": 328,
     "enums": 4,
-    "functions": 842,
+    "functions": 843,
     "constants": 580
   },
   "symbols": {
@@ -11529,6 +11529,14 @@
       "decorators": [],
       "description": "Une connexion Redis nommée — enveloppe un client `redis` v6 et gère son cycle de vie (création, écoute des événements, fermeture propre). Perf/mémoire : les handlers d'événements sont conservés en …"
     },
+    "resolveKeyPrefix": {
+      "name": "resolveKeyPrefix",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/src/keyNamespace.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Compose le préfixe de clés d'un store, cloisonné par application."
+    },
     "RedisTokenStore": {
       "name": "RedisTokenStore",
       "kind": "class",
@@ -22516,6 +22524,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/redis/nodefony/src/keyNamespace.ts",
         "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
         "src/packages/@nodefony/security/nodefony/errors/ApiKeyError.ts",
         "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
@@ -25057,6 +25066,9 @@
         "src/packages/@nodefony/redis/nodefony/interfaces/IRedisConfig.ts"
       ],
       "buildClientOptions": [
+        "src/packages/@nodefony/redis/nodefony/service/redis.ts"
+      ],
+      "resolveKeyPrefix": [
         "src/packages/@nodefony/redis/nodefony/service/redis.ts"
       ],
       "IRedisConnectionConfig": [

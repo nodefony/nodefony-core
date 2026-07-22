@@ -12,7 +12,13 @@ import type {
 import type RedisService from "../service/redis";
 
 /** Préfixe namespacé des clés de jetons dans Redis. */
-const KEY_PREFIX = "nf:tok";
+/**
+ * Préfixe HISTORIQUE des clés (jetons). Utilisé tel quel par une application sans
+ * cloison ; sinon le service y insère le nom de l'application (cf
+ * {@link RedisService.keyPrefix}) — deux applications sur un même Redis ne
+ * doivent ni écrire ni BALAYER le même espace de clés.
+ */
+const KEY_BASE = "nf:tok";
 
 /** Fenêtre par défaut de conservation d'un PAT révoqué sans expiration (30 j). */
 const DEFAULT_RETENTION_REVOKED_MS = 30 * 24 * 3_600_000;
@@ -95,6 +101,10 @@ export interface RedisClientLike {
  */
 export class RedisTokenStore implements ITokenStore {
   readonly #resolveClient: () => RedisClientLike | null;
+  /** Fournit le préfixe cloisonné (lazy : le service peut n'exister qu'au boot). */
+  readonly #resolvePrefix: () => string;
+  /** Préfixe mémoïsé — il est lu à chaque clé. */
+  #prefixCache: string | null = null;
   readonly #now: () => number;
   readonly #retentionRevokedMs: number;
 
@@ -108,8 +118,14 @@ export class RedisTokenStore implements ITokenStore {
     resolveClient: () => RedisClientLike | null,
     now: () => number = Date.now,
     retentionRevokedMs: number = DEFAULT_RETENTION_REVOKED_MS,
+    // En DERNIER, et optionnel : ce paramètre est arrivé après coup (cloison
+    // multi-app). L'insérer au milieu aurait décalé silencieusement `now` chez
+    // tous les appelants — un décalage qu'aucun type ne rattrape quand les
+    // signatures voisines sont des fonctions.
+    resolvePrefix: () => string = () => KEY_BASE,
   ) {
     this.#resolveClient = resolveClient;
+    this.#resolvePrefix = resolvePrefix;
     this.#now = now;
     this.#retentionRevokedMs = retentionRevokedMs;
   }
@@ -131,7 +147,14 @@ export class RedisTokenStore implements ITokenStore {
       () => service.getClient("main") as unknown as RedisClientLike | null,
       now,
       retentionRevokedMs,
+      () => service.keyPrefix(KEY_BASE),
     );
+  }
+
+  /** Préfixe effectif des clés, cloisonné par application (mémoïsé). */
+  #prefix(): string {
+    if (this.#prefixCache === null) this.#prefixCache = this.#resolvePrefix();
+    return this.#prefixCache;
   }
 
   #client(): RedisClientLike | null {
@@ -139,22 +162,22 @@ export class RedisTokenStore implements ITokenStore {
   }
 
   #recKey(id: string): string {
-    return `${KEY_PREFIX}:rec:${id}`;
+    return `${this.#prefix()}:rec:${id}`;
   }
   #hashKey(secretHash: string): string {
-    return `${KEY_PREFIX}:hash:${secretHash}`;
+    return `${this.#prefix()}:hash:${secretHash}`;
   }
   #subjKey(subjectId: string): string {
-    return `${KEY_PREFIX}:subj:${subjectId}`;
+    return `${this.#prefix()}:subj:${subjectId}`;
   }
   #famKey(family: string): string {
-    return `${KEY_PREFIX}:fam:${family}`;
+    return `${this.#prefix()}:fam:${family}`;
   }
   #denyKey(jti: string): string {
-    return `${KEY_PREFIX}:deny:${jti}`;
+    return `${this.#prefix()}:deny:${jti}`;
   }
   #revsubKey(subjectId: string): string {
-    return `${KEY_PREFIX}:revsub:${subjectId}`;
+    return `${this.#prefix()}:revsub:${subjectId}`;
   }
 
   /** TTL en secondes pour un `expiresAt` absolu (epoch ms), au moins 1 ; `undefined` si aucun. */
@@ -321,7 +344,7 @@ export class RedisTokenStore implements ITokenStore {
     if (!client) {
       return [];
     }
-    const match = `${KEY_PREFIX}:rec:*`;
+    const match = `${this.#prefix()}:rec:*`;
     const out: IAccessTokenRecord[] = [];
     // Le curseur SCAN est une STRING opaque côté RESP (node-redis v6 refuse un
     // number à l'encodage). `String(res.cursor)` normalise quel que soit le retour.
@@ -358,7 +381,7 @@ export class RedisTokenStore implements ITokenStore {
     // de commande. Composite (`skip:curseur`) car `COUNT` n'est pas un plafond.
     const { scanCursor, skip } = decodeCursor(query.cursor);
     const res = await client.scan(scanCursor, {
-      MATCH: `${KEY_PREFIX}:rec:*`,
+      MATCH: `${this.#prefix()}:rec:*`,
       COUNT: limit,
     });
     const next = String(res.cursor);

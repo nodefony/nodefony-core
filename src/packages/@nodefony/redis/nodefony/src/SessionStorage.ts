@@ -10,7 +10,14 @@ import type { IPage } from "nodefony";
 import type RedisService from "../service/redis";
 
 /** Préfixe namespacé des clés de session dans Redis. */
-const KEY_PREFIX = "nf:sess";
+/**
+ * Préfixe HISTORIQUE des clés de session. Il n'est utilisé tel quel que par une
+ * application sans cloison ; sinon le service y insère le nom de l'application
+ * (cf {@link RedisService.keyPrefix}) — sans quoi deux applications sur un même
+ * Redis se partagent l'espace de clés, et le balayage de l'une remonte les
+ * sessions de l'autre.
+ */
+const KEY_BASE = "nf:sess";
 
 /**
  * Plafond de sécurité du SCAN admin : au-delà, on s'arrête et on LOGGE (listing
@@ -82,6 +89,8 @@ class RedisSessionStorage implements ISessionStorage {
   idleTimeoutS: number;
   /** Service Redis résolu en lazy (au 1ᵉʳ accès) depuis le container. */
   #service: RedisService | null = null;
+  /** Préfixe cloisonné, calculé une seule fois (il est lu à chaque clé). */
+  #prefixCache: string | null = null;
 
   constructor(manager: SessionsService) {
     this.manager = manager;
@@ -100,8 +109,28 @@ class RedisSessionStorage implements ISessionStorage {
     return this.#service?.getClient("main") ?? null;
   }
 
+  /**
+   * Préfixe effectif des clés, cloisonné par application. Mémoïsé : il est lu à
+   * chaque clé, et le service ne change pas en cours de vie.
+   */
+  #prefix(): string {
+    if (this.#prefixCache === null) {
+      this.#client(); // force la résolution lazy du service
+      // `typeof` et pas seulement `?.` : le service peut être d'une version
+      // antérieure (ou un double de test) qui ne connaît pas encore la cloison.
+      // Une application qui tourne ne doit pas s'arrêter pour ça — elle garde
+      // simplement son préfixe historique.
+      const service = this.#service;
+      this.#prefixCache =
+        typeof service?.keyPrefix === "function"
+          ? service.keyPrefix(KEY_BASE)
+          : KEY_BASE;
+    }
+    return this.#prefixCache;
+  }
+
   #key(id: string): string {
-    return `${KEY_PREFIX}:${id}`;
+    return `${this.#prefix()}:${id}`;
   }
 
   async read(id: string): Promise<ISerializedSession> {
@@ -190,7 +219,7 @@ class RedisSessionStorage implements ISessionStorage {
 
   /**
    * Énumération admin (capacité optionnelle d'`ISessionStorage`) par **SCAN**
-   * non-bloquant (`MATCH nf:sess:*`, curseur), filtrable par `user`. Cold-path
+   * non-bloquant (`MATCH <prefix>:*`, curseur), filtrable par `user`. Cold-path
    * RARE (console admin, jamais le hot-path). `SCAN` est O(keyspace) → plafonné
    * à {@link MAX_SCAN} (au-delà : listing partiel **journalisé**, pas silencieux).
    * Connexion fermée → `[]`.
@@ -200,8 +229,9 @@ class RedisSessionStorage implements ISessionStorage {
     if (!client) {
       return [];
     }
-    const match = `${KEY_PREFIX}:*`;
-    const prefixLen = KEY_PREFIX.length + 1; // "nf:sess:"
+    const prefix = this.#prefix();
+    const match = `${prefix}:*`;
+    const prefixLen = prefix.length + 1; // longueur de `<prefix>:`
     const out: ISessionRecord[] = [];
     // node-redis v6 : le curseur SCAN est une string opaque (`RedisArgument`),
     // pas un entier — démarre à "0", boucle jusqu'au retour à "0".
@@ -263,11 +293,11 @@ class RedisSessionStorage implements ISessionStorage {
     }
     const { scanCursor, skip } = decodeCursor(query.cursor);
     const res = await client.scan(scanCursor, {
-      MATCH: `${KEY_PREFIX}:*`,
+      MATCH: `${this.#prefix()}:*`,
       COUNT: limit,
     });
     const next = String(res.cursor);
-    const prefixLen = KEY_PREFIX.length + 1;
+    const prefixLen = this.#prefix().length + 1;
     const items: ISessionRecord[] = [];
     // `consumed` compte les CLÉS du batch parcourues (pas les items rendus) :
     // c'est la position de reprise, et le filtre en écarte une partie.
