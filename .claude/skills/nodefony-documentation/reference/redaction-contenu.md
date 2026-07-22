@@ -326,6 +326,35 @@ automatique). Une section **`## Pièges`** reste **optionnelle** et recommandée
 prête à confusion (les **faux-amis** : `authn` ≠ `authz`, `scope` OAuth vs `scope` DI, `Attribute` du
 vote vs attribut ABAC) — utile, jamais imposée.
 
+## 8bis-readme. Régime INDEX DE DOSSIER — `README.md`, la pancarte du répertoire
+
+Un `README.md` de dossier n'est **pas une page du portail** : le portail publie `index.md`. On ne
+l'atteint par aucun parcours de lecture — on tombe dessus en ouvrant le répertoire (dépôt, forge,
+session IA). Son travail tient en une phrase : **dire ce que contient ce dossier, et pointer juste**.
+
+Lui réclamer le gabarit d'une page de brique (Lexique, Qu'est-ce/Vision, Pièges, ancres
+`fichier:ligne`, carte de tests, fil d'Ariane, retour au hub) fabriquerait une demi-page de
+remplissage autour de quatre lignes de sommaire. C'est le **4ᵉ régime** du `doc-lint`, reconnu au
+**basename `README.md`**.
+
+**Ce que le régime exige** — et rien d'autre :
+
+1. **Frontmatter allégé** : `module`, `topic`, `audience`, `status`. Pas `title`/`updated`/`source` :
+   ces champs servent à publier et à dater une page, or un index n'est ni rendu ni versionné comme telle.
+2. **Intro en blockquote** : à quoi sert le dossier, et ce qui n'y va PAS.
+3. **Liens internes vivants** — le seul contrôle qui compte vraiment ici. Un index dont un lien est
+   mort a échoué à sa fonction unique ; c'est ce que le gate doit mordre.
+
+> **Corollaire** : une page de CONTENU nommée `README.md` sera jugée sur ce régime et signalée
+> (frontmatter incomplet). Ce n'est pas un faux positif — c'est un défaut de nommage. Une page qui
+> explique quelque chose porte un nom qui dit quoi ; `README.md` est réservé à la pancarte.
+
+**Ce que le gate ne compte plus pour un lien** (tous régimes) : un lien **cité en exemple**, dans une
+fence de code ou entre backticks. Une page qui enseigne la syntaxe des liens était punie pour ses
+propres illustrations — un gate qui crie sur l'énoncé d'une règle apprend à être ignoré, y compris le
+jour où il a raison. Un exemple n'est ni cliquable ni promis au lecteur. Restent contrôlées : la prose
+**et** les fences déclaratives `nodefony-cards`, qui sont, elles, de la vraie navigation.
+
 ## 8ter. Granularité — page dédiée OU section du parent ?
 
 Avant de créer un fichier, décider du **niveau** de la chose à documenter.
@@ -397,10 +426,12 @@ linter au vert **plus** l'aperçu HTML qui montre la carte de tests.
 
 Le linter (`tmp/doc-corpus/_tools/doc-lint.mjs`) échoue si, pour une page :
 
-- frontmatter incomplet (`title/topic/audience/updated/source/status`) ;
+- frontmatter incomplet (`title/topic/audience/updated/source/status` — allégé en
+  `module/topic/audience/status` pour un index de dossier, §8bis-readme) ;
 - une section obligatoire manque — **selon le régime de la page** : brique = Lexique + Qu'est-ce/Vision
   - **Pièges** + Pour aller plus loin ; hub (`index.md`, §8bis-index) = point de départ + catalogue +
     Pour aller plus loin ; **glossaire** (`lexique.md`, §8bis-lexique) = Lexique + Pour aller plus loin ;
+    **index de dossier** (`README.md`, §8bis-readme) = aucune (intro + liens vivants suffisent) ;
 - pas d'intro en blockquote ;
 - **pas de section « Tests »** ET pas de `coverage/tests.<topic>.json` (le défaut historique) — sauf
   opt-out explicite `tests: none` dûment justifié (page purement conceptuelle) ;

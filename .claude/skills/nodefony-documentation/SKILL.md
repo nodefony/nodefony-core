@@ -1,6 +1,6 @@
 ---
 name: nodefony-documentation
-version: 2.2.0
+version: 2.3.0
 description: >
   Kit de dev de la DOCUMENTATION Nodefony — le portail doc Studio (`/nodefony/documentation`)
   et le futur module `@nodefony/documentation`. Concern TRANSVERSE (ni purement front, ni purement
@@ -409,14 +409,14 @@ Réf complète (étude de faisabilité) : [[project_doc_portal_faisabilite]].
 
 ### Outillage (source unique : `scripts/` de CE skill ; artefacts → `tmp/doc-work/`)
 
-| Script                                  | Rôle                                                                                                  |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `scripts/doc-lint.mjs <page.md>`        | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, 0 HTML brut)      |
-| `scripts/anchor-check.mjs <page.md>`    | **Exactitude des ancres CODE** : résout chaque `fichier:ligne` contre le code réel (SUSPECT/LINE_OUT) |
-| `scripts/anchor-inpage.mjs <page.md>`   | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts)        |
-| `scripts/code-check.mjs <page.md>`      | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict             |
-| `scripts/gen-counters.mjs [topic]`      | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée)      |
-| `scripts/build-preview.mjs <md> <html>` | Aperçu HTML autonome fidèle Studio (version/branche/commit pris de git ; Mermaid si mmdc)             |
+| Script                                  | Rôle                                                                                                                                                                                                                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scripts/doc-lint.mjs <page.md>`        | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, liens vivants, 0 HTML brut). **4 régimes** selon la nature de la page — brique · hub `index.md` · glossaire `lexique.md` · index de dossier `README.md` (cf standard §8bis-\*) |
+| `scripts/anchor-check.mjs <page.md>`    | **Exactitude des ancres CODE** : résout chaque `fichier:ligne` contre le code réel (SUSPECT/LINE_OUT)                                                                                                                                                              |
+| `scripts/anchor-inpage.mjs <page.md>`   | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts)                                                                                                                                                                     |
+| `scripts/code-check.mjs <page.md>`      | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict                                                                                                                                                                          |
+| `scripts/gen-counters.mjs [topic]`      | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée)                                                                                                                                                                   |
+| `scripts/build-preview.mjs <md> <html>` | Aperçu HTML autonome fidèle Studio (version/branche/commit pris de git ; Mermaid si mmdc)                                                                                                                                                                          |
 
 > ⚠️ **`anchor-inpage.mjs` et `slugifyHeading()` (`studio/frontend/src/components/ui/DocToc.tsx`)
 > portent la MÊME règle de slug** — convention GitHub, accents conservés, ponctuation/symboles/emoji

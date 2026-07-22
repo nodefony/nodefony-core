@@ -1,9 +1,17 @@
+---
+module: global
+topic: adr-index
+audience: [human, ai]
+tags: [adr, decisions, index]
+status: stable
+---
+
 # ADR — Architecture Decision Records
 
-Décisions d'architecture/design actées, une par fichier `NNNN-titre.md`.
-Un ADR est **immuable** : s'il est remis en cause, créer un nouvel ADR qui le
-_supersede_ (ne pas réécrire l'ancien). Format léger (contexte / décision /
-alternatives écartées / conséquences).
+> Décisions d'architecture/design actées, une par fichier `NNNN-titre.md`. Un ADR est
+> **immuable** : s'il est remis en cause, créer un nouvel ADR qui le _supersede_ — ne pas
+> réécrire l'ancien, sinon la trace du raisonnement disparaît avec la décision qu'il portait.
+> Format léger : contexte / décision / alternatives écartées / conséquences.
 
 | #                                                             | Titre                                                                                       | Statut   | Date       |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------- | ---------- |

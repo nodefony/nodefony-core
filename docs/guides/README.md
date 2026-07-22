@@ -9,7 +9,9 @@ last-updated: 2026-05-21
 
 # Guides — how-to
 
-Tutoriels pas-à-pas orientés utilisateur du framework (vs les pages `architecture/` qui décrivent _comment ça marche dedans_, et `packages/` qui décrivent l'API).
+> Tutoriels pas-à-pas orientés utilisateur du framework — on suit le guide et on obtient un
+> résultat. À distinguer des pages `architecture/`, qui expliquent _comment ça marche dedans_,
+> et de la doc des modules, qui décrit l'API.
 
 ## Pages disponibles
 

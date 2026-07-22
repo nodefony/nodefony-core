@@ -66,6 +66,35 @@ const REQUIRED_LEXIQUE = [
 // Section Tests : obligatoire SAUF opt-out explicite via frontmatter `tests: none`.
 const TESTS_HEADING = /^##\s+(?:\S+\s+)?Tests?\b/im;
 
+// Neutralise le CODE (fences + code inline) en préservant le nombre de lignes.
+// Sans ça, une page qui ENSEIGNE la syntaxe des liens est punie pour ses exemples :
+// `[Service](../../src/nodefony/docs/service.md)` cité en modèle était compté comme un
+// lien réel, donc mort — un gate qui crie sur l'illustration d'une règle apprend à être
+// ignoré. Un exemple n'est pas une navigation : il n'est ni cliquable, ni promis au lecteur.
+// Scan ligne à ligne (et non regex globale) pour tenir les fences à 4 backticks, qui
+// encadrent les blocs contenant eux-mêmes du ```.
+// ⚠️ Les fences DÉCLARATIVES (`nodefony-cards`) sont bien de la navigation : elles restent
+// vérifiées en 5ter, qui lit la source brute et non ce texte-ci.
+function stripCode(src) {
+  const out = [];
+  let fence = null;
+  for (const line of src.split("\n")) {
+    const m = line.match(/^\s*(`{3,})(.*)$/);
+    if (fence !== null) {
+      out.push("");
+      if (m && m[1].length >= fence.length && !m[2].trim()) fence = null;
+      continue;
+    }
+    if (m) {
+      fence = m[1];
+      out.push("");
+      continue;
+    }
+    out.push(line.replace(/`[^`\n]*`/g, "``"));
+  }
+  return out.join("\n");
+}
+
 function parseFrontmatter(src) {
   const m = src.match(/^---\n([\s\S]*?)\n---/);
   const fm = {};
@@ -86,18 +115,24 @@ for (const f of files) {
     continue;
   }
   const src = readFileSync(f, "utf8");
+  const prose = stripCode(src);
   const fm = parseFrontmatter(src);
   const errs = [];
 
-  // 1) Frontmatter minimal (convention A).
-  for (const k of [
-    "title",
-    "topic",
-    "audience",
-    "updated",
-    "source",
-    "status",
-  ]) {
+  // Un `README.md` de dossier n'est pas une page du portail : le portail publie `index.md`.
+  // C'est une pancarte lue dans l'ARBORESCENCE (dépôt, forge, session IA) qui dit ce que
+  // contient le répertoire. Lui réclamer Lexique, Pièges, ancres `fichier:ligne`, carte de
+  // tests et fil d'Ariane produirait du remplissage sur quatre lignes de sommaire — et un
+  // gate qui échoue toujours pour de mauvaises raisons finit ignoré, y compris le jour où
+  // il a raison. 4ᵉ régime, donc : on ne garde que ce qu'un index doit tenir — dire à quoi
+  // sert le dossier (intro), et POINTER JUSTE (liens vivants), son unique travail.
+  const isIndexReadme = path.basename(f) === "README.md";
+
+  // 1) Frontmatter minimal (convention A). Un index de dossier ne porte pas les champs de
+  // publication (`title`/`updated`/`source`) : il n'est ni rendu, ni versionné comme une page.
+  for (const k of isIndexReadme
+    ? ["module", "topic", "audience", "status"]
+    : ["title", "topic", "audience", "updated", "source", "status"]) {
     if (!fm[k]) errs.push(`frontmatter manquant: ${k}`);
   }
 
@@ -115,11 +150,13 @@ for (const f of files) {
   const isRoot = f.replace(/^\.\//, "") === "docs/index.md";
 
   // 2) Sections obligatoires (un régime par nature de page).
-  const required = isHub
-    ? REQUIRED_HUB
-    : isLexique
-      ? REQUIRED_LEXIQUE
-      : REQUIRED;
+  const required = isIndexReadme
+    ? []
+    : isHub
+      ? REQUIRED_HUB
+      : isLexique
+        ? REQUIRED_LEXIQUE
+        : REQUIRED;
   for (const r of required)
     if (!r.re.test(src)) errs.push(`section manquante: ${r.key}`);
 
@@ -129,7 +166,8 @@ for (const f of files) {
   // 4) INVENTAIRE DES TESTS — le défaut historique. Obligatoire sauf opt-out.
   // Un hub renvoie aux compteurs de ses pages, il n'en porte pas lui-même. Un lexique
   // définit du vocabulaire, il ne teste aucun code : dispensé de tests ET d'ancres.
-  const testsOptOut = /^tests:\s*none/im.test(src) || isHub || isLexique;
+  const testsOptOut =
+    /^tests:\s*none/im.test(src) || isHub || isLexique || isIndexReadme;
   if (!testsOptOut) {
     if (!TESTS_HEADING.test(src))
       errs.push("section « Tests » manquante (ou `tests: none` si justifié)");
@@ -142,13 +180,19 @@ for (const f of files) {
   // 4bis) NAVIGATION (standard §8bis-nav) — on ne se perd jamais : fil d'Ariane en tête,
   // retour au hub en pied. Un hub (`index.md`) porte l'Ariane mais ne se renvoie pas à
   // lui-même : il est la destination.
-  if (!isRoot && !/^📍\s+.*›/m.test(src))
+  // Un index de dossier n'est atteint par aucun parcours de lecture : on tombe dessus en
+  // ouvrant le répertoire. Il n'a donc ni amont à rappeler, ni retour à proposer.
+  if (!isRoot && !isIndexReadme && !/^📍\s+.*›/m.test(src))
     errs.push(
       "fil d'Ariane manquant (ligne `📍 [Documentation](…) › [Module](index.md) › **Page**`)",
     );
   // « Retour au hub » pour une page de module ; « Retour » suffit pour une page
   // transverse, qui n'a pas de hub de module au-dessus d'elle — seulement la racine.
-  if (!isHub && !/⬆️\s+\*\*Retour(\s+au\s+hub)?\*\*/m.test(src))
+  if (
+    !isHub &&
+    !isIndexReadme &&
+    !/⬆️\s+\*\*Retour(\s+au\s+hub)?\*\*/m.test(src)
+  )
     errs.push(
       "retour manquant (1ʳᵉ ligne de « Pour aller plus loin » : `- ⬆️ **Retour au hub** : …`)",
     );
@@ -165,7 +209,7 @@ for (const f of files) {
   // Un lien mort dans un hub est pire qu'une absence de lien : il promet une page qui n'existe pas.
   const dir = path.dirname(f);
   const dead = [];
-  for (const m of src.matchAll(
+  for (const m of prose.matchAll(
     /\]\((?!https?:|#|mailto:)([^)\s]+\.md)(?:#[^)\s]*)?\)/g,
   )) {
     if (!existsSync(path.resolve(dir, m[1]))) dead.push(m[1]);
@@ -210,10 +254,9 @@ for (const f of files) {
       );
   }
 
-  // 6) Pas de HTML brut (le portail n'a pas rehype-raw).
-  if (
-    /<(div|span|table|br|img|svg)\b/i.test(src.replace(/```[\s\S]*?```/g, ""))
-  )
+  // 6) Pas de HTML brut (le portail n'a pas rehype-raw). Une balise CITÉE (fence ou
+  // backticks) s'affiche comme du texte : elle ne demande rien au moteur de rendu.
+  if (/<(div|span|table|br|img|svg)\b/i.test(prose))
     errs.push(
       "HTML brut détecté (interdit — le portail Studio n'a pas rehype-raw)",
     );
@@ -223,8 +266,18 @@ for (const f of files) {
 }
 
 console.log("\n=== doc-lint — Definition of Done ===\n");
+// Le nom court se lit mieux… tant qu'il désigne UNE page. Or `README.md` et `index.md` se
+// répètent d'un dossier à l'autre : un rapport de sept lignes « ❌ README.md » ne dit pas
+// lequel réparer. Les noms ambigus DANS CE LOT passent donc en chemin relatif au dépôt.
+const seen = new Map();
+for (const [f] of report) {
+  const n = f.split("/").pop();
+  seen.set(n, (seen.get(n) || 0) + 1);
+}
 for (const [f, errs] of report) {
-  const name = f.split("/").pop();
+  const short = f.split("/").pop();
+  const name =
+    seen.get(short) > 1 ? path.relative(REPO, path.resolve(f)) : short;
   if (!errs.length) console.log(`✅ ${name}`);
   else {
     console.log(`❌ ${name}`);
