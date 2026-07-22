@@ -151,11 +151,32 @@ export interface ServersConfig {
 /** Sortie fichier du Syslog. */
 export interface LogFileConfig {
   /**
+   * Chemin explicite du fichier de log (sink `file`). À défaut, le sink écrit
+   * `<dir>/nodefony-<pid>.log` (un fichier par worker, 0 lock d'inode partagé).
+   * @reactivity boot
+   */
+  path?: string;
+  /**
    * Écriture synchrone (`writeSync`) par worker au lieu du buffer async.
    * @default false
    * @reactivity boot
    */
   sync?: boolean;
+}
+
+/** Options du driver de RELECTURE `file` du log backplane (query plane JSONL). */
+export interface LogQueryFileConfig {
+  /**
+   * Chemin du fichier JSONL relu par le driver de query `file`. À défaut, dérivé
+   * du répertoire de logs.
+   * @reactivity boot
+   */
+  path?: string;
+  /**
+   * Plafond d'octets scannés en fin de fichier lors d'une query (garde-fou I/O).
+   * @reactivity boot
+   */
+  maxScanBytes?: number;
 }
 
 /** Destination prod queryable du log backplane (Loki / OpenSearch). */
@@ -197,8 +218,24 @@ export interface LogConfig {
    * @reactivity boot
    */
   driver?: "stdout" | "file" | "null";
+  /**
+   * Répertoire des logs (fichiers `.log` + JSONL queryable + viewer Studio),
+   * résolu sous `process.cwd()`.
+   * @default "logs"
+   * @reactivity boot
+   */
+  dir?: string;
   /** Options du sink fichier. */
   file?: LogFileConfig;
+  /**
+   * Profondeur du ring de relecture du backplane de log (driver `memory`). Non
+   * défini = 2000 en développement (trace d'une requête lisible), sinon repli
+   * prod-safe interne.
+   * @reactivity boot
+   */
+  maxStack?: number;
+  /** Options du driver de relecture `file` (query plane JSONL). */
+  queryFile?: LogQueryFileConfig;
   /**
    * Driver de RELECTURE du log backplane (≠ sink d'écriture). `auto` (défaut)
    * s'adapte au mode : mono → `memory`, worker de cluster → `cluster-file` (vue

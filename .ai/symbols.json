@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-22T22:24:57.964Z",
+  "generated": "2026-07-22T22:29:09.066Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1038,
-    "symbols": 2831,
+    "symbols": 2832,
     "classes": 329,
-    "interfaces": 739,
+    "interfaces": 740,
     "types": 328,
     "enums": 4,
     "functions": 851,
@@ -1344,6 +1344,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Sortie fichier du Syslog."
+    },
+    "LogQueryFileConfig": {
+      "name": "LogQueryFileConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options du driver de RELECTURE `file` du log backplane (query plane JSONL)."
     },
     "LogDestinationConfig": {
       "name": "LogDestinationConfig",

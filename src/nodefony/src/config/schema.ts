@@ -57,8 +57,22 @@ const logSchema = z
         "Transport de log principal. `stdout` (cloud-native, collecteur externe), " +
           "`file`, ou `null` (jeté). Override env : `NF_LOG_DRIVER`. Défaut : `stdout`.",
       ),
+    dir: z
+      .string()
+      .optional()
+      .describe(
+        "Répertoire des logs (`.log` + JSONL queryable + viewer Studio), sous " +
+          "cwd. Défaut : `logs`.",
+      ),
     file: z
       .object({
+        path: z
+          .string()
+          .optional()
+          .describe(
+            "Chemin explicite du fichier de log. Défaut : " +
+              "`<dir>/nodefony-<pid>.log`.",
+          ),
         sync: z
           .boolean()
           .optional()
@@ -68,6 +82,30 @@ const logSchema = z
       })
       .optional()
       .describe("Options du driver `file`."),
+    maxStack: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Profondeur du ring de relecture du backplane (driver `memory`). Non " +
+          "défini : 2000 en dev, repli prod-safe sinon.",
+      ),
+    queryFile: z
+      .object({
+        path: z
+          .string()
+          .optional()
+          .describe("Chemin du JSONL relu par le driver de query `file`."),
+        maxScanBytes: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Plafond d'octets scannés en fin de fichier par query."),
+      })
+      .optional()
+      .describe("Options du driver de relecture `file` (query plane JSONL)."),
     queryDriver: z
       .string()
       .optional()
