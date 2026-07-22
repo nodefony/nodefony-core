@@ -8,7 +8,11 @@ import { PLATFORM_CHANNELS } from "nodefony";
  * `IAuditStore.ts`. Data plane consommé : `GET /nodefony/security/api/audit/events`.
  */
 
-/** Sous-système de sécurité concerné — axe de filtrage principal (fermé : 9). */
+/**
+ * Sous-système de sécurité concerné — MIROIR du contrat `@nodefony/security`
+ * `IAuditEvent.ts` (`AuditCategory`, fermé : 11). Doit couvrir TOUTE valeur que le
+ * backend peut émettre, sinon un événement arrive sans métadonnée de rendu.
+ */
 export type AuditCategory =
   | "auth"
   | "authz"
@@ -18,7 +22,9 @@ export type AuditCategory =
   | "webauthn"
   | "csrf"
   | "cors"
-  | "ws";
+  | "ws"
+  | "webhook"
+  | "config";
 
 /** Issue d'une action de sécurité. */
 export type AuditOutcome = "success" | "failure" | "denied";
@@ -116,17 +122,24 @@ export interface CategoryMeta {
   color: string;
 }
 
-/** Les 9 sous-systèmes, dans l'ordre du contrat. */
+/**
+ * Catégories affichées/filtrables — UNIQUEMENT celles qui ont un émetteur RÉEL
+ * aujourd'hui (grep `record({ category: … })` côté `@nodefony/security`). Un filtre
+ * qui ne rend JAMAIS rien induit en erreur (motif « affordance morte »), et une
+ * catégorie qui émet mais manque ici s'affiche sans label ni couleur.
+ *
+ * `oauth` / `csrf` / `cors` / `config` sont au contrat (`IAuditEvent.ts`) mais
+ * n'émettent encore aucun événement → volontairement absents ici. Les ré-ajouter au
+ * moment où l'on câble leur émetteur (l'ordre suit le contrat).
+ */
 export const AUDIT_CATEGORIES: readonly CategoryMeta[] = [
   { value: "auth", label: "Authentification", color: "blue" },
   { value: "authz", label: "Autorisation", color: "indigo" },
   { value: "token", label: "Jetons", color: "grape" },
   { value: "session", label: "Session", color: "cyan" },
-  { value: "oauth", label: "OAuth social", color: "teal" },
   { value: "webauthn", label: "Passkeys", color: "violet" },
-  { value: "csrf", label: "CSRF", color: "orange" },
-  { value: "cors", label: "CORS", color: "yellow" },
   { value: "ws", label: "WebSocket", color: "pink" },
+  { value: "webhook", label: "Webhooks", color: "orange" },
 ] as const;
 
 /** Métadonnée d'affichage d'une issue (label FR + teinte). */

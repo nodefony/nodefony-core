@@ -12,19 +12,27 @@
 /**
  * Sous-système de sécurité concerné — axe de filtrage principal de la console
  * d'audit (Studio P6.15). Fermé : la liste des sous-systèmes est stable.
+ *
+ * ⚠️ Quatre catégories sont RÉSERVÉES — déclarées au contrat mais **sans émetteur à
+ * ce jour** (aucun `record({ category: … })` ne les produit) : `oauth`, `csrf`,
+ * `cors`, `config`. La console Studio ne propose donc PAS de filtre pour elles (un
+ * filtre qui ne rend jamais rien induit en erreur — cf `studio/.../auditModel.ts`).
+ * En câbler une = ajouter son émetteur ICI (l'émetteur), puis la métadonnée
+ * d'affichage dans `AUDIT_CATEGORIES`. Émettent réellement : auth, authz, token,
+ * session, webauthn, ws, webhook.
  */
 export type AuditCategory =
   | "auth" // authentification (login/logout, chaîne du firewall)
   | "authz" // autorisation (accès accordé/refusé, voters, @IsGranted)
   | "token" // jetons longue durée (JWT refresh, PAT) émis/révoqués
   | "session" // cycle de vie de session (ouverture, régénération, destruction)
-  | "oauth" // login social OAuth2 (authorize, callback, provisioning JIT)
+  | "oauth" // RÉSERVÉ (pas d'émetteur) — login social OAuth2 (authorize/callback/JIT)
   | "webauthn" // passkeys (enregistrement, assertion)
-  | "csrf" // défense CSRF (Fetch-Metadata, token synchronizer)
-  | "cors" // politique CORS (preflight rejeté)
+  | "csrf" // RÉSERVÉ (pas d'émetteur) — défense CSRF (Fetch-Metadata, token synchronizer)
+  | "cors" // RÉSERVÉ (pas d'émetteur) — politique CORS (preflight rejeté)
   | "ws" // verrou de frame WebSocket (api.request / subscribe refusé)
   | "webhook" // webhook sortant (auto-désactivation après échecs répétés)
-  | "config"; // mutation de config runtime depuis Studio (édition live admin)
+  | "config"; // RÉSERVÉ (pas d'émetteur) — mutation de config runtime depuis Studio
 
 /**
  * Issue d'une action de sécurité. La distinction `failure`/`denied` est utile à

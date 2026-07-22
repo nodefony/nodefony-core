@@ -15,6 +15,8 @@ import {
   IconShieldLock,
   IconWorld,
   IconPlugConnected,
+  IconWebhook,
+  IconSettings,
   IconCheck,
   IconX,
   IconBan,
@@ -38,6 +40,8 @@ const CATEGORY_ICON: Record<AuditCategory, Icon> = {
   csrf: IconShieldLock,
   cors: IconWorld,
   ws: IconPlugConnected,
+  webhook: IconWebhook,
+  config: IconSettings,
 };
 
 const OUTCOME_ICON: Record<AuditOutcome, Icon> = {
