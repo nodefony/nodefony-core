@@ -52,6 +52,8 @@ import {
   MYSQL_COMMUNITY_GATE,
   gateEnv,
   gateUpCommand,
+  redactUrl,
+  OPT_IN_SWITCHES,
   type EnvGate,
 } from "../vitest.gates";
 
@@ -82,9 +84,11 @@ interface Options {
 
 function parseArgs(argv: string[]): Options {
   const has = (flag: string) => argv.includes(flag);
-  // Sélectionner une phase explicitement désactive les autres : `--unit` veut
-  // dire « seulement l'unitaire », pas « l'unitaire en plus du reste ».
-  const picked = has("--unit") || has("--integration") || has("--load");
+  // `--unit` / `--integration` SÉLECTIONNENT (« seulement celle-ci »). `--load` et
+  // `--dialects`, eux, AJOUTENT une phase optionnelle : les traiter comme une
+  // sélection faisait taire les deux suites principales — `--load` rendait un
+  // rapport « complet » qui n'avait lancé ni l'unitaire ni l'intégration.
+  const picked = has("--unit") || has("--integration");
   return {
     infra: !has("--no-infra"),
     infraOnly: has("--infra"),
@@ -104,6 +108,15 @@ interface InfraState {
   ready: boolean;
   /** Ce qui empêche la cible d'être exercée, quand elle ne l'est pas. */
   reason?: string;
+  /**
+   * Les valeurs RÉELLEMENT utilisées pour cette cible, figées à la préparation.
+   *
+   * Nécessaire parce que deux cibles peuvent se partager une variable (MariaDB et
+   * MySQL Community sur `NF_MYSQL_URL`) : relire `process.env` au moment du
+   * rapport afficherait la dernière posée pour les deux, et le rapport mentirait
+   * sur ce qui a été exercé.
+   */
+  used?: Record<string, string>;
 }
 
 /** Le conteneur `name` est-il en marche ET sain (ou sans sonde de santé) ? */
@@ -136,10 +149,23 @@ function dockerAvailable(): boolean {
  * base distante, un port inhabituel, un serveur managé. Le script ne l'écrase
  * jamais.
  */
-async function prepare(gate: EnvGate, useDocker: boolean): Promise<InfraState> {
+async function prepare(
+  gate: EnvGate,
+  useDocker: boolean,
+  force = false,
+): Promise<InfraState> {
   const vars = gate.values();
-  const already = gateEnv(gate).every((k) => (process.env[k] ?? "").trim());
-  if (already) return { gate, ready: true };
+  // `force` : la cible PARTAGE sa variable avec une autre (MariaDB ↔ MySQL
+  // Community). La trouver « déjà posée » signifierait alors qu'on exerce la
+  // voisine en croyant l'exercer elle — et le rapport afficherait l'URL de
+  // l'autre serveur. Dans ce cas, ses propres valeurs font foi.
+  const already =
+    !force && gateEnv(gate).every((k) => (process.env[k] ?? "").trim());
+  if (already) {
+    const used: Record<string, string> = {};
+    for (const k of gateEnv(gate)) used[k] = process.env[k] ?? "";
+    return { gate, ready: true, used };
+  }
 
   if (!useDocker) {
     return { gate, ready: false, reason: "infra désactivée (--no-infra)" };
@@ -175,7 +201,7 @@ async function prepare(gate: EnvGate, useDocker: boolean): Promise<InfraState> {
   }
 
   for (const [k, v] of Object.entries(vars)) process.env[k] = v;
-  return { gate, ready: true };
+  return { gate, ready: true, used: vars };
 }
 
 // ── Phases ──────────────────────────────────────────────────────────────────
@@ -294,10 +320,19 @@ function report(
   console.log(`\n${C.bold("Cibles d'infrastructure")}`);
   for (const state of infra) {
     const mark = state.ready ? C.green("✔") : C.yellow("○");
-    const suffix = state.ready
-      ? C.dim(gateEnv(state.gate).join(", "))
-      : C.yellow(`non exercée — ${state.reason}`);
-    console.log(`  ${mark} ${state.gate.label.padEnd(26)} ${suffix}`);
+    if (!state.ready) {
+      console.log(
+        `  ${mark} ${state.gate.label.padEnd(26)} ${C.yellow(`non exercée — ${state.reason}`)}`,
+      );
+      continue;
+    }
+    // La valeur RÉELLEMENT utilisée, secret masqué : savoir quelle cible a
+    // répondu vaut mieux que savoir quelle variable existe — c'est l'URL qui
+    // distingue MariaDB de MySQL Community, ou une base locale d'une distante.
+    console.log(`  ${mark} ${state.gate.label}`);
+    for (const [key, value] of Object.entries(state.used ?? {})) {
+      console.log(`      ${C.dim(`${key} = ${redactUrl(value)}`)}`);
+    }
   }
 
   console.log(`\n${C.bold("Phases")}`);
@@ -333,6 +368,21 @@ function report(
       (totals.skipped ? `, ${totals.skipped} sautés` : ""),
   );
 
+  const closed = OPT_IN_SWITCHES.filter(
+    (sw) => !(process.env[sw.env] ?? "").trim(),
+  );
+  if (closed.length > 0) {
+    console.log(
+      `\n${C.bold("Interrupteurs fermés")} ${C.dim("(l'essentiel des tests « sautés »)")}`,
+    );
+    for (const sw of closed) {
+      console.log(`  ${C.yellow("○")} ${sw.env.padEnd(16)} ${C.dim(sw.what)}`);
+    }
+    console.log(
+      `  ${C.dim(`→ pour les ouvrir : ${closed.map((c) => `${c.env}=1`).join(" ")} npm run test:all`)}`,
+    );
+  }
+
   const unmet = infra.filter((i) => !i.ready);
   if (unmet.length > 0) {
     console.log(
@@ -360,6 +410,25 @@ async function main(): Promise<void> {
   }
 
   if (options.infraOnly) {
+    // Ce qu'on n'a pas lancé se dit aussi : une batterie « complète » qui tait ses
+    // absences est exactement le genre de demi-vérité que ce script combat.
+    if (!options.load) {
+      phases.push({
+        name: "Suite de charge + mémoire",
+        ok: true,
+        skipped: "non lancée — `npm run test:all -- --load`",
+        durationMs: 0,
+      });
+    }
+    if (!options.dialects) {
+      phases.push({
+        name: "Suites ORM — MySQL Community",
+        ok: true,
+        skipped: "non lancée — `npm run test:all -- --dialects`",
+        durationMs: 0,
+      });
+    }
+
     report(infra, phases, options);
     process.exit(infra.every((i) => i.ready) ? 0 : 1);
   }
@@ -399,7 +468,7 @@ async function main(): Promise<void> {
   // collation, bornes numériques et arbitrage des upserts ont déjà divergé entre
   // les deux. Sans cette passe, la moitié de la cible reste non exercée.
   if (options.dialects) {
-    const community = await prepare(MYSQL_COMMUNITY_GATE, options.infra);
+    const community = await prepare(MYSQL_COMMUNITY_GATE, options.infra, true);
     infra.push(community);
     if (community.ready) {
       const saved = process.env.NF_MYSQL_URL;
@@ -459,6 +528,25 @@ async function main(): Promise<void> {
         durationMs: 0,
       });
     }
+  }
+
+  // Ce qu'on n'a pas lancé se dit aussi : une batterie « complète » qui tait ses
+  // absences est exactement le genre de demi-vérité que ce script combat.
+  if (!options.load) {
+    phases.push({
+      name: "Suite de charge + mémoire",
+      ok: true,
+      skipped: "non lancée — `npm run test:all -- --load`",
+      durationMs: 0,
+    });
+  }
+  if (!options.dialects) {
+    phases.push({
+      name: "Suites ORM — MySQL Community",
+      ok: true,
+      skipped: "non lancée — `npm run test:all -- --dialects`",
+      durationMs: 0,
+    });
   }
 
   report(infra, phases, options);

@@ -63,6 +63,36 @@ export interface EnvGate {
   note?: string;
 }
 
+/**
+ * Interrupteurs qui n'ouvrent pas une INFRA mais un COÛT : bancs de performance,
+ * boots CLI réels, ruptures de charge. Ils sont fermés par défaut à raison — mais
+ * leur silence ressemble à s'y méprendre à une suite complète.
+ *
+ * Le rapport les nomme pour que « 47 sautés » cesse d'être un chiffre opaque.
+ */
+export const OPT_IN_SWITCHES: ReadonlyArray<{ env: string; what: string }> = [
+  {
+    env: "RUN_PERF",
+    what: "micro-bancs de performance (seuils non déterministes)",
+  },
+  { env: "RUN_CLI_BOOT", what: "boots CLI réels (lents : un kernel par cas)" },
+  { env: "RUN_CLUSTER_E", what: "scénarios cluster multi-process" },
+  {
+    env: "RUN_WS_RUPTURE",
+    what: "sondes de rupture WebSocket (épuisent les ports)",
+  },
+];
+
+/**
+ * Masque le secret d'une URL de connexion pour l'affichage.
+ *
+ * Un rapport lisible ne doit pas devenir une fuite : ces URL finissent dans des
+ * copies d'écran, des tickets et des journaux de CI.
+ */
+export function redactUrl(url: string): string {
+  return url.replace(/(:\/\/[^:/@]*:)[^@]*@/, "$1***@");
+}
+
 /** Les variables requises par une gate — dérivées de {@link EnvGate.values}. */
 export function gateEnv(gate: EnvGate): string[] {
   return Object.keys(gate.values());
