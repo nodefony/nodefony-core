@@ -25,7 +25,7 @@ last-updated: 2026-05-29
 docs/
 ├── README.md          ← ce fichier (index + conventions)
 ├── adr/               ← Architecture Decision Records (décisions figées, immuables)
-├── architecture/      ← concepts transverses : kernel, DI, build (BUILDER.md), realtime-socket
+├── architecture/      ← concepts transverses : boot, DI, configuration, pipeline, build, realtime
 ├── guides/            ← how-to : frontend React, session storage…
 ├── ia/                ← vision IA : livre-blanc-couche-ia.md (source unique)
 ├── release/           ← notes de version (nodefony-10)
@@ -132,9 +132,14 @@ le technique suit).
 
 ### Liens
 
-- **Vers une autre page docs/** : chemin relatif `./architecture/kernel.md`.
+Les cibles ci-dessous sont données **telles qu'on les écrit depuis une page de sous-dossier**
+(`docs/architecture/une-page.md`) — un lien est toujours relatif à la page qui l'écrit.
+
+- **Vers une autre page docs/** : la voisine s'écrit `build-bundling.md`, une page d'un autre
+  sous-dossier `../guides/…`.
 - **Vers le code source** : chemin absolu depuis la racine, sans backtick : `src/nodefony/src/Container.ts:73`.
-- **Vers un symbole** : `[Service](../../src/nodefony/docs/service.md)` (doc colocalisée au module, ADR-0001).
+- **Vers une doc colocalisée à un module** (ADR-0001) : remonter jusqu'à la racine —
+  `../../src/nodefony/docs/service.md` pour le cœur, `../../src/packages/@nodefony/http/docs/…` pour un paquet.
 
 ## TSDoc — source de vérité pour l'API
 
