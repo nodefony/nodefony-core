@@ -381,22 +381,22 @@ DI scopes (singleton/transient), lifecycle session.
 
 > **5 seams sécurité (P13.4a/4b/4c/7a/8a) tous ✅** → P6 se branchera sans refonte. Setup infra docker (Redis/Kafka) livré.
 
-| #         | Tâche                                            | État                                                                                                                                |
-| --------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| ✅ P13.0  | Rapatriement framework → `@nodefony/realtime`    | cycle cassé, 10 src + 5 tests `git mv`                                                                                              |
-| 🔶 P13.1  | TCP/UDP/Unix sockets                             | scaffold ; code protocoles reste (niche différable)                                                                                 |
-| 🔶 P13.2  | `@nodefony/redis` refactor                       | fondation conventions faite ; 15 tests                                                                                              |
-| ✅ P13.4  | `IRealtimeHub` + `RealtimeService`               | façade + `defineRealtimeConfig` Zod                                                                                                 |
-| ✅ P13.5  | `RedisBackplane`                                 | **prouvé cluster live -w2** ; registre drivers ; **bus authentifié (sceau HMAC) + banc multi-apps**                                 |
-| ⬜ P13.6a | `KafkaBackplane` (driver seul)                   | 4 briques réutilisées telles quelles ; seam transport injectable, 0 dep ajoutée                                                     |
-| ⬜ P13.6b | Module `@nodefony/kafka`                         | connexions + config + santé ; **attend un 2ᵉ consommateur** (bus events métier / P12 agents)                                        |
-| ✅ P13.7  | Protocole JSON-RPC 2.0 + types partagés          | RPC bidirectionnel ; long-polling droppé                                                                                            |
-| 🔶 P13.8  | Décorateurs `@RealtimeAction`/`@RealtimeChannel` | 3 décorateurs livrés ; reste pattern RegExp                                                                                         |
-| ✅ P13.9  | Tests cluster simulé (IPC)                       | e2e `child_process.fork`, 5 tests                                                                                                   |
-| ✅ P13.10 | Granularité + cadence AIMD                       | différenciateur, client-driven                                                                                                      |
-| ✅ P13.11 | Sonde « socket Nodefony »                        | `RealtimeHub.probe()` + endpoint health                                                                                             |
-| ✅ P13.12 | Namespace `nodefony:` des canaux de plateforme   | `e24692f7` — 9 namespaces → **1** ; table isomorphe `platformChannels.ts` + gate pre-commit anti-littéral                           |
-| ✅ P13.13 | Révocation realtime par MODE d'authentification  | `b20c9640` — le mode agent (JWT/clé) ne s'appuie plus sur une session ; scopes propagés à la socket (élévation de privilège fermée) |
+| #         | Tâche                                            | État                                                                                                                                                      |
+| --------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ P13.0  | Rapatriement framework → `@nodefony/realtime`    | cycle cassé, 10 src + 5 tests `git mv`                                                                                                                    |
+| 🔶 P13.1  | TCP/UDP/Unix sockets                             | scaffold ; code protocoles reste (niche différable)                                                                                                       |
+| 🔶 P13.2  | `@nodefony/redis` refactor                       | fondation conventions faite ; **cloison des clés par application** `e43530ae` (`keyNamespace` — une app ne lit plus les sessions d'une autre) ; 110 tests |
+| ✅ P13.4  | `IRealtimeHub` + `RealtimeService`               | façade + `defineRealtimeConfig` Zod                                                                                                                       |
+| ✅ P13.5  | `RedisBackplane`                                 | **prouvé cluster live -w2** ; registre drivers ; **bus authentifié (sceau HMAC) + banc multi-apps**                                                       |
+| ⬜ P13.6a | `KafkaBackplane` (driver seul)                   | 4 briques réutilisées telles quelles ; seam transport injectable, 0 dep ajoutée                                                                           |
+| ⬜ P13.6b | Module `@nodefony/kafka`                         | connexions + config + santé ; **attend un 2ᵉ consommateur** (bus events métier / P12 agents)                                                              |
+| ✅ P13.7  | Protocole JSON-RPC 2.0 + types partagés          | RPC bidirectionnel ; long-polling droppé                                                                                                                  |
+| 🔶 P13.8  | Décorateurs `@RealtimeAction`/`@RealtimeChannel` | 3 décorateurs livrés ; reste pattern RegExp                                                                                                               |
+| ✅ P13.9  | Tests cluster simulé (IPC)                       | e2e `child_process.fork`, 5 tests                                                                                                                         |
+| ✅ P13.10 | Granularité + cadence AIMD                       | différenciateur, client-driven                                                                                                                            |
+| ✅ P13.11 | Sonde « socket Nodefony »                        | `RealtimeHub.probe()` + endpoint health                                                                                                                   |
+| ✅ P13.12 | Namespace `nodefony:` des canaux de plateforme   | `e24692f7` — 9 namespaces → **1** ; table isomorphe `platformChannels.ts` + gate pre-commit anti-littéral                                                 |
+| ✅ P13.13 | Révocation realtime par MODE d'authentification  | `b20c9640` — le mode agent (JWT/clé) ne s'appuie plus sur une session ; scopes propagés à la socket (élévation de privilège fermée)                       |
 
 > **Dettes backplane multi-pod / multi-app** (détail : [`@nodefony/realtime` — configuration](src/packages/@nodefony/realtime/docs/configuration.md)) :
 >
