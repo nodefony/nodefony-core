@@ -13,11 +13,9 @@ export type MetaBagType = Record<string, unknown>;
  * `sessionAutoStart` global « démarre partout » — qui décide d'ouvrir une session.
  *
  * - `readOnly` : la session est lue/reprise mais **jamais persistée** (0 write storage).
- * - `eager` : active tôt (seam P6 — régénération d'ID post-authentification).
  */
 export interface SessionIntent {
   readOnly?: boolean;
-  eager?: boolean;
 }
 
 /**

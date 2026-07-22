@@ -571,7 +571,6 @@ export type UseSessionOptions = SessionIntent;
  * d'un paramètre `@Session` sur l'action suffit aussi (intent implicite).
  *
  * - `{ readOnly }` : session lue/reprise mais **jamais persistée** (0 write storage).
- * - `{ eager }` : active tôt (seam P6 — régénération d'ID post-authentification).
  *
  * ⚠️ En décorateur de **classe**, placer `@UseSession` SOUS `@controller`.
  *

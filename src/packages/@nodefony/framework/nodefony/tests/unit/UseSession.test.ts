@@ -15,13 +15,13 @@ const asCtor = (c: unknown): ControllerConstructor =>
   c as unknown as ControllerConstructor;
 
 // Les intents ci-dessous n'utilisent QUE les clés du contrat `SessionIntent`
-// (`readOnly` | `eager`) : la fusion classe⊕méthode est prouvée avec `eager` comme
-// clé « portée par la classe seule » et `readOnly` comme clé « redéfinie par la
-// méthode » — exactement les deux cas de précédence à verrouiller.
+// (`readOnly`) : la fusion classe⊕méthode est prouvée sur cette clé — la classe
+// pose une valeur, la méthode l'écrase (override) ou la laisse (survie), les deux
+// cas de précédence à verrouiller.
 
 // ─── @UseSession classe ───────────────────────────────────────────────────────
 
-@UseSession({ eager: true })
+@UseSession({ readOnly: true })
 class ClassIntent {
   plain(): void {}
 }
@@ -36,10 +36,12 @@ class MethodIntent {
 
 // ─── précédence classe + méthode ──────────────────────────────────────────────
 
-@UseSession({ eager: true, readOnly: false })
+@UseSession({ readOnly: false })
 class MergeIntent {
   @UseSession({ readOnly: true })
   merge(): void {}
+  @UseSession({})
+  kept(): void {}
   inherited(): void {}
 }
 
@@ -70,7 +72,7 @@ class NoIntent {
 describe("@UseSession / resolveSessionIntent", () => {
   it("classe : applique l'intent à toutes les actions", () => {
     expect(resolveSessionIntent(asCtor(ClassIntent), "plain")).to.deep.equal({
-      eager: true,
+      readOnly: true,
     });
   });
 
@@ -81,16 +83,19 @@ describe("@UseSession / resolveSessionIntent", () => {
     expect(resolveSessionIntent(asCtor(MethodIntent), "plain")).to.equal(null);
   });
 
-  it("précédence : la méthode complète et écrase la classe", () => {
-    // classe {eager:true, readOnly:false} ⊕ méthode {readOnly:true}
+  it("précédence : la méthode écrase, ou laisse survivre la clé de classe", () => {
+    // classe {readOnly:false} ⊕ méthode {readOnly:true} → override
     expect(resolveSessionIntent(asCtor(MergeIntent), "merge")).to.deep.equal({
-      eager: true,
       readOnly: true,
+    });
+    // méthode décorée mais vide → la clé de la classe survit à la fusion
+    expect(resolveSessionIntent(asCtor(MergeIntent), "kept")).to.deep.equal({
+      readOnly: false,
     });
     // action non décorée → hérite de la classe
     expect(
       resolveSessionIntent(asCtor(MergeIntent), "inherited"),
-    ).to.deep.equal({ eager: true, readOnly: false });
+    ).to.deep.equal({ readOnly: false });
   });
 
   it("précédence : la méthode écrase une même clé de la classe", () => {
@@ -111,15 +116,5 @@ describe("@UseSession / resolveSessionIntent", () => {
   it("aucune déclaration → null (lazy : 0 session)", () => {
     expect(resolveSessionIntent(asCtor(ParamIntent), "plain")).to.equal(null);
     expect(resolveSessionIntent(asCtor(NoIntent), "plain")).to.equal(null);
-  });
-
-  it("porte eager (seam P6)", () => {
-    @UseSession({ eager: true })
-    class EagerIntent {
-      a(): void {}
-    }
-    expect(resolveSessionIntent(asCtor(EagerIntent), "a")).to.deep.equal({
-      eager: true,
-    });
   });
 });
