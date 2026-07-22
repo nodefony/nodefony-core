@@ -7,7 +7,7 @@
  * la sécurité active — c'est LE test qui compte pour un pont inter-modules :
  *   login (security)            → cookie de session opaque (http)
  *   → handshake WS firewall     (security sur le pipeline http)
- *   → SessionRealtimeAuthenticator (security, lit l'identité résolue dans l'ALS)
+ *   → FirewallRealtimeAuthenticator (security, lit l'identité résolue dans l'ALS)
  *   → token posé sur le peer     (realtime hub)
  *   → frame `api.request`        → verrou de frame (security, `firewall.matchPath`)
  *   → executeAction              (framework router)  ≡  GET REST.
@@ -280,7 +280,7 @@ describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
     const hub = await hubConnect(cookie);
     expect(hub.welcome.methods).to.include("api.request");
     // L2 — le welcome porte l'identité RÉSOLUE par le firewall
-    // (SessionRealtimeAuthenticator → UserRealtimeToken) : preuve END-TO-END que
+    // (FirewallRealtimeAuthenticator → UserRealtimeToken) : preuve END-TO-END que
     // security → serveur → client transmet l'identité (pas de route /auth/me).
     // type "session" = UserRealtimeToken (BFF cookie opaque).
     const id = hub.welcome.identity;

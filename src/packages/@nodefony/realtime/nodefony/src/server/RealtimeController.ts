@@ -522,8 +522,10 @@ export abstract class RealtimeController<
     // est SYNC (identité figée au handshake, cf FrameAuthorizer) → il ne coupe pas un
     // socket dont la session meurt (logout HTTP), là où `api.request` re-valide par
     // requête (`isValid`). On inscrit CETTE connexion au tick de révalidation du hub,
-    // UNIQUEMENT si le token porte `isValid` (session BFF révocable) : anonyme/JWT sans
-    // revalidation n'y entrent pas → 0 coût. Retiré au close (onFinish, plus bas).
+    // UNIQUEMENT si le token porte `isValid` : une identité révocable, quel que soit
+    // son mode — session BFF relue, ou jeton porteur dont on vérifie la borne `exp`
+    // et la révocation. Un anonyme, lui, n'a rien à révoquer → 0 coût. Retiré au
+    // close (onFinish, plus bas).
     let revocable: IRevocableConnection | null = null;
     if (typeof token.isValid === "function") {
       revocable = { token, close: (code, reason) => conn.close(code, reason) };

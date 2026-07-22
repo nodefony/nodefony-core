@@ -32,7 +32,7 @@ export interface IRealtimeToken {
    * `false` = identité périmée (session morte / compte changé). Optionnel
    * (absent = valide). Appelé par le pont `api.request` avant l'action data plane.
    */
-  isValid?(): boolean | Promise<boolean>;
+  isValid?(nowMs?: number): boolean | Promise<boolean>;
 }
 
 /**

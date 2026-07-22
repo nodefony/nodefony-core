@@ -25,7 +25,7 @@ import {
  *
  *   VRAI Firewall (@nodefony/security) boote avec une vraie config (zones +
  *   roleHierarchy + realtimeChannels) → `#wireRealtime` câble le hub realtime
- *   (`useAuthenticator(SessionRealtimeAuthenticator)` + `setFrameAuthorizer`)
+ *   (`useAuthenticator(FirewallRealtimeAuthenticator)` + `setFrameAuthorizer`)
  *   → VRAI RealtimeController résout l'identité au handshake VIA L'ALS (comme le
  *   HttpKernel en prod) → VRAI RealtimeClient observe la décision.
  *
@@ -55,7 +55,7 @@ class Wire {
 
 // Transport SANS handshake auto : on déclenche le handshake serveur nous-mêmes,
 // DANS la bulle `RequestContext.run({ user })` (sinon l'ALS serait vide au moment
-// où le SessionRealtimeAuthenticator lit l'identité).
+// où le FirewallRealtimeAuthenticator lit l'identité).
 class ManualTransport implements IRealtimeTransport {
   readyState: number = TransportState.CONNECTING;
   private _onOpen: (() => void) | null = null;
@@ -203,7 +203,7 @@ function makeServer(wire: Wire): WiredRt {
 
 /**
  * Monte un client + déclenche le handshake serveur DANS la bulle ALS de `user`
- * (`null` = anonyme : ALS vide → SessionRealtimeAuthenticator ne supporte pas →
+ * (`null` = anonyme : ALS vide → FirewallRealtimeAuthenticator ne supporte pas →
  * ANONYMOUS_REALTIME_TOKEN, comme un vrai visiteur non loggué).
  */
 async function connectAs(user: IUser | null): Promise<RealtimeClient> {

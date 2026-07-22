@@ -99,7 +99,7 @@ export const RESERVED_SYSTEM_PREFIXES = [NODEFONY_CHANNEL_NAMESPACE] as const;
 export const isReservedSystemChannel = isPlatformChannel;
 
 /**
- * Période de re-validation des identités RÉVOCABLES (session BFF) — F4 (revue 0.6).
+ * Période de re-validation des identités RÉVOCABLES — F4 (revue 0.6).
  * Le verrou de frame est SYNC par doctrine (identité figée au handshake, cf
  * {@link FrameAuthorizer}) → il ne peut pas re-lire la session par frame. Un socket
  * survivrait donc à sa session (`subscribe` garderait ses flux après un logout HTTP),
@@ -113,7 +113,8 @@ export const REVOCATION_REVALIDATE_MS = 30_000;
 /**
  * Connexion à identité RÉVOCABLE inscrite au registre de re-validation (F4). Ne
  * porte QUE ce qu'il faut pour re-valider puis fermer : le token (avec `isValid`) et
- * un `close` fermant la socket brute. 1 entrée = 1 connexion à session BFF.
+ * un `close` fermant la socket brute. 1 entrée = 1 connexion à identité révocable
+ * (session BFF relue, ou jeton porteur à borne/denylist).
  */
 export interface IRevocableConnection {
   readonly token: IRealtimeToken;
@@ -233,7 +234,7 @@ export class RealtimeHub {
   // pas sur le sink opaque). Inscrit au handshake, retiré au close (symétrique).
   #connections: Set<IRealtimeConnProbe> | null = null;
 
-  // Registre des connexions à identité RÉVOCABLE (session BFF portant `isValid`) —
+  // Registre des connexions à identité RÉVOCABLE (tout token portant `isValid`) —
   // F4 (revue 0.6). Lazy : `null` tant qu'aucune session révocable (anonyme/JWT sans
   // revalidation n'y entrent JAMAIS → 0 coût). Re-validé périodiquement par
   // {@link revalidateRevocable} → ferme les sockets dont la session est morte/changée.
@@ -607,7 +608,7 @@ export class RealtimeHub {
   }
 
   /**
-   * Inscrit une connexion à identité RÉVOCABLE (session BFF) au registre de
+   * Inscrit une connexion à identité RÉVOCABLE au registre de
    * re-validation (F4, revue 0.6). Démarre le tick au 1ᵉʳ inscrit (timer `unref`,
    * 0 timer au repos). À équilibrer par {@link unregisterRevocable} au close.
    * N'inscrire QUE les tokens portant `isValid` (le controller filtre) : une identité
@@ -639,7 +640,8 @@ export class RealtimeHub {
 
   /**
    * Tick de re-validation (F4) : re-lit l'identité de chaque connexion révocable
-   * (`token.isValid()`) et FERME la socket (`4001`) si la session est morte/changée.
+   * (`token.isValid()`) et FERME la socket (`4001`) si l'identité est morte : session
+   * détruite ou passée à un autre compte, jeton expiré ou révoqué.
    * Fail-closed : une re-validation qui throw ferme aussi (parité `invokeApiRequest`).
    * Snapshot du registre AVANT les `await` (le `close` mute le registre via le cleanup
    * `onFinish`). Exposé (public) pour un test déterministe sans fake timers.

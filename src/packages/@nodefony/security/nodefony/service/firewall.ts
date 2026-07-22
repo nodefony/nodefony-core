@@ -33,7 +33,8 @@ import {
   getAuthenticatorFactory,
   listAuthenticatorFactories,
 } from "../src/authenticator/authenticatorRegistry";
-import { SessionRealtimeAuthenticator } from "../src/authenticator/SessionRealtimeAuthenticator";
+import { FirewallRealtimeAuthenticator } from "../src/authenticator/FirewallRealtimeAuthenticator";
+import type { IRealtimeRevocationStore } from "../src/authenticator/FirewallRealtimeAuthenticator";
 import {
   buildFrameAuthorizer,
   DEFAULT_SYSTEM_RULES,
@@ -267,7 +268,16 @@ class Firewall extends Service implements IFirewall {
       const matcher: IRealtimeAuthenticatorMatcher = area.host
         ? { pattern: area.pattern, host: area.host }
         : { pattern: area.pattern };
-      realtime.useAuthenticator(matcher, new SessionRealtimeAuthenticator());
+      // Le résolveur de store est une closure PARESSEUSE : rien n'est résolu au
+      // boot, ni pour une identité de session. Seule la re-validation d'une
+      // socket à jeton porteur (agent JWT / clé API) le déclenche.
+      realtime.useAuthenticator(
+        matcher,
+        new FirewallRealtimeAuthenticator(
+          () =>
+            this.container?.get<IRealtimeRevocationStore>("tokenStore") ?? null,
+        ),
+      );
       wired = true;
     }
     // Verrou de frame GLOBAL (1 hub), posé INCONDITIONNELLEMENT dès que le hub
@@ -280,7 +290,7 @@ class Firewall extends Service implements IFirewall {
     // moins ROLE_ADMIN sur les namespaces réservés. Sans zone, aucun authenticator
     // n'est câblé → tout abonné reste anonyme → ces canaux sont fermés à TOUS
     // (fail-closed), et une app qui veut y donner accès DOIT déclarer une zone
-    // `security && realtime` (qui câble le SessionRealtimeAuthenticator ci-dessus).
+    // `security && realtime` (qui câble le FirewallRealtimeAuthenticator ci-dessus).
     // Partage `matchPath` (source unique de zone HTTP ⇔ WS) + RBAC par canal.
     // Politiques système SURCHARGEABLES par la config (`realtimeChannels`, placée
     // AVANT → elle gagne). `channelResolver` = realtime (politiques métier

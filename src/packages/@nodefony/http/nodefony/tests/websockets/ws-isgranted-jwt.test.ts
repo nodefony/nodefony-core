@@ -8,11 +8,11 @@
  * `@IsGranted("ROLE_ADMIN")` qui décide en HTTP (J7) et en WS cookie/BFF (volet a)
  * décide AUSSI en WS JWT. Aucun `JwtRealtimeAuthenticator` : le firewall (zone
  * `test-api`, authenticator `jwt`) résout l'identité au handshake → ALS →
- * `SessionRealtimeAuthenticator` (câblé par zone) → `UserRealtimeToken`.
+ * `FirewallRealtimeAuthenticator` (câblé par zone) → `UserRealtimeToken`.
  *
  *   POST /token (credential)       → access JWT (security)
  *   → handshake WS `Bearer`         (firewall jwt sur le pipeline http)
- *   → SessionRealtimeAuthenticator  (lit l'identité de l'ALS, 0 re-vérif)
+ *   → FirewallRealtimeAuthenticator  (lit l'identité de l'ALS, 0 re-vérif)
  *   → token posé sur le peer         (realtime hub)
  *   → api.request {path gardé}       → garde @IsGranted (Resolver)  ≡  HTTP.
  */

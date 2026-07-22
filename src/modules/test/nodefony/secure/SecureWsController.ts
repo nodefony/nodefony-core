@@ -5,6 +5,7 @@ import {
   route,
   IsGranted,
   CurrentUser,
+  RequireScope,
 } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 
@@ -37,6 +38,38 @@ class SecureWsController extends Controller {
   @IsGranted("ROLE_ADMIN")
   adminGuarded(@CurrentUser() user: IUser) {
     return { granted: true, identifier: user.identifier };
+  }
+
+  /**
+   * Banc P6.8 côté WS — exige le scope `m2m:read`.
+   *
+   * Un scope downscope une clé MACHINE ; il n'a aucun effet sur un humain. La
+   * distinction repose entièrement sur le TYPE du jeton, et c'est exactement ce
+   * qui manquait sur la socket : le jeton realtime s'annonçait `session` quel que
+   * soit le mode réel, si bien qu'un agent JWT franchissait cette garde sans
+   * détenir le moindre scope. Cette route existe pour que ce vecteur reste fermé
+   * (banc `ws-scope-jwt.test.ts`).
+   */
+  @route("test-ws-scope-read", {
+    path: "/scoped-read",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  @RequireScope("m2m:read")
+  scopedRead() {
+    return { ok: true, requiredScope: "m2m:read" };
+  }
+
+  /**
+   * Banc P6.8 côté WS — exige `m2m:write`, jamais accordé au banc : c'est le tir
+   * qui doit ÉCHOUER. Sans lui, un « tout passe » se lirait comme un succès.
+   */
+  @route("test-ws-scope-write", {
+    path: "/scoped-write",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  @RequireScope("m2m:write")
+  scopedWrite() {
+    return { ok: true, requiredScope: "m2m:write" };
   }
 }
 

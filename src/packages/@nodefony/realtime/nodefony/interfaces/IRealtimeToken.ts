@@ -50,5 +50,5 @@ export interface IRealtimeToken {
    * Async (peut relire un store de session) ; gardé HORS du hot-path temps réel
    * (publish/subscribe), payé seulement sur `api.request`.
    */
-  isValid?(): boolean | Promise<boolean>;
+  isValid?(nowMs?: number): boolean | Promise<boolean>;
 }

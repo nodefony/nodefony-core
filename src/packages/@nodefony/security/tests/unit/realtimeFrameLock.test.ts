@@ -6,7 +6,7 @@ import type { ContextType } from "@nodefony/http";
 import { anonymousUser } from "@nodefony/user";
 import type { IUser } from "@nodefony/user";
 import { Firewall } from "../../nodefony/service/firewall";
-import { SessionRealtimeAuthenticator } from "../../nodefony/src/authenticator/SessionRealtimeAuthenticator";
+import { FirewallRealtimeAuthenticator } from "../../nodefony/src/authenticator/FirewallRealtimeAuthenticator";
 import { UserRealtimeToken } from "../../nodefony/src/realtime/UserRealtimeToken";
 import {
   buildFrameAuthorizer,
@@ -24,7 +24,7 @@ import type {
 
 /**
  * P6 J3b Étape 3 — verrou WS frame-level (data plane). Gates :
- *  - SessionRealtimeAuthenticator : transfère l'identité DÉJÀ résolue par le
+ *  - FirewallRealtimeAuthenticator : transfère l'identité DÉJÀ résolue par le
  *    firewall au handshake (ALS), 0 lecture base ; anonyme/hors scope → refus.
  *  - UserRealtimeToken : adaptateur IUser → IRealtimeToken (copie des rôles).
  *  - buildFrameAuthorizer : invariant `api.request {path}` ≤ `GET {path}` (re-match
@@ -102,11 +102,11 @@ describe("UserRealtimeToken — adaptateur IUser → IRealtimeToken", () => {
   });
 });
 
-describe("SessionRealtimeAuthenticator — lit l'ALS, 0 re-lecture", () => {
-  const auth = new SessionRealtimeAuthenticator();
+describe("FirewallRealtimeAuthenticator — lit l'ALS, 0 re-lecture", () => {
+  const auth = new FirewallRealtimeAuthenticator();
 
-  it("name = session-realtime", () => {
-    assert.equal(auth.name, "session-realtime");
+  it("name = firewall-realtime", () => {
+    assert.equal(auth.name, "firewall-realtime");
   });
 
   it("supports : true quand le firewall a posé un user authentifié dans l'ALS", () => {
@@ -461,7 +461,7 @@ function makeHttpCtx(url: string, domain?: string): ContextType {
 const ADMIN_PATTERN = "^/nodefony/[^/]+/api(/|$)";
 
 describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
-  it("zone realtime+security → useAuthenticator(SessionRealtimeAuthenticator) + setFrameAuthorizer", () => {
+  it("zone realtime+security → useAuthenticator(FirewallRealtimeAuthenticator) + setFrameAuthorizer", () => {
     const c = bootFirewall({
       "nodefony-admin": {
         pattern: ADMIN_PATTERN,
@@ -470,7 +470,7 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
       },
     });
     assert.equal(c.useAuth.length, 1);
-    assert.equal(c.useAuth[0]!.auth.name, "session-realtime");
+    assert.equal(c.useAuth[0]!.auth.name, "firewall-realtime");
     assert.ok(c.useAuth[0]!.matcher.pattern instanceof RegExp);
     assert.ok(typeof c.frameAuthorizer === "function");
   });
@@ -536,7 +536,7 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
       "http-only": { pattern: "^/admin", authenticators: ["session"] },
     });
     assert.equal(c.useAuth.length, 1);
-    assert.equal(c.useAuth[0]!.auth.name, "session-realtime");
+    assert.equal(c.useAuth[0]!.auth.name, "firewall-realtime");
     assert.ok(typeof c.frameAuthorizer === "function");
   });
 
@@ -549,7 +549,7 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
       },
     });
     // L'opt-out `realtime: false` désactive le TRANSFERT d'identité de cette zone
-    // (aucun SessionRealtimeAuthenticator câblé) — c'est son seul rôle.
+    // (aucun FirewallRealtimeAuthenticator câblé) — c'est son seul rôle.
     assert.equal(c.useAuth.length, 0);
     // MAIS le plancher système (namespaces réservés) ne dépend PAS des zones : F82
     // — le conditionner au câblage d'une zone était fail-OPEN (sans zone qualifiante,
@@ -753,7 +753,7 @@ describe("firewall.#build / isSecure / provisionShared (boot)", () => {
  * de propriétaire. (Le pont — `RealtimeController.invokeApiRequest` — répond 401
  * sur `false`, et le client bascule en fetch HTTP avec le cookie courant.)
  */
-describe("SessionRealtimeAuthenticator — re-validation Zero Trust du token (isValid)", () => {
+describe("FirewallRealtimeAuthenticator — re-validation Zero Trust du token (isValid)", () => {
   // Faux store de session (id → blob). `read()` reflète l'état COURANT → on
   // simule un logout (delete) ou un changement de compte (set un autre user).
   function fakeStore(initial: Record<string, { user: string }>) {
@@ -779,7 +779,7 @@ describe("SessionRealtimeAuthenticator — re-validation Zero Trust du token (is
     sessionId: string | undefined,
     storage: unknown,
   ): Promise<IRealtimeToken> {
-    const auth = new SessionRealtimeAuthenticator();
+    const auth = new FirewallRealtimeAuthenticator();
     return RequestContext.run(
       {
         requestId: "test",

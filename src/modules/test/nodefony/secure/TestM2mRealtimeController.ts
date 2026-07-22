@@ -13,7 +13,7 @@ import { Context } from "@nodefony/http";
  * spécifique n'est nécessaire : au handshake WS (requête HTTP upgrade portant
  * `Authorization: Bearer <jwt>`), le **firewall** (authenticator `jwt` de la
  * zone) vérifie le jeton et pose l'`IUser` dans l'ALS ; le
- * `SessionRealtimeAuthenticator` (câblé PAR ZONE par `firewall.#wireRealtime`)
+ * `FirewallRealtimeAuthenticator` (câblé PAR ZONE par `firewall.#wireRealtime`)
  * promeut cette identité en `UserRealtimeToken`. → « 1 garde = N transports ET
  * N modes d'authentification ».
  *
