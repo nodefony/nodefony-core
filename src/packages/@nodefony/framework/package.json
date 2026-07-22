@@ -52,6 +52,7 @@
   "readmeFilename": "README.md",
   "contributors": [],
   "peerDependencies": {
+    "@nodefony/http": "*",
     "nodefony": "*",
     "zod": "^4.4.3"
   },

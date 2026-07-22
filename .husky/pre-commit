@@ -30,6 +30,15 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -qE '\.tsx?$'; then
   fi
 fi
 
+# Garde anti-dérive : un paquet qui importe sans déclarer ne casse RIEN ici (npm
+# hisse tout à la racine) — il casse l'ordre de build après un `clean`, et
+# l'installation chez le consommateur. Deux endroits où nous ne sommes jamais.
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE '(\.tsx?|package\.json)$'; then
+  if ! node scripts/check-package-deps.mjs; then
+    exit 1
+  fi
+fi
+
 # Pré-filtre rapide (shell pur, AUCUN boot node) : si aucun .ts n'est staged,
 # il n'y a rien à régénérer → on évite ~1,3 s de démarrage node/tsx sur les
 # commits sans code (docs, config, json…). Réduit aussi la fenêtre pendant

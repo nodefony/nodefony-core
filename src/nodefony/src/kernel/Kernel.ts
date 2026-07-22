@@ -35,7 +35,9 @@ import CliKernel from "./CliKernel";
 import Module from "./Module";
 import { resolveModuleEntry } from "./resolveModuleEntry";
 //import Fetch from "../service/fetchService";
-import { HttpKernel } from "@nodefony/http";
+// Type SEUL (`this.get<HttpKernel>(…)`) : le cœur ne dépend pas de `@nodefony/http`
+// à l'exécution — l'inverse serait un cycle, http déclarant `nodefony`.
+import type { HttpKernel } from "@nodefony/http";
 import Injector from "./injector/injector";
 import {
   isClusterMessage,

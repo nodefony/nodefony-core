@@ -18,7 +18,9 @@ import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
 //import vm from "node:vm";
 const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
 import { createRequire } from "node:module";
-import { Controller } from "@nodefony/framework";
+// Type SEUL (paramètre de `TypeController<…>`) : le cœur ne dépend pas de
+// `@nodefony/framework` à l'exécution — l'inverse serait un cycle.
+import type { Controller } from "@nodefony/framework";
 export type TypeController<T> = new (...args: any[]) => T;
 const controllers: Record<string, TypeController<Controller>> = {};
 
