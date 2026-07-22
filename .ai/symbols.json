@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-22T21:32:06.263Z",
+  "generated": "2026-07-22T21:40:50.180Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1035,
-    "symbols": 2818,
-    "classes": 328,
-    "interfaces": 735,
+    "files": 1037,
+    "symbols": 2828,
+    "classes": 329,
+    "interfaces": 739,
     "types": 328,
     "enums": 4,
-    "functions": 843,
+    "functions": 848,
     "constants": 580
   },
   "symbols": {
@@ -4004,6 +4004,39 @@
       "implements": [],
       "decorators": []
     },
+    "IPackageFinding": {
+      "name": "IPackageFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/packageDeps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un manquement relevé sur un paquet."
+    },
+    "IPackageCheckOptions": {
+      "name": "IPackageCheckOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/packageDeps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "IPackageCheckResult": {
+      "name": "IPackageCheckResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/packageDeps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "checkPackageDeps": {
+      "name": "checkPackageDeps",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/packageDeps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Analyse les paquets et rend les manquements trouvés."
+    },
     "Build": {
       "name": "Build",
       "kind": "class",
@@ -4014,6 +4047,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony build` (alias `compile`) — délègue à la **toolchain CLI** (`turbo run build` → chaque `rollup.config.ts` de workspace), source UNIQUE du build. Ne build PLUS via un service rollu…"
+    },
+    "Check": {
+      "name": "Check",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/CheckCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony check` — contrôle la cohérence des paquets de l'application. Elle répond à une question qu'aucun test applicatif ne pose : **ce que mes modules importent, est-ce qu'ils le déclar…"
     },
     "Cluster": {
       "name": "Cluster",
@@ -19856,6 +19900,7 @@
       ],
       "Command": [
         "Build",
+        "Check",
         "Cluster",
         "Completion",
         "Create",
@@ -20392,6 +20437,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/types/ICliKernel.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
@@ -22202,6 +22248,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
@@ -22355,6 +22402,9 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Status": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Check": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Stop": [
@@ -23142,6 +23192,7 @@
       ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
@@ -23163,6 +23214,12 @@
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
+      ],
+      "checkPackageDeps": [
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
+      "IPackageFinding": [
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",

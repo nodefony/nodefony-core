@@ -19,6 +19,7 @@ import Cluster from "./commands/ClusterCommand";
 import Install from "./commands/InstallCommand";
 import Outdated from "./commands/OutdatedCommand";
 import Status from "./commands/StatusCommand";
+import Check from "./commands/CheckCommand";
 import Stop from "./commands/StopCommand";
 import {
   isStandaloneDevCommand,
@@ -344,6 +345,7 @@ class CliKernel extends Cli {
     this.addCommand(Stop);
     this.addCommand(Completion);
     this.addCommand(Create);
+    this.addCommand(Check);
   }
 
   /**
@@ -574,6 +576,7 @@ class CliKernel extends Cli {
       outdated: "Projet",
       completion: "Projet",
       create: "Projet",
+      check: "Projet",
     };
     // commande → module propriétaire (chaque Module garde ses commandes).
     const owner: Record<string, string> = {};

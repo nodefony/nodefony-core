@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:e2e": "npm run build && RUN_E2E=1 vitest run tests/e2e.test.ts",
     "typecheck": "tsgo --noEmit",
+    "check": "nodefony check",
     "lint": "eslint .",
     "format": "prettier --write ."<% if (it.complete) { %>,
     "infra:up": "docker compose up -d",
