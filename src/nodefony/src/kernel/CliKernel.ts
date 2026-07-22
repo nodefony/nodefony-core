@@ -39,6 +39,7 @@ import {
 import Completion from "./commands/CompletionCommand";
 import Create from "./commands/CreateCommand";
 import { runCreateCommand } from "../cli/create";
+import { runCheckCommand } from "./checks/runCheck";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -211,6 +212,15 @@ class CliKernel extends Cli {
     // Async : le mode interactif (TTY) pose les questions de la spec en readline.
     if (requested === "create") {
       return process.exit(await runCreateCommand(process.argv));
+    }
+
+    // ─── `check` : contrôle de la surface des paquets — même famille ─────────
+    // Il ne lit que des fichiers (`package.json` + sources). Le faire booter
+    // coûtait un démarrage complet pour une réponse qui n'en dépend pas, noyait
+    // le rapport sous le journal du Kernel, et le rendait inutilisable sur une
+    // application qui justement ne démarre plus.
+    if (requested === "check") {
+      return process.exit(runCheckCommand(process.argv));
     }
 
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────

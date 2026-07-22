@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-22T22:08:36.800Z",
+  "generated": "2026-07-22T22:14:00.170Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1037,
-    "symbols": 2829,
+    "files": 1038,
+    "symbols": 2831,
     "classes": 329,
     "interfaces": 739,
     "types": 328,
     "enums": 4,
-    "functions": 849,
+    "functions": 851,
     "constants": 580
   },
   "symbols": {
@@ -4036,6 +4036,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Analyse les paquets et rend les manquements trouvés."
+    },
+    "runCheckCommand": {
+      "name": "runCheckCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lance le contrôle et écrit le rapport."
     },
     "Build": {
       "name": "Build",
@@ -22448,6 +22456,10 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
+      "runCheckCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -23190,6 +23202,9 @@
       "Role": [
         "src/nodefony/src/client/roles/registry.ts"
       ],
+      "checkPackageDeps": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
@@ -23214,12 +23229,6 @@
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
-      ],
-      "checkPackageDeps": [
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
-      ],
-      "IPackageFinding": [
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",

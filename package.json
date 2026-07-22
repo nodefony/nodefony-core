@@ -79,5 +79,26 @@
     }
   ],
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
-  "readmeFilename": "README.md"
+  "readmeFilename": "README.md",
+  "nodefony": {
+    "check": {
+      "typeCycles": {
+        "nodefony": [
+          "@nodefony/http",
+          "@nodefony/framework"
+        ],
+        "@nodefony/http": [
+          "@nodefony/framework",
+          "@nodefony/security"
+        ]
+      },
+      "typesUnreachable": [
+        "@nodefony/http",
+        "@nodefony/framework",
+        "@nodefony/security",
+        "@nodefony/user",
+        "@nodefony/orm-core"
+      ]
+    }
+  }
 }

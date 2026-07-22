@@ -2,17 +2,44 @@
 /**
  * Garde de pré-commit — surface des paquets du dépôt du framework.
  *
- * Ce fichier ne porte QUE ce qui est propre à ce dépôt : où chercher, et les
- * exceptions assumées. L'analyse elle-même vit dans le cœur
+ * Ce fichier ne décide de rien : il EXPLIQUE. L'analyse vit dans le cœur
  * (`nodefony/src/kernel/checks/packageDeps.ts`) et sert aussi la commande
- * `nodefony check`, disponible dans toute application. Deux implémentations
- * d'une même règle divergent toujours — c'est précisément la faute que cette
- * garde cherche.
+ * `nodefony check`, disponible dans toute application ; les exceptions sont
+ * déclarées dans le `package.json` racine, sous `nodefony.check`, exactement là
+ * où une application déclarerait les siennes. Deux implémentations d'une même
+ * règle divergent toujours — et deux LISTES de la même règle aussi : c'est
+ * précisément la faute que cette garde cherche.
+ *
+ * Ce que le JSON ne peut pas porter, et qu'on garde ici — POURQUOI chaque
+ * exception existe :
+ *
+ * `typeCycles` — un cycle de types est effacé à la compilation, donc légal ;
+ * mais il interdit de déclarer la réciproque, que npm et turbo refuseraient.
+ *  - `nodefony` → `http`, `framework` : le cœur ne peut déclarer aucun de ses
+ *    consommateurs, ils déclarent tous `nodefony`. `HttpKernel` (Kernel.ts) et
+ *    `Controller` (Module.ts) ne servent qu'au typage — vérifié, le JS émis du
+ *    cœur ne les importe pas.
+ *  - `http` → `framework` : `Resolver`/`Router`/`Controller` ; http passe par
+ *    `(context as any).resolver` au runtime justement pour ne pas en dépendre.
+ *  - `http` → `security` : `Firewall`/`SecuredArea`/`Csrf` ; security déclare
+ *    http, la réciproque boucle.
+ *
+ * `typesUnreachable` — paquets dont `exports["."].types` pointe `./index.ts`,
+ * que `files` n'embarque pas : après `npm i`, le consommateur n'a aucun type.
+ * Ce n'est pas un oubli mais le cycle ci-dessus — pointer la source le résout
+ * sans exiger que l'autre soit déjà construit, et la contrainte se propage à
+ * qui est lu en source (`security → user → orm-core`).
+ *
+ * ⚠️ Ces deux listes ne doivent que RÉTRÉCIR — `frontend` en est sorti le jour
+ * où il s'est avéré hors du cycle, et la garde REFUSE une entrée devenue
+ * inutile. Les vider demande de casser le cycle (remonter les contrats
+ * partagés dans le cœur), pas de bricoler les manifestes :
+ * `publishConfig.exports` ne fonctionne PAS avec npm (vérifié sur un tarball).
  *
  * Usage : `node scripts/check-package-deps.mjs` (sort en erreur si manquement).
  */
 import path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -31,51 +58,10 @@ if (!existsSync(CORE)) {
 
 const { checkPackageDeps } = await import(pathToFileURL(CORE).href);
 
-/**
- * Cycles de types ASSUMÉS — `importeur → [importés]`, où l'importé déclare déjà
- * l'importeur. Un cycle de types est effacé à la compilation, donc légal ; mais
- * il interdit de déclarer la réciproque, que npm et turbo refuseraient.
- *
- * ⚠️ Ce n'est pas une liste de tolérance à rallonger : chaque entrée est une
- * dette de conception (le contrat partagé devrait vivre dans le cœur). Une
- * entrée qui ne correspond plus à aucun import fait échouer la garde.
- */
-const TYPE_CYCLES = {
-  // Le cœur ne peut déclarer aucun de ses consommateurs : ils déclarent tous
-  // `nodefony`. `HttpKernel` (Kernel.ts) et `Controller` (Module.ts) ne servent
-  // qu'au typage — vérifié, le JS émis du cœur ne les importe pas.
-  nodefony: ["@nodefony/http", "@nodefony/framework"],
-  "@nodefony/http": [
-    // `Resolver`/`Router`/`Controller` : http passe par `(context as any).resolver`
-    // au runtime justement pour ne pas dépendre du framework.
-    "@nodefony/framework",
-    // `Firewall`/`SecuredArea`/`Csrf` : security déclare http, la réciproque
-    // boucle. Ces symboles ne servent qu'au typage du pipeline.
-    "@nodefony/security",
-  ],
-};
-
-/**
- * Paquets dont les types publiés sont INJOIGNABLES après `npm i` :
- * `exports["."].types` pointe `./index.ts`, que `files` n'embarque pas.
- *
- * Ce n'est pas un oubli mais le CYCLE ci-dessus : `http` a besoin des types de
- * `framework` et `security`, qui ont besoin des siens ; pointer la source les
- * résout sans exiger que l'autre soit déjà construit. La contrainte se propage
- * à qui est lu en source (`security → user → orm-core`).
- *
- * ⚠️ Cette liste ne doit que RÉTRÉCIR — `frontend` en est sorti le jour où il
- * s'est avéré hors du cycle. La vider demande de casser le cycle (remonter les
- * contrats partagés dans le cœur), pas de bricoler les manifestes :
- * `publishConfig.exports` ne fonctionne PAS avec npm (vérifié sur un tarball).
- */
-const TYPES_UNREACHABLE = [
-  "@nodefony/http",
-  "@nodefony/framework",
-  "@nodefony/security",
-  "@nodefony/user",
-  "@nodefony/orm-core",
-];
+// Source UNIQUE des exceptions : celle que lit aussi `nodefony check`.
+const { typeCycles, typesUnreachable } =
+  JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).nodefony
+    ?.check ?? {};
 
 const { findings, scanned } = checkPackageDeps({
   roots: [
@@ -83,8 +69,8 @@ const { findings, scanned } = checkPackageDeps({
     path.join(ROOT, "src/nodefony"),
   ],
   cwd: ROOT,
-  typeCycles: TYPE_CYCLES,
-  typesUnreachable: TYPES_UNREACHABLE,
+  typeCycles,
+  typesUnreachable,
 });
 
 for (const f of findings) {
@@ -99,8 +85,8 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-const cycles = Object.values(TYPE_CYCLES).flat().length;
+const cycles = Object.values(typeCycles ?? {}).flat().length;
 console.log(
   `✓ ${scanned} paquets, 0 import non déclaré (${cycles} cycles de types assumés, ` +
-    `${TYPES_UNREACHABLE.length} paquets sans types publiés — dette de cycle).`,
+    `${typesUnreachable?.length ?? 0} paquets sans types publiés — dette de cycle).`,
 );

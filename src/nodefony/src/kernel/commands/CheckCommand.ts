@@ -1,10 +1,6 @@
-import path from "node:path";
-import { readFileSync, statSync } from "node:fs";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { checkPackageDeps } from "../checks/packageDeps";
-import type { IPackageFinding } from "../checks/packageDeps";
-import clc from "../../colors";
+import { runCheckCommand } from "../checks/runCheck";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
@@ -21,8 +17,15 @@ const options: OptionsCommandInterface = {
  * part ailleurs : l'installation n'amène pas ce qui n'est pas déclaré, et un
  * outil de construction ne peut pas ordonner ce qu'on ne lui a pas dit.
  *
- * Le contrôle porte sur les modules de l'application (`modules/`, `src/modules/`)
- * et sur l'application elle-même.
+ * **Exécutée en « standalone » (zéro boot).** L'enregistrement ici sert au help
+ * (`nodefony --help`) ; l'exécution réelle est interceptée par le fast-path de
+ * {@link CliKernel.start} AVANT toute construction de Kernel — le contrôle ne
+ * lit que des fichiers. Le `generate()` ci-dessous n'est qu'un FILET.
+ *
+ * Un projet déclare ses exceptions dans son `package.json`, clé
+ * `nodefony.check` (`typeCycles`, `typesUnreachable`) : un cycle de types
+ * légitime existe, et un contrôle qu'on ne peut pas satisfaire est un contrôle
+ * qu'on apprend à ignorer.
  *
  * @example
  * ```bash
@@ -42,63 +45,8 @@ class Check extends Command {
   }
 
   override async generate(opts?: { json?: boolean }): Promise<this> {
-    const cwd = process.cwd();
-    // Les deux dispositions rencontrées : une application créée par
-    // `nodefony create app` (modules/) et le dépôt du framework (src/modules/).
-    const roots = [cwd, "modules", "src/modules", "src/packages/@nodefony"]
-      .map((r) => (path.isAbsolute(r) ? r : path.join(cwd, r)))
-      .filter((r) => statSync(r, { throwIfNoEntry: false }));
-
-    // Exceptions déclarées par le projet, dans son `package.json` :
-    //   "nodefony": { "check": { "typeCycles": {…}, "typesUnreachable": [...] } }
-    // Sans cette porte, un projet qui porte un cycle de types légitime ne peut
-    // jamais être vert — et une vérification qu'on ne peut pas satisfaire est
-    // une vérification qu'on apprend à ignorer.
-    let typeCycles: Record<string, string[]> | undefined;
-    let typesUnreachable: string[] | undefined;
-    try {
-      const raw = readFileSync(path.join(cwd, "package.json"), "utf8");
-      const check = (JSON.parse(raw) as { nodefony?: { check?: unknown } })
-        .nodefony?.check as
-        | { typeCycles?: Record<string, string[]>; typesUnreachable?: string[] }
-        | undefined;
-      typeCycles = check?.typeCycles;
-      typesUnreachable = check?.typesUnreachable;
-    } catch {
-      /* pas de package.json lisible : on vérifie sans exception */
-    }
-
-    const { findings, scanned } = checkPackageDeps({
-      roots,
-      cwd,
-      typeCycles,
-      typesUnreachable,
-    });
-    const json = Boolean(opts?.json);
-
-    if (json) {
-      this.log(JSON.stringify({ scanned, findings }, null, 2), "INFO");
-      await this.terminate(findings.length > 0 ? 1 : 0);
-      return this;
-    }
-
-    if (findings.length === 0) {
-      this.log(clc.green(`✓ ${scanned} paquet(s) — rien à signaler.`), "INFO");
-      await this.terminate(0);
-      return this;
-    }
-
-    for (const f of findings as IPackageFinding[]) {
-      this.log(clc.red(`✗ ${f.message}`), "ERROR");
-      if (f.file) {
-        this.log(`  premier usage : ${f.file}`, "ERROR");
-      }
-    }
-    this.log(
-      clc.red(`\n${findings.length} manquement(s) sur ${scanned} paquet(s).`),
-      "ERROR",
-    );
-    await this.terminate(1);
+    const code = runCheckCommand(opts?.json ? ["--json"] : []);
+    await this.terminate(code);
     return this;
   }
 }
