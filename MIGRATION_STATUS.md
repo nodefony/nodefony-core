@@ -230,7 +230,27 @@ Console Logs Studio = panneau P10 de facto livré.
 > **Motif SOLDÉ 12/12** avec F17, F22, F25 (`afb30720`) — variante « le `.describe()` PROMET » : la clé
 > EST lue, c'est le texte qui invente (AAL3 non tenu, format de clé d'API faux, backends de store TOTP
 > inexistants). Corrigés + WARNING au boot sur l'attestation + banc `configPromises.test.ts` qui teste le
-> COMPORTEMENT promis. **Registre : 47 ✅ · 6 🔶 · 66 restants** sur 119 (dont 7 🔴 + F18/F28 sécurité). Rapport triable
+> COMPORTEMENT promis.
+> **Motif « symbole fantôme » SOLDÉ 7/8** (`c7664e4a`) et **« la phrase ne décrit pas le code »
+> SOLDÉ 13/13** (`30f5ce79`) — dont un `.describe()` de session triplement faux qui alimentait le
+> formulaire Studio, et une raison d'audit qui confondait passkey et OAuth faute d'argument transmis.
+> **Motif « défaut de comportement réel » ENGAGÉ (2026-07-23)**, par geste et non par item :
+> `3bf01a40` **@nodefony/redis** (6 items) — le service rendait aux trois stores un client **fermé**
+> comme s'il était ouvert (`createClient()` rend un objet AVANT `connect()`, et une connexion en
+> échec reste inscrite dans la map) : chacun promettait un repli, chacun prenait un
+> `ClientClosedError` ; la règle de curseur `SCAN` était recopiée trois fois et durcie une seule (un
+> `?cursor=` arbitraire faisait échouer une consultation d'administration côté jetons et passkeys) ;
+> `listAll` des jetons balayait le keyspace sans plafond ; deux bancs purgeaient la même base.
+> · `5282137c` **`Module.hookKernel`** (F66) — `static critical = false` ne taguait que les hooks de
+> CLASSE : la connexion de mongoose, posée à la main, **interrompait le boot en production** au nom
+> d'un module déclaré optionnel, et le journal accusait « (anonyme) ». Quatre sites y passent, dont
+> les décorateurs `@services` et `@controllers`, qui concernaient TOUS les modules. · `b208ada4` les
+> doubles de test déclarent le hook qu'ils doivent au contrat (`as unknown as Module` faisait taire
+> le compilateur — un changement de contrat casse les DOUBLES avant la production).
+> **Registre : 74 ✅ · 6 🔶 · 39 restants** sur 119 (3 🔴 : F27, F40, F51 — plus F18/F28 sécurité).
+> F27+F51 (pagination : les champs de l'autre mode ignorés en silence) pèsent **22 implémentations
+> de `listPage` sur 6 modules** + le contrat `IPage` au cœur : une session à part entière, mesurée
+> AVANT d'être entamée — la durcir à moitié changerait un silence en plantage. Rapport triable
 > régénérable : `node tmp/registre-ecarts/gen.mjs` (il PARSE le kit — pas de seconde liste).
 > **Découvert en chemin, hors registre** : `body` n'existait ni au type ni au runtime sur
 > `context.request` (`80eb2801`, alias de `queryPost`, `body` devient un nom d'action réservé) ; et
