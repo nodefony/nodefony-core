@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
+import WebSocket from "ws";
 
 // P2.4 — controller `initialize()` error boundary.
 //
@@ -46,5 +47,42 @@ describe("Controller initialize() error boundary — P2.4 (requires server)", ()
   it("the server stays healthy after the initialize() crash", async () => {
     const health = await getJson("/nodefony/test/index");
     expect(health.status).to.equal(200);
+  });
+
+  /**
+   * Même sonde, transport WebSocket — où l'ORDRE diffère : le controller y est
+   * instancié AU HANDSHAKE, avant `context.connect()` (il porte le protocole
+   * négocié et c'est la dernière fenêtre pour toucher la réponse). Un
+   * `initialize()` qui lève ne peut donc pas se rendre en « 500 » : le contrat
+   * observable est une FERMETURE, jamais une socket muette ni un handshake qui
+   * pend. Ce que le client doit voir : close **1011** (Internal Error,
+   * RFC 6455 §7.4.1).
+   */
+  it("in WebSocket, a throwing initialize() closes with 1011 — never hangs", async () => {
+    const closed = await new Promise<{ code: number; opened: boolean }>(
+      (resolve, reject) => {
+        const ws = new WebSocket(
+          "wss://localhost:5152/nodefony/test/lifecycle/init-crash-ws",
+          { rejectUnauthorized: false },
+        );
+        let opened = false;
+        const timer = setTimeout(() => {
+          ws.terminate();
+          reject(new Error("la connexion pend — aucune fermeture reçue"));
+        }, 8000);
+        ws.on("open", () => {
+          opened = true;
+        });
+        ws.on("close", (code: number) => {
+          clearTimeout(timer);
+          resolve({ code, opened });
+        });
+        ws.on("error", () => undefined); // la fermeture est le signal, pas l'erreur socket
+      },
+    );
+    expect(
+      closed.code,
+      "close 1011 — erreur interne (RFC 6455 §7.4.1)",
+    ).to.equal(1011);
   });
 });

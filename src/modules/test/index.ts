@@ -32,6 +32,7 @@ import PocInvokeController from "./nodefony/poc/PocInvokeController";
 import PocBookResourceController from "./nodefony/poc/PocBookResourceController";
 // P6 J1 — banc ZONE PROTÉGÉE (dossier secure/ = préfixe /secure = zone "test-secure").
 import SecureController from "./nodefony/secure/SecureController";
+import PipelineOrderController from "./nodefony/controller/PipelineOrderController";
 // P6 J8 — banc preuve garde @IsGranted côté WS via api.request (/nodefony/test/api/*).
 import SecureWsController from "./nodefony/secure/SecureWsController";
 // P6 J8 (volet b) — endpoint realtime JWT Bearer (zone test-api) pour prouver la
@@ -83,6 +84,9 @@ const DOLIBARR_ORM = "dolibarr";
   WebhookSinkController,
   // P6 — banc zone protégée (firewall, routes /nodefony/test/secure/*)
   SecureController,
+  // Banc d'ORDRE du pipeline — lecture publique du mouchard `initialize()`
+  // écrit par SecureController (routes /nodefony/test/pipeline-order/*)
+  PipelineOrderController,
   // P6 J8 — banc garde @IsGranted côté WS (api.request, /nodefony/test/api/*)
   SecureWsController,
   // P6 J8 (volet b) — endpoint realtime JWT Bearer (zone test-api M2M)

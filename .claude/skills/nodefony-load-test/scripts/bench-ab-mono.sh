@@ -34,24 +34,28 @@ set -u
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 LABEL="${1:-run}"; shift || true
 EXTRA_ENV="$*"
-# ⚠️ DEUX USAGES, DEUX CIBLES — ne pas les mélanger :
-#   1. A/B du pipeline Nodefony CONTRE LUI-MÊME (l'usage de ce script) → `livez`,
-#      ci-dessous. Toujours disponible, aucun module dev requis. Seul compte que les
-#      deux côtés du A/B tapent LA MÊME route.
-#   2. Comparaison INTER-FRAMEWORKS (bench-frameworks/) → surtout PAS `livez` : les
-#      apps bare/express/fastify servent le payload d'`AlsController.state` et
-#      répliquent le décor de routing (186 routes, cible en #31) pour comparer à
-#      conditions égales. `livez` a un autre handler (il appelle `getBootReport()`),
-#      un autre corps, un autre décor → mettre son RPS dans le même tableau serait
-#      exactement le « chiffre sur du vent » que ce skill traque. Passer alors
-#      `BENCH_URL` explicitement sur la route au payload équivalent.
+# 🎯 UNE SEULE CIBLE DE BANC APPLICATIF : `/nodefony/kernel/bench`
+# (`BenchController`, module `@nodefony/framework`), qui n'existe que sous
+# `NF_BENCH_ROUTE=1` — drapeau posé automatiquement au spawn, plus bas.
 #
-# Cible par défaut = route du FRAMEWORK (`KernelAdminApi`), pas du module de test.
-# `livez` est publique (`public: true`), sans session, sans ORM, corps JSON minimal :
-# elle existe en PRODUCTION sans rien rebasculer. L'ancienne cible vivait dans
-# `@nodefony/test` (`policy:"dev"`), donc absente en prod → on benchait un 404 sans
-# le voir. Une cible de bench doit appartenir à ce qu'on mesure.
-URL="${BENCH_URL:-http://127.0.0.1:5151/nodefony/kernel/api/livez}"
+# C'est une route faite EXPRÈS pour ça : un controller ordinaire qui rend un corps
+# FIGÉ (`Object.freeze`, aucune allocation par requête), monté HORS de l'aire admin
+# (`/nodefony/kernel/bench` n'a pas de segment `/api/` → aucune zone firewall ne
+# matche). Elle emprunte donc le chemin d'une route applicative normale — routing,
+# contexte, sérialisation, réponse — et rien d'autre. C'est ce « rien d'autre » qui
+# fait la mesure.
+#
+# Ne PAS lui substituer :
+#   • `/nodefony/kernel/api/livez` — traverse EN PLUS la résolution de zone, un
+#     authenticator et le broker d'administration, et son handler appelle
+#     `getBootReport()`. On mesurerait l'étage admin en croyant mesurer le pipeline.
+#   • une route de `@nodefony/test` (`policy:"dev"`) — ABSENTE en production : le
+#     banc tapait un 404, plus rapide qu'une vraie réponse, sans que rien ne le dise.
+#
+# Seule exception : la comparaison INTER-FRAMEWORKS (`bench-frameworks/`), où les
+# apps bare/express/fastify répliquent CE payload et le décor de routing (186 routes,
+# cible en #31) — passer alors `BENCH_URL` explicitement.
+URL="${BENCH_URL:-http://127.0.0.1:5151/nodefony/kernel/bench}"
 DUR="${BENCH_DUR:-10}"; CONN="${BENCH_CONN:-128}"; THREADS="${BENCH_THREADS:-4}"
 
 command -v wrk >/dev/null 2>&1 || { echo "❌ wrk absent (brew install wrk)"; exit 1; }
@@ -66,7 +70,10 @@ node -e "
 const {spawn}=require('child_process');const fs=require('fs');
 const out=fs.openSync('/tmp/nf-bench.log','w');
 const extra={};('$EXTRA_ENV').split(' ').filter(Boolean).forEach(kv=>{const i=kv.indexOf('=');extra[kv.slice(0,i)]=kv.slice(i+1);});
-const c=spawn('node',['src/nodefony/bin/nodefony','production'],{cwd:'$ROOT',env:{...process.env,NODE_ENV:'production',NF_LOG_DRIVER:'null',...extra},stdio:['ignore',out,out],detached:true});
+// NF_BENCH_ROUTE=1 : monte la cible de banc (\`/nodefony/kernel/bench\`). Posé ici
+// et pas laissé à l'appelant — l'oublier donne un 404, et un 404 répond PLUS VITE
+// qu'une vraie route. Un toggle A/B explicite peut toujours l'écraser (…extra).
+const c=spawn('node',['src/nodefony/bin/nodefony','production'],{cwd:'$ROOT',env:{...process.env,NODE_ENV:'production',NF_LOG_DRIVER:'null',NF_BENCH_ROUTE:'1',...extra},stdio:['ignore',out,out],detached:true});
 c.unref();fs.writeFileSync('/tmp/nf-bench.pid',String(c.pid));process.exit(0);
 "
 

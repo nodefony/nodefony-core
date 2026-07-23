@@ -269,9 +269,30 @@ bash $S old2 NF_BENCH_X=0 ; bash $S new2 NF_BENCH_X=1
 ```
 
 Le script (`bench-ab-mono.sh`) : banc propre (kill ports + Vite, attend la libération) →
-spawn mono `production` **detached** (`NODE_ENV=production` + `NF_LOG_DRIVER=null` FORCÉS) →
-attend le boot → 3× `wrk` → **médiane** → arrêt gracieux. Toggles A/B = env vars passées au
-serveur (`KEY=VAL`), à lire **1× au boot** côté code (jamais `process.env` dans le hot path).
+spawn mono `production` **detached** (`NODE_ENV=production`, `NF_LOG_DRIVER=null`,
+`NF_BENCH_ROUTE=1` FORCÉS) → attend le boot → **vérifie que la cible répond 200** → 3× `wrk` →
+**médiane** → arrêt gracieux. Toggles A/B = env vars passées au serveur (`KEY=VAL`), à lire **1× au
+boot** côté code (jamais `process.env` dans le hot path).
+
+### 🎯 La cible de banc applicatif — une seule, et elle est faite pour ça
+
+**`GET /nodefony/kernel/bench`** (`BenchController`, `@nodefony/framework`), montée **uniquement**
+sous `NF_BENCH_ROUTE=1` (zéro surface en production par défaut). Un controller ordinaire qui rend un
+corps **figé** (`Object.freeze` — pas d'allocation par requête), sur un chemin **hors aire admin**
+(pas de segment `/api/` → aucune zone firewall ne matche). Elle emprunte donc le trajet d'une route
+applicative normale — routing, contexte, sérialisation, réponse — et **rien d'autre** : c'est ce
+« rien d'autre » qui fait qu'on mesure le pipeline plutôt qu'un handler.
+
+Le script la pose par défaut, avec son drapeau. **Ne pas lui substituer** :
+
+| Substitut tentant               | Ce qu'on mesurerait à la place                                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `/nodefony/kernel/api/livez`    | + résolution de zone, + un authenticator, + le broker admin, + `getBootReport()` dans le handler                       |
+| `/nodefony/test/als-test/state` | **un 404** : `@nodefony/test` est `policy:"dev"`, absent en production — et un 404 répond plus vite qu'une vraie route |
+
+Seule exception : la comparaison **inter-frameworks** (`bench-frameworks/`), dont les apps
+bare/express/fastify répliquent ce même payload et le décor de routing (186 routes, cible en #31) —
+passer alors `BENCH_URL` explicitement.
 
 **Diff STRUCTUREL sans toggle env** (RETEX 06-11) : flipper par
 `git stash push -- <fichiers du diff>` / `git stash pop` — ⚠️ **le dist ne suit PAS le stash** →
@@ -285,10 +306,9 @@ mono-route position-dépendante ment (vécu : « 0,9 % » → +15,3 % NET une fo
 
 🚨 **Pré-requis banc** (sinon mesures fausses — vécu) :
 
-- **Module test en prod** : la route de réf `/nodefony/test/als-test/state` (session-free, 0 ORM)
-  vit dans `@nodefony/test`, gaté `policy:"dev"` → **404 en prod**. Pour bencher : passer à
-  `{ name:"@nodefony/test", policy:"optional" }` dans `nodefony.config.ts` + `npm run build`,
-  **puis REVERT en "dev"** avant tout commit.
+- **Ne pas rebasculer `@nodefony/test` en `policy:"optional"` pour bencher** : la cible dédiée
+  (`/nodefony/kernel/bench`, ci-dessus) existe précisément pour éviter cette manipulation — et le
+  revert qu'on oublie ensuite.
 - `wrk` requis (`brew install wrk`) ; build à jour (`npm run build`) ; tuer les **Vite orphelins**
   (le script le fait : `pkill -f vite.js`) sinon throttle fantôme.
 - Profilage CPU complémentaire (`node --prof` + `--prof-process`, piège macOS du faux symbole

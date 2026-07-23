@@ -45,16 +45,16 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 ## Core Components
 
-| Classe              | Fichier                                     | Rôle                                                                                                                                                                    |
-| ------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Http`              | `index.ts`                                  | Module racine. `@services([HttpKernel, Certificate, SessionsService, StaticServer, HttpServer, HttpsServer, WebsocketServer, WebsocketSecureServer, UploadService])`    |
-| `HttpKernel`        | `service/http-kernel.ts`                    | Orchestrateur. `handle()` → pipeline HTTP. `handleWebsocket()` → pipeline WS. `handleFrontController()` → router+firewall+controller. `onError()` → 1002/1011 WS        |
-| `Context`           | `src/context/Context.ts`                    | Base extends `Service`. Props: `type`, `scheme`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`, **`requestId`**       |
-| `HttpContext`       | `src/context/http/HttpContext.ts`           | Extends Context. Honor `X-Request-Id` header entrant. Pipeline HTTP/HTTPS/HTTP2.                                                                                        |
-| `WebsocketContext`  | `src/context/websocket/WebsocketContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Props extra: `acceptedProtocol`, `connection` (Ws), `wsUrl`, `rejected`. Override `request` → `WsIncomingMessage` |
-| `HttpResponse`      | `src/context/http/Response.ts`              | `writeHead()` : sanitize statusMessage ASCII + injecte `X-Request-Id`. `setBody()`, `setLength()`, `redirect()`.                                                        |
-| `WebsocketResponse` | `src/context/websocket/Response.ts`         | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)`                                                          |
-| `HttpError`         | `src/errors/httpError.ts`                   | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`)  |
+| Classe              | Fichier                                     | Rôle                                                                                                                                                                                                                                                      |
+| ------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Http`              | `index.ts`                                  | Module racine. `@services([HttpKernel, Certificate, SessionsService, StaticServer, HttpServer, HttpsServer, WebsocketServer, WebsocketSecureServer, UploadService])`                                                                                      |
+| `HttpKernel`        | `service/http-kernel.ts`                    | Orchestrateur. `handle()` → pipeline HTTP. `handleWebsocket()` → pipeline WS. `prepareFrontController()` → route + zone (sans instance, HTTP) ; `handleFrontController()` = prepare + `newController` (WS, avant `connect()`). `onError()` → 1002/1011 WS |
+| `Context`           | `src/context/Context.ts`                    | Base extends `Service`. Props: `type`, `scheme`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`, **`requestId`**                                                                                         |
+| `HttpContext`       | `src/context/http/HttpContext.ts`           | Extends Context. Honor `X-Request-Id` header entrant. Pipeline HTTP/HTTPS/HTTP2.                                                                                                                                                                          |
+| `WebsocketContext`  | `src/context/websocket/WebsocketContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Props extra: `acceptedProtocol`, `connection` (Ws), `wsUrl`, `rejected`. Override `request` → `WsIncomingMessage`                                                                                   |
+| `HttpResponse`      | `src/context/http/Response.ts`              | `writeHead()` : sanitize statusMessage ASCII + injecte `X-Request-Id`. `setBody()`, `setLength()`, `redirect()`.                                                                                                                                          |
+| `WebsocketResponse` | `src/context/websocket/Response.ts`         | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)`                                                                                                                                            |
+| `HttpError`         | `src/errors/httpError.ts`                   | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`)                                                                                    |
 
 ## Certificates TLS — service + CLI
 
@@ -318,8 +318,9 @@ Extension de l'`AuditErrorEntry` :
 - **Couche pipeline** : `responseTimeout` (Nodefony) armé via `HttpContext.setTimeout()` → socket idle → `onTimeout` event → **`_abortIfPending("Request timeout")` (annule `ctx.signal`)** PUIS `httpKernel.onError(408 | 504 si HTTP/2 stream)` → errorRenderer.
 - Sondes test : `/nodefony/test/timeout/{probe,state,reset}` (la sonde re-arme un socket timeout court via `ctx.response.response.setTimeout(ms, cb)` + `fire("onTimeout")`). Test : `nodefony/tests/http/timeout-abort.test.ts`.
 
-## Controller initialize() error boundary
+## Controller initialize() — moment + error boundary
 
+- **Moment (asymétrie de transport)** : HTTP = instancié dans `Resolver.executeAction`, APRÈS CSRF/session/firewall/`@IsGranted` (le kernel n'appelle que `prepareFrontController`) → un 401/403 n'exécute NI la DI NI `initialize()`, et le hook voit l'identité. WS = instancié au handshake (`handleFrontController`) AVANT `connect()` donc avant le firewall (le controller porte le protocole + dernière fenêtre pour la réponse de handshake) → pas d'identité ; mise en place authentifiée = au handshake (`execute(null)`). Verrou : `tests/http/pipeline-order.test.ts` (mouchard `SecureController.initialize()` lu via `/nodefony/test/pipeline-order/probe`).
 - `Resolver.newController` → `await controller.initialize()` ; un throw remonte `HttpContext.handle()` reject → `handleHttp` catch → `onError` → 500 JSON cohérent, serveur sain (pas de hang).
 - Verrou : `LifecycleController` (module test) dont `initialize()` throw toujours, route `/nodefony/test/lifecycle/init-crash`. Test : `nodefony/tests/http/lifecycle-init-crash.test.ts`.
 

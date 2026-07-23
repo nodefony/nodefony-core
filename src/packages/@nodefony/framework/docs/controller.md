@@ -166,8 +166,8 @@ curl -si -X POST -H 'Content-Type: application/json' \
 
 ## 🏗️ Le cycle de vie d'une action — l'ordre RÉEL
 
-C'est la section à lire en entier : **l'ordre réel des étapes n'est pas celui qu'on suppose**, et il
-change ce que tu as le droit d'écrire dans `initialize()`.
+C'est la section à lire en entier : elle dit **quand** ton contrôleur naît, donc ce que tu as le
+droit d'écrire dans `initialize()`.
 
 ```mermaid
 sequenceDiagram
@@ -177,15 +177,15 @@ sequenceDiagram
   K->>R: router.resolve() — appariement URL → route
   K->>K: applySecurityHeaders (CSP…)
   K->>K: parse du corps
-  rect rgb(255, 238, 214)
-    K->>R: handleFrontController()
-    R->>C: constructor (DI) + initialize()
-  end
+  K->>R: prepareFrontController() — arme la route, N'INSTANCIE PAS
   K->>K: enforceCsrf()
   K->>K: startSession()
   K->>K: firewall.handleSecurity() — authentification
   K->>R: context.handle() → callController()
   R->>R: @IsGranted — autorisation
+  rect rgb(214, 245, 224)
+    R->>C: constructor (DI) + initialize()
+  end
   R->>C: action(...args)
   C-->>R: valeur retournée
   R->>K: returnController() → réponse
@@ -196,45 +196,54 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 | #   | Étape                                   | Où                                                  |
 | --- | --------------------------------------- | --------------------------------------------------- |
 | 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:1183`)          |
-| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1193`)    |
+| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1194`)    |
 | 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1224`                               |
-| 4   | **Instanciation DI + `initialize()`**   | `resolver.newController()` (`http-kernel.ts:682`)   |
-| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1283`)    |
-| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1288`) |
-| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1294`) |
+| 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:652`)   |
+| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1290`)    |
+| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1295`) |
+| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1301`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:334`)      |
-| 9   | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts:382`)       |
+| 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:349`)      |
+| 10  | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts:382`)       |
 
-> [!WARNING]
-> **`initialize()` s'exécute AVANT le CSRF, AVANT la session et AVANT l'authentification.**
-> C'est le comportement réel : `HttpKernel.onRequestEnd()` (`http-kernel.ts:1250`) appelle
-> `handleFrontController()` — qui construit le contrôleur et attend `initialize()`
-> (`Resolver.ts:297`) — **puis seulement** `enforceCsrf`, `startSession` et `handleSecurity`.
-> Conséquence directe : `initialize()` tourne aussi pour une requête qui finira en **401** ou en
-> **403**. N'y mets **jamais** une action à effet de bord (écriture en base, envoi de mail,
-> compteur) et n'y suppose **jamais** une identité.
+> [!IMPORTANT]
+> **Rien de ton contrôleur ne s'exécute pour une requête qui sera refusée.** L'appariement de route
+> est précoce — il pose l'intention de session et l'exemption de firewall que les étapes 5 à 7
+> lisent — mais l'**instanciation** attend l'étape 9 : après CSRF, session, authentification et
+> autorisation. Un appelant qui repart en **401** ou en **403** ne fait donc payer ni la résolution
+> DI ni ton `initialize()`. Verrouillé par `pipeline-order.test.ts` (`@nodefony/http`), qui frappe
+> une zone protégée en anonyme puis avec un rôle insuffisant, et exige un mouchard resté à zéro.
 
-### Ce que `initialize()` peut — et ne peut pas — faire
+### `initialize()` — le constructeur asynchrone de ton contrôleur
 
-`initialize()` est un hook **optionnel** : le Resolver l'appelle seulement s'il existe
+C'est **sa raison d'être** : un `constructor` ne peut pas être `async`, et la résolution DI est
+synchrone. Tout ce qui demande un `await` à la mise en place de l'instance n'a pas d'autre endroit
+où aller. Le hook est **optionnel** — le Resolver ne l'appelle que s'il existe
 (`Resolver._createController()`, `Resolver.ts:293-298`). Son contrat est décrit par
 `ControllerWithInitialize` (`Resolver.ts:72`) : aucun argument, retour `Promise<this>`.
 
-| Dans `initialize()`, tu peux…                            | Tu ne peux PAS…                                                               |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Résoudre des services (`this.get("catalog")`)            | Lire `this.session` — elle n'est pas encore démarrée (`null`)                 |
-| Préparer un état local à la requête (champs de `this`)   | Supposer un utilisateur authentifié — le firewall n'est pas encore passé      |
-| Poser un cookie de réponse (`this.context?.setCookie()`) | Écrire en base « puisque la requête est légitime » : elle ne l'est pas encore |
-| Choisir un mode de rendu (`this.setContextHtml()`)       | Compter sur un `@IsGranted` : l'autorisation est évaluée après                |
+```typescript
+async initialize(): Promise<this> {
+  this.setContextJson();                                   // forme de la réponse
+  const user = RequestContext.getUser();                   // identité déjà résolue
+  this.prefs = await this.get<Prefs>("prefs").load(user.identifier);
+  return this;                                             // toujours rendre `this`
+}
+```
 
-Le bon réflexe : `initialize()` **prépare**, l'action **agit**. Tout ce qui dépend de l'identité vit
-dans l'action, où session, jeton et rôles sont résolus.
+| Dans `initialize()`, tu peux…                                                            | Ce qui n'a rien à y faire                                                                                  |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Un `await` de mise en place : charger des préférences, ouvrir une ressource, précalculer | Une **décision d'autorisation** — c'est `@IsGranted`, évalué avant, et un 403 n'arrive jamais jusqu'ici    |
+| Résoudre des services (`this.get("catalog")`)                                            | Un travail qu'**une seule action sur cinq** utilise : il serait payé par toutes → fais-le dans l'action    |
+| Lire l'identité (`RequestContext.getUser()`) — le firewall est passé                     | Un effet de bord **par requête** qu'un rechargement ferait deux fois (compteur, envoi) sans idempotence    |
+| Poser un cookie ou un en-tête (`this.context?.setCookie()`) — rien n'est encore écrit    | Une écriture longue qui bloque : la phase `initialize` est chronométrée, elle apparaîtra dans la debug bar |
+| Choisir un mode de rendu (`this.setContextHtml()`)                                       | Lire `this.session` sans l'avoir demandée : elle reste **lazy** (`@UseSession`, cf plus bas)               |
 
 > [!NOTE]
-> **La garde d'autorisation `@IsGranted`, elle, est bien évaluée avant l'appel de ton action**
-> (`Resolver.ts:334`) : un 403 n'exécute jamais le code métier. Mais sur le trajet HTTP normal, le
-> contrôleur a **déjà été instancié** en amont par `handleFrontController()` — la garde protège
-> l'action, pas la construction.
+> **La session ne s'ouvre pas ici.** Nodefony a un point d'activation **unique**
+> (`HttpKernel.startSession()`, étape 6), piloté par l'intention posée au match depuis `@UseSession`
+> ou un paramètre `@Session`. Pour « une session sur tout ce contrôleur », décore la **classe** —
+> l'appeler à la main dans `initialize()` doublerait le mécanisme, et le ferait avant le CSRF.
 
 ### Une erreur dans `initialize()` ne pend pas
 

@@ -415,7 +415,9 @@ vhosts) → 405 unique. Pseudo-méthode `WEBSOCKET` exposée dans l'agrégat d'u
 ## Internals — seam sécurité
 
 `_enforceSecurity(req: SecurityRequirement)` (`Resolver.ts:526`), appelé dans `executeAction` **AVANT
-`newController()`** (un 403 court-circuite l'instanciation DI + `initialize()`). Résout le service
+`newController()`** — un 403 court-circuite donc réellement l'instanciation DI et `initialize()`, y
+compris sur le trajet HTTP (le kernel n'instancie plus en amont, cf entrée `initialize()` ci-dessus ;
+c'était une promesse que le pipeline contredisait). Résout le service
 `authorization` **par nom** (`IAuthorizer.decide(token, attribute, subject?) → Promise<boolean>`,
 `Resolver.ts:53`) ; `token = RequestContext.get()?.token`. **Fail-closed** : `!authz || token===undefined`
 → 403. Clauses en **AND** (`req.clauses`), attributs d'une clause en **OR** (`clause.anyOf`) ; `subject`
@@ -463,6 +465,29 @@ IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,
   → pose `module` (shadow 1×) → `await controller.initialize()` si présent
   (`ControllerWithInitialize`, hook **per-request**, hot path, JAMAIS borné — distinct du `init()` de
   boot des services).
+- **`initialize()` = le constructeur ASYNCHRONE du controller.** C'est sa raison d'être : un
+  `constructor` ne peut pas être `async` et la DI résout en synchrone, donc tout `await` de mise en
+  place de l'instance n'a pas d'autre endroit. Hook **optionnel**, signature `(): Promise<this>`.
+  **Quand il tourne** — asymétrie de transport à connaître :
+
+  | Transport | Moment                                                                                   | Identité disponible ? |
+  | --------- | ---------------------------------------------------------------------------------------- | --------------------- |
+  | HTTP      | dans `executeAction`, **après** CSRF, session, firewall et `@IsGranted`                  | **oui**               |
+  | WS        | au handshake, dans `handleFrontController`, **avant** `connect()` donc avant le firewall | non                   |
+
+  En HTTP, rien du controller ne s'exécute pour une requête qui finira en 401/403 (ni DI, ni hook) —
+  `http-kernel.ts` n'appelle que `prepareFrontController()` (route + zone), et l'instance naît à
+  l'étape autorisée. En WS l'ordre est **structurel** : le controller porte le protocole négocié et
+  c'est la dernière fenêtre pour toucher la réponse de handshake ; la mise en place per-connexion
+  qui a besoin de l'identité se fait donc au handshake (`execute(null)` / `RealtimeController.onHandshake`),
+  post-firewall.
+  **Y mettre** : un `await` de préparation (charger des préférences, ouvrir une ressource), le format
+  de rendu (`setContextJson`), un cookie/en-tête. **Ne pas y mettre** : une décision d'autorisation
+  (→ `@IsGranted`, évalué avant), un travail utilisé par une seule action sur cinq (payé par toutes),
+  ni l'ouverture de session à la main (→ `@UseSession` sur la classe : l'intention est posée au match
+  et honorée par le point d'activation unique `startSession`). Verrou : `pipeline-order.test.ts`
+  (`@nodefony/http`) — 401 et 403 doivent laisser le mouchard à zéro.
+
 - **Scope singleton** (V4.3) : `ctor.scope==="singleton"` → bindé au container **KERNEL** (jamais celui
   de la requête, `clean()`é au teardown) ; instance cachée comme **promesse** sur
   `Router.getSingletonController` (anti-race) ; `initialize()` 1×/création ; `setRoute`/`module` skippés ;

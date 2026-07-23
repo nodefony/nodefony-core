@@ -8,6 +8,7 @@ import {
   CurrentUser,
 } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
+import { recordInitializeRun } from "./initializeProbe";
 
 /**
  * Banc d'intégration de la ZONE PROTÉGÉE `test-secure` (P6 J1).
@@ -23,6 +24,24 @@ import type { ContextType } from "@nodefony/http";
 class SecureController extends Controller {
   constructor(context: ContextType) {
     super("SecureController", context);
+  }
+
+  /**
+   * Mouchard d'ORDRE (banc `pipeline-order`) — ce controller vit en zone
+   * protégée : si `initialize()` tourne alors que la requête finit en 401/403,
+   * c'est que du code utilisateur s'exécute avant l'authentification. On note
+   * donc le passage ET ce qu'on avait sous la main (identité, session).
+   *
+   * @see `nodefony/secure/initializeProbe.ts` · lecture publique via
+   *   `/nodefony/test/pipeline-order/probe`.
+   */
+  async initialize(): Promise<this> {
+    const user = RequestContext.getUser() as IUser | undefined;
+    recordInitializeRun(
+      user?.identifier ?? null,
+      Boolean(this.context?.session),
+    );
+    return this;
   }
 
   /** Preuve de passage du firewall — la route n'est servie qu'authentifié. */

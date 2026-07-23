@@ -73,11 +73,11 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
   → request.initialize()               ← parse du body (sauté si @Body({stream:true})) (:1225)
   → onRequestEnd() (:1251)
       → hook beforeResolve
-      → handleFrontController()        ← Resolver.resolve → newController → initialize() (:1276)
-      → Firewall.enforceCsrf()         ← rejet précoce des mutations cross-site (:1284)
-      → startSession()                 ← AVANT le firewall : SessionAuthenticator lit L1 (:1289)
-      → Firewall.handleSecurity()      ← si context.secure || isControlledAccess (:1295)
-  → Context.handle() → action du controller (:1235)
+      → prepareFrontController()       ← route + zone (context.secure) — N'INSTANCIE PAS (:1282)
+      → Firewall.enforceCsrf()         ← rejet précoce des mutations cross-site (:1290)
+      → startSession()                 ← AVANT le firewall : SessionAuthenticator lit L1 (:1295)
+      → Firewall.handleSecurity()      ← si context.secure || isControlledAccess (:1301)
+  → Context.handle() → callController → @IsGranted → newController + initialize() → action (:1235)
   → Response.writeHead() ← injecte X-Request-Id ici
   → Response.send()
 ```
@@ -86,6 +86,15 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
 `handleSecurity()` (`firewall.ts:587`), et il est précédé de trois autres appels
 (`handleCors`, `applySecurityHeaders`, `enforceCsrf`) qui, eux, tournent sur
 **toutes** les requêtes, zone ou pas.
+
+⚠️ **Le controller n'est PAS instancié avant le firewall (HTTP).** `prepareFrontController()`
+arme la route (résolveur + `context.secure`) ; l'instanciation DI et le hook
+`initialize()` attendent `Resolver.executeAction()`, après CSRF, session, firewall
+et `@IsGranted`. Une requête qui finit en 401/403 n'exécute donc aucun code de
+controller. Le **WS garde** l'instanciation au handshake (`handleFrontController`) :
+le controller porte le protocole négocié et c'est la dernière fenêtre avant
+`connect()` pour toucher la réponse — donc en WS, `initialize()` reste pré-firewall.
+Verrou : `tests/http/pipeline-order.test.ts`.
 
 ### Pipeline WebSocket
 

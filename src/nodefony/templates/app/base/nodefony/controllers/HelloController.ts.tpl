@@ -11,6 +11,12 @@ class HelloController extends Controller {
     super("hello", context);
   }
 
+  // Besoin d'un `await` avant l'action (charger des préférences, ouvrir une
+  // ressource) ? C'est `async initialize(): Promise<this>` — le constructeur
+  // asynchrone du controller, optionnel. En HTTP il tourne après le firewall
+  // (identité résolue) ; en WebSocket avant l'accept du handshake. Détail et
+  // pièges : `@nodefony/framework/docs/controller.md` § Cycle de vie.
+
   @route("route-hello", { path: "/hello", method: "GET" })
   // `@CurrentUser()` injecte l'utilisateur résolu par la zone firewall `main`
   // (^/api, session→anonymous, cf nodefony.config.ts) : connecté = ton user,

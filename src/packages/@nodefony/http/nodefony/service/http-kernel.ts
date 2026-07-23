@@ -649,10 +649,27 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     );
   }
 
-  async handleFrontController(
+  /**
+   * Arme le contexte pour l'exécution : zone firewall (`context.secure`) et
+   * résolveur de route — **sans instancier le controller**.
+   *
+   * Séparé de {@link handleFrontController} parce que les deux gestes n'ont pas
+   * le même moment légitime. Le MATCH doit être précoce : il pose
+   * `context.sessionIntent` (depuis `@UseSession`) et `resolver.bypassFirewall`,
+   * que le point session unique et le firewall lisent juste après. L'INSTANCE,
+   * elle, exécute du code utilisateur (`initialize()`) et résout des dépendances
+   * DI : elle n'a rien à faire avant que la requête soit autorisée.
+   *
+   * @param checkFirewall - calcule `context.secure` (zone protégée) ; laissé à
+   *   `false` par un appelant qui l'a déjà tranché.
+   * @throws HttpError 404 quand aucune route ne matche, ou l'exception portée
+   *   par le résolveur (405…) — inchangé, et toujours avant le firewall : une
+   *   route inexistante ne devient pas un 401.
+   */
+  async prepareFrontController(
     context: ContextType,
     checkFirewall: boolean = true,
-  ): Promise<Controller | number> {
+  ): Promise<Resolver> {
     if (!this.router) {
       throw new Error("kernel HTTP not ready");
     }
@@ -675,17 +692,30 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
     if (resolver.resolve && !resolver.exception) {
       context.resolver = resolver;
-      // Le Resolver a déjà posé `context.sessionIntent` (depuis `@UseSession` /
-      // paramètre `@Session`) au match — c'est lui qui pilote l'activation au
-      // point session unique. `controller.session` est un getter sur
-      // `context.session` (plus de pont via l'event `onSessionStart`).
-      const controller = await resolver.newController(context);
-      return controller;
+      return resolver;
     }
     if (resolver.exception) {
       throw resolver.exception;
     }
     throw new HttpError("Not Found", 404, context);
+  }
+
+  /**
+   * {@link prepareFrontController} + instanciation immédiate du controller
+   * (DI + hook `initialize()`).
+   *
+   * @remarks Réservé au **WebSocket** : le controller doit exister avant
+   *   `context.connect()`, puisqu'il porte le protocole négocié et peut encore
+   *   toucher la réponse du handshake (cookies, en-têtes) — après l'accept, il
+   *   est trop tard. Le HTTP, lui, arme la route ici et laisse
+   *   `Resolver.executeAction` créer l'instance une fois la requête autorisée.
+   */
+  async handleFrontController(
+    context: ContextType,
+    checkFirewall: boolean = true,
+  ): Promise<Controller> {
+    const resolver = await this.prepareFrontController(context, checkFirewall);
+    return await resolver.newController(context);
   }
 
   /**
@@ -1272,11 +1302,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // Guard 0-listener (cf onCreateContext) : 0 microtask sans security.
     if (this.listenerCount("beforeResolve"))
       await this.fireAsync("beforeResolve", context);
-    // FRONT CONTROLLER
-    const ret = await this.handleFrontController(context);
-    if (ret === 204) {
-      return ret;
-    }
+    // FRONT CONTROLLER — on ARME seulement (route + zone). Le controller n'est
+    // PAS instancié ici : son constructeur DI et son hook `initialize()` sont du
+    // code qui s'exécute, et rien ne doit s'exécuter avant que la requête ait
+    // passé CSRF, session, firewall et la garde `@IsGranted` — laquelle
+    // instancie elle-même au bon moment (`Resolver.executeAction`). Un anonyme
+    // rejeté ne paie donc ni la DI ni `initialize()`. Le WebSocket garde
+    // l'instanciation au handshake (cf `handleFrontController`).
+    await this.prepareFrontController(context);
     // CSRF (P6 J5) — défense globale : toute mutation cross-site (POST/PUT/PATCH/
     // DELETE) est rejetée (403), zone ou non, AVANT de charger session/auth (rejet
     // précoce). No-op sur les méthodes sûres. Le resolver est posé par
@@ -1533,12 +1566,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.checkWebsocketOrigin(context);
       // SECURITY HOOK — beforeResolve (P1.7) — WS
       await this.fireAsync("beforeResolve", context);
-      // FRONT CONTROLLER
+      // FRONT CONTROLLER — le WS instancie ICI (avant `connect()`) : le
+      // controller porte le protocole négocié et peut encore toucher la réponse
+      // du handshake ; après l'accept, il est trop tard.
       try {
-        const ret = await this.handleFrontController(context);
-        if (ret === 204) {
-          return ret;
-        }
+        await this.handleFrontController(context);
       } catch (e: unknown) {
         context.logRequest(e as Error);
         throw e;

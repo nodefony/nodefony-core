@@ -39,12 +39,19 @@ nodefony/
 
 ```
 Router.resolve(ctx)
-  → Resolver.match(route, ctx)       // trouve la route
-  → Resolver.newController()         // Injector.instantiate(ControllerCtor, ctx)
-  → controller.initialize()          // hook optionnel (async)
-  → Resolver.callController(data)    // appelle l'action
+  → Resolver.match(route, ctx)       // trouve la route (pose sessionIntent, bypassFirewall…)
+  ── HTTP : CSRF → session → firewall (côté HttpKernel) ──
+  → Resolver.callController(data)
+      → _enforceSecurity(@IsGranted) // 403 AVANT toute instanciation
+      → Resolver.newController()     // Injector.instantiate(ControllerCtor, ctx)
+      → controller.initialize()      // constructeur ASYNC, hook optionnel
+      → action(...args)
   → Resolver.returnController(res)   // normalise la réponse
 ```
+
+> **En WS, `newController()` + `initialize()` ont lieu plus tôt** (au handshake, avant `connect()`
+> donc avant le firewall) : le controller porte le protocole négocié et c'est la dernière fenêtre
+> pour toucher la réponse de handshake. Cf `../http/CLAUDE.md` § Pipeline.
 
 ### Enregistrement des routes (décorateurs)
 

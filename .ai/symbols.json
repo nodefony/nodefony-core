@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-23T20:58:38.480Z",
+  "generated": "2026-07-23T21:48:07.116Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1041,
-    "symbols": 2837,
-    "classes": 331,
-    "interfaces": 741,
+    "files": 1043,
+    "symbols": 2842,
+    "classes": 332,
+    "interfaces": 742,
     "types": 329,
     "enums": 4,
-    "functions": 851,
+    "functions": 854,
     "constants": 581
   },
   "symbols": {
@@ -6137,6 +6137,19 @@
         "UseSession"
       ]
     },
+    "PipelineOrderController": {
+      "name": "PipelineOrderController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/PipelineOrderController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Lecture PUBLIQUE du mouchard d'ordre du pipeline (`initializeProbe`). Le mouchard est posé par `SecureController.initialize()`, qui vit en **zone protégée** : un banc anonyme ne peut donc pas le re…"
+    },
     "RestController": {
       "name": "RestController",
       "kind": "class",
@@ -6305,6 +6318,39 @@
       "decorators": [
         "controller"
       ]
+    },
+    "InitializeProbeSnapshot": {
+      "name": "InitializeProbeSnapshot",
+      "kind": "interface",
+      "file": "src/modules/test/nodefony/secure/initializeProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": null,
+      "description": "Mouchard d'ORDRE du pipeline : que voit `Controller.initialize()`, et s'exécute-t-il même quand la requête sera refusée ? `initialize()` est le constructeur asynchrone d'un controller. La question …"
+    },
+    "recordInitializeRun": {
+      "name": "recordInitializeRun",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/secure/initializeProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Enregistre un passage dans `initialize()`."
+    },
+    "readInitializeProbe": {
+      "name": "readInitializeProbe",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/secure/initializeProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Lecture du mouchard (copie — l'appelant ne mute pas l'état)."
+    },
+    "resetInitializeProbe": {
+      "name": "resetInitializeProbe",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/secure/initializeProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Remise à zéro entre deux cas de banc."
     },
     "SecureController": {
       "name": "SecureController",
@@ -20074,6 +20120,7 @@
         "HtmlController",
         "LifecycleController",
         "OpenApiController",
+        "PipelineOrderController",
         "RestController",
         "RouteController",
         "SessionRuntimeController",
@@ -20494,6 +20541,7 @@
         "HtmlController",
         "LifecycleController",
         "OpenApiController",
+        "PipelineOrderController",
         "RestController",
         "RouteController",
         "SessionRuntimeController",
@@ -21232,6 +21280,9 @@
       "SecureController": [
         "src/modules/test/index.ts"
       ],
+      "PipelineOrderController": [
+        "src/modules/test/index.ts"
+      ],
       "SecureWsController": [
         "src/modules/test/index.ts"
       ],
@@ -21459,6 +21510,7 @@
         "src/modules/test/nodefony/controller/HtmlController.ts",
         "src/modules/test/nodefony/controller/LifecycleController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
+        "src/modules/test/nodefony/controller/PipelineOrderController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -21611,6 +21663,7 @@
         "src/modules/test/nodefony/controller/HtmlController.ts",
         "src/modules/test/nodefony/controller/LifecycleController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
+        "src/modules/test/nodefony/controller/PipelineOrderController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -23746,6 +23799,7 @@
       ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/PipelineOrderController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
@@ -23816,6 +23870,12 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
       ],
+      "readInitializeProbe": [
+        "src/modules/test/nodefony/controller/PipelineOrderController.ts"
+      ],
+      "resetInitializeProbe": [
+        "src/modules/test/nodefony/controller/PipelineOrderController.ts"
+      ],
       "ISession": [
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -23875,6 +23935,9 @@
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "recordInitializeRun": [
+        "src/modules/test/nodefony/secure/SecureController.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
