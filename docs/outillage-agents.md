@@ -81,7 +81,7 @@ serait sans effet à la régénération suivante.
     "meta": "non versionné" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
     "desc": "Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`,…",
-    "meta": "2 scripts · v1.0.0" }
+    "meta": "3 scripts · v1.0.0" }
 ]
 ```
 

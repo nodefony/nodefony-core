@@ -2871,14 +2871,31 @@
       ],
       "description": "Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique du skill. Porte aussi les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une description qui décrit l'outil au lieu du moment ne se déclenche jamais. Déclencheurs : \"créer un skill\", \"nouveau skill\", \"éditer un skill\", \"améliorer un skill\", \"mon skill ne se déclenche jamais\", \"skill non conforme\", \"skills-ref validate\", \"conformité Agent Skills\", \"fiche de skill\", \"à quoi sert ce skill\", \"faut-il un skill pour ça ?\".",
       "cost": {
-        "bodyLines": 191,
-        "approxTokens": 2881
+        "bodyLines": 205,
+        "approxTokens": 3083
       },
       "requires": ["docker", "redis", "base de données"],
       "resources": {
         "references": [],
         "referenceFilesTotal": 0,
         "scripts": [
+          {
+            "path": "scripts/scripts-audit.mjs",
+            "purpose": "scripts-audit — chaque script du dépôt est-il au bon endroit, et quelqu'un l'appelle-t-il ?",
+            "usage": [
+              "node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs",
+              "node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict"
+            ],
+            "options": [
+              {
+                "flag": "--strict",
+                "help": "sort en échec dès qu'un script est orphelin ou qu'un renvoi est mort"
+              }
+            ],
+            "env": [],
+            "output": "un classement de chaque script : bien placé, à déplacer, orphelin, ou renvoi mort",
+            "selfDocumented": true
+          },
           {
             "path": "scripts/skills-doc.mjs",
             "purpose": "skills-doc — fiche de documentation par skill, ET gate de conformité.",
@@ -2960,7 +2977,7 @@
           {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
-            "detail": "191",
+            "detail": "205",
             "advisory": true
           }
         ]

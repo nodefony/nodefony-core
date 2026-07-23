@@ -119,6 +119,20 @@ skill inatteignable. Il signale aussi les **recouvrements** — deux skills qui 
 formulation ; tous ne sont pas des défauts (« fuite mémoire » vaut mieux capté par
 `nodefony-check-memory-health` que par `nodefony-debug`), mais chacun mérite un arbitrage conscient.
 
+**Audit de placement** — où vit chaque script, et qui l'appelle :
+
+```bash
+node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs           # rapport
+node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict  # échoue sur orphelin ou renvoi mort
+```
+
+Il classe les 76 scripts du dépôt selon le critère du §2 : **dépend d'un protocole → sa place est
+dans un skill** ; déterministe et câblé au `package.json` → il reste à la racine. Il signale aussi
+les scripts que **personne ne cite** (morts, ou simplement non documentés) et les renvois vers un
+fichier absent. Trois faux positifs ont été corrigés avant de lui faire confiance : `.js` capturé
+dans `.json`, renvois croisés entre skills déclarés morts faute d'être cherchés ailleurs, et
+« mentionne docker » confondu avec « lance docker ».
+
 > Ce banc mesure la surface **lexicale**, pas le jugement du modèle : un cas vert ne garantit pas
 > l'invocation, mais un cas **rouge** est un vrai défaut — aucun mot de la demande ne rejoint la
 > description.

@@ -44,7 +44,7 @@ source: "docs/skills/index.md"
     "meta": "non versionné" },
   { "icon": "🧩", "title": "skill", "href": "nodefony-skill.md",
     "desc": "Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`,…",
-    "meta": "2 scripts · v1.0.0" }
+    "meta": "3 scripts · v1.0.0" }
 ]
 ```
 
@@ -173,7 +173,7 @@ source: "docs/skills/index.md"
 | [`nodefony-roadmap`](nodefony-roadmap.md)                               | —       |   161 |    0 |       0 |    ✅    |
 | [`nodefony-security-review`](nodefony-security-review.md)               | —       |   356 |    0 |       0 |    ✅    |
 | [`nodefony-session`](nodefony-session.md)                               | —       |   555 |    0 |       0 |    ✅    |
-| [`nodefony-skill`](nodefony-skill.md)                                   | 1.0.0   |   191 |    0 |       2 |    ✅    |
+| [`nodefony-skill`](nodefony-skill.md)                                   | 1.0.0   |   205 |    0 |       3 |    ✅    |
 | [`nodefony-start-server`](nodefony-start-server.md)                     | —       |   209 |    0 |       2 |    ✅    |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md)                         | 2.0.0   |   143 |    6 |       0 |    ✅    |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md)               | —       |    77 |    0 |       0 |    ✅    |

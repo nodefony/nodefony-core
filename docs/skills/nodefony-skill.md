@@ -23,12 +23,12 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 | ------------------------ | -------------------------------------------------- |
 | Version                  | `1.0.0`                                            |
 | Famille                  | Cycle de session                                   |
-| Corps                    | 191 lignes                                         |
-| Coût d'activation        | ~2 881 tokens (le corps est chargé à l'invocation) |
+| Corps                    | 205 lignes                                         |
+| Coût d'activation        | ~3 083 tokens (le corps est chargé à l'invocation) |
 | Description              | 1001 / 1024 caractères                             |
 | Déclencheurs             | 11                                                 |
 | Ressources `references/` | 0 page(s)                                          |
-| Scripts                  | 2                                                  |
+| Scripts                  | 3                                                  |
 | Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
@@ -70,14 +70,16 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
 script, donc toujours à jour après régénération.
 
-| Script                      | Rôle                                                                  | Options              | Variables d'environnement |
-| --------------------------- | --------------------------------------------------------------------- | -------------------- | ------------------------- |
-| `scripts/skills-doc.mjs`    | skills-doc — fiche de documentation par skill, ET gate de conformité. | `--check`            | `SKILLS_DOC_DATE`         |
-| `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill.        | `--verbose` `--list` | —                         |
+| Script                      | Rôle                                                                                        | Options              | Variables d'environnement |
+| --------------------------- | ------------------------------------------------------------------------------------------- | -------------------- | ------------------------- |
+| `scripts/scripts-audit.mjs` | scripts-audit — chaque script du dépôt est-il au bon endroit, et quelqu'un l'appelle-t-il ? | `--strict`           | —                         |
+| `scripts/skills-doc.mjs`    | skills-doc — fiche de documentation par skill, ET gate de conformité.                       | `--check`            | `SKILLS_DOC_DATE`         |
+| `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill.                              | `--verbose` `--list` | —                         |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
+node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs
 node .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs
 ```
@@ -85,6 +87,19 @@ node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs
 **Toutes les variables lues par ce skill** : `SKILLS_DOC_DATE`
 
 ### Détail des scripts auto-documentés
+
+#### `scripts/scripts-audit.mjs`
+
+Produit : un classement de chaque script : bien placé, à déplacer, orphelin, ou renvoi mort
+
+```bash
+node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs
+node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict
+```
+
+| Option     | Rôle                                                                 |
+| ---------- | -------------------------------------------------------------------- |
+| `--strict` | sort en échec dès qu'un script est orphelin ou qu'un renvoi est mort |
 
 #### `scripts/skills-doc.mjs`
 
@@ -125,7 +140,7 @@ node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose
 | description de 1 à 1024 caractères        |  ✅  | 1001   |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 191    |
+| corps < 500 lignes (recommandation)       |  ✅  | 205    |
 
 ## 🔗 Pour aller plus loin
 
