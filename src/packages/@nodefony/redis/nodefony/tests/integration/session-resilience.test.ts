@@ -119,7 +119,10 @@ describe("Redis SessionStorage — connexion absente (dégradation gracieuse)", 
 // ════════════════════════════════════════════════════════════════════════════
 // 2. Donnée hostile — exige un vrai serveur (un double « valide » toujours)
 // ════════════════════════════════════════════════════════════════════════════
-const REAL_URL = redisTestUrl(12);
+// Base 8 : ce fichier `flushDb`, il lui faut la sienne. Il partageait la 12 avec
+// `token-pagination` — deux purges concurrentes sur le même keyspace, donc vert
+// en isolation et rouge en suite, le symptôme qui fait suspecter le code.
+const REAL_URL = redisTestUrl(8);
 
 describe.skipIf(!REAL_URL)(
   "Redis SessionStorage — données hostiles en base",

@@ -10,6 +10,7 @@ import type {
   TokenRevokeReason,
 } from "@nodefony/security";
 import type RedisService from "../service/redis";
+import { MAX_SCAN, decodeCursor, encodeCursor } from "./scanCursor";
 
 /** Préfixe namespacé des clés de jetons dans Redis. */
 /**
@@ -22,35 +23,6 @@ const KEY_BASE = "nf:tok";
 
 /** Fenêtre par défaut de conservation d'un PAT révoqué sans expiration (30 j). */
 const DEFAULT_RETENTION_REVOKED_MS = 30 * 24 * 3_600_000;
-
-/**
- * Curseur de page **composite** : `"<skip>:<curseurRedis>"`.
- *
- * `SCAN COUNT` est un indice d'effort, PAS un plafond : Redis peut rendre plus de
- * clés que demandé (petit keyspace encodé en listpack → tout arrive d'un coup).
- * Sans précaution, la page dépasserait `limit` et violerait `IPage`. Le `skip`
- * mémorise combien de clés du batch courant ont déjà été rendues ; la page
- * suivante rejoue le même `SCAN` et reprend à la bonne position. Rien n'est
- * perdu, rien ne déborde. Même mécanisme que le store de session (convention).
- */
-function encodeCursor(scanCursor: string, skip: number): string {
-  return `${skip}:${scanCursor}`;
-}
-
-/** Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé. */
-function decodeCursor(cursor?: string): { scanCursor: string; skip: number } {
-  if (!cursor) return { scanCursor: "0", skip: 0 };
-  const sep = cursor.indexOf(":");
-  if (sep === -1) {
-    // Curseur Redis nu (client externe, ancien format) → honoré tel quel.
-    return { scanCursor: cursor, skip: 0 };
-  }
-  const skip = Number.parseInt(cursor.slice(0, sep), 10);
-  return {
-    scanCursor: cursor.slice(sep + 1) || "0",
-    skip: Number.isFinite(skip) && skip > 0 ? skip : 0,
-  };
-}
 
 /**
  * Sous-ensemble structural du client `redis` v6 utilisé par le store — permet de
@@ -107,6 +79,8 @@ export class RedisTokenStore implements ITokenStore {
   #prefixCache: string | null = null;
   readonly #now: () => number;
   readonly #retentionRevokedMs: number;
+  /** Canal d'alerte du store (balayage plafonné) — muet par défaut. */
+  readonly #notify: (message: string) => void;
 
   /**
    * @param resolveClient - résolveur **lazy** du client Redis (l'ordre de boot
@@ -123,11 +97,15 @@ export class RedisTokenStore implements ITokenStore {
     // tous les appelants — un décalage qu'aucun type ne rattrape quand les
     // signatures voisines sont des fonctions.
     resolvePrefix: () => string = () => KEY_BASE,
+    // Même raison : ajouté en dernier. Sans lui le store n'a aucun moyen de
+    // signaler un listing tronqué (il n'a ni kernel ni logger propre).
+    notify: (message: string) => void = () => {},
   ) {
     this.#resolveClient = resolveClient;
     this.#resolvePrefix = resolvePrefix;
     this.#now = now;
     this.#retentionRevokedMs = retentionRevokedMs;
+    this.#notify = notify;
   }
 
   /**
@@ -148,6 +126,7 @@ export class RedisTokenStore implements ITokenStore {
       now,
       retentionRevokedMs,
       () => service.keyPrefix(KEY_BASE),
+      (message) => service.log(message, "WARNING"),
     );
   }
 
@@ -338,6 +317,11 @@ export class RedisTokenStore implements ITokenStore {
    * Énumère les records par **SCAN** (curseur non-bloquant, `MATCH nf:tok:rec:*`).
    * Opération admin RARE (cold-path, jamais sur le hot-path d'auth) ; à très
    * grande échelle, préférer le système de référence SQL pour la gouvernance.
+   *
+   * Le balayage est **plafonné** à {@link MAX_SCAN} clés, comme celui des
+   * sessions : sans plafond, une vue d'administration lancée sur un très grand
+   * parc balaie tout le keyspace. Au-delà on s'arrête et on **journalise** — un
+   * listing partiel se dit, il ne se tronque pas en silence.
    */
   async listAll(): Promise<IAccessTokenRecord[]> {
     const client = this.#client();
@@ -349,6 +333,7 @@ export class RedisTokenStore implements ITokenStore {
     // Le curseur SCAN est une STRING opaque côté RESP (node-redis v6 refuse un
     // number à l'encodage). `String(res.cursor)` normalise quel que soit le retour.
     let cursor = "0";
+    let scanned = 0;
     do {
       const res = await client.scan(cursor, { MATCH: match, COUNT: 200 });
       cursor = String(res.cursor);
@@ -357,6 +342,14 @@ export class RedisTokenStore implements ITokenStore {
         if (Object.keys(h).length > 0) {
           out.push(this.#decode(h));
         }
+      }
+      scanned += res.keys.length;
+      if (scanned >= MAX_SCAN) {
+        this.#notify(
+          `REDIS TOKENS listAll: balayage plafonné à ${MAX_SCAN} clés ` +
+            `(${out.length} jetons rendus) — listing PARTIEL`,
+        );
+        break;
       }
     } while (cursor !== "0");
     return out;

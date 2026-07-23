@@ -40,14 +40,23 @@ class RedisService extends Service {
    * une application anonyme recalculerait à chaque clé).
    */
   #keyNamespace: string | null | undefined = undefined;
+  /**
+   * Connexions actuellement signalées indisponibles — sert à ne journaliser
+   * qu'aux TRANSITIONS (une session écrit à chaque requête : journaliser à
+   * chaque appel noierait le journal au lieu d'alerter).
+   *
+   * Lazy : `null` tant que tout va bien, et remis à `null` dès que la dernière
+   * connexion est rétablie (aucune structure allouée sur le chemin nominal).
+   */
+  #unavailable: Set<string> | null = null;
 
   constructor(module: Module) {
-    super(
-      serviceName,
-      module.container as Container,
-      null,
-      (module.options?.redis as Record<string, unknown>) ?? {},
-    );
+    // Aucune option de service : la config Redis vit dans `module.config`
+    // (validée par `defineRedisConfig` au `onKernelRegister`) et se lit via
+    // `#resolveConfig()`. Lire ici une clé `.redis` des options du module était
+    // un vestige : ces options sont FLAT (cf `index.ts`), la clé n'existe pas et
+    // le service recevait toujours `{}` — autant le dire.
+    super(serviceName, module.container as Container, null, {});
     this.module = module;
     module.kernel?.once("onTerminate", async () => {
       await this.closeConnections();
@@ -159,9 +168,50 @@ class RedisService extends Service {
     return this.#connections?.[name];
   }
 
-  /** Client redis brut par nom de connexion (ou `null`). */
+  /**
+   * Client redis brut d'une connexion **utilisable**, ou `null`.
+   *
+   * `null` ne veut pas dire « connexion inconnue » mais « ne prends pas la
+   * peine » : tous les consommateurs (stores de session, de jetons, de
+   * passkeys, backplane realtime, idempotence) traitent `null` comme une
+   * indisponibilité et dégradent. Rendre un client fermé leur ferait prendre un
+   * `ClientClosedError` là où leur contrat promet un repli.
+   *
+   * Pourquoi tester l'ouverture et pas seulement la présence : `createClient()`
+   * rend un objet AVANT `connect()` (`Connection.create()`), et une connexion
+   * dont l'ouverture a échoué reste inscrite dans la map — le client existe donc
+   * **sans jamais avoir été ouvert**. `isOpen` (et non `isReady`) est le bon
+   * critère : pendant une reconnexion le socket est ouvert et node-redis met les
+   * commandes en file, ce qui est exactement la résilience recherchée.
+   *
+   * L'indisponibilité est **journalisée à la transition** — une dégradation
+   * muette contredit le principe de résilience du framework (tout repli
+   * s'annonce), mais journaliser à chaque appel noierait le journal.
+   */
   getClient(name: string): RedisClientType | null {
-    return this.#connections?.[name]?.client ?? null;
+    const client = this.#connections?.[name]?.client ?? null;
+    if (client?.isOpen) {
+      if (this.#unavailable?.delete(name)) {
+        if (this.#unavailable.size === 0) {
+          this.#unavailable = null;
+        }
+        this.log(`connexion "${name}" rétablie`, "INFO");
+      }
+      return client;
+    }
+    if (!this.#unavailable) {
+      this.#unavailable = new Set();
+    }
+    if (!this.#unavailable.has(name)) {
+      this.#unavailable.add(name);
+      this.log(
+        `connexion "${name}" indisponible (${
+          client ? "socket fermé" : "jamais ouverte"
+        }) — les consommateurs de cette connexion dégradent tant qu'elle ne revient pas`,
+        "WARNING",
+      );
+    }
+    return null;
   }
 
   /** Ferme toutes les connexions ouvertes (idempotent). */

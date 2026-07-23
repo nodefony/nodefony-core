@@ -10,6 +10,7 @@ import type {
   WebAuthnAuthUpdate,
 } from "@nodefony/security";
 import type RedisService from "../service/redis";
+import { decodeCursor, encodeCursor } from "./scanCursor";
 
 /** Préfixe namespacé des clés de credentials WebAuthn dans Redis. */
 /**
@@ -19,34 +20,6 @@ import type RedisService from "../service/redis";
  * doivent ni écrire ni BALAYER le même espace de clés.
  */
 const KEY_BASE = "nf:wac";
-
-/**
- * Curseur composite `skip:scanCursor`.
- *
- * `SCAN COUNT` est un **indice d'effort, pas un plafond** : un batch peut rendre
- * plus de clés que `limit`. On ne jette pas le surplus (il serait perdu) — on
- * mémorise combien de clés du batch ont été consommées ; la page suivante rejoue
- * le même `SCAN` et reprend à la bonne position. Rien n'est perdu, rien ne
- * déborde. Même mécanisme que les stores de jetons et de session (convention).
- */
-function encodeCursor(scanCursor: string, skip: number): string {
-  return `${skip}:${scanCursor}`;
-}
-
-/** Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé. */
-function decodeCursor(cursor?: string): { scanCursor: string; skip: number } {
-  if (!cursor) return { scanCursor: "0", skip: 0 };
-  const sep = cursor.indexOf(":");
-  if (sep === -1) {
-    // Curseur Redis nu (client externe, ancien format) → honoré tel quel.
-    return { scanCursor: cursor, skip: 0 };
-  }
-  const skip = Number.parseInt(cursor.slice(0, sep), 10);
-  return {
-    scanCursor: cursor.slice(sep + 1) || "0",
-    skip: Number.isFinite(skip) && skip > 0 ? skip : 0,
-  };
-}
 
 /**
  * Sous-ensemble structural du client `redis` v6 utilisé par le store de

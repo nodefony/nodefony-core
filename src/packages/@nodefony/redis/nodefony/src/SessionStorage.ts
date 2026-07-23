@@ -8,6 +8,7 @@ import type {
 } from "@nodefony/http";
 import type { IPage } from "nodefony";
 import type RedisService from "../service/redis";
+import { MAX_SCAN, decodeCursor, encodeCursor } from "./scanCursor";
 
 /** Préfixe namespacé des clés de session dans Redis. */
 /**
@@ -20,57 +21,6 @@ import type RedisService from "../service/redis";
 const KEY_BASE = "nf:sess";
 
 /**
- * Plafond de sécurité du SCAN admin : au-delà, on s'arrête et on LOGGE (listing
- * partiel signalé, jamais tronqué en silence). `SCAN` est O(keyspace) — un index
- * secondaire (`SET` d'ids) serait l'optimisation v2 pour un très grand parc.
- */
-const MAX_SCAN = 10_000;
-
-/**
- * Curseur de page **composite** : `"<skip>:<curseurRedis>"`.
- *
- * Pourquoi composer plutôt que passer le curseur Redis nu : `SCAN COUNT` est un
- * indice d'effort, pas un plafond — un batch peut contenir plus de clés qu'une
- * page. Le `skip` mémorise combien de clés de CE batch ont déjà été rendues, pour
- * que la page suivante rejoue le même `SCAN` et reprenne à la bonne position.
- *
- * Le split se fait au PREMIER `:` : le curseur Redis est opaque et reste intact
- * même s'il contenait lui-même un `:`.
- */
-function encodeCursor(scanCursor: string, skip: number): string {
-  return `${skip}:${scanCursor}`;
-}
-
-/**
- * Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé.
- *
- * Le jeton vient de l'extérieur (query string du data plane admin, client qui
- * rejoue une page) : il n'est donc PAS digne de confiance. Un curseur `SCAN`
- * Redis est toujours une suite de chiffres — tout le reste repart de `"0"`
- * plutôt que d'être transmis au serveur, qui répondrait par une erreur et ferait
- * échouer une simple consultation. Repartir du début est faux au pire d'une
- * page ; jeter serait faux à coup sûr.
- */
-function decodeCursor(cursor?: string): { scanCursor: string; skip: number } {
-  if (!cursor) return { scanCursor: "0", skip: 0 };
-  const sep = cursor.indexOf(":");
-  if (sep === -1) {
-    // Curseur Redis nu (client externe, ancien format) → honoré s'il est valide.
-    return { scanCursor: scanOrZero(cursor), skip: 0 };
-  }
-  const skip = Number.parseInt(cursor.slice(0, sep), 10);
-  return {
-    scanCursor: scanOrZero(cursor.slice(sep + 1)),
-    skip: Number.isFinite(skip) && skip > 0 ? skip : 0,
-  };
-}
-
-/** Un curseur `SCAN` exploitable (chiffres) ou `"0"` — jamais du texte libre. */
-function scanOrZero(value: string): string {
-  return /^\d+$/.test(value) ? value : "0";
-}
-
-/**
  * Stockage de session **Redis** — branché sur la connexion `main` du
  * {@link RedisService}. Implémente le contrat unifié {@link ISessionStorage}
  * consommé par le `SessionsService` de `@nodefony/http`.
@@ -79,9 +29,12 @@ function scanOrZero(value: string): string {
  * (`SET … EX`) → `gc()` est un **no-op** (zéro balayage, zéro requête de purge)
  * et le store est **partagé cross-pod** (source unique de vérité en cluster).
  *
- * Dégradation gracieuse : si la connexion `main` n'est pas (ou plus) ouverte
- * (boot/shutdown), chaque opération devient un no-op silencieux plutôt que de
- * jeter (la session n'est juste pas persistée le temps de l'indisponibilité).
+ * Dégradation gracieuse **annoncée** : si la connexion `main` n'est pas (ou
+ * plus) ouverte (boot, coupure, shutdown), chaque opération devient un no-op
+ * plutôt que de jeter — la session n'est simplement pas persistée le temps de
+ * l'indisponibilité. Le repli n'est pas muet : {@link RedisService.getClient}
+ * journalise un WARNING à la bascule et un INFO au rétablissement (une seule
+ * ligne par transition, pas une par requête).
  */
 class RedisSessionStorage implements ISessionStorage {
   manager: SessionsService;

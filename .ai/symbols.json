@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-23T11:54:10.842Z",
+  "generated": "2026-07-23T13:16:44.166Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1039,
-    "symbols": 2837,
+    "files": 1040,
+    "symbols": 2834,
     "classes": 330,
     "interfaces": 741,
     "types": 328,
     "enums": 4,
-    "functions": 854,
-    "constants": 580
+    "functions": 850,
+    "constants": 581
   },
   "symbols": {
     "Cli": {
@@ -11677,6 +11677,38 @@
       "module": "@nodefony/redis",
       "extends": null,
       "description": "Sous-ensemble structural du client `redis` v6 utilisé par le store de credentials — permet de tester contre un double déterministe sans serveur (le vrai `RedisClientType` satisfait cette forme par …"
+    },
+    "encodeCursor": {
+      "name": "encodeCursor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/src/scanCursor.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Curseur de page **composite** : `\"<skip>:<curseurRedis>\"`. Pourquoi composer plutôt que passer le curseur Redis nu : `SCAN COUNT` est un indice d'effort, pas un plafond — Redis peut rendre plus de …"
+    },
+    "decodeCursor": {
+      "name": "decodeCursor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/src/scanCursor.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé. Le jeton vient de l'extérieur (query string du data plane admin, client qui rejoue une page) : il n'est donc PAS digne d…"
+    },
+    "scanOrZero": {
+      "name": "scanOrZero",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/src/scanCursor.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Un curseur `SCAN` exploitable (chiffres) ou `\"0\"` — jamais du texte libre."
+    },
+    "MAX_SCAN": {
+      "name": "MAX_SCAN",
+      "kind": "const",
+      "file": "src/packages/@nodefony/redis/nodefony/src/scanCursor.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Curseur de pagination `SCAN` — **règle unique** des trois stores Redis (sessions, jetons, identifiants WebAuthn). Pourquoi un fichier partagé : ces trois stores portaient chacun leur copie de `enco…"
     },
     "RedisSessionStorage": {
       "name": "RedisSessionStorage",
@@ -25193,6 +25225,20 @@
       ],
       "IRedisConnectionConfig": [
         "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts"
+      ],
+      "MAX_SCAN": [
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
+      ],
+      "decodeCursor": [
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
+      ],
+      "encodeCursor": [
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
       "securityConfigSchema": [
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts"
