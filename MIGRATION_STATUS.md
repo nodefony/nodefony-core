@@ -226,7 +226,10 @@ Console Logs Studio = panneau P10 de facto livré.
 > où la clé est bien lue mais où le `.describe()` PROMET (AAL3 WebAuthn non vérifié · format de clé
 > d'API à 2 séparateurs · `totp.store` annonçant `mongoose`/`redis` sans implémentation — une app
 > Mongo croit persister ses secrets 2FA et retombe sur `memory`).
-> **Registre : 44 ✅ · 6 🔶 · 69 restants** sur 119 (dont 9 🔴 + F18/F28 sécurité). Rapport triable
+> **Motif SOLDÉ 12/12** avec F17, F22, F25 (`afb30720`) — variante « le `.describe()` PROMET » : la clé
+> EST lue, c'est le texte qui invente (AAL3 non tenu, format de clé d'API faux, backends de store TOTP
+> inexistants). Corrigés + WARNING au boot sur l'attestation + banc `configPromises.test.ts` qui teste le
+> COMPORTEMENT promis. **Registre : 47 ✅ · 6 🔶 · 66 restants** sur 119 (dont 7 🔴 + F18/F28 sécurité). Rapport triable
 > régénérable : `node tmp/registre-ecarts/gen.mjs` (il PARSE le kit — pas de seconde liste).
 > **Découvert en chemin, hors registre** : `body` n'existait ni au type ni au runtime sur
 > `context.request` (`80eb2801`, alias de `queryPost`, `body` devient un nom d'action réservé) ; et
