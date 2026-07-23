@@ -25,7 +25,7 @@ import {
   setClusterProbeClient,
   clusterProbeRequestEnrich,
   clusterProbeInstance,
-} from "@nodefony/framework";
+} from "@nodefony/realtime";
 
 const CTRL = "nf:e2e";
 const TICK_MS = 120; // cadence report (worker) + broadcast (master) + cache ORM riche

@@ -26,7 +26,7 @@ import {
   processProbeTransport,
   buildRealtimeHealth,
   buildOwnHealth,
-} from "@nodefony/framework";
+} from "@nodefony/realtime";
 
 const CTRL = "nf:e2e";
 const SETTLE_MS = Number(process.env.SETTLE || 800); // ≥ quelques cycles report+broadcast

@@ -117,14 +117,18 @@ Corollaire de la **RÈGLE N°2** du `SKILL.md` : un banc de la famille 2 « KO �
 absent n'a rien prouvé de faux — il attend son décor. Trois classes :
 
 **A. Décor OPT-IN** — le banc sort en erreur EN LE DISANT (« relance avec `NF__…` »), à relancer
-sur son PROPRE serveur (`<config> bash .claude/skills/nodefony-start-server/start.sh`, puis le banc) :
+sur son PROPRE serveur (`<config> bash .claude/skills/nodefony-start-server/start.sh`, puis le banc).
+Le décor se pose **entièrement par variables d'env** (override ADR-0006 `NF__<MODULE>__<CHEMIN>`,
+appliqué au boot avant le Zod du module) : aucun fichier de config à éditer, donc aucun revert à
+oublier avant un commit. Les deux bancs rate-limit demandent des plafonds DIFFÉRENTS → un serveur
+chacun, jamais le même :
 
-| Banc                         | À relancer avec                                                                                                                                                                                                  |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ratelimit-e2e`              | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=5 NF__HTTP__RATELIMIT__WINDOWS=5`                                                                                                                    |
-| `ws-handshake-ratelimit-e2e` | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=15 NF__HTTP__RATELIMIT__WINDOWS=30`                                                                                                                  |
-| `ws-conn-cap-e2e`            | `NF__HTTP__WSMAXCONNECTIONSPERIP=3`                                                                                                                                                                              |
-| `webhooks-dataplane-e2e`     | anti-SSRF **strict** : `use("@nodefony/security", { webhooks: { denyPrivateIps: true } })` — sinon le sous-test « create SSRF → 422 » obtient **201** (le dev autorise le réseau privé, `169.254.169.254` passe) |
+| Banc                         | À relancer avec                                                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ratelimit-e2e`              | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=5 NF__HTTP__RATELIMIT__WINDOWS=5`                                                                                          |
+| `ws-handshake-ratelimit-e2e` | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=15 NF__HTTP__RATELIMIT__WINDOWS=30`                                                                                        |
+| `ws-conn-cap-e2e`            | `NF__HTTP__WSMAXCONNECTIONSPERIP=3`                                                                                                                                                    |
+| `webhooks-dataplane-e2e`     | `NF__SECURITY__WEBHOOKS__DENYPRIVATEIPS=true` (anti-SSRF strict) — sinon le sous-test « create SSRF → 422 » obtient **201** (le dev autorise le réseau privé, `169.254.169.254` passe) |
 
 **B. Autonomes** (forkent leur propre serveur → 0 serveur dev requis, mais `npm run build` d'abord) :
 `cluster-*`, `idempotency-cluster`, `idempotency-postgres`, `config-env-override`, `graceful-shutdown`.

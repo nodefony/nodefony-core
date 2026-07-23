@@ -413,10 +413,11 @@ bug de code). Trois pièges, tous du décor :
 
 1. **Décor OPT-IN manquant** — `ratelimit` / `ws-handshake-ratelimit`
    (`NF__HTTP__RATELIMIT__ENABLED=true`), `ws-conn-cap` (`NF__HTTP__WSMAXCONNECTIONSPERIP=N`),
-   `webhooks-dataplane` (sous-test SSRF : anti-SSRF **strict** `security.webhooks.denyPrivateIps:true`
-   — le dev est permissif, `169.254.169.254` passe en 201 au lieu de 422). Le banc le DIT en
-   sortant (« relance avec `NF__…` ») → poser le décor, ne pas compter « KO ». Table complète :
-   `references/catalogue.md` § Décor requis.
+   `webhooks-dataplane` (`NF__SECURITY__WEBHOOKS__DENYPRIVATEIPS=true` — le dev est permissif,
+   `169.254.169.254` passe en 201 au lieu de 422). Le banc le DIT en sortant (« relance avec
+   `NF__…` ») → poser le décor, ne pas compter « KO ». **Tout décor opt-in se pose par env**
+   (override module ADR-0006) : jamais d'édition de `nodefony.config.ts`, donc jamais de revert
+   oublié. Table complète : `references/catalogue.md` § Décor requis.
 2. **Bancs DESTRUCTEURS de serveur** — `graceful-shutdown` (SIGTERM) et les `cluster-*`
    (forkent / prennent les ports) ne vont JAMAIS dans un lot serveur-dépendant : ils tuent le
    serveur partagé → cascade `ECONNREFUSED` sur tous les suivants. Les isoler (ou relancer le
@@ -426,7 +427,9 @@ bug de code). Trois pièges, tous du décor :
    → nettoyer, ou `NF_STORE=memory`, avant de rejouer.
 
 Un `ECONNREFUSED` ou un « relance avec `NF__…` » = **décor**, pas régression. Un import de symbole
-absent (`ClusterBackplane`) = banc **périmé** (refactor non répercuté), pas bug runtime.
+absent = banc **périmé** (refactor non répercuté), pas bug runtime : le symbole a le plus souvent
+**changé de module** — le retrouver par `.ai/symbols.json` (`.symbols.X.module`) et rebrancher
+l'import, plutôt que de conclure à une régression du runtime.
 
 ## Publier les résultats (HTML) — et la question à poser AVANT
 

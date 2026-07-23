@@ -4,7 +4,7 @@
 // ⚠️ Différent des autres scripts du skill : il NE dépend PAS du serveur dev. Il `fork`
 // lui-même N workers (cluster Node natif) et fait tourner les VRAIS composants livrés :
 //   - master  : `ClusterRelay`  (nodefony)            — routeur IPC, exclut la source
-//   - worker  : `ClusterBackplane` + `processIpcTransport` (@nodefony/framework)
+//   - worker  : `ClusterBackplane` + `processIpcTransport` (@nodefony/realtime)
 // C'est le HARNAIS de la vision cluster-backplane : « comme si Redis était là », gratuit.
 //
 // Deux modes :
@@ -23,7 +23,7 @@ import cluster from "node:cluster";
 import process from "node:process";
 import { performance } from "node:perf_hooks";
 import { ClusterRelay, CLUSTER_RT_KIND } from "nodefony";
-import { ClusterBackplane, processIpcTransport } from "@nodefony/framework";
+import { ClusterBackplane, processIpcTransport } from "@nodefony/realtime";
 
 const WORKERS = Math.max(2, Number(process.env.WORKERS || 4));
 const PAYLOAD = Number(process.env.PAYLOAD || 256); // octets de bourrage / message

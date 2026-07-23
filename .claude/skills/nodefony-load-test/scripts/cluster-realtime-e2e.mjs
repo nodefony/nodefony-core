@@ -29,7 +29,7 @@ import {
   RealtimeHub,
   ClusterBackplane,
   processIpcTransport,
-} from "@nodefony/framework";
+} from "@nodefony/realtime";
 
 const CTRL = "nf:e2e"; // kind de contrôle master↔worker (le relay l'ignore : pas rt)
 const SETTLE_MS = Number(process.env.SETTLE || 600); // attente des allers-retours IPC
