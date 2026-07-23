@@ -223,9 +223,10 @@ nature `durable`. Comparé aux deux autres adapters officiels :
 > `@nodefony/drizzle` à côté de Mongo, **même en SQLite local** — les deux modules cohabitent, chaque
 > brique choisit son store.
 >
-> La colonne `redis`, elle, restera creuse là où elle l'est : c'est un **cache**, ses entrées sont
-> évincibles. Un secret de second facteur ou un journal de conformité n'y ont pas leur place. Ça,
-> c'est un choix.
+> La colonne `redis` obéit à une autre logique : elle gagnera `totp` (au régime opt-in de ses jetons
+> et passkeys, jamais choisi par `auto`), mais pas `user`, `audit` ni `webhooks` — non parce que
+> Redis serait « un cache », mais parce que ces données croissent sans borne, se conservent longtemps
+> et se consultent. Ça, c'est un choix.
 
 ### Ce qui se passe quand tu ne choisis rien
 

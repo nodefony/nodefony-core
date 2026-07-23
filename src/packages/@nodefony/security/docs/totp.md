@@ -574,15 +574,20 @@ Deux pièges de lecture, signalés dans l'entité elle-même :
 | `memory`   | builtin (`totpSecretStoreRegistry.ts:54`)     | **volatile** — perdu au redémarrage | ✅ dev / tests       |
 | `drizzle`  | `@nodefony/drizzle` (`registerStores.ts:279`) | durable, partagé entre pods         | ✅ 3 dialectes SQL   |
 | `mongoose` | —                                             | —                                   | ⏳ manquant, à venir |
-| `redis`    | —                                             | —                                   | ❌ hors vocation     |
+| `redis`    | —                                             | —                                   | ⏳ manquant, à venir |
 
-Ces deux absences ne se valent pas.
+Ces deux absences sont des **manques**, pas des choix de périmètre (`MIGRATION_STATUS.md`, P7.11) —
+mais elles se comblent à deux régimes différents.
 
-`redis` **n'en aura pas** : c'est un cache, ses entrées sont évincibles — un secret de second facteur
-n'a rien à y faire. C'est une décision, pas un retard.
+`redis` le portera **en opt-in explicite, jamais choisi par `auto`** — exactement le régime des
+passkeys qu'il porte déjà. Un secret TOTP est de la même famille qu'un credential passkey : une
+petite valeur, durable, relue à chaque authentification, dont la perte verrouille l'utilisateur
+dehors. Porter l'un et refuser l'autre au nom du « cache évincible » serait incohérent : le risque
+est identique, et il est déjà assumé, avec son avertissement — sur Redis, la persistance devient la
+responsabilité de l'exploitant (AOF, pas d'éviction sur ces clés).
 
-`mongoose` **doit en avoir un** : une application choisit son ORM, elle ne choisit pas de se passer
-du 2FA. Aujourd'hui, une application MongoDB qui active le 2FA **retombe sur `memory`** (avec la
+`mongoose` le portera **au régime normal** : une application choisit son ORM, elle ne choisit pas de
+se passer du 2FA — l'objectif est de pouvoir tourner entièrement sur Mongo, sans drizzle. Aujourd'hui, une application MongoDB qui active le 2FA **retombe sur `memory`** (avec la
 raison annoncée dans les journaux de boot, et un avertissement en production) : ses secrets ne
 survivent pas au redémarrage, et ses utilisateurs se retrouvent verrouillés hors de leur second
 facteur. **En attendant** : charger `@nodefony/drizzle` à côté de Mongo — même en SQLite local — suffit

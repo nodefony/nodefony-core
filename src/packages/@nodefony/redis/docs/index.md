@@ -108,10 +108,21 @@ que pour les natures non durables (`resolveAutoStore()`, `infra.ts:241`).
 | **Jetons** (refresh, PAT, denylist) | `durable`   | `RedisTokenStore` — ici                         | ❌ jamais                                | `use("@nodefony/security", { tokenStore: { store: "redis" } })`   |
 | **Passkeys** (WebAuthn)             | `durable`   | `RedisWebAuthnCredentialStore` — ici            | ❌ jamais                                | `use("@nodefony/security", { passkeys: { store: "redis" } })`     |
 
-Les briques `user`, `audit`, `webhooks` et `totp` n'ont **pas** de version Redis : ce sont des données
-durables, elles vivent dans [`@nodefony/drizzle`](../../drizzle/docs/index.md) ou
-[`@nodefony/mongoose`](../../mongoose/docs/index.md). Ce n'est pas un trou de couverture, c'est le
-partage du travail.
+Les briques `user`, `audit`, `webhooks` et `totp` n'ont **pas** de version Redis — mais pour deux
+raisons différentes, et une seule est un choix.
+
+`user`, `audit` et `webhooks` **n'en auront pas** : ce sont des données qui **croissent sans borne**
+(un journal d'audit se conserve des mois pour la conformité), qu'on **interroge** (recherche,
+filtres, pagination) et qu'on relit longtemps après. Redis garde tout en mémoire vive : le coût au
+gigaoctet et le motif d'accès jouent contre lui. Ce n'est pas un trou, c'est le partage du travail
+avec [`@nodefony/drizzle`](../../drizzle/docs/index.md) et
+[`@nodefony/mongoose`](../../mongoose/docs/index.md).
+
+`totp`, lui, **manque** (`MIGRATION_STATUS.md`, P7.11). Un secret TOTP est de la même famille qu'un
+credential passkey : une petite valeur, durable, relue à chaque authentification, dont la perte
+verrouille l'utilisateur dehors. Puisque Redis porte les passkeys — en opt-in explicite, avec
+l'avertissement ci-dessous — il n'y a pas de raison cohérente qu'il ne porte pas le TOTP au même
+régime. Il le rejoindra donc dans la même colonne « ❌ jamais choisi par `auto` ».
 
 En plus des stores, Redis porte le **backplane temps réel** — ce n'est pas un magasin mais un
 transport : `use("@nodefony/realtime", { backplane: { driver: "redis" } })` fait transiter les
