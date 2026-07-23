@@ -57,7 +57,8 @@ credentials + version) · `ping` (`admin().command({ping:1})`) · `probe` (`serv
 
 - deps : `mongoose` 9.6.3, `mongodb` 7.2.0, `zod` ^4.4.3. peerDeps : `@nodefony/http`/`@nodefony/orm-core`/`nodefony`.
 - `npm run build` (rolldown preserveModules → `dist/` + `dist/types/`). `zod` dans `external`.
-- `npm test` (`vitest run`) — **24 tests** : `tests/unit/config` (Zod) + `tests/integration/`
+- `npm test` (`vitest run`) : `tests/unit/config` (Zod + surcharges d'env, dont la branche infra
+  `NF_DATABASE_URL` et son tri de famille) + `tests/integration/`
   (orm-core ReplSet + session-storage hybride). **`MONGO_TEST_URI`** = conteneur Mongo CI/Docker ;
   sinon `mongodb-memory-server` (binaire mongod téléchargé 1×, ~84 Mo). Banc orm-core = `MongoMemoryReplSet` (tx).
 
