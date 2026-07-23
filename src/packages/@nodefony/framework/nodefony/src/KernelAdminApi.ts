@@ -449,6 +449,28 @@ const DEFAULT_DEBUG_TTL_MS = 15 * 60 * 1000;
 const MAX_DEBUG_TTL_MS = 60 * 60 * 1000;
 
 /**
+ * Corps servi par la cible de banc (`NF_BENCH_ROUTE=1`) — **gelé, partagé, jamais
+ * recalculé** : ce qu'on veut chronométrer est le pipeline, pas la construction
+ * d'un objet. Le figer évite aussi qu'une allocation par requête ne vienne
+ * s'ajouter au coût mesuré.
+ *
+ * Sa forme reprend celle du banc comparatif inter-frameworks
+ * (`.claude/skills/nodefony-load-test/bench-frameworks/payload.mjs`) pour que
+ * Nodefony, bare, Express et Fastify sérialisent **exactement le même corps** —
+ * sans quoi la comparaison porterait sur des travaux différents.
+ */
+const BENCH_PAYLOAD = Object.freeze({
+  byContext: {},
+  lastHookRequestId: null,
+  hookUser: null,
+  lateHookRequestId: null,
+  wsHookRequestId: null,
+  wsHookHandshakeId: null,
+  wsHookFireCount: 0,
+  hookCount: 0,
+});
+
+/**
  * Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`.
  *
  * Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core`
@@ -591,6 +613,30 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   };
 
   const endpoints: IAdminEndpoint[] = [
+    // ── Cible de BANC (opt-in strict `NF_BENCH_ROUTE=1`) ─────────────────────
+    // Mesurer le coût du PIPELINE (routing → contexte → sérialisation → réponse)
+    // exige une route qui ne fait RIEN d'autre : corps figé, aucune lecture de
+    // kernel, aucun I/O. `livez` ne convient pas — il appelle `getBootReport()`,
+    // donc il mesure un handler en plus du pipeline.
+    //
+    // Elle vit ICI, dans le framework, et non dans un module de développement :
+    // une cible de bench absente en production faisait mesurer un 404 (plus rapide
+    // qu'une vraie réponse) sans que rien ne le signale.
+    //
+    // ⚠️ N'EXISTE PAS sans `NF_BENCH_ROUTE=1` : zéro surface en production par
+    // défaut. C'est un flag d'OUTILLAGE (banc), pas une option applicative — d'où
+    // une variable d'environnement plutôt qu'une clé de configuration.
+    ...(process.env.NF_BENCH_ROUTE === "1"
+      ? [
+          {
+            path: "bench",
+            public: true,
+            summary:
+              "Cible de banc (opt-in NF_BENCH_ROUTE=1) — corps JSON figé, zéro travail",
+            handler: () => BENCH_PAYLOAD,
+          } as IAdminEndpoint,
+        ]
+      : []),
     {
       path: "health",
       summary: "Liveness probe — process up + boot status",
