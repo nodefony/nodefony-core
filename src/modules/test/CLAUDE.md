@@ -75,6 +75,36 @@ Sondes ALS (AsyncLocalStorage) pour BUG-001 (WS messages) + BUG-002 (`onAfterRes
 
 > ⚠️ Au handshake WS, l'action reçoit `undefined` (pas `null`) → détecter via `message == null`, jamais `.toString()` un message absent.
 
+### LifecycleController (`/nodefony/test/lifecycle`) — `initialize()` qui lève
+
+Son `initialize()` **lève toujours** : toute route posée dessus exerce la frontière d'erreur du hook.
+Isolé dans son propre controller pour que le throw n'empoisonne aucun controller partagé.
+
+| Route            | Méthode   | Contrat observable                                                                       |
+| ---------------- | --------- | ---------------------------------------------------------------------------------------- |
+| `/init-crash`    | GET       | 500 JSON cohérent (code, message, `nodefony.requestId`), serveur sain                    |
+| `/init-crash-ws` | WEBSOCKET | fermeture **1011** (RFC 6455 §7.4.1) — jamais une socket muette ni un handshake qui pend |
+
+Les deux transports diffèrent parce que l'**ordre** diffère : en WS le controller est instancié au
+handshake (avant `connect()`), donc l'échec ne peut pas se rendre en réponse HTTP. Banc :
+`http/tests/http/lifecycle-init-crash.test.ts`.
+
+### PipelineOrderController (`/nodefony/test/pipeline-order`) — mouchard d'ORDRE
+
+Prouve **quand** le hook `initialize()` d'un controller s'exécute. Le mouchard est écrit par
+`SecureController.initialize()` — qui vit en **zone protégée** — et l'état vit hors des instances
+(`nodefony/secure/initializeProbe.ts`), sans quoi il ne survivrait pas à sa requête. Ces deux routes
+sont **publiques** parce qu'un banc anonyme doit pouvoir relire ce qu'une zone fermée a écrit.
+
+| Route          | Méthode | Description                                                           |
+| -------------- | ------- | --------------------------------------------------------------------- |
+| `/probe`       | GET     | `{ runs, identity, session }` — état vu par le dernier `initialize()` |
+| `/probe/reset` | GET     | Remise à zéro entre deux cas de banc                                  |
+
+Attendu : après un **401** (firewall) ou un **403** (`@IsGranted`), `runs` reste à **0** — rien du
+controller ne s'exécute pour une requête refusée. Sur une requête servie, `identity` porte
+l'utilisateur (le hook tourne après le firewall). Banc : `http/tests/http/pipeline-order.test.ts`.
+
 ### RestController (`/nodefony/test/rest`)
 
 | Route                          | Méthode | Description                               |
