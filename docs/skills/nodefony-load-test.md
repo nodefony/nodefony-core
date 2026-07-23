@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 443 lignes |
-| Coût d'activation | ~6 930 tokens (le corps est chargé à l'invocation) |
+| Corps | 466 lignes |
+| Coût d'activation | ~7 311 tokens (le corps est chargé à l'invocation) |
 | Description | 878 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 1 page(s) |
@@ -62,6 +62,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Niveau 3 — A/B perf MONO PROD (coût du pipeline par requête)
 - Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 - 🚨 RÈGLE N°1 — aucun chiffre sans contrôle de validité
+- 🚨 RÈGLE N°2 — un banc e2e a un DÉCOR ; décor manquant ≠ échec
 - Publier les résultats (HTML) — et la question à poser AVANT
 - Gotchas (vécus — ne pas réapprendre)
 - Liens
@@ -72,7 +73,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 123 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 148 |
 
 
 ## Scripts embarqués
@@ -175,7 +176,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 443 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 466 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

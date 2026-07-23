@@ -111,6 +111,31 @@ des serveurs nus pour situer le coût du pipeline. Le résultat de Nodefony vien
 > Comparer un framework à un serveur nu ne dit presque rien : `express-fair.mjs` existe parce
 > qu'une comparaison sans parité de fonctionnalités mesure surtout ce qu'on a oublié de brancher.
 
+## Décor requis par banc e2e — décor manquant ≠ échec
+
+Corollaire de la **RÈGLE N°2** du `SKILL.md` : un banc de la famille 2 « KO » sur un décor
+absent n'a rien prouvé de faux — il attend son décor. Trois classes :
+
+**A. Décor OPT-IN** — le banc sort en erreur EN LE DISANT (« relance avec `NF__…` »), à relancer
+sur son PROPRE serveur (`<config> bash .claude/skills/nodefony-start-server/start.sh`, puis le banc) :
+
+| Banc                         | À relancer avec                                                                                                                                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ratelimit-e2e`              | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=5 NF__HTTP__RATELIMIT__WINDOWS=5`                                                                                                                    |
+| `ws-handshake-ratelimit-e2e` | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=15 NF__HTTP__RATELIMIT__WINDOWS=30`                                                                                                                  |
+| `ws-conn-cap-e2e`            | `NF__HTTP__WSMAXCONNECTIONSPERIP=3`                                                                                                                                                                              |
+| `webhooks-dataplane-e2e`     | anti-SSRF **strict** : `use("@nodefony/security", { webhooks: { denyPrivateIps: true } })` — sinon le sous-test « create SSRF → 422 » obtient **201** (le dev autorise le réseau privé, `169.254.169.254` passe) |
+
+**B. Autonomes** (forkent leur propre serveur → 0 serveur dev requis, mais `npm run build` d'abord) :
+`cluster-*`, `idempotency-cluster`, `idempotency-postgres`, `config-env-override`, `graceful-shutdown`.
+
+**C. Serveur dev standard** (décor par défaut) : `totp-mfa`, `totp-mfa-attack`,
+`users-admin-factors`, `idempotency-userland` (+ `REDIS_URL`), `debug-runtime`.
+
+> ⚠️ **Ne jamais lancer B (destructeurs `graceful-shutdown` / `cluster-*`) dans le même lot que C** :
+> ils tuent ou prennent les ports du serveur dev → les bancs C suivants tombent en `ECONNREFUSED`
+> (faux « KO »). Isoler les destructeurs, ou relancer le serveur après.
+
 ## Variables communes
 
 Les bancs de la famille 2 partagent un décor : un serveur en marche, et pour certains une session

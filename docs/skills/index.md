@@ -154,7 +154,7 @@ source: "docs/skills/index.md"
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 101 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 174 | 3 | 3 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 210 | 0 | 0 | ✅ |
-| [`nodefony-load-test`](nodefony-load-test.md) | — | 443 | 1 | 36 | ✅ |
+| [`nodefony-load-test`](nodefony-load-test.md) | — | 466 | 1 | 36 | ✅ |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 357 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 140 | 2 | 9 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 1.0.0 | 67 | 0 | 3 | ✅ |
