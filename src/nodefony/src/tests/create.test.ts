@@ -38,6 +38,23 @@ const scaffold = (
 const readJson = (p: string): Record<string, Record<string, string>> =>
   JSON.parse(readFileSync(p, "utf8")) as Record<string, Record<string, string>>;
 
+/**
+ * Le CODE d'un fichier, commentaires ôtés.
+ *
+ * Ce que la règle « identité par `@CurrentUser()`, pas `RequestContext` brut »
+ * veut dire : le code généré ne doit pas ENSEIGNER la mauvaise API. Elle ne dit
+ * rien des commentaires — et le template en a un légitime, qui montre
+ * `RequestContext.getUser()` dans `initialize()` : ce hook est appelé SANS
+ * argument (`controller.initialize()`), un décorateur de paramètre n'y est donc
+ * pas injectable. Une assertion posée sur le fichier entier confondait les deux
+ * et tombait sur un commentaire juste.
+ */
+function codeOnly(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//gu, "") // blocs
+    .replace(/(^|[^:])\/\/.*$/gmu, "$1"); // lignes (hors `://` d'une URL)
+}
+
 /** Aucun résidu de template dans le rendu (tag eta oublié = projet corrompu). */
 function assertNoEtaResidue(dest: string): void {
   for (const entry of readdirSync(dest, {
@@ -360,7 +377,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, 'methods: ["WEBSOCKET"]');
       // Identité par décorateur @CurrentUser (idiomatique), pas RequestContext brut.
       assert.include(src, "@CurrentUser()");
-      assert.notInclude(src, "RequestContext");
+      assert.notInclude(codeOnly(src), "RequestContext");
       const index = readFileSync(path.join(dest, "index.ts"), "utf8");
       assert.include(
         index,
@@ -441,7 +458,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // renderJson (structure circulaire) casserait la mémorisation du rejeu.
       assert.include(src, "return item;");
       // Identité par décorateur, jamais RequestContext brut dans la vitrine.
-      assert.notInclude(src, "RequestContext");
+      assert.notInclude(codeOnly(src), "RequestContext");
       // La route paramétrique reste déclarée APRÈS les GET statiques (ordre de match).
       assert.isBelow(
         src.indexOf('@Get("/latest")'),
@@ -499,7 +516,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(src, "WEBSOCKET");
       assert.notInclude(src, "@UseSession");
       assert.notInclude(src, "@UploadedFile");
-      assert.notInclude(src, "RequestContext");
+      assert.notInclude(codeOnly(src), "RequestContext");
       // minimal (sans security) : delete dégradée SANS @IsGranted, zéro import mort.
       const mini = path.join(tmp, "restpurmin");
       scaffold(mini, { name: "restpurmin", preset: "minimal" });
