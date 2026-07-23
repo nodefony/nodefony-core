@@ -354,6 +354,66 @@ ORM_STEP=4` (≈ 4000 WS + counts qui wedgent la boucle), mesuré **CPU 100 %, E
   (vérifier le reclaim APRÈS drain, pas pendant).
 - Détails + historique : mémoire IA `project_ws_stress_studio_lag`.
 
+## 🚨 RÈGLE N°1 — aucun chiffre sans contrôle de validité
+
+**Un banc qui ne vérifie pas que le travail a EU LIEU mesure la vitesse à laquelle on
+échoue.** Ce n'est pas une hypothèse : sur un port fermé, `http-load.mjs` annonçait
+**1626 RPS**, et le chiffre n'avait l'air de rien d'anormal. C'est ce qui le rend
+dangereux — une erreur coûte moins cher qu'une vraie réponse, donc **échouer améliore
+le score**.
+
+Tout banc, ancien ou nouveau, doit :
+
+1. **Prouver la cible AVANT de mesurer** — code HTTP attendu (`200`), payload attendu,
+   ou volume attendu. Une cible fausse → sortir en erreur, jamais publier.
+2. **Prouver le travail PENDANT la mesure** — `Non-2xx or 3xx responses` de wrk, octets
+   réellement écrits, messages réellement reçus. Un run pollué est **invalide**, pas
+   « un peu moins bon ».
+3. **Ne compter que le succès** dans le débit ET dans les percentiles. Un `ECONNREFUSED`
+   revient en ~0 ms : le laisser entrer _améliore_ le p50 tout en gonflant le RPS.
+4. **Refuser de conclure sous la variance.** Deux mesures à 21 ms et 23 ms avec 27 % de
+   variance ne se classent pas. `log-sink-contention.mjs` annonce désormais
+   « DANS LE BRUIT » au lieu d'un ratio.
+5. **Sortir en code ≠ 0** quand rien n'a été mesuré — un banc muet ne doit pas ressembler
+   à un banc réussi. (⚠️ vérifier l'exit **sans pipe** : en zsh `$?` après un pipe est
+   celui du dernier maillon.)
+
+Contrôles en place : `http-load.mjs` (RPS servi + exit 1) · `bench-ab-mono.sh` et
+`bench-frameworks/bench.sh` (cible 200 + non-2xx sous charge) · `log-sink-contention.mjs`
+(octets écrits vs attendus) · `capacity.mjs` (statut vérifié en HTTP/1.1 ET HTTP/2 — ses
+chiffres deviennent des constantes de dimensionnement de pod).
+
+Reste à durcir (chiffres publiés, contrôle partiel ou absent) : `hub-load.mjs`,
+`supervision-stress.mjs`, `cluster-ipc.mjs`, `aimd-demo.mjs`, `ws-connections.mjs`.
+
+## Publier les résultats (HTML) — et la question à poser AVANT
+
+Un banc produit une sortie console qui se perd, et deux runs ne s'y comparent pas. Pour
+qu'un **humain décide**, générer un rapport HTML autonome :
+
+```bash
+# 1. le banc écrit ses données machine
+JSON_OUT=tmp/sink.json node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs
+# 2. le rapport (graphes SVG, tableau triable, décor de la mesure, données embarquées)
+node .claude/skills/nodefony-load-test/scripts/bench-report.mjs tmp/sink.json
+open tmp/bench-report.html
+```
+
+`bench-report.mjs` s'appuie sur le skill **`nodefony-html-report`** (jamais de HTML écrit
+à la main). Le rapport porte **le décor** (machine, Node, paramètres, nombre de runs) et
+**le verdict de validité** de chaque variante — une mesure invalide y est affichée comme
+telle, jamais moyennée en douce. Les données sources sont embarquées : le rapport se
+rejoue et se compare.
+
+> **Un rapport est une PHOTO** → `tmp/`, jamais commité, jamais dans `docs/`.
+>
+> **DEMANDER AVANT DE PUBLIER.** Si les résultats méritent d'entrer dans la documentation
+> du framework (page de perf, ADR, README), c'est une décision de l'auteur — **poser la
+> question explicitement et attendre le GO**, en précisant : quelle page, quel format
+> (Markdown pour la doc versionnée, le HTML restant une photo), et quels chiffres
+> exactement, avec leur décor. Publier des chiffres engage le framework : sans leur
+> machine, leur version de Node et leur protocole, ils seront lus comme des promesses.
+
 ## Gotchas (vécus — ne pas réapprendre)
 
 - **Ouvrir N centaines de WS en un seul `Promise.all` → `AggregateError`** (connect TLS

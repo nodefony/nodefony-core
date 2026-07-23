@@ -20,6 +20,8 @@
 #   run.sh ws-handshake-rl  # preuve e2e rate-limit du handshake WS (close 1013 + compteur partagé) — même prérequis
 #   run.sh ws-conn-cap      # preuve e2e du cap connexions WS concurrentes/IP (backstop opt-in) — serveur UP avec NF__HTTP__WSMAXCONNECTIONSPERIP=3
 #   run.sh graceful         # preuve e2e graceful shutdown SIGTERM (in-flight 200 + WS 1001 + port libéré) — ⚠️ ARRÊTE le serveur dev
+#   run.sh log-sink         # microbench sink de log : contention d'inode vs coalescence (AUCUN serveur requis)
+#   run.sh report <a.json…> # rapport HTML des résultats (produire d'abord le JSON : JSON_OUT=tmp/x.json run.sh log-sink)
 # ⚠️ cluster-*/config-env ne dépendent PAS du serveur dev : ils (s)pawn(ent) eux-mêmes (`npm run build`).
 # Les ENV des scripts (CAP, STEP, MODE, N, C, URL…) se passent inline :
 #   CAP=4000 run.sh ws-conn        MODE=broadcast CLIENTS=30 run.sh ws-msg
@@ -55,6 +57,11 @@ case "$cmd" in
   ws-handshake-rl) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-handshake-ratelimit-e2e.mjs" ;;
   ws-conn-cap) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-conn-cap-e2e.mjs" ;;
   graceful) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/graceful-shutdown-e2e.mjs" ;;
+  # Microbench sink de log (aucun serveur requis) — c'est lui qui chiffre le sink
+  # fichier ; il est resté longtemps introuvable faute d'être listé ici.
+  log-sink) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/log-sink-contention.mjs" ;;
+  # Rapport HTML d'un ou plusieurs résultats JSON (JSON_OUT=… sur le banc d'abord).
+  report)   cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/bench-report.mjs" "$@" ;;
   help|*)
     sed -n '2,25p' "${BASH_SOURCE[0]}"
     ;;

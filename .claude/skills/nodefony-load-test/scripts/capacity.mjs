@@ -427,7 +427,22 @@ function h1Once(agent, tls) {
       },
       (res) => {
         res.resume();
-        res.on("end", () => resolve(performance.now() - t));
+        res.on("end", () => {
+          // 🚨 Le statut n'est PAS un détail ici : ces mesures deviennent les
+          // constantes de dimensionnement d'un pod. Une erreur répond plus vite
+          // qu'une vraie route (ni resolver, ni controller, ni sérialisation) →
+          // mesurer du 404 SURESTIME la capacité, et on sous-provisionne la prod.
+          if (res.statusCode < 200 || res.statusCode >= 400) {
+            reject(
+              new Error(
+                `${ROUTE} a répondu ${res.statusCode} — mesure de capacité impossible ` +
+                  `(une erreur est plus rapide qu'une réponse : le chiffre serait faux).`,
+              ),
+            );
+            return;
+          }
+          resolve(performance.now() - t);
+        });
       },
     );
     r.on("error", reject);
@@ -474,8 +489,24 @@ function h2Once(session) {
     const t = performance.now();
     const s = session.request({ ":path": ROUTE });
     s.on("error", reject);
+    // Même exigence qu'en HTTP/1.1 : un `:status` d'erreur invalide la mesure de
+    // capacité (cf h1Once). Le pseudo-header arrive avec l'événement `response`.
+    let status = 0;
+    s.on("response", (h) => {
+      status = Number(h[":status"]);
+    });
     s.resume();
-    s.on("end", () => resolve(performance.now() - t));
+    s.on("end", () => {
+      if (status < 200 || status >= 400) {
+        reject(
+          new Error(
+            `${ROUTE} a répondu ${status} en HTTP/2 — mesure de capacité impossible.`,
+          ),
+        );
+        return;
+      }
+      resolve(performance.now() - t);
+    });
     s.end();
   });
 }

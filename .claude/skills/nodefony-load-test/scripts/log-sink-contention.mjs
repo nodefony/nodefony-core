@@ -37,10 +37,11 @@ import {
   ftruncateSync,
   unlinkSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { tmpdir } from "node:os";
+import { tmpdir, cpus, totalmem } from "node:os";
 import { join } from "node:path";
 
 const SELF = fileURLToPath(import.meta.url);
@@ -396,7 +397,52 @@ if (process.argv[2] === "worker") {
       console.log(
         `  vs historique stdout   : perworker-sync-batch ×${ratio("file-perworker-sync-batch", "stdout-shared")} vs stdout-shared`,
       );
-    console.log("");
+    // — Sortie machine (alimente le rapport HTML : `bench-report.mjs`) —
+    // On embarque le DÉCOR de la mesure (machine, Node, paramètres) : un chiffre
+    // sans ses conditions n'est pas comparable, et c'est ce qui rend un rapport
+    // rejouable plutôt que décoratif.
+    if (process.env.JSON_OUT) {
+      writeFileSync(
+        process.env.JSON_OUT,
+        JSON.stringify(
+          {
+            bench: "log-sink-contention",
+            title: "Sink de log — contention d'inode vs coalescence",
+            unit: "ms",
+            lowerIsBetter: true,
+            params: {
+              workers: WORKERS,
+              lines: LINES,
+              runs: RUNS,
+              warmup: WARMUP,
+            },
+            env: {
+              node: process.version,
+              platform: `${process.platform} ${process.arch}`,
+              cpus: cpus().length,
+              cpuModel: cpus()[0]?.model ?? "?",
+              totalMemGB: Math.round(totalmem() / 1024 ** 3),
+            },
+            totalLines,
+            variants: VARIANTS.map((v) => ({
+              name: v,
+              medianMs: Math.round(results[v].med),
+              minMs: Math.round(results[v].min),
+              maxMs: Math.round(results[v].max),
+              variancePct: Math.round(
+                ((results[v].max - results[v].min) / results[v].med) * 100,
+              ),
+              mLinesPerSec: Number((results[v].rate / 1e6).toFixed(2)),
+              drops: results[v].drops,
+              integrityOk: !results[v].shortfall,
+            })),
+          },
+          null,
+          2,
+        ),
+      );
+      console.log(`  → JSON : ${process.env.JSON_OUT}\n`);
+    }
     process.exit(0);
   };
 
