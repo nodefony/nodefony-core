@@ -3,17 +3,17 @@ name: nodefony-framework-dev
 metadata:
   version: 2.0.0
 description: >
-  Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs,
-  WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs). Couvre : créer
-  un service injectable, un module, une commande CLI, une entité/repository/adapter ORM, un endpoint
-  HTTP/WS ou un data plane admin, et le realtime. Donne les règles absolues (perf-mémoire, TS strict,
-  lazy alloc, cleanup des listeners, ALS), les conventions de structure et de configuration, des
-  recettes vérifiées sur le source, les gotchas et les RFC bundlées hors ligne.
-  Déclencheurs : "dev core", "coder dans le kernel", "pipeline http", "créer un service", "service
-  injectable", "module hooks", "commande CLI", "controller nodefony", "décorateur route", "créer une
-  entité", "repository", "adapter ORM", "data plane", "certificats TLS", "realtime", "WebSocket",
-  "firewall", "@IsGranted", "@Idempotent", "structure d'un module", "defineConfig",
-  "avant de coder dans le cœur", "où brancher ce comportement ?".
+  Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs,
+  WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services,
+  stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première
+  modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners,
+  ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les
+  RFC hors ligne. Déclencheurs : toute édition de code back — "modifier du code backend", "coder
+  dans le kernel", "toucher au cœur ou au pipeline", "créer un service injectable/module/controller", "commande CLI",
+  "entité/repository/adapter ORM", "store et pagination", "listPage/contrat IPage", "endpoint
+  HTTP/WS ou data plane admin", "décorateur route", "@IsGranted/@Idempotent", "realtime/WebSocket",
+  "firewall", "certificats TLS", "structure d'un module", "defineConfig",
+  "où brancher ce comportement ?".
 ---
 
 # nodefony-framework-dev — kit de dev du cœur (backend)

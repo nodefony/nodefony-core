@@ -11,7 +11,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 # `nodefony-framework-dev`
 
-> Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs).
+> Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-framework-dev**
 
@@ -28,16 +28,16 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 | Version | `2.0.0` |
 | Famille | Développer le framework |
 | Corps | 317 lignes |
-| Coût d'activation | ~6 704 tokens (le corps est chargé à l'invocation) |
-| Description | 1007 / 1024 caractères |
-| Déclencheurs | 23 |
+| Coût d'activation | ~6 730 tokens (le corps est chargé à l'invocation) |
+| Description | 980 / 1024 caractères |
+| Déclencheurs | 17 |
 | Ressources `references/` | 8 page(s), 81 fichiers au total |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs). Couvre : créer un service injectable, un module, une commande CLI, une entité/repository/adapter ORM, un endpoint HTTP/WS ou un data plane admin, et le realtime. Donne les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup des listeners, ALS), les conventions de structure et de configuration, des recettes vérifiées sur le source, les gotchas et les RFC bundlées hors ligne.
+Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne.
 
 ## Skills voisins
 
@@ -49,7 +49,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`dev core` · `coder dans le kernel` · `pipeline http` · `créer un service` · `service injectable` · `module hooks` · `commande CLI` · `controller nodefony` · `décorateur route` · `créer une entité` · `repository` · `adapter ORM` · `data plane` · `certificats TLS` · `realtime` · `WebSocket` · `firewall` · `@IsGranted` · `@Idempotent` · `structure d'un module` · `defineConfig` · `avant de coder dans le cœur` · `où brancher ce comportement ?`
+`modifier du code backend` · `coder dans le kernel` · `toucher au cœur ou au pipeline` · `créer un service injectable/module/controller` · `commande CLI` · `entité/repository/adapter ORM` · `store et pagination` · `listPage/contrat IPage` · `endpoint HTTP/WS ou data plane admin` · `décorateur route` · `@IsGranted/@Idempotent` · `realtime/WebSocket` · `firewall` · `certificats TLS` · `structure d'un module` · `defineConfig` · `où brancher ce comportement ?`
 
 ## Ce que contient le corps
 
@@ -89,7 +89,7 @@ _(+ 73 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 | Contrôle | Nature | État | Mesure | Règle (source) |
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1007 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 980 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
