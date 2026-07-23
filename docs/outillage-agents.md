@@ -179,7 +179,6 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme" }
 ]
 ```
-
 <!-- skills-cards:end -->
 
 ## L'inventaire chiffré — usage réel

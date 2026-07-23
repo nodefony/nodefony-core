@@ -23,17 +23,17 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                                                    |
-| ------------------------ | -------------------------------------------------- |
-| Version                  | `2.4.0`                                            |
-| Famille                  | Développer le framework                            |
-| Corps                    | 439 lignes                                         |
-| Coût d'activation        | ~7 602 tokens (le corps est chargé à l'invocation) |
-| Description              | 993 / 1024 caractères                              |
-| Déclencheurs             | 17                                                 |
-| Ressources `references/` | 2 page(s)                                          |
-| Scripts                  | 6                                                  |
-| Conformité               | ✅ conforme au standard                            |
+| | |
+| --- | --- |
+| Version | `2.4.0` |
+| Famille | Développer le framework |
+| Corps | 439 lignes |
+| Coût d'activation | ~7 602 tokens (le corps est chargé à l'invocation) |
+| Description | 993 / 1024 caractères |
+| Déclencheurs | 17 |
+| Ressources `references/` | 2 page(s) |
+| Scripts | 6 |
+| Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
@@ -69,24 +69,25 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 
 Détail déporté hors du corps — chargé seulement quand la tâche l'exige (divulgation progressive).
 
-| Fichier                           | Ce qu'il couvre                                                    | Lignes |
-| --------------------------------- | ------------------------------------------------------------------ | -----: |
-| `references/briques-front.md`     | Briques front de la doc — API exacte                               |    128 |
-| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) |    541 |
+| Fichier | Ce qu'il couvre | Lignes |
+| --- | --- | --: |
+| `references/briques-front.md` | Briques front de la doc — API exacte | 128 |
+| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) | 541 |
+
 
 ## Scripts embarqués
 
 Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
 script, donc toujours à jour après régénération.
 
-| Script                      | Rôle                                                                                | Options                                                                                                                                               | Variables d'environnement                                     |
-| --------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `scripts/anchor-check.mjs`  | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc.   | `--show-toplevel`                                                                                                                                     | —                                                             |
-| `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ?               | —                                                                                                                                                     | —                                                             |
-| `scripts/build-preview.mjs` | Tout est relatif au dossier de CE script (tmp/doc-corpus/_tools/) — plus aucun      | `--accent` `--bg` `--border` `--brand` `--code` `--codefg` `--fg` `--muted` `--no-save` `--panel` `--short` `--show-current` `--show-toplevel` `--th` | `GEN_DATE` `LOGO` `MMDC` `NF_BRANCH` `NF_COMMIT` `NF_VERSION` |
-| `scripts/code-check.mjs`    | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel`                                                                                                                                     | —                                                             |
-| `scripts/doc-lint.mjs`      | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony.                   | `--show-toplevel`                                                                                                                                     | `COVERAGE`                                                    |
-| `scripts/gen-counters.mjs`  | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT   | `--show-toplevel`                                                                                                                                     | —                                                             |
+| Script | Rôle | Options | Variables d'environnement |
+| --- | --- | --- | --- |
+| `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--show-toplevel` | — |
+| `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
+| `scripts/build-preview.mjs` | Tout est relatif au dossier de CE script (tmp/doc-corpus/_tools/) — plus aucun | `--accent` `--bg` `--border` `--brand` `--code` `--codefg` `--fg` `--muted` `--no-save` `--panel` `--short` `--show-current` `--show-toplevel` `--th` | `GEN_DATE` `LOGO` `MMDC` `NF_BRANCH` `NF_COMMIT` `NF_VERSION` |
+| `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
+| `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. | `--show-toplevel` | `COVERAGE` |
+| `scripts/gen-counters.mjs` | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT | `--show-toplevel` | — |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -108,15 +109,15 @@ Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
 > _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
 > _Règle_ cite la source exacte de chaque contrôle.
 
-| Contrôle                                    |   Nature    | État | Mesure | Règle (source)                                                                                                                           |
-| ------------------------------------------- | :---------: | :--: | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| name conforme et égal au dossier            | ℹ️ normatif |  ✅  |        | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier                                   |
-| description de 1 à 1024 caractères          | ℹ️ normatif |  ✅  | 993    | spec § description : 1-1024 car., non vide (quoi + quand)                                                                                |
-| aucun champ hors standard                   | ℹ️ normatif |  ✅  |        | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
-| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif |  ✅  | absent | spec § compatibility : 1-500 car. si fourni                                                                                              |
-| dossier de ressources nommé `references/`   | ℹ️ normatif |  ✅  |        | spec § resources : le dossier de détail se nomme `references/` (pluriel)                                                                 |
-| aucun renvoi vers un skill inexistant       |   projet    |  ✅  |        | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide                                                                   |
-| corps < 500 lignes                          | recommandé  |  ✅  | 439    | best-practices : corps court (index) + détail en `references/` (divulgation progressive)                                                 |
+| Contrôle | Nature | État | Mesure | Règle (source) |
+| --- | :---: | :---: | --- | --- |
+| name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 993 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
+| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
+| dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
+| aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
+| corps < 500 lignes | recommandé | ✅ | 439 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

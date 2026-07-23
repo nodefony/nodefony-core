@@ -23,17 +23,17 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                                                    |
-| ------------------------ | -------------------------------------------------- |
-| Version                  | `2.0.0`                                            |
-| Famille                  | Développer le framework                            |
-| Corps                    | 299 lignes                                         |
-| Coût d'activation        | ~6 399 tokens (le corps est chargé à l'invocation) |
-| Description              | 1007 / 1024 caractères                             |
-| Déclencheurs             | 23                                                 |
-| Ressources `references/` | 8 page(s), 81 fichiers au total                    |
-| Scripts                  | 0                                                  |
-| Conformité               | ✅ conforme au standard                            |
+| | |
+| --- | --- |
+| Version | `2.0.0` |
+| Famille | Développer le framework |
+| Corps | 299 lignes |
+| Coût d'activation | ~6 399 tokens (le corps est chargé à l'invocation) |
+| Description | 1007 / 1024 caractères |
+| Déclencheurs | 23 |
+| Ressources `references/` | 8 page(s), 81 fichiers au total |
+| Scripts | 0 |
+| Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
@@ -65,16 +65,16 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 
 Détail déporté hors du corps — chargé seulement quand la tâche l'exige (divulgation progressive).
 
-| Fichier                     | Ce qu'il couvre                                                                                           | Lignes |
-| --------------------------- | --------------------------------------------------------------------------------------------------------- | -----: |
-| `references/conventions.md` | Conventions de structure — modules, types, configuration                                                  |    216 |
-| `references/core.md`        | Core (nodefony) — référence complète (recettes + API + internals + gotchas)                               |    713 |
-| `references/framework.md`   | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) |    542 |
-| `references/gotchas.md`     | Gotchas & diagnostic — règles durables (vérité courante)                                                  |     94 |
-| `references/http.md`        | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas)     |    586 |
-| `references/orm.md`         | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas)               |    638 |
-| `references/realtime.md`    | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas)             |    580 |
-| `references/security.md`    | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel                                                  |     67 |
+| Fichier | Ce qu'il couvre | Lignes |
+| --- | --- | --: |
+| `references/conventions.md` | Conventions de structure — modules, types, configuration | 216 |
+| `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 713 |
+| `references/framework.md` | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) | 542 |
+| `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 94 |
+| `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 586 |
+| `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 638 |
+| `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 580 |
+| `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 67 |
 
 _(+ 73 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 
@@ -86,15 +86,15 @@ _(+ 73 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 > _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
 > _Règle_ cite la source exacte de chaque contrôle.
 
-| Contrôle                                    |   Nature    | État | Mesure | Règle (source)                                                                                                                           |
-| ------------------------------------------- | :---------: | :--: | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| name conforme et égal au dossier            | ℹ️ normatif |  ✅  |        | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier                                   |
-| description de 1 à 1024 caractères          | ℹ️ normatif |  ✅  | 1007   | spec § description : 1-1024 car., non vide (quoi + quand)                                                                                |
-| aucun champ hors standard                   | ℹ️ normatif |  ✅  |        | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
-| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif |  ✅  | absent | spec § compatibility : 1-500 car. si fourni                                                                                              |
-| dossier de ressources nommé `references/`   | ℹ️ normatif |  ✅  |        | spec § resources : le dossier de détail se nomme `references/` (pluriel)                                                                 |
-| aucun renvoi vers un skill inexistant       |   projet    |  ✅  |        | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide                                                                   |
-| corps < 500 lignes                          | recommandé  |  ✅  | 299    | best-practices : corps court (index) + détail en `references/` (divulgation progressive)                                                 |
+| Contrôle | Nature | État | Mesure | Règle (source) |
+| --- | :---: | :---: | --- | --- |
+| name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1007 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
+| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
+| dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
+| aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
+| corps < 500 lignes | recommandé | ✅ | 299 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

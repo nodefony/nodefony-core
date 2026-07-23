@@ -11,7 +11,10 @@
       "summary": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées.",
       "family": "Publier et distribuer",
       "version": null,
-      "keywords": ["external", "peerDependencies"],
+      "keywords": [
+        "external",
+        "peerDependencies"
+      ],
       "triggers": [
         "check externals",
         "audit externals",
@@ -118,7 +121,9 @@
         "referenceFilesTotal": 0,
         "scripts": []
       },
-      "related": ["nodefony-start-server"],
+      "related": [
+        "nodefony-start-server"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -193,11 +198,16 @@
       },
       "requires": [],
       "resources": {
-        "references": ["frameworks.md"],
+        "references": [
+          "frameworks.md"
+        ],
         "referenceFilesTotal": 1,
         "scripts": []
       },
-      "related": ["nodefony-create-module", "nodefony-start-server"],
+      "related": [
+        "nodefony-create-module",
+        "nodefony-start-server"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -255,7 +265,9 @@
       "summary": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`.",
       "family": "Développer le framework",
       "version": null,
-      "keywords": ["modules"],
+      "keywords": [
+        "modules"
+      ],
       "triggers": [
         "crée un module",
         "scaffold module",
@@ -275,7 +287,9 @@
       },
       "requires": [],
       "resources": {
-        "references": ["templates.md"],
+        "references": [
+          "templates.md"
+        ],
         "referenceFilesTotal": 1,
         "scripts": []
       },
@@ -446,7 +460,10 @@
       "summary": "Kit de dev de la DOCUMENTATION Nodefony, deux faces.",
       "family": "Développer le framework",
       "version": "2.4.0",
-      "keywords": ["@nodefony/documentation", "scripts/"],
+      "keywords": [
+        "@nodefony/documentation",
+        "scripts/"
+      ],
       "triggers": [
         "portail doc",
         "DocLayout",
@@ -473,7 +490,10 @@
       },
       "requires": [],
       "resources": {
-        "references": ["briques-front.md", "redaction-contenu.md"],
+        "references": [
+          "briques-front.md",
+          "redaction-contenu.md"
+        ],
         "referenceFilesTotal": 2,
         "scripts": [
           {
@@ -495,7 +515,9 @@
           {
             "path": "scripts/anchor-inpage.mjs",
             "purpose": "anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ?",
-            "usage": ["Usage : node anchor-inpage.mjs <page.md ...>"],
+            "usage": [
+              "Usage : node anchor-inpage.mjs <page.md ...>"
+            ],
             "options": [],
             "env": [],
             "output": "",
@@ -595,7 +617,9 @@
           {
             "path": "scripts/code-check.mjs",
             "purpose": "code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies).",
-            "usage": ["Usage : node code-check.mjs <page.md ...>"],
+            "usage": [
+              "Usage : node code-check.mjs <page.md ...>"
+            ],
             "options": [
               {
                 "flag": "--show-toplevel",
@@ -609,7 +633,9 @@
           {
             "path": "scripts/doc-lint.mjs",
             "purpose": "doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony.",
-            "usage": ["Usage : node doc-lint.mjs /tmp/corpus/*.md"],
+            "usage": [
+              "Usage : node doc-lint.mjs /tmp/corpus/*.md"
+            ],
             "options": [
               {
                 "flag": "--show-toplevel",
@@ -710,7 +736,11 @@
       "summary": "Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs).",
       "family": "Développer le framework",
       "version": "2.0.0",
-      "keywords": ["nodefony", "@nodefony/http", "@nodefony/framework"],
+      "keywords": [
+        "nodefony",
+        "@nodefony/http",
+        "@nodefony/framework"
+      ],
       "triggers": [
         "dev core",
         "coder dans le kernel",
@@ -945,7 +975,9 @@
       "summary": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.",
       "family": "Références et livrables",
       "version": null,
-      "keywords": ["lib/report.mjs"],
+      "keywords": [
+        "lib/report.mjs"
+      ],
       "triggers": [
         "rapport HTML",
         "générer un rapport",
@@ -964,9 +996,16 @@
         "bodyLines": 174,
         "approxTokens": 3017
       },
-      "requires": ["redis", "base de données"],
+      "requires": [
+        "redis",
+        "base de données"
+      ],
       "resources": {
-        "references": ["ergonomie.md", "html-vs-md.md", "print-pdf.md"],
+        "references": [
+          "ergonomie.md",
+          "html-vs-md.md",
+          "print-pdf.md"
+        ],
         "referenceFilesTotal": 9,
         "scripts": [
           {
@@ -1126,7 +1165,10 @@
       "summary": "Interroge l'état du dépôt Nodefony sans en lire les sources : graphe symbolique (qui étend une classe, qui implémente une interface, qui importe un symbole, où il est défini), signature d'une méthode, puis config / services / routes d'un module déjà existant — ses métadonnées, sans démarrer de serveur et sans rien créer (scaffolder → `nodefony-create-module`).",
       "family": "Inspecter et auditer",
       "version": "1.0.0",
-      "keywords": ["nodefony-create-module", "grep"],
+      "keywords": [
+        "nodefony-create-module",
+        "grep"
+      ],
       "triggers": [
         "qui étend cette classe ?",
         "qui implémente cette interface ?",
@@ -1241,9 +1283,16 @@
         "bodyLines": 443,
         "approxTokens": 6930
       },
-      "requires": ["serveur UP", "redis", "docker", "base de données"],
+      "requires": [
+        "serveur UP",
+        "redis",
+        "docker",
+        "base de données"
+      ],
       "resources": {
-        "references": ["catalogue.md"],
+        "references": [
+          "catalogue.md"
+        ],
         "referenceFilesTotal": 1,
         "scripts": [
           {
@@ -1274,7 +1323,9 @@
           {
             "path": "scripts/bench-ab-mono.sh",
             "purpose": "Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE.",
-            "usage": ["bash bench-ab-mono.sh <label> [KEY=VAL ...]"],
+            "usage": [
+              "bash bench-ab-mono.sh <label> [KEY=VAL ...]"
+            ],
             "options": [
               {
                 "flag": "--show-toplevel",
@@ -1632,7 +1683,9 @@
           {
             "path": "scripts/graceful-shutdown-e2e.mjs",
             "purpose": "Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur.",
-            "usage": ["bash .claude/skills/nodefony-start-server/start.sh"],
+            "usage": [
+              "bash .claude/skills/nodefony-start-server/start.sh"
+            ],
             "options": [],
             "env": [
               {
@@ -1654,7 +1707,9 @@
           {
             "path": "scripts/http-load.mjs",
             "purpose": "Stress HTTP — N requêtes avec concurrence C sur une route Nodefony.",
-            "usage": ["node .claude/skills/load-test/scripts/http-load.mjs"],
+            "usage": [
+              "node .claude/skills/load-test/scripts/http-load.mjs"
+            ],
             "options": [],
             "env": [
               {
@@ -1904,7 +1959,9 @@
           {
             "path": "scripts/ratelimit-e2e.mjs",
             "purpose": "Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur.",
-            "usage": ["bash .claude/skills/nodefony-start-server/start.sh"],
+            "usage": [
+              "bash .claude/skills/nodefony-start-server/start.sh"
+            ],
             "options": [],
             "env": [
               {
@@ -2133,7 +2190,9 @@
           {
             "path": "scripts/ws-handshake-ratelimit-e2e.mjs",
             "purpose": "Banc e2e du RATE-LIMIT du HANDSHAKE WebSocket (@nodefony/http, F5 revue 0.6) — sans navigateur.",
-            "usage": ["bash .claude/skills/nodefony-start-server/start.sh"],
+            "usage": [
+              "bash .claude/skills/nodefony-start-server/start.sh"
+            ],
             "options": [],
             "env": [
               {
@@ -2159,7 +2218,9 @@
           {
             "path": "scripts/ws-messages.mjs",
             "purpose": "Stress WS — AXE 2 : débit de messages / fan-out broadcast (combien de frames",
-            "usage": ["node .claude/skills/load-test/scripts/ws-messages.mjs"],
+            "usage": [
+              "node .claude/skills/load-test/scripts/ws-messages.mjs"
+            ],
             "options": [],
             "env": [
               {
@@ -2283,7 +2344,10 @@
         "referenceFilesTotal": 0,
         "scripts": []
       },
-      "related": ["nodefony-inspect", "nodefony-start-server"],
+      "related": [
+        "nodefony-inspect",
+        "nodefony-start-server"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -2361,9 +2425,16 @@
         "bodyLines": 140,
         "approxTokens": 2431
       },
-      "requires": ["serveur UP", "redis", "docker"],
+      "requires": [
+        "serveur UP",
+        "redis",
+        "docker"
+      ],
       "resources": {
-        "references": ["controller.md", "pieges.md"],
+        "references": [
+          "controller.md",
+          "pieges.md"
+        ],
         "referenceFilesTotal": 2,
         "scripts": [
           {
@@ -2400,7 +2471,9 @@
           {
             "path": "scripts/listen.mjs",
             "purpose": "Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket",
-            "usage": ["node listen.mjs <port> <secondes>"],
+            "usage": [
+              "node listen.mjs <port> <secondes>"
+            ],
             "options": [],
             "env": [],
             "output": "",
@@ -2427,7 +2500,9 @@
           {
             "path": "scripts/run.sh",
             "purpose": "Démarre les pods du banc : deux instances de la première application (même",
-            "usage": ["bash scripts/run.sh [dossier] [namespace]"],
+            "usage": [
+              "bash scripts/run.sh [dossier] [namespace]"
+            ],
             "options": [
               {
                 "flag": "--stop",
@@ -2446,7 +2521,9 @@
           {
             "path": "scripts/setup.sh",
             "purpose": "Monte le banc multi-pods : Redis + N applications générées, liées au framework",
-            "usage": ["bash scripts/setup.sh [dossier] [namespace]"],
+            "usage": [
+              "bash scripts/setup.sh [dossier] [namespace]"
+            ],
             "options": [
               {
                 "flag": "--controller",
@@ -2503,7 +2580,10 @@
           }
         ]
       },
-      "related": ["nodefony-load-test", "nodefony-start-server"],
+      "related": [
+        "nodefony-load-test",
+        "nodefony-start-server"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -2561,7 +2641,11 @@
       "summary": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version).",
       "family": "Publier et distribuer",
       "version": "1.0.0",
-      "keywords": ["exports.types", ".d.ts", "docs/release/nodefony-10.md"],
+      "keywords": [
+        "exports.types",
+        ".d.ts",
+        "docs/release/nodefony-10.md"
+      ],
       "triggers": [
         "publier sur npm",
         "faire une release",
@@ -2580,7 +2664,10 @@
         "bodyLines": 67,
         "approxTokens": 1235
       },
-      "requires": ["docker", "serveur UP"],
+      "requires": [
+        "docker",
+        "serveur UP"
+      ],
       "resources": {
         "references": [],
         "referenceFilesTotal": 0,
@@ -2830,7 +2917,10 @@
         "referenceFilesTotal": 0,
         "scripts": []
       },
-      "related": ["nodefony-create-frontend-module", "nodefony-studio-dev"],
+      "related": [
+        "nodefony-create-frontend-module",
+        "nodefony-studio-dev"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -2916,7 +3006,10 @@
         "referenceFilesTotal": 0,
         "scripts": []
       },
-      "related": ["nodefony-inspect", "nodefony-rfc"],
+      "related": [
+        "nodefony-inspect",
+        "nodefony-rfc"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -2992,7 +3085,9 @@
       },
       "requires": [],
       "resources": {
-        "references": ["consolidate-toolkit.md"],
+        "references": [
+          "consolidate-toolkit.md"
+        ],
         "referenceFilesTotal": 1,
         "scripts": []
       },
@@ -3084,7 +3179,11 @@
         "bodyLines": 276,
         "approxTokens": 4293
       },
-      "requires": ["docker", "redis", "base de données"],
+      "requires": [
+        "docker",
+        "redis",
+        "base de données"
+      ],
       "resources": {
         "references": [],
         "referenceFilesTotal": 0,
@@ -3231,7 +3330,9 @@
         "bodyLines": 209,
         "approxTokens": 3868
       },
-      "requires": ["serveur UP"],
+      "requires": [
+        "serveur UP"
+      ],
       "resources": {
         "references": [],
         "referenceFilesTotal": 0,
@@ -3472,7 +3573,9 @@
         "referenceFilesTotal": 0,
         "scripts": []
       },
-      "related": ["nodefony-start-server"],
+      "related": [
+        "nodefony-start-server"
+      ],
       "conformance": {
         "ok": true,
         "checks": [

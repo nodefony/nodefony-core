@@ -23,17 +23,17 @@ source: ".claude/skills/nodefony-start-server/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                                                    |
-| ------------------------ | -------------------------------------------------- |
-| Version                  | — (non versionné)                                  |
-| Famille                  | Exécuter, diagnostiquer, mesurer                   |
-| Corps                    | 209 lignes                                         |
-| Coût d'activation        | ~3 868 tokens (le corps est chargé à l'invocation) |
-| Description              | 525 / 1024 caractères                              |
-| Déclencheurs             | 5                                                  |
-| Ressources `references/` | 0 page(s)                                          |
-| Scripts                  | 2                                                  |
-| Conformité               | ✅ conforme au standard                            |
+| | |
+| --- | --- |
+| Version | — (non versionné) |
+| Famille | Exécuter, diagnostiquer, mesurer |
+| Corps | 209 lignes |
+| Coût d'activation | ~3 868 tokens (le corps est chargé à l'invocation) |
+| Description | 525 / 1024 caractères |
+| Déclencheurs | 5 |
+| Ressources `references/` | 0 page(s) |
+| Scripts | 2 |
+| Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
@@ -66,10 +66,10 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
 script, donc toujours à jour après régénération.
 
-| Script     | Rôle                                                                        | Options                                                                                | Variables d'environnement |
-| ---------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------- |
-| `start.sh` | start.sh — démarre le serveur Nodefony de manière fiable.                   | `--all` `--cluster` `--detach` `--force-build` `--health` `--log` `--wait` `--workers` | —                         |
-| `stop.sh`  | stop.sh — arrête le serveur Nodefony proprement (one-shot, pas de respawn). | —                                                                                      | —                         |
+| Script | Rôle | Options | Variables d'environnement |
+| --- | --- | --- | --- |
+| `start.sh` | start.sh — démarre le serveur Nodefony de manière fiable. | `--all` `--cluster` `--detach` `--force-build` `--health` `--log` `--wait` `--workers` | — |
+| `stop.sh` | stop.sh — arrête le serveur Nodefony proprement (one-shot, pas de respawn). | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -86,15 +86,15 @@ Usage : bash .claude/skills/nodefony-start-server/stop.sh
 > _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
 > _Règle_ cite la source exacte de chaque contrôle.
 
-| Contrôle                                    |   Nature    | État | Mesure | Règle (source)                                                                                                                           |
-| ------------------------------------------- | :---------: | :--: | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| name conforme et égal au dossier            | ℹ️ normatif |  ✅  |        | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier                                   |
-| description de 1 à 1024 caractères          | ℹ️ normatif |  ✅  | 525    | spec § description : 1-1024 car., non vide (quoi + quand)                                                                                |
-| aucun champ hors standard                   | ℹ️ normatif |  ✅  |        | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
-| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif |  ✅  | absent | spec § compatibility : 1-500 car. si fourni                                                                                              |
-| dossier de ressources nommé `references/`   | ℹ️ normatif |  ✅  |        | spec § resources : le dossier de détail se nomme `references/` (pluriel)                                                                 |
-| aucun renvoi vers un skill inexistant       |   projet    |  ✅  |        | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide                                                                   |
-| corps < 500 lignes                          | recommandé  |  ✅  | 209    | best-practices : corps court (index) + détail en `references/` (divulgation progressive)                                                 |
+| Contrôle | Nature | État | Mesure | Règle (source) |
+| --- | :---: | :---: | --- | --- |
+| name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 525 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
+| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
+| dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
+| aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
+| corps < 500 lignes | recommandé | ✅ | 209 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

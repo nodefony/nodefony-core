@@ -23,17 +23,17 @@ source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                                                    |
-| ------------------------ | -------------------------------------------------- |
-| Version                  | — (non versionné)                                  |
-| Famille                  | Exécuter, diagnostiquer, mesurer                   |
-| Corps                    | 140 lignes                                         |
-| Coût d'activation        | ~2 431 tokens (le corps est chargé à l'invocation) |
-| Description              | 988 / 1024 caractères                              |
-| Déclencheurs             | 12                                                 |
-| Ressources `references/` | 2 page(s)                                          |
-| Scripts                  | 9                                                  |
-| Conformité               | ✅ conforme au standard                            |
+| | |
+| --- | --- |
+| Version | — (non versionné) |
+| Famille | Exécuter, diagnostiquer, mesurer |
+| Corps | 140 lignes |
+| Coût d'activation | ~2 431 tokens (le corps est chargé à l'invocation) |
+| Description | 988 / 1024 caractères |
+| Déclencheurs | 12 |
+| Ressources `references/` | 2 page(s) |
+| Scripts | 9 |
+| Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
@@ -70,27 +70,28 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 
 Détail déporté hors du corps — chargé seulement quand la tâche l'exige (divulgation progressive).
 
-| Fichier                    | Ce qu'il couvre           | Lignes |
-| -------------------------- | ------------------------- | -----: |
-| `references/controller.md` | Le controller du banc     |    124 |
-| `references/pieges.md`     | Pièges du banc multi-pods |     82 |
+| Fichier | Ce qu'il couvre | Lignes |
+| --- | --- | --: |
+| `references/controller.md` | Le controller du banc | 124 |
+| `references/pieges.md` | Pièges du banc multi-pods | 82 |
+
 
 ## Scripts embarqués
 
 Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
 script, donc toujours à jour après régénération.
 
-| Script                | Rôle                                                                           | Options                                                                                                   | Variables d'environnement |
-| --------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `scripts/bench.mjs`   | Banc de charge F83 — latence de bout en bout d'un fan-out CROSS-POD.           | —                                                                                                         | —                         |
-| `scripts/forge.mjs`   | —                                                                              | —                                                                                                         | —                         |
-| `scripts/latency.mjs` | Latence PURE du chemin cross-pod, hors saturation : 1 client, messages         | —                                                                                                         | —                         |
-| `scripts/listen.mjs`  | Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket     | —                                                                                                         | —                         |
-| `scripts/mempeak.sh`  | Pic mémoire d'un pod pendant une rafale de publications.                       | —                                                                                                         | —                         |
-| `scripts/pubcost.mjs` | —                                                                              | —                                                                                                         | —                         |
-| `scripts/run.sh`      | Démarre les pods du banc : deux instances de la première application (même     | `--stop`                                                                                                  | `NF_BENCH_SECRET`         |
-| `scripts/setup.sh`    | Monte le banc multi-pods : Redis + N applications générées, liées au framework | `--controller` `--frontend` `--link` `--no-auth-warning` `--no-install` `--no-service` `--preset` `--yes` | `APP`                     |
-| `scripts/soak.mjs`    | Charge soutenue cross-pod, par paliers de connexions.                          | —                                                                                                         | —                         |
+| Script | Rôle | Options | Variables d'environnement |
+| --- | --- | --- | --- |
+| `scripts/bench.mjs` | Banc de charge F83 — latence de bout en bout d'un fan-out CROSS-POD. | — | — |
+| `scripts/forge.mjs` | — | — | — |
+| `scripts/latency.mjs` | Latence PURE du chemin cross-pod, hors saturation : 1 client, messages | — | — |
+| `scripts/listen.mjs` | Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket | — | — |
+| `scripts/mempeak.sh` | Pic mémoire d'un pod pendant une rafale de publications. | — | — |
+| `scripts/pubcost.mjs` | — | — | — |
+| `scripts/run.sh` | Démarre les pods du banc : deux instances de la première application (même | `--stop` | `NF_BENCH_SECRET` |
+| `scripts/setup.sh` | Monte le banc multi-pods : Redis + N applications générées, liées au framework | `--controller` `--frontend` `--link` `--no-auth-warning` `--no-install` `--no-service` `--preset` `--yes` | `APP` |
+| `scripts/soak.mjs` | Charge soutenue cross-pod, par paliers de connexions. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -113,15 +114,15 @@ node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 > _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
 > _Règle_ cite la source exacte de chaque contrôle.
 
-| Contrôle                                    |   Nature    | État | Mesure | Règle (source)                                                                                                                           |
-| ------------------------------------------- | :---------: | :--: | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| name conforme et égal au dossier            | ℹ️ normatif |  ✅  |        | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier                                   |
-| description de 1 à 1024 caractères          | ℹ️ normatif |  ✅  | 988    | spec § description : 1-1024 car., non vide (quoi + quand)                                                                                |
-| aucun champ hors standard                   | ℹ️ normatif |  ✅  |        | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
-| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif |  ✅  | absent | spec § compatibility : 1-500 car. si fourni                                                                                              |
-| dossier de ressources nommé `references/`   | ℹ️ normatif |  ✅  |        | spec § resources : le dossier de détail se nomme `references/` (pluriel)                                                                 |
-| aucun renvoi vers un skill inexistant       |   projet    |  ✅  |        | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide                                                                   |
-| corps < 500 lignes                          | recommandé  |  ✅  | 140    | best-practices : corps court (index) + détail en `references/` (divulgation progressive)                                                 |
+| Contrôle | Nature | État | Mesure | Règle (source) |
+| --- | :---: | :---: | --- | --- |
+| name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 988 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
+| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
+| dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
+| aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
+| corps < 500 lignes | recommandé | ✅ | 140 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
