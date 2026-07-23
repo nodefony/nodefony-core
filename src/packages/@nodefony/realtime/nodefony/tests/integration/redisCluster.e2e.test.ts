@@ -28,16 +28,27 @@ const WORKER_PATH = fileURLToPath(
   new URL("./redisClusterWorker.ts", import.meta.url),
 );
 
+/**
+ * `REDIS_URL` d'abord : c'est la variable que pose `REDIS_GATE` et qu'affiche le
+ * mode d'emploi du rapport de gates. Le triplet HOST/PORT/PASSWORD reste accepté
+ * en repli (le compose expose les deux), mais il ne doit plus être le SEUL chemin
+ * — sinon suivre le message d'aide ne débloque rien.
+ */
 async function redisReachable(): Promise<boolean> {
-  const probe = createClient({
-    socket: {
-      host: HOST,
-      port: PORT,
-      connectTimeout: 1500,
-      reconnectStrategy: false,
-    },
-    password: PASSWORD,
-  }) as RedisClientType;
+  const url = process.env.REDIS_URL;
+  const probe = createClient(
+    url
+      ? { url, socket: { connectTimeout: 1500, reconnectStrategy: false } }
+      : {
+          socket: {
+            host: HOST,
+            port: PORT,
+            connectTimeout: 1500,
+            reconnectStrategy: false,
+          },
+          password: PASSWORD,
+        },
+  ) as RedisClientType;
   probe.on("error", () => {});
   try {
     await probe.connect();

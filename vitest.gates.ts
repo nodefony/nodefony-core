@@ -76,7 +76,7 @@ export const OPT_IN_SWITCHES: ReadonlyArray<{ env: string; what: string }> = [
     what: "micro-bancs de performance (seuils non déterministes)",
   },
   { env: "RUN_CLI_BOOT", what: "boots CLI réels (lents : un kernel par cas)" },
-  { env: "RUN_CLUSTER_E", what: "scénarios cluster multi-process" },
+  { env: "RUN_CLUSTER_E2E", what: "scénarios cluster multi-process" },
   {
     env: "RUN_WS_RUPTURE",
     what: "sondes de rupture WebSocket (épuisent les ports)",
@@ -325,8 +325,29 @@ export function gateReporter(gates: readonly EnvGate[]) {
 
       if (unmet.length === 0) {
         const names = met.map((g) => g.label).join(", ");
+        const head = `\n\x1b[32m✔ Cibles d'infra toutes exercées${names ? ` : ${names}` : ""}.\x1b[0m`;
+        // L'infra n'est qu'une des deux façons de rester muet. Des tests peuvent
+        // dormir derrière un INTERRUPTEUR DE COÛT (`RUN_PERF`, `RUN_CLUSTER_E2E`…),
+        // fermé à raison mais dont le silence ressemble trait pour trait à une
+        // suite complète. Annoncer « toutes exercées » en laissant N tests sautés
+        // sans un mot, c'est signer un vert qu'on n'a pas gagné.
+        const closed = OPT_IN_SWITCHES.filter(
+          (sw) => !(process.env[sw.env] ?? "").trim(),
+        );
+        if (skipped === 0 || closed.length === 0) {
+          console.log(head);
+          return;
+        }
+        const pctSkipped = total > 0 ? Math.round((skipped / total) * 100) : 0;
         console.log(
-          `\n\x1b[32m✔ Cibles d'infra toutes exercées${names ? ` : ${names}` : ""}.\x1b[0m`,
+          [
+            head,
+            `\x1b[33m  …mais ${skipped} test(s) sur ${total} n'ont pas tourné (${pctSkipped} %) — interrupteurs fermés :\x1b[0m`,
+            ...closed.map(
+              (sw) => `      \x1b[2m○ ${sw.env.padEnd(18)} ${sw.what}\x1b[0m`,
+            ),
+            `      \x1b[2m→ ${closed.map((c) => `${c.env}=1`).join(" ")} npm test\x1b[0m`,
+          ].join("\n"),
         );
         return;
       }

@@ -20,11 +20,23 @@ const PASSWORD = process.env.REDIS_PASSWORD ?? "nodefony-dev";
 const HOST = process.env.REDIS_HOST ?? "localhost";
 const PORT = Number.parseInt(process.env.REDIS_PORT ?? "6379", 10);
 
+/**
+ * `REDIS_URL` est la façon dont TOUT le dépôt désigne un Redis de test — c'est
+ * ce que pose `REDIS_GATE` (`vitest.gates.ts`) et ce qu'affiche le mode d'emploi
+ * quand la cible manque. Ce banc lisait `REDIS_HOST`/`REDIS_PORT` : suivre le
+ * message d'aide n'aurait donc RIEN débloqué ici. On accepte l'URL d'abord, le
+ * triplet ensuite (le compose expose les deux).
+ */
 function mkClient(): RedisClientType {
-  const c = createClient({
-    socket: { host: HOST, port: PORT, reconnectStrategy: false },
-    password: PASSWORD,
-  }) as RedisClientType;
+  const url = process.env.REDIS_URL;
+  const c = createClient(
+    url
+      ? { url, socket: { reconnectStrategy: false } }
+      : {
+          socket: { host: HOST, port: PORT, reconnectStrategy: false },
+          password: PASSWORD,
+        },
+  ) as RedisClientType;
   c.on("error", () => {}); // silence (probe / teardown)
   return c;
 }

@@ -1,17 +1,24 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../vitest.oxc";
+import { gateReporter, REDIS_GATE } from "../../../../vitest.gates";
 
 /**
  * vitest + coverage-v8 pour @nodefony/realtime.
  *
- * Standard coverage du repo (cf @nodefony/user / @nodefony/orm-core). Tests =
- * `node:assert` + describe/it en **globals**. Pas de shim mocha. Pas encore de
- * tests dans ce module (les tests de RealtimeHub / RealtimeController /
- * ClusterBackplane sont rapatriés depuis @nodefony/framework en P13.0).
+ * Standard coverage du repo. Tests = `node:assert` + describe/it en **globals**.
+ *
+ * **`gateReporter` est ce qui rend ce module honnête.** Une bonne part de ce qui
+ * compte ici ne s'exerce QUE contre un vrai Redis (fan-out cross-pod, cloisonnement
+ * par namespace, injection depuis le bus) ou derrière un interrupteur de coût
+ * (`RUN_CLUSTER_E2E`, `RUN_PERF`). Ces suites s'auto-skippent quand le décor manque
+ * — et un skip compte comme un succès : la suite affichait « tout vert » sans avoir
+ * touché une ligne de backplane. Le reporter nomme la cible non exercée et donne la
+ * commande pour l'ouvrir.
  */
 export default defineConfig({
   test: {
     globals: true,
+    reporters: ["default", gateReporter([REDIS_GATE])],
     include: [
       "nodefony/tests/unit/**/*.test.ts",
       "nodefony/tests/integration/**/*.test.ts",
