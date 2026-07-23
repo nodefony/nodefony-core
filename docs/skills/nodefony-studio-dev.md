@@ -1,0 +1,68 @@
+---
+title: "nodefony-studio-dev — fiche de skill"
+lang: fr
+audience: humain
+generated: scripts/skills-doc.mjs
+source: ".claude/skills/nodefony-studio-dev/SKILL.md"
+---
+
+# `nodefony-studio-dev`
+
+> Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework.
+
+📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-studio-dev**
+
+> [!NOTE]
+> Fiche **générée** par `scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
+> corriger le skill, puis régénérer.
+
+|                          |                         |
+| ------------------------ | ----------------------- |
+| Version                  | `2.0.0`                 |
+| Corps                    | 143 lignes              |
+| Description              | 935 / 1024 caractères   |
+| Déclencheurs             | 14                      |
+| Ressources `references/` | 6 page(s)               |
+| Scripts                  | 0                       |
+| Conformité               | ✅ conforme au standard |
+
+## Ce qu'il fait
+
+Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart, DocHint), le hook useResource, les stores MobX et les hooks temps réel nodefony/react. Donne la recette (route + lazy + navConfig + fallback deep-link + data plane), des squelettes copier-coller, le Jumeau Vivant (Twin), la debug bar, le back-end Studio (controller + data plane + realtime), et les règles qualité (a11y, sécu, perf, gate tsc). DÉRIVE de nodefony-frontend-dev (mécanismes front généraux).
+
+## Quand il se déclenche
+
+Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
+
+`dev studio` · `page studio` · `dashboard studio` · `écran studio` · `panneau studio` · `composant studio` · `page /nodefony` · `comment coder dans studio` · `Twin` · `jumeau vivant` · `debug bar` · `debugbar` · `barre de debug` · `WDT`
+
+## Ce que contient le corps
+
+- 🔗 Paire POLYMORPHE front ⇄ back (co-évolution OBLIGATOIRE)
+- 1. Quand l'utiliser / quand passer la main
+- 2. 🚨 RÈGLES ABSOLUES Studio (non négociables — priorité MAX)
+- 3. Cartographie — Studio (qui vit où)
+- 4. Référence — `references/` (chargé À LA DEMANDE)
+- 5. Gates qualité (AVANT commit — l'ordre compte)
+- Réfs (CLAUDE.md/MEMORY.md — détails)
+
+## Références (chargées à la demande)
+
+- `references/backend-studio.md`
+- `references/debugbar.md`
+- `references/gotchas-studio.md`
+- `references/realtime-studio.md`
+- `references/twin.md`
+- `references/ui-kit.md`
+
+## Conformité au standard Agent Skills
+
+| Contrôle                                  | État | Mesure |
+| ----------------------------------------- | :--: | ------ |
+| name conforme et égal au dossier          |  ✅  |        |
+| description de 1 à 1024 caractères        |  ✅  | 935    |
+| aucun champ hors standard                 |  ✅  |        |
+| dossier de ressources nommé `references/` |  ✅  |        |
+| corps < 500 lignes (recommandation)       |  ✅  | 143    |
+
+Le détail du standard et la méthode de mesure : [Outillage agents](../outillage-agents.md).

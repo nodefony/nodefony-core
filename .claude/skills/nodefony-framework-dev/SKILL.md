@@ -1,34 +1,35 @@
 ---
 name: nodefony-framework-dev
-version: 2.0.0
+metadata:
+  version: 2.0.0
 description: >
-  Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline/serveurs/WS/
-  sessions/certificats), `@nodefony/framework` (Router/Controller/décorateurs). Couvre : créer un service
-  injectable, un module, une commande CLI, une entité/repository/adapter ORM, un endpoint HTTP/WS ou un
-  data plane admin, et le realtime (WS natif + RealtimeService/hub TCP/UDP/Redis). Donne les RÈGLES
-  ABSOLUES (perf-mémoire, TS strict, ESM, lazy alloc, cleanup listener, ALS), des recettes copier-coller
-  vérifiées sur le source (dans `reference/`), les gotchas, les gates qualité et les RFC bundlées offline.
-  Orchestre nodefony-rfc, nodefony-ts-docs, nodefony-security-review. Déclencheurs : "dev core", "coder
-  dans le kernel", "pipeline http", "créer un service", "service injectable", "module hooks", "commande
-  CLI", "controller nodefony", "décorateur route", "créer une entité", "repository", "adapter ORM",
-  "endpoint data plane", "certificats TLS", "Core isomorphe", "realtime", "RealtimeService", "WebSocket",
-  "firewall", "@IsGranted", "@Idempotent", "idempotence".
+  Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs,
+  WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs). Couvre : créer
+  un service injectable, un module, une commande CLI, une entité/repository/adapter ORM, un endpoint
+  HTTP/WS ou un data plane admin, et le realtime. Donne les règles absolues (perf-mémoire, TS strict,
+  lazy alloc, cleanup des listeners, ALS), les conventions de structure et de configuration, des
+  recettes vérifiées sur le source, les gotchas et les RFC bundlées hors ligne.
+  Déclencheurs : "dev core", "coder dans le kernel", "pipeline http", "créer un service", "service
+  injectable", "module hooks", "commande CLI", "controller nodefony", "décorateur route", "créer une
+  entité", "repository", "adapter ORM", "data plane", "certificats TLS", "realtime", "WebSocket",
+  "firewall", "@IsGranted", "@Idempotent", "structure d'un module", "defineConfig",
+  "avant de coder dans le cœur", "où brancher ce comportement ?".
 ---
 
 # nodefony-framework-dev — kit de dev du cœur (backend)
 
 > **Référence de développement du back Nodefony pour tout agent IA / LLM.** Playbook **déterministe** :
 > produis du code **perf, sûr, typé** sans ré-explorer les ~15 `CLAUDE.md`/`MEMORY.md` — signatures,
-> chemins et recettes sont ici (corps) + dans `reference/` (chargé à la demande).
+> chemins et recettes sont ici (corps) + dans `references/` (chargé à la demande).
 >
 > **MAINTENANCE (lire avant d'éditer ce skill)** : ce skill décrit la **vérité courante**, pas un journal.
 > Mettre à jour = **éditer la section concernée en place**. **Pas de changelog ni de retex daté** ici —
-> l'historique vit dans `git log`. Une leçon durable se **fond en règle** dans `reference/gotchas.md`.
-> Le **détail** (recettes longues, API, RFC) vit dans `reference/*.md` (progressive disclosure) — garder
+> l'historique vit dans `git log`. Une leçon durable se **fond en règle** dans `references/gotchas.md`.
+> Le **détail** (recettes longues, API, RFC) vit dans `references/*.md` (progressive disclosure) — garder
 > ce fichier **< 500 lignes**. Avancement/phases/roadmap = `MIGRATION_STATUS.md` **uniquement**, jamais ici.
 
 > **Périmètre** : front (full-stack côté client) → **`nodefony-frontend-dev`** (skill JUMEAU) ; app admin Studio spécifique (UI kit/Mantine) → `nodefony-studio-dev` (dérive de frontend-dev). Scaffolder un module
-> neuf → **`nodefony-create-module`** (ici = comment CODER dedans). RFC/normes → `reference/rfc/` (bundlé
+> neuf → **`nodefony-create-module`** (ici = comment CODER dedans). RFC/normes → `references/rfc/` (bundlé
 > offline) + skill `nodefony-rfc` (full-text rare). Types TS → `nodefony-ts-docs`. Sécurité review/attaque
 > → `nodefony-security-review`.
 
@@ -38,8 +39,8 @@ description: >
 (isomorphisme Nodefony : back/front partagent `nodefony`). **Ce skill PRODUIT le CONTRAT** ; le jumeau le
 **CONSOMME** (l'app Studio dérive de frontend-dev). Le SEAM partagé :
 
-- **Data-plane** `/nodefony/<mod>/api/*` (back l'expose via `IAdminApi` → front via `useResource`/`ApiClient`). Recette → `reference/framework.md`.
-- **Realtime** : la **socket** (`IRealtimeSocket`) = la prise métier (multiplexe des canaux) ; le **hub** (`RealtimeHub`) = broker serveur (canaux partagés + fan-out). Recette → `reference/realtime.md`.
+- **Data-plane** `/nodefony/<mod>/api/*` (back l'expose via `IAdminApi` → front via `useResource`/`ApiClient`). Recette → `references/framework.md`.
+- **Realtime** : la **socket** (`IRealtimeSocket`) = la prise métier (multiplexe des canaux) ; le **hub** (`RealtimeHub`) = broker serveur (canaux partagés + fan-out). Recette → `references/realtime.md`.
 - **Types** : exports `nodefony` (isomorphes) + `I*Controller`/`I*Api` = **source de vérité unique** du contrat (jamais une copie figée dans un skill → sinon dérive).
 
 **RÈGLE** : une feature qui traverse back+front → mettre à jour **LES DEUX skills dans la MÊME session**.
@@ -228,27 +229,27 @@ jq '.relations.usedBy.Container' .ai/symbols.json              # qui importe
 jq '.symbols | to_entries | map(select(.value.module=="@nodefony/http")) | from_entries' .ai/symbols.json
 ```
 
-## 4. Recettes & référence — `reference/` (chargé À LA DEMANDE)
+## 4. Recettes & référence — `references/` (chargé À LA DEMANDE)
 
-> **Comment l'utiliser** : trouve la ligne qui matche ta tâche → lis le fichier `reference/…` indiqué
+> **Comment l'utiliser** : trouve la ligne qui matche ta tâche → lis le fichier `references/…` indiqué
 > (lui seul → 0 token gaspillé). **1 fichier = 1 module** : Partie A recettes copier-coller (usage) +
 > Partie B API publique + internals + gotchas du module (vérifiés sur le source). Mettre à jour = éditer
 > en place (pas de journal). Autosuffisant : tout est ici, même sans le source du core (cas projet consumer).
 
-| Ta tâche                                                                                                                                                                                            | Lis ce fichier                                     |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Service injectable (DI `@inject`), Module+hooks, CLI, lazy/cleanup, ALS, config (`defineConfig`/`env`), interfaces, erreurs ; + API core (Kernel/Container/Event/Syslog/Finder)                     | `reference/core.md`                                |
-| Endpoint HTTP/WS (Controller + `@Get`/`@Post`/`@route`), contrat RFC du cycle, certificats TLS, tests d'intégration ; + API/internals pipeline http (Context/Request/Response/sessions/trust-proxy) | `reference/http.md`                                |
-| Router/Resolver/Route, décorateurs (`@IsGranted`/`@RequireScope`/`@Idempotent`/`@Csp`/`@CsrfProtect`…), **admin data plane** (`IAdminApi`/broker) + lien full-stack, vues (Eta)                     | `reference/framework.md`                           |
-| Entité `@entity`, Repository (contrat CRUD complet : `upsert`/`createMany`/`exists`/`increment`/`deleteOne`/`findOneAndDelete`…), Service CRUD, tx, data plane ORM, multi-dialecte                  | `reference/orm.md`                                 |
-| Realtime : socket isomorphe, WS, hub, `RealtimeService`, Redis backplane, pont TCP/UDP/SIP                                                                                                          | `reference/realtime.md`                            |
-| Coder AVEC la sécurité (sources normatives, `npm audit`)                                                                                                                                            | `reference/security.md`                            |
-| **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                          | `reference/rfc/` (index `reference/rfc/README.md`) |
-| **Gotchas TRANSVERSES & diagnostic** (perf, ALS, boot, build ; reproduire un bug)                                                                                                                   | `reference/gotchas.md`                             |
-| **Conventions de STRUCTURE** : arborescence du dépôt, squelette d'un module, `package.json`/`exports`/`.d.ts`, `defineConfig`+`env.ts` de l'app, config d'un module en 2 fichiers                   | `reference/conventions.md`                         |
+| Ta tâche                                                                                                                                                                                            | Lis ce fichier                                       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Service injectable (DI `@inject`), Module+hooks, CLI, lazy/cleanup, ALS, config (`defineConfig`/`env`), interfaces, erreurs ; + API core (Kernel/Container/Event/Syslog/Finder)                     | `references/core.md`                                 |
+| Endpoint HTTP/WS (Controller + `@Get`/`@Post`/`@route`), contrat RFC du cycle, certificats TLS, tests d'intégration ; + API/internals pipeline http (Context/Request/Response/sessions/trust-proxy) | `references/http.md`                                 |
+| Router/Resolver/Route, décorateurs (`@IsGranted`/`@RequireScope`/`@Idempotent`/`@Csp`/`@CsrfProtect`…), **admin data plane** (`IAdminApi`/broker) + lien full-stack, vues (Eta)                     | `references/framework.md`                            |
+| Entité `@entity`, Repository (contrat CRUD complet : `upsert`/`createMany`/`exists`/`increment`/`deleteOne`/`findOneAndDelete`…), Service CRUD, tx, data plane ORM, multi-dialecte                  | `references/orm.md`                                  |
+| Realtime : socket isomorphe, WS, hub, `RealtimeService`, Redis backplane, pont TCP/UDP/SIP                                                                                                          | `references/realtime.md`                             |
+| Coder AVEC la sécurité (sources normatives, `npm audit`)                                                                                                                                            | `references/security.md`                             |
+| **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                          | `references/rfc/` (index `references/rfc/README.md`) |
+| **Gotchas TRANSVERSES & diagnostic** (perf, ALS, boot, build ; reproduire un bug)                                                                                                                   | `references/gotchas.md`                              |
+| **Conventions de STRUCTURE** : arborescence du dépôt, squelette d'un module, `package.json`/`exports`/`.d.ts`, `defineConfig`+`env.ts` de l'app, config d'un module en 2 fichiers                   | `references/conventions.md`                          |
 
 > Review/attaque sécurité d'un diff (red/blue-team, conformité) → skill **`nodefony-security-review`**.
-> RFC full-text rare (hors `reference/rfc/`) → skill **`nodefony-rfc`** (raw GitHub + proxy r.jina.ai).
+> RFC full-text rare (hors `references/rfc/`) → skill **`nodefony-rfc`** (raw GitHub + proxy r.jina.ai).
 
 ## 5. Gates qualité (AVANT commit — l'ordre compte)
 

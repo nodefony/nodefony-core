@@ -16,13 +16,20 @@ tags: [skills, agents, aaif, agent-skills, outillage, claude-code]
 
 > **Ceci documente le dépôt de développement, pas le paquet `nodefony`.** L'outillage décrit ici
 > n'est ni publié sur npm ni chargé au boot : il sert à celles et ceux qui développent le framework.
-> Le dépôt embarque **26 skills**, **2 commandes** et **1 garde-fou** destinés aux agents qui
+> Le dépôt embarque **27 skills**, **2 commandes** et **1 garde-fou** destinés aux agents qui
 > travaillent sur Nodefony. Cette page dit ce que chacun fait, **combien il sert réellement**
 > (mesuré, pas estimé), s'il respecte le standard **Agent Skills** de l'AAIF, et lesquels méritent
 > d'être réparés, fusionnés ou retirés. Elle sert au moment où l'on se demande « ai-je un outil pour
 > ça ? » ou « pourquoi celui-là ne se déclenche jamais ? ».
 
 📍 [Documentation](index.md) › **Outillage agents**
+
+> [!TIP]
+> **Une fiche par skill** — version, contenu, déclencheurs, ressources, et chaque script avec ses
+> options et ses variables d'environnement — est **générée** depuis les `SKILL.md` :
+> [`docs/skills/`](skills/index.md). Régénérer et contrôler la conformité :
+> `node scripts/skills-doc.mjs`. Cette page-ci porte l'**analyse** (usage réel, doublons, fusions) ;
+> les fiches portent l'**état**.
 
 ## Le modèle — trois portes, et pourquoi ça décide de tout
 
@@ -65,6 +72,7 @@ fichiers. Un skill peut être très lu sans jamais être invoqué — c'est un s
 | Skill                 | Rôle                                                                        | Invoc. | Lect. |
 | --------------------- | --------------------------------------------------------------------------- | -----: | ----: |
 | `nodefony-session`    | Reprise après `/clear`, ouverture de module, clôture (retex), consolidation |    133 |     — |
+| `nodefony-skill`      | Créer, réparer ou auditer un skill du dépôt (dérive de `skill-creator`)     |      — |     — |
 | `nodefony-quick-diff` | Résume les modifications non commitées de `src/` sans le compilé            |      0 |     0 |
 
 ### Développement du framework
@@ -138,25 +146,36 @@ remplacer :
 
 ## Conformité au standard Agent Skills (AAIF / Linux Foundation)
 
-Le standard tient en peu de règles : `name` ≤ 64 caractères en minuscules identique au dossier ;
-`description` ≤ 1024 caractères ; **aucun champ hors** `name`, `description`, `license`, `metadata`,
-`allowed-tools` (donc **`version` va sous `metadata`**) ; corps < 500 lignes ; ressources en
-`scripts/`, `references/`, `assets/` sur **un seul niveau**. Validateur officiel :
-`skills-ref validate ./<skill>`.
+Le standard tient en peu de règles **normatives** : `name` ≤ 64 caractères en minuscules, identique au
+dossier ; `description` de 1 à 1024 caractères ; **aucun champ hors** `name`, `description`, `license`,
+`metadata`, `allowed-tools` — donc **`version` va sous `metadata`**. Le reste relève de la
+**recommandation** : corps court, ressources rangées en `scripts/`, `references/`, `assets/`, et
+« garder les références à un seul saut depuis `SKILL.md` » (une règle sur les **chaînes** de renvoi,
+pas sur la profondeur de l'arborescence — un bundle `references/rfc/ietf/` cité directement reste
+conforme). Validateur officiel : `skills-ref validate ./<skill>`.
 
-Écarts mesurés sur les 26 skills :
+État après la passe de conformité :
 
-| Écart                                                 | Nombre | Skills concernés                                                                                                |
-| ----------------------------------------------------- | -----: | --------------------------------------------------------------------------------------------------------------- |
-| `version:` à la racine (doit être `metadata.version`) |      6 | `debug`, `documentation`, `framework-dev`, `frontend-dev`, `frontend-verify`, `studio-dev`                      |
-| `description` > 1024 caractères                       |      5 | `documentation` (1990), `security-review` (1365), `debug` (1161), `framework-dev` (1102), `frontend-dev` (1090) |
-| Corps > 500 lignes                                    |      2 | `documentation` (666), `session` (563)                                                                          |
-| Dossier `reference/` au lieu de `references/`         |      6 | `framework-dev`, `frontend-dev`, `studio-dev`, `documentation`, `html-report`, `multipod-bench`                 |
-| Ressources à deux niveaux (`reference/rfc/`)          |      2 | `framework-dev`, `frontend-dev`                                                                                 |
-| `name` ≠ nom du dossier                               |      0 | —                                                                                                               |
+| Point                                         | Avant | Après | Détail                                                                                                                                              |
+| --------------------------------------------- | ----: | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version:` à la racine (normatif)             |     6 | **0** | `debug`, `documentation`, `framework-dev`, `frontend-dev`, `frontend-verify`, `studio-dev` → `metadata.version`                                     |
+| `description` > 1024 caractères (normatif)    |     5 | **0** | `documentation` 1990→~980, `security-review` 1365→1017, `debug`, `framework-dev`, `frontend-dev` — la plus longue est désormais `html-report` (935) |
+| `name` ≠ nom du dossier (normatif)            |     0 | **0** | —                                                                                                                                                   |
+| Dossier `reference/` au lieu de `references/` |     8 | **0** | renommé sur les 8 skills concernés, 112 liens réécrits                                                                                              |
+| Renvois vers un fichier inexistant            |    16 | **0** | dette **pré-existante** révélée par la vérification (voir ci-dessous)                                                                               |
+| Corps > 500 lignes (recommandation)           |     2 |     2 | `documentation` (666), `session` (563) — non traité, demande un découpage éditorial                                                                 |
 
-Ces écarts ne gênent pas Claude Code, qui est tolérant. Ils gênent **la portabilité** : un skill non
-conforme ne sera pas chargé par un autre client, et c'est précisément l'enjeu du module `devkit`, qui
+**La dette révélée en chemin** : 16 renvois pointaient vers des fichiers absents — huit `references/recipes-*.md`
+supprimés lors du refactor `f636fd74` sans que les renvois suivent, et huit renvois croisés entre skills
+écrits en chemin relatif (donc irrésolvables depuis le skill émetteur). Vérifié sur `HEAD` avant
+intervention : ils étaient déjà morts. Les premiers pointent maintenant le fichier qui a absorbé leur
+contenu, les seconds sont préfixés par le skill propriétaire. Même famille : `nodefony-debug` renvoyait
+deux fois vers une section « §4 Debug runtime » de `framework-dev` disparue au même refactor, alors que
+la capacité (`NODEFONY_DEV_CHILD=1`) existe toujours dans `DevSupervisor.ts` — le renvoi pointe
+désormais le code.
+
+Ces écarts ne gênaient pas Claude Code, qui est tolérant. Ils gênaient **la portabilité** : un skill non
+conforme n'est pas chargé par un autre client, et c'est précisément l'enjeu du module `devkit`, qui
 prévoit d'en **publier** sur npm.
 
 ## L'étude — garder, réparer, fusionner, retirer
@@ -224,8 +243,8 @@ Par ordre de rentabilité décroissante. Les trois premiers points sont le **lot
 `@nodefony/devkit`, qui exige `skills-ref validate` vert avant de publier quoi que ce soit sur npm.
 
 1. **Conformité mécanique** (une passe, sans risque) : 6 `version:` → `metadata.version` ;
-   5 `description` à raccourcir sous 1024 caractères ; `reference/` → `references/` sur 6 skills
-   (avec les liens internes) ; remonter `reference/rfc/` d'un niveau sur 2 skills. Gate :
+   5 `description` à raccourcir sous 1024 caractères ; `references/` → `references/` sur 6 skills
+   (avec les liens internes) ; remonter `references/rfc/` d'un niveau sur 2 skills. Gate :
    `skills-ref validate` sur les 26.
 2. **Ajuster le `CLAUDE.md` là où il double un skill** — remplacer les commandes recopiées par un
    pointeur vers le skill, qui devient la source unique : gate mémoire, graphe symbolique,

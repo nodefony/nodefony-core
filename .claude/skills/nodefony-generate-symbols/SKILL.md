@@ -1,9 +1,14 @@
 ---
 name: nodefony-generate-symbols
 description: >
-  Génère le graphe symbolique TypeScript de Nodefony (classes, interfaces, types, decorators,
-  relations inverses) en JSON indexé .ai/symbols.json pour retrieval O(1) cross-module sans grep.
-  Déclencheurs : "génère les symboles", "graphe symbolique", "regenerate symbols", "symbols.json".
+  Graphe symbolique TypeScript de Nodefony (classes, interfaces, types, décorateurs, relations
+  inversées) : le génère dans `.ai/symbols.json` et donne les requêtes `jq` pour répondre en O(1),
+  sans parcourir le dépôt — qui étend cette classe, qui implémente cette interface, qui importe ce
+  symbole, quelle est la description TSDoc, où est-il défini. À charger AVANT de partir en `grep`
+  sur plusieurs modules : la réponse est déjà indexée.
+  Déclencheurs : "génère les symboles", "graphe symbolique", "regenerate symbols", "symbols.json",
+  "qui étend cette classe ?", "qui implémente cette interface ?", "qui utilise ce symbole ?",
+  "où est défini X ?", "chercher dans tout le repo", "trouver les consommateurs".
 ---
 
 # generate-symbols
@@ -19,10 +24,10 @@ Génère un **graphe symbolique indexé** du repo Nodefony en JSON. Conçu pour 
 
 ## Sortie
 
-| Fichier              | Statut       | Contenu                                                                                       |
-| -------------------- | ------------ | --------------------------------------------------------------------------------------------- |
-| `.ai/symbols.json`   | committé     | **Stable** — exportés uniquement (~180 KB, ~380 symboles). Map indexée + relations inverses. |
-| `dist/symbols.json`  | gitignored   | **Verbose** — tous symboles + méthodes (+ description) + propriétés + imports détaillés.      |
+| Fichier             | Statut     | Contenu                                                                                      |
+| ------------------- | ---------- | -------------------------------------------------------------------------------------------- |
+| `.ai/symbols.json`  | committé   | **Stable** — exportés uniquement (~180 KB, ~380 symboles). Map indexée + relations inverses. |
+| `dist/symbols.json` | gitignored | **Verbose** — tous symboles + méthodes (+ description) + propriétés + imports détaillés.     |
 
 ## Générer
 

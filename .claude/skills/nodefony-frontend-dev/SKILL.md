@@ -1,14 +1,14 @@
 ---
 name: nodefony-frontend-dev
-version: 1.0.0
+metadata:
+  version: 1.0.0
 description: >
-  Kit de dev FRONT de Nodefony (shippé avec le framework) — développer le full-stack côté client :
-  isomorphisme (`nodefony` partagé front/back), la **socket Nodefony** client (`RealtimeClient` + hooks
-  `nodefony/react`), le builder **Vite + HMR** (`@nodefony/frontend`, multi-framework React/Vue/Angular),
-  la consommation du **data-plane BFF** (`ApiClient`/`useResource`), le RBAC isomorphe, et les règles
-  d'**ergonomie / temps réel « calme » / a11y / perf** (best practices bundlées offline). Pour l'app admin
-  Studio spécifique (UI kit Mantine + MobX + pages) → `nodefony-studio-dev` (qui DÉRIVE de ce skill).
-  Scaffolder un module front → `nodefony-create-frontend-module`. Le back → `nodefony-framework-dev`.
+  Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé
+  front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR
+  (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC
+  isomorphe, et les règles d'ergonomie / temps réel « calme » / a11y / perf (bundlées offline).
+  App admin Studio → `nodefony-studio-dev` (qui en dérive) ; scaffold d'un module front →
+  `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`.
   Déclencheurs : "dev front nodefony", "frontend nodefony", "isomorphisme", "socket client",
   "RealtimeClient", "useNodefony", "hooks realtime", "HMR", "Vite nodefony", "@nodefony/frontend",
   "ApiClient", "useResource", "data plane front", "BFF", "RBAC front", "temps réel ergonomique",
@@ -20,13 +20,13 @@ description: >
 > **Référence de développement du front Nodefony pour tout agent IA / LLM**, shippée avec le framework.
 > Face FRONT du kit full-stack : `nodefony-framework-dev` (back) **produit** le contrat, ce skill le
 > **consomme**. Couvre les **mécanismes du framework** (isomorphisme, socket, HMR, BFF) — pas une stack UI
-> précise (le builder fait React/Vue/Angular). Tout est ici (corps) + `reference/` (chargé à la demande)
+> précise (le builder fait React/Vue/Angular). Tout est ici (corps) + `references/` (chargé à la demande)
 >
-> - `reference/specs/` (best practices bundlées **offline**) → codable même sans le source du core.
+> - `references/specs/` (best practices bundlées **offline**) → codable même sans le source du core.
 >
 > **MAINTENANCE (lire avant d'éditer)** : ce skill décrit la **vérité courante**, pas un journal. Mettre à
 > jour = **éditer en place**. **Pas de changelog ni de retex daté** — l'historique vit dans `git log` ; une
-> leçon durable se **fond en règle** dans `reference/gotchas.md` ou la section concernée. Détail = `reference/*.md`
+> leçon durable se **fond en règle** dans `.claude/skills/nodefony-framework-dev/references/gotchas.md` ou la section concernée. Détail = `references/*.md`
 > (progressive disclosure) → garder ce fichier **< 500 lignes**.
 
 > **Périmètre / passer la main** : app admin **Studio** (UI kit, Mantine v9, MobX, pages, Twin, debugbar)
@@ -41,9 +41,9 @@ description: >
 **CONSOMME**. Le SEAM partagé (source de vérité = les exports `nodefony` + types `I*Api`/`I*Controller`,
 jamais une copie figée) :
 
-- **Data-plane** `/nodefony/<mod>/api/*` : back l'expose via `IAdminApi` → front via `ApiClient`/`useResource`. → `reference/data-bff.md`.
-- **Realtime** : back = hub + `RealtimeController` (canaux) → front = `RealtimeClient` + hooks `nodefony/react`. → `reference/realtime-client.md`.
-- **RBAC** : rôles dérivés CÔTÉ SERVEUR, exposés dans le DTO ; le front les lit via `nodefony/roles` (cosmétique). → `reference/isomorphic.md`.
+- **Data-plane** `/nodefony/<mod>/api/*` : back l'expose via `IAdminApi` → front via `ApiClient`/`useResource`. → `references/data-bff.md`.
+- **Realtime** : back = hub + `RealtimeController` (canaux) → front = `RealtimeClient` + hooks `nodefony/react`. → `references/realtime-client.md`.
+- **RBAC** : rôles dérivés CÔTÉ SERVEUR, exposés dans le DTO ; le front les lit via `nodefony/roles` (cosmétique). → `references/isomorphic.md`.
 
 **RÈGLE** : une feature qui traverse back+front → MAJ **les deux skills dans la MÊME session**. Tu changes
 ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section jumelle de `nodefony-framework-dev`.
@@ -59,42 +59,43 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 - **qualité front** : ergonomie, temps réel « calme », a11y (WCAG/ARIA), perf CSS compositor-only.
 
 **Passer la main** :
-| Besoin | Skill |
-| --- | --- |
-| App Studio : UI kit (PageHeader/DataGrid/StatCard…), Mantine, MobX, pages, Twin, debugbar | `nodefony-studio-dev` |
-| Scaffolder un module front (React/Vue/Angular) | `nodefony-create-frontend-module` |
-| Back : controller, service, data plane, realtime serveur, ORM | `nodefony-framework-dev` |
-| Typer un truc tordu (utility types, génériques) | `nodefony-ts-docs` |
-| Revue sécurité d'un diff front | `nodefony-security-review` |
+
+| Besoin                                                                                    | Skill                             |
+| ----------------------------------------------------------------------------------------- | --------------------------------- |
+| App Studio : UI kit (PageHeader/DataGrid/StatCard…), Mantine, MobX, pages, Twin, debugbar | `nodefony-studio-dev`             |
+| Scaffolder un module front (React/Vue/Angular)                                            | `nodefony-create-frontend-module` |
+| Back : controller, service, data plane, realtime serveur, ORM                             | `nodefony-framework-dev`          |
+| Typer un truc tordu (utility types, génériques)                                           | `nodefony-ts-docs`                |
+| Revue sécurité d'un diff front                                                            | `nodefony-security-review`        |
 
 ## 2. 🚨 RÈGLES ABSOLUES front (non négociables)
 
-- **Frontière ISOMORPHE** : côté front, `nodefony` = lib **client** (`customConditions:["browser"]`) — **JAMAIS** importer un service serveur (kernel, ORM, http…). Types miroir locaux si besoin, pas d'import runtime serveur. (Détail → `reference/isomorphic.md`.)
+- **Frontière ISOMORPHE** : côté front, `nodefony` = lib **client** (`customConditions:["browser"]`) — **JAMAIS** importer un service serveur (kernel, ORM, http…). Types miroir locaux si besoin, pas d'import runtime serveur. (Détail → `references/isomorphic.md`.)
 - **Rendu = TEXTE toujours** : `<Text>`/équivalent ou composant typé, **jamais** `dangerouslySetInnerHTML`/`innerHTML` sur des données non maîtrisées. **0 secret** loggé/embarqué (le bundle front est public).
 - **RBAC front = cosmétique** : masquer/afficher selon les rôles du **DTO** (`hasRole` isomorphe) — l'autorité reste le SERVEUR (le front ne décode jamais un token, ne décide jamais l'accès).
-- **Perf = compositor-only** : animer **uniquement** `transform`/`opacity` (jamais `width`/`top`/`left` → reflow). `will-change`/`contain`/`content-visibility` à bon escient. (→ `reference/front-quality.md` + `reference/specs/`.)
+- **Perf = compositor-only** : animer **uniquement** `transform`/`opacity` (jamais `width`/`top`/`left` → reflow). `will-change`/`contain`/`content-visibility` à bon escient. (→ `references/front-quality.md` + `references/specs/`.)
 - **Temps réel CALME** (WCAG 2.2.2) : paliers ms↔s, `tabular-nums`, respecter `prefers-reduced-motion` (flashes → opacité douce). Test des 30 s : l'œil ne doit rien voir bouger sans raison.
 - **Socket PARTAGÉE** : 1 `RealtimeClient` par URL (singleton) ; canaux **ref-comptés** (subscribe au montage, unsubscribe au démontage) ; reconnect → re-subscribe auto. Ne JAMAIS ouvrir une 2ᵉ socket.
-- **a11y** : 1 seul `<h1>`, `aria-label` sur les icônes-boutons, `aria-expanded` sur les toggles, `aria-live` pour le live. (→ `reference/specs/w3c-wcag22.md` + `w3c-aria-apg-patterns.md`.)
+- **a11y** : 1 seul `<h1>`, `aria-label` sur les icônes-boutons, `aria-expanded` sur les toggles, `aria-live` pour le live. (→ `references/specs/w3c-wcag22.md` + `w3c-aria-apg-patterns.md`.)
 - **TS strict** : 0 `any`, 0 `@ts-ignore`. Gate `npm run typecheck` du module front AVANT de dire « fait ».
 
-## 3. Référence — `reference/` (chargé À LA DEMANDE)
+## 3. Référence — `references/` (chargé À LA DEMANDE)
 
 > Trouve ta tâche → lis le fichier indiqué (lui seul). Chaque fichier = API + mécanismes + gotchas, vérité
-> courante, ancrés au source. `reference/specs/` = best practices **bundlées offline** (0 réseau requis).
+> courante, ancrés au source. `references/specs/` = best practices **bundlées offline** (0 réseau requis).
 
 | Ta tâche                                                                                   | Lis ce fichier                                  |
 | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| Isomorphisme (`nodefony` front/back, `customConditions`, subpaths), `nodefony/roles` RBAC  | `reference/isomorphic.md`                       |
-| Socket client `RealtimeClient` + hooks `nodefony/react` (`useNodefony*`, canaux, identité) | `reference/realtime-client.md`                  |
-| Builder Vite + HMR (`@nodefony/frontend`, `registerEntry`, multi-bundle, prod, CDN)        | `reference/build-hmr.md`                        |
-| Consommer le data-plane BFF (`ApiClient`, `useResource`, session, RBAC, mutations)         | `reference/data-bff.md`                         |
-| Patterns d'écran (data-driven, live ref-compté, détail/drill) — framework-agnostique       | `reference/patterns.md`                         |
-| Ergonomie / temps réel calme / perf CSS / a11y / sécu front                                | `reference/front-quality.md`                    |
+| Isomorphisme (`nodefony` front/back, `customConditions`, subpaths), `nodefony/roles` RBAC  | `references/isomorphic.md`                      |
+| Socket client `RealtimeClient` + hooks `nodefony/react` (`useNodefony*`, canaux, identité) | `references/realtime-client.md`                 |
+| Builder Vite + HMR (`@nodefony/frontend`, `registerEntry`, multi-bundle, prod, CDN)        | `references/build-hmr.md`                       |
+| Consommer le data-plane BFF (`ApiClient`, `useResource`, session, RBAC, mutations)         | `references/data-bff.md`                        |
+| Patterns d'écran (data-driven, live ref-compté, détail/drill) — framework-agnostique       | `references/patterns.md`                        |
+| Ergonomie / temps réel calme / perf CSS / a11y / sécu front                                | `references/front-quality.md`                   |
 | Gotchas front (HMR, prébundle `.vite`, isomorphisme, socket)                               | section _Gotchas_ dans chaque fichier ci-dessus |
-| **Best practices bundlées OFFLINE** (ergonomie, a11y, perf)                                | `reference/specs/` (voir liste ci-dessous)      |
+| **Best practices bundlées OFFLINE** (ergonomie, a11y, perf)                                | `references/specs/` (voir liste ci-dessous)     |
 
-**`reference/specs/` (offline, ~870 Ko)** : `w3c-wcag22.md` (WCAG 2.2 complet) · `w3c-aria-apg-patterns.md`
+**`references/specs/` (offline, ~870 Ko)** : `w3c-wcag22.md` (WCAG 2.2 complet) · `w3c-aria-apg-patterns.md`
 (ARIA Authoring Practices) · `nng-10-heuristics.md` (Nielsen Norman — 10 heuristiques d'ergonomie) ·
 `webdev-animations-perf.md` (web.dev — animations performantes) · MDN CSS perf : `mdn-css-will-change.md`,
 `mdn-css-contain.md`, `mdn-css-content-visibility.md`, `mdn-prefers-reduced-motion.md`.

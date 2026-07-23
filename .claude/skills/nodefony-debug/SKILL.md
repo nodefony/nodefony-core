@@ -1,23 +1,19 @@
 ---
 name: nodefony-debug
-version: 1.1.0
+metadata:
+  version: 1.1.0
 description: >
-  Kit debug runtime de Nodefony — orchestrateur tight (triggers étroits) qui
-  référence `nodefony-framework-dev` (§4 Debug runtime + §11 RETEX) et délègue
-  aux micro-skills `nodefony-tail-error-logs`, `nodefony-check-memory-health`,
-  `nodefony-load-test`, `nodefony-frontend-verify`. Codifie 6 patterns debug
-  récurrents éprouvés en session : memory test flake (isolation = vérité),
-  diagnostic régression (baseline stash), fail intégration framework (1ʳᵉ
-  hypothèse serveur down), mélange runners historique, dépendance implicite
-  à `delete` (`for...in` consommateurs), ENOSPC fantôme du harness Bash.
-  Déclencheurs étroits (ne charge QUE quand un truc casse) : "ça crash",
-  "stack trace", "unhandledRejection", "fuite mémoire", "memory leak",
-  "race condition", "reproduce", "reproduire", "ne démarre plus",
-  "plante au Ctrl+C", "diagnostic régression", "baseline stash",
-  "memory test flake", "test flake", "useFakeTimers plante",
-  "for...in consommateurs", "delete vs undefined", "404 statics inexpliqué",
-  "59 fails framework sans serveur", "ECONNREFUSED tests", "ENOSPC",
-  "temp filesystem full", "grep échoue bizarrement".
+  Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir.
+  Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en
+  isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une
+  baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance
+  implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`,
+  `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-verify` ; la doctrine
+  préventive vit dans `nodefony-framework-dev`.
+  Déclencheurs : "ça crash", "stack trace", "unhandledRejection", "fuite mémoire", "memory leak",
+  "race condition", "reproduire", "ne démarre plus", "test rouge inexpliqué", "test flake",
+  "vert isolé rouge en suite", "ce test passe seul mais pas en suite", "diagnostic régression",
+  "baseline stash", "est-ce ma régression ?", "404 inexpliqué", "ECONNREFUSED tests", "ENOSPC".
 ---
 
 # nodefony-debug — kit debug runtime
@@ -30,15 +26,15 @@ Je me charge quand un symptôme runtime arrive : crash boot, fuite mémoire, rac
 
 ## 2. Quand passer la main (anti-overlap)
 
-| Symptôme                                                             | Skill cible                                                               |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Crash boot serveur, stack trace dans logs                            | `nodefony-tail-error-logs` (parse `/tmp/nodefony-server.log`)             |
-| Fuite mémoire suspectée (HTTP/WS heap delta)                         | `nodefony-check-memory-health` (run `npm run test:memory`, vitest)        |
-| Lenteur, charge, p99                                                 | `nodefony-load-test` (k6/autocannon orchestré)                            |
-| Modif front .tsx ne passe pas                                        | `nodefony-frontend-verify` (curl `/@fs/` + purge `.vite`)                 |
-| Debug runtime (boot child direct, hammer+SIGINT, repro pré-existant) | `nodefony-framework-dev` §4                                               |
-| RETEX bugs réels par symptôme                                        | `nodefony-framework-dev` §11 (kit vivant)                                 |
-| Design/refacto/build neuf                                            | `nodefony-framework-dev` (cœur backend) ou `nodefony-studio-dev` (Studio) |
+| Symptôme                                                            | Skill cible                                                               |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Crash boot serveur, stack trace dans logs                           | `nodefony-tail-error-logs` (parse `/tmp/nodefony-server.log`)             |
+| Fuite mémoire suspectée (HTTP/WS heap delta)                        | `nodefony-check-memory-health` (run `npm run test:memory`, vitest)        |
+| Lenteur, charge, p99                                                | `nodefony-load-test` (k6/autocannon orchestré)                            |
+| Modif front .tsx ne passe pas                                       | `nodefony-frontend-verify` (curl `/@fs/` + purge `.vite`)                 |
+| Boot enfant direct, arrêt qui pend, reproduction d'un crash au boot | `NODEFONY_DEV_CHILD=1` + `nodefony-start-server` (voir plus bas)          |
+| RETEX bugs réels par symptôme                                       | `nodefony-framework-dev` §11 (kit vivant)                                 |
+| Design/refacto/build neuf                                           | `nodefony-framework-dev` (cœur backend) ou `nodefony-studio-dev` (Studio) |
 
 ## 3. Les 5 recettes RETEX (session 2026-05-27)
 
@@ -193,7 +189,7 @@ Cas vécu : `project_service_base_improvements` point 3 (6 jours) suggérait `de
 
 ## 6. Références (anti-duplication, vérité unique)
 
-- **`nodefony-framework-dev` §4** : Debug runtime — boot enfant direct (`NODEFONY_DEV_CHILD=1`), hammer+SIGINT, lecture `PROMISE CHAIN BREAKING`.
+- **Boot enfant direct** : `NODEFONY_DEV_CHILD=1` court-circuite le superviseur pour voir le crash brut. La variable est lue par `src/nodefony/src/service/dev/DevSupervisor.ts` et `BootReporter.ts` (vérifié au code). Démarrage/arrêt → `nodefony-start-server`.
 - **`nodefony-framework-dev` §11** : RETEX (kit vivant — bugs réels symptôme→cause→fix).
 - **`nodefony-framework-dev` §2** : règles absolues perf+mémoire (à respecter en debug aussi).
 - **`feedback_session_pitfalls`** (mémoire IA) : pièges récurrents (dist périmé, Bun pour `@nodefony/llm`, etc.).

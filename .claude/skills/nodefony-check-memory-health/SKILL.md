@@ -1,11 +1,14 @@
 ---
 name: nodefony-check-memory-health
 description: >
-  Lance la suite de tests d'intégration mémoire de @nodefony/http (1000 GET séquentiels,
-  100 crashs sync/async, 100 connexions WS) et valide les seuils de Heap Delta Nodefony.
-  Indispensable avant tout commit touchant le Kernel, le DI Container ou le pipeline request.
-  Déclencheurs : "vérifier la mémoire", "memory leak", "test mémoire", "heap delta",
-  "fuite mémoire", "check memory", "perf mémoire serveur".
+  Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels,
+  100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE
+  quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie
+  fuite d'un flake d'isolation). Le CLAUDE.md donne la commande ; ce skill donne le protocole et
+  l'interprétation — le charger AVANT de lancer la commande, pas après un résultat rouge.
+  Déclencheurs : "vérifier la mémoire", "memory leak", "test mémoire", "heap delta", "fuite mémoire",
+  "gate mémoire", "j'ai touché au pipeline", "j'ai modifié le Kernel ou le Container",
+  "je vais commiter une modif http/framework", "le seuil mémoire a sauté", "heap qui monte".
 ---
 
 # check-memory-health

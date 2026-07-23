@@ -1,11 +1,16 @@
 ---
 name: nodefony-load-test
 description: >
-  Tests de charge / stress HTTP et WebSocket de Nodefony. Deux niveaux : suites Vitest versionnées
-  (config dédiée vitest.load.config.ts — non-régression de charge + sondes rupture derrière un flag) et scripts Node standalone pour
-  explorer les limites (plafond connexions WS, débit messages, RPS + percentiles). Prérequis : serveur dev UP.
-  Déclencheurs : "test de charge", "stress", "benchmark", "combien de connexions",
-  "jusqu'à la rupture", "RPS", "latence p99", "hammerer le serveur".
+  Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées
+  (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes
+  (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).
+  **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole
+  qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des
+  chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien).
+  Déclencheurs : "test de charge", "stress", "benchmark", "combien de connexions", "jusqu'à la
+  rupture", "RPS", "latence p99", "est-ce que ça tient la charge ?", "combien de pods ?",
+  "c'est plus rapide ?", "quel est l'impact perf de ce changement ?", "mesurer avant/après",
+  "dimensionner", "prouver que c'est plus rapide".
 ---
 
 # load-test

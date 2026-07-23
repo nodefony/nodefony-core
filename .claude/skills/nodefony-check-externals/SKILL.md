@@ -4,9 +4,11 @@ description: >
   Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de
   chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build
   type @node-rs/bcrypt) et les entrées external périmées. Anti-duplication : la même liste est
-  maintenue à la main à deux endroits → dérive garantie. Déclencheurs : "check externals",
-  "audit externals", "external rolldown", "peerDeps externalisées", "duplication external",
-  "vérifie les external", "le bundler avale un peerDep".
+  maintenue à la main à deux endroits → dérive garantie. À charger avant une publication npm ou
+  devant un échec de build qui parle d'un paquet natif ou d'un module introuvable à l'exécution.
+  Déclencheurs : "check externals", "audit externals", "external rolldown", "peerDeps externalisées",
+  "duplication external", "vérifie les external", "le bundler avale un peerDep", "avant de publier
+  sur npm", "erreur de build sur une dépendance native", "module introuvable au runtime".
 ---
 
 # nodefony-check-externals

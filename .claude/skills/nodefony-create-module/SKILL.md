@@ -6,8 +6,11 @@ description: >
   + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`. Dans une APPLICATION, le
   scaffold d'un module est une commande — `nodefony create module <nom>` — et ce skill s'y délègue au
   lieu de la réimplémenter (une seule source de templates).
+  À charger AVANT d'écrire le moindre fichier d'un module neuf : recomposer le squelette à la main
+  produit un module non conforme (types, exports, config, docs) que rien ne signale.
   Déclencheurs : "crée un module", "scaffold module", "nouveau module nodefony", "génère un module",
-  "create module", "bootstrap module", "module @nodefony/...".
+  "create module", "bootstrap module", "module @nodefony/...", "j'ai besoin d'un nouveau paquet",
+  "ajouter un module au framework", "structure d'un module neuf".
 ---
 
 # nodefony-create-module
@@ -22,10 +25,10 @@ dans `CLAUDE.md` racine et observées sur les modules existants (`@nodefony/http
 Le scaffold d'un module d'**application** vit maintenant dans le **CLI**. Ce skill ne le
 réimplémente PAS : deux scaffolders qui divergent, c'est le bug que ce projet a déjà payé.
 
-| Cible                                                           | Qui scaffolde                                                             |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Module d'une **APP** (`modules/<nom>/` d'un projet utilisateur) | **`nodefony create module <nom>`** — le CLI. Ce skill DÉLÈGUE.            |
-| Package **`@nodefony/*` du repo framework** (`src/packages/`)   | Ce skill (templates de `reference/templates.md`) — le CLI ne le fait pas. |
+| Cible                                                           | Qui scaffolde                                                              |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Module d'une **APP** (`modules/<nom>/` d'un projet utilisateur) | **`nodefony create module <nom>`** — le CLI. Ce skill DÉLÈGUE.             |
+| Package **`@nodefony/*` du repo framework** (`src/packages/`)   | Ce skill (templates de `references/templates.md`) — le CLI ne le fait pas. |
 
 **Cas APP → lancer la commande, ne rien recopier à la main :**
 
@@ -125,7 +128,7 @@ mkdir -p src/packages/@nodefony/{name}/nodefony/entity
 mkdir -p src/packages/@nodefony/{name}/frontend/src
 ```
 
-### 3. Génération des fichiers (utiliser Write tool — templates dans `reference/templates.md`)
+### 3. Génération des fichiers (utiliser Write tool — templates dans `references/templates.md`)
 
 Variables à remplacer dans tous les templates :
 
@@ -243,7 +246,7 @@ Module @nodefony/{{name}} créé.
 
 > 📄 Tous les templates (package.json, tsconfig, rolldown, index.ts, services, errors, command,
 > controller, CLAUDE.md, MEMORY.md, README.md) sont dans
-> **[`reference/templates.md`](reference/templates.md)** — les charger au moment de l'étape 3.
+> **[`references/templates.md`](references/templates.md)** — les charger au moment de l'étape 3.
 > Conventions figées : TS strict, ESM-only, named exports, préfixe `node:`, interfaces `I*`,
 > emitDecoratorMetadata + experimentalDecorators, declarationDir `./dist/types`.
 

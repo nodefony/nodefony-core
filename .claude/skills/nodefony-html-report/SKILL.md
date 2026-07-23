@@ -6,7 +6,7 @@ description: Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN)
 # nodefony-html-report
 
 > **Maintenance** : ce fichier décrit la vérité COURANTE. Éditer en place, jamais de journal daté
-> (l'historique = `git log`). Une leçon durable se fond en RÈGLE ici ou dans `reference/`.
+> (l'historique = `git log`). Une leçon durable se fond en RÈGLE ici ou dans `references/`.
 
 Fabrique des **rapports HTML autonomes**. Le livrable est un fichier `.html` unique — pas de CDN, pas
 de `node_modules`, pas de serveur : il survit à un partage de fichiers, une pièce jointe, un artefact
@@ -158,12 +158,11 @@ doc({ brand: null }); // document neutre
 
 ## Index des références (charger à la demande)
 
-| Fichier                                                    | Contenu                                                                                                          |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| [`reference/print-pdf.md`](reference/print-pdf.md)         | Impression : `@page`, sauts de page, en-têtes répétés, numéros de page, pièges par navigateur                    |
-| [`reference/ergonomie.md`](reference/ergonomie.md)         | Ergonomie et dataviz : hiérarchie de l'information, choix du graphe, échelles, accessibilité, erreurs classiques |
-| [`reference/interactivite.md`](reference/interactivite.md) | Glisser-déposer, onglets, filtres, export, deck, `<dialog>`, ce qui est réellement utilisable sans polyfill      |
-| [`reference/html-vs-md.md`](reference/html-vs-md.md)       | Pourquoi HTML pour un humain, Markdown pour un outil — et ce que ça change quand c'est une IA qui génère         |
+| Fichier                                                | Contenu                                                                                                          |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| [`references/print-pdf.md`](references/print-pdf.md)   | Impression : `@page`, sauts de page, en-têtes répétés, numéros de page, pièges par navigateur                    |
+| [`references/ergonomie.md`](references/ergonomie.md)   | Ergonomie et dataviz : hiérarchie de l'information, choix du graphe, échelles, accessibilité, erreurs classiques |
+| [`references/html-vs-md.md`](references/html-vs-md.md) | Pourquoi HTML pour un humain, Markdown pour un outil — et ce que ça change quand c'est une IA qui génère         |
 
 ## Exemple vivant
 

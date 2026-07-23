@@ -15,7 +15,7 @@ description: >
 **Wrapper** de `nodefony-create-module` — ne duplique AUCUN template déjà géré par lui.
 Crée un **module applicatif** (`src/modules/{nom}/`) embarquant un frontend **React 19 / Vue 3 / Angular 21**
 servi par `@nodefony/frontend` (mono-supervisor Vite). Tout ce qui est commun aux 3 frameworks est ici ;
-le spécifique par framework est dans **[`reference/frameworks.md`](reference/frameworks.md)**.
+le spécifique par framework est dans **[`references/frameworks.md`](references/frameworks.md)**.
 
 ## 🚦 DEUX CAS — ne pas confondre (lire AVANT toute génération)
 
@@ -53,7 +53,7 @@ hard-reload), et l'explication du POURQUOI. Jamais la mécanique.
 ## Phase 0 — Choisir le framework + variables
 
 1. **Framework** = arg ou question : `react` (défaut) · `vue` · `angular`. Charge la colonne correspondante
-   de la table ci-dessous + `reference/frameworks.md`.
+   de la table ci-dessous + `references/frameworks.md`.
 2. Variables (calculées une fois) :
    - `MOD` = nom kebab-case (ex `shop-front`)
    - `MOD_PASCAL` = PascalCase (ex `ShopFront`) — classe Module + className controller
@@ -73,7 +73,7 @@ hard-reload), et l'explication du POURQUOI. Jamais la mécanique.
 | Preamble HMR injecté   | **oui** (auto via `renderTags`)   | non                             | non (HMR = reload)                                       |
 | Module de référence    | `src/modules/test-frontend-react` | `src/modules/test-frontend-vue` | `src/modules/test-frontend-angular`                      |
 
-> Détails (templates entry/App, tsconfig Angular, gotchas Angular) → **[`reference/frameworks.md`](reference/frameworks.md)**.
+> Détails (templates entry/App, tsconfig Angular, gotchas Angular) → **[`references/frameworks.md`](references/frameworks.md)**.
 > Les 3 modules de référence sont **canoniques** : toujours s'en inspirer pour le résultat attendu.
 
 ## Pré-requis
@@ -183,7 +183,7 @@ export default {MOD_PASCAL}Controller;
 
 ### 2.5 Fichiers frontend (entry + App)
 
-Templates par framework dans **[`reference/frameworks.md`](reference/frameworks.md)**.
+Templates par framework dans **[`references/frameworks.md`](references/frameworks.md)**.
 Pour un résultat riche, copier/adapter depuis le module de référence (`src/modules/test-frontend-{fw}/frontend/`).
 
 ## Phase 3 — Build + validation
@@ -247,7 +247,7 @@ path.join(this.path, "dist", "frontend") }).mount(container, kernel)` + exposer
 6. **Placeholders** : remplacer `{MOD}`, `{MOD_PASCAL}`, `{ROUTE}`, `{TYPE}`, `{ENTRY}`, `{MOUNT_NODE}`, `{HTTPS_VITE}` AVANT le Write.
 
 > Pièges **spécifiques React** (preamble) et **Angular** (`--legacy-peer-deps`, external rolldown, tsconfig.app,
-> `useDefineForClassFields:false`, HMR=reload) → **[`reference/frameworks.md`](reference/frameworks.md)**.
+> `useDefineForClassFields:false`, HMR=reload) → **[`references/frameworks.md`](references/frameworks.md)**.
 
 ## Skills & références liés
 

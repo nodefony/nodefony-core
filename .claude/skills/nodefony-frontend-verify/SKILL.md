@@ -1,6 +1,7 @@
 ---
 name: nodefony-frontend-verify
-version: 1.0.0
+metadata:
+  version: 1.0.0
 description: >
   Vérifie une modif frontend Studio (ou tout module Vite) SANS navigateur headless
   (règle projet) : curl du transform Vite d'un fichier .tsx pour valider la

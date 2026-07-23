@@ -1,6 +1,7 @@
 ---
 name: nodefony-studio-dev
-version: 2.0.0
+metadata:
+  version: 2.0.0
 description: >
   Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du
   framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le
@@ -18,13 +19,13 @@ description: >
 
 > Playbook **déterministe** : produis un écran Studio (page / dashboard / panneau / onglet) **cohérent,
 > accessible, perf** sans ré-explorer le code. Signatures, chemins et recettes sont ici (corps) + dans
-> `reference/` (chargé à la demande). Studio = `src/packages/@nodefony/studio/frontend` (React 19 +
+> `references/` (chargé à la demande). Studio = `src/packages/@nodefony/studio/frontend` (React 19 +
 > Mantine **v9** + MobX 6 + React Router 7 + TanStack Table 8). Racine module : `src/packages/@nodefony/studio`.
 >
 > **MAINTENANCE (lire avant d'éditer ce skill)** : ce skill décrit la **vérité courante**, pas un journal.
 > Mettre à jour = **éditer la section concernée en place**. **Pas de changelog ni de retex daté** ici —
-> l'historique vit dans `git log`. Une leçon durable se **fond en règle** dans `reference/gotchas-studio.md`.
-> Le **détail** (UI kit, recettes, Twin, realtime, back) vit dans `reference/*.md` (progressive disclosure)
+> l'historique vit dans `git log`. Une leçon durable se **fond en règle** dans `references/gotchas-studio.md`.
+> Le **détail** (UI kit, recettes, Twin, realtime, back) vit dans `references/*.md` (progressive disclosure)
 > — garder ce fichier **< 350 lignes**. Avancement/phases/roadmap = `MIGRATION_STATUS.md` **uniquement**.
 
 > **Périmètre** : mécanismes front **généraux** (isomorphisme, socket `RealtimeClient` + hooks `nodefony/react`,
@@ -75,7 +76,7 @@ serveur**, **subpath Core isomorphe** (`nodefony/*`).
 
 - **🔎 VÉRIFIER L'EXISTANT AVANT DE CODER** (priorité #1) : avant de hand-roller un composant/une primitive UI
   (tableau, filtre, tri, pagination, autocomplete, popover…), CHERCHER s'il existe déjà, dans cet ordre : (1)
-  **UI kit Studio** (`components/ui/` → `reference/ui-kit.md`) ; (2) **`@mantine/core`** ; (3) **deps déjà
+  **UI kit Studio** (`components/ui/` → `references/ui-kit.md`) ; (2) **`@mantine/core`** ; (3) **deps déjà
   installées** (`@tanstack/react-table` = tableau headless standard, déjà là) ; (4) en dernier recours une dep
   éprouvée (⚠ compat Mantine **v9** + React **19**). `grep` le `package.json` + `components/ui/` avant de créer.
 - **🚨 Frontière isomorphe — JAMAIS de code/données SERVEUR dans le bundle client** : `frontend/src` n'importe AUCUN
@@ -83,7 +84,7 @@ serveur**, **subpath Core isomorphe** (`nodefony/*`).
   type serveur → **type miroir local** (pas d'import runtime). Le SEUL pont front↔serveur = le **data plane**
   `/nodefony/<module>/api/*` (JSON, secrets redactés CÔTÉ serveur). Détail → `nodefony-frontend-dev` (`isomorphic.md`).
 - **🔒 Sécurité (Zero Trust, priorité permanente)** : toute API admin exige `ROLE_NODEFONY_ADMIN` → 403 sinon
-  (firewall RÉEL, session BFF — pas un guard front, cf `reference/backend-studio.md`). Rendu de données non maîtrisées
+  (firewall RÉEL, session BFF — pas un guard front, cf `references/backend-studio.md`). Rendu de données non maîtrisées
   → **TEXTE** (`<Text>`/`<Code>`/`<JsonViewer>`), JAMAIS `dangerouslySetInnerHTML` ni `rehype-raw`. 0 secret affiché/
   loggé. Liens externes → `rel="noreferrer noopener"`. Avant tout commit → diff au skill **`nodefony-security-review`**.
 - **🟢 Aide contextuelle ⓘ DYNAMIQUE** : tout contrôle non trivial (filtre, toggle, tri, métrique) porte une bulle
@@ -118,20 +119,20 @@ src/packages/@nodefony/studio/
 
 **Partition du namespace `/nodefony` (FIGÉE)** : UI SPA (humain) = **mono-segment** `/nodefony` + `/nodefony/{page}`
 porté par Studio ; data plane (machine) = `/nodefony/<module>/api/*` (**≥3 segments**, marqueur `/api/`) porté par
-CHAQUE module propriétaire. Un module n'expose JAMAIS une route admin mono-segment. Détail → `reference/backend-studio.md`.
+CHAQUE module propriétaire. Un module n'expose JAMAIS une route admin mono-segment. Détail → `references/backend-studio.md`.
 
-## 4. Référence — `reference/` (chargé À LA DEMANDE)
+## 4. Référence — `references/` (chargé À LA DEMANDE)
 
-> Trouve la ligne qui matche ta tâche → lis le fichier `reference/…` indiqué (lui seul). Mettre à jour = éditer en place.
+> Trouve la ligne qui matche ta tâche → lis le fichier `references/…` indiqué (lui seul). Mettre à jour = éditer en place.
 
-| Ta tâche                                                                                                                                                                                                           | Lis ce fichier                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
-| **Construire un écran** : API exacte du UI kit + DataGrid (+ règle hauteur), stores MobX, hooks `nodefony/react`, recette route/lazy/navConfig/fallback, squelettes (données/live/détail), divulgation progressive | `reference/ui-kit.md`          |
-| **Realtime Studio** : ajouter un canal, hub UI, log protocole, **PATRON sondes back + abonnement hub** (observabilité)                                                                                             | `reference/realtime-studio.md` |
-| **Back-end Studio** : controller, data plane, **auth firewall réel**, realtime serveur (push WS), partition namespace, cycle de build, piège cluster                                                               | `reference/backend-studio.md`  |
-| **Jumeau Vivant (Twin)** : carte d'archi runtime data-driven, modèle/rendu/nav, recettes de forage                                                                                                                 | `reference/twin.md`            |
-| **Debug bar** (`nodefony/debugbar`, vanilla TS + Shadow DOM, ≠ React)                                                                                                                                              | `reference/debugbar.md`        |
-| **Gotchas Studio** (sticky structurel, hydratation `<p>`, DataGrid, rôles, workspace, pont socket, extraction grosse page…)                                                                                        | `reference/gotchas-studio.md`  |
+| Ta tâche                                                                                                                                                                                                           | Lis ce fichier                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| **Construire un écran** : API exacte du UI kit + DataGrid (+ règle hauteur), stores MobX, hooks `nodefony/react`, recette route/lazy/navConfig/fallback, squelettes (données/live/détail), divulgation progressive | `references/ui-kit.md`          |
+| **Realtime Studio** : ajouter un canal, hub UI, log protocole, **PATRON sondes back + abonnement hub** (observabilité)                                                                                             | `references/realtime-studio.md` |
+| **Back-end Studio** : controller, data plane, **auth firewall réel**, realtime serveur (push WS), partition namespace, cycle de build, piège cluster                                                               | `references/backend-studio.md`  |
+| **Jumeau Vivant (Twin)** : carte d'archi runtime data-driven, modèle/rendu/nav, recettes de forage                                                                                                                 | `references/twin.md`            |
+| **Debug bar** (`nodefony/debugbar`, vanilla TS + Shadow DOM, ≠ React)                                                                                                                                              | `references/debugbar.md`        |
+| **Gotchas Studio** (sticky structurel, hydratation `<p>`, DataGrid, rôles, workspace, pont socket, extraction grosse page…)                                                                                        | `references/gotchas-studio.md`  |
 
 ## 5. Gates qualité (AVANT commit — l'ordre compte)
 
@@ -148,7 +149,7 @@ cd src/packages/@nodefony/studio && npm run typecheck     # gate front = exit 0 
 5. **Hard-reload** `https://127.0.0.1:5152/nodefony` (cache React) → confirmation **visuelle user** (pas de headless — règle projet).
 
 > Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. **Fin de session Studio** : fondre les nouvelles
-> leçons en règles dans `reference/gotchas-studio.md` (jamais un journal daté) ; un fait isolé → mémoire IA dédiée.
+> leçons en règles dans `references/gotchas-studio.md` (jamais un journal daté) ; un fait isolé → mémoire IA dédiée.
 
 ## Réfs (CLAUDE.md/MEMORY.md — détails)
 

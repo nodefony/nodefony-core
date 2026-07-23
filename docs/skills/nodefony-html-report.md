@@ -1,0 +1,87 @@
+---
+title: "nodefony-html-report — fiche de skill"
+lang: fr
+audience: humain
+generated: scripts/skills-doc.mjs
+source: ".claude/skills/nodefony-html-report/SKILL.md"
+---
+
+# `nodefony-html-report`
+
+> Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.
+
+📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-html-report**
+
+> [!NOTE]
+> Fiche **générée** par `scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
+> corriger le skill, puis régénérer.
+
+|                          |                                |
+| ------------------------ | ------------------------------ |
+| Version                  | — (non versionné)              |
+| Corps                    | 174 lignes                     |
+| Description              | 935 / 1024 caractères          |
+| Déclencheurs             | 11                             |
+| Ressources `references/` | 3 page(s), 9 fichiers au total |
+| Scripts                  | 3                              |
+| Conformité               | ✅ conforme au standard        |
+
+## Ce qu'il fait
+
+Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés. Fournit une bibliothèque de rendu (`lib/report.mjs`) : graphes SVG (barres, courbes, nuage+régression, waterfall, heatmap, jauge, donut, sparkline), tableaux triables/filtrables, calculateurs interactifs, listes réordonnables par glisser-déposer, onglets, mode présentation, export CSV — et une impression PDF soignée (sauts de page maîtrisés, en-têtes de tableau répétés, hypothèses figées). À utiliser dès qu'un livrable doit être LU, MANIPULÉ ou IMPRIMÉ par une personne, plutôt que relu par un outil.
+
+## Quand il se déclenche
+
+Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
+
+`rapport HTML` · `générer un rapport` · `rapport imprimable` · `rapport PDF` · `dashboard statique` · `restituer des mesures` · `page de résultats` · `graphe sans dépendance` · `calculateur interactif` · `deck de présentation` · `export CSV`
+
+## Ce que contient le corps
+
+- Quand l'utiliser — et quand NE PAS
+- Règle d'or
+- Processus (5 étapes)
+- La bibliothèque — `lib/report.mjs`
+- La marque (logo)
+- Checklist qualité (à passer AVANT de livrer)
+- Anti-patterns
+- Index des références (charger à la demande)
+- Exemple vivant
+
+## Références (chargées à la demande)
+
+- `references/ergonomie.md`
+- `references/html-vs-md.md`
+- `references/print-pdf.md`
+- _(+ 6 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne)_
+
+## Scripts embarqués
+
+Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
+script, donc toujours à jour après régénération.
+
+| Script             | Rôle                                                              | Options                                                                                            | Variables d'environnement             |
+| ------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `scripts/demo.mjs` | demo.mjs — vitrine ET test de non-régression de `lib/report.mjs`. | `--accent`                                                                                         | `OUT`                                 |
+| `lib/brand.mjs`    | brand.mjs — identité visuelle d'un rapport (logo, nom, couleurs). | —                                                                                                  | —                                     |
+| `lib/report.mjs`   | report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes.    | `--accent` `--bg` `--card` `--dim` `--fg` `--line` `--note-bg` `--note-fg` `--warn-bg` `--warn-fg` | `CSS` `PRINT_JS` `SORT_JS` `THEME_JS` |
+
+**Invocation telle que documentée dans chaque script :**
+
+```bash
+node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html
+```
+
+**Toutes les variables lues par ce skill** : `CSS` · `OUT` · `PRINT_JS` · `SORT_JS` · `THEME_JS`
+
+## Conformité au standard Agent Skills
+
+| Contrôle                                  | État | Mesure |
+| ----------------------------------------- | :--: | ------ |
+| name conforme et égal au dossier          |  ✅  |        |
+| description de 1 à 1024 caractères        |  ✅  | 935    |
+| aucun champ hors standard                 |  ✅  |        |
+| dossier de ressources nommé `references/` |  ✅  |        |
+| corps < 500 lignes (recommandation)       |  ✅  | 174    |
+
+Le détail du standard et la méthode de mesure : [Outillage agents](../outillage-agents.md).

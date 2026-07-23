@@ -1,6 +1,6 @@
 ---
 name: nodefony-multipod-bench
-description: Monte un banc MULTI-PODS réel de Nodefony — plusieurs applications distinctes partageant un bus Redis — pour prouver un comportement cluster que les tests unitaires ne voient pas : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout. Fournit le décor (Redis docker, apps générées liées au framework, ports dédiés), les scripts de mesure (client WebSocket, latence, charge, coût de publication, forge d'enveloppe scellée), la matrice d'attaque du backplane et les pièges de lancement multi-instances. Déclencheurs : "banc multi-pods", "tester en cluster", "cross-pod", "deux apps", "plusieurs pods", "injection backplane", "bus Redis partagé", "fan-out cross-pod", "latence cross-pod", "prouver en réel", "namespace realtime", "backplane secret".
+description: Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout. Fournit le décor (Redis docker, apps liées au framework, ports dédiés), les scripts de mesure (latence, charge, coût de publication, forge d'enveloppe scellée), la matrice d'attaque du backplane et les pièges du lancement multi-instances. À charger AVANT de monter le décor ou de lancer un script : sans le protocole, un banc saturé mesure un backlog et non une latence, et une infra éteinte en route rend les tests silencieusement verts. Déclencheurs : "banc multi-pods", "tester en cluster", "cross-pod", "deux apps", "plusieurs pods", "injection backplane", "bus Redis partagé", "fan-out cross-pod", "prouver en réel", "backplane secret", "est-ce que ça marche à plusieurs instances ?", "les apps sont-elles cloisonnées ?".
 ---
 
 # nodefony-multipod-bench — prouver le cluster en vrai
@@ -54,7 +54,7 @@ dossier depuis lequel il a été créé).
 applications se retrouvent volontairement sur le même canal Redis. On retire ainsi la séparation
 par nom d'application, pour ne tester **que** l'authenticité des messages.
 
-**Un controller de banc** (`reference/controller.md`, recopié par `setup.sh` — source unique) : un
+**Un controller de banc** (`references/controller.md`, recopié par `setup.sh` — source unique) : un
 canal diffusable, une route de publication, une route de rafale, une sonde. Tout est pilotable au
 `curl`, sans navigateur.
 
@@ -137,7 +137,7 @@ Les deux étaient invisibles en test unitaire, où l'on appelle toujours `markBr
 
 ## Liens
 
-- [`reference/pieges.md`](reference/pieges.md) — les pièges de lancement et de mesure, avec leur symptôme
-- [`reference/controller.md`](reference/controller.md) — le controller du banc, prêt à coller
+- [`references/pieges.md`](references/pieges.md) — les pièges de lancement et de mesure, avec leur symptôme
+- [`references/controller.md`](references/controller.md) — le controller du banc, prêt à coller
 - `nodefony-load-test` — charge d'un seul pod (connexions, RPS, rupture)
 - `nodefony-start-server` — le serveur de développement du repo (≠ pods du banc)

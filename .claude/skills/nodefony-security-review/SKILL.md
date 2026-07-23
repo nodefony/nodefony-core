@@ -1,19 +1,16 @@
 ---
 name: nodefony-security-review
 description: >
-  Hub SÉCURITÉ de Nodefony, deux modes. Mode REVIEW : passe de conformité sécurité + normes + RFC
-  sur un diff AVANT commit (injection bindée, secrets/credentials hors logs, RFC HTTP/WS/cookies/CORS,
-  Zero Trust 403, JWT stateless, crypto mot de passe, zéro any). Mode RED/BLUE-TEAM : campagne de tests
-  d'attaque sur une brique en 2 PASSES (passe 1 threat-first = matrice d'attaque depuis OWASP/RFC AVANT
-  de lire le code, anti-biais, trouve les failles ; passe 2 code-first = lire l'implémentation + couvrir
-  le reste des branches), avec le cycle red→blue (faille trouvée → corrigée → re-prouvée). Objectif :
-  Nodefony = référence du dev (classique + agentic). Le mode RED/BLUE-TEAM CONÇOIT des attaques propres
-  à l'architecture du framework (pipeline HTTP+WS partagé, token dans l'ALS, pont api.request, channels
-  WS, firewall zones/bypass, scopes DI, trust-proxy) — pas seulement des attaques OWASP génériques — et
-  produit un RAPPORT précis par vecteur. Déclencheurs : "revue sécurité", "audit sécurité", "security
-  review", "conformité RFC du diff", "check sécurité avant commit", "c'est safe ?", "vérifie la sécurité",
-  "red-team", "blue-team", "matrice d'attaque", "test d'attaque", "tester les attaques", "concevoir une
-  attaque", "attaquer le framework", "durcir la sécurité", "pentest", "attaquer cette brique".
+  Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée,
+  secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any).
+  RED/BLUE-TEAM : campagne d'attaque sur une brique en 2 passes — threat-first (matrice depuis OWASP/RFC
+  AVANT de lire le code, anti-biais) puis code-first (couvrir les branches restantes) — avec le cycle
+  faille trouvée → corrigée → re-prouvée, et un rapport par vecteur. Conçoit des attaques propres à
+  l'architecture (pipeline HTTP+WS partagé, token dans l'ALS, pont api.request, canaux WS, zones et
+  bypass du firewall, scopes DI, trust-proxy), pas seulement des attaques OWASP génériques.
+  Déclencheurs : "revue sécurité", "audit sécurité", "security review", "check sécurité avant commit",
+  "c'est safe ?", "vérifie la sécurité", "red-team", "blue-team", "matrice d'attaque", "test d'attaque",
+  "attaquer le framework", "attaquer cette brique", "durcir la sécurité", "pentest".
 ---
 
 # nodefony-security-review

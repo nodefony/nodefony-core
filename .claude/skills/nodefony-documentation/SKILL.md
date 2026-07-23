@@ -1,28 +1,20 @@
 ---
 name: nodefony-documentation
-version: 2.3.0
+metadata:
+  version: 2.3.0
 description: >
-  Kit de dev de la DOCUMENTATION Nodefony — le portail doc Studio (`/nodefony/documentation`)
-  et le futur module `@nodefony/documentation`. Concern TRANSVERSE (ni purement front, ni purement
-  back) : briques React réutilisables (DocLayout = layout docs-site 3 colonnes, DocToc = sommaire +
-  scrollspy, MarkdownDoc = markdown + Mermaid + ancres, FlowGraph = graphe React Flow/dagre,
-  SymbolGraph = graphe de classes), règles de mise en page docs-site (0 magic number via layout.ts,
-  sidebars sticky + 1 seul scroll), data plane `/nodefony/documentation/api/{tree,page/:slug}`
-  (allowlist anti-traversée), design figé du module final (index transverse, providers `{{ }}`,
-  versioning par tags git, frontmatter `audience`, RBAC P6) et conventions d'écriture (ADR-0001
-  emplacement hybride, vulgarisation). NE couvre PAS les écrans Studio génériques (→ nodefony-studio-dev)
-  ni la création back from scratch (→ nodefony-create-module / nodefony-framework-dev).
-  Porte AUSSI le SYSTÈME D'ÉCRITURE de la doc de référence : standard `reference/redaction-contenu.md`
-  (Diátaxis, intro obligatoire, ancres symboliques, Démarrage rapide compilable, navigation par hubs
-  avec fil d'Ariane) + outillage `scripts/` (doc-lint DoD bloquante — sections, navigation, liens
-  morts —, anchor-check exactitude des ancres vers le code, anchor-inpage ancres internes d'une page,
-  code-check compilation du Démarrage rapide, gen-counters compteurs de tests réels, build-preview
-  aperçu HTML fidèle Studio).
-  Déclencheurs : "portail doc", "doc portal", "DocLayout", "@nodefony/documentation", "MarkdownDoc",
-  "DocToc", "sommaire de doc", "scrollspy doc", "FlowGraph", "page de documentation Studio",
-  "écrire la doc dans Studio", "module documentation", "layout docs-site", "rendre du markdown Studio",
-  "écrire une page de doc", "doc de référence", "standard de rédaction", "doc-lint", "anchor-check",
-  "ancre symbolique", "démarrage rapide", "corpus doc", "reprendre la doc".
+  Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module
+  `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph),
+  mise en page docs-site, data plane avec allowlist anti-traversée. (2) Le SYSTÈME D'ÉCRITURE de la
+  doc de référence : standard de rédaction (Diátaxis, ancres symboliques, Démarrage rapide
+  compilable, navigation par hubs) et ses gates `scripts/` — doc-lint, anchor-check, code-check,
+  gen-counters, build-preview. Ni les écrans Studio génériques (→ nodefony-studio-dev), ni la
+  création back (→ nodefony-create-module).
+  Déclencheurs : "portail doc", "DocLayout", "@nodefony/documentation", "MarkdownDoc", "DocToc",
+  "page de documentation Studio", "écrire la doc dans Studio", "écrire une page de doc",
+  "doc de référence", "standard de rédaction", "doc-lint", "anchor-check", "corpus doc",
+  "reprendre la doc", "avant de rédiger une doc", "la doc dit-elle encore vrai ?",
+  "corriger un écart doc↔code".
 ---
 
 # nodefony-documentation — kit doc (portail Studio + module futur)
@@ -195,7 +187,7 @@ a 8 pages, et un menu plat de 40 entrées n'enseigne rien. La navigation du port
 
 1. **Les hubs** (`<module>/docs/index.md`) = **bureaux de travail** : parcours guidés par profil +
    catalogue en **cards cliquables** (une card = une page, avec le problème qu'elle résout et quand
-   la lire). Gabarit imposé : standard `reference/redaction-contenu.md` §8bis-index. C'est le chemin
+   la lire). Gabarit imposé : standard `references/redaction-contenu.md` §8bis-index. C'est le chemin
    NORMAL d'entrée dans un module — pas le menu.
 2. **La recherche** (`navSearch` du `DocLayout`) : traiter en première classe, pas en décoration —
    c'est le raccourci de qui sait ce qu'il cherche. Elle doit porter sur les **titres ET le corps**
@@ -379,7 +371,7 @@ Réf complète (étude de faisabilité) : [[project_doc_portal_faisabilite]].
 
 ## Écriture de la doc (contenu) — LE SYSTÈME COMPLET
 
-> **Standard intégral** : [`reference/redaction-contenu.md`](reference/redaction-contenu.md) — LIRE
+> **Standard intégral** : [`references/redaction-contenu.md`](references/redaction-contenu.md) — LIRE
 > AVANT d'écrire une page (intro §8 obligatoire, analyse §8bis par brique, complétude §8quater,
 > exemples d'usage §8sexies, Definition of Done §8quinquies). Ce qui suit est le résumé opératoire.
 
@@ -605,7 +597,7 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
     `prefers-reduced-motion`) — `MarkdownDoc.tsx` doit rattraper cette parité.
 - **2.0.0** (2026-07-19) — **Le skill devient le foyer du SYSTÈME D'ÉCRITURE de la doc de référence**
   (reprise du corpus cloud, retours user : ancres illisibles/décalées, pas d'exemples). Nouveau :
-  `reference/redaction-contenu.md` (standard intégral §8→§8sexies) + `scripts/` = doc-lint (DoD
+  `references/redaction-contenu.md` (standard intégral §8→§8sexies) + `scripts/` = doc-lint (DoD
   bloquante), **anchor-check** (exactitude des ancres contre le code réel — 19/283 décalées trouvées),
   **gen-counters** v2 (compteurs COMPTÉS depuis `test-map.json`, fin des photos hardcodées),
   build-preview (provenance git réelle, artefacts → `tmp/doc-work/`). 3 règles nouvelles au standard :
