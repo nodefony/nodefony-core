@@ -209,4 +209,8 @@ if (deadRefs.length) {
 }
 console.log("");
 
-process.exit(STRICT && (orphan.length || deadRefs.length) ? 1 : 0);
+// `--strict` échoue sur les TROIS anomalies. La première version ignorait « à déplacer », et un
+// contrôle négatif l'a montré : une sonde classée à déplacer laissait le gate vert.
+process.exit(
+  STRICT && (orphan.length || deadRefs.length || move.length) ? 1 : 0,
+);
