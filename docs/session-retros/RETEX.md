@@ -25,6 +25,10 @@
 - `[1× — 2026-07-24]` **Le défaut d'un script de banc peut être périmé alors que la bonne cible existe.** Je mesurais sur `/nodefony/kernel/api/livez` — qui traverse EN PLUS la zone firewall, un authenticator, le broker admin et appelle `getBootReport()`. Le user a rappelé qu'une route avait été faite EXPRÈS (`/nodefony/kernel/bench`, corps figé, hors aire admin, flag `NF_BENCH_ROUTE=1`). **Avant de mesurer : chercher si une cible dédiée existe** — sinon on chiffre l'étage d'à côté. Figé depuis dans le skill + posé par le script.
 - `[1× — 2026-07-24]` **Un symbole introuvable à l'import = symbole DÉPLACÉ, pas runtime cassé.** Cinq bancs cluster importaient `RealtimeHub`/`ClusterBackplane` de `@nodefony/framework` ; tout est passé dans `@nodefony/realtime`. `.ai/symbols.json` (`.symbols.X.module`) le dit en une commande — avant de soupçonner une régression.
 
+## 🧷 Un run vert ne typecheck rien — et tous les typechecks ne se valent pas
+
+- `[1× — 2026-07-24]` **Deux erreurs de type dans mes propres tests, invisibles en vert.** Vitest efface les types à la transpilation : les 6 tests passaient alors qu'un import pointait un type non exporté (TS2459) et qu'une conversion sautait `unknown` (TS2352). C'est le **pre-push** qui a mordu, deux fois de suite. Pire piège : `npx tsc --noEmit` lancé DANS le module était vert — il ne couvre pas les mêmes fichiers que `npm run typecheck`, qui est le gate réel. **Avant un push : `npm run typecheck` à la racine, pas le tsc du module.**
+
 ## 📎 Un diff de code décale les ancres de la doc
 
 - `[1× — 2026-07-24]` **40 lignes insérées dans un service → 16 ancres `fichier:ligne` fausses dans sa page de doc**, qu'aucun humain ne verrait. `anchor-check` les nomme mais ne les répare pas : recaler par SYMBOLE (chercher la ligne du symbole cité, la plus proche de l'ancienne) puis relancer jusqu'à 0 SUSPECT. **Toute modification de code touche la doc qui l'ancre** — le gate doit tourner dans le même geste, pas à la revue suivante.
