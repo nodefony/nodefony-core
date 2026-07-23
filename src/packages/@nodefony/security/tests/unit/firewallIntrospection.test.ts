@@ -224,3 +224,72 @@ describe("SecurityAdminApi — endpoints firewall / roleHierarchy", () => {
     assert.equal(res.status, 503);
   });
 });
+
+/**
+ * F10 — l'introspection ne doit pas afficher une intention de configuration à la
+ * place de l'état appliqué.
+ *
+ * `security.headers.hsts` / `frameguard` / `noSniff` sont conservées pour la
+ * compatibilité mais INERTES (marquées `reserved` dans le schéma) : ces trois
+ * en-têtes sont posés par `@nodefony/http` à l'entrée brute, afin de couvrir aussi
+ * les statiques et les pages d'erreur. Les recopier faisait afficher `deny` à
+ * l'écran Firewall de Studio pendant que le transport émettait `SAMEORIGIN` — une
+ * console d'admin qui rassure à tort est pire qu'une console absente.
+ */
+describe("Firewall.describe() — les en-têtes de transport disent le RÉEL (F10)", () => {
+  /** Pose un HttpKernel factice qui déclare ce qu'il émet vraiment. */
+  const withHttpKernel = (
+    container: Container,
+    emitted: {
+      strictTransportSecurity: string | null;
+      frameOptions: string | null;
+      contentTypeOptions: string | null;
+    },
+  ): void => {
+    container.set("HttpKernel", {
+      describeTransportSecurityHeaders: () => emitted,
+    });
+  };
+
+  it("le transport gagne contre la config security inerte", () => {
+    const { firewall, container } = bootFirewall({
+      ...CONFIG,
+      // L'app croit configurer ici : ces clés ne pilotent RIEN.
+      headers: { frameguard: "deny", noSniff: true, hsts: true },
+    });
+    withHttpKernel(container, {
+      strictTransportSecurity: null, // HSTS désactivé côté http
+      frameOptions: "SAMEORIGIN", // ≠ « deny » de la config security
+      contentTypeOptions: null, // nosniff non émis
+    });
+    const d = firewall.describe().defenses!;
+    assert.equal(d.headers.frameguard, "sameorigin");
+    assert.equal(d.headers.hsts, false);
+    assert.equal(d.headers.noSniff, false);
+  });
+
+  it("le `max-age` remonté est celui de l'en-tête réellement émis", () => {
+    const { firewall, container } = bootFirewall(CONFIG);
+    withHttpKernel(container, {
+      strictTransportSecurity: "max-age=86400; includeSubDomains",
+      frameOptions: "DENY",
+      contentTypeOptions: "nosniff",
+    });
+    const d = firewall.describe().defenses!;
+    assert.equal(d.headers.hsts, true);
+    assert.equal(d.headers.hstsMaxAgeS, 86400);
+    assert.equal(d.headers.frameguard, "deny");
+    assert.equal(d.headers.noSniff, true);
+  });
+
+  it("sans HttpKernel au container, on ne devine pas : repli sur la config", () => {
+    const { firewall } = bootFirewall({
+      ...CONFIG,
+      headers: { frameguard: "sameorigin" },
+    });
+    assert.equal(
+      firewall.describe().defenses!.headers.frameguard,
+      "sameorigin",
+    );
+  });
+});

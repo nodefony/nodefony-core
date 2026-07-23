@@ -258,3 +258,74 @@ describe("HttpResponse — unit tests", () => {
     });
   });
 });
+
+/**
+ * F12 — `Vary` est une LISTE (RFC 9110 §12.5.5), pas une valeur unique.
+ *
+ * Le firewall pose `Vary: Origin` dès que la réponse reflète l'origine du
+ * demandeur. Si un controller écrit ensuite son propre `Vary`, l'écrasement fait
+ * disparaître `Origin` : un cache partagé cesse alors de distinguer les origines
+ * et peut servir à B une réponse portant `Access-Control-Allow-Origin: A`.
+ * La fusion ferme le trou quel que soit l'ordre d'écriture — on ne dépend plus de
+ * la discipline de chaque appelant.
+ */
+describe("HttpResponse — Vary ne s'écrase pas (F12)", () => {
+  const varyOf = (r: HttpResponse): string =>
+    String(
+      (
+        r as unknown as { response: { getHeader(n: string): unknown } }
+      ).response.getHeader("vary"),
+    );
+
+  it("un second Vary s'AJOUTE au premier au lieu de le remplacer", () => {
+    const r = makeResponse();
+    r.setHeader("Vary", "Origin"); // firewall (reflet d'origine)
+    r.setHeader("Vary", "Accept-Encoding"); // controller applicatif
+    expect(varyOf(r)).to.equal("Origin, Accept-Encoding");
+  });
+
+  it("l'ordre inverse donne le même ensemble — Origin survit dans les deux cas", () => {
+    const r = makeResponse();
+    r.setHeader("Vary", "Accept-Encoding");
+    r.setHeader("Vary", "Origin");
+    expect(varyOf(r)).to.contain("Origin");
+    expect(varyOf(r)).to.contain("Accept-Encoding");
+  });
+
+  it("pas de doublon, casse ignorée (les noms d'en-têtes le sont)", () => {
+    const r = makeResponse();
+    r.setHeader("Vary", "Origin");
+    r.setHeader("Vary", "origin");
+    expect(varyOf(r)).to.equal("Origin");
+  });
+
+  it("une liste déjà composée est fusionnée token par token", () => {
+    const r = makeResponse();
+    r.setHeader("Vary", "Origin, Accept-Encoding");
+    r.setHeader("Vary", "Accept-Language, origin");
+    expect(varyOf(r)).to.equal("Origin, Accept-Encoding, Accept-Language");
+  });
+
+  it("`*` absorbe tout (il dit déjà « varie sur l'inexprimable »)", () => {
+    const r = makeResponse();
+    r.setHeader("Vary", "Origin");
+    r.setHeader("Vary", "*");
+    expect(varyOf(r)).to.equal("*");
+  });
+
+  it("un tableau est accepté comme valeur (contrat Node)", () => {
+    const r = makeResponse();
+    r.setHeader("Vary", ["Origin", "Accept-Encoding"]);
+    expect(varyOf(r)).to.equal("Origin, Accept-Encoding");
+  });
+
+  it("les AUTRES en-têtes gardent la sémantique de remplacement", () => {
+    const r = makeResponse();
+    r.setHeader("X-Test", "un");
+    r.setHeader("X-Test", "deux");
+    const got = (
+      r as unknown as { response: { getHeader(n: string): unknown } }
+    ).response.getHeader("x-test");
+    expect(got).to.equal("deux");
+  });
+});

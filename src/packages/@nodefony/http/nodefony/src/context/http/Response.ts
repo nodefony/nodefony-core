@@ -139,9 +139,55 @@ class HttpResponse {
       }
       if (!this.response.headersSent) {
         // P8 : toLowerCase (header ASCII) — pas de détour locale ICU.
-        return this.response.setHeader(name.toLowerCase(), value);
+        const lower = name.toLowerCase();
+        // `Vary` est une LISTE de noms d'en-têtes (RFC 9110 §12.5.5), pas une
+        // valeur unique : l'écraser est presque toujours un bug. Le firewall pose
+        // `Vary: Origin` quand la réponse reflète l'origine ; un controller qui
+        // écrivait ensuite `Vary: Accept-Encoding` l'effaçait — un cache partagé
+        // cessait alors de varier sur l'origine et pouvait servir à B une réponse
+        // portant `Access-Control-Allow-Origin: A`. On FUSIONNE donc, quel que
+        // soit l'ordre d'écriture : le trou se ferme par construction, pas par
+        // discipline d'appel.
+        if (lower === "vary") {
+          return this.response.setHeader(lower, this.#mergeVary(value));
+        }
+        return this.response.setHeader(lower, value);
       }
     }
+  }
+
+  /**
+   * Union des tokens `Vary` déjà posés et de ceux qu'on ajoute, sans doublon.
+   *
+   * `*` absorbe tout (RFC 9110 : « la réponse varie sur des paramètres non
+   * exprimables ») — le conserver seul évite une liste qui contredirait ce total.
+   * Comparaison insensible à la casse : les noms d'en-têtes le sont.
+   *
+   * Coût : ne s'exécute QUE sur `Vary`, jamais sur les autres en-têtes.
+   */
+  #mergeVary(value: number | string | readonly string[]): string {
+    const incoming = (Array.isArray(value) ? value.join(",") : String(value))
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const current = this.response?.getHeader?.("vary");
+    const existing = (
+      Array.isArray(current) ? current.join(",") : String(current ?? "")
+    )
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const all = [...existing, ...incoming];
+    if (all.some((t) => t === "*")) return "*";
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const token of all) {
+      const key = token.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(token);
+    }
+    return merged.join(", ");
   }
 
   setHeaders(obj: OutgoingHttpHeaders) {

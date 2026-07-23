@@ -280,6 +280,32 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   /**
+   * Ce que ce kernel ÉMET réellement comme en-têtes de sécurité transport.
+   *
+   * Ces trois en-têtes (HSTS, X-Frame-Options, X-Content-Type-Options) sont posés
+   * ici, à l'entrée brute, pour couvrir aussi les statiques et les pages d'erreur
+   * — pas par `@nodefony/security`, dont les clés homonymes sont inertes. Toute
+   * console d'administration doit donc lire CE point, sinon elle affiche une
+   * intention de configuration au lieu de l'état appliqué.
+   *
+   * Lu depuis les caches recalculés au boot ET à chaque édition live
+   * ({@link onConfigChanged}) : la valeur rendue suit la config à chaud.
+   *
+   * @returns les valeurs d'en-tête, `null` quand l'en-tête n'est pas émis.
+   */
+  describeTransportSecurityHeaders(): {
+    strictTransportSecurity: string | null;
+    frameOptions: string | null;
+    contentTypeOptions: string | null;
+  } {
+    return {
+      strictTransportSecurity: this.secHsts,
+      frameOptions: this.secFrameOptions,
+      contentTypeOptions: this.secContentTypeOptions,
+    };
+  }
+
+  /**
    * Hook appelé par le data plane admin APRÈS une édition LIVE de la config
    * (`PATCH /nodefony/kernel/api/config/http`, dev only). Recompute les valeurs
    * DÉRIVÉES mises en cache (en-têtes sécurité, checker trust-proxy, trustedHosts) :

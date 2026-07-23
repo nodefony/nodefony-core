@@ -72,6 +72,19 @@ interface IHeaderCapableResponse {
   setHeader?: (name: string, value: string | readonly string[]) => unknown;
 }
 
+/**
+ * Ce que `@nodefony/http` déclare émettre comme en-têtes de sécurité transport.
+ *
+ * Décrit ici plutôt qu'importé : `@nodefony/security` ne dépend pas de
+ * `@nodefony/http` au runtime (résolution par le container). `null` = en-tête
+ * non émis.
+ */
+interface ITransportSecurityHeaders {
+  strictTransportSecurity: string | null;
+  frameOptions: string | null;
+  contentTypeOptions: string | null;
+}
+
 // En-têtes d'une requête indexés par nom lowercase (IncomingHttpHeaders) — un
 // en-tête répété est exposé en tableau ; pour les en-têtes mono-valeur CSRF
 // (Sec-Fetch-Site/Origin/Referer/Host) on retient la 1ʳᵉ occurrence.
@@ -442,6 +455,53 @@ class Firewall extends Service implements IFirewall {
    * valeur, comme le journal d'audit). Cold-path admin (lecture rare) → 0
    * contrainte hot-path.
    */
+  /**
+   * État RÉEL des trois en-têtes de transport (HSTS, X-Frame-Options,
+   * X-Content-Type-Options), lu chez celui qui les émet : `@nodefony/http`.
+   *
+   * Pourquoi ne pas lire la config `security` : ses clés `hsts`/`frameguard`/
+   * `noSniff` sont conservées pour la compatibilité mais **inertes** — leur
+   * `.meta({ reserved: true })` le dit. Une console d'administration qui affiche
+   * une valeur inerte comme si elle était appliquée ne se contente pas d'être
+   * inexacte : elle donne à l'exploitant une fausse assurance sur sa défense.
+   *
+   * @param config - config security, utilisée en repli si le HttpKernel est absent.
+   */
+  #transportHeaderState(config: ISecurityConfig): {
+    hsts: boolean;
+    hstsMaxAgeS: number;
+    frameguard: "deny" | "sameorigin";
+    noSniff: boolean;
+  } {
+    // Lecture par le contrat d'introspection publié par `@nodefony/http`, jamais
+    // par ses champs internes : `security` ne doit pas dépendre de la mécanique
+    // de cache du kernel HTTP, seulement de ce qu'il DÉCLARE émettre.
+    const httpKernel = this.container?.get("HttpKernel") as
+      | { describeTransportSecurityHeaders?: () => ITransportSecurityHeaders }
+      | undefined;
+    const emitted = httpKernel?.describeTransportSecurityHeaders?.();
+    if (!emitted) {
+      return {
+        hsts: config.headers.hsts,
+        hstsMaxAgeS: config.headers.hstsMaxAgeS,
+        frameguard: config.headers.frameguard,
+        noSniff: config.headers.noSniff,
+      };
+    }
+    const hstsHeader = emitted.strictTransportSecurity;
+    return {
+      hsts: hstsHeader !== null,
+      hstsMaxAgeS: hstsHeader
+        ? Number.parseInt(/max-age=(\d+)/.exec(hstsHeader)?.[1] ?? "0", 10)
+        : 0,
+      frameguard:
+        (emitted.frameOptions ?? "").toUpperCase() === "SAMEORIGIN"
+          ? "sameorigin"
+          : "deny",
+      noSniff: emitted.contentTypeOptions !== null,
+    };
+  }
+
   describe(): IFirewallDescription {
     const config = this.#config;
     const mounted = this.#authenticators;
@@ -507,12 +567,18 @@ class Firewall extends Service implements IFirewall {
       },
       headers: {
         enabled: config.headers.enabled,
-        hsts: config.headers.hsts,
-        hstsMaxAgeS: config.headers.hstsMaxAgeS,
+        // ⚠️ hsts / frameguard / noSniff sont INERTES dans la config `security`
+        // (marqués `reserved` dans son schéma) : ces trois en-têtes sont posés par
+        // `@nodefony/http` à l'entrée brute, pour couvrir AUSSI les statiques et
+        // les pages d'erreur. Recopier la valeur security ici faisait mentir
+        // l'écran Firewall de Studio — il affichait `deny` pendant que le
+        // transport émettait `SAMEORIGIN`. On lit donc l'état RÉELLEMENT émis,
+        // tel que le HttpKernel l'a pré-calculé (et recalcule à chaud sur édition
+        // live). HttpKernel absent (test unitaire du firewall seul) → on ne
+        // devine pas : la valeur security sert de repli, faute de mieux.
+        ...this.#transportHeaderState(config),
         csp: config.headers.csp,
         cspNonces: config.headers.cspNonces,
-        frameguard: config.headers.frameguard,
-        noSniff: config.headers.noSniff,
         referrerPolicy: config.headers.referrerPolicy,
         coop: config.headers.coop,
         coep: config.headers.coep,
