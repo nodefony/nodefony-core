@@ -3,7 +3,7 @@ import { Container } from "nodefony";
 import type { Module } from "nodefony";
 import { WebhookService } from "../../nodefony/service/webhooks";
 import { MemoryWebhookStore } from "../../nodefony/src/webhook/MemoryWebhookStore";
-import type { IWebhookEndpoint } from "../../nodefony/contracts/IWebhookStore";
+import type { IWebhookEndpoint } from "../../nodefony/contracts/IWebhookEndpoint";
 
 /**
  * Webhooks à PLUSIEURS PODS — ce que le cache d'endpoints garantit, et ce qu'il
