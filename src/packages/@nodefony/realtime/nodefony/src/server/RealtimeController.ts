@@ -394,13 +394,25 @@ export abstract class RealtimeController<
           "ERROR",
         ),
     };
-    // Seam #1 — VERROU DE FRAME (P6). Branché SEULEMENT si une politique est
-    // posée sur le hub (`hasFrameAuthorizer`, cold-path check 1× au handshake) :
-    // un hub non sécurisé garde `beforeDispatch === undefined` → bypass 0-coût
-    // du peer sur CHAQUE frame (cf doctrine perf). `peer` est capturé par closure
-    // (clé du mapping `peer → token`) — référence DIFFÉRÉE, jamais évaluée
-    // pendant la construction, donc pas de TDZ à l'exécution.
-    if (hub.hasFrameAuthorizer()) {
+    // Seam #1 — VERROU DE FRAME (P6). Armé sur TOUTE connexion, sans condition.
+    //
+    // Il ne l'était qu'au handshake, si une politique existait DÉJÀ
+    // (`hasFrameAuthorizer()`), pour garder un bypass 0-coût sur les hubs non
+    // sécurisés. Mais une décision d'autorisation prise UNE FOIS, à l'ouverture,
+    // vaut pour toute la vie de la connexion : un peer connecté avant la pose du
+    // verrou n'était jamais gardé — ni au moment où la politique arrive, ni
+    // ensuite. Une socket WS vit des heures ; l'ordre de boot n'est pas une
+    // garantie de sécurité.
+    //
+    // Le bypass n'est pas perdu, il descend d'un cran : `hub.runAuthorizer` rend
+    // `true` immédiatement quand aucun authorizer n'est posé. On paie donc un
+    // appel et une comparaison de champ privé par frame entrante — devant le
+    // parse JSON que cette même frame vient de subir, c'est un prix nul, et le
+    // trou d'autorisation se ferme par construction.
+    //
+    // `peer` est capturé par closure (clé du mapping `peer → token`) — référence
+    // DIFFÉRÉE, jamais évaluée pendant la construction, donc pas de TDZ.
+    {
       peerOptions.beforeDispatch = (frame) => hub.runAuthorizer(frame, peer);
       peerOptions.onFrameAudit = (reason, frame, auditedPeer) => {
         // Zero Trust : une frame REFUSÉE est tracée (audit P6.14, cold path). Les

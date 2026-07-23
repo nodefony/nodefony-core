@@ -265,10 +265,13 @@ export class RealtimeHub {
   // Lazy : `null` tant qu'aucun token posé (cas mono-process non sécurisé).
   #peerTokens: WeakMap<JsonRpcPeer, IRealtimeToken> | null = null;
 
-  // Verrou de frame (seam #1 → P6). `null` = pas de politique → bypass TOTAL
-  // (le RealtimeController ne branche même pas `beforeDispatch` sur le peer →
-  // 0 coût hot-path quand security est absent). Posé 1× au boot par
-  // `@nodefony/security`. Cf #frameAuthorizer / runAuthorizer / hasFrameAuthorizer.
+  // Verrou de frame (seam #1 → P6). `null` = pas de politique → `runAuthorizer`
+  // rend `true` immédiatement (bypass d'une comparaison). Le RealtimeController
+  // arme `beforeDispatch` sur TOUTE connexion, sans regarder ce champ : sinon un
+  // peer connecté avant la pose du verrou n'était jamais gardé, pour toute la
+  // durée de sa socket. Posé 1× au boot par `@nodefony/security`, mais une pose
+  // tardive (rechargement, test) doit mordre sur les connexions en cours.
+  // Cf runAuthorizer / hasFrameAuthorizer.
   #frameAuthorizer: FrameAuthorizer | null = null;
 
   // Seam #1b — registre des politiques de canal DÉCLARÉES (`@RealtimeChannel`/
@@ -865,9 +868,12 @@ export class RealtimeHub {
   }
 
   /**
-   * Un verrou de frame est-il posé ? Lu par `RealtimeController.onHandshake`
-   * pour ne brancher `beforeDispatch` (et son coût par frame) QUE si une
-   * politique existe — sinon le hub non sécurisé garde un hot-path 0-coût.
+   * Un verrou de frame est-il posé ?
+   *
+   * Sert au DIAGNOSTIC (`hasUnenforcedChannelPolicies`, introspection, tests) —
+   * **plus** à décider si on arme le verrou sur une connexion : le contrôleur
+   * l'arme toujours, précisément pour qu'une politique posée après coup garde
+   * les sockets déjà ouvertes.
    */
   hasFrameAuthorizer(): boolean {
     return this.#frameAuthorizer !== null;
