@@ -15,16 +15,20 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-skill**
 
+> [!TIP]
+> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _AAIF / Linux Foundation_.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.2.0`.
+
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
 |                          |                                                    |
 | ------------------------ | -------------------------------------------------- |
-| Version                  | `1.1.0`                                            |
+| Version                  | `1.2.0`                                            |
 | Famille                  | Cycle de session                                   |
-| Corps                    | 261 lignes                                         |
-| Coût d'activation        | ~3 996 tokens (le corps est chargé à l'invocation) |
+| Corps                    | 276 lignes                                         |
+| Coût d'activation        | ~4 293 tokens (le corps est chargé à l'invocation) |
 | Description              | 991 / 1024 caractères                              |
 | Déclencheurs             | 11                                                 |
 | Ressources `references/` | 0 page(s)                                          |
@@ -43,7 +47,7 @@ Ce que le décor doit fournir pour que ses scripts disent quelque chose : **dock
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-memory-health`](nodefony-check-memory-health.md) · [`create-module`](nodefony-create-module.md) · [`debug`](nodefony-debug.md) · [`documentation`](nodefony-documentation.md)
+[`create-module`](nodefony-create-module.md) · [`documentation`](nodefony-documentation.md) · [`inspect`](nodefony-inspect.md)
 
 ## Quand il se déclenche
 
@@ -75,7 +79,7 @@ script, donc toujours à jour après régénération.
 | --------------------------- | ------------------------------------------------------------------------------------------- | -------------------- | ------------------------- |
 | `scripts/scripts-audit.mjs` | scripts-audit — chaque script du dépôt est-il au bon endroit, et quelqu'un l'appelle-t-il ? | `--strict`           | —                         |
 | `scripts/skills-doc.mjs`    | skills-doc — fiche de documentation par skill, ET gate de conformité.                       | `--check`            | `SKILLS_DOC_DATE`         |
-| `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill.                              | `--verbose` `--list` | —                         |
+| `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill.                              | `--verbose` `--list` | `FRAGILE_MARGIN`          |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -85,7 +89,7 @@ node .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `SKILLS_DOC_DATE`
+**Toutes les variables lues par ce skill** : `FRAGILE_MARGIN` · `SKILLS_DOC_DATE`
 
 ### Détail des scripts auto-documentés
 
@@ -121,28 +125,37 @@ node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check
 
 #### `scripts/trigger-bench.mjs`
 
-Produit : un compte de phrases élisant le bon skill, les échecs, et les recouvrements à arbitrer
+Produit : phrases élisant le bon skill, cas négatifs respectés, couverture, recouvrements (arbitrés vs à trancher)
 
 ```bash
 node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs
 node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose
 ```
 
-| Option      | Rôle                                                           |
-| ----------- | -------------------------------------------------------------- |
-| `--verbose` | affiche le score des trois meilleurs skills pour chaque phrase |
-| `--list`    | liste les cas du banc sans les exécuter                        |
+| Option      | Rôle                                                                         |
+| ----------- | ---------------------------------------------------------------------------- |
+| `--verbose` | affiche le top-3 par phrase + les recouvrements arbitrés et les cas fragiles |
+| `--list`    | liste les cas du banc sans les exécuter                                      |
 
 ## Conformité au standard Agent Skills
 
-| Contrôle                                  | État | Mesure |
-| ----------------------------------------- | :--: | ------ |
-| name conforme et égal au dossier          |  ✅  |        |
-| description de 1 à 1024 caractères        |  ✅  | 991    |
-| aucun champ hors standard                 |  ✅  |        |
-| dossier de ressources nommé `references/` |  ✅  |        |
-| aucun renvoi vers un skill inexistant     |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 261    |
+> [!NOTE]
+> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).
+> **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;
+> _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
+> _Règle_ cite la source exacte de chaque contrôle.
+
+| Contrôle                                    |   Nature    | État | Mesure | Règle (source)                                                                                                                           |
+| ------------------------------------------- | :---------: | :--: | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| name conforme et égal au dossier            | ℹ️ normatif |  ✅  |        | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier                                   |
+| description de 1 à 1024 caractères          | ℹ️ normatif |  ✅  | 991    | spec § description : 1-1024 car., non vide (quoi + quand)                                                                                |
+| aucun champ hors standard                   | ℹ️ normatif |  ✅  |        | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
+| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif |  ✅  | absent | spec § compatibility : 1-500 car. si fourni                                                                                              |
+| dossier de ressources nommé `references/`   | ℹ️ normatif |  ✅  |        | spec § resources : le dossier de détail se nomme `references/` (pluriel)                                                                 |
+| aucun renvoi vers un skill inexistant       |   projet    |  ✅  |        | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide                                                                   |
+| corps < 500 lignes                          | recommandé  |  ✅  | 276    | best-practices : corps court (index) + détail en `references/` (divulgation progressive)                                                 |
+
+_Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
 ## 🔗 Pour aller plus loin
 

@@ -15,6 +15,10 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-session**
 
+> [!TIP]
+> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _AAIF / Linux Foundation_.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD).
+
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
@@ -23,11 +27,11 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | ------------------------ | -------------------------------------------------- |
 | Version                  | — (non versionné)                                  |
 | Famille                  | Cycle de session                                   |
-| Corps                    | 555 lignes                                         |
-| Coût d'activation        | ~6 121 tokens (le corps est chargé à l'invocation) |
+| Corps                    | 434 lignes                                         |
+| Coût d'activation        | ~4 637 tokens (le corps est chargé à l'invocation) |
 | Description              | 406 / 1024 caractères                              |
 | Déclencheurs             | 8                                                  |
-| Ressources `references/` | 0 page(s)                                          |
+| Ressources `references/` | 1 page(s)                                          |
 | Scripts                  | 0                                                  |
 | Conformité               | ✅ conforme au standard                            |
 
@@ -65,19 +69,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Anti-patterns START
 - ⚡ END courant = 5 étapes LÉGÈRES (ne PAS faire les stats lourdes)
 - Modèle SAS (pourquoi RETEX.md existe)
-- Boîte à outils CONSOLIDATE (référence — PAS exécutée au END courant)
-- Quand
-- 1. Transcript de la session courante
-- 2. Comptage tool_use
-- 3. Top 10 fichiers lus
-- 4. Top 10 commandes Bash (descriptions)
-- 5. Commandes Bash répétées (candidats skills)
-- 6. Volume sortie tool (proxy coût cache)
-- 6b. 💶 Coût RÉEL de la session (€) — tokens du transcript
-- 8c. ✨ Résumé « le plus intéressant possible » (à présenter au user)
-- 7. Write/Edit (volume produit)
-- 8. Détection candidats skill / mémoire
-- 8b. Balayage allowlist (OBLIGATOIRE — directive user 2026-05-22)
+- Boîte à outils CONSOLIDATE — déportée
 - 9. Sauvegarde OBLIGATOIRE (auto-save)
 - 10. Mémoire de reprise (OBLIGATOIRE — c'est ce que lit le mode RESUME)
 - 11. Sauvegarde de la mémoire IA (OBLIGATOIRE — durabilité crash / changement de PC)
@@ -89,16 +81,33 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Anti-patterns END / CONSOLIDATE
 - Liens
 
+## Références (chargées à la demande)
+
+Détail déporté hors du corps — chargé seulement quand la tâche l'exige (divulgation progressive).
+
+| Fichier                             | Ce qu'il couvre                                   | Lignes |
+| ----------------------------------- | ------------------------------------------------- | -----: |
+| `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript |    136 |
+
 ## Conformité au standard Agent Skills
 
-| Contrôle                                  | État | Mesure |
-| ----------------------------------------- | :--: | ------ |
-| name conforme et égal au dossier          |  ✅  |        |
-| description de 1 à 1024 caractères        |  ✅  | 406    |
-| aucun champ hors standard                 |  ✅  |        |
-| dossier de ressources nommé `references/` |  ✅  |        |
-| aucun renvoi vers un skill inexistant     |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ❌  | 555    |
+> [!NOTE]
+> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).
+> **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;
+> _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
+> _Règle_ cite la source exacte de chaque contrôle.
+
+| Contrôle                                    |   Nature    | État | Mesure | Règle (source)                                                                                                                           |
+| ------------------------------------------- | :---------: | :--: | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| name conforme et égal au dossier            | ℹ️ normatif |  ✅  |        | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier                                   |
+| description de 1 à 1024 caractères          | ℹ️ normatif |  ✅  | 406    | spec § description : 1-1024 car., non vide (quoi + quand)                                                                                |
+| aucun champ hors standard                   | ℹ️ normatif |  ✅  |        | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
+| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif |  ✅  | absent | spec § compatibility : 1-500 car. si fourni                                                                                              |
+| dossier de ressources nommé `references/`   | ℹ️ normatif |  ✅  |        | spec § resources : le dossier de détail se nomme `references/` (pluriel)                                                                 |
+| aucun renvoi vers un skill inexistant       |   projet    |  ✅  |        | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide                                                                   |
+| corps < 500 lignes                          | recommandé  |  ✅  | 434    | best-practices : corps court (index) + détail en `references/` (divulgation progressive)                                                 |
+
+_Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
 ## 🔗 Pour aller plus loin
 

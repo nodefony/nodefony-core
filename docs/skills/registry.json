@@ -58,6 +58,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -70,7 +76,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "86",
             "advisory": true
@@ -135,6 +141,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -147,7 +159,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "83",
             "advisory": true
@@ -208,6 +220,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -220,7 +238,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "247",
             "advisory": true
@@ -287,6 +305,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -299,7 +323,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "276",
             "advisory": true
@@ -346,8 +370,8 @@
       ],
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
-        "bodyLines": 197,
-        "approxTokens": 3433
+        "bodyLines": 192,
+        "approxTokens": 3359
       },
       "requires": [],
       "resources": {
@@ -387,6 +411,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -399,9 +429,9 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "197",
+            "detail": "192",
             "advisory": true
           }
         ]
@@ -415,7 +445,7 @@
       "name": "nodefony-documentation",
       "summary": "Kit de dev de la DOCUMENTATION Nodefony, deux faces.",
       "family": "Développer le framework",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "keywords": ["@nodefony/documentation", "scripts/"],
       "triggers": [
         "portail doc",
@@ -438,13 +468,13 @@
       ],
       "description": "Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), mise en page docs-site, data plane avec allowlist anti-traversée. (2) Le SYSTÈME D'ÉCRITURE de la doc de référence : standard de rédaction (Diátaxis, ancres symboliques, Démarrage rapide compilable, navigation par hubs) et ses gates `scripts/` — doc-lint, anchor-check, code-check, gen-counters, build-preview. Ni les écrans Studio génériques (→ nodefony-studio-dev), ni la création back (→ nodefony-create-module). Déclencheurs : \"portail doc\", \"DocLayout\", \"@nodefony/documentation\", \"MarkdownDoc\", \"DocToc\", \"page de documentation Studio\", \"écrire la doc dans Studio\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"avant de rédiger une doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 641,
-        "approxTokens": 10890
+        "bodyLines": 439,
+        "approxTokens": 7602
       },
       "requires": [],
       "resources": {
-        "references": ["redaction-contenu.md"],
-        "referenceFilesTotal": 1,
+        "references": ["briques-front.md", "redaction-contenu.md"],
+        "referenceFilesTotal": 2,
         "scripts": [
           {
             "path": "scripts/anchor-check.mjs",
@@ -645,6 +675,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -657,9 +693,9 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
-            "ok": false,
-            "detail": "641",
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "439",
             "advisory": true
           }
         ]
@@ -758,6 +794,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -770,7 +812,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "299",
             "advisory": true
@@ -823,7 +865,7 @@
       "description": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et **vérification d'une modif front sans navigateur** (transform Vite en `curl`, purge du prébundle, rechargement forcé) — la règle projet interdit le navigateur headless. App admin Studio → `nodefony-studio-dev` ; scaffold d'un module front → `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"isomorphisme\", \"socket client\", \"RealtimeClient\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"accessibilité front\", \"WCAG\", \"perf front\", \"vérifie le front\", \"ma modif front passe ?\", \"transform Vite\", \"prébundle Vite périmé\".",
       "cost": {
         "bodyLines": 100,
-        "approxTokens": 2549
+        "approxTokens": 2559
       },
       "requires": [],
       "resources": {
@@ -868,6 +910,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -880,7 +928,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "100",
             "advisory": true
@@ -1043,6 +1091,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -1055,7 +1109,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "174",
             "advisory": true
@@ -1093,7 +1147,7 @@
       "description": "Interroge l'état du dépôt Nodefony sans en lire les sources : graphe symbolique (qui étend une classe, qui implémente une interface, qui importe un symbole, où il est défini), signature d'une méthode, puis config / services / routes d'un module **déjà existant** — ses métadonnées, sans démarrer de serveur et **sans rien créer** (scaffolder → `nodefony-create-module`). Donne aussi le diff propre des sources non commitées et régénère le graphe. À charger AVANT de partir en `grep` sur plusieurs modules ou d'ouvrir un fichier de 500 lignes pour l'ordre des arguments. Déclencheurs : \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"trouver les consommateurs\", \"analyse d'impact avant refactor\", \"quels paramètres prend cette méthode ?\", \"inspecter un module existant\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"ce service est-il enregistré ?\", \"qu'est-ce que j'ai modifié ?\", \"diff rapide\", \"graphe symbolique\", \"symbols.json\".",
       "cost": {
         "bodyLines": 210,
-        "approxTokens": 2989
+        "approxTokens": 2987
       },
       "requires": [],
       "resources": {
@@ -1130,6 +1184,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -1142,7 +1202,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "210",
             "advisory": true
@@ -2163,6 +2223,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -2175,7 +2241,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "443",
             "advisory": true
@@ -2240,6 +2306,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -2252,7 +2324,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "357",
             "advisory": true
@@ -2454,6 +2526,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -2466,7 +2544,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "140",
             "advisory": true
@@ -2609,6 +2687,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -2621,7 +2705,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "67",
             "advisory": true
@@ -2684,6 +2768,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -2696,7 +2786,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "68",
             "advisory": true
@@ -2763,6 +2853,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -2775,7 +2871,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "161",
             "advisory": true
@@ -2843,6 +2939,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -2855,7 +2957,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "356",
             "advisory": true
@@ -2885,13 +2987,13 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 555,
-        "approxTokens": 6121
+        "bodyLines": 434,
+        "approxTokens": 4637
       },
       "requires": [],
       "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
+        "references": ["consolidate-toolkit.md"],
+        "referenceFilesTotal": 1,
         "scripts": []
       },
       "related": [
@@ -2922,6 +3024,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -2934,9 +3042,9 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
-            "ok": false,
-            "detail": "555",
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "434",
             "advisory": true
           }
         ]
@@ -2950,7 +3058,7 @@
       "name": "nodefony-skill",
       "summary": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony.",
       "family": "Cycle de session",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "keywords": [
         "skill-creator",
         "nodefony-*",
@@ -2973,8 +3081,8 @@
       ],
       "description": "Créer, éditer, **fusionner, retirer** ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique. Porte les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une capacité absorbée sans ses déclencheurs devient introuvable. Déclencheurs : \"créer un skill\", \"nouveau skill\", \"éditer un skill\", \"fusionner deux skills\", \"retirer un skill\", \"mon skill ne se déclenche jamais\", \"skill non conforme\", \"skills-ref validate\", \"conformité Agent Skills\", \"fiche de skill\", \"à quoi sert ce skill\".",
       "cost": {
-        "bodyLines": 261,
-        "approxTokens": 3996
+        "bodyLines": 276,
+        "approxTokens": 4293
       },
       "requires": ["docker", "redis", "base de données"],
       "resources": {
@@ -3030,24 +3138,28 @@
             "options": [
               {
                 "flag": "--verbose",
-                "help": "affiche le score des trois meilleurs skills pour chaque phrase"
+                "help": "affiche le top-3 par phrase + les recouvrements arbitrés et les cas fragiles"
               },
               {
                 "flag": "--list",
                 "help": "liste les cas du banc sans les exécuter"
               }
             ],
-            "env": [],
-            "output": "un compte de phrases élisant le bon skill, les échecs, et les recouvrements à arbitrer",
+            "env": [
+              {
+                "name": "FRAGILE_MARGIN",
+                "help": ""
+              }
+            ],
+            "output": "phrases élisant le bon skill, cas négatifs respectés, couverture, recouvrements (arbitrés vs à trancher)",
             "selfDocumented": true
           }
         ]
       },
       "related": [
-        "nodefony-check-memory-health",
         "nodefony-create-module",
-        "nodefony-debug",
-        "nodefony-documentation"
+        "nodefony-documentation",
+        "nodefony-inspect"
       ],
       "conformance": {
         "ok": true,
@@ -3071,6 +3183,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -3083,9 +3201,9 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "261",
+            "detail": "276",
             "advisory": true
           }
         ]
@@ -3198,6 +3316,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -3210,7 +3334,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "209",
             "advisory": true
@@ -3293,6 +3417,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -3305,7 +3435,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "143",
             "advisory": true
@@ -3365,6 +3495,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -3377,7 +3513,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "77",
             "advisory": true
@@ -3439,6 +3575,12 @@
             "advisory": false
           },
           {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
             "key": "dossier de ressources nommé `references/`",
             "ok": true,
             "detail": null,
@@ -3451,7 +3593,7 @@
             "advisory": false
           },
           {
-            "key": "corps < 500 lignes (recommandation)",
+            "key": "corps < 500 lignes",
             "ok": true,
             "detail": "66",
             "advisory": true

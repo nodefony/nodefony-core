@@ -29,15 +29,29 @@ import { join, relative } from "node:path";
 const SKILLS_DIR = ".claude/skills";
 const OUT_DIR = "docs/skills";
 const CHECK_ONLY = process.argv.includes("--check");
+// Champs de frontmatter autorisés par le standard Agent Skills (AAIF). Source :
+// https://agentskills.io/specification.md § "SKILL.md format". `compatibility` a été ajouté par le
+// standard (≤500 car.) — sans lui ici, un skill conforme serait faussement signalé « hors standard ».
 const ALLOWED_FIELDS = new Set([
   "name",
   "description",
   "license",
+  "compatibility",
   "metadata",
   "allowed-tools",
 ]);
-const MAX_DESC = 1024;
-const MAX_BODY_LINES = 500;
+const MAX_DESC = 1024; // spec : description 1-1024 caractères
+const MAX_COMPAT = 500; // spec : compatibility 1-500 caractères
+const MAX_BODY_LINES = 500; // best-practices (SHOULD, pas MUST) : corps court
+// name (spec) : 1-64 car., minuscules alphanumériques + tirets, ni au bord ni consécutifs.
+const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+// Le standard référencé par les fiches. Agent Skills est un standard OUVERT (Anthropic → AAIF) sans
+// numéro de révision publié — on nomme la source plutôt qu'une version fictive.
+const STANDARD = {
+  name: "Agent Skills",
+  org: "AAIF / Linux Foundation",
+  url: "https://agentskills.io/specification.md",
+};
 // Horodatage exigé par le gate de documentation. Passé par l'environnement pour rester rejouable.
 const STAMP =
   process.env.SKILLS_DOC_DATE || new Date().toISOString().slice(0, 10);
@@ -251,6 +265,25 @@ function countRecursive(dir) {
 }
 
 /**
+ * Objet d'un fichier `references/` : son premier titre `# …` et le nombre de lignes. Ce qui distingue
+ * une fiche « parfaite » d'une liste de noms de fichiers — le lecteur voit CE QUE chaque référence
+ * couvre sans l'ouvrir. Le titre est nettoyé de son markdown ; à défaut, on retombe sur le nom.
+ */
+function referenceMeta(dir, fileName) {
+  const raw = readFileSync(join(dir, fileName), "utf8");
+  const lines = raw.split("\n");
+  let title = "";
+  for (const l of lines) {
+    const m = l.match(/^#\s+(.+?)\s*$/);
+    if (m) {
+      title = m[1].replace(/[`*_]/g, "").trim();
+      break;
+    }
+  }
+  return { f: fileName, title, lines: lines.length };
+}
+
+/**
  * Termes en `nodefony-…` qui ne désignent PAS un skill : noms de conteneurs, de processus, de
  * paquets ou de composants. Sans cette liste, le contrôle des renvois crierait sur eux.
  */
@@ -333,32 +366,60 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
     )
     .sort();
 
+  const compat = fields.compatibility || "";
+  // `nature` : normatif = MUST du standard AAIF · recommandé = SHOULD (best-practices) · projet =
+  // contrôle propre à Nodefony. `ref` = la règle citée, pour qu'un lecteur voie d'où sort le contrôle.
   const checks = [
     {
       key: "name conforme et égal au dossier",
-      ok: /^[a-z0-9-]{1,64}$/.test(fields.name || "") && fields.name === name,
+      ok:
+        (fields.name || "").length <= 64 &&
+        NAME_RE.test(fields.name || "") &&
+        fields.name === name,
+      nature: "normatif",
+      ref: "spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier",
     },
     {
       key: `description de 1 à ${MAX_DESC} caractères`,
       ok: description.length > 0 && description.length <= MAX_DESC,
       detail: `${description.length}`,
+      nature: "normatif",
+      ref: "spec § description : 1-1024 car., non vide (quoi + quand)",
     },
     {
       key: "aucun champ hors standard",
       ok: unknown.length === 0,
       detail: unknown.join(", "),
+      nature: "normatif",
+      ref: "spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`)",
     },
-    { key: "dossier de ressources nommé `references/`", ok: !legacyRef },
+    {
+      key: `compatibility ≤ ${MAX_COMPAT} caractères (si présent)`,
+      ok: compat.length <= MAX_COMPAT,
+      detail: compat ? `${compat.length}` : "absent",
+      nature: "normatif",
+      ref: "spec § compatibility : 1-500 car. si fourni",
+    },
+    {
+      key: "dossier de ressources nommé `references/`",
+      ok: !legacyRef,
+      nature: "normatif",
+      ref: "spec § resources : le dossier de détail se nomme `references/` (pluriel)",
+    },
     {
       key: "aucun renvoi vers un skill inexistant",
       ok: deadSkillRefs.length === 0,
       detail: deadSkillRefs.join(", "),
+      nature: "projet",
+      ref: "Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide",
     },
     {
-      key: `corps < ${MAX_BODY_LINES} lignes (recommandation)`,
+      key: `corps < ${MAX_BODY_LINES} lignes`,
       ok: bodyLines < MAX_BODY_LINES,
       detail: `${bodyLines}`,
       soft: true,
+      nature: "recommandé",
+      ref: "best-practices : corps court (index) + détail en `references/` (divulgation progressive)",
     },
   ];
 
@@ -391,6 +452,9 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
     sections,
     triggers: triggers(description),
     references: listFiles(refDir, [".md"]),
+    referenceMetas: listFiles(refDir, [".md"]).map((f) =>
+      referenceMeta(refDir, f),
+    ),
     referencesTotal: countRecursive(refDir),
     scripts: listFiles(scrDir, [".mjs", ".js", ".sh", ".py", ".ts"]).map(
       (f) => ({ f, path: `scripts/${f}`, ...analyzeScript(join(scrDir, f)) }),
@@ -436,6 +500,23 @@ function renderSkill(s) {
     "📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **" +
       s.name +
       "**",
+  );
+  L.push("");
+  // Badge de conformité — visible EN HAUT, d'un coup d'œil : respecte-t-on le standard, et de combien.
+  const norm = s.checks.filter((c) => c.nature === "normatif");
+  const proj = s.checks.filter((c) => c.nature === "projet");
+  const reco = s.checks.filter((c) => c.nature === "recommandé");
+  const okN = norm.filter((c) => c.ok).length;
+  const okP = proj.filter((c) => c.ok).length;
+  const okR = reco.filter((c) => c.ok).length;
+  const dot = s.hard ? "🟢" : "🔴";
+  L.push(s.hard ? "> [!TIP]" : "> [!CAUTION]");
+  L.push(
+    `> ${dot} **${s.hard ? "Conforme" : "NON conforme"}** au standard [${STANDARD.name}](${STANDARD.url}) — _${STANDARD.org}_.`,
+  );
+  L.push(
+    `> ℹ️ **${okN}/${norm.length}** contrôles normatifs (MUST) · 🛡️ **${okP}/${proj.length}** projet · 💡 **${okR}/${reco.length}** recommandé (SHOULD)` +
+      `${s.version ? ` · 🏷️ \`v${s.version}\`` : ""}.`,
   );
   L.push("");
   L.push("> [!NOTE]");
@@ -517,10 +598,18 @@ function renderSkill(s) {
   if (s.references.length) {
     L.push("## Références (chargées à la demande)");
     L.push("");
-    for (const r of s.references) L.push(`- \`references/${r}\``);
+    L.push(
+      "Détail déporté hors du corps — chargé seulement quand la tâche l'exige (divulgation progressive).",
+    );
+    L.push("");
+    L.push("| Fichier | Ce qu'il couvre | Lignes |");
+    L.push("| --- | --- | --: |");
+    for (const r of s.referenceMetas)
+      L.push(`| \`references/${r.f}\` | ${esc(r.title || "—")} | ${r.lines} |`);
+    L.push("");
     if (s.referencesTotal > s.references.length)
       L.push(
-        `- _(+ ${s.referencesTotal - s.references.length} fichiers dans des sous-dossiers : specs et normes bundlées hors ligne)_`,
+        `_(+ ${s.referencesTotal - s.references.length} fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_`,
       );
     L.push("");
   }
@@ -602,11 +691,33 @@ function renderSkill(s) {
 
   L.push("## Conformité au standard Agent Skills");
   L.push("");
-  L.push("| Contrôle | État | Mesure |");
-  L.push("| --- | :---: | --- |");
-  for (const c of s.checks)
-    L.push(`| ${c.key} | ${badge(c.ok)} | ${esc(c.detail || "")} |`);
+  L.push("> [!NOTE]");
+  L.push(
+    "> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).",
+  );
+  L.push(
+    "> **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;",
+  );
+  L.push(
+    "> _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne",
+  );
+  L.push("> _Règle_ cite la source exacte de chaque contrôle.");
   L.push("");
+  L.push("| Contrôle | Nature | État | Mesure | Règle (source) |");
+  L.push("| --- | :---: | :---: | --- | --- |");
+  const natLabel = {
+    normatif: "ℹ️ normatif",
+    recommandé: "recommandé",
+    projet: "projet",
+  };
+  for (const c of s.checks)
+    L.push(
+      `| ${c.key} | ${natLabel[c.nature] || "—"} | ${badge(c.ok)} | ${esc(c.detail || "")} | ${esc(c.ref || "—")} |`,
+    );
+  L.push("");
+  L.push(
+    "_Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._",
+  );
   L.push("");
   L.push("## 🔗 Pour aller plus loin");
   L.push("");
@@ -678,13 +789,13 @@ function renderCards(list, prefix = "") {
     if (desc.length > 300)
       desc = desc.slice(0, 297).replace(/\s+\S*$/, "") + "…";
     const nScripts = s.scripts.length + s.rootScripts.length + s.libs.length;
-    const bits = [];
-    if (nScripts) bits.push(`${nScripts} script${nScripts > 1 ? "s" : ""}`);
-    if (s.references.length)
-      bits.push(
-        `${s.references.length} référence${s.references.length > 1 ? "s" : ""}`,
-      );
-    bits.push(s.version ? `v${s.version}` : "non versionné");
+    // Pied de card : d'abord le VERDICT de conformité (icône + version) — le signal « pro » lisible
+    // d'un coup d'œil — puis les ressources. Cohérent d'une card à l'autre.
+    const bits = [
+      `${s.hard ? "🟢" : "🔴"} conforme${s.version ? ` v${s.version}` : ""}`,
+    ];
+    if (nScripts) bits.push(`⚙️ ${nScripts} script${nScripts > 1 ? "s" : ""}`);
+    if (s.references.length) bits.push(`📎 ${s.references.length} réf`);
     return `  { "icon": "${iconFor(s.name)}", "title": "${short(s.name)}", "href": "${prefix}${s.name}.md",\n    "desc": "${desc}",\n    "meta": "${bits.join(" · ")}" }`;
   });
   return "```nodefony-cards\n[\n" + cards.join(",\n") + "\n]\n```";

@@ -18,6 +18,8 @@ description: >
 
 # nodefony-debug — kit debug runtime
 
+> **Maintenance** : vérité courante, jamais un journal. Éditer en place ; historique = `git log`, version = `metadata.version`.
+>
 > Règle projet : la doctrine debug PRÉVENTIVE (« coder pour pas casser ») vit dans `nodefony-framework-dev` §2 + §9. Ce skill est RÉACTIF (« ça vient de casser, je diagnostique »). Anti-duplication : références only, pas de copie.
 
 ## 1. Quand m'utiliser
@@ -204,10 +206,3 @@ Cas vécu : `project_service_base_improvements` point 3 (6 jours) suggérait `de
 - **Tight** : ce skill doit rester < 250 lignes. Ajouter une recette = enrichir une section existante OU créer une mémoire IA + 1 ligne de référence ici.
 - **Triggers étroits** : ne PAS élargir au design/refacto/build. Ces déclencheurs vivent dans `nodefony-framework-dev`.
 - **Anti-duplication** : référencer, jamais copier (la vérité dupliquée dérive — leçon `feedback_convention_frere`).
-
-## Changelog
-
-- **1.1.0** (2026-06-12) : session nettoyage skills — recette A resyncée (gate `--expose-gc` résolu
-  via start.sh, cf [[project_ws_sustained_heap_finding]]) ; + recette F « ENOSPC fantôme harness
-  Bash » (RETEX 06-11/06-12) ; triggers ENOSPC ajoutés.
-- **1.0.0** (2026-05-27) : création (action C du backlog soirée). 5 recettes RETEX codifiées (session 1381eacf). Orchestre 4 micro-skills + référence framework-dev §4/§11.

@@ -15,6 +15,10 @@ source: ".claude/skills/nodefony-migration-audit/SKILL.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-migration-audit**
 
+> [!TIP]
+> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _AAIF / Linux Foundation_.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD).
+
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
@@ -58,14 +62,23 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 
 ## Conformité au standard Agent Skills
 
-| Contrôle                                  | État | Mesure |
-| ----------------------------------------- | :--: | ------ |
-| name conforme et égal au dossier          |  ✅  |        |
-| description de 1 à 1024 caractères        |  ✅  | 675    |
-| aucun champ hors standard                 |  ✅  |        |
-| dossier de ressources nommé `references/` |  ✅  |        |
-| aucun renvoi vers un skill inexistant     |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 357    |
+> [!NOTE]
+> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).
+> **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;
+> _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
+> _Règle_ cite la source exacte de chaque contrôle.
+
+| Contrôle                                    |   Nature    | État | Mesure | Règle (source)                                                                                                                           |
+| ------------------------------------------- | :---------: | :--: | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| name conforme et égal au dossier            | ℹ️ normatif |  ✅  |        | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier                                   |
+| description de 1 à 1024 caractères          | ℹ️ normatif |  ✅  | 675    | spec § description : 1-1024 car., non vide (quoi + quand)                                                                                |
+| aucun champ hors standard                   | ℹ️ normatif |  ✅  |        | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
+| compatibility ≤ 500 caractères (si présent) | ℹ️ normatif |  ✅  | absent | spec § compatibility : 1-500 car. si fourni                                                                                              |
+| dossier de ressources nommé `references/`   | ℹ️ normatif |  ✅  |        | spec § resources : le dossier de détail se nomme `references/` (pluriel)                                                                 |
+| aucun renvoi vers un skill inexistant       |   projet    |  ✅  |        | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide                                                                   |
+| corps < 500 lignes                          | recommandé  |  ✅  | 357    | best-practices : corps court (index) + détail en `references/` (divulgation progressive)                                                 |
+
+_Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
 ## 🔗 Pour aller plus loin
 

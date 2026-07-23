@@ -7,14 +7,19 @@
  *
  * @usage    node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs
  * @usage    node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose
- * @option   --verbose  affiche le score des trois meilleurs skills pour chaque phrase
+ * @option   --verbose  affiche le top-3 par phrase + les recouvrements arbitrés et les cas fragiles
  * @option   --list     liste les cas du banc sans les exécuter
- * @output   un compte de phrases élisant le bon skill, les échecs, et les recouvrements à arbitrer
+ * @output   phrases élisant le bon skill, cas négatifs respectés, couverture, recouvrements (arbitrés vs à trancher)
  *
- * CE QU'IL PROUVE : la surface LEXICALE d'une description discrimine bien — la phrase attendue
- * place le bon skill en tête. CE QU'IL NE PROUVE PAS : le jugement du modèle, qui comprend des
- * formulations absentes du texte. Un cas vert n'est donc pas une garantie d'invocation ; un cas
- * ROUGE, lui, est un vrai défaut : aucun mot de la demande ne rejoint la description.
+ * QUATRE MESURES : (1) phrases réelles → le bon skill en tête ; (2) cas NÉGATIFS → une phrase qui ne
+ * DOIT pas élire un skill (attrape la sur-portée) ; (3) couverture → tout skill a au moins une porte
+ * testée ; (4) recouvrements de déclencheurs, séparés en ARBITRÉS (documentés, meilleure porte) et à
+ * TRANCHER (le vrai bruit). Il MORD sur une phrase ratée ou un cas négatif violé.
+ *
+ * CE QU'IL PROUVE : la surface LEXICALE d'une description discrimine bien. CE QU'IL NE PROUVE PAS :
+ * le jugement du modèle, qui comprend des formulations absentes du texte. Un cas vert n'est pas une
+ * garantie d'invocation ; un cas ROUGE est un vrai défaut : aucun mot de la demande ne rejoint la
+ * description.
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -100,7 +105,56 @@ const CASES = [
   // — méta
   ["créer un skill", "nodefony-skill"],
   ["mon skill ne se déclenche jamais", "nodefony-skill"],
+  ["fusionner deux skills en un", "nodefony-skill"],
 ];
+
+/**
+ * Cas NÉGATIFS — une phrase qui ne DOIT PAS élire un skill (rang 1). Ils attrapent la sur-portée :
+ * une description trop large « vole » une demande qui appartient à un autre skill. C'est ce qui fait
+ * MORDRE le banc quand on élargit une description sans y penser.
+ */
+const NEGATIVE_CASES = [
+  ["crée un module @nodefony neuf", "nodefony-inspect"], // création ≠ inspection
+  ["où est défini ce symbole ?", "nodefony-create-module"], // lookup ≠ scaffold
+  ["lance un test de charge", "nodefony-check-memory-health"], // charge ≠ gate mémoire
+  ["écris une page de doc de référence", "nodefony-studio-dev"], // doc ≠ écran générique
+  ["démarre le serveur de dev", "nodefony-debug"], // démarrer ≠ diagnostiquer
+];
+
+/**
+ * Recouvrements ARBITRÉS — un déclencheur déclaré par un skill mais légitimement capté par un autre,
+ * parce que l'autre est une meilleure porte pour cette formulation. Les documenter les sort du bruit :
+ * il ne reste en « à arbitrer » que les recouvrements NON tranchés — le vrai signal. `owner|captor`.
+ */
+const ACCEPTED_OVERLAPS = new Map([
+  [
+    "stack trace|nodefony-tail-error-logs",
+    "lire une stack, c'est tailler les logs",
+  ],
+  [
+    "fuite mémoire|nodefony-check-memory-health",
+    "le gate mémoire porte le diagnostic",
+  ],
+  ["memory leak|nodefony-check-memory-health", "idem — gate mémoire"],
+  ["Studio|nodefony-studio-dev", "coder dans Studio > contexte roadmap"],
+  [
+    "realtime|nodefony-frontend-dev",
+    "le realtime vécu est surtout côté client",
+  ],
+  [
+    "WebSocket|nodefony-rfc",
+    "sur le mot seul, la norme WS est une porte valide",
+  ],
+  [
+    "structure d'un module|nodefony-create-module",
+    "le scaffold EST la structure d'un module",
+  ],
+  ["module hooks|nodefony-create-module", "un module neuf porte ses hooks"],
+  [
+    "avant de publier sur npm|nodefony-release",
+    "publier > vérifier les external",
+  ],
+]);
 
 // ————————————————————————————————————————————————————————— scoring lexical
 const STOP = new Set(
@@ -185,25 +239,30 @@ if (LIST_ONLY) {
   process.exit(0);
 }
 
-let pass = 0;
-const failures = [];
-const ambiguous = [];
-
-for (const [phrase, expected] of CASES) {
-  const ranked = skills
+const rank = (phrase) =>
+  skills
     .map((s) => ({ name: s.name, sc: score(phrase, s) }))
     .sort((a, b) => b.sc - a.sc);
+
+const FRAGILE_MARGIN = 0.15; // marge relative sous laquelle un cas vert tient à peu de chose
+
+let pass = 0;
+const failures = [];
+const fragile = [];
+
+for (const [phrase, expected] of CASES) {
+  const ranked = rank(phrase);
   const [first, second] = ranked;
   const ok = first.sc > 0 && first.name === expected;
   if (ok) {
     pass++;
-    // Marge faible = deux skills se disputent la même formulation : signal de recouvrement.
-    if (second && second.sc > 0 && first.sc - second.sc < first.sc * 0.15)
-      ambiguous.push({
+    const margin = second && second.sc > 0 ? first.sc - second.sc : first.sc;
+    if (margin < first.sc * FRAGILE_MARGIN)
+      fragile.push({
         phrase,
         first: first.name,
-        second: second.name,
-        d: (first.sc - second.sc).toFixed(1),
+        second: second?.name || "—",
+        d: margin.toFixed(1),
       });
   } else {
     failures.push({
@@ -223,24 +282,52 @@ for (const [phrase, expected] of CASES) {
     );
 }
 
+// ————————————————————————————————————————————————————————— cas négatifs (ne DOIT pas élire)
+const negFail = [];
+for (const [phrase, mustNot] of NEGATIVE_CASES) {
+  const top = rank(phrase)[0];
+  if (top.sc > 0 && top.name === mustNot) negFail.push({ phrase, mustNot });
+}
+
+// ————————————————————————————————————————————————————————— couverture (porte non testée)
+const tested = new Set(CASES.map(([, e]) => e));
+const uncovered = skills.map((s) => s.name).filter((n) => !tested.has(n));
+
 // ————————————————————————————————————————————————————————— déclencheurs déclarés (non-régression)
-let tPass = 0,
-  tFail = [];
+let tPass = 0;
+const tArbitrated = []; // recouvrement documenté dans ACCEPTED_OVERLAPS
+const tOpen = []; // recouvrement NON tranché — le vrai signal
 for (const s of skills) {
   for (const t of s.triggers) {
-    const ranked = skills
-      .map((x) => ({ name: x.name, sc: score(t, x) }))
-      .sort((a, b) => b.sc - a.sc);
-    if (ranked[0].sc > 0 && ranked[0].name === s.name) tPass++;
-    else tFail.push({ trigger: t, owner: s.name, got: ranked[0].name });
+    const got = rank(t)[0];
+    if (got.sc > 0 && got.name === s.name) {
+      tPass++;
+      continue;
+    }
+    const entry = { trigger: t, owner: s.name, got: got.name };
+    const key = `${t}|${got.name}`;
+    if (ACCEPTED_OVERLAPS.has(key))
+      tArbitrated.push({ ...entry, why: ACCEPTED_OVERLAPS.get(key) });
+    else tOpen.push(entry);
   }
 }
 
-const totalTriggers = tPass + tFail.length;
+const totalTriggers = tPass + tArbitrated.length + tOpen.length;
 console.log("\n=== banc de déclenchement ===");
-console.log(`Phrases réelles      : ${pass}/${CASES.length}`);
 console.log(
-  `Déclencheurs déclarés: ${tPass}/${totalTriggers} élisent leur propre skill`,
+  `Phrases réelles      : ${pass}/${CASES.length}` +
+    (fragile.length
+      ? `  (dont ${fragile.length} fragile·s, marge < ${FRAGILE_MARGIN * 100}%)`
+      : ""),
+);
+console.log(
+  `Cas négatifs         : ${NEGATIVE_CASES.length - negFail.length}/${NEGATIVE_CASES.length} respectés (ne DOIVENT pas élire)`,
+);
+console.log(
+  `Couverture           : ${skills.length - uncovered.length}/${skills.length} skills ont ≥1 cas`,
+);
+console.log(
+  `Déclencheurs déclarés: ${tPass}/${totalTriggers} → leur skill · ${tArbitrated.length} arbitrés · ${tOpen.length} à arbitrer`,
 );
 
 if (failures.length) {
@@ -250,22 +337,42 @@ if (failures.length) {
       `   "${f.phrase}"\n     attendu ${f.expected} — obtenu ${f.got} (${f.sc}) ; l'attendu est ${f.rank ? `au rang ${f.rank}` : "absent"}`,
     );
 }
-if (tFail.length) {
+if (negFail.length) {
+  console.log("\n❌ cas négatifs violés (une description est trop large) :");
+  for (const n of negFail)
+    console.log(
+      `   "${n.phrase}" élit ${n.mustNot} — qui ne devrait PAS gagner ici`,
+    );
+}
+if (uncovered.length) {
   console.log(
-    `\n⚠️  ${tFail.length} déclencheur(s) capté(s) par un autre skill (recouvrement à arbitrer) :`,
+    `\n⚠️  ${uncovered.length} skill(s) sans cas positif (porte non testée) :`,
   );
-  for (const t of tFail.slice(0, 12))
+  console.log("   " + uncovered.join(", "));
+}
+if (tOpen.length) {
+  console.log(
+    `\n⚠️  ${tOpen.length} recouvrement(s) NON tranché(s) — arbitrer, ou documenter dans ACCEPTED_OVERLAPS :`,
+  );
+  for (const t of tOpen.slice(0, 12))
     console.log(
       `   "${t.trigger}" — déclaré par ${t.owner}, capté par ${t.got}`,
     );
-  if (tFail.length > 12) console.log(`   … ${tFail.length - 12} autres`);
+  if (tOpen.length > 12) console.log(`   … ${tOpen.length - 12} autres`);
 }
-if (ambiguous.length && VERBOSE) {
-  console.log(
-    "\nℹ️  marges faibles (les deux skills se ressemblent sur cette demande) :",
-  );
-  for (const a of ambiguous)
-    console.log(`   "${a.phrase}" — ${a.first} devant ${a.second} de ${a.d}`);
+if (VERBOSE) {
+  if (tArbitrated.length) {
+    console.log("\nℹ️  recouvrements arbitrés (documentés, meilleure porte) :");
+    for (const t of tArbitrated)
+      console.log(`   "${t.trigger}" ${t.owner} → ${t.got} — ${t.why}`);
+  }
+  if (fragile.length) {
+    console.log("\nℹ️  cas verts fragiles (faible marge sur le 2ᵉ) :");
+    for (const a of fragile)
+      console.log(`   "${a.phrase}" — ${a.first} devant ${a.second} de ${a.d}`);
+  }
 }
 
-process.exit(failures.length ? 1 : 0);
+// Le banc MORD sur : une phrase réelle qui rate son skill, OU un cas négatif violé (description
+// trop large). Recouvrements ouverts, fragilité, couverture = signaux à arbitrer, pas des échecs durs.
+process.exit(failures.length || negFail.length ? 1 : 0);

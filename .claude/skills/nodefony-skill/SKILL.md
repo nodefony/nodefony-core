@@ -1,7 +1,7 @@
 ---
 name: nodefony-skill
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 description: >
   Créer, éditer, **fusionner, retirer** ou auditer un skill du dépôt Nodefony. Dérive de
   `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre :
@@ -132,11 +132,19 @@ node .claude/skills/nodefony-skill/scripts/skills-doc.mjs        # conformité d
 node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check   # contrôle seul (CI)
 ```
 
-Il vérifie : `name` conforme et égal au dossier · `description` de 1 à 1024 caractères · aucun champ
-hors standard · ressources en `references/` · **aucun renvoi vers un skill inexistant** · corps
-< 500 lignes (avertissement). Sur un manquement dur il **sort en échec**, et il régénère la **fiche
-publique** du skill dans `docs/skills/<nom>.md` — version, contenu, déclencheurs, ressources,
-scripts avec leurs options et variables d'environnement.
+Il vérifie, avec pour chaque contrôle sa **nature** (normatif = MUST du standard · recommandé = SHOULD
+· projet = propre à Nodefony) : `name` conforme (1-64, minuscules alphanumériques + `-`, ni au bord
+ni consécutifs, = nom du dossier) · `description` de 1 à 1024 caractères · aucun champ hors standard
+(`compatibility` désormais admis, ≤500) · `compatibility` ≤500 si présent · ressources en
+`references/` · **aucun renvoi vers un skill inexistant** (projet) · corps < 500 lignes
+(recommandation). Sur un manquement dur il **sort en échec**, et il régénère la **fiche publique**
+dans `docs/skills/<nom>.md` — version, contenu, déclencheurs, **table des `references/` avec l'objet
+de chacune**, scripts avec options et variables, et une **conformité qui cite la règle exacte** du
+standard (nature + source), pour qu'un lecteur voie d'où sort chaque contrôle.
+
+> Les constantes du standard vivent en tête de `skills-doc.mjs` (`ALLOWED_FIELDS`, `MAX_DESC`,
+> `MAX_COMPAT`, `NAME_RE`) avec un lien vers la spec. Le standard **bouge** (le champ `compatibility`
+> est une addition récente) → revalider contre `tmp/specs-agents/` avant de durcir un contrôle.
 
 > Le contrôle des renvois ne lit que les noms **entre accents graves**, dans le `SKILL.md` et les
 > `references/` — les scripts citent des conteneurs et des titres de processus qui portent le même
@@ -166,12 +174,19 @@ node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs            # phrase
 node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose  # + le détail des scores
 ```
 
-Il rejoue des phrases réellement formulées en session (issues des retex et des mémoires) et vérifie
-que **le bon skill sort en tête**, puis que chaque déclencheur déclaré élit bien son propre skill.
-Après toute retouche de description, le relancer : c'est là qu'on voit qu'un resserrement a rendu un
-skill inatteignable. Il signale aussi les **recouvrements** — deux skills qui se disputent la même
-formulation ; tous ne sont pas des défauts (« fuite mémoire » vaut mieux capté par
-`nodefony-check-memory-health` que par `nodefony-debug`), mais chacun mérite un arbitrage conscient.
+Il porte **quatre mesures**, à relancer après toute retouche de description :
+
+1. **Phrases réelles** (issues des retex et des mémoires) → le bon skill doit sortir en tête. Une
+   phrase qui rate son skill **fait échouer** le banc.
+2. **Cas NÉGATIFS** → une phrase qui ne DOIT PAS élire un skill donné (ex. « crée un module » ne doit
+   pas élire `nodefony-inspect`). C'est ce qui attrape la **sur-portée** : élargir une description
+   sans y penser vole une demande à un autre skill. Une violation **fait échouer** le banc.
+3. **Couverture** → tout skill a au moins une porte testée (un skill neuf sans cas est signalé).
+4. **Recouvrements de déclencheurs**, séparés en **arbitrés** (documentés dans `ACCEPTED_OVERLAPS`
+   avec la raison — « fuite mémoire » est mieux capté par `check-memory-health` que par `debug`) et
+   **à trancher** (le vrai bruit). Un nouveau recouvrement non documenté ressort seul, à arbitrer
+   puis documenter. Les cas verts **fragiles** (faible marge sur le 2ᵉ) sont comptés (`--verbose` les
+   détaille).
 
 **Audit de placement** — où vit chaque script, et qui l'appelle :
 

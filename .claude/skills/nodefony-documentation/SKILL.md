@@ -1,7 +1,7 @@
 ---
 name: nodefony-documentation
 metadata:
-  version: 2.3.0
+  version: 2.4.0
 description: >
   Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module
   `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph),
@@ -18,6 +18,10 @@ description: >
 ---
 
 # nodefony-documentation — kit doc (portail Studio + module futur)
+
+> **Maintenance** : vérité courante, jamais un journal. Éditer en place ; l'historique vit dans
+> `git log`, la version dans `metadata.version`. Une leçon durable devient une règle d'une section,
+> pas une entrée datée.
 
 La documentation Nodefony est un **sous-système transverse** : un portail web dans Studio aujourd'hui
 (POC committé `eb078ce`), un **module dédié `@nodefony/documentation` demain**. Elle touche le front
@@ -53,129 +57,15 @@ vulgarisation). C'est pourquoi elle a son propre kit : la noyer dans `nodefony-s
 
 ---
 
-## Briques front — API exacte (`import { … } from "../components/ui"`)
+## Briques front — API exacte
 
-Toutes co-localisées dans `@nodefony/studio/frontend/src/components/ui/` (sauf `SymbolGraph` →
-`../components/SymbolGraph`). Réutilisées par le portail ET l'onglet « Docs » d'un module.
-
-### `DocLayout` — LE layout docs-site (source unique)
-
-**Grille FLEXBOX 3 colonnes à largeur fixe** (façon MDN/Docusaurus) : **nav 264px** | **contenu FLEX
-(dominant)** | **sommaire 240px** (optionnel). PAS une `Grid` Mantine proportionnelle (l'ancienne
-md:3/6/3 plafonnait le contenu à 50 % = « centre trop petit »). CSS responsive injecté 1×
-(`ensureDocLayoutStyles`, pattern `ensureDocStyles`) : sous 992px → empilement + sommaire masqué.
-Portail et onglet Docs module consomment le MÊME composant → cohérence.
-
-Deux modes de scroll :
-
-- **`mode="container"` (RECOMMANDÉ — portail + onglet module)** : zone à **hauteur fixe** (`height`,
-  ex `PAGE_CONTENT_HEIGHT`) où **chaque colonne scrolle INDÉPENDAMMENT** (hauteur `--nf-doc-h` posée
-  inline + `.nf-doc-region-col`). **Robuste : 0 dépendance au sticky/scroll de page.** Corrige « menus
-  sans scroll » + « fullscreen médiocre » (le plein écran rend le même flex en `container` plein viewport).
-- **`mode="page"`** : sidebars sticky, le contenu scrolle avec la page. **Fragile** (dépend de
-  `--nf-pageheader-height` publiée + du scroll de `AppShell.Main`) → réservé au cas où on VEUT le scroll
-  de page. Le portail est passé de `page` à `container` pour cette raison.
-
-```tsx
-<DocLayout
-  navTitle="Documentation"
-  navSearch={<TextInput … />}      // fixe, hors scroll
-  navActions={<Button … />}        // tout plier/déplier
-  nav={<TreeOfPages … />}          // scrollable
-  title={<PageHeading badges … />} // en-tête du contenu
-  tocMarkdown={markdown}           // absent ⇒ pas de colonne droite
-  mode="page"                      // "page" (scroll de page) | "container" (hauteur fixe)
-  height={READER_HEIGHT}           // requis seulement en mode="container"
-  enableFullscreen
->
-  <MarkdownDoc markdown={markdown} />
-</DocLayout>
-```
-
-### `MarkdownDoc` — rendu markdown + Mermaid + ancres + admonitions + code-copy
-
-```tsx
-<MarkdownDoc
-  markdown={md}
-  maxWidth={860} // largeur de lecture (défaut 860px)
-  onInternalLink={(slug) => goTo(slug)} // clic sur `xxx.md` → callback (retourne true si géré)
-/>
-```
-
-Pose les ancres de titres avec le MÊME `slugifyHeading` que `DocToc` → le scrollspy s'aligne.
-
-**Briques riches livrées (v1.1.0)** — toutes consommables DIRECTEMENT en `.md`, 0 nouvelle dep :
-
-- **Admonitions GitHub-flavor** : `> [!NOTE]` · `> [!TIP]` · `> [!IMPORTANT]` · `> [!WARNING]` ·
-  `> [!CAUTION]` → rendu `<Alert>` Mantine (icône + couleur + titre traduit FR). Le marqueur arrive
-  comme texte brut dans le 1ᵉʳ paragraphe du blockquote (remark-gfm ne parse pas les admonitions) ;
-  `parseAdmonition` parcourt récursivement les children React du blockquote, retire le préfixe
-  `[!TYPE]` du 1ᵉʳ text node, retourne le type + rest.
-- **Heading anchors cliquables au hover** sur `##`/`###`/`####` : icône `#` à droite, `opacity 0→0.7`
-  au `:hover` du titre, `opacity 1` sur l'anchor `:hover`/`:focus`. Clic = copie URL profonde
-  (`origin + path + #slug`) + `scrollIntoView` (gate `prefers-reduced-motion`). Styles statiques
-  injectés une fois (`ensureDocStyles`, identique au pattern `ensureLiveStyles` du UI kit). Pseudo-classe
-  `:hover` impossible inline → CSS injecté reste la solution la plus simple.
-- **Code blocks enrichis** : ` ```ts ` (etc.) → wrapper `Paper` avec topbar (chip langue +
-  bouton Copier avec feedback). Inline `<code>` inchangé. **Pas** de syntax highlighting (lourd,
-  différé). ⚠️ Override `<pre>` (pas `<code>`) sinon `<pre><Paper>…</Paper></pre>` = HTML invalide.
-- **`prefers-reduced-motion`** : gate sur tout `scrollIntoView` (`DocToc.go()` ET anchor copy)
-  → `behavior: reduce ? "auto" : "smooth"`. WCAG 2.3.3.
-
-### `DocPageHeader` — en-tête riche d'une page de doc (v1.1.0)
-
-```tsx
-<DocPageHeader
-  breadcrumbs={["Documentation", "Realtime"]} // optionnel
-  title="La socket Nodefony"
-  version="v1.2.0" // optionnel
-  status="stable" // stable | draft | temporary | experimental | deprecated (couleurs auto)
-  wip={false} // badge "à venir" si true
-  updated="2026-05-28" // ISO / Date — rendu "Mis à jour le 28 mai 2026"
-  sourceUrl="https://github.com/.../socket.md" // bouton "Modifier sur GitHub"
-  actions={<RoleSwitch …/>} // optionnel, à droite
-/>
-```
-
-Usage : `<DocPageHeader/>` passé au `title=` du `DocLayout`. Tout (sauf `title`) est **optionnel** :
-dégradation gracieuse → le backend pourra remonter `updated`/`sourceUrl` plus tard (frontmatter
-`updated` + frontmatter `source` → URL GitHub assemblée serveur) **sans casser les call-sites**.
-Le titre est en `h2` (la page hôte porte le `h1` global via `PageHeader`).
-
-### `DocToc` — sommaire « Sur cette page » (scrollspy + recherche)
-
-```tsx
-<DocToc
-  markdown={md}
-  scrollRootRef={ref} // viewport scrollable observé (sinon = viewport global)
-  minLevel={2}
-  maxLevel={3}
-  maxHeight={SIDEBAR_MAX_HEIGHT} // fourni ⇒ panneau auto-porté (en-tête FIXE + liste qui scrolle)
-/>
-```
-
-> `maxHeight` fourni = en-tête figé + liste flex qui scrolle — **robuste**. NE PAS reposer sur
-> `position:sticky` DANS un `ScrollArea` Mantine (cassé). Cf règles layout.
-
-### `FlowGraph` — graphe orienté (React Flow + dagre, déjà bundlés)
-
-```tsx
-<FlowGraph
-  nodes={nodes}
-  edges={edges}
-  dir="LR"
-  height={420}
-  ariaLabel="Flux de la socket"
-/>
-```
-
-`ariaLabel` **obligatoire** (a11y). `dir`: `"TB"` (haut→bas) | `"LR"` (gauche→droite). Stack
-mermaid/React Flow/dagre **déjà** dans le bundle → ne PAS ajouter de lib de diagramme.
-
-### `SymbolGraph` — graphe des classes d'un module (depuis `symbols.json`)
-
-Onglet « Graphe » de `ModuleDetail` (classes auto + relations extends/implements). S'appuie sur
-`FlowGraph`. Source = `.ai/symbols.json` / endpoint symbols du module.
+> L'API exacte des briques React (`DocLayout`, `MarkdownDoc`, `DocPageHeader`, `DocToc`, `FlowGraph`,
+> `SymbolGraph`) — props, modes de scroll, admonitions, ancres, code-copy — vit dans
+> **`references/briques-front.md`**, chargé à la demande quand on code une page ou un onglet Docs.
+> Toutes sont co-localisées dans `@nodefony/studio/frontend/src/components/ui/` et réutilisées par le
+> portail ET l'onglet « Docs » d'un module. Retenir : `DocLayout` est la **source unique** du layout
+> docs-site (flexbox 3 colonnes, `mode="container"` recommandé) ; `MarkdownDoc` et `DocToc` partagent
+> le même `slugifyHeading` (scrollspy aligné) ; `FlowGraph` exige un `ariaLabel`.
 
 ---
 
@@ -564,95 +454,3 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
 - [[feedback_doc_vulgarization]] / [[feedback_writing_tone_audience]] — comment écrire.
 - [[feedback_security_rfc_rigor]] — exigence sécurité/RFC (allowlist, 0 traversée, 0 secret).
 - Skills voisins : `nodefony-studio-dev` (écrans génériques), `nodefony-framework-dev` (back), `nodefony-create-module` (scaffold).
-
----
-
-## Changelog (SemVer)
-
-- **2.2.0** (2026-07-19) — **6ᵉ gate : les ancres INTERNES, et alignement du slug sur GitHub**.
-  Trou découvert en vague 5 : aucun gate ne vérifiait `](#section)`, le lien d'une page vers ses
-  propres titres. Invisible tant que les pages n'avaient pas de sommaire interne ; les pages à
-  catalogue (hub + page de fond) en ont cassé **77 d'un coup**. Cause racine hors doc :
-  `slugifyHeading()` (`DocToc.tsx`) **retirait les accents** (forme ASCII) alors que tout auteur écrit
-  ses ancres à la GitHub (`#pièges`) — les liens marchaient sur GitHub et étaient morts dans le
-  portail. Corrigé **à la source** (une seule fonction, importée par `MarkdownDoc`) plutôt qu'en
-  tordant les liens : la double lisibilité GitHub + portail est un principe du chantier, et un
-  rédacteur retomberait sans cesse dans le piège. Nouveau `scripts/anchor-inpage.mjs` portant la
-  **même** règle, avec l'avertissement croisé dans les deux fichiers. Résultat : 77 → 0.
-- **2.1.0** (2026-07-19) — **NAVIGATION par hubs + 5ᵉ gate de compilabilité**. Retour user : l'arbre
-  latéral de Studio devient touffu dès 8 pages et n'enseigne rien. Réponse en trois temps :
-  (a) standard §8bis-nav — **fil d'Ariane** en tête et **retour au hub** en pied de CHAQUE page ;
-  (b) standard §8bis-index réécrit — le hub devient un **bureau de travail** : parcours guidés par
-  profil (« je protège une API machine » → suite ordonnée de 3-5 liens, qui dit POURQUOI cet ordre)
-  - catalogue en **cards cliquables** précédé d'un tableau de synthèse ; (c) § Navigation du portail
-    dans ce SKILL — hubs d'abord, recherche ensuite (titres + corps + extrait), arbre en dernier.
-    **`code-check.mjs` créé** : le standard §8sexies nommait ce gate depuis le début sans qu'il existe
-    (la vague 1 compilait à la main) — il extrait les blocs du « Démarrage rapide », les compile par
-    `tsgo` strict contre les vrais paquets, isole son répertoire par page (rédacteurs parallèles) et
-    réinjecte un préambule implicite pour les extraits de config (`use`/`defineConfig`), qu'on ne
-    montre jamais avec leurs imports. **`doc-lint` gagne 3 contrôles** : fil d'Ariane, retour au hub,
-    **liens internes morts** (un lien mort dans un hub promet une page qui n'existe pas) — et un
-    **régime HUB distinct** (un hub oriente : lui réclamer Lexique/Pièges/Tests/ancres fabriquerait du
-    remplissage). **`build-preview`** rend l'en-tête de card cliquable (`.brick-nav`, focus visible,
-    `prefers-reduced-motion`) — `MarkdownDoc.tsx` doit rattraper cette parité.
-- **2.0.0** (2026-07-19) — **Le skill devient le foyer du SYSTÈME D'ÉCRITURE de la doc de référence**
-  (reprise du corpus cloud, retours user : ancres illisibles/décalées, pas d'exemples). Nouveau :
-  `references/redaction-contenu.md` (standard intégral §8→§8sexies) + `scripts/` = doc-lint (DoD
-  bloquante), **anchor-check** (exactitude des ancres contre le code réel — 19/283 décalées trouvées),
-  **gen-counters** v2 (compteurs COMPTÉS depuis `test-map.json`, fin des photos hardcodées),
-  build-preview (provenance git réelle, artefacts → `tmp/doc-work/`). 3 règles nouvelles au standard :
-  **ancre symbolique** (symbole d'abord, ligne en preuve), **Démarrage rapide compilable obligatoire**
-  (point de vue app générée — fondation des recettes `@nodefony/devkit`), point de vue consommateur.
-  Section « Écriture de la doc » du SKILL réécrite (workflow par page + tableau outillage).
-- **1.3.0** (2026-06-30) — **Refonte ergonomie DocLayout (flexbox 3 colonnes + container par défaut)**.
-  3 plaintes ergo du portail (menus sans scroll, centre trop petit, fullscreen médiocre) = UNE racine :
-  le modèle « scroll de page + sticky » (`Grid` md:3/6/3 → contenu 50 %, sticky fragile dépendant de
-  `--nf-pageheader-height` + scroll `AppShell.Main`). Fix : `DocLayout` passé de `Grid` Mantine à un
-  **flexbox 3 colonnes à largeur fixe** (nav 264 | contenu FLEX dominant | sommaire 240), CSS responsive
-  injecté 1× (`ensureDocLayoutStyles`, hauteurs via `--nf-doc-h` + `.nf-doc-region-col`, empilement +
-  TOC masqué < 992px). Portail `Documentation.tsx` migré `mode="page"` → `mode="container"`
-  `height={PAGE_CONTENT_HEIGHT}` → **chaque colonne scrolle indépendamment** (0 dépendance au sticky),
-  fullscreen = même flex immersif. `ModuleDetail` (déjà `container`) hérite du contenu dominant.
-  **Leçon** : pour un docs-site, préférer **container + flex largeur fixe** au **page + sticky** (ce
-  dernier dépend de trop de variables shell). Gates : typecheck studio 0, transforms Vite 200 (HMR).
-- **1.2.0** (2026-05-28) — **Vitrine « doc Socket » + Registry Vite glob + Backend scan hiérarchique**.
-  Création de la première vitrine de doc complète — la doc « socket Nodefony », aujourd'hui
-  dans [`@nodefony/realtime/docs/`](../../../src/packages/@nodefony/realtime/docs/index.md) :
-  pages MD avec admonitions GitHub, anchors hover, code-copy, Mermaid, liens internes.
-  **Backplane détaillé** (Loopback / Cluster IPC / Redis pub-sub / Kafka) — tableau
-  comparatif, arbre de décision, sécurité, anti-patterns. **Registry frontend**
-  `pages.ts` : `import.meta.glob` charge tous les MD du dossier en
-  bloc (eager, `?raw`), parse frontmatter mini-inline, expose `socketPages` trié par
-  préfixe numérique. Map `LIVE_GRAPHS[slug]` associe optionnellement un composant
-  graphe live (extensible). Brique **`LiveGraphSection`** (Paper + switch + graphe)
-  réutilisable. **Composant `ArchitectureLiveGraph`** (Phase B) consomme
-  `realtime:health` et alimente le `liveNodeData` du `FlowGraph`. Page POC
-  `/nodefony/socket-poc?sub=<slug>` route via `useSearchParams`. **Backend Studio
-  `DocumentationController.#listRootDocs`** étendu : groupement par chemin parent
-  COMPLET (`<a>/<b>` ≠ `<a>/` plat) + parser frontmatter côté serveur
-  → tree expose les vrais titres + `page()` remonte `updated`/`status`/`sourceUrl`.
-  Labels enrichis par chemin de groupe. Routing migré sur la page
-  principale `/nodefony/documentation` (`?doc=<slug>`). **PIÈGES retenus** :
-  Vite glob pattern littéral statique (8 `..` vs 7 selon profondeur du fichier
-  hôte) ; turbo cache parfois capricieux sur le rebuild Studio (utiliser
-  `npx rolldown` direct quand `npm run build` semble silencieux) ; `Object.assign({})`
-  vide dans le transform = signe d'un glob qui ne match rien.
-- **1.1.0** (2026-05-28) — **Template doc impeccable + 0 magic number** (session 1, front-only).
-  Briques `MarkdownDoc` enrichies : admonitions GitHub-flavor (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`
-  → `<Alert>` Mantine, parser direct dans l'override blockquote, 0 dep), heading anchors cliquables
-  au hover (icône `#`, copie URL profonde + scroll, `prefers-reduced-motion` respecté), code blocks
-  enrichis (topbar chip langue + bouton Copier ; override `<pre>` pour HTML valide). Nouvelle brique
-  `DocPageHeader` (breadcrumb · titre h2 · badges version/status/wip · meta line « Mis à jour le … »
-  - « Modifier sur GitHub », tout optionnel = dégradation gracieuse, prêt à recevoir `updated`/
-    `sourceUrl` du backend). `layout.ts` étendu = 4 tokens publics (`PAGE_CONTENT_HEIGHT`,
-    `PAGE_CONTENT_HEIGHT_WITH_BAND`, `TABS_PANEL_HEIGHT`, `MODAL_FULLSCREEN_BODY/CONTENT`) + 2 constantes
-    internes (`BAND="48px"`, `MODAL_HEADER="60px"`). 8 magic numbers migrés (RoutesView/ModuleDetail×2/
-    Database/Chat/DocLayout×2/FlowGraph) ; bug debugbar Chat fixé en bonus ; 0 résiduel hors `layout.ts`.
-    Section Retex initiée avec les pièges rencontrés. Gates : `npm run typecheck` Studio = 0 erreur,
-    transform Vite 200 sur 11 fichiers, HMR Vite = 0 restart serveur.
-- **1.0.0** (2026-05-25) — Création. Capitalise le POC portail doc `eb078ce` : briques front
-  (DocLayout/DocToc/MarkdownDoc/FlowGraph/SymbolGraph + `layout.ts`), règles docs-site (0 magic
-  number, sticky + 1 scroll, Card overflow, pas de sticky dans ScrollArea), data plane
-  `/nodefony/documentation/api/{tree,page/:slug}` + sécurité allowlist, design figé du module
-  `@nodefony/documentation` (index transverse, providers `{{ }}`, versioning git, RBAC P6),
-  conventions d'écriture (ADR-0001, vulgarisation). Piège dist turbo (404 registration) documenté.
