@@ -165,7 +165,7 @@ La doc externe (RFC, TS handbook, NestJS) et les phases futures (10/12/13/14) so
 > **Un skill n'est atteint que si sa règle n'est PAS recopiée ici.** Quand ce fichier redonne la
 > commande d'un skill, l'agent l'exécute et n'ouvre jamais le skill — qui portait pourtant le
 > diagnostic. Mesuré : 11 skills à zéro invocation, presque tous doublés par une règle de ce fichier.
-> État des lieux complet et plan : [`src/nodefony/docs/outillage-agents.md`](src/nodefony/docs/outillage-agents.md).
+> État des lieux complet et plan : [`docs/outillage-agents.md`](docs/outillage-agents.md).
 
 **Règle universelle** : interdiction de charger les sites HTML lourds (`nodejs.org`, `typescriptlang.org`, `docs.nestjs.com`, `tools.ietf.org`). Toujours via raw GitHub + proxy `https://r.jina.ai/`. Les skills contiennent les URLs canoniques + le pattern d'usage.
 

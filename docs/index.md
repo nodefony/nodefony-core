@@ -137,7 +137,9 @@ Orientés tâche : on suit le guide, on obtient un résultat.
   { "icon": "📖", "title": "Lexique général", "href": "lexique.md",
     "desc": "Le vocabulaire du framework, en un seul endroit." },
   { "icon": "🏛️", "title": "Décisions d'architecture", "href": "adr/0001-docs-modules-emplacement-hybride.md",
-    "desc": "Les ADR : pourquoi tel choix a été fait, et ce qu'il coûte." }
+    "desc": "Les ADR : pourquoi tel choix a été fait, et ce qu'il coûte." },
+  { "icon": "🤖", "title": "Outillage agents", "href": "outillage-agents.md",
+    "desc": "Les skills du dépôt de développement : ce que chacun fait, combien il sert réellement, sa conformité au standard Agent Skills, et lesquels réparer ou fusionner. Concerne le dépôt, pas le paquet publié." }
 ]
 ```
 

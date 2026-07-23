@@ -1,29 +1,28 @@
 ---
 title: "Outillage agents — les skills du dépôt, leur usage réel et leur conformité"
 lang: fr
-module: "@nodefony/core"
 topic: outillage-agents
-coverageModule: nodefony-core
-coveragePackage: "nodefony (cœur)"
-coverageFiles: ".claude/skills,.claude/commands,.claude/hooks"
-section: "Cœur runtime"
-audience: [developer]
+audience: humain
+date: 2026-07-23
 status: stable
 updated: 2026-07-23
-source: "src/nodefony/docs/outillage-agents.md"
+source: "docs/outillage-agents.md"
 tests: none
+related: project_devkit_ai_kit, feedback_skill_authoring, feedback_single_source_rule
 tags: [skills, agents, aaif, agent-skills, outillage, claude-code]
 ---
 
 # Outillage agents — les skills du dépôt
 
+> **Ceci documente le dépôt de développement, pas le paquet `nodefony`.** L'outillage décrit ici
+> n'est ni publié sur npm ni chargé au boot : il sert à celles et ceux qui développent le framework.
 > Le dépôt embarque **26 skills**, **2 commandes** et **1 garde-fou** destinés aux agents qui
 > travaillent sur Nodefony. Cette page dit ce que chacun fait, **combien il sert réellement**
 > (mesuré, pas estimé), s'il respecte le standard **Agent Skills** de l'AAIF, et lesquels méritent
 > d'être réparés, fusionnés ou retirés. Elle sert au moment où l'on se demande « ai-je un outil pour
 > ça ? » ou « pourquoi celui-là ne se déclenche jamais ? ».
 
-📍 [Documentation](../../../docs/index.md) › [Cœur — @nodefony/core](index.md) › **Outillage agents**
+📍 [Documentation](index.md) › **Outillage agents**
 
 ## Le modèle — trois portes, et pourquoi ça décide de tout
 
@@ -267,8 +266,8 @@ dans les deux sens avant d'être installé.
 
 ## 🔗 Pour aller plus loin
 
-- ⬆️ **Retour au hub** : [@nodefony/core — vue d'ensemble](index.md) · [Toute la documentation](../../../docs/index.md)
-- [`docs/session-retros/CONSOLIDATION-2026-07-23.md`](../../../docs/session-retros/CONSOLIDATION-2026-07-23.md) — d'où viennent les décisions de cette page (coût du contexte, règle « une règle = une implémentation »)
-- [`docs/session-retros/RETEX.md`](../../../docs/session-retros/RETEX.md) — le sas des frictions récentes, lu à chaque début de session
+- ⬆️ **Retour au hub** : [Toute la documentation](index.md)
+- [`session-retros/CONSOLIDATION-2026-07-23.md`](session-retros/CONSOLIDATION-2026-07-23.md) — d'où viennent les décisions de cette page (coût du contexte, règle « une règle = une implémentation »)
+- [`session-retros/RETEX.md`](session-retros/RETEX.md) — le sas des frictions récentes, lu à chaque début de session
 - `CLAUDE.md` (racine) — les règles permanentes ; les conventions de structure sont déportées dans `references/conventions.md` du kit `nodefony-framework-dev`
 - `tmp/specs-agents/agentskills-specification.md` — la spécification Agent Skills telle que récupérée (à revalider : elle bouge par trimestre)
