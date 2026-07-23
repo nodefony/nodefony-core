@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 | --- | --- |
 | Version | `1.0.0` |
 | Famille | Développer le framework |
-| Corps | 100 lignes |
-| Coût d'activation | ~2 559 tokens (le corps est chargé à l'invocation) |
+| Corps | 101 lignes |
+| Coût d'activation | ~2 568 tokens (le corps est chargé à l'invocation) |
 | Description | 1003 / 1024 caractères |
 | Déclencheurs | 20 |
 | Ressources `references/` | 6 page(s), 14 fichiers au total |
@@ -43,7 +43,7 @@ Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`no
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`create-frontend-module`](nodefony-create-frontend-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`studio-dev`](nodefony-studio-dev.md) · [`ts-docs`](nodefony-ts-docs.md)
+[`create-frontend-module`](nodefony-create-frontend-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`studio-dev`](nodefony-studio-dev.md)
 
 ## Quand il se déclenche
 
@@ -91,7 +91,7 @@ _(+ 8 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 100 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 101 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

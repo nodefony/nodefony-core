@@ -19,7 +19,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**23 skills** · **23/23 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**22 skills** · **22/22 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -136,10 +136,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🗓️", "title": "roadmap", "href": "nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket…",
-    "meta": "🟢 conforme v2.0.0" },
-  { "icon": "🔤", "title": "ts-docs", "href": "nodefony-ts-docs.md",
-    "desc": "Consulte la doc officielle TypeScript (utility types, handbook, do's and don'ts) et les types Node.js (@types/node DefinitelyTyped) via sources brutes raw GitHub + proxy r.jina.ai, jamais typescriptlang.org (JS lourd).",
-    "meta": "🟢 conforme" }
+    "meta": "🟢 conforme v2.0.0" }
 ]
 ```
 
@@ -153,8 +150,8 @@ source: "docs/skills/index.md"
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 276 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 192 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 2.4.0 | 439 | 2 | 6 | ✅ |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 299 | 8 | 0 | ✅ |
-| [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 100 | 6 | 0 | ✅ |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 317 | 8 | 0 | ✅ |
+| [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 101 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 174 | 3 | 3 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 210 | 0 | 0 | ✅ |
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 443 | 1 | 36 | ✅ |
@@ -169,7 +166,6 @@ source: "docs/skills/index.md"
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 209 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 143 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 77 | 0 | 0 | ✅ |
-| [`nodefony-ts-docs`](nodefony-ts-docs.md) | — | 66 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

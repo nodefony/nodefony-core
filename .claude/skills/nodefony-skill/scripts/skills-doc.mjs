@@ -756,7 +756,6 @@ const CATALOG = {
   "check-externals": ["🔗", "Publier et distribuer"],
   release: ["🚢", "Publier et distribuer"],
   rfc: ["📜", "Références et livrables"],
-  "ts-docs": ["🔤", "Références et livrables"],
   roadmap: ["🗓️", "Références et livrables"],
   "html-report": ["📊", "Références et livrables"],
 };

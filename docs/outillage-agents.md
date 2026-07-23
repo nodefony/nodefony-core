@@ -16,7 +16,7 @@ tags: [skills, agents, aaif, agent-skills, outillage, claude-code]
 
 > **Ceci documente le dépôt de développement, pas le paquet `nodefony`.** L'outillage décrit ici
 > n'est ni publié sur npm ni chargé au boot : il sert à celles et ceux qui développent le framework.
-> Le dépôt embarque **23 skills**, **2 commandes** et **1 garde-fou** destinés aux agents qui
+> Le dépôt embarque **22 skills**, **2 commandes** et **1 garde-fou** destinés aux agents qui
 > travaillent sur Nodefony. Cette page dit ce que chacun fait, **combien il sert réellement**
 > (mesuré, pas estimé), s'il respecte le standard **Agent Skills** de l'AAIF, et comment l'inventaire
 > a été resserré (fusions, retraits). Elle sert au moment où l'on se demande « ai-je un outil pour
@@ -173,10 +173,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme" },
   { "icon": "🗓️", "title": "roadmap", "href": "skills/nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket…",
-    "meta": "🟢 conforme v2.0.0" },
-  { "icon": "🔤", "title": "ts-docs", "href": "skills/nodefony-ts-docs.md",
-    "desc": "Consulte la doc officielle TypeScript (utility types, handbook, do's and don'ts) et les types Node.js (@types/node DefinitelyTyped) via sources brutes raw GitHub + proxy r.jina.ai, jamais typescriptlang.org (JS lourd).",
-    "meta": "🟢 conforme" }
+    "meta": "🟢 conforme v2.0.0" }
 ]
 ```
 <!-- skills-cards:end -->
@@ -231,8 +228,7 @@ fichiers. Un skill peut être très lu sans jamais être invoqué — c'est un s
 | ---------------------- | --------------------------------------------------------- | -----: | ----: |
 | `nodefony-rfc`         | RFC IETF/W3C en source brute (HTTP, WS, CORS, cookies)    |      4 |     0 |
 | `nodefony-html-report` | Fabrique des rapports HTML autonomes destinés à un humain |      3 |   348 |
-| `nodefony-roadmap`     | Contexte des phases Studio/IA/Realtime/Frontend           |      0 |    24 |
-| `nodefony-ts-docs`     | Doc TypeScript et `@types/node` en source brute           |      0 |     0 |
+| `nodefony-roadmap`     | Couche IA (P12) + conventions des phases livrées          |      0 |    24 |
 
 ### Commandes et garde-fou
 
@@ -331,11 +327,14 @@ C'est le cas dominant, et il valide la règle « une règle = une implémentatio
 - **`nodefony-nestjs`** (0 invocation) est **retiré** : son déclencheur était le mot « NestJS », qui
   n'apparaît plus, l'architecture étant figée depuis longtemps ; la décision d'inspiration reste
   gravée dans le `CLAUDE.md`.
-- **`nodefony-ts-docs`** (0 invocation). Utile en principe, jamais atteint en pratique. Conservé,
-  mais cité par la table d'orchestration de `framework-dev` qui le déclenche au besoin.
-- **`nodefony-roadmap`** (0 invocation, 24 lectures) : les phases qu'il décrit sont livrées pour
-  l'essentiel ; son contenu vivant a migré vers `MIGRATION_STATUS.md`. Conservé pour l'instant, à
-  requalifier — reste vérifiable page par page.
+- **`nodefony-ts-docs`** (0 invocation) est **retiré** : deux de ses quatre URLs avaient silencieusement
+  pourri (repo TypeScript-Website restructuré) sans que personne ne le remarque en deux mois — la
+  preuve qu'on ne l'ouvrait jamais. Ses trois sources canoniques (es5.d.ts, handbook, DefinitelyTyped),
+  URLs corrigées, sont repliées dans `nodefony-framework-dev` §1, où les renvois « type tordu » menaient
+  déjà. Pour un auteur expert TS, un skill de lookup d'utility types ne gagnait pas sa place.
+- **`nodefony-roadmap`** (0 invocation, 24 lectures) est **requalifié** : recentré sur P12 (couche IA
+  agentic — seule phase future), les phases livrées 10/13/14 réduites à des pointeurs vers le skill/doc
+  qui porte leur convention. 171 → 122 lignes.
 
 ### D. À garder tels quels
 
@@ -343,28 +342,22 @@ C'est le cas dominant, et il valide la règle « une règle = une implémentatio
 `security-review`, `migration-audit`, `rfc`, `html-report`, `create-module`, `multipod-bench`,
 `frontend-dev`, `create-frontend-module`, `tail-error-logs`, `check-externals`. Tous ont soit une
 invocation régulière, soit un usage en lecture massif (leurs `references/` et `scripts/` sont la
-vraie valeur), soit une fonction de filet rare mais irremplaçable.
+vraie valeur), soit une fonction de filet rare mais irremplaçable. **`nodefony-rfc`** (4 invocations,
+toutes URLs IETF/W3C revérifiées valides) : gardé — la vérif RFC est une discipline cœur du framework.
 
-**Bilan** : 28 skills → **23** — quatre skills d'inspection fusionnés en `nodefony-inspect`,
-`frontend-verify` absorbé par `frontend-dev`, `nestjs` retiré. Aucune capacité perdue, et le gate
-`skills-doc` refuse désormais tout renvoi vers un skill disparu.
+**Bilan** : 28 skills → **22** — quatre skills d'inspection fusionnés en `nodefony-inspect`,
+`frontend-verify` absorbé par `frontend-dev`, `nestjs` et `ts-docs` retirés (contenus repliés).
+Aucune capacité perdue, et le gate `skills-doc` refuse désormais tout renvoi vers un skill disparu.
 
 ## Le travail à faire
 
-La conformité mécanique, l'ajustement du `CLAUDE.md`, les fusions et le retrait sont **faits** ; ce
-qui suit reste ouvert, par ordre de rentabilité décroissante.
+Le resserrement de l'inventaire est **soldé** : conformité mécanique, ajustement du `CLAUDE.md`,
+fusions, retraits, découpe des deux corps > 500 lignes (`session`, `documentation`) et requalification
+de `roadmap` sont faits. Les recouvrements de déclencheurs sont tous **arbitrés et documentés**
+(`ACCEPTED_OVERLAPS` dans `trigger-bench.mjs`) — le banc ne signale plus que les recouvrements neufs.
 
-1. **Découper les deux corps > 500 lignes** (`documentation` 641, `session` 555) en déplaçant le
-   détail dans `references/` — ce sont aussi les deux plus gros consommateurs de contexte à
-   l'activation.
-2. **Arbitrer les recouvrements de déclencheurs** que le banc `trigger-bench` signale (9 au dernier
-   passage) : tous ne sont pas des défauts (« fuite mémoire » vaut mieux capté par
-   `check-memory-health` que par `debug`), mais chacun mérite une décision consciente.
-3. **Requalifier `nodefony-roadmap`** : vérifier page par page ce qui reste vrai des phases décrites,
-   puis réduire ou retirer.
-4. **Réviser les skills inchangés depuis mai** (`rfc`, `ts-docs`) : le framework a beaucoup bougé
-   depuis. Leurs ancrages testés tiennent encore, mais l'absence de mise à jour sur deux mois est un
-   signal de dérive à vérifier page par page, pas une preuve de péremption.
+Reste, hors périmètre de cette page : le **registre des écarts doc↔code** et les **lots 1→7 du
+`@nodefony/devkit`** (le lot 0, conformité de l'existant, est fait). Voir `MIGRATION_STATUS.md`.
 
 ## Pièges
 

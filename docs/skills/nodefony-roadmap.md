@@ -28,7 +28,7 @@ source: ".claude/skills/nodefony-roadmap/SKILL.md"
 | Version | `2.0.0` |
 | Famille | Références et livrables |
 | Corps | 108 lignes |
-| Coût d'activation | ~1 957 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~2 001 tokens (le corps est chargé à l'invocation) |
 | Description | 812 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 0 page(s) |

@@ -30,8 +30,8 @@ description: >
 
 > **Périmètre** : front (full-stack côté client) → **`nodefony-frontend-dev`** (skill JUMEAU) ; app admin Studio spécifique (UI kit/Mantine) → `nodefony-studio-dev` (dérive de frontend-dev). Scaffolder un module
 > neuf → **`nodefony-create-module`** (ici = comment CODER dedans). RFC/normes → `references/rfc/` (bundlé
-> offline) + skill `nodefony-rfc` (full-text rare). Types TS → `nodefony-ts-docs`. Sécurité review/attaque
-> → `nodefony-security-review`.
+> offline) + skill `nodefony-rfc` (full-text rare). Types TS / `@types/node` → §1 « Doc TypeScript ».
+> Sécurité review/attaque → `nodefony-security-review`.
 
 ## 🔗 Paire POLYMORPHE back ⇄ front (co-évolution OBLIGATOIRE)
 
@@ -64,31 +64,49 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
 
 **Passer la main** :
 
-| Besoin                                                        | Skill                              |
-| ------------------------------------------------------------- | ---------------------------------- |
-| Scaffolder un module DANS UNE APP (workspace `modules/<nom>`) | **CLI** : `nodefony create module` |
-| Scaffolder un package `@nodefony/*` du REPO (src/packages/)   | `nodefony-create-module`           |
-| Module à front Vite (React/Vue/Angular) — repo                | `nodefony-create-frontend-module`  |
-| Frontend Studio (page/dashboard/composant React)              | `nodefony-studio-dev`              |
-| Lancer la suite mémoire (avant commit pipeline)               | `nodefony-check-memory-health`     |
-| Démarrer/redémarrer le serveur dev                            | `nodefony-start-server`            |
-| Conformité RFC HTTP/WS/CORS/cookies                           | `nodefony-rfc`                     |
-| Revue sécurité du diff avant commit                           | `nodefony-security-review`         |
-| Typer un truc tordu (utility types, @types/node)              | `nodefony-ts-docs`                 |
-| Charge / stress HTTP+WS                                       | `nodefony-load-test`               |
+| Besoin                                                        | Skill                                          |
+| ------------------------------------------------------------- | ---------------------------------------------- |
+| Scaffolder un module DANS UNE APP (workspace `modules/<nom>`) | **CLI** : `nodefony create module`             |
+| Scaffolder un package `@nodefony/*` du REPO (src/packages/)   | `nodefony-create-module`                       |
+| Module à front Vite (React/Vue/Angular) — repo                | `nodefony-create-frontend-module`              |
+| Frontend Studio (page/dashboard/composant React)              | `nodefony-studio-dev`                          |
+| Lancer la suite mémoire (avant commit pipeline)               | `nodefony-check-memory-health`                 |
+| Démarrer/redémarrer le serveur dev                            | `nodefony-start-server`                        |
+| Conformité RFC HTTP/WS/CORS/cookies                           | `nodefony-rfc`                                 |
+| Revue sécurité du diff avant commit                           | `nodefony-security-review`                     |
+| Typer un truc tordu (utility types, @types/node)              | §1 « Doc TypeScript / @types/node » ci-dessous |
+| Charge / stress HTTP+WS                                       | `nodefony-load-test`                           |
 
 **Déclencher EN PLUS pendant le dev (orchestration — ne pas coder « de mémoire » sur ces sujets)** :
 
 | Dès que tu touches…                                                                | Déclenche AVANT/PENDANT                                      |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | HTTP/HTTP2/WS, headers, status, CORS, cookies, framing                             | **`nodefony-rfc`** (vérifier la RFC EXACTE — IETF/W3C bruts) |
-| un type tordu, une API Node (`node:*`, `NodeJS.Timeout`, streams), un utility type | **`nodefony-ts-docs`**                                       |
+| un type tordu, une API Node (`node:*`, `NodeJS.Timeout`, streams), un utility type | **§1 « Doc TypeScript / @types/node »** (sources brutes)     |
 | auth, crypto, secrets, validation d'entrée, surface d'attaque, header de sécurité  | **`nodefony-security-review`** + sources OWASP/ANSSI (§10)   |
 | Kernel / Container / pipeline request / mémoire                                    | **`nodefony-check-memory-health`** (avant commit)            |
 | l'impact d'un refactor : qui étend / implémente / importe ce symbole               | **`nodefony-inspect`** (index, pas `grep`)                   |
 
 > Règle : sur RFC, types Node/TS, ou sécurité/vulns, **TOUJOURS** consulter la source/skill — ne jamais
 > trancher de mémoire. Ces skills sont gratuits en tokens tant qu'ils ne se déclenchent pas.
+
+### Doc TypeScript / `@types/node` — sources brutes (jamais `typescriptlang.org`)
+
+Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute + `grep` ciblé
+(raw GitHub, proxy `https://r.jina.ai/` devant si besoin — jamais le site HTML lourd) :
+
+- **Utility types** (`Pick`, `Omit`, `ReturnType`, `Parameters`…) — `lib.es5.d.ts` :
+  `https://raw.githubusercontent.com/microsoft/TypeScript/main/src/lib/es5.d.ts`
+- **Handbook — Everyday Types** (interfaces vs types) :
+  `…/microsoft/TypeScript-Website/v2/packages/documentation/copy/en/handbook-v2/Everyday%20Types.md`
+- **Handbook — Do's and Don'ts** (declaration files, overloads, unsound types) :
+  `…/microsoft/TypeScript-Website/v2/packages/documentation/copy/en/declaration-files/Do's%20and%20Don'ts.md`
+- **`@types/node`** (types natifs) — DefinitelyTyped `master`, ex. HTTP :
+  `https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/node/http.d.ts`
+  (idem `globals.d.ts`, `http2.d.ts`, `stream.d.ts`, …).
+
+> Ne jamais lire un `.d.ts` entier : `grep "type Pick"` / la définition précise. Une signature
+> réutilisée → la condenser dans le `MEMORY.md` du module pour ne plus la relire.
 
 ## 2. 🚨 RÈGLES ABSOLUES (non négociables — priorité MAX)
 

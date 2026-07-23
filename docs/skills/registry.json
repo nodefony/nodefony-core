@@ -3,8 +3,8 @@
   "standard": "agent-skills (AAIF)",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-07-23",
-  "count": 23,
-  "conformant": 23,
+  "count": 22,
+  "conformant": 22,
   "skills": [
     {
       "name": "nodefony-check-externals",
@@ -768,8 +768,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs). Couvre : créer un service injectable, un module, une commande CLI, une entité/repository/adapter ORM, un endpoint HTTP/WS ou un data plane admin, et le realtime. Donne les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup des listeners, ALS), les conventions de structure et de configuration, des recettes vérifiées sur le source, les gotchas et les RFC bundlées hors ligne. Déclencheurs : \"dev core\", \"coder dans le kernel\", \"pipeline http\", \"créer un service\", \"service injectable\", \"module hooks\", \"commande CLI\", \"controller nodefony\", \"décorateur route\", \"créer une entité\", \"repository\", \"adapter ORM\", \"data plane\", \"certificats TLS\", \"realtime\", \"WebSocket\", \"firewall\", \"@IsGranted\", \"@Idempotent\", \"structure d'un module\", \"defineConfig\", \"avant de coder dans le cœur\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 299,
-        "approxTokens": 6399
+        "bodyLines": 317,
+        "approxTokens": 6704
       },
       "requires": [],
       "resources": {
@@ -799,8 +799,7 @@
         "nodefony-security-review",
         "nodefony-start-server",
         "nodefony-studio-dev",
-        "nodefony-tail-error-logs",
-        "nodefony-ts-docs"
+        "nodefony-tail-error-logs"
       ],
       "conformance": {
         "ok": true,
@@ -844,7 +843,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "299",
+            "detail": "317",
             "advisory": true
           }
         ]
@@ -894,8 +893,8 @@
       ],
       "description": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et **vérification d'une modif front sans navigateur** (transform Vite en `curl`, purge du prébundle, rechargement forcé) — la règle projet interdit le navigateur headless. App admin Studio → `nodefony-studio-dev` ; scaffold d'un module front → `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"isomorphisme\", \"socket client\", \"RealtimeClient\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"accessibilité front\", \"WCAG\", \"perf front\", \"vérifie le front\", \"ma modif front passe ?\", \"transform Vite\", \"prébundle Vite périmé\".",
       "cost": {
-        "bodyLines": 100,
-        "approxTokens": 2559
+        "bodyLines": 101,
+        "approxTokens": 2568
       },
       "requires": [],
       "resources": {
@@ -915,8 +914,7 @@
         "nodefony-framework-dev",
         "nodefony-rfc",
         "nodefony-security-review",
-        "nodefony-studio-dev",
-        "nodefony-ts-docs"
+        "nodefony-studio-dev"
       ],
       "conformance": {
         "ok": true,
@@ -960,7 +958,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "100",
+            "detail": "101",
             "advisory": true
           }
         ]
@@ -2909,7 +2907,7 @@
       "description": "Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ». Les phases 10 (Studio), 13 (Realtime) et 14 (builder Vite) sont LIVRÉES : leurs conventions encore actives sont pointées vers le skill ou la doc qui les porte désormais, pas recopiées. Déclencheurs : \"couche IA\", \"agentic\", \"@nodefony/agent\", \"@nodefony/llm\", \"@nodefony/rag\", \"agent-guard\", \"AI Act\", \"mode souverain\", \"streaming LLM\", \"phase 12\", \"interface consommée par un agent\", \"convention route /nodefony\", \"API admin d'un module\".",
       "cost": {
         "bodyLines": 108,
-        "approxTokens": 1957
+        "approxTokens": 2001
       },
       "requires": [],
       "resources": {
@@ -3628,86 +3626,6 @@
       "links": {
         "source": ".claude/skills/nodefony-tail-error-logs/SKILL.md",
         "doc": "docs/skills/nodefony-tail-error-logs.md"
-      }
-    },
-    {
-      "name": "nodefony-ts-docs",
-      "summary": "Consulte la doc officielle TypeScript (utility types, handbook, do's and don'ts) et les types Node.js (@types/node DefinitelyTyped) via sources brutes raw GitHub + proxy r.jina.ai, jamais typescriptlang.org (JS lourd).",
-      "family": "Références et livrables",
-      "version": null,
-      "keywords": [],
-      "triggers": [
-        "comment typer X",
-        "utility type",
-        "Pick/Omit/ReturnType",
-        "@types/node",
-        "NodeJS.Timeout",
-        "TS handbook",
-        "mapped types",
-        "conditional type"
-      ],
-      "description": "Consulte la doc officielle TypeScript (utility types, handbook, do's and don'ts) et les types Node.js (@types/node DefinitelyTyped) via sources brutes raw GitHub + proxy r.jina.ai, jamais typescriptlang.org (JS lourd). Déclencheurs : \"comment typer X\", \"utility type\", \"Pick/Omit/ReturnType\", \"@types/node\", \"NodeJS.Timeout\", \"TS handbook\", \"mapped types\", \"conditional type\".",
-      "cost": {
-        "bodyLines": 66,
-        "approxTokens": 681
-      },
-      "requires": [],
-      "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
-        "scripts": []
-      },
-      "related": [],
-      "conformance": {
-        "ok": true,
-        "checks": [
-          {
-            "key": "name conforme et égal au dossier",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "description de 1 à 1024 caractères",
-            "ok": true,
-            "detail": "376",
-            "advisory": false
-          },
-          {
-            "key": "aucun champ hors standard",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "compatibility ≤ 500 caractères (si présent)",
-            "ok": true,
-            "detail": "absent",
-            "advisory": false
-          },
-          {
-            "key": "dossier de ressources nommé `references/`",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "aucun renvoi vers un skill inexistant",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "corps < 500 lignes",
-            "ok": true,
-            "detail": "66",
-            "advisory": true
-          }
-        ]
-      },
-      "links": {
-        "source": ".claude/skills/nodefony-ts-docs/SKILL.md",
-        "doc": "docs/skills/nodefony-ts-docs.md"
       }
     }
   ]

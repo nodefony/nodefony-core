@@ -78,7 +78,6 @@ const CASES = [
   ["c'est safe ? fais une revue sécurité du diff", "nodefony-security-review"],
   ["attaquer cette brique, matrice d'attaque", "nodefony-security-review"],
   ["vérifie la conformité RFC des cookies et du CORS", "nodefony-rfc"],
-  ["comment typer ça, utility type et @types/node", "nodefony-ts-docs"],
   // — doc, inspection, livrables
   ["écrire une page de doc de référence", "nodefony-documentation"],
   ["la doc dit-elle encore vrai ?", "nodefony-documentation"],

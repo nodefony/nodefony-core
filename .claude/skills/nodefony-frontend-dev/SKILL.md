@@ -35,7 +35,8 @@ description: >
 > **Périmètre / passer la main** : app admin **Studio** (UI kit, Mantine v9, MobX, pages, Twin, debugbar)
 > → **`nodefony-studio-dev`** (DÉRIVE de ce skill + ajoute SA stack). Scaffolder un module front neuf →
 > **`nodefony-create-frontend-module`**. Back (controllers, services, data plane, realtime serveur) →
-> **`nodefony-framework-dev`**. Types TS tordus → `nodefony-ts-docs`. Sécurité review → `nodefony-security-review`.
+> **`nodefony-framework-dev`** (qui porte aussi « Doc TypeScript / @types/node » pour un type tordu).
+> Sécurité review → `nodefony-security-review`.
 
 ## 🔗 Paire POLYMORPHE front ⇄ back (co-évolution OBLIGATOIRE)
 
@@ -68,7 +69,7 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 | App Studio : UI kit (PageHeader/DataGrid/StatCard…), Mantine, MobX, pages, Twin, debugbar | `nodefony-studio-dev`             |
 | Scaffolder un module front (React/Vue/Angular)                                            | `nodefony-create-frontend-module` |
 | Back : controller, service, data plane, realtime serveur, ORM                             | `nodefony-framework-dev`          |
-| Typer un truc tordu (utility types, génériques)                                           | `nodefony-ts-docs`                |
+| Typer un truc tordu (utility types, `@types/node`)                                        | `nodefony-framework-dev` §1       |
 | Revue sécurité d'un diff front                                                            | `nodefony-security-review`        |
 
 ## 2. 🚨 RÈGLES ABSOLUES front (non négociables)
