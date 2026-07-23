@@ -67,7 +67,8 @@
       "src/packages/@nodefony/security/tests/unit/realtimeFrameLock.test.ts",
       "src/packages/@nodefony/framework/nodefony/tests/unit/securityDecorators.test.ts",
       "src/packages/@nodefony/framework/nodefony/tests/unit/securityEnforcement.test.ts",
-      "src/packages/@nodefony/framework/nodefony/tests/unit/adminRbac.test.ts"
+      "src/packages/@nodefony/framework/nodefony/tests/unit/adminRbac.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/scopeCatalog.test.ts"
     ],
     "attack": [
       "src/packages/@nodefony/security/tests/unit/authorization.attack.test.ts",
@@ -278,7 +279,6 @@
       "src/nodefony/src/tests/Container.test.ts",
       "src/nodefony/src/tests/Injector.test.ts",
       "src/packages/@nodefony/framework/nodefony/tests/unit/scope.test.ts",
-      "src/packages/@nodefony/framework/nodefony/tests/unit/scopeCatalog.test.ts",
       "src/nodefony/src/tests/serviceOrder.test.ts",
       "src/nodefony/src/tests/Decorators.test.ts",
       "src/nodefony/src/tests/Service.test.ts"
@@ -335,11 +335,31 @@
     "globs": ["src/packages/@nodefony/orm-core/tests/**/*.test.ts"]
   },
   "pipeline-requete": {
-    "globs": [
-      "src/packages/@nodefony/http/nodefony/tests/http/**/*.test.ts",
-      "src/packages/@nodefony/http/nodefony/tests/integration/**/*.test.ts",
-      "src/packages/@nodefony/http/nodefony/tests/websockets/**/*.test.ts",
-      "src/packages/@nodefony/http/nodefony/tests/routing/**/*.test.ts"
+    "unit": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/requestId.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/trustProxy.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/forwarded.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/forwardedWiring.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/httpContextTimeout.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/metaData.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/httpKernel.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/pipeline-order.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/lifecycle-init-crash.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/errors.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/resilience.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/timeout-abort.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/abort-cleanup.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/client-abort-499.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/integration/after-response.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/integration/abort-signal.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/integration/timing.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/routing/Router.test.ts"
+    ],
+    "load": [
+      "src/packages/@nodefony/http/nodefony/tests/load/als-load.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/load/stream-load.test.ts"
     ]
   },
   "rate-limit": {
