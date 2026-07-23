@@ -83,7 +83,12 @@ export interface IWebAuthnAssertionResult {
  * Au boot (si `passkeys.enabled`) : résout le RP (rpID/rpName/origines depuis la
  * config, sinon le domaine de l'app) + le store de credentials pluggable
  * (`webAuthnCredentialStore` du container, sinon le builtin mémoire) et le pose
- * au container (consommé par `WebAuthnAuthenticator` et les endpoints framework).
+ * au container — une application peut donc fournir le sien avant le boot.
+ *
+ * Il n'existe **pas** d'authenticator passkey : `WebAuthnController`
+ * (`@nodefony/framework`) mène les deux cérémonies via ce service, puis
+ * `AuthFlow.establishSessionFor()` ouvre la session BFF ; les requêtes
+ * suivantes sont ré-authentifiées par `SessionAuthenticator`.
  *
  * **Anti-rejeu** : le challenge serveur est porté HORS de ce service (en session
  * BFF par le controller) ; chaque `verify*` reçoit le `expectedChallenge` qu'il

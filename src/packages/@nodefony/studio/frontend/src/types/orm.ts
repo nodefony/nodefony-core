@@ -49,7 +49,6 @@ export interface OrmGraph {
 export const VENDOR_LABEL: Record<string, string> = {
   drizzle: "Drizzle",
   mongoose: "Mongoose",
-  mikroorm: "MikroORM",
 };
 
 /** Libellé court d'un type de relation. */

@@ -21,9 +21,14 @@ pipeline de contexte/controller.
 ## Pipeline
 
 ```
-serveur → http-kernel.handle() → createContext()
-   → handleFrontController() (Router.match → Resolver.resolve)
-   → Firewall.check() → Controller.execute() → Response.send()
+serveur → http-kernel.handle() → rate-limit IP → createContext()
+   → Firewall.handleCors()           (preflight OPTIONS → 204, court-circuit)
+   → Router.resolve()                (match avant le parse du body)
+   → Firewall.applySecurityHeaders() → fallback statique si aucune route
+   → parse du body
+   → handleFrontController() (Resolver.resolve → controller + initialize())
+   → Firewall.enforceCsrf() → startSession() → Firewall.handleSecurity()
+   → action du controller → Response.send()
 ```
 
 Chaque contexte (HTTP + WS) porte un `requestId` (UUID v4, ou `X-Request-Id` client),

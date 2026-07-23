@@ -3,7 +3,7 @@
 ## Rôle
 
 Fondation **multi-ORM** de Nodefony : contrats abstraits + registre + classes de base.
-Consommé par les drivers (`@nodefony/mongoose`, `@nodefony/drizzle`, `@nodefony/mikroorm`) et par `@nodefony/user`, session storage, security.
+Consommé par les **deux** drivers existants (`@nodefony/drizzle` — défaut — et `@nodefony/mongoose`) et par `@nodefony/user`, session storage, security.
 
 ## Nature : LIB PURE (pas un Module runtime)
 

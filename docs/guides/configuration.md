@@ -153,12 +153,19 @@ registre. `nodefony create module` le génère déjà : un module neuf naît con
 
 ## Réactivité : `hot` vs `boot`
 
-Chaque champ porte un tag TSDoc `@reactivity hot | boot` (visible en hover) :
+La réactivité n'est **pas** déduite d'un tag posé sur chaque champ : elle vient d'une **liste
+explicite**, `configReactivity` (`src/nodefony/src/config/reactivity.ts:27`), interrogée par
+`getConfigReactivity(path)`.
 
-- **`hot`** : applicable à chaud (futur `Kernel.applyConfigPatch`) — ex. `log.active`, `log.debug`, `log.requestFormat`.
-- **`boot`** : figé au boot, un changement exige un redémarrage — ex. ports, `protocol`, liste `modules`, `domain`.
+- **`hot`** — applicable à chaud. Aujourd'hui **trois chemins exactement** : `log.active`,
+  `log.debug`, `log.requestFormat` (le cadre de la « fenêtre d'audit » : élever la verbosité en
+  production, sans redémarrer).
+- **`boot`** — figé au boot, un changement exige un redémarrage : **tout le reste**, ports,
+  `protocol`, liste `modules`, `domain` compris.
 
-Un champ non classé = `boot` (conservateur). Studio affichera un badge `🔥 à chaud` / `🔒 redémarrage` par champ.
+Un champ absent de la liste est donc `boot` — c'est le défaut sûr. L'application à chaud se fait par
+le data plane `PATCH /nodefony/kernel/api/config/{module}` (`KernelAdminApi.ts:891`), qu'utilise
+l'onglet **Configuration** de Studio, lequel badge chaque champ `🔥 à chaud` / `🔒 redémarrage`.
 
 ## Cas particulier : la topologie cluster
 
@@ -185,12 +192,17 @@ et un code de sortie **`EX_CONFIG` (78)** pour que l'orchestrateur distingue « 
 
 Le boot lit la config depuis le **dist** (`dist/index.js`, `dist/nodefony.config.js`, `dist/env.js`),
 pas la source. Après avoir édité `nodefony.config.ts` / `env.ts`, **rebuilder le root** avant de relancer :
-`npx rollup -c` à la racine (le `start.sh` du skill ne rebuilde que le module test en dev).
+`npm run build` à la racine (le `start.sh` du skill ne rebuilde que le module test en dev).
 Voir le skill `nodefony-start-server`.
 
 ## Voir la config résolue
 
-`nodefony config:show` (CLI) ou l'onglet **Configuration** de Studio (introspection via `z.toJSONSchema`).
+L'onglet **Configuration** de Studio (introspection via `z.toJSONSchema`), alimenté par
+`GET /nodefony/kernel/api/config` : valeurs effectives (secrets masqués), schéma JSON et
+**provenance par champ** (qui a posé la valeur — défaut du module, `nodefony.config.ts`, `NF__*`).
+
+> Il n'existe **pas** de commande `nodefony config:show` : la config résolue se lit par le data
+> plane ci-dessus, pas par la CLI.
 
 ## Surcharger en déploiement — Docker / variables d'env
 
@@ -234,8 +246,9 @@ catalogue n'est pas aussi piloté par `NF__*` (la variable nommée fait foi).
 Chaque module porte sa config dans **un schéma Zod commenté** = la **seule** source de : type
 (`z.infer`), validation, **défaut** (`.default()`), doc (`.describe()`) et formulaire Studio
 (`z.toJSONSchema`). **Un défaut n'est jamais re-tapé ailleurs.** Forme : `config.ts` (le schéma = QUOI,
-lisible) + `defineXConfig.ts` (builder pur = COMMENT, ~15 lignes). `@nodefony/security` = module de
-référence. Voir [ADR-0006](../adr/0006-configuration-unifiee-env-override.md) (D1/D2).
+lisible) + `defineXConfig.ts` (builder pur = COMMENT, ~15 lignes). **`@nodefony/drizzle` = module de
+référence** de cette forme à deux fichiers. Voir
+[ADR-0006](../adr/0006-configuration-unifiee-env-override.md) (D1/D2).
 
 ## Héritage quand Nodefony est une dépendance
 

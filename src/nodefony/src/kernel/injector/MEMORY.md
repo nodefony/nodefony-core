@@ -13,10 +13,10 @@
 
 ## Fichiers
 
-| Fichier                                | Rôle                                                                                                              |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `injector/injector.ts`                 | Moteur DI — registre, résolution, circular detection                                                              |
-| `kernel/decorators/kernelDecorator.ts` | Decorators — `@injectable`, `@inject`, `@Inject`, `@services`, `@entities` (`@modules` RETIRÉ → `config.modules`) |
+| Fichier                                | Rôle                                                                                                                                             |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `injector/injector.ts`                 | Moteur DI — registre, résolution, circular detection                                                                                             |
+| `kernel/decorators/kernelDecorator.ts` | Decorators — `@injectable`, `@inject`, `@Inject`, `@services` (`@modules` RETIRÉ → `config.modules` ; `@entities` vit dans `@nodefony/orm-core`) |
 
 ---
 
@@ -180,9 +180,14 @@ constructor(@inject("AuthService") auth: AuthService) {}
 > orchestré par le Kernel à `onPreRegister`). Cf `project_module_loading_architecture`.
 
 ```
-@services(path|Ctor|array) → kernel.once("onPreBoot") → addService|loadService
-@entities(path|Ctor|array) → kernel.once("onBoot")    → addEntity|loadEntity
+@services(path|Ctor|array)  → kernel.once("onPreBoot")  → addService|loadService
+@entities(IEntityDefinition[], {connector?})            ← @nodefony/orm-core, PAS le core
+                            → kernel.once("onRegister") → entityRegistry.register()
 ```
+
+`@entities` : phase `onRegister` (les connecteurs se branchent à `onBoot` et y créent
+les tables — inscrire plus tard serait une course), idempotent par (nom, connecteur),
+0 catch. Importé depuis `@nodefony/orm-core`, jamais depuis `nodefony`.
 
 ---
 

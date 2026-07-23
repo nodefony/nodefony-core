@@ -18,7 +18,7 @@
  *  5. Lire une var d'env        → la déclarer dans `./env.ts`, lire `ctx.env.X` (jamais `process.env`).
  *  6. Extraire un domaine       → quand un bloc grossit : `import { servers } from "./config/servers"` (choix, pas obligation).
  *
- * Voir toutes les options + défauts : `nodefony config:show` / onglet Configuration de Studio.
+ * Voir toutes les options + défauts : onglet Configuration de Studio (`/nodefony`).
  */
 import { defineConfig, use } from "nodefony";
 import type { env } from "./env";

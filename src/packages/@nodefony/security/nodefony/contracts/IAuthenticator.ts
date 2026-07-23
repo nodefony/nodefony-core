@@ -13,7 +13,11 @@ import type { IToken } from "./IToken";
  * authentifié), `authenticate()` valide et promeut ou `throw` (→ 401).
  *
  * Implémentations : `AnonymousAuthenticator`, `UserPasswordAuthenticator`,
- * `JwtAuthenticator`, `OAuth2Authenticator`, `MTlsAuthenticator`.
+ * `SessionAuthenticator`, `JwtAuthenticator`, `ApiKeyAuthenticator`.
+ *
+ * Le login social ne passe **pas** par un authenticator : `OAuth2Service`
+ * échange le code, provisionne l'utilisateur et ouvre une session BFF — c'est
+ * ensuite `SessionAuthenticator` qui ré-authentifie les requêtes suivantes.
  */
 export interface IAuthenticator {
   /** Nom logique (référencé dans `area.authenticators`). */

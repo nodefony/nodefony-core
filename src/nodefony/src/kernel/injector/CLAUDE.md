@@ -40,7 +40,8 @@ l'importe reçoit `undefined`. Utiliser l'injection **par constructeur** (`@inje
 ### Module-level (auto-discovery)
 
 ```typescript
-import { services, entities } from "nodefony";
+import { services } from "nodefony";
+import { entities } from "@nodefony/orm-core"; // ⚠️ PAS "nodefony"
 
 // Chargement de MODULES : plus de @modules (RETIRÉ 2026-06-03). La liste vit dans
 // config.modules (manifeste ordonné), orchestrée par le Kernel à onPreRegister.
@@ -49,9 +50,16 @@ import { services, entities } from "nodefony";
 @services([UserService, DatabaseService]) // → onPreBoot
 class MyModule extends Module {}
 
-@entities([UserEntity, OrderEntity]) // → onBoot
+@entities([UserEntity, OrderEntity]) // → onRegister
 class MyOrmModule extends Module {}
 ```
+
+⚠️ **`@entities` n'appartient PAS au core** : il vit dans `@nodefony/orm-core`
+(`nodefony/src/decorators/entitiesDecorator.ts`, exporté par son `index.ts:95`).
+`kernelDecorator.ts:172` n'exporte que `injectable`, `inject`, `Inject`, `services`.
+Sa phase est **`onRegister`, jamais `onBoot`** : les connecteurs se branchent à
+`onBoot` et y créent les tables — inscrire les entités à `onBoot` en ferait une
+course avec le `connect()` (raison détaillée dans le TSDoc du décorateur).
 
 ## Métadonnées stockées (`Reflect.metadata`)
 
@@ -66,8 +74,8 @@ class MyOrmModule extends Module {}
 ## Résolution au boot
 
 ```
-1. Kernel boot → décorateurs lifecycle (@services, @entities) firent les hooks
-   correspondants (onPreBoot, onBoot) ; les MODULES sont chargés depuis
+1. Kernel boot → décorateurs lifecycle (@services → onPreBoot, @entities →
+   onRegister) firent les hooks correspondants ; les MODULES sont chargés depuis
    config.modules par le Kernel à onPreRegister (manifeste, plus de @modules)
 
 2. Injector.instantiate(Ctor, parent, ...args)
@@ -122,22 +130,32 @@ constructor(@inject() db: Database) {}              // ❌ ne marche pas sous ts
 
 C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté injector pour contourner.
 
-## Decorators module — pattern `prependOnceListener`
+## Decorators module — ordre des listeners
+
+Les deux décorateurs s'inscrivent par `kernel.once(...)` depuis le constructeur du
+mixin, donc **avant** les hooks de la sous-classe (`Module.setEvents()` s'exécute
+au constructeur de `Module`, `Module.ts:113`). Le seul `prependOnceListener` du
+lifecycle est celui de `Module.setEvents()` (`Module.ts:238`) : il charge le
+`package.json` du module en tête de `onPreBoot` — ce n'est pas un décorateur.
 
 ```typescript
-// Module.setEvents() ordre des listeners :
-//   index 0 (prepend) : decorator @services/@entities handler
-//   index 1+          : hooks user (onKernelRegister, onKernelBoot, onKernelReady)
+// Écouteurs posés par un module décoré :
+//   @services  → kernel.once("onPreBoot")   (kernelDecorator.ts:40)
+//   @entities  → kernel.once("onRegister")  (entitiesDecorator.ts:66, orm-core)
+//   Module     → kernel.prependOnceListener("onPreBoot")  (package.json, index 0)
+//   hooks user → onKernelRegister / onKernelBoot / onKernelReady (Module.ts:214-231)
 ```
-
-→ Les decorators tournent AVANT les hooks user (ordre déterministe).
 
 ## Catches d'erreur par décorateur
 
-| Décorateur  | Phase     | Erreur catch ?                       | Note                                                       |
-| ----------- | --------- | ------------------------------------ | ---------------------------------------------------------- |
-| `@services` | onPreBoot | ✅ Catché → `handleServiceBootError` | Politique de criticité : fatal en prod sur module critique |
-| `@entities` | onBoot    | ✅ Catché + log ERROR                | Idem                                                       |
+| Décorateur  | Phase      | Erreur catch ?                       | Note                                                       |
+| ----------- | ---------- | ------------------------------------ | ---------------------------------------------------------- |
+| `@services` | onPreBoot  | ✅ Catché → `handleServiceBootError` | Politique de criticité : fatal en prod sur module critique |
+| `@entities` | onRegister | ❌ **Aucun catch**                   | L'erreur remonte au `fire("onRegister")` du Kernel         |
+
+→ Un doublon d'entité est **ignoré** (idempotence, `entitiesDecorator.ts:76`), mais
+une **collision réelle** (deux entités différentes, même nom, même connecteur) est
+levée par le registre et n'est rattrapée par aucun décorateur.
 
 → Conséquence : l'échec d'un service dans `@services` passe par `Module.handleServiceBootError()`
 (`Module.ts:365`), qui applique la **politique de boot** au lieu de simplement logger. En production

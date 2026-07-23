@@ -265,8 +265,9 @@ export class UserService
    * {@inheritDoc IUserProvider.loadUserByOAuth}
    *
    * @remarks Pas de provisionnement *Shadow User* ici : la création de la ligne
-   * locale au premier login externe sera portée par l'`OAuth2Authenticator`
-   * (post-P6), qui décide selon sa config — le provider, lui, ne fait que lire.
+   * locale au premier login externe est portée par `provisionOAuthUser()`, que
+   * `OAuth2Service.exchangeAndProvision()` (`@nodefony/security`) appelle après
+   * l'échange du code — le provider, lui, ne fait que lire.
    */
   async loadUserByOAuth(provider: string, providerId: string): Promise<IUser> {
     const user = await this.repository.findBySocialProvider(

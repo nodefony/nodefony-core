@@ -64,13 +64,28 @@ src/packages/@nodefony/http/
 
 ```
 server-http.ts (IncomingMessage) → http-kernel.ts.handle()
+  → rate-limit par IP                  ← si options.rateLimit.enabled (:865)
   → createHttpContext()
-  → handleFrontController() (Router.match → Resolver.resolve)
-  → Firewall.check()
-  → Controller.execute()
+  → Firewall.handleCors()              ← AVANT le routing ; preflight → 204, court-circuit (:1169)
+  → Router.resolve()                   ← match hissé AVANT le parse du body (:1183)
+  → Firewall.applySecurityHeaders()    ← CSP/Referrer/COOP, avant tout writeHead (:1194)
+  → fallback statique                  ← ROUTER-FIRST : seulement si aucune route (:1201)
+  → request.initialize()               ← parse du body (sauté si @Body({stream:true})) (:1225)
+  → onRequestEnd() (:1251)
+      → hook beforeResolve
+      → handleFrontController()        ← Resolver.resolve → newController → initialize() (:1276)
+      → Firewall.enforceCsrf()         ← rejet précoce des mutations cross-site (:1284)
+      → startSession()                 ← AVANT le firewall : SessionAuthenticator lit L1 (:1289)
+      → Firewall.handleSecurity()      ← si context.secure || isControlledAccess (:1295)
+  → Context.handle() → action du controller (:1235)
   → Response.writeHead() ← injecte X-Request-Id ici
   → Response.send()
 ```
+
+⚠️ **`Firewall.check()` n'existe pas** — le point d'entrée du firewall est
+`handleSecurity()` (`firewall.ts:587`), et il est précédé de trois autres appels
+(`handleCors`, `applySecurityHeaders`, `enforceCsrf`) qui, eux, tournent sur
+**toutes** les requêtes, zone ou pas.
 
 ### Pipeline WebSocket
 

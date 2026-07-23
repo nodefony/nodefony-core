@@ -33,9 +33,9 @@ multi-ORM simultané imposé).
 
 ```
 @nodefony/orm-core   ← IOrm, IEntity, IRepository, ITransaction + OrmRegistry (P5.2)
-       ↑              ↑                ↑
-   mongoose      drizzle          mikroorm        (drivers = Modules)
-       └────────────────┴──────────────┘
+       ↑                       ↑
+   drizzle (défaut)        mongoose          (drivers = Modules)
+       └───────────────────────┘
             consommés par : @nodefony/user, session storage, security, app
 ```
 
@@ -88,9 +88,9 @@ multi-ORM simultané imposé).
 
 ```
 @nodefony/orm-core   ← IOrm, IEntity, IRepository, ITransaction + OrmRegistry (P5.2)
-       ↑              ↑                ↑
-   mongoose      drizzle          mikroorm        (drivers = Modules)
-       └────────────────┴──────────────┘
+       ↑                       ↑
+   drizzle (défaut)        mongoose          (drivers = Modules)
+       └───────────────────────┘
             consommés par : @nodefony/user, session storage, security, app
 ```
 
