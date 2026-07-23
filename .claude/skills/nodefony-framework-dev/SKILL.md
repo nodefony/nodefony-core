@@ -184,7 +184,7 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
   - `resumeSupervisor` va dans le point de sortie **UNIQUE** de l'opération (succès ET échec ET annulation).
   - Le verrou est **fail-safe** (`readSupervisorSuspension`) : il n'est retenu que si son **PID est vivant**
     (`kill(pid,0)`) et qu'il a **< 15 min** — un serveur tué en plein job laisse son fichier derrière lui,
-    et un verrou orphelin muselleraît le rechargement *pour toute la session*, sans que rien ne l'explique.
+    et un verrou orphelin muselleraît le rechargement _pour toute la session_, sans que rien ne l'explique.
     Dans le doute → « pas suspendu » (le watcher travaille). Verrouillé par `src/tests/supervisorLock.test.ts`.
   - Canal = **fichier** (`node_modules/.cache/nodefony/supervisor.lock`), pas un IPC : parent et enfant n'en
     ont pas (`stdio: [ignore, pipe, pipe]`), et c'est déjà le patron du pidfile / du state file runtime.
@@ -245,6 +245,7 @@ jq '.symbols | to_entries | map(select(.value.module=="@nodefony/http")) | from_
 | Coder AVEC la sécurité (sources normatives, `npm audit`)                                                                                                                                            | `reference/security.md`                            |
 | **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                          | `reference/rfc/` (index `reference/rfc/README.md`) |
 | **Gotchas TRANSVERSES & diagnostic** (perf, ALS, boot, build ; reproduire un bug)                                                                                                                   | `reference/gotchas.md`                             |
+| **Conventions de STRUCTURE** : arborescence du dépôt, squelette d'un module, `package.json`/`exports`/`.d.ts`, `defineConfig`+`env.ts` de l'app, config d'un module en 2 fichiers                   | `reference/conventions.md`                         |
 
 > Review/attaque sécurité d'un diff (red/blue-team, conformité) → skill **`nodefony-security-review`**.
 > RFC full-text rare (hors `reference/rfc/`) → skill **`nodefony-rfc`** (raw GitHub + proxy r.jina.ai).
