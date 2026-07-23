@@ -21,6 +21,15 @@
 - `[1× — 2026-07-23e]` **Le contrôle négatif a trouvé un vrai trou** : `--strict` ne comptait que orphelins et renvois morts, jamais « à déplacer » — un gate à moitié aveugle que j'allais livrer en disant qu'il marchait.
 - `[1× — 2026-07-23e]` **Un outil externe voit ce que le contrôle maison rate.** `skills-ref` (validateur officiel) a trouvé 2 frontmatter YAML invalides que mon parseur regex laissait passer : une description **en ligne** contenant un `:` casse le mapping. Corollaire : auditer le paquet avant de l'exécuter (celui-ci n'a ni `repository` ni `homepage` et lit tous les skills — 20 Ko, `node:fs` seulement, vérifié).
 
+## 🕰️ Une norme externe bouge — le gate qui la contrôle dérive en silence
+
+- `[1× — 2026-07-23f]` **Rafraîchir le standard AAIF a révélé DEUX dérives de mon gate** : le champ `compatibility` avait été ajouté à la spec (≤500) et manquait à `ALLOWED_FIELDS` (faux positif « hors standard » en puissance) ; la règle `name` interdit les tirets consécutifs et aux bords, que ma regex laissait passer. **Un contrôle de conformité calibré une fois se périme quand la norme avance — revalider contre la spec FRAÎCHE avant de lui faire confiance ou de le durcir.** Les constantes du standard citent désormais leur source en tête du script.
+- `[1× — 2026-07-23f]` **Une fiche générée peut PROUVER sa conformité, pas seulement l'affirmer** : badge en tête (N/N normatifs MUST · projet · recommandé SHOULD) + une colonne qui CITE la règle exacte du standard et sa nature. « Du vrai travail visible » > un ✅ nu.
+
+## 🧵 Générateur vs formateur — le diff perpétuel
+
+- `[1× — 2026-07-23f]` **Prettier reformatait les fichiers GÉNÉRÉS à chaque commit ; le générateur les reproduisait sans ce formatage → diff perpétuel** (les tables se réalignaient dans un sens puis l'autre). Un fichier généré ne doit avoir **qu'un seul formateur : son générateur**. Fix = les exclure de `.prettierignore` ; idempotence de la régénération prouvée ensuite (0 diff).
+
 ## 🔎 Vérifier dans le rendu — et vérifier le décor de la vérification
 
 - `[2× — 2026-07-23e]` **Deux fausses alertes d'affilée sur la même page.** (1) Une session expirée renvoyait du JSON d'erreur que mon parseur lisait comme un markdown vide → « les cards ont disparu ». (2) Le motif cherché était celui d'AVANT réécriture : le portail transforme `skills/x.md` en slug `root~skills~x.md`, comportement correct. **Avant de déclarer une régression sur une mesure HTTP : vérifier le code de retour, puis ce que la couche transforme légitimement.**
@@ -29,6 +38,8 @@
 
 - `[2× — 2026-07-23e]` **Un script rejoint un skill quand son résultat dépend d'un PROTOCOLE** (décor, ordre, interprétation) ; il reste à la racine s'il est déterministe et câblé au manifeste. Corollaire découvert en appliquant la règle : **un script dans un skill que le skill ne cite pas est introuvable** — 24 bancs dans ce cas. Et **sortir un script d'une chaîne casse la chaîne** : le smoke test appelait l'empaqueteur par chemin absolu, plus trois renvois vivants dans la doc.
 - `[1× — 2026-07-23e]` **Un skill muet n'est pas inutile : sa règle est recopiée dans le `CLAUDE.md`.** L'agent lit la règle au démarrage, exécute la commande, n'ouvre jamais le skill — qui portait le diagnostic. Cause n°1 des 11 skills à zéro invocation sur 194 sessions.
+- `[1× — 2026-07-23f]` ⭐ **Un lien pourri que PERSONNE n'a remarqué en 2 mois est la preuve qu'on n'ouvre jamais le skill.** `ts-docs` : 2 de ses 4 URLs en 404 (repo TS-Website restructuré), 0 invocation → retiré, ses 3 sources valides repliées dans `framework-dev`. La rot silencieuse d'une ressource EST le signal de non-usage — plus fiable qu'un compteur.
+- `[1× — 2026-07-23f]` **« Ni garder ni jeter » n'est pas une réponse quand le user demande de trancher.** Données à l'appui : `rfc` (4 invocations, URLs revérifiées valides) gardé ; `ts-docs` (0 + liens pourris) retiré. Décider + justifier, pas « on verra ».
 
 ## 📦 Surface npm & publication (chantier release en cours)
 
