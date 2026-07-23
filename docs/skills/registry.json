@@ -2887,29 +2887,29 @@
     },
     {
       "name": "nodefony-roadmap",
-      "summary": "Charge le contexte roadmap des phases Studio/IA/Realtime/Frontend de Nodefony — Phase 10 (Studio admin web — LIVRÉ, conventions à respecter), 12 (couche IA agentic — SEULE vraie phase future), 13 (Realtime + Redis cluster + client navigateur — quasi livré, restes identifiés), 14 (frontend builder Vite — LIVRÉ).",
+      "summary": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ».",
       "family": "Références et livrables",
-      "version": null,
+      "version": "2.0.0",
       "keywords": [],
       "triggers": [
-        "Studio",
-        "Phase 10",
-        "Phase 12",
-        "Phase 13",
-        "Phase 14",
         "couche IA",
         "agentic",
         "@nodefony/agent",
-        "@nodefony/realtime",
-        "@nodefony/client",
-        "API admin",
-        "route /nodefony",
-        "AI Act"
+        "@nodefony/llm",
+        "@nodefony/rag",
+        "agent-guard",
+        "AI Act",
+        "mode souverain",
+        "streaming LLM",
+        "phase 12",
+        "interface consommée par un agent",
+        "convention route /nodefony",
+        "API admin d'un module"
       ],
-      "description": "Charge le contexte roadmap des phases Studio/IA/Realtime/Frontend de Nodefony — Phase 10 (Studio admin web — LIVRÉ, conventions à respecter), 12 (couche IA agentic — SEULE vraie phase future), 13 (Realtime + Redis cluster + client navigateur — quasi livré, restes identifiés), 14 (frontend builder Vite — LIVRÉ). À utiliser quand un module doit prévoir une API admin, un design IA-compatible ou un endpoint Studio. Déclencheurs : \"Studio\", \"Phase 10\", \"Phase 12\", \"Phase 13\", \"Phase 14\", \"couche IA\", \"agentic\", \"@nodefony/agent\", \"@nodefony/realtime\", \"@nodefony/client\", \"API admin\", \"route /nodefony\", \"AI Act\".",
+      "description": "Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ». Les phases 10 (Studio), 13 (Realtime) et 14 (builder Vite) sont LIVRÉES : leurs conventions encore actives sont pointées vers le skill ou la doc qui les porte désormais, pas recopiées. Déclencheurs : \"couche IA\", \"agentic\", \"@nodefony/agent\", \"@nodefony/llm\", \"@nodefony/rag\", \"agent-guard\", \"AI Act\", \"mode souverain\", \"streaming LLM\", \"phase 12\", \"interface consommée par un agent\", \"convention route /nodefony\", \"API admin d'un module\".",
       "cost": {
-        "bodyLines": 161,
-        "approxTokens": 2821
+        "bodyLines": 108,
+        "approxTokens": 1957
       },
       "requires": [],
       "resources": {
@@ -2919,6 +2919,8 @@
       },
       "related": [
         "nodefony-create-frontend-module",
+        "nodefony-frontend-dev",
+        "nodefony-security-review",
         "nodefony-studio-dev"
       ],
       "conformance": {
@@ -2933,7 +2935,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "614",
+            "detail": "812",
             "advisory": false
           },
           {
@@ -2963,7 +2965,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "161",
+            "detail": "108",
             "advisory": true
           }
         ]

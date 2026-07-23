@@ -135,8 +135,8 @@ source: "docs/skills/index.md"
     "desc": "Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2, WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy r.jina.ai, jamais les pages HTML.",
     "meta": "🟢 conforme" },
   { "icon": "🗓️", "title": "roadmap", "href": "nodefony-roadmap.md",
-    "desc": "Charge le contexte roadmap des phases Studio/IA/Realtime/Frontend de Nodefony — Phase 10 (Studio admin web — LIVRÉ, conventions à respecter), 12 (couche IA agentic — SEULE vraie phase future), 13 (Realtime + Redis cluster + client navigateur — quasi livré, restes identifiés), 14 (frontend…",
-    "meta": "🟢 conforme" },
+    "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket…",
+    "meta": "🟢 conforme v2.0.0" },
   { "icon": "🔤", "title": "ts-docs", "href": "nodefony-ts-docs.md",
     "desc": "Consulte la doc officielle TypeScript (utility types, handbook, do's and don'ts) et les types Node.js (@types/node DefinitelyTyped) via sources brutes raw GitHub + proxy r.jina.ai, jamais typescriptlang.org (JS lourd).",
     "meta": "🟢 conforme" }
@@ -162,7 +162,7 @@ source: "docs/skills/index.md"
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 140 | 2 | 9 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 1.0.0 | 67 | 0 | 3 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | — | 68 | 0 | 0 | ✅ |
-| [`nodefony-roadmap`](nodefony-roadmap.md) | — | 161 | 0 | 0 | ✅ |
+| [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 108 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | — | 434 | 1 | 0 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 276 | 0 | 3 | ✅ |

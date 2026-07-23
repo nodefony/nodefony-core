@@ -136,7 +136,10 @@ const ACCEPTED_OVERLAPS = new Map([
     "le gate mémoire porte le diagnostic",
   ],
   ["memory leak|nodefony-check-memory-health", "idem — gate mémoire"],
-  ["Studio|nodefony-studio-dev", "coder dans Studio > contexte roadmap"],
+  [
+    "phase 12|nodefony-migration-audit",
+    "« phase 12 » seul = question de statut → migration-audit ; le contexte IA élit roadmap",
+  ],
   [
     "realtime|nodefony-frontend-dev",
     "le realtime vécu est surtout côté client",
