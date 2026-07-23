@@ -10,6 +10,12 @@ const makeModule = (drizzleConfig: unknown): Module =>
   ({
     // Le service lit sa config via `this.module.config` (getter uniforme).
     config: drizzleConfig,
+    // Le service pose sa connexion AU NOM du module (`Module.hookKernel`) pour
+    // en hériter la criticité de boot. Ces bancs appellent `connectAll()` en
+    // direct, sans cycle de vie : le hook n'a rien à déclencher, mais il doit
+    // exister — un double qui omet un membre du contrat fait échouer le
+    // constructeur, pas le comportement testé.
+    hookKernel: () => undefined,
   }) as unknown as Module;
 
 describe("DrizzleService — orchestration boot (hors kernel)", () => {

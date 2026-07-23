@@ -9,6 +9,11 @@ const makeModule = (mongooseConfig: unknown): Module =>
   ({
     // Le service lit sa config via `this.module.config` (getter uniforme).
     config: mongooseConfig,
+    // Le service pose sa connexion AU NOM du module (`Module.hookKernel`) pour
+    // en hériter la criticité de boot — c'est ce qui rend effective la promesse
+    // `critical = false` de ce module. Ces bancs appellent `connectAll()` en
+    // direct : le hook n'a rien à déclencher, mais il doit exister.
+    hookKernel: () => undefined,
   }) as unknown as Module;
 
 describe("MongooseService — buildUri (assemblage pur)", () => {
