@@ -110,7 +110,7 @@ describe("WebAuthn login/options — anti-énumération (W3C L3, credential ID p
       asks,
       { username: "admin" },
       null,
-    ).loginOptions()) as Record<string, unknown>;
+    ).loginOptions()) as unknown as Record<string, unknown>;
 
     // Garde-fou : sans défi la cérémonie n'a pas eu lieu, le test passerait à vide.
     expect(out.challenge, "un défi doit être servi").to.be.a("string");
@@ -130,12 +130,12 @@ describe("WebAuthn login/options — anti-énumération (W3C L3, credential ID p
       asks,
       { username: "admin" },
       null,
-    ).loginOptions()) as Record<string, unknown>;
+    ).loginOptions()) as unknown as Record<string, unknown>;
     const ghost = (await makeController(
       asks,
       { username: "ghost-user-xyz" },
       null,
-    ).loginOptions()) as Record<string, unknown>;
+    ).loginOptions()) as unknown as Record<string, unknown>;
 
     expect(
       Object.keys(real).sort(),
@@ -153,7 +153,7 @@ describe("WebAuthn login/options — anti-énumération (W3C L3, credential ID p
       {
         username: "alice",
       },
-    ).loginOptions()) as Record<string, unknown>;
+    ).loginOptions()) as unknown as Record<string, unknown>;
 
     expect(out.challenge, "un défi doit être servi").to.be.a("string");
     expect(
