@@ -27,7 +27,9 @@ ni explorer le kit. Mécanismes front **généraux** (isomorphisme/socket/HMR/BF
 
 **Admin web de Nodefony** — successeur du legacy `monitoring-bundle`. Backend = controller Nodefony exposant l'UI + des API. Frontend = SPA **React 19** servie via `@nodefony/frontend` (Vite). C'est le **1er consommateur prod** de `@nodefony/frontend`.
 
-**État : P6 BRANCHÉ** (auth réelle livrée 2026-06). L'authentification passe par le **firewall `@nodefony/security`** (session BFF cookie opaque, RBAC data plane `ROLE_NODEFONY_ADMIN`) — les mocks `/auth/*` sont **SUPPRIMÉS**. Le contrat **`IAdminApi`/`AdminBroker` (P10.2) est livré** : chaque module expose son data plane via le broker (kernel/http/framework/security/syslog/orm/profiler/documentation). Pages Sécurité livrées : Sessions, Users, API Keys, Firewall, Audit, Profil self. Reste : Webhooks (P6.13), live `nodefony:audit`.
+**L'authentification est réelle** : elle passe par le **firewall `@nodefony/security`** (session BFF cookie opaque, RBAC data plane `ROLE_NODEFONY_ADMIN`) — il n'y a plus aucun mock `/auth/*`.
+
+Le contrat **`IAdminApi` / `AdminBroker`** est le seul chemin d'accès aux données d'admin : chaque module publie le sien au broker. Implémentations réelles — `KernelAdminApi`, `FrameworkAdminApi`, `SyslogAdminApi` (`framework/nodefony/src/`), `HttpAdminApi` + `ProfilerAdminApi` (`http/nodefony/service/`), `SecurityAdminApi`, `UserAdminApi`, `OrmAdminApi`, `FrontendAdminApi`, `RealtimeAdminApi`. ⚠️ **`@nodefony/documentation` n'en a PAS** : ses pages transitent par `KernelAdminApi` (`/nodefony/kernel/api/module/{name}/docs`) — ne pas chercher un `DocumentationAdminApi`.
 
 ---
 
@@ -71,17 +73,17 @@ Règles associées :
 - Le build UI publish = `frontend/vite.config.publish.mts` (app-mode, `base: "/_assets/studio/"` = le publicPath monté — les deux DOIVENT rester alignés).
 - Multi-bundle OK : Studio coexiste avec `@nodefony/test-frontend-react` (bug multi-bundle résolu, cf mémoire `project_frontend_multibundle_bug`).
 
-## Routes (StudioController) — partition du namespace `/nodefony` (TRANCHÉ 2026-05-20)
+## Routes (StudioController) — partition du namespace `/nodefony`
 
 `@controller("/nodefony")`. Deux espaces séparés par profondeur :
 
 - **UI SPA (humain)** — mono-segment, portée par CE module (disparaît si Studio absent) :
 
-| Route                      | Méthode | Rôle                                                                                                                                                                                                     |
-| -------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/nodefony`                | GET     | Page HTML (charge le bundle React via `frontendService.renderTags("studio")`)                                                                                                                            |
-| `/nodefony/{page}`         | GET     | SPA fallback 1 segment → même page React                                                                                                                                                                 |
-| `/nodefony/modules/{name}` | GET     | SPA fallback 2 segments **littéral** (deep-link/F5 sur `modules/:name`) → même page React. ⚠️ littéral `modules`, PAS `/{section}/{page}` (sinon masque `/nodefony/test/*` & co — régression 2026-05-20) |
+| Route                      | Méthode | Rôle                                                                                                                                                                                                |
+| -------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/nodefony`                | GET     | Page HTML (charge le bundle React via `frontendService.renderTags("studio")`)                                                                                                                       |
+| `/nodefony/{page}`         | GET     | SPA fallback 1 segment → même page React                                                                                                                                                            |
+| `/nodefony/modules/{name}` | GET     | SPA fallback 2 segments **littéral** (deep-link/F5 sur `modules/:name`) → même page React. ⚠️ littéral `modules`, PAS `/{section}/{page}` (sinon masque `/nodefony/test/*` & co — régression vécue) |
 
 - **Data plane admin (machine)** — `/nodefony/studio/api/*`, ≥3 segments. Endpoints utilitaires hébergés ici (le gros du data plane vit dans chaque module propriétaire via le broker) :
 
@@ -94,16 +96,16 @@ Règles associées :
 
 > **Pourquoi pas `/studio` pour l'UI** : `/nodefony` est réservé au framework, aucune app user n'y monte ses routes ; `/studio` entrerait en collision avec une route applicative. **Le framework boote sans Studio** — l'UI (cat.1) disparaît, le data plane par module (cat.2) reste porté par chaque module.
 > **Règle figée** : interdit aux modules une route admin mono-segment `/nodefony/<module>` — toujours `/nodefony/<module>/api/*`.
-> **Fallback SPA deep-link = préfixe LITTÉRAL** (`/modules/{name}`), jamais générique `/{section}/{page}` ni catch-all `*`. Un générique masquerait les vraies routes des autres modules sous `/nodefony/<x>/<y>` (ex `/nodefony/test/index` du module test) — **régression vécue le 2026-05-20** (21 échecs http). Le mono-segment `/{page}` est sûr car le framework réserve `/nodefony` (aucune app n'y monte une route mono-segment). Toute nouvelle page SPA à ≥2 segments → ajouter SON fallback littéral. Test de non-régression : `admin-dataplane.test` (`/nodefony/test/index` → JSON).
+> **Fallback SPA deep-link = préfixe LITTÉRAL** (`/modules/{name}`), jamais générique `/{section}/{page}` ni catch-all `*`. Un générique masquerait les vraies routes des autres modules sous `/nodefony/<x>/<y>` (ex `/nodefony/test/index` du module test) — **régression vécue** (21 échecs http). Le mono-segment `/{page}` est sûr car le framework réserve `/nodefony` (aucune app n'y monte une route mono-segment). Toute nouvelle page SPA à ≥2 segments → ajouter SON fallback littéral. Test de non-régression : `admin-dataplane.test` (`/nodefony/test/index` → JSON).
 > **`apiProxyPaths: ["/nodefony/studio/api"]`** — proxifie UNIQUEMENT l'API ; les pages SPA `/nodefony/{page}` restent servies par Vite.
-> **SSE retiré (2026-05-23)** : l'ancien endpoint `/studio/api/logs/stream` (Pdu syslog) était mort (front passé au canal WS `nodefony:syslog`) et cassé en HTTP/2 (`flushHeaders` absent sur `Http2ServerResponse` → `code=000`). Supprimé back + `subscribeSSE` front. La leçon SSE/HTTP2 (écouter `rawRes.once("close")` sur la RESPONSE, pas `request` qui fire trop tôt en HTTP/2) reste valable pour tout futur SSE → mémoire `feedback_sse_http2_request_close`.
+> **SSE retiré** : l'ancien endpoint `/studio/api/logs/stream` (Pdu syslog) était mort (front passé au canal WS `nodefony:syslog`) et cassé en HTTP/2 (`flushHeaders` absent sur `Http2ServerResponse` → `code=000`). Supprimé back + `subscribeSSE` front. La leçon SSE/HTTP2 (écouter `rawRes.once("close")` sur la RESPONSE, pas `request` qui fire trop tôt en HTTP/2) reste valable pour tout futur SSE → mémoire `feedback_sse_http2_request_close`.
 
-## Realtime WS (✅ implémenté 2026-05-20 — forward-compat P13.4)
+## Realtime WS
 
 WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeController`), protocole **JSON-RPC 2.0** — exactement ce que parle `RealtimeClient` (core) et que parlera `RealtimeService` (P13.4).
 
 - **Pub/sub PAR CANAL (on-demand)** : le handshake ne pousse RIEN (juste `realtime:welcome`). Le client envoie des notifications `subscribe`/`unsubscribe` `{channel}` ; le serveur démarre/arrête le provider correspondant. → un client ne reçoit que ce qu'il demande ; quitter une page = `unsubscribe` du canal, **le WS reste ouvert**. (`ping` = heartbeat no-op.)
-- **Actions (requête→réponse, 2026-05-23)** : une frame AVEC `id` est une **requête RPC** qui attend une réponse `result`/`error` (≠ pub/sub). Routées par `dispatchRequest()` → méthode connue renvoie `{jsonrpc,id,result}`, inconnue `-32601`, handler qui throw `-32603` (message **générique** au client, détail loggé serveur = Zero Trust). Méthodes MVP : **`nodefony:kernel:ping`** (liveness + RTT, lecture pure) et **`nodefony:kernel:gc`** (force GC si `--expose-gc`, sinon `{available:false}` ; action de contrôle à effet réel). Le chemin chaud subscribe reste sync/0-alloc — le coût n'est payé que sur une requête `id`. Côté client = `RealtimeClient.request(method,params)` (Promise id-matchée) + helper réutilisable **`client.ping()`** (mesure le RTT). Forward-compat P13.4 : routeur + actions migrent tels quels dans `RealtimeService`. ⚠️ **réutilisable = dans la lib cliente** (`nodefony`), jamais dupliqué par front.
+- **Actions (requête→réponse)** : une frame AVEC `id` est une **requête RPC** qui attend une réponse `result`/`error` (≠ pub/sub). Routées par `dispatchRequest()` → méthode connue renvoie `{jsonrpc,id,result}`, inconnue `-32601`, handler qui throw `-32603` (message **générique** au client, détail loggé serveur = Zero Trust). Méthodes MVP : **`nodefony:kernel:ping`** (liveness + RTT, lecture pure) et **`nodefony:kernel:gc`** (force GC si `--expose-gc`, sinon `{available:false}` ; action de contrôle à effet réel). Le chemin chaud subscribe reste sync/0-alloc — le coût n'est payé que sur une requête `id`. Côté client = `RealtimeClient.request(method,params)` (Promise id-matchée) + helper réutilisable **`client.ping()`** (mesure le RTT). Forward-compat P13.4 : routeur + actions migrent tels quels dans `RealtimeService`. ⚠️ **réutilisable = dans la lib cliente** (`nodefony`), jamais dupliqué par front.
 - **Providers transport-agnostiques** : `nodefony/realtime/providers.ts` → `createSyslogBridge(syslog, publish)` + `createStatsTicker(publish, 1000)`. Poussent via `publish(channel, payload)` sans connaître le transport.
 - **Canaux figés** : `nodefony:syslog` (Pdu kernel), `nodefony:dashboard` (1/s : `uptime, pid, cpuPercent, cpuCount, eventLoopMs, loadavg, memory{rss,heapUsed,heapTotal,external}`). `/api/info` (statique) ajoute `debug` (mode `-d`).
 - **Front** : `RootStore` → `RealtimeClient({ url: wss://host/nodefony/studio/api/realtime })`. `AdminLayout` ouvre le WS au montage (couvre le reload, pas seulement Login). `ConnectionStore.subscribe/unsubscribe` émettent au serveur ; **re-`subscribe` de tous les canaux actifs sur `__state__ "connected"`** (reconnect + course au 1er connect). `Logs` = `subscribe("nodefony:syslog")` ; `Dashboard` = `subscribe("nodefony:dashboard")` + `subscribe("nodefony:syslog")` (débit logs/s) + graphes AreaChart CPU/mémoire.
@@ -111,11 +113,11 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 
 > ⚠️ **GOTCHA push WS** : après le handshake, `WebsocketContext.requestEnded = true` → `context.send()` **rejette** (response du pipeline fermée). Pour un push serveur→client hors action (timer, listener syslog), envoyer sur la **connexion ws brute** : `ctx.connection.send(str, cb)` avec garde `readyState === 1` (équivalent du raw response utilisé en SSE).
 > ⚠️ **Perf** : 1 provider = 1 listener/interval, démarré au `subscribe`, `dispose()` garanti au `unsubscribe` ET sur `ctx.once("onFinish")` (close WS, AsyncResource-bound). État pub/sub stocké sur le ctx (persiste entre messages). `setInterval` unref. Validé runtime : push 0 avant subscribe, stop net après unsubscribe, 0 fuite (connect→cleanup symétriques).
-> ⚠️ **Multi-process** : `nodefony:dashboard` lit `process.cpuUsage()/memoryUsage()` → **per-instance** (le process qui tient le WS), PAS cluster-aware. CPU% = % d'UN cœur (pas /cores, depuis 2026-05-20). En multi-process (reusePort, cf [`../http/MEMORY.md`](../http/MEMORY.md)), le WS tombe sur 1 worker → 1 instance affichée. Vue cluster future = `instanceId` dans le payload + Redis pub/sub fan-out (P13). Per-instance est le bon modèle cloud-native (chaque pod se rapporte ; agrégation = Prometheus/Grafana). Détails : mémoire IA `project_multiprocess_scaling`.
+> ⚠️ **Multi-process** : `nodefony:dashboard` lit `process.cpuUsage()/memoryUsage()` → **per-instance** (le process qui tient le WS), PAS cluster-aware. CPU% = % d'UN cœur (pas /cores). En multi-process (reusePort, cf [`../http/MEMORY.md`](../http/MEMORY.md)), le WS tombe sur 1 worker → 1 instance affichée. Vue cluster future = `instanceId` dans le payload + Redis pub/sub fan-out (P13). Per-instance est le bon modèle cloud-native (chaque pod se rapporte ; agrégation = Prometheus/Grafana). Détails : mémoire IA `project_multiprocess_scaling`.
 
 ## ⚠️ Questions design ouvertes (à trancher — cf `project_studio_prep_kit`)
 
-1. ✅ **Routing `/nodefony` vs `/studio` — TRANCHÉ 2026-05-20** : UI Studio sur `/nodefony` + `/nodefony/{page}` (mono-segment), data plane admin sur `/nodefony/<module>/api/*`. `/studio` rejeté (collision app user). Voir section Routes ci-dessus. Validé runtime (curl + proxy Vite).
+1. **Routing `/nodefony` vs `/studio` — TRANCHÉ** : UI Studio sur `/nodefony` + `/nodefony/{page}` (mono-segment), data plane admin sur `/nodefony/<module>/api/*`. `/studio` rejeté (collision app user). Voir section Routes ci-dessus. Validé runtime (curl + proxy Vite).
 2. **`IAdminApi` + `ApiBroker` (P10.2)** : à concevoir — chaque module exposera son admin via ce contrat au lieu des endpoints mock en dur. L'interface peut se figer dès maintenant (indépendant de P5).
 3. **CSP** : `StudioController.renderStudio()` override le header CSP via `frontendService.getCspDirectives()` (hack POC cross-origin Vite). TODO P14.14 → migrer dans `@nodefony/security` (cf mémoire `project_csp_vite_security_todo`).
 
@@ -123,21 +125,22 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 
 - Stack frontend : **React 19** (P10.1 acté) + **Mantine v9** + **MobX 6** (classes, `makeAutoObservable` — pas Zustand/Redux) + React Router 7 + TanStack Table 8 (headless).
 - Theme : dark par défaut + toggle scheme persisté `localStorage`. **Palette de marque togglable** (couleur `brand` = alias dynamique `nodefonyBlue #0067ba` ↔ `nodefonyOrange`, `primaryColor:"brand"`, toggle 🎨 persisté `ui.palette`, **défaut nodefony**, dark-safe `primaryShade.dark=4`). Accents en dur écrits `color="brand"` ; warnings/DEBUG/palettes décoratives restent `color="orange"` (sémantique). Couleurs marque extraites du logo officiel (`theme.ts` `buildStudioTheme`).
-- Routing (✅ tranché 2026-05-20) : UI `/nodefony` + `/nodefony/{page}` ; data plane `/nodefony/<module>/api/*` (Studio = `/nodefony/studio/api/*`). `/studio` rejeté (collision app user).
+- Routing (tranché) : UI `/nodefony` + `/nodefony/{page}` ; data plane `/nodefony/<module>/api/*` (Studio = `/nodefony/studio/api/*`). `/studio` rejeté (collision app user).
 - Deps frontend dans le `package.json` du module (pas de `frontend/package.json` séparé).
-
-## Dépendances roadmap (ce qui débloque quoi)
-
-- Faisable **hors P5/P6** : test browser, trancher routing, concevoir `IAdminApi`, vues en lecture mock.
-- Gated : `IAdminApi` user/orm/security (P10.4 → P5.6 + P6.8), auth réelle (P10.6 → P6.5), bootstrap frontend final (P10.7 → P14.11 + P14.4), realtime (P13).
 
 ## TODO connus
 
-- **Types** : pas de `types` exposé — **INTENTIONNEL** (module `private:true` + build sans .d.ts (pas de tsconfig.declarations) → aucun `.d.ts` généré, jamais consommé comme lib typée ; cf exception studio dans le CLAUDE.md racine). `exports` (import-only + `./package.json`) **ajouté** 2026-06-23.
-- ✅ ~~Remplacer les mocks `/api/auth/*` par le firewall P6~~ → **FAIT** (auth réelle session BFF, mocks supprimés).
-- Stubs restants = pages des **phases futures** : Webhooks (P6.13), couche IA P12 (Agents/Knowledge/LLM/MCP/Agent Guard/Approvals/AI Audit), Services/NPM/Migrations (P10.10/P11.4). Les pages **Sécurité** (Sessions/Users/Firewall/Audit/API Keys/Profil) et **System** (Modules/Routes/Database) sont LIVRÉES.
+- **Types** : le paquet est **publiable** (`private: false`, `files: [dist, public, docs]`) mais
+  n'expose **pas** de `types` — **INTENTIONNEL** : pas de `tsconfig.declarations.json`, donc aucun
+  `.d.ts` généré. Studio est une **application** admin embarquée, jamais consommée comme lib typée ;
+  son `exports` est import-only (+ `./package.json`). Ne pas « réparer » ce trou en ajoutant des
+  déclarations : il n'y a pas de surface d'API à publier.
+- Stubs restants — inventaire exact dans `frontend/src/routes/stubs.tsx` : couche IA (Agents,
+  Knowledge, LlmProviders, VectorStores, AgentMemory, Mcp, AgentGuard, Approvals, AiAudit, AiCosts,
+  Insights) + Services, Npm, Migrate, Settings. Toute page **absente de ce fichier** est réelle
+  (Sessions, Users, Firewall, Audit, ApiKeys, Webhooks, Profile, Modules, Routes, Database…).
 
-### Backlog UX page Logs (`frontend/src/routes/Logs.tsx`) — idées 2026-05-20
+### Backlog UX page Logs (`frontend/src/routes/Logs.tsx`)
 
 > État actuel : Pdu réel via canal WS `nodefony:syslog` (plus de SSE), Pause/Live, Clear, filtres (sévérité MultiSelect + module + msgid), autoscroll switch, ansiToReact, MAX_ENTRIES=500, `ScrollArea h=500` fixe.
 
@@ -161,7 +164,7 @@ bash .claude/skills/start-nodefony-server/start.sh   # depuis la RACINE du repo
 # login RÉEL (firewall) : compte seedé admin / $NF_ADMIN_PASSWORD (dev : voir provisionUsers)
 ```
 
-### Tests unit (vitest — scaffold 2026-05-21)
+### Tests unit (vitest)
 
 ```bash
 cd src/packages/@nodefony/studio

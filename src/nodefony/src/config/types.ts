@@ -347,7 +347,7 @@ export interface AppConfigInput {
   log?: LogConfig;
   /**
    * Surcharge de la config DEFAULT d'un module chargé (clé `module-<nom>`).
-   * Exemple : `"module-http": { formidable: { uploadDir: "/var/upload" } }`.
+   * Exemple : `"module-http": { upload: { uploadDir: "/var/upload" } }`.
    * Fusion récursive (deep merge) appliquée par le Kernel à `preRegister`.
    */
   [moduleOverride: `module-${string}`]: unknown;

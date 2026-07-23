@@ -37,7 +37,7 @@ Il fournit :
 | Préfixe interfaces | **`I`** — `IService`, `IContainer`, `IKernel`, `IScope`      | Convention universelle pour ne pas confondre interface vs classe |
 | Imports Node       | **Préfixe `node:`** obligatoire — `import fs from "node:fs"` | Standard ESM, dé-ambiguïse npm packages                          |
 | TypeScript         | **Strict, zéro `any`, zéro `@ts-ignore`**                    | Sécurité du compilateur                                          |
-| Tests              | **`vitest` 4 + `chai`** (migré 2026-06-05, ex-mocha)         | ESM-natif, esbuild, coverage v8 ; aligné sur tout le repo        |
+| Tests              | **`vitest` 4 + `chai`** — runner unique du repo              | ESM-natif, esbuild, coverage v8 ; aligné sur tout le repo        |
 | Bundler            | **`rolldown`** (`preserveModules: true`) + `.d.ts` par tsgo  | Per-module `.d.ts`, tree-shakeable                               |
 
 ## Ce qui est INTERDIT sans accord explicite (CLAUDE.md racine)
@@ -106,7 +106,7 @@ src/nodefony/
     ├── client/               ← browser-compat stubs (P14.11 futur)
     ├── syslog/               ← Syslog + Pdu (MEMORY.md, README.md)
     │   └── transports/       ← console, file, JSON, etc.
-    ├── tests/                ← tests vitest (+ vitest.setup.ts, vitest-mocha-shim.mjs)
+    ├── tests/                ← tests vitest (+ vitest.setup.ts)
     └── types/                ← interfaces (IKernel, IService, IContainer, ...)
 ```
 
@@ -122,24 +122,26 @@ src/nodefony/
    ├── Charge config (nodefony.config.ts + env.ts, deep-merge sur les défauts du core)
    ├── Module discovery (manifeste config.modules, orchestré par le Kernel)
    ├── Service discovery (@injectable + @services([...]) sur les modules)
-   ├── fire("onPreBoot") | fire("onBoot") | fire("onReady")
-   └── Activate modules
-7. Module instances créées via Container DI
-8. Si runProfile.servers → http-kernel démarre les serveurs
-9. fire("onPostReady") — boot complet
+   ├── fire("onPreBoot") | fire("onBoot")
+   └── Activate modules — instances créées via Container DI
+7. Kernel.onReady() — phase DISTINCTE de boot(), enchaînée par `start()` (`Kernel.ts:821`, `:836`)
+   ├── fire("onReady")
+   ├── phase cible atteinte SANS serveur (mode console) → finishOrPark() et on s'arrête ICI
+   ├── initServers() — http-kernel met les serveurs en écoute
+   └── fire("onPostReady") — boot complet, le BootReporter lit un report figé
 ```
 
 ## Sous-modules — index docs IA
 
-| Sous-module            | CLAUDE.md | MEMORY.md | README.md | Focus                                                |
-| ---------------------- | --------- | --------- | --------- | ---------------------------------------------------- |
-| `src/syslog/`          | ⬜        | ✅        | ✅        | Syslog/Pdu, ring buffer, transports                  |
-| `src/kernel/`          | ⬜        | ✅        | ✅        | Kernel lifecycle, Module hooks, CliKernel            |
-| `src/kernel/injector/` | ⬜        | ✅        | ✅        | `@injectable`, `@inject`, scopes, circular detection |
-| `src/cli/`             | ⬜        | ✅        | ✅        | Cli, Command, Commander, niceBytes, timers           |
-| `src/finder/`          | ⬜        | ✅        | ✅        | FileClass, File, FileResult, Result, Finder          |
+Chacun porte les trois fichiers (`CLAUDE.md` instructions · `MEMORY.md` internals · `README.md` humains) :
 
-> Les CLAUDE.md de sous-modules pourront être créés au besoin. Pour l'instant, les `MEMORY.md` couvrent l'essentiel pour l'IA.
+| Sous-module            | Focus                                                |
+| ---------------------- | ---------------------------------------------------- |
+| `src/syslog/`          | Syslog/Pdu, ring buffer, transports                  |
+| `src/kernel/`          | Kernel lifecycle, Module hooks, CliKernel            |
+| `src/kernel/injector/` | `@injectable`, `@inject`, scopes, circular detection |
+| `src/cli/`             | Cli, Command, Commander, niceBytes, timers           |
+| `src/finder/`          | FileClass, File, FileResult, Result, Finder          |
 
 ## Sujets transverses (cross-module)
 
@@ -161,14 +163,11 @@ RequestContext.pushQuery({ sql, durationMs, rows?, connector? }); // no-op si !i
 
 **Seam profiler ORM (`queries`)** : `HttpKernel.handleHttp` alloue `payload.queries: IProfilerQuery[]` **uniquement en dev** (profiler actif) ; les adapters ORM y poussent via `pushQuery()` (gratuit en prod = buffer absent). ⚠️ Ne PAS lire l'ALS depuis un callback détaché (pool ORM, listener) → `isProfiling()` y est faux ; capturer la réf du buffer dans le contexte valide (cf adapter Drizzle `#prof`).
 
-**✅ BUGS résolus** (2026-05-20, cf [`../../BUG_REPORT.md`](../../BUG_REPORT.md)) :
-
-- **BUG-001** : ALS WS messages — `AsyncResource.bind` sur `close`/`message` dans `WebsocketContext.connect()`
-- **BUG-002** : ALS dans `onAfterResponse` HTTP+WS — `AsyncResource.bind(fn)` au register dans `Context.onAfterResponse`
-
-**Règle dérivée** : tout listener EventEmitter attaché dans la bulle ALS mais qui fire plus tard
-(message/close/finish, timers, hooks post-réponse) et qui doit lire l'ALS → `AsyncResource.bind()`
-au moment du bind. P6 (security décorateurs isomorphes) débloqué.
+**RÈGLE — un listener qui fire hors de la bulle ALS doit être `AsyncResource.bind()` au bind.**
+Tout listener EventEmitter attaché _dans_ le contexte async mais qui fire plus tard (`message`/
+`close`/`finish`, timers, hooks post-réponse) perd le store sinon — `RequestContext.get()` y rend
+`undefined`. Deux points d'ancrage l'appliquent : les listeners `close`/`message` de
+`WebsocketContext.connect()`, et l'enregistrement dans `Context.onAfterResponse` (HTTP + WS).
 
 ### Pattern `@injectable` + `@inject` (DI)
 
@@ -214,7 +213,7 @@ Phases d'évolution prévues (cf [INJECTION_PLAN.md](./INJECTION_PLAN.md) worksp
 
 ```bash
 cd src/nodefony
-npm run test           # vitest run — 1558 tests (perf opt-in skippés), 2026-06-05
+npm run test           # vitest run (les tests perf sont skippés — opt-in)
 npm run test:perf      # RUN_PERF=1 vitest run — inclut les microbenchs à seuil (non-déterministes)
 npm run test:boot      # RUN_CLI_BOOT=1 vitest run — intégration CLI serveur réelle
 npm run coverage       # vitest run --coverage (provider v8) → .coverage/
@@ -222,9 +221,9 @@ npm run build          # rolldown build + .d.ts tsgo
 npm run clean          # supprime dist/
 ```
 
-> Test runtime intégration : se lance depuis la racine du repo via `npx nodefony development` (cf skill `start-nodefony-server`).
+> Test runtime intégration : se lance depuis la racine du repo via `npx nodefony development` (cf skill `nodefony-start-server`).
 
-> **Couverture** : `@vitest/coverage-v8` (provider v8 natif, config dans `vitest.config.ts`). ⚠️ **`c8` ne marche PAS** ici (full-ESM + Node 26 → `yargs` casse) ; **monocart retiré** le 2026-06-05 (migration vitest). Les tests `performance` sont skippés par défaut (port du root hook mocha dans `vitest.setup.ts`, OPT-IN `RUN_PERF=1`). Rapports : `.coverage/coverage-summary.json` + `lcov.info` (gitignored).
+> **Couverture** : `@vitest/coverage-v8` (provider v8 natif, config dans `vitest.config.ts`). ⚠️ **`c8` ne marche PAS** ici (full-ESM + Node 26 → `yargs` casse) ; monocart n'est plus utilisé. Les tests `performance` sont skippés par défaut (hook global dans `src/tests/vitest.setup.ts`, OPT-IN `RUN_PERF=1`). Rapports : `.coverage/coverage-summary.json` + `lcov.info` (gitignored).
 
 ## Workflow de session typique sur le core
 

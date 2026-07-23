@@ -13,16 +13,20 @@ Consommé par les **deux** drivers existants (`@nodefony/drizzle` — défaut �
 
 ## Décisions figées
 
-- **Archi = Repository multi-ORM (pas Active Record)** — risques documentés dans [`docs/adr/0003`](../../../../docs/adr/0003-orm-core-abstraction-repository-multi-orm.md). **4 risques TRAITÉS (2026-05-21)** sur les adapters (Mongoose/Drizzle) : (1) jointure → eager-load portable (`{relations}`) + trappe native ; (2) multi-ORM simultané = YAGNI (valeur = swap d'ORM) ; (3) criteria typé + opérateurs riches **RÉSOLU** (P7.4) ; (4) repo tx-aware (`withTransaction`). ADR clôturé côté design ; reste l'industrialisation (drivers de prod sur orm-core, P7.1/P7.2).
+- **Archi = Repository multi-ORM (pas Active Record)** — risques documentés dans [`docs/adr/0003`](../../../../docs/adr/0003-orm-core-abstraction-repository-multi-orm.md). Les **4 risques de l'ADR sont traités** sur les adapters (Mongoose/Drizzle) : (1) jointure → eager-load portable (`{relations}`) + trappe native ; (2) multi-ORM simultané = YAGNI (la valeur est le swap d'ORM, pas la cohabitation) ; (3) criteria typé + opérateurs riches ; (4) repo tx-aware (`withTransaction`). ADR clôturé côté design.
 - Interfaces : `IOrm`, `IEntity` (+ `IEntityRelation`), `IRepository<T>` (+ `OrmCriteria`), `ITransaction`.
 - **`IOrm.getNativeConnection<C>()`** = trappe SQL/commandes brutes — **indispensable** (anti-blocage requêtes non couvertes par l'abstraction).
 - Multi-managers : chaque ORM enregistré sous un nom (`db_principale`, `db_logs`...). Controller via DI pur (`@Inject('repository.user.drizzle')`), JAMAIS l'ORM en dur.
 - Transactions cross-ORM (2PC) **non garanties** — une tx = un ORM.
-- Critères = `Criteria<T>` typé par champ + **opérateurs riches** `$`-préfixés
-  (`FieldOperators<V>` : `$eq $ne $gt $gte $lt $lte $in $nin $like`, helper
-  `OPERATOR_KEYS`/`isFieldOperators`). Forme figée P7.4 (ADR-0003 risque #3 RÉSOLU,
-  cf 3 adapters). `OrmCriteria` (`Record<string,unknown>`) reste l'échappatoire.
-  Chaque adapter traduit (`Op.*` / `$`+`$regex` / `eq()/inArray()`). `$like` = SQL.
+- Critères = `Criteria<T>` typé par champ + **opérateurs riches** `$`-préfixés.
+  **Lecture** — `FieldOperators<V>` : `$eq $ne $gt $gte $lt $lte $in $nin $like $null`
+  (helpers `OPERATOR_KEYS`/`isFieldOperators`). `$null` est celui qui désamorce le piège
+  `= NULL` en SQL — ne pas l'oublier en écrivant un adapter.
+  **Écriture** — `UpdateOperators` : `$max $min` (`UPDATE_OPERATOR_KEYS`/`isUpdateOperators`),
+  reconnus dans le `update` d'un `upsert`.
+  Source unique des deux familles : `nodefony/src/criteria.ts`. `OrmCriteria`
+  (`Record<string,unknown>`) reste l'échappatoire. Chaque adapter traduit
+  (`Op.*` / `$`+`$regex` / `eq()/inArray()`). `$like` = SQL.
 
 ## Interdits
 
@@ -35,14 +39,20 @@ Consommé par les **deux** drivers existants (`@nodefony/drizzle` — défaut �
 - `OrmRegistry` (P5.2) : structure lazy, pas d'alloc au boot tant qu'aucun ORM enregistré.
 - Interfaces = effacées à la compilation (zéro coût runtime).
 
-## Roadmap (MIGRATION_STATUS P5)
+## Ce que le module contient
 
-- ✅ P5.1 interfaces (`nodefony/interfaces/`).
-- ✅ P5.2 `OrmRegistry` + `EntityRegistry` + `Orm`/`Entity` base classes (extends Service, event `onOrmReady`).
-- ✅ P5.3 `@entity` + `@repository` decorators (WeakMap `metadataStore`, **sans reflect-metadata** — lib pure ; auto-register descripteur).
-- ✅ P5.3b `AbstractCrudService<T, R>` — socle CRUD générique (extends Service, singleton stateless). Lectures = délégation pure ; mutations = hooks template-method + events `onCreated/onUpdated/onDeleted`. Pattern canonique : service = source de vérité, REST/WS/GraphQL/CLI = adaptateurs minces. 9 tests. Cf `project_crud_pattern_decision`.
-- ✅ P5.4 adapter Mongoose branché (CRUD/relations/tx portables).
-- ✅ P7.4 3ᵉ adapter Drizzle + **opérateurs riches** (`FieldOperators`/`isFieldOperators`, `nodefony/src/criteria.ts`) → ADR-0003 risque #3 résolu, rétro-appliqué aux 3 adapters. 26 tests unit.
+- Contrats : `nodefony/interfaces/` (`IOrm`, `IEntity`, `IRepository<T>`, `ITransaction`).
+- Registres : `OrmRegistry` + `EntityRegistry` ; classes de base `Orm`/`Entity` (extends `Service`,
+  event `onOrmReady`).
+- Décorateurs `@entity` / `@repository` : métadonnées en `WeakMap` (`metadataStore`), **sans
+  reflect-metadata** — le module reste une lib pure ; le descripteur s'auto-enregistre.
+- `AbstractCrudService<T, R extends IRepository<T>>` (`nodefony/src/AbstractCrudService.ts`) : socle
+  CRUD. Lectures = délégation pure (hot path, 0 hook/event) ; mutations = hooks template-method +
+  events `onCreated`/`onUpdated`/`onDeleted`. Pattern canonique : le service est la source de vérité,
+  REST/WS/GraphQL/CLI ne sont que des adaptateurs minces. Cf `project_crud_pattern_decision`.
+- Adapters concrets : **hors de ce module** (`@nodefony/drizzle` par défaut, `@nodefony/mongoose`).
+
+> Avancement des phases → `MIGRATION_STATUS.md` (source unique). Historique → `git log`.
 
 ## Build / types
 

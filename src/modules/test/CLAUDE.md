@@ -124,7 +124,7 @@ l'utilisateur (le hook tourne après le firewall). Banc : `http/tests/http/pipel
 | `/download` | GET     | `content-disposition: attachment; filename="tsconfig.json"` |
 | `/media`    | GET     | Stream video/webm (Range headers supportés)                 |
 | `/upload`   | GET     | Form HTML upload                                            |
-| `/upload`   | POST    | Upload fichier (formidable)                                 |
+| `/upload`   | POST    | Upload fichier (multipart — `@fastify/busboy`)              |
 
 ### Fichiers statiques — préfixe natif `/test/`
 

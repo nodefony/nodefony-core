@@ -65,8 +65,10 @@ Referrer-Policy + COOP/COEP/CORP/OAC/Permissions ; `Firewall.applySecurityHeader
 `referrerPolicy` → enum W3C, et `declare module NodefonyModuleConfig` → `use()` complète clés+valeurs. Gates :
 security 303, banc live `http/security-headers.test.ts` 7/7, mémoire 9/9.
 
-⬜ Reste J5 : **CSP nonce par requête** (étape B — pont template/Vite, cf `csp_vite`). Étape 2 CSRF :
-décorateurs `@CsrfProtect` (token synchronizer HMAC) + `@CsrfExempt` (+ per-controller `trustedOrigins`/`@Domain`).
+✅ **CSP nonce par requête** : `SecurityHeaders.cspFor(nonce)` (`securityHeaders.ts:100`) recompose
+le CSP à partir de segments pré-split au boot ; le nonce est **paresseux** côté contexte
+(`Context.cspNonce`, `http/…/Context.ts:192` — `randomBytes(16)` alloués seulement si une vue le lit).
+Une route peut ajouter ses directives via `@Csp` (merge par `cspForExtra`).
 
 ## Interdits
 

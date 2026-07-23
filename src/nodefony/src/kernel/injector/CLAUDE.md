@@ -33,7 +33,7 @@ export class ReportService {
 }
 ```
 
-🚫 **Indisponible hors du core.** `Inject` est défini (`kernelDecorator.ts:143`) mais **absent du
+🚫 **Indisponible hors du core.** `Inject` est défini (`kernelDecorator.ts:155`) mais **absent du
 barrel** : `src/nodefony/src/index.ts` n'exporte que `injectable`, `inject`, `services`. Une app qui
 l'importe reçoit `undefined`. Utiliser l'injection **par constructeur** (`@inject`).
 
@@ -56,7 +56,7 @@ class MyOrmModule extends Module {}
 
 ⚠️ **`@entities` n'appartient PAS au core** : il vit dans `@nodefony/orm-core`
 (`nodefony/src/decorators/entitiesDecorator.ts`, exporté par son `index.ts:95`).
-`kernelDecorator.ts:172` n'exporte que `injectable`, `inject`, `Inject`, `services`.
+`kernelDecorator.ts:175` n'exporte que `injectable`, `inject`, `Inject`, `services`.
 Sa phase est **`onRegister`, jamais `onBoot`** : les connecteurs se branchent à
 `onBoot` et y créent les tables — inscrire les entités à `onBoot` en ferait une
 course avec le `connect()` (raison détaillée dans le TSDoc du décorateur).

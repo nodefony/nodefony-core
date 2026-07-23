@@ -149,12 +149,16 @@ Chaque contexte (HTTP + WS) reçoit un `requestId` UUID v4 à la construction (`
 
 **Runner unique = Vitest 4** (mocha retiré : suppression totale, gate audit). 3 suites = 3 configs :
 
-| Commande                   | Config                         | Spec                                             | Compte (indicatif)    | Serveur requis  |
-| -------------------------- | ------------------------------ | ------------------------------------------------ | --------------------- | --------------- |
-| `npm test`                 | `vitest.config.ts`             | `tests/unit/**`                                  | **337** (20 fichiers) | non             |
-| `npm run test:integration` | `vitest.integration.config.ts` | `tests/{http,integration,routing,websockets}/**` | **400 + 1 skipped**   | oui (5151/5152) |
-| `npm run test:load`        | `vitest.load.config.ts`        | `tests/load/**` + `tests/http/memory.test.ts`    | charge/heap/leak      | oui             |
-| `npm run test:memory`      | `vitest.load.config.ts`        | `tests/http/memory.test.ts` seul (le GATE)       | **9** (gate mémoire)  | oui             |
+| Commande                   | Config                         | Spec                                             | Portée           | Serveur requis  |
+| -------------------------- | ------------------------------ | ------------------------------------------------ | ---------------- | --------------- |
+| `npm test`                 | `vitest.config.ts`             | `tests/unit/**`                                  | pur, hors réseau | non             |
+| `npm run test:integration` | `vitest.integration.config.ts` | `tests/{http,integration,routing,websockets}/**` | non-régression   | oui (5151/5152) |
+| `npm run test:load`        | `vitest.load.config.ts`        | `tests/load/**` + `tests/http/memory.test.ts`    | charge/heap/leak | oui             |
+| `npm run test:memory`      | `vitest.load.config.ts`        | `tests/http/memory.test.ts` seul (le GATE)       | gate mémoire     | oui             |
+
+> **Aucun compte de tests n'est écrit ici** : il se périme au premier test ajouté et personne ne le
+> recale. Le compte réel se demande au runner (`npm test 2>&1 | tail -3`), l'inventaire au disque
+> (`ls nodefony/tests/**/*.test.ts`).
 
 > Les suites intégration/load sont **séquentielles** (`fileParallelism:false`) : tous les fichiers
 > tapent le MÊME serveur live → la parallélisation corromprait sessions/ports et surtout les deltas de
@@ -163,51 +167,32 @@ Chaque contexte (HTTP + WS) reçoit un `requestId` UUID v4 à la construction (`
 > ⚠️ Le serveur dev (DevSupervisor) **redémarre sur édition de fichier** — ne pas éditer pendant un run
 > intégration/load (ECONNREFUSED transitoire). Run propre = serveur stable, pas d'édition concurrente.
 
-Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs** : la colonne sujet fait foi, les totaux dérivent — compte réel = les commandes ci-dessus) :
+Cartographie **par sujet** (pour trouver où poser un test, ou où un comportement est déjà couvert) :
 
-| Fichier                                         | Sujet                                           | Tests | État |
-| ----------------------------------------------- | ----------------------------------------------- | ----- | ---- |
-| `unit/Cookie.test.ts`                           | Cookie serialize/parse/options + signé HMAC     | 41    | ✅   |
-| `unit/Session.test.ts`                          | Session CRUD, flash, meta, serialize            | 36    | ✅   |
-| `unit/Response.test.ts`                         | HttpResponse setBody/setStatus/setLength        | 24    | ✅   |
-| `unit/AuditLogger.test.ts`                      | Audit JSON shape, redaction, severity           | 24    | ✅   |
-| `unit/parser.test.ts`                           | body/charset parsers (QS/XML/multipart)         | 17    | ✅   |
-| `unit/HttpError.test.ts`                        | HttpError wrapping, code, stack                 | 16    | ✅   |
-| `unit/trace.test.ts`                            | traceparent W3C parse/format                    | 14    | ✅   |
-| `unit/trustProxy.test.ts`                       | trustProxy CIDR/presets/BlockList               | 11    | ✅   |
-| `unit/RequestLogger.test.ts`                    | logger requête                                  | 11    | ✅   |
-| `unit/Profiler.test.ts`                         | Profiler ring buffer + admin api                | 11    | ✅   |
-| `unit/requestId.test.ts`                        | sanitizeRequestId Zero Trust                    | 10    | ✅   |
-| `unit/PrettyRequestLogger.test.ts`              | pretty logger                                   | 10    | ✅   |
-| `unit/wsCloseCode.test.ts`                      | codes close WS RFC 6455                         | 9     | ✅   |
-| `unit/ErrorRenderer.test.ts`                    | rendu erreur HTML/JSON                          | 9     | ✅   |
-| `unit/UploadedFile.test.ts`                     | UploadedFile (taille, temp, cleanup)            | 7     | ✅   |
-| `unit/clientError.test.ts`                      | clientError ferme socket 400/431                | 4     | ✅   |
-| `http/http.test.ts`                             | HTTP basique                                    | 12    | ✅   |
-| `http/http1.test.ts`                            | HTTP port 5151 GET/POST/PUT/DELETE + headers    | 12    | ✅   |
-| `http/https.test.ts`                            | TLS handshake + cipher + HSTS                   | 8     | ✅   |
-| `http/errors.test.ts`                           | JSON error format (code, message, stack, route) | 18    | ✅   |
-| `http/decorators.test.ts`                       | @Param/@Body/@Query via HTTP                    | 10    | ✅   |
-| `http/fileStream.test.ts`                       | Streaming                                       | 8     | ✅   |
-| `http/upload.test.ts`                           | Upload @fastify/busboy                          | 7     | ✅   |
-| `http/httpKernel.test.ts`                       | Pipeline, Content-Type, erreurs, X-Request-Id   | 35    | ✅   |
-| `http/static.test.ts`                           | Fichiers statiques                              | 12    | ✅   |
-| `http/session.test.ts`                          | Sessions HTTP                                   | 15    | ✅   |
-| `http/security.test.ts`                         | CORS, firewall                                  | 20    | ✅   |
-| `http/memory.test.ts`                           | Memory leaks HTTP + WS                          | 7     | ✅ ¹ |
-| `http/resilience.test.ts`                       | Disconnect, burst, malformed                    | 7     | ✅   |
-| `routing/Router.test.ts`                        | Routing HTTP                                    | 11    | ✅   |
-| `websockets/websocket.test.ts`                  | WS basique                                      | 8     | ✅   |
-| `websockets/websocket-limits.test.ts`           | Limites taille/séquence                         | 8     | ✅   |
-| `websockets/websocket-perf.test.ts`             | Perf concurrence                                | 5     | ✅   |
-| `websockets/websocket-binary-broadcast.test.ts` | Binary + broadcast                              | 22    | ✅   |
-| `websockets/websocket-protocol.test.ts`         | Protocol negotiation                            | 15    | ✅   |
-| `websockets/websocket-session.test.ts`          | Sessions WS                                     | 1     | ✅   |
-| `websockets/websocket-w3c.test.ts`              | W3C compat                                      | 2     | ✅   |
+| Sujet                     | Où                                                                                                                                                                                                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cookies                   | `unit/Cookie.test.ts` (serialize/parse/options + signé HMAC)                                                                                                                                                                                                           |
+| Sessions                  | `unit/{Session,MemorySessionStorage,SessionsAdmin,sessions-admin-paging,session-pagination,session-timeout.attack}.test.ts` · `http/{session,session-runtime,session-bff}.test.ts` · `websockets/websocket-session.test.ts` · `integration/session-revocation.test.ts` |
+| Requête / réponse / body  | `unit/{Response,parser,metaData}.test.ts` · `http/{body-content-types,body-limit,auto-json,headers,decorators,decorators-response}.test.ts` · `integration/{bodyStream,decorators-param}.test.ts`                                                                      |
+| Erreurs & codes HTTP      | `unit/{HttpError,ErrorRenderer,clientError}.test.ts` · `http/{errors,host-misdirected,client-abort-499}.test.ts` · `integration/http-rfc-errors.test.ts`                                                                                                               |
+| Pipeline & cycle de vie   | `http/{httpKernel,pipeline-order,lifecycle-init-crash,timeout-abort,abort-cleanup}.test.ts` · `integration/{after-response,abort-signal,timing,di-singleton}.test.ts`                                                                                                  |
+| ALS / contexte de requête | `integration/{request-context,request-context-ws,lifecycle-als,after-response-als}.test.ts` · `load/als-load.test.ts`                                                                                                                                                  |
+| Sécurité (attaques)       | `http/security.test.ts` (path traversal, injection d'en-tête, taille URL/corps, cookie, fuite d'information) · `http/{webauthn-attack,firewall-auth}.test.ts` · `integration/oauth2-attack.test.ts` · `websockets/ws-data-plane-attack.test.ts`                        |
+| CORS · CSRF · en-têtes    | `http/{cors,csrf,security-headers}.test.ts` — **CORS a son fichier dédié**, pas `security.test.ts`                                                                                                                                                                     |
+| Auth (flux)               | `http/{webauthn-bff,firewall-auth}.test.ts` · `integration/{apikey-flow,oauth2-flow,security-hooks}.test.ts` · `websockets/{ws-scope-jwt,ws-isgranted-jwt,ws-data-plane-auth}.test.ts`                                                                                 |
+| Proxy / IP de confiance   | `unit/{trustProxy,forwarded,forwardedWiring,generateProxyConfig,domain}.test.ts` · `http/forward.test.ts`                                                                                                                                                              |
+| Traçage / journalisation  | `unit/{trace,requestId,RequestLogger,PrettyRequestLogger,wsLogContent,Profiler,AuditLogger,FrameProfile}.test.ts` · `http/traceparent.test.ts` · `websockets/websocket-trace-logging.test.ts`                                                                          |
+| WebSocket (protocole)     | `websockets/{websocket,websocket-protocol,websocket-limits,websocket-fragmentation,websocket-origin,websocket-w3c,websocket-binary-broadcast}.test.ts` · `unit/{wsCloseCode,wsHeartbeat,wsBackpressure,wsConnectionCounter,WsResponsePeerGone}.test.ts`                |
+| WebSocket (pont/actions)  | `websockets/{ws-bridge-radiography,ws-bridge-rendered-action}.test.ts`                                                                                                                                                                                                 |
+| Statique & upload         | `http/{static,fileStream,upload}.test.ts` · `unit/{UploadedFile,collectAssets,prebuiltUi}.test.ts`                                                                                                                                                                     |
+| Routage                   | `routing/Router.test.ts` · `integration/domain-routing.test.ts`                                                                                                                                                                                                        |
+| Config & démarrage        | `unit/{httpConfig,portBinder,certificates,PhasesVerbose,httpContextTimeout}.test.ts` · `integration/stores-location.test.ts` · `http/{health,https,http,http1}.test.ts`                                                                                                |
+| Débit / quotas            | `unit/{rateLimit,rateLimitAdminApi,Backpressure}.test.ts` · `http/resilience.test.ts`                                                                                                                                                                                  |
+| Charge & mémoire          | `http/memory.test.ts` (le gate ¹) · `load/{session,stream,ws-connections,ws-messages,ws-latency}-load.test.ts`                                                                                                                                                         |
 
-> ¹ `memory.test.ts` — test "1000 sequential GET < 35 MB" flaky en full suite (GC pressure après 249 tests). Passe toujours en isolation. Pas de fuite réelle.
->
-> ² Tableau **non exhaustif** (focus unit + cas emblématiques). Non listés mais verts : `http/{auto-json,headers,forward,abort-cleanup,traceparent}.test.ts` + tout `integration/` (ALS, after-response, timing, request-context, security-hooks, http-rfc-errors). Inventaire réel = `ls nodefony/tests/**/*.test.ts` ; compte = commandes ci-dessus.
+> ¹ `memory.test.ts` — le cas « 1000 GET séquentiels < 35 MB » est flaky en suite complète (pression
+> GC après ~250 tests) et passe toujours en isolation : ce n'est pas une fuite. Diagnostic →
+> skill `nodefony-check-memory-health`.
 
 ### Suites séparées — charge vs non-régression
 
@@ -240,7 +225,13 @@ Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs** : la
 - `WebsocketResponse.connection` est assigné **dans le constructeur** (pas seulement dans `connect()`) → `onError` peut fermer avec code 1002 avant même l'accept
 - `context.acceptedProtocol` = header `Sec-WebSocket-Protocol` brut (string)
 - `SecuredArea.match()` nécessite `request.url` comme `URL` object — toujours passer par `WsIncomingMessage`
-- Les sessions WS nécessitent `startSession()` dans `initialize()` du controller
+- **Ne PAS appeler `startSession()` dans `initialize()` d'un controller WS** : le point d'activation
+  est unique et partagé avec le HTTP — `HttpKernel.onConnect()` l'appelle après le front controller
+  et avant `context.connect()` (`http-kernel.ts:1579-1584`), gardé par `context.sessionStarting`.
+  Il est **paresseux** : sans intent de route ni cookie entrant, il ne crée rien (`:1036-1053`).
+  L'appeler à la main dans un controller rétablit l'ancien « démarre sur toutes les routes » — donc
+  une session persistée par connexion WS, y compris sur `echo`/`broadcast` qui n'en ont aucun besoin
+  (le module `test` documente la tempête d'INSERT que ça avait causée, `WebSocketController.ts:19-26`).
 - `httpError.ts` ne peut pas importer `@nodefony/framework` (dépendance circulaire) → accès au resolver via `(context as any)?.resolver`
 - Tout nouveau fichier test `.ts` doit avoir `/// <reference types="node" />` en première ligne
 
