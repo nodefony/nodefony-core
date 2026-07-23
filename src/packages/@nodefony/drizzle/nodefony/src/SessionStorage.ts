@@ -7,6 +7,7 @@ import type {
   ISessionListQuery,
 } from "@nodefony/http";
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import { ormRegistry, paginate } from "@nodefony/orm-core";
 import type { IRepository, Criteria } from "@nodefony/orm-core";
 import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
@@ -274,6 +275,7 @@ class SessionStorage implements ISessionStorage {
    * deux sessions partagent la milliseconde. ORM déconnecté → page vide.
    */
   async listPage(query: ISessionListQuery): Promise<IPage<ISessionRecord>> {
+    assertPageQuery(query, "offset");
     const repo = this.#repo();
     if (!repo) {
       return {

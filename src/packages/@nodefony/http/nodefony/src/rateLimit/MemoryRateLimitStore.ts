@@ -1,3 +1,4 @@
+import { assertPageQuery } from "nodefony";
 import type { IPage } from "nodefony";
 import type {
   IRateLimitEntry,
@@ -107,6 +108,7 @@ export class MemoryRateLimitStore implements IRateLimitStore {
    * (le `gc` les retire plus tard, hors hot-path).
    */
   listPage(query: IRateLimitListQuery): Promise<IPage<IRateLimitEntry>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const now = this.#now();

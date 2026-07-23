@@ -1,5 +1,6 @@
 import type { IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerWebhookStore("mongoose", …)`.
@@ -186,6 +187,7 @@ export class MongooseWebhookStore implements IWebhookStore {
    * — une page, jamais la collection. Le `limit + 1` donne `hasNext` sans compter.
    */
   async listPage(query: IWebhookListQuery): Promise<IPage<IWebhookEndpoint>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const model = this.#nativeModel();

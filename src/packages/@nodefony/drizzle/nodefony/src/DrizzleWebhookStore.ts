@@ -1,5 +1,6 @@
 import type { Criteria, IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerWebhookStore("drizzle", …)` ; le module drizzle reste pur.
@@ -157,6 +158,7 @@ export class DrizzleWebhookStore implements IWebhookStore {
    * requête `IN (...)` — coût O(page), jamais O(table).
    */
   async listPage(query: IWebhookListQuery): Promise<IPage<IWebhookEndpoint>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const db = this.#nativeDb();

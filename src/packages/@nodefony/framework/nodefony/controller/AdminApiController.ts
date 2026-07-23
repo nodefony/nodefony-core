@@ -1,4 +1,4 @@
-import { RequestContext, RpcError } from "nodefony";
+import { RequestContext, RpcError, nodefonyError } from "nodefony";
 import type { IAdminRequest, IAdminResponse } from "nodefony";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import type {
@@ -138,6 +138,19 @@ class AdminApiController extends Controller {
       return resp;
     } catch (e) {
       await gate.onFailure?.(); // libère la clé in-flight → un échec reste réessayable
+      // Une erreur 4xx portée par un nodefonyError applicatif (ex.
+      // PaginationModeError → 400 : mode de pagination que le store ne sait pas
+      // honorer) est une faute du CLIENT, pas une panne serveur. On la restitue
+      // telle quelle (statut + message contrôlé), sans la maquiller en 500 ni
+      // polluer le journal ERROR. Tout le reste = 500 opaque + log.
+      if (
+        e instanceof nodefonyError &&
+        typeof e.code === "number" &&
+        e.code >= 400 &&
+        e.code < 500
+      ) {
+        return { status: e.code, body: { error: e.message } };
+      }
       this.log(e as Error, "ERROR");
       return { status: 500, body: { error: "Internal admin handler error" } };
     }

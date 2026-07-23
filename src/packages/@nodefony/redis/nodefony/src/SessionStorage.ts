@@ -7,6 +7,7 @@ import type {
   ISessionListQuery,
 } from "@nodefony/http";
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type RedisService from "../service/redis";
 import { MAX_SCAN, decodeCursor, encodeCursor } from "./scanCursor";
 
@@ -239,6 +240,7 @@ class RedisSessionStorage implements ISessionStorage {
    * sur un cold-path d'administration. Rien n'est perdu, rien ne déborde.
    */
   async listPage(query: ISessionListQuery): Promise<IPage<ISessionRecord>> {
+    assertPageQuery(query, "cursor");
     const limit = Math.max(1, Math.floor(query.limit));
     const client = this.#client();
     if (!client) {

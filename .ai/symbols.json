@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-23T14:14:48.377Z",
+  "generated": "2026-07-23T19:39:23.050Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1040,
-    "symbols": 2834,
-    "classes": 330,
+    "files": 1041,
+    "symbols": 2837,
+    "classes": 331,
     "interfaces": 741,
-    "types": 328,
+    "types": 329,
     "enums": 4,
-    "functions": 850,
+    "functions": 851,
     "constants": 581
   },
   "symbols": {
@@ -2189,6 +2189,33 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Charge les fichiers `.env` du projet dans `process.env`, en cascade et SANS jamais écraser une variable déjà présente. **Convention B (Vite / Next.js)** — règle : les fichiers `*.local` (gitignorés…"
+    },
+    "PaginationModeError": {
+      "name": "PaginationModeError",
+      "kind": "class",
+      "file": "src/nodefony/src/runtime/pageGuard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur levée quand un `listPage` reçoit le champ de pagination du mode que son store **ne sait pas honorer** — un `cursor` pour un store offset, ou un `offset` de navigation pour un store curseur. …"
+    },
+    "PaginationMode": {
+      "name": "PaginationMode",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageGuard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les deux modes de pagination du contrat {@link IPageQuery}, **mutuellement exclusifs** : un backend n'expose que l'un ({@link IPageQuery.offset} navigation directe, ou {@link IPageQuery.cursor} nav…"
+    },
+    "assertPageQuery": {
+      "name": "assertPageQuery",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageGuard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fait respecter le contrat « un store expose UN seul mode » au point d'entrée d'un `listPage`, sur la requête **brute** reçue de l'appelant (avant qu'elle ne soit normalisée) : rejette explicitement…"
     },
     "redactSecrets": {
       "name": "redactSecrets",
@@ -19958,6 +19985,19 @@
       "Cli": [
         "CliKernel"
       ],
+      "nodefonyError": [
+        "PaginationModeError",
+        "AccessDeniedError",
+        "ApiKeyError",
+        "AuthenticationError",
+        "CsrfError",
+        "SsrfError",
+        "ThrottledError",
+        "WebAuthnError",
+        "UserNotFoundError",
+        "WeakPasswordError",
+        "DocumentationError"
+      ],
       "IContainer": [
         "IScope"
       ],
@@ -20124,18 +20164,6 @@
       ],
       "IApiKeyView": [
         "IApiKeyCreated"
-      ],
-      "nodefonyError": [
-        "AccessDeniedError",
-        "ApiKeyError",
-        "AuthenticationError",
-        "CsrfError",
-        "SsrfError",
-        "ThrottledError",
-        "WebAuthnError",
-        "UserNotFoundError",
-        "WeakPasswordError",
-        "DocumentationError"
       ],
       "IUser": [
         "IPasswordAuthenticatedUser"
@@ -22663,9 +22691,11 @@
       ],
       "nodefonyError": [
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/runtime/pageGuard.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -22804,6 +22834,19 @@
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
+      "IPageQuery": [
+        "src/nodefony/src/runtime/pageGuard.ts",
+        "src/nodefony/src/types/IIdempotencyStore.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts"
+      ],
       "ModuleName": [
         "src/nodefony/src/syslog/Syslog.ts"
       ],
@@ -22863,18 +22906,6 @@
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
-      ],
-      "IPageQuery": [
-        "src/nodefony/src/types/IIdempotencyStore.ts",
-        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts"
       ],
       "ICliKernel": [
         "src/nodefony/src/types/IKernel.ts"
@@ -24000,6 +24031,34 @@
       ],
       "IDrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "assertPageQuery": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webauthn/MemoryWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
       ],
       "IAuditEvent": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",

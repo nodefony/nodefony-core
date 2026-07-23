@@ -1,4 +1,5 @@
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type { IAuditEvent } from "../../contracts/IAuditEvent";
 import type { IAuditListQuery, IAuditStore } from "../../contracts/IAuditStore";
 
@@ -63,6 +64,7 @@ export class MemoryAuditStore implements IAuditStore {
   }
 
   listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>> {
+    assertPageQuery(query, "cursor");
     const limit = Math.min(
       Math.max(1, query.limit ?? DEFAULT_LIMIT),
       MAX_LIMIT,

@@ -1,4 +1,5 @@
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type { ITotpSecret } from "../../contracts/ITotpSecret";
 import type {
   ITotpEnrollmentSummary,
@@ -93,6 +94,7 @@ export class MemoryTotpSecretStore implements ITotpSecretStore {
 
   /** {@inheritDoc ITotpSecretStore.listPage} */
   listPage(query: ITotpListQuery): Promise<IPage<ITotpEnrollmentSummary>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     // Tri de RÉFÉRENCES : seule la page devient des vues d'enrôlement.

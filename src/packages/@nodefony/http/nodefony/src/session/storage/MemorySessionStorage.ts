@@ -1,3 +1,4 @@
+import { assertPageQuery } from "nodefony";
 import type { IPage } from "nodefony";
 import type sessionService from "../../../service/sessions/sessions-service";
 import type {
@@ -159,6 +160,7 @@ class MemorySessionStorage implements ISessionStorage {
    * d'énumération admin ne porte jamais de donnée métier.
    */
   listPage(query: ISessionListQuery): Promise<IPage<ISessionRecord>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(0, query.limit);
     const offset = Math.max(0, query.offset ?? 0);
     // Références seulement (pas de clone) — on ne copie que la page finale.

@@ -13,6 +13,7 @@ import type {
   IdempotentResponse,
   IPage,
 } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import {
   execTable,
   type DrizzleDb,
@@ -343,6 +344,7 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
   async listPage(
     query: IIdempotencyListQuery,
   ): Promise<IPage<IIdempotencyKeyEntry>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const db = this.#resolveDb();

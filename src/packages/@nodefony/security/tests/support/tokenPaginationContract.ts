@@ -108,6 +108,25 @@ export function runTokenPaginationContract(
     });
     const store = () => harness.store();
 
+    it("rejette le mode de pagination que le store ne supporte pas (400)", async () => {
+      const adverse =
+        harness.mode === "offset"
+          ? { limit: 4, cursor: "zzz" }
+          : { limit: 4, offset: 8 };
+      // try/catch (PAS assert.rejects) : la garde peut throw SYNCHRONIQUEMENT
+      // (store non-async) OU rejeter (store async) — `await` capte les deux.
+      let thrown: unknown;
+      try {
+        await store().listPage(adverse);
+      } catch (e) {
+        thrown = e;
+      }
+      assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
+      assert.equal((thrown as { code?: unknown }).code, 400);
+      assert.ok(thrown instanceof Error);
+      assert.match((thrown as Error).message, /pagination mode/i);
+    });
+
     // Invariant valable dans LES DEUX modes : `IPage.items` contient « au plus
     // `limit` » éléments. Trivial en SQL (`LIMIT`), il ne l'est PAS en Redis :
     // `SCAN COUNT` est un indice d'effort, pas un plafond — un batch peut rendre

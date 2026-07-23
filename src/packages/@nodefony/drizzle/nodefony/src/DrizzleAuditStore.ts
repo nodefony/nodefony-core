@@ -5,6 +5,7 @@ import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 // câble le store (`registerAuditStore("drizzle", …)`) + l'entité
 // (`registerAuditEntities(orm)` avant `orm.connect()`).
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type {
   IAuditEvent,
   IAuditListQuery,
@@ -152,6 +153,7 @@ export class DrizzleAuditStore implements IAuditStore {
   }
 
   async listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>> {
+    assertPageQuery(query, "cursor");
     const limit = Math.min(
       Math.max(1, query.limit ?? DEFAULT_LIMIT),
       MAX_LIMIT,

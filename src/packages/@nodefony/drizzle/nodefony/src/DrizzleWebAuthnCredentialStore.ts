@@ -1,5 +1,6 @@
 import { paginate, type Criteria, type IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerWebAuthnStore("drizzle", …)` ; le module drizzle reste pur.
@@ -176,6 +177,7 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
   async listPage(
     query: IWebAuthnListQuery,
   ): Promise<IPage<IWebAuthnCredentialSummary>> {
+    assertPageQuery(query, "offset");
     const page = await paginate(this.#repo, {
       criteria: this.#listCriteria(query),
       limit: query.limit,

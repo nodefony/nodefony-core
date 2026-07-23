@@ -221,6 +221,23 @@ export function runSessionPaginationContract(
       assert.equal(records.length, 0);
     });
 
+    it("rejette le mode de pagination que le store ne supporte pas (400)", async () => {
+      const adverse =
+        harness.mode === "offset"
+          ? { limit: 4, cursor: "zzz" }
+          : { limit: 4, offset: 8 };
+      let thrown: unknown;
+      try {
+        await storage().listPage(adverse);
+      } catch (e) {
+        thrown = e;
+      }
+      assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
+      assert.equal((thrown as { code?: unknown }).code, 400);
+      assert.ok(thrown instanceof Error);
+      assert.match((thrown as Error).message, /pagination mode/i);
+    });
+
     // ── Mode OFFSET : total exact + ordre déterministe ────────────────────────
     if (harness.mode === "offset") {
       it("page + total + hasNext (tri updatedAt DESC)", async () => {

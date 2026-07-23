@@ -2,6 +2,7 @@
 // dépendance runtime de l'infra Redis vers `@nodefony/security`. L'application
 // câble le store via `registerTokenStore("redis", …)`.
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type {
   IAccessTokenRecord,
   ITokenListQuery,
@@ -365,6 +366,7 @@ export class RedisTokenStore implements ITokenStore {
    * `hasNext` en repassant `nextCursor`. Renvoie les records BRUTS.
    */
   async listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
+    assertPageQuery(query, "cursor");
     const limit = Math.max(1, Math.floor(query.limit));
     const client = this.#client();
     if (!client) {

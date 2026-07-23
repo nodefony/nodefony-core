@@ -2,6 +2,7 @@
 // dépendance runtime de l'infra Redis vers `@nodefony/security`. L'application
 // câble le store via `registerWebAuthnStore("redis", …)`.
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type {
   IWebAuthnCredential,
   IWebAuthnCredentialStore,
@@ -267,6 +268,7 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   async listPage(
     query: IWebAuthnListQuery,
   ): Promise<IPage<IWebAuthnCredentialSummary>> {
+    assertPageQuery(query, "cursor");
     const limit = Math.max(1, Math.floor(query.limit));
     const client = this.#client();
     if (!client) {

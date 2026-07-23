@@ -83,6 +83,23 @@ export function runWebhookPaginationContract(
     });
     const store = () => harness.store();
 
+    it("rejette le mode de pagination que le store ne supporte pas (400)", async () => {
+      // Store OFFSET : un `cursor` de navigation n'a pas de sens ici.
+      const adverse = { limit: 4, cursor: "zzz" };
+      // try/catch (PAS assert.rejects) : la garde peut throw SYNCHRONIQUEMENT
+      // (store non-async) OU rejeter (store async) — `await` capte les deux.
+      let thrown: unknown;
+      try {
+        await store().listPage(adverse);
+      } catch (e) {
+        thrown = e;
+      }
+      assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
+      assert.equal((thrown as { code?: unknown }).code, 400);
+      assert.ok(thrown instanceof Error);
+      assert.match((thrown as Error).message, /pagination mode/i);
+    });
+
     it("borne : une page ne rend jamais plus que `limit`", async () => {
       const page = await store().listPage({ limit: 5 });
       assert.ok(

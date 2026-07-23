@@ -1,6 +1,7 @@
 import { paginate } from "@nodefony/orm-core";
 import type { Criteria, IRepository, UpdateData } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerTokenStore("mongoose", …)`.
@@ -166,6 +167,7 @@ export class MongooseTokenStore implements ITokenStore {
    * les `id` sont re-normalisés (`_id` → `id`) comme dans {@link listAll}.
    */
   async listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
+    assertPageQuery(query, "offset");
     const page = await paginate(this.#records, {
       criteria: tokenListCriteria(query),
       limit: query.limit,

@@ -140,9 +140,10 @@ function queryOne(
 
 /**
  * Traduit la query string admin en {@link IWebhookListQuery} **bornée**
- * (`limit` défaut 50, cap 200 ; `offset`/`cursor`/`enabled`/`event`/`q`). Un
- * filtre inconnu est ignoré (permissif — l'endpoint est déjà gardé
- * `ROLE_NODEFONY_ADMIN`).
+ * (`limit` défaut 50, cap 200 ; `offset`/`enabled`/`event`/`q`). Un filtre
+ * inconnu est ignoré (permissif — l'endpoint est déjà gardé
+ * `ROLE_NODEFONY_ADMIN`). Pagination **offset uniquement** : les trois stores
+ * webhook (memory/drizzle/mongoose) sont offset-pur — aucun curseur ici.
  */
 function parseWebhookListQuery(
   query: Readonly<Record<string, string | string[]>>,
@@ -155,8 +156,6 @@ function parseWebhookListQuery(
   };
   const rawOffset = Number.parseInt(queryOne(query, "offset") ?? "", 10);
   if (Number.isFinite(rawOffset) && rawOffset >= 0) out.offset = rawOffset;
-  const cursor = queryOne(query, "cursor");
-  if (cursor !== undefined) out.cursor = cursor;
   const enabled = queryOne(query, "enabled");
   if (enabled === "true") out.enabled = true;
   else if (enabled === "false") out.enabled = false;
@@ -230,16 +229,16 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
         total?: number;
         limit: number;
         offset?: number;
-        nextCursor?: string | null;
       }> => {
         const s = svc();
         const store = container.get("webhookStore") as
           WebhookStoreLike | undefined;
         const className = store?.constructor?.name;
         const query = parseWebhookListQuery(request.query);
-        // Pagination SERVEUR (jamais un listAll matérialisé : celui-ci est
-        // réservé au snapshot du dispatcher). `endpoints` = LA page ;
-        // `total`/`offset`/`nextCursor` = métadonnées du DataGrid mode="server".
+        // Pagination SERVEUR OFFSET (jamais un listAll matérialisé : celui-ci
+        // est réservé au snapshot du dispatcher). `endpoints` = LA page ;
+        // `total`/`offset` = métadonnées du DataGrid mode="server". Les trois
+        // stores webhook sont offset-pur → aucun curseur exposé (F27).
         const page = ready(s) ? await s.listPage(query) : null;
         // Lecture DÉFENSIVE (jamais de 503) : la console affiche toujours un
         // badge honnête + une table, même webhooks désactivés (→ liste vide).
@@ -251,7 +250,6 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
           total: page?.total,
           limit: query.limit,
           offset: page?.offset,
-          nextCursor: page?.nextCursor,
         };
       },
     },

@@ -1,4 +1,11 @@
-import { Service, Module, Container, Event, injectable } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  injectable,
+  assertPageQuery,
+} from "nodefony";
 import type { IPage } from "nodefony";
 import type {
   IIdempotencyKeyEntry,
@@ -70,6 +77,7 @@ class MemoryIdempotencyStore extends Service implements IIdempotencyStore {
    * l'écriture) — sinon on montrerait comme vivante une clé déjà rejouable.
    */
   listPage(query: IIdempotencyListQuery): Promise<IPage<IIdempotencyKeyEntry>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const now = Date.now();

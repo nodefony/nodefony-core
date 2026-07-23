@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Criteria, ITransaction } from "@nodefony/orm-core";
+import { assertPageQuery } from "nodefony";
 import type { IPage } from "nodefony";
 import { BaseUser } from "./BaseUser";
 import type { IBaseUserOptions } from "./BaseUser";
@@ -285,6 +286,7 @@ export class InMemoryUserRepository implements IUserRepository {
    * supplémentaire. `total` gratuit (longueur du filtré) sauf `withTotal: false`.
    */
   listPage(query: IUserListQuery): Promise<IPage<IPasswordAuthenticatedUser>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const q = query.q?.toLowerCase();

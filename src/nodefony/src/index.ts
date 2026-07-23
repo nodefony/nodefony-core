@@ -380,6 +380,8 @@ export type {
   IdempotentResponse,
 } from "./types/IIdempotencyStore";
 export type { IPage, IPageQuery } from "./types/IPage";
+export { assertPageQuery, PaginationModeError } from "./runtime/pageGuard";
+export type { PaginationMode } from "./runtime/pageGuard";
 export type { ISyslog } from "./types/ISyslog";
 export type { ITransport } from "./types/ITransport";
 export type { EnvironmentType, DebugType } from "./types/globals";

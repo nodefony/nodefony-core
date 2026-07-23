@@ -6,6 +6,7 @@ import type {
   IdempotentResponse,
   IPage,
 } from "nodefony";
+import { assertPageQuery } from "nodefony";
 
 /** Préfixe namespacé des clés d'idempotence dans Redis. */
 /**
@@ -180,6 +181,7 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
   async listPage(
     query: IIdempotencyListQuery,
   ): Promise<IPage<IIdempotencyKeyEntry>> {
+    assertPageQuery(query, "cursor");
     const limit = Math.max(1, Math.floor(query.limit));
     const client = this.#client();
     if (!client) {

@@ -89,6 +89,32 @@ export function runIdempotencyPaginationContract(
       assert.equal(page.limit, 3);
     });
 
+    // Fail-LOUD sur le mode adverse : le contrat IPage pose offset et cursor
+    // MUTUELLEMENT EXCLUSIFS (« le store déclare un mode, jamais les deux »).
+    // Passer le champ de l'autre mode était AVALÉ en silence — un client curseur
+    // bouclait indéfiniment sur la page 1 d'un store offset (écart F27/F51). La
+    // garde `assertPageQuery` rejette désormais en 400 (`PaginationModeError`).
+    it("rejette le mode de pagination que le store ne supporte pas (400)", async () => {
+      const adverse =
+        harness.mode === "offset"
+          ? { limit: 4, cursor: "nf-a-0001" }
+          : { limit: 4, offset: 8 };
+      // `await` dans une fonction async capte un rejet (stores async) COMME un
+      // throw synchrone (le store mémoire garde avant son `Promise.resolve`) —
+      // c'est exactement ce que fait le vrai appelant (handler admin `async`).
+      // `assert.rejects` NE capte PAS un throw synchrone d'un thunk → try/catch.
+      let thrown: unknown;
+      try {
+        await store().listPage(adverse);
+      } catch (e) {
+        thrown = e;
+      }
+      assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
+      assert.equal((thrown as { code?: unknown }).code, 400);
+      assert.ok(thrown instanceof Error);
+      assert.match((thrown as Error).message, /pagination mode/i);
+    });
+
     it("🔒 la vue ne porte NI la réponse mémorisée NI le fingerprint", async () => {
       const page = await store().listPage({ limit: 100 });
       assert.ok(page.items.length > 0, "le seed doit produire des entrées");

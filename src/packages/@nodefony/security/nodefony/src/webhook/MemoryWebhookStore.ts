@@ -1,4 +1,5 @@
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type {
   IWebhookListQuery,
   IWebhookStore,
@@ -67,6 +68,7 @@ export class MemoryWebhookStore implements IWebhookStore {
   }
 
   async listPage(query: IWebhookListQuery): Promise<IPage<IWebhookEndpoint>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     // On trie des RÉFÉRENCES (pas des copies) : seule la page retenue est clonée
@@ -78,13 +80,11 @@ export class MemoryWebhookStore implements IWebhookStore {
       (a, b) =>
         b.createdAt - a.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     );
-    const items = filtered
-      .slice(offset, offset + limit)
-      .map((e) => ({
-        ...e,
-        events: [...e.events],
-        metadata: { ...e.metadata },
-      }));
+    const items = filtered.slice(offset, offset + limit).map((e) => ({
+      ...e,
+      events: [...e.events],
+      metadata: { ...e.metadata },
+    }));
     return {
       items,
       total: query.withTotal === false ? undefined : filtered.length,

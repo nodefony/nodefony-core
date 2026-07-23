@@ -11,6 +11,7 @@ import type {
   IUserRepository,
 } from "@nodefony/user";
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type { DrizzleDb } from "./orm-core/DrizzleRepository";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
@@ -254,6 +255,7 @@ export class DrizzleUserRepository implements IUserRepository {
   async listPage(
     query: IUserListQuery,
   ): Promise<IPage<IPasswordAuthenticatedUser>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const filters = { role: query.role, enabled: query.enabled, q: query.q };

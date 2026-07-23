@@ -6,6 +6,7 @@ import type {
   IUserRepository,
 } from "@nodefony/user";
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type {
   Criteria,
   IRepository,
@@ -260,6 +261,7 @@ export class MongooseUserRepository implements IUserRepository {
   async listPage(
     query: IUserListQuery,
   ): Promise<IPage<IPasswordAuthenticatedUser>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const filter = this.#listFilter(query);

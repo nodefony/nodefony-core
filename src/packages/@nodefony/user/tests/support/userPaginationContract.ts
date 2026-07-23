@@ -133,5 +133,19 @@ export function runUserPaginationContract(
       assert.equal(page.total, 0);
       assert.equal(page.items.length, 0);
     });
+
+    it("rejette le mode de pagination que le store ne supporte pas (400)", async () => {
+      // Store offset only : un `cursor` de navigation est le mode adverse.
+      let thrown: unknown;
+      try {
+        await repo().listPage({ limit: 4, cursor: "zzz" });
+      } catch (e) {
+        thrown = e;
+      }
+      assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
+      assert.equal((thrown as { code?: unknown }).code, 400);
+      assert.ok(thrown instanceof Error);
+      assert.match((thrown as Error).message, /pagination mode/i);
+    });
   });
 }

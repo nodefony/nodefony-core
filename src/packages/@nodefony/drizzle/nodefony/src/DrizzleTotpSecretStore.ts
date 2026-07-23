@@ -1,5 +1,6 @@
 import { paginate, type Criteria, type IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application (ou
 // l'auto-register du module) câble le store via `registerTotpStore("drizzle", …)`.
@@ -168,6 +169,7 @@ export class DrizzleTotpSecretStore implements ITotpSecretStore {
   async listPage(
     query: ITotpListQuery,
   ): Promise<IPage<ITotpEnrollmentSummary>> {
+    assertPageQuery(query, "offset");
     const page = await paginate(this.#repo, {
       criteria: this.#listCriteria(query),
       limit: query.limit,

@@ -1,4 +1,5 @@
 import type { IPage } from "nodefony";
+import { assertPageQuery } from "nodefony";
 import type { IWebAuthnCredential } from "../../contracts/IWebAuthnCredential";
 import type {
   IWebAuthnCredentialStore,
@@ -131,6 +132,7 @@ export class MemoryWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   listPage(
     query: IWebAuthnListQuery,
   ): Promise<IPage<IWebAuthnCredentialSummary>> {
+    assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset =
       query.offset !== undefined && query.offset > 0 ? query.offset : 0;
