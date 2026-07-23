@@ -76,12 +76,19 @@ export interface InstanceHealth {
   /** Ingress backplane refusés (canal non diffusable) — signal de sécurité. */
   ingressRejectedTotal?: number;
   /** Fond de panier realtime de l'instance (bus inter-process). */
+  /**
+   * Drivers de backplane enregistrés dans ce process (registre ouvert) — ce qu'on
+   * POURRAIT brancher, là où `backplane.driver` ne dit que l'actif.
+   */
+  backplaneDrivers?: string[];
   backplane?: {
     driver?: string;
     kind?: string;
     crossPod?: boolean;
     /** Canal de transport effectif (canal Redis, topic…). */
     channel?: string;
+    /** Identité de CE pair sur le bus (pod/process) — qui publie. */
+    originId?: string;
     /** Messages scellés (authenticité vérifiée) — pertinent sur bus partagé. */
     sealed?: boolean;
     /**

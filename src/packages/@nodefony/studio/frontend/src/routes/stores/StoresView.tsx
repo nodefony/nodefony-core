@@ -60,6 +60,7 @@ import {
   type StoresPayload,
   type StoreResolution,
   type StoreEngine,
+  type StoreNature,
 } from "./storesModel";
 import { StoresHelp } from "./StoresHelp";
 import { TransportTab } from "./TransportTab";
@@ -96,8 +97,14 @@ function engineStatus(e: StoreEngine): {
   };
 }
 
-/** Briques de nature ÉPHÉMÈRE/session — le foyer naturel d'un cache (Redis). */
-const EPHEMERAL_BRICKS = ["session", "idempotency"];
+/**
+ * La nature d'une brique (`session` / `ephemeral` / `durable`) est DÉCLARÉE par le
+ * service qui la résout et arrive dans le payload — on la lit, on ne la redevine pas.
+ * Une liste locale « session, idempotency » a existé ici : elle classait à tort toute
+ * brique éphémère ajoutée ensuite, sans que rien ne le signale. Brique non résolue
+ * (module non chargé) → `durable`, le même défaut que le back.
+ */
+type NatureOf = (brick: string) => StoreNature;
 
 /**
  * Tuile d'un moteur de persistance — FACTS sur la carte (statut, couverture par
@@ -108,37 +115,49 @@ const EPHEMERAL_BRICKS = ["session", "idempotency"];
 function EngineCard({
   e,
   bricks,
+  universe,
+  natureOf,
 }: {
   e: StoreEngine;
   bricks: StoreResolution[];
+  /** Toutes les briques que ce runtime sait résoudre (calculé, jamais en dur). */
+  universe: string[];
+  natureOf: NatureOf;
 }) {
   const st = engineStatus(e);
   const isCache = e.kind === "cache";
   const covered = e.provides;
   const label = (b: string) => BRICK_LABEL[b] ?? b;
-  // Couverture ADAPTÉE à la vocation, PAS une parité 8/8 (un adapter couvre ce qui a
-  // du sens pour sa nature). Cache : on sépare la VOCATION (éphémère/session, idéale
-  // sur Redis) des briques DURABLES que Redis n'héberge que si PERSISTANT (AOF).
-  const vocation = isCache
-    ? covered.filter((b) => EPHEMERAL_BRICKS.includes(b))
-    : covered;
-  const edgeDurable = isCache
-    ? covered.filter((b) => !EPHEMERAL_BRICKS.includes(b))
-    : [];
+  const isEphemeral = (b: string) => natureOf(b) !== "durable";
+  // Un backend DURABLE doit être un chemin COMPLET : on choisit une base de données,
+  // pas de perdre une brique → ce qu'il ne couvre pas est un MANQUE (orange).
+  // Un CACHE est borné par nature : sa couverture se lit par vocation (éphémère/
+  // session), et les briques durables qu'il implémente sont un opt-in conditionné à un
+  // Redis PERSISTANT (AOF). Mais ce qu'il ne porte PAS s'affiche quand même, en
+  // neutre : taire les cases vides d'un cache reviendrait à affirmer que sa couverture
+  // est close — or certaines de ces absences sont bien des manques (une petite valeur
+  // durable comme un secret TOTP est du même ordre qu'un passkey, qu'il porte déjà).
+  // L'écran montre le FAIT ; ce qui relève du choix ou du reste-à-faire vit dans la
+  // roadmap, pas dans une liste jugée ici.
+  const vocation = isCache ? covered.filter(isEphemeral) : covered;
+  const edgeDurable = isCache ? covered.filter((b) => !isEphemeral(b)) : [];
+  const missing = universe.filter((b) => !covered.includes(b));
 
   // Fiche ⓘ typée + DYNAMIQUE : statut, couverture lue à l'aune du domaine, ce qui
   // est porté, activation. Cas 0 explicité.
   const help = (
     <DocHint
       title={e.engine}
-      summary={
+      summary={`${e.package} — ${st.label}. Couvre ${covered.length}/${universe.length} brique(s)${
         isCache
-          ? `${e.package} — ${st.label}. Cache/éphémère : couvre ${covered.length} brique(s), adapté à sa vocation.`
-          : `${e.package} — ${st.label}. Couvre ${covered.length} brique(s) de persistance.`
-      }
+          ? ` (cache : couverture bornée par vocation, ${missing.length} non portée(s))`
+          : missing.length
+            ? ` — il en manque ${missing.length}`
+            : " (chemin complet)"
+      }.`}
       sections={[
         {
-          label: "Couverture (adaptée, pas parité)",
+          label: isCache ? "Couverture (bornée par vocation)" : "Couverture",
           body: isCache
             ? `Vocation cache/éphémère → idéal pour : ${
                 vocation.map(label).join(", ") || "—"
@@ -150,10 +169,16 @@ function EngineCard({
                         ", ",
                       )}, mais DURABLES → uniquement si Redis PERSISTANT (AOF), sinon perdues au restart.`
                   : ""
-              } Les briques durables relèvent d'un backend durable (SQL/Mongo).`
-            : `Gère : ${
-                covered.map(label).join(", ") || "—"
-              }. Un adapter couvre ce qui a du SENS pour sa nature — pas une parité 8/8. Une brique non couverte s'ajoute via son contrat (I…Store) au besoin.`,
+              } Non porté ici : ${missing.map(label).join(", ") || "—"} — une partie relève d'un backend durable par nature (ce qui croît sans borne et se consulte : identité, journal d'audit, webhooks), le reste peut être ajouté au même régime opt-in que les jetons et passkeys.`
+            : `Gère : ${covered.map(label).join(", ") || "—"}.${
+                missing.length
+                  ? ` MANQUE : ${missing
+                      .map(label)
+                      .join(
+                        ", ",
+                      )}. Un backend durable devrait être un chemin COMPLET — on choisit une base de données, pas de perdre une brique. En attendant, ces briques se replient sur un autre backend (repli annoncé au boot) : charger un second adapter durable à côté suffit.`
+                  : " Chemin complet : une application peut tourner sur ce seul backend."
+              }`,
         },
         {
           label: "Porté maintenant",
@@ -218,10 +243,12 @@ function EngineCard({
         </Badge>
       </Group>
 
-      {/* Couverture — briques réellement couvertes (adaptées à la vocation, pas 8/8). */}
+      {/* Couverture réelle. Durable → on affiche aussi ce qui MANQUE (cf `missing`). */}
       <Group gap={4} wrap="wrap" mb={6} align="center">
         <Text size="xs" c="dimmed">
-          {isCache ? "Cache éphémère — idéal pour :" : "Couvre :"}
+          {isCache
+            ? "Cache éphémère — idéal pour :"
+            : `Couvre ${covered.length}/${universe.length} :`}
         </Text>
         {(isCache ? vocation : covered).map((b) => (
           <Badge
@@ -240,6 +267,30 @@ function EngineCard({
           </Text>
         )}
       </Group>
+
+      {/* Ce qui n'est PAS porté, toujours affiché — les taire ferait passer une
+          couverture partielle pour une couverture close. Ton différent selon la
+          nature du moteur : un durable DOIT être complet (orange), un cache est
+          borné par vocation (neutre). */}
+      {missing.length > 0 && (
+        <Group gap={4} wrap="wrap" mb={6} align="center">
+          <Text size="xs" c="dimmed">
+            {isCache ? "Non porté :" : "Manque :"}
+          </Text>
+          {missing.map((b) => (
+            <Badge
+              key={b}
+              size="xs"
+              variant="outline"
+              color={isCache ? "gray" : "orange"}
+              style={{ textTransform: "none" }}
+              title={`${label(b)} n'a pas de store ${e.engine} — la brique se replie sur un autre backend (repli annoncé au boot)`}
+            >
+              {label(b)}
+            </Badge>
+          ))}
+        </Group>
+      )}
 
       {/* Cache : briques DURABLES implémentées mais conditionnées à un Redis persistant. */}
       {isCache && edgeDurable.length > 0 && (
@@ -302,6 +353,19 @@ function EnginesSection({
   const toInstall = engines.filter((e) => !e.installed).length;
   const bricksOf = (engine: string) =>
     rows.filter((r) => r.resolved === engine);
+  // Univers des briques CALCULÉ : ce que les adapters déclarent couvrir ∪ ce que le
+  // runtime résout réellement. Jamais une liste en dur — elle se périmerait au premier
+  // ajout de brique et l'écran mentirait sans que rien ne le signale.
+  const universe = [
+    ...new Set([
+      ...engines.flatMap((e) => e.provides),
+      ...rows.map((r) => r.brick),
+    ]),
+  ].sort();
+  // Nature LUE du payload (le service qui résout la brique la déclare) — jamais
+  // redevinée ici. Brique non résolue (module non chargé) → `durable`, comme le back.
+  const natures = new Map(rows.map((r) => [r.brick, r.nature]));
+  const natureOf: NatureOf = (brick) => natures.get(brick) ?? "durable";
   return (
     <Card withBorder radius="md" p="md">
       <Group gap="xs" mb="sm">
@@ -320,14 +384,20 @@ function EnginesSection({
             },
             {
               label: "Domaines & couverture",
-              body: "Couverture ADAPTÉE à la vocation, pas une parité 8/8 : durable (SQL/Mongo) sert l'identité + le durable ; cache (Redis) sert l'éphémère/session. Chaque adapter DÉCLARE ce qu'il couvre (package.json nodefony.stores) ; une brique non couverte s'ajoute via son contrat au besoin.",
+              body: `Un backend DURABLE (SQL/Mongo) devrait être un chemin COMPLET : on choisit une base de données, pas de perdre une brique — ce qu'il ne couvre pas est donc affiché comme un MANQUE (badge orange), pas passé sous silence. Un CACHE (Redis) est borné par nature : il sert l'éphémère/session, et les briques durables qu'il implémente sont un opt-in conditionné à un Redis persistant. Chaque adapter DÉCLARE ce qu'il couvre (package.json nodefony.stores) ; l'univers des ${universe.length} briques affiché ici est calculé depuis ces déclarations + ce que le runtime résout, jamais figé.`,
             },
           ]}
         />
       </Group>
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
         {engines.map((e) => (
-          <EngineCard key={e.engine} e={e} bricks={bricksOf(e.engine)} />
+          <EngineCard
+            key={e.engine}
+            e={e}
+            bricks={bricksOf(e.engine)}
+            universe={universe}
+            natureOf={natureOf}
+          />
         ))}
       </SimpleGrid>
     </Card>
@@ -676,7 +746,7 @@ export const StoresView = observer(() => {
             Stores
           </Tabs.Tab>
           <Tabs.Tab value="transport" leftSection={<IconRoute size={15} />}>
-            Flux &amp; transport
+            Fonds de panier
           </Tabs.Tab>
           <Tabs.Tab value="help" leftSection={<IconHelpCircle size={15} />}>
             Utilisation &amp; aide

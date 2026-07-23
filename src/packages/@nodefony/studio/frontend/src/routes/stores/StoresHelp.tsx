@@ -11,6 +11,7 @@ import {
   IconPlugConnected,
   IconAlertTriangle,
   IconArchive,
+  IconRoute,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
@@ -103,6 +104,66 @@ export function StoresHelp() {
             en plus un factory par le cœur (ex. <Code>redis</Code> pour
             l'idempotence) : disponible par son nom, mais qui échoue franc si
             l'infra manque.
+          </Text>
+        </Alert>
+        <Text size="sm">
+          Dans la section <strong>Moteurs</strong>, chaque carte affiche{" "}
+          <strong>ce qu'elle couvre ET ce qui lui manque</strong>. Les deux se
+          lisent différemment : un moteur <strong>durable</strong> (SQL, Mongo)
+          devrait être un chemin complet — on choisit une base de données, pas
+          de perdre une brique — donc ses cases vides sont des{" "}
+          <strong>manques</strong> (badge orange). Un <strong>cache</strong>
+          (Redis) est borné par nature : ses cases vides sont affichées en
+          neutre (« non porté »). Dans les deux cas elles sont montrées : les
+          taire ferait passer une couverture partielle pour une couverture
+          close.
+        </Text>
+      </Section>
+
+      <Section
+        icon={<IconRoute size={18} />}
+        title="Stores et fonds de panier : deux choses différentes"
+      >
+        <Text size="sm">
+          Un <strong>store</strong> répond à « <em>où dort cette donnée ?</em>{" "}
+          ». Un <strong>fond de panier</strong> répond à «{" "}
+          <em>par où passe ce flux entre mes serveurs ?</em> ». Quand une
+          application tourne sur plusieurs serveurs (ou plusieurs processus),
+          chacun ne voit que ce qui se passe chez lui : le fond de panier est le
+          passage par lequel ils se rejoignent.
+        </Text>
+        <Text size="sm">
+          Nodefony en a <strong>deux, indépendants</strong>, réglés séparément —
+          l'onglet <strong>Fonds de panier</strong> montre l'état réel de chacun
+          :
+        </Text>
+        <List size="sm" spacing="xs">
+          <List.Item>
+            <strong>Temps réel</strong> — répète aux autres serveurs les
+            messages qui viennent d'arriver, pour que leurs clients les voient
+            aussi. <strong>Il ne conserve rien</strong> : un message part vers
+            ceux qui écoutent à cet instant, et un client déconnecté ne le
+            rattrapera jamais (ni historique, ni rejeu). Mécanismes :{" "}
+            <Code>loopback</Code> (tout reste dans le processus),{" "}
+            <Code>cluster</Code> (relie les processus d'une machine),{" "}
+            <Code>redis</Code> (relie des serveurs différents).
+          </List.Item>
+          <List.Item>
+            <strong>Journaux</strong> — rassemble les journaux de tous les
+            serveurs pour qu'on puisse les relire au même endroit.{" "}
+            <strong>Celui-ci conserve</strong> : les lignes restent à la
+            destination et se relisent des heures après. Les journaux sont
+            toujours ÉCRITS sur la sortie standard ; ce réglage décide seulement
+            d'où la console va les RELIRE.
+          </List.Item>
+        </List>
+        <Alert variant="light" color="orange">
+          <Text size="xs">
+            La panne la plus discrète du temps réel : à plusieurs serveurs sans
+            fond de panier partagé, chacun ne prévient que ses propres clients.
+            Deux personnes ne se voient que si elles sont tombées sur le même
+            serveur — <strong>sans erreur, sans log</strong>. L'onglet le
+            signale explicitement quand le cas se présente.
           </Text>
         </Alert>
       </Section>

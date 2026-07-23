@@ -6,6 +6,7 @@ import type {
 } from "nodefony";
 import { ProcessProbe, Nodefony, readOrmHealth } from "nodefony";
 import { getRealtimeHub } from "./RealtimeHub";
+import { listBackplaneDrivers } from "../backplane/backplaneRegistry";
 import { clusterProbeHealth } from "../cluster/ClusterProbeClient";
 import type {
   IRealtimeHealth,
@@ -60,6 +61,12 @@ export function buildOwnHealth(): IRealtimeHealth {
   if (orm) health.orm = orm;
   const errors = readInstanceErrorHealth();
   if (errors) health.errors = errors;
+  // Ce qu'on POURRAIT brancher (registre ouvert), à côté de ce qui EST branché
+  // (`backplane.driver`). Sans cette liste, un écran d'admin ne peut que constater
+  // l'actif — jamais dire qu'une alternative est déjà disponible dans le process.
+  // Lecture pure (clés d'une Map) ; le tableau n'est alloué qu'à la demande de sonde.
+  const drivers = listBackplaneDrivers();
+  if (drivers.length) health.backplaneDrivers = drivers;
   return health;
 }
 

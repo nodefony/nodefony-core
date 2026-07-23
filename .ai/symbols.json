@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-23T08:16:34.880Z",
+  "generated": "2026-07-23T10:40:44.278Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -21964,7 +21964,8 @@
         "src/packages/@nodefony/realtime/index.ts"
       ],
       "listBackplaneDrivers": [
-        "src/packages/@nodefony/realtime/index.ts"
+        "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
       ],
       "ClusterProbeClient": [
         "src/packages/@nodefony/realtime/index.ts"
@@ -24480,6 +24481,10 @@
       "createPlaygroundEndpoints": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts"
       ],
+      "listLogDrivers": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
       "collectDevStatus": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
@@ -24598,9 +24603,6 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "getLogDriver": [
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
-      ],
-      "listLogDrivers": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "frontendConfigSchema": [

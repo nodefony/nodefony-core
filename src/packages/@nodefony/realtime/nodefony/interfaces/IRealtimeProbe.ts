@@ -148,6 +148,14 @@ export interface IRealtimeHealth extends IRealtimeProbe {
    */
   errors?: IInstanceErrorHealth;
   /**
+   * Drivers de backplane **enregistrés dans ce process** (clés du registre ouvert :
+   * natifs + ceux qu'une application a ajoutés par `registerBackplaneDriver`). Sert la
+   * même question que la liste des backends côté stores : « qu'est-ce que je POURRAIS
+   * brancher ? », à laquelle `backplane.driver` (l'actif) ne répond pas. Absent si le
+   * registre n'est pas joignable.
+   */
+  backplaneDrivers?: string[];
+  /**
    * Diagnostic ORM **riche** du worker (par connecteur : ping/latence/stockage/pool +
    * flux requêtes) — blob OPAQUE `{ health, flow }` produit par le driver, présent
    * UNIQUEMENT pendant un drill ORM de CE worker (facette `"orm"` : le master a envoyé

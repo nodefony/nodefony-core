@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import {
   GitService,
   getActiveLogDriver,
+  listLogDrivers,
   Syslog,
   collectDevStatus,
   parseNfEnvOverrides,
@@ -688,6 +689,15 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           log: {
             driver: getActiveLogDriver()?.name ?? null,
             sink: Syslog.logSinkName,
+            // Ce qu'on POURRAIT brancher, à côté de ce qui l'est — pendant exact
+            // de `backplaneDrivers` côté realtime. Sans cette liste, un écran
+            // d'admin devrait figer un catalogue en dur, donc mentir dès qu'une
+            // application enregistre son propre driver (`registerLogDriver`).
+            available: listLogDrivers().map((d) => ({
+              name: d.name,
+              query: d.capabilities.query,
+              stream: d.capabilities.stream,
+            })),
           },
         },
         // Identité git (branche + commit court) — lecture `.git`, sans spawn.

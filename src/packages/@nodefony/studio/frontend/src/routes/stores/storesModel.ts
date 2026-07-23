@@ -117,20 +117,12 @@ export const REALTIME_HEALTH_ENDPOINT = "/nodefony/realtime/api/health";
 export interface LogBackplane {
   driver: string;
   sink: string;
-}
-/** Backplane realtime (fond de panier cluster de la socket Nodefony). */
-export interface RealtimeBackplane {
-  driver: string;
-  crossPod: boolean;
-  kind?: string;
+  /** Drivers de log enregistrés dans ce process (registre ouvert). */
+  available?: { name: string; query: boolean; stream: boolean }[];
 }
 /** Forme partielle de `/kernel/api/info` (seul le backplane logs nous intéresse). */
 export interface KernelInfoPartial {
   backplanes?: { log?: LogBackplane };
-}
-/** Forme partielle de `/realtime/api/health` (seul le backplane nous intéresse). */
-export interface RealtimeHealthPartial {
-  backplane?: RealtimeBackplane;
 }
 
 /** À quoi sert chaque brique (une phrase, affichée en hover). */
