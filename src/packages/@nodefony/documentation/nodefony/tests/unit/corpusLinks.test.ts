@@ -74,11 +74,43 @@ function resolveTarget(fromDir: string, href: string): string {
  * - **`outside`** — la cible existe mais n'est pas une page de doc (`CLAUDE.md`,
  *   `MEMORY.md`…) : rien à traduire, mais elle restera inerte dans le portail.
  */
+/**
+ * Neutralise le CODE (fences et code inline) en préservant le nombre de lignes.
+ *
+ * Une page qui ENSEIGNE la syntaxe des liens était punie pour ses exemples :
+ * un `[Service](../../x.md)` cité en modèle comptait comme une navigation, donc
+ * comme un lien mort. Ce n'en est pas une — un exemple n'est ni cliquable ni
+ * promis au lecteur. `doc-lint` applique déjà cette règle ; ce banc ne l'avait
+ * jamais reçue, et c'est la leçon écrite dans `RETEX.md` qui l'a fait tomber.
+ *
+ * Scan ligne à ligne (pas une regex globale) pour tenir les fences à quatre
+ * backticks, qui encadrent des blocs contenant eux-mêmes des ```.
+ */
+function stripCode(src: string): string {
+  const out: string[] = [];
+  let fence: string | null = null;
+  for (const line of src.split("\n")) {
+    const m = line.match(/^\s*(`{3,})(.*)$/);
+    if (fence !== null) {
+      out.push("");
+      if (m && m[1].length >= fence.length && !m[2].trim()) fence = null;
+      continue;
+    }
+    if (m) {
+      fence = m[1];
+      out.push("");
+      continue;
+    }
+    out.push(line.replace(/`[^`\n]*`/g, "``"));
+  }
+  return out.join("\n");
+}
+
 function analyze(page: { abs: string; repoRel: string }): {
   broken: string[];
   outside: string[];
 } {
-  const raw = readFileSync(page.abs, "utf8");
+  const raw = stripCode(readFileSync(page.abs, "utf8"));
   const fromDir = dirname(page.repoRel);
   const rewritten = rewriteInternalLinks(raw, { fromDir, toSlug });
   const broken: string[] = [];
@@ -106,6 +138,22 @@ const LEGACY_BROKEN_LINKS: readonly string[] = [];
 describe("corpus — navigation interne", () => {
   it("trouve un corpus non vide (sinon le test ne prouve rien)", () => {
     expect(corpus.length).toBeGreaterThan(20);
+  });
+
+  // La neutralisation du code ne doit pas devenir une amnistie générale : un
+  // lien de PROSE reste vérifié, sinon ce banc ne prouverait plus rien.
+  it("neutralise le code SANS aveugler la prose", () => {
+    const src = [
+      "Voir [la page](../vraie/page.md).",
+      "Exemple : `[Service](../../faux.md)` (illustration).",
+      "```markdown",
+      "[Autre](../../aussi-faux.md)",
+      "```",
+    ].join("\n");
+    const stripped = stripCode(src);
+    expect(stripped).toContain("](../vraie/page.md)");
+    expect(stripped).not.toContain("faux.md");
+    expect(stripped.split("\n")).toHaveLength(src.split("\n").length);
   });
 
   it("traduit les liens internes en slugs navigables (hors dette connue)", () => {
