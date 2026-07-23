@@ -253,6 +253,11 @@ jq '.symbols | to_entries | map(select(.value.module=="@nodefony/http")) | from_
 
 ## 5. Gates qualité (AVANT commit — l'ordre compte)
 
+> **Si tu as touché à un canal ou une méthode de plateforme** (`nodefony:*`) :
+> `node scripts/check-platform-channels.mjs` — il refuse tout nom écrit EN DUR. Le namespace est un
+> contrat partagé entre le serveur et le navigateur : une chaîne recopiée d'un côté dérive de
+> l'autre sans que rien ne le dise.
+
 ```bash
 # 1. BUILD (rolldown, par module modifié ; clean+build si pull/merge/refactor croisé)
 cd src/packages/@nodefony/<mod> && npm run build          # ou : npm run build (turbo, racine)

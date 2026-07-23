@@ -72,3 +72,11 @@ prouver : une installation qui n'a jamais vu le dépôt.
 
 Le smoke test **est** le gate : il échoue si l'installation vierge ne compile pas. Avant de le
 lancer, `nodefony-check-externals` pour la dérive des dépendances déclarées.
+
+**Surface exportée — comparer deux builds** : `node scripts/compare-exports.mjs` compare ce que deux
+builds exportent réellement, par **import réel dans des process isolés** — la seule méthode qui vaille
+(compter les fichiers émis ment : chunks vides, granularité de tree-shaking). Sentinelle héritée de la
+migration de bundler, à relancer dès qu'on touche à la chaîne de build ou à un `index.ts` public.
+
+> Deux builds du même paquet chargés dans un seul process explosent sur les registres globaux
+> (« entity déjà enregistrée ») : d'où l'isolation.

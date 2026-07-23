@@ -660,8 +660,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs). Couvre : créer un service injectable, un module, une commande CLI, une entité/repository/adapter ORM, un endpoint HTTP/WS ou un data plane admin, et le realtime. Donne les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup des listeners, ALS), les conventions de structure et de configuration, des recettes vérifiées sur le source, les gotchas et les RFC bundlées hors ligne. Déclencheurs : \"dev core\", \"coder dans le kernel\", \"pipeline http\", \"créer un service\", \"service injectable\", \"module hooks\", \"commande CLI\", \"controller nodefony\", \"décorateur route\", \"créer une entité\", \"repository\", \"adapter ORM\", \"data plane\", \"certificats TLS\", \"realtime\", \"WebSocket\", \"firewall\", \"@IsGranted\", \"@Idempotent\", \"structure d'un module\", \"defineConfig\", \"avant de coder dans le cœur\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 294,
-        "approxTokens": 6321
+        "bodyLines": 299,
+        "approxTokens": 6399
       },
       "requires": [],
       "resources": {
@@ -721,7 +721,7 @@
           {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
-            "detail": "294",
+            "detail": "299",
             "advisory": true
           }
         ]
@@ -1244,13 +1244,13 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
       "cost": {
-        "bodyLines": 437,
-        "approxTokens": 6814
+        "bodyLines": 443,
+        "approxTokens": 6930
       },
       "requires": ["serveur UP", "redis", "docker", "base de données"],
       "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
+        "references": ["catalogue.md"],
+        "referenceFilesTotal": 1,
         "scripts": [
           {
             "path": "scripts/aimd-demo.mjs",
@@ -1329,6 +1329,22 @@
             "purpose": "boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que",
             "usage": [
               "Usage : node scripts/boot-bench.mjs <runs> -- <args nodefony...>"
+            ],
+            "options": [
+              {
+                "flag": "--workers",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/boot-profile.mjs",
+            "purpose": "boot-profile.mjs — AUDIT fin du boot Nodefony. Capture la sortie horodatée d'un boot",
+            "usage": [
+              "Usage : node scripts/boot-profile.mjs -- production --workers 1"
             ],
             "options": [
               {
@@ -1828,6 +1844,42 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/poc-bench.mjs",
+            "purpose": "POC bench — mesure la latence p50/p95/p99 du backend Nodefony",
+            "usage": [
+              "node scripts/poc-bench.mjs [--url http://127.0.0.1:5151/poc/api/data]"
+            ],
+            "options": [
+              {
+                "flag": "--concurrency",
+                "help": ""
+              },
+              {
+                "flag": "--duration",
+                "help": ""
+              },
+              {
+                "flag": "--label",
+                "help": ""
+              },
+              {
+                "flag": "--touch",
+                "help": ""
+              },
+              {
+                "flag": "--touch-delay",
+                "help": ""
+              },
+              {
+                "flag": "--url",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/poc-hmr-perf.mjs",
             "purpose": "POC HMR perf — mesure le délai end-to-end entre :",
             "usage": [
@@ -2185,7 +2237,7 @@
           {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
-            "detail": "437",
+            "detail": "443",
             "advisory": true
           }
         ]
@@ -2619,8 +2671,8 @@
       ],
       "description": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version). Porte la chaîne complète : empaquetage des workspaces publiables avec bascule des `exports.types` au pack, post-traitement des `.d.ts` pour la résolution ESM de Node, puis smoke test en conteneur — installation VIERGE des tarballs, compilation d'une application témoin et preuve de l'arrêt gracieux. À charger AVANT de publier ou de toucher à la surface publiée : ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit, et seul le décor jetable le montre. Le plan de version et l'état d'avancement vivent dans `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 59,
-        "approxTokens": 1149
+        "bodyLines": 67,
+        "approxTokens": 1235
       },
       "requires": ["docker", "serveur UP"],
       "resources": {
@@ -2737,7 +2789,7 @@
           {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
-            "detail": "59",
+            "detail": "67",
             "advisory": true
           }
         ]

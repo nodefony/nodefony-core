@@ -31,7 +31,8 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a.startsWith("--")) {
       const k = a.slice(2);
-      const v = argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : "true";
+      const v =
+        argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : "true";
       out[k] = v;
     }
   }
@@ -67,14 +68,18 @@ async function worker(latencies, errors, stopAt) {
 
 function percentile(sorted, p) {
   if (sorted.length === 0) return null;
-  const idx = Math.min(sorted.length - 1, Math.floor((sorted.length * p) / 100));
+  const idx = Math.min(
+    sorted.length - 1,
+    Math.floor((sorted.length * p) / 100),
+  );
   return sorted[idx];
 }
 
 async function maybeTouch() {
   if (!touchPath) return;
   const fireAt = performance.now() + touchDelay;
-  while (performance.now() < fireAt) await new Promise((r) => setTimeout(r, 50));
+  while (performance.now() < fireAt)
+    await new Promise((r) => setTimeout(r, 50));
   try {
     const now = new Date();
     await utimes(touchPath, now, now);

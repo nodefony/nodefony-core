@@ -23,8 +23,8 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 | ------------------------ | -------------------------------------------------- |
 | Version                  | `2.0.0`                                            |
 | Famille                  | Développer le framework                            |
-| Corps                    | 294 lignes                                         |
-| Coût d'activation        | ~6 321 tokens (le corps est chargé à l'invocation) |
+| Corps                    | 299 lignes                                         |
+| Coût d'activation        | ~6 399 tokens (le corps est chargé à l'invocation) |
 | Description              | 1007 / 1024 caractères                             |
 | Déclencheurs             | 23                                                 |
 | Ressources `references/` | 8 page(s), 81 fichiers au total                    |
@@ -77,7 +77,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | description de 1 à 1024 caractères        |  ✅  | 1007   |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 294    |
+| corps < 500 lignes (recommandation)       |  ✅  | 299    |
 
 ## 🔗 Pour aller plus loin
 

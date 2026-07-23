@@ -55,8 +55,14 @@ cd src/packages/@nodefony/http && npm run test:memory
 Pour pousser **à la main** au-delà des seuils CI et trouver les vraies limites.
 Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétrés par ENV.
 
-> **Mesures hors requête** — deux bancs mesurent autre chose que le trafic, et rejoignent ce skill
-> parce qu'ils exigent le même protocole (plusieurs runs, médiane, décor maîtrisé) :
+> **📇 Les 31 scripts sont catalogués dans [`references/catalogue.md`](references/catalogue.md)** —
+> ce que chacun prouve, son alias `run.sh`, ses variables. Les sections ci-dessous détaillent les
+> bancs de charge les plus utilisés ; le catalogue couvre **tout le reste**, notamment la vingtaine
+> de **preuves e2e sans navigateur** (idempotence distribuée, TOTP, webhooks, rate-limit, arrêt
+> gracieux, cluster) qui vivent ici parce qu'elles exigent le même décor qu'un banc de charge.
+>
+> **Mesures hors requête** — deux bancs mesurent autre chose que le trafic, avec le même protocole
+> (plusieurs runs, médiane, décor maîtrisé) :
 >
 > | Script                     | Ce qu'il mesure                                                                            |
 > | -------------------------- | ------------------------------------------------------------------------------------------ |

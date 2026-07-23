@@ -23,8 +23,8 @@ source: ".claude/skills/nodefony-release/SKILL.md"
 | ------------------------ | -------------------------------------------------- |
 | Version                  | `1.0.0`                                            |
 | Famille                  | Publier et distribuer                              |
-| Corps                    | 59 lignes                                          |
-| Coût d'activation        | ~1 149 tokens (le corps est chargé à l'invocation) |
+| Corps                    | 67 lignes                                          |
+| Coût d'activation        | ~1 235 tokens (le corps est chargé à l'invocation) |
 | Description              | 935 / 1024 caractères                              |
 | Déclencheurs             | 11                                                 |
 | Ressources `references/` | 0 page(s)                                          |
@@ -87,7 +87,7 @@ Usage (racine repo) : bash .claude/skills/nodefony-release/scripts/smoke-docker.
 | description de 1 à 1024 caractères        |  ✅  | 935    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 59     |
+| corps < 500 lignes (recommandation)       |  ✅  | 67     |
 
 ## 🔗 Pour aller plus loin
 

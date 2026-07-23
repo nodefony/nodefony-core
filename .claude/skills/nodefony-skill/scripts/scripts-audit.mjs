@@ -99,10 +99,31 @@ function protocolSignals(path) {
 
 const rows = [];
 const rootScripts = collect(ROOT_SCRIPTS);
+// Un script IMPORTÉ par un autre script est appelé — même si aucun texte ne le mentionne.
+// Sans ça, un fichier de configuration importé par son outil passe pour un orphelin.
+const allScriptSources = rootScripts
+  .concat(
+    ...[...skillTexts.keys()].map((n) => collect(join(SKILLS_DIR, n))).flat(),
+  )
+  .map((p) => {
+    try {
+      return readFileSync(p, "utf8");
+    } catch {
+      return "";
+    }
+  })
+  .join("\n");
+
 for (const p of rootScripts) {
   const base = p.split("/").pop();
   const inPkg = pkg.includes(p) || pkg.includes(base);
-  const inSkill = allSkillText.includes(p) || allSkillText.includes(base);
+  // Le nom du fichier apparaît tel quel dans un `import "./x.ts"` — inutile de construire une
+  // expression : la première tentative l'a fait, et son échappement produisait un `\\` littéral.
+  const importedByScript =
+    allScriptSources.includes(`/${base}`) ||
+    allScriptSources.includes(`"${base}`);
+  const inSkill =
+    allSkillText.includes(p) || allSkillText.includes(base) || importedByScript;
   const inDocs = docsText.includes(p);
   const signals = protocolSignals(p);
   let verdict, why;

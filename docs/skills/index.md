@@ -88,7 +88,7 @@ source: "docs/skills/index.md"
     "meta": "v1.0.0" },
   { "icon": "📈", "title": "load-test", "href": "nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "34 scripts · non versionné" },
+    "meta": "36 scripts · 1 référence · non versionné" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "9 scripts · 2 références · non versionné" },
@@ -168,18 +168,18 @@ source: "docs/skills/index.md"
 | [`nodefony-create-module`](nodefony-create-module.md)                   | —       |   276 |    1 |       0 |    ✅    |
 | [`nodefony-debug`](nodefony-debug.md)                                   | 1.1.0   |   194 |    0 |       0 |    ✅    |
 | [`nodefony-documentation`](nodefony-documentation.md)                   | 2.3.0   |   641 |    1 |       6 |    ✅    |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md)                   | 2.0.0   |   294 |    8 |       0 |    ✅    |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md)                   | 2.0.0   |   299 |    8 |       0 |    ✅    |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md)                     | 1.0.0   |    99 |    6 |       0 |    ✅    |
 | [`nodefony-frontend-verify`](nodefony-frontend-verify.md)               | 1.0.0   |   135 |    0 |       0 |    ✅    |
 | [`nodefony-generate-symbols`](nodefony-generate-symbols.md)             | —       |   136 |    0 |       0 |    ✅    |
 | [`nodefony-get-module-config`](nodefony-get-module-config.md)           | —       |    62 |    0 |       0 |    ✅    |
 | [`nodefony-html-report`](nodefony-html-report.md)                       | —       |   174 |    3 |       3 |    ✅    |
-| [`nodefony-load-test`](nodefony-load-test.md)                           | —       |   437 |    0 |      34 |    ✅    |
+| [`nodefony-load-test`](nodefony-load-test.md)                           | —       |   443 |    1 |      36 |    ✅    |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md)               | —       |   357 |    0 |       0 |    ✅    |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md)                 | —       |   140 |    2 |       9 |    ✅    |
 | [`nodefony-nestjs`](nodefony-nestjs.md)                                 | —       |    70 |    0 |       0 |    ✅    |
 | [`nodefony-quick-diff`](nodefony-quick-diff.md)                         | —       |    63 |    0 |       0 |    ✅    |
-| [`nodefony-release`](nodefony-release.md)                               | 1.0.0   |    59 |    0 |       3 |    ✅    |
+| [`nodefony-release`](nodefony-release.md)                               | 1.0.0   |    67 |    0 |       3 |    ✅    |
 | [`nodefony-rfc`](nodefony-rfc.md)                                       | —       |    68 |    0 |       0 |    ✅    |
 | [`nodefony-roadmap`](nodefony-roadmap.md)                               | —       |   161 |    0 |       0 |    ✅    |
 | [`nodefony-security-review`](nodefony-security-review.md)               | —       |   356 |    0 |       0 |    ✅    |
