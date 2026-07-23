@@ -19,12 +19,23 @@ const REPO = resolve(__dirname, "../../../../../../..");
 function collectCorpus(): { abs: string; repoRel: string; slug: string }[] {
   const out: { abs: string; repoRel: string; slug: string }[] = [];
 
+  // Aligné sur le scan RÉEL du portail (`DocumentationService` → `scan.exclude`,
+  // défaut de `config.ts`) : le check de navigation ne doit juger QUE les pages
+  // réellement servies. Sinon il tombe sur des fichiers jamais indexés (retex
+  // archivés) et fabrique des liens « morts » que personne ne peut cliquer.
+  const EXCLUDED_DIRS = new Set(["node_modules", "session-retros", "dist"]);
+
   const walk = (dir: string, base: string, source: DocSource): void => {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      // Un symlink (ex. `docs/MIGRATION_STATUS.md` → `../MIGRATION_STATUS.md`)
+      // porte ses liens relatifs à sa VRAIE localisation (la racine), pas au
+      // point de montage : le portail le sert comme contenu brut, pas comme page
+      // navigable → hors check de liens (le juger casserait la version racine).
+      if (entry.isSymbolicLink()) continue;
       const abs = join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === "node_modules" || entry.name.startsWith("."))
+        if (entry.name.startsWith(".") || EXCLUDED_DIRS.has(entry.name))
           continue;
         walk(abs, base, source);
       } else if (entry.name.toLowerCase().endsWith(".md")) {

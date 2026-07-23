@@ -718,3 +718,39 @@ describe("Admin data plane — SPA fallback vs vraies routes (non-shadow)", () =
     );
   });
 });
+
+// ── mode de pagination invalide → 400 (mapping PaginationModeError au data plane) ─
+// Preuve WIRE du maillon `assertPageQuery` (store) → `AdminApiController.runAdmin`
+// (mapping 4xx) → HTTP. Le contrat IPage pose offset/cursor mutuellement exclusifs ;
+// un store qui reçoit le mauvais mode lève `PaginationModeError` (code 400), et le
+// data plane doit la restituer telle quelle — PAS la maquiller en 500 générique.
+// L'endpoint apikeys est le SEUL qui parse `cursor` ET l'envoie à un store OFFSET
+// (token store memory/drizzle en dev) → la garde mord. Avant ce commit : silence
+// (cursor avalé, page 1 en boucle). Après : 400 explicite.
+
+describe("Admin data plane — mode de pagination invalide → 400", () => {
+  it("GET /nodefony/security/api/apikeys?cursor=zzz (store token offset) → 400, jamais 500", async () => {
+    const r = await req(
+      "GET",
+      "/nodefony/security/api/apikeys?cursor=zzz",
+      auth(),
+    );
+    expect(
+      r.status,
+      "un curseur envoyé à un store offset = faute CLIENT (400), pas une panne serveur (500)",
+    ).to.equal(400);
+    expect(
+      JSON.stringify(r.body),
+      "le message de PaginationModeError doit remonter au client",
+    ).to.match(/pagination mode/i);
+  });
+
+  it("le MÊME endpoint sans cursor → 200 (la garde ne mord QUE le mauvais mode)", async () => {
+    const r = await req(
+      "GET",
+      "/nodefony/security/api/apikeys?limit=5",
+      auth(),
+    );
+    expect(r.status, "cas nominal offset intact").to.equal(200);
+  });
+});
