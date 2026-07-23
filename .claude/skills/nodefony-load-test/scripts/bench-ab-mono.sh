@@ -24,17 +24,34 @@
 # 🚨 BANC PROPRE (sinon mesures FAUSSES) :
 #   - NODE_ENV=production est FORCÉ ici (sinon NODE_ENV ambient → dev+Vite+throttle
 #     ~2000 RPS au lieu du vrai plafond). NF_LOG_DRIVER=null (pas d'I/O log).
-#   - La route /als-test/state vit dans le module @nodefony/test, gaté `policy:"dev"`
-#     → ABSENT en prod (404). Pour bencher : passer temporairement à
-#     `{ name:"@nodefony/test", policy:"optional" }` dans nodefony.config.ts +
-#     `npm run build`, puis REVERT en "dev" avant tout commit.
+#   - Cible par défaut = `/nodefony/kernel/api/livez` (framework, publique, sans
+#     session ni ORM) : disponible en PRODUCTION telle quelle, plus rien à rebasculer.
+#     Ne PAS revenir sur une route de `@nodefony/test` (`policy:"dev"`) : absente en
+#     prod, elle faisait bencher un 404 — plus rapide qu'une vraie réponse.
 #   - Prérequis : `wrk` (brew install wrk) + build à jour (`npm run build`).
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 LABEL="${1:-run}"; shift || true
 EXTRA_ENV="$*"
-URL="${BENCH_URL:-http://127.0.0.1:5151/nodefony/test/als-test/state}"
+# ⚠️ DEUX USAGES, DEUX CIBLES — ne pas les mélanger :
+#   1. A/B du pipeline Nodefony CONTRE LUI-MÊME (l'usage de ce script) → `livez`,
+#      ci-dessous. Toujours disponible, aucun module dev requis. Seul compte que les
+#      deux côtés du A/B tapent LA MÊME route.
+#   2. Comparaison INTER-FRAMEWORKS (bench-frameworks/) → surtout PAS `livez` : les
+#      apps bare/express/fastify servent le payload d'`AlsController.state` et
+#      répliquent le décor de routing (186 routes, cible en #31) pour comparer à
+#      conditions égales. `livez` a un autre handler (il appelle `getBootReport()`),
+#      un autre corps, un autre décor → mettre son RPS dans le même tableau serait
+#      exactement le « chiffre sur du vent » que ce skill traque. Passer alors
+#      `BENCH_URL` explicitement sur la route au payload équivalent.
+#
+# Cible par défaut = route du FRAMEWORK (`KernelAdminApi`), pas du module de test.
+# `livez` est publique (`public: true`), sans session, sans ORM, corps JSON minimal :
+# elle existe en PRODUCTION sans rien rebasculer. L'ancienne cible vivait dans
+# `@nodefony/test` (`policy:"dev"`), donc absente en prod → on benchait un 404 sans
+# le voir. Une cible de bench doit appartenir à ce qu'on mesure.
+URL="${BENCH_URL:-http://127.0.0.1:5151/nodefony/kernel/api/livez}"
 DUR="${BENCH_DUR:-10}"; CONN="${BENCH_CONN:-128}"; THREADS="${BENCH_THREADS:-4}"
 
 command -v wrk >/dev/null 2>&1 || { echo "❌ wrk absent (brew install wrk)"; exit 1; }
