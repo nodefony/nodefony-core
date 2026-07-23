@@ -136,22 +136,6 @@ export default {
         authenticators: ["session", "anonymous"],
         realtime: false,
       },
-      // Cible de banc — n'existe QUE sous `NF_BENCH_ROUTE=1`, exactement comme la
-      // route qu'elle ouvre (`KernelAdminApi`). Le flag commande les deux : sans
-      // lui, ni route ni zone, donc aucune surface ajoutée en production. Motif
-      // identique à `nodefony-liveness` : pattern EXACT (plus long que celui de
-      // `nodefony-admin`, donc prioritaire au tri par longueur) et `anonymous`,
-      // sans quoi le banc mesurerait un 401 — ce qui, une réponse d'erreur étant
-      // moins chère qu'une vraie, gonflerait le débit.
-      ...(process.env.NF_BENCH_ROUTE === "1"
-        ? {
-            "nodefony-bench": {
-              pattern: "^/nodefony/kernel/api/bench$",
-              authenticators: ["anonymous"],
-              realtime: false,
-            },
-          }
-        : {}),
       "nodefony-admin": {
         // Tous les espaces data plane : /nodefony/<ns>/api(/...). Le (/|$) capture
         // aussi /nodefony/profiler/api (sans slash final). Pattern verrouillé par

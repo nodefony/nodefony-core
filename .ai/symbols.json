@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-23T11:48:01.786Z",
+  "generated": "2026-07-23T11:54:10.842Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1038,
-    "symbols": 2835,
-    "classes": 329,
+    "files": 1039,
+    "symbols": 2837,
+    "classes": 330,
     "interfaces": 741,
     "types": 328,
     "enums": 4,
-    "functions": 853,
+    "functions": 854,
     "constants": 580
   },
   "symbols": {
@@ -7542,6 +7542,25 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Monte les routes de gestion des clés API — appelé par le module framework à `onKernelReady`, seulement si le service `apiKeys` est présent. Routes nommées `security.apikeys.*` (espace data plane `/…"
+    },
+    "BenchController": {
+      "name": "BenchController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Cible de mesure du **pipeline applicatif** — un controller ordinaire qui rend un corps figé, et rien d'autre. **Pourquoi un controller et pas un endpoint du data plane admin** : une route `/nodefon…"
+    },
+    "mountBenchRoutes": {
+      "name": "mountBenchRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte la route de banc — appelée par le module framework, uniquement si `NF_BENCH_ROUTE=1`."
     },
     "OAuth2Controller": {
       "name": "OAuth2Controller",
@@ -20000,6 +20019,7 @@
         "DocumentationController",
         "AdminApiController",
         "ApiKeyController",
+        "BenchController",
         "OAuth2Controller",
         "SessionAuthController",
         "TokenAuthController",
@@ -20962,6 +20982,7 @@
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -21338,6 +21359,7 @@
       "Router": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -21394,6 +21416,7 @@
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -21454,6 +21477,12 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "mountOAuth2Routes": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "BenchController": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "mountBenchRoutes": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "ApiKeyController": [
@@ -23660,6 +23689,7 @@
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
