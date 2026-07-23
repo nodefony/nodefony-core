@@ -62,6 +62,23 @@ Test isolé < 500ms et passe → c'est un **flake suite**, pas une fuite. Confir
 
 **Ne JAMAIS** desserrer le seuil. Documenté dans `feedback_session_pitfalls` + ce skill.
 
+#### A bis — Généralisation : vert isolé + rouge en suite = RESSOURCE PARTAGÉE (3×)
+
+Le raisonnement « isolation = vérité » ne vaut pas que pour la mémoire. **Un test qui passe seul et
+échoue en suite accuse le BANC, pas le code** — et la cause est presque toujours une ressource que
+deux fichiers se disputent :
+
+| Ressource                      | Vécu                                                                                      |
+| ------------------------------ | ----------------------------------------------------------------------------------------- |
+| **Index/base de données**      | un banc Redis neuf posé sur l'index 12, déjà pris par deux fichiers qui le purgent        |
+| **Port / binaire spawné**      | `CliIntegration`, `completion` : rouges sous `turbo run test` (concurrence), verts isolés |
+| **Store persistant non purgé** | des PAT créés sans jamais être révoqués s'accumulent → le banc n'est jouable qu'UNE fois  |
+| **Compte absolu**              | une assertion `count === N` casse dès qu'un test voisin écrit dans la même table          |
+
+**Diagnostic** : isoler **deux fichiers ensemble** (pas un seul) — si le rouge revient sans aucun
+fichier du diff en cours, c'est la ressource. **Remède** : cloisonner (index/base/préfixe dédiés par
+fichier, avec une sentinelle qui refuse deux bancs sur la même cible), jamais sérialiser la suite.
+
 ### Recette B — Diagnostic régression : baseline stash
 
 **Symptôme** : tests qui passaient avant ton patch failent maintenant. Avant de paniquer, prouve que c'est TON patch.
