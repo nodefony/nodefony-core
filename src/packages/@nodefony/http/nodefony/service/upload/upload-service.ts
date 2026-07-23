@@ -157,20 +157,48 @@ class UploadedFile extends FileClass {
     return super.getMimeType();
   }
 
+  /**
+   * Nom de fichier SÛR à poser dans un dossier de destination.
+   *
+   * `filename` vient de `originalFilename`, c'est-à-dire de l'en-tête multipart :
+   * **une donnée d'attaquant**. Le fichier temporaire, lui, est protégé (nom
+   * généré) — mais dès que l'application écrit `file.move("/var/uploads")`, c'est
+   * ce nom client qui compose la destination, et `path.resolve` honore les `..` :
+   * `../../etc/cron.d/x` sortait du dossier visé.
+   *
+   * On ne garde donc que le dernier segment, en coupant sur les DEUX séparateurs
+   * (un client Windows envoie `..\\..\\x`, que `path.basename` POSIX ne découpe
+   * pas). Reste `.`/`..`/vide → on retombe sur le nom du fichier temporaire,
+   * jamais sur quelque chose que le client contrôle.
+   *
+   * @returns un nom de fichier sans aucune composante de chemin.
+   */
+  #safeTargetName(): string {
+    const raw = this.filename || this.name || "";
+    const last = raw.split(/[/\\]/).pop() ?? "";
+    const cleaned = last.trim();
+    if (cleaned === "" || cleaned === "." || cleaned === "..") {
+      return path.basename(this.parsedFile.filepath);
+    }
+    return cleaned;
+  }
+
   override move(target: string): FileClass {
     try {
       if (fs.existsSync(target)) {
         const newFile = new FileClass(target);
-        const name = this.filename || this.name;
         if (newFile.isDirectory()) {
-          const n = path.resolve(newFile.path as string, name);
+          const n = path.resolve(
+            newFile.path as string,
+            this.#safeTargetName(),
+          );
           return super.move(n);
         }
       }
       const dirname = path.dirname(target);
       if (fs.existsSync(dirname)) {
         if (target === dirname) {
-          const name = path.resolve(target, "/", this.filename || this.name);
+          const name = path.resolve(target, this.#safeTargetName());
           return super.move(name);
         } else {
           return super.move(target);
@@ -194,17 +222,16 @@ class UploadedFile extends FileClass {
     const dest = target as string;
     if (await existsAsync(dest)) {
       const newFile = await FileClass.from(dest);
-      const name = this.filename || this.name;
       if (newFile.isDirectory()) {
-        return super.moveAsync(path.resolve(newFile.path as string, name));
+        return super.moveAsync(
+          path.resolve(newFile.path as string, this.#safeTargetName()),
+        );
       }
     }
     const dirname = path.dirname(dest);
     if (await existsAsync(dirname)) {
       if (dest === dirname) {
-        return super.moveAsync(
-          path.resolve(dest, "/", this.filename || this.name),
-        );
+        return super.moveAsync(path.resolve(dest, this.#safeTargetName()));
       }
       return super.moveAsync(dest);
     }

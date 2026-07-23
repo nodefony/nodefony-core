@@ -110,13 +110,18 @@ class Service implements IService {
       // wrapper tracké (this.on) sinon clean() ne les retire pas (fuite à
       // chaque construction d'instance — règle absolue perf+mémoire).
       this.attachConfiguredListeners(options);
-      if (options.events?.nbListeners) {
-        this.#nc.setMaxListeners(options.events.nbListeners);
+      // `this.options` (fusionné avec `defaultOptions`), PAS le paramètre brut :
+      // lire `options` ignorait le défaut `nbListeners: 20` dès que l'appelant
+      // n'en passait pas — c'est-à-dire presque toujours. Le plafond effectif
+      // restait celui de Node (10), et la valeur annoncée par `defaultOptions`
+      // n'a jamais rien piloté.
+      if (this.options.events?.nbListeners) {
+        this.#nc.setMaxListeners(this.options.events.nbListeners);
       }
     } else if (notificationsCenter !== false) {
       this.#nc = new Event(this.options, this, this.options);
-      if (options.events?.nbListeners) {
-        this.#nc.setMaxListeners(options.events.nbListeners);
+      if (this.options.events?.nbListeners) {
+        this.#nc.setMaxListeners(this.options.events.nbListeners);
       }
       if (!this.kernel || this.kernel.container !== this.container) {
         this.container.set("notificationsCenter", this.#nc);

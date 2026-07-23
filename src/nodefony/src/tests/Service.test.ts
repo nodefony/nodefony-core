@@ -93,6 +93,22 @@ describe("Service — construction", () => {
     assert.strictEqual(s.notificationsCenter?.getMaxListeners(), 50);
   });
 
+  // Les deux cas ci-dessus passent une valeur EXPLICITE ; le défaut de
+  // `defaultOptions` (20) n'était couvert par aucun test — et il ne s'appliquait
+  // pas : la propagation lisait le paramètre brut du constructeur au lieu de
+  // `this.options` fusionné. Le plafond effectif restait celui de Node (10),
+  // pendant que le code annonçait 20.
+  it("SANS options : le défaut `nbListeners: 20` s'applique vraiment (Event auto-créé)", () => {
+    const s = new Service("nbImplicite", undefined, undefined);
+    assert.strictEqual(s.notificationsCenter?.getMaxListeners(), 20);
+  });
+
+  it("SANS options : le défaut s'applique aussi sur un Event PARTAGÉ", () => {
+    const shared = new Event();
+    const s = new Service("nbImpliciteShared", undefined, shared);
+    assert.strictEqual(s.notificationsCenter?.getMaxListeners(), 20);
+  });
+
   it("options.events supprimé après construction", () => {
     const s = new Service("noEventsOpt", undefined, undefined, {
       events: { nbListeners: 10 },

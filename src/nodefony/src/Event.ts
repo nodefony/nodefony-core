@@ -176,10 +176,13 @@ class Event extends EventEmitter {
     if (typeof listener === "function") {
       this.addListener(eventName, listener.bind(context));
     }
-    return (...args: unknown[]): boolean => {
-      args.unshift(eventName);
-      return this.emit(eventName, ...args);
-    };
+    return (...args: unknown[]): boolean =>
+      // Les arguments passent TELS QUELS. Un `args.unshift(eventName)` traînait
+      // ici : `trigger("a","b")` livrait `["onEmit","a","b"]` aux listeners, qui
+      // recevaient donc un premier paramètre fantôme — le nom de l'événement
+      // qu'ils connaissent déjà, puisqu'ils s'y sont abonnés. La TSDoc décrivait
+      // depuis toujours le comportement sans lui.
+      this.emit(eventName, ...args);
   }
 
   /** Alias `emit` — émission synchrone (API EventEmitter standard). */

@@ -19,7 +19,9 @@ declare let global: typeof globalThis & { notificationsCenter?: Event };
  */
 function results(res: false | unknown[]): unknown[] {
   if (res === false) {
-    throw new Error("emitAsync/fireAsync a renvoyé false : aucun listener attaché");
+    throw new Error(
+      "emitAsync/fireAsync a renvoyé false : aucun listener attaché",
+    );
   }
   return res;
 }
@@ -158,6 +160,26 @@ describe("Event — listen()", () => {
     const emitter = ev.listen({}, "onEmit", () => {});
     emitter("arg1", "arg2");
     assert.ok(received.length > 0);
+  });
+
+  // Le test ci-dessus n'assertait QUE `length > 0` : le dispatcher pouvait
+  // livrer n'importe quoi sans que rien ne tombe. Il livrait justement le nom de
+  // l'événement en tête (`["onEmit","arg1","arg2"]`) — un argument fantôme que
+  // chaque listener devait décaler à la main.
+  it("le dispatcher transmet les arguments TELS QUELS (pas de nom d'event en tête)", () => {
+    const ev = new Event();
+    const received: any[][] = [];
+    ev.on("onEmit", (...args) => received.push(args));
+    ev.listen({}, "onEmit", () => {})("arg1", "arg2");
+    assert.deepStrictEqual(received, [["arg1", "arg2"]]);
+  });
+
+  it("sans argument, le listener n'en reçoit aucun", () => {
+    const ev = new Event();
+    const received: any[][] = [];
+    ev.on("onBare", (...args) => received.push(args));
+    ev.listen({}, "onBare", () => {})();
+    assert.deepStrictEqual(received, [[]]);
   });
 });
 
