@@ -501,7 +501,9 @@ export const Login = observer(() => {
     clearError();
     try {
       setStep("auth");
-      await auth.loginWithPasskey(identifier.trim() || undefined);
+      // Aucun identifiant transmis : le défi est découvrable et le navigateur
+      // propose les passkeys du site (le serveur refuse tout ciblage anonyme).
+      await auth.loginWithPasskey();
       setStep("realtime");
       await conn.connect();
       setStep("done");

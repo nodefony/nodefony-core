@@ -261,9 +261,10 @@ sequenceDiagram
   participant C as WebAuthnController (BFF)
   participant S as WebAuthnService
   participant St as Store de credentials
-  N->>C: POST login/options {username?}
+  N->>C: POST login/options {}
+  C->>C: authFlow.me() — identité de session, jamais la requête
   C->>S: generateAuthenticationOptions(userId?)
-  S->>St: findByUser (si username)
+  S->>St: findByUser (seulement si session authentifiée)
   S-->>C: options + challenge
   C->>C: session.set(AUTH_CHALLENGE) + save
   C-->>N: options JSON (+ Set-Cookie)
@@ -301,10 +302,25 @@ main au navigateur, téléphone par QR compris.
 
 ### Se connecter sans mot de passe
 
-`WebAuthnService.generateAuthenticationOptions()` (`webAuthn.ts:343`) a deux régimes : **sans
-`userId`** (recommandé), `allowCredentials` est omis et l'authenticator propose ses passkeys
-découvrables — l'expérience « usernameless » ; **avec `userId`**, la liste est calculée depuis
-`findByUser` (`webAuthn.ts:353`) pour cibler un identifiant déjà saisi.
+`WebAuthnService.generateAuthenticationOptions()` a deux régimes : **sans `userId`**,
+`allowCredentials` est omis et l'authenticator propose ses passkeys découvrables — l'expérience
+« usernameless » ; **avec `userId`**, la liste est calculée depuis `findByUser` pour cibler un
+porteur précis.
+
+**C'est le controller qui choisit le régime, et il ne se fie jamais à la requête** :
+`WebAuthnController.loginOptions()` cible depuis l'identité de la **session** quand il y en a une
+(ré-authentification), et sert un défi découvrable sinon. Le `username` que poste un client anonyme
+est ignoré.
+
+> [!IMPORTANT]
+> **Un `allowCredentials` peuplé pour un anonyme dit deux choses de trop** : que ce compte porte une
+> passkey, et **lesquelles**. W3C WebAuthn L3 (« Privacy leak via credential IDs ») rappelle qu'un
+> `credentialId` est un identifiant corrélable : exposé, il permet de dés-anonymiser un utilisateur
+> d'un site à l'autre et de confirmer une hypothèse d'identité avec un accès momentané à son
+> authenticator. Les deux remèdes de la spec sont ceux appliqués ici : credentials découvrables, ou
+> authentification préalable. Conséquence de configuration : `passkeys.residentKey: "discouraged"`
+> produit des credentials non découvrables — leurs porteurs ne pourront plus se connecter, et le
+> service l'avertit au boot.
 
 `WebAuthnService.verifyAuthentication()` (`webAuthn.ts:374`) résout le credential par son id
 (`webAuthn.ts:382`), vérifie la signature contre la clé publique stockée, puis **applique l'état** :

@@ -100,16 +100,19 @@ export class AuthService {
    *  3. le serveur vérifie la signature (`login/verify`) et ouvre la session BFF
    *     (cookie `HttpOnly`, comme le login mot de passe).
    *
-   * @param username - identifiant ciblé (optionnel : omis = passkey découvrable,
-   *   le navigateur propose les comptes enregistrés).
+   * Aucun identifiant n'est transmis : le défi est **découvrable** et le
+   * navigateur propose les passkeys qu'il détient pour ce site. Le serveur
+   * refuse de cibler depuis la requête — ce serait dire à un anonyme qu'un
+   * compte porte une passkey, et lesquelles.
+   *
    * @throws ApiError 401 — vérification échouée. L'annulation utilisateur lève
    *   une `NotAllowedError` côté navigateur (gérée par l'appelant).
    */
-  async loginWithPasskey(username?: string): Promise<AuthUser> {
+  async loginWithPasskey(): Promise<AuthUser> {
     const optionsJSON =
       await this.api.postAbsolute<PublicKeyCredentialRequestOptionsJSON>(
         `${WEBAUTHN_BASE}/login/options`,
-        username ? { username } : {},
+        {},
       );
     const assertion = await startAuthentication({ optionsJSON });
     const { user } = await this.api.postAbsolute<{

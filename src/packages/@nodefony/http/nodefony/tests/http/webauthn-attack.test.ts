@@ -168,8 +168,11 @@ describe("P6 J9 — WebAuthn red-team (attaques de câblage)", () => {
     ).to.equal(400);
   });
 
-  // E3 — anti-énumération : un utilisateur inexistant ne se distingue pas.
-  it("E3 — anti-énum : login/options(user inexistant) → 200 + challenge (ne révèle pas l'absence)", async () => {
+  // E3 — anti-énumération : un utilisateur inexistant ne se distingue pas, et le
+  // corps ne cible AUCUN credential (un `allowCredentials` peuplé dirait à un
+  // anonyme qu'un compte porte une passkey, et lesquelles — W3C WebAuthn L3,
+  // « Privacy leak via credential IDs »).
+  it("E3 — anti-énum : login/options ne distingue pas les comptes et ne cible aucun credential", async () => {
     const ghost = await post(`${WA}/login/options`, {
       username: "ghost-user-does-not-exist-xyz",
     });
@@ -180,6 +183,22 @@ describe("P6 J9 — WebAuthn red-team (attaques de câblage)", () => {
     const real = await post(`${WA}/login/options`, { username: "admin" });
     expect(real.status).to.equal(200);
     expect((real.body as { challenge?: unknown }).challenge).to.be.a("string");
+
+    // Le `username` posté est IGNORÉ : aucune liste de credentials d'un côté
+    // comme de l'autre, et les deux réponses portent les mêmes champs.
+    for (const [who, res] of [
+      ["fantôme", ghost],
+      ["existant", real],
+    ] as const) {
+      expect(
+        (res.body as { allowCredentials?: unknown }).allowCredentials,
+        `compte ${who} : aucun credential ciblé pour un appelant anonyme`,
+      ).to.equal(undefined);
+    }
+    expect(
+      Object.keys(real.body as object).sort(),
+      "mêmes champs des deux côtés",
+    ).to.deep.equal(Object.keys(ghost.body as object).sort());
   });
 
   // E4 — message d'échec uniforme (anti-énumération de la cause crypto).

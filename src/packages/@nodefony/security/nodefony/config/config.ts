@@ -476,7 +476,7 @@ const passkeysSchema = z
       .enum(["required", "preferred", "discouraged"])
       .default("preferred")
       .describe(
-        "Credential découvrable (passkey usernameless : login sans saisir l'identifiant). Défaut: preferred.",
+        "Credential découvrable (passkey usernameless : login sans saisir l'identifiant). Défaut: preferred. 'discouraged' EMPÊCHE le login : la cérémonie anonyme ne cible aucun credential (anti-énumération), elle compte sur la découverte par l'authenticator — un WARNING le rappelle au boot.",
       ),
     authenticatorAttachment: z
       .enum(["platform", "cross-platform", "any"])

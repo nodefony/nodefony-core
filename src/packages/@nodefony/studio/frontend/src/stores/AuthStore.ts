@@ -209,11 +209,11 @@ export class AuthStore {
    * Connexion par passkey / empreinte (WebAuthn, P6 J9) — même effet que
    * {@link login} mais sans mot de passe (la biométrie remplace le secret).
    */
-  async loginWithPasskey(username?: string): Promise<void> {
+  async loginWithPasskey(): Promise<void> {
     this.status = "loading";
     this.error = null;
     try {
-      const user = await this.auth.loginWithPasskey(username);
+      const user = await this.auth.loginWithPasskey();
       runInAction(() => {
         this.user = user;
         this.status = "authenticated";

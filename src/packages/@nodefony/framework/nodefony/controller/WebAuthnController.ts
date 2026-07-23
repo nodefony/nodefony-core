@@ -149,19 +149,30 @@ class WebAuthnController extends Controller {
     }
   }
 
-  /** Défi d'authentification — `username` optionnel (usernameless si absent). */
+  /**
+   * Défi d'authentification. **Le ciblage ne vient jamais de la requête** : un
+   * appelant anonyme obtient un défi découvrable (`allowCredentials` omis), un
+   * appelant déjà authentifié obtient le sien (ré-authentification / step-up).
+   *
+   * @remarks Route en `bypassFirewall` : n'importe qui peut la poster. Peupler
+   *   `allowCredentials` depuis un identifiant fourni dirait deux choses à cet
+   *   inconnu — que le compte porte une passkey, et **lesquelles** (W3C WebAuthn
+   *   L3, « Privacy leak via credential IDs » : un `credentialId` est un
+   *   identifiant corrélable, exposé il dés-anonymise entre sites et confirme
+   *   une hypothèse d'identité avec un accès momentané à l'authenticator). La
+   *   spec propose deux remèdes, ce sont les deux régimes ci-dessous : les
+   *   credentials découvrables pour l'anonyme, une **authentification préalable**
+   *   quand on cible vraiment. Verrouillé par
+   *   `tests/unit/webauthnLoginOptionsPrivacy.test.ts`.
+   */
   async loginOptions() {
     const svc = this.#service();
     const flow = this.#flow();
     if (!svc || !flow) {
       return this.renderJson({ error: "WebAuthn unavailable" }, 503);
     }
-    const username = this.#body().username;
-    const options = await svc.generateAuthenticationOptions(
-      typeof username === "string" && username.length > 0
-        ? username
-        : undefined,
-    );
+    const me = await flow.me(this.context as ContextType);
+    const options = await svc.generateAuthenticationOptions(me?.username);
     // Démarre une session MÊME déconnecté → porte le challenge anti-replay
     // jusqu'à la vérification (sinon « No challenge » au login).
     const session = await flow.ensureSession(this.context as ContextType);
@@ -247,8 +258,13 @@ class WebAuthnController extends Controller {
     return this.get<IWebAuthnBffFlow>("authFlow") ?? null;
   }
 
-  #body(): { response?: unknown; username?: unknown } {
-    return (this.queryPost ?? {}) as { response?: unknown; username?: unknown };
+  /**
+   * Corps utile des cérémonies : la réponse de l'authenticator, rien d'autre.
+   * Aucun identifiant n'est lu ici — l'identité vient de la session, ou la
+   * cérémonie est découvrable (cf {@link WebAuthnController.loginOptions}).
+   */
+  #body(): { response?: unknown } {
+    return (this.queryPost ?? {}) as { response?: unknown };
   }
 
   /** Origine HTTP de la requête (validée par le service contre le rpID). */

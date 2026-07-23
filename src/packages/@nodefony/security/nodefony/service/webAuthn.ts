@@ -222,6 +222,20 @@ class WebAuthnService extends Service {
         "WARNING",
       );
     }
+    // Le login ne cible plus les credentials depuis un identifiant posté (ça
+    // fuiterait l'enrôlement et les credentialId à un anonyme) : la cérémonie
+    // anonyme est donc DÉCOUVRABLE. Un enrôlement en "discouraged" produit des
+    // credentials que l'authenticator ne sait pas proposer tout seul — les
+    // porteurs ne pourraient plus se connecter, et rien ne le dirait au moment
+    // où ça compte. Le boot est le seul endroit pour rompre ce silence.
+    if (config.passkeys.residentKey === "discouraged") {
+      this.log(
+        `passkeys.residentKey "discouraged" — les credentials enrôlés ne sont pas découvrables, ` +
+          `or le login par passkey est usernameless (aucun ciblage depuis la requête, anti-énumération). ` +
+          `Ces porteurs ne pourront pas se connecter : repasser à "preferred" ou "required".`,
+        "WARNING",
+      );
+    }
     this.#ready = true;
     this.log(
       `webauthn ready — rpID "${this.#rpID}", store "${config.passkeys.store}"`,
@@ -359,6 +373,13 @@ class WebAuthnService extends Service {
    * (usernameless) : `allowCredentials` est omis → l'authenticator propose ses
    * passkeys découvrables (UX cible). Avec `userId` : ciblage des credentials
    * connus de cet utilisateur.
+   *
+   * @param userId - identité **déjà prouvée** (session en cours) et jamais un
+   *   identifiant reçu d'un appelant non authentifié : `allowCredentials`
+   *   révélerait alors qu'un compte porte une passkey et **lesquelles**, or un
+   *   `credentialId` est corrélable entre sites (W3C WebAuthn L3, « Privacy leak
+   *   via credential IDs »). Le controller BFF applique cette règle —
+   *   `WebAuthnController.loginOptions()` ne cible que depuis la session.
    */
   async generateAuthenticationOptions(
     userId?: string,
