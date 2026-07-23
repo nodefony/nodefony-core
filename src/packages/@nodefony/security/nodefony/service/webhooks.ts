@@ -130,6 +130,10 @@ class WebhookService extends Service {
   #ready = false;
   /** Cache mémoire des endpoints (snapshot sync pour le dispatcher). */
   #endpoints: Map<string, IWebhookEndpoint> | null = null;
+  /** Date (ms) du dernier chargement du cache — borne sa fraîcheur (multi-pod). */
+  #loadedAt = 0;
+  /** Un rechargement est en vol : évite N relectures concurrentes sous rafale. */
+  #reloading = false;
   /** Dispatcher de livraison (abonné à l'audit) — créé au boot si l'audit existe. */
   #dispatcher: WebhookDispatcher | null = null;
   /** Désabonnement de l'audit (appelé à l'arrêt). */
@@ -324,12 +328,46 @@ class WebhookService extends Service {
 
   async #reloadSnapshot(): Promise<void> {
     if (!this.#store) return;
+    this.#reloading = true;
     try {
       const all = await this.#store.listAll();
       this.#endpoints = new Map(all.map((e) => [e.id, e]));
     } catch (e) {
       this.log(e as Error, "ERROR");
+    } finally {
+      // Horodaté même en ÉCHEC : sans ça, un store en panne serait relu à chaque
+      // événement d'audit — on transformerait une base indisponible en rafale de
+      // requêtes contre elle. Le cache reste alors sur son dernier état connu, et
+      // la prochaine tentative attend le TTL comme les autres.
+      this.#loadedAt = Date.now();
+      this.#reloading = false;
     }
+  }
+
+  /**
+   * Borne la fraîcheur du cache d'endpoints — **le seul mécanisme qui rend les
+   * webhooks corrects à plusieurs pods.**
+   *
+   * Le store est partagé, le cache ne l'est pas : un endpoint créé sur le pod A
+   * n'existe pour le pod B qu'après relecture. Sans borne, B ne livrerait rien
+   * pour cet abonnement jusqu'à son redémarrage — et le cas le plus courant est
+   * le pire : des pods démarrés AVANT toute création de webhook court-circuitent
+   * sur `endpointCount() === 0` et ne rechargent jamais.
+   *
+   * Choix : relecture **paresseuse, déclenchée par la lecture**, jamais un timer
+   * — aucun coût quand il ne se passe rien, et le rechargement se paie là où il
+   * sert. Appel non bloquant : la lecture en cours sert le cache courant, la
+   * suivante voit l'état frais. La propagation est donc **éventuelle et bornée**
+   * par `webhooks.snapshotTtlS`, pas immédiate ; c'est écrit dans la config et
+   * dans la doc, jamais supposé.
+   *
+   * Coût hot-path : une soustraction et deux comparaisons, zéro allocation.
+   */
+  #touchSnapshot(): void {
+    if (!this.#ready || this.#reloading) return;
+    const ttlMs = (this.#config?.webhooks.snapshotTtlS ?? 30) * 1000;
+    if (Date.now() - this.#loadedAt < ttlMs) return;
+    void this.#reloadSnapshot();
   }
 
   // ── API publique ─────────────────────────────────────────────────────────────
@@ -527,11 +565,19 @@ class WebhookService extends Service {
 
   /** Snapshot mémoire (sync) des endpoints — itération du dispatcher (si >0). */
   getSnapshot(): IWebhookEndpoint[] {
+    this.#touchSnapshot();
     return this.#endpoints ? [...this.#endpoints.values()] : [];
   }
 
-  /** Nombre d'endpoints (0-alloc) — court-circuit hot-path du dispatcher. */
+  /**
+   * Nombre d'endpoints (0-alloc) — court-circuit hot-path du dispatcher.
+   *
+   * @remarks C'est ICI que la fraîcheur se joue, pas seulement dans
+   *   {@link getSnapshot} : un pod démarré avant toute création de webhook a un
+   *   cache VIDE, court-circuite sur ce zéro et n'atteindrait jamais le snapshot.
+   */
   endpointCount(): number {
+    this.#touchSnapshot();
     return this.#endpoints ? this.#endpoints.size : 0;
   }
 

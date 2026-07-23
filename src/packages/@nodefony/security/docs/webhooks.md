@@ -61,6 +61,48 @@ Deux frontières décident de tout : **`WebhookDispatcher.onAuditEvent()`**
 **`WebhookDispatcher.#process()`** (`WebhookDispatcher.ts:189`) qui signe, livre et classe l'issue.
 Le détail de chaque étape est plus bas, dans **Architecture interne**.
 
+### À quoi ça sert, concrètement
+
+Trois usages courants, tous branchés sur des événements que Nodefony émet déjà :
+
+| Ce que tu veux                                                             | Tu abonnes                           | Le tiers qui reçoit                |
+| -------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------- |
+| Être prévenu quand quelqu'un s'acharne sur un compte                       | `login.failure`                      | un canal Slack, un SMS d'astreinte |
+| Garder une trace inviolable des accès, hors de l'application               | `*`                                  | un SIEM, un bucket d'archives      |
+| Couper l'accès d'un salarié partout ailleurs quand sa session est révoquée | `token.revoked`, `session.destroyed` | ton annuaire, ton outil de tickets |
+
+Le premier, en entier — un serveur qui prévient une équipe quand un compte est attaqué :
+
+```bash
+# 1. On s'abonne aux échecs de connexion. Le secret n'est montré QU'ICI.
+curl -sk -b /tmp/jar -X POST https://localhost:5152/nodefony/security/api/webhooks \
+  -H 'content-type: application/json' \
+  -d '{"url":"https://alertes.exemple.com/nodefony","events":["login.failure"],
+       "description":"Alerte tentatives de connexion"}'
+# → {"endpoint":{"id":"wh_9Xq2…"},"secret":"whsec_Zm9vYmFy…"}
+```
+
+À la cinquième tentative ratée d'« alice », le serveur d'alertes reçoit ceci — et **rien d'autre** ne
+part (les autres événements ne sont pas souscrits) :
+
+```json
+{
+  "id": "msg_7Yb1kQ2pR8sT",
+  "type": "login.failure",
+  "data": {
+    "actor": "alice",
+    "outcome": "failure",
+    "reason": "invalid_credentials"
+  }
+}
+```
+
+> [!NOTE]
+> Ce qui peut partir est **ce que le journal d'audit de sécurité enregistre** : connexions, refus
+> d'accès, jetons, sessions, passkeys. Tes propres événements applicatifs — « commande payée »,
+> « stock épuisé » — ne passent pas par là : il n'existe pas encore de bus d'événements métier dans
+> Nodefony. C'est une limite, pas un oubli, et elle est répétée plus bas.
+
 ## 📖 Lexique
 
 | Terme                  | Sens                                                                                                                                   |
@@ -117,7 +159,7 @@ Trois partis pris, tous vérifiables dans le code :
 
 ### 1. Activer les webhooks et poser la clé de chiffrement
 
-Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts:632`).
+Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts:654`).
 La seule chose que tu dois vraiment fournir, c'est la **clé de chiffrement des secrets de signature** :
 sans elle, une clé éphémère est générée en dev (avec un WARNING), et en production les webhooks sont
 **désactivés** — un secret chiffré par une clé perdue au redémarrage serait illisible
@@ -195,11 +237,67 @@ curl -sk -b /tmp/jar -H 'Content-Type: application/json' \
 > configuration du destinataire. Perdu, il ne se retrouve pas : il se **fait révéler** par un admin
 > (`POST …/webhooks/{id}/reveal`, audité) ou il se **remplace** par une rotation.
 
-### 3. Le récepteur — vérifier la signature en temps constant
+### 3. Le récepteur — le strict minimum d'abord
 
-C'est la moitié que **tu** écris, côté destinataire. Trois règles : lire le corps **brut** (le HMAC
-porte sur les octets exacts, pas sur un JSON re-sérialisé), comparer en **temps constant**, et
-répondre **vite** (le dispatcher a un timeout).
+C'est la moitié que **tu** écris, côté destinataire. Voici la version courte : elle tient en une
+vingtaine de lignes et fait le seul geste indispensable — **recalculer l'empreinte sur les octets
+reçus**.
+
+```typescript
+// nodefony/controller/HookMiniController.ts — récepteur minimal
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { Buffer } from "node:buffer";
+// prettier-ignore
+import { Controller, controller, Post, Body, Headers, BypassFirewall } from "@nodefony/framework";
+
+const SECRET = (process.env.NODEFONY_HOOK_SECRET ?? "").replace(/^whsec_/, "");
+
+@controller("/hooks")
+class HookMiniController extends Controller {
+  @BypassFirewall // une livraison arrive sans session : c'est la signature qui authentifie
+  @Post("/mini")
+  async receive(
+    @Body({ stream: true }) stream: NodeJS.ReadableStream,
+    @Headers() h: Record<string, string | string[] | undefined>,
+  ) {
+    const chunks: Buffer[] = [];
+    for await (const c of stream) chunks.push(Buffer.from(c as Buffer));
+    const raw = Buffer.concat(chunks).toString("utf8");
+
+    const got = Buffer.from(String(h["webhook-signature"] ?? "").slice(3)); // après "v1,"
+    const want = Buffer.from(
+      createHmac("sha256", Buffer.from(SECRET, "base64"))
+        .update(`${h["webhook-id"]}.${h["webhook-timestamp"]}.${raw}`)
+        .digest("base64"),
+    );
+    if (got.length !== want.length || !timingSafeEqual(got, want)) {
+      return this.renderJson({ error: "bad signature" }, 401);
+    }
+    this.log(`reçu : ${(JSON.parse(raw) as { type: string }).type}`, "INFO");
+    return this.renderJson({ ok: true });
+  }
+}
+
+export default HookMiniController;
+```
+
+> [!WARNING]
+> **Pourquoi le corps est lu en flux (`@Body({ stream: true })`) même dans la version minimale** :
+> l'empreinte porte sur les **octets exacts** envoyés. Un corps parsé puis re-sérialisé
+> (`JSON.stringify`) change d'espaces ou d'ordre de clés et **toutes** les signatures deviennent
+> invalides — c'est l'erreur n°1 des intégrations de webhooks. Le `timingSafeEqual` n'est pas
+> négociable non plus : comparer avec `===` laisse fuiter la signature attendue, caractère par
+> caractère, par le temps de réponse.
+>
+> Ce récepteur minimal ne fait **que** vérifier l'empreinte. Il ne refuse pas un message rejoué ni
+> un message vieux d'un mois. Pour la production, prends la version complète ci-dessous.
+
+### La version complète — anti-rejeu, multi-signature, déduplication
+
+Trois règles s'ajoutent : refuser un horodatage hors fenêtre (**anti-rejeu**), accepter une
+signature parmi **plusieurs** (le temps d'une rotation de secret), et **dédupliquer** par
+`webhook-id` avant d'agir — un réessai rejoue le même identifiant, et livrer deux fois une commande
+n'est pas la même chose que la livrer une fois.
 
 ```typescript
 // nodefony/controller/HookController.ts — récepteur complet, compile tel quel
@@ -411,7 +509,7 @@ curl -sk -b /tmp/jar -X POST \
 # {"endpoint":{…}, "secret":"whsec_NOUVEAU…"}
 ```
 
-`WebhookService.rotateSecret()` (`webhooks.ts:446`) régénère et rechiffre. Comportement à connaître
+`WebhookService.rotateSecret()` (`webhooks.ts:673`) régénère et rechiffre. Comportement à connaître
 **avant** de cliquer :
 
 - l'ancien secret cesse d'être valide **immédiatement** — il n'y a pas de fenêtre de recouvrement
@@ -502,8 +600,42 @@ gardes empêchent le journal d'audit de payer le prix des webhooks :
    zéro endpoint = retour immédiat, aucune allocation (le cas dominant).
 2. **Travail lourd différé** — JSON, HMAC et réseau partent dans un `queueMicrotask` coalescé
    (`#schedulePump()`, `WebhookDispatcher.ts:163`), jamais dans la pile de l'appelant.
-3. **Zéro E/S pour router** — `getSnapshot()` (`webhooks.ts:529`) lit un cache chargé au boot
-   (`#reloadSnapshot()`, `webhooks.ts:325`) puis tenu à jour par chaque écriture CRUD **du même pod**.
+3. **Zéro E/S pour router** — `getSnapshot()` lit un **cache mémoire**, jamais le store : aucune
+   requête n'est faite pour décider qui doit recevoir un événement. Le cache est chargé au boot
+   (`#reloadSnapshot()`), tenu à jour par chaque écriture CRUD **du même pod**, et **rechargé quand
+   il a passé sa date de fraîcheur** — voir ci-dessous.
+
+### À plusieurs pods : ce que vous voyez, et quand
+
+Le store est partagé, le cache ne l'est pas : **un endpoint créé sur un pod n'existe pour les autres
+qu'après relecture.** C'est la conséquence directe du point 3 — le prix du « zéro E/S pour router ».
+
+La fraîcheur est donc **bornée** par `security.webhooks.snapshotTtlS` (défaut **30 s**). Passé ce
+délai, le premier événement d'audit déclenche une relecture **en arrière-plan** : l'événement en
+cours est routé avec le cache courant, les suivants voient l'état frais. Il n'y a **aucun timer** —
+un pod sans trafic ne lit rien.
+
+> [!IMPORTANT]
+> La propagation entre pods est **éventuelle, pas immédiate**. Un webhook créé à l'instant peut ne
+> pas recevoir les événements des ~30 premières secondes sur les pods qui ne l'ont pas encore relu.
+> Idem dans l'autre sens : une désactivation (manuelle, ou automatique après échecs répétés) met le
+> même délai à s'appliquer partout. Baissez `snapshotTtlS` pour propager plus vite — au prix d'une
+> lecture du store plus fréquente ; montez-le si vos endpoints changent rarement.
+
+```typescript
+use("@nodefony/security", {
+  webhooks: {
+    // Un pod voit au plus 5 s de retard sur les créations/désactivations des autres.
+    snapshotTtlS: 5,
+  },
+});
+```
+
+Le cas qui rendait ce réglage indispensable est le plus banal : des pods démarrés **avant** toute
+création de webhook ont un cache vide, court-circuitent sur `endpointCount() === 0`… et ne
+rechargeaient jamais. Ils ne livraient donc rien, indéfiniment. Verrouillé par
+`tests/unit/webhookMultiPod.test.ts` (deux services sur le même store), qui prouve aussi qu'une
+rafale d'événements ne déclenche **qu'une** relecture, et qu'un store en panne n'est pas mitraillé.
 
 ### Politique de retry — ce qui est réessayé, et pendant combien de temps
 
@@ -535,7 +667,7 @@ abandon. Chaque retry **repasse par la file bornée** (`#scheduleRetry()`,
 
 ### Auto-désactivation d'un endpoint mort
 
-Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts:565`) : succès →
+Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts:673`) : succès →
 `failureCount = 0` ; échec → incrément. Au-delà de `autoDisableThreshold` (défaut **20**), l'endpoint
 est **désactivé** et un unique événement d'audit `webhook.disabled` est émis — **un par endpoint qui
 meurt**, jamais un par échec (le volume resterait ingérable). Mettre le seuil à `0` désactive
@@ -548,7 +680,7 @@ Le scénario vécu, du début à la fin :
 1. **Tentative 1** → `ECONNREFUSED`. Classé `retry` ; rien n'est encore écrit en base.
 2. **Tentatives 2 à 6** sur ~4 min. Toujours rien de persisté (seule l'issue finale l'est).
 3. **Abandon.** `markDelivery` écrit `lastDeliveryStatus: null`, `lastDeliveryError`, et incrémente
-   `failureCount`. Une trace part dans l'historique RAM (`#recordDelivery()`, `webhooks.ts:498`).
+   `failureCount`. Une trace part dans l'historique RAM (`#recordDelivery()`, `webhooks.ts:611`).
 4. **L'événement est PERDU.** Il n'y a pas de file persistée : un webhook est **best-effort**. Rien
    ne sera rejoué quand le destinataire reviendra.
 5. **Après 20 échecs consécutifs**, l'endpoint passe `enabled: false` et cesse de consommer des
@@ -568,7 +700,7 @@ sont `unref()` (`webhooks.ts:209`), donc ils n'empêchent jamais Node de sortir.
 
 ## ⚙️ Configuration
 
-Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts:632`), lue via
+Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts:747`), lue via
 `use("@nodefony/security", { webhooks: … })`.
 
 | Option                 | Type       | Défaut     | Effet                                                                                                       |
@@ -588,7 +720,7 @@ Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/c
 
 > [!NOTE]
 > `timestampToleranceS` est **transporté** dans la politique de livraison
-> (`getDeliveryPolicy()`, `webhooks.ts:545`) mais l'émetteur ne l'applique jamais : la fenêtre
+> (`getDeliveryPolicy()`, `webhooks.ts:595`) mais l'émetteur ne l'applique jamais : la fenêtre
 > anti-rejeu est par nature un contrôle du **récepteur**. Traite cette valeur comme la tolérance que
 > tu documentes à tes destinataires — c'est celle du récepteur qui protège.
 
@@ -648,7 +780,7 @@ privilégie un adapter déjà posé au container, puis résout `auto` d'après l
 
 ### Pagination du registre
 
-`WebhookService.listPage()` (`webhooks.ts:383`) délègue au store — la console n'a **jamais** tout le
+`WebhookService.listPage()` (`webhooks.ts:126`) délègue au store — la console n'a **jamais** tout le
 registre en RAM. Ce contrat est vérifié par un **banc unique** rejoué sur tous les backends
 (`webhookPaginationContract.ts`) : mêmes 12 endpoints de seed, mêmes assertions.
 
@@ -674,17 +806,17 @@ mention.
 
 | Méthode                       | Rôle                                                               | Ancrage           |
 | ----------------------------- | ------------------------------------------------------------------ | ----------------- |
-| `register(input)`             | Crée un endpoint (SSRF validé) → endpoint **+ secret en clair**    | `webhooks.ts:349` |
-| `listPage(query)`             | Page d'endpoints (vue publique, sans secret)                       | `webhooks.ts:383` |
+| `register(input)`             | Crée un endpoint (SSRF validé) → endpoint **+ secret en clair**    | `webhooks.ts:387` |
+| `listPage(query)`             | Page d'endpoints (vue publique, sans secret)                       | `webhooks.ts:421` |
 | `countEndpoints(query)`       | `COUNT` natif ; `-1` si le backend ne sait pas compter             | `webhooks.ts:397` |
-| `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts:403` |
+| `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts:441` |
 | `update(id, patch)`           | `url`/`events`/`enabled`/`description`/`metadata` ; URL re-validée | `webhooks.ts:414` |
-| `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts:435` |
-| `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts:446` |
-| `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts:465` |
-| `delete(id)`                  | Supprime ; `false` si absent                                       | `webhooks.ts:473` |
-| `listDeliveries(id)` _(sync)_ | Historique RAM des dernières livraisons                            | `webhooks.ts:488` |
-| `isReady()` _(sync)_          | Activé **et** store **et** clé résolus                             | `webhooks.ts:338` |
+| `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts:473` |
+| `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts:484` |
+| `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts:503` |
+| `delete(id)`                  | Supprime ; `false` si absent                                       | `webhooks.ts:511` |
+| `listDeliveries(id)` _(sync)_ | Historique RAM des dernières livraisons                            | `webhooks.ts:526` |
+| `isReady()` _(sync)_          | Activé **et** store **et** clé résolus                             | `webhooks.ts:376` |
 
 Types et briques réutilisables exportés par `@nodefony/security` : `IWebhookEndpoint`,
 `WebhookEndpointSummary`, `IWebhookStore`, `IWebhookListQuery`, `MemoryWebhookStore`,

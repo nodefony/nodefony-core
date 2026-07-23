@@ -680,6 +680,20 @@ const webhooksSchema = z
       .boolean()
       .default(true)
       .describe("Bloque SSRF (IP privées / métadonnées cloud)."),
+    snapshotTtlS: z
+      .number()
+      .int()
+      .positive()
+      .default(30)
+      .describe(
+        "Fraîcheur (secondes) du cache d'endpoints qui sert au routage des " +
+          "livraisons. Un pod ne voit PAS les endpoints créés par un autre pod : " +
+          "le store est partagé, pas le cache. Passé ce délai, le premier " +
+          "événement d'audit déclenche une relecture en arrière-plan (aucun " +
+          "timer, aucun coût sans trafic) — donc la propagation entre pods est " +
+          "bornée par cette valeur, jamais immédiate. Baisser pour propager plus " +
+          "vite (plus de lectures du store), monter si les endpoints changent rarement.",
+      ),
     maxRetries: z
       .number()
       .int()
