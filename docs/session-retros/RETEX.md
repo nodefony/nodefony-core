@@ -50,6 +50,9 @@
 
 ## 🐳 Décor de test (conteneurs, dist, sortie capturée)
 
+- `[1× — 2026-07-23g]` **Un banc e2e a un DÉCOR ; les lancer en boucle naïve = faux « KO ».** 17 bancs e2e d'affilée sur le serveur dev standard → **13 « KO », 0 vrai bug**. Trois pièges, tous du décor : opt-in manquant (le banc DIT « relance avec `NF__…` »), DESTRUCTEURS (`graceful-shutdown`/`cluster-*` tuent le serveur partagé → cascade `ECONNREFUSED`), store PERSISTANT (résidus d'un run mort → « liste pas revenue à l'état initial »). Gradué → `nodefony-load-test` §RÈGLE N°2 + table décor.
+- `[1× — 2026-07-23g]` **`assert.rejects(fn)` NE CAPTE PAS un throw SYNCHRONE du thunk.** Une garde qui lève AVANT le `Promise.resolve` d'un store non-`async` fuse hors du `await` interne → test rouge malgré le BON comportement. `try { await store.listPage(…) } catch` capte sync ET async — comme le vrai appelant admin (`async`).
+
 - `[1× — 2026-07-23]` **Un service derrière un `profiles:` compose n'est JAMAIS monté par un `up` nu** — PostgreSQL et MariaDB étaient marqués « exercés » sans avoir jamais tourné. Un ID de réseau docker recréé les fait échouer au démarrage (volumes nommés = 0 perte à la recréation).
 - `[1× — 2026-07-23]` **Un `dist/` réduit à `types/` casse un AUTRE module, avec un message qui ne le nomme pas.** Vérifier le décor AVANT la batterie : `docker ps` + profils compose + `ls <paquet>/dist/index.js`. Trois commandes contre quinze minutes de run.
 - `[1× — 2026-07-22]` **Remplacer un décor ÉPHÉMÈRE par un décor PERSISTANT révèle les bancs non rejouables** (mongod neuf à chaque run → conteneur permanent : les bancs qui n'effaçaient rien sont tombés).
@@ -75,6 +78,9 @@
 - `[1× — 2026-07-17]` **Les valeurs JOUETS ne prouvent rien sur le type d'une colonne** : `1000` passe partout ; `1_775_000_000_123` prouve le bigint, `INT32_MAX` trouve la borne.
 
 ## 🚦 Gates — le régime doit épouser la NATURE de ce qu'il vérifie
+
+- `[1× — 2026-07-23g]` **Un banc qui n'EXTRAIT pas ce qu'il note teste du vent.** Le `trigger-bench` des skills exige `Déclencheurs :` (deux-points COLLÉ au mot) ; ma ligne `Déclencheurs (toute édition…) :` (parenthèse avant le `:`) cassait le split → **0 déclencheur extrait**, le skill ne scorait que sur sa prose. J'ai chassé un scoring « aberrant » côté FORMULE une demi-heure avant de voir que le PARSEUR ne lisait rien. Vérifier que le gate VOIT son entrée avant d'interpréter son verdict.
+- `[1× — 2026-07-23g]` **Un test qui scanne PLUS LARGE que la prod fabrique des faux positifs.** `corpusLinks` scannait `session-retros` (exclu du portail réel via `scan.exclude`) et SUIVAIT un symlink racine (`docs/MIGRATION_STATUS.md`, liens relatifs à la RACINE) → 2 « liens morts » incliquables. Aligner le test sur ce que le consommateur RÉEL indexe (mêmes exclusions, ignorer les symlinks) — pas réécrire les fichiers.
 
 - `[1× — 2026-07-22]` **Un gate qui échoue toujours pour de mauvaises raisons finit ignoré, y compris le jour où il a raison.** Corollaires : distinguer le CODE de la PROSE dans un markdown ; nommer le fichier, pas son basename ; **dire combien d'exceptions il a acceptées**.
 - `[1× — 2026-07-22]` **Un contrôle peut être satisfait PAR ACCIDENT — le vérifier avant de l'imposer** (l'« intro en blockquote » matchait déjà pour une autre raison).
