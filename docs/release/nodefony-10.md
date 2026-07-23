@@ -158,7 +158,7 @@ est **conservé tel quel** (0 renommage, 0 changement d'import). Le POC comparat
 
 ### Smoke test de parité (VALIDATION du modèle B) — ✅ LIVRÉ, fusionné avec la preuve Docker (0.7)
 
-**Réalisé** : `bash scripts/release/smoke-docker.sh` = `scripts/release/pack-all.mjs` (pack des 13
+**Réalisé** : `bash .claude/skills/nodefony-release/scripts/smoke-docker.sh` = `.claude/skills/nodefony-release/scripts/pack-all.mjs` (pack des 13
 publiables) → app témoin `examples/minimal-app` copiée HORS repo (deps → tarballs) → `docker build`
 (npm install **vierge** + `tsc` = gate types) → `docker run` → probes `/livez` `/readyz` + routes →
 `docker stop` pendant une requête lente. **Preuve 7/7** : tsc vert sur tarballs, boot container,

@@ -23,12 +23,12 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | ------------------------ | -------------------------------------------------- |
 | Version                  | — (non versionné)                                  |
 | Famille                  | Exécuter, diagnostiquer, mesurer                   |
-| Corps                    | 429 lignes                                         |
-| Coût d'activation        | ~6 644 tokens (le corps est chargé à l'invocation) |
+| Corps                    | 437 lignes                                         |
+| Coût d'activation        | ~6 814 tokens (le corps est chargé à l'invocation) |
 | Description              | 878 / 1024 caractères                              |
 | Déclencheurs             | 14                                                 |
 | Ressources `references/` | 0 page(s)                                          |
-| Scripts                  | 32                                                 |
+| Scripts                  | 34                                                 |
 | Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
@@ -73,6 +73,7 @@ script, donc toujours à jour après régénération.
 | `scripts/app-download-probe.mjs`          | —                                                                                                    | —                                                                    | —                                                                                                                                  |
 | `scripts/bench-ab-mono.sh`                | Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE.                     | `--show-toplevel`                                                    | `BENCH_CONN` `BENCH_DUR` `BENCH_THREADS` `BENCH_URL`                                                                               |
 | `scripts/bench-report.mjs`                | Rapport HTML d'un (ou plusieurs) résultats de banc — pour un HUMAIN qui décide.                      | —                                                                    | `OUT`                                                                                                                              |
+| `scripts/boot-bench.mjs`                  | boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que                 | `--workers`                                                          | —                                                                                                                                  |
 | `scripts/capacity-html.mjs`               | capacity-html.mjs — rendu du rapport de capacité.                                                    | `--accent` `--dim` `--rupture`                                       | `PAYLOAD` `REPEAT`                                                                                                                 |
 | `scripts/capacity.mjs`                    | capacity.mjs — BANC DE CAPACITÉ + rapport de dimensionnement.                                        | `--http-reqs` `--out` `--rupture` `--skip-ws` `--sockets` `--target` | `HOST` `NF_ADMIN_PASSWORD` `NF_ADMIN_USER` `NF_HOST` `NF_PORT` `NF_PORT_HTTPS` `OUT` `PAYLOAD` `PCLR` `PTLS` `REPEAT` `ROUTE`      |
 | `scripts/cluster-health-endpoint-e2e.mjs` | Preuve BOUT-EN-BOUT de la forme JSON de l'ENDPOINT santé en mode cluster — ce que le                 | —                                                                    | `E2E_ROLE` `SETTLE`                                                                                                                |
@@ -89,6 +90,7 @@ script, donc toujours à jour après régénération.
 | `scripts/idempotency-postgres-e2e.mjs`    | Banc CROSS-POD de l'idempotence distribuée Drizzle/PostgreSQL (axe 3, P6.8) — sans navigateur.       | `--profile`                                                          | `CONC` `PG_URL` `ROUNDS`                                                                                                           |
 | `scripts/idempotency-userland-e2e.mjs`    | Banc e2e USERLAND @Idempotent contre un VRAI Redis (single-pod, P6.8) — sans navigateur.             | —                                                                    | —                                                                                                                                  |
 | `scripts/log-sink-contention.mjs`         | Microbench ISOLÉ du driver de sink de log (LB.W / axe W2).                                           | —                                                                    | `DIR` `JSON_OUT` `LINES` `ONLY` `RUNS` `VARIANT` `WARMUP` `WID` `WORKERS`                                                          |
+| `scripts/poc-hmr-perf.mjs`                | POC HMR perf — mesure le délai end-to-end entre :                                                    | `--file` `--gap-ms` `--iterations` `--vite-url`                      | —                                                                                                                                  |
 | `scripts/ratelimit-e2e.mjs`               | Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur.                      | —                                                                    | `MAX` `RL_URL` `URL`                                                                                                               |
 | `scripts/run.sh`                          | Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES                          | `--config` `--rupture`                                               | —                                                                                                                                  |
 | `scripts/scaffold-ws-probe.mjs`           | Sonde : prouve que le job de scaffold est bien streamé sur la socket Nodefony.                       | —                                                                    | `NF_STEPS` `NF_WAIT`                                                                                                               |
@@ -108,6 +110,7 @@ script, donc toujours à jour après régénération.
 Usage : bash .claude/skills/nodefony-load-test/scripts/run.sh aimd
 bash bench-ab-mono.sh <label> [KEY=VAL ...]
 JSON_OUT=tmp/sink.json node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs
+Usage : node scripts/boot-bench.mjs <runs> -- <args nodefony...>
 node .claude/skills/nodefony-load-test/scripts/capacity.mjs
 node .claude/skills/nodefony-load-test/scripts/cluster-health-endpoint-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/cluster-ipc.mjs
@@ -123,6 +126,7 @@ node .claude/skills/nodefony-load-test/scripts/idempotency-cluster-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/idempotency-postgres-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/idempotency-userland-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs
+node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx
 bash .claude/skills/nodefony-start-server/start.sh
 Usage : node scaffold-ws-probe.mjs <cookie> [type] [name]
 node .claude/skills/nodefony-load-test/scripts/supervision-stress.mjs
@@ -146,7 +150,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 | description de 1 à 1024 caractères        |  ✅  | 878    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 429    |
+| corps < 500 lignes (recommandation)       |  ✅  | 437    |
 
 ## 🔗 Pour aller plus loin
 

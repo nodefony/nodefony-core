@@ -11,7 +11,7 @@ App Nodefony **minimale** (HTTP + une route) qui sert de :
 ## Lancer le smoke test complet (depuis la racine du repo)
 
 ```bash
-bash scripts/release/smoke-docker.sh
+bash .claude/skills/nodefony-release/scripts/smoke-docker.sh
 ```
 
 Il enchaîne : `pack-all.mjs` (13 tarballs, `exports.types` basculés au pack) →

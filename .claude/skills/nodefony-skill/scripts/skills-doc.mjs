@@ -594,7 +594,8 @@ const CATALOG = {
   "generate-symbols": ["🕸️", "Inspecter et auditer"],
   "view-method-signature": ["🔬", "Inspecter et auditer"],
   "get-module-config": ["🎛️", "Inspecter et auditer"],
-  "check-externals": ["🔗", "Inspecter et auditer"],
+  "check-externals": ["🔗", "Publier et distribuer"],
+  release: ["🚢", "Publier et distribuer"],
   rfc: ["📜", "Références et livrables"],
   "ts-docs": ["🔤", "Références et livrables"],
   nestjs: ["🐈", "Références et livrables"],
@@ -606,6 +607,7 @@ const FAMILY_ORDER = [
   "Développer le framework",
   "Exécuter, diagnostiquer, mesurer",
   "Inspecter et auditer",
+  "Publier et distribuer",
   "Références et livrables",
   "Autres",
 ];

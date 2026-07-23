@@ -19,7 +19,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**27 skills** · **27/27 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**28 skills** · **28/28 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -88,7 +88,7 @@ source: "docs/skills/index.md"
     "meta": "v1.0.0" },
   { "icon": "📈", "title": "load-test", "href": "nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "32 scripts · non versionné" },
+    "meta": "34 scripts · non versionné" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "9 scripts · 2 références · non versionné" },
@@ -105,9 +105,6 @@ source: "docs/skills/index.md"
 
 ```nodefony-cards
 [
-  { "icon": "🔗", "title": "check-externals", "href": "nodefony-check-externals.md",
-    "desc": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées.",
-    "meta": "non versionné" },
   { "icon": "🕸️", "title": "generate-symbols", "href": "nodefony-generate-symbols.md",
     "desc": "Graphe symbolique TypeScript de Nodefony (classes, interfaces, types, décorateurs, relations inversées) : le génère dans `.ai/symbols.json` et donne les requêtes `jq` pour répondre en O(1), sans parcourir le dépôt — qui étend cette classe, qui implémente cette interface, qui importe ce symbole,…",
     "meta": "non versionné" },
@@ -123,6 +120,19 @@ source: "docs/skills/index.md"
   { "icon": "🔬", "title": "view-method-signature", "href": "nodefony-view-method-signature.md",
     "desc": "Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, TSDoc) depuis l'AST extrait dans dist/symbols.json — évite de lire un fichier source de 500 lignes pour l'ordre des args.",
     "meta": "non versionné" }
+]
+```
+
+### Publier et distribuer
+
+```nodefony-cards
+[
+  { "icon": "🔗", "title": "check-externals", "href": "nodefony-check-externals.md",
+    "desc": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées.",
+    "meta": "non versionné" },
+  { "icon": "🚢", "title": "release", "href": "nodefony-release.md",
+    "desc": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version). Porte la chaîne complète : empaquetage des workspaces publiables avec bascule des `exports.types` au pack, post-traitement des `.d.ts` pour la résolution ESM de Node, puis smoke test en…",
+    "meta": "3 scripts · v1.0.0" }
 ]
 ```
 
@@ -164,11 +174,12 @@ source: "docs/skills/index.md"
 | [`nodefony-generate-symbols`](nodefony-generate-symbols.md)             | —       |   136 |    0 |       0 |    ✅    |
 | [`nodefony-get-module-config`](nodefony-get-module-config.md)           | —       |    62 |    0 |       0 |    ✅    |
 | [`nodefony-html-report`](nodefony-html-report.md)                       | —       |   174 |    3 |       3 |    ✅    |
-| [`nodefony-load-test`](nodefony-load-test.md)                           | —       |   429 |    0 |      32 |    ✅    |
+| [`nodefony-load-test`](nodefony-load-test.md)                           | —       |   437 |    0 |      34 |    ✅    |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md)               | —       |   357 |    0 |       0 |    ✅    |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md)                 | —       |   140 |    2 |       9 |    ✅    |
 | [`nodefony-nestjs`](nodefony-nestjs.md)                                 | —       |    70 |    0 |       0 |    ✅    |
 | [`nodefony-quick-diff`](nodefony-quick-diff.md)                         | —       |    63 |    0 |       0 |    ✅    |
+| [`nodefony-release`](nodefony-release.md)                               | 1.0.0   |    59 |    0 |       3 |    ✅    |
 | [`nodefony-rfc`](nodefony-rfc.md)                                       | —       |    68 |    0 |       0 |    ✅    |
 | [`nodefony-roadmap`](nodefony-roadmap.md)                               | —       |   161 |    0 |       0 |    ✅    |
 | [`nodefony-security-review`](nodefony-security-review.md)               | —       |   356 |    0 |       0 |    ✅    |

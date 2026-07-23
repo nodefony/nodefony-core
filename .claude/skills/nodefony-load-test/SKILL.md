@@ -55,6 +55,14 @@ cd src/packages/@nodefony/http && npm run test:memory
 Pour pousser **à la main** au-delà des seuils CI et trouver les vraies limites.
 Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétrés par ENV.
 
+> **Mesures hors requête** — deux bancs mesurent autre chose que le trafic, et rejoignent ce skill
+> parce qu'ils exigent le même protocole (plusieurs runs, médiane, décor maîtrisé) :
+>
+> | Script                     | Ce qu'il mesure                                                                            |
+> | -------------------------- | ------------------------------------------------------------------------------------------ |
+> | `scripts/boot-bench.mjs`   | temps de boot d'un mode, du spawn jusqu'à l'écoute des serveurs + nombre de `new Kernel()` |
+> | `scripts/poc-hmr-perf.mjs` | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite      |
+
 ### Axe 1 — plafond de connexions WS (`ws-connections.mjs`)
 
 Combien de sockets simultanées le process tient. Rampe par batches jusqu'au 1er

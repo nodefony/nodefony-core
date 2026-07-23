@@ -82,8 +82,13 @@ const CASES = [
   ["montre la config et les routes de ce module", "nodefony-get-module-config"],
   ["qu'est-ce que j'ai modifié ? diff rapide", "nodefony-quick-diff"],
   [
-    "avant de publier sur npm, vérifie les external et les peerDeps",
+    "vérifie les external et les peerDeps du bundler",
     "nodefony-check-externals",
+  ],
+  ["on publie sur npm, prépare la release", "nodefony-release"],
+  [
+    "est-ce que le paquet publié marche vraiment ? smoke test des tarballs",
+    "nodefony-release",
   ],
   ["où en est la migration ?", "nodefony-migration-audit"],
   ["fais un rapport HTML imprimable de ces mesures", "nodefony-html-report"],

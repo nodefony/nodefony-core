@@ -12,7 +12,7 @@
 // Sorties : release/tarballs/*.tgz + release/tarballs/manifest.json
 // (map nom → fichier tgz, consommée par le smoke test / l'app témoin).
 //
-// Usage (racine repo) : node scripts/release/pack-all.mjs
+// Usage (racine repo) : node .claude/skills/nodefony-release/scripts/pack-all.mjs
 // Prérequis : `npm run build` (dist/ + dist/types/ à jour sur tous les packages).
 import { execSync } from "node:child_process";
 import {

@@ -171,7 +171,7 @@ La doc externe (RFC, TS handbook, NestJS) et les phases futures (10/12/13/14) so
 
 **Convention skills/commands (figée 2026-05-21)** : tous les skills sont préfixés `nodefony-` (namespace + auto-trigger) ; les slash-commands restent **courtes et non préfixées** (couche UX tapée qui délègue au skill — ex. `/start-server`, `/migration-audit`). Cycle de vie d'une session = **un seul skill `nodefony-session`** (modes : RESUME « reprends » après `/clear` / START `<module>` / END « fin de session » / CONSOLIDATE). La liste complète des skills est fournie par le harness — ne pas la dupliquer ici.
 
-> **Écrire/éditer un skill** → suivre les **best-practices Anthropic** (doc officielle `platform.claude.com/.../agent-skills/best-practices` ; distillées dans la mémoire IA `feedback_skill_authoring`) : **progressive disclosure** (SKILL.md = processus + INDEX < 500 l, détail dans `reference/*.md` chargé à la demande, refs **1 niveau**, TOC si > 100 l), description **3ᵉ personne** (capacité + quand ; 0 roadmap), **degrees of freedom** adaptés, **anti time-sensitive** (cf 🕰️ règle intemporelle § doc modules), **autosuffisant** (consumer = npm `dist` seul → `reference/` CONTIENT les internals), exemples vérifiés au source, note _Maintenance_ en tête (édition en place, histoire = git).
+> **Écrire/éditer un skill** → suivre les **best-practices Anthropic** (doc officielle `platform.claude.com/.../agent-skills/best-practices` ; distillées dans la mémoire IA `feedback_skill_authoring`) : **progressive disclosure** (SKILL.md = processus + INDEX < 500 l, détail dans `references/*.md` chargé à la demande, refs **1 niveau**, TOC si > 100 l), description **3ᵉ personne** (capacité + quand ; 0 roadmap), **degrees of freedom** adaptés, **anti time-sensitive** (cf 🕰️ règle intemporelle § doc modules), **autosuffisant** (consumer = npm `dist` seul → `references/` CONTIENT les internals), exemples vérifiés au source, note _Maintenance_ en tête (édition en place, histoire = git).
 
 **Convention de route `/nodefony/*` réservée à Studio** : tout module exposant une API d'admin (stats, introspection) doit exposer `/nodefony/<module>/api/*` documenté dans son `MEMORY.md`. Concevoir en GraphQL/REST JSON — pas de couplage à la vue. (Détails complets : skill `nodefony-roadmap`.)
 
@@ -227,7 +227,7 @@ Nodefony est une **plateforme générique** pour construire :
 
 > Le **détail** (arborescence du dépôt, squelette d'un module, template `package.json`/`exports`,
 > `defineConfig`/`env.ts`, structure de la config d'un module) vit dans
-> **`.claude/skills/nodefony-framework-dev/reference/conventions.md`** — chargé à la demande.
+> **`.claude/skills/nodefony-framework-dev/references/conventions.md`** — chargé à la demande.
 > Il ne sert qu'en créant ou restructurant un module ; le payer à chaque tour de chaque session
 > était du gaspillage pur (cf `docs/session-retros/CONSOLIDATION-2026-07-23.md`).
 
@@ -327,7 +327,7 @@ const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
 ### Configuration de l'APPLICATION et des MODULES
 
 > Modèle figé (`defineConfig` + `use()` + `env.ts` ; config de module en 2 fichiers) — recette
-> complète, exemples et pièges : `reference/conventions.md` du skill `nodefony-framework-dev`,
+> complète, exemples et pièges : `references/conventions.md` du skill `nodefony-framework-dev`,
 > et [`docs/guides/configuration.md`](docs/guides/configuration.md).
 
 ---

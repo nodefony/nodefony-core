@@ -125,7 +125,7 @@ serait sans effet à la régénération suivante.
     "meta": "v1.0.0" },
   { "icon": "📈", "title": "load-test", "href": "skills/nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "32 scripts · non versionné" },
+    "meta": "34 scripts · non versionné" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "skills/nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "9 scripts · 2 références · non versionné" },
@@ -142,9 +142,6 @@ serait sans effet à la régénération suivante.
 
 ```nodefony-cards
 [
-  { "icon": "🔗", "title": "check-externals", "href": "skills/nodefony-check-externals.md",
-    "desc": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées.",
-    "meta": "non versionné" },
   { "icon": "🕸️", "title": "generate-symbols", "href": "skills/nodefony-generate-symbols.md",
     "desc": "Graphe symbolique TypeScript de Nodefony (classes, interfaces, types, décorateurs, relations inversées) : le génère dans `.ai/symbols.json` et donne les requêtes `jq` pour répondre en O(1), sans parcourir le dépôt — qui étend cette classe, qui implémente cette interface, qui importe ce symbole,…",
     "meta": "non versionné" },
@@ -160,6 +157,19 @@ serait sans effet à la régénération suivante.
   { "icon": "🔬", "title": "view-method-signature", "href": "skills/nodefony-view-method-signature.md",
     "desc": "Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, TSDoc) depuis l'AST extrait dans dist/symbols.json — évite de lire un fichier source de 500 lignes pour l'ordre des args.",
     "meta": "non versionné" }
+]
+```
+
+### Publier et distribuer
+
+```nodefony-cards
+[
+  { "icon": "🔗", "title": "check-externals", "href": "skills/nodefony-check-externals.md",
+    "desc": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées.",
+    "meta": "non versionné" },
+  { "icon": "🚢", "title": "release", "href": "skills/nodefony-release.md",
+    "desc": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version). Porte la chaîne complète : empaquetage des workspaces publiables avec bascule des `exports.types` au pack, post-traitement des `.d.ts` pour la résolution ESM de Node, puis smoke test en…",
+    "meta": "3 scripts · v1.0.0" }
 ]
 ```
 

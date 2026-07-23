@@ -33,7 +33,8 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a.startsWith("--")) {
       const k = a.slice(2);
-      const v = argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : "true";
+      const v =
+        argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : "true";
       out[k] = v;
     }
   }
@@ -69,9 +70,7 @@ async function warmupViteGraph(httpUrl, entries) {
       await r.text();
       process.stderr.write(`[hmr-bench] warmup ${url} → ${r.status}\n`);
     } catch (err) {
-      process.stderr.write(
-        `[hmr-bench] warmup failed: ${err.message}\n`,
-      );
+      process.stderr.write(`[hmr-bench] warmup failed: ${err.message}\n`);
     }
   }
 }
@@ -151,19 +150,23 @@ async function main() {
 
   ws.close();
 
-  const deltas = samples.map((s) => s.delta).filter((x) => typeof x === "number");
+  const deltas = samples
+    .map((s) => s.delta)
+    .filter((x) => typeof x === "number");
   deltas.sort((a, b) => a - b);
   const p = (v) => {
     if (deltas.length === 0) return null;
-    const idx = Math.min(deltas.length - 1, Math.floor((deltas.length * v) / 100));
+    const idx = Math.min(
+      deltas.length - 1,
+      Math.floor((deltas.length * v) / 100),
+    );
     return Math.round(deltas[idx] * 100) / 100;
   };
   const mean =
     deltas.length === 0
       ? null
-      : Math.round(
-          (deltas.reduce((s, x) => s + x, 0) / deltas.length) * 100,
-        ) / 100;
+      : Math.round((deltas.reduce((s, x) => s + x, 0) / deltas.length) * 100) /
+        100;
 
   const result = {
     label: args.label ?? "hmr-perf",

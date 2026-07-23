@@ -9,7 +9,7 @@
 #   3. docker stop PENDANT /api/slow (2 s) → la requête FINIT (200 slow:done),
 #      le container sort en exit 0, les logs montrent le drain (SHUTDOWN).
 #
-# Usage (racine repo) : bash scripts/release/smoke-docker.sh
+# Usage (racine repo) : bash .claude/skills/nodefony-release/scripts/smoke-docker.sh
 # Prérequis : npm run build (dist à jour) + docker daemon up.
 set -euo pipefail
 
@@ -26,7 +26,7 @@ fail() { echo "✗ $1" >&2; docker rm -f "$CTN" >/dev/null 2>&1 || true; exit 1;
 ok() { echo "✓ $1"; }
 
 # ── 1. Pack (bascule exports.types + peers optional + .d.ts extensionnés) ────
-node "$ROOT/scripts/release/pack-all.mjs"
+node "$ROOT/.claude/skills/nodefony-release/scripts/pack-all.mjs"
 
 # ── 1bis. Gate attw : types du tarball certifiés sous node16-ESM + bundler ───
 # (profil esm-only : node10 et require() CJS ignorés — framework ESM-only).
