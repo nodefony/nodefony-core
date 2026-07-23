@@ -23,8 +23,8 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 | ------------------------ | -------------------------------------------------- |
 | Version                  | `1.0.0`                                            |
 | Famille                  | Cycle de session                                   |
-| Corps                    | 205 lignes                                         |
-| Coût d'activation        | ~3 083 tokens (le corps est chargé à l'invocation) |
+| Corps                    | 216 lignes                                         |
+| Coût d'activation        | ~3 237 tokens (le corps est chargé à l'invocation) |
 | Description              | 1001 / 1024 caractères                             |
 | Déclencheurs             | 11                                                 |
 | Ressources `references/` | 0 page(s)                                          |
@@ -140,7 +140,7 @@ node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose
 | description de 1 à 1024 caractères        |  ✅  | 1001   |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 205    |
+| corps < 500 lignes (recommandation)       |  ✅  | 216    |
 
 ## 🔗 Pour aller plus loin
 

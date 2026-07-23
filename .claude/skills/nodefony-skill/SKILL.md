@@ -101,9 +101,20 @@ hors standard · ressources en `references/` · corps < 500 lignes (avertissemen
 dur il **sort en échec**, et il régénère la **fiche publique** du skill dans `docs/skills/<nom>.md` —
 version, contenu, déclencheurs, ressources, scripts avec leurs options et variables d'environnement.
 
-Validateur officiel du standard : `npx skills-ref validate ./<skill>` — il attrape ce qu'un contrôle
-maison rate, à commencer par un **frontmatter YAML invalide** (une description en ligne contenant un
-`:` casse le mapping sans que rien d'autre ne s'en aperçoive).
+**Validateur officiel du standard** — il attrape ce qu'un contrôle maison rate, à commencer par un
+**frontmatter YAML invalide** (une description en ligne contenant un `:` casse le mapping sans que
+rien d'autre ne s'en aperçoive) :
+
+```bash
+npm pack skills-ref && tar xzf skills-ref-*.tgz     # dans un dossier jetable
+node package/dist/cli.js validate ./<skill>          # après y avoir installé commander + js-yaml
+```
+
+> ⚠️ **Auditer avant d'exécuter.** Le paquet `skills-ref` n'a ni `repository` ni `homepage` sur npm
+> et n'est pas attribuable à l'AAIF : il lit tous les skills du dépôt. Audité une fois (20 Ko,
+> `node:fs`/`node:path` seulement, aucun accès réseau, MIT) — refaire cette lecture à chaque montée
+> de version plutôt que de lui faire confiance sur son nom. C'est pour ça que la commande ci-dessus
+> dépaquette au lieu d'un `npx` qui exécuterait sans regarder.
 
 **Banc de déclenchement** — la garde anti-régression des descriptions :
 
