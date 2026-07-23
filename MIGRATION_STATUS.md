@@ -57,7 +57,12 @@ identité = **`IUser` racine + slot agent/service** (`kind`/`onBehalfOf`, PAS `I
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.
-Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Studio = panneau P10 de facto livré.
+**E2E réel `loki`/`opensearch` livré** (`84ca6f36`, gates `NF_LOKI_TEST_URL`/`NF_OPENSEARCH_TEST_URL` → skip
+propre sans infra) : les deux drivers n'étaient prouvés que contre un `fetch` mocké ; le round-trip
+write↔read contre les vrais serveurs a révélé un **bug d'ordre Loki**. Câblage `log.*` → sink → driver
+couvert (`0052f869`). Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI) et ⏳ le chantier
+**Dashboards iframe Studio** (driver-gated, design figé, planifié APRÈS devkit).
+Console Logs Studio = panneau P10 de facto livré.
 
 > **DETTE-CFG (ordering config `module-<name>` ⊥ validation Zod) ✅ RÉSOLUE** : `Kernel.applyModuleConfigOverrides()`
 > appliqué entre `onPreRegister` et `onPreBoot`. `project_config_ordering_chantier`.
@@ -195,17 +200,34 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 > l'échantillon « Lot 3 » (3 périmés sur 6) mesurait l'attention déjà reçue, pas le taux de survie.
 > Les 85 vivants se rangent en **5 motifs qui se soldent en série** : texte périmé (36) · défaut de
 > comportement (20) · **réglage sans lecteur** (12 — clé validée, décrite, jamais lue) · filet absent
-> (9) · correction partielle (8). Rapport triable : `tmp/requalif-ecarts-doc-code.html` (non commité).
+> (9) · correction partielle (8). Photo de la requalification : `tmp/requalif-ecarts-doc-code.html`
+> (non commitée). L'**avancement courant** a son propre rapport, régénéré depuis le kit :
+> `node tmp/registre-ecarts/gen.mjs`.
 >
 > **Correction PAR MOTIF engagée (2026-07-23)** — on corrige le motif, pas l'item : 85 décisions
 > deviennent 5 gestes. **Correction partielle : SOLDÉ** (`96e36890`) — Kafka purgé de la surface
 > publique realtime, README réécrit sur le réel (décorateurs et subpath client faux), `IWsCookie` et
 > `CookieOptionsType` dédupliqués, `unsign()` aligné sur son implémentation, TSDoc `regenerateId`
-> (câblé depuis `authFlow.ts:388`), commentaire Rollup retiré. **Réglage sans lecteur : 3/12**
-> (`887b2d9c` F9+F13 — les 5 clés inertes de `security.headers` portent `reserved:true` et NOMMENT
-> leur remplaçante `http.securityHeaders.*` ; `62db6a0f`+`94179254` F24 — la trace d'usage d'une clé
+> (câblé depuis `authFlow.ts:388`), commentaire Rollup retiré. **Réglage sans lecteur : 9/12**
+> — `887b2d9c` F9+F13 (les 5 clés inertes de `security.headers` portent `reserved:true` et NOMMENT
+> leur remplaçante `http.securityHeaders.*`) · `62db6a0f`+`94179254` F24 (la trace d'usage d'une clé
 > d'API, qui n'était pas seulement vide mais EFFACÉE à chaque usage, est écrite dans `onSuccess`
-> avec IP et agent, exposée dans `IApiKeyView` et prouvée par un banc sur serveur réel).
+> avec IP et agent, exposée dans `IApiKeyView` et prouvée par un banc sur serveur réel) ·
+> `237daad5` F29+F30 (5 réglages webhooks/audit ; 2 constats du registre étaient PÉRIMÉS —
+> `denyPrivateIps` et `retentionDays` SONT lus) · `fc2e0ada`+`0052f869` F53 (4 clés `log.*` que le
+> noyau lit mais qu'aucune app ne pouvait poser — déclarées, validées, prouvées jusqu'au driver) ·
+> `b263aed7` F63 (`SessionIntent.eager` RETIRÉ : pour un champ TS, la suppression casse la
+> compilation — c'est un signal, pas un silence, contrairement au strip Zod) · `cebb945b` F97+F99
+> (deux voies d'extension realtime présentées comme atteignables) · `e2a90eea` F31 (la console
+> d'audit Studio offrait 3 filtres sans émetteur et oubliait `webhook`, qui émet).
+> **Le filet du motif est posé** (`e420f9ed`) : le boot AVERTIT quand une app écrit une clé
+> `reserved` — le blocage annoncé (« le cœur n'accède pas au schéma d'un module ») n'existait pas,
+> `Module.configSchema()` + `configProvenance.ts` suffisaient. **Restent F17, F22, F25** : variante
+> où la clé est bien lue mais où le `.describe()` PROMET (AAL3 WebAuthn non vérifié · format de clé
+> d'API à 2 séparateurs · `totp.store` annonçant `mongoose`/`redis` sans implémentation — une app
+> Mongo croit persister ses secrets 2FA et retombe sur `memory`).
+> **Registre : 44 ✅ · 6 🔶 · 69 restants** sur 119 (dont 9 🔴 + F18/F28 sécurité). Rapport triable
+> régénérable : `node tmp/registre-ecarts/gen.mjs` (il PARSE le kit — pas de seconde liste).
 > **Découvert en chemin, hors registre** : `body` n'existait ni au type ni au runtime sur
 > `context.request` (`80eb2801`, alias de `queryPost`, `body` devient un nom d'action réservé) ; et
 > **6 paquets publient des types injoignables après `npm i`** (`exports["."].types` → `./index.ts`,
