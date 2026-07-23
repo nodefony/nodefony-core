@@ -102,15 +102,16 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 
 Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce qu'on y trouve.
 
-| Page                                 | Ce qu'elle résout                                     | Tu en as besoin quand…                         |
-| ------------------------------------ | ----------------------------------------------------- | ---------------------------------------------- |
-| [Service](service.md)                | la classe de base : injection, événements, journal    | tu écris n'importe quel composant              |
-| [Journalisation](syslog.md)          | ce qui s'écrit, où ça part, ce qu'on garde en mémoire | tu instrumentes, ou tu enquêtes                |
-| [Kernel & Module](kernel.md)         | l'API du cœur : démarrer, brancher, étendre           | tu écris un module ou une commande             |
-| [CLI](cli.md)                        | piloter le framework en ligne de commande             | tu lances, construis, échafaudes, ou étends    |
-| [RequestContext](request-context.md) | suivre une requête à travers l'asynchrone             | tu corrèles des journaux, ou tu lis l'identité |
-| [Client isomorphe](client.md)        | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur         |
-| [Hooks React](react-hooks.md)        | la socket en idiomes React                            | ton front est en React                         |
+| Page                                    | Ce qu'elle résout                                     | Tu en as besoin quand…                         |
+| --------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| [Service](service.md)                   | la classe de base : injection, événements, journal    | tu écris n'importe quel composant              |
+| [Journalisation](syslog.md)             | ce qui s'écrit, où ça part, ce qu'on garde en mémoire | tu instrumentes, ou tu enquêtes                |
+| [Kernel & Module](kernel.md)            | l'API du cœur : démarrer, brancher, étendre           | tu écris un module ou une commande             |
+| [CLI](cli.md)                           | piloter le framework en ligne de commande             | tu lances, construis, échafaudes, ou étends    |
+| [RequestContext](request-context.md)    | suivre une requête à travers l'asynchrone             | tu corrèles des journaux, ou tu lis l'identité |
+| [Client isomorphe](client.md)           | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur         |
+| [Hooks React](react-hooks.md)           | la socket en idiomes React                            | ton front est en React                         |
+| [Outillage agents](outillage-agents.md) | les skills du dépôt, leur usage réel, leur conformité | tu cherches un outil, ou tu en écris un        |
 
 ```nodefony-cards
 [
@@ -134,7 +135,10 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
     "meta": "le même paquet, dans le navigateur" },
   { "icon": "⚛️", "title": "react-hooks", "href": "react-hooks.md",
     "desc": "Le fournisseur de contexte et les hooks : état de connexion, abonnement à un canal, données du dernier message, flux du journal, notifications. Dix composants qui écoutent dix canaux ouvrent une connexion, pas dix.",
-    "meta": "tout le désabonnement au démontage est géré" }
+    "meta": "tout le désabonnement au démontage est géré" },
+  { "icon": "🤖", "title": "outillage-agents", "href": "outillage-agents.md",
+    "desc": "Les 26 skills du dépôt : ce que chacun fait, combien il sert réellement (mesuré sur les transcrits, pas estimé), sa conformité au standard Agent Skills, et lesquels réparer, fusionner ou retirer. Un skill à zéro invocation est rarement inutile — le plus souvent, sa règle est déjà écrite ailleurs.",
+    "meta": "tu cherches un outil, ou tu te demandes pourquoi le tien ne se déclenche jamais" }
 ]
 ```
 

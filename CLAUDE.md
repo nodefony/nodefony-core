@@ -39,7 +39,7 @@ Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, 
   ```
   > **Séparation des suites (vitest)** : non-régression rapide = `npm run test:integration` (`vitest.integration.config.ts`, exclut `tests/load/**` + `memory.test.ts`). Suite lourde (charge, heap, leak, scopes DI) = `npm run test:load` (`vitest.load.config.ts` = `tests/load/**` + `memory.test.ts`). Gate mémoire seul = `npm run test:memory`. Lancer la suite `load` AVANT tout commit touchant Kernel / pipeline / cycle de vie / mémoire — pas à chaque non-régression.
 - **OBLIGATOIRE** quantifier l'impact : "1000 req: Xms avant / Yms après, heap delta Z MB" dans le commit message si l'écart est > 5 %.
-- **Si un seuil mémoire saute** (35 MB / 1000 req, 10 MB / 100 crashes, 30 MB / 100 WS) → c'est un blocker. NE PAS commit. Investiguer + lazy + cleanup avant de continuer.
+- **Si un seuil mémoire saute** (35 MB / 1000 req, 10 MB / 100 crashes, 30 MB / 100 WS) → c'est un blocker. NE PAS commit. Investiguer + lazy + cleanup avant de continuer. **Le seuil qui saute, le flake d'isolation et la conduite à tenir → skill `nodefony-check-memory-health`** (il porte le diagnostic, pas seulement la commande) ; symptôme runtime plus large → **`nodefony-debug`**.
 
 ### Patterns à appliquer systématiquement
 
@@ -160,6 +160,12 @@ La doc externe (RFC, TS handbook, NestJS) et les phases futures (10/12/13/14) so
 | `nodefony-roadmap`         | Phase 10 (Studio admin), 12 (IA agentic), 13 (Realtime/Redis/client), 14 (frontend builder)                                                                                                                                                                                                    |
 | **`nodefony-html-report`** | **Tout livrable destiné à un HUMAIN** (audit, banc de perf, mesures, revue) → HTML autonome : `lib/report.mjs` (graphes SVG, tableaux triables, calculateurs, glisser-déposer, mode présentation, impression PDF, W3C validé) + specs W3C bundlées offline. Cf la règle de livrable ci-dessus. |
 | `nodefony-load-test`       | Charge, stress, **et dimensionnement** (`scripts/capacity.mjs` → constantes d'un pod + rapport HTML avec calculateur de pods)                                                                                                                                                                  |
+| `nodefony-debug`           | **Un symptôme runtime, pas une feature** : test rouge inexpliqué, vert isolé/rouge en suite, crash au boot, fuite, régression à qualifier (baseline) — 6 recettes éprouvées                                                                                                                    |
+
+> **Un skill n'est atteint que si sa règle n'est PAS recopiée ici.** Quand ce fichier redonne la
+> commande d'un skill, l'agent l'exécute et n'ouvre jamais le skill — qui portait pourtant le
+> diagnostic. Mesuré : 11 skills à zéro invocation, presque tous doublés par une règle de ce fichier.
+> État des lieux complet et plan : [`src/nodefony/docs/outillage-agents.md`](src/nodefony/docs/outillage-agents.md).
 
 **Règle universelle** : interdiction de charger les sites HTML lourds (`nodejs.org`, `typescriptlang.org`, `docs.nestjs.com`, `tools.ietf.org`). Toujours via raw GitHub + proxy `https://r.jina.ai/`. Les skills contiennent les URLs canoniques + le pattern d'usage.
 
