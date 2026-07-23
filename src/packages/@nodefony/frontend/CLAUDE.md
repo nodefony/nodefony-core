@@ -20,7 +20,7 @@ Pilote Vite pour transpiler les frontends déclarés par chaque module :
 { frontend: { type: "react19", entry: "./frontend/src/main.tsx" } }
 ```
 
-**Approche hybride découplée** (validée 2026-05-17 par audit perf) :
+**Approche hybride découplée** (validée par audit perf) :
 
 - Vite tourne en process séparé (child_process.spawn) → zéro impact event-loop backend
 - Nodefony rend l'index.html lui-même via son moteur de templates
@@ -104,7 +104,7 @@ Kernel onTerminate
   - **Idempotent** : une entrée dont `outDir/.vite/manifest.json` est plus récent que ses sources est **ignorée** (`skipped`) → relance prod console rapide. `--force` rebuild tout.
   - **Erreurs collectées** : un bundle KO n'arrête pas les autres ; `failures[]` remonté → la commande met `process.exitCode = 1` (pipeline CI).
   - Scripts racine : `npm run build:front` (= `nodefony frontend:build`) · `npm run build:all` (backend turbo + front).
-  - ✅ CLI `nodefony frontend:build` fonctionne (fix dispatch commandes de module 2026-05-25 : `CliKernel` diffère le parse des commandes non-built-in à `onPreRegister`, après enregistrement par les modules — cf `project_cli_commands_broken_claude_ts`).
+  - ✅ CLI `nodefony frontend:build` fonctionne (fix dispatch commandes de module : `CliKernel` diffère le parse des commandes non-built-in à `onPreRegister`, après enregistrement par les modules — cf `project_cli_commands_broken_claude_ts`).
 - **Rendu** : `TemplateHelper.renderProdTags()` lit `outDir/.vite/manifest.json` (caché par outDir, 0 relecture disque/req) → `<link rel="stylesheet">` (CSS récursif) + `<link rel="modulepreload">` (imports) + `<script type="module" crossorigin>`, **préfixés par `publicPath`**. Manifest absent → commentaire HTML (pas de crash).
 - **Service statique** : en prod (`env !== "development"`), `FrontendService.setupProd()` (hook `onServersReady`) monte chaque `outDir` sur son `publicPath` via `container.get("server-static").addMount(prefix, dir)` — **résolu par nom** (anti-cycle, pas d'import `@nodefony/http`). Cloud-native (nginx/haproxy/CDN frontal) = Phase 16, bascule via `publicPath` sans toucher `renderProdTags`.
 - **Modules DISTRIBUÉS avec UI (studio & modules tiers)** : ce flux prod ne les concerne PAS — leur UI est pré-buildée au publish et servie par `PrebuiltUi` (@nodefony/http, molette `ui: auto|static|vite`), sans ce module. Un module en mode `static` n'appelle pas `registerEntry` → invisible de `listEntries()`/du superviseur. Cf `@nodefony/studio/CLAUDE.md` § Boot & intégration frontend.
@@ -134,13 +134,16 @@ Défaut `/_assets/<entryName>/` (surchargeable via `frontend.publicPath`). Sert 
 - Importer `@nodefony/framework` ou `@nodefony/http` (cycles potentiels via app config)
 - Remplacer `child_process.spawn` par `worker_threads` (testé/rejeté — sérialisation logs explose)
 
-## Roadmap
+## Surface réelle
 
-| Étape | Statut | Description                                                                      |
-| ----- | ------ | -------------------------------------------------------------------------------- |
-| MVP   | ⏳     | POC child_process vs single — mesure perf p99                                    |
-| 14.2  | ✅     | TemplateHelper prod (manifest.json injection) — 2026-05-24, page blanche résolue |
-| 14.3  | ⏳     | Multi-bundles validation (admin + shop + dashboard)                              |
-| 14.4  | 🟡     | Presets Vue3 ✅ + Angular ✅ (2026-05-20) — Svelte5/Solid restants               |
-| 14.5  | ⏳     | `nodefony frontend:create <module> <preset>` scaffold                            |
-| 14.6  | ⏳     | HMR cross-module (lien avec `watcherService.register`)                           |
+- **Presets** (`nodefony/src/presets/`) : `react19-vite`, `vue3-vite`, `angular-vite`,
+  `vanilla-vite`. Svelte et Solid n'existent pas.
+- **Commandes** (`nodefony/command/`) : `frontend:build`, `frontend:dev`, `frontend:status`.
+  Il n'y a **pas** de `frontend:create` — le scaffold d'un module à front passe par
+  `nodefony create module <nom> --frontend <fw>`.
+- **Multi-bundle** : exercé en vrai — Studio et `@nodefony/test-frontend-react` coexistent.
+- `TemplateHelper` injecte le `manifest.json` en production (tags hashés).
+
+> Avancement des phases → `MIGRATION_STATUS.md`. Le HMR cross-module reste ouvert ; il ne
+> passera **pas** par `watcherService` (service retiré du Kernel — le dev est piloté par
+> `DevSupervisor`).

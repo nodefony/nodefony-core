@@ -19,7 +19,7 @@ non chargé par défaut (Drizzle = ORM SQL par défaut).
    connecteur (config). `onKernelBoot` câble le data plane ORM + l'adapter d'erreurs. Ferme au `onTerminate`.
 2. **Adapter lib** : `MongooseOrm`/`Repository`/`Transaction` exportés (named) pour un usage direct / banc-test.
 
-## Décisions figées (refonte Ph.2, 2026-06-08)
+## Décisions figées (refonte Ph.2)
 
 - **`extends Service`, PAS `extends Orm` core** : la refonte a supprimé l'`Orm` legacy du core. Le
   service orchestre des adapters orm-core autonomes (modèle `DrizzleService`). Le core ne connaît plus l'ORM.
@@ -63,5 +63,5 @@ credentials + version) · `ping` (`admin().command({ping:1})`) · `probe` (`serv
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
-- Modifier `rolldown.config.ts` / `tsconfig.json` (`zod` ajouté à `external` le 2026-06-08).
+- Modifier `rolldown.config.ts` / `tsconfig.json` (`zod` ajouté à `external`).
 - Éditer les valeurs de `config.ts` à la main → modifier les `.default(...)` du **schéma**.

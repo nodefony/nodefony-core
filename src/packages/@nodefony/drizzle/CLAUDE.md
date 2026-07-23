@@ -11,7 +11,7 @@ Implémente `Orm`/`IOrm`, `IRepository<T>`, `ITransaction` au-dessus de Drizzle 
 
 Deux usages :
 
-1. **Module bootable** (depuis 2026-05-21) : `index.ts` exporte par défaut une
+1. **Module bootable** : `index.ts` exporte par défaut une
    classe `Drizzle extends Module` (`@services([DrizzleService])`). Ajouté à
    `@modules()` de l'app → `DrizzleService` connecte au boot (`onBoot`) un
    `DrizzleOrm` **par connecteur** de la config (`nodefony/config/config.ts`,
@@ -70,10 +70,10 @@ Deux usages :
   sans schéma (`BetterSQLite3Database<Record<string, never>>`), eager-load manuel.
 - Colonne d'une table : `(table as unknown as Record<string,SQLiteColumn>)[name]`.
 - `OFFSET` SQLite exige un `LIMIT` → `limit(-1)` si seul l'offset est posé.
-- **Runner = Vitest** (migré de Mocha le 2026-05-28, cf `feedback_test_framework_vitest`).
+- **Runner = Vitest** (migré de Mocha, cf `feedback_test_framework_vitest`).
   `vitest` vient de la **racine** ; tests en `globals:true` + `node:assert` (aucun import
   vitest ni chai). Ne pas réintroduire mocha/`.mocharc`.
-- **`SessionStorage` tolère le shutdown** (fix 2026-05-22, commit `ce181ba`) : `#repo()`
+- **`SessionStorage` tolère le shutdown** (commit `ce181ba`) : `#repo()`
   renvoie `null` si `!orm.isConnected()` (l'ORM se déconnecte au `onTerminate` avant le
   drain des serveurs http → requête Twig en vol qui retouchait l'ORM mort = `unhandledRejection`
   « no entity table registered under session »). read→session vide, write/gc/destroy/open→no-op.
@@ -87,13 +87,13 @@ Deux usages :
   jointure très complexe (CTE+window+sous-requêtes corrélées via trappe native,
   LEFT JOIN typé), user-drizzle, session-storage. **27 tests**.
 - `npm run test:load` (`vitest.config.load.ts`, pool forks `--expose-gc`) → `tests/load/` :
-  charge/limites/mémoire (8 tests). Mesures 2026-05-21 (Node 26, :memory:) :
+  charge/limites/mémoire (8 tests). Mesures (Node 26, :memory:) :
   insert 20k ≈ 15k ops/s, scan 20k ≈ 1M ops/s, $in(5000) 23ms, 30k cycles
   create/find/delete heapΔ 0.3MB, 300 connexions heapΔ 0.1MB (**0 fuite**).
 
 ## Adapter User (P5.9 ✅ — ORM SQL par défaut)
 
-Convention structure (figée 2026-06-08) : **`nodefony/entity/` = schéma, `nodefony/src/` = repository** (idem `@nodefony/mongoose`). Implémente le contrat `@nodefony/user` (peerDep) :
+Convention structure : **`nodefony/entity/` = schéma, `nodefony/src/` = repository** (idem `@nodefony/mongoose`). Implémente le contrat `@nodefony/user` (peerDep) :
 
 - **`userTable`** (`entity/userTable.ts`) : `sqliteTable("User")` schema-as-code. Colonnes JSON
   (`roles`/`socialProviders`/`metadata`, `mode:"json"`) + booléens (`enabled`/`locked`,
@@ -113,7 +113,7 @@ Convention structure (figée 2026-06-08) : **`nodefony/entity/` = schéma, `node
 - Sécurité : requêtes **paramétrées** (drizzle `sql\`…${x}\``, jamais de concat). Le credential
   (hash) transite par le repo = frontière de persistance assumée.
 
-## Store d'idempotence Drizzle (axe 3 P6.8 ✅ — 2026-06-26)
+## Store d'idempotence Drizzle (axe 3 P6.8 ✅)
 
 Implémente `IIdempotencyStore` (contrat au **CORE** `nodefony`, `import type` → 0 cycle) :
 dédup des **mutations** rejouées PARTAGÉE cross-pod, sans Redis (pour un cluster qui a déjà
@@ -140,7 +140,7 @@ RIEN d'autre à écrire.** Résolution du handle STRICTEMENT lazy par usage (la 
 Opt-out : `frameworkEntities: false` (module data-only) ; une app qui pose sa propre
 entité/fabrique AVANT le chargement du module garde la main (guards idempotents).
 
-> **Multi-dialecte (2026-06-26)** : `createIdempotencyTable(dialect)` produit la variante `sqlite`
+> **Multi-dialecte** : `createIdempotencyTable(dialect)` produit la variante `sqlite`
 > OU `postgres` ; `registerIdempotencyEntities(orm, dialect)` et `DrizzleIdempotencyStore.from(orm)`
 > (qui lit `orm.dialect`) la sélectionnent. Le store est **dialect-agnostique** (référence
 > `table.key`/`.expiresAt` via `eq`/`lt`). **Deux niveaux de preuve** :
@@ -187,7 +187,7 @@ main ; opt-out `frameworkEntities: false`.
 > `createAuditEntities(orm, dialect)`) ; le store référence les colonnes via une vue par nom logique
 > (`#c`) et exécute via `execTable` — `gc` normalise `changes ?? rowCount` (pg).
 
-## Portabilité multi-dialecte (chantier — Slice 0 ✅ 2026-06-26)
+## Portabilité multi-dialecte (chantier — Slice 0 ✅)
 
 > **Pourquoi** : un framework doit porter ses entités sur les bases majeures (sqlite dev/test,
 > postgres + mysql prod). Drizzle est **schema-as-code dialect-spécifique** (`sqliteTable` ≠ `pgTable`,
@@ -292,11 +292,24 @@ ni d'enregistrement app top-level) — LES 8 BRIQUES sur LES 3 DIALECTES** : `id
 
 **Restant** : DDL prod drizzle-kit (migrations versionnées par dialecte + `nodefony orm:migrate`).
 
-## Roadmap
+## Les stores que ce module fournit au framework
 
-- ✅ P7.4 adapter orm-core + ADR-0003 risque #3 résolu.
-- ✅ **P5.9 entité `User` Drizzle** (8 tests : CRUD + finders + tx + défauts). ORM par défaut → fait EN PREMIER (avant Mongoose P5.8).
-- ✅ **Store d'idempotence Drizzle (axe 3 P6.8, 2026-06-26)** — `IIdempotencyStore` SQL, `begin` atomique `ON CONFLICT DO UPDATE`, GC applicatif, 12 tests SQLite + **e2e Postgres cross-pod 7/7** (atomicité réelle prouvée).
-- ✅ **Journal d'audit Drizzle (P6.18)** — `IAuditStore` SQL append-only, pagination curseur composite auto-portant `<ts>:<id>` via query builder dialect-agnostique, gc rétention, dégradation gracieuse ; banc de contrat partagé 13 × 3 dialectes + 6 tests SQLite spécifiques. Multi-pod pg = slice multi-dialecte. Cf section « Journal d'audit Drizzle ».
-- ✅ **Store de secrets TOTP Drizzle** — `ITotpSecretStore` SQL (2FA persistant, comble le seul gap durable sans adapter). Table `totp_secret` (PK `userId`, 1 secret/user), `save` upsert, `update` patch partiel (anti-rejeu RFC 6238 préservé), `secretEnc` opaque (chiffré côté service). Auto-register `totp.store: "drizzle"`. **Porté sur les 3 dialectes** (`TOTP_PORTED = ALL_DIALECTS`, `registerStores.ts:92`) — comme webauthn, token, session, user, audit, webhook et idempotency : **aucun store drizzle n'est sqlite-only**.
-- 🚧 **Portabilité multi-dialecte (chantier)** — `connector.dialect` + `DrizzleOrm` lazy pg/mysql + **colKit** (+ `dateMs`, `mysqlJsonCompat`) + **queryKit** + repository PK-portable (`#pickOne`, chemins mysql sans RETURNING) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé ; **les 8 briques framework portées + prouvées sur PG et MySQL/MariaDB** (e2e par brique + banc de contrat 3 dialectes). Reste : DDL prod drizzle-kit. Cf section « Portabilité multi-dialecte ».
+Tous auto-enregistrés, tous portés sur les **3 dialectes** (cf `*_PORTED` dans `registerStores.ts`) :
+
+- **Entité `User`** — CRUD + finders + transactions + valeurs par défaut.
+- **Idempotence** (`IIdempotencyStore`) — `begin` atomique par `ON CONFLICT DO UPDATE`, GC applicatif ;
+  atomicité prouvée en cross-pod réel sur PostgreSQL.
+- **Journal d'audit** (`IAuditStore`) — append-only, pagination par **curseur composite auto-portant**
+  `<ts>:<id>` construit par un query builder dialect-agnostique, GC de rétention, dégradation
+  gracieuse. Banc de contrat partagé rejoué sur les 3 dialectes.
+- **Secrets TOTP** (`ITotpSecretStore`) — table `totp_secret` (PK `userId`), `save` en upsert,
+  `update` en patch partiel (préserve l'anti-rejeu RFC 6238), `secretEnc` opaque (le chiffrement est
+  au service, pas au store).
+- Plus session, token, webauthn, webhook.
+
+**Portabilité multi-dialecte** : `connector.dialect` + chargement paresseux de pg/mysql + **colKit**
+(`dateMs`, `mysqlJsonCompat`) + **queryKit** + repository PK-portable (`#pickOne`, chemins mysql sans
+RETURNING) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé. Les 8
+briques framework sont portées et prouvées sur PostgreSQL et MySQL/MariaDB. **Ce qui manque : le DDL
+de production (drizzle-kit)** — aujourd'hui les tables naissent d'un `CREATE TABLE IF NOT EXISTS`.
+Détail : section « Portabilité multi-dialecte ».

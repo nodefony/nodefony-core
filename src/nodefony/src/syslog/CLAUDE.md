@@ -78,8 +78,8 @@ Pdu.requestIdProvider; // (() => string | undefined) | null
 >
 > **Champs historiques** :
 >
-> - `pid` ajouté **2026-05-24** (auparavant pid n'existait qu'à l'affichage console, ne voyageait pas dans le pipeline structuré).
-> - `requestId` ajouté **2026-05-27** (action E du tableau « trucs en suspend » — corrélation log↔requête comblée). Provider injectable pour préserver l'isomorphisme (Pdu reste utilisable côté browser/debugbar — cf `src/client/debugbar/model.ts`).
+> - `pid` ajouté (auparavant pid n'existait qu'à l'affichage console, ne voyageait pas dans le pipeline structuré).
+> - `requestId` ajouté (action E du tableau « trucs en suspend » — corrélation log↔requête comblée). Provider injectable pour préserver l'isomorphisme (Pdu reste utilisable côté browser/debugbar — cf `src/client/debugbar/model.ts`).
 
 ## Flux d'un log
 
@@ -179,7 +179,7 @@ class LogsController {
 }
 ```
 
-## Format texte (depuis 2026-05-17)
+## Format texte
 
 `HH:MM:SS.mmm SEVERITY MSGID : payload`
 

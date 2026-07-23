@@ -267,12 +267,10 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
 
 ---
 
-## Roadmap
+## Limites du DI (ce qui n'existe PAS)
 
-```
-✅ A — @Inject property injection
-✅ C — Circular detection async-safe
-⬜ B — Scope "scoped" AsyncLocalStorage    (prérequis: Phase 4 HTTP handler)
-⬜ D — Registry par module (namespace)     (après B)
-⬜ E — @InjectLazy factory                 (après D)
-```
+- `DIScope` = `"singleton" | "transient"` **seulement** (`injector.ts:9`). Il n'y a **pas** de scope
+  `"scoped"` par requête au niveau du décorateur — l'isolation par requête passe par le `Scope` DI
+  créé par le pipeline HTTP, pas par `@injectable`.
+- Pas de registre par module : un seul espace de noms de services, global au container.
+- Pas de `@InjectLazy` / factory paresseuse.

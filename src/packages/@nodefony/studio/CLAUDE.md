@@ -128,7 +128,7 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 - Routing (tranché) : UI `/nodefony` + `/nodefony/{page}` ; data plane `/nodefony/<module>/api/*` (Studio = `/nodefony/studio/api/*`). `/studio` rejeté (collision app user).
 - Deps frontend dans le `package.json` du module (pas de `frontend/package.json` séparé).
 
-## TODO connus
+## Points ouverts
 
 - **Types** : le paquet est **publiable** (`private: false`, `files: [dist, public, docs]`) mais
   n'expose **pas** de `types` — **INTENTIONNEL** : pas de `tsconfig.declarations.json`, donc aucun

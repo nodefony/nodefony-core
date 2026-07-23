@@ -12,7 +12,7 @@
 Module exemple de Nodefony — sert de **terrain de jeu pour les tests d'intégration** du framework.
 Il expose des routes HTTP/WS couvrant tous les cas : sessions, contextes, crashes, uploads, streams.
 
-> **Identité / `users` (depuis 2026-06-19)** : ce module ne pose **PLUS** le service `"users"`
+> **Identité / `users`** : ce module ne pose **PLUS** le service `"users"`
 > (source d'identité du firewall, comptes `admin`/`user` de la zone `test-secure`). C'est désormais
 > l'**APP racine** qui le provisionne au boot, en dev ET en prod (`nodefony/security/provisionUsers.ts`,
 > dépôt `NF_USER_STORE` = drizzle par défaut | memory pour la charge). Ce module ne fournit que les
@@ -149,7 +149,7 @@ Le `public/` du module est **auto-monté sous `/test/`** par `server-static`
 ## Conventions
 
 - Chaque nouveau test d'intégration qui a besoin d'une route → l'ajouter ici dans le controller approprié
-- **Activation de session = `@UseSession()`** (classe/méthode) — plus de `this.startSession()` (refonte 2026-06-07). DefaultController = `@UseSession()` ; `SessionRuntimeController` = controller DÉDIÉ au cycle de vie (lazy/intent/readOnly/L1/regen/destroy + WS). Plus d'« aire » de session (`context`) — concept legacy retiré 2026-06-20.
+- **Activation de session = `@UseSession()`** (classe/méthode) — plus de `this.startSession()` (refonte). DefaultController = `@UseSession()` ; `SessionRuntimeController` = controller DÉDIÉ au cycle de vie (lazy/intent/readOnly/L1/regen/destroy + WS). Plus d'« aire » de session (`context`) — concept legacy retiré.
 - `RestController`/`SessionRuntimeController` utilisent `@Session()` param + `this.session` (getter)
 
 ---

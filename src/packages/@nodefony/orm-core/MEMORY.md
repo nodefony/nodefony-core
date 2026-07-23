@@ -46,7 +46,7 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - Multi-managers : `db_principale`/`db_logs`. DI `@Inject('repository.user.drizzle')`.
 - Tous ORM emit `onOrmReady` AVANT Kernel onReady (P5.2).
 
-## Data plane ORM — graphe canonique IA-first (`OrmAdminApi.ts`, 2026-05-22)
+## Data plane ORM — graphe canonique IA-first (`OrmAdminApi.ts`)
 
 - **But** : 1 représentation canonique sérialisable du modèle (ORMs+entités+colonnes+relations) qui sert ERD Studio (**React Flow** choisi) + **contexte IA** (text-to-SQL/RAG) + interop. Le diagramme = projection ; la DONNÉE = la pièce maîtresse.
 - **Types** (`interfaces/IOrmGraph.ts`) : `IColumnInfo` (name/type/primaryKey/nullable/unique), `IRelationInfo`, `IEntityGraphNode` (name/orm/columns/relations), `IOrmSummary` (name/default/connected/entityCount), `IOrmGraph`.
@@ -56,7 +56,7 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - **`registerOrmAdminApi(broker)`** idempotent (`has("orm")`). orm-core=lib pure → monté par module driver (**Drizzle `onKernelBoot`**), lit registres globaux → couvre tous les ORM. Runtime OK : `/nodefony/orm/api/*`.
 - Tests : `tests/unit/OrmAdminApi.test.ts` (6, **vitest** ; singleton+cleanup afterEach ; relations+DBML Refs).
 
-## Sonde FLUX ORM — débit/latence/slow (`QueryFlowMonitor.ts` + endpoint `flow`, 2026-05-23)
+## Sonde FLUX ORM — débit/latence/slow (`QueryFlowMonitor.ts` + endpoint `flow`)
 
 - **But** : observer le DÉBIT réel de requêtes (queries/s, latence moy+EWMA, requêtes lentes) en supervision — distinct du **profiler par-requête** (debug bar, buffer ALS dev-only) ET de la **santé** (`connection/health` : ping/stockage/pool). Patron sondes+hub.
 - **`queryFlowMonitor`** (singleton, `nodefony/src/QueryFlowMonitor.ts`) : process-wide, **indépendant de l'ALS**, **lazy** (Map au 1ᵉʳ record, ring slow au 1ᵉʳ lent). API : `enabled` (**OFF défaut** → coût nul prod/bancs), `slowMs` (défaut 50), `setEnabled`, `record(connector, durationMs, sql?)`, `snapshot(connector, vendor): IQueryFlow`. EWMA α=0.2 ; ring slow borné **20** (newest-first). Le `sql` n'est fourni par le tap que sur le **chemin lent** (rare) → **jamais `toSQL()` au cas nominal**.

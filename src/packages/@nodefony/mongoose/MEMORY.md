@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hétérogène (parité de contrat avec le driver SQL Drizzle). **Refonte Ph.2 (2026-06-08, virage ORM)** : plus aucun `extends Orm` core legacy. Le module est un **Module bootable** dont le service `extends Service` orchestre des adapters orm-core autonomes (modèle `DrizzleService`). Le core ne connaît plus l'ORM.
+Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hétérogène (parité de contrat avec le driver SQL Drizzle). **Refonte Ph.2 (virage ORM)** : plus aucun `extends Orm` core legacy. Le module est un **Module bootable** dont le service `extends Service` orchestre des adapters orm-core autonomes (modèle `DrizzleService`). Le core ne connaît plus l'ORM.
 
 ## Core Components
 
@@ -13,7 +13,7 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 - **`SessionStorage implements ISessionStorage`** (`nodefony/src/SessionStorage.ts`) : store de session portable via `ormRegistry.get(SESSION_CONNECTOR).getRepository("session")`. **Logique identique au store Drizzle** (timestamps ms, GC `$lt`). `#repo()`→`null` si ORM déconnecté (dégradation gracieuse au shutdown). Auto-register `SessionsService.registerStorage("mongoose", …)`.
 - **`sessionEntity`** : `@entity({ connector: SESSION_CONNECTOR, name:"session", schema })`. `SESSION_CONNECTOR = "nodefony"` (≠ `"default"` de Drizzle → 0 collision `entityRegistry` si les 2 modules cohabitent). Horodatages = `Number`.
 - **Adapter User (P5.8)** — `entity/userEntity.ts` (`userSchema` + `UserRow` + `createUserEntity`/`registerUserEntity`, binding ORM **dynamique**, `timestamps:true`) + `src/MongooseUserRepository.ts` (`implements IUserRepository`, décore `IRepository<UserRow>` + model natif ; `findBySocialProvider` via `$elemMatch` ; `findByIdentifier` ; `withTransaction` ; `listPage`/`countActiveAdmins` natifs = `find(filter).sort().skip().limit(+1)` + `countDocuments`, `roles:role` containment tableau, `$regex/i` substring, `_id` tiebreaker). 8 tests (ReplSet) + banc de pagination UNIQUE `@nodefony/user` (import cross-package).
-- **Convention structure (figée 2026-06-08)** : `nodefony/entity/` = **schémas** (sessionEntity, userEntity) · `nodefony/src/` = **couche d'accès** (SessionStorage, MongooseUserRepository) · `src/orm-core/` = **moteur générique**. Séparation données ↔ comportement (idem `@nodefony/drizzle`).
+- **Convention structure** : `nodefony/entity/` = **schémas** (sessionEntity, userEntity) · `nodefony/src/` = **couche d'accès** (SessionStorage, MongooseUserRepository) · `src/orm-core/` = **moteur générique**. Séparation données ↔ comportement (idem `@nodefony/drizzle`).
 - **`IEntity.timestamps?: boolean`** (orm-core) : Mongoose l'applique en option Schema (`createdAt`/`updatedAt` auto). Drizzle l'exprime en colonnes (schema-as-code) → flag sans effet côté SQL.
 - **`index.ts`** `@services([MongooseService])` + `onKernelBoot` : monte le data plane ORM (`registerOrmAdminApi`) + `setOrmHealthProvider`/`setOrmRichProvider` (GLOBAUX, couvrent tous les ORM → **app Mongoose-only n'a plus un Studio ORM muet**, dette C5 atténuée ; factorisation `wireOrmAdminPlane` = Ph.4) + `registerMongooseAdapter` (détection erreurs Mongoose dans `nodefonyError`, jusqu'ici dormante).
 

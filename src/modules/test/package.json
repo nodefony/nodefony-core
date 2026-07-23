@@ -5,7 +5,7 @@
   "author": "admin <admin@nodefony.com>",
   "main": "dist/index.js",
   "type": "module",
-  "types": "nodefony/types/types.d.ts",
+  "types": "dist/types/index.d.ts",
   "scripts": {
     "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "dev": "rolldown -c rolldown.config.ts --watch",

@@ -83,7 +83,7 @@ npm run build       # rolldown + tsgo → dist/ + dist/types
 ```
 
 > Service + controller = testés en **intégration live server** (curl `/api/tree` + `/api/page`), pas
-> en unit (ils dépendent du Kernel/Container). Validé runtime à la création (2026-05-31).
+> en unit (ils dépendent du Kernel/Container). Validé runtime à la création.
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 

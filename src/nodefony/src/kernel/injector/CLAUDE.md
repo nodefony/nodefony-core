@@ -43,7 +43,7 @@ l'importe reçoit `undefined`. Utiliser l'injection **par constructeur** (`@inje
 import { services } from "nodefony";
 import { entities } from "@nodefony/orm-core"; // ⚠️ PAS "nodefony"
 
-// Chargement de MODULES : plus de @modules (RETIRÉ 2026-06-03). La liste vit dans
+// Chargement de MODULES : plus de @modules (RETIRÉ). La liste vit dans
 // config.modules (manifeste ordonné), orchestrée par le Kernel à onPreRegister.
 // Cf mémoire IA project_module_loading_architecture.
 
@@ -174,7 +174,7 @@ Signature réelle (`decorators/kernelDecorator.ts` + `InjectableOptions` de `inj
 
 ⚠️ **Pas** d'option `singleton: boolean`, **pas** de `factory`, **pas** de scope `"global"`/`"request"`/`"module"`. Le `DIScope` ne prend que `"singleton"` ou `"transient"`. Le request-scope (`enterScope("request")`) est une notion du **Container** hiérarchique, distincte du DIScope (cf `container.md`).
 
-## État du DI
+## Ce qui est en place côté DI
 
 Circular detection (pile passée par valeur), tri topologique des `@services` (`serviceOrder.ts`) et **token = la classe** (clé container apprise à la pose, section « Singleton — résolution par la CLASSE » ci-dessus) sont **livrés**. Property injection (`@Inject`) reste **interne au core** (non exportée) — l'injection par constructeur est la seule voie publique. Avancement détaillé : `MIGRATION_STATUS.md`.
 
@@ -188,7 +188,7 @@ Circular detection (pile passée par valeur), tri topologique des `@services` (`
 | `Inject` introuvable à l'import        | Non exporté par le barrel du core (interne)        | Injection par constructeur (`@inject`)           |
 | Service tiré dans le mauvais scope     | Container hiérarchique remonte au parent           | Vérifier que le scope est ouvert avant injection |
 | Service absent après un `@services` KO | Échec passé à `handleServiceBootError` (non fatal) | Lire le BootReport (« boot DÉGRADÉ ») + logs     |
-| Decorator handler appelé 2×            | `setEvents()` appelé 2×                            | Guard `eventsRegistered` ajouté 2026-05-14       |
+| Decorator handler appelé 2×            | `setEvents()` appelé 2×                            | Guard `eventsRegistered` ajouté                  |
 
 ## Pattern type — service avec dépendances
 

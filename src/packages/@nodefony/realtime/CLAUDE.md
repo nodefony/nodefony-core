@@ -47,7 +47,7 @@ du framework serveur.
 | **Tests**             | Vitest + coverage v8 (convention universelle Nodefony, cf `feedback_test_framework_vitest`). Pas Mocha.                                                                                                                                                                                                                                                                                                                                                                  |
 | **Sécurité**          | 5 seams obligatoires DANS le module (cf section ci-dessous) pour que P6 se branche en plug                                                                                                                                                                                                                                                                                                                                                                               |
 
-## 🪡 5 seams sécurité — TOUS LIVRÉS (Bloc A étapes 2+6, 2026-05-28)
+## 🪡 5 seams sécurité — TOUS LIVRÉS (Bloc A étapes 2+6)
 
 P6 pourra se brancher sans refonte. Vue d'ensemble vulgarisée → [`docs/securite.md`](./docs/securite.md).
 

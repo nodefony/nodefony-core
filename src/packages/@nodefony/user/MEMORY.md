@@ -39,6 +39,11 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 - Build : warnings `../http/...` (TS18036/TS2322) = artefact monorepo (résolution Bundler cross-package), apparaissent aussi en buildant orm-core seul. **PAS** liés à user. Hors scope.
 - Test "objet gelé" : assigner sur frozen ne **throw** qu'en mode strict → tester la **valeur inchangée**, pas le throw.
 
-## État
+## Périmètre
 
-✅ P5.5a + P5.5 + P5.6 (`BcryptEncoder` + `UserService extends AbstractCrudService`). **32 tests**. ✅ **P5.9** Drizzle User + ✅ **P5.8** Mongoose User : adapters `IUserRepository` dans `@nodefony/drizzle`/`@nodefony/mongoose` (convention **entity/ = schéma, src/ = repository** ; + `createdAt`/`updatedAt`). Suite = **P5.14** (session.user, bloqué P6) ; `IUserProvider` (pont security) = à implémenter en P6.
+Contrats + `UserService` + `BcryptEncoder`. **Aucun ORM** : les deux implémentations de
+`IUserRepository` vivent chez les adapters (`@nodefony/drizzle`, `@nodefony/mongoose`), convention
+**`entity/` = schéma, `src/` = repository**, avec `createdAt`/`updatedAt`. Le pont vers le firewall
+passe par `UserService` lui-même : il `implements IUserProvider, IPasswordVerifier,
+IOAuthUserProvisioner` (`nodefony/service/UserService.ts:69`) — c'est lui que `@nodefony/security`
+consomme, jamais le repository directement.

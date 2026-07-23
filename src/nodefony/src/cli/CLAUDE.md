@@ -354,13 +354,13 @@ exit `EX_USAGE` (64), **jamais** de fallback serveur. Happy-path ET typo couvert
 
 ## ⚠️ Gotchas
 
-| Symptôme                            | Cause                                        | Fix                                                     |
-| ----------------------------------- | -------------------------------------------- | ------------------------------------------------------- |
-| `Cannot add option '-v, --version'` | `setCommandVersion()` appelé 2×              | Constructor `Cli` le fait déjà                          |
-| Command pas matched par Commander   | `addCommand()` appelé après `parseCommand()` | Ordre : add → parse                                     |
-| `onKernelStart` pas appelé          | Override sans `super` ? Vérifier signature   | Doit être `async onKernelStart(): Promise<void>`        |
-| `generate()` pas appelé             | Mauvaise phase `kernelEvent`                 | Vérifier que le kernel fire bien cet event              |
-| 2× registered listeners sur Command | `setEvents()` appelé 2×                      | Guard `eventsRegistered` ajouté 2026-05-14 — idempotent |
+| Symptôme                            | Cause                                        | Fix                                              |
+| ----------------------------------- | -------------------------------------------- | ------------------------------------------------ |
+| `Cannot add option '-v, --version'` | `setCommandVersion()` appelé 2×              | Constructor `Cli` le fait déjà                   |
+| Command pas matched par Commander   | `addCommand()` appelé après `parseCommand()` | Ordre : add → parse                              |
+| `onKernelStart` pas appelé          | Override sans `super` ? Vérifier signature   | Doit être `async onKernelStart(): Promise<void>` |
+| `generate()` pas appelé             | Mauvaise phase `kernelEvent`                 | Vérifier que le kernel fire bien cet event       |
+| 2× registered listeners sur Command | `setEvents()` appelé 2×                      | Guard `eventsRegistered` ajouté — idempotent     |
 
 ## Lancer des tests
 

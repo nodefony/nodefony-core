@@ -3,7 +3,7 @@
 > Audience IA en session. Voir [`MEMORY.md`](./MEMORY.md) (internals concis) + [`README.md`](./README.md) (humain).
 > **Kit de session** : mémoire IA `project_p6_security_kit` (LIRE EN PREMIER avant toute session security) — plan S1-S6, 9 slots anti-refonte, vision Studio.
 >
-> ⚠️ **REVUE 2026-06-08** — décisions ci-dessous **partiellement périmées** (détail + cible : `project_p6_security_kit` §REVUE) : « full stateless » → **hybride** (session BFF + JWT API, révisé 06-06) · **Symfony ≠ modèle** (garder les invariants, virer l'attribution) · ouvrir **Argon2id** · intégrer **Passkeys/WebAuthn + Token Exchange RFC 8693 (agents)** · identité = `IUser` racine + slot agent. **Gros travail = au démarrage P6.**
+> ⚠️ **REVUE** — décisions ci-dessous **partiellement périmées** (détail + cible : `project_p6_security_kit` §REVUE) : « full stateless » → **hybride** (session BFF + JWT API, révisé 06-06) · **Symfony ≠ modèle** (garder les invariants, virer l'attribution) · ouvrir **Argon2id** · intégrer **Passkeys/WebAuthn + Token Exchange RFC 8693 (agents)** · identité = `IUser` racine + slot agent. **Gros travail = au démarrage P6.**
 
 ## Rôle
 
@@ -44,7 +44,7 @@ nodefony/
     └── securityHeaders.ts     SecurityHeaders — CSP/Referrer/COOP/COEP/CORP (applicatif ; transport=http, J5)
 ```
 
-## État (S1→J9 livrés ; J5 CSRF étape 1 livrée ; P6.12 API Keys livré)
+## Capacités en place
 
 ✅ Fondation S1 + authenticators (Anonymous/Password/Session/JWT/**apikey**) + Argon2id + throttle NIST +
 session BFF (J3) + JWT jose (J4) + WebAuthn/passkeys (J9) + OAuth2 social (J9) + **CSRF J5 étape 1** +
