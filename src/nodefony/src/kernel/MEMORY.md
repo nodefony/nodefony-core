@@ -55,6 +55,13 @@ barrel) = erreur de CONFIGURATION explicite non honorable (infra déclarée injo
 portée sur le dialecte) → fatale MÊME en dev (le fail-soft produirait un serveur « vivant » aux
 briques durables mortes — login impossible, cause noyée en WARNING, vécu). Guard `is()` tolérant
 cross-copies (name check). Le tag `critical=false` d'un module garde la main (jamais fatal).
+⚠️ **Un hook NON TAGUÉ est traité comme CRITIQUE** — et `static critical` ne tague QUE les hooks de
+classe (`setEvents`). Tout hook posé à la main (service d'un module, décorateur `@services` /
+`@controllers`) doit passer par **`Module.hookKernel(event, fn)`**, qui pose `owner` + `critical` du
+module. Sinon la promesse `critical = false` ne couvre pas ce hook (vécu : adapters ORM — une base
+injoignable interrompait le boot en production malgré `Mongoose.critical = false`, journal
+« (anonyme) »). Sentinelles : `KernelLifecycle.test.ts` (contrôle négatif inclus) +
+`bootHookPolicy.test.ts` de drizzle et mongoose.
 
 **Events bitmask** (`Events`, frozen, exporté):
 
@@ -150,6 +157,11 @@ Spec figée par `src/tests/resolveModuleEntry.test.ts` (6 tests, dont la régres
 - `onKernelReady` → `kernel.once("onReady", fn.bind(this))`
 - - `kernel.prependOnceListener("onPreBoot", ...)` → charge `package.json` + `readOverrideModuleConfig()`
 - **CRITIQUE** : hooks = méthodes prototype (pas property initializers). `super()` tourne avant les initializers.
+- Tous tagués `tagListener(fn, name, static critical)`.
+
+**hookKernel(event, fn)**: pose un hook `once` AU NOM du module (owner + criticité), pour tout hook
+hors `setEvents` — services (`this.module.hookKernel("onBoot", …)`), décorateurs `@services`
+(`onPreBoot`) et `@controllers` (`onBoot`). Remplace `kernel.once(...)` nu, qui perdait la politique.
 
 **Lifecycle hooks** (optionnels, méthodes prototype):
 

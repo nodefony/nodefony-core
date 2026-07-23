@@ -252,6 +252,37 @@ class Module<TConfig = Record<string, unknown>>
   }
 
   /**
+   * Pose un hook de cycle de vie du kernel **au nom de ce module** — donc avec sa
+   * politique de boot (propriétaire + criticité), comme les hooks de classe.
+   *
+   * À utiliser partout où un hook est posé « à la main » depuis le module ou
+   * depuis un de ses services (`this.module.hookKernel("onBoot", …)`) plutôt que
+   * `kernel.once(...)` directement. Pourquoi : un listener non tagué n'a pas de
+   * criticité, et {@link Kernel.isBootErrorFatal} traite l'absence de tag comme
+   * **critique**. Un module qui déclare pourtant `static critical = false`
+   * voyait donc son échec interrompre le boot en production — la déclaration ne
+   * portait que sur ses hooks de classe, pas sur ceux de ses services. Le
+   * journal ne pouvait même pas nommer le coupable (`"(anonyme)"`).
+   *
+   * @param event - nom de l'événement de cycle (`onRegister`, `onBoot`, `onReady`…).
+   * @param listener - le hook ; il hérite du nom et de la criticité du module.
+   * @returns le module (chaînable).
+   */
+  hookKernel(
+    event: string,
+    listener: (...args: never[]) => unknown | Promise<unknown>,
+  ): this {
+    const critical = (this.constructor as typeof Module).critical;
+    this.kernel?.once(
+      event,
+      tagListener(listener as object, this.name, critical) as (
+        ...args: unknown[]
+      ) => unknown,
+    );
+    return this;
+  }
+
+  /**
    * Détecte les overrides de config destinés à d'autres modules (clés `Module-<name>`).
    *
    * Permet à un module de surcharger la config d'un autre module sans toucher au code de

@@ -750,6 +750,106 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
     assert.strictEqual(r.stopped, false); // optionnel → pas fatal, le boot continue
   });
 
+  // ── UN HOOK POSÉ À LA MAIN PAR UN MODULE / SON SERVICE (Module.hookKernel) ──
+  // `static critical = false` ne couvrait QUE les hooks de classe posés par
+  // `setEvents()`. Un service qui faisait `kernel.once("onBoot", …)` — la
+  // connexion des adapters ORM, l'instanciation des services décorés — posait un
+  // listener SANS tag : traité comme critique, il interrompait le boot en
+  // production au nom d'un module qui s'était déclaré optionnel, et le journal ne
+  // pouvait nommer personne. `Module.hookKernel()` fait hériter la politique.
+  describe("Module.hookKernel — la politique du module suit ses hooks à la main", () => {
+    /** Module optionnel dont un « service » pose son hook au nom du module. */
+    function optionalModuleWithServiceHook(
+      k: Kernel,
+      hook: () => void,
+    ): Module {
+      class OptionalWithService extends Module {
+        static override critical = false;
+        constructor(kernel: Kernel) {
+          super("opt-svc", kernel, "/tmp/opt-svc", {});
+          // Ce que fait un service dans son constructeur.
+          this.hookKernel("onBoot", hook);
+        }
+      }
+      return new OptionalWithService(k);
+    }
+
+    it("pose le tag du module (propriétaire + criticité) sur le hook", () => {
+      const k = mkKernel("development");
+      optionalModuleWithServiceHook(k, () => {});
+      const tags = (k as any).nc
+        .rawListeners("onBoot")
+        .map((l: unknown) => readListenerTags(l));
+      assert.ok(
+        tags.some((t: any) => t.owner === "opt-svc" && t.critical === false),
+        "le hook du service doit porter le nom ET la criticité de son module",
+      );
+    });
+
+    it("prod: l'échec d'un module optionnel NE tue plus le boot", async () => {
+      const k = mkKernel("production");
+      optionalModuleWithServiceHook(k, () => {
+        throw new Error("base injoignable");
+      });
+      const r = await k.fireLifecycle("onBoot", k);
+      assert.strictEqual(r.errors.length, 1);
+      assert.strictEqual(
+        r.stopped,
+        false,
+        "le module s'est déclaré optionnel : sa base injoignable ne doit pas " +
+          "interrompre le boot en production",
+      );
+    });
+
+    it("prod: le MÊME hook posé sans tag interrompt le boot (contrôle négatif)", async () => {
+      const k = mkKernel("production");
+      // Exactement ce que faisaient les adapters ORM avant le correctif.
+      k.once("onBoot", () => {
+        throw new Error("base injoignable");
+      });
+      await assert.rejects(
+        () => k.fireLifecycle("onBoot", k),
+        /base injoignable/,
+        "sans tag, l'échec est traité comme critique — c'était le défaut",
+      );
+    });
+
+    it("prod: un module CRITIQUE reste fatal (le tag n'assouplit rien)", async () => {
+      const k = mkKernel("production");
+      class CriticalWithService extends Module {
+        constructor(kernel: Kernel) {
+          super("crit-svc", kernel, "/tmp/crit-svc", {});
+          this.hookKernel("onBoot", () => {
+            throw new Error("ORM par défaut injoignable");
+          });
+        }
+      }
+      new CriticalWithService(k);
+      await assert.rejects(
+        () => k.fireLifecycle("onBoot", k),
+        /ORM par défaut injoignable/,
+      );
+    });
+
+    it("le journal NOMME le module au lieu de « (anonyme) »", async () => {
+      const k = mkKernel("development");
+      const cap = captureLogs(k);
+      optionalModuleWithServiceHook(k, () => {
+        throw new Error("base injoignable");
+      });
+      await k.fireLifecycle("onBoot", k);
+      cap.stop();
+      assert.ok(
+        cap.messages.some((m) => m.includes("opt-svc")),
+        "un échec de boot doit désigner son propriétaire",
+      );
+      assert.ok(
+        !cap.messages.some((m) => m.includes("(anonyme)")),
+        "plus aucun échec anonyme pour un hook de module",
+      );
+    });
+  });
+
   // ── DEV DOIT CRIER CE QUE LA PROD FERAIT (F142) ────────────────────────────
   // Le défaut de criticité est STRICT : un hook non tagué (`critical ===
   // undefined`) est traité comme critique. Conséquence longtemps invisible :

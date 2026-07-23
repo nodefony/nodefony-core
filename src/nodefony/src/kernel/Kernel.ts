@@ -2292,9 +2292,12 @@ class Kernel extends Service implements IKernel {
       this.log(
         `boot lifecycle: en production, cet échec de "${who}" INTERROMPRAIT le boot` +
           (critical === undefined
-            ? ` — ce hook ne porte aucun tag de criticité (posé hors d'un Module ?),` +
-              ` et un hook non tagué est traité comme CRITIQUE. Déclarer` +
-              ` \`static critical = false\` sur le Module porteur si l'échec est tolérable.`
+            ? ` — ce hook ne porte aucun tag de criticité, et un hook non tagué est` +
+              ` traité comme CRITIQUE. S'il vient d'un module (ou d'un de ses` +
+              ` services), le poser avec \`module.hookKernel("<event>", …)\` plutôt` +
+              ` que \`kernel.once(…)\` : il héritera du nom et de la criticité du` +
+              ` module. \`static critical = false\` ne couvre QUE les hooks de` +
+              ` classe — un hook posé à la main y échappe.`
             : `.`),
         "WARNING",
       );

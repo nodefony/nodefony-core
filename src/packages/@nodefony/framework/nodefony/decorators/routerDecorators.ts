@@ -22,7 +22,10 @@ function controllers(
     class NewConstructorControllers extends constructor {
       constructor(...args: any[]) {
         super(...args);
-        this.kernel?.once("onBoot", async () => {
+        // Tagué au nom du module (`hookKernel`) : l'enregistrement des
+        // controllers suit la criticité de son module, et un échec nomme
+        // désormais le coupable au lieu de « (anonyme) ».
+        this.hookKernel("onBoot", async () => {
           return this.initDecoratorControllers();
         });
       }

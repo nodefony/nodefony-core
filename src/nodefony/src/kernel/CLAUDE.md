@@ -104,6 +104,8 @@ export class MyModule extends Module {
 
 ⚠️ **CRITIQUE** : hooks **doivent** être méthodes prototype, pas property initializers ni arrow functions — `super()` tourne AVANT les initializers.
 
+⚠️ **Hook posé HORS `setEvents()` → `module.hookKernel(event, fn)`, jamais `kernel.once(...)`.** `static critical` ne tague que les hooks de classe ; un listener non tagué est traité comme **critique** par la politique de boot. Un service qui pose sa connexion avec `kernel.once("onBoot", …)` fait donc échouer le boot en production même si son module se déclare optionnel — et le journal désigne « (anonyme) ». `hookKernel` fait hériter propriétaire et criticité. Vaut aussi pour les décorateurs qui enveloppent un module (`@services`, `@controllers`).
+
 ## CliKernel — spécificités
 
 ### Pattern de construction

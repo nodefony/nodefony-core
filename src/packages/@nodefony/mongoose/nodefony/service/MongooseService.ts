@@ -37,8 +37,11 @@ class MongooseService extends Service {
     );
     this.module = module;
 
-    // Connexion au boot (après chargement des modules/entités), fermeture au shutdown.
-    this.kernel?.once("onBoot", async () => {
+    // Connexion au boot (après chargement des modules/entités), fermeture au
+    // shutdown. `module.hookKernel` et non `kernel.once` : sans le tag, la
+    // promesse `static critical = false` du module ne couvrait PAS ce hook — une
+    // base injoignable interrompait le boot en production, malgré elle.
+    this.module.hookKernel("onBoot", async () => {
       // Sonde de flux ORM : OFF en prod (coût nul hot path), ON sinon. Override
       // NODEFONY_ORM_FLOW. Calcul factorisé en orm-core (C5).
       queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));

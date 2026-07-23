@@ -53,8 +53,11 @@ class DrizzleService extends Service {
     );
     this.module = module;
 
-    // Connexion au boot (après chargement des modules/entités), fermeture au shutdown.
-    this.kernel?.once("onBoot", async () => {
+    // Connexion au boot (après chargement des modules/entités), fermeture au
+    // shutdown. `module.hookKernel` et non `kernel.once` : le hook hérite ainsi
+    // du nom et de la criticité du module. Posé à la main, il n'aurait aucun tag
+    // — donc « critique » par défaut, et un journal qui ne nomme personne.
+    this.module.hookKernel("onBoot", async () => {
       // Sonde de flux ORM : OFF en prod (coût nul hot path), ON sinon. Override
       // NODEFONY_ORM_FLOW. Calcul factorisé en orm-core (C5).
       queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));

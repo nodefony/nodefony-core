@@ -37,7 +37,10 @@ function services(
     class NewConstructorService extends constructor {
       constructor(...args: any[]) {
         super(...args);
-        this.kernel?.once("onPreBoot", async () => {
+        // Tagué au nom du module (`hookKernel`) : un module optionnel dont un
+        // service échoue à l'instanciation doit rester fail-soft, y compris en
+        // production. Un `kernel.once` nu n'aurait porté aucune criticité.
+        this.hookKernel("onPreBoot", async () => {
           return await this.initDecoratorServices();
         });
       }
