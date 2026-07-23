@@ -569,17 +569,24 @@ Deux pièges de lecture, signalés dans l'entité elle-même :
 
 ### Les backends disponibles — et ceux qui manquent
 
-| Backend    | Enregistré par                                | Durabilité                          | État               |
-| ---------- | --------------------------------------------- | ----------------------------------- | ------------------ |
-| `memory`   | builtin (`totpSecretStoreRegistry.ts:54`)     | **volatile** — perdu au redémarrage | ✅ dev / tests     |
-| `drizzle`  | `@nodefony/drizzle` (`registerStores.ts:279`) | durable, partagé entre pods         | ✅ 3 dialectes SQL |
-| `mongoose` | —                                             | —                                   | ❌ non implémenté  |
-| `redis`    | —                                             | —                                   | ❌ non implémenté  |
+| Backend    | Enregistré par                                | Durabilité                          | État                 |
+| ---------- | --------------------------------------------- | ----------------------------------- | -------------------- |
+| `memory`   | builtin (`totpSecretStoreRegistry.ts:54`)     | **volatile** — perdu au redémarrage | ✅ dev / tests       |
+| `drizzle`  | `@nodefony/drizzle` (`registerStores.ts:279`) | durable, partagé entre pods         | ✅ 3 dialectes SQL   |
+| `mongoose` | —                                             | —                                   | ⏳ manquant, à venir |
+| `redis`    | —                                             | —                                   | ❌ hors vocation     |
 
-**Deux backends sur quatre envisageables**, donc — et c'est un choix assumé : la couverture des
-stores est adaptée à la nature de chaque brique, pas alignée par principe. Concrètement, une
-application MongoDB qui active le 2FA **retombe sur `memory`** (avec la raison annoncée dans les logs
-de boot) : ses secrets ne survivront pas au redémarrage.
+Ces deux absences ne se valent pas.
+
+`redis` **n'en aura pas** : c'est un cache, ses entrées sont évincibles — un secret de second facteur
+n'a rien à y faire. C'est une décision, pas un retard.
+
+`mongoose` **doit en avoir un** : une application choisit son ORM, elle ne choisit pas de se passer
+du 2FA. Aujourd'hui, une application MongoDB qui active le 2FA **retombe sur `memory`** (avec la
+raison annoncée dans les journaux de boot, et un avertissement en production) : ses secrets ne
+survivent pas au redémarrage, et ses utilisateurs se retrouvent verrouillés hors de leur second
+facteur. **En attendant** : charger `@nodefony/drizzle` à côté de Mongo — même en SQLite local — suffit
+à rendre le store durable, les deux modules cohabitent sans conflit.
 
 Côté `drizzle`, les **trois dialectes** sont portés — `TOTP_PORTED` vaut l'ensemble des dialectes
 (`registerStores.ts:92`) : SQLite, PostgreSQL, MySQL/MariaDB. Le store n'écrit **aucun SQL natif**,

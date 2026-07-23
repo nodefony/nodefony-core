@@ -577,8 +577,14 @@ ligne de garde `limit + 1` (`DrizzleAuditStore.ts:198`).
 | `@nodefony/redis`    | ❌ absent     | —                                   |
 
 Mongoose porte session, user, jetons, passkeys et webhooks, mais **pas** l'audit ; Redis non plus.
-Une application MongoDB qui veut un journal durable doit soit brancher un store maison (voir
-l'extension ci-dessous), soit héberger le journal sur une base SQL.
+Ces deux absences n'ont pas le même statut : Redis est un **cache**, ses entrées sont évincibles —
+un journal d'audit n'a rien à y faire, et il n'en aura pas. Mongo, lui, est un chemin **durable** :
+l'audit y **manque**, et c'est un manque à combler (objectif « full NoSQL », `MIGRATION_STATUS.md`
+P7.11) — un utilisateur choisit sa base de données, pas de perdre sa traçabilité.
+
+En attendant, une application MongoDB qui veut un journal durable a trois voies : brancher un store
+maison (voir l'extension ci-dessous), charger `@nodefony/drizzle` à côté de Mongo — même en SQLite
+local, les deux modules cohabitent — ou héberger le journal sur une base SQL.
 
 ### La table `audit_event`
 

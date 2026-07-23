@@ -210,13 +210,22 @@ nature `durable`. Comparé aux deux autres adapters officiels :
 | Nature        |          durable          |           durable            |           cache           |
 
 > [!IMPORTANT]
-> **Ces trois cases vides sont un choix, pas un retard.** Drizzle est l'adapter SQL de référence, et
-> il couvre tout : c'est son rôle. Mongoose couvre ce pour quoi MongoDB est le bon outil — de la
-> donnée applicative durable, riche et souple. Le journal d'audit est un flux **append-only** de
-> conformité, l'idempotence une garantie de **courte durée** à forte contention, le secret TOTP une
-> valeur minuscule chiffrée : ces trois-là appellent d'autres propriétés que celles d'un document
-> métier. Choisir Mongo pour tes données ne t'oblige donc à rien : les briques non portées se
-> résolvent ailleurs, **et te le disent**.
+> **Ces trois cases vides sont un manque, et il sera comblé.** L'objectif est qu'une application
+> puisse tourner **entièrement sur MongoDB, sans charger `@nodefony/drizzle`** — donc mongoose à 8/8
+> (`MIGRATION_STATUS.md`, P7.11). Le raisonnement « ces briques-là appellent d'autres propriétés »
+> décrit une préférence technique, pas ce que vit l'utilisateur : **tu choisis une base de données, tu
+> ne choisis pas de perdre le 2FA, la traçabilité ou la déduplication.**
+>
+> En attendant, ces trois briques se résolvent ailleurs **et te le disent** (repli annoncé au boot,
+> avertissement en production) — mais mesure ce que le repli coûte : secrets TOTP perdus au
+> redémarrage (utilisateurs verrouillés hors de leur second facteur), journal d'audit volatil,
+> idempotence sans effet entre pods. La parade immédiate tient en une ligne : charger
+> `@nodefony/drizzle` à côté de Mongo, **même en SQLite local** — les deux modules cohabitent, chaque
+> brique choisit son store.
+>
+> La colonne `redis`, elle, restera creuse là où elle l'est : c'est un **cache**, ses entrées sont
+> évincibles. Un secret de second facteur ou un journal de conformité n'y ont pas leur place. Ça,
+> c'est un choix.
 
 ### Ce qui se passe quand tu ne choisis rien
 
