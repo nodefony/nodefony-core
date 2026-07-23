@@ -26,7 +26,7 @@ source: "docs/skills/index.md"
 | [`nodefony-debug`](nodefony-debug.md)                                   | 1.1.0   |   194 |    0 |       0 |    ✅    |
 | [`nodefony-documentation`](nodefony-documentation.md)                   | 2.3.0   |   641 |    1 |       6 |    ✅    |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md)                   | 2.0.0   |   294 |    8 |       0 |    ✅    |
-| [`nodefony-frontend-dev`](nodefony-frontend-dev.md)                     | 1.0.0   |    98 |    6 |       0 |    ✅    |
+| [`nodefony-frontend-dev`](nodefony-frontend-dev.md)                     | 1.0.0   |    99 |    6 |       0 |    ✅    |
 | [`nodefony-frontend-verify`](nodefony-frontend-verify.md)               | 1.0.0   |   135 |    0 |       0 |    ✅    |
 | [`nodefony-generate-symbols`](nodefony-generate-symbols.md)             | —       |   136 |    0 |       0 |    ✅    |
 | [`nodefony-get-module-config`](nodefony-get-module-config.md)           | —       |    62 |    0 |       0 |    ✅    |
@@ -40,7 +40,7 @@ source: "docs/skills/index.md"
 | [`nodefony-roadmap`](nodefony-roadmap.md)                               | —       |   161 |    0 |       0 |    ✅    |
 | [`nodefony-security-review`](nodefony-security-review.md)               | —       |   356 |    0 |       0 |    ✅    |
 | [`nodefony-session`](nodefony-session.md)                               | —       |   555 |    0 |       0 |    ✅    |
-| [`nodefony-skill`](nodefony-skill.md)                                   | 1.0.0   |   138 |    0 |       0 |    ✅    |
+| [`nodefony-skill`](nodefony-skill.md)                                   | 1.0.0   |   142 |    0 |       0 |    ✅    |
 | [`nodefony-start-server`](nodefony-start-server.md)                     | —       |   209 |    0 |       2 |    ✅    |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md)                         | 2.0.0   |   143 |    6 |       0 |    ✅    |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md)               | —       |    77 |    0 |       0 |    ✅    |

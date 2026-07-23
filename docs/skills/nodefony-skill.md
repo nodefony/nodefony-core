@@ -19,7 +19,7 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 |                          |                         |
 | ------------------------ | ----------------------- |
 | Version                  | `1.0.0`                 |
-| Corps                    | 138 lignes              |
+| Corps                    | 142 lignes              |
 | Description              | 1013 / 1024 caractères  |
 | Déclencheurs             | 11                      |
 | Ressources `references/` | 0 page(s)               |
@@ -60,6 +60,6 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | description de 1 à 1024 caractères        |  ✅  | 1013   |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 138    |
+| corps < 500 lignes (recommandation)       |  ✅  | 142    |
 
 Le détail du standard et la méthode de mesure : [Outillage agents](../outillage-agents.md).

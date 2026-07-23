@@ -97,10 +97,9 @@ node scripts/skills-doc.mjs --check   # contrôle seul (CI)
 ```
 
 Il vérifie : `name` conforme et égal au dossier · `description` de 1 à 1024 caractères · aucun champ
-hors standard · ressources en `references/` · corps < 500 lignes (avertissement). Il **échoue** (sortie
-
-1. sur un manquement dur, et régénère la **fiche publique** du skill dans `docs/skills/<nom>.md` —
-   version, contenu, déclencheurs, ressources, scripts avec leurs options et variables d'environnement.
+hors standard · ressources en `references/` · corps < 500 lignes (avertissement). Sur un manquement
+dur il **sort en échec**, et il régénère la **fiche publique** du skill dans `docs/skills/<nom>.md` —
+version, contenu, déclencheurs, ressources, scripts avec leurs options et variables d'environnement.
 
 Validateur officiel du standard, quand il est installé : `skills-ref validate ./<skill>`.
 

@@ -19,7 +19,7 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 |                          |                                 |
 | ------------------------ | ------------------------------- |
 | Version                  | `1.0.0`                         |
-| Corps                    | 98 lignes                       |
+| Corps                    | 99 lignes                       |
 | Description              | 876 / 1024 caractères           |
 | Déclencheurs             | 20                              |
 | Ressources `references/` | 6 page(s), 14 fichiers au total |
@@ -63,6 +63,6 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | description de 1 à 1024 caractères        |  ✅  | 876    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 98     |
+| corps < 500 lignes (recommandation)       |  ✅  | 99     |
 
 Le détail du standard et la méthode de mesure : [Outillage agents](../outillage-agents.md).
