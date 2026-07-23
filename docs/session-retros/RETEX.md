@@ -15,6 +15,20 @@
 
 ---
 
+## 🎯 Une garantie LOCALE n'est pas une garantie de bout en bout
+
+- `[1× — 2026-07-24]` ⭐ **Un commentaire peut être vrai chez lui et faux dans le pipeline.** `Resolver.executeAction` affirmait que `@IsGranted` « court-circuite l'instanciation DI + `initialize()` (Zero Trust) » : exact **de sa méthode**, faux du trajet HTTP, où le kernel avait déjà instancié en amont. Personne n'avait menti — le contexte d'appel a invalidé la promesse. **Une garantie de sécurité écrite dans un commentaire doit être prouvée par un test qui part du DEHORS** (ici : frapper la route en anonyme et regarder si le code du controller a tourné), pas relue dans la fonction qui la porte.
+- `[1× — 2026-07-24]` **Pour prouver un ORDRE d'exécution, instrumenter le point observé et le relire par une route publique.** Le mouchard vit hors des instances (une instance ne survit pas à sa requête) et se lit hors de la zone protégée (un banc anonyme ne peut pas lire ce qu'une zone fermée a écrit). Trois lignes de décor, et l'ordre devient un fait mesuré au lieu d'une phrase.
+
+## 📐 La cible d'une mesure fait partie du décor
+
+- `[1× — 2026-07-24]` **Le défaut d'un script de banc peut être périmé alors que la bonne cible existe.** Je mesurais sur `/nodefony/kernel/api/livez` — qui traverse EN PLUS la zone firewall, un authenticator, le broker admin et appelle `getBootReport()`. Le user a rappelé qu'une route avait été faite EXPRÈS (`/nodefony/kernel/bench`, corps figé, hors aire admin, flag `NF_BENCH_ROUTE=1`). **Avant de mesurer : chercher si une cible dédiée existe** — sinon on chiffre l'étage d'à côté. Figé depuis dans le skill + posé par le script.
+- `[1× — 2026-07-24]` **Un symbole introuvable à l'import = symbole DÉPLACÉ, pas runtime cassé.** Cinq bancs cluster importaient `RealtimeHub`/`ClusterBackplane` de `@nodefony/framework` ; tout est passé dans `@nodefony/realtime`. `.ai/symbols.json` (`.symbols.X.module`) le dit en une commande — avant de soupçonner une régression.
+
+## 📎 Un diff de code décale les ancres de la doc
+
+- `[1× — 2026-07-24]` **40 lignes insérées dans un service → 16 ancres `fichier:ligne` fausses dans sa page de doc**, qu'aucun humain ne verrait. `anchor-check` les nomme mais ne les répare pas : recaler par SYMBOLE (chercher la ligne du symbole cité, la plus proche de l'ancienne) puis relancer jusqu'à 0 SUSPECT. **Toute modification de code touche la doc qui l'ancre** — le gate doit tourner dans le même geste, pas à la revue suivante.
+
 ## 🧪 Un contrôle négatif mal conçu ne prouve rien (et c'est le mien)
 
 - `[3× — 2026-07-23e]` **Casser une règle NON normative ne fait pas mordre un gate.** Pour éprouver la barrière des skills, j'ai réduit une description à un caractère : toujours vert, car 1 ≤ 1024 — la règle n'était pas violée. Puis j'ai copié un lanceur existant pour simuler un orphelin : classé « à déplacer », catégorie que `--strict` ignorait. **Deux contrôles négatifs faux avant un vrai** (nom de skill ≠ dossier). Choisir la règle qu'on viole, et vérifier qu'elle est bien violée AVANT de conclure sur le gate.
@@ -63,6 +77,7 @@
 - `[1× — 2026-07-23]` ⭐ **Un slogan sur la NATURE d'un composant n'est pas une justification.** « Couverture adaptée à la nature, pas parité SQL×NoSQL » servait à expliquer une absence qui n'avait aucune raison d'être.
 - `[1× — 2026-07-23]` ⭐ **Vérifier ce que le composant porte DÉJÀ de la même famille avant d'invoquer sa nature.**
 - `[1× — 2026-07-23]` **Une couverture partielle affichée sans ses cases vides devient un choix aux yeux du lecteur** — montrer AUSSI ce qui n'est pas couvert.
+- `[1× — 2026-07-24]` **Écrire la limite vaut mieux qu'un exemple qui ne marche pas.** Demande d'un exemple « métier » pour les webhooks : impossible, la source est le journal d'audit et sa liste de catégories est FERMÉE. Plutôt qu'un `order.paid` qui ne partirait jamais, la page dit la limite et nomme le chantier qui la lèvera. Vérifier l'enum AVANT d'écrire l'exemple, pas après.
 
 ## 👻 Le MIROIR — une option qu'on POSE mais que rien ne LIT (motif du registre en cours)
 
