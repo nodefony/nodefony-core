@@ -50,9 +50,11 @@ const idempotencySchema = z.object({
         "`memory` = cache per-pod (la socket reste affine à son pod). Un nom " +
         "DISTRIBUÉ (`redis`, `drizzle`) est enregistré via " +
         "`registerIdempotencyStore(name, …)` (auto-register par les adapters) " +
-        "ET résolu au boot → override du défaut mémoire. Un nom EXPLICITE non " +
-        "câblé fait ÉCHOUER le boot (fail-loud : pas de dédup silencieuse en " +
-        "cluster). Reco prod multi-pod : `redis` (SET NX + TTL natif).",
+        "ET résolu au boot → override du défaut mémoire. Un nom EXPLICITE dont " +
+        "l'initialisation échoue AVORTE le boot en PRODUCTION uniquement " +
+        "(fail-loud : pas de dédup silencieuse en cluster) ; en dev/test, " +
+        "WARNING + repli mémoire pour ne pas bloquer une machine sans infra. " +
+        "Reco prod multi-pod : `redis` (SET NX + TTL natif).",
     ),
   gcIntervalS: z
     .number()

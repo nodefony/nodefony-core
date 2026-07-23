@@ -29,11 +29,12 @@ import type { IdempotentResponse } from "nodefony";
  * `ON CONFLICT` tient sous concurrence inter-pods.
  *
  * **Liaison ORM dynamique** (pattern `tokenEntity`/`userTable`, pas `@entity`
- * figé) : en approche B, c'est l'**application** qui câble le store
- * (`registerIdempotencyStore("drizzle", …)` — registre `@nodefony/framework`) ET
- * le connecteur cible (`registerIdempotencyEntities(connector)`). Le module drizzle
- * n'auto-enregistre rien (activer un store distribué est une décision de
- * déploiement, pas une conséquence du chargement du module).
+ * figé) : la table est statique, mais sa liaison dépend du connecteur configuré.
+ * C'est le **module drizzle** qui câble les deux au boot — entité puis fabrique —
+ * depuis `registerStores.ts:311-316` (`Drizzle.onKernelRegister`). L'application
+ * ne déclare rien : elle choisit son store (`NF_IDEMPOTENCY_STORE=drizzle`).
+ * Déclarer n'est pas activer — l'entité et la fabrique existent, le store n'est
+ * employé que si la config le nomme. Opt-out complet : `frameworkEntities: false`.
  *
  * ⚠️ **Pas de `.default()` SQL** : le DDL dérivé (`getTableConfig`) n'émet ni
  * `DEFAULT` ni index séparés (cf `DrizzleOrm.#createTableSQL`) — seules les

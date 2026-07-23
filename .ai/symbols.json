@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-23T11:02:39.727Z",
+  "generated": "2026-07-23T11:29:41.308Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -5691,7 +5691,7 @@
         "ILogSink"
       ],
       "decorators": [],
-      "description": "Driver de sink fichier NON bloquant (LB.W). Écrit via `fs.write` async sur un fd persistant ouvert en append (`\"a\"`) — **un fd PAR worker** (≠ stdout partagé hérité du master) → 0 lock d'inode = le…"
+      "description": "Driver de sink fichier NON bloquant (LB.W). Écrit via `fs.write` async sur un fd persistant ouvert en append (`\"a\"`) — **un fd PAR worker** (≠ stdout partagé hérité du master), donc sans contention…"
     },
     "FileSinkOptions": {
       "name": "FileSinkOptions",
@@ -7103,7 +7103,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Factory de la table de secrets TOTP pour un dialecte donné (mémoïsée — une instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ; `mysql` jette (S4)."
+      "description": "Factory de la table de secrets TOTP pour un dialecte donné (mémoïsée — une instance par dialecte). **Les trois dialectes sont portés** (`TOTP_PORTED = ALL_DIALECTS`, `registerStores.ts:92`) : sqlit…"
     },
     "totpSecretTable": {
       "name": "totpSecretTable",

@@ -56,8 +56,10 @@ const controllers: Record<string, TypeController<Controller>> = {};
  * }
  * ```
  *
- * @remarks Le constructor ajoute TOUJOURS 2 listeners (onBoot + onPostReady) indépendamment des
- *   hooks user — comportement normal pour récupérer rollup/watcher + démarrer le watch dev.
+ * @remarks Le constructor attache TOUJOURS **un** listener, indépendamment des hooks de la
+ *   sous-classe : un `prependOnceListener("onPreBoot")` qui charge le `package.json` du module
+ *   ({@link Module.setEvents}). Les hooks `onKernelRegister/Boot/Ready` ne sont attachés que si la
+ *   sous-classe les définit.
  */
 class Module<TConfig = Record<string, unknown>>
   extends Service
@@ -202,8 +204,10 @@ class Module<TConfig = Record<string, unknown>>
    * la sous-classe et les attache via `kernel.once()`. Si la sous-classe ne définit pas
    * un hook, il n'est pas attaché (pas de listener orphelin).
    *
-   * Toujours attache un listener `onPreBoot` (prepend, donc index 0) pour charger
-   * `package.json` + appliquer les overrides de config.
+   * Toujours attache un listener `onPreBoot` (prepend, donc index 0) pour charger le
+   * `package.json` du module. Les overrides de config `Module-<name>`, eux, ne passent
+   * PLUS par ici : ils sont appliqués par `Kernel.applyModuleConfigOverrides()` entre
+   * `onPreRegister` et `onRegister` (raison détaillée dans le corps de la méthode).
    */
   setEvents(): void {
     // Tags de politique de boot (Phase 3) : owner + criticité (statique → lisible

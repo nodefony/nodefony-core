@@ -56,9 +56,11 @@ const connectorSchema = z
       .optional()
       .describe(
         "Fichier SQLite du connecteur (dialecte `sqlite`). OMIS → résolu au boot " +
-          "vers `<app>/nodefony/databases/nodefony-<connecteur>.db` (kernel " +
-          "présent). `:memory:` = base éphémère en mémoire (tests). Surchargé par " +
-          "le infra database `NF_DATABASE_URL=sqlite:…` pour le connecteur primaire.",
+          "sous le répertoire de données de l'application : " +
+          "`<app>/var/databases/nodefony-drizzle.db` pour le connecteur `default`, " +
+          "`nodefony-<connecteur>.db` pour les autres. `:memory:` = base éphémère " +
+          "en mémoire (tests). Surchargé par le infra database " +
+          "`NF_DATABASE_URL=sqlite:…` pour le connecteur primaire.",
       ),
     url: z
       .string()

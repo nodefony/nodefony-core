@@ -7,9 +7,9 @@
  * à l'allumage, les nouveaux événements arrivent en tête — utile pour repérer une
  * attaque en cours (rafale de refus), pas pour regarder défiler des logs.
  *
- * ⚠️ Le canal live `nodefony:audit` n'est pas encore servi par la socket Studio
- * (cf `audit/auditModel`) → le switch reste muet jusqu'au branchement backend
- * (sécurisation de Studio, P6.15). La consultation HTTP, elle, marche dès maintenant.
+ * Le canal `nodefony:audit` EST servi : `createAuditBridge` (`@nodefony/security`)
+ * pousse le journal par lots coalescés (250 ms) et le canal est réservé à
+ * `ROLE_NODEFONY_ADMIN` par le verrou de frames.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
@@ -331,7 +331,7 @@ export const Audit = observer(() => {
               onChange={(e) => toggleLive(e.currentTarget.checked)}
               label="Temps réel"
             />
-            <InfoHint text="Affiche les nouveaux événements en tête, en direct (canal nodefony:audit). Réservé aux pics d'activité — un journal d'audit se consulte, il ne se regarde pas défiler. Nécessite le branchement du canal côté serveur (P6.15)." />
+            <InfoHint text="Affiche les nouveaux événements en tête, en direct (canal nodefony:audit). Réservé aux pics d'activité — un journal d'audit se consulte, il ne se regarde pas défiler." />
             {live && newLiveCount > 0 && (
               <Badge color="teal" variant="light">
                 {newLiveCount} nouveau(x)

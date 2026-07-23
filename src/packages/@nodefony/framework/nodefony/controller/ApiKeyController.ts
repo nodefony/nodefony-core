@@ -45,7 +45,8 @@ let mounted = false;
  *  - `POST   /nodefony/security/api/keys`        — body `{name, scopes?, expiresInDays?}`
  *    → `201 {id, prefix, name, scopes, token, …}` (le `token` clair n'apparaît qu'ICI)
  *  - `GET    /nodefony/security/api/keys`        — liste les clés du porteur (sans secret)
- *  - `DELETE /nodefony/security/api/keys/{id}`   — révoque (204) / `404` si pas au porteur
+ *  - `DELETE /nodefony/security/api/keys/{id}`   — révoque → `200 {ok:true}` / `404`
+ *    si la clé n'existe pas **ou** appartient à autrui (indiscernable, jamais 403)
  *
  * **PAS de `bypassFirewall`** (≠ login/token/oauth) : ces routes vivent DANS la
  * zone data plane `^/nodefony/[^/]+/api(/|$)` → **session BFF requise**. Le porteur

@@ -25,9 +25,18 @@ export interface FileSinkOptions {
 /**
  * Driver de sink fichier NON bloquant (LB.W). Écrit via `fs.write` async sur un
  * fd persistant ouvert en append (`"a"`) — **un fd PAR worker** (≠ stdout partagé
- * hérité du master) → 0 lock d'inode = le goulet cluster prouvé (+28 % RPS)
- * disparaît. Buffer applicatif borné + drop anti-OOM ; un seul write en vol →
- * ordre FIFO garanti ; flush SYNC de secours à l'`exit` (durabilité). Node-only.
+ * hérité du master), donc sans contention d'inode.
+ *
+ * ⚠️ **Le fd-par-worker n'est PAS le levier de performance** — c'est un garde-fou.
+ * Le vrai levier est la **coalescence des writes** (nombre de syscalls) : ×19 à
+ * ×25 selon les runs (2009 ms en 1 write/ligne → 81 ms en chunks). La contention
+ * d'inode ne coûte ×3.2 à ×3.8 QUE dans le cas pathologique « 1 write par ligne » ;
+ * **à coalescence égale elle disparaît** (84 vs 81 ms = dans la variance). Or le
+ * ring/tick de `Syslog` coalesce DÉJÀ en amont : ce sink reçoit des chunks.
+ * Rejouer : `node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs`.
+ *
+ * Buffer applicatif borné + drop anti-OOM ; un seul write en vol → ordre FIFO
+ * garanti ; flush SYNC de secours à l'`exit` (durabilité). Node-only.
  */
 export class FileSink implements ILogSink {
   readonly name = "file";

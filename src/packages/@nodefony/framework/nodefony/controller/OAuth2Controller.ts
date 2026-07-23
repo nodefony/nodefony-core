@@ -34,9 +34,15 @@ export interface IOAuth2Session {
 
 /** Vue minimale du flux de session BFF (`authFlow`) consommée ici. */
 export interface IOAuth2BffFlow {
+  /**
+   * @param reason - facteur d'authentification journalisé par l'audit
+   *   (`"oauth"` ici). Omis, il retombe sur `"federated"`, qui ne distingue plus
+   *   un login social d'une passkey dans le journal.
+   */
   establishSessionFor(
     context: ContextType,
     identifier: string,
+    reason?: string,
   ): Promise<unknown>;
   /** Garantit une session (anonyme) pour porter `state`/`code_verifier`. */
   ensureSession(context: ContextType): Promise<IOAuth2Session | null>;
@@ -152,7 +158,11 @@ class OAuth2Controller extends Controller {
         returnedIss,
       );
       // Promotion anonyme → authentifié (regenerateId anti-fixation côté AuthFlow).
-      await flow.establishSessionFor(this.context as ContextType, identifier);
+      await flow.establishSessionFor(
+        this.context as ContextType,
+        identifier,
+        "oauth",
+      );
       return this.redirect(success, 302);
     } catch {
       // iss invalide / échange refusé / provisioning impossible → échec uniforme.

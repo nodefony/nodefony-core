@@ -56,9 +56,15 @@ export interface IWebAuthnSession {
 /** Vue minimale du flux de session BFF (`authFlow`) consommée ici. */
 export interface IWebAuthnBffFlow {
   me(context: ContextType): Promise<{ username: string } | null>;
+  /**
+   * @param reason - facteur d'authentification journalisé par l'audit
+   *   (`"webauthn"` ici). Omis, il retombe sur `"federated"`, qui ne distingue
+   *   plus une passkey d'un login social dans le journal.
+   */
   establishSessionFor(
     context: ContextType,
     identifier: string,
+    reason?: string,
   ): Promise<unknown>;
   /** Garantit une session (la démarre si déconnecté) pour porter le challenge. */
   ensureSession(context: ContextType): Promise<IWebAuthnSession | null>;
@@ -83,8 +89,15 @@ let mounted = false;
  *    la session BFF (l'empreinte remplace le mot de passe)
  *
  * Le **challenge** est stocké côté serveur en session (jamais rejouable) entre
- * `options` et `verify`. Montés UNIQUEMENT si le service `webauthn` existe
- * (passkeys activés) — 404 sinon, zéro surface.
+ * `options` et `verify`.
+ *
+ * **Deux conditions distinctes, deux réponses distinctes** : les routes ne sont
+ * montées que si le service `webauthn` est dans le container (`framework/index.ts:400`),
+ * c'est-à-dire dès que `@nodefony/security` est chargé — sans security, **404**,
+ * zéro surface. Le service reste enregistré même passkeys DÉSACTIVÉS
+ * (`@services` l'instancie inconditionnellement) : dans ce cas les routes existent
+ * et répondent **503** (`isEnabled()` faux). Ne pas lire un 503 comme « route
+ * absente », ni un 404 comme « passkeys coupés ».
  *
  * @remarks `bypassFirewall` : `login/*` précède toute authentification ;
  * `register/*` exige une session active, vérifiée ICI (`me()` → 401), pas par le
@@ -175,6 +188,7 @@ class WebAuthnController extends Controller {
       const user = await flow.establishSessionFor(
         this.context as ContextType,
         userId,
+        "webauthn",
       );
       return this.renderJson({ verified: true, user });
     } catch (e) {

@@ -193,9 +193,10 @@ interface ChannelState {
  *
  * Vocabulaire : la **socket** ({@link IRealtimeSocket}) est la prise que tient le métier ;
  * ce **hub** est le broker serveur caché derrière (registre + fan-out local). La socket
- * multiplexe des canaux ; le hub aiguille entre les sockets. Une façade *consommateur*
- * `IRealtimeSocket` côté serveur (qu'un service back tiendrait : `subscribe/on/publish`)
- * enrobera ce broker plus tard — même rôle que `RealtimeClient` côté navigateur.
+ * multiplexe des canaux ; le hub aiguille entre les sockets. La façade *consommateur*
+ * côté serveur EXISTE — {@link ServerRealtimeSocket} (`subscribe/on/publish`), exportée
+ * par le barrel du module : c'est elle qu'un service back tient, jamais ce hub
+ * directement. Même rôle que `RealtimeClient` côté navigateur.
  */
 export class RealtimeHub {
   // Lazy : alloué au 1ᵉʳ subscribe (un process sans abonné n'alloue rien).

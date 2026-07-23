@@ -94,10 +94,13 @@ const DEFAULT_TTL_MS = 600_000;
  * (un rejeu pendant la fenêtre peut ré-exécuter) ; en pratique la base
  * d'idempotence = la base applicative → « connectée » est vrai sur tout le service.
  *
- * **Câblage (approche B)** : classe PURE (`import type` du contrat core).
- * L'**application** câble la fabrique (`registerIdempotencyStore("drizzle", …)` —
- * registre `@nodefony/framework`) + l'entité (`registerIdempotencyEntities(orm)`
- * avant `orm.connect()`). Le module drizzle n'auto-enregistre rien.
+ * **Câblage** : la classe reste PURE (`import type` du contrat core), mais le
+ * module drizzle s'enregistre LUI-MÊME au boot — `registerStores.ts:311-316` pose
+ * l'entité (`registerIdempotencyEntities`) puis la fabrique
+ * (`registerIdempotencyStore("drizzle", …)`, registre `@nodefony/framework`), sans
+ * rien demander à l'application. Celle-ci choisit seulement le store à employer
+ * (`idempotency.store`). L'enregistrement est idempotent : une fabrique déjà
+ * posée n'est pas écrasée, donc une app peut fournir la sienne avant le boot.
  */
 export class DrizzleIdempotencyStore implements IIdempotencyStore {
   readonly #resolveDb: () => DrizzleDb | null;

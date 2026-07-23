@@ -76,9 +76,11 @@ const _resolveBufferOn = (): boolean => {
 // ── Driver de sink (LB.W — write enfichable) ─────────────────────────────────
 // Le sink FINAL (où partent les lignes après coalescing) est un DRIVER
 // enfichable. Défaut = stdout (comportement historique EXACT, isomorphe). Un
-// worker cluster peut basculer sur `file` (fd async PAR worker → 0 lock d'inode
-// partagé = le goulet prouvé +28% RPS) ou `null` (bench). Le ring/coalescing par
-// tick (writeOut ci-dessous) reste DEVANT, inchangé. Câblé par Kernel.initializeLog
+// worker cluster peut basculer sur `file` (fd async PAR worker → pas de contention
+// d'inode) ou `null` (bench). Le ring/coalescing par tick (writeOut ci-dessous)
+// reste DEVANT, inchangé — et c'est LUI le levier mesuré (×19-25 sur les syscalls
+// write) ; le fd-par-worker n'est qu'un garde-fou pour le cas « buffer de tick
+// désactivé ». Rejouer : skill nodefony-load-test, `log-sink-contention.mjs`. Câblé par Kernel.initializeLog
 // ← config.log.driver. Voir le plan « Log Backplane » phase LB.W.
 export interface ILogSink {
   readonly name: string;

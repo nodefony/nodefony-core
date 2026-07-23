@@ -224,8 +224,11 @@ class AuthFlow extends Service {
     await this.#openSession(context, user.identifier);
     context.user = user.identifier;
     RequestContext.set("user", user);
-    // Ouverture de session sur preuve EXTERNE (passkey/OAuth/2FA/magic link) —
-    // l'appelant précise le facteur (`webauthn`/`oauth`/`totp`/`recovery`…).
+    // Ouverture de session sur preuve EXTERNE (passkey/OAuth/2FA/magic link).
+    // Le facteur vient de l'appelant : `webauthn` (WebAuthnController) et `oauth`
+    // (OAuth2Controller) le passent ; un appelant qui l'omet est journalisé
+    // `federated` — assez pour distinguer d'un login mot de passe, pas assez pour
+    // savoir lequel. Un nouveau chemin d'authentification doit nommer son facteur.
     recordAudit(this.container as Container, {
       category: "auth",
       action: "login.success",

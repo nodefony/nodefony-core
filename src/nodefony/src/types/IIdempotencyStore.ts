@@ -74,13 +74,15 @@ export interface IIdempotencyListQuery extends IPageQuery {
  * **mutations** rejouées (reconnexion socket, double-clic) du data plane admin
  * comme des controllers userland décorés `@Idempotent`.
  *
- * Contrat de l'appelant (anti double-effet) :
+ * Contrat de l'appelant (anti double-effet) — `begin` prend DEUX arguments, et
+ * l'`await` est requis (une impl distribuée renvoie une `Promise`) :
  * ```
- * const o = store.begin(key);
+ * const o = await store.begin(key, fingerprint);
  * if (o.state === "in-flight") return conflict409;
  * if (o.state === "replayed") return o.response;
- * try { const r = await handler(); store.complete(key, r); return r; }
- * catch (e) { store.abort(key); throw e; }   // un échec ne se mémorise pas
+ * if (o.state === "mismatch") return unprocessable422;  // clé réutilisée, autre payload
+ * try { const r = await handler(); await store.complete(key, r); return r; }
+ * catch (e) { await store.abort(key); throw e; }   // un échec ne se mémorise pas
  * ```
  *
  * 🔒 **La `key` DOIT être scopée à l'identité** (`userId` + méthode + chemin +

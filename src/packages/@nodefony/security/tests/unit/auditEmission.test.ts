@@ -129,6 +129,50 @@ describe("AuthFlow — émission audit", () => {
     assert.equal(events[0]!.actor, "alice");
   });
 
+  // ── Facteur d'authentification externe (F16) ──────────────────────────────
+  // `establishSessionFor` journalise le facteur passé par l'appelant. Un audit
+  // qui dirait `federated` pour TOUT login externe ne permettrait pas de
+  // distinguer une passkey volée d'un compte social compromis — c'est la
+  // première question qu'on pose à un journal après un incident.
+  const externalUser = {
+    id: "7",
+    identifier: "alice",
+    roles: ["ROLE_USER"],
+    isLocked: () => false,
+    isActive: () => true,
+  };
+
+  async function establish(reason?: string) {
+    const { container, audit, emitter } = setup(AuthFlow);
+    container.set("users", {
+      loadUserByIdentifier: async () => externalUser,
+    });
+    const ctx = fakeContext() as unknown as Record<string, unknown>;
+    ctx.session = fakeSession("sess-ext");
+    const args = [ctx as unknown as LoginArgs[0], "alice"] as const;
+    await (reason === undefined
+      ? emitter.establishSessionFor(...args)
+      : emitter.establishSessionFor(...args, reason));
+    const { items: events } = await audit.listPage({ limit: 100 });
+    return events[0]!;
+  }
+
+  it("establishSessionFor journalise le facteur `webauthn`", async () => {
+    const event = await establish("webauthn");
+    assert.equal(event.action, "login.success");
+    assert.equal(event.outcome, "success");
+    assert.equal(event.actor, "alice");
+    assert.equal(event.reason, "webauthn");
+  });
+
+  it("establishSessionFor journalise le facteur `oauth`", async () => {
+    assert.equal((await establish("oauth")).reason, "oauth");
+  });
+
+  it("establishSessionFor sans facteur retombe sur `federated`", async () => {
+    assert.equal((await establish()).reason, "federated");
+  });
+
   it("logout émet session/logout avec l'acteur pré-destruction", async () => {
     const { audit, emitter } = setup(AuthFlow);
     const ctx = fakeContext() as unknown as Record<string, unknown>;

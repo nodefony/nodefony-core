@@ -1860,8 +1860,9 @@ class Kernel extends Service implements IKernel {
     // (LB.2/5) + viewer Studio. Configurable `log.dir` (défaut "logs"), sous cwd.
     const logDirAbs = path.resolve(process.cwd(), logCfg?.dir ?? "logs");
     // Driver de sink (LB.W) : stdout (défaut, cloud-native pipe non-bloquant) |
-    // file (fd async PAR worker → 0 lock d'inode partagé en cluster, le goulet
-    // prouvé +28%) | null (bench). FileSink Node-only ; Syslog reste isomorphe.
+    // file (fd async PAR worker → pas de contention d'inode en cluster ; garde-fou,
+    // le levier mesuré étant la coalescence du ring/tick) | null (bench).
+    // FileSink Node-only ; Syslog reste isomorphe.
     const logDriver = logCfg?.driver ?? "stdout";
     if (logDriver === "file") {
       const logPath =

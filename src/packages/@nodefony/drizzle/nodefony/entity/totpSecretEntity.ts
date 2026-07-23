@@ -61,8 +61,8 @@ const TOTP_SECRET_TABLE_SPEC = {
 
 /**
  * Factory de la table de secrets TOTP pour un dialecte donné (mémoïsée — une
- * instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ;
- * `mysql` jette (S4).
+ * instance par dialecte). **Les trois dialectes sont portés** (`TOTP_PORTED =
+ * ALL_DIALECTS`, `registerStores.ts:92`) : sqlite, postgres et mysql.
  */
 export const createTotpSecretTable = createFrameworkTableFactory(
   TOTP_SECRET_TABLE_SPEC,

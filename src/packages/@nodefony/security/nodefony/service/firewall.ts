@@ -811,8 +811,11 @@ class Firewall extends Service implements IFirewall {
   }
 
   /**
-   * Politique CORS (P6 J5) — branchée dans `handleFrontController` AVANT le
-   * routing/firewall. Pose les en-têtes `Access-Control-*` et **court-circuite le
+   * Politique CORS (P6 J5) — appelée par `HttpKernel.handleHttp()`
+   * (`http-kernel.ts:1169`), en TÊTE du pipeline : avant le routing, avant le parse
+   * du corps, donc bien avant `handleFrontController` et le firewall. Un preflight
+   * n'a pas de route déclarée — router d'abord lèverait un 405.
+   * Pose les en-têtes `Access-Control-*` et **court-circuite le
    * preflight** `OPTIONS` en `204` (le preflight ne porte jamais de credentials,
    * Fetch Standard → il ne doit ni router ni s'authentifier). No-op hors requête
    * cross-origin (pas d'`Origin`), CORS désactivé, ou réponse non-HTTP (WS).

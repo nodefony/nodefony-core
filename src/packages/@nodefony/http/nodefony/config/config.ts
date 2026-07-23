@@ -811,8 +811,10 @@ const sessionSchema = z
     cookie: sessionCookieSchema.default(() => sessionCookieSchema.parse({})),
   })
   .describe(
-    "Gestionnaire de sessions (cookie chiffré AES-256-CTR). Stores : " +
-      "files (défaut) · drizzle · mongoose · redis.",
+    "Gestionnaire de sessions. Le cookie ne porte QU'UN identifiant opaque " +
+      "(32 octets CSPRNG, base64url) — rien n'est chiffré ni stocké côté client ; " +
+      "l'état vit dans le store. Stores : `auto` (défaut) · memory · drizzle · " +
+      "mongoose · redis (cf le champ `store`).",
   );
 
 // ───────────────────────────── rateLimit (strict) ───────────────────────────

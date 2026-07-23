@@ -4,9 +4,9 @@
  * abonnement (ref-compté → 0 ticker serveur quand le switch est OFF). À chaque
  * batch coalescé reçu, remonte au parent qui fusionne en tête de liste.
  *
- * ⚠️ Le canal n'est pas encore servi par la socket Studio (cf `auditModel`
- * `SECURITY_AUDIT_CHANNEL`) : ce composant est PRÊT, il restera muet jusqu'au
- * branchement backend (P6.15 sécurisation Studio). Aucune erreur s'il ne reçoit rien.
+ * Le canal (`auditModel` `SECURITY_AUDIT_CHANNEL`) est servi par
+ * `createAuditBridge` côté security, sous réserve du rôle `ROLE_NODEFONY_ADMIN` :
+ * un porteur non admin ne reçoit rien, sans erreur.
  */
 import { useNodefonyChannel } from "nodefony/react";
 import { SECURITY_AUDIT_CHANNEL, type AuditBatch } from "./auditModel";
