@@ -56,16 +56,47 @@ c.unref();fs.writeFileSync('/tmp/nf-bench.pid',String(c.pid));process.exit(0);
 # 3. attendre le boot (poll port 5151)
 node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>35000){console.log('BOOT TIMEOUT — voir /tmp/nf-bench.log');process.exit(1)}setTimeout(p,400)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { echo "$LABEL: BOOT FAIL"; exit 1; }
 
-# 4. warmup + 3× wrk → médiane
-curl -s -o /dev/null "$URL"; curl -s -o /dev/null "$URL"
+# 4. VÉRIFICATION DE LA CIBLE (avant toute mesure)
+# 🚨 wrk compte les 404/500 dans son `Requests/sec`. Or une erreur répond PLUS VITE
+# qu'une vraie route (ni resolver, ni controller, ni sérialisation) : un banc qui
+# tape du 404 publie un chiffre FLATTEUR, et un A/B dont un côté est en 404 conclut
+# à l'ENVERS. Le piège est réel ici — la route de bench vit dans un module `policy:"dev"`,
+# donc absente en production tant qu'on ne l'a pas rebasculée (cf en-tête).
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+if [ "$CODE" != "200" ]; then
+  echo "❌ $LABEL: la cible répond $CODE (attendu 200) — AUCUNE mesure ne serait valide."
+  echo "   URL: $URL"
+  echo "   Si c'est un 404 : le module @nodefony/test est en policy:\"dev\" donc absent"
+  echo "   en production → passer temporairement à policy:\"optional\" + npm run build."
+  kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
+  exit 1
+fi
+curl -s -o /dev/null "$URL"   # 2ᵉ warmup, cible déjà validée
+
 echo "=== $LABEL ($EXTRA_ENV) ==="
-RPS=()
+RPS=(); BAD=0
 for i in 1 2 3; do
-  R=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" "$URL" 2>/dev/null | grep "Requests/sec" | awk '{print $2}')
-  echo "  run $i: $R RPS"; RPS+=("$R")
+  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" "$URL" 2>/dev/null)
+  R=$(printf '%s' "$OUT" | grep "Requests/sec" | awk '{print $2}')
+  # wrk n'affiche cette ligne QUE s'il y a eu des réponses hors 2xx/3xx.
+  NON2XX=$(printf '%s' "$OUT" | grep "Non-2xx or 3xx responses" | awk '{print $NF}')
+  ERRS=$(printf '%s' "$OUT" | grep "Socket errors" || true)
+  if [ -n "$NON2XX" ] || [ -n "$ERRS" ]; then
+    echo "  run $i: $R RPS  ⚠ INVALIDE — ${NON2XX:-0} réponses hors 2xx/3xx ${ERRS:+· $ERRS}"
+    BAD=1
+  else
+    echo "  run $i: $R RPS"
+  fi
+  RPS+=("$R")
 done
+if [ "$BAD" = "1" ]; then
+  echo "  ✖ $LABEL: run(s) pollué(s) par des erreurs — médiane NON enregistrée."
+  echo "    Un débit mesuré sous erreurs n'est comparable à rien."
+  kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
+  exit 1
+fi
 MED=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '2p')
-echo "  MÉDIANE: $MED RPS"
+echo "  MÉDIANE: $MED RPS  (cible vérifiée 200, 0 erreur)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
 
 # 5. arrêt gracieux (flush + libère les ports)

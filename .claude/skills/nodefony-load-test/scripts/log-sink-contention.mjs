@@ -36,6 +36,7 @@ import {
   write as fsWrite,
   ftruncateSync,
   unlinkSync,
+  statSync,
 } from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -194,6 +195,41 @@ if (process.argv[2] === "worker") {
     }
   };
 
+  // ── CONTRÔLE D'INTÉGRITÉ — sans lui, un débit ne prouve RIEN ────────────────
+  // Une variante qui n'écrit pas est infiniment rapide. Vécu sur un banc jetable :
+  // un fd mal hérité rendait « 174 ms » en ayant posé ZÉRO octet, et le chiffre
+  // avait l'air parfaitement normal. On compare donc ce qui est SUR LE DISQUE à ce
+  // qui aurait dû y être ; un écart invalide le run au lieu de le publier.
+
+  /** Octets qu'un worker DOIT écrire : Σ des longueurs de ses lignes réelles. */
+  const expectedBytesFor = (wid) => {
+    const base = (PREFIX + wid + " n=").length + 1; // + "\n"
+    let total = 0;
+    for (let i = 0; i < LINES; i++) total += base + String(i).length;
+    return total;
+  };
+
+  const sizeOf = (p) => {
+    try {
+      return statSync(p).size;
+    } catch {
+      return 0;
+    }
+  };
+
+  /** Octets réellement écrits vs attendus. `null` = variante sans écriture (plafond CPU). */
+  const integrity = (variant) => {
+    if (variant === "null") return { written: 0, expected: 0 };
+    const expected = Array.from({ length: WORKERS }, (_, w) =>
+      expectedBytesFor(w),
+    ).reduce((a, b) => a + b, 0);
+    let written = 0;
+    if (variant === "stdout-shared") written = sizeOf(STDOUT_FILE);
+    else if (variant.startsWith("file-shared")) written = sizeOf(SHARED);
+    else for (let w = 0; w < WORKERS; w++) written += sizeOf(perworkerPath(w));
+    return { written, expected };
+  };
+
   /** 1 run : spawn N workers, barrière ready→go, attend done, renvoie wall ms + drops. */
   const runOnce = (variant) =>
     new Promise((resolve, reject) => {
@@ -214,7 +250,8 @@ if (process.argv[2] === "worker") {
         const wall = performance.now() - goAt;
         for (const k of kids) k.kill();
         if (sharedFd >= 0) closeSync(sharedFd);
-        resolve({ wall, dropped: totalDropped });
+        const { written, expected } = integrity(variant);
+        resolve({ wall, dropped: totalDropped, written, expected });
       };
       for (let wid = 0; wid < WORKERS; wid++) {
         const child = spawn(process.execPath, [SELF, "worker"], {
@@ -260,9 +297,15 @@ if (process.argv[2] === "worker") {
       process.stdout.write(`  ▶ ${variant.padEnd(22)} `);
       const walls = [];
       let drops = 0;
+      let shortfall = null; // 1ᵉʳ run dont le volume écrit ne colle pas
       for (let r = 0; r < WARMUP + RUNS; r++) {
         cleanupFiles();
-        const { wall, dropped } = await runOnce(variant);
+        const { wall, dropped, written, expected } = await runOnce(variant);
+        // Les drops sont attendus (backpressure) : on tolère un déficit à hauteur
+        // des lignes explicitement droppées, jamais au-delà.
+        if (expected > 0 && written < expected * 0.999 && dropped === 0) {
+          shortfall ??= { written, expected };
+        }
         if (r >= WARMUP) {
           walls.push(wall);
           drops += dropped;
@@ -278,8 +321,14 @@ if (process.argv[2] === "worker") {
         max: Math.max(...walls),
         rate: totalLines / (med / 1000),
         drops,
+        shortfall,
       };
-      console.log(` ${med.toFixed(0)}ms`);
+      console.log(
+        ` ${med.toFixed(0)}ms` +
+          (shortfall
+            ? `  ✖ INVALIDE : ${shortfall.written} o écrits / ${shortfall.expected} attendus`
+            : ""),
+      );
     }
     cleanupFiles();
 
@@ -292,15 +341,37 @@ if (process.argv[2] === "worker") {
       const r = results[v];
       const varPct = (((r.max - r.min) / r.med) * 100).toFixed(0);
       console.log(
-        `  ${v.padEnd(22)} ${(r.med.toFixed(0) + "ms").padStart(9)} ${(r.rate / 1e6).toFixed(2).padStart(11)} ${(varPct + "%").padStart(9)}  ${r.drops}`,
+        `  ${v.padEnd(22)} ${(r.med.toFixed(0) + "ms").padStart(9)} ${(r.rate / 1e6).toFixed(2).padStart(11)} ${(varPct + "%").padStart(9)}  ${r.drops}` +
+          (r.shortfall ? "  ✖ VOLUME INVALIDE" : ""),
       );
     }
 
+    const invalid = VARIANTS.filter((v) => results[v].shortfall);
+    if (invalid.length) {
+      console.log(
+        `\n  ✖ ${invalid.length} variante(s) n'ont PAS écrit ce qu'elles devaient : ${invalid.join(", ")}.`,
+      );
+      console.log(
+        `    Leurs durées ne mesurent rien — ne PAS les comparer. (Une variante qui`,
+      );
+      console.log(`    n'écrit pas est infiniment rapide.)`);
+      process.exit(1);
+    }
+
     // — Comparaisons clés —
-    const ratio = (a, b) =>
-      results[a] && results[b]
-        ? (results[b].med / results[a].med).toFixed(2)
-        : "—";
+    // ⚠️ Un écart INFÉRIEUR à la variance n'est pas un écart. Les variantes
+    // coalescées tombent à ~80 ms avec 20-30 % de variance : y lire un « ×1.03 »
+    // serait du bruit promu en conclusion.
+    const ratio = (a, b) => {
+      if (!results[a] || !results[b]) return "—";
+      const r = results[b].med / results[a].med;
+      const noise =
+        (results[a].max - results[a].min) / results[a].med +
+        (results[b].max - results[b].min) / results[b].med;
+      return Math.abs(r - 1) < noise / 2
+        ? `${r.toFixed(2)} (DANS LE BRUIT — aucun écart mesurable)`
+        : r.toFixed(2);
+    };
     console.log(`\n  ── COMPARAISONS ──`);
     if (results["file-shared-sync"] && results["file-perworker-sync"])
       console.log(

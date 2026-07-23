@@ -32,13 +32,32 @@ echo "$BODY" | grep -q "wsHookFireCount" || { echo "❌ $LABEL: payload inattend
 curl -s -o /dev/null "$URL"
 
 echo "=== $LABEL (port $PORT, wrk -t$THREADS -c$CONN -d${DUR}s) ==="
-RPS=()
+# Le sanity ci-dessus prouve la cible AVANT la charge ; il ne dit rien de ce qui se
+# passe PENDANT. Un serveur peut répondre 200 à froid puis partir en 500 sous 128
+# connexions (pool épuisé, OOM) — et wrk compte ces 500 dans `Requests/sec`, alors
+# qu'une erreur coûte moins cher qu'une vraie réponse. Comparer deux frameworks
+# dont l'un erre sous charge donnerait l'avantage… à celui qui échoue.
+RPS=(); BAD=0
 for i in 1 2 3; do
-  R=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" "$URL" 2>/dev/null | grep "Requests/sec" | awk '{print $2}')
-  echo "  run $i: $R RPS"; RPS+=("$R")
+  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" "$URL" 2>/dev/null)
+  R=$(printf '%s' "$OUT" | grep "Requests/sec" | awk '{print $2}')
+  NON2XX=$(printf '%s' "$OUT" | grep "Non-2xx or 3xx responses" | awk '{print $NF}')
+  ERRS=$(printf '%s' "$OUT" | grep "Socket errors" || true)
+  if [ -n "$NON2XX" ] || [ -n "$ERRS" ]; then
+    echo "  run $i: $R RPS  ⚠ INVALIDE — ${NON2XX:-0} hors 2xx/3xx ${ERRS:+· $ERRS}"
+    BAD=1
+  else
+    echo "  run $i: $R RPS"
+  fi
+  RPS+=("$R")
 done
+if [ "$BAD" = "1" ]; then
+  echo "  ✖ $LABEL: erreurs sous charge — médiane NON enregistrée (comparaison impossible)."
+  kill -9 "$PID" 2>/dev/null
+  exit 1
+fi
 MED=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '2p')
-echo "  MÉDIANE: $MED RPS"
+echo "  MÉDIANE: $MED RPS  (payload vérifié, 0 erreur sous charge)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
 
 kill -9 "$PID" 2>/dev/null
