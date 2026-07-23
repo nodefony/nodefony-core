@@ -5,9 +5,11 @@
  * Le risque d'une consolidation, c'est la régression silencieuse : on resserre une description,
  * et un skill cesse de se déclencher sans que rien ne le dise. Ce banc met un chiffre dessus.
  *
- *   node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs           # exécute le banc
- *   node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose # + le détail des scores
- *   node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --list    # les cas, sans exécuter
+ * @usage    node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs
+ * @usage    node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose
+ * @option   --verbose  affiche le score des trois meilleurs skills pour chaque phrase
+ * @option   --list     liste les cas du banc sans les exécuter
+ * @output   un compte de phrases élisant le bon skill, les échecs, et les recouvrements à arbitrer
  *
  * CE QU'IL PROUVE : la surface LEXICALE d'une description discrimine bien — la phrase attendue
  * place le bon skill en tête. CE QU'IL NE PROUVE PAS : le jugement du modèle, qui comprend des

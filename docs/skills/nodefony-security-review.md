@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-security-review/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 356 lignes              |
-| Description              | 973 / 1024 caractères   |
-| Déclencheurs             | 14                      |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Inspecter et auditer                               |
+| Corps                    | 356 lignes                                         |
+| Coût d'activation        | ~6 340 tokens (le corps est chargé à l'invocation) |
+| Description              | 973 / 1024 caractères                              |
+| Déclencheurs             | 14                                                 |
+| Ressources `references/` | 0 page(s)                                          |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any). RED/BLUE-TEAM : campagne d'attaque sur une brique en 2 passes — threat-first (matrice depuis OWASP/RFC AVANT de lire le code, anti-biais) puis code-first (couvrir les branches restantes) — avec le cycle faille trouvée → corrigée → re-prouvée, et un rapport par vecteur. Conçoit des attaques propres à l'architecture (pipeline HTTP+WS partagé, token dans l'ALS, pont api.request, canaux WS, zones et bypass du firewall, scopes DI, trust-proxy), pas seulement des attaques OWASP génériques.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`quick-diff`](nodefony-quick-diff.md) · [`rfc`](nodefony-rfc.md)
 
 ## Quand il se déclenche
 

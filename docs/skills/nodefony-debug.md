@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-debug/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | `1.1.0`                 |
-| Corps                    | 194 lignes              |
-| Description              | 993 / 1024 caractères   |
-| Déclencheurs             | 18                      |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | `1.1.0`                                            |
+| Famille                  | Exécuter, diagnostiquer, mesurer                   |
+| Corps                    | 194 lignes                                         |
+| Coût d'activation        | ~3 361 tokens (le corps est chargé à l'invocation) |
+| Description              | 993 / 1024 caractères                              |
+| Déclencheurs             | 18                                                 |
+| Ressources `references/` | 0 page(s)                                          |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-verify` ; la doctrine préventive vit dans `nodefony-framework-dev`.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`check-memory-health`](nodefony-check-memory-health.md) · [`framework-dev`](nodefony-framework-dev.md) · [`frontend-verify`](nodefony-frontend-verify.md) · [`load-test`](nodefony-load-test.md) · [`start-server`](nodefony-start-server.md) · [`studio-dev`](nodefony-studio-dev.md) · [`tail-error-logs`](nodefony-tail-error-logs.md)
 
 ## Quand il se déclenche
 

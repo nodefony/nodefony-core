@@ -123,7 +123,36 @@ formulation ; tous ne sont pas des défauts (« fuite mémoire » vaut mieux cap
 > l'invocation, mais un cas **rouge** est un vrai défaut — aucun mot de la demande ne rejoint la
 > description.
 
-## 7. Gabarit
+## 7. Le hook de doc — un script se décrit lui-même
+
+Un script documenté ailleurs que dans son source diverge le jour où on l'édite. Six tags
+facultatifs, lus par `skills-doc`, suffisent à rendre la fiche exacte au lieu de devinée :
+
+| Tag         | Rôle                                                     |
+| ----------- | -------------------------------------------------------- |
+| `@usage`    | une ligne d'invocation réelle (répétable)                |
+| `@option`   | `--drapeau` puis son rôle                                |
+| `@env`      | `NOM_VARIABLE` puis son rôle                             |
+| `@requires` | ce que le décor doit fournir (`docker`, `serveur UP`, …) |
+| `@output`   | ce que le script produit                                 |
+
+Sans eux, le générateur retombe sur l'heuristique : première ligne de commentaire, drapeaux trouvés
+dans le source, variables lues hors variables de travail. Avec eux, la fiche gagne un **détail par
+script** — invocations, options et variables avec leur explication.
+
+> Piège de l'auto-référence : écrire ces tags en exemple dans un commentaire les fait moissonner par
+> leur propre lecteur. Les entourer d'accents graves.
+
+## 8. Ce que consomme un registre de skills
+
+`skills-doc` écrit aussi **`docs/skills/registry.json`** — la même donnée que les fiches, sérialisée
+pour une machine : résumé d'une ligne, famille, mots-clés, déclencheurs, **coût d'activation** en
+tokens, prérequis, ressources et scripts (options, variables, sortie), **graphe de voisinage** entre
+skills, état de conformité contrôle par contrôle, et liens source/fiche. C'est le format qu'un
+moteur de recherche de skills ou un registre lit sans ouvrir vingt-sept markdown — et c'est aussi ce
+qui rendra une publication npm possible sans réécrire l'inventaire à la main.
+
+## 9. Gabarit
 
 ```markdown
 ---
@@ -158,7 +187,7 @@ description: >
 <Comment on prouve que c'est fait.>
 ```
 
-## 8. Pièges vécus
+## 10. Pièges vécus
 
 - **Une fiche écrite à la main diverge du skill dès la première édition** → les fiches
   `docs/skills/` sont générées ; ne jamais les éditer.
@@ -171,7 +200,7 @@ description: >
 - **Un déclencheur improbable ne coûte rien mais ne rapporte rien** : « 59 fails framework sans
   serveur » n'a jamais rien déclenché. Préférer trois formulations naturelles à dix exactes.
 
-## 9. Liens
+## 11. Liens
 
 - `docs/outillage-agents.md` — inventaire, usage mesuré, étude des fusions et retraits.
 - `docs/skills/index.md` — les fiches générées, une par skill.

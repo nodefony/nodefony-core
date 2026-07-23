@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-studio-dev/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | `2.0.0`                 |
-| Corps                    | 143 lignes              |
-| Description              | 935 / 1024 caractères   |
-| Déclencheurs             | 14                      |
-| Ressources `references/` | 6 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | `2.0.0`                                            |
+| Famille                  | Développer le framework                            |
+| Corps                    | 143 lignes                                         |
+| Coût d'activation        | ~3 531 tokens (le corps est chargé à l'invocation) |
+| Description              | 935 / 1024 caractères                              |
+| Déclencheurs             | 14                                                 |
+| Ressources `references/` | 6 page(s)                                          |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart, DocHint), le hook useResource, les stores MobX et les hooks temps réel nodefony/react. Donne la recette (route + lazy + navConfig + fallback deep-link + data plane), des squelettes copier-coller, le Jumeau Vivant (Twin), la debug bar, le back-end Studio (controller + data plane + realtime), et les règles qualité (a11y, sécu, perf, gate tsc). DÉRIVE de nodefony-frontend-dev (mécanismes front généraux).
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`create-frontend-module`](nodefony-create-frontend-module.md) · [`documentation`](nodefony-documentation.md) · [`framework-dev`](nodefony-framework-dev.md) · [`frontend-dev`](nodefony-frontend-dev.md) · [`frontend-verify`](nodefony-frontend-verify.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 

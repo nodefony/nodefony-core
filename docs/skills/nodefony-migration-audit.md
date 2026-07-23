@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-migration-audit/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 357 lignes              |
-| Description              | 675 / 1024 caractères   |
-| Déclencheurs             | 11                      |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Inspecter et auditer                               |
+| Corps                    | 357 lignes                                         |
+| Coût d'activation        | ~6 479 tokens (le corps est chargé à l'invocation) |
+| Description              | 675 / 1024 caractères                              |
+| Déclencheurs             | 11                                                 |
+| Ressources `references/` | 0 page(s)                                          |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs + MD modules → fichier d'audit persistant + assainissement de la FORME du dashboard (anti-obésité).
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`generate-symbols`](nodefony-generate-symbols.md) · [`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 

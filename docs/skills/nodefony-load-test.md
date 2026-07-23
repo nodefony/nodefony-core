@@ -19,19 +19,31 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 429 lignes              |
-| Description              | 878 / 1024 caractères   |
-| Déclencheurs             | 14                      |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 32                      |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Exécuter, diagnostiquer, mesurer                   |
+| Corps                    | 429 lignes                                         |
+| Coût d'activation        | ~6 644 tokens (le corps est chargé à l'invocation) |
+| Description              | 878 / 1024 caractères                              |
+| Déclencheurs             | 14                                                 |
+| Ressources `references/` | 0 page(s)                                          |
+| Scripts                  | 32                                                 |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien).
+
+## Prérequis
+
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **serveur UP** · **redis** · **docker** · **base de données**.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`html-report`](nodefony-html-report.md) · [`start-server`](nodefony-start-server.md) · [`tail-error-logs`](nodefony-tail-error-logs.md)
 
 ## Quand il se déclenche
 

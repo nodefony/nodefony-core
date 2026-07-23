@@ -19,15 +19,17 @@ source: ".claude/skills/nodefony-ts-docs/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 66 lignes               |
-| Description              | 376 / 1024 caractères   |
-| Déclencheurs             | 8                       |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                  |
+| ------------------------ | ------------------------------------------------ |
+| Version                  | — (non versionné)                                |
+| Famille                  | Références et livrables                          |
+| Corps                    | 66 lignes                                        |
+| Coût d'activation        | ~681 tokens (le corps est chargé à l'invocation) |
+| Description              | 376 / 1024 caractères                            |
+| Déclencheurs             | 8                                                |
+| Ressources `references/` | 0 page(s)                                        |
+| Scripts                  | 0                                                |
+| Conformité               | ✅ conforme au standard                          |
 
 ## Ce qu'il fait
 

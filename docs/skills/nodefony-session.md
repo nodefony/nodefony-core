@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 555 lignes              |
-| Description              | 406 / 1024 caractères   |
-| Déclencheurs             | 8                       |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Cycle de session                                   |
+| Corps                    | 555 lignes                                         |
+| Coût d'activation        | ~6 115 tokens (le corps est chargé à l'invocation) |
+| Description              | 406 / 1024 caractères                              |
+| Déclencheurs             | 8                                                  |
+| Ressources `references/` | 0 page(s)                                          |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise. Le détail de chaque mode est dans le corps.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`generate-symbols`](nodefony-generate-symbols.md) · [`migration-audit`](nodefony-migration-audit.md) · [`quick-diff`](nodefony-quick-diff.md)
 
 ## Quand il se déclenche
 
@@ -71,25 +79,12 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 8. Détection candidats skill / mémoire
 - 8b. Balayage allowlist (OBLIGATOIRE — directive user 2026-05-22)
 - 9. Sauvegarde OBLIGATOIRE (auto-save)
-- Tool usage
-- Top fichiers Read/Edit
-- Coûts évidents
-- 💶 Coût (€)
-- Recommandations
-- Patterns récurrents (déjà gérés)
-- Commits produits
 - 10. Mémoire de reprise (OBLIGATOIRE — c'est ce que lit le mode RESUME)
-- Fait
-- Décisions
-- Reste — prochaine étape
 - 11. Sauvegarde de la mémoire IA (OBLIGATOIRE — durabilité crash / changement de PC)
 - 1. Compter les retex
 - 2. Lire les sections clés (jq/awk, pas tout le fichier)
 - 3. Patterns récurrents (≥ 3 retex)
 - 4. Produire le PLAN D'ACTION
-- Patterns récurrents détectés
-- Plan d'action (qualité IA)
-- À archiver
 - 5. Exécuter (avec accord user)
 - Anti-patterns END / CONSOLIDATE
 - Liens

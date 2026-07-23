@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-roadmap/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 161 lignes              |
-| Description              | 614 / 1024 caractères   |
-| Déclencheurs             | 13                      |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Références et livrables                            |
+| Corps                    | 161 lignes                                         |
+| Coût d'activation        | ~2 821 tokens (le corps est chargé à l'invocation) |
+| Description              | 614 / 1024 caractères                              |
+| Déclencheurs             | 13                                                 |
+| Ressources `references/` | 0 page(s)                                          |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Charge le contexte roadmap des phases Studio/IA/Realtime/Frontend de Nodefony — Phase 10 (Studio admin web — LIVRÉ, conventions à respecter), 12 (couche IA agentic — SEULE vraie phase future), 13 (Realtime + Redis cluster + client navigateur — quasi livré, restes identifiés), 14 (frontend builder Vite — LIVRÉ). À utiliser quand un module doit prévoir une API admin, un design IA-compatible ou un endpoint Studio.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`create-frontend-module`](nodefony-create-frontend-module.md) · [`studio-dev`](nodefony-studio-dev.md)
 
 ## Quand il se déclenche
 

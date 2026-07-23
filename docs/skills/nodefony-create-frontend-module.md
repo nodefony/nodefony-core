@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-create-frontend-module/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 247 lignes              |
-| Description              | 642 / 1024 caractères   |
-| Déclencheurs             | 7                       |
-| Ressources `references/` | 1 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Développer le framework                            |
+| Corps                    | 247 lignes                                         |
+| Coût d'activation        | ~3 770 tokens (le corps est chargé à l'invocation) |
+| Description              | 642 / 1024 caractères                              |
+| Déclencheurs             | 7                                                  |
+| Ressources `references/` | 1 page(s)                                          |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps).
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`create-module`](nodefony-create-module.md) · [`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 

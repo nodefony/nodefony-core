@@ -1,0 +1,3384 @@
+{
+  "schema": "nodefony.skills-registry/1",
+  "standard": "agent-skills (AAIF)",
+  "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
+  "generatedAt": "2026-07-23",
+  "count": 27,
+  "conformant": 27,
+  "skills": [
+    {
+      "name": "nodefony-check-externals",
+      "summary": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées.",
+      "family": "Inspecter et auditer",
+      "version": null,
+      "keywords": ["external", "peerDependencies"],
+      "triggers": [
+        "check externals",
+        "audit externals",
+        "external rolldown",
+        "peerDeps externalisées",
+        "duplication external",
+        "vérifie les external",
+        "le bundler avale un peerDep",
+        "avant de publier sur npm",
+        "erreur de build sur une dépendance native",
+        "module introuvable au runtime"
+      ],
+      "description": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées. Anti-duplication : la même liste est maintenue à la main à deux endroits → dérive garantie. À charger avant une publication npm ou devant un échec de build qui parle d'un paquet natif ou d'un module introuvable à l'exécution. Déclencheurs : \"check externals\", \"audit externals\", \"external rolldown\", \"peerDeps externalisées\", \"duplication external\", \"vérifie les external\", \"le bundler avale un peerDep\", \"avant de publier sur npm\", \"erreur de build sur une dépendance native\", \"module introuvable au runtime\".",
+      "cost": {
+        "bodyLines": 86,
+        "approxTokens": 1097
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "752",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "86",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-check-externals/SKILL.md",
+        "doc": "docs/skills/nodefony-check-externals.md"
+      }
+    },
+    {
+      "name": "nodefony-check-memory-health",
+      "summary": "Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie fuite d'un flake d'isolation).",
+      "family": "Exécuter, diagnostiquer, mesurer",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "vérifier la mémoire",
+        "memory leak",
+        "test mémoire",
+        "heap delta",
+        "fuite mémoire",
+        "gate mémoire",
+        "j'ai touché au pipeline",
+        "j'ai modifié le Kernel ou le Container",
+        "je vais commiter une modif http/framework",
+        "le seuil mémoire a sauté",
+        "heap qui monte"
+      ],
+      "description": "Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie fuite d'un flake d'isolation). Le CLAUDE.md donne la commande ; ce skill donne le protocole et l'interprétation — le charger AVANT de lancer la commande, pas après un résultat rouge. Déclencheurs : \"vérifier la mémoire\", \"memory leak\", \"test mémoire\", \"heap delta\", \"fuite mémoire\", \"gate mémoire\", \"j'ai touché au pipeline\", \"j'ai modifié le Kernel ou le Container\", \"je vais commiter une modif http/framework\", \"le seuil mémoire a sauté\", \"heap qui monte\".",
+      "cost": {
+        "bodyLines": 83,
+        "approxTokens": 1308
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": ["nodefony-start-server"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "750",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "83",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-check-memory-health/SKILL.md",
+        "doc": "docs/skills/nodefony-check-memory-health.md"
+      }
+    },
+    {
+      "name": "nodefony-create-frontend-module",
+      "summary": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/).",
+      "family": "Développer le framework",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "crée un module frontend",
+        "module react",
+        "module vue",
+        "module angular",
+        "scaffold module avec front",
+        "nouveau front nodefony",
+        "module vite"
+      ],
+      "description": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps). Déclencheurs : \"crée un module frontend\", \"module react\", \"module vue\", \"module angular\", \"scaffold module avec front\", \"nouveau front nodefony\", \"module vite\".",
+      "cost": {
+        "bodyLines": 247,
+        "approxTokens": 3770
+      },
+      "requires": [],
+      "resources": {
+        "references": ["frameworks.md"],
+        "referenceFilesTotal": 1,
+        "scripts": []
+      },
+      "related": ["nodefony-create-module", "nodefony-start-server"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "642",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "247",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-create-frontend-module/SKILL.md",
+        "doc": "docs/skills/nodefony-create-frontend-module.md"
+      }
+    },
+    {
+      "name": "nodefony-create-module",
+      "summary": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`.",
+      "family": "Développer le framework",
+      "version": null,
+      "keywords": ["modules"],
+      "triggers": [
+        "crée un module",
+        "scaffold module",
+        "nouveau module nodefony",
+        "génère un module",
+        "create module",
+        "bootstrap module",
+        "module @nodefony/...",
+        "j'ai besoin d'un nouveau paquet",
+        "ajouter un module au framework",
+        "structure d'un module neuf"
+      ],
+      "description": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`. Dans une APPLICATION, le scaffold d'un module est une commande — `nodefony create module <nom>` — et ce skill s'y délègue au lieu de la réimplémenter (une seule source de templates). À charger AVANT d'écrire le moindre fichier d'un module neuf : recomposer le squelette à la main produit un module non conforme (types, exports, config, docs) que rien ne signale. Déclencheurs : \"crée un module\", \"scaffold module\", \"nouveau module nodefony\", \"génère un module\", \"create module\", \"bootstrap module\", \"module @nodefony/...\", \"j'ai besoin d'un nouveau paquet\", \"ajouter un module au framework\", \"structure d'un module neuf\".",
+      "cost": {
+        "bodyLines": 276,
+        "approxTokens": 4970
+      },
+      "requires": [],
+      "resources": {
+        "references": ["templates.md"],
+        "referenceFilesTotal": 1,
+        "scripts": []
+      },
+      "related": ["nodefony-create-frontend-module", "nodefony-start-server"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "891",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "276",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-create-module/SKILL.md",
+        "doc": "docs/skills/nodefony-create-module.md"
+      }
+    },
+    {
+      "name": "nodefony-debug",
+      "summary": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir.",
+      "family": "Exécuter, diagnostiquer, mesurer",
+      "version": "1.1.0",
+      "keywords": [
+        "delete",
+        "nodefony-tail-error-logs",
+        "nodefony-check-memory-health",
+        "nodefony-load-test",
+        "nodefony-frontend-verify",
+        "nodefony-framework-dev"
+      ],
+      "triggers": [
+        "ça crash",
+        "stack trace",
+        "unhandledRejection",
+        "fuite mémoire",
+        "memory leak",
+        "race condition",
+        "reproduire",
+        "ne démarre plus",
+        "test rouge inexpliqué",
+        "test flake",
+        "vert isolé rouge en suite",
+        "ce test passe seul mais pas en suite",
+        "diagnostic régression",
+        "baseline stash",
+        "est-ce ma régression ?",
+        "404 inexpliqué",
+        "ECONNREFUSED tests",
+        "ENOSPC"
+      ],
+      "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-verify` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
+      "cost": {
+        "bodyLines": 194,
+        "approxTokens": 3361
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-check-memory-health",
+        "nodefony-framework-dev",
+        "nodefony-frontend-verify",
+        "nodefony-load-test",
+        "nodefony-start-server",
+        "nodefony-studio-dev",
+        "nodefony-tail-error-logs"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "993",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "194",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-debug/SKILL.md",
+        "doc": "docs/skills/nodefony-debug.md"
+      }
+    },
+    {
+      "name": "nodefony-documentation",
+      "summary": "Kit de dev de la DOCUMENTATION Nodefony, deux faces.",
+      "family": "Développer le framework",
+      "version": "2.3.0",
+      "keywords": ["@nodefony/documentation", "scripts/"],
+      "triggers": [
+        "portail doc",
+        "DocLayout",
+        "@nodefony/documentation",
+        "MarkdownDoc",
+        "DocToc",
+        "page de documentation Studio",
+        "écrire la doc dans Studio",
+        "écrire une page de doc",
+        "doc de référence",
+        "standard de rédaction",
+        "doc-lint",
+        "anchor-check",
+        "corpus doc",
+        "reprendre la doc",
+        "avant de rédiger une doc",
+        "la doc dit-elle encore vrai ?",
+        "corriger un écart doc↔code"
+      ],
+      "description": "Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), mise en page docs-site, data plane avec allowlist anti-traversée. (2) Le SYSTÈME D'ÉCRITURE de la doc de référence : standard de rédaction (Diátaxis, ancres symboliques, Démarrage rapide compilable, navigation par hubs) et ses gates `scripts/` — doc-lint, anchor-check, code-check, gen-counters, build-preview. Ni les écrans Studio génériques (→ nodefony-studio-dev), ni la création back (→ nodefony-create-module). Déclencheurs : \"portail doc\", \"DocLayout\", \"@nodefony/documentation\", \"MarkdownDoc\", \"DocToc\", \"page de documentation Studio\", \"écrire la doc dans Studio\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"avant de rédiger une doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
+      "cost": {
+        "bodyLines": 641,
+        "approxTokens": 10890
+      },
+      "requires": [],
+      "resources": {
+        "references": ["redaction-contenu.md"],
+        "referenceFilesTotal": 1,
+        "scripts": [
+          {
+            "path": "scripts/anchor-check.mjs",
+            "purpose": "anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc.",
+            "usage": [
+              "Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT)"
+            ],
+            "options": [
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/anchor-inpage.mjs",
+            "purpose": "anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ?",
+            "usage": ["Usage : node anchor-inpage.mjs <page.md ...>"],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/build-preview.mjs",
+            "purpose": "Tout est relatif au dossier de CE script (tmp/doc-corpus/_tools/) — plus aucun",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--accent",
+                "help": ""
+              },
+              {
+                "flag": "--bg",
+                "help": ""
+              },
+              {
+                "flag": "--border",
+                "help": ""
+              },
+              {
+                "flag": "--brand",
+                "help": ""
+              },
+              {
+                "flag": "--code",
+                "help": ""
+              },
+              {
+                "flag": "--codefg",
+                "help": ""
+              },
+              {
+                "flag": "--fg",
+                "help": ""
+              },
+              {
+                "flag": "--muted",
+                "help": ""
+              },
+              {
+                "flag": "--no-save",
+                "help": ""
+              },
+              {
+                "flag": "--panel",
+                "help": ""
+              },
+              {
+                "flag": "--short",
+                "help": ""
+              },
+              {
+                "flag": "--show-current",
+                "help": ""
+              },
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              },
+              {
+                "flag": "--th",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "GEN_DATE",
+                "help": ""
+              },
+              {
+                "name": "LOGO",
+                "help": ""
+              },
+              {
+                "name": "MMDC",
+                "help": ""
+              },
+              {
+                "name": "NF_BRANCH",
+                "help": ""
+              },
+              {
+                "name": "NF_COMMIT",
+                "help": ""
+              },
+              {
+                "name": "NF_VERSION",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/code-check.mjs",
+            "purpose": "code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies).",
+            "usage": ["Usage : node code-check.mjs <page.md ...>"],
+            "options": [
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/doc-lint.mjs",
+            "purpose": "doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony.",
+            "usage": ["Usage : node doc-lint.mjs /tmp/corpus/*.md"],
+            "options": [
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "COVERAGE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/gen-counters.mjs",
+            "purpose": "gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT",
+            "usage": [
+              "Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)"
+            ],
+            "options": [
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": [
+        "nodefony-create-module",
+        "nodefony-framework-dev",
+        "nodefony-rfc",
+        "nodefony-security-review",
+        "nodefony-start-server",
+        "nodefony-studio-dev"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "993",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": false,
+            "detail": "641",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-documentation/SKILL.md",
+        "doc": "docs/skills/nodefony-documentation.md"
+      }
+    },
+    {
+      "name": "nodefony-framework-dev",
+      "summary": "Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs).",
+      "family": "Développer le framework",
+      "version": "2.0.0",
+      "keywords": ["nodefony", "@nodefony/http", "@nodefony/framework"],
+      "triggers": [
+        "dev core",
+        "coder dans le kernel",
+        "pipeline http",
+        "créer un service",
+        "service injectable",
+        "module hooks",
+        "commande CLI",
+        "controller nodefony",
+        "décorateur route",
+        "créer une entité",
+        "repository",
+        "adapter ORM",
+        "data plane",
+        "certificats TLS",
+        "realtime",
+        "WebSocket",
+        "firewall",
+        "@IsGranted",
+        "@Idempotent",
+        "structure d'un module",
+        "defineConfig",
+        "avant de coder dans le cœur",
+        "où brancher ce comportement ?"
+      ],
+      "description": "Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs). Couvre : créer un service injectable, un module, une commande CLI, une entité/repository/adapter ORM, un endpoint HTTP/WS ou un data plane admin, et le realtime. Donne les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup des listeners, ALS), les conventions de structure et de configuration, des recettes vérifiées sur le source, les gotchas et les RFC bundlées hors ligne. Déclencheurs : \"dev core\", \"coder dans le kernel\", \"pipeline http\", \"créer un service\", \"service injectable\", \"module hooks\", \"commande CLI\", \"controller nodefony\", \"décorateur route\", \"créer une entité\", \"repository\", \"adapter ORM\", \"data plane\", \"certificats TLS\", \"realtime\", \"WebSocket\", \"firewall\", \"@IsGranted\", \"@Idempotent\", \"structure d'un module\", \"defineConfig\", \"avant de coder dans le cœur\", \"où brancher ce comportement ?\".",
+      "cost": {
+        "bodyLines": 294,
+        "approxTokens": 6321
+      },
+      "requires": [],
+      "resources": {
+        "references": [
+          "conventions.md",
+          "core.md",
+          "framework.md",
+          "gotchas.md",
+          "http.md",
+          "orm.md",
+          "realtime.md",
+          "security.md"
+        ],
+        "referenceFilesTotal": 81,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-check-memory-health",
+        "nodefony-create-frontend-module",
+        "nodefony-create-module",
+        "nodefony-frontend-dev",
+        "nodefony-load-test",
+        "nodefony-nestjs",
+        "nodefony-rfc",
+        "nodefony-security-review",
+        "nodefony-start-server",
+        "nodefony-studio-dev",
+        "nodefony-ts-docs"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "1007",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "294",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-framework-dev/SKILL.md",
+        "doc": "docs/skills/nodefony-framework-dev.md"
+      }
+    },
+    {
+      "name": "nodefony-frontend-dev",
+      "summary": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, et les règles d'ergonomie / temps réel « calme » / a11y / perf (bundlées offline).",
+      "family": "Développer le framework",
+      "version": "1.0.0",
+      "keywords": [
+        "nodefony",
+        "RealtimeClient",
+        "nodefony/react",
+        "@nodefony/frontend",
+        "ApiClient",
+        "useResource",
+        "nodefony-studio-dev",
+        "nodefony-create-frontend-module",
+        "nodefony-framework-dev"
+      ],
+      "triggers": [
+        "dev front nodefony",
+        "frontend nodefony",
+        "isomorphisme",
+        "socket client",
+        "RealtimeClient",
+        "useNodefony",
+        "hooks realtime",
+        "HMR",
+        "Vite nodefony",
+        "@nodefony/frontend",
+        "ApiClient",
+        "useResource",
+        "data plane front",
+        "BFF",
+        "RBAC front",
+        "temps réel ergonomique",
+        "accessibilité front",
+        "WCAG",
+        "perf front",
+        "front full-stack"
+      ],
+      "description": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, et les règles d'ergonomie / temps réel « calme » / a11y / perf (bundlées offline). App admin Studio → `nodefony-studio-dev` (qui en dérive) ; scaffold d'un module front → `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"frontend nodefony\", \"isomorphisme\", \"socket client\", \"RealtimeClient\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"@nodefony/frontend\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"temps réel ergonomique\", \"accessibilité front\", \"WCAG\", \"perf front\", \"front full-stack\".",
+      "cost": {
+        "bodyLines": 99,
+        "approxTokens": 2448
+      },
+      "requires": [],
+      "resources": {
+        "references": [
+          "build-hmr.md",
+          "data-bff.md",
+          "front-quality.md",
+          "isomorphic.md",
+          "patterns.md",
+          "realtime-client.md"
+        ],
+        "referenceFilesTotal": 14,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-create-frontend-module",
+        "nodefony-framework-dev",
+        "nodefony-security-review",
+        "nodefony-studio-dev",
+        "nodefony-ts-docs"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "876",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "99",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-frontend-dev/SKILL.md",
+        "doc": "docs/skills/nodefony-frontend-dev.md"
+      }
+    },
+    {
+      "name": "nodefony-frontend-verify",
+      "summary": "Vérifie une modif frontend Studio (ou tout module Vite) SANS navigateur headless (règle projet) : curl du transform Vite d'un fichier .tsx pour valider la résolution + la transpilation, purge du prébundle Vite (`node_modules/.vite`) quand un import/subpath change, rappel hard-reload navigateur (cache React).",
+      "family": "Exécuter, diagnostiquer, mesurer",
+      "version": "1.0.0",
+      "keywords": [
+        "node_modules/.vite",
+        "nodefony-tail-error-logs",
+        "nodefony-start-server"
+      ],
+      "triggers": [
+        "vérifie le front",
+        "curl Vite",
+        "transform Vite",
+        "vérifie le bundle",
+        "prébundle Vite périmé",
+        "purge .vite",
+        "ma modif front passe ?",
+        "hard-reload nécessaire ?",
+        "frontend verify",
+        "verify front Studio"
+      ],
+      "description": "Vérifie une modif frontend Studio (ou tout module Vite) SANS navigateur headless (règle projet) : curl du transform Vite d'un fichier .tsx pour valider la résolution + la transpilation, purge du prébundle Vite (`node_modules/.vite`) quand un import/subpath change, rappel hard-reload navigateur (cache React). Délègue l'analyse runtime à `nodefony-tail-error-logs` et la gate types à `npm run typecheck` du module — esbuild attrape la syntaxe, PAS les types. NE remplace PAS `nodefony-start-server` (qui démarre/arrête) ni la confirmation visuelle user. Déclencheurs : \"vérifie le front\", \"curl Vite\", \"transform Vite\", \"vérifie le bundle\", \"prébundle Vite périmé\", \"purge .vite\", \"ma modif front passe ?\", \"hard-reload nécessaire ?\", \"frontend verify\", \"verify front Studio\".",
+      "cost": {
+        "bodyLines": 135,
+        "approxTokens": 2051
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-check-externals",
+        "nodefony-start-server",
+        "nodefony-studio-dev",
+        "nodefony-tail-error-logs"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "776",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "135",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-frontend-verify/SKILL.md",
+        "doc": "docs/skills/nodefony-frontend-verify.md"
+      }
+    },
+    {
+      "name": "nodefony-generate-symbols",
+      "summary": "Graphe symbolique TypeScript de Nodefony (classes, interfaces, types, décorateurs, relations inversées) : le génère dans `.ai/symbols.json` et donne les requêtes `jq` pour répondre en O(1), sans parcourir le dépôt — qui étend cette classe, qui implémente cette interface, qui importe ce symbole, quelle est la description TSDoc, où est-il défini.",
+      "family": "Inspecter et auditer",
+      "version": null,
+      "keywords": [".ai/symbols.json", "jq", "grep"],
+      "triggers": [
+        "génère les symboles",
+        "graphe symbolique",
+        "regenerate symbols",
+        "symbols.json",
+        "qui étend cette classe ?",
+        "qui implémente cette interface ?",
+        "qui utilise ce symbole ?",
+        "où est défini X ?",
+        "chercher dans tout le repo",
+        "trouver les consommateurs"
+      ],
+      "description": "Graphe symbolique TypeScript de Nodefony (classes, interfaces, types, décorateurs, relations inversées) : le génère dans `.ai/symbols.json` et donne les requêtes `jq` pour répondre en O(1), sans parcourir le dépôt — qui étend cette classe, qui implémente cette interface, qui importe ce symbole, quelle est la description TSDoc, où est-il défini. À charger AVANT de partir en `grep` sur plusieurs modules : la réponse est déjà indexée. Déclencheurs : \"génère les symboles\", \"graphe symbolique\", \"regenerate symbols\", \"symbols.json\", \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"chercher dans tout le repo\", \"trouver les consommateurs\".",
+      "cost": {
+        "bodyLines": 136,
+        "approxTokens": 1430
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "704",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "136",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-generate-symbols/SKILL.md",
+        "doc": "docs/skills/nodefony-generate-symbols.md"
+      }
+    },
+    {
+      "name": "nodefony-get-module-config",
+      "summary": "INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes déclarées — sans charger son code métier ni démarrer de serveur.",
+      "family": "Inspecter et auditer",
+      "version": null,
+      "keywords": ["nodefony-create-module"],
+      "triggers": [
+        "config du module X",
+        "comment est configuré X",
+        "montre la config de ce module",
+        "quelles routes expose ce module",
+        "voir les routes d'un module",
+        "ce service est-il enregistré ?",
+        "vérifier la déclaration de service",
+        "inspecter un module existant"
+      ],
+      "description": "INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes déclarées — sans charger son code métier ni démarrer de serveur. Pour valider qu'un service est bien enregistré, qu'une route est bien déclarée, ou auditer les paramètres effectifs. Ne crée rien : scaffolder un module neuf → `nodefony-create-module`. Déclencheurs : \"config du module X\", \"comment est configuré X\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"voir les routes d'un module\", \"ce service est-il enregistré ?\", \"vérifier la déclaration de service\", \"inspecter un module existant\".",
+      "cost": {
+        "bodyLines": 62,
+        "approxTokens": 680
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": ["nodefony-create-module"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "615",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "62",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-get-module-config/SKILL.md",
+        "doc": "docs/skills/nodefony-get-module-config.md"
+      }
+    },
+    {
+      "name": "nodefony-html-report",
+      "summary": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.",
+      "family": "Références et livrables",
+      "version": null,
+      "keywords": ["lib/report.mjs"],
+      "triggers": [
+        "rapport HTML",
+        "générer un rapport",
+        "rapport imprimable",
+        "rapport PDF",
+        "dashboard statique",
+        "restituer des mesures",
+        "page de résultats",
+        "graphe sans dépendance",
+        "calculateur interactif",
+        "deck de présentation",
+        "export CSV"
+      ],
+      "description": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés. Fournit une bibliothèque de rendu (`lib/report.mjs`) : graphes SVG (barres, courbes, nuage+régression, waterfall, heatmap, jauge, donut, sparkline), tableaux triables/filtrables, calculateurs interactifs, listes réordonnables par glisser-déposer, onglets, mode présentation, export CSV — et une impression PDF soignée (sauts de page maîtrisés, en-têtes de tableau répétés, hypothèses figées). À utiliser dès qu'un livrable doit être LU, MANIPULÉ ou IMPRIMÉ par une personne, plutôt que relu par un outil. Déclencheurs : \"rapport HTML\", \"générer un rapport\", \"rapport imprimable\", \"rapport PDF\", \"dashboard statique\", \"restituer des mesures\", \"page de résultats\", \"graphe sans dépendance\", \"calculateur interactif\", \"deck de présentation\", \"export CSV\".",
+      "cost": {
+        "bodyLines": 174,
+        "approxTokens": 3017
+      },
+      "requires": ["redis", "base de données"],
+      "resources": {
+        "references": ["ergonomie.md", "html-vs-md.md", "print-pdf.md"],
+        "referenceFilesTotal": 9,
+        "scripts": [
+          {
+            "path": "scripts/demo.mjs",
+            "purpose": "demo.mjs — vitrine ET test de non-régression de `lib/report.mjs`.",
+            "usage": [
+              "node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html"
+            ],
+            "options": [
+              {
+                "flag": "--accent",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "OUT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "lib/brand.mjs",
+            "purpose": "brand.mjs — identité visuelle d'un rapport (logo, nom, couleurs).",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "lib/report.mjs",
+            "purpose": "report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--accent",
+                "help": ""
+              },
+              {
+                "flag": "--bg",
+                "help": ""
+              },
+              {
+                "flag": "--card",
+                "help": ""
+              },
+              {
+                "flag": "--dim",
+                "help": ""
+              },
+              {
+                "flag": "--fg",
+                "help": ""
+              },
+              {
+                "flag": "--line",
+                "help": ""
+              },
+              {
+                "flag": "--note-bg",
+                "help": ""
+              },
+              {
+                "flag": "--note-fg",
+                "help": ""
+              },
+              {
+                "flag": "--warn-bg",
+                "help": ""
+              },
+              {
+                "flag": "--warn-fg",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "CSS",
+                "help": ""
+              },
+              {
+                "name": "PRINT_JS",
+                "help": ""
+              },
+              {
+                "name": "SORT_JS",
+                "help": ""
+              },
+              {
+                "name": "THEME_JS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": ["nodefony-load-test"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "935",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "174",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-html-report/SKILL.md",
+        "doc": "docs/skills/nodefony-html-report.md"
+      }
+    },
+    {
+      "name": "nodefony-load-test",
+      "summary": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
+      "family": "Exécuter, diagnostiquer, mesurer",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "test de charge",
+        "stress",
+        "benchmark",
+        "combien de connexions",
+        "jusqu'à la rupture",
+        "RPS",
+        "latence p99",
+        "est-ce que ça tient la charge ?",
+        "combien de pods ?",
+        "c'est plus rapide ?",
+        "quel est l'impact perf de ce changement ?",
+        "mesurer avant/après",
+        "dimensionner",
+        "prouver que c'est plus rapide"
+      ],
+      "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
+      "cost": {
+        "bodyLines": 429,
+        "approxTokens": 6644
+      },
+      "requires": ["serveur UP", "redis", "docker", "base de données"],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": [
+          {
+            "path": "scripts/aimd-demo.mjs",
+            "purpose": "aimd-demo — démonstration LISIBLE et déterministe de la cadence adaptative (AIMD).",
+            "usage": [
+              "Usage : bash .claude/skills/nodefony-load-test/scripts/run.sh aimd"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "DIST",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/app-download-probe.mjs",
+            "purpose": "",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/bench-ab-mono.sh",
+            "purpose": "Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE.",
+            "usage": ["bash bench-ab-mono.sh <label> [KEY=VAL ...]"],
+            "options": [
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "BENCH_CONN",
+                "help": ""
+              },
+              {
+                "name": "BENCH_DUR",
+                "help": ""
+              },
+              {
+                "name": "BENCH_THREADS",
+                "help": ""
+              },
+              {
+                "name": "BENCH_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/bench-report.mjs",
+            "purpose": "Rapport HTML d'un (ou plusieurs) résultats de banc — pour un HUMAIN qui décide.",
+            "usage": [
+              "JSON_OUT=tmp/sink.json node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "OUT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/capacity-html.mjs",
+            "purpose": "capacity-html.mjs — rendu du rapport de capacité.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--accent",
+                "help": ""
+              },
+              {
+                "flag": "--dim",
+                "help": ""
+              },
+              {
+                "flag": "--rupture",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "PAYLOAD",
+                "help": ""
+              },
+              {
+                "name": "REPEAT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/capacity.mjs",
+            "purpose": "capacity.mjs — BANC DE CAPACITÉ + rapport de dimensionnement.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/capacity.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--http-reqs",
+                "help": ""
+              },
+              {
+                "flag": "--out",
+                "help": ""
+              },
+              {
+                "flag": "--rupture",
+                "help": ""
+              },
+              {
+                "flag": "--skip-ws",
+                "help": ""
+              },
+              {
+                "flag": "--sockets",
+                "help": ""
+              },
+              {
+                "flag": "--target",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "HOST",
+                "help": ""
+              },
+              {
+                "name": "NF_ADMIN_PASSWORD",
+                "help": ""
+              },
+              {
+                "name": "NF_ADMIN_USER",
+                "help": ""
+              },
+              {
+                "name": "NF_HOST",
+                "help": ""
+              },
+              {
+                "name": "NF_PORT",
+                "help": ""
+              },
+              {
+                "name": "NF_PORT_HTTPS",
+                "help": ""
+              },
+              {
+                "name": "OUT",
+                "help": ""
+              },
+              {
+                "name": "PAYLOAD",
+                "help": ""
+              },
+              {
+                "name": "PCLR",
+                "help": ""
+              },
+              {
+                "name": "PTLS",
+                "help": ""
+              },
+              {
+                "name": "REPEAT",
+                "help": ""
+              },
+              {
+                "name": "ROUTE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/cluster-health-endpoint-e2e.mjs",
+            "purpose": "Preuve BOUT-EN-BOUT de la forme JSON de l'ENDPOINT santé en mode cluster — ce que le",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/cluster-health-endpoint-e2e.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "E2E_ROLE",
+                "help": ""
+              },
+              {
+                "name": "SETTLE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/cluster-ipc.mjs",
+            "purpose": "Bench du FIL IPC du backplane cluster Nodefony (mode sans PM2) — mesure le coût RÉEL",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/cluster-ipc.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "BATCH",
+                "help": ""
+              },
+              {
+                "name": "BENCH_ROLE",
+                "help": ""
+              },
+              {
+                "name": "CHANNEL",
+                "help": ""
+              },
+              {
+                "name": "DURATION",
+                "help": ""
+              },
+              {
+                "name": "MODE",
+                "help": ""
+              },
+              {
+                "name": "PAYLOAD",
+                "help": ""
+              },
+              {
+                "name": "RATE",
+                "help": ""
+              },
+              {
+                "name": "WORKERS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/cluster-orm-rich-e2e.mjs",
+            "purpose": "Preuve BOUT-EN-BOUT du RELAIS ORM RICHE @pid (drill cluster, facette \"orm\") — sans navigateur.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/cluster-orm-rich-e2e.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "E2E_ROLE",
+                "help": ""
+              },
+              {
+                "name": "SETTLE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/cluster-probe-e2e.mjs",
+            "purpose": "Preuve BOUT-EN-BOUT de la SONDE AGRÉGÉE pod (cluster sans PM2) — Phase 4c, mode push.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/cluster-probe-e2e.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "E2E_ROLE",
+                "help": ""
+              },
+              {
+                "name": "SETTLE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/cluster-realtime-e2e.mjs",
+            "purpose": "Preuve BOUT-EN-BOUT du realtime cross-process Nodefony (cluster sans PM2) — Phase 4b.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "E2E_ROLE",
+                "help": ""
+              },
+              {
+                "name": "SETTLE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/config-env-override-e2e.mjs",
+            "purpose": "Banc e2e TERRAIN — override de config par variable d'environnement (ADR-0006) — sans navigateur.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/config-env-override-e2e.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "BOOT_TIMEOUT_MS",
+                "help": ""
+              },
+              {
+                "name": "FAIL_TIMEOUT_MS",
+                "help": ""
+              },
+              {
+                "name": "HTTPS_PORT",
+                "help": ""
+              },
+              {
+                "name": "HTTP_PORT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/debug-runtime-e2e.mjs",
+            "purpose": "Banc e2e TERRAIN — debug runtime par-module à chaud — sans navigateur.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/graceful-shutdown-e2e.mjs",
+            "purpose": "Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur.",
+            "usage": ["bash .claude/skills/nodefony-start-server/start.sh"],
+            "options": [],
+            "env": [
+              {
+                "name": "HTTP_SLOW_URL",
+                "help": ""
+              },
+              {
+                "name": "PORT",
+                "help": ""
+              },
+              {
+                "name": "WS_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/http-load.mjs",
+            "purpose": "Stress HTTP — N requêtes avec concurrence C sur une route Nodefony.",
+            "usage": ["node .claude/skills/load-test/scripts/http-load.mjs"],
+            "options": [],
+            "env": [
+              {
+                "name": "BODY",
+                "help": ""
+              },
+              {
+                "name": "METHOD",
+                "help": ""
+              },
+              {
+                "name": "URL",
+                "help": ""
+              },
+              {
+                "name": "URL_STR",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/hub-load.mjs",
+            "purpose": "Charge de la SOCKET Nodefony côté HUB (RealtimeHub) — fait bouger le panneau",
+            "usage": [
+              "bash .claude/skills/nodefony-load-test/scripts/run.sh hub"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "BASE",
+                "help": ""
+              },
+              {
+                "name": "BATCH",
+                "help": ""
+              },
+              {
+                "name": "HOLD",
+                "help": ""
+              },
+              {
+                "name": "HOLD_MS",
+                "help": ""
+              },
+              {
+                "name": "HOST",
+                "help": ""
+              },
+              {
+                "name": "HTTP_PATH",
+                "help": ""
+              },
+              {
+                "name": "HTTP_RPS",
+                "help": ""
+              },
+              {
+                "name": "MODE",
+                "help": ""
+              },
+              {
+                "name": "NODE_TLS_REJECT_UNAUTHORIZED",
+                "help": ""
+              },
+              {
+                "name": "PORT",
+                "help": ""
+              },
+              {
+                "name": "WS_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/idempotency-cluster-e2e.mjs",
+            "purpose": "Banc CROSS-WORKER de l'idempotence distribuée Redis (cluster multi-process, P6.8) — sans navigateur.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/idempotency-cluster-e2e.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--workers",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/idempotency-postgres-e2e.mjs",
+            "purpose": "Banc CROSS-POD de l'idempotence distribuée Drizzle/PostgreSQL (axe 3, P6.8) — sans navigateur.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/idempotency-postgres-e2e.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--profile",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "CONC",
+                "help": ""
+              },
+              {
+                "name": "PG_URL",
+                "help": ""
+              },
+              {
+                "name": "ROUNDS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/idempotency-userland-e2e.mjs",
+            "purpose": "Banc e2e USERLAND @Idempotent contre un VRAI Redis (single-pod, P6.8) — sans navigateur.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/idempotency-userland-e2e.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/log-sink-contention.mjs",
+            "purpose": "Microbench ISOLÉ du driver de sink de log (LB.W / axe W2).",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "DIR",
+                "help": ""
+              },
+              {
+                "name": "JSON_OUT",
+                "help": ""
+              },
+              {
+                "name": "LINES",
+                "help": ""
+              },
+              {
+                "name": "ONLY",
+                "help": ""
+              },
+              {
+                "name": "RUNS",
+                "help": ""
+              },
+              {
+                "name": "VARIANT",
+                "help": ""
+              },
+              {
+                "name": "WARMUP",
+                "help": ""
+              },
+              {
+                "name": "WID",
+                "help": ""
+              },
+              {
+                "name": "WORKERS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ratelimit-e2e.mjs",
+            "purpose": "Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur.",
+            "usage": ["bash .claude/skills/nodefony-start-server/start.sh"],
+            "options": [],
+            "env": [
+              {
+                "name": "MAX",
+                "help": ""
+              },
+              {
+                "name": "RL_URL",
+                "help": ""
+              },
+              {
+                "name": "URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/run.sh",
+            "purpose": "Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--config",
+                "help": ""
+              },
+              {
+                "flag": "--rupture",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/scaffold-ws-probe.mjs",
+            "purpose": "Sonde : prouve que le job de scaffold est bien streamé sur la socket Nodefony.",
+            "usage": [
+              "Usage : node scaffold-ws-probe.mjs <cookie> [type] [name]"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "NF_STEPS",
+                "help": ""
+              },
+              {
+                "name": "NF_WAIT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/supervision-stress.mjs",
+            "purpose": "STRESS COMBINÉ « supervision » — pousse SIMULTANÉMENT 3 lanes (HTTP + WebSocket",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/supervision-stress.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "BATCH",
+                "help": ""
+              },
+              {
+                "name": "ERR_RUPTURE",
+                "help": ""
+              },
+              {
+                "name": "HOST",
+                "help": ""
+              },
+              {
+                "name": "HTTP_PATH",
+                "help": ""
+              },
+              {
+                "name": "HTTP_STEP",
+                "help": ""
+              },
+              {
+                "name": "MSG_HZ",
+                "help": ""
+              },
+              {
+                "name": "ORM_PATH",
+                "help": ""
+              },
+              {
+                "name": "ORM_STEP",
+                "help": ""
+              },
+              {
+                "name": "PORT",
+                "help": ""
+              },
+              {
+                "name": "STAGES",
+                "help": ""
+              },
+              {
+                "name": "STAGE_MS",
+                "help": ""
+              },
+              {
+                "name": "WS_PATH",
+                "help": ""
+              },
+              {
+                "name": "WS_STEP",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/totp-mfa-attack-e2e.mjs",
+            "purpose": "Banc ADVERSARIAL 2FA TOTP (P6.17) — red team / blue team, VRAI serveur.",
+            "usage": [
+              "Lancement : node .claude/skills/nodefony-load-test/scripts/totp-mfa-attack-e2e.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/totp-mfa-e2e.mjs",
+            "purpose": "Banc e2e 2FA TOTP step-up (P6.17) — VRAI serveur, sans navigateur.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/totp-mfa-e2e.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/users-admin-factors-e2e.mjs",
+            "purpose": "Banc e2e — RESET ADMIN des facteurs forts d'un utilisateur (P6.15) — VRAI",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/users-admin-factors-e2e.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/webhooks-dataplane-e2e.mjs",
+            "purpose": "Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF,",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/webhooks-dataplane-e2e.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ws-conn-cap-e2e.mjs",
+            "purpose": "Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c",
+            "usage": [
+              "NF__HTTP__WSMAXCONNECTIONSPERIP=3 bash .claude/skills/nodefony-start-server/start.sh"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "NODE_TLS_REJECT_UNAUTHORIZED",
+                "help": ""
+              },
+              {
+                "name": "WS_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ws-connections.mjs",
+            "purpose": "Stress WS — AXE 1 : nombre de connexions simultanées (combien de sockets un",
+            "usage": [
+              "node .claude/skills/load-test/scripts/ws-connections.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--pending",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "BATCH",
+                "help": ""
+              },
+              {
+                "name": "CAP",
+                "help": ""
+              },
+              {
+                "name": "HEAP_URL",
+                "help": ""
+              },
+              {
+                "name": "HOLD_MS",
+                "help": ""
+              },
+              {
+                "name": "STEP",
+                "help": ""
+              },
+              {
+                "name": "WS_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ws-handshake-ratelimit-e2e.mjs",
+            "purpose": "Banc e2e du RATE-LIMIT du HANDSHAKE WebSocket (@nodefony/http, F5 revue 0.6) — sans navigateur.",
+            "usage": ["bash .claude/skills/nodefony-start-server/start.sh"],
+            "options": [],
+            "env": [
+              {
+                "name": "HTTP_URL",
+                "help": ""
+              },
+              {
+                "name": "MAX",
+                "help": ""
+              },
+              {
+                "name": "NODE_TLS_REJECT_UNAUTHORIZED",
+                "help": ""
+              },
+              {
+                "name": "WS_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ws-messages.mjs",
+            "purpose": "Stress WS — AXE 2 : débit de messages / fan-out broadcast (combien de frames",
+            "usage": ["node .claude/skills/load-test/scripts/ws-messages.mjs"],
+            "options": [],
+            "env": [
+              {
+                "name": "BURST",
+                "help": ""
+              },
+              {
+                "name": "BURSTS",
+                "help": ""
+              },
+              {
+                "name": "CLIENTS",
+                "help": ""
+              },
+              {
+                "name": "HOST",
+                "help": ""
+              },
+              {
+                "name": "MODE",
+                "help": ""
+              },
+              {
+                "name": "TIMEOUT_MS",
+                "help": ""
+              },
+              {
+                "name": "WS_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": [
+        "nodefony-html-report",
+        "nodefony-start-server",
+        "nodefony-tail-error-logs"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "878",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "429",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-load-test/SKILL.md",
+        "doc": "docs/skills/nodefony-load-test.md"
+      }
+    },
+    {
+      "name": "nodefony-migration-audit",
+      "summary": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts.",
+      "family": "Inspecter et auditer",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "audit migration",
+        "état des lieux migration",
+        "où en est la migration",
+        "avancement migration",
+        "vérifier MIGRATION_STATUS",
+        "revue phase par phase",
+        "mets à jour le migration",
+        "gros point migration",
+        "fichier vérité",
+        "audit vérité",
+        "assainir le dashboard migration"
+      ],
+      "description": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs + MD modules → fichier d'audit persistant + assainissement de la FORME du dashboard (anti-obésité). Déclencheurs : \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"mets à jour le migration\", \"gros point migration\", \"fichier vérité\", \"audit vérité\", \"assainir le dashboard migration\".",
+      "cost": {
+        "bodyLines": 357,
+        "approxTokens": 6479
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": ["nodefony-generate-symbols", "nodefony-start-server"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "675",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "357",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-migration-audit/SKILL.md",
+        "doc": "docs/skills/nodefony-migration-audit.md"
+      }
+    },
+    {
+      "name": "nodefony-multipod-bench",
+      "summary": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
+      "family": "Exécuter, diagnostiquer, mesurer",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "banc multi-pods",
+        "tester en cluster",
+        "cross-pod",
+        "deux apps",
+        "plusieurs pods",
+        "injection backplane",
+        "bus Redis partagé",
+        "fan-out cross-pod",
+        "prouver en réel",
+        "backplane secret",
+        "est-ce que ça marche à plusieurs instances ?",
+        "les apps sont-elles cloisonnées ?"
+      ],
+      "description": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout. Fournit le décor (Redis docker, apps liées au framework, ports dédiés), les scripts de mesure (latence, charge, coût de publication, forge d'enveloppe scellée), la matrice d'attaque du backplane et les pièges du lancement multi-instances. À charger AVANT de monter le décor ou de lancer un script : sans le protocole, un banc saturé mesure un backlog et non une latence, et une infra éteinte en route rend les tests silencieusement verts. Déclencheurs : \"banc multi-pods\", \"tester en cluster\", \"cross-pod\", \"deux apps\", \"plusieurs pods\", \"injection backplane\", \"bus Redis partagé\", \"fan-out cross-pod\", \"prouver en réel\", \"backplane secret\", \"est-ce que ça marche à plusieurs instances ?\", \"les apps sont-elles cloisonnées ?\".",
+      "cost": {
+        "bodyLines": 140,
+        "approxTokens": 2431
+      },
+      "requires": ["serveur UP", "redis", "docker"],
+      "resources": {
+        "references": ["controller.md", "pieges.md"],
+        "referenceFilesTotal": 2,
+        "scripts": [
+          {
+            "path": "scripts/bench.mjs",
+            "purpose": "Banc de charge F83 — latence de bout en bout d'un fan-out CROSS-POD.",
+            "usage": [
+              "node bench.mjs <portRécepteur> <portÉmetteur> <connexions> <rafales>"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/forge.mjs",
+            "purpose": "",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/latency.mjs",
+            "purpose": "Latence PURE du chemin cross-pod, hors saturation : 1 client, messages",
+            "usage": [
+              "node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs>"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/listen.mjs",
+            "purpose": "Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket",
+            "usage": ["node listen.mjs <port> <secondes>"],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/mempeak.sh",
+            "purpose": "Pic mémoire d'un pod pendant une rafale de publications.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/pubcost.mjs",
+            "purpose": "",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/run.sh",
+            "purpose": "Démarre les pods du banc : deux instances de la première application (même",
+            "usage": ["bash scripts/run.sh [dossier] [namespace]"],
+            "options": [
+              {
+                "flag": "--stop",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "NF_BENCH_SECRET",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/setup.sh",
+            "purpose": "Monte le banc multi-pods : Redis + N applications générées, liées au framework",
+            "usage": ["bash scripts/setup.sh [dossier] [namespace]"],
+            "options": [
+              {
+                "flag": "--controller",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--link",
+                "help": ""
+              },
+              {
+                "flag": "--no-auth-warning",
+                "help": ""
+              },
+              {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
+                "flag": "--no-service",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "APP",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/soak.mjs",
+            "purpose": "Charge soutenue cross-pod, par paliers de connexions.",
+            "usage": [
+              "node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": ["nodefony-load-test", "nodefony-start-server"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "988",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "140",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-multipod-bench/SKILL.md",
+        "doc": "docs/skills/nodefony-multipod-bench.md"
+      }
+    },
+    {
+      "name": "nodefony-nestjs",
+      "summary": "Inspire l'architecture Nodefony (decorators, controllers, modules, DI, guards) des concepts NestJS via le repo officiel en raw markdown (jamais le site docs.nestjs.com, JS lourd).",
+      "family": "Références et livrables",
+      "version": null,
+      "keywords": [],
+      "triggers": [],
+      "description": "Inspire l'architecture Nodefony (decorators, controllers, modules, DI, guards) des concepts NestJS via le repo officiel en raw markdown (jamais le site docs.nestjs.com, JS lourd). Déclencheur EXCLUSIF : le mot-clé \"NestJS\" dans le message — sans lui, ignorer totalement. Exemples : \"inspire-toi de NestJS pour X\", \"DI NestJS\", \"NestJS modules pattern\", \"NestJS guards\".",
+      "cost": {
+        "bodyLines": 70,
+        "approxTokens": 707
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "369",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "70",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-nestjs/SKILL.md",
+        "doc": "docs/skills/nodefony-nestjs.md"
+      }
+    },
+    {
+      "name": "nodefony-quick-diff",
+      "summary": "Résume les modifications non commitées sur src/ uniquement (ignore dist/, node_modules, fichiers générés) avant un build ou un test — évite de polluer le contexte avec du compilé.",
+      "family": "Cycle de session",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "diff rapide",
+        "qu'est-ce que j'ai modifié",
+        "quick diff",
+        "voir les changements src",
+        "git diff propre"
+      ],
+      "description": "Résume les modifications non commitées sur src/ uniquement (ignore dist/, node_modules, fichiers générés) avant un build ou un test — évite de polluer le contexte avec du compilé. Déclencheurs : \"diff rapide\", \"qu'est-ce que j'ai modifié\", \"quick diff\", \"voir les changements src\", \"git diff propre\".",
+      "cost": {
+        "bodyLines": 63,
+        "approxTokens": 484
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "300",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "63",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-quick-diff/SKILL.md",
+        "doc": "docs/skills/nodefony-quick-diff.md"
+      }
+    },
+    {
+      "name": "nodefony-rfc",
+      "summary": "Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2, WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy r.jina.ai, jamais les pages HTML.",
+      "family": "Références et livrables",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "RFC",
+        "conformité HTTP",
+        "norme WebSocket",
+        "CORS spec",
+        "Fetch standard",
+        "RFC 9110/9113/6455/6265",
+        "pseudo-headers HTTP/2",
+        "frame masking",
+        "SameSite cookies"
+      ],
+      "description": "Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2, WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy r.jina.ai, jamais les pages HTML. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"Fetch standard\", \"RFC 9110/9113/6455/6265\", \"pseudo-headers HTTP/2\", \"frame masking\", \"SameSite cookies\".",
+      "cost": {
+        "bodyLines": 68,
+        "approxTokens": 631
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "400",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "68",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-rfc/SKILL.md",
+        "doc": "docs/skills/nodefony-rfc.md"
+      }
+    },
+    {
+      "name": "nodefony-roadmap",
+      "summary": "Charge le contexte roadmap des phases Studio/IA/Realtime/Frontend de Nodefony — Phase 10 (Studio admin web — LIVRÉ, conventions à respecter), 12 (couche IA agentic — SEULE vraie phase future), 13 (Realtime + Redis cluster + client navigateur — quasi livré, restes identifiés), 14 (frontend builder Vite — LIVRÉ).",
+      "family": "Références et livrables",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "Studio",
+        "Phase 10",
+        "Phase 12",
+        "Phase 13",
+        "Phase 14",
+        "couche IA",
+        "agentic",
+        "@nodefony/agent",
+        "@nodefony/realtime",
+        "@nodefony/client",
+        "API admin",
+        "route /nodefony",
+        "AI Act"
+      ],
+      "description": "Charge le contexte roadmap des phases Studio/IA/Realtime/Frontend de Nodefony — Phase 10 (Studio admin web — LIVRÉ, conventions à respecter), 12 (couche IA agentic — SEULE vraie phase future), 13 (Realtime + Redis cluster + client navigateur — quasi livré, restes identifiés), 14 (frontend builder Vite — LIVRÉ). À utiliser quand un module doit prévoir une API admin, un design IA-compatible ou un endpoint Studio. Déclencheurs : \"Studio\", \"Phase 10\", \"Phase 12\", \"Phase 13\", \"Phase 14\", \"couche IA\", \"agentic\", \"@nodefony/agent\", \"@nodefony/realtime\", \"@nodefony/client\", \"API admin\", \"route /nodefony\", \"AI Act\".",
+      "cost": {
+        "bodyLines": 161,
+        "approxTokens": 2821
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": ["nodefony-create-frontend-module", "nodefony-studio-dev"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "614",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "161",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-roadmap/SKILL.md",
+        "doc": "docs/skills/nodefony-roadmap.md"
+      }
+    },
+    {
+      "name": "nodefony-security-review",
+      "summary": "Hub SÉCURITÉ de Nodefony, deux modes.",
+      "family": "Inspecter et auditer",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "revue sécurité",
+        "audit sécurité",
+        "security review",
+        "check sécurité avant commit",
+        "c'est safe ?",
+        "vérifie la sécurité",
+        "red-team",
+        "blue-team",
+        "matrice d'attaque",
+        "test d'attaque",
+        "attaquer le framework",
+        "attaquer cette brique",
+        "durcir la sécurité",
+        "pentest"
+      ],
+      "description": "Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any). RED/BLUE-TEAM : campagne d'attaque sur une brique en 2 passes — threat-first (matrice depuis OWASP/RFC AVANT de lire le code, anti-biais) puis code-first (couvrir les branches restantes) — avec le cycle faille trouvée → corrigée → re-prouvée, et un rapport par vecteur. Conçoit des attaques propres à l'architecture (pipeline HTTP+WS partagé, token dans l'ALS, pont api.request, canaux WS, zones et bypass du firewall, scopes DI, trust-proxy), pas seulement des attaques OWASP génériques. Déclencheurs : \"revue sécurité\", \"audit sécurité\", \"security review\", \"check sécurité avant commit\", \"c'est safe ?\", \"vérifie la sécurité\", \"red-team\", \"blue-team\", \"matrice d'attaque\", \"test d'attaque\", \"attaquer le framework\", \"attaquer cette brique\", \"durcir la sécurité\", \"pentest\".",
+      "cost": {
+        "bodyLines": 356,
+        "approxTokens": 6340
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": ["nodefony-quick-diff", "nodefony-rfc"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "973",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "356",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-security-review/SKILL.md",
+        "doc": "docs/skills/nodefony-security-review.md"
+      }
+    },
+    {
+      "name": "nodefony-session",
+      "summary": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise.",
+      "family": "Cycle de session",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "reprends",
+        "on en était où",
+        "dernière session",
+        "prépare le contexte",
+        "session sur <module>",
+        "fin de session",
+        "retex",
+        "consolide les retex"
+      ],
+      "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
+      "cost": {
+        "bodyLines": 555,
+        "approxTokens": 6115
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-check-externals",
+        "nodefony-check-memory-health",
+        "nodefony-generate-symbols",
+        "nodefony-migration-audit",
+        "nodefony-quick-diff"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "406",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": false,
+            "detail": "555",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-session/SKILL.md",
+        "doc": "docs/skills/nodefony-session.md"
+      }
+    },
+    {
+      "name": "nodefony-skill",
+      "summary": "Créer, éditer ou auditer un skill du dépôt Nodefony.",
+      "family": "Cycle de session",
+      "version": "1.0.0",
+      "keywords": [
+        "skill-creator",
+        "nodefony-*",
+        "metadata.version",
+        "references/",
+        "skills-doc"
+      ],
+      "triggers": [
+        "créer un skill",
+        "nouveau skill",
+        "éditer un skill",
+        "améliorer un skill",
+        "mon skill ne se déclenche jamais",
+        "skill non conforme",
+        "skills-ref validate",
+        "conformité Agent Skills",
+        "fiche de skill",
+        "à quoi sert ce skill",
+        "faut-il un skill pour ça ?"
+      ],
+      "description": "Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique du skill. Porte aussi les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une description qui décrit l'outil au lieu du moment ne se déclenche jamais. Déclencheurs : \"créer un skill\", \"nouveau skill\", \"éditer un skill\", \"améliorer un skill\", \"mon skill ne se déclenche jamais\", \"skill non conforme\", \"skills-ref validate\", \"conformité Agent Skills\", \"fiche de skill\", \"à quoi sert ce skill\", \"faut-il un skill pour ça ?\".",
+      "cost": {
+        "bodyLines": 191,
+        "approxTokens": 2881
+      },
+      "requires": ["docker", "redis", "base de données"],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": [
+          {
+            "path": "scripts/skills-doc.mjs",
+            "purpose": "skills-doc — fiche de documentation par skill, ET gate de conformité.",
+            "usage": [
+              "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs",
+              "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check"
+            ],
+            "options": [
+              {
+                "flag": "--check",
+                "help": "contrôle seulement, n'écrit rien (utilisable en intégration continue)"
+              }
+            ],
+            "env": [
+              {
+                "name": "SKILLS_DOC_DATE",
+                "help": "horodatage des pages générées ; par défaut la date du jour"
+              }
+            ],
+            "output": "une fiche par skill dans docs/skills/, l'index, les cards de la page d'analyse et registry.json",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/trigger-bench.mjs",
+            "purpose": "trigger-bench — prouve qu'une phrase réelle élit le bon skill.",
+            "usage": [
+              "node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs",
+              "node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose"
+            ],
+            "options": [
+              {
+                "flag": "--verbose",
+                "help": "affiche le score des trois meilleurs skills pour chaque phrase"
+              },
+              {
+                "flag": "--list",
+                "help": "liste les cas du banc sans les exécuter"
+              }
+            ],
+            "env": [],
+            "output": "un compte de phrases élisant le bon skill, les échecs, et les recouvrements à arbitrer",
+            "selfDocumented": true
+          }
+        ]
+      },
+      "related": [
+        "nodefony-check-memory-health",
+        "nodefony-create-module",
+        "nodefony-debug",
+        "nodefony-documentation"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "1001",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "191",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-skill/SKILL.md",
+        "doc": "docs/skills/nodefony-skill.md"
+      }
+    },
+    {
+      "name": "nodefony-start-server",
+      "summary": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check.",
+      "family": "Exécuter, diagnostiquer, mesurer",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "lance le serveur",
+        "démarre nodefony",
+        "relance le serveur",
+        "start server",
+        "redémarre le serveur"
+      ],
+      "description": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check. Commandes natives standalone nodefony status / nodefony stop (introspection + arrêt propre, de partout). Déclencheurs : \"lance le serveur\", \"démarre nodefony\", \"relance le serveur\", \"start server\", \"redémarre le serveur\", tests d'intégration en 404 (dist périmé).",
+      "cost": {
+        "bodyLines": 209,
+        "approxTokens": 3868
+      },
+      "requires": ["serveur UP"],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": [
+          {
+            "path": "start.sh",
+            "purpose": "start.sh — démarre le serveur Nodefony de manière fiable.",
+            "usage": [
+              "Usage : bash .claude/skills/nodefony-start-server/start.sh [-d] [--force-build] [--cluster [-w N]]"
+            ],
+            "options": [
+              {
+                "flag": "--all",
+                "help": ""
+              },
+              {
+                "flag": "--cluster",
+                "help": ""
+              },
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--force-build",
+                "help": ""
+              },
+              {
+                "flag": "--health",
+                "help": ""
+              },
+              {
+                "flag": "--log",
+                "help": ""
+              },
+              {
+                "flag": "--wait",
+                "help": ""
+              },
+              {
+                "flag": "--workers",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "stop.sh",
+            "purpose": "stop.sh — arrête le serveur Nodefony proprement (one-shot, pas de respawn).",
+            "usage": [
+              "Usage : bash .claude/skills/nodefony-start-server/stop.sh"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "525",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "209",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-start-server/SKILL.md",
+        "doc": "docs/skills/nodefony-start-server.md"
+      }
+    },
+    {
+      "name": "nodefony-studio-dev",
+      "summary": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework.",
+      "family": "Développer le framework",
+      "version": "2.0.0",
+      "keywords": [],
+      "triggers": [
+        "dev studio",
+        "page studio",
+        "dashboard studio",
+        "écran studio",
+        "panneau studio",
+        "composant studio",
+        "page /nodefony",
+        "comment coder dans studio",
+        "Twin",
+        "jumeau vivant",
+        "debug bar",
+        "debugbar",
+        "barre de debug",
+        "WDT"
+      ],
+      "description": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart, DocHint), le hook useResource, les stores MobX et les hooks temps réel nodefony/react. Donne la recette (route + lazy + navConfig + fallback deep-link + data plane), des squelettes copier-coller, le Jumeau Vivant (Twin), la debug bar, le back-end Studio (controller + data plane + realtime), et les règles qualité (a11y, sécu, perf, gate tsc). DÉRIVE de nodefony-frontend-dev (mécanismes front généraux). Déclencheurs : \"dev studio\", \"page studio\", \"dashboard studio\", \"écran studio\", \"panneau studio\", \"composant studio\", \"page /nodefony\", \"comment coder dans studio\", \"Twin\", \"jumeau vivant\", \"debug bar\", \"debugbar\", \"barre de debug\", \"WDT\".",
+      "cost": {
+        "bodyLines": 143,
+        "approxTokens": 3531
+      },
+      "requires": [],
+      "resources": {
+        "references": [
+          "backend-studio.md",
+          "debugbar.md",
+          "gotchas-studio.md",
+          "realtime-studio.md",
+          "twin.md",
+          "ui-kit.md"
+        ],
+        "referenceFilesTotal": 6,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-create-frontend-module",
+        "nodefony-documentation",
+        "nodefony-framework-dev",
+        "nodefony-frontend-dev",
+        "nodefony-frontend-verify",
+        "nodefony-rfc",
+        "nodefony-security-review",
+        "nodefony-start-server"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "935",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "143",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-studio-dev/SKILL.md",
+        "doc": "docs/skills/nodefony-studio-dev.md"
+      }
+    },
+    {
+      "name": "nodefony-tail-error-logs",
+      "summary": "Extrait uniquement les erreurs (ERROR / CRITIC / TypeError / SyntaxError / stack traces) des derniers logs du serveur Nodefony — supprime les codes ANSI et les requêtes 200 OK.",
+      "family": "Exécuter, diagnostiquer, mesurer",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "logs du serveur",
+        "erreurs serveur",
+        "voir les crashs",
+        "pourquoi le test échoue",
+        "tail logs",
+        "stack trace nodefony"
+      ],
+      "description": "Extrait uniquement les erreurs (ERROR / CRITIC / TypeError / SyntaxError / stack traces) des derniers logs du serveur Nodefony — supprime les codes ANSI et les requêtes 200 OK. À utiliser dès qu'un test d'intégration échoue ou que le serveur a crashé au boot. Déclencheurs : \"logs du serveur\", \"erreurs serveur\", \"voir les crashs\", \"pourquoi le test échoue\", \"tail logs\", \"stack trace nodefony\".",
+      "cost": {
+        "bodyLines": 77,
+        "approxTokens": 880
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": ["nodefony-start-server"],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "395",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "77",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-tail-error-logs/SKILL.md",
+        "doc": "docs/skills/nodefony-tail-error-logs.md"
+      }
+    },
+    {
+      "name": "nodefony-ts-docs",
+      "summary": "Consulte la doc officielle TypeScript (utility types, handbook, do's and don'ts) et les types Node.js (@types/node DefinitelyTyped) via sources brutes raw GitHub + proxy r.jina.ai, jamais typescriptlang.org (JS lourd).",
+      "family": "Références et livrables",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "comment typer X",
+        "utility type",
+        "Pick/Omit/ReturnType",
+        "@types/node",
+        "NodeJS.Timeout",
+        "TS handbook",
+        "mapped types",
+        "conditional type"
+      ],
+      "description": "Consulte la doc officielle TypeScript (utility types, handbook, do's and don'ts) et les types Node.js (@types/node DefinitelyTyped) via sources brutes raw GitHub + proxy r.jina.ai, jamais typescriptlang.org (JS lourd). Déclencheurs : \"comment typer X\", \"utility type\", \"Pick/Omit/ReturnType\", \"@types/node\", \"NodeJS.Timeout\", \"TS handbook\", \"mapped types\", \"conditional type\".",
+      "cost": {
+        "bodyLines": 66,
+        "approxTokens": 681
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "376",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "66",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-ts-docs/SKILL.md",
+        "doc": "docs/skills/nodefony-ts-docs.md"
+      }
+    },
+    {
+      "name": "nodefony-view-method-signature",
+      "summary": "Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, TSDoc) depuis l'AST extrait dans dist/symbols.json — évite de lire un fichier source de 500 lignes pour l'ordre des args.",
+      "family": "Inspecter et auditer",
+      "version": null,
+      "keywords": [],
+      "triggers": [
+        "signature de méthode",
+        "args de fonction",
+        "comment appeler X",
+        "quels paramètres prend Y",
+        "view method signature"
+      ],
+      "description": "Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, TSDoc) depuis l'AST extrait dans dist/symbols.json — évite de lire un fichier source de 500 lignes pour l'ordre des args. Déclencheurs : \"signature de méthode\", \"args de fonction\", \"comment appeler X\", \"quels paramètres prend Y\", \"view method signature\".",
+      "cost": {
+        "bodyLines": 84,
+        "approxTokens": 672
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "328",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "84",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-view-method-signature/SKILL.md",
+        "doc": "docs/skills/nodefony-view-method-signature.md"
+      }
+    }
+  ]
+}

@@ -173,7 +173,7 @@ source: "docs/skills/index.md"
 | [`nodefony-roadmap`](nodefony-roadmap.md)                               | —       |   161 |    0 |       0 |    ✅    |
 | [`nodefony-security-review`](nodefony-security-review.md)               | —       |   356 |    0 |       0 |    ✅    |
 | [`nodefony-session`](nodefony-session.md)                               | —       |   555 |    0 |       0 |    ✅    |
-| [`nodefony-skill`](nodefony-skill.md)                                   | 1.0.0   |   162 |    0 |       2 |    ✅    |
+| [`nodefony-skill`](nodefony-skill.md)                                   | 1.0.0   |   191 |    0 |       2 |    ✅    |
 | [`nodefony-start-server`](nodefony-start-server.md)                     | —       |   209 |    0 |       2 |    ✅    |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md)                         | 2.0.0   |   143 |    6 |       0 |    ✅    |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md)               | —       |    77 |    0 |       0 |    ✅    |

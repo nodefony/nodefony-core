@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-get-module-config/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 62 lignes               |
-| Description              | 615 / 1024 caractères   |
-| Déclencheurs             | 8                       |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                  |
+| ------------------------ | ------------------------------------------------ |
+| Version                  | — (non versionné)                                |
+| Famille                  | Inspecter et auditer                             |
+| Corps                    | 62 lignes                                        |
+| Coût d'activation        | ~680 tokens (le corps est chargé à l'invocation) |
+| Description              | 615 / 1024 caractères                            |
+| Déclencheurs             | 8                                                |
+| Ressources `references/` | 0 page(s)                                        |
+| Scripts                  | 0                                                |
+| Conformité               | ✅ conforme au standard                          |
 
 ## Ce qu'il fait
 
 INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes déclarées — sans charger son code métier ni démarrer de serveur. Pour valider qu'un service est bien enregistré, qu'une route est bien déclarée, ou auditer les paramètres effectifs. Ne crée rien : scaffolder un module neuf → `nodefony-create-module`.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`create-module`](nodefony-create-module.md)
 
 ## Quand il se déclenche
 

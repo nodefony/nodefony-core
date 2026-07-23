@@ -19,15 +19,17 @@ source: ".claude/skills/nodefony-nestjs/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 70 lignes               |
-| Description              | 369 / 1024 caractères   |
-| Déclencheurs             | 0                       |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                  |
+| ------------------------ | ------------------------------------------------ |
+| Version                  | — (non versionné)                                |
+| Famille                  | Références et livrables                          |
+| Corps                    | 70 lignes                                        |
+| Coût d'activation        | ~707 tokens (le corps est chargé à l'invocation) |
+| Description              | 369 / 1024 caractères                            |
+| Déclencheurs             | 0                                                |
+| Ressources `references/` | 0 page(s)                                        |
+| Scripts                  | 0                                                |
+| Conformité               | ✅ conforme au standard                          |
 
 ## Ce qu'il fait
 

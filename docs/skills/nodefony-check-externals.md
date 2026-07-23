@@ -19,15 +19,17 @@ source: ".claude/skills/nodefony-check-externals/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 86 lignes               |
-| Description              | 752 / 1024 caractères   |
-| Déclencheurs             | 10                      |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Inspecter et auditer                               |
+| Corps                    | 86 lignes                                          |
+| Coût d'activation        | ~1 097 tokens (le corps est chargé à l'invocation) |
+| Description              | 752 / 1024 caractères                              |
+| Déclencheurs             | 10                                                 |
+| Ressources `references/` | 0 page(s)                                          |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 

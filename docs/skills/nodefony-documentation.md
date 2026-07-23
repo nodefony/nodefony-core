@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | `2.3.0`                 |
-| Corps                    | 641 lignes              |
-| Description              | 993 / 1024 caractères   |
-| Déclencheurs             | 17                      |
-| Ressources `references/` | 1 page(s)               |
-| Scripts                  | 6                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                     |
+| ------------------------ | --------------------------------------------------- |
+| Version                  | `2.3.0`                                             |
+| Famille                  | Développer le framework                             |
+| Corps                    | 641 lignes                                          |
+| Coût d'activation        | ~10 890 tokens (le corps est chargé à l'invocation) |
+| Description              | 993 / 1024 caractères                               |
+| Déclencheurs             | 17                                                  |
+| Ressources `references/` | 1 page(s)                                           |
+| Scripts                  | 6                                                   |
+| Conformité               | ✅ conforme au standard                             |
 
 ## Ce qu'il fait
 
 Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), mise en page docs-site, data plane avec allowlist anti-traversée. (2) Le SYSTÈME D'ÉCRITURE de la doc de référence : standard de rédaction (Diátaxis, ancres symboliques, Démarrage rapide compilable, navigation par hubs) et ses gates `scripts/` — doc-lint, anchor-check, code-check, gen-counters, build-preview. Ni les écrans Studio génériques (→ nodefony-studio-dev), ni la création back (→ nodefony-create-module).
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`create-module`](nodefony-create-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md) · [`studio-dev`](nodefony-studio-dev.md)
 
 ## Quand il se déclenche
 

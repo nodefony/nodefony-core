@@ -19,19 +19,31 @@ source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 140 lignes              |
-| Description              | 988 / 1024 caractères   |
-| Déclencheurs             | 12                      |
-| Ressources `references/` | 2 page(s)               |
-| Scripts                  | 9                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Exécuter, diagnostiquer, mesurer                   |
+| Corps                    | 140 lignes                                         |
+| Coût d'activation        | ~2 431 tokens (le corps est chargé à l'invocation) |
+| Description              | 988 / 1024 caractères                              |
+| Déclencheurs             | 12                                                 |
+| Ressources `references/` | 2 page(s)                                          |
+| Scripts                  | 9                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout. Fournit le décor (Redis docker, apps liées au framework, ports dédiés), les scripts de mesure (latence, charge, coût de publication, forge d'enveloppe scellée), la matrice d'attaque du backplane et les pièges du lancement multi-instances. À charger AVANT de monter le décor ou de lancer un script : sans le protocole, un banc saturé mesure un backlog et non une latence, et une infra éteinte en route rend les tests silencieusement verts.
+
+## Prérequis
+
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **serveur UP** · **redis** · **docker**.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`load-test`](nodefony-load-test.md) · [`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 

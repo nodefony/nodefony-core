@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-tail-error-logs/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 77 lignes               |
-| Description              | 395 / 1024 caractères   |
-| Déclencheurs             | 6                       |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                  |
+| ------------------------ | ------------------------------------------------ |
+| Version                  | — (non versionné)                                |
+| Famille                  | Exécuter, diagnostiquer, mesurer                 |
+| Corps                    | 77 lignes                                        |
+| Coût d'activation        | ~880 tokens (le corps est chargé à l'invocation) |
+| Description              | 395 / 1024 caractères                            |
+| Déclencheurs             | 6                                                |
+| Ressources `references/` | 0 page(s)                                        |
+| Scripts                  | 0                                                |
+| Conformité               | ✅ conforme au standard                          |
 
 ## Ce qu'il fait
 
 Extrait uniquement les erreurs (ERROR / CRITIC / TypeError / SyntaxError / stack traces) des derniers logs du serveur Nodefony — supprime les codes ANSI et les requêtes 200 OK. À utiliser dès qu'un test d'intégration échoue ou que le serveur a crashé au boot.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 

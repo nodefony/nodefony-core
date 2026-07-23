@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                                 |
-| ------------------------ | ------------------------------- |
-| Version                  | `1.0.0`                         |
-| Corps                    | 99 lignes                       |
-| Description              | 876 / 1024 caractères           |
-| Déclencheurs             | 20                              |
-| Ressources `references/` | 6 page(s), 14 fichiers au total |
-| Scripts                  | 0                               |
-| Conformité               | ✅ conforme au standard         |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | `1.0.0`                                            |
+| Famille                  | Développer le framework                            |
+| Corps                    | 99 lignes                                          |
+| Coût d'activation        | ~2 448 tokens (le corps est chargé à l'invocation) |
+| Description              | 876 / 1024 caractères                              |
+| Déclencheurs             | 20                                                 |
+| Ressources `references/` | 6 page(s), 14 fichiers au total                    |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, et les règles d'ergonomie / temps réel « calme » / a11y / perf (bundlées offline). App admin Studio → `nodefony-studio-dev` (qui en dérive) ; scaffold d'un module front → `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`create-frontend-module`](nodefony-create-frontend-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`security-review`](nodefony-security-review.md) · [`studio-dev`](nodefony-studio-dev.md) · [`ts-docs`](nodefony-ts-docs.md)
 
 ## Quand il se déclenche
 

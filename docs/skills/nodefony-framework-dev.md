@@ -19,19 +19,27 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                                 |
-| ------------------------ | ------------------------------- |
-| Version                  | `2.0.0`                         |
-| Corps                    | 294 lignes                      |
-| Description              | 1007 / 1024 caractères          |
-| Déclencheurs             | 23                              |
-| Ressources `references/` | 8 page(s), 81 fichiers au total |
-| Scripts                  | 0                               |
-| Conformité               | ✅ conforme au standard         |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | `2.0.0`                                            |
+| Famille                  | Développer le framework                            |
+| Corps                    | 294 lignes                                         |
+| Coût d'activation        | ~6 321 tokens (le corps est chargé à l'invocation) |
+| Description              | 1007 / 1024 caractères                             |
+| Déclencheurs             | 23                                                 |
+| Ressources `references/` | 8 page(s), 81 fichiers au total                    |
+| Scripts                  | 0                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs). Couvre : créer un service injectable, un module, une commande CLI, une entité/repository/adapter ORM, un endpoint HTTP/WS ou un data plane admin, et le realtime. Donne les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup des listeners, ALS), les conventions de structure et de configuration, des recettes vérifiées sur le source, les gotchas et les RFC bundlées hors ligne.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`check-memory-health`](nodefony-check-memory-health.md) · [`create-frontend-module`](nodefony-create-frontend-module.md) · [`create-module`](nodefony-create-module.md) · [`frontend-dev`](nodefony-frontend-dev.md) · [`load-test`](nodefony-load-test.md) · [`nestjs`](nodefony-nestjs.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md) · [`studio-dev`](nodefony-studio-dev.md) · [`ts-docs`](nodefony-ts-docs.md)
 
 ## Quand il se déclenche
 

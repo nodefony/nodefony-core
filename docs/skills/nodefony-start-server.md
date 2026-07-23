@@ -19,19 +19,25 @@ source: ".claude/skills/nodefony-start-server/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                         |
-| ------------------------ | ----------------------- |
-| Version                  | — (non versionné)       |
-| Corps                    | 209 lignes              |
-| Description              | 525 / 1024 caractères   |
-| Déclencheurs             | 5                       |
-| Ressources `references/` | 0 page(s)               |
-| Scripts                  | 2                       |
-| Conformité               | ✅ conforme au standard |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Exécuter, diagnostiquer, mesurer                   |
+| Corps                    | 209 lignes                                         |
+| Coût d'activation        | ~3 868 tokens (le corps est chargé à l'invocation) |
+| Description              | 525 / 1024 caractères                              |
+| Déclencheurs             | 5                                                  |
+| Ressources `references/` | 0 page(s)                                          |
+| Scripts                  | 2                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check. Commandes natives standalone nodefony status / nodefony stop (introspection + arrêt propre, de partout).
+
+## Prérequis
+
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **serveur UP**.
 
 ## Quand il se déclenche
 

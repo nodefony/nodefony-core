@@ -19,19 +19,31 @@ source: ".claude/skills/nodefony-html-report/SKILL.md"
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
-|                          |                                |
-| ------------------------ | ------------------------------ |
-| Version                  | — (non versionné)              |
-| Corps                    | 174 lignes                     |
-| Description              | 935 / 1024 caractères          |
-| Déclencheurs             | 11                             |
-| Ressources `references/` | 3 page(s), 9 fichiers au total |
-| Scripts                  | 3                              |
-| Conformité               | ✅ conforme au standard        |
+|                          |                                                    |
+| ------------------------ | -------------------------------------------------- |
+| Version                  | — (non versionné)                                  |
+| Famille                  | Références et livrables                            |
+| Corps                    | 174 lignes                                         |
+| Coût d'activation        | ~3 017 tokens (le corps est chargé à l'invocation) |
+| Description              | 935 / 1024 caractères                              |
+| Déclencheurs             | 11                                                 |
+| Ressources `references/` | 3 page(s), 9 fichiers au total                     |
+| Scripts                  | 3                                                  |
+| Conformité               | ✅ conforme au standard                            |
 
 ## Ce qu'il fait
 
 Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés. Fournit une bibliothèque de rendu (`lib/report.mjs`) : graphes SVG (barres, courbes, nuage+régression, waterfall, heatmap, jauge, donut, sparkline), tableaux triables/filtrables, calculateurs interactifs, listes réordonnables par glisser-déposer, onglets, mode présentation, export CSV — et une impression PDF soignée (sauts de page maîtrisés, en-têtes de tableau répétés, hypothèses figées). À utiliser dès qu'un livrable doit être LU, MANIPULÉ ou IMPRIMÉ par une personne, plutôt que relu par un outil.
+
+## Prérequis
+
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis** · **base de données**.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`load-test`](nodefony-load-test.md)
 
 ## Quand il se déclenche
 

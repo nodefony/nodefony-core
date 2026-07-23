@@ -6,8 +6,11 @@
  * fiches sont DÉRIVÉES du `SKILL.md` lui-même : version, ressources, scripts, déclencheurs et
  * conformité au standard Agent Skills (AAIF) sont lus, jamais recopiés.
  *
- *   node .claude/skills/nodefony-skill/scripts/skills-doc.mjs            # régénère docs/skills/ ; sort 1 si un skill n'est pas conforme
- *   node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check    # ne réécrit rien, contrôle seulement (utilisable en CI)
+ * @usage    node .claude/skills/nodefony-skill/scripts/skills-doc.mjs
+ * @usage    node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check
+ * @option   --check  contrôle seulement, n'écrit rien (utilisable en intégration continue)
+ * @env      SKILLS_DOC_DATE  horodatage des pages générées ; par défaut la date du jour
+ * @output   une fiche par skill dans docs/skills/, l'index, les cards de la page d'analyse et registry.json
  *
  * Le standard : name ≤ 64 en [a-z0-9-] identique au dossier · description 1..1024 · aucun champ hors
  * name/description/license/metadata/allowed-tools · ressources en scripts|references|assets.
@@ -82,9 +85,67 @@ function analyzeScript(path) {
   try {
     src = readFileSync(path, "utf8");
   } catch {
-    return { purpose: "", usage: "", flags: [], envs: [] };
+    return {
+      purpose: "",
+      usage: "",
+      flags: [],
+      envs: [],
+      docs: {},
+      requires: [],
+    };
   }
   const head = src.split("\n").slice(0, 40);
+
+  // ── HOOK DE DOC ────────────────────────────────────────────────────────────────────────────
+  // Un script peut se DÉCRIRE lui-même dans son entête, au lieu de laisser deviner. Ces tags
+  // sont facultatifs : sans eux, l'heuristique plus bas fait de son mieux ; avec eux, la fiche
+  // devient exacte. C'est le seul endroit où la doc d'un script doit vivre — pas dans un fichier
+  // parallèle qui divergera.
+  //
+  // (exemples entre accents graves pour qu'ils ne soient pas moissonnés par leur propre lecteur)
+  //   `@usage`    node scripts/x.mjs --out rapport.html
+  //   `@option`   --out    chemin du rapport produit
+  //   `@env`      NF_PORT  port du serveur à interroger
+  //   `@requires` docker, serveur UP
+  //   `@output`   un rapport HTML autonome
+  const tag = (name) =>
+    [
+      ...src.matchAll(
+        new RegExp(`^\\s*(?:#|//|\\*)\\s*@${name}\\s+(.+)$`, "gm"),
+      ),
+    ].map((m) => m[1].trim());
+  const docs = {
+    usage: tag("usage"),
+    options: tag("option").map((l) => {
+      const m = l.match(/^(--?[\w-]+)\s+(.*)$/);
+      return m
+        ? { flag: m[1], help: m[2] }
+        : { flag: l.split(/\s+/)[0], help: l.split(/\s+/).slice(1).join(" ") };
+    }),
+    envs: tag("env").map((l) => {
+      const m = l.match(/^([A-Z][A-Z0-9_]*)\s+(.*)$/);
+      return m
+        ? { name: m[1], help: m[2] }
+        : { name: l.split(/\s+/)[0], help: "" };
+    }),
+    output: tag("output"),
+  };
+  const declaredRequires = tag("requires")
+    .flatMap((l) => l.split(/\s*,\s*/))
+    .filter(Boolean);
+
+  // Prérequis déduits quand le script ne les déclare pas : ce qu'il faut avoir sous la main
+  // pour que son résultat veuille dire quelque chose.
+  const inferred = [];
+  if (/\bdocker\b/i.test(src)) inferred.push("docker");
+  if (/localhost:\d|127\.0\.0\.1|https?:\/\/localhost/.test(src))
+    inferred.push("serveur UP");
+  if (/redis|REDIS_/i.test(src)) inferred.push("redis");
+  if (/\b(psql|postgres|mysql|mariadb|mongo)\b/i.test(src))
+    inferred.push("base de données");
+  const requires = [
+    ...new Set(declaredRequires.length ? declaredRequires : inferred),
+  ];
 
   // Raison d'être : la première ligne de commentaire substantielle de l'entête.
   let purpose = "";
@@ -152,7 +213,20 @@ function analyzeScript(path) {
     )
     .sort();
 
-  return { purpose, usage, flags, envs };
+  return {
+    purpose: docs.output.length && !purpose ? docs.output[0] : purpose,
+    usage: docs.usage[0] || usage,
+    usages: docs.usage.length ? docs.usage : usage ? [usage] : [],
+    flags: docs.options.length ? docs.options.map((o) => o.flag) : flags,
+    options: docs.options,
+    envs: docs.envs.length ? docs.envs.map((e) => e.name) : envs,
+    envDocs: docs.envs,
+    output: docs.output[0] || "",
+    requires,
+    selfDocumented: Boolean(
+      docs.usage.length || docs.options.length || docs.envs.length,
+    ),
+  };
 }
 
 function listFiles(dir, exts) {
@@ -194,7 +268,9 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
   const topLevelFields = [...raw.matchAll(/^([a-zA-Z-]+):/gm)].map((m) => m[1]);
   const unknown = topLevelFields.filter((f) => !ALLOWED_FIELDS.has(f));
   const bodyLines = body.split("\n").length;
-  const sections = [...body.matchAll(/^##\s+(.+)$/gm)].map((m) =>
+  // Les titres d'un GABARIT vivent dans un bloc de code : ce ne sont pas des sections du skill.
+  const bodyOutsideCode = body.replace(/^```[\s\S]*?^```/gm, "");
+  const sections = [...bodyOutsideCode.matchAll(/^##\s+(.+)$/gm)].map((m) =>
     m[1].replace(/\s*\{#.*\}$/, ""),
   );
 
@@ -226,11 +302,39 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
     },
   ];
 
+  // Ce qu'un registre ou un moteur de recherche doit pouvoir lire sans ouvrir le skill :
+  // un résumé d'une ligne, des mots-clés, le coût d'activation, et les skills voisins.
+  const summary = description
+    .split(/(?<=[.!?])\s/)[0]
+    .replace(/\*\*/g, "")
+    .trim();
+  const prose = description.split(/D[ée]clencheurs?\s*(?:étroits[^:]*)?:/i)[0];
+  const keywords = [
+    ...new Set(
+      (prose.match(/`[^`]+`/g) || [])
+        .map((k) => k.replace(/`/g, "").trim())
+        .filter((k) => k.length > 1 && k.length < 40 && !k.includes(" ")),
+    ),
+  ].slice(0, 20);
+  // Graphe : quels autres skills ce skill nomme (orientation, délégation, « passer la main »).
+  const related = [
+    ...new Set(
+      (src.match(/nodefony-[a-z-]+/g) || []).filter(
+        (n) => n !== name && existsSync(join(SKILLS_DIR, n)),
+      ),
+    ),
+  ].sort();
+  const approxTokens = Math.round(src.length / 4);
+
   skills.push({
     name,
     dir,
     version,
     description,
+    summary,
+    keywords,
+    related,
+    approxTokens,
     bodyLines,
     sections,
     triggers: triggers(description),
@@ -293,7 +397,11 @@ function renderSkill(s) {
   L.push(
     `| Version | ${s.version ? `\`${s.version}\`` : "— (non versionné)"} |`,
   );
+  L.push(`| Famille | ${familyOf(s.name)} |`);
   L.push(`| Corps | ${s.bodyLines} lignes |`);
+  L.push(
+    `| Coût d'activation | ~${s.approxTokens.toLocaleString("fr-FR")} tokens (le corps est chargé à l'invocation) |`,
+  );
   L.push(`| Description | ${s.description.length} / ${MAX_DESC} caractères |`);
   L.push(`| Déclencheurs | ${s.triggers.length} |`);
   L.push(
@@ -313,6 +421,28 @@ function renderSkill(s) {
     s.description.split(/D[ée]clencheurs?\s*(?:étroits[^:]*)?:/i)[0].trim(),
   );
   L.push("");
+
+  const allSc = [...s.rootScripts, ...s.scripts, ...s.libs];
+  const requires = [...new Set(allSc.flatMap((x) => x.requires))];
+  if (requires.length) {
+    L.push("## Prérequis");
+    L.push("");
+    L.push(
+      `Ce que le décor doit fournir pour que ses scripts disent quelque chose : ${requires.map((r) => `**${r}**`).join(" · ")}.`,
+    );
+    L.push("");
+  }
+
+  if (s.related.length) {
+    L.push("## Skills voisins");
+    L.push("");
+    L.push(
+      "Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :",
+    );
+    L.push("");
+    L.push(s.related.map((r) => `[\`${short(r)}\`](${r}.md)`).join(" · "));
+    L.push("");
+  }
 
   if (s.triggers.length) {
     L.push("## Quand il se déclenche");
@@ -381,6 +511,40 @@ function renderSkill(s) {
         `**Toutes les variables lues par ce skill** : ${envAll.map((e) => `\`${e}\``).join(" · ")}`,
       );
       L.push("");
+    }
+
+    // Détail des scripts qui se documentent eux-mêmes (tags @option / @env / @output) : ceux-là
+    // ont une aide écrite par leur auteur, pas déduite.
+    const documented = allScripts.filter((sc) => sc.selfDocumented);
+    if (documented.length) {
+      L.push("### Détail des scripts auto-documentés");
+      L.push("");
+      for (const sc of documented) {
+        L.push(`#### \`${sc.path}\``);
+        L.push("");
+        if (sc.output) L.push(`Produit : ${sc.output}`);
+        if (sc.usages.length) {
+          L.push("");
+          L.push("```bash");
+          for (const u of sc.usages) L.push(u);
+          L.push("```");
+        }
+        if (sc.options.length) {
+          L.push("");
+          L.push("| Option | Rôle |");
+          L.push("| --- | --- |");
+          for (const o of sc.options)
+            L.push(`| \`${o.flag}\` | ${esc(o.help)} |`);
+        }
+        if (sc.envDocs.length) {
+          L.push("");
+          L.push("| Variable | Rôle |");
+          L.push("| --- | --- |");
+          for (const e of sc.envDocs)
+            L.push(`| \`${e.name}\` | ${esc(e.help)} |`);
+        }
+        L.push("");
+      }
     }
   }
 
@@ -576,6 +740,67 @@ if (!CHECK_ONLY) {
   for (const s of skills)
     writeFileSync(join(OUT_DIR, `${s.name}.md`), renderSkill(s));
   writeFileSync(join(OUT_DIR, "index.md"), renderIndex(skills));
+
+  // Index MACHINE. Un registre de skills ou un moteur de recherche n'ouvre pas 27 markdown :
+  // il lui faut un seul fichier structuré — résumé, mots-clés, déclencheurs, coût d'activation,
+  // prérequis, graphe de voisinage, conformité. C'est la même donnée que les fiches, sérialisée.
+  const registry = {
+    schema: "nodefony.skills-registry/1",
+    standard: "agent-skills (AAIF)",
+    generatedBy: ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
+    generatedAt: STAMP,
+    count: skills.length,
+    conformant: skills.filter((s) => s.hard).length,
+    skills: skills.map((s) => ({
+      name: s.name,
+      summary: s.summary,
+      family: familyOf(s.name),
+      version: s.version,
+      keywords: s.keywords,
+      triggers: s.triggers,
+      description: s.description,
+      cost: { bodyLines: s.bodyLines, approxTokens: s.approxTokens },
+      requires: [
+        ...new Set(
+          [...s.rootScripts, ...s.scripts, ...s.libs].flatMap(
+            (x) => x.requires,
+          ),
+        ),
+      ],
+      resources: {
+        references: s.references,
+        referenceFilesTotal: s.referencesTotal,
+        scripts: [...s.rootScripts, ...s.scripts, ...s.libs].map((x) => ({
+          path: x.path,
+          purpose: x.purpose,
+          usage: x.usages,
+          options: x.options.length
+            ? x.options
+            : x.flags.map((f) => ({ flag: f, help: "" })),
+          env: x.envDocs.length
+            ? x.envDocs
+            : x.envs.map((e) => ({ name: e, help: "" })),
+          output: x.output,
+          selfDocumented: x.selfDocumented,
+        })),
+      },
+      related: s.related,
+      conformance: {
+        ok: s.hard,
+        checks: s.checks.map((c) => ({
+          key: c.key,
+          ok: c.ok,
+          detail: c.detail || null,
+          advisory: Boolean(c.soft),
+        })),
+      },
+      links: { source: `${s.dir}/SKILL.md`, doc: `docs/skills/${s.name}.md` },
+    })),
+  };
+  writeFileSync(
+    join(OUT_DIR, "registry.json"),
+    JSON.stringify(registry, null, 2) + "\n",
+  );
 
   // La page d'analyse porte les mêmes cards, remplies ICI entre deux marqueurs : une card
   // recopiée à la main ment dès la première édition d'une description.
