@@ -1,6 +1,16 @@
 ---
 name: nodefony-html-report
-description: Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés. Fournit une bibliothèque de rendu (`lib/report.mjs`) : graphes SVG (barres, courbes, nuage+régression, waterfall, heatmap, jauge, donut, sparkline), tableaux triables/filtrables, calculateurs interactifs, listes réordonnables par glisser-déposer, onglets, mode présentation, export CSV — et une impression PDF soignée (sauts de page maîtrisés, en-têtes de tableau répétés, hypothèses figées). À utiliser dès qu'un livrable doit être LU, MANIPULÉ ou IMPRIMÉ par une personne, plutôt que relu par un outil. Déclencheurs : "rapport HTML", "générer un rapport", "rapport imprimable", "rapport PDF", "dashboard statique", "restituer des mesures", "page de résultats", "graphe sans dépendance", "calculateur interactif", "deck de présentation", "export CSV".
+description: >
+  Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui
+  doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés. Fournit
+  une bibliothèque de rendu (`lib/report.mjs`) : graphes SVG (barres, courbes, nuage+régression,
+  waterfall, heatmap, jauge, donut, sparkline), tableaux triables/filtrables, calculateurs
+  interactifs, listes réordonnables par glisser-déposer, onglets, mode présentation, export CSV — et
+  une impression PDF soignée (sauts de page maîtrisés, en-têtes de tableau répétés, hypothèses
+  figées). À utiliser dès qu'un livrable doit être LU, MANIPULÉ ou IMPRIMÉ par une personne, plutôt
+  que relu par un outil. Déclencheurs : "rapport HTML", "générer un rapport", "rapport imprimable",
+  "rapport PDF", "dashboard statique", "restituer des mesures", "page de résultats", "graphe sans
+  dépendance", "calculateur interactif", "deck de présentation", "export CSV".
 ---
 
 # nodefony-html-report

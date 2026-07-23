@@ -1,11 +1,13 @@
 ---
 name: nodefony-get-module-config
 description: >
-  Affiche la configuration, l'injection (DI services) et le routage d'un module Nodefony sans
-  charger son code métier — valider qu'un service est enregistré, qu'une route est bien déclarée,
-  ou auditer les paramètres d'un module.
-  Déclencheurs : "config du module X", "comment est configuré X", "vérifier la déclaration de service",
-  "voir les routes d'un module", "configuration nodefony module".
+  INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes
+  déclarées — sans charger son code métier ni démarrer de serveur. Pour valider qu'un service est
+  bien enregistré, qu'une route est bien déclarée, ou auditer les paramètres effectifs. Ne crée
+  rien : scaffolder un module neuf → `nodefony-create-module`.
+  Déclencheurs : "config du module X", "comment est configuré X", "montre la config de ce module",
+  "quelles routes expose ce module", "voir les routes d'un module", "ce service est-il enregistré ?",
+  "vérifier la déclaration de service", "inspecter un module existant".
 ---
 
 # get-module-config

@@ -6,8 +6,8 @@
  * fiches sont DÉRIVÉES du `SKILL.md` lui-même : version, ressources, scripts, déclencheurs et
  * conformité au standard Agent Skills (AAIF) sont lus, jamais recopiés.
  *
- *   node scripts/skills-doc.mjs            # régénère docs/skills/ ; sort 1 si un skill n'est pas conforme
- *   node scripts/skills-doc.mjs --check    # ne réécrit rien, contrôle seulement (utilisable en CI)
+ *   node .claude/skills/nodefony-skill/scripts/skills-doc.mjs            # régénère docs/skills/ ; sort 1 si un skill n'est pas conforme
+ *   node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check    # ne réécrit rien, contrôle seulement (utilisable en CI)
  *
  * Le standard : name ≤ 64 en [a-z0-9-] identique au dossier · description 1..1024 · aucun champ hors
  * name/description/license/metadata/allowed-tools · ressources en scripts|references|assets.
@@ -35,6 +35,9 @@ const ALLOWED_FIELDS = new Set([
 ]);
 const MAX_DESC = 1024;
 const MAX_BODY_LINES = 500;
+// Horodatage exigé par le gate de documentation. Passé par l'environnement pour rester rejouable.
+const STAMP =
+  process.env.SKILLS_DOC_DATE || new Date().toISOString().slice(0, 10);
 
 /** Découpe le frontmatter YAML sans dépendance : suffisant pour les champs plats du standard. */
 function parseFrontmatter(src) {
@@ -262,7 +265,10 @@ function renderSkill(s) {
   L.push(`title: "${s.name} — fiche de skill"`);
   L.push("lang: fr");
   L.push("audience: humain");
-  L.push("generated: scripts/skills-doc.mjs");
+  L.push("topic: skills");
+  L.push("status: stable");
+  L.push("updated: " + STAMP);
+  L.push("generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs");
   L.push(`source: "${s.dir}/SKILL.md"`);
   L.push("---");
   L.push("");
@@ -278,7 +284,7 @@ function renderSkill(s) {
   L.push("");
   L.push("> [!NOTE]");
   L.push(
-    "> Fiche **générée** par `scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :",
+    "> Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :",
   );
   L.push("> corriger le skill, puis régénérer.");
   L.push("");
@@ -385,10 +391,103 @@ function renderSkill(s) {
   for (const c of s.checks)
     L.push(`| ${c.key} | ${badge(c.ok)} | ${esc(c.detail || "")} |`);
   L.push("");
+  L.push("");
+  L.push("## 🔗 Pour aller plus loin");
+  L.push("");
   L.push(
-    "Le détail du standard et la méthode de mesure : [Outillage agents](../outillage-agents.md).",
+    "- ⬆️ **Retour au hub** : [Fiches des skills](index.md) · [Outillage agents](../outillage-agents.md)",
+  );
+  L.push(
+    `- **Le skill lui-même** : \`${s.dir}/SKILL.md\` — c'est lui qu'on édite, pas cette fiche.`,
   );
   L.push("");
+  return L.join("\n");
+}
+
+/**
+ * Icône et famille par skill — l'œil doit trier avant de lire. Un skill absent de cette table
+ * retombe sur « Autres » : la fiche sort quand même, mais le classement demande une décision.
+ */
+const CATALOG = {
+  session: ["🧭", "Cycle de session"],
+  skill: ["🧩", "Cycle de session"],
+  "quick-diff": ["📝", "Cycle de session"],
+  "framework-dev": ["⚙️", "Développer le framework"],
+  "frontend-dev": ["🎨", "Développer le framework"],
+  "studio-dev": ["🖥️", "Développer le framework"],
+  documentation: ["📘", "Développer le framework"],
+  "create-module": ["📦", "Développer le framework"],
+  "create-frontend-module": ["🖼️", "Développer le framework"],
+  "start-server": ["🚀", "Exécuter, diagnostiquer, mesurer"],
+  debug: ["🩺", "Exécuter, diagnostiquer, mesurer"],
+  "tail-error-logs": ["📄", "Exécuter, diagnostiquer, mesurer"],
+  "check-memory-health": ["🧠", "Exécuter, diagnostiquer, mesurer"],
+  "frontend-verify": ["🔍", "Exécuter, diagnostiquer, mesurer"],
+  "load-test": ["📈", "Exécuter, diagnostiquer, mesurer"],
+  "multipod-bench": ["🛰️", "Exécuter, diagnostiquer, mesurer"],
+  "migration-audit": ["🗺️", "Inspecter et auditer"],
+  "security-review": ["🛡️", "Inspecter et auditer"],
+  "generate-symbols": ["🕸️", "Inspecter et auditer"],
+  "view-method-signature": ["🔬", "Inspecter et auditer"],
+  "get-module-config": ["🎛️", "Inspecter et auditer"],
+  "check-externals": ["🔗", "Inspecter et auditer"],
+  rfc: ["📜", "Références et livrables"],
+  "ts-docs": ["🔤", "Références et livrables"],
+  nestjs: ["🐈", "Références et livrables"],
+  roadmap: ["🗓️", "Références et livrables"],
+  "html-report": ["📊", "Références et livrables"],
+};
+const FAMILY_ORDER = [
+  "Cycle de session",
+  "Développer le framework",
+  "Exécuter, diagnostiquer, mesurer",
+  "Inspecter et auditer",
+  "Références et livrables",
+  "Autres",
+];
+const short = (name) => name.replace(/^nodefony-/, "");
+const iconFor = (name) => (CATALOG[short(name)] || ["🔧"])[0];
+const familyOf = (name) => (CATALOG[short(name)] || [, "Autres"])[1];
+
+/**
+ * Cards des skills — bloc `nodefony-cards` rendu par Studio. Généré, donc toujours aligné sur les
+ * descriptions réelles : une card ment le jour où on la recopie à la main.
+ */
+function renderCards(list, prefix = "") {
+  const cards = list.map((s) => {
+    const sentences = s.description.split(/(?<=[.!?])\s/);
+    const first = sentences[0].replace(/"/g, "'").replace(/\*\*/g, "").trim();
+    const second = (sentences[1] || "")
+      .replace(/"/g, "'")
+      .replace(/\*\*/g, "")
+      .trim();
+    let desc = first.length < 160 && second ? `${first} ${second}` : first;
+    if (desc.length > 300)
+      desc = desc.slice(0, 297).replace(/\s+\S*$/, "") + "…";
+    const nScripts = s.scripts.length + s.rootScripts.length + s.libs.length;
+    const bits = [];
+    if (nScripts) bits.push(`${nScripts} script${nScripts > 1 ? "s" : ""}`);
+    if (s.references.length)
+      bits.push(
+        `${s.references.length} référence${s.references.length > 1 ? "s" : ""}`,
+      );
+    bits.push(s.version ? `v${s.version}` : "non versionné");
+    return `  { "icon": "${iconFor(s.name)}", "title": "${short(s.name)}", "href": "${prefix}${s.name}.md",\n    "desc": "${desc}",\n    "meta": "${bits.join(" · ")}" }`;
+  });
+  return "```nodefony-cards\n[\n" + cards.join(",\n") + "\n]\n```";
+}
+
+/** Les cards regroupées par famille, chaque famille sous son propre titre. */
+function renderCardsByFamily(list, prefix = "") {
+  const L = [];
+  for (const fam of FAMILY_ORDER) {
+    const group = list.filter((s) => familyOf(s.name) === fam);
+    if (!group.length) continue;
+    L.push(`### ${fam}`);
+    L.push("");
+    L.push(renderCards(group, prefix));
+    L.push("");
+  }
   return L.join("\n");
 }
 
@@ -398,7 +497,11 @@ function renderIndex(list) {
   L.push('title: "Fiches des skills — index généré"');
   L.push("lang: fr");
   L.push("audience: humain");
-  L.push("generated: scripts/skills-doc.mjs");
+  L.push("topic: skills");
+  L.push("tests: none");
+  L.push("status: stable");
+  L.push("updated: " + STAMP);
+  L.push("generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs");
   L.push('source: "docs/skills/index.md"');
   L.push("---");
   L.push("");
@@ -408,7 +511,7 @@ function renderIndex(list) {
     `> Une fiche par skill du dépôt de développement, **générée** depuis son \`SKILL.md\` par`,
   );
   L.push(
-    `> \`scripts/skills-doc.mjs\` : version, contenu, déclencheurs, ressources, scripts et conformité`,
+    `> \`.claude/skills/nodefony-skill/scripts/skills-doc.mjs\` : version, contenu, déclencheurs, ressources, scripts et conformité`,
   );
   L.push(
     `> au standard Agent Skills. L'analyse d'ensemble — usage réel, doublons, fusions — vit dans`,
@@ -421,15 +524,48 @@ function renderIndex(list) {
   L.push("");
   const conformes = list.filter((s) => s.hard).length;
   L.push(
-    `**${list.length} skills** · **${conformes}/${list.length} conformes** au standard · régénérer : \`node scripts/skills-doc.mjs\``,
+    `**${list.length} skills** · **${conformes}/${list.length} conformes** au standard · régénérer : \`node .claude/skills/nodefony-skill/scripts/skills-doc.mjs\``,
   );
+  L.push("");
+  L.push("## 🧭 Par où commencer");
+  L.push("");
+  L.push(
+    "- **Comprendre l'ensemble** (usage réel, doublons, fusions, conformité) →",
+  );
+  L.push("  [Outillage agents](../outillage-agents.md).");
+  L.push(
+    "- **Écrire ou réparer un skill** → la fiche [`nodefony-skill`](nodefony-skill.md), qui porte",
+  );
+  L.push("  les conventions du dépôt et la barrière de conformité.");
+  L.push(
+    "- **Chercher un outil pour une tâche précise** → les cards par famille ci-dessous ; chacune",
+  );
+  L.push("  mène à la fiche du skill, avec ses déclencheurs et ses scripts.");
+  L.push("");
+  L.push("## Par famille");
+  L.push("");
+  L.push(renderCardsByFamily(list));
+  L.push("## Tableau récapitulatif");
   L.push("");
   L.push("| Skill | Version | Corps | Réf. | Scripts | Conforme |");
   L.push("| --- | --- | ---: | ---: | ---: | :---: |");
   for (const s of list)
     L.push(
-      `| [\`${s.name}\`](${s.name}.md) | ${s.version || "—"} | ${s.bodyLines} | ${s.references.length} | ${s.scripts.length + s.rootScripts.length} | ${badge(s.hard)} |`,
+      `| [\`${s.name}\`](${s.name}.md) | ${s.version || "—"} | ${s.bodyLines} | ${s.references.length} | ${s.scripts.length + s.rootScripts.length + s.libs.length} | ${badge(s.hard)} |`,
     );
+  L.push("");
+  L.push("## 🔗 Pour aller plus loin");
+  L.push("");
+  L.push(
+    "- ⬆️ **Retour au hub** : [Outillage agents](../outillage-agents.md) · [Toute la documentation](../index.md)",
+  );
+  L.push(
+    "- **Écrire un skill** : [`nodefony-skill`](nodefony-skill.md) — conventions, gabarit, barrière de conformité.",
+  );
+  L.push(
+    "- **Le standard** : `name`, `description` ≤ 1024, champs autorisés, ressources en `references/`.",
+  );
+  L.push("  Validateur officiel : `skills-ref validate ./<skill>`.");
   L.push("");
   return L.join("\n");
 }
@@ -440,6 +576,25 @@ if (!CHECK_ONLY) {
   for (const s of skills)
     writeFileSync(join(OUT_DIR, `${s.name}.md`), renderSkill(s));
   writeFileSync(join(OUT_DIR, "index.md"), renderIndex(skills));
+
+  // La page d'analyse porte les mêmes cards, remplies ICI entre deux marqueurs : une card
+  // recopiée à la main ment dès la première édition d'une description.
+  const ANALYSIS = "docs/outillage-agents.md";
+  const START = "<!-- skills-cards:start -->";
+  const END = "<!-- skills-cards:end -->";
+  if (existsSync(ANALYSIS)) {
+    const src = readFileSync(ANALYSIS, "utf8");
+    const i = src.indexOf(START);
+    const j = src.indexOf(END);
+    if (i !== -1 && j > i) {
+      const next =
+        src.slice(0, i) +
+        `${START}\n\n${renderCardsByFamily(skills, "skills/")}${END}` +
+        src.slice(j + END.length);
+      if (next !== src) writeFileSync(ANALYSIS, next);
+      console.log(`  cards injectées dans ${ANALYSIS}`);
+    }
+  }
 }
 
 const failed = skills.filter((s) => !s.hard);

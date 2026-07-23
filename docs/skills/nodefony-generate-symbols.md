@@ -2,7 +2,10 @@
 title: "nodefony-generate-symbols — fiche de skill"
 lang: fr
 audience: humain
-generated: scripts/skills-doc.mjs
+topic: skills
+status: stable
+updated: 2026-07-23
+generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-generate-symbols/SKILL.md"
 ---
 
@@ -13,7 +16,7 @@ source: ".claude/skills/nodefony-generate-symbols/SKILL.md"
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-generate-symbols**
 
 > [!NOTE]
-> Fiche **générée** par `scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
+> Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
 |                          |                         |
@@ -57,4 +60,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | dossier de ressources nommé `references/` |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 136    |
 
-Le détail du standard et la méthode de mesure : [Outillage agents](../outillage-agents.md).
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Fiches des skills](index.md) · [Outillage agents](../outillage-agents.md)
+- **Le skill lui-même** : `.claude/skills/nodefony-generate-symbols/SKILL.md` — c'est lui qu'on édite, pas cette fiche.

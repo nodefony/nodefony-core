@@ -2,7 +2,10 @@
 title: "nodefony-skill — fiche de skill"
 lang: fr
 audience: humain
-generated: scripts/skills-doc.mjs
+topic: skills
+status: stable
+updated: 2026-07-23
+generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-skill/SKILL.md"
 ---
 
@@ -13,22 +16,22 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-skill**
 
 > [!NOTE]
-> Fiche **générée** par `scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
+> Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
 |                          |                         |
 | ------------------------ | ----------------------- |
 | Version                  | `1.0.0`                 |
-| Corps                    | 142 lignes              |
-| Description              | 1013 / 1024 caractères  |
+| Corps                    | 162 lignes              |
+| Description              | 1001 / 1024 caractères  |
 | Déclencheurs             | 11                      |
 | Ressources `references/` | 0 page(s)               |
-| Scripts                  | 0                       |
+| Scripts                  | 2                       |
 | Conformité               | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et le gate `node scripts/skills-doc.mjs` qui vérifie la conformité au standard Agent Skills et régénère la fiche publique du skill. Porte aussi les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une description qui décrit l'outil au lieu du moment ne se déclenche jamais.
+Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique du skill. Porte aussi les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une description qui décrit l'outil au lieu du moment ne se déclenche jamais.
 
 ## Quand il se déclenche
 
@@ -52,14 +55,36 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 8. Pièges vécus
 - 9. Liens
 
+## Scripts embarqués
+
+Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
+script, donc toujours à jour après régénération.
+
+| Script                      | Rôle                                                                  | Options              | Variables d'environnement                                                              |
+| --------------------------- | --------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------- |
+| `scripts/skills-doc.mjs`    | skills-doc — fiche de documentation par skill, ET gate de conformité. | `--check`            | `ANALYSIS` `END` `MAX_BODY_LINES` `MAX_DESC` `OUT_DIR` `SKILLS_DOC_DATE` `START` `VAR` |
+| `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill.        | `--list` `--verbose` | —                                                                                      |
+
+**Invocation telle que documentée dans chaque script :**
+
+```bash
+node .claude/skills/nodefony-skill/scripts/skills-doc.mjs            # régénère docs/skills/ ; sort 1 si un skill n'est pas conforme
+node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs           # exécute le banc
+```
+
+**Toutes les variables lues par ce skill** : `ANALYSIS` · `END` · `MAX_BODY_LINES` · `MAX_DESC` · `OUT_DIR` · `SKILLS_DOC_DATE` · `START` · `VAR`
+
 ## Conformité au standard Agent Skills
 
 | Contrôle                                  | État | Mesure |
 | ----------------------------------------- | :--: | ------ |
 | name conforme et égal au dossier          |  ✅  |        |
-| description de 1 à 1024 caractères        |  ✅  | 1013   |
+| description de 1 à 1024 caractères        |  ✅  | 1001   |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 142    |
+| corps < 500 lignes (recommandation)       |  ✅  | 162    |
 
-Le détail du standard et la méthode de mesure : [Outillage agents](../outillage-agents.md).
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Fiches des skills](index.md) · [Outillage agents](../outillage-agents.md)
+- **Le skill lui-même** : `.claude/skills/nodefony-skill/SKILL.md` — c'est lui qu'on édite, pas cette fiche.

@@ -7,10 +7,10 @@ description: >
   mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description
   calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`,
   ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et
-  le gate `node scripts/skills-doc.mjs` qui vérifie la conformité au standard Agent Skills et
-  régénère la fiche publique du skill. Porte aussi les pièges vécus : une règle recopiée dans le
-  CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une
-  description qui décrit l'outil au lieu du moment ne se déclenche jamais.
+  la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche
+  publique du skill. Porte aussi les pièges vécus : une règle recopiée dans le CLAUDE.md rend le
+  skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une description qui
+  décrit l'outil au lieu du moment ne se déclenche jamais.
   Déclencheurs : "créer un skill", "nouveau skill", "éditer un skill", "améliorer un skill",
   "mon skill ne se déclenche jamais", "skill non conforme", "skills-ref validate", "conformité
   Agent Skills", "fiche de skill", "à quoi sert ce skill", "faut-il un skill pour ça ?".
@@ -83,7 +83,7 @@ Dans l'ordre, parce que les causes n'ont pas la même fréquence :
 
 1. **Sa règle est-elle recopiée dans `CLAUDE.md` ?** → retirer la copie, y mettre un pointeur.
 2. **Ses déclencheurs nomment-ils l'outil au lieu du moment ?** → §4.
-3. **Ses renvois pointent-ils encore quelque part ?** → `node scripts/skills-doc.mjs` puis vérifier
+3. **Ses renvois pointent-ils encore quelque part ?** → `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs` puis vérifier
    les cibles. Un refactor supprime un fichier ; le renvoi, lui, survit et envoie dans le vide.
 4. **Est-il seulement lu, jamais invoqué ?** C'est un signal de description, pas de contenu : ses
    `references/` servent, sa porte d'entrée ne s'ouvre pas.
@@ -92,8 +92,8 @@ Dans l'ordre, parce que les causes n'ont pas la même fréquence :
 ## 6. Gate — obligatoire avant de dire « fait »
 
 ```bash
-node scripts/skills-doc.mjs        # conformité des 26+ skills + régénère docs/skills/
-node scripts/skills-doc.mjs --check   # contrôle seul (CI)
+node .claude/skills/nodefony-skill/scripts/skills-doc.mjs        # conformité des 26+ skills + régénère docs/skills/
+node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check   # contrôle seul (CI)
 ```
 
 Il vérifie : `name` conforme et égal au dossier · `description` de 1 à 1024 caractères · aucun champ
@@ -101,7 +101,27 @@ hors standard · ressources en `references/` · corps < 500 lignes (avertissemen
 dur il **sort en échec**, et il régénère la **fiche publique** du skill dans `docs/skills/<nom>.md` —
 version, contenu, déclencheurs, ressources, scripts avec leurs options et variables d'environnement.
 
-Validateur officiel du standard, quand il est installé : `skills-ref validate ./<skill>`.
+Validateur officiel du standard : `npx skills-ref validate ./<skill>` — il attrape ce qu'un contrôle
+maison rate, à commencer par un **frontmatter YAML invalide** (une description en ligne contenant un
+`:` casse le mapping sans que rien d'autre ne s'en aperçoive).
+
+**Banc de déclenchement** — la garde anti-régression des descriptions :
+
+```bash
+node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs            # phrases réelles → skill élu
+node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose  # + le détail des scores
+```
+
+Il rejoue des phrases réellement formulées en session (issues des retex et des mémoires) et vérifie
+que **le bon skill sort en tête**, puis que chaque déclencheur déclaré élit bien son propre skill.
+Après toute retouche de description, le relancer : c'est là qu'on voit qu'un resserrement a rendu un
+skill inatteignable. Il signale aussi les **recouvrements** — deux skills qui se disputent la même
+formulation ; tous ne sont pas des défauts (« fuite mémoire » vaut mieux capté par
+`nodefony-check-memory-health` que par `nodefony-debug`), mais chacun mérite un arbitrage conscient.
+
+> Ce banc mesure la surface **lexicale**, pas le jugement du modèle : un cas vert ne garantit pas
+> l'invocation, mais un cas **rouge** est un vrai défaut — aucun mot de la demande ne rejoint la
+> description.
 
 ## 7. Gabarit
 

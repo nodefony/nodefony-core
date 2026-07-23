@@ -2,39 +2,42 @@
 title: "nodefony-get-module-config — fiche de skill"
 lang: fr
 audience: humain
-generated: scripts/skills-doc.mjs
+topic: skills
+status: stable
+updated: 2026-07-23
+generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-get-module-config/SKILL.md"
 ---
 
 # `nodefony-get-module-config`
 
-> Affiche la configuration, l'injection (DI services) et le routage d'un module Nodefony sans charger son code métier — valider qu'un service est enregistré, qu'une route est bien déclarée, ou auditer les paramètres d'un module.
+> INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes déclarées — sans charger son code métier ni démarrer de serveur.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-get-module-config**
 
 > [!NOTE]
-> Fiche **générée** par `scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
+> Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
 > corriger le skill, puis régénérer.
 
 |                          |                         |
 | ------------------------ | ----------------------- |
 | Version                  | — (non versionné)       |
 | Corps                    | 62 lignes               |
-| Description              | 392 / 1024 caractères   |
-| Déclencheurs             | 5                       |
+| Description              | 615 / 1024 caractères   |
+| Déclencheurs             | 8                       |
 | Ressources `references/` | 0 page(s)               |
 | Scripts                  | 0                       |
 | Conformité               | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Affiche la configuration, l'injection (DI services) et le routage d'un module Nodefony sans charger son code métier — valider qu'un service est enregistré, qu'une route est bien déclarée, ou auditer les paramètres d'un module.
+INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes déclarées — sans charger son code métier ni démarrer de serveur. Pour valider qu'un service est bien enregistré, qu'une route est bien déclarée, ou auditer les paramètres effectifs. Ne crée rien : scaffolder un module neuf → `nodefony-create-module`.
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`config du module X` · `comment est configuré X` · `vérifier la déclaration de service` · `voir les routes d'un module` · `configuration nodefony module`
+`config du module X` · `comment est configuré X` · `montre la config de ce module` · `quelles routes expose ce module` · `voir les routes d'un module` · `ce service est-il enregistré ?` · `vérifier la déclaration de service` · `inspecter un module existant`
 
 ## Ce que contient le corps
 
@@ -48,9 +51,12 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | Contrôle                                  | État | Mesure |
 | ----------------------------------------- | :--: | ------ |
 | name conforme et égal au dossier          |  ✅  |        |
-| description de 1 à 1024 caractères        |  ✅  | 392    |
+| description de 1 à 1024 caractères        |  ✅  | 615    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 62     |
 
-Le détail du standard et la méthode de mesure : [Outillage agents](../outillage-agents.md).
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Fiches des skills](index.md) · [Outillage agents](../outillage-agents.md)
+- **Le skill lui-même** : `.claude/skills/nodefony-get-module-config/SKILL.md` — c'est lui qu'on édite, pas cette fiche.
