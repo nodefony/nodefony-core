@@ -488,7 +488,7 @@ const passkeysSchema = z
       .enum(["none", "direct", "enterprise"])
       .default("none")
       .describe(
-        "Conveyance d'attestation. Défaut 'none' (passkeys grand public, pas de vérif chaîne de certs fabricant — vie privée). 'direct'/'enterprise' = AAL3 régulé (vérif AAGUID/MDS requise).",
+        "Conveyance d'attestation demandée au navigateur. Défaut 'none' (passkeys grand public — vie privée). 'direct'/'enterprise' font TRANSMETTRE l'attestation, mais Nodefony ne la confronte à AUCUNE liste de modèles : ni métadonnées FIDO (MDS), ni certificats racines fabricant, et l'AAGUID n'est pas conservé. Le réglage ne suffit donc PAS à tenir un AAL3 régulé — il le prépare. Un WARNING au boot le rappelle si la valeur n'est pas 'none'.",
       ),
     timeoutMs: z
       .number()
@@ -581,7 +581,7 @@ const totpSchema = z
       .string()
       .default("auto")
       .describe(
-        "Backend de stockage du secret : auto [défaut] (infra database → drizzle/mongoose ; sinon sqlite local si drizzle chargé ; sinon repli memory volatil)|memory|drizzle|mongoose|redis. Pluggable (`registerTotpStore`). 'memory' = dev/tests (volatil — les secrets 2FA sont perdus au redémarrage). Persistance = adapter durable auto-enregistré par le module chargé (`totp.store: \"drizzle\"`).",
+        "Backend de stockage du secret : auto [défaut] | memory | drizzle — plus tout backend ajouté par `registerTotpStore` (la liste qui fait foi est celle de l'écran Stores de Studio, pas ce texte). ⚠️ Contrairement aux sessions, aux jetons et aux passkeys, **seul @nodefony/drizzle fournit un store TOTP** : @nodefony/mongoose et @nodefony/redis n'en enregistrent pas. Sur une infra Mongo, `auto` ne trouve donc pas de backend durable et se replie sur `memory` (repli tracé au boot, et WARNING en production) : les secrets 2FA seraient perdus au redémarrage, verrouillant les utilisateurs hors de leur second facteur. Charger @nodefony/drizzle — même en sqlite local, à côté de Mongo — donne la persistance.",
       ),
   })
   .describe(
@@ -609,7 +609,7 @@ const apiKeysSchema = z
       .regex(/^[a-z0-9]+$/, "préfixe = minuscules/chiffres (charset base64url)")
       .default("nf")
       .describe(
-        "Marque des clés : <prefix>_<pubid>_<secret><crc>. Ex. « nf ».",
+        "Marque des clés émises. Format : `<prefix>_<pubid><secret><crc>` — UN SEUL séparateur `_`, le reste est positionnel (8 + 43 + 6 caractères), car le charset base64url contient lui-même `_` et `-` : découper une clé sur les `_` la casse. Ex. « nf » → `nf_a1b2c3d4XXXX…z9z9z9`, dont `nf_a1b2c3d4` est l'identifiant public affichable.",
       ),
     defaultExpiryDays: z
       .number()

@@ -296,8 +296,8 @@ main au navigateur, téléphone par QR compris.
    (`webAuthn.ts:313`). Volontairement **après** la cryptographie et **avant** le `save` : un client
    peut poster `register/verify` sans jamais appeler `register/options` — c'est l'écriture qu'il faut
    garder, pas la génération du défi.
-3. **Persistance** de la clé publique + l'état initial (`webAuthn.ts:318`) — `backupEligible` dérive
-   de `credentialDeviceType === "multiDevice"` (`webAuthn.ts:325`).
+3. **Persistance** de la clé publique + l'état initial (`webAuthn.ts:333`) — `backupEligible` dérive
+   de `credentialDeviceType === "multiDevice"` (`webAuthn.ts:340`).
 
 ### Se connecter sans mot de passe
 

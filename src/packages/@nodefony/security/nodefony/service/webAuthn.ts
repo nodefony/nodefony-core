@@ -202,6 +202,21 @@ class WebAuthnService extends Service {
       configPath: "security.passkeys.store",
       location: readStoreLocation(this.#store),
     });
+    // Une attestation DEMANDÉE mais jamais CONFRONTÉE ne garantit rien : le
+    // navigateur transmet le certificat du modèle, et nous ne le comparons ni aux
+    // métadonnées FIDO (MDS) ni à des racines fabricant — l'AAGUID n'est même pas
+    // conservé. Une app qui coche "direct" pour tenir un AAL3 régulé croit avoir
+    // une garantie qu'elle n'a pas ; c'est exactement le silence que la config
+    // doit rompre, et le boot est le seul endroit où le dire une fois.
+    if (config.passkeys.attestation !== "none") {
+      this.log(
+        `passkeys.attestation "${config.passkeys.attestation}" — l'attestation est demandée au ` +
+          `navigateur mais N'EST PAS VÉRIFIÉE : ni métadonnées FIDO (MDS), ni certificats racines ` +
+          `fabricant, et l'AAGUID n'est pas conservé. Ce réglage ne tient donc pas un AAL3 régulé. ` +
+          `Repasser à "none" si la garantie n'est pas requise.`,
+        "WARNING",
+      );
+    }
     this.#ready = true;
     this.log(
       `webauthn ready — rpID "${this.#rpID}", store "${config.passkeys.store}"`,
