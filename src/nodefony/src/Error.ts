@@ -297,8 +297,13 @@ class nodefonyError extends Error {
   /**
    * Sérialise l'erreur en string coloré (cli-color) selon `errorType` et l'environnement.
    *
-   * En `prod`, retourne un message court (type + message) ; sinon, formatage
+   * En **production**, retourne un message court (type + message) ; sinon, formatage
    * détaillé multi-lignes. Ajoute la stack si `kernel.debug` est actif.
+   *
+   * ⚠️ La garde compare à `"production"` **en toutes lettres**. Elle a longtemps
+   * comparé à `"prod"` — jamais vraie : `Kernel.setEnv()` réduit toujours
+   * l'environnement à `"development" | "production"` (`resolveRuntimeEnv`), même
+   * quand l'utilisateur a écrit `prod`. Le format court n'était donc jamais rendu.
    *
    * @returns string formatée prête pour `console.log` ou syslog.
    */
@@ -306,7 +311,7 @@ class nodefonyError extends Error {
     let err = "";
     switch (this.errorType) {
       case "Error":
-        if (Nodefony.getKernel()?.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "production") {
           return err;
         }
         err = `${clc.blue("Name :")} ${this.name}
@@ -315,7 +320,7 @@ class nodefonyError extends Error {
         ${clc.red("Message :")} ${this.message}`;
         break;
       case "SystemError":
-        if (Nodefony.getKernel()?.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "production") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
             this.message,
           )}`;
@@ -329,7 +334,7 @@ class nodefonyError extends Error {
       ${clc.blue("Port :")} ${this.port}`;
         break;
       case "AssertionError":
-        if (Nodefony.getKernel()?.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "production") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
             this.message,
           )}`;
@@ -343,7 +348,7 @@ class nodefonyError extends Error {
       ${clc.white("Operator :")} ${this.operator}`;
         break;
       case "ClientError":
-        if (Nodefony.getKernel()?.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "production") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
             this.message,
           )}`;
@@ -358,7 +363,7 @@ class nodefonyError extends Error {
       case "OrmError":
         return this.#errorAdapter?.errorToString(this) ?? this.message;
       default:
-        if (Nodefony.getKernel()?.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "production") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
             this.message,
           )}`;

@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
+import { Nodefony } from "nodefony";
 import DefaultErrorRenderer from "../../service/error-renderer.js";
 import HttpError from "../../src/errors/httpError.js";
 
@@ -237,5 +238,136 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
       expect(r.code).to.not.equal(1011);
       expect(r.reason).to.contain("qty");
     });
+  });
+});
+
+/**
+ * F189 — ce qui sort d'une panne, en production.
+ *
+ * Le renderer est le point de passage UNIQUE des deux transports : ce qu'on
+ * scelle ici vaut pour la réponse HTTP et pour la trame de fermeture WS. En WS
+ * l'enjeu est plus vif encore — le controller est instancié au handshake, donc
+ * AVANT le firewall : une exception de son `initialize()` ferme la socket d'un
+ * client anonyme.
+ */
+describe("DefaultErrorRenderer — ce qui fuit en production (F189)", () => {
+  const renderer = new DefaultErrorRenderer();
+  let previous: unknown;
+
+  /** Erreur de validation à la forme d'un `ZodError` (reconnaissance structurelle). */
+  const zodError = (
+    issues: { path: string[]; message: string; code: string }[],
+  ): Error => {
+    const e = new Error("validation") as Error & { issues: unknown };
+    e.name = "ZodError";
+    e.issues = issues;
+    return e;
+  };
+
+  /** Fait croire au singleton qu'un kernel tourne dans l'environnement demandé. */
+  const pretendEnvironment = (environment: string): void => {
+    (Nodefony as unknown as { setKernel(k: unknown): void }).setKernel({
+      environment,
+    });
+  };
+
+  beforeEach(() => {
+    previous = (Nodefony as unknown as { getKernel(): unknown }).getKernel();
+  });
+
+  afterEach(() => {
+    (Nodefony as unknown as { setKernel(k: unknown): void }).setKernel(
+      previous as never,
+    );
+  });
+
+  it("HTTP 500 : le message de l'exception ne franchit pas la frontière", () => {
+    pretendEnvironment("production");
+    const ctx = fakeHttpContext();
+    const r = renderer.renderHttp(
+      new Error("connect ECONNREFUSED 10.0.0.7:5432 — table users_secret"),
+      ctx as never,
+    );
+    expect(r.status).to.equal(500);
+    expect(r.message).to.equal("Internal Server Error");
+    expect(JSON.stringify(r.body)).to.not.contain("users_secret");
+    expect(JSON.stringify(r.body)).to.not.contain("10.0.0.7");
+  });
+
+  it("HTTP 500 : la stack ne franchit pas la frontière", () => {
+    pretendEnvironment("production");
+    const ctx = fakeHttpContext();
+    renderer.renderHttp(new Error("boom"), ctx as never);
+    const body = ctx.metaData as { error: Record<string, unknown> };
+    expect(body.error).to.not.have.property("stack");
+    expect(body.error).to.not.have.property("controller");
+    expect(body.error).to.not.have.property("action");
+  });
+
+  it("HTTP 4xx : le message VOULU par le framework passe (403 n'est pas une fuite)", () => {
+    pretendEnvironment("production");
+    const ctx = fakeHttpContext();
+    const r = renderer.renderHttp(
+      new HttpError("Forbidden", 403),
+      ctx as never,
+    );
+    expect(r.status).to.equal(403);
+    expect(r.message).to.equal("Forbidden");
+  });
+
+  it("HTTP 422 : les champs fautifs restent lisibles (le client doit corriger)", () => {
+    pretendEnvironment("production");
+    const ctx = fakeHttpContext();
+    const r = renderer.renderHttp(
+      zodError([{ path: ["email"], message: "invalide", code: "invalid" }]),
+      ctx as never,
+    );
+    expect(r.status).to.equal(422);
+    expect(JSON.stringify(r.body)).to.contain("email");
+  });
+
+  it("WS 1011 : la raison de fermeture n'emporte pas le message d'exception", () => {
+    pretendEnvironment("production");
+    const ctx = fakeWsContext({ rejected: false });
+    const r = renderer.renderWebsocket(
+      new Error("boom: controller initialize() crashed at /srv/app/secret.ts"),
+      ctx as never,
+    );
+    expect(r.code).to.equal(1011);
+    expect(r.reason).to.equal("Internal Server Error");
+    expect(r.reason).to.not.contain("secret.ts");
+  });
+
+  it("WS 1008 : un refus de policy garde son motif (le client doit renoncer)", () => {
+    pretendEnvironment("production");
+    const ctx = fakeWsContext({ rejected: false });
+    const r = renderer.renderWebsocket(
+      new HttpError("Forbidden", 403),
+      ctx as never,
+    );
+    expect(r.code).to.equal(1008);
+    expect(r.reason).to.equal("Forbidden");
+  });
+
+  it("DÉVELOPPEMENT : le détail reste servi, sinon on débogue à l'aveugle", () => {
+    pretendEnvironment("development");
+    const ctx = fakeHttpContext();
+    const r = renderer.renderHttp(
+      new Error("boom au fond du puits"),
+      ctx as never,
+    );
+    expect(r.message).to.equal("boom au fond du puits");
+    const body = ctx.metaData as { error: Record<string, unknown> };
+    expect(body.error).to.have.property("stack");
+  });
+
+  it("`prod` écrit à la main est normalisé par le kernel — la garde ne teste QUE `production`", () => {
+    // Kernel.setEnv() réduit toujours l'environnement à development|production.
+    // Ce test scelle la raison pour laquelle la garde ne compare pas à "prod" :
+    // un kernel réel ne porte jamais cette valeur.
+    pretendEnvironment("prod");
+    const ctx = fakeHttpContext();
+    const r = renderer.renderHttp(new Error("brut"), ctx as never);
+    expect(r.message).to.equal("brut");
   });
 });

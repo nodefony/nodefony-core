@@ -7,10 +7,49 @@ import type {
 import type { IHttpContext, IWebsocketContext } from "../interfaces/IContext";
 import HttpError from "../src/errors/httpError";
 import { toWsCloseCode } from "../src/context/websocket/WebsocketContext";
-import { nodefonyError } from "nodefony";
+import { Nodefony, nodefonyError } from "nodefony";
 
 /** Une donnée rejetée par la validation n'est pas une requête malformée : 422, pas 400. */
 const VALIDATION_STATUS = 422;
+
+/**
+ * Ce qu'un client reçoit à la place du détail d'une panne serveur, en production.
+ *
+ * Le message d'une exception non maîtrisée cite volontiers un chemin de fichier,
+ * un nom de table, une requête SQL ou un identifiant interne. Le rendre à un
+ * client — a fortiori **anonyme**, un close WS partant avant le firewall —
+ * revient à publier de la reconnaissance gratuite.
+ */
+const OPAQUE_SERVER_ERROR = "Internal Server Error";
+
+/**
+ * Clés d'un `HttpError` sérialisé qui décrivent les ENTRAILLES du serveur et ne
+ * doivent jamais franchir la frontière en production.
+ */
+const INTERNAL_ERROR_KEYS = [
+  "stack",
+  "controller",
+  "action",
+  "bundle",
+  "url",
+  "pdu",
+] as const;
+
+/**
+ * Vrai si le runtime tourne en production — le détail des erreurs reste alors au
+ * journal, seul le serveur le voit.
+ *
+ * ⚠️ La comparaison porte sur `"production"` **en toutes lettres** : `Kernel.setEnv`
+ * réduit toujours l'environnement à `"development" | "production"`
+ * (`Kernel.resolveRuntimeEnv`). Une garde écrite `=== "prod"` ne se déclenche donc
+ * JAMAIS, même si `"prod"` est une valeur acceptée en entrée.
+ *
+ * Résolu à chaque rendu (pas de cache) : une erreur est déjà un chemin froid, et
+ * mémoïser rendrait le masquage insensible à un changement d'environnement entre
+ * deux tests — un gate qu'on ne peut plus voir mordre.
+ */
+const isProduction = (): boolean =>
+  Nodefony.getKernel()?.environment === "production";
 
 /** Une anomalie de champ, telle qu'elle sort d'un schéma Zod. */
 interface IValidationIssue {
@@ -117,13 +156,28 @@ class DefaultErrorRenderer implements IErrorRenderer {
     // expects nodefony.* fields to be present alongside error/code/message.
     const obj = (context as unknown as { metaData: Record<string, unknown> })
       .metaData;
-    obj.error = (httpError as nodefonyError).toJSON() as Error;
+    const serialized = (httpError as nodefonyError).toJSON() as Record<
+      string,
+      unknown
+    >;
+    // PRODUCTION — le client reçoit un verdict, pas un rapport d'autopsie :
+    // la stack et le nommage interne (controller/action/module/url) sortent du
+    // corps, et le message d'une panne 5xx devient opaque. Les 4xx gardent le
+    // leur : un 422 de validation ou un 403 de policy est un message ÉCRIT POUR
+    // le client, pas une fuite. Le détail réel part au journal (`logRequest`).
+    const message =
+      isProduction() && status >= 500 ? OPAQUE_SERVER_ERROR : httpError.message;
+    if (isProduction()) {
+      for (const key of INTERNAL_ERROR_KEYS) delete serialized[key];
+      serialized.message = message;
+    }
+    obj.error = serialized as unknown as Error;
     obj.code = status;
-    obj.message = httpError.message;
+    obj.message = message;
 
     return {
       status,
-      message: httpError.message,
+      message,
       body: obj,
     };
   }
@@ -151,7 +205,15 @@ class DefaultErrorRenderer implements IErrorRenderer {
       // Reject phase still uses HTTP-style; clamp to 4xx/5xx.
       if (code > 599) code = 500;
     }
-    return { code, reason: httpError.message };
+    // PRODUCTION — même règle qu'en HTTP, avec une raison de plus de la tenir :
+    // en WS le controller est instancié AU HANDSHAKE, donc **avant le firewall**.
+    // Une exception qui remonte de son `initialize()` ferme la socket d'un
+    // ANONYME ; y coller le message brut publie l'interne à qui frappe la porte.
+    // `code` a déjà été mappé : 1011 (et 5xx en phase de rejet) = panne serveur.
+    const internal = code === 1011 || (code >= 500 && code <= 599);
+    const reason =
+      isProduction() && internal ? OPAQUE_SERVER_ERROR : httpError.message;
+    return { code, reason };
   }
 
   private toHttpError(

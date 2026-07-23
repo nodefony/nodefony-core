@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-23T22:27:55.473Z",
+  "generated": "2026-07-23T22:55:47.068Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -20985,6 +20985,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
+        "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
