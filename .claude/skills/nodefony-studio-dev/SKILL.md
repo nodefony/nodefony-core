@@ -70,7 +70,7 @@ serveur**, **subpath Core isomorphe** (`nodefony/*`).
 | Revue / attaque sécurité du diff avant commit                                                          | `nodefony-security-review`                   |
 | Conformité RFC HTTP/WS/CORS/cookies · normes WCAG/ARIA                                                 | `nodefony-rfc` · (specs dans `frontend-dev`) |
 | Démarrer/redémarrer le serveur dev                                                                     | `nodefony-start-server`                      |
-| Vérifier une modif front sans navigateur (curl transform Vite, purge prébundle)                        | `nodefony-frontend-verify`                   |
+| Vérifier une modif front sans navigateur (curl transform Vite, purge prébundle)                        | `nodefony-frontend-dev` §4                   |
 
 ## 2. 🚨 RÈGLES ABSOLUES Studio (non négociables — priorité MAX)
 
@@ -142,7 +142,7 @@ cd src/packages/@nodefony/studio && npm run typecheck     # gate front = exit 0 
 
 1. **Sécurité** : passer le diff au skill `nodefony-security-review` (PRIORITÉ MAX) — frontière isomorphe, redaction, RBAC.
 2. **A11y** : WCAG 2.2 AA + pattern ARIA (APG) des composants ajoutés (specs → `nodefony-frontend-dev`).
-3. **Type-check** : `npm run typecheck` = 0 erreur (le SEUL gate de types — cf `nodefony-frontend-verify`).
+3. **Type-check** : `npm run typecheck` = 0 erreur (le SEUL gate de types — esbuild ne voit que la syntaxe).
 4. **Vérif sans navigateur** : curl le data plane (`curl -sk https://127.0.0.1:5152/nodefony/<m>/api/...`) + le transform
    Vite (`https://127.0.0.1:5173/@fs/<abs>.tsx` → 200). Modif **front** = HMR (0 restart) ; modif **back** Studio =
    `npm run build` (rolldown) + restart.

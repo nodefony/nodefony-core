@@ -105,6 +105,7 @@ node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 | description de 1 à 1024 caractères        |  ✅  | 988    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 140    |
 
 ## 🔗 Pour aller plus loin

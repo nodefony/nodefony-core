@@ -85,7 +85,7 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
 | un type tordu, une API Node (`node:*`, `NodeJS.Timeout`, streams), un utility type | **`nodefony-ts-docs`**                                       |
 | auth, crypto, secrets, validation d'entrée, surface d'attaque, header de sécurité  | **`nodefony-security-review`** + sources OWASP/ANSSI (§10)   |
 | Kernel / Container / pipeline request / mémoire                                    | **`nodefony-check-memory-health`** (avant commit)            |
-| inspiration architecture (DI, guards, modules)                                     | **`nodefony-nestjs`** (mot-clé « NestJS » uniquement)        |
+| l'impact d'un refactor : qui étend / implémente / importe ce symbole               | **`nodefony-inspect`** (index, pas `grep`)                   |
 
 > Règle : sur RFC, types Node/TS, ou sécurité/vulns, **TOUJOURS** consulter la source/skill — ne jamais
 > trancher de mémoire. Ces skills sont gratuits en tokens tant qu'ils ne se déclenchent pas.

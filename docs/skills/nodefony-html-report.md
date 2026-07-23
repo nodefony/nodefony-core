@@ -39,12 +39,6 @@ Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à
 
 Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis** · **base de données**.
 
-## Skills voisins
-
-Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
-
-[`load-test`](nodefony-load-test.md)
-
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
@@ -97,6 +91,7 @@ node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html
 | description de 1 à 1024 caractères        |  ✅  | 935    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 174    |
 
 ## 🔗 Pour aller plus loin

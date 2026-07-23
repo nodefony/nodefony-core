@@ -31,7 +31,7 @@
   http/security) et ne voit pas `RealtimeClient`/`RealtimeState` en types.
 - **`tsc` est le SEUL gate de types** : esbuild/Vite transpile **fichier par fichier** sans vérifier les symboles
   cross-fichier → un composant non importé (`TS2304`), un `Table` Mantine oublié passent le `curl` du transform
-  Vite mais cassent au build. **Toujours `npm run typecheck`** avant de dire « fait » (cf `nodefony-frontend-verify`).
+  Vite mais cassent au build. **Toujours `npm run typecheck`** avant de dire « fait » (cf `nodefony-frontend-dev` §4).
 - `npx tsc` tourne dans un cwd parasite (sandbox) → utiliser `node_modules/.bin/tsc` ou `npm run typecheck`.
 - `<Group component={RouterNavLink} to=…>` (polymorphe Mantine) ne type pas `to` → `<RouterNavLink><Group/></RouterNavLink>`.
 - Commentaire `//xxx` DANS `compilerOptions` → TS5025 ; mettre les notes au niveau racine (clé `"//"`).

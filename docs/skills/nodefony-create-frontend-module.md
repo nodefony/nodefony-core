@@ -74,6 +74,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | description de 1 à 1024 caractères        |  ✅  | 642    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 247    |
 
 ## 🔗 Pour aller plus loin

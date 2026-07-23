@@ -11,7 +11,7 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 
 # `nodefony-skill`
 
-> Créer, éditer ou auditer un skill du dépôt Nodefony.
+> Créer, éditer, **fusionner, retirer** ou auditer un skill du dépôt Nodefony.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-skill**
 
@@ -21,11 +21,11 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 
 |                          |                                                    |
 | ------------------------ | -------------------------------------------------- |
-| Version                  | `1.0.0`                                            |
+| Version                  | `1.1.0`                                            |
 | Famille                  | Cycle de session                                   |
-| Corps                    | 216 lignes                                         |
-| Coût d'activation        | ~3 237 tokens (le corps est chargé à l'invocation) |
-| Description              | 1001 / 1024 caractères                             |
+| Corps                    | 261 lignes                                         |
+| Coût d'activation        | ~3 996 tokens (le corps est chargé à l'invocation) |
+| Description              | 991 / 1024 caractères                              |
 | Déclencheurs             | 11                                                 |
 | Ressources `references/` | 0 page(s)                                          |
 | Scripts                  | 3                                                  |
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 
 ## Ce qu'il fait
 
-Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique du skill. Porte aussi les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une description qui décrit l'outil au lieu du moment ne se déclenche jamais.
+Créer, éditer, **fusionner, retirer** ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique. Porte les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une capacité absorbée sans ses déclencheurs devient introuvable.
 
 ## Prérequis
 
@@ -49,7 +49,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`créer un skill` · `nouveau skill` · `éditer un skill` · `améliorer un skill` · `mon skill ne se déclenche jamais` · `skill non conforme` · `skills-ref validate` · `conformité Agent Skills` · `fiche de skill` · `à quoi sert ce skill` · `faut-il un skill pour ça ?`
+`créer un skill` · `nouveau skill` · `éditer un skill` · `fusionner deux skills` · `retirer un skill` · `mon skill ne se déclenche jamais` · `skill non conforme` · `skills-ref validate` · `conformité Agent Skills` · `fiche de skill` · `à quoi sert ce skill`
 
 ## Ce que contient le corps
 
@@ -58,12 +58,13 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 3. Conventions Nodefony (en plus du standard)
 - 4. Écrire la description (c'est elle qui décide de tout)
 - 5. Réparer un skill qui ne se déclenche jamais
-- 6. Gate — obligatoire avant de dire « fait »
-- 7. Le hook de doc — un script se décrit lui-même
-- 8. Ce que consomme un registre de skills
-- 9. Gabarit
-- 10. Pièges vécus
-- 11. Liens
+- 6. Fusionner, absorber ou retirer un skill
+- 7. Gate — obligatoire avant de dire « fait »
+- 8. Le hook de doc — un script se décrit lui-même
+- 9. Ce que consomme un registre de skills
+- 10. Gabarit
+- 11. Pièges vécus
+- 12. Liens
 
 ## Scripts embarqués
 
@@ -137,10 +138,11 @@ node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose
 | Contrôle                                  | État | Mesure |
 | ----------------------------------------- | :--: | ------ |
 | name conforme et égal au dossier          |  ✅  |        |
-| description de 1 à 1024 caractères        |  ✅  | 1001   |
+| description de 1 à 1024 caractères        |  ✅  | 991    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 216    |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
+| corps < 500 lignes (recommandation)       |  ✅  | 261    |
 
 ## 🔗 Pour aller plus loin
 

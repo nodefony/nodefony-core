@@ -337,7 +337,7 @@ ASSAINISSEMENT  ·  MIGRATION_STATUS.md
 | Décorateur / API          | `grep -rln "<@Decorator>\|<symbolName>" src --include=*.ts \| grep -v dist` ou `.ai/symbols.json`                  |
 | Endpoint/route défini     | `grep -rhoE '@(Get\|Post\|controller)\("[^"]+"\)' <controller>.ts`                                                 |
 | Test existe               | `find src/.../<m> -iname '*<feature>*test*' \| grep -v dist`                                                       |
-| Symbole exporté           | `jq '.symbols.<Name>' .ai/symbols.json` (cf skill `nodefony-generate-symbols`)                                     |
+| Symbole exporté           | `jq '.symbols.<Name>' .ai/symbols.json` (cf skill `nodefony-inspect`)                                              |
 | Vulnérabilités            | `npm audit 2>/dev/null \| grep vulnerabilities \| tail -1`                                                         |
 | Runtime (endpoint répond) | serveur up (`nodefony-start-server`) puis `curl -sk https://127.0.0.1:5152/<route>`                                |
 

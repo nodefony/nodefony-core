@@ -16,10 +16,10 @@ tags: [skills, agents, aaif, agent-skills, outillage, claude-code]
 
 > **Ceci documente le dépôt de développement, pas le paquet `nodefony`.** L'outillage décrit ici
 > n'est ni publié sur npm ni chargé au boot : il sert à celles et ceux qui développent le framework.
-> Le dépôt embarque **27 skills**, **2 commandes** et **1 garde-fou** destinés aux agents qui
+> Le dépôt embarque **23 skills**, **2 commandes** et **1 garde-fou** destinés aux agents qui
 > travaillent sur Nodefony. Cette page dit ce que chacun fait, **combien il sert réellement**
-> (mesuré, pas estimé), s'il respecte le standard **Agent Skills** de l'AAIF, et lesquels méritent
-> d'être réparés, fusionnés ou retirés. Elle sert au moment où l'on se demande « ai-je un outil pour
+> (mesuré, pas estimé), s'il respecte le standard **Agent Skills** de l'AAIF, et comment l'inventaire
+> a été resserré (fusions, retraits). Elle sert au moment où l'on se demande « ai-je un outil pour
 > ça ? » ou « pourquoi celui-là ne se déclenche jamais ? ».
 
 📍 [Documentation](index.md) › **Outillage agents**
@@ -73,15 +73,12 @@ serait sans effet à la régénération suivante.
 
 ```nodefony-cards
 [
-  { "icon": "📝", "title": "quick-diff", "href": "skills/nodefony-quick-diff.md",
-    "desc": "Résume les modifications non commitées sur src/ uniquement (ignore dist/, node_modules, fichiers générés) avant un build ou un test — évite de polluer le contexte avec du compilé.",
-    "meta": "non versionné" },
   { "icon": "🧭", "title": "session", "href": "skills/nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise.",
     "meta": "non versionné" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
-    "desc": "Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`,…",
-    "meta": "3 scripts · v1.0.0" }
+    "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
+    "meta": "3 scripts · v1.1.0" }
 ]
 ```
 
@@ -102,7 +99,7 @@ serait sans effet à la régénération suivante.
     "desc": "Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs).",
     "meta": "8 références · v2.0.0" },
   { "icon": "🎨", "title": "frontend-dev", "href": "skills/nodefony-frontend-dev.md",
-    "desc": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, et les…",
+    "desc": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel…",
     "meta": "6 références · v1.0.0" },
   { "icon": "🖥️", "title": "studio-dev", "href": "skills/nodefony-studio-dev.md",
     "desc": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart,…",
@@ -120,9 +117,6 @@ serait sans effet à la régénération suivante.
   { "icon": "🩺", "title": "debug", "href": "skills/nodefony-debug.md",
     "desc": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une…",
     "meta": "v1.1.0" },
-  { "icon": "🔍", "title": "frontend-verify", "href": "skills/nodefony-frontend-verify.md",
-    "desc": "Vérifie une modif frontend Studio (ou tout module Vite) SANS navigateur headless (règle projet) : curl du transform Vite d'un fichier .tsx pour valider la résolution + la transpilation, purge du prébundle Vite (`node_modules/.vite`) quand un import/subpath change, rappel hard-reload navigateur…",
-    "meta": "v1.0.0" },
   { "icon": "📈", "title": "load-test", "href": "skills/nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
     "meta": "36 scripts · 1 référence · non versionné" },
@@ -142,20 +136,14 @@ serait sans effet à la régénération suivante.
 
 ```nodefony-cards
 [
-  { "icon": "🕸️", "title": "generate-symbols", "href": "skills/nodefony-generate-symbols.md",
-    "desc": "Graphe symbolique TypeScript de Nodefony (classes, interfaces, types, décorateurs, relations inversées) : le génère dans `.ai/symbols.json` et donne les requêtes `jq` pour répondre en O(1), sans parcourir le dépôt — qui étend cette classe, qui implémente cette interface, qui importe ce symbole,…",
-    "meta": "non versionné" },
-  { "icon": "🎛️", "title": "get-module-config", "href": "skills/nodefony-get-module-config.md",
-    "desc": "INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes déclarées — sans charger son code métier ni démarrer de serveur.",
-    "meta": "non versionné" },
+  { "icon": "🔬", "title": "inspect", "href": "skills/nodefony-inspect.md",
+    "desc": "Interroge l'état du dépôt Nodefony sans en lire les sources : graphe symbolique (qui étend une classe, qui implémente une interface, qui importe un symbole, où il est défini), signature d'une méthode, puis config / services / routes d'un module déjà existant — ses métadonnées, sans démarrer de…",
+    "meta": "v1.0.0" },
   { "icon": "🗺️", "title": "migration-audit", "href": "skills/nodefony-migration-audit.md",
     "desc": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs + MD…",
     "meta": "non versionné" },
   { "icon": "🛡️", "title": "security-review", "href": "skills/nodefony-security-review.md",
     "desc": "Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any).",
-    "meta": "non versionné" },
-  { "icon": "🔬", "title": "view-method-signature", "href": "skills/nodefony-view-method-signature.md",
-    "desc": "Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, TSDoc) depuis l'AST extrait dans dist/symbols.json — évite de lire un fichier source de 500 lignes pour l'ordre des args.",
     "meta": "non versionné" }
 ]
 ```
@@ -180,9 +168,6 @@ serait sans effet à la régénération suivante.
   { "icon": "📊", "title": "html-report", "href": "skills/nodefony-html-report.md",
     "desc": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.",
     "meta": "3 scripts · 3 références · non versionné" },
-  { "icon": "🐈", "title": "nestjs", "href": "skills/nodefony-nestjs.md",
-    "desc": "Inspire l'architecture Nodefony (decorators, controllers, modules, DI, guards) des concepts NestJS via le repo officiel en raw markdown (jamais le site docs.nestjs.com, JS lourd).",
-    "meta": "non versionné" },
   { "icon": "📜", "title": "rfc", "href": "skills/nodefony-rfc.md",
     "desc": "Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2, WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy r.jina.ai, jamais les pages HTML.",
     "meta": "non versionné" },
@@ -205,55 +190,50 @@ fichiers. Un skill peut être très lu sans jamais être invoqué — c'est un s
 
 ### Cycle de session
 
-| Skill                 | Rôle                                                                        | Invoc. | Lect. |
-| --------------------- | --------------------------------------------------------------------------- | -----: | ----: |
-| `nodefony-session`    | Reprise après `/clear`, ouverture de module, clôture (retex), consolidation |    133 |     — |
-| `nodefony-skill`      | Créer, réparer ou auditer un skill du dépôt (dérive de `skill-creator`)     |      — |     — |
-| `nodefony-quick-diff` | Résume les modifications non commitées de `src/` sans le compilé            |      0 |     0 |
+| Skill              | Rôle                                                                              | Invoc. | Lect. |
+| ------------------ | --------------------------------------------------------------------------------- | -----: | ----: |
+| `nodefony-session` | Reprise après `/clear`, ouverture de module, clôture (retex), consolidation       |    133 |     — |
+| `nodefony-skill`   | Créer, éditer, fusionner, retirer ou auditer un skill (dérive de `skill-creator`) |      — |     — |
 
 ### Développement du framework
 
-| Skill                             | Rôle                                                                     | Invoc. | Lect. |
-| --------------------------------- | ------------------------------------------------------------------------ | -----: | ----: |
-| `nodefony-framework-dev`          | Kit du cœur backend : services, modules, pipeline HTTP/WS, realtime, ORM |      5 |  1250 |
-| `nodefony-frontend-dev`           | Kit front général : isomorphisme, socket client, Vite/HMR, data-plane    |      1 |   185 |
-| `nodefony-studio-dev`             | Écrans de l'app admin Studio (React 19, UI kit, Twin, debug bar)         |     25 |   684 |
-| `nodefony-documentation`          | Portail doc + **système d'écriture** de la doc de référence et ses gates |      5 |  3583 |
-| `nodefony-create-module`          | Scaffold d'un package `@nodefony/*` du dépôt                             |      0 |   424 |
-| `nodefony-create-frontend-module` | Idem, avec un front SPA servi par Vite                                   |      0 |    98 |
+| Skill                             | Rôle                                                                                     | Invoc. | Lect. |
+| --------------------------------- | ---------------------------------------------------------------------------------------- | -----: | ----: |
+| `nodefony-framework-dev`          | Kit du cœur backend : services, modules, pipeline HTTP/WS, realtime, ORM                 |      5 |  1250 |
+| `nodefony-frontend-dev`           | Kit front : isomorphisme, socket client, Vite/HMR, data-plane, **vérif sans navigateur** |      1 |   185 |
+| `nodefony-studio-dev`             | Écrans de l'app admin Studio (React 19, UI kit, Twin, debug bar)                         |     25 |   684 |
+| `nodefony-documentation`          | Portail doc + **système d'écriture** de la doc de référence et ses gates                 |      5 |  3583 |
+| `nodefony-create-module`          | Scaffold d'un package `@nodefony/*` du dépôt                                             |      0 |   424 |
+| `nodefony-create-frontend-module` | Idem, avec un front SPA servi par Vite                                                   |      0 |    98 |
 
 ### Exécution, diagnostic, mesure
 
-| Skill                          | Rôle                                                                   | Invoc. | Lect. |
-| ------------------------------ | ---------------------------------------------------------------------- | -----: | ----: |
-| `nodefony-start-server`        | Démarre/arrête le serveur de développement (script unique, fail-fast)  |     22 |  1021 |
-| `nodefony-load-test`           | Charge, stress, dimensionnement — **38 scripts** de banc               |      3 |  2279 |
-| `nodefony-multipod-bench`      | Banc multi-applications réel sur bus Redis (fan-out, cloisonnement)    |      1 |   259 |
-| `nodefony-tail-error-logs`     | Extrait les seules erreurs des logs serveur                            |      1 |     8 |
-| `nodefony-debug`               | Orchestrateur de diagnostic (6 recettes éprouvées)                     |      0 |    13 |
-| `nodefony-check-memory-health` | Gate mémoire : 1000 GET, 100 crashs, 100 WS, seuils de heap            |      0 |     0 |
-| `nodefony-frontend-verify`     | Vérifie une modif front sans navigateur (transform Vite + purge cache) |      0 |     0 |
+| Skill                          | Rôle                                                                  | Invoc. | Lect. |
+| ------------------------------ | --------------------------------------------------------------------- | -----: | ----: |
+| `nodefony-start-server`        | Démarre/arrête le serveur de développement (script unique, fail-fast) |     22 |  1021 |
+| `nodefony-load-test`           | Charge, stress, dimensionnement — **38 scripts** de banc              |      3 |  2279 |
+| `nodefony-multipod-bench`      | Banc multi-applications réel sur bus Redis (fan-out, cloisonnement)   |      1 |   259 |
+| `nodefony-tail-error-logs`     | Extrait les seules erreurs des logs serveur                           |      1 |     8 |
+| `nodefony-debug`               | Orchestrateur de diagnostic (6 recettes éprouvées)                    |      0 |    13 |
+| `nodefony-check-memory-health` | Gate mémoire : 1000 GET, 100 crashs, 100 WS, seuils de heap           |      0 |     0 |
 
 ### Inspection et audit
 
-| Skill                            | Rôle                                                             | Invoc. | Lect. |
-| -------------------------------- | ---------------------------------------------------------------- | -----: | ----: |
-| `nodefony-migration-audit`       | Confronte `MIGRATION_STATUS.md` au code, phase par phase         |      5 |    51 |
-| `nodefony-security-review`       | Revue de conformité d'un diff **et** campagnes red/blue-team     |     10 |     2 |
-| `nodefony-generate-symbols`      | Régénère `.ai/symbols.json` (graphe symbolique indexé)           |      0 |    10 |
-| `nodefony-view-method-signature` | Signature d'une méthode depuis `dist/symbols.json`               |      0 |     0 |
-| `nodefony-get-module-config`     | Config, services et routes d'un module sans charger son code     |      0 |     0 |
-| `nodefony-check-externals`       | Dérive entre les `external` du bundler et les `peerDependencies` |      0 |     7 |
+| Skill                      | Rôle                                                                        | Invoc. | Lect. |
+| -------------------------- | --------------------------------------------------------------------------- | -----: | ----: |
+| `nodefony-migration-audit` | Confronte `MIGRATION_STATUS.md` au code, phase par phase                    |      5 |    51 |
+| `nodefony-security-review` | Revue de conformité d'un diff **et** campagnes red/blue-team                |     10 |     2 |
+| `nodefony-inspect`         | Graphe symbolique, signature d'une méthode, config d'un module, diff propre |      — |     — |
+| `nodefony-check-externals` | Dérive entre les `external` du bundler et les `peerDependencies`            |      0 |     7 |
 
 ### Références externes et livrables
 
-| Skill                  | Rôle                                                             | Invoc. | Lect. |
-| ---------------------- | ---------------------------------------------------------------- | -----: | ----: |
-| `nodefony-rfc`         | RFC IETF/W3C en source brute (HTTP, WS, CORS, cookies)           |      4 |     0 |
-| `nodefony-html-report` | Fabrique des rapports HTML autonomes destinés à un humain        |      3 |   348 |
-| `nodefony-roadmap`     | Contexte des phases Studio/IA/Realtime/Frontend                  |      0 |    24 |
-| `nodefony-ts-docs`     | Doc TypeScript et `@types/node` en source brute                  |      0 |     0 |
-| `nodefony-nestjs`      | Inspiration d'architecture NestJS (déclencheur mot-clé exclusif) |      0 |     2 |
+| Skill                  | Rôle                                                      | Invoc. | Lect. |
+| ---------------------- | --------------------------------------------------------- | -----: | ----: |
+| `nodefony-rfc`         | RFC IETF/W3C en source brute (HTTP, WS, CORS, cookies)    |      4 |     0 |
+| `nodefony-html-report` | Fabrique des rapports HTML autonomes destinés à un humain |      3 |   348 |
+| `nodefony-roadmap`     | Contexte des phases Studio/IA/Realtime/Frontend           |      0 |    24 |
+| `nodefony-ts-docs`     | Doc TypeScript et `@types/node` en source brute           |      0 |     0 |
 
 ### Commandes et garde-fou
 
@@ -265,16 +245,17 @@ fichiers. Un skill peut être très lu sans jamais être invoqué — c'est un s
 
 ## Les scripts embarqués
 
-Quatre skills portent du code exécutable — c'est là que se trouve la valeur qu'un texte ne peut pas
-remplacer :
+Plusieurs skills portent du code exécutable — c'est là que se trouve la valeur qu'un texte ne peut
+pas remplacer :
 
-| Skill                     | Scripts | Ce qu'ils font                                                                                                       |
-| ------------------------- | ------: | -------------------------------------------------------------------------------------------------------------------- |
-| `nodefony-load-test`      |      38 | Bancs HTTP/WS, capacité, cluster, idempotence, TOTP, rate-limit, webhooks, AIMD, contention du puits de logs         |
-| `nodefony-multipod-bench` |       9 | Décor multi-pods (`setup.sh`), latence, débit, coût de publication, forge d'enveloppe scellée, pic mémoire           |
-| `nodefony-documentation`  |       6 | Les **gates** de la doc : `doc-lint`, `anchor-check`, `anchor-inpage`, `code-check`, `gen-counters`, `build-preview` |
-| `nodefony-html-report`    |       3 | Bibliothèque de rendu (`report.mjs`, `brand.mjs`) + démonstration                                                    |
-| `nodefony-start-server`   |       2 | `start.sh` / `stop.sh` — le lancement fiable du serveur de développement                                             |
+| Skill                     | Scripts | Ce qu'ils font                                                                                                              |
+| ------------------------- | ------: | --------------------------------------------------------------------------------------------------------------------------- |
+| `nodefony-load-test`      |      38 | Bancs HTTP/WS, capacité, cluster, idempotence, TOTP, rate-limit, webhooks, AIMD, contention du puits de logs                |
+| `nodefony-multipod-bench` |       9 | Décor multi-pods (`setup.sh`), latence, débit, coût de publication, forge d'enveloppe scellée, pic mémoire                  |
+| `nodefony-documentation`  |       6 | Les **gates** de la doc : `doc-lint`, `anchor-check`, `anchor-inpage`, `code-check`, `gen-counters`, `build-preview`        |
+| `nodefony-skill`          |       3 | Les **gates** des skills : `skills-doc` (conformité + fiches), `trigger-bench` (déclenchement), `scripts-audit` (placement) |
+| `nodefony-html-report`    |       3 | Bibliothèque de rendu (`report.mjs`, `brand.mjs`) + démonstration                                                           |
+| `nodefony-start-server`   |       2 | `start.sh` / `stop.sh` — le lancement fiable du serveur de développement                                                    |
 
 > `nodefony-load-test/bench-frameworks/` embarque un `node_modules` local (16 Mo) pour comparer
 > Nodefony à Express et Fastify. Il **n'est pas versionné** (vérifié) — mais il pèse sur les
@@ -328,72 +309,63 @@ C'est le cas dominant, et il valide la règle « une règle = une implémentatio
   commande en dur, alors le skill n'est jamais atteint — or il porte **plus** que la commande : les
   seuils, le diagnostic d'un dépassement, la conduite à tenir. → Le `CLAUDE.md` doit **pointer** le
   skill au lieu de recopier sa commande.
-- **`nodefony-generate-symbols`** (0). Le `CLAUDE.md` contient déjà la cheat-sheet `jq` et le hook
-  de pré-commit régénère le fichier. Le skill ne sert plus qu'en régénération manuelle. → Même
-  remède, ou fusion (ci-dessous).
 - **`nodefony-debug`** (0 invocation, 13 lectures). Ses recettes sont bonnes et ses ancres valides ;
   ses déclencheurs sont **étroits par conception** (« ça crash », « ENOSPC »), donc rarement atteints
   — et devant un vrai incident, le réflexe est de lire les logs directement. → Élargir les
   déclencheurs aux formulations réelles (« test rouge inexpliqué », « vert isolé rouge en suite »).
 
-### B. Recouvrement — candidats à la fusion
+### B. Recouvrement — fusions réalisées
 
-- **`view-method-signature` + `get-module-config` + `quick-diff`** (0, 0, 0) : trois micro-skills de
-  lecture, ~230 lignes en tout, qui font la même chose sous trois noms — interroger l'état du dépôt
-  sans lire les sources. Leurs ancrages sont **valides** (`dist/symbols.json` existe bien, 3 Mo,
-  régénéré au pré-commit). → Fusionner en **un** `nodefony-inspect` (signature, config d'un module,
-  diff propre), qui deviendra en outre la façade naturelle de `nodefony inspect --json` prévu par le
-  devkit.
-- **`generate-symbols`** rejoint naturellement ce même `nodefony-inspect` : produire le graphe et
-  l'interroger sont deux faces d'un seul geste.
-- **`frontend-verify`** (0, 0) : trois quarts de son contenu (transform Vite, purge du prébundle,
-  rappel de rechargement) appartiennent au parcours de `nodefony-frontend-dev` / `studio-dev`. →
-  Fusionner dedans plutôt que maintenir un skill que personne n'atteint.
+- **`nodefony-inspect`** rassemble ce qui était `view-method-signature`, `get-module-config`,
+  `quick-diff` et `generate-symbols` — quatre micro-skills de lecture (0 invocation chacun) qui
+  faisaient la même chose sous quatre noms : interroger l'état du dépôt sans lire les sources.
+  Un seul skill porte désormais le graphe symbolique, la signature d'une méthode, la config d'un
+  module et le diff propre — et il devient la façade naturelle du `nodefony inspect --json` prévu par
+  le devkit.
+- **`frontend-verify`** (0 invocation) est **absorbé** par `nodefony-frontend-dev` : son contenu
+  (transform Vite, purge du prébundle, rechargement) a rejoint `references/build-hmr.md` §8, et ses
+  déclencheurs la description du kit front. Maintenir un skill séparé que personne n'atteignait ne se
+  justifiait plus.
 
-### C. Périmé ou hors sujet — candidats au retrait
+### C. Périmé ou hors sujet
 
-- **`nodefony-nestjs`** (0 invocation, 2 lectures, inchangé depuis mai). Son déclencheur est le mot
-  « NestJS », qui n'apparaît plus : l'architecture est figée depuis longtemps. → Retirer ; la
-  décision d'inspiration est déjà gravée dans le `CLAUDE.md`.
-- **`nodefony-ts-docs`** (0, 0, inchangé depuis mai). Utile en principe, jamais atteint en pratique.
-  → Garder mais **le déclencher depuis `framework-dev`** (déjà prévu dans sa table d'orchestration),
-  ou l'absorber comme `references/` de ce dernier.
-- **`nodefony-roadmap`** (0, 24) : les phases qu'il décrit sont livrées pour l'essentiel ; son
-  contenu vivant a migré vers `MIGRATION_STATUS.md` et les mémoires de projet. → Vérifier ce qui
-  reste vrai, puis réduire ou retirer.
+- **`nodefony-nestjs`** (0 invocation) est **retiré** : son déclencheur était le mot « NestJS », qui
+  n'apparaît plus, l'architecture étant figée depuis longtemps ; la décision d'inspiration reste
+  gravée dans le `CLAUDE.md`.
+- **`nodefony-ts-docs`** (0 invocation). Utile en principe, jamais atteint en pratique. Conservé,
+  mais cité par la table d'orchestration de `framework-dev` qui le déclenche au besoin.
+- **`nodefony-roadmap`** (0 invocation, 24 lectures) : les phases qu'il décrit sont livrées pour
+  l'essentiel ; son contenu vivant a migré vers `MIGRATION_STATUS.md`. Conservé pour l'instant, à
+  requalifier — reste vérifiable page par page.
 
 ### D. À garder tels quels
 
-`session`, `studio-dev`, `start-server`, `framework-dev`, `documentation`, `load-test`,
+`session`, `skill`, `studio-dev`, `start-server`, `framework-dev`, `documentation`, `load-test`,
 `security-review`, `migration-audit`, `rfc`, `html-report`, `create-module`, `multipod-bench`,
 `frontend-dev`, `create-frontend-module`, `tail-error-logs`, `check-externals`. Tous ont soit une
 invocation régulière, soit un usage en lecture massif (leurs `references/` et `scripts/` sont la
 vraie valeur), soit une fonction de filet rare mais irremplaçable.
 
-**Bilan de l'étude** : 26 skills → **20** (4 fusionnés en 1, 1 retiré, 1 absorbé), sans perdre une
-seule capacité.
+**Bilan** : 28 skills → **23** — quatre skills d'inspection fusionnés en `nodefony-inspect`,
+`frontend-verify` absorbé par `frontend-dev`, `nestjs` retiré. Aucune capacité perdue, et le gate
+`skills-doc` refuse désormais tout renvoi vers un skill disparu.
 
 ## Le travail à faire
 
-Par ordre de rentabilité décroissante. Les trois premiers points sont le **lot 0** du chantier
-`@nodefony/devkit`, qui exige `skills-ref validate` vert avant de publier quoi que ce soit sur npm.
+La conformité mécanique, l'ajustement du `CLAUDE.md`, les fusions et le retrait sont **faits** ; ce
+qui suit reste ouvert, par ordre de rentabilité décroissante.
 
-1. **Conformité mécanique** (une passe, sans risque) : 6 `version:` → `metadata.version` ;
-   5 `description` à raccourcir sous 1024 caractères ; `references/` → `references/` sur 6 skills
-   (avec les liens internes) ; remonter `references/rfc/` d'un niveau sur 2 skills. Gate :
-   `skills-ref validate` sur les 26.
-2. **Ajuster le `CLAUDE.md` là où il double un skill** — remplacer les commandes recopiées par un
-   pointeur vers le skill, qui devient la source unique : gate mémoire, graphe symbolique,
-   diagnostic. C'est ce qui rendra ces skills atteignables.
-3. **Fusionner les quatre skills d'inspection** en `nodefony-inspect`, et absorber `frontend-verify`
-   dans les kits front.
-4. **Retirer `nodefony-nestjs`**, requalifier `nodefony-roadmap`.
-5. **Découper les deux corps > 500 lignes** (`documentation`, `session`) en déplaçant le détail dans
-   `references/` — ce sont aussi les deux plus gros consommateurs de contexte à l'activation.
-6. **Réviser les skills inchangés depuis mai** (`rfc`, `ts-docs`, `nestjs`, `quick-diff`,
-   `view-method-signature`, `generate-symbols`) : le framework a beaucoup bougé depuis. Leurs
-   ancrages testés tiennent encore, mais l'absence de mise à jour sur deux mois est un signal de
-   dérive à vérifier page par page, pas une preuve de péremption.
+1. **Découper les deux corps > 500 lignes** (`documentation` 641, `session` 555) en déplaçant le
+   détail dans `references/` — ce sont aussi les deux plus gros consommateurs de contexte à
+   l'activation.
+2. **Arbitrer les recouvrements de déclencheurs** que le banc `trigger-bench` signale (9 au dernier
+   passage) : tous ne sont pas des défauts (« fuite mémoire » vaut mieux capté par
+   `check-memory-health` que par `debug`), mais chacun mérite une décision consciente.
+3. **Requalifier `nodefony-roadmap`** : vérifier page par page ce qui reste vrai des phases décrites,
+   puis réduire ou retirer.
+4. **Réviser les skills inchangés depuis mai** (`rfc`, `ts-docs`) : le framework a beaucoup bougé
+   depuis. Leurs ancrages testés tiennent encore, mais l'absence de mise à jour sur deux mois est un
+   signal de dérive à vérifier page par page, pas une preuve de péremption.
 
 ## Pièges
 

@@ -182,5 +182,5 @@ Pas de hook bloquant pour l'instant : la règle est documentaire. Vision (Phase 
 
 - `CLAUDE.md` (racine) — règles globales du projet
 - `MEMORY.md` (racine) — index des mémoires IA par module
-- `.claude/skills/generate-symbols/SKILL.md` — extraction du graphe symbolique
+- `.claude/skills/nodefony-inspect/SKILL.md` — graphe symbolique, signatures, config d'un module, diff
 - `MIGRATION_STATUS.md` — roadmap P0→P14

@@ -3,8 +3,8 @@
   "standard": "agent-skills (AAIF)",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-07-23",
-  "count": 28,
-  "conformant": 28,
+  "count": 23,
+  "conformant": 23,
   "skills": [
     {
       "name": "nodefony-check-externals",
@@ -59,6 +59,12 @@
           },
           {
             "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -135,6 +141,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "83",
@@ -202,6 +214,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "247",
@@ -243,7 +261,10 @@
         "referenceFilesTotal": 1,
         "scripts": []
       },
-      "related": ["nodefony-create-frontend-module", "nodefony-start-server"],
+      "related": [
+        "nodefony-check-externals",
+        "nodefony-create-frontend-module"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -272,6 +293,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "276",
@@ -294,7 +321,7 @@
         "nodefony-tail-error-logs",
         "nodefony-check-memory-health",
         "nodefony-load-test",
-        "nodefony-frontend-verify",
+        "nodefony-frontend-dev",
         "nodefony-framework-dev"
       ],
       "triggers": [
@@ -317,10 +344,10 @@
         "ECONNREFUSED tests",
         "ENOSPC"
       ],
-      "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-verify` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
+      "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
-        "bodyLines": 194,
-        "approxTokens": 3361
+        "bodyLines": 197,
+        "approxTokens": 3433
       },
       "requires": [],
       "resources": {
@@ -331,7 +358,8 @@
       "related": [
         "nodefony-check-memory-health",
         "nodefony-framework-dev",
-        "nodefony-frontend-verify",
+        "nodefony-frontend-dev",
+        "nodefony-inspect",
         "nodefony-load-test",
         "nodefony-start-server",
         "nodefony-studio-dev",
@@ -349,7 +377,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "993",
+            "detail": "990",
             "advisory": false
           },
           {
@@ -365,9 +393,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
-            "detail": "194",
+            "detail": "197",
             "advisory": true
           }
         ]
@@ -580,8 +614,10 @@
         ]
       },
       "related": [
+        "nodefony-check-memory-health",
         "nodefony-create-module",
         "nodefony-framework-dev",
+        "nodefony-load-test",
         "nodefony-rfc",
         "nodefony-security-review",
         "nodefony-start-server",
@@ -610,6 +646,12 @@
           },
           {
             "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -679,16 +721,19 @@
         "scripts": []
       },
       "related": [
+        "nodefony-check-externals",
         "nodefony-check-memory-health",
         "nodefony-create-frontend-module",
         "nodefony-create-module",
         "nodefony-frontend-dev",
+        "nodefony-inspect",
         "nodefony-load-test",
-        "nodefony-nestjs",
         "nodefony-rfc",
+        "nodefony-roadmap",
         "nodefony-security-review",
         "nodefony-start-server",
         "nodefony-studio-dev",
+        "nodefony-tail-error-logs",
         "nodefony-ts-docs"
       ],
       "conformance": {
@@ -719,6 +764,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "299",
@@ -733,23 +784,22 @@
     },
     {
       "name": "nodefony-frontend-dev",
-      "summary": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, et les règles d'ergonomie / temps réel « calme » / a11y / perf (bundlées offline).",
+      "summary": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et vérification d'une modif front sans navigateur (transform Vite en `curl`, purge du prébundle, rechargement forcé) — la règle projet interdit le navigateur headless.",
       "family": "Développer le framework",
       "version": "1.0.0",
       "keywords": [
         "nodefony",
         "RealtimeClient",
-        "nodefony/react",
         "@nodefony/frontend",
         "ApiClient",
         "useResource",
+        "curl",
         "nodefony-studio-dev",
         "nodefony-create-frontend-module",
         "nodefony-framework-dev"
       ],
       "triggers": [
         "dev front nodefony",
-        "frontend nodefony",
         "isomorphisme",
         "socket client",
         "RealtimeClient",
@@ -757,22 +807,23 @@
         "hooks realtime",
         "HMR",
         "Vite nodefony",
-        "@nodefony/frontend",
         "ApiClient",
         "useResource",
         "data plane front",
         "BFF",
         "RBAC front",
-        "temps réel ergonomique",
         "accessibilité front",
         "WCAG",
         "perf front",
-        "front full-stack"
+        "vérifie le front",
+        "ma modif front passe ?",
+        "transform Vite",
+        "prébundle Vite périmé"
       ],
-      "description": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, et les règles d'ergonomie / temps réel « calme » / a11y / perf (bundlées offline). App admin Studio → `nodefony-studio-dev` (qui en dérive) ; scaffold d'un module front → `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"frontend nodefony\", \"isomorphisme\", \"socket client\", \"RealtimeClient\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"@nodefony/frontend\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"temps réel ergonomique\", \"accessibilité front\", \"WCAG\", \"perf front\", \"front full-stack\".",
+      "description": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et **vérification d'une modif front sans navigateur** (transform Vite en `curl`, purge du prébundle, rechargement forcé) — la règle projet interdit le navigateur headless. App admin Studio → `nodefony-studio-dev` ; scaffold d'un module front → `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"isomorphisme\", \"socket client\", \"RealtimeClient\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"accessibilité front\", \"WCAG\", \"perf front\", \"vérifie le front\", \"ma modif front passe ?\", \"transform Vite\", \"prébundle Vite périmé\".",
       "cost": {
-        "bodyLines": 99,
-        "approxTokens": 2448
+        "bodyLines": 100,
+        "approxTokens": 2549
       },
       "requires": [],
       "resources": {
@@ -790,6 +841,7 @@
       "related": [
         "nodefony-create-frontend-module",
         "nodefony-framework-dev",
+        "nodefony-rfc",
         "nodefony-security-review",
         "nodefony-studio-dev",
         "nodefony-ts-docs"
@@ -806,7 +858,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "876",
+            "detail": "1003",
             "advisory": false
           },
           {
@@ -822,9 +874,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
-            "detail": "99",
+            "detail": "100",
             "advisory": true
           }
         ]
@@ -832,223 +890,6 @@
       "links": {
         "source": ".claude/skills/nodefony-frontend-dev/SKILL.md",
         "doc": "docs/skills/nodefony-frontend-dev.md"
-      }
-    },
-    {
-      "name": "nodefony-frontend-verify",
-      "summary": "Vérifie une modif frontend Studio (ou tout module Vite) SANS navigateur headless (règle projet) : curl du transform Vite d'un fichier .tsx pour valider la résolution + la transpilation, purge du prébundle Vite (`node_modules/.vite`) quand un import/subpath change, rappel hard-reload navigateur (cache React).",
-      "family": "Exécuter, diagnostiquer, mesurer",
-      "version": "1.0.0",
-      "keywords": [
-        "node_modules/.vite",
-        "nodefony-tail-error-logs",
-        "nodefony-start-server"
-      ],
-      "triggers": [
-        "vérifie le front",
-        "curl Vite",
-        "transform Vite",
-        "vérifie le bundle",
-        "prébundle Vite périmé",
-        "purge .vite",
-        "ma modif front passe ?",
-        "hard-reload nécessaire ?",
-        "frontend verify",
-        "verify front Studio"
-      ],
-      "description": "Vérifie une modif frontend Studio (ou tout module Vite) SANS navigateur headless (règle projet) : curl du transform Vite d'un fichier .tsx pour valider la résolution + la transpilation, purge du prébundle Vite (`node_modules/.vite`) quand un import/subpath change, rappel hard-reload navigateur (cache React). Délègue l'analyse runtime à `nodefony-tail-error-logs` et la gate types à `npm run typecheck` du module — esbuild attrape la syntaxe, PAS les types. NE remplace PAS `nodefony-start-server` (qui démarre/arrête) ni la confirmation visuelle user. Déclencheurs : \"vérifie le front\", \"curl Vite\", \"transform Vite\", \"vérifie le bundle\", \"prébundle Vite périmé\", \"purge .vite\", \"ma modif front passe ?\", \"hard-reload nécessaire ?\", \"frontend verify\", \"verify front Studio\".",
-      "cost": {
-        "bodyLines": 135,
-        "approxTokens": 2051
-      },
-      "requires": [],
-      "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
-        "scripts": []
-      },
-      "related": [
-        "nodefony-check-externals",
-        "nodefony-start-server",
-        "nodefony-studio-dev",
-        "nodefony-tail-error-logs"
-      ],
-      "conformance": {
-        "ok": true,
-        "checks": [
-          {
-            "key": "name conforme et égal au dossier",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "description de 1 à 1024 caractères",
-            "ok": true,
-            "detail": "776",
-            "advisory": false
-          },
-          {
-            "key": "aucun champ hors standard",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "dossier de ressources nommé `references/`",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "corps < 500 lignes (recommandation)",
-            "ok": true,
-            "detail": "135",
-            "advisory": true
-          }
-        ]
-      },
-      "links": {
-        "source": ".claude/skills/nodefony-frontend-verify/SKILL.md",
-        "doc": "docs/skills/nodefony-frontend-verify.md"
-      }
-    },
-    {
-      "name": "nodefony-generate-symbols",
-      "summary": "Graphe symbolique TypeScript de Nodefony (classes, interfaces, types, décorateurs, relations inversées) : le génère dans `.ai/symbols.json` et donne les requêtes `jq` pour répondre en O(1), sans parcourir le dépôt — qui étend cette classe, qui implémente cette interface, qui importe ce symbole, quelle est la description TSDoc, où est-il défini.",
-      "family": "Inspecter et auditer",
-      "version": null,
-      "keywords": [".ai/symbols.json", "jq", "grep"],
-      "triggers": [
-        "génère les symboles",
-        "graphe symbolique",
-        "regenerate symbols",
-        "symbols.json",
-        "qui étend cette classe ?",
-        "qui implémente cette interface ?",
-        "qui utilise ce symbole ?",
-        "où est défini X ?",
-        "chercher dans tout le repo",
-        "trouver les consommateurs"
-      ],
-      "description": "Graphe symbolique TypeScript de Nodefony (classes, interfaces, types, décorateurs, relations inversées) : le génère dans `.ai/symbols.json` et donne les requêtes `jq` pour répondre en O(1), sans parcourir le dépôt — qui étend cette classe, qui implémente cette interface, qui importe ce symbole, quelle est la description TSDoc, où est-il défini. À charger AVANT de partir en `grep` sur plusieurs modules : la réponse est déjà indexée. Déclencheurs : \"génère les symboles\", \"graphe symbolique\", \"regenerate symbols\", \"symbols.json\", \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"chercher dans tout le repo\", \"trouver les consommateurs\".",
-      "cost": {
-        "bodyLines": 136,
-        "approxTokens": 1430
-      },
-      "requires": [],
-      "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
-        "scripts": []
-      },
-      "related": [],
-      "conformance": {
-        "ok": true,
-        "checks": [
-          {
-            "key": "name conforme et égal au dossier",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "description de 1 à 1024 caractères",
-            "ok": true,
-            "detail": "704",
-            "advisory": false
-          },
-          {
-            "key": "aucun champ hors standard",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "dossier de ressources nommé `references/`",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "corps < 500 lignes (recommandation)",
-            "ok": true,
-            "detail": "136",
-            "advisory": true
-          }
-        ]
-      },
-      "links": {
-        "source": ".claude/skills/nodefony-generate-symbols/SKILL.md",
-        "doc": "docs/skills/nodefony-generate-symbols.md"
-      }
-    },
-    {
-      "name": "nodefony-get-module-config",
-      "summary": "INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes déclarées — sans charger son code métier ni démarrer de serveur.",
-      "family": "Inspecter et auditer",
-      "version": null,
-      "keywords": ["nodefony-create-module"],
-      "triggers": [
-        "config du module X",
-        "comment est configuré X",
-        "montre la config de ce module",
-        "quelles routes expose ce module",
-        "voir les routes d'un module",
-        "ce service est-il enregistré ?",
-        "vérifier la déclaration de service",
-        "inspecter un module existant"
-      ],
-      "description": "INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes déclarées — sans charger son code métier ni démarrer de serveur. Pour valider qu'un service est bien enregistré, qu'une route est bien déclarée, ou auditer les paramètres effectifs. Ne crée rien : scaffolder un module neuf → `nodefony-create-module`. Déclencheurs : \"config du module X\", \"comment est configuré X\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"voir les routes d'un module\", \"ce service est-il enregistré ?\", \"vérifier la déclaration de service\", \"inspecter un module existant\".",
-      "cost": {
-        "bodyLines": 62,
-        "approxTokens": 680
-      },
-      "requires": [],
-      "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
-        "scripts": []
-      },
-      "related": ["nodefony-create-module"],
-      "conformance": {
-        "ok": true,
-        "checks": [
-          {
-            "key": "name conforme et égal au dossier",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "description de 1 à 1024 caractères",
-            "ok": true,
-            "detail": "615",
-            "advisory": false
-          },
-          {
-            "key": "aucun champ hors standard",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "dossier de ressources nommé `references/`",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "corps < 500 lignes (recommandation)",
-            "ok": true,
-            "detail": "62",
-            "advisory": true
-          }
-        ]
-      },
-      "links": {
-        "source": ".claude/skills/nodefony-get-module-config/SKILL.md",
-        "doc": "docs/skills/nodefony-get-module-config.md"
       }
     },
     {
@@ -1179,7 +1020,7 @@
           }
         ]
       },
-      "related": ["nodefony-load-test"],
+      "related": [],
       "conformance": {
         "ok": true,
         "checks": [
@@ -1208,6 +1049,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "174",
@@ -1218,6 +1065,93 @@
       "links": {
         "source": ".claude/skills/nodefony-html-report/SKILL.md",
         "doc": "docs/skills/nodefony-html-report.md"
+      }
+    },
+    {
+      "name": "nodefony-inspect",
+      "summary": "Interroge l'état du dépôt Nodefony sans en lire les sources : graphe symbolique (qui étend une classe, qui implémente une interface, qui importe un symbole, où il est défini), signature d'une méthode, puis config / services / routes d'un module déjà existant — ses métadonnées, sans démarrer de serveur et sans rien créer (scaffolder → `nodefony-create-module`).",
+      "family": "Inspecter et auditer",
+      "version": "1.0.0",
+      "keywords": ["nodefony-create-module", "grep"],
+      "triggers": [
+        "qui étend cette classe ?",
+        "qui implémente cette interface ?",
+        "qui utilise ce symbole ?",
+        "où est défini X ?",
+        "trouver les consommateurs",
+        "analyse d'impact avant refactor",
+        "quels paramètres prend cette méthode ?",
+        "inspecter un module existant",
+        "montre la config de ce module",
+        "quelles routes expose ce module",
+        "ce service est-il enregistré ?",
+        "qu'est-ce que j'ai modifié ?",
+        "diff rapide",
+        "graphe symbolique",
+        "symbols.json"
+      ],
+      "description": "Interroge l'état du dépôt Nodefony sans en lire les sources : graphe symbolique (qui étend une classe, qui implémente une interface, qui importe un symbole, où il est défini), signature d'une méthode, puis config / services / routes d'un module **déjà existant** — ses métadonnées, sans démarrer de serveur et **sans rien créer** (scaffolder → `nodefony-create-module`). Donne aussi le diff propre des sources non commitées et régénère le graphe. À charger AVANT de partir en `grep` sur plusieurs modules ou d'ouvrir un fichier de 500 lignes pour l'ordre des arguments. Déclencheurs : \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"trouver les consommateurs\", \"analyse d'impact avant refactor\", \"quels paramètres prend cette méthode ?\", \"inspecter un module existant\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"ce service est-il enregistré ?\", \"qu'est-ce que j'ai modifié ?\", \"diff rapide\", \"graphe symbolique\", \"symbols.json\".",
+      "cost": {
+        "bodyLines": 210,
+        "approxTokens": 2989
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-create-module",
+        "nodefony-framework-dev",
+        "nodefony-migration-audit",
+        "nodefony-security-review",
+        "nodefony-start-server"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "1021",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes (recommandation)",
+            "ok": true,
+            "detail": "210",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-inspect/SKILL.md",
+        "doc": "docs/skills/nodefony-inspect.md"
       }
     },
     {
@@ -2235,6 +2169,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "443",
@@ -2277,7 +2217,7 @@
         "referenceFilesTotal": 0,
         "scripts": []
       },
-      "related": ["nodefony-generate-symbols", "nodefony-start-server"],
+      "related": ["nodefony-inspect", "nodefony-start-server"],
       "conformance": {
         "ok": true,
         "checks": [
@@ -2301,6 +2241,12 @@
           },
           {
             "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -2514,6 +2460,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "140",
@@ -2524,130 +2476,6 @@
       "links": {
         "source": ".claude/skills/nodefony-multipod-bench/SKILL.md",
         "doc": "docs/skills/nodefony-multipod-bench.md"
-      }
-    },
-    {
-      "name": "nodefony-nestjs",
-      "summary": "Inspire l'architecture Nodefony (decorators, controllers, modules, DI, guards) des concepts NestJS via le repo officiel en raw markdown (jamais le site docs.nestjs.com, JS lourd).",
-      "family": "Références et livrables",
-      "version": null,
-      "keywords": [],
-      "triggers": [],
-      "description": "Inspire l'architecture Nodefony (decorators, controllers, modules, DI, guards) des concepts NestJS via le repo officiel en raw markdown (jamais le site docs.nestjs.com, JS lourd). Déclencheur EXCLUSIF : le mot-clé \"NestJS\" dans le message — sans lui, ignorer totalement. Exemples : \"inspire-toi de NestJS pour X\", \"DI NestJS\", \"NestJS modules pattern\", \"NestJS guards\".",
-      "cost": {
-        "bodyLines": 70,
-        "approxTokens": 707
-      },
-      "requires": [],
-      "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
-        "scripts": []
-      },
-      "related": [],
-      "conformance": {
-        "ok": true,
-        "checks": [
-          {
-            "key": "name conforme et égal au dossier",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "description de 1 à 1024 caractères",
-            "ok": true,
-            "detail": "369",
-            "advisory": false
-          },
-          {
-            "key": "aucun champ hors standard",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "dossier de ressources nommé `references/`",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "corps < 500 lignes (recommandation)",
-            "ok": true,
-            "detail": "70",
-            "advisory": true
-          }
-        ]
-      },
-      "links": {
-        "source": ".claude/skills/nodefony-nestjs/SKILL.md",
-        "doc": "docs/skills/nodefony-nestjs.md"
-      }
-    },
-    {
-      "name": "nodefony-quick-diff",
-      "summary": "Résume les modifications non commitées sur src/ uniquement (ignore dist/, node_modules, fichiers générés) avant un build ou un test — évite de polluer le contexte avec du compilé.",
-      "family": "Cycle de session",
-      "version": null,
-      "keywords": [],
-      "triggers": [
-        "diff rapide",
-        "qu'est-ce que j'ai modifié",
-        "quick diff",
-        "voir les changements src",
-        "git diff propre"
-      ],
-      "description": "Résume les modifications non commitées sur src/ uniquement (ignore dist/, node_modules, fichiers générés) avant un build ou un test — évite de polluer le contexte avec du compilé. Déclencheurs : \"diff rapide\", \"qu'est-ce que j'ai modifié\", \"quick diff\", \"voir les changements src\", \"git diff propre\".",
-      "cost": {
-        "bodyLines": 63,
-        "approxTokens": 484
-      },
-      "requires": [],
-      "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
-        "scripts": []
-      },
-      "related": [],
-      "conformance": {
-        "ok": true,
-        "checks": [
-          {
-            "key": "name conforme et égal au dossier",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "description de 1 à 1024 caractères",
-            "ok": true,
-            "detail": "300",
-            "advisory": false
-          },
-          {
-            "key": "aucun champ hors standard",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "dossier de ressources nommé `references/`",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "corps < 500 lignes (recommandation)",
-            "ok": true,
-            "detail": "63",
-            "advisory": true
-          }
-        ]
-      },
-      "links": {
-        "source": ".claude/skills/nodefony-quick-diff/SKILL.md",
-        "doc": "docs/skills/nodefony-quick-diff.md"
       }
     },
     {
@@ -2787,6 +2615,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "67",
@@ -2851,6 +2685,12 @@
           },
           {
             "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -2929,6 +2769,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "161",
@@ -2966,7 +2812,7 @@
       "description": "Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any). RED/BLUE-TEAM : campagne d'attaque sur une brique en 2 passes — threat-first (matrice depuis OWASP/RFC AVANT de lire le code, anti-biais) puis code-first (couvrir les branches restantes) — avec le cycle faille trouvée → corrigée → re-prouvée, et un rapport par vecteur. Conçoit des attaques propres à l'architecture (pipeline HTTP+WS partagé, token dans l'ALS, pont api.request, canaux WS, zones et bypass du firewall, scopes DI, trust-proxy), pas seulement des attaques OWASP génériques. Déclencheurs : \"revue sécurité\", \"audit sécurité\", \"security review\", \"check sécurité avant commit\", \"c'est safe ?\", \"vérifie la sécurité\", \"red-team\", \"blue-team\", \"matrice d'attaque\", \"test d'attaque\", \"attaquer le framework\", \"attaquer cette brique\", \"durcir la sécurité\", \"pentest\".",
       "cost": {
         "bodyLines": 356,
-        "approxTokens": 6340
+        "approxTokens": 6339
       },
       "requires": [],
       "resources": {
@@ -2974,7 +2820,7 @@
         "referenceFilesTotal": 0,
         "scripts": []
       },
-      "related": ["nodefony-quick-diff", "nodefony-rfc"],
+      "related": ["nodefony-inspect", "nodefony-rfc"],
       "conformance": {
         "ok": true,
         "checks": [
@@ -2998,6 +2844,12 @@
           },
           {
             "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -3034,7 +2886,7 @@
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
         "bodyLines": 555,
-        "approxTokens": 6115
+        "approxTokens": 6121
       },
       "requires": [],
       "resources": {
@@ -3045,9 +2897,8 @@
       "related": [
         "nodefony-check-externals",
         "nodefony-check-memory-health",
-        "nodefony-generate-symbols",
-        "nodefony-migration-audit",
-        "nodefony-quick-diff"
+        "nodefony-inspect",
+        "nodefony-migration-audit"
       ],
       "conformance": {
         "ok": true,
@@ -3077,6 +2928,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": false,
             "detail": "555",
@@ -3091,9 +2948,9 @@
     },
     {
       "name": "nodefony-skill",
-      "summary": "Créer, éditer ou auditer un skill du dépôt Nodefony.",
+      "summary": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony.",
       "family": "Cycle de session",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "keywords": [
         "skill-creator",
         "nodefony-*",
@@ -3105,19 +2962,19 @@
         "créer un skill",
         "nouveau skill",
         "éditer un skill",
-        "améliorer un skill",
+        "fusionner deux skills",
+        "retirer un skill",
         "mon skill ne se déclenche jamais",
         "skill non conforme",
         "skills-ref validate",
         "conformité Agent Skills",
         "fiche de skill",
-        "à quoi sert ce skill",
-        "faut-il un skill pour ça ?"
+        "à quoi sert ce skill"
       ],
-      "description": "Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique du skill. Porte aussi les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une description qui décrit l'outil au lieu du moment ne se déclenche jamais. Déclencheurs : \"créer un skill\", \"nouveau skill\", \"éditer un skill\", \"améliorer un skill\", \"mon skill ne se déclenche jamais\", \"skill non conforme\", \"skills-ref validate\", \"conformité Agent Skills\", \"fiche de skill\", \"à quoi sert ce skill\", \"faut-il un skill pour ça ?\".",
+      "description": "Créer, éditer, **fusionner, retirer** ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique. Porte les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une capacité absorbée sans ses déclencheurs devient introuvable. Déclencheurs : \"créer un skill\", \"nouveau skill\", \"éditer un skill\", \"fusionner deux skills\", \"retirer un skill\", \"mon skill ne se déclenche jamais\", \"skill non conforme\", \"skills-ref validate\", \"conformité Agent Skills\", \"fiche de skill\", \"à quoi sert ce skill\".",
       "cost": {
-        "bodyLines": 216,
-        "approxTokens": 3237
+        "bodyLines": 261,
+        "approxTokens": 3996
       },
       "requires": ["docker", "redis", "base de données"],
       "resources": {
@@ -3204,7 +3061,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1001",
+            "detail": "991",
             "advisory": false
           },
           {
@@ -3220,9 +3077,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
-            "detail": "216",
+            "detail": "261",
             "advisory": true
           }
         ]
@@ -3341,6 +3204,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "209",
@@ -3378,7 +3247,7 @@
       "description": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart, DocHint), le hook useResource, les stores MobX et les hooks temps réel nodefony/react. Donne la recette (route + lazy + navConfig + fallback deep-link + data plane), des squelettes copier-coller, le Jumeau Vivant (Twin), la debug bar, le back-end Studio (controller + data plane + realtime), et les règles qualité (a11y, sécu, perf, gate tsc). DÉRIVE de nodefony-frontend-dev (mécanismes front généraux). Déclencheurs : \"dev studio\", \"page studio\", \"dashboard studio\", \"écran studio\", \"panneau studio\", \"composant studio\", \"page /nodefony\", \"comment coder dans studio\", \"Twin\", \"jumeau vivant\", \"debug bar\", \"debugbar\", \"barre de debug\", \"WDT\".",
       "cost": {
         "bodyLines": 143,
-        "approxTokens": 3531
+        "approxTokens": 3532
       },
       "requires": [],
       "resources": {
@@ -3398,7 +3267,6 @@
         "nodefony-documentation",
         "nodefony-framework-dev",
         "nodefony-frontend-dev",
-        "nodefony-frontend-verify",
         "nodefony-rfc",
         "nodefony-security-review",
         "nodefony-start-server"
@@ -3426,6 +3294,12 @@
           },
           {
             "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -3492,6 +3366,12 @@
           },
           {
             "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -3565,6 +3445,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes (recommandation)",
             "ok": true,
             "detail": "66",
@@ -3575,71 +3461,6 @@
       "links": {
         "source": ".claude/skills/nodefony-ts-docs/SKILL.md",
         "doc": "docs/skills/nodefony-ts-docs.md"
-      }
-    },
-    {
-      "name": "nodefony-view-method-signature",
-      "summary": "Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, TSDoc) depuis l'AST extrait dans dist/symbols.json — évite de lire un fichier source de 500 lignes pour l'ordre des args.",
-      "family": "Inspecter et auditer",
-      "version": null,
-      "keywords": [],
-      "triggers": [
-        "signature de méthode",
-        "args de fonction",
-        "comment appeler X",
-        "quels paramètres prend Y",
-        "view method signature"
-      ],
-      "description": "Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, TSDoc) depuis l'AST extrait dans dist/symbols.json — évite de lire un fichier source de 500 lignes pour l'ordre des args. Déclencheurs : \"signature de méthode\", \"args de fonction\", \"comment appeler X\", \"quels paramètres prend Y\", \"view method signature\".",
-      "cost": {
-        "bodyLines": 84,
-        "approxTokens": 672
-      },
-      "requires": [],
-      "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
-        "scripts": []
-      },
-      "related": [],
-      "conformance": {
-        "ok": true,
-        "checks": [
-          {
-            "key": "name conforme et égal au dossier",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "description de 1 à 1024 caractères",
-            "ok": true,
-            "detail": "328",
-            "advisory": false
-          },
-          {
-            "key": "aucun champ hors standard",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "dossier de ressources nommé `references/`",
-            "ok": true,
-            "detail": null,
-            "advisory": false
-          },
-          {
-            "key": "corps < 500 lignes (recommandation)",
-            "ok": true,
-            "detail": "84",
-            "advisory": true
-          }
-        ]
-      },
-      "links": {
-        "source": ".claude/skills/nodefony-view-method-signature/SKILL.md",
-        "doc": "docs/skills/nodefony-view-method-signature.md"
       }
     }
   ]

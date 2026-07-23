@@ -19,7 +19,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**28 skills** · **28/28 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**23 skills** · **23/23 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -36,15 +36,12 @@ source: "docs/skills/index.md"
 
 ```nodefony-cards
 [
-  { "icon": "📝", "title": "quick-diff", "href": "nodefony-quick-diff.md",
-    "desc": "Résume les modifications non commitées sur src/ uniquement (ignore dist/, node_modules, fichiers générés) avant un build ou un test — évite de polluer le contexte avec du compilé.",
-    "meta": "non versionné" },
   { "icon": "🧭", "title": "session", "href": "nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise.",
     "meta": "non versionné" },
   { "icon": "🧩", "title": "skill", "href": "nodefony-skill.md",
-    "desc": "Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`,…",
-    "meta": "3 scripts · v1.0.0" }
+    "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
+    "meta": "3 scripts · v1.1.0" }
 ]
 ```
 
@@ -65,7 +62,7 @@ source: "docs/skills/index.md"
     "desc": "Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions, certificats), `@nodefony/framework` (Router, Controller, décorateurs).",
     "meta": "8 références · v2.0.0" },
   { "icon": "🎨", "title": "frontend-dev", "href": "nodefony-frontend-dev.md",
-    "desc": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, et les…",
+    "desc": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel…",
     "meta": "6 références · v1.0.0" },
   { "icon": "🖥️", "title": "studio-dev", "href": "nodefony-studio-dev.md",
     "desc": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart,…",
@@ -83,9 +80,6 @@ source: "docs/skills/index.md"
   { "icon": "🩺", "title": "debug", "href": "nodefony-debug.md",
     "desc": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une…",
     "meta": "v1.1.0" },
-  { "icon": "🔍", "title": "frontend-verify", "href": "nodefony-frontend-verify.md",
-    "desc": "Vérifie une modif frontend Studio (ou tout module Vite) SANS navigateur headless (règle projet) : curl du transform Vite d'un fichier .tsx pour valider la résolution + la transpilation, purge du prébundle Vite (`node_modules/.vite`) quand un import/subpath change, rappel hard-reload navigateur…",
-    "meta": "v1.0.0" },
   { "icon": "📈", "title": "load-test", "href": "nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
     "meta": "36 scripts · 1 référence · non versionné" },
@@ -105,20 +99,14 @@ source: "docs/skills/index.md"
 
 ```nodefony-cards
 [
-  { "icon": "🕸️", "title": "generate-symbols", "href": "nodefony-generate-symbols.md",
-    "desc": "Graphe symbolique TypeScript de Nodefony (classes, interfaces, types, décorateurs, relations inversées) : le génère dans `.ai/symbols.json` et donne les requêtes `jq` pour répondre en O(1), sans parcourir le dépôt — qui étend cette classe, qui implémente cette interface, qui importe ce symbole,…",
-    "meta": "non versionné" },
-  { "icon": "🎛️", "title": "get-module-config", "href": "nodefony-get-module-config.md",
-    "desc": "INSPECTE un module Nodefony DÉJÀ EXISTANT — sa configuration, ses services injectés et ses routes déclarées — sans charger son code métier ni démarrer de serveur.",
-    "meta": "non versionné" },
+  { "icon": "🔬", "title": "inspect", "href": "nodefony-inspect.md",
+    "desc": "Interroge l'état du dépôt Nodefony sans en lire les sources : graphe symbolique (qui étend une classe, qui implémente une interface, qui importe un symbole, où il est défini), signature d'une méthode, puis config / services / routes d'un module déjà existant — ses métadonnées, sans démarrer de…",
+    "meta": "v1.0.0" },
   { "icon": "🗺️", "title": "migration-audit", "href": "nodefony-migration-audit.md",
     "desc": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs + MD…",
     "meta": "non versionné" },
   { "icon": "🛡️", "title": "security-review", "href": "nodefony-security-review.md",
     "desc": "Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any).",
-    "meta": "non versionné" },
-  { "icon": "🔬", "title": "view-method-signature", "href": "nodefony-view-method-signature.md",
-    "desc": "Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, TSDoc) depuis l'AST extrait dans dist/symbols.json — évite de lire un fichier source de 500 lignes pour l'ordre des args.",
     "meta": "non versionné" }
 ]
 ```
@@ -143,9 +131,6 @@ source: "docs/skills/index.md"
   { "icon": "📊", "title": "html-report", "href": "nodefony-html-report.md",
     "desc": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.",
     "meta": "3 scripts · 3 références · non versionné" },
-  { "icon": "🐈", "title": "nestjs", "href": "nodefony-nestjs.md",
-    "desc": "Inspire l'architecture Nodefony (decorators, controllers, modules, DI, guards) des concepts NestJS via le repo officiel en raw markdown (jamais le site docs.nestjs.com, JS lourd).",
-    "meta": "non versionné" },
   { "icon": "📜", "title": "rfc", "href": "nodefony-rfc.md",
     "desc": "Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2, WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy r.jina.ai, jamais les pages HTML.",
     "meta": "non versionné" },
@@ -166,30 +151,25 @@ source: "docs/skills/index.md"
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md)       | —       |    83 |    0 |       0 |    ✅    |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | —       |   247 |    1 |       0 |    ✅    |
 | [`nodefony-create-module`](nodefony-create-module.md)                   | —       |   276 |    1 |       0 |    ✅    |
-| [`nodefony-debug`](nodefony-debug.md)                                   | 1.1.0   |   194 |    0 |       0 |    ✅    |
+| [`nodefony-debug`](nodefony-debug.md)                                   | 1.1.0   |   197 |    0 |       0 |    ✅    |
 | [`nodefony-documentation`](nodefony-documentation.md)                   | 2.3.0   |   641 |    1 |       6 |    ✅    |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md)                   | 2.0.0   |   299 |    8 |       0 |    ✅    |
-| [`nodefony-frontend-dev`](nodefony-frontend-dev.md)                     | 1.0.0   |    99 |    6 |       0 |    ✅    |
-| [`nodefony-frontend-verify`](nodefony-frontend-verify.md)               | 1.0.0   |   135 |    0 |       0 |    ✅    |
-| [`nodefony-generate-symbols`](nodefony-generate-symbols.md)             | —       |   136 |    0 |       0 |    ✅    |
-| [`nodefony-get-module-config`](nodefony-get-module-config.md)           | —       |    62 |    0 |       0 |    ✅    |
+| [`nodefony-frontend-dev`](nodefony-frontend-dev.md)                     | 1.0.0   |   100 |    6 |       0 |    ✅    |
 | [`nodefony-html-report`](nodefony-html-report.md)                       | —       |   174 |    3 |       3 |    ✅    |
+| [`nodefony-inspect`](nodefony-inspect.md)                               | 1.0.0   |   210 |    0 |       0 |    ✅    |
 | [`nodefony-load-test`](nodefony-load-test.md)                           | —       |   443 |    1 |      36 |    ✅    |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md)               | —       |   357 |    0 |       0 |    ✅    |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md)                 | —       |   140 |    2 |       9 |    ✅    |
-| [`nodefony-nestjs`](nodefony-nestjs.md)                                 | —       |    70 |    0 |       0 |    ✅    |
-| [`nodefony-quick-diff`](nodefony-quick-diff.md)                         | —       |    63 |    0 |       0 |    ✅    |
 | [`nodefony-release`](nodefony-release.md)                               | 1.0.0   |    67 |    0 |       3 |    ✅    |
 | [`nodefony-rfc`](nodefony-rfc.md)                                       | —       |    68 |    0 |       0 |    ✅    |
 | [`nodefony-roadmap`](nodefony-roadmap.md)                               | —       |   161 |    0 |       0 |    ✅    |
 | [`nodefony-security-review`](nodefony-security-review.md)               | —       |   356 |    0 |       0 |    ✅    |
 | [`nodefony-session`](nodefony-session.md)                               | —       |   555 |    0 |       0 |    ✅    |
-| [`nodefony-skill`](nodefony-skill.md)                                   | 1.0.0   |   216 |    0 |       3 |    ✅    |
+| [`nodefony-skill`](nodefony-skill.md)                                   | 1.1.0   |   261 |    0 |       3 |    ✅    |
 | [`nodefony-start-server`](nodefony-start-server.md)                     | —       |   209 |    0 |       2 |    ✅    |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md)                         | 2.0.0   |   143 |    6 |       0 |    ✅    |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md)               | —       |    77 |    0 |       0 |    ✅    |
 | [`nodefony-ts-docs`](nodefony-ts-docs.md)                               | —       |    66 |    0 |       0 |    ✅    |
-| [`nodefony-view-method-signature`](nodefony-view-method-signature.md)   | —       |    84 |    0 |       0 |    ✅    |
 
 ## 🔗 Pour aller plus loin
 

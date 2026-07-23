@@ -39,7 +39,7 @@ Kit de dev du CŒUR backend de Nodefony — core (`nodefony`), `@nodefony/http` 
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-memory-health`](nodefony-check-memory-health.md) · [`create-frontend-module`](nodefony-create-frontend-module.md) · [`create-module`](nodefony-create-module.md) · [`frontend-dev`](nodefony-frontend-dev.md) · [`load-test`](nodefony-load-test.md) · [`nestjs`](nodefony-nestjs.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md) · [`studio-dev`](nodefony-studio-dev.md) · [`ts-docs`](nodefony-ts-docs.md)
+[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`create-frontend-module`](nodefony-create-frontend-module.md) · [`create-module`](nodefony-create-module.md) · [`frontend-dev`](nodefony-frontend-dev.md) · [`inspect`](nodefony-inspect.md) · [`load-test`](nodefony-load-test.md) · [`rfc`](nodefony-rfc.md) · [`roadmap`](nodefony-roadmap.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md) · [`studio-dev`](nodefony-studio-dev.md) · [`tail-error-logs`](nodefony-tail-error-logs.md) · [`ts-docs`](nodefony-ts-docs.md)
 
 ## Quand il se déclenche
 
@@ -77,6 +77,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | description de 1 à 1024 caractères        |  ✅  | 1007   |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 299    |
 
 ## 🔗 Pour aller plus loin

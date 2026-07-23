@@ -87,6 +87,7 @@ Usage (racine repo) : bash .claude/skills/nodefony-release/scripts/smoke-docker.
 | description de 1 à 1024 caractères        |  ✅  | 935    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 67     |
 
 ## 🔗 Pour aller plus loin

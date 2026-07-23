@@ -24,7 +24,7 @@ source: ".claude/skills/nodefony-security-review/SKILL.md"
 | Version                  | — (non versionné)                                  |
 | Famille                  | Inspecter et auditer                               |
 | Corps                    | 356 lignes                                         |
-| Coût d'activation        | ~6 340 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation        | ~6 339 tokens (le corps est chargé à l'invocation) |
 | Description              | 973 / 1024 caractères                              |
 | Déclencheurs             | 14                                                 |
 | Ressources `references/` | 0 page(s)                                          |
@@ -39,7 +39,7 @@ Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT com
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`quick-diff`](nodefony-quick-diff.md) · [`rfc`](nodefony-rfc.md)
+[`inspect`](nodefony-inspect.md) · [`rfc`](nodefony-rfc.md)
 
 ## Quand il se déclenche
 
@@ -66,6 +66,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | description de 1 à 1024 caractères        |  ✅  | 973    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 356    |
 
 ## 🔗 Pour aller plus loin

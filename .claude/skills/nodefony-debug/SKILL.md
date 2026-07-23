@@ -8,7 +8,7 @@ description: >
   isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une
   baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance
   implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`,
-  `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-verify` ; la doctrine
+  `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine
   préventive vit dans `nodefony-framework-dev`.
   Déclencheurs : "ça crash", "stack trace", "unhandledRejection", "fuite mémoire", "memory leak",
   "race condition", "reproduire", "ne démarre plus", "test rouge inexpliqué", "test flake",
@@ -31,7 +31,7 @@ Je me charge quand un symptôme runtime arrive : crash boot, fuite mémoire, rac
 | Crash boot serveur, stack trace dans logs                           | `nodefony-tail-error-logs` (parse `/tmp/nodefony-server.log`)             |
 | Fuite mémoire suspectée (HTTP/WS heap delta)                        | `nodefony-check-memory-health` (run `npm run test:memory`, vitest)        |
 | Lenteur, charge, p99                                                | `nodefony-load-test` (k6/autocannon orchestré)                            |
-| Modif front .tsx ne passe pas                                       | `nodefony-frontend-verify` (curl `/@fs/` + purge `.vite`)                 |
+| Modif front .tsx ne passe pas                                       | `nodefony-frontend-dev` §4 (curl `/@fs/` + purge `.vite`)                 |
 | Boot enfant direct, arrêt qui pend, reproduction d'un crash au boot | `NODEFONY_DEV_CHILD=1` + `nodefony-start-server` (voir plus bas)          |
 | RETEX bugs réels par symptôme                                       | `nodefony-framework-dev` §11 (kit vivant)                                 |
 | Design/refacto/build neuf                                           | `nodefony-framework-dev` (cœur backend) ou `nodefony-studio-dev` (Studio) |
@@ -168,14 +168,17 @@ grep -rn "<pattern>" <fichiers> > /tmp/out.txt 2>&1; echo ok
 Bonus même famille : sous charge (serveur dev + 4 Vite), le Bash peut dupliquer/vider les sorties
 → 1 commande à la fois, `Read` plutôt que `cat`/`sed` pour lire un fichier.
 
-## 4. Orchestration des micro-skills (raccourcis)
+## 4. Orchestration des skills voisins
 
-| Tâche                                   | Commande                                                    |
-| --------------------------------------- | ----------------------------------------------------------- |
-| Tailler les ERROR/CRITIC du log serveur | `bash .claude/skills/nodefony-tail-error-logs/<script>`     |
-| Health memory leaks (HTTP + WS)         | `bash .claude/skills/nodefony-check-memory-health/<script>` |
-| Charge / latence                        | `bash .claude/skills/nodefony-load-test/run.sh`             |
-| Vérif modif front sans browser          | `bash .claude/skills/nodefony-frontend-verify/<script>`     |
+Chacun porte son **protocole** ; ce sont des skills à charger, pas des scripts à lancer à l'aveugle.
+
+| Tâche                                    | Où aller                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| Tailler les ERROR/CRITIC du log serveur  | `nodefony-tail-error-logs`                                                |
+| Fuite mémoire (HTTP + WS), seuil sauté   | `nodefony-check-memory-health` — porte le diagnostic, pas que la commande |
+| Charge / latence / dimensionnement       | `nodefony-load-test` (une trentaine de bancs sous `scripts/`)             |
+| Vérif d'une modif front sans navigateur  | `nodefony-frontend-dev` §4 → `references/build-hmr.md` §8                 |
+| État d'un symbole, d'une config, du diff | `nodefony-inspect`                                                        |
 
 ## 5. Doctrine "memory may lie" (CLAUDE.md global)
 

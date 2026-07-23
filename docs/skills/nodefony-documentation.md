@@ -39,7 +39,7 @@ Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio e
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`create-module`](nodefony-create-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md) · [`studio-dev`](nodefony-studio-dev.md)
+[`check-memory-health`](nodefony-check-memory-health.md) · [`create-module`](nodefony-create-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`load-test`](nodefony-load-test.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md) · [`studio-dev`](nodefony-studio-dev.md)
 
 ## Quand il se déclenche
 
@@ -100,6 +100,7 @@ Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
 | description de 1 à 1024 caractères        |  ✅  | 993    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ❌  | 641    |
 
 ## 🔗 Pour aller plus loin

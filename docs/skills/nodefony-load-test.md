@@ -158,6 +158,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 | description de 1 à 1024 caractères        |  ✅  | 878    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 443    |
 
 ## 🔗 Pour aller plus loin

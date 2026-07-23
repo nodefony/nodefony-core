@@ -1,19 +1,19 @@
 ---
 name: nodefony-skill
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 description: >
-  Créer, éditer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la
-  mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description
-  calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`,
-  ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et
-  la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche
-  publique du skill. Porte aussi les pièges vécus : une règle recopiée dans le CLAUDE.md rend le
-  skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une description qui
-  décrit l'outil au lieu du moment ne se déclenche jamais.
-  Déclencheurs : "créer un skill", "nouveau skill", "éditer un skill", "améliorer un skill",
-  "mon skill ne se déclenche jamais", "skill non conforme", "skills-ref validate", "conformité
-  Agent Skills", "fiche de skill", "à quoi sert ce skill", "faut-il un skill pour ça ?".
+  Créer, éditer, **fusionner, retirer** ou auditer un skill du dépôt Nodefony. Dérive de
+  `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre :
+  nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms
+  d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table
+  « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent
+  Skills et régénère la fiche publique. Porte les pièges vécus : une règle recopiée dans le CLAUDE.md
+  rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une capacité
+  absorbée sans ses déclencheurs devient introuvable.
+  Déclencheurs : "créer un skill", "nouveau skill", "éditer un skill", "fusionner deux skills",
+  "retirer un skill", "mon skill ne se déclenche jamais", "skill non conforme", "skills-ref
+  validate", "conformité Agent Skills", "fiche de skill", "à quoi sert ce skill".
 ---
 
 # nodefony-skill — écrire un skill qui se déclenche et qui reste vrai
@@ -89,7 +89,43 @@ Dans l'ordre, parce que les causes n'ont pas la même fréquence :
    `references/` servent, sa porte d'entrée ne s'ouvre pas.
 5. **Le besoin existe-t-il encore ?** Si non, le retirer franchement (règle projet : pas de legacy).
 
-## 6. Gate — obligatoire avant de dire « fait »
+## 6. Fusionner, absorber ou retirer un skill
+
+Trois gestes distincts, une même exigence : **aucune capacité ne doit disparaître en silence**. Un
+skill qu'on retire emporte avec lui ses déclencheurs — c'est-à-dire la seule chose qui permettait de
+l'atteindre.
+
+| Geste          | Quand                                                                   | Ce qu'il faut préserver                           |
+| -------------- | ----------------------------------------------------------------------- | ------------------------------------------------- |
+| **Fusion**     | plusieurs skills répondent à la même intention sous des noms différents | le contenu **et** les déclencheurs des deux       |
+| **Absorption** | un skill est un chapitre d'un kit plus large                            | le détail part en `references/`, pas au panier    |
+| **Retrait**    | le besoin lui-même a disparu (prouvé, pas supposé)                      | la décision, si elle vaut, va dans le `CLAUDE.md` |
+
+Dans l'ordre :
+
+1. **Inventorier les renvois — avec les dossiers cachés.** `rg` **ignore** `.claude/` sans
+   `--hidden` : une recherche qui l'oublie conclut « aucun consommateur » sur un skill cité partout.
+
+   ```bash
+   rg -n --hidden 'nodefony-<skill-retiré>' -g '!**/node_modules/**' -g '!.git/**'
+   ```
+
+   Les retex archivés (`docs/session-retros/archive/`) sont de l'**histoire** : ne pas les réécrire.
+
+2. **Écrire la destination avant de supprimer la source** — sinon le contenu est perdu entre les deux.
+3. **Déplacer les déclencheurs**, pas seulement le contenu. Une capacité absorbée dont les
+   formulations ne rejoignent pas la description du skill d'accueil devient inatteignable : le corps
+   existe, la porte n'existe plus.
+4. **Supprimer avec `git rm`** (l'historique reste), puis réparer chaque renvoi trouvé en 1.
+5. **Mettre à jour l'outillage** : cas du banc de déclenchement, table d'icônes/familles de
+   `skills-doc`, et toute table « passer la main » qui nommait le disparu.
+6. **Passer le gate** (§7). Le contrôle « aucun renvoi vers un skill inexistant » est là pour ça.
+
+> **Une table « passer la main » se périme sans bruit.** Vérifier que ce qu'elle promet existe :
+> une table citant `bash <skill>/<script>` pour quatre skills dont **aucun** n'avait de script a
+> survécu des mois — chaque ligne était fausse. Nommer le skill, pas un chemin supposé.
+
+## 7. Gate — obligatoire avant de dire « fait »
 
 ```bash
 node .claude/skills/nodefony-skill/scripts/skills-doc.mjs        # conformité des 26+ skills + régénère docs/skills/
@@ -97,9 +133,16 @@ node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check   # contrôle 
 ```
 
 Il vérifie : `name` conforme et égal au dossier · `description` de 1 à 1024 caractères · aucun champ
-hors standard · ressources en `references/` · corps < 500 lignes (avertissement). Sur un manquement
-dur il **sort en échec**, et il régénère la **fiche publique** du skill dans `docs/skills/<nom>.md` —
-version, contenu, déclencheurs, ressources, scripts avec leurs options et variables d'environnement.
+hors standard · ressources en `references/` · **aucun renvoi vers un skill inexistant** · corps
+< 500 lignes (avertissement). Sur un manquement dur il **sort en échec**, et il régénère la **fiche
+publique** du skill dans `docs/skills/<nom>.md` — version, contenu, déclencheurs, ressources,
+scripts avec leurs options et variables d'environnement.
+
+> Le contrôle des renvois ne lit que les noms **entre accents graves**, dans le `SKILL.md` et les
+> `references/` — les scripts citent des conteneurs et des titres de processus qui portent le même
+> préfixe. Les quelques `nodefony-…` qui ne désignent pas un skill (le dépôt lui-même, un service,
+> un composant) sont déclarés dans `NON_SKILL_TERMS`, en tête de `skills-doc.mjs` : y ajouter un
+> terme demande de justifier pourquoi ce n'en est pas un.
 
 **Validateur officiel du standard** — il attrape ce qu'un contrôle maison rate, à commencer par un
 **frontmatter YAML invalide** (une description en ligne contenant un `:` casse le mapping sans que
@@ -148,7 +191,7 @@ dans `.json`, renvois croisés entre skills déclarés morts faute d'être cherc
 > l'invocation, mais un cas **rouge** est un vrai défaut — aucun mot de la demande ne rejoint la
 > description.
 
-## 7. Le hook de doc — un script se décrit lui-même
+## 8. Le hook de doc — un script se décrit lui-même
 
 Un script documenté ailleurs que dans son source diverge le jour où on l'édite. Six tags
 facultatifs, lus par `skills-doc`, suffisent à rendre la fiche exacte au lieu de devinée :
@@ -168,7 +211,7 @@ script** — invocations, options et variables avec leur explication.
 > Piège de l'auto-référence : écrire ces tags en exemple dans un commentaire les fait moissonner par
 > leur propre lecteur. Les entourer d'accents graves.
 
-## 8. Ce que consomme un registre de skills
+## 9. Ce que consomme un registre de skills
 
 `skills-doc` écrit aussi **`docs/skills/registry.json`** — la même donnée que les fiches, sérialisée
 pour une machine : résumé d'une ligne, famille, mots-clés, déclencheurs, **coût d'activation** en
@@ -177,7 +220,7 @@ skills, état de conformité contrôle par contrôle, et liens source/fiche. C'e
 moteur de recherche de skills ou un registre lit sans ouvrir vingt-sept markdown — et c'est aussi ce
 qui rendra une publication npm possible sans réécrire l'inventaire à la main.
 
-## 9. Gabarit
+## 10. Gabarit
 
 ```markdown
 ---
@@ -212,20 +255,22 @@ description: >
 <Comment on prouve que c'est fait.>
 ```
 
-## 10. Pièges vécus
+## 11. Pièges vécus
 
 - **Une fiche écrite à la main diverge du skill dès la première édition** → les fiches
   `docs/skills/` sont générées ; ne jamais les éditer.
 - **Un renvoi survit à la disparition de sa cible** : un refactor a supprimé des `references/recipes-*.md`
   en laissant huit renvois morts, plus un renvoi vers une section « §4 » réorganisée entre-temps.
-  Vérifier les cibles fait partie du gate.
+  Vérifier les cibles fait partie du gate — désormais les **renvois vers un skill inexistant** le
+  font échouer (§7). Vécu à la fusion des quatre skills d'inspection : `frontend-verify` était cité
+  par `debug`, `studio-dev` et leurs `references/`.
 - **Mesurer une description avec une regex `$` en mode multiligne ne lit que sa première ligne** —
   le contrôle disait « conforme » sur des descriptions à 1900 caractères. Un gate qu'on n'a jamais
   vu mordre n'est pas un gate.
 - **Un déclencheur improbable ne coûte rien mais ne rapporte rien** : « 59 fails framework sans
   serveur » n'a jamais rien déclenché. Préférer trois formulations naturelles à dix exactes.
 
-## 11. Liens
+## 12. Liens
 
 - `docs/outillage-agents.md` — inventaire, usage mesuré, étude des fusions et retraits.
 - `docs/skills/index.md` — les fiches générées, une par skill.

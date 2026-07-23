@@ -148,7 +148,7 @@ test -f "$MODULE_PATH/MEMORY.md" && cat "$MODULE_PATH/MEMORY.md" || echo "Pas de
 echo "Branche : $(git branch --show-current)"
 echo "Derniers commits du module :"; git log -3 --oneline -- "$MODULE_PATH"
 echo "Fichiers non commités du module : $(git status --short -- "$MODULE_PATH" | wc -l | tr -d ' ')"
-# détail src si besoin → skill nodefony-quick-diff
+# détail src si besoin → skill nodefony-inspect (§6 diff propre)
 ```
 
 ## 5. Mode module — fraîcheur du dist
@@ -333,9 +333,9 @@ jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="tool_use" a
 ## 8. Détection candidats skill / mémoire
 
 - Même commande Bash 3+ fois → skill wrapper.
-- Même fichier lu 5+ fois → MEMORY.md ou skill view-X.
+- Même fichier lu 5+ fois → MEMORY.md du module, ou une requête indexée.
 - Séquence répétée (build→test→grep error→fix) → skill orchestrateur.
-- Beaucoup de `find`/`grep` → `.ai/symbols.json` (skill `nodefony-generate-symbols`).
+- Beaucoup de `find`/`grep` → `.ai/symbols.json` (skill `nodefony-inspect`).
 - Friction récurrente (permissions, pièges) → MAJ CLAUDE.md / settings.
 - Décision archi prise → vérifier qu'elle est en mémoire IA (sinon perte au `/clear`).
 

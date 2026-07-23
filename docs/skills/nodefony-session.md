@@ -24,7 +24,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Version                  | — (non versionné)                                  |
 | Famille                  | Cycle de session                                   |
 | Corps                    | 555 lignes                                         |
-| Coût d'activation        | ~6 115 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation        | ~6 121 tokens (le corps est chargé à l'invocation) |
 | Description              | 406 / 1024 caractères                              |
 | Déclencheurs             | 8                                                  |
 | Ressources `references/` | 0 page(s)                                          |
@@ -39,7 +39,7 @@ Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`generate-symbols`](nodefony-generate-symbols.md) · [`migration-audit`](nodefony-migration-audit.md) · [`quick-diff`](nodefony-quick-diff.md)
+[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`migration-audit`](nodefony-migration-audit.md)
 
 ## Quand il se déclenche
 
@@ -97,6 +97,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | description de 1 à 1024 caractères        |  ✅  | 406    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ❌  | 555    |
 
 ## 🔗 Pour aller plus loin

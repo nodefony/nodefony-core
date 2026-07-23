@@ -35,7 +35,7 @@ Zéro prose dans les deux cas.
 ## 1. Cadrer le diff (ne scanner que le changé)
 
 ```bash
-# src uniquement (ignore dist/généré) — réutilise la logique de nodefony-quick-diff
+# src uniquement (ignore dist/généré) — diff propre, cf `nodefony-inspect` §6
 git diff --name-only HEAD -- 'src/**/*.ts' | grep -v -E 'dist/|\.test\.ts$'
 git diff HEAD -- 'src/**/*.ts'
 ```

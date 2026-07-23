@@ -11,7 +11,7 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 
 # `nodefony-frontend-dev`
 
-> Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, et les règles d'ergonomie / temps réel « calme » / a11y / perf (bundlées offline).
+> Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et **vérification d'une modif front sans navigateur** (transform Vite en `curl`, purge du prébundle, rechargement forcé) — la règle projet interdit le navigateur headless.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-frontend-dev**
 
@@ -23,9 +23,9 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 | ------------------------ | -------------------------------------------------- |
 | Version                  | `1.0.0`                                            |
 | Famille                  | Développer le framework                            |
-| Corps                    | 99 lignes                                          |
-| Coût d'activation        | ~2 448 tokens (le corps est chargé à l'invocation) |
-| Description              | 876 / 1024 caractères                              |
+| Corps                    | 100 lignes                                         |
+| Coût d'activation        | ~2 549 tokens (le corps est chargé à l'invocation) |
+| Description              | 1003 / 1024 caractères                             |
 | Déclencheurs             | 20                                                 |
 | Ressources `references/` | 6 page(s), 14 fichiers au total                    |
 | Scripts                  | 0                                                  |
@@ -33,19 +33,19 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 
 ## Ce qu'il fait
 
-Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient` + hooks `nodefony/react`), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, et les règles d'ergonomie / temps réel « calme » / a11y / perf (bundlées offline). App admin Studio → `nodefony-studio-dev` (qui en dérive) ; scaffold d'un module front → `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`.
+Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et **vérification d'une modif front sans navigateur** (transform Vite en `curl`, purge du prébundle, rechargement forcé) — la règle projet interdit le navigateur headless. App admin Studio → `nodefony-studio-dev` ; scaffold d'un module front → `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`.
 
 ## Skills voisins
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`create-frontend-module`](nodefony-create-frontend-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`security-review`](nodefony-security-review.md) · [`studio-dev`](nodefony-studio-dev.md) · [`ts-docs`](nodefony-ts-docs.md)
+[`create-frontend-module`](nodefony-create-frontend-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`studio-dev`](nodefony-studio-dev.md) · [`ts-docs`](nodefony-ts-docs.md)
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`dev front nodefony` · `frontend nodefony` · `isomorphisme` · `socket client` · `RealtimeClient` · `useNodefony` · `hooks realtime` · `HMR` · `Vite nodefony` · `@nodefony/frontend` · `ApiClient` · `useResource` · `data plane front` · `BFF` · `RBAC front` · `temps réel ergonomique` · `accessibilité front` · `WCAG` · `perf front` · `front full-stack`
+`dev front nodefony` · `isomorphisme` · `socket client` · `RealtimeClient` · `useNodefony` · `hooks realtime` · `HMR` · `Vite nodefony` · `ApiClient` · `useResource` · `data plane front` · `BFF` · `RBAC front` · `accessibilité front` · `WCAG` · `perf front` · `vérifie le front` · `ma modif front passe ?` · `transform Vite` · `prébundle Vite périmé`
 
 ## Ce que contient le corps
 
@@ -71,10 +71,11 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | Contrôle                                  | État | Mesure |
 | ----------------------------------------- | :--: | ------ |
 | name conforme et égal au dossier          |  ✅  |        |
-| description de 1 à 1024 caractères        |  ✅  | 876    |
+| description de 1 à 1024 caractères        |  ✅  | 1003   |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
-| corps < 500 lignes (recommandation)       |  ✅  | 99     |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
+| corps < 500 lignes (recommandation)       |  ✅  | 100    |
 
 ## 🔗 Pour aller plus loin
 

@@ -28,6 +28,7 @@ sans lire le source.
 - [5. Recette — ajouter un front à un module](#5-recette--ajouter-un-front-à-un-module)
 - [6. Gotchas front-build](#6-gotchas-front-build)
 - [7. Commandes CLI](#7-commandes-cli)
+- [8. Vérifier une modif front SANS navigateur](#8-vérifier-une-modif-front-sans-navigateur)
 
 ---
 
@@ -582,3 +583,71 @@ Enregistrées par le module (`index.ts:37-39`) :
 - **`nodefony frontend:status [-j|--json]`** (`command/frontend-status.ts`) — état du superviseur
   (state/endpoint/pid/entries) ; `-j` = JSON (consommé par Studio, équivalent de
   `GET /nodefony/frontend/api/vite`).
+
+---
+
+## 8. Vérifier une modif front SANS navigateur
+
+Règle projet : **jamais de navigateur headless / CDP**. Une modif front se prouve côté serveur en
+une à trois commandes, puis se **confirme visuellement par le user**. Ce qui suit remplace
+l'ouverture d'un navigateur, pas la confirmation.
+
+### 8.1 Le transform Vite répond-il ?
+
+Vite sert un fichier absolu sous le préfixe `/@fs/` — c'est le moyen de vérifier d'un coup la
+**résolution** et la **transpilation** :
+
+```bash
+ABS="/Users/cci/repository/nodefony-core/src/packages/@nodefony/studio/frontend/src/routes/MaVue.tsx"
+curl -sk -o /tmp/vite-check.js -w "http=%{http_code} size=%{size_download}\n" \
+  "https://127.0.0.1:5173/@fs${ABS}"
+head -5 /tmp/vite-check.js
+```
+
+Attendu : `http=200`, une taille au-delà de quelques centaines d'octets, et du **JavaScript
+transpilé** (`import … from "react"`, `_jsx(…)` en React 19) — pas de JSX brut, pas de
+`Failed to resolve`, pas de `Pre-transform error`.
+
+| Symptôme                                | Cause                                                                   |
+| --------------------------------------- | ----------------------------------------------------------------------- |
+| `http=404`                              | chemin faux, ou fichier hors des dossiers autorisés (`server.fs.allow`) |
+| `http=500`                              | erreur de syntaxe TS/TSX — Vite renvoie l'erreur en commentaire         |
+| `http=200` mais du HTML (`<title>`)     | URL de la page servie, pas `/@fs/<abs>`                                 |
+| `http=200` mais la modif n'apparaît pas | prébundle périmé → §8.2                                                 |
+
+> Le port de dev est **5173** par défaut, en HTTPS. S'il était pris, Vite incrémente : lire le vrai
+> port (`svc.status().port`, ou `nodefony frontend:status -j`) plutôt que le supposer.
+
+### 8.2 Purger le prébundle d'un module
+
+Vite met en cache les dépendances pré-bundlées dans `node_modules/.vite`. Ce cache **ignore** qu'un
+import ou un subpath vient d'apparaître → il peut servir une version sans le nouveau symbole, et le
+front semble affirmer qu'un export inexistant… existe pourtant dans le source.
+
+```bash
+MOD="src/packages/@nodefony/studio"
+rm -rf "$MOD/node_modules/.vite" "$MOD/frontend/node_modules/.vite"
+```
+
+Purger **quand** : subpath du cœur nouvellement importé (`nodefony/react`, `nodefony/roles`…) ;
+dépendance ajoutée côté front ; erreur `does not provide an export named '…'` sur un import qui
+existe ; après un `git pull` qui change les exports d'un module dépendant. Puis redémarrer le
+serveur (le subpath neuf force de toute façon une ré-optimisation au boot).
+
+**Ne pas purger sans raison** : la ré-optimisation coûte 5 à 20 s par module au démarrage.
+
+### 8.3 Ce que ces vérifications ne prouvent PAS
+
+- **Les types.** Le transformateur de Vite (esbuild) attrape la syntaxe, jamais les types : un type
+  incompatible passe le transform en silence. Gate distincte, dans le module concerné :
+  `npm run typecheck` → 0 erreur.
+- **Le rendu.** Demander un **rechargement forcé** (`Cmd+Shift+R` sur Safari/Mac, `Ctrl+Shift+R`
+  ailleurs) : le navigateur peut conserver l'ancien composant en mémoire après un HMR partiel.
+  En **cluster** (`nodefony cluster -w N`) il n'y a **pas de HMR** — après rebuild, le rechargement
+  forcé avec « Disable cache » actif est obligatoire, sinon un vieux `index.html` demande un chunk
+  haché qui n'existe plus : import différé en 404, ce qui ressemble à un bug de code sans en être un.
+- **Les erreurs React au runtime** (hook conditionnel, état mal initialisé) : elles ne se voient que
+  dans la console du navigateur — demander au user de coller les lignes.
+
+> Grouper les modifs front avant de demander **une** vérification visuelle, plutôt que d'enchaîner
+> les allers-retours.

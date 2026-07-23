@@ -67,7 +67,7 @@ const CASES = [
   ],
   [
     "vérifie que ma modif front passe, curl le transform vite",
-    "nodefony-frontend-verify",
+    "nodefony-frontend-dev",
   ],
   // — sécurité, normes
   ["c'est safe ? fais une revue sécurité du diff", "nodefony-security-review"],
@@ -77,10 +77,14 @@ const CASES = [
   // — doc, inspection, livrables
   ["écrire une page de doc de référence", "nodefony-documentation"],
   ["la doc dit-elle encore vrai ?", "nodefony-documentation"],
-  ["qui implémente cette interface ?", "nodefony-generate-symbols"],
-  ["quels paramètres prend cette méthode ?", "nodefony-view-method-signature"],
-  ["montre la config et les routes de ce module", "nodefony-get-module-config"],
-  ["qu'est-ce que j'ai modifié ? diff rapide", "nodefony-quick-diff"],
+  ["qui implémente cette interface ?", "nodefony-inspect"],
+  ["quels paramètres prend cette méthode ?", "nodefony-inspect"],
+  ["montre la config et les routes de ce module", "nodefony-inspect"],
+  ["qu'est-ce que j'ai modifié ? diff rapide", "nodefony-inspect"],
+  [
+    "analyse d'impact avant refactor : qui utilise ce symbole ?",
+    "nodefony-inspect",
+  ],
   [
     "vérifie les external et les peerDeps du bundler",
     "nodefony-check-externals",
@@ -92,7 +96,6 @@ const CASES = [
   ],
   ["où en est la migration ?", "nodefony-migration-audit"],
   ["fais un rapport HTML imprimable de ces mesures", "nodefony-html-report"],
-  ["inspire-toi de NestJS pour les guards", "nodefony-nestjs"],
   ["c'est quoi la phase 12, la couche IA agentic ?", "nodefony-roadmap"],
   // — méta
   ["créer un skill", "nodefony-skill"],

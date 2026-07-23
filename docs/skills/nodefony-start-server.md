@@ -82,6 +82,7 @@ Usage : bash .claude/skills/nodefony-start-server/stop.sh
 | description de 1 à 1024 caractères        |  ✅  | 525    |
 | aucun champ hors standard                 |  ✅  |        |
 | dossier de ressources nommé `references/` |  ✅  |        |
+| aucun renvoi vers un skill inexistant     |  ✅  |        |
 | corps < 500 lignes (recommandation)       |  ✅  | 209    |
 
 ## 🔗 Pour aller plus loin

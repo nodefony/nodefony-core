@@ -156,8 +156,8 @@ La doc externe (RFC, TS handbook, NestJS) et les phases futures (10/12/13/14) so
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `nodefony-rfc`             | RFC HTTP/HTTP2/WS/CORS/Cookies (IETF + W3C raw uniquement)                                                                                                                                                                                                                                     |
 | `nodefony-ts-docs`         | TS handbook, utility types, `@types/node` DefinitelyTyped                                                                                                                                                                                                                                      |
-| `nodefony-nestjs`          | Inspiration architecture NestJS — déclencheur EXCLUSIF mot-clé "NestJS"                                                                                                                                                                                                                        |
 | `nodefony-roadmap`         | Phase 10 (Studio admin), 12 (IA agentic), 13 (Realtime/Redis/client), 14 (frontend builder)                                                                                                                                                                                                    |
+| `nodefony-inspect`         | Interroger le dépôt sans lire les sources : graphe symbolique (qui étend/implémente/importe), signature d'une méthode, config/routes d'un module, diff propre. AVANT un `grep` multi-modules.                                                                                                  |
 | **`nodefony-html-report`** | **Tout livrable destiné à un HUMAIN** (audit, banc de perf, mesures, revue) → HTML autonome : `lib/report.mjs` (graphes SVG, tableaux triables, calculateurs, glisser-déposer, mode présentation, impression PDF, W3C validé) + specs W3C bundlées offline. Cf la règle de livrable ci-dessus. |
 | `nodefony-load-test`       | Charge, stress, **et dimensionnement** (`scripts/capacity.mjs` → constantes d'un pod + rapport HTML avec calculateur de pods)                                                                                                                                                                  |
 | `nodefony-debug`           | **Un symptôme runtime, pas une feature** : test rouge inexpliqué, vert isolé/rouge en suite, crash au boot, fuite, régression à qualifier (baseline) — 6 recettes éprouvées                                                                                                                    |
@@ -450,13 +450,13 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 
 ## 🗂 Graphe symbolique TS — `.ai/symbols.json` (v2.0 — map indexée + relations)
 
-> Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `nodefony-generate-symbols`). Régénéré automatiquement par le hook pre-commit.
+> Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `nodefony-inspect`). Régénéré automatiquement par le hook pre-commit.
 
 Format v2.0 : `symbols` est une **map indexée par nom** (accès O(1)), `relations` contient les index inversés pré-calculés. Les agents IA doivent l'utiliser AVANT de grep le repo.
 
 **Patterns Zero-Token Lookup** (`jq` sur `.ai/symbols.json`) : définition → `.symbols.X` · étend → `.relations.extendedBy.X` · implémente → `.relations.implementedBy.IX` · importe → `.relations.usedBy.X` · décoré → `.relations.decoratedBy.injectable` · description TSDoc → `.symbols.X.description`. **Homonymes** : 2e symbole sous `"Module:Name"`, lever via `.module`.
 
-Cheat-sheet complet (filtres par module, etc.) : `.claude/skills/nodefony-generate-symbols/SKILL.md`.
+Cheat-sheet complet (filtres par module, etc.) : `.claude/skills/nodefony-inspect/SKILL.md`.
 
 ---
 

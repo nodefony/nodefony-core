@@ -250,6 +250,45 @@ function countRecursive(dir) {
   return n;
 }
 
+/**
+ * Termes en `nodefony-…` qui ne désignent PAS un skill : noms de conteneurs, de processus, de
+ * paquets ou de composants. Sans cette liste, le contrôle des renvois crierait sur eux.
+ */
+const NON_SKILL_TERMS = new Set([
+  "nodefony-core", // le dépôt et le paquet npm du cœur
+  "nodefony-ai-memory", // le dépôt privé de sauvegarde de la mémoire IA
+  "nodefony-admin", // service back de Studio
+  "nodefony-cards", // bloc de mise en page du portail doc
+  "nodefony-dev-server", // titre de processus du superviseur de dev
+]);
+
+/**
+ * Les skills nommés par un skill : uniquement les occurrences entourées d'accents graves, dans le
+ * SKILL.md et ses `references/`. Les scripts en sont exclus — ils citent des conteneurs et des
+ * titres de processus qui portent le même préfixe.
+ */
+function collectSkillRefs(dir) {
+  const found = new Set();
+  const scan = (p) => {
+    for (const m of readFileSync(p, "utf8").match(/`nodefony-[a-z][a-z-]*`/g) ||
+      []) {
+      found.add(m.slice(1, -1));
+    }
+  };
+  const skillFile = join(dir, "SKILL.md");
+  if (existsSync(skillFile)) scan(skillFile);
+  const walk = (d) => {
+    if (!existsSync(d)) return;
+    for (const e of readdirSync(d)) {
+      const p = join(d, e);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (e.endsWith(".md")) scan(p);
+    }
+  };
+  walk(join(dir, "references"));
+  return found;
+}
+
 /** Les déclencheurs cités dans la description — ce qui décide de l'invocation. */
 function triggers(description) {
   const after = description.split(/D[ée]clencheurs?\s*(?:étroits[^:]*)?:/i)[1];
@@ -278,6 +317,22 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
   const scrDir = join(dir, "scripts");
   const legacyRef = existsSync(join(dir, "reference"));
 
+  // Graphe : quels autres skills ce skill nomme (orientation, délégation, « passer la main »).
+  // Un skill fusionné ou retiré laisse derrière lui des renvois qui envoient dans le vide : ils sont
+  // comptés à part et font échouer le contrôle, au lieu d'être silencieusement filtrés.
+  const cited = collectSkillRefs(dir);
+  const related = [...cited]
+    .filter((n) => n !== name && existsSync(join(SKILLS_DIR, n)))
+    .sort();
+  const deadSkillRefs = [...cited]
+    .filter(
+      (n) =>
+        n !== name &&
+        !existsSync(join(SKILLS_DIR, n)) &&
+        !NON_SKILL_TERMS.has(n),
+    )
+    .sort();
+
   const checks = [
     {
       key: "name conforme et égal au dossier",
@@ -294,6 +349,11 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
       detail: unknown.join(", "),
     },
     { key: "dossier de ressources nommé `references/`", ok: !legacyRef },
+    {
+      key: "aucun renvoi vers un skill inexistant",
+      ok: deadSkillRefs.length === 0,
+      detail: deadSkillRefs.join(", "),
+    },
     {
       key: `corps < ${MAX_BODY_LINES} lignes (recommandation)`,
       ok: bodyLines < MAX_BODY_LINES,
@@ -316,14 +376,6 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
         .filter((k) => k.length > 1 && k.length < 40 && !k.includes(" ")),
     ),
   ].slice(0, 20);
-  // Graphe : quels autres skills ce skill nomme (orientation, délégation, « passer la main »).
-  const related = [
-    ...new Set(
-      (src.match(/nodefony-[a-z-]+/g) || []).filter(
-        (n) => n !== name && existsSync(join(SKILLS_DIR, n)),
-      ),
-    ),
-  ].sort();
   const approxTokens = Math.round(src.length / 4);
 
   skills.push({
@@ -575,7 +627,6 @@ function renderSkill(s) {
 const CATALOG = {
   session: ["🧭", "Cycle de session"],
   skill: ["🧩", "Cycle de session"],
-  "quick-diff": ["📝", "Cycle de session"],
   "framework-dev": ["⚙️", "Développer le framework"],
   "frontend-dev": ["🎨", "Développer le framework"],
   "studio-dev": ["🖥️", "Développer le framework"],
@@ -586,19 +637,15 @@ const CATALOG = {
   debug: ["🩺", "Exécuter, diagnostiquer, mesurer"],
   "tail-error-logs": ["📄", "Exécuter, diagnostiquer, mesurer"],
   "check-memory-health": ["🧠", "Exécuter, diagnostiquer, mesurer"],
-  "frontend-verify": ["🔍", "Exécuter, diagnostiquer, mesurer"],
   "load-test": ["📈", "Exécuter, diagnostiquer, mesurer"],
   "multipod-bench": ["🛰️", "Exécuter, diagnostiquer, mesurer"],
   "migration-audit": ["🗺️", "Inspecter et auditer"],
   "security-review": ["🛡️", "Inspecter et auditer"],
-  "generate-symbols": ["🕸️", "Inspecter et auditer"],
-  "view-method-signature": ["🔬", "Inspecter et auditer"],
-  "get-module-config": ["🎛️", "Inspecter et auditer"],
+  inspect: ["🔬", "Inspecter et auditer"],
   "check-externals": ["🔗", "Publier et distribuer"],
   release: ["🚢", "Publier et distribuer"],
   rfc: ["📜", "Références et livrables"],
   "ts-docs": ["🔤", "Références et livrables"],
-  nestjs: ["🐈", "Références et livrables"],
   roadmap: ["🗓️", "Références et livrables"],
   "html-report": ["📊", "Références et livrables"],
 };
