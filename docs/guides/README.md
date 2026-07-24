@@ -19,6 +19,7 @@ last-updated: 2026-05-21
 | Page                                         | Sujet                                                                              | Statut |
 | -------------------------------------------- | ---------------------------------------------------------------------------------- | ------ |
 | [`configuration.md`](./configuration.md)     | Configurer une app (`defineConfig` / `env.ts` / `use` / manifeste `modules`)       | stable |
+| [`generer-du-code.md`](./generer-du-code.md) | `nodefony create` : les cinq types, voir avant d'écrire, piloter depuis un agent   | stable |
 | [`frontend-react.md`](./frontend-react.md)   | Ajouter un frontend React 19 (Vite) à un module Nodefony                           | stable |
 | [`session-storage.md`](./session-storage.md) | Stockage de session : mécanisme IoC, backends, storage sur mesure                  | stable |
 | [`persistence.md`](./persistence.md)         | Persistance & stores : infra déclarée, profils, matrice brique×backend, audit≠logs | stable |

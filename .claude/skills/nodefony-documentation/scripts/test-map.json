@@ -399,6 +399,14 @@
       "src/packages/@nodefony/http/nodefony/tests/routing/Router.test.ts"
     ]
   },
+  "scaffold": {
+    "unit": [
+      "src/nodefony/src/tests/create.test.ts",
+      "src/nodefony/src/tests/entityFields.test.ts",
+      "src/nodefony/src/tests/scaffoldDestination.test.ts",
+      "src/packages/@nodefony/studio/nodefony/tests/unit/scaffoldService.test.ts"
+    ]
+  },
   "security": {
     "globs": ["src/packages/@nodefony/security/tests/**/*.test.ts"]
   },

@@ -119,6 +119,8 @@ Orientés tâche : on suit le guide, on obtient un résultat.
     "desc": "De zéro à une app qui répond en HTTP, en WebSocket, et persiste des données — pas à pas." },
   { "icon": "⚙️", "title": "Configuration pas à pas", "href": "guides/configuration.md",
     "desc": "La recette, quand l'architecture est déjà comprise." },
+  { "icon": "🏗️", "title": "Générer du code", "href": "guides/generer-du-code.md",
+    "desc": "`nodefony create` : voir ce qui va changer avant que ça change — et l'appeler depuis un agent." },
   { "icon": "🗄️", "title": "Persistance", "href": "guides/persistence.md",
     "desc": "Choisir et brancher sa base de données." },
   { "icon": "🗝️", "title": "Stockage de session", "href": "guides/session-storage.md",
