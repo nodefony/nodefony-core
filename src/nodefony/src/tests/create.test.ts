@@ -598,10 +598,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "@nodefony/realtime/docs");
       // Aucun module encore : l'état vide DIT quoi faire.
       assert.include(agents, "Aucun — `nodefony create module");
-      // CLAUDE.md n'est qu'un pointeur d'une poignée de lignes.
+      // CLAUDE.md = pointeur + LA règle du réflexe (auto-chargé à chaque tour
+      // par l'outil agent, contrairement à AGENTS.md — mesuré au banc : la
+      // règle doit vivre dans le contexte au moment d'ÉCRIRE). Reste court.
       const claude = readFileSync(path.join(dest, "CLAUDE.md"), "utf8");
       assert.include(claude, "AGENTS.md");
-      assert.isBelow(claude.split("\n").length, 8);
+      assert.include(claude, "vérifie qu'un générateur");
+      assert.isBelow(claude.split("\n").length, 16);
     });
 
     it("minimal : la table des docs dit la vérité des briques réellement installées", () => {
