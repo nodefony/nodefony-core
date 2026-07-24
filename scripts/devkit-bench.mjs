@@ -54,6 +54,12 @@ import { fileURLToPath } from "node:url";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BIN = path.join(REPO, "src", "nodefony", "bin", "nodefony");
 const AGENT = process.env.DEVKIT_BENCH_AGENT ?? "claude";
+/**
+ * Modèle de l'agent — VARIABLE DU DÉCOR : deux runs sur deux modèles ne se
+ * comparent pas. Vide = défaut du CLI de la machine (alors relevé dans le
+ * transcript et le rapport, pour que le run reste comparable après coup).
+ */
+const MODEL = process.env.DEVKIT_BENCH_MODEL ?? "";
 /** Args du mode headless du CLI claude — transcript JSONL complet sur stdout. */
 const AGENT_ARGS = process.env.DEVKIT_BENCH_AGENT_ARGS
   ? process.env.DEVKIT_BENCH_AGENT_ARGS.split(" ")
@@ -222,12 +228,16 @@ function setup(runDir) {
 function runTask(app, runDir, task) {
   console.log(`\n━━ tâche ${task.id} — ${task.name}`);
   const transcriptPath = path.join(runDir, `task-${task.id}.transcript.jsonl`);
-  const res = spawnSync(AGENT, [...AGENT_ARGS, task.prompt], {
-    cwd: app,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-    timeout: 30 * 60 * 1000,
-  });
+  const res = spawnSync(
+    AGENT,
+    [...AGENT_ARGS, ...(MODEL ? ["--model", MODEL] : []), task.prompt],
+    {
+      cwd: app,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 30 * 60 * 1000,
+    },
+  );
   writeFileSync(transcriptPath, res.stdout ?? "");
   if (res.status !== 0) {
     console.log(`  ⚠️ agent sorti en ${res.status} (transcript conservé)`);
@@ -358,7 +368,22 @@ function main() {
   }
 
   const results = tasks.map((t) => judgeTask(app, runDir, t));
-  const report = { date: new Date().toISOString(), runDir, results };
+  // Modèle RELEVÉ dans les transcripts (pas seulement demandé) : c'est ce qui
+  // a réellement tourné qui rend deux runs comparables.
+  const models = new Set();
+  for (const t of tasks) {
+    const p = path.join(runDir, `task-${t.id}.transcript.jsonl`);
+    if (existsSync(p)) {
+      const m = readFileSync(p, "utf8").match(/"model":"([^"]+)"/u);
+      if (m) models.add(m[1]);
+    }
+  }
+  const report = {
+    date: new Date().toISOString(),
+    runDir,
+    model: [...models].join("+") || MODEL || "inconnu",
+    results,
+  };
   writeFileSync(
     path.join(runDir, "report.json"),
     JSON.stringify(report, null, 2),
