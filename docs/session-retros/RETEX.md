@@ -190,8 +190,16 @@
 - `[1× — 2026-07-24]` **Une sonde peut mentir en lisant le mauvais contexte.** Ma route GET relisait les réglages du serveur WS sur un contexte HTTP, qui n'en a pas : elle affichait « protection désactivée » pendant que le transport refusait 272 frames. Capturer la valeur **là où elle est réellement lue** (ici : au handshake), pas là où c'est commode.
 - `[1× — 2026-07-24]` **Le banc a échoué trois fois pour trois raisons de DÉCOR, aucune n'étant le code testé** : un canal homonyme d'une action (qui héritait donc de sa politique fermée), un `dist` non rebuildé, et deux serveurs WS (`websocket` ws:// / `websocketSecure` wss://) dont je configurais le mauvais. **Avant de soupçonner le mécanisme, faire dire au serveur ce qu'il a RÉELLEMENT lu.**
 
+## 🧠 Le contexte de l'agent — une règle lue s'érode, une règle affichée agit
+
+- `[1× — 2026-07-24]` ⭐ **Mesuré en chaîne A/B/C au banc devkit (haiku)** : (A) AGENTS.md LU par l'agent → CRUD recomposé de mémoire quand même ; (B) prose durcie → zéro effet ; (C) la MÊME règle déplacée dans le `CLAUDE.md` AUTO-CHARGÉ → `create entity` lancé. Une lecture est un résultat d'outil qui recule dans la fenêtre et peut être compacté ; le fichier auto-chargé est réinjecté à chaque tour avec statut d'instruction. **Ce qui doit agir au moment d'ÉCRIRE vit dans le fichier auto-chargé ; le reste est une carte qu'on consulte.**
+- `[1× — 2026-07-24]` **Instruction d'ACTION ≠ instruction de COMPORTEMENT.** « Lis AGENTS.md » est satisfaite par UNE lecture (puis s'épuise) ; « avant d'écrire un fichier, vérifie qu'un générateur le produit » est ré-évaluée à chaque décision. Sur un modèle léger, seule la seconde tient.
+
 ## 📏 Mesure & bancs
 
+- `[1× — 2026-07-24]` ⭐ **Un banc de découvrabilité se joue au modèle le plus DÉFAVORABLE** (décision user) : un modèle fort compense les trous du kit en devinant juste — on mesure alors son intelligence, pas l'outillage. Corollaire : le modèle est une **variable du décor** → figé par env + RELEVÉ dans le rapport (ce qui a tourné, pas ce qui a été demandé).
+- `[1× — 2026-07-24]` **Un agent JUGÉ peut committer lui-même en cours de tâche** : un juge qui diffe `HEAD~1` rate tout son travail. Base du diff = le commit de HARNAIS précédent. Et `cmd | tee log` avale l'exit code du gate — le banc FAIL affichait exit 0.
+- `[1× — 2026-07-24]` **Une sonde NÉGATIVE passe aussi quand l'exigence est abandonnée en silence** : « pas de 409 artisanal » était verte chez haiku… qui n'avait jamais implémenté le 409 (et avait supprimé les tests « redondants »). Une sonde inversée doit être appariée à une sonde FONCTIONNELLE (frapper la route, attendre le 409). Petit frère : `$` sans flag `m` sur une liste multi-lignes = sonde jamais vraie.
 - `[1× — 2026-07-23]` **Un banc qui ne vérifie pas que le travail a EU LIEU mesure la vitesse à laquelle on échoue** (vécu 2× le même jour).
 - `[1× — 2026-07-22]` **Pour un gain d'ÉTAGE, banc d'étage** : le banc système (variance ×3) ne peut pas trancher quelques dizaines de % — il prouve un comportement (fan-out, injection, mémoire sous rafale). Le micro-banc écrit en 10 min a donné la réponse.
 - `[1× — 2026-07-22]` **Éteindre soi-même une infra en cours de session rend des tests silencieusement verts.**
