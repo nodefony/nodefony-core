@@ -56,10 +56,14 @@ const BIN = path.join(REPO, "src", "nodefony", "bin", "nodefony");
 const AGENT = process.env.DEVKIT_BENCH_AGENT ?? "claude";
 /**
  * Modèle de l'agent — VARIABLE DU DÉCOR : deux runs sur deux modèles ne se
- * comparent pas. Vide = défaut du CLI de la machine (alors relevé dans le
- * transcript et le rapport, pour que le run reste comparable après coup).
+ * comparent pas. Défaut = le modèle LÉGER de la famille (haiku), à dessein :
+ * le banc mesure la DÉCOUVRABILITÉ de l'app, pas l'intelligence de l'agent.
+ * Un modèle fort compense les trous du devkit en devinant juste — un modèle
+ * léger ne réussit que si l'app le GUIDE (AGENTS.md, docs, générateurs). Le
+ * test le plus défavorable est le seul qui prouve. DEVKIT_BENCH_MODEL pour
+ * comparer (le rapport enregistre toujours le modèle RELEVÉ au transcript).
  */
-const MODEL = process.env.DEVKIT_BENCH_MODEL ?? "";
+const MODEL = process.env.DEVKIT_BENCH_MODEL ?? "haiku";
 /** Args du mode headless du CLI claude — transcript JSONL complet sur stdout. */
 const AGENT_ARGS = process.env.DEVKIT_BENCH_AGENT_ARGS
   ? process.env.DEVKIT_BENCH_AGENT_ARGS.split(" ")
