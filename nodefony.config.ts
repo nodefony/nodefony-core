@@ -242,6 +242,13 @@ export default defineConfig<Env>((ctx) => ({
         totp: {
           encryptionKey: ctx.env.NF_TOTP_KEY,
         },
+        // Jetons anti-CSRF (synchronizer) — le secret DOIT être partagé entre
+        // les process : en cluster, un secret par pod ferait rejeter un jeton
+        // émis par un autre pod. Absent en dev = secret éphémère + warning,
+        // comme les deux clés voisines. `npx nodefony security:secrets`.
+        csrf: {
+          secret: ctx.env.NF_CSRF_SECRET,
+        },
         // Webhooks sortants (P6.13) — secret de signature chiffré au repos. Clé
         // prod via env (absente en prod = webhooks OFF, fail-safe ; dev = clé
         // éphémère + warning). `enabled`/SSRF/livraison gardent leurs défauts.

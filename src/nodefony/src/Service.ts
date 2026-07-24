@@ -110,13 +110,23 @@ class Service implements IService {
       // wrapper tracké (this.on) sinon clean() ne les retire pas (fuite à
       // chaque construction d'instance — règle absolue perf+mémoire).
       this.attachConfiguredListeners(options);
+      // Bus PARTAGÉ : on ne peut que RELEVER son plafond, jamais l'abaisser.
+      //
       // `this.options` (fusionné avec `defaultOptions`), PAS le paramètre brut :
       // lire `options` ignorait le défaut `nbListeners: 20` dès que l'appelant
-      // n'en passait pas — c'est-à-dire presque toujours. Le plafond effectif
-      // restait celui de Node (10), et la valeur annoncée par `defaultOptions`
-      // n'a jamais rien piloté.
-      if (this.options.events?.nbListeners) {
-        this.#nc.setMaxListeners(this.options.events.nbListeners);
+      // n'en passait pas — c'est-à-dire presque toujours.
+      //
+      // Mais appliquer ce défaut tel quel sur un bus qu'on ne possède PAS le
+      // rabaissait : le Kernel dimensionne le sien à 60 (un module ou service =
+      // au moins un listener de cycle de vie), puis chaque Service construit
+      // ensuite avec ce même bus y réécrivait 20 — le dernier arrivé décidait.
+      // À partir d'une quinzaine de modules, le boot se mettait à crier
+      // `MaxListenersExceededWarning` sur `onPreBoot`/`onBoot` alors que rien
+      // ne fuyait : le plafond avait simplement été écrasé par un invité.
+      const shared = this.#nc.getMaxListeners();
+      const wanted = this.options.events?.nbListeners ?? 0;
+      if (wanted > shared) {
+        this.#nc.setMaxListeners(wanted);
       }
     } else if (notificationsCenter !== false) {
       this.#nc = new Event(this.options, this, this.options);

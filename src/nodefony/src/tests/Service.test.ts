@@ -109,6 +109,24 @@ describe("Service — construction", () => {
     assert.strictEqual(s.notificationsCenter?.getMaxListeners(), 20);
   });
 
+  // Un bus PARTAGÉ appartient à celui qui l'a créé — le Kernel dimensionne le
+  // sien à 60 parce que chaque module y attache des listeners de cycle de vie.
+  // Chaque Service construit ensuite avec ce bus y réécrivait son défaut (20) :
+  // le dernier arrivé décidait, et le boot criait `MaxListenersExceededWarning`
+  // sur `onPreBoot`/`onBoot` passé une quinzaine de modules — sans qu'il y ait
+  // la moindre fuite. Un invité RELÈVE le plafond, il ne l'abaisse jamais.
+  it("un Event PARTAGÉ déjà dimensionné plus haut n'est pas rabaissé", () => {
+    const shared = new Event();
+    shared.setMaxListeners(60);
+    const invite = new Service("nbInvite", undefined, shared);
+    assert.strictEqual(invite.notificationsCenter?.getMaxListeners(), 60);
+    // Et une demande SUPÉRIEURE passe toujours.
+    const gourmand = new Service("nbGourmand", undefined, shared, {
+      events: { nbListeners: 80 },
+    });
+    assert.strictEqual(gourmand.notificationsCenter?.getMaxListeners(), 80);
+  });
+
   it("options.events supprimé après construction", () => {
     const s = new Service("noEventsOpt", undefined, undefined, {
       events: { nbListeners: 10 },

@@ -299,4 +299,18 @@ export const env = defineEnv({
     description:
       "Clé de chiffrement des secrets 2FA/TOTP au repos (prod requis, ≥ 32 octets).",
   }),
+
+  /**
+   * Secret des jetons anti-CSRF (synchronizer token). PROD/cluster :
+   * OBLIGATOIRE et PARTAGÉ entre les process — un secret par pod ferait
+   * échouer la validation d'un jeton émis par un autre pod. DEV : optionnel,
+   * un secret éphémère est généré et le boot le DIT (jamais de dégradation
+   * silencieuse) — poser la variable suffit à faire taire l'avertissement.
+   * `npx nodefony security:secrets` génère la clé et le câblage.
+   */
+  NF_CSRF_SECRET: envString({
+    optional: true,
+    description:
+      "Secret des jetons anti-CSRF (synchronizer) — partagé entre process en cluster.",
+  }),
 });
