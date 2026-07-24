@@ -569,6 +569,130 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("AGENTS.md — l'app naît parlante pour un agent", () => {
+    it("app : AGENTS.md (devise + générateurs + gates + zone notes) + CLAUDE.md pointeur", () => {
+      const dest = path.join(tmp, "agents");
+      scaffold(dest, { name: "agents", preset: "complete", frontend: "none" });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      // La devise ouvre le fichier — LA règle que l'agent doit retenir.
+      assert.include(
+        agents.split("\n").slice(0, 4).join("\n"),
+        "N'invente jamais du code Nodefony",
+      );
+      // Inventaire des générateurs + front machine : l'agent APPELLE le
+      // scaffold comme un outil au lieu d'imiter des fichiers de mémoire.
+      for (const needle of [
+        "nodefony create module",
+        "nodefony create entity",
+        "--describe-json",
+        "--answers-json",
+        "--dry-run",
+        "npm run typecheck",
+        "<!-- app-notes:start -->",
+        "<!-- app-notes:end -->",
+      ]) {
+        assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
+      }
+      // Preset complete → les docs des briques embarquées sont pointées.
+      assert.include(agents, "@nodefony/security/docs");
+      assert.include(agents, "@nodefony/realtime/docs");
+      // Aucun module encore : l'état vide DIT quoi faire.
+      assert.include(agents, "Aucun — `nodefony create module");
+      // CLAUDE.md n'est qu'un pointeur d'une poignée de lignes.
+      const claude = readFileSync(path.join(dest, "CLAUDE.md"), "utf8");
+      assert.include(claude, "AGENTS.md");
+      assert.isBelow(claude.split("\n").length, 8);
+    });
+
+    it("minimal : la table des docs dit la vérité des briques réellement installées", () => {
+      const dest = path.join(tmp, "amin");
+      scaffold(dest, { name: "amin", preset: "minimal", frontend: "none" });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      // Pointer une doc non installée serait un mensonge — le trou n°1 du kit.
+      assert.notInclude(agents, "@nodefony/security/docs");
+      assert.notInclude(agents, "@nodefony/orm-core/docs");
+      assert.include(agents, "@nodefony/framework/docs");
+    });
+
+    it("régénération BORNÉE : create module réécrit l'inventaire, préserve notes et CLAUDE.md", () => {
+      const dest = path.join(tmp, "regen");
+      scaffold(dest, { name: "regen", preset: "complete", frontend: "none" });
+      // L'humain/agent accumule ses leçons dans la zone préservée…
+      const agentsPath = path.join(dest, "AGENTS.md");
+      writeFileSync(
+        agentsPath,
+        readFileSync(agentsPath, "utf8").replace(
+          /_\(vide[^\n]*\n/u,
+          "- leçon locale : toujours frapper /api/hello après un boot\n",
+        ),
+      );
+      // …et remplace le pointeur CLAUDE.md par le sien : il lui appartient.
+      const claudePath = path.join(dest, "CLAUDE.md");
+      writeFileSync(claudePath, "# mon CLAUDE.md à moi\n");
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const agents = readFileSync(agentsPath, "utf8");
+      // Réécrit depuis l'état réel : le module créé est inventorié…
+      assert.include(agents, "modules/blog");
+      // …la zone app-notes a survécu à la réécriture complète…
+      assert.include(agents, "toujours frapper /api/hello");
+      // …et le CLAUDE.md de l'utilisateur n'a pas été touché.
+      assert.equal(readFileSync(claudePath, "utf8"), "# mon CLAUDE.md à moi\n");
+    });
+
+    it("accueil : sans frontend, GET / répond (HomeController) ; avec, AppController tient /", () => {
+      const none = path.join(tmp, "hnone");
+      scaffold(none, { name: "hnone", preset: "complete", frontend: "none" });
+      const home = readFileSync(
+        path.join(none, "nodefony", "controllers", "HomeController.ts"),
+        "utf8",
+      );
+      assert.include(home, 'path: "/"');
+      assert.include(home, "/api/hello");
+      const index = readFileSync(path.join(none, "index.ts"), "utf8");
+      assert.include(index, "HomeController");
+
+      const front = path.join(tmp, "hfront");
+      scaffold(front, { name: "hfront", preset: "minimal", frontend: "react" });
+      assert.isFalse(
+        existsSync(
+          path.join(front, "nodefony", "controllers", "HomeController.ts"),
+        ),
+      );
+      assert.notInclude(
+        readFileSync(path.join(front, "index.ts"), "utf8"),
+        "HomeController",
+      );
+    });
+
+    it("suites franches : e2e HORS du glob par défaut, ciblés par leur propre config", () => {
+      const dest = path.join(tmp, "suites");
+      scaffold(dest, { name: "suites", preset: "complete", frontend: "none" });
+      // `npm test` ne montre que ce qu'il exécute — plus de skipped-vert.
+      assert.include(
+        readFileSync(path.join(dest, "vitest.config.ts"), "utf8"),
+        '"tests/e2e.test.ts"',
+      );
+      assert.include(
+        readFileSync(path.join(dest, "vitest.e2e.config.ts"), "utf8"),
+        'include: ["tests/e2e.test.ts"]',
+      );
+      const pkg = readJson(path.join(dest, "package.json"));
+      assert.include(pkg["scripts"]["test:e2e"], "-c vitest.e2e.config.ts");
+      // Le test e2e n'a plus AUCUNE gate d'environnement : invoqué = exécuté.
+      const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
+      assert.notInclude(e2e, "RUN_E2E");
+      assert.notInclude(e2e, "describe.skip");
+    });
+  });
+
   describe("moteur — create controller (in-project)", () => {
     /** Scaffold controller depuis `from` (détection racine = comme le CLI). */
     const controller = (
@@ -1090,20 +1214,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(bareIndex, "addCommand");
     });
 
-    it("docs IA (CLAUDE.md/MEMORY.md) : seulement si le projet en tient", () => {
+    it("AGENTS.md du module : TOUJOURS rendu — « le plus proche gagne »", () => {
       const plain = app("plain");
-      const r1 = mod(plain, { name: "blog", controller: "none" });
-      assert.isFalse(existsSync(path.join(r1.dest, "CLAUDE.md")));
-      assert.isFalse(existsSync(path.join(r1.dest, "MEMORY.md")));
-
-      const piloted = app("piloted");
-      writeFileSync(
-        path.join(piloted, "CLAUDE.md"),
-        "# projet piloté par IA\n",
-      );
-      const r2 = mod(piloted, { name: "blog", controller: "none" });
-      assert.isTrue(existsSync(path.join(r2.dest, "CLAUDE.md")));
-      assert.isTrue(existsSync(path.join(r2.dest, "MEMORY.md")));
+      // Même un projet SANS aucun fichier IA à la racine y a droit : la
+      // condition historique (CLAUDE.md racine, que create app ne créait
+      // jamais) rendait ces templates morts.
+      rmSync(path.join(plain, "CLAUDE.md"), { force: true });
+      rmSync(path.join(plain, "AGENTS.md"), { force: true });
+      const r = mod(plain, { name: "blog", controller: "none" });
+      const agents = readFileSync(path.join(r.dest, "AGENTS.md"), "utf8");
+      assert.include(agents, "@plain/blog");
+      assert.include(agents, "proche gagne");
+      assert.include(agents, "source unique des défauts");
+      // L'ancien couple est fusionné dedans — plus jamais généré.
+      assert.isFalse(existsSync(path.join(r.dest, "CLAUDE.md")));
+      assert.isFalse(existsSync(path.join(r.dest, "MEMORY.md")));
     });
 
     it("config du module : le schéma Zod porte les défauts, le registre le type", () => {

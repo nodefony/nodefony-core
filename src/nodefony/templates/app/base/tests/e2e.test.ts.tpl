@@ -6,8 +6,11 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 /**
  * Test E2E — boote l'app RÉELLE (mode production) et lui parle en HTTP + WebSocket.
  *
- * Opt-in via `npm run test:e2e` (build d'abord : un serveur spawné valide le DIST,
- * pas le source). La mécanique est 100 % native Nodefony :
+ * Seule porte d'entrée : `npm run test:e2e` (build d'abord : un serveur spawné
+ * valide le DIST, pas le source). Ce fichier est EXCLU de `vitest.config.ts` et
+ * ciblé par `vitest.e2e.config.ts` — invoqué, il tourne TOUJOURS : pas de gate
+ * d'environnement qui l'afficherait « skipped » dans un rapport vert.
+ * La mécanique est 100 % native Nodefony :
  *   - `nodefony production --detach --wait` : lancement détaché, exit 0 seulement
  *     quand la readiness est sondée (ports ouverts) — aucun sleep arbitraire.
  *   - `nodefony stop` : arrêt propre de tout runtime de l'app.
@@ -17,12 +20,11 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
  * (`readRuntimeState`) — un test qui suppose 5151 casse dès que l'app déclare son
  * port (`NF_PORT`, `PORT` en PaaS) ou qu'un port occupé l'a fait glisser en dev.
  */
-const RUN = !!process.env["RUN_E2E"];
 const bin = path.resolve("node_modules/.bin/nodefony");
 let BASE = "http://127.0.0.1:5151";
 let WS_BASE = "ws://127.0.0.1:5151";
 
-(RUN ? describe : describe.skip)("e2e — l'app boote et répond (HTTP + WS)", () => {
+describe("e2e — l'app boote et répond (HTTP + WS)", () => {
   beforeAll(() => {
     execFileSync(bin, ["production", "--detach", "--wait"], {
       stdio: "inherit",

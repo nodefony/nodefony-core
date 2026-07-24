@@ -213,6 +213,17 @@ commande validée → ses options + globales, sinon noms + alias. Install zsh :
 `nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
 [--frontend <none|react|vue|angular>] [--link|--no-link]` — **standalone 0-boot**
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
+L'app naît **agent-ready** : `AGENTS.md` racine (devise + générateurs + table
+tâche→doc dérivée des deps réelles + gates + zone préservée `<!-- app-notes:start/end -->`)
+
+- `CLAUDE.md` pointeur (écrit seulement s'il n'existe pas). Régénération BORNÉE :
+  `create module` réécrit l'`AGENTS.md` depuis l'état réel (inventaire `modules/*`)
+  en réinjectant la seule zone `app-notes` (`renderProjectAgents`/`preserveAppNotes`,
+  `engine.ts`). Sans frontend, `GET /` répond (HomeController JSON accueil — avec
+  front, `AppController` tient `/`). Suites franches : e2e EXCLUS de
+  `vitest.config.ts`, ciblés par `vitest.e2e.config.ts` seule (`npm test` n'affiche
+  jamais de skipped-vert). Banc de découvrabilité : `node scripts/devkit-bench.mjs`
+  (3 tâches agent headless, sondes objectives transcript+diff).
 
 `nodefony create front <name> [--frontend <react|vue|angular>] [--route </page>]
 [--module <nom>]` — ajoute un frontend Vite à une cible SANS front (app `none` ou
@@ -237,7 +248,7 @@ catalogue aux manifests du monorepo (même MAJEURE exigée).
 [--no-install]` — scaffold **IN-PROJECT** d'un module applicatif : `modules/<name>/` =
 **workspace npm** (package + `rolldown.config.ts` via `nodefony/bundler` + schéma Zod
 `config/config.ts` + builder `defineModuleConfig.ts` + `docs/` + tests vitest ;
-`CLAUDE.md`/`MEMORY.md` **seulement si le projet a un `CLAUDE.md` racine**). Câble l'app :
+`AGENTS.md` local **toujours rendu** — précédence « le plus proche gagne »). Câble l'app :
 `workspaces: ["modules/*"]` + scripts `build`/`typecheck`/`test` chaînés
 (`npm run X --workspaces --if-present`, build des modules AVANT l'app) + `use("@<app>/<name>", {})`
 dans le manifeste `modules` (insertion GARDÉE : crochet fermant APPARIÉ, ancre absente = note

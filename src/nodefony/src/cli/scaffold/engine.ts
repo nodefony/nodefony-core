@@ -311,6 +311,94 @@ function renderLayer(
   }
 }
 
+/** Marqueurs de la zone préservée d'`AGENTS.md` — le contrat du merge borné. */
+const APP_NOTES_START = "<!-- app-notes:start -->";
+const APP_NOTES_END = "<!-- app-notes:end -->";
+
+/**
+ * Réinjecte la zone `app-notes` du contenu précédent dans le rendu neuf.
+ *
+ * C'est TOUT le merge que le scaffold sait faire, et c'est voulu : `AGENTS.md`
+ * est 100 % dérivé (réécrit en entier à chaque régénération — il ne peut pas
+ * mentir), SAUF cette zone, où l'humain et l'agent accumulent les leçons
+ * propres à l'app. Un marqueur absent ou inversé (fichier retravaillé à la
+ * main) → le rendu neuf part tel quel : mieux vaut perdre des notes déplacées
+ * qu'écrire un fichier recousu de façon imprévisible.
+ */
+function preserveAppNotes(previous: string, next: string): string {
+  const start = previous.indexOf(APP_NOTES_START);
+  const end = previous.indexOf(APP_NOTES_END);
+  if (start === -1 || end === -1 || end < start) {
+    return next;
+  }
+  const notes = previous.slice(start + APP_NOTES_START.length, end);
+  const ns = next.indexOf(APP_NOTES_START);
+  const ne = next.indexOf(APP_NOTES_END);
+  if (ns === -1 || ne === -1 || ne < ns) {
+    return next;
+  }
+  return next.slice(0, ns + APP_NOTES_START.length) + notes + next.slice(ne);
+}
+
+/** Ce que le template `AGENTS.md` de l'app a besoin de savoir du projet. */
+interface IAgentsData {
+  appName: string;
+  nodefonyVersion: string;
+  hasSecurity: boolean;
+  hasOrm: boolean;
+  hasRealtime: boolean;
+  hasStudio: boolean;
+  front: boolean;
+  /** Modules du projet (`modules/*`), chemin relatif à la racine. */
+  modules: { name: string; dir: string }[];
+}
+
+/**
+ * Rend `AGENTS.md` (+ le pointeur `CLAUDE.md`) à la racine du projet.
+ *
+ * Appelé par `create app` ET re-appelé par les scaffolds in-project qui
+ * changent l'inventaire décrit (`create module`) : régénération BORNÉE —
+ * réécriture complète depuis l'état RÉEL du projet, seule la zone `app-notes`
+ * est réinjectée (cf {@link preserveAppNotes}). Le moteur ne sait pas rejouer
+ * des templates sur de l'existant, et n'essaie pas : seuls ces fichiers
+ * 100 % dérivés sont régénérables.
+ *
+ * `CLAUDE.md` n'est écrit QUE s'il n'existe pas : c'est un pointeur d'une
+ * ligne, et un `CLAUDE.md` remplacé par l'utilisateur lui appartient.
+ */
+function renderProjectAgents(
+  eta: Eta,
+  packageRoot: string,
+  projectRoot: string,
+  data: IAgentsData,
+  written: string[],
+  writer: ScaffoldWriter,
+): void {
+  const tplDir = path.join(packageRoot, "templates", "app", "agents");
+  const agentsPath = path.join(projectRoot, "AGENTS.md");
+  let rendered = eta.renderString(
+    readFileSync(path.join(tplDir, "AGENTS.md.tpl"), "utf8"),
+    data as unknown as Record<string, unknown>,
+  );
+  if (rendered.includes("<%")) {
+    throw new Error("tag eta résiduel dans AGENTS.md");
+  }
+  if (writer.exists(agentsPath)) {
+    rendered = preserveAppNotes(writer.read(agentsPath), rendered);
+  }
+  writer.write(agentsPath, rendered);
+  written.push("AGENTS.md");
+  const claudePath = path.join(projectRoot, "CLAUDE.md");
+  if (!writer.exists(claudePath)) {
+    const pointer = eta.renderString(
+      readFileSync(path.join(tplDir, "CLAUDE.md.tpl"), "utf8"),
+      data as unknown as Record<string, unknown>,
+    );
+    writer.write(claudePath, pointer);
+    written.push("CLAUDE.md");
+  }
+}
+
 /**
  * Racine du PROJET Nodefony courant — cible des scaffolds IN-PROJECT (controller,
  * module, entity), par opposition à `create app` qui crée un dossier neuf.
@@ -559,6 +647,31 @@ function dispatchScaffold(
   const templates = path.join(packageRoot, "templates", request.type);
   const written: string[] = [];
   renderLayer(eta, path.join(templates, "base"), dest, data, written, writer);
+  // AGENTS.md + pointeur CLAUDE.md : l'app naît PARLANTE pour un agent —
+  // c'était le trou n°1 du scaffold (mutité totale). Régénéré ensuite par
+  // `create module` (l'inventaire des modules y vit).
+  renderProjectAgents(
+    eta,
+    packageRoot,
+    dest,
+    {
+      appName: String(answers.name),
+      nodefonyVersion: version,
+      hasSecurity: preset === "complete",
+      hasOrm: preset === "complete",
+      hasRealtime: preset === "complete",
+      hasStudio: preset === "complete",
+      front: front !== null,
+      modules: [],
+    },
+    written,
+    writer,
+  );
+  // Accueil `GET /` : une app sans frontend répondait 404 à sa propre racine.
+  // Rendu SEULEMENT sans front — avec un front, `AppController` tient `/`.
+  if (!front) {
+    renderLayer(eta, path.join(templates, "home"), dest, data, written, writer);
+  }
   // Controller d'accueil : rendu par le template de `create controller --kind
   // hello`, PAS par une copie propre à l'app. Le premier exemple que
   // l'utilisateur lit est ainsi celui que la commande lui régénérera — et
@@ -926,19 +1039,20 @@ function runModuleScaffold(
       tokens,
     );
   }
-  // Docs IA (CLAUDE.md/MEMORY.md) : seulement si le projet en tient déjà — dans
-  // une app qui n'en a pas, ce seraient deux fichiers morts.
-  if (writer.exists(path.join(projectRoot, "CLAUDE.md"))) {
-    renderLayer(
-      eta,
-      path.join(templates, "ai"),
-      dest,
-      data,
-      written,
-      writer,
-      tokens,
-    );
-  }
+  // AGENTS.md du module — TOUJOURS rendu : la précédence « le plus proche
+  // gagne » du standard fait qu'un agent travaillant dans `modules/<nom>/` lit
+  // le contexte du module, pas l'index global de l'app. (L'ancien couple
+  // CLAUDE.md/MEMORY.md conditionné à un CLAUDE.md racine — que `create app`
+  // ne créait jamais — était du contenu mort.)
+  renderLayer(
+    eta,
+    path.join(templates, "ai"),
+    dest,
+    data,
+    written,
+    writer,
+    tokens,
+  );
   const notes: string[] = [];
   // Le module existe sur le disque → il est désormais une CIBLE (`listTargets`) :
   // les scaffolds controller/front peuvent le viser, sans un template dupliqué.
@@ -983,6 +1097,33 @@ function runModuleScaffold(
   notes.push(
     manifestNote ??
       `nodefony.config.ts : use("${pkgName}", {}) ajouté au manifeste modules`,
+  );
+  // Régénération BORNÉE de l'AGENTS.md de l'app : l'inventaire des modules y
+  // vit, et un AGENTS.md qui ignore le module qu'on vient de créer ment. Tout
+  // est re-DÉRIVÉ de l'état réel (deps de l'app, cibles du projet — la
+  // transaction voit le module en attente) ; seule la zone `app-notes` survit.
+  // Une app née avant ce mécanisme y gagne son AGENTS.md au premier module.
+  renderProjectAgents(
+    eta,
+    packageRoot,
+    projectRoot,
+    {
+      appName,
+      nodefonyVersion: version,
+      hasSecurity: appDeps.has("@nodefony/security"),
+      hasOrm: appDeps.has("@nodefony/orm-core"),
+      hasRealtime: appDeps.has("@nodefony/realtime"),
+      hasStudio: appDeps.has("@nodefony/studio"),
+      front: appDeps.has("@nodefony/frontend"),
+      modules: listTargets(projectRoot, writer)
+        .filter((t) => t.kind === "module")
+        .map((t) => ({
+          name: t.name,
+          dir: path.relative(projectRoot, t.dir),
+        })),
+    },
+    written,
+    writer,
   );
   return { dest, files: written.sort(), linked: [], notes };
 }

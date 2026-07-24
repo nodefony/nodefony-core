@@ -60,10 +60,12 @@ pas deux mondes séparés.
 | `nodefony/controllers/`    | Tes controllers (`@controller` + `@route`, HTTP **et** WS)                  |
 <% if (it.front) { %>| `frontend/src/`            | Ton app <%= it.frontend %> — servie par Vite (HMR dev, build prod)          |
 <% } %>| `tests/`                   | Tests vitest — unitaires (`npm test`) + e2e réel (`npm run test:e2e`)       |
+| `AGENTS.md`                | Instructions pour un agent IA — 100 % généré (régénéré par `create`), tes notes vivent dans sa zone préservée |
 <% if (it.complete) { %>| `compose.yaml`             | Infra de dev docker : Redis, Postgres, MariaDB, MySQL, Loki/Grafana (profils) |
 <% } %>| `rolldown.config.ts`       | Build — 3 lignes, délègue tout au socle publié `nodefony/bundler`           |
 | `eslint.config.mjs`        | Lint non-intrusif (warn) ; le style est délégué à Prettier                  |
-| `vitest.config.ts`         | Config tests — porte le bloc `oxc` décorateurs (OBLIGATOIRE, commenté)      |
+| `vitest.config.ts`         | Tests unitaires — porte le bloc `oxc` décorateurs (OBLIGATOIRE, commenté)   |
+| `vitest.e2e.config.ts`     | Tests e2e — config séparée : `npm test` ne montre que ce qu'il exécute      |
 | `var/`                     | Données locales (sqlite, logs fichiers) — gitignoré                         |
 <% if (it.complete) { %>
 ## 4. Infra de développement (docker)
@@ -90,22 +92,29 @@ Le dialecte SQL est déduit du **scheme de l'URL** (`postgres://`, `mysql://`,
 `sqlite:`) — changer de base ne change **rien d'autre** dans l'app. Les mots de
 passe par défaut du compose sont publics, pour le dev local uniquement.
 <% } %>
-## 5. Tests
+## 5. Tests — `npm test` est ton PREMIER diagnostic
 
 ```bash
 npm test             # unitaires : l'app se CHARGE (imports, décorateurs, config) — < 1 s
 npm run test:e2e     # build + boot RÉEL (production --detach --wait) + HTTP + WS + probes
 ```
 
-Le test e2e utilise le lancement détaché natif du framework : `--wait` ne rend
-la main que quand la readiness est sondée (aucun `sleep` arbitraire), et
-`nodefony stop` arrête proprement. Le client WebSocket est le `WebSocket`
-**natif** de Node — zéro dépendance de test.
+**Réflexe** : quelque chose semble cassé → `npm test` AVANT de relire du code ou
+de redémarrer. En une seconde il prouve que l'app s'importe, que les décorateurs
+compilent et que la config valide — ou te donne le fichier exact qui casse.
+
+Le rapport est **franc** : les e2e ont leur propre config (`vitest.e2e.config.ts`),
+`npm test` n'affiche jamais de tests « skipped » qui semblent verts sans avoir
+rien prouvé. Le test e2e utilise le lancement détaché natif du framework :
+`--wait` ne rend la main que quand la readiness est sondée (aucun `sleep`
+arbitraire), et `nodefony stop` arrête proprement. Le client WebSocket est le
+`WebSocket` **natif** de Node — zéro dépendance de test.
 
 ## 6. Qualité du code
 
 ```bash
-npm run typecheck    # tsgo — le compilateur TypeScript porté en Go (rapide)
+npm run typecheck    # tsgo — le bundler ne type-check PAS : gate séparé, obligatoire
+npm run check        # cohérence du projet : config, modules déclarés, wiring
 npm run lint         # eslint — garde-fous en warn, non-intrusif
 npm run format       # prettier — le style, c'est lui qui décide
 ```
@@ -114,7 +123,20 @@ Pourquoi **deux** TypeScript dans les devDependencies ? `@typescript/native-prev
 fournit `tsgo` (typecheck, rapide) ; `typescript@6` fournit l'**API JS** dont
 eslint a besoin pour parser tes fichiers. Deux outils, deux rôles.
 
-## 7. Production (cloud-native)
+## 7. Quand ça casse (troubleshooting)
+
+Dans l'ordre — chaque étape isole un étage, du moins cher au plus cher :
+
+1. **`npm test`** — l'app se charge-t-elle ? Import cassé, décorateur, config
+   invalide : le fichier fautif est nommé.
+2. **`npm run typecheck`** — un vert vitest ne type-check RIEN (les types sont
+   effacés à la transpilation) ; `tsgo` attrape ce que le build laisse passer.
+3. **`npx nodefony status`** — un serveur tourne-t-il déjà ? (port occupé,
+   vieux process détaché). `npx nodefony stop` arrête proprement.
+4. **Rebuild** — comportement fantôme après un gros changement : `npm run build`
+   puis relance (le serveur charge `dist/`, pas tes sources).
+
+## 8. Production (cloud-native)
 
 ```bash
 npm run build
@@ -127,7 +149,7 @@ l'orchestrateur (k8s, Swarm, Cloud Run…).<% if (it.complete) { %> Studio est c
 zone firewall puis passe la policy à `"mandatory"` (la recette est commentée
 dans `nodefony.config.ts`).<% } %>
 
-## 8. Développer le framework lui-même (`--link`)
+## 9. Développer le framework lui-même (`--link`)
 
 Si cette app a été générée avec `--link`, les dépendances `nodefony`/`@nodefony/*`
 pointent en `file:` vers un checkout local de `nodefony-core` : tu modifies le
@@ -135,7 +157,7 @@ framework, tu rebuilds le checkout, ton app le voit. Ne publie pas ce
 `package.json` tel quel — après la release npm, régénère sans `--link`
 (versions `^<%= it.nodefonyVersion %>`).
 
-## 9. Aller plus loin
+## 10. Aller plus loin
 
 - **Ajouter une route** : une méthode décorée `@route` dans un controller — c'est tout.
 - **Régénérer autrement** : `nodefony create app` (interactif) ou

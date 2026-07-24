@@ -12,7 +12,7 @@
     "stop": "nodefony stop",
     "status": "nodefony status",
     "test": "vitest run",
-    "test:e2e": "npm run build && RUN_E2E=1 vitest run tests/e2e.test.ts",
+    "test:e2e": "npm run build && vitest run -c vitest.e2e.config.ts",
     "typecheck": "tsgo --noEmit",
     "check": "nodefony check",
     "lint": "eslint .",

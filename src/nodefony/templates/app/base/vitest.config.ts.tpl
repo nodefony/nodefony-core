@@ -9,13 +9,18 @@ import { defineConfig } from "vitest/config";
  * chargement. `emitDecoratorMetadata` est requis par l'injection de dépendances
  * (résolution des types constructeur via `design:paramtypes`).
  *
- * Deux suites :
- *   npm test          → tests unitaires (rapides, zéro serveur)
- *   npm run test:e2e  → build + boot RÉEL de l'app + requêtes HTTP/WS (gate RUN_E2E)
+ * Deux suites, deux configs :
+ *   npm test          → tests unitaires (rapides, zéro serveur) — CETTE config
+ *   npm run test:e2e  → build + boot RÉEL de l'app + HTTP/WS (vitest.e2e.config.ts)
+ *
+ * Les e2e sont SORTIS du glob par défaut, pas « skippés » : un rapport qui
+ * affiche des tests skipped et sort vert fait croire qu'ils ont prouvé quelque
+ * chose. Ici `npm test` ne montre QUE ce qu'il a réellement exécuté.
  */
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "tests/e2e.test.ts"],
   },
   oxc: {
     decorator: { legacy: true, emitDecoratorMetadata: true },

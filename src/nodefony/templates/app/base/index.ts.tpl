@@ -5,6 +5,7 @@ import { controllers } from "@nodefony/framework";
 <% } %>import config from "./nodefony.config";
 import HelloController from "./nodefony/controllers/HelloController";
 <% if (it.front) { %>import AppController from "./nodefony/controllers/AppController";
+<% } else { %>import HomeController from "./nodefony/controllers/HomeController";
 <% } %><% if (it.complete) { %>import { provisionUsers } from "./nodefony/security/provisionUsers";
 <% } %>
 /**
@@ -18,7 +19,7 @@ export { env } from "./env";
  * L'app ne déclare ici que ce qui lui est INTRINSÈQUE : ses controllers.
  * Les modules chargés vivent dans `nodefony.config.ts` (manifeste `modules`).
  */
-@controllers([HelloController<% if (it.front) { %>, AppController<% } %>])
+@controllers([HelloController<% if (it.front) { %>, AppController<% } else { %>, HomeController<% } %>])
 class App extends Module {
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);
