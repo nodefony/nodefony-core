@@ -131,6 +131,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         install: true,
         git: true,
         dryRun: false,
+        describeJson: false,
+        answersJson: undefined,
       });
     });
 
@@ -167,6 +169,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         install: false,
         git: false,
         dryRun: false,
+        describeJson: false,
+        answersJson: undefined,
       });
     });
 
@@ -1406,6 +1410,144 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           /introuvable/u,
         );
       });
+    });
+  });
+
+  describe("mode machine (--describe-json / --answers-json)", () => {
+    /** Capture stdout d'un appel de commande (le mode machine ÉCRIT du JSON). */
+    const capture = async (...words: string[]): Promise<[number, string]> => {
+      const chunks: string[] = [];
+      const stdout = process.stdout.write.bind(process.stdout);
+      process.stdout.write = ((chunk: string) => {
+        chunks.push(String(chunk));
+        return true;
+      }) as typeof process.stdout.write;
+      try {
+        const code = await runCreateCommand(argv("create", ...words));
+        return [code, chunks.join("")];
+      } finally {
+        process.stdout.write = stdout;
+      }
+    };
+
+    it("--describe-json sans type : catalogue complet, JSON valide", async () => {
+      const [code, out] = await capture("--describe-json");
+      assert.equal(code, SysExit.OK);
+      const doc = JSON.parse(out) as {
+        types: { type: string; questions: { key: string }[] }[];
+        caps: { hasCheckout: boolean };
+        usage: Record<string, string>;
+      };
+      assert.sameMembers(
+        doc.types.map((t) => t.type),
+        ["app", "module", "controller", "front", "entity"],
+      );
+      // Ce que l'agent doit pouvoir apprendre sans lire une ligne de source.
+      const entity = doc.types.find((t) => t.type === "entity");
+      assert.includeMembers(
+        (entity?.questions ?? []).map((q) => q.key),
+        ["name", "fields", "id"],
+      );
+      assert.isBoolean(doc.caps.hasCheckout);
+      assert.property(doc.usage, "answers");
+    });
+
+    it("--describe-json <type> : ce type seul", async () => {
+      const [, out] = await capture("controller", "--describe-json");
+      const doc = JSON.parse(out) as { types: { type: string }[] };
+      assert.deepEqual(
+        doc.types.map((t) => t.type),
+        ["controller"],
+      );
+    });
+
+    it("--answers-json : réponses lues, les flags l'emportent", async () => {
+      const dest = path.join(tmp, "mj");
+      const file = path.join(tmp, "answers.json");
+      writeFileSync(
+        file,
+        JSON.stringify({ name: "mj", preset: "complete", frontend: "none" }),
+      );
+      const code = await runCreateCommand(
+        argv(
+          "create",
+          "app",
+          "--dir",
+          dest,
+          "--answers-json",
+          file,
+          // Le flag contredit le fichier : c'est le geste le plus explicite de
+          // l'appel, il doit gagner.
+          "--preset",
+          "minimal",
+          "--no-install",
+          "--no-git",
+        ),
+      );
+      assert.equal(code, SysExit.OK);
+      assert.isTrue(existsSync(path.join(dest, "package.json")));
+      assert.isFalse(
+        existsSync(path.join(dest, "compose.yaml")),
+        "preset complete appliqué malgré --preset minimal",
+      );
+    });
+
+    it("une clé hors spec est REFUSÉE, pas avalée", async () => {
+      const file = path.join(tmp, "typo.json");
+      // `prest` au lieu de `preset` : `resolveAnswers` l'ignorerait et
+      // générerait la vitrine complète sans un mot — indétectable pour un
+      // appelant automatique.
+      writeFileSync(file, JSON.stringify({ name: "typo", prest: "minimal" }));
+      const code = await runCreateCommand(
+        argv(
+          "create",
+          "app",
+          "--dir",
+          path.join(tmp, "typo"),
+          "--answers-json",
+          file,
+        ),
+      );
+      assert.equal(code, SysExit.USAGE);
+      assert.isFalse(existsSync(path.join(tmp, "typo")));
+    });
+
+    it("JSON invalide ou valeur non scalaire : refus en EX_USAGE", async () => {
+      const bad = path.join(tmp, "bad.json");
+      writeFileSync(bad, "{ pas du json");
+      assert.equal(
+        await runCreateCommand(
+          argv(
+            "create",
+            "app",
+            "--dir",
+            path.join(tmp, "b1"),
+            "--answers-json",
+            bad,
+          ),
+        ),
+        SysExit.USAGE,
+      );
+      const nested = path.join(tmp, "nested.json");
+      writeFileSync(nested, JSON.stringify({ name: { deep: true } }));
+      assert.equal(
+        await runCreateCommand(
+          argv(
+            "create",
+            "app",
+            "--dir",
+            path.join(tmp, "b2"),
+            "--answers-json",
+            nested,
+          ),
+        ),
+        SysExit.USAGE,
+      );
+    });
+
+    it("--answers-json sans valeur : usage, pas un crash", () => {
+      const p = parseCreateArgv(argv("create", "app", "x", "--answers-json"));
+      assert.property(p, "error");
     });
   });
 

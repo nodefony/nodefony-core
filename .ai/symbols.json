@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-24T16:52:17.935Z",
+  "generated": "2026-07-24T16:57:30.761Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1046,
-    "symbols": 2856,
+    "symbols": 2858,
     "classes": 334,
     "interfaces": 749,
     "types": 329,
     "enums": 4,
-    "functions": 858,
+    "functions": 860,
     "constants": 582
   },
   "symbols": {
@@ -22427,6 +22427,10 @@
       "findPackageRoot": [
         "src/nodefony/src/cli/create.ts"
       ],
+      "listTargets": [
+        "src/nodefony/src/cli/create.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
       "resolveLocalWorkspaces": [
         "src/nodefony/src/cli/create.ts"
       ],
@@ -25957,9 +25961,6 @@
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
-      ],
-      "listTargets": [
-        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "suspendSupervisor": [
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
@@ -13,6 +14,7 @@ import {
 import {
   findPackageRoot,
   findProjectRoot,
+  listTargets,
   resolveLocalWorkspaces,
   runScaffold,
   type TScaffoldAnswers,
@@ -46,7 +48,8 @@ export const CREATE_TYPES = [
 export type TCreateType = (typeof CREATE_TYPES)[number];
 
 export interface ICreateRequest {
-  type: TCreateType;
+  /** `undefined` seulement avec `--describe-json` (décrire TOUS les types). */
+  type?: TCreateType;
   /** Réponses partielles issues des flags (le reste : interactif ou défauts). */
   answers: TScaffoldAnswers;
   /** Dossier cible (défaut : `./<name>` une fois le nom connu). */
@@ -60,6 +63,10 @@ export interface ICreateRequest {
   git: boolean;
   /** `--dry-run` : montrer ce qui serait écrit, ne rien écrire. */
   dryRun: boolean;
+  /** `--describe-json` : décrire le scaffold en JSON et sortir (mode machine). */
+  describeJson: boolean;
+  /** `--answers-json <fichier|->` : source des réponses (fichier, ou `-` = stdin). */
+  answersJson?: string;
 }
 
 /**
@@ -81,6 +88,8 @@ export function parseCreateArgv(
   let install = true;
   let git = true;
   let dryRun = false;
+  let describeJson = false;
+  let answersJson: string | undefined;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
     if (word === "--force" || word === "-f") {
@@ -89,6 +98,10 @@ export function parseCreateArgv(
       yes = true;
     } else if (word === "--dry-run" || word === "-n") {
       dryRun = true;
+    } else if (word === "--describe-json") {
+      describeJson = true;
+    } else if (word === "--answers-json") {
+      answersJson = rest[++i];
     } else if (word === "--no-install") {
       install = false;
     } else if (word === "--no-git") {
@@ -148,9 +161,25 @@ export function parseCreateArgv(
     }
   }
   const [type, name, ...extra] = positionals;
-  if (!type || !(CREATE_TYPES as readonly string[]).includes(type)) {
+  // Le type est obligatoire pour AGIR, facultatif pour se DÉCRIRE : un agent
+  // qui découvre l'outil demande le catalogue entier avant de savoir quel type
+  // il veut.
+  if (
+    type !== undefined &&
+    !(CREATE_TYPES as readonly string[]).includes(type)
+  ) {
     return {
-      error: `type requis : ${CREATE_TYPES.join(" | ")} (reçu : ${type ?? "rien"})`,
+      error: `type requis : ${CREATE_TYPES.join(" | ")} (reçu : ${type})`,
+    };
+  }
+  if (type === undefined && !describeJson) {
+    return {
+      error: `type requis : ${CREATE_TYPES.join(" | ")} (reçu : rien)`,
+    };
+  }
+  if (answersJson === undefined && rest.includes("--answers-json")) {
+    return {
+      error: "--answers-json attend un fichier, ou - pour l'entrée standard",
     };
   }
   if (name !== undefined) {
@@ -163,7 +192,7 @@ export function parseCreateArgv(
     answers.fields = extra.join(" ");
   }
   return {
-    type: type as TCreateType,
+    type: type as TCreateType | undefined,
     answers,
     dir,
     force,
@@ -171,6 +200,8 @@ export function parseCreateArgv(
     install,
     git,
     dryRun,
+    describeJson,
+    answersJson,
   };
 }
 
@@ -188,7 +219,98 @@ const USAGE =
   `               champs : nom:type[?|!][:index] — types : string text int float bool json date uuid ref:<Entité>\n` +
   `               ex : nodefony create entity Post title:string! content:text views:int author:ref:User\n` +
   `               (types controller/front/entity : dans un projet existant — app racine ou module)\n` +
-  `  Sans flags dans un terminal → mode interactif (questions + récap).\n`;
+  `  Sans flags dans un terminal → mode interactif (questions + récap).\n` +
+  `  Mode machine (agents, scripts) :\n` +
+  `    --describe-json                  types, questions, valeurs permises et cibles du projet, en JSON\n` +
+  `    --answers-json <fichier|->       réponses en JSON (- = entrée standard) ; les flags l'emportent\n` +
+  `    --dry-run                        le plan (fichiers créés + diff des réécritures), sans rien écrire\n`;
+
+/**
+ * Décrit le scaffold en JSON — la porte MACHINE de `nodefony create`.
+ *
+ * POURQUOI : un agent qui développe dans une app Nodefony n'a que deux façons
+ * d'obtenir du code conforme — imiter des fichiers existants (et se tromper dès
+ * que l'exemple vieillit), ou APPELER le générateur. La seconde n'est possible
+ * que si l'outil sait dire ce qu'il attend : types disponibles, questions,
+ * valeurs permises, défauts. C'est exactement ce que la spec déclarative
+ * contient déjà ; il ne manquait que la porte.
+ *
+ * Le format est volontairement additif : `project` décrit où l'on se trouve,
+ * et les vagues suivantes y ajouteront le contexte fin (types par dialecte,
+ * entités existantes) sans déplacer ce qui est déjà là.
+ */
+function describeScaffold(type: TCreateType | undefined): string {
+  const projectRoot = findProjectRoot(process.cwd());
+  return `${JSON.stringify(
+    {
+      nodefony: version,
+      types: getScaffoldSpec(type),
+      caps: {
+        hasCheckout: resolveLocalWorkspaces(findPackageRoot()) !== null,
+      },
+      project: projectRoot
+        ? {
+            root: projectRoot,
+            // Cibles d'un scaffold in-project : l'app et ses modules locaux.
+            targets: listTargets(projectRoot).map((t) => ({
+              kind: t.kind,
+              name: t.name,
+            })),
+          }
+        : null,
+      usage: {
+        run: "nodefony create <type> <name> [flags]",
+        answers:
+          "nodefony create <type> --answers-json - (réponses JSON sur l'entrée standard ; les flags l'emportent)",
+        preview: "ajouter --dry-run pour obtenir le plan sans rien écrire",
+      },
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+/**
+ * Réponses lues depuis `--answers-json` (fichier, ou `-` = entrée standard).
+ *
+ * Une clé hors spec est REFUSÉE plutôt qu'ignorée : `resolveAnswers` ne
+ * conserve que les clés déclarées, si bien qu'un `"preset"` mal orthographié
+ * produirait un scaffold silencieusement différent de celui demandé — le pire
+ * retour possible pour un appelant automatique, qui n'a pas d'yeux pour
+ * relire le résultat.
+ *
+ * @throws Error si la source est illisible, le JSON invalide, ou une clé inconnue
+ */
+function readAnswersJson(source: string, type: TCreateType): TScaffoldAnswers {
+  const raw =
+    source === "-" ? readFileSync(0, "utf8") : readFileSync(source, "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`--answers-json : JSON invalide (${(e as Error).message})`);
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("--answers-json : un objet de réponses est attendu");
+  }
+  const [spec] = getScaffoldSpec(type);
+  const known = new Set(spec.questions.map((q) => q.key));
+  const answers: TScaffoldAnswers = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (!known.has(key)) {
+      throw new Error(
+        `--answers-json : clé inconnue « ${key} » pour ${type} — attendues : ${[...known].join(", ")}`,
+      );
+    }
+    if (typeof value !== "string" && typeof value !== "boolean") {
+      throw new Error(
+        `--answers-json : « ${key} » doit être une chaîne ou un booléen`,
+      );
+    }
+    answers[key] = value;
+  }
+  return answers;
+}
 
 /** Lignes de diff affichées par fichier réécrit, avant troncature annoncée. */
 const DRY_RUN_DIFF_LINES = 20;
@@ -296,13 +418,31 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     process.stderr.write(`create: ${parsed.error}\n${USAGE}`);
     return SysExit.USAGE;
   }
+  if (parsed.describeJson) {
+    // Avant tout le reste : se décrire ne dépend d'aucune réponse, et doit
+    // rester lisible même quand la commande serait par ailleurs incomplète.
+    process.stdout.write(describeScaffold(parsed.type));
+    return SysExit.OK;
+  }
+  const type = parsed.type as TCreateType;
   const caps = {
     hasCheckout: resolveLocalWorkspaces(findPackageRoot()) !== null,
   };
   let answers = parsed.answers;
+  if (parsed.answersJson !== undefined) {
+    try {
+      // Les FLAGS l'emportent : le fichier porte le gros de la demande, le flag
+      // est la retouche ponctuelle de l'appel — l'inverse rendrait un flag
+      // explicite silencieusement inopérant.
+      answers = { ...readAnswersJson(parsed.answersJson, type), ...answers };
+    } catch (e) {
+      process.stderr.write(`create: ${(e as Error).message}\n`);
+      return SysExit.USAGE;
+    }
+  }
   const interactive = process.stdin.isTTY === true && !parsed.yes;
   if (interactive) {
-    const [spec] = getScaffoldSpec(parsed.type);
+    const [spec] = getScaffoldSpec(type);
     answers = await askMissing(spec, answers, caps);
     // Récap générique piloté par la spec (mêmes questions que l'interactif).
     // ⚠️ On affiche ce qui SERA fait, donc le DÉFAUT de la spec quand la question n'a
@@ -337,12 +477,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   }
   // app = dossier NEUF ./<name> ; types in-project = détection racine depuis le cwd.
   const dir =
-    parsed.dir ??
-    (parsed.type === "app" ? String(answers.name) : process.cwd());
+    parsed.dir ?? (type === "app" ? String(answers.name) : process.cwd());
   let result;
   try {
     result = runScaffold(
-      { type: parsed.type, answers, dir, force: parsed.force },
+      { type: type, answers, dir, force: parsed.force },
       version,
       { dryRun: parsed.dryRun },
     );
@@ -364,13 +503,13 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // initialiser un dépôt pour des fichiers qui n'existent pas serait
     // exactement le contraire de ce que « simulation » promet.
     process.stdout.write(
-      `✔ ${parsed.type} « ${String(answers.name)} » — cible : ${relDest}/\n` +
+      `✔ ${type} « ${String(answers.name)} » — cible : ${relDest}/\n` +
         renderDryRun(result.changes ?? []) +
         `\nRelance sans --dry-run pour écrire.\n`,
     );
     return SysExit.OK;
   }
-  if (parsed.type === "module") {
+  if (type === "module") {
     process.stdout.write(
       `✔ module « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
         result.files.map((f) => `  ${f}`).join("\n") +
@@ -406,11 +545,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     );
     return SysExit.OK;
   }
-  if (parsed.type !== "app") {
+  if (type !== "app") {
     // In-project : ni install, ni git — le projet existe. En dev, le
     // superviseur rebuild/relance tout seul au prochain tick de watch.
     process.stdout.write(
-      `✔ ${parsed.type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
+      `✔ ${type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
         result.files.map((f) => `  ${f}`).join("\n") +
         `\n\nEndpoints :\n` +
         (result.notes ?? []).map((n) => `  ${n}`).join("\n") +
@@ -423,7 +562,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       `(dev framework — ne pas publier ce package.json tel quel)\n`
     : "";
   process.stdout.write(
-    `✔ ${parsed.type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
+    `✔ ${type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
       result.files.map((f) => `  ${f}`).join("\n") +
       `\n${linkNote}`,
   );
