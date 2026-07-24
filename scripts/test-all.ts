@@ -22,7 +22,8 @@
  *  2. pose les variables correspondantes ;
  *  3. enchaîne les phases : build, suite unitaire, serveur de développement,
  *     suite d'intégration, et la suite de charge si on la demande ;
- *  4. clôt par un tableau : ce qui a tourné, ce qui a été sauté, et pourquoi.
+ *  4. clôt par un tableau : ce qui a tourné, ce qui a été sauté, pourquoi — et
+ *     ce qu'il ne joue **jamais** (les bancs de mesure, hors périmètre).
  *
  * ## Usage
  *
@@ -41,7 +42,7 @@
  * un pipeline jetable.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -285,6 +286,43 @@ function serverRunning(): boolean {
 
 // ── Rapport ─────────────────────────────────────────────────────────────────
 
+/**
+ * Les bancs autonomes que cette commande ne joue **jamais**, pas même sous
+ * `--load` : ce sont des instruments de MESURE (débit, latence, plafond de
+ * connexions, fan-out entre pods), qui exigent un décor et un protocole propres.
+ * Les taire ferait mentir le rapport par omission — un « tout est vert » qui
+ * couvre la non-régression et laisse croire que la charge l'est aussi.
+ *
+ * Le compte est LU SUR DISQUE : une liste écrite ici se périmerait au premier
+ * banc ajouté, et l'omission reviendrait par la porte de derrière.
+ *
+ * @returns Les lots présents (dossier, nombre de bancs, ce qu'ils mesurent).
+ */
+function standaloneBenches(): {
+  dir: string;
+  count: number;
+  what: string;
+}[] {
+  const lots = [
+    {
+      dir: ".claude/skills/nodefony-load-test/scripts",
+      what: "charge, RPS et percentiles, plafond de connexions WS, capacité d'un pod",
+    },
+    {
+      dir: ".claude/skills/nodefony-multipod-bench/scripts",
+      what: "fan-out cross-pod, cloisonnement des apps, bus Redis partagé",
+    },
+  ];
+  const out: { dir: string; count: number; what: string }[] = [];
+  for (const lot of lots) {
+    const abs = join(ROOT, lot.dir);
+    if (!existsSync(abs)) continue; // dépôt réduit (paquet publié) : rien à annoncer
+    const count = readdirSync(abs).filter((f) => f.endsWith(".mjs")).length;
+    if (count > 0) out.push({ ...lot, count });
+  }
+  return out;
+}
+
 function report(
   infra: InfraState[],
   phases: PhaseResult[],
@@ -306,6 +344,7 @@ function report(
             durationMs: p.durationMs,
             tests: p.tests ?? null,
           })),
+          outOfScope: standaloneBenches(),
         },
         null,
         2,
@@ -380,6 +419,22 @@ function report(
     }
     console.log(
       `  ${C.dim(`→ pour les ouvrir : ${closed.map((c) => `${c.env}=1`).join(" ")} npm run test:all`)}`,
+    );
+  }
+
+  const benches = standaloneBenches();
+  if (benches.length > 0) {
+    console.log(
+      `\n${C.bold("Hors périmètre")} ${C.dim("(bancs de MESURE — jamais joués ici, même avec --load)")}`,
+    );
+    for (const b of benches) {
+      console.log(
+        `  ${C.yellow("○")} ${`${b.count} bancs`.padEnd(16)} ${C.dim(`${b.dir}`)}`,
+      );
+      console.log(`    ${C.dim(b.what)}`);
+    }
+    console.log(
+      `  ${C.dim("→ un banc ne se lance pas seul : son protocole (décor, médiane de N runs) vit dans les skills nodefony-load-test / nodefony-multipod-bench")}`,
     );
   }
 
