@@ -469,7 +469,7 @@ Trois durcissements méritent d'être connus :
   donc re-cibler `nodefony:syslog` sur `ROLE_SECURITY_AUDITOR` ; on ne peut pas l'ouvrir à l'anonyme.
 
 Le canal du journal d'audit (`nodefony:audit`) est enregistré comme **canal système** sur le hub
-(`RealtimeHub.registerSystemChannel()`, `RealtimeHub.ts:1079`) : il devient servable par n'importe
+(`RealtimeHub.registerSystemChannel()`, `RealtimeHub.ts:1117`) : il devient servable par n'importe
 quel endpoint realtime, sans qu'aucun controller ne le connaisse — et il est gardé par sa règle
 dédiée. Son enregistrement est **couplé** à la pose du verrou (même condition), donc il n'existe
 jamais de canal d'audit non gardé.
@@ -491,6 +491,35 @@ objet sans contrainte — le canal reste libre, le registre reste vide. Les déc
 au hub **au handshake**, pas au boot (`RealtimeHub.registerChannelPolicy()`, `RealtimeHub.ts:1037`,
 idempotent) ; le décideur les relit par `RealtimeService.resolveChannelPolicy()`
 (`RealtimeService.ts:243`).
+
+### ⚠️ Une policy est attachée à un nom EXACT — les canaux dérivés n'héritent pas
+
+`@RealtimeChannel("chat:room", { roles })` garde `chat:room`, **et rien d'autre**. Le registre est
+indexé par le nom, à la lettre : un canal **dérivé** — `chat:room:1000` (cadence),
+`orm:queries@1234` (forage), `chat:room:<identifiant>` — ne matche pas. Il est servi par la
+fabrique dynamique du contrôleur (`createRealtimeChannel`), et `resolveChannelPolicy()` rend `null`
+pour lui : aucune contrainte.
+
+C'est le piège le plus facile à ne pas voir, parce que tout a l'air correct : la déclaration est
+là, le canal fonctionne, et le refus attendu n'arrive jamais.
+
+Le serveur le **dit** désormais. Au premier canal servi dynamiquement sans politique, alors que le
+module en déclare pour d'autres canaux, un avertissement est journalisé une fois
+(`RealtimeHub.noticeUnguardedDynamicChannel()`, `RealtimeHub.ts:1090`) :
+
+```
+le canal "chat:room:1000" est servi par une fabrique DYNAMIQUE et n'est couvert par AUCUNE
+politique déclarée, alors que ce module en déclare pour d'autres canaux. […]
+```
+
+Deux façons de fermer, selon l'intention :
+
+- **le canal doit être gardé** → l'exposer sous un nom déclaré (un canal par nom exact), ou porter
+  la vérification **dans la fabrique** elle-même, qui reçoit le nom demandé et peut refuser (`null`) ;
+- **le canal est public** → rien à faire, l'avertissement dit seulement qu'il n'est pas gardé.
+
+> Une déclaration par **motif** (`chat:*`) lèverait la limite ; elle n'existe pas encore et ne se
+> conçoit pas seule — elle fait partie d'un chantier plus large sur les canaux à membres.
 
 ### ⚠️ La condition d'activation — le point critique
 

@@ -1064,6 +1064,44 @@ export class RealtimeHub {
     return this.#channelPolicies?.get(name) ?? null;
   }
 
+  /** Des politiques de canal sont-elles déclarées (au moins une) ? */
+  hasChannelPolicies(): boolean {
+    return (this.#channelPolicies?.size ?? 0) > 0;
+  }
+
+  /**
+   * Avertit — **une seule fois** — qu'un canal servi par une fabrique
+   * DYNAMIQUE n'est couvert par aucune politique déclarée, alors que d'autres
+   * canaux du module en portent une.
+   *
+   * Le registre des politiques est indexé par nom **EXACT** : `@RealtimeChannel`
+   * déclare `"chat:room"`, mais un canal dérivé (`chat:room:1000` — cadence,
+   * forage, suffixe) est servi par la fabrique dynamique et **ne matche pas**.
+   * L'auteur croit alors son canal gardé ; il ne l'est pas, et rien ne le lui
+   * dit. C'est précisément ce silence qu'on ferme ici. La levée complète (une
+   * politique déclarée par MOTIF) est un chantier à part.
+   *
+   * Appelé par le contrôleur, seul à savoir par quelle voie le canal a été
+   * servi. Muet si aucune politique n'est déclarée (module aux canaux libres :
+   * il n'y a alors aucune promesse à trahir).
+   *
+   * @param channel - le canal servi dynamiquement, cité en exemple dans l'alerte.
+   */
+  noticeUnguardedDynamicChannel(channel: string): void {
+    if (!this.hasChannelPolicies()) return;
+    if (this.resolveChannelPolicy(channel) !== null) return;
+    this.#notifyOnce(
+      "unguarded-dynamic-channel",
+      `le canal "${channel}" est servi par une fabrique DYNAMIQUE et n'est ` +
+        `couvert par AUCUNE politique déclarée, alors que ce module en déclare ` +
+        `pour d'autres canaux. Les politiques (@RealtimeChannel) sont indexées ` +
+        `par nom EXACT : un canal dérivé (suffixe de cadence, forage, ` +
+        `identifiant) n'hérite pas de celle de son parent. Si ce canal doit ` +
+        `être gardé, l'exposer sous un nom déclaré, ou porter la vérification ` +
+        `dans la fabrique elle-même.`,
+    );
+  }
+
   /**
    * Enregistre la **factory d'un canal système** (plateforme) — un module bas
    * niveau (ex. `@nodefony/security` : `nodefony:audit`) déclare au boot comment
@@ -1133,6 +1171,13 @@ export class RealtimeHub {
     this.#fanoutTotal = 0;
     this.#inboundTotal = 0;
     this.#ingressRejectedTotal = 0;
+    this.#systemFloorDeniedTotal = 0;
+    // Les avertissements de plateforme aussi : sans ce reset, un motif déjà émis
+    // reste marqué « vu » pour le process entier. Un test qui vérifie une alerte
+    // passe alors seul et échoue en suite — et surtout, un hub réinitialisé se
+    // tairait sur une configuration qu'il devrait redénoncer.
+    this.#noticed = null;
+    this.#notice = null;
   }
 }
 

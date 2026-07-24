@@ -687,13 +687,20 @@ export abstract class RealtimeController<
     // `subscribeClient` et non `subscribe` : la demande vient du RÉSEAU. C'est
     // cette porte qui applique le plancher des canaux de plateforme ; un service
     // interne du serveur, lui, passe par `subscribe` et n'est pas concerné.
+    // Par quelle voie le canal a-t-il été servi ? Le hub l'ignore ; nous seuls
+    // le savons. Un canal servi par la fabrique DYNAMIQUE n'a pas de politique
+    // déclarée (registre indexé par nom exact) → on le DIT plutôt que de
+    // laisser croire à une garde qui n'existe pas.
+    let servedByPattern = false;
     const ok = getRealtimeHub().subscribeClient(
       channel,
       sink,
       (ch, publish) => {
         const decFactory = this._decoratedChannels?.[ch];
         if (decFactory) return decFactory(ch, publish);
-        return this.createRealtimeChannel(ch, publish);
+        const dispose = this.createRealtimeChannel(ch, publish);
+        if (dispose !== null) servedByPattern = true;
+        return dispose;
       },
       // Le hub ignore JSON-RPC : c'est l'abonné qui lui dit comment fabriquer la
       // frame du canal. Appelé au plus une fois par publication, jamais par abonné.
@@ -702,6 +709,8 @@ export abstract class RealtimeController<
     );
     if (ok) {
       state.channels.set(channel, sink);
+      if (servedByPattern)
+        getRealtimeHub().noticeUnguardedDynamicChannel(channel);
       this.log(`WS subscribe → ${channel}`, "DEBUG");
       return;
     }

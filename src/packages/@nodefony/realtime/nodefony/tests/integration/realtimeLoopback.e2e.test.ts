@@ -628,6 +628,22 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     back.unsubscribe("owned:feed");
   });
 
+  it("⭐ un canal DÉRIVÉ servi dynamiquement déclenche l'alerte « aucune politique »", async () => {
+    const { client } = await connectPair();
+    const hub = getRealtimeHub();
+    hub.registerChannelPolicy("guard:room", { roles: ["ROLE_USER"] });
+    const alertes: string[] = [];
+    hub.onPlatformNotice((m) => alertes.push(m)); // après le handshake : on gagne
+
+    client.subscribe("guard:room:1000"); // dérivé → fabrique dynamique, 0 politique
+    await flush();
+    expect(alertes).to.have.lengthOf(1);
+    expect(alertes[0]).to.contain("guard:room:1000");
+    expect(alertes[0]).to.match(/exact/i);
+    client.unsubscribe("guard:room:1000");
+    await flush();
+  });
+
   it("L4 façade serveur : subscribedChannels + ref-count (stop au dernier unsubscribe)", () => {
     const back = serverSocket();
     back.subscribe("a");
