@@ -295,10 +295,30 @@ Réf complète (étude de faisabilité) : [[project_doc_portal_faisabilite]].
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `scripts/doc-lint.mjs <page.md>`        | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, liens vivants, 0 HTML brut). **5 régimes** selon la nature de la page — brique · hub `index.md` · glossaire `lexique.md` · index de dossier `README.md` · ADR `NNNN-*.md` (cf standard §8bis-\*) |
 | `scripts/anchor-check.mjs <page.md>`    | **Exactitude des ancres CODE** : résout chaque `fichier:ligne` contre le code réel (SUSPECT/LINE_OUT)                                                                                                                                                                                |
+| `scripts/anchor-fix.mjs`                | **RÉPARE** les ancres SUSPECT : relit la sortie d'`anchor-check` sur stdin et recale chaque ancre sur la LIGNE DE DÉFINITION du symbole qu'elle cite. Sans `--apply` = simulation.                                                                                                   |
 | `scripts/anchor-inpage.mjs <page.md>`   | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts)                                                                                                                                                                                       |
 | `scripts/code-check.mjs <page.md>`      | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict                                                                                                                                                                                            |
 | `scripts/gen-counters.mjs [topic]`      | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée)                                                                                                                                                                                     |
 | `scripts/build-preview.mjs <md> <html>` | Aperçu HTML autonome fidèle Studio (version/branche/commit pris de git ; Mermaid si mmdc)                                                                                                                                                                                            |
+
+> 🔁 **Un diff de code décale les ancres de la doc qui le cite — recaler à la MAIN coûte cher et se
+> trompe.** Enchaîner les deux scripts, en simulation puis pour de bon :
+>
+> ```bash
+> node .../anchor-check.mjs <module>/docs/*.md | node .../anchor-fix.mjs .            # simulation
+> node .../anchor-check.mjs <module>/docs/*.md | node .../anchor-fix.mjs . --apply    # applique
+> node .../anchor-check.mjs <module>/docs/*.md                                        # re-contrôle
+> ```
+>
+> Deux pièges, vécus tous les deux en une passe : (1) le symbole le plus proche gagne, or **le nom
+> de la CLASSE est plus près que la méthode** → toutes les ancres d'un fichier convergeaient sur
+> `export class X` ; `anchor-fix` lit donc d'abord le symbole **cité juste avant l'ancre** dans la
+> page. (2) Une définition « faible » (`  nom: Type,`) attrape un **paramètre**, pas une méthode →
+> les motifs forts (class/interface/function/const/type + méthode) l'emportent, le faible ne sert
+> qu'en dernier recours. Ce qui reste SUSPECT après la passe est en général un **littéral** cité
+> entre backticks (`unauthorized`, `limit`) : le gate ne peut pas le résoudre, ce n'est pas une
+> ancre fausse. **Relire le diff** — une passe automatisée sur du markdown déplace parfois plus que
+> prévu.
 
 > ⚠️ **`anchor-inpage.mjs` et `slugifyHeading()` (`studio/frontend/src/components/ui/DocToc.tsx`)
 > portent la MÊME règle de slug** — convention GitHub, accents conservés, ponctuation/symboles/emoji
