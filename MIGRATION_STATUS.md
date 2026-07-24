@@ -270,6 +270,16 @@ Console Logs Studio = panneau P10 de facto livré.
 > au code) · +P10.15 ✅ (écran Stores) · P10.9 firewall ✅ · P7 barre 90 % → 75 % (formule, S5 restant) ·
 > cellule-journal P7.10 dégraissée (5 099 → 1 110 car.) · gap E2E SQL comblé (S1-S4) · blocker rollup caduc.
 > Passes précédentes : mémoire IA `core-dev/migration/AUDIT-verite-2026-06.md`.
+>
+> **REGISTRE SOLDÉ — 113 / 120, 3 ouverts, 0 critique.** Les cinq motifs sont clos. Les trois
+> restants ne sont pas des corrections mais des **décisions d'architecture**, et attendent un
+> arbitrage : **F93** (`ServerRealtimeSocket.subscribe()` ouvre un provider VIDE pour un canal
+> qu'il ne possède pas — il faut trancher qui possède un canal) · **F177** (le streaming RPC est
+> à moitié implémenté : l'appelant sait accumuler des chunks, aucun serveur n'en émet — câbler ou
+> retirer) · **F4** (triple vérité sur la socket temps réel — canoniser suppose de supprimer des
+> pages publiques). Compteur régénérable : `node tmp/registre-ecarts/gen.mjs` — il ne lit que la
+> COLONNE « suite à donner » du kit, jamais la prose : un solde raconté sous le tableau lui reste
+> invisible (il a affiché 68 ouverts pour 33 réels avant recalage).
 
 ---
 
