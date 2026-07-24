@@ -272,15 +272,19 @@ Console Logs Studio = panneau P10 de facto livré.
 > cellule-journal P7.10 dégraissée (5 099 → 1 110 car.) · gap E2E SQL comblé (S1-S4) · blocker rollup caduc.
 > Passes précédentes : mémoire IA `core-dev/migration/AUDIT-verite-2026-06.md`.
 >
-> **REGISTRE SOLDÉ — 113 / 120, 3 ouverts, 0 critique.** Les cinq motifs sont clos. Les trois
-> restants ne sont pas des corrections mais des **décisions d'architecture**, et attendent un
-> arbitrage : **F93** (`ServerRealtimeSocket.subscribe()` ouvre un provider VIDE pour un canal
-> qu'il ne possède pas — il faut trancher qui possède un canal) · **F177** (le streaming RPC est
-> à moitié implémenté : l'appelant sait accumuler des chunks, aucun serveur n'en émet — câbler ou
-> retirer) · **F4** (triple vérité sur la socket temps réel — canoniser suppose de supprimer des
-> pages publiques). Compteur régénérable : `node tmp/registre-ecarts/gen.mjs` — il ne lit que la
-> COLONNE « suite à donner » du kit, jamais la prose : un solde raconté sous le tableau lui reste
-> invisible (il a affiché 68 ouverts pour 33 réels avant recalage).
+> **REGISTRE CLOS — 119 / 120 soldés, 1 partiel, 0 ouvert, 0 critique.** Les cinq motifs sont
+> clos, et les trois derniers items — qui étaient des **décisions d'architecture** — ont été
+> tranchés : **F93** (un canal appartient à qui fournit son provider ; `hub.listen()` = écoute
+> PASSIVE, la fabrique est rejouée à l'arrivée d'un client — `ce7eb849`) · **F177** (streaming RPC
+> **retiré** plutôt que publié à moitié : une action rend UNE valeur, la progression passe par le
+> motif « travail + canal » ; à reconcevoir en P12 avec annulation / erreur en cours de flux /
+> débit régulé — `0cac14c1`) · **F4** (déjà résolu au terrain : `docs/realtime/socket/` n'existe
+> plus, la page d'architecture porte la TRAJECTOIRE et renvoie au module, seule source).
+> Puis **F58** (`b6117eed`), **F47** (`78b145e6` — le trou réel était le champ `types` RACINE,
+> absent du tarball) et **F87** (`7618cf96` → `0d295d42`). Reste **F59** en partiel : une action de
+> controller nommée `remove` casse le build (collision `Service`), documentée, décision de préfixe
+> réservé ouverte. Compteur régénérable : `node tmp/registre-ecarts/gen.mjs` — il ne lit que la
+> COLONNE « suite à donner » du kit, jamais la prose.
 
 ---
 

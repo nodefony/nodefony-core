@@ -23,6 +23,7 @@
 ## 🎯 Une garantie LOCALE n'est pas une garantie de bout en bout
 
 - `[1× — 2026-07-24]` ⭐ **Un commentaire peut être vrai chez lui et faux dans le pipeline.** `Resolver.executeAction` affirmait que `@IsGranted` « court-circuite l'instanciation DI + `initialize()` (Zero Trust) » : exact **de sa méthode**, faux du trajet HTTP, où le kernel avait déjà instancié en amont. Personne n'avait menti — le contexte d'appel a invalidé la promesse. **Une garantie de sécurité écrite dans un commentaire doit être prouvée par un test qui part du DEHORS** (ici : frapper la route en anonyme et regarder si le code du controller a tourné), pas relue dans la fonction qui la porte.
+- `[4× — 2026-07-24]` ⭐ **Un test qui ne quitte pas la brique ne prouve pas le câblage.** Trois fois dans la même session : (1) mes 14 tests de propriété de canal passaient, mais débrancher le contrôleur n'en faisait tomber aucun ; (2) idem pour les seuils de contre-pression — 7 tests verts, câblage non prouvé ; (3) l'avertissement « canal dynamique non gardé » ne s'est révélé qu'au test de bout en bout, qui a d'ailleurs découvert que `clear()` ne réinitialisait pas les avertissements déjà émis. **Le réflexe : après avoir écrit les tests d'une brique, DÉBRANCHER le point de câblage et vérifier que quelque chose tombe.** Si rien ne tombe, le câblage n'est pas testé.
 - `[1× — 2026-07-24]` **Pour prouver un ORDRE d'exécution, instrumenter le point observé et le relire par une route publique.** Le mouchard vit hors des instances (une instance ne survit pas à sa requête) et se lit hors de la zone protégée (un banc anonyme ne peut pas lire ce qu'une zone fermée a écrit). Trois lignes de décor, et l'ordre devient un fait mesuré au lieu d'une phrase.
 
 ## 📐 La cible d'une mesure fait partie du décor
@@ -119,6 +120,22 @@
 
 - `[1× — 2026-07-24]` ⭐ **Un test rouge en permanence cesse d'être lu.** `create.test.ts` échouait depuis des jours ; ni le test ni le code n'étaient fautifs — l'assertion cherchait `RequestContext` dans le FICHIER entier, et le template avait gagné un commentaire pédagogique qui le cite à raison. Une assertion doit viser **ce que le code fait**, pas ce que le fichier contient. Resserrer la visée, jamais désarmer : vérifié qu'elle mord encore sur un usage réel.
 - `[1× — 2026-07-24]` **Un catalogue déclaré et consommé par personne** : `OPT_IN_SWITCHES` existait depuis toujours, seul `test:all` le lisait. Résultat, dès que l'infra était présente le rapport signait « ✔ toutes cibles exercées » en laissant 9 tests muets. Un gate qui ne regarde qu'une moitié du silence produit un vert menteur.
+
+## 🔁 Deux implémentations d'une même règle (et comment on s'en aperçoit)
+
+- `[1× — 2026-07-24]` ⭐ **La question du user « il faut utiliser celle de http au lieu de réinventer ? » a révélé une duplication que j'étais en train d'AGGRAVER.** Deux contre-pressions WS cohabitaient (`@nodefony/http` configurable et testée, une copie dans le transport realtime), déjà divergentes — 4 Mio contre 1 Mio — et je venais d'ajouter une SECONDE source de configuration au lieu de brancher la première. **Avant d'ajouter un réglage à un mécanisme, chercher si un module plus bas porte déjà la règle** : `grep` le concept, pas le nom de la clé.
+- `[1× — 2026-07-24]` **Une règle partagée se type STRUCTURELLEMENT, pas par la classe du fournisseur.** Le transport realtime évite volontairement d'importer `ws` ; la règle a donc été généralisée sur `{ bufferedAmount?, close() }` au lieu d'exiger un `Ws`. Sans ça, l'unification aurait imposé une dépendance à toute la couche.
+
+## 🕳️ Une garde qui ne peut PAS se déclencher
+
+- `[1× — 2026-07-24]` ⭐ **Deux seuils en cascade dont le premier BORNE ce que le second observe = le second est mort.** La contre-pression jetait les frames au-delà de 1 Mio et fermait la connexion au-delà de 8 Mio ; or jeter empêche la file de croître, donc 8 Mio n'était jamais atteint. Mesuré : 4000 frames poussées à un client qui ne lit pas → 3 servies, **aucune fermeture**. Le client zombie gardait sa connexion pour toujours. **Quand deux seuils se suivent, vérifier que le premier n'empêche pas d'atteindre le second** — et que la condition du second est bien OBSERVABLE après action du premier.
+- `[1× — 2026-07-24]` **Ma première correction était fausse aussi, et c'est la mesure qui l'a dit.** J'avais remplacé le second seuil par « N refus CONSÉCUTIFS » ; sur socket réelle la file OSCILLE autour du seuil (refus, drainage partiel, envoi), donc la remise à zéro empêchait encore toute fermeture. Un **solde** (+1 par refus, −1 par envoi) tient. **Une correction non mesurée est une hypothèse.**
+
+## 🔬 Mesurer au bon endroit (sinon le chiffre ment poliment)
+
+- `[1× — 2026-07-24]` ⭐ **Compter côté client ce que le serveur décide ne prouve rien.** « 129 frames reçues sur 400 » semblait démontrer le drop : c'était peut-être un client qui n'avait pas fini de lire. Il a fallu une sonde SERVEUR (route dédiée, état hors instances) pour obtenir `pushed / messagesSent / dropped / readyState`. **Le décideur est le seul témoin fiable — et il faut l'interroger par un AUTRE canal que celui qu'on est en train de saturer.**
+- `[1× — 2026-07-24]` **Une sonde peut mentir en lisant le mauvais contexte.** Ma route GET relisait les réglages du serveur WS sur un contexte HTTP, qui n'en a pas : elle affichait « protection désactivée » pendant que le transport refusait 272 frames. Capturer la valeur **là où elle est réellement lue** (ici : au handshake), pas là où c'est commode.
+- `[1× — 2026-07-24]` **Le banc a échoué trois fois pour trois raisons de DÉCOR, aucune n'étant le code testé** : un canal homonyme d'une action (qui héritait donc de sa politique fermée), un `dist` non rebuildé, et deux serveurs WS (`websocket` ws:// / `websocketSecure` wss://) dont je configurais le mauvais. **Avant de soupçonner le mécanisme, faire dire au serveur ce qu'il a RÉELLEMENT lu.**
 
 ## 📏 Mesure & bancs
 
